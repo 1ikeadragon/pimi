@@ -58,7 +58,7 @@ export function createPaseoConnection(settingsSource = {}) {
         url.search ||
         url.hash
       ) {
-        throw new RequestError("The Paseo endpoint must be a loopback WebSocket URL.");
+        throw new RequestError("The local agent service must use a loopback WebSocket URL.");
       }
       cachedClient = createPaseoClient({
         url: url.href,
@@ -132,7 +132,7 @@ export function createPaseoConnection(settingsSource = {}) {
     const model = provider?.models.find((entry) => entry.isDefault) ?? provider?.models[0];
     if (!provider || !model) {
       throw new RequestError(
-        "Choose a provider in Paseo’s metadata generation settings or start an agent in this worktree.",
+        "Choose a provider in Agent Console settings or start an agent in this worktree.",
         503,
       );
     }
@@ -172,7 +172,7 @@ export function createPaseoConnection(settingsSource = {}) {
       if (result.status !== "idle" || !result.lastMessage) {
         throw new RequestError(
           readableProviderError(result.error) ||
-            `Paseo walkthrough stopped with status ${result.status}.`,
+            `The walkthrough agent stopped with status ${result.status}.`,
           502,
         );
       }

@@ -1,5 +1,5 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
-import { app, BrowserWindow, shell } from "electron";
+import { app, BrowserWindow, nativeTheme, shell } from "electron";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { readLocalCredentialForTarget } from "@getpaseo/server/daemon-control";
@@ -73,7 +73,7 @@ async function createPimiWindow(options: {
     minWidth: 700,
     minHeight: 520,
     show: false,
-    backgroundColor: "#12141a",
+    backgroundColor: nativeTheme.shouldUseDarkColors ? "#181b1a" : "#ffffff",
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true },
   });
   currentWindow = window;
