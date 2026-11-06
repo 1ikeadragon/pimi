@@ -1,0 +1,17 @@
+extends: ./electron-builder.yml
+appId: com.pimi.desktop
+productName: Pimi
+executableName: Pimi
+extraMetadata:
+  productName: Pimi
+directories:
+  output: release-pimi
+publish: null
+protocols:
+  - name: Pimi agent link
+    schemes:
+      - paseo
+mac:
+  artifactName: "Pimi-${version}-${arch}.${ext}"
+  notarize: false
+  identity: null

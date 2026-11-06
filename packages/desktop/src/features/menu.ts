@@ -8,6 +8,7 @@ interface ShowContextMenuInput {
 
 interface ApplicationMenuOptions {
   onNewWindow: () => void;
+  onOpenPimi?: () => void;
 }
 
 function withBrowserWindow(
@@ -93,6 +94,15 @@ function buildApplicationMenuTemplate(
     {
       label: "File",
       submenu: [
+        ...(options.onOpenPimi
+          ? [
+              {
+                label: "Pimi Worktree Board",
+                accelerator: "CmdOrCtrl+Shift+R",
+                click: options.onOpenPimi,
+              },
+            ]
+          : []),
         {
           label: "New Window",
           accelerator: "CmdOrCtrl+Shift+N",

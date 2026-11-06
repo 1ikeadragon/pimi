@@ -11,6 +11,7 @@ import { inheritLoginShellEnv } from "./login-shell-env.js";
 
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { isPimiWindow, showPimiWindow } from "./window/pimi-window.js";
 import { existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import {
@@ -115,7 +116,8 @@ const DEV_SERVER_URL = process.env.EXPO_DEV_URL ?? "http://localhost:8081";
 const APP_SCHEME = "paseo";
 const PASEO_DEBUG = process.env.PASEO_DEBUG === "1";
 const DISABLE_SINGLE_INSTANCE_LOCK = process.env.PASEO_DISABLE_SINGLE_INSTANCE_LOCK === "1";
-const APP_NAME = process.env.PASEO_TEST_APP_NAME?.trim() || "Paseo";
+const PIMI_DESKTOP = process.env.PIMI_DESKTOP === "1" || app.getName() === "Pimi";
+const APP_NAME = process.env.PASEO_TEST_APP_NAME?.trim() || (PIMI_DESKTOP ? "Pimi" : "Paseo");
 const DESKTOP_WINDOW_CHROME_MODE = resolveDesktopWindowChromeMode({
   platform: process.platform,
   override: process.env.PASEO_DESKTOP_WINDOW_CONTROLS,
@@ -667,6 +669,24 @@ function getWorkAreasPrimaryFirst(): Electron.Rectangle[] {
   return [primary, ...others].map((display) => display.workArea);
 }
 
+function openPimi(): void {
+  void showPimiWindow({
+    runtimeDir: path.join(app.getAppPath(), "dist"),
+    openAgentConsole: () => {
+      const agentWindow = BrowserWindow.getAllWindows().find((win) => !isPimiWindow(win));
+      if (agentWindow) {
+        if (agentWindow.isMinimized()) agentWindow.restore();
+        agentWindow.show();
+        agentWindow.focus();
+      } else {
+        void desktopWindowOwner.openPrimary().catch((error) => {
+          log.error("[pimi] failed to open agent console", error);
+        });
+      }
+    },
+  }).catch((error) => log.error("[pimi] failed to open review window", error));
+}
+
 async function createWindow(
   options: {
     initialRoute?: string | null;
@@ -818,10 +838,13 @@ desktopWindowOwner = createDesktopWindowOwner<AgentDeepLinkTarget>({
     });
     return ownedDesktopWindow(win);
   },
-  windows: () => BrowserWindow.getAllWindows().map(ownedDesktopWindow),
+  windows: () =>
+    BrowserWindow.getAllWindows()
+      .filter((win) => !isPimiWindow(win))
+      .map(ownedDesktopWindow),
   focusedWindow: () => {
     const win = BrowserWindow.getFocusedWindow();
-    if (!win) return null;
+    if (!win || isPimiWindow(win)) return null;
     return ownedDesktopWindow(win);
   },
   agentRoute: buildAgentDeepLinkRoute,
@@ -958,6 +981,7 @@ async function bootstrap(): Promise<void> {
 
   await applyAppIcon();
   setupApplicationMenu({
+    onOpenPimi: PIMI_DESKTOP ? openPimi : undefined,
     onNewWindow: () => {
       void desktopWindowOwner.openAdditional().catch((error) => {
         log.error("[window] failed to create window from menu", error);
@@ -993,6 +1017,7 @@ async function bootstrap(): Promise<void> {
     initialRoute: initialAgentNavigation ? buildAgentDeepLinkRoute(initialAgentNavigation) : null,
     pendingProjectPath: pendingOpenProjectPath,
   });
+  if (PIMI_DESKTOP && !initialAgentNavigation && !pendingOpenProjectPath) openPimi();
   pendingOpenProjectPath = null;
 
   // Protocol + IPC handlers and the first window now exist: release any
@@ -1007,6 +1032,10 @@ async function bootstrap(): Promise<void> {
   }
 
   app.on("activate", () => {
+    if (PIMI_DESKTOP && BrowserWindow.getAllWindows().length === 0) {
+      openPimi();
+      return;
+    }
     void desktopWindowOwner.restoreWhenActivated().catch((error) => {
       console.error("Failed to restore a desktop window after activation", error);
     });
