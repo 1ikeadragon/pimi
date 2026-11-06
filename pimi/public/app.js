@@ -1,10 +1,10 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
 const $ = (id) => document.getElementById(id);
 const laneDefinitions = [
-  ["ready", "Ready", "Clean worktrees"],
-  ["running", "In progress", "Agents are working"],
-  ["review", "Review", "Local changes or commits ahead"],
-  ["attention", "Needs attention", "Errors, approvals or missing worktrees"],
+  ["ready", "Ready", "No clean worktrees"],
+  ["running", "In progress", "No agents running"],
+  ["review", "Review", "Nothing to review"],
+  ["attention", "Needs attention", "Nothing needs attention"],
 ];
 let activeWorktree;
 let review;
@@ -80,14 +80,11 @@ function renderBoard(data) {
   boardSignature = signature;
   daemonConnected = !data.daemonError;
   $("show-agents").hidden = !data.native;
-  $("connection").classList.toggle("online", !data.daemonError);
-  $("connection").textContent = data.daemonError ? "Paseo offline" : "Paseo connected";
-  $("connection").title = data.daemonError || "";
   message(
     "board-warning",
     [
       ...(data.daemonError
-        ? ["Agent status is unavailable. Git worktrees can still be reviewed."]
+        ? ["Agent activity is unavailable. You can still review your worktrees."]
         : []),
       ...data.warnings,
     ].join(" "),
@@ -111,8 +108,8 @@ function renderBoard(data) {
       item.title = card.path;
       item.disabled = Boolean(card.unavailable);
       item.append(
-        element("span", "card-repo", card.repo),
         element("span", "card-name", card.name),
+        element("span", "card-repo", card.repo),
         element(
           "span",
           "card-detail",
@@ -151,9 +148,9 @@ async function refreshBoard() {
     .then(renderBoard)
     .catch((error) => {
       boardSignature = undefined;
-      $("connection").classList.remove("online");
-      $("connection").textContent = "Connection interrupted";
+      daemonConnected = false;
       message("board-warning", error.message);
+      updateTourControls();
     })
     .finally(() => {
       $("refresh-board").disabled = false;
@@ -240,11 +237,14 @@ async function loadReview({ keepSelection = false } = {}) {
     const paths = new Set(result.files.map((file) => file.path));
     selected = previousFiles.filter((path) => paths.has(path));
     if (!selected.length) selected = result.files.slice(0, 2).map((file) => file.path);
-    const source = result.pr?.label || `${result.base.label} → ${result.head.slice(0, 8)}`;
+    const baseLabel = result.base.label.replace(/^refs\/(heads|remotes)\//, "");
+    const source = result.pr?.label || `${baseLabel} → ${result.head.slice(0, 8)}`;
     $("review-meta").textContent = [
       source,
       result.live ? "Includes tracked working changes" : "Pinned commits",
-      result.untracked ? `${result.untracked} untracked file(s) outside the diff` : "",
+      result.untracked
+        ? `${result.untracked} untracked ${result.untracked === 1 ? "file" : "files"} excluded`
+        : "",
       !result.canOpenFiles ? "PR head differs from local checkout" : "",
     ]
       .filter(Boolean)
@@ -547,9 +547,9 @@ function updateTourControls() {
   $("file-tour").disabled = !review?.files.length;
   $("ai-tour").disabled = !review?.files.length || !daemonConnected || Boolean(generatingFor);
   $("ai-tour").title = daemonConnected
-    ? "Use your configured Paseo provider"
-    : "Connect a Paseo daemon";
-  let status = daemonConnected ? "Uses your Paseo provider" : "File tour available · Paseo offline";
+    ? "Use your configured agent provider"
+    : "Explanations are currently unavailable";
+  let status = "";
   if (generatingFor) status = "Generating notes…";
   else if (!review?.files.length) status = "Load changes to start";
   $("tour-status").textContent = status;

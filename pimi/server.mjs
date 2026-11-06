@@ -9,6 +9,7 @@ import {
   darkHighlightColors,
   highlightCodeWithBudget,
   isLanguageSupported,
+  lightHighlightColors,
 } from "@getpaseo/highlight";
 import {
   createReview,
@@ -70,9 +71,16 @@ export async function startPimi({
   );
   assets.set("/syntax.css", {
     mime: "text/css; charset=utf-8",
-    data: Object.entries(darkHighlightColors)
-      .map(([role, color]) => `.syntax-${role} { color: ${color}; }`)
-      .join("\n"),
+    data: [
+      ...Object.entries(lightHighlightColors).map(
+        ([role, color]) => `.syntax-${role} { color: ${color}; }`,
+      ),
+      "@media (prefers-color-scheme: dark) {",
+      ...Object.entries(darkHighlightColors).map(
+        ([role, color]) => `.syntax-${role} { color: ${color}; }`,
+      ),
+      "}",
+    ].join("\n"),
   });
   const reviews = new Map();
   const reviewLimit = 32;

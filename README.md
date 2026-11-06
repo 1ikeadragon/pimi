@@ -10,7 +10,7 @@ Track parallel coding agents and review their work without juggling checkouts. P
 
 - **See what needs you next.** Auto-Kanban sorts worktrees into **Ready**, **In progress**, **Review**, and **Needs attention** from Git and live agent activity. Search by repo, branch, or agent. Pimi remembers repositories you add.
 - **Review code in place.** Compare working changes, a branch against a base ref, or a GitHub pull request. Open two files side by side and switch between diffs and syntax-highlighted source. Search changed paths and reload a comparison while keeping files that are still in the diff.
-- **Follow changes line by line.** File Tour walks through the changed files. Explain Changes uses your configured provider to generate short notes tied to added lines. The tour stays on screen while you read.
+- **Follow changes line by line.** File Tour walks through the changed files. Explain Changes uses your configured provider to generate short notes tied to added lines. Notes stay below the diff so you can read both together.
 - **Preview and edit.** Open a healthy workspace service from its review. Jump from a reviewed line to the corresponding file in Zed when the local checkout matches.
 - **Manage agents.** Open Agent Console for sessions, terminals, workspace services, voice, and provider settings.
 
@@ -26,7 +26,7 @@ npm run pimi:package:mac
 open packages/desktop/release-pimi/mac-arm64/Pimi.app
 ```
 
-The build creates a local, non-notarized app bundle. Choose **Watch a repository** and enter a local Git repository path, then open a worktree card. Use **Agent console** to manage sessions and providers.
+The build creates a local, non-notarized app bundle. Choose **Add repository…** and enter a local Git repository path, then open a worktree card. Use **Agent Console** to manage sessions and providers. Pimi follows the macOS light or dark appearance.
 
 [Development commands, provider selection, and audit notes](pimi/README.md)
 

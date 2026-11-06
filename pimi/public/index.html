@@ -3,33 +3,34 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="dark" />
-    <title>Pimi · Review workspace</title>
+    <meta name="color-scheme" content="light dark" />
+    <title>Pimi</title>
     <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="/syntax.css" />
     <script type="module" src="/app.js"></script>
   </head>
   <body>
     <header class="topbar">
-      <a class="brand" href="/"><span class="mark" aria-hidden="true">p</span> Pimi</a>
-      <span class="divider"></span>
       <nav aria-label="Main">
         <button id="show-board" aria-current="page">Worktrees</button>
         <button id="show-review" disabled>Review</button>
-        <a id="show-agents" href="pimi-agents://open" target="_blank" hidden>Agent console ↗</a>
       </nav>
-      <span id="connection" class="connection" role="status">Connecting to Paseo</span>
+      <div class="toolbar-actions">
+        <a
+          id="show-agents"
+          class="button secondary"
+          href="pimi-agents://open"
+          target="_blank"
+          hidden
+        >
+          Agent Console
+        </a>
+      </div>
     </header>
     <main>
       <section id="board" class="board-view">
         <div class="section-header">
-          <div>
-            <p class="eyebrow">Local workspace</p>
-            <h1>Work in flight</h1>
-            <p class="subtitle">
-              Your Git worktrees and Paseo agents, organized by what needs you next.
-            </p>
-          </div>
-          <button id="refresh-board" class="button secondary">Refresh</button>
+          <h1>Worktrees</h1>
         </div>
         <div class="board-tools">
           <input
@@ -42,23 +43,33 @@
             aria-keyshortcuts="/"
           />
           <kbd title="Focus search">/</kbd>
+          <div class="board-actions">
+            <button id="refresh-board" class="button secondary">Refresh</button>
+            <details class="watch">
+              <summary class="button secondary">Add repository…</summary>
+              <div class="watch-panel">
+                <form id="watch-repo" class="compare">
+                  <label>
+                    Repository path
+                    <input
+                      id="repo-path"
+                      placeholder="/path/to/repository"
+                      autocomplete="off"
+                      required
+                    />
+                  </label>
+                  <button id="add-repo" class="button primary" type="submit">Add</button>
+                </form>
+                <p id="watch-error" class="warning" role="alert" hidden></p>
+              </div>
+            </details>
+          </div>
         </div>
-        <details class="watch">
-          <summary>Watch a repository</summary>
-          <form id="watch-repo" class="compare">
-            <label
-              >Repository path
-              <input id="repo-path" placeholder="/path/to/repository" autocomplete="off" required
-            /></label>
-            <button id="add-repo" class="button primary" type="submit">Add to board</button>
-          </form>
-          <p id="watch-error" class="warning" role="alert" hidden></p>
-        </details>
         <p id="board-warning" class="warning" hidden></p>
         <div id="lanes" class="lanes" aria-label="Worktree board"></div>
         <section id="other-agents" class="other-agents" hidden aria-labelledby="agents-heading">
           <h2 id="agents-heading">Other active sessions</h2>
-          <p class="subtitle">Paseo sessions outside the repositories Pimi is watching.</p>
+          <p class="subtitle">Sessions outside your watched repositories.</p>
           <div id="agent-list"></div>
         </section>
       </section>
@@ -66,15 +77,15 @@
       <section id="review" class="review-view" hidden aria-label="Code review">
         <div class="section-header review-heading">
           <div>
-            <p id="review-repo" class="eyebrow">Worktree review</p>
+            <p id="review-repo" class="context-label">Worktree review</p>
             <h1 id="review-title">Review</h1>
             <p id="review-meta" class="subtitle" role="status"></p>
           </div>
-          <button id="open-worktree" class="button secondary" disabled>
-            Open worktree in Zed ↗
-          </button>
+          <div class="review-actions">
+            <div id="previews" class="previews" hidden></div>
+            <button id="open-worktree" class="button secondary" disabled>Open in Zed ↗</button>
+          </div>
         </div>
-        <div id="previews" class="previews" hidden></div>
         <form id="compare" class="compare">
           <label
             >Comparison
@@ -117,7 +128,7 @@
           <div class="workspace">
             <div class="tourbar">
               <div>
-                <span class="eyebrow">Walkthrough</span>
+                <span class="context-label">Walkthrough</span>
                 <span id="tour-status" class="tour-status" role="status"
                   >Load changes to start</span
                 >
@@ -136,7 +147,7 @@
               hidden
             >
               <div class="note-top">
-                <span id="tour-position" class="eyebrow"></span>
+                <span id="tour-position" class="context-label"></span>
                 <button id="close-tour" class="icon-button" aria-label="Close walkthrough note">
                   ×
                 </button>
