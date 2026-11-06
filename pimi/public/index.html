@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Pimi · Review workspace</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/"><span class="mark" aria-hidden="true">p</span> Pimi</a>
+      <span class="divider"></span>
+      <nav aria-label="Main">
+        <button id="show-board" aria-current="page">Worktrees</button>
+        <button id="show-review" disabled>Review</button>
+        <a id="show-agents" href="pimi-agents://open" target="_blank" hidden>Agent console ↗</a>
+      </nav>
+      <span id="connection" class="connection" role="status">Connecting to Paseo</span>
+    </header>
+    <main>
+      <section id="board" class="board-view">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Local workspace</p>
+            <h1>Work in flight</h1>
+            <p class="subtitle">
+              Your Git worktrees and Paseo agents, organized by what needs you next.
+            </p>
+          </div>
+          <button id="refresh-board" class="button secondary">Refresh</button>
+        </div>
+        <details class="watch">
+          <summary>Watch a repository</summary>
+          <form id="watch-repo" class="compare">
+            <label
+              >Repository path
+              <input id="repo-path" placeholder="/path/to/repository" autocomplete="off" required
+            /></label>
+            <button id="add-repo" class="button primary" type="submit">Add to board</button>
+          </form>
+          <p id="watch-error" class="warning" role="alert" hidden></p>
+        </details>
+        <p id="board-warning" class="warning" hidden></p>
+        <div id="lanes" class="lanes" aria-label="Worktree board"></div>
+        <section id="other-agents" class="other-agents" hidden aria-labelledby="agents-heading">
+          <h2 id="agents-heading">Other active sessions</h2>
+          <p class="subtitle">Paseo sessions outside the repositories Pimi is watching.</p>
+          <div id="agent-list"></div>
+        </section>
+      </section>
+
+      <section id="review" class="review-view" hidden aria-label="Code review">
+        <div class="section-header review-heading">
+          <div>
+            <p id="review-repo" class="eyebrow">Worktree review</p>
+            <h1 id="review-title">Review</h1>
+            <p id="review-meta" class="subtitle" role="status"></p>
+          </div>
+          <button id="open-worktree" class="button secondary" disabled>
+            Open worktree in Zed ↗
+          </button>
+        </div>
+        <div id="previews" class="previews" hidden></div>
+        <form id="compare" class="compare">
+          <label
+            >Comparison
+            <select id="mode">
+              <option value="all">Branch + working changes</option>
+              <option value="committed">Committed changes</option>
+              <option value="working">Working changes only</option>
+              <option value="pr">GitHub pull request</option>
+            </select>
+          </label>
+          <label id="base-control"
+            >Base ref <input id="base" placeholder="Auto-detect base" autocomplete="off"
+          /></label>
+          <label id="pr-control" hidden
+            >Pull request URL
+            <input id="pr" placeholder="https://github.com/owner/repo/pull/123" autocomplete="off"
+          /></label>
+          <button id="load-review" class="button secondary" type="submit">Load changes</button>
+        </form>
+        <p id="review-warning" class="warning" role="alert" hidden></p>
+        <div class="desk">
+          <aside class="files">
+            <div class="files-heading">
+              <h2>Changed files</h2>
+              <span id="file-count" class="count">0</span>
+            </div>
+            <div id="file-list" class="file-list"></div>
+          </aside>
+          <div class="workspace">
+            <div class="tourbar">
+              <div>
+                <span class="eyebrow">Walkthrough</span>
+                <span id="tour-status" class="tour-status" role="status"
+                  >Load changes to start</span
+                >
+              </div>
+              <div class="tour-actions">
+                <button id="file-tour" class="button secondary" disabled>File tour</button>
+                <button id="ai-tour" class="button primary" disabled>Explain changes</button>
+              </div>
+            </div>
+            <div id="panes" class="panes"></div>
+            <div
+              id="tour-card"
+              class="tour-card"
+              role="region"
+              aria-label="Walkthrough note"
+              hidden
+            >
+              <div class="note-top">
+                <span id="tour-position" class="eyebrow"></span>
+                <button id="close-tour" class="icon-button" aria-label="Close walkthrough note">
+                  ×
+                </button>
+              </div>
+              <h2 id="note-title"></h2>
+              <p id="note-text"></p>
+              <div class="note-actions">
+                <button id="prev-step" class="button secondary">← Previous</button>
+                <button id="next-step" class="button primary">Next →</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

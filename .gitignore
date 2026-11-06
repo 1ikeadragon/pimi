@@ -98,3 +98,6 @@ app.json
 
 # Project-local Serena configuration and memories.
 .serena/
+
+# Local Pimi desktop bundles
+/packages/desktop/release-pimi/

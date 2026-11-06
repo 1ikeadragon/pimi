@@ -1,3 +1,9 @@
+# Pimi
+
+Pimi adds a live worktree board and an in-app code review desk to the Paseo desktop app. See [Pimi setup and usage](pimi/README.md).
+
+---
+
 <p align="center">
   <img src="packages/website/public/logo.svg" width="64" height="64" alt="Paseo logo">
 </p>
