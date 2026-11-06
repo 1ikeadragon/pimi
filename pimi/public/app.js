@@ -17,6 +17,7 @@ let generation = 0;
 let loading = false;
 let boardRequest;
 let boardSignature;
+let boardData;
 const patchCache = new Map();
 const renderedPanes = new Map();
 
@@ -67,8 +68,14 @@ function describeAgent(agent) {
   return `${agent.title} · ${agent.provider} · ${agent.needsInput ? "awaiting approval" : agent.status}`;
 }
 
+function matchesSearch(query, ...values) {
+  return values.some((value) => value?.toLowerCase().includes(query));
+}
+
 function renderBoard(data) {
-  const signature = JSON.stringify(data);
+  boardData = data;
+  const query = $("board-search").value.trim().toLowerCase();
+  const signature = JSON.stringify([query, data]);
   if (signature === boardSignature) return;
   boardSignature = signature;
   daemonConnected = !data.daemonError;
@@ -85,10 +92,18 @@ function renderBoard(data) {
       ...data.warnings,
     ].join(" "),
   );
+  const cardsMatchingQuery = data.cards.filter(
+    (card) =>
+      matchesSearch(query, card.repo, card.name, card.branch, card.path) ||
+      card.agents.some((agent) => matchesSearch(query, describeAgent(agent))),
+  );
+  const otherAgents = data.otherAgents.filter((agent) =>
+    matchesSearch(query, describeAgent(agent), agent.cwd),
+  );
   const lanes = laneDefinitions.map(([id, title, empty]) => {
     const lane = element("section", "lane " + id);
     const header = element("div", "lane-heading");
-    const cards = data.cards.filter((card) => card.lane === id);
+    const cards = cardsMatchingQuery.filter((card) => card.lane === id);
     header.append(element("h2", "", title), element("span", "count", cards.length));
     lane.append(header);
     for (const card of cards) {
@@ -114,13 +129,13 @@ function renderBoard(data) {
       );
       lane.append(item);
     }
-    if (!cards.length) lane.append(element("p", "empty", empty));
+    if (!cards.length) lane.append(element("p", "empty", query ? "No matching worktrees" : empty));
     return lane;
   });
   $("lanes").replaceChildren(...lanes);
-  $("other-agents").hidden = !data.otherAgents.length;
+  $("other-agents").hidden = !otherAgents.length;
   $("agent-list").replaceChildren(
-    ...data.otherAgents.map((agent) => {
+    ...otherAgents.map((agent) => {
       const row = element("div", "agent-row", describeAgent(agent));
       row.title = agent.cwd;
       return row;
@@ -166,6 +181,7 @@ async function watchRepository(event) {
 
 function selectWorktree(card) {
   activeWorktree = card;
+  $("file-search").value = "";
   $("base").value = "";
   $("pr").value = card.prUrl || "";
   $("mode").value = "all";
@@ -192,13 +208,14 @@ function updateCompareControls() {
   $("pr-control").hidden = mode !== "pr";
 }
 
-async function loadReview() {
+async function loadReview({ keepSelection = false } = {}) {
   const mode = $("mode").value;
   if (mode === "pr" && !$("pr").value.trim()) {
     message("review-warning", "Enter a GitHub pull request URL.");
     return;
   }
   const request = ++generation;
+  const previousFiles = keepSelection ? selected : [];
   loading = true;
   $("load-review").disabled = true;
   $("open-worktree").disabled = true;
@@ -220,7 +237,9 @@ async function loadReview() {
     });
     if (request !== generation) return;
     review = result;
-    selected = result.files.slice(0, 2).map((file) => file.path);
+    const paths = new Set(result.files.map((file) => file.path));
+    selected = previousFiles.filter((path) => paths.has(path));
+    if (!selected.length) selected = result.files.slice(0, 2).map((file) => file.path);
     const source = result.pr?.label || `${result.base.label} → ${result.head.slice(0, 8)}`;
     $("review-meta").textContent = [
       source,
@@ -260,16 +279,27 @@ function selectFile(path, side = 0) {
   renderPanes();
 }
 
+function matchingFiles() {
+  const query = $("file-search").value.trim().toLowerCase();
+  return review?.files.filter((file) => matchesSearch(query, file.path, file.oldPath)) ?? [];
+}
+
 function renderFiles() {
-  $("file-count").textContent = review?.files.length ?? "0";
+  const files = matchingFiles();
+  const total = review?.files.length ?? 0;
+  $("file-count").textContent = files.length === total ? total : `${files.length} / ${total}`;
   if (!review?.files.length) {
     $("file-list").replaceChildren(
       element("p", "empty", loading ? "Loading…" : "No tracked changes to display"),
     );
     return;
   }
+  if (!files.length) {
+    $("file-list").replaceChildren(element("p", "empty", "No matching files"));
+    return;
+  }
   $("file-list").replaceChildren(
-    ...review.files.map((file) => {
+    ...files.map((file) => {
       const row = element("div", "file-row" + (selected.includes(file.path) ? " selected" : ""));
       const choose = button("file-select", "", () => selectFile(file.path));
       choose.setAttribute("aria-pressed", String(selected[0] === file.path));
@@ -588,17 +618,47 @@ async function startAiTour() {
   }
 }
 
+function nextStep() {
+  if (!tour) return;
+  if (stepIndex + 1 === tour.steps.length) closeTour();
+  else showStep(stepIndex + 1);
+}
+
+function navigateReview(direction) {
+  if (tour) {
+    if (direction < 0) showStep(stepIndex - 1);
+    else nextStep();
+    return;
+  }
+  const files = matchingFiles();
+  const current = files.findIndex((file) => file.path === selected[0]);
+  const boundary = direction > 0 ? 0 : files.length - 1;
+  const index = current < 0 ? boundary : current + direction;
+  const file = files[index];
+  if (file) selectFile(file.path);
+}
+
 $("show-board").addEventListener("click", () => {
   view("board");
   void refreshBoard();
 });
 $("show-review").addEventListener("click", () => view("review"));
 $("refresh-board").addEventListener("click", refreshBoard);
+$("board-search").addEventListener("input", () => {
+  if (boardData) renderBoard(boardData);
+});
+$("board-search").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") $("lanes").querySelector(".card:not(:disabled)")?.click();
+});
+$("file-search").addEventListener("input", renderFiles);
+$("file-search").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") $("file-list").querySelector(".file-select")?.click();
+});
 $("watch-repo").addEventListener("submit", watchRepository);
 $("mode").addEventListener("change", updateCompareControls);
 $("compare").addEventListener("submit", (event) => {
   event.preventDefault();
-  void loadReview();
+  void loadReview({ keepSelection: true });
 });
 $("open-worktree").addEventListener("click", () => {
   void launchEditor(null);
@@ -606,13 +666,28 @@ $("open-worktree").addEventListener("click", () => {
 $("file-tour").addEventListener("click", startFileTour);
 $("ai-tour").addEventListener("click", startAiTour);
 $("prev-step").addEventListener("click", () => showStep(stepIndex - 1));
-$("next-step").addEventListener("click", () => {
-  if (stepIndex + 1 === tour.steps.length) closeTour();
-  else showStep(stepIndex + 1);
-});
+$("next-step").addEventListener("click", nextStep);
 $("close-tour").addEventListener("click", closeTour);
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") closeTour();
+  if (
+    event.defaultPrevented ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.altKey ||
+    event.isComposing ||
+    event.target?.closest?.("input, select, textarea, [contenteditable]")
+  )
+    return;
+  const reviewing = !$("review").hidden;
+  if (event.key === "/") {
+    event.preventDefault();
+    $(reviewing ? "file-search" : "board-search").focus();
+  } else if (reviewing && event.key === "Escape" && tour) {
+    closeTour();
+  } else if (reviewing && (event.key === "[" || event.key === "]")) {
+    event.preventDefault();
+    navigateReview(event.key === "[" ? -1 : 1);
+  }
 });
 setInterval(() => {
   if (!document.hidden && !$("board").hidden) void refreshBoard();

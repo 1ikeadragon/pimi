@@ -31,6 +31,18 @@
           </div>
           <button id="refresh-board" class="button secondary">Refresh</button>
         </div>
+        <div class="board-tools">
+          <input
+            id="board-search"
+            class="search"
+            type="search"
+            aria-label="Search worktrees and agents"
+            placeholder="Find a worktree or agent"
+            autocomplete="off"
+            aria-keyshortcuts="/"
+          />
+          <kbd title="Focus search">/</kbd>
+        </div>
         <details class="watch">
           <summary>Watch a repository</summary>
           <form id="watch-repo" class="compare">
@@ -89,6 +101,17 @@
               <h2>Changed files</h2>
               <span id="file-count" class="count">0</span>
             </div>
+            <div class="file-tools">
+              <input
+                id="file-search"
+                class="search"
+                type="search"
+                aria-label="Filter changed files"
+                placeholder="Filter files"
+                autocomplete="off"
+                aria-keyshortcuts="/"
+              />
+            </div>
             <div id="file-list" class="file-list"></div>
           </aside>
           <div class="workspace">
@@ -121,8 +144,10 @@
               <h2 id="note-title"></h2>
               <p id="note-text"></p>
               <div class="note-actions">
-                <button id="prev-step" class="button secondary">← Previous</button>
-                <button id="next-step" class="button primary">Next →</button>
+                <button id="prev-step" class="button secondary" aria-keyshortcuts="[">
+                  ← Previous
+                </button>
+                <button id="next-step" class="button primary" aria-keyshortcuts="]">Next →</button>
               </div>
             </div>
           </div>

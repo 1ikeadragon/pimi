@@ -320,13 +320,39 @@ h2 {
   font-size: 0.78rem;
 }
 .compare input,
-.compare select {
+.compare select,
+.search {
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 7px 9px;
   font-size: 0.84rem;
+}
+.board-tools,
+.file-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.board-tools {
+  margin-bottom: 12px;
+}
+.board-tools .search {
+  width: min(305px, 80vw);
+}
+.board-tools kbd {
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 2px 5px;
+}
+.file-tools {
+  padding: 8px 8px 2px;
+}
+.file-tools .search {
+  width: 100%;
+  min-width: 0;
 }
 #pr {
   width: min(430px, 75vw);
