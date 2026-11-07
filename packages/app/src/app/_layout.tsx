@@ -97,6 +97,7 @@ import { legacyFavoriteProfileMigration } from "@/agent-profiles/migration";
 import { listenToDesktopEvent } from "@/desktop/electron/events";
 import { updateDesktopWindowChrome } from "@/desktop/electron/window";
 import { getDesktopHost } from "@/desktop/host";
+import { PimiConsoleContent } from "@/desktop/pimi-console-content";
 import { loadDesktopSettings } from "@/desktop/settings/desktop-settings";
 import { RosettaCalloutSource } from "@/desktop/updates/rosetta-callout-source";
 import { UpdateCalloutSource } from "@/desktop/updates/update-callout-source";
@@ -529,7 +530,9 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
         <WindowChromeRegion
           corners={isCompactLayout && chromeEnabled ? "both" : appChromeLayout.contentCorners}
         >
-          <View style={flexStyle}>{children}</View>
+          <PimiConsoleContent sidebar={desktopSidebarVisible} pathname={pathname}>
+            {children}
+          </PimiConsoleContent>
         </WindowChromeRegion>
       </WorkspaceExplorerOpenGesture>
     </WindowLayoutSurface>

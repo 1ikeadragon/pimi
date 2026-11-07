@@ -2,7 +2,7 @@ import { Platform } from "react-native";
 import { getElectronHost } from "@/desktop/electron/host";
 import type { BrowserKeyboardPolicy } from "@/keyboard";
 import type { SessionInboundMessage, SessionOutboundMessage } from "@getpaseo/protocol/messages";
-import type { PimiDestination } from "@getpaseo/protocol/pimi-task";
+import type { PimiDestination, PimiWorkspaceSection } from "@getpaseo/protocol/pimi-task";
 
 type BrowserAutomationExecuteRequest = Extract<
   SessionOutboundMessage,
@@ -174,13 +174,28 @@ export interface DesktopInvokeBridge {
 }
 
 export type PimiAppearance = "system" | "light" | "dark" | "paper";
+export type PimiGitProvider = "github" | "gitlab";
+export type PimiGitAuthStatus = "connected" | "cli-missing" | "unverified";
 
 export interface DesktopHostBridge {
   platform?: string;
   windowChromeMode?: string;
   invoke?: DesktopInvokeBridge["invoke"];
   taskDictation?: { complete: (text: string | null) => void };
+  getPimiGitAuthStatus?: (provider: PimiGitProvider) => Promise<PimiGitAuthStatus>;
   showPimiWorkspace?: (destination: PimiDestination) => void;
+  dismissPimiWorkspace?: () => void;
+  setPimiContentBounds?: (bounds: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    sidebar: boolean;
+  }) => void;
+  pimiWorkspaceSection?: {
+    get: () => PimiWorkspaceSection | null;
+    subscribe: (listener: () => void) => () => void;
+  };
   onPimiOpenSettings?: (open: () => void) => () => void;
   pimiAppearance?: {
     get: () => PimiAppearance;

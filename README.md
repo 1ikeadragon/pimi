@@ -12,9 +12,11 @@ The film uses scripted worker responses and dictation with real Git worktrees an
 
 ## Start in chat
 
-Pimi opens in Agent Console. On first launch, setup helps you connect a provider, add a project, and start a conversation. Chat, Tasks, Work, Review, and Memory share one window. Use the workspace button at the top right to open it separately or move it back without losing your place.
+Pimi opens in Agent Console. On first launch, setup helps you connect an agent provider, set up GitHub or GitLab, add a project, and start a conversation. Use the same sidebar to move between Chat, Tasks, Work, Review, and Memory. The window icon opens the workspace separately or brings it back with your draft intact.
 
-![The first Pimi window with setup, provider and project steps, and examples for chat and Tasks](assets/pimi/onboarding.jpg)
+![Pimi’s welcome screen with the paw mark and “Your swarm’s best friend”](assets/pimi/onboarding.jpg)
+
+![Git provider setup showing GitHub connected and the GitLab CLI sign-in command](assets/pimi/git-providers.jpg)
 
 New chats get a short title based on the first message when a metadata provider is available. With **Agent tools** enabled, agents can also suggest a task. **Review task draft** opens the brief and proposed work items for you to edit and save.
 
@@ -46,7 +48,7 @@ Attach the repositories, then write work items or ask your configured model to s
 
 Auto-Kanban updates as Git and agent activity change. The agents’ final reports appear under their work items as they finish. An open diff stays where you left it until you ask to reload it.
 
-![Three agents running across repositories on the Work board](assets/pimi/board.jpg)
+![The Work board grouping worktrees from three repositories by status](assets/pimi/board.jpg)
 
 ![Completed agent reports gathered under one task](assets/pimi/tasks.jpg)
 
@@ -72,7 +74,7 @@ Open **Review** and choose a worktree, or select **Compare alongside** from a wo
 
 ### Choose an appearance
 
-Choose an appearance in **Pimi → Settings → Appearance**. Blush uses rose botanical linework, Paper has warm fibers, and Dark has graphite grain. **System** follows the Mac’s light or dark appearance. Code and controls keep solid backgrounds.
+Choose an appearance in **Pimi → Settings → Appearance**. Blush pairs rose botanical linework with a fern silhouette, Paper has warm fibers, and Dark has graphite grain. **System** follows the Mac’s light or dark appearance. Code and controls keep solid backgrounds.
 
 ![The Tasks board in Paper with a fine fiber texture](assets/pimi/paper.jpg)
 
@@ -116,6 +118,7 @@ The build creates a local, non-notarized app bundle. Follow setup to start a cha
 - **Paseo**, by Mohamed Boudra and contributors, is Pimi’s upstream. Pimi inherits its agent runtime, SDK, desktop shell, syntax highlighter, and editor launcher. [Upstream source](https://github.com/getpaseo/paseo)
 - **Electron** provides the desktop runtime. [Electron source](https://github.com/electron/electron)
 - **Git** provides worktrees and comparisons. **GitHub CLI** supplies pull request metadata and authentication. [Git source](https://github.com/git/git) · [GitHub CLI source](https://github.com/cli/cli)
+- The Blush fern silhouette is adapted from Sophia L. Crownfield’s *Studies of Ferns*, Cooper Hewitt, Smithsonian Design Museum. [Public-domain artwork](https://commons.wikimedia.org/wiki/File%3ADrawing%2C_Studies_of_Ferns%2C_early_20th_century_%28CH_18345009%29.jpg)
 - The launch film uses [Brag](https://github.com/latent-spaces/brag) and [Hyperframes](https://github.com/heygen-com/hyperframes). Music is an excerpt from _Happy Beats / Business Moves Vol. 1_ by [Sascha Ende](https://ende.app/en), trimmed and faded. [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 
 Pimi retains Paseo’s copyright and Apache 2.0 license. Third-party components retain their own licenses. [License](LICENSE)

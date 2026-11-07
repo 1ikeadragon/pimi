@@ -36,6 +36,8 @@ export type PimiDestination =
   | { view: "review"; path: string; serverId?: string }
   | { view: "task-draft"; proposal: PimiTaskProposal };
 
+export type PimiWorkspaceSection = "tasks" | "board" | "review" | "memory";
+
 export const PIMI_TASK_PROPOSAL_TOOL = "propose_pimi_task";
 export const PimiTaskProposalResult = z.object({ pimiTaskProposal: PimiTaskProposal });
 export const PIMI_REVIEW_SUGGESTION_TOOL = "suggest_pimi_review";

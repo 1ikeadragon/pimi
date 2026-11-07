@@ -1,6 +1,7 @@
 export type OnboardingStepId =
   | "appearance"
   | "providers"
+  | "gitProviders"
   | "projects"
   | "orchestration"
   | "phone"
@@ -14,7 +15,13 @@ const STEPS_WITHOUT_PHONE: readonly OnboardingStepId[] = [
   "orchestration",
 ];
 const STEPS_WITH_PHONE: readonly OnboardingStepId[] = [...STEPS_WITHOUT_PHONE, "phone"];
-const PIMI_STEPS: readonly OnboardingStepId[] = ["welcome", "providers", "projects", "firstChat"];
+const PIMI_STEPS: readonly OnboardingStepId[] = [
+  "welcome",
+  "providers",
+  "gitProviders",
+  "projects",
+  "firstChat",
+];
 
 export interface OnboardingCompletionStorage {
   isCompleted(): Promise<boolean>;

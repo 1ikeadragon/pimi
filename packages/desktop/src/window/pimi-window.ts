@@ -6,7 +6,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { readLocalCredentialForTarget } from "@getpaseo/server/daemon-control";
 import { parseAgentDeepLink, type AgentDeepLinkTarget } from "@getpaseo/protocol/agent-deep-link";
-import type { PimiDestination } from "@getpaseo/protocol/pimi-task";
+import type { PimiDestination, PimiWorkspaceSection } from "@getpaseo/protocol/pimi-task";
 import { resolveDesktopDaemonStatus } from "../daemon/daemon-manager.js";
 import {
   listAvailableEditorTargets,
@@ -21,24 +21,36 @@ import type {
 import { getMainWindowChromeOptions } from "./window-manager.js";
 
 const AGENT_CONSOLE_URL = "pimi-agents://open";
-const SETTINGS_URL = "pimi-settings://open";
 const APPEARANCE_FILE = "pimi-appearance.json";
 export type PimiAppearance = "system" | "light" | "dark" | "paper";
 export type { PimiDestination } from "@getpaseo/protocol/pimi-task";
-export type WorkspaceLayout = "attached" | "detached" | "hidden";
+export type WorkspaceLayout = "inline" | "attached" | "detached" | "hidden";
+export interface PimiContentBounds extends Electron.Rectangle {
+  sidebar: boolean;
+}
 interface WorkspaceSurface {
   view: WebContentsView;
   host?: BrowserWindow;
   owner?: BrowserWindow;
   detached?: BrowserWindow;
   releaseHost?: () => void;
+  resizeHost?: () => void;
   cancelDictation?: () => void;
   options: PimiWindowOptions;
   backgroundColor: string;
+  layout: WorkspaceLayout;
+  section: PimiWorkspaceSection;
 }
 let workspace: WorkspaceSurface | undefined;
 let opening: Promise<WorkspaceSurface> | undefined;
+let requestedOwner: BrowserWindow | undefined;
 let appearanceWrites: Promise<void> = Promise.resolve();
+const consoleBounds = new WeakMap<BrowserWindow, PimiContentBounds>();
+
+export function updatePimiContentBounds(win: BrowserWindow, bounds: PimiContentBounds): void {
+  consoleBounds.set(win, bounds);
+  if (workspace?.host === win) workspace.resizeHost?.();
+}
 
 export function isPimiWindow(win: BrowserWindow): boolean {
   return win === workspace?.detached;
@@ -103,7 +115,6 @@ interface PimiRuntime {
 interface PimiWindowOptions {
   runtimeDir: string;
   resolveConsoleWindow: (preferred?: BrowserWindow) => Promise<BrowserWindow>;
-  openSettings: () => void;
   openAgentChat: (target: AgentDeepLinkTarget) => void;
   dictationUrl: string;
   preload: string;
@@ -134,12 +145,14 @@ export async function showPimiWindow(
   preferred?: BrowserWindow,
 ): Promise<void> {
   const owner = await options.resolveConsoleWindow(preferred);
+  requestedOwner = owner;
   if (!workspace || workspace.view.webContents.isDestroyed()) {
     opening ??= createWorkspaceSurface(options).finally(() => {
       opening = undefined;
     });
     workspace = await opening;
   }
+  if (requestedOwner !== owner || owner.isDestroyed()) return;
   workspace.owner = owner;
   const host = workspace.detached ?? owner;
   attach(workspace, host);
@@ -148,6 +161,7 @@ export async function showPimiWindow(
 }
 
 export function hidePimiWorkspace(win?: BrowserWindow): void {
+  if (!win || requestedOwner === win) requestedOwner = undefined;
   const surface = workspace;
   if (!surface || !surface.host || surface.host === surface.detached) return;
   if (win && surface.host !== win) return;
@@ -165,6 +179,7 @@ function reveal(win: BrowserWindow, view?: WebContentsView): void {
 }
 
 function sendLayout(surface: WorkspaceSurface, layout: WorkspaceLayout): void {
+  surface.layout = layout;
   if (!surface.view.webContents.isDestroyed())
     surface.view.webContents.send("pimi:workspace:layout", layout);
 }
@@ -179,16 +194,30 @@ function attach(surface: WorkspaceSurface, win: BrowserWindow): void {
   surface.releaseHost?.();
   surface.host = win;
   win.contentView.addChildView(surface.view);
-  const coversChat = win !== surface.detached;
-  const coverChat = () => win.webContents.send("pimi:workspace:cover-chat", true);
-  if (coversChat) {
-    coverChat();
-    win.webContents.on("did-finish-load", coverChat);
+  const attached = win !== surface.detached;
+  const defaultLayout = attached ? "attached" : "detached";
+  const sendSection = () => win.webContents.send("pimi:workspace:section", surface.section);
+  if (attached) {
+    sendSection();
+    win.webContents.on("did-finish-load", sendSection);
   }
   const resize = () => {
     const [width, height] = win.getContentSize();
-    const y = process.platform !== "darwin" && win !== surface.detached ? 38 : 0;
-    surface.view.setBounds({ x: 0, y, width, height: Math.max(0, height - y) });
+    const top = process.platform !== "darwin" && attached ? 38 : 0;
+    const content = attached ? consoleBounds.get(win) : undefined;
+    const zoom = attached ? win.webContents.getZoomFactor() : 1;
+    const x = Math.min(width, Math.max(0, Math.round((content?.x ?? 0) * zoom)));
+    const y = Math.min(height, Math.max(top, Math.round((content?.y ?? 0) * zoom)));
+    const right = content ? Math.round((content.x + content.width) * zoom) : width;
+    const bottom = content ? Math.round((content.y + content.height) * zoom) : height;
+    surface.view.setBounds({
+      x,
+      y,
+      width: Math.max(0, Math.min(right, width) - x),
+      height: Math.max(0, Math.min(bottom, height) - y),
+    });
+    const layout = content?.sidebar ? "inline" : defaultLayout;
+    if (surface.layout !== layout) sendLayout(surface, layout);
   };
   const closed = () => {
     if (surface.detached === win) surface.detached = undefined;
@@ -203,18 +232,19 @@ function attach(surface: WorkspaceSurface, win: BrowserWindow): void {
     win.removeListener("closed", closed);
     if (!win.isDestroyed()) {
       win.contentView.removeChildView(surface.view);
-      if (coversChat) {
-        win.webContents.removeListener("did-finish-load", coverChat);
-        win.webContents.send("pimi:workspace:cover-chat", false);
+      if (attached) {
+        win.webContents.removeListener("did-finish-load", sendSection);
+        win.webContents.send("pimi:workspace:section", null);
       }
     }
     surface.host = undefined;
     surface.releaseHost = undefined;
+    surface.resizeHost = undefined;
   };
+  surface.resizeHost = resize;
   win.on("resize", resize);
   win.once("closed", closed);
   resize();
-  sendLayout(surface, surface.detached === win ? "detached" : "attached");
 }
 
 async function toggleWorkspaceWindow(surface: WorkspaceSurface): Promise<void> {
@@ -281,7 +311,8 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
       sandbox: true,
     },
   });
-  surface = { view, options, backgroundColor };
+  view.setBackgroundColor(backgroundColor);
+  surface = { view, options, backgroundColor, layout: "hidden", section: "tasks" };
   const contents = view.webContents;
   const cleanupUnhosted = () => {
     if (surface) closeIfUnhosted(surface);
@@ -297,8 +328,24 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
     if (event.senderFrame !== contents.mainFrame || !surface?.host) return undefined;
     return toggleWorkspaceWindow(surface);
   });
+  contents.ipc.on("pimi:workspace:section", (event, section: unknown) => {
+    if (event.senderFrame !== contents.mainFrame || !surface) return;
+    if (
+      section !== "tasks" &&
+      section !== "board" &&
+      section !== "review" &&
+      section !== "memory"
+    ) {
+      return;
+    }
+    if (section === surface.section) return;
+    surface.section = section;
+    if (surface.host && surface.host !== surface.detached) {
+      surface.host.webContents.send("pimi:workspace:section", section);
+    }
+  });
   contents.on("did-finish-load", () => {
-    if (surface?.host) sendLayout(surface, surface.detached ? "detached" : "attached");
+    if (surface?.host) sendLayout(surface, surface.layout);
     contents.send("pimi:appearance:change", getPimiAppearance());
   });
   contents.on("will-navigate", (event, url) => {
@@ -309,8 +356,6 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
     if (url === AGENT_CONSOLE_URL) {
       hidePimiWorkspace();
       void options.resolveConsoleWindow(surface?.owner).then((win) => reveal(win), console.error);
-    } else if (url === SETTINGS_URL) {
-      options.openSettings();
     } else if (agent) {
       options.openAgentChat(agent);
     } else {

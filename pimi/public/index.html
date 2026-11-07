@@ -12,39 +12,103 @@
     <script type="module" src="/app.js"></script>
   </head>
   <body>
+    <svg xmlns="http://www.w3.org/2000/svg" class="workspace-glyphs" aria-hidden="true">
+      <symbol id="glyph-chat" viewBox="0 0 24 24">
+        <path d="M5 19v-3H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9z" />
+      </symbol>
+      <symbol id="glyph-tasks" viewBox="0 0 24 24">
+        <path d="m3 7 2 2 4-4m3 2h9M3 13h6m3 0h9M3 19h6m3 0h9" />
+      </symbol>
+      <symbol id="glyph-board" viewBox="0 0 24 24">
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <path d="M9 4v16m6-16v16" />
+      </symbol>
+      <symbol id="glyph-review" viewBox="0 0 24 24">
+        <path
+          d="M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10zm0 0v7h7M8 12h6m-3-3v6m-3 3h6"
+        />
+      </symbol>
+      <symbol id="glyph-memory" viewBox="0 0 24 24">
+        <rect x="5" y="3" width="15" height="18" rx="2" />
+        <path d="M3 8h4m-4 4h4m-4 4h4m3-7h6m-6 4h6" />
+      </symbol>
+      <symbol id="glyph-search" viewBox="0 0 24 24">
+        <circle cx="10.5" cy="10.5" r="6.5" />
+        <path d="m16 16 4 4" />
+      </symbol>
+      <symbol id="glyph-reload" viewBox="0 0 24 24">
+        <path d="M20 4v5h-5m5 0A8 8 0 1 0 20 15" />
+      </symbol>
+      <symbol id="glyph-compare" viewBox="0 0 24 24">
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <path d="M12 4v16m-6-9h3m6 3h3" />
+      </symbol>
+      <symbol id="glyph-branch" viewBox="0 0 24 24">
+        <circle cx="6" cy="5" r="2" />
+        <circle cx="6" cy="19" r="2" />
+        <circle cx="18" cy="5" r="2" />
+        <path d="M6 7v10M18 7v1a6 6 0 0 1-6 6H6" />
+      </symbol>
+      <symbol id="glyph-settings" viewBox="0 0 24 24">
+        <path d="M4 7h7m4 0h5M4 17h3m4 0h9" />
+        <circle cx="13" cy="7" r="2" />
+        <circle cx="9" cy="17" r="2" />
+      </symbol>
+      <symbol id="glyph-window" viewBox="0 0 24 24">
+        <rect x="4" y="7" width="13" height="13" rx="2" />
+        <path d="M8 4h10a2 2 0 0 1 2 2v10" />
+      </symbol>
+      <symbol id="glyph-dock" viewBox="0 0 24 24">
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <path d="M9 5v14" />
+      </symbol>
+    </svg>
     <header class="topbar">
       <nav aria-label="Workspace layouts">
-        <a id="show-agents" href="pimi-agents://open" target="_blank" hidden>Chat</a>
-        <button id="show-tasks" aria-current="page">Tasks</button>
-        <button id="show-board">Work</button>
-        <button id="show-review">Review</button>
-        <button id="show-memory" hidden>Memory</button>
+        <a
+          id="show-agents"
+          href="pimi-agents://open"
+          target="_blank"
+          aria-label="Chat"
+          title="Chat"
+          hidden
+        >
+          <svg class="glyph" aria-hidden="true"><use href="#glyph-chat" /></svg><span>Chat</span>
+        </a>
+        <button id="show-tasks" aria-label="Tasks" title="Tasks" aria-current="page">
+          <svg class="glyph" aria-hidden="true"><use href="#glyph-tasks" /></svg><span>Tasks</span>
+        </button>
+        <button id="show-board" aria-label="Work" title="Work">
+          <svg class="glyph" aria-hidden="true"><use href="#glyph-board" /></svg><span>Work</span>
+        </button>
+        <button id="show-review" aria-label="Review" title="Review">
+          <svg class="glyph" aria-hidden="true"><use href="#glyph-review" /></svg
+          ><span>Review</span>
+        </button>
+        <button id="show-memory" aria-label="Memory" title="Memory" hidden>
+          <svg class="glyph" aria-hidden="true"><use href="#glyph-memory" /></svg
+          ><span>Memory</span>
+        </button>
       </nav>
       <div class="toolbar-actions">
-        <a id="open-settings" class="button quiet" href="pimi-settings://open" target="_blank">
-          Settings
-        </a>
+        <button
+          id="open-settings"
+          class="button quiet glyph-button"
+          aria-label="Appearance"
+          title="Appearance"
+          type="button"
+          hidden
+        >
+          <svg class="glyph" aria-hidden="true"><use href="#glyph-settings" /></svg>
+        </button>
         <button
           id="toggle-workspace-window"
-          class="icon-button workspace-window-button"
+          class="button quiet glyph-button workspace-window-button"
           aria-label="Open in separate window"
           title="Open in separate window"
           hidden
         >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.7"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <rect x="3.5" y="5" width="17" height="14" rx="2.5"></rect>
-            <path d="M13.5 5v14"></path>
-          </svg>
+          <svg class="glyph" aria-hidden="true"><use href="#glyph-window" /></svg>
         </button>
       </div>
     </header>
@@ -291,14 +355,47 @@
           </div>
           <div id="review-actions" class="review-actions" hidden>
             <div id="previews" class="previews" hidden></div>
-            <button id="change-review-worktree" class="button quiet">Change worktree…</button>
-            <button id="compare-worktrees" class="button quiet">Compare worktrees…</button>
-            <button id="show-diff-find" class="button quiet" aria-keyshortcuts="Meta+F Control+F">
-              Find in open diffs
+            <button
+              id="change-review-worktree"
+              class="button quiet glyph-button"
+              aria-label="Change worktree"
+              title="Change worktree"
+            >
+              <svg class="glyph" aria-hidden="true"><use href="#glyph-branch" /></svg>
             </button>
-            <button id="refresh-comparison" class="button quiet">Refresh diff</button>
+            <button
+              id="compare-worktrees"
+              class="button quiet glyph-button"
+              aria-label="Compare worktrees"
+              title="Compare worktrees"
+            >
+              <svg class="glyph" aria-hidden="true"><use href="#glyph-compare" /></svg>
+            </button>
+            <button
+              id="show-diff-find"
+              class="button quiet glyph-button"
+              aria-label="Find in open diffs"
+              title="Find in open diffs"
+              aria-keyshortcuts="Meta+F Control+F"
+            >
+              <svg class="glyph" aria-hidden="true"><use href="#glyph-search" /></svg>
+            </button>
+            <button
+              id="refresh-comparison"
+              class="button quiet glyph-button"
+              aria-label="Refresh diff"
+              title="Refresh diff"
+            >
+              <svg class="glyph" aria-hidden="true"><use href="#glyph-reload" /></svg>
+            </button>
             <details id="comparison-settings" class="watch comparison-settings">
-              <summary class="button quiet">Comparison…</summary>
+              <summary
+                class="button quiet glyph-button"
+                aria-label="Comparison settings"
+                title="Comparison settings"
+              >
+                <svg class="glyph" aria-hidden="true"><use href="#glyph-settings" /></svg>
+              </summary>
               <div class="watch-panel">
                 <form id="compare" class="compare">
                   <label
@@ -446,7 +543,15 @@
             <h1>Memory</h1>
             <p class="subtitle memory-intro">Notes agents can recall on this host.</p>
           </div>
-          <button id="memory-reload" class="button quiet" type="button">Reload</button>
+          <button
+            id="memory-reload"
+            class="button quiet glyph-button"
+            type="button"
+            aria-label="Reload memory"
+            title="Reload memory"
+          >
+            <svg class="glyph" aria-hidden="true"><use href="#glyph-reload" /></svg>
+          </button>
         </div>
         <p id="memory-warning" class="warning" role="alert" hidden></p>
         <p id="memory-status" class="subtitle" role="status" hidden></p>

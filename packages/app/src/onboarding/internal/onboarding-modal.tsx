@@ -2,7 +2,14 @@ import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Text, View, type PressableStateCallbackType } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { Check } from "lucide-react-native";
+import {
+  ArrowRight,
+  Bot,
+  Check,
+  FolderGit2,
+  GitPullRequest,
+  MessageCircle,
+} from "lucide-react-native";
 import { useRouter } from "expo-router";
 import {
   AdaptiveModalSheet,
@@ -10,6 +17,7 @@ import {
   SheetFooter,
 } from "@/components/adaptive-modal-sheet";
 import { PaseoLogo } from "@/components/icons/paseo-logo";
+import { PimiMark } from "@/components/icons/pimi-mark";
 import { Button } from "@/components/ui/button";
 import { PressHighlight } from "@/components/ui/press-highlight";
 import { ScrollView } from "@/components/ui/scroll-view";
@@ -32,17 +40,24 @@ const pimiSteps = {
   welcome: {
     label: "Welcome",
     title: "Your swarm’s best friend",
-    description: "Ask a question, inspect a change, or describe what you want to build.",
+    description: "Chat with your agents, give them work, and review changes together.",
+  },
+  gitProviders: {
+    label: "Git providers",
+    title: "Connect a Git provider",
+    description: "Use your existing credentials to work with pull requests and merge requests.",
   },
   firstChat: {
     label: "First chat",
     title: "Start your first chat",
     description: "Use Tasks when you want to save a plan or compare approaches across worktrees.",
   },
-} as const;
+} satisfies Partial<
+  Record<OnboardingStepId, { label: string; title: string; description: string }>
+>;
 
-function pimiStepCopy(step: OnboardingStepId) {
-  return step === "welcome" || step === "firstChat" ? pimiSteps[step] : undefined;
+function getPimiStepCopy(step: OnboardingStepId) {
+  return step in pimiSteps ? pimiSteps[step as keyof typeof pimiSteps] : undefined;
 }
 
 function SetupMark({ pimi }: { pimi: boolean }) {
@@ -54,7 +69,7 @@ function SetupMark({ pimi }: { pimi: boolean }) {
   );
 }
 
-const PimiSetupMark = withUnistyles(PaseoLogo, accentForegroundMapping);
+const PimiSetupMark = withUnistyles(PimiMark, accentForegroundMapping);
 
 export function OnboardingModal({ model, state }: { model: OnboardingModel; state: OpenState }) {
   const { t } = useTranslation();
@@ -64,7 +79,7 @@ export function OnboardingModal({ model, state }: { model: OnboardingModel; stat
   const projectRoots = useProjectRootPaths(state.serverId);
   const isCompact = useIsCompactFormFactor();
   const step = state.steps[state.stepIndex];
-  const stepCopy = pimiStepCopy(step);
+  const isWelcome = step === "welcome";
   const isFirst = state.stepIndex === 0;
   const isLast = state.stepIndex === state.steps.length - 1;
   // Held here so Continue can add the checked folders; reading history from the first step means
@@ -106,6 +121,7 @@ export function OnboardingModal({ model, state }: { model: OnboardingModel; stat
     projectSuggestions,
     orchestration,
     onAdvance: handleAdvance,
+    onStartChat: startChat,
     onAddSuggestions: handleAddSuggestions,
     onApplyOrchestration: handleApplyOrchestration,
   });
@@ -133,7 +149,7 @@ export function OnboardingModal({ model, state }: { model: OnboardingModel; stat
     <>
       <View>
         {isLast ? null : (
-          <Button variant="outline" onPress={handleComplete}>
+          <Button variant={isWelcome ? "ghost" : "outline"} onPress={handleComplete}>
             {t("onboarding.setup.skip")}
           </Button>
         )}
@@ -146,10 +162,11 @@ export function OnboardingModal({ model, state }: { model: OnboardingModel; stat
         )}
         <Button
           variant="default"
-          onPress={step === "firstChat" ? startChat : primary.onPress}
+          onPress={primary.onPress}
           loading={primary.busy}
+          leftIcon={isWelcome ? ArrowRight : undefined}
         >
-          {step === "firstChat" ? "Start a chat" : primary.label}
+          {primary.label}
         </Button>
       </View>
     </>
@@ -159,7 +176,7 @@ export function OnboardingModal({ model, state }: { model: OnboardingModel; stat
     <AdaptiveModalSheet
       visible
       onClose={handleComplete}
-      header={isCompact ? compactHeader : undefined}
+      header={isCompact && !isWelcome ? compactHeader : undefined}
       footer={isCompact ? actions : undefined}
       scrollable={false}
       snapPoints={FULL_SHEET_SNAP_POINTS}
@@ -169,33 +186,64 @@ export function OnboardingModal({ model, state }: { model: OnboardingModel; stat
       testID="onboarding-modal"
     >
       <View style={styles.body}>
-        {isCompact ? null : <StepRail state={state} onSelect={model.goTo} pimi={pimi} />}
+        {isCompact || isWelcome ? null : (
+          <StepRail state={state} onSelect={model.goTo} pimi={pimi} />
+        )}
         <View style={styles.pane}>
-          <ScrollView style={styles.paneScroll}>
-            {/* Padding lives on a wrapper: the ScrollView's contentContainerStyle skips Unistyles. */}
-            <View style={styles.paneContent}>
-              <View style={styles.stepHeader}>
-                <Text style={styles.stepTitle} accessibilityRole="header">
-                  {stepCopy?.title ??
-                    t(`onboarding.setup.steps.${step}.title`, { defaultValue: "" })}
-                </Text>
-                <Text style={styles.stepDescription}>
-                  {stepCopy?.description ??
-                    t(`onboarding.setup.steps.${step}.description`, { defaultValue: "" })}
-                </Text>
-              </View>
-              <OnboardingStepContent
-                step={step}
-                serverId={state.serverId}
-                projectSuggestions={projectSuggestions}
-                orchestration={orchestration}
-              />
-            </View>
-          </ScrollView>
+          <SetupStepPane
+            step={step}
+            serverId={state.serverId}
+            projectSuggestions={projectSuggestions}
+            orchestration={orchestration}
+          />
           {isCompact ? null : <SheetFooter>{actions}</SheetFooter>}
         </View>
       </View>
     </AdaptiveModalSheet>
+  );
+}
+
+function SetupStepPane({
+  step,
+  ...stepProps
+}: {
+  step: OnboardingStepId;
+  serverId: string;
+  projectSuggestions: ProjectSuggestionsController;
+  orchestration: OrchestrationSetupController;
+}) {
+  const { t } = useTranslation();
+  const stepCopy = getPimiStepCopy(step);
+  if (step === "welcome") {
+    return (
+      <View style={styles.welcome}>
+        <View style={styles.welcomeMark}>
+          <PimiSetupMark size={48} />
+        </View>
+        <Text style={styles.welcomeBrand}>Pimi</Text>
+        <Text style={styles.welcomeTitle} accessibilityRole="header">
+          {pimiSteps.welcome.title}
+        </Text>
+        <Text style={styles.welcomeDescription}>{pimiSteps.welcome.description}</Text>
+      </View>
+    );
+  }
+  return (
+    <ScrollView style={styles.paneScroll}>
+      {/* Padding lives on a wrapper: the ScrollView's contentContainerStyle skips Unistyles. */}
+      <View style={styles.paneContent}>
+        <View style={styles.stepHeader}>
+          <Text style={styles.stepTitle} accessibilityRole="header">
+            {stepCopy?.title ?? t(`onboarding.setup.steps.${step}.title`, { defaultValue: "" })}
+          </Text>
+          <Text style={styles.stepDescription}>
+            {stepCopy?.description ??
+              t(`onboarding.setup.steps.${step}.description`, { defaultValue: "" })}
+          </Text>
+        </View>
+        <OnboardingStepContent step={step} {...stepProps} />
+      </View>
+    </ScrollView>
   );
 }
 
@@ -211,6 +259,7 @@ function usePrimaryAction(input: {
   projectSuggestions: ProjectSuggestionsController;
   orchestration: OrchestrationSetupController;
   onAdvance: () => void;
+  onStartChat: () => void;
   onAddSuggestions: () => void;
   onApplyOrchestration: () => void;
 }): { label: string; busy: boolean; onPress: () => void } {
@@ -221,10 +270,13 @@ function usePrimaryAction(input: {
     projectSuggestions,
     orchestration,
     onAdvance,
+    onStartChat,
     onAddSuggestions,
     onApplyOrchestration,
   } = input;
   const { checkedCount, isAdding } = projectSuggestions;
+  if (step === "welcome") return { label: "Get started", busy: false, onPress: onAdvance };
+  if (step === "firstChat") return { label: "Start a chat", busy: false, onPress: onStartChat };
   const advanceLabel = isLast ? t("onboarding.setup.finish") : t("onboarding.setup.continue");
   // Rows leave the list as they are added, so the count can reach zero while adding.
   if (step === "projects" && (isAdding || checkedCount > 0)) {
@@ -269,6 +321,7 @@ function StepRail({
             current={index === state.stepIndex}
             done={index < state.stepIndex}
             onSelect={onSelect}
+            pimi={pimi}
           />
         ))}
       </View>
@@ -276,22 +329,35 @@ function StepRail({
   );
 }
 
+const pimiStepIcons = {
+  welcome: withUnistyles(PimiMark),
+  providers: withUnistyles(Bot),
+  gitProviders: withUnistyles(GitPullRequest),
+  projects: withUnistyles(FolderGit2),
+  firstChat: withUnistyles(MessageCircle),
+};
+const mutedIconMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
+
 function StepRailItem({
   step,
   number,
   current,
   done,
   onSelect,
+  pimi,
 }: {
   step: OnboardingStepId;
   number: number;
   current: boolean;
   done: boolean;
   onSelect: (step: OnboardingStepId) => void;
+  pimi: boolean;
 }) {
   const { t } = useTranslation();
+  const Icon =
+    pimi && step in pimiStepIcons ? pimiStepIcons[step as keyof typeof pimiStepIcons] : null;
   const label =
-    pimiStepCopy(step)?.label ?? t(`onboarding.setup.steps.${step}.label`, { defaultValue: "" });
+    getPimiStepCopy(step)?.label ?? t(`onboarding.setup.steps.${step}.label`, { defaultValue: "" });
   const handlePress = useCallback(() => onSelect(step), [onSelect, step]);
   const accessibilityState = useMemo(() => ({ selected: current }), [current]);
   const itemStyle = useCallback(
@@ -302,6 +368,14 @@ function StepRailItem({
     ],
     [current],
   );
+  let badgeStyle = Icon ? styles.railIconSlot : styles.railBadge;
+  if (done || current) badgeStyle = styles.railBadgeActive;
+  let badge = (
+    <Text style={current ? styles.railBadgeTextActive : styles.railBadgeText}>{number}</Text>
+  );
+  if (Icon)
+    badge = <Icon size={13} uniProps={current ? accentForegroundMapping : mutedIconMapping} />;
+  if (done) badge = <ThemedCheck size={12} strokeWidth={3} uniProps={accentForegroundMapping} />;
   return (
     <PressHighlight
       style={itemStyle}
@@ -311,13 +385,7 @@ function StepRailItem({
       accessibilityState={accessibilityState}
       aria-selected={current}
     >
-      <View style={done || current ? styles.railBadgeActive : styles.railBadge}>
-        {done ? (
-          <ThemedCheck size={12} strokeWidth={3} uniProps={accentForegroundMapping} />
-        ) : (
-          <Text style={current ? styles.railBadgeTextActive : styles.railBadgeText}>{number}</Text>
-        )}
-      </View>
+      <View style={badgeStyle}>{badge}</View>
       <Text style={current ? styles.railLabelCurrent : styles.railLabel} numberOfLines={1}>
         {label}
       </Text>
@@ -329,6 +397,41 @@ const BADGE_SIZE = 20;
 const LOGO_SIZE = 20;
 
 const styles = StyleSheet.create((theme) => ({
+  welcome: {
+    flex: 1,
+    minHeight: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: theme.spacing[3],
+    padding: theme.spacing[6],
+  },
+  welcomeMark: {
+    width: 82,
+    height: 82,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: theme.borderRadius["2xl"],
+    backgroundColor: theme.colors.accent,
+    marginBottom: theme.spacing[2],
+  },
+  welcomeBrand: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.base,
+    fontWeight: theme.fontWeight.medium,
+  },
+  welcomeTitle: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize["4xl"],
+    fontWeight: theme.fontWeight.semibold,
+    textAlign: "center",
+  },
+  welcomeDescription: {
+    maxWidth: 320,
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.content,
+    lineHeight: theme.fontSize.content * 1.5,
+    textAlign: "center",
+  },
   pimiMark: {
     width: LOGO_SIZE + 6,
     height: LOGO_SIZE + 6,
@@ -391,6 +494,12 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: BADGE_SIZE / 2,
     borderWidth: theme.borderWidth[1],
     borderColor: theme.colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  railIconSlot: {
+    width: BADGE_SIZE,
+    height: BADGE_SIZE,
     alignItems: "center",
     justifyContent: "center",
   },

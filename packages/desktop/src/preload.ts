@@ -1,7 +1,8 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { BrowserKeyboardPolicy } from "./features/browser-keyboard/index.js";
 import type { DesktopWindowChromeMode } from "./window/chrome.js";
-import type { PimiAppearance, PimiDestination } from "./window/pimi-window.js";
+import type { PimiAppearance, PimiContentBounds, PimiDestination } from "./window/pimi-window.js";
+import type { PimiWorkspaceSection } from "@getpaseo/protocol/pimi-task";
 
 // This preload runs in Electron's sandbox and is tsc-compiled (not bundled), so it MUST
 // NOT emit any runtime module load other than "electron" — a require() of a local or
@@ -73,6 +74,8 @@ if (isTaskDictation) {
 }
 let settingsPending = false;
 let openSettings: (() => void) | undefined;
+let workspaceSection: PimiWorkspaceSection | null = null;
+const workspaceListeners = new Set<() => void>();
 if (pimiAppearance) {
   document.addEventListener(
     "DOMContentLoaded",
@@ -85,24 +88,32 @@ if (pimiAppearance) {
     if (openSettings) openSettings();
     else settingsPending = true;
   });
-  let covered = false;
-  const applyWorkspaceVisibility = () => {
-    if (document.body) document.body.inert = covered;
-  };
-  ipcRenderer.on("pimi:workspace:cover-chat", (_event, visible: unknown) => {
-    if (typeof visible !== "boolean") return;
-    covered = visible;
-    applyWorkspaceVisibility();
+  ipcRenderer.on("pimi:workspace:section", (_event, section: PimiWorkspaceSection | null) => {
+    workspaceSection = section;
+    for (const listener of workspaceListeners) listener();
   });
-  document.addEventListener("DOMContentLoaded", applyWorkspaceVisibility, { once: true });
 }
 contextBridge.exposeInMainWorld("paseoDesktop", {
   platform: process.platform,
   pimiAppearance,
   ...(pimiAppearance
     ? {
+        getPimiGitAuthStatus: (provider: "github" | "gitlab") =>
+          ipcRenderer.invoke("pimi:forge:auth-status", provider),
         showPimiWorkspace: (destination: PimiDestination) =>
           ipcRenderer.send("pimi:workspace:show", destination),
+        dismissPimiWorkspace: () => ipcRenderer.send("pimi:workspace:dismiss"),
+        setPimiContentBounds: (bounds: PimiContentBounds) =>
+          ipcRenderer.send("pimi:workspace:content-bounds", bounds),
+        pimiWorkspaceSection: {
+          get: () => workspaceSection,
+          subscribe: (listener: () => void) => {
+            workspaceListeners.add(listener);
+            return () => {
+              workspaceListeners.delete(listener);
+            };
+          },
+        },
         onPimiOpenSettings: (open: () => void) => {
           openSettings = open;
           if (settingsPending) {
