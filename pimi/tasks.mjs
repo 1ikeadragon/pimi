@@ -3,18 +3,17 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { z } from "zod";
+import {
+  PimiExperimentFields,
+  PimiTaskFields,
+  PimiTaskProposal,
+} from "@getpaseo/protocol/pimi-task";
 
 import { commit, RequestError } from "./git.mjs";
 
-const taskFields = z.object({
-  title: z.string().trim().min(1).max(100),
-  brief: z.string().trim().min(1).max(2400),
-  done: z.boolean(),
-});
-const ideaFields = z.object({
-  title: z.string().trim().min(1).max(55),
-  hypothesis: z.string().trim().min(1).max(1600),
-});
+const taskFields = PimiTaskFields.extend({ done: z.boolean() });
+const ideaFields = PimiExperimentFields;
+const taskSource = PimiTaskProposal.shape.source;
 const modelConfig = z.object({
   provider: z.string().min(1),
   thinkingOptionId: z.string().optional(),
@@ -31,8 +30,9 @@ const experimentSchema = ideaFields.extend({
 });
 const taskSchema = taskFields.extend({
   id: z.uuid(),
-  root: z.string(),
-  base: z.string(),
+  root: z.string().nullable(),
+  base: z.string().nullable(),
+  source: taskSource.optional(),
   experiments: z.array(experimentSchema),
 });
 const maxExperiments = 8;
@@ -75,6 +75,12 @@ function getExperiment(task, id) {
 
 function checkOpen(task) {
   if (task.done) throw new RequestError("Reopen this task to change its experiments.", 409);
+}
+
+function requireRepository(task) {
+  if (!task.root || !task.base)
+    throw new RequestError("Attach a repository to run experiments.", 409);
+  return task.root;
 }
 
 function experimentPrompt(task, experiment) {
@@ -121,26 +127,51 @@ export async function createTasks({ file, paseo, getInventory }) {
     return next;
   }
 
+  async function repositoryBase(root) {
+    if (!root) return null;
+    const { repositories } = await getInventory();
+    if (!repositories.some((repository) => repository.path === root)) {
+      throw new RequestError("Choose a repository from Worktrees.");
+    }
+    return commit(root, "HEAD");
+  }
+
   async function create(body) {
     const input = readInput(
-      taskFields.pick({ title: true, brief: true }).extend({
-        root: z.string(),
+      PimiTaskFields.extend({
+        root: z.string().min(1).nullable(),
+        proposal: PimiTaskProposal.omit({ title: true, brief: true }).optional(),
       }),
       body,
     );
-    const { repositories } = await getInventory();
-    if (!repositories.some((repository) => repository.path === input.root)) {
-      throw new RequestError("Choose a repository from Worktrees.");
-    }
+    const { proposal, ...fields } = input;
+    const existing = proposal && state.find((task) => task.id === proposal.id);
+    if (existing) return existing;
     const task = {
-      ...input,
-      id: randomUUID(),
-      base: await commit(input.root, "HEAD"),
+      ...fields,
+      id: proposal?.id ?? randomUUID(),
+      base: await repositoryBase(input.root),
       done: false,
-      experiments: [],
+      source: proposal?.source,
+      experiments: (proposal?.experiments ?? []).map((idea) => makeExperiment(idea)),
     };
     return update((draft) => {
+      const alreadySaved = draft.find((entry) => entry.id === task.id);
+      if (alreadySaved) return alreadySaved;
       draft.unshift(task);
+      return task;
+    });
+  }
+
+  async function attachRepository(body) {
+    const { id, root } = readInput(z.object({ id: z.uuid(), root: z.string().min(1) }), body);
+    const base = await repositoryBase(root);
+    return update((draft) => {
+      const task = getTask(draft, id);
+      checkOpen(task);
+      if (task.root) throw new RequestError("This task already has a repository.", 409);
+      task.root = root;
+      task.base = base;
       return task;
     });
   }
@@ -188,7 +219,7 @@ export async function createTasks({ file, paseo, getInventory }) {
   }
 
   async function selectModel(task, model) {
-    const { models } = await paseo.taskModels(task.root);
+    const { models } = await paseo.taskModels(requireRepository(task));
     const selected = models.find((entry) => entry.id === model);
     if (!selected)
       throw new RequestError("This model is unavailable. Refresh the model list.", 409);
@@ -354,14 +385,15 @@ export async function createTasks({ file, paseo, getInventory }) {
   }
 
   return {
-    roots: () => [...new Set(state.map((task) => task.root))],
+    roots: () => [...new Set(state.flatMap((task) => (task.root ? [task.root] : [])))],
     list: () => ({ tasks: state, error: readError }),
     create,
+    attachRepository,
     save,
     addIdea,
     suggest,
     discard,
-    models: ({ id }) => paseo.taskModels(getTask(state, id).root),
+    models: ({ id }) => paseo.taskModels(requireRepository(getTask(state, id))),
     run,
     report,
   };

@@ -103,6 +103,7 @@ function renderBoard(data) {
   if (signature === boardSignature) return;
   boardSignature = signature;
   tasksView.setBoard(data);
+  renderReviewWorktreeOptions(data.cards);
   daemonConnected = !data.daemonError;
   $("show-agents").hidden = !data.native;
   message(
@@ -208,7 +209,9 @@ function selectWorktree(card, base = "") {
   $("pr").value = card.prUrl || "";
   $("mode").value = "all";
   updateCompareControls();
-  $("show-review").disabled = false;
+  $("review-entry").hidden = true;
+  $("review-actions").hidden = false;
+  $("review-desk").hidden = false;
   $("review-repo").textContent = card.repo;
   $("review-title").textContent = card.name;
   const links = (card.previews ?? []).map((preview) => {
@@ -223,6 +226,44 @@ function selectWorktree(card, base = "") {
   $("previews").hidden = !links.length;
   view("review");
   void loadReview();
+}
+
+function renderReviewWorktreeOptions(cards) {
+  const picker = $("review-worktree");
+  const previous = picker.value || activeWorktree?.path || "";
+  const choices = cards.filter((card) => !card.unavailable);
+  const placeholder = element(
+    "option",
+    "",
+    choices.length ? "Select a worktree" : "No worktrees yet",
+  );
+  placeholder.value = "";
+  picker.replaceChildren(
+    placeholder,
+    ...choices.map((card) => {
+      const option = element("option", "", `${card.repo} · ${card.name}`);
+      option.value = card.path;
+      return option;
+    }),
+  );
+  picker.value = choices.some((card) => card.path === previous) ? previous : "";
+  picker.disabled = choices.length === 0;
+  $("review-open-worktree").disabled = !picker.value;
+}
+
+function openReviewPicker(warning = "") {
+  ++generation;
+  loading = false;
+  $("review-repo").textContent = "Worktree review";
+  $("review-title").textContent = "Review";
+  $("review-meta").textContent = "";
+  $("review-entry").hidden = false;
+  $("review-actions").hidden = true;
+  $("review-desk").hidden = true;
+  message("review-warning", warning);
+  view("review");
+  renderReviewWorktreeOptions(boardData?.cards ?? []);
+  void refreshBoard();
 }
 
 function updateCompareControls() {
@@ -693,20 +734,51 @@ appearance.addEventListener("change", async () => {
     appearance.disabled = false;
   }
 });
-$("show-review").addEventListener("click", () => view("review"));
+$("show-review").addEventListener("click", () => {
+  if ($("review-entry").hidden) view("review");
+  else openReviewPicker();
+});
+$("change-review-worktree").addEventListener("click", () => {
+  openReviewPicker();
+  $("review-worktree").focus();
+});
+$("review-worktree").addEventListener("change", () => {
+  $("review-open-worktree").disabled = !$("review-worktree").value;
+});
+$("review-target").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const card = boardData?.cards.find(
+    ({ path, unavailable }) => path === $("review-worktree").value && !unavailable,
+  );
+  if (card) selectWorktree(card, tasksView.baseForWorktree(card));
+});
+$("review-add-repository").addEventListener("click", () => {
+  $("show-board").click();
+  $("watch-repo").closest("details").open = true;
+  $("repo-path").focus();
+});
 window.pimiWorkspace?.onNavigate(async (destination) => {
   if (destination.view === "tasks") {
     $("show-tasks").click();
     return;
   }
-  $("show-board").click();
-  if (destination.view !== "review") return;
+  if (destination.view === "task-draft") {
+    view("tasks");
+    await Promise.all([refreshBoard(), tasksView.load()]);
+    tasksView.openProposal(destination.proposal);
+    return;
+  }
+  if (destination.view !== "review") {
+    $("show-board").click();
+    return;
+  }
+  view("review");
   await Promise.all([refreshBoard(), tasksView.load()]);
   const card = boardData?.cards.find(
     ({ path, unavailable }) => path === destination.path && !unavailable,
   );
   if (!card) {
-    message("board-warning", "Add this repository to Worktrees to open its review.");
+    openReviewPicker("Add this repository to Worktrees to open its review.");
     return;
   }
   selectWorktree(card, tasksView.baseForWorktree(card));
@@ -752,7 +824,8 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "/") {
     event.preventDefault();
     const listSearch = $("tasks").hidden ? "board-search" : "task-search";
-    $(reviewing ? "file-search" : listSearch).focus();
+    const reviewSearch = $("review-entry").hidden ? "file-search" : "review-worktree";
+    $(reviewing ? reviewSearch : listSearch).focus();
   } else if (reviewing && event.key === "Escape" && tour) {
     closeTour();
   } else if (reviewing && (event.key === "[" || event.key === "]")) {

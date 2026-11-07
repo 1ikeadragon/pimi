@@ -45,7 +45,10 @@ export interface ProjectSuggestionsController {
  * The suggestion list and the user's selection. Whoever owns the step's primary action holds
  * this, so proceeding can add what is checked; calling it early also starts reading history.
  */
-export function useProjectSuggestions(serverId: string): ProjectSuggestionsController {
+export function useProjectSuggestions(
+  serverId: string,
+  { preselect = true }: { preselect?: boolean } = {},
+): ProjectSuggestionsController {
   const state = useProviderSuggestions(serverId);
   const projectRootPaths = useProjectRootPaths(serverId);
   const openProject = useOpenProject(serverId);
@@ -61,19 +64,19 @@ export function useProjectSuggestions(serverId: string): ProjectSuggestionsContr
   const checkedRootPaths = useMemo(
     () =>
       suggestions
-        .filter((suggestion) => isSuggestionChecked(suggestion, choices, now))
+        .filter((suggestion) => isSuggestionChecked(suggestion, choices, now, preselect))
         .map((suggestion) => suggestion.rootPath),
-    [suggestions, choices, now],
+    [suggestions, choices, now, preselect],
   );
 
   const toggle = useCallback(
     (suggestion: ProjectSuggestion) => {
       setChoices((current) => ({
         ...current,
-        [suggestion.rootPath]: !isSuggestionChecked(suggestion, current, now),
+        [suggestion.rootPath]: !isSuggestionChecked(suggestion, current, now, preselect),
       }));
     },
-    [now],
+    [now, preselect],
   );
 
   const { mutateAsync, isPending } = useMutation({

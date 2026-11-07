@@ -118,6 +118,7 @@ import {
   type AgentDeepLinkTarget,
 } from "@getpaseo/protocol/agent-deep-link";
 import { AgentNavigationInbox, parseAgentDeepLinkFromArgv } from "./agent-navigation.js";
+import { PimiTaskProposal } from "@getpaseo/protocol/pimi-task";
 
 const DEV_SERVER_URL = process.env.EXPO_DEV_URL ?? "http://localhost:8081";
 const APP_SCHEME = "paseo";
@@ -722,10 +723,22 @@ function registerPimiWorkspaceNavigation(): void {
       ? url.protocol === `${APP_SCHEME}:` && url.host === "app"
       : url.origin === new URL(DEV_SERVER_URL).origin;
     if (!trusted) return;
-    const { view, path: checkout } = destination as { view?: unknown; path?: unknown };
+    const {
+      view,
+      path: checkout,
+      proposal,
+    } = destination as {
+      view?: unknown;
+      path?: unknown;
+      proposal?: unknown;
+    };
     if (view === "tasks" || view === "worktrees") openPimi({ view });
     if (view === "review" && typeof checkout === "string" && path.isAbsolute(checkout)) {
       openPimi({ view, path: checkout });
+    }
+    if (view === "task-draft") {
+      const result = PimiTaskProposal.safeParse(proposal);
+      if (result.success) openPimi({ view, proposal: result.data });
     }
   });
 }
@@ -1068,7 +1081,6 @@ async function bootstrap(): Promise<void> {
     initialRoute: initialAgentNavigation ? buildAgentDeepLinkRoute(initialAgentNavigation) : null,
     pendingProjectPath: pendingOpenProjectPath,
   });
-  if (PIMI_DESKTOP && !initialAgentNavigation && !pendingOpenProjectPath) openPimi();
   pendingOpenProjectPath = null;
 
   // Protocol + IPC handlers and the first window now exist: release any
@@ -1083,10 +1095,6 @@ async function bootstrap(): Promise<void> {
   }
 
   app.on("activate", () => {
-    if (PIMI_DESKTOP && BrowserWindow.getAllWindows().length === 0) {
-      openPimi();
-      return;
-    }
     void desktopWindowOwner.restoreWhenActivated().catch((error) => {
       console.error("Failed to restore a desktop window after activation", error);
     });

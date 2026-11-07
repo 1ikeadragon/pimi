@@ -22,7 +22,7 @@ import { PaseoLogo } from "@/components/icons/paseo-logo";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { isFdroidBuild } from "@/constants/build-profile";
 import { isWeb, isNative } from "@/constants/platform";
-import { isElectronRuntime } from "@/desktop/host";
+import { getDesktopHost, isElectronRuntime } from "@/desktop/host";
 
 interface WelcomeAction {
   key: "scan-qr" | "direct-connection" | "remote-ssh" | "paste-pairing-link";
@@ -164,6 +164,8 @@ export function WelcomeScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const showPimi = getDesktopHost()?.showPimiWorkspace;
+  const openTasks = useCallback(() => showPimi?.({ view: "tasks" }), [showPimi]);
   const appVersion = resolveAppVersion();
   const appVersionText = formatVersionWithPrefix(appVersion);
   const hosts = useHosts();
@@ -263,10 +265,14 @@ export function WelcomeScreen() {
         testID="welcome-screen"
       >
         <View style={styles.content}>
-          <PaseoLogo size={96} />
+          {showPimi ? null : <PaseoLogo size={96} />}
           <View style={styles.copyBlock}>
-            <Text style={styles.title}>{t("onboarding.title")}</Text>
-            <Text style={styles.subtitle}>{t("onboarding.subtitle")}</Text>
+            <Text style={styles.title}>{showPimi ? "Welcome to Pimi" : t("onboarding.title")}</Text>
+            <Text style={styles.subtitle}>
+              {showPimi
+                ? "Connect to a host to start chatting. Tasks are available offline."
+                : t("onboarding.subtitle")}
+            </Text>
             {isNative ? (
               <Pressable style={styles.setupLink} onPress={handleOpenPaseoSite}>
                 <Text style={styles.setupLinkText}>paseo.sh</Text>
@@ -279,6 +285,11 @@ export function WelcomeScreen() {
             {actions.map((action) => (
               <WelcomeActionButton key={action.key} action={action} />
             ))}
+            {showPimi ? (
+              <Button variant="secondary" onPress={openTasks}>
+                Open Tasks
+              </Button>
+            ) : null}
           </View>
 
           <Button

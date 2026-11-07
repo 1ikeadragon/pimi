@@ -41,6 +41,9 @@ import {
   type InlinePathTarget,
 } from "@/components/message";
 import { PlanCard } from "@/components/plan-card";
+import { PimiTaskProposalCard, readPimiTaskProposal } from "@/components/pimi-task-proposal-card";
+import { getDesktopHost } from "@/desktop/host";
+import { isPimiTaskProposalTool } from "@getpaseo/protocol/pimi-task";
 import { getStreamItemMessageId, type StreamItem } from "@/types/stream";
 import type { PendingMessageSubmission } from "@/composer/submission/model";
 import type { TurnPresentation } from "@/timeline/turn-liveness";
@@ -808,6 +811,22 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
           const data = payload.data;
 
           if (
+            isPimiTaskProposalTool(data.name) &&
+            data.status === "completed" &&
+            !data.error &&
+            data.detail.type === "unknown" &&
+            getDesktopHost()?.showPimiWorkspace
+          ) {
+            const proposal = readPimiTaskProposal(data.detail.output);
+            if (
+              proposal?.source.serverId === resolvedServerId &&
+              proposal.source.agentId === agentId
+            ) {
+              return <PimiTaskProposalCard proposal={proposal} />;
+            }
+          }
+
+          if (
             data.name === "speak" &&
             data.detail.type === "unknown" &&
             typeof data.detail.input === "string" &&
@@ -854,7 +873,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
           />
         );
       },
-      [context.cwd, resolvedServerId, setInlineDetailsExpanded, handleToolCallOpenFile],
+      [agentId, context.cwd, resolvedServerId, setInlineDetailsExpanded, handleToolCallOpenFile],
     );
 
     // Read through a stable event so live group updates do not change the renderer identity

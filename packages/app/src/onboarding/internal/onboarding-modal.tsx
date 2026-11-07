@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Text, View, type PressableStateCallbackType } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { Check } from "lucide-react-native";
+import { useRouter } from "expo-router";
 import {
   AdaptiveModalSheet,
   FULL_SHEET_SNAP_POINTS,
@@ -13,6 +14,9 @@ import { Button } from "@/components/ui/button";
 import { PressHighlight } from "@/components/ui/press-highlight";
 import { ScrollView } from "@/components/ui/scroll-view";
 import { useIsCompactFormFactor } from "@/constants/layout";
+import { getDesktopHost } from "@/desktop/host";
+import { useProjectRootPaths } from "@/stores/session-store-hooks";
+import { buildNewWorkspaceRoute } from "@/utils/host-routes";
 import { useProjectSuggestions, type ProjectSuggestionsController } from "@/project-suggestions";
 import type { Theme } from "@/styles/theme";
 import type { OnboardingModel, OnboardingState, OnboardingStepId } from "./model";
@@ -24,15 +28,46 @@ type OpenState = Extract<OnboardingState, { status: "open" }>;
 const ThemedCheck = withUnistyles(Check);
 const accentForegroundMapping = (theme: Theme) => ({ color: theme.colors.accentForeground });
 
+const pimiSteps = {
+  welcome: {
+    label: "Welcome",
+    title: "Start with a conversation",
+    description: "Ask a question, inspect a change, or describe what you want to build.",
+  },
+  firstChat: {
+    label: "First chat",
+    title: "Start your first chat",
+    description: "Use Tasks when you want to save a plan or compare approaches across worktrees.",
+  },
+} as const;
+
+function pimiStepCopy(step: OnboardingStepId) {
+  return step === "welcome" || step === "firstChat" ? pimiSteps[step] : undefined;
+}
+
+function SetupMark({ pimi }: { pimi: boolean }) {
+  if (!pimi) return <PaseoLogo size={LOGO_SIZE} />;
+  return (
+    <View style={styles.pimiMark}>
+      <Text style={styles.pimiInitial}>P</Text>
+    </View>
+  );
+}
+
 export function OnboardingModal({ model, state }: { model: OnboardingModel; state: OpenState }) {
   const { t } = useTranslation();
+  const router = useRouter();
+  const pimi = Boolean(getDesktopHost()?.showPimiWorkspace);
+  const setupTitle = pimi ? "Pimi" : t("onboarding.setup.title");
+  const projectRoots = useProjectRootPaths(state.serverId);
   const isCompact = useIsCompactFormFactor();
   const step = state.steps[state.stepIndex];
+  const stepCopy = pimiStepCopy(step);
   const isFirst = state.stepIndex === 0;
   const isLast = state.stepIndex === state.steps.length - 1;
   // Held here so Continue can add the checked folders; reading history from the first step means
   // the Projects step rarely waits.
-  const projectSuggestions = useProjectSuggestions(state.serverId);
+  const projectSuggestions = useProjectSuggestions(state.serverId, { preselect: !pimi });
   const { addChecked } = projectSuggestions;
   const orchestration = useOrchestrationSetup(state.serverId);
   const { apply: applyOrchestration } = orchestration;
@@ -41,6 +76,15 @@ export function OnboardingModal({ model, state }: { model: OnboardingModel; stat
     void model.complete();
   }, [model]);
   const handleBack = useCallback(() => model.back(), [model]);
+  const startChat = useCallback(() => {
+    handleComplete();
+    router.push(
+      buildNewWorkspaceRoute({
+        serverId: state.serverId,
+        sourceDirectory: projectRoots.length === 1 ? projectRoots[0] : undefined,
+      }),
+    );
+  }, [handleComplete, projectRoots, router, state.serverId]);
   const { visit } = state;
   // A step's own work runs before it moves on; from the last step, moving on finishes setup.
   const handleAdvance = useCallback(() => model.next(visit), [model, visit]);
@@ -69,8 +113,8 @@ export function OnboardingModal({ model, state }: { model: OnboardingModel; stat
   // and the sheet floats its close button.
   const compactHeader = useMemo(
     () => ({
-      title: t("onboarding.setup.title"),
-      leading: <PaseoLogo size={LOGO_SIZE} />,
+      title: setupTitle,
+      leading: <SetupMark pimi={pimi} />,
       subtitle: (
         <Text style={styles.stepCounter}>
           {t("onboarding.setup.stepCounter", {
@@ -80,7 +124,7 @@ export function OnboardingModal({ model, state }: { model: OnboardingModel; stat
         </Text>
       ),
     }),
-    [state.stepIndex, state.steps.length, t],
+    [pimi, setupTitle, state.stepIndex, state.steps.length, t],
   );
 
   const actions = (
@@ -98,8 +142,12 @@ export function OnboardingModal({ model, state }: { model: OnboardingModel; stat
             {t("common.actions.back")}
           </Button>
         )}
-        <Button variant="default" onPress={primary.onPress} loading={primary.busy}>
-          {primary.label}
+        <Button
+          variant="default"
+          onPress={step === "firstChat" ? startChat : primary.onPress}
+          loading={primary.busy}
+        >
+          {step === "firstChat" ? "Start a chat" : primary.label}
         </Button>
       </View>
     </>
@@ -113,23 +161,25 @@ export function OnboardingModal({ model, state }: { model: OnboardingModel; stat
       footer={isCompact ? actions : undefined}
       scrollable={false}
       snapPoints={FULL_SHEET_SNAP_POINTS}
-      desktopMaxWidth={880}
-      desktopHeight={640}
+      desktopMaxWidth={pimi ? 760 : 880}
+      desktopHeight={pimi ? 480 : 640}
       contentStyle={styles.content}
       testID="onboarding-modal"
     >
       <View style={styles.body}>
-        {isCompact ? null : <StepRail state={state} onSelect={model.goTo} />}
+        {isCompact ? null : <StepRail state={state} onSelect={model.goTo} pimi={pimi} />}
         <View style={styles.pane}>
           <ScrollView style={styles.paneScroll}>
             {/* Padding lives on a wrapper: the ScrollView's contentContainerStyle skips Unistyles. */}
             <View style={styles.paneContent}>
               <View style={styles.stepHeader}>
                 <Text style={styles.stepTitle} accessibilityRole="header">
-                  {t(`onboarding.setup.steps.${step}.title`)}
+                  {stepCopy?.title ??
+                    t(`onboarding.setup.steps.${step}.title`, { defaultValue: "" })}
                 </Text>
                 <Text style={styles.stepDescription}>
-                  {t(`onboarding.setup.steps.${step}.description`)}
+                  {stepCopy?.description ??
+                    t(`onboarding.setup.steps.${step}.description`, { defaultValue: "" })}
                 </Text>
               </View>
               <OnboardingStepContent
@@ -193,17 +243,19 @@ function usePrimaryAction(input: {
 function StepRail({
   state,
   onSelect,
+  pimi,
 }: {
   state: OpenState;
   onSelect: (step: OnboardingStepId) => void;
+  pimi: boolean;
 }) {
   const { t } = useTranslation();
   return (
     <View style={styles.rail}>
       <View style={styles.railBrand}>
-        <PaseoLogo size={LOGO_SIZE} />
+        <SetupMark pimi={pimi} />
         <Text style={styles.railTitle} numberOfLines={1}>
-          {t("onboarding.setup.title")}
+          {pimi ? "Pimi" : t("onboarding.setup.title")}
         </Text>
       </View>
       <View style={styles.railSteps}>
@@ -236,7 +288,8 @@ function StepRailItem({
   onSelect: (step: OnboardingStepId) => void;
 }) {
   const { t } = useTranslation();
-  const label = t(`onboarding.setup.steps.${step}.label`);
+  const label =
+    pimiStepCopy(step)?.label ?? t(`onboarding.setup.steps.${step}.label`, { defaultValue: "" });
   const handlePress = useCallback(() => onSelect(step), [onSelect, step]);
   const accessibilityState = useMemo(() => ({ selected: current }), [current]);
   const itemStyle = useCallback(
@@ -274,6 +327,15 @@ const BADGE_SIZE = 20;
 const LOGO_SIZE = 20;
 
 const styles = StyleSheet.create((theme) => ({
+  pimiMark: {
+    width: LOGO_SIZE + 6,
+    height: LOGO_SIZE + 6,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+    backgroundColor: theme.colors.accent,
+  },
+  pimiInitial: { color: theme.colors.accentForeground, fontWeight: theme.fontWeight.bold },
   content: {
     padding: 0,
     gap: 0,

@@ -1,4 +1,11 @@
-export type OnboardingStepId = "appearance" | "providers" | "projects" | "orchestration" | "phone";
+export type OnboardingStepId =
+  | "appearance"
+  | "providers"
+  | "projects"
+  | "orchestration"
+  | "phone"
+  | "welcome"
+  | "firstChat";
 
 const STEPS_WITHOUT_PHONE: readonly OnboardingStepId[] = [
   "appearance",
@@ -7,6 +14,7 @@ const STEPS_WITHOUT_PHONE: readonly OnboardingStepId[] = [
   "orchestration",
 ];
 const STEPS_WITH_PHONE: readonly OnboardingStepId[] = [...STEPS_WITHOUT_PHONE, "phone"];
+const PIMI_STEPS: readonly OnboardingStepId[] = ["welcome", "providers", "projects", "firstChat"];
 
 export interface OnboardingCompletionStorage {
   isCompleted(): Promise<boolean>;
@@ -70,6 +78,7 @@ function isReadyForSetup(host: OnboardingSetupHost | null): host is OnboardingSe
 
 export function createOnboardingModel(input: {
   storage: OnboardingCompletionStorage;
+  pimi?: boolean;
 }): OnboardingModel {
   const listeners = new Set<() => void>();
   let state: OnboardingState = { status: "deciding" };
@@ -82,10 +91,15 @@ export function createOnboardingModel(input: {
     return {
       status: "open",
       serverId,
-      steps: options.includePhoneStep ? STEPS_WITH_PHONE : STEPS_WITHOUT_PHONE,
+      steps: stepsFor(options),
       stepIndex: 0,
       visit: visits,
     };
+  }
+
+  function stepsFor(options: OnboardingStepOptions) {
+    if (input.pimi) return PIMI_STEPS;
+    return options.includePhoneStep ? STEPS_WITH_PHONE : STEPS_WITHOUT_PHONE;
   }
 
   function setState(next: OnboardingState) {
@@ -106,7 +120,9 @@ export function createOnboardingModel(input: {
     const host = pendingHost?.host ?? null;
     if (!pendingHost || !isReadyForSetup(host)) return;
     setState(
-      host.hasProjects ? { status: "hidden" } : openState(host.serverId, pendingHost.options),
+      host.hasProjects && !input.pimi
+        ? { status: "hidden" }
+        : openState(host.serverId, pendingHost.options),
     );
   }
 

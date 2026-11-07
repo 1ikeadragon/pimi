@@ -1,4 +1,6 @@
 import { registerPluginTools } from "./plugin-tools.js";
+import { randomUUID } from "node:crypto";
+import { PIMI_TASK_PROPOSAL_TOOL, PimiTaskProposalInput } from "@getpaseo/protocol/pimi-task";
 import type { FinishSubscriptions, FinishRegistration } from "../finish-subscriptions/index.js";
 import type { AgentMessageDelivery } from "../agent-messages/index.js";
 import {
@@ -1371,6 +1373,35 @@ function createToolCatalog(
 
   if (options.voiceOnly) {
     return toCatalog();
+  }
+
+  if (scope === "agent") {
+    registerTool(
+      PIMI_TASK_PROPOSAL_TOOL,
+      {
+        title: "Propose a Pimi task",
+        description:
+          "Use when the user asks to create a tracked task, compare multiple approaches, or track a goal across worktrees and later review. Suggest Tasks before starting experiments or creating worktrees. Skip this for ordinary questions and focused fixes. Summarize the objective, constraints, and what success looks like. If helpful, include up to four distinct experiments. Pimi renders the result as a Review task draft card. After calling this tool, briefly explain why Tasks would help and point to the card. The user can edit and save the draft, then launch experiments separately.",
+        inputSchema: PimiTaskProposalInput,
+      },
+      async (input) => {
+        const agent = resolveCallerAgent();
+        if (!callerAgentId || !options.serverId || !agent || agent.background) {
+          throw new PaseoToolInputError("Task proposals are available in interactive chats.");
+        }
+        const result = {
+          pimiTaskProposal: {
+            ...input,
+            id: randomUUID(),
+            source: { serverId: options.serverId, agentId: callerAgentId },
+          },
+        };
+        return {
+          content: [{ type: "text", text: JSON.stringify(result) }],
+          structuredContent: ensureValidJson(result),
+        };
+      },
+    );
   }
 
   if (options.browserToolsEnabled && options.browserToolsBroker) {
