@@ -67,6 +67,8 @@ import { SplitContainer } from "@/components/split-container";
 import { RetainedPanel } from "@/components/retained-panel";
 import { WorkspaceActions } from "@/git/workspace-actions";
 import { WorkspaceOpenInEditorButton } from "@/workspace/open-in-editor/button";
+import { Button } from "@/components/ui/button";
+import { useIsLocalDaemon } from "@/hooks/use-is-local-daemon";
 import { WorkspaceScriptsButton, useWorkspaceScriptActions } from "@/screens/workspace/scripts";
 import { ImportSessionSheet } from "@/components/import-session-sheet";
 import { useNavigateToImportedAgent } from "@/hooks/use-import-session";
@@ -510,6 +512,7 @@ function WorkspaceHeaderTitleBar({
   onOpenSetupTab,
 }: WorkspaceHeaderTitleBarProps) {
   const actionsInBar = resolveWorkspaceActionPlacement(useWindowLayout()) === "vertical-bar";
+  const pimi = Boolean(getDesktopHost()?.showPimiWorkspace);
   return (
     <View style={styles.headerTitleContainer}>
       {isLoading ? (
@@ -518,9 +521,11 @@ function WorkspaceHeaderTitleBar({
         </View>
       ) : (
         <View style={styles.headerTitleTextGroup}>
-          <ScreenTitle testID="workspace-header-title">{title}</ScreenTitle>
+          <ScreenTitle testID="workspace-header-title">
+            {pimi && isSubtitleDistinct ? subtitle : title}
+          </ScreenTitle>
           <WorkspaceHeaderProjectRow
-            subtitle={subtitle}
+            subtitle={pimi && isSubtitleDistinct ? title : subtitle}
             isSubtitleDistinct={isSubtitleDistinct}
             serverId={normalizedServerId}
           />
@@ -541,6 +546,28 @@ function WorkspaceHeaderTitleBar({
         </View>
       )}
     </View>
+  );
+}
+
+function PimiReviewButton({
+  serverId,
+  checkout,
+  projectKind,
+}: {
+  serverId: string;
+  checkout: string | null;
+  projectKind?: string;
+}) {
+  const show = getDesktopHost()?.showPimiWorkspace;
+  const isLocal = useIsLocalDaemon(serverId);
+  const open = useCallback(() => {
+    if (checkout) show?.({ view: "review", path: checkout });
+  }, [checkout, show]);
+  if (!show || !isLocal || !checkout || projectKind !== "git") return null;
+  return (
+    <Button size="sm" variant="secondary" onPress={open}>
+      Review changes
+    </Button>
   );
 }
 
@@ -3216,6 +3243,11 @@ function WorkspaceScreenContent({
   const headerRight = useMemo(
     () => (
       <View style={styles.headerRight}>
+        <PimiReviewButton
+          serverId={normalizedServerId}
+          checkout={workspaceDirectory}
+          projectKind={workspaceDescriptor?.projectKind}
+        />
         <PluginHeaderButtons serverId={normalizedServerId} workspaceId={normalizedWorkspaceId} />
         {workspaceDescriptor && workspaceDescriptor.scripts.length > 0 ? (
           <WorkspaceScriptsButton

@@ -777,6 +777,82 @@ export function buildLightTheme(semanticColors: ReturnType<typeof buildLightSema
 
 export const lightTheme = buildLightTheme(lightSemanticColors);
 
+const pimiBlush = buildLightTheme(
+  buildLightSemanticColors({
+    surface0: "#fffdfc",
+    surface1: "#faf6f5",
+    surface2: "#f0e8e8",
+    surface3: "#eee4e5",
+    surface4: "#eddddf",
+    surfaceDiffEmpty: "#faf7f6",
+    surfaceSidebar: "#f6efef",
+    foreground: "#2c2529",
+    foregroundMuted: "#695c62",
+    foregroundExtraMuted: "#82727a",
+    border: "#e8dfe0",
+    borderAccent: "#d4c5c7",
+    accent: "#382e33",
+    accentBright: "#51434a",
+    accentForeground: "#fffafc",
+    primary: "#382e33",
+    primaryForeground: "#fffafc",
+    destructive: "#b04138",
+    terminalBlack: "#2c2529",
+    terminalBrightBlack: "#51434a",
+    ring: "#825362",
+  }),
+);
+
+const pimiDark = buildDarkTheme(
+  buildDarkSemanticColors({
+    surface0: "#211f22",
+    surface1: "#211f22",
+    surface2: "#302d32",
+    surface3: "#363239",
+    surface4: "#40353b",
+    surfaceDiffEmpty: "#1a191b",
+    surfaceSidebar: "#242226",
+    foreground: "#f2eef1",
+    foregroundMuted: "#bab0b8",
+    foregroundExtraMuted: "#998d98",
+    border: "#373338",
+    borderAccent: "#544d54",
+    accent: "#e4d9dd",
+    accentBright: "#fff6f8",
+    accentForeground: "#322830",
+    destructive: "#d8847b",
+    terminalBlack: "#211f22",
+    terminalBrightBlack: "#544d54",
+    ring: "#e0adb9",
+  }),
+);
+
+const pimiPaper = buildLightTheme(
+  buildLightSemanticColors({
+    surface0: "#fffcf4",
+    surface1: "#f8f3e8",
+    surface2: "#eee5d4",
+    surface3: "#eae0ce",
+    surface4: "#ebddc5",
+    surfaceDiffEmpty: "#f7f2e8",
+    surfaceSidebar: "#f0eadc",
+    foreground: "#362e23",
+    foregroundMuted: "#685b4b",
+    foregroundExtraMuted: "#81705b",
+    border: "#e0d5c1",
+    borderAccent: "#cbbda5",
+    accent: "#4e4032",
+    accentBright: "#675543",
+    accentForeground: "#fffafc",
+    primary: "#4e4032",
+    primaryForeground: "#fffafc",
+    destructive: "#b04138",
+    terminalBlack: "#362e23",
+    terminalBrightBlack: "#675543",
+    ring: "#765638",
+  }),
+);
+
 // Keep compatibility with existing code
 export const theme = darkTheme;
 
@@ -863,6 +939,9 @@ type RegisteredThemes = {
 } & {
   pluginLight: typeof lightTheme;
   pluginDark: typeof darkTheme;
+  pimiBlush: typeof pimiBlush;
+  pimiDark: typeof pimiDark;
+  pimiPaper: typeof pimiPaper;
 };
 
 export const THEME_TO_UNISTYLES = Object.fromEntries(
@@ -879,6 +958,9 @@ export const REGISTERED_THEMES = {
   ),
   [PLUGIN_THEME_NAMES.light]: lightTheme,
   [PLUGIN_THEME_NAMES.dark]: darkTheme,
+  pimiBlush,
+  pimiDark,
+  pimiPaper,
 } as RegisteredThemes;
 
 export function getNextThemePreference(current: ThemePreference): ThemePreference {

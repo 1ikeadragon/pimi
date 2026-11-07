@@ -39,6 +39,8 @@ import { HostPicker } from "@/components/hosts/host-picker";
 import { SidebarDisplayPreferencesMenu } from "@/components/sidebar/display-preferences/menu";
 import { SidebarSeparator } from "@/components/sidebar/sidebar-separator";
 import { SidebarNavRows } from "@/components/sidebar/sidebar-nav-rows";
+import { PimiWorkspaceNavigation } from "@/components/sidebar/pimi-workspace-navigation";
+import { getDesktopHost } from "@/desktop/host";
 import { SidebarFooterIconHighlight } from "@/components/sidebar/sidebar-footer-icon-highlight";
 import { SidebarHelpMenu } from "@/components/sidebar/sidebar-help-menu";
 import { SidebarFooterOverflowMenu } from "@/components/sidebar/sidebar-footer-overflow-menu";
@@ -835,6 +837,7 @@ function DesktopSidebar({
             ) : (
               <TitlebarDragRegion />
             )}
+            <PimiWorkspaceNavigation />
             <SidebarNavRows style={sidebarHeaderGroupStyle} onBeforeNavigate={closeSidebar} />
           </View>
 
@@ -891,7 +894,7 @@ function DesktopSidebar({
 
 function WorkspacesSectionHeader() {
   return (
-    <SidebarSectionHeader title="Workspaces">
+    <SidebarSectionHeader title={getDesktopHost()?.showPimiWorkspace ? "Sessions" : "Workspaces"}>
       <Tooltip delayDuration={300}>
         <TooltipTrigger asChild>
           <View>

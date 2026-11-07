@@ -11,7 +11,12 @@ import { inheritLoginShellEnv } from "./login-shell-env.js";
 
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { isPimiWindow, showPimiWindow } from "./window/pimi-window.js";
+import {
+  isPimiWindow,
+  pimiAppearanceArgument,
+  showPimiWindow,
+  type PimiDestination,
+} from "./window/pimi-window.js";
 import { existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import {
@@ -671,31 +676,58 @@ function getWorkAreasPrimaryFirst(): Electron.Rectangle[] {
   return [primary, ...others].map((display) => display.workArea);
 }
 
-function openPimi(): void {
-  void showPimiWindow({
-    runtimeDir: path.join(app.getAppPath(), "dist"),
-    dictationUrl: app.isPackaged
-      ? `${APP_SCHEME}://app/pimi-dictation`
-      : new URL("/pimi-dictation", DEV_SERVER_URL).toString(),
-    preload: getPreloadPath(),
-    openAgentChat: (target) => {
-      void desktopWindowOwner
-        .openOrFocusAgent(target)
-        .catch((error) => log.error("[pimi] failed to open agent chat", error));
+function openPimi(destination?: PimiDestination): void {
+  void showPimiWindow(
+    {
+      runtimeDir: path.join(app.getAppPath(), "dist"),
+      dictationUrl: app.isPackaged
+        ? `${APP_SCHEME}://app/pimi-dictation`
+        : new URL("/pimi-dictation", DEV_SERVER_URL).toString(),
+      preload: getPreloadPath(),
+      workspacePreload: path.join(path.dirname(getPreloadPath()), "pimi-workspace-preload.js"),
+      openAgentChat: (target) => {
+        void desktopWindowOwner
+          .openOrFocusAgent(target)
+          .catch((error) => log.error("[pimi] failed to open agent chat", error));
+      },
+      openAgentConsole: () => {
+        const agentWindow = BrowserWindow.getAllWindows().find((win) => !isPimiWindow(win));
+        if (agentWindow) {
+          if (agentWindow.isMinimized()) agentWindow.restore();
+          agentWindow.show();
+          agentWindow.focus();
+        } else {
+          void desktopWindowOwner.openPrimary().catch((error) => {
+            log.error("[pimi] failed to open agent console", error);
+          });
+        }
+      },
     },
-    openAgentConsole: () => {
-      const agentWindow = BrowserWindow.getAllWindows().find((win) => !isPimiWindow(win));
-      if (agentWindow) {
-        if (agentWindow.isMinimized()) agentWindow.restore();
-        agentWindow.show();
-        agentWindow.focus();
-      } else {
-        void desktopWindowOwner.openPrimary().catch((error) => {
-          log.error("[pimi] failed to open agent console", error);
-        });
-      }
-    },
-  }).catch((error) => log.error("[pimi] failed to open review window", error));
+    destination,
+  ).catch((error) => log.error("[pimi] failed to open workspace", error));
+}
+
+function registerPimiWorkspaceNavigation(): void {
+  ipcMain.on("pimi:workspace:show", (event, destination: unknown) => {
+    const frame = event.senderFrame;
+    if (
+      !frame ||
+      frame !== event.sender.mainFrame ||
+      !destination ||
+      typeof destination !== "object"
+    )
+      return;
+    const url = new URL(frame.url);
+    const trusted = app.isPackaged
+      ? url.protocol === `${APP_SCHEME}:` && url.host === "app"
+      : url.origin === new URL(DEV_SERVER_URL).origin;
+    if (!trusted) return;
+    const { view, path: checkout } = destination as { view?: unknown; path?: unknown };
+    if (view === "tasks" || view === "worktrees") openPimi({ view });
+    if (view === "review" && typeof checkout === "string" && path.isAbsolute(checkout)) {
+      openPimi({ view, path: checkout });
+    }
+  });
 }
 
 async function createWindow(
@@ -734,7 +766,10 @@ async function createWindow(
     }),
     webPreferences: {
       preload: getPreloadPath(),
-      additionalArguments: [windowChromeModeArgument(DESKTOP_WINDOW_CHROME_MODE)],
+      additionalArguments: [
+        windowChromeModeArgument(DESKTOP_WINDOW_CHROME_MODE),
+        ...(PIMI_DESKTOP ? [pimiAppearanceArgument()] : []),
+      ],
       contextIsolation: true,
       nodeIntegration: false,
       webviewTag: true,
@@ -992,7 +1027,7 @@ async function bootstrap(): Promise<void> {
 
   await applyAppIcon();
   setupApplicationMenu({
-    onOpenPimi: PIMI_DESKTOP ? openPimi : undefined,
+    onOpenPimi: PIMI_DESKTOP ? () => openPimi() : undefined,
     onNewWindow: () => {
       void desktopWindowOwner.openAdditional().catch((error) => {
         log.error("[window] failed to create window from menu", error);
@@ -1002,6 +1037,7 @@ async function bootstrap(): Promise<void> {
   ensureNotificationCenterRegistration();
   registerDaemonManager();
   registerWindowManager({ mode: DESKTOP_WINDOW_CHROME_MODE });
+  if (PIMI_DESKTOP) registerPimiWorkspaceNavigation();
   registerDialogHandlers();
   registerNotificationHandlers();
   const openExternalUrl = createExternalUrlOpener({ open: shell.openExternal });

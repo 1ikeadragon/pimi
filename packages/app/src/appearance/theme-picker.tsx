@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Text, View, type PressableStateCallbackType } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { PressHighlight } from "@/components/ui/press-highlight";
+import { getDesktopHost } from "@/desktop/host";
 import { DEFAULT_THEME_PREFERENCE, useAppSettings, type AppSettings } from "@/hooks/use-settings";
 import type { PluginThemeOption } from "@/plugins/themes";
 import {
@@ -42,6 +43,14 @@ export function ThemePicker() {
     },
     [updateSettings],
   );
+
+  if (getDesktopHost()?.pimiAppearance) {
+    return (
+      <Text style={styles.label}>
+        Use Appearance in the Pimi workspace toolbar to change all windows.
+      </Text>
+    );
+  }
 
   return (
     <View

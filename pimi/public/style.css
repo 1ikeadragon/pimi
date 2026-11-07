@@ -483,6 +483,16 @@ h2 {
   align-items: center;
 }
 
+.comparison-settings .compare {
+  display: grid;
+  min-width: 230px;
+  justify-items: stretch;
+}
+
+.comparison-settings .compare button {
+  justify-self: end;
+}
+
 .compare {
   display: flex;
   flex-wrap: wrap;

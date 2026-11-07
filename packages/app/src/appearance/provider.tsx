@@ -8,6 +8,8 @@ import {
   useState,
 } from "react";
 import { UnistylesRuntime } from "react-native-unistyles";
+import { getDesktopHost } from "@/desktop/host";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
   DEFAULT_THEME_PREFERENCE,
   resolveContentMaxWidth,
@@ -59,15 +61,28 @@ function applyTheme({ preference, contributedTheme }: ApplyThemeInput): void {
 export function AppearanceProvider({ children }: { children: ReactNode }) {
   const { settings, updateSettings, isLoading } = useAppSettings();
   const [hasAppliedAppearance, setHasAppliedAppearance] = useState(false);
+  const pimiBridge = getDesktopHost()?.pimiAppearance;
+  const [pimiAppearance, setPimiAppearance] = useState(() => pimiBridge?.get());
+  const systemDark = useColorScheme() === "dark";
   const options = usePluginThemeCatalog();
   const selected = useMemo(() => {
     if (settings.theme !== PLUGIN_THEME_PREFERENCE) return null;
     return options.find((option) => option.id === settings.pluginThemeId) ?? null;
   }, [options, settings.pluginThemeId, settings.theme]);
 
+  useEffect(() => pimiBridge?.subscribe(setPimiAppearance), [pimiBridge]);
+
   useEffect(() => {
     if (isLoading) return;
-    applyTheme({ preference: settings.theme, contributedTheme: selected });
+    if (pimiAppearance) {
+      const systemMode = systemDark ? "dark" : "light";
+      const mode = pimiAppearance === "system" ? systemMode : pimiAppearance;
+      const themes = { light: "pimiBlush", dark: "pimiDark", paper: "pimiPaper" } as const;
+      UnistylesRuntime.setAdaptiveThemes(false);
+      UnistylesRuntime.setTheme(themes[mode]);
+    } else {
+      applyTheme({ preference: settings.theme, contributedTheme: selected });
+    }
     applyAppearance({
       uiFontFamily: settings.uiFontFamily,
       monoFontFamily: settings.monoFontFamily,
@@ -80,6 +95,8 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     setHasAppliedAppearance(true);
   }, [
     isLoading,
+    pimiAppearance,
+    systemDark,
     selected,
     settings.theme,
     settings.uiFontFamily,
