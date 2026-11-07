@@ -1,0 +1,47 @@
+/* Shared by Pimi's desktop shell and its loopback workspace. */
+:root[data-appearance] {
+  --pimi-ink: url("/pimi-textures/blush.svg");
+  --pimi-ink-size: clamp(440px, 77%, 1080px) auto;
+  --pimi-ink-position: right -16px bottom -52px;
+  --pimi-material: url("/pimi-textures/paper.svg");
+}
+
+:root[data-appearance="paper"] {
+  --pimi-ink: none;
+}
+
+:root[data-appearance="dark"] {
+  --pimi-ink: radial-gradient(ellipse at 84% 14%, #aca9b212, transparent 67%);
+  --pimi-ink-size: 100% 100%;
+  --pimi-ink-position: center;
+  --pimi-material: url("/pimi-textures/graphite.svg");
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-appearance="system"] {
+    --pimi-ink: radial-gradient(ellipse at 84% 14%, #aca9b212, transparent 67%);
+    --pimi-ink-size: 100% 100%;
+    --pimi-ink-position: center;
+    --pimi-material: url("/pimi-textures/graphite.svg");
+  }
+}
+
+:root[data-appearance] [data-pimi-background] {
+  background-image: var(--pimi-ink), var(--pimi-material);
+  background-position:
+    var(--pimi-ink-position),
+    top left;
+  background-size: var(--pimi-ink-size), auto;
+  background-repeat: no-repeat, repeat;
+}
+
+:root[data-appearance] [data-pimi-material] {
+  background-image: var(--pimi-material);
+}
+
+@media (prefers-contrast: more), (forced-colors: active) {
+  :root[data-appearance] {
+    --pimi-ink: none;
+    --pimi-material: none;
+  }
+}

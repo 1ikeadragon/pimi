@@ -24,6 +24,7 @@ import { PairDeviceModal } from "@/desktop/components/pair-device-modal";
 import { buildNewWorkspaceRoute, buildSettingsHostSectionRoute } from "@/utils/host-routes";
 
 const WINDOW_CONTENT_DATASET = { "window-content": "" };
+const PIMI_BACKGROUND = { "pimi-background": "" };
 
 export function OpenProjectScreen() {
   const { t } = useTranslation();
@@ -66,7 +67,7 @@ export function OpenProjectScreen() {
   }, [chooseHost, router]);
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} dataSet={pimi ? PIMI_BACKGROUND : undefined}>
       <MenuHeader borderless />
       <ScrollView
         style={styles.scroll}

@@ -136,13 +136,24 @@ export async function startPimi({
         ["/diff-find.js", "diff-find.js", "text/javascript; charset=utf-8"],
         ["/live-updates.js", "live-updates.js", "text/javascript; charset=utf-8"],
         ["/style.css", "style.css", "text/css; charset=utf-8"],
-        ["/grain.svg", "grain.svg", "image/svg+xml"],
         ["/pimi-mark.svg", "pimi-mark.svg", "image/svg+xml"],
       ].map(async ([path, file, mime]) => [
         path,
         { mime, data: await readFile(new URL(`./public/${file}`, import.meta.url)) },
       ]),
     ),
+  );
+  const textures = new URL(
+    native ? "./public/pimi-textures/" : "../packages/app/public/pimi-textures/",
+    import.meta.url,
+  );
+  await Promise.all(
+    ["appearance.css", "blush.svg", "paper.svg", "graphite.svg"].map(async (file) => {
+      assets.set("/pimi-textures/" + file, {
+        mime: file.endsWith(".css") ? "text/css; charset=utf-8" : "image/svg+xml",
+        data: await readFile(new URL(file, textures)),
+      });
+    }),
   );
   assets.set("/syntax.css", {
     mime: "text/css; charset=utf-8",

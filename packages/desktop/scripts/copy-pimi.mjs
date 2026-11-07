@@ -5,3 +5,9 @@ await cp(new URL("../../../pimi/", import.meta.url), new URL("../dist/pimi/", im
   recursive: true,
   filter: (path) => !path.endsWith(".md"),
 });
+
+await cp(
+  new URL("../../app/public/pimi-textures/", import.meta.url),
+  new URL("../dist/pimi/public/pimi-textures/", import.meta.url),
+  { recursive: true },
+);
