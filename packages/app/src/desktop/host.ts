@@ -181,8 +181,10 @@ export interface DesktopHostBridge {
   invoke?: DesktopInvokeBridge["invoke"];
   taskDictation?: { complete: (text: string | null) => void };
   showPimiWorkspace?: (destination: PimiDestination) => void;
+  onPimiOpenSettings?: (open: () => void) => () => void;
   pimiAppearance?: {
     get: () => PimiAppearance;
+    set: (mode: PimiAppearance) => Promise<void>;
     subscribe: (handler: (mode: PimiAppearance) => void) => () => void;
   };
   getPendingOpenProject?: () => Promise<string | null>;

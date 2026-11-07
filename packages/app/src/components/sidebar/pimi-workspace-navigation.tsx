@@ -26,7 +26,7 @@ export function PimiWorkspaceNavigation() {
       <SidebarHeaderRow icon={ListTodo} label="Tasks" onPress={showTasks} variant="compact" />
       <SidebarHeaderRow
         icon={Columns3}
-        label="Worktree board"
+        label="Worktrees"
         onPress={showWorktrees}
         variant="compact"
       />
@@ -42,7 +42,7 @@ const styles = StyleSheet.create((theme) => ({
     gap: 10,
     paddingHorizontal: 15,
     paddingTop: 13,
-    paddingBottom: 12,
+    paddingBottom: 9,
   },
   mark: {
     width: 31,
@@ -60,7 +60,7 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: 11,
     fontWeight: "600",
     paddingHorizontal: 15,
-    paddingTop: 17,
+    paddingTop: 12,
     paddingBottom: 3,
   },
 }));

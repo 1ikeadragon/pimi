@@ -1,14 +1,16 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Text, View, type PressableStateCallbackType } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { PressHighlight } from "@/components/ui/press-highlight";
-import { getDesktopHost } from "@/desktop/host";
+import { getDesktopHost, type DesktopHostBridge, type PimiAppearance } from "@/desktop/host";
 import { DEFAULT_THEME_PREFERENCE, useAppSettings, type AppSettings } from "@/hooks/use-settings";
 import type { PluginThemeOption } from "@/plugins/themes";
 import {
   THEME_OPTIONS,
   PLUGIN_THEME_PREFERENCE,
+  PIMI_APPEARANCE_THEMES,
+  REGISTERED_THEMES,
   darkTheme,
   lightTheme,
   type Theme,
@@ -30,6 +32,84 @@ const PREVIEW_ASPECT_RATIO = 16 / 9;
  * the theme to the whole app at once. Settings → Appearance and first-run setup share it.
  */
 export function ThemePicker() {
+  const bridge = getDesktopHost()?.pimiAppearance;
+  return bridge ? <PimiThemePicker bridge={bridge} /> : <BuiltInThemePicker />;
+}
+
+const pimiOptions = [
+  { mode: "system", label: "System", preview: "pimi-system" },
+  { mode: "light", label: "Blush", preview: REGISTERED_THEMES[PIMI_APPEARANCE_THEMES.light] },
+  { mode: "dark", label: "Dark", preview: REGISTERED_THEMES[PIMI_APPEARANCE_THEMES.dark] },
+  { mode: "paper", label: "Paper", preview: REGISTERED_THEMES[PIMI_APPEARANCE_THEMES.paper] },
+] as const;
+
+function PimiThemePicker({ bridge }: { bridge: NonNullable<DesktopHostBridge["pimiAppearance"]> }) {
+  const [mode, setMode] = useState(bridge.get);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(false);
+  useEffect(() => bridge.subscribe(setMode), [bridge]);
+  const selectMode = useCallback(
+    async (next: PimiAppearance) => {
+      if (next === mode) return;
+      setSaving(true);
+      setError(false);
+      try {
+        await bridge.set(next);
+      } catch {
+        setError(true);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [bridge, mode],
+  );
+  return (
+    <View style={styles.pimiSettings}>
+      <View style={styles.grid} accessibilityRole="radiogroup" accessibilityLabel="Appearance">
+        {pimiOptions.map((option) => (
+          <PimiThemeTile
+            key={option.mode}
+            option={option}
+            selected={mode === option.mode}
+            disabled={saving}
+            selectMode={selectMode}
+          />
+        ))}
+      </View>
+      <Text style={styles.hint}>Applies to all Pimi windows.</Text>
+      {error && (
+        <Text style={styles.error} accessibilityRole="alert">
+          Couldn’t save appearance. Try again.
+        </Text>
+      )}
+    </View>
+  );
+}
+
+function PimiThemeTile({
+  option,
+  selected,
+  disabled,
+  selectMode,
+}: {
+  option: (typeof pimiOptions)[number];
+  selected: boolean;
+  disabled: boolean;
+  selectMode: (mode: PimiAppearance) => Promise<void>;
+}) {
+  const press = useCallback(() => void selectMode(option.mode), [option.mode, selectMode]);
+  return (
+    <ThemeTile
+      label={option.label}
+      selected={selected}
+      disabled={disabled}
+      onPress={press}
+      previewTheme={option.preview}
+    />
+  );
+}
+
+function BuiltInThemePicker() {
   const { t } = useTranslation();
   const { settings, updateSettings } = useAppSettings();
   const { options: pluginThemes, selected: selectedPluginTheme, select } = useContributedThemes();
@@ -43,14 +123,6 @@ export function ThemePicker() {
     },
     [updateSettings],
   );
-
-  if (getDesktopHost()?.pimiAppearance) {
-    return (
-      <Text style={styles.label}>
-        Use Appearance in the Pimi workspace toolbar to change all windows.
-      </Text>
-    );
-  }
 
   return (
     <View
@@ -123,16 +195,18 @@ function PluginThemeTile({
 function ThemeTile({
   label,
   selected,
+  disabled,
   onPress,
   previewTheme,
 }: {
   label: string;
   selected: boolean;
+  disabled?: boolean;
   onPress: () => void;
   /** "system" follows the OS, so its preview shows both halves. */
-  previewTheme: Theme | "system";
+  previewTheme: Theme | "system" | "pimi-system";
 }) {
-  const accessibilityState = useMemo(() => ({ checked: selected }), [selected]);
+  const accessibilityState = useMemo(() => ({ checked: selected, disabled }), [disabled, selected]);
   const tileStyle = useCallback(
     ({ hovered }: PressableStateCallbackType & { hovered?: boolean }) => [
       styles.tile,
@@ -146,17 +220,14 @@ function ThemeTile({
       <PressHighlight
         style={tileStyle}
         onPress={onPress}
+        disabled={disabled}
         accessibilityRole="radio"
         accessibilityLabel={label}
         accessibilityState={accessibilityState}
         aria-checked={selected}
       >
         <View style={styles.previewFrame}>
-          {previewTheme === "system" ? (
-            <SystemThemePreview />
-          ) : (
-            <ThemePreview theme={previewTheme} />
-          )}
+          <ThemeTilePreview theme={previewTheme} />
         </View>
         <Text style={styles.label} numberOfLines={1}>
           {label}
@@ -164,6 +235,19 @@ function ThemeTile({
       </PressHighlight>
     </View>
   );
+}
+
+function ThemeTilePreview({ theme }: { theme: Theme | "system" | "pimi-system" }) {
+  if (theme === "system") return <SystemThemePreview />;
+  if (theme === "pimi-system") {
+    return (
+      <SystemThemePreview
+        light={REGISTERED_THEMES[PIMI_APPEARANCE_THEMES.light]}
+        dark={REGISTERED_THEMES[PIMI_APPEARANCE_THEMES.dark]}
+      />
+    );
+  }
+  return <ThemePreview theme={theme} />;
 }
 
 /** A sketch of the app — sidebar, a few lines of text and an accent bubble — in `theme`'s colors. */
@@ -197,13 +281,19 @@ function ThemePreview({ theme }: { theme: Theme }) {
 }
 
 /** "System" follows the OS: light on the left half, dark on the right. */
-function SystemThemePreview() {
+function SystemThemePreview({
+  light = lightTheme,
+  dark = darkTheme,
+}: {
+  light?: Theme;
+  dark?: Theme;
+}) {
   return (
     <View style={styles.preview}>
-      <ThemePreview theme={lightTheme} />
+      <ThemePreview theme={light} />
       <View style={styles.systemDarkHalf}>
         <View style={styles.systemDarkOffset}>
-          <ThemePreview theme={darkTheme} />
+          <ThemePreview theme={dark} />
         </View>
       </View>
     </View>
@@ -211,6 +301,9 @@ function SystemThemePreview() {
 }
 
 const styles = StyleSheet.create((theme) => ({
+  pimiSettings: { gap: theme.spacing[3] },
+  hint: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm },
+  error: { color: theme.colors.destructive, fontSize: theme.fontSize.sm },
   // Columns fill the row: each cell is a fixed fraction of it, and the half-gap padding on every
   // cell plus the negative margin here leaves exactly one gap between neighbors.
   grid: {

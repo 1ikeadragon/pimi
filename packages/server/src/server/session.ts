@@ -8724,19 +8724,6 @@ export class Session {
     }
   }
 
-  private async prepareAgentMessage(agentId: string, text: string): Promise<void> {
-    await ensureAgentLoaded(agentId, {
-      agentManager: this.agentManager,
-      agentStorage: this.agentStorage,
-      logger: this.sessionLogger,
-    });
-    const stored = await this.agentStorage.get(agentId);
-    if (stored && !stored.title && !stored.lastUserMessageAt) {
-      const { provisionalTitle } = resolveCreateAgentTitles({ initialPrompt: text });
-      if (provisionalTitle) await this.agentManager.setTitle(agentId, provisionalTitle);
-    }
-  }
-
   private async handleSendAgentMessageRequest(
     msg: Extract<SessionInboundMessage, { type: "send_agent_message_request" }>,
   ): Promise<void> {
@@ -8827,7 +8814,12 @@ export class Session {
                 msg.activeTurnBehavior ?? (msg.sourceAgentId ? "steer" : "interrupt"),
             },
             prepare: async () => {
-              if (!msg.sourceAgentId) await this.prepareAgentMessage(agentId, msg.text);
+              if (msg.sourceAgentId) return;
+              await ensureAgentLoaded(agentId, {
+                agentManager: this.agentManager,
+                agentStorage: this.agentStorage,
+                logger: this.sessionLogger,
+              });
             },
             send,
           })

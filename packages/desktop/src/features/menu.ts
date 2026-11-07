@@ -9,6 +9,7 @@ interface ShowContextMenuInput {
 interface ApplicationMenuOptions {
   onNewWindow: () => void;
   onOpenPimi?: () => void;
+  onOpenSettings?: () => void;
 }
 
 function withBrowserWindow(
@@ -79,6 +80,9 @@ function buildApplicationMenuTemplate(
             label: app.name,
             submenu: [
               { role: "about" as const },
+              ...(options.onOpenSettings
+                ? [{ label: "Settings…", accelerator: "Cmd+,", click: options.onOpenSettings }]
+                : []),
               { type: "separator" as const },
               { role: "services" as const },
               { type: "separator" as const },
@@ -94,6 +98,9 @@ function buildApplicationMenuTemplate(
     {
       label: "File",
       submenu: [
+        ...(!isMac && options.onOpenSettings
+          ? [{ label: "Settings…", accelerator: "Ctrl+,", click: options.onOpenSettings }]
+          : []),
         ...(options.onOpenPimi
           ? [
               {

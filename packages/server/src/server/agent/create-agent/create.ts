@@ -264,6 +264,7 @@ async function resolveSessionCreateAgent(
       initialPrompt: trimmedPrompt,
       env: input.env,
       initialTitle: input.provisionalTitle,
+      initialTitleProvisional: Boolean(input.provisionalTitle && !sessionConfig.title?.trim()),
       // Paseo never persists an internal agent, so nothing could resume its
       // provider session either. Same as the daemon's own ephemeral helpers.
       ...(sessionConfig.internal ? { persistSession: false } : {}),

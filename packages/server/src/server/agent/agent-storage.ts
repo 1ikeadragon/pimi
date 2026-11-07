@@ -52,6 +52,7 @@ const STORED_AGENT_SCHEMA = z.object({
   lastActivityAt: z.string().optional(),
   lastUserMessageAt: z.string().nullable().optional(),
   title: z.string().nullable().optional(),
+  provisionalTitle: z.boolean().optional(),
   labels: z.record(z.string(), z.string()).default({}),
   lastStatus: AgentStatusSchema.default("closed"),
   resumeOnStartup: z.boolean().optional(),
@@ -276,7 +277,7 @@ export class AgentStorage {
 
   private queueRecordMutation(
     agentId: string,
-    mutate: (existing: StoredAgentRecord | null) => StoredAgentRecord,
+    mutate: (existing: StoredAgentRecord | null) => StoredAgentRecord | null,
   ): Promise<void> {
     const prev = this.pendingWrites.get(agentId) ?? Promise.resolve();
     const next = prev.then(async () => {
@@ -285,7 +286,7 @@ export class AgentStorage {
       }
 
       const record = mutate(this.cache.get(agentId) ?? null);
-      await this.writeRecord(record);
+      if (record) await this.writeRecord(record);
       return undefined;
     });
 
@@ -362,19 +363,22 @@ export class AgentStorage {
 
   async applySnapshot(
     agent: ManagedAgent,
-    options?: { title?: string | null; internal?: boolean },
+    options?: { title?: string | null; provisionalTitle?: boolean; internal?: boolean },
   ): Promise<void> {
     await this.load();
-    const hasTitleOverride =
-      options !== undefined && Object.prototype.hasOwnProperty.call(options, "title");
+    const titleOverride =
+      options && Object.prototype.hasOwnProperty.call(options, "title")
+        ? (options.title ?? null)
+        : undefined;
     const hasInternalOverride =
       options !== undefined && Object.prototype.hasOwnProperty.call(options, "internal");
     await this.queueRecordMutation(agent.id, (existing) => {
       const record = toStoredAgentRecord(agent, {
-        title: hasTitleOverride ? (options?.title ?? null) : (existing?.title ?? null),
+        title: titleOverride === undefined ? (existing?.title ?? null) : titleOverride,
         createdAt: existing?.createdAt,
         internal: hasInternalOverride ? options?.internal : (agent.internal ?? existing?.internal),
       });
+      record.provisionalTitle = options?.provisionalTitle ?? existing?.provisionalTitle;
 
       // Preserve soft-delete/archive status across snapshot flushes. The
       // projection runs inside the per-agent write queue so it cannot commit a
@@ -391,13 +395,25 @@ export class AgentStorage {
   }
 
   async setTitle(agentId: string, title: string): Promise<void> {
+    const record = await this.updateRecord(agentId, (current) => ({
+      ...current,
+      title,
+      provisionalTitle: undefined,
+    }));
+    if (!record) throw new Error(`Agent ${agentId} not found`);
+  }
+
+  async updateRecord(
+    agentId: string,
+    mutate: (current: StoredAgentRecord) => StoredAgentRecord | null,
+  ): Promise<StoredAgentRecord | null> {
     await this.load();
-    await this.waitForPendingWrite(agentId);
-    const record = await this.get(agentId);
-    if (!record) {
-      throw new Error(`Agent ${agentId} not found`);
-    }
-    await this.upsert({ ...record, title });
+    let next: StoredAgentRecord | null = null;
+    await this.queueRecordMutation(agentId, (current) => {
+      next = current ? mutate(current) : null;
+      return next;
+    });
+    return next;
   }
 
   async flush(): Promise<void> {
@@ -542,10 +558,6 @@ export class AgentStorage {
       this.daemonAgentIdsByExecution.delete(key);
     }
     this.daemonExecutionKeysByAgentId.delete(agentId);
-  }
-
-  private async waitForPendingWrite(agentId: string): Promise<void> {
-    await (this.pendingWrites.get(agentId) ?? Promise.resolve()).catch(() => undefined);
   }
 }
 

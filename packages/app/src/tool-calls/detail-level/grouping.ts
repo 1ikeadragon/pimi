@@ -1,6 +1,6 @@
 import { isTurnTrigger, isTurnBoundary } from "@/agent-stream/turn-membership";
 import type { ToolCallDetail } from "@getpaseo/protocol/agent-types";
-import { isPimiTaskProposalTool } from "@getpaseo/protocol/pimi-task";
+import { isPimiActionTool } from "@getpaseo/protocol/pimi-task";
 import type { StreamItem, ToolCallItem, ThoughtItem } from "@/types/stream";
 
 export interface ToolCallDescriptor {
@@ -78,7 +78,7 @@ export function isGroupableToolCall(
   return (
     descriptor.detail.type !== "plan" &&
     descriptor.name.trim().toLowerCase() !== "speak" &&
-    !isPimiTaskProposalTool(descriptor.name)
+    !isPimiActionTool(descriptor.name)
   );
 }
 

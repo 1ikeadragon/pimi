@@ -1,5 +1,7 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
 import { createTasksView } from "./tasks.js";
+import { createDiffFind } from "./diff-find.js";
+import { createWorktreeComparison } from "./worktree-comparison.js";
 
 const $ = (id) => document.getElementById(id);
 const laneDefinitions = [
@@ -17,19 +19,34 @@ let stepIndex = 0;
 let generatingFor;
 let generation = 0;
 let loading = false;
+let preferredReviewEditor = "";
 let boardRequest;
 let boardSignature;
 let boardData;
 const patchCache = new Map();
 const renderedPanes = new Map();
+const diffFind = createDiffFind($);
+const worktreeComparison = createWorktreeComparison({
+  $,
+  api,
+  element,
+  button,
+  formatPatch,
+  baseForWorktree: (card) => tasksView.baseForWorktree(card),
+});
 const tasksView = createTasksView({
   $,
   api,
   button,
   element,
   message,
-  agentChatLinks,
+  agentChatLinks: agentChatActions,
   openReview: selectWorktree,
+  compareReview(card, base) {
+    if (!activeWorktree || !$("review-entry").hidden) selectWorktree(card, base);
+    view("review");
+    worktreeComparison.open(card, base);
+  },
   refreshBoard,
 });
 
@@ -68,6 +85,7 @@ function message(id, text) {
 }
 
 function view(name) {
+  if (name !== "review") diffFind.close();
   for (const section of ["tasks", "board", "review"]) {
     $(section).hidden = section !== name;
     const nav = $("show-" + section);
@@ -76,8 +94,14 @@ function view(name) {
   }
 }
 
-function describeAgent(agent) {
-  return `${agent.title} · ${agent.provider} · ${agent.needsInput ? "awaiting approval" : agent.status}`;
+function describeAgent(agent, worktreeName) {
+  return [
+    agent.title === worktreeName ? null : agent.title,
+    agent.provider,
+    agent.needsInput ? "awaiting approval" : agent.status,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 function agentChatLinks(agents) {
@@ -92,6 +116,26 @@ function agentChatLinks(agents) {
   });
 }
 
+function agentChatActions(agents) {
+  const links = agentChatLinks(agents);
+  if (links.length !== 1) return links;
+  const copy = button("button quiet", "Copy chat link", async () => {
+    try {
+      await navigator.clipboard.writeText(links[0].href);
+      copy.textContent = "Copied";
+      setTimeout(() => {
+        copy.textContent = "Copy chat link";
+      }, 1500);
+    } catch {
+      message(
+        $("tasks").hidden ? "review-warning" : "task-warning",
+        "Could not copy the chat link.",
+      );
+    }
+  });
+  return [...links, copy];
+}
+
 function matchesSearch(query, ...values) {
   return values.some((value) => value?.toLowerCase().includes(query));
 }
@@ -103,6 +147,7 @@ function renderBoard(data) {
   if (signature === boardSignature) return;
   boardSignature = signature;
   tasksView.setBoard(data);
+  worktreeComparison.setBoard(data.cards);
   renderReviewWorktreeOptions(data.cards);
   daemonConnected = !data.daemonError;
   $("show-agents").hidden = !data.native;
@@ -133,21 +178,18 @@ function renderBoard(data) {
       const item = button("card", "", () => selectWorktree(card));
       item.title = card.path;
       item.disabled = Boolean(card.unavailable);
+      const gitStatus = [
+        card.unavailable ? "Worktree missing" : card.error,
+        card.dirty ? "Working changes" : "",
+        card.ahead ? `${card.ahead} ahead of base` : "",
+        card.prUrl ? "Open PR" : "",
+      ].filter(Boolean);
       item.append(
         element("span", "card-name", card.name),
         element("span", "card-repo", card.repo),
-        element(
-          "span",
-          "card-detail",
-          [
-            card.unavailable ? "Worktree missing" : card.error,
-            card.dirty ? "Working changes" : "",
-            card.ahead ? `${card.ahead} ahead of base` : "",
-            card.prUrl ? "Open PR" : "",
-            ...card.agents.map(describeAgent),
-          ]
-            .filter(Boolean)
-            .join(" · ") || "No pending changes",
+        element("span", "card-detail", gitStatus.join(" · ") || "No pending changes"),
+        ...card.agents.map((agent) =>
+          element("span", "card-agent", describeAgent(agent, card.name)),
         ),
       );
       lane.append(item);
@@ -204,6 +246,7 @@ async function watchRepository(event) {
 
 function selectWorktree(card, base = "") {
   activeWorktree = card;
+  worktreeComparison.setPrimary(card);
   $("file-search").value = "";
   $("base").value = base;
   $("pr").value = card.prUrl || "";
@@ -221,7 +264,7 @@ function selectWorktree(card, base = "") {
     link.rel = "noopener noreferrer";
     return link;
   });
-  links.push(...agentChatLinks(card.agents));
+  links.push(...agentChatActions(card.agents));
   $("previews").replaceChildren(...links);
   $("previews").hidden = !links.length;
   view("review");
@@ -252,11 +295,14 @@ function renderReviewWorktreeOptions(cards) {
 }
 
 function openReviewPicker(warning = "") {
+  diffFind.close();
+  worktreeComparison.close();
   ++generation;
   loading = false;
   $("review-repo").textContent = "Worktree review";
   $("review-title").textContent = "Review";
   $("review-meta").textContent = "";
+  $("review-meta").removeAttribute("title");
   $("review-entry").hidden = false;
   $("review-actions").hidden = true;
   $("review-desk").hidden = true;
@@ -272,6 +318,53 @@ function updateCompareControls() {
   $("pr-control").hidden = mode !== "pr";
 }
 
+function renderReviewSummary(result) {
+  const baseLabel = result.base.label.replace(/^refs\/(heads|remotes)\//, "");
+  const baseDisplay = /^[a-f0-9]{40}(?:[a-f0-9]{24})?$/i.test(baseLabel)
+    ? baseLabel.slice(0, 8)
+    : baseLabel;
+  const source = result.pr?.label || `${baseDisplay} → ${result.head.slice(0, 8)}`;
+  const meta = $("review-meta");
+  meta.title = `${result.base.label} → ${result.head}`;
+  meta.textContent = [
+    source,
+    result.live ? "Includes tracked working changes" : "Pinned commits",
+    result.untracked
+      ? `${result.untracked} untracked ${result.untracked === 1 ? "file" : "files"} excluded`
+      : "",
+    !result.canOpenFiles ? "PR head differs from local checkout" : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function updateEditorButtons() {
+  const enabled = Boolean(review && $("review-editor").value);
+  $("open-worktree").disabled = !enabled;
+  for (const pane of renderedPanes.values()) {
+    const editor = pane.querySelector("[data-editor-openable]");
+    if (editor) editor.disabled = !enabled || editor.dataset.editorOpenable !== "true";
+  }
+}
+
+async function loadReviewEditors(result) {
+  const picker = $("review-editor");
+  try {
+    const choices = await api("editors?" + new URLSearchParams({ id: result.id }));
+    if (review !== result) return;
+    picker.replaceChildren(...choices.map(({ id, label }) => new Option(label, id)));
+    if (!choices.length) picker.add(new Option("No editor available", ""));
+    if (choices.some(({ id }) => id === preferredReviewEditor))
+      picker.value = preferredReviewEditor;
+    picker.disabled = !choices.length;
+    updateEditorButtons();
+  } catch (error) {
+    if (review !== result) return;
+    picker.replaceChildren(new Option("Editors unavailable", ""));
+    message("review-warning", error.message);
+  }
+}
+
 async function loadReview({ keepSelection = false } = {}) {
   const mode = $("mode").value;
   if (mode === "pr" && !$("pr").value.trim()) {
@@ -284,7 +377,10 @@ async function loadReview({ keepSelection = false } = {}) {
   $("load-review").disabled = true;
   $("refresh-comparison").disabled = true;
   $("open-worktree").disabled = true;
+  $("review-editor").disabled = true;
+  $("review-editor").replaceChildren(new Option("Detecting editors…", ""));
   $("review-meta").textContent = "Loading comparison…";
+  $("review-meta").removeAttribute("title");
   message("review-warning", "");
   review = undefined;
   selected = [];
@@ -305,19 +401,8 @@ async function loadReview({ keepSelection = false } = {}) {
     const paths = new Set(result.files.map((file) => file.path));
     selected = previousFiles.filter((path) => paths.has(path));
     if (!selected.length && result.files.length) selected = [result.files[0].path];
-    const baseLabel = result.base.label.replace(/^refs\/(heads|remotes)\//, "");
-    const source = result.pr?.label || `${baseLabel} → ${result.head.slice(0, 8)}`;
-    $("review-meta").textContent = [
-      source,
-      result.live ? "Includes tracked working changes" : "Pinned commits",
-      result.untracked
-        ? `${result.untracked} untracked ${result.untracked === 1 ? "file" : "files"} excluded`
-        : "",
-      !result.canOpenFiles ? "PR head differs from local checkout" : "",
-    ]
-      .filter(Boolean)
-      .join(" · ");
-    $("open-worktree").disabled = false;
+    renderReviewSummary(result);
+    void loadReviewEditors(result);
   } catch (error) {
     if (request !== generation) return;
     message("review-warning", error.message);
@@ -498,7 +583,7 @@ function createPane(path) {
   const title = element("span", "pane-path", path);
   title.title = path;
   const actions = element("div", "pane-actions");
-  const editor = button("icon-button", "Zed ↗", () => {
+  const editor = button("icon-button", "Open ↗", () => {
     const step = tour?.steps[stepIndex];
     if (step?.path === path && step.fingerprint && step.fingerprint !== pane.dataset.fingerprint) {
       message("review-warning", "Reload changes before opening this walkthrough line.");
@@ -510,7 +595,8 @@ function createPane(path) {
       pane.dataset.fingerprint,
     );
   });
-  editor.setAttribute("aria-label", `Open ${path} in Zed`);
+  editor.setAttribute("aria-label", `Open ${path} in selected editor`);
+  editor.dataset.editorOpenable = "false";
   editor.disabled = true;
   editor.title =
     current.canOpenFiles && file.status !== "D"
@@ -549,7 +635,8 @@ function createPane(path) {
       const { patch, fingerprint } = await getPatch(current.id, path);
       pane.dataset.fingerprint = fingerprint;
       displayPatch(patch);
-      editor.disabled = !current.canOpenFiles || file.status === "D";
+      editor.dataset.editorOpenable = String(current.canOpenFiles && file.status !== "D");
+      editor.disabled = editor.dataset.editorOpenable !== "true" || !$("review-editor").value;
       let showingSource = false;
       const toggle = button("icon-button", file.status === "D" ? "Before" : "File", async () => {
         if (showingSource) {
@@ -605,8 +692,10 @@ function renderPanes() {
 }
 
 async function launchEditor(path, line = 1, fingerprint) {
+  const editorId = $("review-editor").value;
+  if (!review || !editorId) return;
   try {
-    await api("editor", { id: review.id, path, line, fingerprint });
+    await api("editor", { id: review.id, path, line, fingerprint, editorId });
   } catch (error) {
     message("review-warning", error.message);
   }
@@ -718,6 +807,16 @@ $("show-tasks").addEventListener("click", () => {
 });
 const appearance = $("appearance");
 appearance.value = document.documentElement.dataset.appearance;
+if (window.pimiWorkspace) {
+  window.pimiWorkspace.onAppearanceChange((mode) => {
+    document.documentElement.dataset.appearance = mode;
+  });
+} else {
+  $("open-settings").addEventListener("click", (event) => {
+    event.preventDefault();
+    $("settings-dialog").showModal();
+  });
+}
 appearance.addEventListener("change", async () => {
   const root = document.documentElement;
   const previous = root.dataset.appearance;
@@ -742,6 +841,7 @@ $("change-review-worktree").addEventListener("click", () => {
   openReviewPicker();
   $("review-worktree").focus();
 });
+$("compare-worktrees").addEventListener("click", () => worktreeComparison.open());
 $("review-worktree").addEventListener("change", () => {
   $("review-open-worktree").disabled = !$("review-worktree").value;
 });
@@ -774,6 +874,14 @@ window.pimiWorkspace?.onNavigate(async (destination) => {
   }
   view("review");
   await Promise.all([refreshBoard(), tasksView.load()]);
+  if (destination.serverId && !daemonConnected) {
+    openReviewPicker("Connect to the Agent Console host to open this review suggestion.");
+    return;
+  }
+  if (destination.serverId && boardData?.serverId !== destination.serverId) {
+    openReviewPicker("This review suggestion belongs to a different Agent Console host.");
+    return;
+  }
   const card = boardData?.cards.find(
     ({ path, unavailable }) => path === destination.path && !unavailable,
   );
@@ -802,6 +910,10 @@ $("compare").addEventListener("submit", (event) => {
   void loadReview({ keepSelection: true });
 });
 $("refresh-comparison").addEventListener("click", () => void loadReview({ keepSelection: true }));
+$("review-editor").addEventListener("change", () => {
+  preferredReviewEditor = $("review-editor").value;
+  updateEditorButtons();
+});
 $("open-worktree").addEventListener("click", () => {
   void launchEditor(null);
 });

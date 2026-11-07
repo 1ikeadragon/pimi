@@ -853,6 +853,12 @@ const pimiPaper = buildLightTheme(
   }),
 );
 
+export const PIMI_APPEARANCE_THEMES = {
+  light: "pimiBlush",
+  dark: "pimiDark",
+  paper: "pimiPaper",
+} as const;
+
 // Keep compatibility with existing code
 export const theme = darkTheme;
 

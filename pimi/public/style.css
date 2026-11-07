@@ -429,6 +429,7 @@ h2 {
 
 .card-repo,
 .card-detail,
+.card-agent,
 .agent-row {
   color: var(--muted);
   font-size: 0.92rem;
@@ -437,6 +438,11 @@ h2 {
 
 .card-detail {
   margin-top: 3px;
+}
+
+.card-agent {
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
 }
 
 .empty {
@@ -471,6 +477,17 @@ h2 {
   margin: 2px 0 3px;
 }
 
+.review-heading {
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.review-heading > :first-child {
+  flex: 1 1 20rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .review-entry {
   width: min(100%, 460px);
   margin: clamp(28px, 7vh, 68px) auto;
@@ -498,6 +515,61 @@ h2 {
 
 .review-actions {
   align-items: center;
+}
+
+.review-editor-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.review-editor-controls select,
+.work-item-repository {
+  min-width: 0;
+  max-width: 14rem;
+  min-height: 30px;
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius);
+  background: var(--canvas);
+  color: var(--text);
+}
+
+.diff-find {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.patch-line.find-match > :last-child {
+  box-shadow: inset 3px 0 var(--focus);
+  background: var(--selected);
+}
+
+.patch-line.find-current > :last-child {
+  outline: 1px solid var(--focus);
+  outline-offset: -1px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  #task-detail:not([hidden]),
+  #review-entry:not([hidden]),
+  #comparison-review:not([hidden]),
+  .tour-card:not([hidden]) {
+    animation: pane-arrive 150ms ease-out;
+  }
+  @keyframes pane-arrive {
+    from {
+      opacity: 0.72;
+      transform: translateY(3px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 }
 
 .comparison-settings .compare {
@@ -539,6 +611,117 @@ h2 {
 
 #pr {
   width: min(430px, 75vw);
+}
+
+.review-columns {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+  min-height: 0;
+}
+
+.review-columns > .desk {
+  min-width: 0;
+}
+
+.review-columns.comparing > .desk {
+  flex: 1 1 50%;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.review-columns.comparing .files {
+  max-height: 180px;
+  border-bottom: 1px solid var(--line);
+}
+
+.comparison-review {
+  flex: 1 1 50%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 320px;
+  border: 1px solid var(--line);
+  border-radius: var(--panel-radius);
+  background: var(--canvas);
+  overflow: hidden;
+}
+
+.comparison-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.comparison-heading h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.comparison-controls > summary {
+  width: fit-content;
+  list-style: none;
+}
+
+.comparison-controls > summary::-webkit-details-marker {
+  display: none;
+}
+
+.comparison-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 12px;
+}
+
+.comparison-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  color: var(--muted);
+}
+
+.comparison-form label:first-child {
+  grid-column: 1 / -1;
+}
+
+.comparison-form input,
+.comparison-form select,
+.comparison-files {
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--control-line);
+  border-radius: var(--control-radius);
+  color: var(--text);
+  background: var(--canvas);
+  padding: 7px;
+}
+
+.comparison-review > .subtitle {
+  margin: 0 12px 8px;
+  overflow-wrap: anywhere;
+}
+
+.comparison-files {
+  margin: 0 12px 8px;
+}
+
+.comparison-patch {
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 760px) {
+  .review-columns.comparing {
+    flex-direction: column;
+    overflow: auto;
+  }
+  .review-columns.comparing > .desk,
+  .comparison-review {
+    flex: 0 0 65vh;
+  }
 }
 
 .desk {
@@ -848,9 +1031,6 @@ h2 {
   .file-list {
     max-height: 90px;
   }
-  .review-heading {
-    flex-wrap: wrap;
-  }
 }
 
 .task-layout {
@@ -1078,7 +1258,6 @@ h2 {
   padding-top: 4px;
 }
 
-#task-report-editor,
 #task-idea,
 #task-run {
   margin: 8px 0;
@@ -1101,6 +1280,21 @@ h2 {
   flex: 1 1 210px;
 }
 
+.task-run-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.work-item-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 @media (max-width: 560px) {
   .task-layout {
     grid-template-columns: minmax(0, 1fr);
@@ -1118,14 +1312,22 @@ h2 {
   white-space: nowrap;
 }
 
-.appearance-picker select {
-  max-width: 145px;
-  min-height: 30px;
-  padding: 4px 8px;
+.settings-dialog {
+  width: min(360px, calc(100% - 36px));
+  padding: 22px;
   border: 1px solid var(--line);
-  border-radius: var(--control-radius);
+  border-radius: var(--panel-radius);
   background: var(--canvas);
   color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+.settings-dialog::backdrop {
+  background: rgb(0 0 0 / 28%);
+}
+
+.settings-dialog h2 {
+  margin: 0 0 14px;
 }
 
 .task-brief {
@@ -1171,9 +1373,6 @@ h2 {
 }
 
 @media (max-width: 560px) {
-  .appearance-picker select {
-    max-width: 86px;
-  }
   .topbar {
     gap: 5px;
   }
