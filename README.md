@@ -1,18 +1,35 @@
 # Pimi
 
-Track parallel coding agents and review their work without juggling checkouts. Pimi brings your Git worktrees, agent status, local previews, and code review into one macOS app.
+Start with a coding question, explore approaches in parallel, and review the evidence in one macOS app. Pimi brings tasks, Git worktrees, agents, and code review together.
 
-[![Watch the Pimi demo showing the worktree board, side-by-side review, and a text walkthrough](assets/pimi/review.jpg)](assets/pimi/demo.mp4)
+[![Watch Pimi go from a dictated brief to parallel worktrees, reports, and code review](assets/pimi/tasks.jpg)](assets/pimi/demo.mp4)
 
-[Watch the demo](assets/pimi/demo.mp4) · [View the worktree board](assets/pimi/board.jpg)
+[Watch the full workflow](assets/pimi/demo.mp4). The recording uses scripted model and speech fixtures with real Pimi workspace creation, Git changes, and review.
+
+## Inside Pimi
+
+| Auto-Kanban                                                           | In-app code review                                                               |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| ![Worktrees grouped by Git and agent activity](assets/pimi/board.jpg) | ![Two changed files and a line-linked File Tour in Pimi](assets/pimi/review.jpg) |
+
+| Paper appearance                                                     | Brief dictation                                                                              |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| ![A task and its reports in Paper appearance](assets/pimi/paper.jpg) | ![Pimi dictation controls for inserting speech into a task brief](assets/pimi/dictation.jpg) |
+
+| Dark appearance                                           | Agent chat                                                                      |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| ![The same task in Dark appearance](assets/pimi/dark.jpg) | ![A follow-up in the experiment's original agent session](assets/pimi/chat.jpg) |
 
 ## What you can do
 
+- **Start with a task.** Type or dictate a brief using the same voice input as Agent Console. Draft ideas yourself or ask your configured model to suggest two, then link existing checkouts or start a fresh worktree and agent for each experiment.
+- **Compare findings.** Read the workers’ reports together, continue chatting in their original sessions, and open their diffs against the task’s pinned base. Close the task when you’re finished.
 - **See what needs you next.** Auto-Kanban sorts worktrees into **Ready**, **In progress**, **Review**, and **Needs attention** from Git and live agent activity. Search by repo, branch, or agent. Pimi remembers repositories you add.
 - **Review code in place.** Compare working changes, a branch against a base ref, or a GitHub pull request. Open two files side by side and switch between diffs and syntax-highlighted source. Search changed paths and reload a comparison while keeping files that are still in the diff.
 - **Follow changes line by line.** File Tour walks through the changed files. Explain Changes uses your configured provider to generate short notes tied to added lines. Notes stay below the diff so you can read both together.
 - **Preview and edit.** Open a healthy workspace service from its review. Jump from a reviewed line to the corresponding file in Zed when the local checkout matches.
 - **Manage agents.** Open Agent Console for sessions, terminals, workspace services, voice, and provider settings.
+- **Choose an appearance.** Follow macOS automatically or switch between Blush, Dark, and Paper in Tasks, Worktrees, and Review.
 
 Press `/` to focus the search field for the current view. In review, use `[` and `]` to move through files or through an open tour.
 
@@ -26,7 +43,7 @@ npm run pimi:package:mac
 open packages/desktop/release-pimi/mac-arm64/Pimi.app
 ```
 
-The build creates a local, non-notarized app bundle. Choose **Add repository…** and enter a local Git repository path, then open a worktree card. Use **Agent Console** to manage sessions and providers. Pimi follows the macOS light or dark appearance.
+The build creates a local, non-notarized app bundle. In **Worktrees**, choose **Add repository…** and enter a local Git repository path. Return to **Tasks** to create a brief. Use **Agent Console** to manage sessions and providers.
 
 [Development commands, provider selection, and audit notes](pimi/README.md)
 

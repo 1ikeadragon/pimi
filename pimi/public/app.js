@@ -1,4 +1,6 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
+import { createTasksView } from "./tasks.js";
+
 const $ = (id) => document.getElementById(id);
 const laneDefinitions = [
   ["ready", "Ready", "No clean worktrees"],
@@ -20,6 +22,16 @@ let boardSignature;
 let boardData;
 const patchCache = new Map();
 const renderedPanes = new Map();
+const tasksView = createTasksView({
+  $,
+  api,
+  button,
+  element,
+  message,
+  agentChatLinks,
+  openReview: selectWorktree,
+  refreshBoard,
+});
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -56,7 +68,7 @@ function message(id, text) {
 }
 
 function view(name) {
-  for (const section of ["board", "review"]) {
+  for (const section of ["tasks", "board", "review"]) {
     $(section).hidden = section !== name;
     const nav = $("show-" + section);
     if (section === name) nav.setAttribute("aria-current", "page");
@@ -66,6 +78,18 @@ function view(name) {
 
 function describeAgent(agent) {
   return `${agent.title} · ${agent.provider} · ${agent.needsInput ? "awaiting approval" : agent.status}`;
+}
+
+function agentChatLinks(agents) {
+  const active = agents.filter((agent) => agent.chatUrl);
+  return active.map((agent) => {
+    const label = active.length === 1 ? "Open chat" : `Chat with ${agent.title}`;
+    const link = element("a", "button secondary", label);
+    link.href = agent.chatUrl;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    return link;
+  });
 }
 
 function matchesSearch(query, ...values) {
@@ -78,6 +102,7 @@ function renderBoard(data) {
   const signature = JSON.stringify([query, data]);
   if (signature === boardSignature) return;
   boardSignature = signature;
+  tasksView.setBoard(data);
   daemonConnected = !data.daemonError;
   $("show-agents").hidden = !data.native;
   message(
@@ -176,10 +201,10 @@ async function watchRepository(event) {
   }
 }
 
-function selectWorktree(card) {
+function selectWorktree(card, base = "") {
   activeWorktree = card;
   $("file-search").value = "";
-  $("base").value = "";
+  $("base").value = base;
   $("pr").value = card.prUrl || "";
   $("mode").value = "all";
   updateCompareControls();
@@ -193,6 +218,7 @@ function selectWorktree(card) {
     link.rel = "noopener noreferrer";
     return link;
   });
+  links.push(...agentChatLinks(card.agents));
   $("previews").replaceChildren(...links);
   $("previews").hidden = !links.length;
   view("review");
@@ -642,6 +668,29 @@ $("show-board").addEventListener("click", () => {
   view("board");
   void refreshBoard();
 });
+$("show-tasks").addEventListener("click", () => {
+  view("tasks");
+  void tasksView.load();
+  void refreshBoard();
+});
+const appearance = $("appearance");
+appearance.value = document.documentElement.dataset.appearance;
+appearance.addEventListener("change", async () => {
+  const root = document.documentElement;
+  const previous = root.dataset.appearance;
+  root.dataset.appearance = appearance.value;
+  appearance.disabled = true;
+  message("appearance-error", "");
+  try {
+    await api("appearance", { mode: appearance.value });
+  } catch (error) {
+    appearance.value = previous;
+    root.dataset.appearance = previous;
+    message("appearance-error", error.message);
+  } finally {
+    appearance.disabled = false;
+  }
+});
 $("show-review").addEventListener("click", () => view("review"));
 $("refresh-board").addEventListener("click", refreshBoard);
 $("board-search").addEventListener("input", () => {
@@ -681,7 +730,8 @@ document.addEventListener("keydown", (event) => {
   const reviewing = !$("review").hidden;
   if (event.key === "/") {
     event.preventDefault();
-    $(reviewing ? "file-search" : "board-search").focus();
+    const listSearch = $("tasks").hidden ? "board-search" : "task-search";
+    $(reviewing ? "file-search" : listSearch).focus();
   } else if (reviewing && event.key === "Escape" && tour) {
     closeTour();
   } else if (reviewing && (event.key === "[" || event.key === "]")) {
@@ -690,6 +740,10 @@ document.addEventListener("keydown", (event) => {
   }
 });
 setInterval(() => {
-  if (!document.hidden && !$("board").hidden) void refreshBoard();
+  if (document.hidden) return;
+  if (!$("tasks").hidden) void tasksView.load();
+  if (!$("review").hidden) return;
+  void refreshBoard();
 }, 5000);
 void refreshBoard();
+void tasksView.load();

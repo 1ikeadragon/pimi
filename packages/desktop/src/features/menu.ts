@@ -97,7 +97,7 @@ function buildApplicationMenuTemplate(
         ...(options.onOpenPimi
           ? [
               {
-                label: "Pimi Worktree Board",
+                label: "Show Pimi Workspace",
                 accelerator: "CmdOrCtrl+Shift+R",
                 click: options.onOpenPimi,
               },

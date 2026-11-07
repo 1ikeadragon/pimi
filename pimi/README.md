@@ -4,7 +4,16 @@ See the [main README](../README.md) for the demo, features, and macOS build.
 
 ## Development
 
-Run `npm run build:server` and then `npm run pimi:desktop`. Use **File → Pimi Worktree Board** to reopen the board. The packaged app uses the normal Paseo daemon home and settings. Set `PASEO_HOME` and `PASEO_LISTEN` before launching the executable to use a separate daemon and state directory.
+Run `npm run build:server` and then `npm run pimi:desktop`. Use **File → Show Pimi Workspace** to return from Agent Console. The packaged app uses the normal Paseo daemon home and settings. Set `PASEO_HOME` and `PASEO_LISTEN` before launching the executable to use a separate daemon and state directory.
+
+## Tasks
+
+- A task pins the selected repository’s current commit when created. Experiments can link existing worktrees from that repository or create separate managed worktrees at the pinned commit.
+- **Suggest 2 drafts** sends the brief to the selected provider and saves the suggestions for review. **Run experiments** makes a short model check without the brief, then starts up to four draft experiments in parallel through the daemon. Each draft keeps its launch identity for retries.
+- **Dictate brief** uses Agent Console’s existing dictation controls and configured speech provider. The transcribed text goes into the brief for editing before you save.
+- Finished workers’ reports are collected while their task is open. Reports can also be added or collected manually. Closing a task leaves the linked worktrees available for review.
+- Use **Open chat** from an experiment or its review to continue a conversation in the original agent session.
+- The desktop saves task records in its local app data. For the standalone server, set `PIMI_TASK_STATE` to an absolute JSON file path to persist them across restarts.
 
 ## Review behavior
 

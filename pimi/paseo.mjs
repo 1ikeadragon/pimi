@@ -1,5 +1,7 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
 import { createPaseoClient } from "@getpaseo/client";
+import { buildAgentDeepLink } from "@getpaseo/protocol/agent-deep-link";
+import { tmpdir } from "node:os";
 
 import { RequestError } from "./git.mjs";
 
@@ -42,11 +44,13 @@ function readableProviderError(error) {
 export function createPaseoConnection(settingsSource = {}) {
   let cachedClient;
   let connection;
+  let chatHost;
 
   async function connect() {
     if (cachedClient?.getConnectionState().status === "connected") return cachedClient;
     connection ??= (async () => {
       await cachedClient?.close();
+      chatHost = undefined;
       const settings = await settingsSource.connection?.();
       const url = new URL(settings?.url || process.env.PIMI_PASEO_URL || "ws://127.0.0.1:6767/ws");
       if (
@@ -78,13 +82,24 @@ export function createPaseoConnection(settingsSource = {}) {
   async function directory() {
     try {
       const client = await connect();
-      const [agents, workspaces] = await Promise.all([
+      if (settingsSource.native) {
+        chatHost ??= client.hosts.list().then(
+          ({ self }) => self.serverId,
+          (error) => {
+            if (cachedClient === client) chatHost = undefined;
+            console.warn("Pimi could not resolve agent chat links:", error.message);
+          },
+        );
+      }
+      const [agents, workspaces, serverId] = await Promise.all([
         allPages((options) => client.agents.list({ ...options, scope: "active" })),
         allPages(client.workspaces.list),
+        chatHost,
       ]);
       return {
         agents: agents.map(({ agent }) => ({
           id: agent.id,
+          chatUrl: serverId ? buildAgentDeepLink({ serverId, agentId: agent.id }) : undefined,
           title: agent.title || agent.provider,
           provider: agent.provider,
           model: agent.model,
@@ -143,9 +158,96 @@ export function createPaseoConnection(settingsSource = {}) {
     };
   }
 
-  async function explain({ cwd, currentAgent, prompt, schema, instructions }) {
+  async function taskModels(cwd) {
     const client = await connect();
-    const selected = await reviewProvider(cwd, currentAgent);
+    const [{ config }, { entries }] = await Promise.all([
+      client.config.get(),
+      client.providers.waitForReady({ cwd, timeoutMs: 8000 }),
+    ]);
+    const configured = config.metadataGeneration?.providers?.[0];
+    const models = entries
+      .filter((entry) => entry.enabled && entry.status === "ready")
+      .flatMap((entry) =>
+        (entry.models ?? []).map((model) => ({
+          id: `${entry.provider}/${model.id}`,
+          label: `${entry.label ?? entry.provider} · ${model.label ?? model.id}`,
+          thinkingOptionId: model.defaultThinkingOptionId ?? undefined,
+        })),
+      );
+    return { models, preferred: configured && `${configured.provider}/${configured.model}` };
+  }
+
+  async function checkTaskModel(config) {
+    const client = await connect();
+    const probe = await client.agents.create({
+      cwd: tmpdir(),
+      title: "Pimi model check",
+      background: true,
+      config,
+      prompt: "Reply with READY. Do not inspect files or use tools.",
+    });
+    try {
+      const result = await probe.waitForFinish(30000);
+      if (result.status !== "idle" || !result.lastMessage) {
+        throw new RequestError(
+          readableProviderError(result.error) || "The selected model did not respond.",
+          502,
+        );
+      }
+    } finally {
+      await probe.archive().catch((error) => {
+        console.error("Could not archive the model check:", error.message);
+      });
+    }
+  }
+
+  async function launchExperiment(task, experiment) {
+    const client = await connect();
+    const slug = `pimi-${experiment.workspaceId.slice(4)}`;
+    const workspace = await client.workspaces.create({
+      idempotencyKey: slug,
+      workspaceId: experiment.workspaceId,
+      title: experiment.title,
+      source: {
+        kind: "worktree",
+        cwd: task.root,
+        action: "branch-off",
+        baseBranch: task.base,
+        branchName: `pimi/${slug.slice(5)}`,
+        worktreeSlug: slug,
+      },
+      agent: {
+        agentId: experiment.id,
+        cwd: task.root,
+        title: experiment.title,
+        config: experiment.launch.config,
+        prompt: experiment.launch.prompt,
+      },
+    });
+    return workspace.directory;
+  }
+
+  async function experimentReport(id) {
+    const client = await connect();
+    const agent = client.agents.ref(id);
+    const snapshot = await agent.refresh();
+    if (!snapshot?.agent) throw new RequestError("This agent is no longer available.", 404);
+    if (agent.status !== "idle" || agent.pendingPermissions?.length) {
+      throw new RequestError(
+        readableProviderError(agent.lastError) || "The agent has not finished.",
+        409,
+      );
+    }
+    const result = await agent.waitForFinish(3000);
+    if (result.status !== "idle" || !result.lastMessage?.trim()) {
+      throw new RequestError("The agent finished without a text report.", 409);
+    }
+    return result.lastMessage.trim();
+  }
+
+  async function explain({ cwd, currentAgent, prompt, schema, instructions, model }) {
+    const client = await connect();
+    const selected = model ?? (await reviewProvider(cwd, currentAgent));
     const agent = await client.agents.create({
       cwd,
       background: true,
@@ -184,9 +286,45 @@ export function createPaseoConnection(settingsSource = {}) {
     }
   }
 
+  async function suggestExperiments(task, model) {
+    const { text } = await explain({
+      cwd: tmpdir(),
+      model,
+      instructions: "Propose experiments from the brief alone. Do not inspect files or use tools.",
+      prompt: `Propose two distinct, independently testable implementations for this task. Give each a short title and a concrete hypothesis.\n\n${task.title}\n${task.brief}`,
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["ideas"],
+        properties: {
+          ideas: {
+            type: "array",
+            minItems: 2,
+            maxItems: 2,
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["title", "hypothesis"],
+              properties: {
+                title: { type: "string", maxLength: 55 },
+                hypothesis: { type: "string", maxLength: 1600 },
+              },
+            },
+          },
+        },
+      },
+    });
+    return JSON.parse(text).ideas;
+  }
+
   return {
     directory,
     explain,
+    taskModels,
+    checkTaskModel,
+    suggestExperiments,
+    launchExperiment,
+    experimentReport,
     close: async () => {
       await cachedClient?.close();
     },

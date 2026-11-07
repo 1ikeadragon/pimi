@@ -176,6 +176,7 @@ export interface DesktopHostBridge {
   platform?: string;
   windowChromeMode?: string;
   invoke?: DesktopInvokeBridge["invoke"];
+  taskDictation?: { complete: (text: string | null) => void };
   getPendingOpenProject?: () => Promise<string | null>;
   agentNavigation?: DesktopAgentNavigationBridge;
   events?: DesktopEventsBridge;

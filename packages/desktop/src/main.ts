@@ -57,6 +57,8 @@ import {
 import { createExternalUrlOpener } from "./features/opener.js";
 import { createBrowserCaptureService } from "./features/browser-capture.js";
 import { registerEditorTargetHandlers } from "./features/editor-targets/ipc.js";
+import { EDITOR_TARGETS } from "./features/editor-targets/registry.js";
+import { zedTarget } from "./features/editor-targets/targets/zed.js";
 import { resolveAppIconPath } from "./features/stamped-icon.js";
 import { setupApplicationMenu } from "./features/menu.js";
 import {
@@ -672,6 +674,15 @@ function getWorkAreasPrimaryFirst(): Electron.Rectangle[] {
 function openPimi(): void {
   void showPimiWindow({
     runtimeDir: path.join(app.getAppPath(), "dist"),
+    dictationUrl: app.isPackaged
+      ? `${APP_SCHEME}://app/pimi-dictation`
+      : new URL("/pimi-dictation", DEV_SERVER_URL).toString(),
+    preload: getPreloadPath(),
+    openAgentChat: (target) => {
+      void desktopWindowOwner
+        .openOrFocusAgent(target)
+        .catch((error) => log.error("[pimi] failed to open agent chat", error));
+    },
     openAgentConsole: () => {
       const agentWindow = BrowserWindow.getAllWindows().find((win) => !isPimiWindow(win));
       if (agentWindow) {
@@ -995,7 +1006,11 @@ async function bootstrap(): Promise<void> {
   registerNotificationHandlers();
   const openExternalUrl = createExternalUrlOpener({ open: shell.openExternal });
   ipcMain.handle("paseo:opener:openUrl", (_event, value: unknown) => openExternalUrl(value));
-  registerEditorTargetHandlers();
+  registerEditorTargetHandlers({
+    targets: PIMI_DESKTOP
+      ? [zedTarget, ...EDITOR_TARGETS.filter(({ id }) => id !== "cursor" && id !== zedTarget.id)]
+      : EDITOR_TARGETS,
+  });
   registerBrowserAutomationIpc();
 
   // In-app "Open in new window": opens a window that lands on the given project

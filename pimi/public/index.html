@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-appearance="system">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -12,10 +12,20 @@
   <body>
     <header class="topbar">
       <nav aria-label="Main">
-        <button id="show-board" aria-current="page">Worktrees</button>
+        <button id="show-tasks" aria-current="page">Tasks</button>
+        <button id="show-board">Worktrees</button>
         <button id="show-review" disabled>Review</button>
       </nav>
       <div class="toolbar-actions">
+        <label class="appearance-picker">
+          <span class="visually-hidden">Appearance</span>
+          <select id="appearance">
+            <option value="system">System</option>
+            <option value="light">Blush</option>
+            <option value="dark">Dark</option>
+            <option value="paper">Paper</option>
+          </select>
+        </label>
         <a
           id="show-agents"
           class="button secondary"
@@ -28,7 +38,166 @@
       </div>
     </header>
     <main>
-      <section id="board" class="board-view">
+      <p id="appearance-error" class="warning" role="alert" hidden></p>
+      <section id="tasks" aria-label="Tasks">
+        <div class="section-header">
+          <h1>Tasks</h1>
+          <button id="new-task" class="button primary">New task</button>
+        </div>
+        <p id="task-warning" class="warning" role="alert" hidden></p>
+        <div class="task-layout">
+          <aside class="task-sidebar" aria-label="Task list">
+            <input
+              id="task-search"
+              class="search"
+              type="search"
+              aria-label="Find tasks"
+              placeholder="Find tasks"
+              aria-keyshortcuts="/"
+            />
+            <div id="task-list"></div>
+          </aside>
+          <div class="task-content">
+            <div id="task-empty" class="task-empty">
+              <h2>Start with a brief</h2>
+              <p>Keep the question and its experiments together.</p>
+            </div>
+            <form id="task-create" class="task-form" hidden>
+              <h2>New task</h2>
+              <label
+                >Repository
+                <select id="task-repository" required></select
+              ></label>
+              <p id="task-no-repositories" class="subtitle" hidden>
+                Add a repository in Worktrees to start.
+              </p>
+              <label
+                >Title
+                <input
+                  name="title"
+                  required
+                  maxlength="100"
+                  placeholder="Improve agent performance"
+              /></label>
+              <label
+                >Brief
+                <textarea
+                  name="brief"
+                  required
+                  maxlength="2400"
+                  rows="5"
+                  placeholder="What should the experiments answer?"
+                ></textarea>
+              </label>
+              <div class="task-actions">
+                <button
+                  id="dictate-create"
+                  class="button secondary dictate-brief"
+                  type="button"
+                  hidden
+                >
+                  Dictate brief
+                </button>
+                <button id="cancel-task" class="button secondary" type="button">Cancel</button>
+                <button id="create-task" class="button primary" type="submit">Create task</button>
+              </div>
+            </form>
+            <section id="task-detail" hidden>
+              <div class="task-heading">
+                <div>
+                  <h2 id="task-title"></h2>
+                  <p id="task-context" class="subtitle"></p>
+                </div>
+                <span id="task-status" class="task-status"></span>
+              </div>
+              <p id="task-brief" class="task-brief"></p>
+              <div class="task-detail-actions">
+                <details id="task-edit-details">
+                  <summary class="button quiet">Edit task…</summary>
+                  <form id="task-edit" class="task-form">
+                    <label>Title <input name="title" required maxlength="100" /></label>
+                    <label
+                      >Brief <textarea name="brief" required maxlength="2400" rows="4"></textarea>
+                    </label>
+                    <div class="task-actions">
+                      <button
+                        id="dictate-edit"
+                        class="button secondary dictate-brief"
+                        type="button"
+                        hidden
+                      >
+                        Dictate brief
+                      </button>
+                      <button class="button primary" type="submit">Save changes</button>
+                    </div>
+                  </form>
+                </details>
+                <button id="task-close" class="button quiet" type="button">Close task</button>
+              </div>
+              <section class="task-experiments" aria-labelledby="experiments-heading">
+                <h2 id="experiments-heading">Experiments</h2>
+                <div id="experiment-list"></div>
+                <form id="task-report-editor" class="task-form" hidden>
+                  <label id="report-editor-label"
+                    >Report
+                    <textarea id="task-report-text" maxlength="5000" rows="5"></textarea>
+                  </label>
+                  <div class="task-actions">
+                    <button id="cancel-report" class="button secondary" type="button">
+                      Cancel
+                    </button>
+                    <button class="button primary" type="submit">Save report</button>
+                  </div>
+                </form>
+                <details id="add-experiment">
+                  <summary class="button secondary">Add experiment…</summary>
+                  <form id="task-idea" class="task-form">
+                    <label
+                      >Title
+                      <input
+                        name="title"
+                        required
+                        maxlength="55"
+                        placeholder="Try caching provider metadata"
+                    /></label>
+                    <label
+                      >Hypothesis
+                      <textarea name="hypothesis" required maxlength="1600" rows="3"></textarea>
+                    </label>
+                    <label
+                      >Worktree
+                      <select id="experiment-worktree"></select
+                    ></label>
+                    <div class="task-actions">
+                      <button class="button primary" type="submit">Add experiment</button>
+                    </div>
+                  </form>
+                </details>
+                <form id="task-run" class="task-form" hidden>
+                  <div class="task-run-controls">
+                    <label
+                      >Agent model
+                      <select id="task-model" required></select
+                    ></label>
+                    <button id="task-models" class="button secondary" type="button">
+                      Load models
+                    </button>
+                    <button id="suggest-experiments" class="button secondary" type="button">
+                      Suggest 2 drafts
+                    </button>
+                    <button id="run-task" class="button primary" type="submit">
+                      Run experiments
+                    </button>
+                  </div>
+                  <p id="task-run-note" class="subtitle" role="status"></p>
+                </form>
+              </section>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section id="board" class="board-view" hidden>
         <div class="section-header">
           <h1>Worktrees</h1>
         </div>
