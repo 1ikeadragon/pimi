@@ -96,7 +96,7 @@ interface PimiRuntime {
       workspacePath: string,
     ) => Promise<Pick<EditorTargetDescriptor, "id" | "label" | "kind">[]>;
     launchEditor: (input: EditorTargetLaunchInput & { editorId: string }) => Promise<void>;
-    connection: () => Promise<{ url: string; credential?: string }>;
+    connection: () => Promise<DesktopDaemonConnection>;
   }): Promise<{ origin: string; appearance: string; close(): Promise<void> }>;
 }
 
@@ -110,14 +110,22 @@ interface PimiWindowOptions {
   workspacePreload: string;
 }
 
-async function connectToDesktopDaemon(): Promise<{ url: string; credential?: string }> {
+interface DesktopDaemonConnection {
+  url: string;
+  credential?: string;
+  memoryCredential?: string;
+}
+
+async function connectToDesktopDaemon(): Promise<DesktopDaemonConnection> {
   if (process.env.PIMI_PASEO_URL) return { url: process.env.PIMI_PASEO_URL };
   const status = await resolveDesktopDaemonStatus();
   const endpoint = status.listen ?? process.env.PASEO_LISTEN ?? "127.0.0.1:6767";
-  const credential = status.desktopManaged
-    ? (readLocalCredentialForTarget(status.home, endpoint) ?? undefined)
-    : undefined;
-  return { url: `ws://${endpoint}/ws`, credential };
+  const local = readLocalCredentialForTarget(status.home, endpoint) ?? undefined;
+  return {
+    url: `ws://${endpoint}/ws`,
+    credential: status.desktopManaged ? local : undefined,
+    memoryCredential: local,
+  };
 }
 
 export async function showPimiWindow(

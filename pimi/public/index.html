@@ -18,6 +18,7 @@
         <button id="show-tasks" aria-current="page">Tasks</button>
         <button id="show-board">Work</button>
         <button id="show-review">Review</button>
+        <button id="show-memory" hidden>Memory</button>
       </nav>
       <div class="toolbar-actions">
         <a id="open-settings" class="button quiet" href="pimi-settings://open" target="_blank">
@@ -439,7 +440,77 @@
           ></section>
         </div>
       </section>
+      <section id="memory" aria-label="Memory" hidden>
+        <div class="section-header">
+          <div>
+            <h1>Memory</h1>
+            <p class="subtitle memory-intro">Notes agents can recall on this host.</p>
+          </div>
+          <button id="memory-reload" class="button quiet" type="button">Reload</button>
+        </div>
+        <p id="memory-warning" class="warning" role="alert" hidden></p>
+        <p id="memory-status" class="subtitle" role="status" hidden></p>
+        <div id="memory-content" class="memory-layout" hidden>
+          <aside class="memory-panel" aria-label="Memory scopes and notes">
+            <label class="memory-scope-field">
+              Scope
+              <select id="memory-scope">
+                <option value="">Across projects</option>
+              </select>
+            </label>
+            <p id="memory-scope-caption" class="subtitle"></p>
+            <div class="memory-list-heading">
+              <h2>Saved notes</h2>
+              <button id="memory-new" class="button secondary" type="button">New note</button>
+            </div>
+            <div id="memory-notes"></div>
+            <p id="memory-empty" class="subtitle" hidden></p>
+          </aside>
+          <div class="memory-panel" data-pimi-material>
+            <div id="memory-placeholder">
+              <h2>Choose a note</h2>
+              <p class="subtitle">Open a saved note or add something for agents to remember.</p>
+            </div>
+            <form id="memory-form" class="task-form" hidden>
+              <h2 id="memory-note-heading">New note</h2>
+              <p id="memory-note-scope" class="subtitle"></p>
+              <label>
+                Note key
+                <input
+                  name="key"
+                  required
+                  maxlength="64"
+                  pattern="[a-z0-9](?:[a-z0-9_]|-)*"
+                  spellcheck="false"
+                  placeholder="build-command"
+                />
+              </label>
+              <label>
+                Note
+                <textarea name="text" required maxlength="4000" rows="9"></textarea>
+              </label>
+              <div class="task-actions">
+                <button id="memory-forget" class="button quiet" type="button" hidden>
+                  Forget…
+                </button>
+                <div class="memory-save-actions">
+                  <button id="memory-cancel" class="button secondary" type="button">Cancel</button>
+                  <button id="memory-save" class="button primary" type="submit">Save note</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
     </main>
+    <dialog id="memory-forget-dialog" class="settings-dialog" aria-labelledby="memory-forget-title">
+      <h2 id="memory-forget-title">Forget this note?</h2>
+      <p id="memory-forget-description"></p>
+      <form class="task-actions" method="dialog">
+        <button class="button secondary" value="cancel" autofocus>Cancel</button>
+        <button class="button primary" value="forget">Forget note</button>
+      </form>
+    </dialog>
     <dialog id="settings-dialog" class="settings-dialog" aria-labelledby="settings-title">
       <h2 id="settings-title">Settings</h2>
       <div class="task-form">

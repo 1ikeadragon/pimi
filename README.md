@@ -12,7 +12,7 @@ The film uses scripted worker responses and dictation with real Git worktrees an
 
 ## Start in chat
 
-Pimi opens in Agent Console. On first launch, setup helps you connect a provider, add a project, and start a conversation. Chat, Tasks, Work, and Review share one window. Use the workspace button at the top right to open it separately or move it back without losing your place.
+Pimi opens in Agent Console. On first launch, setup helps you connect a provider, add a project, and start a conversation. Chat, Tasks, Work, Review, and Memory share one window. Use the workspace button at the top right to open it separately or move it back without losing your place.
 
 ![The first Pimi window with setup, provider and project steps, and examples for chat and Tasks](assets/pimi/onboarding.jpg)
 
@@ -78,9 +78,15 @@ Choose an appearance in **Pimi → Settings → Appearance**. Blush uses rose bo
 
 ![The same Tasks board in Dark with graphite grain](assets/pimi/dark.jpg)
 
+### Find saved memory
+
+Open **Memory** from Home or the sidebar. **Across projects** shows notes agents can recall across projects on this host. Choose a project to see its own notes, shared across its worktrees. You can add, edit, and forget notes from either scope.
+
+![Memory showing a saved RelayKit note scoped to that project](assets/pimi/memory.jpg)
+
 ## What you can do
 
-- **Share project memory across providers.** With Agent tools enabled, ask an agent to remember a decision, convention, or preference. Other agents can recall it in the same project, including from its worktrees. Notes are stored on the host and enter a provider’s context when recalled.
+- **Share memory across providers.** With Agent tools enabled, ask an agent to remember a decision, convention, or preference. Notes default to the project scope. Ask explicitly to remember a preference across projects when you want it shared on this host. Notes enter a provider’s context when recalled.
 - **Compare findings.** Read agent reports, return to their chats, and review their changes against each repository’s pinned base.
 - **See what needs you next.** Auto-Kanban sorts worktrees into **Ready**, **In progress**, **Review**, and **Needs attention** from Git and live agent activity. Search by repo, branch, or agent. Pimi remembers repositories you add.
 - **Review code in place.** Compare working changes, a branch against a base ref, or a GitHub pull request. Open two files side by side, switch between diff and source, or compare a second worktree.

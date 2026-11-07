@@ -112,7 +112,13 @@ export function createRequireBearerMiddleware(
   };
 }
 
-const SELF_AUTHENTICATING_ROUTES = new Set(["/api/files/download", "/mcp/agents"]);
+export const PIMI_MEMORY_ROUTE = "/api/pimi/memory";
+
+const SELF_AUTHENTICATING_ROUTES = new Set([
+  "/api/files/download",
+  "/mcp/agents",
+  PIMI_MEMORY_ROUTE,
+]);
 
 function isBearerFreeRoute(path: string): boolean {
   return path === "/api/health" || SELF_AUTHENTICATING_ROUTES.has(path);

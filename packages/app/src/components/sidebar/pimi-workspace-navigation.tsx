@@ -2,7 +2,7 @@
 import { useCallback } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { Columns3, FileDiff, ListTodo } from "lucide-react-native";
+import { Columns3, FileDiff, ListTodo, NotebookText } from "lucide-react-native";
 import { getDesktopHost } from "@/desktop/host";
 import { PaseoLogo } from "@/components/icons/paseo-logo";
 import { SidebarHeaderRow } from "./sidebar-header-row";
@@ -12,6 +12,7 @@ export function PimiWorkspaceNavigation() {
   const showTasks = useCallback(() => show?.({ view: "tasks" }), [show]);
   const showWorktrees = useCallback(() => show?.({ view: "worktrees" }), [show]);
   const showReview = useCallback(() => show?.({ view: "review-home" }), [show]);
+  const showMemory = useCallback(() => show?.({ view: "memory" }), [show]);
   if (!show) return null;
 
   return (
@@ -28,6 +29,7 @@ export function PimiWorkspaceNavigation() {
       <SidebarHeaderRow icon={ListTodo} label="Tasks" onPress={showTasks} variant="compact" />
       <SidebarHeaderRow icon={Columns3} label="Work" onPress={showWorktrees} variant="compact" />
       <SidebarHeaderRow icon={FileDiff} label="Review" onPress={showReview} variant="compact" />
+      <SidebarHeaderRow icon={NotebookText} label="Memory" onPress={showMemory} variant="compact" />
       <Text style={styles.section}>Agent tools</Text>
     </View>
   );

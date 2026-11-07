@@ -41,6 +41,22 @@ function readableProviderError(error) {
   }
 }
 
+function localAgentUrl(settings) {
+  const url = new URL(settings?.url || process.env.PIMI_PASEO_URL || "ws://127.0.0.1:6767/ws");
+  if (
+    url.protocol !== "ws:" ||
+    !["127.0.0.1", "localhost", "[::1]"].includes(url.hostname) ||
+    url.username ||
+    url.password ||
+    url.pathname !== "/ws" ||
+    url.search ||
+    url.hash
+  ) {
+    throw new RequestError("The local agent service must use a loopback WebSocket URL.");
+  }
+  return url;
+}
+
 export function createPaseoConnection(settingsSource = {}) {
   let cachedClient;
   let connection;
@@ -137,18 +153,7 @@ export function createPaseoConnection(settingsSource = {}) {
       await cachedClient?.close();
       chatHost = undefined;
       const settings = await settingsSource.connection?.();
-      const url = new URL(settings?.url || process.env.PIMI_PASEO_URL || "ws://127.0.0.1:6767/ws");
-      if (
-        url.protocol !== "ws:" ||
-        !["127.0.0.1", "localhost", "[::1]"].includes(url.hostname) ||
-        url.username ||
-        url.password ||
-        url.pathname !== "/ws" ||
-        url.search ||
-        url.hash
-      ) {
-        throw new RequestError("The local agent service must use a loopback WebSocket URL.");
-      }
+      const url = localAgentUrl(settings);
       cachedClient = createPaseoClient({
         url: url.href,
         authHeader: process.env.PIMI_PASEO_AUTH_HEADER,
@@ -386,8 +391,41 @@ export function createPaseoConnection(settingsSource = {}) {
     return JSON.parse(text).ideas;
   }
 
+  async function memory(input) {
+    const settings = await settingsSource.connection?.();
+    if (!settingsSource.native || !settings?.memoryCredential) {
+      throw new RequestError("Connect Pimi to its local agent host to view memory.", 503);
+    }
+    const url = localAgentUrl(settings);
+    url.protocol = "http:";
+    url.pathname = "/api/pimi/memory";
+    let response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer " + settings.memoryCredential,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(input),
+        redirect: "error",
+        signal: AbortSignal.timeout(6000),
+      });
+    } catch {
+      throw new RequestError("Couldn’t reach memory on the local host. Try again.", 503);
+    }
+    if (!response.headers.get("content-type")?.startsWith("application/json")) {
+      throw new RequestError("Update the local agent host to view memory in Pimi.", 503);
+    }
+    const payload = await response.json();
+    if (!response.ok)
+      throw new RequestError(payload.error || "Memory is unavailable.", response.status);
+    return payload;
+  }
+
   return {
     directory,
+    memory,
     subscribe(listener) {
       changeListeners.add(listener);
       return () => changeListeners.delete(listener);
