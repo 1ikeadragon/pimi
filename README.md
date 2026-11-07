@@ -12,7 +12,7 @@ The film uses scripted worker responses and dictation with real Git worktrees an
 
 ## Start in chat
 
-Pimi opens in Agent Console. On first launch, setup helps you connect a provider, add a project, and start a conversation. Chat, Tasks, Worktrees, and Review share one window. Use the workspace button at the top right to open it separately or move it back without losing your place.
+Pimi opens in Agent Console. On first launch, setup helps you connect a provider, add a project, and start a conversation. Chat, Tasks, Work, and Review share one window. Use the workspace button at the top right to open it separately or move it back without losing your place.
 
 ![The first Pimi window with setup, provider and project steps, and examples for chat and Tasks](assets/pimi/onboarding.jpg)
 
@@ -46,7 +46,7 @@ Attach the repositories, then write work items or ask your configured model to s
 
 Auto-Kanban updates as Git and agent activity change. The agents’ final reports appear under their work items as they finish. An open diff stays where you left it until you ask to reload it.
 
-![Three agents running across repositories on the Worktrees board](assets/pimi/board.jpg)
+![Three agents running across repositories on the Work board](assets/pimi/board.jpg)
 
 ![Completed agent reports gathered under one task](assets/pimi/tasks.jpg)
 
@@ -101,7 +101,7 @@ npm run pimi:package:mac
 open packages/desktop/release-pimi/mac-arm64/Pimi.app
 ```
 
-The build creates a local, non-notarized app bundle. Follow setup to start a chat, or open **Tasks** directly from the sidebar. A brief can be saved before you attach a repository. In **Worktrees**, choose **Add repository…** to add an existing Git checkout.
+The build creates a local, non-notarized app bundle. Follow setup to start a chat, or open **Tasks** directly from the sidebar. A brief can be saved before you attach a repository. In **Work**, choose **Add repository…** to add an existing Git checkout.
 
 [Development commands, provider selection, and audit notes](pimi/README.md)
 

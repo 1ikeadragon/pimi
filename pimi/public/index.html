@@ -15,7 +15,7 @@
       <nav aria-label="Workspace layouts">
         <a id="show-agents" href="pimi-agents://open" target="_blank" hidden>Chat</a>
         <button id="show-tasks" aria-current="page">Tasks</button>
-        <button id="show-board">Worktrees</button>
+        <button id="show-board">Work</button>
         <button id="show-review">Review</button>
       </nav>
       <div class="toolbar-actions">
@@ -138,7 +138,7 @@
                 <select id="task-attach-root" required></select
               ></label>
               <p id="task-attach-hint" class="subtitle" hidden>
-                Add a Git repository in Worktrees to start agents.
+                Add a Git repository in Work to start agents.
               </p>
               <div class="task-actions">
                 <button id="attach-task-repository" class="button secondary" type="submit">
@@ -236,7 +236,7 @@
 
       <section id="board" class="board-view" hidden>
         <div class="section-header">
-          <h1>Worktrees</h1>
+          <h1>Work</h1>
         </div>
         <div class="board-tools">
           <input
@@ -272,7 +272,7 @@
         </div>
         <p id="live-status" class="subtitle" role="status" hidden></p>
         <p id="board-warning" class="warning" hidden></p>
-        <div id="lanes" class="lanes" aria-label="Worktree board"></div>
+        <div id="lanes" class="lanes" aria-label="Work board"></div>
         <section id="other-agents" class="other-agents" hidden aria-labelledby="agents-heading">
           <h2 id="agents-heading">Other active sessions</h2>
           <p class="subtitle">Sessions outside your watched repositories.</p>
