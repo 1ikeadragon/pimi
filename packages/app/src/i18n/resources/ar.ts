@@ -131,6 +131,8 @@ export const ar: TranslationResources = {
       addAttachment: "إضافة مرفق",
       interruptAgent: "عامل المقاطعة",
       queueMessage: "رسالة قائمة الانتظار",
+      queued: "في قائمة الانتظار",
+      steerNow: "وجّه الوكيل الآن",
       sendAndInterrupt: "إرسال ومقاطعة",
       sendAndSteer: "إرسال وتوجيه",
       sendMessage: "أرسل رسالة",
@@ -166,6 +168,8 @@ export const ar: TranslationResources = {
       dropFilesHere: "Drop files here",
       editQueuedMessage: "تحرير الرسالة في قائمة الانتظار",
       sendQueuedMessageNow: "إرسال رسالة في قائمة الانتظار الآن",
+      steerQueuedMessageNow: "وجّه الوكيل بهذه الرسالة الآن",
+      removeQueuedMessage: "إزالة الرسالة من قائمة الانتظار",
       openImage: "فتح مرفق الصورة",
       removeImage: "إزالة مرفق الصورة",
       removeFile: "Remove file attachment",
@@ -179,6 +183,8 @@ export const ar: TranslationResources = {
     },
     errors: {
       failedToSend: "فشل في إرسال الرسالة",
+      finishDraftBeforeEditingQueue:
+        "أكمل مسودتك الحالية أو أفرغها قبل تعديل رسالة في قائمة الانتظار.",
       failedToCreateAgent: "فشل في إنشاء الوكيل",
       noHostSelected: "لم يتم تحديد مضيف",
       initialPromptRequired: "مطلوب موجه الأولي",
