@@ -72,11 +72,11 @@ Open **Review** and choose a worktree, or select **Compare alongside** from a wo
 
 ### Choose an appearance
 
-Choose an appearance in **Pimi → Settings → Appearance**. The same setting applies to the workspace, Agent Console, and dictation. Below is the same task in Paper and Dark.
+Choose an appearance in **Pimi → Settings → Appearance**. Blush uses rose botanical linework, Paper has warm fibers, and Dark has graphite grain. **System** follows the Mac’s light or dark appearance. Code and controls keep solid backgrounds.
 
-![The completed task and agent reports in Paper](assets/pimi/paper.jpg)
+![The Tasks board in Paper with a fine fiber texture](assets/pimi/paper.jpg)
 
-![The same task and agent reports in Dark](assets/pimi/dark.jpg)
+![The same Tasks board in Dark with graphite grain](assets/pimi/dark.jpg)
 
 ## What you can do
 

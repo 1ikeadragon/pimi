@@ -23,11 +23,7 @@
   --diff-add: light-dark(#e7f3ea, #26372b);
   --diff-remove: light-dark(#f9e8e6, #3a2c2b);
   --diff-meta: light-dark(#f5f0f2, #232723);
-  --wash:
-    radial-gradient(ellipse at 11% -40%, light-dark(#fffaf3, transparent), transparent 64%),
-    radial-gradient(ellipse at 76% -25%, light-dark(#edc5d0, transparent), transparent 74%),
-    radial-gradient(ellipse at 105% 12%, light-dark(#f2d9cc, transparent), transparent 64%);
-  --grain: url("/grain.svg");
+  --wash: radial-gradient(ellipse at 86% 0%, light-dark(#edc5d0a8, transparent), transparent 74%);
   --shadow: 0 8px 24px light-dark(#4a30301c, #0006);
   --control-shadow: 0 1px 2px light-dark(#34262d12, #0003);
   --toolbar-height: 54px;
@@ -48,13 +44,6 @@
 
 :root[data-appearance="dark"] {
   color-scheme: dark;
-  --grain: none;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root[data-appearance="system"] {
-    --grain: none;
-  }
 }
 
 :root[data-appearance="paper"] {
@@ -85,7 +74,6 @@
     --line: var(--muted);
     --control-line: var(--muted);
     --wash: none;
-    --grain: none;
   }
 }
 
@@ -98,25 +86,18 @@
 
 body {
   margin: 0;
-  isolation: isolate;
   background-color: var(--background);
-  background-image: var(--wash);
-  background-repeat: no-repeat;
-  background-size: 100% 250px;
+  background-image: var(--pimi-ink), var(--pimi-material), var(--wash);
+  background-position:
+    var(--pimi-ink-position),
+    top left,
+    top left;
+  background-repeat: no-repeat, repeat, no-repeat;
+  background-size:
+    var(--pimi-ink-size),
+    auto,
+    100% 360px;
   color: var(--text);
-}
-
-body::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset: 0 0 auto;
-  height: 265px;
-  pointer-events: none;
-  background-image: var(--grain);
-  mask-image: linear-gradient(#000 15%, transparent);
-  opacity: 0.24;
-  mix-blend-mode: multiply;
 }
 
 button,

@@ -9,6 +9,7 @@ import { useIsCompactFormFactor } from "@/constants/layout";
 import { SPACING } from "@/styles/theme";
 
 const PageScrollView = Platform.OS === "android" ? KeyboardAwareScrollView : ScrollView;
+const PIMI_MATERIAL = { "pimi-material": "" };
 
 interface PageLayoutProps {
   title?: string;
@@ -40,7 +41,7 @@ export function PageLayout({
   const showTitle = !isCompact && title !== undefined;
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} dataSet={PIMI_MATERIAL}>
       {isCompact ? (
         <BackHeader title={title} onBack={onBack} rightContent={actions} />
       ) : (

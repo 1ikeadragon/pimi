@@ -8,6 +8,7 @@ interface AssistantSelectionCopySurfaceProps {
 }
 
 const DISPLAY_CONTENTS: CSSProperties = { display: "contents" };
+const CHAT_BACKGROUND = { "pimi-background": "" };
 
 export function AssistantSelectionCopySurface({
   children,
@@ -26,7 +27,9 @@ export function AssistantSelectionCopySurface({
 
   return (
     <div onCopy={handleCopy} style={DISPLAY_CONTENTS}>
-      <View style={style}>{children}</View>
+      <View style={style} dataSet={CHAT_BACKGROUND}>
+        {children}
+      </View>
     </div>
   );
 }

@@ -87,6 +87,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
       UnistylesRuntime.setAdaptiveThemes(false);
       UnistylesRuntime.setTheme(theme);
       if (typeof document !== "undefined") {
+        document.documentElement.dataset.appearance = mode;
         document.documentElement.style.setProperty(
           "--pimi-focus-ring",
           REGISTERED_THEMES[theme].colors.ring,

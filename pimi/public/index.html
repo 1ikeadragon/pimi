@@ -6,6 +6,7 @@
     <meta name="color-scheme" content="light dark" />
     <title>Pimi</title>
     <link rel="icon" type="image/svg+xml" href="/pimi-mark.svg" />
+    <link rel="stylesheet" href="/pimi-textures/appearance.css" />
     <link rel="stylesheet" href="/style.css" />
     <link rel="stylesheet" href="/syntax.css" />
     <script type="module" src="/app.js"></script>
@@ -78,7 +79,7 @@
           </div>
           <div id="task-list" class="lanes task-lanes" aria-label="Task board"></div>
         </div>
-        <div id="task-content" class="task-content" hidden>
+        <div id="task-content" class="task-content" data-pimi-background hidden>
           <form id="task-create" class="task-form" hidden>
             <h2>New task</h2>
             <p id="task-proposal-context" class="subtitle" hidden>
