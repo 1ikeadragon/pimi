@@ -14,6 +14,8 @@ This real Pimi run starts with a chat request from an empty Scratch workspace. C
 
 Pimi opens in Agent Console. On first launch, setup helps you connect an agent provider, set up GitHub or GitLab, add a project, and start a conversation. Use the same sidebar to move between Chat, Tasks, Work, Review, and Memory in the main window.
 
+Collapse the desktop sidebar to keep those views on an icon rail. **Peek sidebar** opens the session list temporarily. Select a session or click back into the workspace to close it, or choose **Pin sidebar** to keep it open.
+
 ![Pimi’s welcome screen with the paw pair and “Your swarm’s best friend”](assets/pimi/onboarding.jpg)
 
 ![Git provider setup showing GitHub connected and the GitLab CLI sign-in command](assets/pimi/git-providers.jpg)
@@ -84,7 +86,7 @@ Choose an appearance in **Pimi → Settings → Appearance**. Blush pairs rose b
 
 ![The Tasks board in Paper with a fine fiber texture](assets/pimi/paper.jpg)
 
-![The Tasks board in Dark with muted charcoal panels and fine graphite grain](assets/pimi/dark.jpg)
+![The Tasks board in Dark with the sidebar opened temporarily beside it](assets/pimi/dark.jpg)
 
 ### Find saved memory
 

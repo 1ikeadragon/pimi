@@ -1280,6 +1280,8 @@ export const ru: TranslationResources = {
       hosts: "Хосты",
       settings: "Настройки",
       closeSidebar: "Закрыть боковую панель",
+      peekSidebar: "Временно открыть боковую панель",
+      pinSidebar: "Закрепить боковую панель",
       moreActions: "Дополнительные действия",
     },
     footer: {

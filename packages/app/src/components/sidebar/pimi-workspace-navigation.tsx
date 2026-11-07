@@ -1,70 +1,187 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
-import { useCallback } from "react";
+import { useCallback, type ReactNode } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { Columns3, FileDiff, ListTodo, MessageSquare, NotebookText } from "lucide-react-native";
+import {
+  Columns3,
+  FileDiff,
+  ListTodo,
+  MessageSquare,
+  NotebookText,
+  PanelLeftOpen,
+  Pin,
+  Settings,
+  X,
+} from "lucide-react-native";
+import { useTranslation } from "react-i18next";
 import { getDesktopHost } from "@/desktop/host";
 import { usePimiWorkspaceSection } from "@/desktop/pimi-console-content";
 import { PaseoLogo } from "@/components/icons/paseo-logo";
-import { SidebarHeaderRow } from "./sidebar-header-row";
+import { DensityIcon } from "@/components/ui/density-icon";
+import { HeaderToggleButton } from "@/components/headers/header-toggle-button";
+import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
+import { HEADER_INNER_HEIGHT } from "@/constants/layout";
+import { SidebarHeaderRow, type SidebarRowIcon } from "./sidebar-header-row";
 
-export function PimiWorkspaceNavigation() {
+export interface PimiSidebarControls {
+  mode: "dock" | "rail" | "peek";
+  openPeek: () => void;
+  closePeek: () => void;
+  pin: () => void;
+}
+
+const NO_SHORTCUT: [] = [];
+const SELECTED = { selected: true } as const;
+export const PIMI_NAV_RAIL_WIDTH = 52;
+
+function SidebarIcon({
+  icon,
+  label,
+  onPress,
+  active = false,
+  testID,
+}: {
+  icon: SidebarRowIcon;
+  label: string;
+  onPress: () => void;
+  active?: boolean;
+  testID?: string;
+}) {
+  return (
+    <HeaderToggleButton
+      onPress={onPress}
+      tooltipLabel={label}
+      tooltipKeys={NO_SHORTCUT}
+      tooltipSide="right"
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={active ? SELECTED : undefined}
+      style={[styles.railButton, active && styles.railButtonSelected]}
+      testID={testID}
+    >
+      <DensityIcon icon={icon} size="sm" color={active ? "foreground" : "foregroundMuted"} />
+    </HeaderToggleButton>
+  );
+}
+
+export function PimiSidebarRail({
+  controls,
+  onSettings,
+}: {
+  controls: PimiSidebarControls;
+  onSettings: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <View style={styles.rail} testID="pimi-sidebar-rail">
+      <View style={styles.railChrome}>
+        <TitlebarDragRegion />
+      </View>
+      <View style={styles.railCard}>
+        <SidebarIcon
+          icon={PanelLeftOpen}
+          label={t("sidebar.actions.peekSidebar")}
+          onPress={controls.openPeek}
+          testID="pimi-sidebar-peek"
+        />
+        <PimiWorkspaceNavigation rail />
+        <View style={styles.railSpacer} />
+        <SidebarIcon icon={Pin} label={t("sidebar.actions.pinSidebar")} onPress={controls.pin} />
+        <SidebarIcon icon={Settings} label={t("sidebar.actions.settings")} onPress={onSettings} />
+      </View>
+    </View>
+  );
+}
+
+export function PimiSidebarPeekActions({ controls }: { controls: PimiSidebarControls }) {
+  const { t } = useTranslation();
+  return (
+    <View style={styles.peekActions}>
+      <SidebarIcon icon={Pin} label={t("sidebar.actions.pinSidebar")} onPress={controls.pin} />
+      <SidebarIcon
+        icon={X}
+        label={t("sidebar.actions.closeSidebar")}
+        onPress={controls.closePeek}
+        testID="pimi-sidebar-close-peek"
+      />
+    </View>
+  );
+}
+
+export function PimiWorkspaceNavigation({
+  rail = false,
+  onNavigate,
+  trailing,
+}: {
+  rail?: boolean;
+  onNavigate?: () => void;
+  trailing?: ReactNode;
+} = {}) {
   const host = getDesktopHost();
   const show = host?.showPimiWorkspace;
   const section = usePimiWorkspaceSection();
-  const showChat = useCallback(() => host?.dismissPimiWorkspace?.(), [host]);
-  const showTasks = useCallback(() => show?.({ view: "tasks" }), [show]);
-  const showWorktrees = useCallback(() => show?.({ view: "worktrees" }), [show]);
-  const showReview = useCallback(() => show?.({ view: "review-home" }), [show]);
-  const showMemory = useCallback(() => show?.({ view: "memory" }), [show]);
+  const showChat = useCallback(() => {
+    onNavigate?.();
+    host?.dismissPimiWorkspace?.();
+  }, [host, onNavigate]);
+  const showTasks = useCallback(() => {
+    onNavigate?.();
+    show?.({ view: "tasks" });
+  }, [onNavigate, show]);
+  const showWorktrees = useCallback(() => {
+    onNavigate?.();
+    show?.({ view: "worktrees" });
+  }, [onNavigate, show]);
+  const showReview = useCallback(() => {
+    onNavigate?.();
+    show?.({ view: "review-home" });
+  }, [onNavigate, show]);
+  const showMemory = useCallback(() => {
+    onNavigate?.();
+    show?.({ view: "memory" });
+  }, [onNavigate, show]);
   if (!show) return null;
 
+  const destinations = [
+    { label: "Chat", icon: MessageSquare, onPress: showChat, active: !section },
+    { label: "Tasks", icon: ListTodo, onPress: showTasks, active: section === "tasks" },
+    { label: "Work", icon: Columns3, onPress: showWorktrees, active: section === "board" },
+    { label: "Review", icon: FileDiff, onPress: showReview, active: section === "review" },
+    { label: "Memory", icon: NotebookText, onPress: showMemory, active: section === "memory" },
+  ];
+  if (rail) {
+    return (
+      <View style={styles.railDestinations}>
+        {destinations.map((item) => (
+          <SidebarIcon key={item.label} {...item} />
+        ))}
+      </View>
+    );
+  }
   return (
     <View>
       <View style={styles.brand}>
         <View style={styles.mark}>
           <BrandMark />
         </View>
-        <View>
+        <View style={styles.brandLabel}>
           <Text style={styles.name}>Pimi</Text>
-          <Text style={styles.caption}>Your swarm’s best friend</Text>
+          <Text style={styles.caption} numberOfLines={1}>
+            Your swarm’s best friend
+          </Text>
         </View>
+        {trailing}
       </View>
-      <SidebarHeaderRow
-        icon={MessageSquare}
-        label="Chat"
-        onPress={showChat}
-        variant="compact"
-        isActive={!section}
-      />
-      <SidebarHeaderRow
-        icon={ListTodo}
-        label="Tasks"
-        onPress={showTasks}
-        variant="compact"
-        isActive={section === "tasks"}
-      />
-      <SidebarHeaderRow
-        icon={Columns3}
-        label="Work"
-        onPress={showWorktrees}
-        variant="compact"
-        isActive={section === "board"}
-      />
-      <SidebarHeaderRow
-        icon={FileDiff}
-        label="Review"
-        onPress={showReview}
-        variant="compact"
-        isActive={section === "review"}
-      />
-      <SidebarHeaderRow
-        icon={NotebookText}
-        label="Memory"
-        onPress={showMemory}
-        variant="compact"
-        isActive={section === "memory"}
-      />
+      {destinations.map(({ label, icon, onPress, active }) => (
+        <SidebarHeaderRow
+          key={label}
+          label={label}
+          icon={icon}
+          onPress={onPress}
+          variant="compact"
+          isActive={active}
+        />
+      ))}
       <Text style={styles.section}>Agent tools</Text>
     </View>
   );
@@ -76,6 +193,44 @@ const BrandMark = withUnistyles(PaseoLogo, (theme) => ({
 }));
 
 const styles = StyleSheet.create((theme) => ({
+  rail: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+  },
+  railChrome: {
+    width: "100%",
+    height: HEADER_INNER_HEIGHT,
+  },
+  railCard: {
+    width: 42,
+    flex: 1,
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 8,
+    borderRadius: 13,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceSidebar,
+  },
+  railDestinations: {
+    gap: 4,
+    alignItems: "center",
+    paddingTop: 5,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  railButton: {
+    borderRadius: 8,
+  },
+  railButtonSelected: {
+    backgroundColor: theme.colors.surfaceSidebarSelected,
+  },
+  railSpacer: { flex: 1 },
+  peekActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   brand: {
     flexDirection: "row",
     alignItems: "center",
@@ -84,6 +239,7 @@ const styles = StyleSheet.create((theme) => ({
     paddingTop: 13,
     paddingBottom: 9,
   },
+  brandLabel: { flex: 1, minWidth: 0 },
   mark: {
     width: 31,
     height: 31,

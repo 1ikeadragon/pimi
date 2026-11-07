@@ -227,8 +227,12 @@ function attach(surface: WorkspaceSurface, win: BrowserWindow): void {
   surface.host = win;
   win.contentView.addChildView(surface.view);
   const sendSection = () => win.webContents.send("pimi:workspace:section", surface.section);
+  const notifyWorkspaceClick = () => {
+    if (!win.isDestroyed()) win.webContents.send("pimi:workspace:click");
+  };
   sendSection();
   win.webContents.on("did-finish-load", sendSection);
+  surface.view.webContents.ipc.on("pimi:workspace:click", notifyWorkspaceClick);
   const resize = () => {
     const [width, height] = win.getContentSize();
     const top = process.platform !== "darwin" ? 38 : 0;
@@ -257,6 +261,7 @@ function attach(surface: WorkspaceSurface, win: BrowserWindow): void {
     surface.cancelDictation?.();
     win.removeListener("resize", resize);
     win.removeListener("closed", closed);
+    surface.view.webContents.ipc.removeListener("pimi:workspace:click", notifyWorkspaceClick);
     if (!win.isDestroyed()) {
       win.contentView.removeChildView(surface.view);
       win.webContents.removeListener("did-finish-load", sendSection);

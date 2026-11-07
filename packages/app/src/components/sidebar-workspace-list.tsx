@@ -1427,6 +1427,7 @@ function WorkspaceRowItem({
   isCreating = false,
   selectionEnabled,
   activeWorkspaceSelection,
+  onWorkspacePress,
   drag,
   isDragging = false,
   dragHandleProps,
@@ -1435,8 +1436,9 @@ function WorkspaceRowItem({
     if (!workspace.serverId) {
       return;
     }
+    onWorkspacePress?.();
     navigateToWorkspace({ serverId: workspace.serverId, workspaceId: workspace.workspaceId });
-  }, [workspace.serverId, workspace.workspaceId]);
+  }, [onWorkspacePress, workspace.serverId, workspace.workspaceId]);
 
   return (
     <WorkspaceRow

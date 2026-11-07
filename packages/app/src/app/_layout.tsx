@@ -50,6 +50,7 @@ import { OnboardingHost, useIsSetupDecisionPending } from "@/onboarding";
 import { AppDiagnosticHost } from "@/components/app-diagnostic-host";
 import { AppearanceStyleBoundary } from "@/components/appearance-style-boundary";
 import { LeftSidebar } from "@/components/left-sidebar";
+import type { PimiSidebarControls } from "@/components/sidebar/pimi-workspace-navigation";
 import { WindowSidebarMenuToggle } from "@/components/headers/sidebar-menu-toggle";
 import { DesktopWindowControls } from "@/components/desktop/window-controls";
 import { SidebarModelProvider } from "@/components/sidebar/sidebar-model";
@@ -97,7 +98,7 @@ import { legacyFavoriteProfileMigration } from "@/agent-profiles/migration";
 import { listenToDesktopEvent } from "@/desktop/electron/events";
 import { updateDesktopWindowChrome } from "@/desktop/electron/window";
 import { getDesktopHost } from "@/desktop/host";
-import { PimiConsoleContent } from "@/desktop/pimi-console-content";
+import { PimiConsoleContent, PIMI_CONSOLE_CONTENT_ID } from "@/desktop/pimi-console-content";
 import { loadDesktopSettings } from "@/desktop/settings/desktop-settings";
 import { RosettaCalloutSource } from "@/desktop/updates/rosetta-callout-source";
 import { UpdateCalloutSource } from "@/desktop/updates/update-callout-source";
@@ -408,18 +409,6 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
   const toggleDesktopAgentList = usePanelStore((state) => state.toggleDesktopAgentList);
   const exitFocusMode = usePanelStore((state) => state.exitFocusMode);
   const isFocusModeEnabled = usePanelStore((state) => state.desktop.focusModeEnabled);
-  const isDesktopAgentListOpen = usePanelStore((state) => state.desktop.agentListOpen);
-  const sidebarWidth = usePanelStore((state) => state.sidebarWidth);
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
-  const viewportWidth = windowWidth - insets.left - insets.right;
-  const divisionLayout = resolveDesktopDivisionLayout({
-    geometry: useWindowLayout(),
-    windowWidth,
-    windowHeight,
-    leftInset: insets.left,
-    rightInset: insets.right,
-  });
 
   const cycleTheme = useAppearanceCycle();
 
@@ -429,7 +418,6 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
   const isWorkspaceRoute = parseHostWorkspaceRouteFromPathname(pathname) !== null;
   const isWorkspaceFocusModeEnabled = isWorkspaceRoute && isFocusModeEnabled;
   const chromeEnabled = chromeEnabledOverride ?? daemons.length > 0;
-  const hasMountedDesktopSidebar = useLatchedBoolean(chromeEnabled);
   const toggleAgentList = isCompactLayout ? toggleMobileAgentList : toggleDesktopAgentList;
   const toggleDesktopSidebars = useCallback(() => {
     // The focused workspace owns its layout key, its checkout, and therefore the
@@ -461,52 +449,26 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
   useActiveWorktreeNewAction();
   useGlobalNewWorkspaceAction();
 
-  const activeWorkspace = useActiveWorkspaceSelection();
-  const explorerVisible = useIsExplorerSidebarOpen({
-    isCompact: isCompactLayout,
-    workspaceKey: activeWorkspace
-      ? `${activeWorkspace.serverId}:${activeWorkspace.workspaceId}`
-      : null,
-  });
-  const appContentMinimumWidth = resolveDesktopAppContentMinimum({
-    explorerVisible: isWorkspaceRoute && explorerVisible,
-    isSettingsRoute: pathname.includes("/settings"),
-  });
-  const desktopSidebarMounted = hasMountedDesktopSidebar && !isWorkspaceFocusModeEnabled;
-  const desktopSidebarVisible = resolveDesktopSidebarVisibility({
-    chromeEnabled,
-    isCompactLayout,
-    isMounted: desktopSidebarMounted,
-    isOpen: isDesktopAgentListOpen,
+  const {
+    appChromeLayout,
+    desktopSidebarMounted,
     divisionLayout,
-    canShare: canDesktopAppSidebarShare({
-      contentMinimumWidth: appContentMinimumWidth,
-      requestedSidebarWidth: sidebarWidth,
-      viewportWidth,
-    }),
-  });
-  const sidebarPresentation = resolveLeftSidebarPresentation({
+    pimiSidebar,
+    sidebarOccupiesColumn,
+    sidebarPresentation,
+  } = useAppSidebarLayout({
     chromeEnabled,
     isCompactLayout,
-    isFocusModeEnabled: isWorkspaceFocusModeEnabled,
-    desktopSidebarVisible,
-  });
-  const applyPanelLayout = usePanelStore((state) => state.applyPanelLayout);
-  // Publishes the layout to the store, which owns the panel targets each layout allows.
-  useLayoutEffect(() => {
-    applyPanelLayout({ isCompact: isCompactLayout, leftSidebar: sidebarPresentation });
-  }, [applyPanelLayout, isCompactLayout, sidebarPresentation]);
-  const hasTopLeftWindowControls = useHasWindowChromeObstruction("top-left");
-  const appChromeLayout = resolveDesktopAppChromeLayout({
-    desktopSidebarRendered: desktopSidebarVisible,
-    hasTopLeftWindowControls,
-    sidebarControlsEnabled: chromeEnabled && !isWorkspaceFocusModeEnabled,
+    isWorkspaceFocusModeEnabled,
+    isWorkspaceRoute,
+    pathname,
   });
   const sidebarChrome = (
     <SidebarChrome
       mounted={isCompactLayout ? chromeEnabled : desktopSidebarMounted}
       presentation={sidebarPresentation}
       keyboardShortcutsEnabled={keyboardShortcutsEnabled}
+      pimiSidebar={pimiSidebar}
     />
   );
   let themedSidebarChrome = sidebarChrome;
@@ -523,14 +485,14 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
       ) : null}
       <WindowLayoutDivisionGap
         layout={divisionLayout}
-        sidebarVisible={desktopSidebarVisible}
+        sidebarVisible={sidebarOccupiesColumn}
         compact={isCompactLayout}
       />
       <WorkspaceExplorerOpenGesture enabled={chromeEnabled && isCompactLayout}>
         <WindowChromeRegion
           corners={isCompactLayout && chromeEnabled ? "both" : appChromeLayout.contentCorners}
         >
-          <PimiConsoleContent sidebar={desktopSidebarVisible} pathname={pathname}>
+          <PimiConsoleContent sidebar={sidebarOccupiesColumn} pathname={pathname}>
             {children}
           </PimiConsoleContent>
         </WindowChromeRegion>
@@ -598,6 +560,141 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
   );
 }
 
+function useAppSidebarLayout({
+  chromeEnabled,
+  isCompactLayout,
+  isWorkspaceFocusModeEnabled,
+  isWorkspaceRoute,
+  pathname,
+}: {
+  chromeEnabled: boolean;
+  isCompactLayout: boolean;
+  isWorkspaceFocusModeEnabled: boolean;
+  isWorkspaceRoute: boolean;
+  pathname: string;
+}) {
+  const hasMountedDesktopSidebar = useLatchedBoolean(chromeEnabled);
+  const isDesktopAgentListOpen = usePanelStore((state) => state.desktop.agentListOpen);
+  const sidebarWidth = usePanelStore((state) => state.sidebarWidth);
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const viewportWidth = windowWidth - insets.left - insets.right;
+  const divisionLayout = resolveDesktopDivisionLayout({
+    geometry: useWindowLayout(),
+    windowWidth,
+    windowHeight,
+    leftInset: insets.left,
+    rightInset: insets.right,
+  });
+
+  const activeWorkspace = useActiveWorkspaceSelection();
+  const explorerVisible = useIsExplorerSidebarOpen({
+    isCompact: isCompactLayout,
+    workspaceKey: activeWorkspace
+      ? `${activeWorkspace.serverId}:${activeWorkspace.workspaceId}`
+      : null,
+  });
+  const appContentMinimumWidth = resolveDesktopAppContentMinimum({
+    explorerVisible: isWorkspaceRoute && explorerVisible,
+    isSettingsRoute: pathname.includes("/settings"),
+  });
+  const desktopSidebarMounted = hasMountedDesktopSidebar && !isWorkspaceFocusModeEnabled;
+  const pimiSidebarEnabled =
+    chromeEnabled &&
+    !isCompactLayout &&
+    !isWorkspaceFocusModeEnabled &&
+    Boolean(getDesktopHost()?.showPimiWorkspace);
+  const desktopSidebarVisible = resolveDesktopSidebarVisibility({
+    chromeEnabled,
+    isCompactLayout,
+    isMounted: desktopSidebarMounted,
+    isOpen: isDesktopAgentListOpen,
+    divisionLayout,
+    canShare:
+      pimiSidebarEnabled ||
+      canDesktopAppSidebarShare({
+        contentMinimumWidth: appContentMinimumWidth,
+        requestedSidebarWidth: sidebarWidth,
+        viewportWidth,
+      }),
+  });
+  const pimiSidebar = usePimiSidebar(pimiSidebarEnabled, desktopSidebarVisible, pathname);
+  const sidebarOccupiesColumn = desktopSidebarVisible || pimiSidebar !== undefined;
+  const sidebarPresentation = pimiSidebar
+    ? "dock"
+    : resolveLeftSidebarPresentation({
+        chromeEnabled,
+        isCompactLayout,
+        isFocusModeEnabled: isWorkspaceFocusModeEnabled,
+        desktopSidebarVisible,
+      });
+  const applyPanelLayout = usePanelStore((state) => state.applyPanelLayout);
+  // Publishes the layout to the store, which owns the panel targets each layout allows.
+  useLayoutEffect(() => {
+    applyPanelLayout({ isCompact: isCompactLayout, leftSidebar: sidebarPresentation });
+  }, [applyPanelLayout, isCompactLayout, sidebarPresentation]);
+  const hasTopLeftWindowControls = useHasWindowChromeObstruction("top-left");
+  const appChromeLayout = resolveDesktopAppChromeLayout({
+    desktopSidebarRendered: sidebarOccupiesColumn,
+    hasTopLeftWindowControls,
+    sidebarControlsEnabled:
+      chromeEnabled &&
+      !isWorkspaceFocusModeEnabled &&
+      (!pimiSidebar || pimiSidebar.mode === "dock"),
+  });
+  return {
+    appChromeLayout,
+    desktopSidebarMounted,
+    divisionLayout,
+    pimiSidebar,
+    sidebarOccupiesColumn,
+    sidebarPresentation,
+  };
+}
+
+function usePimiSidebar(
+  enabled: boolean,
+  docked: boolean,
+  pathname: string,
+): PimiSidebarControls | undefined {
+  const [peekPath, setPeekPath] = useState<string | null>(null);
+  const openDesktopAgentList = usePanelStore((state) => state.openDesktopAgentList);
+  const openPeek = useCallback(() => setPeekPath(pathname), [pathname]);
+  const closePeek = useCallback(() => setPeekPath(null), []);
+  const pin = useCallback(() => {
+    closePeek();
+    openDesktopAgentList();
+  }, [closePeek, openDesktopAgentList]);
+  const peeking = enabled && !docked && peekPath === pathname;
+
+  useEffect(() => {
+    if (!peeking) return;
+    const content = document.getElementById(PIMI_CONSOLE_CONTENT_ID);
+    const unlisten = getDesktopHost()?.onPimiWorkspaceClick?.(closePeek);
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.defaultPrevented) closePeek();
+    };
+    content?.addEventListener("click", closePeek, true);
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      content?.removeEventListener("click", closePeek, true);
+      window.removeEventListener("keydown", handleEscape);
+      unlisten?.();
+    };
+  }, [closePeek, peeking]);
+
+  useEffect(() => {
+    if (!peeking) closePeek();
+  }, [closePeek, peeking]);
+
+  const unpinnedMode = peeking ? "peek" : "rail";
+  return useMemo(
+    () =>
+      enabled ? { mode: docked ? "dock" : unpinnedMode, openPeek, closePeek, pin } : undefined,
+    [enabled, docked, unpinnedMode, openPeek, closePeek, pin],
+  );
+}
+
 function AppContainerLifetime({
   children,
   sidebarGesturesEnabled,
@@ -620,15 +717,19 @@ function SidebarChrome({
   mounted,
   presentation,
   keyboardShortcutsEnabled,
+  pimiSidebar,
 }: {
   mounted: boolean;
   presentation: LeftSidebarPresentation;
   keyboardShortcutsEnabled: boolean;
+  pimiSidebar?: PimiSidebarControls;
 }) {
   const isCompactLayout = useIsCompactFormFactor();
   const isMobileActive = useIsMobilePanelActive("agent-list");
   const overlay = presentation === "overlay";
-  const active = resolveSidebarActivity(presentation !== "hidden", overlay, isMobileActive);
+  const active = pimiSidebar
+    ? pimiSidebar.mode !== "rail"
+    : resolveSidebarActivity(presentation !== "hidden", overlay, isMobileActive);
   const hardwareKeyboardPresent = useHardwareKeyboardPresent();
   return (
     <SidebarModelProvider
@@ -636,7 +737,11 @@ function SidebarChrome({
       keyboardNavigationActive={keyboardShortcutsEnabled && hardwareKeyboardPresent}
     >
       {mounted ? (
-        <LeftSidebar active={active} desktopOverlay={overlay && !isCompactLayout} />
+        <LeftSidebar
+          active={active}
+          desktopOverlay={overlay && !isCompactLayout}
+          pimiSidebar={pimiSidebar}
+        />
       ) : null}
       <WorkspaceShortcutTargetsSubscriber enabled={keyboardShortcutsEnabled} />
     </SidebarModelProvider>

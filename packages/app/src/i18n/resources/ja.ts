@@ -1276,6 +1276,8 @@ export const ja: TranslationResources = {
       hosts: "ホスト",
       settings: "設定",
       closeSidebar: "サイドバーを閉じる",
+      peekSidebar: "サイドバーを一時表示",
+      pinSidebar: "サイドバーを固定",
       moreActions: "その他のアクション",
     },
     footer: {

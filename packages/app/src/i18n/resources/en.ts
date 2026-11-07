@@ -1269,6 +1269,8 @@ export const en = {
       hosts: "Hosts",
       settings: "Settings",
       closeSidebar: "Close sidebar",
+      peekSidebar: "Peek sidebar",
+      pinSidebar: "Pin sidebar",
       moreActions: "More actions",
     },
     footer: {
