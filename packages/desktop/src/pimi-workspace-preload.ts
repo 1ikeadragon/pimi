@@ -15,6 +15,13 @@ ipcRenderer.on("pimi:workspace:layout", (_event, mode: WorkspaceLayout) => {
   layout = mode;
   onLayoutChange?.(mode);
 });
+window.addEventListener(
+  "click",
+  (event) => {
+    if (event.isTrusted) ipcRenderer.send("pimi:workspace:click");
+  },
+  true,
+);
 
 contextBridge.exposeInMainWorld("pimiWorkspace", {
   chrome: process.platform === "darwin" ? "mac" : "standard",

@@ -1292,6 +1292,8 @@ export const fr: TranslationResources = {
       hosts: "Hôtes",
       settings: "Paramètres",
       closeSidebar: "Fermer la barre latérale",
+      peekSidebar: "Afficher temporairement la barre latérale",
+      pinSidebar: "Épingler la barre latérale",
       moreActions: "Plus d’actions",
     },
     footer: {

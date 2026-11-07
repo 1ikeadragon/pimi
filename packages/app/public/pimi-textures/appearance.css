@@ -45,3 +45,30 @@
     --pimi-material: none;
   }
 }
+
+[data-pimi-sidebar-frame] {
+  transition: width 160ms cubic-bezier(0.22, 0.75, 0.25, 1);
+}
+
+[data-pimi-sidebar-frame][data-pimi-sidebar-resizing="true"] {
+  transition: none;
+}
+
+[data-pimi-sidebar-content] {
+  transition:
+    opacity 120ms ease-out,
+    transform 160ms cubic-bezier(0.22, 0.75, 0.25, 1);
+}
+
+[data-pimi-sidebar-frame="rail"] [data-pimi-sidebar-content] {
+  opacity: 0;
+  transform: translateX(-8px);
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-pimi-sidebar-frame],
+  [data-pimi-sidebar-content] {
+    transition: none;
+  }
+}

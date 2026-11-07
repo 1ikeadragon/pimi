@@ -201,6 +201,7 @@ export interface DesktopHostBridge {
     get: () => PimiWorkspaceSection | null;
     subscribe: (listener: () => void) => () => void;
   };
+  onPimiWorkspaceClick?: (listener: () => void) => () => void;
   onPimiOpenSettings?: (open: () => void) => () => void;
   pimiAppearance?: {
     get: () => PimiAppearance;

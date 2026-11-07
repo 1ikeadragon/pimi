@@ -39,7 +39,13 @@ import { HostPicker } from "@/components/hosts/host-picker";
 import { SidebarDisplayPreferencesMenu } from "@/components/sidebar/display-preferences/menu";
 import { SidebarSeparator } from "@/components/sidebar/sidebar-separator";
 import { SidebarNavRows } from "@/components/sidebar/sidebar-nav-rows";
-import { PimiWorkspaceNavigation } from "@/components/sidebar/pimi-workspace-navigation";
+import {
+  PIMI_NAV_RAIL_WIDTH,
+  PimiSidebarPeekActions,
+  PimiSidebarRail,
+  PimiWorkspaceNavigation,
+  type PimiSidebarControls,
+} from "@/components/sidebar/pimi-workspace-navigation";
 import { getDesktopHost } from "@/desktop/host";
 import { SidebarFooterIconHighlight } from "@/components/sidebar/sidebar-footer-icon-highlight";
 import { SidebarHelpMenu } from "@/components/sidebar/sidebar-help-menu";
@@ -97,6 +103,8 @@ type SidebarTheme = ReturnType<typeof useUnistyles>["theme"];
 /** The footer icon line's inset; the overflow layout counts it as space the buttons can't use. */
 const FOOTER_ROW_PADDING = SPACING[2];
 
+const PIMI_SIDEBAR_CONTENT = { pimiSidebarContent: "" };
+
 const DEV_BUILD_LABEL = process.env.EXPO_PUBLIC_PASEO_DEV_BUILD_LABEL?.trim() || null;
 
 interface SidebarSharedProps {
@@ -144,14 +152,17 @@ interface DesktopSidebarProps extends SidebarSharedProps {
   insetsTop: number;
   active: boolean;
   overlay: boolean;
+  pimiSidebar?: PimiSidebarControls;
 }
 
 export const LeftSidebar = memo(function LeftSidebar({
   active,
   desktopOverlay,
+  pimiSidebar,
 }: {
   active: boolean;
   desktopOverlay: boolean;
+  pimiSidebar?: PimiSidebarControls;
 }) {
   const { theme } = useUnistyles();
   const { t } = useTranslation();
@@ -192,19 +203,22 @@ export const LeftSidebar = memo(function LeftSidebar({
 
   const openProjectPicker = useOpenAddProject();
   const { open: openImportSession, sheet: importSessionSheet } = useImportSession();
+  const closePeek = pimiSidebar?.closePeek;
 
   // Each destination closes the navigation overlay first. Closing is idempotent, so a docked
   // sidebar runs the same handler.
   const handleOpenProject = useCallback(() => {
+    closePeek?.();
     getDesktopHost()?.dismissPimiWorkspace?.();
     void openProjectPicker();
-  }, [openProjectPicker]);
+  }, [closePeek, openProjectPicker]);
 
   const handleSettings = useCallback(() => {
+    closePeek?.();
     getDesktopHost()?.dismissPimiWorkspace?.();
     showMobileAgent();
     router.push(buildSettingsRoute());
-  }, [showMobileAgent]);
+  }, [closePeek, showMobileAgent]);
 
   const handleAddHost = useAddHost();
 
@@ -275,6 +289,7 @@ export const LeftSidebar = memo(function LeftSidebar({
             insetsTop={insets.top}
             active={active}
             overlay={desktopOverlay}
+            pimiSidebar={pimiSidebar}
           />
         )}
       </RetainedPanelActivity>
@@ -711,6 +726,7 @@ function DesktopSidebar({
   insetsTop,
   active,
   overlay,
+  pimiSidebar,
 }: DesktopSidebarProps) {
   const ownsTopLeft = useOwnsWindowChromeCorner("top-left");
   const hasActiveHostFilter = useSidebarViewStore((state) => state.hostFilters.length > 0);
@@ -728,10 +744,12 @@ function DesktopSidebar({
   const visibleSidebarWidth = useLeftPanelWidth();
 
   const closeSidebar = usePanelStore((state) => state.showMobileAgent);
+  const closePeek = pimiSidebar?.closePeek;
   const handleWorkspacePress = useCallback(() => {
+    closePeek?.();
     getDesktopHost()?.dismissPimiWorkspace?.();
     closeSidebar();
-  }, [closeSidebar]);
+  }, [closePeek, closeSidebar]);
   const { gesture: closeGesture, gestureRef: closeGestureRef } = useCloseAgentListGesture(overlay);
 
   const startWidth = useSharedValue(visibleSidebarWidth);
@@ -790,114 +808,180 @@ function DesktopSidebar({
   const resizeAnimatedStyle = useAnimatedStyle(() => ({
     width: divisionLayout?.sidebarWidth ?? resizeWidth.value,
   }));
+  const rail = pimiSidebar?.mode === "rail";
+  const frameWidth = useAnimatedStyle(() => ({
+    width: rail ? PIMI_NAV_RAIL_WIDTH : (divisionLayout?.sidebarWidth ?? resizeWidth.value),
+  }));
   // The panel host gets no width of its own: the dock sizes to this view and the overlay fills the
   // window. A Reanimated width on the host reached Android after React had switched presentation,
   // and a lost update left the workspace at the dock width after the dock collapsed.
   const desktopSidebarStyle = useMemo(
-    () => [staticStyles.desktopSidebar, resizeAnimatedStyle],
-    [resizeAnimatedStyle],
+    () => [staticStyles.desktopSidebar, frameWidth],
+    [frameWidth],
   );
   const desktopSidebarBorderStyle = useMemo(
     () => [
-      styles.desktopSidebarBorder(divisionLayout !== null),
+      pimiSidebar ? styles.pimiSidebarInset : styles.desktopSidebarBorder(divisionLayout !== null),
       {
         flex: 1,
-        paddingTop: insetsTop,
+        paddingTop: pimiSidebar ? 0 : insetsTop,
         paddingBottom: insets.bottom,
         paddingLeft: resolveDesktopSidebarInsetLeft({ overlay, safeAreaLeft: insets.left }),
       },
     ],
-    [insetsTop, insets.bottom, insets.left, overlay, divisionLayout],
+    [insetsTop, insets.bottom, insets.left, overlay, divisionLayout, pimiSidebar],
   );
   const sidebarHeaderGroupStyle = useMemo(
     () => [styles.sidebarHeaderGroup, ownsTopLeft && styles.sidebarHeaderGroupBelowChrome],
     [ownsTopLeft],
   );
+  const showFullChrome = ownsTopLeft || pimiSidebar !== undefined;
+  const chrome = useMemo(
+    () => <SidebarDragChrome full={showFullChrome} theme={theme} />,
+    [showFullChrome, theme],
+  );
+  const peekActions = useMemo(
+    () => (pimiSidebar?.mode === "peek" ? <PimiSidebarPeekActions controls={pimiSidebar} /> : null),
+    [pimiSidebar],
+  );
+  const sidebarContent = (
+    <View style={desktopSidebarBorderStyle}>
+      <View style={styles.sidebarDragArea}>
+        {pimiSidebar ? null : chrome}
+        <PimiWorkspaceNavigation onNavigate={closePeek} trailing={peekActions} />
+        <SidebarNavRows style={sidebarHeaderGroupStyle} onBeforeNavigate={handleWorkspacePress} />
+      </View>
+
+      {isInitialLoad && !hasActiveHostFilter ? (
+        <SidebarAgentListSkeleton />
+      ) : (
+        <SidebarWorkspaceList
+          collapsedProjectKeys={collapsedProjectKeys}
+          onToggleProjectCollapsed={toggleProjectCollapsed}
+          shortcutIndexByWorkspaceKey={shortcutIndexByWorkspaceKey}
+          groupMode={groupMode}
+          workspaceGroups={workspaceGroups}
+          projectIconTargets={projectIconTargets}
+          pinnedGroups={pinnedGroups}
+          projects={projects}
+          hasProjectsBeforeFilter={hasProjectsBeforeFilter}
+          hasActiveProjectFilter={hasActiveProjectFilter}
+          workspaceEntriesByKey={workspaceEntriesByKey}
+          isRefreshing={isManualRefresh && isRevalidating}
+          onRefresh={handleRefresh}
+          onAddProject={handleOpenProject}
+          onImportSession={handleImportSession}
+          onWorkspacePress={handleWorkspacePress}
+          parentGestureRef={closeGestureRef}
+          dragGestureHostActive={active}
+          listHeaderComponent={workspacesSectionHeaderElement}
+        />
+      )}
+
+      <SidebarCalloutSlot />
+
+      <SidebarFooter
+        handleOpenProject={handleOpenProject}
+        handleSettings={handleSettings}
+        labels={labels}
+        handleAddHost={handleAddHost}
+        handleOpenHostSettings={handleOpenHostSettings}
+        onBeforeNavigate={handleWorkspacePress}
+      />
+
+      {!overlay && !rail && pimiSidebar?.mode !== "peek" && divisionLayout === null ? (
+        <SidebarResizeHandle
+          edge="right"
+          gesture={resizeGesture}
+          pressed={resizePressed}
+          testID="left-sidebar-resize-handle"
+        />
+      ) : null}
+    </View>
+  );
   return (
     <MobilePanelOverlay
       panel="agent-list"
       presentation={overlay ? "overlay" : "dock"}
-      dockVisible={active}
+      dockVisible={active || pimiSidebar !== undefined}
       closeGesture={closeGesture}
     >
-      <Animated.View style={desktopSidebarStyle}>
-        <View style={desktopSidebarBorderStyle}>
-          <View style={styles.sidebarDragArea}>
-            {ownsTopLeft || DEV_BUILD_LABEL ? (
-              <View style={styles.desktopChromeRow}>
-                <TitlebarDragRegion />
-                {DEV_BUILD_LABEL ? (
-                  <View
-                    pointerEvents="none"
-                    style={styles.devBuildBadge}
-                    testID="dev-build-label"
-                    accessibilityLabel={`Development build: ${DEV_BUILD_LABEL}`}
-                  >
-                    <GitBranch size={12} color={theme.colors.accentForeground} />
-                    <Text numberOfLines={1} ellipsizeMode="tail" style={styles.devBuildBadgeText}>
-                      {DEV_BUILD_LABEL}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
-            ) : (
-              <TitlebarDragRegion />
-            )}
-            <PimiWorkspaceNavigation />
-            <SidebarNavRows
-              style={sidebarHeaderGroupStyle}
-              onBeforeNavigate={handleWorkspacePress}
-            />
-          </View>
-
-          {isInitialLoad && !hasActiveHostFilter ? (
-            <SidebarAgentListSkeleton />
-          ) : (
-            <SidebarWorkspaceList
-              collapsedProjectKeys={collapsedProjectKeys}
-              onToggleProjectCollapsed={toggleProjectCollapsed}
-              shortcutIndexByWorkspaceKey={shortcutIndexByWorkspaceKey}
-              groupMode={groupMode}
-              workspaceGroups={workspaceGroups}
-              projectIconTargets={projectIconTargets}
-              pinnedGroups={pinnedGroups}
-              projects={projects}
-              hasProjectsBeforeFilter={hasProjectsBeforeFilter}
-              hasActiveProjectFilter={hasActiveProjectFilter}
-              workspaceEntriesByKey={workspaceEntriesByKey}
-              isRefreshing={isManualRefresh && isRevalidating}
-              onRefresh={handleRefresh}
-              onAddProject={handleOpenProject}
-              onImportSession={handleImportSession}
-              onWorkspacePress={handleWorkspacePress}
-              parentGestureRef={closeGestureRef}
-              dragGestureHostActive={active}
-              listHeaderComponent={workspacesSectionHeaderElement}
-            />
-          )}
-
-          <SidebarCalloutSlot />
-
-          <SidebarFooter
-            handleOpenProject={handleOpenProject}
-            handleSettings={handleSettings}
-            labels={labels}
-            handleAddHost={handleAddHost}
-            handleOpenHostSettings={handleOpenHostSettings}
-            onBeforeNavigate={handleWorkspacePress}
-          />
-
-          {!overlay && divisionLayout === null ? (
-            <SidebarResizeHandle
-              edge="right"
-              gesture={resizeGesture}
-              pressed={resizePressed}
-              testID="left-sidebar-resize-handle"
-            />
-          ) : null}
-        </View>
-      </Animated.View>
+      <DesktopSidebarFrame
+        style={desktopSidebarStyle}
+        resizeStyle={resizeAnimatedStyle}
+        pimiSidebar={pimiSidebar}
+        resizePressed={resizePressed}
+        chrome={chrome}
+        onSettings={handleSettings}
+      >
+        {sidebarContent}
+      </DesktopSidebarFrame>
     </MobilePanelOverlay>
+  );
+}
+
+function SidebarDragChrome({ full, theme }: { full: boolean; theme: SidebarTheme }) {
+  if (!full && !DEV_BUILD_LABEL) return <TitlebarDragRegion />;
+  return (
+    <View style={styles.desktopChromeRow}>
+      <TitlebarDragRegion />
+      {DEV_BUILD_LABEL ? (
+        <View
+          pointerEvents="none"
+          style={styles.devBuildBadge}
+          testID="dev-build-label"
+          accessibilityLabel={`Development build: ${DEV_BUILD_LABEL}`}
+        >
+          <GitBranch size={12} color={theme.colors.accentForeground} />
+          <Text numberOfLines={1} ellipsizeMode="tail" style={styles.devBuildBadgeText}>
+            {DEV_BUILD_LABEL}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function DesktopSidebarFrame({
+  style,
+  resizeStyle,
+  pimiSidebar,
+  resizePressed,
+  chrome,
+  onSettings,
+  children,
+}: {
+  style: React.ComponentProps<typeof Animated.View>["style"];
+  resizeStyle: React.ComponentProps<typeof Animated.View>["style"];
+  pimiSidebar?: PimiSidebarControls;
+  resizePressed: boolean;
+  chrome: React.ReactNode;
+  onSettings: () => void;
+  children: React.ReactNode;
+}) {
+  const mode = pimiSidebar?.mode;
+  const frameData = useMemo(
+    () =>
+      mode
+        ? { pimiSidebarFrame: mode, pimiSidebarResizing: resizePressed ? "true" : undefined }
+        : undefined,
+    [mode, resizePressed],
+  );
+  if (!pimiSidebar) return <Animated.View style={style}>{children}</Animated.View>;
+  const rail = mode === "rail";
+  return (
+    <Animated.View style={style} dataSet={frameData}>
+      <Animated.View
+        dataSet={PIMI_SIDEBAR_CONTENT}
+        style={[staticStyles.pimiExpandedContent, resizeStyle]}
+        accessibilityElementsHidden={rail}
+        importantForAccessibility={rail ? "no-hide-descendants" : "auto"}
+      >
+        {chrome}
+        {children}
+      </Animated.View>
+      {rail ? <PimiSidebarRail controls={pimiSidebar} onSettings={onSettings} /> : null}
+    </Animated.View>
   );
 }
 
@@ -926,6 +1010,7 @@ const workspacesSectionHeaderElement = <WorkspacesSectionHeader />;
 // avoid the "Unable to find node on an unmounted component" crash when Unistyles
 // tries to patch the native node that Reanimated also manages.
 const staticStyles = RNStyleSheet.create({
+  pimiExpandedContent: { position: "absolute", top: 0, bottom: 0, left: 0 },
   desktopSidebar: {
     position: "relative" as const,
     flex: 1,
@@ -967,6 +1052,14 @@ const styles = StyleSheet.create((theme) => ({
     borderRightColor: theme.colors.border,
     backgroundColor: theme.colors.surfaceSidebar,
   }),
+  pimiSidebarInset: {
+    marginHorizontal: 6,
+    marginBottom: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceSidebar,
+  },
   sidebarDragArea: {
     position: "relative",
   },

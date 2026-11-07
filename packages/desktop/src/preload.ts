@@ -116,6 +116,13 @@ contextBridge.exposeInMainWorld("paseoDesktop", {
             };
           },
         },
+        onPimiWorkspaceClick: (listener: () => void) => {
+          const onClick = () => listener();
+          ipcRenderer.on("pimi:workspace:click", onClick);
+          return () => {
+            ipcRenderer.removeListener("pimi:workspace:click", onClick);
+          };
+        },
         onPimiOpenSettings: (open: () => void) => {
           openSettings = open;
           if (settingsPending) {
