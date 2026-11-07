@@ -1,6 +1,6 @@
 # Pimi
 
-<img src="packages/desktop/assets/pimi-icon.png" alt="Pimi’s two paw prints" width="100" />
+<img src="packages/desktop/assets/pimi-icon.png" alt="Pimi’s dog paw and robotic paw" width="100" />
 
 **Your swarm’s best friend.**
 
@@ -14,7 +14,7 @@ The film uses scripted worker responses and dictation with real Git worktrees an
 
 Pimi opens in Agent Console. On first launch, setup helps you connect an agent provider, set up GitHub or GitLab, add a project, and start a conversation. Use the same sidebar to move between Chat, Tasks, Work, Review, and Memory. The window icon opens the workspace separately or brings it back with your draft intact.
 
-![Pimi’s welcome screen with the paw mark and “Your swarm’s best friend”](assets/pimi/onboarding.jpg)
+![Pimi’s welcome screen with the paw pair and “Your swarm’s best friend”](assets/pimi/onboarding.jpg)
 
 ![Git provider setup showing GitHub connected and the GitLab CLI sign-in command](assets/pimi/git-providers.jpg)
 
