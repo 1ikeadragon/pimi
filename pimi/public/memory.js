@@ -1,0 +1,222 @@
+// Pimi addition to the Paseo fork. Apache-2.0.
+export function createMemoryView({ $, api, button, element, message }) {
+  const picker = $("memory-scope");
+  const form = $("memory-form");
+  const dialog = $("memory-forget-dialog");
+  const keyInput = form.elements.key;
+  const textInput = form.elements.text;
+  const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
+  let projects = [];
+  let notes = [];
+  let projectId = null;
+  let current;
+  let busy = false;
+  let ready = false;
+
+  function projectName() {
+    return projects.find(({ id }) => id === projectId)?.name || "This project";
+  }
+
+  function scopeLabel() {
+    return projectId ? projectName() : "Across projects";
+  }
+
+  function hasChanges() {
+    return (
+      !form.hidden &&
+      (keyInput.value !== (current?.key ?? "") || textInput.value !== (current?.text ?? ""))
+    );
+  }
+
+  function canChangeView() {
+    if (!hasChanges()) return true;
+    message("memory-warning", "Save or cancel your changes before switching notes.");
+    return false;
+  }
+
+  function setBusy(value) {
+    busy = value;
+    for (const control of [
+      picker,
+      $("memory-new"),
+      $("memory-reload"),
+      $("memory-forget"),
+      $("memory-save"),
+      $("memory-cancel"),
+      textInput,
+    ])
+      control.disabled = busy;
+    keyInput.disabled = busy || Boolean(current);
+    $("memory-new").disabled ||= !ready;
+  }
+
+  async function run(action) {
+    if (busy) return;
+    setBusy(true);
+    message("memory-warning", "");
+    message("memory-status", "");
+    try {
+      await action();
+    } catch (error) {
+      message("memory-warning", error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function showEditor(note) {
+    current = note ?? undefined;
+    form.hidden = note === null;
+    $("memory-placeholder").hidden = !form.hidden;
+    $("memory-note-heading").textContent = current?.key || "New note";
+    $("memory-note-scope").textContent = scopeLabel();
+    keyInput.value = current?.key ?? "";
+    keyInput.disabled = busy || Boolean(current);
+    textInput.value = current?.text ?? "";
+    $("memory-forget").hidden = !current;
+    for (const row of $("memory-notes").children) {
+      row.setAttribute("aria-pressed", String(row.dataset.key === current?.key));
+    }
+  }
+
+  function renderNotes() {
+    const rows = notes.toSorted(
+      (a, b) => b.updatedAt.localeCompare(a.updatedAt) || a.key.localeCompare(b.key),
+    );
+    $("memory-notes").replaceChildren(
+      ...rows.map(({ key, updatedAt }) => {
+        const row = button("memory-note", "", () => {
+          if (!canChangeView()) return;
+          void run(async () => {
+            const { note } = await api("memory", { action: "read", projectId, key });
+            showEditor(note);
+          });
+        });
+        row.dataset.key = key;
+        row.setAttribute("aria-pressed", String(current?.key === key));
+        row.append(
+          element("strong", "", key),
+          element("span", "subtitle", dateFormat.format(new Date(updatedAt))),
+        );
+        return row;
+      }),
+    );
+    message("memory-empty", rows.length ? "" : "No notes saved in this scope.");
+  }
+
+  async function loadScope() {
+    ready = false;
+    notes = [];
+    showEditor(null);
+    $("memory-notes").replaceChildren();
+    message("memory-empty", "");
+    const selected = projects.find(({ id }) => id === projectId);
+    let caption = "Shared across projects on this host.";
+    if (selected) {
+      caption = selected.archived
+        ? "Archived project on this host."
+        : "Shared with this project’s worktrees.";
+    }
+    $("memory-scope-caption").textContent = caption;
+    ({ notes } = await api("memory", { action: "list", projectId }));
+    ready = true;
+    renderNotes();
+  }
+
+  async function load(preferredProjectId) {
+    if (hasChanges()) {
+      if (preferredProjectId !== undefined) canChangeView();
+      return;
+    }
+    await run(async () => {
+      ({ projects } = await api("memory", { action: "catalog" }));
+      projects.sort((a, b) => a.name.localeCompare(b.name) || a.root.localeCompare(b.root));
+      if (preferredProjectId !== undefined) {
+        if (!projects.some(({ id }) => id === preferredProjectId)) {
+          throw new Error("This project is no longer registered on this host.");
+        }
+        projectId = preferredProjectId;
+      }
+      if (!projects.some(({ id }) => id === projectId)) projectId = null;
+      const nameCounts = new Map();
+      for (const { name } of projects) nameCounts.set(name, (nameCounts.get(name) ?? 0) + 1);
+      picker.replaceChildren(
+        new Option("Across projects", ""),
+        ...projects.map(({ id, name, root, archived }) => {
+          const duplicate = nameCounts.get(name) > 1;
+          const option = new Option(
+            name + (duplicate ? " — " + root : "") + (archived ? " (archived)" : ""),
+            id,
+          );
+          option.title = root;
+          return option;
+        }),
+      );
+      picker.value = projectId ?? "";
+      $("memory-content").hidden = false;
+      await loadScope();
+    });
+  }
+
+  picker.addEventListener("change", () => {
+    if (!canChangeView()) {
+      picker.value = projectId ?? "";
+      return;
+    }
+    projectId = picker.value || null;
+    void run(loadScope);
+  });
+  $("memory-reload").addEventListener("click", () => {
+    if (canChangeView()) void load();
+  });
+  $("memory-new").addEventListener("click", () => {
+    if (!canChangeView()) return;
+    showEditor(undefined);
+    keyInput.focus();
+  });
+  $("memory-cancel").addEventListener("click", () => {
+    showEditor(null);
+    message("memory-warning", "");
+  });
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const key = keyInput.value.trim();
+    const text = textInput.value.trim();
+    const expectedUpdatedAt = current?.updatedAt ?? null;
+    void run(async () => {
+      const { note } = await api("memory", {
+        action: "save",
+        projectId,
+        key,
+        text,
+        expectedUpdatedAt,
+      });
+      notes = [...notes.filter((entry) => entry.key !== note.key), note];
+      showEditor(note);
+      renderNotes();
+      message("memory-status", "Saved in " + scopeLabel() + ".");
+    });
+  });
+
+  $("memory-forget").addEventListener("click", () => {
+    $("memory-forget-description").textContent =
+      current.key + " will be removed from " + scopeLabel() + ".";
+    dialog.returnValue = "";
+    dialog.showModal();
+  });
+  dialog.addEventListener("close", () => {
+    if (dialog.returnValue !== "forget" || !current) return;
+    const { key, updatedAt } = current;
+    void run(async () => {
+      await api("memory", { action: "forget", projectId, key, expectedUpdatedAt: updatedAt });
+      notes = notes.filter((entry) => entry.key !== key);
+      showEditor(null);
+      renderNotes();
+      message("memory-status", "Note forgotten.");
+      $("memory-new").focus();
+    });
+  });
+
+  return { load };
+}

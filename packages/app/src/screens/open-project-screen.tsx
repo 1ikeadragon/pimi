@@ -4,7 +4,14 @@ import { useTranslation } from "react-i18next";
 import { View, Text, Pressable, ScrollView } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useRouter } from "expo-router";
-import { FolderOpen, Inbox, MessageSquare, Plug, Smartphone } from "lucide-react-native";
+import {
+  FolderOpen,
+  Inbox,
+  MessageSquare,
+  NotebookText,
+  Plug,
+  Smartphone,
+} from "lucide-react-native";
 import { PaseoLogo } from "@/components/icons/paseo-logo";
 import { CommunityLinks } from "@/components/community-links";
 import { MenuHeader } from "@/components/headers/menu-header";
@@ -30,7 +37,12 @@ export function OpenProjectScreen() {
   const { t } = useTranslation();
   const hosts = useHosts();
   const router = useRouter();
-  const pimi = Boolean(getDesktopHost()?.showPimiWorkspace);
+  const showPimiWorkspace = getDesktopHost()?.showPimiWorkspace;
+  const pimi = Boolean(showPimiWorkspace);
+  const openMemory = useCallback(
+    () => showPimiWorkspace?.({ view: "memory" }),
+    [showPimiWorkspace],
+  );
   const openDesktopAgentList = usePanelStore((s) => s.openDesktopAgentList);
   const openProjectPicker = useOpenAddProject();
   const importSession = useImportSession();
@@ -99,6 +111,15 @@ export function OpenProjectScreen() {
                 description="Choose a project and an agent to get started."
                 onPress={startChat}
                 accent
+              />
+            ) : null}
+            {pimi ? (
+              <HomeTile
+                icon={NotebookText}
+                title="Memory"
+                description="Review notes shared across projects or saved to one project."
+                onPress={openMemory}
+                testID="pimi-open-memory"
               />
             ) : null}
             <HomeTile

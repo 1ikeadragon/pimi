@@ -1408,3 +1408,96 @@ h2 {
     gap: 5px;
   }
 }
+
+.memory-intro {
+  margin-top: 5px;
+}
+
+.memory-layout {
+  display: grid;
+  grid-template-columns: minmax(200px, 285px) minmax(0, 1fr);
+  gap: 14px;
+  max-width: 1120px;
+}
+
+.memory-panel {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--panel-radius);
+  background-color: var(--canvas);
+}
+
+.memory-scope-field {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.memory-scope-field select {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--control-line);
+  border-radius: var(--control-radius);
+  background: var(--canvas);
+  color: var(--text);
+}
+
+#memory-scope-caption,
+#memory-placeholder > p {
+  margin-top: 8px;
+}
+
+.memory-list-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+  margin: 18px 0 8px;
+}
+
+.memory-save-actions {
+  display: flex;
+  gap: 6px;
+  margin-inline-start: auto;
+}
+
+.memory-note {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 8px;
+  border: 0;
+  border-radius: var(--control-radius);
+  background: transparent;
+  text-align: start;
+}
+
+.memory-note strong {
+  overflow-wrap: anywhere;
+}
+
+.memory-note .subtitle {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+}
+
+.memory-note:hover {
+  background: var(--hover);
+}
+
+.memory-note[aria-pressed="true"] {
+  background: var(--selected);
+}
+
+#memory-status {
+  margin-bottom: 12px;
+}
+
+@media (max-width: 680px) {
+  .memory-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

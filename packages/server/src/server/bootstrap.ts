@@ -147,6 +147,7 @@ import { AgentStorage } from "./agent/agent-storage.js";
 import { attachAgentStoragePersistence } from "./persistence-hooks.js";
 import { createAgentMcpServer } from "./agent/mcp-server.js";
 import { ProjectMemory } from "./project-memory.js";
+import { createPimiMemoryHandler } from "./pimi-memory-route.js";
 import {
   createPaseoToolCatalog,
   createPaseoAgentToolManifest,
@@ -225,6 +226,7 @@ import {
   createRequireBearerMiddleware,
   extractHttpBearerToken,
   isAgentMcpRequestAuthorized,
+  PIMI_MEMORY_ROUTE,
   type DaemonAuthConfig,
 } from "./auth.js";
 import {
@@ -1537,6 +1539,25 @@ export async function createPaseoDaemon(
   );
 
   const projectMemory = new ProjectMemory(config.paseoHome);
+  const handlePimiMemory = createPimiMemoryHandler({
+    memory: projectMemory,
+    projects: projectRegistry,
+    reportError: (error) => logger.error({ err: error }, "Pimi memory request failed"),
+  });
+  app.post(PIMI_MEMORY_ROUTE, (req, res, next) => {
+    const token = extractHttpBearerToken(req.header("authorization"));
+    if (
+      !isLoopbackRemoteAddress(req.socket.remoteAddress) ||
+      req.headers.origin !== undefined ||
+      !localCredential ||
+      !token ||
+      !matchesLocalCredential(localCredential, token)
+    ) {
+      res.status(403).json({ error: "Memory is available only from the local Pimi app." });
+      return;
+    }
+    return handlePimiMemory(req, res, next);
+  });
   const createAgentToolHostDependencies = (
     runtime: PaseoToolRuntimeContext,
     canUseProjectMemory = true,

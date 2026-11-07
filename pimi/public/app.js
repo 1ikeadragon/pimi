@@ -1,5 +1,6 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
 import { createTasksView } from "./tasks.js";
+import { createMemoryView } from "./memory.js";
 import { createDiffFind } from "./diff-find.js";
 import { createWorktreeComparison } from "./worktree-comparison.js";
 import { connectLiveUpdates } from "./live-updates.js";
@@ -50,6 +51,7 @@ const tasksView = createTasksView({
   },
   refreshBoard,
 });
+const memoryView = createMemoryView({ $, api, button, element, message });
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -89,7 +91,7 @@ function message(id, text) {
 function view(name) {
   if (name !== "tasks") tasksView.cancelDictation();
   if (name !== "review") diffFind.close();
-  for (const section of ["tasks", "board", "review"]) {
+  for (const section of ["tasks", "board", "review", "memory"]) {
     $(section).hidden = section !== name;
     const nav = $("show-" + section);
     if (section === name) nav.setAttribute("aria-current", "page");
@@ -835,12 +837,17 @@ $("show-tasks").addEventListener("click", () => {
   void tasksView.load();
   void refreshBoard();
 });
+$("show-memory").addEventListener("click", () => {
+  view("memory");
+  void memoryView.load();
+});
 const appearance = $("appearance");
 appearance.value = document.documentElement.dataset.appearance;
 if (window.pimiWorkspace) {
   const layoutToggle = $("toggle-workspace-window");
   layoutToggle.hidden = false;
   $("show-agents").hidden = false;
+  $("show-memory").hidden = false;
   document.documentElement.dataset.workspaceChrome = window.pimiWorkspace.chrome;
   window.pimiWorkspace.onLayoutChange((mode) => {
     document.documentElement.dataset.workspaceLayout = mode;
@@ -910,6 +917,11 @@ $("review-add-repository").addEventListener("click", () => {
   $("repo-path").focus();
 });
 window.pimiWorkspace?.onNavigate(async (destination) => {
+  if (destination.view === "memory") {
+    view("memory");
+    await memoryView.load(destination.projectId);
+    return;
+  }
   if (destination.view === "review-home") {
     $("show-review").click();
     return;

@@ -26,8 +26,13 @@ export const PimiTaskProposal = PimiTaskProposalInput.extend({
 });
 
 export type PimiTaskProposal = z.infer<typeof PimiTaskProposal>;
+export const PimiMemoryDestination = z.object({
+  view: z.literal("memory"),
+  projectId: z.string().min(1).max(4096).optional(),
+});
 export type PimiDestination =
   | { view: "tasks" | "worktrees" | "review-home" }
+  | z.infer<typeof PimiMemoryDestination>
   | { view: "review"; path: string; serverId?: string }
   | { view: "task-draft"; proposal: PimiTaskProposal };
 

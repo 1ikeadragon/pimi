@@ -119,7 +119,7 @@ import {
   type AgentDeepLinkTarget,
 } from "@getpaseo/protocol/agent-deep-link";
 import { AgentNavigationInbox, parseAgentDeepLinkFromArgv } from "./agent-navigation.js";
-import { PimiTaskProposal } from "@getpaseo/protocol/pimi-task";
+import { PimiMemoryDestination, PimiTaskProposal } from "@getpaseo/protocol/pimi-task";
 
 const DEV_SERVER_URL = process.env.EXPO_DEV_URL ?? "http://localhost:8081";
 const APP_SCHEME = "paseo";
@@ -770,6 +770,10 @@ function registerPimiWorkspaceNavigation(): void {
     const owner = BrowserWindow.fromWebContents(event.sender) ?? undefined;
     if (view === "tasks" || view === "worktrees" || view === "review-home")
       openPimi({ view }, owner);
+    if (view === "memory") {
+      const result = PimiMemoryDestination.safeParse(destination);
+      if (result.success) openPimi(result.data, owner);
+    }
     if (view === "review" && typeof checkout === "string" && path.isAbsolute(checkout)) {
       if (serverId !== undefined && (typeof serverId !== "string" || !serverId.trim())) return;
       openPimi({ view, path: checkout, serverId }, owner);
