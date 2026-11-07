@@ -60,7 +60,7 @@ Open the worker’s conversation or copy a link to it. An agent can offer to ope
 
 ### 5. Read the diff
 
-Open **Review** and choose a worktree, or select **Compare alongside** from a work item. Each side shows its own repository and base. Use **Find in open diffs** or `⌘F` to search the visible patches. The editor picker uses the desktop’s detected targets.
+Open **Review** and choose a worktree, or select **Compare alongside** from a work item. Each side shows its own repository and base. Use **Find in open diffs** or `⌘F` to search the visible patches. Choose an editor under **Open in…** to open the worktree or jump from a diff to the file and line.
 
 ![Diffs from RelayKit and ControlPlane side by side](assets/pimi/review.jpg)
 

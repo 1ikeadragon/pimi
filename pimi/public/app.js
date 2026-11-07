@@ -20,7 +20,7 @@ let stepIndex = 0;
 let generatingFor;
 let generation = 0;
 let loading = false;
-let preferredReviewEditor = "";
+let reviewEditors = [];
 let boardRequest;
 let boardSignature;
 let boardData;
@@ -360,29 +360,32 @@ function renderReviewSummary(result) {
     .join(" · ");
 }
 
-function updateEditorButtons() {
-  const enabled = Boolean(review && $("review-editor").value);
-  $("open-worktree").disabled = !enabled;
+function renderEditorPicker(picker, available = true) {
+  const choices = available ? reviewEditors : [];
+  picker.replaceChildren(
+    new Option("Open in…", ""),
+    ...choices.map(({ id, label }) => new Option(label, id)),
+  );
+  picker.disabled = !choices.length;
+}
+
+function renderReviewEditorPickers() {
+  renderEditorPicker($("review-editor"));
   for (const pane of renderedPanes.values()) {
     const editor = pane.querySelector("[data-editor-openable]");
-    if (editor) editor.disabled = !enabled || editor.dataset.editorOpenable !== "true";
+    if (editor) renderEditorPicker(editor, editor.dataset.editorOpenable === "true");
   }
 }
 
 async function loadReviewEditors(result) {
-  const picker = $("review-editor");
   try {
     const choices = await api("editors?" + new URLSearchParams({ id: result.id }));
     if (review !== result) return;
-    picker.replaceChildren(...choices.map(({ id, label }) => new Option(label, id)));
-    if (!choices.length) picker.add(new Option("No editor available", ""));
-    if (choices.some(({ id }) => id === preferredReviewEditor))
-      picker.value = preferredReviewEditor;
-    picker.disabled = !choices.length;
-    updateEditorButtons();
+    reviewEditors = choices;
+    renderReviewEditorPickers();
+    $("review-editor").title = choices.length ? "" : "No editor available";
   } catch (error) {
     if (review !== result) return;
-    picker.replaceChildren(new Option("Editors unavailable", ""));
     message("review-warning", error.message);
   }
 }
@@ -398,9 +401,9 @@ async function loadReview({ keepSelection = false } = {}) {
   loading = true;
   $("load-review").disabled = true;
   $("refresh-comparison").disabled = true;
-  $("open-worktree").disabled = true;
-  $("review-editor").disabled = true;
-  $("review-editor").replaceChildren(new Option("Detecting editors…", ""));
+  reviewEditors = [];
+  renderEditorPicker($("review-editor"));
+  $("review-editor").title = "Detecting editors…";
   $("review-meta").textContent = "Loading comparison…";
   $("review-meta").removeAttribute("title");
   message("review-warning", "");
@@ -605,21 +608,27 @@ function createPane(path) {
   const title = element("span", "pane-path", path);
   title.title = path;
   const actions = element("div", "pane-actions");
-  const editor = button("icon-button", "Open ↗", () => {
+  const editor = element("select", "editor-picker");
+  editor.addEventListener("change", () => {
+    const editorId = editor.value;
+    editor.value = "";
+    if (!editorId) return;
     const step = tour?.steps[stepIndex];
     if (step?.path === path && step.fingerprint && step.fingerprint !== pane.dataset.fingerprint) {
       message("review-warning", "Reload changes before opening this walkthrough line.");
       return;
     }
     void launchEditor(
+      current,
+      editorId,
       path,
       step?.path === path && step.line ? step.line : firstLine,
       pane.dataset.fingerprint,
     );
   });
-  editor.setAttribute("aria-label", `Open ${path} in selected editor`);
+  editor.setAttribute("aria-label", `Open ${path} in`);
   editor.dataset.editorOpenable = "false";
-  editor.disabled = true;
+  renderEditorPicker(editor, false);
   editor.title =
     current.canOpenFiles && file.status !== "D"
       ? "Open local file at the selected line"
@@ -658,7 +667,7 @@ function createPane(path) {
       pane.dataset.fingerprint = fingerprint;
       displayPatch(patch);
       editor.dataset.editorOpenable = String(current.canOpenFiles && file.status !== "D");
-      editor.disabled = editor.dataset.editorOpenable !== "true" || !$("review-editor").value;
+      renderEditorPicker(editor, editor.dataset.editorOpenable === "true");
       let showingSource = false;
       const toggle = button("icon-button", file.status === "D" ? "Before" : "File", async () => {
         if (showingSource) {
@@ -713,13 +722,12 @@ function renderPanes() {
   focusStep();
 }
 
-async function launchEditor(path, line = 1, fingerprint) {
-  const editorId = $("review-editor").value;
-  if (!review || !editorId) return;
+async function launchEditor(result, editorId, path, line = 1, fingerprint) {
+  if (review !== result) return;
   try {
-    await api("editor", { id: review.id, path, line, fingerprint, editorId });
+    await api("editor", { id: result.id, path, line, fingerprint, editorId });
   } catch (error) {
-    message("review-warning", error.message);
+    if (review === result) message("review-warning", error.message);
   }
 }
 
@@ -958,11 +966,10 @@ $("compare").addEventListener("submit", (event) => {
 });
 $("refresh-comparison").addEventListener("click", () => void loadReview({ keepSelection: true }));
 $("review-editor").addEventListener("change", () => {
-  preferredReviewEditor = $("review-editor").value;
-  updateEditorButtons();
-});
-$("open-worktree").addEventListener("click", () => {
-  void launchEditor(null);
+  const picker = $("review-editor");
+  const editorId = picker.value;
+  picker.value = "";
+  if (review && editorId) void launchEditor(review, editorId, null);
 });
 $("file-tour").addEventListener("click", startFileTour);
 $("ai-tour").addEventListener("click", startAiTour);

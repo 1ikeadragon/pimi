@@ -543,13 +543,7 @@ h2 {
   align-items: center;
 }
 
-.review-editor-controls {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.review-editor-controls select,
+.editor-picker,
 .work-item-repository {
   min-width: 0;
   max-width: 14rem;
@@ -558,6 +552,11 @@ h2 {
   border-radius: var(--control-radius);
   background: var(--canvas);
   color: var(--text);
+}
+
+.editor-picker {
+  padding-inline: 7px;
+  font: inherit;
 }
 
 .diff-find {
