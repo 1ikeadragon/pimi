@@ -142,7 +142,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
     if (!root) return null;
     const { repositories } = await getInventory();
     if (!repositories.some((repository) => repository.path === root)) {
-      throw new RequestError("Choose a repository from Worktrees.");
+      throw new RequestError("Choose a repository from Work.");
     }
     return commit(root, "HEAD");
   }

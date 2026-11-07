@@ -26,12 +26,7 @@ export function PimiWorkspaceNavigation() {
         </View>
       </View>
       <SidebarHeaderRow icon={ListTodo} label="Tasks" onPress={showTasks} variant="compact" />
-      <SidebarHeaderRow
-        icon={Columns3}
-        label="Worktrees"
-        onPress={showWorktrees}
-        variant="compact"
-      />
+      <SidebarHeaderRow icon={Columns3} label="Work" onPress={showWorktrees} variant="compact" />
       <SidebarHeaderRow icon={FileDiff} label="Review" onPress={showReview} variant="compact" />
       <Text style={styles.section}>Agent tools</Text>
     </View>

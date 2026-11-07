@@ -942,7 +942,7 @@ window.pimiWorkspace?.onNavigate(async (destination) => {
     ({ path, unavailable }) => path === destination.path && !unavailable,
   );
   if (!card) {
-    openReviewPicker("Add this repository to Worktrees to open its review.");
+    openReviewPicker("Add this repository in Work to open its review.");
     return;
   }
   selectWorktree(card, tasksView.baseForWorktree(card));
