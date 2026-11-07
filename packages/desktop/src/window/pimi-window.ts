@@ -300,7 +300,7 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
     runtime.appearance === "dark" ||
     (runtime.appearance === "system" && nativeTheme.shouldUseDarkColors)
   ) {
-    backgroundColor = "#1a191b";
+    backgroundColor = "#232224";
   }
   const view = new WebContentsView({
     webPreferences: {
