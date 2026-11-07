@@ -20,6 +20,8 @@ Pimi opens in Agent Console. On first launch, setup helps you connect an agent p
 
 New chats get a short title based on the first message when a metadata provider is available. With **Agent tools** enabled, agents can also suggest a task. **Review task draft** opens the brief and proposed work items for you to edit and save.
 
+The change count above the composer shows changed files, additions, and deletions. Click it or the diff icon in the header to open Review for the same checkout, including files the agent has just created.
+
 ![A task suggestion inside Agent Console](assets/pimi/task-handoff.jpg)
 
 ![The task draft with its brief and proposed work items](assets/pimi/task-draft.jpg)

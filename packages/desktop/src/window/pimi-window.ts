@@ -6,7 +6,11 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { readLocalCredentialForTarget } from "@getpaseo/server/daemon-control";
 import { parseAgentDeepLink, type AgentDeepLinkTarget } from "@getpaseo/protocol/agent-deep-link";
-import type { PimiDestination, PimiWorkspaceSection } from "@getpaseo/protocol/pimi-task";
+import type {
+  PimiDestination,
+  PimiReviewSummary,
+  PimiWorkspaceSection,
+} from "@getpaseo/protocol/pimi-task";
 import { resolveDesktopDaemonStatus } from "../daemon/daemon-manager.js";
 import {
   listAvailableEditorTargets,
@@ -37,10 +41,12 @@ interface WorkspaceSurface {
   options: PimiWindowOptions;
   layout: WorkspaceLayout;
   section: PimiWorkspaceSection;
+  prepareChatReview: PimiRuntimeResult["prepareChatReview"];
 }
 let workspace: WorkspaceSurface | undefined;
 let opening: Promise<WorkspaceSurface> | undefined;
 let requestedOwner: BrowserWindow | undefined;
+let navigationRequest = 0;
 let appearanceWrites: Promise<void> = Promise.resolve();
 const consoleBounds = new WeakMap<BrowserWindow, PimiContentBounds>();
 
@@ -89,6 +95,31 @@ export function pimiAppearanceArgument(): string {
   return `--pimi-appearance=${getPimiAppearance()}`;
 }
 
+interface PimiRuntimeResult {
+  origin: string;
+  appearance: string;
+  prepareChatReview(
+    path: string,
+    serverId?: string,
+  ): Promise<{
+    path: string;
+    reviewNotice?: string;
+    reviewTarget?: { path: string; repo: string; name: string; branch: string };
+  }>;
+  close(): Promise<void>;
+}
+
+export async function getPimiReviewSummary(
+  runtimeDir: string,
+  checkout: string,
+): Promise<PimiReviewSummary | null> {
+  const entry = pathToFileURL(path.join(runtimeDir, "pimi", "git.mjs")).href;
+  const { summarizeReviewDirectory } = (await import(entry)) as {
+    summarizeReviewDirectory(path: string): Promise<PimiReviewSummary | null>;
+  };
+  return summarizeReviewDirectory(checkout);
+}
+
 interface PimiRuntime {
   startPimi(options: {
     native: boolean;
@@ -102,7 +133,7 @@ interface PimiRuntime {
     ) => Promise<Pick<EditorTargetDescriptor, "id" | "label" | "kind">[]>;
     launchEditor: (input: EditorTargetLaunchInput & { editorId: string }) => Promise<void>;
     connection: () => Promise<DesktopDaemonConnection>;
-  }): Promise<{ origin: string; appearance: string; close(): Promise<void> }>;
+  }): Promise<PimiRuntimeResult>;
 }
 
 interface PimiWindowOptions {
@@ -137,7 +168,9 @@ export async function showPimiWindow(
   destination?: PimiDestination,
   preferred?: BrowserWindow,
 ): Promise<void> {
+  const request = ++navigationRequest;
   const owner = await options.resolveConsoleWindow(preferred);
+  if (request !== navigationRequest) return;
   requestedOwner = owner;
   if (!workspace || workspace.view.webContents.isDestroyed()) {
     opening ??= createWorkspaceSurface(options).finally(() => {
@@ -145,11 +178,18 @@ export async function showPimiWindow(
     });
     workspace = await opening;
   }
-  if (requestedOwner !== owner || owner.isDestroyed()) return;
+  const navigation =
+    destination?.view === "review"
+      ? {
+          ...destination,
+          ...(await workspace.prepareChatReview(destination.path, destination.serverId)),
+        }
+      : destination;
+  if (request !== navigationRequest || requestedOwner !== owner || owner.isDestroyed()) return;
   workspace.owner = owner;
   attach(workspace, owner);
   reveal(owner, workspace.view);
-  if (destination) workspace.view.webContents.send("pimi:workspace:navigate", destination);
+  if (navigation) workspace.view.webContents.send("pimi:workspace:navigate", navigation);
 }
 
 export function hidePimiWorkspace(win?: BrowserWindow): void {
@@ -271,7 +311,13 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
     },
   });
   view.setBackgroundColor(backgroundColor);
-  surface = { view, options, layout: "hidden", section: "tasks" };
+  surface = {
+    view,
+    options,
+    layout: "hidden",
+    section: "tasks",
+    prepareChatReview: runtime.prepareChatReview,
+  };
   const contents = view.webContents;
   const cleanupUnhosted = () => {
     if (surface) closeIfUnhosted(surface);

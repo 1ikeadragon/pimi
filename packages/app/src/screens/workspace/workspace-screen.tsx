@@ -43,6 +43,7 @@ import { BackHandler, Text, View } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
 import * as Clipboard from "expo-clipboard";
+import { FileDiff } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
@@ -67,8 +68,7 @@ import { SplitContainer } from "@/components/split-container";
 import { RetainedPanel } from "@/components/retained-panel";
 import { WorkspaceActions } from "@/git/workspace-actions";
 import { WorkspaceOpenInEditorButton } from "@/workspace/open-in-editor/button";
-import { Button } from "@/components/ui/button";
-import { useIsLocalDaemon } from "@/hooks/use-is-local-daemon";
+import { ToolbarButton } from "@/components/ui/pane-content-toolbar";
 import { WorkspaceScriptsButton, useWorkspaceScriptActions } from "@/screens/workspace/scripts";
 import { ImportSessionSheet } from "@/components/import-session-sheet";
 import { useNavigateToImportedAgent } from "@/hooks/use-import-session";
@@ -144,6 +144,7 @@ import { useStableEvent } from "@/hooks/use-stable-event";
 import { removeResidentBrowserWebview } from "@/desktop/browser/resident-webviews";
 import { createWorkspaceBrowser, useBrowserStore } from "@/desktop/browser/store";
 import { getDesktopHost } from "@/desktop/host";
+import { usePimiWorkspaceReview } from "@/desktop/use-pimi-workspace-review";
 import { buildProviderCommand } from "@/utils/provider-command-templates";
 import { generateDraftId } from "@/stores/draft-keys";
 import { resolveWorkspaceRouteId } from "@/utils/workspace-identity";
@@ -549,25 +550,15 @@ function WorkspaceHeaderTitleBar({
   );
 }
 
-function PimiReviewButton({
-  serverId,
-  checkout,
-  projectKind,
-}: {
-  serverId: string;
-  checkout: string | null;
-  projectKind?: string;
-}) {
-  const show = getDesktopHost()?.showPimiWorkspace;
-  const isLocal = useIsLocalDaemon(serverId);
-  const open = useCallback(() => {
-    if (checkout) show?.({ view: "review", path: checkout });
-  }, [checkout, show]);
-  if (!show || !isLocal || !checkout || projectKind !== "git") return null;
+const ThemedFileDiff = withUnistyles(FileDiff);
+
+function PimiReviewButton({ serverId, workspaceId }: { serverId: string; workspaceId: string }) {
+  const review = usePimiWorkspaceReview(serverId, workspaceId);
+  if (!review) return null;
   return (
-    <Button size="sm" variant="secondary" onPress={open}>
-      Review changes
-    </Button>
+    <ToolbarButton label="Review changes" onPress={review.open} testID="workspace-review-button">
+      <ThemedFileDiff size={16} uniProps={mutedColorMapping} />
+    </ToolbarButton>
   );
 }
 
@@ -3243,11 +3234,7 @@ function WorkspaceScreenContent({
   const headerRight = useMemo(
     () => (
       <View style={styles.headerRight}>
-        <PimiReviewButton
-          serverId={normalizedServerId}
-          checkout={workspaceDirectory}
-          projectKind={workspaceDescriptor?.projectKind}
-        />
+        <PimiReviewButton serverId={normalizedServerId} workspaceId={normalizedWorkspaceId} />
         <PluginHeaderButtons serverId={normalizedServerId} workspaceId={normalizedWorkspaceId} />
         {workspaceDescriptor && workspaceDescriptor.scripts.length > 0 ? (
           <WorkspaceScriptsButton

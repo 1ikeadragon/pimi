@@ -348,15 +348,16 @@ function renderReviewSummary(result) {
   const baseDisplay = /^[a-f0-9]{40}(?:[a-f0-9]{24})?$/i.test(baseLabel)
     ? baseLabel.slice(0, 8)
     : baseLabel;
-  const source = result.pr?.label || `${baseDisplay} → ${result.head.slice(0, 8)}`;
+  const source =
+    result.pr?.label ||
+    (result.head ? `${baseDisplay} → ${result.head.slice(0, 8)}` : "No commits yet");
   const meta = $("review-meta");
-  meta.title = `${result.base.label} → ${result.head}`;
+  meta.title = result.head
+    ? `${result.base.label} → ${result.head}`
+    : "Changes since an empty tree";
   meta.textContent = [
     source,
-    result.live ? "Includes tracked working changes" : "Pinned commits",
-    result.untracked
-      ? `${result.untracked} untracked ${result.untracked === 1 ? "file" : "files"} excluded`
-      : "",
+    result.live ? "Includes working changes" : "Pinned commits",
     !result.canOpenFiles ? "PR head differs from local checkout" : "",
   ]
     .filter(Boolean)
@@ -472,7 +473,7 @@ function renderFiles() {
   $("file-count").textContent = files.length === total ? total : `${files.length} / ${total}`;
   if (!review?.files.length) {
     $("file-list").replaceChildren(
-      element("p", "empty", loading ? "Loading…" : "No tracked changes to display"),
+      element("p", "empty", loading ? "Loading…" : "No changes to display"),
     );
     return;
   }
@@ -935,9 +936,13 @@ window.pimiWorkspace?.onNavigate(async (destination) => {
     openReviewPicker("This review suggestion belongs to a different Agent Console host.");
     return;
   }
-  const card = boardData?.cards.find(
-    ({ path, unavailable }) => path === destination.path && !unavailable,
-  );
+  if (destination.reviewNotice) {
+    openReviewPicker(destination.reviewNotice);
+    return;
+  }
+  const card =
+    boardData?.cards.find(({ path, unavailable }) => path === destination.path && !unavailable) ??
+    destination.reviewTarget;
   if (!card) {
     openReviewPicker("Add this repository in Work to open its review.");
     return;

@@ -1,8 +1,8 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { lstat, open, realpath } from "node:fs/promises";
-import { basename, isAbsolute, relative, resolve, sep } from "node:path";
+import { lstat, open, readdir, realpath } from "node:fs/promises";
+import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 
 const exec = promisify(execFile);
@@ -16,10 +16,16 @@ export class RequestError extends Error {
   }
 }
 
-export async function command(program, args, cwd, { timeout = 8000, maxBuffer = 4 << 20 } = {}) {
+export async function command(
+  program,
+  args,
+  cwd,
+  { timeout = 8000, maxBuffer = 4 << 20, acceptExitOne = false } = {},
+) {
   try {
     return (await exec(program, args, { cwd, timeout, maxBuffer, encoding: "utf8" })).stdout;
   } catch (error) {
+    if (acceptExitOne && error.code === 1) return error.stdout;
     if (error.code === "ENOENT") throw new RequestError(`${program} is unavailable.`, 503);
     if (error.killed || error.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") {
       throw new RequestError(`${program} exceeded the operation's time or output limit.`, 422);
@@ -29,7 +35,7 @@ export async function command(program, args, cwd, { timeout = 8000, maxBuffer = 
   }
 }
 
-export const git = (cwd, ...args) =>
+const runGit = (cwd, args, options) =>
   command(
     "git",
     [
@@ -42,7 +48,10 @@ export const git = (cwd, ...args) =>
       ...args,
     ],
     cwd,
+    options,
   );
+
+export const git = (cwd, ...args) => runGit(cwd, args);
 
 export async function repository(path) {
   return realpath((await git(path, "rev-parse", "--show-toplevel")).replace(/\n$/, ""));
@@ -71,6 +80,42 @@ export async function discoverWorktrees(root) {
 export const commit = (cwd, ref) =>
   git(cwd, "rev-parse", "--verify", "--end-of-options", `${ref}^{commit}`).then((x) => x.trim());
 
+async function readHead(cwd) {
+  const head = await runGit(cwd, ["rev-parse", "--verify", "--quiet", "HEAD^{commit}"], {
+    acceptExitOne: true,
+  });
+  return head.trim() || null;
+}
+
+async function reviewCheckout(path) {
+  if ((await repository(path).catch(() => null)) !== path) return null;
+  const [head, branch] = await Promise.all([
+    readHead(path),
+    runGit(path, ["symbolic-ref", "--quiet", "--short", "HEAD"], { acceptExitOne: true }),
+  ]);
+  return { path, repo: basename(path), branch: branch.trim() || "Detached HEAD", head };
+}
+
+export async function reviewTargets(directory) {
+  const root = await realpath(directory);
+  const checkout = await reviewCheckout(root);
+  if (checkout?.head) return [checkout];
+
+  // A blank chat can contain clones made by its agent. Only inspect its direct
+  // children with Git metadata, and leave the choice to the user when there are several.
+  const entries = await readdir(root, { withFileTypes: true });
+  const nested = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+    const path = join(root, entry.name);
+    if (!(await lstat(join(path, ".git")).catch(() => null))) continue;
+    const candidate = await reviewCheckout(path);
+    if (candidate) nested.push(candidate);
+  }
+  if (nested.length) return nested;
+  return checkout ? [checkout] : [];
+}
+
 async function resolveBase(cwd, input) {
   if (input) return { label: input, sha: await commit(cwd, input) };
   const refs = (
@@ -90,10 +135,12 @@ async function resolveBase(cwd, input) {
 export async function worktreeFacts(worktree) {
   if (worktree.unavailable) return { ...worktree };
   try {
-    const [status, base] = await Promise.all([
+    const [status, head] = await Promise.all([
       git(worktree.path, "status", "--porcelain=v1", "-z", "--untracked-files=normal"),
-      resolveBase(worktree.path),
+      readHead(worktree.path),
     ]);
+    if (!head) return { ...worktree, dirty: Boolean(status), ahead: 0 };
+    const base = await resolveBase(worktree.path);
     const ahead = Number(
       (await git(worktree.path, "rev-list", "--count", `${base.sha}..HEAD`)).trim(),
     );
@@ -149,15 +196,44 @@ async function pullRequest(cwd, url) {
 
 export async function createReview(worktree, { baseRef, prUrl, mode }) {
   const cwd = worktree.path;
-  const currentHead = await commit(cwd, "HEAD");
+  const currentHead = await readHead(cwd);
+  if (!currentHead && (baseRef || prUrl || mode === "committed")) {
+    throw new RequestError("This checkout has no commits yet. Choose Working changes only.");
+  }
   const pr = prUrl ? await pullRequest(cwd, prUrl) : null;
-  const base = pr
-    ? { sha: pr.base, label: pr.label }
-    : await resolveBase(cwd, mode === "working" ? "HEAD" : baseRef);
+  let base;
+  if (pr) base = { sha: pr.base, label: pr.label };
+  else if (currentHead) base = await resolveBase(cwd, mode === "working" ? "HEAD" : baseRef);
+  else
+    base = {
+      sha: (await git(cwd, "hash-object", "-t", "tree", "/dev/null")).trim(),
+      label: "Empty tree",
+    };
   const head = pr?.head ?? currentHead;
   const live = !pr && mode !== "committed";
-  const mergeBase = (await git(cwd, "merge-base", base.sha, head)).trim();
+  const mergeBase = head
+    ? (await runGit(cwd, ["merge-base", base.sha, head], { acceptExitOne: true })).trim()
+    : base.sha;
+  if (!mergeBase) {
+    throw new RequestError(
+      "This branch and its base have no common commit. Choose another base or Working changes only.",
+    );
+  }
   const refs = live ? [mergeBase] : [mergeBase, head];
+  const files = await listReviewFiles(cwd, refs, live);
+  return {
+    worktree,
+    base,
+    head,
+    refs,
+    files,
+    live,
+    pr,
+    canOpenFiles: head === currentHead,
+  };
+}
+
+async function listReviewFiles(cwd, refs, live) {
   const fields = (await git(cwd, "diff", ...diffArgs, "--name-status", "-z", ...refs, "--")).split(
     "\0",
   );
@@ -169,28 +245,75 @@ export async function createReview(worktree, { baseRef, prUrl, mode }) {
     const path = renamed ? fields[index++] : firstPath;
     files.push({ path, status, oldPath: renamed ? firstPath : undefined });
   }
-  const untracked = live
-    ? (await git(cwd, "ls-files", "--others", "--exclude-standard", "-z"))
-        .split("\0")
-        .filter(Boolean).length
-    : 0;
-  return {
-    worktree,
-    base,
-    head,
-    refs,
-    files,
-    live,
-    pr,
-    untracked,
-    canOpenFiles: head === currentHead,
-  };
+  if (live) {
+    const tracked = new Set(files.map(({ path }) => path));
+    const untracked = await git(cwd, "ls-files", "--others", "--exclude-standard", "-z");
+    for (const path of untracked.split("\0")) {
+      // Git lists untracked nested repositories as a directory, never as individual files.
+      if (path && !path.endsWith("/") && !tracked.has(path))
+        files.push({ path, status: "A", untracked: true });
+    }
+  }
+  return files;
+}
+
+async function untrackedDiff(cwd, path, args) {
+  const file = await resolveFile(cwd, path);
+  if ((await lstat(file)).size > displayLimit) {
+    throw new RequestError("This file exceeds the 400 KB display limit.", 422);
+  }
+  return runGit(
+    cwd,
+    ["diff", "--no-index", ...diffArgs, ...args, "--", "/dev/null", relative(cwd, file)],
+    {
+      acceptExitOne: true,
+    },
+  );
+}
+
+function sumNumstat(output) {
+  let additions = 0;
+  let deletions = 0;
+  const fields = output.split("\0");
+  for (let index = 0; index < fields.length && fields[index]; index++) {
+    const entry = /^(\d+|-)\t(\d+|-)\t([\s\S]*)$/.exec(fields[index]);
+    if (!entry) throw new Error("Git returned an invalid line count.");
+    additions += Number(entry[1]) || 0;
+    deletions += Number(entry[2]) || 0;
+    if (!entry[3]) index += 2;
+  }
+  return { additions, deletions };
+}
+
+export async function summarizeReviewDirectory(directory) {
+  const targets = await reviewTargets(directory);
+  if (targets.length !== 1) return null;
+  const review = await createReview(targets[0], { baseRef: "", prUrl: "", mode: "all" });
+  if (!review.files.length) return null;
+  const cwd = review.worktree.path;
+  const totals = sumNumstat(
+    await git(cwd, "diff", ...diffArgs, "--numstat", "-z", ...review.refs, "--"),
+  );
+  const untracked = review.files.filter((file) => file.untracked);
+  // Keep live counts responsive for generated trees. The file list remains complete.
+  const maxUntrackedLineCounts = 64;
+  let incomplete = untracked.length > maxUntrackedLineCounts;
+  for (const file of untracked.slice(0, maxUntrackedLineCounts)) {
+    try {
+      const stat = sumNumstat(await untrackedDiff(cwd, file.path, ["--numstat", "-z"]));
+      totals.additions += stat.additions;
+    } catch {
+      incomplete = true;
+    }
+  }
+  return { filesChanged: review.files.length, ...totals, incomplete };
 }
 
 export async function filePatch(review, file) {
-  if (review.live && (await commit(review.worktree.path, "HEAD")) !== review.head) {
+  if (review.live && (await readHead(review.worktree.path)) !== review.head) {
     throw new RequestError("The checkout moved. Refresh the review.", 409);
   }
+  if (file.untracked) return untrackedDiff(review.worktree.path, file.path, ["--unified=4"]);
   const paths = file.oldPath ? [file.oldPath, file.path] : [file.path];
   return git(
     review.worktree.path,
@@ -248,7 +371,7 @@ export async function fileSource(review, file) {
     }
     source = await git(cwd, "cat-file", "blob", blob);
   } else {
-    if ((await commit(cwd, "HEAD")) !== review.head) {
+    if ((await readHead(cwd)) !== review.head) {
       throw new RequestError("The checkout moved. Refresh the review.", 409);
     }
     const filePath = await resolveFile(await realpath(cwd), file.path);
@@ -275,7 +398,7 @@ export async function fileSource(review, file) {
 export async function openInEditor(review, file, line, launch = launchZed) {
   const root = await realpath(review.worktree.path);
   if (!file) return launch({ workspacePath: root });
-  if (!review.canOpenFiles || file.status === "D" || (await commit(root, "HEAD")) !== review.head) {
+  if (!review.canOpenFiles || file.status === "D" || (await readHead(root)) !== review.head) {
     throw new RequestError("This file is unavailable at the current checkout.");
   }
   if (
