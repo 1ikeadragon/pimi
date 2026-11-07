@@ -196,10 +196,12 @@ export const LeftSidebar = memo(function LeftSidebar({
   // Each destination closes the navigation overlay first. Closing is idempotent, so a docked
   // sidebar runs the same handler.
   const handleOpenProject = useCallback(() => {
+    getDesktopHost()?.dismissPimiWorkspace?.();
     void openProjectPicker();
   }, [openProjectPicker]);
 
   const handleSettings = useCallback(() => {
+    getDesktopHost()?.dismissPimiWorkspace?.();
     showMobileAgent();
     router.push(buildSettingsRoute());
   }, [showMobileAgent]);
@@ -726,6 +728,10 @@ function DesktopSidebar({
   const visibleSidebarWidth = useLeftPanelWidth();
 
   const closeSidebar = usePanelStore((state) => state.showMobileAgent);
+  const handleWorkspacePress = useCallback(() => {
+    getDesktopHost()?.dismissPimiWorkspace?.();
+    closeSidebar();
+  }, [closeSidebar]);
   const { gesture: closeGesture, gestureRef: closeGestureRef } = useCloseAgentListGesture(overlay);
 
   const startWidth = useSharedValue(visibleSidebarWidth);
@@ -838,7 +844,10 @@ function DesktopSidebar({
               <TitlebarDragRegion />
             )}
             <PimiWorkspaceNavigation />
-            <SidebarNavRows style={sidebarHeaderGroupStyle} onBeforeNavigate={closeSidebar} />
+            <SidebarNavRows
+              style={sidebarHeaderGroupStyle}
+              onBeforeNavigate={handleWorkspacePress}
+            />
           </View>
 
           {isInitialLoad && !hasActiveHostFilter ? (
@@ -860,7 +869,7 @@ function DesktopSidebar({
               onRefresh={handleRefresh}
               onAddProject={handleOpenProject}
               onImportSession={handleImportSession}
-              onWorkspacePress={closeSidebar}
+              onWorkspacePress={handleWorkspacePress}
               parentGestureRef={closeGestureRef}
               dragGestureHostActive={active}
               listHeaderComponent={workspacesSectionHeaderElement}
@@ -875,7 +884,7 @@ function DesktopSidebar({
             labels={labels}
             handleAddHost={handleAddHost}
             handleOpenHostSettings={handleOpenHostSettings}
-            onBeforeNavigate={closeSidebar}
+            onBeforeNavigate={handleWorkspacePress}
           />
 
           {!overlay && divisionLayout === null ? (

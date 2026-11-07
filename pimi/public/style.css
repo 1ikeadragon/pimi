@@ -144,6 +144,10 @@ nav {
 }
 
 nav :is(button, a) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   border: 1px solid transparent;
   background: transparent;
   padding: 4px 13px;
@@ -173,9 +177,64 @@ nav :is(button, a):hover:not(:disabled, [aria-current]) {
   -webkit-app-region: no-drag;
 }
 
-.workspace-window-button {
-  display: grid;
-  place-items: center;
+.workspace-glyphs {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.glyph {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+
+.button.glyph-button {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
+
+[data-workspace-chrome] nav :is(button, a) {
+  width: 33px;
+  height: 30px;
+  padding: 0;
+}
+
+[data-workspace-chrome] nav span {
+  display: none;
+}
+
+[data-workspace-layout="inline"] .topbar {
+  position: absolute;
+  top: 22px;
+  right: max(var(--gutter), calc((100vw - 1800px) / 2 + var(--gutter)));
+  height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  -webkit-app-region: no-drag;
+}
+
+[data-workspace-layout="inline"] nav {
+  display: none;
+}
+
+[data-workspace-layout="inline"] main {
+  min-height: 100dvh;
+}
+
+[data-workspace-layout="inline"] .review-view {
+  height: calc(100dvh - 46px);
+}
+
+[data-workspace-layout="inline"] main > section > .section-header {
+  padding-inline-end: 42px;
 }
 
 [data-workspace-layout="detached"] .workspace-window-button {
@@ -560,6 +619,25 @@ h2 {
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  :root:not([data-workspace-layout="hidden"]) main > section:not([hidden]) {
+    animation: layout-arrive 145ms ease-out;
+  }
+
+  .glyph-button {
+    transition:
+      background-color 120ms ease-out,
+      color 120ms ease-out;
+  }
+
+  @keyframes layout-arrive {
+    from {
+      opacity: 0.84;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
   .card-moved,
   #task-detail:not([hidden]),
   #review-entry:not([hidden]),
@@ -992,9 +1070,8 @@ h2 {
 }
 
 @media (max-width: 870px) {
-  main,
-  .topbar {
-    padding-inline: 13px;
+  :root {
+    --gutter: 13px;
   }
   .lanes {
     grid-template-columns: repeat(2, minmax(0, 1fr));

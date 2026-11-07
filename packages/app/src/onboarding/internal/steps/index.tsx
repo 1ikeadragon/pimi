@@ -7,6 +7,7 @@ import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import type { OnboardingStepId } from "../model";
 import type { OrchestrationSetupController } from "../orchestration-setup";
 import { AppearanceStep } from "./appearance-step";
+import { GitProvidersStep } from "./git-providers-step";
 import { OrchestrationStep } from "./orchestration-step";
 import { PhoneStep } from "./phone-step";
 import { ProjectsStep } from "./projects-step";
@@ -28,6 +29,8 @@ export function OnboardingStepContent({
       return <AppearanceStep />;
     case "providers":
       return <ProvidersStep serverId={serverId} />;
+    case "gitProviders":
+      return <GitProvidersStep />;
     case "projects":
       return <ProjectsStep serverId={serverId} suggestions={projectSuggestions} />;
     case "orchestration":
@@ -35,31 +38,10 @@ export function OnboardingStepContent({
     case "phone":
       return <PhoneStep serverId={serverId} />;
     case "welcome":
-      return <PimiExamples />;
+      return null;
     case "firstChat":
       return <PimiAgentTools serverId={serverId} />;
   }
-}
-
-function PimiExamples() {
-  return (
-    <View style={styles.examples}>
-      <View style={styles.example}>
-        <Text style={styles.label}>Ask in chat</Text>
-        <Text style={styles.exampleText}>“Walk me through how requests reach this handler.”</Text>
-        <Text style={styles.detail}>Get an answer or work through a focused change together.</Text>
-      </View>
-      <View style={styles.example}>
-        <Text style={styles.label}>Keep track in Tasks</Text>
-        <Text style={styles.exampleText}>
-          “Try two ways to speed up this handler and compare them.”
-        </Text>
-        <Text style={styles.detail}>
-          Review the suggested brief and work items before saving them.
-        </Text>
-      </View>
-    </View>
-  );
 }
 
 function PimiAgentTools({ serverId }: { serverId: string }) {
@@ -102,10 +84,7 @@ function PimiAgentTools({ serverId }: { serverId: string }) {
 }
 
 const styles = StyleSheet.create((theme) => ({
-  examples: { gap: 10 },
-  example: { gap: 5, padding: 14, borderRadius: 12, backgroundColor: theme.colors.surface1 },
   label: { color: theme.colors.foregroundMuted, fontWeight: theme.fontWeight.semibold },
-  exampleText: { color: theme.colors.foreground, fontSize: theme.fontSize.lg },
   detail: { color: theme.colors.foregroundMuted },
   tools: { alignItems: "flex-start", gap: 6, paddingTop: 8 },
 }));

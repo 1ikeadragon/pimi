@@ -17,10 +17,13 @@ import {
   pimiAppearanceArgument,
   setPimiAppearance,
   showPimiWindow,
+  updatePimiContentBounds,
+  type PimiContentBounds,
   type PimiDestination,
 } from "./window/pimi-window.js";
 import { existsSync } from "node:fs";
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
+import { homedir } from "node:os";
 import {
   app,
   autoUpdater as electronAutoUpdater,
@@ -120,6 +123,7 @@ import {
 } from "@getpaseo/protocol/agent-deep-link";
 import { AgentNavigationInbox, parseAgentDeepLinkFromArgv } from "./agent-navigation.js";
 import { PimiMemoryDestination, PimiTaskProposal } from "@getpaseo/protocol/pimi-task";
+import { getForgeDefinition } from "@getpaseo/protocol/forge-manifest";
 
 const DEV_SERVER_URL = process.env.EXPO_DEV_URL ?? "http://localhost:8081";
 const APP_SCHEME = "paseo";
@@ -729,7 +733,6 @@ function openPimi(destination?: PimiDestination, preferred?: BrowserWindow): voi
       preload: getPreloadPath(),
       workspacePreload: path.join(path.dirname(getPreloadPath()), "pimi-workspace-preload.js"),
       resolveConsoleWindow: resolvePimiConsoleWindow,
-      openSettings: openPimiSettings,
       openAgentChat: (target) => {
         void desktopWindowOwner
           .openOrFocusAgent(target)
@@ -753,6 +756,44 @@ function registerPimiWorkspaceNavigation(): void {
   ipcMain.handle("pimi:appearance:set", async (event, mode: unknown) => {
     if (!isConsoleFrame(event)) throw new Error("Open Pimi Settings to change appearance.");
     await setPimiAppearance(mode);
+  });
+  ipcMain.handle("pimi:forge:auth-status", (event, provider: unknown) => {
+    if (!isConsoleFrame(event) || (provider !== "github" && provider !== "gitlab")) {
+      throw new Error("Invalid Git provider status request.");
+    }
+    const forge = getForgeDefinition(provider);
+    const cli = forge?.signIn?.cli;
+    const hostname = forge?.cloudHosts?.[0];
+    if (!cli || !hostname) return "unverified";
+    return new Promise((resolve) => {
+      execFile(
+        cli,
+        ["auth", "status", "--hostname", hostname],
+        { cwd: homedir(), timeout: 10_000, windowsHide: true },
+        (error) => {
+          if (!error) resolve("connected");
+          else resolve(error.code === "ENOENT" ? "cli-missing" : "unverified");
+        },
+      );
+    });
+  });
+  ipcMain.on("pimi:workspace:dismiss", (event) => {
+    if (!isConsoleFrame(event)) return;
+    const owner = BrowserWindow.fromWebContents(event.sender);
+    if (owner) hidePimiWorkspace(owner);
+  });
+  ipcMain.on("pimi:workspace:content-bounds", (event, value: unknown) => {
+    if (!isConsoleFrame(event) || !value || typeof value !== "object") return;
+    const { x, y, width, height, sidebar } = value as PimiContentBounds;
+    if (
+      ![x, y, width, height].every(Number.isFinite) ||
+      width <= 0 ||
+      height <= 0 ||
+      typeof sidebar !== "boolean"
+    )
+      return;
+    const owner = BrowserWindow.fromWebContents(event.sender);
+    if (owner) updatePimiContentBounds(owner, { x, y, width, height, sidebar });
   });
   ipcMain.on("pimi:workspace:show", (event, destination: unknown) => {
     if (!isConsoleFrame(event) || !destination || typeof destination !== "object") return;

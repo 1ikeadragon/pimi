@@ -1,6 +1,7 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
 import { contextBridge, ipcRenderer } from "electron";
 import type { PimiAppearance, PimiDestination, WorkspaceLayout } from "./window/pimi-window.js";
+import type { PimiWorkspaceSection } from "@getpaseo/protocol/pimi-task";
 
 let appearance: PimiAppearance | undefined;
 let onAppearanceChange: ((mode: PimiAppearance) => void) | undefined;
@@ -18,6 +19,8 @@ ipcRenderer.on("pimi:workspace:layout", (_event, mode: WorkspaceLayout) => {
 contextBridge.exposeInMainWorld("pimiWorkspace", {
   chrome: process.platform === "darwin" ? "mac" : "standard",
   toggleWindow: (): Promise<void> => ipcRenderer.invoke("pimi:workspace:toggle-window"),
+  setSection: (section: PimiWorkspaceSection) =>
+    ipcRenderer.send("pimi:workspace:section", section),
   onLayoutChange: (apply: (mode: WorkspaceLayout) => void) => {
     onLayoutChange = apply;
     apply(layout);

@@ -97,6 +97,7 @@ function view(name) {
     if (section === name) nav.setAttribute("aria-current", "page");
     else nav.removeAttribute("aria-current");
   }
+  window.pimiWorkspace?.setSection(name);
 }
 
 function describeAgent(agent, worktreeName) {
@@ -851,9 +852,13 @@ if (window.pimiWorkspace) {
   document.documentElement.dataset.workspaceChrome = window.pimiWorkspace.chrome;
   window.pimiWorkspace.onLayoutChange((mode) => {
     document.documentElement.dataset.workspaceLayout = mode;
-    const label = mode === "detached" ? "Move into main window" : "Open in separate window";
+    const detached = mode === "detached";
+    const label = detached ? "Move into main window" : "Open in separate window";
     layoutToggle.setAttribute("aria-label", label);
     layoutToggle.title = label;
+    layoutToggle
+      .querySelector("use")
+      .setAttribute("href", detached ? "#glyph-dock" : "#glyph-window");
     window.dispatchEvent(new Event("pimi-layout-change"));
   });
   layoutToggle.addEventListener("click", async () => {
@@ -871,8 +876,8 @@ if (window.pimiWorkspace) {
     document.documentElement.dataset.appearance = mode;
   });
 } else {
-  $("open-settings").addEventListener("click", (event) => {
-    event.preventDefault();
+  $("open-settings").hidden = false;
+  $("open-settings").addEventListener("click", () => {
     $("settings-dialog").showModal();
   });
 }

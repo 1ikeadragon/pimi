@@ -2,13 +2,17 @@
 import { useCallback } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { Columns3, FileDiff, ListTodo, NotebookText } from "lucide-react-native";
+import { Columns3, FileDiff, ListTodo, MessageSquare, NotebookText } from "lucide-react-native";
 import { getDesktopHost } from "@/desktop/host";
+import { usePimiWorkspaceSection } from "@/desktop/pimi-console-content";
 import { PaseoLogo } from "@/components/icons/paseo-logo";
 import { SidebarHeaderRow } from "./sidebar-header-row";
 
 export function PimiWorkspaceNavigation() {
-  const show = getDesktopHost()?.showPimiWorkspace;
+  const host = getDesktopHost();
+  const show = host?.showPimiWorkspace;
+  const section = usePimiWorkspaceSection();
+  const showChat = useCallback(() => host?.dismissPimiWorkspace?.(), [host]);
   const showTasks = useCallback(() => show?.({ view: "tasks" }), [show]);
   const showWorktrees = useCallback(() => show?.({ view: "worktrees" }), [show]);
   const showReview = useCallback(() => show?.({ view: "review-home" }), [show]);
@@ -26,10 +30,41 @@ export function PimiWorkspaceNavigation() {
           <Text style={styles.caption}>Your swarm’s best friend</Text>
         </View>
       </View>
-      <SidebarHeaderRow icon={ListTodo} label="Tasks" onPress={showTasks} variant="compact" />
-      <SidebarHeaderRow icon={Columns3} label="Work" onPress={showWorktrees} variant="compact" />
-      <SidebarHeaderRow icon={FileDiff} label="Review" onPress={showReview} variant="compact" />
-      <SidebarHeaderRow icon={NotebookText} label="Memory" onPress={showMemory} variant="compact" />
+      <SidebarHeaderRow
+        icon={MessageSquare}
+        label="Chat"
+        onPress={showChat}
+        variant="compact"
+        isActive={!section}
+      />
+      <SidebarHeaderRow
+        icon={ListTodo}
+        label="Tasks"
+        onPress={showTasks}
+        variant="compact"
+        isActive={section === "tasks"}
+      />
+      <SidebarHeaderRow
+        icon={Columns3}
+        label="Work"
+        onPress={showWorktrees}
+        variant="compact"
+        isActive={section === "board"}
+      />
+      <SidebarHeaderRow
+        icon={FileDiff}
+        label="Review"
+        onPress={showReview}
+        variant="compact"
+        isActive={section === "review"}
+      />
+      <SidebarHeaderRow
+        icon={NotebookText}
+        label="Memory"
+        onPress={showMemory}
+        variant="compact"
+        isActive={section === "memory"}
+      />
       <Text style={styles.section}>Agent tools</Text>
     </View>
   );
