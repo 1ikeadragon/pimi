@@ -49,7 +49,17 @@ import {
   composerToolbarOverhang,
   resolveComposerLeadingEdge,
 } from "@/composer/input/toolbar-rails";
-import { ArrowUp, Mic, MicOff, CornerDownLeft, Plus, Square } from "lucide-react-native";
+import {
+  ArrowUp,
+  ListPlus,
+  Mic,
+  MicOff,
+  CornerDownLeft,
+  CornerUpRight,
+  Plus,
+  Square,
+} from "lucide-react-native";
+import { getDesktopHost } from "@/desktop/host";
 import * as Haptics from "expo-haptics";
 import { useDictation } from "@/hooks/use-dictation";
 import { hasFinePointer } from "@/hooks/pointer-capabilities";
@@ -425,7 +435,7 @@ function SendButtonContent({
   glyph,
 }: {
   isSubmitLoading: boolean;
-  submitIcon: "arrow" | "return";
+  submitIcon: "arrow" | "return" | "queue";
   submitLabel: string | undefined;
   glyph: ToolbarGlyph;
 }) {
@@ -444,8 +454,9 @@ function SendButtonContent({
       />
     );
   }
+  const Icon = submitIcon === "queue" ? ThemedListPlus : ThemedArrowUp;
   return (
-    <ThemedArrowUp
+    <Icon
       size={glyph.size}
       strokeWidth={glyph.strokeWidth}
       uniProps={iconAccentForegroundMapping}
@@ -857,7 +868,7 @@ function SendButtonTooltip({
   submitAccessibilityHint: string | undefined;
   sendButtonCombinedStyle: React.ComponentProps<typeof TooltipTrigger>["style"];
   isSubmitLoading: boolean;
-  submitIcon: "arrow" | "return";
+  submitIcon: "arrow" | "return" | "queue";
   submitLabel: string | undefined;
   submitButtonTestID: string | undefined;
   glyph: ToolbarGlyph;
@@ -1017,6 +1028,7 @@ interface SendMessageContext {
   allowEmptySubmit: boolean;
   cwd: string;
   isAgentRunning: boolean;
+  activeTurnBehavior?: MessagePayload["activeTurnBehavior"];
   onSubmit: (payload: MessagePayload) => void;
   onMinimizeHeight: () => void;
   preserveHeightOnSubmit: boolean;
@@ -1039,6 +1051,7 @@ function sendMessageImpl(ctx: SendMessageContext): void {
     attachments: ctx.attachments,
     cwd: ctx.cwd,
     forceSend: ctx.isAgentRunning || undefined,
+    activeTurnBehavior: ctx.activeTurnBehavior,
   });
   // When the host preserves and locks the composer (e.g. new-workspace creation),
   // the text stays put — collapsing the height would clip it. Keep it grown.
@@ -1147,6 +1160,10 @@ function computeSendButtonState(input: SendButtonStateInput): SendButtonStateOut
     input.disabled || (!canPressLoadingButton && (input.isSubmitDisabled || input.isSubmitLoading));
   const defaultActionQueues = input.defaultSendBehavior === "queue" && input.isAgentRunning;
   return { canPressLoadingButton, isSendButtonDisabled, defaultActionQueues };
+}
+
+function isPimiDesktop(): boolean {
+  return Boolean(getDesktopHost()?.showPimiWorkspace);
 }
 
 interface ResolvedMessageInputProps {
@@ -1734,35 +1751,40 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
       resetComposerHeight?.();
     }, [resetComposerHeight]);
 
-    const handleSendMessage = useCallback(() => {
-      const liveValue = textInputRef.current?.getText() ?? valueRef.current;
-      if (!preserveHeightOnSubmit) {
-        updateLiveTextPresence("");
-      }
-      sendMessageImpl({
-        value: liveValue,
-        attachments,
-        hasExternalContent,
+    const showPimiQueueControls = isPimiDesktop();
+    const handleSendMessage = useCallback(
+      (activeTurnBehavior?: MessagePayload["activeTurnBehavior"]) => {
+        const liveValue = textInputRef.current?.getText() ?? valueRef.current;
+        if (!preserveHeightOnSubmit) {
+          updateLiveTextPresence("");
+        }
+        sendMessageImpl({
+          value: liveValue,
+          attachments,
+          hasExternalContent,
+          allowEmptySubmit,
+          cwd,
+          isAgentRunning,
+          activeTurnBehavior,
+          onSubmit,
+          onMinimizeHeight: minimizeInputHeight,
+          preserveHeightOnSubmit,
+          exitFullscreen,
+        });
+      },
+      [
         allowEmptySubmit,
+        attachments,
         cwd,
-        isAgentRunning,
         onSubmit,
-        onMinimizeHeight: minimizeInputHeight,
+        isAgentRunning,
+        hasExternalContent,
+        minimizeInputHeight,
         preserveHeightOnSubmit,
+        updateLiveTextPresence,
         exitFullscreen,
-      });
-    }, [
-      allowEmptySubmit,
-      attachments,
-      cwd,
-      onSubmit,
-      isAgentRunning,
-      hasExternalContent,
-      minimizeInputHeight,
-      preserveHeightOnSubmit,
-      updateLiveTextPresence,
-      exitFullscreen,
-    ]);
+      ],
+    );
 
     const handleQueueMessage = useCallback(
       () =>
@@ -1793,10 +1815,20 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
         defaultSendBehavior,
         isAgentRunning,
         onQueue,
-        handleSendMessage,
+        handleSendMessage: () =>
+          handleSendMessage(
+            showPimiQueueControls && defaultSendBehavior === "queue" ? "steer" : undefined,
+          ),
         handleQueueMessage,
       });
-    }, [defaultSendBehavior, isAgentRunning, handleSendMessage, handleQueueMessage, onQueue]);
+    }, [
+      defaultSendBehavior,
+      isAgentRunning,
+      handleSendMessage,
+      handleQueueMessage,
+      onQueue,
+      showPimiQueueControls,
+    ]);
 
     const alternateSendAction = resolveAlternateSendAction({
       defaultSendBehavior,
@@ -2077,7 +2109,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
           submitAccessibilityHint={submitAccessibilityHint}
           sendButtonCombinedStyle={sendButtonCombinedStyle}
           isSubmitLoading={isSubmitLoading}
-          submitIcon={submitIcon}
+          submitIcon={showPimiQueueControls && defaultActionQueues ? "queue" : submitIcon}
           submitLabel={submitLabel}
           submitButtonTestID={submitButtonTestID}
           glyph={toolbarGlyph}
@@ -2097,6 +2129,8 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
         submitAccessibilityHint,
         sendButtonCombinedStyle,
         isSubmitLoading,
+        showPimiQueueControls,
+        defaultActionQueues,
         submitIcon,
         submitLabel,
         submitButtonTestID,
@@ -2105,6 +2139,49 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
         sendTooltipLabel,
       ],
     );
+    const alternateSendButton = useMemo(() => {
+      if (
+        !showPimiQueueControls ||
+        !alternateSendAction ||
+        isPresentedSendDisabled ||
+        isSubmitLoading ||
+        (!hasLiveText && attachments.length === 0)
+      )
+        return null;
+      const isQueue = alternateSendAction === "queue";
+      const label = t(isQueue ? "composer.input.queueMessage" : "composer.input.steerNow");
+      const Icon = isQueue ? ThemedListPlus : ThemedCornerUpRight;
+      return (
+        <Tooltip delayDuration={0} enabledOnDesktop enabledOnMobile={false}>
+          <TooltipTrigger
+            onPress={handleAlternateSendAction}
+            accessibilityLabel={label}
+            accessibilityRole="button"
+            style={voiceButtonStyle}
+          >
+            <Icon
+              size={toolbarGlyph.size}
+              strokeWidth={toolbarGlyph.strokeWidth}
+              uniProps={iconForegroundMapping}
+            />
+          </TooltipTrigger>
+          <TooltipContent side="top" align="center" offset={8}>
+            <Text style={styles.tooltipText}>{label}</Text>
+          </TooltipContent>
+        </Tooltip>
+      );
+    }, [
+      alternateSendAction,
+      attachments.length,
+      handleAlternateSendAction,
+      hasLiveText,
+      isPresentedSendDisabled,
+      isSubmitLoading,
+      showPimiQueueControls,
+      t,
+      toolbarGlyph,
+      voiceButtonStyle,
+    ]);
     const textSurface = useMemo(
       () => (
         <RenderProfile id="ComposerTextSurface">
@@ -2223,6 +2300,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
               dictationToggleKeys={dictationToggleKeys}
             />
             {voiceModeContent}
+            {alternateSendButton}
             {sendButton}
           </View>
         </View>
@@ -2249,6 +2327,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
         voiceMuteToggleKeys,
         dictationToggleKeys,
         voiceModeContent,
+        alternateSendButton,
         sendButton,
       ],
     );
@@ -2550,6 +2629,8 @@ const ThemedPlus = withUnistyles(Plus);
 const ThemedMic = withUnistyles(Mic);
 const ThemedMicOff = withUnistyles(MicOff);
 const ThemedArrowUp = withUnistyles(ArrowUp);
+const ThemedListPlus = withUnistyles(ListPlus);
+const ThemedCornerUpRight = withUnistyles(CornerUpRight);
 const ThemedCornerDownLeft = withUnistyles(CornerDownLeft);
 const ThemedLoadingSpinner = withUnistyles(LoadingSpinner);
 

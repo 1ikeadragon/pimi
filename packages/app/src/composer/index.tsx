@@ -11,6 +11,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import {
   View,
   Pressable,
+  ScrollView,
   Text,
   StyleSheet as RNStyleSheet,
   type PressableStateCallbackType,
@@ -31,6 +32,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useIsCompactFormFactor } from "@/constants/layout";
+import { getDesktopHost } from "@/desktop/host";
 import {
   controlSizingForLayout,
   TOOLBAR_CONTROL_GAP,
@@ -48,6 +50,7 @@ import { usePointerCapabilities } from "@/hooks/pointer-capabilities";
 import { useShallow } from "zustand/shallow";
 import {
   ArrowUp,
+  X,
   Square,
   Pencil,
   AudioLines,
@@ -96,6 +99,7 @@ import {
   pickAndPersistImages,
   queueComposerMessage,
   removeComposerAttachmentAtIndex,
+  removeQueuedComposerMessage,
   sendQueuedComposerMessageNow,
   toggleForgeAttachmentFromPicker,
   uploadFileAttachments,
@@ -388,24 +392,45 @@ interface RenderQueueTrackArgs {
   handleSendQueuedNow: (id: string) => Promise<void>;
   editLabel: string;
   sendNowLabel: string;
+  removeLabel?: string;
+  remove?: (id: string) => void;
+  heading?: string;
+  glyph?: ToolbarGlyph;
 }
 
 function renderQueueTrack(args: RenderQueueTrackArgs): ReactElement | null {
-  const { queuedMessages, handleEditQueuedMessage, handleSendQueuedNow, editLabel, sendNowLabel } =
-    args;
+  const {
+    queuedMessages,
+    handleEditQueuedMessage,
+    handleSendQueuedNow,
+    editLabel,
+    sendNowLabel,
+    removeLabel,
+    remove,
+    heading,
+    glyph,
+  } = args;
   if (queuedMessages.length === 0) return null;
+  const rows = queuedMessages.map((item) => (
+    <QueuedMessageRow
+      key={item.id}
+      item={item}
+      onEdit={handleEditQueuedMessage}
+      onSendNow={handleSendQueuedNow}
+      editLabel={editLabel}
+      sendNowLabel={sendNowLabel}
+      onRemove={remove}
+      removeLabel={removeLabel}
+      glyph={glyph}
+    />
+  ));
+  if (!heading) return <View style={styles.queueTrack}>{rows}</View>;
   return (
-    <View style={styles.queueTrack}>
-      {queuedMessages.map((item) => (
-        <QueuedMessageRow
-          key={item.id}
-          item={item}
-          onEdit={handleEditQueuedMessage}
-          onSendNow={handleSendQueuedNow}
-          editLabel={editLabel}
-          sendNowLabel={sendNowLabel}
-        />
-      ))}
+    <View style={styles.compactQueue}>
+      <Text style={styles.queueHeading}>{heading}</Text>
+      <ScrollView style={styles.compactQueueScroll} contentContainerStyle={styles.compactQueueRows}>
+        {rows}
+      </ScrollView>
     </View>
   );
 }
@@ -678,6 +703,74 @@ interface QueuedMessageRowProps {
   onSendNow: (id: string) => void;
   editLabel: string;
   sendNowLabel: string;
+  onRemove?: (id: string) => void;
+  removeLabel?: string;
+  glyph?: ToolbarGlyph;
+}
+
+function compactQueueActionStyle({
+  hovered,
+  pressed,
+}: PressableStateCallbackType & { hovered?: boolean }) {
+  return [
+    styles.compactQueueActionButton,
+    (hovered || pressed) && styles.compactQueueActionHovered,
+  ];
+}
+
+function QueueActionButton({
+  icon: Icon,
+  label,
+  onPress,
+  glyph,
+  emphasized,
+}: {
+  icon: typeof ThemedPencil;
+  label: string;
+  onPress: () => void;
+  glyph?: ToolbarGlyph;
+  emphasized?: boolean;
+}) {
+  if (!glyph) {
+    return (
+      <Pressable
+        onPress={onPress}
+        style={[styles.queueActionButton, emphasized && styles.queueSendButton]}
+        accessibilityLabel={label}
+        accessibilityRole="button"
+      >
+        <Icon
+          size={ICON_SIZE.sm}
+          uniProps={emphasized ? iconAccentForegroundMapping : iconForegroundMapping}
+        />
+      </Pressable>
+    );
+  }
+  return (
+    <Tooltip delayDuration={0} enabledOnDesktop enabledOnMobile={false}>
+      <TooltipTrigger
+        onPress={onPress}
+        accessibilityLabel={label}
+        accessibilityRole="button"
+        style={compactQueueActionStyle}
+      >
+        {({ hovered }) => (
+          <Icon
+            size={glyph.size}
+            strokeWidth={glyph.strokeWidth}
+            uniProps={
+              toolbarGlyphTone(glyph, Boolean(hovered)) === "foreground"
+                ? iconForegroundMapping
+                : iconForegroundMutedMapping
+            }
+          />
+        )}
+      </TooltipTrigger>
+      <TooltipContent side="top" align="center" offset={8}>
+        <Text style={styles.tooltipText}>{label}</Text>
+      </TooltipContent>
+    </Tooltip>
+  );
 }
 
 function QueuedMessageRow({
@@ -686,6 +779,9 @@ function QueuedMessageRow({
   onSendNow,
   editLabel,
   sendNowLabel,
+  onRemove,
+  removeLabel,
+  glyph,
 }: QueuedMessageRowProps) {
   const handleEdit = useCallback(() => {
     onEdit(item.id);
@@ -693,28 +789,36 @@ function QueuedMessageRow({
   const handleSendNow = useCallback(() => {
     onSendNow(item.id);
   }, [onSendNow, item.id]);
+  const handleRemove = useCallback(() => {
+    onRemove?.(item.id);
+  }, [onRemove, item.id]);
   return (
-    <View style={styles.queueItem}>
+    <View style={[styles.queueItem, glyph ? styles.compactQueueItem : null]}>
       <Text style={styles.queueText} numberOfLines={2} ellipsizeMode="tail">
         {item.text}
       </Text>
-      <View style={styles.queueActions}>
-        <Pressable
+      <View style={[styles.queueActions, glyph ? styles.compactQueueActions : null]}>
+        <QueueActionButton
+          icon={ThemedPencil}
           onPress={handleEdit}
-          style={styles.queueActionButton}
-          accessibilityLabel={editLabel}
-          accessibilityRole="button"
-        >
-          <ThemedPencil size={ICON_SIZE.sm} uniProps={iconForegroundMapping} />
-        </Pressable>
-        <Pressable
+          label={editLabel}
+          glyph={glyph}
+        />
+        <QueueActionButton
+          icon={ThemedArrowUp}
           onPress={handleSendNow}
-          style={[styles.queueActionButton, styles.queueSendButton]}
-          accessibilityLabel={sendNowLabel}
-          accessibilityRole="button"
-        >
-          <ThemedArrowUp size={ICON_SIZE.sm} uniProps={iconAccentForegroundMapping} />
-        </Pressable>
+          label={sendNowLabel}
+          glyph={glyph}
+          emphasized
+        />
+        {onRemove && removeLabel ? (
+          <QueueActionButton
+            icon={ThemedX}
+            onPress={handleRemove}
+            label={removeLabel}
+            glyph={glyph}
+          />
+        ) : null}
       </View>
     </View>
   );
@@ -1546,7 +1650,11 @@ function ComposerContentImpl({
   }, [focusInput, onFocusInput]);
 
   const submitMessage = useCallback(
-    async (text: string, submitAttachments: ComposerAttachment[]) => {
+    async (
+      text: string,
+      submitAttachments: ComposerAttachment[],
+      activeTurnBehavior?: MessagePayload["activeTurnBehavior"],
+    ) => {
       onMessageSent?.();
       if (onSubmitMessageRef.current) {
         await onSubmitMessageRef.current({ text, attachments: submitAttachments, cwd });
@@ -1559,7 +1667,7 @@ function ComposerContentImpl({
         agentIdRef.current,
         text,
         submitAttachments,
-        appSettings.sendBehavior === "steer" ? "steer" : "interrupt",
+        activeTurnBehavior ?? (appSettings.sendBehavior === "steer" ? "steer" : "interrupt"),
       );
     },
     [appSettings.sendBehavior, cwd, onMessageSent, t],
@@ -1613,6 +1721,7 @@ function ComposerContentImpl({
     (state) => selectAgentTurnPresentation(state.sessions[serverId], agentId).isCancelling,
   );
   const isAgentRunning = hasActiveTurn;
+  const showPimiQueueControls = Boolean(getDesktopHost()?.showPimiWorkspace);
   // Queueing behind a permission prompt would strand the message: the turn is
   // parked until the request is answered.
   const hasPendingPermission = useSessionStore((state) => {
@@ -1667,6 +1776,7 @@ function ComposerContentImpl({
       outgoingMessage: string,
       outgoingAttachments: ComposerAttachment[],
       forceSend?: boolean,
+      activeTurnBehavior?: MessagePayload["activeTurnBehavior"],
     ) => {
       const result = await submitAgentInput({
         message: outgoingMessage,
@@ -1686,7 +1796,7 @@ function ComposerContentImpl({
           if (submitBehavior !== "preserve-and-lock") {
             beginSubmit(submitAttachments);
           }
-          await submitMessage(submitText, submitAttachments);
+          await submitMessage(submitText, submitAttachments, activeTurnBehavior);
         },
         clearDraft,
         setUserInput: replaceUserInput,
@@ -1741,7 +1851,12 @@ function ComposerContentImpl({
       if (blurOnSubmit) {
         messageInputRef.current?.blur();
       }
-      void sendMessageWithContent(payload.text, outgoingAttachments, payload.forceSend);
+      void sendMessageWithContent(
+        payload.text,
+        outgoingAttachments,
+        payload.forceSend,
+        payload.activeTurnBehavior,
+      );
     },
     [
       attachments,
@@ -1943,6 +2058,13 @@ function ComposerContentImpl({
 
   const handleEditQueuedMessage = useCallback(
     (id: string) => {
+      if (
+        showPimiQueueControls &&
+        (textSource.getSnapshot().trim() || selectedAttachments.length)
+      ) {
+        toastErrorRef.current(t("composer.errors.finishDraftBeforeEditingQueue"));
+        return;
+      }
       const result = editQueuedComposerMessage({
         agentId,
         messageId: id,
@@ -1952,26 +2074,41 @@ function ComposerContentImpl({
       replaceUserInput(result.text);
       setSelectedAttachments(result.attachments);
     },
-    [agentId, queueWriter, replaceUserInput, setSelectedAttachments],
+    [
+      agentId,
+      queueWriter,
+      replaceUserInput,
+      selectedAttachments.length,
+      setSelectedAttachments,
+      showPimiQueueControls,
+      t,
+      textSource,
+    ],
+  );
+
+  const handleRemoveQueuedMessage = useCallback(
+    (id: string) => {
+      removeQueuedComposerMessage({ agentId, messageId: id, queue: queueWriter });
+    },
+    [agentId, queueWriter],
   );
 
   const handleSendQueuedNow = useCallback(
     async (id: string) => {
       if (!sendAgentMessageRef.current && !onSubmitMessageRef.current) return;
-      // Reuse the regular send path; server-side send atomically interrupts any active run.
       const result = await sendQueuedComposerMessageNow({
         agentId,
         messageId: id,
         queue: queueWriter,
         submitMessage: ({ text, attachments: queuedAttachments }) =>
-          submitMessage(text, queuedAttachments),
+          submitMessage(text, queuedAttachments, showPimiQueueControls ? "steer" : undefined),
         failedToSendMessage: t("composer.errors.failedToSend"),
       });
       if (result.status === "failed") {
         setSendError(result.errorMessage);
       }
     },
-    [agentId, queueWriter, submitMessage, t],
+    [agentId, queueWriter, showPimiQueueControls, submitMessage, t],
   );
 
   const handleQueue = useCallback(
@@ -2368,9 +2505,26 @@ function ComposerContentImpl({
         handleEditQueuedMessage,
         handleSendQueuedNow,
         editLabel: t("composer.attachments.editQueuedMessage"),
-        sendNowLabel: t("composer.attachments.sendQueuedMessageNow"),
+        sendNowLabel: t(
+          showPimiQueueControls && isAgentRunning
+            ? "composer.attachments.steerQueuedMessageNow"
+            : "composer.attachments.sendQueuedMessageNow",
+        ),
+        heading: showPimiQueueControls ? t("composer.input.queued") : undefined,
+        remove: showPimiQueueControls ? handleRemoveQueuedMessage : undefined,
+        removeLabel: t("composer.attachments.removeQueuedMessage"),
+        glyph: showPimiQueueControls ? toolbarGlyph : undefined,
       }),
-    [handleEditQueuedMessage, handleSendQueuedNow, queuedMessages, t],
+    [
+      handleEditQueuedMessage,
+      handleRemoveQueuedMessage,
+      handleSendQueuedNow,
+      isAgentRunning,
+      queuedMessages,
+      showPimiQueueControls,
+      t,
+      toolbarGlyph,
+    ],
   );
 
   const autocompleteConfiguration = useMemo(
@@ -2672,6 +2826,19 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: "column",
     gap: theme.spacing[2],
   },
+  compactQueue: {
+    gap: theme.spacing[1],
+  },
+  compactQueueScroll: {
+    maxHeight: 112,
+  },
+  compactQueueRows: {
+    gap: theme.spacing[1],
+  },
+  queueHeading: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+  },
   queueItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -2684,6 +2851,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderColor: theme.colors.border,
     gap: theme.spacing[2],
   },
+  compactQueueItem: {
+    paddingHorizontal: theme.spacing[2],
+    paddingVertical: theme.spacing[0.5],
+  },
   queueText: {
     flex: 1,
     color: theme.colors.foreground,
@@ -2693,6 +2864,19 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[2],
+  },
+  compactQueueActions: {
+    gap: theme.spacing[1],
+  },
+  compactQueueActionButton: {
+    width: TOOLBAR_DISC_SIZE,
+    height: TOOLBAR_DISC_SIZE,
+    borderRadius: theme.borderRadius.full,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  compactQueueActionHovered: {
+    backgroundColor: theme.colors.surface2,
   },
   queueActionButton: {
     width: 32,
@@ -2714,6 +2898,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
 const ThemedAttachmentSpinner = withUnistyles(LoadingSpinner);
 const ThemedPencil = withUnistyles(Pencil);
 const ThemedArrowUp = withUnistyles(ArrowUp);
+const ThemedX = withUnistyles(X);
 const ThemedGitPullRequest = withUnistyles(GitPullRequest);
 const ThemedCircleDot = withUnistyles(CircleDot);
 const ThemedAudioLines = withUnistyles(AudioLines);

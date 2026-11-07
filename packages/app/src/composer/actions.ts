@@ -275,7 +275,14 @@ export interface EditQueuedComposerMessageResult {
 export function editQueuedComposerMessage(
   input: EditQueuedComposerMessageInput,
 ): EditQueuedComposerMessageResult | null {
-  const item = input.queue.read(input.agentId).find((q) => q.id === input.messageId);
+  const item = removeQueuedComposerMessage(input);
+  return item ? { text: item.text, attachments: userAttachmentsOnly(item.attachments) } : null;
+}
+
+export function removeQueuedComposerMessage(
+  input: EditQueuedComposerMessageInput,
+): QueuedComposerMessage | null {
+  const item = input.queue.read(input.agentId).find((message) => message.id === input.messageId);
   if (!item) return null;
   input.queue.write((prev) => {
     const next = new Map(prev);
@@ -285,10 +292,7 @@ export function editQueuedComposerMessage(
     );
     return next;
   });
-  return {
-    text: item.text,
-    attachments: userAttachmentsOnly(item.attachments),
-  };
+  return item;
 }
 
 export interface SendQueuedComposerMessageNowInput {
@@ -307,16 +311,8 @@ export type SendQueuedComposerMessageNowResult =
 export async function sendQueuedComposerMessageNow(
   input: SendQueuedComposerMessageNowInput,
 ): Promise<SendQueuedComposerMessageNowResult> {
-  const item = input.queue.read(input.agentId).find((q) => q.id === input.messageId);
+  const item = removeQueuedComposerMessage(input);
   if (!item) return { status: "missing" };
-  input.queue.write((prev) => {
-    const next = new Map(prev);
-    next.set(
-      input.agentId,
-      (prev.get(input.agentId) ?? []).filter((q) => q.id !== input.messageId),
-    );
-    return next;
-  });
   try {
     await input.submitMessage({ text: item.text, attachments: item.attachments });
     return { status: "submitted" };

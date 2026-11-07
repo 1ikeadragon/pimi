@@ -133,6 +133,8 @@ export const fr: TranslationResources = {
       addAttachment: "Ajouter une pièce jointe",
       interruptAgent: "Interrompre l’agent",
       queueMessage: "Mettre le message en file d’attente",
+      queued: "En file d’attente",
+      steerNow: "Orienter maintenant",
       sendAndInterrupt: "Envoyer et interrompre",
       sendAndSteer: "Envoyer et réorienter",
       sendMessage: "Envoyer le message",
@@ -168,6 +170,8 @@ export const fr: TranslationResources = {
       dropFilesHere: "Déposez des fichiers ici",
       editQueuedMessage: "Modifier le message en file d’attente",
       sendQueuedMessageNow: "Envoyer maintenant le message en file d’attente",
+      steerQueuedMessageNow: "Orienter l’agent avec ce message maintenant",
+      removeQueuedMessage: "Retirer le message de la file d’attente",
       openImage: "Ouvrir l’image jointe",
       removeImage: "Retirer l’image jointe",
       removeFile: "Retirer le fichier joint",
@@ -181,6 +185,8 @@ export const fr: TranslationResources = {
     },
     errors: {
       failedToSend: "Impossible d’envoyer le message",
+      finishDraftBeforeEditingQueue:
+        "Terminez ou effacez votre brouillon avant de modifier un message en file d’attente.",
       failedToCreateAgent: "Impossible de créer l’agent",
       noHostSelected: "Aucun hôte sélectionné",
       initialPromptRequired: "Un prompt initial est requis",

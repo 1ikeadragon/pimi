@@ -22,6 +22,8 @@ New chats get a short title based on the first message when a metadata provider 
 
 The change count above the composer shows changed files, additions, and deletions. Click it or the diff icon in the header to open Review for the same checkout, including files the agent has just created.
 
+While an agent is running, use the queue icon to hold a follow-up for its next turn. Queued messages appear above the composer, where you can edit, remove, or steer with one immediately.
+
 ![A task suggestion inside Agent Console](assets/pimi/task-handoff.jpg)
 
 ![The task draft with its brief and proposed work items](assets/pimi/task-draft.jpg)

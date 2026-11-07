@@ -131,6 +131,8 @@ export const ko: TranslationResources = {
       addAttachment: "첨부 추가",
       interruptAgent: "에이전트 중단",
       queueMessage: "메시지 대기열에 추가",
+      queued: "대기 중",
+      steerNow: "지금 지시하기",
       sendAndInterrupt: "보내고 중단",
       sendAndSteer: "보내고 지시 추가",
       sendMessage: "메시지 보내기",
@@ -166,6 +168,8 @@ export const ko: TranslationResources = {
       dropFilesHere: "여기에 파일을 끌어다 놓으세요",
       editQueuedMessage: "대기 중인 메시지 편집",
       sendQueuedMessageNow: "대기 중인 메시지 지금 보내기",
+      steerQueuedMessageNow: "대기 중인 메시지로 지금 지시하기",
+      removeQueuedMessage: "대기열에서 메시지 제거",
       openImage: "이미지 첨부 열기",
       removeImage: "이미지 첨부 제거",
       removeFile: "파일 첨부 제거",
@@ -179,6 +183,8 @@ export const ko: TranslationResources = {
     },
     errors: {
       failedToSend: "메시지를 보내지 못했습니다",
+      finishDraftBeforeEditingQueue:
+        "대기 중인 메시지를 수정하기 전에 현재 초안을 완료하거나 지우세요.",
       failedToCreateAgent: "에이전트를 생성하지 못했습니다",
       noHostSelected: "선택된 호스트가 없습니다",
       initialPromptRequired: "초기 프롬프트가 필요합니다",

@@ -132,6 +132,8 @@ export const ja: TranslationResources = {
       addAttachment: "添付ファイルを追加",
       interruptAgent: "エージェントを中断",
       queueMessage: "メッセージをキューに追加",
+      queued: "キューに追加済み",
+      steerNow: "今すぐ指示する",
       sendAndInterrupt: "送信して中断",
       sendAndSteer: "送信して指示を追加",
       sendMessage: "メッセージを送信",
@@ -167,6 +169,8 @@ export const ja: TranslationResources = {
       dropFilesHere: "ここにファイルをドロップ",
       editQueuedMessage: "キューに入れたメッセージを編集",
       sendQueuedMessageNow: "キューに入れたメッセージを今すぐ送信",
+      steerQueuedMessageNow: "キュー内のメッセージで今すぐ指示する",
+      removeQueuedMessage: "キューからメッセージを削除",
       openImage: "画像添付ファイルを開く",
       removeImage: "画像添付ファイルを削除",
       removeFile: "ファイル添付ファイルを削除",
@@ -180,6 +184,8 @@ export const ja: TranslationResources = {
     },
     errors: {
       failedToSend: "メッセージの送信に失敗しました",
+      finishDraftBeforeEditingQueue:
+        "キュー内のメッセージを編集する前に、現在の下書きを完成させるか消去してください。",
       failedToCreateAgent: "エージェントの作成に失敗しました",
       noHostSelected: "ホストが選択されていません",
       initialPromptRequired: "初期プロンプトが必要です",

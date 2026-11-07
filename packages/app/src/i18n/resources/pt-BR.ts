@@ -132,6 +132,8 @@ export const ptBR: TranslationResources = {
       addAttachment: "Adicionar anexo",
       interruptAgent: "Interromper agente",
       queueMessage: "Enfileirar mensagem",
+      queued: "Na fila",
+      steerNow: "Orientar agora",
       sendAndInterrupt: "Enviar e interromper",
       sendAndSteer: "Enviar e orientar",
       sendMessage: "Enviar mensagem",
@@ -167,6 +169,8 @@ export const ptBR: TranslationResources = {
       dropFilesHere: "Solte arquivos aqui",
       editQueuedMessage: "Editar mensagem na fila",
       sendQueuedMessageNow: "Enviar mensagem da fila agora",
+      steerQueuedMessageNow: "Orientar agora com esta mensagem da fila",
+      removeQueuedMessage: "Remover mensagem da fila",
       openImage: "Abrir anexo de imagem",
       removeImage: "Remover anexo de imagem",
       removeFile: "Remover anexo de arquivo",
@@ -180,6 +184,8 @@ export const ptBR: TranslationResources = {
     },
     errors: {
       failedToSend: "Falha ao enviar mensagem",
+      finishDraftBeforeEditingQueue:
+        "Conclua ou limpe o rascunho atual antes de editar uma mensagem da fila.",
       failedToCreateAgent: "Falha ao criar agente",
       noHostSelected: "Nenhum host selecionado",
       initialPromptRequired: "O prompt inicial é obrigatório",

@@ -132,6 +132,8 @@ export const ru: TranslationResources = {
       addAttachment: "Добавить вложение",
       interruptAgent: "Прервать агента",
       queueMessage: "Сообщение в очередь",
+      queued: "В очереди",
+      steerNow: "Направить агента сейчас",
       sendAndInterrupt: "Отправить и прервать",
       sendAndSteer: "Отправить и направить",
       sendMessage: "Отправить сообщение",
@@ -167,6 +169,8 @@ export const ru: TranslationResources = {
       dropFilesHere: "Переместите файлы сюда",
       editQueuedMessage: "Изменить сообщение из очереди",
       sendQueuedMessageNow: "Отправить сообщение из очереди сейчас",
+      steerQueuedMessageNow: "Направить агента этим сообщением сейчас",
+      removeQueuedMessage: "Убрать сообщение из очереди",
       openImage: "Открыть прикрепленное изображение",
       removeImage: "Удалить прикрепленное изображение",
       removeFile: "Удалить прикрепленный файл",
@@ -180,6 +184,8 @@ export const ru: TranslationResources = {
     },
     errors: {
       failedToSend: "Не удалось отправить сообщение",
+      finishDraftBeforeEditingQueue:
+        "Завершите или очистите текущий черновик перед редактированием сообщения из очереди.",
       failedToCreateAgent: "Не удалось создать агента.",
       noHostSelected: "Хост не выбран",
       initialPromptRequired: "Необходим инициализирующий промпт",

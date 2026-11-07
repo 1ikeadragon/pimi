@@ -132,6 +132,8 @@ export const es: TranslationResources = {
       addAttachment: "Agregar archivo adjunto",
       interruptAgent: "agente de interrupción",
       queueMessage: "mensaje de cola",
+      queued: "En cola",
+      steerNow: "Guiar ahora",
       sendAndInterrupt: "Enviar e interrumpir",
       sendAndSteer: "Enviar y orientar",
       sendMessage: "enviar mensaje",
@@ -167,6 +169,8 @@ export const es: TranslationResources = {
       dropFilesHere: "Drop files here",
       editQueuedMessage: "Editar mensaje en cola",
       sendQueuedMessageNow: "Enviar mensaje en cola ahora",
+      steerQueuedMessageNow: "Guiar ahora con este mensaje en cola",
+      removeQueuedMessage: "Quitar mensaje de la cola",
       openImage: "Abrir imagen adjunta",
       removeImage: "Quitar imagen adjunta",
       removeFile: "Remove file attachment",
@@ -180,6 +184,8 @@ export const es: TranslationResources = {
     },
     errors: {
       failedToSend: "No se pudo enviar el mensaje",
+      finishDraftBeforeEditingQueue:
+        "Termina o borra el borrador actual antes de editar un mensaje en cola.",
       failedToCreateAgent: "No se pudo crear el agente",
       noHostSelected: "Ningún anfitrión seleccionado",
       initialPromptRequired: "Se requiere aviso inicial",
