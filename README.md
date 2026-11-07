@@ -78,11 +78,11 @@ Open **Review** and choose a worktree, or select **Compare alongside** from a wo
 
 ### Choose an appearance
 
-Choose an appearance in **Pimi → Settings → Appearance**. Blush pairs rose botanical linework with a fern silhouette, Paper has warm fibers, and Dark has graphite grain. **System** follows the Mac’s light or dark appearance. Code and controls keep solid backgrounds.
+Choose an appearance in **Pimi → Settings → Appearance**. Blush pairs rose botanical linework with a fern silhouette, Paper has warm fibers, and Dark uses charcoal surfaces with fine graphite grain. **System** follows the Mac’s light or dark appearance. Code and controls keep solid backgrounds.
 
 ![The Tasks board in Paper with a fine fiber texture](assets/pimi/paper.jpg)
 
-![The same Tasks board in Dark with graphite grain](assets/pimi/dark.jpg)
+![The Tasks board in Dark with muted charcoal panels and fine graphite grain](assets/pimi/dark.jpg)
 
 ### Find saved memory
 

@@ -11,7 +11,7 @@
 }
 
 :root[data-appearance="dark"] {
-  --pimi-ink: radial-gradient(ellipse at 84% 14%, #aca9b212, transparent 67%);
+  --pimi-ink: radial-gradient(ellipse at 84% 14%, #aca9b209, transparent 76%);
   --pimi-ink-size: 100% 100%;
   --pimi-ink-position: center;
   --pimi-material: url("/pimi-textures/graphite.svg");
@@ -19,7 +19,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root[data-appearance="system"] {
-    --pimi-ink: radial-gradient(ellipse at 84% 14%, #aca9b212, transparent 67%);
+    --pimi-ink: radial-gradient(ellipse at 84% 14%, #aca9b209, transparent 76%);
     --pimi-ink-size: 100% 100%;
     --pimi-ink-position: center;
     --pimi-material: url("/pimi-textures/graphite.svg");
