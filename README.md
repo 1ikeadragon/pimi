@@ -1,14 +1,18 @@
 # Pimi
 
+<img src="packages/desktop/assets/pimi-icon.png" alt="Pimi’s two paw prints" width="100" />
+
+**Your swarm’s best friend.**
+
 Start with a chat, give your agents separate Git worktrees, and review their changes together. A Pimi task can track one feature across several repositories.
 
 [![Watch the Pimi launch film](assets/pimi/promo.jpg)](assets/pimi/promo.mp4)
 
-The film uses scripted worker responses with real Git worktrees and diffs.
+The film uses scripted worker responses and dictation with real Git worktrees and diffs.
 
 ## Start in chat
 
-Pimi opens in Agent Console. On first launch, setup helps you connect a provider, add a project, and start a conversation.
+Pimi opens in Agent Console. On first launch, setup helps you connect a provider, add a project, and start a conversation. Chat, Tasks, Worktrees, and Review share one window. Use the workspace button at the top right to open it separately or move it back without losing your place.
 
 ![The first Pimi window with setup, provider and project steps, and examples for chat and Tasks](assets/pimi/onboarding.jpg)
 
@@ -22,11 +26,15 @@ New chats get a short title based on the first message when a metadata provider 
 
 This example improves provider metadata across RelayKit, ControlPlane, and Observatory. Each work item can link an existing checkout or start an agent in a new worktree at its repository’s pinned commit.
 
+Tasks has its own Kanban: **Backlog**, **Ready**, **In progress**, **Review**, and **Done**. Linked work and agent reports move a task as far as Review. Drag a card or choose a stage to take over, then select **Auto** to follow progress again. You decide when a task is done.
+
+![The Tasks Kanban showing outcomes at different stages](assets/pimi/task-board.jpg)
+
 ### 1. Capture the question
 
-Type or dictate the brief. You can edit the transcript before saving.
+Type or dictate the brief. Dictation appears at the bottom of Tasks, and you can edit the transcript before saving.
 
-![The full task creation window with the Dictate brief action](assets/pimi/dictation.jpg)
+![The full Tasks layout with the dictation island floating below the brief](assets/pimi/dictation.jpg)
 
 ### 2. Choose what to try
 
@@ -36,7 +44,7 @@ Attach the repositories, then write work items or ask your configured model to s
 
 ### 3. Follow the worktrees
 
-Auto-Kanban follows Git and agent activity. The agents’ final reports appear under their work items as they finish.
+Auto-Kanban updates as Git and agent activity change. The agents’ final reports appear under their work items as they finish. An open diff stays where you left it until you ask to reload it.
 
 ![Three agents running across repositories on the Worktrees board](assets/pimi/board.jpg)
 
@@ -102,6 +110,6 @@ The build creates a local, non-notarized app bundle. Follow setup to start a cha
 - **Paseo**, by Mohamed Boudra and contributors, is Pimi’s upstream. Pimi inherits its agent runtime, SDK, desktop shell, syntax highlighter, and editor launcher. [Upstream source](https://github.com/getpaseo/paseo)
 - **Electron** provides the desktop runtime. [Electron source](https://github.com/electron/electron)
 - **Git** provides worktrees and comparisons. **GitHub CLI** supplies pull request metadata and authentication. [Git source](https://github.com/git/git) · [GitHub CLI source](https://github.com/cli/cli)
-- The launch film uses [Brag](https://github.com/latent-spaces/brag) and [Hyperframes](https://github.com/heygen-com/hyperframes). Music is an excerpt from *Happy Beats / Business Moves Vol. 1* by [Sascha Ende](https://ende.app/en), trimmed and faded. [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+- The launch film uses [Brag](https://github.com/latent-spaces/brag) and [Hyperframes](https://github.com/heygen-com/hyperframes). Music is an excerpt from _Happy Beats / Business Moves Vol. 1_ by [Sascha Ende](https://ende.app/en), trimmed and faded. [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 
 Pimi retains Paseo’s copyright and Apache 2.0 license. Third-party components retain their own licenses. [License](LICENSE)

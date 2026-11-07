@@ -45,6 +45,91 @@ export function createPaseoConnection(settingsSource = {}) {
   let cachedClient;
   let connection;
   let chatHost;
+  let lastDirectory;
+  let liveError;
+  const changeListeners = new Set();
+
+  const changed = (event = {}) => {
+    for (const listener of changeListeners) listener(event);
+  };
+  const signature = (value) =>
+    JSON.stringify(value, (key, entry) => (key === "updatedAt" ? undefined : entry));
+  const agentView = (agent, serverId) => ({
+    id: agent.id,
+    chatUrl: serverId ? buildAgentDeepLink({ serverId, agentId: agent.id }) : undefined,
+    title: agent.title || agent.provider,
+    provider: agent.provider,
+    model: agent.model,
+    updatedAt: agent.updatedAt,
+    thinkingOptionId: agent.effectiveThinkingOptionId ?? agent.thinkingOptionId,
+    providerUnavailable: agent.providerUnavailable,
+    cwd: agent.cwd,
+    workspaceId: agent.workspaceId,
+    status: agent.status,
+    needsInput: agent.pendingPermissions.length > 0,
+    error: agent.lastError,
+  });
+  const workspaceView = (workspace) => ({
+    id: workspace.id,
+    path: workspace.workspaceDirectory,
+    name: workspace.name,
+    state: workspace.status,
+    previews: runningPreviews(workspace.scripts),
+    root: workspace.projectKind === "git" ? workspace.projectRootPath : undefined,
+    openPrUrl:
+      workspace.githubRuntime?.pullRequest?.state?.toLowerCase() === "open" &&
+      workspace.githubRuntime.pullRequest.url.startsWith("https://github.com/")
+        ? workspace.githubRuntime.pullRequest.url
+        : undefined,
+  });
+
+  async function observeDirectory(client) {
+    const agents = new Map();
+    const workspaces = new Map();
+    const observe = (cache, id, value) => {
+      if (!value) {
+        cache.delete(id);
+        changed();
+        return;
+      }
+      const next = signature(value);
+      if (cache.get(id) === next) return;
+      cache.set(id, next);
+      changed();
+    };
+    // These are directory state streams, never token/timeline streams.
+    client.agents.subscribe((update) =>
+      observe(
+        agents,
+        update.agent?.id ?? update.agentId,
+        update.kind === "upsert" ? agentView(update.agent) : null,
+      ),
+    );
+    client.workspaces.subscribe((update) =>
+      observe(
+        workspaces,
+        update.workspace?.id ?? update.id,
+        update.kind === "upsert" ? workspaceView(update.workspace) : null,
+      ),
+    );
+    const gitEvents = client.observeEvents(["checkout_status_update"]);
+    gitEvents.subscribe({
+      snapshot() {},
+      update(message) {
+        if (message.type === "checkout_status_update") changed({ path: message.payload.cwd });
+      },
+    });
+    const subscriptions = await Promise.allSettled([
+      client.agents.list({ scope: "active", page: { limit: 200 }, subscribe: {} }),
+      client.workspaces.list({ page: { limit: 200 }, subscribe: {} }),
+      gitEvents.ready,
+    ]);
+    if (client !== cachedClient) return;
+    liveError = subscriptions.some((result) => result.status === "rejected")
+      ? "Some agent service events are unavailable; checking automatically every few seconds."
+      : undefined;
+    changed();
+  }
 
   async function connect() {
     if (cachedClient?.getConnectionState().status === "connected") return cachedClient;
@@ -72,6 +157,13 @@ export function createPaseoConnection(settingsSource = {}) {
         reconnect: { enabled: false },
       });
       await cachedClient.connect();
+      const client = cachedClient;
+      void observeDirectory(client).catch(() => {
+        if (client !== cachedClient) return;
+        liveError =
+          "Agent service events are unavailable; checking automatically every few seconds.";
+        changed();
+      });
       return cachedClient;
     })().finally(() => {
       connection = undefined;
@@ -96,39 +188,15 @@ export function createPaseoConnection(settingsSource = {}) {
         allPages(client.workspaces.list),
         chatHost,
       ]);
-      return {
+      lastDirectory = {
         serverId,
-        agents: agents.map(({ agent }) => ({
-          id: agent.id,
-          chatUrl: serverId ? buildAgentDeepLink({ serverId, agentId: agent.id }) : undefined,
-          title: agent.title || agent.provider,
-          provider: agent.provider,
-          model: agent.model,
-          updatedAt: agent.updatedAt,
-          thinkingOptionId: agent.effectiveThinkingOptionId ?? agent.thinkingOptionId,
-          providerUnavailable: agent.providerUnavailable,
-          cwd: agent.cwd,
-          workspaceId: agent.workspaceId,
-          status: agent.status,
-          needsInput: agent.pendingPermissions.length > 0,
-          error: agent.lastError,
-        })),
-        workspaces: workspaces.map((workspace) => ({
-          id: workspace.id,
-          path: workspace.workspaceDirectory,
-          name: workspace.name,
-          state: workspace.status,
-          previews: runningPreviews(workspace.scripts),
-          root: workspace.projectKind === "git" ? workspace.projectRootPath : undefined,
-          openPrUrl:
-            workspace.githubRuntime?.pullRequest?.state?.toLowerCase() === "open" &&
-            workspace.githubRuntime.pullRequest.url.startsWith("https://github.com/")
-              ? workspace.githubRuntime.pullRequest.url
-              : undefined,
-        })),
+        agents: agents.map(({ agent }) => agentView(agent, serverId)),
+        workspaces: workspaces.map(workspaceView),
+        liveError,
       };
+      return lastDirectory;
     } catch (error) {
-      return { agents: [], workspaces: [], error: error.message };
+      return { ...(lastDirectory ?? { agents: [], workspaces: [] }), error: error.message };
     }
   }
 
@@ -320,6 +388,10 @@ export function createPaseoConnection(settingsSource = {}) {
 
   return {
     directory,
+    subscribe(listener) {
+      changeListeners.add(listener);
+      return () => changeListeners.delete(listener);
+    },
     explain,
     taskModels,
     checkTaskModel,
@@ -327,6 +399,7 @@ export function createPaseoConnection(settingsSource = {}) {
     launchExperiment,
     experimentReport,
     close: async () => {
+      changeListeners.clear();
       await cachedClient?.close();
     },
   };

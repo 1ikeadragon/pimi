@@ -66,6 +66,9 @@ export function createWorktreeComparison({
   function renderOptions() {
     const previous = picker.value || targetPath;
     const available = cards.filter((card) => !card.unavailable && card.path !== primary?.path);
+    const signature = JSON.stringify(available.map(({ path, repo, name }) => [path, repo, name]));
+    if (picker.dataset.options === signature) return;
+    picker.dataset.options = signature;
     const label = (card) => `${card.repo} · ${card.name}`;
     const counts = new Map();
     for (const card of available) counts.set(label(card), (counts.get(label(card)) ?? 0) + 1);

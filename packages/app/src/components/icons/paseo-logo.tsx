@@ -1,5 +1,7 @@
 import Svg, { Path } from "react-native-svg";
 import { useUnistyles } from "react-native-unistyles";
+import { getDesktopHost } from "@/desktop/host";
+import { PimiMark } from "./pimi-mark";
 
 interface PaseoLogoProps {
   size?: number;
@@ -9,6 +11,7 @@ interface PaseoLogoProps {
 export function PaseoLogo({ size = 64, color }: PaseoLogoProps) {
   const { theme } = useUnistyles();
   const fill = color ?? theme.colors.foreground;
+  if (getDesktopHost()?.pimiAppearance) return <PimiMark size={size} color={fill} />;
 
   return (
     <Svg width={size} height={size} viewBox="0 0 700 700" fill="none">

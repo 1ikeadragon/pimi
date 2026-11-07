@@ -89,6 +89,7 @@ import {
 import { registerWorkspaceRouteNavigationRef } from "@/navigation/workspace-route-navigation";
 import { useSettingsRouteEntry } from "@/navigation/settings-presentation";
 import { ThemedStack } from "@/navigation/themed-stack";
+import TaskDictation from "./pimi-dictation";
 import { shouldUseDesktopDaemon } from "@/desktop/daemon/desktop-daemon";
 import { AgentNavigationListener } from "@/desktop/agent-navigation";
 import { LegacyAgentSkillsMigration } from "@/agent-skills/legacy-migration";
@@ -918,7 +919,7 @@ function AppShell() {
   useEffect(() => {
     if (!isTaskDictation && getDesktopHost()) void ensureOsNotificationPermission();
   }, [isTaskDictation]);
-  if (isTaskDictation) return <RootStack />;
+  if (isTaskDictation) return <TaskDictation />;
   return (
     <MobilePanelsProvider>
       <HorizontalScrollProvider>
@@ -985,9 +986,10 @@ function RootProviders({ children }: { children: ReactNode }) {
 }
 
 function RootAppTree() {
+  const isTaskDictation = Boolean(getDesktopHost()?.taskDictation);
   return (
     <GestureHandlerRootView style={flexStyle}>
-      <View style={layoutStyles.surfaceFill}>
+      <View style={isTaskDictation ? flexStyle : layoutStyles.surfaceFill}>
         <LucideProvider strokeWidth={ICON_STROKE_WIDTH}>
           <AddHostProvider>
             <RootProviders>

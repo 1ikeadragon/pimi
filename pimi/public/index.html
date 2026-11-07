@@ -5,213 +5,232 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
     <title>Pimi</title>
+    <link rel="icon" type="image/svg+xml" href="/pimi-mark.svg" />
     <link rel="stylesheet" href="/style.css" />
     <link rel="stylesheet" href="/syntax.css" />
     <script type="module" src="/app.js"></script>
   </head>
   <body>
     <header class="topbar">
-      <nav aria-label="Main">
+      <nav aria-label="Workspace layouts">
+        <a id="show-agents" href="pimi-agents://open" target="_blank" hidden>Chat</a>
         <button id="show-tasks" aria-current="page">Tasks</button>
         <button id="show-board">Worktrees</button>
         <button id="show-review">Review</button>
       </nav>
       <div class="toolbar-actions">
-        <a
-          id="show-agents"
-          class="button secondary"
-          href="pimi-agents://open"
-          target="_blank"
-          hidden
-        >
-          Agent Console
-        </a>
         <a id="open-settings" class="button quiet" href="pimi-settings://open" target="_blank">
           Settings
         </a>
+        <button
+          id="toggle-workspace-window"
+          class="icon-button workspace-window-button"
+          aria-label="Open in separate window"
+          title="Open in separate window"
+          hidden
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="3.5" y="5" width="17" height="14" rx="2.5"></rect>
+            <path d="M13.5 5v14"></path>
+          </svg>
+        </button>
       </div>
     </header>
+    <p
+      id="workspace-window-warning"
+      class="warning workspace-window-warning"
+      role="alert"
+      hidden
+    ></p>
     <main>
       <section id="tasks" aria-label="Tasks">
         <div class="section-header">
-          <h1>Tasks</h1>
+          <div class="task-heading-group">
+            <button id="task-board-back" class="button quiet" type="button" hidden>‹ Board</button>
+            <h1>Tasks</h1>
+          </div>
           <button id="new-task" class="button primary">New task</button>
         </div>
         <p id="task-warning" class="warning" role="alert" hidden></p>
-        <div class="task-layout">
-          <aside class="task-sidebar" aria-label="Task list">
+        <div id="task-board">
+          <div class="task-board-tools">
             <input
               id="task-search"
               class="search"
               type="search"
               aria-label="Find tasks"
-              placeholder="Find tasks"
+              placeholder="Find a task"
               aria-keyshortcuts="/"
             />
-            <div id="task-list"></div>
-          </aside>
-          <div class="task-content">
-            <div id="task-empty" class="task-empty">
-              <h2>Start with a brief</h2>
-              <p>Keep related work, agents, and reports together.</p>
+            <p class="subtitle">
+              Stages follow work items. Drag a card or choose a stage to set it yourself.
+            </p>
+          </div>
+          <div id="task-list" class="lanes task-lanes" aria-label="Task board"></div>
+        </div>
+        <div id="task-content" class="task-content" hidden>
+          <form id="task-create" class="task-form" hidden>
+            <h2>New task</h2>
+            <p id="task-proposal-context" class="subtitle" hidden>
+              Review the agent’s proposal before saving it. You can edit the brief and keep the work
+              items you want to keep.
+            </p>
+            <label
+              >Repository
+              <select id="task-repository"></select
+            ></label>
+            <p id="task-no-repositories" class="subtitle" hidden>
+              You can save the brief now and attach a repository later.
+            </p>
+            <label
+              >Title
+              <input name="title" required maxlength="100" placeholder="Improve agent performance"
+            /></label>
+            <label
+              >Brief
+              <textarea
+                name="brief"
+                required
+                maxlength="2400"
+                rows="5"
+                placeholder="What are we trying to accomplish?"
+              ></textarea>
+            </label>
+            <fieldset id="task-proposal-experiments" class="task-proposal-experiments" hidden>
+              <legend>Proposed work items</legend>
+              <div id="task-proposal-ideas"></div>
+            </fieldset>
+            <div class="task-actions">
+              <button
+                id="dictate-create"
+                class="button secondary dictate-brief"
+                type="button"
+                hidden
+              >
+                Dictate brief
+              </button>
+              <button id="cancel-task" class="button secondary" type="button">Cancel</button>
+              <button id="create-task" class="button primary" type="submit">Create task</button>
             </div>
-            <form id="task-create" class="task-form" hidden>
-              <h2>New task</h2>
-              <p id="task-proposal-context" class="subtitle" hidden>
-                Review the agent’s proposal before saving it. You can edit the brief and keep the
-                work items you want to keep.
-              </p>
+          </form>
+          <section id="task-detail" hidden>
+            <div class="task-heading">
+              <div>
+                <h2 id="task-title"></h2>
+                <p id="task-context" class="subtitle"></p>
+              </div>
+              <select id="task-stage" class="task-stage-select" aria-label="Task stage"></select>
+            </div>
+            <p id="task-brief" class="task-brief"></p>
+            <form id="task-attach-repository" class="task-form" hidden>
               <label
                 >Repository
-                <select id="task-repository"></select
+                <select id="task-attach-root" required></select
               ></label>
-              <p id="task-no-repositories" class="subtitle" hidden>
-                You can save the brief now and attach a repository later.
+              <p id="task-attach-hint" class="subtitle" hidden>
+                Add a Git repository in Worktrees to start agents.
               </p>
-              <label
-                >Title
-                <input
-                  name="title"
-                  required
-                  maxlength="100"
-                  placeholder="Improve agent performance"
-              /></label>
-              <label
-                >Brief
-                <textarea
-                  name="brief"
-                  required
-                  maxlength="2400"
-                  rows="5"
-                  placeholder="What are we trying to accomplish?"
-                ></textarea>
-              </label>
-              <fieldset id="task-proposal-experiments" class="task-proposal-experiments" hidden>
-                <legend>Proposed work items</legend>
-                <div id="task-proposal-ideas"></div>
-              </fieldset>
               <div class="task-actions">
-                <button
-                  id="dictate-create"
-                  class="button secondary dictate-brief"
-                  type="button"
-                  hidden
-                >
-                  Dictate brief
+                <button id="attach-task-repository" class="button secondary" type="submit">
+                  Attach repository
                 </button>
-                <button id="cancel-task" class="button secondary" type="button">Cancel</button>
-                <button id="create-task" class="button primary" type="submit">Create task</button>
               </div>
             </form>
-            <section id="task-detail" hidden>
-              <div class="task-heading">
-                <div>
-                  <h2 id="task-title"></h2>
-                  <p id="task-context" class="subtitle"></p>
-                </div>
-                <span id="task-status" class="task-status"></span>
-              </div>
-              <p id="task-brief" class="task-brief"></p>
-              <form id="task-attach-repository" class="task-form" hidden>
-                <label
-                  >Repository
-                  <select id="task-attach-root" required></select
-                ></label>
-                <p id="task-attach-hint" class="subtitle" hidden>
-                  Add a Git repository in Worktrees to start agents.
-                </p>
-                <div class="task-actions">
-                  <button id="attach-task-repository" class="button secondary" type="submit">
-                    Attach repository
-                  </button>
-                </div>
-              </form>
-              <div class="task-detail-actions">
-                <a
-                  id="task-source-chat"
-                  class="button quiet"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  hidden
-                  >Original chat</a
-                >
-                <details id="task-edit-details">
-                  <summary class="button quiet">Edit task…</summary>
-                  <form id="task-edit" class="task-form">
-                    <label>Title <input name="title" required maxlength="100" /></label>
-                    <label
-                      >Brief <textarea name="brief" required maxlength="2400" rows="4"></textarea>
-                    </label>
-                    <div class="task-actions">
-                      <button
-                        id="dictate-edit"
-                        class="button secondary dictate-brief"
-                        type="button"
-                        hidden
-                      >
-                        Dictate brief
-                      </button>
-                      <button class="button primary" type="submit">Save changes</button>
-                    </div>
-                  </form>
-                </details>
-                <button id="task-close" class="button quiet" type="button">Close task</button>
-              </div>
-              <section class="task-experiments" aria-labelledby="experiments-heading">
-                <div class="work-item-header">
-                  <h2 id="experiments-heading">Work items</h2>
-                  <p id="task-progress" class="subtitle" role="status"></p>
-                </div>
-                <div id="experiment-list"></div>
-                <details id="add-experiment">
-                  <summary class="button secondary">Add work item…</summary>
-                  <form id="task-idea" class="task-form">
-                    <label
-                      >Title
-                      <input
-                        name="title"
-                        required
-                        maxlength="55"
-                        placeholder="Try caching provider metadata"
-                    /></label>
-                    <label
-                      >Instructions
-                      <textarea name="hypothesis" required maxlength="1600" rows="3"></textarea>
-                    </label>
-                    <label
-                      >Repository
-                      <select id="experiment-repository"></select
-                    ></label>
-                    <label
-                      >Worktree
-                      <select id="experiment-worktree"></select
-                    ></label>
-                    <div class="task-actions">
-                      <button class="button primary" type="submit">Add work item</button>
-                    </div>
-                  </form>
-                </details>
-                <form id="task-run" class="task-form" hidden>
-                  <div class="task-run-controls">
-                    <label
-                      >Agent model
-                      <select id="task-model" required></select
-                    ></label>
-                    <button id="task-models" class="button quiet" type="button">Load models</button>
-                    <div class="task-run-actions">
-                      <button id="suggest-experiments" class="button secondary" type="button">
-                        Suggest 2 drafts
-                      </button>
-                      <button id="run-task" class="button primary" type="submit">
-                        Start agents
-                      </button>
-                    </div>
+            <div class="task-detail-actions">
+              <a
+                id="task-source-chat"
+                class="button quiet"
+                target="_blank"
+                rel="noopener noreferrer"
+                hidden
+                >Original chat</a
+              >
+              <details id="task-edit-details">
+                <summary class="button quiet">Edit task…</summary>
+                <form id="task-edit" class="task-form">
+                  <label>Title <input name="title" required maxlength="100" /></label>
+                  <label
+                    >Brief <textarea name="brief" required maxlength="2400" rows="4"></textarea>
+                  </label>
+                  <div class="task-actions">
+                    <button
+                      id="dictate-edit"
+                      class="button secondary dictate-brief"
+                      type="button"
+                      hidden
+                    >
+                      Dictate brief
+                    </button>
+                    <button class="button primary" type="submit">Save changes</button>
                   </div>
-                  <p id="task-run-note" class="subtitle" role="status"></p>
                 </form>
-              </section>
+              </details>
+              <button id="task-close" class="button quiet" type="button">Mark done</button>
+            </div>
+            <section class="task-experiments" aria-labelledby="experiments-heading">
+              <div class="work-item-header">
+                <h2 id="experiments-heading">Work items</h2>
+                <p id="task-progress" class="subtitle" role="status"></p>
+              </div>
+              <div id="experiment-list"></div>
+              <details id="add-experiment">
+                <summary class="button secondary">Add work item…</summary>
+                <form id="task-idea" class="task-form">
+                  <label
+                    >Title
+                    <input
+                      name="title"
+                      required
+                      maxlength="55"
+                      placeholder="Try caching provider metadata"
+                  /></label>
+                  <label
+                    >Instructions
+                    <textarea name="hypothesis" required maxlength="1600" rows="3"></textarea>
+                  </label>
+                  <label
+                    >Repository
+                    <select id="experiment-repository"></select
+                  ></label>
+                  <label
+                    >Worktree
+                    <select id="experiment-worktree"></select
+                  ></label>
+                  <div class="task-actions">
+                    <button class="button primary" type="submit">Add work item</button>
+                  </div>
+                </form>
+              </details>
+              <form id="task-run" class="task-form" hidden>
+                <div class="task-run-controls">
+                  <label
+                    >Agent model
+                    <select id="task-model" required></select
+                  ></label>
+                  <button id="task-models" class="button quiet" type="button" hidden>
+                    Retry model discovery
+                  </button>
+                  <div class="task-run-actions">
+                    <button id="suggest-experiments" class="button secondary" type="button">
+                      Suggest 2 drafts
+                    </button>
+                    <button id="run-task" class="button primary" type="submit">Start agents</button>
+                  </div>
+                </div>
+                <p id="task-run-note" class="subtitle" role="status"></p>
+              </form>
             </section>
-          </div>
+          </section>
         </div>
       </section>
 
@@ -231,7 +250,6 @@
           />
           <kbd title="Focus search">/</kbd>
           <div class="board-actions">
-            <button id="refresh-board" class="button secondary">Refresh</button>
             <details class="watch">
               <summary class="button secondary">Add repository…</summary>
               <div class="watch-panel">
@@ -252,6 +270,7 @@
             </details>
           </div>
         </div>
+        <p id="live-status" class="subtitle" role="status" hidden></p>
         <p id="board-warning" class="warning" hidden></p>
         <div id="lanes" class="lanes" aria-label="Worktree board"></div>
         <section id="other-agents" class="other-agents" hidden aria-labelledby="agents-heading">

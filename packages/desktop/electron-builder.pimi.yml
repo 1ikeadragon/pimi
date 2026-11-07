@@ -12,6 +12,10 @@ protocols:
     schemes:
       - paseo
 mac:
+  icon: assets/pimi-icon.icns
+  extraResources:
+    - from: assets/pimi-icon.png
+      to: pimi-icon.png
   extendInfo:
     NSMicrophoneUsageDescription: Pimi uses the microphone when you dictate a task brief or agent message.
   artifactName: "Pimi-${version}-${arch}.${ext}"

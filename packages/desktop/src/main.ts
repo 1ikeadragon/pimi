@@ -12,6 +12,7 @@ import { inheritLoginShellEnv } from "./login-shell-env.js";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import {
+  hidePimiWorkspace,
   isPimiWindow,
   pimiAppearanceArgument,
   setPimiAppearance,
@@ -595,6 +596,13 @@ function getAppDistDir(): string {
 }
 
 function getWindowIconCandidates(): string[] {
+  if (PIMI_DESKTOP) {
+    return [
+      app.isPackaged
+        ? path.join(process.resourcesPath, "pimi-icon.png")
+        : path.resolve(__dirname, "../assets/pimi-icon.png"),
+    ];
+  }
   if (app.isPackaged) {
     if (process.platform === "win32") {
       return [
@@ -677,14 +685,29 @@ function getWorkAreasPrimaryFirst(): Electron.Rectangle[] {
   return [primary, ...others].map((display) => display.workArea);
 }
 
+function findConsoleWindow(preferred?: BrowserWindow): BrowserWindow | undefined {
+  if (preferred && !preferred.isDestroyed() && !isPimiWindow(preferred)) return preferred;
+  const focused = BrowserWindow.getFocusedWindow();
+  return focused && !isPimiWindow(focused)
+    ? focused
+    : BrowserWindow.getAllWindows().find((candidate) => !isPimiWindow(candidate));
+}
+
+async function resolvePimiConsoleWindow(preferred?: BrowserWindow): Promise<BrowserWindow> {
+  let win = findConsoleWindow(preferred);
+  if (!win) {
+    await desktopWindowOwner.openPrimary();
+    win = findConsoleWindow();
+  }
+  if (!win) throw new Error("Pimi could not open the Agent Console.");
+  return win;
+}
+
 function openPimiSettings(): void {
   const route = "/settings/appearance";
-  const focused = BrowserWindow.getFocusedWindow();
-  const win =
-    focused && !isPimiWindow(focused)
-      ? focused
-      : BrowserWindow.getAllWindows().find((candidate) => !isPimiWindow(candidate));
+  const win = findConsoleWindow();
   if (win) {
+    hidePimiWorkspace(win);
     if (win.isMinimized()) win.restore();
     win.show();
     win.focus();
@@ -696,7 +719,7 @@ function openPimiSettings(): void {
   }
 }
 
-function openPimi(destination?: PimiDestination): void {
+function openPimi(destination?: PimiDestination, preferred?: BrowserWindow): void {
   void showPimiWindow(
     {
       runtimeDir: path.join(app.getAppPath(), "dist"),
@@ -705,26 +728,16 @@ function openPimi(destination?: PimiDestination): void {
         : new URL("/pimi-dictation", DEV_SERVER_URL).toString(),
       preload: getPreloadPath(),
       workspacePreload: path.join(path.dirname(getPreloadPath()), "pimi-workspace-preload.js"),
+      resolveConsoleWindow: resolvePimiConsoleWindow,
       openSettings: openPimiSettings,
       openAgentChat: (target) => {
         void desktopWindowOwner
           .openOrFocusAgent(target)
           .catch((error) => log.error("[pimi] failed to open agent chat", error));
       },
-      openAgentConsole: () => {
-        const agentWindow = BrowserWindow.getAllWindows().find((win) => !isPimiWindow(win));
-        if (agentWindow) {
-          if (agentWindow.isMinimized()) agentWindow.restore();
-          agentWindow.show();
-          agentWindow.focus();
-        } else {
-          void desktopWindowOwner.openPrimary().catch((error) => {
-            log.error("[pimi] failed to open agent console", error);
-          });
-        }
-      },
     },
     destination,
+    preferred,
   ).catch((error) => log.error("[pimi] failed to open workspace", error));
 }
 
@@ -754,14 +767,16 @@ function registerPimiWorkspaceNavigation(): void {
       proposal?: unknown;
       serverId?: unknown;
     };
-    if (view === "tasks" || view === "worktrees") openPimi({ view });
+    const owner = BrowserWindow.fromWebContents(event.sender) ?? undefined;
+    if (view === "tasks" || view === "worktrees" || view === "review-home")
+      openPimi({ view }, owner);
     if (view === "review" && typeof checkout === "string" && path.isAbsolute(checkout)) {
       if (serverId !== undefined && (typeof serverId !== "string" || !serverId.trim())) return;
-      openPimi({ view, path: checkout, serverId });
+      openPimi({ view, path: checkout, serverId }, owner);
     }
     if (view === "task-draft") {
       const result = PimiTaskProposal.safeParse(proposal);
-      if (result.success) openPimi({ view, proposal: result.data });
+      if (result.success) openPimi({ view, proposal: result.data }, owner);
     }
   });
 }
@@ -812,6 +827,7 @@ async function createWindow(
     },
   });
   applyDesktopWindowChromeMode({ win: mainWindow, mode: DESKTOP_WINDOW_CHROME_MODE });
+  if (PIMI_DESKTOP) mainWindow.on("page-title-updated", (event) => event.preventDefault());
 
   const webContentsId = mainWindow.webContents.id;
   options.onCreated?.(webContentsId);
@@ -906,7 +922,10 @@ function ownedDesktopWindow(win: BrowserWindow): OwnedDesktopWindow<AgentDeepLin
     restore: () => win.restore(),
     show: () => win.show(),
     focus: () => win.focus(),
-    sendAgent: (target) => win.webContents.send("paseo:event:open-agent", target),
+    sendAgent: (target) => {
+      hidePimiWorkspace(win);
+      win.webContents.send("paseo:event:open-agent", target);
+    },
   };
 }
 

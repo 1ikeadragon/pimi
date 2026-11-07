@@ -1,5 +1,5 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
-import { app, BrowserWindow, ipcMain, nativeTheme, shell } from "electron";
+import { app, BrowserWindow, nativeTheme, shell, WebContentsView } from "electron";
 import { readFileSync } from "node:fs";
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -18,19 +18,30 @@ import type {
   EditorTargetDescriptor,
   EditorTargetLaunchInput,
 } from "../features/editor-targets/target.js";
+import { getMainWindowChromeOptions } from "./window-manager.js";
 
 const AGENT_CONSOLE_URL = "pimi-agents://open";
 const SETTINGS_URL = "pimi-settings://open";
 const APPEARANCE_FILE = "pimi-appearance.json";
 export type PimiAppearance = "system" | "light" | "dark" | "paper";
 export type { PimiDestination } from "@getpaseo/protocol/pimi-task";
-let currentWindow: BrowserWindow | undefined;
-let dictationWindow: BrowserWindow | undefined;
-let opening: Promise<void> | undefined;
+export type WorkspaceLayout = "attached" | "detached" | "hidden";
+interface WorkspaceSurface {
+  view: WebContentsView;
+  host?: BrowserWindow;
+  owner?: BrowserWindow;
+  detached?: BrowserWindow;
+  releaseHost?: () => void;
+  cancelDictation?: () => void;
+  options: PimiWindowOptions;
+  backgroundColor: string;
+}
+let workspace: WorkspaceSurface | undefined;
+let opening: Promise<WorkspaceSurface> | undefined;
 let appearanceWrites: Promise<void> = Promise.resolve();
 
 export function isPimiWindow(win: BrowserWindow): boolean {
-  return win === currentWindow || win === dictationWindow;
+  return win === workspace?.detached;
 }
 
 function getPimiAppearance(): PimiAppearance {
@@ -61,6 +72,8 @@ export async function setPimiAppearance(mode: unknown): Promise<void> {
     for (const win of BrowserWindow.getAllWindows()) {
       if (!win.isDestroyed()) win.webContents.send("pimi:appearance:change", mode);
     }
+    const contents = workspace?.view.webContents;
+    if (contents && !contents.isDestroyed()) contents.send("pimi:appearance:change", mode);
     return undefined;
   });
   appearanceWrites = save.catch(() => undefined);
@@ -78,7 +91,7 @@ interface PimiRuntime {
     watchState: string;
     taskState: string;
     getAppearance: () => PimiAppearance;
-    openDictation: () => Promise<string | null>;
+    openDictation: (signal: AbortSignal) => Promise<string | null>;
     listEditors: (
       workspacePath: string,
     ) => Promise<Pick<EditorTargetDescriptor, "id" | "label" | "kind">[]>;
@@ -89,7 +102,7 @@ interface PimiRuntime {
 
 interface PimiWindowOptions {
   runtimeDir: string;
-  openAgentConsole: () => void;
+  resolveConsoleWindow: (preferred?: BrowserWindow) => Promise<BrowserWindow>;
   openSettings: () => void;
   openAgentChat: (target: AgentDeepLinkTarget) => void;
   dictationUrl: string;
@@ -110,32 +123,132 @@ async function connectToDesktopDaemon(): Promise<{ url: string; credential?: str
 export async function showPimiWindow(
   options: PimiWindowOptions,
   destination?: PimiDestination,
+  preferred?: BrowserWindow,
 ): Promise<void> {
-  if (opening) await opening;
-  if (!currentWindow || currentWindow.isDestroyed()) {
-    opening = createPimiWindow(options).finally(() => {
+  const owner = await options.resolveConsoleWindow(preferred);
+  if (!workspace || workspace.view.webContents.isDestroyed()) {
+    opening ??= createWorkspaceSurface(options).finally(() => {
       opening = undefined;
     });
-    await opening;
+    workspace = await opening;
   }
-  if (currentWindow && !currentWindow.isDestroyed()) {
-    if (currentWindow.isMinimized()) currentWindow.restore();
-    currentWindow.show();
-    currentWindow.focus();
-    if (destination) currentWindow.webContents.send("pimi:workspace:navigate", destination);
-  }
+  workspace.owner = owner;
+  const host = workspace.detached ?? owner;
+  attach(workspace, host);
+  reveal(host, workspace.view);
+  if (destination) workspace.view.webContents.send("pimi:workspace:navigate", destination);
 }
 
-async function createPimiWindow(options: PimiWindowOptions): Promise<void> {
+export function hidePimiWorkspace(win?: BrowserWindow): void {
+  const surface = workspace;
+  if (!surface || !surface.host || surface.host === surface.detached) return;
+  if (win && surface.host !== win) return;
+  const host = surface.host;
+  surface.releaseHost?.();
+  if (!host.isDestroyed()) host.webContents.focus();
+  sendLayout(surface, "hidden");
+}
+
+function reveal(win: BrowserWindow, view?: WebContentsView): void {
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+  (view?.webContents ?? win.webContents).focus();
+}
+
+function sendLayout(surface: WorkspaceSurface, layout: WorkspaceLayout): void {
+  if (!surface.view.webContents.isDestroyed())
+    surface.view.webContents.send("pimi:workspace:layout", layout);
+}
+
+function closeIfUnhosted(surface: WorkspaceSurface): void {
+  if (surface.host || BrowserWindow.getAllWindows().some((win) => !isPimiWindow(win))) return;
+  if (!surface.view.webContents.isDestroyed()) surface.view.webContents.close();
+}
+
+function attach(surface: WorkspaceSurface, win: BrowserWindow): void {
+  if (surface.host === win) return;
+  surface.releaseHost?.();
+  surface.host = win;
+  win.contentView.addChildView(surface.view);
+  const coversChat = win !== surface.detached;
+  const coverChat = () => win.webContents.send("pimi:workspace:cover-chat", true);
+  if (coversChat) {
+    coverChat();
+    win.webContents.on("did-finish-load", coverChat);
+  }
+  const resize = () => {
+    const [width, height] = win.getContentSize();
+    const y = process.platform !== "darwin" && win !== surface.detached ? 38 : 0;
+    surface.view.setBounds({ x: 0, y, width, height: Math.max(0, height - y) });
+  };
+  const closed = () => {
+    if (surface.detached === win) surface.detached = undefined;
+    if (surface.owner === win) surface.owner = undefined;
+    surface.releaseHost?.();
+    sendLayout(surface, "hidden");
+    closeIfUnhosted(surface);
+  };
+  surface.releaseHost = () => {
+    surface.cancelDictation?.();
+    win.removeListener("resize", resize);
+    win.removeListener("closed", closed);
+    if (!win.isDestroyed()) {
+      win.contentView.removeChildView(surface.view);
+      if (coversChat) {
+        win.webContents.removeListener("did-finish-load", coverChat);
+        win.webContents.send("pimi:workspace:cover-chat", false);
+      }
+    }
+    surface.host = undefined;
+    surface.releaseHost = undefined;
+  };
+  win.on("resize", resize);
+  win.once("closed", closed);
+  resize();
+  sendLayout(surface, surface.detached === win ? "detached" : "attached");
+}
+
+async function toggleWorkspaceWindow(surface: WorkspaceSurface): Promise<void> {
+  if (surface.detached) {
+    const detached = surface.detached;
+    const owner = await surface.options.resolveConsoleWindow(surface.owner);
+    surface.owner = owner;
+    surface.detached = undefined;
+    attach(surface, owner);
+    if (!detached.isDestroyed()) detached.destroy();
+    reveal(owner, surface.view);
+    return;
+  }
+  const win = new BrowserWindow({
+    ...(process.platform === "darwin" ? getMainWindowChromeOptions({ mode: "native-mac" }) : {}),
+    title: "Pimi Workspace",
+    width: 1320,
+    height: 850,
+    minWidth: 700,
+    minHeight: 520,
+    show: false,
+    backgroundColor: surface.backgroundColor,
+  });
+  surface.detached = win;
+  attach(surface, win);
+  reveal(win, surface.view);
+}
+
+async function createWorkspaceSurface(options: PimiWindowOptions): Promise<WorkspaceSurface> {
   const entry = pathToFileURL(path.join(options.runtimeDir, "pimi", "server.mjs")).href;
   const { startPimi } = (await import(entry)) as PimiRuntime;
   const editors = createEditorTargetRuntime();
+  let surface: WorkspaceSurface | undefined;
   const runtime = await startPimi({
     native: true,
     watchState: path.join(app.getPath("userData"), "pimi-worktrees.json"),
     taskState: path.join(app.getPath("userData"), "pimi-tasks.json"),
     getAppearance: getPimiAppearance,
-    openDictation: () => dictateBrief(window, options),
+    openDictation: (signal) => {
+      if (!surface?.host) return Promise.reject(new Error("Open the workspace to dictate."));
+      return dictateBrief(surface, surface.host, signal);
+    },
     listEditors: async (workspacePath) =>
       (await listAvailableEditorTargets(editors, PIMI_EDITOR_TARGETS, { workspacePath })).map(
         ({ id, label, kind }) => ({ id, label, kind }),
@@ -152,14 +265,7 @@ async function createPimiWindow(options: PimiWindowOptions): Promise<void> {
   ) {
     backgroundColor = "#1a191b";
   }
-  const window = new BrowserWindow({
-    title: "Pimi",
-    width: 1320,
-    height: 850,
-    minWidth: 700,
-    minHeight: 520,
-    show: false,
-    backgroundColor,
+  const view = new WebContentsView({
     webPreferences: {
       preload: options.workspacePreload,
       nodeIntegration: false,
@@ -167,18 +273,34 @@ async function createPimiWindow(options: PimiWindowOptions): Promise<void> {
       sandbox: true,
     },
   });
-  currentWindow = window;
-  window.once("closed", () => {
-    if (currentWindow === window) currentWindow = undefined;
+  surface = { view, options, backgroundColor };
+  const contents = view.webContents;
+  const cleanupUnhosted = () => {
+    if (surface) closeIfUnhosted(surface);
+  };
+  app.on("window-all-closed", cleanupUnhosted);
+  contents.once("destroyed", () => {
+    app.removeListener("window-all-closed", cleanupUnhosted);
+    surface?.releaseHost?.();
+    if (workspace === surface) workspace = undefined;
     void runtime.close();
   });
-  window.webContents.on("will-navigate", (event, url) => {
+  contents.ipc.handle("pimi:workspace:toggle-window", (event) => {
+    if (event.senderFrame !== contents.mainFrame || !surface?.host) return undefined;
+    return toggleWorkspaceWindow(surface);
+  });
+  contents.on("did-finish-load", () => {
+    if (surface?.host) sendLayout(surface, surface.detached ? "detached" : "attached");
+    contents.send("pimi:appearance:change", getPimiAppearance());
+  });
+  contents.on("will-navigate", (event, url) => {
     if (new URL(url).origin !== runtime.origin) event.preventDefault();
   });
-  window.webContents.setWindowOpenHandler(({ url }) => {
+  contents.setWindowOpenHandler(({ url }) => {
     const agent = parseAgentDeepLink(url);
     if (url === AGENT_CONSOLE_URL) {
-      options.openAgentConsole();
+      hidePimiWorkspace();
+      void options.resolveConsoleWindow(surface?.owner).then((win) => reveal(win), console.error);
     } else if (url === SETTINGS_URL) {
       options.openSettings();
     } else if (agent) {
@@ -198,31 +320,28 @@ async function createPimiWindow(options: PimiWindowOptions): Promise<void> {
     return { action: "deny" };
   });
   try {
-    await window.loadURL(runtime.origin);
-    window.show();
-    window.focus();
+    await contents.loadURL(runtime.origin);
+    return surface;
   } catch (error) {
-    window.destroy();
+    contents.close();
     throw error;
   }
 }
 
-function dictateBrief(parent: BrowserWindow, options: PimiWindowOptions): Promise<string | null> {
-  if (parent.isDestroyed()) return Promise.resolve(null);
-  if (dictationWindow && !dictationWindow.isDestroyed()) {
+function dictateBrief(
+  surface: WorkspaceSurface,
+  host: BrowserWindow,
+  signal: AbortSignal,
+): Promise<string | null> {
+  if (host.isDestroyed() || signal.aborted) return Promise.resolve(null);
+  if (surface.cancelDictation) {
     return Promise.reject(new Error("A dictation is already open."));
   }
-  const child = new BrowserWindow({
-    parent,
-    modal: true,
-    title: "Dictate brief",
-    width: 430,
-    height: 245,
-    resizable: false,
-    show: false,
-    backgroundColor: nativeTheme.shouldUseDarkColors ? "#181a19" : "#fffdfd",
+
+  const { dictationUrl, preload } = surface.options;
+  const island = new WebContentsView({
     webPreferences: {
-      preload: options.preload,
+      preload,
       additionalArguments: ["--pimi-task-dictation", pimiAppearanceArgument()],
       autoplayPolicy: "no-user-gesture-required",
       sandbox: true,
@@ -230,37 +349,68 @@ function dictateBrief(parent: BrowserWindow, options: PimiWindowOptions): Promis
       nodeIntegration: false,
     },
   });
-  dictationWindow = child;
-  child.webContents.on("will-navigate", (event) => event.preventDefault());
-  child.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
-  child.once("ready-to-show", () => child.show());
+  const contents = island.webContents;
+  island.setBackgroundColor("#00000000");
+  contents.on("will-navigate", (event) => event.preventDefault());
+  contents.setWindowOpenHandler(() => ({ action: "deny" }));
+
+  const resize = () => {
+    const [width, height] = host.getContentSize();
+    const islandWidth = Math.min(460, width);
+    island.setBounds({
+      x: Math.round((width - islandWidth) / 2),
+      y: Math.max(0, height - 144),
+      width: islandWidth,
+      height: 144,
+    });
+  };
 
   return new Promise((resolve, reject) => {
-    const channel = "pimi:task-dictation:complete";
-    const complete = (event: Electron.IpcMainEvent, value: unknown) => {
-      if (
-        event.sender !== child.webContents ||
-        event.senderFrame !== child.webContents.mainFrame ||
-        event.senderFrame.url !== options.dictationUrl
-      )
+    let settled = false;
+    const finish = (value: string | null, error?: Error) => {
+      if (settled) return;
+      settled = true;
+      surface.cancelDictation = undefined;
+      signal.removeEventListener("abort", cancel);
+      host.removeListener("resize", resize);
+      if (!host.isDestroyed()) {
+        host.contentView.removeChildView(island);
+        if (!surface.view.webContents.isDestroyed()) surface.view.webContents.focus();
+      }
+      if (!contents.isDestroyed()) contents.close();
+      if (error) reject(error);
+      else resolve(value);
+    };
+    const cancel = () => finish(null);
+    surface.cancelDictation = cancel;
+    signal.addEventListener("abort", cancel, { once: true });
+    contents.once("destroyed", cancel);
+    contents.on("render-process-gone", () =>
+      finish(null, new Error("Dictation closed unexpectedly. Try again.")),
+    );
+    contents.ipc.on("pimi:task-dictation:complete", (event, value: unknown) => {
+      if (event.senderFrame !== contents.mainFrame || event.senderFrame.url !== dictationUrl)
         return;
       if (value !== null && typeof value !== "string") return;
       if (typeof value === "string" && value.length > 2400) {
-        reject(new Error("The transcript is too long for a task brief. Try a shorter recording."));
+        finish(
+          null,
+          new Error("The transcript is too long for a task brief. Try a shorter recording."),
+        );
       } else {
-        resolve(value);
+        finish(value);
       }
-      child.destroy();
-    };
-    ipcMain.on(channel, complete);
-    child.once("closed", () => {
-      ipcMain.removeListener(channel, complete);
-      if (dictationWindow === child) dictationWindow = undefined;
-      resolve(null);
     });
-    void child.loadURL(options.dictationUrl).catch((error: Error) => {
-      reject(error);
-      if (!child.isDestroyed()) child.destroy();
-    });
+    void contents.loadURL(dictationUrl).then(
+      () => {
+        if (settled || host.isDestroyed()) return cancel();
+        resize();
+        host.contentView.addChildView(island);
+        host.on("resize", resize);
+        contents.focus();
+        return undefined;
+      },
+      (error: Error) => finish(null, error),
+    );
   });
 }

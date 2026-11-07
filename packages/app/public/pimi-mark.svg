@@ -1,0 +1,18 @@
+<?xml version="1.0" ?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="currentColor">
+  <title>Pimi — two paws, one team</title>
+  <g transform="translate(59 218) rotate(-24 100 100)">
+    <ellipse cx="25" cy="76" rx="19" ry="27" transform="rotate(-27 25 76)"/>
+    <ellipse cx="72" cy="35" rx="21" ry="30" transform="rotate(-10 72 35)"/>
+    <ellipse cx="128" cy="35" rx="21" ry="30" transform="rotate(10 128 35)"/>
+    <ellipse cx="175" cy="76" rx="19" ry="27" transform="rotate(27 175 76)"/>
+    <path d="M58 117C74 92 91 102 100 104C109 102 126 92 142 117L170 157C190 187 166 211 141 201C111 190 89 190 59 201C34 211 10 187 30 157Z"/>
+  </g>
+  <g transform="translate(253 73) rotate(20 100 100)">
+    <ellipse cx="25" cy="76" rx="19" ry="27" transform="rotate(-27 25 76)"/>
+    <ellipse cx="72" cy="35" rx="21" ry="30" transform="rotate(-10 72 35)"/>
+    <ellipse cx="128" cy="35" rx="21" ry="30" transform="rotate(10 128 35)"/>
+    <ellipse cx="175" cy="76" rx="19" ry="27" transform="rotate(27 175 76)"/>
+    <path d="M58 117C74 92 91 102 100 104C109 102 126 92 142 117L170 157C190 187 166 211 141 201C111 190 89 190 59 201C34 211 10 187 30 157Z"/>
+  </g>
+</svg>

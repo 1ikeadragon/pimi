@@ -1,4 +1,5 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
+import { createTaskBoard, taskProgress, taskStageLabel, taskStages } from "./task-board.js";
 export function createTasksView({
   $,
   api,
@@ -14,12 +15,16 @@ export function createTasksView({
   let inventory = { cards: [], repositories: [] };
   let selectedId;
   let renderedExperiments;
-  let renderedList;
+  let cardsByWorkspace = new Map();
+  let cardsByPath = new Map();
+  const stageRequests = new Set();
   let creating = false;
   let proposalDraft;
+  let dictation;
   let request = 0;
   const models = new Map();
   const modelRequests = new Set();
+  const modelErrors = new Map();
   const launches = new Set();
   const planning = new Set();
   const reportRequests = new Set();
@@ -35,23 +40,34 @@ export function createTasksView({
   const repositoryFor = (task, item) =>
     repositoriesFor(task).find(({ root }) => root === (item.root ?? task.root));
 
+  function preserveFocus(container) {
+    const active = document.activeElement;
+    const row = active?.closest("[data-item-id]");
+    if (!row || !container.contains(row)) return () => {};
+    const label = active.getAttribute("aria-label") || active.textContent;
+    return () => {
+      const replacement = [...container.querySelectorAll("[data-item-id]")].find(
+        (item) => item.dataset.itemId === row.dataset.itemId,
+      );
+      const control =
+        replacement &&
+        [replacement, ...replacement.querySelectorAll("button, a, select")].find(
+          (item) =>
+            item.tagName === active.tagName &&
+            (item.getAttribute("aria-label") || item.textContent) === label,
+        );
+      control?.focus({ preventScroll: true });
+    };
+  }
+
   function sourceChat({ serverId, agentId }) {
     return `paseo://h/${encodeURIComponent(serverId)}/agent/${encodeURIComponent(agentId)}`;
   }
 
   function cardFor(experiment) {
-    const workspace =
-      experiment.workspaceId &&
-      inventory.cards.find((card) => card.workspaceId === experiment.workspaceId);
-    return (
-      workspace ||
-      inventory.cards.find(
-        (card) =>
-          experiment.path &&
-          card.path === experiment.path &&
-          (!experiment.workspaceId || !card.workspaceId),
-      )
-    );
+    const workspace = cardsByWorkspace.get(experiment.workspaceId);
+    const byPath = cardsByPath.get(experiment.path);
+    return workspace ?? (experiment.workspaceId && byPath?.workspaceId ? undefined : byPath);
   }
 
   function experimentStatus(item, agent) {
@@ -63,15 +79,6 @@ export function createTasksView({
     if (agent?.status === "idle") return "Agent finished";
     if (item.path) return "Linked worktree";
     return item.launch ? "Launch pending" : "Draft";
-  }
-
-  function status(task) {
-    if (task.done) return "Closed";
-    if (task.experiments.length && task.experiments.every((item) => item.report))
-      return "Ready to review";
-    if (task.experiments.some((item) => item.launch || item.path || item.report))
-      return "In progress";
-    return "Draft";
   }
 
   function options(select, entries, placeholder, preferred) {
@@ -87,30 +94,65 @@ export function createTasksView({
     if (value) select.value = value.id;
   }
 
+  const renderTaskBoard = createTaskBoard({
+    button,
+    element,
+    lanes: $("task-list"),
+    open: choose,
+    move: moveTask,
+    preserveFocus,
+  });
+
   function renderList() {
     const query = $("task-search").value.trim().toLowerCase();
-    const visibleTasks = tasks.filter((task) =>
-      `${task.title} ${task.brief}`.toLowerCase().includes(query),
+    renderTaskBoard(
+      tasks
+        .filter((task) => `${task.title} ${task.brief}`.toLowerCase().includes(query))
+        .map((task) => ({
+          task,
+          progress: taskProgress(task, cardFor),
+          repositories: repositoriesFor(task).length,
+          pending: stageRequests.has(task.id),
+        })),
     );
-    const signature = JSON.stringify([
-      query,
-      selectedId,
-      creating,
-      visibleTasks.map((task) => [task.id, task.title, status(task)]),
-    ]);
-    if (signature === renderedList) return;
-    renderedList = signature;
-    $("task-list").replaceChildren(
-      ...visibleTasks.map((task) => {
-        const row = button("task-row", "", () => choose(task.id));
-        row.setAttribute("aria-pressed", String(!creating && task.id === selectedId));
-        row.append(element("strong", "", task.title), element("span", "", status(task)));
-        return row;
-      }),
-      ...(!visibleTasks.length
-        ? [element("p", "empty", query ? "No matching tasks." : "No tasks yet.")]
-        : []),
+  }
+
+  function showTaskStage(task) {
+    const picker = $("task-stage");
+    const progress = taskProgress(task, cardFor);
+    options(
+      picker,
+      taskStages.map(([id, label]) => ({ id, label })),
+      "Auto · " + taskStageLabel(progress.automatic),
     );
+    picker.value = task.stage ?? (task.done ? "done" : "");
+    picker.disabled = stageRequests.has(task.id);
+    $("task-close").textContent = task.done ? "Reopen task" : "Mark done";
+    $("task-close").disabled =
+      stageRequests.has(task.id) || launches.has(task.id) || planning.has(task.id);
+  }
+
+  async function moveTask(id, stage) {
+    if (stageRequests.has(id)) return;
+    const restore = preserveFocus($("task-list"));
+    const detailFocused = document.activeElement === $("task-stage");
+    stageRequests.add(id);
+    renderList();
+    renderDetails();
+    message("task-warning", "");
+    try {
+      const updated = await api("tasks/stage", { id, stage });
+      tasks = tasks.map((task) => (task.id === id ? updated : task));
+      await load();
+    } catch (error) {
+      message("task-warning", error.message);
+    } finally {
+      stageRequests.delete(id);
+      renderList();
+      renderDetails();
+      if (detailFocused && selectedId === id) $("task-stage").focus();
+      else restore();
+    }
   }
 
   function showModelControls(task) {
@@ -119,19 +161,26 @@ export function createTasksView({
     const active = launches.has(task.id) || planning.has(task.id);
     $("task-run").hidden = task.done || !task.root;
     $("task-model").disabled = active || !choices?.models.length;
+    $("task-models").hidden = !modelErrors.has(task.id) && choices?.models.length !== 0;
     $("task-models").disabled = active || modelRequests.has(task.id);
-    let modelButtonText = choices ? "Refresh models" : "Load models";
-    if (modelRequests.has(task.id)) modelButtonText = "Loading…";
-    $("task-models").textContent = modelButtonText;
     const modelChosen = Boolean($("task-model").value && choices?.models.length);
     $("run-task").disabled = active || !modelChosen || !pending.length;
     $("suggest-experiments").disabled = active || !modelChosen || task.experiments.length > 6;
     $("run-task").textContent = pending.length > 4 ? "Start next 4" : "Start agents";
-    let note = "Pimi starts one agent per draft. Finished agents report here.";
-    if (planning.has(task.id)) note = "Drafting two work items from the brief…";
-    else if (active) note = "Checking the model and starting worktrees…";
-    else if (choices?.models.length === 0) note = "No ready models. Check Agent Console settings.";
-    $("task-run-note").textContent = note;
+    $("task-run-note").textContent = modelControlNote(task.id, choices, active);
+  }
+
+  function modelControlNote(id, choices, active) {
+    if (planning.has(id)) return "Drafting two work items from the brief…";
+    if (active) return "Checking the model and starting worktrees…";
+    if (modelRequests.has(id)) return "Finding available models…";
+    if (modelErrors.has(id)) return modelErrors.get(id);
+    if (choices?.models.length === 0) return "No ready models. Check Agent Console settings.";
+    return "Pimi starts one agent per draft. Finished agents report here.";
+  }
+
+  function discoverModels(task) {
+    if (visible() && !models.has(task.id) && !modelErrors.has(task.id)) void loadModels(task);
   }
 
   function reportContent(item) {
@@ -236,10 +285,12 @@ export function createTasksView({
     ]);
     if (signature === renderedExperiments) return;
     renderedExperiments = signature;
+    const restoreFocus = preserveFocus($("experiment-list"));
     $("experiment-list").replaceChildren(
       ...entries.map((entry) => {
         const { item, card, agent } = entry;
         const row = element("article", "experiment");
+        row.dataset.itemId = item.id;
         const heading = element("div", "experiment-heading");
         heading.append(
           element("h3", "", item.title),
@@ -270,12 +321,16 @@ export function createTasksView({
       $("experiment-list").append(
         element("p", "subtitle", "Add a work item or link an existing worktree."),
       );
+    restoreFocus();
   }
 
   function renderDetails({ fill = false } = {}) {
     const task = selected();
     $("task-create").hidden = !creating;
-    $("task-empty").hidden = creating || Boolean(task);
+    $("task-board").hidden = creating || Boolean(task);
+    $("task-content").hidden = !creating && !task;
+    $("task-board-back").hidden = creating || !task;
+    $("new-task").hidden = creating;
     $("task-detail").hidden = creating || !task;
     if (creating || !task) return;
     $("task-title").textContent = task.title;
@@ -303,9 +358,7 @@ export function createTasksView({
     sourceLink.hidden = !task.source;
     if (task.source) sourceLink.href = sourceChat(task.source);
     else sourceLink.removeAttribute("href");
-    $("task-status").textContent = status(task);
-    $("task-close").textContent = task.done ? "Reopen task" : "Close task";
-    $("task-close").disabled = launches.has(task.id) || planning.has(task.id);
+    showTaskStage(task);
     $("add-experiment").hidden = task.done;
     const form = $("task-edit");
     if (fill) {
@@ -341,9 +394,11 @@ export function createTasksView({
     options($("task-model"), choice?.models ?? [], "Choose a model", original ?? choice?.preferred);
     showModelControls(task);
     renderExperiments(task);
+    discoverModels(task);
   }
 
   function choose(id) {
+    cancelDictation();
     selectedId = id;
     creating = false;
     proposalDraft = undefined;
@@ -383,14 +438,13 @@ export function createTasksView({
       if (version !== request) return;
       tasks = data.tasks;
       if (data.error) message("task-warning", data.error);
-      if (!selectedId && tasks.length && !creating) choose(tasks[0].id);
-      else {
-        renderList();
-        renderDetails();
-      }
+      renderList();
+      renderDetails();
       reconcileReports();
+      return true;
     } catch (error) {
       if (version === request) message("task-warning", error.message);
+      return false;
     }
   }
 
@@ -412,7 +466,7 @@ export function createTasksView({
   }
 
   function reconcileReports() {
-    if (reportRequests.size) return;
+    if (reportRequests.size || inventory.daemonError) return;
     for (const task of tasks) {
       if (task.done) continue;
       const item = task.experiments.find((entry) => {
@@ -475,6 +529,7 @@ export function createTasksView({
       }
       return;
     }
+    cancelDictation();
     creating = true;
     proposalDraft = proposal;
     form.reset();
@@ -504,14 +559,19 @@ export function createTasksView({
 
   $("task-search").addEventListener("input", renderList);
   $("new-task").addEventListener("click", () => beginCreate());
+  $("task-board-back").addEventListener("click", () => {
+    choose(undefined);
+    $("task-search").focus();
+  });
   $("cancel-task").addEventListener("click", () => {
     const source = proposalDraft?.source;
-    choose(selectedId ?? tasks[0]?.id);
+    choose(selectedId);
     if (source) window.open(sourceChat(source), "_blank", "noopener");
   });
 
   $("task-create").addEventListener("submit", (event) => {
     event.preventDefault();
+    cancelDictation();
     const data = new FormData(event.currentTarget);
     const proposal = proposalDraft && {
       id: proposalDraft.id,
@@ -547,14 +607,20 @@ export function createTasksView({
 
   $("task-edit").addEventListener("submit", (event) => {
     event.preventDefault();
+    cancelDictation();
     const task = selected();
     const data = new FormData(event.currentTarget);
     void saveTask(event.submitter, task, Object.fromEntries(data), task.done);
   });
 
-  $("task-close").addEventListener("click", (event) => {
+  $("task-close").addEventListener("click", () => {
     const task = selected();
-    void saveTask(event.currentTarget, task, { title: task.title, brief: task.brief }, !task.done);
+    void moveTask(task.id, task.done ? null : "done");
+  });
+
+  $("task-stage").addEventListener("change", (event) => {
+    const task = selected();
+    void moveTask(task.id, event.currentTarget.value || null);
   });
 
   function saveTask(control, task, changes, done) {
@@ -571,28 +637,50 @@ export function createTasksView({
     ["dictate-edit", "task-edit"],
   ]) {
     const control = $(buttonId);
-    control.addEventListener("click", () => {
-      const field = $(formId).elements.brief;
-      const start = field.selectionStart ?? field.value.length;
-      const end = field.selectionEnd ?? start;
-      void perform(control, async () => {
-        const { text } = await api("dictation", {});
-        if (!text) return;
-        const prefix = field.value.slice(0, start);
-        const suffix = field.value.slice(end);
-        const leading = prefix && !/\s$/.test(prefix) ? " " : "";
-        const trailing = suffix && !/^\s/.test(suffix) ? " " : "";
-        const insertion = leading + text + trailing;
-        if (prefix.length + suffix.length + insertion.length > field.maxLength) {
-          throw new Error(
-            "That transcript is longer than the space left in the brief. Shorten the brief or try a shorter recording.",
-          );
-        }
-        field.setRangeText(insertion, start, end, "end");
-        field.focus();
-      });
-    });
+    control.addEventListener("click", () => void dictate(control, $(formId).elements.brief));
   }
+
+  function cancelDictation() {
+    dictation?.abort();
+  }
+
+  function insertTranscript(field, text, original, selection) {
+    const [start, end] =
+      field.value === original ? selection : [field.value.length, field.value.length];
+    const prefix = field.value.slice(0, start);
+    const suffix = field.value.slice(end);
+    const leading = prefix && !/\s$/.test(prefix) ? " " : "";
+    const trailing = suffix && !/^\s/.test(suffix) ? " " : "";
+    const insertion = leading + text + trailing;
+    if (prefix.length + suffix.length + insertion.length > field.maxLength) {
+      throw new Error("The transcript won’t fit in the brief. Try a shorter recording.");
+    }
+    field.setRangeText(insertion, start, end, "end");
+    field.focus();
+  }
+
+  async function dictate(control, field) {
+    if (dictation) return;
+    const controller = new AbortController();
+    dictation = controller;
+    const original = field.value;
+    const selection = [field.selectionStart, field.selectionEnd];
+    try {
+      await perform(control, async () => {
+        const { text } = await api("dictation", {}, controller.signal).catch((error) => {
+          if (controller.signal.aborted) return {};
+          throw error;
+        });
+        if (text && !controller.signal.aborted) insertTranscript(field, text, original, selection);
+      });
+    } finally {
+      dictation = undefined;
+    }
+  }
+
+  $("task-edit-details").addEventListener("toggle", () => {
+    if (!$("task-edit-details").open && busyControls.has($("dictate-edit"))) cancelDictation();
+  });
 
   $("task-idea").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -618,20 +706,24 @@ export function createTasksView({
     renderDetails();
   });
 
+  async function loadModels(task) {
+    if (task.done || !task.root || modelRequests.has(task.id)) return;
+    modelRequests.add(task.id);
+    modelErrors.delete(task.id);
+    showModelControls(task);
+    try {
+      models.set(task.id, await api("tasks/models", { id: task.id }));
+    } catch (error) {
+      modelErrors.set(task.id, error.message);
+    } finally {
+      modelRequests.delete(task.id);
+      renderDetails();
+    }
+  }
+
   $("task-models").addEventListener("click", () => {
     const task = selected();
-    modelRequests.add(task.id);
-    showModelControls(task);
-    void (async () => {
-      try {
-        models.set(task.id, await api("tasks/models", { id: task.id }));
-      } catch (error) {
-        if (selectedId === task.id) message("task-warning", error.message);
-      } finally {
-        modelRequests.delete(task.id);
-        renderDetails();
-      }
-    })();
+    if (task) void loadModels(task);
   });
   $("task-model").addEventListener("change", () => showModelControls(selected()));
   $("suggest-experiments").addEventListener("click", () => {
@@ -677,6 +769,7 @@ export function createTasksView({
 
   return {
     load,
+    cancelDictation,
     openProposal(proposal) {
       if (tasks.some((task) => task.id === proposal.id)) choose(proposal.id);
       else beginCreate(proposal);
@@ -693,6 +786,11 @@ export function createTasksView({
     },
     setBoard(data) {
       inventory = data;
+      cardsByWorkspace = new Map(
+        data.cards.filter((card) => card.workspaceId).map((card) => [card.workspaceId, card]),
+      );
+      cardsByPath = new Map(data.cards.map((card) => [card.path, card]));
+      renderList();
       $("dictate-create").hidden = !data.native;
       $("dictate-edit").hidden = !data.native;
       updateRepositories();

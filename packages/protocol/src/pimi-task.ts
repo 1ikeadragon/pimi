@@ -27,7 +27,7 @@ export const PimiTaskProposal = PimiTaskProposalInput.extend({
 
 export type PimiTaskProposal = z.infer<typeof PimiTaskProposal>;
 export type PimiDestination =
-  | { view: "tasks" | "worktrees" }
+  | { view: "tasks" | "worktrees" | "review-home" }
   | { view: "review"; path: string; serverId?: string }
   | { view: "task-draft"; proposal: PimiTaskProposal };
 

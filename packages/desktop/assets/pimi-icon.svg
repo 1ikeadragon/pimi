@@ -1,0 +1,38 @@
+<?xml version="1.0" ?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>Pimi</title>
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0.65" y2="1">
+      <stop stop-color="#f4e0e3"/>
+      <stop offset="1" stop-color="#e0adb9"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#fffdfc" stop-opacity=".8"/>
+      <stop offset="1" stop-color="#825362" stop-opacity=".14"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="16" stdDeviation="16" flood-color="#382e33" flood-opacity=".17"/>
+    </filter>
+    <filter id="lift" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="5" stdDeviation="3" flood-color="#825362" flood-opacity=".15"/>
+    </filter>
+  </defs>
+  <rect x="80" y="80" width="864" height="864" rx="194" fill="url(#tile)" filter="url(#shadow)"/>
+  <rect x="82" y="82" width="860" height="860" rx="192" fill="none" stroke="url(#edge)" stroke-width="4"/>
+  <g transform="translate(128 128) scale(1.5)" filter="url(#lift)">
+    <g fill="#825362" transform="translate(59 218) rotate(-24 100 100)">
+      <ellipse cx="25" cy="76" rx="19" ry="27" transform="rotate(-27 25 76)"/>
+      <ellipse cx="72" cy="35" rx="21" ry="30" transform="rotate(-10 72 35)"/>
+      <ellipse cx="128" cy="35" rx="21" ry="30" transform="rotate(10 128 35)"/>
+      <ellipse cx="175" cy="76" rx="19" ry="27" transform="rotate(27 175 76)"/>
+      <path d="M58 117C74 92 91 102 100 104C109 102 126 92 142 117L170 157C190 187 166 211 141 201C111 190 89 190 59 201C34 211 10 187 30 157Z"/>
+    </g>
+    <g fill="#fffcf4" transform="translate(253 73) rotate(20 100 100)">
+      <ellipse cx="25" cy="76" rx="19" ry="27" transform="rotate(-27 25 76)"/>
+      <ellipse cx="72" cy="35" rx="21" ry="30" transform="rotate(-10 72 35)"/>
+      <ellipse cx="128" cy="35" rx="21" ry="30" transform="rotate(10 128 35)"/>
+      <ellipse cx="175" cy="76" rx="19" ry="27" transform="rotate(27 175 76)"/>
+      <path d="M58 117C74 92 91 102 100 104C109 102 126 92 142 117L170 157C190 187 166 211 141 201C111 190 89 190 59 201C34 211 10 187 30 157Z"/>
+    </g>
+  </g>
+</svg>
