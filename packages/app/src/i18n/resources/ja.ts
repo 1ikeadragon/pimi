@@ -347,6 +347,8 @@ export const ja: TranslationResources = {
       forkMenu: "メッセージをフォーク",
       forkInNewTab: "新しいタブにフォーク",
       forkInNewWorkspace: "新しいワークスペースにフォーク",
+      forkWithProvider: "別のプロバイダーでフォーク",
+      forkNoOtherProviders: "このホストでは他のプロバイダーを利用できません。",
       forkUnavailable: "これを使用するにはホストを更新してください。",
       forkMissingWorkspace: "このエージェントはワークスペース内にありません。",
       forkFailed: "チャットのフォークに失敗しました",

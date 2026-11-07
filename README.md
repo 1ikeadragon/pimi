@@ -24,6 +24,8 @@ The change count above the composer shows changed files, additions, and deletion
 
 While an agent is running, use the queue icon to hold a follow-up for its next turn. Queued messages appear above the composer, where you can edit, remove, or steer with one immediately.
 
+To hand a conversation from Claude Code to Codex, or back again, use the fork icon under a response and choose **Fork with another provider**. Pimi opens a draft in the same workspace with the selected provider and a **Chat history** attachment. The fork uses the selected response as its checkpoint and sends the attachment with your first message.
+
 ![A task suggestion inside Agent Console](assets/pimi/task-handoff.jpg)
 
 ![The task draft with its brief and proposed work items](assets/pimi/task-draft.jpg)
