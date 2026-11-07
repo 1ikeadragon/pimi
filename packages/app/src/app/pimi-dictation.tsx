@@ -68,8 +68,8 @@ export default function TaskDictation() {
       <View dataSet={ISLAND_DATASET} style={styles.island}>
         {showControls ? (
           <DictationOverlay
-            neutral
-            labelActions
+            transparent
+            compact
             volume={voice.volume}
             duration={voice.duration}
             isRecording={voice.isRecording}
@@ -106,25 +106,17 @@ export default function TaskDictation() {
 const styles = StyleSheet.create((theme) => ({
   container: {
     flexGrow: 1,
-    justifyContent: "flex-end",
-    paddingHorizontal: 14,
-    paddingTop: 8,
-    paddingBottom: 20,
-  },
-  island: {
-    borderRadius: theme.borderRadius["2xl"],
-    boxShadow: "0 6px 20px #00000038",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 4,
   },
   waiting: {
-    backgroundColor: theme.colors.surface0,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.borderRadius["2xl"],
     padding: 12,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
   },
+  island: { width: "100%", alignItems: "center" },
   description: { flex: 1, fontSize: 13, color: theme.colors.foregroundMuted },
   actions: { flexDirection: "row", justifyContent: "flex-end", gap: 8 },
 }));

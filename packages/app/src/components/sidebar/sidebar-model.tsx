@@ -1,5 +1,10 @@
 import { useTranslation } from "react-i18next";
 import React, { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
+import { getParentAddressFromLabels } from "@getpaseo/protocol/agent-labels";
+import { PIMI_TASK_WORKER_LABEL } from "@getpaseo/protocol/pimi-task";
+import { useShallow } from "zustand/react/shallow";
+import { getDesktopHost } from "@/desktop/host";
+import { useSessionStore, type Agent } from "@/stores/session-store";
 import {
   useSidebarWorkspacesList,
   type SidebarProjectEntry,
@@ -26,6 +31,7 @@ import {
 } from "@/workspace-labels";
 
 interface SidebarModel extends SidebarWorkspacesListResult {
+  pimiTaskBranches: ReadonlyMap<string, PimiTaskBranch[]>;
   workspaceEntriesByKey: ReadonlyMap<string, SidebarWorkspaceEntry>;
   /**
    * Every project the sidebar could show, before any filter narrows it.
@@ -48,6 +54,60 @@ interface SidebarModel extends SidebarWorkspacesListResult {
 
 const SidebarModelContext = createContext<SidebarModel | null>(null);
 
+interface PimiTaskBranch {
+  worker: Agent;
+  parent: Agent;
+  workspace: SidebarWorkspaceEntry;
+}
+
+function visibleTaskBranch(
+  worker: Agent,
+  agents: ReadonlyMap<string, Agent>,
+  workspaces: ReadonlyMap<string, SidebarWorkspaceEntry>,
+  workspaceSizes: ReadonlyMap<string, number>,
+) {
+  if (!worker.labels?.[PIMI_TASK_WORKER_LABEL] || worker.archivedAt || worker.background) return;
+  if (!worker.workspaceId || workspaceSizes.get(worker.workspaceId) !== 1) return;
+  const address = getParentAddressFromLabels(worker.labels, worker.serverId);
+  if (address?.serverId !== worker.serverId) return;
+  const parent = agents.get(address.agentId);
+  if (!parent?.workspaceId || parent.archivedAt || parent.background) return;
+  if (worker.workspaceId === parent.workspaceId) return;
+  const workspace = workspaces.get(`${worker.serverId}:${worker.workspaceId}`);
+  const parentKey = `${parent.serverId}:${parent.workspaceId}`;
+  if (!workspace || workspace.pinnedAt || !workspaces.has(parentKey)) return;
+  return { branch: { worker, parent, workspace }, parentKey };
+}
+
+function projectPimiTaskBranches(
+  agentMaps: ReadonlyArray<ReadonlyMap<string, Agent>>,
+  workspaces: ReadonlyMap<string, SidebarWorkspaceEntry>,
+) {
+  const branches = new Map<string, PimiTaskBranch[]>();
+  const nestedKeys = new Set<string>();
+  for (const agents of agentMaps) {
+    const workspaceSizes = new Map<string, number>();
+    for (const agent of agents.values()) {
+      if (!agent.workspaceId || agent.archivedAt || agent.background) continue;
+      workspaceSizes.set(agent.workspaceId, (workspaceSizes.get(agent.workspaceId) ?? 0) + 1);
+    }
+    for (const worker of agents.values()) {
+      const nested = visibleTaskBranch(worker, agents, workspaces, workspaceSizes);
+      if (!nested) continue;
+      const { branch, parentKey } = nested;
+      nestedKeys.add(branch.workspace.workspaceKey);
+      const siblings = branches.get(parentKey);
+      if (siblings) siblings.push(branch);
+      else branches.set(parentKey, [branch]);
+    }
+  }
+  return { branches, nestedKeys };
+}
+
+export function usePimiTaskBranches(workspaceKey: string) {
+  return useContext(SidebarModelContext)?.pimiTaskBranches.get(workspaceKey);
+}
+
 export function SidebarModelProvider({
   active,
   keyboardNavigationActive = false,
@@ -59,6 +119,12 @@ export function SidebarModelProvider({
 }) {
   const { t } = useTranslation();
   const modelActive = active !== false || keyboardNavigationActive;
+  const showTaskBranches = modelActive && Boolean(getDesktopHost()?.showPimiWorkspace);
+  const agentMaps = useSessionStore(
+    useShallow((state) =>
+      showTaskBranches ? Object.values(state.sessions).map((session) => session.agents) : [],
+    ),
+  );
   const list = useSidebarWorkspacesList({ enabled: modelActive });
   const showBackground = useSidebarViewStore((state) => state.showBackground);
   const groupMode = useSidebarViewStore((state) => state.groupMode);
@@ -152,12 +218,35 @@ export function SidebarModelProvider({
     visibleWorkspaceKeys,
   ]);
   const pinnedKeys = usePinnedSidebarKeys(filteredProjects);
+  const taskTree = useMemo(
+    () => projectPimiTaskBranches(agentMaps, filteredWorkspaceEntriesByKey),
+    [agentMaps, filteredWorkspaceEntriesByKey],
+  );
+  const rootProjects = useMemo(() => {
+    if (!taskTree.nestedKeys.size) return filteredProjects;
+    return filteredProjects.flatMap((project) => {
+      const workspaces = project.workspaces.filter(
+        (workspace) => !taskTree.nestedKeys.has(workspace.workspaceKey),
+      );
+      if (workspaces.length === project.workspaces.length) return [project];
+      return workspaces.length ? [{ ...project, workspaces }] : [];
+    });
+  }, [filteredProjects, taskTree.nestedKeys]);
+  const rootWorkspaces = useMemo(
+    () =>
+      taskTree.nestedKeys.size
+        ? new Map(
+            [...filteredWorkspaceEntriesByKey].filter(([key]) => !taskTree.nestedKeys.has(key)),
+          )
+        : filteredWorkspaceEntriesByKey,
+    [filteredWorkspaceEntriesByKey, taskTree.nestedKeys],
+  );
   const projectionInput = useMemo(
     () => ({
-      projects: filteredProjects,
+      projects: rootProjects,
       pinnedKeys,
       pinnedWorkspaceOrder,
-      workspaceEntriesByKey: filteredWorkspaceEntriesByKey,
+      workspaceEntriesByKey: rootWorkspaces,
       projectNamesByViewKey: list.projectNamesByViewKey,
       groupMode,
       pinnedCollapsed,
@@ -170,11 +259,11 @@ export function SidebarModelProvider({
       collapsedWorkspaceGroupKeys,
       groupMode,
       list.projectNamesByViewKey,
-      filteredProjects,
+      rootProjects,
       pinnedCollapsed,
       pinnedKeys,
       pinnedWorkspaceOrder,
-      filteredWorkspaceEntriesByKey,
+      rootWorkspaces,
       t,
     ],
   );
@@ -182,7 +271,8 @@ export function SidebarModelProvider({
   const value = useMemo(
     () => ({
       ...list,
-      projects: filteredProjects,
+      projects: rootProjects,
+      pimiTaskBranches: taskTree.branches,
       allProjects: list.projects,
       resolvedProjectFilters,
       hasProjectsBeforeFilter: list.projects.length > 0,
@@ -200,7 +290,8 @@ export function SidebarModelProvider({
       collapsedProjectKeys,
       groupMode,
       list,
-      filteredProjects,
+      rootProjects,
+      taskTree.branches,
       projection,
       toggleProjectCollapsed,
       filteredWorkspaceEntriesByKey,

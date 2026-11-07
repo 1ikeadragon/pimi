@@ -262,17 +262,33 @@ export function useCustomDesktopWindowControls(): {
 /** Narrows inherited corner ownership to the corners occupied by this child surface. */
 export function WindowChromeRegion({
   corners,
+  topLeftOffset = 0,
   children,
 }: {
   corners: WindowChromeCorners;
+  /** Distance from the native window's left edge, in content coordinates. */
+  topLeftOffset?: number;
   children: ReactNode;
 }) {
   const inheritedCorners = useContext(WindowChromeCornersContext);
+  const obstruction = useContext(WindowChromeContext);
   const ownedCorners = intersectWindowChromeCorners(inheritedCorners, corners);
+  const localObstruction = useMemo(() => {
+    if (!obstruction.topLeft || topLeftOffset === 0) return obstruction;
+    return {
+      ...obstruction,
+      topLeft: {
+        ...obstruction.topLeft,
+        width: Math.max(0, obstruction.topLeft.width - topLeftOffset),
+      },
+    };
+  }, [obstruction, topLeftOffset]);
   return (
-    <WindowChromeCornersContext.Provider value={ownedCorners}>
-      {children}
-    </WindowChromeCornersContext.Provider>
+    <WindowChromeContext.Provider value={localObstruction}>
+      <WindowChromeCornersContext.Provider value={ownedCorners}>
+        {children}
+      </WindowChromeCornersContext.Provider>
+    </WindowChromeContext.Provider>
   );
 }
 

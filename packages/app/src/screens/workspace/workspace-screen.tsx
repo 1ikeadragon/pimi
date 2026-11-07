@@ -3898,6 +3898,7 @@ function WorkspaceScreenContent({
         serverId={normalizedServerId}
         workspaceRoot={workspaceDirectory ?? undefined}
         onOpenWorkspaceFile={openMarkdownPath}
+        onOpenWebUrl={handleOpenUrlInBrowserTab}
         toast={toast}
       >
         {renderedWorkspaceScreen}

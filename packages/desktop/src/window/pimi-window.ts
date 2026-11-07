@@ -4,11 +4,17 @@ import { readFileSync } from "node:fs";
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { readLocalCredentialForTarget } from "@getpaseo/server/daemon-control";
+import { readLocalCredentialForTarget, resolvePaseoHome } from "@getpaseo/server/daemon-control";
 import { parseAgentDeepLink, type AgentDeepLinkTarget } from "@getpaseo/protocol/agent-deep-link";
+import {
+  PimiReportLinkRequest,
+  PimiReportLinkTarget,
+  type PimiReportLinkError,
+} from "@getpaseo/protocol/pimi-task";
 import type {
   PimiDestination,
   PimiReviewSummary,
+  PimiVoiceBubbleState,
   PimiWorkspaceSection,
 } from "@getpaseo/protocol/pimi-task";
 import { resolveDesktopDaemonStatus } from "../daemon/daemon-manager.js";
@@ -31,6 +37,10 @@ export type WorkspaceLayout = "inline" | "attached" | "hidden";
 export interface PimiContentBounds extends Electron.Rectangle {
   sidebar: boolean;
 }
+interface DictationAnchor {
+  x: number;
+  y: number;
+}
 interface WorkspaceSurface {
   view: WebContentsView;
   host?: BrowserWindow;
@@ -44,11 +54,27 @@ interface WorkspaceSurface {
   prepareChatReview: PimiRuntimeResult["prepareChatReview"];
 }
 let workspace: WorkspaceSurface | undefined;
+let workspaceRuntime: Promise<PimiRuntimeResult> | undefined;
 let opening: Promise<WorkspaceSurface> | undefined;
 let requestedOwner: BrowserWindow | undefined;
 let navigationRequest = 0;
 let appearanceWrites: Promise<void> = Promise.resolve();
 const consoleBounds = new WeakMap<BrowserWindow, PimiContentBounds>();
+const voiceBubbleStates = new WeakMap<BrowserWindow, PimiVoiceBubbleState>();
+const VOICE_OFF: PimiVoiceBubbleState = { active: false, status: "", level: 0 };
+
+export function updatePimiVoiceBubble(win: BrowserWindow, state: PimiVoiceBubbleState): void {
+  voiceBubbleStates.set(win, state);
+  if (workspace?.host === win && !workspace.view.webContents.isDestroyed()) {
+    workspace.view.webContents.send("pimi:voice:state", state);
+  }
+}
+
+export function reportPimiLinkError(win: BrowserWindow, error: PimiReportLinkError): void {
+  if (workspace?.host === win && !workspace.view.webContents.isDestroyed()) {
+    workspace.view.webContents.send("pimi:workspace:report-link-error", error);
+  }
+}
 
 export function updatePimiContentBounds(win: BrowserWindow, bounds: PimiContentBounds): void {
   consoleBounds.set(win, bounds);
@@ -97,7 +123,7 @@ export function pimiAppearanceArgument(): string {
 
 interface PimiRuntimeResult {
   origin: string;
-  appearance: string;
+  resolveReportLink(request: PimiReportLinkRequest): Promise<PimiReportLinkTarget>;
   prepareChatReview(
     path: string,
     serverId?: string,
@@ -126,8 +152,9 @@ interface PimiRuntime {
     paths: string[];
     watchState: string;
     taskState: string;
+    agentTaskHome?: string;
     getAppearance: () => PimiAppearance;
-    openDictation: (signal: AbortSignal) => Promise<string | null>;
+    openDictation: (signal: AbortSignal, anchor?: DictationAnchor) => Promise<string | null>;
     listEditors: (
       workspacePath: string,
     ) => Promise<Pick<EditorTargetDescriptor, "id" | "label" | "kind">[]>;
@@ -226,6 +253,7 @@ function attach(surface: WorkspaceSurface, win: BrowserWindow): void {
   surface.releaseHost?.();
   surface.host = win;
   win.contentView.addChildView(surface.view);
+  surface.view.webContents.send("pimi:voice:state", voiceBubbleStates.get(win) ?? VOICE_OFF);
   const sendSection = () => win.webContents.send("pimi:workspace:section", surface.section);
   const notifyWorkspaceClick = () => {
     if (!win.isDestroyed()) win.webContents.send("pimi:workspace:click");
@@ -277,34 +305,48 @@ function attach(surface: WorkspaceSurface, win: BrowserWindow): void {
   resize();
 }
 
-async function createWorkspaceSurface(options: PimiWindowOptions): Promise<WorkspaceSurface> {
-  const entry = pathToFileURL(path.join(options.runtimeDir, "pimi", "server.mjs")).href;
+async function createWorkspaceRuntime(runtimeDir: string): Promise<PimiRuntimeResult> {
+  const entry = pathToFileURL(path.join(runtimeDir, "pimi", "server.mjs")).href;
   const { startPimi } = (await import(entry)) as PimiRuntime;
   const editors = createEditorTargetRuntime();
-  let surface: WorkspaceSurface | undefined;
   const runtime = await startPimi({
     native: true,
     watchState: path.join(app.getPath("userData"), "pimi-worktrees.json"),
     taskState: path.join(app.getPath("userData"), "pimi-tasks.json"),
+    agentTaskHome: resolvePaseoHome(),
     getAppearance: getPimiAppearance,
-    openDictation: (signal) => {
-      if (!surface?.host) return Promise.reject(new Error("Open the workspace to dictate."));
-      return dictateBrief(surface, surface.host, signal);
+    openDictation: (signal, anchor) => {
+      if (!workspace?.host) return Promise.reject(new Error("Open the workspace to dictate."));
+      return dictateBrief(workspace, workspace.host, signal, anchor);
     },
     listEditors: async (workspacePath) =>
-      (await listAvailableEditorTargets(editors, PIMI_EDITOR_TARGETS, { workspacePath })).map(
-        ({ id, label, kind }) => ({ id, label, kind }),
-      ),
+      (
+        await listAvailableEditorTargets(editors, PIMI_EDITOR_TARGETS, {
+          workspacePath,
+        })
+      ).map(({ id, label, kind }) => ({ id, label, kind })),
     launchEditor: (input) => openEditorTarget(input, editors, PIMI_EDITOR_TARGETS),
     paths: process.env.PIMI_REPOS?.split(path.delimiter).filter(Boolean) ?? [],
     connection: connectToDesktopDaemon,
   });
+  app.once("will-quit", () => void runtime.close().catch(console.error));
+  return runtime;
+}
+
+export function initializePimiWorkspace(runtimeDir: string): Promise<PimiRuntimeResult> {
+  workspaceRuntime ??= createWorkspaceRuntime(runtimeDir).catch((error) => {
+    workspaceRuntime = undefined;
+    throw error;
+  });
+  return workspaceRuntime;
+}
+
+async function createWorkspaceSurface(options: PimiWindowOptions): Promise<WorkspaceSurface> {
+  const runtime = await initializePimiWorkspace(options.runtimeDir);
+  const appearance = getPimiAppearance();
   let backgroundColor = "#faf7f6";
-  if (runtime.appearance === "paper") backgroundColor = "#f7f2e8";
-  if (
-    runtime.appearance === "dark" ||
-    (runtime.appearance === "system" && nativeTheme.shouldUseDarkColors)
-  ) {
+  if (appearance === "paper") backgroundColor = "#f7f2e8";
+  if (appearance === "dark" || (appearance === "system" && nativeTheme.shouldUseDarkColors)) {
     backgroundColor = "#232224";
   }
   const view = new WebContentsView({
@@ -316,7 +358,7 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
     },
   });
   view.setBackgroundColor(backgroundColor);
-  surface = {
+  const surface: WorkspaceSurface = {
     view,
     options,
     layout: "hidden",
@@ -325,17 +367,16 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
   };
   const contents = view.webContents;
   const cleanupUnhosted = () => {
-    if (surface) closeIfUnhosted(surface);
+    closeIfUnhosted(surface);
   };
   app.on("window-all-closed", cleanupUnhosted);
   contents.once("destroyed", () => {
     app.removeListener("window-all-closed", cleanupUnhosted);
-    surface?.releaseHost?.();
+    surface.releaseHost?.();
     if (workspace === surface) workspace = undefined;
-    void runtime.close();
   });
   contents.ipc.on("pimi:workspace:section", (event, section: unknown) => {
-    if (event.senderFrame !== contents.mainFrame || !surface) return;
+    if (event.senderFrame !== contents.mainFrame) return;
     if (
       section !== "tasks" &&
       section !== "board" &&
@@ -348,9 +389,62 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
     surface.section = section;
     surface.host?.webContents.send("pimi:workspace:section", section);
   });
+  contents.ipc.on("pimi:voice:toggle", (event) => {
+    if (
+      event.senderFrame !== contents.mainFrame ||
+      new URL(event.senderFrame.url).origin !== runtime.origin ||
+      !surface.host ||
+      surface.host.isDestroyed() ||
+      surface.cancelDictation
+    )
+      return;
+    surface.host.webContents.send("pimi:voice:toggle");
+  });
   contents.on("did-finish-load", () => {
-    if (surface?.host) sendLayout(surface, surface.layout);
+    if (surface.host) sendLayout(surface, surface.layout);
+    if (surface.host) {
+      contents.send("pimi:voice:state", voiceBubbleStates.get(surface.host) ?? VOICE_OFF);
+    }
     contents.send("pimi:appearance:change", getPimiAppearance());
+  });
+  contents.ipc.on("pimi:workspace:report-link", (event, value: unknown) => {
+    if (
+      event.senderFrame !== contents.mainFrame ||
+      URL.parse(event.senderFrame.url)?.origin !== runtime.origin ||
+      surface.section !== "tasks"
+    )
+      return;
+    const request = PimiReportLinkRequest.safeParse(value);
+    if (!request.success) return;
+    const agent = parseAgentDeepLink(request.data.href);
+    if (agent) {
+      hidePimiWorkspace(surface.host);
+      options.openAgentChat(agent);
+      return;
+    }
+    const host = surface.host;
+    const fail = (message: string) => {
+      if (!contents.isDestroyed()) {
+        contents.send("pimi:workspace:report-link-error", {
+          reportId: request.data.reportId,
+          message,
+        });
+      }
+    };
+    if (!host || host.isDestroyed()) {
+      fail("Open Pimi's Agent Console to view this link.");
+      return;
+    }
+    void (async () => {
+      try {
+        const target = PimiReportLinkTarget.parse(await runtime.resolveReportLink(request.data));
+        if (host.isDestroyed() || surface.host !== host) return;
+        host.webContents.send("pimi:workspace:open-report-link", target);
+      } catch (error) {
+        console.error("Could not open report link:", error);
+        fail("This report's workspace is unavailable. Reconnect its host and try again.");
+      }
+    })();
   });
   contents.on("will-navigate", (event, url) => {
     if (new URL(url).origin !== runtime.origin) event.preventDefault();
@@ -359,8 +453,9 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
     const agent = parseAgentDeepLink(url);
     if (url === AGENT_CONSOLE_URL) {
       hidePimiWorkspace();
-      void options.resolveConsoleWindow(surface?.owner).then((win) => reveal(win), console.error);
+      void options.resolveConsoleWindow(surface.owner).then((win) => reveal(win), console.error);
     } else if (agent) {
+      hidePimiWorkspace(surface.host);
       options.openAgentChat(agent);
     } else {
       const target = new URL(url);
@@ -389,11 +484,13 @@ function dictateBrief(
   surface: WorkspaceSurface,
   host: BrowserWindow,
   signal: AbortSignal,
+  anchor?: DictationAnchor,
 ): Promise<string | null> {
   if (host.isDestroyed() || signal.aborted) return Promise.resolve(null);
   if (surface.cancelDictation) {
     return Promise.reject(new Error("A dictation is already open."));
   }
+  host.webContents.send("pimi:voice:pause");
 
   const { dictationUrl, preload } = surface.options;
   const island = new WebContentsView({
@@ -412,13 +509,21 @@ function dictateBrief(
   contents.setWindowOpenHandler(() => ({ action: "deny" }));
 
   const resize = () => {
-    const [width, height] = host.getContentSize();
-    const islandWidth = Math.min(460, width);
+    const area = surface.view.getBounds();
+    const zoom = surface.view.webContents.getZoomFactor();
+    const islandWidth = Math.min(304, area.width);
+    const islandHeight = Math.min(80, area.height);
+    const center = anchor ? anchor.x * zoom : area.width / 2;
+    const bottom = anchor ? anchor.y * zoom : area.height / 2;
     island.setBounds({
-      x: Math.round((width - islandWidth) / 2),
-      y: Math.max(0, height - 144),
+      x:
+        area.x +
+        Math.max(0, Math.min(area.width - islandWidth, Math.round(center - islandWidth / 2))),
+      y:
+        area.y +
+        Math.max(0, Math.min(area.height - islandHeight, Math.round(bottom - islandHeight / 2))),
       width: islandWidth,
-      height: 144,
+      height: islandHeight,
     });
   };
 

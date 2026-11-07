@@ -653,6 +653,8 @@ function MessageInputOverlay({
   if (showDictationOverlay) {
     return (
       <DictationOverlay
+        compact={isPimiDesktop()}
+        transparent={isPimiDesktop()}
         volume={dictationVolume}
         duration={dictationDuration}
         isRecording={isDictating}

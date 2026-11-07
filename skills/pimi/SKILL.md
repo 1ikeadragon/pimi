@@ -1,9 +1,9 @@
 ---
-name: paseo
-description: Paseo reference for managing hosts, projects, workspaces, workspace scripts, agents, schedules, and heartbeats.
+name: pimi
+description: Pimi reference for managing hosts, projects, workspaces, workspace scripts, agents, schedules, and heartbeats.
 ---
 
-Paseo is a remote daemon that manages coding agents, terminals. Control it through MCP tools or the CLI.
+Pimi is a remote daemon that manages coding agents, terminals. Control it through MCP tools or the CLI.
 
 ## Connected hosts
 
@@ -38,7 +38,7 @@ paseo project rename <project-id> --reset
 paseo project delete <project-id>
 ```
 
-For a local daemon, `project create` defaults to the current directory and resolves relative paths on the CLI machine. With `--host` or `PASEO_HOST`, always provide a path; the target daemon interprets it on its own machine. Deleting a project archives its active workspaces and removes the project from Paseo without deleting the project directory.
+For a local daemon, `project create` defaults to the current directory and resolves relative paths on the CLI machine. With `--host` or `PASEO_HOST`, always provide a path; the target daemon interprets it on its own machine. Deleting a project archives its active workspaces and removes the project from Pimi without deleting the project directory.
 
 ## Workspaces
 
@@ -46,11 +46,11 @@ For a local daemon, `project create` defaults to the current directory and resol
 
 `background: true` hides a workspace from default lists and the sidebar while its contents remain durable and accessible; omit `background` to inherit your current workspace’s value (false without a caller), and override it only when the user explicitly asks.
 
-Choose `baseBranch` explicitly: `origin/main` selects the remote-tracking branch; `refs/heads/main` selects local main. Bare `main` prefers local main when it exists, otherwise origin/main. Paseo retains the resolved ref for workspace comparisons, even after rebasing the branch or changing its PR target.
+Choose `baseBranch` explicitly: `origin/main` selects the remote-tracking branch; `refs/heads/main` selects local main. Bare `main` prefers local main when it exists, otherwise origin/main. Pimi retains the resolved ref for workspace comparisons, even after rebasing the branch or changing its PR target.
 
 **`list_workspaces`** — list active workspaces, excluding background workspaces unless `includeBackground: true`.
 
-**`archive_workspace`** — `{ workspaceId }`. Archives the workspace, its agents, and its terminals. Local directories remain; Paseo removes an owned worktree only after its final active workspace reference is archived.
+**`archive_workspace`** — `{ workspaceId }`. Archives the workspace, its agents, and its terminals. Local directories remain; Pimi removes an owned worktree only after its final active workspace reference is archived.
 
 **`rename_workspace`** — `{ workspaceId, name }`. Rename workspace.
 
@@ -60,7 +60,7 @@ Configured `paseo.json` scripts use the same supervised lifecycle from tools and
 
 **`list_workspace_scripts`** — `{ workspaceId }`. Lists configured scripts with lifecycle, service port, proxy URLs, health, exit code, and terminal ID.
 
-**`start_workspace_script`** — `{ workspaceId, scriptName }`. Starts one configured script through Paseo's managed workspace-script launcher and returns its status metadata.
+**`start_workspace_script`** — `{ workspaceId, scriptName }`. Starts one configured script through Pimi's managed workspace-script launcher and returns its status metadata.
 
 **`stop_workspace_script`** — `{ workspaceId, scriptName }`. Stops a running script through its supervised terminal and returns the stopped status metadata.
 
@@ -149,4 +149,4 @@ paseo heartbeat create --cron "*/15 * * * *" "check the build"
 
 Discover with `paseo --help` and `paseo <cmd> --help`.
 
-For product questions, setup, logs, version problems, or troubleshooting, use the **paseo-help** skill.
+For product questions, setup, logs, version problems, or troubleshooting, use the **pimi-help** skill.

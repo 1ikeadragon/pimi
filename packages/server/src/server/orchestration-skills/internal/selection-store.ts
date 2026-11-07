@@ -11,6 +11,24 @@ export interface SkillSelectionStore {
 }
 
 const DEFAULT_SKILL_SELECTION: SkillSelection = { mode: "all" };
+export const RENAMED_SKILLS = {
+  paseo: "pimi",
+  "paseo-advisor": "pimi-advisor",
+  "paseo-committee": "pimi-committee",
+  "paseo-handoff": "pimi-handoff",
+  "paseo-help": "pimi-help",
+  "paseo-plugin": "pimi-plugin",
+} as const;
+
+function currentSkillNames(selection: SkillSelection): SkillSelection {
+  if (selection.mode === "all") return selection;
+  return {
+    mode: "custom",
+    skills: coerceSkillNames(
+      selection.skills.map((name) => RENAMED_SKILLS[name as keyof typeof RENAMED_SKILLS] ?? name),
+    ),
+  };
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -39,10 +57,10 @@ export function createSkillSelectionStore(
 ): SkillSelectionStore {
   return {
     async get() {
-      return coerceSkillSelection(configStore.get().skills?.selection);
+      return currentSkillNames(coerceSkillSelection(configStore.get().skills?.selection));
     },
     async set(selection) {
-      const parsed = coerceSkillSelection(selection);
+      const parsed = currentSkillNames(coerceSkillSelection(selection));
       await configStore.setAgentSkillSelection(parsed);
       return parsed;
     },

@@ -1,7 +1,12 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
 import { createPaseoClient } from "@getpaseo/client";
 import { buildAgentDeepLink } from "@getpaseo/protocol/agent-deep-link";
+import { workspaceLabelKey } from "@getpaseo/protocol/workspace-labels";
+import { PIMI_TASK_WORKER_LABEL, PimiWorkLabelInput } from "@getpaseo/protocol/pimi-task";
+import { randomUUID } from "node:crypto";
+import { mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 
 import { RequestError } from "./git.mjs";
 
@@ -58,6 +63,9 @@ function localAgentUrl(settings) {
 }
 
 export function createPaseoConnection(settingsSource = {}) {
+  const workspaceRoot = settingsSource.taskState
+    ? dirname(settingsSource.taskState)
+    : join(tmpdir(), `pimi-work-${randomUUID()}`);
   let cachedClient;
   let connection;
   let chatHost;
@@ -90,6 +98,7 @@ export function createPaseoConnection(settingsSource = {}) {
     path: workspace.workspaceDirectory,
     name: workspace.name,
     state: workspace.status,
+    labels: workspace.labels ?? [],
     previews: runningPreviews(workspace.scripts),
     root: workspace.projectKind === "git" ? workspace.projectRootPath : undefined,
     openPrUrl:
@@ -205,6 +214,26 @@ export function createPaseoConnection(settingsSource = {}) {
     }
   }
 
+  async function labels() {
+    const client = await connect();
+    const result = await client.workspaceLabels.list();
+    return { labels: result.labels };
+  }
+
+  async function setWorkLabel(body) {
+    const parsed = PimiWorkLabelInput.safeParse(body);
+    if (!parsed.success) throw new RequestError(parsed.error.message);
+    const { workspaceId, name, assigned } = parsed.data;
+    const { labels: catalog } = await labels();
+    const label = catalog.find(
+      (entry) => workspaceLabelKey(entry.name) === workspaceLabelKey(name),
+    );
+    if (!label) throw new RequestError("Choose an existing Paseo label.");
+    const result = await (await connect()).workspaceLabels.set({ workspaceId, label, assigned });
+    changed();
+    return result;
+  }
+
   async function reviewProvider(cwd, currentAgent) {
     const client = await connect();
     const { config } = await client.config.get();
@@ -275,27 +304,51 @@ export function createPaseoConnection(settingsSource = {}) {
     }
   }
 
+  async function taskParent(source) {
+    const client = await connect();
+    const { self } = await client.hosts.list();
+    if (source.serverId !== self.serverId)
+      throw new RequestError("Open the originating chat’s host to start its workers.", 409);
+    const snapshot = await client.agents.ref(source.agentId).refresh();
+    if (!snapshot?.agent || snapshot.agent.archivedAt)
+      throw new RequestError("Reopen the originating chat before starting its workers.", 409);
+    return source;
+  }
+
   async function launchExperiment(task, experiment) {
     const client = await connect();
     const slug = `pimi-${experiment.workspaceId.slice(4)}`;
+    const { mode, parent } = experiment.launch;
+    const chat = mode === "chat" || mode === "research";
+    const cwd = chat ? join(workspaceRoot, mode, experiment.id) : task.root;
+    if (chat) await mkdir(cwd, { recursive: true, mode: 0o700 });
     const workspace = await client.workspaces.create({
       idempotencyKey: slug,
       workspaceId: experiment.workspaceId,
       title: experiment.title,
-      source: {
-        kind: "worktree",
-        cwd: task.root,
-        action: "branch-off",
-        baseBranch: task.base,
-        branchName: `pimi/${slug.slice(5)}`,
-        worktreeSlug: slug,
-      },
+      source: chat
+        ? { kind: "directory", path: cwd }
+        : {
+            kind: "worktree",
+            cwd,
+            action: "branch-off",
+            baseBranch: task.base,
+            branchName: `pimi/${slug.slice(5)}`,
+            worktreeSlug: slug,
+          },
       agent: {
         agentId: experiment.id,
-        cwd: task.root,
+        cwd,
         title: experiment.title,
         config: experiment.launch.config,
         prompt: experiment.launch.prompt,
+        ...(parent
+          ? {
+              parent,
+              notifyOnFinish: true,
+              labels: { [PIMI_TASK_WORKER_LABEL]: task.id },
+            }
+          : {}),
       },
     });
     return workspace.directory;
@@ -361,11 +414,15 @@ export function createPaseoConnection(settingsSource = {}) {
   }
 
   async function suggestExperiments(task, model) {
+    const work =
+      task.mode === "chat"
+        ? "independent work items that can run in chat with separate artifacts"
+        : "distinct, independently testable implementations";
     const { text } = await explain({
       cwd: tmpdir(),
       model,
       instructions: "Propose work items from the brief alone. Do not inspect files or use tools.",
-      prompt: `Propose two distinct, independently testable implementations for this task. Give each a short title and a concrete hypothesis.\n\n${task.title}\n${task.brief}`,
+      prompt: `Propose two ${work} for this task. Give each a short title and concrete instructions.\n\n${task.title}\n${task.brief}`,
       schema: {
         type: "object",
         additionalProperties: false,
@@ -425,6 +482,8 @@ export function createPaseoConnection(settingsSource = {}) {
 
   return {
     directory,
+    labels,
+    setWorkLabel,
     memory,
     subscribe(listener) {
       changeListeners.add(listener);
@@ -434,6 +493,7 @@ export function createPaseoConnection(settingsSource = {}) {
     taskModels,
     checkTaskModel,
     suggestExperiments,
+    taskParent,
     launchExperiment,
     experimentReport,
     close: async () => {

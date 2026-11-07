@@ -12,6 +12,7 @@ import {
 } from "@/constants/layout";
 import { WindowChromeSafeArea } from "@/utils/desktop-window";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
+import { usesPimiMacTitlebar } from "@/desktop/host";
 
 interface ScreenHeaderProps {
   left?: ReactNode;
@@ -48,9 +49,10 @@ export function ScreenHeader({
   const rowStyle = useMemo(() => [styles.row, borderless && styles.borderless], [borderless]);
   const leftCombinedStyle = useMemo(() => [styles.left, leftStyle], [leftStyle]);
   const rightCombinedStyle = useMemo(() => [styles.right, rightStyle], [rightStyle]);
+  const headerStyle = usesPimiMacTitlebar() ? styles.pimiMacHeader : styles.header;
 
   return (
-    <ComposerDockBackground style={styles.header} testID="composer-dock-header">
+    <ComposerDockBackground style={headerStyle} testID="composer-dock-header">
       <View style={innerStyle}>
         <WindowChromeSafeArea
           placement="inline"
@@ -70,6 +72,9 @@ export function ScreenHeader({
 const styles = StyleSheet.create((theme) => ({
   header: {
     backgroundColor: theme.colors.surface0,
+  },
+  pimiMacHeader: {
+    backgroundColor: theme.colors.surfaceSidebar,
   },
   inner: {},
   row: {

@@ -497,6 +497,7 @@ export interface SessionOptions {
   agentStorage: AgentStorage;
   messageReceipts: Pick<MessageReceipts, "send">;
   agentMessages: AgentMessageDelivery;
+  finishSubscriptions?: import("./agent/finish-subscriptions/index.js").FinishSubscriptions;
   creationService: Pick<CreationService, "create" | "subscribe">;
   projectRegistry: ProjectRegistry;
   workspaceRegistry: WorkspaceRegistry;
@@ -786,6 +787,7 @@ export class Session {
 
   private agentManager: AgentManager;
   private readonly agentStorage: AgentStorage;
+  private readonly finishSubscriptions: SessionOptions["finishSubscriptions"];
   private readonly projectRegistry: ProjectRegistry;
   private readonly workspaceRegistry: WorkspaceRegistry;
   private readonly agentDirectory: AgentDirectory;
@@ -976,6 +978,7 @@ export class Session {
     });
     this.agentManager = agentManager;
     this.agentStorage = agentStorage;
+    this.finishSubscriptions = options.finishSubscriptions;
     this.projectRegistry = projectRegistry;
     this.workspaceRegistry = workspaceRegistry;
     this.directorySync = resolveDirectorySync(directorySync);
@@ -4633,6 +4636,9 @@ export class Session {
   }
 
   private validatePublicAgentWorkspaceIntent(request: CreateAgentRequestMessage): void {
+    if (request.notifyOnFinish && (!request.callerAgentId || !this.finishSubscriptions)) {
+      throw new Error("Finish notifications require an active parent agent on this host.");
+    }
     if (request.git !== undefined || request.worktreeName !== undefined) {
       throw new Error(
         "Legacy git/worktreeName agent placement was removed. Use createWorkspace({ source, agent, idempotencyKey }) to create a workspace with an agent, or create the workspace first and pass workspaceId.",
@@ -4709,6 +4715,7 @@ export class Session {
         {
           agentManager: this.agentManager,
           agentStorage: this.agentStorage,
+          finishSubscriptions: this.finishSubscriptions,
           logger: this.sessionLogger,
           paseoHome: this.paseoHome,
           worktreesRoot: this.worktreesRoot,
@@ -4728,6 +4735,7 @@ export class Session {
           source: msg.callerAgentId
             ? { kind: "agent-message", agentId: msg.callerAgentId }
             : undefined,
+          notifyParentOnFinish: msg.notifyOnFinish ? msg.callerAgentId : undefined,
           clientMessageId,
           outputSchema,
           images,

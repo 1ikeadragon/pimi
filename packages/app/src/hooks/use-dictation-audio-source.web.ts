@@ -48,6 +48,25 @@ const int16ToBase64 = (pcm: Int16Array): string => {
   return btoa(binary);
 };
 
+export const DICTATION_MICROPHONE_TAKEOVER = "pimi:dictation-microphone-takeover";
+const dictationCaptures = new Set<object>();
+
+export function isDictationMicrophoneActive(): boolean {
+  return dictationCaptures.size > 0;
+}
+
+function meterVolume(input: Float32Array): number {
+  let sum = 0;
+  for (const sample of input) sum += sample * sample;
+  return Math.min(1, Math.sqrt(sum / Math.max(1, input.length)) * 2);
+}
+
+function pcmVolume(pcm: Int16Array): number {
+  let sum = 0;
+  for (const sample of pcm) sum += (sample / 32768) ** 2;
+  return Math.sqrt(sum / pcm.length);
+}
+
 interface RecorderRefs {
   recorder: MediaRecorder | null;
   audioChunks: Blob[];
@@ -133,16 +152,73 @@ async function finalizeRecorderStoppedPromise(input: {
   }
 }
 
+async function openMicrophone(continuous: boolean) {
+  const missingNavigator =
+    typeof navigator === "undefined" ||
+    !navigator.mediaDevices ||
+    typeof navigator.mediaDevices.getUserMedia !== "function";
+
+  const secureContext =
+    typeof window !== "undefined" && typeof window.isSecureContext === "boolean"
+      ? window.isSecureContext
+      : true;
+  const currentOrigin =
+    typeof window !== "undefined" && window.location ? window.location.origin : "unknown";
+  const isDesktopApp = isElectronRuntime();
+
+  if (missingNavigator) {
+    throw new Error("Microphone capture is not supported in this environment");
+  }
+  if (!secureContext && !isDesktopApp) {
+    throw new Error(
+      `Microphone access requires HTTPS or localhost. Current origin: ${currentOrigin}`,
+    );
+  }
+  if (!secureContext && isDesktopApp) {
+    console.warn(
+      "[DictationAudio][Web] Insecure context reported under Desktop; attempting getUserMedia anyway",
+      { currentOrigin },
+    );
+  }
+
+  const AudioContextCtor = getAudioContextCtor();
+  if (!AudioContextCtor) {
+    throw new Error("AudioContext unavailable");
+  }
+
+  if (!continuous && isDesktopApp) {
+    window.dispatchEvent(new Event(DICTATION_MICROPHONE_TAKEOVER));
+  }
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      channelCount: 1,
+      noiseSuppression: true,
+      echoCancellation: true,
+      autoGainControl: true,
+    },
+  });
+
+  try {
+    return { context: new AudioContextCtor(), stream };
+  } catch (error) {
+    stream.getTracks().forEach((track) => track.stop());
+    throw error;
+  }
+}
+
 export function useDictationAudioSource(config: DictationAudioSourceConfig): DictationAudioSource {
   const [volume, setVolume] = useState(0);
+  const { segmentDurationMs } = config;
 
   const onPcmSegmentRef = useRef(config.onPcmSegment);
   const onErrorRef = useRef(config.onError);
+  const onInterruptionRef = useRef(config.onInterruption);
 
   useEffect(() => {
     onPcmSegmentRef.current = config.onPcmSegment;
     onErrorRef.current = config.onError;
-  }, [config.onPcmSegment, config.onError]);
+    onInterruptionRef.current = config.onInterruption;
+  }, [config.onPcmSegment, config.onError, config.onInterruption]);
 
   const refs = useRef<{
     stream: MediaStream | null;
@@ -200,51 +276,7 @@ export function useDictationAudioSource(config: DictationAudioSourceConfig): Dic
   }, []);
 
   const start = useCallback(async () => {
-    const missingNavigator =
-      typeof navigator === "undefined" ||
-      !navigator.mediaDevices ||
-      typeof navigator.mediaDevices.getUserMedia !== "function";
-
-    const secureContext =
-      typeof window !== "undefined" && typeof window.isSecureContext === "boolean"
-        ? window.isSecureContext
-        : true;
-    const currentOrigin =
-      typeof window !== "undefined" && window.location ? window.location.origin : "unknown";
-    const isDesktopApp = isElectronRuntime();
-
-    if (missingNavigator) {
-      throw new Error("Microphone capture is not supported in this environment");
-    }
-    if (!secureContext && !isDesktopApp) {
-      throw new Error(
-        `Microphone access requires HTTPS or localhost. Current origin: ${currentOrigin}`,
-      );
-    }
-    if (!secureContext && isDesktopApp) {
-      console.warn(
-        "[DictationAudio][Web] Insecure context reported under Desktop; attempting getUserMedia anyway",
-        { currentOrigin },
-      );
-    }
-
-    const AudioContextCtor = getAudioContextCtor();
-    if (!AudioContextCtor) {
-      throw new Error("AudioContext unavailable");
-    }
-
-    const rawStream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        channelCount: 1,
-        noiseSuppression: true,
-        echoCancellation: true,
-        autoGainControl: true,
-      },
-    });
-
-    const stream = rawStream;
-
-    const context = new AudioContextCtor();
+    const { context, stream } = await openMicrophone(Boolean(segmentDurationMs));
 
     try {
       const source = context.createMediaStreamSource(stream);
@@ -253,7 +285,7 @@ export function useDictationAudioSource(config: DictationAudioSourceConfig): Dic
       gain.gain.value = 0;
 
       const outputRate = 16000;
-      const chunkSamples = outputRate; // ~1s
+      const chunkSamples = segmentDurationMs ? (outputRate * segmentDurationMs) / 1000 : outputRate;
 
       refs.current.started = true;
       refs.current.mode = "pcm";
@@ -264,14 +296,7 @@ export function useDictationAudioSource(config: DictationAudioSourceConfig): Dic
         }
         const input = event.inputBuffer.getChannelData(0);
 
-        let sumSquares = 0;
-        for (let i = 0; i < input.length; i++) {
-          const sample = input[i];
-          sumSquares += sample * sample;
-        }
-        const rms = Math.sqrt(sumSquares / Math.max(1, input.length));
-        const normalized = Math.min(1, Math.max(0, rms * 2));
-        setVolume(normalized);
+        if (!segmentDurationMs) setVolume(meterVolume(input));
 
         const next = resampleToPcm16(input, context.sampleRate, outputRate);
         refs.current.pending = concatInt16(refs.current.pending, next);
@@ -279,7 +304,10 @@ export function useDictationAudioSource(config: DictationAudioSourceConfig): Dic
         while (refs.current.pending.length >= chunkSamples) {
           const chunk = refs.current.pending.slice(0, chunkSamples);
           refs.current.pending = refs.current.pending.slice(chunkSamples);
-          onPcmSegmentRef.current(int16ToBase64(chunk));
+          onPcmSegmentRef.current(
+            int16ToBase64(chunk),
+            segmentDurationMs ? pcmVolume(chunk) : undefined,
+          );
         }
       };
 
@@ -297,8 +325,18 @@ export function useDictationAudioSource(config: DictationAudioSourceConfig): Dic
         pending: new Int16Array(0),
         started: true,
       };
+      if (segmentDurationMs) {
+        for (const track of stream.getAudioTracks()) {
+          track.addEventListener("ended", () => onInterruptionRef.current?.(), { once: true });
+        }
+      }
       return;
-    } catch {
+    } catch (error) {
+      if (segmentDurationMs) {
+        stream.getTracks().forEach((track) => track.stop());
+        await context.close();
+        throw error;
+      }
       // Fall back to MediaRecorder for environments where MediaStreamAudioSourceNode
       // isn't available (e.g., Playwright tests with a stubbed getUserMedia).
     }
@@ -367,7 +405,7 @@ export function useDictationAudioSource(config: DictationAudioSourceConfig): Dic
       mode: "recorder",
       recorder: recorderRefs,
     };
-  }, []);
+  }, [segmentDurationMs]);
 
   const stop = useCallback(async () => {
     refs.current.started = false;
@@ -376,6 +414,7 @@ export function useDictationAudioSource(config: DictationAudioSourceConfig): Dic
     const { processor, source, gain, context, stream, pending, mode, recorder } = refs.current;
 
     disconnectDictationAudioGraph({ processor, source, gain, stream });
+    dictationCaptures.delete(refs);
 
     if (mode === "recorder") {
       stopMediaRecorderIfActive(recorder.recorder);
@@ -432,9 +471,11 @@ export function useDictationAudioSource(config: DictationAudioSourceConfig): Dic
   return useMemo(
     () => ({
       start: async () => {
+        if (!segmentDurationMs) dictationCaptures.add(refs);
         try {
           await start();
         } catch (err) {
+          dictationCaptures.delete(refs);
           const normalized = err instanceof Error ? err : new Error(String(err));
           onErrorRef.current?.(normalized);
           throw normalized;
@@ -444,6 +485,6 @@ export function useDictationAudioSource(config: DictationAudioSourceConfig): Dic
       volume,
       isPaused: false,
     }),
-    [start, stop, volume],
+    [segmentDurationMs, start, stop, volume],
   );
 }

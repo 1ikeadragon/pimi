@@ -97,8 +97,9 @@ import { LegacyAgentSkillsMigration } from "@/agent-skills/legacy-migration";
 import { legacyFavoriteProfileMigration } from "@/agent-profiles/migration";
 import { listenToDesktopEvent } from "@/desktop/electron/events";
 import { updateDesktopWindowChrome } from "@/desktop/electron/window";
-import { getDesktopHost } from "@/desktop/host";
+import { getDesktopHost, usesPimiMacTitlebar } from "@/desktop/host";
 import { PimiConsoleContent, PIMI_CONSOLE_CONTENT_ID } from "@/desktop/pimi-console-content";
+import { PimiVoiceBubble } from "@/desktop/pimi-voice-bubble";
 import { loadDesktopSettings } from "@/desktop/settings/desktop-settings";
 import { RosettaCalloutSource } from "@/desktop/updates/rosetta-callout-source";
 import { UpdateCalloutSource } from "@/desktop/updates/update-callout-source";
@@ -490,7 +491,11 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
       />
       <WorkspaceExplorerOpenGesture enabled={chromeEnabled && isCompactLayout}>
         <WindowChromeRegion
-          corners={isCompactLayout && chromeEnabled ? "both" : appChromeLayout.contentCorners}
+          corners={
+            usesPimiMacTitlebar() || (isCompactLayout && chromeEnabled)
+              ? "both"
+              : appChromeLayout.contentCorners
+          }
         >
           <PimiConsoleContent sidebar={sidebarOccupiesColumn} pathname={pathname}>
             {children}
@@ -523,6 +528,10 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
         <FloatingPanelPortalHost />
       </AppearanceStyleBoundary>
       {isCompactLayout ? themedSidebarChrome : null}
+      <PimiVoiceBubble
+        enabled={chromeEnabled}
+        aboveComposer={isWorkspaceRoute || pathname === "/new"}
+      />
       <AppearanceStyleBoundary>
         <DownloadToast />
         <RosettaCalloutSource />
@@ -788,17 +797,19 @@ function ProvidersWrapper({ children }: { children: ReactNode }) {
 function DesktopWindowControlsSync() {
   const { isLoading } = useAppSettings();
   const { theme } = useUnistyles();
-  const surface0 = theme.colors.surface0;
+  const backgroundColor = usesPimiMacTitlebar()
+    ? theme.colors.surfaceSidebar
+    : theme.colors.surface0;
 
   useEffect(() => {
     if (isLoading || isNative) return;
     void updateDesktopWindowChrome({
-      backgroundColor: surface0,
+      backgroundColor,
       trafficLightOffsetY: -4,
     }).catch((error) => {
       console.warn("[DesktopWindow] Failed to update window controls overlay", error);
     });
-  }, [isLoading, surface0]);
+  }, [isLoading, backgroundColor]);
 
   return null;
 }

@@ -14,7 +14,7 @@ import {
   X,
 } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
-import { getDesktopHost } from "@/desktop/host";
+import { getDesktopHost, usesPimiMacTitlebar } from "@/desktop/host";
 import { usePimiWorkspaceSection } from "@/desktop/pimi-console-content";
 import { PaseoLogo } from "@/components/icons/paseo-logo";
 import { DensityIcon } from "@/components/ui/density-icon";
@@ -74,7 +74,7 @@ export function PimiSidebarRail({
   const { t } = useTranslation();
   return (
     <View style={styles.rail} testID="pimi-sidebar-rail">
-      <View style={styles.railChrome}>
+      <View style={[styles.railChrome, usesPimiMacTitlebar() && styles.pimiMacChrome]}>
         <TitlebarDragRegion />
       </View>
       <View style={styles.railCard}>
@@ -200,6 +200,9 @@ const styles = StyleSheet.create((theme) => ({
   railChrome: {
     width: "100%",
     height: HEADER_INNER_HEIGHT,
+  },
+  pimiMacChrome: {
+    backgroundColor: theme.colors.surfaceSidebar,
   },
   railCard: {
     width: 42,

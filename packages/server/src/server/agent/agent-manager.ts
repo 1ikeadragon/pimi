@@ -94,7 +94,12 @@ import { resolveCreateAgentTitles } from "./create-agent-title.js";
 import type { PaseoToolCatalogFactory } from "./tools/types.js";
 import { memoryRecallInstructions } from "./tools/project-memory-tools.js";
 import { isPaseoToolEnabled, isPaseoToolPolicyEnabled } from "./paseo-tool-policy.js";
-import { PIMI_REVIEW_SUGGESTION_TOOL, PIMI_TASK_PROPOSAL_TOOL } from "@getpaseo/protocol/pimi-task";
+import {
+  PIMI_REVIEW_SUGGESTION_TOOL,
+  PIMI_TASK_PROPOSAL_TOOL,
+  PIMI_TASK_WORKER_LABEL,
+  PimiTaskAgentTool,
+} from "@getpaseo/protocol/pimi-task";
 import {
   ProviderSubagentStore,
   type ProviderSubagentDescriptor,
@@ -1493,7 +1498,7 @@ export class AgentManager {
     const { storedConfig, launchConfig, paseoToolPolicy } = await this.prepareSessionConfig(
       config,
       resolvedAgentId,
-      { env: options?.env, background: options.background },
+      { env: options?.env, background: options.background, labels: options.labels },
     );
     this.requireEnabledProvider(storedConfig.provider);
     const client = await this.requireAvailableClient({
@@ -1619,7 +1624,7 @@ export class AgentManager {
     const { storedConfig, launchConfig, paseoToolPolicy } = await this.prepareSessionConfig(
       mergedConfig,
       resolvedAgentId,
-      { purpose, env: launchEnv, background: record?.background },
+      { purpose, env: launchEnv, background: record?.background, labels: record?.labels },
     );
     const client = this.requireClient(handle.provider);
     const available = await client.isAvailable();
@@ -1793,7 +1798,7 @@ export class AgentManager {
     const { storedConfig, launchConfig, paseoToolPolicy } = await this.prepareSessionConfig(
       refreshConfig,
       agentId,
-      { env: existing.launchEnv, background: existing.background },
+      { env: existing.launchEnv, background: existing.background, labels: existing.labels },
     );
     const hadPreviousPaseoToolPolicy = this.paseoToolPolicies.has(agentId);
     const previousPaseoToolPolicy = this.paseoToolPolicies.get(agentId);
@@ -5805,6 +5810,7 @@ export class AgentManager {
       env?: Record<string, string>;
       purpose?: AgentResumePurpose;
       background?: boolean;
+      labels?: Record<string, string>;
     } = {},
   ): Promise<PreparedSessionConfig> {
     const storedConfig = await this.normalizeConfig(stripInternalPaseoMcpServer(config), {
@@ -5814,19 +5820,22 @@ export class AgentManager {
     const paseoToolPolicy = this.paseoToolsEnabled
       ? this.resolvePaseoToolPolicy(storedConfig.provider)
       : { enabled: false };
+    const interactiveChat =
+      !storedConfig.internal && !options.background && options.purpose !== "history";
+    const taskInstruction = options.labels?.[PIMI_TASK_WORKER_LABEL]
+      ? "Finish your assigned work item. Open a new task only if the user asks for one."
+      : "For substantial research, parallel work, or a tracked task, call propose_pimi_task before starting. Wait for the user to start the workers. Answer quick questions in chat.";
     const pimiTaskPrompt =
-      !storedConfig.internal &&
-      !options.background &&
-      options.purpose !== "history" &&
-      isPaseoToolEnabled(paseoToolPolicy, PIMI_TASK_PROPOSAL_TOOL)
-        ? "When a user wants to track a goal or compare approaches across worktrees and review the results later, call propose_pimi_task if available. It previews an editable task and does not start work. If the user wants to plan first, present the draft before creating worktrees. Answer ordinary questions and focused fixes in chat."
+      interactiveChat && isPaseoToolEnabled(paseoToolPolicy, PIMI_TASK_PROPOSAL_TOOL)
+        ? taskInstruction
         : "";
     const pimiReviewPrompt =
-      !storedConfig.internal &&
-      !options.background &&
-      options.purpose !== "history" &&
-      isPaseoToolEnabled(paseoToolPolicy, PIMI_REVIEW_SUGGESTION_TOOL)
-        ? `When the user asks to review changes, or substantial changes in your current Git worktree are ready for their review, call ${PIMI_REVIEW_SUGGESTION_TOOL} if available. The user chooses whether to open Review.`
+      interactiveChat && isPaseoToolEnabled(paseoToolPolicy, PIMI_REVIEW_SUGGESTION_TOOL)
+        ? `When the user asks to see changes or the diff is ready for review, call ${PIMI_REVIEW_SUGGESTION_TOOL}.`
+        : "";
+    const pimiTaskEditPrompt =
+      interactiveChat && isPaseoToolEnabled(paseoToolPolicy, PimiTaskAgentTool.update)
+        ? "To change a saved task, find it with list_pimi_tasks and use update_pimi_task."
         : "";
     const canRecallMemory =
       this.mcpCallerAuthToken && !storedConfig.internal && options.purpose !== "history";
@@ -5841,7 +5850,9 @@ export class AgentManager {
             : null,
         mcpAuthToken: this.mcpCallerAuthToken?.(agentId) ?? this.mcpAuthToken,
       }),
-      [pimiTaskPrompt, pimiReviewPrompt, ...memoryPrompt].filter(Boolean).join("\n\n"),
+      [pimiTaskPrompt, pimiTaskEditPrompt, pimiReviewPrompt, ...memoryPrompt]
+        .filter(Boolean)
+        .join("\n\n"),
     );
     return { storedConfig, launchConfig, paseoToolPolicy };
   }
@@ -5949,7 +5960,7 @@ export class AgentManager {
       if (name === PASEO_MCP_SERVER_NAME || savedServerNames.has(name)) {
         const existingOwner = savedServerNames.has(name)
           ? "agent saved configuration"
-          : "Paseo internal MCP server";
+          : "Pimi internal MCP server";
         throw new Error(`MCP server '${name}' from plugin ${owner} collides with ${existingOwner}`);
       }
     }

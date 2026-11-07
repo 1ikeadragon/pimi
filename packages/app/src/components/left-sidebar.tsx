@@ -46,7 +46,7 @@ import {
   PimiWorkspaceNavigation,
   type PimiSidebarControls,
 } from "@/components/sidebar/pimi-workspace-navigation";
-import { getDesktopHost } from "@/desktop/host";
+import { getDesktopHost, usesPimiMacTitlebar } from "@/desktop/host";
 import { SidebarFooterIconHighlight } from "@/components/sidebar/sidebar-footer-icon-highlight";
 import { SidebarHelpMenu } from "@/components/sidebar/sidebar-help-menu";
 import { SidebarFooterOverflowMenu } from "@/components/sidebar/sidebar-footer-overflow-menu";
@@ -923,7 +923,7 @@ function DesktopSidebar({
 function SidebarDragChrome({ full, theme }: { full: boolean; theme: SidebarTheme }) {
   if (!full && !DEV_BUILD_LABEL) return <TitlebarDragRegion />;
   return (
-    <View style={styles.desktopChromeRow}>
+    <View style={[styles.desktopChromeRow, usesPimiMacTitlebar() && styles.pimiMacChrome]}>
       <TitlebarDragRegion />
       {DEV_BUILD_LABEL ? (
         <View
@@ -1062,6 +1062,9 @@ const styles = StyleSheet.create((theme) => ({
   },
   sidebarDragArea: {
     position: "relative",
+  },
+  pimiMacChrome: {
+    backgroundColor: theme.colors.surfaceSidebar,
   },
   desktopChromeRow: {
     position: "relative",

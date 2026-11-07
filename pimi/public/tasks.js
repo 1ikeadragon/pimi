@@ -1,5 +1,13 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
-import { createTaskBoard, taskProgress, taskStageLabel, taskStages } from "./task-board.js";
+import {
+  createTaskBoard,
+  taskProgress,
+  taskRepositoryName,
+  taskStageLabel,
+  taskStages,
+} from "./task-board.js";
+import { labelChips, labelPicker } from "./labels.js";
+
 export function createTasksView({
   $,
   api,
@@ -12,14 +20,20 @@ export function createTasksView({
   refreshBoard,
 }) {
   let tasks = [];
+  let hasLoadedTasks = false;
   let inventory = { cards: [], repositories: [] };
   let selectedId;
+  let taskDetailView = "work";
+  let reportWorkerId;
+  let reportDocumentKey;
+  let reportActionKey;
   let renderedExperiments;
   let cardsByWorkspace = new Map();
   let cardsByPath = new Map();
+  let agentsById = new Map();
   const stageRequests = new Set();
   let creating = false;
-  let proposalDraft;
+  let draft;
   let dictation;
   let request = 0;
   const models = new Map();
@@ -35,6 +49,7 @@ export function createTasksView({
   const selected = () => tasks.find((task) => task.id === selectedId);
   const visible = () => !$("tasks").hidden;
   const drafts = (task) => task.experiments.filter((item) => !item.path && !item.report);
+  const agentFor = (item) => agentsById.get(item.id);
   const repositoriesFor = (task) =>
     task.repositories ?? (task.root ? [{ root: task.root, base: task.base }] : []);
   const repositoryFor = (task, item) =>
@@ -42,6 +57,9 @@ export function createTasksView({
 
   function preserveFocus(container) {
     const active = document.activeElement;
+    if (active?.id === "task-lane-add") {
+      return () => $("task-lane-add")?.focus({ preventScroll: true });
+    }
     const row = active?.closest("[data-item-id]");
     if (!row || !container.contains(row)) return () => {};
     const label = active.getAttribute("aria-label") || active.textContent;
@@ -51,7 +69,7 @@ export function createTasksView({
       );
       const control =
         replacement &&
-        [replacement, ...replacement.querySelectorAll("button, a, select")].find(
+        [replacement, ...replacement.querySelectorAll("button, a, select, summary")].find(
           (item) =>
             item.tagName === active.tagName &&
             (item.getAttribute("aria-label") || item.textContent) === label,
@@ -98,28 +116,86 @@ export function createTasksView({
     button,
     element,
     lanes: $("task-list"),
-    open: choose,
+    open(id) {
+      choose(id);
+      $("task-title").focus();
+    },
     move: moveTask,
+    create: () => beginCreate(),
     preserveFocus,
   });
 
   function renderList() {
     const query = $("task-search").value.trim().toLowerCase();
-    renderTaskBoard(
-      tasks
-        .filter((task) => `${task.title} ${task.brief}`.toLowerCase().includes(query))
-        .map((task) => ({
-          task,
-          progress: taskProgress(task, cardFor),
-          repositories: repositoriesFor(task).length,
-          pending: stageRequests.has(task.id),
-        })),
+    const attentionOnly = $("task-attention").getAttribute("aria-pressed") === "true";
+    const entries = tasks
+      .map((task) => ({
+        task,
+        progress: taskProgress(task, cardFor, agentFor),
+        repositories: repositoriesFor(task).map(({ root }) => root),
+        pending: stageRequests.has(task.id),
+        labels: labelChips(task.labels, inventory.labels),
+        labelSignature: JSON.stringify([task.labels, inventory.labels]),
+      }))
+      .filter(
+        ({ task, progress, repositories }) =>
+          (!attentionOnly || (!task.done && progress.attention)) &&
+          `${task.title} ${task.brief} ${(task.labels ?? []).join(" ")} ${repositories.join(" ")}`
+            .toLowerCase()
+            .includes(query),
+      );
+    const noMatches = !entries.length && Boolean(query || attentionOnly);
+    $("task-list").hidden = !hasLoadedTasks || noMatches;
+    $("task-board-empty").hidden = !hasLoadedTasks || !noMatches;
+    if (noMatches) {
+      $("task-empty-title").textContent = "No matching tasks";
+      $("task-empty-description").textContent = "Change your search or clear the attention filter.";
+    }
+    renderTaskBoard(entries);
+    $("new-task-label").textContent = draft ? "Resume draft" : "New task";
+    const laneAdd = $("task-lane-add");
+    if (laneAdd) {
+      laneAdd.title = draft ? "Resume draft" : "New task";
+      laneAdd.setAttribute("aria-label", draft ? "Resume draft in To Do" : "New task in To Do");
+    }
+  }
+
+  function renderLabels(container, names = [], onChange) {
+    const signature = JSON.stringify([names, inventory.labels, inventory.labelsError, selectedId]);
+    if (container.dataset.labels === signature) return;
+    container.dataset.labels = signature;
+    const wasOpen = container.querySelector("details")?.open;
+    const focused = container.contains(document.activeElement)
+      ? document.activeElement.value
+      : undefined;
+    container.replaceChildren(
+      labelChips(names, inventory.labels),
+      labelPicker({
+        names,
+        catalog: inventory.labels,
+        error: inventory.labelsError,
+        onChange,
+      }),
     );
+    container.querySelector("details").open = Boolean(wasOpen);
+    if (focused)
+      [...container.querySelectorAll("input")]
+        .find((input) => input.value === focused)
+        ?.focus({ preventScroll: true });
+  }
+
+  function renderDraftLabels() {
+    renderLabels($("task-create-labels"), draft.labels, async (names) => {
+      draft.labels = names;
+      $("task-create-labels")
+        .querySelector(".label-chips")
+        .replaceWith(labelChips(names, inventory.labels));
+    });
   }
 
   function showTaskStage(task) {
     const picker = $("task-stage");
-    const progress = taskProgress(task, cardFor);
+    const progress = taskProgress(task, cardFor, agentFor);
     options(
       picker,
       taskStages.map(([id, label]) => ({ id, label })),
@@ -159,46 +235,168 @@ export function createTasksView({
     const pending = drafts(task);
     const choices = models.get(task.id);
     const active = launches.has(task.id) || planning.has(task.id);
-    $("task-run").hidden = task.done || !task.root;
+    const plan = $("task-plan-details");
+    plan.hidden = task.done || (!task.root && task.mode !== "chat");
+    if (!plan.hidden && pending.length && plan.dataset.hasDrafts !== "true") plan.open = true;
+    plan.dataset.hasDrafts = String(Boolean(pending.length));
     $("task-model").disabled = active || !choices?.models.length;
     $("task-models").hidden = !modelErrors.has(task.id) && choices?.models.length !== 0;
     $("task-models").disabled = active || modelRequests.has(task.id);
     const modelChosen = Boolean($("task-model").value && choices?.models.length);
     $("run-task").disabled = active || !modelChosen || !pending.length;
+    $("run-task").hidden = !pending.length;
     $("suggest-experiments").disabled = active || !modelChosen || task.experiments.length > 6;
     $("run-task").textContent = pending.length > 4 ? "Start next 4" : "Start agents";
-    $("task-run-note").textContent = modelControlNote(task.id, choices, active);
+    $("task-run-note").textContent = modelControlNote(task, choices, active);
   }
 
-  function modelControlNote(id, choices, active) {
+  function modelControlNote({ id, mode, source }, choices, active) {
     if (planning.has(id)) return "Drafting two work items from the brief…";
-    if (active) return "Checking the model and starting worktrees…";
+    if (active) return "Checking the model and starting agents…";
     if (modelRequests.has(id)) return "Finding available models…";
     if (modelErrors.has(id)) return modelErrors.get(id);
     if (choices?.models.length === 0) return "No ready models. Check Agent Console settings.";
-    return "Pimi starts one agent per draft. Finished agents report here.";
+    const location = mode === "chat" ? "in separate folders" : "in separate Git worktrees";
+    const destination = source ? "the task and the original chat" : "the task";
+    return `Agents work ${location} and report to ${destination}.`;
   }
 
   function discoverModels(task) {
-    if (visible() && !models.has(task.id) && !modelErrors.has(task.id)) void loadModels(task);
+    const plan = $("task-plan-details");
+    if (visible() && plan.open && !plan.hidden && !models.has(task.id) && !modelErrors.has(task.id))
+      void loadModels(task);
   }
 
-  function reportContent(item) {
-    const report = element("div", "experiment-report");
-    report.append(
-      element("h4", "", item.reportSource === "agent" ? "Agent report" : "Saved report"),
-      element("p", "", item.report),
-    );
-    if (item.reportTruncated) {
-      report.append(
-        element("p", "subtitle", "Report shortened. See Agent Console for the full response."),
+  function selectReportView(view, workerId) {
+    taskDetailView = view;
+    if (workerId) reportWorkerId = workerId;
+    renderDetails();
+  }
+
+  $("show-task-reports").addEventListener("click", () => selectReportView("reports"));
+  $("show-task-work").addEventListener("click", () => selectReportView("work"));
+  $("task-report-worker").addEventListener("change", (event) =>
+    selectReportView("reports", event.currentTarget.value),
+  );
+
+  async function renderReportDocument(task, item) {
+    const document = $("task-report-document");
+    const key = item?.report ? item.id : undefined;
+    if (key === reportDocumentKey) return;
+    reportDocumentKey = key;
+    document.replaceChildren();
+    document.dataset.taskId = task.id;
+    document.dataset.reportId = key ?? "";
+    if (!key) return;
+    const query = new URLSearchParams({ id: task.id, experimentId: item.id });
+    try {
+      const { html } = await api("tasks/report-document?" + query);
+      if (reportDocumentKey === key) document.innerHTML = html;
+    } catch {
+      if (reportDocumentKey === key)
+        document.append(element("p", "experiment-hypothesis", item.report));
+    }
+  }
+
+  const reportLinkErrors = new Map();
+  window.pimiWorkspace?.onReportLinkError?.(({ reportId, message: linkError }) => {
+    reportLinkErrors.set(reportId, linkError);
+    if (reportId === reportWorkerId) renderDetails();
+  });
+
+  function renderReportActions(task, item, agent) {
+    const card = cardFor(item);
+    const reviewable = card && !card.unavailable && (card.dirty || card.ahead || card.prUrl);
+    const actionKey = JSON.stringify([
+      task.id,
+      task.done,
+      item.id,
+      Boolean(item.report),
+      agent?.chatUrl,
+      reportErrors.get(item.id),
+      reportRequests.has(item.id),
+      reviewable,
+    ]);
+    if (actionKey === reportActionKey) return;
+    reportActionKey = actionKey;
+    const actions = $("task-report-actions");
+    actions.replaceChildren(...agentChatLinks(agent ? [agent] : []));
+    if (item.report) {
+      const copy = button("button quiet", "Copy report", async () => {
+        try {
+          await navigator.clipboard.writeText(item.report);
+          copy.textContent = "Copied";
+        } catch {
+          copy.textContent = "Copy failed";
+        }
+      });
+      actions.prepend(copy);
+    } else if (!task.done && reportErrors.has(item.id) && !reportRequests.has(item.id)) {
+      actions.prepend(
+        button("button secondary", "Retry report", () => void collectReport(task, item)),
       );
     }
-    return report;
+    if (reviewable)
+      actions.append(
+        button("button quiet", "Review changes", () =>
+          openReview(card, repositoryFor(task, item)?.base || ""),
+        ),
+      );
+  }
+
+  function renderReports(task) {
+    const items = task.experiments;
+    const ready = items.filter((item) => item.report);
+    const show = taskDetailView === "reports" && items.length > 0;
+    $("task-detail-views").hidden = !items.length;
+    $("show-task-reports").textContent = ready.length ? `Reports · ${ready.length}` : "Reports";
+    $("show-task-reports").setAttribute("aria-pressed", String(show));
+    $("show-task-work").setAttribute("aria-pressed", String(!show));
+    $("task-reports").hidden = !show;
+    $("task-work").hidden = show;
+    if (!show) return;
+    const item = items.find(({ id }) => id === reportWorkerId) ?? ready[0] ?? items[0];
+    reportWorkerId = item.id;
+    const picker = $("task-report-worker");
+    options(
+      picker,
+      items.map((worker) => ({
+        id: worker.id,
+        label: `${worker.title} · ${reportStatus(worker, agentFor(worker))}`,
+      })),
+      "Choose a worker",
+    );
+    picker.value = item.id;
+    $("task-report-progress").textContent = `${ready.length} of ${items.length} ready`;
+    $("task-report-title").textContent = item.title;
+    const agent = agentFor(item);
+    const warning = item.reportTruncated
+      ? "Report shortened. Open chat for the full response."
+      : "";
+    message(
+      "task-report-status",
+      reportLinkErrors.get(item.id) ||
+        warning ||
+        (!item.report ? (reportErrors.get(item.id) ?? reportStatus(item, agent)) : ""),
+    );
+    $("task-report-instructions").textContent = item.hypothesis;
+    renderReportActions(task, item, agent);
+    void renderReportDocument(task, item);
+  }
+
+  function reportStatus(item, agent) {
+    if (item.report) return "Ready";
+    if (reportErrors.has(item.id)) return "Report unavailable";
+    if (agent?.status === "closed") return "No saved report";
+    return experimentStatus(item, agent);
   }
 
   function workItemActions(task, { item, card, agent, chatAgents }) {
     const actions = element("div", "experiment-actions");
+    if (item.report)
+      actions.append(
+        button("button secondary", "Read report", () => selectReportView("reports", item.id)),
+      );
     actions.append(...agentChatLinks(chatAgents));
     if (card && !card.unavailable) {
       const base = repositoryFor(task, item)?.base || "";
@@ -238,7 +436,7 @@ export function createTasksView({
     const picker = element("select", "work-item-repository");
     picker.setAttribute("aria-label", `Repository for ${item.title}`);
     picker.replaceChildren(
-      ...repositories.map(({ root }) => new Option(root.split("/").at(-1), root)),
+      ...repositories.map(({ root }) => new Option(taskRepositoryName(root), root)),
     );
     picker.value = repositoryFor(task, item)?.root ?? "";
     picker.disabled = launches.has(task.id) || planning.has(task.id);
@@ -264,17 +462,18 @@ export function createTasksView({
     const entries = task.experiments.map((item) => {
       const card = cardFor(item);
       const workspaceAgents = card?.agents ?? [];
-      const workers = item.launch ? workspaceAgents.filter((agent) => agent.id === item.id) : [];
+      const agent = item.launch && agentFor(item);
       return {
         item,
         card,
-        agent: workers[0],
-        chatAgents: item.launch ? workers : workspaceAgents,
+        agent,
+        chatAgents: item.launch ? [agent].filter(Boolean) : workspaceAgents,
       };
     });
     const signature = JSON.stringify([
       task.id,
       task.done,
+      task.mode,
       task.repositories,
       visible(),
       launches.has(task.id),
@@ -285,8 +484,14 @@ export function createTasksView({
     ]);
     if (signature === renderedExperiments) return;
     renderedExperiments = signature;
-    const restoreFocus = preserveFocus($("experiment-list"));
-    $("experiment-list").replaceChildren(
+    const list = $("experiment-list");
+    const expanded = new Set(
+      [...list.querySelectorAll("details[open]")].map(
+        (detail) => detail.closest("article").dataset.itemId,
+      ),
+    );
+    const restoreFocus = preserveFocus(list);
+    list.replaceChildren(
       ...entries.map((entry) => {
         const { item, card, agent } = entry;
         const row = element("article", "experiment");
@@ -296,75 +501,121 @@ export function createTasksView({
           element("h3", "", item.title),
           element("span", "task-status", experimentStatus(item, agent)),
         );
-        row.append(heading, element("p", "experiment-hypothesis", item.hypothesis));
+        row.append(heading);
         const root = repositoryFor(task, item)?.root;
-        row.append(
-          element(
-            "p",
-            "subtitle",
-            root
-              ? `${root.split("/").at(-1)} · ${card?.branch || "New worktree"}`
-              : "No repository",
-          ),
-        );
+        const repo = root ? taskRepositoryName(root) : "";
+        const mode = item.launch ? item.launch.mode : task.mode;
+        const chat = mode === "chat" || mode === "research";
+        let context = "No repository";
+        if (chat) context = repo ? `Chat · ${repo} reference` : "Chat";
+        else if (repo) context = `${repo} · ${card?.branch || "New worktree"}`;
+        row.append(element("p", "subtitle", context));
         const error = agent?.error || item.error;
         if (error) row.append(element("p", "warning", error));
-        if (item.report) row.append(reportContent(item));
         if (reportErrors.has(item.id))
           row.append(element("p", "subtitle", reportErrors.get(item.id)));
         const actions = workItemActions(task, entry);
         if (actions.childElementCount) row.append(actions);
+        const details = element("details", "experiment-details");
+        details.open = expanded.has(item.id);
+        details.append(
+          element("summary", "", "Work brief"),
+          element("p", "experiment-hypothesis", item.hypothesis),
+        );
+        row.append(details);
         return row;
       }),
     );
-    if (!entries.length)
-      $("experiment-list").append(
-        element("p", "subtitle", "Add a work item or link an existing worktree."),
-      );
+    if (!entries.length) list.append(element("p", "task-work-empty", "No work items yet"));
     restoreFocus();
   }
 
-  function renderDetails({ fill = false } = {}) {
-    const task = selected();
-    $("task-create").hidden = !creating;
-    $("task-board").hidden = creating || Boolean(task);
-    $("task-content").hidden = !creating && !task;
-    $("task-board-back").hidden = creating || !task;
-    $("new-task").hidden = creating;
-    $("task-detail").hidden = creating || !task;
-    if (creating || !task) return;
-    $("task-title").textContent = task.title;
-    $("task-brief").textContent = task.brief;
-    const managed = task.experiments.filter((item) => item.launch);
-    const reports = managed.filter((item) => item.reportSource === "agent").length;
-    const progress = managed.length ? `${reports} of ${managed.length} agent reports ready` : "";
-    if ($("task-progress").textContent !== progress) $("task-progress").textContent = progress;
-    const repositories = repositoriesFor(task);
-    $("task-context").textContent = repositories.length
-      ? repositories
-          .map(({ root, base }) => `${root.split("/").at(-1)} · base ${base.slice(0, 8)}`)
-          .join(" | ")
-      : "No repository attached";
-    $("task-context").title = repositories.map(({ root, base }) => `${root} @ ${base}`).join("\n");
-    $("task-attach-repository").hidden = task.done;
+  function renderTaskProperties(task, repositories) {
+    const context = $("task-context");
+    const repositorySignature = JSON.stringify(repositories);
+    if (context.dataset.repositories !== repositorySignature) {
+      context.dataset.repositories = repositorySignature;
+      context.replaceChildren(
+        ...repositories.map(({ root, base }) => {
+          const repo = element("div", "task-repository-row");
+          repo.title = `${root} @ ${base}`;
+          repo.append(
+            element("span", "", taskRepositoryName(root)),
+            element("code", "", base.slice(0, 8)),
+          );
+          return repo;
+        }),
+      );
+      if (!repositories.length) context.append(element("p", "subtitle", "No repository attached"));
+    }
+    const attachable = inventory.repositories.filter(
+      ({ path }) => !repositories.some(({ root }) => root === path),
+    );
+    $("task-attach-details").hidden =
+      task.done || Boolean(inventory.repositories.length && !attachable.length);
+    $("task-repository-next").hidden =
+      task.done || task.mode === "chat" || Boolean(repositories.length);
     options(
       $("task-attach-root"),
-      inventory.repositories
-        .filter(({ path }) => !repositories.some(({ root }) => root === path))
-        .map(({ path, name }) => ({ id: path, label: `${name} — ${path}` })),
+      attachable.map(({ path, name }) => ({
+        id: path,
+        label: `${name} — ${path}`,
+      })),
       "Add another repository",
     );
+    $("attach-task-repository").disabled =
+      !attachable.length || busyControls.has($("attach-task-repository"));
     const sourceLink = $("task-source-chat");
     sourceLink.hidden = !task.source;
     if (task.source) sourceLink.href = sourceChat(task.source);
     else sourceLink.removeAttribute("href");
     showTaskStage(task);
+  }
+
+  function renderDetails({ fill = false } = {}) {
+    const task = selected();
+    const showingBoard = !creating && !task;
+    const showingTask = !creating && Boolean(task);
+    $("task-create").hidden = !creating;
+    $("task-board").hidden = !showingBoard;
+    $("task-content").hidden = showingBoard;
+    $("task-board-back").hidden = !showingTask;
+    $("task-view-title").hidden = showingTask;
+    $("task-board-controls").hidden = !showingBoard;
+    $("task-detail").hidden = !showingTask;
+    if (!showingTask) return;
+    $("task-title").textContent = task.title;
+    $("task-brief").textContent = task.brief;
+    renderReports(task);
+    renderLabels($("task-labels"), task.labels, async (labels) => {
+      const updated = await api("tasks/save", { id: task.id, labels });
+      tasks = tasks.map((entry) => (entry.id === updated.id ? updated : entry));
+      renderList();
+      renderDetails();
+    });
+    const managed = task.experiments.filter((item) => item.launch);
+    const reports = managed.filter((item) => item.reportSource === "agent").length;
+    const progress = managed.length ? `${reports} of ${managed.length} agent reports ready` : "";
+    if ($("task-progress").textContent !== progress) $("task-progress").textContent = progress;
+    const repositories = repositoriesFor(task);
+    renderTaskProperties(task, repositories);
     $("add-experiment").hidden = task.done;
     const form = $("task-edit");
-    if (fill) {
-      form.elements.title.value = task.title;
-      form.elements.brief.value = task.brief;
+    if (fill || !$("task-edit-details").open) {
+      form.elements.title.defaultValue = form.elements.title.value = task.title;
+      form.elements.brief.defaultValue = form.elements.brief.value = task.brief;
+      form.elements.mode.value = task.mode ?? "chat";
     }
+    renderWorkItemForm(task, repositories);
+    const choice = models.get(task.id);
+    const original = drafts(task).find((item) => item.launch)?.launch.config.provider;
+    options($("task-model"), choice?.models ?? [], "Choose a model", original ?? choice?.preferred);
+    showModelControls(task);
+    renderExperiments(task);
+    discoverModels(task);
+  }
+
+  function renderWorkItemForm(task, repositories) {
     const attached = new Set(task.experiments.map((item) => cardFor(item)?.path));
     options(
       $("experiment-repository"),
@@ -388,22 +639,26 @@ export function createTasksView({
       })),
       "Create a new worktree when launched",
     );
-    $("experiment-worktree").disabled = !$("experiment-repository").value;
-    const choice = models.get(task.id);
-    const original = drafts(task).find((item) => item.launch)?.launch.config.provider;
-    options($("task-model"), choice?.models ?? [], "Choose a model", original ?? choice?.preferred);
-    showModelControls(task);
-    renderExperiments(task);
-    discoverModels(task);
+    $("experiment-worktree-field").hidden = task.mode === "chat";
+    $("experiment-worktree").disabled = task.mode === "chat" || !$("experiment-repository").value;
   }
 
   function choose(id) {
     cancelDictation();
+    if (selectedId !== id) {
+      taskDetailView = tasks.find((task) => task.id === id)?.experiments.some((item) => item.report)
+        ? "reports"
+        : "work";
+      reportWorkerId = undefined;
+      $("task-report-brief").open = false;
+    }
     selectedId = id;
     creating = false;
-    proposalDraft = undefined;
     $("task-idea").reset();
     $("add-experiment").open = false;
+    $("task-attach-details").open = false;
+    $("task-plan-details").open = false;
+    delete $("task-plan-details").dataset.hasDrafts;
     $("task-edit-details").open = false;
     message("task-warning", "");
     renderList();
@@ -419,15 +674,12 @@ export function createTasksView({
       $("task-repository"),
       repositories,
       "Attach later",
-      !proposalDraft && inventory.repositories.length === 1
+      !draft?.proposal && inventory.repositories.length === 1
         ? inventory.repositories[0].path
         : undefined,
     );
-    options($("task-attach-root"), repositories, "Choose a repository");
     $("task-no-repositories").hidden = Boolean(inventory.repositories.length);
     $("task-attach-hint").hidden = Boolean(inventory.repositories.length);
-    $("attach-task-repository").disabled =
-      !inventory.repositories.length || busyControls.has($("attach-task-repository"));
     $("create-task").disabled = busyControls.has($("create-task"));
   }
 
@@ -437,6 +689,7 @@ export function createTasksView({
       const data = await api("tasks");
       if (version !== request) return;
       tasks = data.tasks;
+      hasLoadedTasks = true;
       if (data.error) message("task-warning", data.error);
       renderList();
       renderDetails();
@@ -471,9 +724,8 @@ export function createTasksView({
       if (task.done) continue;
       const item = task.experiments.find((entry) => {
         if (!entry.launch || entry.reportSource || autoCollected.has(entry.id)) return false;
-        return cardFor(entry)?.agents.some(
-          (agent) => agent.id === entry.id && agent.status === "idle" && !agent.needsInput,
-        );
+        const agent = agentFor(entry);
+        return agent?.status === "idle" && !agent.needsInput;
       });
       if (item) {
         autoCollected.add(item.id);
@@ -523,16 +775,22 @@ export function createTasksView({
 
   function beginCreate(proposal) {
     const form = $("task-create");
-    if (proposal && creating && (form.elements.title.value || form.elements.brief.value)) {
-      if (proposalDraft?.id !== proposal.id) {
+    if (draft) {
+      creating = true;
+      renderDetails();
+      if (proposal && draft.proposal?.id !== proposal.id) {
         message("task-warning", "Finish or cancel the open draft, then open this proposal again.");
       }
+      form.elements.title.focus();
       return;
     }
     cancelDictation();
     creating = true;
-    proposalDraft = proposal;
+    draft = { proposal, labels: [...(proposal?.labels ?? [])] };
+    delete $("task-create-labels").dataset.labels;
+    renderDraftLabels();
     form.reset();
+    form.elements.mode.value = proposal?.mode ?? "chat";
     updateRepositories();
     const repo = $("task-repository");
     if (proposal) {
@@ -540,7 +798,7 @@ export function createTasksView({
       const card = inventory.cards.find((entry) =>
         entry.agents.some((agent) => agent.chatUrl === chat),
       );
-      repo.value = card?.root ?? "";
+      repo.value = proposal.mode !== "worktree" ? "" : (card?.root ?? "");
       form.elements.title.value = proposal.title;
       form.elements.brief.value = proposal.brief;
     } else if (inventory.repositories.length === 1) {
@@ -558,13 +816,40 @@ export function createTasksView({
   }
 
   $("task-search").addEventListener("input", renderList);
+  $("task-search").addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !$("task-list").hidden)
+      $("task-list").querySelector(".task-card-open")?.click();
+  });
+  $("task-attention").addEventListener("click", (event) => {
+    const control = event.currentTarget;
+    control.setAttribute("aria-pressed", String(control.getAttribute("aria-pressed") !== "true"));
+    renderList();
+  });
+  for (const layout of ["board", "list"]) {
+    $("tasks-as-" + layout).addEventListener("click", () => {
+      $("task-list").dataset.layout = layout;
+      $("tasks-as-board").setAttribute("aria-pressed", String(layout === "board"));
+      $("tasks-as-list").setAttribute("aria-pressed", String(layout === "list"));
+    });
+  }
+  $("task-open-attachment").addEventListener("click", () => {
+    $("task-attach-details").open = true;
+    $("task-attach-root").focus();
+  });
+  $("task-plan-details").addEventListener("toggle", () => {
+    const task = selected();
+    if (task) discoverModels(task);
+  });
   $("new-task").addEventListener("click", () => beginCreate());
   $("task-board-back").addEventListener("click", () => {
+    const previous = selectedId;
     choose(undefined);
-    $("task-search").focus();
+    const card = $("task-list").querySelector(`[data-item-id="${previous}"] .task-card-open`);
+    (card ?? $("task-search")).focus();
   });
   $("cancel-task").addEventListener("click", () => {
-    const source = proposalDraft?.source;
+    const source = draft?.proposal?.source;
+    draft = undefined;
     choose(selectedId);
     if (source) window.open(sourceChat(source), "_blank", "noopener");
   });
@@ -572,6 +857,8 @@ export function createTasksView({
   $("task-create").addEventListener("submit", (event) => {
     event.preventDefault();
     cancelDictation();
+    const submitted = draft;
+    const proposalDraft = submitted.proposal;
     const data = new FormData(event.currentTarget);
     const proposal = proposalDraft && {
       id: proposalDraft.id,
@@ -584,11 +871,22 @@ export function createTasksView({
       const task = await api("tasks/create", {
         title: data.get("title"),
         brief: data.get("brief"),
+        mode: data.get("mode"),
+        labels: submitted.labels,
         root: $("task-repository").value || null,
         proposal,
       });
       tasks = [task, ...tasks.filter((item) => item.id !== task.id)];
-      choose(task.id);
+      if (draft === submitted) {
+        draft = undefined;
+        if (creating && visible()) {
+          choose(task.id);
+          return;
+        }
+        creating = false;
+      }
+      renderList();
+      renderDetails();
     });
   });
 
@@ -609,8 +907,22 @@ export function createTasksView({
     event.preventDefault();
     cancelDictation();
     const task = selected();
-    const data = new FormData(event.currentTarget);
-    void saveTask(event.submitter, task, Object.fromEntries(data), task.done);
+    const { title, brief, mode } = event.currentTarget.elements;
+    const changes = {};
+    if (title.value !== title.defaultValue) changes.title = title.value;
+    if (brief.value !== brief.defaultValue) changes.brief = brief.value;
+    if (mode.value !== (task.mode ?? "chat")) changes.mode = mode.value;
+    if (!Object.keys(changes).length) return;
+    void perform(event.submitter, async () => {
+      const updated = await api("tasks/save", { id: task.id, ...changes });
+      tasks = tasks.map((item) => (item.id === updated.id ? updated : item));
+      if (changes.mode) {
+        models.delete(task.id);
+        modelErrors.delete(task.id);
+      }
+      if (selectedId === task.id && !creating) choose(task.id);
+      else renderList();
+    });
   });
 
   $("task-close").addEventListener("click", () => {
@@ -622,15 +934,6 @@ export function createTasksView({
     const task = selected();
     void moveTask(task.id, event.currentTarget.value || null);
   });
-
-  function saveTask(control, task, changes, done) {
-    return perform(control, async () => {
-      const updated = await api("tasks/save", { id: task.id, ...changes, done });
-      tasks = tasks.map((item) => (item.id === updated.id ? updated : item));
-      if (selectedId === task.id && !creating) choose(task.id);
-      else renderList();
-    });
-  }
 
   for (const [buttonId, formId] of [
     ["dictate-create", "task-create"],
@@ -667,7 +970,12 @@ export function createTasksView({
     const selection = [field.selectionStart, field.selectionEnd];
     try {
       await perform(control, async () => {
-        const { text } = await api("dictation", {}, controller.signal).catch((error) => {
+        const { left, width, bottom } = field.getBoundingClientRect();
+        const { text } = await api(
+          "dictation",
+          { x: left + width / 2, y: bottom },
+          controller.signal,
+        ).catch((error) => {
           if (controller.signal.aborted) return {};
           throw error;
         });
@@ -679,7 +987,9 @@ export function createTasksView({
   }
 
   $("task-edit-details").addEventListener("toggle", () => {
-    if (!$("task-edit-details").open && busyControls.has($("dictate-edit"))) cancelDictation();
+    if ($("task-edit-details").open) return;
+    if (busyControls.has($("dictate-edit"))) cancelDictation();
+    renderDetails();
   });
 
   $("task-idea").addEventListener("submit", (event) => {
@@ -692,7 +1002,9 @@ export function createTasksView({
         id: task.id,
         ...Object.fromEntries(data),
         root: $("experiment-repository").value || undefined,
-        path: $("experiment-worktree").value || undefined,
+        path: $("experiment-worktree").disabled
+          ? undefined
+          : $("experiment-worktree").value || undefined,
       });
       if (selectedId === task.id && !creating) {
         form.reset();
@@ -707,7 +1019,7 @@ export function createTasksView({
   });
 
   async function loadModels(task) {
-    if (task.done || !task.root || modelRequests.has(task.id)) return;
+    if (task.done || (!task.root && task.mode !== "chat") || modelRequests.has(task.id)) return;
     modelRequests.add(task.id);
     modelErrors.delete(task.id);
     showModelControls(task);
@@ -770,9 +1082,23 @@ export function createTasksView({
   return {
     load,
     cancelDictation,
+    showBoard() {
+      choose(undefined);
+    },
     openProposal(proposal) {
       if (tasks.some((task) => task.id === proposal.id)) choose(proposal.id);
       else beginCreate(proposal);
+    },
+    openDraft({ title = "", brief = "" }) {
+      beginCreate();
+      if (!title && !brief) return;
+      const form = $("task-create");
+      if (draft.proposal || form.elements.title.value || form.elements.brief.value) {
+        message("task-warning", "Finish or cancel the open draft before dictating another task.");
+        return;
+      }
+      form.elements.title.value = title;
+      form.elements.brief.value = brief;
     },
     baseForWorktree(card) {
       function base(task) {
@@ -786,6 +1112,13 @@ export function createTasksView({
     },
     setBoard(data) {
       inventory = data;
+      agentsById = new Map(
+        [...data.cards.flatMap((card) => card.agents), ...data.otherAgents].map((agent) => [
+          agent.id,
+          agent,
+        ]),
+      );
+      if (creating) renderDraftLabels();
       cardsByWorkspace = new Map(
         data.cards.filter((card) => card.workspaceId).map((card) => [card.workspaceId, card]),
       );

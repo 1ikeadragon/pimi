@@ -4,7 +4,10 @@ import type { BrowserKeyboardPolicy } from "@/keyboard";
 import type { SessionInboundMessage, SessionOutboundMessage } from "@getpaseo/protocol/messages";
 import type {
   PimiDestination,
+  PimiReportLinkTarget,
+  PimiReportLinkError,
   PimiReviewSummary,
+  PimiVoiceBubbleState,
   PimiWorkspaceSection,
 } from "@getpaseo/protocol/pimi-task";
 
@@ -202,6 +205,15 @@ export interface DesktopHostBridge {
     subscribe: (listener: () => void) => () => void;
   };
   onPimiWorkspaceClick?: (listener: () => void) => () => void;
+  pimiReportLinks?: {
+    onOpen: (listener: (target: PimiReportLinkTarget) => void) => () => void;
+    reportError: (error: PimiReportLinkError) => void;
+  };
+  pimiVoice?: {
+    publish: (state: PimiVoiceBubbleState) => void;
+    onToggle: (toggle: () => void) => () => void;
+    onPause: (pause: () => void) => () => void;
+  };
   onPimiOpenSettings?: (open: () => void) => () => void;
   pimiAppearance?: {
     get: () => PimiAppearance;
@@ -264,4 +276,10 @@ export function getDesktopWindowChromeMode(): DesktopWindowChromeMode | null {
   if (isElectronRuntimeMac()) return "native-mac";
   if (host.platform?.toLowerCase() === "linux") return "custom-linux";
   return "custom-windows";
+}
+
+export function usesPimiMacTitlebar(): boolean {
+  return (
+    Boolean(getDesktopHost()?.showPimiWorkspace) && getDesktopWindowChromeMode() === "native-mac"
+  );
 }

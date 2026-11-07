@@ -9,15 +9,19 @@ log.initialize({ spyRendererConsole: true });
 
 import { inheritLoginShellEnv } from "./login-shell-env.js";
 
+import { PimiReportLinkError } from "@getpaseo/protocol/pimi-task";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import {
   getPimiReviewSummary,
   hidePimiWorkspace,
+  initializePimiWorkspace,
   pimiAppearanceArgument,
+  reportPimiLinkError,
   setPimiAppearance,
   showPimiWindow,
   updatePimiContentBounds,
+  updatePimiVoiceBubble,
   type PimiContentBounds,
   type PimiDestination,
 } from "./window/pimi-window.js";
@@ -122,7 +126,11 @@ import {
   type AgentDeepLinkTarget,
 } from "@getpaseo/protocol/agent-deep-link";
 import { AgentNavigationInbox, parseAgentDeepLinkFromArgv } from "./agent-navigation.js";
-import { PimiMemoryDestination, PimiTaskProposal } from "@getpaseo/protocol/pimi-task";
+import {
+  PimiMemoryDestination,
+  PimiNewTaskDestination,
+  PimiTaskProposal,
+} from "@getpaseo/protocol/pimi-task";
 import { getForgeDefinition } from "@getpaseo/protocol/forge-manifest";
 
 const DEV_SERVER_URL = process.env.EXPO_DEV_URL ?? "http://localhost:8081";
@@ -199,7 +207,10 @@ function readActiveBrowserInput(
     return null;
   }
   const browserId = typeof record.browserId === "string" ? record.browserId.trim() : null;
-  return { workspaceId: record.workspaceId.trim(), browserId: browserId || null };
+  return {
+    workspaceId: record.workspaceId.trim(),
+    browserId: browserId || null,
+  };
 }
 
 const browserKeyboard = new BrowserKeyboard(getPaseoBrowserWebviewRegistry());
@@ -469,7 +480,10 @@ ipcMain.handle("paseo:browser:unregister-workspace-browser", async (event, brows
 ipcMain.handle("paseo:browser:set-workspace-active-browser", (event, rawInput: unknown) => {
   const input = readActiveBrowserInput(rawInput);
   if (input) {
-    setWorkspaceActivePaseoBrowserId({ ...input, hostWebContentsId: event.sender.id });
+    setWorkspaceActivePaseoBrowserId({
+      ...input,
+      hostWebContentsId: event.sender.id,
+    });
   }
 });
 
@@ -540,7 +554,10 @@ ipcMain.handle("paseo:browser:clear-profile", async (_event, rawLegacyBrowserIds
         webContents: webContents.getAllWebContents(),
       }),
     logReloadError: (webContentsId, error) => {
-      log.warn("[browser-profile] failed to reload guest", { webContentsId, error });
+      log.warn("[browser-profile] failed to reload guest", {
+        webContentsId,
+        error,
+      });
     },
   });
 });
@@ -565,7 +582,11 @@ const browserCapture = createBrowserCaptureService<Electron.NativeImage>({
 });
 
 ipcMain.handle("paseo:browser:capture-element", (event, browserId: unknown, rect: unknown) =>
-  browserCapture.capture({ browserId, hostWebContentsId: event.sender.id, rect }),
+  browserCapture.capture({
+    browserId,
+    hostWebContentsId: event.sender.id,
+    rect,
+  }),
 );
 
 ipcMain.handle("paseo:browser:copy-element", (_event, payload: unknown) =>
@@ -785,10 +806,36 @@ function registerPimiWorkspaceNavigation(): void {
       );
     });
   });
+  ipcMain.on("pimi:workspace:report-link-error", (event, value: unknown) => {
+    if (!isConsoleFrame(event)) return;
+    const error = PimiReportLinkError.safeParse(value);
+    const owner = BrowserWindow.fromWebContents(event.sender);
+    if (owner && error.success) reportPimiLinkError(owner, error.data);
+  });
   ipcMain.on("pimi:workspace:dismiss", (event) => {
     if (!isConsoleFrame(event)) return;
     const owner = BrowserWindow.fromWebContents(event.sender);
     if (owner) hidePimiWorkspace(owner);
+  });
+  ipcMain.on("pimi:voice:state", (event, value: unknown) => {
+    if (!isConsoleFrame(event) || !value || typeof value !== "object") return;
+    const { active, status, level } = value as {
+      active?: unknown;
+      status?: unknown;
+      level?: unknown;
+    };
+    if (
+      typeof active !== "boolean" ||
+      typeof status !== "string" ||
+      status.length > 240 ||
+      typeof level !== "number" ||
+      !Number.isFinite(level) ||
+      level < 0 ||
+      level > 1
+    )
+      return;
+    const owner = BrowserWindow.fromWebContents(event.sender);
+    if (owner) updatePimiVoiceBubble(owner, { active, status, level });
   });
   ipcMain.on("pimi:workspace:content-bounds", (event, value: unknown) => {
     if (!isConsoleFrame(event) || !value || typeof value !== "object") return;
@@ -821,6 +868,10 @@ function registerPimiWorkspaceNavigation(): void {
       openPimi({ view }, owner);
     if (view === "memory") {
       const result = PimiMemoryDestination.safeParse(destination);
+      if (result.success) openPimi(result.data, owner);
+    }
+    if (view === "new-task") {
+      const result = PimiNewTaskDestination.safeParse(destination);
       if (result.success) openPimi(result.data, owner);
     }
     if (view === "review" && typeof checkout === "string" && path.isAbsolute(checkout)) {
@@ -879,7 +930,10 @@ async function createWindow(
       webviewTag: true,
     },
   });
-  applyDesktopWindowChromeMode({ win: mainWindow, mode: DESKTOP_WINDOW_CHROME_MODE });
+  applyDesktopWindowChromeMode({
+    win: mainWindow,
+    mode: DESKTOP_WINDOW_CHROME_MODE,
+  });
   if (PIMI_DESKTOP) mainWindow.on("page-title-updated", (event) => event.preventDefault());
 
   const webContentsId = mainWindow.webContents.id;
@@ -1068,7 +1122,11 @@ function setupSingleInstanceLock(): boolean {
     // window rather than focusing the existing one. Wait for bootstrap (not just
     // app.whenReady) so the protocol + IPC handlers exist before the window loads.
     void bootstrapComplete
-      .then(() => desktopWindowOwner.openAdditional({ pendingProjectPath: openProjectPath }))
+      .then(() =>
+        desktopWindowOwner.openAdditional({
+          pendingProjectPath: openProjectPath,
+        }),
+      )
       .catch((error) => {
         log.error("[window] failed to create window from second-instance", error);
       });
@@ -1142,7 +1200,12 @@ async function bootstrap(): Promise<void> {
   ensureNotificationCenterRegistration();
   registerDaemonManager();
   registerWindowManager({ mode: DESKTOP_WINDOW_CHROME_MODE });
-  if (PIMI_DESKTOP) registerPimiWorkspaceNavigation();
+  if (PIMI_DESKTOP) {
+    registerPimiWorkspaceNavigation();
+    void initializePimiWorkspace(path.join(app.getAppPath(), "dist")).catch((error) =>
+      log.error("[pimi] failed to initialize workspace", error),
+    );
+  }
   registerDialogHandlers();
   registerNotificationHandlers();
   const openExternalUrl = createExternalUrlOpener({ open: shell.openExternal });
@@ -1237,7 +1300,9 @@ const quitLifecycle = createQuitLifecycle({
 
 // electron-updater forwards this event through Electron's built-in autoUpdater.
 electronAutoUpdater.on("before-quit-for-update", () => {
-  log.info("[auto-updater] before-quit-for-update", { currentVersion: app.getVersion() });
+  log.info("[auto-updater] before-quit-for-update", {
+    currentVersion: app.getVersion(),
+  });
   quitLifecycle.handleBeforeQuitForUpdate();
 });
 app.on("before-quit", quitLifecycle.handleBeforeQuit);

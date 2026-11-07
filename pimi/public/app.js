@@ -1,11 +1,35 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
+import { labelChips, labelPicker } from "./labels.js";
 import { createTasksView } from "./tasks.js";
+import { replaceBoardLanes } from "./board-motion.js";
 import { createMemoryView } from "./memory.js";
 import { createDiffFind } from "./diff-find.js";
 import { createWorktreeComparison } from "./worktree-comparison.js";
 import { connectLiveUpdates } from "./live-updates.js";
 
 const $ = (id) => document.getElementById(id);
+if (window.pimiWorkspace?.onVoiceState) {
+  $("pimi-voice-dock").hidden = false;
+  const toggle = $("pimi-voice-toggle");
+  const badge = $("pimi-voice-status");
+  const copy = $("pimi-voice-message");
+  const wave = $("pimi-voice-wave");
+  const bars = [...wave.querySelectorAll("rect")];
+  window.pimiWorkspace.onVoiceState(({ active, status, level }) => {
+    toggle.setAttribute("aria-pressed", String(active));
+    toggle.setAttribute("aria-label", active ? "Stop voice commands" : "Start voice commands");
+    toggle.title = active ? "Stop voice commands" : "Voice commands";
+    $("pimi-voice-glyph").setAttribute("href", active ? "#glyph-stop" : "#glyph-mic");
+    if (copy.textContent !== status) copy.textContent = status;
+    badge.hidden = !status;
+    wave.toggleAttribute("hidden", !active);
+    bars.forEach((bar, index) => {
+      const height = 4 + level * [8, 13, 10][index];
+      bar.setAttribute("height", String(height));
+      bar.setAttribute("y", String((18 - height) / 2));
+    });
+  });
+}
 const laneDefinitions = [
   ["ready", "Ready", "No clean worktrees"],
   ["running", "In progress", "No agents running"],
@@ -25,6 +49,7 @@ let reviewEditors = [];
 let boardRequest;
 let boardSignature;
 let boardData;
+let viewRequest = 0;
 const patchCache = new Map();
 const renderedPanes = new Map();
 const diffFind = createDiffFind($);
@@ -89,6 +114,7 @@ function message(id, text) {
 }
 
 function view(name) {
+  const request = ++viewRequest;
   if (name !== "tasks") tasksView.cancelDictation();
   if (name !== "review") diffFind.close();
   for (const section of ["tasks", "board", "review", "memory"]) {
@@ -98,6 +124,7 @@ function view(name) {
     else nav.removeAttribute("aria-current");
   }
   window.pimiWorkspace?.setSection(name);
+  return request;
 }
 
 function describeAgent(agent, worktreeName) {
@@ -147,7 +174,6 @@ function matchesSearch(query, ...values) {
 }
 
 function renderBoard(data) {
-  const previousLanes = new Map(boardData?.cards.map(({ path, lane }) => [path, lane]));
   boardData = data;
   const query = $("board-search").value.trim().toLowerCase();
   const signature = JSON.stringify([query, data], (key, value) =>
@@ -173,33 +199,33 @@ function renderBoard(data) {
   );
   const cardsMatchingQuery = data.cards.filter(
     (card) =>
-      matchesSearch(query, card.repo, card.name, card.branch, card.path) ||
-      card.agents.some((agent) => matchesSearch(query, describeAgent(agent))),
+      !card.reviewOnly &&
+      (matchesSearch(query, card.repo, card.name, card.branch, card.path, ...(card.labels ?? [])) ||
+        card.agents.some((agent) => matchesSearch(query, describeAgent(agent)))),
   );
   const otherAgents = data.otherAgents.filter((agent) =>
     matchesSearch(query, describeAgent(agent), agent.cwd),
   );
   const lanes = laneDefinitions.map(([id, title, empty]) => {
     const lane = element("section", "lane " + id);
+    lane.dataset.stage = id;
     const header = element("div", "lane-heading");
     const cards = cardsMatchingQuery.filter((card) => card.lane === id);
     header.append(element("h2", "", title), element("span", "count", cards.length));
     lane.append(header);
     for (const card of cards) {
-      const item = button("card", "", () => selectWorktree(card));
+      const item = element("article", "card");
+      const open = button("work-card-open", "", () => selectWorktree(card));
+      open.disabled = Boolean(card.unavailable);
       item.dataset.path = card.path;
-      if (previousLanes.has(card.path) && previousLanes.get(card.path) !== id) {
-        item.classList.add("card-moved");
-      }
       item.title = card.path;
-      item.disabled = Boolean(card.unavailable);
       const gitStatus = [
         card.unavailable ? "Worktree missing" : card.error,
         card.dirty ? "Working changes" : "",
         card.ahead ? `${card.ahead} ahead of base` : "",
         card.prUrl ? "Open PR" : "",
       ].filter(Boolean);
-      item.append(
+      open.append(
         element("span", "card-name", card.name),
         element("span", "card-repo", card.repo),
         element("span", "card-detail", gitStatus.join(" · ") || "No pending changes"),
@@ -207,17 +233,42 @@ function renderBoard(data) {
           element("span", "card-agent", describeAgent(agent, card.name)),
         ),
       );
+      item.append(open, labelChips(card.labels, data.labels));
+      if (card.workspaceId)
+        item.append(
+          labelPicker({
+            names: card.labels,
+            catalog: data.labels,
+            error: data.labelsError,
+            onChange: async (_names, name, assigned) => {
+              await api("work/label", { workspaceId: card.workspaceId, name, assigned });
+              await refreshBoard();
+            },
+          }),
+        );
       lane.append(item);
     }
     if (!cards.length) lane.append(element("p", "empty", query ? "No matching worktrees" : empty));
     return lane;
   });
-  const focusedPath = document.activeElement?.closest(".card")?.dataset.path;
-  $("lanes").replaceChildren(...lanes);
-  if (focusedPath)
-    [...$("lanes").querySelectorAll(".card")]
-      .find((card) => card.dataset.path === focusedPath)
-      ?.focus({ preventScroll: true });
+  const focused = document.activeElement;
+  const focusedPath = focused?.closest(".card")?.dataset.path;
+  const openLabels = new Set(
+    [...$("lanes").querySelectorAll(".card:has(.label-picker[open])")].map(
+      (card) => card.dataset.path,
+    ),
+  );
+  replaceBoardLanes($("lanes"), lanes, "data-path");
+  for (const card of $("lanes").querySelectorAll(".card")) {
+    const picker = card.querySelector(".label-picker");
+    if (picker && openLabels.has(card.dataset.path)) picker.open = true;
+    if (card.dataset.path !== focusedPath) continue;
+    const target =
+      focused?.tagName === "INPUT"
+        ? [...card.querySelectorAll("input")].find((input) => input.value === focused.value)
+        : card.querySelector(focused?.tagName === "SUMMARY" ? "summary" : ".work-card-open");
+    target?.focus({ preventScroll: true });
+  }
   $("other-agents").hidden = !otherAgents.length;
   $("agent-list").replaceChildren(
     ...otherAgents.map((agent) => {
@@ -836,6 +887,7 @@ $("show-board").addEventListener("click", () => {
 });
 $("show-tasks").addEventListener("click", () => {
   view("tasks");
+  tasksView.showBoard();
   void tasksView.load();
   void refreshBoard();
 });
@@ -850,6 +902,7 @@ if (window.pimiWorkspace) {
   $("show-memory").hidden = false;
   document.documentElement.dataset.workspaceChrome = window.pimiWorkspace.chrome;
   window.pimiWorkspace.onLayoutChange((mode) => {
+    if (mode === "hidden") ++viewRequest;
     document.documentElement.dataset.workspaceLayout = mode;
     window.dispatchEvent(new Event("pimi-layout-change"));
   });
@@ -916,18 +969,21 @@ window.pimiWorkspace?.onNavigate(async (destination) => {
     $("show-tasks").click();
     return;
   }
-  if (destination.view === "task-draft") {
-    view("tasks");
+  if (destination.view === "task-draft" || destination.view === "new-task") {
+    const request = view("tasks");
     await Promise.all([refreshBoard(), tasksView.load()]);
-    tasksView.openProposal(destination.proposal);
+    if (request !== viewRequest) return;
+    if (destination.view === "task-draft") tasksView.openProposal(destination.proposal);
+    else tasksView.openDraft(destination);
     return;
   }
   if (destination.view !== "review") {
     $("show-board").click();
     return;
   }
-  view("review");
+  const request = view("review");
   await Promise.all([refreshBoard(), tasksView.load()]);
+  if (request !== viewRequest) return;
   if (destination.serverId && !daemonConnected) {
     openReviewPicker("Connect to the Agent Console host to open this review suggestion.");
     return;
@@ -953,7 +1009,7 @@ $("board-search").addEventListener("input", () => {
   if (boardData) renderBoard(boardData);
 });
 $("board-search").addEventListener("keydown", (event) => {
-  if (event.key === "Enter") $("lanes").querySelector(".card:not(:disabled)")?.click();
+  if (event.key === "Enter") $("lanes").querySelector(".work-card-open:not(:disabled)")?.click();
 });
 $("file-search").addEventListener("input", renderFiles);
 $("file-search").addEventListener("keydown", (event) => {
