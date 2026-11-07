@@ -18,7 +18,6 @@ ipcRenderer.on("pimi:workspace:layout", (_event, mode: WorkspaceLayout) => {
 
 contextBridge.exposeInMainWorld("pimiWorkspace", {
   chrome: process.platform === "darwin" ? "mac" : "standard",
-  toggleWindow: (): Promise<void> => ipcRenderer.invoke("pimi:workspace:toggle-window"),
   setSection: (section: PimiWorkspaceSection) =>
     ipcRenderer.send("pimi:workspace:section", section),
   onLayoutChange: (apply: (mode: WorkspaceLayout) => void) => {

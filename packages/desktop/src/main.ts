@@ -13,7 +13,6 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import {
   hidePimiWorkspace,
-  isPimiWindow,
   pimiAppearanceArgument,
   setPimiAppearance,
   showPimiWindow,
@@ -690,11 +689,8 @@ function getWorkAreasPrimaryFirst(): Electron.Rectangle[] {
 }
 
 function findConsoleWindow(preferred?: BrowserWindow): BrowserWindow | undefined {
-  if (preferred && !preferred.isDestroyed() && !isPimiWindow(preferred)) return preferred;
-  const focused = BrowserWindow.getFocusedWindow();
-  return focused && !isPimiWindow(focused)
-    ? focused
-    : BrowserWindow.getAllWindows().find((candidate) => !isPimiWindow(candidate));
+  if (preferred && !preferred.isDestroyed()) return preferred;
+  return BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
 }
 
 async function resolvePimiConsoleWindow(preferred?: BrowserWindow): Promise<BrowserWindow> {
@@ -984,14 +980,10 @@ desktopWindowOwner = createDesktopWindowOwner<AgentDeepLinkTarget>({
     });
     return ownedDesktopWindow(win);
   },
-  windows: () =>
-    BrowserWindow.getAllWindows()
-      .filter((win) => !isPimiWindow(win))
-      .map(ownedDesktopWindow),
+  windows: () => BrowserWindow.getAllWindows().map(ownedDesktopWindow),
   focusedWindow: () => {
     const win = BrowserWindow.getFocusedWindow();
-    if (!win || isPimiWindow(win)) return null;
-    return ownedDesktopWindow(win);
+    return win ? ownedDesktopWindow(win) : null;
   },
   agentRoute: buildAgentDeepLinkRoute,
   deliverAgent: (webContentsId, target) =>

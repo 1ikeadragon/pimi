@@ -18,13 +18,12 @@ import type {
   EditorTargetDescriptor,
   EditorTargetLaunchInput,
 } from "../features/editor-targets/target.js";
-import { getMainWindowChromeOptions } from "./window-manager.js";
 
 const AGENT_CONSOLE_URL = "pimi-agents://open";
 const APPEARANCE_FILE = "pimi-appearance.json";
 export type PimiAppearance = "system" | "light" | "dark" | "paper";
 export type { PimiDestination } from "@getpaseo/protocol/pimi-task";
-export type WorkspaceLayout = "inline" | "attached" | "detached" | "hidden";
+export type WorkspaceLayout = "inline" | "attached" | "hidden";
 export interface PimiContentBounds extends Electron.Rectangle {
   sidebar: boolean;
 }
@@ -32,12 +31,10 @@ interface WorkspaceSurface {
   view: WebContentsView;
   host?: BrowserWindow;
   owner?: BrowserWindow;
-  detached?: BrowserWindow;
   releaseHost?: () => void;
   resizeHost?: () => void;
   cancelDictation?: () => void;
   options: PimiWindowOptions;
-  backgroundColor: string;
   layout: WorkspaceLayout;
   section: PimiWorkspaceSection;
 }
@@ -50,10 +47,6 @@ const consoleBounds = new WeakMap<BrowserWindow, PimiContentBounds>();
 export function updatePimiContentBounds(win: BrowserWindow, bounds: PimiContentBounds): void {
   consoleBounds.set(win, bounds);
   if (workspace?.host === win) workspace.resizeHost?.();
-}
-
-export function isPimiWindow(win: BrowserWindow): boolean {
-  return win === workspace?.detached;
 }
 
 function getPimiAppearance(): PimiAppearance {
@@ -154,16 +147,15 @@ export async function showPimiWindow(
   }
   if (requestedOwner !== owner || owner.isDestroyed()) return;
   workspace.owner = owner;
-  const host = workspace.detached ?? owner;
-  attach(workspace, host);
-  reveal(host, workspace.view);
+  attach(workspace, owner);
+  reveal(owner, workspace.view);
   if (destination) workspace.view.webContents.send("pimi:workspace:navigate", destination);
 }
 
 export function hidePimiWorkspace(win?: BrowserWindow): void {
   if (!win || requestedOwner === win) requestedOwner = undefined;
   const surface = workspace;
-  if (!surface || !surface.host || surface.host === surface.detached) return;
+  if (!surface?.host) return;
   if (win && surface.host !== win) return;
   const host = surface.host;
   surface.releaseHost?.();
@@ -185,7 +177,7 @@ function sendLayout(surface: WorkspaceSurface, layout: WorkspaceLayout): void {
 }
 
 function closeIfUnhosted(surface: WorkspaceSurface): void {
-  if (surface.host || BrowserWindow.getAllWindows().some((win) => !isPimiWindow(win))) return;
+  if (surface.host || BrowserWindow.getAllWindows().length > 0) return;
   if (!surface.view.webContents.isDestroyed()) surface.view.webContents.close();
 }
 
@@ -194,18 +186,14 @@ function attach(surface: WorkspaceSurface, win: BrowserWindow): void {
   surface.releaseHost?.();
   surface.host = win;
   win.contentView.addChildView(surface.view);
-  const attached = win !== surface.detached;
-  const defaultLayout = attached ? "attached" : "detached";
   const sendSection = () => win.webContents.send("pimi:workspace:section", surface.section);
-  if (attached) {
-    sendSection();
-    win.webContents.on("did-finish-load", sendSection);
-  }
+  sendSection();
+  win.webContents.on("did-finish-load", sendSection);
   const resize = () => {
     const [width, height] = win.getContentSize();
-    const top = process.platform !== "darwin" && attached ? 38 : 0;
-    const content = attached ? consoleBounds.get(win) : undefined;
-    const zoom = attached ? win.webContents.getZoomFactor() : 1;
+    const top = process.platform !== "darwin" ? 38 : 0;
+    const content = consoleBounds.get(win);
+    const zoom = win.webContents.getZoomFactor();
     const x = Math.min(width, Math.max(0, Math.round((content?.x ?? 0) * zoom)));
     const y = Math.min(height, Math.max(top, Math.round((content?.y ?? 0) * zoom)));
     const right = content ? Math.round((content.x + content.width) * zoom) : width;
@@ -216,11 +204,10 @@ function attach(surface: WorkspaceSurface, win: BrowserWindow): void {
       width: Math.max(0, Math.min(right, width) - x),
       height: Math.max(0, Math.min(bottom, height) - y),
     });
-    const layout = content?.sidebar ? "inline" : defaultLayout;
+    const layout = content?.sidebar ? "inline" : "attached";
     if (surface.layout !== layout) sendLayout(surface, layout);
   };
   const closed = () => {
-    if (surface.detached === win) surface.detached = undefined;
     if (surface.owner === win) surface.owner = undefined;
     surface.releaseHost?.();
     sendLayout(surface, "hidden");
@@ -232,10 +219,8 @@ function attach(surface: WorkspaceSurface, win: BrowserWindow): void {
     win.removeListener("closed", closed);
     if (!win.isDestroyed()) {
       win.contentView.removeChildView(surface.view);
-      if (attached) {
-        win.webContents.removeListener("did-finish-load", sendSection);
-        win.webContents.send("pimi:workspace:section", null);
-      }
+      win.webContents.removeListener("did-finish-load", sendSection);
+      win.webContents.send("pimi:workspace:section", null);
     }
     surface.host = undefined;
     surface.releaseHost = undefined;
@@ -245,32 +230,6 @@ function attach(surface: WorkspaceSurface, win: BrowserWindow): void {
   win.on("resize", resize);
   win.once("closed", closed);
   resize();
-}
-
-async function toggleWorkspaceWindow(surface: WorkspaceSurface): Promise<void> {
-  if (surface.detached) {
-    const detached = surface.detached;
-    const owner = await surface.options.resolveConsoleWindow(surface.owner);
-    surface.owner = owner;
-    surface.detached = undefined;
-    attach(surface, owner);
-    if (!detached.isDestroyed()) detached.destroy();
-    reveal(owner, surface.view);
-    return;
-  }
-  const win = new BrowserWindow({
-    ...(process.platform === "darwin" ? getMainWindowChromeOptions({ mode: "native-mac" }) : {}),
-    title: "Pimi Workspace",
-    width: 1320,
-    height: 850,
-    minWidth: 700,
-    minHeight: 520,
-    show: false,
-    backgroundColor: surface.backgroundColor,
-  });
-  surface.detached = win;
-  attach(surface, win);
-  reveal(win, surface.view);
 }
 
 async function createWorkspaceSurface(options: PimiWindowOptions): Promise<WorkspaceSurface> {
@@ -312,7 +271,7 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
     },
   });
   view.setBackgroundColor(backgroundColor);
-  surface = { view, options, backgroundColor, layout: "hidden", section: "tasks" };
+  surface = { view, options, layout: "hidden", section: "tasks" };
   const contents = view.webContents;
   const cleanupUnhosted = () => {
     if (surface) closeIfUnhosted(surface);
@@ -323,10 +282,6 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
     surface?.releaseHost?.();
     if (workspace === surface) workspace = undefined;
     void runtime.close();
-  });
-  contents.ipc.handle("pimi:workspace:toggle-window", (event) => {
-    if (event.senderFrame !== contents.mainFrame || !surface?.host) return undefined;
-    return toggleWorkspaceWindow(surface);
   });
   contents.ipc.on("pimi:workspace:section", (event, section: unknown) => {
     if (event.senderFrame !== contents.mainFrame || !surface) return;
@@ -340,9 +295,7 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
     }
     if (section === surface.section) return;
     surface.section = section;
-    if (surface.host && surface.host !== surface.detached) {
-      surface.host.webContents.send("pimi:workspace:section", section);
-    }
+    surface.host?.webContents.send("pimi:workspace:section", section);
   });
   contents.on("did-finish-load", () => {
     if (surface?.host) sendLayout(surface, surface.layout);
