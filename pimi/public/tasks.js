@@ -7,12 +7,12 @@ export function createTasksView({
   message,
   agentChatLinks,
   openReview,
+  compareReview,
   refreshBoard,
 }) {
   let tasks = [];
   let inventory = { cards: [], repositories: [] };
   let selectedId;
-  let editorId;
   let renderedExperiments;
   let renderedList;
   let creating = false;
@@ -23,12 +23,17 @@ export function createTasksView({
   const launches = new Set();
   const planning = new Set();
   const reportRequests = new Set();
+  const reportErrors = new Map();
   const autoCollected = new Set();
   const busyControls = new Set();
 
   const selected = () => tasks.find((task) => task.id === selectedId);
   const visible = () => !$("tasks").hidden;
   const drafts = (task) => task.experiments.filter((item) => !item.path && !item.report);
+  const repositoriesFor = (task) =>
+    task.repositories ?? (task.root ? [{ root: task.root, base: task.base }] : []);
+  const repositoryFor = (task, item) =>
+    repositoriesFor(task).find(({ root }) => root === (item.root ?? task.root));
 
   function sourceChat({ serverId, agentId }) {
     return `paseo://h/${encodeURIComponent(serverId)}/agent/${encodeURIComponent(agentId)}`;
@@ -51,6 +56,7 @@ export function createTasksView({
 
   function experimentStatus(item, agent) {
     if (item.report) return "Report ready";
+    if (reportRequests.has(item.id)) return "Getting report…";
     if (agent?.needsInput) return "Needs approval";
     if (agent?.status === "error" || item.error) return "Needs attention";
     if (["running", "initializing"].includes(agent?.status)) return "Running";
@@ -62,9 +68,9 @@ export function createTasksView({
   function status(task) {
     if (task.done) return "Closed";
     if (task.experiments.length && task.experiments.every((item) => item.report))
-      return "Ready to decide";
+      return "Ready to review";
     if (task.experiments.some((item) => item.launch || item.path || item.report))
-      return "Exploring";
+      return "In progress";
     return "Draft";
   }
 
@@ -120,9 +126,9 @@ export function createTasksView({
     const modelChosen = Boolean($("task-model").value && choices?.models.length);
     $("run-task").disabled = active || !modelChosen || !pending.length;
     $("suggest-experiments").disabled = active || !modelChosen || task.experiments.length > 6;
-    $("run-task").textContent = pending.length > 4 ? "Run next 4" : "Run experiments";
-    let note = "Pimi checks the model first, then starts one agent per experiment.";
-    if (planning.has(task.id)) note = "Drafting two experiments from the brief…";
+    $("run-task").textContent = pending.length > 4 ? "Start next 4" : "Start agents";
+    let note = "Pimi starts one agent per draft. Finished agents report here.";
+    if (planning.has(task.id)) note = "Drafting two work items from the brief…";
     else if (active) note = "Checking the model and starting worktrees…";
     else if (choices?.models.length === 0) note = "No ready models. Check Agent Console settings.";
     $("task-run-note").textContent = note;
@@ -131,7 +137,7 @@ export function createTasksView({
   function reportContent(item) {
     const report = element("div", "experiment-report");
     report.append(
-      element("h4", "", item.reportSource === "agent" ? "Agent report" : "Report"),
+      element("h4", "", item.reportSource === "agent" ? "Agent report" : "Saved report"),
       element("p", "", item.report),
     );
     if (item.reportTruncated) {
@@ -140,6 +146,69 @@ export function createTasksView({
       );
     }
     return report;
+  }
+
+  function workItemActions(task, { item, card, agent, chatAgents }) {
+    const actions = element("div", "experiment-actions");
+    actions.append(...agentChatLinks(chatAgents));
+    if (card && !card.unavailable) {
+      const base = repositoryFor(task, item)?.base || "";
+      actions.append(
+        button("button secondary", "Review changes", () => openReview(card, base)),
+        button("button quiet", "Compare alongside", () => compareReview(card, base)),
+      );
+    }
+    if (task.done) return actions;
+    if (!item.launch && !item.path && !item.report) {
+      const repositories = repositoriesFor(task);
+      if (repositories.length > 1)
+        actions.append(workItemRepositoryPicker(task, item, repositories));
+      const discard = button("button secondary", "Discard draft", () => {
+        void perform(discard, async () => {
+          await api("tasks/discard", { id: task.id, experimentId: item.id });
+          await load();
+        });
+      });
+      discard.disabled = launches.has(task.id) || planning.has(task.id);
+      actions.append(discard);
+    }
+    if (item.launch && !item.report && reportErrors.has(item.id)) {
+      const retry = button(
+        "button secondary",
+        "Retry report",
+        () => void collectReport(task, item),
+      );
+      retry.disabled =
+        reportRequests.has(item.id) || ["initializing", "running"].includes(agent?.status);
+      actions.append(retry);
+    }
+    return actions;
+  }
+
+  function workItemRepositoryPicker(task, item, repositories) {
+    const picker = element("select", "work-item-repository");
+    picker.setAttribute("aria-label", `Repository for ${item.title}`);
+    picker.replaceChildren(
+      ...repositories.map(({ root }) => new Option(root.split("/").at(-1), root)),
+    );
+    picker.value = repositoryFor(task, item)?.root ?? "";
+    picker.disabled = launches.has(task.id) || planning.has(task.id);
+    picker.addEventListener("change", () => {
+      void perform(picker, async () => {
+        try {
+          await api("tasks/assign-repository", {
+            id: task.id,
+            experimentId: item.id,
+            root: picker.value,
+          });
+          await load();
+        } catch (error) {
+          picker.value = repositoryFor(task, item)?.root ?? "";
+          throw error;
+        }
+      });
+    });
+    return picker;
   }
 
   function renderExperiments(task) {
@@ -157,16 +226,19 @@ export function createTasksView({
     const signature = JSON.stringify([
       task.id,
       task.done,
+      task.repositories,
       visible(),
       launches.has(task.id),
       planning.has(task.id),
       entries,
       [...reportRequests],
+      [...reportErrors],
     ]);
     if (signature === renderedExperiments) return;
     renderedExperiments = signature;
     $("experiment-list").replaceChildren(
-      ...entries.map(({ item, card, agent, chatAgents }) => {
+      ...entries.map((entry) => {
+        const { item, card, agent } = entry;
         const row = element("article", "experiment");
         const heading = element("div", "experiment-heading");
         heading.append(
@@ -174,72 +246,30 @@ export function createTasksView({
           element("span", "task-status", experimentStatus(item, agent)),
         );
         row.append(heading, element("p", "experiment-hypothesis", item.hypothesis));
-        if (card) row.append(element("p", "subtitle", card.branch));
+        const root = repositoryFor(task, item)?.root;
+        row.append(
+          element(
+            "p",
+            "subtitle",
+            root
+              ? `${root.split("/").at(-1)} · ${card?.branch || "New worktree"}`
+              : "No repository",
+          ),
+        );
         const error = agent?.error || item.error;
         if (error) row.append(element("p", "warning", error));
         if (item.report) row.append(reportContent(item));
-        const actions = element("div", "experiment-actions");
-        actions.append(...agentChatLinks(chatAgents));
-        if (card && !card.unavailable) {
-          actions.append(
-            button("button secondary", "Review changes", () => openReview(card, task.base)),
-          );
-        }
-        if (!task.done) {
-          if (!item.launch && !item.path && !item.report) {
-            const discard = button("button secondary", "Discard draft", () => {
-              void perform(discard, async () => {
-                await api("tasks/discard", { id: task.id, experimentId: item.id });
-                await load();
-              });
-            });
-            discard.disabled = launches.has(task.id) || planning.has(task.id);
-            actions.append(discard);
-          }
-          if (item.launch && !item.report) {
-            const collect = button(
-              "button secondary",
-              "Collect report",
-              () => void collectReport(task, item),
-            );
-            collect.disabled =
-              reportRequests.has(item.id) || ["initializing", "running"].includes(agent?.status);
-            actions.append(collect);
-          }
-          actions.append(
-            button("button secondary", item.report ? "Edit report" : "Add report", () => {
-              editorId = item.id;
-              $("report-editor-label").firstChild.textContent = `Report for ${item.title}`;
-              $("task-report-text").value = item.report;
-              $("task-report-editor").hidden = false;
-              $("task-report-text").focus();
-            }),
-          );
-        }
+        if (reportErrors.has(item.id))
+          row.append(element("p", "subtitle", reportErrors.get(item.id)));
+        const actions = workItemActions(task, entry);
         if (actions.childElementCount) row.append(actions);
         return row;
       }),
     );
     if (!entries.length)
       $("experiment-list").append(
-        element("p", "subtitle", "Add a hypothesis or link an existing worktree."),
+        element("p", "subtitle", "Add a work item or link an existing worktree."),
       );
-
-    if (visible() && !task.done && !reportRequests.size) {
-      // Collect a finished worker's report once per view session. Manual collection can retry.
-      const next = entries.find(
-        ({ item, agent }) =>
-          !item.reportSource &&
-          agent?.status === "idle" &&
-          !agent.needsInput &&
-          !autoCollected.has(item.id) &&
-          !reportRequests.has(item.id),
-      );
-      if (next) {
-        autoCollected.add(next.item.id);
-        void collectReport(task, next.item, { quiet: true });
-      }
-    }
   }
 
   function renderDetails({ fill = false } = {}) {
@@ -250,10 +280,25 @@ export function createTasksView({
     if (creating || !task) return;
     $("task-title").textContent = task.title;
     $("task-brief").textContent = task.brief;
-    $("task-context").textContent = task.root
-      ? `${task.root.split("/").at(-1)} · base ${task.base.slice(0, 8)}`
+    const managed = task.experiments.filter((item) => item.launch);
+    const reports = managed.filter((item) => item.reportSource === "agent").length;
+    const progress = managed.length ? `${reports} of ${managed.length} agent reports ready` : "";
+    if ($("task-progress").textContent !== progress) $("task-progress").textContent = progress;
+    const repositories = repositoriesFor(task);
+    $("task-context").textContent = repositories.length
+      ? repositories
+          .map(({ root, base }) => `${root.split("/").at(-1)} · base ${base.slice(0, 8)}`)
+          .join(" | ")
       : "No repository attached";
-    $("task-attach-repository").hidden = task.done || Boolean(task.root);
+    $("task-context").title = repositories.map(({ root, base }) => `${root} @ ${base}`).join("\n");
+    $("task-attach-repository").hidden = task.done;
+    options(
+      $("task-attach-root"),
+      inventory.repositories
+        .filter(({ path }) => !repositories.some(({ root }) => root === path))
+        .map(({ path, name }) => ({ id: path, label: `${name} — ${path}` })),
+      "Add another repository",
+    );
     const sourceLink = $("task-source-chat");
     sourceLink.hidden = !task.source;
     if (task.source) sourceLink.href = sourceChat(task.source);
@@ -268,18 +313,29 @@ export function createTasksView({
       form.elements.brief.value = task.brief;
     }
     const attached = new Set(task.experiments.map((item) => cardFor(item)?.path));
+    options(
+      $("experiment-repository"),
+      repositories.map(({ root }) => ({ id: root, label: root })),
+      "Choose a repository",
+      task.root,
+    );
+    $("experiment-repository").disabled = !repositories.length;
+    $("experiment-repository").required = Boolean(repositories.length);
     const available = inventory.cards.filter(
-      (card) => card.root === task.root && !card.unavailable && !attached.has(card.path),
+      (card) =>
+        card.root === $("experiment-repository").value &&
+        !card.unavailable &&
+        !attached.has(card.path),
     );
     options(
       $("experiment-worktree"),
       available.map((card) => ({
         id: card.path,
-        label: card.branch,
+        label: `${card.branch} — ${card.path}`,
       })),
       "Create a new worktree when launched",
     );
-    $("experiment-worktree").disabled = !task.root;
+    $("experiment-worktree").disabled = !$("experiment-repository").value;
     const choice = models.get(task.id);
     const original = drafts(task).find((item) => item.launch)?.launch.config.provider;
     options($("task-model"), choice?.models ?? [], "Choose a model", original ?? choice?.preferred);
@@ -287,16 +343,10 @@ export function createTasksView({
     renderExperiments(task);
   }
 
-  function closeReportEditor() {
-    editorId = undefined;
-    $("task-report-editor").hidden = true;
-  }
-
   function choose(id) {
     selectedId = id;
     creating = false;
     proposalDraft = undefined;
-    closeReportEditor();
     $("task-idea").reset();
     $("add-experiment").open = false;
     $("task-edit-details").open = false;
@@ -338,6 +388,7 @@ export function createTasksView({
         renderList();
         renderDetails();
       }
+      reconcileReports();
     } catch (error) {
       if (version === request) message("task-warning", error.message);
     }
@@ -360,17 +411,38 @@ export function createTasksView({
     }
   }
 
-  async function collectReport(task, item, { quiet = false } = {}) {
+  function reconcileReports() {
+    if (reportRequests.size) return;
+    for (const task of tasks) {
+      if (task.done) continue;
+      const item = task.experiments.find((entry) => {
+        if (!entry.launch || entry.reportSource || autoCollected.has(entry.id)) return false;
+        return cardFor(entry)?.agents.some(
+          (agent) => agent.id === entry.id && agent.status === "idle" && !agent.needsInput,
+        );
+      });
+      if (item) {
+        autoCollected.add(item.id);
+        void collectReport(task, item);
+        return;
+      }
+    }
+  }
+
+  async function collectReport(task, item) {
     if (reportRequests.has(item.id)) return;
     reportRequests.add(item.id);
+    reportErrors.delete(item.id);
+    if (visible()) renderDetails();
     try {
       await api("tasks/report", { id: task.id, experimentId: item.id });
       await load();
     } catch (error) {
-      if (!quiet && selectedId === task.id) message("task-warning", error.message);
+      reportErrors.set(item.id, error.message);
     } finally {
       reportRequests.delete(item.id);
-      renderDetails();
+      if (visible()) renderDetails();
+      reconcileReports();
     }
   }
 
@@ -405,7 +477,6 @@ export function createTasksView({
     }
     creating = true;
     proposalDraft = proposal;
-    closeReportEditor();
     form.reset();
     updateRepositories();
     const repo = $("task-repository");
@@ -532,6 +603,7 @@ export function createTasksView({
       await api("tasks/experiment", {
         id: task.id,
         ...Object.fromEntries(data),
+        root: $("experiment-repository").value || undefined,
         path: $("experiment-worktree").value || undefined,
       });
       if (selectedId === task.id && !creating) {
@@ -540,6 +612,10 @@ export function createTasksView({
       }
       await load();
     });
+  });
+  $("experiment-repository").addEventListener("change", () => {
+    $("experiment-worktree").value = "";
+    renderDetails();
   });
 
   $("task-models").addEventListener("click", () => {
@@ -598,17 +674,6 @@ export function createTasksView({
       }
     })();
   });
-  $("cancel-report").addEventListener("click", closeReportEditor);
-  $("task-report-editor").addEventListener("submit", (event) => {
-    event.preventDefault();
-    const task = selected();
-    const experimentId = editorId;
-    void perform(event.submitter, async () => {
-      await api("tasks/report", { id: task.id, experimentId, text: $("task-report-text").value });
-      if (editorId === experimentId) closeReportEditor();
-      await load();
-    });
-  });
 
   return {
     load,
@@ -617,8 +682,14 @@ export function createTasksView({
       else beginCreate(proposal);
     },
     baseForWorktree(card) {
-      const task = selected();
-      return task?.experiments.some((item) => cardFor(item)?.path === card.path) ? task.base : "";
+      function base(task) {
+        const item = task?.experiments.find((entry) => cardFor(entry)?.path === card.path);
+        return item ? repositoryFor(task, item)?.base : undefined;
+      }
+      const pinned = base(selected());
+      if (pinned) return pinned;
+      const otherBases = new Set(tasks.map(base).filter(Boolean));
+      return otherBases.size === 1 ? otherBases.values().next().value : "";
     },
     setBoard(data) {
       inventory = data;
@@ -626,6 +697,7 @@ export function createTasksView({
       $("dictate-edit").hidden = !data.native;
       updateRepositories();
       if (visible()) renderDetails();
+      reconcileReports();
     },
   };
 }

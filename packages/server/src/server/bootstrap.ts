@@ -1,5 +1,6 @@
 import { createRestartRecovery } from "./agent/restart-recovery/index.js";
 import { sendPromptToAgent } from "./agent/agent-prompt.js";
+import { generateChatTitle } from "./agent/chat-title-generator.js";
 import { createIdleRuntimeCleanup } from "./agent/idle-runtime-cleanup/index.js";
 import {
   createFinishSubscriptions,
@@ -13,7 +14,7 @@ import express from "express";
 import { createServer as createHTTPServer, type IncomingMessage, type ServerResponse } from "http";
 import { constants, existsSync, unlinkSync } from "fs";
 import { open, rm, stat } from "fs/promises";
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import { getHostName } from "./host-name.js";
 import path from "node:path";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -145,6 +146,7 @@ import { AgentManager } from "./agent/agent-manager.js";
 import { AgentStorage } from "./agent/agent-storage.js";
 import { attachAgentStoragePersistence } from "./persistence-hooks.js";
 import { createAgentMcpServer } from "./agent/mcp-server.js";
+import { ProjectMemory } from "./project-memory.js";
 import {
   createPaseoToolCatalog,
   createPaseoAgentToolManifest,
@@ -221,10 +223,15 @@ import { withTimeout } from "../utils/promise-timeout.js";
 import { isHostnameAllowed, type HostnamesConfig } from "./hostnames.js";
 import {
   createRequireBearerMiddleware,
+  extractHttpBearerToken,
   isAgentMcpRequestAuthorized,
   type DaemonAuthConfig,
 } from "./auth.js";
-import { deleteLocalCredential, writeLocalCredential } from "./local-credential.js";
+import {
+  deleteLocalCredential,
+  matchesLocalCredential,
+  writeLocalCredential,
+} from "./local-credential.js";
 import { createWebUiMiddleware } from "./web-ui.js";
 import { WorkspaceAutoName } from "./workspace-auto-name.js";
 import { createGitMutationService } from "./session/git-mutation/git-mutation-service.js";
@@ -702,14 +709,12 @@ export async function createPaseoDaemon(
     ttlMs: downloadTokenTtlMs,
   });
 
-  // Capability token authenticating the daemon's own agents to the loopback
-  // Agent MCP endpoint (/mcp/agents). Random per daemon run, injected only into
-  // local agent configs and the daemon's own MCP client — never sent to remote
-  // clients — so it cannot be replayed off-box. This lets the injected MCP
-  // authenticate even when the daemon password is set via the app (hash only,
-  // no plaintext available). Mirrors the /api/files/download capability-token
-  // pattern.
+  // The per-run secret authenticates daemon-owned MCP clients even when the
+  // daemon has only a password hash. Give each agent a derived credential so
+  // the endpoint can bind private tools to its caller ID.
   const agentMcpAuthToken = randomUUID();
+  const agentMcpTokenForCaller = (agentId: string) =>
+    createHmac("sha256", agentMcpAuthToken).update(agentId).digest("base64url");
 
   const listenTarget = parseListenString(config.listen);
 
@@ -1021,7 +1026,18 @@ export async function createPaseoDaemon(
     onWorkspaceStateMayHaveChanged: ({ cwd }) => {
       workspaceGitService.onWorkspaceStateMayHaveChanged(cwd);
     },
+    generateChatTitle: (manager, agent, firstPrompt) =>
+      generateChatTitle({
+        manager,
+        agent,
+        firstPrompt,
+        providerSnapshotManager,
+        daemonConfig: daemonConfigStore.get(),
+        workspaceGitService,
+        logger,
+      }),
     mcpAuthToken: agentMcpAuthToken,
+    mcpCallerAuthToken: agentMcpTokenForCaller,
     resolvePaseoToolPolicy: (provider) =>
       resolvePaseoToolPolicy(provider, daemonConfigStore.get().providers),
     logger,
@@ -1520,8 +1536,10 @@ export async function createPaseoDaemon(
     idleRuntimeCleanup,
   );
 
+  const projectMemory = new ProjectMemory(config.paseoHome);
   const createAgentToolHostDependencies = (
     runtime: PaseoToolRuntimeContext,
+    canUseProjectMemory = true,
   ): PaseoToolHostDependencies => ({
     finishSubscriptions: () => finishSubscriptions,
     agentMessages: () => {
@@ -1548,6 +1566,7 @@ export async function createPaseoDaemon(
     emitWorkspaceUpdatesForWorkspaceIds: emitWorkspaceUpdatesExternal,
     workspaceRegistry,
     projectRegistry,
+    projectMemory: canUseProjectMemory ? projectMemory : undefined,
     createDirectoryWorkspace: async (cwd, title, projectId, context) => {
       const workspace = await workspaceProvisioning.createWorkspaceForDirectory(
         cwd,
@@ -1611,14 +1630,20 @@ export async function createPaseoDaemon(
   {
     const agentMcpRoute = "/mcp/agents";
 
-    const createAgentMcpSession = async (callerAgentId?: string) => {
+    const createAgentMcpSession = async (
+      callerAgentId: string | undefined,
+      boundCaller: boolean,
+    ) => {
       const agentMcpServer = await createAgentMcpServer(
-        createAgentToolHostDependencies({
-          callerAgentId,
-          paseoToolPolicy: callerAgentId
-            ? agentManager.getPaseoToolPolicy(callerAgentId)
-            : undefined,
-        }),
+        createAgentToolHostDependencies(
+          {
+            callerAgentId,
+            paseoToolPolicy: callerAgentId
+              ? agentManager.getPaseoToolPolicy(callerAgentId)
+              : undefined,
+          },
+          boundCaller && daemonConfigStore.get().mcp.injectIntoAgents !== false,
+        ),
       );
 
       // Stateless mode: each HTTP request builds a fresh server + transport that is
@@ -1650,15 +1675,30 @@ export async function createPaseoDaemon(
         res.status(404).json({ error: "Agent MCP endpoint disabled" });
         return;
       }
+      const callerAgentIdRaw = req.query.callerAgentId;
+      const callerAgentIdValue = Array.isArray(callerAgentIdRaw)
+        ? callerAgentIdRaw[0]
+        : callerAgentIdRaw;
+      const callerAgentId = typeof callerAgentIdValue === "string" ? callerAgentIdValue : undefined;
+      const authorizationHeader = req.header("authorization");
+      const bearer = extractHttpBearerToken(authorizationHeader);
+      // General tools also serve legacy/password clients. Project memory requires a credential
+      // bound to the injected caller, including on daemons with no password.
+      const boundCaller = Boolean(
+        callerAgentId &&
+        bearer &&
+        matchesLocalCredential(agentMcpTokenForCaller(callerAgentId), bearer),
+      );
       // This route is exempt from the global daemon-password middleware, so it
       // authenticates here using the injected capability token (or a valid
       // daemon password). Without this, a password-protected daemon would be
       // wide open on its agent control plane.
       if (
+        !boundCaller &&
         !(await isAgentMcpRequestAuthorized({
           password: config.auth?.password,
           capabilityToken: agentMcpAuthToken,
-          authorizationHeader: req.header("authorization"),
+          authorizationHeader,
         }))
       ) {
         res.status(401).json({ error: "Unauthorized" });
@@ -1691,14 +1731,7 @@ export async function createPaseoDaemon(
           });
           return;
         }
-        const callerAgentIdRaw = req.query.callerAgentId;
-        let callerAgentId: string | undefined;
-        if (typeof callerAgentIdRaw === "string") {
-          callerAgentId = callerAgentIdRaw;
-        } else if (Array.isArray(callerAgentIdRaw) && typeof callerAgentIdRaw[0] === "string") {
-          callerAgentId = callerAgentIdRaw[0];
-        }
-        const { server, transport } = await createAgentMcpSession(callerAgentId);
+        const { server, transport } = await createAgentMcpSession(callerAgentId, boundCaller);
         res.on("close", () => {
           void transport.close();
           void server.close();

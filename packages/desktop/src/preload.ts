@@ -45,6 +45,7 @@ function createPimiAppearanceBridge() {
   });
   return {
     get: () => current,
+    set: (mode: PimiAppearance): Promise<void> => ipcRenderer.invoke("pimi:appearance:set", mode),
     subscribe: (subscriber: (mode: PimiAppearance) => void) => {
       subscribers.add(subscriber);
       subscriber(current);
@@ -60,6 +61,14 @@ function isPimiAppearance(value: unknown): value is PimiAppearance {
 }
 
 const pimiAppearance = createPimiAppearanceBridge();
+let settingsPending = false;
+let openSettings: (() => void) | undefined;
+if (pimiAppearance) {
+  ipcRenderer.on("pimi:settings:open", () => {
+    if (openSettings) openSettings();
+    else settingsPending = true;
+  });
+}
 contextBridge.exposeInMainWorld("paseoDesktop", {
   platform: process.platform,
   pimiAppearance,
@@ -67,6 +76,16 @@ contextBridge.exposeInMainWorld("paseoDesktop", {
     ? {
         showPimiWorkspace: (destination: PimiDestination) =>
           ipcRenderer.send("pimi:workspace:show", destination),
+        onPimiOpenSettings: (open: () => void) => {
+          openSettings = open;
+          if (settingsPending) {
+            settingsPending = false;
+            open();
+          }
+          return () => {
+            if (openSettings === open) openSettings = undefined;
+          };
+        },
       }
     : {}),
   ...(process.argv.includes("--pimi-task-dictation")

@@ -64,7 +64,8 @@ $PASEO_HOME/
 │   ├── workspaces.json                  # Workspace registry
 │   ├── workspace-labels.json            # Shared host-local label catalog
 │   ├── workspace-labels.transaction.json # Recoverable catalog/assignment compound commit
-│   └── icons/                           # Host-local custom project icon images
+│   ├── icons/                           # Host-local custom project icon images
+│   └── memory/                          # Private notes keyed by host-local project ID
 ├── runtime/
 │   └── managed-processes/
 │       └── {recordId}.json              # Helper processes owned by Paseo; reconciled on daemon bootstrap
@@ -75,6 +76,8 @@ $PASEO_HOME/
 ```
 
 The `agents/{sanitized-cwd}/` directory name is derived from the agent's `cwd` by stripping the filesystem root and replacing path separators with `-` (Windows drive letters become a `C-` style prefix). Persistent server stores write atomically by writing a temp file in the target directory and then renaming it into place.
+
+Project memory follows the registered workspace's project ID. Worktrees and providers in the same project share it. Hosts and separately registered projects have their own notes, even when they point to the same Git remote. With agent tools enabled, ask an agent to remember or forget a named note. Agents can recall notes when they need prior project context. Recalled notes can be sent to the current provider as tool results, so keep secrets out of project memory.
 
 ---
 

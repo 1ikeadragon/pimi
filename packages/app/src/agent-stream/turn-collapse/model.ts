@@ -6,7 +6,7 @@ import {
   type ToolCallItem,
 } from "@/types/stream";
 import { summarizeToolCalls, type OverviewSummary } from "@/tool-calls/detail-level/overview/model";
-import { isPimiTaskProposalTool } from "@getpaseo/protocol/pimi-task";
+import { isPimiActionTool } from "@getpaseo/protocol/pimi-task";
 
 export interface TurnSummary {
   tools: OverviewSummary;
@@ -104,7 +104,7 @@ function staysVisibleWhenCollapsed(item: StreamItem): boolean {
     (item.kind === "tool_call" &&
       item.payload.source === "agent" &&
       item.payload.data.status === "completed" &&
-      isPimiTaskProposalTool(item.payload.data.name))
+      isPimiActionTool(item.payload.data.name))
   );
 }
 

@@ -56,6 +56,11 @@ export const EDITOR_TARGETS: readonly EditorTarget[] = [
   fileManagerTarget,
 ];
 
+export const PIMI_EDITOR_TARGETS: readonly EditorTarget[] = [
+  zedTarget,
+  ...EDITOR_TARGETS.filter(({ id }) => id !== "cursor" && id !== zedTarget.id),
+];
+
 export interface ListEditorTargetsOptions {
   /**
    * Absolute workspace root. Without it, targets that declare

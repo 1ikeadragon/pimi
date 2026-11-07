@@ -1,10 +1,10 @@
 # Pimi
 
-Start with a coding question, explore approaches in parallel, and review the evidence in one macOS app. Pimi brings tasks, Git worktrees, agents, and code review together.
+Start with a chat, give your agents separate Git worktrees, and review their changes together. A Pimi task can track one feature across several repositories.
 
-[![Watch Pimi go from a dictated brief to parallel worktrees, reports, and code review](assets/pimi/tasks.jpg)](assets/pimi/demo.mp4)
+[![Watch the Pimi launch film](assets/pimi/promo.jpg)](assets/pimi/promo.mp4)
 
-[Watch the full workflow](assets/pimi/demo.mp4). The recording uses scripted model and speech fixtures with real Pimi workspace creation, Git changes, and review.
+The film uses scripted worker responses with real Git worktrees and diffs.
 
 ## Start in chat
 
@@ -12,70 +12,80 @@ Pimi opens in Agent Console. On first launch, setup helps you connect a provider
 
 ![The first Pimi window with setup, provider and project steps, and examples for chat and Tasks](assets/pimi/onboarding.jpg)
 
-With **Agent tools** enabled, an agent can suggest a task when you describe work worth tracking or ask to compare approaches. **Review task draft** opens an editable brief with the suggested experiments. Save it when you're ready, then launch experiments separately. **Original chat** takes you back to the conversation.
+New chats get a short title based on the first message when a metadata provider is available. With **Agent tools** enabled, agents can also suggest a task. **Review task draft** opens the brief and proposed work items for you to edit and save.
 
-![The full Agent Console with a task proposal based on a conversation about two worktree experiments](assets/pimi/task-handoff.jpg)
+![A task suggestion inside Agent Console](assets/pimi/task-handoff.jpg)
 
-![The full Tasks window with the editable brief and two selectable experiments before saving](assets/pimi/task-draft.jpg)
+![The task draft with its brief and proposed work items](assets/pimi/task-draft.jpg)
 
-## Follow a research task
+## Follow work across repositories
 
-The example compares two ways to reduce repeated metadata lookups. Each experiment has its own agent and Git worktree.
+This example improves provider metadata across RelayKit, ControlPlane, and Observatory. Each work item can link an existing checkout or start an agent in a new worktree at its repository’s pinned commit.
 
 ### 1. Capture the question
 
-Create a task with a title and brief. Dictate into the brief, then edit the transcript before saving.
+Type or dictate the brief. You can edit the transcript before saving.
 
-![The full task creation window with the dictation sheet open](assets/pimi/dictation.jpg)
+![The full task creation window with the Dictate brief action](assets/pimi/dictation.jpg)
 
 ### 2. Choose what to try
 
-Write your own experiments or ask your configured model to suggest two. Run the drafts you want to explore.
+Attach the repositories, then write work items or ask your configured model to suggest two. Assign each draft to a repository before choosing **Start agents**.
 
-![The task with two proposed experiments and the controls to launch them](assets/pimi/drafts.jpg)
+![Three draft work items assigned to different repositories](assets/pimi/drafts.jpg)
 
 ### 3. Follow the worktrees
 
-Auto-Kanban follows Git and agent activity. Return to the task to compare reports as the workers finish.
+Auto-Kanban follows Git and agent activity. The agents’ final reports appear under their work items as they finish.
 
-![The full Auto-Kanban board with worktrees in parallel](assets/pimi/board.jpg)
+![Three agents running across repositories on the Worktrees board](assets/pimi/board.jpg)
+
+![Completed agent reports gathered under one task](assets/pimi/tasks.jpg)
 
 ### 4. Ask a follow-up
 
-Open the original worker’s conversation from its report. The console sidebar returns to Tasks or Worktrees, and **Review changes** opens the chat’s checkout directly.
+Open the worker’s conversation or copy a link to it. An agent can offer to open **Review** for its checkout when it has work ready.
 
 ![The full Agent Console showing a follow-up, its answer, and links back to the workspace](assets/pimi/chat.jpg)
 
+![A saved project decision and an agent’s suggestion to open Review](assets/pimi/review-handoff.jpg)
+
 ### 5. Read the diff
 
-Review one file at a time or split the view explicitly. **Explain changes** adds notes anchored to changed lines, alongside the diff.
+Open **Review** and choose a worktree, or select **Compare alongside** from a work item. Each side shows its own repository and base. Use **Find in open diffs** or `⌘F` to search the visible patches. The editor picker uses the desktop’s detected targets.
 
-![The full review workspace with a changed line and its explanation](assets/pimi/review.jpg)
+![Diffs from RelayKit and ControlPlane side by side](assets/pimi/review.jpg)
+
+![Find in open diffs matching code across both worktrees](assets/pimi/review-find.jpg)
+
+**Explain changes** adds notes tied to changed lines. **File tour** walks the changed files without calling a model.
+
+![A walkthrough note anchored to a changed line beside the second worktree’s diff](assets/pimi/review-tour.jpg)
 
 ### Choose an appearance
 
-The same task in Paper and Dark. Blush adds fine grain to the surrounding chrome. The appearance applies to Agent Console and dictation, too.
+Choose an appearance in **Pimi → Settings → Appearance**. The same setting applies to the workspace, Agent Console, and dictation. Below is the same task in Paper and Dark.
 
-![The completed task and experiment reports in Paper](assets/pimi/paper.jpg)
+![The completed task and agent reports in Paper](assets/pimi/paper.jpg)
 
-![The same task and experiment reports in Dark](assets/pimi/dark.jpg)
+![The same task and agent reports in Dark](assets/pimi/dark.jpg)
 
 ## What you can do
 
-- **Start with a task.** Type or dictate a brief using the same voice input as Agent Console. Draft ideas yourself or ask your configured model to suggest two, then link existing checkouts or start a fresh worktree and agent for each experiment.
-- **Compare findings.** Read the workers’ reports together, continue chatting in their original sessions, and open their diffs against the task’s pinned base. Close the task when you’re finished.
+- **Share project memory across providers.** With Agent tools enabled, ask an agent to remember a decision, convention, or preference. Other agents can recall it in the same project, including from its worktrees. Notes are stored on the host and enter a provider’s context when recalled.
+- **Compare findings.** Read agent reports, return to their chats, and review their changes against each repository’s pinned base.
 - **See what needs you next.** Auto-Kanban sorts worktrees into **Ready**, **In progress**, **Review**, and **Needs attention** from Git and live agent activity. Search by repo, branch, or agent. Pimi remembers repositories you add.
-- **Review code in place.** Open **Review** and pick a worktree, or jump there from chat. Compare working changes, a branch against a base ref, or a GitHub pull request. Open two files side by side and switch between diffs and syntax-highlighted source. Search changed paths and reload a comparison while keeping files that are still in the diff.
+- **Review code in place.** Compare working changes, a branch against a base ref, or a GitHub pull request. Open two files side by side, switch between diff and source, or compare a second worktree.
 - **Follow changes line by line.** File Tour walks through the changed files. Explain Changes uses your configured provider to generate short notes tied to added lines. Notes stay below the diff so you can read both together.
-- **Preview and edit.** Open a healthy workspace service from its review. Jump from a reviewed line to the corresponding file in Zed when the local checkout matches.
+- **Preview and edit.** Open a healthy workspace service from its review. Jump from a reviewed line to your chosen editor when the checkout matches.
 - **Manage agents.** Open Agent Console for sessions, terminals, workspace services, voice, and provider settings.
-- **Choose an appearance.** Follow macOS automatically or switch between Blush, Dark, and Paper. The workspace, Agent Console, and dictation share the same setting.
+- **Choose an appearance.** In Settings, follow macOS automatically or switch between Blush, Dark, and Paper.
 
 Press `/` to focus the search field for the current view. In review, use `[` and `]` to move through files or through an open tour.
 
 ## Run on macOS
 
-Build from source on Apple silicon with Git and the Node version in [`.tool-versions`](.tool-versions). GitHub CLI handles pull request lookup, and Zed is optional for opening files in an editor.
+Build from source on Apple silicon with Git and the Node version in [`.tool-versions`](.tool-versions). GitHub CLI handles pull request lookup.
 
 ```sh
 npm ci
@@ -92,6 +102,6 @@ The build creates a local, non-notarized app bundle. Follow setup to start a cha
 - **Paseo**, by Mohamed Boudra and contributors, is Pimi’s upstream. Pimi inherits its agent runtime, SDK, desktop shell, syntax highlighter, and editor launcher. [Upstream source](https://github.com/getpaseo/paseo)
 - **Electron** provides the desktop runtime. [Electron source](https://github.com/electron/electron)
 - **Git** provides worktrees and comparisons. **GitHub CLI** supplies pull request metadata and authentication. [Git source](https://github.com/git/git) · [GitHub CLI source](https://github.com/cli/cli)
-- **Zed** is the optional editor for opening a reviewed file at its line. [Zed source](https://github.com/zed-industries/zed)
+- The launch film uses [Brag](https://github.com/latent-spaces/brag) and [Hyperframes](https://github.com/heygen-com/hyperframes). Music is an excerpt from *Happy Beats / Business Moves Vol. 1* by [Sascha Ende](https://ende.app/en), trimmed and faded. [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 
 Pimi retains Paseo’s copyright and Apache 2.0 license. Third-party components retain their own licenses. [License](LICENSE)

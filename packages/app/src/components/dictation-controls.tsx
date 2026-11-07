@@ -2,7 +2,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useMemo } from "react";
 import { View, Text, Pressable } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { X, ArrowUp, RefreshCcw, Check, Mic, Pencil } from "lucide-react-native";
+import { X, ArrowUp, RefreshCcw, Check, Mic, Pencil, type LucideIcon } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { VolumeMeter } from "./volume-meter";
 import { FOOTER_HEIGHT } from "@/constants/layout";
@@ -145,6 +145,7 @@ export function DictationOverlay({
   status,
   errorText,
   neutral = false,
+  labelActions = false,
   onCancel,
   onAccept,
   onAcceptAndSend,
@@ -153,6 +154,7 @@ export function DictationOverlay({
 }: Omit<DictationControlsProps, "onStart" | "disabled" | "transcript" | "onAcceptAndSend"> & {
   errorText?: string;
   neutral?: boolean;
+  labelActions?: boolean;
   onAcceptAndSend?: () => void;
 }) {
   const { theme } = useUnistyles();
@@ -165,15 +167,20 @@ export function DictationOverlay({
   const foreground = neutral ? theme.colors.surface0 : theme.colors.accentForeground;
 
   const containerStyle = useMemo(
-    () => [overlayStyles.container, { backgroundColor: background }],
-    [background],
+    () => [
+      overlayStyles.container,
+      labelActions && overlayStyles.labeledContainer,
+      { backgroundColor: background },
+    ],
+    [background, labelActions],
   );
   const overlayCancelButtonStyle = useMemo(
     () => [
       overlayStyles.cancelButton,
+      labelActions && overlayStyles.labeledButton,
       actionsDisabled && !isFailed && overlayStyles.buttonDisabled,
     ],
-    [actionsDisabled, isFailed],
+    [actionsDisabled, isFailed, labelActions],
   );
   const overlayTimerTextStyle = useMemo(
     () => [overlayStyles.timerText, { color: foreground }],
@@ -184,8 +191,12 @@ export function DictationOverlay({
     [foreground],
   );
   const overlayRetryButtonStyle = useMemo(
-    () => [overlayStyles.actionButton, { backgroundColor: foreground }],
-    [foreground],
+    () => [
+      overlayStyles.actionButton,
+      labelActions && overlayStyles.labeledButton,
+      { backgroundColor: foreground },
+    ],
+    [foreground, labelActions],
   );
   const overlayConfirmButtonStyle = overlayRetryButtonStyle;
 
@@ -202,7 +213,13 @@ export function DictationOverlay({
         accessibilityLabel={t("message.dictation.cancel")}
         style={overlayCancelButtonStyle}
       >
-        <X size={theme.iconSize.lg} color={foreground} strokeWidth={2.5} />
+        {overlayActionContent(
+          labelActions,
+          t("common.actions.cancel"),
+          X,
+          foreground,
+          theme.iconSize.lg,
+        )}
       </Pressable>
 
       <View style={overlayStyles.centerContainer}>
@@ -216,18 +233,12 @@ export function DictationOverlay({
           />
           <Text style={overlayTimerTextStyle}>{formatDuration(duration)}</Text>
         </View>
-        {status === "paused" ? (
-          <Text numberOfLines={2} style={overlayTranscriptTextStyle}>
-            {t("message.dictation.paused")}
-          </Text>
-        ) : null}
-        {isFailed ? (
-          <Text numberOfLines={2} style={overlayTranscriptTextStyle}>
-            {errorText
-              ? t("message.dictation.failed", { error: errorText })
-              : t("message.dictation.failedRetry")}
-          </Text>
-        ) : null}
+        <DictationStatusText
+          status={status}
+          errorText={errorText}
+          fullText={labelActions}
+          style={overlayTranscriptTextStyle}
+        />
       </View>
 
       <View style={overlayStyles.actionButtonsContainer}>
@@ -243,7 +254,13 @@ export function DictationOverlay({
             accessibilityLabel={t("message.dictation.retry")}
             style={overlayRetryButtonStyle}
           >
-            <RefreshCcw size={theme.iconSize.lg} color={background} strokeWidth={2.5} />
+            {overlayActionContent(
+              labelActions,
+              t("common.actions.retry"),
+              RefreshCcw,
+              background,
+              theme.iconSize.lg,
+            )}
           </Pressable>
         ) : null}
         {!actionsDisabled && !isFailed ? (
@@ -252,9 +269,13 @@ export function DictationOverlay({
               onPress={onAccept}
               accessibilityRole="button"
               accessibilityLabel={t("message.dictation.insert")}
-              style={[overlayStyles.actionButton, OVERLAY_ACCEPT_BUTTON_BG]}
+              style={[
+                overlayStyles.actionButton,
+                labelActions && overlayStyles.labeledButton,
+                OVERLAY_ACCEPT_BUTTON_BG,
+              ]}
             >
-              <Pencil size={theme.iconSize.lg} color={foreground} strokeWidth={2.5} />
+              {overlayActionContent(labelActions, "Insert", Pencil, foreground, theme.iconSize.lg)}
             </Pressable>
             {onAcceptAndSend ? (
               <Pressable
@@ -270,6 +291,46 @@ export function DictationOverlay({
         ) : null}
       </View>
     </View>
+  );
+}
+
+function overlayActionContent(
+  labeled: boolean,
+  label: string,
+  Icon: LucideIcon,
+  color: string,
+  size: number,
+) {
+  return labeled ? (
+    <Text style={[overlayStyles.actionLabel, { color }]}>{label}</Text>
+  ) : (
+    <Icon size={size} color={color} strokeWidth={2.5} />
+  );
+}
+
+function DictationStatusText({
+  status,
+  errorText,
+  fullText,
+  style,
+}: {
+  status: DictationStatus;
+  errorText?: string;
+  fullText: boolean;
+  style: React.ComponentProps<typeof Text>["style"];
+}) {
+  const { t } = useTranslation();
+  let message: string;
+  if (status === "paused") message = t("message.dictation.paused");
+  else if (status === "failed") {
+    message = errorText
+      ? t("message.dictation.failed", { error: errorText })
+      : t("message.dictation.failedRetry");
+  } else return null;
+  return (
+    <Text numberOfLines={fullText ? undefined : 2} style={style}>
+      {message}
+    </Text>
   );
 }
 
@@ -344,6 +405,9 @@ const OVERLAY_BUTTON_SIZE = 44;
 const OVERLAY_VERTICAL_PADDING = (FOOTER_HEIGHT - OVERLAY_BUTTON_SIZE) / 2;
 
 const overlayStyles = StyleSheet.create((theme) => ({
+  labeledContainer: { height: "auto", minHeight: FOOTER_HEIGHT, paddingVertical: theme.spacing[3] },
+  labeledButton: { width: "auto", paddingHorizontal: theme.spacing[3], flexShrink: 0 },
+  actionLabel: { fontSize: theme.fontSize.sm, fontWeight: theme.fontWeight.semibold },
   container: {
     flexDirection: "row",
     alignItems: "center",

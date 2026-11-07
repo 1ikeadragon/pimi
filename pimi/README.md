@@ -8,17 +8,18 @@ Run `npm run build:server` and then `npm run pimi:desktop`. Use **File → Show 
 
 ## Tasks
 
-- A task pins the selected repository’s current commit when created. Experiments can link existing worktrees from that repository or create separate managed worktrees at the pinned commit.
-- **Suggest 2 drafts** sends the brief to the selected provider and saves the suggestions for review. **Run experiments** makes a short model check without the brief, then starts up to four draft experiments in parallel through the daemon. Each draft keeps its launch identity for retries.
+- A task pins each attached repository’s current commit. Work items can link existing checkouts or create managed worktrees at their own repository’s pinned commit.
+- **Suggest 2 drafts** sends the brief to the selected provider and saves the suggestions for review. **Start agents** makes a short model check without the brief, then starts up to four drafts in parallel. Each draft keeps its launch identity for retries.
 - **Dictate brief** uses Agent Console’s existing dictation controls and configured speech provider. The transcribed text goes into the brief for editing before you save.
-- Finished workers’ reports are collected while their task is open. Reports can also be added or collected manually. Closing a task leaves the linked worktrees available for review.
-- Use **Open chat** from an experiment or its review to continue a conversation in the original agent session.
+- A managed work item’s report comes from its finished agent. Pimi collects it when the workspace refreshes agent status. If retrieval fails, **Retry report** fetches the agent’s result again. Closing a task leaves its worktrees available for review.
+- Use **Open chat** from a work item or its review to continue in the original agent session.
 - The desktop saves task records in its local app data. For the standalone server, set `PIMI_TASK_STATE` to an absolute JSON file path to persist them across restarts.
 
 ## Review behavior
 
 - The board follows active sessions known to the connected local daemon. Use Agent Console to import a supported session started elsewhere.
 - Working comparisons show tracked changes and report untracked files separately. GitHub PR reviews pin the base and head returned by GitHub and may fetch their commit objects. Sign in to `gh` to review private PRs.
+- **Compare worktrees** loads a second checkout with its own comparison settings. **Find in open diffs** searches the currently displayed patches and source panes. The main review’s editor selector uses the same target discovery and launcher as Agent Console.
 - Explain Changes sends tracked diff text to the selected provider when you click it. It uses the first model configured in metadata generation settings, then the latest available agent on the worktree, then a ready provider and its default model. Explanations accept up to 24 KB of diff context. Files without added lines are available in File Tour. File Tour and comparisons work independently of provider availability.
 - Local previews use running workspace services. Pimi’s review surface listens on loopback. The agent console uses the daemon’s host and provider settings.
 

@@ -24,6 +24,7 @@ import {
 import {
   PLUGIN_THEME_NAMES,
   PLUGIN_THEME_PREFERENCE,
+  PIMI_APPEARANCE_THEMES,
   REGISTERED_THEMES,
   THEME_TO_UNISTYLES,
 } from "@/styles/theme";
@@ -82,13 +83,13 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     if (pimiAppearance) {
       const systemMode = systemDark ? "dark" : "light";
       const mode = pimiAppearance === "system" ? systemMode : pimiAppearance;
-      const themes = { light: "pimiBlush", dark: "pimiDark", paper: "pimiPaper" } as const;
+      const theme = PIMI_APPEARANCE_THEMES[mode];
       UnistylesRuntime.setAdaptiveThemes(false);
-      UnistylesRuntime.setTheme(themes[mode]);
+      UnistylesRuntime.setTheme(theme);
       if (typeof document !== "undefined") {
         document.documentElement.style.setProperty(
           "--pimi-focus-ring",
-          REGISTERED_THEMES[themes[mode]].colors.ring,
+          REGISTERED_THEMES[theme].colors.ring,
         );
       }
     } else {

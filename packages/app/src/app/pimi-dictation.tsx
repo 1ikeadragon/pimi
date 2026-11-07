@@ -4,6 +4,7 @@ import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { DictationOverlay } from "@/components/dictation-controls";
 import { Button } from "@/components/ui/button";
+import { ScrollView } from "@/components/ui/scroll-view";
 import { getDesktopHost } from "@/desktop/host";
 import { useDictation } from "@/hooks/use-dictation";
 import { useIsDictationReady } from "@/hooks/use-is-dictation-ready";
@@ -54,7 +55,7 @@ export default function TaskDictation() {
   if (voice.isRecording) guidance = "Listening. Select Insert when you’re finished.";
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.background} contentContainerStyle={styles.container}>
       <Text style={styles.heading}>Dictate brief</Text>
       <Text accessibilityLiveRegion="polite" style={styles.description}>
         {guidance}
@@ -62,6 +63,7 @@ export default function TaskDictation() {
       {showControls ? (
         <DictationOverlay
           neutral
+          labelActions
           volume={voice.volume}
           duration={voice.duration}
           isRecording={voice.isRecording}
@@ -88,17 +90,17 @@ export default function TaskDictation() {
           {voice.error}
         </Text>
       ) : null}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
+  background: { flex: 1, backgroundColor: theme.colors.surface0 },
   container: {
-    flex: 1,
+    flexGrow: 1,
     gap: 12,
     justifyContent: "center",
     padding: 22,
-    backgroundColor: theme.colors.surface0,
   },
   heading: { fontSize: 20, fontWeight: "600", color: theme.colors.foreground },
   description: { fontSize: 13, color: theme.colors.foregroundMuted },

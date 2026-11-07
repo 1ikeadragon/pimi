@@ -14,6 +14,7 @@ import { pathToFileURL } from "node:url";
 import {
   isPimiWindow,
   pimiAppearanceArgument,
+  setPimiAppearance,
   showPimiWindow,
   type PimiDestination,
 } from "./window/pimi-window.js";
@@ -62,8 +63,7 @@ import {
 import { createExternalUrlOpener } from "./features/opener.js";
 import { createBrowserCaptureService } from "./features/browser-capture.js";
 import { registerEditorTargetHandlers } from "./features/editor-targets/ipc.js";
-import { EDITOR_TARGETS } from "./features/editor-targets/registry.js";
-import { zedTarget } from "./features/editor-targets/targets/zed.js";
+import { EDITOR_TARGETS, PIMI_EDITOR_TARGETS } from "./features/editor-targets/registry.js";
 import { resolveAppIconPath } from "./features/stamped-icon.js";
 import { setupApplicationMenu } from "./features/menu.js";
 import {
@@ -677,6 +677,25 @@ function getWorkAreasPrimaryFirst(): Electron.Rectangle[] {
   return [primary, ...others].map((display) => display.workArea);
 }
 
+function openPimiSettings(): void {
+  const route = "/settings/appearance";
+  const focused = BrowserWindow.getFocusedWindow();
+  const win =
+    focused && !isPimiWindow(focused)
+      ? focused
+      : BrowserWindow.getAllWindows().find((candidate) => !isPimiWindow(candidate));
+  if (win) {
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+    win.webContents.send("pimi:settings:open");
+  } else {
+    void desktopWindowOwner.openPrimary({ initialRoute: route }).catch((error) => {
+      log.error("[pimi] failed to open settings", error);
+    });
+  }
+}
+
 function openPimi(destination?: PimiDestination): void {
   void showPimiWindow(
     {
@@ -686,6 +705,7 @@ function openPimi(destination?: PimiDestination): void {
         : new URL("/pimi-dictation", DEV_SERVER_URL).toString(),
       preload: getPreloadPath(),
       workspacePreload: path.join(path.dirname(getPreloadPath()), "pimi-workspace-preload.js"),
+      openSettings: openPimiSettings,
       openAgentChat: (target) => {
         void desktopWindowOwner
           .openOrFocusAgent(target)
@@ -709,32 +729,35 @@ function openPimi(destination?: PimiDestination): void {
 }
 
 function registerPimiWorkspaceNavigation(): void {
-  ipcMain.on("pimi:workspace:show", (event, destination: unknown) => {
+  function isConsoleFrame(event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent): boolean {
     const frame = event.senderFrame;
-    if (
-      !frame ||
-      frame !== event.sender.mainFrame ||
-      !destination ||
-      typeof destination !== "object"
-    )
-      return;
+    if (!frame || frame !== event.sender.mainFrame) return false;
     const url = new URL(frame.url);
-    const trusted = app.isPackaged
+    return app.isPackaged
       ? url.protocol === `${APP_SCHEME}:` && url.host === "app"
       : url.origin === new URL(DEV_SERVER_URL).origin;
-    if (!trusted) return;
+  }
+  ipcMain.handle("pimi:appearance:set", async (event, mode: unknown) => {
+    if (!isConsoleFrame(event)) throw new Error("Open Pimi Settings to change appearance.");
+    await setPimiAppearance(mode);
+  });
+  ipcMain.on("pimi:workspace:show", (event, destination: unknown) => {
+    if (!isConsoleFrame(event) || !destination || typeof destination !== "object") return;
     const {
       view,
       path: checkout,
       proposal,
+      serverId,
     } = destination as {
       view?: unknown;
       path?: unknown;
       proposal?: unknown;
+      serverId?: unknown;
     };
     if (view === "tasks" || view === "worktrees") openPimi({ view });
     if (view === "review" && typeof checkout === "string" && path.isAbsolute(checkout)) {
-      openPimi({ view, path: checkout });
+      if (serverId !== undefined && (typeof serverId !== "string" || !serverId.trim())) return;
+      openPimi({ view, path: checkout, serverId });
     }
     if (view === "task-draft") {
       const result = PimiTaskProposal.safeParse(proposal);
@@ -1041,6 +1064,7 @@ async function bootstrap(): Promise<void> {
   await applyAppIcon();
   setupApplicationMenu({
     onOpenPimi: PIMI_DESKTOP ? () => openPimi() : undefined,
+    onOpenSettings: PIMI_DESKTOP ? openPimiSettings : undefined,
     onNewWindow: () => {
       void desktopWindowOwner.openAdditional().catch((error) => {
         log.error("[window] failed to create window from menu", error);
@@ -1056,9 +1080,7 @@ async function bootstrap(): Promise<void> {
   const openExternalUrl = createExternalUrlOpener({ open: shell.openExternal });
   ipcMain.handle("paseo:opener:openUrl", (_event, value: unknown) => openExternalUrl(value));
   registerEditorTargetHandlers({
-    targets: PIMI_DESKTOP
-      ? [zedTarget, ...EDITOR_TARGETS.filter(({ id }) => id !== "cursor" && id !== zedTarget.id)]
-      : EDITOR_TARGETS,
+    targets: PIMI_DESKTOP ? PIMI_EDITOR_TARGETS : EDITOR_TARGETS,
   });
   registerBrowserAutomationIpc();
 

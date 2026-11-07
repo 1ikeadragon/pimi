@@ -1,6 +1,13 @@
 import { registerPluginTools } from "./plugin-tools.js";
+import { registerProjectMemoryTools } from "./project-memory-tools.js";
+import type { ProjectMemory } from "../../project-memory.js";
 import { randomUUID } from "node:crypto";
-import { PIMI_TASK_PROPOSAL_TOOL, PimiTaskProposalInput } from "@getpaseo/protocol/pimi-task";
+import {
+  PIMI_REVIEW_SUGGESTION_TOOL,
+  PIMI_TASK_PROPOSAL_TOOL,
+  PimiReviewSuggestionInput,
+  PimiTaskProposalInput,
+} from "@getpaseo/protocol/pimi-task";
 import type { FinishSubscriptions, FinishRegistration } from "../finish-subscriptions/index.js";
 import type { AgentMessageDelivery } from "../agent-messages/index.js";
 import {
@@ -142,6 +149,7 @@ export interface PaseoToolHostDependencies {
   emitWorkspaceUpdatesForWorkspaceIds?: ArchiveDependencies["emitWorkspaceUpdatesForWorkspaceIds"];
   workspaceRegistry?: Pick<WorkspaceRegistry, "get" | "listActive" | "upsert">;
   projectRegistry?: Pick<ProjectRegistry, "get" | "list">;
+  projectMemory?: ProjectMemory;
   createDirectoryWorkspace?: (
     cwd: string,
     title?: string | null,
@@ -1377,6 +1385,46 @@ function createToolCatalog(
 
   if (scope === "agent") {
     registerTool(
+      PIMI_REVIEW_SUGGESTION_TOOL,
+      {
+        title: "Suggest Pimi Review",
+        description:
+          "Offer the user a button to review the changes in your current Git worktree. Use when the user asks to review the diff or when substantial changes are ready for review. Include a short, concrete summary if helpful. The button opens Review only when the user clicks it.",
+        inputSchema: PimiReviewSuggestionInput,
+      },
+      async ({ summary }) => {
+        const agent = resolveCallerAgent();
+        if (
+          !callerAgentId ||
+          !options.serverId ||
+          !agent?.workspaceId ||
+          agent.internal ||
+          agent.background
+        ) {
+          throw new PaseoToolInputError(
+            "Review suggestions are available in interactive workspace chats.",
+          );
+        }
+        const workspace = await options.workspaceRegistry?.get(agent.workspaceId);
+        if (!workspace || workspace.archivedAt || !workspace.worktreeRoot) {
+          throw new PaseoToolInputError(
+            "The current workspace has no available Git worktree to review.",
+          );
+        }
+        const result = {
+          pimiReviewSuggestion: {
+            ...(summary ? { summary } : {}),
+            path: workspace.worktreeRoot,
+            source: { serverId: options.serverId, agentId: callerAgentId },
+          },
+        };
+        return {
+          content: [{ type: "text", text: JSON.stringify(result) }],
+          structuredContent: ensureValidJson(result),
+        };
+      },
+    );
+    registerTool(
       PIMI_TASK_PROPOSAL_TOOL,
       {
         title: "Propose a Pimi task",
@@ -1402,6 +1450,33 @@ function createToolCatalog(
         };
       },
     );
+  }
+
+  if (scope === "agent" && options.projectMemory) {
+    registerProjectMemoryTools({
+      registerTool,
+      memory: options.projectMemory,
+      resolveProjectId: async () => {
+        const mcp = daemonConfigStore?.get().mcp;
+        if (mcp?.enabled === false || mcp?.injectIntoAgents === false) {
+          throw new PaseoToolInputError("Project memory requires agent tools to be enabled.");
+        }
+        const caller = resolveCallerAgent();
+        const workspace = caller?.workspaceId
+          ? await options.workspaceRegistry?.get(caller.workspaceId)
+          : null;
+        const project =
+          workspace && !workspace.archivedAt
+            ? await options.projectRegistry?.get(workspace.projectId)
+            : null;
+        if (caller?.internal || !project || project.archivedAt) {
+          throw new PaseoToolInputError(
+            "Project memory requires an agent in an active project workspace.",
+          );
+        }
+        return project.projectId;
+      },
+    });
   }
 
   if (options.browserToolsEnabled && options.browserToolsBroker) {

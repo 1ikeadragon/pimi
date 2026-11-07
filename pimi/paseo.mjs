@@ -97,6 +97,7 @@ export function createPaseoConnection(settingsSource = {}) {
         chatHost,
       ]);
       return {
+        serverId,
         agents: agents.map(({ agent }) => ({
           id: agent.id,
           chatUrl: serverId ? buildAgentDeepLink({ serverId, agentId: agent.id }) : undefined,
@@ -290,7 +291,7 @@ export function createPaseoConnection(settingsSource = {}) {
     const { text } = await explain({
       cwd: tmpdir(),
       model,
-      instructions: "Propose experiments from the brief alone. Do not inspect files or use tools.",
+      instructions: "Propose work items from the brief alone. Do not inspect files or use tools.",
       prompt: `Propose two distinct, independently testable implementations for this task. Give each a short title and a concrete hypothesis.\n\n${task.title}\n${task.brief}`,
       schema: {
         type: "object",

@@ -1,19 +1,23 @@
 import { Button } from "@/components/ui/button";
 import { getDesktopHost } from "@/desktop/host";
-import { PimiTaskProposalResult, type PimiTaskProposal } from "@getpaseo/protocol/pimi-task";
+import {
+  PimiReviewSuggestionResult,
+  PimiTaskProposalResult,
+  type PimiReviewSuggestion,
+  type PimiTaskProposal,
+} from "@getpaseo/protocol/pimi-task";
 import { useCallback } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
+import type { ZodType } from "zod";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-export function readPimiTaskProposal(output: unknown): PimiTaskProposal | null {
-  const result = PimiTaskProposalResult.safeParse(
-    isRecord(output) ? (output.structuredContent ?? output) : output,
-  );
-  if (result.success) return result.data.pimiTaskProposal;
+function readPimiToolOutput<T>(output: unknown, schema: ZodType<T>): T | null {
+  const result = schema.safeParse(isRecord(output) ? (output.structuredContent ?? output) : output);
+  if (result.success) return result.data;
 
   // Some providers only relay the MCP text content, without structuredContent.
   const content = isRecord(output) ? output.content : output;
@@ -21,11 +25,19 @@ export function readPimiTaskProposal(output: unknown): PimiTaskProposal | null {
   const serialized = isRecord(block) && block.type === "text" ? block.text : block;
   if (typeof serialized !== "string" || serialized.length > 64_000) return null;
   try {
-    const parsed = PimiTaskProposalResult.safeParse(JSON.parse(serialized));
-    return parsed.success ? parsed.data.pimiTaskProposal : null;
+    const parsed = schema.safeParse(JSON.parse(serialized));
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
+}
+
+export function readPimiTaskProposal(output: unknown): PimiTaskProposal | null {
+  return readPimiToolOutput(output, PimiTaskProposalResult)?.pimiTaskProposal ?? null;
+}
+
+export function readPimiReviewSuggestion(output: unknown): PimiReviewSuggestion | null {
+  return readPimiToolOutput(output, PimiReviewSuggestionResult)?.pimiReviewSuggestion ?? null;
 }
 
 export function PimiTaskProposalCard({ proposal }: { proposal: PimiTaskProposal }) {
@@ -37,7 +49,7 @@ export function PimiTaskProposalCard({ proposal }: { proposal: PimiTaskProposal 
   return (
     <View style={styles.card} testID="pimi-task-proposal">
       <Text style={styles.meta}>
-        Suggested task{count > 0 ? ` · ${count} ${count === 1 ? "experiment" : "experiments"}` : ""}
+        Suggested task{count > 0 ? ` · ${count} ${count === 1 ? "work item" : "work items"}` : ""}
       </Text>
       <Text accessibilityRole="header" style={styles.title}>
         {proposal.title}
@@ -47,6 +59,29 @@ export function PimiTaskProposalCard({ proposal }: { proposal: PimiTaskProposal 
       </Text>
       <Button onPress={reviewDraft} size="sm" style={styles.action}>
         Review task draft
+      </Button>
+    </View>
+  );
+}
+
+export function PimiReviewSuggestionCard({ suggestion }: { suggestion: PimiReviewSuggestion }) {
+  const openReview = useCallback(
+    () =>
+      getDesktopHost()?.showPimiWorkspace?.({
+        view: "review",
+        path: suggestion.path,
+        serverId: suggestion.source.serverId,
+      }),
+    [suggestion],
+  );
+  return (
+    <View style={styles.card} testID="pimi-review-suggestion">
+      <Text accessibilityRole="header" style={styles.title}>
+        Suggested review
+      </Text>
+      {suggestion.summary && <Text style={styles.brief}>{suggestion.summary}</Text>}
+      <Button onPress={openReview} size="sm" style={styles.action}>
+        Open Review
       </Button>
     </View>
   );

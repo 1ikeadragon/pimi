@@ -17,15 +17,6 @@
         <button id="show-review">Review</button>
       </nav>
       <div class="toolbar-actions">
-        <label class="appearance-picker">
-          <span class="visually-hidden">Appearance</span>
-          <select id="appearance">
-            <option value="system">System</option>
-            <option value="light">Blush</option>
-            <option value="dark">Dark</option>
-            <option value="paper">Paper</option>
-          </select>
-        </label>
         <a
           id="show-agents"
           class="button secondary"
@@ -35,10 +26,12 @@
         >
           Agent Console
         </a>
+        <a id="open-settings" class="button quiet" href="pimi-settings://open" target="_blank">
+          Settings
+        </a>
       </div>
     </header>
     <main>
-      <p id="appearance-error" class="warning" role="alert" hidden></p>
       <section id="tasks" aria-label="Tasks">
         <div class="section-header">
           <h1>Tasks</h1>
@@ -60,13 +53,13 @@
           <div class="task-content">
             <div id="task-empty" class="task-empty">
               <h2>Start with a brief</h2>
-              <p>Keep the question and its experiments together.</p>
+              <p>Keep related work, agents, and reports together.</p>
             </div>
             <form id="task-create" class="task-form" hidden>
               <h2>New task</h2>
               <p id="task-proposal-context" class="subtitle" hidden>
                 Review the agent’s proposal before saving it. You can edit the brief and keep the
-                experiments you want to try.
+                work items you want to keep.
               </p>
               <label
                 >Repository
@@ -90,11 +83,11 @@
                   required
                   maxlength="2400"
                   rows="5"
-                  placeholder="What should the experiments answer?"
+                  placeholder="What are we trying to accomplish?"
                 ></textarea>
               </label>
               <fieldset id="task-proposal-experiments" class="task-proposal-experiments" hidden>
-                <legend>Proposed experiments</legend>
+                <legend>Proposed work items</legend>
                 <div id="task-proposal-ideas"></div>
               </fieldset>
               <div class="task-actions">
@@ -125,7 +118,7 @@
                   <select id="task-attach-root" required></select
                 ></label>
                 <p id="task-attach-hint" class="subtitle" hidden>
-                  Add a Git repository in Worktrees to run experiments.
+                  Add a Git repository in Worktrees to start agents.
                 </p>
                 <div class="task-actions">
                   <button id="attach-task-repository" class="button secondary" type="submit">
@@ -165,22 +158,13 @@
                 <button id="task-close" class="button quiet" type="button">Close task</button>
               </div>
               <section class="task-experiments" aria-labelledby="experiments-heading">
-                <h2 id="experiments-heading">Experiments</h2>
+                <div class="work-item-header">
+                  <h2 id="experiments-heading">Work items</h2>
+                  <p id="task-progress" class="subtitle" role="status"></p>
+                </div>
                 <div id="experiment-list"></div>
-                <form id="task-report-editor" class="task-form" hidden>
-                  <label id="report-editor-label"
-                    >Report
-                    <textarea id="task-report-text" maxlength="5000" rows="5"></textarea>
-                  </label>
-                  <div class="task-actions">
-                    <button id="cancel-report" class="button secondary" type="button">
-                      Cancel
-                    </button>
-                    <button class="button primary" type="submit">Save report</button>
-                  </div>
-                </form>
                 <details id="add-experiment">
-                  <summary class="button secondary">Add experiment…</summary>
+                  <summary class="button secondary">Add work item…</summary>
                   <form id="task-idea" class="task-form">
                     <label
                       >Title
@@ -191,15 +175,19 @@
                         placeholder="Try caching provider metadata"
                     /></label>
                     <label
-                      >Hypothesis
+                      >Instructions
                       <textarea name="hypothesis" required maxlength="1600" rows="3"></textarea>
                     </label>
+                    <label
+                      >Repository
+                      <select id="experiment-repository"></select
+                    ></label>
                     <label
                       >Worktree
                       <select id="experiment-worktree"></select
                     ></label>
                     <div class="task-actions">
-                      <button class="button primary" type="submit">Add experiment</button>
+                      <button class="button primary" type="submit">Add work item</button>
                     </div>
                   </form>
                 </details>
@@ -209,15 +197,15 @@
                       >Agent model
                       <select id="task-model" required></select
                     ></label>
-                    <button id="task-models" class="button secondary" type="button">
-                      Load models
-                    </button>
-                    <button id="suggest-experiments" class="button secondary" type="button">
-                      Suggest 2 drafts
-                    </button>
-                    <button id="run-task" class="button primary" type="submit">
-                      Run experiments
-                    </button>
+                    <button id="task-models" class="button quiet" type="button">Load models</button>
+                    <div class="task-run-actions">
+                      <button id="suggest-experiments" class="button secondary" type="button">
+                        Suggest 2 drafts
+                      </button>
+                      <button id="run-task" class="button primary" type="submit">
+                        Start agents
+                      </button>
+                    </div>
                   </div>
                   <p id="task-run-note" class="subtitle" role="status"></p>
                 </form>
@@ -283,6 +271,10 @@
           <div id="review-actions" class="review-actions" hidden>
             <div id="previews" class="previews" hidden></div>
             <button id="change-review-worktree" class="button quiet">Change worktree…</button>
+            <button id="compare-worktrees" class="button quiet">Compare worktrees…</button>
+            <button id="show-diff-find" class="button quiet" aria-keyshortcuts="Meta+F Control+F">
+              Find in open diffs
+            </button>
             <button id="refresh-comparison" class="button quiet">Refresh diff</button>
             <details id="comparison-settings" class="watch comparison-settings">
               <summary class="button quiet">Comparison…</summary>
@@ -313,7 +305,12 @@
                 </form>
               </div>
             </details>
-            <button id="open-worktree" class="button secondary" disabled>Open in Zed ↗</button>
+            <div class="review-editor-controls">
+              <select id="review-editor" aria-label="Editor for this review" disabled>
+                <option value="">Detecting editors…</option>
+              </select>
+              <button id="open-worktree" class="button secondary" disabled>Open ↗</button>
+            </div>
           </div>
         </div>
         <p id="review-warning" class="warning" role="alert" hidden></p>
@@ -335,64 +332,114 @@
             </div>
           </form>
         </section>
-        <div id="review-desk" class="desk" hidden>
-          <aside class="files">
-            <div class="files-heading">
-              <h2>Changed files</h2>
-              <span id="file-count" class="count">0</span>
-            </div>
-            <div class="file-tools">
-              <input
-                id="file-search"
-                class="search"
-                type="search"
-                aria-label="Filter changed files"
-                placeholder="Filter files"
-                autocomplete="off"
-                aria-keyshortcuts="/"
-              />
-            </div>
-            <div id="file-list" class="file-list"></div>
-          </aside>
-          <div class="workspace">
-            <div class="tourbar">
-              <div>
-                <span class="context-label">Walkthrough</span>
-                <span id="tour-status" class="tour-status" role="status"
-                  >Load changes to start</span
-                >
+        <div id="diff-find" class="diff-find" role="search" aria-label="Find in open diffs" hidden>
+          <input
+            id="diff-find-input"
+            class="search"
+            type="search"
+            aria-label="Find in open diffs"
+            placeholder="Find in open diffs"
+          />
+          <output id="diff-find-status" class="subtitle" aria-live="polite"></output>
+          <button
+            id="diff-find-prev"
+            class="button quiet"
+            type="button"
+            aria-label="Previous match"
+          >
+            ↑
+          </button>
+          <button id="diff-find-next" class="button quiet" type="button" aria-label="Next match">
+            ↓
+          </button>
+          <button id="diff-find-close" class="button quiet" type="button">Done</button>
+        </div>
+        <div id="review-columns" class="review-columns">
+          <div id="review-desk" class="desk" hidden>
+            <aside class="files">
+              <div class="files-heading">
+                <h2>Changed files</h2>
+                <span id="file-count" class="count">0</span>
               </div>
-              <div class="tour-actions">
-                <button id="file-tour" class="button secondary" disabled>File tour</button>
-                <button id="ai-tour" class="button primary" disabled>Explain changes</button>
+              <div class="file-tools">
+                <input
+                  id="file-search"
+                  class="search"
+                  type="search"
+                  aria-label="Filter changed files"
+                  placeholder="Filter files"
+                  autocomplete="off"
+                  aria-keyshortcuts="/"
+                />
               </div>
-            </div>
-            <div id="panes" class="panes"></div>
-            <div
-              id="tour-card"
-              class="tour-card"
-              role="region"
-              aria-label="Walkthrough note"
-              hidden
-            >
-              <div class="note-top">
-                <span id="tour-position" class="context-label"></span>
-                <button id="close-tour" class="icon-button" aria-label="Close walkthrough note">
-                  ×
-                </button>
+              <div id="file-list" class="file-list"></div>
+            </aside>
+            <div class="workspace">
+              <div class="tourbar">
+                <div>
+                  <span class="context-label">Walkthrough</span>
+                  <span id="tour-status" class="tour-status" role="status"
+                    >Load changes to start</span
+                  >
+                </div>
+                <div class="tour-actions">
+                  <button id="file-tour" class="button secondary" disabled>File tour</button>
+                  <button id="ai-tour" class="button primary" disabled>Explain changes</button>
+                </div>
               </div>
-              <h2 id="note-title"></h2>
-              <p id="note-text"></p>
-              <div class="note-actions">
-                <button id="prev-step" class="button secondary" aria-keyshortcuts="[">
-                  ← Previous
-                </button>
-                <button id="next-step" class="button primary" aria-keyshortcuts="]">Next →</button>
+              <div id="panes" class="panes"></div>
+              <div
+                id="tour-card"
+                class="tour-card"
+                role="region"
+                aria-label="Walkthrough note"
+                hidden
+              >
+                <div class="note-top">
+                  <span id="tour-position" class="context-label"></span>
+                  <button id="close-tour" class="icon-button" aria-label="Close walkthrough note">
+                    ×
+                  </button>
+                </div>
+                <h2 id="note-title"></h2>
+                <p id="note-text"></p>
+                <div class="note-actions">
+                  <button id="prev-step" class="button secondary" aria-keyshortcuts="[">
+                    ← Previous
+                  </button>
+                  <button id="next-step" class="button primary" aria-keyshortcuts="]">
+                    Next →
+                  </button>
+                </div>
               </div>
             </div>
           </div>
+          <section
+            id="comparison-review"
+            class="comparison-review"
+            aria-label="Second worktree review"
+            hidden
+          ></section>
         </div>
       </section>
     </main>
+    <dialog id="settings-dialog" class="settings-dialog" aria-labelledby="settings-title">
+      <h2 id="settings-title">Settings</h2>
+      <div class="task-form">
+        <label>
+          Appearance
+          <select id="appearance">
+            <option value="system">System</option>
+            <option value="light">Blush</option>
+            <option value="dark">Dark</option>
+            <option value="paper">Paper</option>
+          </select>
+        </label>
+        <p id="appearance-error" class="warning" role="alert" hidden></p>
+        <form class="task-actions" method="dialog">
+          <button class="button secondary">Done</button>
+        </form>
+      </div>
+    </dialog>
   </body>
 </html>

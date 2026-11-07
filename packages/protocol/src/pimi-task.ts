@@ -28,17 +28,39 @@ export const PimiTaskProposal = PimiTaskProposalInput.extend({
 export type PimiTaskProposal = z.infer<typeof PimiTaskProposal>;
 export type PimiDestination =
   | { view: "tasks" | "worktrees" }
-  | { view: "review"; path: string }
+  | { view: "review"; path: string; serverId?: string }
   | { view: "task-draft"; proposal: PimiTaskProposal };
 
 export const PIMI_TASK_PROPOSAL_TOOL = "propose_pimi_task";
 export const PimiTaskProposalResult = z.object({ pimiTaskProposal: PimiTaskProposal });
+export const PIMI_REVIEW_SUGGESTION_TOOL = "suggest_pimi_review";
+export const PimiReviewSuggestionInput = z.object({
+  summary: z.string().trim().min(1).max(300).optional(),
+});
+export const PimiReviewSuggestion = PimiReviewSuggestionInput.extend({
+  path: z.string().min(1),
+  source: PimiTaskSource,
+});
+export type PimiReviewSuggestion = z.infer<typeof PimiReviewSuggestion>;
+export const PimiReviewSuggestionResult = z.object({ pimiReviewSuggestion: PimiReviewSuggestion });
+
+function matchesToolName(name: string, tool: string): boolean {
+  return (
+    name === tool ||
+    name === `paseo.${tool}` ||
+    name === `mcp__paseo__${tool}` ||
+    name === `paseo_${tool}`
+  );
+}
 
 export function isPimiTaskProposalTool(name: string): boolean {
-  return (
-    name === PIMI_TASK_PROPOSAL_TOOL ||
-    name === `paseo.${PIMI_TASK_PROPOSAL_TOOL}` ||
-    name === `mcp__paseo__${PIMI_TASK_PROPOSAL_TOOL}` ||
-    name === `paseo_${PIMI_TASK_PROPOSAL_TOOL}`
-  );
+  return matchesToolName(name, PIMI_TASK_PROPOSAL_TOOL);
+}
+
+export function isPimiReviewSuggestionTool(name: string): boolean {
+  return matchesToolName(name, PIMI_REVIEW_SUGGESTION_TOOL);
+}
+
+export function isPimiActionTool(name: string): boolean {
+  return isPimiTaskProposalTool(name) || isPimiReviewSuggestionTool(name);
 }

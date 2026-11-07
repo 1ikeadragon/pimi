@@ -37,12 +37,7 @@ export function OnboardingStepContent({
     case "welcome":
       return <PimiExamples />;
     case "firstChat":
-      return (
-        <View style={styles.examples}>
-          <PimiExamples />
-          <PimiAgentTools serverId={serverId} />
-        </View>
-      );
+      return <PimiAgentTools serverId={serverId} />;
   }
 }
 

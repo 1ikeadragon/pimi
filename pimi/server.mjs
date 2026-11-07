@@ -12,6 +12,7 @@ import {
   lightHighlightColors,
 } from "@getpaseo/highlight";
 import {
+  command,
   createReview,
   discoverWorktrees,
   filePatch,
@@ -28,6 +29,46 @@ import { generateTour } from "./walkthrough.mjs";
 
 const appearances = new Set(["system", "light", "dark", "paper"]);
 
+async function standaloneEditors(workspacePath) {
+  try {
+    await command("which", ["zed"], workspacePath);
+    return [{ id: "zed", label: "Zed", kind: "editor" }];
+  } catch {
+    return [];
+  }
+}
+
+async function standaloneAppearance(file) {
+  let mode = "system";
+  let writes = Promise.resolve();
+  if (file) {
+    try {
+      const stored = JSON.parse(await readFile(file, "utf8"));
+      if (appearances.has(stored)) mode = stored;
+    } catch (error) {
+      if (error.code !== "ENOENT") console.error("Could not read Pimi appearance:", error.message);
+    }
+  }
+  return {
+    read: () => mode,
+    save({ mode: requestedMode }) {
+      if (!appearances.has(requestedMode)) throw new RequestError("Choose a supported appearance.");
+      const save = writes.then(async () => {
+        if (file) {
+          await mkdir(dirname(file), { recursive: true });
+          const temporary = file + ".tmp";
+          await writeFile(temporary, JSON.stringify(requestedMode), { mode: 0o600 });
+          await rename(temporary, file);
+        }
+        mode = requestedMode;
+        return { mode };
+      });
+      writes = save.catch(() => undefined);
+      return save;
+    },
+  };
+}
+
 export async function startPimi({
   paths = [],
   port = 0,
@@ -37,7 +78,8 @@ export async function startPimi({
   watchState,
   taskState,
   appearanceState,
-  onAppearanceChange,
+  getAppearance,
+  listEditors = standaloneEditors,
   launchEditor,
   openDictation,
 } = {}) {
@@ -64,33 +106,9 @@ export async function startPimi({
   let saveTask = Promise.resolve();
   const paseo = createPaseoConnection({ connection, native });
   const tasks = await createTasks({ file: taskState, paseo, getInventory });
-  let appearance = "system";
-  let appearanceWrites = Promise.resolve();
-  if (appearanceState) {
-    try {
-      const stored = JSON.parse(await readFile(appearanceState, "utf8"));
-      if (appearances.has(stored)) appearance = stored;
-    } catch (error) {
-      if (error.code !== "ENOENT") console.error("Could not read Pimi appearance:", error.message);
-    }
-  }
-
-  async function saveAppearance({ mode }) {
-    if (!appearances.has(mode)) throw new RequestError("Choose a supported appearance.");
-    const save = appearanceWrites.then(async () => {
-      if (appearanceState) {
-        await mkdir(dirname(appearanceState), { recursive: true });
-        const temporary = appearanceState + ".tmp";
-        await writeFile(temporary, JSON.stringify(mode), { mode: 0o600 });
-        await rename(temporary, appearanceState);
-      }
-      appearance = mode;
-      onAppearanceChange?.(mode);
-      return { mode };
-    });
-    appearanceWrites = save.catch(() => undefined);
-    return save;
-  }
+  const appearance = getAppearance
+    ? { read: getAppearance }
+    : await standaloneAppearance(appearanceState);
 
   const assets = new Map(
     await Promise.all(
@@ -98,6 +116,8 @@ export async function startPimi({
         ["/", "index.html", "text/html; charset=utf-8"],
         ["/app.js", "app.js", "text/javascript; charset=utf-8"],
         ["/tasks.js", "tasks.js", "text/javascript; charset=utf-8"],
+        ["/worktree-comparison.js", "worktree-comparison.js", "text/javascript; charset=utf-8"],
+        ["/diff-find.js", "diff-find.js", "text/javascript; charset=utf-8"],
         ["/style.css", "style.css", "text/css; charset=utf-8"],
         ["/grain.svg", "grain.svg", "image/svg+xml"],
       ].map(async ([path, file, mime]) => [
@@ -209,6 +229,7 @@ export async function startPimi({
     }
     worktrees = new Map(cards.map((card) => [card.path, card]));
     return {
+      serverId: daemon.serverId,
       cards,
       repositories: watchedRoots.map((path) => ({ path, name: basename(path) || path })),
       otherAgents: daemon.agents.filter((agent) => !trackedAgents.has(agent.id)),
@@ -290,8 +311,19 @@ export async function startPimi({
     return { id, ...review };
   }
 
+  async function editorsFor(review) {
+    review.editors ??= Promise.resolve(listEditors(review.worktree.path)).catch((error) => {
+      delete review.editors;
+      throw error;
+    });
+    return review.editors;
+  }
+
   async function startEditor(body) {
     const review = getReview(body.id);
+    if (!(await editorsFor(review)).some(({ id }) => id === body.editorId)) {
+      throw new RequestError("Choose an available editor.");
+    }
     const file = body.path === null ? null : getFile(review, body.path);
     if (file && (!Number.isSafeInteger(body.line) || body.line < 1)) {
       throw new RequestError("Invalid line number.");
@@ -305,7 +337,8 @@ export async function startPimi({
         );
       }
     }
-    await openInEditor(review, file, body.line, launchEditor);
+    const launch = launchEditor && ((input) => launchEditor({ ...input, editorId: body.editorId }));
+    await openInEditor(review, file, body.line, launch);
     return { opened: true };
   }
 
@@ -344,6 +377,7 @@ export async function startPimi({
     ["/api/tour", (body) => generateTour(getReview(body.id), paseo.explain)],
     ["/api/tasks/create", tasks.create],
     ["/api/tasks/repository", tasks.attachRepository],
+    ["/api/tasks/assign-repository", tasks.assignRepository],
     ["/api/tasks/save", tasks.save],
     ["/api/tasks/experiment", tasks.addIdea],
     ["/api/tasks/suggest", tasks.suggest],
@@ -351,7 +385,7 @@ export async function startPimi({
     ["/api/tasks/models", tasks.models],
     ["/api/tasks/run", tasks.run],
     ["/api/tasks/report", tasks.report],
-    ["/api/appearance", saveAppearance],
+    ...(appearance.save ? [["/api/appearance", appearance.save]] : []),
     [
       "/api/dictation",
       async () => {
@@ -362,6 +396,11 @@ export async function startPimi({
     ],
   ]);
 
+  const getRoutes = new Map([
+    ["/api/board", getInventory],
+    ["/api/tasks", tasks.list],
+    ["/api/editors", (url) => editorsFor(getReview(url.searchParams.get("id")))],
+  ]);
   const server = createServer(async (request, response) => {
     response.setHeader("cache-control", "no-store");
     response.setHeader("x-content-type-options", "nosniff");
@@ -388,13 +427,13 @@ export async function startPimi({
             url.pathname === "/"
               ? asset.data
                   .toString("utf8")
-                  .replace('data-appearance="system"', `data-appearance="${appearance}"`)
+                  .replace('data-appearance="system"', `data-appearance="${appearance.read()}"`)
               : asset.data,
           );
           return;
         }
-        if (url.pathname === "/api/board") return json(response, await getInventory());
-        if (url.pathname === "/api/tasks") return json(response, tasks.list());
+        const handler = getRoutes.get(url.pathname);
+        if (handler) return json(response, await handler(url));
         if (url.pathname === "/api/file" || url.pathname === "/api/source") {
           const review = getReview(url.searchParams.get("id"));
           const file = getFile(review, url.searchParams.get("path"));
@@ -436,7 +475,7 @@ export async function startPimi({
   origin = `http://${address}`;
   return {
     origin,
-    appearance,
+    appearance: appearance.read(),
     close: () => {
       server.close();
       return paseo.close();

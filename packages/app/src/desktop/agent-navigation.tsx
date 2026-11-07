@@ -1,8 +1,10 @@
 import { useEffect } from "react";
+import { useRouter } from "expo-router";
 import { listenToDesktopEvent } from "@/desktop/electron/events";
 import { getDesktopHost } from "@/desktop/host";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
+import { buildSettingsSectionRoute } from "@/utils/host-routes";
 
 interface OpenAgentEventPayload {
   serverId?: unknown;
@@ -10,6 +12,12 @@ interface OpenAgentEventPayload {
 }
 
 export function AgentNavigationListener() {
+  const router = useRouter();
+  const openSettings = useStableEvent(() =>
+    router.navigate(buildSettingsSectionRoute("appearance")),
+  );
+  useEffect(() => getDesktopHost()?.onPimiOpenSettings?.(openSettings), [openSettings]);
+
   const openAgent = useStableEvent((payload: OpenAgentEventPayload | null) => {
     const serverId = typeof payload?.serverId === "string" ? payload.serverId.trim() : "";
     const agentId = typeof payload?.agentId === "string" ? payload.agentId.trim() : "";

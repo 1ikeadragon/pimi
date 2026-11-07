@@ -20,6 +20,7 @@ const modelConfig = z.object({
 });
 const experimentSchema = ideaFields.extend({
   id: z.uuid(),
+  root: z.string().nullable().optional(),
   path: z.string().nullable(),
   workspaceId: z.string().nullable(),
   launch: z.object({ config: modelConfig, prompt: z.string() }).nullable(),
@@ -32,16 +33,18 @@ const taskSchema = taskFields.extend({
   id: z.uuid(),
   root: z.string().nullable(),
   base: z.string().nullable(),
+  repositories: z.array(z.object({ root: z.string().min(1), base: z.string().min(1) })).optional(),
   source: taskSource.optional(),
   experiments: z.array(experimentSchema),
 });
 const maxExperiments = 8;
 const modelInput = z.object({ id: z.uuid(), model: z.string().min(1).max(512) });
 
-function makeExperiment(idea, card) {
+function makeExperiment(idea, card, root = null) {
   return {
     ...idea,
     id: randomUUID(),
+    root: card?.root ?? root,
     path: card?.path ?? null,
     workspaceId: card?.workspaceId ?? null,
     launch: null,
@@ -69,28 +72,27 @@ function getTask(tasks, id) {
 
 function getExperiment(task, id) {
   const experiment = task.experiments.find((entry) => entry.id === id);
-  if (!experiment) throw new RequestError("Experiment not found.", 404);
+  if (!experiment) throw new RequestError("Work item not found.", 404);
   return experiment;
 }
 
 function checkOpen(task) {
-  if (task.done) throw new RequestError("Reopen this task to change its experiments.", 409);
+  if (task.done) throw new RequestError("Reopen this task to change its work items.", 409);
 }
 
 function requireRepository(task) {
-  if (!task.root || !task.base)
-    throw new RequestError("Attach a repository to run experiments.", 409);
+  if (!task.root || !task.base) throw new RequestError("Attach a repository to start agents.", 409);
   return task.root;
 }
 
 function experimentPrompt(task, experiment) {
   return [
-    "Explore this implementation in your assigned worktree.",
+    "Complete the work item in your assigned worktree.",
     "Keep all changes local to this worktree. Do not commit, push, open a pull request, or start other agents.",
-    "Work on this experiment only. Inspect the code, implement a focused prototype and verify what you can.",
-    "Your final message is the experiment report. Include the outcome, files or areas changed, what you verified, and tradeoffs or open questions. Distinguish checks you ran from assumptions.",
+    "Work on this item only. Follow the brief, then verify what you can.",
+    "Your final message becomes the report. Include the outcome, files or areas changed, what you verified, and open questions. Distinguish checks you ran from assumptions.",
     `Task: ${task.title}\n${task.brief}`,
-    `Experiment: ${experiment.title}\n${experiment.hypothesis}`,
+    `Work item: ${experiment.title}\n${experiment.hypothesis}`,
   ].join("\n\n");
 }
 
@@ -102,6 +104,10 @@ export async function createTasks({ file, paseo, getInventory }) {
   if (file) {
     try {
       state = z.array(taskSchema).parse(JSON.parse(await readFile(file, "utf8")));
+      for (const task of state) {
+        task.repositories ??= task.root && task.base ? [{ root: task.root, base: task.base }] : [];
+        for (const item of task.experiments) item.root ??= task.root;
+      }
     } catch (error) {
       if (error.code !== "ENOENT") {
         console.error("Could not read Pimi tasks:", error.message);
@@ -147,13 +153,17 @@ export async function createTasks({ file, paseo, getInventory }) {
     const { proposal, ...fields } = input;
     const existing = proposal && state.find((task) => task.id === proposal.id);
     if (existing) return existing;
+    const base = await repositoryBase(input.root);
     const task = {
       ...fields,
       id: proposal?.id ?? randomUUID(),
-      base: await repositoryBase(input.root),
+      base,
+      repositories: input.root ? [{ root: input.root, base }] : [],
       done: false,
       source: proposal?.source,
-      experiments: (proposal?.experiments ?? []).map((idea) => makeExperiment(idea)),
+      experiments: (proposal?.experiments ?? []).map((idea) =>
+        makeExperiment(idea, null, input.root),
+      ),
     };
     return update((draft) => {
       const alreadySaved = draft.find((entry) => entry.id === task.id);
@@ -169,9 +179,14 @@ export async function createTasks({ file, paseo, getInventory }) {
     return update((draft) => {
       const task = getTask(draft, id);
       checkOpen(task);
-      if (task.root) throw new RequestError("This task already has a repository.", 409);
-      task.root = root;
-      task.base = base;
+      if (task.repositories.some((repository) => repository.root === root))
+        throw new RequestError("This repository is already attached.", 409);
+      task.repositories.push({ root, base });
+      if (!task.root) {
+        task.root = root;
+        task.base = base;
+        for (const item of task.experiments) item.root ??= root;
+      }
       return task;
     });
   }
@@ -185,11 +200,32 @@ export async function createTasks({ file, paseo, getInventory }) {
     });
   }
 
+  function assignRepository(body) {
+    const { id, experimentId, root } = readInput(
+      z.strictObject({ id: z.uuid(), experimentId: z.uuid(), root: z.string().min(1) }),
+      body,
+    );
+    return update((draft) => {
+      const task = getTask(draft, id);
+      checkOpen(task);
+      const item = getExperiment(task, experimentId);
+      if (running.has(id) || item.launch || item.path || item.report) {
+        throw new RequestError("Only an unstarted draft can change repositories.", 409);
+      }
+      if (!task.repositories.some((repo) => repo.root === root)) {
+        throw new RequestError("Choose a repository attached to this task.");
+      }
+      item.root = root;
+      return item;
+    });
+  }
+
   async function addIdea(body) {
-    const { id, path, ...idea } = readInput(
+    const { id, path, root, ...idea } = readInput(
       ideaFields.extend({
         id: z.uuid(),
         path: z.string().optional(),
+        root: z.string().min(1).optional(),
       }),
       body,
     );
@@ -197,10 +233,13 @@ export async function createTasks({ file, paseo, getInventory }) {
     return update((draft) => {
       const task = getTask(draft, id);
       checkOpen(task);
+      const targetRoot = root ?? card?.root ?? task.root;
+      if (targetRoot && !task.repositories.some((repository) => repository.root === targetRoot))
+        throw new RequestError("Attach this repository to the task first.");
       if (task.experiments.length >= maxExperiments) {
-        throw new RequestError(`A task can hold up to ${maxExperiments} experiments.`);
+        throw new RequestError(`A task can hold up to ${maxExperiments} work items.`);
       }
-      if (path && (!card || card.root !== task.root || card.unavailable)) {
+      if (path && (!card || card.root !== targetRoot || card.unavailable)) {
         throw new RequestError("Choose an available worktree from this repository.");
       }
       if (
@@ -212,7 +251,7 @@ export async function createTasks({ file, paseo, getInventory }) {
         )
       )
         throw new RequestError("This worktree is already linked.", 409);
-      const experiment = makeExperiment(idea, card);
+      const experiment = makeExperiment(idea, card, targetRoot);
       task.experiments.push(experiment);
       return experiment;
     });
@@ -248,7 +287,7 @@ export async function createTasks({ file, paseo, getInventory }) {
           }),
         );
       if (!ideas.success)
-        throw new RequestError("The model did not return two usable experiments.", 502);
+        throw new RequestError("The model did not return two usable work items.", 502);
       return update((draft) => {
         const current = getTask(draft, id);
         checkOpen(current);
@@ -262,7 +301,7 @@ export async function createTasks({ file, paseo, getInventory }) {
               "The model returned a duplicate idea. Try again or add a draft manually.",
             );
           titles.add(title);
-          return makeExperiment(idea);
+          return makeExperiment(idea, null, current.root);
         });
         current.experiments.push(...experiments);
         return experiments;
@@ -291,12 +330,12 @@ export async function createTasks({ file, paseo, getInventory }) {
 
   async function run(body) {
     const { id, model } = readInput(modelInput, body);
-    if (running.has(id)) throw new RequestError("Experiments are already starting.", 409);
+    if (running.has(id)) throw new RequestError("Agents are already starting.", 409);
     const task = getTask(state, id);
     checkOpen(task);
     // Limit simultaneous provider and workspace setup calls per task.
     const drafts = task.experiments.filter((entry) => !entry.path && !entry.report);
-    if (!drafts.length) throw new RequestError("Add an experiment to start.");
+    if (!drafts.length) throw new RequestError("Add a work item to start.");
     const pending = drafts
       .filter((entry) => !entry.launch || entry.launch.config.provider === model)
       .slice(0, 4);
@@ -324,8 +363,14 @@ export async function createTasks({ file, paseo, getInventory }) {
         checkOpen(current);
         return pending.map(({ id: experimentId }) => {
           const experiment = getExperiment(current, experimentId);
+          const repository = current.repositories.find((entry) => entry.root === experiment.root);
+          if (!repository)
+            throw new RequestError(
+              "Attach a repository for every work item before launching.",
+              409,
+            );
           if (experiment.report)
-            throw new RequestError("An experiment changed. Review the drafts and try again.", 409);
+            throw new RequestError("A work item changed. Review the drafts and try again.", 409);
           experiment.workspaceId ??= `wks_${experiment.id.replaceAll("-", "").slice(0, 16)}`;
           experiment.launch ??= { config, prompt: experimentPrompt(current, experiment) };
           experiment.error = null;
@@ -337,7 +382,8 @@ export async function createTasks({ file, paseo, getInventory }) {
           let path;
           let error;
           try {
-            path = await paseo.launchExperiment(task, experiment);
+            const repository = task.repositories.find((entry) => entry.root === experiment.root);
+            path = await paseo.launchExperiment({ ...task, ...repository }, experiment);
             if (!path) throw new Error("The workspace did not return a checkout path.");
           } catch (cause) {
             error = cause.message;
@@ -356,39 +402,39 @@ export async function createTasks({ file, paseo, getInventory }) {
   }
 
   async function report(body) {
-    const { id, experimentId, text } = readInput(
-      z.object({
+    const { id, experimentId } = readInput(
+      z.strictObject({
         id: z.uuid(),
         experimentId: z.uuid(),
-        text: z.string().trim().max(5000).optional(),
       }),
       body,
     );
     const task = getTask(state, id);
     checkOpen(task);
     const experiment = getExperiment(task, experimentId);
-    if (text === undefined && !experiment.launch) {
-      throw new RequestError("This experiment has no Pimi agent.");
+    if (experiment.reportSource) return experiment;
+    if (!experiment.launch) {
+      throw new RequestError("This work item has no Pimi agent.");
     }
-    const result = text ?? (await paseo.experimentReport(experimentId));
+    const result = await paseo.experimentReport(experimentId);
     return update((draft) => {
       const currentTask = getTask(draft, id);
       checkOpen(currentTask);
       const current = getExperiment(currentTask, experimentId);
-      if (text === undefined && current.reportSource) return current;
+      if (current.reportSource) return current;
       current.report = result.slice(0, 24000);
-      current.reportSource = text === undefined ? "agent" : "manual";
-      if (!current.report) current.reportSource = null;
+      current.reportSource = current.report ? "agent" : null;
       current.reportTruncated = result.length > 24000;
       return current;
     });
   }
 
   return {
-    roots: () => [...new Set(state.flatMap((task) => (task.root ? [task.root] : [])))],
+    roots: () => [...new Set(state.flatMap((task) => task.repositories.map(({ root }) => root)))],
     list: () => ({ tasks: state, error: readError }),
     create,
     attachRepository,
+    assignRepository,
     save,
     addIdea,
     suggest,
