@@ -1,5 +1,5 @@
 ---
-name: paseo-handoff
+name: pimi-handoff
 description: Hand off the current task to another agent with full context. Use when the user says "handoff", "hand off", "hand this to", or wants to pass work to another agent.
 user-invocable: true
 ---
@@ -16,7 +16,7 @@ Read the **paseo** skill. Call `list_profiles` before choosing the receiving age
 
 ## Parsing arguments
 
-1. **Agent profile** — explicit profile name first; otherwise choose the profile whose `notes` best match the work. Materialize it into `create_agent` as described by the **paseo** skill. If no profile fits, use Paseo's provider discovery fallback.
+1. **Agent profile** — explicit profile name first; otherwise choose the profile whose `notes` best match the work. Materialize it into `create_agent` as described by the **paseo** skill. If no profile fits, use Pimi's provider discovery fallback.
 2. **Isolation** — "in a worktree" / "worktree" → create a workspace with `isolation: "worktree"`, using a short branch name derived from the task.
 3. **Task description** — anything else the user said.
 

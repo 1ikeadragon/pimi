@@ -259,6 +259,8 @@ export interface PaseoAgentCreateOptions {
   config: PaseoAgentConfig;
   cwd: string;
   parent?: string | AgentAddress | PaseoAgentHandle;
+  /** Deliver the initial turn's result to a parent on the same host. */
+  notifyOnFinish?: boolean;
   title?: PaseoAgentSessionConfig["title"];
   env?: CreateAgentRequestMessage["env"];
   prompt?: string;
@@ -542,6 +544,10 @@ export interface PaseoApi {
   observeEvents: DaemonClient["observeEvents"];
   readonly terminals: PaseoTerminalActions;
   readonly workspaces: PaseoWorkspaceActions;
+  readonly workspaceLabels: {
+    list: DaemonClient["listWorkspaceLabels"];
+    set: DaemonClient["setWorkspaceLabel"];
+  };
   readonly projects: PaseoProjectActions;
   readonly agents: PaseoAgentActions;
   readonly providers: PaseoProviderActions;
@@ -580,12 +586,18 @@ export function createPaseoClient(config: PaseoClientConfig): PaseoClient {
 function toDaemonAgentCreateOptions(
   options: PaseoAgentCreateOptions,
   placement?: { workspaceId: string; cwd: string },
-  serverId?: string,
+  serverInfo?: ReturnType<DaemonClient["getLastServerInfoMessage"]>,
 ): CreateAgentRequestOptions {
   const { config: agentConfig, cwd, parent, title, prompt, ...requestOptions } = options;
   const { provider: providerModel, options: providerOptions, ...runtimeConfig } = agentConfig;
   const { provider, model } = parseProviderModel(providerModel);
-  const relationship = parent ? encodeParent(parent, serverId) : {};
+  const relationship = parent ? encodeParent(parent, serverInfo?.serverId) : {};
+  if (requestOptions.notifyOnFinish) {
+    if (!relationship.callerAgentId)
+      throw new Error("Finish notifications require a parent on this host.");
+    if (!serverInfo?.features?.agentFinishNotifications)
+      throw new Error("Update the agent host to launch workers that report to this chat.");
+  }
   return {
     ...requestOptions,
     config: {
@@ -657,7 +669,7 @@ export function createPaseoApi(
       ? await inheritParentBackground(options, foreignParent)
       : options;
     const agent = await daemonClient.createAgent(
-      toDaemonAgentCreateOptions(resolved, placement, serverId),
+      toDaemonAgentCreateOptions(resolved, placement, daemonClient.getLastServerInfoMessage()),
     );
     return createAgentHandle(agent);
   };
@@ -763,8 +775,24 @@ export function createPaseoApi(
     return { ...(await subscription.ready), subscription };
   }
 
+  const requireWorkspaceLabels = () => {
+    daemonClient.ensureConnected();
+    if (daemonClient.getLastServerInfoMessage()?.features?.workspaceLabels !== true)
+      throw new Error("Update the host to use workspace labels.");
+  };
+
   return {
     dispose,
+    workspaceLabels: {
+      list: (options) => {
+        requireWorkspaceLabels();
+        return daemonClient.listWorkspaceLabels(options);
+      },
+      set: (options) => {
+        requireWorkspaceLabels();
+        return daemonClient.setWorkspaceLabel(options);
+      },
+    },
     hosts: createHostActions(daemonClient, { own, signal: lifetime.signal, api: createPaseoApi }),
     observeEvents,
     terminals,
@@ -790,7 +818,7 @@ export function createPaseoApi(
                   agent: toDaemonAgentCreateOptions(
                     agent,
                     undefined,
-                    daemonClient.getLastServerInfoMessage()?.serverId,
+                    daemonClient.getLastServerInfoMessage(),
                   ),
                 }
               : {}),

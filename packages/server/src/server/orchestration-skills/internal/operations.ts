@@ -7,8 +7,10 @@ import {
   listFilesRecursive,
   readManagedFilesManifest,
   removeSkill,
+  retireManagedSkill,
   syncSkills,
 } from "./sync.js";
+import { RENAMED_SKILLS } from "./selection-store.js";
 
 export type SkillsState = "not-installed" | "up-to-date" | "drift";
 
@@ -246,12 +248,26 @@ function nonDestructivePlan(status: SkillsStatus): SkillsStatus {
 export async function autoUpdateInstalledSkills(
   targets: SkillTargets,
   selection: SkillSelection,
+  installByDefault = false,
 ): Promise<SkillsStatus> {
   const status = await getSkillsStatus(targets, selection);
-  if (status.state !== "drift") return status;
-  // Automatic maintenance may repair selected skills, but removal is an
-  // interactive operation because managed directories can contain user files.
-  return applySkills(targets, selection, nonDestructivePlan(status));
+  const homes = new Set([targets.agentsDir, targets.claudeDir, targets.codexDir]);
+  const desired = resolveDesiredSkills(selection, status.available);
+  const renamed: Array<{ directory: string; successor: string }> = [];
+  for (const [oldName, successor] of Object.entries(RENAMED_SKILLS)) {
+    if (!desired.has(successor)) continue;
+    for (const home of homes) {
+      const directory = path.join(home, oldName);
+      if (await readManagedFilesManifest(directory)) renamed.push({ directory, successor });
+    }
+  }
+  if (status.state === "not-installed" && !installByDefault && renamed.length === 0) return status;
+  const updated = await applySkills(targets, selection, nonDestructivePlan(status));
+  for (const { directory, successor } of renamed) {
+    if (updated.installed.includes(successor) && !updated.ops.some((op) => op.name === successor))
+      await retireManagedSkill(directory);
+  }
+  return updated;
 }
 
 export async function uninstallSkills(

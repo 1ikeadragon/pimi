@@ -1,6 +1,6 @@
 import type { AgentSessionConfig, McpServerConfig } from "./agent-sdk-types.js";
 
-export const PASEO_MCP_SERVER_NAME = "paseo";
+export const PASEO_MCP_SERVER_NAME = "pimi";
 const PASEO_MCP_PATHNAME = "/mcp/agents";
 
 export function stripInternalPaseoMcpServer(config: AgentSessionConfig): AgentSessionConfig {
@@ -9,13 +9,12 @@ export function stripInternalPaseoMcpServer(config: AgentSessionConfig): AgentSe
     return config;
   }
 
-  const paseoServer = mcpServers[PASEO_MCP_SERVER_NAME];
-  if (!paseoServer || !isInternalPaseoMcpServer(paseoServer)) {
-    return config;
-  }
-
   const nextMcpServers = { ...mcpServers };
-  delete nextMcpServers[PASEO_MCP_SERVER_NAME];
+  for (const name of ["paseo", PASEO_MCP_SERVER_NAME]) {
+    const server = nextMcpServers[name];
+    if (server && isInternalPaseoMcpServer(server)) delete nextMcpServers[name];
+  }
+  if (Object.keys(mcpServers).length === Object.keys(nextMcpServers).length) return config;
 
   const next = { ...config };
   if (Object.keys(nextMcpServers).length > 0) {

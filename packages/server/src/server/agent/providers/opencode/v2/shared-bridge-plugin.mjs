@@ -54,7 +54,7 @@ export async function registerSharedBridge(context) {
     }
     const registration = await context.tool.transform((editor) => {
       editor.add({
-        name: `paseo_${definition.name}`,
+        name: `pimi_${definition.name}`,
         description: definition.description,
         input: definition.inputSchema,
         options: { codemode: false },
@@ -175,9 +175,9 @@ export async function registerSharedBridge(context) {
     const scope =
       binding &&
       (await request(binding, `/sessions/${encodeURIComponent(binding.sessionID)}/context?tools`));
-    const allowed = new Set((scope?.tools ?? []).map((name) => `paseo_${name}`));
+    const allowed = new Set((scope?.tools ?? []).map((name) => `pimi_${name}`));
     for (const name of Object.keys(input.tools)) {
-      if (name.startsWith("paseo_") && name !== STRUCTURED_OUTPUT_TOOL && !allowed.has(name))
+      if (name.startsWith("pimi_") && name !== STRUCTURED_OUTPUT_TOOL && !allowed.has(name))
         delete input.tools[name];
     }
   });

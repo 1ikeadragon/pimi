@@ -1560,7 +1560,7 @@ export async function createPaseoDaemon(
   });
   const createAgentToolHostDependencies = (
     runtime: PaseoToolRuntimeContext,
-    canUseProjectMemory = true,
+    canUseCallerScopedTools = true,
   ): PaseoToolHostDependencies => ({
     finishSubscriptions: () => finishSubscriptions,
     agentMessages: () => {
@@ -1587,7 +1587,8 @@ export async function createPaseoDaemon(
     emitWorkspaceUpdatesForWorkspaceIds: emitWorkspaceUpdatesExternal,
     workspaceRegistry,
     projectRegistry,
-    projectMemory: canUseProjectMemory ? projectMemory : undefined,
+    projectMemory: canUseCallerScopedTools ? projectMemory : undefined,
+    pimiTaskHome: canUseCallerScopedTools ? config.paseoHome : undefined,
     createDirectoryWorkspace: async (cwd, title, projectId, context) => {
       const workspace = await workspaceProvisioning.createWorkspaceForDirectory(
         cwd,
@@ -1703,7 +1704,7 @@ export async function createPaseoDaemon(
       const callerAgentId = typeof callerAgentIdValue === "string" ? callerAgentIdValue : undefined;
       const authorizationHeader = req.header("authorization");
       const bearer = extractHttpBearerToken(authorizationHeader);
-      // General tools also serve legacy/password clients. Project memory requires a credential
+      // General tools also serve legacy/password clients. Project memory and Pimi tasks require a credential
       // bound to the injected caller, including on daemons with no password.
       const boundCaller = Boolean(
         callerAgentId &&
@@ -1942,6 +1943,7 @@ export async function createPaseoDaemon(
               pluginRuntime,
               orchestrationSkills,
               workspaceLabelService,
+              finishSubscriptions,
             );
             pluginRuntime.bindPaseoSessionHost(wsServer);
             await pluginRuntime.start();

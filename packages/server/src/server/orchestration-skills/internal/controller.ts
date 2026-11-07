@@ -162,8 +162,18 @@ export function createSkillsController({
     status: () => serialize(() => converge(getSkillsStatus)),
     install: () => serialize(() => converge(updateSkills)),
     update: () => serialize(() => converge(updateSkills)),
-    uninstall: () => serialize(() => converge(uninstallSkills)),
-    autoUpdate: () => serialize(() => converge(autoUpdateInstalledSkills)),
+    uninstall: () =>
+      serialize(async () => {
+        if (!(await selectionStore.isSet())) await selectionStore.set(await selectionStore.get());
+        return converge(uninstallSkills);
+      }),
+    autoUpdate: () =>
+      serialize(async () => {
+        const installByDefault = !(await selectionStore.isSet());
+        return converge((targets, selection) =>
+          autoUpdateInstalledSkills(targets, selection, installByDefault),
+        );
+      }),
     save: (selection) => serialize(() => saveSelection(selection)),
     importLegacySelectionIfUnset: (selection) =>
       serialize(() => importLegacySelectionIfUnset(selection)),

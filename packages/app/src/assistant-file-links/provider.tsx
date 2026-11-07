@@ -23,6 +23,7 @@ export interface AssistantFileLinkResolverConfig {
   serverId?: string;
   workspaceRoot?: string;
   relativePathBase?: string;
+  onOpenWebUrl?: (url: string) => void;
   onOpenWorkspaceFile?: (target: InlinePathTarget, disposition: OpenFileDisposition) => void;
   toast?: ToastApi | null;
 }
@@ -57,15 +58,19 @@ export function AssistantFileLinkResolverProvider({
   workspaceRoot,
   relativePathBase,
   onOpenWorkspaceFile,
+  onOpenWebUrl,
   toast,
   children,
 }: AssistantFileLinkResolverProviderProps) {
+  const parent = useContext(AssistantFileLinkResolverContext);
+  const openWebUrl = onOpenWebUrl ?? parent?.configRef.current.onOpenWebUrl;
   const configRef = useRef<AssistantFileLinkResolverConfig>({
     client,
     serverId,
     workspaceRoot,
     relativePathBase,
     onOpenWorkspaceFile,
+    onOpenWebUrl: openWebUrl,
     toast,
   });
   configRef.current = {
@@ -74,6 +79,7 @@ export function AssistantFileLinkResolverProvider({
     workspaceRoot,
     relativePathBase,
     onOpenWorkspaceFile,
+    onOpenWebUrl: openWebUrl,
     toast,
   };
 

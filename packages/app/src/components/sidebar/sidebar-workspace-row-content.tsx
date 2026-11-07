@@ -35,6 +35,11 @@ import {
   SidebarWorkspaceArchiveButton,
 } from "@/components/sidebar/sidebar-workspace-menu";
 import { useWorkspaceLabelDefinitions } from "@/workspace-labels";
+import { usePimiTaskBranches } from "./sidebar-model";
+import { getDesktopHost } from "@/desktop/host";
+import { navigateToAgent } from "@/utils/navigate-to-agent";
+import { PressHighlight } from "@/components/ui/press-highlight";
+import type { Agent } from "@/stores/session-store";
 
 const needsInputColorMapping = (theme: Theme) => ({
   color: theme.colors.surface0,
@@ -73,19 +78,83 @@ export function SidebarWorkspaceRowFrame({
   );
 
   return (
-    <WorkspaceHoverCard
-      workspace={workspace}
-      prHint={workspace.prHint}
-      isDragging={isDragging}
-      disabled={contextMenuOpen}
-    >
-      {children({
-        isHovered: isHovered && !contextMenuOpen && !isDragging,
-        contextMenuOpen,
-        onContextMenuOpenChange: handleContextMenuOpenChange,
-        hoverHandlers,
-      })}
-    </WorkspaceHoverCard>
+    <>
+      <WorkspaceHoverCard
+        workspace={workspace}
+        prHint={workspace.prHint}
+        isDragging={isDragging}
+        disabled={contextMenuOpen}
+      >
+        {children({
+          isHovered: isHovered && !contextMenuOpen && !isDragging,
+          contextMenuOpen,
+          onContextMenuOpenChange: handleContextMenuOpenChange,
+          hoverHandlers,
+        })}
+      </WorkspaceHoverCard>
+      {!isDragging ? <PimiTaskBranchRows workspaceKey={workspace.workspaceKey} /> : null}
+    </>
+  );
+}
+
+function PimiTaskBranchRows({ workspaceKey }: { workspaceKey: string }) {
+  const branches = usePimiTaskBranches(workspaceKey);
+  if (!branches?.length) return null;
+  const groups = new Map<string, typeof branches>();
+  for (const branch of branches) {
+    const siblings = groups.get(branch.parent.id);
+    if (siblings) siblings.push(branch);
+    else groups.set(branch.parent.id, [branch]);
+  }
+  return (
+    <View style={styles.taskBranches} testID={`pimi-task-branches-${workspaceKey}`}>
+      {[...groups].map(([parentId, children]) => (
+        <View key={parentId}>
+          {groups.size > 1 ? (
+            <Text numberOfLines={1} style={styles.taskBranchTitle}>
+              {children[0].parent.title || "Original chat"}
+            </Text>
+          ) : null}
+          {children.map(({ worker, workspace }) => (
+            <PimiTaskBranchRow key={worker.id} worker={worker} workspace={workspace} />
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function PimiTaskBranchRow({
+  worker,
+  workspace,
+}: {
+  worker: Agent;
+  workspace: SidebarWorkspaceEntry;
+}) {
+  const open = useCallback(() => {
+    getDesktopHost()?.dismissPimiWorkspace?.();
+    navigateToAgent({ serverId: worker.serverId, agentId: worker.id });
+  }, [worker.serverId, worker.id]);
+  return (
+    <View>
+      <PressHighlight
+        accessibilityRole="button"
+        onPress={open}
+        style={styles.taskBranchRow}
+        highlightStyle={styles.taskBranchPressed}
+        testID={`pimi-task-branch-${worker.id}`}
+      >
+        <WorkspaceStatusIndicator
+          bucket={workspace.statusBucket}
+          workspaceKind={workspace.workspaceKind}
+          loading={false}
+        />
+        <Text numberOfLines={1} style={styles.taskBranchTitle}>
+          {worker.title || workspace.name}
+        </Text>
+      </PressHighlight>
+      <PimiTaskBranchRows workspaceKey={workspace.workspaceKey} />
+    </View>
   );
 }
 
@@ -494,6 +563,28 @@ export function SidebarWorkspaceTrailingActionOverlay({
 const TITLE_LINE_HEIGHT = 20;
 
 const styles = StyleSheet.create((theme) => ({
+  taskBranches: {
+    marginLeft: 18,
+    paddingLeft: 7,
+    borderLeftWidth: 1,
+    borderLeftColor: theme.colors.border,
+  },
+  taskBranchRow: {
+    minHeight: 26,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    borderRadius: 5,
+    paddingRight: 8,
+  },
+  taskBranchPressed: {
+    backgroundColor: theme.colors.surface1,
+  },
+  taskBranchTitle: {
+    flexShrink: 1,
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+  },
   workspaceRowContent: {
     position: "relative",
   },

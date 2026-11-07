@@ -532,6 +532,51 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     const effectiveStreamHead = useRetainedValue(streamHead, isActive);
     const effectiveTurnPresentation = useRetainedValue(turnPresentation, isActive);
     const isTurnActive = effectiveTurnPresentation.isActive;
+    const openedPimiDraft = useRef<string | null>(null);
+    const activeTurnId = effectiveTurnPresentation.turnId;
+    const settledDraft = useMemo(
+      () =>
+        activeTurnId
+          ? effectiveStreamItems.findLast(
+              (item) =>
+                item.turnId === activeTurnId &&
+                item.kind === "tool_call" &&
+                item.payload.source === "agent" &&
+                isPimiTaskProposalTool(item.payload.data.name),
+            )
+          : undefined,
+      [activeTurnId, effectiveStreamItems],
+    );
+    useEffect(() => {
+      const show = getDesktopHost()?.showPimiWorkspace;
+      if (!show || !isActive || readOnly || !isTurnActive || !document.hasFocus()) return;
+      for (const item of [...(effectiveStreamHead ?? []), settledDraft]) {
+        if (!item) continue;
+        if (item.kind !== "tool_call" || item.payload.source !== "agent") continue;
+        const data = item.payload.data;
+        if (data.status !== "completed" || data.error || data.detail.type !== "unknown") continue;
+        if (!isPimiTaskProposalTool(data.name)) continue;
+        const proposal = readPimiTaskProposal(data.detail.output);
+        if (
+          !proposal ||
+          proposal.source.agentId !== agentId ||
+          proposal.source.serverId !== resolvedServerId
+        )
+          continue;
+        if (proposal.id === openedPimiDraft.current) return;
+        openedPimiDraft.current = proposal.id;
+        show({ view: "task-draft", proposal });
+        break;
+      }
+    }, [
+      agentId,
+      effectiveStreamHead,
+      isActive,
+      isTurnActive,
+      readOnly,
+      resolvedServerId,
+      settledDraft,
+    ]);
     const presentStream = useMemo(() => createStreamPresentation(), []);
     const presentation = useMemo(
       () =>

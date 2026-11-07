@@ -2914,7 +2914,7 @@ export const en = {
       skills: {
         sectionTitle: "Orchestration skills",
         title: "Orchestration skills",
-        description: "Teach your agents how to use Paseo tools",
+        description: "Teach your agents how to use Pimi tools",
         docs: "Skills",
         openDocs: "Open skills documentation",
         unavailable: "Connect to this host to manage orchestration skills",
@@ -2924,10 +2924,10 @@ export const en = {
         uninstallFailed: "Unable to uninstall orchestration skills.",
         saveSelectionFailed: "Unable to save the orchestration skills selection.",
         updateAvailable: "Update available",
-        updateTitle: "Update Paseo skills?",
-        uninstallTitle: "Uninstall Paseo skills?",
+        updateTitle: "Update Pimi skills?",
+        uninstallTitle: "Uninstall Pimi skills?",
         uninstallMessage:
-          "Removes all Paseo orchestration skills from ~/.agents, ~/.claude, ~/.codex on this host.",
+          "Removes all Pimi orchestration skills from ~/.agents, ~/.claude, ~/.codex on this host.",
         choose: "Choose skills",
         chooseAll: "All skills",
         chooseAllHint: "Keep every bundled skill installed, including ones added later.",

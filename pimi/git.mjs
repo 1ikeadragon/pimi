@@ -54,7 +54,7 @@ const runGit = (cwd, args, options) =>
 export const git = (cwd, ...args) => runGit(cwd, args);
 
 export async function repository(path) {
-  return realpath((await git(path, "rev-parse", "--show-toplevel")).replace(/\n$/, ""));
+  return realpath((await git(path, "rev-parse", "--show-toplevel")).replace(/\r?\n$/, ""));
 }
 
 export async function discoverWorktrees(root) {
@@ -67,7 +67,7 @@ export async function discoverWorktrees(root) {
     const directory = value("worktree");
     if (!directory || fields.includes("bare")) continue;
     worktrees.push({
-      path: directory,
+      path: process.platform === "win32" ? resolve(directory) : directory,
       repo: basename(root),
       head: value("HEAD"),
       branch: value("branch")?.replace(/^refs\/heads\//, "") ?? "Detached HEAD",
@@ -132,7 +132,7 @@ async function resolveBase(cwd, input) {
   return { label, sha: await commit(cwd, label) };
 }
 
-export async function worktreeFacts(worktree) {
+export async function worktreeFacts(worktree, baseRef) {
   if (worktree.unavailable) return { ...worktree };
   try {
     const [status, head] = await Promise.all([
@@ -140,7 +140,7 @@ export async function worktreeFacts(worktree) {
       readHead(worktree.path),
     ]);
     if (!head) return { ...worktree, dirty: Boolean(status), ahead: 0 };
-    const base = await resolveBase(worktree.path);
+    const base = await resolveBase(worktree.path, baseRef);
     const ahead = Number(
       (await git(worktree.path, "rev-list", "--count", `${base.sha}..HEAD`)).trim(),
     );

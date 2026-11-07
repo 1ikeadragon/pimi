@@ -32,13 +32,13 @@ export default async function paseoPlugin(input, options) {
   }
   const tools = {};
   for (const definition of manifest.tools ?? []) {
-    tools[`paseo_${definition.name}`] = {
+    tools[`pimi_${definition.name}`] = {
       description: definition.description,
       args: jsonSchemaObjectToZodShape(definition.inputSchema),
       execute: async (args, context) => {
         // OpenCode leaves permission checks to plugin tools, so ask it the way it asks for MCP tools.
         await context.ask({
-          permission: `paseo_${definition.name}`,
+          permission: `pimi_${definition.name}`,
           patterns: ["*"],
           always: ["*"],
           metadata: {},

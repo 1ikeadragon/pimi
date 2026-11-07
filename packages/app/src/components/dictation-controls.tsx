@@ -144,7 +144,8 @@ export function DictationOverlay({
   isProcessing,
   status,
   errorText,
-  neutral = false,
+  transparent = false,
+  compact = false,
   labelActions = false,
   onCancel,
   onAccept,
@@ -153,7 +154,8 @@ export function DictationOverlay({
   onDiscard,
 }: Omit<DictationControlsProps, "onStart" | "disabled" | "transcript" | "onAcceptAndSend"> & {
   errorText?: string;
-  neutral?: boolean;
+  transparent?: boolean;
+  compact?: boolean;
   labelActions?: boolean;
   onAcceptAndSend?: () => void;
 }) {
@@ -163,24 +165,44 @@ export function DictationOverlay({
   const showActiveState = isRecording || isProcessing || isFailed;
   const actionsDisabled = isProcessing;
   const handleCancel = isFailed && onDiscard ? onDiscard : onCancel;
-  const background = neutral ? theme.colors.foreground : theme.colors.accent;
-  const foreground = neutral ? theme.colors.surface0 : theme.colors.accentForeground;
+  const compactButton = compact ? overlayStyles.compactButton : undefined;
+  const { background, foreground, actionBackground, actionForeground, insertBackground } = useMemo(
+    () =>
+      transparent
+        ? {
+            background: "transparent",
+            foreground: theme.colors.foreground,
+            actionBackground: theme.colors.surface2,
+            actionForeground: theme.colors.foreground,
+            insertBackground: { backgroundColor: theme.colors.surface2 },
+          }
+        : {
+            background: theme.colors.accent,
+            foreground: theme.colors.accentForeground,
+            actionBackground: theme.colors.accentForeground,
+            actionForeground: theme.colors.accent,
+            insertBackground: OVERLAY_ACCEPT_BUTTON_BG,
+          },
+    [theme.colors, transparent],
+  );
 
   const containerStyle = useMemo(
     () => [
       overlayStyles.container,
       labelActions && overlayStyles.labeledContainer,
+      compact && overlayStyles.compactContainer,
       { backgroundColor: background },
     ],
-    [background, labelActions],
+    [background, compact, labelActions],
   );
   const overlayCancelButtonStyle = useMemo(
     () => [
       overlayStyles.cancelButton,
+      compactButton,
       labelActions && overlayStyles.labeledButton,
       actionsDisabled && !isFailed && overlayStyles.buttonDisabled,
     ],
-    [actionsDisabled, isFailed, labelActions],
+    [actionsDisabled, compactButton, isFailed, labelActions],
   );
   const overlayTimerTextStyle = useMemo(
     () => [overlayStyles.timerText, { color: foreground }],
@@ -193,12 +215,14 @@ export function DictationOverlay({
   const overlayRetryButtonStyle = useMemo(
     () => [
       overlayStyles.actionButton,
+      compactButton,
       labelActions && overlayStyles.labeledButton,
-      { backgroundColor: foreground },
+      { backgroundColor: actionBackground },
     ],
-    [foreground, labelActions],
+    [actionBackground, compactButton, labelActions],
   );
   const overlayConfirmButtonStyle = overlayRetryButtonStyle;
+  const iconSize = compact ? 16 : theme.iconSize.lg;
 
   if (!showActiveState) {
     return null;
@@ -213,13 +237,7 @@ export function DictationOverlay({
         accessibilityLabel={t("message.dictation.cancel")}
         style={overlayCancelButtonStyle}
       >
-        {overlayActionContent(
-          labelActions,
-          t("common.actions.cancel"),
-          X,
-          foreground,
-          theme.iconSize.lg,
-        )}
+        {overlayActionContent(labelActions, t("common.actions.cancel"), X, foreground, iconSize)}
       </Pressable>
 
       <View style={overlayStyles.centerContainer}>
@@ -229,6 +247,7 @@ export function DictationOverlay({
             isMuted={false}
             isSpeaking={false}
             orientation="horizontal"
+            variant={compact ? "compact" : "default"}
             color={foreground}
           />
           <Text style={overlayTimerTextStyle}>{formatDuration(duration)}</Text>
@@ -243,7 +262,7 @@ export function DictationOverlay({
 
       <View style={overlayStyles.actionButtonsContainer}>
         {actionsDisabled ? (
-          <View style={overlayStyles.loadingContainer}>
+          <View style={[overlayStyles.loadingContainer, compactButton]}>
             <LoadingSpinner size="small" color={foreground} />
           </View>
         ) : null}
@@ -258,8 +277,8 @@ export function DictationOverlay({
               labelActions,
               t("common.actions.retry"),
               RefreshCcw,
-              background,
-              theme.iconSize.lg,
+              actionForeground,
+              iconSize,
             )}
           </Pressable>
         ) : null}
@@ -271,11 +290,12 @@ export function DictationOverlay({
               accessibilityLabel={t("message.dictation.insert")}
               style={[
                 overlayStyles.actionButton,
+                compactButton,
                 labelActions && overlayStyles.labeledButton,
-                OVERLAY_ACCEPT_BUTTON_BG,
+                insertBackground,
               ]}
             >
-              {overlayActionContent(labelActions, "Insert", Pencil, foreground, theme.iconSize.lg)}
+              {overlayActionContent(labelActions, "Insert", Pencil, foreground, iconSize)}
             </Pressable>
             {onAcceptAndSend ? (
               <Pressable
@@ -284,7 +304,7 @@ export function DictationOverlay({
                 accessibilityLabel={t("message.dictation.insertAndSend")}
                 style={overlayConfirmButtonStyle}
               >
-                <ArrowUp size={theme.iconSize.lg} color={background} strokeWidth={2.5} />
+                <ArrowUp size={iconSize} color={actionForeground} strokeWidth={2.5} />
               </Pressable>
             ) : null}
           </>
@@ -405,6 +425,15 @@ const OVERLAY_BUTTON_SIZE = 44;
 const OVERLAY_VERTICAL_PADDING = (FOOTER_HEIGHT - OVERLAY_BUTTON_SIZE) / 2;
 
 const overlayStyles = StyleSheet.create((theme) => ({
+  compactContainer: {
+    maxWidth: 280,
+    height: "auto",
+    minHeight: 38,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    gap: 8,
+  },
+  compactButton: { width: 29, height: 29 },
   labeledContainer: { height: "auto", minHeight: FOOTER_HEIGHT, paddingVertical: theme.spacing[3] },
   labeledButton: { width: "auto", paddingHorizontal: theme.spacing[3], flexShrink: 0 },
   actionLabel: { fontSize: theme.fontSize.sm, fontWeight: theme.fontWeight.semibold },

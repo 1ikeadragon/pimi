@@ -1,18 +1,25 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname } from "node:path";
 import { z } from "zod";
 import {
   PimiExperimentFields,
+  PimiTaskAgentGetInput,
+  PimiTaskAgentListInput,
+  PimiTaskAgentUpdateInput,
   PimiTaskFields,
+  PimiStoredTaskMode,
   PimiTaskProposal,
+  PimiTaskStage,
 } from "@getpaseo/protocol/pimi-task";
+
+import { workspaceLabelKey } from "@getpaseo/protocol/workspace-labels";
 
 import { commit, RequestError } from "./git.mjs";
 
 const taskFields = PimiTaskFields.extend({ done: z.boolean() });
-const taskStage = z.enum(["backlog", "ready", "in-progress", "review", "done"]);
 const ideaFields = PimiExperimentFields;
 const taskSource = PimiTaskProposal.shape.source;
 const modelConfig = z.object({
@@ -24,15 +31,23 @@ const experimentSchema = ideaFields.extend({
   root: z.string().nullable().optional(),
   path: z.string().nullable(),
   workspaceId: z.string().nullable(),
-  launch: z.object({ config: modelConfig, prompt: z.string() }).nullable(),
+  launch: z
+    .object({
+      config: modelConfig,
+      prompt: z.string(),
+      mode: PimiStoredTaskMode.optional(),
+      parent: taskSource.optional(),
+    })
+    .nullable(),
   error: z.string().nullable(),
   report: z.string().max(24000),
   reportSource: z.enum(["agent", "manual"]).nullable(),
   reportTruncated: z.boolean(),
 });
 const taskSchema = taskFields.extend({
+  mode: PimiStoredTaskMode.optional(),
   id: z.uuid(),
-  stage: taskStage.nullable().optional(),
+  stage: PimiTaskStage.nullable().optional(),
   root: z.string().nullable(),
   base: z.string().nullable(),
   repositories: z.array(z.object({ root: z.string().min(1), base: z.string().min(1) })).optional(),
@@ -40,6 +55,7 @@ const taskSchema = taskFields.extend({
   experiments: z.array(experimentSchema),
 });
 const maxExperiments = 8;
+const agentTaskPageSize = 50;
 const modelInput = z.object({ id: z.uuid(), model: z.string().min(1).max(512) });
 
 function makeExperiment(idea, card, root = null) {
@@ -82,15 +98,62 @@ function checkOpen(task) {
   if (task.done) throw new RequestError("Reopen this task to change its work items.", 409);
 }
 
-function requireRepository(task) {
+function pinRepository(task, root, base) {
+  task.repositories.push({ root, base });
+  if (!task.root) {
+    task.root = root;
+    task.base = base;
+    for (const item of task.experiments) item.root ??= root;
+  }
+}
+
+function taskSummary({ id, title, done, stage, repositories, labels, mode }) {
+  return {
+    id,
+    title,
+    done,
+    stage: stage ?? (done ? "done" : null),
+    repositories,
+    labels: labels ?? [],
+    mode: mode ?? "worktree",
+  };
+}
+
+function taskDetails(task) {
+  return {
+    ...taskSummary(task),
+    brief: task.brief,
+    work: task.experiments.map(({ id, title, hypothesis, path, root, workspaceId, report }) => ({
+      id,
+      title,
+      brief: hypothesis,
+      path,
+      repository: root,
+      workspaceId,
+      hasReport: Boolean(report),
+    })),
+  };
+}
+
+function modelDirectory(task) {
+  if (task.mode === "chat") return tmpdir();
   if (!task.root || !task.base) throw new RequestError("Attach a repository to start agents.", 409);
   return task.root;
 }
 
-function experimentPrompt(task, experiment) {
+function experimentPrompt(task, experiment, mode, repository) {
+  const instructions =
+    mode === "chat"
+      ? [
+          "Complete this work item. Save notes and artifacts in your own working directory. Do not create a Git worktree or start other agents.",
+          ...(repository ? [`Reference repository (read only): ${repository.root}`] : []),
+        ]
+      : [
+          "Complete the work item in your assigned worktree.",
+          "Keep all changes local to this worktree. Do not commit, push, open a pull request, or start other agents.",
+        ];
   return [
-    "Complete the work item in your assigned worktree.",
-    "Keep all changes local to this worktree. Do not commit, push, open a pull request, or start other agents.",
+    ...instructions,
     "Work on this item only. Follow the brief, then verify what you can.",
     "Your final message becomes the report. Include the outcome, files or areas changed, what you verified, and open questions. Distinguish checks you ran from assumptions.",
     `Task: ${task.title}\n${task.brief}`,
@@ -109,6 +172,8 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
       for (const task of state) {
         // An absent override preserves legacy closed tasks; an explicit override owns done.
         if (task.stage !== undefined) task.done = task.stage === "done";
+        if (task.mode === "research") task.mode = "chat";
+        if (!task.mode || task.mode === "code") task.mode = "worktree";
         task.repositories ??= task.root && task.base ? [{ root: task.root, base: task.base }] : [];
         for (const item of task.experiments) item.root ??= task.root;
       }
@@ -147,20 +212,41 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
     return commit(root, "HEAD");
   }
 
+  async function validateLabels(names, previous = []) {
+    if (names === undefined) return undefined;
+    if (!names.length) return [];
+    const { labels } = await paseo.labels();
+    const catalog = new Map(labels.map((label) => [workspaceLabelKey(label.name), label.name]));
+    const retained = new Map(previous.map((name) => [workspaceLabelKey(name), name]));
+    return [
+      ...new Set(
+        names.map((name) => {
+          const key = workspaceLabelKey(name);
+          const canonical = catalog.get(key) ?? retained.get(key);
+          if (!canonical)
+            throw new RequestError(`Label “${name}” is not in Paseo. Choose an existing label.`);
+          return canonical;
+        }),
+      ),
+    ];
+  }
+
   async function create(body) {
     const input = readInput(
       PimiTaskFields.extend({
         root: z.string().min(1).nullable(),
-        proposal: PimiTaskProposal.omit({ title: true, brief: true }).optional(),
+        proposal: PimiTaskProposal.omit({ title: true, brief: true, mode: true }).optional(),
       }),
       body,
     );
     const { proposal, ...fields } = input;
     const existing = proposal && state.find((task) => task.id === proposal.id);
     if (existing) return existing;
+    fields.labels = await validateLabels(fields.labels);
     const base = await repositoryBase(input.root);
     const task = {
       ...fields,
+      mode: fields.mode ?? "chat",
       id: proposal?.id ?? randomUUID(),
       base,
       repositories: input.root ? [{ root: input.root, base }] : [],
@@ -186,22 +272,21 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
       checkOpen(task);
       if (task.repositories.some((repository) => repository.root === root))
         throw new RequestError("This repository is already attached.", 409);
-      task.repositories.push({ root, base });
-      if (!task.root) {
-        task.root = root;
-        task.base = base;
-        for (const item of task.experiments) item.root ??= root;
-      }
+      pinRepository(task, root, base);
       return task;
     });
   }
 
-  function save(body) {
-    const { id, ...input } = readInput(taskFields.extend({ id: z.uuid() }), body);
+  async function save(body) {
+    const { id, ...input } = readInput(taskFields.partial().extend({ id: z.uuid() }), body);
+    if (input.labels !== undefined)
+      input.labels = await validateLabels(input.labels, getTask(state, id).labels);
     return update((draft) => {
       const task = getTask(draft, id);
+      if (input.mode !== undefined && running.has(id))
+        throw new RequestError("Wait for the current task operation to finish.", 409);
       if (input.done && running.has(id)) throw new RequestError("Wait for launch to finish.", 409);
-      if (input.done !== task.done) {
+      if (input.done !== undefined && input.done !== task.done) {
         if (input.done) task.stage = "done";
         else if (task.stage === "done") task.stage = null;
       }
@@ -209,18 +294,69 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
     });
   }
 
+  function applyStage(task, stage) {
+    if (stage === "done" && running.has(task.id))
+      throw new RequestError("Wait for launch to finish.", 409);
+    task.stage = stage;
+    task.done = stage === "done";
+  }
+
   function setStage(body) {
     const { id, stage } = readInput(
-      z.strictObject({ id: z.uuid(), stage: taskStage.nullable() }),
+      z.strictObject({ id: z.uuid(), stage: PimiTaskStage.nullable() }),
       body,
     );
     return update((draft) => {
       const task = getTask(draft, id);
-      if (stage === "done" && running.has(id))
-        throw new RequestError("Wait for launch to finish.", 409);
-      task.stage = stage;
-      task.done = stage === "done";
+      applyStage(task, stage);
       return task;
+    });
+  }
+
+  function listForAgent(body) {
+    if (readError) throw new RequestError(readError, 503);
+    const { query, offset = 0 } = readInput(PimiTaskAgentListInput, body);
+    const term = query?.toLowerCase();
+    const matches = term
+      ? state.filter((task) => `${task.title} ${task.brief}`.toLowerCase().includes(term))
+      : state;
+    const end = offset + agentTaskPageSize;
+    return {
+      tasks: matches.slice(offset, end).map(taskSummary),
+      nextOffset: end < matches.length ? end : null,
+    };
+  }
+
+  function getForAgent(body) {
+    if (readError) throw new RequestError(readError, 503);
+    const { id } = readInput(PimiTaskAgentGetInput, body);
+    return { task: taskDetails(getTask(state, id)) };
+  }
+
+  async function updateFromAgent(body) {
+    if (readError) throw new RequestError(readError, 503);
+    const { id, repository, stage, ...fields } = readInput(PimiTaskAgentUpdateInput, body);
+    if (!repository && stage === undefined && Object.keys(fields).length === 0)
+      throw new RequestError(
+        "Specify a title, brief, mode, labels, stage, or repository to change.",
+      );
+    const current = getTask(state, id);
+    if (fields.labels !== undefined)
+      fields.labels = await validateLabels(fields.labels, current.labels);
+    const base =
+      repository && !current.repositories.some(({ root }) => root === repository)
+        ? await repositoryBase(repository)
+        : null;
+    return update((draft) => {
+      const task = getTask(draft, id);
+      if (fields.mode !== undefined && running.has(id))
+        throw new RequestError("Wait for the current task operation to finish.", 409);
+      if (base && !task.repositories.some(({ root }) => root === repository)) {
+        if (stage === undefined || stage === "done") checkOpen(task);
+        pinRepository(task, repository, base);
+      }
+      if (stage !== undefined) applyStage(task, stage);
+      return { task: taskDetails(Object.assign(task, fields)) };
     });
   }
 
@@ -282,7 +418,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
   }
 
   async function selectModel(task, model) {
-    const { models } = await paseo.taskModels(requireRepository(task));
+    const { models } = await paseo.taskModels(modelDirectory(task));
     const selected = models.find((entry) => entry.id === model);
     if (!selected)
       throw new RequestError("This model is unavailable. Refresh the model list.", 409);
@@ -369,6 +505,10 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
 
     running.add(id);
     try {
+      const parent =
+        task.source && pending.some((entry) => !entry.launch)
+          ? await paseo.taskParent(task.source)
+          : undefined;
       const selected = await selectModel(task, model);
       const config = {
         provider: selected.id,
@@ -388,7 +528,8 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
         return pending.map(({ id: experimentId }) => {
           const experiment = getExperiment(current, experimentId);
           const repository = current.repositories.find((entry) => entry.root === experiment.root);
-          if (!repository)
+          const mode = experiment.launch ? experiment.launch.mode : current.mode;
+          if (mode !== "chat" && mode !== "research" && !repository)
             throw new RequestError(
               "Attach a repository for every work item before launching.",
               409,
@@ -396,7 +537,12 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
           if (experiment.report)
             throw new RequestError("A work item changed. Review the drafts and try again.", 409);
           experiment.workspaceId ??= `wks_${experiment.id.replaceAll("-", "").slice(0, 16)}`;
-          experiment.launch ??= { config, prompt: experimentPrompt(current, experiment) };
+          experiment.launch ??= {
+            config,
+            mode,
+            prompt: experimentPrompt(current, experiment, mode, repository),
+            ...(parent ? { parent } : {}),
+          };
           experiment.error = null;
           return experiment;
         });
@@ -408,7 +554,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
           try {
             const repository = task.repositories.find((entry) => entry.root === experiment.root);
             path = await paseo.launchExperiment({ ...task, ...repository }, experiment);
-            if (!path) throw new Error("The workspace did not return a checkout path.");
+            if (!path) throw new Error("The workspace did not return a working directory.");
           } catch (cause) {
             error = cause.message;
           }
@@ -453,9 +599,34 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
     });
   }
 
+  function linkedWorktrees() {
+    const paths = new Map();
+    for (const task of state) {
+      for (const item of task.experiments) {
+        if (!item.path || item.launch?.mode === "chat" || item.launch?.mode === "research")
+          continue;
+        if (!paths.has(item.path)) paths.set(item.path, undefined);
+        if (item.launch) {
+          const repository = task.repositories.find(({ root }) => root === item.root);
+          if (repository) paths.set(item.path, repository.base);
+        }
+      }
+    }
+    return paths;
+  }
+
   return {
     roots: () => [...new Set(state.flatMap((task) => task.repositories.map(({ root }) => root)))],
+    linkedWorktrees,
     list: () => ({ tasks: state, error: readError }),
+    reportText(id, experimentId) {
+      const item = getExperiment(getTask(state, id), experimentId);
+      if (!item.report) throw new RequestError("This report is not ready.", 404);
+      return item.report;
+    },
+    listForAgent,
+    getForAgent,
+    updateFromAgent,
     create,
     attachRepository,
     assignRepository,
@@ -464,7 +635,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
     addIdea,
     suggest,
     discard,
-    models: ({ id }) => paseo.taskModels(requireRepository(getTask(state, id))),
+    models: ({ id }) => paseo.taskModels(modelDirectory(getTask(state, id))),
     run,
     report,
   };

@@ -40,41 +40,27 @@ export function isLikelyNamespacedToolName(name: string): boolean {
 }
 
 export function isPaseoToolName(name: string): boolean {
-  const normalized = normalizeToolName(name);
-  if (isSpeakToolName(normalized)) {
-    return false;
-  }
-  if (normalized.includes("__")) {
-    const segments = normalized.split("__").filter((s) => s.length > 0);
-    return (
-      segments.length >= 3 &&
-      segments[0] === "mcp" &&
-      (segments[1] === "paseo" || segments[1].startsWith("paseo_"))
-    );
-  }
-  if (normalized.includes(".")) {
-    const firstSegment = normalized.split(".")[0];
-    return firstSegment === "paseo" || firstSegment.startsWith("paseo_");
-  }
-  return false;
+  return !isSpeakToolName(name) && getPaseoToolLeafName(name) !== null;
+}
+
+function isPimiNamespace(name: string): boolean {
+  return (
+    name === "pimi" || name.startsWith("pimi_") || name === "paseo" || name.startsWith("paseo_")
+  );
 }
 
 export function getPaseoToolLeafName(name: string): string | null {
   const normalized = normalizeToolName(name);
   if (normalized.includes("__")) {
     const segments = normalized.split("__").filter((s) => s.length > 0);
-    if (
-      segments.length >= 3 &&
-      segments[0] === "mcp" &&
-      (segments[1] === "paseo" || segments[1].startsWith("paseo_"))
-    ) {
+    if (segments.length >= 3 && segments[0] === "mcp" && isPimiNamespace(segments[1])) {
       return segments.slice(2).join("__");
     }
     return null;
   }
   if (normalized.includes(".")) {
     const firstSegment = normalized.split(".")[0];
-    if (firstSegment === "paseo" || firstSegment.startsWith("paseo_")) {
+    if (isPimiNamespace(firstSegment)) {
       return normalized.split(".").slice(1).join(".");
     }
     return null;

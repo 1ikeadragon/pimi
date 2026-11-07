@@ -62,6 +62,7 @@ export interface CreateAgentFromSessionInput {
   background: boolean;
   initialPrompt?: string;
   source?: AgentPromptSource;
+  notifyParentOnFinish?: string;
   clientMessageId?: string;
   outputSchema?: Record<string, unknown>;
   images?: Array<{ data: string; mimeType: string }>;
@@ -189,16 +190,16 @@ export async function createAgentCommand(
   if (input.kind === "mcp") {
     input.onCreated?.({ agentId: snapshot.id, createdWorktree: resolved.createdWorktree ?? null });
   }
+  let notifyCaller: string | undefined;
+  if (input.kind === "session") notifyCaller = input.notifyParentOnFinish;
+  else if (input.notifyOnFinish) notifyCaller = input.callerAgentId;
   const notification =
-    input.kind === "mcp" &&
-    input.notifyOnFinish &&
-    input.callerAgentId &&
-    resolved.prompt !== undefined
+    notifyCaller && resolved.prompt !== undefined
       ? await requireFinishSubscriptions(dependencies).register(
           {
             childAgentId: snapshot.id,
-            callerAgentId: input.callerAgentId,
-            requireParentOwnership: !(input.detached ?? false),
+            callerAgentId: notifyCaller,
+            requireParentOwnership: input.kind === "session" || !input.detached,
           },
           true,
         )

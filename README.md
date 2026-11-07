@@ -16,11 +16,15 @@ Pimi opens in Agent Console. On first launch, setup helps you connect an agent p
 
 Collapse the desktop sidebar to keep those views on an icon rail. **Peek sidebar** opens the session list temporarily. Select a session or click back into the workspace to close it, or choose **Pin sidebar** to keep it open.
 
+Tap the dog in the bottom-right corner to start listening. Say “Open a new chat and type summarize this PR,” “Start a new task,” or “Open Work.” Pimi confirms the action on screen and leaves chat and task drafts editable. Say “Stop listening” to turn off the mic.
+
 ![Pimi’s welcome screen with the paw pair and “Your swarm’s best friend”](assets/pimi/onboarding.jpg)
 
 ![Git provider setup showing GitHub connected and the GitLab CLI sign-in command](assets/pimi/git-providers.jpg)
 
 New chats get a short title based on the first message when a metadata provider is available. With **Agent tools** enabled, agents can also suggest a task. **Review task draft** opens the brief and proposed work items for you to edit and save.
+
+Once a task is saved, ask an agent in chat to update it. It can read the brief, find a repository in Work, and attach it. It can also edit the title or brief, move the card, and link an existing worktree. Changes appear on the board as they’re saved.
 
 The change count above the composer shows changed files, additions, and deletions. Click it or the diff icon in the header to open Review for the same checkout, including files the agent has just created.
 
@@ -28,17 +32,17 @@ While an agent is running, use the queue icon to hold a follow-up for its next t
 
 To hand a conversation from Claude Code to Codex, or back again, use the fork icon under a response and choose **Fork with another provider**. Pimi opens a draft in the same workspace with the selected provider and a **Chat history** attachment. The fork uses the selected response as its checkpoint and sends the attachment with your first message.
 
-![A task suggestion inside Agent Console](assets/pimi/task-handoff.jpg)
-
 ![The task draft with its brief and proposed work items](assets/pimi/task-draft.jpg)
 
 ## Follow work across repositories
 
 This example improves provider metadata across RelayKit, ControlPlane, and Observatory. Each work item can link an existing checkout or start an agent in a new worktree at its repository’s pinned commit.
 
-Tasks has its own Kanban: **Backlog**, **Ready**, **In progress**, **Review**, and **Done**. Linked work and agent reports move a task as far as Review. Drag a card or choose a stage to take over, then select **Auto** to follow progress again. You decide when a task is done.
+Tasks has a Kanban board with **To Do**, **Ready**, **In progress**, **Review**, and **Done**. Linked work and agent reports move a task as far as Review. Drag a card or choose a stage to take over, then select **Auto** to follow progress again. You decide when a task is done.
 
-![The Tasks Kanban showing outcomes at different stages](assets/pimi/task-board.jpg)
+Switch between **Board** and **List** in the Tasks toolbar. Search by title, brief, or repository, or choose **Needs attention** to show tasks with work that needs input.
+
+![Pimi’s Tasks board showing repository names, review progress, and stage controls](assets/pimi/task-board.jpg)
 
 ### 1. Capture the question
 
@@ -54,7 +58,7 @@ Attach the repositories, then write work items or ask your configured model to s
 
 ### 3. Follow the worktrees
 
-Auto-Kanban updates as Git and agent activity change. The agents’ final reports appear under their work items as they finish. An open diff stays where you left it until you ask to reload it.
+Auto-Kanban updates as Git and agent activity change. Open a task and choose **Reports** to read a worker’s findings. File links open in the worker’s workspace, and web links open in Pimi’s Browser tab. An open diff stays where you left it until you ask to reload it.
 
 ![The Work board grouping worktrees from three repositories by status](assets/pimi/board.jpg)
 
@@ -86,7 +90,7 @@ Choose an appearance in **Pimi → Settings → Appearance**. Blush pairs rose b
 
 ![The Tasks board in Paper with a fine fiber texture](assets/pimi/paper.jpg)
 
-![The Tasks board in Dark with the sidebar opened temporarily beside it](assets/pimi/dark.jpg)
+![The Tasks board in Dark with the pinned session sidebar](assets/pimi/dark.jpg)
 
 ### Find saved memory
 
@@ -109,6 +113,8 @@ Press `/` to focus the search field for the current view. In review, use `[` and
 
 ## Run on macOS
 
+[Download the macOS preview](https://1ikeadragon.github.io/pimi/) for Apple silicon on macOS 13 or later. The preview is ad-hoc signed and has not been notarized by Apple.
+
 Build from source on Apple silicon with Git and the Node version in [`.tool-versions`](.tool-versions). GitHub CLI handles pull request lookup.
 
 ```sh
@@ -117,7 +123,18 @@ npm run pimi:package:mac
 open packages/desktop/release-pimi/mac-arm64/Pimi.app
 ```
 
-The build creates a local, non-notarized app bundle. Follow setup to start a chat, or open **Tasks** directly from the sidebar. A brief can be saved before you attach a repository. In **Work**, choose **Add repository…** to add an existing Git checkout.
+Follow setup to start a chat, or open **Tasks** directly from the sidebar. A brief can be saved before you attach a repository. In **Work**, choose **Add repository…** to add an existing Git checkout.
+
+## Build on Windows
+
+Use Windows with Git and the x64 Node.js version in [`.tool-versions`](.tool-versions). Install dependencies on Windows to get the native modules for that platform.
+
+```powershell
+npm ci
+npm run pimi:package:win
+```
+
+The per-user installer is `packages/desktop/release-pimi/Pimi-Setup-<version>-x64.exe`. Open Pimi after installation and connect an agent provider during setup.
 
 [Development commands, provider selection, and audit notes](pimi/README.md)
 
@@ -126,7 +143,7 @@ The build creates a local, non-notarized app bundle. Follow setup to start a cha
 - **Paseo**, by Mohamed Boudra and contributors, is Pimi’s upstream. Pimi inherits its agent runtime, SDK, desktop shell, syntax highlighter, and editor launcher. [Upstream source](https://github.com/getpaseo/paseo)
 - **Electron** provides the desktop runtime. [Electron source](https://github.com/electron/electron)
 - **Git** provides worktrees and comparisons. **GitHub CLI** supplies pull request metadata and authentication. [Git source](https://github.com/git/git) · [GitHub CLI source](https://github.com/cli/cli)
-- The Blush fern silhouette is adapted from Sophia L. Crownfield’s *Studies of Ferns*, Cooper Hewitt, Smithsonian Design Museum. [Public-domain artwork](https://commons.wikimedia.org/wiki/File%3ADrawing%2C_Studies_of_Ferns%2C_early_20th_century_%28CH_18345009%29.jpg)
+- The Blush fern silhouette is adapted from Sophia L. Crownfield’s _Studies of Ferns_, Cooper Hewitt, Smithsonian Design Museum. [Public-domain artwork](https://commons.wikimedia.org/wiki/File%3ADrawing%2C_Studies_of_Ferns%2C_early_20th_century_%28CH_18345009%29.jpg)
 - The launch film uses [Brag](https://github.com/latent-spaces/brag) and [Hyperframes](https://github.com/heygen-com/hyperframes). Music is an excerpt from _Happy Beats / Business Moves Vol. 1_ by [Sascha Ende](https://ende.app/en), trimmed and faded. [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 
 Pimi retains Paseo’s copyright and Apache 2.0 license. Third-party components retain their own licenses. [License](LICENSE)

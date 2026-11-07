@@ -31,7 +31,7 @@ function toMcpToolResult(result: PaseoToolResult): CallToolResult {
 export async function createAgentMcpServer(options: AgentMcpServerOptions): Promise<McpServer> {
   const catalog = await createPaseoToolCatalog(options);
   const server = new McpServer({
-    name: "agent-mcp",
+    name: "pimi",
     version: "2.0.0",
   });
 

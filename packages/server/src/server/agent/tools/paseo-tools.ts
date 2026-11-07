@@ -1,5 +1,6 @@
 import { registerPluginTools } from "./plugin-tools.js";
 import { registerProjectMemoryTools } from "./project-memory-tools.js";
+import { registerPimiTaskTools } from "./pimi-task-tools.js";
 import type { ProjectMemory } from "../../project-memory.js";
 import { randomUUID } from "node:crypto";
 import {
@@ -150,6 +151,7 @@ export interface PaseoToolHostDependencies {
   workspaceRegistry?: Pick<WorkspaceRegistry, "get" | "listActive" | "upsert">;
   projectRegistry?: Pick<ProjectRegistry, "get" | "list">;
   projectMemory?: ProjectMemory;
+  pimiTaskHome?: string;
   createDirectoryWorkspace?: (
     cwd: string,
     title?: string | null,
@@ -1384,6 +1386,16 @@ function createToolCatalog(
   }
 
   if (scope === "agent") {
+    registerPimiTaskTools({
+      registerTool,
+      home: options.pimiTaskHome,
+      assertInteractive() {
+        const agent = resolveCallerAgent();
+        if (!agent || agent.internal || agent.background) {
+          throw new PaseoToolInputError("Pimi task tools are available in interactive chats.");
+        }
+      },
+    });
     registerTool(
       PIMI_REVIEW_SUGGESTION_TOOL,
       {
@@ -1429,7 +1441,7 @@ function createToolCatalog(
       {
         title: "Propose a Pimi task",
         description:
-          "Use when the user asks to create a tracked task, compare multiple approaches, or track a goal across worktrees and later review. Suggest Tasks before starting experiments or creating worktrees. Skip this for ordinary questions and focused fixes. Summarize the objective, constraints, and what success looks like. If helpful, include up to four distinct experiments. Pimi renders the result as a Review task draft card. After calling this tool, briefly explain why Tasks would help and point to the card. The user can edit and save the draft, then launch experiments separately.",
+          "Open an editable task draft before starting substantial research, parallel work, or a tracked task. Default to chat. Choose worktree for repository edits. Include up to four independent work items. Wait for the user to save the draft and start the workers.",
         inputSchema: PimiTaskProposalInput,
       },
       async (input) => {

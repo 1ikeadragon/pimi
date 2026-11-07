@@ -1,7 +1,19 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
-import { useEffect, useLayoutEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import { View } from "react-native";
-import { getDesktopHost } from "./host";
+import { StyleSheet } from "react-native-unistyles";
+import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
+import { DESKTOP_TRAFFIC_LIGHT_WIDTH, HEADER_INNER_HEIGHT } from "@/constants/layout";
+import { useHasWindowChromeObstruction, WindowChromeRegion } from "@/utils/desktop-window";
+import { getDesktopHost, usesPimiMacTitlebar } from "./host";
+import { usePimiReportLinks } from "./use-pimi-report-links";
 
 export const PIMI_CONSOLE_CONTENT_ID = "pimi-console-content";
 const fill = { flex: 1 } as const;
@@ -22,9 +34,14 @@ export function PimiConsoleContent({
   sidebar: boolean;
   pathname: string;
 }) {
+  usePimiReportLinks();
   const host = getDesktopHost();
   const publishBounds = host?.setPimiContentBounds;
   const covered = usePimiWorkspaceSection() !== null;
+  const macTitlebar = usesPimiMacTitlebar();
+  const hasTopLeftControls = useHasWindowChromeObstruction("top-left");
+  const topInset = macTitlebar && hasTopLeftControls ? HEADER_INNER_HEIGHT : 0;
+  const [leftOffset, setLeftOffset] = useState(0);
   const previousPath = useRef(pathname);
 
   useEffect(() => {
@@ -40,7 +57,8 @@ export function PimiConsoleContent({
     // Sidebar drag and dock transitions change the content rect without resizing the window.
     const measure = () => {
       const { x, y, width, height } = element.getBoundingClientRect();
-      publishBounds({ x, y, width, height, sidebar });
+      if (macTitlebar) setLeftOffset(Math.min(DESKTOP_TRAFFIC_LIGHT_WIDTH, Math.max(0, x)));
+      publishBounds({ x, y: y + topInset, width, height: height - topInset, sidebar });
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -50,7 +68,7 @@ export function PimiConsoleContent({
       observer.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [publishBounds, sidebar]);
+  }, [macTitlebar, publishBounds, sidebar, topInset]);
 
   useLayoutEffect(() => {
     if (!publishBounds) return;
@@ -67,9 +85,40 @@ export function PimiConsoleContent({
     }
   }, [covered, publishBounds]);
 
-  return (
+  const console = (
     <View style={fill} nativeID={publishBounds ? PIMI_CONSOLE_CONTENT_ID : undefined}>
       {children}
     </View>
   );
+  if (!macTitlebar) return console;
+  const ownsTopLeft = leftOffset < DESKTOP_TRAFFIC_LIGHT_WIDTH;
+  return (
+    <View style={fill}>
+      <WindowChromeRegion
+        corners={ownsTopLeft ? "both" : "top-right"}
+        topLeftOffset={ownsTopLeft ? leftOffset : 0}
+      >
+        {console}
+      </WindowChromeRegion>
+      {covered && topInset > 0 ? (
+        <View style={styles.titlebar} testID="pimi-workspace-titlebar">
+          <TitlebarDragRegion />
+        </View>
+      ) : null}
+    </View>
+  );
 }
+
+const styles = StyleSheet.create((theme) => ({
+  titlebar: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: HEADER_INNER_HEIGHT,
+    backgroundColor: theme.colors.surfaceSidebar,
+    borderBottomWidth: theme.borderWidth[1],
+    borderBottomColor: theme.colors.border,
+    zIndex: 2,
+  },
+}));

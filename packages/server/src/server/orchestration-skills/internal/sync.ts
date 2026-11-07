@@ -208,7 +208,7 @@ export async function isLegacyCodexCopy(
   return true;
 }
 
-async function retireManagedSkill(dstDir: string): Promise<number> {
+export async function retireManagedSkill(dstDir: string): Promise<number> {
   const info = await fs.lstat(dstDir).catch(() => null);
   if (!info?.isDirectory()) return 0;
   const manifest = await readManagedFilesManifest(dstDir);

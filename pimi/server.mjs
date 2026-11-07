@@ -1,10 +1,19 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
-import { randomUUID } from "node:crypto";
-import { mkdir, readFile, realpath, rename, writeFile } from "node:fs/promises";
+import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
-import { basename, dirname, isAbsolute } from "node:path";
+import { tmpdir } from "node:os";
+import { basename, dirname, isAbsolute, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { setImmediate } from "node:timers/promises";
+import MarkdownIt from "markdown-it";
+import { parseAgentDeepLink } from "@getpaseo/protocol/agent-deep-link";
+import {
+  PIMI_TASK_AGENT_SOCKET_FILE,
+  PIMI_TASK_PIPE_PREFIX,
+  PimiTaskAgentLinkWorkInput,
+  PimiTaskAgentTool,
+} from "@getpaseo/protocol/pimi-task";
 import {
   darkHighlightColors,
   highlightCodeWithBudget,
@@ -29,6 +38,42 @@ import { createTasks } from "./tasks.mjs";
 import { generateTour } from "./walkthrough.mjs";
 
 const appearances = new Set(["system", "light", "dark", "paper"]);
+const reportMarkdown = new MarkdownIt({ html: false, linkify: true }).disable("image");
+reportMarkdown.validateLink = (value) => {
+  if (parseAgentDeepLink(value)) return true;
+  if (/^[a-z]:[\\/]/i.test(value)) return true;
+  try {
+    const url = new URL(value);
+    return (
+      (["https:", "http:"].includes(url.protocol) ||
+        (url.protocol === "file:" && (!url.hostname || url.hostname === "localhost"))) &&
+      !url.username &&
+      !url.password
+    );
+  } catch {
+    // File links are resolved on the report's daemon, never against this HTTP origin.
+    return (
+      Boolean(value.trim()) &&
+      !value.startsWith("#") &&
+      !value.startsWith("//") &&
+      (!/^[a-z][a-z0-9+.-]*:/i.test(value) || /^[a-z]:[\\/]/i.test(value))
+    );
+  }
+};
+reportMarkdown.renderer.rules.link_open = (tokens, index, _options, _env, renderer) => {
+  const token = tokens[index];
+  token.attrSet("target", "_blank");
+  token.attrSet("rel", "noopener noreferrer");
+  token.attrSet("data-pimi-report-link", "");
+  return renderer.renderToken(tokens, index, _options);
+};
+
+function checkTaskPipeCredential(expected, header) {
+  if (!expected) return;
+  const received = Buffer.from(header ?? "");
+  if (received.length !== expected.length || !timingSafeEqual(received, expected))
+    throw new RequestError("Invalid Pimi task credential.", 403);
+}
 
 async function standaloneEditors(workspacePath) {
   try {
@@ -58,7 +103,9 @@ async function standaloneAppearance(file) {
         if (file) {
           await mkdir(dirname(file), { recursive: true });
           const temporary = file + ".tmp";
-          await writeFile(temporary, JSON.stringify(requestedMode), { mode: 0o600 });
+          await writeFile(temporary, JSON.stringify(requestedMode), {
+            mode: 0o600,
+          });
           await rename(temporary, file);
         }
         mode = requestedMode;
@@ -78,6 +125,7 @@ export async function startPimi({
   native = false,
   watchState,
   taskState,
+  agentTaskHome,
   appearanceState,
   getAppearance,
   listEditors = standaloneEditors,
@@ -113,7 +161,7 @@ export async function startPimi({
   let updateTimer;
   let closed = false;
   let inventoryRevision = 0;
-  const paseo = createPaseoConnection({ connection, native });
+  const paseo = createPaseoConnection({ connection, native, taskState });
   const tasks = await createTasks({
     file: taskState,
     paseo,
@@ -133,8 +181,10 @@ export async function startPimi({
         ["/", "index.html", "text/html; charset=utf-8"],
         ["/app.js", "app.js", "text/javascript; charset=utf-8"],
         ["/tasks.js", "tasks.js", "text/javascript; charset=utf-8"],
+        ["/labels.js", "labels.js", "text/javascript; charset=utf-8"],
         ["/memory.js", "memory.js", "text/javascript; charset=utf-8"],
         ["/task-board.js", "task-board.js", "text/javascript; charset=utf-8"],
+        ["/board-motion.js", "board-motion.js", "text/javascript; charset=utf-8"],
         ["/worktree-comparison.js", "worktree-comparison.js", "text/javascript; charset=utf-8"],
         ["/diff-find.js", "diff-find.js", "text/javascript; charset=utf-8"],
         ["/live-updates.js", "live-updates.js", "text/javascript; charset=utf-8"],
@@ -142,7 +192,10 @@ export async function startPimi({
         ["/pimi-mark.svg", "pimi-mark.svg", "image/svg+xml"],
       ].map(async ([path, file, mime]) => [
         path,
-        { mime, data: await readFile(new URL(`./public/${file}`, import.meta.url)) },
+        {
+          mime,
+          data: await readFile(new URL(`./public/${file}`, import.meta.url)),
+        },
       ]),
     ),
   );
@@ -151,12 +204,14 @@ export async function startPimi({
     import.meta.url,
   );
   await Promise.all(
-    ["appearance.css", "blush.svg", "paper.svg", "graphite.svg"].map(async (file) => {
-      assets.set("/pimi-textures/" + file, {
-        mime: file.endsWith(".css") ? "text/css; charset=utf-8" : "image/svg+xml",
-        data: await readFile(new URL(file, textures)),
-      });
-    }),
+    ["appearance.css", "blush.svg", "paper.svg", "graphite.svg", "voice-dog.svg"].map(
+      async (file) => {
+        assets.set("/pimi-textures/" + file, {
+          mime: file.endsWith(".css") ? "text/css; charset=utf-8" : "image/svg+xml",
+          data: await readFile(new URL(file, textures)),
+        });
+      },
+    ),
   );
   assets.set("/syntax.css", {
     mime: "text/css; charset=utf-8",
@@ -222,7 +277,10 @@ export async function startPimi({
   function openEvents(request, response) {
     if (eventClients.size >= 32)
       throw new RequestError("Too many workspace windows are connected.", 503);
-    response.writeHead(200, { "content-type": "text/event-stream", connection: "keep-alive" });
+    response.writeHead(200, {
+      "content-type": "text/event-stream",
+      connection: "keep-alive",
+    });
     response.write("retry: 2000\nevent: ready\ndata: {}\n\n");
     eventClients.add(response);
     if (!reconcileTimer) {
@@ -262,11 +320,25 @@ export async function startPimi({
     return "ready";
   }
 
+  async function factsFor(worktree, baseRef) {
+    const cached = factsCache.get(worktree.path);
+    const key = JSON.stringify([worktree, baseRef]);
+    if (cached?.key === key && Date.now() - cached.at < reconcileInterval)
+      return { ...cached.value };
+    const facts = await worktreeFacts(worktree, baseRef);
+    factsCache.set(worktree.path, { key, at: Date.now(), value: facts });
+    return { ...facts };
+  }
+
   async function loadInventory() {
     const daemonTask = paseo.directory();
     const localRoots = [...new Set([...roots, ...tasks.roots()])];
     const localDiscovery = discoverRoots(localRoots);
-    const [local, daemon] = await Promise.all([localDiscovery, daemonTask]);
+    const [local, daemon, labelResult] = await Promise.all([
+      localDiscovery,
+      daemonTask,
+      paseo.labels().catch((error) => ({ labels: [], error: error.message })),
+    ]);
     const extra = followPaseo
       ? [...new Set(daemon.workspaces.map((workspace) => workspace.root).filter(Boolean))].filter(
           (root) => !localRoots.includes(root),
@@ -281,7 +353,10 @@ export async function startPimi({
       if (result.status === "fulfilled") {
         for (const worktree of result.value) {
           if (!listed.has(worktree.path)) {
-            listed.set(worktree.path, { ...worktree, root: watchedRoots[index] });
+            listed.set(worktree.path, {
+              ...worktree,
+              root: watchedRoots[index],
+            });
           }
         }
       } else {
@@ -309,34 +384,35 @@ export async function startPimi({
 
     const cards = [];
     const trackedAgents = new Set();
+    const watched = new Set(roots);
+    const linked = tasks.linkedWorktrees();
     const entries = [...listed.values()];
     const gitConcurrency = 6;
     for (let i = 0; i < entries.length; i += gitConcurrency) {
       const batch = await Promise.all(
         entries.slice(i, i + gitConcurrency).map(async (worktree) => {
-          const cached = factsCache.get(worktree.path);
-          const key = JSON.stringify(worktree);
-          const facts =
-            cached && cached.key === key && Date.now() - cached.at < reconcileInterval
-              ? { ...cached.value }
-              : await worktreeFacts(worktree);
-          if (!cached || cached.key !== key || Date.now() - cached.at >= reconcileInterval)
-            factsCache.set(worktree.path, { key, at: Date.now(), value: { ...facts } });
           const canonical = await realpath(worktree.path).catch(() => worktree.path);
           const workspace = byPath.get(canonical);
           const agents = agentsByPath.get(canonical) ?? [];
+          const registered = workspace || agents.length || linked.has(worktree.path);
+          const discovered = registered || (watched.has(worktree.root) && !worktree.unavailable);
+          const reviewOnly = !discovered && reviewWorktrees.has(worktree.path);
+          if (!discovered && !reviewOnly) return null;
+          const facts = await factsFor(worktree, linked.get(worktree.path));
           for (const agent of agents) trackedAgents.add(agent.id);
           return Object.assign(facts, {
             name: workspace?.name || worktree.branch,
             lane: cardLane(facts, workspace, agents),
             agents,
+            reviewOnly,
             workspaceId: workspace?.id,
+            labels: workspace?.labels ?? [],
             prUrl: workspace?.openPrUrl,
             previews: workspace?.previews,
           });
         }),
       );
-      cards.push(...batch);
+      cards.push(...batch.filter(Boolean));
     }
     worktrees = new Map(cards.map((card) => [card.path, card]));
     for (const root of discoveryCache.keys())
@@ -344,8 +420,13 @@ export async function startPimi({
     for (const path of factsCache.keys()) if (!listed.has(path)) factsCache.delete(path);
     return {
       serverId: daemon.serverId,
+      labels: labelResult.labels,
+      labelsError: labelResult.error,
       cards,
-      repositories: watchedRoots.map((path) => ({ path, name: basename(path) || path })),
+      repositories: watchedRoots.map((path) => ({
+        path,
+        name: basename(path) || path,
+      })),
       otherAgents: daemon.agents.filter((agent) => !trackedAgents.has(agent.id)),
       daemonError: daemon.error,
       warnings,
@@ -382,6 +463,7 @@ export async function startPimi({
       throw new RequestError("Expected application/json.", 415);
     }
     let raw = "";
+    request.setEncoding("utf8");
     for await (const chunk of request) {
       raw += chunk;
       if (raw.length > 8192) throw new RequestError("Request body is too large.", 413);
@@ -396,8 +478,97 @@ export async function startPimi({
   }
 
   function json(response, value, status = 200) {
-    response.writeHead(status, { "content-type": "application/json; charset=utf-8" });
+    response.writeHead(status, {
+      "content-type": "application/json; charset=utf-8",
+    });
     response.end(JSON.stringify(value));
+  }
+
+  function requestFailed(response, error) {
+    if (!response.destroyed) {
+      json(response, { error: error.message }, error instanceof RequestError ? error.status : 500);
+    }
+  }
+
+  async function startAgentTaskServer(home) {
+    if (!home) return null;
+    const secret = process.platform === "win32" ? randomBytes(32).toString("base64url") : null;
+    const authorization = secret ? Buffer.from(`Bearer ${secret}`) : null;
+    const operations = new Map([
+      [PimiTaskAgentTool.list, tasks.listForAgent],
+      [PimiTaskAgentTool.get, tasks.getForAgent],
+      [PimiTaskAgentTool.update, tasks.updateFromAgent],
+      [
+        PimiTaskAgentTool.labels,
+        async () => {
+          const { labels: catalog } = await paseo.labels();
+          const { workspaces, error } = await paseo.directory();
+          if (error) throw new RequestError(error, 503);
+          return {
+            labels: catalog,
+            workspaces: workspaces.map(({ id, name, path, labels }) => ({
+              id,
+              name,
+              path,
+              labels,
+            })),
+          };
+        },
+      ],
+      [PimiTaskAgentTool.labelWork, paseo.setWorkLabel],
+      [
+        PimiTaskAgentTool.repositories,
+        async () => {
+          const { repositories, daemonError } = await getInventory();
+          return { repositories, ...(daemonError ? { daemonError } : {}) };
+        },
+      ],
+      [
+        PimiTaskAgentTool.linkWork,
+        async (body) => {
+          const input = PimiTaskAgentLinkWorkInput.safeParse(body);
+          if (!input.success) throw new RequestError(input.error.message);
+          const item = await tasks.addIdea(input.data);
+          return { id: item.id, path: item.path, repository: item.root };
+        },
+      ],
+    ]);
+    const bridge = createServer(async (request, response) => {
+      try {
+        checkTaskPipeCredential(authorization, request.headers.authorization);
+        const operation = request.method === "POST" && operations.get(request.url.slice(1));
+        if (!operation) throw new RequestError("Unknown Pimi task operation.", 404);
+        json(response, await operation(await jsonInput(request)));
+      } catch (error) {
+        requestFailed(response, error);
+      }
+    });
+    const directory = secret ? null : await mkdtemp(join(tmpdir(), "pimi-task-"));
+    const socketPath = directory
+      ? join(directory, "tasks.sock")
+      : PIMI_TASK_PIPE_PREFIX + randomUUID();
+    const descriptor = secret ? JSON.stringify({ socketPath, secret }) : socketPath;
+    const discovery = join(home, PIMI_TASK_AGENT_SOCKET_FILE);
+    const temporary = `${discovery}.${randomUUID()}.tmp`;
+    try {
+      await new Promise((resolve, reject) => {
+        bridge.once("error", reject);
+        bridge.listen(socketPath, resolve);
+      });
+      await mkdir(home, { recursive: true, mode: 0o700 });
+      await writeFile(temporary, descriptor, { mode: 0o600 });
+      await rename(temporary, discovery);
+    } catch (error) {
+      bridge.close();
+      await rm(temporary, { force: true });
+      if (directory) await rm(directory, { recursive: true, force: true });
+      throw error;
+    }
+    // The discovery file may outlive the app. The private socket is per launch.
+    return () =>
+      bridge.close(() => {
+        if (directory) void rm(directory, { recursive: true, force: true }).catch(console.error);
+      });
   }
 
   function getReview(id) {
@@ -429,7 +600,10 @@ export async function startPimi({
     }
     const review = await createReview(worktree, { baseRef, prUrl, mode });
     const id = randomUUID();
-    reviews.set(id, { ...review, byPath: new Map(review.files.map((file) => [file.path, file])) });
+    reviews.set(id, {
+      ...review,
+      byPath: new Map(review.files.map((file) => [file.path, file])),
+    });
     if (reviews.size > reviewLimit) reviews.delete(reviews.keys().next().value);
     return { id, ...review };
   }
@@ -447,7 +621,10 @@ export async function startPimi({
       return { path, reviewNotice: "The chat’s checkout is unavailable." };
     }
     if (!targets.length)
-      return { path, reviewNotice: "No Git checkout was found in this workspace." };
+      return {
+        path,
+        reviewNotice: "No Git checkout was found in this workspace.",
+      };
     for (const worktree of targets) {
       reviewWorktrees.delete(worktree.path);
       reviewWorktrees.set(worktree.path, { ...worktree, root: worktree.path });
@@ -456,10 +633,16 @@ export async function startPimi({
     await inventoryTask?.catch(() => undefined);
     invalidateInventory();
     if (targets.length > 1) {
-      return { path, reviewNotice: "This chat has several checkouts. Choose one to review." };
+      return {
+        path,
+        reviewNotice: "This chat has several checkouts. Choose one to review.",
+      };
     }
     const target = targets[0];
-    return { path: target.path, reviewTarget: { ...target, name: target.branch } };
+    return {
+      path: target.path,
+      reviewTarget: { ...target, name: target.branch },
+    };
   }
 
   async function editorsFor(review) {
@@ -531,6 +714,7 @@ export async function startPimi({
     ["/api/tasks/repository", tasks.attachRepository],
     ["/api/tasks/assign-repository", tasks.assignRepository],
     ["/api/tasks/save", tasks.save],
+    ["/api/work/label", paseo.setWorkLabel],
     ["/api/tasks/stage", tasks.setStage],
     ["/api/tasks/experiment", tasks.addIdea],
     ["/api/tasks/suggest", tasks.suggest],
@@ -541,7 +725,7 @@ export async function startPimi({
     ...(appearance.save ? [["/api/appearance", appearance.save]] : []),
     [
       "/api/dictation",
-      async (_body, response) => {
+      async (body, response) => {
         if (!openDictation)
           throw new RequestError("Dictation is available in the desktop app.", 503);
         const controller = new AbortController();
@@ -549,7 +733,11 @@ export async function startPimi({
         response.once("close", abort);
         if (response.destroyed) abort();
         try {
-          return { text: await openDictation(controller.signal) };
+          const anchor =
+            Number.isFinite(body.x) && Number.isFinite(body.y)
+              ? { x: body.x, y: body.y }
+              : undefined;
+          return { text: await openDictation(controller.signal, anchor) };
         } finally {
           response.removeListener("close", abort);
         }
@@ -560,6 +748,14 @@ export async function startPimi({
   const getRoutes = new Map([
     ["/api/board", getInventory],
     ["/api/tasks", tasks.list],
+    [
+      "/api/tasks/report-document",
+      (url) => ({
+        html: reportMarkdown.render(
+          tasks.reportText(url.searchParams.get("id"), url.searchParams.get("experimentId")),
+        ),
+      }),
+    ],
     ["/api/editors", (url) => editorsFor(getReview(url.searchParams.get("id")))],
   ]);
   const server = createServer(async (request, response) => {
@@ -602,12 +798,17 @@ export async function startPimi({
           if (url.pathname === "/api/source") {
             const source = await fileSource(review, file);
             const tokens = isLanguageSupported(file.path)
-              ? await highlightCodeWithBudget(source, file.path, { yieldToEventLoop: setImmediate })
+              ? await highlightCodeWithBudget(source, file.path, {
+                  yieldToEventLoop: setImmediate,
+                })
               : null;
             return json(response, { source, tokens });
           }
           const patch = await filePatch(review, file);
-          return json(response, { patch, fingerprint: patchFingerprint(patch) });
+          return json(response, {
+            patch,
+            fingerprint: patchFingerprint(patch),
+          });
         }
       }
 
@@ -619,13 +820,7 @@ export async function startPimi({
       }
       throw new RequestError("Pimi could not find that route.", 404);
     } catch (error) {
-      if (!response.destroyed) {
-        json(
-          response,
-          { error: error.message },
-          error instanceof RequestError ? error.status : 500,
-        );
-      }
+      requestFailed(response, error);
     }
   });
 
@@ -635,10 +830,34 @@ export async function startPimi({
   });
   address = `${host}:${server.address().port}`;
   origin = `http://${address}`;
+  const closeAgentTaskServer = await startAgentTaskServer(agentTaskHome).catch((error) => {
+    console.error("Pimi task tools could not start:", error.message);
+    return null;
+  });
   return {
     origin,
     appearance: appearance.read(),
     prepareChatReview,
+    async resolveReportLink(request) {
+      tasks.reportText(request.taskId, request.reportId);
+      const task = tasks.list().tasks.find((item) => item.id === request.taskId);
+      const item = task.experiments.find((entry) => entry.id === request.reportId);
+      const daemon = await paseo.directory();
+      const worker = daemon.agents.find((agent) => agent.id === item.id);
+      const sourceHost = item.launch?.parent?.serverId ?? task.source?.serverId;
+      const serverId = sourceHost ?? daemon.serverId;
+      const workspaceId = item.workspaceId ?? worker?.workspaceId;
+      const workspace =
+        serverId === daemon.serverId
+          ? daemon.workspaces.find((entry) => entry.id === workspaceId)
+          : undefined;
+      return {
+        ...request,
+        ...(serverId ? { serverId } : {}),
+        // Preserve an explicit originating host even when this daemon cannot see its worker.
+        ...(serverId && workspaceId && (sourceHost || workspace) ? { workspaceId } : {}),
+      };
+    },
     close: () => {
       closed = true;
       unsubscribePaseo();
@@ -647,6 +866,7 @@ export async function startPimi({
       clearTimeout(updateTimer);
       for (const response of eventClients) response.end();
       server.close();
+      closeAgentTaskServer?.();
       return paseo.close();
     },
   };

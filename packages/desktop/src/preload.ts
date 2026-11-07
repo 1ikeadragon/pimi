@@ -2,7 +2,13 @@ import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { BrowserKeyboardPolicy } from "./features/browser-keyboard/index.js";
 import type { DesktopWindowChromeMode } from "./window/chrome.js";
 import type { PimiAppearance, PimiContentBounds, PimiDestination } from "./window/pimi-window.js";
-import type { PimiReviewSummary, PimiWorkspaceSection } from "@getpaseo/protocol/pimi-task";
+import type {
+  PimiReportLinkTarget,
+  PimiReportLinkError,
+  PimiReviewSummary,
+  PimiVoiceBubbleState,
+  PimiWorkspaceSection,
+} from "@getpaseo/protocol/pimi-task";
 
 // This preload runs in Electron's sandbox and is tsc-compiled (not bundled), so it MUST
 // NOT emit any runtime module load other than "electron" — a require() of a local or
@@ -122,6 +128,29 @@ contextBridge.exposeInMainWorld("paseoDesktop", {
           return () => {
             ipcRenderer.removeListener("pimi:workspace:click", onClick);
           };
+        },
+        pimiReportLinks: {
+          onOpen: (listener: (target: PimiReportLinkTarget) => void) => {
+            const onOpen = (_event: Electron.IpcRendererEvent, target: PimiReportLinkTarget) =>
+              listener(target);
+            ipcRenderer.on("pimi:workspace:open-report-link", onOpen);
+            return () => ipcRenderer.removeListener("pimi:workspace:open-report-link", onOpen);
+          },
+          reportError: (error: PimiReportLinkError) =>
+            ipcRenderer.send("pimi:workspace:report-link-error", error),
+        },
+        pimiVoice: {
+          publish: (state: PimiVoiceBubbleState) => ipcRenderer.send("pimi:voice:state", state),
+          onToggle: (toggle: () => void) => {
+            const listener = () => toggle();
+            ipcRenderer.on("pimi:voice:toggle", listener);
+            return () => ipcRenderer.removeListener("pimi:voice:toggle", listener);
+          },
+          onPause: (pause: () => void) => {
+            const listener = () => pause();
+            ipcRenderer.on("pimi:voice:pause", listener);
+            return () => ipcRenderer.removeListener("pimi:voice:pause", listener);
+          },
         },
         onPimiOpenSettings: (open: () => void) => {
           openSettings = open;

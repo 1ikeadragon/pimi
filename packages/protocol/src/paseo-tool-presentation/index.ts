@@ -60,6 +60,8 @@ export function getPaseoToolTargetAgentId(
 function paseoLeafName(toolName: string): string | null {
   if (isPaseoToolName(toolName)) return getPaseoToolLeafName(toolName);
   const normalized = toolName.trim().toLowerCase();
+  if (normalized.startsWith("pimi_") && !normalized.startsWith("pimi__"))
+    return normalized.slice("pimi_".length);
   return normalized.startsWith("paseo_") && !normalized.startsWith("paseo__")
     ? normalized.slice("paseo_".length)
     : null;
