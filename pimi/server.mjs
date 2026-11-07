@@ -343,6 +343,7 @@ export async function startPimi({
     ["/api/editor", startEditor],
     ["/api/tour", (body) => generateTour(getReview(body.id), paseo.explain)],
     ["/api/tasks/create", tasks.create],
+    ["/api/tasks/repository", tasks.attachRepository],
     ["/api/tasks/save", tasks.save],
     ["/api/tasks/experiment", tasks.addIdea],
     ["/api/tasks/suggest", tasks.suggest],

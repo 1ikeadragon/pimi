@@ -65,8 +65,9 @@ export function isSuggestionChecked(
   suggestion: ProjectSuggestion,
   choices: Readonly<Record<string, boolean>>,
   now: Date,
+  preselect = true,
 ): boolean {
-  return choices[suggestion.rootPath] ?? isPreselected(suggestion, now);
+  return choices[suggestion.rootPath] ?? (preselect && isPreselected(suggestion, now));
 }
 
 /**

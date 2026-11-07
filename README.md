@@ -6,6 +6,18 @@ Start with a coding question, explore approaches in parallel, and review the evi
 
 [Watch the full workflow](assets/pimi/demo.mp4). The recording uses scripted model and speech fixtures with real Pimi workspace creation, Git changes, and review.
 
+## Start in chat
+
+Pimi opens in Agent Console. On first launch, setup helps you connect a provider, add a project, and start a conversation.
+
+![The first Pimi window with setup, provider and project steps, and examples for chat and Tasks](assets/pimi/onboarding.jpg)
+
+With **Agent tools** enabled, an agent can suggest a task when you describe work worth tracking or ask to compare approaches. **Review task draft** opens an editable brief with the suggested experiments. Save it when you're ready, then launch experiments separately. **Original chat** takes you back to the conversation.
+
+![The full Agent Console with a task proposal based on a conversation about two worktree experiments](assets/pimi/task-handoff.jpg)
+
+![The full Tasks window with the editable brief and two selectable experiments before saving](assets/pimi/task-draft.jpg)
+
 ## Follow a research task
 
 The example compares two ways to reduce repeated metadata lookups. Each experiment has its own agent and Git worktree.
@@ -53,7 +65,7 @@ The same task in Paper and Dark. Blush adds fine grain to the surrounding chrome
 - **Start with a task.** Type or dictate a brief using the same voice input as Agent Console. Draft ideas yourself or ask your configured model to suggest two, then link existing checkouts or start a fresh worktree and agent for each experiment.
 - **Compare findings.** Read the workers’ reports together, continue chatting in their original sessions, and open their diffs against the task’s pinned base. Close the task when you’re finished.
 - **See what needs you next.** Auto-Kanban sorts worktrees into **Ready**, **In progress**, **Review**, and **Needs attention** from Git and live agent activity. Search by repo, branch, or agent. Pimi remembers repositories you add.
-- **Review code in place.** Compare working changes, a branch against a base ref, or a GitHub pull request. Open two files side by side and switch between diffs and syntax-highlighted source. Search changed paths and reload a comparison while keeping files that are still in the diff.
+- **Review code in place.** Open **Review** and pick a worktree, or jump there from chat. Compare working changes, a branch against a base ref, or a GitHub pull request. Open two files side by side and switch between diffs and syntax-highlighted source. Search changed paths and reload a comparison while keeping files that are still in the diff.
 - **Follow changes line by line.** File Tour walks through the changed files. Explain Changes uses your configured provider to generate short notes tied to added lines. Notes stay below the diff so you can read both together.
 - **Preview and edit.** Open a healthy workspace service from its review. Jump from a reviewed line to the corresponding file in Zed when the local checkout matches.
 - **Manage agents.** Open Agent Console for sessions, terminals, workspace services, voice, and provider settings.
@@ -71,7 +83,7 @@ npm run pimi:package:mac
 open packages/desktop/release-pimi/mac-arm64/Pimi.app
 ```
 
-The build creates a local, non-notarized app bundle. In **Worktrees**, choose **Add repository…** and enter a local Git repository path. Return to **Tasks** to create a brief. Use **Agent Console** to manage sessions and providers.
+The build creates a local, non-notarized app bundle. Follow setup to start a chat, or open **Tasks** directly from the sidebar. A brief can be saved before you attach a repository. In **Worktrees**, choose **Add repository…** to add an existing Git checkout.
 
 [Development commands, provider selection, and audit notes](pimi/README.md)
 

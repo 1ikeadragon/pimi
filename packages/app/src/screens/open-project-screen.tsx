@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { View, Text, Pressable, ScrollView } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useRouter } from "expo-router";
-import { FolderOpen, Inbox, Plug, Smartphone } from "lucide-react-native";
+import { FolderOpen, Inbox, MessageSquare, Plug, Smartphone } from "lucide-react-native";
 import { PaseoLogo } from "@/components/icons/paseo-logo";
 import { CommunityLinks } from "@/components/community-links";
 import { MenuHeader } from "@/components/headers/menu-header";
@@ -19,8 +19,9 @@ import {
   HEADER_TOP_PADDING_MOBILE,
 } from "@/constants/layout";
 import { useLocalDaemonServerId } from "@/hooks/use-is-local-daemon";
+import { getDesktopHost } from "@/desktop/host";
 import { PairDeviceModal } from "@/desktop/components/pair-device-modal";
-import { buildSettingsHostSectionRoute } from "@/utils/host-routes";
+import { buildNewWorkspaceRoute, buildSettingsHostSectionRoute } from "@/utils/host-routes";
 
 const WINDOW_CONTENT_DATASET = { "window-content": "" };
 
@@ -28,6 +29,7 @@ export function OpenProjectScreen() {
   const { t } = useTranslation();
   const hosts = useHosts();
   const router = useRouter();
+  const pimi = Boolean(getDesktopHost()?.showPimiWorkspace);
   const openDesktopAgentList = usePanelStore((s) => s.openDesktopAgentList);
   const openProjectPicker = useOpenAddProject();
   const importSession = useImportSession();
@@ -49,6 +51,10 @@ export function OpenProjectScreen() {
 
   const handleOpenPairDevice = useCallback(() => setIsPairDeviceOpen(true), []);
   const handleClosePairDevice = useCallback(() => setIsPairDeviceOpen(false), []);
+  const startChat = useCallback(
+    () => router.push(buildNewWorkspaceRoute({ serverId: localServerId ?? undefined })),
+    [localServerId, router],
+  );
 
   const handleOpenProviders = useCallback(() => {
     chooseHost({
@@ -69,19 +75,38 @@ export function OpenProjectScreen() {
       >
         <View style={styles.content}>
           <View style={styles.logo}>
-            <PaseoLogo size={52} />
+            {pimi ? (
+              <View style={styles.pimiIntro}>
+                <Text style={styles.pimiBrand}>Pimi</Text>
+                <Text style={styles.pimiTitle}>Start a conversation</Text>
+                <Text style={styles.pimiHint}>
+                  Ask about your code or explore an idea with an agent.
+                </Text>
+              </View>
+            ) : (
+              <PaseoLogo size={52} />
+            )}
           </View>
           {hosts.map((host) => (
             <HostError key={host.serverId} serverId={host.serverId} label={host.label} />
           ))}
           <View style={styles.tiles}>
+            {pimi ? (
+              <HomeTile
+                icon={MessageSquare}
+                title="New chat"
+                description="Choose a project and an agent to get started."
+                onPress={startChat}
+                accent
+              />
+            ) : null}
             <HomeTile
               icon={FolderOpen}
               title={t("openProject.tiles.addProject.title")}
               description={t("openProject.tiles.addProject.description")}
               onPress={handleOpenPicker}
               testID="open-project-submit"
-              accent
+              accent={!pimi}
             />
             <HomeTile
               icon={Inbox}
@@ -101,16 +126,22 @@ export function OpenProjectScreen() {
               <HomeTile
                 icon={Smartphone}
                 title={t("openProject.tiles.pairDevice.title")}
-                description={t("openProject.tiles.pairDevice.description")}
+                description={
+                  pimi
+                    ? "Connect your phone to Pimi."
+                    : t("openProject.tiles.pairDevice.description")
+                }
                 onPress={handleOpenPairDevice}
                 testID="open-project-pair-device"
               />
             ) : null}
           </View>
         </View>
-        <View style={styles.communityRow}>
-          <CommunityLinks />
-        </View>
+        {pimi ? null : (
+          <View style={styles.communityRow}>
+            <CommunityLinks />
+          </View>
+        )}
       </ScrollView>
       <PairDeviceModal
         serverId={localServerId ?? ""}
@@ -201,6 +232,14 @@ const styles = StyleSheet.create((theme) => ({
   logo: {
     marginBottom: theme.spacing[8],
   },
+  pimiIntro: { alignItems: "center", gap: 6 },
+  pimiBrand: { color: theme.colors.foregroundMuted, fontWeight: theme.fontWeight.semibold },
+  pimiTitle: {
+    color: theme.colors.foreground,
+    fontSize: 30,
+    fontWeight: theme.fontWeight.semibold,
+  },
+  pimiHint: { color: theme.colors.foregroundMuted, textAlign: "center" },
   hostError: {
     color: theme.colors.destructive,
     fontSize: theme.fontSize.base,

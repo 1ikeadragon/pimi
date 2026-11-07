@@ -6,6 +6,7 @@ import {
   type ToolCallItem,
 } from "@/types/stream";
 import { summarizeToolCalls, type OverviewSummary } from "@/tool-calls/detail-level/overview/model";
+import { isPimiTaskProposalTool } from "@getpaseo/protocol/pimi-task";
 
 export interface TurnSummary {
   tools: OverviewSummary;
@@ -55,7 +56,7 @@ function summarizeTurn(
 ): TurnSummary {
   const calls: (ToolCallItem | ThoughtItem)[] = [];
   for (const item of items) {
-    if ((item.kind === "tool_call" || item.kind === "thought") && !isTurnTrigger(item))
+    if ((item.kind === "tool_call" || item.kind === "thought") && !staysVisibleWhenCollapsed(item))
       calls.push(...(getGroupedCalls(item.id) ?? [item]));
   }
   return { tools: summarizeToolCalls(calls) };
@@ -97,7 +98,14 @@ function findUpdatedHosts(
 }
 
 function staysVisibleWhenCollapsed(item: StreamItem): boolean {
-  return isTurnTrigger(item) || item.kind === "compaction";
+  return (
+    isTurnTrigger(item) ||
+    item.kind === "compaction" ||
+    (item.kind === "tool_call" &&
+      item.payload.source === "agent" &&
+      item.payload.data.status === "completed" &&
+      isPimiTaskProposalTool(item.payload.data.name))
+  );
 }
 
 function isAssistantReply(item: StreamItem): boolean {

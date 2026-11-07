@@ -7,19 +7,15 @@ export const ONBOARDING_STORAGE_KEY = "@paseo:onboarding";
 
 const OnboardingRecordSchema = z.object({ completedAt: z.string() });
 
-export const asyncStorageOnboardingCompletion: OnboardingCompletionStorage = {
-  async isCompleted() {
-    const record = await readValidatedJson(
-      AsyncStorage,
-      ONBOARDING_STORAGE_KEY,
-      OnboardingRecordSchema,
-    );
-    return record !== null;
-  },
-  async markCompleted() {
-    await AsyncStorage.setItem(
-      ONBOARDING_STORAGE_KEY,
-      JSON.stringify({ completedAt: new Date().toISOString() }),
-    );
-  },
-};
+export function onboardingCompletionStorage(key: string): OnboardingCompletionStorage {
+  return {
+    async isCompleted() {
+      return (await readValidatedJson(AsyncStorage, key, OnboardingRecordSchema)) !== null;
+    },
+    async markCompleted() {
+      await AsyncStorage.setItem(key, JSON.stringify({ completedAt: new Date().toISOString() }));
+    },
+  };
+}
+
+export const asyncStorageOnboardingCompletion = onboardingCompletionStorage(ONBOARDING_STORAGE_KEY);

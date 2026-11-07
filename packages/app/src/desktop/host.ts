@@ -2,6 +2,7 @@ import { Platform } from "react-native";
 import { getElectronHost } from "@/desktop/electron/host";
 import type { BrowserKeyboardPolicy } from "@/keyboard";
 import type { SessionInboundMessage, SessionOutboundMessage } from "@getpaseo/protocol/messages";
+import type { PimiDestination } from "@getpaseo/protocol/pimi-task";
 
 type BrowserAutomationExecuteRequest = Extract<
   SessionOutboundMessage,
@@ -173,7 +174,6 @@ export interface DesktopInvokeBridge {
 }
 
 export type PimiAppearance = "system" | "light" | "dark" | "paper";
-export type PimiDestination = { view: "tasks" | "worktrees" } | { view: "review"; path: string };
 
 export interface DesktopHostBridge {
   platform?: string;

@@ -21,7 +21,12 @@ import {
   usePluginThemeCatalog,
   type PluginThemeOption,
 } from "@/plugins/themes";
-import { PLUGIN_THEME_NAMES, PLUGIN_THEME_PREFERENCE, THEME_TO_UNISTYLES } from "@/styles/theme";
+import {
+  PLUGIN_THEME_NAMES,
+  PLUGIN_THEME_PREFERENCE,
+  REGISTERED_THEMES,
+  THEME_TO_UNISTYLES,
+} from "@/styles/theme";
 import { applyAppearance } from "./apply";
 import { AppearanceSystemBars } from "./system-bars";
 
@@ -80,6 +85,12 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
       const themes = { light: "pimiBlush", dark: "pimiDark", paper: "pimiPaper" } as const;
       UnistylesRuntime.setAdaptiveThemes(false);
       UnistylesRuntime.setTheme(themes[mode]);
+      if (typeof document !== "undefined") {
+        document.documentElement.style.setProperty(
+          "--pimi-focus-ring",
+          REGISTERED_THEMES[themes[mode]].colors.ring,
+        );
+      }
     } else {
       applyTheme({ preference: settings.theme, contributedTheme: selected });
     }

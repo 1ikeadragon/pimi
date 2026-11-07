@@ -14,7 +14,7 @@
       <nav aria-label="Main">
         <button id="show-tasks" aria-current="page">Tasks</button>
         <button id="show-board">Worktrees</button>
-        <button id="show-review" disabled>Review</button>
+        <button id="show-review">Review</button>
       </nav>
       <div class="toolbar-actions">
         <label class="appearance-picker">
@@ -64,12 +64,16 @@
             </div>
             <form id="task-create" class="task-form" hidden>
               <h2>New task</h2>
+              <p id="task-proposal-context" class="subtitle" hidden>
+                Review the agent’s proposal before saving it. You can edit the brief and keep the
+                experiments you want to try.
+              </p>
               <label
                 >Repository
-                <select id="task-repository" required></select
+                <select id="task-repository"></select
               ></label>
               <p id="task-no-repositories" class="subtitle" hidden>
-                Add a repository in Worktrees to start.
+                You can save the brief now and attach a repository later.
               </p>
               <label
                 >Title
@@ -89,6 +93,10 @@
                   placeholder="What should the experiments answer?"
                 ></textarea>
               </label>
+              <fieldset id="task-proposal-experiments" class="task-proposal-experiments" hidden>
+                <legend>Proposed experiments</legend>
+                <div id="task-proposal-ideas"></div>
+              </fieldset>
               <div class="task-actions">
                 <button
                   id="dictate-create"
@@ -111,7 +119,29 @@
                 <span id="task-status" class="task-status"></span>
               </div>
               <p id="task-brief" class="task-brief"></p>
+              <form id="task-attach-repository" class="task-form" hidden>
+                <label
+                  >Repository
+                  <select id="task-attach-root" required></select
+                ></label>
+                <p id="task-attach-hint" class="subtitle" hidden>
+                  Add a Git repository in Worktrees to run experiments.
+                </p>
+                <div class="task-actions">
+                  <button id="attach-task-repository" class="button secondary" type="submit">
+                    Attach repository
+                  </button>
+                </div>
+              </form>
               <div class="task-detail-actions">
+                <a
+                  id="task-source-chat"
+                  class="button quiet"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  hidden
+                  >Original chat</a
+                >
                 <details id="task-edit-details">
                   <summary class="button quiet">Edit task…</summary>
                   <form id="task-edit" class="task-form">
@@ -250,8 +280,9 @@
             <h1 id="review-title">Review</h1>
             <p id="review-meta" class="subtitle" role="status"></p>
           </div>
-          <div class="review-actions">
+          <div id="review-actions" class="review-actions" hidden>
             <div id="previews" class="previews" hidden></div>
+            <button id="change-review-worktree" class="button quiet">Change worktree…</button>
             <button id="refresh-comparison" class="button quiet">Refresh diff</button>
             <details id="comparison-settings" class="watch comparison-settings">
               <summary class="button quiet">Comparison…</summary>
@@ -286,7 +317,25 @@
           </div>
         </div>
         <p id="review-warning" class="warning" role="alert" hidden></p>
-        <div class="desk">
+        <section id="review-entry" class="review-entry" aria-labelledby="review-entry-title">
+          <h2 id="review-entry-title">Choose a worktree</h2>
+          <p class="subtitle">Review local changes, compare branches, or open a pull request.</p>
+          <form id="review-target" class="task-form">
+            <label
+              >Worktree
+              <select id="review-worktree" required></select
+            ></label>
+            <div class="task-actions">
+              <button id="review-add-repository" class="button secondary" type="button">
+                Add a repository
+              </button>
+              <button id="review-open-worktree" class="button primary" type="submit" disabled>
+                Open review
+              </button>
+            </div>
+          </form>
+        </section>
+        <div id="review-desk" class="desk" hidden>
           <aside class="files">
             <div class="files-heading">
               <h2>Changed files</h2>

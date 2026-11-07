@@ -5,6 +5,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { readLocalCredentialForTarget } from "@getpaseo/server/daemon-control";
 import { parseAgentDeepLink, type AgentDeepLinkTarget } from "@getpaseo/protocol/agent-deep-link";
+import type { PimiDestination } from "@getpaseo/protocol/pimi-task";
 import { resolveDesktopDaemonStatus } from "../daemon/daemon-manager.js";
 import { openEditorTarget } from "../features/editor-targets/registry.js";
 import { createEditorTargetRuntime } from "../features/editor-targets/runtime.js";
@@ -13,7 +14,7 @@ import type { EditorTargetLaunchInput } from "../features/editor-targets/target.
 const AGENT_CONSOLE_URL = "pimi-agents://open";
 const APPEARANCE_FILE = "pimi-appearance.json";
 export type PimiAppearance = "system" | "light" | "dark" | "paper";
-export type PimiDestination = { view: "tasks" | "worktrees" } | { view: "review"; path: string };
+export type { PimiDestination } from "@getpaseo/protocol/pimi-task";
 let currentWindow: BrowserWindow | undefined;
 let dictationWindow: BrowserWindow | undefined;
 let opening: Promise<void> | undefined;

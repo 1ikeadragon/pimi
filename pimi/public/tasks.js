@@ -16,6 +16,7 @@ export function createTasksView({
   let renderedExperiments;
   let renderedList;
   let creating = false;
+  let proposalDraft;
   let request = 0;
   const models = new Map();
   const modelRequests = new Set();
@@ -28,6 +29,10 @@ export function createTasksView({
   const selected = () => tasks.find((task) => task.id === selectedId);
   const visible = () => !$("tasks").hidden;
   const drafts = (task) => task.experiments.filter((item) => !item.path && !item.report);
+
+  function sourceChat({ serverId, agentId }) {
+    return `paseo://h/${encodeURIComponent(serverId)}/agent/${encodeURIComponent(agentId)}`;
+  }
 
   function cardFor(experiment) {
     const workspace =
@@ -106,7 +111,7 @@ export function createTasksView({
     const pending = drafts(task);
     const choices = models.get(task.id);
     const active = launches.has(task.id) || planning.has(task.id);
-    $("task-run").hidden = task.done;
+    $("task-run").hidden = task.done || !task.root;
     $("task-model").disabled = active || !choices?.models.length;
     $("task-models").disabled = active || modelRequests.has(task.id);
     let modelButtonText = choices ? "Refresh models" : "Load models";
@@ -245,8 +250,14 @@ export function createTasksView({
     if (creating || !task) return;
     $("task-title").textContent = task.title;
     $("task-brief").textContent = task.brief;
-    $("task-context").textContent =
-      `${task.root.split("/").at(-1)} · base ${task.base.slice(0, 8)}`;
+    $("task-context").textContent = task.root
+      ? `${task.root.split("/").at(-1)} · base ${task.base.slice(0, 8)}`
+      : "No repository attached";
+    $("task-attach-repository").hidden = task.done || Boolean(task.root);
+    const sourceLink = $("task-source-chat");
+    sourceLink.hidden = !task.source;
+    if (task.source) sourceLink.href = sourceChat(task.source);
+    else sourceLink.removeAttribute("href");
     $("task-status").textContent = status(task);
     $("task-close").textContent = task.done ? "Reopen task" : "Close task";
     $("task-close").disabled = launches.has(task.id) || planning.has(task.id);
@@ -268,6 +279,7 @@ export function createTasksView({
       })),
       "Create a new worktree when launched",
     );
+    $("experiment-worktree").disabled = !task.root;
     const choice = models.get(task.id);
     const original = drafts(task).find((item) => item.launch)?.launch.config.provider;
     options($("task-model"), choice?.models ?? [], "Choose a model", original ?? choice?.preferred);
@@ -283,6 +295,7 @@ export function createTasksView({
   function choose(id) {
     selectedId = id;
     creating = false;
+    proposalDraft = undefined;
     closeReportEditor();
     $("task-idea").reset();
     $("add-experiment").open = false;
@@ -293,18 +306,24 @@ export function createTasksView({
   }
 
   function updateRepositories() {
+    const repositories = inventory.repositories.map(({ path, name }) => ({
+      id: path,
+      label: `${name} — ${path}`,
+    }));
     options(
       $("task-repository"),
-      inventory.repositories.map(({ path, name }) => ({
-        id: path,
-        label: `${name} — ${path}`,
-      })),
-      "Choose a repository",
-      inventory.repositories.length === 1 ? inventory.repositories[0].path : undefined,
+      repositories,
+      "Attach later",
+      !proposalDraft && inventory.repositories.length === 1
+        ? inventory.repositories[0].path
+        : undefined,
     );
+    options($("task-attach-root"), repositories, "Choose a repository");
     $("task-no-repositories").hidden = Boolean(inventory.repositories.length);
-    $("create-task").disabled =
-      !inventory.repositories.length || busyControls.has($("create-task"));
+    $("task-attach-hint").hidden = Boolean(inventory.repositories.length);
+    $("attach-task-repository").disabled =
+      !inventory.repositories.length || busyControls.has($("attach-task-repository"));
+    $("create-task").disabled = busyControls.has($("create-task"));
   }
 
   async function load() {
@@ -355,31 +374,103 @@ export function createTasksView({
     }
   }
 
-  $("task-search").addEventListener("input", renderList);
-  $("new-task").addEventListener("click", () => {
+  function renderProposal(proposal) {
+    $("task-proposal-context").hidden = !proposal;
+    const ideas = proposal?.experiments ?? [];
+    $("task-proposal-experiments").hidden = !ideas.length;
+    $("task-proposal-ideas").replaceChildren(
+      ...ideas.map((idea, index) => {
+        const label = element("label", "task-proposal-idea");
+        const checkbox = element("input", "");
+        checkbox.type = "checkbox";
+        checkbox.name = "proposal-experiment";
+        checkbox.value = String(index);
+        checkbox.checked = true;
+        const description = element("span", "task-proposal-description");
+        description.append(element("strong", "", idea.title), element("span", "", idea.hypothesis));
+        label.append(checkbox, description);
+        return label;
+      }),
+    );
+    $("cancel-task").textContent = proposal ? "Keep in chat" : "Cancel";
+  }
+
+  function beginCreate(proposal) {
+    const form = $("task-create");
+    if (proposal && creating && (form.elements.title.value || form.elements.brief.value)) {
+      if (proposalDraft?.id !== proposal.id) {
+        message("task-warning", "Finish or cancel the open draft, then open this proposal again.");
+      }
+      return;
+    }
     creating = true;
+    proposalDraft = proposal;
     closeReportEditor();
-    $("task-create").reset();
+    form.reset();
+    updateRepositories();
     const repo = $("task-repository");
-    if (inventory.repositories.length === 1) repo.value = inventory.repositories[0].path;
+    if (proposal) {
+      const chat = sourceChat(proposal.source);
+      const card = inventory.cards.find((entry) =>
+        entry.agents.some((agent) => agent.chatUrl === chat),
+      );
+      repo.value = card?.root ?? "";
+      form.elements.title.value = proposal.title;
+      form.elements.brief.value = proposal.brief;
+    } else if (inventory.repositories.length === 1) {
+      repo.value = inventory.repositories[0].path;
+    }
+    renderProposal(proposal);
     message("task-warning", "");
     renderList();
     renderDetails();
-    (inventory.repositories.length === 1 ? $("task-create").elements.title : repo).focus();
+    if (proposal) {
+      form.elements.brief.setSelectionRange(0, 0);
+      form.elements.brief.scrollTop = 0;
+    }
+    form.elements.title.focus();
+  }
+
+  $("task-search").addEventListener("input", renderList);
+  $("new-task").addEventListener("click", () => beginCreate());
+  $("cancel-task").addEventListener("click", () => {
+    const source = proposalDraft?.source;
+    choose(selectedId ?? tasks[0]?.id);
+    if (source) window.open(sourceChat(source), "_blank", "noopener");
   });
-  $("cancel-task").addEventListener("click", () => choose(selectedId ?? tasks[0]?.id));
 
   $("task-create").addEventListener("submit", (event) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
+    const proposal = proposalDraft && {
+      id: proposalDraft.id,
+      source: proposalDraft.source,
+      experiments: (proposalDraft.experiments ?? []).filter((_, index) =>
+        data.getAll("proposal-experiment").includes(String(index)),
+      ),
+    };
     void perform(event.submitter, async () => {
       const task = await api("tasks/create", {
         title: data.get("title"),
         brief: data.get("brief"),
-        root: $("task-repository").value,
+        root: $("task-repository").value || null,
+        proposal,
       });
-      tasks = [task, ...tasks];
+      tasks = [task, ...tasks.filter((item) => item.id !== task.id)];
       choose(task.id);
+    });
+  });
+
+  $("task-attach-repository").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const task = selected();
+    void perform(event.submitter, async () => {
+      const updated = await api("tasks/repository", {
+        id: task.id,
+        root: $("task-attach-root").value,
+      });
+      tasks = tasks.map((item) => (item.id === updated.id ? updated : item));
+      if (selectedId === task.id && !creating) choose(task.id);
     });
   });
 
@@ -521,6 +612,10 @@ export function createTasksView({
 
   return {
     load,
+    openProposal(proposal) {
+      if (tasks.some((task) => task.id === proposal.id)) choose(proposal.id);
+      else beginCreate(proposal);
+    },
     baseForWorktree(card) {
       const task = selected();
       return task?.experiments.some((item) => cardFor(item)?.path === card.path) ? task.base : "";
