@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { BrowserKeyboardPolicy } from "./features/browser-keyboard/index.js";
 import type { DesktopWindowChromeMode } from "./window/chrome.js";
+import type { PimiAppearance, PimiDestination } from "./window/pimi-window.js";
 
 // This preload runs in Electron's sandbox and is tsc-compiled (not bundled), so it MUST
 // NOT emit any runtime module load other than "electron" — a require() of a local or
@@ -29,8 +30,45 @@ interface AttachedBrowserRegistration {
   webContentsId: number;
 }
 
+function createPimiAppearanceBridge() {
+  const prefix = "--pimi-appearance=";
+  const initial = process.argv
+    .find((argument) => argument.startsWith(prefix))
+    ?.slice(prefix.length);
+  if (!isPimiAppearance(initial)) return undefined;
+  let current = initial;
+  const subscribers = new Set<(mode: PimiAppearance) => void>();
+  ipcRenderer.on("pimi:appearance:change", (_event, mode: unknown) => {
+    if (!isPimiAppearance(mode)) return;
+    current = mode;
+    for (const subscriber of subscribers) subscriber(current);
+  });
+  return {
+    get: () => current,
+    subscribe: (subscriber: (mode: PimiAppearance) => void) => {
+      subscribers.add(subscriber);
+      subscriber(current);
+      return () => {
+        subscribers.delete(subscriber);
+      };
+    },
+  };
+}
+
+function isPimiAppearance(value: unknown): value is PimiAppearance {
+  return value === "system" || value === "light" || value === "dark" || value === "paper";
+}
+
+const pimiAppearance = createPimiAppearanceBridge();
 contextBridge.exposeInMainWorld("paseoDesktop", {
   platform: process.platform,
+  pimiAppearance,
+  ...(pimiAppearance
+    ? {
+        showPimiWorkspace: (destination: PimiDestination) =>
+          ipcRenderer.send("pimi:workspace:show", destination),
+      }
+    : {}),
   ...(process.argv.includes("--pimi-task-dictation")
     ? {
         taskDictation: {

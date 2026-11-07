@@ -6,19 +6,47 @@ Start with a coding question, explore approaches in parallel, and review the evi
 
 [Watch the full workflow](assets/pimi/demo.mp4). The recording uses scripted model and speech fixtures with real Pimi workspace creation, Git changes, and review.
 
-## Inside Pimi
+## Follow a research task
 
-| Auto-Kanban                                                           | In-app code review                                                               |
-| --------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| ![Worktrees grouped by Git and agent activity](assets/pimi/board.jpg) | ![Two changed files and a line-linked File Tour in Pimi](assets/pimi/review.jpg) |
+The example compares two ways to reduce repeated metadata lookups. Each experiment has its own agent and Git worktree.
 
-| Paper appearance                                                     | Brief dictation                                                                              |
-| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| ![A task and its reports in Paper appearance](assets/pimi/paper.jpg) | ![Pimi dictation controls for inserting speech into a task brief](assets/pimi/dictation.jpg) |
+### 1. Capture the question
 
-| Dark appearance                                           | Agent chat                                                                      |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| ![The same task in Dark appearance](assets/pimi/dark.jpg) | ![A follow-up in the experiment's original agent session](assets/pimi/chat.jpg) |
+Create a task with a title and brief. Dictate into the brief, then edit the transcript before saving.
+
+![The full task creation window with the dictation sheet open](assets/pimi/dictation.jpg)
+
+### 2. Choose what to try
+
+Write your own experiments or ask your configured model to suggest two. Run the drafts you want to explore.
+
+![The task with two proposed experiments and the controls to launch them](assets/pimi/drafts.jpg)
+
+### 3. Follow the worktrees
+
+Auto-Kanban follows Git and agent activity. Return to the task to compare reports as the workers finish.
+
+![The full Auto-Kanban board with worktrees in parallel](assets/pimi/board.jpg)
+
+### 4. Ask a follow-up
+
+Open the original worker’s conversation from its report. The console sidebar returns to Tasks or Worktrees, and **Review changes** opens the chat’s checkout directly.
+
+![The full Agent Console showing a follow-up, its answer, and links back to the workspace](assets/pimi/chat.jpg)
+
+### 5. Read the diff
+
+Review one file at a time or split the view explicitly. **Explain changes** adds notes anchored to changed lines, alongside the diff.
+
+![The full review workspace with a changed line and its explanation](assets/pimi/review.jpg)
+
+### Choose an appearance
+
+The same task in Paper and Dark. Blush adds fine grain to the surrounding chrome. The appearance applies to Agent Console and dictation, too.
+
+![The completed task and experiment reports in Paper](assets/pimi/paper.jpg)
+
+![The same task and experiment reports in Dark](assets/pimi/dark.jpg)
 
 ## What you can do
 
@@ -29,7 +57,7 @@ Start with a coding question, explore approaches in parallel, and review the evi
 - **Follow changes line by line.** File Tour walks through the changed files. Explain Changes uses your configured provider to generate short notes tied to added lines. Notes stay below the diff so you can read both together.
 - **Preview and edit.** Open a healthy workspace service from its review. Jump from a reviewed line to the corresponding file in Zed when the local checkout matches.
 - **Manage agents.** Open Agent Console for sessions, terminals, workspace services, voice, and provider settings.
-- **Choose an appearance.** Follow macOS automatically or switch between Blush, Dark, and Paper in Tasks, Worktrees, and Review.
+- **Choose an appearance.** Follow macOS automatically or switch between Blush, Dark, and Paper. The workspace, Agent Console, and dictation share the same setting.
 
 Press `/` to focus the search field for the current view. In review, use `[` and `]` to move through files or through an open tour.
 

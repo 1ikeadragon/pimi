@@ -172,11 +172,19 @@ export interface DesktopInvokeBridge {
   invoke?: (command: string, args?: Record<string, unknown>) => Promise<unknown>;
 }
 
+export type PimiAppearance = "system" | "light" | "dark" | "paper";
+export type PimiDestination = { view: "tasks" | "worktrees" } | { view: "review"; path: string };
+
 export interface DesktopHostBridge {
   platform?: string;
   windowChromeMode?: string;
   invoke?: DesktopInvokeBridge["invoke"];
   taskDictation?: { complete: (text: string | null) => void };
+  showPimiWorkspace?: (destination: PimiDestination) => void;
+  pimiAppearance?: {
+    get: () => PimiAppearance;
+    subscribe: (handler: (mode: PimiAppearance) => void) => () => void;
+  };
   getPendingOpenProject?: () => Promise<string | null>;
   agentNavigation?: DesktopAgentNavigationBridge;
   events?: DesktopEventsBridge;

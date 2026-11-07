@@ -386,10 +386,22 @@ interface AppContainerProps {
 
 const WINDOW_SIDEBAR_TOGGLE_HORIZONTAL_PADDING = 12;
 
+function useAppearanceCycle() {
+  const { settings, updateSettings } = useAppSettings();
+  const cycle = useCallback(() => {
+    void updateSettings({ theme: getNextThemePreference(settings.theme) });
+  }, [settings.theme, updateSettings]);
+  return getDesktopHost()?.pimiAppearance ? undefined : cycle;
+}
+
+function WorkspaceSetupSuggestion({ inWorkspace }: { inWorkspace: boolean }) {
+  if (inWorkspace && getDesktopHost()?.pimiAppearance) return null;
+  return <WorktreeSetupCalloutSource />;
+}
+
 function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppContainerProps) {
   const keyboardActionDispatcher = useKeyboardActionDispatcher();
   const daemons = useHosts();
-  const { settings, updateSettings } = useAppSettings();
   const toggleMobileAgentList = usePanelStore((state) => state.toggleMobileAgentList);
   const toggleDesktopAgentList = usePanelStore((state) => state.toggleDesktopAgentList);
   const exitFocusMode = usePanelStore((state) => state.exitFocusMode);
@@ -407,9 +419,7 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
     rightInset: insets.right,
   });
 
-  const cycleTheme = useCallback(() => {
-    void updateSettings({ theme: getNextThemePreference(settings.theme) });
-  }, [settings.theme, updateSettings]);
+  const cycleTheme = useAppearanceCycle();
 
   const isCompactLayout = useIsCompactFormFactor();
   useCompactWebViewportZoomLock(isCompactLayout);
@@ -552,7 +562,7 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
         <RosettaCalloutSource />
         <UpdateCalloutSource />
         <LegacyAgentSkillsMigration />
-        <WorktreeSetupCalloutSource />
+        <WorkspaceSetupSuggestion inWorkspace={isWorkspaceRoute} />
         <CommandCenterRootActions />
         <CommandCenterWorkspaceActions />
         <PluginCommandCenterActions />

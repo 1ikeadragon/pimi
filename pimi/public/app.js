@@ -241,6 +241,7 @@ async function loadReview({ keepSelection = false } = {}) {
   const previousFiles = keepSelection ? selected : [];
   loading = true;
   $("load-review").disabled = true;
+  $("refresh-comparison").disabled = true;
   $("open-worktree").disabled = true;
   $("review-meta").textContent = "Loading comparison…";
   message("review-warning", "");
@@ -262,7 +263,7 @@ async function loadReview({ keepSelection = false } = {}) {
     review = result;
     const paths = new Set(result.files.map((file) => file.path));
     selected = previousFiles.filter((path) => paths.has(path));
-    if (!selected.length) selected = result.files.slice(0, 2).map((file) => file.path);
+    if (!selected.length && result.files.length) selected = [result.files[0].path];
     const baseLabel = result.base.label.replace(/^refs\/(heads|remotes)\//, "");
     const source = result.pr?.label || `${baseLabel} → ${result.head.slice(0, 8)}`;
     $("review-meta").textContent = [
@@ -284,6 +285,7 @@ async function loadReview({ keepSelection = false } = {}) {
     if (request === generation) {
       loading = false;
       $("load-review").disabled = false;
+      $("refresh-comparison").disabled = false;
       renderFiles();
       renderPanes();
       updateTourControls();
@@ -692,6 +694,23 @@ appearance.addEventListener("change", async () => {
   }
 });
 $("show-review").addEventListener("click", () => view("review"));
+window.pimiWorkspace?.onNavigate(async (destination) => {
+  if (destination.view === "tasks") {
+    $("show-tasks").click();
+    return;
+  }
+  $("show-board").click();
+  if (destination.view !== "review") return;
+  await Promise.all([refreshBoard(), tasksView.load()]);
+  const card = boardData?.cards.find(
+    ({ path, unavailable }) => path === destination.path && !unavailable,
+  );
+  if (!card) {
+    message("board-warning", "Add this repository to Worktrees to open its review.");
+    return;
+  }
+  selectWorktree(card, tasksView.baseForWorktree(card));
+});
 $("refresh-board").addEventListener("click", refreshBoard);
 $("board-search").addEventListener("input", () => {
   if (boardData) renderBoard(boardData);
@@ -707,8 +726,10 @@ $("watch-repo").addEventListener("submit", watchRepository);
 $("mode").addEventListener("change", updateCompareControls);
 $("compare").addEventListener("submit", (event) => {
   event.preventDefault();
+  $("comparison-settings").open = false;
   void loadReview({ keepSelection: true });
 });
+$("refresh-comparison").addEventListener("click", () => void loadReview({ keepSelection: true }));
 $("open-worktree").addEventListener("click", () => {
   void launchEditor(null);
 });

@@ -37,6 +37,7 @@ export async function startPimi({
   watchState,
   taskState,
   appearanceState,
+  onAppearanceChange,
   launchEditor,
   openDictation,
 } = {}) {
@@ -84,6 +85,7 @@ export async function startPimi({
         await rename(temporary, appearanceState);
       }
       appearance = mode;
+      onAppearanceChange?.(mode);
       return { mode };
     });
     appearanceWrites = save.catch(() => undefined);

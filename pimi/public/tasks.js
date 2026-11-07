@@ -521,6 +521,10 @@ export function createTasksView({
 
   return {
     load,
+    baseForWorktree(card) {
+      const task = selected();
+      return task?.experiments.some((item) => cardFor(item)?.path === card.path) ? task.base : "";
+    },
     setBoard(data) {
       inventory = data;
       $("dictate-create").hidden = !data.native;

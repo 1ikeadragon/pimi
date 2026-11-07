@@ -252,28 +252,39 @@
           </div>
           <div class="review-actions">
             <div id="previews" class="previews" hidden></div>
+            <button id="refresh-comparison" class="button quiet">Refresh diff</button>
+            <details id="comparison-settings" class="watch comparison-settings">
+              <summary class="button quiet">Comparison…</summary>
+              <div class="watch-panel">
+                <form id="compare" class="compare">
+                  <label
+                    >Comparison
+                    <select id="mode">
+                      <option value="all">Branch + working changes</option>
+                      <option value="committed">Committed changes</option>
+                      <option value="working">Working changes only</option>
+                      <option value="pr">GitHub pull request</option>
+                    </select>
+                  </label>
+                  <label id="base-control"
+                    >Base ref <input id="base" placeholder="Auto-detect base" autocomplete="off"
+                  /></label>
+                  <label id="pr-control" hidden
+                    >Pull request URL
+                    <input
+                      id="pr"
+                      placeholder="https://github.com/owner/repo/pull/123"
+                      autocomplete="off"
+                  /></label>
+                  <button id="load-review" class="button secondary" type="submit">
+                    Load changes
+                  </button>
+                </form>
+              </div>
+            </details>
             <button id="open-worktree" class="button secondary" disabled>Open in Zed ↗</button>
           </div>
         </div>
-        <form id="compare" class="compare">
-          <label
-            >Comparison
-            <select id="mode">
-              <option value="all">Branch + working changes</option>
-              <option value="committed">Committed changes</option>
-              <option value="working">Working changes only</option>
-              <option value="pr">GitHub pull request</option>
-            </select>
-          </label>
-          <label id="base-control"
-            >Base ref <input id="base" placeholder="Auto-detect base" autocomplete="off"
-          /></label>
-          <label id="pr-control" hidden
-            >Pull request URL
-            <input id="pr" placeholder="https://github.com/owner/repo/pull/123" autocomplete="off"
-          /></label>
-          <button id="load-review" class="button secondary" type="submit">Load changes</button>
-        </form>
         <p id="review-warning" class="warning" role="alert" hidden></p>
         <div class="desk">
           <aside class="files">

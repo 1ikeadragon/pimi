@@ -2,6 +2,7 @@ import { isSyntaxThemeId, type SyntaxThemeId } from "@getpaseo/highlight";
 import type { ActiveTurnBehavior } from "@getpaseo/protocol/messages";
 import type { QueryClient } from "@tanstack/react-query";
 import type { DesktopSettings } from "@/desktop/settings/desktop-settings";
+import { getDesktopHost } from "@/desktop/host";
 import type { AppLanguage } from "@/i18n/locales";
 import type { SidebarNavPreference } from "@/sidebar-nav/model";
 import {
@@ -498,7 +499,8 @@ export function parseContentMaxWidth(value: unknown): number | null {
 }
 
 export function resolveContentMaxWidth(settings: Pick<AppSettings, "contentMaxWidth">): number {
-  return settings.contentMaxWidth ?? DEFAULT_CONTENT_MAX_WIDTH;
+  const defaultWidth = getDesktopHost()?.pimiAppearance ? 720 : DEFAULT_CONTENT_MAX_WIDTH;
+  return settings.contentMaxWidth ?? defaultWidth;
 }
 
 export function parseClampedFontSize(
