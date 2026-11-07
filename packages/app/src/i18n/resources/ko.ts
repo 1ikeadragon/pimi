@@ -343,6 +343,8 @@ export const ko: TranslationResources = {
       forkMenu: "여기에서 채팅 분기",
       forkInNewTab: "새 탭으로 분기",
       forkInNewWorkspace: "새 워크스페이스로 분기",
+      forkWithProvider: "다른 제공업체로 분기",
+      forkNoOtherProviders: "이 호스트에서 사용할 수 있는 다른 제공업체가 없습니다.",
       forkUnavailable: "이를 사용하려면 호스트를 업데이트하세요.",
       forkMissingWorkspace: "이 에이전트는 워크스페이스에 속해 있지 않습니다.",
       forkFailed: "채팅을 분기하지 못했습니다.",

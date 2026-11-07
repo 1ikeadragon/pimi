@@ -4,6 +4,7 @@ import type {
   AgentForkContextOptions,
   DaemonClient,
 } from "@getpaseo/client/internal/daemon-client";
+import type { AgentProvider } from "@getpaseo/protocol/agent-types";
 import type { WorkspaceComposerAttachment } from "@/attachments/types";
 import type { AssistantForkTarget } from "@/components/assistant-fork-menu";
 import type { ToastApi } from "@/components/toast-host";
@@ -90,7 +91,20 @@ function buildChatHistoryAttachment(input: {
   };
 }
 
-function buildForkDraftSetup(agent: ForkAgentSource): WorkspaceDraftTabSetup | undefined {
+function buildForkDraftSetup(
+  agent: ForkAgentSource,
+  provider: AgentProvider | undefined,
+): WorkspaceDraftTabSetup | undefined {
+  if (provider && provider !== agent.provider) {
+    return {
+      provider,
+      cwd: agent.cwd,
+      modeId: null,
+      model: null,
+      thinkingOptionId: null,
+      featureValues: {},
+    };
+  }
   if (!agent.provider) {
     return undefined;
   }
@@ -141,7 +155,8 @@ export function useForkAgent(
       if (!client) {
         throw new Error(t("workspace.terminal.hostDisconnected"));
       }
-      const draftSetup = buildForkDraftSetup(agent);
+      const provider = typeof target === "string" ? undefined : target.provider;
+      const draftSetup = buildForkDraftSetup(agent, provider);
       const prepareForkDraft = async () => {
         const draftId = generateDraftId();
         const payload = await client.buildAgentForkContext(agentId, boundary);
@@ -159,7 +174,7 @@ export function useForkAgent(
         return draftId;
       };
 
-      if (target === "tab") {
+      if (target !== "workspace") {
         if (!workspaceId) {
           throw new Error(t("message.actions.forkMissingWorkspace"));
         }

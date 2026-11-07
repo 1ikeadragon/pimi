@@ -342,6 +342,8 @@ export const ar: TranslationResources = {
       forkMenu: "تفريع الرسالة",
       forkInNewTab: "تفريع في تبويب جديد",
       forkInNewWorkspace: "تفريع في مساحة عمل جديدة",
+      forkWithProvider: "تفرّع باستخدام مزوّد آخر",
+      forkNoOtherProviders: "لا توجد مزوّدات أخرى متاحة على هذا المضيف.",
       forkUnavailable: "حدّث المضيف لاستخدام هذا.",
       forkMissingWorkspace: "هذا الوكيل ليس في مساحة عمل.",
       forkFailed: "فشل تفريع المحادثة",
