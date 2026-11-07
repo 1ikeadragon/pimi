@@ -104,8 +104,23 @@ export async function startPimi({
     }
   }
   let saveTask = Promise.resolve();
+  const eventClients = new Set();
+  const reconcileInterval = 5000;
+  let reconcileTimer;
+  let heartbeatTimer;
+  let updateTimer;
+  let closed = false;
+  let inventoryRevision = 0;
   const paseo = createPaseoConnection({ connection, native });
-  const tasks = await createTasks({ file: taskState, paseo, getInventory });
+  const tasks = await createTasks({
+    file: taskState,
+    paseo,
+    getInventory,
+    onChange() {
+      broadcast("tasks");
+      invalidateInventory();
+    },
+  });
   const appearance = getAppearance
     ? { read: getAppearance }
     : await standaloneAppearance(appearanceState);
@@ -116,10 +131,13 @@ export async function startPimi({
         ["/", "index.html", "text/html; charset=utf-8"],
         ["/app.js", "app.js", "text/javascript; charset=utf-8"],
         ["/tasks.js", "tasks.js", "text/javascript; charset=utf-8"],
+        ["/task-board.js", "task-board.js", "text/javascript; charset=utf-8"],
         ["/worktree-comparison.js", "worktree-comparison.js", "text/javascript; charset=utf-8"],
         ["/diff-find.js", "diff-find.js", "text/javascript; charset=utf-8"],
+        ["/live-updates.js", "live-updates.js", "text/javascript; charset=utf-8"],
         ["/style.css", "style.css", "text/css; charset=utf-8"],
         ["/grain.svg", "grain.svg", "image/svg+xml"],
+        ["/pimi-mark.svg", "pimi-mark.svg", "image/svg+xml"],
       ].map(async ([path, file, mime]) => [
         path,
         { mime, data: await readFile(new URL(`./public/${file}`, import.meta.url)) },
@@ -141,6 +159,74 @@ export async function startPimi({
   let inventoryTask;
   let inventoryAt = 0;
   let inventory;
+  let inventorySignature;
+  const discoveryCache = new Map();
+  const factsCache = new Map();
+
+  async function discoverRoots(rootsToRead) {
+    const results = [];
+    // Bound process fan-out for both repository discovery and worktree status.
+    for (let index = 0; index < rootsToRead.length; index += 6) {
+      results.push(
+        ...(await Promise.allSettled(
+          rootsToRead.slice(index, index + 6).map(async (root) => {
+            const cached = discoveryCache.get(root);
+            if (cached && Date.now() - cached.at < reconcileInterval) return cached.value;
+            const value = await discoverWorktrees(root);
+            discoveryCache.set(root, { at: Date.now(), value });
+            return value;
+          }),
+        )),
+      );
+    }
+    return results;
+  }
+
+  function broadcast(event) {
+    for (const response of eventClients) {
+      // A stalled renderer must not accumulate an unbounded event queue.
+      if (!response.write(`event: ${event}\ndata: {}\n\n`)) response.destroy();
+    }
+  }
+
+  function invalidateInventory({ path } = {}) {
+    inventoryAt = 0;
+    ++inventoryRevision;
+    if (path) factsCache.delete(path);
+    if (closed || !eventClients.size || updateTimer) return;
+    // Coalesce directory/checkout bursts, without subscribing to agent token streams.
+    updateTimer = setTimeout(() => {
+      updateTimer = undefined;
+      void Promise.resolve(getInventory()).catch((error) => {
+        console.warn("Pimi could not update its worktrees:", error.message);
+        broadcast("retry");
+      });
+    }, 250);
+  }
+  const unsubscribePaseo = paseo.subscribe(invalidateInventory);
+
+  function openEvents(request, response) {
+    if (eventClients.size >= 32)
+      throw new RequestError("Too many workspace windows are connected.", 503);
+    response.writeHead(200, { "content-type": "text/event-stream", connection: "keep-alive" });
+    response.write("retry: 2000\nevent: ready\ndata: {}\n\n");
+    eventClients.add(response);
+    if (!reconcileTimer) {
+      reconcileTimer = setInterval(invalidateInventory, reconcileInterval);
+      heartbeatTimer = setInterval(() => {
+        for (const client of eventClients) if (!client.write(": heartbeat\n\n")) client.destroy();
+      }, 25000);
+    }
+    response.on("close", () => {
+      eventClients.delete(response);
+      if (eventClients.size) return;
+      clearInterval(reconcileTimer);
+      clearInterval(heartbeatTimer);
+      clearTimeout(updateTimer);
+      reconcileTimer = heartbeatTimer = updateTimer = undefined;
+    });
+    invalidateInventory();
+  }
 
   function cardLane(facts, workspace, agents) {
     const state = workspace?.state;
@@ -165,17 +251,18 @@ export async function startPimi({
   async function loadInventory() {
     const daemonTask = paseo.directory();
     const localRoots = [...new Set([...roots, ...tasks.roots()])];
-    const localDiscovery = Promise.allSettled(localRoots.map(discoverWorktrees));
+    const localDiscovery = discoverRoots(localRoots);
     const [local, daemon] = await Promise.all([localDiscovery, daemonTask]);
     const extra = followPaseo
       ? [...new Set(daemon.workspaces.map((workspace) => workspace.root).filter(Boolean))].filter(
           (root) => !localRoots.includes(root),
         )
       : [];
-    const discovery = [...local, ...(await Promise.allSettled(extra.map(discoverWorktrees)))];
+    const discovery = [...local, ...(await discoverRoots(extra))];
     const watchedRoots = [...localRoots, ...extra];
     const listed = new Map();
     const warnings = [];
+    if (daemon.liveError) warnings.push(daemon.liveError);
     discovery.forEach((result, index) => {
       if (result.status === "fulfilled") {
         for (const worktree of result.value) {
@@ -210,7 +297,14 @@ export async function startPimi({
     for (let i = 0; i < entries.length; i += gitConcurrency) {
       const batch = await Promise.all(
         entries.slice(i, i + gitConcurrency).map(async (worktree) => {
-          const facts = await worktreeFacts(worktree);
+          const cached = factsCache.get(worktree.path);
+          const key = JSON.stringify(worktree);
+          const facts =
+            cached && cached.key === key && Date.now() - cached.at < reconcileInterval
+              ? { ...cached.value }
+              : await worktreeFacts(worktree);
+          if (!cached || cached.key !== key || Date.now() - cached.at >= reconcileInterval)
+            factsCache.set(worktree.path, { key, at: Date.now(), value: { ...facts } });
           const canonical = await realpath(worktree.path).catch(() => worktree.path);
           const workspace = byPath.get(canonical);
           const agents = agentsByPath.get(canonical) ?? [];
@@ -228,6 +322,9 @@ export async function startPimi({
       cards.push(...batch);
     }
     worktrees = new Map(cards.map((card) => [card.path, card]));
+    for (const root of discoveryCache.keys())
+      if (!watchedRoots.includes(root)) discoveryCache.delete(root);
+    for (const path of factsCache.keys()) if (!listed.has(path)) factsCache.delete(path);
     return {
       serverId: daemon.serverId,
       cards,
@@ -242,14 +339,23 @@ export async function startPimi({
   function getInventory() {
     // Concurrent tabs share the same Git and daemon reads. Fast clicks use the last inventory.
     if (inventory && Date.now() - inventoryAt < 1500) return inventory;
+    const revision = inventoryRevision;
     inventoryTask ??= loadInventory()
       .then((result) => {
         inventory = result;
-        inventoryAt = Date.now();
+        inventoryAt = revision === inventoryRevision ? Date.now() : 0;
+        const signature = JSON.stringify(result, (key, value) =>
+          key === "updatedAt" ? undefined : value,
+        );
+        if (signature !== inventorySignature) {
+          inventorySignature = signature;
+          broadcast("board");
+        }
         return result;
       })
       .finally(() => {
         inventoryTask = undefined;
+        if (revision !== inventoryRevision) invalidateInventory();
       });
     return inventoryTask;
   }
@@ -366,7 +472,7 @@ export async function startPimi({
         roots.push(root);
       }
     }
-    inventoryAt = 0;
+    invalidateInventory();
     return getInventory();
   }
 
@@ -379,6 +485,7 @@ export async function startPimi({
     ["/api/tasks/repository", tasks.attachRepository],
     ["/api/tasks/assign-repository", tasks.assignRepository],
     ["/api/tasks/save", tasks.save],
+    ["/api/tasks/stage", tasks.setStage],
     ["/api/tasks/experiment", tasks.addIdea],
     ["/api/tasks/suggest", tasks.suggest],
     ["/api/tasks/discard", tasks.discard],
@@ -388,10 +495,18 @@ export async function startPimi({
     ...(appearance.save ? [["/api/appearance", appearance.save]] : []),
     [
       "/api/dictation",
-      async () => {
+      async (_body, response) => {
         if (!openDictation)
           throw new RequestError("Dictation is available in the desktop app.", 503);
-        return { text: await openDictation() };
+        const controller = new AbortController();
+        const abort = () => controller.abort();
+        response.once("close", abort);
+        if (response.destroyed) abort();
+        try {
+          return { text: await openDictation(controller.signal) };
+        } finally {
+          response.removeListener("close", abort);
+        }
       },
     ],
   ]);
@@ -420,6 +535,7 @@ export async function startPimi({
       }
       const url = new URL(request.url, origin);
       if (request.method === "GET") {
+        if (url.pathname === "/api/events") return openEvents(request, response);
         const asset = assets.get(url.pathname);
         if (asset) {
           response.writeHead(200, { "content-type": asset.mime });
@@ -453,7 +569,7 @@ export async function startPimi({
         if (request.headers.origin !== origin)
           throw new RequestError("Invalid request origin.", 403);
         const handler = postRoutes.get(url.pathname);
-        if (handler) return json(response, await handler(await jsonInput(request)));
+        if (handler) return json(response, await handler(await jsonInput(request), response));
       }
       throw new RequestError("Pimi could not find that route.", 404);
     } catch (error) {
@@ -477,6 +593,12 @@ export async function startPimi({
     origin,
     appearance: appearance.read(),
     close: () => {
+      closed = true;
+      unsubscribePaseo();
+      clearInterval(reconcileTimer);
+      clearInterval(heartbeatTimer);
+      clearTimeout(updateTimer);
+      for (const response of eventClients) response.end();
       server.close();
       return paseo.close();
     },

@@ -2,6 +2,7 @@
 import { createTasksView } from "./tasks.js";
 import { createDiffFind } from "./diff-find.js";
 import { createWorktreeComparison } from "./worktree-comparison.js";
+import { connectLiveUpdates } from "./live-updates.js";
 
 const $ = (id) => document.getElementById(id);
 const laneDefinitions = [
@@ -64,14 +65,15 @@ function button(className, label, click) {
   return node;
 }
 
-async function api(route, body) {
+async function api(route, body, signal) {
   const options =
     body === undefined
-      ? undefined
+      ? { signal }
       : {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify(body),
+          signal,
         };
   const response = await fetch("/api/" + route, options);
   const data = await response.json();
@@ -85,6 +87,7 @@ function message(id, text) {
 }
 
 function view(name) {
+  if (name !== "tasks") tasksView.cancelDictation();
   if (name !== "review") diffFind.close();
   for (const section of ["tasks", "board", "review"]) {
     $(section).hidden = section !== name;
@@ -141,9 +144,12 @@ function matchesSearch(query, ...values) {
 }
 
 function renderBoard(data) {
+  const previousLanes = new Map(boardData?.cards.map(({ path, lane }) => [path, lane]));
   boardData = data;
   const query = $("board-search").value.trim().toLowerCase();
-  const signature = JSON.stringify([query, data]);
+  const signature = JSON.stringify([query, data], (key, value) =>
+    key === "updatedAt" ? undefined : value,
+  );
   if (signature === boardSignature) return;
   boardSignature = signature;
   tasksView.setBoard(data);
@@ -155,7 +161,9 @@ function renderBoard(data) {
     "board-warning",
     [
       ...(data.daemonError
-        ? ["Agent activity is unavailable. You can still review your worktrees."]
+        ? [
+            "Agent activity is unavailable. Showing last known activity; reconnecting automatically.",
+          ]
         : []),
       ...data.warnings,
     ].join(" "),
@@ -176,6 +184,10 @@ function renderBoard(data) {
     lane.append(header);
     for (const card of cards) {
       const item = button("card", "", () => selectWorktree(card));
+      item.dataset.path = card.path;
+      if (previousLanes.has(card.path) && previousLanes.get(card.path) !== id) {
+        item.classList.add("card-moved");
+      }
       item.title = card.path;
       item.disabled = Boolean(card.unavailable);
       const gitStatus = [
@@ -197,7 +209,12 @@ function renderBoard(data) {
     if (!cards.length) lane.append(element("p", "empty", query ? "No matching worktrees" : empty));
     return lane;
   });
+  const focusedPath = document.activeElement?.closest(".card")?.dataset.path;
   $("lanes").replaceChildren(...lanes);
+  if (focusedPath)
+    [...$("lanes").querySelectorAll(".card")]
+      .find((card) => card.dataset.path === focusedPath)
+      ?.focus({ preventScroll: true });
   $("other-agents").hidden = !otherAgents.length;
   $("agent-list").replaceChildren(
     ...otherAgents.map((agent) => {
@@ -211,17 +228,19 @@ function renderBoard(data) {
 
 async function refreshBoard() {
   if (boardRequest) return boardRequest;
-  $("refresh-board").disabled = true;
   boardRequest = api("board")
-    .then(renderBoard)
+    .then((data) => {
+      renderBoard(data);
+      return true;
+    })
     .catch((error) => {
       boardSignature = undefined;
       daemonConnected = false;
       message("board-warning", error.message);
       updateTourControls();
+      return false;
     })
     .finally(() => {
-      $("refresh-board").disabled = false;
       boardRequest = undefined;
     });
   return boardRequest;
@@ -275,6 +294,9 @@ function renderReviewWorktreeOptions(cards) {
   const picker = $("review-worktree");
   const previous = picker.value || activeWorktree?.path || "";
   const choices = cards.filter((card) => !card.unavailable);
+  const signature = JSON.stringify(choices.map(({ path, repo, name }) => [path, repo, name]));
+  if (picker.dataset.options === signature) return;
+  picker.dataset.options = signature;
   const placeholder = element(
     "option",
     "",
@@ -808,6 +830,28 @@ $("show-tasks").addEventListener("click", () => {
 const appearance = $("appearance");
 appearance.value = document.documentElement.dataset.appearance;
 if (window.pimiWorkspace) {
+  const layoutToggle = $("toggle-workspace-window");
+  layoutToggle.hidden = false;
+  $("show-agents").hidden = false;
+  document.documentElement.dataset.workspaceChrome = window.pimiWorkspace.chrome;
+  window.pimiWorkspace.onLayoutChange((mode) => {
+    document.documentElement.dataset.workspaceLayout = mode;
+    const label = mode === "detached" ? "Move into main window" : "Open in separate window";
+    layoutToggle.setAttribute("aria-label", label);
+    layoutToggle.title = label;
+    window.dispatchEvent(new Event("pimi-layout-change"));
+  });
+  layoutToggle.addEventListener("click", async () => {
+    layoutToggle.disabled = true;
+    message("workspace-window-warning", "");
+    try {
+      await window.pimiWorkspace.toggleWindow();
+    } catch {
+      message("workspace-window-warning", "Could not move the workspace. Try again.");
+    } finally {
+      layoutToggle.disabled = false;
+    }
+  });
   window.pimiWorkspace.onAppearanceChange((mode) => {
     document.documentElement.dataset.appearance = mode;
   });
@@ -858,6 +902,10 @@ $("review-add-repository").addEventListener("click", () => {
   $("repo-path").focus();
 });
 window.pimiWorkspace?.onNavigate(async (destination) => {
+  if (destination.view === "review-home") {
+    $("show-review").click();
+    return;
+  }
   if (destination.view === "tasks") {
     $("show-tasks").click();
     return;
@@ -891,7 +939,6 @@ window.pimiWorkspace?.onNavigate(async (destination) => {
   }
   selectWorktree(card, tasksView.baseForWorktree(card));
 });
-$("refresh-board").addEventListener("click", refreshBoard);
 $("board-search").addEventListener("input", () => {
   if (boardData) renderBoard(boardData);
 });
@@ -922,6 +969,14 @@ $("ai-tour").addEventListener("click", startAiTour);
 $("prev-step").addEventListener("click", () => showStep(stepIndex - 1));
 $("next-step").addEventListener("click", nextStep);
 $("close-tour").addEventListener("click", closeTour);
+function focusViewSearch(event, reviewing) {
+  const listSearch = $("tasks").hidden ? "board-search" : "task-search";
+  const reviewSearch = $("review-entry").hidden ? "file-search" : "review-worktree";
+  const search = $(reviewing ? reviewSearch : listSearch);
+  if (search.closest("[hidden]")) return;
+  event.preventDefault();
+  search.focus();
+}
 document.addEventListener("keydown", (event) => {
   if (
     event.defaultPrevented ||
@@ -934,10 +989,7 @@ document.addEventListener("keydown", (event) => {
     return;
   const reviewing = !$("review").hidden;
   if (event.key === "/") {
-    event.preventDefault();
-    const listSearch = $("tasks").hidden ? "board-search" : "task-search";
-    const reviewSearch = $("review-entry").hidden ? "file-search" : "review-worktree";
-    $(reviewing ? reviewSearch : listSearch).focus();
+    focusViewSearch(event, reviewing);
   } else if (reviewing && event.key === "Escape" && tour) {
     closeTour();
   } else if (reviewing && (event.key === "[" || event.key === "]")) {
@@ -945,11 +997,8 @@ document.addEventListener("keydown", (event) => {
     navigateReview(event.key === "[" ? -1 : 1);
   }
 });
-setInterval(() => {
-  if (document.hidden) return;
-  if (!$("tasks").hidden) void tasksView.load();
-  if (!$("review").hidden) return;
-  void refreshBoard();
-}, 5000);
-void refreshBoard();
-void tasksView.load();
+connectLiveUpdates({
+  refreshBoard,
+  refreshTasks: tasksView.load,
+  status: (text) => message("live-status", text),
+});

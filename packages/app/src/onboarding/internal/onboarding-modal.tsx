@@ -31,7 +31,7 @@ const accentForegroundMapping = (theme: Theme) => ({ color: theme.colors.accentF
 const pimiSteps = {
   welcome: {
     label: "Welcome",
-    title: "Start with a conversation",
+    title: "Your swarm’s best friend",
     description: "Ask a question, inspect a change, or describe what you want to build.",
   },
   firstChat: {
@@ -49,10 +49,12 @@ function SetupMark({ pimi }: { pimi: boolean }) {
   if (!pimi) return <PaseoLogo size={LOGO_SIZE} />;
   return (
     <View style={styles.pimiMark}>
-      <Text style={styles.pimiInitial}>P</Text>
+      <PimiSetupMark size={LOGO_SIZE - 1} />
     </View>
   );
 }
+
+const PimiSetupMark = withUnistyles(PaseoLogo, accentForegroundMapping);
 
 export function OnboardingModal({ model, state }: { model: OnboardingModel; state: OpenState }) {
   const { t } = useTranslation();
@@ -335,7 +337,6 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: 8,
     backgroundColor: theme.colors.accent,
   },
-  pimiInitial: { color: theme.colors.accentForeground, fontWeight: theme.fontWeight.bold },
   content: {
     padding: 0,
     gap: 0,

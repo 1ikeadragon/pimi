@@ -12,6 +12,7 @@ import {
 import { commit, RequestError } from "./git.mjs";
 
 const taskFields = PimiTaskFields.extend({ done: z.boolean() });
+const taskStage = z.enum(["backlog", "ready", "in-progress", "review", "done"]);
 const ideaFields = PimiExperimentFields;
 const taskSource = PimiTaskProposal.shape.source;
 const modelConfig = z.object({
@@ -31,6 +32,7 @@ const experimentSchema = ideaFields.extend({
 });
 const taskSchema = taskFields.extend({
   id: z.uuid(),
+  stage: taskStage.nullable().optional(),
   root: z.string().nullable(),
   base: z.string().nullable(),
   repositories: z.array(z.object({ root: z.string().min(1), base: z.string().min(1) })).optional(),
@@ -96,7 +98,7 @@ function experimentPrompt(task, experiment) {
   ].join("\n\n");
 }
 
-export async function createTasks({ file, paseo, getInventory }) {
+export async function createTasks({ file, paseo, getInventory, onChange = () => {} }) {
   let state = [];
   let tail = Promise.resolve();
   const running = new Set();
@@ -105,6 +107,8 @@ export async function createTasks({ file, paseo, getInventory }) {
     try {
       state = z.array(taskSchema).parse(JSON.parse(await readFile(file, "utf8")));
       for (const task of state) {
+        // An absent override preserves legacy closed tasks; an explicit override owns done.
+        if (task.stage !== undefined) task.done = task.stage === "done";
         task.repositories ??= task.root && task.base ? [{ root: task.root, base: task.base }] : [];
         for (const item of task.experiments) item.root ??= task.root;
       }
@@ -127,6 +131,7 @@ export async function createTasks({ file, paseo, getInventory }) {
         await rename(file + ".tmp", file);
       }
       state = draft;
+      onChange();
       return result;
     });
     tail = next.catch(() => undefined);
@@ -196,7 +201,26 @@ export async function createTasks({ file, paseo, getInventory }) {
     return update((draft) => {
       const task = getTask(draft, id);
       if (input.done && running.has(id)) throw new RequestError("Wait for launch to finish.", 409);
+      if (input.done !== task.done) {
+        if (input.done) task.stage = "done";
+        else if (task.stage === "done") task.stage = null;
+      }
       return Object.assign(task, input);
+    });
+  }
+
+  function setStage(body) {
+    const { id, stage } = readInput(
+      z.strictObject({ id: z.uuid(), stage: taskStage.nullable() }),
+      body,
+    );
+    return update((draft) => {
+      const task = getTask(draft, id);
+      if (stage === "done" && running.has(id))
+        throw new RequestError("Wait for launch to finish.", 409);
+      task.stage = stage;
+      task.done = stage === "done";
+      return task;
     });
   }
 
@@ -436,6 +460,7 @@ export async function createTasks({ file, paseo, getInventory }) {
     attachRepository,
     assignRepository,
     save,
+    setStage,
     addIdea,
     suggest,
     discard,

@@ -1,6 +1,7 @@
 import type { HostRuntimeConnectionStatus } from "@/runtime/host-runtime";
 import type { WorkspaceDescriptor } from "@/stores/session-store";
 import type { WorkspaceRecoveryModel } from "@/workspace-recovery/model";
+import { getDesktopHost } from "@/desktop/host";
 
 export type WorkspaceRouteState =
   | { kind: "ready" }
@@ -84,7 +85,9 @@ export function resolveWorkspaceRouteState(input: {
       return {
         kind: "recoveryUnavailable",
         hostName: input.hostName,
-        message: "Update Paseo to recover this workspace.",
+        message: getDesktopHost()?.pimiAppearance
+          ? "Update Pimi to recover this workspace."
+          : "Update Paseo to recover this workspace.",
       };
     case "inspectionFailed":
       return {

@@ -39,6 +39,25 @@
           background-color: #181b1a;
         }
       }
+      html[data-pimi-dictation],
+      html[data-pimi-dictation] body {
+        background: transparent;
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        [data-pimi-dictation-island] {
+          animation: pimi-dictation-arrive 170ms ease-out;
+        }
+        @keyframes pimi-dictation-arrive {
+          from {
+            opacity: 0;
+            transform: translateY(6px) scale(0.98);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+      }
       /* These styles make the root element full-height */
       #root {
         display: flex;

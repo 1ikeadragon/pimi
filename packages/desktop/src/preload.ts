@@ -61,13 +61,40 @@ function isPimiAppearance(value: unknown): value is PimiAppearance {
 }
 
 const pimiAppearance = createPimiAppearanceBridge();
+const isTaskDictation = process.argv.includes("--pimi-task-dictation");
+if (isTaskDictation) {
+  document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+      document.documentElement.dataset.pimiDictation = "";
+    },
+    { once: true },
+  );
+}
 let settingsPending = false;
 let openSettings: (() => void) | undefined;
 if (pimiAppearance) {
+  document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+      document.title = "Pimi";
+    },
+    { once: true },
+  );
   ipcRenderer.on("pimi:settings:open", () => {
     if (openSettings) openSettings();
     else settingsPending = true;
   });
+  let covered = false;
+  const applyWorkspaceVisibility = () => {
+    if (document.body) document.body.inert = covered;
+  };
+  ipcRenderer.on("pimi:workspace:cover-chat", (_event, visible: unknown) => {
+    if (typeof visible !== "boolean") return;
+    covered = visible;
+    applyWorkspaceVisibility();
+  });
+  document.addEventListener("DOMContentLoaded", applyWorkspaceVisibility, { once: true });
 }
 contextBridge.exposeInMainWorld("paseoDesktop", {
   platform: process.platform,
@@ -88,7 +115,7 @@ contextBridge.exposeInMainWorld("paseoDesktop", {
         },
       }
     : {}),
-  ...(process.argv.includes("--pimi-task-dictation")
+  ...(isTaskDictation
     ? {
         taskDictation: {
           complete: (text: string | null) => ipcRenderer.send("pimi:task-dictation:complete", text),

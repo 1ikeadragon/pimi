@@ -1,26 +1,28 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
 import { useCallback } from "react";
 import { Text, View } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
-import { Columns3, ListTodo } from "lucide-react-native";
+import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import { Columns3, FileDiff, ListTodo } from "lucide-react-native";
 import { getDesktopHost } from "@/desktop/host";
+import { PaseoLogo } from "@/components/icons/paseo-logo";
 import { SidebarHeaderRow } from "./sidebar-header-row";
 
 export function PimiWorkspaceNavigation() {
   const show = getDesktopHost()?.showPimiWorkspace;
   const showTasks = useCallback(() => show?.({ view: "tasks" }), [show]);
   const showWorktrees = useCallback(() => show?.({ view: "worktrees" }), [show]);
+  const showReview = useCallback(() => show?.({ view: "review-home" }), [show]);
   if (!show) return null;
 
   return (
     <View>
       <View style={styles.brand}>
         <View style={styles.mark}>
-          <Text style={styles.initial}>P</Text>
+          <BrandMark />
         </View>
         <View>
           <Text style={styles.name}>Pimi</Text>
-          <Text style={styles.caption}>Project workspace</Text>
+          <Text style={styles.caption}>Your swarm’s best friend</Text>
         </View>
       </View>
       <SidebarHeaderRow icon={ListTodo} label="Tasks" onPress={showTasks} variant="compact" />
@@ -30,10 +32,16 @@ export function PimiWorkspaceNavigation() {
         onPress={showWorktrees}
         variant="compact"
       />
+      <SidebarHeaderRow icon={FileDiff} label="Review" onPress={showReview} variant="compact" />
       <Text style={styles.section}>Agent tools</Text>
     </View>
   );
 }
+
+const BrandMark = withUnistyles(PaseoLogo, (theme) => ({
+  size: 19,
+  color: theme.colors.accentForeground,
+}));
 
 const styles = StyleSheet.create((theme) => ({
   brand: {
@@ -52,7 +60,6 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     justifyContent: "center",
   },
-  initial: { color: theme.colors.accentForeground, fontSize: 18, fontWeight: "700" },
   name: { color: theme.colors.foreground, fontSize: 16, fontWeight: theme.fontWeight.semibold },
   caption: { color: theme.colors.foregroundMuted, fontSize: 11 },
   section: {

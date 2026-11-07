@@ -64,6 +64,11 @@ function getOrCreateFaviconLink(): HTMLLinkElement | null {
 function updateFavicon(status: FaviconStatus, colorScheme: ColorScheme) {
   const link = getOrCreateFaviconLink();
   if (!link) return;
+  if (getDesktopHost()?.pimiAppearance) {
+    link.type = "image/svg+xml";
+    link.href = "/pimi-mark.svg";
+    return;
+  }
 
   const newHref = getFaviconUri(status, colorScheme);
   if (link.href !== newHref) {

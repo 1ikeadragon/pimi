@@ -265,7 +265,7 @@ export function WelcomeScreen() {
         testID="welcome-screen"
       >
         <View style={styles.content}>
-          {showPimi ? null : <PaseoLogo size={96} />}
+          <PaseoLogo size={showPimi ? 56 : 96} />
           <View style={styles.copyBlock}>
             <Text style={styles.title}>{showPimi ? "Welcome to Pimi" : t("onboarding.title")}</Text>
             <Text style={styles.subtitle}>

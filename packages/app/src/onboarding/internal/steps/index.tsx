@@ -55,7 +55,7 @@ function PimiExamples() {
           “Try two ways to speed up this handler and compare them.”
         </Text>
         <Text style={styles.detail}>
-          Review the suggested brief and experiments before saving them.
+          Review the suggested brief and work items before saving them.
         </Text>
       </View>
     </View>

@@ -15,6 +15,8 @@ import {
   useHostRuntimeIsConnected,
 } from "@/runtime/host-runtime";
 
+const ISLAND_DATASET = { pimiDictationIsland: "" };
+
 export default function TaskDictation() {
   const bridge = getDesktopHost()?.taskDictation;
   const serverId = useLocalDaemonServerId() ?? "";
@@ -46,64 +48,83 @@ export default function TaskDictation() {
     started.current = true;
     void startDictation();
   }, [bridge, ready, startDictation]);
+  useEffect(() => {
+    if (!bridge || typeof window === "undefined") return;
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") void cancel();
+    };
+    window.addEventListener("keydown", escape);
+    return () => window.removeEventListener("keydown", escape);
+  }, [bridge, cancel]);
 
   if (!bridge) return null;
   const showControls = voice.isRecording || voice.isProcessing || voice.status === "failed";
-  let guidance = "Waiting for the local voice service…";
-  if (isConnected && !ready) guidance = "Enable dictation in Agent Console’s Voice settings.";
-  if (ready) guidance = "Speech is inserted into your brief as editable text.";
-  if (voice.isRecording) guidance = "Listening. Select Insert when you’re finished.";
+  let guidance = "Getting the microphone ready…";
+  if (isConnected && !ready) guidance = "Enable dictation in Settings → Voice.";
+  if (ready && !voice.error) guidance = "Dictate into your brief.";
 
   return (
-    <ScrollView style={styles.background} contentContainerStyle={styles.container}>
-      <Text style={styles.heading}>Dictate brief</Text>
-      <Text accessibilityLiveRegion="polite" style={styles.description}>
-        {guidance}
-      </Text>
-      {showControls ? (
-        <DictationOverlay
-          neutral
-          labelActions
-          volume={voice.volume}
-          duration={voice.duration}
-          isRecording={voice.isRecording}
-          isProcessing={voice.isProcessing}
-          status={voice.status}
-          errorText={voice.error ?? undefined}
-          onCancel={cancel}
-          onAccept={voice.confirmDictation}
-          onRetry={voice.retryFailedDictation}
-          onDiscard={discard}
-        />
-      ) : (
-        <View style={styles.actions}>
-          <Button variant="secondary" onPress={close}>
-            Cancel
-          </Button>
-          <Button variant="secondary" disabled={!ready} onPress={startDictation}>
-            Start recording
-          </Button>
-        </View>
-      )}
-      {voice.error && !showControls ? (
-        <Text accessibilityRole="alert" style={styles.error}>
-          {voice.error}
-        </Text>
-      ) : null}
+    <ScrollView contentContainerStyle={styles.container}>
+      <View dataSet={ISLAND_DATASET} style={styles.island}>
+        {showControls ? (
+          <DictationOverlay
+            neutral
+            labelActions
+            volume={voice.volume}
+            duration={voice.duration}
+            isRecording={voice.isRecording}
+            isProcessing={voice.isProcessing}
+            status={voice.status}
+            errorText={voice.error ?? undefined}
+            onCancel={cancel}
+            onAccept={voice.confirmDictation}
+            onRetry={voice.retryFailedDictation}
+            onDiscard={discard}
+          />
+        ) : (
+          <View style={styles.waiting}>
+            <Text accessibilityLiveRegion="polite" style={styles.description}>
+              {voice.error ?? guidance}
+            </Text>
+            <View style={styles.actions}>
+              <Button variant="ghost" onPress={cancel}>
+                Cancel
+              </Button>
+              {ready && voice.error ? (
+                <Button variant="secondary" onPress={startDictation}>
+                  Try again
+                </Button>
+              ) : null}
+            </View>
+          </View>
+        )}
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
-  background: { flex: 1, backgroundColor: theme.colors.surface0 },
   container: {
     flexGrow: 1,
-    gap: 12,
-    justifyContent: "center",
-    padding: 22,
+    justifyContent: "flex-end",
+    paddingHorizontal: 14,
+    paddingTop: 8,
+    paddingBottom: 20,
   },
-  heading: { fontSize: 20, fontWeight: "600", color: theme.colors.foreground },
-  description: { fontSize: 13, color: theme.colors.foregroundMuted },
+  island: {
+    borderRadius: theme.borderRadius["2xl"],
+    boxShadow: "0 6px 20px #00000038",
+  },
+  waiting: {
+    backgroundColor: theme.colors.surface0,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.borderRadius["2xl"],
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  description: { flex: 1, fontSize: 13, color: theme.colors.foregroundMuted },
   actions: { flexDirection: "row", justifyContent: "flex-end", gap: 8 },
-  error: { fontSize: 13, color: theme.colors.destructive },
 }));
