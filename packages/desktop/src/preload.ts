@@ -31,6 +31,13 @@ interface AttachedBrowserRegistration {
 
 contextBridge.exposeInMainWorld("paseoDesktop", {
   platform: process.platform,
+  ...(process.argv.includes("--pimi-task-dictation")
+    ? {
+        taskDictation: {
+          complete: (text: string | null) => ipcRenderer.send("pimi:task-dictation:complete", text),
+        },
+      }
+    : {}),
   windowChromeMode: readWindowChromeMode(),
   invoke: (command: string, args?: Record<string, unknown>) =>
     ipcRenderer.invoke("paseo:invoke", command, args),

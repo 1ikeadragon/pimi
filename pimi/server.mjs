@@ -2,7 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, realpath, rename, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
-import { dirname, isAbsolute } from "node:path";
+import { basename, dirname, isAbsolute } from "node:path";
 import { pathToFileURL } from "node:url";
 import { setImmediate } from "node:timers/promises";
 import {
@@ -23,7 +23,10 @@ import {
   worktreeFacts,
 } from "./git.mjs";
 import { createPaseoConnection } from "./paseo.mjs";
+import { createTasks } from "./tasks.mjs";
 import { generateTour } from "./walkthrough.mjs";
+
+const appearances = new Set(["system", "light", "dark", "paper"]);
 
 export async function startPimi({
   paths = [],
@@ -32,7 +35,10 @@ export async function startPimi({
   connection,
   native = false,
   watchState,
+  taskState,
+  appearanceState,
   launchEditor,
+  openDictation,
 } = {}) {
   const host = "127.0.0.1";
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error("Invalid Pimi port.");
@@ -55,14 +61,43 @@ export async function startPimi({
     }
   }
   let saveTask = Promise.resolve();
-  const paseo = createPaseoConnection({ connection });
+  const paseo = createPaseoConnection({ connection, native });
+  const tasks = await createTasks({ file: taskState, paseo, getInventory });
+  let appearance = "system";
+  let appearanceWrites = Promise.resolve();
+  if (appearanceState) {
+    try {
+      const stored = JSON.parse(await readFile(appearanceState, "utf8"));
+      if (appearances.has(stored)) appearance = stored;
+    } catch (error) {
+      if (error.code !== "ENOENT") console.error("Could not read Pimi appearance:", error.message);
+    }
+  }
+
+  async function saveAppearance({ mode }) {
+    if (!appearances.has(mode)) throw new RequestError("Choose a supported appearance.");
+    const save = appearanceWrites.then(async () => {
+      if (appearanceState) {
+        await mkdir(dirname(appearanceState), { recursive: true });
+        const temporary = appearanceState + ".tmp";
+        await writeFile(temporary, JSON.stringify(mode), { mode: 0o600 });
+        await rename(temporary, appearanceState);
+      }
+      appearance = mode;
+      return { mode };
+    });
+    appearanceWrites = save.catch(() => undefined);
+    return save;
+  }
 
   const assets = new Map(
     await Promise.all(
       [
         ["/", "index.html", "text/html; charset=utf-8"],
         ["/app.js", "app.js", "text/javascript; charset=utf-8"],
+        ["/tasks.js", "tasks.js", "text/javascript; charset=utf-8"],
         ["/style.css", "style.css", "text/css; charset=utf-8"],
+        ["/grain.svg", "grain.svg", "image/svg+xml"],
       ].map(async ([path, file, mime]) => [
         path,
         { mime, data: await readFile(new URL(`./public/${file}`, import.meta.url)) },
@@ -71,16 +106,12 @@ export async function startPimi({
   );
   assets.set("/syntax.css", {
     mime: "text/css; charset=utf-8",
-    data: [
-      ...Object.entries(lightHighlightColors).map(
-        ([role, color]) => `.syntax-${role} { color: ${color}; }`,
-      ),
-      "@media (prefers-color-scheme: dark) {",
-      ...Object.entries(darkHighlightColors).map(
-        ([role, color]) => `.syntax-${role} { color: ${color}; }`,
-      ),
-      "}",
-    ].join("\n"),
+    data: Object.entries(lightHighlightColors)
+      .map(
+        ([role, color]) =>
+          `.syntax-${role} { color: light-dark(${color}, ${darkHighlightColors[role] ?? color}); }`,
+      )
+      .join("\n"),
   });
   const reviews = new Map();
   const reviewLimit = 32;
@@ -111,21 +142,24 @@ export async function startPimi({
 
   async function loadInventory() {
     const daemonTask = paseo.directory();
-    const localDiscovery = Promise.allSettled(roots.map(discoverWorktrees));
+    const localRoots = [...new Set([...roots, ...tasks.roots()])];
+    const localDiscovery = Promise.allSettled(localRoots.map(discoverWorktrees));
     const [local, daemon] = await Promise.all([localDiscovery, daemonTask]);
     const extra = followPaseo
       ? [...new Set(daemon.workspaces.map((workspace) => workspace.root).filter(Boolean))].filter(
-          (root) => !roots.includes(root),
+          (root) => !localRoots.includes(root),
         )
       : [];
     const discovery = [...local, ...(await Promise.allSettled(extra.map(discoverWorktrees)))];
-    const watchedRoots = [...roots, ...extra];
+    const watchedRoots = [...localRoots, ...extra];
     const listed = new Map();
     const warnings = [];
     discovery.forEach((result, index) => {
       if (result.status === "fulfilled") {
         for (const worktree of result.value) {
-          if (!listed.has(worktree.path)) listed.set(worktree.path, worktree);
+          if (!listed.has(worktree.path)) {
+            listed.set(worktree.path, { ...worktree, root: watchedRoots[index] });
+          }
         }
       } else {
         warnings.push(`${watchedRoots[index]}: ${result.reason.message}`);
@@ -163,6 +197,7 @@ export async function startPimi({
             name: workspace?.name || worktree.branch,
             lane: cardLane(facts, workspace, agents),
             agents,
+            workspaceId: workspace?.id,
             prUrl: workspace?.openPrUrl,
             previews: workspace?.previews,
           });
@@ -173,6 +208,7 @@ export async function startPimi({
     worktrees = new Map(cards.map((card) => [card.path, card]));
     return {
       cards,
+      repositories: watchedRoots.map((path) => ({ path, name: basename(path) || path })),
       otherAgents: daemon.agents.filter((agent) => !trackedAgents.has(agent.id)),
       daemonError: daemon.error,
       warnings,
@@ -304,6 +340,23 @@ export async function startPimi({
     ["/api/review", startReview],
     ["/api/editor", startEditor],
     ["/api/tour", (body) => generateTour(getReview(body.id), paseo.explain)],
+    ["/api/tasks/create", tasks.create],
+    ["/api/tasks/save", tasks.save],
+    ["/api/tasks/experiment", tasks.addIdea],
+    ["/api/tasks/suggest", tasks.suggest],
+    ["/api/tasks/discard", tasks.discard],
+    ["/api/tasks/models", tasks.models],
+    ["/api/tasks/run", tasks.run],
+    ["/api/tasks/report", tasks.report],
+    ["/api/appearance", saveAppearance],
+    [
+      "/api/dictation",
+      async () => {
+        if (!openDictation)
+          throw new RequestError("Dictation is available in the desktop app.", 503);
+        return { text: await openDictation() };
+      },
+    ],
   ]);
 
   const server = createServer(async (request, response) => {
@@ -312,7 +365,7 @@ export async function startPimi({
     response.setHeader("referrer-policy", "no-referrer");
     response.setHeader(
       "content-security-policy",
-      "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
+      "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
     );
 
     try {
@@ -328,10 +381,17 @@ export async function startPimi({
         const asset = assets.get(url.pathname);
         if (asset) {
           response.writeHead(200, { "content-type": asset.mime });
-          response.end(asset.data);
+          response.end(
+            url.pathname === "/"
+              ? asset.data
+                  .toString("utf8")
+                  .replace('data-appearance="system"', `data-appearance="${appearance}"`)
+              : asset.data,
+          );
           return;
         }
         if (url.pathname === "/api/board") return json(response, await getInventory());
+        if (url.pathname === "/api/tasks") return json(response, tasks.list());
         if (url.pathname === "/api/file" || url.pathname === "/api/source") {
           const review = getReview(url.searchParams.get("id"));
           const file = getFile(review, url.searchParams.get("path"));
@@ -373,6 +433,7 @@ export async function startPimi({
   origin = `http://${address}`;
   return {
     origin,
+    appearance,
     close: () => {
       server.close();
       return paseo.close();
@@ -386,6 +447,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     paths: paths.length ? paths : [process.cwd()],
     port: Number(process.env.PIMI_PORT || 4781),
     followPaseo: process.env.PIMI_FOLLOW_PASEO === "1",
+    taskState: process.env.PIMI_TASK_STATE,
+    appearanceState: process.env.PIMI_APPEARANCE_STATE,
   });
   console.log(`Pimi is ready at ${pimi.origin}`);
   for (const signal of ["SIGTERM", "SIGINT"])

@@ -873,6 +873,7 @@ function RootStack() {
       nestedNavigatorScreens={ROOT_STACK_NESTED_NAVIGATOR_SCREENS}
     >
       <Stack.Screen name="index" />
+      <Stack.Screen name="pimi-dictation" />
       <Stack.Protected guard={storeReady}>
         <Stack.Screen name="welcome" />
         <Stack.Screen name="settings/index" />
@@ -903,9 +904,11 @@ function WorkspaceRouteNavigationBridge() {
 }
 
 function AppShell() {
+  const isTaskDictation = Boolean(getDesktopHost()?.taskDictation);
   useEffect(() => {
-    if (getDesktopHost()) void ensureOsNotificationPermission();
-  }, []);
+    if (!isTaskDictation && getDesktopHost()) void ensureOsNotificationPermission();
+  }, [isTaskDictation]);
+  if (isTaskDictation) return <RootStack />;
   return (
     <MobilePanelsProvider>
       <HorizontalScrollProvider>

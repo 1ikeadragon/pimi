@@ -68,7 +68,7 @@ export async function discoverWorktrees(root) {
   return worktrees;
 }
 
-const commit = (cwd, ref) =>
+export const commit = (cwd, ref) =>
   git(cwd, "rev-parse", "--verify", "--end-of-options", `${ref}^{commit}`).then((x) => x.trim());
 
 async function resolveBase(cwd, input) {

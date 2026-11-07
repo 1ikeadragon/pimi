@@ -12,6 +12,8 @@ protocols:
     schemes:
       - paseo
 mac:
+  extendInfo:
+    NSMicrophoneUsageDescription: Pimi uses the microphone when you dictate a task brief or agent message.
   artifactName: "Pimi-${version}-${arch}.${ext}"
   notarize: false
   identity: null
