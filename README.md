@@ -6,9 +6,9 @@
 
 Start with a chat, give your agents separate Git worktrees, and review their changes together. A Pimi task can track one feature across several repositories.
 
-[![Watch the Pimi launch film](assets/pimi/promo.jpg)](assets/pimi/promo.mp4)
+[![Watch Pimi build a DVRA expense export endpoint](assets/pimi/promo.jpg)](assets/pimi/promo.mp4)
 
-The film uses scripted worker responses and dictation with real Git worktrees and diffs.
+This real Pimi run starts with a chat request from an empty Scratch workspace. Codex finds DVRA, adds `GET /api/expenses/export`, and checks that each role gets the right CSV rows. The videos condense the wait between steps. [Watch the longer walkthrough](assets/pimi/dvra-expense-export-demo.mp4)
 
 ## Start in chat
 
