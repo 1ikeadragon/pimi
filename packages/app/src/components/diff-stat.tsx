@@ -5,13 +5,17 @@ import { formatDiffCount } from "@/git/file-header-presentation";
 interface DiffStatProps {
   additions: number;
   deletions: number;
+  additionsIncomplete?: boolean;
   testID?: string;
 }
 
-export function DiffStat({ additions, deletions, testID }: DiffStatProps) {
+export function DiffStat({ additions, deletions, additionsIncomplete, testID }: DiffStatProps) {
   return (
     <View style={styles.row} testID={testID}>
-      <Text style={styles.additions}>+{formatDiffCount(additions)}</Text>
+      <Text style={styles.additions}>
+        +{formatDiffCount(additions)}
+        {additionsIncomplete ? "…" : null}
+      </Text>
       <Text style={styles.deletions}>-{formatDiffCount(deletions)}</Text>
     </View>
   );

@@ -38,6 +38,13 @@ export type PimiDestination =
 
 export type PimiWorkspaceSection = "tasks" | "board" | "review" | "memory";
 
+export interface PimiReviewSummary {
+  filesChanged: number;
+  additions: number;
+  deletions: number;
+  incomplete: boolean;
+}
+
 export const PIMI_TASK_PROPOSAL_TOOL = "propose_pimi_task";
 export const PimiTaskProposalResult = z.object({ pimiTaskProposal: PimiTaskProposal });
 export const PIMI_REVIEW_SUGGESTION_TOOL = "suggest_pimi_review";

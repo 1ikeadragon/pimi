@@ -5,7 +5,8 @@ import { WorkspaceDiffStatPill } from "@/composer/diff-stat-pill";
 import { AgentTaskList } from "@/composer/task-list";
 import { ComposerTrackBar } from "@/composer/tracks";
 import { useIsCompactFormFactor } from "@/constants/layout";
-import { usePaneContext } from "@/panels/pane-context";
+import { usePimiWorkspaceReview } from "@/desktop/use-pimi-workspace-review";
+import { usePaneContext, usePaneFocus } from "@/panels/pane-context";
 import { useSettings } from "@/hooks/use-settings";
 import { PluginComposerPills } from "@/plugins";
 import { useSessionStore } from "@/stores/session-store";
@@ -52,6 +53,7 @@ export const AgentTracks = memo(function AgentTracks({
     rows: subagentRows,
   });
   const { tabId } = usePaneContext();
+  const { isWorkspaceFocused } = usePaneFocus();
   const backgroundWorkCount = useSessionStore((state) => {
     const session = state.sessions[serverId];
     const agent = session?.agents.get(agentId) ?? session?.agentDetails.get(agentId);
@@ -108,6 +110,7 @@ export const AgentTracks = memo(function AgentTracks({
     [openSubagentTarget],
   );
   const sheetTabFor = useSubagentSheetTab(workspaceKey, tabId);
+  const pimiReview = usePimiWorkspaceReview(serverId, workspaceId);
   const handleOpenChanges = useCallback(() => {
     if (!workspaceKey) {
       return;
@@ -145,6 +148,8 @@ export const AgentTracks = memo(function AgentTracks({
         serverId={serverId}
         workspaceId={workspaceId}
         onPress={handleOpenChanges}
+        pimiReview={pimiReview}
+        isWorkspaceFocused={isWorkspaceFocused}
       />
     </ComposerTrackBar>
   );

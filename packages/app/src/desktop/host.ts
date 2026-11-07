@@ -2,7 +2,11 @@ import { Platform } from "react-native";
 import { getElectronHost } from "@/desktop/electron/host";
 import type { BrowserKeyboardPolicy } from "@/keyboard";
 import type { SessionInboundMessage, SessionOutboundMessage } from "@getpaseo/protocol/messages";
-import type { PimiDestination, PimiWorkspaceSection } from "@getpaseo/protocol/pimi-task";
+import type {
+  PimiDestination,
+  PimiReviewSummary,
+  PimiWorkspaceSection,
+} from "@getpaseo/protocol/pimi-task";
 
 type BrowserAutomationExecuteRequest = Extract<
   SessionOutboundMessage,
@@ -184,6 +188,7 @@ export interface DesktopHostBridge {
   taskDictation?: { complete: (text: string | null) => void };
   getPimiGitAuthStatus?: (provider: PimiGitProvider) => Promise<PimiGitAuthStatus>;
   showPimiWorkspace?: (destination: PimiDestination) => void;
+  getPimiReviewSummary?: (checkout: string) => Promise<PimiReviewSummary | null>;
   dismissPimiWorkspace?: () => void;
   setPimiContentBounds?: (bounds: {
     x: number;

@@ -151,14 +151,17 @@ export function createWorktreeComparison({
       provenance.hidden = !provenance.textContent;
       settings.open = false;
       status.textContent = [
-        `${result.base.sha.slice(0, 8)} → ${result.head.slice(0, 8)}`,
-        result.live ? "Includes tracked working changes" : "Pinned commits",
-        result.untracked ? `${result.untracked} untracked files excluded` : "",
+        result.head
+          ? `${result.base.sha.slice(0, 8)} → ${result.head.slice(0, 8)}`
+          : "No commits yet",
+        result.live ? "Includes working changes" : "Pinned commits",
         !result.files.length ? "No changed files" : "",
       ]
         .filter(Boolean)
         .join(" · ");
-      status.title = `${result.base.label} (${result.base.sha}) → ${result.head}`;
+      status.title = result.head
+        ? `${result.base.label} (${result.base.sha}) → ${result.head}`
+        : "Changes since an empty tree";
       files.replaceChildren(
         ...result.files.map((file) => new Option(`${file.status} ${file.path}`, file.path)),
       );

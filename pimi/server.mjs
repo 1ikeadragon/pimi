@@ -20,6 +20,7 @@ import {
   openInEditor,
   patchFingerprint,
   repository,
+  reviewTargets,
   RequestError,
   worktreeFacts,
 } from "./git.mjs";
@@ -88,6 +89,7 @@ export async function startPimi({
   let address;
   let origin;
   const roots = [...new Set(await Promise.all(paths.map(repository)))];
+  const reviewWorktrees = new Map();
   if (watchState) {
     try {
       const stored = JSON.parse(await readFile(watchState, "utf8"));
@@ -286,6 +288,9 @@ export async function startPimi({
         warnings.push(`${watchedRoots[index]}: ${result.reason.message}`);
       }
     });
+    for (const [path, worktree] of reviewWorktrees) {
+      if (!listed.has(path)) listed.set(path, worktree);
+    }
     const byWorkspaceId = new Map(daemon.workspaces.map((workspace) => [workspace.id, workspace]));
     const byPath = new Map();
     for (const workspace of daemon.workspaces) {
@@ -418,7 +423,7 @@ export async function startPimi({
     ) {
       throw new RequestError("Invalid review selection.");
     }
-    const worktree = worktrees.get(path);
+    const worktree = worktrees.get(path) ?? reviewWorktrees.get(path);
     if (!worktree || worktree.unavailable) {
       throw new RequestError("Select an available worktree from the board.", 404);
     }
@@ -427,6 +432,34 @@ export async function startPimi({
     reviews.set(id, { ...review, byPath: new Map(review.files.map((file) => [file.path, file])) });
     if (reviews.size > reviewLimit) reviews.delete(reviews.keys().next().value);
     return { id, ...review };
+  }
+
+  async function prepareChatReview(path, serverId) {
+    if (serverId) {
+      const daemon = await paseo.directory();
+      if (daemon.error || daemon.serverId !== serverId) return { path };
+    }
+    let targets;
+    try {
+      targets = await reviewTargets(path);
+    } catch (error) {
+      console.warn("Pimi could not find the review checkout:", error.message);
+      return { path, reviewNotice: "The chat’s checkout is unavailable." };
+    }
+    if (!targets.length)
+      return { path, reviewNotice: "No Git checkout was found in this workspace." };
+    for (const worktree of targets) {
+      reviewWorktrees.delete(worktree.path);
+      reviewWorktrees.set(worktree.path, { ...worktree, root: worktree.path });
+      if (reviewWorktrees.size > 64) reviewWorktrees.delete(reviewWorktrees.keys().next().value);
+    }
+    await inventoryTask?.catch(() => undefined);
+    invalidateInventory();
+    if (targets.length > 1) {
+      return { path, reviewNotice: "This chat has several checkouts. Choose one to review." };
+    }
+    const target = targets[0];
+    return { path: target.path, reviewTarget: { ...target, name: target.branch } };
   }
 
   async function editorsFor(review) {
@@ -605,6 +638,7 @@ export async function startPimi({
   return {
     origin,
     appearance: appearance.read(),
+    prepareChatReview,
     close: () => {
       closed = true;
       unsubscribePaseo();

@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { BrowserKeyboardPolicy } from "./features/browser-keyboard/index.js";
 import type { DesktopWindowChromeMode } from "./window/chrome.js";
 import type { PimiAppearance, PimiContentBounds, PimiDestination } from "./window/pimi-window.js";
-import type { PimiWorkspaceSection } from "@getpaseo/protocol/pimi-task";
+import type { PimiReviewSummary, PimiWorkspaceSection } from "@getpaseo/protocol/pimi-task";
 
 // This preload runs in Electron's sandbox and is tsc-compiled (not bundled), so it MUST
 // NOT emit any runtime module load other than "electron" — a require() of a local or
@@ -102,6 +102,8 @@ contextBridge.exposeInMainWorld("paseoDesktop", {
           ipcRenderer.invoke("pimi:forge:auth-status", provider),
         showPimiWorkspace: (destination: PimiDestination) =>
           ipcRenderer.send("pimi:workspace:show", destination),
+        getPimiReviewSummary: (checkout: string): Promise<PimiReviewSummary | null> =>
+          ipcRenderer.invoke("pimi:review:summary", checkout),
         dismissPimiWorkspace: () => ipcRenderer.send("pimi:workspace:dismiss"),
         setPimiContentBounds: (bounds: PimiContentBounds) =>
           ipcRenderer.send("pimi:workspace:content-bounds", bounds),

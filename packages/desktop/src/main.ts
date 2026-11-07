@@ -12,6 +12,7 @@ import { inheritLoginShellEnv } from "./login-shell-env.js";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import {
+  getPimiReviewSummary,
   hidePimiWorkspace,
   pimiAppearanceArgument,
   setPimiAppearance,
@@ -752,6 +753,17 @@ function registerPimiWorkspaceNavigation(): void {
   ipcMain.handle("pimi:appearance:set", async (event, mode: unknown) => {
     if (!isConsoleFrame(event)) throw new Error("Open Pimi Settings to change appearance.");
     await setPimiAppearance(mode);
+  });
+  ipcMain.handle("pimi:review:summary", (event, checkout: unknown) => {
+    if (
+      !isConsoleFrame(event) ||
+      typeof checkout !== "string" ||
+      checkout.length > 4096 ||
+      !path.isAbsolute(checkout)
+    ) {
+      throw new Error("Choose a local checkout to review.");
+    }
+    return getPimiReviewSummary(path.join(app.getAppPath(), "dist"), checkout);
   });
   ipcMain.handle("pimi:forge:auth-status", (event, provider: unknown) => {
     if (!isConsoleFrame(event) || (provider !== "github" && provider !== "gitlab")) {
