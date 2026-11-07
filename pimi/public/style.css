@@ -211,17 +211,6 @@ nav :is(button, a):hover:not(:disabled, [aria-current]) {
 }
 
 [data-workspace-layout="inline"] .topbar {
-  position: absolute;
-  top: 22px;
-  right: max(var(--gutter), calc((100vw - 1800px) / 2 + var(--gutter)));
-  height: 32px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  -webkit-app-region: no-drag;
-}
-
-[data-workspace-layout="inline"] nav {
   display: none;
 }
 
@@ -231,18 +220,6 @@ nav :is(button, a):hover:not(:disabled, [aria-current]) {
 
 [data-workspace-layout="inline"] .review-view {
   height: calc(100dvh - 46px);
-}
-
-[data-workspace-layout="inline"] main > section > .section-header {
-  padding-inline-end: 42px;
-}
-
-[data-workspace-layout="detached"] .workspace-window-button {
-  background: var(--raised);
-}
-
-.workspace-window-warning {
-  margin-inline: var(--gutter);
 }
 
 .toolbar-actions,

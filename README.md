@@ -12,7 +12,7 @@ The film uses scripted worker responses and dictation with real Git worktrees an
 
 ## Start in chat
 
-Pimi opens in Agent Console. On first launch, setup helps you connect an agent provider, set up GitHub or GitLab, add a project, and start a conversation. Use the same sidebar to move between Chat, Tasks, Work, Review, and Memory. The window icon opens the workspace separately or brings it back with your draft intact.
+Pimi opens in Agent Console. On first launch, setup helps you connect an agent provider, set up GitHub or GitLab, add a project, and start a conversation. Use the same sidebar to move between Chat, Tasks, Work, Review, and Memory in the main window.
 
 ![Pimi’s welcome screen with the paw pair and “Your swarm’s best friend”](assets/pimi/onboarding.jpg)
 

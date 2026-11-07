@@ -845,32 +845,12 @@ $("show-memory").addEventListener("click", () => {
 const appearance = $("appearance");
 appearance.value = document.documentElement.dataset.appearance;
 if (window.pimiWorkspace) {
-  const layoutToggle = $("toggle-workspace-window");
-  layoutToggle.hidden = false;
   $("show-agents").hidden = false;
   $("show-memory").hidden = false;
   document.documentElement.dataset.workspaceChrome = window.pimiWorkspace.chrome;
   window.pimiWorkspace.onLayoutChange((mode) => {
     document.documentElement.dataset.workspaceLayout = mode;
-    const detached = mode === "detached";
-    const label = detached ? "Move into main window" : "Open in separate window";
-    layoutToggle.setAttribute("aria-label", label);
-    layoutToggle.title = label;
-    layoutToggle
-      .querySelector("use")
-      .setAttribute("href", detached ? "#glyph-dock" : "#glyph-window");
     window.dispatchEvent(new Event("pimi-layout-change"));
-  });
-  layoutToggle.addEventListener("click", async () => {
-    layoutToggle.disabled = true;
-    message("workspace-window-warning", "");
-    try {
-      await window.pimiWorkspace.toggleWindow();
-    } catch {
-      message("workspace-window-warning", "Could not move the workspace. Try again.");
-    } finally {
-      layoutToggle.disabled = false;
-    }
   });
   window.pimiWorkspace.onAppearanceChange((mode) => {
     document.documentElement.dataset.appearance = mode;
