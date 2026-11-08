@@ -3,6 +3,8 @@ export function createMemoryView({ $, api, button, element, message }) {
   const picker = $("memory-scope");
   const form = $("memory-form");
   const dialog = $("memory-forget-dialog");
+  const placeholder = $("memory-placeholder");
+  const noteCount = $("memory-note-count");
   const keyInput = form.elements.key;
   const textInput = form.elements.text;
   const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
@@ -67,9 +69,12 @@ export function createMemoryView({ $, api, button, element, message }) {
   function showEditor(note) {
     current = note ?? undefined;
     form.hidden = note === null;
-    $("memory-placeholder").hidden = !form.hidden;
+    placeholder.hidden = !form.hidden;
     $("memory-note-heading").textContent = current?.key || "New note";
-    $("memory-note-scope").textContent = scopeLabel();
+    $("memory-note-scope").textContent = current
+      ? scopeLabel() + " · " + dateFormat.format(new Date(current.updatedAt))
+      : scopeLabel();
+    $("memory-key-field").hidden = Boolean(current);
     keyInput.value = current?.key ?? "";
     keyInput.disabled = busy || Boolean(current);
     textInput.value = current?.text ?? "";
@@ -101,7 +106,12 @@ export function createMemoryView({ $, api, button, element, message }) {
         return row;
       }),
     );
+    noteCount.textContent = String(rows.length);
     message("memory-empty", rows.length ? "" : "No notes saved in this scope.");
+    placeholder.querySelector("h2").textContent = rows.length ? "Choose a note" : "No notes yet";
+    placeholder.querySelector("p").textContent = rows.length
+      ? "Open a saved note to read or edit it."
+      : "Add a note you want your agents to remember.";
   }
 
   async function loadScope() {
@@ -109,6 +119,7 @@ export function createMemoryView({ $, api, button, element, message }) {
     notes = [];
     showEditor(null);
     $("memory-notes").replaceChildren();
+    noteCount.textContent = "";
     message("memory-empty", "");
     const selected = projects.find(({ id }) => id === projectId);
     let caption = "Shared across projects on this host.";
