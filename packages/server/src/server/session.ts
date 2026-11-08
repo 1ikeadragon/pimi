@@ -55,6 +55,8 @@ import type {
   TerminalWorkspaceContributionChangedEvent,
 } from "../terminal/terminal-manager.js";
 import { TerminalSessionController } from "../terminal/terminal-session-controller.js";
+import { getRegisteredAgentHookStatus } from "../terminal/agent-hooks/provider-registry.js";
+import { reconcileTerminalAgentHooks } from "../terminal/agent-hooks/terminal-agent-hook-setting.js";
 import type { TerminalActivity } from "@getpaseo/protocol/terminal-activity";
 import type { BinaryFrame } from "@getpaseo/protocol/binary-frames/index";
 import {
@@ -3389,6 +3391,19 @@ export class Session {
 
   private dispatchTerminalMessage(msg: SessionInboundMessage): Promise<void> | undefined {
     switch (msg.type) {
+      case "terminal.hooks.get_status.request":
+      case "terminal.hooks.reconcile.request": {
+        const enabled = this.daemonConfigStore.get().enableTerminalAgentHooks === true;
+        const reconcile = msg.type === "terminal.hooks.reconcile.request";
+        if (reconcile) reconcileTerminalAgentHooks(enabled, { logger: this.sessionLogger });
+        this.emit({
+          type: reconcile
+            ? "terminal.hooks.reconcile.response"
+            : "terminal.hooks.get_status.response",
+          payload: { requestId: msg.requestId, enabled, providers: getRegisteredAgentHookStatus() },
+        });
+        return Promise.resolve();
+      }
       case "start_workspace_script_request":
         return this.handleStartWorkspaceScriptRequest(msg);
       case "workspace.script.list.request":

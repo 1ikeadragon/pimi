@@ -6165,6 +6165,18 @@ export class DaemonClient {
     return payload.entries;
   }
 
+  async getTerminalHooksStatus() {
+    return this.sendNamespacedCorrelatedSessionRequest<"terminal.hooks.get_status.response">({
+      message: { type: "terminal.hooks.get_status.request" },
+    });
+  }
+
+  async reconcileTerminalHooks() {
+    return this.sendNamespacedCorrelatedSessionRequest<"terminal.hooks.reconcile.response">({
+      message: { type: "terminal.hooks.reconcile.request" },
+    });
+  }
+
   async getAgentSkillsStatus(): Promise<AgentSkillsStatus> {
     const requestId = this.createRequestId();
     return this.sendCorrelatedSessionRequest({

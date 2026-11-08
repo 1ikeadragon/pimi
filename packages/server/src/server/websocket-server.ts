@@ -2093,6 +2093,7 @@ export class VoiceAssistantWebSocketServer {
         pluginSubscriptions: true,
         // COMPAT(skillManagement): added in v0.4.0, remove gate after 2027-08-16.
         skillManagement: true,
+        terminalHookManagement: true,
         // COMPAT(idleRuntimeCleanupSetting): added in v0.13.0, remove gate after 2027-04-26.
         idleRuntimeCleanupSetting: true,
         resumeOnStartupSetting: true,

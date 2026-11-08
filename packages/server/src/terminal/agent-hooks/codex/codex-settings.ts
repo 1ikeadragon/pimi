@@ -28,9 +28,7 @@ export const codexHooksFormat: AgentHookConfigFormat<CodexHooksFile> = {
   },
   parse(raw) {
     const parsed = JSON.parse(raw) as unknown;
-    if (!isRecord(parsed)) {
-      return {};
-    }
+    if (!isRecord(parsed)) throw new Error("Hook configuration must be a JSON object");
     return parsed;
   },
   stringify(config) {
@@ -71,16 +69,33 @@ export const codexHooksFormat: AgentHookConfigFormat<CodexHooksFile> = {
     }
     return { ...config, hooks };
   },
-  isInstalled(config, provider) {
-    const install = provider.install;
+  installState(config, provider) {
     const hooks = normalizeHooks(config.hooks);
-    return provider.events.every((event) =>
-      normalizeMatchers(hooks[event.event]).some((entry) =>
-        normalizeCommandHooks(entry.hooks).some((hook) =>
-          hasPaseoCommands(hook, install.hookMarker),
-        ),
+    const entries = provider.events.map((event) => ({
+      event,
+      commands: normalizeMatchers(hooks[event.event]).flatMap((entry) =>
+        normalizeCommandHooks(entry.hooks),
       ),
-    );
+    }));
+    if (
+      entries.every(({ event, commands }) =>
+        commands.some(
+          (hook) =>
+            hook.type === "command" &&
+            hook.command === buildAgentHookShellCommand(provider, event) &&
+            (hook.commandWindows === buildAgentHookWindowsCommand(provider, event) ||
+              hook.command_windows === buildAgentHookWindowsCommand(provider, event)),
+        ),
+      )
+    ) {
+      return "installed";
+    }
+    const marker = provider.install.hookMarker;
+    return entries.some(({ commands }) =>
+      commands.some((hook) => commandContainsMarker(hook, marker)),
+    )
+      ? "partial"
+      : "not-installed";
   },
 };
 
@@ -113,12 +128,6 @@ function removePaseoHooks(value: unknown, marker: string): CodexMatcherGroup[] {
     }
   }
   return entries;
-}
-
-function hasPaseoCommands(hook: CodexCommandHook, marker: string): boolean {
-  return (
-    commandFieldContainsMarker(hook.command, marker) && windowsCommandContainsMarker(hook, marker)
-  );
 }
 
 function commandContainsMarker(hook: CodexCommandHook, marker: string): boolean {
