@@ -106,14 +106,65 @@ export const PimiNewTaskDestination = PimiTaskFields.pick({
 })
   .partial()
   .extend({ view: z.literal("new-task") });
+export const PimiSimpleDestinationView = z.enum(["tasks", "worktrees", "review-home", "spaces"]);
 export type PimiDestination =
-  | { view: "tasks" | "worktrees" | "review-home" }
+  | { view: z.infer<typeof PimiSimpleDestinationView> }
   | z.infer<typeof PimiMemoryDestination>
   | z.infer<typeof PimiNewTaskDestination>
   | { view: "review"; path: string; serverId?: string }
   | { view: "task-draft"; proposal: PimiTaskProposal };
 
-export type PimiWorkspaceSection = "tasks" | "board" | "review" | "memory";
+export type PimiWorkspaceSection = "tasks" | "board" | "review" | "memory" | "spaces";
+
+export const PIMI_SPACES_ROUTE = "/api/pimi/spaces";
+export const PIMI_SPACE_IMAGE_BYTES = 4 * 1024 * 1024;
+// The request includes base64 encoding and its JSON envelope.
+export const PIMI_SPACE_REQUEST_BYTES = 6 * 1024 * 1024;
+
+export const PIMI_VIDEO_EMBED_ORIGIN = "https://www.youtube-nocookie.com";
+const youtubeVideoId = /^[A-Za-z0-9_-]{11}$/;
+
+export function parsePimiSpaceUrl(input: unknown): URL | null {
+  if (typeof input !== "string" || input.length > 4096 || !/^https?:\/\/[^\s\\]+$/i.test(input))
+    return null;
+  const url = URL.parse(input);
+  if (
+    !url ||
+    !["https:", "http:"].includes(url.protocol) ||
+    url.username ||
+    url.password ||
+    url.href.length > 4096
+  )
+    return null;
+  return url;
+}
+
+export function pimiVideoEmbed(url: URL): string | null {
+  if (url.protocol !== "https:" || url.port) return null;
+  const [, route, id] = url.pathname.split("/");
+  let videoId: string | null | undefined;
+  switch (url.hostname) {
+    case "youtu.be":
+      videoId = route;
+      break;
+    case "youtube.com":
+    case "www.youtube.com":
+    case "m.youtube.com":
+      if (route === "watch") videoId = url.searchParams.get("v");
+      else if (["shorts", "live", "embed"].includes(route)) videoId = id;
+      break;
+    case "www.youtube-nocookie.com":
+      videoId = route === "embed" ? id : null;
+      break;
+  }
+  return videoId && youtubeVideoId.test(videoId)
+    ? `${PIMI_VIDEO_EMBED_ORIGIN}/embed/${videoId}`
+    : null;
+}
+
+export function isPimiVideoEmbed(url: URL): boolean {
+  return url.origin === PIMI_VIDEO_EMBED_ORIGIN && pimiVideoEmbed(url) === url.href;
+}
 
 export interface PimiVoiceBubbleState {
   active: boolean;

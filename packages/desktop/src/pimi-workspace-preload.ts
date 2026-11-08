@@ -29,6 +29,10 @@ window.addEventListener(
     if (event.target instanceof Element && event.target.closest("#pimi-voice-toggle")) {
       ipcRenderer.send("pimi:voice:toggle");
     }
+    const spaceLink =
+      event.target instanceof Element ? event.target.closest("button[data-space-url]") : null;
+    if (spaceLink)
+      ipcRenderer.send("pimi:workspace:space-link", spaceLink.getAttribute("data-space-url"));
     const link =
       event.target instanceof Element
         ? event.target.closest<HTMLAnchorElement>("a[data-pimi-report-link]")
@@ -60,6 +64,9 @@ contextBridge.exposeInMainWorld("pimiWorkspace", {
   },
   onReportLinkError: (listener: (error: { reportId: string; message: string }) => void) => {
     ipcRenderer.on("pimi:workspace:report-link-error", (_event, error) => listener(error));
+  },
+  onSpaceLinkError: (listener: () => void) => {
+    ipcRenderer.on("pimi:workspace:space-link-error", () => listener());
   },
   onNavigate: (navigate: (destination: PimiDestination) => void) => {
     ipcRenderer.on("pimi:workspace:navigate", (_event, destination: PimiDestination) => {

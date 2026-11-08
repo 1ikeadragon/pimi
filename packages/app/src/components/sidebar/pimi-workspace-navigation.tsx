@@ -12,6 +12,7 @@ import {
   PanelLeftOpen,
   Pin,
   Settings,
+  StickyNote,
   SquarePen,
   X,
 } from "lucide-react-native";
@@ -150,6 +151,10 @@ export function PimiWorkspaceNavigation({
     onNavigate?.();
     show?.({ view: "memory" });
   }, [onNavigate, show]);
+  const showSpaces = useCallback(() => {
+    onNavigate?.();
+    show?.({ view: "spaces" });
+  }, [onNavigate, show]);
   if (!show) return null;
 
   const destinations = [
@@ -158,6 +163,7 @@ export function PimiWorkspaceNavigation({
     { label: "Work", icon: Columns3, onPress: showWorktrees, active: section === "board" },
     { label: "Review", icon: FileDiff, onPress: showReview, active: section === "review" },
     { label: "Memory", icon: NotebookText, onPress: showMemory, active: section === "memory" },
+    { label: "Spaces", icon: StickyNote, onPress: showSpaces, active: section === "spaces" },
   ];
   if (rail) {
     return (

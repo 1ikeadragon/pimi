@@ -7,6 +7,8 @@ import { pathToFileURL } from "node:url";
 import { readLocalCredentialForTarget, resolvePaseoHome } from "@getpaseo/server/daemon-control";
 import { parseAgentDeepLink, type AgentDeepLinkTarget } from "@getpaseo/protocol/agent-deep-link";
 import {
+  isPimiVideoEmbed,
+  parsePimiSpaceUrl,
   PimiReportLinkRequest,
   PimiReportLinkTarget,
   type PimiReportLinkError,
@@ -18,6 +20,7 @@ import type {
   PimiWorkspaceSection,
 } from "@getpaseo/protocol/pimi-task";
 import { resolveDesktopDaemonStatus } from "../daemon/daemon-manager.js";
+import { createPimiWorkspaceSession } from "./pimi-workspace-session.js";
 import {
   listAvailableEditorTargets,
   openEditorTarget,
@@ -175,7 +178,7 @@ interface PimiWindowOptions {
 interface DesktopDaemonConnection {
   url: string;
   credential?: string;
-  memoryCredential?: string;
+  localDataCredential?: string;
 }
 
 async function connectToDesktopDaemon(): Promise<DesktopDaemonConnection> {
@@ -186,7 +189,7 @@ async function connectToDesktopDaemon(): Promise<DesktopDaemonConnection> {
   return {
     url: `ws://${endpoint}/ws`,
     credential: status.desktopManaged ? local : undefined,
-    memoryCredential: local,
+    localDataCredential: local,
   };
 }
 
@@ -352,7 +355,9 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
   const view = new WebContentsView({
     webPreferences: {
       preload: options.workspacePreload,
+      session: createPimiWorkspaceSession(runtime.origin),
       nodeIntegration: false,
+      nodeIntegrationInSubFrames: false,
       contextIsolation: true,
       sandbox: true,
     },
@@ -381,7 +386,8 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
       section !== "tasks" &&
       section !== "board" &&
       section !== "review" &&
-      section !== "memory"
+      section !== "memory" &&
+      section !== "spaces"
     ) {
       return;
     }
@@ -445,6 +451,24 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
         fail("This report's workspace is unavailable. Reconnect its host and try again.");
       }
     })();
+  });
+  contents.ipc.on("pimi:workspace:space-link", (event, value: unknown) => {
+    if (
+      event.senderFrame !== contents.mainFrame ||
+      URL.parse(event.senderFrame.url)?.origin !== runtime.origin ||
+      surface.section !== "spaces"
+    )
+      return;
+    const url = parsePimiSpaceUrl(value);
+    if (url)
+      void shell.openExternal(url.href).catch(() => {
+        if (!contents.isDestroyed()) contents.send("pimi:workspace:space-link-error");
+      });
+  });
+  contents.on("will-frame-navigate", (event) => {
+    if (event.isMainFrame) return;
+    const url = URL.parse(event.url);
+    if (!url || !isPimiVideoEmbed(url)) event.preventDefault();
   });
   contents.on("will-navigate", (event, url) => {
     if (new URL(url).origin !== runtime.origin) event.preventDefault();

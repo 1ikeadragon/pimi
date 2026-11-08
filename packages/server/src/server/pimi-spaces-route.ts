@@ -1,0 +1,91 @@
+// Pimi addition to the Paseo fork. Apache-2.0.
+import type { RequestHandler } from "express";
+import { PIMI_SPACE_IMAGE_BYTES } from "@getpaseo/protocol/pimi-task";
+import { z } from "zod";
+import {
+  SpaceImageType,
+  SpaceInputError,
+  SpaceItemId,
+  SpaceNote,
+  type PimiSpaces,
+} from "./pimi-spaces.js";
+
+const imageSignatures = {
+  "image/png": (bytes: Buffer) =>
+    bytes.subarray(0, 8).equals(Buffer.from("89504e470d0a1a0a", "hex")),
+  "image/jpeg": (bytes: Buffer) => bytes.subarray(0, 3).equals(Buffer.from("ffd8ff", "hex")),
+  "image/webp": (bytes: Buffer) =>
+    bytes.toString("ascii", 0, 4) === "RIFF" && bytes.toString("ascii", 8, 12) === "WEBP",
+};
+
+const input = z.discriminatedUnion("action", [
+  z.strictObject({ action: z.literal("list") }),
+  z.strictObject({ action: z.literal("add-note"), text: SpaceNote }),
+  z.strictObject({ action: z.literal("edit-note"), id: SpaceItemId, text: SpaceNote }),
+  z.strictObject({ action: z.literal("remove"), id: SpaceItemId }),
+  z.strictObject({ action: z.literal("image"), id: SpaceItemId }),
+  z.strictObject({
+    action: z.literal("add-image"),
+    mime: SpaceImageType,
+    data: z.string().max(4 * Math.ceil(PIMI_SPACE_IMAGE_BYTES / 3)),
+  }),
+]);
+
+export function createPimiSpacesHandler(
+  spaces: PimiSpaces,
+  reportError: (error: unknown) => void,
+): RequestHandler {
+  return async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    const parsed = input.safeParse(req.body);
+    if (!parsed.success) {
+      res
+        .status(400)
+        .json({ error: "Enter a note or paste a PNG, JPEG or WebP image up to 4 MB." });
+      return;
+    }
+    const body = parsed.data;
+    try {
+      switch (body.action) {
+        case "list":
+          res.json({ items: await spaces.list() });
+          return;
+        case "add-note":
+          res.json({ item: await spaces.addNote(body.text) });
+          return;
+        case "edit-note":
+          res.json({ item: await spaces.editNote(body.id, body.text) });
+          return;
+        case "remove":
+          await spaces.remove(body.id);
+          res.json({ removed: true });
+          return;
+        case "image": {
+          const item = await spaces.read(body.id);
+          if (item?.kind !== "image")
+            throw new SpaceInputError("This image no longer exists.", 404);
+          res.json({ mime: item.mime, data: item.data });
+          return;
+        }
+        case "add-image": {
+          const bytes = Buffer.from(body.data, "base64");
+          if (
+            bytes.length > PIMI_SPACE_IMAGE_BYTES ||
+            bytes.toString("base64") !== body.data ||
+            !imageSignatures[body.mime](bytes)
+          ) {
+            throw new SpaceInputError("Paste a valid PNG, JPEG or WebP image up to 4 MB.");
+          }
+          res.json({ item: await spaces.addImage(bytes, body.mime) });
+        }
+      }
+    } catch (error) {
+      if (error instanceof SpaceInputError) {
+        res.status(error.status).json({ error: error.message });
+      } else {
+        reportError(error);
+        res.status(500).json({ error: "Spaces couldn’t read or save this card. Try again." });
+      }
+    }
+  };
+}

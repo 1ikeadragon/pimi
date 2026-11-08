@@ -148,6 +148,9 @@ import { attachAgentStoragePersistence } from "./persistence-hooks.js";
 import { createAgentMcpServer } from "./agent/mcp-server.js";
 import { ProjectMemory } from "./project-memory.js";
 import { createPimiMemoryHandler } from "./pimi-memory-route.js";
+import { PimiSpaces } from "./pimi-spaces.js";
+import { createPimiSpacesHandler } from "./pimi-spaces-route.js";
+import { PIMI_SPACES_ROUTE, PIMI_SPACE_REQUEST_BYTES } from "@getpaseo/protocol/pimi-task";
 import {
   createPaseoToolCatalog,
   createPaseoAgentToolManifest,
@@ -853,6 +856,39 @@ export async function createPaseoDaemon(
     }),
   );
 
+  const requireLocalPimi =
+    (feature: string): express.RequestHandler =>
+    (req, res, next) => {
+      const token = extractHttpBearerToken(req.header("authorization"));
+      if (
+        !isLoopbackRemoteAddress(req.socket.remoteAddress) ||
+        req.headers.origin !== undefined ||
+        !localCredential ||
+        !token ||
+        !matchesLocalCredential(localCredential, token)
+      ) {
+        res.status(403).json({ error: `${feature} is available only from the local Pimi app.` });
+        return;
+      }
+      next();
+    };
+  const pimiSpaces = new PimiSpaces(config.paseoHome);
+  const parseSpacesRequest = express.json({ limit: PIMI_SPACE_REQUEST_BYTES, inflate: false });
+  app.post(
+    PIMI_SPACES_ROUTE,
+    requireLocalPimi("Spaces"),
+    (req, res, next) =>
+      parseSpacesRequest(req, res, (error?: { status?: number }) => {
+        if (!error) return next();
+        const status = error.status === 413 ? 413 : 400;
+        res.status(status).json({
+          error: status === 413 ? "The pasted image is too large." : "Invalid Spaces request.",
+        });
+      }),
+    createPimiSpacesHandler(pimiSpaces, (error) =>
+      logger.error({ err: error }, "Pimi Spaces request failed"),
+    ),
+  );
   app.use(express.json());
 
   // Serve static files from public directory
@@ -1544,20 +1580,7 @@ export async function createPaseoDaemon(
     projects: projectRegistry,
     reportError: (error) => logger.error({ err: error }, "Pimi memory request failed"),
   });
-  app.post(PIMI_MEMORY_ROUTE, (req, res, next) => {
-    const token = extractHttpBearerToken(req.header("authorization"));
-    if (
-      !isLoopbackRemoteAddress(req.socket.remoteAddress) ||
-      req.headers.origin !== undefined ||
-      !localCredential ||
-      !token ||
-      !matchesLocalCredential(localCredential, token)
-    ) {
-      res.status(403).json({ error: "Memory is available only from the local Pimi app." });
-      return;
-    }
-    return handlePimiMemory(req, res, next);
-  });
+  app.post(PIMI_MEMORY_ROUTE, requireLocalPimi("Memory"), handlePimiMemory);
   const createAgentToolHostDependencies = (
     runtime: PaseoToolRuntimeContext,
     canUseCallerScopedTools = true,
@@ -1588,6 +1611,7 @@ export async function createPaseoDaemon(
     workspaceRegistry,
     projectRegistry,
     projectMemory: canUseCallerScopedTools ? projectMemory : undefined,
+    pimiSpaces: canUseCallerScopedTools ? pimiSpaces : undefined,
     pimiTaskHome: canUseCallerScopedTools ? config.paseoHome : undefined,
     createDirectoryWorkspace: async (cwd, title, projectId, context) => {
       const workspace = await workspaceProvisioning.createWorkspaceForDirectory(
@@ -1704,7 +1728,7 @@ export async function createPaseoDaemon(
       const callerAgentId = typeof callerAgentIdValue === "string" ? callerAgentIdValue : undefined;
       const authorizationHeader = req.header("authorization");
       const bearer = extractHttpBearerToken(authorizationHeader);
-      // General tools also serve legacy/password clients. Project memory and Pimi tasks require a credential
+      // General tools also serve legacy/password clients. Private Pimi tools require a credential
       // bound to the injected caller, including on daemons with no password.
       const boundCaller = Boolean(
         callerAgentId &&
