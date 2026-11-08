@@ -60,7 +60,7 @@ export function PimiUsageScreen() {
   if (!focused || covered) return <View style={styles.screen} />;
   return (
     <View style={styles.screen} dataSet={PIMI_BACKGROUND} testID="pimi-usage">
-      <MenuHeader title="Usage" rightContent={close} />
+      <MenuHeader title="Usage" rightContent={close} inPimiTitlebar />
       <View style={styles.toolbar}>
         <SegmentedControl options={visibleTabs} value={tab} onValueChange={setTab} />
       </View>

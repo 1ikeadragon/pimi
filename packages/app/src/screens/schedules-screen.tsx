@@ -177,7 +177,7 @@ function SchedulesScreenContent(): ReactElement {
 
   return (
     <View style={styles.container}>
-      <MenuHeader title={t("sidebar.sections.schedules")} />
+      <MenuHeader title={t("sidebar.sections.schedules")} inPimiTitlebar />
       <SchedulesScreenBody
         rows={visibleRows}
         loadState={loadState}

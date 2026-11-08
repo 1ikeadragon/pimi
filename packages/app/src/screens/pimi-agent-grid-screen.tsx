@@ -123,7 +123,7 @@ function AgentGrid() {
       testID="pimi-agent-grid"
       onLayout={handleLayout}
     >
-      <MenuHeader title="Agent grid" rightContent={close} />
+      <MenuHeader title="Agents" rightContent={close} inPimiTitlebar />
       <View style={styles.controls}>
         <SegmentedControl options={filters} value={filter} onValueChange={changeFilter} />
         {pages > 1 ? (

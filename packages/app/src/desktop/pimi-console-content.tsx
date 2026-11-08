@@ -7,11 +7,15 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import type { PimiWorkspaceSection } from "@pimi/protocol/pimi-task";
 import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
+import { PimiTitlebarSlot } from "@/components/headers/menu-header";
+import { ScreenTitle } from "@/components/headers/screen-title";
 import { DESKTOP_TRAFFIC_LIGHT_WIDTH, HEADER_INNER_HEIGHT } from "@/constants/layout";
 import { useHasWindowChromeObstruction, WindowChromeRegion } from "@/utils/desktop-window";
+import { isWeb } from "@/constants/platform";
 import { getDesktopHost, usesPimiMacTitlebar } from "./host";
 import { usePimiReportLinks } from "./use-pimi-report-links";
 import { PimiNavigationHistory } from "./pimi-navigation-history";
@@ -19,12 +23,51 @@ import { PimiNavigationHistory } from "./pimi-navigation-history";
 export const PIMI_CONSOLE_CONTENT_ID = "pimi-console-content";
 const fill = { flex: 1 } as const;
 const PIMI_GLASS = { "pimi-glass": "" };
+const SLOT_STYLE = { flex: 1, minWidth: 0, height: "100%", display: "flex" } as const;
+const SECTION_TITLES: Record<PimiWorkspaceSection, string> = {
+  tasks: "Tasks",
+  board: "Work",
+  review: "Review",
+  memory: "Memory",
+  spaces: "Spaces",
+};
 const subscribe = (listener: () => void) =>
   getDesktopHost()?.pimiWorkspaceSection?.subscribe(listener) ?? (() => {});
 const getSection = () => getDesktopHost()?.pimiWorkspaceSection?.get() ?? null;
 
 export function usePimiWorkspaceSection() {
   return useSyncExternalStore(subscribe, getSection, () => null);
+}
+
+function shouldShowPimiTitlebar(pathname: string, covered: boolean): boolean {
+  return isWeb && Boolean(getDesktopHost()?.showPimiWorkspace) && (pathname !== "/" || covered);
+}
+
+function PimiTitlebar({
+  pathname,
+  section,
+  padding,
+  slotRef,
+}: {
+  pathname: string;
+  section: PimiWorkspaceSection | null;
+  padding: number;
+  slotRef: (element: HTMLDivElement | null) => void;
+}) {
+  return (
+    <View
+      style={[styles.historyBar, { paddingLeft: padding }]}
+      testID="pimi-titlebar-history"
+      dataSet={PIMI_GLASS}
+    >
+      <TitlebarDragRegion />
+      <PimiNavigationHistory pathname={pathname} section={section} />
+      {section ? (
+        <ScreenTitle testID="pimi-view-title">{SECTION_TITLES[section]}</ScreenTitle>
+      ) : null}
+      <div ref={slotRef} style={SLOT_STYLE} />
+    </View>
+  );
 }
 
 export function PimiConsoleContent({
@@ -41,11 +84,12 @@ export function PimiConsoleContent({
   const publishBounds = host?.setPimiContentBounds;
   const section = usePimiWorkspaceSection();
   const covered = section !== null;
-  const hasHistoryBar = Boolean(host?.showPimiWorkspace) && pathname !== "/";
+  const hasHistoryBar = shouldShowPimiTitlebar(pathname, covered);
   const macTitlebar = usesPimiMacTitlebar();
   const hasTopLeftControls = useHasWindowChromeObstruction("top-left");
   const topInset = !hasHistoryBar && macTitlebar && hasTopLeftControls ? HEADER_INNER_HEIGHT : 0;
   const [leftOffset, setLeftOffset] = useState(0);
+  const [titlebarSlot, setTitlebarSlot] = useState<HTMLDivElement | null>(null);
   const previousPath = useRef(pathname);
 
   useEffect(() => {
@@ -89,9 +133,12 @@ export function PimiConsoleContent({
     }
   }, [covered, publishBounds]);
 
+  const slot = covered ? null : titlebarSlot;
   const console = (
     <View style={fill} nativeID={publishBounds ? PIMI_CONSOLE_CONTENT_ID : undefined}>
-      {children}
+      <PimiTitlebarSlot.Provider value={hasHistoryBar ? slot : undefined}>
+        {children}
+      </PimiTitlebarSlot.Provider>
     </View>
   );
   if (!macTitlebar && !hasHistoryBar) return console;
@@ -102,14 +149,12 @@ export function PimiConsoleContent({
   return (
     <View style={fill}>
       {hasHistoryBar ? (
-        <View
-          style={[styles.historyBar, { paddingLeft: historyPadding }]}
-          testID="pimi-titlebar-history"
-          dataSet={PIMI_GLASS}
-        >
-          <TitlebarDragRegion />
-          <PimiNavigationHistory pathname={pathname} section={section} />
-        </View>
+        <PimiTitlebar
+          pathname={pathname}
+          section={section}
+          padding={historyPadding}
+          slotRef={setTitlebarSlot}
+        />
       ) : null}
       <WindowChromeRegion
         corners={hasHistoryBar ? "none" : consoleCorners}
@@ -130,8 +175,10 @@ const styles = StyleSheet.create((theme) => ({
   historyBar: {
     position: "relative",
     height: HEADER_INNER_HEIGHT,
-    alignItems: "flex-start",
-    justifyContent: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingRight: theme.spacing[3],
+    gap: theme.spacing[2],
     backgroundColor: theme.colors.surfaceSidebar,
   },
   titlebar: {

@@ -47,6 +47,7 @@ export function PimiWorkScreen() {
     <View style={styles.screen} dataSet={BACKGROUND} testID="pimi-work">
       <MenuHeader
         title="Work"
+        inPimiTitlebar
         rightContent={
           <>
             <ToolbarButton label="Refresh workspaces" onPress={refreshAll}>
