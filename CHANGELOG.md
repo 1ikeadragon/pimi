@@ -2,6 +2,10 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.4 - 2026-11-09
+
+- Added Ayu Light, One Dark Pro, Nord, Gruvbox Dark, and Catppuccin Mocha to Appearance.
+
 ## 0.17.3 - 2026-11-09
 
 - Updated Electron, the HTTP request parser, and other dependencies with security fixes.
