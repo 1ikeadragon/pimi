@@ -33,17 +33,19 @@ interface StartupSplashScreenProps {
 
 const GITHUB_ISSUE_URL = "https://github.com/getpaseo/paseo/issues/new";
 const DOCS_URL = "https://paseo.sh/docs";
+const PIMI_GITHUB_ISSUE_URL = "https://github.com/1ikeadragon/pimi/issues/new";
+const PIMI_DOCS_URL = "https://github.com/1ikeadragon/pimi#readme";
 
 const LOGO_SIZE = 96;
 const SHIMMER_PEAK_WIDTH = 120;
 const SHIMMER_DURATION_MS = 1800;
 
 function openGithubIssue(): void {
-  void openExternalUrl(GITHUB_ISSUE_URL);
+  void openExternalUrl(getDesktopHost()?.pimiAppearance ? PIMI_GITHUB_ISSUE_URL : GITHUB_ISSUE_URL);
 }
 
 function openDocs(): void {
-  void openExternalUrl(DOCS_URL);
+  void openExternalUrl(getDesktopHost()?.pimiAppearance ? PIMI_DOCS_URL : DOCS_URL);
 }
 
 const WEB_SPLASH_SHIMMER_KEYFRAME_ID = "paseo-splash-shimmer-keyframes";

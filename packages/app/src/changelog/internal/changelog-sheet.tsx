@@ -14,6 +14,7 @@ import {
   iconButtonChromeStyle,
 } from "@/components/ui/icon-button-chrome";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { getDesktopHost } from "@/desktop/host";
 import { ICON_SIZE, type Theme } from "@/styles/theme";
 import { resolveAppVersion } from "@/utils/app-version";
 import { openExternalUrl } from "@/utils/open-external-url";
@@ -26,6 +27,7 @@ import {
 } from "./parse-changelog";
 
 const WEBSITE_CHANGELOG_URL = "https://paseo.sh/changelog";
+const PIMI_RELEASES_URL = "https://github.com/1ikeadragon/pimi/releases";
 
 const ThemedGift = withUnistyles(Gift);
 const ThemedExternalLink = withUnistyles(ExternalLink);
@@ -46,7 +48,9 @@ export function ChangelogSheet({ visible, onClose }: ChangelogSheetProps) {
   const { count, showMore } = useRevealedReleases(visible && state.status === "ready");
 
   const handleOpenWebsite = useCallback(() => {
-    void openExternalUrl(WEBSITE_CHANGELOG_URL);
+    void openExternalUrl(
+      getDesktopHost()?.pimiAppearance ? PIMI_RELEASES_URL : WEBSITE_CHANGELOG_URL,
+    );
   }, []);
 
   const header: SheetHeader = useMemo(
