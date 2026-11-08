@@ -42,6 +42,48 @@
   color-scheme: light;
 }
 
+:root[data-appearance="sakura"] {
+  color-scheme: light;
+  --background: #f7edf5;
+  --canvas: #fff9fd;
+  --surface: #fcf1f8;
+  --sidebar: #f4eaf5;
+  --toolbar: #fcf1f8;
+  --raised: #f4e6f1;
+  --hover: #eee0ed;
+  --selected: #ecd6e8;
+  --line: #e8d7e6;
+  --control-line: #d7bdd2;
+  --text: #342538;
+  --muted: #655268;
+  --accent: #713c63;
+  --accent-hover: #875477;
+  --accent-text: #fff8fc;
+  --focus: #8b4b78;
+  --wash: none;
+}
+
+:root[data-appearance="cel-night"] {
+  color-scheme: dark;
+  --background: #171a2c;
+  --canvas: #1a1d31;
+  --surface: #1f2238;
+  --sidebar: #1d2034;
+  --toolbar: #1f2238;
+  --raised: #252942;
+  --hover: #2c304d;
+  --selected: #343958;
+  --line: #343956;
+  --control-line: #515675;
+  --text: #ecebf8;
+  --muted: #bbbcd6;
+  --accent: #c9c0f2;
+  --accent-hover: #dbd2fb;
+  --accent-text: #262039;
+  --focus: #c7b4fb;
+  --wash: none;
+}
+
 :root[data-appearance="dark"] {
   color-scheme: dark;
 }
@@ -98,6 +140,22 @@ body {
     auto,
     100% 360px;
   color: var(--text);
+}
+
+:root:is([data-appearance="sakura"], [data-appearance="cel-night"]) body {
+  background-repeat: no-repeat, no-repeat, repeat, no-repeat;
+}
+
+@media (prefers-contrast: no-preference) and (forced-colors: none) {
+  :root:is([data-appearance="sakura"], [data-appearance="cel-night"]) .topbar {
+    background-color: var(--pimi-glass);
+    backdrop-filter: blur(18px);
+  }
+
+  :root:is([data-appearance="sakura"], [data-appearance="cel-night"])
+    :is(.card, .task-card):not(:hover):not(:focus-within) {
+    background-color: color-mix(in srgb, var(--canvas) 86%, transparent);
+  }
 }
 
 .voice-command-dock {

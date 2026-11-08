@@ -186,7 +186,7 @@ export interface DesktopInvokeBridge {
   invoke?: (command: string, args?: Record<string, unknown>) => Promise<unknown>;
 }
 
-export type PimiAppearance = "system" | "light" | "dark" | "paper";
+export type PimiAppearance = "system" | "light" | "dark" | "paper" | "sakura" | "cel-night";
 export type PimiGitProvider = "github" | "gitlab";
 export type PimiGitAuthStatus = "connected" | "cli-missing" | "unverified";
 

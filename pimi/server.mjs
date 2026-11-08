@@ -48,7 +48,7 @@ import { createTasks } from "./tasks.mjs";
 import { generateTour } from "./walkthrough.mjs";
 import { runVoiceCommand } from "./voice-command.mjs";
 
-const appearances = new Set(["system", "light", "dark", "paper"]);
+const appearances = new Set(["system", "light", "dark", "paper", "sakura", "cel-night"]);
 const reportMarkdown = new MarkdownIt({ html: false, linkify: true }).disable("image");
 reportMarkdown.validateLink = (value) => {
   if (parseAgentDeepLink(value)) return true;
@@ -233,14 +233,20 @@ export async function startPimi({
     import.meta.url,
   );
   await Promise.all(
-    ["appearance.css", "blush.svg", "paper.svg", "graphite.svg", "voice-dog.svg"].map(
-      async (file) => {
-        assets.set("/pimi-textures/" + file, {
-          mime: file.endsWith(".css") ? "text/css; charset=utf-8" : "image/svg+xml",
-          data: await readFile(new URL(file, textures)),
-        });
-      },
-    ),
+    [
+      "appearance.css",
+      "blush.svg",
+      "paper.svg",
+      "graphite.svg",
+      "voice-dog.svg",
+      "sakura.svg",
+      "cel-night.svg",
+    ].map(async (file) => {
+      assets.set("/pimi-textures/" + file, {
+        mime: file.endsWith(".css") ? "text/css; charset=utf-8" : "image/svg+xml",
+        data: await readFile(new URL(file, textures)),
+      });
+    }),
   );
   assets.set("/syntax.css", {
     mime: "text/css; charset=utf-8",

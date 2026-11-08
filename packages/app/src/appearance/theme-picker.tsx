@@ -42,6 +42,8 @@ const pimiOptions = [
   { mode: "light", label: "Blush", preview: REGISTERED_THEMES[PIMI_APPEARANCE_THEMES.light] },
   { mode: "dark", label: "Dark", preview: REGISTERED_THEMES[PIMI_APPEARANCE_THEMES.dark] },
   { mode: "paper", label: "Paper", preview: REGISTERED_THEMES[PIMI_APPEARANCE_THEMES.paper] },
+  { mode: "sakura", label: "Sakura Glass", preview: REGISTERED_THEMES.pimiSakura },
+  { mode: "cel-night", label: "Cel Night", preview: REGISTERED_THEMES.pimiCelNight },
 ] as const;
 
 function PimiThemePicker({ bridge }: { bridge: NonNullable<DesktopHostBridge["pimiAppearance"]> }) {

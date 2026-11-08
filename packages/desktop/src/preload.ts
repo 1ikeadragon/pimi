@@ -85,7 +85,14 @@ function createPimiAppearanceBridge() {
 }
 
 function isPimiAppearance(value: unknown): value is PimiAppearance {
-  return value === "system" || value === "light" || value === "dark" || value === "paper";
+  return (
+    value === "system" ||
+    value === "light" ||
+    value === "dark" ||
+    value === "paper" ||
+    value === "sakura" ||
+    value === "cel-night"
+  );
 }
 
 const pimiAppearance = createPimiAppearanceBridge();

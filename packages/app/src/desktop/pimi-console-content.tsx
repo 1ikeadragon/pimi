@@ -18,6 +18,7 @@ import { PimiNavigationHistory } from "./pimi-navigation-history";
 
 export const PIMI_CONSOLE_CONTENT_ID = "pimi-console-content";
 const fill = { flex: 1 } as const;
+const PIMI_GLASS = { "pimi-glass": "" };
 const subscribe = (listener: () => void) =>
   getDesktopHost()?.pimiWorkspaceSection?.subscribe(listener) ?? (() => {});
 const getSection = () => getDesktopHost()?.pimiWorkspaceSection?.get() ?? null;
@@ -104,6 +105,7 @@ export function PimiConsoleContent({
         <View
           style={[styles.historyBar, { paddingLeft: historyPadding }]}
           testID="pimi-titlebar-history"
+          dataSet={PIMI_GLASS}
         >
           <TitlebarDragRegion />
           <PimiNavigationHistory pathname={pathname} section={section} />

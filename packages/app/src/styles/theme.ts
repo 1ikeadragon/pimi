@@ -853,10 +853,62 @@ const pimiPaper = buildLightTheme(
   }),
 );
 
+const pimiSakura = buildLightTheme(
+  buildLightSemanticColors({
+    surface0: "#fff9fd",
+    surface1: "#fcf1f8",
+    surface2: "#f4e6f1",
+    surface3: "#eee0ed",
+    surface4: "#ecd6e8",
+    surfaceDiffEmpty: "#f7edf5",
+    surfaceSidebar: "#f4eaf5",
+    foreground: "#342538",
+    foregroundMuted: "#655268",
+    foregroundExtraMuted: "#746277",
+    border: "#e8d7e6",
+    borderAccent: "#d7bdd2",
+    accent: "#713c63",
+    accentBright: "#875477",
+    accentForeground: "#fff8fc",
+    primary: "#713c63",
+    primaryForeground: "#fff8fc",
+    destructive: "#a33d54",
+    terminalBlack: "#342538",
+    terminalBrightBlack: "#59465e",
+    ring: "#8b4b78",
+  }),
+);
+
+const pimiCelNight = buildDarkTheme(
+  buildDarkSemanticColors({
+    surface0: "#1a1d31",
+    surface1: "#1f2238",
+    surface2: "#252942",
+    surface3: "#2c304d",
+    surface4: "#343958",
+    surfaceDiffEmpty: "#171a2c",
+    surfaceSidebar: "#1d2034",
+    foreground: "#ecebf8",
+    foregroundMuted: "#bbbcd6",
+    foregroundExtraMuted: "#a3a8c7",
+    border: "#343956",
+    borderAccent: "#515675",
+    accent: "#c9c0f2",
+    accentBright: "#dbd2fb",
+    accentForeground: "#262039",
+    destructive: "#efa1ac",
+    terminalBlack: "#191b2c",
+    terminalBrightBlack: "#4b4f6d",
+    ring: "#c7b4fb",
+  }),
+);
+
 export const PIMI_APPEARANCE_THEMES = {
   light: "pimiBlush",
   dark: "pimiDark",
   paper: "pimiPaper",
+  sakura: "pimiSakura",
+  "cel-night": "pimiCelNight",
 } as const;
 
 // Keep compatibility with existing code
@@ -948,6 +1000,8 @@ type RegisteredThemes = {
   pimiBlush: typeof pimiBlush;
   pimiDark: typeof pimiDark;
   pimiPaper: typeof pimiPaper;
+  pimiSakura: typeof pimiSakura;
+  pimiCelNight: typeof pimiCelNight;
 };
 
 export const THEME_TO_UNISTYLES = Object.fromEntries(
@@ -967,6 +1021,8 @@ export const REGISTERED_THEMES = {
   pimiBlush,
   pimiDark,
   pimiPaper,
+  pimiSakura,
+  pimiCelNight,
 } as RegisteredThemes;
 
 export function getNextThemePreference(current: ThemePreference): ThemePreference {
