@@ -2,6 +2,13 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.16.10 - 2026-11-08
+
+- Remote pairing is opt-in, uses a native pairing link, and requires replay-protected encryption by default.
+- Android scans QR codes offline and ships without the Google scanner, Firebase, or Expo development modules.
+- Remote Markdown images appear as links. Spaces previews, voice model downloads, and provider quota checks start on request.
+- Isolated file previews from external navigation, disabled optional telemetry for managed providers, and verified native syntax grammar archives before compiling them.
+
 ## 0.16.9 - 2026-11-08
 
 - Tasks, Work, and Review show unread activity in the sidebar. Opening a view clears its own dot.

@@ -1,6 +1,6 @@
 {
   "name": "@getpaseo/client",
-  "version": "0.16.9",
+  "version": "0.16.10",
   "description": "Paseo client SDK package",
   "license": "Apache-2.0",
   "files": [
@@ -48,8 +48,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@getpaseo/protocol": "0.16.9",
-    "@getpaseo/relay": "0.16.9",
+    "@getpaseo/protocol": "0.16.10",
+    "@getpaseo/relay": "0.16.10",
     "ws": "8.22.2",
     "zod": "4.6.7"
   },
