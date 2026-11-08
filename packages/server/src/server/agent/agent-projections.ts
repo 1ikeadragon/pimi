@@ -1,4 +1,5 @@
 import { isSameOrDescendantPath } from "../path-utils.js";
+import { AgentContextBreakdownSchema } from "@getpaseo/protocol/messages";
 import type {
   AgentListItemPayload,
   AgentSnapshotPayload,
@@ -527,7 +528,7 @@ function sanitizeMetadataArray(value: unknown): AgentMetadata[] | undefined {
   return sanitized.length > 0 ? sanitized : undefined;
 }
 
-type UsageNumericField = Exclude<keyof AgentUsage, never>;
+type UsageNumericField = Exclude<keyof AgentUsage, "contextBreakdown">;
 
 function assignFiniteNumber(
   source: { [key: string]: JsonValue },
@@ -561,6 +562,8 @@ function sanitizeUsage(value: unknown): AgentUsage | undefined {
       return undefined;
     }
   }
+  const breakdown = AgentContextBreakdownSchema.safeParse(sanitized.contextBreakdown);
+  if (breakdown.success) result.contextBreakdown = breakdown.data;
   return Object.keys(result).length ? result : undefined;
 }
 

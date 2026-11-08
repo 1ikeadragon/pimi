@@ -304,6 +304,40 @@ function SessionDetail({ agent }: { agent: AggregatedAgent }) {
           </View>
         </>
       ) : null}
+      {agent.provider === "claude" ? (
+        <ContextBreakdown report={usage?.contextBreakdown} number={number} />
+      ) : null}
+    </View>
+  );
+}
+
+function ContextBreakdown({
+  report,
+  number,
+}: {
+  report: NonNullable<Agent["lastUsage"]>["contextBreakdown"];
+  number: Intl.NumberFormat;
+}) {
+  return (
+    <View style={styles.breakdown} testID="pimi-usage-context-breakdown">
+      <Text style={styles.rowName}>Context breakdown</Text>
+      {report ? (
+        <>
+          <Text style={styles.muted}>
+            {`${number.format(report.usedTokens)} / ${number.format(report.capacityTokens)} tokens · Last /context estimate`}
+          </Text>
+          <View style={styles.breakdownRows}>
+            {report.categories.map(({ name, tokens, kind }) => (
+              <View key={`${kind}:${name}`} style={styles.breakdownRow}>
+                <Text style={kind === "used" ? styles.rowName : styles.muted}>{name}</Text>
+                <Text style={styles.muted}>{number.format(tokens)}</Text>
+              </View>
+            ))}
+          </View>
+        </>
+      ) : (
+        <Text style={styles.muted}>Run /context in this chat to capture a breakdown.</Text>
+      )}
     </View>
   );
 }
@@ -372,6 +406,19 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foreground,
   },
   reportCaption: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm },
+  breakdown: {
+    paddingTop: theme.spacing[3],
+    borderTopColor: theme.colors.border,
+    borderTopWidth: theme.borderWidth[1],
+    gap: theme.spacing[2],
+  },
+  breakdownRows: { gap: theme.spacing[2] },
+  breakdownRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: theme.spacing[2],
+  },
   row: {
     minHeight: 52,
     flexDirection: "row",

@@ -1,4 +1,5 @@
 import type {
+  AgentContextBreakdown,
   AgentFeature,
   AgentFeatureSelect,
   AgentFeatureToggle,
@@ -226,6 +227,7 @@ export interface AgentUsage {
   totalCostUsd?: number;
   contextWindowMaxTokens?: number;
   contextWindowUsedTokens?: number;
+  contextBreakdown?: AgentContextBreakdown;
 }
 
 export const TOOL_CALL_ICON_NAMES = [

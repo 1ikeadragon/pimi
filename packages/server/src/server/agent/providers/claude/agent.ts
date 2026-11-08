@@ -24,6 +24,7 @@ import {
   type SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 import type { Logger } from "pino";
+import { AgentContextBreakdownSchema } from "@getpaseo/protocol/messages";
 import {
   mapClaudeCanceledToolCall,
   mapClaudeCompletedToolCall,
@@ -4683,6 +4684,7 @@ class ClaudeAgentSession implements AgentSession {
         this.appendSidechainResultEvents(message, events);
         break;
       case "assistant": {
+        this.appendContextBreakdown(message.context_usage, events);
         const timelineItems = await this.mapBlocksToTimeline(message.message.content, {
           suppressAssistantText: options?.suppressAssistantText ?? false,
           suppressReasoning: options?.suppressReasoning ?? false,
@@ -5026,6 +5028,28 @@ class ClaudeAgentSession implements AgentSession {
         continue;
       }
       events.push({ type: "timeline", item, provider: "claude" });
+    }
+  }
+
+  private appendContextBreakdown(
+    report: Extract<SDKMessage, { type: "assistant" }>["context_usage"],
+    events: AgentStreamEvent[],
+  ): void {
+    // Claude attaches this structured report to an explicit /context result.
+    // Keep only category totals and avoid background token-count requests.
+    if (!report) return;
+    const parsed = AgentContextBreakdownSchema.safeParse({
+      capturedAt: new Date().toISOString(),
+      usedTokens: report.total_tokens,
+      capacityTokens: report.raw_max_tokens,
+      categories: report.categories,
+    });
+    if (parsed.success) {
+      events.push({
+        type: "usage_updated",
+        provider: "claude",
+        usage: { contextBreakdown: parsed.data },
+      });
     }
   }
 
