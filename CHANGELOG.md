@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.16.4 - 2026-11-08
+
+### Added
+
+- Usage Recap shows completed tasks and linked pull requests merged this week or last week. Open any entry in Tasks or Review.
+- Spaces loads public X posts and YouTube previews when their cards enter view. Press Play to start the video.
+
 ## 0.16.3 - 2026-11-08
 
 ### Added
