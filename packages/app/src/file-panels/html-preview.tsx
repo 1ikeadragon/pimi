@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef } from "react";
+import { Platform } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { WebView } from "react-native-webview";
 import { withPreviewCsp } from "./html-preview-csp";
@@ -64,6 +65,7 @@ export function FileHtmlPreview({ html, testID }: { html: string; testID?: strin
       thirdPartyCookiesEnabled={false}
       cacheEnabled={false}
       incognito
+      {...(Platform.OS === "android" ? { blockNetworkLoads: true } : {})}
     />
   );
 }

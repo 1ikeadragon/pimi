@@ -14,6 +14,17 @@ const patchedPackages = [
     nodeModulesPath: "node_modules/expo-modules-core",
     patchPrefix: "expo-modules-core+",
   },
+  // Pimi Android uses offline QR decoding without Google's scanner SDK.
+  {
+    nodeModulesPath: "packages/app/node_modules/expo-camera",
+    patchPrefix: "expo-camera+",
+    cwd: "packages/app",
+  },
+  // Android file previews block network resources in the WebView itself.
+  {
+    nodeModulesPath: "node_modules/react-native-webview",
+    patchPrefix: "react-native-webview+",
+  },
   // Backport https://github.com/software-mansion/enriched-markdown/pull/924: preserve settled
   // Android measurements across parent clones. Remove those hunks when upgrading past
   // 1.2.0-nightly-20261019-926ef06f0; reconcile the other local patch hunks separately.

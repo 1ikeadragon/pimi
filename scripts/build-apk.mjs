@@ -30,9 +30,13 @@ const env = {
   APP_VARIANT: pimi ? "pimi-android" : "production",
 };
 if (pimi) {
+  env.EXPO_NO_TELEMETRY = "1";
+  delete env.EXPO_USE_COMMUNITY_AUTOLINKING;
   delete env.PASEO_FDROID_BUILD;
   delete env.PASEO_WATCHDOG_BUILD;
   delete env.PASEO_PROFILE_BUILD;
+  delete env.PASEO_DIAGNOSTIC_REVISION;
+  delete env.PASEO_DIAGNOSTIC_BUILD_TIME;
   delete env.PIMI_ANDROID_KEYSTORE;
   delete env.PIMI_ANDROID_PASSWORD_FILE;
 } else {

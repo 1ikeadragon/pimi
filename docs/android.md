@@ -9,10 +9,11 @@ files and diffs, open Work, tile agents, and check usage. Tasks reads and
 writes the board on a running Pimi Desktop 0.16.6 or newer. It needs a
 password-protected host paired over the encrypted relay. Memory, Spaces,
 cross-repository Review, and Usage Recap stay on desktop for this preview.
-Android push delivery needs a Pimi push service.
+Cloud push notifications are unavailable in the preview.
 
 On the desktop, open **Pair device**. Scan the QR code in Pimi for Android or
-paste the pairing link. The offer selects the relay, including a self-hosted
+paste the pairing link. Pimi decodes QR codes on the device with ZXing.
+The offer selects the relay, including a self-hosted
 [Pimi Relay](https://github.com/1ikeadragon/pimi-relay). Use WSS for a relay
 reachable over the internet.
 
@@ -29,7 +30,8 @@ npm run pimi:package:android
 
 Install Build Tools `36.0.0`, NDK `27.1.12297006`, and CMake `3.22.1` with
 `sdkmanager`. The build uses the `pimi-android` Expo variant and writes
-`artifacts/Pimi-Android-arm64.apk`. It signs with the `pimi` alias and verifies
+`artifacts/Pimi-Android-arm64.apk`. It excludes Firebase messaging, the Google
+barcode scanner, and Expo development modules. It signs with the `pimi` alias and verifies
 the APK before copying it to that path. Keep the same signing key for future
 updates. Keep the keystore and password file outside the checkout with
 user-only access and an offline backup.
