@@ -2,6 +2,12 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.16.8 - 2026-11-08
+
+- Ask Pimi can run available Command Center actions, start a chat with a saved Spaces card, and open named worktree diffs, tasks, pull requests, or session usage.
+- Spaces resolves saved arXiv papers by title. Voice requests to remove a card open the existing confirmation.
+- Review has a Mine filter for your open GitHub pull requests.
+
 ## 0.16.7 - 2026-11-08
 
 - Ask Pimi opens common views directly and uses your configured provider to handle other commands, including saving Spaces cards and creating or moving tasks.
