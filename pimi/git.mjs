@@ -321,6 +321,7 @@ export async function summarizeReviewDirectory(directory) {
 }
 
 export async function filePatch(review, file) {
+  if (review.hosted) return review.hosted.patch(file);
   if (review.live && (await readHead(review.worktree.path)) !== review.head) {
     throw new RequestError("The checkout moved. Refresh the review.", 409);
   }
@@ -369,6 +370,7 @@ async function resolveFile(root, path) {
 }
 
 export async function fileSource(review, file) {
+  if (review.hosted) return review.hosted.source(file);
   const cwd = review.worktree.path;
   let source;
   if (file.status === "D" || !review.live) {

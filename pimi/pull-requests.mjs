@@ -7,7 +7,7 @@ const refreshInterval = 60_000;
 const fields =
   "number,url,title,state,isDraft,author,updatedAt,baseRefName,headRefName,headRefOid,reviewDecision,mergeable";
 const statusFields = `${fields},statusCheckRollup`;
-const detailFields = `${statusFields},body,additions,deletions,changedFiles`;
+const detailFields = `${statusFields},body,additions,deletions,changedFiles,comments,reviews`;
 
 function githubRepository(remote) {
   const match =
@@ -392,6 +392,25 @@ export function createPullRequests({ getInventory, onChange = () => {} }) {
         const known = snapshot.items.find((item) => item.url.toLowerCase() === key);
         const item = normalize(data, {
           body: data.body ?? "",
+          discussion: [
+            ...(data.comments ?? []).map((comment) => ({
+              kind: "comment",
+              author: comment.author?.login ?? null,
+              body: comment.body ?? "",
+              createdAt: comment.createdAt,
+              url: comment.url,
+            })),
+            ...(data.reviews ?? []).map((review) => ({
+              kind: "review",
+              author: review.author?.login ?? null,
+              body: review.body ?? "",
+              createdAt: review.submittedAt,
+              state: review.state,
+              url: review.url,
+            })),
+          ].sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? "")),
+          discussionNotice:
+            "PR comments and submitted review summaries returned by GitHub CLI. Inline review threads are not included.",
           additions: data.additions,
           deletions: data.deletions,
           changedFiles: data.changedFiles,
