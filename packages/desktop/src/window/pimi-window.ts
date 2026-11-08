@@ -16,6 +16,8 @@ import {
 } from "@getpaseo/protocol/pimi-task";
 import type {
   PimiDestination,
+  PimiRecap,
+  PimiRecapPeriod,
   PimiReviewSummary,
   PimiVoiceBubbleState,
   PimiWorkspaceSection,
@@ -130,6 +132,7 @@ interface PimiRuntimeResult {
   origin: string;
   observeWorkspaces(): Promise<void>;
   getLinkedLabels(): Promise<PimiLinkedLabels>;
+  getRecap(period: PimiRecapPeriod): PimiRecap;
   subscribeToLabels(listener: () => void): () => void;
   resolveReportLink(request: PimiReportLinkRequest): Promise<PimiReportLinkTarget>;
   prepareChatReview(

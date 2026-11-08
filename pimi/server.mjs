@@ -993,6 +993,7 @@ export async function startPimi({
     observeWorkspaces: paseo.observeWorkspaces,
     prepareChatReview,
     getLinkedLabels,
+    getRecap: tasks.recap,
     subscribeToLabels(listener) {
       labelListeners.add(listener);
       return () => labelListeners.delete(listener);

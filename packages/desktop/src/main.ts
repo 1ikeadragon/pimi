@@ -11,6 +11,7 @@ import { inheritLoginShellEnv } from "./login-shell-env.js";
 
 import {
   PimiOpenTaskDestination,
+  PimiRecapPeriod,
   PimiReportLinkError,
   PimiReviewPrDestination,
 } from "@getpaseo/protocol/pimi-task";
@@ -785,6 +786,12 @@ function registerPimiWorkspaceNavigation(): void {
     if (!isConsoleFrame(event)) throw new Error("Open Pimi to read linked labels.");
     const runtime = await initializePimiWorkspace(path.join(app.getAppPath(), "dist"));
     return runtime.getLinkedLabels();
+  });
+  ipcMain.handle("pimi:recap:get", async (event, value: unknown) => {
+    if (!isConsoleFrame(event)) throw new Error("Open Pimi to read your recap.");
+    const period = PimiRecapPeriod.parse(value);
+    const runtime = await initializePimiWorkspace(path.join(app.getAppPath(), "dist"));
+    return runtime.getRecap(period);
   });
   ipcMain.handle("pimi:review:summary", (event, checkout: unknown) => {
     if (

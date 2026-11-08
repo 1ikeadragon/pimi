@@ -14,13 +14,15 @@ import { closePimiUsage } from "@/navigation/pimi-usage";
 import { useHostUsageWithControls, type UsageHostSelection } from "@/usage/controls";
 import { useUsageDisplay } from "@/usage/display";
 import { useUsageHostSelection } from "@/usage/hosts";
+import { PimiRecapUsage } from "@/usage/pimi-recap-usage";
 import { PimiSessionUsage } from "@/usage/pimi-session-usage";
 import { UsageBody, UsageMessage } from "@/usage/usage-section";
 
-type UsageTab = "sessions" | "limits";
+type UsageTab = "sessions" | "limits" | "recap";
 const tabs: SegmentedControlOption<UsageTab>[] = [
   { value: "sessions", label: "Sessions" },
   { value: "limits", label: "Provider limits" },
+  { value: "recap", label: "Recap" },
 ];
 const PIMI_BACKGROUND = { "pimi-background": "" };
 const close = (
@@ -41,7 +43,9 @@ export function PimiUsageScreen() {
       <View style={styles.toolbar}>
         <SegmentedControl options={tabs} value={tab} onValueChange={setTab} />
       </View>
-      {tab === "sessions" ? <PimiSessionUsage /> : <ProviderLimits />}
+      {tab === "sessions" && <PimiSessionUsage />}
+      {tab === "limits" && <ProviderLimits />}
+      {tab === "recap" && <PimiRecapUsage />}
     </View>
   );
 }

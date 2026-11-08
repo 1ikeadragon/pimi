@@ -251,6 +251,19 @@ export interface PimiReviewSummary {
   incomplete: boolean;
 }
 
+export const PimiRecapPeriod = z.enum(["last-week", "this-week"]);
+export type PimiRecapPeriod = z.infer<typeof PimiRecapPeriod>;
+
+export interface PimiRecap {
+  startsAt: string;
+  endsBefore: string;
+  tasks: { id: string; title: string; completedAt: string }[];
+  pullRequests: { url: string; title?: string; mergedAt: string }[];
+  taskCount: number;
+  pullRequestCount: number;
+  hasUndatedCompletions: boolean;
+}
+
 export const PIMI_TASK_PROPOSAL_TOOL = "propose_pimi_task";
 export const PimiTaskProposalResult = z.object({
   pimiTaskProposal: PimiTaskProposal,
