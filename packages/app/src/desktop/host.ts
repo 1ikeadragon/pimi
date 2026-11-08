@@ -3,6 +3,7 @@ import { getElectronHost } from "@/desktop/electron/host";
 import type { BrowserKeyboardPolicy } from "@/keyboard";
 import type { SessionInboundMessage, SessionOutboundMessage } from "@getpaseo/protocol/messages";
 import type {
+  PimiActivitySection,
   PimiDestination,
   PimiLinkedLabels,
   PimiRecap,
@@ -198,7 +199,7 @@ export interface DesktopHostBridge {
   showPimiWorkspace?: (destination: PimiDestination) => void;
   getPimiReviewSummary?: (checkout: string) => Promise<PimiReviewSummary | null>;
   getPimiRecap?: (period: PimiRecapPeriod) => Promise<PimiRecap>;
-  onPimiTasksChanged?: (listener: () => void) => () => void;
+  onPimiWorkspaceActivity?: (listener: (section: PimiActivitySection) => void) => () => void;
   dismissPimiWorkspace?: () => void;
   setPimiContentBounds?: (bounds: {
     x: number;

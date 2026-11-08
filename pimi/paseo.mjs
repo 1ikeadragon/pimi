@@ -141,10 +141,45 @@ export function createPaseoConnection(settingsSource = {}) {
   async function observeDirectory(client, connectedAt) {
     const agents = new Map();
     const workspaces = new Map();
+    const reviewStates = new Map();
     const workspaceLabels = new Map();
     const pullRequestTransitions = new Map();
     const initialWorkspaceChanges = new Set();
     let initialized = false;
+    function observeReview(id, workspace, live = false) {
+      const previous = reviewStates.get(id);
+      if (!workspace) {
+        reviewStates.delete(id);
+        if (live && previous?.reviewable) changed({ activity: "review" });
+        return;
+      }
+      const git = workspace.gitRuntime;
+      if (workspace.projectKind !== "git" || typeof git?.isDirty !== "boolean") return;
+      const pr = workspacePullRequest(workspace);
+      const prStatus = pr && workspace.githubRuntime.pullRequest;
+      const stats = workspace.diffStat;
+      const reviewable = Boolean(
+        git.isDirty || git.aheadBehind?.ahead || stats?.additions || stats?.deletions || pr,
+      );
+      const fingerprint = JSON.stringify([
+        git.currentBranch,
+        git.headSha,
+        git.isDirty,
+        git.aheadBehind,
+        stats,
+        prStatus?.url,
+        prStatus?.state,
+        prStatus?.headSha,
+        prStatus?.isDraft,
+        prStatus?.checksStatus,
+        prStatus?.reviewDecision,
+      ]);
+      reviewStates.set(id, { fingerprint, reviewable });
+      if (live && (reviewable || previous?.reviewable) && previous?.fingerprint !== fingerprint) {
+        // A checkout with no baseline may have just finished loading its first Git status.
+        if (previous || !workspaces.has(id)) changed({ activity: "review" });
+      }
+    }
     function observePullRequest(id, workspace, isLive) {
       const pr = workspace?.pullRequest;
       const previous = pullRequestTransitions.get(id);
@@ -175,7 +210,7 @@ export function createPaseoConnection(settingsSource = {}) {
     }
     const observe = (cache, id, value, event) => {
       if (!value) {
-        cache.delete(id);
+        if (!cache.delete(id)) return;
         changed(event);
         return;
       }
@@ -190,6 +225,7 @@ export function createPaseoConnection(settingsSource = {}) {
         agents,
         update.agent?.id ?? update.agentId,
         update.kind === "upsert" ? agentView(update.agent) : null,
+        initialized ? { activity: "board" } : undefined,
       ),
     );
     client.workspaces.subscribe((update) => {
@@ -197,8 +233,13 @@ export function createPaseoConnection(settingsSource = {}) {
       const id = update.workspace?.id ?? update.id;
       const workspace = update.kind === "upsert" ? workspaceView(update.workspace) : null;
       if (!initialized) initialWorkspaceChanges.add(id);
+      observeReview(id, update.kind === "upsert" ? update.workspace : null, initialized);
       const differs = !workspace || workspaces.get(id) !== signature(workspace);
-      if (differs) observe(workspaces, id, workspace, observePullRequest(id, workspace, true));
+      if (differs)
+        observe(workspaces, id, workspace, {
+          ...observePullRequest(id, workspace, true),
+          ...(initialized ? { activity: "board" } : {}),
+        });
       observe(workspaceLabels, id, workspace && [workspace.path, workspace.labels], {
         labels: true,
       });
@@ -223,7 +264,13 @@ export function createPaseoConnection(settingsSource = {}) {
       },
     });
     const subscriptions = await Promise.allSettled([
-      client.agents.list({ scope: "active", page: { limit: 200 }, subscribe: {} }),
+      client.agents
+        .list({ scope: "active", page: { limit: 200 }, subscribe: {} })
+        .then(({ entries }) => {
+          for (const { agent } of entries) {
+            if (!agents.has(agent.id)) agents.set(agent.id, signature(agentView(agent)));
+          }
+        }),
       client.workspaces
         .list({ page: { limit: 200 }, subscribe: {} })
         .then(async (first) => {
@@ -233,6 +280,7 @@ export function createPaseoConnection(settingsSource = {}) {
             for (const entry of page.entries) {
               if (!initialWorkspaceChanges.has(entry.id)) {
                 const workspace = workspaceView(entry);
+                observeReview(entry.id, entry);
                 observe(
                   workspaces,
                   entry.id,

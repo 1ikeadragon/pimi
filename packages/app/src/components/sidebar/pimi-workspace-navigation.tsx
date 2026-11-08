@@ -23,6 +23,7 @@ import {
 } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { create } from "zustand";
+import type { PimiActivitySection } from "@getpaseo/protocol/pimi-task";
 import { getDesktopHost, usesPimiMacTitlebar } from "@/desktop/host";
 import { usePimiWorkspaceSection } from "@/desktop/pimi-console-content";
 import { DensityIcon } from "@/components/ui/density-icon";
@@ -55,7 +56,11 @@ export interface PimiSidebarControls {
 const NO_SHORTCUT: [] = [];
 const SELECTED = { selected: true } as const;
 export const PIMI_NAV_RAIL_WIDTH = 52;
-const useTaskActivity = create<{ unread: boolean }>(() => ({ unread: false }));
+const useWorkspaceActivity = create<Record<PimiActivitySection, boolean>>(() => ({
+  tasks: false,
+  board: false,
+  review: false,
+}));
 
 function SidebarIcon({
   icon,
@@ -176,12 +181,15 @@ export function PimiWorkspaceNavigation({
   const host = getDesktopHost();
   const show = host?.showPimiWorkspace;
   const section = usePimiWorkspaceSection();
-  const tasksUnread = useTaskActivity((state) => state.unread) && section !== "tasks";
+  const activity = useWorkspaceActivity();
+  const unreadFor = (target: PimiActivitySection) => activity[target] && section !== target;
   const activityDot = useMemo(() => <View style={styles.activityDot} />, []);
   useEffect(() => {
-    if (section === "tasks") useTaskActivity.setState({ unread: false });
-    return host?.onPimiTasksChanged?.(() => {
-      if (section !== "tasks") useTaskActivity.setState({ unread: true });
+    if (section === "tasks" || section === "board" || section === "review") {
+      useWorkspaceActivity.setState({ [section]: false });
+    }
+    return host?.onPimiWorkspaceActivity?.((target) => {
+      if (section !== target) useWorkspaceActivity.setState({ [target]: true });
     });
   }, [host, section]);
   const pathname = usePathname();
@@ -261,19 +269,21 @@ export function PimiWorkspaceNavigation({
       icon: ListTodo,
       onPress: showTasks,
       active: section === "tasks",
-      unread: tasksUnread,
+      unread: unreadFor("tasks"),
     },
     {
       label: "Work",
       icon: Columns3,
       onPress: showWorktrees,
       active: section === "board",
+      unread: unreadFor("board"),
     },
     {
       label: "Review",
       icon: FileDiff,
       onPress: showReview,
       active: section === "review",
+      unread: unreadFor("review"),
     },
   ];
   const libraryDestinations = [
