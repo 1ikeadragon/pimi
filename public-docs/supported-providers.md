@@ -60,7 +60,7 @@ See [Custom providers](/docs/custom-providers) for command and environment overr
 
 ## ACP catalog
 
-Pick any of these from the in-app provider catalog. Each entry is a one-click install of the underlying CLI.
+Add a provider from the in-app catalog. Entries that use a local command require the CLI to be installed on the host first.
 
 - [Agoragentic](https://agoragentic.com), agent marketplace with 174+ AI capabilities.
 - [Amp](https://github.com/tao12345666333/amp-acp), frontier coding agent.
@@ -74,6 +74,7 @@ Pick any of these from the in-app provider catalog. Each entry is a one-click in
 - [crow-cli](https://crow-ai.dev/), minimal ACP-native coding agent.
 - [Cursor](https://cursor.com/docs/cli/overview), Cursor's coding agent.
 - [DeepAgents](https://docs.langchain.com/oss/javascript/deepagents/overview), LangChain-powered coding agent.
+- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness), DeepSeek’s official coding harness.
 - [DimCode](https://dimcode.dev/docs/acp.html), multi-model coding agent.
 - [Dirac](https://dirac.run), open-source agent with hash-anchored parallel edits.
 - [Factory Droid](https://factory.ai/product/cli), Factory AI's coding agent.
