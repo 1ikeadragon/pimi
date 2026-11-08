@@ -1,12 +1,10 @@
 # Security
 
-Paseo follows a client-server architecture, similar to Docker. The daemon runs on your machine and manages your coding agents. Clients (the mobile app, CLI, or web interface) connect to the daemon to monitor and control those agents.
-
-Your code never leaves your machine. Paseo is a local-first tool that connects directly to your development environment.
+Pimi runs a daemon on your machine to manage coding agents. The desktop app, mobile app, and CLI connect to that daemon. Pimi stores workspace data locally. Configured AI providers and integrations can receive data when you use them.
 
 ## Architecture
 
-The Paseo daemon can run anywhere you want to execute agents: your laptop, a Mac Mini, a VPS, or a Docker container. The daemon listens for connections and manages agent lifecycles.
+The daemon can run wherever you execute agents, including a laptop, Mac mini, VPS, or container.
 
 Clients connect to the daemon over WebSocket. There are two ways to establish this connection:
 
@@ -44,7 +42,13 @@ Keep the pairing QR code and link private. Anyone with the link can control a pa
 
 When a daemon password is configured, relay clients send it in the encrypted `hello` message, so the relay never sees it. The daemon rejects a relay client that sends a wrong password or none, so a leaked pairing link alone does not grant access to a password-protected daemon.
 
-## Provider traffic
+## Network activity
+
+Relay pairing and provider quota polling are opt-in. Pimi checks GitHub for desktop releases when automatic updates are enabled. Voice model downloads start when you request them in Settings.
+
+Remote Markdown images appear as links. Loading a Spaces preview sends the saved video, post, or paper ID to its publisher. The desktop app uses a separate session for those previews and strips cookies and credentials from their requests. Android scans pairing QR codes on-device and ships without the Google scanner and Firebase push stack.
+
+### Provider traffic
 
 Pimi disables Claude Code metrics, error reports, quality surveys, and automatic marketplace installation. Standard Codex and Copilot launches disable built-in client telemetry, and Copilot launches also disable session history sync to GitHub. Custom Codex and Copilot launch commands and explicitly configured exporters use their own settings. Model requests still go to the provider you select and follow that provider's data policy.
 
@@ -78,15 +82,9 @@ Paseo validates the `Host` header on every HTTP request and every WebSocket upgr
 
 ## HTML file preview
 
-Previewing an `.html` file in the file pane renders it as a page, so markup an agent wrote — or markup that arrived with a repo you cloned — executes when you open it. The preview is built to contain that, not to trust it.
+The preview can run a file’s inline scripts inside a sandbox. Its content security policy blocks remote subresources, forms, nested frames, and network APIs. Pimi Desktop blocks a preview’s attempts to navigate in the Electron main process. Android disables WebView network loads in native code.
 
-The document loads with an opaque origin and a policy that permits inline script and style and refuses everything else: no remote script, font, image, or media; no `fetch`, XHR, WebSocket, or beacon; no form posts; no plugins; no nested frames. It has no access to Paseo's DOM, and storage and cookie APIs throw inside it rather than returning anything. It cannot navigate the top window, and it cannot open popups. It cannot read any file but itself.
-
-One gap remains on web and desktop: a sandboxed document may navigate _itself_, and no CSP directive in current browsers prevents that. `navigate-to` was dropped from CSP Level 3 and is not enforced, and `<meta http-equiv="refresh">` needs no script at all. A hostile page can therefore reach a server by navigating away, carrying data available inside the preview, such as its own contents, browser and device properties, user input inside the page, and your IP address. It cannot read Paseo, another file, storage, or cookies.
-
-Native builds narrow this gap rather than closing it outright. The WebView refuses every navigation after the initial document, but that decision is made in the app's JavaScript, and on Android the WebView falls back to allowing a navigation when the decision doesn't come back in time. Treat it as a strong mitigation, not a guarantee: if the JS thread is stalled at the moment a page navigates, the same leak is possible there too.
-
-If you don't trust a page, read it in `Source`, which executes nothing. Source is available as an editable view on supported web hosts and a read-only view everywhere else.
+In a regular web browser, a preview can still navigate its own frame to an external URL. This can send data available inside the preview, such as its own contents and your IP address. Use **Source** to read HTML without running it.
 
 ## Agent authentication
 

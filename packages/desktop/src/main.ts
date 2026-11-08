@@ -64,7 +64,6 @@ import {
   setupWindowResizeEvents,
   setupWindowStatePersistence,
   setupDefaultContextMenu,
-  setupDragDropPrevention,
   buildStandardContextMenuItems,
 } from "./window/window-manager.js";
 import { setupDarwinCompositorWatchdog } from "./window/compositor-watchdog/index.js";
@@ -145,6 +144,50 @@ import { getForgeDefinition } from "@getpaseo/protocol/forge-manifest";
 
 const DEV_SERVER_URL = process.env.EXPO_DEV_URL ?? "http://localhost:8081";
 const APP_SCHEME = "paseo";
+const CONSOLE_URL = app.isPackaged ? `${APP_SCHEME}://app/` : new URL(DEV_SERVER_URL).href;
+
+function isConsoleUrl(value: string): boolean {
+  const url = URL.parse(value);
+  const consoleUrl = new URL(CONSOLE_URL);
+  return Boolean(
+    url &&
+    url.protocol === consoleUrl.protocol &&
+    url.host === consoleUrl.host &&
+    !url.username &&
+    !url.password,
+  );
+}
+
+function setupPimiSessionPermissions(): void {
+  const consoleSession = session.defaultSession;
+  consoleSession.setPermissionCheckHandler((contents, permission, origin, details) => {
+    if (
+      !details.isMainFrame ||
+      !isConsoleUrl(details.requestingUrl || origin || contents?.getURL() || "")
+    )
+      return false;
+    return (
+      permission === "clipboard-sanitized-write" ||
+      (permission === "media" && details.mediaType !== "video")
+    );
+  });
+  consoleSession.setPermissionRequestHandler((_contents, permission, reply, details) => {
+    const trusted = details.isMainFrame && isConsoleUrl(details.requestingUrl);
+    reply(
+      trusted &&
+        (permission === "clipboard-sanitized-write" ||
+          (permission === "media" &&
+            "mediaTypes" in details &&
+            details.mediaTypes?.length === 1 &&
+            details.mediaTypes[0] === "audio")),
+    );
+  });
+  const browserSession = session.fromPartition(PASEO_BROWSER_PROFILE_PARTITION);
+  browserSession.setPermissionCheckHandler(() => false);
+  browserSession.setPermissionRequestHandler((_contents, _permission, reply) => reply(false));
+  browserSession.setDevicePermissionHandler(() => false);
+  consoleSession.setDevicePermissionHandler(() => false);
+}
 const PASEO_DEBUG = process.env.PASEO_DEBUG === "1";
 const DISABLE_SINGLE_INSTANCE_LOCK = process.env.PASEO_DISABLE_SINGLE_INSTANCE_LOCK === "1";
 const PIMI_DESKTOP = process.env.PIMI_DESKTOP === "1" || app.getName() === "Pimi";
@@ -775,11 +818,7 @@ function openPimi(destination?: PimiDestination, preferred?: BrowserWindow): voi
 function registerPimiWorkspaceNavigation(): void {
   function isConsoleFrame(event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent): boolean {
     const frame = event.senderFrame;
-    if (!frame || frame !== event.sender.mainFrame) return false;
-    const url = new URL(frame.url);
-    return app.isPackaged
-      ? url.protocol === `${APP_SCHEME}:` && url.host === "app"
-      : url.origin === new URL(DEV_SERVER_URL).origin;
+    return Boolean(frame && frame === event.sender.mainFrame && isConsoleUrl(frame.url));
   }
   ipcMain.handle("pimi:appearance:set", async (event, mode: unknown) => {
     if (!isConsoleFrame(event)) throw new Error("Open Pimi Settings to change appearance.");
@@ -957,11 +996,14 @@ async function createWindow(
     webPreferences: {
       preload: getPreloadPath(),
       additionalArguments: [
+        `--paseo-console-url=${CONSOLE_URL}`,
         windowChromeModeArgument(DESKTOP_WINDOW_CHROME_MODE),
         ...(PIMI_DESKTOP ? [pimiAppearanceArgument()] : []),
       ],
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
+      ...(PIMI_DESKTOP && { spellcheck: process.platform === "darwin" }),
       webviewTag: true,
     },
   });
@@ -999,7 +1041,26 @@ async function createWindow(
     setupWindowStatePersistence(mainWindow, windowStateStore);
   }
   setupDefaultContextMenu(mainWindow);
-  setupDragDropPrevention(mainWindow);
+  mainWindow.webContents.on("will-frame-navigate", (event) => {
+    if (event.isMainFrame) {
+      if (!isConsoleUrl(event.url)) event.preventDefault();
+      return;
+    }
+    const source = URL.parse(event.url);
+    const isLocalDocument =
+      source?.protocol === "data:" ||
+      source?.protocol === "blob:" ||
+      event.url === "about:srcdoc" ||
+      event.url === "about:blank";
+    // The console can supply a local preview. The preview cannot change its own document.
+    if (!isLocalDocument || event.initiator !== mainWindow.webContents.mainFrame) {
+      event.preventDefault();
+    }
+  });
+  mainWindow.webContents.on("will-redirect", (event) => {
+    if (!event.isMainFrame || !isConsoleUrl(event.url)) event.preventDefault();
+  });
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   mainWindow.webContents.on("will-attach-webview", (event, webPreferences, params) => {
     if (!isPaseoBrowserWebviewAttach(params)) {
       event.preventDefault();
@@ -1015,6 +1076,7 @@ async function createWindow(
     webPreferences.webSecurity = true;
     webPreferences.webviewTag = false;
     webPreferences.allowRunningInsecureContent = false;
+    if (PIMI_DESKTOP) webPreferences.spellcheck = false;
     delete webPreferences.preload;
     delete params.preload;
     delete (webPreferences as { preloadURL?: string }).preloadURL;
@@ -1194,10 +1256,12 @@ async function bootstrap(): Promise<void> {
   }
 
   await app.whenReady();
+  if (PIMI_DESKTOP) setupPimiSessionPermissions();
 
   const appDistDir = getAppDistDir();
   protocol.handle(APP_SCHEME, (request) => {
-    const { pathname, search, hash } = new URL(request.url);
+    const { host, username, password, pathname, search, hash } = new URL(request.url);
+    if (host !== "app" || username || password) return new Response("Not found", { status: 404 });
     const decodedPath = decodeURIComponent(pathname);
 
     // Chromium can occasionally request the exported entrypoint directly.

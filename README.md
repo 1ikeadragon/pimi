@@ -88,7 +88,7 @@ npm run pimi:package:mac
 
 On Windows, run `npm run pimi:package:win` after `npm ci`. Builds land in `packages/desktop/release-pimi/`. The macOS app is ad-hoc signed. The Windows installer is unsigned.
 
-[Dev setup and audit notes](pimi/README.md)
+[Dev setup](pimi/README.md) · [Security and network activity](SECURITY.md)
 
 ## Credits
 

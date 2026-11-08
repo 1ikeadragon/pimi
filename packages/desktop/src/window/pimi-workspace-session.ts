@@ -9,20 +9,25 @@ import {
   PIMI_VIDEO_EMBED_ORIGIN,
 } from "@getpaseo/protocol/pimi-task";
 
-const videoAssetHosts = [
-  "youtube-nocookie.com",
-  "youtube.com",
-  "googlevideo.com",
-  "ytimg.com",
-  "gstatic.com",
-];
-
-function videoAsset(url: URL): boolean {
-  return (
-    url.protocol === "https:" &&
-    !url.port &&
-    videoAssetHosts.some((host) => url.hostname === host || url.hostname.endsWith(`.${host}`))
-  );
+function videoAsset(url: URL, method: string, resource: string): boolean {
+  if (url.protocol !== "https:" || url.port || url.username || url.password) return false;
+  const { hostname, pathname } = url;
+  if (["www.youtube-nocookie.com", "www.youtube.com"].includes(hostname)) {
+    if (resource === "xhr" && method === "POST") return pathname === "/youtubei/v1/player";
+    return (
+      method === "GET" &&
+      ["script", "stylesheet", "image"].includes(resource) &&
+      pathname.startsWith("/s/player/")
+    );
+  }
+  if (hostname.endsWith(".googlevideo.com")) {
+    return method === "GET" && ["media", "xhr"].includes(resource) && pathname === "/videoplayback";
+  }
+  if (method !== "GET") return false;
+  if (["i.ytimg.com", "i9.ytimg.com"].includes(hostname)) {
+    return resource === "image" && /^\/(?:vi|vi_webp|sb)\//.test(pathname);
+  }
+  return hostname === "fonts.gstatic.com" && resource === "font" && pathname.startsWith("/s/");
 }
 
 function xAsset(url: URL, frameUrl: URL, method: string, resource: string): boolean {
@@ -42,7 +47,10 @@ function xAsset(url: URL, frameUrl: URL, method: string, resource: string): bool
     case "https://abs-0.twimg.com":
       return resource === "image" && url.pathname.startsWith("/emoji/");
     case "https://pbs.twimg.com":
-      return resource === "image";
+      return (
+        resource === "image" &&
+        /^\/(?:media|profile_images|ext_tw_video_thumb|amplify_video_thumb)\//.test(url.pathname)
+      );
     default:
       return false;
   }
@@ -105,6 +113,12 @@ function arxivAsset(url: URL, frameUrl: URL, method: string, resource: string): 
   );
 }
 
+function publisherAsset(url: URL, frameUrl: URL, method: string, resource: string): boolean {
+  if (isPimiXEmbed(frameUrl)) return xAsset(url, frameUrl, method, resource);
+  if (isPimiArxivEmbed(frameUrl)) return arxivAsset(url, frameUrl, method, resource);
+  return isPimiVideoEmbed(frameUrl) && videoAsset(url, method, resource);
+}
+
 export function createPimiWorkspaceSession(origin: string): Electron.Session {
   // Keep publishers out of the Agent Console and Browser's persistent sessions.
   const isolated = session.fromPartition("pimi-workspace", { cache: false });
@@ -133,7 +147,13 @@ export function createPimiWorkspaceSession(origin: string): Electron.Session {
     if (!url) return reply({ cancel: true });
     if (details.resourceType === "mainFrame") return reply({ cancel: url.origin !== origin });
     if (details.resourceType === "subFrame") {
-      return reply({ cancel: details.method !== "GET" || !isPimiSpaceEmbed(url) });
+      const parentUrl = details.frame?.parent?.url;
+      return reply({
+        cancel:
+          details.method !== "GET" ||
+          !isPimiSpaceEmbed(url) ||
+          Boolean(parentUrl && URL.parse(parentUrl)?.origin !== origin),
+      });
     }
     const frame = details.frame;
     const frameUrl = frame && URL.parse(frame.url);
@@ -141,44 +161,25 @@ export function createPimiWorkspaceSession(origin: string): Electron.Session {
       const fromConsole = frame && !frame.parent && frameUrl?.origin === origin;
       return reply({ cancel: !fromConsole });
     }
-    if (frameUrl && isPimiXEmbed(frameUrl)) {
-      return reply({ cancel: !xAsset(url, frameUrl, details.method, details.resourceType) });
-    }
-    if (frameUrl && isPimiArxivEmbed(frameUrl)) {
-      return reply({ cancel: !arxivAsset(url, frameUrl, details.method, details.resourceType) });
-    }
-    reply({ cancel: !frameUrl || !isPimiVideoEmbed(frameUrl) || !videoAsset(url) });
+    reply({
+      cancel: !frameUrl || !publisherAsset(url, frameUrl, details.method, details.resourceType),
+    });
   });
 
-  isolated.webRequest.onBeforeSendHeaders(
-    {
-      urls: [
-        `${PIMI_VIDEO_EMBED_ORIGIN}/embed/*`,
-        `${PIMI_ARXIV_EMBED_ORIGIN}/*`,
-        `${arxivStaticOrigin}/*`,
-      ],
-    },
-    (details, reply) => {
-      const url = URL.parse(details.url);
-      if (url?.origin === PIMI_ARXIV_EMBED_ORIGIN || url?.origin === arxivStaticOrigin) {
-        const requestHeaders = Object.fromEntries(
-          Object.entries(details.requestHeaders).filter(
-            ([key]) => !["authorization", "cookie", "referer"].includes(key.toLowerCase()),
-          ),
-        );
-        reply({ requestHeaders });
-      } else if (details.resourceType === "subFrame" && url && isPimiVideoEmbed(url)) {
-        // Identify the desktop app to YouTube without exposing the local workspace URL.
-        const headers = Object.fromEntries(
-          Object.entries(details.requestHeaders).filter(([key]) => key.toLowerCase() !== "referer"),
-        );
-        headers.Referer = "https://com.pimi.desktop/";
-        reply({ requestHeaders: headers });
-      } else {
-        reply({});
-      }
-    },
-  );
+  isolated.webRequest.onBeforeSendHeaders(network, (details, reply) => {
+    const url = URL.parse(details.url);
+    if (!url || url.origin === origin) return reply({});
+    const requestHeaders = Object.fromEntries(
+      Object.entries(details.requestHeaders).filter(
+        ([key]) => !["authorization", "cookie", "referer"].includes(key.toLowerCase()),
+      ),
+    );
+    if (details.resourceType === "subFrame" && isPimiVideoEmbed(url)) {
+      // YouTube requires an embed referrer. Never send the local workspace URL.
+      requestHeaders.Referer = "https://com.pimi.desktop/";
+    }
+    reply({ requestHeaders });
+  });
 
   const reportPaperUnavailable = (
     details: Electron.OnHeadersReceivedListenerDetails | Electron.OnErrorOccurredListenerDetails,
@@ -188,10 +189,15 @@ export function createPimiWorkspaceSession(origin: string): Electron.Session {
       contents.send("pimi:workspace:paper-unavailable", details.url);
     }
   };
-  isolated.webRequest.onHeadersReceived(arxivDocumentFilter, (details, reply) => {
+  isolated.webRequest.onHeadersReceived(network, (details, reply) => {
     const url = URL.parse(details.url);
-    if (details.resourceType !== "subFrame" || !url || !isPimiArxivEmbed(url)) return reply({});
-    const headers = Object.entries(details.responseHeaders ?? {});
+    if (!url || url.origin === origin) return reply({});
+    const headers = Object.entries(details.responseHeaders ?? {}).filter(
+      ([key]) => key.toLowerCase() !== "set-cookie",
+    );
+    const responseHeaders = Object.fromEntries(headers);
+    if (details.resourceType !== "subFrame" || !isPimiArxivEmbed(url))
+      return reply({ responseHeaders });
     const contentType = headers.find(([key]) => key.toLowerCase() === "content-type")?.[1][0];
     if (details.statusCode !== 200 || !/^text\/html(?:;|$)/i.test(contentType ?? "")) {
       // Reject redirects and alternate content before a frame can navigate or render.
@@ -199,7 +205,6 @@ export function createPimiWorkspaceSession(origin: string): Electron.Session {
       return reply({ cancel: true });
     }
     const policy = headers.find(([key]) => key.toLowerCase() === "content-security-policy");
-    const responseHeaders = Object.fromEntries(headers);
     responseHeaders[policy?.[0] ?? "Content-Security-Policy"] = [
       ...(policy?.[1] ?? []),
       arxivDocumentCsp,

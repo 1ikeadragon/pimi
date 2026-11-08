@@ -23,6 +23,21 @@ import type {
 // with PASEO_BROWSER_PROFILE_PARTITION in features/browser-profile.ts; preload-sandbox.test.ts
 // guards both the no-local-import rule and this drift. Type-only imports are fine (erased at emit).
 const PASEO_BROWSER_PROFILE_PARTITION = "persist:paseo-browser";
+const consoleUrlPrefix = "--paseo-console-url=";
+const expectedConsole = process.argv.find((argument) => argument.startsWith(consoleUrlPrefix));
+const expected = expectedConsole && URL.parse(expectedConsole.slice(consoleUrlPrefix.length));
+const documentUrl = URL.parse(globalThis.location.href);
+if (
+  !process.isMainFrame ||
+  !expected ||
+  !documentUrl ||
+  expected.protocol !== documentUrl.protocol ||
+  expected.host !== documentUrl.host ||
+  documentUrl.username ||
+  documentUrl.password
+) {
+  throw new Error("The desktop bridge is only available in the app console.");
+}
 
 type EventHandler = (payload: unknown) => void;
 

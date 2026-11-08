@@ -163,6 +163,11 @@
   border-bottom: 1px solid var(--line);
   background: var(--surface);
 }
+
+.spaces-load-preview {
+  align-self: flex-start;
+  margin: 0 12px 6px;
+}
 .spaces-embed[data-embed-kind="youtube"] {
   min-height: 200px;
   aspect-ratio: 16 / 9;
