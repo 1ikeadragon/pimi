@@ -14,6 +14,7 @@ import { DESKTOP_TRAFFIC_LIGHT_WIDTH, HEADER_INNER_HEIGHT } from "@/constants/la
 import { useHasWindowChromeObstruction, WindowChromeRegion } from "@/utils/desktop-window";
 import { getDesktopHost, usesPimiMacTitlebar } from "./host";
 import { usePimiReportLinks } from "./use-pimi-report-links";
+import { PimiNavigationHistory } from "./pimi-navigation-history";
 
 export const PIMI_CONSOLE_CONTENT_ID = "pimi-console-content";
 const fill = { flex: 1 } as const;
@@ -37,10 +38,12 @@ export function PimiConsoleContent({
   usePimiReportLinks();
   const host = getDesktopHost();
   const publishBounds = host?.setPimiContentBounds;
-  const covered = usePimiWorkspaceSection() !== null;
+  const section = usePimiWorkspaceSection();
+  const covered = section !== null;
+  const hasHistoryBar = Boolean(host?.showPimiWorkspace) && pathname !== "/";
   const macTitlebar = usesPimiMacTitlebar();
   const hasTopLeftControls = useHasWindowChromeObstruction("top-left");
-  const topInset = macTitlebar && hasTopLeftControls ? HEADER_INNER_HEIGHT : 0;
+  const topInset = !hasHistoryBar && macTitlebar && hasTopLeftControls ? HEADER_INNER_HEIGHT : 0;
   const [leftOffset, setLeftOffset] = useState(0);
   const previousPath = useRef(pathname);
 
@@ -90,13 +93,25 @@ export function PimiConsoleContent({
       {children}
     </View>
   );
-  if (!macTitlebar) return console;
-  const ownsTopLeft = leftOffset < DESKTOP_TRAFFIC_LIGHT_WIDTH;
+  if (!macTitlebar && !hasHistoryBar) return console;
+  const ownsTopLeft = macTitlebar && leftOffset < DESKTOP_TRAFFIC_LIGHT_WIDTH;
+  const consoleCorners = ownsTopLeft ? "both" : "top-right";
+  const historyPadding =
+    ownsTopLeft && hasTopLeftControls ? DESKTOP_TRAFFIC_LIGHT_WIDTH - leftOffset : 0;
   return (
     <View style={fill}>
+      {hasHistoryBar ? (
+        <View
+          style={[styles.historyBar, { paddingLeft: historyPadding }]}
+          testID="pimi-titlebar-history"
+        >
+          <TitlebarDragRegion />
+          <PimiNavigationHistory pathname={pathname} section={section} />
+        </View>
+      ) : null}
       <WindowChromeRegion
-        corners={ownsTopLeft ? "both" : "top-right"}
-        topLeftOffset={ownsTopLeft ? leftOffset : 0}
+        corners={hasHistoryBar ? "none" : consoleCorners}
+        topLeftOffset={!hasHistoryBar && ownsTopLeft ? leftOffset : 0}
       >
         {console}
       </WindowChromeRegion>
@@ -110,6 +125,13 @@ export function PimiConsoleContent({
 }
 
 const styles = StyleSheet.create((theme) => ({
+  historyBar: {
+    position: "relative",
+    height: HEADER_INNER_HEIGHT,
+    alignItems: "flex-start",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surfaceSidebar,
+  },
   titlebar: {
     position: "absolute",
     top: 0,
