@@ -37,6 +37,7 @@ import {
 } from "./git.mjs";
 import { labelRecord, labelsAt, projectLinkedLabels } from "./linked-labels.mjs";
 import { createPaseoConnection } from "./paseo.mjs";
+import { createHostedReview } from "./hosted-review.mjs";
 import { createPullRequests } from "./pull-requests.mjs";
 import { createTasks } from "./tasks.mjs";
 import { generateTour } from "./walkthrough.mjs";
@@ -659,10 +660,13 @@ export async function startPimi({
       throw new RequestError("Invalid review selection.");
     }
     const worktree = worktrees.get(path) ?? reviewWorktrees.get(path);
-    if (!worktree || worktree.unavailable) {
+    if (path && (!worktree || worktree.unavailable)) {
       throw new RequestError("Select an available worktree from the board.", 404);
     }
-    const review = await createReview(worktree, { baseRef, prUrl, mode });
+    if (!path && !prUrl) throw new RequestError("Choose a local checkout or a GitHub PR URL.");
+    const review = path
+      ? await createReview(worktree, { baseRef, prUrl, mode })
+      : await createHostedReview(prUrl);
     const id = randomUUID();
     reviews.set(id, {
       ...review,
@@ -710,6 +714,7 @@ export async function startPimi({
   }
 
   async function editorsFor(review) {
+    if (review.hosted) return [];
     review.editors ??= Promise.resolve(listEditors(review.worktree.path)).catch((error) => {
       delete review.editors;
       throw error;
