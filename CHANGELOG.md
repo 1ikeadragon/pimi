@@ -2,6 +2,13 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.2 - 2026-11-09
+
+- Desktop views share the same title bar. Use Back and Forward to return to a view you just visited.
+- Hover over Usage to see provider limits. Open it to see limits first, then active sessions and Recap.
+- Chats and workspaces get automatic names by default. You can turn this off in Settings, and Pimi keeps names you edit.
+- Added Sakura Glass and Cel Night appearances.
+
 ## 0.17.1 - 2026-11-08
 
 - An explicit daemon home takes precedence over environment defaults when starting the daemon.
