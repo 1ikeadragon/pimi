@@ -2,6 +2,11 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.3 - 2026-11-09
+
+- Updated Electron, the HTTP request parser, and other dependencies with security fixes.
+- Removed an obsolete web deploy command and updated standalone example dependencies.
+
 ## 0.17.2 - 2026-11-09
 
 - Desktop views share the same title bar. Use Back and Forward to return to a view you just visited.
