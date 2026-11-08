@@ -24,6 +24,8 @@ const close = (
 
 function selectWorkspaceSummary(workspace: WorkspaceDescriptor) {
   return {
+    name: workspace.name,
+    workspaceKind: workspace.workspaceKind,
     status: workspace.status,
     currentBranch: workspace.gitRuntime?.currentBranch ?? null,
     diffStat: workspace.diffStat,
@@ -76,6 +78,8 @@ function WorkspaceCard({ placement }: { placement: SidebarWorkspacePlacement }) 
   );
   const connection = useHostRuntimeConnectionStatus(placement.serverId);
   const branch = summary?.currentBranch?.trim();
+  const name = summary?.name ?? "Workspace";
+  const workspaceKind = summary?.workspaceKind ?? placement.workspaceKind;
   const status = summary?.status.replaceAll("_", " ") ?? "Status unavailable";
   const diff = summary?.diffStat;
   const connectionText = describeConnection(connection);
@@ -102,13 +106,13 @@ function WorkspaceCard({ placement }: { placement: SidebarWorkspacePlacement }) 
             {placement.projectName}
           </Text>
           <Text style={styles.name} numberOfLines={1}>
-            {placement.name}
+            {name}
           </Text>
         </View>
       </View>
       <Text style={styles.metadata}>
-        {branch || placement.workspaceKind}
-        {branch ? ` · ${placement.workspaceKind}` : ""}
+        {branch || workspaceKind}
+        {branch ? ` · ${workspaceKind}` : ""}
         {` · ${connectionText}`}
       </Text>
       <Text style={styles.metadata}>

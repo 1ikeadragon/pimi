@@ -98,9 +98,7 @@ function AgentGrid() {
     () =>
       agents
         .filter((agent) => filter === "all" || isActiveAgent(agent))
-        .toSorted(
-          (a, b) => b.createdAt.getTime() - a.createdAt.getTime() || a.id.localeCompare(b.id),
-        ),
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || a.id.localeCompare(b.id)),
     [agents, filter],
   );
   const pageSize = columns * ROWS;
