@@ -374,6 +374,16 @@ export const PASEO_TOOL_CATALOG = {
     detail: { inputOrder: ["provider", "cwd", "settings"] },
   },
 
+  search_pimi_spaces: {
+    label: "Search Spaces",
+    completedLabel: "Searched Spaces",
+    context: field("query"),
+  },
+  read_pimi_space_item: {
+    label: "Read Spaces card",
+    completedLabel: "Read Spaces card",
+  },
+
   // Browser
   browser_list_tabs: browser("List browser tabs", "Listed browser tabs"),
   browser_new_tab: browser("Open browser tab", "Opened browser tab", field("url")),

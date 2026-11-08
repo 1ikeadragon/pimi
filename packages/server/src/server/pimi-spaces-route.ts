@@ -7,6 +7,7 @@ import {
   SpaceInputError,
   SpaceItemId,
   SpaceNote,
+  SpaceSearchQuery,
   type PimiSpaces,
 } from "./pimi-spaces.js";
 
@@ -20,6 +21,7 @@ const imageSignatures = {
 
 const input = z.discriminatedUnion("action", [
   z.strictObject({ action: z.literal("list") }),
+  z.strictObject({ action: z.literal("search"), query: SpaceSearchQuery }),
   z.strictObject({ action: z.literal("add-note"), text: SpaceNote }),
   z.strictObject({ action: z.literal("edit-note"), id: SpaceItemId, text: SpaceNote }),
   z.strictObject({ action: z.literal("remove"), id: SpaceItemId }),
@@ -50,6 +52,11 @@ export function createPimiSpacesHandler(
         case "list":
           res.json({ items: await spaces.list() });
           return;
+        case "search": {
+          const result = await spaces.search(body.query);
+          res.json({ items: result.items.map(({ card }) => card), mode: result.mode });
+          return;
+        }
         case "add-note":
           res.json({ item: await spaces.addNote(body.text) });
           return;

@@ -5,7 +5,41 @@
   margin: 0;
 }
 
+.spaces-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.spaces-controls input {
+  width: clamp(125px, 24vw, 240px);
+}
+
+.spaces-copy-feedback {
+  position: absolute;
+  z-index: 2;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--canvas);
+  box-shadow: var(--control-shadow);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.spaces-copy-feedback .glyph {
+  color: var(--muted);
+}
+
 .spaces-board {
+  position: relative;
   min-height: 400px;
   padding: clamp(13px, 2vw, 22px);
   border: 1px solid var(--line);

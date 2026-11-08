@@ -51,6 +51,7 @@ function githubRepository(url) {
 export function createSpacesView({ $, api, button, element, message }) {
   const section = $("spaces");
   const grid = $("spaces-items");
+  const searchInput = $("spaces-search");
   const editor = $("spaces-card-dialog");
   const confirmation = $("spaces-remove-dialog");
   const form = $("spaces-card-form");
@@ -64,6 +65,11 @@ export function createSpacesView({ $, api, button, element, message }) {
   let suspended = false;
   let busy = false;
   let ready = false;
+  let searchTimer;
+  let searchGeneration = 0;
+  let searchPending = false;
+  let copyTimer;
+  let feedback;
   const sources = new WeakMap();
   const unavailablePapers = new Set();
 
@@ -131,6 +137,9 @@ export function createSpacesView({ $, api, button, element, message }) {
 
   function showEmpty() {
     $("spaces-empty").hidden = !ready || grid.childElementCount > 0;
+    $("spaces-empty-text").textContent = searchInput.value.trim()
+      ? "No matching cards."
+      : "Your cards will appear here.";
   }
 
   function setBusy(value) {
@@ -152,6 +161,7 @@ export function createSpacesView({ $, api, button, element, message }) {
       message(editor.open ? errorId : "spaces-error", error.message);
     } finally {
       setBusy(false);
+      if (searchPending) queueSearch();
     }
   }
 
@@ -160,7 +170,13 @@ export function createSpacesView({ $, api, button, element, message }) {
       await navigator.clipboard.writeText("space:" + id);
       control.classList.add("spaces-copied");
       control.setAttribute("aria-label", "Copied");
-      message("spaces-status", "Reference copied.");
+      clearTimeout(copyTimer);
+      if (feedback) feedback.hidden = true;
+      feedback = $(editor.open ? "spaces-card-copy-feedback" : "spaces-copy-feedback");
+      feedback.hidden = false;
+      copyTimer = setTimeout(() => {
+        feedback.hidden = true;
+      }, 1800);
       setTimeout(() => {
         control.classList.remove("spaces-copied");
         control.setAttribute("aria-label", "Copy reference");
@@ -265,6 +281,7 @@ export function createSpacesView({ $, api, button, element, message }) {
     const slot = node?.querySelector(".spaces-embed");
     if (slot) observer.unobserve(slot);
     node?.remove();
+    if (searchInput.value.trim()) searchPending = true;
   }
 
   function insert(item) {
@@ -280,14 +297,39 @@ export function createSpacesView({ $, api, button, element, message }) {
     if (suspended) return resume();
     active = true;
     return run(async () => {
-      const { items } = await api("spaces", { action: "list" });
-      ready = true;
       unavailablePapers.clear();
-      grid.replaceChildren(...items.map(card));
-      updateEmbedVisibility();
-      showEmpty();
+      await loadCards();
     });
   }
+
+  async function loadCards() {
+    const generation = ++searchGeneration;
+    const query = searchInput.value.trim();
+    const result = await api("spaces", query ? { action: "search", query } : { action: "list" });
+    if (!active || generation !== searchGeneration || query !== searchInput.value.trim()) return;
+    ready = true;
+    grid.replaceChildren(...result.items.map(card));
+    updateEmbedVisibility();
+    showEmpty();
+  }
+
+  function queueSearch() {
+    clearTimeout(searchTimer);
+    searchGeneration++;
+    searchPending = busy;
+    if (!active || busy) return;
+    searchTimer = setTimeout(async () => {
+      const generation = searchGeneration + 1;
+      try {
+        message("spaces-error", "");
+        await loadCards();
+      } catch (error) {
+        if (active && generation === searchGeneration) message("spaces-error", error.message);
+      }
+    }, 180);
+  }
+
+  searchInput.addEventListener("input", queueSearch);
 
   document.addEventListener("paste", (event) => {
     if (
@@ -390,6 +432,9 @@ export function createSpacesView({ $, api, button, element, message }) {
     resume,
     suspend() {
       active = false;
+      clearTimeout(searchTimer);
+      searchGeneration++;
+      searchPending = false;
       updateEmbedVisibility();
       if (!editor.open) return;
       confirmation.close();

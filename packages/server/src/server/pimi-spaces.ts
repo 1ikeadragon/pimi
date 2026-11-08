@@ -6,10 +6,12 @@ import pLimit from "p-limit";
 import { z } from "zod";
 import { parsePimiSpaceUrl, pimiSpaceEmbed } from "@getpaseo/protocol/pimi-task";
 import { writePrivateFileAtomic } from "./private-files.js";
+import { SpacesSearch } from "./pimi-spaces-search.js";
 
 const MAX_CARDS = 200;
 export const SpaceItemId = z.uuid();
 export const SpaceNote = z.string().max(65536).regex(/\S/, "Enter a note.");
+export const SpaceSearchQuery = z.string().trim().min(1).max(160);
 export const SpaceImageType = z.enum(["image/png", "image/jpeg", "image/webp"]);
 type ImageType = z.infer<typeof SpaceImageType>;
 
@@ -28,7 +30,7 @@ interface ItemFile {
   mime: ImageType | null;
   link: boolean;
 }
-type SpaceCard = { id: string; updatedAt: string } & (
+export type SpaceCard = { id: string; updatedAt: string } & (
   | { kind: "note"; text: string }
   | { kind: "image"; mime: ImageType }
   | { kind: "link"; url: string; embedUrl: string | null }
@@ -47,6 +49,7 @@ export class PimiSpaces {
   private readonly root: string;
   private readonly serialize = pLimit(1);
   private readonly listIO = pLimit(8);
+  private readonly searchIndex = new SpacesSearch();
 
   constructor(paseoHome: string) {
     this.root = path.join(paseoHome, "spaces");
@@ -83,6 +86,10 @@ export class PimiSpaces {
         (a, b) => b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id),
       );
     });
+  }
+
+  async search(query: string, limit = MAX_CARDS) {
+    return this.searchIndex.search(await this.list(), query, limit);
   }
 
   private async card(file: ItemFile): Promise<SpaceCard> {
