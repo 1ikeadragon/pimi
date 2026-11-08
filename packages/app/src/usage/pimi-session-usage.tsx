@@ -51,8 +51,11 @@ function sessionName(agent: AggregatedAgent): string {
 }
 
 function contextPercent(usage: Agent["lastUsage"]): number | null {
-  if (usage?.contextWindowMaxTokens == null || usage.contextWindowUsedTokens == null) return null;
-  return getUsagePercentage(usage.contextWindowMaxTokens, usage.contextWindowUsedTokens);
+  if (usage?.contextWindowMaxTokens != null && usage.contextWindowUsedTokens != null) {
+    return getUsagePercentage(usage.contextWindowMaxTokens, usage.contextWindowUsedTokens);
+  }
+  const report = usage?.contextBreakdown;
+  return report ? getUsagePercentage(report.capacityTokens, report.usedTokens) : null;
 }
 
 export function PimiSessionUsage() {
@@ -210,8 +213,7 @@ function useSessionCompactionCount(serverId: string, agentId: string) {
 }
 
 function SessionDetail({ agent }: { agent: AggregatedAgent }) {
-  const { i18n, t } = useTranslation();
-  const compactions = useSessionCompactionCount(agent.serverId, agent.id);
+  const { i18n } = useTranslation();
   const { usage, model } = useSessionStore(
     useShallow((state) => {
       const current = state.sessions[agent.serverId]?.agents.get(agent.id);
@@ -231,14 +233,6 @@ function SessionDetail({ agent }: { agent: AggregatedAgent }) {
       workspaceId: agent.workspaceId,
     });
   }, [agent.id, agent.serverId, agent.workspaceId]);
-  const percent = contextPercent(usage);
-  const colors = useCallback(
-    (theme: Theme) => ({
-      progressColor: getProgressColor(percent ?? 0, theme),
-      trackColor: theme.colors.surface3,
-    }),
-    [percent],
-  );
   const number = useMemo(
     () => new Intl.NumberFormat(i18n.resolvedLanguage),
     [i18n.resolvedLanguage],
@@ -252,8 +246,6 @@ function SessionDetail({ agent }: { agent: AggregatedAgent }) {
       }),
     [i18n.resolvedLanguage],
   );
-  const used = usage?.contextWindowUsedTokens;
-  const capacity = usage?.contextWindowMaxTokens;
   const counts = [
     { name: "Input", value: usage?.inputTokens },
     { name: "Cache read", value: usage?.cachedInputTokens },
@@ -264,25 +256,6 @@ function SessionDetail({ agent }: { agent: AggregatedAgent }) {
     value === undefined ? [] : [{ name, value: number.format(value) }],
   );
   if (cost !== undefined) reported.push({ name: "Reported cost", value: currency.format(cost) });
-  let contextLabel = t("contextWindow.noData");
-  if (used !== undefined && capacity !== undefined) {
-    contextLabel = t("contextWindow.tokens", {
-      used: number.format(used),
-      max: number.format(capacity),
-    });
-  } else if (used !== undefined) {
-    contextLabel = `${number.format(used)} tokens used · capacity unavailable`;
-  } else if (capacity !== undefined) {
-    contextLabel = `${number.format(capacity)} token capacity · usage unavailable`;
-  }
-  let compactionLabel = "Compactions unavailable";
-  if (typeof compactions.data === "number") {
-    const label = compactions.data === 1 ? "compaction" : "compactions";
-    compactionLabel = `${number.format(compactions.data)} ${label} recorded`;
-  } else if (compactions.isLoading) {
-    compactionLabel = "Counting compactions…";
-  }
-
   return (
     <View style={styles.detail} testID="pimi-usage-context">
       <View style={styles.detailHeader}>
@@ -301,29 +274,7 @@ function SessionDetail({ agent }: { agent: AggregatedAgent }) {
           Open chat
         </Button>
       </View>
-      <View style={styles.context}>
-        <View style={styles.ring}>
-          <ContextWindowRing
-            size={RING_SIZE}
-            radius={(RING_SIZE - RING_STROKE) / 2}
-            strokeWidth={RING_STROKE}
-            percentage={percent}
-            uniProps={colors}
-          />
-          <View style={styles.ringLabel}>
-            <Text style={styles.percent}>
-              {percent === null ? "—" : formatContextPercentage(percent, i18n.resolvedLanguage)}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.contextCopy}>
-          <Text style={styles.rowName}>{t("contextWindow.title")}</Text>
-          <Text style={styles.muted}>{contextLabel}</Text>
-          <Text style={styles.muted} testID="pimi-usage-compaction-count">
-            {compactionLabel}
-          </Text>
-        </View>
-      </View>
+      <SessionContext agent={agent} usage={usage} number={number} />
       {reported.length > 0 ? (
         <>
           <Text style={styles.reportCaption}>Latest reported usage</Text>
@@ -340,6 +291,80 @@ function SessionDetail({ agent }: { agent: AggregatedAgent }) {
       {agent.provider === "claude" ? (
         <ContextBreakdown report={usage?.contextBreakdown} number={number} />
       ) : null}
+    </View>
+  );
+}
+
+function contextEstimate(usage: Agent["lastUsage"]) {
+  if (usage?.contextWindowUsedTokens != null && usage.contextWindowMaxTokens != null) return null;
+  return usage?.contextBreakdown ?? null;
+}
+
+function SessionContext({
+  agent,
+  usage,
+  number,
+}: {
+  agent: AggregatedAgent;
+  usage: Agent["lastUsage"];
+  number: Intl.NumberFormat;
+}) {
+  const { i18n, t } = useTranslation();
+  const compactions = useSessionCompactionCount(agent.serverId, agent.id);
+  const percent = contextPercent(usage);
+  const colors = useCallback(
+    (theme: Theme) => ({
+      progressColor: getProgressColor(percent ?? 0, theme),
+      trackColor: theme.colors.surface3,
+    }),
+    [percent],
+  );
+  const estimate = contextEstimate(usage);
+  const used = estimate?.usedTokens ?? usage?.contextWindowUsedTokens;
+  const capacity = estimate?.capacityTokens ?? usage?.contextWindowMaxTokens;
+  let contextLabel = t("contextWindow.noData");
+  if (used !== undefined && capacity !== undefined) {
+    contextLabel = t("contextWindow.tokens", {
+      used: number.format(used),
+      max: number.format(capacity),
+    });
+    if (estimate) contextLabel += " · estimate";
+  } else if (used !== undefined) {
+    contextLabel = `${number.format(used)} tokens used · capacity unavailable`;
+  } else if (capacity !== undefined) {
+    contextLabel = `${number.format(capacity)} token capacity · usage unavailable`;
+  }
+  let compactionLabel = "Compactions unavailable";
+  if (typeof compactions.data === "number") {
+    const label = compactions.data === 1 ? "compaction" : "compactions";
+    compactionLabel = `${number.format(compactions.data)} ${label} recorded`;
+  } else if (compactions.isLoading) {
+    compactionLabel = "Counting compactions…";
+  }
+
+  return (
+    <View style={styles.context}>
+      <View style={styles.ring}>
+        <ContextWindowRing
+          size={RING_SIZE}
+          radius={(RING_SIZE - RING_STROKE) / 2}
+          strokeWidth={RING_STROKE}
+          percentage={percent}
+          uniProps={colors}
+        />
+        <View style={styles.ringLabel}>
+          <Text style={styles.percent}>
+            {percent === null ? "—" : formatContextPercentage(percent, i18n.resolvedLanguage)}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.contextCopy}>
+        <Text style={styles.rowName}>{t("contextWindow.title")}</Text>
+        <Text style={styles.muted}>{contextLabel}</Text>
+        <Text style={styles.muted} testID="pimi-usage-compaction-count">
+          {compactionLabel}
+        </Text>
+      </View>
     </View>
   );
 }
