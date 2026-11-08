@@ -19,6 +19,7 @@ const daemon = await createTestPaseoDaemon({
 const client = new DaemonClient({ url: `ws://127.0.0.1:${daemon.port}/ws` });
 try {
   await client.connect();
+  await client.patchDaemonConfig({ usage: { enabled: true } });
   if (mode === "directory") {
     for (const source of sources) {
       await client.installDirectoryPlugin(path.join(resolveBuiltinPluginsRoot(), source), source);
