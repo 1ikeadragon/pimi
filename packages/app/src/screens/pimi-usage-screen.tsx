@@ -22,8 +22,8 @@ import { isPimiAndroid } from "@/utils/pimi-mobile";
 
 type UsageTab = "sessions" | "limits" | "recap";
 const tabs: SegmentedControlOption<UsageTab>[] = [
-  { value: "sessions", label: "Sessions" },
   { value: "limits", label: "Provider limits" },
+  { value: "sessions", label: "Sessions" },
   { value: "recap", label: "Recap" },
 ];
 const PIMI_BACKGROUND = { "pimi-background": "" };
@@ -36,7 +36,7 @@ const close = (
 export function PimiUsageScreen() {
   const focused = useIsFocused();
   const covered = usePimiWorkspaceSection() !== null;
-  const [tab, setTab] = useState<UsageTab>("sessions");
+  const [tab, setTab] = useState<UsageTab>("limits");
   const {
     tab: requestedTab,
     session,
@@ -49,8 +49,11 @@ export function PimiUsageScreen() {
     agentId?: string;
   }>();
   useEffect(() => {
-    if (requestedTab === "limits" || requestedTab === "sessions") setTab(requestedTab);
-    if (requestedTab === "recap" && !isPimiAndroid()) setTab(requestedTab);
+    if (requestedTab === "sessions" || (requestedTab === "recap" && !isPimiAndroid())) {
+      setTab(requestedTab);
+    } else {
+      setTab("limits");
+    }
   }, [requestedTab, session, serverId, agentId]);
   const visibleTabs = isPimiAndroid() ? tabs.filter((option) => option.value !== "recap") : tabs;
 
