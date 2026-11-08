@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.16.2 - 2026-11-08
+
+### Added
+
+- Pimi checks its own GitHub releases and verifies installer digests before an update. On macOS, choose Install and restart. On Windows, Pimi can apply a downloaded update when it quits.
+- Install and update bundled skills from Library. Hooks shows the installed status of Claude Code, Codex, and OpenCode terminal hooks and lets you install, repair, or remove them.
+- Show or hide the Pimi voice command button from Chat settings.
+
+### Improved
+
+- Reorganized Settings around Pimi, the selected host, and system preferences. About links to Pimi’s releases and repository.
+
 ## 0.16.1 - 2026-11-08
 
 ### Improved
