@@ -3,6 +3,7 @@ import type { BrowserKeyboardPolicy } from "./features/browser-keyboard/index.js
 import type { DesktopWindowChromeMode } from "./window/chrome.js";
 import type { PimiAppearance, PimiContentBounds, PimiDestination } from "./window/pimi-window.js";
 import type {
+  PimiLinkedLabels,
   PimiReportLinkTarget,
   PimiReportLinkError,
   PimiReviewSummary,
@@ -113,6 +114,14 @@ contextBridge.exposeInMainWorld("paseoDesktop", {
         dismissPimiWorkspace: () => ipcRenderer.send("pimi:workspace:dismiss"),
         setPimiContentBounds: (bounds: PimiContentBounds) =>
           ipcRenderer.send("pimi:workspace:content-bounds", bounds),
+        pimiLabels: {
+          get: (): Promise<PimiLinkedLabels> => ipcRenderer.invoke("pimi:labels:get"),
+          subscribe: (listener: () => void) => {
+            const onChange = () => listener();
+            ipcRenderer.on("pimi:labels:changed", onChange);
+            return () => ipcRenderer.removeListener("pimi:labels:changed", onChange);
+          },
+        },
         pimiWorkspaceSection: {
           get: () => workspaceSection,
           subscribe: (listener: () => void) => {

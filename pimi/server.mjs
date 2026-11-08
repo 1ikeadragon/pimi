@@ -35,6 +35,7 @@ import {
   RequestError,
   worktreeFacts,
 } from "./git.mjs";
+import { labelRecord, labelsAt, projectLinkedLabels } from "./linked-labels.mjs";
 import { createPaseoConnection } from "./paseo.mjs";
 import { createTasks } from "./tasks.mjs";
 import { generateTour } from "./walkthrough.mjs";
@@ -157,6 +158,15 @@ export async function startPimi({
   }
   let saveTask = Promise.resolve();
   const eventClients = new Set();
+  const labelListeners = new Set();
+  let labelProjection;
+  let labelTask;
+  let labelRevision = 0;
+  function invalidateLabels() {
+    labelProjection = undefined;
+    labelRevision++;
+    for (const listener of labelListeners) listener();
+  }
   const reconcileInterval = 5000;
   let reconcileTimer;
   let heartbeatTimer;
@@ -170,6 +180,7 @@ export async function startPimi({
     getInventory,
     onChange() {
       broadcast("tasks");
+      invalidateLabels();
       invalidateInventory();
     },
   });
@@ -276,7 +287,45 @@ export async function startPimi({
       });
     }, 250);
   }
-  const unsubscribePaseo = paseo.subscribe(invalidateInventory);
+  const unsubscribePaseo = paseo.subscribe((event) => {
+    invalidateInventory(event);
+    if (event.labels) invalidateLabels();
+    if (event.labelUpdate) {
+      void tasks.updateCatalogLabel(event.labelUpdate)?.catch((error) => {
+        console.error("Pimi could not update task labels:", error.message);
+      });
+    }
+  });
+
+  async function getLinkedLabels() {
+    if (labelProjection) return labelProjection;
+    if (!labelTask) {
+      const revision = labelRevision;
+      labelTask = paseo
+        .workspaceDirectory()
+        .then(({ serverId, workspaces }) => {
+          const { workspaceLabels, agentLabels } = projectLinkedLabels(
+            tasks.list().tasks,
+            workspaces,
+            serverId,
+          );
+          return {
+            serverId,
+            workspaces: labelRecord(workspaceLabels),
+            agents: labelRecord(agentLabels),
+          };
+        })
+        .finally(() => {
+          labelTask = undefined;
+        })
+        .then((result) => {
+          if (revision !== labelRevision) return getLinkedLabels();
+          labelProjection = result;
+          return result;
+        });
+    }
+    return labelTask;
+  }
 
   function openEvents(request, response) {
     if (eventClients.size >= 32)
@@ -370,6 +419,11 @@ export async function startPimi({
     for (const [path, worktree] of reviewWorktrees) {
       if (!listed.has(path)) listed.set(path, worktree);
     }
+    const { taskLabels, workspaceLabels, checkoutLabels } = projectLinkedLabels(
+      tasks.list().tasks,
+      daemon.workspaces,
+      daemon.serverId,
+    );
     const byWorkspaceId = new Map(daemon.workspaces.map((workspace) => [workspace.id, workspace]));
     const byPath = new Map();
     for (const workspace of daemon.workspaces) {
@@ -411,6 +465,10 @@ export async function startPimi({
             reviewOnly,
             workspaceId: workspace?.id,
             labels: workspace?.labels ?? [],
+            linkedLabels: [
+              ...labelsAt(workspaceLabels, workspace?.id),
+              ...labelsAt(checkoutLabels, worktree.path),
+            ],
             prUrl: workspace?.openPrUrl,
             previews: workspace?.previews,
           });
@@ -426,6 +484,7 @@ export async function startPimi({
       serverId: daemon.serverId,
       labels: labelResult.labels,
       labelsError: labelResult.error,
+      taskLabels: labelRecord(taskLabels),
       cards,
       repositories: watchedRoots.map((path) => ({
         path,
@@ -860,6 +919,11 @@ export async function startPimi({
     origin,
     appearance: appearance.read(),
     prepareChatReview,
+    getLinkedLabels,
+    subscribeToLabels(listener) {
+      labelListeners.add(listener);
+      return () => labelListeners.delete(listener);
+    },
     async resolveReportLink(request) {
       tasks.reportText(request.taskId, request.reportId);
       const task = tasks.list().tasks.find((item) => item.id === request.taskId);
@@ -883,6 +947,7 @@ export async function startPimi({
     close: () => {
       closed = true;
       unsubscribePaseo();
+      labelListeners.clear();
       clearInterval(reconcileTimer);
       clearInterval(heartbeatTimer);
       clearTimeout(updateTimer);

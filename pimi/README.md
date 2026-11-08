@@ -4,12 +4,12 @@ See the [main README](../README.md) for the demo, features, and macOS build.
 
 ## Development
 
-Run `npm run build:server` and then `npm run pimi:desktop`. Use the sidebar or **File → Show Pimi Workspace** to switch layouts in the current window. The workspace toolbar can move the same view into its own window and back. The packaged app uses the normal Paseo daemon home and settings. Set `PASEO_HOME` and `PASEO_LISTEN` before launching the executable to use a separate daemon and state directory.
+Run `npm run build:server` and then `npm run pimi:desktop`. Use the sidebar or **File → Show Pimi Workspace** to switch layouts in the current window. The packaged app uses the normal Paseo daemon home and settings. Set `PASEO_HOME` and `PASEO_LISTEN` before launching the executable to use a separate daemon and state directory.
 
 ## Tasks
 
 - The board derives the automatic task stage from its work items. Managed work is ready for review when its agent report arrives; linked checkouts use Git and agent activity. Manual stage overrides persist in the task record. Done closes a task; moving it out of Done reopens it.
-- Tasks and Work use the shared Paseo label catalog. Work assignments are Paseo workspace labels; tasks store label-name references. If a catalog label is renamed or deleted, its old task reference stays visible and removable. Manage label definitions in Paseo.
+- Tasks, linked worktrees, and their chats show shared labels. A label stays editable where it was assigned. Manage the catalog from a workspace’s Labels menu. Pimi picks up catalog renames and removals while connected. If you rename a label while Pimi is closed, update its task assignments when you reopen it.
 - Chat is the default worker workspace. Agents can write artifacts in their own folders and optionally reference an attached repository. Choose Git worktree when agents should edit a repository from its pinned commit.
 - **Suggest 2 drafts** sends the brief to the selected provider and saves the suggestions for review. **Start agents** makes a short model check without the brief, then starts up to four drafts in parallel. Each draft keeps its launch identity for retries.
 - **Dictate brief** opens a small control at the bottom of Tasks and uses Agent Console’s existing dictation flow and configured speech provider. Insert puts editable text in the brief; closing the draft or leaving Tasks cancels the recording.

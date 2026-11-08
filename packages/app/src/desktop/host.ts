@@ -4,6 +4,7 @@ import type { BrowserKeyboardPolicy } from "@/keyboard";
 import type { SessionInboundMessage, SessionOutboundMessage } from "@getpaseo/protocol/messages";
 import type {
   PimiDestination,
+  PimiLinkedLabels,
   PimiReportLinkTarget,
   PimiReportLinkError,
   PimiReviewSummary,
@@ -200,6 +201,10 @@ export interface DesktopHostBridge {
     height: number;
     sidebar: boolean;
   }) => void;
+  pimiLabels?: {
+    get: () => Promise<PimiLinkedLabels>;
+    subscribe: (listener: () => void) => () => void;
+  };
   pimiWorkspaceSection?: {
     get: () => PimiWorkspaceSection | null;
     subscribe: (listener: () => void) => () => void;

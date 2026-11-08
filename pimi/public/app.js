@@ -203,7 +203,15 @@ function renderBoard(data) {
   const cardsMatchingQuery = data.cards.filter(
     (card) =>
       !card.reviewOnly &&
-      (matchesSearch(query, card.repo, card.name, card.branch, card.path, ...(card.labels ?? [])) ||
+      (matchesSearch(
+        query,
+        card.repo,
+        card.name,
+        card.branch,
+        card.path,
+        ...(card.labels ?? []),
+        ...(card.linkedLabels ?? []),
+      ) ||
         card.agents.some((agent) => matchesSearch(query, describeAgent(agent)))),
   );
   const otherAgents = data.otherAgents.filter((agent) =>
@@ -236,7 +244,7 @@ function renderBoard(data) {
           element("span", "card-agent", describeAgent(agent, card.name)),
         ),
       );
-      item.append(open, labelChips(card.labels, data.labels));
+      item.append(open, labelChips(card.labels, data.labels, card.linkedLabels));
       if (card.workspaceId)
         item.append(
           labelPicker({

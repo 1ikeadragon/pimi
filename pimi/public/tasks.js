@@ -134,13 +134,18 @@ export function createTasksView({
         progress: taskProgress(task, cardFor, agentFor),
         repositories: repositoriesFor(task).map(({ root }) => root),
         pending: stageRequests.has(task.id),
-        labels: labelChips(task.labels, inventory.labels),
-        labelSignature: JSON.stringify([task.labels, inventory.labels]),
+        linkedLabels: inventory.taskLabels?.[task.id] ?? [],
+        labels: labelChips(task.labels, inventory.labels, inventory.taskLabels?.[task.id]),
+        labelSignature: JSON.stringify([
+          task.labels,
+          inventory.labels,
+          inventory.taskLabels?.[task.id],
+        ]),
       }))
       .filter(
-        ({ task, progress, repositories }) =>
+        ({ task, progress, repositories, linkedLabels }) =>
           (!attentionOnly || (!task.done && progress.attention)) &&
-          `${task.title} ${task.brief} ${(task.labels ?? []).join(" ")} ${repositories.join(" ")}`
+          `${task.title} ${task.brief} ${[...(task.labels ?? []), ...linkedLabels].join(" ")} ${repositories.join(" ")}`
             .toLowerCase()
             .includes(query),
       );
@@ -160,8 +165,14 @@ export function createTasksView({
     }
   }
 
-  function renderLabels(container, names = [], onChange) {
-    const signature = JSON.stringify([names, inventory.labels, inventory.labelsError, selectedId]);
+  function renderLabels(container, names = [], onChange, linked = []) {
+    const signature = JSON.stringify([
+      names,
+      linked,
+      inventory.labels,
+      inventory.labelsError,
+      selectedId,
+    ]);
     if (container.dataset.labels === signature) return;
     container.dataset.labels = signature;
     const wasOpen = container.querySelector("details")?.open;
@@ -169,7 +180,7 @@ export function createTasksView({
       ? document.activeElement.value
       : undefined;
     container.replaceChildren(
-      labelChips(names, inventory.labels),
+      labelChips(names, inventory.labels, linked),
       labelPicker({
         names,
         catalog: inventory.labels,
@@ -587,12 +598,17 @@ export function createTasksView({
     $("task-title").textContent = task.title;
     $("task-brief").textContent = task.brief;
     renderReports(task);
-    renderLabels($("task-labels"), task.labels, async (labels) => {
-      const updated = await api("tasks/save", { id: task.id, labels });
-      tasks = tasks.map((entry) => (entry.id === updated.id ? updated : entry));
-      renderList();
-      renderDetails();
-    });
+    renderLabels(
+      $("task-labels"),
+      task.labels,
+      async (labels) => {
+        const updated = await api("tasks/save", { id: task.id, labels });
+        tasks = tasks.map((entry) => (entry.id === updated.id ? updated : entry));
+        renderList();
+        renderDetails();
+      },
+      inventory.taskLabels?.[task.id],
+    );
     const managed = task.experiments.filter((item) => item.launch);
     const reports = managed.filter((item) => item.reportSource === "agent").length;
     const progress = managed.length ? `${reports} of ${managed.length} agent reports ready` : "";

@@ -3,6 +3,7 @@ import React, { createContext, useContext, useEffect, useMemo, type ReactNode } 
 import { getParentAddressFromLabels } from "@getpaseo/protocol/agent-labels";
 import { PIMI_TASK_WORKER_LABEL } from "@getpaseo/protocol/pimi-task";
 import { useShallow } from "zustand/react/shallow";
+import { usePimiLinkedLabels } from "@/desktop/pimi-labels";
 import { getDesktopHost } from "@/desktop/host";
 import { useSessionStore, type Agent } from "@/stores/session-store";
 import {
@@ -173,6 +174,7 @@ export function SidebarModelProvider({
     list.workspacePlacements,
     modelActive || needsWorkspaceEntries,
   );
+  const linkedLabels = usePimiLinkedLabels();
   const filteredWorkspaceEntriesByKey = useMemo(() => {
     const byProject = filterWorkspacesByProjects({
       workspaces: [...workspaceEntriesByKey.values()],
@@ -181,9 +183,13 @@ export function SidebarModelProvider({
     const filtered = filterWorkspacesByLabels({
       workspaces: byProject.filter((workspace) => showBackground || !workspace.background),
       ...labelFilter,
+      linkedLabels: (workspace) =>
+        linkedLabels?.serverId === workspace.serverId
+          ? linkedLabels.workspaces[workspace.workspaceId]
+          : undefined,
     });
     return new Map(filtered.map((workspace) => [workspace.workspaceKey, workspace]));
-  }, [showBackground, labelFilter, resolvedProjectFilters, workspaceEntriesByKey]);
+  }, [showBackground, labelFilter, linkedLabels, resolvedProjectFilters, workspaceEntriesByKey]);
   const visibleWorkspaceKeys = useMemo(
     () => new Set(filteredWorkspaceEntriesByKey.keys()),
     [filteredWorkspaceEntriesByKey],

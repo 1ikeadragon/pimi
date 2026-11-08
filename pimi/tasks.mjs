@@ -185,11 +185,12 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
     }
   }
 
-  function update(change) {
+  function update(change, { skipUnchanged = false } = {}) {
     const next = tail.then(async () => {
       if (readError) throw new RequestError(readError, 503);
       const draft = structuredClone(state);
-      const result = change(draft);
+      const result = await change(draft);
+      if (skipUnchanged && !result) return result;
       if (file) {
         await mkdir(dirname(file), { recursive: true });
         await writeFile(file + ".tmp", JSON.stringify(draft), { mode: 0o600 });
@@ -201,6 +202,31 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
     });
     tail = next.catch(() => undefined);
     return next;
+  }
+
+  function updateCatalogLabel(event) {
+    const previousName = event.kind === "remove" ? event.name : event.previousName;
+    if (!previousName) return;
+    const key = workspaceLabelKey(previousName);
+    return update(
+      (draft) => {
+        let changed = false;
+        for (const task of draft) {
+          if (!task.labels?.some((name) => workspaceLabelKey(name) === key)) continue;
+          const replacement = event.kind === "remove" ? [] : [event.label.name];
+          task.labels = [
+            ...new Set(
+              task.labels.flatMap((name) =>
+                workspaceLabelKey(name) === key ? replacement : [name],
+              ),
+            ),
+          ];
+          changed = true;
+        }
+        return changed;
+      },
+      { skipUnchanged: true },
+    );
   }
 
   async function repositoryBase(root) {
@@ -242,7 +268,6 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
     const { proposal, ...fields } = input;
     const existing = proposal && state.find((task) => task.id === proposal.id);
     if (existing) return existing;
-    fields.labels = await validateLabels(fields.labels);
     const base = await repositoryBase(input.root);
     const task = {
       ...fields,
@@ -256,9 +281,10 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
         makeExperiment(idea, null, input.root),
       ),
     };
-    return update((draft) => {
+    return update(async (draft) => {
       const alreadySaved = draft.find((entry) => entry.id === task.id);
       if (alreadySaved) return alreadySaved;
+      task.labels = await validateLabels(task.labels);
       draft.unshift(task);
       return task;
     });
@@ -279,10 +305,10 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
 
   async function save(body) {
     const { id, ...input } = readInput(taskFields.partial().extend({ id: z.uuid() }), body);
-    if (input.labels !== undefined)
-      input.labels = await validateLabels(input.labels, getTask(state, id).labels);
-    return update((draft) => {
+    return update(async (draft) => {
       const task = getTask(draft, id);
+      if (input.labels !== undefined)
+        input.labels = await validateLabels(input.labels, task.labels);
       if (input.mode !== undefined && running.has(id))
         throw new RequestError("Wait for the current task operation to finish.", 409);
       if (input.done && running.has(id)) throw new RequestError("Wait for launch to finish.", 409);
@@ -341,14 +367,14 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
         "Specify a title, brief, mode, labels, stage, or repository to change.",
       );
     const current = getTask(state, id);
-    if (fields.labels !== undefined)
-      fields.labels = await validateLabels(fields.labels, current.labels);
     const base =
       repository && !current.repositories.some(({ root }) => root === repository)
         ? await repositoryBase(repository)
         : null;
-    return update((draft) => {
+    return update(async (draft) => {
       const task = getTask(draft, id);
+      if (fields.labels !== undefined)
+        fields.labels = await validateLabels(fields.labels, task.labels);
       if (fields.mode !== undefined && running.has(id))
         throw new RequestError("Wait for the current task operation to finish.", 409);
       if (base && !task.repositories.some(({ root }) => root === repository)) {
@@ -627,6 +653,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
     listForAgent,
     getForAgent,
     updateFromAgent,
+    updateCatalogLabel,
     create,
     attachRepository,
     assignRepository,

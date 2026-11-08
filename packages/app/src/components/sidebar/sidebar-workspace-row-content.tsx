@@ -34,6 +34,7 @@ import {
   ARCHIVE_BUTTON_SIZE,
   SidebarWorkspaceArchiveButton,
 } from "@/components/sidebar/sidebar-workspace-menu";
+import { PimiAgentLabels, usePimiLabelNames } from "@/desktop/pimi-labels";
 import { useWorkspaceLabelDefinitions } from "@/workspace-labels";
 import { usePimiTaskBranches } from "./sidebar-model";
 import { getDesktopHost } from "@/desktop/host";
@@ -153,6 +154,11 @@ function PimiTaskBranchRow({
           {worker.title || workspace.name}
         </Text>
       </PressHighlight>
+      <PimiAgentLabels
+        serverId={worker.serverId}
+        workspaceId={worker.workspaceId}
+        agentId={worker.id}
+      />
       <PimiTaskBranchRows workspaceKey={workspace.workspaceKey} />
     </View>
   );
@@ -196,7 +202,8 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
   const workspaceLabel = resolveSidebarWorkspacePrimaryLabel({ workspace, workspaceTitleSource });
   // The workspace carries label names; their colors live in its host's catalog, so the row is
   // where the two meet — the meta line is handed finished definitions.
-  const labels = useWorkspaceLabelDefinitions(workspace.serverId, workspace.labels);
+  const names = usePimiLabelNames(workspace.serverId, workspace.workspaceId, workspace.labels);
+  const labels = useWorkspaceLabelDefinitions(workspace.serverId, names);
   const workspaceBranchTextStyle = useMemo(
     () => [
       styles.workspaceBranchText,
