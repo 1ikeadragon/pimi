@@ -515,7 +515,7 @@ function AboutSection({ appVersion, appVersionText, isDesktopApp }: AboutSection
             <Text style={styles.aboutValue}>{appVersionText}</Text>
           </View>
           <WhatsNewRow />
-          {isDesktopApp && !isPimi ? <DesktopAppUpdateRow /> : null}
+          {isDesktopApp ? <DesktopAppUpdateRow isPimi={isPimi} /> : null}
         </View>
       </SettingsSection>
       <ConnectedHostsSection clientVersion={appVersion} />
@@ -670,7 +670,7 @@ function getUpdateButtonLabel(
   return t("settings.about.updates.update");
 }
 
-function DesktopAppUpdateRow() {
+function DesktopAppUpdateRow({ isPimi }: { isPimi: boolean }) {
   const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
   const {
@@ -715,17 +715,31 @@ function DesktopAppUpdateRow() {
     [t],
   );
 
+  const manualInstall = availableUpdate?.manualInstall === true;
   const handleInstallUpdate = useCallback(() => {
     if (!isDesktopApp) {
       return;
     }
 
-    void confirmDialog({
-      title: t("settings.about.updates.installTitle"),
-      message: t("settings.about.updates.installMessage"),
-      confirmLabel: t("settings.about.updates.installConfirm"),
-      cancelLabel: t("common.actions.cancel"),
-    })
+    const installCopy = isPimi
+      ? {
+          title: "Update Pimi?",
+          message: "Pimi will close to install the update, then reopen.",
+          confirmLabel: "Install and restart",
+        }
+      : {
+          title: t("settings.about.updates.installTitle"),
+          message: t("settings.about.updates.installMessage"),
+          confirmLabel: t("settings.about.updates.installConfirm"),
+        };
+    const copy = manualInstall
+      ? {
+          title: "Open the Pimi installer?",
+          message: "Quit Pimi and replace the app in Applications after the disk image opens.",
+          confirmLabel: "Open installer",
+        }
+      : installCopy;
+    void confirmDialog({ ...copy, cancelLabel: t("common.actions.cancel") })
       .then((confirmed) => {
         if (!confirmed) {
           return;
@@ -740,10 +754,14 @@ function DesktopAppUpdateRow() {
           t("settings.about.updates.alertMessage"),
         );
       });
-  }, [installUpdate, isDesktopApp, t]);
+  }, [installUpdate, isDesktopApp, isPimi, manualInstall, t]);
 
   const isUpdateReady = availableUpdate?.readyToInstall === true;
   const readyUpdateVersion = isUpdateReady ? availableUpdate?.latestVersion : null;
+  const installLabel =
+    manualInstall && !isInstalling
+      ? "Open installer"
+      : getUpdateButtonLabel(t, isInstalling, readyUpdateVersion);
 
   if (!isDesktopApp) {
     return null;
@@ -751,19 +769,21 @@ function DesktopAppUpdateRow() {
 
   return (
     <>
-      <View style={[settingsStyles.row, settingsStyles.rowBorder]}>
-        <View style={settingsStyles.rowContent}>
-          <Text style={settingsStyles.rowTitle}>{t("settings.about.releaseChannel.label")}</Text>
-          <Text style={settingsStyles.rowHint}>
-            {t("settings.about.releaseChannel.description")}
-          </Text>
+      {!isPimi ? (
+        <View style={[settingsStyles.row, settingsStyles.rowBorder]}>
+          <View style={settingsStyles.rowContent}>
+            <Text style={settingsStyles.rowTitle}>{t("settings.about.releaseChannel.label")}</Text>
+            <Text style={settingsStyles.rowHint}>
+              {t("settings.about.releaseChannel.description")}
+            </Text>
+          </View>
+          <SegmentedControl
+            value={settings.releaseChannel}
+            onValueChange={handleReleaseChannelChange}
+            options={releaseChannelOptions}
+          />
         </View>
-        <SegmentedControl
-          value={settings.releaseChannel}
-          onValueChange={handleReleaseChannelChange}
-          options={releaseChannelOptions}
-        />
-      </View>
+      ) : null}
       <View style={[settingsStyles.row, settingsStyles.rowBorder]}>
         <View style={settingsStyles.rowContent}>
           <Text style={settingsStyles.rowTitle}>{t("settings.about.updates.label")}</Text>
@@ -790,7 +810,7 @@ function DesktopAppUpdateRow() {
             onPress={handleInstallUpdate}
             disabled={isChecking || isInstalling || !isUpdateReady}
           >
-            {getUpdateButtonLabel(t, isInstalling, readyUpdateVersion)}
+            {installLabel}
           </Button>
         </View>
       </View>
