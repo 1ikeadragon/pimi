@@ -1331,7 +1331,7 @@ export const fr: TranslationResources = {
     sections: {
       sessions: "Historique",
       search: "Recherche",
-      schedules: "Planifications",
+      schedules: "Automatisations",
     },
     worktreeSetup: {
       title: "Configurer les scripts de worktree",

@@ -26,6 +26,7 @@ import {
 } from "@/provider-selection/resolve-agent-form";
 import { buildProviderDefinitions } from "@/utils/provider-definitions";
 import { shortenPath } from "@/utils/shorten-path";
+import type { AutomationTemplate } from "./automation-templates";
 import { normalizeScheduleFormCadence } from "./schedule-cadence-options";
 import { PROJECT_OPTION_PREFIX, type ScheduleProjectTarget } from "./schedule-project-targets";
 
@@ -49,6 +50,7 @@ export interface ScheduleFormSnapshot {
     projectTargets: readonly ScheduleProjectTarget[];
     preferences?: FormPreferences;
     timezone?: string;
+    template?: AutomationTemplate;
   };
 }
 
@@ -629,6 +631,21 @@ function updateDerivedState(input: {
   return { ...nextState, disclosure, canSubmit: resolveCanSubmit({ ...nextState, disclosure }) };
 }
 
+function buildInitialDraft(snapshot: ScheduleFormSnapshot) {
+  const template = snapshot.mode === "create" ? snapshot.defaults.template : undefined;
+  const cadence = normalizeScheduleFormCadence(
+    snapshot.schedule?.cadence ?? template?.cadence ?? DEFAULT_CADENCE,
+    snapshot.defaults.timezone ?? DEFAULT_TIMEZONE,
+  );
+  return {
+    name: snapshot.schedule?.name ?? template?.name ?? "",
+    prompt: snapshot.schedule?.prompt ?? template?.prompt ?? "",
+    maxRuns: formatInitialMaxRuns(snapshot.schedule),
+    cadence,
+    submitCadence: resolveInitialSubmitCadence(snapshot.schedule, cadence),
+  };
+}
+
 function buildInitialState(snapshot: ScheduleFormSnapshot): ScheduleFormState {
   const selectedServerId = resolveInitialServerId(snapshot);
   const config = newAgentConfig(snapshot.schedule);
@@ -644,21 +661,13 @@ function buildInitialState(snapshot: ScheduleFormSnapshot): ScheduleFormState {
     selectedServerId,
     workingDir,
   });
-  const initialCadence = normalizeScheduleFormCadence(
-    snapshot.schedule?.cadence ?? DEFAULT_CADENCE,
-    snapshot.defaults.timezone ?? DEFAULT_TIMEZONE,
-  );
   const initialModel = config?.model ?? "";
   const initialMode = config?.modeId ?? "";
   const initialThinking = config?.thinkingOptionId ?? "";
   const state: ScheduleFormState = {
     mode: snapshot.mode,
     targetKind,
-    name: snapshot.schedule?.name ?? "",
-    prompt: snapshot.schedule?.prompt ?? "",
-    maxRuns: formatInitialMaxRuns(snapshot.schedule),
-    cadence: initialCadence,
-    submitCadence: resolveInitialSubmitCadence(snapshot.schedule, initialCadence),
+    ...buildInitialDraft(snapshot),
     hosts: [...snapshot.hosts],
     projectOptions: buildProjectOptions(snapshot.defaults.projectTargets, selectedServerId),
     selectedServerId,

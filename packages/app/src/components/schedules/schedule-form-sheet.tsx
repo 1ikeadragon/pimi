@@ -44,6 +44,7 @@ import { useProjects } from "@/hooks/use-projects";
 import { useHosts } from "@/runtime/host-runtime";
 import { useSessionStore } from "@/stores/session-store";
 import { buildScheduleProjectTargets } from "@/schedules/schedule-project-targets";
+import type { AutomationTemplate } from "@/schedules/automation-templates";
 import { useScheduleFormModel } from "@/schedules/use-schedule-form-model";
 import { useScheduleFormProviderSnapshot } from "@/schedules/use-schedule-form-provider-snapshot";
 import type {
@@ -63,6 +64,7 @@ export interface ScheduleFormSheetProps {
   onClose: () => void;
   mode: "create" | "edit";
   schedule?: ScheduleSummary;
+  template?: AutomationTemplate;
 }
 
 function parseMaxRuns(raw: string): number | null {
@@ -74,7 +76,7 @@ function requireCronCadence(
   cadence: Extract<ScheduleCadence, { type: "cron" }> | undefined,
 ): Extract<ScheduleCadence, { type: "cron" }> {
   if (!cadence) {
-    throw new Error("Choose a cron cadence before creating this schedule");
+    throw new Error("Choose a cron cadence before creating this automation");
   }
   return cadence;
 }
@@ -108,7 +110,7 @@ function openKey(props: ScheduleFormSheetProps): string {
   if (props.mode === "edit") {
     return `edit:${props.serverId ?? ""}:${props.schedule?.id ?? ""}`;
   }
-  return `create:${props.serverId ?? ""}`;
+  return `create:${props.serverId ?? ""}:${props.template?.id ?? ""}`;
 }
 
 function selectScheduleHosts(
@@ -131,6 +133,7 @@ function buildSnapshot(input: {
   projectTargets: ReturnType<typeof buildScheduleProjectTargets>;
   preferences: FormPreferences;
   timezone: string;
+  template?: AutomationTemplate;
 }): ScheduleFormSnapshot {
   const schedule = input.schedule
     ? { ...input.schedule, serverId: input.serverId, serverName: undefined }
@@ -148,6 +151,7 @@ function buildSnapshot(input: {
       projectTargets: input.projectTargets,
       preferences: input.preferences,
       timezone: input.timezone,
+      template: input.template,
     },
   };
 }
@@ -237,6 +241,7 @@ function OpenScheduleFormSheet({
   onDismiss,
   mode,
   schedule,
+  template,
 }: ScheduleFormSheetProps & { onDismiss: () => void }): ReactElement {
   const controlSize: ControlSize = "md";
   const { projects } = useProjects();
@@ -259,8 +264,9 @@ function OpenScheduleFormSheet({
         projectTargets,
         preferences,
         timezone,
+        template,
       }),
-    [hosts, mode, preferences, projectTargets, schedule, serverId, timezone],
+    [hosts, mode, preferences, projectTargets, schedule, serverId, timezone, template],
   );
   const model = useScheduleFormModel(snapshot);
   const state = useSyncExternalStore(model.subscribe, model.getState, model.getState);
@@ -401,9 +407,9 @@ function OpenScheduleFormSheet({
 
   const header = useMemo<SheetHeader>(() => {
     if (mode !== "edit") {
-      return { title: "New schedule" };
+      return { title: "New automation" };
     }
-    return { title: schedule?.target.type === "agent" ? "Edit heartbeat" : "Edit schedule" };
+    return { title: schedule?.target.type === "agent" ? "Edit heartbeat" : "Edit automation" };
   }, [mode, schedule?.target.type]);
 
   const footer = useMemo(
@@ -425,7 +431,7 @@ function OpenScheduleFormSheet({
           loading={isSubmitting}
           testID="schedule-form-submit"
         >
-          {mode === "edit" ? "Save changes" : "Create schedule"}
+          {mode === "edit" ? "Save changes" : "Create automation"}
         </Button>
       </View>
     ),
@@ -494,7 +500,7 @@ function ScheduleFormFields({
         <FormTextInput
           size={controlSize}
           testID="schedule-name-input"
-          accessibilityLabel="Schedule name"
+          accessibilityLabel="Automation name"
           initialValue={state.name}
           onChangeText={model.setName}
           placeholder="Optional"
@@ -518,6 +524,13 @@ function ScheduleFormFields({
         />
       </Field>
 
+      <CadenceEditor
+        value={state.cadence}
+        onChange={model.setCadence}
+        error={cadenceError ?? undefined}
+        size={controlSize}
+      />
+
       <ScheduleTargetFields
         model={model}
         state={state}
@@ -525,13 +538,6 @@ function ScheduleFormFields({
         agentTargetLabel={null}
         controlSize={controlSize}
         mutationServerId={mutationServerId}
-      />
-
-      <CadenceEditor
-        value={state.cadence}
-        onChange={model.setCadence}
-        error={cadenceError ?? undefined}
-        size={controlSize}
       />
 
       <Field label="Max runs">

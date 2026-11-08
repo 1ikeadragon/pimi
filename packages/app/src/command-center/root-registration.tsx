@@ -3,7 +3,6 @@ import { useMemo } from "react";
 import { router, type Href } from "expo-router";
 import { useTranslation } from "react-i18next";
 import {
-  CalendarClock,
   CircleDashed,
   Folder,
   FolderPlus,
@@ -13,6 +12,7 @@ import {
   Keyboard,
   PanelLeft,
   Plus,
+  Rocket,
   Settings,
 } from "lucide-react-native";
 import { withUnistyles } from "react-native-unistyles";
@@ -33,6 +33,7 @@ import {
   buildSessionsRoute,
   buildSettingsRoute,
 } from "@/utils/host-routes";
+import { getDesktopHost } from "@/desktop/host";
 import { getShortcutOs } from "@/utils/shortcut-platform";
 import type { CommandCenterContribution, CommandCenterIconProps } from "./contributions";
 import { useCommandCenterActions } from "./provider";
@@ -45,7 +46,7 @@ const ThemedFolderPlus = withUnistyles(FolderPlus, (theme) => ({
 const ThemedHistory = withUnistyles(History, (theme) => ({
   color: theme.colors.foregroundMuted,
 }));
-const ThemedCalendarClock = withUnistyles(CalendarClock, (theme) => ({
+const ThemedRocket = withUnistyles(Rocket, (theme) => ({
   color: theme.colors.foregroundMuted,
 }));
 const ThemedKeyboard = withUnistyles(Keyboard, (theme) => ({
@@ -80,8 +81,8 @@ function HistoryIcon({ size }: CommandCenterIconProps) {
   return <ThemedHistory size={size} strokeWidth={2.2} />;
 }
 
-function SchedulesIcon({ size }: CommandCenterIconProps) {
-  return <ThemedCalendarClock size={size} strokeWidth={2.2} />;
+function AutomationsIcon({ size }: CommandCenterIconProps) {
+  return <ThemedRocket size={size} strokeWidth={2.2} />;
 }
 
 function KeyboardIcon({ size }: CommandCenterIconProps) {
@@ -233,17 +234,18 @@ export function CommandCenterRootActions() {
         group: "actions",
         groupRank: 0,
         rank: 5,
-        keywords: ["schedules", "scheduled", "automation", "recurring"],
+        keywords: ["automation", "schedules", "scheduled", "recurring", "routine", "cron"],
         visibility: "always",
         run: () => {
           clearCommandCenterFocusRestoreElement();
+          getDesktopHost()?.dismissPimiWorkspace?.();
           router.push(schedulesRoute);
         },
         presentation: {
           kind: "action",
           title: t("sidebar.sections.schedules"),
           sectionTitle: t("shell.commandCenter.actions"),
-          icon: SchedulesIcon,
+          icon: AutomationsIcon,
         },
       },
       {

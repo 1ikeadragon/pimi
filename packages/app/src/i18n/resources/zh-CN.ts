@@ -1291,7 +1291,7 @@ export const zhCN: TranslationResources = {
     sections: {
       sessions: "历史",
       search: "搜索",
-      schedules: "计划",
+      schedules: "自动化",
     },
     worktreeSetup: {
       title: "设置 worktree scripts",

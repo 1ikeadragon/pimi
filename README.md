@@ -17,6 +17,7 @@ Start in chat, split work across agents, and review what they changed in one app
 - **Tasks and Work.** Start from a brief, send agents to chat or separate Git worktrees, and read their reports in one place. Labels follow linked worktrees and chats. Move cards yourself or let the board follow progress.
 - **Review.** Browse source and diffs, compare worktrees side by side, and check GitHub PRs waiting for you.
 - **Memory and Spaces.** Share project notes across providers. Paste links, images, and rough ideas into Spaces, then give an agent the card ID.
+- **Automations.** Run agents on a schedule. Start with a PR review or weekly digest template.
 - **Usage.** See each chat’s context, reported tokens, and provider limits.
 - **Providers.** Check for harness updates in Settings. Pimi lets you know when it finds a newer version.
 

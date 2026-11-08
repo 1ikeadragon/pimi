@@ -8,10 +8,17 @@ import {
 } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { useIsFocused } from "expo-router/react-navigation";
-import { CalendarClock, Plus } from "lucide-react-native";
+import { LayoutTemplate, Plus, Rocket } from "lucide-react-native";
+import { useTranslation } from "react-i18next";
 import { StyleSheet } from "react-native-unistyles";
 import { MenuHeader } from "@/components/headers/menu-header";
-import { ExternalLink } from "@/components/ui/external-link";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
+import { ToolbarButton } from "@/components/ui/pane-content-toolbar";
 import { HostFilter } from "@/components/hosts/host-filter";
 import { ALL_HOSTS_OPTION_ID } from "@/components/hosts/host-picker";
 import { ScheduleFormSheet } from "@/components/schedules/schedule-form-sheet";
@@ -38,11 +45,12 @@ import {
   buildProjectNameByCwd,
   buildScheduleProjectTargets,
 } from "@/schedules/schedule-project-targets";
+import { AUTOMATION_TEMPLATES, type AutomationTemplate } from "@/schedules/automation-templates";
 import type { ScheduleSummary } from "@getpaseo/protocol/schedule/types";
 
 type FormState =
   | { mode: "closed" }
-  | { mode: "create" }
+  | { mode: "create"; template?: AutomationTemplate }
   | { mode: "edit"; serverId: string; schedule: ScheduleSummary };
 
 const STATUS_FILTER_OPTIONS: { value: ScheduleBucket; label: string; testID: string }[] = [
@@ -63,6 +71,7 @@ export function SchedulesScreen(): ReactElement {
 }
 
 function SchedulesScreenContent(): ReactElement {
+  const { t } = useTranslation();
   const { loadState, hostErrors, isError, refetch } = useSchedules();
   const schedules = loadState.status === "loaded" ? loadState.data : EMPTY_SCHEDULES;
   const { agents } = useAggregatedAgents({ includeArchived: true });
@@ -104,7 +113,10 @@ function SchedulesScreenContent(): ReactElement {
     }
   }, [hosts, selectedHost]);
 
-  const openCreate = useCallback(() => setForm({ mode: "create" }), []);
+  const openCreate = useCallback(
+    (template?: AutomationTemplate) => setForm({ mode: "create", template }),
+    [],
+  );
   const openEdit = useCallback((schedule: AggregatedSchedule) => {
     setForm({ mode: "edit", serverId: schedule.serverId, schedule });
   }, []);
@@ -165,7 +177,7 @@ function SchedulesScreenContent(): ReactElement {
 
   return (
     <View style={styles.container}>
-      <MenuHeader title="Schedules" />
+      <MenuHeader title={t("sidebar.sections.schedules")} />
       <SchedulesScreenBody
         rows={visibleRows}
         loadState={loadState}
@@ -187,6 +199,7 @@ function SchedulesScreenContent(): ReactElement {
         onClose={closeForm}
         mode={form.mode === "edit" ? "edit" : "create"}
         schedule={form.mode === "edit" ? form.schedule : undefined}
+        template={form.mode === "create" ? form.template : undefined}
       />
     </View>
   );
@@ -218,7 +231,7 @@ function SchedulesScreenBody({
   selectedHost: string;
   onSelectHost: (serverId: string) => void;
   onRetry: () => void;
-  onCreate: () => void;
+  onCreate: (template?: AutomationTemplate) => void;
   onEdit: (schedule: AggregatedSchedule) => void;
 }): ReactElement {
   const bodyState = resolveSchedulesScreenBodyState({ loadState, showLoadError });
@@ -234,7 +247,7 @@ function SchedulesScreenBody({
   if (bodyState.kind === "load-error") {
     return (
       <View style={styles.centered}>
-        <Text style={styles.message}>Unable to load schedules</Text>
+        <Text style={styles.message}>Unable to load automations</Text>
         <Button variant="ghost" onPress={onRetry} testID="schedules-retry">
           Try again
         </Button>
@@ -258,8 +271,8 @@ function SchedulesScreenBody({
     schedulesContent = <SchedulesEndedEmptyState />;
   } else {
     schedulesContent = (
-      <View style={styles.filterEmpty}>
-        <SchedulesEmptyState onCreate={onCreate} testID="schedules-empty" />
+      <View style={styles.filterEmpty} testID="schedules-empty">
+        <Text style={styles.emptyTitle}>No active automations</Text>
       </View>
     );
   }
@@ -283,9 +296,7 @@ function SchedulesScreenBody({
             testID="schedules-status-filter"
           />
         </View>
-        <Button variant="outline" leftIcon={Plus} onPress={onCreate} testID="schedules-new">
-          New schedule
-        </Button>
+        <AutomationCreateActions onCreate={onCreate} testID="schedules-new" />
       </View>
       <ScrollView
         style={styles.scroll}
@@ -305,21 +316,61 @@ function SchedulesEmptyState({
   onCreate,
   testID,
 }: {
-  onCreate: () => void;
+  onCreate: (template?: AutomationTemplate) => void;
   testID?: string;
 }): ReactElement {
   return (
     <View style={styles.emptyState} testID={testID}>
-      <CalendarClock size={styles.emptyIcon.width} color={styles.emptyIcon.color} />
+      <Rocket size={styles.emptyIcon.width} color={styles.emptyIcon.color} />
       <View style={styles.emptyTextStack}>
-        <Text style={styles.emptyTitle}>No active schedules</Text>
-        <Text style={styles.emptyDescription}>Schedules run agents on a cadence.</Text>
-        <ExternalLink href="https://paseo.sh/docs/schedules" label="See docs" />
+        <Text style={styles.emptyTitle}>No active automations</Text>
+        <Text style={styles.emptyDescription}>Give an agent a job to run on a schedule.</Text>
       </View>
-      <Button variant="outline" leftIcon={Plus} onPress={onCreate} testID="schedules-empty-new">
-        New schedule
+      <AutomationCreateActions onCreate={onCreate} testID="schedules-empty-new" />
+    </View>
+  );
+}
+
+function AutomationCreateActions({
+  onCreate,
+  testID,
+}: {
+  onCreate: (template?: AutomationTemplate) => void;
+  testID: string;
+}): ReactElement {
+  const openBlank = useCallback(() => onCreate(), [onCreate]);
+  return (
+    <View style={styles.createActions}>
+      <DropdownMenu>
+        <ToolbarButton kind="menu" label="Automation templates" testID="automation-templates">
+          <LayoutTemplate size={styles.templateIcon.width} color={styles.emptyIcon.color} />
+        </ToolbarButton>
+        <DropdownMenuContent align="end" width={238}>
+          <DropdownMenuLabel>Start from a template</DropdownMenuLabel>
+          {AUTOMATION_TEMPLATES.map((template) => (
+            <AutomationTemplateItem key={template.id} template={template} onCreate={onCreate} />
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <Button variant="outline" leftIcon={Plus} onPress={openBlank} testID={testID}>
+        New automation
       </Button>
     </View>
+  );
+}
+
+function AutomationTemplateItem({
+  template,
+  onCreate,
+}: {
+  template: AutomationTemplate;
+  onCreate: (template: AutomationTemplate) => void;
+}): ReactElement {
+  const select = useCallback(() => onCreate(template), [onCreate, template]);
+  return (
+    <DropdownMenuItem description={template.description} onSelect={select}>
+      {template.name}
+    </DropdownMenuItem>
   );
 }
 
@@ -327,8 +378,8 @@ function SchedulesEndedEmptyState(): ReactElement {
   return (
     <View style={styles.filterEmpty}>
       <View style={styles.endedEmptyState}>
-        <CalendarClock size={styles.emptyIcon.width} color={styles.emptyIcon.color} />
-        <Text style={styles.emptyTitle}>No ended schedules</Text>
+        <Rocket size={styles.emptyIcon.width} color={styles.emptyIcon.color} />
+        <Text style={styles.emptyTitle}>No ended automations</Text>
       </View>
     </View>
   );
@@ -340,7 +391,7 @@ function ScheduleHostErrorsBanner({ errors }: { errors: ScheduleHostError[] }): 
       <View style={styles.errorsBanner} testID="schedules-host-errors">
         {errors.map((error) => (
           <Text key={error.serverId} style={styles.errorsBannerText}>
-            {`${error.serverName}: Could not load schedules`}
+            {`${error.serverName}: Could not load automations`}
           </Text>
         ))}
       </View>
@@ -368,9 +419,18 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    flexWrap: "wrap",
     gap: theme.spacing[3],
     paddingHorizontal: { xs: theme.spacing[3], md: theme.spacing[6] },
     paddingTop: theme.spacing[4],
+  },
+  createActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+  },
+  templateIcon: {
+    width: theme.iconSize.sm,
   },
   filterRowControls: {
     flexDirection: "row",

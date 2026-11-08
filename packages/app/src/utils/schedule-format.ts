@@ -28,8 +28,8 @@ export function isNewAgentSchedule(schedule: ScheduleSummary): boolean {
   return schedule.target.type === "new-agent";
 }
 
-export function scheduleProductName(schedule: ScheduleSummary): "Heartbeat" | "Schedule" {
-  return schedule.target.type === "agent" ? "Heartbeat" : "Schedule";
+export function scheduleProductName(schedule: ScheduleSummary): "Heartbeat" | "Automation" {
+  return schedule.target.type === "agent" ? "Heartbeat" : "Automation";
 }
 
 export function resolveScheduleTitle(schedule: ScheduleSummary): string {
