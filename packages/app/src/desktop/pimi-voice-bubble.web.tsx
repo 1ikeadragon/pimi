@@ -160,7 +160,7 @@ function DesktopVoiceBubble({
   const { phase, message, level, setMessage, stop, toggle } = listener;
   const active = phase !== "off";
   const status = message || PHASE_STATUS[phase];
-  const label = active ? "Stop voice commands" : "Start voice commands";
+  const label = active ? "Pimi · Stop listening" : "Pimi · Start listening";
   const workspaceLevel = section ? level : 0;
   const badgeStyle = useMemo(() => [styles.badge, active && styles.activeBadge], [active]);
 
