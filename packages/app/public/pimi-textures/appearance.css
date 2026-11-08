@@ -6,7 +6,8 @@
   --pimi-material: url("/pimi-textures/paper.svg");
 }
 
-:root[data-appearance="paper"] {
+:root[data-appearance="paper"],
+:root[data-appearance="ayu-light"] {
   --pimi-ink: none;
 }
 
@@ -14,6 +15,14 @@
   --pimi-ink: radial-gradient(ellipse at 84% 14%, #aca9b209, transparent 76%);
   --pimi-ink-size: 100% 100%;
   --pimi-ink-position: center;
+  --pimi-material: url("/pimi-textures/graphite.svg");
+}
+
+:root[data-appearance="one-dark"],
+:root[data-appearance="nord"],
+:root[data-appearance="gruvbox"],
+:root[data-appearance="catppuccin-mocha"] {
+  --pimi-ink: none;
   --pimi-material: url("/pimi-textures/graphite.svg");
 }
 

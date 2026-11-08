@@ -91,7 +91,12 @@ function isPimiAppearance(value: unknown): value is PimiAppearance {
     value === "dark" ||
     value === "paper" ||
     value === "sakura" ||
-    value === "cel-night"
+    value === "cel-night" ||
+    value === "ayu-light" ||
+    value === "one-dark" ||
+    value === "nord" ||
+    value === "gruvbox" ||
+    value === "catppuccin-mocha"
   );
 }
 

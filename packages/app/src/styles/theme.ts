@@ -364,6 +364,7 @@ export interface DarkThemeConfig {
   accentBright: string;
   accentForeground?: string;
   destructive: string;
+  destructiveForeground?: string;
   terminalBlack: string;
   terminalBrightBlack: string;
   foreground?: string;
@@ -415,7 +416,7 @@ export function buildDarkSemanticColors(tint: DarkThemeConfig) {
     accentForeground: tint.accentForeground ?? "#ffffff",
 
     destructive: tint.destructive,
-    destructiveForeground: "#ffffff",
+    destructiveForeground: tint.destructiveForeground ?? "#ffffff",
     success: tint.accent,
     successForeground: "#ffffff",
 
@@ -903,12 +904,186 @@ const pimiCelNight = buildDarkTheme(
   }),
 );
 
+const pimiAyuLight = buildLightTheme(
+  buildLightSemanticColors({
+    surface0: "#fafafa",
+    surface1: "#f5f5f5",
+    surface2: "#edefef",
+    surface3: "#e7e9ec",
+    surface4: "#dfe4e9",
+    surfaceDiffEmpty: "#f3f4f5",
+    surfaceSidebar: "#f1f3f4",
+    foreground: "#313842",
+    foregroundMuted: "#535d68",
+    foregroundExtraMuted: "#58616b",
+    border: "#dce0e4",
+    borderAccent: "#a6adb5",
+    accent: "#925019",
+    accentBright: "#7a4012",
+    accentForeground: "#ffffff",
+    primary: "#925019",
+    primaryForeground: "#ffffff",
+    destructive: "#b63b36",
+    terminalBlack: "#313842",
+    terminalBrightBlack: "#646d76",
+    ring: "#a05210",
+  }),
+);
+
+const pimiOneDark = buildDarkTheme(
+  buildDarkSemanticColors({
+    surface0: "#282c34",
+    surface1: "#2c313a",
+    surface2: "#303642",
+    surface3: "#353c49",
+    surface4: "#3b4555",
+    surfaceDiffEmpty: "#21252b",
+    surfaceSidebar: "#23272f",
+    foreground: "#e0e4ed",
+    foregroundMuted: "#bac2ce",
+    foregroundExtraMuted: "#aeb8c7",
+    border: "#363d49",
+    borderAccent: "#626e80",
+    accent: "#61afef",
+    accentBright: "#83c0f1",
+    accentForeground: "#202630",
+    destructive: "#ed929a",
+    destructiveForeground: "#202630",
+    terminalBlack: "#6f798b",
+    terminalBrightBlack: "#a2abb9",
+    ring: "#61afef",
+  }),
+);
+
+const pimiNord = buildDarkTheme(
+  buildDarkSemanticColors({
+    surface0: "#2e3440",
+    surface1: "#323947",
+    surface2: "#373f4f",
+    surface3: "#3b4556",
+    surface4: "#414c5e",
+    surfaceDiffEmpty: "#292f3a",
+    surfaceSidebar: "#2b313c",
+    foreground: "#eceff4",
+    foregroundMuted: "#d3dae6",
+    foregroundExtraMuted: "#b9c5d6",
+    border: "#414b5c",
+    borderAccent: "#6c7c95",
+    accent: "#88c0d0",
+    accentBright: "#a4d2dd",
+    accentForeground: "#273342",
+    destructive: "#eb9ca5",
+    destructiveForeground: "#273342",
+    terminalBlack: "#748299",
+    terminalBrightBlack: "#a4b2c8",
+    ring: "#88c0d0",
+  }),
+);
+
+const pimiGruvbox = buildDarkTheme(
+  buildDarkSemanticColors({
+    surface0: "#282828",
+    surface1: "#2e2d2b",
+    surface2: "#353230",
+    surface3: "#3c3836",
+    surface4: "#48413d",
+    surfaceDiffEmpty: "#212323",
+    surfaceSidebar: "#232524",
+    foreground: "#ebdbb2",
+    foregroundMuted: "#d5c4a1",
+    foregroundExtraMuted: "#c7b694",
+    border: "#423c37",
+    borderAccent: "#766759",
+    accent: "#fabd2f",
+    accentBright: "#ffd46c",
+    accentForeground: "#32261c",
+    destructive: "#fb9288",
+    destructiveForeground: "#32261c",
+    terminalBlack: "#81766b",
+    terminalBrightBlack: "#a89984",
+    ring: "#fabd2f",
+  }),
+);
+
+const pimiCatppuccinMocha = buildDarkTheme(
+  buildDarkSemanticColors({
+    surface0: "#1e1e2e",
+    surface1: "#242437",
+    surface2: "#29293e",
+    surface3: "#313244",
+    surface4: "#3b3d55",
+    surfaceDiffEmpty: "#181825",
+    surfaceSidebar: "#1b1b2a",
+    foreground: "#cdd6f4",
+    foregroundMuted: "#bac2de",
+    foregroundExtraMuted: "#a6adc8",
+    border: "#33354b",
+    borderAccent: "#666b89",
+    accent: "#cba6f7",
+    accentBright: "#dbc1fb",
+    accentForeground: "#2c223d",
+    destructive: "#f38ba8",
+    destructiveForeground: "#2c223d",
+    terminalBlack: "#727891",
+    terminalBrightBlack: "#a6adc8",
+    ring: "#cba6f7",
+  }),
+);
+
+export const COMMUNITY_THEME_OPTIONS = [
+  {
+    name: "ayu-light",
+    label: "Ayu Light",
+    group: "variant",
+    unistylesName: "pimiAyuLight",
+    theme: pimiAyuLight,
+    swatch: "#925019",
+  },
+  {
+    name: "one-dark",
+    label: "One Dark Pro",
+    group: "variant",
+    unistylesName: "pimiOneDark",
+    theme: pimiOneDark,
+    swatch: "#61afef",
+  },
+  {
+    name: "nord",
+    label: "Nord",
+    group: "variant",
+    unistylesName: "pimiNord",
+    theme: pimiNord,
+    swatch: "#88c0d0",
+  },
+  {
+    name: "gruvbox",
+    label: "Gruvbox Dark",
+    group: "variant",
+    unistylesName: "pimiGruvbox",
+    theme: pimiGruvbox,
+    swatch: "#fabd2f",
+  },
+  {
+    name: "catppuccin-mocha",
+    label: "Catppuccin Mocha",
+    group: "variant",
+    unistylesName: "pimiCatppuccinMocha",
+    theme: pimiCatppuccinMocha,
+    swatch: "#cba6f7",
+  },
+] as const;
+
 export const PIMI_APPEARANCE_THEMES = {
   light: "pimiBlush",
   dark: "pimiDark",
   paper: "pimiPaper",
   sakura: "pimiSakura",
   "cel-night": "pimiCelNight",
+  "ayu-light": "pimiAyuLight",
+  "one-dark": "pimiOneDark",
+  nord: "pimiNord",
+  gruvbox: "pimiGruvbox",
+  "catppuccin-mocha": "pimiCatppuccinMocha",
 } as const;
 
 // Keep compatibility with existing code
@@ -965,6 +1140,7 @@ export const THEME_OPTIONS = [
     theme: darkPureBlackTheme,
     swatch: "#000000",
   },
+  ...COMMUNITY_THEME_OPTIONS,
 ] as const;
 
 export const PLUGIN_THEME_PREFERENCE = "plugin";
