@@ -4,6 +4,7 @@ import { router, usePathname } from "expo-router";
 import { Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import {
+  CircleGauge,
   Columns3,
   FileDiff,
   LayoutGrid,
@@ -31,6 +32,7 @@ import {
   openPimiAgentGrid,
   PIMI_AGENT_GRID_ROUTE,
 } from "@/navigation/pimi-agent-grid";
+import { closePimiUsage, openPimiUsage, PIMI_USAGE_ROUTE } from "@/navigation/pimi-usage";
 import { SidebarHeaderRow, type SidebarRowIcon } from "./sidebar-header-row";
 
 export interface PimiSidebarControls {
@@ -130,7 +132,9 @@ export function PimiWorkspaceNavigation({
   const host = getDesktopHost();
   const show = host?.showPimiWorkspace;
   const section = usePimiWorkspaceSection();
-  const inAgentGrid = usePathname() === PIMI_AGENT_GRID_ROUTE;
+  const pathname = usePathname();
+  const inAgentGrid = pathname === PIMI_AGENT_GRID_ROUTE;
+  const inUsage = pathname === PIMI_USAGE_ROUTE;
   const { t } = useTranslation();
   const newWorkspaceLabel = t("newWorkspace.title");
   const openNewWorkspace = useCallback(() => {
@@ -142,7 +146,8 @@ export function PimiWorkspaceNavigation({
     onNavigate?.();
     host?.dismissPimiWorkspace?.();
     if (inAgentGrid) closePimiAgentGrid();
-  }, [host, inAgentGrid, onNavigate]);
+    else if (inUsage) closePimiUsage();
+  }, [host, inAgentGrid, inUsage, onNavigate]);
   const showAgentGrid = useCallback(() => {
     onNavigate?.();
     openPimiAgentGrid();
@@ -170,7 +175,12 @@ export function PimiWorkspaceNavigation({
   if (!show) return null;
 
   const destinations = [
-    { label: "Chat", icon: MessageSquare, onPress: showChat, active: !section && !inAgentGrid },
+    {
+      label: "Chat",
+      icon: MessageSquare,
+      onPress: showChat,
+      active: !section && !inAgentGrid && !inUsage,
+    },
     {
       label: "Agent grid",
       icon: LayoutGrid,
@@ -195,6 +205,12 @@ export function PimiWorkspaceNavigation({
         {destinations.map((item) => (
           <SidebarIcon key={item.label} {...item} />
         ))}
+        <SidebarIcon
+          icon={CircleGauge}
+          label="Usage"
+          onPress={openPimiUsage}
+          active={!section && inUsage}
+        />
       </View>
     );
   }

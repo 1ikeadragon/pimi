@@ -5,6 +5,7 @@ import { View, Text, Pressable, ScrollView } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useRouter } from "expo-router";
 import {
+  CircleGauge,
   FolderOpen,
   Inbox,
   LayoutGrid,
@@ -31,6 +32,7 @@ import { getDesktopHost } from "@/desktop/host";
 import { PairDeviceModal } from "@/desktop/components/pair-device-modal";
 import { buildNewWorkspaceRoute, buildSettingsHostSectionRoute } from "@/utils/host-routes";
 import { openPimiAgentGrid } from "@/navigation/pimi-agent-grid";
+import { openPimiUsage } from "@/navigation/pimi-usage";
 
 const WINDOW_CONTENT_DATASET = { "window-content": "" };
 const PIMI_BACKGROUND = { "pimi-background": "" };
@@ -134,6 +136,15 @@ export function OpenProjectScreen() {
                 description="Review notes shared across projects or saved to one project."
                 onPress={openMemory}
                 testID="pimi-open-memory"
+              />
+            ) : null}
+            {pimi ? (
+              <HomeTile
+                icon={CircleGauge}
+                title="Usage"
+                description="See context, tokens, and provider limits."
+                onPress={openPimiUsage}
+                testID="pimi-open-usage"
               />
             ) : null}
             <HomeTile

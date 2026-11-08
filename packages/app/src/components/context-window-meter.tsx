@@ -46,7 +46,7 @@ function isValidUsedTokens(value: number): boolean {
   return Number.isFinite(value) && value >= 0;
 }
 
-function getUsagePercentage(maxTokens: number, usedTokens: number): number | null {
+export function getUsagePercentage(maxTokens: number, usedTokens: number): number | null {
   if (!isValidMaxTokens(maxTokens) || !isValidUsedTokens(usedTokens)) {
     return null;
   }
@@ -67,7 +67,7 @@ function formatSessionCost(value: number): string | null {
   return `$${value.toFixed(2)}`;
 }
 
-function getProgressColor(percentage: number, theme: Theme): string {
+export function getProgressColor(percentage: number, theme: Theme): string {
   if (percentage > 90) {
     return theme.colors.destructive;
   }
@@ -97,7 +97,7 @@ function getMeterGeometry(showPercentage: boolean, ring?: ToolbarRing) {
 }
 
 // Wrap the whole SVG: withUnistyles adds a div on web, which cannot sit inside an SVG.
-const ContextWindowRing = withUnistyles(function ContextWindowRing({
+export const ContextWindowRing = withUnistyles(function ContextWindowRing({
   size,
   radius,
   strokeWidth,
