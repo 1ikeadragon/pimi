@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.16.1 - 2026-11-08
+
+### Improved
+
+- Grouped the sidebar around Tasks, Work, Review, Activity, Library, and Projects. Memory and Spaces stay visible.
+- Moved New workspace and Add project beside Projects. New workspace opens the project chooser even when a project is active.
+- Simplified the sidebar footer and put Hosts beside Settings.
+
 ## 0.16.0 - 2026-11-08
 
 ### Added
