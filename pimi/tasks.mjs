@@ -1,6 +1,6 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, rename, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname } from "node:path";
 import { z } from "zod";
@@ -19,8 +19,12 @@ import {
 
 import { workspaceLabelKey } from "@getpaseo/protocol/workspace-labels";
 
-import { commit, RequestError } from "./git.mjs";
+import { commit, git, RequestError } from "./git.mjs";
 
+const pullRequestSchema = z.object({
+  url: z.string().regex(/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/[1-9]\d*$/),
+  state: z.enum(["open", "closed", "merged"]),
+});
 const taskFields = PimiTaskFields.extend({ done: z.boolean() });
 const ideaFields = PimiExperimentFields;
 const taskSource = PimiTaskProposal.shape.source;
@@ -33,6 +37,7 @@ const experimentSchema = ideaFields.extend({
   root: z.string().nullable().optional(),
   path: z.string().nullable(),
   workspaceId: z.string().nullable(),
+  pullRequest: pullRequestSchema.optional(),
   launch: z
     .object({
       config: modelConfig,
@@ -50,6 +55,7 @@ const taskSchema = taskFields.extend({
   mode: PimiStoredTaskMode.optional(),
   id: z.uuid(),
   stage: PimiTaskStage.nullable().optional(),
+  completedByPullRequest: z.literal(true).optional(),
   root: z.string().nullable(),
   base: z.string().nullable(),
   repositories: z.array(z.object({ root: z.string().min(1), base: z.string().min(1) })).optional(),
@@ -61,12 +67,14 @@ const agentTaskPageSize = 50;
 const modelInput = z.object({ id: z.uuid(), model: z.string().min(1).max(512) });
 
 function makeExperiment(idea, card, root = null) {
+  const pr = card?.pullRequest;
   return {
     ...idea,
     id: randomUUID(),
     root: card?.root ?? root,
     path: card?.path ?? null,
     workspaceId: card?.workspaceId ?? null,
+    pullRequest: pr && { url: pr.url, state: pr.state },
     launch: null,
     error: null,
     report: "",
@@ -125,16 +133,23 @@ function taskDetails(task) {
   return {
     ...taskSummary(task),
     brief: task.brief,
-    work: task.experiments.map(({ id, title, hypothesis, path, root, workspaceId, report }) => ({
-      id,
-      title,
-      brief: hypothesis,
-      path,
-      repository: root,
-      workspaceId,
-      hasReport: Boolean(report),
-    })),
+    work: task.experiments.map(
+      ({ id, title, hypothesis, path, root, workspaceId, report, pullRequest }) => ({
+        id,
+        title,
+        brief: hypothesis,
+        path,
+        repository: root,
+        workspaceId,
+        hasReport: Boolean(report),
+        ...(pullRequest ? { pullRequest: pullRequest.url } : {}),
+      }),
+    ),
   };
+}
+
+function isLinkedWorktree(item) {
+  return Boolean(item.path && item.root && !["chat", "research"].includes(item.launch?.mode));
 }
 
 function modelDirectory(task) {
@@ -167,6 +182,11 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
   let state = [];
   let tail = Promise.resolve();
   const running = new Set();
+  let workspaceObservation;
+  function resetWorkspaceObservation() {
+    workspaceObservation = { verifiedMerges: new Set(), liveMerges: new Set() };
+  }
+  resetWorkspaceObservation();
   let readError;
   if (file) {
     try {
@@ -187,9 +207,10 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
     }
   }
 
-  function update(change, { skipUnchanged = false } = {}) {
+  function update(change, { skipUnchanged = false, applies = () => true } = {}) {
     const next = tail.then(async () => {
       if (readError) throw new RequestError(readError, 503);
+      if (!applies()) return;
       const draft = structuredClone(state);
       const result = await change(draft);
       if (skipUnchanged && !result) return result;
@@ -355,6 +376,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
         throw new RequestError("Wait for the current task operation to finish.", 409);
       if (input.done && running.has(id)) throw new RequestError("Wait for launch to finish.", 409);
       if (input.done !== undefined && input.done !== task.done) {
+        forgetTaskMergeTriggers(task);
         if (input.done) task.stage = "done";
         else if (task.stage === "done") task.stage = null;
       }
@@ -367,6 +389,12 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
       throw new RequestError("Wait for launch to finish.", 409);
     task.stage = stage;
     task.done = stage === "done";
+    forgetTaskMergeTriggers(task);
+  }
+
+  function forgetTaskMergeTriggers(task) {
+    delete task.completedByPullRequest;
+    for (const item of task.experiments) workspaceObservation.liveMerges.delete(item.id);
   }
 
   function setStage(body) {
@@ -648,7 +676,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
       body,
     );
     const task = getTask(state, id);
-    checkOpen(task);
+    if (!task.completedByPullRequest) checkOpen(task);
     const experiment = getExperiment(task, experimentId);
     if (experiment.reportSource) return experiment;
     if (!experiment.launch) {
@@ -657,7 +685,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
     const result = await paseo.experimentReport(experimentId);
     return update((draft) => {
       const currentTask = getTask(draft, id);
-      checkOpen(currentTask);
+      if (!currentTask.completedByPullRequest) checkOpen(currentTask);
       const current = getExperiment(currentTask, experimentId);
       if (current.reportSource) return current;
       current.report = result.slice(0, 24000);
@@ -683,9 +711,125 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
     return paths;
   }
 
+  async function observeWorkspace(workspace, observedMerge) {
+    if (readError || !workspace.root || !workspace.path) return;
+    const observation = workspaceObservation;
+    const { verifiedMerges, liveMerges } = observation;
+    const candidate = (item) =>
+      isLinkedWorktree(item) &&
+      (item.workspaceId ? item.workspaceId === workspace.id : item.path === workspace.path);
+    let canonicalWorkspacePath;
+    let checkoutGitDir;
+    const repositories = new Map();
+    const canonicalPath = (path) => realpath(path).catch(() => null);
+    const commonGitDir = (path) =>
+      git(path, "rev-parse", "--path-format=absolute", "--git-common-dir")
+        .then((dir) => canonicalPath(dir.replace(/\r?\n$/, "")))
+        .catch(() => null);
+    async function matchesCheckout(item) {
+      if (item.path !== workspace.path) {
+        canonicalWorkspacePath ??= canonicalPath(workspace.path);
+        const [workspacePath, itemPath] = await Promise.all([
+          canonicalWorkspacePath,
+          canonicalPath(item.path),
+        ]);
+        if (!workspacePath || workspacePath !== itemPath) return false;
+      }
+      if (item.workspaceId || item.root === workspace.root) return true;
+      // An external Git worktree can have its own daemon project root.
+      // Confirm the repository for older path-only links before binding them.
+      if (!workspace.pullRequest) return false;
+      checkoutGitDir ??= commonGitDir(workspace.path);
+      if (!repositories.has(item.root)) repositories.set(item.root, commonGitDir(item.root));
+      const [checkout, repo] = await Promise.all([checkoutGitDir, repositories.get(item.root)]);
+      return Boolean(checkout && checkout === repo);
+    }
+    return update(
+      async (draft) => {
+        const completed = [];
+        let changed = false;
+        for (const task of draft) {
+          let relevant = false;
+          for (const item of task.experiments) {
+            if (!candidate(item) || !(await matchesCheckout(item))) continue;
+            if (observation !== workspaceObservation) return;
+            relevant = true;
+            const previous = item.pullRequest;
+            const current = workspace.pullRequest;
+            if (!item.workspaceId && current) {
+              item.workspaceId = workspace.id;
+              changed = true;
+            }
+            // Persist the link for Review, but never trust persisted checkout freshness.
+            if (current && (previous?.url !== current.url || previous?.state !== current.state)) {
+              item.pullRequest = { url: current.url, state: current.state };
+              liveMerges.delete(item.id);
+              changed = true;
+            }
+            if (current?.state === "merged" && current.matchesCheckout) {
+              verifiedMerges.add(item.id);
+              if (observedMerge && !task.done && task.stage == null) liveMerges.add(item.id);
+            } else {
+              verifiedMerges.delete(item.id);
+            }
+          }
+          if (
+            relevant &&
+            !task.done &&
+            task.stage == null &&
+            !running.has(task.id) &&
+            task.experiments.every((item) => verifiedMerges.has(item.id)) &&
+            task.experiments.some((item) => liveMerges.has(item.id))
+          ) {
+            applyStage(task, "done");
+            task.completedByPullRequest = true;
+            completed.push({ id: task.id, title: task.title });
+            changed = true;
+          }
+        }
+        if (changed) return completed;
+      },
+      {
+        skipUnchanged: true,
+        applies: () =>
+          observation === workspaceObservation &&
+          state.some((task) => task.experiments.some(candidate)),
+      },
+    );
+  }
+
+  function worktreeTaskLinks() {
+    const links = new Map();
+    for (const task of state) {
+      for (const item of task.experiments) {
+        if (!isLinkedWorktree(item)) continue;
+        const entries = links.get(item.path) ?? [];
+        entries.push({
+          id: task.id,
+          title: task.title,
+          root: item.root,
+          workspaceId: item.workspaceId,
+        });
+        links.set(item.path, entries);
+      }
+    }
+    return links;
+  }
+
   return {
     roots: () => [...new Set(state.flatMap((task) => task.repositories.map(({ root }) => root)))],
     linkedWorktrees,
+    observeWorkspace,
+    resetWorkspaceObservation,
+    worktreeTaskLinks,
+    pullRequestTaskLinks: (url) =>
+      state
+        .filter((task) =>
+          task.experiments.some(
+            (item) => item.pullRequest?.url.toLowerCase() === url.toLowerCase(),
+          ),
+        )
+        .map(({ id, title }) => ({ id, title })),
     list: () => ({ tasks: state, error: readError }),
     reportText(id, experimentId) {
       const item = getExperiment(getTask(state, id), experimentId);

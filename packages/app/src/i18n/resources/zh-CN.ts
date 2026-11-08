@@ -2307,6 +2307,8 @@ export const zhCN: TranslationResources = {
     notifications: {
       title: "通知",
       permission: "通知权限",
+      taskTitle: "任务完成",
+      taskHint: "在自动模式下，所有改动合并后，Pimi 会将任务移至「已完成」并通知你。",
       refreshAccessibility: "刷新通知权限",
       playSound: "播放声音",
       playSoundHint: "收到桌面通知时播放声音",

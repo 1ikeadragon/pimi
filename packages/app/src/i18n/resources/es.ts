@@ -1627,7 +1627,7 @@ export const es: TranslationResources = {
         microphone: "El estado del micrófono aún no se ha comprobado.",
       },
       testNotification: {
-        title: "Prueba de notificaciónPaseo",
+        title: "Prueba de notificación de Paseo",
         body: "Si puede ver esto, las notificaciones de escritorio funcionan.",
         notDelivered:
           "La notificación no fue entregada. Verifique Configuración del sistema> Notificaciones.",
@@ -2380,6 +2380,9 @@ export const es: TranslationResources = {
     notifications: {
       title: "Notificaciones",
       permission: "Permiso de notificaciones",
+      taskTitle: "Tareas completadas",
+      taskHint:
+        "En modo automático, Pimi mueve la tarea a Hecho y te avisa cuando se fusiona todo su trabajo.",
       refreshAccessibility: "Actualizar permiso de notificaciones",
       playSound: "Reproducir sonido",
       playSoundHint: "Reproduce un sonido cuando llega una notificación de escritorio",

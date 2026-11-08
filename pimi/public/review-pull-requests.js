@@ -21,6 +21,7 @@ export function createReviewPullRequests({
   element,
   button,
   openDiff,
+  openTask,
   showDetails,
   canOpenDiff,
 }) {
@@ -343,6 +344,9 @@ export function createReviewPullRequests({
       ),
     );
     actions.lastElementChild.disabled = detailLoading;
+    for (const task of item.taskLinks ?? []) {
+      actions.append(button("button quiet", task.title, () => openTask(task.id)));
+    }
     header.append(actions);
     if (!available)
       header.append(

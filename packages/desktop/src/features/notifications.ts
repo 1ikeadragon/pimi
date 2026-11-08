@@ -30,7 +30,14 @@ function toRecord(value: unknown): Record<string, unknown> | undefined {
 }
 
 function getNotificationIcon(): Electron.NativeImage | null {
+  const pimi = process.env.PIMI_DESKTOP === "1" || app.getName() === "Pimi";
   const candidates = [
+    ...(pimi
+      ? [
+          path.join(process.resourcesPath, "pimi-icon.png"),
+          path.resolve(__dirname, "../assets/pimi-icon.png"),
+        ]
+      : []),
     path.resolve(__dirname, "../assets/icon.png"),
     path.resolve(__dirname, "../assets/64x64.png"),
     path.resolve(__dirname, "../assets/128x128.png"),
@@ -84,10 +91,6 @@ export function registerNotificationHandlers(): void {
   });
 
   ipcMain.handle("paseo:notification:send", async (event, rawInput?: NotificationInput) => {
-    if (!Notification.isSupported()) {
-      return false;
-    }
-
     const title = toTrimmedString(rawInput?.title);
     if (!title) {
       return false;
@@ -95,31 +98,46 @@ export function registerNotificationHandlers(): void {
 
     const body = toTrimmedString(rawInput?.body) ?? undefined;
     const data = toRecord(rawInput?.data);
-    const icon = getNotificationIcon();
-    const settings = await getDesktopSettingsStore().get();
-    const notification = new Notification({
+    return sendDesktopNotification({
       title,
-      ...(body ? { body } : {}),
-      ...(icon ? { icon } : {}),
-      silent: !settings.notifications.playSound,
+      body,
+      onClick() {
+        const win = focusSenderWindow(event.sender);
+        if (win && data && Object.keys(data).length > 0) {
+          const payload: NotificationClickPayload = { data };
+          win.webContents.send("paseo:event:notification-click", payload);
+        }
+      },
     });
-
-    activeNotifications.add(notification);
-
-    notification.on("click", () => {
-      const win = focusSenderWindow(event.sender);
-      if (win && data && Object.keys(data).length > 0) {
-        const payload: NotificationClickPayload = { data };
-        win.webContents.send("paseo:event:notification-click", payload);
-      }
-      activeNotifications.delete(notification);
-    });
-
-    notification.on("close", () => {
-      activeNotifications.delete(notification);
-    });
-
-    notification.show();
-    return true;
   });
+}
+
+export async function sendDesktopNotification({
+  title,
+  body,
+  onClick,
+}: {
+  title: string;
+  body?: string;
+  onClick?: () => void;
+}): Promise<boolean> {
+  if (!Notification.isSupported()) return false;
+  const icon = getNotificationIcon();
+  const settings = await getDesktopSettingsStore().get();
+  const notification = new Notification({
+    title,
+    ...(body ? { body } : {}),
+    ...(icon ? { icon } : {}),
+    silent: !settings.notifications.playSound,
+  });
+
+  activeNotifications.add(notification);
+  notification.on("click", () => {
+    activeNotifications.delete(notification);
+    onClick?.();
+  });
+  notification.on("close", () => activeNotifications.delete(notification));
+  notification.on("failed", () => activeNotifications.delete(notification));
+  notification.show();
+  return true;
 }

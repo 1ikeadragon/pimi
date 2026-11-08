@@ -71,6 +71,7 @@ import { registerDialogHandlers } from "./features/dialogs.js";
 import {
   registerNotificationHandlers,
   ensureNotificationCenterRegistration,
+  sendDesktopNotification,
 } from "./features/notifications.js";
 import { createExternalUrlOpener } from "./features/opener.js";
 import { createBrowserCaptureService } from "./features/browser-capture.js";
@@ -1214,13 +1215,22 @@ async function bootstrap(): Promise<void> {
     },
   });
   ensureNotificationCenterRegistration();
-  registerDaemonManager();
+  const observePimiWorkspaces = () => {
+    void initializePimiWorkspace(path.join(app.getAppPath(), "dist"), async ({ id, title }) => {
+      await sendDesktopNotification({
+        title: "Task complete",
+        body: title,
+        onClick: () => openPimi({ view: "task", id }),
+      });
+    })
+      .then((runtime) => runtime.observeWorkspaces())
+      .catch((error) => log.debug("[pimi] workspace observation unavailable", error));
+  };
+  registerDaemonManager(PIMI_DESKTOP ? observePimiWorkspaces : undefined);
   registerWindowManager({ mode: DESKTOP_WINDOW_CHROME_MODE });
   if (PIMI_DESKTOP) {
     registerPimiWorkspaceNavigation();
-    void initializePimiWorkspace(path.join(app.getAppPath(), "dist")).catch((error) =>
-      log.error("[pimi] failed to initialize workspace", error),
-    );
+    observePimiWorkspaces();
   }
   registerDialogHandlers();
   registerNotificationHandlers();

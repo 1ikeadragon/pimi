@@ -3976,6 +3976,7 @@ function toCurrentPullRequestStatus(
     headRefName: item.headRefName || fallbackHeadRefName,
     ...(item.headRefOid ? { headSha: item.headRefOid } : {}),
     isMerged: mergedAt !== null,
+    ...(mergedAt ? { mergedAt } : {}),
     isDraft: item.isDraft ?? false,
     mergeable: item.mergeable,
     checks,

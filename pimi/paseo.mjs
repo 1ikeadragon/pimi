@@ -97,6 +97,33 @@ export function createPaseoConnection(settingsSource = {}) {
     needsInput: agent.pendingPermissions.length > 0,
     error: agent.lastError,
   });
+  function workspacePullRequest(workspace) {
+    const git = workspace.gitRuntime;
+    const runtime = workspace.githubRuntime;
+    const pr = runtime?.pullRequest;
+    if (
+      !pr ||
+      runtime.error ||
+      git?.currentBranch !== pr.headRefName ||
+      !/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/[1-9]\d*$/.test(pr.url)
+    ) {
+      return undefined;
+    }
+    return {
+      url: pr.url,
+      state: pr.isMerged ? "merged" : pr.state.toLowerCase() === "open" ? "open" : "closed",
+      mergedAt: pr.mergedAt,
+      matchesCheckout: Boolean(
+        pr.headSha &&
+        git.headSha === pr.headSha &&
+        git.isDirty === false &&
+        !["running", "needs_input", "failed"].includes(workspace.status) &&
+        (git.aheadOfOrigin === 0 || git.aheadOfOrigin == null) &&
+        (git.behindOfOrigin === 0 || git.behindOfOrigin == null),
+      ),
+    };
+  }
+
   const workspaceView = (workspace) => ({
     id: workspace.id,
     path: workspace.workspaceDirectory,
@@ -105,17 +132,44 @@ export function createPaseoConnection(settingsSource = {}) {
     labels: workspace.labels ?? [],
     previews: runningPreviews(workspace.scripts),
     root: workspace.projectKind === "git" ? workspace.projectRootPath : undefined,
-    openPrUrl:
-      workspace.githubRuntime?.pullRequest?.state?.toLowerCase() === "open" &&
-      workspace.githubRuntime.pullRequest.url.startsWith("https://github.com/")
-        ? workspace.githubRuntime.pullRequest.url
-        : undefined,
+    pullRequest: workspacePullRequest(workspace),
   });
 
-  async function observeDirectory(client) {
+  async function observeDirectory(client, connectedAt) {
     const agents = new Map();
     const workspaces = new Map();
     const workspaceLabels = new Map();
+    const pullRequestTransitions = new Map();
+    const initialWorkspaceChanges = new Set();
+    let initialized = false;
+    function observePullRequest(id, workspace, isLive) {
+      const pr = workspace?.pullRequest;
+      const previous = pullRequestTransitions.get(id);
+      const samePullRequest =
+        pr &&
+        previous?.url === pr.url &&
+        previous.path === workspace.path &&
+        previous.root === workspace.root;
+      let observedMerge = false;
+      if (pr?.state === "open") {
+        pullRequestTransitions.set(id, { url: pr.url, path: workspace.path, root: workspace.root });
+      } else if (
+        isLive &&
+        pr?.state === "merged" &&
+        samePullRequest &&
+        Date.parse(pr.mergedAt) >= connectedAt
+      ) {
+        // The forge and local checkout can settle in separate updates. Consume
+        // the open observation only once the merged checkout is verified.
+        if (pr.matchesCheckout) {
+          observedMerge = true;
+          pullRequestTransitions.delete(id);
+        }
+      } else if (pr || !workspace) {
+        pullRequestTransitions.delete(id);
+      }
+      return workspace ? { workspace, observedMerge } : undefined;
+    }
     const observe = (cache, id, value, event) => {
       if (!value) {
         cache.delete(id);
@@ -136,9 +190,12 @@ export function createPaseoConnection(settingsSource = {}) {
       ),
     );
     client.workspaces.subscribe((update) => {
+      if (client !== cachedClient) return;
       const id = update.workspace?.id ?? update.id;
       const workspace = update.kind === "upsert" ? workspaceView(update.workspace) : null;
-      observe(workspaces, id, workspace);
+      if (!initialized) initialWorkspaceChanges.add(id);
+      const differs = !workspace || workspaces.get(id) !== signature(workspace);
+      if (differs) observe(workspaces, id, workspace, observePullRequest(id, workspace, true));
       observe(workspaceLabels, id, workspace && [workspace.path, workspace.labels], {
         labels: true,
       });
@@ -164,7 +221,33 @@ export function createPaseoConnection(settingsSource = {}) {
     });
     const subscriptions = await Promise.allSettled([
       client.agents.list({ scope: "active", page: { limit: 200 }, subscribe: {} }),
-      client.workspaces.list({ page: { limit: 200 }, subscribe: {} }),
+      client.workspaces
+        .list({ page: { limit: 200 }, subscribe: {} })
+        .then(async (first) => {
+          let page = first;
+          const cursors = new Set();
+          while (client === cachedClient) {
+            for (const entry of page.entries) {
+              if (!initialWorkspaceChanges.has(entry.id)) {
+                const workspace = workspaceView(entry);
+                observe(
+                  workspaces,
+                  entry.id,
+                  workspace,
+                  observePullRequest(entry.id, workspace, false),
+                );
+              }
+            }
+            const cursor = page.pageInfo.nextCursor;
+            if (!cursor || cursors.has(cursor)) break;
+            cursors.add(cursor);
+            page = await client.workspaces.list({ page: { limit: 200, cursor } });
+          }
+        })
+        .finally(() => {
+          initialized = true;
+          initialWorkspaceChanges.clear();
+        }),
       gitEvents.ready,
       labelEvents,
     ]);
@@ -178,7 +261,10 @@ export function createPaseoConnection(settingsSource = {}) {
   async function connect() {
     if (cachedClient?.getConnectionState().status === "connected") return cachedClient;
     connection ??= (async () => {
-      await cachedClient?.close();
+      changed({ workspaceReset: true });
+      const previous = cachedClient;
+      cachedClient = undefined;
+      await previous?.close();
       daemonHost = undefined;
       const settings = await settingsSource.connection?.();
       const url = localAgentUrl(settings);
@@ -191,7 +277,8 @@ export function createPaseoConnection(settingsSource = {}) {
       });
       await cachedClient.connect();
       const client = cachedClient;
-      void observeDirectory(client).catch(() => {
+      // GitHub reports merge times at second precision.
+      void observeDirectory(client, Math.floor(Date.now() / 1000) * 1000).catch(() => {
         if (client !== cachedClient) return;
         liveError =
           "Agent service events are unavailable; checking automatically every few seconds.";
@@ -518,6 +605,9 @@ export function createPaseoConnection(settingsSource = {}) {
   return {
     directory,
     workspaceDirectory,
+    observeWorkspaces: async () => {
+      await connect();
+    },
     localServerId: async () => getDaemonHost(await connect()),
     labels,
     setWorkLabel,

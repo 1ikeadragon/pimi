@@ -5998,6 +5998,7 @@ export class Session {
 
     return {
       currentBranch: snapshot.git.currentBranch,
+      headSha: snapshot.git.headSha,
       remoteUrl: snapshot.git.remoteUrl,
       isPaseoOwnedWorktree: snapshot.git.isPaseoOwnedWorktree,
       isDirty: snapshot.git.isDirty,
