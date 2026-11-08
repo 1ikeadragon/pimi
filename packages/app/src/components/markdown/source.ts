@@ -136,6 +136,7 @@ export function prepareMarkdownSource(
   workspaceRoot?: string,
   options: {
     supportsSvg?: boolean;
+    externalImageLinks?: boolean;
     commandNames?: ReadonlySet<string>;
     /** Regex source for forge references such as `#12`; see `@/git/forge-shorthand`. */
     forgeReferencePattern?: string;
@@ -178,8 +179,23 @@ export function prepareMarkdownSource(
     node: Extract<Nodes, { type: "image" | "imageReference" }>,
     start: number,
     end: number,
+    insideLink: boolean,
   ) {
     const target = node.type === "image" ? node : definitions.get(node.identifier);
+    if (options.externalImageLinks && target && /^(?:https?:|\/\/)/i.test(target.url)) {
+      const label = escapeMarkdownText(node.alt || "External image");
+      let text = label;
+      if (!insideLink) {
+        try {
+          const url = new URL(target.url.startsWith("//") ? "https:" + target.url : target.url);
+          if (!url.username && !url.password) text = `[${label}](<${url.href}>)`;
+        } catch {
+          // Malformed destinations are shown as text.
+        }
+      }
+      edits.push({ start, end, text });
+      return;
+    }
     if (
       target &&
       options.supportsSvg === false &&
@@ -199,13 +215,15 @@ export function prepareMarkdownSource(
   }
   // Line boundaries already turned into paragraph breaks, by offset of their newline.
   const splitBoundaries = new Set<number>();
+  function isLinkNode(node: Nodes): node is Extract<Nodes, { type: "link" | "linkReference" }> {
+    return node.type === "link" || node.type === "linkReference";
+  }
+  function isImageNode(node: Nodes): node is Extract<Nodes, { type: "image" | "imageReference" }> {
+    return node.type === "image" || node.type === "imageReference";
+  }
   function isImageLike(node: PhrasingContent): boolean {
-    if (node.type === "image" || node.type === "imageReference") return true;
-    return (
-      (node.type === "link" || node.type === "linkReference") &&
-      node.children.length === 1 &&
-      isImageLike(node.children[0])
-    );
+    if (isImageNode(node)) return true;
+    return isLinkNode(node) && node.children.length === 1 && isImageLike(node.children[0]);
   }
   // An image alone on its line becomes its own paragraph, so every platform renders
   // it as a block. The library only treats sole-child paragraph images as blocks;
@@ -236,7 +254,7 @@ export function prepareMarkdownSource(
       if (lineEnd < end) split(lineEnd);
     }
   }
-  function visit(node: Nodes, previous?: Nodes) {
+  function visit(node: Nodes, previous?: Nodes, insideLink = false) {
     const position = node.position;
     if (position?.start.offset !== undefined && position.end.offset !== undefined) {
       const start = position.start.offset;
@@ -268,8 +286,8 @@ export function prepareMarkdownSource(
           edits.push({ start: start + match.index + 1, end: start + match.index + 1, text: " " });
         }
       }
-      if (node.type === "image" || node.type === "imageReference") {
-        collectImage(node, start, end);
+      if (isImageNode(node)) {
+        collectImage(node, start, end, insideLink);
         return;
       }
       if (node.type === "text") {
@@ -282,8 +300,12 @@ export function prepareMarkdownSource(
         if (text !== source.slice(start, end)) edits.push({ start, end, text });
       }
     }
-    if ("children" in node)
-      node.children.forEach((child, index) => visit(child, node.children[index - 1]));
+    if ("children" in node) {
+      const childInsideLink = insideLink || isLinkNode(node);
+      node.children.forEach((child, index) =>
+        visit(child, node.children[index - 1], childInsideLink),
+      );
+    }
   }
   visit(getTree());
   return {

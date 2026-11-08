@@ -71,6 +71,7 @@ export function createSpacesView({ $, api, button, element, message }) {
   let copyTimer;
   let feedback;
   const sources = new WeakMap();
+  const requestedPreviews = new WeakSet();
   const unavailablePapers = new Set();
 
   function embedFrame(embed) {
@@ -107,7 +108,8 @@ export function createSpacesView({ $, api, button, element, message }) {
     observer.disconnect();
     observer.takeRecords();
     for (const target of grid.querySelectorAll(".spaces-embed")) {
-      if (active && !document.hidden && !target.hidden) observer.observe(target);
+      if (active && !document.hidden && !target.hidden && requestedPreviews.has(target))
+        observer.observe(target);
       else target.replaceChildren();
     }
     updatePaperReader();
@@ -244,7 +246,20 @@ export function createSpacesView({ $, api, button, element, message }) {
         const slot = element("div", "spaces-embed");
         slot.dataset.embedKind = embed.kind;
         sources.set(slot, embed);
-        slot.hidden = unavailablePapers.has(embed.url);
+        slot.hidden = true;
+        const loadPreview = button(
+          "button quiet spaces-load-preview",
+          `Load ${embed.name} preview`,
+          () => {
+            requestedPreviews.add(slot);
+            slot.hidden = false;
+            if (embed.kind === "arxiv") slot.parentElement.hidden = false;
+            loadPreview.remove();
+            if (active && !document.hidden) observer.observe(slot);
+          },
+        );
+        loadPreview.hidden = unavailablePapers.has(embed.url);
+        node.append(loadPreview);
         if (embed.kind === "arxiv") {
           const peek = button("spaces-paper-peek", "", () => openCard(item));
           peek.tabIndex = -1;
@@ -288,8 +303,6 @@ export function createSpacesView({ $, api, button, element, message }) {
     removeCard(item.id);
     const node = card(item);
     grid.prepend(node);
-    const slot = node.querySelector(".spaces-embed");
-    if (slot && active && !document.hidden) observer.observe(slot);
     showEmpty();
   }
 

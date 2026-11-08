@@ -556,7 +556,11 @@ function dictateBrief(
   const island = new WebContentsView({
     webPreferences: {
       preload,
-      additionalArguments: ["--pimi-task-dictation", pimiAppearanceArgument()],
+      additionalArguments: [
+        "--pimi-task-dictation",
+        `--paseo-console-url=${dictationUrl}`,
+        pimiAppearanceArgument(),
+      ],
       autoplayPolicy: "no-user-gesture-required",
       sandbox: true,
       contextIsolation: true,
@@ -566,6 +570,7 @@ function dictateBrief(
   const contents = island.webContents;
   island.setBackgroundColor("#00000000");
   contents.on("will-navigate", (event) => event.preventDefault());
+  contents.on("will-redirect", (event) => event.preventDefault());
   contents.setWindowOpenHandler(() => ({ action: "deny" }));
 
   const resize = () => {

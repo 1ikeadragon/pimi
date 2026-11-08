@@ -46,6 +46,7 @@ export function useMarkdownSource(
     () =>
       prepareMarkdownSource(text, context.workspaceRoot, {
         supportsSvg: isWeb,
+        externalImageLinks: true,
         commandNames,
         forgeReferencePattern,
       }),
@@ -58,6 +59,9 @@ export function useMarkdownSource(
       markdownPath: context.filePath ?? "",
       workspaceRoot: context.workspaceRoot,
     });
+    const resolution = resolved
+      ? resolveAssistantImageSource({ source: resolved, workspaceRoot: context.workspaceRoot })
+      : null;
     return createAssistantImageFileAcquisition({
       port: context.client
         ? {
@@ -65,9 +69,12 @@ export function useMarkdownSource(
             persist: persistAttachmentFromBytes,
           }
         : null,
-      resolution: resolved
-        ? resolveAssistantImageSource({ source: resolved, workspaceRoot: context.workspaceRoot })
-        : null,
+      resolution:
+        resolution?.kind === "file_rpc" &&
+        resolution.cwd === context.workspaceRoot?.trim() &&
+        !resolution.path.split(/[\\/]/).includes("..")
+          ? resolution
+          : null,
       serverId: context.serverId,
       occurrenceKey,
       unavailableMessage: "Image unavailable",
@@ -104,8 +111,7 @@ export function useMarkdownSource(
     if (result.data) resolved.set(sources[index]!, result.data.uri);
   });
   const displayUrls = sources.map(
-    (source) =>
-      resolved.get(source) ?? (/^(https?:|data:|blob:)/i.test(source) ? source : undefined),
+    (source) => resolved.get(source) ?? (/^(data:|blob:)/i.test(source) ? source : undefined),
   );
   const decoded = useFetchQueries(
     displayUrls.map((uri, index) => ({
