@@ -33,7 +33,7 @@ In the `examples/flow-api` directory:
 1. Install dependencies:
 
    ```sh
-   npm install
+   npm ci
    ```
 
 2. Run the app:

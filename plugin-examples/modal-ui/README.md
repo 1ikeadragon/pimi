@@ -1,29 +1,22 @@
 # Modal UI example
 
-Install on a Pimi host with npm source installation support and npm available:
+From the Pimi checkout on the host, install the example directory.
 
 ```sh
-pimi plugin install npm:@pimi/plugin-example-modal-ui@0.1.1
+pimi plugin install "$(pwd)/plugin-examples/modal-ui"
 ```
 
-In host **Settings → Plugins**, paste the same `npm:` identifier into **Plugin source**.
+You can also paste the absolute directory path into **Plugin source** under **Settings → Plugins**.
 Enable plugins, then open **Modal examples** from the sidebar or a workspace tab.
 Choose **Open Form**, type into **Paste here**, and watch the **Input:** text update.
-The installed plugin ID is `modal-ui-example`. Host Settings shows the package identity and
-installed version. With reviewed-update support, run `pimi plugin update modal-ui-example --check`
-to check for a newer version, then `pimi plugin update modal-ui-example` to review and approve it.
-An explicit install version selects the initial content; later updates still check the latest release.
+The installed plugin ID is `modal-ui-example`.
 
-The package ships the existing TypeScript entry and client sources. Pimi compiles them through
-its directory plugin loader; no package build or preparation command is required. React,
-React Native, and `@pimi/plugin` are peer contracts supplied by the host. npm is needed for
-installation, not loading or reloading. You can also install this directory while developing.
-See the [source reference](https://github.com/1ikeadragon/pimi/blob/main/README.md)
-for supported identifiers and preparation rules.
+Pimi compiles the TypeScript sources through its directory plugin loader and supplies React,
+React Native, and `@pimi/plugin`. See the [plugin reference](../../public-docs/plugins/reference.md)
+for supported sources and preparation rules.
 
 The examples demonstrate default and custom padding, a full-width body, author-owned ScrollView and
-FlatList scrolling, horizontal tabs, and clipboard actions with a keyboard-aware input. See the
-[host UI reference](https://github.com/1ikeadragon/pimi/blob/main/README.md) for the API contract.
+FlatList scrolling, horizontal tabs, and clipboard actions with a keyboard-aware input.
 
 The browser regression installs this exact example in an isolated daemon:
 

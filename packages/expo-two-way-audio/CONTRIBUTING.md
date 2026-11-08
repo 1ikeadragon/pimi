@@ -18,10 +18,10 @@ Welcome to the Speechmatics Expo Two Way Audio Module! We're open to contributio
 
 ### Installing dependencies
 
-After cloning this repo, run
+From the Pimi checkout root, install the audio module through the workspace lockfile.
 
 ```sh
-npm i
+npm ci
 ```
 
 ## How to Submit Changes
