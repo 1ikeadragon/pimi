@@ -33,9 +33,12 @@ jobs:
       - name: Validate tag and prepare changelog
         id: release
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           tag="$GITHUB_REF_NAME"
-          [[ "$tag" =~ ^pimi-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          release_tag='^pimi-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+          [[ "$tag" =~ $release_tag ]]
           version="${tag#pimi-v}"
           commit="$(git rev-parse "$GITHUB_SHA^{commit}")"
           test "$(git rev-parse "refs/tags/$tag^{commit}")" = "$commit"
@@ -51,10 +54,15 @@ jobs:
           const entry = entries.find(({ version }) => version === process.argv[2]);
           if (entry) process.stdout.write(entry.bodyLines.join("\n") + "\n");
           NODE
-          previous="$(git for-each-ref --merged="$commit^" --sort=-version:refname --count=1 --format='%(refname)' 'refs/tags/pimi-v*')"
+          # Failed or unpublished tags must not cut off part of the changelog.
+          previous="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1 \
+            --exclude-drafts --exclude-pre-releases --json tagName --jq '.[0].tagName // empty')"
           if [[ -n "$previous" ]]; then
-            printf '\n### Changes since %s\n\n```text\n' "${previous#refs/tags/}" >> release-notes.md
-            git log --first-parent --format='%h %s' "$previous..$commit" >> release-notes.md
+            [[ "$previous" =~ $release_tag && "$tag" != "$previous" ]]
+            test "$(printf '%s\n' "$previous" "$tag" | sort -V | tail -n 1)" = "$tag"
+            git merge-base --is-ancestor "refs/tags/$previous^{commit}" "$commit"
+            printf '\n### Changes since %s\n\n```text\n' "$previous" >> release-notes.md
+            git log --first-parent --format='%h %s' "refs/tags/$previous..$commit" >> release-notes.md
             printf '```\n' >> release-notes.md
           fi
           test -s release-notes.md
