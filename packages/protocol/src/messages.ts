@@ -2036,6 +2036,7 @@ export const FetchAgentTimelineRequestMessageSchema = z.object({
   projection: z.enum(["projected", "canonical"]).optional(),
   // Allow the client to merge this bounded page outside its contiguous loaded range.
   mergeWindow: z.boolean().optional(),
+  compactionSummaryOnly: z.literal(true).optional(),
 });
 
 export const AgentTimelineSearchRequestMessageSchema = z.object({
@@ -4959,6 +4960,7 @@ export const FetchAgentTimelineResponseMessageSchema = z.object({
     hasNewer: z.boolean(),
     mergeWindow: z.boolean().optional(),
     entries: z.array(AgentTimelineEntryPayloadSchema),
+    completedCompactionCount: z.number().int().nonnegative().optional(),
     error: z.string().nullable(),
   }),
 });

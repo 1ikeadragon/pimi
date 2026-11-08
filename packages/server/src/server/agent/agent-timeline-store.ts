@@ -21,10 +21,15 @@ interface AgentTimelineState {
   projection: TimelineProjection;
   minSeq: number;
   nextSeq: number;
+  completedCompactions: number;
 }
 const DEFAULT_TIMELINE_FETCH_LIMIT = 200;
 function cloneRow<T extends AgentTimelineRow>(row: T): T {
   return { ...row };
+}
+
+function isCompletedCompaction(item: AgentTimelineItem): boolean {
+  return item.type === "compaction" && item.status === "completed";
 }
 
 export class InMemoryAgentTimelineStore {
@@ -46,6 +51,10 @@ export class InMemoryAgentTimelineStore {
       projection,
       minSeq: projection.getRows()[0]?.seqStart ?? 0,
       nextSeq,
+      completedCompactions: rows.reduce(
+        (count, row) => count + Number(isCompletedCompaction(row.item)),
+        0,
+      ),
     });
   }
 
@@ -87,6 +96,10 @@ export class InMemoryAgentTimelineStore {
 
   getEpoch(agentId: string): string {
     return this.requireState(agentId).epoch;
+  }
+
+  getCompletedCompactionCount(agentId: string): number {
+    return this.requireState(agentId).completedCompactions;
   }
 
   fetch(agentId: string, options?: AgentTimelineFetchOptions): AgentTimelineFetchResult {
@@ -146,6 +159,7 @@ export class InMemoryAgentTimelineStore {
     state.nextSeq += 1;
     if (state.minSeq === 0) state.minSeq = row.seq;
     state.projection.append(row);
+    if (isCompletedCompaction(item)) state.completedCompactions += 1;
     return cloneRow(row);
   }
 

@@ -716,6 +716,7 @@ export interface FetchAgentTimelineOptions {
   limit?: number;
   projection?: FetchAgentTimelineProjection;
   mergeWindow?: boolean;
+  compactionSummaryOnly?: boolean;
   requestId?: string;
   timeout?: number;
 }
@@ -3752,10 +3753,11 @@ export class DaemonClient {
     // COMPAT(wholeTurnTimeline): added after v0.13.2 (#8010); remove after 2027-04-27 once the daemon floor supports whole-turn pages.
     // Reading history predates this capability and must keep working on older hosts.
     const supportsWholeTurns = this.lastServerInfoMessage?.features?.wholeTurnTimeline === true;
+    const compactionSummaryOnly = options.compactionSummaryOnly === true;
     const resolvedRequestId = this.createRequestId(options.requestId);
     const message = SessionInboundMessageSchema.parse({
       type: "fetch_agent_timeline_request",
-      ...(supportsWholeTurns && options.wholeTurns !== undefined
+      ...(supportsWholeTurns && !compactionSummaryOnly && options.wholeTurns !== undefined
         ? { wholeTurns: options.wholeTurns }
         : {}),
       agentId,
@@ -3765,6 +3767,8 @@ export class DaemonClient {
       ...(typeof options.limit === "number" ? { limit: options.limit } : {}),
       ...(options.projection ? { projection: options.projection } : {}),
       ...(options.mergeWindow === true ? { mergeWindow: true } : {}),
+      // Older hosts ignore the summary flag and return at most one row.
+      ...(compactionSummaryOnly ? { compactionSummaryOnly: true, limit: 1 } : {}),
     });
 
     const payload = await this.sendRequest({

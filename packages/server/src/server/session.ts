@@ -8276,16 +8276,19 @@ export class Session {
       const fetchedControlTimeline = this.agentManager.fetchTimeline(msg.agentId, {
         direction,
         cursor,
-        limit: msg.limit,
-        wholeTurns: msg.wholeTurns,
+        limit: msg.compactionSummaryOnly ? 1 : msg.limit,
+        wholeTurns: !msg.compactionSummaryOnly && msg.wholeTurns,
       });
+      const completedCompactionCount = msg.compactionSummaryOnly
+        ? this.agentManager.getCompletedCompactionCount(msg.agentId)
+        : undefined;
       const selectedTimeline = {
         timeline: fetchedControlTimeline,
-        entries: fetchedControlTimeline.rows,
-        startSeq: fetchedControlTimeline.startSeq,
-        endSeq: fetchedControlTimeline.endSeq,
-        hasOlder: fetchedControlTimeline.hasOlder,
-        hasNewer: fetchedControlTimeline.hasNewer,
+        entries: msg.compactionSummaryOnly ? [] : fetchedControlTimeline.rows,
+        startSeq: msg.compactionSummaryOnly ? null : fetchedControlTimeline.startSeq,
+        endSeq: msg.compactionSummaryOnly ? null : fetchedControlTimeline.endSeq,
+        hasOlder: !msg.compactionSummaryOnly && fetchedControlTimeline.hasOlder,
+        hasNewer: !msg.compactionSummaryOnly && fetchedControlTimeline.hasNewer,
       };
       const startCursor =
         selectedTimeline.startSeq !== null
@@ -8318,6 +8321,7 @@ export class Session {
             hasOlder: selectedTimeline.hasOlder,
             hasNewer: selectedTimeline.hasNewer,
             ...(msg.mergeWindow === true ? { mergeWindow: true } : {}),
+            ...(completedCompactionCount === undefined ? {} : { completedCompactionCount }),
             entries: entries.map((entry) => {
               const payloadEntry = {
                 provider: snapshot.provider,
