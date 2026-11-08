@@ -189,6 +189,13 @@ export interface AgentRunOptions {
   maxThinkingTokens?: number;
 }
 
+export interface AgentContextBreakdown {
+  capturedAt: string;
+  usedTokens: number;
+  capacityTokens: number;
+  categories: { name: string; tokens: number; kind: "used" | "free" | "buffer" | "deferred" }[];
+}
+
 export interface AgentUsage {
   inputTokens?: number;
   cachedInputTokens?: number;
@@ -196,6 +203,7 @@ export interface AgentUsage {
   totalCostUsd?: number;
   contextWindowMaxTokens?: number;
   contextWindowUsedTokens?: number;
+  contextBreakdown?: AgentContextBreakdown;
 }
 
 export const TOOL_CALL_ICON_NAMES = [

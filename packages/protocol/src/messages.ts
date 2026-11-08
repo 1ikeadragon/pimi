@@ -432,6 +432,22 @@ const AgentCapabilityFlagsSchema: z.ZodType<AgentCapabilityFlags> = z
   })
   .catchall(z.boolean());
 
+export const AgentContextBreakdownSchema = z.object({
+  capturedAt: z.iso.datetime(),
+  usedTokens: z.number().int().nonnegative(),
+  capacityTokens: z.number().int().positive(),
+  categories: z
+    .array(
+      z.object({
+        name: z.string().min(1).max(100),
+        tokens: z.number().int().nonnegative(),
+        kind: z.enum(["used", "free", "buffer", "deferred"]),
+      }),
+    )
+    .min(1)
+    .max(64),
+});
+
 const AgentUsageSchema: z.ZodType<AgentUsage> = z.object({
   inputTokens: z.number().optional(),
   cachedInputTokens: z.number().optional(),
@@ -439,6 +455,7 @@ const AgentUsageSchema: z.ZodType<AgentUsage> = z.object({
   totalCostUsd: z.number().optional(),
   contextWindowMaxTokens: z.number().optional(),
   contextWindowUsedTokens: z.number().optional(),
+  contextBreakdown: AgentContextBreakdownSchema.optional(),
 });
 
 const McpStdioServerConfigSchema = z.object({

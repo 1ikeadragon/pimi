@@ -4892,6 +4892,18 @@ export class AgentManager {
     );
   }
 
+  private onStreamUsageUpdated(agent: ActiveManagedAgent, usage: AgentUsage): void {
+    const previous = agent.lastUsage;
+    if (usage.contextBreakdown) {
+      agent.lastUsage = { ...previous, ...usage };
+    } else if (previous?.contextBreakdown) {
+      agent.lastUsage = { ...usage, contextBreakdown: previous.contextBreakdown };
+    } else {
+      agent.lastUsage = usage;
+    }
+    this.emitState(agent);
+  }
+
   private dispatchStreamEventByType(params: {
     agent: ActiveManagedAgent;
     event: AgentStreamEvent;
@@ -4908,8 +4920,7 @@ export class AgentManager {
         this.onStreamThreadStarted(agent);
         return undefined;
       case "usage_updated":
-        agent.lastUsage = event.usage;
-        this.emitState(agent);
+        this.onStreamUsageUpdated(agent, event.usage);
         return undefined;
       case "mode_changed":
         this.applyObservedMode(agent, event.currentModeId);
