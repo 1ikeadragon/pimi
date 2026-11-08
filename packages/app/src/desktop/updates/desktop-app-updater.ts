@@ -307,10 +307,13 @@ export function createDesktopAppUpdater(deps: DesktopAppUpdaterDeps): DesktopApp
         releaseChannel: options.releaseChannel,
       });
       const nextLastCheckedAt = deps.now();
+      let status: DesktopAppUpdateStatus = "up-to-date";
+      if (result.installed) status = "installed";
+      else if (result.openedInstaller) status = "available";
       commit({
         ...state,
-        status: result.installed ? "installed" : "up-to-date",
-        availableUpdate: null,
+        status,
+        availableUpdate: result.openedInstaller ? state.availableUpdate : null,
         installMessage: result.message,
         lastCheckedAt: nextLastCheckedAt,
         isInstalling: false,

@@ -5,6 +5,7 @@ import { app } from "electron";
 import { UUID } from "builder-util-runtime";
 import log from "electron-log/main";
 import { autoUpdater } from "electron-updater";
+import { PimiAutoUpdater } from "./pimi-auto-updater.js";
 import {
   createAppUpdateService,
   type AppUpdateCheckResult,
@@ -222,9 +223,11 @@ class ElectronAppUpdateRuntime implements AppUpdateRuntime {
   }
 }
 
+const pimiAppUpdater = new PimiAutoUpdater();
+
 const appUpdateService = createAppUpdateService({
   runtime: new ElectronAppUpdateRuntime(),
-  isPackaged: () => app.isPackaged && app.getName() !== "Pimi",
+  isPackaged: () => app.isPackaged,
   now: () => Date.now(),
   bucket: async () => bucketFromStagingUserId(await getStagingUserId()),
   reportCheckError: (error) => {
@@ -252,11 +255,10 @@ export async function checkForAppUpdate({
   intent: AppUpdateCheckIntent;
 }): Promise<AppUpdateCheckResult> {
   updateLifecycleLog.checkStarted({ currentVersion, releaseChannel, intent });
-  const result = await appUpdateService.checkForAppUpdate({
-    currentVersion,
-    releaseChannel,
-    intent,
-  });
+  const result =
+    app.getName() === "Pimi"
+      ? await pimiAppUpdater.check(currentVersion, intent)
+      : await appUpdateService.checkForAppUpdate({ currentVersion, releaseChannel, intent });
   updateLifecycleLog.checkCompleted({
     currentVersion,
     targetVersion: result.latestVersion,
@@ -279,6 +281,8 @@ export async function downloadAndInstallUpdate(
   },
   onBeforeQuit?: () => Promise<void>,
 ): Promise<AppUpdateInstallResult> {
+  if (app.getName() === "Pimi") return pimiAppUpdater.install(currentVersion, onBeforeQuit);
+
   return appUpdateService.downloadAndInstallUpdate(
     { currentVersion, releaseChannel },
     onBeforeQuit,
@@ -302,6 +306,8 @@ export async function installAppUpdateOnQuit({
   ) {
     return false;
   }
+
+  if (app.getName() === "Pimi") return pimiAppUpdater.installOnQuit(currentVersion, signal);
 
   return appUpdateService.installUpdateOnQuit({ currentVersion, releaseChannel, signal });
 }

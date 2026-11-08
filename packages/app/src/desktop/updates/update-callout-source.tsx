@@ -21,7 +21,13 @@ const CHECK_INTERVAL_MS = 30 * 60 * 1000;
 function renderBody(body: UpdateCalloutBody, t: ReturnType<typeof useTranslation>["t"]): ReactNode {
   if (body.kind === "installing") return t("desktop.updates.callout.installingDescription");
   if (body.kind === "error") return body.message;
-  return <UpdateAvailableDescription versionLabel={body.versionLabel ?? undefined} t={t} />;
+  return (
+    <UpdateAvailableDescription
+      versionLabel={body.versionLabel ?? undefined}
+      manualInstall={body.manualInstall === true}
+      t={t}
+    />
+  );
 }
 
 function materializeActions(
@@ -119,9 +125,11 @@ export function UpdateCalloutSource() {
 
 function UpdateAvailableDescription({
   versionLabel,
+  manualInstall,
   t,
 }: {
   versionLabel?: string;
+  manualInstall: boolean;
   t: ReturnType<typeof useTranslation>["t"];
 }) {
   return (
@@ -132,7 +140,9 @@ function UpdateAvailableDescription({
           : t("desktop.updates.callout.newVersionReady")}
       </SidebarCalloutDescriptionText>
       <SidebarCalloutDescriptionText>
-        {t("desktop.updates.callout.restartWarning")}
+        {manualInstall
+          ? "Open the verified disk image and drag Pimi into Applications."
+          : t("desktop.updates.callout.restartWarning")}
       </SidebarCalloutDescriptionText>
     </>
   );

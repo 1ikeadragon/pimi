@@ -2,7 +2,7 @@ import type { DesktopAppUpdateStatus } from "@/desktop/updates/use-desktop-app-u
 import { i18n } from "@/i18n/i18next";
 
 export type UpdateCalloutBody =
-  | { kind: "available"; versionLabel: string | null }
+  | { kind: "available"; versionLabel: string | null; manualInstall?: boolean }
   | { kind: "installing" }
   | { kind: "error"; message: string };
 
@@ -31,7 +31,7 @@ export interface ResolveUpdateCalloutInput {
   isDesktopApp: boolean;
   status: DesktopAppUpdateStatus;
   isInstalling: boolean;
-  availableUpdate: { latestVersion?: string | null } | null;
+  availableUpdate: { latestVersion?: string | null; manualInstall?: boolean } | null;
   errorMessage: string | null;
 }
 
@@ -53,6 +53,7 @@ export function resolveUpdateCalloutDescriptor(
   const isAvailable = !isInstalling && !isError;
 
   const latestVersion = input.availableUpdate?.latestVersion ?? null;
+  const manualInstall = input.availableUpdate?.manualInstall === true;
   const dismissalKey = `desktop-update:${input.status}:${latestVersion ?? "unknown"}`;
 
   let title: string;
@@ -68,7 +69,11 @@ export function resolveUpdateCalloutDescriptor(
     };
   } else {
     title = i18n.t("desktop.updates.callout.availableTitle");
-    body = { kind: "available", versionLabel: formatVersionLabel(latestVersion) };
+    body = {
+      kind: "available",
+      versionLabel: formatVersionLabel(latestVersion),
+      ...(manualInstall && { manualInstall: true }),
+    };
   }
 
   const actions: UpdateCalloutActionDescriptor[] = [
@@ -77,11 +82,12 @@ export function resolveUpdateCalloutDescriptor(
   if (isError) {
     actions.push({ role: "retry", label: i18n.t("common.actions.retry"), variant: "primary" });
   } else {
+    const installAction = manualInstall
+      ? "Open disk image"
+      : i18n.t("desktop.updates.callout.installAndRestart");
     actions.push({
       role: "install",
-      label: isInstalling
-        ? i18n.t("desktop.updates.callout.installingAction")
-        : i18n.t("desktop.updates.callout.installAndRestart"),
+      label: isInstalling ? i18n.t("desktop.updates.callout.installingAction") : installAction,
       variant: "primary",
       disabled: isInstalling,
     });

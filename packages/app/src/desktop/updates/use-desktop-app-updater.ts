@@ -106,14 +106,17 @@ export function useDesktopAppUpdater(): UseDesktopAppUpdaterReturn {
   return {
     isDesktopApp,
     status: snapshot.status,
-    statusText: formatStatusText({
-      status: snapshot.status,
-      availableUpdate: snapshot.availableUpdate,
-      installMessage: snapshot.installMessage,
-      lastCheckedAt: snapshot.lastCheckedAt,
-      formatVersion: formatVersionWithPrefix,
-      formatLastCheckedAt: (timestamp) => formatMessageTimestamp(new Date(timestamp)),
-    }),
+    statusText:
+      snapshot.status === "available" && snapshot.installMessage
+        ? snapshot.installMessage
+        : formatStatusText({
+            status: snapshot.status,
+            availableUpdate: snapshot.availableUpdate,
+            installMessage: snapshot.installMessage,
+            lastCheckedAt: snapshot.lastCheckedAt,
+            formatVersion: formatVersionWithPrefix,
+            formatLastCheckedAt: (timestamp) => formatMessageTimestamp(new Date(timestamp)),
+          }),
     availableUpdate: snapshot.availableUpdate,
     errorMessage: snapshot.errorMessage,
     lastCheckedAt: snapshot.lastCheckedAt,
