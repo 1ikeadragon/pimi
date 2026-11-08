@@ -2415,6 +2415,9 @@ export const fr: TranslationResources = {
     },
     plugins: pluginSettings.fr,
     metadataGeneration: {
+      autoNaming: "Nommer automatiquement les discussions et les espaces de travail",
+      autoNamingHint:
+        "Génère les titres et les noms des branches des nouveaux arbres de travail à partir du premier message. Les noms modifiés sont conservés.",
       title: "Génération de métadonnées",
       description:
         "Choisissez le modèle utilisé par Pimi pour les titres d’espaces de travail, les noms de branches, les messages de commit et les brouillons de pull request",

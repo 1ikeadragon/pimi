@@ -2339,6 +2339,8 @@ export const zhCN: TranslationResources = {
     },
     plugins: pluginSettings["zh-CN"],
     metadataGeneration: {
+      autoNaming: "自动为聊天和工作区命名",
+      autoNamingHint: "根据首条消息生成标题和新工作树的分支名称。保留你手动修改的名称。",
       title: "元数据生成",
       description: "选择 Pimi 用于工作区标题、分支名称、提交消息和拉取请求草稿的模型",
       selection: "模型选择",

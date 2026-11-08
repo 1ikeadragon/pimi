@@ -12,6 +12,7 @@ Pimi asks a language model to write short pieces of text for you so you don't ha
 
 Pimi generates these kinds of metadata:
 
+- **Chat titles** — a short name based on the first message.
 - **Workspace titles** — a short, task-shaped label for a workspace, shown in the sidebar.
 - **Worktree branch names** — a slug for a new worktree-isolated workspace's branch.
 - **Commit messages** — a concise message for the changes you're committing.
@@ -41,6 +42,8 @@ Every failure is written to `$PASEO_HOME/daemon.log` (`~/.paseo/daemon.log` by d
 ## Choose a model
 
 Open **Settings → Host → Metadata** and select **Automatic** or **Manual**. In Manual mode, pick the model Pimi uses. Choosing a model replaces the first entry in `agents.metadataGeneration.providers` and preserves the rest of the list. Switching back to Automatic clears the list.
+
+**Automatically name chats and workspaces** is on by default for each host. Turn it off to keep the initial titles and worktree branch names. Pimi keeps titles you’ve edited and still generates commit messages and PR drafts on request.
 
 ## Configure a custom fallback order
 

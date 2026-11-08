@@ -8,6 +8,7 @@ import type { ProviderSnapshotManager } from "./provider-snapshot-manager.js";
 
 export interface StructuredGenerationDaemonConfig {
   metadataGeneration?: {
+    autoNaming?: boolean;
     providers?: Array<{
       provider: string;
       model?: string;

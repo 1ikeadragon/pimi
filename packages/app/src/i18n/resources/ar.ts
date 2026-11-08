@@ -2398,6 +2398,9 @@ export const ar: TranslationResources = {
     },
     plugins: pluginSettings.ar,
     metadataGeneration: {
+      autoNaming: "تسمية المحادثات ومساحات العمل تلقائيًا",
+      autoNamingHint:
+        "إنشاء العناوين وأسماء فروع مساحات العمل الجديدة من الطلب الأول. تُحفظ الأسماء التي تعدّلها.",
       title: "إنشاء البيانات الوصفية",
       description:
         "اختر النموذج الذي يستخدمه Pimi لعناوين مساحات العمل وأسماء الفروع ورسائل الالتزام ومسودات طلبات السحب",

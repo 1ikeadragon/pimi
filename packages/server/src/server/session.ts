@@ -4103,6 +4103,7 @@ export class Session {
       const updated = await this.workspaceRegistry.update(workspaceId, (existing) => ({
         ...existing,
         title: nextTitle,
+        titleManuallySet: true,
         updatedAt,
       }));
       if (!updated) {
@@ -7199,6 +7200,7 @@ export class Session {
       request.source.projectId,
       {
         expectsInitialAgent: Boolean(request.firstAgentContext),
+        titleManuallySet: Boolean(explicitTitle),
         workspaceId,
         ...(await this.workspaceBackgroundIntent(request.background, request.callerAgentId)),
       },

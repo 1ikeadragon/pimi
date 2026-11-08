@@ -188,6 +188,8 @@ const MutableStructuredGenerationProviderSchema = z
 const MutableMetadataGenerationConfigSchema = z
   .object({
     providers: z.array(MutableStructuredGenerationProviderSchema).default([]),
+    // COMPAT(autoNaming): added in v0.17.2, optional for older daemon snapshots.
+    autoNaming: z.boolean().optional(),
   })
   .passthrough();
 
@@ -266,7 +268,13 @@ export const MutableDaemonConfigPatchSchema = z
       .record(z.string(), MutableDaemonProviderConfigSchema.partial().passthrough())
       .optional(),
     removeProviders: z.array(z.string().min(1)).optional(),
-    metadataGeneration: MutableMetadataGenerationConfigSchema.partial().optional(),
+    metadataGeneration: z
+      .object({
+        providers: z.array(MutableStructuredGenerationProviderSchema).optional(),
+        autoNaming: z.boolean().optional(),
+      })
+      .passthrough()
+      .optional(),
     autoArchiveAfterMerge: z.boolean().optional(),
     enableTerminalAgentHooks: z.boolean().optional(),
     idleRuntimeCleanup: z.boolean().optional(),

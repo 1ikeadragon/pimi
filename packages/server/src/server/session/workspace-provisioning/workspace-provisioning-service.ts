@@ -51,6 +51,7 @@ export interface CreateWorktreeWorkspaceInput {
   branch: string | null;
   baseBranch: string | null;
   title: string | null;
+  titleManuallySet?: boolean;
   expectsInitialAgent?: boolean;
   untrustedSource?: UntrustedWorkspaceSource;
   background?: boolean;
@@ -70,6 +71,7 @@ export interface WorkspaceProvisioningService {
     projectId?: string,
     context?: {
       expectsInitialAgent?: boolean;
+      titleManuallySet?: boolean;
       workspaceId?: string;
       background?: boolean;
       callerWorkspaceId?: string;
@@ -250,6 +252,7 @@ export function createWorkspaceProvisioningService(deps: {
     projectId?: string,
     context?: {
       expectsInitialAgent?: boolean;
+      titleManuallySet?: boolean;
       workspaceId?: string;
       background?: boolean;
       callerWorkspaceId?: string;
@@ -273,6 +276,7 @@ export function createWorkspaceProvisioningService(deps: {
         ...initialWorkspacePlacement({ source: "checkout", cwd: normalizedCwd, checkout }),
         baseBranch: baseMetadata?.baseRef ?? baseMetadata?.baseRefName ?? null,
         title: title?.trim() || null,
+        ...(context?.titleManuallySet ? { titleManuallySet: true } : {}),
         createdAt: timestamp,
         updatedAt: timestamp,
         ...(await resolveCreationMetadata(context)),
@@ -313,6 +317,7 @@ export function createWorkspaceProvisioningService(deps: {
         mainRepoRoot: repoRoot,
       }),
       title: input.title,
+      ...(input.titleManuallySet ? { titleManuallySet: true } : {}),
       createdAt: timestamp,
       updatedAt: timestamp,
       ...(input.untrustedSource ? { untrustedSource: input.untrustedSource } : {}),
