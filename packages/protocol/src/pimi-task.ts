@@ -194,6 +194,7 @@ export function isPimiVideoEmbed(url: URL): boolean {
 }
 
 export interface PimiVoiceBubbleState {
+  visible: boolean;
   active: boolean;
   status: string;
   level: number;

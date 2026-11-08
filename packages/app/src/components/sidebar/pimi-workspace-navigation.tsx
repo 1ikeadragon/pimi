@@ -1,6 +1,6 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
 import { useCallback, type ReactNode } from "react";
-import { router, usePathname } from "expo-router";
+import { router, useGlobalSearchParams, usePathname } from "expo-router";
 import { ScrollView, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import {
@@ -12,9 +12,11 @@ import {
   MessageSquare,
   NotebookText,
   PanelLeftOpen,
+  Plug,
   Pin,
   Rocket,
   Settings,
+  Sparkles,
   StickyNote,
   SquarePen,
   X,
@@ -39,6 +41,7 @@ import {
   PIMI_AGENT_GRID_ROUTE,
 } from "@/navigation/pimi-agent-grid";
 import { closePimiUsage, openPimiUsage, PIMI_USAGE_ROUTE } from "@/navigation/pimi-usage";
+import { closePimiLibrary, openPimiLibrary, PIMI_LIBRARY_ROUTE } from "@/navigation/pimi-library";
 import { SidebarHeaderRow, type SidebarRowIcon } from "./sidebar-header-row";
 
 export interface PimiSidebarControls {
@@ -171,6 +174,8 @@ export function PimiWorkspaceNavigation({
   const pathname = usePathname();
   const inAgentGrid = pathname === PIMI_AGENT_GRID_ROUTE;
   const inUsage = pathname === PIMI_USAGE_ROUTE;
+  const inLibrary = pathname === PIMI_LIBRARY_ROUTE;
+  const { section: librarySection } = useGlobalSearchParams<{ section?: string }>();
   const inAutomations = pathname === buildSchedulesRoute();
   const inHistory = pathname === buildSessionsRoute();
   const { t } = useTranslation();
@@ -185,11 +190,12 @@ export function PimiWorkspaceNavigation({
     host?.dismissPimiWorkspace?.();
     if (inAgentGrid) closePimiAgentGrid();
     else if (inUsage) closePimiUsage();
+    else if (inLibrary) closePimiLibrary();
     else if ((inAutomations || inHistory) && !section) {
       if (router.canGoBack()) router.back();
       else router.replace(buildOpenProjectRoute());
     }
-  }, [host, inAgentGrid, inAutomations, inHistory, inUsage, onNavigate, section]);
+  }, [host, inAgentGrid, inAutomations, inHistory, inLibrary, inUsage, onNavigate, section]);
   const showAgentGrid = useCallback(() => {
     onNavigate?.();
     openPimiAgentGrid();
@@ -214,13 +220,21 @@ export function PimiWorkspaceNavigation({
     onNavigate?.();
     show?.({ view: "spaces" });
   }, [onNavigate, show]);
+  const showSkills = useCallback(() => {
+    onNavigate?.();
+    openPimiLibrary("skills", inLibrary);
+  }, [inLibrary, onNavigate]);
+  const showHooks = useCallback(() => {
+    onNavigate?.();
+    openPimiLibrary("hooks", inLibrary);
+  }, [inLibrary, onNavigate]);
   if (!show) return null;
 
   const chatDestination = {
     label: "Chats",
     icon: MessageSquare,
     onPress: showChat,
-    active: !section && !inAgentGrid && !inUsage && !inAutomations && !inHistory,
+    active: !section && !inAgentGrid && !inUsage && !inAutomations && !inHistory && !inLibrary,
   };
   const activityDestination = {
     label: "Agents",
@@ -260,6 +274,18 @@ export function PimiWorkspaceNavigation({
       icon: StickyNote,
       onPress: showSpaces,
       active: section === "spaces",
+    },
+    {
+      label: "Skills",
+      icon: Sparkles,
+      onPress: showSkills,
+      active: !section && inLibrary && librarySection !== "hooks",
+    },
+    {
+      label: "Hooks",
+      icon: Plug,
+      onPress: showHooks,
+      active: !section && inLibrary && librarySection === "hooks",
     },
   ];
   if (rail) {

@@ -829,12 +829,14 @@ function registerPimiWorkspaceNavigation(): void {
   });
   ipcMain.on("pimi:voice:state", (event, value: unknown) => {
     if (!isConsoleFrame(event) || !value || typeof value !== "object") return;
-    const { active, status, level } = value as {
+    const { visible, active, status, level } = value as {
+      visible?: unknown;
       active?: unknown;
       status?: unknown;
       level?: unknown;
     };
     if (
+      typeof visible !== "boolean" ||
       typeof active !== "boolean" ||
       typeof status !== "string" ||
       status.length > 240 ||
@@ -845,7 +847,7 @@ function registerPimiWorkspaceNavigation(): void {
     )
       return;
     const owner = BrowserWindow.fromWebContents(event.sender);
-    if (owner) updatePimiVoiceBubble(owner, { active, status, level });
+    if (owner) updatePimiVoiceBubble(owner, { visible, active, status, level });
   });
   ipcMain.on("pimi:workspace:content-bounds", (event, value: unknown) => {
     if (!isConsoleFrame(event) || !value || typeof value !== "object") return;

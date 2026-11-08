@@ -65,7 +65,7 @@ let navigationRequest = 0;
 let appearanceWrites: Promise<void> = Promise.resolve();
 const consoleBounds = new WeakMap<BrowserWindow, PimiContentBounds>();
 const voiceBubbleStates = new WeakMap<BrowserWindow, PimiVoiceBubbleState>();
-const VOICE_OFF: PimiVoiceBubbleState = { active: false, status: "", level: 0 };
+const VOICE_OFF: PimiVoiceBubbleState = { visible: false, active: false, status: "", level: 0 };
 
 export function updatePimiVoiceBubble(win: BrowserWindow, state: PimiVoiceBubbleState): void {
   voiceBubbleStates.set(win, state);
