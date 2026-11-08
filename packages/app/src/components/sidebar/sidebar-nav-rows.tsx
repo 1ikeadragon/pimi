@@ -1,10 +1,11 @@
 import { router, usePathname } from "expo-router";
-import { CalendarClock, History, Plus, Search } from "lucide-react-native";
+import { CalendarClock, History, Plus, Search, SquarePen } from "lucide-react-native";
 import { memo, useCallback, useMemo, useRef, type ComponentType, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { View, type StyleProp, type ViewStyle } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { SidebarHeaderRow } from "@/components/sidebar/sidebar-header-row";
+import { getDesktopHost } from "@/desktop/host";
 import { useShortcutKeys } from "@/hooks/use-shortcut-keys";
 import { PluginSidebarItem } from "@/plugins/sidebar-items";
 import { canCreateWorktreeForProjectKind } from "@/projects/host-projects";
@@ -82,6 +83,7 @@ const SidebarNewWorkspaceRow = memo(function SidebarNewWorkspaceRow({
   onBeforeNavigate,
 }: SidebarNavRowProps) {
   const { t } = useTranslation();
+  const pimi = Boolean(getDesktopHost()?.showPimiWorkspace);
   const shortcutKeys = useShortcutKeys(builtinSidebarNavShortcutAction("new-workspace"));
   const activeWorkspaceSelection = useActiveWorkspaceSelection();
   const activeWorkspaceServerId = activeWorkspaceSelection?.serverId ?? null;
@@ -98,6 +100,10 @@ const SidebarNewWorkspaceRow = memo(function SidebarNewWorkspaceRow({
 
   const handlePress = useCallback(() => {
     onBeforeNavigate?.();
+    if (pimi) {
+      router.navigate(buildNewWorkspaceRoute({ chooseProject: true }));
+      return;
+    }
     router.push(
       activeWorkspaceServerId
         ? buildNewWorkspaceRoute(
@@ -111,11 +117,17 @@ const SidebarNewWorkspaceRow = memo(function SidebarNewWorkspaceRow({
           )
         : buildNewWorkspaceRoute(),
     );
-  }, [activeWorkspace, activeWorkspaceServerId, canUseActiveWorkspaceContext, onBeforeNavigate]);
+  }, [
+    activeWorkspace,
+    activeWorkspaceServerId,
+    canUseActiveWorkspaceContext,
+    onBeforeNavigate,
+    pimi,
+  ]);
 
   return (
     <SidebarHeaderRow
-      icon={Plus}
+      icon={pimi ? SquarePen : Plus}
       label={t(builtinSidebarNavLabelKey("new-workspace"))}
       onPress={handlePress}
       testID="sidebar-global-new-workspace"

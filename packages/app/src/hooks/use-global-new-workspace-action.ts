@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { router } from "expo-router";
+import { getDesktopHost } from "@/desktop/host";
 import { useKeyboardActionHandler } from "@/hooks/use-keyboard-action-handler";
 import type { KeyboardActionId } from "@/keyboard/keyboard-action-dispatcher";
 import { canCreateWorktreeForProjectKind } from "@/projects/host-projects";
@@ -26,6 +27,12 @@ export function useGlobalNewWorkspaceAction() {
   const handle = useCallback(() => {
     if (hosts.length === 0) {
       return false;
+    }
+    const host = getDesktopHost();
+    if (host?.showPimiWorkspace) {
+      host.dismissPimiWorkspace?.();
+      router.navigate(buildNewWorkspaceRoute({ chooseProject: true }));
+      return true;
     }
     router.navigate(
       (serverId

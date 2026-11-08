@@ -1,5 +1,6 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
 import { useCallback, type ReactNode } from "react";
+import { router } from "expo-router";
 import { Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import {
@@ -11,6 +12,7 @@ import {
   PanelLeftOpen,
   Pin,
   Settings,
+  SquarePen,
   X,
 } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
@@ -21,6 +23,7 @@ import { DensityIcon } from "@/components/ui/density-icon";
 import { HeaderToggleButton } from "@/components/headers/header-toggle-button";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { HEADER_INNER_HEIGHT } from "@/constants/layout";
+import { buildNewWorkspaceRoute } from "@/utils/host-routes";
 import { SidebarHeaderRow, type SidebarRowIcon } from "./sidebar-header-row";
 
 export interface PimiSidebarControls {
@@ -120,6 +123,13 @@ export function PimiWorkspaceNavigation({
   const host = getDesktopHost();
   const show = host?.showPimiWorkspace;
   const section = usePimiWorkspaceSection();
+  const { t } = useTranslation();
+  const newWorkspaceLabel = t("newWorkspace.title");
+  const openNewWorkspace = useCallback(() => {
+    onNavigate?.();
+    host?.dismissPimiWorkspace?.();
+    router.navigate(buildNewWorkspaceRoute({ chooseProject: true }));
+  }, [host, onNavigate]);
   const showChat = useCallback(() => {
     onNavigate?.();
     host?.dismissPimiWorkspace?.();
@@ -152,6 +162,12 @@ export function PimiWorkspaceNavigation({
   if (rail) {
     return (
       <View style={styles.railDestinations}>
+        <SidebarIcon
+          icon={SquarePen}
+          label={newWorkspaceLabel}
+          onPress={openNewWorkspace}
+          testID="pimi-new-workspace-rail"
+        />
         {destinations.map((item) => (
           <SidebarIcon key={item.label} {...item} />
         ))}

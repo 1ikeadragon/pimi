@@ -48,9 +48,9 @@ const pimiSteps = {
     description: "Use your existing credentials to work with pull requests and merge requests.",
   },
   firstChat: {
-    label: "First chat",
-    title: "Start your first chat",
-    description: "Use Tasks when you want to save a plan or compare approaches across worktrees.",
+    label: "First workspace",
+    title: "Open your first workspace",
+    description: "Choose a project or add a folder, then start a chat with an agent.",
   },
 } satisfies Partial<
   Record<OnboardingStepId, { label: string; title: string; description: string }>
@@ -98,10 +98,11 @@ export function OnboardingModal({ model, state }: { model: OnboardingModel; stat
     router.push(
       buildNewWorkspaceRoute({
         serverId: state.serverId,
-        sourceDirectory: projectRoots.length === 1 ? projectRoots[0] : undefined,
+        chooseProject: pimi,
+        sourceDirectory: !pimi && projectRoots.length === 1 ? projectRoots[0] : undefined,
       }),
     );
-  }, [handleComplete, projectRoots, router, state.serverId]);
+  }, [handleComplete, pimi, projectRoots, router, state.serverId]);
   const { visit } = state;
   // A step's own work runs before it moves on; from the last step, moving on finishes setup.
   const handleAdvance = useCallback(() => model.next(visit), [model, visit]);
@@ -118,6 +119,7 @@ export function OnboardingModal({ model, state }: { model: OnboardingModel; stat
   const primary = usePrimaryAction({
     step,
     isLast,
+    pimi,
     projectSuggestions,
     orchestration,
     onAdvance: handleAdvance,
@@ -256,6 +258,7 @@ function SetupStepPane({
 function usePrimaryAction(input: {
   step: OnboardingStepId;
   isLast: boolean;
+  pimi: boolean;
   projectSuggestions: ProjectSuggestionsController;
   orchestration: OrchestrationSetupController;
   onAdvance: () => void;
@@ -267,6 +270,7 @@ function usePrimaryAction(input: {
   const {
     step,
     isLast,
+    pimi,
     projectSuggestions,
     orchestration,
     onAdvance,
@@ -276,7 +280,9 @@ function usePrimaryAction(input: {
   } = input;
   const { checkedCount, isAdding } = projectSuggestions;
   if (step === "welcome") return { label: "Get started", busy: false, onPress: onAdvance };
-  if (step === "firstChat") return { label: "Start a chat", busy: false, onPress: onStartChat };
+  if (step === "firstChat") {
+    return { label: pimi ? "New workspace" : "Start a chat", busy: false, onPress: onStartChat };
+  }
   const advanceLabel = isLast ? t("onboarding.setup.finish") : t("onboarding.setup.continue");
   // Rows leave the list as they are added, so the count can reach zero while adding.
   if (step === "projects" && (isAdding || checkedCount > 0)) {

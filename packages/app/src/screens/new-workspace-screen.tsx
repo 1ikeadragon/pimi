@@ -170,6 +170,7 @@ interface NewWorkspaceScreenProps {
   projectId?: string;
   displayName?: string;
   draftId?: string;
+  chooseProject?: boolean;
 }
 
 // A terminal launch sends argv, not a message: there is nothing to attach and
@@ -851,6 +852,7 @@ export function NewWorkspaceScreen({
   projectId,
   displayName: displayNameProp,
   draftId,
+  chooseProject,
 }: NewWorkspaceScreenProps) {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
@@ -973,6 +975,7 @@ export function NewWorkspaceScreen({
     routeProjectContextViewKey,
     lastActiveProject,
     allowAllProjects: supportsWorkspaceMultiplicity,
+    chooseProject,
   });
   const projectIconTargets = useMemo(
     () => buildNewWorkspaceProjectIconTargets(projects, selectedServerId),
@@ -1285,6 +1288,10 @@ export function NewWorkspaceScreen({
 
   const handleSubmitNewWorkspace = useCallback(
     async (payload: MessagePayload) => {
+      if (chooseProject && !selectedProject) {
+        openProjectPicker();
+        return;
+      }
       try {
         setErrorMessage(null);
         await composerState?.persistFormPreferences();
@@ -1343,6 +1350,7 @@ export function NewWorkspaceScreen({
       }
     },
     [
+      chooseProject,
       composerState,
       draftContextScopeKey,
       creationIdentity,
@@ -1353,6 +1361,8 @@ export function NewWorkspaceScreen({
       isStillOnCreateScreen,
       launchTarget,
       leaveFullscreen,
+      openProjectPicker,
+      selectedProject,
       selectedServerId,
       supportsForgeSearch,
       t,
@@ -1363,6 +1373,10 @@ export function NewWorkspaceScreen({
   );
 
   const handleSubmitTerminalLaunch = useCallback(async () => {
+    if (chooseProject && !selectedProject) {
+      openProjectPicker();
+      return;
+    }
     try {
       setErrorMessage(null);
       await updateFormPreferences({ launchTarget });
@@ -1423,10 +1437,13 @@ export function NewWorkspaceScreen({
       toast.error(message);
     }
   }, [
+    chooseProject,
     ensureWorkspace,
     isStillOnCreateScreen,
     launchTarget,
+    openProjectPicker,
     queryClient,
+    selectedProject,
     selectedServerId,
     selectedSourceDirectory,
     selectedTerminalProfile,
@@ -1586,6 +1603,7 @@ export function NewWorkspaceScreen({
         isCompact={isCompact}
         fullscreen={isComposerFullscreen}
         title={t("newWorkspace.title")}
+        chooseProject={chooseProject}
         formStack={formStack}
         onImportSession={importSession.open}
       >
@@ -1622,6 +1640,7 @@ function NewWorkspaceLayout({
   isCompact,
   fullscreen,
   title,
+  chooseProject,
   formStack,
   onImportSession,
   children,
@@ -1630,6 +1649,7 @@ function NewWorkspaceLayout({
   /** The composer covers the screen; the header leaves and the dock fills the content. */
   fullscreen: boolean;
   title: string;
+  chooseProject?: boolean;
   formStack: ReactNode;
   onImportSession: () => void;
   children: ReactNode;
@@ -1647,6 +1667,9 @@ function NewWorkspaceLayout({
     <>
       <View style={styles.composerTitleContainer} pointerEvents="none">
         <Text style={styles.composerTitle}>{title}</Text>
+        {chooseProject ? (
+          <Text style={styles.composerHint}>Choose a project or add a folder to get started.</Text>
+        ) : null}
       </View>
       {formStack}
     </>
@@ -1692,6 +1715,11 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: theme.fontSize["2xl"],
     fontWeight: theme.fontWeight.normal,
     color: theme.colors.foreground,
+  },
+  composerHint: {
+    marginTop: theme.spacing[1],
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.foregroundMuted,
   },
   errorText: {
     fontSize: theme.fontSize.base,
