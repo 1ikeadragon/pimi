@@ -19,6 +19,7 @@ import { resolveAppVersion } from "@/utils/app-version";
 import { formatVersionWithPrefix } from "@/desktop/updates/desktop-updates";
 import { buildOpenProjectRoute } from "@/utils/host-routes";
 import { PaseoLogo } from "@/components/icons/paseo-logo";
+import { isPimiAndroid } from "@/utils/pimi-mobile";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { isFdroidBuild } from "@/constants/build-profile";
 import { isWeb, isNative } from "@/constants/platform";
@@ -165,6 +166,11 @@ export function WelcomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const showPimi = getDesktopHost()?.showPimiWorkspace;
+  const pimiAndroid = isPimiAndroid();
+  let welcomeSubtitle = t("onboarding.subtitle");
+  if (showPimi)
+    welcomeSubtitle = "Connect to a host to start chatting. Tasks are available offline.";
+  if (pimiAndroid) welcomeSubtitle = "Pair with your Pimi host to pick up your work on your phone.";
   const openTasks = useCallback(() => showPimi?.({ view: "tasks" }), [showPimi]);
   const appVersion = resolveAppVersion();
   const appVersionText = formatVersionWithPrefix(appVersion);
@@ -180,9 +186,9 @@ export function WelcomeScreen() {
     router.replace(buildOpenProjectRoute());
   }, [router]);
 
-  const handleOpenPaseoSite = useCallback(() => {
-    void openExternalUrl("https://paseo.sh");
-  }, []);
+  const handleOpenProductSite = useCallback(() => {
+    void openExternalUrl(pimiAndroid ? "https://1ikeadragon.github.io/pimi/" : "https://paseo.sh");
+  }, [pimiAndroid]);
 
   const handleOpenSettings = useCallback(() => {
     router.push("/settings");
@@ -265,17 +271,17 @@ export function WelcomeScreen() {
         testID="welcome-screen"
       >
         <View style={styles.content}>
-          <PaseoLogo size={showPimi ? 56 : 96} />
+          <PaseoLogo size={showPimi || pimiAndroid ? 56 : 96} />
           <View style={styles.copyBlock}>
-            <Text style={styles.title}>{showPimi ? "Welcome to Pimi" : t("onboarding.title")}</Text>
-            <Text style={styles.subtitle}>
-              {showPimi
-                ? "Connect to a host to start chatting. Tasks are available offline."
-                : t("onboarding.subtitle")}
+            <Text style={styles.title}>
+              {showPimi || pimiAndroid ? "Welcome to Pimi" : t("onboarding.title")}
             </Text>
+            <Text style={styles.subtitle}>{welcomeSubtitle}</Text>
             {isNative ? (
-              <Pressable style={styles.setupLink} onPress={handleOpenPaseoSite}>
-                <Text style={styles.setupLinkText}>paseo.sh</Text>
+              <Pressable style={styles.setupLink} onPress={handleOpenProductSite}>
+                <Text style={styles.setupLinkText}>
+                  {pimiAndroid ? "Pimi website" : "paseo.sh"}
+                </Text>
                 <ExternalLink size={14} color={theme.colors.accent} />
               </Pressable>
             ) : null}
