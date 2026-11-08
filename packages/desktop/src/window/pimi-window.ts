@@ -41,8 +41,33 @@ import type {
 
 const AGENT_CONSOLE_URL = "pimi-agents://open";
 const APPEARANCE_FILE = "pimi-appearance.json";
-const PIMI_APPEARANCES = ["system", "light", "dark", "paper", "sakura", "cel-night"] as const;
+const PIMI_APPEARANCES = [
+  "system",
+  "light",
+  "dark",
+  "paper",
+  "sakura",
+  "cel-night",
+  "ayu-light",
+  "one-dark",
+  "nord",
+  "gruvbox",
+  "catppuccin-mocha",
+] as const;
 export type PimiAppearance = (typeof PIMI_APPEARANCES)[number];
+
+const PIMI_APPEARANCE_BACKGROUNDS: Record<Exclude<PimiAppearance, "system">, string> = {
+  light: "#faf7f6",
+  dark: "#232224",
+  paper: "#f7f2e8",
+  sakura: "#f7edf5",
+  "cel-night": "#171a2c",
+  "ayu-light": "#f3f4f5",
+  "one-dark": "#21252b",
+  nord: "#292f3a",
+  gruvbox: "#212323",
+  "catppuccin-mocha": "#181825",
+};
 
 function isPimiAppearance(value: unknown): value is PimiAppearance {
   return PIMI_APPEARANCES.some((mode) => mode === value);
@@ -385,13 +410,9 @@ export function initializePimiWorkspace(
 async function createWorkspaceSurface(options: PimiWindowOptions): Promise<WorkspaceSurface> {
   const runtime = await initializePimiWorkspace(options.runtimeDir);
   const appearance = getPimiAppearance();
-  let backgroundColor = "#faf7f6";
-  if (appearance === "paper") backgroundColor = "#f7f2e8";
-  if (appearance === "sakura") backgroundColor = "#f7edf5";
-  if (appearance === "cel-night") backgroundColor = "#171a2c";
-  if (appearance === "dark" || (appearance === "system" && nativeTheme.shouldUseDarkColors)) {
-    backgroundColor = "#232224";
-  }
+  const systemMode = nativeTheme.shouldUseDarkColors ? "dark" : "light";
+  const mode = appearance === "system" ? systemMode : appearance;
+  const backgroundColor = PIMI_APPEARANCE_BACKGROUNDS[mode];
   const view = new WebContentsView({
     webPreferences: {
       preload: options.workspacePreload,

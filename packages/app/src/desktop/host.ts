@@ -1,6 +1,7 @@
 import { Platform } from "react-native";
 import { getElectronHost } from "@/desktop/electron/host";
 import type { BrowserKeyboardPolicy } from "@/keyboard";
+import type { PIMI_APPEARANCE_THEMES } from "@/styles/theme";
 import type { SessionInboundMessage, SessionOutboundMessage } from "@pimi/protocol/messages";
 import type {
   PimiActivitySection,
@@ -186,7 +187,7 @@ export interface DesktopInvokeBridge {
   invoke?: (command: string, args?: Record<string, unknown>) => Promise<unknown>;
 }
 
-export type PimiAppearance = "system" | "light" | "dark" | "paper" | "sakura" | "cel-night";
+export type PimiAppearance = "system" | keyof typeof PIMI_APPEARANCE_THEMES;
 export type PimiGitProvider = "github" | "gitlab";
 export type PimiGitAuthStatus = "connected" | "cli-missing" | "unverified";
 

@@ -111,6 +111,111 @@
   --wash: none;
 }
 
+:root[data-appearance="ayu-light"] {
+  color-scheme: light;
+  --background: #f3f4f5;
+  --canvas: #fafafa;
+  --surface: #f5f5f5;
+  --sidebar: #f1f3f4;
+  --toolbar: #f5f5f5;
+  --raised: #edefef;
+  --hover: #e7e9ec;
+  --selected: #dfe4e9;
+  --line: #dce0e4;
+  --control-line: #a6adb5;
+  --text: #313842;
+  --muted: #535d68;
+  --accent: #925019;
+  --accent-hover: #7a4012;
+  --accent-text: #ffffff;
+  --focus: #a05210;
+  --wash: none;
+}
+
+:root[data-appearance="one-dark"] {
+  color-scheme: dark;
+  --background: #21252b;
+  --canvas: #282c34;
+  --surface: #2c313a;
+  --sidebar: #23272f;
+  --toolbar: #2c313a;
+  --raised: #303642;
+  --hover: #353c49;
+  --selected: #3b4555;
+  --line: #363d49;
+  --control-line: #626e80;
+  --text: #e0e4ed;
+  --muted: #bac2ce;
+  --accent: #61afef;
+  --accent-hover: #83c0f1;
+  --accent-text: #202630;
+  --focus: #61afef;
+  --wash: none;
+}
+
+:root[data-appearance="nord"] {
+  color-scheme: dark;
+  --background: #292f3a;
+  --canvas: #2e3440;
+  --surface: #323947;
+  --sidebar: #2b313c;
+  --toolbar: #323947;
+  --raised: #373f4f;
+  --hover: #3b4556;
+  --selected: #414c5e;
+  --line: #414b5c;
+  --control-line: #6c7c95;
+  --text: #eceff4;
+  --muted: #d3dae6;
+  --accent: #88c0d0;
+  --accent-hover: #a4d2dd;
+  --accent-text: #273342;
+  --focus: #88c0d0;
+  --wash: none;
+}
+
+:root[data-appearance="gruvbox"] {
+  color-scheme: dark;
+  --background: #212323;
+  --canvas: #282828;
+  --surface: #2e2d2b;
+  --sidebar: #232524;
+  --toolbar: #2e2d2b;
+  --raised: #353230;
+  --hover: #3c3836;
+  --selected: #48413d;
+  --line: #423c37;
+  --control-line: #766759;
+  --text: #ebdbb2;
+  --muted: #d5c4a1;
+  --accent: #fabd2f;
+  --accent-hover: #ffd46c;
+  --accent-text: #32261c;
+  --focus: #fabd2f;
+  --wash: none;
+}
+
+:root[data-appearance="catppuccin-mocha"] {
+  color-scheme: dark;
+  --background: #181825;
+  --canvas: #1e1e2e;
+  --surface: #242437;
+  --sidebar: #1b1b2a;
+  --toolbar: #242437;
+  --raised: #29293e;
+  --hover: #313244;
+  --selected: #3b3d55;
+  --line: #33354b;
+  --control-line: #666b89;
+  --text: #cdd6f4;
+  --muted: #bac2de;
+  --accent: #cba6f7;
+  --accent-hover: #dbc1fb;
+  --accent-text: #2c223d;
+  --focus: #cba6f7;
+  --wash: none;
+}
+
 @media (prefers-contrast: more) {
   :root[data-appearance] {
     --line: var(--muted);

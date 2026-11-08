@@ -7,6 +7,7 @@ import { getDesktopHost, type DesktopHostBridge, type PimiAppearance } from "@/d
 import { DEFAULT_THEME_PREFERENCE, useAppSettings, type AppSettings } from "@/hooks/use-settings";
 import type { PluginThemeOption } from "@/plugins/themes";
 import {
+  COMMUNITY_THEME_OPTIONS,
   THEME_OPTIONS,
   PLUGIN_THEME_PREFERENCE,
   PIMI_APPEARANCE_THEMES,
@@ -44,6 +45,11 @@ const pimiOptions = [
   { mode: "paper", label: "Paper", preview: REGISTERED_THEMES[PIMI_APPEARANCE_THEMES.paper] },
   { mode: "sakura", label: "Sakura Glass", preview: REGISTERED_THEMES.pimiSakura },
   { mode: "cel-night", label: "Cel Night", preview: REGISTERED_THEMES.pimiCelNight },
+  ...COMMUNITY_THEME_OPTIONS.map(({ name, label, theme }) => ({
+    mode: name,
+    label,
+    preview: theme,
+  })),
 ] as const;
 
 function PimiThemePicker({ bridge }: { bridge: NonNullable<DesktopHostBridge["pimiAppearance"]> }) {
@@ -168,9 +174,10 @@ function BuiltInThemeTile({
   const mobileOption = isPimiAndroid()
     ? pimiOptions.find(({ mode }) => mode === (value === "auto" ? "system" : value))
     : undefined;
+  const label = option && "label" in option ? option.label : null;
   return (
     <ThemeTile
-      label={mobileOption?.label ?? t(`settings.appearance.theme.options.${value}`)}
+      label={mobileOption?.label ?? label ?? t(`settings.appearance.theme.options.${value}`)}
       selected={selected}
       onPress={handlePress}
       previewTheme={

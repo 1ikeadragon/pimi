@@ -48,7 +48,19 @@ import { createTasks } from "./tasks.mjs";
 import { generateTour } from "./walkthrough.mjs";
 import { runVoiceCommand } from "./voice-command.mjs";
 
-const appearances = new Set(["system", "light", "dark", "paper", "sakura", "cel-night"]);
+const appearances = new Set([
+  "system",
+  "light",
+  "dark",
+  "paper",
+  "sakura",
+  "cel-night",
+  "ayu-light",
+  "one-dark",
+  "nord",
+  "gruvbox",
+  "catppuccin-mocha",
+]);
 const reportMarkdown = new MarkdownIt({ html: false, linkify: true }).disable("image");
 reportMarkdown.validateLink = (value) => {
   if (parseAgentDeepLink(value)) return true;
