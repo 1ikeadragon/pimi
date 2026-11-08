@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.16.0 - 2026-11-08
+
+### Added
+
+- Track tasks straight from chat or delegate them to agents in separate worktrees. The board follows their progress, and linked tasks, worktrees, and chats share labels.
+- Watch parallel chats in Agent Grid and fork a conversation to a different provider.
+- Review GitHub pull requests, browse files, compare worktree diffs side by side, and step through a file tour.
+- Share notes across providers with Memory. Save links, images, and scratch notes in Spaces and give agents the card ID.
+- Schedule PR reviews and project digests in Automations. Check harness updates and see session context usage.
+- Added DeepSeek Harness support and a voice command bubble with in-app feedback.
+
+### Improved
+
+- Streamlined workspace creation, refreshed the desktop sidebar, and blended the macOS title bar into the workspace.
+- Added automatic desktop releases for Apple silicon and Windows x64 with SHA-256 checksums.
+
 ## 0.15.3 - 2026-11-06
 
 ### Fixed
