@@ -67,13 +67,11 @@ The client learns its own `4002` and `4003` from the relay E2EE transport, which
 
 ## Enforcement flag
 
-`daemon.relay.requireProtectedSecurity` in `config.json` (also `relay.requireProtectedSecurity` through the config RPC) makes the daemon refuse legacy relay clients. Default `false`. It is a local daemon setting with no relay-server counterpart.
+`daemon.relay.requireProtectedSecurity` in `config.json` (also `relay.requireProtectedSecurity` through the config RPC) makes the daemon refuse legacy relay clients. Pimi defaults to `true`. It is a local daemon setting with no relay-server counterpart.
 
 - It is read when each hello arrives, so toggling it affects the next admission without a restart. Sessions already admitted in legacy mode stay up until they disconnect; turning the flag on does not close them. To finish enforcement, restart the daemon or disconnect its relay sessions after enabling the flag: every reconnect is then a new admission and legacy clients are refused.
 - While it is on, pairing offers carry `minimumSecurityMode: "protected"` and `relay://` URIs carry `security=protected`, so new clients pin before their first handshake.
 - Direct and local connections are outside the flag.
-
-Flipping the default is a separate decision, tentatively reviewed about 30 days after the compatibility release. Nothing in the code expires on a date.
 
 ## Known limitation
 
