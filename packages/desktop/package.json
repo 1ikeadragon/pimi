@@ -1,6 +1,6 @@
 {
   "name": "@getpaseo/desktop",
-  "version": "0.16.4",
+  "version": "0.16.5",
   "private": true,
   "description": "Pimi desktop app (Electron)",
   "homepage": "https://1ikeadragon.github.io/pimi/",

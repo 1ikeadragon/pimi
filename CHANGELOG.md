@@ -2,6 +2,19 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.16.5 - 2026-11-08
+
+### Added
+
+- Search Spaces by meaning or keyword on your host. Say “search Spaces for…” to draft a chat that can find and reuse cards.
+- Open arXiv papers inside Spaces, preview GitHub repository links, and see a confirmation when you copy a card ID.
+- Usage shows recorded compactions and Claude Code's token categories after you run `/context`.
+- Wide desktop windows fit six live chats in Agent Grid.
+
+### Improved
+
+- Pimi's desktop support links point to Pimi. Removed unused upstream website and publishing tooling from the source tree.
+
 ## 0.16.4 - 2026-11-08
 
 ### Added
