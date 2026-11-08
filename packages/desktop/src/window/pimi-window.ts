@@ -173,6 +173,7 @@ interface PimiRuntime {
     launchEditor: (input: EditorTargetLaunchInput & { editorId: string }) => Promise<void>;
     connection: () => Promise<DesktopDaemonConnection>;
     onTaskComplete: (task: { id: string; title: string }) => void | Promise<void>;
+    onTaskChange: () => void;
   }): Promise<PimiRuntimeResult>;
 }
 
@@ -342,6 +343,11 @@ async function createWorkspaceRuntime(runtimeDir: string): Promise<PimiRuntimeRe
     paths: process.env.PIMI_REPOS?.split(path.delimiter).filter(Boolean) ?? [],
     connection: connectToDesktopDaemon,
     onTaskComplete: (task) => onTaskComplete?.(task),
+    onTaskChange: () => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) win.webContents.send("pimi:tasks:changed");
+      }
+    },
   });
   const unsubscribeLabels = runtime.subscribeToLabels(() => {
     for (const win of BrowserWindow.getAllWindows()) {

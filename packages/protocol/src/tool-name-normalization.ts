@@ -50,7 +50,8 @@ function isPimiNamespace(name: string): boolean {
 }
 
 export function getPaseoToolLeafName(name: string): string | null {
-  const normalized = normalizeToolName(name);
+  // OMP displays bridged MCP tools as "server / tool".
+  const normalized = normalizeToolName(name).replace(/\s+\/\s+/, ".");
   if (normalized.includes("__")) {
     const segments = normalized.split("__").filter((s) => s.length > 0);
     if (segments.length >= 3 && segments[0] === "mcp" && isPimiNamespace(segments[1])) {

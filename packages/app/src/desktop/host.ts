@@ -196,6 +196,7 @@ export interface DesktopHostBridge {
   showPimiWorkspace?: (destination: PimiDestination) => void;
   getPimiReviewSummary?: (checkout: string) => Promise<PimiReviewSummary | null>;
   getPimiRecap?: (period: PimiRecapPeriod) => Promise<PimiRecap>;
+  onPimiTasksChanged?: (listener: () => void) => () => void;
   dismissPimiWorkspace?: () => void;
   setPimiContentBounds?: (bounds: {
     x: number;

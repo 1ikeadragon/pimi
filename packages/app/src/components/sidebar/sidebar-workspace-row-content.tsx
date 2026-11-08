@@ -1,7 +1,7 @@
 import { memo, useMemo, useCallback, useState, type ReactNode } from "react";
 import { Text, View, type ViewStyle } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { CircleAlert, Folder, FolderGit2, Monitor } from "lucide-react-native";
+import { Check, CircleAlert, Folder, FolderGit2, Monitor } from "lucide-react-native";
 import { ProjectStatusIndicator } from "@/components/sidebar/project-leading-visual";
 import type { SidebarSurfaceBackdrop } from "@/styles/surface-backdrop";
 import {
@@ -48,6 +48,8 @@ const needsInputColorMapping = (theme: Theme) => ({
   color: theme.colors.surface0,
   fill: getStatusDotColor({ theme, bucket: "needs_input" }) ?? undefined,
 });
+const ThemedCheck = withUnistyles(Check);
+const completedColorMapping = (theme: Theme) => ({ color: theme.colors.statusSuccess });
 
 const ThemedCircleAlert = withUnistyles(CircleAlert);
 
@@ -147,11 +149,7 @@ function PimiTaskBranchRow({
         highlightStyle={styles.taskBranchPressed}
         testID={`pimi-task-branch-${worker.id}`}
       >
-        <WorkspaceStatusIndicator
-          bucket={workspace.statusBucket}
-          workspaceKind={workspace.workspaceKind}
-          loading={false}
-        />
+        <PimiTaskBranchStatus worker={worker} workspace={workspace} />
         <Text numberOfLines={1} style={styles.taskBranchTitle}>
           {worker.title || workspace.name}
         </Text>
@@ -163,6 +161,29 @@ function PimiTaskBranchRow({
       />
       <PimiTaskBranchRows workspaceKey={workspace.workspaceKey} />
     </View>
+  );
+}
+
+function PimiTaskBranchStatus({
+  worker,
+  workspace,
+}: {
+  worker: Agent;
+  workspace: SidebarWorkspaceEntry;
+}) {
+  if (worker.requiresAttention && worker.attentionReason === "finished") {
+    return (
+      <View style={styles.workspaceStatusDot} testID="pimi-task-branch-completed">
+        <ThemedCheck size={16} uniProps={completedColorMapping} />
+      </View>
+    );
+  }
+  return (
+    <WorkspaceStatusIndicator
+      bucket={workspace.statusBucket}
+      workspaceKind={workspace.workspaceKind}
+      loading={false}
+    />
   );
 }
 
