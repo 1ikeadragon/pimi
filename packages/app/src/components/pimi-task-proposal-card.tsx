@@ -127,5 +127,5 @@ const styles = StyleSheet.create((theme) => ({
   meta: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm },
   title: { color: theme.colors.foreground, fontSize: theme.fontSize.base, fontWeight: "600" },
   brief: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.base, lineHeight: 20 },
-  action: { alignSelf: "flex-start" },
+  action: { alignSelf: "flex-end" },
 }));
