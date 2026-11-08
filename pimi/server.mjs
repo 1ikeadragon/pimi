@@ -615,6 +615,7 @@ export async function startPimi({
         },
       ],
       [PimiTaskAgentTool.labelWork, paseo.setWorkLabel],
+      [PimiTaskAgentTool.createLabel, paseo.createWorkLabel],
       [
         PimiTaskAgentTool.repositories,
         async () => {

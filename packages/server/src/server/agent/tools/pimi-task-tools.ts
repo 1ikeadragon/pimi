@@ -14,6 +14,7 @@ import {
   PimiTaskAgentTool,
   PimiTaskAgentUpdateInput,
   PimiTaskPipeDescriptor,
+  PimiWorkLabelCreateInput,
   PimiWorkLabelInput,
   type PimiMobileTaskOperation,
   type PimiTaskProposal,
@@ -176,13 +177,18 @@ export function registerPimiTaskTools(options: {
   const definitions = [
     [
       PimiTaskAgentTool.labels,
-      "List the shared Paseo label catalog and workspace IDs with their current labels. Use these exact names with update_pimi_task labels or set_pimi_work_label. Labels are shared with Paseo; do not invent a separate taxonomy.",
+      "List the shared Pimi label catalog and workspace IDs with their current labels. Use these exact names with update_pimi_task labels or set_pimi_work_label. Labels are shared across Pimi Work and tasks.",
       z.strictObject({}),
     ],
     [
       PimiTaskAgentTool.labelWork,
-      "Attach or remove an existing Paseo label on a workspace shown in Pimi Work. Get workspace IDs and label names from list_pimi_labels. This changes the workspace label shared with Paseo.",
+      "Attach or remove an existing Pimi label on a workspace shown in Pimi Work. Get workspace IDs and label names from list_pimi_labels.",
       PimiWorkLabelInput,
+    ],
+    [
+      PimiTaskAgentTool.createLabel,
+      "Create a shared Pimi label on this host and assign it to the selected workspace. Get the workspace ID from list_pimi_labels. If a label with that name already exists, the host reuses its definition.",
+      PimiWorkLabelCreateInput,
     ],
     [
       PimiTaskAgentTool.list,
