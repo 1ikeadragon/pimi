@@ -4,6 +4,7 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { z } from "zod";
 import { readValidatedString } from "@/storage/validated-storage";
+import { isPimiAndroid } from "@/utils/pimi-mobile";
 import type { RevokePushNotificationsInput, StartPushNotificationsInput } from "./types";
 
 const STORAGE_PREFIX = "@paseo:expo-push-token:";
@@ -57,6 +58,7 @@ async function resolveToken(serverId: string): Promise<string | null> {
 }
 
 export function startSubscription(input: StartPushNotificationsInput): () => void {
+  if (isPimiAndroid()) return () => {};
   let stopped = false;
   let token: string | null = null;
   const register = () => {

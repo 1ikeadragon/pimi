@@ -9,6 +9,7 @@ const withPasteInput = require("./plugins/with-paste-input");
 const withAndroidScroll = require("./modules/paseo-scroll/app.plugin");
 const { getNativeReleaseVersion } = require("./native-release-version");
 const appVariant = process.env.APP_VARIANT ?? "production";
+const isPimiAndroid = appVariant === "pimi-android";
 const isFdroidBuild = process.env.PASEO_FDROID_BUILD === "1";
 const isWatchdogBuild = process.env.PASEO_WATCHDOG_BUILD === "1";
 const isProfileBuild = process.env.PASEO_PROFILE_BUILD === "1";
@@ -68,6 +69,10 @@ function resolveSecretFile(params) {
 }
 
 const variants = {
+  "pimi-android": {
+    name: "Pimi",
+    packageId: "io.github.ikeadragon.pimi",
+  },
   production: {
     name: "Paseo",
     packageId: "sh.paseo",
@@ -100,11 +105,11 @@ const nativeReleaseVersion = getNativeReleaseVersion(pkg.version);
 export default {
   expo: {
     name: variant.name,
-    slug: "voice-mobile",
+    slug: isPimiAndroid ? "pimi" : "voice-mobile",
     version: nativeReleaseVersion.appVersion,
     orientation: "default",
-    icon: "./assets/images/icon.png",
-    scheme: "paseo",
+    icon: isPimiAndroid ? "./assets/images/pimi-icon.png" : "./assets/images/icon.png",
+    scheme: isPimiAndroid ? "pimi" : "paseo",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     ios: {
@@ -121,8 +126,10 @@ export default {
     },
     android: {
       adaptiveIcon: {
-        backgroundColor: "#000000",
-        foregroundImage: "./assets/images/android-icon-foreground.png",
+        backgroundColor: isPimiAndroid ? "#3a2c34" : "#000000",
+        foregroundImage: isPimiAndroid
+          ? "./assets/images/pimi-android-foreground.png"
+          : "./assets/images/android-icon-foreground.png",
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
@@ -131,6 +138,9 @@ export default {
       usesCleartextTraffic: true,
       permissions: buildProfile.androidPermissions,
       package: variant.packageId,
+      ...(isPimiAndroid
+        ? { allowBackup: false, blockedPermissions: ["android.permission.SYSTEM_ALERT_WINDOW"] }
+        : {}),
       versionCode: nativeReleaseVersion.androidVersionCode,
       ...(variant.googleServicesFile ? { googleServicesFile: variant.googleServicesFile } : {}),
     },
@@ -152,7 +162,9 @@ export default {
       [
         "expo-splash-screen",
         {
-          image: "./assets/images/splash-icon.png",
+          image: isPimiAndroid
+            ? "./assets/images/pimi-splash.png"
+            : "./assets/images/splash-icon.png",
           imageWidth: 200,
           resizeMode: "contain",
           backgroundColor: "#ffffff",
@@ -161,7 +173,7 @@ export default {
           },
         },
       ],
-      ...buildProfile.notificationPlugins,
+      ...(isPimiAndroid ? [] : buildProfile.notificationPlugins),
       "expo-audio",
       [
         "expo-gradle-jvmargs",
@@ -191,16 +203,15 @@ export default {
       autolinkingModuleResolution: true,
     },
     extra: {
+      ...(isPimiAndroid ? { pimiAndroid: true } : {}),
       fdroidBuild: isFdroidBuild,
       profileBuild: isProfileBuild,
       watchdogBuild: isWatchdogBuild,
       diagnosticRevision: process.env.PASEO_DIAGNOSTIC_REVISION,
       diagnosticBuildTime: process.env.PASEO_DIAGNOSTIC_BUILD_TIME,
       router: {},
-      eas: {
-        projectId: "0e7f65ce-0367-46c8-a238-2b65963d235a",
-      },
+      ...(isPimiAndroid ? {} : { eas: { projectId: "0e7f65ce-0367-46c8-a238-2b65963d235a" } }),
     },
-    owner: "getpaseo",
+    ...(isPimiAndroid ? {} : { owner: "getpaseo" }),
   },
 };

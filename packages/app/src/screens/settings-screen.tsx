@@ -88,6 +88,7 @@ import { DesktopNotificationsSection } from "@/desktop/components/desktop-notifi
 import { BrowserDataSection } from "@/desktop/browser/settings/browser-data-section";
 import { IntegrationsSection } from "@/desktop/components/integrations-section";
 import { getDesktopHost, isElectronRuntime } from "@/desktop/host";
+import { isPimiProduct } from "@/utils/pimi-mobile";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { useDesktopAppUpdater } from "@/desktop/updates/use-desktop-app-updater";
 import { formatVersionWithPrefix } from "@/desktop/updates/desktop-updates";
@@ -502,7 +503,7 @@ interface AboutSectionProps {
 
 function AboutSection({ appVersion, appVersionText, isDesktopApp }: AboutSectionProps) {
   const { t } = useTranslation();
-  const isPimi = Boolean(getDesktopHost()?.showPimiWorkspace);
+  const isPimi = isPimiProduct();
   return (
     <>
       <SettingsSection title={t("settings.about.title")}>

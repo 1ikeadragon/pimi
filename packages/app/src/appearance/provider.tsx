@@ -9,6 +9,7 @@ import {
 } from "react";
 import { UnistylesRuntime } from "react-native-unistyles";
 import { getDesktopHost } from "@/desktop/host";
+import { isPimiAndroid } from "@/utils/pimi-mobile";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
   DEFAULT_THEME_PREFERENCE,
@@ -80,9 +81,16 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (isLoading) return;
-    if (pimiAppearance) {
+    const themePreference = settings.theme === "auto" ? "system" : settings.theme;
+    const mobileMode =
+      isPimiAndroid() &&
+      (themePreference === "system" || themePreference === "light" || themePreference === "dark")
+        ? themePreference
+        : undefined;
+    const appearance = pimiAppearance ?? mobileMode;
+    if (appearance) {
       const systemMode = systemDark ? "dark" : "light";
-      const mode = pimiAppearance === "system" ? systemMode : pimiAppearance;
+      const mode = appearance === "system" ? systemMode : appearance;
       const theme = PIMI_APPEARANCE_THEMES[mode];
       UnistylesRuntime.setAdaptiveThemes(false);
       UnistylesRuntime.setTheme(theme);

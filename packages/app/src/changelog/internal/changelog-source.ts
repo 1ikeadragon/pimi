@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { getDesktopHost } from "@/desktop/host";
+import { isPimiProduct } from "@/utils/pimi-mobile";
 import { parseChangelog, type ChangelogRelease } from "./parse-changelog";
 
 const PASEO_CHANGELOG_URL = "https://raw.githubusercontent.com/getpaseo/paseo/main/CHANGELOG.md";
@@ -43,7 +43,7 @@ export function useChangelog(enabled: boolean): Changelog {
 
     void (async () => {
       try {
-        const url = getDesktopHost()?.pimiAppearance ? PIMI_CHANGELOG_URL : PASEO_CHANGELOG_URL;
+        const url = isPimiProduct() ? PIMI_CHANGELOG_URL : PASEO_CHANGELOG_URL;
         const response = await fetch(url, { signal: controller.signal });
         if (!response.ok) throw new Error(`Changelog request failed: ${response.status}`);
         const markdown = await response.text();

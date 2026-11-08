@@ -18,6 +18,7 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { PaseoLogo } from "@/components/icons/paseo-logo";
 import { PimiMark } from "@/components/icons/pimi-mark";
 import { getDesktopHost } from "@/desktop/host";
+import { isPimiProduct } from "@/utils/pimi-mobile";
 import { Button } from "@/components/ui/button";
 import { getDesktopDaemonLogs, type DesktopDaemonLogs } from "@/desktop/daemon/desktop-daemon";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
@@ -41,11 +42,11 @@ const SHIMMER_PEAK_WIDTH = 120;
 const SHIMMER_DURATION_MS = 1800;
 
 function openGithubIssue(): void {
-  void openExternalUrl(getDesktopHost()?.pimiAppearance ? PIMI_GITHUB_ISSUE_URL : GITHUB_ISSUE_URL);
+  void openExternalUrl(isPimiProduct() ? PIMI_GITHUB_ISSUE_URL : GITHUB_ISSUE_URL);
 }
 
 function openDocs(): void {
-  void openExternalUrl(getDesktopHost()?.pimiAppearance ? PIMI_DOCS_URL : DOCS_URL);
+  void openExternalUrl(isPimiProduct() ? PIMI_DOCS_URL : DOCS_URL);
 }
 
 const WEB_SPLASH_SHIMMER_KEYFRAME_ID = "paseo-splash-shimmer-keyframes";

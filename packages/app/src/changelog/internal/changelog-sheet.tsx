@@ -14,7 +14,7 @@ import {
   iconButtonChromeStyle,
 } from "@/components/ui/icon-button-chrome";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { getDesktopHost } from "@/desktop/host";
+import { isPimiProduct } from "@/utils/pimi-mobile";
 import { ICON_SIZE, type Theme } from "@/styles/theme";
 import { resolveAppVersion } from "@/utils/app-version";
 import { openExternalUrl } from "@/utils/open-external-url";
@@ -48,9 +48,7 @@ export function ChangelogSheet({ visible, onClose }: ChangelogSheetProps) {
   const { count, showMore } = useRevealedReleases(visible && state.status === "ready");
 
   const handleOpenWebsite = useCallback(() => {
-    void openExternalUrl(
-      getDesktopHost()?.pimiAppearance ? PIMI_RELEASES_URL : WEBSITE_CHANGELOG_URL,
-    );
+    void openExternalUrl(isPimiProduct() ? PIMI_RELEASES_URL : WEBSITE_CHANGELOG_URL);
   }, []);
 
   const header: SheetHeader = useMemo(

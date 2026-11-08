@@ -16,6 +16,7 @@ import {
   type Theme,
 } from "@/styles/theme";
 import { useContributedThemes } from "./provider";
+import { isPimiAndroid } from "@/utils/pimi-mobile";
 
 type BuiltInThemePreference = Exclude<AppSettings["theme"], typeof PLUGIN_THEME_PREFERENCE>;
 
@@ -162,12 +163,17 @@ function BuiltInThemeTile({
   const { t } = useTranslation();
   const handlePress = useCallback(() => onSelect(value), [onSelect, value]);
   const option = THEME_OPTIONS.find((candidate) => candidate.name === value);
+  const mobileOption = isPimiAndroid()
+    ? pimiOptions.find(({ mode }) => mode === (value === "auto" ? "system" : value))
+    : undefined;
   return (
     <ThemeTile
-      label={t(`settings.appearance.theme.options.${value}`)}
+      label={mobileOption?.label ?? t(`settings.appearance.theme.options.${value}`)}
       selected={selected}
       onPress={handlePress}
-      previewTheme={option && "theme" in option ? option.theme : "system"}
+      previewTheme={
+        mobileOption?.preview ?? (option && "theme" in option ? option.theme : "system")
+      }
     />
   );
 }
