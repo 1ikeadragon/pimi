@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { getDesktopHost } from "@/desktop/host";
 import {
   PimiReviewSuggestionResult,
+  PimiTaskCreatedResult,
   PimiTaskProposalResult,
   type PimiReviewSuggestion,
   type PimiTaskProposal,
@@ -34,6 +35,26 @@ function readPimiToolOutput<T>(output: unknown, schema: ZodType<T>): T | null {
 
 export function readPimiTaskProposal(output: unknown): PimiTaskProposal | null {
   return readPimiToolOutput(output, PimiTaskProposalResult)?.pimiTaskProposal ?? null;
+}
+
+export function readPimiCreatedTask(output: unknown): PimiTaskCreatedResult | null {
+  return readPimiToolOutput(output, PimiTaskCreatedResult);
+}
+
+export function PimiCreatedTaskCard({ result }: { result: PimiTaskCreatedResult }) {
+  const { id, title } = result.task;
+  const open = useCallback(() => getDesktopHost()?.showPimiWorkspace?.({ view: "task", id }), [id]);
+  return (
+    <View style={styles.card} testID="pimi-task-created">
+      <Text style={styles.meta}>{result.created ? "Task added" : "Task already tracked"}</Text>
+      <Text accessibilityRole="header" style={styles.title}>
+        {title}
+      </Text>
+      <Button onPress={open} size="sm" style={styles.action}>
+        Open task
+      </Button>
+    </View>
+  );
 }
 
 export function readPimiReviewSuggestion(output: unknown): PimiReviewSuggestion | null {

@@ -6,12 +6,14 @@ import { dirname } from "node:path";
 import { z } from "zod";
 import {
   PimiExperimentFields,
+  PimiTaskAgentCreateInput,
   PimiTaskAgentGetInput,
   PimiTaskAgentListInput,
   PimiTaskAgentUpdateInput,
   PimiTaskFields,
   PimiStoredTaskMode,
   PimiTaskProposal,
+  PimiTaskSource,
   PimiTaskStage,
 } from "@getpaseo/protocol/pimi-task";
 
@@ -268,26 +270,66 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
     const { proposal, ...fields } = input;
     const existing = proposal && state.find((task) => task.id === proposal.id);
     if (existing) return existing;
-    const base = await repositoryBase(input.root);
-    const task = {
+    const task = await buildTask(fields, {
+      id: proposal?.id,
+      source: proposal?.source,
+      ideas: proposal?.experiments,
+    });
+    return (await insertTask(task, (draft) => draft.find(({ id }) => id === task.id))).task;
+  }
+
+  async function buildTask(fields, { id = randomUUID(), source, ideas = [], stage } = {}) {
+    const base = await repositoryBase(fields.root);
+    return {
       ...fields,
       mode: fields.mode ?? "chat",
-      id: proposal?.id ?? randomUUID(),
+      id,
       base,
-      repositories: input.root ? [{ root: input.root, base }] : [],
-      done: false,
-      source: proposal?.source,
-      experiments: (proposal?.experiments ?? []).map((idea) =>
-        makeExperiment(idea, null, input.root),
-      ),
+      repositories: fields.root ? [{ root: fields.root, base }] : [],
+      done: stage === "done",
+      stage,
+      source,
+      experiments: ideas.map((idea) => makeExperiment(idea, null, fields.root)),
     };
-    return update(async (draft) => {
-      const alreadySaved = draft.find((entry) => entry.id === task.id);
-      if (alreadySaved) return alreadySaved;
-      task.labels = await validateLabels(task.labels);
-      draft.unshift(task);
-      return task;
-    });
+  }
+
+  async function insertTask(task, findExisting) {
+    let existing;
+    const saved = await update(
+      async (draft) => {
+        existing = findExisting(draft);
+        if (existing) return null;
+        task.labels = await validateLabels(task.labels);
+        draft.unshift(task);
+        return task;
+      },
+      { skipUnchanged: true },
+    );
+    return { task: saved ?? existing, created: Boolean(saved) };
+  }
+
+  async function createFromAgent(body) {
+    if (readError) throw new RequestError(readError, 503);
+    const { repository, stage, source, ...fields } = readInput(
+      PimiTaskAgentCreateInput.extend({ source: PimiTaskSource }),
+      body,
+    );
+    // Coalesce retries from the same chat. A closed task can be tracked again.
+    const findExisting = (entries) =>
+      entries.find(
+        (task) =>
+          !task.done &&
+          task.source?.serverId === source.serverId &&
+          task.source.agentId === source.agentId &&
+          task.title === fields.title &&
+          task.brief === fields.brief &&
+          (!repository || task.repositories.some(({ root }) => root === repository)),
+      );
+    const existing = findExisting(state);
+    if (existing) return { task: taskDetails(existing), created: false, source };
+    const record = await buildTask({ ...fields, root: repository ?? null }, { source, stage });
+    const saved = await insertTask(record, findExisting);
+    return { task: taskDetails(saved.task), created: saved.created, source };
   }
 
   async function attachRepository(body) {
@@ -650,6 +692,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
       if (!item.report) throw new RequestError("This report is not ready.", 404);
       return item.report;
     },
+    createFromAgent,
     listForAgent,
     getForAgent,
     updateFromAgent,

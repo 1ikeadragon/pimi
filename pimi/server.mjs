@@ -564,6 +564,7 @@ export async function startPimi({
     const secret = process.platform === "win32" ? randomBytes(32).toString("base64url") : null;
     const authorization = secret ? Buffer.from(`Bearer ${secret}`) : null;
     const operations = new Map([
+      [PimiTaskAgentTool.create, tasks.createFromAgent],
       [PimiTaskAgentTool.list, tasks.listForAgent],
       [PimiTaskAgentTool.get, tasks.getForAgent],
       [PimiTaskAgentTool.update, tasks.updateFromAgent],

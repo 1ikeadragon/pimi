@@ -537,7 +537,7 @@ export function createTasksView({
         return row;
       }),
     );
-    if (!entries.length) list.append(element("p", "task-work-empty", "No work items yet"));
+    if (!entries.length) list.append(element("p", "task-work-empty", "No delegated work"));
     restoreFocus();
   }
 
@@ -1100,6 +1100,13 @@ export function createTasksView({
     cancelDictation,
     showBoard() {
       choose(undefined);
+    },
+    openTask(id) {
+      if (tasks.some((task) => task.id === id)) choose(id);
+      else {
+        choose(undefined);
+        message("task-warning", "This task is unavailable on this host.");
+      }
     },
     openProposal(proposal) {
       if (tasks.some((task) => task.id === proposal.id)) choose(proposal.id);

@@ -55,6 +55,7 @@ export const PimiTaskPipeDescriptor = z.strictObject({
   secret: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
 });
 export const PimiTaskAgentTool = {
+  create: "create_pimi_task",
   list: "list_pimi_tasks",
   get: "get_pimi_task",
   repositories: "list_pimi_repositories",
@@ -70,18 +71,34 @@ export const PimiTaskAgentListInput = z.strictObject({
 export const PimiTaskAgentGetInput = z.strictObject({
   id: z.uuid().describe("Saved task ID."),
 });
+const PimiTaskRepositoryPath = z
+  .string()
+  .min(1)
+  .max(4096)
+  .describe("Repository path returned by list_pimi_repositories.");
+export const PimiTaskAgentCreateInput = PimiTaskFields.omit({ mode: true })
+  .extend({
+    labels: PimiTaskLabels.optional().describe("Existing label names from list_pimi_labels."),
+    repository: PimiTaskRepositoryPath.optional(),
+    stage: PimiTaskStage.optional().describe(
+      "Set when the request specifies a stage. Defaults to To do.",
+    ),
+  })
+  .strict();
+export const PimiTaskCreatedResult = z.object({
+  task: z.object({ id: PimiTaskAgentGetInput.shape.id, title: PimiTaskFields.shape.title }),
+  created: z.boolean(),
+  source: PimiTaskSource,
+});
+export type PimiTaskCreatedResult = z.infer<typeof PimiTaskCreatedResult>;
+
 export const PimiTaskAgentUpdateInput = PimiTaskFields.partial()
   .extend({
     ...PimiTaskAgentGetInput.shape,
     stage: PimiTaskStage.nullable()
       .optional()
       .describe("Use null to return to automatic progress."),
-    repository: z
-      .string()
-      .min(1)
-      .max(4096)
-      .optional()
-      .describe("Repository path returned by list_pimi_repositories."),
+    repository: PimiTaskRepositoryPath.optional(),
   })
   .strict();
 export const PimiWorkLabelInput = z.strictObject({
@@ -106,6 +123,7 @@ export const PimiNewTaskDestination = PimiTaskFields.pick({
 })
   .partial()
   .extend({ view: z.literal("new-task") });
+export const PimiOpenTaskDestination = PimiTaskAgentGetInput.extend({ view: z.literal("task") });
 export const PimiSimpleDestinationView = z.enum(["tasks", "worktrees", "review-home", "spaces"]);
 export const PimiReviewPrDestination = z.object({
   view: z.literal("review-pr"),
@@ -118,6 +136,7 @@ export type PimiDestination =
   | { view: z.infer<typeof PimiSimpleDestinationView> }
   | z.infer<typeof PimiMemoryDestination>
   | z.infer<typeof PimiNewTaskDestination>
+  | z.infer<typeof PimiOpenTaskDestination>
   | z.infer<typeof PimiReviewPrDestination>
   | { view: "review"; path: string; serverId?: string }
   | { view: "task-draft"; proposal: PimiTaskProposal };
@@ -238,8 +257,14 @@ export function isPimiReviewSuggestionTool(name: string): boolean {
   return matchesToolName(name, PIMI_REVIEW_SUGGESTION_TOOL);
 }
 
+export function isPimiTaskCreateTool(name: string): boolean {
+  return matchesToolName(name, PimiTaskAgentTool.create);
+}
+
 export function isPimiActionTool(name: string): boolean {
-  return isPimiTaskProposalTool(name) || isPimiReviewSuggestionTool(name);
+  return (
+    isPimiTaskProposalTool(name) || isPimiReviewSuggestionTool(name) || isPimiTaskCreateTool(name)
+  );
 }
 
 /** Read-only label projection for the desktop console. Assignments stay with the task or workspace. */

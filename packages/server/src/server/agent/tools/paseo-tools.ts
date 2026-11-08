@@ -1434,11 +1434,12 @@ function createToolCatalog(
     registerPimiTaskTools({
       registerTool,
       home: options.pimiTaskHome,
-      assertInteractive() {
+      resolveSource() {
         const agent = resolveCallerAgent();
-        if (!agent || agent.internal || agent.background) {
+        if (!callerAgentId || !options.serverId || !agent || agent.internal || agent.background) {
           throw new PaseoToolInputError("Pimi task tools are available in interactive chats.");
         }
+        return { serverId: options.serverId, agentId: callerAgentId };
       },
     });
     registerTool(
@@ -1486,7 +1487,7 @@ function createToolCatalog(
       {
         title: "Propose a Pimi task",
         description:
-          "Open an editable task draft before starting substantial research, parallel work, or a tracked task. Default to chat. Choose worktree for repository edits. Include up to four independent work items. Wait for the user to save the draft and start the workers.",
+          "Open a draft for work the user wants delegated to separate agents. Include up to four independent work items. Use chat for separate research folders and worktree for repository edits. Wait for the user to start the workers. For tracking in the current chat, use create_pimi_task.",
         inputSchema: PimiTaskProposalInput,
       },
       async (input) => {

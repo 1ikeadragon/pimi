@@ -43,14 +43,20 @@ import {
 } from "@/components/message";
 import { PlanCard } from "@/components/plan-card";
 import {
+  PimiCreatedTaskCard,
   PimiReviewSuggestionCard,
   PimiTaskProposalCard,
+  readPimiCreatedTask,
   readPimiReviewSuggestion,
   readPimiTaskProposal,
 } from "@/components/pimi-task-proposal-card";
 import { getDesktopHost } from "@/desktop/host";
-import { isPimiReviewSuggestionTool, isPimiTaskProposalTool } from "@getpaseo/protocol/pimi-task";
-import { getStreamItemMessageId, type StreamItem } from "@/types/stream";
+import {
+  isPimiReviewSuggestionTool,
+  isPimiTaskCreateTool,
+  isPimiTaskProposalTool,
+} from "@getpaseo/protocol/pimi-task";
+import { getStreamItemMessageId, type AgentToolCallData, type StreamItem } from "@/types/stream";
 import type { PendingMessageSubmission } from "@/composer/submission/model";
 import type { TurnPresentation } from "@/timeline/turn-liveness";
 import type { PendingPermission } from "@/types/shared";
@@ -270,6 +276,30 @@ export interface AgentStreamViewProps {
     progressKey: string | null;
     onLoadOlder: () => boolean | Promise<boolean>;
   };
+}
+
+function renderPimiAction(data: AgentToolCallData, serverId: string | undefined, agentId: string) {
+  if (
+    data.status !== "completed" ||
+    data.error ||
+    data.detail.type !== "unknown" ||
+    !getDesktopHost()?.showPimiWorkspace
+  )
+    return null;
+  const matches = (source: { serverId: string; agentId: string }) =>
+    source.serverId === serverId && source.agentId === agentId;
+  if (isPimiTaskCreateTool(data.name)) {
+    const result = readPimiCreatedTask(data.detail.output);
+    if (result && matches(result.source)) return <PimiCreatedTaskCard result={result} />;
+  } else if (isPimiTaskProposalTool(data.name)) {
+    const proposal = readPimiTaskProposal(data.detail.output);
+    if (proposal && matches(proposal.source)) return <PimiTaskProposalCard proposal={proposal} />;
+  } else if (isPimiReviewSuggestionTool(data.name)) {
+    const suggestion = readPimiReviewSuggestion(data.detail.output);
+    if (suggestion && matches(suggestion.source))
+      return <PimiReviewSuggestionCard suggestion={suggestion} />;
+  }
+  return null;
 }
 
 const AGENT_CAPABILITY_FLAG_KEYS: (keyof AgentCapabilityFlags)[] = [
@@ -868,30 +898,8 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         if (payload.source === "agent") {
           const data = payload.data;
 
-          if (
-            data.status === "completed" &&
-            !data.error &&
-            data.detail.type === "unknown" &&
-            getDesktopHost()?.showPimiWorkspace
-          ) {
-            if (isPimiTaskProposalTool(data.name)) {
-              const proposal = readPimiTaskProposal(data.detail.output);
-              if (
-                proposal?.source.serverId === resolvedServerId &&
-                proposal.source.agentId === agentId
-              ) {
-                return <PimiTaskProposalCard proposal={proposal} />;
-              }
-            } else if (isPimiReviewSuggestionTool(data.name)) {
-              const suggestion = readPimiReviewSuggestion(data.detail.output);
-              if (
-                suggestion?.source.serverId === resolvedServerId &&
-                suggestion.source.agentId === agentId
-              ) {
-                return <PimiReviewSuggestionCard suggestion={suggestion} />;
-              }
-            }
-          }
+          const pimiAction = renderPimiAction(data, resolvedServerId, agentId);
+          if (pimiAction) return pimiAction;
 
           if (
             data.name === "speak" &&
