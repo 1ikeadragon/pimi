@@ -354,16 +354,50 @@ nav :is(button, a):hover:not(:disabled, [aria-current]) {
   display: none;
 }
 
-[data-workspace-layout="inline"] .topbar {
+[data-workspace-chrome] .topbar {
   display: none;
 }
 
-[data-workspace-layout="inline"] main {
+[data-workspace-chrome] main {
   min-height: 100dvh;
 }
 
-[data-workspace-layout="inline"] .review-view {
+[data-workspace-chrome] .review-view {
   height: calc(100dvh - 46px);
+}
+
+[data-workspace-chrome]
+  :is(
+    #task-view-title,
+    #board > .section-header,
+    #review[data-screen="home"] .review-heading,
+    .memory-header-copy,
+    .spaces-header h1
+  ) {
+  display: none;
+}
+
+[data-workspace-chrome] .tasks-header {
+  justify-content: flex-end;
+}
+
+[data-workspace-chrome] .tasks-header:has(#task-board-back:not([hidden])) {
+  justify-content: space-between;
+}
+
+[data-workspace-chrome] .review-heading h1 {
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: normal;
+}
+
+[data-workspace-chrome] .memory-header {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 4px 0;
+  border: 0;
+  background: none;
 }
 
 .toolbar-actions,

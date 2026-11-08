@@ -39,7 +39,7 @@ export function PimiLibraryScreen({ section }: { section: PimiLibrarySection }) 
   if (!focused || covered) return <View style={styles.screen} />;
   return (
     <View style={styles.screen} dataSet={BACKGROUND} testID={`pimi-library-${section}`}>
-      <MenuHeader title={title} rightContent={close} />
+      <MenuHeader title={title} rightContent={close} inPimiTitlebar />
       <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
         {host ? (
           <>
