@@ -1,11 +1,12 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
 import { useCallback, type ReactNode } from "react";
-import { router } from "expo-router";
+import { router, usePathname } from "expo-router";
 import { Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import {
   Columns3,
   FileDiff,
+  LayoutGrid,
   ListTodo,
   MessageSquare,
   NotebookText,
@@ -25,6 +26,11 @@ import { HeaderToggleButton } from "@/components/headers/header-toggle-button";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { HEADER_INNER_HEIGHT } from "@/constants/layout";
 import { buildNewWorkspaceRoute } from "@/utils/host-routes";
+import {
+  closePimiAgentGrid,
+  openPimiAgentGrid,
+  PIMI_AGENT_GRID_ROUTE,
+} from "@/navigation/pimi-agent-grid";
 import { SidebarHeaderRow, type SidebarRowIcon } from "./sidebar-header-row";
 
 export interface PimiSidebarControls {
@@ -124,6 +130,7 @@ export function PimiWorkspaceNavigation({
   const host = getDesktopHost();
   const show = host?.showPimiWorkspace;
   const section = usePimiWorkspaceSection();
+  const inAgentGrid = usePathname() === PIMI_AGENT_GRID_ROUTE;
   const { t } = useTranslation();
   const newWorkspaceLabel = t("newWorkspace.title");
   const openNewWorkspace = useCallback(() => {
@@ -134,7 +141,12 @@ export function PimiWorkspaceNavigation({
   const showChat = useCallback(() => {
     onNavigate?.();
     host?.dismissPimiWorkspace?.();
-  }, [host, onNavigate]);
+    if (inAgentGrid) closePimiAgentGrid();
+  }, [host, inAgentGrid, onNavigate]);
+  const showAgentGrid = useCallback(() => {
+    onNavigate?.();
+    openPimiAgentGrid();
+  }, [onNavigate]);
   const showTasks = useCallback(() => {
     onNavigate?.();
     show?.({ view: "tasks" });
@@ -158,7 +170,13 @@ export function PimiWorkspaceNavigation({
   if (!show) return null;
 
   const destinations = [
-    { label: "Chat", icon: MessageSquare, onPress: showChat, active: !section },
+    { label: "Chat", icon: MessageSquare, onPress: showChat, active: !section && !inAgentGrid },
+    {
+      label: "Agent grid",
+      icon: LayoutGrid,
+      onPress: showAgentGrid,
+      active: !section && inAgentGrid,
+    },
     { label: "Tasks", icon: ListTodo, onPress: showTasks, active: section === "tasks" },
     { label: "Work", icon: Columns3, onPress: showWorktrees, active: section === "board" },
     { label: "Review", icon: FileDiff, onPress: showReview, active: section === "review" },
