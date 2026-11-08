@@ -25,6 +25,7 @@ test("lists built-in and subprocess usage; validates input and isolates fetch er
   const client = new DaemonClient({ url: `ws://127.0.0.1:${daemon.port}/ws`, appVersion: "0.9.2" });
   try {
     await client.connect();
+    await client.patchDaemonConfig({ usage: { enabled: true } });
     const updates: string[] = [];
     const first = await client.listUsageReports({}, (report) => updates.push(report.id));
     expect(updates).toEqual(first.reports.map((report) => report.id));
@@ -126,6 +127,7 @@ export default function contribute(server) {
   const client = new DaemonClient({ url: `ws://127.0.0.1:${daemon.port}/ws`, appVersion: "0.9.2" });
   try {
     await client.connect();
+    await client.patchDaemonConfig({ usage: { enabled: true } });
     const { reports } = await client.listUsageReports();
     expect(
       reports.map(({ id, sourceId, sourceLabel, account, report }) => ({
@@ -244,6 +246,7 @@ export default function contribute(server) {
   const client = new DaemonClient({ url: `ws://127.0.0.1:${daemon.port}/ws` });
   try {
     await client.connect();
+    await client.patchDaemonConfig({ usage: { enabled: true } });
     const first = (await client.listUsageReports()).reports;
     expect(first.map((entry) => entry.id).sort()).toEqual([
       "claude:claude-one.org-one",
@@ -321,6 +324,7 @@ export default function contribute(server) {
 }`,
     );
     await client.connect();
+    await client.patchDaemonConfig({ usage: { enabled: true } });
     await client.installDirectoryPlugin(root, "crashing-usage");
     expect((await client.listUsageReports({ forceRefresh: true })).reports).toEqual([]);
     const warnings = (await readFile(log, "utf8"))
