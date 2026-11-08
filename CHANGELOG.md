@@ -2,6 +2,10 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.16.9 - 2026-11-08
+
+- Tasks, Work, and Review show unread activity in the sidebar. Opening a view clears its own dot.
+
 ## 0.16.8 - 2026-11-08
 
 - Ask Pimi can run available Command Center actions, start a chat with a saved Spaces card, and open named worktree diffs, tasks, pull requests, or session usage.
