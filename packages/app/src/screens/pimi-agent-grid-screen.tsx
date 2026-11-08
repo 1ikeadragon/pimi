@@ -50,7 +50,8 @@ const GridSpinner = withUnistyles(LoadingSpinner, (theme) => ({
 }));
 // Limit concurrent timeline subscriptions to the panes that fit in one viewport.
 const ROWS = 2;
-const TWO_COLUMN_MIN_WIDTH = 680;
+const TILE_MIN_WIDTH = 340;
+const MAX_COLUMNS = 3;
 const GRID_BACKGROUND = { "pimi-agent-grid": "" };
 const close = (
   <ToolbarButton label="Close agent grid" onPress={closePimiAgentGrid}>
@@ -107,7 +108,8 @@ function AgentGrid() {
   const currentPage = Math.min(page, pages - 1);
   const tiles = ordered.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
-    setColumns(event.nativeEvent.layout.width >= TWO_COLUMN_MIN_WIDTH ? 2 : 1);
+    const availableColumns = Math.floor(event.nativeEvent.layout.width / TILE_MIN_WIDTH);
+    setColumns(Math.min(MAX_COLUMNS, Math.max(1, availableColumns)));
   }, []);
   const changeFilter = useCallback((value: Filter) => {
     setFilter(value);
