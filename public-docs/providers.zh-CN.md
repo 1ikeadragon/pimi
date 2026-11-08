@@ -26,4 +26,3 @@ Provider 是 Pimi 与某个外部 Agent CLI 之间的约定：如何启动它、
 - [支持的 Provider](/docs/supported-providers)：完整列表和安装链接。
 - [Agent 配置](/docs/agent-profiles)：把模型、模式和思考设置保存在一起，并附上指导委派的说明。
 - [自定义 Provider](/docs/custom-providers)：添加你自己的 Provider、把现有 Provider 指向其他端点、配置多个 Provider 别名，或在 `~/.paseo/config.json` 中覆盖二进制文件。
-- [paseo.sh/agents](/agents)：每个支持的 Provider 的落地页。

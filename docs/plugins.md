@@ -130,7 +130,6 @@ the bundled integration; an entry with `extends` shadows it with a custom provid
 ## Install from a registry
 
 `pimi plugin add owner/slug` installs the registry's reviewed artifact by default.
-Browse published plugins at [paseo.sh/plugins](https://github.com/1ikeadragon/pimi/blob/main/README.md).
 Use `git:owner/repository` or a full Git URL for a Git source. Registry installs
 keep the registry URL and ID, so update checks use its approved pin. Explicit version/ref
 selection is unavailable for registry installs; install an explicit source to select your own.
