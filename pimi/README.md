@@ -6,6 +6,12 @@ See the [main README](../README.md) for the demo, features, and macOS build.
 
 Run `npm run build:server` and then `npm run pimi:desktop`. Use the sidebar or **File → Show Pimi Workspace** to switch layouts in the current window. The packaged app uses the normal Paseo daemon home and settings. Set `PASEO_HOME` and `PASEO_LISTEN` before launching the executable to use a separate daemon and state directory.
 
+## Desktop releases
+
+Set the root version, run `npm run version:sync-internal`, and refresh the lockfile with `npm install --package-lock-only --ignore-scripts`. Add a matching section to the changelog for release highlights.
+
+Push the version commit to `main`, then push its `pimi-vX.Y.Z` tag. The release workflow builds both installers, publishes checksums, and adds a commit list for subsequent releases. Push one release tag at a time. If a run fails transiently, rerun all jobs so the publisher gets every artifact from the same attempt. For a code fix, ship a new version.
+
 ## Tasks
 
 - The board derives the automatic task stage from its work items. Managed work is ready for review when its agent report arrives; linked checkouts use Git and agent activity. Manual stage overrides persist in the task record. Done closes a task; moving it out of Done reopens it.

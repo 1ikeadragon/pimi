@@ -1,5 +1,7 @@
 # Release
 
+For Pimi desktop builds, see the [Pimi release workflow](../pimi/README.md#desktop-releases). This playbook covers upstream Paseo.
+
 All workspaces share one version and release together.
 
 ## Two steps
