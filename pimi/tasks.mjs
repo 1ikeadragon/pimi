@@ -21,9 +21,12 @@ import { workspaceLabelKey } from "@getpaseo/protocol/workspace-labels";
 
 import { commit, git, RequestError } from "./git.mjs";
 
+const dateTime = z.iso.datetime({ offset: true });
 const pullRequestSchema = z.object({
   url: z.string().regex(/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/[1-9]\d*$/),
   state: z.enum(["open", "closed", "merged"]),
+  title: z.string().optional(),
+  mergedAt: dateTime.optional(),
 });
 const taskFields = PimiTaskFields.extend({ done: z.boolean() });
 const ideaFields = PimiExperimentFields;
@@ -56,6 +59,7 @@ const taskSchema = taskFields.extend({
   id: z.uuid(),
   stage: PimiTaskStage.nullable().optional(),
   completedByPullRequest: z.literal(true).optional(),
+  completedAt: dateTime.optional(),
   root: z.string().nullable(),
   base: z.string().nullable(),
   repositories: z.array(z.object({ root: z.string().min(1), base: z.string().min(1) })).optional(),
@@ -64,7 +68,20 @@ const taskSchema = taskFields.extend({
 });
 const maxExperiments = 8;
 const agentTaskPageSize = 50;
+const recapPageSize = 100;
 const modelInput = z.object({ id: z.uuid(), model: z.string().min(1).max(512) });
+
+function storedPullRequest(pr, previous) {
+  const same = previous?.url === pr.url && previous.state === pr.state;
+  const mergedAt = dateTime.safeParse(pr.mergedAt);
+  return {
+    url: pr.url,
+    state: pr.state,
+    title: pr.title?.trim() || (same ? previous.title : undefined),
+    mergedAt:
+      pr.state === "merged" ? (mergedAt.data ?? (same ? previous.mergedAt : undefined)) : undefined,
+  };
+}
 
 function makeExperiment(idea, card, root = null) {
   const pr = card?.pullRequest;
@@ -74,7 +91,7 @@ function makeExperiment(idea, card, root = null) {
     root: card?.root ?? root,
     path: card?.path ?? null,
     workspaceId: card?.workspaceId ?? null,
-    pullRequest: pr && { url: pr.url, state: pr.state },
+    pullRequest: pr && storedPullRequest(pr),
     launch: null,
     error: null,
     report: "",
@@ -321,6 +338,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
         existing = findExisting(draft);
         if (existing) return null;
         task.labels = await validateLabels(task.labels);
+        if (task.done) task.completedAt = new Date().toISOString();
         draft.unshift(task);
         return task;
       },
@@ -376,6 +394,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
         throw new RequestError("Wait for the current task operation to finish.", 409);
       if (input.done && running.has(id)) throw new RequestError("Wait for launch to finish.", 409);
       if (input.done !== undefined && input.done !== task.done) {
+        recordCompletion(task, input.done);
         forgetTaskMergeTriggers(task);
         if (input.done) task.stage = "done";
         else if (task.stage === "done") task.stage = null;
@@ -387,9 +406,15 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
   function applyStage(task, stage) {
     if (stage === "done" && running.has(task.id))
       throw new RequestError("Wait for launch to finish.", 409);
+    recordCompletion(task, stage === "done");
     task.stage = stage;
     task.done = stage === "done";
     forgetTaskMergeTriggers(task);
+  }
+
+  function recordCompletion(task, done) {
+    if (!done) delete task.completedAt;
+    else if (!task.done) task.completedAt = new Date().toISOString();
   }
 
   function forgetTaskMergeTriggers(task) {
@@ -761,10 +786,18 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
               changed = true;
             }
             // Persist the link for Review, but never trust persisted checkout freshness.
-            if (current && (previous?.url !== current.url || previous?.state !== current.state)) {
-              item.pullRequest = { url: current.url, state: current.state };
-              liveMerges.delete(item.id);
-              changed = true;
+            if (current) {
+              const next = storedPullRequest(current, previous);
+              const changedLink = previous?.url !== next.url || previous?.state !== next.state;
+              if (
+                changedLink ||
+                previous?.title !== next.title ||
+                previous?.mergedAt !== next.mergedAt
+              ) {
+                item.pullRequest = next;
+                if (changedLink) liveMerges.delete(item.id);
+                changed = true;
+              }
             }
             if (current?.state === "merged" && current.matchesCheckout) {
               verifiedMerges.add(item.id);
@@ -816,12 +849,56 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
     return links;
   }
 
+  function recap(period) {
+    if (readError) throw new RequestError(readError, 503);
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const daysSinceMonday = (start.getDay() + 6) % 7;
+    start.setDate(start.getDate() - daysSinceMonday - (period === "last-week" ? 7 : 0));
+    const end = new Date(start);
+    end.setDate(end.getDate() + 7);
+    const inWeek = (date) => {
+      const time = Date.parse(date);
+      return time >= start.getTime() && time < end.getTime();
+    };
+    const tasks = [];
+    const merged = new Map();
+    let hasUndatedCompletions = false;
+    for (const { id, title, done, completedAt, experiments } of state) {
+      if (done && !completedAt) hasUndatedCompletions = true;
+      if (done && inWeek(completedAt)) tasks.push({ id, title, completedAt });
+      for (const { pullRequest: pr } of experiments) {
+        if (pr?.state !== "merged") continue;
+        if (!pr.mergedAt) hasUndatedCompletions = true;
+        if (!inWeek(pr.mergedAt)) continue;
+        const key = pr.url.toLowerCase();
+        const existing = merged.get(key);
+        if (!existing || (!existing.title && pr.title)) {
+          merged.set(key, { url: pr.url, title: pr.title, mergedAt: pr.mergedAt });
+        }
+      }
+    }
+    const pullRequests = [...merged.values()];
+    tasks.sort((a, b) => Date.parse(b.completedAt) - Date.parse(a.completedAt));
+    pullRequests.sort((a, b) => Date.parse(b.mergedAt) - Date.parse(a.mergedAt));
+    return {
+      startsAt: start.toISOString(),
+      endsBefore: end.toISOString(),
+      tasks: tasks.slice(0, recapPageSize),
+      pullRequests: pullRequests.slice(0, recapPageSize),
+      taskCount: tasks.length,
+      pullRequestCount: pullRequests.length,
+      hasUndatedCompletions,
+    };
+  }
+
   return {
     roots: () => [...new Set(state.flatMap((task) => task.repositories.map(({ root }) => root)))],
     linkedWorktrees,
     observeWorkspace,
     resetWorkspaceObservation,
     worktreeTaskLinks,
+    recap,
     pullRequestTaskLinks: (url) =>
       state
         .filter((task) =>

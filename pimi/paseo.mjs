@@ -111,6 +111,7 @@ export function createPaseoConnection(settingsSource = {}) {
     }
     return {
       url: pr.url,
+      title: pr.title,
       state: pr.isMerged ? "merged" : pr.state.toLowerCase() === "open" ? "open" : "closed",
       mergedAt: pr.mergedAt,
       matchesCheckout: Boolean(

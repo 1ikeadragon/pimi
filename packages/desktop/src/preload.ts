@@ -4,6 +4,8 @@ import type { DesktopWindowChromeMode } from "./window/chrome.js";
 import type { PimiAppearance, PimiContentBounds, PimiDestination } from "./window/pimi-window.js";
 import type {
   PimiLinkedLabels,
+  PimiRecap,
+  PimiRecapPeriod,
   PimiReportLinkTarget,
   PimiReportLinkError,
   PimiReviewSummary,
@@ -111,6 +113,8 @@ contextBridge.exposeInMainWorld("paseoDesktop", {
           ipcRenderer.send("pimi:workspace:show", destination),
         getPimiReviewSummary: (checkout: string): Promise<PimiReviewSummary | null> =>
           ipcRenderer.invoke("pimi:review:summary", checkout),
+        getPimiRecap: (period: PimiRecapPeriod): Promise<PimiRecap> =>
+          ipcRenderer.invoke("pimi:recap:get", period),
         dismissPimiWorkspace: () => ipcRenderer.send("pimi:workspace:dismiss"),
         setPimiContentBounds: (bounds: PimiContentBounds) =>
           ipcRenderer.send("pimi:workspace:content-bounds", bounds),

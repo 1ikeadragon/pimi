@@ -5,6 +5,8 @@ import type { SessionInboundMessage, SessionOutboundMessage } from "@getpaseo/pr
 import type {
   PimiDestination,
   PimiLinkedLabels,
+  PimiRecap,
+  PimiRecapPeriod,
   PimiReportLinkTarget,
   PimiReportLinkError,
   PimiReviewSummary,
@@ -193,6 +195,7 @@ export interface DesktopHostBridge {
   getPimiGitAuthStatus?: (provider: PimiGitProvider) => Promise<PimiGitAuthStatus>;
   showPimiWorkspace?: (destination: PimiDestination) => void;
   getPimiReviewSummary?: (checkout: string) => Promise<PimiReviewSummary | null>;
+  getPimiRecap?: (period: PimiRecapPeriod) => Promise<PimiRecap>;
   dismissPimiWorkspace?: () => void;
   setPimiContentBounds?: (bounds: {
     x: number;
