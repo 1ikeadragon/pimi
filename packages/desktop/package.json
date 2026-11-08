@@ -41,10 +41,10 @@
     "@electron/asar": "3.4.1",
     "@types/node": "24.6.0",
     "@types/ws": "^8.5.14",
-    "electron": "44.2.0",
+    "electron": "44.10.2",
     "typescript": "5.9.3",
     "unzip-crx-3": "^0.2.0",
-    "vitest": "^4.1.6",
+    "vitest": "4.1.11",
     "wait-on": "8.0.5"
   },
   "desktopName": "Pimi.desktop"

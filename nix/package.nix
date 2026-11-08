@@ -95,6 +95,7 @@ buildNpmPackage rec {
 
     # Build all server packages in dependency order (defined in package.json)
     npm run build:server
+    node scripts/postinstall-patches.mjs
     npm run build:daemon-web-ui
 
     runHook postBuild
