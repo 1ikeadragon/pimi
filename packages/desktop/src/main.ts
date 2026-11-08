@@ -14,6 +14,7 @@ import {
   PimiRecapPeriod,
   PimiReportLinkError,
   PimiReviewPrDestination,
+  PimiVoiceCommandInput,
 } from "@getpaseo/protocol/pimi-task";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -136,6 +137,7 @@ import {
   PimiMemoryDestination,
   PimiNewTaskDestination,
   PimiSimpleDestinationView,
+  PimiSpacesDestination,
   PimiTaskProposal,
 } from "@getpaseo/protocol/pimi-task";
 import { getForgeDefinition } from "@getpaseo/protocol/forge-manifest";
@@ -793,6 +795,12 @@ function registerPimiWorkspaceNavigation(): void {
     const runtime = await initializePimiWorkspace(path.join(app.getAppPath(), "dist"));
     return runtime.getRecap(period);
   });
+  ipcMain.handle("pimi:voice:command", async (event, value: unknown) => {
+    if (!isConsoleFrame(event)) throw new Error("Ask Pimi is only available in the app.");
+    const input = PimiVoiceCommandInput.parse(value);
+    const runtime = await initializePimiWorkspace(path.join(app.getAppPath(), "dist"));
+    return runtime.runVoiceCommand(input);
+  });
   ipcMain.handle("pimi:review:summary", (event, checkout: unknown) => {
     if (
       !isConsoleFrame(event) ||
@@ -888,6 +896,7 @@ function registerPimiWorkspaceNavigation(): void {
     if (simple.success) return openPimi({ view: simple.data }, owner);
     const destinationSchema = {
       memory: PimiMemoryDestination,
+      spaces: PimiSpacesDestination,
       task: PimiOpenTaskDestination,
       "new-task": PimiNewTaskDestination,
       "review-pr": PimiReviewPrDestination,

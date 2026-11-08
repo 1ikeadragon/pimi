@@ -46,6 +46,7 @@ import { createPullRequests } from "./pull-requests.mjs";
 import { listReviewPaths, readReviewSource } from "./review-files.mjs";
 import { createTasks } from "./tasks.mjs";
 import { generateTour } from "./walkthrough.mjs";
+import { runVoiceCommand } from "./voice-command.mjs";
 
 const appearances = new Set(["system", "light", "dark", "paper"]);
 const reportMarkdown = new MarkdownIt({ html: false, linkify: true }).disable("image");
@@ -1006,6 +1007,7 @@ export async function startPimi({
     prepareChatReview,
     getLinkedLabels,
     getRecap: tasks.recap,
+    runVoiceCommand: (input) => runVoiceCommand(input, { paseo, tasks }),
     subscribeToLabels(listener) {
       labelListeners.add(listener);
       return () => labelListeners.delete(listener);

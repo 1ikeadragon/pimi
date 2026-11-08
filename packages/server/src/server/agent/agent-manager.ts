@@ -394,6 +394,8 @@ export interface CreateAgentOptions {
   owner?: AgentOwner;
   /** Background agents stay out of discovery, tabs, tracks and attention. Fixed at creation. */
   background?: boolean;
+  /** Run an internal model query without app tools or plugin hooks. */
+  withoutAppTools?: boolean;
 }
 
 export interface AgentManagerOptions {
@@ -1527,6 +1529,7 @@ export class AgentManager {
   ): Promise<ManagedAgent> {
     this.assertAcceptingAgentRegistrations();
     const resolvedAgentId = validateAgentId(agentId ?? this.idFactory(), "createAgent");
+    const withoutAppTools = config.internal === true && options.withoutAppTools === true;
     if (this.pluginLifecycle && !config.internal) {
       const request = await this.pluginLifecycle.before("agent.create.before", {
         config,
@@ -1539,27 +1542,29 @@ export class AgentManager {
     const { storedConfig, launchConfig, paseoToolPolicy } = await this.prepareSessionConfig(
       config,
       resolvedAgentId,
-      { env: options?.env, background: options.background, labels: options.labels },
+      { env: options.env, background: options.background, labels: options.labels, withoutAppTools },
     );
     this.requireEnabledProvider(storedConfig.provider);
     const client = await this.requireAvailableClient({
       provider: storedConfig.provider,
     });
     this.paseoToolPolicies.set(resolvedAgentId, paseoToolPolicy);
-    const launchContext = await this.buildLaunchContext(
-      resolvedAgentId,
-      client,
-      storedConfig.cwd,
-      paseoToolPolicy,
-      options?.env,
-      {
-        reason: "create",
-        purpose: "interactive",
-        workspaceId: options.workspaceId ?? null,
-        title: options.initialTitle ?? storedConfig.title ?? null,
-        labels: options.labels ?? {},
-      },
-    );
+    const launchContext = withoutAppTools
+      ? { agentId: resolvedAgentId, env: options.env }
+      : await this.buildLaunchContext(
+          resolvedAgentId,
+          client,
+          storedConfig.cwd,
+          paseoToolPolicy,
+          options.env,
+          {
+            reason: "create",
+            purpose: "interactive",
+            workspaceId: options.workspaceId ?? null,
+            title: options.initialTitle ?? storedConfig.title ?? null,
+            labels: options.labels ?? {},
+          },
+        );
     const providerLaunchConfig = this.resolveProviderLaunchConfig(launchConfig, launchContext);
     const createOptions = this.buildCreateSessionOptions(options);
     const session = await client.createSession(providerLaunchConfig, launchContext, createOptions);
@@ -5863,12 +5868,19 @@ export class AgentManager {
       purpose?: AgentResumePurpose;
       background?: boolean;
       labels?: Record<string, string>;
+      withoutAppTools?: boolean;
     } = {},
   ): Promise<PreparedSessionConfig> {
     const storedConfig = await this.normalizeConfig(stripInternalPaseoMcpServer(config), {
       env: options.env,
       purpose: options.purpose,
     });
+    if (options.withoutAppTools) {
+      const launchConfig = { ...storedConfig };
+      delete launchConfig.mcpServers;
+      delete launchConfig.daemonAppendSystemPrompt;
+      return { storedConfig, launchConfig, paseoToolPolicy: { enabled: false } };
+    }
     const paseoToolPolicy = this.paseoToolsEnabled
       ? this.resolvePaseoToolPolicy(storedConfig.provider)
       : { enabled: false };

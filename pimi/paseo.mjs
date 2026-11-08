@@ -5,6 +5,7 @@ import { workspaceLabelKey } from "@getpaseo/protocol/workspace-labels";
 import {
   PIMI_SPACES_ROUTE,
   PIMI_TASK_WORKER_LABEL,
+  PIMI_VOICE_COMMAND_ROUTE,
   PimiWorkLabelCreateInput,
   PimiWorkLabelInput,
 } from "@getpaseo/protocol/pimi-task";
@@ -587,7 +588,7 @@ export function createPaseoConnection(settingsSource = {}) {
     return JSON.parse(text).ideas;
   }
 
-  async function localData(route, feature, input) {
+  async function localData(route, feature, input, timeoutMs = 6000) {
     const settings = await settingsSource.connection?.();
     if (!settingsSource.native || !settings?.localDataCredential) {
       throw new RequestError(`Connect Pimi to its local agent host to open ${feature}.`, 503);
@@ -605,7 +606,7 @@ export function createPaseoConnection(settingsSource = {}) {
         },
         body: JSON.stringify(input),
         redirect: "error",
-        signal: AbortSignal.timeout(6000),
+        signal: AbortSignal.timeout(timeoutMs),
       });
     } catch {
       throw new RequestError(`Couldn’t reach ${feature} on the local host. Try again.`, 503);
@@ -631,6 +632,7 @@ export function createPaseoConnection(settingsSource = {}) {
     createWorkLabel,
     memory: (input) => localData("/api/pimi/memory", "Memory", input),
     spaces: (input) => localData(PIMI_SPACES_ROUTE, "Spaces", input),
+    classifyVoiceCommand: (input) => localData(PIMI_VOICE_COMMAND_ROUTE, "Ask Pimi", input, 25000),
     subscribe(listener) {
       changeListeners.add(listener);
       return () => changeListeners.delete(listener);

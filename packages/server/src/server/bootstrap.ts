@@ -1,6 +1,7 @@
 import { createRestartRecovery } from "./agent/restart-recovery/index.js";
 import { sendPromptToAgent } from "./agent/agent-prompt.js";
 import { generateChatTitle } from "./agent/chat-title-generator.js";
+import { createPimiVoiceCommandHandler } from "./agent/pimi-voice-command.js";
 import { createIdleRuntimeCleanup } from "./agent/idle-runtime-cleanup/index.js";
 import {
   createFinishSubscriptions,
@@ -150,7 +151,11 @@ import { ProjectMemory } from "./project-memory.js";
 import { createPimiMemoryHandler } from "./pimi-memory-route.js";
 import { PimiSpaces } from "./pimi-spaces.js";
 import { createPimiSpacesHandler } from "./pimi-spaces-route.js";
-import { PIMI_SPACES_ROUTE, PIMI_SPACE_REQUEST_BYTES } from "@getpaseo/protocol/pimi-task";
+import {
+  PIMI_SPACES_ROUTE,
+  PIMI_SPACE_REQUEST_BYTES,
+  PIMI_VOICE_COMMAND_ROUTE,
+} from "@getpaseo/protocol/pimi-task";
 import {
   createPaseoToolCatalog,
   createPaseoAgentToolManifest,
@@ -1080,6 +1085,16 @@ export async function createPaseoDaemon(
       resolvePaseoToolPolicy(provider, daemonConfigStore.get().providers),
     logger,
   });
+  app.post(
+    PIMI_VOICE_COMMAND_ROUTE,
+    requireLocalPimi("Ask Pimi"),
+    createPimiVoiceCommandHandler({
+      manager: agentManager,
+      providerSnapshotManager,
+      readConfig: () => daemonConfigStore.get(),
+      logger,
+    }),
+  );
   const syncPluginProviders = () => {
     agentManager.updateProviderRegistry(
       providerSnapshotManager.replacePluginProviders(pluginRuntime.getProviderRegistrations()),
