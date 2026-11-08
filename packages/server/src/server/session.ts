@@ -492,7 +492,7 @@ export interface SessionOptions {
   publishScriptStatusUpdate?: (message: ScriptStatusUpdateMessage) => void;
   logger: pino.Logger;
   downloadTokenStore: DownloadTokenStore;
-  pushNotifications: PushNotifications;
+  pushNotifications?: PushNotifications;
   paseoHome: string;
   worktreesRoot?: string;
   agentManager: AgentManager;
@@ -805,7 +805,7 @@ export class Session {
   private readonly workspaceRecovery: WorkspaceRecoveryService;
   private workspaceBaseBranch: WorkspaceBaseBranchService | undefined;
   private readonly daemonConfigStore: DaemonConfigStore;
-  private readonly pushNotifications: PushNotifications;
+  private readonly pushNotifications?: PushNotifications;
   private readonly pluginRuntime: SessionOptions["pluginRuntime"];
   private readonly orchestrationSkills: SessionOptions["orchestrationSkills"];
   private unsubscribeAgentEvents: (() => void) | null = null;
@@ -1098,7 +1098,7 @@ export class Session {
       logger: this.sessionLogger,
     });
     this.usageSession = new UsageSession({
-      isEnabled: () => daemonConfigStore.get().usage?.enabled !== false,
+      isEnabled: () => daemonConfigStore.get().usage?.enabled === true,
       emit: (msg) => this.emit(msg),
       runtime: pluginRuntime,
       logger: this.sessionLogger,
@@ -3451,7 +3451,7 @@ export class Session {
         this.handleRegisterPushToken(msg.token);
         return;
       case "push.unregister.request":
-        this.pushNotifications.revoke(msg.token);
+        this.pushNotifications?.revoke(msg.token);
         if (this.currentClientMetadata().pushToken?.trim() === msg.token.trim()) {
           this.currentClientMetadata().pushToken = null;
         }
@@ -5313,7 +5313,7 @@ export class Session {
       void this.clearFocusedTerminalAttention(focusedTerminalId);
     }
     if (metadata.pushToken) {
-      this.pushNotifications.renew(metadata.pushToken);
+      this.pushNotifications?.renew(metadata.pushToken);
     }
   }
 
@@ -5333,6 +5333,7 @@ export class Session {
    * Handle push token registration
    */
   private handleRegisterPushToken(token: string): void {
+    if (!this.pushNotifications) return;
     this.currentClientMetadata().pushToken = token;
     this.pushNotifications.renew(token);
     this.sessionLogger.info("Registered push token");
