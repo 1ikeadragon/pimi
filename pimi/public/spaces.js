@@ -25,14 +25,27 @@ function imageUrl(id) {
 function inlineEmbed(url) {
   if (typeof url !== "string") return null;
   if (/^https:\/\/www\.youtube-nocookie\.com\/embed\/[A-Za-z0-9_-]{11}$/.test(url)) {
-    return { kind: "youtube", name: "YouTube", title: "YouTube video player", url };
+    return { kind: "youtube", name: "YouTube", title: "YouTube video player", icon: "video", url };
   }
   if (
     /^https:\/\/platform\.twitter\.com\/embed\/Tweet\.html\?id=[1-9]\d{0,19}&dnt=true$/.test(url)
   ) {
-    return { kind: "x", name: "X", title: "X post", url };
+    return { kind: "x", name: "X", title: "X post", icon: "link", url };
+  }
+  if (
+    /^https:\/\/arxiv\.org\/html\/(?:\d{2}(?:0[1-9]|1[0-2])\.\d{4,5}|[a-z][a-z-]*(?:\.[A-Z]{2})?\/\d{2}(?:0[1-9]|1[0-2])\d{3})(?:v[1-9]\d*)?$/.test(
+      url,
+    )
+  ) {
+    return { kind: "arxiv", name: "arXiv", title: "arXiv paper", icon: "paper", url };
   }
   return null;
+}
+
+function githubRepository(url) {
+  if (url.origin !== "https://github.com" || url.username || url.password) return null;
+  const match = /^\/([A-Za-z\d][A-Za-z\d-]{0,38})\/([\w.-]{1,100})\/?$/.exec(url.pathname);
+  return match ? `${match[1]}/${match[2]}` : null;
 }
 
 export function createSpacesView({ $, api, button, element, message }) {
@@ -43,6 +56,8 @@ export function createSpacesView({ $, api, button, element, message }) {
   const form = $("spaces-card-form");
   const text = $("spaces-note-text");
   const preview = $("spaces-card-image");
+  const reader = $("spaces-paper-reader");
+  const paperUnavailable = $("spaces-paper-unavailable");
   const date = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
   let current;
   let active = false;
@@ -50,25 +65,31 @@ export function createSpacesView({ $, api, button, element, message }) {
   let busy = false;
   let ready = false;
   const sources = new WeakMap();
+  const unavailablePapers = new Set();
+
+  function embedFrame(embed) {
+    const frame = element("iframe");
+    frame.title = embed.title;
+    frame.setAttribute("sandbox", embed.kind === "arxiv" ? "" : "allow-scripts allow-same-origin");
+    frame.setAttribute("credentialless", "");
+    frame.setAttribute(
+      "allow",
+      embed.kind === "youtube" ? "autoplay 'none'; encrypted-media; fullscreen" : "autoplay 'none'",
+    );
+    frame.referrerPolicy = "no-referrer";
+    frame.src = embed.url;
+    return frame;
+  }
+
   const observer = new IntersectionObserver(
     (entries) => {
       for (const { target, isIntersecting, intersectionRatio } of entries) {
         if (!isIntersecting || intersectionRatio === 0) target.replaceChildren();
         else if (active && !document.hidden && target.isConnected && !target.firstElementChild) {
           const embed = sources.get(target);
-          if (!embed) continue;
-          const frame = element("iframe");
-          frame.title = embed.title;
-          frame.setAttribute("sandbox", "allow-scripts allow-same-origin");
-          frame.setAttribute("credentialless", "");
-          frame.setAttribute(
-            "allow",
-            embed.kind === "youtube"
-              ? "autoplay 'none'; encrypted-media; fullscreen"
-              : "autoplay 'none'",
-          );
-          frame.referrerPolicy = "no-referrer";
-          frame.src = embed.url;
+          if (!embed || unavailablePapers.has(embed.url)) continue;
+          const frame = embedFrame(embed);
+          if (embed.kind === "arxiv") frame.tabIndex = -1;
           target.append(frame);
         }
       }
@@ -80,9 +101,21 @@ export function createSpacesView({ $, api, button, element, message }) {
     observer.disconnect();
     observer.takeRecords();
     for (const target of grid.querySelectorAll(".spaces-embed")) {
-      if (active && !document.hidden) observer.observe(target);
+      if (active && !document.hidden && !target.hidden) observer.observe(target);
       else target.replaceChildren();
     }
+    updatePaperReader();
+  }
+
+  function updatePaperReader() {
+    const embed = current?.kind === "link" ? inlineEmbed(current.embedUrl) : null;
+    const paper = embed?.kind === "arxiv" ? embed : null;
+    const unavailable = paper && unavailablePapers.has(paper.url);
+    paperUnavailable.hidden = !unavailable;
+    const show = paper && !unavailable && active && editor.open && !document.hidden;
+    reader.hidden = !show;
+    if (!show) reader.replaceChildren();
+    else if (reader.firstElementChild?.src !== paper.url) reader.replaceChildren(embedFrame(paper));
   }
 
   function resume() {
@@ -91,6 +124,7 @@ export function createSpacesView({ $, api, button, element, message }) {
     if (!suspended) return;
     suspended = false;
     editor.showModal();
+    updatePaperReader();
   }
 
   document.addEventListener("visibilitychange", updateEmbedVisibility);
@@ -141,7 +175,9 @@ export function createSpacesView({ $, api, button, element, message }) {
     const isImage = item?.kind === "image";
     const isLink = item?.kind === "link";
     const isNote = !isImage && !isLink;
-    const titles = { note: "Edit note", image: "Image", link: "Link" };
+    const paper = isLink && inlineEmbed(item.embedUrl)?.kind === "arxiv";
+    const titles = { note: "Edit note", image: "Image", link: paper ? "arXiv paper" : "Link" };
+    editor.classList.toggle("spaces-dialog-paper", paper);
     $("spaces-card-title").textContent = item ? titles[item.kind] : "New note";
     $("spaces-card-reference").textContent = item ? "space:" + item.id : "";
     $("spaces-note-label").hidden = !isNote;
@@ -159,6 +195,7 @@ export function createSpacesView({ $, api, button, element, message }) {
     $("spaces-close").textContent = isNote ? "Cancel" : "Close";
     message("spaces-card-error", "");
     editor.showModal();
+    updatePaperReader();
     (isNote ? text : $("spaces-close")).focus();
   }
 
@@ -176,24 +213,33 @@ export function createSpacesView({ $, api, button, element, message }) {
     } else if (item.kind === "link") {
       const url = new URL(item.url);
       const embed = inlineEmbed(item.embedUrl);
-      const title = embed?.name ?? url.host;
+      const repository = githubRepository(url);
+      const title = embed?.name ?? repository ?? url.host;
       const badge = element("span", "spaces-link-icon");
-      badge.append(
-        $(embed?.kind === "youtube" ? "spaces-video-icon" : "spaces-link-icon").content.cloneNode(
-          true,
-        ),
-      );
+      const icon = embed?.icon ?? (repository ? "repo" : "link");
+      badge.append($(`spaces-${icon}-icon`).content.cloneNode(true));
       const caption = element("span", "spaces-link-caption");
       caption.append(
         element("strong", "", title),
-        element("span", "subtitle", url.host + url.pathname),
+        element("span", "subtitle", repository ? "GitHub repository" : url.host + url.pathname),
       );
       open.append(badge, caption);
       if (embed) {
         const slot = element("div", "spaces-embed");
         slot.dataset.embedKind = embed.kind;
         sources.set(slot, embed);
-        node.append(slot);
+        slot.hidden = unavailablePapers.has(embed.url);
+        if (embed.kind === "arxiv") {
+          const peek = button("spaces-paper-peek", "", () => openCard(item));
+          peek.tabIndex = -1;
+          peek.setAttribute("aria-label", "Open arXiv paper");
+          const previewArea = element("div", "spaces-paper-peek-area");
+          previewArea.hidden = slot.hidden;
+          previewArea.append(slot, peek);
+          node.append(previewArea);
+        } else {
+          node.append(slot);
+        }
       }
     } else {
       open.append(element("span", "spaces-note-preview", item.text));
@@ -236,6 +282,7 @@ export function createSpacesView({ $, api, button, element, message }) {
     return run(async () => {
       const { items } = await api("spaces", { action: "list" });
       ready = true;
+      unavailablePapers.clear();
       grid.replaceChildren(...items.map(card));
       updateEmbedVisibility();
       showEmpty();
@@ -283,6 +330,18 @@ export function createSpacesView({ $, api, button, element, message }) {
   window.pimiWorkspace?.onSpaceLinkError(() => {
     message("spaces-card-error", "Couldn’t open this link in your browser.");
   });
+  window.pimiWorkspace?.onPaperUnavailable?.((url) => {
+    if (inlineEmbed(url)?.kind !== "arxiv") return;
+    unavailablePapers.add(url);
+    for (const slot of grid.querySelectorAll('.spaces-embed[data-embed-kind="arxiv"]')) {
+      if (sources.get(slot)?.url !== url) continue;
+      observer.unobserve(slot);
+      slot.replaceChildren();
+      slot.hidden = true;
+      slot.parentElement.hidden = true;
+    }
+    updatePaperReader();
+  });
   $("spaces-copy").addEventListener(
     "click",
     (event) => void copyReference(current.id, event.currentTarget),
@@ -324,6 +383,7 @@ export function createSpacesView({ $, api, button, element, message }) {
   editor.addEventListener("cancel", (event) => {
     if (busy) event.preventDefault();
   });
+  editor.addEventListener("close", updatePaperReader);
 
   return {
     load,
@@ -334,6 +394,7 @@ export function createSpacesView({ $, api, button, element, message }) {
       if (!editor.open) return;
       confirmation.close();
       editor.close();
+      updatePaperReader();
       suspended = true;
     },
   };

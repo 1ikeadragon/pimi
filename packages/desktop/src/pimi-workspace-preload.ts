@@ -68,6 +68,9 @@ contextBridge.exposeInMainWorld("pimiWorkspace", {
   onSpaceLinkError: (listener: () => void) => {
     ipcRenderer.on("pimi:workspace:space-link-error", () => listener());
   },
+  onPaperUnavailable: (listener: (url: string) => void) => {
+    ipcRenderer.on("pimi:workspace:paper-unavailable", (_event, url: string) => listener(url));
+  },
   onNavigate: (navigate: (destination: PimiDestination) => void) => {
     ipcRenderer.on("pimi:workspace:navigate", (_event, destination: PimiDestination) => {
       navigate(destination);

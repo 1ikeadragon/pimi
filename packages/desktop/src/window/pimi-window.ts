@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 import { readLocalCredentialForTarget, resolvePaseoHome } from "@getpaseo/server/daemon-control";
 import { parseAgentDeepLink, type AgentDeepLinkTarget } from "@getpaseo/protocol/agent-deep-link";
 import {
+  isPimiArxivEmbed,
   isPimiSpaceEmbed,
   parsePimiSpaceUrl,
   PimiLinkedLabels,
@@ -490,7 +491,10 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
   contents.on("will-frame-navigate", (event) => {
     if (event.isMainFrame) return;
     const url = URL.parse(event.url);
-    if (!url || !isPimiSpaceEmbed(url)) event.preventDefault();
+    const currentUrl = URL.parse(event.frame?.url ?? "");
+    if (!url || !isPimiSpaceEmbed(url) || (currentUrl && isPimiArxivEmbed(currentUrl))) {
+      event.preventDefault();
+    }
   });
   contents.on("will-navigate", (event, url) => {
     if (new URL(url).origin !== runtime.origin) event.preventDefault();

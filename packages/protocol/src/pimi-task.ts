@@ -150,8 +150,11 @@ export const PIMI_SPACE_REQUEST_BYTES = 6 * 1024 * 1024;
 
 export const PIMI_VIDEO_EMBED_ORIGIN = "https://www.youtube-nocookie.com";
 export const PIMI_X_EMBED_PAGE = "https://platform.twitter.com/embed/Tweet.html";
+export const PIMI_ARXIV_EMBED_ORIGIN = "https://arxiv.org";
 const youtubeVideoId = /^[A-Za-z0-9_-]{11}$/;
 const xStatusId = /^[1-9]\d{0,19}$/;
+const arxivPaperId =
+  /^(?:\d{2}(?:0[1-9]|1[0-2])\.\d{4,5}|[a-z][a-z-]*(?:\.[A-Z]{2})?\/\d{2}(?:0[1-9]|1[0-2])\d{3})(?:v[1-9]\d*)?$/;
 
 export function parsePimiSpaceUrl(input: unknown): URL | null {
   if (typeof input !== "string" || input.length > 4096 || !/^https?:\/\/[^\s\\]+$/i.test(input))
@@ -199,6 +202,18 @@ function xEmbedUrl(id: string | null): string | null {
   return id && xStatusId.test(id) ? `${PIMI_X_EMBED_PAGE}?id=${id}&dnt=true` : null;
 }
 
+function pimiArxivEmbed(url: URL): string | null {
+  if (url.origin !== PIMI_ARXIV_EMBED_ORIGIN || url.username || url.password) return null;
+  const route = /^\/(abs|pdf|html)\/(.+)$/.exec(url.pathname);
+  if (!route) return null;
+  const id = route[1] === "pdf" ? route[2].replace(/\.pdf$/, "") : route[2];
+  return arxivPaperId.test(id) ? `${PIMI_ARXIV_EMBED_ORIGIN}/html/${id}` : null;
+}
+
+export function isPimiArxivEmbed(url: URL): boolean {
+  return pimiArxivEmbed(url) === url.href;
+}
+
 export function pimiSpaceEmbed(url: URL): string | null {
   if (url.protocol !== "https:" || url.port || url.username || url.password) return null;
   if (
@@ -209,7 +224,7 @@ export function pimiSpaceEmbed(url: URL): string | null {
     const status = /^\/(?:[A-Za-z0-9_]{1,15}\/status|i\/web\/status)\/(\d+)\/?$/.exec(url.pathname);
     return xEmbedUrl(status?.[1] ?? null);
   }
-  return pimiVideoEmbed(url);
+  return pimiArxivEmbed(url) ?? pimiVideoEmbed(url);
 }
 
 export function isPimiXEmbed(url: URL): boolean {
@@ -217,7 +232,7 @@ export function isPimiXEmbed(url: URL): boolean {
 }
 
 export function isPimiSpaceEmbed(url: URL): boolean {
-  return isPimiVideoEmbed(url) || isPimiXEmbed(url);
+  return isPimiVideoEmbed(url) || isPimiXEmbed(url) || isPimiArxivEmbed(url);
 }
 
 export interface PimiVoiceBubbleState {
