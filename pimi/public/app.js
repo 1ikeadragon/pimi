@@ -18,8 +18,8 @@ if (window.pimiWorkspace?.onVoiceState) {
   const bars = [...wave.querySelectorAll("rect")];
   window.pimiWorkspace.onVoiceState(({ active, status, level }) => {
     toggle.setAttribute("aria-pressed", String(active));
-    toggle.setAttribute("aria-label", active ? "Stop voice commands" : "Start voice commands");
-    toggle.title = active ? "Stop voice commands" : "Voice commands";
+    toggle.setAttribute("aria-label", active ? "Pimi · Stop listening" : "Pimi · Start listening");
+    toggle.title = active ? "Pimi · Stop listening" : "Pimi · Start listening";
     $("pimi-voice-glyph").setAttribute("href", active ? "#glyph-stop" : "#glyph-mic");
     if (copy.textContent !== status) copy.textContent = status;
     badge.hidden = !status;
