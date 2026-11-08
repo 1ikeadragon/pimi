@@ -4,30 +4,62 @@
 
 **Your swarm’s best friend.**
 
-Start in chat, split work across agents, and review what they changed in one app.
+Chat with your agents, track their work, and review the changes in one app.
 
-[Download for macOS or Windows](https://1ikeadragon.github.io/pimi/) · [Watch Pimi build an expense export](assets/pimi/dvra-expense-export-demo.mp4)
+[Download for macOS or Windows](https://1ikeadragon.github.io/pimi/)
 
-[![Play the Pimi promo](assets/pimi/promo.jpg)](assets/pimi/promo.mp4)
+## Chat and Tasks
 
-## What’s inside
+Track something from chat or send agents to explore it in separate worktrees. Queue a follow-up, fork a chat across providers, or click Pimi to give a voice command.
 
-- **Chat.** Queue a follow-up or fork a conversation into another provider. Click Pimi in the bottom-right corner and say “Start a new task” or “Open Work.”
-- **Agent grid.** Watch your agents work side by side. Open a pane’s chat when you need to jump in.
-- **Tasks and Work.** Track work from chat or delegate it to separate agents and worktrees. Read worker reports in one place. Labels follow linked worktrees and chats. Move cards yourself or let the board follow progress.
-- **Review.** Browse source and diffs, compare worktrees side by side, and check GitHub PRs waiting for you.
-- **Memory and Spaces.** Share project notes across providers. Paste links, images, and rough ideas into Spaces, then give an agent the card ID.
-- **Automations.** Run agents on a schedule. Start with a PR review or weekly digest template.
-- **Usage.** See each chat’s context, reported tokens, and provider limits.
-- **Providers.** Check for harness updates in Settings. Pimi lets you know when it finds a newer version.
+![Chat with a task created from a message](assets/pimi/chat.jpg)
 
-![Pimi onboarding](assets/pimi/onboarding.jpg)
+The Tasks board follows linked work and lets you move cards yourself. Open a task to read the agents’ reports.
 
-![Tasks board with agents working across repositories](assets/pimi/task-board.jpg)
+![Tasks board with stages, labels, and linked work](assets/pimi/task-board.jpg)
 
-![Two worktree diffs side by side](assets/pimi/review.jpg)
+## Watch the swarm
 
-[Work board](assets/pimi/board.jpg) · [Agent reports](assets/pimi/tasks.jpg) · [File tour](assets/pimi/review-tour.jpg)
+Tile agent sessions in **Agent grid**. Use **Work** to see where each worktree stands.
+
+![Agent grid with parallel sessions](assets/pimi/agent-grid.jpg)
+
+## Review together
+
+Compare worktree diffs side by side. Switch to **PRs** for review requests, check results, and pull request details.
+
+![The same source file in two worktree diffs](assets/pimi/review.jpg)
+
+![Pull request queue and check results](assets/pimi/pull-requests.jpg)
+
+<details>
+<summary>Setup, Work, Memory, Spaces, Automations, and Usage</summary>
+
+**Setup** gets you from the welcome screen to your first chat.
+
+![Pimi welcome screen](assets/pimi/onboarding.jpg)
+
+**Work** shows which branches are ready to start, in progress, or ready for review.
+
+![Work board with linked worktrees](assets/pimi/board.jpg)
+
+**Memory** keeps project notes available across providers.
+
+![Shared memory notes and their contents](assets/pimi/memory.jpg)
+
+**Spaces** holds links, images, and scratch notes you can hand to an agent by card ID.
+
+![Spaces with scratch notes, a link, and an image](assets/pimi/spaces.jpg)
+
+**Automations** runs repeat jobs like PR review and project digests.
+
+![Automation schedules and templates](assets/pimi/automations.jpg)
+
+**Usage** shows context and token usage reported by your providers.
+
+![Session usage in Pimi](assets/pimi/usage.jpg)
+
+</details>
 
 ## Build from source
 
@@ -46,6 +78,5 @@ On Windows, run `npm run pimi:package:win` after `npm ci`. Builds land in `packa
 
 - Pimi is a fork of [Paseo](https://github.com/getpaseo/paseo), by Mohamed Boudra and contributors. It uses [Electron](https://github.com/electron/electron), [Git](https://github.com/git/git), and [GitHub CLI](https://github.com/cli/cli).
 - Blush artwork is adapted from Sophia L. Crownfield’s [_Studies of Ferns_](https://commons.wikimedia.org/wiki/File%3ADrawing%2C_Studies_of_Ferns%2C_early_20th_century_%28CH_18345009%29.jpg).
-- The promo uses [Brag](https://github.com/latent-spaces/brag) and [Hyperframes](https://github.com/heygen-com/hyperframes), with music by [Sascha Ende](https://ende.app/en) under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
 [Apache 2.0 license](LICENSE)
