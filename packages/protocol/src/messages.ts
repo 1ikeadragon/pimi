@@ -1,4 +1,5 @@
 import { ProviderHarnessUpdateSchema } from "./provider-harness-updates.js";
+import { PimiMobileTaskOperation, PimiMobileTaskResult } from "./pimi-task.js";
 import { AgentMessageSchema } from "./agent-message.js";
 import {
   HostsListRequestSchema,
@@ -1651,6 +1652,12 @@ export const PluginRpcInvokeRequestSchema = z.object({
   pluginId: PluginIdSchema,
   method: z.string().min(1),
   input: z.unknown().optional(),
+});
+
+const PimiMobileTaskRequestSchema = z.object({
+  type: z.literal("pimi.tasks.request"),
+  requestId: z.string().min(1).max(128),
+  operation: PimiMobileTaskOperation,
 });
 
 export const PluginRpcSubscribeRequestSchema = z.object({
@@ -3473,6 +3480,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   PluginDisableRequestSchema,
   PluginRemoveRequestSchema,
   PluginRpcInvokeRequestSchema,
+  PimiMobileTaskRequestSchema,
   PluginRpcSubscribeRequestSchema,
   AgentTimelineAppendRequestSchema,
   AgentSkillsGetStatusRequestSchema,
@@ -3979,6 +3987,7 @@ export const ServerInfoStatusPayloadSchema = z
         providerRemoval: z.boolean().optional(),
         // COMPAT(providerHarnessUpdates): Pimi hosts advertise the check RPC.
         providerHarnessUpdates: z.boolean().optional(),
+        pimiMobileTasks: z.boolean().optional(),
         // COMPAT(hopliteProvider): added after v0.11.2, remove after 2027-04-15 once host floor includes the bundled adapter.
         hopliteProvider: z.boolean().optional(),
         // COMPAT(importSessionWorkspaceTarget): added in v0.1.110, remove gate after 2027-01-16.
@@ -7200,6 +7209,14 @@ export const PluginRpcInvokeResponseSchema = z.object({
   }),
 });
 
+const PimiMobileTaskResponseSchema = z.object({
+  type: z.literal("pimi.tasks.response"),
+  payload: z.discriminatedUnion("status", [
+    z.object({ requestId: z.string(), status: z.literal("ok"), result: PimiMobileTaskResult }),
+    z.object({ requestId: z.string(), status: z.literal("error"), error: z.string() }),
+  ]),
+});
+
 export const PluginRpcSubscribeResponseSchema = z.object({
   type: z.literal("plugin.rpc.subscribe.response"),
   payload: z.object({ requestId: z.string(), subscriptionId: z.string() }),
@@ -7298,6 +7315,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   PluginDisableResponseSchema,
   PluginRemoveResponseSchema,
   PluginRpcInvokeResponseSchema,
+  PimiMobileTaskResponseSchema,
   PluginRpcSubscribeResponseSchema,
   PluginRpcEventSchema,
   PluginRpcClosedSchema,

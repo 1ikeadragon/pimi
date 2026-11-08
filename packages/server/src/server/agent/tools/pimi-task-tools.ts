@@ -4,7 +4,9 @@ import { request } from "node:http";
 import { basename, dirname, isAbsolute, join } from "node:path";
 import { z } from "zod";
 import {
+  PIMI_MOBILE_TASK_SOCKET_OPERATION,
   PIMI_TASK_AGENT_SOCKET_FILE,
+  PimiMobileTaskResult,
   PimiTaskAgentCreateInput,
   PimiTaskAgentGetInput,
   PimiTaskAgentLinkWorkInput,
@@ -13,6 +15,7 @@ import {
   PimiTaskAgentUpdateInput,
   PimiTaskPipeDescriptor,
   PimiWorkLabelInput,
+  type PimiMobileTaskOperation,
   type PimiTaskProposal,
 } from "@getpaseo/protocol/pimi-task";
 import {
@@ -53,12 +56,13 @@ async function readDesktopTaskEndpoint(
   return { socketPath };
 }
 
-async function callDesktopTask(
+async function requestDesktopTask(
   home: string,
   tool: string,
   input: unknown,
   signal?: AbortSignal,
-): Promise<PaseoToolResult> {
+  maxResponseBytes?: number,
+) {
   const deadline = AbortSignal.timeout(20_000);
   try {
     const { socketPath, secret } = await readDesktopTaskEndpoint(home);
@@ -81,12 +85,13 @@ async function callDesktopTask(
     });
     response.setEncoding("utf8");
     let raw = "";
-    for await (const chunk of response) raw += chunk;
-    const payload = JSON.parse(raw) as unknown;
-    if (response.statusCode !== 200) {
-      return { isError: true, content: [{ type: "text", text: raw }] };
+    let bytes = 0;
+    for await (const chunk of response) {
+      if (maxResponseBytes !== undefined && (bytes += Buffer.byteLength(chunk)) > maxResponseBytes)
+        throw new Error("Pimi task response exceeded its size limit");
+      raw += chunk;
     }
-    return { content: [], structuredContent: payload };
+    return { status: response.statusCode, raw, payload: JSON.parse(raw) as unknown };
   } catch (error) {
     if (signal?.aborted) throw signal.reason;
     if (deadline.aborted)
@@ -95,6 +100,42 @@ async function callDesktopTask(
     if (code === "ENOENT" || code === "ECONNREFUSED") throw new PaseoToolInputError(unavailable);
     throw error;
   }
+}
+
+async function callDesktopTask(
+  home: string,
+  tool: string,
+  input: unknown,
+  signal?: AbortSignal,
+): Promise<PaseoToolResult> {
+  const response = await requestDesktopTask(home, tool, input, signal);
+  if (response.status !== 200) {
+    return { isError: true, content: [{ type: "text", text: response.raw }] };
+  }
+  return { content: [], structuredContent: response.payload };
+}
+
+// A full task page has 50 titles. This also leaves room for escaped JSON and Unicode.
+const MAX_MOBILE_TASK_RESPONSE_BYTES = 64 * 1024;
+
+export async function requestMobileTask(home: string, operation: PimiMobileTaskOperation) {
+  const { status, payload } = await requestDesktopTask(
+    home,
+    PIMI_MOBILE_TASK_SOCKET_OPERATION,
+    operation,
+    undefined,
+    MAX_MOBILE_TASK_RESPONSE_BYTES,
+  );
+  if (status === 200) return { status: "ok" as const, result: PimiMobileTaskResult.parse(payload) };
+  let error = "Pimi Desktop could not complete the task request.";
+  if (status === 404 && operation.action === "get") {
+    error =
+      "This task is unavailable. Check that Pimi Desktop is up to date and the task still exists.";
+  } else if (status === 409) {
+    error =
+      "The change conflicts with the current task state. Return to Tasks to check what was saved.";
+  }
+  return { status: "error" as const, error };
 }
 
 export function registerPimiTaskTools(options: {

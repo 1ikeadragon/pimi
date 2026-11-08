@@ -39,6 +39,7 @@ import { HostPicker } from "@/components/hosts/host-picker";
 import { SidebarDisplayPreferencesMenu } from "@/components/sidebar/display-preferences/menu";
 import { SidebarSeparator } from "@/components/sidebar/sidebar-separator";
 import { SidebarNavRows } from "@/components/sidebar/sidebar-nav-rows";
+import { PimiMobileNavigation } from "@/components/sidebar/pimi-mobile-navigation";
 import {
   PIMI_NAV_RAIL_WIDTH,
   PimiSidebarPeekActions,
@@ -655,6 +656,7 @@ function MobileSidebar({
             testID="sidebar-nav-scroll"
           >
             {navRows}
+            <PimiMobileNavigation onNavigate={closeSidebar} />
           </GHScrollView>
         ) : (
           <ScrollView
@@ -664,6 +666,7 @@ function MobileSidebar({
             testID="sidebar-nav-scroll"
           >
             {navRows}
+            <PimiMobileNavigation onNavigate={closeSidebar} />
           </ScrollView>
         )}
         <SidebarSeparator />
@@ -1042,8 +1045,8 @@ function WorkspacesSectionHeader({
   const title = onAddProject
     ? "Projects"
     : getDesktopHost()?.showPimiWorkspace
-    ? "Sessions"
-    : "Workspaces";
+      ? "Sessions"
+      : "Workspaces";
   return (
     <SidebarSectionHeader title={title}>
       {onNewWorkspace ? (

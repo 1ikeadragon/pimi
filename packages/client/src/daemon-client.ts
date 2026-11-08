@@ -27,6 +27,7 @@ import type { LocalSpeechModel } from "@getpaseo/protocol/speech/rpc-schemas";
 import { CLIENT_CAPS, type ClientCapability } from "@getpaseo/protocol/client-capabilities";
 import type { AgentAttentionNotificationPayload } from "@getpaseo/protocol/agent-attention-notification";
 import { MAX_WEBSOCKET_MESSAGE_BYTES } from "@getpaseo/protocol/websocket-message-limit";
+import type { PimiMobileTaskOperation, PimiMobileTaskResult } from "@getpaseo/protocol/pimi-task";
 import {
   AgentCreateFailedStatusPayloadSchema,
   AgentCreatedStatusPayloadSchema,
@@ -6069,6 +6070,17 @@ export class DaemonClient {
       requestId,
       response,
     });
+  }
+
+  async requestPimiTask(operation: PimiMobileTaskOperation): Promise<PimiMobileTaskResult> {
+    if (this.getLastServerInfoMessage()?.features?.pimiMobileTasks !== true)
+      throw new Error("Update Pimi Desktop to use Tasks on this host.");
+    const payload = await this.sendCorrelatedSessionRequest({
+      message: { type: "pimi.tasks.request", operation },
+      responseType: "pimi.tasks.response",
+    });
+    if (payload.status === "error") throw new Error(payload.error);
+    return payload.result;
   }
 
   async getPluginCatalog(): Promise<PluginCatalogEntry[]> {

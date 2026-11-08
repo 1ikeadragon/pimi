@@ -5,7 +5,10 @@ import { tmpdir } from "node:os";
 import { dirname } from "node:path";
 import { z } from "zod";
 import {
+  PIMI_TASK_PAGE_SIZE,
   PimiExperimentFields,
+  PimiMobileTaskOperation,
+  PimiMobileTaskResult,
   PimiTaskAgentCreateInput,
   PimiTaskAgentGetInput,
   PimiTaskAgentListInput,
@@ -67,7 +70,6 @@ const taskSchema = taskFields.extend({
   experiments: z.array(experimentSchema),
 });
 const maxExperiments = 8;
-const agentTaskPageSize = 50;
 const recapPageSize = 100;
 const modelInput = z.object({ id: z.uuid(), model: z.string().min(1).max(512) });
 
@@ -441,7 +443,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
     const matches = term
       ? state.filter((task) => `${task.title} ${task.brief}`.toLowerCase().includes(term))
       : state;
-    const end = offset + agentTaskPageSize;
+    const end = offset + PIMI_TASK_PAGE_SIZE;
     return {
       tasks: matches.slice(offset, end).map(taskSummary),
       nextOffset: end < matches.length ? end : null,
@@ -452,6 +454,38 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
     if (readError) throw new RequestError(readError, 503);
     const { id } = readInput(PimiTaskAgentGetInput, body);
     return { task: taskDetails(getTask(state, id)) };
+  }
+
+  async function mobileTask(body) {
+    if (readError) throw new RequestError(readError, 503);
+    const operation = readInput(PimiMobileTaskOperation, body);
+    if (operation.action === "list") {
+      const { tasks, nextOffset } = listForAgent({
+        query: operation.query,
+        offset: operation.offset,
+      });
+      return PimiMobileTaskResult.parse({ kind: "page", tasks, nextOffset });
+    }
+
+    let task;
+    if (operation.action === "get") {
+      task = getTask(state, operation.id);
+    } else if (operation.action === "set-stage") {
+      task = await setStage({ id: operation.id, stage: operation.stage });
+    } else {
+      const { id, title, brief } = operation;
+      const candidate = await buildTask({ title, brief, root: null }, { id });
+      const saved = await insertTask(candidate, (draft) => draft.find((item) => item.id === id));
+      task = saved.task;
+      if (task.title !== title || task.brief !== brief) {
+        throw new RequestError("This task ID has already been used.", 409);
+      }
+    }
+
+    return PimiMobileTaskResult.parse({
+      kind: "task",
+      task: { id: task.id, title: task.title, brief: task.brief, stage: taskSummary(task).stage },
+    });
   }
 
   async function updateFromAgent(body) {
@@ -916,6 +950,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
     createFromAgent,
     listForAgent,
     getForAgent,
+    mobileTask,
     updateFromAgent,
     updateCatalogLabel,
     create,

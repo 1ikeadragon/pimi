@@ -71,6 +71,41 @@ export const PimiTaskAgentListInput = z.strictObject({
 export const PimiTaskAgentGetInput = z.strictObject({
   id: z.uuid().describe("Saved task ID."),
 });
+
+export const PIMI_MOBILE_TASK_SOCKET_OPERATION = "mobile_tasks";
+export const PIMI_TASK_PAGE_SIZE = 50;
+// A title and brief may each require up to six JSON characters per input character.
+export const PIMI_MOBILE_TASK_REQUEST_LIMIT = 16 * 1024;
+export const PimiMobileTaskOperation = z.discriminatedUnion("action", [
+  PimiTaskAgentListInput.extend({ action: z.literal("list") }),
+  PimiTaskAgentGetInput.extend({ action: z.literal("get") }),
+  z.strictObject({
+    action: z.literal("create"),
+    ...PimiTaskAgentGetInput.shape,
+    title: PimiTaskFields.shape.title,
+    brief: PimiTaskFields.shape.brief,
+  }),
+  PimiTaskAgentGetInput.extend({ action: z.literal("set-stage"), stage: PimiTaskStage.nullable() }),
+]);
+export type PimiMobileTaskOperation = z.infer<typeof PimiMobileTaskOperation>;
+
+const PimiMobileTaskSummary = z.object({
+  ...PimiTaskAgentGetInput.shape,
+  title: PimiTaskFields.shape.title,
+  stage: PimiTaskStage.nullable(),
+});
+const PimiMobileTaskDetail = PimiMobileTaskSummary.extend({ brief: PimiTaskFields.shape.brief });
+export type PimiMobileTaskDetail = z.infer<typeof PimiMobileTaskDetail>;
+export const PimiMobileTaskResult = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("page"),
+    tasks: z.array(PimiMobileTaskSummary).max(PIMI_TASK_PAGE_SIZE),
+    nextOffset: z.number().int().nonnegative().nullable(),
+  }),
+  z.object({ kind: z.literal("task"), task: PimiMobileTaskDetail }),
+]);
+export type PimiMobileTaskResult = z.infer<typeof PimiMobileTaskResult>;
+
 const PimiTaskRepositoryPath = z
   .string()
   .min(1)

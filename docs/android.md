@@ -1,13 +1,46 @@
 # Android
 
+## Pimi APK
+
+Pimi for Android runs chats on your paired host. You can browse workspace
+files and diffs, open Work, tile agents, and check usage. Tasks reads and
+writes the board on a running Pimi Desktop 0.16.6 or newer. It needs a
+password-protected host paired over the encrypted relay. Memory, Spaces,
+cross-repository Review, and Usage Recap stay on desktop for this preview.
+Android push delivery needs a Pimi push service.
+
+On the desktop, open **Pair device**. Scan the QR code in Pimi for Android or
+paste the pairing link. The offer selects the relay, including a self-hosted
+[Pimi Relay](https://github.com/1ikeadragon/pimi-relay). Use WSS for a relay
+reachable over the internet.
+
+The signed APK uses `io.github.ikeadragon.pimi` and supports Android 10 and
+newer. Build the arm64 APK with Java 21 and Android SDK 36 after `npm ci`.
+Use `-- universal` after the command to build for all four supported ABIs.
+
+```sh
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+export PIMI_ANDROID_KEYSTORE=/path/outside/the/checkout/pimi-release.p12
+export PIMI_ANDROID_PASSWORD_FILE=/path/outside/the/checkout/keystore.pass
+npm run pimi:package:android
+```
+
+Install Build Tools `36.0.0`, NDK `27.1.12297006`, and CMake `3.22.1` with
+`sdkmanager`. The build uses the `pimi-android` Expo variant and writes
+`artifacts/Pimi-Android-arm64.apk`. It signs with the `pimi` alias and verifies
+the APK before copying it to that path. Keep the same signing key for future
+updates. Keep the keystore and password file outside the checkout with
+user-only access and an offline backup.
+
 ## App variants
 
 Controlled by `APP_VARIANT` in `packages/app/app.config.js` (vanilla Expo, no custom Gradle plugin):
 
-| Variant       | App name    | Package ID       |
-| ------------- | ----------- | ---------------- |
-| `production`  | Paseo       | `sh.paseo`       |
-| `development` | Paseo Debug | `sh.paseo.debug` |
+| Variant        | App name    | Package ID                  |
+| -------------- | ----------- | --------------------------- |
+| `production`   | Paseo       | `sh.paseo`                  |
+| `development`  | Paseo Debug | `sh.paseo.debug`            |
+| `pimi-android` | Pimi        | `io.github.ikeadragon.pimi` |
 
 EAS profiles: `development`, `production`, and `production-apk` in `packages/app/eas.json`.
 
