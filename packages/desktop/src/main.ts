@@ -9,7 +9,11 @@ log.initialize({ spyRendererConsole: true });
 
 import { inheritLoginShellEnv } from "./login-shell-env.js";
 
-import { PimiReportLinkError, PimiReviewPrDestination } from "@getpaseo/protocol/pimi-task";
+import {
+  PimiOpenTaskDestination,
+  PimiReportLinkError,
+  PimiReviewPrDestination,
+} from "@getpaseo/protocol/pimi-task";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import {
@@ -872,17 +876,17 @@ function registerPimiWorkspaceNavigation(): void {
     const owner = BrowserWindow.fromWebContents(event.sender) ?? undefined;
     const simple = PimiSimpleDestinationView.safeParse(view);
     if (simple.success) return openPimi({ view: simple.data }, owner);
-    if (view === "memory") {
-      const result = PimiMemoryDestination.safeParse(destination);
+    const destinationSchema = {
+      memory: PimiMemoryDestination,
+      task: PimiOpenTaskDestination,
+      "new-task": PimiNewTaskDestination,
+      "review-pr": PimiReviewPrDestination,
+    };
+    for (const [name, schema] of Object.entries(destinationSchema)) {
+      if (view !== name) continue;
+      const result = schema.safeParse(destination);
       if (result.success) openPimi(result.data, owner);
-    }
-    if (view === "new-task") {
-      const result = PimiNewTaskDestination.safeParse(destination);
-      if (result.success) openPimi(result.data, owner);
-    }
-    if (view === "review-pr") {
-      const result = PimiReviewPrDestination.safeParse(destination);
-      if (result.success) openPimi(result.data, owner);
+      return;
     }
     if (view === "review" && typeof checkout === "string" && path.isAbsolute(checkout)) {
       if (serverId !== undefined && (typeof serverId !== "string" || !serverId.trim())) return;

@@ -109,6 +109,36 @@ import { AgentBackgroundWorkStore, type AgentBackgroundWorkItem } from "./backgr
 import { withTimeout } from "../../utils/promise-timeout.js";
 import { extractAttention } from "../persistence-hooks.js";
 
+function pimiActionInstructions(
+  policy: ProviderPaseoToolsPolicy | undefined,
+  isTaskWorker: boolean,
+): string[] {
+  const instructions = [];
+  if (isPaseoToolEnabled(policy, PimiTaskAgentTool.create)) {
+    instructions.push(
+      "When the user asks to create or track a task, call create_pimi_task and continue in this chat. Use existing labels and link a clear repository. Creating a task does not require workers or reports.",
+    );
+  }
+  if (isPaseoToolEnabled(policy, PIMI_TASK_PROPOSAL_TOOL)) {
+    instructions.push(
+      isTaskWorker
+        ? "Finish your assigned work item. Open a new task only if the user asks."
+        : "Use propose_pimi_task when the user asks to delegate or split work across agents. Wait for them to start the workers.",
+    );
+  }
+  if (isPaseoToolEnabled(policy, PimiTaskAgentTool.update)) {
+    instructions.push(
+      "To change a saved task, find it with list_pimi_tasks and use update_pimi_task.",
+    );
+  }
+  if (isPaseoToolEnabled(policy, PIMI_REVIEW_SUGGESTION_TOOL)) {
+    instructions.push(
+      `When the user asks to see changes or the diff is ready for review, call ${PIMI_REVIEW_SUGGESTION_TOOL}.`,
+    );
+  }
+  return instructions;
+}
+
 const RELOAD_SESSION_CLOSE_TIMEOUT_MS = 3_000;
 const INTERRUPT_SESSION_TIMEOUT_MS = 2_000;
 const IMPORTABLE_SESSION_LIST_TIMEOUT_MS = 90_000;
@@ -5822,21 +5852,9 @@ export class AgentManager {
       : { enabled: false };
     const interactiveChat =
       !storedConfig.internal && !options.background && options.purpose !== "history";
-    const taskInstruction = options.labels?.[PIMI_TASK_WORKER_LABEL]
-      ? "Finish your assigned work item. Open a new task only if the user asks for one."
-      : "For substantial research, parallel work, or a tracked task, call propose_pimi_task before starting. Wait for the user to start the workers. Answer quick questions in chat.";
-    const pimiTaskPrompt =
-      interactiveChat && isPaseoToolEnabled(paseoToolPolicy, PIMI_TASK_PROPOSAL_TOOL)
-        ? taskInstruction
-        : "";
-    const pimiReviewPrompt =
-      interactiveChat && isPaseoToolEnabled(paseoToolPolicy, PIMI_REVIEW_SUGGESTION_TOOL)
-        ? `When the user asks to see changes or the diff is ready for review, call ${PIMI_REVIEW_SUGGESTION_TOOL}.`
-        : "";
-    const pimiTaskEditPrompt =
-      interactiveChat && isPaseoToolEnabled(paseoToolPolicy, PimiTaskAgentTool.update)
-        ? "To change a saved task, find it with list_pimi_tasks and use update_pimi_task."
-        : "";
+    const pimiInstructions = interactiveChat
+      ? pimiActionInstructions(paseoToolPolicy, Boolean(options.labels?.[PIMI_TASK_WORKER_LABEL]))
+      : [];
     const canRecallMemory =
       this.mcpCallerAuthToken && !storedConfig.internal && options.purpose !== "history";
     const memoryPrompt = canRecallMemory ? memoryRecallInstructions(paseoToolPolicy) : [];
@@ -5850,9 +5868,7 @@ export class AgentManager {
             : null,
         mcpAuthToken: this.mcpCallerAuthToken?.(agentId) ?? this.mcpAuthToken,
       }),
-      [pimiTaskPrompt, pimiTaskEditPrompt, pimiReviewPrompt, ...memoryPrompt]
-        .filter(Boolean)
-        .join("\n\n"),
+      [...pimiInstructions, ...memoryPrompt].join("\n\n"),
     );
     return { storedConfig, launchConfig, paseoToolPolicy };
   }

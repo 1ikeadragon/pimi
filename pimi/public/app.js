@@ -1242,6 +1242,12 @@ window.pimiWorkspace?.onNavigate(async (destination) => {
     $("show-tasks").click();
     return;
   }
+  if (destination.view === "task") {
+    const request = view("tasks");
+    await tasksView.load();
+    if (request === viewRequest) tasksView.openTask(destination.id);
+    return;
+  }
   if (destination.view === "task-draft" || destination.view === "new-task") {
     const request = view("tasks");
     await Promise.all([refreshBoard(), tasksView.load()]);

@@ -5,6 +5,7 @@ import { basename, dirname, isAbsolute, join } from "node:path";
 import { z } from "zod";
 import {
   PIMI_TASK_AGENT_SOCKET_FILE,
+  PimiTaskAgentCreateInput,
   PimiTaskAgentGetInput,
   PimiTaskAgentLinkWorkInput,
   PimiTaskAgentListInput,
@@ -12,6 +13,7 @@ import {
   PimiTaskAgentUpdateInput,
   PimiTaskPipeDescriptor,
   PimiWorkLabelInput,
+  type PimiTaskProposal,
 } from "@getpaseo/protocol/pimi-task";
 import {
   PaseoToolInputError,
@@ -102,10 +104,34 @@ export function registerPimiTaskTools(options: {
     handler: (input: unknown, context: PaseoToolExecutionContext) => Promise<PaseoToolResult>,
   ) => void;
   home?: string;
-  assertInteractive: () => void;
+  resolveSource: () => PimiTaskProposal["source"];
 }): void {
   const { home } = options;
   if (!home) return;
+  options.registerTool(
+    PimiTaskAgentTool.create,
+    {
+      title: "Track a Pimi task",
+      description:
+        "Save a task directly to the board when the user asks to create or track one. This keeps the current chat open and starts no workers. Pass existing label names and a repository when clearly identified. If this chat already has an open task with the same title and brief, returns it. Use update_pimi_task to change an existing task.",
+      inputSchema: PimiTaskAgentCreateInput,
+    },
+    async (input, { signal }) => {
+      const source = options.resolveSource();
+      const fields = PimiTaskAgentCreateInput.parse(input);
+      const result = await callDesktopTask(
+        home,
+        PimiTaskAgentTool.create,
+        { ...fields, source },
+        signal,
+      );
+      if (result.isError) return result;
+      return {
+        ...result,
+        content: [{ type: "text", text: JSON.stringify(result.structuredContent) }],
+      };
+    },
+  );
   const definitions = [
     [
       PimiTaskAgentTool.labels,
@@ -145,7 +171,7 @@ export function registerPimiTaskTools(options: {
   ] as const;
   for (const [name, description, inputSchema] of definitions) {
     options.registerTool(name, { description, inputSchema }, (input, { signal }) => {
-      options.assertInteractive();
+      options.resolveSource();
       return callDesktopTask(home, name, input, signal);
     });
   }
