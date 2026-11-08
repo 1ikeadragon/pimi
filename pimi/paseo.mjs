@@ -72,7 +72,7 @@ export function createPaseoConnection(settingsSource = {}) {
     : join(tmpdir(), `pimi-work-${randomUUID()}`);
   let cachedClient;
   let connection;
-  let chatHost;
+  let daemonHost;
   let lastDirectory;
   let liveError;
   const changeListeners = new Set();
@@ -115,16 +115,17 @@ export function createPaseoConnection(settingsSource = {}) {
   async function observeDirectory(client) {
     const agents = new Map();
     const workspaces = new Map();
-    const observe = (cache, id, value) => {
+    const workspaceLabels = new Map();
+    const observe = (cache, id, value, event) => {
       if (!value) {
         cache.delete(id);
-        changed();
+        changed(event);
         return;
       }
       const next = signature(value);
       if (cache.get(id) === next) return;
       cache.set(id, next);
-      changed();
+      changed(event);
     };
     // These are directory state streams, never token/timeline streams.
     client.agents.subscribe((update) =>
@@ -134,13 +135,26 @@ export function createPaseoConnection(settingsSource = {}) {
         update.kind === "upsert" ? agentView(update.agent) : null,
       ),
     );
-    client.workspaces.subscribe((update) =>
-      observe(
-        workspaces,
-        update.workspace?.id ?? update.id,
-        update.kind === "upsert" ? workspaceView(update.workspace) : null,
-      ),
-    );
+    client.workspaces.subscribe((update) => {
+      const id = update.workspace?.id ?? update.id;
+      const workspace = update.kind === "upsert" ? workspaceView(update.workspace) : null;
+      observe(workspaces, id, workspace);
+      observe(workspaceLabels, id, workspace && [workspace.path, workspace.labels], {
+        labels: true,
+      });
+    });
+    const labelEvents = Promise.resolve().then(() => {
+      const subscription = client.workspaceLabels.observe();
+      subscription.subscribe({
+        snapshot: () => changed({ labels: true }),
+        update(message) {
+          if (message.type === "workspace.label.update") {
+            changed({ labels: true, labelUpdate: message.payload });
+          }
+        },
+      });
+      return subscription.ready;
+    });
     const gitEvents = client.observeEvents(["checkout_status_update"]);
     gitEvents.subscribe({
       snapshot() {},
@@ -152,19 +166,20 @@ export function createPaseoConnection(settingsSource = {}) {
       client.agents.list({ scope: "active", page: { limit: 200 }, subscribe: {} }),
       client.workspaces.list({ page: { limit: 200 }, subscribe: {} }),
       gitEvents.ready,
+      labelEvents,
     ]);
     if (client !== cachedClient) return;
     liveError = subscriptions.some((result) => result.status === "rejected")
       ? "Some agent service events are unavailable; checking automatically every few seconds."
       : undefined;
-    changed();
+    changed({ labels: true });
   }
 
   async function connect() {
     if (cachedClient?.getConnectionState().status === "connected") return cachedClient;
     connection ??= (async () => {
       await cachedClient?.close();
-      chatHost = undefined;
+      daemonHost = undefined;
       const settings = await settingsSource.connection?.();
       const url = localAgentUrl(settings);
       cachedClient = createPaseoClient({
@@ -189,18 +204,34 @@ export function createPaseoConnection(settingsSource = {}) {
     return connection;
   }
 
+  function getDaemonHost(client) {
+    daemonHost ??= client.hosts.list().then(
+      ({ self }) => self.serverId,
+      (error) => {
+        if (cachedClient === client) daemonHost = undefined;
+        throw error;
+      },
+    );
+    return daemonHost;
+  }
+
+  async function workspaceDirectory() {
+    const client = await connect();
+    const [workspaces, serverId] = await Promise.all([
+      allPages(client.workspaces.list),
+      getDaemonHost(client),
+    ]);
+    return { serverId, workspaces: workspaces.map(workspaceView) };
+  }
+
   async function directory() {
     try {
       const client = await connect();
-      if (settingsSource.native) {
-        chatHost ??= client.hosts.list().then(
-          ({ self }) => self.serverId,
-          (error) => {
-            if (cachedClient === client) chatHost = undefined;
+      const chatHost = settingsSource.native
+        ? getDaemonHost(client).catch((error) => {
             console.warn("Pimi could not resolve agent chat links:", error.message);
-          },
-        );
-      }
+          })
+        : undefined;
       const [agents, workspaces, serverId] = await Promise.all([
         allPages((options) => client.agents.list({ ...options, scope: "active" })),
         allPages(client.workspaces.list),
@@ -234,7 +265,7 @@ export function createPaseoConnection(settingsSource = {}) {
     );
     if (!label) throw new RequestError("Choose an existing Paseo label.");
     const result = await (await connect()).workspaceLabels.set({ workspaceId, label, assigned });
-    changed();
+    changed({ labels: true });
     return result;
   }
 
@@ -486,6 +517,7 @@ export function createPaseoConnection(settingsSource = {}) {
 
   return {
     directory,
+    workspaceDirectory,
     labels,
     setWorkLabel,
     memory: (input) => localData("/api/pimi/memory", "Memory", input),

@@ -546,6 +546,7 @@ export interface PaseoApi {
   readonly workspaces: PaseoWorkspaceActions;
   readonly workspaceLabels: {
     list: DaemonClient["listWorkspaceLabels"];
+    observe: DaemonClient["observeWorkspaceLabels"];
     set: DaemonClient["setWorkspaceLabel"];
   };
   readonly projects: PaseoProjectActions;
@@ -787,6 +788,10 @@ export function createPaseoApi(
       list: (options) => {
         requireWorkspaceLabels();
         return daemonClient.listWorkspaceLabels(options);
+      },
+      observe: (options) => {
+        requireWorkspaceLabels();
+        return own(() => daemonClient.observeWorkspaceLabels(options));
       },
       set: (options) => {
         requireWorkspaceLabels();

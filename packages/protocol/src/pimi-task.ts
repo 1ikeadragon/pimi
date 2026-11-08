@@ -233,3 +233,10 @@ export function isPimiReviewSuggestionTool(name: string): boolean {
 export function isPimiActionTool(name: string): boolean {
   return isPimiTaskProposalTool(name) || isPimiReviewSuggestionTool(name);
 }
+
+/** Read-only label projection for the desktop console. Assignments stay with the task or workspace. */
+export interface PimiLinkedLabels {
+  serverId?: string;
+  workspaces: Record<string, string[]>;
+  agents: Record<string, string[]>;
+}

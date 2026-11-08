@@ -58,6 +58,7 @@ import { WorkspacePinShortcutHandler } from "@/components/workspace-pin-shortcut
 import { WorkspaceRenameHost } from "@/components/workspace-rename-host";
 import { WorkspaceArchiveUndoShortcutHost } from "@/workspace/archive-undo";
 import { WorkspaceExplorerOpenGesture } from "@/mobile-panels/explorer-open-gesture";
+import { PimiLabelsProvider } from "@/desktop/pimi-labels";
 import { HarnessUpdateNotice } from "@/components/harness-update-notice";
 import { ProviderSettingsHost } from "@/components/provider-settings-host";
 import { WorkspaceSetupDialog } from "@/components/workspace-setup-dialog";
@@ -793,7 +794,7 @@ function ProvidersWrapper({ children }: { children: ReactNode }) {
         <OfferLinkListener />
         <HostSessionManager />
         <FaviconStatusSync />
-        {children}
+        <PimiLabelsProvider>{children}</PimiLabelsProvider>
       </VoiceProvider>
     </AppearanceProvider>
   );

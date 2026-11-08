@@ -23,6 +23,7 @@ import { useStoreWithEqualityFn } from "zustand/traditional";
 import { useAgentStreamTail } from "@/agent-stream/use-agent-stream-tail";
 import { AgentStreamView, type AgentStreamViewHandle } from "@/agent-stream/view";
 import { ArchivedAgentCallout } from "@/components/archived-agent-callout";
+import { PimiAgentLabels } from "@/desktop/pimi-labels";
 import { ComposerDock } from "@/composer/dock";
 import { FileDropZone } from "@/components/file-drop/file-drop-zone";
 import { useRetainedPanelActive } from "@/components/retained-panel";
@@ -1189,6 +1190,9 @@ const ChatAgentReadyContent = memo(function ChatAgentReadyContent({
       onStartShouldSetResponderCapture={handleAttentionInteraction}
     >
       {showsComposer ? null : <SheetAgentFacts serverId={serverId} agentId={agentId} />}
+      {draft ? null : (
+        <PimiAgentLabels serverId={serverId} workspaceId={workspaceId} agentId={agentId} />
+      )}
       <RenderProfile id={`AgentStreamSection:${agentId}`}>
         <AgentStreamSection
           streamViewRef={streamViewRef}

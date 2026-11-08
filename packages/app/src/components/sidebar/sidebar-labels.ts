@@ -27,14 +27,21 @@ export function statusWorkspaceGroups(groups: readonly StatusGroup[]): SidebarWo
  * Selecting several labels includes workspaces carrying any of them.
  */
 export function filterWorkspacesByLabels(
-  input: { workspaces: readonly SidebarWorkspaceEntry[] } & SidebarLabelFilter,
+  input: {
+    workspaces: readonly SidebarWorkspaceEntry[];
+    linkedLabels?: (workspace: SidebarWorkspaceEntry) => readonly string[] | undefined;
+  } & SidebarLabelFilter,
 ): SidebarWorkspaceEntry[] {
   const { workspaces, labels } = input;
   if (labels.length === 0) return [...workspaces];
   return workspaces.filter((workspace) => {
     // Whitespace-only names normalize away, so `size === 0` is exactly "carries no real label"
     // and the empty key can only ever mean Unlabelled.
-    const keys = new Set((workspace.labels ?? []).map(workspaceLabelKey).filter(Boolean));
+    const keys = new Set(
+      [...(workspace.labels ?? []), ...(input.linkedLabels?.(workspace) ?? [])]
+        .map(workspaceLabelKey)
+        .filter(Boolean),
+    );
     const matches = (key: string) =>
       key === SIDEBAR_UNLABELLED_LABEL_KEY ? keys.size === 0 : keys.has(key);
     return labels.some(matches);

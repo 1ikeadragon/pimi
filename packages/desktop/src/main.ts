@@ -776,6 +776,11 @@ function registerPimiWorkspaceNavigation(): void {
     if (!isConsoleFrame(event)) throw new Error("Open Pimi Settings to change appearance.");
     await setPimiAppearance(mode);
   });
+  ipcMain.handle("pimi:labels:get", async (event) => {
+    if (!isConsoleFrame(event)) throw new Error("Open Pimi to read linked labels.");
+    const runtime = await initializePimiWorkspace(path.join(app.getAppPath(), "dist"));
+    return runtime.getLinkedLabels();
+  });
   ipcMain.handle("pimi:review:summary", (event, checkout: unknown) => {
     if (
       !isConsoleFrame(event) ||

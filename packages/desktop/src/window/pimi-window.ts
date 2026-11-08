@@ -9,6 +9,7 @@ import { parseAgentDeepLink, type AgentDeepLinkTarget } from "@getpaseo/protocol
 import {
   isPimiVideoEmbed,
   parsePimiSpaceUrl,
+  PimiLinkedLabels,
   PimiReportLinkRequest,
   PimiReportLinkTarget,
   type PimiReportLinkError,
@@ -126,6 +127,8 @@ export function pimiAppearanceArgument(): string {
 
 interface PimiRuntimeResult {
   origin: string;
+  getLinkedLabels(): Promise<PimiLinkedLabels>;
+  subscribeToLabels(listener: () => void): () => void;
   resolveReportLink(request: PimiReportLinkRequest): Promise<PimiReportLinkTarget>;
   prepareChatReview(
     path: string,
@@ -332,7 +335,15 @@ async function createWorkspaceRuntime(runtimeDir: string): Promise<PimiRuntimeRe
     paths: process.env.PIMI_REPOS?.split(path.delimiter).filter(Boolean) ?? [],
     connection: connectToDesktopDaemon,
   });
-  app.once("will-quit", () => void runtime.close().catch(console.error));
+  const unsubscribeLabels = runtime.subscribeToLabels(() => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) win.webContents.send("pimi:labels:changed");
+    }
+  });
+  app.once("will-quit", () => {
+    unsubscribeLabels();
+    void runtime.close().catch(console.error);
+  });
   return runtime;
 }
 

@@ -1,20 +1,23 @@
 // Shared Paseo label definitions are supplied by the daemon; only assignments live here.
 const key = (name) => name.replace(/\s+/g, " ").trim().toLowerCase();
 
-export function labelChips(names = [], catalog = []) {
+export function labelChips(names = [], catalog = [], linked = []) {
   const group = document.createElement("span");
   group.className = "label-chips";
   const definitions = new Map(catalog.map((label) => [key(label.name), label]));
-  for (const name of names) {
+  const direct = new Set(names.map(key));
+  const visible = new Map([...names, ...linked].map((name) => [key(name), name]));
+  for (const name of visible.values()) {
     const definition = definitions.get(key(name));
     const chip = document.createElement("span");
     chip.className = "label-chip";
     if (definition) chip.dataset.color = definition.color;
     chip.textContent = definition?.name ?? name;
-    if (!definition) chip.title = "Label is no longer in the Paseo catalog";
+    if (!definition) chip.title = "Label is no longer in the catalog";
+    else if (!direct.has(key(name))) chip.title = "From linked work";
     group.append(chip);
   }
-  group.hidden = !names.length;
+  group.hidden = !group.childElementCount;
   return group;
 }
 
@@ -34,7 +37,7 @@ export function labelPicker({ names = [], catalog = [], error, title = "Labels",
   if (error || !definitions.length) {
     const hint = document.createElement("p");
     hint.className = "subtitle";
-    hint.textContent = error || "Create labels in Paseo to use them here.";
+    hint.textContent = error || "Create labels from a workspace’s Labels menu.";
     panel.append(hint);
   }
   for (const label of definitions) {

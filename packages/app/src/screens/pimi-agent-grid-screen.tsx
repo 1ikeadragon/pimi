@@ -21,6 +21,7 @@ import { DensityIcon } from "@/components/ui/density-icon";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { ToolbarButton } from "@/components/ui/pane-content-toolbar";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
+import { PimiAgentLabels } from "@/desktop/pimi-labels";
 import { usePimiWorkspaceSection } from "@/desktop/pimi-console-content";
 import { useAggregatedAgents, type AggregatedAgent } from "@/hooks/use-aggregated-agents";
 import { closePimiAgentGrid } from "@/navigation/pimi-agent-grid";
@@ -264,6 +265,7 @@ const AgentTile = memo(function AgentTile({ agent }: { agent: AggregatedAgent })
           <DensityIcon icon={ArrowUpRight} size="sm" color="foregroundMuted" />
         </ToolbarButton>
       </View>
+      <PimiAgentLabels serverId={serverId} workspaceId={agent.workspaceId} agentId={id} />
       <View style={styles.transcript}>
         <AgentStreamView
           agentId={id}
