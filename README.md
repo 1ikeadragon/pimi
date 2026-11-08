@@ -15,7 +15,7 @@ Start in chat, split work across agents, and review what they changed in one app
 - **Chat.** Queue a follow-up or fork a conversation into another provider. Click Pimi in the bottom-right corner and say “Start a new task” or “Open Work.”
 - **Agent grid.** Watch your agents work side by side. Open a pane’s chat when you need to jump in.
 - **Tasks and Work.** Start from a brief, send agents to chat or separate Git worktrees, and read their reports in one place. Labels follow linked worktrees and chats. Move cards yourself or let the board follow progress.
-- **Review.** Compare changes across worktrees and repos. Read a file tour or jump to a changed line in your editor.
+- **Review.** Browse source and diffs, compare worktrees side by side, and check GitHub PRs waiting for you.
 - **Memory and Spaces.** Share project notes across providers. Paste links, images, and rough ideas into Spaces, then give an agent the card ID.
 - **Usage.** See each chat’s context, reported tokens, and provider limits.
 - **Providers.** Check for harness updates in Settings. Pimi lets you know when it finds a newer version.

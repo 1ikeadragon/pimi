@@ -1,8 +1,15 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
+import MarkdownIt from "markdown-it";
 import { command, repositoryRemotes, RequestError } from "./git.mjs";
 
 // Explicit UI limits bound network work and retained data; reaching one is reported.
 const limits = { perSource: 100, repositories: 24, concurrency: 3 };
+// PR authors control the Markdown. Render it without HTML, remote media, or navigation.
+const prMarkdown = new MarkdownIt({ html: false }).disable("image");
+prMarkdown.renderer.rules.link_open = (tokens, index) =>
+  `<span class="review-pr-reference" title="${prMarkdown.utils.escapeHtml(tokens[index].attrGet("href") ?? "")}">`;
+prMarkdown.renderer.rules.link_close = () => "</span>";
+
 const refreshInterval = 60_000;
 const fields =
   "number,url,title,state,isDraft,author,updatedAt,baseRefName,headRefName,headRefOid,reviewDecision,mergeable";
@@ -392,11 +399,13 @@ export function createPullRequests({ getInventory, onChange = () => {} }) {
         const known = snapshot.items.find((item) => item.url.toLowerCase() === key);
         const item = normalize(data, {
           body: data.body ?? "",
+          bodyHtml: prMarkdown.render(data.body ?? ""),
           discussion: [
             ...(data.comments ?? []).map((comment) => ({
               kind: "comment",
               author: comment.author?.login ?? null,
               body: comment.body ?? "",
+              bodyHtml: prMarkdown.render(comment.body ?? ""),
               createdAt: comment.createdAt,
               url: comment.url,
             })),
@@ -404,6 +413,7 @@ export function createPullRequests({ getInventory, onChange = () => {} }) {
               kind: "review",
               author: review.author?.login ?? null,
               body: review.body ?? "",
+              bodyHtml: prMarkdown.render(review.body ?? ""),
               createdAt: review.submittedAt,
               state: review.state,
               url: review.url,

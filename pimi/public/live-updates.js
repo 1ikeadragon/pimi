@@ -1,11 +1,12 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
-export function connectLiveUpdates({ refreshBoard, refreshTasks, status }) {
+export function connectLiveUpdates({ refreshBoard, refreshTasks, refreshPullRequests, status }) {
   let source;
   let pendingBoard = true;
   let pendingTasks = true;
   let flushing = false;
   let timer;
   let fallback;
+  let prTimer;
   let stopped = false;
   const visible = () =>
     !document.hidden && document.documentElement.dataset.workspaceLayout !== "hidden";
@@ -58,6 +59,7 @@ export function connectLiveUpdates({ refreshBoard, refreshTasks, status }) {
 
   function open() {
     if (source || stopped || !visible()) return;
+    prTimer ??= setInterval(refreshPullRequests, 60000);
     if (!window.EventSource) {
       status("Live connection unavailable. Checking for changes automatically.");
       startFallback();
@@ -70,9 +72,11 @@ export function connectLiveUpdates({ refreshBoard, refreshTasks, status }) {
       fallback = undefined;
       status("");
       invalidate();
+      void refreshPullRequests();
     });
     source.addEventListener("board", () => invalidate(true, false));
     source.addEventListener("tasks", () => invalidate(false, true));
+    source.addEventListener("pull-requests", () => void refreshPullRequests());
     source.addEventListener("retry", () => {
       status("Updates are delayed. Retrying automatically.");
       startFallback();
@@ -88,7 +92,8 @@ export function connectLiveUpdates({ refreshBoard, refreshTasks, status }) {
       source?.close();
       source = undefined;
       clearInterval(fallback);
-      fallback = undefined;
+      clearInterval(prTimer);
+      fallback = prTimer = undefined;
       return;
     }
     open();
@@ -102,8 +107,9 @@ export function connectLiveUpdates({ refreshBoard, refreshTasks, status }) {
     source?.close();
     source = undefined;
     clearInterval(fallback);
+    clearInterval(prTimer);
     clearTimeout(timer);
-    fallback = timer = undefined;
+    fallback = prTimer = timer = undefined;
   });
   window.addEventListener("pageshow", (event) => {
     if (!event.persisted) return;

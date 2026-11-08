@@ -128,7 +128,20 @@ export async function reviewTargets(directory) {
 }
 
 async function resolveBase(cwd, input) {
-  if (input) return { label: input, sha: await commit(cwd, input) };
+  if (input) {
+    const sha = (
+      await runGit(
+        cwd,
+        ["rev-parse", "--verify", "--quiet", "--end-of-options", `${input}^{commit}`],
+        { acceptExitOne: true },
+      )
+    ).trim();
+    if (!sha)
+      throw new RequestError(
+        `Base “${input}” was not found. Choose another ref or use Auto-detect.`,
+      );
+    return { label: input, sha };
+  }
   const refs = (
     await git(cwd, "for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes")
   ).split("\n");

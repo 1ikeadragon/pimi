@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="/pimi-textures/appearance.css" />
     <link rel="stylesheet" href="/style.css" />
     <link rel="stylesheet" href="/spaces.css" />
+    <link rel="stylesheet" href="/review-pull-requests.css" />
     <link rel="stylesheet" href="/syntax.css" />
     <script type="module" src="/app.js"></script>
   </head>
@@ -28,6 +29,9 @@
         <path
           d="M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10zm0 0v7h7M8 12h6m-3-3v6m-3 3h6"
         />
+      </symbol>
+      <symbol id="glyph-folder" viewBox="0 0 24 24">
+        <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
       </symbol>
       <symbol id="glyph-memory" viewBox="0 0 24 24">
         <rect x="5" y="3" width="15" height="18" rx="2" />
@@ -526,12 +530,21 @@
           <div id="review-actions" class="review-actions" hidden>
             <div id="previews" class="previews" hidden></div>
             <button
+              id="review-pr-back"
+              class="button quiet glyph-button"
+              aria-label="Pull request details"
+              title="Pull request details"
+              hidden
+            >
+              <svg class="glyph" aria-hidden="true"><use href="#glyph-branch" /></svg>
+            </button>
+            <button
               id="change-review-worktree"
               class="button quiet glyph-button"
               aria-label="Change worktree"
               title="Change worktree"
             >
-              <svg class="glyph" aria-hidden="true"><use href="#glyph-branch" /></svg>
+              <svg class="glyph" aria-hidden="true"><use href="#glyph-board" /></svg>
             </button>
             <button
               id="compare-worktrees"
@@ -593,30 +606,30 @@
                 </form>
               </div>
             </details>
+            <details id="review-tools" class="watch comparison-settings">
+              <summary
+                class="button quiet glyph-button"
+                aria-label="Review tools"
+                title="Review tools"
+              >
+                <svg class="glyph" aria-hidden="true"><use href="#glyph-more" /></svg>
+              </summary>
+              <div class="watch-panel review-tool-menu">
+                <button id="file-tour" class="button quiet" type="button" disabled>
+                  File tour
+                </button>
+                <button id="ai-tour" class="button quiet" type="button" disabled>
+                  Explain changes
+                </button>
+                <span id="tour-status" class="tour-status" role="status"></span>
+              </div>
+            </details>
             <select id="review-editor" class="editor-picker" aria-label="Open worktree in" disabled>
               <option value="">Open in…</option>
             </select>
           </div>
         </div>
         <p id="review-warning" class="warning" role="alert" hidden></p>
-        <section id="review-entry" class="review-entry" aria-labelledby="review-entry-title">
-          <h2 id="review-entry-title">Choose a worktree</h2>
-          <p class="subtitle">Review local changes, compare branches, or open a pull request.</p>
-          <form id="review-target" class="task-form">
-            <label
-              >Worktree
-              <select id="review-worktree" required></select
-            ></label>
-            <div class="task-actions">
-              <button id="review-add-repository" class="button secondary" type="button">
-                Add a repository
-              </button>
-              <button id="review-open-worktree" class="button primary" type="submit" disabled>
-                Open review
-              </button>
-            </div>
-          </form>
-        </section>
         <div id="diff-find" class="diff-find" role="search" aria-label="Find in open diffs" hidden>
           <input
             id="diff-find-input"
@@ -640,61 +653,130 @@
           <button id="diff-find-close" class="button quiet" type="button">Done</button>
         </div>
         <div id="review-columns" class="review-columns">
-          <div id="review-desk" class="desk" hidden>
-            <aside class="files">
-              <div class="files-heading">
-                <h2>Changed files</h2>
-                <span id="file-count" class="count">0</span>
+          <div id="review-desk" class="desk">
+            <aside class="files" aria-label="Review navigation">
+              <div class="review-rail-tabs" role="group" aria-label="Browse review">
+                <button id="review-tab-worktrees" type="button" aria-pressed="true">
+                  Worktrees
+                </button>
+                <button id="review-tab-changes" type="button" aria-pressed="false" disabled>
+                  Changes
+                </button>
+                <button id="review-tab-files" type="button" aria-pressed="false" disabled>
+                  Files
+                </button>
+                <button
+                  id="review-tab-pr"
+                  type="button"
+                  aria-label="Pull requests"
+                  aria-pressed="false"
+                >
+                  PRs
+                </button>
               </div>
-              <div class="file-tools">
-                <input
-                  id="file-search"
-                  class="search"
-                  type="search"
-                  aria-label="Filter changed files"
-                  placeholder="Filter files"
-                  autocomplete="off"
-                  aria-keyshortcuts="/"
-                />
-              </div>
-              <div id="file-list" class="file-list"></div>
-            </aside>
-            <div class="workspace">
-              <div class="tourbar">
-                <div>
-                  <span class="context-label">Walkthrough</span>
-                  <span id="tour-status" class="tour-status" role="status"
-                    >Load changes to start</span
-                  >
+              <section id="review-worktrees-nav" class="review-rail-content" aria-label="Worktrees">
+                <div class="file-tools">
+                  <input
+                    id="review-worktree-search"
+                    class="search"
+                    type="search"
+                    aria-label="Filter worktrees"
+                    placeholder="Find a worktree"
+                    autocomplete="off"
+                  />
                 </div>
-                <div class="tour-actions">
-                  <button id="file-tour" class="button secondary" disabled>File tour</button>
-                  <button id="ai-tour" class="button primary" disabled>Explain changes</button>
-                </div>
-              </div>
-              <div id="panes" class="panes"></div>
-              <div
-                id="tour-card"
-                class="tour-card"
-                role="region"
-                aria-label="Walkthrough note"
+                <div id="review-worktree-list" class="file-list" aria-live="polite"></div>
+              </section>
+              <section
+                id="review-changes-nav"
+                class="review-rail-content"
+                aria-label="Changed files"
                 hidden
               >
-                <div class="note-top">
-                  <span id="tour-position" class="context-label"></span>
-                  <button id="close-tour" class="icon-button" aria-label="Close walkthrough note">
-                    ×
+                <div class="file-tools review-file-tools">
+                  <input
+                    id="file-search"
+                    class="search"
+                    type="search"
+                    aria-label="Filter changed files"
+                    placeholder="Filter changed files"
+                    autocomplete="off"
+                    aria-keyshortcuts="/"
+                  />
+                  <span id="file-count" class="count" aria-label="Changed file count">0</span>
+                </div>
+                <div id="file-list" class="file-list"></div>
+              </section>
+              <section
+                id="review-files-nav"
+                class="review-rail-content"
+                aria-label="Repository files"
+                hidden
+              >
+                <div class="file-tools">
+                  <input
+                    id="review-source-search"
+                    class="search"
+                    type="search"
+                    aria-label="Find a source file"
+                    placeholder="Find a source file"
+                    autocomplete="off"
+                  />
+                </div>
+                <div id="review-source-list" class="file-list"></div>
+              </section>
+              <section
+                id="review-pr-nav"
+                class="review-rail-content"
+                aria-label="Pull requests"
+                hidden
+              ></section>
+            </aside>
+            <div class="workspace">
+              <section id="review-entry" class="review-entry" aria-labelledby="review-entry-title">
+                <div class="review-entry-icon">
+                  <svg class="glyph" aria-hidden="true"><use href="#glyph-review" /></svg>
+                </div>
+                <h2 id="review-entry-title">Choose what to review</h2>
+                <p class="subtitle">Open a worktree or pull request from the sidebar.</p>
+                <div class="task-actions">
+                  <button id="review-add-repository" class="button secondary" type="button">
+                    Add repository…
+                  </button>
+                  <button id="review-open-pr" class="button quiet" type="button">
+                    Open pull request…
+                  </button>
+                  <button id="review-resume" class="button secondary" type="button" hidden>
+                    Resume review
                   </button>
                 </div>
-                <h2 id="note-title"></h2>
-                <p id="note-text"></p>
-                <div class="note-actions">
-                  <button id="prev-step" class="button secondary" aria-keyshortcuts="[">
-                    ← Previous
-                  </button>
-                  <button id="next-step" class="button primary" aria-keyshortcuts="]">
-                    Next →
-                  </button>
+              </section>
+              <section id="review-pr-details" aria-label="Pull request details" hidden></section>
+              <div id="review-code" class="review-code" hidden>
+                <div id="panes" class="panes"></div>
+                <div
+                  id="tour-card"
+                  class="tour-card"
+                  role="region"
+                  aria-label="Walkthrough note"
+                  hidden
+                >
+                  <div class="note-top">
+                    <span id="tour-position" class="context-label"></span>
+                    <button id="close-tour" class="icon-button" aria-label="Close walkthrough note">
+                      ×
+                    </button>
+                  </div>
+                  <h2 id="note-title"></h2>
+                  <p id="note-text"></p>
+                  <div class="note-actions">
+                    <button id="prev-step" class="button secondary" aria-keyshortcuts="[">
+                      ← Previous
+                    </button>
+                    <button id="next-step" class="button primary" aria-keyshortcuts="]">
+                      Next →
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
