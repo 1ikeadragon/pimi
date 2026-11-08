@@ -66,6 +66,7 @@ function visibleTaskBranch(
   agents: ReadonlyMap<string, Agent>,
   workspaces: ReadonlyMap<string, SidebarWorkspaceEntry>,
   workspaceSizes: ReadonlyMap<string, number>,
+  groupMode: SidebarGroupMode,
 ) {
   if (!worker.labels?.[PIMI_TASK_WORKER_LABEL] || worker.archivedAt || worker.background) return;
   if (!worker.workspaceId || workspaceSizes.get(worker.workspaceId) !== 1) return;
@@ -76,13 +77,17 @@ function visibleTaskBranch(
   if (worker.workspaceId === parent.workspaceId) return;
   const workspace = workspaces.get(`${worker.serverId}:${worker.workspaceId}`);
   const parentKey = `${parent.serverId}:${parent.workspaceId}`;
-  if (!workspace || workspace.pinnedAt || !workspaces.has(parentKey)) return;
+  const parentWorkspace = workspaces.get(parentKey);
+  if (!workspace || workspace.pinnedAt || !parentWorkspace) return;
+  // In Status, a child that needs review must stay visible in its own bucket.
+  if (groupMode === "status" && workspace.statusBucket !== parentWorkspace.statusBucket) return;
   return { branch: { worker, parent, workspace }, parentKey };
 }
 
 function projectPimiTaskBranches(
   agentMaps: ReadonlyArray<ReadonlyMap<string, Agent>>,
   workspaces: ReadonlyMap<string, SidebarWorkspaceEntry>,
+  groupMode: SidebarGroupMode,
 ) {
   const branches = new Map<string, PimiTaskBranch[]>();
   const nestedKeys = new Set<string>();
@@ -93,7 +98,7 @@ function projectPimiTaskBranches(
       workspaceSizes.set(agent.workspaceId, (workspaceSizes.get(agent.workspaceId) ?? 0) + 1);
     }
     for (const worker of agents.values()) {
-      const nested = visibleTaskBranch(worker, agents, workspaces, workspaceSizes);
+      const nested = visibleTaskBranch(worker, agents, workspaces, workspaceSizes, groupMode);
       if (!nested) continue;
       const { branch, parentKey } = nested;
       nestedKeys.add(branch.workspace.workspaceKey);
@@ -225,8 +230,8 @@ export function SidebarModelProvider({
   ]);
   const pinnedKeys = usePinnedSidebarKeys(filteredProjects);
   const taskTree = useMemo(
-    () => projectPimiTaskBranches(agentMaps, filteredWorkspaceEntriesByKey),
-    [agentMaps, filteredWorkspaceEntriesByKey],
+    () => projectPimiTaskBranches(agentMaps, filteredWorkspaceEntriesByKey, groupMode),
+    [agentMaps, filteredWorkspaceEntriesByKey, groupMode],
   );
   const rootProjects = useMemo(() => {
     if (!taskTree.nestedKeys.size) return filteredProjects;
