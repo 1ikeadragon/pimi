@@ -429,9 +429,11 @@ function SidebarFooter({
   handleAddHost,
   handleOpenHostSettings,
   onBeforeNavigate,
+  pimiLayout = false,
 }: {
   handleOpenProject: () => void;
   handleSettings: () => void;
+  pimiLayout?: boolean;
   labels: {
     addProject: string;
     hosts: string;
@@ -456,14 +458,24 @@ function SidebarFooter({
         rowWidth,
         controlSize: TOOLBAR_CONTROL_SIZES[controlSizingForLayout(isCompactLayout)],
         rowPadding: FOOTER_ROW_PADDING,
-        actions: SIDEBAR_FOOTER_ACTIONS,
+        actions: pimiLayout
+          ? SIDEBAR_FOOTER_ACTIONS.filter((action) => action !== "add-project" && action !== "help")
+          : SIDEBAR_FOOTER_ACTIONS,
       }),
-    [rowWidth, isCompactLayout],
+    [rowWidth, isCompactLayout, pimiLayout],
   );
   const isInline = (action: SidebarFooterAction) => inline.includes(action);
 
-  // One line of icons: Add project, Usage, Hosts, then Help and Settings at the end. Actions that
-  // don't fit move behind a caret before Settings.
+  const hostPicker = isInline("hosts") ? (
+    <SidebarHostPicker
+      label={labels.hosts}
+      onAddHost={handleAddHost}
+      onOpenHostSettings={handleOpenHostSettings}
+    />
+  ) : null;
+
+  // Pimi keeps project creation in the list header and utilities at the trailing edge.
+  // Actions that do not fit retain their existing overflow menu.
   return (
     <UsageSidebarRoot>
       <View style={styles.footerContainer} testID="sidebar-footer">
@@ -483,13 +495,7 @@ function SidebarFooter({
             />
           ) : null}
           {isInline("usage") ? <SidebarUsageIcon label={labels.usage} /> : null}
-          {isInline("hosts") ? (
-            <SidebarHostPicker
-              label={labels.hosts}
-              onAddHost={handleAddHost}
-              onOpenHostSettings={handleOpenHostSettings}
-            />
-          ) : null}
+          {pimiLayout ? null : hostPicker}
           <View style={styles.footerSpacer} />
           {isInline("help") ? <SidebarHelpMenu /> : null}
           {overflow.length > 0 ? (
@@ -502,6 +508,7 @@ function SidebarFooter({
               onOpenHostSettings={handleOpenHostSettings}
             />
           ) : null}
+          {pimiLayout ? hostPicker : null}
           {isInline("settings") ? (
             <FooterIconButton
               onPress={handleSettings}
@@ -808,6 +815,19 @@ function DesktopSidebar({
   const resizeAnimatedStyle = useAnimatedStyle(() => ({
     width: divisionLayout?.sidebarWidth ?? resizeWidth.value,
   }));
+  const pimi = Boolean(getDesktopHost()?.showPimiWorkspace);
+  const projectHeader = useMemo(
+    () =>
+      pimi ? (
+        <WorkspacesSectionHeader
+          onAddProject={handleOpenProject}
+          onNewWorkspace={handleWorkspacePress}
+        />
+      ) : (
+        workspacesSectionHeaderElement
+      ),
+    [pimi, handleOpenProject, handleWorkspacePress],
+  );
   const rail = pimiSidebar?.mode === "rail";
   const frameWidth = useAnimatedStyle(() => ({
     width: rail ? PIMI_NAV_RAIL_WIDTH : (divisionLayout?.sidebarWidth ?? resizeWidth.value),
@@ -860,9 +880,22 @@ function DesktopSidebar({
     <View style={desktopSidebarBorderStyle}>
       <View style={styles.sidebarDragArea}>
         {pimiSidebar ? null : chrome}
-        <PimiWorkspaceNavigation onNavigate={closePeek} trailing={peekActions} />
-        <SidebarNavRows style={sidebarHeaderGroupStyle} onBeforeNavigate={handleWorkspacePress} />
+        {pimi ? (
+          <PimiWorkspaceNavigation
+            onNavigate={closePeek}
+            trailing={peekActions}
+            secondaryNavigation={
+              <SidebarNavRows pimiSection="destinations" onBeforeNavigate={handleWorkspacePress} />
+            }
+          >
+            <SidebarNavRows pimiSection="actions" onBeforeNavigate={handleWorkspacePress} />
+          </PimiWorkspaceNavigation>
+        ) : (
+          <SidebarNavRows style={sidebarHeaderGroupStyle} onBeforeNavigate={handleWorkspacePress} />
+        )}
       </View>
+
+      {pimi ? <View style={styles.pimiProjectHeader}>{projectHeader}</View> : null}
 
       {isInitialLoad && !hasActiveHostFilter ? (
         <SidebarAgentListSkeleton />
@@ -886,13 +919,14 @@ function DesktopSidebar({
           onWorkspacePress={handleWorkspacePress}
           parentGestureRef={closeGestureRef}
           dragGestureHostActive={active}
-          listHeaderComponent={workspacesSectionHeaderElement}
+          listHeaderComponent={pimi ? null : projectHeader}
         />
       )}
 
       <SidebarCalloutSlot />
 
       <SidebarFooter
+        pimiLayout={pimi}
         handleOpenProject={handleOpenProject}
         handleSettings={handleSettings}
         labels={labels}
@@ -997,9 +1031,32 @@ function DesktopSidebarFrame({
   );
 }
 
-function WorkspacesSectionHeader() {
+function WorkspacesSectionHeader({
+  onAddProject,
+  onNewWorkspace,
+}: {
+  onAddProject?: () => void;
+  onNewWorkspace?: () => void;
+}) {
+  const { t } = useTranslation();
+  const title = onAddProject
+    ? "Projects"
+    : getDesktopHost()?.showPimiWorkspace
+    ? "Sessions"
+    : "Workspaces";
   return (
-    <SidebarSectionHeader title={getDesktopHost()?.showPimiWorkspace ? "Sessions" : "Workspaces"}>
+    <SidebarSectionHeader title={title}>
+      {onNewWorkspace ? (
+        <SidebarNavRows pimiSection="create" onBeforeNavigate={onNewWorkspace} />
+      ) : null}
+      {onAddProject ? (
+        <FooterIconButton
+          onPress={onAddProject}
+          testID="sidebar-add-project"
+          label={t("sidebar.actions.addProject")}
+          icon={FolderPlus}
+        />
+      ) : null}
       <Tooltip delayDuration={300}>
         <TooltipTrigger asChild>
           <View>
@@ -1064,6 +1121,7 @@ const styles = StyleSheet.create((theme) => ({
     borderRightColor: theme.colors.border,
     backgroundColor: theme.colors.surfaceSidebar,
   }),
+  pimiProjectHeader: { paddingHorizontal: 8 },
   pimiSidebarInset: {
     marginHorizontal: 6,
     marginBottom: 8,
