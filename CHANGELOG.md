@@ -2,6 +2,13 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.16.6 - 2026-11-08
+
+### Added
+
+- Pair Pimi for Android with your host to chat, browse work and diffs, tile agents, and check usage.
+- Open, create, and move desktop tasks from Android over a password-protected encrypted relay connection.
+
 ## 0.16.5 - 2026-11-08
 
 ### Added
