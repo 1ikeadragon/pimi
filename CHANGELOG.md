@@ -2,6 +2,12 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.16.7 - 2026-11-08
+
+- Ask Pimi opens common views directly and uses your configured provider to handle other commands, including saving Spaces cards and creating or moving tasks.
+- Agents can create and apply shared labels. The sidebar marks new task activity, and task cards recognize OMP tool results.
+- Fixed Agent Grid on Android and restored workspace names in Android Work.
+
 ## 0.16.6 - 2026-11-08
 
 ### Added
