@@ -179,8 +179,7 @@ function buildVoiceFeatureReadiness(params: {
   realtimeVoice: SpeechReadinessState;
   dictation: SpeechReadinessState;
   missingLocalModelIds: LocalSpeechModelId[];
-  backgroundDownloadInProgress: boolean;
-  backgroundDownloadError: string | null;
+  download: SpeechReadinessSnapshot["download"];
 }): SpeechReadinessState {
   const enabled = params.realtimeVoice.enabled || params.dictation.enabled;
   if (!enabled) {
@@ -196,22 +195,22 @@ function buildVoiceFeatureReadiness(params: {
 
   if (params.missingLocalModelIds.length > 0) {
     const missingModelIds = [...params.missingLocalModelIds];
-    if (params.backgroundDownloadInProgress) {
+    if (params.download.inProgress) {
       return {
         enabled: true,
         available: false,
         reasonCode: "model_download_in_progress",
-        message: `Voice features are unavailable while models download in the background (${joinModelIds(missingModelIds)}).`,
+        message: `Voice features are unavailable while models download (${joinModelIds(missingModelIds)}).`,
         retryable: true,
         missingModelIds,
       };
     }
-    if (params.backgroundDownloadError) {
+    if (params.download.error) {
       return {
         enabled: true,
         available: false,
         reasonCode: "model_download_failed",
-        message: `Voice features are unavailable: model download failed (${params.backgroundDownloadError}).`,
+        message: `Model download failed. Retry in Settings > Voice (${params.download.error}).`,
         retryable: false,
         missingModelIds,
       };
@@ -220,7 +219,7 @@ function buildVoiceFeatureReadiness(params: {
       enabled: true,
       available: false,
       reasonCode: "models_missing",
-      message: `Voice features are unavailable: missing local models (${joinModelIds(missingModelIds)}).`,
+      message: "Download the missing speech models in Settings > Voice.",
       retryable: true,
       missingModelIds,
     };
@@ -296,7 +295,7 @@ function resolveEffectiveProviderIds(params: {
 }
 
 export interface LocalSpeechModelStatus extends LocalSpeechModelEntry {
-  // Selected by an enabled feature, so the runtime keeps it installed.
+  // Selected by an enabled feature, so it cannot be deleted until another model is selected.
   inUse: boolean;
 }
 
@@ -377,9 +376,6 @@ export function createSpeechService(
   let localVoiceTtsProvider: TextToSpeechProvider | null = null;
 
   let missingLocalModelIds: LocalSpeechModelId[] = [];
-  let backgroundDownloadInProgress = false;
-  let backgroundDownloadPromise: Promise<void> | null = null;
-  let backgroundDownloadError: string | null = null;
   let stopped = false;
   let monitorTimeout: ReturnType<typeof setTimeout> | null = null;
   let reconcileQueue: Promise<void> = Promise.resolve();
@@ -406,21 +402,21 @@ export function createSpeechService(
       providers,
       dictationSttService,
     });
+    const download = modelLibrary?.getDownloadStatus(missingLocalModelIds) ?? {
+      inProgress: false,
+      error: null,
+    };
     const voiceFeature = buildVoiceFeatureReadiness({
       realtimeVoice,
       dictation,
       missingLocalModelIds,
-      backgroundDownloadInProgress,
-      backgroundDownloadError,
+      download,
     });
     return {
       generatedAt: new Date().toISOString(),
       requiredLocalModelIds: localModelConfig?.defaultModelIds ?? [],
       missingLocalModelIds: [...missingLocalModelIds],
-      download: {
-        inProgress: backgroundDownloadInProgress,
-        error: backgroundDownloadError,
-      },
+      download,
       realtimeVoice: {
         ...realtimeVoice,
       },
@@ -568,54 +564,6 @@ export function createSpeechService(
     }, SPEECH_RUNTIME_MONITOR_INTERVAL_MS);
   };
 
-  const startBackgroundDownload = (): void => {
-    if (stopped || backgroundDownloadInProgress || !modelLibrary) {
-      return;
-    }
-    const modelsDir = modelLibrary.getModelsDir();
-    const modelIds = [...missingLocalModelIds];
-    if (modelIds.length === 0) {
-      return;
-    }
-
-    backgroundDownloadInProgress = true;
-    backgroundDownloadError = null;
-    publishReadinessIfChanged();
-
-    logger.info(
-      {
-        modelsDir,
-        modelIds,
-      },
-      "Starting background download for missing local speech models",
-    );
-
-    backgroundDownloadPromise = (async () => {
-      try {
-        await Promise.all(modelIds.map((modelId) => modelLibrary.download(modelId)));
-        await runReconcile();
-        backgroundDownloadError = null;
-      } catch (error) {
-        backgroundDownloadError = error instanceof Error ? error.message : String(error);
-        publishReadinessIfChanged();
-        logger.error(
-          {
-            err: error,
-            modelIds,
-          },
-          "Background local speech model download failed",
-        );
-      } finally {
-        backgroundDownloadInProgress = false;
-        await refreshMissingLocalModels().catch((error) => {
-          logger.warn({ err: error }, "Failed to refresh local speech model status after download");
-        });
-        publishReadinessIfChanged();
-        scheduleMonitor();
-      }
-    })();
-  };
-
   const runMonitorTick = async (): Promise<void> => {
     if (stopped) {
       return;
@@ -626,18 +574,9 @@ export function createSpeechService(
       if (
         snapshot.voiceFeature.enabled &&
         !snapshot.voiceFeature.available &&
-        missingLocalModelIds.length === 0 &&
-        !backgroundDownloadInProgress
+        missingLocalModelIds.length === 0
       ) {
         await runReconcile();
-      }
-
-      if (
-        missingLocalModelIds.length > 0 &&
-        !backgroundDownloadInProgress &&
-        !backgroundDownloadError
-      ) {
-        startBackgroundDownload();
       }
     } catch (error) {
       logger.warn({ err: error }, "Speech runtime monitor tick failed");
@@ -647,13 +586,10 @@ export function createSpeechService(
     }
   };
 
-  const reconcileAndFetchMissingModels = async (): Promise<void> => {
+  const reconcileAndMonitor = async (): Promise<void> => {
     await runReconcile();
     const snapshot = computeReadinessSnapshot();
     if (snapshot.voiceFeature.enabled && !snapshot.voiceFeature.available) {
-      if (missingLocalModelIds.length > 0) {
-        startBackgroundDownload();
-      }
       scheduleMonitor();
     }
   };
@@ -663,13 +599,11 @@ export function createSpeechService(
     openaiConfig = next.openaiConfig;
     providers = resolveRequestedSpeechProviders(speechConfig);
     requestedProviders = describeRequestedProviders(providers);
-    // A failure for the previous selection must not block downloading the new one.
-    backgroundDownloadError = null;
     logReconciliationStart();
     if (!started || stopped) {
       return;
     }
-    void reconcileAndFetchMissingModels().catch((error) => {
+    void reconcileAndMonitor().catch((error) => {
       logger.error({ err: error }, "Speech runtime failed to apply new configuration");
     });
   };
@@ -698,7 +632,9 @@ export function createSpeechService(
       .then(() => runMonitorTick())
       .catch((error) => {
         logger.warn({ err: error, modelId }, "Local speech model download failed");
-      });
+      })
+      .finally(publishReadinessIfChanged);
+    publishReadinessIfChanged();
   };
 
   const deleteLocalModel = async (modelId: LocalSpeechModelId): Promise<void> => {
@@ -715,7 +651,7 @@ export function createSpeechService(
     started = true;
     void (async () => {
       try {
-        await reconcileAndFetchMissingModels();
+        await reconcileAndMonitor();
         if (!readySettled) {
           readySettled = true;
           resolveReady();
@@ -738,8 +674,6 @@ export function createSpeechService(
     }
     localCleanup();
     await modelLibrary?.stop();
-    await backgroundDownloadPromise?.catch(() => undefined);
-    backgroundDownloadPromise = null;
   };
 
   return {
