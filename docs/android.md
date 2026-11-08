@@ -2,7 +2,7 @@
 
 ## Pimi APK
 
-[Download the signed ARM64 preview](https://github.com/1ikeadragon/pimi/releases/tag/pimi-android-v0.16.10-preview.1).
+[Download the signed ARM64 preview](https://github.com/1ikeadragon/pimi/releases/tag/pimi-android-v0.17.0-preview.1).
 
 Pimi for Android runs chats on your paired host. You can browse workspace
 files and diffs, open Work, tile agents, and check usage. Tasks reads and
@@ -40,11 +40,11 @@ user-only access and an offline backup.
 
 Controlled by `APP_VARIANT` in `packages/app/app.config.js` (vanilla Expo, no custom Gradle plugin):
 
-| Variant        | App name   | Package ID                  |
-| -------------- | ---------- | --------------------------- |
-| `production`   | Pimi       | `sh.paseo`                  |
-| `development`  | Pimi Debug | `sh.paseo.debug`            |
-| `pimi-android` | Pimi       | `io.github.ikeadragon.pimi` |
+| Variant        | App name   | Package ID                        |
+| -------------- | ---------- | --------------------------------- |
+| `production`   | Pimi       | `io.github.ikeadragon.pimi`       |
+| `development`  | Pimi Debug | `io.github.ikeadragon.pimi.debug` |
+| `pimi-android` | Pimi       | `io.github.ikeadragon.pimi`       |
 
 EAS profiles: `development`, `production`, and `production-apk` in `packages/app/eas.json`.
 
@@ -138,7 +138,7 @@ npm run dev:ios         # Build/install the iOS development app
 `build:apk` writes `artifacts/paseo-dogfood-universal.apk`; `build:apk:arm64` writes
 `artifacts/paseo-dogfood-arm64.apk`. Neither command launches or installs on a device. Both enable
 `PASEO_WATCHDOG_BUILD=1`, the production React profiling renderer, and Android's shell-profileable
-flag. These builds keep the production package ID (`sh.paseo`) and release optimizations. Use this APK for
+flag. These builds keep the production package ID (`io.github.ikeadragon.pimi`) and release optimizations. Use this APK for
 personal dogfooding. Android system-trace spans require the separate `PASEO_PROFILE_BUILD=1` flag;
 watchdog recording does not send duplicate spans to that sink by default. Normal store/release
 workflows leave diagnostics disabled.
@@ -183,7 +183,7 @@ For an ordinary release APK with system trace markers only:
 PASEO_PROFILE_BUILD=1 npm run android:production
 ```
 
-Those markers emit only while a system trace records `sh.paseo` (`perfetto -a sh.paseo ...`);
+Those markers emit only while a system trace records `io.github.ikeadragon.pimi` (`perfetto -a sh.paseo ...`);
 they do not produce Downloads files.
 
 ## Running on an emulator against a worktree daemon
