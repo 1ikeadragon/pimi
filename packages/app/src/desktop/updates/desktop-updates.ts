@@ -6,6 +6,7 @@ import { i18n } from "@/i18n/i18next";
 export interface DesktopAppUpdateCheckResult {
   hasUpdate: boolean;
   readyToInstall: boolean;
+  manualInstall?: boolean;
   currentVersion: string | null;
   latestVersion: string | null;
   body: string | null;
@@ -15,6 +16,7 @@ export interface DesktopAppUpdateCheckResult {
 
 export interface DesktopAppUpdateInstallResult {
   installed: boolean;
+  openedInstaller?: boolean;
   version: string | null;
   message: string;
 }
@@ -118,6 +120,7 @@ export async function checkDesktopAppUpdate({
   return {
     hasUpdate: result.hasUpdate === true,
     readyToInstall: result.readyToInstall === true,
+    ...(result.manualInstall === true && { manualInstall: true }),
     currentVersion: toStringOrNull(result.currentVersion),
     latestVersion: toStringOrNull(result.latestVersion),
     body: toStringOrNull(result.body),
@@ -138,6 +141,7 @@ export async function installDesktopAppUpdate({
 
   return {
     installed: result.installed === true,
+    ...(result.openedInstaller === true && { openedInstaller: true }),
     version: toStringOrNull(result.version),
     message: toStringOrNull(result.message) ?? i18n.t("desktop.updates.status.installed"),
   };

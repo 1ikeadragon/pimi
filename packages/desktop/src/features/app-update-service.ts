@@ -8,6 +8,7 @@ import {
 export interface AppUpdateCheckResult {
   hasUpdate: boolean;
   readyToInstall: boolean;
+  manualInstall?: boolean;
   currentVersion: string;
   latestVersion: string;
   body: string | null;
@@ -17,6 +18,7 @@ export interface AppUpdateCheckResult {
 
 export interface AppUpdateInstallResult {
   installed: boolean;
+  openedInstaller?: boolean;
   version: string | null;
   message: string;
 }
