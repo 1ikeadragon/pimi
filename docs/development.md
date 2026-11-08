@@ -564,6 +564,10 @@ patch every build the consumers use: Metro resolves the `react-native` field of 
 
 ## Dependency overrides and workspace tooling
 
+Run `npm ci` at the repository root. The root `package-lock.json` locks all
+workspace dependencies. Only examples installed outside the workspaces keep
+their own lockfiles.
+
 Root `package.json` `overrides` pin one Expo SDK across the tree (`expo`, `expo-router`,
 `react-native`, …). npm does not apply those overrides to packages it places under a
 workspace's own `node_modules`. When `expo-module-scripts` was declared in
@@ -697,14 +701,14 @@ Point Playwright MCP at the running Expo web target. For root checkout dev, `npm
 
 Do NOT use browser history (back/forward). Always navigate by clicking UI elements or using `browser_navigate` with the full URL — the app uses client-side routing and browser history breaks state.
 
-## App web deploys
+## App web export
 
-`packages/app` exports a single-page Expo web app and deploys the `dist/`
-directory to Cloudflare Pages with `npm run deploy:web --workspace=@pimi/app`.
+Run `npm run build:web --workspace=@pimi/app` to export the Expo web app to
+`packages/app/dist/`.
 
 PWA install metadata lives in `packages/app/public/manifest.json` and is linked
 from `packages/app/public/index.html`. Keep the install icons in `public/` so
-Cloudflare serves them from stable root URLs after `expo export`.
+they have stable root URLs after `expo export`.
 
 Do not add service-worker caching casually. Pimi is a live control surface for
 agents, and an aggressive service worker can strand installed users on stale web
