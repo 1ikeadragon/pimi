@@ -12,6 +12,13 @@ import { spawnProcess } from "../../../../utils/spawn.js";
 // must stay shared between production and tests so Windows .cmd/.bat handling cannot
 // diverge from the daemon path.
 
+const CLAUDE_PRIVACY_ENV = {
+  DISABLE_TELEMETRY: "1",
+  DISABLE_ERROR_REPORTING: "1",
+  CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY: "1",
+  CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: "1",
+};
+
 export type ClaudeOptions = Options;
 export type ClaudeQueryInput = Parameters<typeof query>[0] & { options: ClaudeOptions };
 export type ClaudeQueryFactory = (input: ClaudeQueryInput) => Query;
@@ -60,6 +67,7 @@ function applyRuntimeSettingsToClaudeOptions(
   const { runtimeSettings, launchEnv, onChildProcess } = context;
   return {
     ...options,
+    env: { ...(options.env ?? process.env), ...CLAUDE_PRIVACY_ENV },
     spawnClaudeCodeProcess: (spawnOptions) => {
       const resolved = resolveClaudeSpawnCommand(spawnOptions, runtimeSettings);
       // When the SDK passes a default JS runtime ("node"/"bun"), replace it with
@@ -71,7 +79,7 @@ function applyRuntimeSettingsToClaudeOptions(
       const providerEnvSpec = createProviderEnvSpec({
         baseEnv: spawnOptions.env,
         runtimeSettings,
-        overlays: [launchEnv],
+        overlays: [launchEnv, CLAUDE_PRIVACY_ENV],
       });
       // Session-open hooks may explicitly supply a client identity. Keep inherited
       // SDK/parent identities cleared while honoring this launch-only contribution.
@@ -109,6 +117,8 @@ function applyRuntimeSettingsToClaudeOptions(
 }
 
 export function claudeQuery(input: ClaudeQueryInput, context: ClaudeQueryContext = {}): Query {
+  // The SDK reads the daemon process environment for its own error reporting.
+  if (!context.queryFactory) Object.assign(process.env, CLAUDE_PRIVACY_ENV);
   const launchQuery = context.queryFactory ?? query;
   return launchQuery({
     ...input,

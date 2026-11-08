@@ -85,7 +85,13 @@ export class CopilotACPAgentClient extends ACPAgentClient {
       provider: "copilot",
       logger: options.logger,
       runtimeSettings: options.runtimeSettings,
-      defaultCommand: ["copilot", "--acp"],
+      defaultCommand: [
+        "copilot",
+        "--acp",
+        ...(options.runtimeSettings?.command?.mode === "replace"
+          ? []
+          : ["--disable-client-telemetry", "--sync-session=off"]),
+      ],
       defaultModes: COPILOT_MODES,
       sessionResponseTransformer: transformCopilotSessionResponse,
       configOptionsTransformer: transformCopilotConfigOptions,
