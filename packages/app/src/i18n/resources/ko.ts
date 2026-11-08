@@ -2,6 +2,23 @@ import { en, type TranslationResources } from "./en";
 import { pluginSettings } from "./plugin-settings";
 
 export const ko: TranslationResources = {
+  harnessUpdates: {
+    stableChannel: "{{label}} · 안정 채널",
+    title: "에이전트 도구 업데이트",
+    check: "업데이트 확인",
+    checking: "도구 버전 확인 중…",
+    failed: "업데이트를 확인하지 못했습니다. 다시 시도하세요.",
+    empty: "설치된 지원 도구가 없습니다.",
+    installed: "설치된 버전 {{version}}",
+    guide: "업데이트 안내",
+    notice: "{{providers}} 업데이트가 있습니다. 설정 → 제공업체에서 확인하세요.",
+    status: {
+      current: "최신 상태",
+      update_available: "{{version}} 사용 가능",
+      unavailable: "릴리스 정보를 가져올 수 없음",
+      managed: "데스크톱 앱에서 업데이트 관리",
+    },
+  },
   paneFind: {
     connectionFailure: "이 채팅을 검색할 수 없습니다. 호스트 연결을 확인하고 다시 시도하세요.",
     historyChangedFailure: "검색 중에 채팅이 변경되었습니다. 다시 검색하세요.",

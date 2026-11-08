@@ -31,6 +31,7 @@ test("selects the registered service with its credential and ignores stale regis
     );
     expect(await selectOpenCodeService({ file })).toEqual({
       kind: "discovered",
+      version: "2.0.10",
       server: { url, password: "secret" },
     });
     expect(requests).toBe(1);

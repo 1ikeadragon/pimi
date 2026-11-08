@@ -2,6 +2,23 @@ import { en, type TranslationResources } from "./en";
 import { pluginSettings } from "./plugin-settings";
 
 export const ru: TranslationResources = {
+  harnessUpdates: {
+    stableChannel: "{{label}} · Стабильный канал",
+    title: "Обновления инструментов",
+    check: "Проверить обновления",
+    checking: "Проверяем версии инструментов…",
+    failed: "Не удалось проверить обновления. Повторите попытку.",
+    empty: "Установленные поддерживаемые инструменты не найдены.",
+    installed: "Установлена версия {{version}}",
+    guide: "Руководство по обновлению",
+    notice: "Для {{providers}} доступны обновления. Откройте Настройки → Провайдеры.",
+    status: {
+      current: "Актуальная версия",
+      update_available: "Доступна версия {{version}}",
+      unavailable: "Информация о версии недоступна",
+      managed: "Обновлениями управляет настольное приложение",
+    },
+  },
   paneFind: {
     connectionFailure:
       "Не удалось выполнить поиск в чате. Проверьте подключение к хосту и повторите попытку.",

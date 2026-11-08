@@ -2,6 +2,23 @@ import { en, type TranslationResources } from "./en";
 import { pluginSettings } from "./plugin-settings";
 
 export const ja: TranslationResources = {
+  harnessUpdates: {
+    stableChannel: "{{label}} · 安定版",
+    title: "エージェントツールの更新",
+    check: "更新を確認",
+    checking: "ツールのバージョンを確認中…",
+    failed: "更新を確認できませんでした。再試行してください。",
+    empty: "対応するツールがインストールされていません。",
+    installed: "インストール済み {{version}}",
+    guide: "更新ガイド",
+    notice: "{{providers}} の更新があります。設定 → プロバイダーをご覧ください。",
+    status: {
+      current: "最新",
+      update_available: "{{version}} が利用可能",
+      unavailable: "リリース情報を取得できません",
+      managed: "デスクトップアプリが更新を管理します",
+    },
+  },
   paneFind: {
     connectionFailure:
       "このチャットを検索できませんでした。ホストへの接続を確認して再試行してください。",

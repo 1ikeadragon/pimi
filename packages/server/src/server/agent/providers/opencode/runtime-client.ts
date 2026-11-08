@@ -1,3 +1,4 @@
+import { probeHarnessInstallation } from "../../harness-updates.js";
 import type { Logger } from "pino";
 import type {
   AgentClient,
@@ -130,6 +131,15 @@ export class OpenCodeRuntimeClient implements AgentClient {
     if (selection.kind !== "owned") return true;
     return this.legacy.isAvailable();
   }
+  async getHarnessInstallation() {
+    const selection = await this.selectService();
+    if (selection.kind === "explicit") return null;
+    if (selection.kind === "discovered") {
+      return { channel: "opencode-v2" as const, version: selection.version };
+    }
+    return probeHarnessInstallation("opencode", this.settings);
+  }
+
   async getDiagnostic() {
     const selection = await this.selectService();
     if (selection.kind !== "owned")

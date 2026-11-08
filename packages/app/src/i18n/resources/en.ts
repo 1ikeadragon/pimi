@@ -1,4 +1,21 @@
 export const en = {
+  harnessUpdates: {
+    stableChannel: "{{label}} · Stable channel",
+    title: "Harness updates",
+    check: "Check for updates",
+    checking: "Checking harness versions…",
+    failed: "Could not check harness updates. Try again.",
+    empty: "No supported harness installation was detected.",
+    installed: "Installed {{version}}",
+    guide: "Update guide",
+    notice: "{{providers}} updates are available. See Settings → Providers.",
+    status: {
+      current: "Up to date",
+      update_available: "{{version}} is available",
+      unavailable: "Release information unavailable",
+      managed: "Updates are managed by the desktop app",
+    },
+  },
   paneFind: {
     connectionFailure: "Could not search this chat. Check the host connection and retry.",
     historyChangedFailure: "The chat changed while searching. Search again.",

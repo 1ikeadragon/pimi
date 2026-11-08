@@ -3374,6 +3374,8 @@ export class Session {
         return this.providerCatalogSession.handleGetProvidersSnapshotRequest(msg);
       case "refresh_providers_snapshot_request":
         return this.providerCatalogSession.handleRefreshProvidersSnapshotRequest(msg);
+      case "provider.harness_updates.check.request":
+        return this.providerCatalogSession.handleHarnessUpdatesRequest(msg);
       case "provider_diagnostic_request":
         return this.providerCatalogSession.handleProviderDiagnosticRequest(msg);
       case "provider.usage.list.request":

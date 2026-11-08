@@ -1,3 +1,4 @@
+import { probeHarnessInstallation } from "../harness-updates.js";
 import type { Logger } from "pino";
 import type { SessionConfigOption } from "@agentclientprotocol/sdk";
 
@@ -98,6 +99,10 @@ export class CopilotACPAgentClient extends ACPAgentClient {
 
   override async isAvailable(): Promise<boolean> {
     return super.isAvailable();
+  }
+
+  async getHarnessInstallation() {
+    return probeHarnessInstallation("copilot", this.runtimeSettings);
   }
 
   async getDiagnostic(): Promise<{ diagnostic: string }> {
