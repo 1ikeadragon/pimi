@@ -2,6 +2,8 @@
 
 ## Pimi APK
 
+[Download the signed ARM64 preview](https://github.com/1ikeadragon/pimi/releases/tag/pimi-android-v0.16.7-preview.1).
+
 Pimi for Android runs chats on your paired host. You can browse workspace
 files and diffs, open Work, tile agents, and check usage. Tasks reads and
 writes the board on a running Pimi Desktop 0.16.6 or newer. It needs a

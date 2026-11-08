@@ -6,19 +6,21 @@
 
 Chat with your agents, track their work, and review the changes in one app.
 
-[Download for macOS or Windows](https://1ikeadragon.github.io/pimi/) · [Release notes](https://github.com/1ikeadragon/pimi/releases/latest)
+[Downloads](https://1ikeadragon.github.io/pimi/) · [Android APK](https://github.com/1ikeadragon/pimi/releases/download/pimi-android-v0.16.7-preview.1/Pimi-Android-arm64.apk) · [Release notes](https://github.com/1ikeadragon/pimi/releases/latest)
 
 Pair Pimi for Android with your desktop to chat, track tasks, and review changes on your phone. [Android setup and builds](docs/android.md#pimi-apk) · [Self-host Pimi Relay](https://github.com/1ikeadragon/pimi-relay)
 
 ## Chat and Tasks
 
-Ask an agent to track a task or send a few agents to explore it. Queue a follow-up, fork a chat to another provider, or click Pimi to give a voice command.
+Ask an agent to track a task or send a few agents to explore it. Queue a follow-up or fork a chat to another provider.
 
 ![Chat with a task created from a message](assets/pimi/chat.jpg)
 
 Linked work moves tasks along automatically. You can move cards yourself and read the agents’ reports from the task.
 
 ![Tasks board with stages, labels, and linked work](assets/pimi/task-board.jpg)
+
+Click Pimi and say “Show my open PRs” or “Start a chat with the arXiv paper in Spaces called Attention Is All You Need.”
 
 ## Watch the swarm
 
