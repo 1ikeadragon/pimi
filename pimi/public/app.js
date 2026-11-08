@@ -7,6 +7,8 @@ import { createSpacesView } from "./spaces.js";
 import { createDiffFind } from "./diff-find.js";
 import { createWorktreeComparison } from "./worktree-comparison.js";
 import { connectLiveUpdates } from "./live-updates.js";
+import { createReviewPullRequests } from "./review-pull-requests.js";
+import { createReviewFiles } from "./review-files.js";
 
 const $ = (id) => document.getElementById(id);
 if (window.pimiWorkspace?.onVoiceState) {
@@ -51,6 +53,12 @@ let boardRequest;
 let boardSignature;
 let boardData;
 let viewRequest = 0;
+let reviewScreen = "home";
+let railTab = "worktrees";
+let reviewKey;
+let reviewRequest;
+const sourceSelections = new Set();
+const scrollRestores = new Map();
 const patchCache = new Map();
 const renderedPanes = new Map();
 const diffFind = createDiffFind($);
@@ -71,14 +79,35 @@ const tasksView = createTasksView({
   agentChatLinks: agentChatActions,
   openReview: selectWorktree,
   compareReview(card, base) {
-    if (!activeWorktree || !$("review-entry").hidden) selectWorktree(card, base);
-    view("review");
-    worktreeComparison.open(card, base);
+    if (!activeWorktree || reviewScreen !== "code") {
+      selectWorktree(card, base);
+      return;
+    }
+    if (card.path !== activeWorktree.path) {
+      view("review");
+      worktreeComparison.open(card, base);
+    }
   },
   refreshBoard,
 });
 const memoryView = createMemoryView({ $, api, button, element, message });
 const spacesView = createSpacesView({ $, api, button, element, message });
+const reviewFiles = createReviewFiles({
+  $,
+  api,
+  button,
+  element,
+  openFile: (path) => selectFile(path, 0, true),
+});
+const reviewPrs = createReviewPullRequests({
+  $,
+  api,
+  button,
+  element,
+  openDiff: openHostedReview,
+  showDetails: () => showReviewContent("details"),
+  canOpenDiff: (item) => Boolean(item.url),
+});
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -186,7 +215,7 @@ function renderBoard(data) {
   boardSignature = signature;
   tasksView.setBoard(data);
   worktreeComparison.setBoard(data.cards);
-  renderReviewWorktreeOptions(data.cards);
+  renderReviewWorktrees(data.cards);
   daemonConnected = !data.daemonError;
   $("show-agents").hidden = !data.native;
   message(
@@ -226,7 +255,9 @@ function renderBoard(data) {
     lane.append(header);
     for (const card of cards) {
       const item = element("article", "card");
-      const open = button("work-card-open", "", () => selectWorktree(card));
+      const open = button("work-card-open", "", () =>
+        selectWorktree(card, tasksView.baseForWorktree(card)),
+      );
       open.disabled = Boolean(card.unavailable);
       item.dataset.path = card.path;
       item.title = card.path;
@@ -328,19 +359,81 @@ async function watchRepository(event) {
   }
 }
 
-function selectWorktree(card, base = "") {
+function showReviewContent(screen) {
+  if (reviewScreen === "details" && screen !== "details") reviewPrs.close();
+  reviewScreen = screen;
+  $("review-entry").hidden = screen !== "home";
+  $("review-code").hidden = screen !== "code";
+  $("review-pr-details").hidden = screen !== "details";
+  $("review-actions").hidden = screen !== "code";
+  $("review-resume").hidden = !review;
+  $("review").dataset.screen = screen;
+  if (screen !== "code") diffFind.close();
+}
+
+function selectReviewTab(tab) {
+  if ((tab === "changes" || tab === "files") && !activeWorktree) tab = "worktrees";
+  railTab = tab;
+  for (const name of ["worktrees", "changes", "files", "pr"]) {
+    $("review-tab-" + name).setAttribute("aria-pressed", String(name === tab));
+    $("review-" + name + "-nav").hidden = name !== tab;
+  }
+  if (tab === "changes" || tab === "files") {
+    if (reviewScreen !== "code") showCurrentReview();
+    if (tab === "files") void reviewFiles.open(review?.id);
+  }
+  if (tab === "pr") void reviewPrs.refresh();
+}
+
+function clearReviewComparison() {
+  review = undefined;
+  selected = [];
+  patchCache.clear();
+  sourceSelections.clear();
+  scrollRestores.clear();
+  reviewFiles.reset();
+  closeTour();
+  renderFiles();
+  renderPanes();
+}
+
+function showCurrentReview() {
+  showReviewContent("code");
+  $("review-repo").textContent = activeWorktree.repo;
+  $("review-title").textContent = activeWorktree.name;
+  if (review) {
+    renderReviewSummary(review);
+    $("review-pr-back").hidden = !review.pr?.url;
+  }
+}
+
+function selectWorktree(card, base = "", prUrl = "") {
+  const nextKey = JSON.stringify([card.path, base, prUrl]);
+  if (nextKey === reviewKey && (review || loading)) {
+    view("review");
+    showCurrentReview();
+    if (railTab === "worktrees") selectReviewTab("changes");
+    message("review-warning", "");
+    return;
+  }
+  const sameCheckout = Boolean(review && card.path && card.path === activeWorktree?.path);
+  reviewKey = nextKey;
   activeWorktree = card;
   worktreeComparison.setPrimary(card);
-  $("file-search").value = "";
+  worktreeComparison.close();
+  if (!sameCheckout) {
+    clearReviewComparison();
+    $("file-search").value = "";
+  }
   $("base").value = base;
-  $("pr").value = card.prUrl || "";
-  $("mode").value = "all";
+  $("pr").value = prUrl || card.prUrl || "";
+  $("mode").value = prUrl ? "pr" : "all";
+  $("mode").disabled = Boolean(card.hosted);
+  $("compare-worktrees").disabled = Boolean(card.hosted);
+  $("review-pr-back").hidden = !prUrl;
+  $("review-tab-changes").disabled = false;
+  $("review-tab-files").disabled = !sameCheckout;
   updateCompareControls();
-  $("review-entry").hidden = true;
-  $("review-actions").hidden = false;
-  $("review-desk").hidden = false;
-  $("review-repo").textContent = card.repo;
-  $("review-title").textContent = card.name;
   const links = (card.previews ?? []).map((preview) => {
     const link = element("a", "button secondary", `Preview ${preview.name} ↗`);
     link.href = preview.url;
@@ -348,54 +441,92 @@ function selectWorktree(card, base = "") {
     link.rel = "noopener noreferrer";
     return link;
   });
-  links.push(...agentChatActions(card.agents));
+  links.push(...agentChatActions(card.agents ?? []));
   $("previews").replaceChildren(...links);
   $("previews").hidden = !links.length;
   view("review");
-  void loadReview();
+  showCurrentReview();
+  selectReviewTab("changes");
+  renderReviewWorktrees(boardData?.cards ?? []);
+  void loadReview({ keepSelection: sameCheckout });
 }
 
-function renderReviewWorktreeOptions(cards) {
-  const picker = $("review-worktree");
-  const previous = picker.value || activeWorktree?.path || "";
-  const choices = cards.filter((card) => !card.unavailable);
-  const signature = JSON.stringify(choices.map(({ path, repo, name }) => [path, repo, name]));
-  if (picker.dataset.options === signature) return;
-  picker.dataset.options = signature;
-  const placeholder = element(
-    "option",
+function openHostedReview(item) {
+  const matches = (candidate) =>
+    !candidate.unavailable &&
+    candidate.head === item.headSha &&
+    item.worktreePaths?.includes(candidate.path);
+  const cards = boardData?.cards ?? [];
+  const card =
+    cards.find((candidate) => candidate.path === activeWorktree?.path && matches(candidate)) ??
+    cards.find(matches);
+  selectWorktree(
+    card ?? {
+      path: "",
+      repo: item.repository,
+      name: item.title ?? `Pull request #${item.number}`,
+      hosted: true,
+    },
     "",
-    choices.length ? "Select a worktree" : "No worktrees yet",
+    item.url,
   );
-  placeholder.value = "";
-  picker.replaceChildren(
-    placeholder,
-    ...choices.map((card) => {
-      const option = element("option", "", `${card.repo} · ${card.name}`);
-      option.value = card.path;
-      return option;
-    }),
+}
+
+function renderReviewWorktrees(cards = boardData?.cards ?? []) {
+  const query = $("review-worktree-search").value.trim().toLowerCase();
+  const choices = cards.filter(
+    (card) =>
+      !card.unavailable && matchesSearch(query, card.repo, card.name, card.branch, card.path),
   );
-  picker.value = choices.some((card) => card.path === previous) ? previous : "";
-  picker.disabled = choices.length === 0;
-  $("review-open-worktree").disabled = !picker.value;
+  const list = $("review-worktree-list");
+  const signature = JSON.stringify([
+    query,
+    activeWorktree?.path,
+    choices.map(({ path, repo, name, branch, lane }) => [path, repo, name, branch, lane]),
+  ]);
+  if (list.dataset.signature === signature) return;
+  list.dataset.signature = signature;
+  const groups = [
+    ["Ready to review", choices.filter(({ lane }) => lane === "review")],
+    ["Needs attention", choices.filter(({ lane }) => lane === "attention")],
+    ["Working", choices.filter(({ lane }) => lane === "running")],
+    [
+      "Other worktrees",
+      choices.filter(({ lane }) => !["review", "attention", "running"].includes(lane)),
+    ],
+  ];
+  const rows = [];
+  for (const [title, entries] of groups) {
+    if (!entries.length) continue;
+    rows.push(element("h3", "review-rail-group", title));
+    for (const card of entries) {
+      const row = button("review-target-row", "", () =>
+        selectWorktree(card, tasksView.baseForWorktree(card)),
+      );
+      row.setAttribute("aria-pressed", String(activeWorktree?.path === card.path));
+      row.title = card.path;
+      row.append(
+        element("strong", "", card.name),
+        element("span", "", card.repo + " · " + card.branch),
+      );
+      rows.push(row);
+    }
+  }
+  if (!rows.length)
+    rows.push(element("p", "empty", query ? "No matching worktrees" : "No worktrees yet"));
+  list.replaceChildren(...rows);
 }
 
 function openReviewPicker(warning = "") {
-  diffFind.close();
-  worktreeComparison.close();
-  ++generation;
-  loading = false;
-  $("review-repo").textContent = "Worktree review";
+  view("review");
+  showReviewContent("home");
+  selectReviewTab("worktrees");
+  $("review-repo").textContent = "";
   $("review-title").textContent = "Review";
   $("review-meta").textContent = "";
   $("review-meta").removeAttribute("title");
-  $("review-entry").hidden = false;
-  $("review-actions").hidden = true;
-  $("review-desk").hidden = true;
   message("review-warning", warning);
-  view("review");
-  renderReviewWorktreeOptions(boardData?.cards ?? []);
+  renderReviewWorktrees();
   void refreshBoard();
 }
 
@@ -420,7 +551,8 @@ function renderReviewSummary(result) {
   meta.textContent = [
     source,
     result.live ? "Includes working changes" : "Pinned commits",
-    !result.canOpenFiles ? "PR head differs from local checkout" : "",
+    result.hosted ? "GitHub snapshot" : "",
+    !result.hosted && !result.canOpenFiles ? "PR head differs from local checkout" : "",
   ]
     .filter(Boolean)
     .join(" · ");
@@ -452,52 +584,50 @@ async function loadReviewEditors(result) {
     $("review-editor").title = choices.length ? "" : "No editor available";
   } catch (error) {
     if (review !== result) return;
-    message("review-warning", error.message);
+    $("review-editor").title = error.message;
   }
 }
 
 async function loadReview({ keepSelection = false } = {}) {
+  if (!activeWorktree) return;
   const mode = $("mode").value;
-  if (mode === "pr" && !$("pr").value.trim()) {
+  const prUrl = mode === "pr" ? $("pr").value.trim() : "";
+  if (mode === "pr" && !prUrl) {
     message("review-warning", "Enter a GitHub pull request URL.");
     return;
   }
   const request = ++generation;
-  const previousFiles = keepSelection ? selected : [];
+  reviewRequest?.abort();
+  reviewRequest = new AbortController();
+  const previousFiles = keepSelection ? [...selected] : [];
   loading = true;
   $("load-review").disabled = true;
   $("refresh-comparison").disabled = true;
-  reviewEditors = [];
-  renderEditorPicker($("review-editor"));
-  $("review-editor").title = "Detecting editors…";
-  $("review-meta").textContent = "Loading comparison…";
+  $("review-meta").textContent = review ? "Refreshing comparison…" : "Loading comparison…";
   $("review-meta").removeAttribute("title");
   message("review-warning", "");
-  review = undefined;
-  selected = [];
-  patchCache.clear();
-  closeTour();
-  renderFiles();
-  renderPanes();
-  updateTourControls();
+  if (!review) {
+    renderFiles();
+    renderPanes();
+  }
   try {
-    const result = await api("review", {
-      path: activeWorktree.path,
-      mode: mode === "pr" ? "committed" : mode,
-      baseRef: $("base").value.trim(),
-      prUrl: mode === "pr" ? $("pr").value.trim() : "",
-    });
+    const result = await api(
+      "review",
+      {
+        path: activeWorktree.path,
+        mode: mode === "pr" ? "committed" : mode,
+        baseRef: $("base").value.trim(),
+        prUrl,
+      },
+      reviewRequest.signal,
+    );
     if (request !== generation) return;
-    review = result;
-    const paths = new Set(result.files.map((file) => file.path));
-    selected = previousFiles.filter((path) => paths.has(path));
-    if (!selected.length && result.files.length) selected = [result.files[0].path];
-    renderReviewSummary(result);
-    void loadReviewEditors(result);
+    installComparison(result, previousFiles);
   } catch (error) {
     if (request !== generation) return;
     message("review-warning", error.message);
-    $("review-meta").textContent = "Comparison unavailable";
+    if (review && reviewScreen === "code") renderReviewSummary(review);
+    else if (reviewScreen === "code") $("review-meta").textContent = "Comparison unavailable";
   } finally {
     if (request === generation) {
       loading = false;
@@ -510,8 +640,38 @@ async function loadReview({ keepSelection = false } = {}) {
   }
 }
 
-function selectFile(path, side = 0) {
-  if (selected[side] === path) return;
+function installComparison(result, previousFiles) {
+  scrollRestores.clear();
+  for (const path of previousFiles) {
+    const content = renderedPanes.get(path)?.querySelector(".patch");
+    if (content) scrollRestores.set(path, { top: content.scrollTop, left: content.scrollLeft });
+  }
+  review = result;
+  reviewEditors = [];
+  renderEditorPicker($("review-editor"));
+  $("review-tab-files").disabled = Boolean(result.hosted);
+  patchCache.clear();
+  renderedPanes.clear();
+  $("panes").replaceChildren();
+  closeTour();
+  const paths = new Set(result.files.map((file) => file.path));
+  selected = previousFiles.filter((path) => paths.has(path) || sourceSelections.has(path));
+  if (!selected.length && result.files.length) selected = [result.files[0].path];
+  $("review-pr-back").hidden = !result.pr?.url;
+  if (reviewScreen === "code") renderReviewSummary(result);
+  if (railTab === "files") void reviewFiles.open(result.id);
+  void loadReviewEditors(result);
+}
+
+function selectFile(path, side = 0, source = false) {
+  const showingSource = sourceSelections.has(path);
+  if (selected[side] === path && showingSource === source) return;
+  if (source) sourceSelections.add(path);
+  else sourceSelections.delete(path);
+  if (showingSource !== source) {
+    renderedPanes.get(path)?.remove();
+    renderedPanes.delete(path);
+  }
   if (selected[1 - side] === path) {
     [selected[0], selected[1]] = [selected[1], selected[0]];
   } else if (side === 1 && !selected[0]) {
@@ -534,9 +694,9 @@ function renderFiles() {
   const total = review?.files.length ?? 0;
   $("file-count").textContent = files.length === total ? total : `${files.length} / ${total}`;
   if (!review?.files.length) {
-    $("file-list").replaceChildren(
-      element("p", "empty", loading ? "Loading…" : "No changes to display"),
-    );
+    let label = review ? "No changed files" : "No comparison loaded";
+    if (loading) label = "Loading…";
+    $("file-list").replaceChildren(element("p", "empty", label));
     return;
   }
   if (!files.length) {
@@ -550,8 +710,8 @@ function renderFiles() {
       choose.setAttribute("aria-pressed", String(selected[0] === file.path));
       choose.title = file.oldPath ? `${file.oldPath} → ${file.path}` : file.path;
       choose.append(
-        element("span", "file-status", file.status[0]),
-        element("span", "file-name", file.path),
+        element("span", "file-status " + file.status[0].toLowerCase(), file.status[0]),
+        fileLabel(file.path),
       );
       const side = button("icon-button", "◫", () => selectFile(file.path, 1));
       side.setAttribute("aria-label", `Open ${file.path} in second pane`);
@@ -560,6 +720,14 @@ function renderFiles() {
       return row;
     }),
   );
+}
+
+function fileLabel(path) {
+  const slash = path.lastIndexOf("/");
+  const label = element("span", "review-file-label");
+  label.append(element("strong", "file-name", path.slice(slash + 1)));
+  if (slash >= 0) label.append(element("span", "review-file-directory", path.slice(0, slash)));
+  return label;
 }
 
 function getPatch(id, path) {
@@ -580,12 +748,14 @@ function formatPatch(patch, parent) {
   let oldLine = null;
   let newLine = null;
   let firstAdded;
+  const hasHunks = /^@@ /m.test(patch);
   for (const text of patch.replace(/\n$/, "").split("\n")) {
     const hunk = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(text);
     let kind = "meta";
     let before;
     let after;
     if (hunk) {
+      kind = "hunk";
       oldLine = Number(hunk[1]);
       newLine = Number(hunk[2]);
     } else if (text.startsWith("diff --git ")) {
@@ -602,6 +772,7 @@ function formatPatch(patch, parent) {
       before = oldLine++;
       after = newLine++;
     }
+    if (kind === "meta" && hasHunks && /^(diff --git |index |--- |\+\+\+ )/.test(text)) continue;
     const row = element("div", "patch-line " + kind);
     const oldGutter = element("span", "gutter", before);
     const newGutter = element("span", "gutter", after);
@@ -668,12 +839,16 @@ function createPane(path) {
   const current = review;
   const file = current.files.find((item) => item.path === path);
   let firstLine = 1;
+  let showingSource = !file || sourceSelections.has(path);
+  let request = 0;
   const pane = element("section", "pane");
   pane.setAttribute("aria-label", path);
   const heading = element("div", "pane-head");
   const title = element("span", "pane-path", path);
   title.title = path;
   const actions = element("div", "pane-actions");
+  const content = element("div", "patch");
+  content.tabIndex = 0;
   const editor = element("select", "editor-picker");
   editor.addEventListener("change", () => {
     const editorId = editor.value;
@@ -693,77 +868,89 @@ function createPane(path) {
     );
   });
   editor.setAttribute("aria-label", `Open ${path} in`);
-  editor.dataset.editorOpenable = "false";
+  if (file && current.canOpenFiles && file.status !== "D") editor.dataset.editorOpenable = "false";
   renderEditorPicker(editor, false);
-  editor.title =
-    current.canOpenFiles && file.status !== "D"
-      ? "Open local file at the selected line"
-      : "File is unavailable at the current checkout";
+  const toggle = button("icon-button review-pane-toggle", showingSource ? "Diff" : "File", () => {
+    showingSource = !showingSource;
+    if (showingSource) sourceSelections.add(path);
+    else sourceSelections.delete(path);
+    void loadContent();
+  });
+  toggle.setAttribute("aria-label", `Toggle file and diff for ${path}`);
+  const wrap = button("icon-button review-pane-toggle", "Wrap", () => {
+    const enabled = content.classList.toggle("review-wrap");
+    wrap.setAttribute("aria-pressed", String(enabled));
+  });
+  wrap.setAttribute("aria-label", "Wrap long lines");
+  wrap.setAttribute("aria-pressed", "false");
   const close = button("icon-button", "×", () => {
     selected = selected.filter((item) => item !== path);
     renderFiles();
     renderPanes();
   });
   close.setAttribute("aria-label", `Close ${path}`);
-  actions.append(editor, close);
+  if (file) actions.append(toggle);
+  actions.append(wrap);
+  if (editor.dataset.editorOpenable !== undefined) actions.append(editor);
+  actions.append(close);
   heading.append(title, actions);
-  const content = element("div", "patch");
-  content.tabIndex = 0;
-  content.setAttribute("aria-label", `Diff for ${path}`);
-  content.append(element("p", "empty", "Loading diff…"));
   pane.append(heading, content);
-  const displayPatch = (patch) => {
-    if (patch.length > 400_000) {
-      content.replaceChildren(
-        element("p", "empty", "This patch exceeds the 400,000 character display limit."),
-      );
-    } else if (!patch) {
-      content.replaceChildren(
-        element("p", "empty", "No patch available. Refresh if the checkout changed."),
-      );
-    } else {
-      firstLine = formatPatch(patch, content);
-    }
-    content.setAttribute("aria-label", `Diff for ${path}`);
-    if (current.id === review?.id) focusStep();
-  };
-  const loadPatch = async () => {
+
+  async function loadContent() {
+    const attempt = ++request;
+    toggle.textContent = file?.status === "D" ? "Before" : "File";
+    if (showingSource) toggle.textContent = "Diff";
+    toggle.setAttribute("aria-pressed", String(showingSource));
+    content.setAttribute("aria-label", `${showingSource ? "Source" : "Diff"} for ${path}`);
+    content.replaceChildren(
+      element("p", "empty", showingSource ? "Loading file…" : "Loading diff…"),
+    );
     try {
-      const { patch, fingerprint } = await getPatch(current.id, path);
-      pane.dataset.fingerprint = fingerprint;
-      displayPatch(patch);
-      editor.dataset.editorOpenable = String(current.canOpenFiles && file.status !== "D");
-      renderEditorPicker(editor, editor.dataset.editorOpenable === "true");
-      let showingSource = false;
-      const toggle = button("icon-button", file.status === "D" ? "Before" : "File", async () => {
-        if (showingSource) {
-          showingSource = false;
-          toggle.textContent = file.status === "D" ? "Before" : "File";
-          displayPatch(patch);
-          return;
+      if (showingSource) {
+        const query = new URLSearchParams({ id: current.id, path });
+        const { source, tokens } = await api((file ? "source?" : "review-source?") + query);
+        if (attempt !== request || current !== review) return;
+        showSource(source, tokens, content);
+      } else {
+        const { patch, fingerprint } = await getPatch(current.id, path);
+        if (attempt !== request || current !== review) return;
+        pane.dataset.fingerprint = fingerprint;
+        if (patch.length > 400_000) {
+          content.replaceChildren(element("p", "empty", "This patch is too large to display."));
+        } else if (!patch) {
+          content.replaceChildren(
+            element(
+              "p",
+              "empty",
+              current.hosted
+                ? "GitHub did not return a text patch for this file."
+                : "No text patch is available. Open the file to see its contents.",
+            ),
+          );
+        } else {
+          firstLine = formatPatch(patch, content);
         }
-        toggle.disabled = true;
-        try {
-          const query = new URLSearchParams({ id: current.id, path });
-          const { source, tokens } = await api("source?" + query);
-          showSource(source, tokens, content);
-          showingSource = true;
-          toggle.textContent = "Diff";
-          content.setAttribute("aria-label", `Source for ${path}`);
-          if (current.id === review?.id) focusStep();
-        } catch (error) {
-          if (current.id === review?.id) message("review-warning", error.message);
-        } finally {
-          toggle.disabled = false;
+        if (editor.dataset.editorOpenable !== undefined) {
+          editor.dataset.editorOpenable = "true";
+          renderEditorPicker(editor);
         }
-      });
-      toggle.setAttribute("aria-label", `Toggle file and diff for ${path}`);
-      actions.prepend(toggle);
+      }
+      const position = scrollRestores.get(path);
+      if (position) {
+        content.scrollTop = position.top;
+        content.scrollLeft = position.left;
+        scrollRestores.delete(path);
+      }
+      focusStep();
     } catch (error) {
-      content.replaceChildren(element("p", "empty", error.message));
+      if (attempt === request)
+        content.replaceChildren(
+          element("p", "empty", error.message),
+          button("button quiet review-retry", "Try again", loadContent),
+        );
     }
-  };
-  void loadPatch();
+  }
+  void loadContent();
   return pane;
 }
 
@@ -775,10 +962,27 @@ function renderPanes() {
     }
   }
   if (!selected.length) {
-    $("panes").replaceChildren(element("p", "empty", "Choose a changed file to start reviewing."));
+    const empty = element("div", "review-code-empty");
+    let title = "Choose a file";
+    let hint = "Pick a file in the sidebar to review it.";
+    if (loading && !review) {
+      title = "Loading comparison…";
+      hint = "";
+    } else if (!review) {
+      title = "Comparison unavailable";
+      hint = "Try again or choose a different comparison.";
+    } else if (!review.files.length) {
+      title = "No changes to review";
+      hint = "Switch to Files to browse the code in this checkout.";
+    }
+    empty.append(element("h2", "", title));
+    if (hint) empty.append(element("p", "subtitle", hint));
+    if (review && !review.files.length && !review.hosted)
+      empty.append(button("button secondary", "Browse files", () => selectReviewTab("files")));
+    $("panes").replaceChildren(empty);
     return;
   }
-  $("panes").querySelector(":scope > .empty")?.remove();
+  $("panes").querySelector(":scope > .review-code-empty")?.remove();
   for (const [index, path] of selected.entries()) {
     if (!renderedPanes.has(path)) renderedPanes.set(path, createPane(path));
     const pane = renderedPanes.get(path);
@@ -951,29 +1155,69 @@ appearance.addEventListener("change", async () => {
   }
 });
 $("show-review").addEventListener("click", () => {
-  if ($("review-entry").hidden) view("review");
-  else openReviewPicker();
+  if (reviewScreen === "home") openReviewPicker();
+  else view("review");
+  void reviewPrs.refresh();
 });
 $("change-review-worktree").addEventListener("click", () => {
-  openReviewPicker();
-  $("review-worktree").focus();
+  selectReviewTab("worktrees");
+  $("review-worktree-search").focus();
 });
 $("compare-worktrees").addEventListener("click", () => worktreeComparison.open());
-$("review-worktree").addEventListener("change", () => {
-  $("review-open-worktree").disabled = !$("review-worktree").value;
+for (const tab of ["worktrees", "changes", "files", "pr"]) {
+  $("review-tab-" + tab).addEventListener("click", () => selectReviewTab(tab));
+}
+$("review-worktree-search").addEventListener("input", () => renderReviewWorktrees());
+$("review-worktree-search").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") $("review-worktree-list").querySelector("button")?.click();
 });
-$("review-target").addEventListener("submit", (event) => {
-  event.preventDefault();
-  const card = boardData?.cards.find(
-    ({ path, unavailable }) => path === $("review-worktree").value && !unavailable,
-  );
-  if (card) selectWorktree(card, tasksView.baseForWorktree(card));
+$("review-resume").addEventListener("click", () => {
+  if (!activeWorktree || !review) return;
+  showCurrentReview();
+  selectReviewTab("changes");
+  message("review-warning", "");
+});
+$("review-pr-back").addEventListener("click", () => {
+  const url = review?.pr?.url || $("pr").value;
+  if (!url) return;
+  selectReviewTab("pr");
+  void reviewPrs.open(url);
+});
+$("review-open-pr").addEventListener("click", () => {
+  selectReviewTab("pr");
+  $("review-pr-url").focus();
 });
 $("review-add-repository").addEventListener("click", () => {
   $("show-board").click();
   $("watch-repo").closest("details").open = true;
   $("repo-path").focus();
 });
+async function navigateToWorktreeReview(destination) {
+  const request = view("review");
+  if (destination.reviewNotice) {
+    openReviewPicker(destination.reviewNotice);
+    return;
+  }
+  const prepared = destination.reviewTarget;
+  // An explicit prepared target already passed the desktop runtime's host and path checks.
+  const board = refreshBoard();
+  const taskState = tasksView.load();
+  await (prepared ? taskState : Promise.all([board, taskState]));
+  if (request !== viewRequest) return;
+  if (!prepared && destination.serverId && boardData?.serverId !== destination.serverId) {
+    openReviewPicker("This checkout belongs to another host or is offline.");
+    return;
+  }
+  const card =
+    boardData?.cards.find(({ path, unavailable }) => path === destination.path && !unavailable) ??
+    prepared;
+  if (!card) {
+    openReviewPicker("Choose a worktree to review.");
+    return;
+  }
+  selectWorktree(card, tasksView.baseForWorktree(card));
+}
+
 window.pimiWorkspace?.onNavigate(async (destination) => {
   if (destination.view === "spaces") {
     $("show-spaces").click();
@@ -986,6 +1230,12 @@ window.pimiWorkspace?.onNavigate(async (destination) => {
   }
   if (destination.view === "review-home") {
     $("show-review").click();
+    return;
+  }
+  if (destination.view === "review-pr") {
+    view("review");
+    selectReviewTab("pr");
+    await reviewPrs.open(destination.url);
     return;
   }
   if (destination.view === "tasks") {
@@ -1004,29 +1254,7 @@ window.pimiWorkspace?.onNavigate(async (destination) => {
     $("show-board").click();
     return;
   }
-  const request = view("review");
-  await Promise.all([refreshBoard(), tasksView.load()]);
-  if (request !== viewRequest) return;
-  if (destination.serverId && !daemonConnected) {
-    openReviewPicker("Connect to the Agent Console host to open this review suggestion.");
-    return;
-  }
-  if (destination.serverId && boardData?.serverId !== destination.serverId) {
-    openReviewPicker("This review suggestion belongs to a different Agent Console host.");
-    return;
-  }
-  if (destination.reviewNotice) {
-    openReviewPicker(destination.reviewNotice);
-    return;
-  }
-  const card =
-    boardData?.cards.find(({ path, unavailable }) => path === destination.path && !unavailable) ??
-    destination.reviewTarget;
-  if (!card) {
-    openReviewPicker("Add this repository in Work to open its review.");
-    return;
-  }
-  selectWorktree(card, tasksView.baseForWorktree(card));
+  await navigateToWorktreeReview(destination);
 });
 $("board-search").addEventListener("input", () => {
   if (boardData) renderBoard(boardData);
@@ -1052,16 +1280,27 @@ $("review-editor").addEventListener("change", () => {
   picker.value = "";
   if (review && editorId) void launchEditor(review, editorId, null);
 });
-$("file-tour").addEventListener("click", startFileTour);
-$("ai-tour").addEventListener("click", startAiTour);
+$("file-tour").addEventListener("click", () => {
+  $("review-tools").open = false;
+  startFileTour();
+});
+$("ai-tour").addEventListener("click", () => {
+  $("review-tools").open = false;
+  void startAiTour();
+});
 $("prev-step").addEventListener("click", () => showStep(stepIndex - 1));
 $("next-step").addEventListener("click", nextStep);
 $("close-tour").addEventListener("click", closeTour);
 function focusViewSearch(event, reviewing) {
   const listSearch = $("tasks").hidden ? "board-search" : "task-search";
-  const reviewSearch = $("review-entry").hidden ? "file-search" : "review-worktree";
+  const reviewSearch = {
+    worktrees: "review-worktree-search",
+    changes: "file-search",
+    files: "review-source-search",
+    pr: "review-pr-search",
+  }[railTab];
   const search = $(reviewing ? reviewSearch : listSearch);
-  if (search.closest("[hidden]")) return;
+  if (!search || search.closest("[hidden]")) return;
   event.preventDefault();
   search.focus();
 }
@@ -1080,7 +1319,7 @@ document.addEventListener("keydown", (event) => {
     focusViewSearch(event, reviewing);
   } else if (reviewing && event.key === "Escape" && tour) {
     closeTour();
-  } else if (reviewing && (event.key === "[" || event.key === "]")) {
+  } else if (reviewing && reviewScreen === "code" && (event.key === "[" || event.key === "]")) {
     event.preventDefault();
     navigateReview(event.key === "[" ? -1 : 1);
   }
@@ -1088,5 +1327,6 @@ document.addEventListener("keydown", (event) => {
 connectLiveUpdates({
   refreshBoard,
   refreshTasks: tasksView.load,
+  refreshPullRequests: () => !$("review").hidden && railTab === "pr" && reviewPrs.refresh(),
   status: (text) => message("live-status", text),
 });

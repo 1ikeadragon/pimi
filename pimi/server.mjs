@@ -205,6 +205,9 @@ export async function startPimi({
         ["/board-motion.js", "board-motion.js", "text/javascript; charset=utf-8"],
         ["/worktree-comparison.js", "worktree-comparison.js", "text/javascript; charset=utf-8"],
         ["/diff-find.js", "diff-find.js", "text/javascript; charset=utf-8"],
+        ["/review-files.js", "review-files.js", "text/javascript; charset=utf-8"],
+        ["/review-pull-requests.js", "review-pull-requests.js", "text/javascript; charset=utf-8"],
+        ["/review-pull-requests.css", "review-pull-requests.css", "text/css; charset=utf-8"],
         ["/live-updates.js", "live-updates.js", "text/javascript; charset=utf-8"],
         ["/style.css", "style.css", "text/css; charset=utf-8"],
         ["/pimi-mark.svg", "pimi-mark.svg", "image/svg+xml"],
@@ -679,8 +682,9 @@ export async function startPimi({
 
   async function prepareChatReview(path, serverId) {
     if (serverId) {
-      const daemon = await paseo.directory();
-      if (daemon.error || daemon.serverId !== serverId) return { path };
+      const local = await paseo.localServerId().catch(() => null);
+      if (local !== serverId)
+        return { path, reviewNotice: "This checkout is on another host or is offline." };
     }
     let targets;
     try {
@@ -699,7 +703,6 @@ export async function startPimi({
       reviewWorktrees.set(worktree.path, { ...worktree, root: worktree.path });
       if (reviewWorktrees.size > 64) reviewWorktrees.delete(reviewWorktrees.keys().next().value);
     }
-    await inventoryTask?.catch(() => undefined);
     invalidateInventory();
     if (targets.length > 1) {
       return {

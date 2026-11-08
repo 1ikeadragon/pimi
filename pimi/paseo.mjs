@@ -518,6 +518,7 @@ export function createPaseoConnection(settingsSource = {}) {
   return {
     directory,
     workspaceDirectory,
+    localServerId: async () => getDaemonHost(await connect()),
     labels,
     setWorkLabel,
     memory: (input) => localData("/api/pimi/memory", "Memory", input),

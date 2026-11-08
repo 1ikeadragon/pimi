@@ -49,6 +49,9 @@ async function worktreeRoot(cwd) {
 
 async function indexReview(review) {
   const cwd = review.worktree.path;
+  if (review.hosted) {
+    throw new RequestError("Browse changed files for this hosted pull request.", 404);
+  }
   if (!review.live) {
     if (!review.head) return new Set();
     const entries = await git(cwd, "ls-tree", "-r", "-z", "--full-tree", review.head);
