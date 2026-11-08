@@ -11,6 +11,8 @@ import type {
   PimiReportLinkError,
   PimiReviewSummary,
   PimiVoiceBubbleState,
+  PimiVoiceCommandInput,
+  PimiVoiceResult,
   PimiWorkspaceSection,
 } from "@getpaseo/protocol/pimi-task";
 
@@ -219,6 +221,7 @@ export interface DesktopHostBridge {
     reportError: (error: PimiReportLinkError) => void;
   };
   pimiVoice?: {
+    runCommand: (input: PimiVoiceCommandInput) => Promise<PimiVoiceResult>;
     publish: (state: PimiVoiceBubbleState) => void;
     onToggle: (toggle: () => void) => () => void;
     onPause: (pause: () => void) => () => void;

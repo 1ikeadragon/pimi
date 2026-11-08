@@ -21,6 +21,8 @@ import type {
   PimiRecapPeriod,
   PimiReviewSummary,
   PimiVoiceBubbleState,
+  PimiVoiceCommandInput,
+  PimiVoiceResult,
   PimiWorkspaceSection,
 } from "@getpaseo/protocol/pimi-task";
 import { resolveDesktopDaemonStatus } from "../daemon/daemon-manager.js";
@@ -134,6 +136,7 @@ interface PimiRuntimeResult {
   observeWorkspaces(): Promise<void>;
   getLinkedLabels(): Promise<PimiLinkedLabels>;
   getRecap(period: PimiRecapPeriod): PimiRecap;
+  runVoiceCommand(input: PimiVoiceCommandInput): Promise<PimiVoiceResult>;
   subscribeToLabels(listener: () => void): () => void;
   resolveReportLink(request: PimiReportLinkRequest): Promise<PimiReportLinkTarget>;
   prepareChatReview(

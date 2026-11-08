@@ -10,6 +10,8 @@ import type {
   PimiReportLinkError,
   PimiReviewSummary,
   PimiVoiceBubbleState,
+  PimiVoiceCommandInput,
+  PimiVoiceResult,
   PimiWorkspaceSection,
 } from "@getpaseo/protocol/pimi-task";
 
@@ -158,6 +160,8 @@ contextBridge.exposeInMainWorld("paseoDesktop", {
             ipcRenderer.send("pimi:workspace:report-link-error", error),
         },
         pimiVoice: {
+          runCommand: (input: PimiVoiceCommandInput): Promise<PimiVoiceResult> =>
+            ipcRenderer.invoke("pimi:voice:command", input),
           publish: (state: PimiVoiceBubbleState) => ipcRenderer.send("pimi:voice:state", state),
           onToggle: (toggle: () => void) => {
             const listener = () => toggle();

@@ -2,6 +2,7 @@ import { z } from "zod";
 import Ajv, { type ErrorObject, type Options as AjvOptions } from "ajv";
 import type { AgentProvider, AgentSessionConfig } from "./agent-sdk-types.js";
 import type { AgentManager } from "./agent-manager.js";
+import { withTimeout } from "../../utils/promise-timeout.js";
 
 export interface StructuredGenerationLogger {
   info: (obj: object, msg?: string) => void;
@@ -74,6 +75,8 @@ export interface StructuredAgentGenerationOptions<T> {
   agentConfig: AgentSessionConfig;
   agentId?: string;
   persistSession?: boolean;
+  withoutAppTools?: boolean;
+  turnTimeoutMs?: number;
   prompt: string;
   schema: z.ZodType<T> | JsonSchema;
   maxRetries?: number;
@@ -354,15 +357,29 @@ export async function getStructuredAgentResponse<T>(
 export async function generateStructuredAgentResponse<T>(
   options: StructuredAgentGenerationOptions<T>,
 ): Promise<T> {
-  const { manager, agentConfig, agentId, persistSession, prompt, schema, maxRetries, schemaName } =
-    options;
+  const {
+    manager,
+    agentConfig,
+    agentId,
+    persistSession,
+    prompt,
+    schema,
+    maxRetries,
+    schemaName,
+    withoutAppTools,
+    turnTimeoutMs,
+  } = options;
   const agent = await manager.createAgent(agentConfig, agentId, {
     persistSession,
+    ...(withoutAppTools ? { withoutAppTools } : {}),
     workspaceId: undefined,
   });
   try {
     const caller: AgentCaller = async (nextPrompt) => {
-      const result = await manager.runAgent(agent.id, nextPrompt);
+      const run = manager.runAgent(agent.id, nextPrompt);
+      const result = turnTimeoutMs
+        ? await withTimeout(run, turnTimeoutMs, "The model did not reply in time.")
+        : await run;
       if (typeof result.finalText === "string" && result.finalText.length > 0) {
         return result.finalText;
       }

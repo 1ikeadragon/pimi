@@ -166,7 +166,17 @@ export const PimiNewTaskDestination = PimiTaskFields.pick({
   .partial()
   .extend({ view: z.literal("new-task") });
 export const PimiOpenTaskDestination = PimiTaskAgentGetInput.extend({ view: z.literal("task") });
-export const PimiSimpleDestinationView = z.enum(["tasks", "worktrees", "review-home", "spaces"]);
+export const PimiSimpleDestinationView = z.enum(["tasks", "worktrees", "review-home"]);
+export const PimiSpacesDestination = z.object({
+  view: z.literal("spaces"),
+  action: z
+    .discriminatedUnion("kind", [
+      z.object({ kind: z.literal("draft"), text: z.string().max(4096).optional() }),
+      z.object({ kind: z.literal("search"), query: z.string().trim().min(1).max(160) }),
+      z.object({ kind: z.literal("saved") }),
+    ])
+    .optional(),
+});
 export const PimiReviewPrDestination = z.object({
   view: z.literal("review-pr"),
   url: z
@@ -180,10 +190,79 @@ export type PimiDestination =
   | z.infer<typeof PimiNewTaskDestination>
   | z.infer<typeof PimiOpenTaskDestination>
   | z.infer<typeof PimiReviewPrDestination>
+  | z.infer<typeof PimiSpacesDestination>
   | { view: "review"; path: string; serverId?: string }
   | { view: "task-draft"; proposal: PimiTaskProposal };
 
 export type PimiWorkspaceSection = "tasks" | "board" | "review" | "memory" | "spaces";
+
+export const PIMI_VOICE_COMMAND_ROUTE = "/api/pimi/voice-command";
+export const PimiVoiceCommandInput = z.strictObject({
+  transcript: z.string().trim().min(1).max(4096),
+  agentId: z.string().min(1).max(256).optional(),
+});
+export type PimiVoiceCommandInput = z.infer<typeof PimiVoiceCommandInput>;
+
+export const PimiVoiceView = z.enum([
+  "chat",
+  "tasks",
+  "work",
+  "review",
+  "memory",
+  "spaces",
+  "agents",
+  "usage",
+  "automations",
+  "history",
+  "skills",
+  "hooks",
+  "settings",
+]);
+export type PimiVoiceView = z.infer<typeof PimiVoiceView>;
+
+const voiceNote = z.string().trim().min(1).max(4096);
+export const PimiVoiceNavigation = z.discriminatedUnion("action", [
+  z.strictObject({ action: z.literal("show"), view: PimiVoiceView }),
+  z.strictObject({ action: z.literal("new-chat"), text: voiceNote.optional() }),
+  z.strictObject({
+    action: z.literal("new-task"),
+    title: PimiTaskFields.shape.title.optional(),
+    brief: PimiTaskFields.shape.brief.optional(),
+  }),
+  z.strictObject({ action: z.literal("new-space"), text: voiceNote.optional() }),
+  z.strictObject({
+    action: z.literal("search-spaces"),
+    query: z.string().trim().min(1).max(160),
+  }),
+]);
+export type PimiVoiceNavigation = z.infer<typeof PimiVoiceNavigation>;
+
+export const PimiVoicePlan = z.strictObject({
+  steps: z
+    .array(
+      z.discriminatedUnion("action", [
+        z.strictObject({
+          action: z.literal("create-task"),
+          title: PimiTaskFields.shape.title,
+          brief: PimiTaskFields.shape.brief,
+        }),
+        z.strictObject({
+          action: z.literal("move-task"),
+          title: PimiTaskFields.shape.title,
+          stage: PimiTaskStage,
+        }),
+        z.strictObject({ action: z.literal("save-space"), text: voiceNote }),
+      ]),
+    )
+    .max(3),
+  open: PimiVoiceNavigation.optional(),
+});
+
+export interface PimiVoiceResult {
+  message: string;
+  destination?: PimiDestination;
+  navigation?: PimiVoiceNavigation;
+}
 
 export const PIMI_SPACES_ROUTE = "/api/pimi/spaces";
 export const PIMI_SPACE_IMAGE_BYTES = 4 * 1024 * 1024;

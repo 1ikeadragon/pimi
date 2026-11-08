@@ -1,7 +1,7 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
-import { router } from "expo-router";
+import { router, usePathname } from "expo-router";
 import { Mic, Square } from "lucide-react-native";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Image, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { DensityIcon } from "@/components/ui/density-icon";
@@ -14,6 +14,13 @@ import { parsePimiVoiceCommand } from "@/desktop/pimi-voice-command";
 import { usePimiVoiceListener } from "@/desktop/use-pimi-voice-listener.web";
 import { useAppSettings } from "@/hooks/use-settings";
 import { useLocalDaemonServerId } from "@/hooks/use-is-local-daemon";
+import {
+  closePimiAgentGrid,
+  openPimiAgentGrid,
+  PIMI_AGENT_GRID_ROUTE,
+} from "@/navigation/pimi-agent-grid";
+import { closePimiLibrary, openPimiLibrary, PIMI_LIBRARY_ROUTE } from "@/navigation/pimi-library";
+import { closePimiUsage, openPimiUsage, PIMI_USAGE_ROUTE } from "@/navigation/pimi-usage";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import {
   buildDraftStoreKey,
@@ -26,9 +33,19 @@ import {
   useActiveWorkspaceSelection,
 } from "@/stores/navigation-active-workspace-store";
 import { useSessionStore } from "@/stores/session-store";
-import { buildNewWorkspaceRoute } from "@/utils/host-routes";
+import {
+  buildNewWorkspaceRoute,
+  buildOpenProjectRoute,
+  buildSchedulesRoute,
+  buildSessionsRoute,
+  buildSettingsRoute,
+} from "@/utils/host-routes";
 import { getVoiceReadinessState } from "@/utils/server-info-capabilities";
-import { PimiNewTaskDestination } from "@getpaseo/protocol/pimi-task";
+import {
+  PimiVoiceNavigation,
+  type PimiDestination,
+  type PimiVoiceView,
+} from "@getpaseo/protocol/pimi-task";
 
 interface VoiceBubbleProps {
   enabled: boolean;
@@ -52,59 +69,107 @@ const VOICE_OFF = { selected: false };
 const VOICE_ON = { selected: true };
 const VOICE_DOG = { uri: "/pimi-textures/voice-dog.svg" };
 
+const WORKSPACE_VIEWS: Partial<Record<PimiVoiceView, PimiDestination>> = {
+  tasks: { view: "tasks" },
+  work: { view: "worktrees" },
+  review: { view: "review-home" },
+  memory: { view: "memory" },
+  spaces: { view: "spaces" },
+};
+
+function openVoiceView(view: PimiVoiceView, host: DesktopHostBridge, pathname: string) {
+  const destination = WORKSPACE_VIEWS[view];
+  if (destination) {
+    host.showPimiWorkspace?.(destination);
+    return;
+  }
+  host.dismissPimiWorkspace?.();
+  switch (view) {
+    case "chat":
+      if (pathname === PIMI_AGENT_GRID_ROUTE) closePimiAgentGrid();
+      else if (pathname === PIMI_USAGE_ROUTE) closePimiUsage();
+      else if (pathname === PIMI_LIBRARY_ROUTE) closePimiLibrary();
+      else if (
+        pathname === buildSchedulesRoute() ||
+        pathname === buildSessionsRoute() ||
+        pathname.startsWith(buildSettingsRoute())
+      ) {
+        if (router.canGoBack()) router.back();
+        else router.replace(buildOpenProjectRoute());
+      }
+      break;
+    case "agents":
+      openPimiAgentGrid();
+      break;
+    case "usage":
+      openPimiUsage();
+      break;
+    case "skills":
+    case "hooks":
+      openPimiLibrary(view, pathname === PIMI_LIBRARY_ROUTE);
+      break;
+    case "automations":
+      router.navigate(buildSchedulesRoute());
+      break;
+    case "history":
+      router.navigate(buildSessionsRoute());
+      break;
+    case "settings":
+      router.navigate(buildSettingsRoute());
+      break;
+  }
+}
+
 function applyVoiceCommand(
-  command: NonNullable<ReturnType<typeof parsePimiVoiceCommand>>,
+  command: PimiVoiceNavigation,
   {
     host,
     localServerId,
     selection,
-    stop,
-    setMessage,
+    pathname,
   }: {
     host: DesktopHostBridge;
     localServerId: string;
     selection: ReturnType<typeof useActiveWorkspaceSelection>;
-    stop: () => void;
-    setMessage: (message: string) => void;
+    pathname: string;
   },
 ) {
   switch (command.action) {
-    case "stop":
-      stop();
-      setMessage("Microphone off");
-      return;
     case "show":
-      setMessage(`Got it · Opening ${command.label}`);
-      if (command.destination === "chat") host.dismissPimiWorkspace?.();
-      else host.showPimiWorkspace?.(command.destination);
-      return;
-    case "new-task": {
-      const result = PimiNewTaskDestination.safeParse({
+      openVoiceView(command.view, host, pathname);
+      return `Opening ${command.view[0].toUpperCase() + command.view.slice(1)}`;
+    case "new-space":
+      host.showPimiWorkspace?.({
+        view: "spaces",
+        action: { kind: "draft", text: command.text },
+      });
+      return "Opening a Spaces card";
+    case "search-spaces":
+      host.showPimiWorkspace?.({
+        view: "spaces",
+        action: { kind: "search", query: command.query },
+      });
+      return "Searching Spaces";
+    case "new-task":
+      host.showPimiWorkspace?.({
         view: "new-task",
         title: command.title,
         brief: command.brief,
       });
-      if (!result.success) {
-        setMessage("Try a shorter task title or brief.");
-        return;
-      }
-      setMessage("Got it · Opening task draft");
-      host.showPimiWorkspace?.(result.data);
-      return;
-    }
+      return "Opening task draft";
     case "new-chat": {
       const draftId = generateDraftId();
       const draftKey = selection
         ? buildDraftStoreKey({ serverId: selection.serverId, agentId: "", draftId })
         : buildNewWorkspaceDraftKey(draftId);
       if (command.text) useDraftStore.getState().editDraftText({ draftKey, text: command.text });
-      setMessage("Got it · Opening chat draft");
       host.dismissPimiWorkspace?.();
       if (selection) {
         navigateToWorkspace({ ...selection, target: { kind: "draft", draftId } });
       } else {
         router.navigate(buildNewWorkspaceRoute({ serverId: localServerId, draftId }));
       }
+      return "Opening chat draft";
     }
   }
 }
@@ -140,23 +205,51 @@ function DesktopVoiceBubble({
   const client = useHostRuntimeClient(localServerId);
   const connected = useHostRuntimeIsConnected(localServerId);
   const selection = useActiveWorkspaceSelection();
+  const pathname = usePathname();
   const unavailable = useCommandVoiceUnavailable(localServerId);
+  const commandRunning = useRef(false);
   const listener = usePimiVoiceListener({
     client: connected ? client : null,
     unavailable,
     onTranscript: (transcript) => {
       const command = parsePimiVoiceCommand(transcript);
-      if (!command) {
-        listener.setMessage("Try “Open a new chat” or “Start a new task”.");
+      if (command?.action === "stop") {
+        listener.stop();
+        listener.setMessage("Microphone off");
         return;
       }
-      applyVoiceCommand(command, {
-        host,
-        localServerId,
-        selection,
-        stop: listener.stop,
-        setMessage: listener.setMessage,
-      });
+      if (commandRunning.current) {
+        listener.setMessage("Still working on your last command.");
+        return;
+      }
+      const navigationContext = { host, localServerId, selection, pathname };
+      if (command) {
+        const parsed = PimiVoiceNavigation.safeParse(command);
+        listener.setMessage(
+          parsed.success
+            ? applyVoiceCommand(parsed.data, navigationContext)
+            : "Try a shorter command.",
+        );
+        return;
+      }
+      const agentId = useSessionStore.getState().sessions[localServerId]?.focusedAgentId;
+      commandRunning.current = true;
+      listener.setMessage("Working…");
+      void (async () => {
+        try {
+          const result = await bridge.runCommand({ transcript, agentId: agentId ?? undefined });
+          if (result.destination) host.showPimiWorkspace?.(result.destination);
+          const navigation = result.navigation
+            ? applyVoiceCommand(result.navigation, navigationContext)
+            : "";
+          listener.setMessage([result.message, navigation].filter(Boolean).join(" · "));
+        } catch (error) {
+          const message = error instanceof Error ? error.message.split("Error: ").at(-1) : "";
+          listener.setMessage(message || "Couldn’t finish that command.");
+        } finally {
+          commandRunning.current = false;
+        }
+      })();
     },
   });
 

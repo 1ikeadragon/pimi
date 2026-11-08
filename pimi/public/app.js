@@ -1249,7 +1249,8 @@ async function navigateToWorktreeReview(destination) {
 
 window.pimiWorkspace?.onNavigate(async (destination) => {
   if (destination.view === "spaces") {
-    $("show-spaces").click();
+    view("spaces");
+    await spacesView.load(destination.action);
     return;
   }
   if (destination.view === "memory") {

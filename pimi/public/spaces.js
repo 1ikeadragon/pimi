@@ -186,7 +186,7 @@ export function createSpacesView({ $, api, button, element, message }) {
     }
   }
 
-  function openCard(item) {
+  function openCard(item, draftText = "") {
     current = item;
     const isImage = item?.kind === "image";
     const isLink = item?.kind === "link";
@@ -199,7 +199,7 @@ export function createSpacesView({ $, api, button, element, message }) {
     $("spaces-note-label").hidden = !isNote;
     $("spaces-save").hidden = !isNote;
     text.required = isNote;
-    text.value = item?.text ?? "";
+    text.value = item?.text ?? draftText;
     preview.hidden = !isImage;
     if (isImage) preview.src = imageUrl(item.id);
     else preview.removeAttribute("src");
@@ -293,13 +293,25 @@ export function createSpacesView({ $, api, button, element, message }) {
     showEmpty();
   }
 
-  function load() {
-    if (suspended) return resume();
+  async function load(action) {
+    if (suspended) {
+      resume();
+      if (!action) return;
+    }
     active = true;
-    return run(async () => {
+    if (action && (editor.open || busy)) {
+      message("spaces-status", "Finish the open card first.");
+      return;
+    }
+    if (action?.kind === "search") searchInput.value = action.query;
+    if (action?.kind === "saved") searchInput.value = "";
+    await run(async () => {
       unavailablePapers.clear();
       await loadCards();
     });
+    if (!active || !ready) return;
+    if (action?.kind === "draft" && !editor.open) openCard(undefined, action.text);
+    if (action?.kind === "search") searchInput.focus();
   }
 
   async function loadCards() {
