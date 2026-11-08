@@ -103,6 +103,7 @@ import { getDesktopHost, usesPimiMacTitlebar } from "@/desktop/host";
 import { PimiConsoleContent, PIMI_CONSOLE_CONTENT_ID } from "@/desktop/pimi-console-content";
 import { PIMI_AGENT_GRID_ROUTE } from "@/navigation/pimi-agent-grid";
 import { PIMI_USAGE_ROUTE } from "@/navigation/pimi-usage";
+import { PIMI_LIBRARY_ROUTE } from "@/navigation/pimi-library";
 import { PimiVoiceBubble } from "@/desktop/pimi-voice-bubble";
 import { loadDesktopSettings } from "@/desktop/settings/desktop-settings";
 import { RosettaCalloutSource } from "@/desktop/updates/rosetta-callout-source";
@@ -985,6 +986,7 @@ function AppWithSidebar({ children }: { children: ReactNode }) {
     (pathname === "/open-project" ||
       pathname === PIMI_AGENT_GRID_ROUTE ||
       pathname === PIMI_USAGE_ROUTE ||
+      pathname === PIMI_LIBRARY_ROUTE ||
       pathname === "/new" ||
       pathname === "/sessions" ||
       pathname === "/schedules" ||
@@ -1021,6 +1023,7 @@ function RootStack() {
         <Stack.Screen name="open-project" />
         <Stack.Screen name="pimi-agent-grid" />
         <Stack.Screen name="pimi-usage" />
+        <Stack.Screen name="pimi-library" />
         <Stack.Screen name="sessions" />
         <Stack.Screen name="schedules" />
       </Stack.Protected>

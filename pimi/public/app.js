@@ -12,13 +12,14 @@ import { createReviewFiles } from "./review-files.js";
 
 const $ = (id) => document.getElementById(id);
 if (window.pimiWorkspace?.onVoiceState) {
-  $("pimi-voice-dock").hidden = false;
+  const dock = $("pimi-voice-dock");
   const toggle = $("pimi-voice-toggle");
   const badge = $("pimi-voice-status");
   const copy = $("pimi-voice-message");
   const wave = $("pimi-voice-wave");
   const bars = [...wave.querySelectorAll("rect")];
-  window.pimiWorkspace.onVoiceState(({ active, status, level }) => {
+  window.pimiWorkspace.onVoiceState(({ visible, active, status, level }) => {
+    dock.hidden = !visible;
     toggle.setAttribute("aria-pressed", String(active));
     toggle.setAttribute("aria-label", active ? "Pimi · Stop listening" : "Pimi · Start listening");
     toggle.title = active ? "Pimi · Stop listening" : "Pimi · Start listening";

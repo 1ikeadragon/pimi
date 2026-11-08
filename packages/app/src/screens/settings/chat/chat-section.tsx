@@ -8,6 +8,7 @@ import {
   SettingsSwitch,
 } from "@/components/settings";
 import { isNative } from "@/constants/platform";
+import { getDesktopHost } from "@/desktop/host";
 import { useAppSettings, type ChatDisplay } from "@/hooks/use-settings";
 
 const CHAT_DISPLAYS: readonly ChatDisplay[] = ["full", "collapseToolCalls", "collapseTurns"];
@@ -38,8 +39,26 @@ export function ChatSection() {
     [updateSettings],
   );
 
+  const changeVoiceButton = useCallback(
+    (pimiVoiceButton: boolean) => void updateSettings({ pimiVoiceButton }),
+    [updateSettings],
+  );
+
   return (
     <View>
+      {getDesktopHost()?.pimiVoice ? (
+        <SettingsSection title="Voice commands">
+          <SettingsCard>
+            <SettingsSwitch
+              label="Show Pimi voice button"
+              hint="Open chats and tasks with your voice."
+              value={settings.pimiVoiceButton}
+              onValueChange={changeVoiceButton}
+              testID="settings-pimi-voice-button"
+            />
+          </SettingsCard>
+        </SettingsSection>
+      ) : null}
       <SettingsSection title={t("settings.appearance.detailLevel.title")}>
         <SettingsCard>
           <SettingsSwitch

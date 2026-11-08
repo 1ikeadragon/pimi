@@ -87,7 +87,8 @@ import { DesktopPermissionsSection } from "@/desktop/components/desktop-permissi
 import { DesktopNotificationsSection } from "@/desktop/components/desktop-notifications-section";
 import { BrowserDataSection } from "@/desktop/browser/settings/browser-data-section";
 import { IntegrationsSection } from "@/desktop/components/integrations-section";
-import { isElectronRuntime } from "@/desktop/host";
+import { getDesktopHost, isElectronRuntime } from "@/desktop/host";
+import { openExternalUrl } from "@/utils/open-external-url";
 import { useDesktopAppUpdater } from "@/desktop/updates/use-desktop-app-updater";
 import { formatVersionWithPrefix } from "@/desktop/updates/desktop-updates";
 import { resolveAppVersion } from "@/utils/app-version";
@@ -229,6 +230,8 @@ const SIDEBAR_SECTION_ITEMS: SidebarSectionItem[] = [
   { id: "about", labelKey: "settings.sections.about", icon: Info },
 ];
 
+const PIMI_PREFERENCES = new Set<SettingsSectionSlug>(["general", "appearance", "sidebar", "chat"]);
+
 function isSectionAvailable(
   item: SidebarSectionItem,
   isDesktopApp: boolean,
@@ -258,6 +261,29 @@ const HOST_SECTION_ITEMS: HostSectionItem[] = [
   { id: "terminals", labelKey: "settings.hostSections.terminals", icon: SquareTerminal },
   { id: "plugins", labelKey: "settings.hostSections.plugins", icon: Blocks },
 ];
+
+const PIMI_HOST_ORDER: HostSectionSlug[] = [
+  "providers",
+  "agents",
+  "voice",
+  "projects",
+  "workspaces",
+  "metadata",
+  "usage",
+  "terminals",
+  "plugins",
+  "connections",
+  "pair-device",
+  "host",
+];
+const PIMI_HOST_SECTIONS = PIMI_HOST_ORDER.map(
+  (id) => HOST_SECTION_ITEMS.find((item) => item.id === id)!,
+);
+
+function hostSectionLabel(item: HostSectionItem, isPimi: boolean, t: TFunction): string {
+  if (isPimi && item.id === "voice") return "Voice & dictation";
+  return t(item.labelKey);
+}
 
 function renderHostSettingsContent(
   view: Extract<SettingsView, { kind: "host" }>,
@@ -476,6 +502,7 @@ interface AboutSectionProps {
 
 function AboutSection({ appVersion, appVersionText, isDesktopApp }: AboutSectionProps) {
   const { t } = useTranslation();
+  const isPimi = Boolean(getDesktopHost()?.showPimiWorkspace);
   return (
     <>
       <SettingsSection title={t("settings.about.title")}>
@@ -488,13 +515,34 @@ function AboutSection({ appVersion, appVersionText, isDesktopApp }: AboutSection
             <Text style={styles.aboutValue}>{appVersionText}</Text>
           </View>
           <WhatsNewRow />
-          {isDesktopApp ? <DesktopAppUpdateRow /> : null}
+          {isDesktopApp && !isPimi ? <DesktopAppUpdateRow /> : null}
         </View>
       </SettingsSection>
       <ConnectedHostsSection clientVersion={appVersion} />
       <View style={styles.aboutCommunity}>
-        <CommunityLinks />
+        {isPimi ? <PimiReleaseLinks /> : <CommunityLinks />}
       </View>
+    </>
+  );
+}
+
+function openLatestPimiRelease() {
+  void openExternalUrl("https://github.com/1ikeadragon/pimi/releases/latest");
+}
+
+function openPimiRepository() {
+  void openExternalUrl("https://github.com/1ikeadragon/pimi");
+}
+
+function PimiReleaseLinks() {
+  return (
+    <>
+      <Button variant="ghost" onPress={openLatestPimiRelease} testID="pimi-settings-latest-release">
+        Latest release
+      </Button>
+      <Button variant="ghost" onPress={openPimiRepository}>
+        GitHub
+      </Button>
     </>
   );
 }
@@ -974,6 +1022,7 @@ function SettingsSidebar({
   const enableBuiltInDaemonOption = useEnableBuiltInDaemonOption();
   const isDesktopApp = isElectronRuntime();
   const hardwareKeyboardPresent = useHardwareKeyboardPresent();
+  const isPimi = Boolean(getDesktopHost()?.showPimiWorkspace);
   const items = SIDEBAR_SECTION_ITEMS.filter((item) =>
     isSectionAvailable(item, isDesktopApp, hardwareKeyboardPresent),
   );
@@ -994,19 +1043,23 @@ function SettingsSidebar({
   if (view.kind === "project") selectedHostSection = "projects";
   if (view.kind === "plugin") selectedHostSection = "plugins";
 
+  const renderSection = (item: SidebarSectionItem) => (
+    <SidebarSectionButton
+      key={item.id}
+      itemId={item.id}
+      label={t(item.labelKey)}
+      icon={item.icon}
+      isSelected={selectedSectionId === item.id}
+      onSelect={onSelectSection}
+    />
+  );
+
   const sidebarBody = (
     <>
-      <SidebarGroup label={t("settings.groups.app")}>
-        {items.map((item) => (
-          <SidebarSectionButton
-            key={item.id}
-            itemId={item.id}
-            label={t(item.labelKey)}
-            icon={item.icon}
-            isSelected={selectedSectionId === item.id}
-            onSelect={onSelectSection}
-          />
-        ))}
+      <SidebarGroup label={isPimi ? "Pimi" : t("settings.groups.app")}>
+        {(isPimi ? items.filter((item) => PIMI_PREFERENCES.has(item.id)) : items).map(
+          renderSection,
+        )}
       </SidebarGroup>
       {hasHosts ? (
         <SidebarGroup label={t("settings.groups.host")}>
@@ -1017,11 +1070,11 @@ function SettingsSidebar({
             onAddHost={onAddHost}
             enableBuiltInDaemonOption={enableBuiltInDaemonOption}
           />
-          {HOST_SECTION_ITEMS.map((item) => (
+          {(isPimi ? PIMI_HOST_SECTIONS : HOST_SECTION_ITEMS).map((item) => (
             <SidebarHostSectionButton
               key={item.id}
               itemId={item.id}
-              label={t(item.labelKey)}
+              label={hostSectionLabel(item, isPimi, t)}
               icon={item.icon}
               isSelected={selectedHostSection === item.id}
               onSelect={onSelectHostSection}
@@ -1066,6 +1119,11 @@ function SettingsSidebar({
           ) : null}
         </SidebarGroup>
       )}
+      {isPimi ? (
+        <SidebarGroup label="System">
+          {items.filter((item) => !PIMI_PREFERENCES.has(item.id)).map(renderSection)}
+        </SidebarGroup>
+      ) : null}
     </>
   );
 
@@ -1273,7 +1331,9 @@ export default function SettingsScreen({ view }: SettingsScreenProps) {
     if (view.kind === "plugin") return pluginDisplayName;
     if (view.kind === "host") {
       const item = HOST_SECTION_ITEMS.find((s) => s.id === view.section);
-      return item ? t(item.labelKey) : undefined;
+      return item
+        ? hostSectionLabel(item, Boolean(getDesktopHost()?.showPimiWorkspace), t)
+        : undefined;
     }
     if (view.kind === "section") {
       const item = SIDEBAR_SECTION_ITEMS.find((s) => s.id === view.section);

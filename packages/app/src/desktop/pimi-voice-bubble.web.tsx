@@ -12,6 +12,7 @@ import { getDesktopHost, type DesktopHostBridge } from "@/desktop/host";
 import { usePimiWorkspaceSection } from "@/desktop/pimi-console-content";
 import { parsePimiVoiceCommand } from "@/desktop/pimi-voice-command";
 import { usePimiVoiceListener } from "@/desktop/use-pimi-voice-listener.web";
+import { useAppSettings } from "@/hooks/use-settings";
 import { useLocalDaemonServerId } from "@/hooks/use-is-local-daemon";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import {
@@ -133,6 +134,8 @@ function DesktopVoiceBubble({
   bridge: NonNullable<DesktopHostBridge["pimiVoice"]>;
 }) {
   const section = usePimiWorkspaceSection();
+  const { settings, isLoading } = useAppSettings();
+  const visible = !isLoading && settings.pimiVoiceButton;
   const localServerId = useLocalDaemonServerId() ?? "";
   const client = useHostRuntimeClient(localServerId);
   const connected = useHostRuntimeIsConnected(localServerId);
@@ -164,11 +167,26 @@ function DesktopVoiceBubble({
   const workspaceLevel = section ? level : 0;
   const badgeStyle = useMemo(() => [styles.badge, active && styles.activeBadge], [active]);
 
-  useEffect(() => bridge.onToggle(toggle), [bridge, toggle]);
+  useEffect(() => {
+    if (!visible) stop();
+  }, [visible, stop]);
+  useEffect(
+    () =>
+      bridge.onToggle(() => {
+        if (visible) toggle();
+      }),
+    [bridge, toggle, visible],
+  );
   useEffect(() => bridge.onPause(() => stop()), [bridge, stop]);
   useEffect(
-    () => bridge.publish({ active, status: status.slice(0, 240), level: workspaceLevel }),
-    [active, bridge, status, workspaceLevel],
+    () =>
+      bridge.publish({
+        visible,
+        active: visible && active,
+        status: visible ? status.slice(0, 240) : "",
+        level: visible ? workspaceLevel : 0,
+      }),
+    [active, bridge, status, visible, workspaceLevel],
   );
   useEffect(() => {
     if (!message) return;
@@ -176,7 +194,7 @@ function DesktopVoiceBubble({
     return () => window.clearTimeout(timer);
   }, [setMessage, message]);
 
-  if (section || (!enabled && !active && !status)) return null;
+  if (!visible || section || (!enabled && !active && !status)) return null;
   return (
     <View pointerEvents="box-none" style={[styles.dock, aboveComposer && styles.aboveComposer]}>
       {status ? (

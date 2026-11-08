@@ -7,7 +7,7 @@ let appearance: PimiAppearance | undefined;
 let onAppearanceChange: ((mode: PimiAppearance) => void) | undefined;
 let layout: WorkspaceLayout = "hidden";
 let onLayoutChange: ((mode: WorkspaceLayout) => void) | undefined;
-let voiceState: PimiVoiceBubbleState = { active: false, status: "", level: 0 };
+let voiceState: PimiVoiceBubbleState = { visible: false, active: false, status: "", level: 0 };
 let onVoiceState: ((state: PimiVoiceBubbleState) => void) | undefined;
 ipcRenderer.on("pimi:voice:state", (_event, state: PimiVoiceBubbleState) => {
   voiceState = state;
