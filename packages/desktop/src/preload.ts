@@ -3,6 +3,7 @@ import type { BrowserKeyboardPolicy } from "./features/browser-keyboard/index.js
 import type { DesktopWindowChromeMode } from "./window/chrome.js";
 import type { PimiAppearance, PimiContentBounds, PimiDestination } from "./window/pimi-window.js";
 import type {
+  PimiActivitySection,
   PimiLinkedLabels,
   PimiRecap,
   PimiRecapPeriod,
@@ -117,10 +118,11 @@ contextBridge.exposeInMainWorld("paseoDesktop", {
           ipcRenderer.invoke("pimi:review:summary", checkout),
         getPimiRecap: (period: PimiRecapPeriod): Promise<PimiRecap> =>
           ipcRenderer.invoke("pimi:recap:get", period),
-        onPimiTasksChanged: (listener: () => void) => {
-          const onChange = () => listener();
-          ipcRenderer.on("pimi:tasks:changed", onChange);
-          return () => ipcRenderer.removeListener("pimi:tasks:changed", onChange);
+        onPimiWorkspaceActivity: (listener: (section: PimiActivitySection) => void) => {
+          const onChange = (_event: Electron.IpcRendererEvent, section: PimiActivitySection) =>
+            listener(section);
+          ipcRenderer.on("pimi:workspace:activity", onChange);
+          return () => ipcRenderer.removeListener("pimi:workspace:activity", onChange);
         },
         dismissPimiWorkspace: () => ipcRenderer.send("pimi:workspace:dismiss"),
         setPimiContentBounds: (bounds: PimiContentBounds) =>

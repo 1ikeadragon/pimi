@@ -388,7 +388,7 @@ export function createPullRequests({ getInventory, onChange = () => {} }) {
         })
         .finally(() => {
           refreshTask = undefined;
-          if (!closed) onChange();
+          if (!closed) onChange(snapshot);
         });
     }
     return {

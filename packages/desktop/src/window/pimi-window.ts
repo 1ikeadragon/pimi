@@ -16,6 +16,7 @@ import {
   type PimiReportLinkError,
 } from "@getpaseo/protocol/pimi-task";
 import type {
+  PimiActivitySection,
   PimiDestination,
   PimiRecap,
   PimiRecapPeriod,
@@ -176,7 +177,7 @@ interface PimiRuntime {
     launchEditor: (input: EditorTargetLaunchInput & { editorId: string }) => Promise<void>;
     connection: () => Promise<DesktopDaemonConnection>;
     onTaskComplete: (task: { id: string; title: string }) => void | Promise<void>;
-    onTaskChange: () => void;
+    onActivity: (section: PimiActivitySection) => void;
   }): Promise<PimiRuntimeResult>;
 }
 
@@ -346,9 +347,9 @@ async function createWorkspaceRuntime(runtimeDir: string): Promise<PimiRuntimeRe
     paths: process.env.PIMI_REPOS?.split(path.delimiter).filter(Boolean) ?? [],
     connection: connectToDesktopDaemon,
     onTaskComplete: (task) => onTaskComplete?.(task),
-    onTaskChange: () => {
+    onActivity: (section) => {
       for (const win of BrowserWindow.getAllWindows()) {
-        if (!win.isDestroyed()) win.webContents.send("pimi:tasks:changed");
+        if (!win.isDestroyed()) win.webContents.send("pimi:workspace:activity", section);
       }
     },
   });

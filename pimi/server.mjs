@@ -143,7 +143,7 @@ export async function startPimi({
   launchEditor,
   openDictation,
   onTaskComplete = () => {},
-  onTaskChange = () => {},
+  onActivity = () => {},
 } = {}) {
   const host = "127.0.0.1";
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error("Invalid Pimi port.");
@@ -190,7 +190,7 @@ export async function startPimi({
     getInventory,
     onChange() {
       broadcast("tasks");
-      onTaskChange();
+      onActivity("tasks");
       invalidateLabels();
       invalidateInventory();
     },
@@ -303,6 +303,7 @@ export async function startPimi({
   }
   const unsubscribePaseo = paseo.subscribe((event) => {
     if (closed) return;
+    if (event.activity) onActivity(event.activity);
     if (event.workspaceReset) tasks.resetWorkspaceObservation();
     invalidateInventory(event);
     if (event.labels) invalidateLabels();
@@ -816,9 +817,33 @@ export async function startPimi({
     return getInventory();
   }
 
+  let pullRequestActivity;
   const pullRequests = createPullRequests({
     getInventory,
-    onChange: () => broadcast("pull-requests"),
+    onChange(snapshot) {
+      broadcast("pull-requests");
+      if (!snapshot.updatedAt) return;
+      const next = JSON.stringify(
+        snapshot.items
+          .map((item) =>
+            JSON.stringify([
+              item.url,
+              item.title,
+              item.updatedAt,
+              item.state,
+              item.isDraft,
+              item.headSha,
+              item.reviewDecision,
+              item.checksStatus,
+              item.reviewRequested,
+              item.authoredByMe,
+            ]),
+          )
+          .sort(),
+      );
+      if (pullRequestActivity !== undefined && pullRequestActivity !== next) onActivity("review");
+      pullRequestActivity = next;
+    },
   });
 
   const postRoutes = new Map([

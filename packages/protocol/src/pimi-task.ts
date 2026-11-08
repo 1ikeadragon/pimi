@@ -202,6 +202,7 @@ export type PimiDestination =
   | { view: "task-draft"; proposal: PimiTaskProposal };
 
 export type PimiWorkspaceSection = "tasks" | "board" | "review" | "memory" | "spaces";
+export type PimiActivitySection = "tasks" | "board" | "review";
 
 export const PIMI_VOICE_COMMAND_ROUTE = "/api/pimi/voice-command";
 export const PIMI_VOICE_COMMAND_LIMIT = 128;
