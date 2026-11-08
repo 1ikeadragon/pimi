@@ -1,3 +1,4 @@
+import { probeHarnessInstallation } from "../harness-updates.js";
 import { CodexBackgroundInventory } from "./codex/background-inventory.js";
 import { validateProviderOptions } from "../provider-options.js";
 import {
@@ -7829,6 +7830,13 @@ export class CodexAppServerAgentClient implements AgentClient {
     const launch = await resolveCodexLaunch(this.runtimeSettings);
     const availability = await checkCodexLaunchAvailable(launch);
     return availability.available;
+  }
+
+  async getHarnessInstallation() {
+    return probeHarnessInstallation("codex", this.runtimeSettings, {
+      command: "codex",
+      resolvePath: findDefaultCodexBinary,
+    });
   }
 
   async getDiagnostic(): Promise<{ diagnostic: string }> {

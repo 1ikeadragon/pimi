@@ -1,4 +1,5 @@
 import { mapCustomMessageToToolCall } from "../custom-message.js";
+import { probeHarnessInstallation } from "../../harness-updates.js";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
@@ -2561,6 +2562,11 @@ export class OmpAgentClient implements AgentClient {
       resumeSession: this.resumeSession.bind(this),
       config: importConfig,
     });
+  }
+
+  async getHarnessInstallation() {
+    if (this.runtime) return null;
+    return probeHarnessInstallation("omp", this.runtimeSettings);
   }
 
   async isAvailable(): Promise<boolean> {

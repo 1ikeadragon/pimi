@@ -2,6 +2,23 @@ import { en, type TranslationResources } from "./en";
 import { pluginSettings } from "./plugin-settings";
 
 export const ar: TranslationResources = {
+  harnessUpdates: {
+    stableChannel: "{{label}} · الإصدار المستقر",
+    title: "تحديثات أدوات الوكلاء",
+    check: "التحقق من التحديثات",
+    checking: "جارٍ التحقق من إصدارات الأدوات…",
+    failed: "تعذر التحقق من تحديثات الأدوات. أعد المحاولة.",
+    empty: "لم يتم العثور على أدوات مدعومة مثبتة.",
+    installed: "الإصدار المثبّت {{version}}",
+    guide: "دليل التحديث",
+    notice: "تتوفر تحديثات لـ {{providers}}. راجع الإعدادات ← المزوّدون.",
+    status: {
+      current: "محدّث",
+      update_available: "يتوفر الإصدار {{version}}",
+      unavailable: "معلومات الإصدار غير متوفرة",
+      managed: "يدير تطبيق سطح المكتب التحديثات",
+    },
+  },
   paneFind: {
     connectionFailure: "تعذر البحث في هذه المحادثة. تحقق من الاتصال بالمضيف وأعد المحاولة.",
     historyChangedFailure: "تغيّرت المحادثة أثناء البحث. أعد البحث.",

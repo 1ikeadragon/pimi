@@ -1,4 +1,5 @@
 import { mapCustomMessageToToolCall } from "../custom-message.js";
+import { probeHarnessInstallation } from "../../harness-updates.js";
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
@@ -2855,6 +2856,11 @@ export class PiRpcAgentClient implements AgentClient {
       resumeSession: this.resumeSession.bind(this),
       config: importConfig,
     });
+  }
+
+  async getHarnessInstallation() {
+    if (this.runtime) return null;
+    return probeHarnessInstallation("pi", this.runtimeSettings, PI_BINARY_COMMAND);
   }
 
   async isAvailable(): Promise<boolean> {

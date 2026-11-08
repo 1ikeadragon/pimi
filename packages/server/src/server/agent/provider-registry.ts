@@ -611,6 +611,7 @@ function wrapClientProvider(
     getCatalogCacheKey: inner.getCatalogCacheKey?.bind(inner),
     isAvailable: (signal, options) => inner.isAvailable(signal, options),
     getDiagnostic: inner.getDiagnostic?.bind(inner),
+    getHarnessInstallation: inner.getHarnessInstallation?.bind(inner),
   };
 }
 

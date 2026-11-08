@@ -51,6 +51,8 @@ import {
 } from "./agent-configuration-validator.js";
 import type { ProviderRegistration } from "@getpaseo/plugin/server/provider";
 import { PluginAgentClientRegistry } from "./plugin-provider.js";
+import type { ProviderHarnessUpdate } from "@getpaseo/protocol/provider-harness-updates";
+import { HarnessUpdateCatalog } from "./harness-updates.js";
 
 const DEFAULT_REFRESH_TIMEOUT_MS = 120_000;
 const MAX_REFRESH_TIMEOUT_MS = 2_147_483_647;
@@ -235,6 +237,14 @@ interface ProviderSnapshotTarget {
 
 export class ProviderSnapshotManager {
   private readonly catalogs = new Map<string, Map<AgentProvider, ProviderCatalog>>();
+  private readonly harnessUpdates = new HarnessUpdateCatalog();
+  private readonly harnessProbeLimit = pLimit(4);
+  private lastHarnessCheck?: {
+    generation: RegistryGeneration;
+    promise: Promise<ProviderHarnessUpdate[]>;
+    expiresAt: number;
+    checkedAt: number;
+  };
   private readonly targets = new Map<string, Target>();
   private readonly events = new EventEmitter();
   private destroyed = false;
@@ -568,6 +578,50 @@ export class ProviderSnapshotManager {
       unattended: input.unattended || parent?.isUnattended === true,
       availableModes: entry.modes ?? [],
     });
+  }
+
+  async checkHarnessUpdates(force = false): Promise<ProviderHarnessUpdate[]> {
+    if (this.destroyed) return [];
+    const generation = this.generation;
+    const now = Date.now();
+    const previous = this.lastHarnessCheck;
+    if (
+      previous?.generation === generation &&
+      now < previous.expiresAt &&
+      (!force || now < previous.checkedAt + 5_000)
+    ) {
+      const result = await previous.promise;
+      return this.generation === generation ? result : this.checkHarnessUpdates(force);
+    }
+
+    const candidates = generation.order.filter(
+      (provider) => generation.definitions[provider]?.enabled,
+    );
+    const promise = Promise.all(
+      candidates.map((provider) =>
+        this.harnessProbeLimit(async () => {
+          if (this.generation !== generation || this.destroyed) return null;
+          const definition = generation.definitions[provider]!;
+          const installation = await this.ensureClient(
+            provider,
+            definition,
+          ).getHarnessInstallation?.();
+          if (!installation) return null;
+          return this.harnessUpdates.check(
+            provider,
+            definition.label ?? provider,
+            installation,
+            force,
+          );
+        }).catch(() => null),
+      ),
+    ).then((updates) => updates.filter((update) => update !== null));
+    const current = { generation, promise, expiresAt: Infinity, checkedAt: Infinity };
+    this.lastHarnessCheck = current;
+    const result = await promise;
+    current.checkedAt = Date.now();
+    current.expiresAt = current.checkedAt + 15 * 60_000;
+    return this.generation === generation ? result : this.checkHarnessUpdates(force);
   }
 
   async getProviderDiagnostic(provider: AgentProvider): Promise<ProviderDiagnosticResult> {

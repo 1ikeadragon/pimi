@@ -2,6 +2,23 @@ import { en, type TranslationResources } from "./en";
 import { pluginSettings } from "./plugin-settings";
 
 export const es: TranslationResources = {
+  harnessUpdates: {
+    stableChannel: "{{label}} · Canal estable",
+    title: "Actualizaciones de herramientas",
+    check: "Buscar actualizaciones",
+    checking: "Comprobando versiones de las herramientas…",
+    failed: "No se pudieron comprobar las actualizaciones. Inténtalo de nuevo.",
+    empty: "No se detectó ninguna herramienta compatible instalada.",
+    installed: "Versión instalada {{version}}",
+    guide: "Guía de actualización",
+    notice: "Hay actualizaciones para {{providers}}. Consulta Ajustes → Proveedores.",
+    status: {
+      current: "Al día",
+      update_available: "{{version}} está disponible",
+      unavailable: "Información de versión no disponible",
+      managed: "La aplicación de escritorio gestiona las actualizaciones",
+    },
+  },
   paneFind: {
     connectionFailure:
       "No se pudo buscar en este chat. Comprueba la conexión con el host y vuelve a intentarlo.",

@@ -452,6 +452,19 @@ export class ProviderCatalogSession {
     });
   }
 
+  async handleHarnessUpdatesRequest(
+    msg: Extract<SessionInboundMessage, { type: "provider.harness_updates.check.request" }>,
+  ): Promise<void> {
+    const updates = await this.providerSnapshotManager.checkHarnessUpdates(msg.force);
+    this.host.emit({
+      type: "provider.harness_updates.check.response",
+      payload: {
+        updates: updates.filter(({ provider }) => this.host.isProviderVisibleToClient(provider)),
+        requestId: msg.requestId,
+      },
+    });
+  }
+
   async handleProviderDiagnosticRequest(
     msg: Extract<SessionInboundMessage, { type: "provider_diagnostic_request" }>,
   ): Promise<void> {

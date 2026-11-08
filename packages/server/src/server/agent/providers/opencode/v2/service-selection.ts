@@ -5,7 +5,8 @@ import type { ExternalOpenCodeServer } from "./external-server.js";
 
 export type OpenCodeServiceSelection =
   | { kind: "owned" }
-  | { kind: "explicit" | "discovered"; server: ExternalOpenCodeServer };
+  | { kind: "explicit"; server: ExternalOpenCodeServer }
+  | { kind: "discovered"; server: ExternalOpenCodeServer; version: string };
 
 export async function selectOpenCodeService(input: {
   explicit?: ExternalOpenCodeServer;
@@ -17,14 +18,20 @@ export async function selectOpenCodeService(input: {
     input.env?.XDG_STATE_HOME ??
     process.env.XDG_STATE_HOME ??
     path.join(homedir(), ".local", "state");
+  let version: string | undefined;
   const endpoint = await Service.discover({
     file: input.file ?? path.join(state, "opencode", "service.json"),
-    version: compatibleVersion,
+    version: (candidate) => {
+      if (!compatibleVersion(candidate)) return false;
+      version = candidate;
+      return true;
+    },
   }).catch(() => undefined);
-  if (!endpoint) return { kind: "owned" };
+  if (!endpoint || !version) return { kind: "owned" };
   if (!isLocalOpenCodeHost(new URL(endpoint.url).hostname)) return { kind: "owned" };
   return {
     kind: "discovered",
+    version,
     server: { url: endpoint.url, ...(endpoint.auth ? { password: endpoint.auth.password } : {}) },
   };
 }

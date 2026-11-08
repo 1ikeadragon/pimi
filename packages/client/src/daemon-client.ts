@@ -5911,6 +5911,13 @@ export class DaemonClient {
     });
   }
 
+  async checkProviderHarnessUpdates(options?: { force?: boolean }) {
+    return this.sendNamespacedCorrelatedSessionRequest<"provider.harness_updates.check.response">({
+      message: { type: "provider.harness_updates.check.request", force: options?.force },
+      timeout: 30_000,
+    });
+  }
+
   async listProviderUsage(options?: { requestId?: string }): Promise<ProviderUsageListPayload> {
     return this.sendNamespacedCorrelatedSessionRequest({
       requestId: options?.requestId,

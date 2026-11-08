@@ -1,3 +1,4 @@
+import { probeHarnessInstallation } from "../../harness-updates.js";
 import { setImmediate } from "node:timers/promises";
 import { ClaudeRuntimeSafety } from "./runtime-safety.js";
 import { validateProviderOptions } from "../../provider-options.js";
@@ -1862,6 +1863,10 @@ export class ClaudeAgentClient implements AgentClient {
     });
     const availability = await checkProviderLaunchAvailable(launch);
     return availability.available;
+  }
+
+  async getHarnessInstallation() {
+    return probeHarnessInstallation("claude", this.runtimeSettings);
   }
 
   async getDiagnostic(): Promise<{ diagnostic: string }> {

@@ -2,6 +2,23 @@ import { en, type TranslationResources } from "./en";
 import { pluginSettings } from "./plugin-settings";
 
 export const zhCN: TranslationResources = {
+  harnessUpdates: {
+    stableChannel: "{{label}} · 稳定渠道",
+    title: "代理工具更新",
+    check: "检查更新",
+    checking: "正在检查工具版本…",
+    failed: "无法检查工具更新。请重试。",
+    empty: "未检测到已安装的受支持工具。",
+    installed: "已安装 {{version}}",
+    guide: "更新指南",
+    notice: "{{providers}} 有可用更新。请查看设置 → 提供商。",
+    status: {
+      current: "已是最新",
+      update_available: "{{version}} 可用",
+      unavailable: "无法获取发布信息",
+      managed: "更新由桌面应用管理",
+    },
+  },
   paneFind: {
     connectionFailure: "无法搜索此聊天。请检查主机连接后重试。",
     historyChangedFailure: "搜索期间聊天已更改。请重新搜索。",
