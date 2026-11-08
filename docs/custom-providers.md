@@ -653,6 +653,25 @@ Ref: [Gemini CLI ACP mode docs](https://github.com/google-gemini/gemini-cli/blob
 
 Ref: [Hermes ACP docs](https://hermes-agent.nousresearch.com/docs/user-guide/features/acp)
 
+### DeepSeek Harness
+
+Install [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness#run-from-npm) on the host running your daemon. Use a release with the built-in ACP profile, such as `@deepseek-ai/dsh@0.2.2-rc.1` with Node.js 24.9 or later. Configure your key in [DeepSeek Harness Settings → Models](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/user/guide/providers.md) or set `DEEPSEEK_API_KEY` in the provider’s environment.
+
+In Pimi, open **Settings → Providers**, find **DeepSeek Harness** in the provider catalog, and click **Add**. Pimi runs the installed `dsh --profile acp`. The harness supplies the models and handles session continuation.
+
+The catalog disables DSH’s feedback telemetry. DSH separately controls session-log and plugin-inventory data included in model requests. To turn those off, merge the entries below into `$DSH_HOME/cordis.patch.yml` (by default, `~/.dsh/cordis.patch.yml`).
+
+```yaml
+- id: session-log-deepseek
+  config:
+    enabled: false
+- id: plugin-package-inventory-deepseek
+  config:
+    enabled: false
+```
+
+[DeepSeek request metadata](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.2-rc.1/docs/deepseek-llm-api-wire-extensions.md)
+
 ### How ACP providers work in Paseo
 
 When you launch an agent with an ACP provider:
