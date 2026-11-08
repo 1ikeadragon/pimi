@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { closeSync, constants, fstatSync, lstatSync, openSync, readSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { writePrivateFileAtomicSync } from "../../server/private-files.js";
@@ -45,6 +46,7 @@ export interface AgentHookConfigFileInstallStrategy<TConfig> extends AgentHookIn
 export interface AgentHookPluginFileInstallStrategy extends AgentHookInstallStrategyBase {
   kind: "plugin-file";
   source: string;
+  legacySourceDigests?: readonly string[];
 }
 
 export interface AgentHookConfigFormat<TConfig> {
@@ -53,8 +55,10 @@ export interface AgentHookConfigFormat<TConfig> {
   stringify(config: TConfig): string;
   install(config: TConfig, provider: AgentHookProvider<TConfig>): TConfig;
   uninstall(config: TConfig, provider: AgentHookProvider<TConfig>): TConfig;
-  isInstalled(config: TConfig, provider: AgentHookProvider<TConfig>): boolean;
+  installState(config: TConfig, provider: AgentHookProvider<TConfig>): AgentHookInstallState;
 }
+
+export type AgentHookInstallState = "installed" | "not-installed" | "partial";
 
 export interface AgentHookInstallOptions {
   env?: NodeJS.ProcessEnv;
@@ -92,24 +96,36 @@ export function uninstallAgentHooks<TConfig>(
   }
 
   const format = provider.install.format;
-  return updateAgentHookConfig(provider, options, (config) => format.uninstall(config, provider));
+  return updateAgentHookConfig(provider, options, (config) =>
+    format.installState(config, provider) === "not-installed"
+      ? config
+      : format.uninstall(config, provider),
+  );
 }
 
 export function agentHooksAreInstalled<TConfig>(
   provider: AgentHookProvider<TConfig>,
   options: AgentHookInstallOptions = {},
 ): boolean {
-  const configPath = resolveAgentHookConfigPath(provider, options);
-  if (!existsSync(configPath)) {
-    return false;
-  }
-  if (provider.install.kind === "plugin-file") {
-    const currentRaw = readFileSync(configPath, "utf8");
-    return normalizeRawConfig(currentRaw) === normalizeRawConfig(provider.install.source);
-  }
+  return getAgentHookInstallState(provider, options) === "installed";
+}
 
-  const config = provider.install.format.parse(readFileSync(configPath, "utf8"));
-  return provider.install.format.isInstalled(config, provider);
+export function getAgentHookInstallState<TConfig>(
+  provider: AgentHookProvider<TConfig>,
+  options: AgentHookInstallOptions = {},
+): AgentHookInstallState {
+  const configPath = resolveAgentHookConfigPath(provider, options);
+  const raw = readHookConfig(configPath);
+  if (raw === null) return "not-installed";
+
+  const { install } = provider;
+  if (install.kind === "plugin-file") {
+    const source = normalizeRawConfig(raw);
+    if (source === normalizeRawConfig(install.source)) return "installed";
+    requireManagedPluginSource(install, source);
+    return "partial";
+  }
+  return install.format.installState(install.format.parse(raw), provider);
 }
 
 export function resolveAgentHookConfigPath<TConfig>(
@@ -154,8 +170,10 @@ function installAgentHookPluginFile(
   options: AgentHookInstallOptions,
 ): AgentHookInstallResult {
   const configPath = resolveAgentHookInstallPath(install, options);
-  const currentRaw = existsSync(configPath) ? readFileSync(configPath, "utf8") : null;
+  const currentRaw = readHookConfig(configPath);
   const nextRaw = normalizeRawConfig(install.source);
+
+  if (currentRaw !== null) requireManagedPluginSource(install, normalizeRawConfig(currentRaw));
 
   if (currentRaw === null || normalizeRawConfig(currentRaw) !== nextRaw) {
     writePrivateFileAtomicSync(configPath, nextRaw);
@@ -170,10 +188,10 @@ function uninstallAgentHookPluginFile(
   options: AgentHookInstallOptions,
 ): AgentHookInstallResult {
   const configPath = resolveAgentHookInstallPath(install, options);
-  if (!existsSync(configPath)) {
-    return { configPath, changed: false };
-  }
+  const currentRaw = readHookConfig(configPath);
+  if (currentRaw === null) return { configPath, changed: false };
 
+  requireManagedPluginSource(install, normalizeRawConfig(currentRaw));
   rmSync(configPath, { force: true });
   return { configPath, changed: true };
 }
@@ -188,10 +206,11 @@ function updateAgentHookConfig<TConfig>(
     throw new Error(`Provider ${provider.id} does not use config-file hooks`);
   }
   const configPath = resolveAgentHookConfigPath(provider, options);
-  const currentRaw = existsSync(configPath) ? readFileSync(configPath, "utf8") : null;
+  const currentRaw = readHookConfig(configPath);
   const currentConfig =
     currentRaw === null ? install.format.empty() : install.format.parse(currentRaw);
   const nextConfig = update(currentConfig);
+  if (nextConfig === currentConfig) return { configPath, changed: false };
   const nextRaw = install.format.stringify(nextConfig);
 
   if (currentRaw === null || nextRaw !== normalizeRawConfig(currentRaw)) {
@@ -200,6 +219,50 @@ function updateAgentHookConfig<TConfig>(
   }
 
   return { configPath, changed: false };
+}
+
+// Managed hooks are small configuration documents. Limit synchronous reads on the daemon.
+const MAX_HOOK_CONFIG_BYTES = 1024 * 1024;
+
+function readHookConfig(configPath: string): string | null {
+  let fd: number | undefined;
+  try {
+    const metadata = lstatSync(configPath);
+    if (!metadata.isFile()) throw new Error("Hook configuration is not a regular file");
+    fd = openSync(
+      configPath,
+      constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0),
+    );
+    const opened = fstatSync(fd);
+    if (!opened.isFile() || opened.dev !== metadata.dev || opened.ino !== metadata.ino) {
+      throw new Error("Hook configuration changed during inspection");
+    }
+    if (opened.size > MAX_HOOK_CONFIG_BYTES) {
+      throw new Error("Hook configuration exceeds the managed size limit");
+    }
+
+    const buffer = Buffer.alloc(opened.size + 1);
+    let length = 0;
+    while (length < buffer.length) {
+      const read = readSync(fd, buffer, length, buffer.length - length, null);
+      if (read === 0) break;
+      length += read;
+    }
+    if (length !== opened.size) throw new Error("Hook configuration changed during inspection");
+    return buffer.toString("utf8", 0, length);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
+  } finally {
+    if (fd !== undefined) closeSync(fd);
+  }
+}
+
+function requireManagedPluginSource(install: AgentHookPluginFileInstallStrategy, source: string) {
+  if (source === normalizeRawConfig(install.source)) return;
+  const digest = createHash("sha256").update(source).digest("hex");
+  if (install.legacySourceDigests?.includes(digest)) return;
+  throw new Error("Hook plugin differs from all managed versions");
 }
 
 function resolveConfiguredDirectory<TConfig>(input: {

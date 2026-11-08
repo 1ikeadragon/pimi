@@ -79,5 +79,8 @@ export function createOpenCodePluginInstallStrategy(): AgentHookPluginFileInstal
     configDirEnvOverride: "OPENCODE_CONFIG_DIR",
     hookMarker: "paseo hooks opencode",
     source: OPENCODE_PLUGIN_SOURCE,
+    // SHA-256 of OPENCODE_PLUGIN_SOURCE from
+    // 0d76654ba0294297d5f42824b2be40a805e9317a, in this file before OpenCode 2 support.
+    legacySourceDigests: ["2861a162f7faed3351417aae973e881053f10fe4549c357771815befda7761e8"],
   };
 }

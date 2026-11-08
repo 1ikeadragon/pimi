@@ -197,10 +197,14 @@
               "server/web-ui.ts": ["readFileSync", "statSync"],
               // Startup registry hydration: check persisted workspace directories before the runtime reconciliation service starts.
               "server/workspace-registry-bootstrap.ts": ["statSync"],
-              // Terminal child process: hook config installation/removal is owned by terminal creation and teardown in the worker.
+              // Hook config changes run inside a synchronous daemon config transaction. Only bounded
+              // regular-file reads are allowed at this boundary.
               "terminal/agent-hooks/agent-hook-installer.ts": [
-                "existsSync",
-                "readFileSync",
+                "closeSync",
+                "fstatSync",
+                "lstatSync",
+                "openSync",
+                "readSync",
                 "rmSync"
               ],
               // Terminal child process: launcher readiness and PTY record ownership run outside the daemon.

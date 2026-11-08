@@ -1710,6 +1710,36 @@ export const AgentSkillsImportLegacySelectionRequestSchema = z
   })
   .strict();
 
+const TerminalHookStateSchema = z.enum(["installed", "not-installed", "partial", "unavailable"]);
+
+const TerminalHooksStatusSchema = z
+  .object({
+    enabled: z.boolean(),
+    providers: z.array(
+      z
+        .object({
+          provider: z.enum(["claude", "codex", "opencode"]),
+          state: TerminalHookStateSchema,
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+export type TerminalHooksStatus = z.infer<typeof TerminalHooksStatusSchema>;
+
+export const TerminalHooksGetStatusRequestSchema = z
+  .object({
+    type: z.literal("terminal.hooks.get_status.request"),
+    requestId: z.string(),
+  })
+  .strict();
+export const TerminalHooksReconcileRequestSchema = z
+  .object({
+    type: z.literal("terminal.hooks.reconcile.request"),
+    requestId: z.string(),
+  })
+  .strict();
+
 export const GetDaemonConfigRequestMessageSchema = z.object({
   type: z.literal("get_daemon_config_request"),
   requestId: z.string(),
@@ -3432,6 +3462,8 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   AgentSkillsUninstallRequestSchema,
   AgentSkillsSaveSelectionRequestSchema,
   AgentSkillsImportLegacySelectionRequestSchema,
+  TerminalHooksGetStatusRequestSchema,
+  TerminalHooksReconcileRequestSchema,
   GetDaemonConfigRequestMessageSchema,
   SetDaemonConfigRequestMessageSchema,
   ReadProjectConfigRequestMessageSchema,
@@ -3837,6 +3869,7 @@ export const ServerInfoStatusPayloadSchema = z
         pluginSubscriptions: z.boolean().optional(),
         // COMPAT(skillManagement): added in v0.4.0, remove gate after 2027-08-16.
         skillManagement: z.boolean().optional(),
+        terminalHookManagement: z.boolean().optional(),
         // COMPAT(idleRuntimeCleanupSetting): added in v0.13.0, remove gate after 2027-04-26.
         idleRuntimeCleanupSetting: z.boolean().optional(),
         // COMPAT(restartRecovery): added in v0.14.0, remove gate after 2027-04-28.
@@ -7199,6 +7232,15 @@ export const AgentSkillsImportLegacySelectionResponseSchema = z.object({
   }),
 });
 
+export const TerminalHooksGetStatusResponseSchema = z.object({
+  type: z.literal("terminal.hooks.get_status.response"),
+  payload: TerminalHooksStatusSchema.extend({ requestId: z.string() }),
+});
+export const TerminalHooksReconcileResponseSchema = z.object({
+  type: z.literal("terminal.hooks.reconcile.response"),
+  payload: TerminalHooksStatusSchema.extend({ requestId: z.string() }),
+});
+
 export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   HostsListResponseSchema,
   HostsChangedSchema,
@@ -7239,6 +7281,8 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   PluginRpcClosedSchema,
   AgentTimelineAppendResponseSchema,
   AgentSkillsGetStatusResponseSchema,
+  TerminalHooksGetStatusResponseSchema,
+  TerminalHooksReconcileResponseSchema,
   AgentSkillsReconcileResponseSchema,
   AgentSkillsUninstallResponseSchema,
   AgentSkillsSaveSelectionResponseSchema,

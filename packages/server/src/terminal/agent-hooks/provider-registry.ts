@@ -1,3 +1,4 @@
+import type { TerminalHooksStatus } from "@getpaseo/protocol/messages";
 import {
   type AgentHookActivityInput,
   type AgentHookActivityState,
@@ -6,6 +7,7 @@ import {
   type AgentHookInstallResult,
   type AgentHookProvider,
   agentHooksAreInstalled,
+  getAgentHookInstallState,
   installAgentHooks,
   uninstallAgentHooks,
 } from "./agent-hook-installer.js";
@@ -20,12 +22,27 @@ export type {
 } from "./agent-hook-installer.js";
 
 export const AGENT_HOOK_PROVIDERS = {
-  [claudeAgentHookProvider.id]: claudeAgentHookProvider,
-  [codexAgentHookProvider.id]: codexAgentHookProvider,
-  [opencodeAgentHookProvider.id]: opencodeAgentHookProvider,
+  claude: claudeAgentHookProvider,
+  codex: codexAgentHookProvider,
+  opencode: opencodeAgentHookProvider,
 } satisfies Record<string, AgentHookProvider>;
 
 export type AgentHookProviderId = keyof typeof AGENT_HOOK_PROVIDERS;
+const providerIds = Object.keys(AGENT_HOOK_PROVIDERS) as AgentHookProviderId[];
+
+export function getRegisteredAgentHookStatus(
+  options: AgentHookInstallOptions = {},
+): TerminalHooksStatus["providers"] {
+  return providerIds.map((provider) => {
+    try {
+      return { provider, state: getAgentHookInstallState(AGENT_HOOK_PROVIDERS[provider], options) };
+    } catch {
+      // An unreadable, malformed, or foreign config must not look absent. Never send file contents
+      // or paths back to remote clients.
+      return { provider, state: "unavailable" };
+    }
+  });
+}
 
 export interface AgentHookActivityRequest {
   provider: string;
@@ -54,10 +71,25 @@ export function installRegisteredAgentHooks(
   return results;
 }
 
-export function uninstallRegisteredAgentHooks(options: AgentHookInstallOptions = {}): void {
+export function uninstallRegisteredAgentHooks(
+  options: RegisteredAgentHookInstallOptions = {},
+): void {
+  const errors: unknown[] = [];
   for (const provider of Object.values(AGENT_HOOK_PROVIDERS)) {
-    uninstallAgentHooks(provider, options);
+    try {
+      uninstallAgentHooks(provider, options);
+    } catch (error) {
+      if (options.logger) {
+        options.logger.warn(
+          { err: error, provider: provider.id },
+          "Failed to remove terminal activity hook provider",
+        );
+      } else {
+        errors.push(error);
+      }
+    }
   }
+  if (errors.length) throw new AggregateError(errors, "Failed to remove terminal activity hooks");
 }
 
 export function registeredAgentHooksAreInstalled(options: AgentHookInstallOptions = {}): boolean {
@@ -69,8 +101,9 @@ export function registeredAgentHooksAreInstalled(options: AgentHookInstallOption
 export async function resolveHookActivity(
   request: AgentHookActivityRequest,
 ): Promise<AgentHookActivityState | null> {
-  const provider = AGENT_HOOK_PROVIDERS[request.provider.toLowerCase()];
-  if (!provider) return null;
+  const id = request.provider.toLowerCase();
+  if (!Object.hasOwn(AGENT_HOOK_PROVIDERS, id)) return null;
+  const provider = AGENT_HOOK_PROVIDERS[id as AgentHookProviderId];
 
   return provider.resolveActivity({ event: request.event, input: request.input });
 }

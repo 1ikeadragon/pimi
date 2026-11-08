@@ -28,14 +28,17 @@ export function applyTerminalAgentHookSetting(
   }
 
   return store.onFieldChange("enableTerminalAgentHooks", (value) => {
-    if (value === true) {
-      installRegisteredAgentHooks(installOptions);
-      return;
-    }
-    try {
-      uninstallRegisteredAgentHooks(install);
-    } catch (error) {
-      logger?.warn({ err: error }, "Failed to remove terminal activity hooks");
-    }
+    reconcileTerminalAgentHooks(value === true, installOptions);
   });
+}
+
+export function reconcileTerminalAgentHooks(
+  enabled: boolean,
+  options: RegisteredAgentHookInstallOptions,
+): void {
+  if (enabled) {
+    installRegisteredAgentHooks(options);
+  } else {
+    uninstallRegisteredAgentHooks(options);
+  }
 }
