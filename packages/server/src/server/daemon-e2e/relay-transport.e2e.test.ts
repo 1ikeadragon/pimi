@@ -2,6 +2,7 @@ import { createPaseoApi, type PaseoApi } from "@getpaseo/client";
 import { createHostClient } from "@getpaseo/client/node";
 import { hashSync } from "bcryptjs";
 import { once } from "node:events";
+import { createRequire } from "node:module";
 import {
   decodeTerminalStreamFrame,
   encodeTerminalStreamFrame,
@@ -12,7 +13,7 @@ import {
   DaemonClient as HostClient,
 } from "@getpaseo/client/internal/daemon-client";
 import type { SessionOutboundMessage } from "@getpaseo/protocol/messages";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { withTimeout } from "../../utils/promise-timeout.js";
 import { DaemonClient } from "../test-utils/daemon-client.js";
 import { WebSocket } from "ws";
@@ -320,14 +321,12 @@ async function waitForCapturedLog(
 (shouldRunRelayE2e ? describe : describe.skip)("Relay transport (E2EE) - daemon E2E", () => {
   let relayPort: number;
   let relayProcess: ChildProcess | null = null;
-  let relayStdoutLines: string[] = [];
   // PASEO_RELAY_E2E_PORT points at an already-running relay (for example the
   // Elixir relay) so the same daemon/client exchanges run against both.
   const externalRelayPort = Number(process.env.PASEO_RELAY_E2E_PORT ?? "");
   const usesExternalRelay = Number.isInteger(externalRelayPort) && externalRelayPort > 0;
 
-  const startRelay = async (options: { useLocalRelay?: boolean; port?: number } = {}) => {
-    relayStdoutLines = [];
+  const startRelay = async (options: { port?: number } = {}) => {
     if (usesExternalRelay) {
       relayPort = externalRelayPort;
       await waitForRelayWebSocketReady(relayPort, 60000);
@@ -335,6 +334,9 @@ async function waitForCapturedLog(
     }
     relayPort = options.port ?? (await getAvailablePort());
     const relayDir = path.resolve(process.cwd(), "../relay");
+    const wrangler = createRequire(path.resolve(relayDir, "../app/package.json")).resolve(
+      "wrangler",
+    );
     const relayArgs = [
       "wrangler",
       "dev",
@@ -346,16 +348,9 @@ async function waitForCapturedLog(
       "--live-reload=false",
       "--show-interactive-dev-session=false",
     ];
-    if (options.useLocalRelay) {
-      relayArgs.push("--var", "PASEO_RELAY_UPSTREAM:");
-    }
     relayProcess = spawn(
       process.execPath,
-      [
-        "--experimental-vm-modules",
-        path.resolve(relayDir, "../../node_modules/wrangler/wrangler-dist/cli.js"),
-        ...relayArgs.slice(1),
-      ],
+      ["--experimental-vm-modules", wrangler, ...relayArgs.slice(1)],
       {
         cwd: relayDir,
         env: { ...process.env },
@@ -370,7 +365,6 @@ async function waitForCapturedLog(
         .split("\n")
         .filter((l) => l.trim());
       for (const line of lines) {
-        relayStdoutLines.push(line);
         // eslint-disable-next-line no-console
         console.log(`[relay] ${line}`);
       }
@@ -412,7 +406,7 @@ async function waitForCapturedLog(
       let terminalRoute: Awaited<ReturnType<typeof openConnectedHostTerminal>> | undefined;
       let wire: Awaited<ReturnType<typeof relayWire>> | undefined;
       try {
-        await startRelay({ useLocalRelay: true });
+        await startRelay();
         const port = relayPort;
         b = await createTestPaseoDaemon({
           relayEnabled: true,
@@ -489,7 +483,7 @@ async function waitForCapturedLog(
             { timeout: 15000 },
           )
           .toBe("DAEMON_CONNECTION_LOST");
-        await startRelay({ useLocalRelay: true, port });
+        await startRelay({ port });
         await expect
           .poll(
             async () => {
@@ -547,7 +541,7 @@ async function waitForCapturedLog(
     let daemon: Awaited<ReturnType<typeof createTestPaseoDaemon>> | undefined;
     const clients: HostClient[] = [];
     try {
-      await startRelay({ useLocalRelay: true });
+      await startRelay();
       daemon = await createTestPaseoDaemon({
         relayEnabled: true,
         relayEndpoint: `127.0.0.1:${relayPort}`,
@@ -596,7 +590,7 @@ async function waitForCapturedLog(
   test.each([true, false])(
     "large messages cross the relay with unpaced upload admission preserved (supportsDrain=%s)",
     async (supportsDrain) => {
-      await startRelay({ useLocalRelay: true });
+      await startRelay();
       const daemon = await createTestPaseoDaemon({
         relayEnabled: true,
         relayEndpoint: `127.0.0.1:${relayPort}`,
@@ -711,6 +705,7 @@ async function waitForCapturedLog(
       logger,
       relayEnabled: true,
       relayEndpoint: `127.0.0.1:${relayPort}`,
+      relayRequireProtectedSecurity: false,
     });
 
     try {
@@ -1007,13 +1002,14 @@ async function waitForCapturedLog(
       process.env.PASEO_PRIMARY_LAN_IP = "192.168.1.12";
 
       const { logger, lines } = createCapturingLogger();
-      await startRelay({ useLocalRelay: true });
+      await startRelay();
 
       const daemon = await createTestPaseoDaemon({
         listen: "127.0.0.1",
         logger,
         relayEnabled: true,
         relayEndpoint: `127.0.0.1:${relayPort}`,
+        relayRequireProtectedSecurity: false,
       });
 
       try {
@@ -1132,7 +1128,9 @@ async function waitForCapturedLog(
       logger,
       relayEnabled: true,
       relayEndpoint: `127.0.0.1:${relayPort}`,
+      relayRequireProtectedSecurity: false,
     });
+    const relaySends = vi.spyOn(WebSocket.prototype, "send");
 
     try {
       const offerUrl = await getPairingOfferUrl({
@@ -1161,13 +1159,17 @@ async function waitForCapturedLog(
       expect(pongLines.length).toBeGreaterThan(0);
       const staleLines = lines.filter((l) => l.includes("relay_control_stale_terminating"));
       expect(staleLines.length).toBe(0);
-      // Guard against the dual-ping regression: if a JSON {type:"ping"} reaches the DO during
-      // the idle window, the DO logs `legacy_json_ping_received`. The current daemon code must
-      // not send JSON pings on the control socket — only protocol pings via socket.ping().
-      const legacyPingLines = relayStdoutLines.filter((l) =>
-        l.includes("legacy_json_ping_received"),
-      );
-      expect(legacyPingLines.length).toBe(0);
+      // Observe actual writes during the idle window to catch a dual-ping regression
+      // without relying on the relay to log peer activity.
+      const legacyPings = relaySends.mock.calls.filter(([data]) => {
+        if (typeof data !== "string") return false;
+        try {
+          return JSON.parse(data)?.type === "ping";
+        } catch {
+          return false;
+        }
+      });
+      expect(legacyPings).toEqual([]);
 
       const ws = new WebSocket(
         buildRelayWebSocketUrl({
@@ -1262,6 +1264,7 @@ async function waitForCapturedLog(
       console.error("daemon logs (tail):\n", tail);
       throw err;
     } finally {
+      relaySends.mockRestore();
       await daemon.close();
       await stopRelay();
     }
@@ -1278,6 +1281,7 @@ async function waitForCapturedLog(
       logger,
       relayEnabled: true,
       relayEndpoint: `127.0.0.1:${relayPort}`,
+      relayRequireProtectedSecurity: false,
     });
 
     try {
@@ -1418,7 +1422,7 @@ async function waitForCapturedLog(
     let client: DaemonClient | null = null;
 
     try {
-      await startRelay({ useLocalRelay: true });
+      await startRelay();
       daemon = await createTestPaseoDaemon({
         listen: "127.0.0.1",
         logger,
