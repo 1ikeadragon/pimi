@@ -19,6 +19,10 @@ Keep an agent's `{ serverId, agentId }` together. For example, call `send_agent_
 
 Remote paths and workspace IDs belong to the destination. Remote `list_agents` has no caller-directory default; pass `cwd` to filter it.
 
+## Spaces
+
+Call `search_pimi_spaces` with a few keywords when asked to find a note or link in Spaces. Use `read_pimi_space_item` with a matching `space:` reference or one the user gives you.
+
 Manage registrations through the CLI; use the returned `registrationId` for updates and removal:
 
 ```bash

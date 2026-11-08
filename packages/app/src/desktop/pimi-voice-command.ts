@@ -22,6 +22,9 @@ export function parsePimiVoiceCommand(transcript: string): PimiVoiceCommand | nu
     /^(?:open|start|create) (?:a )?new chat[,.:]? (?:and )?(?:type|write)(?: in)?[\s,:]+(\S[\s\S]*)$/i,
   );
   if (chat) return { action: "new-chat", text: chat[1] };
+  if (/^search spaces for\s+\S/i.test(instruction)) {
+    return { action: "new-chat", text: command };
+  }
 
   if (/^(?:open|start|create) (?:a )?new task$/i.test(instruction)) {
     return { action: "new-task" };
@@ -36,7 +39,7 @@ export function parsePimiVoiceCommand(transcript: string): PimiVoiceCommand | nu
   if (brief) return { action: "new-task", brief: brief[1] };
 
   const view = instruction.match(
-    /^(?:open|show(?: me)?|go to|switch to) (chat|tasks|work|review|memory)$/i,
+    /^(?:open|show(?: me)?|go to|switch to) (chat|tasks|work|review|memory|spaces)$/i,
   );
   switch (view?.[1].toLowerCase()) {
     case "chat":
@@ -49,6 +52,8 @@ export function parsePimiVoiceCommand(transcript: string): PimiVoiceCommand | nu
       return { action: "show", destination: { view: "review-home" }, label: "Review" };
     case "memory":
       return { action: "show", destination: { view: "memory" }, label: "Memory" };
+    case "spaces":
+      return { action: "show", destination: { view: "spaces" }, label: "Spaces" };
     default:
       return null;
   }

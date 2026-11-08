@@ -47,7 +47,7 @@ Compare worktree diffs side by side. Switch to **PRs** for review requests, chec
 
 ![Shared memory notes and their contents](assets/pimi/memory.jpg)
 
-**Spaces** holds links, images, and scratch notes you can hand to an agent by card ID.
+**Spaces** holds links, images, and scratch notes. Open arXiv papers in Pimi, search notes and links locally, or copy a card ID for an agent.
 
 ![Spaces with scratch notes, a link, and an image](assets/pimi/spaces.jpg)
 
@@ -55,7 +55,7 @@ Compare worktree diffs side by side. Switch to **PRs** for review requests, chec
 
 ![Automation schedules and templates](assets/pimi/automations.jpg)
 
-**Usage** shows context and token usage reported by your providers.
+**Usage** shows context, recorded compactions, and what shipped in Recap. Run `/context` in Claude Code to see its token breakdown.
 
 ![Session usage in Pimi](assets/pimi/usage.jpg)
 
@@ -77,6 +77,7 @@ On Windows, run `npm run pimi:package:win` after `npm ci`. Builds land in `packa
 ## Credits
 
 - Pimi is a fork of [Paseo](https://github.com/getpaseo/paseo), by Mohamed Boudra and contributors. It uses [Electron](https://github.com/electron/electron), [Git](https://github.com/git/git), and [GitHub CLI](https://github.com/cli/cli).
+- Spaces search uses [Potion Base 2M](https://huggingface.co/minishlab/potion-base-2M) and [Hugging Face Tokenizers](https://github.com/huggingface/tokenizers.js).
 - Blush artwork is adapted from Sophia L. Crownfield’s [_Studies of Ferns_](https://commons.wikimedia.org/wiki/File%3ADrawing%2C_Studies_of_Ferns%2C_early_20th_century_%28CH_18345009%29.jpg).
 
 [Apache 2.0 license](LICENSE)

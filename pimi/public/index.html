@@ -918,16 +918,32 @@
             <h1>Spaces</h1>
             <p class="subtitle">Paste a note, image, or link into your scratchbook.</p>
           </div>
-          <button id="spaces-new" class="button primary" type="button" disabled>
-            <svg class="glyph" aria-hidden="true"><use href="#glyph-compose" /></svg> New note
-          </button>
+          <div class="spaces-controls">
+            <input
+              id="spaces-search"
+              type="search"
+              maxlength="160"
+              aria-label="Search Spaces"
+              placeholder="Search Spaces"
+            />
+            <button id="spaces-new" class="button primary" type="button" disabled>
+              <svg class="glyph" aria-hidden="true"><use href="#glyph-compose" /></svg> New note
+            </button>
+          </div>
         </div>
         <p id="spaces-error" class="warning" role="alert" hidden></p>
         <p id="spaces-status" class="subtitle" role="status" hidden></p>
         <div class="spaces-board" tabindex="0" aria-label="Scratchbook">
+          <p id="spaces-copy-feedback" class="spaces-copy-feedback" role="status" hidden>
+            <svg class="glyph" aria-hidden="true" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="8" />
+              <path d="M12 11v5m0-8h.01" />
+            </svg>
+            Card ID copied
+          </p>
           <p id="spaces-empty" class="spaces-empty" hidden>
             <svg class="glyph" aria-hidden="true"><use href="#glyph-spaces" /></svg>
-            <span>Your cards will appear here.</span>
+            <span id="spaces-empty-text">Your cards will appear here.</span>
           </p>
           <div id="spaces-items" class="spaces-grid"></div>
         </div>
@@ -937,6 +953,13 @@
           aria-labelledby="spaces-card-title"
         >
           <form id="spaces-card-form">
+            <p id="spaces-card-copy-feedback" class="spaces-copy-feedback" role="status" hidden>
+              <svg class="glyph" aria-hidden="true" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="8" />
+                <path d="M12 11v5m0-8h.01" />
+              </svg>
+              Card ID copied
+            </p>
             <div class="spaces-card-heading">
               <h2 id="spaces-card-title">New note</h2>
               <code id="spaces-card-reference"></code>
