@@ -7,6 +7,7 @@ import { useRouter } from "expo-router";
 import {
   FolderOpen,
   Inbox,
+  LayoutGrid,
   MessageSquare,
   NotebookText,
   Plug,
@@ -29,6 +30,7 @@ import { useLocalDaemonServerId } from "@/hooks/use-is-local-daemon";
 import { getDesktopHost } from "@/desktop/host";
 import { PairDeviceModal } from "@/desktop/components/pair-device-modal";
 import { buildNewWorkspaceRoute, buildSettingsHostSectionRoute } from "@/utils/host-routes";
+import { openPimiAgentGrid } from "@/navigation/pimi-agent-grid";
 
 const WINDOW_CONTENT_DATASET = { "window-content": "" };
 const PIMI_BACKGROUND = { "pimi-background": "" };
@@ -114,6 +116,15 @@ export function OpenProjectScreen() {
                 description="Choose a project to start a chat or open a workspace."
                 onPress={startChat}
                 accent
+              />
+            ) : null}
+            {pimi ? (
+              <HomeTile
+                icon={LayoutGrid}
+                title="Agent grid"
+                description="Watch live agent conversations side by side."
+                onPress={openPimiAgentGrid}
+                testID="pimi-open-agent-grid"
               />
             ) : null}
             {pimi ? (

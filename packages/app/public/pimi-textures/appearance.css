@@ -39,6 +39,10 @@
   background-image: var(--pimi-material);
 }
 
+[data-pimi-agent-grid] {
+  --pimi-ink: none;
+}
+
 @media (prefers-contrast: more), (forced-colors: active) {
   :root[data-appearance] {
     --pimi-ink: none;
