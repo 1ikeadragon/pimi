@@ -59,8 +59,14 @@ export class LocalSpeechModelLibrary {
     this.logger = logger.child({ module: "speech", component: "local-model-library" });
   }
 
-  getModelsDir(): string {
-    return this.modelsDir;
+  getDownloadStatus(modelIds: readonly LocalSpeechModelId[]): {
+    inProgress: boolean;
+    error: string | null;
+  } {
+    return {
+      inProgress: modelIds.some((modelId) => this.inFlight.has(modelId)),
+      error: modelIds.map((modelId) => this.failures.get(modelId)).find(Boolean) ?? null,
+    };
   }
 
   async list(): Promise<LocalSpeechModelEntry[]> {
