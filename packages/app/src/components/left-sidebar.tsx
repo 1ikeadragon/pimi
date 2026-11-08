@@ -819,9 +819,13 @@ function DesktopSidebar({
     () => [staticStyles.desktopSidebar, frameWidth],
     [frameWidth],
   );
+  const pimiSidebarSurface =
+    pimiSidebar?.mode === "dock" && usesPimiMacTitlebar()
+      ? styles.pimiMacChrome
+      : styles.pimiSidebarInset;
   const desktopSidebarBorderStyle = useMemo(
     () => [
-      pimiSidebar ? styles.pimiSidebarInset : styles.desktopSidebarBorder(divisionLayout !== null),
+      pimiSidebar ? pimiSidebarSurface : styles.desktopSidebarBorder(divisionLayout !== null),
       {
         flex: 1,
         paddingTop: pimiSidebar ? 0 : insetsTop,
@@ -829,7 +833,15 @@ function DesktopSidebar({
         paddingLeft: resolveDesktopSidebarInsetLeft({ overlay, safeAreaLeft: insets.left }),
       },
     ],
-    [insetsTop, insets.bottom, insets.left, overlay, divisionLayout, pimiSidebar],
+    [
+      insetsTop,
+      insets.bottom,
+      insets.left,
+      overlay,
+      divisionLayout,
+      pimiSidebar,
+      pimiSidebarSurface,
+    ],
   );
   const sidebarHeaderGroupStyle = useMemo(
     () => [styles.sidebarHeaderGroup, ownsTopLeft && styles.sidebarHeaderGroupBelowChrome],

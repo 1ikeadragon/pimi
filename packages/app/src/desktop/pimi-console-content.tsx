@@ -117,8 +117,6 @@ const styles = StyleSheet.create((theme) => ({
     right: 0,
     height: HEADER_INNER_HEIGHT,
     backgroundColor: theme.colors.surfaceSidebar,
-    borderBottomWidth: theme.borderWidth[1],
-    borderBottomColor: theme.colors.border,
     zIndex: 2,
   },
 }));

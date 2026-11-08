@@ -38,6 +38,7 @@ export function ScreenHeader({
   const { theme } = useUnistyles();
   const insets = useSafeAreaInsets();
   const isMobile = useIsCompactFormFactor();
+  const macTitlebar = usesPimiMacTitlebar();
   // Only add extra padding on mobile for better touch targets; on desktop, only use safe area insets
   const topPadding = isMobile ? HEADER_TOP_PADDING_MOBILE : 0;
   const baseHorizontalPadding = isMobile ? theme.spacing[2] : theme.spacing[3];
@@ -46,10 +47,11 @@ export function ScreenHeader({
     () => [styles.inner, { paddingTop: insets.top + topPadding }],
     [insets.top, topPadding],
   );
-  const rowStyle = useMemo(() => [styles.row, borderless && styles.borderless], [borderless]);
+  const hideSeparator = macTitlebar || borderless;
+  const rowStyle = useMemo(() => [styles.row, hideSeparator && styles.borderless], [hideSeparator]);
   const leftCombinedStyle = useMemo(() => [styles.left, leftStyle], [leftStyle]);
   const rightCombinedStyle = useMemo(() => [styles.right, rightStyle], [rightStyle]);
-  const headerStyle = usesPimiMacTitlebar() ? styles.pimiMacHeader : styles.header;
+  const headerStyle = macTitlebar ? styles.pimiMacHeader : styles.header;
 
   return (
     <ComposerDockBackground style={headerStyle} testID="composer-dock-header">

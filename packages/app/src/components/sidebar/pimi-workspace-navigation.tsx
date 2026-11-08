@@ -90,12 +90,13 @@ export function PimiSidebarRail({
   onSettings: () => void;
 }) {
   const { t } = useTranslation();
+  const macTitlebar = usesPimiMacTitlebar();
   return (
-    <View style={styles.rail} testID="pimi-sidebar-rail">
-      <View style={[styles.railChrome, usesPimiMacTitlebar() && styles.pimiMacChrome]}>
+    <View style={[styles.rail, macTitlebar && styles.pimiMacChrome]} testID="pimi-sidebar-rail">
+      <View style={styles.railChrome}>
         <TitlebarDragRegion />
       </View>
-      <View style={styles.railCard}>
+      <View style={[styles.railCard, macTitlebar && styles.pimiMacRail]}>
         <SidebarIcon
           icon={PanelLeftOpen}
           label={t("sidebar.actions.peekSidebar")}
@@ -303,6 +304,12 @@ const styles = StyleSheet.create((theme) => ({
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surfaceSidebar,
+  },
+  pimiMacRail: {
+    width: "100%",
+    marginBottom: 0,
+    borderRadius: 0,
+    borderWidth: 0,
   },
   railDestinations: {
     gap: 4,
