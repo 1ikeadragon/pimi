@@ -10,7 +10,7 @@ process.env.CLAUDE_CODE_WORKFLOWS = "1";
 
 const WORKFLOW_SCRIPT = path.resolve(__dirname, "../fixtures/claude-workflow/inspect-project.js");
 const REPO_ROOT = path.resolve(__dirname, "../../../..");
-const DESCRIPTION = "Inspect Paseo and explain what the project does";
+const DESCRIPTION = "Inspect Pimi and explain what the project does";
 
 test.describe("real Claude project-inspection workflow", () => {
   test.setTimeout(300_000);
@@ -47,7 +47,7 @@ test.describe("real Claude project-inspection workflow", () => {
       const panel = page.getByTestId("provider-subagent-panel");
       await expect(panel).toBeVisible({ timeout: 30_000 });
       for (const heading of [
-        "What Paseo is",
+        "What Pimi is",
         "Who it is for",
         "How it works",
         "Repository structure",
@@ -55,9 +55,9 @@ test.describe("real Claude project-inspection workflow", () => {
         await expect(panel.getByText(heading, { exact: true })).toBeVisible();
       }
       await expect(panel.getByText("export const meta", { exact: false })).toHaveCount(0);
-      await expect(
-        panel.getByText("Inspect the Paseo repository at", { exact: false }),
-      ).toHaveCount(0);
+      await expect(panel.getByText("Inspect the Pimi repository at", { exact: false })).toHaveCount(
+        0,
+      );
       await page.screenshot({ path: testInfo.outputPath("project-workflow-pane.png") });
     } finally {
       await cleanupRewindFlow({ handle, cwd });

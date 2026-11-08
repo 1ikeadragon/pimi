@@ -235,4 +235,3 @@ For the full threat model, relay encryption, and DNS-rebinding details, see [Sec
 - [Security](/docs/security), connection methods, relay encryption, password auth, host allowlist.
 - [Configuration](/docs/configuration), `config.json`, environment variables, and CLI overrides.
 - [CLI](/docs/cli), the `paseo daemon` commands.
-- [Community projects](/docs/community), community-built self-hosting tooling.

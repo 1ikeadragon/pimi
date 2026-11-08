@@ -6,10 +6,7 @@ import { z } from "zod";
 import { PersistedConfigSchema } from "./persisted-config.js";
 
 const publishedSchema = JSON.parse(
-  readFileSync(
-    new URL("../../../website/public/schemas/paseo.config.v1.json", import.meta.url),
-    "utf8",
-  ),
+  readFileSync(new URL("../../schemas/paseo.config.v1.json", import.meta.url), "utf8"),
 );
 
 test("editors accept the daemon's browser, profile, plugin and metadata configuration", () => {

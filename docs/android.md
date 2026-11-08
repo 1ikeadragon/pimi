@@ -15,7 +15,7 @@ EAS profiles: `development`, `production`, and `production-apk` in `packages/app
 
 ## Version codes
 
-`packages/app/native-release-version.js` is the single definition of native and F-Droid version-code math. Do not re-derive these numbers anywhere else — a drifted copy produces changelog files that match no published APK, and nothing fails loudly.
+`packages/app/native-release-version.js` is the single definition of native and F-Droid version-code math. Do not re-derive these numbers anywhere else — Android and iOS use these values to identify builds.
 
 The base version code comes from the package version:
 
@@ -218,40 +218,6 @@ Keep the excluded npm packages installed. Normal builds use them, while the F-Dr
 
 The EAS `production-apk` profile uses the large Android resource class. Release builds compile the native ABIs and run Hermes bundling in the same Gradle invocation; the default worker can exhaust its remaining memory and kill Hermes with exit code 137 even when Gradle's own heap is correctly sized.
 
-### F-Droid store metadata
-
-F-Droid reads the store listing from `fastlane/metadata/android/<locale>/` **at the repo root**. This location provides the best compatibility with the F-Droid release process.
-
-```text
-fastlane/metadata/android/
-├── en-US/                      (F-Droid fallback locale, mandatory)
-│   ├── title.txt               (<=50 chars)
-│   ├── short_description.txt   (<=80 chars)
-│   ├── full_description.txt    (<=4000 chars, limited HTML)
-│   ├── images/
-│   │   ├── icon.png            (512x512)
-│   │   ├── featureGraphic.png  (1024x500)
-│   │   ├── phoneScreenshots/   (1.png, 2.png, ... linked to the store renders)
-│   │   └── tenInchScreenshots/ (1.png, 2.png, ... linked to the store renders)
-│   └── changelogs/             (generated — see below)
-├── ja/
-└── zh-CN/
-```
-
-Locale directories generally match `packages/app/src/i18n/locales.ts`, but note that `en` becomes `en-US`.
-
-Google Play reads its screenshots from the same folders; see [Store screenshots](release.md#store-screenshots).
-
-F-Droid changelogs are generated from `CHANGELOG.md`. Run `npm run fdroid:changelogs`; `npm run fdroid:changelogs:check` verifies without writing. It is wired into the npm `version` lifecycle, so a release picks it up automatically and `git add -A` stages the result.
-
-One changelog must be generated per-ABI-split, so each version will create **four** identical version-coded entries. F-Droid caps changelogs at 500 characters, so the generator strips some content and adds a link to the full notes.
-
-Stable sync fails loudly if `CHANGELOG.md` has no entry for the version being cut. That is intentional — the release checklist requires the entry to be committed first, so an abort here means the checklist was skipped.
-
-Because the generator runs off the version in `package.json`, it must run **before** the tag is created: fdroidserver only reads metadata from the tag it builds, so the file for version N has to exist in the commit N points at.
-
-Beta releases are an explicit no-op: they do not create or rewrite F-Droid changelog files. Stable releases and promotions generate the four ABI entries from their final changelog.
-
 ### React version lockstep
 
 Keep `react` and `react-dom` pinned to the React version embedded by the current `react-native` release. React Native `0.81.x` embeds `react-native-renderer` `19.1.0`, so `packages/app` must use React `19.1.0`. Bumping React to a newer patch can build successfully but crash at JS startup on Android with `Incompatible React versions`, leaving the app on the native splash screen.
@@ -261,33 +227,3 @@ Keep `react` and `react-dom` pinned to the React version embedded by the current
 ```bash
 adb exec-out screencap -p > screenshot.png
 ```
-
-## Cloud build + submit (EAS)
-
-Stable tag pushes like `v0.1.0` trigger:
-
-- The EAS GitHub app on Expo servers, using `packages/app/.eas/workflows/release-mobile.yml` (iOS + Android production builds and distribution).
-- `.github/workflows/android-apk-release.yml` on GitHub Actions (APK asset on GitHub Release).
-
-iOS distributes the same build to external TestFlight testers and App Store review; see [Mobile builds (EAS)](release.md#mobile-builds-eas) for the review paths. Android auto-submits to the Play Store via EAS-managed credentials.
-
-Beta tags like `v0.1.1-beta.1` trigger the GitHub APK workflow and EAS `Release iOS Beta`. They publish a GitHub prerelease APK and distribute iOS through TestFlight without submitting to production stores.
-
-`android-v*` tags also trigger only the GitHub APK workflow — useful when you want to ship an APK without going through stores. The GitHub APK workflow supports `workflow_dispatch` with an existing `tag` input so you can rebuild without cutting a new tag.
-
-### Useful commands
-
-```bash
-cd packages/app
-
-# Recent builds
-npx eas build:list --limit 10 --non-interactive --json | jq '.[] | {platform, status, appVersion, gitCommitHash}'
-
-# Inspect a build (the printed `Logs` URL opens the build's Expo dashboard page,
-# which has a Submissions section showing the auto-submit to the Play Store).
-npx eas build:view <build-id>
-```
-
-The Play Console (Internal testing → Production tracks) is the final confirmation that the binary reached the store.
-
-See [docs/release.md](release.md) for the full mobile-build babysitting flow.
