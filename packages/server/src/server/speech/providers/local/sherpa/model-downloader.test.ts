@@ -27,7 +27,7 @@ describe("sherpa model downloader", () => {
   test("does not expose a partial model when tar extraction fails", async () => {
     const root = makeTmpDir();
     const modelsDir = path.join(root, "models");
-    const spec = getSherpaOnnxModelSpec("kokoro-en-v0_19");
+    const spec = getSherpaOnnxModelSpec("whisper-tiny-en");
     const sourceDir = path.join(root, "source", spec.extractedDir);
     const archive = path.join(
       modelsDir,
@@ -37,13 +37,13 @@ describe("sherpa model downloader", () => {
     try {
       mkdirSync(sourceDir, { recursive: true });
       mkdirSync(path.dirname(archive), { recursive: true });
-      writeFileSync(path.join(sourceDir, "model.onnx"), Buffer.alloc(32_768, 1));
+      writeFileSync(path.join(sourceDir, spec.requiredFiles[0]), Buffer.alloc(32_768, 1));
       execFileSync("tar", [
         "cf",
         archive,
         "-C",
         path.dirname(sourceDir),
-        `${spec.extractedDir}/model.onnx`,
+        `${spec.extractedDir}/${spec.requiredFiles[0]}`,
       ]);
       truncateSync(archive, 1_024);
       await expect(ensureSherpaOnnxModel({ modelsDir, modelId: spec.id, logger })).rejects.toThrow(
@@ -60,7 +60,7 @@ describe("sherpa model downloader", () => {
   test("repairs a partial legacy extraction when its cached archive remains", async () => {
     const root = makeTmpDir();
     const modelsDir = path.join(root, "models");
-    const spec = getSherpaOnnxModelSpec("kokoro-en-v0_19");
+    const spec = getSherpaOnnxModelSpec("whisper-tiny-en");
     const sourceDir = path.join(root, "source", spec.extractedDir);
     const modelDir = getSherpaOnnxModelDir(modelsDir, spec.id);
     const archive = path.join(
@@ -70,16 +70,18 @@ describe("sherpa model downloader", () => {
     );
     try {
       for (const dir of [sourceDir, modelDir]) {
-        mkdirSync(path.join(dir, "espeak-ng-data"), { recursive: true });
-        for (const filename of ["model.onnx", "voices.bin", "tokens.txt"]) {
+        mkdirSync(dir, { recursive: true });
+        for (const filename of spec.requiredFiles) {
           writeFileSync(path.join(dir, filename), "complete model data");
         }
       }
       mkdirSync(path.dirname(archive), { recursive: true });
       execFileSync("tar", ["cf", archive, "-C", path.dirname(sourceDir), spec.extractedDir]);
-      writeFileSync(path.join(modelDir, "model.onnx"), "truncated");
+      writeFileSync(path.join(modelDir, spec.requiredFiles[0]), "truncated");
       await ensureSherpaOnnxModel({ modelsDir, modelId: spec.id, logger });
-      expect(readFileSync(path.join(modelDir, "model.onnx"), "utf8")).toBe("complete model data");
+      expect(readFileSync(path.join(modelDir, spec.requiredFiles[0]), "utf8")).toBe(
+        "complete model data",
+      );
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

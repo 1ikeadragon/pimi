@@ -2540,6 +2540,18 @@ export const en = {
         baseUrl: "Base URL",
         baseUrlHint: "For OpenAI-compatible servers. Leave empty to use OpenAI.",
       },
+      installation: {
+        title: "Installed models",
+        unavailable: "Update the host to see install details",
+        verified: "Archive SHA-256 verified at install",
+        unrecorded: "Verification not recorded",
+        noPublishedDigest: "No published checksum",
+        location: "Installed on this host",
+        reveal: "Reveal",
+        source: "Catalog download source",
+        openSource: "Open source URL",
+        checksum: "Expected archive SHA-256",
+      },
       models: {
         loading: "Loading models...",
         loadError: "Couldn't load local models",

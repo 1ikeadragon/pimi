@@ -1,5 +1,6 @@
-import { createWriteStream } from "node:fs";
-import { mkdir, rename, rm, stat } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { createReadStream, createWriteStream } from "node:fs";
+import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -7,6 +8,8 @@ import type pino from "pino";
 
 import { getSherpaOnnxModelSpec, type SherpaOnnxModelId } from "./model-catalog.js";
 import { spawnProcess } from "../../../../../utils/spawn.js";
+
+const archiveReceipt = ".pimi-archive-sha256";
 
 export type SherpaOnnxModelInstallProgress =
   | { phase: "downloading"; receivedBytes: number; totalBytes: number }
@@ -145,6 +148,39 @@ async function isNonEmptyFile(filePath: string): Promise<boolean> {
   }
 }
 
+export async function hasVerifiedSherpaOnnxArchive(
+  modelDir: string,
+  expectedDigest: string,
+): Promise<boolean> {
+  try {
+    const receipt = path.join(modelDir, archiveReceipt);
+    const details = await stat(receipt);
+    return (
+      details.isFile() &&
+      details.size === expectedDigest.length &&
+      (await readFile(receipt, "utf8")) === expectedDigest
+    );
+  } catch {
+    // Missing or unreadable receipts leave existing models usable without a verification claim.
+    return false;
+  }
+}
+
+async function verifyArchive(
+  archivePath: string,
+  expectedDigest: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const hash = createHash("sha256");
+  for await (const chunk of createReadStream(archivePath, { signal })) {
+    hash.update(chunk);
+  }
+  if (hash.digest("hex") !== expectedDigest) {
+    await rm(archivePath, { force: true });
+    throw new Error("The model archive failed SHA-256 verification. Retry the download.");
+  }
+}
+
 export async function ensureSherpaOnnxModel(
   options: EnsureSherpaOnnxModelOptions,
 ): Promise<string> {
@@ -178,6 +214,9 @@ export async function ensureSherpaOnnxModel(
       });
     }
     options.onProgress?.({ phase: "extracting" });
+    if (spec.archiveSha256) {
+      await verifyArchive(archivePath, spec.archiveSha256, options.signal);
+    }
 
     logger.info(
       {
@@ -205,6 +244,13 @@ export async function ensureSherpaOnnxModel(
         throw new Error(
           `Downloaded and extracted ${path.basename(archivePath)}, but required files are missing.`,
         );
+      }
+
+      if (spec.archiveSha256) {
+        await writeFile(path.join(extractedModelDir, archiveReceipt), spec.archiveSha256, {
+          flag: "wx",
+          mode: 0o600,
+        });
       }
 
       logger.info(

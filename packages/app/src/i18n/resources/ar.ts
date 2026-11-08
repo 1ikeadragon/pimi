@@ -2450,6 +2450,18 @@ export const ar: TranslationResources = {
         baseUrl: "عنوان URL الأساسي",
         baseUrlHint: "للخوادم المتوافقة مع OpenAI. اتركه فارغًا لاستخدام OpenAI.",
       },
+      installation: {
+        title: "النماذج المثبتة",
+        unavailable: "حدّث المضيف لعرض تفاصيل التثبيت",
+        verified: "تم التحقق من SHA-256 للأرشيف عند التثبيت",
+        unrecorded: "لم يُسجّل التحقق",
+        noPublishedDigest: "لا توجد بصمة منشورة",
+        location: "مثبّت على هذا المضيف",
+        reveal: "إظهار",
+        source: "مصدر التنزيل في الدليل",
+        openSource: "فتح رابط المصدر",
+        checksum: "بصمة SHA-256 المتوقعة للأرشيف",
+      },
       models: {
         loading: "جارٍ تحميل النماذج...",
         loadError: "تعذّر تحميل النماذج المحلية",

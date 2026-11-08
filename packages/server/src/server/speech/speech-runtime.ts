@@ -684,7 +684,12 @@ export function createSpeechService(
   const listLocalModels = async (): Promise<LocalSpeechModelStatus[]> => {
     const inUse = new Set(localModelConfig?.defaultModelIds ?? []);
     const entries = await requireModelLibrary().list();
-    return entries.map(({ spec, state }) => ({ spec, state, inUse: inUse.has(spec.id) }));
+    return entries.map(({ spec, state, installation }) => ({
+      spec,
+      state,
+      installation,
+      inUse: inUse.has(spec.id),
+    }));
   };
 
   const downloadLocalModel = (modelId: LocalSpeechModelId): void => {

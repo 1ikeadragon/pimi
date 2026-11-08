@@ -145,6 +145,17 @@ export const LocalSpeechModelSchema = z
     description: z.string(),
     languages: z.array(z.string()),
     downloadSizeBytes: z.number(),
+    archiveUrl: z.url({ protocol: /^https$/ }).optional(),
+    archiveSha256: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .optional(),
+    installation: z
+      .object({
+        directory: z.string(),
+        archiveVerified: z.boolean(),
+      })
+      .optional(),
     isDefault: z.boolean(),
     // Selected by an enabled feature; the daemon keeps it installed.
     inUse: z.boolean(),

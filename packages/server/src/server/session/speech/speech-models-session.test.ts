@@ -57,6 +57,8 @@ describe("SpeechModelsSession", () => {
               description: firstModel.description,
               languages: [...firstModel.languages],
               downloadSizeBytes: firstModel.downloadSizeBytes,
+              archiveUrl: firstModel.archiveUrl,
+              archiveSha256: firstModel.archiveSha256,
               isDefault: true,
               inUse: true,
               status: "downloading",

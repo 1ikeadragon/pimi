@@ -2448,6 +2448,18 @@ export const ptBR: TranslationResources = {
         baseUrl: "URL base",
         baseUrlHint: "Para servidores compatíveis com a OpenAI. Deixe vazio para usar a OpenAI.",
       },
+      installation: {
+        title: "Modelos instalados",
+        unavailable: "Atualize o host para ver os detalhes da instalação",
+        verified: "SHA-256 do arquivo verificado na instalação",
+        unrecorded: "Verificação sem registro",
+        noPublishedDigest: "Sem soma de verificação publicada",
+        location: "Instalado neste host",
+        reveal: "Mostrar",
+        source: "Origem do download no catálogo",
+        openSource: "Abrir URL de origem",
+        checksum: "SHA-256 esperado do arquivo",
+      },
       models: {
         loading: "Carregando modelos...",
         loadError: "Não foi possível carregar os modelos locais",

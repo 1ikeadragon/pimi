@@ -2425,6 +2425,18 @@ export const ko: TranslationResources = {
         baseUrl: "기본 URL",
         baseUrlHint: "OpenAI 호환 서버용입니다. OpenAI를 사용하려면 비워 두세요.",
       },
+      installation: {
+        title: "설치된 모델",
+        unavailable: "설치 정보를 보려면 호스트를 업데이트하세요",
+        verified: "설치 시 아카이브 SHA-256 확인됨",
+        unrecorded: "확인 기록 없음",
+        noPublishedDigest: "공개 체크섬 없음",
+        location: "이 호스트의 설치 위치",
+        reveal: "표시",
+        source: "카탈로그 다운로드 출처",
+        openSource: "출처 URL 열기",
+        checksum: "예상 아카이브 SHA-256",
+      },
       models: {
         loading: "모델을 불러오는 중...",
         loadError: "로컬 모델을 불러올 수 없습니다",

@@ -33,9 +33,11 @@ interface SherpaOnnxCatalogEntryBase {
   description: string;
   // BCP 47 language tags the model transcribes or speaks.
   languages: readonly string[];
-  // Exact size of the release archive. The downloader rejects any other size.
+  // Release archive size used for download progress and Settings.
   downloadSizeBytes: number;
   archiveUrl: string;
+  // Published by GitHub in the sherpa-onnx release asset digest field.
+  archiveSha256?: string;
   extractedDir: string;
   defaultFor?: DefaultModelRole;
 }
@@ -260,8 +262,9 @@ export const SHERPA_ONNX_MODEL_CATALOG = {
     label: "Parakeet v2",
     description: "Accurate English transcription that runs well on a laptop CPU.",
     languages: ["en"],
-    downloadSizeBytes: 482_468_385,
+    downloadSizeBytes: 482_440_461,
     ...releaseArchive("asr-models", "sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8"),
+    archiveSha256: "6fc4426b54aa549a0019b8a75b8dea59164e71790a37ac56a045ad57f915f714",
     engine: PARAKEET_INT8_ENGINE,
     defaultFor: "stt",
   },
@@ -272,6 +275,7 @@ export const SHERPA_ONNX_MODEL_CATALOG = {
     languages: ["en"],
     downloadSizeBytes: 108_035_095,
     ...releaseArchive("asr-models", "sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000-int8"),
+    archiveSha256: "f628312e9fdf8686374cb01a69425c41732529d540860311f16f37cbc32cfe9b",
     engine: PARAKEET_INT8_ENGINE,
   },
   "parakeet-tdt-0.6b-v3-int8": {
@@ -279,8 +283,9 @@ export const SHERPA_ONNX_MODEL_CATALOG = {
     label: "Parakeet v3",
     description: "Parakeet for 25 European languages, detecting which one you speak.",
     languages: PARAKEET_V3_LANGUAGES,
-    downloadSizeBytes: 487_170_055,
+    downloadSizeBytes: 487_211_443,
     ...releaseArchive("asr-models", "sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8"),
+    archiveSha256: "1495e91b59d7fc53ddca91f3431758ec99f8fa253fdb0e1e851be0f72b14b0f9",
     engine: PARAKEET_INT8_ENGINE,
   },
   "whisper-tiny-en": {
@@ -317,6 +322,7 @@ export const SHERPA_ONNX_MODEL_CATALOG = {
     languages: ["zh", "yue", "en", "ja", "ko"],
     downloadSizeBytes: 165_783_878,
     ...releaseArchive("asr-models", "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09"),
+    archiveSha256: "7305f7905bfcf77fa0b39388a313f3da35c68d971661a65475b56fb2162c8e63",
     engine: { family: "sense_voice", model: "model.int8.onnx", tokens: "tokens.txt" },
   },
   "dolphin-base-int8": {
@@ -338,6 +344,7 @@ export const SHERPA_ONNX_MODEL_CATALOG = {
       "asr-models",
       "sherpa-onnx-nemo-transducer-punct-giga-am-v3-russian-2025-12-16",
     ),
+    archiveSha256: "f9620a0099019c6afcee26525ef9ed3297fa50dd5691c1902af0c948fc1a470b",
     engine: {
       family: "transducer",
       encoder: "encoder.int8.onnx",
@@ -353,6 +360,7 @@ export const SHERPA_ONNX_MODEL_CATALOG = {
     languages: ["ja"],
     downloadSizeBytes: 489_389_564,
     ...releaseArchive("asr-models", "sherpa-onnx-nemo-parakeet-tdt_ctc-0.6b-ja-35000-int8"),
+    archiveSha256: "4b0a800ef29f4f4c8667339bf6f60d5bfdc2852ddc9dc5741aea65b6f8d1306b",
     engine: { family: "nemo_ctc", model: "model.int8.onnx", tokens: "tokens.txt" },
   },
   "kokoro-en-v0_19": {
@@ -362,6 +370,7 @@ export const SHERPA_ONNX_MODEL_CATALOG = {
     languages: ["en"],
     downloadSizeBytes: 319_625_534,
     ...releaseArchive("tts-models", "kokoro-en-v0_19"),
+    archiveSha256: "912804855a04745fa77a30be545b3f9a5d15c4d66db00b88cbcd4921df605ac7",
     engine: {
       family: "kokoro",
       model: "model.onnx",
@@ -378,6 +387,7 @@ export const SHERPA_ONNX_MODEL_CATALOG = {
     languages: ["en"],
     downloadSizeBytes: 103_248_205,
     ...releaseArchive("tts-models", "kokoro-int8-en-v0_19"),
+    archiveSha256: "c9f0dd393615805b0bab050c340834d5e684e732aec91c0e860cd30e982c08bd",
     engine: {
       family: "kokoro",
       model: "model.int8.onnx",
@@ -391,8 +401,9 @@ export const SHERPA_ONNX_MODEL_CATALOG = {
     label: "Kokoro (Chinese and English)",
     description: "Kokoro voices that speak both Mandarin Chinese and English.",
     languages: ["zh", "en"],
-    downloadSizeBytes: 147_031_220,
+    downloadSizeBytes: 147_052_523,
     ...releaseArchive("tts-models", "kokoro-int8-multi-lang-v1_1"),
+    archiveSha256: "259c9c8bc906d6078e4e0570421885dabb68b539c2f970fcbb890a58eeaf3e9c",
     engine: {
       family: "kokoro",
       model: "model.int8.onnx",
@@ -412,6 +423,7 @@ export const SHERPA_ONNX_MODEL_CATALOG = {
     languages: ["en"],
     downloadSizeBytes: 26_586_708,
     ...releaseArchive("tts-models", "kitten-nano-en-v0_2-fp16"),
+    archiveSha256: "0345a8a2f4a710cb8f7912c9a731ded8b3e1e69b33a871efa95c2e64651518fe",
     engine: {
       family: "kitten",
       model: "model.fp16.onnx",
@@ -427,6 +439,7 @@ export const SHERPA_ONNX_MODEL_CATALOG = {
     languages: ["en-US"],
     downloadSizeBytes: 23_398_348,
     ...releaseArchive("tts-models", "vits-piper-en_US-libritts_r-medium-int8"),
+    archiveSha256: "7e4552e239988f4896872822b56e99e0e9e00958164e3f6bdf5ee14391fbe829",
     engine: piperEngine("en_US-libritts_r-medium"),
   },
   "piper-en-gb-alba": {
@@ -436,6 +449,7 @@ export const SHERPA_ONNX_MODEL_CATALOG = {
     languages: ["en-GB"],
     downloadSizeBytes: 21_104_326,
     ...releaseArchive("tts-models", "vits-piper-en_GB-alba-medium-int8"),
+    archiveSha256: "f7581d123ae977f64f3032bb247d4deeac8440e881d918d36fdd36d8f1030fb7",
     engine: piperEngine("en_GB-alba-medium"),
   },
   "piper-de-thorsten": {
@@ -445,6 +459,7 @@ export const SHERPA_ONNX_MODEL_CATALOG = {
     languages: ["de"],
     downloadSizeBytes: 20_949_833,
     ...releaseArchive("tts-models", "vits-piper-de_DE-thorsten-medium-int8"),
+    archiveSha256: "07e240b7b9c1fc9211d5a69512f8cbe11b3286c2ed79c15c076ac6ed427fdf13",
     engine: piperEngine("de_DE-thorsten-medium"),
   },
   "piper-fr-siwis": {
@@ -454,6 +469,7 @@ export const SHERPA_ONNX_MODEL_CATALOG = {
     languages: ["fr"],
     downloadSizeBytes: 20_914_888,
     ...releaseArchive("tts-models", "vits-piper-fr_FR-siwis-medium-int8"),
+    archiveSha256: "3909cff9b3cfd4820c66aa13bf554315c82e34899c161f0b446ece372bc4b5ec",
     engine: piperEngine("fr_FR-siwis-medium"),
   },
   "piper-es-davefx": {
@@ -463,6 +479,7 @@ export const SHERPA_ONNX_MODEL_CATALOG = {
     languages: ["es"],
     downloadSizeBytes: 21_171_632,
     ...releaseArchive("tts-models", "vits-piper-es_ES-davefx-medium-int8"),
+    archiveSha256: "8bb8ac1cefb727caec9bd9c6c3185c673c8b42c53bd29bb25d5a7715dac37125",
     engine: piperEngine("es_ES-davefx-medium"),
   },
 } as const satisfies Record<string, SherpaOnnxCatalogEntry>;
