@@ -128,7 +128,7 @@ it("opens the existing non-ASCII file named by a rendered markdown link", async 
     const tokens = new MarkdownIt().parseInline("[报告](docs/reports/开户赠金.md)", {});
     const href = tokens[0].children?.find((token) => token.type === "link_open")?.attrGet("href");
     expect(href).toBe("docs/reports/%E5%BC%80%E6%88%B7%E8%B5%A0%E9%87%91.md");
-    const resolution = classifyForResolution({ href: href! }, { workspaceRoot });
+    const resolution = classifyForResolution({ href: String(href) }, { workspaceRoot });
     expect(resolution.kind).toBe("resolved");
     if (resolution.kind !== "resolved" || resolution.value.kind !== "file") {
       throw new Error("Expected a directly resolved file link");

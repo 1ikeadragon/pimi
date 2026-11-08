@@ -3,7 +3,7 @@ name: Pimi desktop release
 on:
   push:
     tags:
-      - 'pimi-v[0-9]+.[0-9]+.[0-9]+'
+      - "pimi-v[0-9]+.[0-9]+.[0-9]+"
 
 permissions: {}
 
@@ -105,10 +105,13 @@ jobs:
           architecture: ${{ matrix.arch }}
           package-manager-cache: false
       - run: npm ci --no-audit --no-fund
+        env:
+          EXPO_NO_TELEMETRY: "1"
+          PIMI_SKIP_NATIVE_MARKDOWN_ASSETS: "1"
       - name: Build installer
         env:
           PLATFORM: ${{ matrix.platform }}
-          EXPO_NO_TELEMETRY: '1'
+          EXPO_NO_TELEMETRY: "1"
           NODE_OPTIONS: --max-old-space-size=4096
         run: npm run "pimi:package:$PLATFORM"
         shell: bash

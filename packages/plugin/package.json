@@ -86,7 +86,7 @@
     "react-native": "0.86.3",
     "typescript": "^5.9.3",
     "vitest": "^4.1.6",
-    "zod": "^4.4.3"
+    "zod": "4.6.7"
   },
   "peerDependencies": {
     "@getpaseo/client": "0.16.9",

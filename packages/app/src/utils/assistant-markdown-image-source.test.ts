@@ -49,7 +49,7 @@ describe("local assistant Markdown images", () => {
       .flatMap((token) => token.children ?? [])
       .find((token) => token.type === "image");
     expect(image).toBeDefined();
-    const source = localFileSourceToPath(image!.attrGet("src")!, { decodeHref: true });
+    const source = localFileSourceToPath(String(image!.attrGet("src")), { decodeHref: true });
     const target = resolveAssistantImageSource({ source, workspaceRoot });
     expect(target?.kind).toBe("file_rpc");
     if (target?.kind !== "file_rpc") throw new Error("Expected a local image read target");
