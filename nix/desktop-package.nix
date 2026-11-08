@@ -106,7 +106,7 @@ buildNpmPackage {
     npm run build --workspace=@pimi/expo-two-way-audio
 
     # Expo web export for the Electron renderer
-    node scripts/postinstall-patches.mjs
+    PATH="$PWD/node_modules/.bin:$PATH" node scripts/postinstall-patches.mjs
     ( cd packages/app && PASEO_WEB_PLATFORM=electron npx expo export --platform web )
 
     # Desktop main process
