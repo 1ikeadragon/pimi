@@ -94,4 +94,4 @@ Paseo only talks to a forge host that is either a known cloud host or one the fo
 
 ## Reporting vulnerabilities
 
-If you discover a security vulnerability, please report it privately by emailing hello@moboudra.com. Do not open a public issue.
+For a Pimi vulnerability, contact the maintainer privately using the contact links on the [Pimi site](https://1ikeadragon.github.io/pimi/). For vulnerabilities in the upstream project, follow [Paseo’s security policy](https://github.com/getpaseo/paseo/security/policy). Keep vulnerability details out of public issues.
