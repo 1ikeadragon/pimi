@@ -254,6 +254,7 @@ nav :is(button, a):hover:not(:disabled, [aria-current]) {
 }
 
 [data-workspace-chrome="mac"] .topbar {
+  border-bottom-color: transparent;
   background: var(--sidebar);
   -webkit-app-region: drag;
 }
