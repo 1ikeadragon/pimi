@@ -4,6 +4,8 @@ import { Mic, Square } from "lucide-react-native";
 import { useEffect, useMemo, useRef } from "react";
 import { Image, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
+import type { CommandCenterContribution } from "@/command-center/contributions";
+import { useCommandCenterContributions } from "@/command-center/provider";
 import { DensityIcon } from "@/components/ui/density-icon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { VolumeMeter } from "@/components/volume-meter";
@@ -20,7 +22,12 @@ import {
   PIMI_AGENT_GRID_ROUTE,
 } from "@/navigation/pimi-agent-grid";
 import { closePimiLibrary, openPimiLibrary, PIMI_LIBRARY_ROUTE } from "@/navigation/pimi-library";
-import { closePimiUsage, openPimiUsage, PIMI_USAGE_ROUTE } from "@/navigation/pimi-usage";
+import {
+  closePimiUsage,
+  openPimiUsage,
+  openPimiUsageDetail,
+  PIMI_USAGE_ROUTE,
+} from "@/navigation/pimi-usage";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import {
   buildDraftStoreKey,
@@ -42,6 +49,7 @@ import {
 } from "@/utils/host-routes";
 import { getVoiceReadinessState } from "@/utils/server-info-capabilities";
 import {
+  PIMI_VOICE_COMMAND_LIMIT,
   PimiVoiceNavigation,
   type PimiDestination,
   type PimiVoiceView,
@@ -76,6 +84,41 @@ const WORKSPACE_VIEWS: Partial<Record<PimiVoiceView, PimiDestination>> = {
   memory: { view: "memory" },
   spaces: { view: "spaces" },
 };
+
+function commandTitle(command: CommandCenterContribution): string {
+  const entry = command.presentation;
+  return entry.kind === "choice"
+    ? entry.path.join(" → ")
+    : [entry.sectionTitle, entry.title, entry.subtitle].filter(Boolean).join(" · ");
+}
+
+async function runRegisteredCommands(
+  indexes: number[],
+  offered: readonly CommandCenterContribution[],
+  getCurrent: () => readonly CommandCenterContribution[],
+) {
+  const completed = [];
+  for (const index of new Set(indexes)) {
+    const requested = offered[index];
+    const available =
+      requested &&
+      getCurrent().find(
+        (entry) => entry.id === requested.id && commandTitle(entry) === commandTitle(requested),
+      );
+    if (!available) {
+      completed.push("That action is no longer available.");
+      break;
+    }
+    try {
+      await available.run();
+    } catch {
+      completed.push(`Couldn’t run ${commandTitle(available)}.`);
+      break;
+    }
+    completed.push(commandTitle(available));
+  }
+  return completed.join(" · ");
+}
 
 function openVoiceView(view: PimiVoiceView, host: DesktopHostBridge, pathname: string) {
   const destination = WORKSPACE_VIEWS[view];
@@ -127,11 +170,13 @@ function applyVoiceCommand(
     localServerId,
     selection,
     pathname,
+    agentId,
   }: {
     host: DesktopHostBridge;
     localServerId: string;
     selection: ReturnType<typeof useActiveWorkspaceSelection>;
     pathname: string;
+    agentId?: string;
   },
 ) {
   switch (command.action) {
@@ -150,6 +195,15 @@ function applyVoiceCommand(
         action: { kind: "search", query: command.query },
       });
       return "Searching Spaces";
+    case "review-prs":
+      host.showPimiWorkspace?.({ view: "review-prs", filter: command.filter });
+      return "Opening pull requests";
+    case "usage":
+      openPimiUsageDetail(
+        { tab: command.tab, session: command.session, agentId, serverId: localServerId },
+        pathname === PIMI_USAGE_ROUTE,
+      );
+      return "Opening Usage";
     case "new-task":
       host.showPimiWorkspace?.({
         view: "new-task",
@@ -206,6 +260,11 @@ function DesktopVoiceBubble({
   const connected = useHostRuntimeIsConnected(localServerId);
   const selection = useActiveWorkspaceSelection();
   const pathname = usePathname();
+  const { contributions } = useCommandCenterContributions();
+  const currentCommands = useRef(contributions);
+  useEffect(() => {
+    currentCommands.current = contributions;
+  }, [contributions]);
   const unavailable = useCommandVoiceUnavailable(localServerId);
   const commandRunning = useRef(false);
   const listener = usePimiVoiceListener({
@@ -222,26 +281,40 @@ function DesktopVoiceBubble({
         listener.setMessage("Still working on your last command.");
         return;
       }
-      const navigationContext = { host, localServerId, selection, pathname };
+      const agentId =
+        useSessionStore.getState().sessions[localServerId]?.focusedAgentId ?? undefined;
+      const navigationContext = { host, localServerId, selection, pathname, agentId };
       if (command) {
         const parsed = PimiVoiceNavigation.safeParse(command);
         listener.setMessage(
           parsed.success
-            ? applyVoiceCommand(parsed.data, navigationContext)
+            ? (applyVoiceCommand(parsed.data, navigationContext) ?? "")
             : "Try a shorter command.",
         );
         return;
       }
-      const agentId = useSessionStore.getState().sessions[localServerId]?.focusedAgentId;
+      const commands = contributions.slice(0, PIMI_VOICE_COMMAND_LIMIT);
       commandRunning.current = true;
       listener.setMessage("Working…");
       void (async () => {
         try {
-          const result = await bridge.runCommand({ transcript, agentId: agentId ?? undefined });
+          const result = await bridge.runCommand({
+            transcript,
+            agentId,
+            workspaceId: selection?.serverId === localServerId ? selection.workspaceId : undefined,
+            commands: commands.map((entry) => commandTitle(entry).slice(0, 160)),
+          });
           if (result.destination) host.showPimiWorkspace?.(result.destination);
-          const navigation = result.navigation
-            ? applyVoiceCommand(result.navigation, navigationContext)
-            : "";
+          if (result.chat) {
+            host.dismissPimiWorkspace?.();
+            const { serverId, workspaceId, agentId: id } = result.chat;
+            navigateToWorkspace({ serverId, workspaceId, target: { kind: "agent", agentId: id } });
+          }
+          const target = result.navigation;
+          const navigation =
+            target?.action === "registered-commands"
+              ? await runRegisteredCommands(target.indexes, commands, () => currentCommands.current)
+              : target && applyVoiceCommand(target, navigationContext);
           listener.setMessage([result.message, navigation].filter(Boolean).join(" · "));
         } catch (error) {
           const message = error instanceof Error ? error.message.split("Error: ").at(-1) : "";

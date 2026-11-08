@@ -10,6 +10,7 @@ import {
   SpaceSearchQuery,
   type PimiSpaces,
 } from "./pimi-spaces.js";
+import { SpacesReferences } from "./pimi-spaces-reference.js";
 
 const imageSignatures = {
   "image/png": (bytes: Buffer) =>
@@ -22,6 +23,11 @@ const imageSignatures = {
 const input = z.discriminatedUnion("action", [
   z.strictObject({ action: z.literal("list") }),
   z.strictObject({ action: z.literal("search"), query: SpaceSearchQuery }),
+  z.strictObject({
+    action: z.literal("find-reference"),
+    query: SpaceSearchQuery,
+    arxiv: z.boolean(),
+  }),
   z.strictObject({ action: z.literal("add-note"), text: SpaceNote }),
   z.strictObject({ action: z.literal("edit-note"), id: SpaceItemId, text: SpaceNote }),
   z.strictObject({ action: z.literal("remove"), id: SpaceItemId }),
@@ -37,6 +43,7 @@ export function createPimiSpacesHandler(
   spaces: PimiSpaces,
   reportError: (error: unknown) => void,
 ): RequestHandler {
+  const references = new SpacesReferences();
   return async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     const parsed = input.safeParse(req.body);
@@ -55,6 +62,11 @@ export function createPimiSpacesHandler(
         case "search": {
           const result = await spaces.search(body.query);
           res.json({ items: result.items.map(({ card }) => card), mode: result.mode });
+          return;
+        }
+        case "find-reference": {
+          const matches = await references.find(await spaces.list(), body.query, body.arxiv);
+          res.json({ items: matches.map(({ id, kind }) => ({ id, kind })) });
           return;
         }
         case "add-note":

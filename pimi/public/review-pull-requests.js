@@ -65,8 +65,9 @@ export function createReviewPullRequests({
   filters.setAttribute("aria-label", "Pull request filter");
   filters.setAttribute("role", "group");
   const allButton = button("button quiet", "All", () => setFilter("all"));
+  const mineButton = button("button quiet", "Mine", () => setFilter("mine"));
   const requestedButton = button("button quiet", "To review", () => setFilter("requested"));
-  filters.append(allButton, requestedButton);
+  filters.append(allButton, mineButton, requestedButton);
   const listStatus = element("p", "review-pr-list-status");
   listStatus.setAttribute("role", "status");
   const list = element("div", "review-pr-list");
@@ -145,7 +146,11 @@ export function createReviewPullRequests({
   }
   function sourceMessages() {
     const messages = new Set();
-    const sources = [snapshot?.requestedReview, ...(snapshot?.repositories || [])];
+    const sources = [
+      snapshot?.requestedReview,
+      snapshot?.authored,
+      ...(snapshot?.repositories || []),
+    ];
     for (const source of sources) {
       if (source?.error) messages.add(String(source.error));
       if (source?.truncated)
@@ -162,6 +167,7 @@ export function createReviewPullRequests({
     const shown = items.filter(
       (item) =>
         (filter !== "requested" || item.reviewRequested) &&
+        (filter !== "mine" || item.authoredByMe) &&
         (!query ||
           `${repository(item)} ${item.number} ${item.title} ${author(item)}`
             .toLowerCase()
@@ -170,6 +176,7 @@ export function createReviewPullRequests({
     count.textContent =
       shown.length === items.length ? String(items.length) : `${shown.length} / ${items.length}`;
     allButton.setAttribute("aria-pressed", String(filter === "all"));
+    mineButton.setAttribute("aria-pressed", String(filter === "mine"));
     requestedButton.setAttribute("aria-pressed", String(filter === "requested"));
     refreshButton.disabled = fetching || Boolean(snapshot?.refreshing);
     refreshButton.textContent = refreshButton.disabled ? "Refreshing…" : "Refresh";
@@ -198,6 +205,7 @@ export function createReviewPullRequests({
     if ((!snapshot && fetching) || snapshot?.refreshing) label = "Loading pull requests…";
     else if (query) label = "No matching pull requests";
     else if (filter === "requested") label = "No pull requests waiting for your review";
+    else if (filter === "mine") label = "You have no open pull requests";
     empty.append(element("p", "", label));
     if (!query && !fetching && !snapshot?.refreshing) {
       empty.append(
@@ -485,5 +493,5 @@ export function createReviewPullRequests({
     ++detailRequest;
     detailLoading = false;
   }
-  return { refresh, open, close };
+  return { refresh, open, close, setFilter };
 }

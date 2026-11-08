@@ -1262,6 +1262,12 @@ window.pimiWorkspace?.onNavigate(async (destination) => {
     $("show-review").click();
     return;
   }
+  if (destination.view === "review-prs") {
+    openReviewPicker();
+    reviewPrs.setFilter(destination.filter ?? "all");
+    selectReviewTab("pr");
+    return;
+  }
   if (destination.view === "review-pr") {
     await openPullRequest(destination.url);
     return;

@@ -1,7 +1,8 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
 import { useIsFocused } from "expo-router/react-navigation";
+import { useLocalSearchParams } from "expo-router";
 import { X } from "lucide-react-native";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
@@ -36,6 +37,21 @@ export function PimiUsageScreen() {
   const focused = useIsFocused();
   const covered = usePimiWorkspaceSection() !== null;
   const [tab, setTab] = useState<UsageTab>("sessions");
+  const {
+    tab: requestedTab,
+    session,
+    serverId,
+    agentId,
+  } = useLocalSearchParams<{
+    tab?: string;
+    session?: string;
+    serverId?: string;
+    agentId?: string;
+  }>();
+  useEffect(() => {
+    if (requestedTab === "limits" || requestedTab === "sessions") setTab(requestedTab);
+    if (requestedTab === "recap" && !isPimiAndroid()) setTab(requestedTab);
+  }, [requestedTab, session, serverId, agentId]);
   const visibleTabs = isPimiAndroid() ? tabs.filter((option) => option.value !== "recap") : tabs;
 
   if (!focused || covered) return <View style={styles.screen} />;
@@ -45,7 +61,15 @@ export function PimiUsageScreen() {
       <View style={styles.toolbar}>
         <SegmentedControl options={visibleTabs} value={tab} onValueChange={setTab} />
       </View>
-      {tab === "sessions" && <PimiSessionUsage />}
+      {tab === "sessions" && (
+        <PimiSessionUsage
+          key={JSON.stringify([session, serverId, agentId])}
+          initialQuery={session}
+          initialSessionKey={
+            !session && serverId && agentId ? JSON.stringify([serverId, agentId]) : undefined
+          }
+        />
+      )}
       {tab === "limits" && <ProviderLimits />}
       {tab === "recap" && <PimiRecapUsage />}
     </View>

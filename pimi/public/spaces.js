@@ -304,14 +304,31 @@ export function createSpacesView({ $, api, button, element, message }) {
       return;
     }
     if (action?.kind === "search") searchInput.value = action.query;
-    if (action?.kind === "saved") searchInput.value = "";
+    if (action && ["saved", "open", "remove"].includes(action.kind)) searchInput.value = "";
+    let cards;
     await run(async () => {
       unavailablePapers.clear();
-      await loadCards();
+      cards = await loadCards();
     });
-    if (!active || !ready) return;
-    if (action?.kind === "draft" && !editor.open) openCard(undefined, action.text);
-    if (action?.kind === "search") searchInput.focus();
+    if (active && cards && action) applyLoadedAction(action, cards);
+  }
+
+  function applyLoadedAction(action, cards) {
+    if (action.kind === "search") {
+      searchInput.focus();
+      return;
+    }
+    if (editor.open) return;
+    if (action.kind === "draft") openCard(undefined, action.text);
+    if (action.kind === "open" || action.kind === "remove") {
+      const item = cards.find((entry) => entry.id === action.id);
+      if (!item) {
+        message("spaces-status", "That card is no longer available.");
+        return;
+      }
+      openCard(item);
+      if (action.kind === "remove") confirmRemoval();
+    }
   }
 
   async function loadCards() {
@@ -323,6 +340,7 @@ export function createSpacesView({ $, api, button, element, message }) {
     grid.replaceChildren(...result.items.map(card));
     updateEmbedVisibility();
     showEmpty();
+    return result.items;
   }
 
   function queueSearch() {
@@ -400,10 +418,11 @@ export function createSpacesView({ $, api, button, element, message }) {
     "click",
     (event) => void copyReference(current.id, event.currentTarget),
   );
-  $("spaces-remove").addEventListener("click", () => {
+  function confirmRemoval() {
     confirmation.returnValue = "";
     confirmation.showModal();
-  });
+  }
+  $("spaces-remove").addEventListener("click", confirmRemoval);
   confirmation.addEventListener("close", () => {
     if (confirmation.returnValue !== "remove" || !current) return;
     const { id } = current;

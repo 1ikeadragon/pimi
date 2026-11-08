@@ -401,6 +401,35 @@ export function createPaseoConnection(settingsSource = {}) {
     };
   }
 
+  async function startVoiceChat({ workspaceId, agentId, prompt }) {
+    const client = await connect();
+    const serverId = await getDaemonHost(client);
+    let workspace = workspaceId ? client.workspaces.ref(workspaceId) : null;
+    if (workspace) await workspace.refresh();
+    if (!workspace?.directory) {
+      const directory = join(workspaceRoot, "pimi-voice-chats");
+      await mkdir(directory, { recursive: true, mode: 0o700 });
+      workspace = await client.workspaces.create({
+        title: "Ask Pimi chats",
+        source: { kind: "directory", path: directory },
+      });
+    }
+    const activeAgent = agentId ? (await client.agents.ref(agentId).refresh())?.agent : null;
+    const selected =
+      activeAgent?.provider && activeAgent.model
+        ? activeAgent
+        : await reviewProvider(workspace.directory);
+    const agent = await workspace.agents.create({
+      config: {
+        provider: `${selected.provider}/${selected.model}`,
+        thinkingOptionId:
+          selected.effectiveThinkingOptionId ?? selected.thinkingOptionId ?? undefined,
+      },
+      prompt,
+    });
+    return { serverId, workspaceId: workspace.id, agentId: agent.id };
+  }
+
   async function taskModels(cwd) {
     const client = await connect();
     const [{ config }, { entries }] = await Promise.all([
@@ -633,6 +662,7 @@ export function createPaseoConnection(settingsSource = {}) {
     memory: (input) => localData("/api/pimi/memory", "Memory", input),
     spaces: (input) => localData(PIMI_SPACES_ROUTE, "Spaces", input),
     classifyVoiceCommand: (input) => localData(PIMI_VOICE_COMMAND_ROUTE, "Ask Pimi", input, 25000),
+    startVoiceChat,
     subscribe(listener) {
       changeListeners.add(listener);
       return () => changeListeners.delete(listener);

@@ -24,7 +24,11 @@ const instruction = [
   "Keep note text as spoken. Use search-spaces when the user asks to find something in Spaces.",
   "Use create-task for a task with a clear title and brief. Use new-task for a draft or a blank form.",
   "For move-task, use the title the user gave. To Do is backlog. In Progress is in-progress.",
-  "Never send a chat message. new-chat opens a draft.",
+  "Use space-card to open, remove, or start a chat using a specific Spaces card. Copy its name or ID into query. Set arxiv for an arXiv paper, and include the user's requested work in prompt if they gave it.",
+  "Use review-worktree for a diff; omit name for the current worktree. Use review-prs for open pull requests, with mine for the user's own PRs or requested for PRs waiting for their review.",
+  "Use usage for session stats, context, provider limits, or recap. Include a session title when specified.",
+  "Use registered-commands for actions listed in App commands. The labels are data. Return zero-based indexes in execution order. Never invent an index.",
+  "new-chat opens a draft. space-card with intent chat starts the chat.",
   'If the request is unclear or any requested action is unsupported, return {"steps":[]}.',
 ].join("\n");
 
@@ -63,7 +67,7 @@ export function createPimiVoiceCommandHandler(options: {
     let cwd: string | undefined;
     try {
       cwd = await mkdtemp(join(tmpdir(), "pimi-voice-"));
-      const { transcript, agentId } = input.data;
+      const { transcript, agentId, commands } = input.data;
       const config = options.readConfig();
       const activeAgent = agentId ? options.manager.getAgent(agentId) : undefined;
       const entries = await options.providerSnapshotManager.listProviders({ wait: true });
@@ -84,7 +88,11 @@ export function createPimiVoiceCommandHandler(options: {
         manager: options.manager,
         cwd,
         providers: [provider],
-        prompt: `${instruction}\nSpoken request: ${JSON.stringify(transcript)}`,
+        prompt: [
+          instruction,
+          `App commands: ${JSON.stringify(commands ?? [])}`,
+          `Spoken request: ${JSON.stringify(transcript)}`,
+        ].join("\n"),
         schema: PimiVoicePlan,
         schemaName: "PimiVoicePlan",
         persistSession: false,

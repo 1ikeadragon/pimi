@@ -58,11 +58,17 @@ function contextPercent(usage: Agent["lastUsage"]): number | null {
   return report ? getUsagePercentage(report.capacityTokens, report.usedTokens) : null;
 }
 
-export function PimiSessionUsage() {
+export function PimiSessionUsage({
+  initialQuery = "",
+  initialSessionKey,
+}: {
+  initialQuery?: string;
+  initialSessionKey?: string;
+} = {}) {
   const { agents, isInitialLoad } = useAggregatedAgents();
   const recentWorkspace = useLastWorkspaceSelection();
-  const [query, setQuery] = useState("");
-  const [selection, select] = useState<string | null>(null);
+  const [query, setQuery] = useState(initialQuery);
+  const [selection, select] = useState<string | null>(initialSessionKey ?? null);
   const [wide, setWide] = useState(false);
   const list = useRef<FlatList<AggregatedAgent>>(null);
   const handleLayout = useCallback((event: LayoutChangeEvent) => {

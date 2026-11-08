@@ -13,6 +13,7 @@ import {
   PimiOpenTaskDestination,
   PimiRecapPeriod,
   PimiReportLinkError,
+  PimiReviewListDestination,
   PimiReviewPrDestination,
   PimiVoiceCommandInput,
 } from "@getpaseo/protocol/pimi-task";
@@ -900,6 +901,7 @@ function registerPimiWorkspaceNavigation(): void {
       task: PimiOpenTaskDestination,
       "new-task": PimiNewTaskDestination,
       "review-pr": PimiReviewPrDestination,
+      "review-prs": PimiReviewListDestination,
     };
     for (const [name, schema] of Object.entries(destinationSchema)) {
       if (view !== name) continue;
