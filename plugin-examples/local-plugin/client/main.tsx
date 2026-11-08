@@ -11,6 +11,9 @@ import { Pressable, Text, View } from "react-native";
 import { ExternalLink, Markdown } from "@pimi/plugin/client/ui";
 import { incrementRpc } from "../shared/increment";
 
+const pluginDocsUrl =
+  "https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/reference.md";
+
 export function contributeClient(client: PluginClientContext) {
   const pills = new Map<string, PluginButtonRegistration>();
   let stopped = false;
@@ -102,13 +105,13 @@ export function ExamplePanel({
 
   const openBrowser = navigation?.openBrowser;
   const handleOpenBrowser = useCallback(() => {
-    openBrowser?.({ url: "https://paseo.sh/docs/plugins", workspaceId });
+    openBrowser?.({ url: pluginDocsUrl, workspaceId });
   }, [openBrowser, workspaceId]);
 
   return (
     <View style={styles.screen}>
       <Markdown>{"## Workspace plugin panel\n\nCall a **daemon RPC** from this panel."}</Markdown>
-      <ExternalLink href="https://paseo.sh/docs/plugins">Plugin documentation</ExternalLink>
+      <ExternalLink href={pluginDocsUrl}>Plugin documentation</ExternalLink>
       {openBrowser ? (
         <Pressable accessibilityRole="button" onPress={handleOpenBrowser} style={styles.button}>
           <Text style={styles.buttonText}>Read in workspace browser</Text>

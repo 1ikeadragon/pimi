@@ -1,4 +1,4 @@
-# Expo Two-Way-Audio Using Flow API
+# Expo Two-Way Audio Basics
 
 This example showcases the basic functions of the expo-two-way-audio module:
 
@@ -20,7 +20,7 @@ In the `examples/basic-usage` directory:
 1. Install dependencies:
 
    ```sh
-   npm install
+   npm ci
    ```
 
 2. Run the app:
