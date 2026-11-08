@@ -1,5 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { getDesktopHost } from "@/desktop/host";
+import { openPimiTasks } from "@/navigation/pimi-tasks";
+import { isPimiAndroid } from "@/utils/pimi-mobile";
 import {
   PimiReviewSuggestionResult,
   PimiTaskCreatedResult,
@@ -43,7 +45,11 @@ export function readPimiCreatedTask(output: unknown): PimiTaskCreatedResult | nu
 
 export function PimiCreatedTaskCard({ result }: { result: PimiTaskCreatedResult }) {
   const { id, title } = result.task;
-  const open = useCallback(() => getDesktopHost()?.showPimiWorkspace?.({ view: "task", id }), [id]);
+  const { serverId } = result.source;
+  const open = useCallback(() => {
+    if (isPimiAndroid()) openPimiTasks(serverId, id);
+    else getDesktopHost()?.showPimiWorkspace?.({ view: "task", id });
+  }, [id, serverId]);
   return (
     <View style={styles.card} testID="pimi-task-created">
       <Text style={styles.meta}>{result.created ? "Task added" : "Task already tracked"}</Text>

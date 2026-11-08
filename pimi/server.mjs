@@ -10,6 +10,8 @@ import MarkdownIt from "markdown-it";
 import { parseAgentDeepLink } from "@getpaseo/protocol/agent-deep-link";
 import {
   PIMI_ARXIV_EMBED_ORIGIN,
+  PIMI_MOBILE_TASK_REQUEST_LIMIT,
+  PIMI_MOBILE_TASK_SOCKET_OPERATION,
   PIMI_SPACE_REQUEST_BYTES,
   PIMI_VIDEO_EMBED_ORIGIN,
   PIMI_X_EMBED_PAGE,
@@ -594,6 +596,7 @@ export async function startPimi({
       [PimiTaskAgentTool.list, tasks.listForAgent],
       [PimiTaskAgentTool.get, tasks.getForAgent],
       [PimiTaskAgentTool.update, tasks.updateFromAgent],
+      [PIMI_MOBILE_TASK_SOCKET_OPERATION, tasks.mobileTask],
       [
         PimiTaskAgentTool.labels,
         async () => {
@@ -632,9 +635,14 @@ export async function startPimi({
     const bridge = createServer(async (request, response) => {
       try {
         checkTaskPipeCredential(authorization, request.headers.authorization);
-        const operation = request.method === "POST" && operations.get(request.url.slice(1));
+        const operationName = request.url.slice(1);
+        const operation = request.method === "POST" && operations.get(operationName);
         if (!operation) throw new RequestError("Unknown Pimi task operation.", 404);
-        json(response, await operation(await jsonInput(request)));
+        const limit =
+          operationName === PIMI_MOBILE_TASK_SOCKET_OPERATION
+            ? PIMI_MOBILE_TASK_REQUEST_LIMIT
+            : undefined;
+        json(response, await operation(await jsonInput(request, limit)));
       } catch (error) {
         requestFailed(response, error);
       }

@@ -8,6 +8,8 @@ Chat with your agents, track their work, and review the changes in one app.
 
 [Download for macOS or Windows](https://1ikeadragon.github.io/pimi/) · [Release notes](https://github.com/1ikeadragon/pimi/releases/latest)
 
+Pair Pimi for Android with your desktop to chat, track tasks, and review changes on your phone. [Android setup and builds](docs/android.md#pimi-apk) · [Self-host Pimi Relay](https://github.com/1ikeadragon/pimi-relay)
+
 ## Chat and Tasks
 
 Ask an agent to track a task or send a few agents to explore it. Queue a follow-up, fork a chat to another provider, or click Pimi to give a voice command.

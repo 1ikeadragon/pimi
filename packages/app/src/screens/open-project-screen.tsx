@@ -33,6 +33,7 @@ import { PairDeviceModal } from "@/desktop/components/pair-device-modal";
 import { buildNewWorkspaceRoute, buildSettingsHostSectionRoute } from "@/utils/host-routes";
 import { openPimiAgentGrid } from "@/navigation/pimi-agent-grid";
 import { openPimiUsage } from "@/navigation/pimi-usage";
+import { isPimiAndroid } from "@/utils/pimi-mobile";
 
 const WINDOW_CONTENT_DATASET = { "window-content": "" };
 const PIMI_BACKGROUND = { "pimi-background": "" };
@@ -42,7 +43,7 @@ export function OpenProjectScreen() {
   const hosts = useHosts();
   const router = useRouter();
   const showPimiWorkspace = getDesktopHost()?.showPimiWorkspace;
-  const pimi = Boolean(showPimiWorkspace);
+  const pimi = Boolean(showPimiWorkspace) || isPimiAndroid();
   const openMemory = useCallback(
     () => showPimiWorkspace?.({ view: "memory" }),
     [showPimiWorkspace],
@@ -129,7 +130,7 @@ export function OpenProjectScreen() {
                 testID="pimi-open-agent-grid"
               />
             ) : null}
-            {pimi ? (
+            {showPimiWorkspace ? (
               <HomeTile
                 icon={NotebookText}
                 title="Memory"

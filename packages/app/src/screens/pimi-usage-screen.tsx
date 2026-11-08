@@ -17,6 +17,7 @@ import { useUsageHostSelection } from "@/usage/hosts";
 import { PimiRecapUsage } from "@/usage/pimi-recap-usage";
 import { PimiSessionUsage } from "@/usage/pimi-session-usage";
 import { UsageBody, UsageMessage } from "@/usage/usage-section";
+import { isPimiAndroid } from "@/utils/pimi-mobile";
 
 type UsageTab = "sessions" | "limits" | "recap";
 const tabs: SegmentedControlOption<UsageTab>[] = [
@@ -35,13 +36,14 @@ export function PimiUsageScreen() {
   const focused = useIsFocused();
   const covered = usePimiWorkspaceSection() !== null;
   const [tab, setTab] = useState<UsageTab>("sessions");
+  const visibleTabs = isPimiAndroid() ? tabs.filter((option) => option.value !== "recap") : tabs;
 
   if (!focused || covered) return <View style={styles.screen} />;
   return (
     <View style={styles.screen} dataSet={PIMI_BACKGROUND} testID="pimi-usage">
       <MenuHeader title="Usage" rightContent={close} />
       <View style={styles.toolbar}>
-        <SegmentedControl options={tabs} value={tab} onValueChange={setTab} />
+        <SegmentedControl options={visibleTabs} value={tab} onValueChange={setTab} />
       </View>
       {tab === "sessions" && <PimiSessionUsage />}
       {tab === "limits" && <ProviderLimits />}

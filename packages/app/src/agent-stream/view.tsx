@@ -25,6 +25,7 @@ import {
 } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useIsCompactFormFactor } from "@/constants/layout";
+import { isPimiAndroid } from "@/utils/pimi-mobile";
 import { useMutation } from "@tanstack/react-query";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { Check, ChevronDown, X } from "lucide-react-native";
@@ -279,22 +280,18 @@ export interface AgentStreamViewProps {
 }
 
 function renderPimiAction(data: AgentToolCallData, serverId: string | undefined, agentId: string) {
-  if (
-    data.status !== "completed" ||
-    data.error ||
-    data.detail.type !== "unknown" ||
-    !getDesktopHost()?.showPimiWorkspace
-  )
-    return null;
+  if (data.status !== "completed" || data.error || data.detail.type !== "unknown") return null;
+  const desktop = Boolean(getDesktopHost()?.showPimiWorkspace);
   const matches = (source: { serverId: string; agentId: string }) =>
     source.serverId === serverId && source.agentId === agentId;
   if (isPimiTaskCreateTool(data.name)) {
+    if (!desktop && !isPimiAndroid()) return null;
     const result = readPimiCreatedTask(data.detail.output);
     if (result && matches(result.source)) return <PimiCreatedTaskCard result={result} />;
-  } else if (isPimiTaskProposalTool(data.name)) {
+  } else if (desktop && isPimiTaskProposalTool(data.name)) {
     const proposal = readPimiTaskProposal(data.detail.output);
     if (proposal && matches(proposal.source)) return <PimiTaskProposalCard proposal={proposal} />;
-  } else if (isPimiReviewSuggestionTool(data.name)) {
+  } else if (desktop && isPimiReviewSuggestionTool(data.name)) {
     const suggestion = readPimiReviewSuggestion(data.detail.output);
     if (suggestion && matches(suggestion.source))
       return <PimiReviewSuggestionCard suggestion={suggestion} />;

@@ -12,6 +12,7 @@ import {
   waitForAgentRunStartWithTimeout,
 } from "./agent/agent-prompt.js";
 import { createToolHosts } from "./agent/host-operations/index.js";
+import { requestMobileTask } from "./agent/tools/pimi-task-tools.js";
 import { HOST_ROUTE_OPCODE } from "@getpaseo/protocol/binary-frames/index";
 import { DaemonLinkEndpoint, VirtualHostSocket } from "./connected-hosts/index.js";
 import { ConnectedHosts } from "./connected-hosts/index.js";
@@ -561,6 +562,7 @@ export class VoiceAssistantWebSocketServer {
   private readonly pendingConnections: Map<WebSocketLike, PendingConnection> = new Map();
   private readonly sessions: Map<WebSocketLike, SessionConnection> = new Map();
   private readonly socketIdentities: Map<WebSocketLike, WebSocketConnectionIdentity> = new Map();
+  private readonly pimiPasswordRelaySockets = new WeakSet<WebSocketLike>();
   private readonly externalSessionsByKey: Map<string, ReconnectableSessionConnection> = new Map();
   private readonly pluginSocketIds = new WeakMap<WebSocketLike, string>();
   private readonly pluginSocketCleanup = new WeakMap<WebSocketLike, () => void>();
@@ -1900,6 +1902,17 @@ export class VoiceAssistantWebSocketServer {
         return false;
       }
       pending.admission = resolved.admission;
+      // No-password owners, local credentials, routed peers, and legacy relay sessions do not
+      // authenticate a remote Pimi user. The proof belongs to this socket, including on reconnect.
+      if (
+        this.passwordHash &&
+        message.auth?.kind === "password" &&
+        !message.routed &&
+        pending.identity.transport === "relay" &&
+        pending.identity.securityMode === "protected"
+      ) {
+        this.pimiPasswordRelaySockets.add(ws);
+      }
       return true;
     } catch (error) {
       pending.connectionLogger.error({ err: error }, "Failed to resolve hello credential");
@@ -2024,6 +2037,7 @@ export class VoiceAssistantWebSocketServer {
         hostMultiplexing: true,
         // COMPAT(relayProtectedSecurity): added in v0.13.0, remove gate after 2027-04-21.
         relayProtectedSecurity: true,
+        pimiMobileTasks: true,
         usageSetting: true,
         usageSources: true,
         ownedSubscriptions: true,
@@ -2686,6 +2700,49 @@ export class VoiceAssistantWebSocketServer {
     activeConnection: SessionConnection,
     message: Extract<WSInboundMessage, { type: "session" }>,
   ): Promise<void> {
+    const request = message.message;
+    if (request.type === "pimi.tasks.request") {
+      await activeConnection.session.delivery.request(ws, request, async () => {
+        const { session } = activeConnection;
+        if (!session.allowsInbound(request)) {
+          session.delivery.reply({
+            type: "rpc_error",
+            payload: {
+              requestId: request.requestId,
+              requestType: request.type,
+              code: "access_denied",
+              error: "This session cannot access Pimi Tasks.",
+            },
+          });
+          return;
+        }
+        const authorized = this.isPimiMobileAuthorized(ws, activeConnection);
+        if (!authorized) activeConnection.connectionLogger.warn("Denied mobile Pimi Tasks request");
+        const result = authorized
+          ? await requestMobileTask(this.paseoHome, request.operation).catch(() => {
+              activeConnection.connectionLogger.warn("Could not reach the Pimi Desktop task store");
+              return {
+                status: "error" as const,
+                error: "Keep Pimi Desktop open and up to date, then retry.",
+              };
+            })
+          : {
+              status: "error" as const,
+              error: "Pimi Tasks requires a protected relay connection with a host password.",
+            };
+        // Recheck permissions in case this session was narrowed while desktop handled the request.
+        if (
+          !session.allowsInbound(request) ||
+          (authorized && !this.isPimiMobileAuthorized(ws, activeConnection))
+        )
+          return;
+        session.delivery.reply({
+          type: "pimi.tasks.response",
+          payload: { requestId: request.requestId, ...result },
+        });
+      });
+      return;
+    }
     const link = this.hostLink(ws, activeConnection);
     if (link.handles(message.message)) {
       await activeConnection.session.delivery.request(ws, message.message, () =>
@@ -2726,6 +2783,15 @@ export class VoiceAssistantWebSocketServer {
         "ws_slow_request",
       );
     }
+  }
+
+  private isPimiMobileAuthorized(ws: WebSocketLike, connection: SessionConnection): boolean {
+    return (
+      this.pimiPasswordRelaySockets.has(ws) &&
+      connection.principalId === "owner" &&
+      !connection.session.isRouted() &&
+      connection.session.allowsPermission("daemon.manage")
+    );
   }
 
   private handleRawMessageError(params: {
