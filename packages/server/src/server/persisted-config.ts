@@ -20,6 +20,7 @@ import { AgentProfileSchema, AgentSkillSelectionSchema } from "@getpaseo/protoco
 import { PluginIdSchema, PluginSourceSchema } from "@getpaseo/protocol/plugin-config";
 import { TerminalProfileSchema } from "@getpaseo/protocol/terminal-profile";
 import { PaseoServicePortAllocationSchema } from "@getpaseo/protocol/paseo-config-schema";
+import { DEFAULT_PAIRING_APP_BASE_URL } from "./connection-offer.js";
 
 export const LogLevelSchema = z.enum(["trace", "debug", "info", "warn", "error", "fatal"]);
 export const LogFormatSchema = z.enum(["pretty", "json"]);
@@ -291,7 +292,7 @@ export const PersistedConfigSchema = z
               .boolean()
               .optional()
               .describe(
-                "Admit only relay clients that negotiate protected endpoint security (replay protection). Defaults to false; older clients still connect while it is off.",
+                "Admit only relay clients that negotiate protected endpoint security (replay protection). Defaults to true.",
               ),
             endpoint: z.string().optional(),
             publicEndpoint: z.string().optional(),
@@ -383,15 +384,12 @@ const DEFAULT_PERSISTED_CONFIG = PersistedConfigSchema.parse({
   version: 1,
   daemon: {
     listen: "127.0.0.1:6767",
-    cors: {
-      allowedOrigins: ["https://app.paseo.sh"],
-    },
     relay: {
       enabled: false,
     },
   },
   app: {
-    baseUrl: "https://app.paseo.sh",
+    baseUrl: DEFAULT_PAIRING_APP_BASE_URL,
   },
 }) as PersistedConfig;
 

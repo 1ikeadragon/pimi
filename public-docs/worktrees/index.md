@@ -82,10 +82,6 @@ paseo workspace create \
 
 Add `--forge <name>` when Paseo cannot infer the forge from the source checkout.
 
-## Copy local files with .worktreeinclude
-
-Use [`.worktreeinclude`](/docs/worktrees/worktreeinclude) to copy selected gitignored files, such as `.env`, from your source checkout before setup runs.
-
 ## paseo.json
 
 Drop a `paseo.json` in your repo root. Paseo reads it from the committed version of the base branch you picked, so uncommitted changes in other branches don't apply.
@@ -107,7 +103,7 @@ Drop a `paseo.json` in your repo root. Paseo reads it from the committed version
 
 Plugins can use [`worktree.create.after`](/docs/plugins/hooks#worktreecreateafter) to write files before setup, terminals, and the first agent.
 
-`setup` runs once after the worktree is created. Use setup to install dependencies and run project initialization. Use [`.worktreeinclude`](#copy-local-files-with-worktreeinclude) to copy ignored files such as `.env`. `teardown` runs during archive, before the directory is removed.
+`setup` runs once after the worktree is created. Use setup to install dependencies and run project initialization. `teardown` runs during archive, before the directory is removed.
 
 ```json
 {

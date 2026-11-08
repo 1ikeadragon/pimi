@@ -25,6 +25,7 @@ import { resolveSpeechConfig } from "./speech/speech-config-resolver.js";
 import { readSpeechSettings } from "./speech/speech-settings.js";
 import { mergeHostnames, parseHostnamesEnv, type HostnamesConfig } from "./hostnames.js";
 import { resolveGitProcessPolicy } from "../utils/git-process-scheduler.js";
+import { DEFAULT_PAIRING_APP_BASE_URL, LEGACY_PAIRING_APP_BASE_URL } from "./connection-offer.js";
 
 export {
   loadPersistedConfig,
@@ -37,7 +38,6 @@ export {
 
 const DEFAULT_PORT = 6767;
 const DEFAULT_RELAY_ENDPOINT = "relay.paseo.sh:443";
-const DEFAULT_APP_BASE_URL = "https://app.paseo.sh";
 const DEFAULT_TRUSTED_PROXIES = ["loopback"];
 
 interface ResolveBundledWebUiDistDirInput {
@@ -269,7 +269,6 @@ interface ResolveRelayInput {
   persisted: PersistedConfig;
   cliRelayEnabled: boolean | undefined;
   cliRelayUseTls: boolean | undefined;
-  enabledFallback: boolean;
 }
 
 interface ResolvedRelay {
@@ -315,13 +314,8 @@ function resolveRelayEndpoints(input: ResolveRelayInput): {
 
 function resolveRelayConfig(input: ResolveRelayInput): ResolvedRelay {
   const environmentEnabled = parseBooleanEnv(input.env.PASEO_RELAY_ENABLED);
-  // COMPAT(relayOptInDefault): daemons whose startup config omitted this field
-  // retain relay-on removal semantics until 2027-01-31. Modern homes use false.
   const enabled =
-    input.cliRelayEnabled ??
-    environmentEnabled ??
-    input.persisted.daemon?.relay?.enabled ??
-    input.enabledFallback;
+    input.cliRelayEnabled ?? environmentEnabled ?? input.persisted.daemon?.relay?.enabled ?? false;
   const { endpoint, publicEndpoint } = resolveRelayEndpoints(input);
   const useTls =
     input.cliRelayUseTls ??
@@ -338,7 +332,7 @@ function resolveRelayConfig(input: ResolveRelayInput): ResolvedRelay {
   return {
     enabled,
     enabledMutable: input.cliRelayEnabled === undefined && environmentEnabled === undefined,
-    requireProtectedSecurity: input.persisted.daemon?.relay?.requireProtectedSecurity ?? false,
+    requireProtectedSecurity: input.persisted.daemon?.relay?.requireProtectedSecurity ?? true,
     endpoint,
     publicEndpoint,
     useTls,
@@ -436,7 +430,11 @@ function resolveCorsAllowedOrigins(
   const envCorsOrigins = env.PASEO_CORS_ORIGINS
     ? env.PASEO_CORS_ORIGINS.split(",").map((s) => s.trim())
     : [];
-  const persistedCorsOrigins = persisted.daemon?.cors?.allowedOrigins ?? [];
+  // Existing installs may have this origin from the old defaults. A browser
+  // client can still be explicitly trusted through the environment override.
+  const persistedCorsOrigins = (persisted.daemon?.cors?.allowedOrigins ?? []).filter(
+    (origin) => origin !== LEGACY_PAIRING_APP_BASE_URL,
+  );
   return Array.from(
     new Set([...persistedCorsOrigins, ...envCorsOrigins].filter((s) => s.length > 0)),
   );
@@ -524,7 +522,19 @@ function resolveAppendSystemPrompt(persisted: ReturnType<typeof loadPersistedCon
 }
 
 function resolveUsageEnabled(persisted: ReturnType<typeof loadPersistedConfig>): boolean {
-  return persisted.daemon?.usage?.enabled !== false;
+  return persisted.daemon?.usage?.enabled === true;
+}
+
+function resolvePairingAppBaseUrl(
+  env: NodeJS.ProcessEnv,
+  persisted: ReturnType<typeof loadPersistedConfig>,
+): string {
+  if (env.PASEO_APP_BASE_URL !== undefined) return env.PASEO_APP_BASE_URL;
+  const persistedUrl = persisted.app?.baseUrl;
+  if (persistedUrl?.replace(/\/$/, "") === LEGACY_PAIRING_APP_BASE_URL) {
+    return DEFAULT_PAIRING_APP_BASE_URL;
+  }
+  return persistedUrl ?? DEFAULT_PAIRING_APP_BASE_URL;
 }
 
 function resolveBrowserToolsEnabled(persisted: ReturnType<typeof loadPersistedConfig>): boolean {
@@ -563,14 +573,13 @@ function resolveStaticLoadConfigSettings(
       cli?.hostnames,
     ]),
     trustedProxies: resolveTrustedProxiesConfig(env, persisted),
-    appBaseUrl: env.PASEO_APP_BASE_URL ?? persisted.app?.baseUrl ?? DEFAULT_APP_BASE_URL,
+    appBaseUrl: resolvePairingAppBaseUrl(env, persisted),
   };
 }
 
 interface ResolveConfigFromPersistedOptions {
   env?: NodeJS.ProcessEnv;
   cli?: CliConfigOverrides;
-  relayEnabledFallback?: boolean;
 }
 
 // Startup values, including authentication, never enter runtime settings resolution.
@@ -610,15 +619,12 @@ export function resolveConfigFromPersisted(
 ): PaseoDaemonConfig {
   const env = configurationEnvironment(options?.env ?? process.env);
   const cli = options?.cli;
-  const relayEnabledFallback =
-    options?.relayEnabledFallback ?? persisted.daemon?.relay?.enabled === undefined;
   const { overrideControlledPaths, ...settings } = resolveReloadableConfig(persisted, options);
   const relay = resolveRelayConfig({
     env,
     persisted,
     cliRelayEnabled: cli?.relayEnabled,
     cliRelayUseTls: cli?.relayUseTls,
-    enabledFallback: relayEnabledFallback,
   });
   const { openai, speech } = resolveSpeechConfig({ paseoHome, env, persisted });
   const voiceLlm = resolveVoiceLlmConfig(env, persisted);
@@ -654,7 +660,6 @@ export function resolveConfigFromPersisted(
       env: { ...env },
       cli: cli ? { ...cli } : undefined,
       overrideControlledPaths,
-      relayEnabledFallback,
       startupPersisted: persisted,
     },
   };
@@ -671,8 +676,6 @@ export function resolveReloadableConfig(
     persisted,
     cliRelayEnabled: cli?.relayEnabled,
     cliRelayUseTls: cli?.relayUseTls,
-    enabledFallback:
-      options?.relayEnabledFallback ?? persisted.daemon?.relay?.enabled === undefined,
   });
   return {
     ...resolveStaticLoadConfigSettings(env, cli, persisted),
@@ -697,7 +700,7 @@ export function resolveReloadableConfig(
 
 export function loadConfig(
   paseoHome: string,
-  options?: Omit<ResolveConfigFromPersistedOptions, "relayEnabledFallback">,
+  options?: ResolveConfigFromPersistedOptions,
 ): PaseoDaemonConfig {
   const persisted = loadPersistedConfig(paseoHome);
   return resolveConfigFromPersisted(paseoHome, persisted, options);

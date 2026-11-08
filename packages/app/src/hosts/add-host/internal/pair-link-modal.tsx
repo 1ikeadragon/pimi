@@ -219,7 +219,7 @@ function PairLinkModalContent({
           nativeID="pair-link-input"
           accessibilityLabel={t("pairing.link.label")}
           onChangeText={handleChangeOfferUrl}
-          placeholder="https://app.paseo.sh/#offer=..."
+          placeholder="pimi://pair/#offer=..."
           style={styles.input}
           autoFocus
           autoCapitalize="none"

@@ -80,10 +80,6 @@ paseo workspace create \
 
 当 Paseo 无法从源检出推断代码托管平台时，添加 `--forge <name>`。
 
-## 使用 .worktreeinclude 复制本地文件 {#copy-local-files-with-worktreeinclude}
-
-使用 [`.worktreeinclude`](/docs/worktrees/worktreeinclude)，在 setup 运行前将 `.env` 等选定的 Git 忽略文件从源检出复制到新 worktree。
-
 ## paseo.json {#paseojson}
 
 在仓库根目录放一个 `paseo.json`。Paseo 从你所选基础分支的已提交版本中读取它，因此其他分支中未提交的改动不会生效。
@@ -105,7 +101,7 @@ paseo workspace create \
 
 插件可以通过 [`worktree.create.after`](/docs/plugins/hooks#worktreecreateafter) 在 setup、终端和第一个 Agent 运行之前写入文件。
 
-`setup` 在 worktree 创建后运行一次。使用 setup 安装依赖并初始化项目。使用 [`.worktreeinclude`](#copy-local-files-with-worktreeinclude) 复制 `.env` 等被忽略的文件。`teardown` 在归档期间、目录被删除之前运行。
+`setup` 在 worktree 创建后运行一次。使用 setup 安装依赖并初始化项目。`teardown` 在归档期间、目录被删除之前运行。
 
 ```json
 {

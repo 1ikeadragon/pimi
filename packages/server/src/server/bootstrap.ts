@@ -22,6 +22,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import type { Logger } from "pino";
 import { z } from "zod";
 import { createBranchChangeRouteHandler } from "./script-route-branch-handler.js";
+import { DEFAULT_PAIRING_APP_BASE_URL } from "./connection-offer.js";
 
 export type ListenTarget =
   | { type: "tcp"; host: string; port: number }
@@ -503,7 +504,6 @@ export interface PaseoDaemonConfig {
     env: NodeJS.ProcessEnv;
     cli?: CliConfigOverrides;
     overrideControlledPaths: string[];
-    relayEnabledFallback: boolean;
     startupPersisted: PersistedConfig;
   };
 }
@@ -582,8 +582,8 @@ function resolveExpressTrustProxySetting(config: PaseoDaemonConfig): true | stri
 
 function createInitialRelayConfig(config: ResolvedDaemonSettings): MutableDaemonConfig["relay"] {
   return {
-    enabled: config.relayEnabled ?? true,
-    requireProtectedSecurity: config.relayRequireProtectedSecurity ?? false,
+    enabled: config.relayEnabled ?? false,
+    requireProtectedSecurity: config.relayRequireProtectedSecurity ?? true,
   };
 }
 
@@ -604,11 +604,11 @@ function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): Mutab
     cors: { allowedOrigins: config.corsAllowedOrigins },
     trustedProxies: config.trustedProxies ?? ["loopback"],
     git: config.git ?? resolveGitProcessPolicy({ env: process.env }),
-    app: { baseUrl: config.appBaseUrl ?? "https://app.paseo.sh" },
+    app: { baseUrl: config.appBaseUrl ?? DEFAULT_PAIRING_APP_BASE_URL },
     ...(config.providerCatalogRefreshTimeoutMs !== undefined
       ? { catalogRefreshTimeoutMs: config.providerCatalogRefreshTimeoutMs }
       : {}),
-    usage: { enabled: config.usageEnabled !== false },
+    usage: { enabled: config.usageEnabled === true },
     browserTools: { enabled: config.browserToolsEnabled ?? false },
     providers,
     metadataGeneration: {
@@ -643,6 +643,9 @@ export async function createPaseoDaemon(
 ): Promise<PaseoDaemon> {
   configureGitProcessPolicy(config.git ?? resolveGitProcessPolicy({ env: process.env }));
   const logger = rootLogger.child({ module: "bootstrap" });
+  await rm(path.join(config.paseoHome, "push-tokens.json"), { force: true }).catch((error) => {
+    logger.warn({ err: error }, "Failed to remove the retired push token cache");
+  });
   const obsoleteTimelineDirectory = path.join(config.paseoHome, "agent-timelines");
   await rm(obsoleteTimelineDirectory, { recursive: true, force: true }).catch((error) => {
     logger.warn(
@@ -673,7 +676,6 @@ export async function createPaseoDaemon(
         const reloaded = resolveReloadableConfig(persisted, {
           env: resolveReloadEnv(config),
           cli: config.configReload?.cli,
-          relayEnabledFallback: config.configReload?.relayEnabledFallback,
         });
         return {
           mutable: createInitialMutableDaemonConfig(reloaded),
@@ -753,12 +755,12 @@ export async function createPaseoDaemon(
   const scriptRuntimeStore = new WorkspaceScriptRuntimeStore();
   const workspaceSetupRuntime = new WorkspaceSetupRuntime();
   let configuredHostnames = config.hostnames ?? config.allowedHosts;
-  let appBaseUrl = config.appBaseUrl ?? "https://app.paseo.sh";
+  let appBaseUrl = config.appBaseUrl ?? DEFAULT_PAIRING_APP_BASE_URL;
   daemonConfigStore.onFieldChange("hostnames", (value) => {
     configuredHostnames = value as HostnamesConfig | undefined;
   });
   daemonConfigStore.onFieldChange("app.baseUrl", (value) => {
-    appBaseUrl = typeof value === "string" ? value : "https://app.paseo.sh";
+    appBaseUrl = typeof value === "string" ? value : DEFAULT_PAIRING_APP_BASE_URL;
   });
   let wsServer: VoiceAssistantWebSocketServer | null = null;
   let serviceProxyListenTarget: ListenTarget | null = null;
@@ -1880,7 +1882,7 @@ export async function createPaseoDaemon(
             daemonConfigStore.onFieldChange("appendSystemPrompt", (value) => {
               agentManager.setAppendSystemPrompt(typeof value === "string" ? value : "");
             });
-            const relayEnabled = config.relayEnabled ?? true;
+            const relayEnabled = config.relayEnabled ?? false;
             const relayEndpoint = config.relayEndpoint ?? "relay.paseo.sh:443";
             const relayPublicEndpoint = config.relayPublicEndpoint ?? relayEndpoint;
             const relayUseTls = config.relayUseTls ?? relayEndpoint === "relay.paseo.sh:443";
