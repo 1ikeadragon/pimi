@@ -21,10 +21,13 @@ import { getDesktopHost } from "@/desktop/host";
 import { openPimiUsage } from "@/navigation/pimi-usage";
 import { useAppVisible } from "@/hooks/use-app-visible";
 import { builtinSidebarNavLabelKey } from "@/sidebar-nav/model";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useUsageDisplay } from "./display";
+import { formatDisplayPct, formatProviderUsageLabel } from "./format";
 import { useUsageInSidebar } from "./in-sidebar";
-import { useUsageHostId } from "./hosts";
-import { useUsageHostReports } from "./queries";
+import { useUsageHostId, useUsageHostSelection } from "./hosts";
+import { displayPercent } from "./model";
+import { useHostUsage, useUsageHostReports } from "./queries";
 import { UsageSourceIcon } from "./source-icon";
 import { UsageMeter } from "./meter";
 import {
@@ -64,6 +67,68 @@ export function UsageSidebarItem({ sources }: { sources: readonly PinnedUsageSou
   if (sources.length === 0) return null;
   return <PinnedUsageTrigger label={label} sources={sources} onPress={openUsage} />;
 }
+
+export function UsageHoverDetails() {
+  const { t } = useTranslation();
+  const { serverId } = useUsageHostSelection();
+  return serverId ? (
+    <HostUsageHoverDetails serverId={serverId} />
+  ) : (
+    <Text style={styles.tooltipText}>{t("providerUsage.noHosts")}</Text>
+  );
+}
+
+function HostUsageHoverDetails({ serverId }: { serverId: string }) {
+  const { t } = useTranslation();
+  const { view } = useHostUsage(serverId);
+  const reports = view.kind === "ready" ? view.reports : [];
+  const { display } = useUsageDisplay(reports);
+  if (view.kind === "off" || view.kind === "unavailable") {
+    return <Text style={styles.tooltipText}>{view.message}</Text>;
+  }
+  if (view.kind === "loading" || view.kind === "error") {
+    return (
+      <Text style={styles.tooltipText}>
+        {t(view.kind === "loading" ? "providerUsage.tooltipLoading" : "providerUsage.errorTitle")}
+      </Text>
+    );
+  }
+  const accounts = reports.flatMap((entry) => {
+    if (entry.report.status !== "available") return [];
+    const windows = entry.report.windows.flatMap((window) => {
+      const percent = displayPercent(window, display.displayAs);
+      if (percent === null) return [];
+      const label = formatProviderUsageLabel(window.id, window.label, t);
+      return [
+        {
+          id: window.id,
+          text: `${label} · ${formatDisplayPct(percent, display.displayAs, undefined, t)}`,
+        },
+      ];
+    });
+    return windows.length > 0 ? [{ entry, windows }] : [];
+  });
+  if (accounts.length === 0)
+    return <Text style={styles.tooltipText}>{t("providerUsage.empty")}</Text>;
+  return (
+    <View style={styles.tooltipAccounts} testID="usage-hover-details">
+      {accounts.map(({ entry, windows }) => (
+        <View key={entry.id}>
+          <Text style={styles.tooltipProvider}>
+            {[entry.sourceLabel, entry.account.label].filter(Boolean).join(" · ")}
+          </Text>
+          {windows.map((window) => (
+            <Text key={window.id} style={styles.tooltipText}>
+              {window.text}
+            </Text>
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+export const usageHoverDetails = <UsageHoverDetails />;
 
 const OpenSidebarUsageContext = createContext<(() => void) | null>(null);
 
@@ -147,31 +212,36 @@ function PinnedUsageTrigger({
     windowCount: sources.reduce((count, source) => count + source.windows.length, 0),
   });
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={pinnedUsageLabel(label, sources)}
-      style={triggerStyle}
-      testID="sidebar-usage"
-    >
-      <View style={styles.line} onLayout={handleAvailableLayout}>
-        <PinnedUsageLine sources={sources} layout={layout} />
-      </View>
-      <View
-        style={styles.measure}
-        pointerEvents="none"
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-        aria-hidden
-      >
-        <View style={styles.measured} onLayout={handleLabelsLayout}>
-          <PinnedUsageLine sources={sources} layout="labels" measuring />
-        </View>
-        <View style={styles.measured} onLayout={handlePercentsLayout}>
-          <PinnedUsageLine sources={sources} layout="percents" measuring />
-        </View>
-      </View>
-    </Pressable>
+    <Tooltip delayDuration={300} enabledOnMobile={false}>
+      <TooltipTrigger asChild>
+        <Pressable
+          onPress={onPress}
+          accessibilityRole="button"
+          accessibilityLabel={pinnedUsageLabel(label, sources)}
+          style={triggerStyle}
+          testID="sidebar-usage"
+        >
+          <View style={styles.line} onLayout={handleAvailableLayout}>
+            <PinnedUsageLine sources={sources} layout={layout} />
+          </View>
+          <View
+            style={styles.measure}
+            pointerEvents="none"
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            aria-hidden
+          >
+            <View style={styles.measured} onLayout={handleLabelsLayout}>
+              <PinnedUsageLine sources={sources} layout="labels" measuring />
+            </View>
+            <View style={styles.measured} onLayout={handlePercentsLayout}>
+              <PinnedUsageLine sources={sources} layout="percents" measuring />
+            </View>
+          </View>
+        </Pressable>
+      </TooltipTrigger>
+      <TooltipContent side="top">{usageHoverDetails}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -223,6 +293,13 @@ function PinnedUsageLine({
 }
 
 const styles = StyleSheet.create((theme) => ({
+  tooltipAccounts: { gap: theme.spacing[2] },
+  tooltipText: { color: theme.colors.popoverForeground, fontSize: theme.fontSize.sm },
+  tooltipProvider: {
+    color: theme.colors.popoverForeground,
+    fontSize: theme.fontSize.sm,
+    fontWeight: theme.fontWeight.semibold,
+  },
   trigger: {
     width: "100%",
     flexDirection: "row",
