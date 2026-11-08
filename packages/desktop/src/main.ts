@@ -129,6 +129,7 @@ import { AgentNavigationInbox, parseAgentDeepLinkFromArgv } from "./agent-naviga
 import {
   PimiMemoryDestination,
   PimiNewTaskDestination,
+  PimiSimpleDestinationView,
   PimiTaskProposal,
 } from "@getpaseo/protocol/pimi-task";
 import { getForgeDefinition } from "@getpaseo/protocol/forge-manifest";
@@ -864,8 +865,8 @@ function registerPimiWorkspaceNavigation(): void {
       serverId?: unknown;
     };
     const owner = BrowserWindow.fromWebContents(event.sender) ?? undefined;
-    if (view === "tasks" || view === "worktrees" || view === "review-home")
-      openPimi({ view }, owner);
+    const simple = PimiSimpleDestinationView.safeParse(view);
+    if (simple.success) return openPimi({ view: simple.data }, owner);
     if (view === "memory") {
       const result = PimiMemoryDestination.safeParse(destination);
       if (result.success) openPimi(result.data, owner);

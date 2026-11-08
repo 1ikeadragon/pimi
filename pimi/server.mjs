@@ -9,6 +9,8 @@ import { setImmediate } from "node:timers/promises";
 import MarkdownIt from "markdown-it";
 import { parseAgentDeepLink } from "@getpaseo/protocol/agent-deep-link";
 import {
+  PIMI_SPACE_REQUEST_BYTES,
+  PIMI_VIDEO_EMBED_ORIGIN,
   PIMI_TASK_AGENT_SOCKET_FILE,
   PIMI_TASK_PIPE_PREFIX,
   PimiTaskAgentLinkWorkInput,
@@ -183,6 +185,8 @@ export async function startPimi({
         ["/tasks.js", "tasks.js", "text/javascript; charset=utf-8"],
         ["/labels.js", "labels.js", "text/javascript; charset=utf-8"],
         ["/memory.js", "memory.js", "text/javascript; charset=utf-8"],
+        ["/spaces.js", "spaces.js", "text/javascript; charset=utf-8"],
+        ["/spaces.css", "spaces.css", "text/css; charset=utf-8"],
         ["/task-board.js", "task-board.js", "text/javascript; charset=utf-8"],
         ["/board-motion.js", "board-motion.js", "text/javascript; charset=utf-8"],
         ["/worktree-comparison.js", "worktree-comparison.js", "text/javascript; charset=utf-8"],
@@ -458,7 +462,7 @@ export async function startPimi({
     return inventoryTask;
   }
 
-  async function jsonInput(request) {
+  async function jsonInput(request, limit = 8192) {
     if (request.headers["content-type"] !== "application/json") {
       throw new RequestError("Expected application/json.", 415);
     }
@@ -466,7 +470,7 @@ export async function startPimi({
     request.setEncoding("utf8");
     for await (const chunk of request) {
       raw += chunk;
-      if (raw.length > 8192) throw new RequestError("Request body is too large.", 413);
+      if (raw.length > limit) throw new RequestError("Request body is too large.", 413);
     }
     try {
       const value = JSON.parse(raw);
@@ -709,6 +713,7 @@ export async function startPimi({
     ["/api/review", startReview],
     ["/api/editor", startEditor],
     ["/api/memory", paseo.memory],
+    ["/api/spaces", paseo.spaces],
     ["/api/tour", (body) => generateTour(getReview(body.id), paseo.explain)],
     ["/api/tasks/create", tasks.create],
     ["/api/tasks/repository", tasks.attachRepository],
@@ -745,6 +750,16 @@ export async function startPimi({
     ],
   ]);
 
+  const postBodyLimits = new Map([["/api/spaces", PIMI_SPACE_REQUEST_BYTES]]);
+  async function respondSpaceImage(request, response, id) {
+    if (request.headers["sec-fetch-site"] !== "same-origin") {
+      throw new RequestError("Open this image in Pimi Spaces.", 403);
+    }
+    const { mime, data } = await paseo.spaces({ action: "image", id });
+    response.writeHead(200, { "content-type": mime });
+    response.end(Buffer.from(data, "base64"));
+  }
+
   const getRoutes = new Map([
     ["/api/board", getInventory],
     ["/api/tasks", tasks.list],
@@ -764,7 +779,7 @@ export async function startPimi({
     response.setHeader("referrer-policy", "no-referrer");
     response.setHeader(
       "content-security-policy",
-      "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
+      `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; frame-src ${PIMI_VIDEO_EMBED_ORIGIN}/embed/; frame-ancestors 'none'; form-action 'self'; base-uri 'none'`,
     );
 
     try {
@@ -778,6 +793,10 @@ export async function startPimi({
       const url = new URL(request.url, origin);
       if (request.method === "GET") {
         if (url.pathname === "/api/events") return openEvents(request, response);
+        if (url.pathname === "/api/spaces/image") {
+          await respondSpaceImage(request, response, url.searchParams.get("id"));
+          return;
+        }
         const asset = assets.get(url.pathname);
         if (asset) {
           response.writeHead(200, { "content-type": asset.mime });
@@ -816,7 +835,10 @@ export async function startPimi({
         if (request.headers.origin !== origin)
           throw new RequestError("Invalid request origin.", 403);
         const handler = postRoutes.get(url.pathname);
-        if (handler) return json(response, await handler(await jsonInput(request), response));
+        if (handler) {
+          const body = await jsonInput(request, postBodyLimits.get(url.pathname));
+          return json(response, await handler(body, response));
+        }
       }
       throw new RequestError("Pimi could not find that route.", 404);
     } catch (error) {

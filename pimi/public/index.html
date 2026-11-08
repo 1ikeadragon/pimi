@@ -8,6 +8,7 @@
     <link rel="icon" type="image/svg+xml" href="/pimi-mark.svg" />
     <link rel="stylesheet" href="/pimi-textures/appearance.css" />
     <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="/spaces.css" />
     <link rel="stylesheet" href="/syntax.css" />
     <script type="module" src="/app.js"></script>
   </head>
@@ -32,6 +33,21 @@
         <rect x="5" y="3" width="15" height="18" rx="2" />
         <path d="M3 8h4m-4 4h4m-4 4h4m3-7h6m-6 4h6" />
       </symbol>
+      <symbol id="glyph-spaces" viewBox="0 0 24 24">
+        <path
+          d="M20 13V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h8m7-7-7 7v-5a2 2 0 0 1 2-2z"
+        />
+      </symbol>
+      <symbol id="glyph-copy-reference" viewBox="0 0 24 24">
+        <rect x="8" y="8" width="12" height="12" rx="2" />
+        <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+      </symbol>
+      <symbol id="glyph-link" viewBox="0 0 24 24">
+        <path
+          d="M10 13a3 3 0 0 0 4 .1l4-4a3 3 0 0 0-4.2-4.3L12 6.6m0 10.8-1.8 1.8A3 3 0 0 1 6 15l4-4a3 3 0 0 1 4-.1"
+        />
+      </symbol>
+      <symbol id="glyph-play" viewBox="0 0 24 24"><path d="m9 5 11 7-11 7z" /></symbol>
       <symbol id="glyph-search" viewBox="0 0 24 24">
         <circle cx="10.5" cy="10.5" r="6.5" />
         <path d="m16 16 4 4" />
@@ -123,6 +139,10 @@
         <button id="show-memory" aria-label="Memory" title="Memory" hidden>
           <svg class="glyph" aria-hidden="true"><use href="#glyph-memory" /></svg
           ><span>Memory</span>
+        </button>
+        <button id="show-spaces" aria-label="Spaces" title="Spaces" hidden>
+          <svg class="glyph" aria-hidden="true"><use href="#glyph-spaces" /></svg
+          ><span>Spaces</span>
         </button>
       </nav>
       <div class="toolbar-actions">
@@ -794,6 +814,94 @@
             <p id="memory-status" class="subtitle" role="status" hidden></p>
           </div>
         </div>
+      </section>
+      <section id="spaces" aria-label="Spaces" hidden>
+        <template id="spaces-copy-icon"
+          ><svg class="glyph" aria-hidden="true"><use href="#glyph-copy-reference" /></svg
+        ></template>
+        <template id="spaces-link-icon"
+          ><svg class="glyph" aria-hidden="true"><use href="#glyph-link" /></svg
+        ></template>
+        <template id="spaces-video-icon"
+          ><svg class="glyph" aria-hidden="true"><use href="#glyph-play" /></svg
+        ></template>
+        <div class="section-header spaces-header">
+          <div>
+            <h1>Spaces</h1>
+            <p class="subtitle">Paste a note, image, or link into your scratchbook.</p>
+          </div>
+          <button id="spaces-new" class="button primary" type="button" disabled>
+            <svg class="glyph" aria-hidden="true"><use href="#glyph-compose" /></svg> New note
+          </button>
+        </div>
+        <p id="spaces-error" class="warning" role="alert" hidden></p>
+        <p id="spaces-status" class="subtitle" role="status" hidden></p>
+        <div class="spaces-board" tabindex="0" aria-label="Scratchbook">
+          <p id="spaces-empty" class="spaces-empty" hidden>
+            <svg class="glyph" aria-hidden="true"><use href="#glyph-spaces" /></svg>
+            <span>Your cards will appear here.</span>
+          </p>
+          <div id="spaces-items" class="spaces-grid"></div>
+        </div>
+        <dialog
+          id="spaces-card-dialog"
+          class="settings-dialog spaces-dialog"
+          aria-labelledby="spaces-card-title"
+        >
+          <form id="spaces-card-form">
+            <div class="spaces-card-heading">
+              <h2 id="spaces-card-title">New note</h2>
+              <code id="spaces-card-reference"></code>
+            </div>
+            <label id="spaces-note-label"
+              >Note<textarea id="spaces-note-text" rows="7" maxlength="65536" required></textarea>
+            </label>
+            <img id="spaces-card-image" alt="Pasted image" hidden />
+            <div id="spaces-card-link" class="spaces-card-link-detail" hidden>
+              <p id="spaces-card-url"></p>
+              <div class="spaces-link-actions">
+                <button
+                  id="spaces-open-link"
+                  class="button secondary"
+                  type="button"
+                  data-space-url=""
+                >
+                  Open in browser
+                </button>
+                <button id="spaces-play" class="button primary" type="button" hidden>
+                  <svg class="glyph" aria-hidden="true"><use href="#glyph-play" /></svg> Load
+                  YouTube player
+                </button>
+              </div>
+              <div id="spaces-video-player"></div>
+            </div>
+            <p id="spaces-card-error" class="warning" role="alert" hidden></p>
+            <div class="spaces-dialog-actions">
+              <button id="spaces-remove" class="button quiet" type="button" hidden>
+                Remove card
+              </button>
+              <div>
+                <button id="spaces-copy" class="button quiet" type="button" hidden>
+                  Copy reference
+                </button>
+                <button id="spaces-close" class="button secondary" type="button">Cancel</button>
+                <button id="spaces-save" class="button primary" type="submit">Save note</button>
+              </div>
+            </div>
+          </form>
+        </dialog>
+        <dialog
+          id="spaces-remove-dialog"
+          class="settings-dialog"
+          aria-labelledby="spaces-remove-title"
+        >
+          <h2 id="spaces-remove-title">Remove this card?</h2>
+          <p>Its reference will stop working.</p>
+          <form method="dialog" class="spaces-dialog-actions">
+            <button class="button secondary" value="cancel">Cancel</button>
+            <button class="button primary" value="remove">Remove card</button>
+          </form>
+        </dialog>
       </section>
     </main>
     <dialog id="memory-forget-dialog" class="settings-dialog" aria-labelledby="memory-forget-title">

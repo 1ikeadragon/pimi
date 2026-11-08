@@ -3,6 +3,7 @@ import { labelChips, labelPicker } from "./labels.js";
 import { createTasksView } from "./tasks.js";
 import { replaceBoardLanes } from "./board-motion.js";
 import { createMemoryView } from "./memory.js";
+import { createSpacesView } from "./spaces.js";
 import { createDiffFind } from "./diff-find.js";
 import { createWorktreeComparison } from "./worktree-comparison.js";
 import { connectLiveUpdates } from "./live-updates.js";
@@ -77,6 +78,7 @@ const tasksView = createTasksView({
   refreshBoard,
 });
 const memoryView = createMemoryView({ $, api, button, element, message });
+const spacesView = createSpacesView({ $, api, button, element, message });
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -117,7 +119,8 @@ function view(name) {
   const request = ++viewRequest;
   if (name !== "tasks") tasksView.cancelDictation();
   if (name !== "review") diffFind.close();
-  for (const section of ["tasks", "board", "review", "memory"]) {
+  if (name !== "spaces") spacesView.suspend();
+  for (const section of ["tasks", "board", "review", "memory", "spaces"]) {
     $(section).hidden = section !== name;
     const nav = $("show-" + section);
     if (section === name) nav.setAttribute("aria-current", "page");
@@ -895,14 +898,22 @@ $("show-memory").addEventListener("click", () => {
   view("memory");
   void memoryView.load();
 });
+$("show-spaces").addEventListener("click", () => {
+  view("spaces");
+  void spacesView.load();
+});
 const appearance = $("appearance");
 appearance.value = document.documentElement.dataset.appearance;
 if (window.pimiWorkspace) {
   $("show-agents").hidden = false;
   $("show-memory").hidden = false;
+  $("show-spaces").hidden = false;
   document.documentElement.dataset.workspaceChrome = window.pimiWorkspace.chrome;
   window.pimiWorkspace.onLayoutChange((mode) => {
-    if (mode === "hidden") ++viewRequest;
+    if (mode === "hidden") {
+      ++viewRequest;
+      spacesView.suspend();
+    }
     document.documentElement.dataset.workspaceLayout = mode;
     window.dispatchEvent(new Event("pimi-layout-change"));
   });
@@ -956,6 +967,10 @@ $("review-add-repository").addEventListener("click", () => {
   $("repo-path").focus();
 });
 window.pimiWorkspace?.onNavigate(async (destination) => {
+  if (destination.view === "spaces") {
+    $("show-spaces").click();
+    return;
+  }
   if (destination.view === "memory") {
     view("memory");
     await memoryView.load(destination.projectId);

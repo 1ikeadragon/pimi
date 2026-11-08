@@ -59,7 +59,10 @@ export async function ensurePrivateFileAsync(filePath: string): Promise<void> {
   await chmod(filePath, PRIVATE_FILE_MODE).catch(() => {});
 }
 
-export async function writePrivateFileAtomic(filePath: string, data: string): Promise<void> {
+export async function writePrivateFileAtomic(
+  filePath: string,
+  data: string | NodeJS.ArrayBufferView,
+): Promise<void> {
   const directory = path.dirname(filePath);
   await mkdir(directory, { recursive: true, mode: PRIVATE_DIRECTORY_MODE });
   if (process.platform !== "win32") await chmod(directory, PRIVATE_DIRECTORY_MODE).catch(() => {});

@@ -2,7 +2,11 @@
 import { createPaseoClient } from "@getpaseo/client";
 import { buildAgentDeepLink } from "@getpaseo/protocol/agent-deep-link";
 import { workspaceLabelKey } from "@getpaseo/protocol/workspace-labels";
-import { PIMI_TASK_WORKER_LABEL, PimiWorkLabelInput } from "@getpaseo/protocol/pimi-task";
+import {
+  PIMI_SPACES_ROUTE,
+  PIMI_TASK_WORKER_LABEL,
+  PimiWorkLabelInput,
+} from "@getpaseo/protocol/pimi-task";
 import { randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -448,20 +452,20 @@ export function createPaseoConnection(settingsSource = {}) {
     return JSON.parse(text).ideas;
   }
 
-  async function memory(input) {
+  async function localData(route, feature, input) {
     const settings = await settingsSource.connection?.();
-    if (!settingsSource.native || !settings?.memoryCredential) {
-      throw new RequestError("Connect Pimi to its local agent host to view memory.", 503);
+    if (!settingsSource.native || !settings?.localDataCredential) {
+      throw new RequestError(`Connect Pimi to its local agent host to open ${feature}.`, 503);
     }
     const url = localAgentUrl(settings);
     url.protocol = "http:";
-    url.pathname = "/api/pimi/memory";
+    url.pathname = route;
     let response;
     try {
       response = await fetch(url, {
         method: "POST",
         headers: {
-          authorization: "Bearer " + settings.memoryCredential,
+          authorization: "Bearer " + settings.localDataCredential,
           "content-type": "application/json",
         },
         body: JSON.stringify(input),
@@ -469,14 +473,14 @@ export function createPaseoConnection(settingsSource = {}) {
         signal: AbortSignal.timeout(6000),
       });
     } catch {
-      throw new RequestError("Couldn’t reach memory on the local host. Try again.", 503);
+      throw new RequestError(`Couldn’t reach ${feature} on the local host. Try again.`, 503);
     }
     if (!response.headers.get("content-type")?.startsWith("application/json")) {
-      throw new RequestError("Update the local agent host to view memory in Pimi.", 503);
+      throw new RequestError(`Update the local agent host to open ${feature} in Pimi.`, 503);
     }
     const payload = await response.json();
     if (!response.ok)
-      throw new RequestError(payload.error || "Memory is unavailable.", response.status);
+      throw new RequestError(payload.error || `${feature} is unavailable.`, response.status);
     return payload;
   }
 
@@ -484,7 +488,8 @@ export function createPaseoConnection(settingsSource = {}) {
     directory,
     labels,
     setWorkLabel,
-    memory,
+    memory: (input) => localData("/api/pimi/memory", "Memory", input),
+    spaces: (input) => localData(PIMI_SPACES_ROUTE, "Spaces", input),
     subscribe(listener) {
       changeListeners.add(listener);
       return () => changeListeners.delete(listener);
