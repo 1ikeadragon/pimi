@@ -9,6 +9,7 @@ import { setImmediate } from "node:timers/promises";
 import MarkdownIt from "markdown-it";
 import { parseAgentDeepLink } from "@getpaseo/protocol/agent-deep-link";
 import {
+  PIMI_ARXIV_EMBED_ORIGIN,
   PIMI_SPACE_REQUEST_BYTES,
   PIMI_VIDEO_EMBED_ORIGIN,
   PIMI_X_EMBED_PAGE,
@@ -916,7 +917,7 @@ export async function startPimi({
     response.setHeader("permissions-policy", "autoplay=()");
     response.setHeader(
       "content-security-policy",
-      `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; frame-src ${PIMI_VIDEO_EMBED_ORIGIN}/embed/ ${PIMI_X_EMBED_PAGE}; frame-ancestors 'none'; form-action 'self'; base-uri 'none'`,
+      `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; frame-src ${PIMI_VIDEO_EMBED_ORIGIN}/embed/ ${PIMI_X_EMBED_PAGE} ${PIMI_ARXIV_EMBED_ORIGIN}/html/; frame-ancestors 'none'; form-action 'self'; base-uri 'none'`,
     );
 
     try {
