@@ -1,4 +1,4 @@
-import { lightHighlightColors } from "@getpaseo/highlight";
+import { lightHighlightColors } from "@pimi/highlight";
 import { lightTheme } from "../src/styles/theme";
 
 const testTheme = {

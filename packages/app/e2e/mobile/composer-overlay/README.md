@@ -9,7 +9,7 @@ no provider calls are needed during the test.
 Prerequisites:
 
 - Build the server and app dependencies with `npm run build:server` and
-  `npm run build --workspace=@getpaseo/expo-two-way-audio`.
+  `npm run build --workspace=@pimi/expo-two-way-audio`.
 - Run an isolated development daemon on a non-default port.
 - Run this checkout's Metro server and open the connected Android dev client
   with `agent-device`. The app must already know the isolated daemon.

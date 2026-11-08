@@ -5452,6 +5452,7 @@ export const DaemonGetPairingOfferResponseSchema = z.object({
       url: z.string(),
       qr: z.string().nullable().optional(),
       relayEnabled: z.boolean(),
+      relayConfigured: z.boolean().optional(),
     })
     .passthrough(),
 });

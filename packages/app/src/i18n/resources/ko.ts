@@ -939,7 +939,7 @@ export const ko: TranslationResources = {
             "이 브랜치가 이미 {{baseRef}}와 최신 상태이므로 업데이트를 사용할 수 없습니다",
           mergePrNoGithub: "GitHub가 연결되어 있지 않아 지금은 PR 병합을 사용할 수 없습니다",
           archiveNotWorktree:
-            "이 워크스페이스가 Paseo 워크트리로 생성되지 않아 여기서 보관을 사용할 수 없습니다",
+            "이 워크스페이스가 Pimi 워크트리로 생성되지 않아 여기서 보관을 사용할 수 없습니다",
           mergePrNoForge:
             "{{brand}}가 연결되어 있지 않기 때문에 지금은 {{noun}} 병합을 사용할 수 없습니다.",
           mergePrMissing: "아직 풀 리퀘스트가 없어 PR 병합을 사용할 수 없습니다",
@@ -1302,7 +1302,7 @@ export const ko: TranslationResources = {
       discord: "Discord",
       github: "GitHub 이슈 만들기",
       whatsNew: "새로운 소식",
-      appName: "Paseo",
+      appName: "Pimi",
     },
     sections: {
       sessions: "기록",
@@ -1453,7 +1453,7 @@ export const ko: TranslationResources = {
       close: "창 닫기",
     },
     quitting: {
-      title: "Paseo 종료 중...",
+      title: "Pimi 종료 중...",
       detail: "로컬 데몬을 중지하는 중입니다.",
     },
     daemon: {
@@ -1495,7 +1495,7 @@ export const ko: TranslationResources = {
       fullStatus: {
         title: "전체 상태",
         modalTitle: "데몬 상태",
-        hint: "`paseo daemon status`를 실행하고 출력을 표시합니다",
+        hint: "`pimi daemon status`를 실행하고 출력을 표시합니다",
         view: "상태 보기",
         copied: "상태가 클립보드에 복사되었습니다.",
         fetchFailed: "데몬 상태를 가져오지 못했습니다: {{message}}",
@@ -1592,7 +1592,7 @@ export const ko: TranslationResources = {
         microphone: "마이크 상태를 아직 확인하지 않았습니다.",
       },
       testNotification: {
-        title: "Paseo 알림 테스트",
+        title: "Pimi 알림 테스트",
         body: "이 메시지가 보이면 데스크톱 알림이 작동하는 것입니다.",
         notDelivered: "알림이 전달되지 않았습니다. 시스템 설정 > 알림을 확인하세요.",
         failed: "알림을 보내지 못했습니다.",
@@ -1601,8 +1601,8 @@ export const ko: TranslationResources = {
     integrations: {
       cli: {
         statusFailed: "CLI 설치 상태를 확인할 수 없습니다.",
-        installFailed: "Paseo CLI를 설치할 수 없습니다.",
-        uninstallFailed: "Paseo CLI를 제거할 수 없습니다.",
+        installFailed: "Pimi CLI를 설치할 수 없습니다.",
+        uninstallFailed: "Pimi CLI를 제거할 수 없습니다.",
         keptForeign:
           "Paseo가 설치하지 않은 paseo 명령은 그대로 두었습니다. 제거하려면 직접 삭제하세요.",
       },
@@ -1712,7 +1712,7 @@ export const ko: TranslationResources = {
   },
   onboarding: {
     setup: {
-      title: "Paseo",
+      title: "Pimi",
       stepCounter: "{{total}}단계 중 {{current}}단계",
       skip: "설정 건너뛰기",
       continue: "계속",
@@ -1753,7 +1753,7 @@ export const ko: TranslationResources = {
           label: "모바일",
           title: "어디서나 에이전트와 함께",
           description:
-            "모든 기능을 갖춘 네이티브 모바일 앱으로 휴대폰에서 어떤 Paseo 컴퓨터든 제어할 수 있습니다",
+            "모든 기능을 갖춘 네이티브 모바일 앱으로 휴대폰에서 어떤 Pimi 컴퓨터든 제어할 수 있습니다",
           appStore: "App Store",
           googlePlay: "Google Play",
           connectTitle: "연결 방법 선택",
@@ -1873,7 +1873,7 @@ export const ko: TranslationResources = {
     },
     direct: {
       title: "직접 연결",
-      helper: "Paseo 서버의 주소를 입력하세요.",
+      helper: "Pimi 서버의 주소를 입력하세요.",
       fields: {
         host: "호스트",
         port: "포트",
@@ -1914,7 +1914,7 @@ export const ko: TranslationResources = {
     },
     remoteSsh: {
       title: "원격 SSH",
-      helper: "원격 호스트에서 실행 중인 Paseo 데몬에 연결합니다.",
+      helper: "원격 호스트에서 실행 중인 Pimi 데몬에 연결합니다.",
       fields: {
         target: "SSH 호스트",
         password: "데몬 비밀번호",
@@ -1969,6 +1969,9 @@ export const ko: TranslationResources = {
       errorTitle: "오류",
     },
     device: {
+      setupTitle: "릴레이 설정",
+      setupDescription:
+        "원격으로 연결하려면 Pimi Relay를 실행하고 config.json에 주소를 설정한 뒤 Pimi를 다시 시작하세요.",
       loadingOffer: "페어링 정보 불러오는 중...",
       failedToLoadOffer: "페어링 정보를 불러오지 못했습니다.",
       relayDisabled:
@@ -1977,7 +1980,7 @@ export const ko: TranslationResources = {
       enableDescription:
         "릴레이를 사용하면 이 장치를 어디에서나 연결할 수 있습니다. 페어링 트래픽은 종단 간 암호화됩니다.",
       relayDocs: "릴레이 작동 방식",
-      relayDocsAccessibility: "Paseo 릴레이 작동 방식 읽기",
+      relayDocsAccessibility: "Pimi 릴레이 작동 방식 읽기",
       enableRelay: "릴레이 활성화",
       enablingRelay: "활성화 중...",
       notNow: "지금은 아님",
@@ -1985,7 +1988,7 @@ export const ko: TranslationResources = {
         "릴레이 없이 TCP, Tailscale 또는 다른 VPN을 통해 직접 연결하세요. QR 코드가 생성되지 않습니다.",
       tailscaleDocs: "Tailscale 설정",
       tailscaleDocsAccessibility: "Tailscale로 연결하는 방법 읽기",
-      updateRequired: "Paseo 데스크톱에서 릴레이를 활성화하려면 호스트를 업데이트하세요.",
+      updateRequired: "Pimi 데스크톱에서 릴레이를 활성화하려면 호스트를 업데이트하세요.",
       unavailable: "페어링 정보를 사용할 수 없습니다.",
       hint: "휴대폰의 Paseo로 이 QR 코드를 스캔하거나 아래 링크를 복사하세요.",
       securityWarning:
@@ -2075,7 +2078,7 @@ export const ko: TranslationResources = {
         alwaysUseFilename: "{{filename}}에 항상 사용",
         option: "{{title}} — {{owner}}",
         builtin: {
-          owner: "Paseo",
+          owner: "Pimi",
           markdown: "Markdown",
           html: "HTML",
           image: "이미지",
@@ -2470,7 +2473,7 @@ export const ko: TranslationResources = {
       browserData: {
         title: "브라우저 데이터",
         siteData: "쿠키 및 사이트 데이터",
-        description: "브라우저 탭은 Paseo 전체에서 로그인 및 사이트 데이터를 공유합니다.",
+        description: "브라우저 탭은 Pimi 전체에서 로그인 및 사이트 데이터를 공유합니다.",
         clear: "브라우저 데이터 지우기",
         clearing: "삭제 중...",
         confirmTitle: "브라우저 데이터를 삭제하시겠습니까?",
@@ -2756,7 +2759,7 @@ export const ko: TranslationResources = {
       commandLine: {
         title: "명령줄",
         description: "터미널에서 에이전트를 제어하고 스크립팅합니다",
-        accessibilityLabel: "Paseo CLI 설치",
+        accessibilityLabel: "Pimi CLI 설치",
       },
     },
     permissions: {
@@ -2834,12 +2837,12 @@ export const ko: TranslationResources = {
         ...en.settings.host.skills,
         sectionTitle: "오케스트레이션 스킬",
         title: "오케스트레이션 스킬",
-        description: "에이전트에게 Paseo 도구 사용법을 알려 줍니다",
+        description: "에이전트에게 Pimi 도구 사용법을 알려 줍니다",
         updateAvailable: "업데이트 사용 가능",
-        updateTitle: "Paseo 스킬을 업데이트할까요?",
-        uninstallTitle: "Paseo 스킬을 제거할까요?",
+        updateTitle: "Pimi 스킬을 업데이트할까요?",
+        uninstallTitle: "Pimi 스킬을 제거할까요?",
         uninstallMessage:
-          "~/.agents, ~/.claude, ~/.codex에서 모든 Paseo 오케스트레이션 스킬을 제거합니다.",
+          "~/.agents, ~/.claude, ~/.codex에서 모든 Pimi 오케스트레이션 스킬을 제거합니다.",
         choose: "스킬 선택",
         chooseAll: "모든 스킬",
         chooseAllHint: "나중에 추가되는 항목을 포함하여 모든 번들 스킬을 설치된 상태로 유지합니다.",
@@ -2872,10 +2875,10 @@ export const ko: TranslationResources = {
         title: "오케스트레이션",
         unavailable: "오케스트레이션을 관리하려면 이 호스트에 연결하세요",
         enableTools: {
-          title: "Paseo 도구 활성화",
+          title: "Pimi 도구 활성화",
           hint: "에이전트가 워크트리, 에이전트, 일정을 관리할 수 있습니다",
-          accessibilityLabel: "Paseo 도구 주입",
-          updateFailed: "Paseo 도구를 업데이트할 수 없습니다.",
+          accessibilityLabel: "Pimi 도구 주입",
+          updateFailed: "Pimi 도구를 업데이트할 수 없습니다.",
         },
         systemPrompt: {
           title: "시스템 프롬프트",
@@ -3004,7 +3007,7 @@ export const ko: TranslationResources = {
         },
         update: {
           desktopManagedHint:
-            "이 데몬은 Paseo Desktop에서 관리됩니다. 호스트에서 Paseo 데스크톱을 업데이트합니다.",
+            "이 데몬은 Pimi Desktop에서 관리됩니다. 호스트에서 Pimi 데스크톱을 업데이트합니다.",
           title: "데몬 업데이트",
           hint: "데몬을 최신 버전으로 업데이트하고 다시 시작하세요.",
           confirm: "업데이트",
@@ -3125,13 +3128,13 @@ export const ko: TranslationResources = {
         savedToast: "프로젝트가 업데이트되었습니다.",
       },
       readFailures: {
-        invalidTitle: "paseo.json을 파싱할 수 없습니다",
+        invalidTitle: "pimi.json을 파싱할 수 없습니다",
         invalidDescription: "디스크의 파일을 수정한 후 다시 로드하세요.",
         missingTitle: "이 호스트에는 이 프로젝트가 없습니다",
         missingSingleHost: "선택한 호스트에 이 프로젝트의 기록이 없습니다.",
-        transportTitle: "paseo.json을 불러올 수 없습니다",
+        transportTitle: "pimi.json을 불러올 수 없습니다",
         transportFallback: "호스트가 응답하지 않았습니다.",
-        failedTitle: "paseo.json을 불러올 수 없습니다",
+        failedTitle: "pimi.json을 불러올 수 없습니다",
         failedDescription: "다시 로드하여 재시도하세요.",
       },
       worktree: {
@@ -3141,7 +3144,7 @@ export const ko: TranslationResources = {
         docsTooltip: "자세한 내용과 이 명령에 사용할 수 있는 환경 변수는 문서를 참조하세요",
         setup: "설정",
         setupAccessibility: "워크트리 설정 명령",
-        uncommittedTitle: "paseo.json 변경 사항을 커밋하세요",
+        uncommittedTitle: "pimi.json 변경 사항을 커밋하세요",
         uncommittedDescription: "새 워크트리는 선택한 기본 브랜치의 설정 스크립트를 사용합니다.",
         teardown: "정리",
         teardownAccessibility: "워크트리 정리 명령",
@@ -3185,8 +3188,8 @@ export const ko: TranslationResources = {
       },
       writeFailures: {
         staleTitle: "디스크에서 구성이 변경되었습니다",
-        staleDescription: "저장하기 전에 다시 로드하여 최신 paseo.json을 가져오세요.",
-        failedTitle: "paseo.json을 저장할 수 없습니다",
+        staleDescription: "저장하기 전에 다시 로드하여 최신 pimi.json을 가져오세요.",
+        failedTitle: "pimi.json을 저장할 수 없습니다",
         failedDescription: "다시 시도하거나 디스크에서 최신 버전을 다시 로드하세요.",
       },
       actions: {

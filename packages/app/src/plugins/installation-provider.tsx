@@ -3,7 +3,7 @@ import {
   PaseoApiProvider,
   PluginRpcProvider,
   PluginTranslationProvider,
-} from "@getpaseo/plugin/client/host";
+} from "@pimi/plugin/client/host";
 import React, { type ReactNode } from "react";
 import type { InstalledPlugin } from "./types";
 

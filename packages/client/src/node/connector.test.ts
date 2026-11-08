@@ -81,7 +81,7 @@ import {
   generateKeyPair,
   exportPublicKey,
   type Transport,
-} from "@getpaseo/relay/e2ee";
+} from "@pimi/relay/e2ee";
 test("encrypted connector rejects overload synchronously and preserves the physical link for sibling traffic", async () => {
   const server = await endpoint();
   const keys = generateKeyPair();
@@ -160,7 +160,7 @@ test("encrypted connector rejects overload synchronously and preserves the physi
   expect(server.wss.clients.size).toBe(1);
 });
 
-import { openDaemonSecureChannel } from "@getpaseo/relay/e2ee";
+import { openDaemonSecureChannel } from "@pimi/relay/e2ee";
 test("encrypted connector refuses legacy endpoint security on a later attempt once protected was negotiated", async () => {
   const server = await endpoint();
   const keys = generateKeyPair();

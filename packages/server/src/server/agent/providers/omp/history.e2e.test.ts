@@ -1,5 +1,5 @@
 import { measureMainThreadWork } from "../../../../test-utils/main-thread-work.js";
-import { BUILTIN_PROVIDER_IDS } from "@getpaseo/protocol/provider-manifest";
+import { BUILTIN_PROVIDER_IDS } from "@pimi/protocol/provider-manifest";
 import { mkdtemp, open, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

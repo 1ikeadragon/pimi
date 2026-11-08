@@ -135,7 +135,7 @@ function validateBridgeAddress(
   const hostname = new URL(selection.server.url).hostname;
   if (bridge && selection.kind === "explicit" && !advertised && !isLocalOpenCodeHost(hostname))
     throw new Error(
-      "Remote OpenCode requires PASEO_OPENCODE_BRIDGE_URL pointing to a reachable Paseo bridge tunnel and the Paseo plugin installed on the server",
+      "Remote OpenCode requires PASEO_OPENCODE_BRIDGE_URL pointing to a reachable Pimi bridge tunnel and the Pimi plugin installed on the server",
     );
 }
 
@@ -160,7 +160,7 @@ export function bridgeBindings(
         });
       } catch (error) {
         throw new Error(
-          `Cannot connect the Paseo tool bridge to OpenCode. Install the plugin from ${pluginDirectory ?? "Paseo's runtime directory"} and configure a reachable bridge URL: ${error instanceof Error ? error.message : String(error)}`,
+          `Cannot connect the Pimi tool bridge to OpenCode. Install the plugin from ${pluginDirectory ?? "Pimi's runtime directory"} and configure a reachable bridge URL: ${error instanceof Error ? error.message : String(error)}`,
           { cause: error },
         );
       }

@@ -1,18 +1,18 @@
-import type { ConnectionOffer } from "@getpaseo/protocol/connection-offer";
+import type { ConnectionOffer } from "@pimi/protocol/connection-offer";
 import {
   normalizeHostPort,
   normalizeLoopbackToLocalhost,
   shouldUseTlsForDefaultHostedRelay,
-} from "@getpaseo/protocol/daemon-endpoints";
+} from "@pimi/protocol/daemon-endpoints";
 import {
   DirectTcpHostConnectionSchema,
   type DirectTcpHostConnection as WireDirectTcpHostConnection,
-} from "@getpaseo/protocol/host-connection-schema";
+} from "@pimi/protocol/host-connection-schema";
 import {
   DEFAULT_SSH_DAEMON_PORT,
   validatePort,
   validateSshHost,
-} from "@getpaseo/protocol/ssh-transport";
+} from "@pimi/protocol/ssh-transport";
 import {
   type HostAppearance,
   defaultHostAppearance,

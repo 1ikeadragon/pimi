@@ -482,7 +482,8 @@ export function LocalDaemonSection() {
   );
 }
 
-const ADVANCED_DAEMON_SETTINGS_URL = "https://paseo.sh/docs/configuration";
+const ADVANCED_DAEMON_SETTINGS_URL =
+  "https://github.com/1ikeadragon/pimi/blob/main/public-docs/configuration.md";
 
 const styles = StyleSheet.create((theme) => ({
   actionGroup: {

@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { PluginRegistriesSchema } from "@getpaseo/protocol/plugin-registry";
+import { PluginRegistriesSchema } from "@pimi/protocol/plugin-registry";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
@@ -16,10 +16,10 @@ import {
   writePrivateFileAtomic,
   writePrivateFileAtomicSync,
 } from "./private-files.js";
-import { AgentProfileSchema, AgentSkillSelectionSchema } from "@getpaseo/protocol/agent-profile";
-import { PluginIdSchema, PluginSourceSchema } from "@getpaseo/protocol/plugin-config";
-import { TerminalProfileSchema } from "@getpaseo/protocol/terminal-profile";
-import { PaseoServicePortAllocationSchema } from "@getpaseo/protocol/paseo-config-schema";
+import { AgentProfileSchema, AgentSkillSelectionSchema } from "@pimi/protocol/agent-profile";
+import { PluginIdSchema, PluginSourceSchema } from "@pimi/protocol/plugin-config";
+import { TerminalProfileSchema } from "@pimi/protocol/terminal-profile";
+import { PaseoServicePortAllocationSchema } from "@pimi/protocol/paseo-config-schema";
 import { DEFAULT_PAIRING_APP_BASE_URL } from "./connection-offer.js";
 
 export const LogLevelSchema = z.enum(["trace", "debug", "info", "warn", "error", "fatal"]);

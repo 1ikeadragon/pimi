@@ -1,63 +1,58 @@
 ---
 name: pimi-plugin
-description: Build and manage trusted local Paseo plugins. Use when the user asks to create, edit, install, reload, enable, disable, remove, or troubleshoot a Paseo plugin; add lifecycle hooks; transform agent configuration, environment, MCP servers, or workspace creation; automate permissions or turn follow-ups; add a screen, sidebar header or footer item, workspace panel, or file panel; add Command Center items or slash commands; add composer pills or attachment sources; transform, render, or append agent timeline items; contribute a theme; use Paseo from plugin code; or add plugin RPCs.
+description: Build and manage trusted local Pimi plugins. Use when the user asks to create, edit, install, reload, enable, disable, remove, or troubleshoot a Pimi plugin; add lifecycle hooks; transform agent configuration, environment, MCP servers, or workspace creation; automate permissions or turn follow-ups; add a screen, sidebar header or footer item, workspace panel, or file panel; add Command Center items or slash commands; add composer pills or attachment sources; transform, render, or append agent timeline items; contribute a theme; use Pimi from plugin code; or add plugin RPCs.
 ---
 
-# Paseo plugins
+# Pimi plugins
 
 Build or manage the requested plugin directly. Use the current public docs to catch contract changes, but keep working from this skill if the network is unavailable.
 
 Use the user's request and current conversation as input, including any arguments supplied with the skill invocation.
 
-## Check current documentation
+## Check the installed API
 
-Fetch [https://paseo.sh/llms.txt](https://paseo.sh/llms.txt) first. Select and fetch the current plugin Markdown pages from that index before changing a plugin:
+Use the Pimi checkout when available. Check the plugin API at the installed version before relying on new registration methods.
 
-- [Plugin quickstart](https://paseo.sh/docs/plugins.md) ([browser page](https://paseo.sh/docs/plugins))
-- [Publishing](https://paseo.sh/docs/plugins/publishing.md): npm package contents, dependencies, Git preparation, and private registries.
-- [Plugin reference](https://paseo.sh/docs/plugins/reference.md) ([browser page](https://paseo.sh/docs/plugins/reference))
-
-Use the deployed docs when they disagree with this skill. Do not send the user away to read them instead of completing the work.
-
-In the Paseo repository, use `public-docs/plugins/reference.md` for the checkout's API, including
-unreleased changes. Use `docs/plugins.md` for maintainer guidance. Complete contracts belong in the
-public docs; this skill indexes the references and examples.
+- [Plugin guide](https://github.com/1ikeadragon/pimi/blob/main/docs/plugins.md)
+- [Plugin API reference](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/reference.md)
+- [SDK reference](https://github.com/1ikeadragon/pimi/blob/main/public-docs/sdk/reference.md)
+- [Plugin examples](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples)
 
 ## What a plugin can contribute
 
 Pick the contribution that matches the request. Each row names the registration, when it fits, and where the full contract lives. Most plugins combine several: a slash command that calls an RPC, which appends a timeline row, which a renderer draws.
 
-| Contribution              | Registration                                                | Use it when                                                                                                                                                      | Reference                                                                                                  |
-| ------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Screen and sidebar item   | `addScreen` + `addSidebarHeaderItem`/`addSidebarFooterItem` | A full screen of plugin UI, or sidebar header or footer rows that open a screen or popover                                                                       | reference.md → Screens and sidebar items                                                                   |
-| Workspace panel           | `addWorkspacePanel`                                         | UI that lives as a tab beside agents, terminals, files, and diffs; `locations: ["explorer"]` for the Explorer                                                    | reference.md → Workspace panels                                                                            |
-| File panel                | `addFilePanel`                                              | View or edit a matching file inside the file tab through its file handle                                                                                         | reference.md → File panels; `plugin-examples/pdf-panel`, `plugin-examples/markdown-panel`                  |
-| Command Center item       | `addCommandCenterItem`                                      | A global, workspace, or agent action reachable from ⌘K                                                                                                           | reference.md → Command Center items                                                                        |
-| Client slash command      | `addSlashCommand`                                           | A `/command args` in the composer that runs plugin code instead of prompting the agent                                                                           | reference.md → Slash commands                                                                              |
-| Composer pill             | `addComposerPill`                                           | A per-agent button in the composer track bar next to Tasks and Subagents                                                                                         | reference.md → Composer pills                                                                              |
-| Timeline transformer      | `addTimelineTransformer` + `addTimelineRenderer`            | Replace, explode, or hide a built-in timeline item, including while it streams                                                                                   | reference.md → Timeline items; `plugin-examples/timeline-items`, `plugin-examples/inline-thinking`         |
-| Timeline row              | `paseo.agents.ref(id).timeline.append(...)`                 | Push a plugin-owned row into an agent timeline from a server handler and update it later                                                                         | reference.md → Append a timeline row from the daemon                                                       |
-| Attachment source         | `client.addAttachmentSource` + `server.handle`              | Let the user attach a searchable external resource, such as an issue, to a prompt                                                                                | reference.md → Add a composer attachment source; `plugin-examples/linear`                                  |
-| Theme                     | `addTheme`                                                  | A light or dark palette under Settings → Appearance                                                                                                              | reference.md → Contribute a theme; `plugin-examples/catppuccin`                                            |
-| Plugin RPC                | `defineRpc` + `server.handle` + `useRpc`                    | Daemon-side work that is not a normal Paseo operation: vendor APIs, credentials, local files                                                                     | reference.md → Add plugin-specific backend behavior                                                        |
-| Plugin subscription       | `defineSubscription` + `server.handle` + `useSubscription`  | A daemon handler that pushes events while a surface listens: watchers, tails, live media; a top-level `Uint8Array` rides as binary                               | reference.md → Stream events from the daemon; `plugin-examples/diff-watch`, `plugin-examples/media-stream` |
-| Lifecycle events          | `server.on`                                                 | Observe agent/workspace lifecycle, inspect ended turns, and answer permission requests                                                                           | [Lifecycle hooks](https://paseo.sh/docs/plugins/reference.md#lifecycle-hooks)                              |
-| Creation and launch hooks | `server.before`                                             | `agent.create` edits saved config; `agent.session_open` contributes launch-only `env`, `tools`, `mcpServers` on every open; `workspace.create` chooses isolation | [Before hooks](https://paseo.sh/docs/plugins/reference.md#before-hooks)                                    |
-| Paseo SDK                 | `usePaseo()` / handler `{ paseo }`                          | Normal Paseo operations: workspaces, agents, providers, config                                                                                                   | reference.md → Use the Paseo SDK                                                                           |
+| Contribution              | Registration                                                | Use it when                                                                                                                                                      | Reference                                                                                                         |
+| ------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Screen and sidebar item   | `addScreen` + `addSidebarHeaderItem`/`addSidebarFooterItem` | A full screen of plugin UI, or sidebar header or footer rows that open a screen or popover                                                                       | reference.md → Screens and sidebar items                                                                          |
+| Workspace panel           | `addWorkspacePanel`                                         | UI that lives as a tab beside agents, terminals, files, and diffs; `locations: ["explorer"]` for the Explorer                                                    | reference.md → Workspace panels                                                                                   |
+| File panel                | `addFilePanel`                                              | View or edit a matching file inside the file tab through its file handle                                                                                         | reference.md → File panels; `plugin-examples/pdf-panel`, `plugin-examples/markdown-panel`                         |
+| Command Center item       | `addCommandCenterItem`                                      | A global, workspace, or agent action reachable from ⌘K                                                                                                           | reference.md → Command Center items                                                                               |
+| Client slash command      | `addSlashCommand`                                           | A `/command args` in the composer that runs plugin code instead of prompting the agent                                                                           | reference.md → Slash commands                                                                                     |
+| Composer pill             | `addComposerPill`                                           | A per-agent button in the composer track bar next to Tasks and Subagents                                                                                         | reference.md → Composer pills                                                                                     |
+| Timeline transformer      | `addTimelineTransformer` + `addTimelineRenderer`            | Replace, explode, or hide a built-in timeline item, including while it streams                                                                                   | reference.md → Timeline items; `plugin-examples/timeline-items`, `plugin-examples/inline-thinking`                |
+| Timeline row              | `pimi.agents.ref(id).timeline.append(...)`                  | Push a plugin-owned row into an agent timeline from a server handler and update it later                                                                         | reference.md → Append a timeline row from the daemon                                                              |
+| Attachment source         | `client.addAttachmentSource` + `server.handle`              | Let the user attach a searchable external resource, such as an issue, to a prompt                                                                                | reference.md → Add a composer attachment source; `plugin-examples/linear`                                         |
+| Theme                     | `addTheme`                                                  | A light or dark palette under Settings → Appearance                                                                                                              | reference.md → Contribute a theme; `plugin-examples/catppuccin`                                                   |
+| Plugin RPC                | `defineRpc` + `server.handle` + `useRpc`                    | Daemon-side work that is not a normal Pimi operation: vendor APIs, credentials, local files                                                                      | reference.md → Add plugin-specific backend behavior                                                               |
+| Plugin subscription       | `defineSubscription` + `server.handle` + `useSubscription`  | A daemon handler that pushes events while a surface listens: watchers, tails, live media; a top-level `Uint8Array` rides as binary                               | reference.md → Stream events from the daemon; `plugin-examples/diff-watch`, `plugin-examples/media-stream`        |
+| Lifecycle events          | `server.on`                                                 | Observe agent/workspace lifecycle, inspect ended turns, and answer permission requests                                                                           | [Lifecycle hooks](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/reference.md#lifecycle-hooks) |
+| Creation and launch hooks | `server.before`                                             | `agent.create` edits saved config; `agent.session_open` contributes launch-only `env`, `tools`, `mcpServers` on every open; `workspace.create` chooses isolation | [Before hooks](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/reference.md#before-hooks)       |
+| Pimi SDK                  | `usePimi()` / handler `{ pimi }`                            | Normal Pimi operations: workspaces, agents, providers, config                                                                                                    | reference.md → Use the Pimi SDK                                                                                   |
 
-| Lifecycle task                                                         | Example                                                                                                |
-| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Log all eleven hooks                                                   | [lifecycle-logger](https://github.com/getpaseo/paseo/tree/main/plugin-examples/lifecycle-logger)       |
-| Follow-ups, permissions, environment, provider switching, worktrees    | [lifecycle-actions](https://github.com/getpaseo/paseo/tree/main/plugin-examples/lifecycle-actions)     |
-| Inject launch-only MCP servers and save Codex sandbox/approval options | [agent-configuration](https://github.com/getpaseo/paseo/tree/main/plugin-examples/agent-configuration) |
-| Attach a tool to selected agents                                       | [agent-tools](https://github.com/getpaseo/paseo/tree/main/plugin-examples/agent-tools)                 |
+| Lifecycle task                                                         | Example                                                                                                  |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Log all eleven hooks                                                   | [lifecycle-logger](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/lifecycle-logger)       |
+| Follow-ups, permissions, environment, provider switching, worktrees    | [lifecycle-actions](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/lifecycle-actions)     |
+| Inject launch-only MCP servers and save Codex sandbox/approval options | [agent-configuration](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/agent-configuration) |
+| Attach a tool to selected agents                                       | [agent-tools](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/agent-tools)                 |
 
 ## Create the project
 
 Use an absolute path on the daemon machine. `init` writes files but does not install packages.
 
 ```bash
-paseo plugin init /absolute/path/to/my-plugin
+pimi plugin init /absolute/path/to/my-plugin
 cd /absolute/path/to/my-plugin
 npm install
 ```
@@ -66,7 +61,7 @@ The generated project contains:
 
 ```text
 my-plugin/
-  paseo-plugin.json
+  pimi-plugin.json
   OVERVIEW.md
   package.json
   tsconfig.json
@@ -77,18 +72,9 @@ my-plugin/
   shared/greeting.ts
 ```
 
-The manifest supplies the default install ID and supported Paseo versions:
-
-```json
-{ "id": "my-plugin", "requirements": { "paseo": ">=0.8.0" } }
-```
-
-Keep `requirements.paseo` correct whenever creating or editing a plugin. `init` uses `>=` followed
-by the CLI version. Raise the minimum when adopting newer APIs; add an upper bound when a later
-Paseo release is incompatible. Use npm semver ranges and explicitly include beta versions when
-targeting betas. Missing requirements mean `<0.8.0`; complete the 0.8 entry migration before adding
-`>=0.8.0`. Verify compatibility with both the daemon and the app running client contributions.
-See [requirements](https://paseo.sh/docs/plugins/reference#requirements).
+The manifest supplies the default install ID and the `requirements.pimi` version range. The scaffold
+uses the current CLI version as the minimum. Raise that minimum when adopting a newer API and
+verify the plugin with both the daemon and the app. [Requirements](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/reference.md#requirements).
 
 Each runtime has its own optional entry. A plugin must have at least one. Both entries accept
 `.ts` or `.tsx`; use `.tsx` when an entry imports components.
@@ -110,7 +96,7 @@ Default-export one contribution function from each entry and return cleanup:
 
 ```tsx
 // index.client.tsx
-import type { PluginClientContext } from "@getpaseo/plugin/client";
+import type { PluginClientContext } from "@pimi/plugin/client";
 
 export default function contribute(client: PluginClientContext) {
   // Register components and client callbacks here.
@@ -120,7 +106,7 @@ export default function contribute(client: PluginClientContext) {
 
 ```ts
 // index.server.ts
-import type { PluginServerContext } from "@getpaseo/plugin/server";
+import type { PluginServerContext } from "@pimi/plugin/server";
 
 export default function contribute(server: PluginServerContext) {
   // Register daemon-side RPC handlers here.
@@ -129,14 +115,14 @@ export default function contribute(server: PluginServerContext) {
 ```
 
 Cleanup can be async. Use it for timers, watchers, sockets, subscriptions, and other resources
-created by plugin code. Every client `add*` method returns an idempotent remover. Paseo calls the
+created by plugin code. Every client `add*` method returns an idempotent remover. Pimi calls the
 entry cleanup first, removes registrations that remain, rejects pending RPCs, closes the plugin
 session, and stops the subprocess when the plugin stops.
 
 ## Add a workspace panel
 
 Workspace panels live beside agents, terminals, files, and diffs. Plugins run on desktop and
-mobile, and Paseo has multiple themes. Every `Text` must take its color from `theme.colors`.
+mobile, and Pimi has multiple themes. Every `Text` must take its color from `theme.colors`.
 Use `layout.compact` for padding and stacking. Unstyled text is black and fails in dark themes.
 
 ```tsx
@@ -144,7 +130,7 @@ import {
   type PluginClientContext,
   type PluginWorkspacePanelProps,
   useWorkspace,
-} from "@getpaseo/plugin/client";
+} from "@pimi/plugin/client";
 import { useMemo } from "react";
 import { Text, View } from "react-native";
 
@@ -192,21 +178,21 @@ export default function contribute(client: PluginClientContext) {
 
 Use `useWorkspace(id, selector)` and `useAgent(id, selector)`. Selectors are required
 and their results use shallow equality. Never select the whole snapshot or add an RPC to discover
-the active workspace or agent. Command callbacks receive the selected host's `paseo`, typed
+the active workspace or agent. Command callbacks receive the selected host's `pimi`, typed
 `rpc(contract, input)`, `openScreen({ screenId, params? })`, and contextual `openPanel(id)`
 capabilities.
 
 ## Add a screen and a sidebar item
 
-Plugin screens use React Native primitives and work across desktop, browser, iOS, and Android. A sidebar item, in the header or the footer, is a component: render one or more `SidebarRow`s from `@getpaseo/plugin/client/ui`, with `SidebarSeparator` between groups, and call `openScreen` or `openPopover` from them. A screen's `title` is a string or a function of its `params`; its component receives the `params` it was opened with. Color text from `theme.colors` and pad from `layout.compact`.
+Plugin screens use React Native primitives and work across desktop, browser, iOS, and Android. A sidebar item, in the header or the footer, is a component: render one or more `SidebarRow`s from `@pimi/plugin/client/ui`, with `SidebarSeparator` between groups, and call `openScreen` or `openPopover` from them. A screen's `title` is a string or a function of its `params`; its component receives the `params` it was opened with. Color text from `theme.colors` and pad from `layout.compact`.
 
 ```tsx
 import type {
   PluginClientContext,
   PluginScreenProps,
   PluginSidebarItemProps,
-} from "@getpaseo/plugin/client";
-import { SidebarRow } from "@getpaseo/plugin/client/ui";
+} from "@pimi/plugin/client";
+import { SidebarRow } from "@pimi/plugin/client/ui";
 import { useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
@@ -258,13 +244,13 @@ export default function contribute(client: PluginClientContext) {
 }
 ```
 
-Icons are Lucide icon names, inline SVG (`{ svg }`), or components; see [Icons](https://paseo.sh/docs/plugins/reference.md#icons). `theme` is a typed `PluginTheme` on every screen and panel. Primary text uses `theme.colors.foreground`; labels use `theme.colors.foregroundMuted`; the root view uses `theme.colors.surface0`. `layout.compact` is true on mobile and narrow windows. Paseo owns the route, header, host picker, close action, error boundary, and per-installation query client.
+Icons are Lucide icon names, inline SVG (`{ svg }`), or components; see [Icons](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/reference.md#icons). `theme` is a typed `PluginTheme` on every screen and panel. Primary text uses `theme.colors.foreground`; labels use `theme.colors.foregroundMuted`; the root view uses `theme.colors.surface0`. `layout.compact` is true on mobile and narrow windows. Pimi owns the route, header, host picker, close action, error boundary, and per-installation query client.
 
 Before writing imports, classify each module as shared, client, or server. Follow the
-[SDK import boundaries](https://paseo.sh/docs/plugins/reference.md#runtime-modules), including
+[SDK import boundaries](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/reference.md#runtime-modules), including
 transitive and type dependencies. The root is shared-only; hooks and client contexts belong to
-`@getpaseo/plugin/client`, server contexts to `/server`, and host UI to `/client/ui`.
-Install dependencies locally for typechecking; Paseo supplies host runtime modules. JSX uses the
+`@pimi/plugin/client`, server contexts to `/server`, and host UI to `/client/ui`.
+Install dependencies locally for typechecking; Pimi supplies host runtime modules. JSX uses the
 automatic runtime. Do not import `/client/host` from plugin code.
 
 ## Works on mobile
@@ -289,20 +275,20 @@ A hit outside `client/web.ts` is a bug.
 
 ## Choose the correct API
 
-Use the existing Paseo SDK for normal Paseo operations. Use plugin RPC only for plugin-specific backend behavior.
+Use the existing Pimi SDK for normal Pimi operations. Use plugin RPC only for plugin-specific backend behavior.
 
-### Call Paseo from a surface
+### Call Pimi from a surface
 
-`usePaseo()` borrows the selected host's current connection. Never create another client inside a surface. It is the plugin's one client in every surface: release your subscriptions in your cleanup; plugin teardown ends the rest.
+`usePimi()` borrows the selected host's current connection. Never create another client inside a surface. It is the plugin's one client in every surface: release your subscriptions in your cleanup; plugin teardown ends the rest.
 
 ```tsx
-import { usePaseo } from "@getpaseo/plugin/client";
+import { usePimi } from "@pimi/plugin/client";
 
 function PullRequestAction() {
-  const paseo = usePaseo();
+  const pimi = usePimi();
 
   async function createReviewWorkspace() {
-    const workspace = await paseo.workspaces.create({
+    const workspace = await pimi.workspaces.create({
       title: "Review PR 42",
       source: {
         kind: "worktree",
@@ -322,7 +308,7 @@ function PullRequestAction() {
 }
 ```
 
-The API covers workspaces, agents, providers, and daemon config. It omits connection lifecycle because Paseo owns the connection. Consult the current [SDK reference](https://paseo.sh/docs/sdk/reference.md) for method details.
+The API covers workspaces, agents, providers, and daemon config. It omits connection lifecycle because Pimi owns the connection. Consult the current [SDK reference](https://github.com/1ikeadragon/pimi/blob/main/public-docs/sdk/reference.md) for method details.
 
 ### Add daemon-side behavior
 
@@ -331,7 +317,7 @@ call it from client code with `useRpc()`:
 
 ```ts
 // shared/greeting.ts
-import { defineRpc } from "@getpaseo/plugin";
+import { defineRpc } from "@pimi/plugin";
 import { z } from "zod";
 
 const greeting = defineRpc({
@@ -343,7 +329,7 @@ const greeting = defineRpc({
 
 ```ts
 // server/greeting.ts
-import type { RpcInput } from "@getpaseo/plugin";
+import type { RpcInput } from "@pimi/plugin";
 import { greeting } from "../shared/greeting";
 
 export async function createGreeting({ name }: RpcInput<typeof greeting>) {
@@ -353,7 +339,7 @@ export async function createGreeting({ name }: RpcInput<typeof greeting>) {
 
 ```ts
 // index.server.ts
-import type { PluginServerContext } from "@getpaseo/plugin/server";
+import type { PluginServerContext } from "@pimi/plugin/server";
 import { createGreeting } from "./server/greeting";
 import { greeting } from "./shared/greeting";
 
@@ -365,7 +351,7 @@ export default function contribute(server: PluginServerContext) {
 
 ```tsx
 // client/greeting.tsx
-import { useRpc } from "@getpaseo/plugin/client";
+import { useRpc } from "@pimi/plugin/client";
 import { greeting } from "../shared/greeting";
 
 function Greeting() {
@@ -375,7 +361,7 @@ function Greeting() {
 }
 ```
 
-Inputs and outputs are validated on both sides. A top-level `Uint8Array` input or output (declared `z.instanceof(Uint8Array)`) crosses as binary; a nested one fails validation. For a stream of events, use `defineSubscription` and `useSubscription`; see [subscriptions](https://paseo.sh/docs/plugins/reference.md#subscriptions). Backend handlers receive the same `PaseoApi` as `{ paseo }`; their IPC-backed daemon session lives exactly as long as the subprocess. Backend code can use Node APIs and installed dependencies. Keep credentials, filesystem access, shell commands, and vendor API calls in the handler rather than the client surface.
+Inputs and outputs are validated on both sides. A top-level `Uint8Array` input or output (declared `z.instanceof(Uint8Array)`) crosses as binary; a nested one fails validation. For a stream of events, use `defineSubscription` and `useSubscription`; see [subscriptions](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/reference.md#subscriptions). Backend handlers receive the same `PimiApi` as `{ pimi }`; their IPC-backed daemon session lives exactly as long as the subprocess. Backend code can use Node APIs and installed dependencies. Keep credentials, filesystem access, shell commands, and vendor API calls in the handler rather than the client surface.
 
 Use TanStack Query for async request state, caching, and mutations.
 
@@ -399,26 +385,26 @@ server.before("agent.session_open", ({ request }) => {
 
 `tools` and `mcpServers` start empty for each plugin and accumulate across its own callbacks.
 They are launch-only. Use `agent.create` to edit configuration that should be saved with the agent.
-See [Attach tools to agents](https://paseo.sh/docs/plugins/reference.md#attach-tools-to-agents)
+See [Attach tools to agents](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/reference.md#attach-tools-to-agents)
 for `defineAgentTool` and targeting, and
-[Inject MCP servers](https://paseo.sh/docs/plugins/reference.md#inject-mcp-servers) for server configuration and collisions.
+[Inject MCP servers](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/reference.md#inject-mcp-servers) for server configuration and collisions.
 
 Starting, stopping, or reloading a plugin with a session-open hook marks open agent sessions stale.
 Each reopens before its next idle prompt without interrupting a running turn.
-`await paseo.agents.ref(id).reload()` applies changes immediately and interrupts a running turn;
+`await pimi.agents.ref(id).reload()` applies changes immediately and interrupts a running turn;
 `refresh()` only reads the current snapshot.
 
 ### Debug daemon-side behavior
 
 Backend contributions can use normal Node logging. `console.log()` writes to the plugin's stdout;
-`console.error()` writes to stderr. Paseo captures both streams without interfering with plugin IPC.
+`console.error()` writes to stderr. Pimi captures both streams without interfering with plugin IPC.
 
 Inspect recent output after install, reload, an RPC failure, or a subprocess crash:
 
 ```bash
-paseo plugin logs my-plugin
-paseo plugin logs my-plugin --json
-paseo plugin logs my-plugin --host <url>
+pimi plugin logs my-plugin
+pimi plugin logs my-plugin --json
+pimi plugin logs my-plugin --host <url>
 ```
 
 The same tail is available from **Settings → Plugins → Logs**. It includes initialization, handler,
@@ -433,7 +419,7 @@ the client:
 
 ```ts
 // shared/issues.ts
-import { defineAttachmentSource, defineRpc } from "@getpaseo/plugin";
+import { defineAttachmentSource, defineRpc } from "@pimi/plugin";
 import { z } from "zod";
 
 const searchIssues = defineRpc({
@@ -466,7 +452,7 @@ const issues = defineAttachmentSource({
 
 ```ts
 // index.server.ts
-import type { PluginServerContext } from "@getpaseo/plugin/server";
+import type { PluginServerContext } from "@pimi/plugin/server";
 import { searchIssues } from "./shared/issues";
 
 export default function contribute(server: PluginServerContext) {
@@ -477,7 +463,7 @@ export default function contribute(server: PluginServerContext) {
 
 ```tsx
 // index.client.tsx
-import type { PluginClientContext } from "@getpaseo/plugin/client";
+import type { PluginClientContext } from "@pimi/plugin/client";
 import { issues } from "./shared/issues";
 
 export default function contribute(client: PluginClientContext) {
@@ -486,7 +472,7 @@ export default function contribute(client: PluginClientContext) {
 }
 ```
 
-Return complete text snapshots. Paseo owns the composer menu, picker, pills, drafts, and submission. Credentials and vendor calls stay in the daemon handler.
+Return complete text snapshots. Pimi owns the composer menu, picker, pills, drafts, and submission. Credentials and vendor calls stay in the daemon handler.
 
 ## Add a client slash command
 
@@ -505,14 +491,14 @@ client.addSlashCommand({
 });
 ```
 
-The callback receives the same context as the matching Command Center item plus `args`. Paseo owns the autocomplete row, input clearing, and the error toast; put pending UI in a pill or panel. Precedence is built-in client commands, then plugin commands, then provider commands; a lower-precedence collision is dropped. Commands do not run while the composer has attachments. Server-side slash commands do not exist.
+The callback receives the same context as the matching Command Center item plus `args`. Pimi owns the autocomplete row, input clearing, and the error toast; put pending UI in a pill or panel. Precedence is built-in client commands, then plugin commands, then provider commands; a lower-precedence collision is dropped. Commands do not run while the composer has attachments. Server-side slash commands do not exist.
 
 ## Add a composer pill
 
 A pill is a per-agent button in the composer track bar next to Tasks and Subagents. Add and remove pills from the client entry lifecycle. `addComposerPill` exists on `PluginClientContext`.
 
 ```tsx
-import type { PluginButtonRegistration, PluginClientContext } from "@getpaseo/plugin/client";
+import type { PluginButtonRegistration, PluginClientContext } from "@pimi/plugin/client";
 
 export function contributeClient(client: PluginClientContext) {
   const pills = new Map<string, PluginButtonRegistration>();
@@ -547,7 +533,7 @@ export function contributeClient(client: PluginClientContext) {
     pills.clear();
   };
   // An owned list subscription delivers existing agents, then updates, and a fresh snapshot after a reconnect.
-  void client.paseo.agents
+  void client.pimi.agents
     .list({ subscribe: {}, signal: lifetime.signal })
     .then(({ subscription }) => {
       subscription.subscribe({
@@ -575,7 +561,7 @@ export function contributeClient(client: PluginClientContext) {
 }
 ```
 
-Call `contributeClient(client)` from `index.client.tsx`, or move its body into that entry. The `button` descriptor sets the icon, label, and behavior; Paseo owns the pressable, chrome, pending state, error reporting, and placement. `addComposerPill` returns a registration with `update()` and `remove()`. `remove()` is idempotent, and Paseo removes every pill when the plugin, client entrypoint, or host connection is torn down.
+Call `contributeClient(client)` from `index.client.tsx`, or move its body into that entry. The `button` descriptor sets the icon, label, and behavior; Pimi owns the pressable, chrome, pending state, error reporting, and placement. `addComposerPill` returns a registration with `update()` and `remove()`. `remove()` is idempotent, and Pimi removes every pill when the plugin, client entrypoint, or host connection is torn down.
 
 ## Transform and render timeline items
 
@@ -599,15 +585,15 @@ client.addTimelineRenderer({
 });
 ```
 
-Transformers run while the render model is built, on fetched history and on every live update, so `phase` is `"streaming"` for a loading thought or running tool call. Identity comes from the source item, so a streaming item keeps its mounted component; set an output `id` when one source explodes into several items. Transformers must be synchronous and deterministic, `data` must be JSON, and a transformer that throws is logged and skipped. Render `<StreamedText text={text} phase={phase} />` from `@getpaseo/plugin/client/ui` for paced assistant text; use its `style` prop to customize text appearance. `plugin-examples/inline-thinking` replaces the thinking row with inline text; `plugin-examples/timeline-items` replaces a todo tool call with a task card.
+Transformers run while the render model is built, on fetched history and on every live update, so `phase` is `"streaming"` for a loading thought or running tool call. Identity comes from the source item, so a streaming item keeps its mounted component; set an output `id` when one source explodes into several items. Transformers must be synchronous and deterministic, `data` must be JSON, and a transformer that throws is logged and skipped. Render `<StreamedText text={text} phase={phase} />` from `@pimi/plugin/client/ui` for paced assistant text; use its `style` prop to customize text appearance. `plugin-examples/inline-thinking` replaces the thinking row with inline text; `plugin-examples/timeline-items` replaces a todo tool call with a task card.
 
 ## Append a timeline row from the daemon
 
 A server handler can push a plugin-owned row into any agent timeline. The same renderer registration draws it.
 
 ```ts
-server.handle(publishReview, async ({ agentId, verdict }, { paseo }) => {
-  await paseo.agents.ref(agentId).timeline.append({
+server.handle(publishReview, async ({ agentId, verdict }, { pimi }) => {
+  await pimi.agents.ref(agentId).timeline.append({
     type: "plugin",
     id: "review",
     kind: "review-result",
@@ -622,7 +608,7 @@ The daemon stamps `pluginId` from the plugin session, so only plugin code can ca
 
 ## Contribute a theme
 
-`addTheme` takes a small light or dark palette; Paseo expands it into the full token set. Every color is a hex string.
+`addTheme` takes a small light or dark palette; Pimi expands it into the full token set. Every color is a hex string.
 
 ```ts
 client.addTheme({
@@ -646,71 +632,34 @@ It appears under Settings → Appearance. A client that predates `addTheme` cann
 
 ## Hosts and trust
 
-Plugins are installed per daemon and are trusted, unsandboxed code. Backend code can access files, processes, credentials, and network services on the daemon machine. Client contributions run inside the Paseo app. Do not install a plugin the user has not authorized or source code you have not inspected.
+Plugins are installed per daemon and are trusted, unsandboxed code. Backend code can access files, processes, credentials, and network services on the daemon machine. Client contributions run inside the Pimi app. Do not install a plugin the user has not authorized or source code you have not inspected.
 
 ### Check the global switch before installing
 
-Identify the target daemon and inspect its root `pluginsEnabled` value in `config.json`. For the local daemon, `paseo daemon status --json` reports its `home`; the file is `<home>/config.json`. Treat a missing field as `false`. Do not infer the global value from a plugin's `disabled` status, because an individual plugin can also be disabled.
+Identify the target daemon and inspect its root `pluginsEnabled` value in `config.json`. For the local daemon, `pimi daemon status --json` reports its `home`; the file is `<home>/config.json`. Treat a missing field as `false`. Do not infer the global value from a plugin's `disabled` status, because an individual plugin can also be disabled.
 
 If `pluginsEnabled` is already `true`, continue without asking the user to enable it.
 
 If it is false or absent, stop and ask the user for explicit permission before editing or enabling anything. Include this warning in the request:
 
-> Plugins are trusted, unsandboxed code. Backend plugin code can access your daemon machine, including files, processes, credentials, and network services. Client plugin code runs inside the Paseo app. May I enable plugins on this daemon?
+> Plugins are trusted, unsandboxed code. Backend plugin code can access your daemon machine, including files, processes, credentials, and network services. Client plugin code runs inside the Pimi app. May I enable plugins on this daemon?
 
 Do not continue unless the user agrees. After permission:
 
 1. Preserve the rest of `config.json` and set the root `pluginsEnabled` field to `true`.
-2. Run `paseo reload --json` against that daemon.
+2. Run `pimi reload --json` against that daemon.
 3. Require `pluginsEnabled` in `appliedPaths`, or accept an empty `appliedPaths` only after re-reading the file and confirming the live plugin catalog is enabled.
-4. Run `paseo plugin ls` and verify the intended plugin reaches `running` after installation.
+4. Run `pimi plugin ls` and verify the intended plugin reaches `running` after installation.
 
-If the user asks to disable the global switch, set `pluginsEnabled` to `false`, run `paseo reload --json`, and verify configured plugins report `disabled`.
+If the user asks to disable the global switch, set `pluginsEnabled` to `false`, run `pimi reload --json`, and verify configured plugins report `disabled`.
 
-Do not edit a local config when the target is a remote daemon. Perform the edit on the daemon machine, or ask the user to use **Settings → Plugins → Enable plugins**. `paseo reload --host <url>` reloads the remote daemon's own file but does not edit it.
+Do not edit a local config when the target is a remote daemon. Perform the edit on the daemon machine, or ask the user to use **Settings → Plugins → Enable plugins**. `pimi reload --host <url>` reloads the remote daemon's own file but does not edit it.
 
-When the same screen or sidebar item exists on several connected hosts, Paseo shows it once. The screen header has a host picker; a sidebar item uses the host of the screen on display, else the host last picked in one of the plugin's screens. The selected host owns the bundle, SDK calls, RPCs, and query cache. An offline selected host does not fall through to another host. Attachment sources stay scoped to the composer's host.
+When the same screen or sidebar item exists on several connected hosts, Pimi shows it once. The screen header has a host picker; a sidebar item uses the host of the screen on display, else the host last picked in one of the plugin's screens. The selected host owns the bundle, SDK calls, RPCs, and query cache. An offline selected host does not fall through to another host. Attachment sources stay scoped to the composer's host.
 
-## Publishing a listing
+## Write a plugin overview
 
-Write `OVERVIEW.md` beside `paseo-plugin.json` for the plugin page inside Paseo.
-It helps someone decide whether to install your plugin; the install command is already at
-the top of that page. A README assumes a GitHub audience and carries installation
-instructions, technical details, and badges. Long, AI-generated READMEs make people read
-past that material to understand what a plugin does.
-
-`OVERVIEW.md` is required to list your plugin in the registry. Commit it beside
-`paseo-plugin.json` in the source repository at the pinned commit. The registry resolves it
-relative to the manifest, under `pluginPath` for monorepos. Include it in the published npm
-package too; the scaffold's `files` list includes it. Replace the scaffold's guidance comment
-with useful facts before publishing.
-
-The repository overview takes precedence over a registry import stopgap. Online validation
-fails when the pinned commit has no `OVERVIEW.md`, except for unchanged imported records
-that already carry `plugins/<owner>/<slug>.md` in the registry repository. Every version bump
-requires a repository overview and removes the stopgap in the same PR. A bump without the
-repository overview fails validation. README files do not supply the overview.
-
-Author overviews and registry stopgaps follow the same content contract, in this order.
-Choose headings only when they help; length follows complexity. A theme needs one paragraph.
-
-1. Explain what the plugin is and does in plain terms first.
-2. Explain how it works only when that is not obvious.
-3. Explain setup when needed: settings, accounts, tokens, providers, external tools, or other
-   plugins. Include applicable daemon version and operating system requirements. Setup
-   guidance is allowed; installation instructions are not.
-4. Explain capabilities and settings worth understanding, what each option does, what the
-   plugin reads or sends and where, permissions, and known limits.
-
-Use sentence case and plain factual language, with no em dashes. Omit installation commands,
-badges, changelog, contributing or license sections, marketing, and unsupported claims.
-Avoid implementation filler such as empty cleanup functions, catalogs of theme-token fields,
-or lists of absent features. Keep only what helps someone choose the plugin.
-
-If your plugin is an unchanged imported record, you can propose an author-written overview
-to replace the registry stopgap. Do not add import credit to your own `OVERVIEW.md`.
-
-See [Your listing page](https://paseo.sh/docs/plugins/publishing.md#your-listing-page).
+Put `OVERVIEW.md` beside `pimi-plugin.json` to explain the plugin in Pimi. Describe what it does, the setup it needs, the files or services it accesses, and its limits. Include the overview in the npm tarball or Git source when sharing the plugin.
 
 ## Typecheck and manage
 
@@ -718,31 +667,31 @@ When editing a plugin, typecheck its source before install or reload:
 
 ```bash
 npm run typecheck
-paseo plugin install /absolute/path/to/plugin
-paseo plugin install /absolute/path/to/plugin --id another-runtime-id
-paseo plugin install npm:@acme/paseo-review
-paseo plugin install npm:@acme/paseo-review@1.2.0
-paseo plugin install github:owner/repository
-paseo plugin install github:owner/repository --ref main
-paseo plugin update my-plugin
-paseo plugin ls
-paseo plugin reload my-plugin
-paseo plugin logs my-plugin
-paseo plugin disable my-plugin
-paseo plugin enable my-plugin
-paseo plugin remove my-plugin
+pimi plugin install /absolute/path/to/plugin
+pimi plugin install /absolute/path/to/plugin --id another-runtime-id
+pimi plugin install npm:@acme/pimi-review
+pimi plugin install npm:@acme/pimi-review@1.2.0
+pimi plugin install github:owner/repository
+pimi plugin install github:owner/repository --ref main
+pimi plugin update my-plugin
+pimi plugin ls
+pimi plugin reload my-plugin
+pimi plugin logs my-plugin
+pimi plugin disable my-plugin
+pimi plugin enable my-plugin
+pimi plugin remove my-plugin
 ```
 
 For npm, ensure npm is on the daemon's `PATH`; use that host's registry configuration and credentials. Install selectors choose
 content once; they do not pin updates. `install` and `add` are aliases. Follow the
-[publishing guide](https://paseo.sh/docs/plugins/publishing.md) for Paseo's package contents and
+[publishing guide](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/publishing.md) for Pimi's package contents and
 preparation requirements; standard npm publishing commands apply.
 
-Use `--host <url>` when managing a daemon other than the CLI default. A Git source that must install or generate something declares `build` in `paseo-plugin.json` as a list of argv arrays; Paseo runs them without a shell on install and update and keeps the old version if one fails. Plugin source edits require `paseo plugin reload`; config changes to the global switch require `paseo reload`. A failed plugin reload stays failed; inspect `paseo plugin ls` for the load error and `paseo plugin logs <id>` for subprocess output, fix the source, typecheck, and reload again. `remove` keeps local source directories and deletes managed Git/npm installations.
+Use `--host <url>` when managing a daemon other than the CLI default. A Git source that must install or generate something declares `build` in `pimi-plugin.json` as a list of argv arrays; Pimi runs them without a shell on install and update and keeps the old version if one fails. Plugin source edits require `pimi plugin reload`; config changes to the global switch require `pimi reload`. A failed plugin reload stays failed; inspect `pimi plugin ls` for the load error and `pimi plugin logs <id>` for subprocess output, fix the source, typecheck, and reload again. `remove` keeps local source directories and deletes managed Git/npm installations.
 
 Do not restart the daemon to load source changes. Restarting it can kill the agent performing the work.
 
-For an old mixed entry, follow the standalone [runtime-entry migration guide](https://paseo.sh/docs/plugins/migration) mechanically.
+For an old mixed entry, follow the standalone [runtime-entry migration guide](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/migration.md) mechanically.
 
 ## Verify the outcome
 
@@ -750,7 +699,7 @@ After a change:
 
 1. Run `npm run typecheck`.
 2. Install or reload the exact runtime ID.
-3. Run `paseo plugin ls` and require `running` with no error.
+3. Run `pimi plugin ls` and require `running` with no error.
 4. Confirm the contribution on the intended host. Open the Command Center with **⌘K** (macOS) or **Ctrl+K** (Windows/Linux). Type `/` in the composer for slash commands. For timeline work, run an agent turn that produces the source item and watch it while it streams, not only after it completes. For UI work, check a wide desktop window and a compact/mobile client, and switch theme to confirm text still uses `foreground` / `foregroundMuted`.
 5. Exercise the changed action or RPC, including its error state.
 
@@ -758,9 +707,9 @@ Common failures:
 
 - Missing sidebar item: wrong host, plugin not `running`, the item is hidden in Settings > Sidebar, or its component throws (a `SidebarRow` with an unknown Lucide name or unsafe SVG throws).
 - Unavailable client module: client bundles can use only the host-provided modules listed above.
-- RPC rejection: input or output failed its Zod schema, or the handler threw. Inspect `paseo plugin logs <id>` for handler output.
-- Plugin exits or reload fails: inspect `paseo plugin ls` for status and `paseo plugin logs <id>` for initialization, cleanup, or crash output.
-- Stale UI: source was edited without `paseo plugin reload <id>`.
+- RPC rejection: input or output failed its Zod schema, or the handler threw. Inspect `pimi plugin logs <id>` for handler output.
+- Plugin exits or reload fails: inspect `pimi plugin ls` for status and `pimi plugin logs <id>` for initialization, cleanup, or crash output.
+- Stale UI: source was edited without `pimi plugin reload <id>`.
 - Timeline item shows "Plugin timeline item unavailable": no renderer registered for that `kind` and `version`, the renderer schema rejected `data`, or the plugin is not running on that host.
 - Transformer has no effect: `query.itemType` does not match the source type, the transform returned `undefined`, or it threw and was skipped; check the app console for `[Plugins] Timeline transformer failed`.
 - Slash command not offered: name collides with a built-in or another plugin, the context is `agent` on a draft, or the composer has attachments.

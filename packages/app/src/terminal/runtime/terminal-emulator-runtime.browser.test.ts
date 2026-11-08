@@ -1,6 +1,6 @@
 import { page, userEvent } from "@vitest/browser/context";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { TerminalInputModeState } from "@getpaseo/protocol/terminal-input-mode";
+import type { TerminalInputModeState } from "@pimi/protocol/terminal-input-mode";
 import type { TerminalFile } from "../file-paste";
 import {
   encodeTerminalOutput,

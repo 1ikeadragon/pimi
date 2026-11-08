@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SpeechSettingsPatch } from "@getpaseo/protocol/speech/rpc-schemas";
+import type { SpeechSettingsPatch } from "@pimi/protocol/speech/rpc-schemas";
 import { openSpeechProviderForm, type SpeechProviderFormSnapshot } from "./speech-provider-form";
 
 function open(overrides: Partial<SpeechProviderFormSnapshot> = {}) {

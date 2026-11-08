@@ -187,8 +187,8 @@ export function WelcomeScreen() {
   }, [router]);
 
   const handleOpenProductSite = useCallback(() => {
-    void openExternalUrl(pimiAndroid ? "https://1ikeadragon.github.io/pimi/" : "https://paseo.sh");
-  }, [pimiAndroid]);
+    void openExternalUrl("https://1ikeadragon.github.io/pimi/");
+  }, []);
 
   const handleOpenSettings = useCallback(() => {
     router.push("/settings");
@@ -279,9 +279,7 @@ export function WelcomeScreen() {
             <Text style={styles.subtitle}>{welcomeSubtitle}</Text>
             {isNative ? (
               <Pressable style={styles.setupLink} onPress={handleOpenProductSite}>
-                <Text style={styles.setupLinkText}>
-                  {pimiAndroid ? "Pimi website" : "paseo.sh"}
-                </Text>
+                <Text style={styles.setupLinkText}>{"Pimi website"}</Text>
                 <ExternalLink size={14} color={theme.colors.accent} />
               </Pressable>
             ) : null}

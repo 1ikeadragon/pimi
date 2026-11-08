@@ -1,0 +1,4 @@
+{
+  "id": "agent-tools",
+  "requirements": { "pimi": ">=0.14.0-beta.1" }
+}

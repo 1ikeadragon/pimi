@@ -5,10 +5,10 @@ import {
   type PluginWorkspacePanelProps,
   useRpc,
   useWorkspace,
-} from "@getpaseo/plugin/client";
+} from "@pimi/plugin/client";
 import { useCallback, useMemo } from "react";
 import { Pressable, Text, View } from "react-native";
-import { ExternalLink, Markdown } from "@getpaseo/plugin/client/ui";
+import { ExternalLink, Markdown } from "@pimi/plugin/client/ui";
 import { incrementRpc } from "../shared/increment";
 
 export function contributeClient(client: PluginClientContext) {

@@ -43,7 +43,7 @@ test.each(["React Native", "native"])(
     });
     // A separate runtime starts with React Native's real abort implementation.
     // Node's globals and the daemon's runtime remain unchanged.
-    const sdk: typeof import("@getpaseo/client") = runInNewContext(
+    const sdk: typeof import("@pimi/client") = runInNewContext(
       `${bundle.outputFiles[0]!.text}\npaseoSdk`,
       {
         AbortController: runtime === "React Native" ? ReactNativeAbortController : AbortController,
@@ -91,8 +91,8 @@ test("plugin handlers create workspaces and agents through their Paseo API", asy
   );
   await writeFile(
     path.join(pluginDirectory, "index.server.ts"),
-    `import { defineRpc } from "@getpaseo/plugin";
-import { type PluginServerContext } from "@getpaseo/plugin/server";
+    `import { defineRpc } from "@pimi/plugin";
+import { type PluginServerContext } from "@pimi/plugin/server";
 import { z } from "zod";
 
 const create = defineRpc({
@@ -373,8 +373,8 @@ test("plugin host APIs and observations recover after repeated daemon-side socke
   await writeFile(
     path.join(pluginDirectory, "index.server.ts"),
     `
-import { defineRpc } from "@getpaseo/plugin";
-import { type PluginServerContext } from "@getpaseo/plugin/server";
+import { defineRpc } from "@pimi/plugin";
+import { type PluginServerContext } from "@pimi/plugin/server";
 import { z } from "zod";
 
 export default function contribute(server: PluginServerContext) {

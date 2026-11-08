@@ -12,7 +12,7 @@ Managed instances load their configuration from the home’s `config.json` and d
 
 ## Where config lives
 
-By default, Paseo uses `~/.paseo` as its home directory. The configuration file is:
+By default, Pimi uses `~/.paseo` as its home directory. The configuration file is:
 
 ```bash
 ~/.paseo/config.json
@@ -24,7 +24,7 @@ You can change the home directory by setting `PASEO_HOME` or selecting `--home` 
 
 Managed `start` and Desktop use defaults, then `config.json`. Inherited daemon-setting environment variables are removed from their launches.
 
-Foreground `paseo daemon run`, Docker, and direct supervisor launches apply environment variables after the file. Existing legacy supervisor flags retain their precedence across worker restart. Changing deployment overrides requires stopping and relaunching that deployment. Lists append across sources, including hostnames and CORS origins.
+Foreground `pimi daemon run`, Docker, and direct supervisor launches apply environment variables after the file. Existing legacy supervisor flags retain their precedence across worker restart. Changing deployment overrides requires stopping and relaunching that deployment. Lists append across sources, including hostnames and CORS origins.
 
 ## Example
 
@@ -32,7 +32,7 @@ Minimal example that configures listening address, hostnames, and MCP:
 
 ```json
 {
-  "$schema": "https://paseo.sh/schemas/paseo.config.v1.json",
+  "$schema": "https://github.com/1ikeadragon/pimi/blob/main/README.md.config.v1.json",
   "version": 1,
   "daemon": {
     "listen": "127.0.0.1:6767",
@@ -49,9 +49,9 @@ Minimal example that configures listening address, hostnames, and MCP:
 Edit the selected file through the CLI:
 
 ```bash
-paseo daemon config get daemon.listen --home ~/paseo-test
-paseo daemon config set daemon.listen 127.0.0.1:6800 --home ~/paseo-test
-paseo daemon config unset features.webUi.enabled --home ~/paseo-test
+pimi daemon config get daemon.listen --home ~/paseo-test
+pimi daemon config set daemon.listen 127.0.0.1:6800 --home ~/paseo-test
+pimi daemon config unset features.webUi.enabled --home ~/paseo-test
 ```
 
 `get [path]` reports configured values and labels missing fields unset. It does not create a home. `set` parses JSON, otherwise treats the input as a string; `--string` forces a literal string. `--json` selects output format. Use whole-object JSON for dynamic keys containing dots. Unknown paths, invalid values, and invalid existing files are rejected without writing. Passwords use `set-password`.
@@ -61,18 +61,18 @@ A successful edit saves the validated file, then reloads once if the instance is
 After editing `config.json` directly, reload it:
 
 ```bash
-paseo reload
+pimi reload
 ```
 
 The daemon validates the complete file before applying anything. It applies runtime-safe changes and lists any settings that still need a restart. If it reports restart-required paths, run:
 
 ```bash
-paseo daemon restart
+pimi daemon restart
 ```
 
 Runtime-safe settings include relay enablement, MCP settings, browser tools, hostnames, CORS origins, trusted proxies, Git process limits, agent and terminal profiles, provider definitions, metadata generation, the app base URL, provider catalog timeout, and the global plugin switch. Removing one of these settings applies its omitted-field behavior; removing a provider removes it from future launches.
 
-New homes keep relay disabled when you remove `daemon.relay.enabled`. A daemon whose config already omitted this field when it started keeps the legacy relay-enabled behavior for compatibility. Set `daemon.relay.enabled` explicitly when editing an older config.
+Relay stays off when you remove `daemon.relay.enabled`. Set `daemon.relay.endpoint` and restart to configure the relay address.
 
 Idle runtime cleanup, listen addresses, authentication, relay endpoints and TLS, worktree allocation, service-proxy addresses, the bundled web UI, logging, speech, voice, credentials, and local model settings require a restart. Reload applies other valid edits in the same file before reporting those paths.
 
@@ -80,13 +80,13 @@ Deployment environment variables and legacy supervisor flags remain authoritativ
 
 ## Agent providers
 
-Agent providers, both the first-class ones Paseo ships with and custom entries you add under `agents.providers`, are documented on their own page.
+Agent providers, both the first-class ones Pimi ships with and custom entries you add under `agents.providers`, are documented on their own page.
 
-See [Providers](/docs/providers) for the mental model and [Supported providers](/docs/supported-providers) for the full list of agents Paseo can launch. For pointing Claude at Anthropic-compatible endpoints (Z.AI, Alibaba/Qwen), multiple profiles, custom binaries, ACP agents, and the `additionalModels` merge behavior, see [Custom providers](/docs/custom-providers). The full field reference lives on GitHub at [docs/custom-providers.md](https://github.com/getpaseo/paseo/blob/main/docs/custom-providers.md).
+See [Providers](/docs/providers) for the mental model and [Supported providers](/docs/supported-providers) for the full list of agents Pimi can launch. For pointing Claude at Anthropic-compatible endpoints (Z.AI, Alibaba/Qwen), multiple profiles, custom binaries, ACP agents, and the `additionalModels` merge behavior, see [Custom providers](/docs/custom-providers). The full field reference lives on GitHub at [docs/custom-providers.md](https://github.com/1ikeadragon/pimi/blob/main/docs/custom-providers.md).
 
 ## Idle runtimes
 
-Paseo releases resumable idle agent processes after one hour when its daemon baseline allows
+Pimi releases resumable idle agent processes after one hour when its daemon baseline allows
 cleanup and any implemented provider check agrees. Your next prompt resumes the same conversation. Disable this
 for the entire host by turning off **Release idle agents** in **Settings → your host → Agents**, or with:
 
@@ -112,7 +112,7 @@ New worktrees are created under `$PASEO_HOME/worktrees` by default. To place new
 }
 ```
 
-Relative paths are resolved against `PASEO_HOME`. Existing worktrees remain where they are; changing this setting only changes where Paseo creates and discovers Paseo-managed worktrees going forward.
+Relative paths are resolved against `PASEO_HOME`. Existing worktrees remain where they are; changing this setting only changes where Pimi creates and discovers Pimi-managed worktrees going forward.
 
 ## Voice
 
@@ -127,8 +127,8 @@ The daemon can serve the browser web client from the same HTTP server. This is e
 Enable it from the CLI:
 
 ```bash
-paseo daemon config set features.webUi.enabled true
-paseo daemon start
+pimi daemon config set features.webUi.enabled true
+pimi daemon start
 ```
 
 Or set the environment variable:
@@ -187,10 +187,10 @@ You can require a password to connect to the daemon. When set, all HTTP and WebS
 The easiest way to set a password is with the CLI:
 
 ```bash
-paseo daemon set-password
+pimi daemon set-password
 ```
 
-This prompts for a password, writes the bcrypt hash to `config.json`, and tells you to restart the daemon. Authentication is a startup setting, so `paseo reload` will also report it as restart-required.
+This prompts for a password, writes the bcrypt hash to `config.json`, and tells you to restart the daemon. Authentication is a startup setting, so `pimi reload` will also report it as restart-required.
 
 Alternatively, set the `PASEO_PASSWORD` environment variable (plaintext, hashed automatically at startup):
 
@@ -235,29 +235,29 @@ In the mobile app, enter the password in the direct connection setup screen.
 
 ## Relay
 
-New homes write `daemon.relay.enabled: false`. Paseo asks before enabling relay when you pair a device; existing homes keep their saved value. See [Connectivity](/docs/connectivity) to choose and configure a connection method, and [Security](/docs/security) for the relay encryption model.
-
-Set the persisted value in `config.json`:
+Relay pairing requires a configured endpoint. Run [Pimi Relay](https://github.com/1ikeadragon/pimi-relay) and add its address to `config.json`. Set `enabled` to `true` to turn it on at startup.
 
 ```json
 {
   "daemon": {
     "relay": {
-      "enabled": true
+      "enabled": true,
+      "endpoint": "relay.example.com:443",
+      "useTls": true
     }
   }
 }
 ```
 
-`PASEO_RELAY_ENABLED=true|false` overrides the file for a foreground deployment. Managed `start` uses the file. End and relaunch a deployment to remove its override before changing relay from the app or `paseo daemon pair --relay`.
+Restart the daemon after changing the endpoint. See [Connectivity](./connectivity.md) for direct connections over a VPN and [Security](../SECURITY.md) for the relay encryption model.
 
 ## Common env vars
 
-- `PASEO_HOME`, set Paseo home directory
+- `PASEO_HOME`, set Pimi home directory
 - `PASEO_HOST`, set the daemon target for CLI commands
 - `PASEO_PASSWORD`, on the daemon, the password to require (plaintext, hashed at startup); on the CLI, the password used to connect when the host URI doesn't include one
 - `PASEO_LISTEN`, override `daemon.listen`
-- `PASEO_RELAY_ENABLED`, enable or disable the outbound relay for this daemon launch
+- `PIMI_RELAY_ENABLED`, enable or disable the outbound relay for this daemon launch
 - `PASEO_HOSTNAMES`, override/extend `daemon.hostnames`
 - `PASEO_ALLOWED_HOSTS`, deprecated alias for `PASEO_HOSTNAMES`
 - `PASEO_WEB_UI_ENABLED`, enable or disable the daemon-served web UI
@@ -285,5 +285,5 @@ Set the persisted value in `config.json`:
 For editor autocomplete/validation, set `$schema` to:
 
 ```
-https://paseo.sh/schemas/paseo.config.v1.json
+https://github.com/1ikeadragon/pimi/blob/main/README.md.config.v1.json
 ```

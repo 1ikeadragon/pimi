@@ -74,23 +74,23 @@ export function formatAgentMessage(message: AgentMessage): string {
   const server = source?.serverId ? ` source-server-id="${escapeXml(source.serverId)}"` : "";
   const title = source?.title ? ` source-agent-title="${escapeXml(source.title)}"` : "";
   const event = source?.kind === "agent-notification" ? ` event="${source.event}"` : "";
-  return `<paseo-system version="1" ${attributes} message-id="${escapeXml(message.id)}"${server}${title}${event}>\n${escapeXml(message.text)}\n</paseo-system>`;
+  return `<pimi-system version="1" ${attributes} message-id="${escapeXml(message.id)}"${server}${title}${event}>\n${escapeXml(message.text)}\n</pimi-system>`;
 }
 
 export function parseAgentMessage(text: string): AgentMessage | null {
-  const envelope = /^<paseo-system((?:\s+[a-z-]+="[^"<>]*")+)>\n([\s\S]*)\n<\/paseo-system>$/.exec(
-    text,
-  );
+  // Provider history can contain messages from before the envelope was renamed.
+  const envelope =
+    /^<(pimi-system|paseo-system)((?:\s+[a-z-]+="[^"<>]*")+)>\n([\s\S]*)\n<\/\1>$/.exec(text);
   if (!envelope) return null;
   const attributes = new Map<string, string>();
-  for (const match of envelope[1].matchAll(/\s+([a-z-]+)="([^"<>]*)"/g)) {
+  for (const match of envelope[2].matchAll(/\s+([a-z-]+)="([^"<>]*)"/g)) {
     const value = unescapeXml(match[2]);
     if (value === null || attributes.has(match[1])) return null;
     attributes.set(match[1], value);
   }
   if (attributes.get("version") !== "1") return null;
   const id = attributes.get("message-id");
-  const body = unescapeXml(envelope[2]);
+  const body = unescapeXml(envelope[3]);
   if (!id || body === null) return null;
   if (attributes.get("kind") === "user-message") {
     if (attributes.has("source-agent-id") || attributes.has("event")) return null;
@@ -110,7 +110,7 @@ export function parseAgentMessage(text: string): AgentMessage | null {
 /** Accept only a complete sequence of envelopes; prose around them stays user text. */
 export function parseAgentMessages(text: string): AgentMessage[] | null {
   // Bodies are XML escaped, so a literal closing tag unambiguously ends an entry.
-  const parts = text.split(/(?<=<\/paseo-system>)\n+(?=<paseo-system )/);
+  const parts = text.split(/(?<=<\/(?:pimi|paseo)-system>)\n+(?=<(?:pimi|paseo)-system )/);
   const messages = parts.map(parseAgentMessage);
   return messages.every((message) => message !== null) ? messages : null;
 }
@@ -177,15 +177,15 @@ function projectAgentMessage(item: AgentTimelineItem): AgentTimelineItem | null 
   if (!message) {
     // Schedule bodies include their run ID, keeping identity stable across acceptance
     // and provider replay even when the provider assigns its own message ID.
-    if (!isSystemInjectedEnvelope(item.text)) return item;
-    const text = item.text.slice("<paseo-system>\n".length, -"\n</paseo-system>".length);
+    const envelope = SYSTEM_ENVELOPE_PATTERN.exec(item.text);
+    if (!envelope) return item;
     return {
       type: "tool_call",
       callId: `paseo-system:${createHash("sha256").update(item.text).digest("hex")}`,
       name: "heartbeat",
       status: "completed",
       error: null,
-      detail: { type: "plain_text", text, icon: "sparkles" },
+      detail: { type: "plain_text", text: envelope[2], icon: "sparkles" },
     };
   }
   const { source } = message;
@@ -215,15 +215,15 @@ function projectAgentMessage(item: AgentTimelineItem): AgentTimelineItem | null 
 }
 
 /**
- * Wrap a body in <paseo-system>…</paseo-system> so the receiving agent
+ * Wrap a body in <pimi-system>…</pimi-system> so the receiving agent
  * recognizes the prompt as system-injected context — not a user turn.
  * Used by schedule fires; agent messages use the versioned envelope.
  */
 export function formatSystemNotificationPrompt(reason: string): string {
-  return `<paseo-system>\n${reason}\n</paseo-system>`;
+  return `<pimi-system>\n${reason}\n</pimi-system>`;
 }
 
-const SYSTEM_ENVELOPE_PATTERN = /^<paseo-system>\n[\s\S]*\n<\/paseo-system>$/;
+const SYSTEM_ENVELOPE_PATTERN = /^<(pimi-system|paseo-system)>\n([\s\S]*)\n<\/\1>$/;
 
 export function isSystemInjectedEnvelope(text: string): boolean {
   return SYSTEM_ENVELOPE_PATTERN.test(text);

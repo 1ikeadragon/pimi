@@ -98,7 +98,7 @@ export class OpenCodeBridge {
 
   bindSession(input: BindOpenCodeSessionInput): () => void {
     if (this.sessions.has(input.sessionId))
-      throw new Error(`OpenCode session ${input.sessionId} is already bound to a Paseo agent`);
+      throw new Error(`OpenCode session ${input.sessionId} is already bound to a Pimi agent`);
     const binding: OpenCodeSessionBinding = {
       env: { ...input.env },
       ...(input.tools ? { tools: input.tools } : {}),
@@ -176,7 +176,7 @@ export class OpenCodeBridge {
       if (request.method === "GET" && contextMatch) {
         const binding = this.sessions.get(decodeURIComponent(contextMatch[1]));
         if (!binding) {
-          sendJson(response, 404, { error: "OpenCode session is not bound to a Paseo agent" });
+          sendJson(response, 404, { error: "OpenCode session is not bound to a Pimi agent" });
           return;
         }
         sendJson(response, 200, {
@@ -250,15 +250,15 @@ export class OpenCodeBridge {
   }): Promise<void> {
     const binding = this.sessions.get(input.sessionId);
     if (!binding) {
-      sendJson(input.response, 404, { error: "OpenCode session is not bound to a Paseo agent" });
+      sendJson(input.response, 404, { error: "OpenCode session is not bound to a Pimi agent" });
       return;
     }
     if (!binding.tools) {
-      sendJson(input.response, 403, { error: "Paseo tools are disabled for this session" });
+      sendJson(input.response, 403, { error: "Pimi tools are disabled for this session" });
       return;
     }
     if (!binding.tools.getTool(input.toolName)) {
-      throw new OpenCodeBridgeClientError(404, `Paseo tool not found: ${input.toolName}`);
+      throw new OpenCodeBridgeClientError(404, `Pimi tool not found: ${input.toolName}`);
     }
     const body = await readJsonBody(input.request);
     const controller = new AbortController();

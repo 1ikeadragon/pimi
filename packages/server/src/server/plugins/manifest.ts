@@ -1,10 +1,11 @@
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
-import { PluginIdSchema, PluginRequirementsSchema } from "@getpaseo/protocol/messages";
-import { validatePluginRequirements } from "@getpaseo/protocol/plugin-requirements";
+import { PluginIdSchema, PluginRequirementsSchema } from "@pimi/protocol/messages";
+import { validatePluginRequirements } from "@pimi/protocol/plugin-requirements";
 
-const MANIFEST_FILENAME = "paseo-plugin.json";
+const MANIFEST_FILENAME = "pimi-plugin.json";
+const LEGACY_MANIFEST_FILENAME = "paseo-plugin.json";
 const PluginBuildCommandSchema = z
   .array(z.string().refine((argument) => argument.trim().length > 0))
   .min(1);
@@ -39,9 +40,14 @@ const PluginManifestSchema = z.object({
 export type PluginManifest = z.infer<typeof PluginManifestSchema>;
 
 export async function readPluginManifest(directory: string): Promise<PluginManifest> {
-  const manifestPath = path.join(directory, MANIFEST_FILENAME);
-  const info = await stat(manifestPath).catch(() => null);
-  if (!info?.isFile()) throw new Error(`Plugin manifest is missing: ${manifestPath}`);
+  const preferred = path.join(directory, MANIFEST_FILENAME);
+  const info = await stat(preferred).catch((error: NodeJS.ErrnoException) => {
+    if (error.code === "ENOENT") return null;
+    throw error;
+  });
+  const manifestPath = info ? preferred : path.join(directory, LEGACY_MANIFEST_FILENAME);
+  const manifestInfo = info ?? (await stat(manifestPath).catch(() => null));
+  if (!manifestInfo?.isFile()) throw new Error(`Plugin manifest is missing: ${preferred}`);
   const manifest = PluginManifestSchema.parse(JSON.parse(await readFile(manifestPath, "utf8")));
   validatePluginRequirements(manifest.requirements);
   return manifest;

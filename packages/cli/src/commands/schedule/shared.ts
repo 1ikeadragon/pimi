@@ -13,7 +13,7 @@ import type {
 } from "./types.js";
 import { parseDuration } from "../../utils/duration.js";
 import { resolveProviderAndModel } from "../../utils/provider-model.js";
-import { everyMsToFiveFieldCron } from "@getpaseo/protocol/schedule/cadence";
+import { everyMsToFiveFieldCron } from "@pimi/protocol/schedule/cadence";
 
 export interface ScheduleCommandOptions extends CommandOptions {
   host?: string;
@@ -128,7 +128,7 @@ function resolveScheduleTarget(args: {
     if (!currentAgentId) {
       throw {
         code: "INVALID_TARGET",
-        message: "--target self requires running inside a Paseo agent",
+        message: "--target self requires running inside a Pimi agent",
       } satisfies CommandError;
     }
     return { type: "self", agentId: currentAgentId };

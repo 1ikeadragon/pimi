@@ -1,4 +1,4 @@
-import { AgentTimelineItemPayloadSchema } from "@getpaseo/protocol/messages";
+import { AgentTimelineItemPayloadSchema } from "@pimi/protocol/messages";
 import { describe, expect, test } from "vitest";
 
 import type { AgentTimelineItem } from "./agent-sdk-types.js";

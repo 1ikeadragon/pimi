@@ -11,7 +11,7 @@ import {
   isSameDaemonInstance,
   readLocalCredentialForTarget,
   type DaemonInstance,
-} from "@getpaseo/server/daemon-control";
+} from "@pimi/server/daemon-control";
 import {
   copyAttachmentFileToManagedStorage,
   deleteManagedAttachmentFile,
@@ -420,7 +420,7 @@ export async function stopCapturedDaemon(input: StopCapturedDaemonInput): Promis
 /**
  * Whether a desktop stop keeps the daemon's terminals running for the daemon that replaces it.
  * Only when one comes straight back (an app update, a version-mismatch restart), and never on
- * Windows: a surviving terminal worker runs Paseo.exe and would lock the install folder the
+ * Windows: a surviving terminal worker runs Pimi.exe and would lock the install folder the
  * update replaces. Quit, Settings, host removal and manual stops close terminals.
  */
 export function keepsTerminalsOnStop(

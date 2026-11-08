@@ -2,14 +2,14 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { realpathSync } from "node:fs";
 import { expect, type Page } from "@playwright/test";
-import type { DaemonClient as InternalDaemonClient } from "@getpaseo/client/internal/daemon-client";
+import type { DaemonClient as InternalDaemonClient } from "@pimi/client/internal/daemon-client";
 import { parseHostWorkspaceRouteFromPathname } from "../../../src/utils/host-routes";
 import { gotoAppShell } from "./app";
 import { connectDaemonClient } from "./daemon-client-loader";
 import { getServerId } from "./server-id";
 import { withProjectOwnership } from "./project-ownership";
 import { switchWorkspaceViaSidebar } from "./workspace-ui";
-import type { SessionOutboundMessage } from "@getpaseo/protocol/messages";
+import type { SessionOutboundMessage } from "@pimi/protocol/messages";
 
 type WorkspaceSetupDaemonClient = Pick<
   InternalDaemonClient,

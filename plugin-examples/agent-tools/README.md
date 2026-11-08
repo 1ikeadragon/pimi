@@ -8,7 +8,7 @@ It creates the file if it does not exist.
 Install on a daemon with plugins enabled:
 
 ```bash
-paseo plugin install /absolute/path/to/plugin-examples/agent-tools
+pimi plugin install /absolute/path/to/plugin-examples/agent-tools
 ```
 
 Create a labeled agent through the SDK:
@@ -26,7 +26,7 @@ agent's labels, call `paseo.agents.ref(id).reload()` to apply the selection imme
 interrupts a running turn. `refresh()` reads the agent snapshot without reopening its session.
 
 From the repository root, `npm run typecheck` includes this example. Outside this repository,
-use `paseo plugin init` to create the package and TypeScript setup, then copy `index.server.ts`
+use `pimi plugin init` to create the package and TypeScript setup, then copy `index.server.ts`
 and the manifest into that project.
 
 See [Attach tools to agents](../../public-docs/plugins/hooks.md#attach-tools-to-agents)

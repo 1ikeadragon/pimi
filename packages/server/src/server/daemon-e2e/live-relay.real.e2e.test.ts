@@ -5,14 +5,12 @@ import { DaemonClient } from "../test-utils/daemon-client.js";
 import { createTestPaseoDaemon, type TestPaseoDaemon } from "../test-utils/paseo-daemon.js";
 import { generateLocalPairingOffer } from "../pairing-offer.js";
 import { CodexAppServerAgentClient } from "../agent/providers/codex-app-server-agent.js";
-import { buildRelayWebSocketUrl } from "@getpaseo/protocol/daemon-endpoints";
-import {
-  parseConnectionOfferFromUrl,
-  type ConnectionOffer,
-} from "@getpaseo/protocol/connection-offer";
+import { buildRelayWebSocketUrl } from "@pimi/protocol/daemon-endpoints";
+import { parseConnectionOfferFromUrl, type ConnectionOffer } from "@pimi/protocol/connection-offer";
 
-const relayEndpoint = process.env.PASEO_LIVE_RELAY_ENDPOINT ?? "paseo-relay-next.fly.dev:443";
-const liveTest = process.env.RUN_LIVE_RELAY_E2E === "1" ? test : test.skip;
+const relayEndpoint =
+  process.env.PIMI_LIVE_RELAY_ENDPOINT ?? process.env.PASEO_LIVE_RELAY_ENDPOINT ?? "";
+const liveTest = process.env.RUN_LIVE_RELAY_E2E === "1" && relayEndpoint ? test : test.skip;
 
 function requireOffer(url: string): ConnectionOffer {
   const offer = parseConnectionOfferFromUrl(url);

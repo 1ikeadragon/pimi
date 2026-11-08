@@ -6,24 +6,24 @@ nav: Daemon
 
 # Hub 中的 daemon {#daemons-in-hub}
 
-daemon 是你的一台运行 Paseo daemon 的机器。把它注册到你的 Hub 组织一次，之后触发器就可以引用它。
+daemon 是你的一台运行 Pimi daemon 的机器。把它注册到你的 Hub 组织一次，之后触发器就可以引用它。
 
 ## 连接 {#connect}
 
 先在这台机器上登录：
 
 ```sh
-paseo hub login https://hub.example.com
+pimi hub login https://hub.example.com
 ```
 
 CLI 会打印一个 URL 和一个验证码，并打开你的浏览器。批准后的登录保存在 `PASEO_HOME` 下。
 
-在交互式终端中，登录流程会询问是否连接这个 daemon，并单独询问是否允许 Hub 自动化在其上运行 Agent。连接默认为是；执行权限默认为否。之后它会给出 **Triggers** 的链接，并打印 `paseo hub init`，用于以代码形式创建起步触发器。`--json` 或非 TTY 的登录只会登录。[快速开始](/docs/hub/quickstart)完整地介绍了连接和初始化。
+在交互式终端中，登录流程会询问是否连接这个 daemon，并单独询问是否允许 Hub 自动化在其上运行 Agent。连接默认为是；执行权限默认为否。之后它会给出 **Triggers** 的链接，并打印 `pimi hub init`，用于以代码形式创建起步触发器。`--json` 或非 TTY 的登录只会登录。[快速开始](/docs/hub/quickstart)完整地介绍了连接和初始化。
 
 如果你之前拒绝了连接，或者这台机器已经登录过，可以单独注册 daemon：
 
 ```sh
-paseo hub connect
+pimi hub connect
 ```
 
 `connect` 使用当前的登录请求一个一次性的注册 token。daemon 用它换取自己的关系凭据；你的 CLI 登录永远不会被保存为 daemon 的权限。
@@ -37,30 +37,30 @@ Hub 根据 daemon 的主机名生成它的初始 slug。如果该 slug 在组织
 对于无人值守的设置，传入组织 API key 而不保存它：
 
 ```sh
-PASEO_HUB_URL=https://hub.example.com PASEO_HUB_API_KEY=paseo_pk_... paseo hub connect
+PIMI_HUB_URL=https://hub.example.com PIMI_HUB_API_KEY=paseo_pk_... pimi hub connect
 ```
 
-地址的优先级依次为：显式的 `[origin]`、`PASEO_HUB_URL`、当前保存的登录，最后是 `https://hub.paseo.sh`。显式的 `--api-key <secret>` 优先于环境变量和与地址完全一致的已保存登录。
+地址的优先级依次为：显式的 `[origin]`、`PIMI_HUB_URL`、当前保存的登录。显式的 `--api-key <secret>` 优先于环境变量和与地址完全一致的已保存登录。
 
 查看与撤销：
 
 ```sh
-paseo hub status
-paseo hub disconnect
-paseo hub disconnect --force   # drop local authority when Hub is unreachable
+pimi hub status
+pimi hub disconnect
+pimi hub disconnect --force   # drop local authority when Hub is unreachable
 ```
 
 一个 daemon 只有一个 Hub 关系。连接一个已有关系的 daemon 会被拒绝。
 
-`paseo hub logout` 会移除当前的 CLI 登录。daemon 的关系是一个独立的身份，会保持连接。
+`pimi hub logout` 会移除当前的 CLI 登录。daemon 的关系是一个独立的身份，会保持连接。
 
 在交互式终端中，退出登录时会询问是否断开注册到同一 Hub 的 daemon。如果接受，会先断开连接再删除登录，因此断开失败时你的凭据会保留。如果拒绝，只移除登录。
 
 非交互式和 `--json` 的退出登录永远不会隐式断开 daemon：
 
 ```sh
-paseo hub logout --disconnect-daemon           # remove both identities
-paseo hub logout --disconnect-daemon --force   # drop local authority when Hub is unreachable
+pimi hub logout --disconnect-daemon           # remove both identities
+pimi hub logout --disconnect-daemon --force   # drop local authority when Hub is unreachable
 ```
 
 ## 让 Hub 在其上运行 Agent {#let-hub-run-agents-on-it}
@@ -68,9 +68,9 @@ paseo hub logout --disconnect-daemon --force   # drop local authority when Hub i
 注册 daemon 并不会让 Hub 在其上启动 Agent。这需要单独的 `hub.execute` 权限，登录时会询问，默认为否。你可以随时在这台机器上授予它：
 
 ```sh
-paseo hub permissions list
-paseo hub permissions grant hub.execute
-paseo hub permissions revoke hub.execute
+pimi hub permissions list
+pimi hub permissions grant hub.execute
+pimi hub permissions revoke hub.execute
 ```
 
 在授予之前，Hub 只把该 daemon 用于身份和在线状态。Daemons 页面会把它显示为 **Connected only** 并给出授权命令，Home 清单会显示 **Cannot run agents**。授予后该权限允许做什么，见 [Hub 安全](/docs/hub/security#choose-daemon-authority)。

@@ -1,18 +1,18 @@
-import { createHostClient, parseHostTarget } from "@getpaseo/client/node";
+import { createHostClient, parseHostTarget } from "@pimi/client/node";
 import {
   waitForDaemonReady,
   resolvePaseoHome,
   type DaemonInstance,
   readLocalCredentialForTarget,
-} from "@getpaseo/server/daemon-control";
+} from "@pimi/server/daemon-control";
 import { describeDaemonTarget, type DaemonTarget } from "./daemon-target.js";
 export type { DaemonTarget } from "./daemon-target.js";
 import {
   buildDaemonWebSocketUrl,
   normalizeHostPort,
   parseConnectionUri,
-} from "@getpaseo/protocol/daemon-endpoints";
-import { DaemonClient } from "@getpaseo/client/internal/daemon-client";
+} from "@pimi/protocol/daemon-endpoints";
+import { DaemonClient } from "@pimi/client/internal/daemon-client";
 import { getOrCreateCliClientId } from "./client-id.js";
 import { resolveCliVersion } from "../version.js";
 

@@ -1,7 +1,7 @@
-import { defineSubscription } from "@getpaseo/plugin";
-import { subscribePluginRpc } from "@getpaseo/plugin/client/host";
-import type { PluginSubscriptionContext } from "@getpaseo/plugin/server";
-import type { PaseoApi } from "@getpaseo/client";
+import { defineSubscription } from "@pimi/plugin";
+import { subscribePluginRpc } from "@pimi/plugin/client/host";
+import type { PluginSubscriptionContext } from "@pimi/plugin/server";
+import type { PaseoApi } from "@pimi/client";
 import { expect, test } from "vitest";
 import { z } from "zod";
 import type { PluginProcessMessage } from "./plugin-process-protocol.js";

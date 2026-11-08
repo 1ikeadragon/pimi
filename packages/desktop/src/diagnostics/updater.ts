@@ -1,12 +1,8 @@
-import { execFileSync } from "node:child_process";
-import { readFileSync, statSync } from "node:fs";
+import { lstatSync, readdirSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { app } from "electron";
+import { PIMI_UPDATE_CACHE_DIRECTORY } from "../features/pimi-auto-updater.js";
 import { tailFile } from "./tail-file.js";
-
-const SHIPIT_DIRECTORY_NAME = "sh.paseo.desktop.ShipIt";
-const SHIPIT_LOG_TAIL_LINES = 100;
 
 export interface DesktopUpdaterDiagnosticFile {
   path: string;
@@ -27,122 +23,73 @@ export interface DesktopUpdaterDiagnostics {
   stderr: DesktopUpdaterDiagnosticFile | null;
 }
 
-interface DesktopUpdaterDiagnosticEnvironment {
-  platform: NodeJS.Platform;
-  currentVersion: string;
-  cachePath: string;
-  readBundleVersion(bundlePath: string): string | null;
+function isMissingFileError(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
 }
 
-export function collectDesktopUpdaterDiagnostics(
-  environment: DesktopUpdaterDiagnosticEnvironment,
-): DesktopUpdaterDiagnostics {
-  const { platform, currentVersion, cachePath, readBundleVersion } = environment;
-  if (platform !== "darwin") {
+function findLatestInstallerLog(cachePath: string): { path: string; modifiedAt: number } | null {
+  let latest: { path: string; modifiedAt: number } | null = null;
+  for (const entry of readdirSync(cachePath, { withFileTypes: true })) {
+    if (!entry.isDirectory() || !/^download-[a-zA-Z0-9]{6}$/.test(entry.name)) continue;
+    const file = path.join(cachePath, entry.name, "install.log");
+    try {
+      const stat = lstatSync(file);
+      if (stat.isFile() && (!latest || stat.mtimeMs > latest.modifiedAt)) {
+        latest = { path: file, modifiedAt: stat.mtimeMs };
+      }
+    } catch (error) {
+      if (!isMissingFileError(error)) throw error;
+    }
+  }
+  return latest;
+}
+
+function readInstallerLog(cachePath: string): DesktopUpdaterDiagnosticFile | null {
+  let latest;
+  try {
+    latest = findLatestInstallerLog(cachePath);
+  } catch (error) {
+    if (isMissingFileError(error)) return null;
     return {
-      platform,
-      currentVersion,
-      targetVersion: null,
-      targetVersionError: null,
-      shipItDirectory: null,
-      state: null,
-      stdout: null,
-      stderr: null,
+      path: cachePath,
+      exists: false,
+      modifiedAt: null,
+      contents: "",
+      error: error instanceof Error ? error.message : String(error),
     };
   }
-
-  const shipItDirectory = path.join(cachePath, SHIPIT_DIRECTORY_NAME);
-  const state = readDiagnosticFile(path.join(shipItDirectory, "ShipItState.plist"));
-  const targetVersion = diagnoseTargetVersion(state.contents, readBundleVersion);
-  return {
-    platform,
-    currentVersion,
-    ...targetVersion,
-    shipItDirectory,
-    state,
-    stdout: readDiagnosticFile(path.join(shipItDirectory, "ShipIt_stdout.log"), true),
-    stderr: readDiagnosticFile(path.join(shipItDirectory, "ShipIt_stderr.log"), true),
+  if (!latest) return null;
+  const file = {
+    path: latest.path,
+    exists: true,
+    modifiedAt: new Date(latest.modifiedAt).toISOString(),
   };
-}
-
-export function getDesktopUpdaterDiagnostics(): DesktopUpdaterDiagnostics {
-  return collectDesktopUpdaterDiagnostics({
-    platform: process.platform,
-    currentVersion: app.getVersion(),
-    cachePath: path.join(app.getPath("home"), "Library", "Caches"),
-    readBundleVersion: readMacBundleVersion,
-  });
-}
-
-function readDiagnosticFile(filePath: string, tail = false): DesktopUpdaterDiagnosticFile {
-  let exists = false;
-  let modifiedAt: string | null = null;
   try {
-    modifiedAt = statSync(filePath).mtime.toISOString();
-    exists = true;
-    const contents = tail
-      ? tailFile(filePath, SHIPIT_LOG_TAIL_LINES, { throwOnReadError: true })
-      : readFileSync(filePath, "utf8");
-    return { path: filePath, exists, modifiedAt, contents, error: null };
-  } catch (error) {
-    if (isMissingFileError(error)) {
-      return { path: filePath, exists: false, modifiedAt: null, contents: "", error: null };
-    }
     return {
-      path: filePath,
-      exists,
-      modifiedAt,
+      ...file,
+      contents: tailFile(latest.path, 100, { throwOnReadError: true }),
+      error: null,
+    };
+  } catch (error) {
+    return {
+      ...file,
       contents: "",
       error: error instanceof Error ? error.message : String(error),
     };
   }
 }
 
-function diagnoseTargetVersion(
-  stateContents: string,
-  readBundleVersion: (bundlePath: string) => string | null,
-): Pick<DesktopUpdaterDiagnostics, "targetVersion" | "targetVersionError"> {
-  try {
-    return {
-      targetVersion: readTargetVersion(stateContents, readBundleVersion),
-      targetVersionError: null,
-    };
-  } catch (error) {
-    return {
-      targetVersion: null,
-      targetVersionError: error instanceof Error ? error.message : String(error),
-    };
-  }
-}
-
-function readTargetVersion(
-  stateContents: string,
-  readBundleVersion: (bundlePath: string) => string | null,
-): string | null {
-  if (!stateContents) return null;
-
-  const state = JSON.parse(stateContents) as unknown;
-  if (!isRecord(state) || typeof state.updateBundleURL !== "string") return null;
-  return readBundleVersion(fileURLToPath(state.updateBundleURL));
-}
-
-function readMacBundleVersion(bundlePath: string): string | null {
-  return execFileSync(
-    "/usr/bin/plutil",
-    [
-      "-extract",
-      "CFBundleShortVersionString",
-      "raw",
-      path.join(bundlePath, "Contents", "Info.plist"),
-    ],
-    { encoding: "utf8" },
-  ).trim();
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isMissingFileError(error: unknown): boolean {
-  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
+export function getDesktopUpdaterDiagnostics(): DesktopUpdaterDiagnostics {
+  const cachePath = path.join(app.getPath("userData"), PIMI_UPDATE_CACHE_DIRECTORY);
+  return {
+    platform: process.platform,
+    currentVersion: app.getVersion(),
+    targetVersion: null,
+    targetVersionError: null,
+    // These field names remain stable for existing diagnostic report callers.
+    shipItDirectory: cachePath,
+    state: null,
+    stdout: readInstallerLog(cachePath),
+    stderr: null,
+  };
 }

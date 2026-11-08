@@ -2,8 +2,8 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import type { PimiLinkedLabels } from "@getpaseo/protocol/pimi-task";
-import { workspaceLabelKey } from "@getpaseo/protocol/workspace-labels";
+import type { PimiLinkedLabels } from "@pimi/protocol/pimi-task";
+import { workspaceLabelKey } from "@pimi/protocol/workspace-labels";
 import { getDesktopHost } from "@/desktop/host";
 import { useLocalDaemonServerId } from "@/hooks/use-is-local-daemon";
 import { useHostRuntimeIsConnected } from "@/runtime/host-runtime";

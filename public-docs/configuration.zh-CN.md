@@ -10,7 +10,7 @@ nav: 配置
 
 ## 配置存放在哪里 {#where-config-lives}
 
-Paseo 默认使用 `~/.paseo` 作为主目录。配置文件是：
+Pimi 默认使用 `~/.paseo` 作为主目录。配置文件是：
 
 ```bash
 ~/.paseo/config.json
@@ -22,7 +22,7 @@ Paseo 默认使用 `~/.paseo` 作为主目录。配置文件是：
 
 托管的 `start` 和桌面应用先使用默认值，再应用 `config.json`。继承来的 daemon 设置环境变量会从它们的启动环境中移除。
 
-前台的 `paseo daemon run`、Docker 和直接由进程管理器启动的方式会在文件之后应用环境变量。已有的旧版进程管理器参数在 worker 重启后保持其优先级。修改部署覆盖项需要停止并重新启动该部署。列表类设置会在各个来源之间追加，包括主机名和 CORS 来源。
+前台的 `pimi daemon run`、Docker 和直接由进程管理器启动的方式会在文件之后应用环境变量。已有的旧版进程管理器参数在 worker 重启后保持其优先级。修改部署覆盖项需要停止并重新启动该部署。列表类设置会在各个来源之间追加，包括主机名和 CORS 来源。
 
 ## 示例 {#example}
 
@@ -30,7 +30,7 @@ Paseo 默认使用 `~/.paseo` 作为主目录。配置文件是：
 
 ```json
 {
-  "$schema": "https://paseo.sh/schemas/paseo.config.v1.json",
+  "$schema": "https://github.com/1ikeadragon/pimi/blob/main/README.md.config.v1.json",
   "version": 1,
   "daemon": {
     "listen": "127.0.0.1:6767",
@@ -47,9 +47,9 @@ Paseo 默认使用 `~/.paseo` 作为主目录。配置文件是：
 通过 CLI 编辑所选的文件：
 
 ```bash
-paseo daemon config get daemon.listen --home ~/paseo-test
-paseo daemon config set daemon.listen 127.0.0.1:6800 --home ~/paseo-test
-paseo daemon config unset features.webUi.enabled --home ~/paseo-test
+pimi daemon config get daemon.listen --home ~/paseo-test
+pimi daemon config set daemon.listen 127.0.0.1:6800 --home ~/paseo-test
+pimi daemon config unset features.webUi.enabled --home ~/paseo-test
 ```
 
 `get [path]` 报告已配置的值，并把缺失的字段标记为 unset。它不会创建主目录。`set` 会把输入解析为 JSON，否则当作字符串；`--string` 强制作为字面字符串。`--json` 选择输出格式。对于包含点号的动态键，请使用整个对象的 JSON。未知路径、无效值和无效的现有文件都会被拒绝，不会写入。密码使用 `set-password`。
@@ -59,13 +59,13 @@ paseo daemon config unset features.webUi.enabled --home ~/paseo-test
 直接编辑 `config.json` 后，重新加载它：
 
 ```bash
-paseo reload
+pimi reload
 ```
 
 daemon 会在应用任何内容之前校验整个文件。它会应用运行时安全的更改，并列出仍然需要重启的设置。如果它报告了需要重启的路径，请运行：
 
 ```bash
-paseo daemon restart
+pimi daemon restart
 ```
 
 运行时安全的设置包括：中继启用、MCP 设置、浏览器工具、主机名、CORS 来源、受信任的代理、Git 进程限制、Agent 和终端配置、Provider 定义、元数据生成、应用基础 URL、Provider 目录超时，以及全局插件开关。删除其中某个设置会应用该字段缺省时的行为；删除某个 Provider 会把它从之后的启动中移除。
@@ -78,13 +78,13 @@ paseo daemon restart
 
 ## Agent Provider {#agent-providers}
 
-Agent Provider，包括 Paseo 自带的一等 Provider 和你在 `agents.providers` 下添加的自定义条目，都在单独的页面中介绍。
+Agent Provider，包括 Pimi 自带的一等 Provider 和你在 `agents.providers` 下添加的自定义条目，都在单独的页面中介绍。
 
-心智模型见 [Provider](/docs/providers)，Paseo 可以启动的全部 Agent 见[支持的 Provider](/docs/supported-providers)。要让 Claude 指向兼容 Anthropic 的端点（Z.AI、Alibaba/Qwen）、使用多个配置、自定义二进制文件、ACP Agent，以及了解 `additionalModels` 的合并行为，见[自定义 Provider](/docs/custom-providers)。完整的字段参考在 GitHub 上的 [docs/custom-providers.md](https://github.com/getpaseo/paseo/blob/main/docs/custom-providers.md)。
+心智模型见 [Provider](/docs/providers)，Pimi 可以启动的全部 Agent 见[支持的 Provider](/docs/supported-providers)。要让 Claude 指向兼容 Anthropic 的端点（Z.AI、Alibaba/Qwen）、使用多个配置、自定义二进制文件、ACP Agent，以及了解 `additionalModels` 的合并行为，见[自定义 Provider](/docs/custom-providers)。完整的字段参考在 GitHub 上的 [docs/custom-providers.md](https://github.com/1ikeadragon/pimi/blob/main/docs/custom-providers.md)。
 
 ## 空闲运行时 {#idle-runtimes}
 
-当 daemon 的基础条件允许清理，且 Provider 已实现的安全检查也允许时，Paseo 会在可恢复的 Agent 空闲一小时后释放其进程。你的下一条提示词会恢复同一个会话。要为整个主机禁用此功能，请在 **设置 → 你的主机 → Agents** 中关闭 **释放空闲 Agent**，或设置：
+当 daemon 的基础条件允许清理，且 Provider 已实现的安全检查也允许时，Pimi 会在可恢复的 Agent 空闲一小时后释放其进程。你的下一条提示词会恢复同一个会话。要为整个主机禁用此功能，请在 **设置 → 你的主机 → Agents** 中关闭 **释放空闲 Agent**，或设置：
 
 ```json
 { "agents": { "idleRuntimeCleanup": false } }
@@ -104,7 +104,7 @@ Agent Provider，包括 Paseo 自带的一等 Provider 和你在 `agents.provide
 }
 ```
 
-相对路径基于 `PASEO_HOME` 解析。已有的 worktree 保持原位；修改此设置只会改变 Paseo 之后创建和发现由 Paseo 管理的 worktree 的位置。
+相对路径基于 `PASEO_HOME` 解析。已有的 worktree 保持原位；修改此设置只会改变 Pimi 之后创建和发现由 Pimi 管理的 worktree 的位置。
 
 ## 语音 {#voice}
 
@@ -119,8 +119,8 @@ daemon 可以在同一个 HTTP 服务器上提供浏览器 Web 客户端。官�
 从 CLI 启用它：
 
 ```bash
-paseo daemon config set features.webUi.enabled true
-paseo daemon start
+pimi daemon config set features.webUi.enabled true
+pimi daemon start
 ```
 
 或者设置环境变量：
@@ -179,10 +179,10 @@ daemon 日志默认使用独立的控制台输出和文件输出：
 设置密码最简单的方式是使用 CLI：
 
 ```bash
-paseo daemon set-password
+pimi daemon set-password
 ```
 
-它会提示你输入密码，把 bcrypt 哈希写入 `config.json`，并提示你重启 daemon。身份验证属于启动设置，因此 `paseo reload` 也会把它报告为需要重启。
+它会提示你输入密码，把 bcrypt 哈希写入 `config.json`，并提示你重启 daemon。身份验证属于启动设置，因此 `pimi reload` 也会把它报告为需要重启。
 
 或者设置 `PASEO_PASSWORD` 环境变量（明文，启动时自动哈希）：
 
@@ -227,7 +227,7 @@ URI 中的 `password=` 总是优先于环境变量，因此你可以全局设置
 
 ## 中继 {#relay}
 
-新的主目录会写入 `daemon.relay.enabled: false`。配对设备时，Paseo 会先询问再启用中继；已有的主目录保留其已保存的值。选择和配置连接方式见[连接方式](/docs/connectivity)，中继的加密模型见[安全](/docs/security)。
+新的主目录会写入 `daemon.relay.enabled: false`。配对设备时，Pimi 会先询问再启用中继；已有的主目录保留其已保存的值。选择和配置连接方式见[连接方式](/docs/connectivity)，中继的加密模型见[安全](/docs/security)。
 
 在 `config.json` 中设置持久化的值：
 
@@ -241,11 +241,11 @@ URI 中的 `password=` 总是优先于环境变量，因此你可以全局设置
 }
 ```
 
-`PASEO_RELAY_ENABLED=true|false` 会为前台部署覆盖文件中的值。托管的 `start` 使用文件中的值。在通过应用或 `paseo daemon pair --relay` 修改中继之前，请结束并重新启动部署以移除它的覆盖项。
+`PASEO_RELAY_ENABLED=true|false` 会为前台部署覆盖文件中的值。托管的 `start` 使用文件中的值。在通过应用或 `pimi daemon pair --relay` 修改中继之前，请结束并重新启动部署以移除它的覆盖项。
 
 ## 常用环境变量 {#common-env-vars}
 
-- `PASEO_HOME`，设置 Paseo 主目录
+- `PASEO_HOME`，设置 Pimi 主目录
 - `PASEO_HOST`，设置 CLI 命令的 daemon 目标
 - `PASEO_PASSWORD`，在 daemon 上表示要求的密码（明文，启动时哈希）；在 CLI 上表示主机 URI 未包含密码时用于连接的密码
 - `PASEO_LISTEN`，覆盖 `daemon.listen`
@@ -277,5 +277,5 @@ URI 中的 `password=` 总是优先于环境变量，因此你可以全局设置
 要在编辑器中获得自动补全和校验，请把 `$schema` 设为：
 
 ```
-https://paseo.sh/schemas/paseo.config.v1.json
+https://github.com/1ikeadragon/pimi/blob/main/README.md.config.v1.json
 ```

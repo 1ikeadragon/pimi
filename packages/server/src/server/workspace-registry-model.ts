@@ -1,9 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-import type {
-  ProjectCheckoutLitePayload,
-  ProjectPlacementPayload,
-} from "@getpaseo/protocol/messages";
+import type { ProjectCheckoutLitePayload, ProjectPlacementPayload } from "@pimi/protocol/messages";
 import type { PersistedWorkspaceRecord } from "./workspace-registry.js";
 
 export type PersistedProjectKind = "git" | "non_git";

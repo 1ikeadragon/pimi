@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { AgentSkillSelection } from "@getpaseo/protocol/messages";
+import type { AgentSkillSelection } from "@pimi/protocol/messages";
 import {
   isLegacyCodexCopy,
   listFilesRecursive,
@@ -66,7 +66,7 @@ async function listBundledSkills(sourceDir: string): Promise<string[]> {
     .sort(compareStrings);
 }
 
-/** Every name Paseo owns on disk: what it ships now plus what it used to ship. */
+/** The current bundle names and retired names managed by earlier installers. */
 function managedSkillNames(available: readonly string[]): string[] {
   return [...new Set([...available, ...LEGACY_SKILL_NAMES])].sort(compareStrings);
 }
@@ -134,7 +134,7 @@ function diff(
   return ops;
 }
 
-function hasInstalledPaseoSkill(disks: readonly TargetSkills[]): boolean {
+function hasInstalledSkill(disks: readonly TargetSkills[]): boolean {
   return disks.some((disk) => disk.size > 0);
 }
 
@@ -186,8 +186,7 @@ export async function getSkillsStatus(
   const allDisks = [...disks, codexDisk];
   const installed = installedSkillNames(allDisks, names);
 
-  if (!hasInstalledPaseoSkill(allDisks))
-    return { state: "not-installed", ops, available, installed };
+  if (!hasInstalledSkill(allDisks)) return { state: "not-installed", ops, available, installed };
   if (ops.length === 0) return { state: "up-to-date", ops, available, installed };
   return { state: "drift", ops, available, installed };
 }

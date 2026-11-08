@@ -9,7 +9,7 @@ const { extractFile } = require("@electron/asar");
 const { WebSocket } = require("ws");
 const assert = require("node:assert/strict");
 
-const EXECUTABLE_NAME = "Paseo";
+const EXECUTABLE_NAME = "Pimi";
 const SMOKE_TIMEOUT_MS = 60_000;
 const EXIT_TIMEOUT_MS = 10_000;
 const TERMINAL_CAPTURE_ATTEMPTS = 20;
@@ -34,7 +34,7 @@ function createTempDir(prefix) {
 }
 
 async function assertBuiltinPluginsStarted(listen) {
-  const { DaemonClient } = await import("@getpaseo/client/internal/daemon-client");
+  const { DaemonClient } = await import("@pimi/client/internal/daemon-client");
   const { builtinPlugins } =
     await import("../../server/dist/server/server/plugins/builtin/index.js");
   const client = new DaemonClient({
@@ -79,14 +79,14 @@ function getExecutablePath(appPath) {
 
 function getCliShimPath(appPath) {
   if (process.platform === "darwin") {
-    return path.join(appPath, "Contents", "Resources", "bin", "paseo");
+    return path.join(appPath, "Contents", "Resources", "bin", "pimi");
   }
 
   if (process.platform === "win32") {
-    return path.join(appPath, "resources", "bin", "paseo.cmd");
+    return path.join(appPath, "resources", "bin", "pimi.cmd");
   }
 
-  return path.join(appPath, "resources", "bin", "paseo");
+  return path.join(appPath, "resources", "bin", "pimi");
 }
 
 function getMacMainExecutablePath(appPath) {
@@ -854,9 +854,9 @@ async function assertSandboxState({ browser, page, expectedSandbox, stdout, stde
 function assertLinuxDesktopIdentity(appPath) {
   if (process.platform === "linux") {
     assert.deepEqual(
-      fs.readFileSync(path.join(appPath, "resources", "icon.png")),
-      fs.readFileSync(path.join(__dirname, "..", "assets", "icon.png")),
-      "Packaged Linux windows must have the Paseo icon at their runtime lookup path",
+      fs.readFileSync(path.join(appPath, "resources", "pimi-icon.png")),
+      fs.readFileSync(path.join(__dirname, "..", "assets", "pimi-icon.png")),
+      "Packaged Linux windows must have the Pimi icon at their runtime lookup path",
     );
     const metadata = JSON.parse(
       extractFile(path.join(appPath, "resources", "app.asar"), "package.json").toString(),
@@ -998,7 +998,7 @@ if (require.main === module) {
   const appIndex = process.argv.indexOf("--app");
   const appPath = appIndex >= 0 ? process.argv[appIndex + 1] : null;
   if (!appPath) {
-    process.stderr.write("Usage: node smoke-packaged-desktop-app.js --app <Paseo.app>\n");
+    process.stderr.write("Usage: node smoke-packaged-desktop-app.js --app <Pimi.app>\n");
     process.exit(2);
   }
 

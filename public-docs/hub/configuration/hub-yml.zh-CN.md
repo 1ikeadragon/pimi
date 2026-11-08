@@ -92,13 +92,13 @@ environments:
 | ------------------ | -------- | --------------------------------------------------------------------------------- |
 | `provider`         | 是       | Provider ID。Hub 在无人值守的情况下运行，因此为 `claude`、`codex` 或 `opencode`。 |
 | `model`            | 否       | Provider 的模型 ID。                                                              |
-| `mode`             | 否       | Paseo 模式 ID。                                                                   |
+| `mode`             | 否       | Pimi 模式 ID。                                                                    |
 | `thinkingOptionId` | 否       | Provider 的思考选项。                                                             |
 | `options`          | 否       | 可安全序列化为 JSON 的 Provider 原生选项，保留名称和嵌套结构。                    |
 
 具名选择会保留完整的对象，包括结构化的选项。具名 Agent 没有父级、补丁或按 step 的覆盖。
 
-Hub 把 `model`、`mode`、`thinkingOptionId` 和 `options` 传给 Paseo daemon，不会重命名或展平 Provider 字段。保存或部署触发器时，所选的 daemon 会按它当前的 Provider schema 校验这些值，因此它不提供的值会在那时被拒绝，而不是等到第一次运行；Hub 不会转换 Provider 原生选项。见[保存时会对照 daemon 检查 Agent](/docs/hub/triggers#saving-checks-the-agent-against-the-daemon)。
+Hub 把 `model`、`mode`、`thinkingOptionId` 和 `options` 传给 Pimi daemon，不会重命名或展平 Provider 字段。保存或部署触发器时，所选的 daemon 会按它当前的 Provider schema 校验这些值，因此它不提供的值会在那时被拒绝，而不是等到第一次运行；Hub 不会转换 Provider 原生选项。见[保存时会对照 daemon 检查 Agent](/docs/hub/triggers#saving-checks-the-agent-against-the-daemon)。
 
 ## workflow 文件 {#workflow-files}
 
@@ -274,7 +274,7 @@ Hub 不读取 TOML 或单体的 `triggers` 部分，CLI 也不会改写这两种
 
 ### 升级 {#upgrading}
 
-在启用新版 Hub 之前，请先升级已连接的 Paseo daemon。Hub 需要 daemon 的常规 Agent RPC 和请求回执能力；较旧的主机会产生一个可操作的发起错误。
+在启用新版 Hub 之前，请先升级已连接的 Pimi daemon。Hub 需要 daemon 的常规 Agent RPC 和请求回执能力；较旧的主机会产生一个可操作的发起错误。
 
 Hub 的数据库迁移会添加会话以及可为空的执行关联。已有的执行会保留它们已保存的启动契约和执行专属的 MCP 端点，直到完成。已有自包含触发器文档的新到达使用对话默认值。历史上的 Agent 不会被回填到会话中。
 

@@ -3,7 +3,7 @@ import { writeFile, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { expect, type Page } from "@playwright/test";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
+import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import { connectDaemonClient } from "./daemon-client-loader";
 import { openSettings } from "./app";
 import { openHostSection, openSettingsHost, seedSavedSettingsHosts } from "./settings";

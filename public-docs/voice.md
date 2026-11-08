@@ -1,6 +1,6 @@
 ---
 title: Voice
-description: Paseo voice architecture, local-first model execution, and provider configuration.
+description: Pimi voice architecture, local-first model execution, and provider configuration.
 nav: Voice
 order: 41
 category: Configuration
@@ -8,11 +8,11 @@ category: Configuration
 
 # Voice
 
-Paseo has first-class voice support for dictation and voice mode conversations with your coding environment.
+Pimi has first-class voice support for dictation and voice mode conversations with your coding environment.
 
 ## Philosophy
 
-Voice is local-first. You can run speech fully on-device, or choose OpenAI for speech features. For voice reasoning/orchestration, Paseo reuses agent providers already installed and authenticated on your machine.
+Voice is local-first. You can run speech fully on-device, or choose OpenAI for speech features. For voice reasoning/orchestration, Pimi reuses agent providers already installed and authenticated on your machine.
 
 This keeps credentials and execution in your environment and avoids introducing a separate cloud-only voice stack.
 
@@ -69,7 +69,7 @@ For multilingual local dictation, set a multilingual model. No `language` field 
 }
 ```
 
-For either STT provider, set `features.dictation.stt.language` for dictation and `features.voiceMode.stt.language` for voice mode. If voice language is omitted, Paseo uses the dictation language before falling back to `en`.
+For either STT provider, set `features.dictation.stt.language` for dictation and `features.voiceMode.stt.language` for voice mode. If voice language is omitted, Pimi uses the dictation language before falling back to `en`.
 
 ## OpenAI Voice Option
 
@@ -110,14 +110,14 @@ on the host are write-only in the app.
 A saved `apiKey` or `baseUrl` wins over env settings. Without a saved value, STT
 uses `OPENAI_STT_API_KEY` / `OPENAI_STT_BASE_URL`, TTS uses
 `OPENAI_TTS_API_KEY` / `OPENAI_TTS_BASE_URL`, and both fall back to
-`OPENAI_API_KEY` / `OPENAI_BASE_URL`. These settings affect Paseo speech traffic.
+`OPENAI_API_KEY` / `OPENAI_BASE_URL`. These settings affect Pimi speech traffic.
 
 Existing `providers.openai` settings load automatically into OpenAI use sites that
 lack inline values. Endpoint settings take precedence over the old shared settings.
 The next save writes the inline shape. A legacy key without an OpenAI site to
 receive it is dropped with a warning; enter a key when you later select OpenAI.
 
-Paseo uses these paths under the configured OpenAI base URL:
+Pimi uses these paths under the configured OpenAI base URL:
 
 - dictation STT: `/v1/audio/transcriptions`
 - voice mode STT: `/v1/audio/transcriptions`

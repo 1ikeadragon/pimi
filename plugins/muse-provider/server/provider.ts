@@ -7,10 +7,10 @@ import {
   type ProviderLaunch,
   type ProviderRegistration,
   type ProviderStatus,
-} from "@getpaseo/plugin/server/provider";
+} from "@pimi/plugin/server/provider";
 import { serveArgs } from "./options.js";
 import { Usage } from "./usage.js";
-import { execCommand } from "@getpaseo/plugin/server";
+import { execCommand } from "@pimi/plugin/server";
 import { Catalog, launchKey } from "./catalog.js";
 import { MspConnection } from "./connection.js";
 import { MuseError, actionableError } from "./errors.js";

@@ -3,10 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, test } from "vitest";
 import { WebSocket, type RawData } from "ws";
-import {
-  decodeFileTransferFrame,
-  FileTransferOpcode,
-} from "@getpaseo/protocol/binary-frames/index";
+import { decodeFileTransferFrame, FileTransferOpcode } from "@pimi/protocol/binary-frames/index";
 import { createTestPaseoDaemon, type TestPaseoDaemon } from "./test-utils/index.js";
 import { WSOutboundMessageSchema, type WSOutboundMessage } from "./messages.js";
 
@@ -172,8 +169,8 @@ function sendAndWait(
 }
 
 test("an awaited timeline framing overflow closes the actual daemon socket", async () => {
-  const { createHostClient } = await import("@getpaseo/client/node");
-  const { createPaseoApi } = await import("@getpaseo/client");
+  const { createHostClient } = await import("@pimi/client/node");
+  const { createPaseoApi } = await import("@pimi/client");
   const { default: pino } = await import("pino");
   const { Writable } = await import("node:stream");
   const messages: string[] = [];

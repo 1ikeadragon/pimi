@@ -1,6 +1,6 @@
 import os from "node:os";
 
-import { ConnectionOfferV2Schema, type ConnectionOffer } from "@getpaseo/protocol/connection-offer";
+import { ConnectionOfferV2Schema, type ConnectionOffer } from "@pimi/protocol/connection-offer";
 
 export const DEFAULT_PAIRING_APP_BASE_URL = "pimi://pair";
 export const LEGACY_PAIRING_APP_BASE_URL = "https://app.paseo.sh";

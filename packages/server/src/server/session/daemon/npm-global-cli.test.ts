@@ -46,11 +46,11 @@ describe("DefaultNpmGlobalPaseoCli", () => {
       name: "lib",
       path: root,
       dependencies: {
-        "@getpaseo/cli": {
+        "@pimi/cli": {
           version: "0.1.15",
           resolved: options.linked
             ? `file:${path.relative(root, checkoutCli)}`
-            : "https://registry.npmjs.org/@getpaseo/cli/-/cli-0.1.15.tgz",
+            : "https://registry.npmjs.org/@pimi/cli/-/cli-0.1.15.tgz",
           path: packagePath,
         },
       },
@@ -91,38 +91,18 @@ describe("DefaultNpmGlobalPaseoCli", () => {
     expect(calls).toEqual([
       {
         command: "npm",
-        args: ["-g", "ls", "@getpaseo/cli", "--json", "--depth=0", "--long"],
+        args: ["-g", "ls", "@pimi/cli", "--json", "--depth=0", "--long"],
         timeout: 10_000,
         maxBuffer: 10 * 1024 * 1024,
       },
     ]);
   });
 
-  test("runs the global install command for the latest cli", async () => {
-    const calls: CommandCall[] = [];
-    const cli = new DefaultNpmGlobalPaseoCli(async (command, args, options) => {
-      calls.push({
-        command,
-        args,
-        timeout: options?.timeout,
-        maxBuffer: options?.maxBuffer,
-      });
-      return { exitCode: 0, stdout: "changed 42 packages", stderr: "" };
+  test("does not download a private Pimi package from npm", async () => {
+    const cli = new DefaultNpmGlobalPaseoCli(async () => {
+      throw new Error("Unexpected npm invocation");
     });
-
-    await expect(cli.installLatest()).resolves.toEqual({
-      exitCode: 0,
-      stdout: "changed 42 packages",
-      stderr: "",
-    });
-    expect(calls).toEqual([
-      {
-        command: "npm",
-        args: ["install", "-g", "@getpaseo/cli@latest"],
-        timeout: 300_000,
-        maxBuffer: 10 * 1024 * 1024,
-      },
-    ]);
+    await expect(cli.installLatest()).rejects.toThrow("Update Pimi from its desktop installer");
   });
 
   test("reports missing npm when npm exits without JSON", async () => {
@@ -143,7 +123,7 @@ describe("DefaultNpmGlobalPaseoCli", () => {
     }));
 
     await expect(cli.inspect()).rejects.toThrow(
-      "@getpaseo/cli is not installed with npm -g on this host",
+      "@pimi/cli is not installed with npm -g on this host",
     );
   });
 });

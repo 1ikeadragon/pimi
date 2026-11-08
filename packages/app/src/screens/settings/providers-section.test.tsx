@@ -4,8 +4,8 @@
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ProviderSnapshotEntry } from "@getpaseo/protocol/agent-types";
-import type { MutableDaemonConfig } from "@getpaseo/protocol/messages";
+import type { ProviderSnapshotEntry } from "@pimi/protocol/agent-types";
+import type { MutableDaemonConfig } from "@pimi/protocol/messages";
 import { ToastApiProvider } from "@/contexts/toast-api-context";
 
 const { theme, snapshotState, configState, patchConfigMock, openProviderSettingsMock } = vi.hoisted(

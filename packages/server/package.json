@@ -1,7 +1,8 @@
 {
-  "name": "@getpaseo/server",
+  "name": "@pimi/server",
   "version": "0.16.10",
-  "description": "Paseo backend server",
+  "private": true,
+  "description": "Pimi backend server",
   "license": "Apache-2.0",
   "files": [
     "dist/server",
@@ -65,9 +66,6 @@
       "default": "./dist/server/server/agent/agent-response-loop.js"
     }
   },
-  "publishConfig": {
-    "access": "public"
-  },
   "scripts": {
     "dev": "cross-env PASEO_NODE_ENV=development node --import tsx scripts/dev-runner.ts",
     "dev:tsx": "cross-env PASEO_NODE_ENV=development tsx watch --ignore '**/*.timestamp-*' scripts/dev-runner.ts",
@@ -108,16 +106,16 @@
     "@agentclientprotocol/sdk": "^0.17.1",
     "@anthropic-ai/claude-agent-sdk": "0.3.246",
     "@anthropic-ai/sdk": "^0.104.2",
-    "@getpaseo/client": "0.16.10",
-    "@getpaseo/highlight": "0.16.10",
-    "@getpaseo/plugin": "0.16.10",
-    "@getpaseo/protocol": "0.16.10",
-    "@getpaseo/relay": "0.16.10",
     "@huggingface/tokenizers": "0.2.0",
     "@isaacs/ttlcache": "^2.1.4",
     "@modelcontextprotocol/sdk": "1.32.2",
     "@opencode-ai/sdk": "1.14.46",
     "@opencode/client": "2.0.10",
+    "@pimi/client": "0.16.10",
+    "@pimi/highlight": "0.16.10",
+    "@pimi/plugin": "0.16.10",
+    "@pimi/protocol": "0.16.10",
+    "@pimi/relay": "0.16.10",
     "@xterm/addon-serialize": "0.14.0",
     "@xterm/addon-unicode-graphemes": "0.5.0-beta.330",
     "@xterm/headless": "6.1.0-beta.334",

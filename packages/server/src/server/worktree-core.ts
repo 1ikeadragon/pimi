@@ -1,4 +1,4 @@
-import type { PluginWorktreeCreateRequest } from "@getpaseo/plugin/server";
+import type { PluginWorktreeCreateRequest } from "@pimi/plugin/server";
 import type { PluginLifecycle } from "./plugins/lifecycle/index.js";
 import { createNameId } from "mnemonic-id";
 
@@ -16,7 +16,7 @@ import {
   UnsupportedForgeCheckoutTargetError,
   type WorktreeCreationIntent,
 } from "./resolve-worktree-creation-intent.js";
-import type { ChangeRequestCheckoutSource, FirstAgentContext } from "@getpaseo/protocol/messages";
+import type { ChangeRequestCheckoutSource, FirstAgentContext } from "@pimi/protocol/messages";
 import type { WorkspaceGitService } from "./workspace-git-service.js";
 import { runGitCommand, runWithGitCommandPriority } from "../utils/run-git-command.js";
 

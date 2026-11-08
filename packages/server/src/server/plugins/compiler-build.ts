@@ -1,12 +1,13 @@
 import { stat } from "node:fs/promises";
 import { readPluginManifest } from "./manifest.js";
-import { assertPluginCompatibility } from "@getpaseo/protocol/plugin-requirements";
+import { assertPluginCompatibility } from "@pimi/protocol/plugin-requirements";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { isBuiltin } from "node:module";
 import path from "node:path";
 import { createPluginImportReader, type PluginImportKind } from "./compiler-imports.js";
 import type { Metafile, OnResolveResult, Plugin } from "esbuild";
 import {
+  canonicalPluginSdkSpecifier,
   isPluginClientOnlySdkSpecifier,
   isPluginServerOnlySdkSpecifier,
   PLUGIN_SDK_SPECIFIERS,
@@ -192,7 +193,7 @@ function createRuntimeBoundaryPlugin(target: PluginBuildTarget, pluginDirectory:
           // Protocol types are shared host contracts, also exposed by the SDK's peer
           // dependency during development. Erased imports need no plugin-local install;
           // runtime imports still go through normal dependency resolution below.
-          if (typeOnly && specifier.startsWith("@getpaseo/protocol/")) continue;
+          if (typeOnly && specifier.startsWith("@pimi/protocol/")) continue;
           // Host modules have separately enforced SDK boundaries and need no local installation.
           if (
             (PLUGIN_SDK_SPECIFIERS as readonly string[]).includes(specifier) ||
@@ -278,11 +279,12 @@ function runtimeSpecifierError(
   target: PluginBuildTarget | "shared",
   importer: string,
 ): OnResolveResult | null {
+  specifier = canonicalPluginSdkSpecifier(specifier);
   let kind: string | null = null;
-  if (specifier === "@getpaseo/plugin/client/host") kind = "host-private";
+  if (specifier === "@pimi/plugin/client/host") kind = "host-private";
   else if (
-    (specifier === "@getpaseo/plugin" ||
-      specifier.startsWith("@getpaseo/plugin/") ||
+    (specifier === "@pimi/plugin" ||
+      specifier.startsWith("@pimi/plugin/") ||
       specifier === "@paseo/plugin" ||
       specifier.startsWith("@paseo/plugin/")) &&
     !(PLUGIN_SDK_SPECIFIERS as readonly string[]).includes(specifier)
@@ -427,7 +429,7 @@ async function resolveEntryPaths(directory: string): Promise<{
   const legacyEntry = await findEntry(directory, ["index.ts", "index.tsx"]);
   if (legacyEntry) {
     throw new Error(
-      "This plugin was made for an older version of Paseo and cannot run on Paseo v0.8. Ask its author to update it. Plugin authors can follow the migration guide: https://paseo.sh/docs/plugins/migration",
+      "This plugin uses an older API and needs to be updated for Pimi. Ask its author to update it. Plugin authors can follow the migration guide: https://paseo.sh/docs/plugins/migration",
     );
   }
   throw new Error(

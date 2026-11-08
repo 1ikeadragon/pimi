@@ -70,7 +70,7 @@ describe("daemon relay config", () => {
   test("marks environment relay overrides immutable", async () => {
     const home = await createPaseoHome({
       version: 1,
-      daemon: { relay: { enabled: false } },
+      daemon: { relay: { enabled: false, endpoint: "127.0.0.1:4000" } },
     });
     const config = loadConfig(home, { env: { PASEO_RELAY_ENABLED: "true" } });
     expect(config.relayEnabled).toBe(true);
@@ -90,7 +90,7 @@ describe("daemon relay config", () => {
     },
   );
 
-  test("loads relay TLS from env, persisted config, and hosted relay fallback", async () => {
+  test("loads relay TLS from env, persisted config, and the configured endpoint port", async () => {
     const persistedHome = await createPaseoHome({
       version: 1,
       daemon: {
@@ -113,17 +113,16 @@ describe("daemon relay config", () => {
     });
     expect(loadConfig(envHome, { env: { PASEO_RELAY_USE_TLS: "true" } }).relayUseTls).toBe(true);
 
-    const hostedHome = await createPaseoHome({
+    const tlsHome = await createPaseoHome({
       version: 1,
-      daemon: { relay: {} },
+      daemon: { relay: { endpoint: "relay.example.com:443" } },
     });
-    expect(loadConfig(hostedHome, { env: {} }).relayUseTls).toBe(true);
+    expect(loadConfig(tlsHome, { env: {} }).relayUseTls).toBe(true);
   });
 
   test("relayPublicUseTls falls back to relayUseTls when unset", async () => {
     const home = await createPaseoHome({ version: 1, daemon: { relay: {} } });
-    // Default: both true (hosted relay)
-    expect(loadConfig(home, { env: {} }).relayPublicUseTls).toBe(true);
+    expect(loadConfig(home, { env: {} }).relayPublicUseTls).toBe(false);
   });
 
   test("PASEO_RELAY_PUBLIC_USE_TLS overrides relayUseTls for public side", async () => {

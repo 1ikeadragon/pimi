@@ -1,6 +1,6 @@
 import { isTurnTrigger, isTurnBoundary } from "@/agent-stream/turn-membership";
-import type { ToolCallDetail } from "@getpaseo/protocol/agent-types";
-import { isPimiActionTool } from "@getpaseo/protocol/pimi-task";
+import type { ToolCallDetail } from "@pimi/protocol/agent-types";
+import { isPimiActionTool } from "@pimi/protocol/pimi-task";
 import type { StreamItem, ToolCallItem, ThoughtItem } from "@/types/stream";
 
 export interface ToolCallDescriptor {

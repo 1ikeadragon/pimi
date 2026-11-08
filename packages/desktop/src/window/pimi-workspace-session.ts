@@ -7,7 +7,7 @@ import {
   isPimiXEmbed,
   PIMI_ARXIV_EMBED_ORIGIN,
   PIMI_VIDEO_EMBED_ORIGIN,
-} from "@getpaseo/protocol/pimi-task";
+} from "@pimi/protocol/pimi-task";
 
 function videoAsset(url: URL, method: string, resource: string): boolean {
   if (url.protocol !== "https:" || url.port || url.username || url.password) return false;

@@ -664,11 +664,11 @@ describe("evaluatePluginClientBundle", () => {
     ).toThrow("must return a cleanup function");
   });
 
-  it("provides the host Icon component through @getpaseo/plugin/client/ui", () => {
+  it("provides the host Icon component through @pimi/plugin/client/ui", () => {
     const plugin = evaluatePluginClientBundle(
       "example",
       `(function(require) {
-        const { Icon } = require("@getpaseo/plugin/client/ui");
+        const { Icon } = require("@pimi/plugin/client/ui");
         const module = { exports: {} };
         module.exports.default = function(plugin) {
           plugin.addScreen({ id: "main", title: "Main", Component: function Surface() {
@@ -686,11 +686,11 @@ describe("evaluatePluginClientBundle", () => {
     expect(element).toMatchObject({ props: { size: 18, color: "#123456" } });
   });
 
-  it("provides Paseo UI through @getpaseo/plugin/client/ui", () => {
+  it("provides Paseo UI through @pimi/plugin/client/ui", () => {
     const plugin = evaluatePluginClientBundle(
       "example",
       `(function(require) {
-        const { Icon, Modal, useToast, SettingsSection, SidebarRow, StreamedText } = require("@getpaseo/plugin/client/ui");
+        const { Icon, Modal, useToast, SettingsSection, SidebarRow, StreamedText } = require("@pimi/plugin/client/ui");
         const module = { exports: {} };
         module.exports.default = function(plugin) {
           if (typeof Icon !== "function" || typeof Modal !== "function" || typeof Modal.Content !== "function" || typeof useToast !== "function" || typeof SettingsSection !== "function" || typeof SidebarRow !== "function" || typeof StreamedText !== "function") {
@@ -710,8 +710,8 @@ describe("evaluatePluginClientBundle", () => {
     const plugin = evaluatePluginClientBundle(
       "legacy-reveal",
       bundle(`
-        const legacy = require("@getpaseo/plugin/client/react-native");
-        const ui = require("@getpaseo/plugin/client/ui");
+        const legacy = require("@pimi/plugin/client/react-native");
+        const ui = require("@pimi/plugin/client/ui");
         if (typeof legacy.useRevealedText !== "function") throw new Error("Missing legacy reveal hook");
         if (legacy.StreamedText !== ui.StreamedText) throw new Error("Missing current UI exports");
         if ("useRevealedText" in ui) throw new Error("Legacy hook leaked into current UI");
@@ -726,9 +726,9 @@ describe("evaluatePluginClientBundle", () => {
       evaluatePluginClientBundle(
         "example",
         `(function(require) {
-      const shared = require("@getpaseo/plugin");
-      const client = require("@getpaseo/plugin/client");
-      const { ExternalLink, Loading, Markdown } = require("@getpaseo/plugin/client/ui");
+      const shared = require("@pimi/plugin");
+      const client = require("@pimi/plugin/client");
+      const { ExternalLink, Loading, Markdown } = require("@pimi/plugin/client/ui");
       if (typeof Markdown !== "function") throw new Error("Markdown");
       if (typeof ExternalLink !== "function") throw new Error("ExternalLink");
       if (typeof Loading !== "function") throw new Error("Loading");
@@ -743,13 +743,13 @@ describe("evaluatePluginClientBundle", () => {
   });
 
   it.each([
-    "@getpaseo/plugin/server",
-    "@getpaseo/plugin/server/provider",
-    "@getpaseo/plugin/server/acp",
-    "@getpaseo/plugin/client/host",
-    "@getpaseo/plugin/react-native",
-    "@getpaseo/plugin/ui",
-    "@getpaseo/plugin/host",
+    "@pimi/plugin/server",
+    "@pimi/plugin/server/provider",
+    "@pimi/plugin/server/acp",
+    "@pimi/plugin/client/host",
+    "@pimi/plugin/react-native",
+    "@pimi/plugin/ui",
+    "@pimi/plugin/host",
     "@paseo/plugin",
   ])("rejects %s in the client loader", (specifier) => {
     expect(() =>
@@ -760,11 +760,11 @@ describe("evaluatePluginClientBundle", () => {
     ).toThrow("not available in plugin client code");
   });
 
-  it("resolves shared RPC helpers from @getpaseo/plugin", () => {
+  it("resolves shared RPC helpers from @pimi/plugin", () => {
     const plugin = evaluatePluginClientBundle(
       "example",
       `(function(require) {
-        const { defineRpc, defineAttachmentSource } = require("@getpaseo/plugin");
+        const { defineRpc, defineAttachmentSource } = require("@pimi/plugin");
         const search = defineRpc({ name: "issues.search", input: {}, output: {} });
         const module = { exports: {} };
         module.exports.default = function(plugin) {
@@ -826,7 +826,7 @@ it("binds imported getters to each originating installation across delayed callb
     },
   });
   const source = bundle(`
-    const { getPaseoClient } = require("@getpaseo/plugin/client");
+    const { getPaseoClient } = require("@pimi/plugin/client");
     getPaseoClient("entry-host");
     plugin.addCommandCenterItem({
       id: "read", title: "Read", icon: "Server", context: "global",

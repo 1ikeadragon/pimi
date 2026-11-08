@@ -1,6 +1,6 @@
-# Running Paseo in Docker
+# Running Pimi in Docker
 
-Paseo publishes a container image for running the daemon on a server, VM, NAS,
+Pimi publishes a container image for running the daemon on a server, VM, NAS,
 or homelab box. The image also serves the bundled browser web UI, so one
 container gives you both the daemon API and a self-hosted UI.
 
@@ -10,7 +10,7 @@ The image source lives in [`docker/`](../docker/).
 
 The official image:
 
-- builds `@getpaseo/server` and `@getpaseo/cli` from source-built workspace tarballs
+- builds `@pimi/server` and `@pimi/cli` from source-built workspace tarballs
 - runs the daemon as the non-root `paseo` user
 - listens on `0.0.0.0:6767` inside the container
 - enables the bundled daemon web UI with `PASEO_WEB_UI_ENABLED=true`
@@ -22,17 +22,18 @@ the web UI. The served app receives a same-origin connection hint and connects
 back to that daemon. Static UI files load without daemon auth; API and
 WebSocket requests still require `PASEO_PASSWORD` when one is configured.
 
-Host-side CLI commands select the container explicitly, for example `paseo project ls --host 127.0.0.1:6767`. Without an endpoint selector the CLI looks for a local home’s supervisor. Container environment settings are deployment overrides; worker restart preserves them. Your container manager owns full supervisor replacement.
+Host-side CLI commands select the container explicitly, for example `pimi project ls --host 127.0.0.1:6767`. Without an endpoint selector the CLI looks for a local home’s supervisor. Container environment settings are deployment overrides; worker restart preserves them. Your container manager owns full supervisor replacement.
 
 ## Quick Start
 
 ```bash
+docker build -f docker/base/Dockerfile -t pimi:local .
 docker run -d --name paseo \
   -p 6767:6767 \
   -e PASEO_PASSWORD=change-me \
   -v "$PWD/paseo-home:/home/paseo" \
   -v "$PWD:/workspace" \
-  ghcr.io/getpaseo/paseo:latest
+  pimi:local
 ```
 
 Then open:
@@ -42,7 +43,7 @@ http://localhost:6767
 ```
 
 If you set `PASEO_PASSWORD`, enter the same password when adding the direct
-daemon connection in the web UI or another Paseo client.
+daemon connection in the web UI or another Pimi client.
 
 ## Docker Compose
 
@@ -59,7 +60,7 @@ Minimal example:
 ```yaml
 services:
   paseo:
-    image: ghcr.io/getpaseo/paseo:latest
+    image: pimi:local
     restart: unless-stopped
     ports:
       - "6767:6767"
@@ -73,13 +74,13 @@ services:
 ## Installing Agents
 
 The base image does not preinstall Claude Code, Codex, OpenCode, Copilot, Pi, or
-other agent CLIs. That keeps the default image small and avoids coupling Paseo
+other agent CLIs. That keeps the default image small and avoids coupling Pimi
 releases to third-party agent release cycles.
 
 Create a child image for the agents you use:
 
 ```Dockerfile
-FROM ghcr.io/getpaseo/paseo:latest
+FROM pimi:local
 
 USER root
 RUN npm install -g @openai/codex @anthropic-ai/claude-code opencode-ai
@@ -111,14 +112,14 @@ docker exec -it --user paseo paseo claude
 Agent credentials and config persist in `/home/paseo`, alongside daemon state.
 Provider environment variables such as `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`,
 `OPENAI_BASE_URL`, or `ANTHROPIC_BASE_URL` can be passed through `docker run -e`
-or `compose.environment`; Paseo passes them to launched agents.
+or `compose.environment`; Pimi passes them to launched agents.
 
 ## Volumes
 
-| Mount         | Purpose                                                                  |
-| ------------- | ------------------------------------------------------------------------ |
-| `/home/paseo` | Paseo state under `.paseo` plus agent config such as `.codex`, `.claude` |
-| `/workspace`  | Code that Paseo and launched agents can read and write                   |
+| Mount         | Purpose                                                                 |
+| ------------- | ----------------------------------------------------------------------- |
+| `/home/paseo` | Pimi state under `.paseo` plus agent config such as `.codex`, `.claude` |
+| `/workspace`  | Code that Pimi and launched agents can read and write                   |
 
 The image defaults:
 
@@ -135,7 +136,7 @@ container with Docker's `--user` / Compose `user:` option.
 
 ## Reverse Proxies
 
-When serving Paseo behind a reverse proxy, forward normal HTTP requests and
+When serving Pimi behind a reverse proxy, forward normal HTTP requests and
 WebSocket upgrades to the same daemon port.
 
 Caddy example:
@@ -178,7 +179,7 @@ IPs and `localhost` are allowed by default.
 
 - Set `PASEO_PASSWORD` for any published port or network-reachable deployment.
 - Prefer HTTPS at the reverse proxy for direct browser access.
-- Use the [official Paseo relay](https://github.com/getpaseo/paseo-relay) for
+- Use the [official Pimi relay](https://github.com/1ikeadragon/pimi-relay) for
   untrusted networks or mobile access when you do not want to expose the daemon
   port directly.
 - The container is the isolation boundary for agents. Agents can read and write
@@ -189,44 +190,9 @@ IPs and `localhost` are allowed by default.
 
 See [SECURITY.md](../SECURITY.md) for the daemon trust model.
 
-## Building Locally
+## Build an image
 
-```bash
-docker build -f docker/base/Dockerfile -t paseo:local .
-```
-
-To assert the source tree version while building:
-
-```bash
-docker build \
-  --build-arg PASEO_VERSION=0.1.102 \
-  -t paseo:0.1.102 \
-  -f docker/base/Dockerfile \
-  .
-```
-
-The Docker workflow builds the image on pull requests and on `main` as a
-non-publishing check. Stable `vX.Y.Z` tag pushes publish
-`ghcr.io/getpaseo/paseo:X.Y.Z` and `ghcr.io/getpaseo/paseo:latest`. Beta tags
-publish only the exact prerelease tag, such as
-`ghcr.io/getpaseo/paseo:0.1.102-beta.1`, and do not update `latest`.
-
-To replace a Docker image in place without rebuilding desktop, APK, or EAS
-mobile release artifacts, dispatch the Docker workflow manually instead of
-pushing a `v*` release tag:
-
-```bash
-gh workflow run docker.yml \
-  --ref main \
-  -f paseo_version=0.1.102-beta.1 \
-  -f publish=true
-```
-
-Manual Docker publishes require an explicit `paseo_version`. The workflow builds
-from the checked-out source tree and publishes only the exact prerelease image
-tag for prerelease versions.
-
-The published image is multi-arch for `linux/amd64` and `linux/arm64`.
+Build from a checkout with `docker build -f docker/base/Dockerfile -t pimi:local .`.
 
 ## Troubleshooting
 

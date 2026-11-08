@@ -21,8 +21,9 @@ import {
   type EditingTextInputHandle,
 } from "@/components/ui/text-input";
 
-const RELAY_DOCS_URL = "https://paseo.sh/docs/security";
-export const CONNECTIVITY_DOCS_URL = "https://paseo.sh/docs/connectivity";
+const RELAY_DOCS_URL = "https://github.com/1ikeadragon/pimi-relay#pair-a-device";
+export const CONNECTIVITY_DOCS_URL =
+  "https://github.com/1ikeadragon/pimi/blob/main/public-docs/connectivity.md";
 export const TAILSCALE_DOCS_URL = `${CONNECTIVITY_DOCS_URL}#tailscale`;
 const FLEX_ONE_STYLE = { flex: 1 } as const;
 const ThemedLoadingSpinner = withUnistyles(LoadingSpinner);
@@ -132,7 +133,7 @@ interface PairDeviceBodyProps {
   isPending: boolean;
   isDisconnected: boolean;
   error: Error | null;
-  offer: { relayEnabled: boolean; url: string } | undefined;
+  offer: { relayEnabled: boolean; relayConfigured?: boolean; url: string } | undefined;
   canConfigureRelay: boolean;
   enablePending: boolean;
   enableError: Error | null;
@@ -180,6 +181,7 @@ function OfferLoadError({ message, onRetry }: { message: string; onRetry: () => 
 
 function RelayConsent(props: PairDeviceBodyProps) {
   const { t } = useTranslation();
+  const needsRelay = props.offer?.relayConfigured === false;
   let enableButtonLabel = t("pairing.device.enableRelay");
   if (props.enablePending) {
     enableButtonLabel = t("pairing.device.enablingRelay");
@@ -190,8 +192,12 @@ function RelayConsent(props: PairDeviceBodyProps) {
     <View style={styles.consent}>
       <View style={styles.hero}>
         <RelayHeroBadge />
-        <Text style={styles.consentTitle}>{t("pairing.device.enableTitle")}</Text>
-        <Text style={styles.consentDescription}>{t("pairing.device.enableDescription")}</Text>
+        <Text style={styles.consentTitle}>
+          {t(needsRelay ? "pairing.device.setupTitle" : "pairing.device.enableTitle")}
+        </Text>
+        <Text style={styles.consentDescription}>
+          {t(needsRelay ? "pairing.device.setupDescription" : "pairing.device.enableDescription")}
+        </Text>
         <ExternalLink
           href={RELAY_DOCS_URL}
           label={t("pairing.device.relayDocs")}
@@ -201,14 +207,14 @@ function RelayConsent(props: PairDeviceBodyProps) {
       {props.enableError ? (
         <Alert size="sm" variant="error" description={props.enableError.message} />
       ) : null}
-      {!props.canConfigureRelay ? (
+      {!needsRelay && !props.canConfigureRelay ? (
         <Alert size="sm" variant="warning" description={t("pairing.device.updateRequired")} />
       ) : null}
       <View style={styles.actions}>
         <Button variant="secondary" style={FLEX_ONE_STYLE} onPress={props.onClose}>
           {t("pairing.device.notNow")}
         </Button>
-        {props.canConfigureRelay ? (
+        {!needsRelay && props.canConfigureRelay ? (
           <Button
             variant="default"
             style={FLEX_ONE_STYLE}

@@ -4,8 +4,8 @@
 import { act, renderHook } from "@testing-library/react";
 import { createWorkspaceVisibilityPolicy } from "@/components/sidebar/sidebar-group-visibility";
 import { useLimitedSidebarGroup } from "@/components/sidebar/use-limited-sidebar-group";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import type { WorkspaceScriptPayload } from "@getpaseo/protocol/messages";
+import type { DaemonClient } from "@pimi/client/internal/daemon-client";
+import type { WorkspaceScriptPayload } from "@pimi/protocol/messages";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRoot, type Root } from "react-dom/client";
 import React from "react";

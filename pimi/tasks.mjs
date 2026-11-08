@@ -18,9 +18,9 @@ import {
   PimiTaskProposal,
   PimiTaskSource,
   PimiTaskStage,
-} from "@getpaseo/protocol/pimi-task";
+} from "@pimi/protocol/pimi-task";
 
-import { workspaceLabelKey } from "@getpaseo/protocol/workspace-labels";
+import { workspaceLabelKey } from "@pimi/protocol/workspace-labels";
 
 import { commit, git, RequestError } from "./git.mjs";
 

@@ -1,6 +1,6 @@
-import type { PluginServerContext } from "@getpaseo/plugin/server";
+import type { PluginServerContext } from "@pimi/plugin/server";
 import { z } from "zod";
-import { windowFromReportedDuration } from "@getpaseo/plugin/server/usage";
+import { windowFromReportedDuration } from "@pimi/plugin/server/usage";
 
 let fetches = 0;
 export default function contribute(server: PluginServerContext) {

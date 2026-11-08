@@ -46,7 +46,7 @@ import {
   buildScheduleProjectTargets,
 } from "@/schedules/schedule-project-targets";
 import { AUTOMATION_TEMPLATES, type AutomationTemplate } from "@/schedules/automation-templates";
-import type { ScheduleSummary } from "@getpaseo/protocol/schedule/types";
+import type { ScheduleSummary } from "@pimi/protocol/schedule/types";
 
 type FormState =
   | { mode: "closed" }

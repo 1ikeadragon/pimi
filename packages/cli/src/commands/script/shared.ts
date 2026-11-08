@@ -1,6 +1,6 @@
 import type { DaemonTarget } from "../../utils/daemon-target.js";
 import { resolve } from "node:path";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
+import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import { connectToDaemon, getDaemonHost } from "../../utils/client.js";
 import type { CommandError, CommandOptions } from "../../output/index.js";
 
@@ -61,8 +61,8 @@ export async function resolveWorkspaceScriptWorkspaceId(
   }
   throw {
     code: "WORKSPACE_NOT_FOUND",
-    message: `No Paseo workspace found for ${cwd}`,
-    details: "Open the directory in Paseo first, or pass --workspace <workspace-id>.",
+    message: `No Pimi workspace found for ${cwd}`,
+    details: "Open the directory in Pimi first, or pass --workspace <workspace-id>.",
   } satisfies CommandError;
 }
 

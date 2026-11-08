@@ -1,4 +1,4 @@
-import { isPimiArxivEmbed } from "@getpaseo/protocol/pimi-task";
+import { isPimiArxivEmbed } from "@pimi/protocol/pimi-task";
 import { SpaceInputError, type SpaceCard } from "./pimi-spaces.js";
 
 const MAX_ATOM_BYTES = 2 * 1024 * 1024;

@@ -4,11 +4,13 @@ import type {
   AgentPermissionResponse,
   AgentTimelineItem,
   AgentSessionConfig,
-} from "@getpaseo/protocol/agent-types";
-import type { PaseoApi } from "@getpaseo/client";
-import type { WorkspaceCreateRequest } from "@getpaseo/protocol/messages";
+} from "@pimi/protocol/agent-types";
+import type { PaseoApi } from "@pimi/client";
+import type { WorkspaceCreateRequest } from "@pimi/protocol/messages";
 
 export interface PluginHookContext {
+  pimi: PaseoApi;
+  /** @deprecated Use pimi. */
   paseo: PaseoApi;
   signal: AbortSignal;
 }

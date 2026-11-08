@@ -1,12 +1,11 @@
 import { lstatSync } from "node:fs";
-import { getErrorMessage } from "@getpaseo/protocol/error-utils";
+import { getErrorMessage } from "@pimi/protocol/error-utils";
 import { z } from "zod";
 import { execCommand } from "../../../utils/spawn.js";
 
-export const PASEO_CLI_PACKAGE = "@getpaseo/cli";
+export const PASEO_CLI_PACKAGE = "@pimi/cli";
 
 const NPM_PROBE_TIMEOUT_MS = 10_000;
-const NPM_INSTALL_TIMEOUT_MS = 300_000;
 const NPM_MAX_BUFFER_BYTES = 10 * 1024 * 1024;
 
 const NpmGlobalListSchema = z
@@ -143,12 +142,8 @@ export class DefaultNpmGlobalPaseoCli implements NpmGlobalPaseoCli {
     return install;
   }
 
-  installLatest(options: NpmGlobalOptions = {}): Promise<CommandResult> {
-    const prefixArgs = options.prefix ? ["--prefix", options.prefix] : [];
-    return this.runCommand("npm", ["install", "-g", `${PASEO_CLI_PACKAGE}@latest`, ...prefixArgs], {
-      timeout: NPM_INSTALL_TIMEOUT_MS,
-      maxBuffer: NPM_MAX_BUFFER_BYTES,
-    });
+  async installLatest(): Promise<CommandResult> {
+    throw new Error("Update Pimi from its desktop installer or rebuild the source checkout.");
   }
 }
 

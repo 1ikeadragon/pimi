@@ -4,17 +4,17 @@ Place worktrees next to their source checkout, using the repository directory na
 For `/home/me/src/paseo` on branch `feature/x`, the new worktree is
 `/home/me/src/paseo.feature-x`. Slashes in branch names become hyphens.
 
-Install on Paseo 0.14.0-beta.1 or newer with plugins enabled:
+Install on Pimi 0.14.0-beta.1 or newer with plugins enabled:
 
 ```bash
-paseo plugin install /absolute/path/to/plugin-examples/worktree-placement
+pimi plugin install /absolute/path/to/plugin-examples/worktree-placement
 ```
 
 The plugin is one file, `index.server.ts`:
 
 ```ts
 import { basename, dirname, join } from "node:path";
-import type { PluginServerContext } from "@getpaseo/plugin/server";
+import type { PluginServerContext } from "@pimi/plugin/server";
 
 export default function contribute(server: PluginServerContext) {
   return server.addHook("worktree.create.before", async ({ request }) => ({
@@ -27,7 +27,7 @@ export default function contribute(server: PluginServerContext) {
 }
 ```
 
-Paseo validates the returned path and refuses an existing one. It creates, lists, restores,
+Pimi validates the returned path and refuses an existing one. It creates, lists, restores,
 and removes the worktree through the normal workspace workflow. Restoring uses the recorded
 path without running the hook. Git can choose a unique branch name after this hook runs;
 the path retains the branch name received by the hook.

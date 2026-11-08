@@ -1,18 +1,18 @@
 ---
 title: 安全
-description: "Paseo 的安全模型：架构概览、连接方式、中继加密和最佳实践。"
+description: "Pimi 的安全模型：架构概览、连接方式、中继加密和最佳实践。"
 nav: 安全
 ---
 
 # 安全 {#security}
 
-Paseo 采用客户端-服务器架构，与 Docker 类似。daemon 运行在你的机器上，管理你的编程 Agent。客户端（移动应用、CLI 或 Web 界面）连接到 daemon，用来监控和控制这些 Agent。
+Pimi 采用客户端-服务器架构，与 Docker 类似。daemon 运行在你的机器上，管理你的编程 Agent。客户端（移动应用、CLI 或 Web 界面）连接到 daemon，用来监控和控制这些 Agent。
 
-你的代码从不离开你的机器。Paseo 是一个本地优先的工具，直接连接到你的开发环境。
+你的代码从不离开你的机器。Pimi 是一个本地优先的工具，直接连接到你的开发环境。
 
 ## 架构 {#architecture}
 
-Paseo daemon 可以运行在任何你想运行 Agent 的地方：你的笔记本电脑、Mac Mini、VPS 或 Docker 容器。daemon 监听连接并管理 Agent 的生命周期。
+Pimi daemon 可以运行在任何你想运行 Agent 的地方：你的笔记本电脑、Mac Mini、VPS 或 Docker 容器。daemon 监听连接并管理 Agent 的生命周期。
 
 客户端通过 WebSocket 连接到 daemon。建立这个连接有两种方式：
 
@@ -21,9 +21,9 @@ Paseo daemon 可以运行在任何你想运行 Agent 的地方：你的笔记本
 
 ## 中继连接（推荐） {#relay-connections-recommended}
 
-中继是从手机连接最简单的方式。它不需要设置 VPN、端口转发或防火墙。daemon 可以保持绑定在 localhost 或套接字文件上，它向中继发起*出站*连接，你的手机在那里与它会合。官方中继服务器是开源的 Elixir 服务 [getpaseo/paseo-relay](https://github.com/getpaseo/paseo-relay)。
+中继是从手机连接最简单的方式。它不需要设置 VPN、端口转发或防火墙。daemon 可以保持绑定在 localhost 或套接字文件上，它向中继发起*出站*连接，你的手机在那里与它会合。官方中继服务器是开源的 Elixir 服务 [1ikeadragon/pimi-relay](https://github.com/1ikeadragon/pimi-relay)。
 
-新安装默认关闭中继。当你通过 `paseo`、`paseo daemon pair` 或 Paseo 桌面应用配对设备时，Paseo 会先询问再启用它。选择不启用中继时，daemon 仍可通过直接 TCP、Tailscale 或其他 VPN 连接访问，并且不会生成配对二维码。在 CLI 的配对或启动命令中使用 `--relay`，可以不经交互提示直接启用。
+新安装默认关闭中继。当你通过 `paseo`、`pimi daemon pair` 或 Pimi 桌面应用配对设备时，Pimi 会先询问再启用它。选择不启用中继时，daemon 仍可通过直接 TCP、Tailscale 或其他 VPN 连接访问，并且不会生成配对二维码。在 CLI 的配对或启动命令中使用 `--relay`，可以不经交互提示直接启用。
 
 > **中继在设计上就是不受信任的**。你的手机与 daemon 之间的所有流量都经过端到端加密。中继服务器无法读取你的消息、看到你的代码，也无法在不被发现的情况下篡改流量。即使中继被攻破，你的数据仍然受到保护。
 
@@ -61,7 +61,7 @@ daemon 默认监听 `127.0.0.1:6767`（仅限 localhost）。这对本地 CLI �
 
 ### 通过 VPN 访问 {#vpn-access}
 
-当你需要在本地网络之外直接连接时，请使用 [Tailscale](https://tailscale.com) 之类的 VPN。VPN 会加密流量，并让 daemon 不暴露在公共互联网上。把 daemon 绑定到它的 VPN 地址，设置 Paseo 密码，然后在客户端中把该地址添加为直接连接。
+当你需要在本地网络之外直接连接时，请使用 [Tailscale](https://tailscale.com) 之类的 VPN。VPN 会加密流量，并让 daemon 不暴露在公共互联网上。把 daemon 绑定到它的 VPN 地址，设置 Pimi 密码，然后在客户端中把该地址添加为直接连接。
 
 ### 绑定到 0.0.0.0 {#binding-to-0000}
 
@@ -71,7 +71,7 @@ daemon 默认监听 `127.0.0.1:6767`（仅限 localhost）。这对本地 CLI �
 
 **CORS 并不是完整的安全边界**。它控制哪些浏览器来源可以发起请求，但无法阻止恶意网站把它的域名解析到你的本地机器（DNS 重绑定）。
 
-Paseo 使用主机白名单校验传入请求的 `Host` 请求头。主机无法识别的请求会被拒绝。
+Pimi 使用主机白名单校验传入请求的 `Host` 请求头。主机无法识别的请求会被拒绝。
 
 通过 `config.json` 中的 `daemon.hostnames` 配置：
 
@@ -120,7 +120,7 @@ Compose 和反向代理的示例见 [Docker](/docs/docker)。
 
 ## Linux 桌面沙盒 {#linux-desktop-sandbox}
 
-每次在 Linux 上启动桌面应用时，Paseo 都会检查 Chromium 沙盒是否可用。当用户命名空间可用，或已安装的沙盒辅助程序可用时，它会保持沙盒启用。`.deb` 和 `.rpm` 安装包会配置这个辅助程序。
+每次在 Linux 上启动桌面应用时，Pimi 都会检查 Chromium 沙盒是否可用。当用户命名空间可用，或已安装的沙盒辅助程序可用时，它会保持沙盒启用。`.deb` 和 `.rpm` 安装包会配置这个辅助程序。
 
 当两者都不可用时，AppImage 和解压后的 tar 包会在禁用 Chromium 沙盒的情况下启动。如果你需要 Chromium 进程隔离，请使用 `.deb` 或 `.rpm` 软件包。显式传入 `--no-sandbox` 会禁用沙盒。
 
@@ -128,21 +128,21 @@ Compose 和反向代理的示例见 [Docker](/docs/docker)。
 
 ## Agent 身份验证 {#agent-authentication}
 
-Paseo 封装了 Agent CLI（Claude Code、Codex、OpenCode、Muse Code），但不管理它们的身份验证。每个 Agent Provider 自行处理凭据：
+Pimi 封装了 Agent CLI（Claude Code、Codex、OpenCode、Muse Code），但不管理它们的身份验证。每个 Agent Provider 自行处理凭据：
 
 - **Claude Code**：通过 Anthropic 的 OAuth 流程验证，保存在 `~/.claude/` 中
 - **Codex**：使用你的 OpenAI API 密钥或 OAuth 会话
 - **OpenCode**：通过各 Provider 专用的 API 密钥配置
 
-Paseo 从不保存或传输 Provider API 密钥。Agent 在你的用户上下文中运行，使用你现有的凭据。
+Pimi 从不保存或传输 Provider API 密钥。Agent 在你的用户上下文中运行，使用你现有的凭据。
 
 ## Hub 身份与凭据 {#hub-identities-and-credentials}
 
-Hub CLI 登录和 daemon 注册是两个独立的身份。`paseo hub login [origin]` 会在 `PASEO_HOME` 下的一个私有文件中保存一个持久的、组织范围的个人凭据，以规范化后的 Hub 地址为键。保存的凭据从不会发送到其他地址。请把 `PASEO_HOME` 当作敏感的本地状态加以保护。
+Hub CLI 登录和 daemon 注册是两个独立的身份。`pimi hub login [origin]` 会在 `PASEO_HOME` 下的一个私有文件中保存一个持久的、组织范围的个人凭据，以规范化后的 Hub 地址为键。保存的凭据从不会发送到其他地址。请把 `PASEO_HOME` 当作敏感的本地状态加以保护。
 
 Hub CLI 凭据是 bearer 密钥。远程 Hub 地址必须使用 HTTPS；只有回环地址的开发环境（`localhost`、`127.0.0.1` 和 `[::1]`）才接受明文 HTTP。
 
-`paseo hub connect [origin]` 只用这个凭据（或显式提供的 API 密钥）申请一个短期有效的一次性注册令牌。daemon 用这个令牌完成交换，并保留它自己独立生成的关系凭据。退出 CLI 登录不会悄悄移除 daemon 的权限。交互式退出会先完成已确认的同一地址 daemon 断开，再删除登录。在 JSON 和非交互使用中，`logout` 从不提示也不断开；只有当自动化打算同时移除两个身份时，才传入 `--disconnect-daemon`。
+`pimi hub connect [origin]` 只用这个凭据（或显式提供的 API 密钥）申请一个短期有效的一次性注册令牌。daemon 用这个令牌完成交换，并保留它自己独立生成的关系凭据。退出 CLI 登录不会悄悄移除 daemon 的权限。交互式退出会先完成已确认的同一地址 daemon 断开，再删除登录。在 JSON 和非交互使用中，`logout` 从不提示也不断开；只有当自动化打算同时移除两个身份时，才传入 `--disconnect-daemon`。
 
 `--api-key` 和 `PASEO_HUB_API_KEY` 会覆盖已保存的登录，但不会被持久化。用于自动化时，优先通过环境变量或密钥管理器注入；当本地进程列表或 shell 历史对其他用户可见时，避免使用命令行参数。
 

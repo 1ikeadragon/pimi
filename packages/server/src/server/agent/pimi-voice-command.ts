@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { RequestHandler } from "express";
 import type { Logger } from "pino";
-import { PimiVoiceCommandInput, PimiVoicePlan } from "@getpaseo/protocol/pimi-task";
+import { PimiVoiceCommandInput, PimiVoicePlan } from "@pimi/protocol/pimi-task";
 import type { AgentManager } from "./agent-manager.js";
 import {
   generateStructuredAgentResponse,

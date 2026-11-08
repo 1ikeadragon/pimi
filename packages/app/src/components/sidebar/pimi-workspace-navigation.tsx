@@ -23,7 +23,7 @@ import {
 } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { create } from "zustand";
-import type { PimiActivitySection } from "@getpaseo/protocol/pimi-task";
+import type { PimiActivitySection } from "@pimi/protocol/pimi-task";
 import { getDesktopHost, usesPimiMacTitlebar } from "@/desktop/host";
 import { usePimiWorkspaceSection } from "@/desktop/pimi-console-content";
 import { DensityIcon } from "@/components/ui/density-icon";

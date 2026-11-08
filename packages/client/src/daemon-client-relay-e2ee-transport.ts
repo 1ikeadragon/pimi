@@ -1,12 +1,12 @@
-import { maxSecuredPlaintextByteLength } from "@getpaseo/relay";
-import { MAX_RELAY_WEBSOCKET_MESSAGE_BYTES } from "@getpaseo/protocol/websocket-message-limit";
+import { maxSecuredPlaintextByteLength } from "@pimi/relay";
+import { MAX_RELAY_WEBSOCKET_MESSAGE_BYTES } from "@pimi/protocol/websocket-message-limit";
 import {
   openClientSecureChannel,
   PROTECTED_HANDSHAKE_FAILED_CLOSE_CODE,
   type SecureChannel,
   type SecurityMode,
   type Transport as RelayTransport,
-} from "@getpaseo/relay/e2ee";
+} from "@pimi/relay/e2ee";
 import type {
   DaemonTransport,
   DaemonTransportFactory,

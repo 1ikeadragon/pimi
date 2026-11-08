@@ -1,15 +1,12 @@
-import {
-  ChunkedTransport,
-  ChunkedTransportProtocolError,
-} from "@getpaseo/protocol/chunked-transport";
+import { ChunkedTransport, ChunkedTransportProtocolError } from "@pimi/protocol/chunked-transport";
 import {
   HOST_ROUTE_OPCODE,
   encodeHostRouteFrame,
   decodeHostRouteFrame,
   type HostRouteFrame,
-} from "@getpaseo/protocol/binary-frames/index";
+} from "@pimi/protocol/binary-frames/index";
 import { messageTooLargeError } from "./daemon-client-transport-utils.js";
-import type { HostAdd, HostUpdate, HostDirectory } from "@getpaseo/protocol/hosts";
+import type { HostAdd, HostUpdate, HostDirectory } from "@pimi/protocol/hosts";
 import { legacyUsageIcon } from "./legacy-usage-icons.js";
 import { subscribeTimeline, type TimelineMessage } from "./timeline-subscription/index.js";
 import { ProviderSnapshotUpdates } from "./provider-snapshots/index.js";
@@ -20,14 +17,14 @@ import {
   type TimelineSubscription,
 } from "./connection/index.js";
 import { CreationClient } from "./creation/index.js";
-import type { CreationSnapshot } from "@getpaseo/protocol/messages";
+import type { CreationSnapshot } from "@pimi/protocol/messages";
 import type { z } from "zod";
-import type { SessionEventSubscription } from "@getpaseo/protocol/messages";
-import type { LocalSpeechModel } from "@getpaseo/protocol/speech/rpc-schemas";
-import { CLIENT_CAPS, type ClientCapability } from "@getpaseo/protocol/client-capabilities";
-import type { AgentAttentionNotificationPayload } from "@getpaseo/protocol/agent-attention-notification";
-import { MAX_WEBSOCKET_MESSAGE_BYTES } from "@getpaseo/protocol/websocket-message-limit";
-import type { PimiMobileTaskOperation, PimiMobileTaskResult } from "@getpaseo/protocol/pimi-task";
+import type { SessionEventSubscription } from "@pimi/protocol/messages";
+import type { LocalSpeechModel } from "@pimi/protocol/speech/rpc-schemas";
+import { CLIENT_CAPS, type ClientCapability } from "@pimi/protocol/client-capabilities";
+import type { AgentAttentionNotificationPayload } from "@pimi/protocol/agent-attention-notification";
+import { MAX_WEBSOCKET_MESSAGE_BYTES } from "@pimi/protocol/websocket-message-limit";
+import type { PimiMobileTaskOperation, PimiMobileTaskResult } from "@pimi/protocol/pimi-task";
 import {
   AgentCreateFailedStatusPayloadSchema,
   AgentCreatedStatusPayloadSchema,
@@ -42,8 +39,8 @@ import {
   SessionInboundMessageSchema,
   type ActiveTurnBehavior,
   type ServerInfoStatusPayload,
-} from "@getpaseo/protocol/messages";
-import { validateWSOutboundMessage } from "@getpaseo/protocol/validation/ws-outbound";
+} from "@pimi/protocol/messages";
+import { validateWSOutboundMessage } from "@pimi/protocol/validation/ws-outbound";
 import type {
   AgentStreamEventPayload,
   AgentSnapshotPayload,
@@ -142,7 +139,7 @@ import type {
   AgentSkillSelection,
   AgentSkillsStatus,
   AgentSkillsSaveResult,
-} from "@getpaseo/protocol/messages";
+} from "@pimi/protocol/messages";
 import type {
   AgentPermissionRequest,
   AgentPermissionResponse,
@@ -150,13 +147,13 @@ import type {
   AgentProviderNotice,
   AgentProvider,
   AgentSessionConfig,
-} from "@getpaseo/protocol/agent-types";
+} from "@pimi/protocol/agent-types";
 import type {
   AgentConfigApply,
   MutableDaemonConfig,
   MutableDaemonConfigPatch,
-} from "@getpaseo/protocol/messages";
-import { isRelayClientWebSocketUrl } from "@getpaseo/protocol/daemon-endpoints";
+} from "@pimi/protocol/messages";
+import { isRelayClientWebSocketUrl } from "@pimi/protocol/daemon-endpoints";
 import {
   asUint8Array,
   decodeFileTransferFrame,
@@ -170,7 +167,7 @@ import {
   encodePluginInputFrame,
   isPluginFrameOpcode,
   PluginFrameOpcode,
-} from "@getpaseo/protocol/binary-frames/index";
+} from "@pimi/protocol/binary-frames/index";
 import {
   createRelayE2eeTransportFactory,
   createRelayUpgradeTransportFactory,
@@ -194,7 +191,7 @@ import { TerminalStreamRouter, type TerminalStreamEvent } from "./terminal-strea
 import type {
   BrowserAutomationExecuteRequest,
   BrowserAutomationExecuteResponse,
-} from "@getpaseo/protocol/browser-automation/rpc-schemas";
+} from "@pimi/protocol/browser-automation/rpc-schemas";
 
 export interface Logger {
   debug(obj: object, msg?: string): void;
@@ -424,7 +421,7 @@ export interface DaemonClientConfig {
   /** Deliver compact bodies/hash references to a caller-owned snapshot cache.
    * The default keeps public SDK snapshot entries expanded. */
   providerSnapshots?: "wire";
-  sessionPermissions?: import("@getpaseo/protocol/messages").DaemonPermission[];
+  sessionPermissions?: import("@pimi/protocol/messages").DaemonPermission[];
   url: string;
   clientId: string;
   /** Create one cache for the confirmed daemon identity, retained for this client lifetime. */
@@ -3797,7 +3794,7 @@ export class DaemonClient {
 
   async appendAgentTimelineItem(
     agentId: string,
-    item: Omit<import("@getpaseo/protocol/agent-types").PluginTimelineItem, "pluginId">,
+    item: Omit<import("@pimi/protocol/agent-types").PluginTimelineItem, "pluginId">,
   ): Promise<{ seq: number; epoch: string }> {
     const requestId = this.createRequestId();
     const payload = await this.sendCorrelatedSessionRequest({

@@ -6,7 +6,7 @@ nav: 概览
 
 # Hub {#hub}
 
-daemon 在一台机器上为你运行 Agent。Paseo Hub 是位于 daemon 之上的一层。你把 daemon 注册到 Hub，它就为这些 daemon 提供它们自身不具备的能力。
+daemon 在一台机器上为你运行 Agent。Hub 是位于 daemon 之上的一层。你把 daemon 注册到 Hub，它就为这些 daemon 提供它们自身不具备的能力。
 
 ```text
              Hub
@@ -26,7 +26,7 @@ daemon 在一台机器上为你运行 Agent。Paseo Hub 是位于 daemon 之上�
 
 ## 仓库中有什么 {#what-lives-in-your-repository}
 
-`paseo hub init` 会创建一个自包含的起步触发器：
+`pimi hub init` 会创建一个自包含的起步触发器：
 
 ```text
 .paseo/
@@ -51,6 +51,4 @@ daemon 在一台机器上为你运行 Agent。Paseo Hub 是位于 daemon 之上�
 
 ## 自己运行 Hub {#run-hub-yourself}
 
-先在你的机器上使用内嵌数据库启动，等确实需要时再添加 PostgreSQL 或公开部署。[自托管](/docs/hub/self-hosting)介绍了每一步。
-
-[托管 Hub](/docs/hub/hosted) 使用相同的触发器、daemon 和活动模型。[创建免费账号](https://hub.paseo.sh)，无需绑卡，也不会过期。
+启动兼容 Hub，然后按照 [Hub 快速开始](./quickstart.zh-CN.md) 将它连接到 Pimi。

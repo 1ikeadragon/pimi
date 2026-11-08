@@ -253,6 +253,7 @@ export class DaemonSession {
           url: pairing.url ?? "",
           qr: pairing.qr ?? null,
           relayEnabled: pairing.relayEnabled,
+          relayConfigured: pairing.relayConfigured,
         },
       });
     } catch (error) {

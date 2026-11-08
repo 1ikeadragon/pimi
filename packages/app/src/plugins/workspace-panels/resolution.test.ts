@@ -1,4 +1,4 @@
-import { PluginTranslationRuntime } from "@getpaseo/plugin/client/host";
+import { PluginTranslationRuntime } from "@pimi/plugin/client/host";
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 import type { InstalledPlugin } from "../types";

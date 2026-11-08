@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { DaemonClient, FetchAgentsEntry } from "@getpaseo/client/internal/daemon-client";
-import type { AgentSnapshotPayload } from "@getpaseo/protocol/messages";
+import type { DaemonClient, FetchAgentsEntry } from "@pimi/client/internal/daemon-client";
+import type { AgentSnapshotPayload } from "@pimi/protocol/messages";
 import {
   selectAgentTimelineState,
   selectAgentTurnPresentation,

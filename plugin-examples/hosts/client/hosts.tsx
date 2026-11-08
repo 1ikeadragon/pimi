@@ -1,9 +1,4 @@
-import {
-  getPaseoClient,
-  useHosts,
-  usePaseo,
-  type PluginSurfaceProps,
-} from "@getpaseo/plugin/client";
+import { getPaseoClient, useHosts, usePaseo, type PluginSurfaceProps } from "@pimi/plugin/client";
 import { useCallback, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 

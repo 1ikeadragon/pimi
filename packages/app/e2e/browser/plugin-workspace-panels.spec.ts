@@ -36,9 +36,9 @@ function pluginClientSource(input: {
 }): string {
   return `import React, { useRef } from "react";
 import { Pressable, Text, View } from "react-native";
-import { Icon } from "@getpaseo/plugin/client/ui";
-import { useAgent, useWorkspace, openExternalUrl } from "@getpaseo/plugin/client";
-import { ExternalLink } from "@getpaseo/plugin/client/ui";
+import { Icon } from "@pimi/plugin/client/ui";
+import { useAgent, useWorkspace, openExternalUrl } from "@pimi/plugin/client";
+import { ExternalLink } from "@pimi/plugin/client/ui";
 import { recordComposerOpen } from "./shared/rpc";
 
 function WorkspacePanel({ workspaceId, host, layout }) {
@@ -139,7 +139,7 @@ export default function contribute(client) {
 }`;
 }
 
-const pluginSharedSource = `import { defineRpc } from "@getpaseo/plugin";
+const pluginSharedSource = `import { defineRpc } from "@pimi/plugin";
 import { z } from "zod";
 
 export const recordComposerOpen = defineRpc({

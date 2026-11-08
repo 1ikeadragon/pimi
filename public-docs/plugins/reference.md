@@ -12,9 +12,9 @@ Start with the [plugin quickstart](/docs/plugins) to create your first plugin.
 
 Migrating an existing plugin? Follow the standalone [runtime-entry migration guide](/docs/plugins/migration).
 
-Local plugins are directory sources installed into one Paseo daemon. A plugin can contribute:
+Local plugins are directory sources installed into one Pimi daemon. A plugin can contribute:
 
-- React Native screens and sidebar header and footer items to Paseo clients;
+- React Native screens and sidebar header and footer items to Pimi clients;
 - workspace and agent panels opened as workspace tabs;
 - [file panels](#file-panels) for viewing or editing matching files;
 - global, workspace, and agent actions in the Command Center;
@@ -22,14 +22,14 @@ Local plugins are directory sources installed into one Paseo daemon. A plugin ca
 - transformed and daemon-pushed agent timeline rows;
 - light and dark themes in Settings → Appearance;
 - schema-validated RPC handlers running beside the daemon;
-- normal Paseo operations through the TypeScript SDK;
+- normal Pimi operations through the TypeScript SDK;
 - searchable external resources in the message composer.
 
-Plugin code is trusted and unsandboxed. Client surfaces run in the Paseo app. Backend contributions run in a subprocess with access to the daemon machine, including its files, processes, credentials, and network.
+Plugin code is trusted and unsandboxed. Client surfaces run in the Pimi app. Backend contributions run in a subprocess with access to the daemon machine, including its files, processes, credentials, and network.
 
 ## Connected hosts
 
-`usePaseo().hosts` in a client surface and `context.paseo.hosts` in a server handler or lifecycle hook
+`usePimi().hosts` in a client surface and `context.paseo.hosts` in a server handler or lifecycle hook
 use the same [SDK host API](/sdk/reference#clienthosts). They describe the selected daemon's saved
 connections. Existing `useHosts()` and `getPaseoClient(serverId)` keep describing app-known hosts.
 
@@ -49,11 +49,11 @@ by the authenticated link and originating plugin.
 
 ## Project files
 
-`paseo plugin init /absolute/path/to/my-plugin` creates:
+`pimi plugin init /absolute/path/to/my-plugin` creates:
 
 ```text
 my-plugin/
-  paseo-plugin.json
+  pimi-plugin.json
   index.client.tsx
   index.server.ts
   client/greeting.tsx
@@ -63,7 +63,7 @@ my-plugin/
   tsconfig.json
 ```
 
-The required root manifest is `paseo-plugin.json`:
+The required root manifest is `pimi-plugin.json`:
 
 ```json
 {
@@ -73,33 +73,33 @@ The required root manifest is `paseo-plugin.json`:
 }
 ```
 
-| Field          | Required | Behavior                                                                                                                                            |
-| -------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`           | Yes      | Default installation ID.                                                                                                                            |
-| `name`         | No       | Non-empty display name for the registry, the website, your row in **Settings → Plugins**, and your settings header. Without it, Paseo shows the ID. |
-| `icon`         | No       | Relative path to a PNG inside the plugin package.                                                                                                   |
-| `media`        | No       | Array of image or video paths inside the package, or HTTPS URLs. An empty array is valid.                                                           |
-| `description`  | No       | Non-empty summary shown below the plugin name in **Settings → Plugins**.                                                                            |
-| `translations` | No       | Listing text in other languages, read by the registry and ignored by Paseo. See [other languages](/docs/plugins/publishing#other-languages).        |
-| `requirements` | No       | Supported Paseo versions, described below.                                                                                                          |
-| `build`        | No       | Preparation commands, described in the CLI reference.                                                                                               |
+| Field          | Required | Behavior                                                                                                                                           |
+| -------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`           | Yes      | Default installation ID.                                                                                                                           |
+| `name`         | No       | Non-empty display name for the registry, the website, your row in **Settings → Plugins**, and your settings header. Without it, Pimi shows the ID. |
+| `icon`         | No       | Relative path to a PNG inside the plugin package.                                                                                                  |
+| `media`        | No       | Array of image or video paths inside the package, or HTTPS URLs. An empty array is valid.                                                          |
+| `description`  | No       | Non-empty summary shown below the plugin name in **Settings → Plugins**.                                                                           |
+| `translations` | No       | Listing text in other languages, read by the registry and ignored by Pimi. See [other languages](/docs/plugins/publishing#other-languages).        |
+| `requirements` | No       | Supported Pimi versions, described below.                                                                                                          |
+| `build`        | No       | Preparation commands, described in the CLI reference.                                                                                              |
 
-Paths are relative to `paseo-plugin.json`, use forward slashes, and cannot contain `..`
+Paths are relative to `pimi-plugin.json`, use forward slashes, and cannot contain `..`
 segments. Registry listings for visual plugins require an interface image even though `media` is
 optional in the runtime manifest. See [icons and screenshots](/docs/plugins/publishing#icons-and-screenshots)
 for accepted formats and listing requirements.
-Paseo validates the references without opening local assets or fetching URLs.
+Pimi validates the references without opening local assets or fetching URLs.
 
 Unknown top-level fields are ignored. Known fields still validate, and unknown keys inside
 `requirements` are rejected so a misspelled constraint cannot silently skip a compatibility check.
-Manifests using `name`, `icon`, or `media` require Paseo 0.11.0 or later; older daemons reject
+Manifests using `name`, `icon`, or `media` require Pimi 0.11.0 or later; older daemons reject
 these fields during installation.
 
 ### Requirements
 
 `requirements` is an optional object. Its currently supported key, `paseo`, accepts an npm semver
-range. An omitted `requirements.paseo` means `<0.8.0`: the plugin predates the first breaking
-plugin release. Paseo 0.8 and later reject it with a link to the [migration guide](migration).
+range. An omitted `requirements.pimi` means `<0.8.0`: the plugin predates the first breaking
+plugin release. Pimi 0.8 and later reject it with a link to the [migration guide](migration).
 Empty strings, invalid ranges, and unknown manifest requirement keys are rejected.
 
 | Range            | Compatible releases                                                          |
@@ -108,11 +108,11 @@ Empty strings, invalid ranges, and unknown manifest requirement keys are rejecte
 | `^0.8.0`         | 0.8.x releases, including prereleases                                        |
 | `>=0.8.3 <0.9.0` | 0.8.3 through the last 0.8 patch, including prereleases                      |
 
-Prerelease Paseo versions also satisfy a range their stable core (`major.minor.patch`) satisfies, so `0.8.0-beta.1` satisfies `>=0.8.0` but not `<0.8.0`.
+Prerelease Pimi versions also satisfy a range their stable core (`major.minor.patch`) satisfies, so `0.8.0-beta.1` satisfies `>=0.8.0` but not `<0.8.0`.
 
 A prerelease minimum such as `>=0.12.0-beta.4` therefore also admits `0.12.0-beta.3` through its stable core `0.12.0`. Use a different stable core when you need to exclude earlier builds of that core.
 
-`paseo plugin init` writes `>=` followed by the current CLI version and pins the matching SDK
+`pimi plugin init` writes `>=` followed by the current CLI version and pins the matching SDK
 for typechecking. Raise the minimum when adopting a newer API. Add an upper bound when a later
 release is incompatible; a minimum alone does not promise protection from future breaking changes.
 
@@ -122,16 +122,16 @@ Each connected app checks its own version before evaluating client code and show
 in Settings → Plugins. A compatible daemon does not make an older app compatible. A plugin with no
 client entry does not require the connected app to match.
 
-For example: `Plugin "review" requires Paseo >=0.8.0. Your daemon is 0.7.2.` Use a compatible plugin
+For example: `Plugin "review" requires Pimi >=0.8.0. Your daemon is 0.7.2.` Use a compatible plugin
 revision or update the named runtime. Releases before 0.8 do not understand this manifest field
 and cannot show this new diagnostic.
 
 ### Runtime entries
 
-| Entry              | Runtime               | Receives              | Required                                                                        |
-| ------------------ | --------------------- | --------------------- | ------------------------------------------------------------------------------- |
-| `index.client.tsx` | Paseo app, per client | `PluginClientContext` | When the plugin has any UI, callback, theme, or attachment source               |
-| `index.server.ts`  | Daemon subprocess     | `PluginServerContext` | When the plugin contributes handlers, hooks, settings persistence, or providers |
+| Entry              | Runtime              | Receives              | Required                                                                        |
+| ------------------ | -------------------- | --------------------- | ------------------------------------------------------------------------------- |
+| `index.client.tsx` | Pimi app, per client | `PluginClientContext` | When the plugin has any UI, callback, theme, or attachment source               |
+| `index.server.ts`  | Daemon subprocess    | `PluginServerContext` | When the plugin contributes handlers, hooks, settings persistence, or providers |
 
 At least one entry is required; both accept `.ts` or `.tsx`. A directory that still has only the
 old `index.ts` fails to load and points at the [migration guide](/docs/plugins/migration).
@@ -139,8 +139,8 @@ old `index.ts` fails to load and points at the [migration guide](/docs/plugins/m
 Plugin, screen, sidebar-item, workspace-panel, Command Center item, attachment-source, and
 slash-command IDs start with a lowercase letter and contain lowercase letters, numbers, or hyphens.
 
-The generated `package.json` installs `@getpaseo/plugin` and the other host modules as development
-dependencies for local typechecking and tests. Paseo supplies their runtime instances. Consumers do
+The generated `package.json` installs `@pimi/plugin` and the other host modules as development
+dependencies for local typechecking and tests. Pimi supplies their runtime instances. Consumers do
 not install them when adding the plugin.
 
 Every other module lives in one of three directories. Nesting inside them is fine; a module at the
@@ -154,20 +154,20 @@ plugin root is a compile error.
 
 ## Runtime translations {#runtime-translations}
 
-**Unreleased API.** Set `requirements.paseo` to the release that introduces these APIs before publishing your plugin. The [translation example](https://github.com/getpaseo/paseo/tree/main/plugin-examples/translations) uses `>=0.12.1` provisionally; the introducing release has not been assigned.
+**Unreleased API.** Set `requirements.pimi` to the release that introduces these APIs before publishing your plugin. The [translation example](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/translations) uses `>=0.12.1` provisionally; the introducing release has not been assigned.
 
 Ship JSON resources with your client bundle. English (`en`) is required; other keys use canonical language tags such as `zh-CN`. Resources contain nested objects with string leaves. Other languages may omit keys, which fall back to English. Unknown keys, malformed resources, noncanonical locale tags, and mismatched interpolation placeholders are rejected when defining translations.
 
 ```ts
 // client/messages.ts
-import { defineTranslations } from "@getpaseo/plugin/client";
+import { defineTranslations } from "@pimi/plugin/client";
 import en from "./locales/en.json";
 import zhCN from "./locales/zh-CN.json";
 
 export const messages = defineTranslations({ resources: { en, "zh-CN": zhCN } });
 ```
 
-Enable `resolveJsonModule` in your plugin's `tsconfig.json`. Paseo bundles these imports locally; no network loader runs. For example, the resource pair can contain:
+Enable `resolveJsonModule` in your plugin's `tsconfig.json`. Pimi bundles these imports locally; no network loader runs. For example, the resource pair can contain:
 
 `client/locales/en.json`:
 
@@ -193,7 +193,7 @@ Enable `resolveJsonModule` in your plugin's `tsconfig.json`. Paseo bundles these
 Call the plugin hook in React UI:
 
 ```tsx
-import { useTranslation } from "@getpaseo/plugin/client";
+import { useTranslation } from "@pimi/plugin/client";
 import { Text } from "react-native";
 import { messages } from "./messages";
 
@@ -227,30 +227,30 @@ Return language-neutral structured RPC data and translate its presentation in th
 
 ## Runtime modules
 
-Paseo builds each bundle from its matching entry. An import from `client/` into the daemon bundle,
+Pimi builds each bundle from its matching entry. An import from `client/` into the daemon bundle,
 from `server/` into the app bundle, or of a Node module anywhere in the app bundle is a compile
 error. Server imports of React, React Native, or client SDK entries also fail. Shared code imports
 only shared code: no Node, React, runtime-specific SDK entries, or runtime-specific types.
 
-The SDK root (`@getpaseo/plugin`) contains shared data, schemas, and runtime-neutral helpers only.
+The SDK root (`@pimi/plugin`) contains shared data, schemas, and runtime-neutral helpers only.
 Import client contexts and hooks from `/client`, server contexts and lifecycle contracts from
 `/server`, and UI from `/client/ui`. These rules include type imports and transitive
 dependencies. `/client/host` is private to the app host; plugins cannot import it.
 
 ### Client runtime
 
-Paseo provides these modules to client code:
+Pimi provides these modules to client code:
 
-| Module                       | Use it for                                                                                        |
-| ---------------------------- | ------------------------------------------------------------------------------------------------- |
-| `@getpaseo/plugin`           | Shared data, `defineRpc`, `defineSettings`, `defineAttachmentSource`, `RpcInput`, and `RpcOutput` |
-| `@getpaseo/plugin/client/ui` | Paseo UI components and UI hooks                                                                  |
-| `@getpaseo/plugin/client`    | Client contribution contexts, `usePaseo`, `useRpc`, `useSettings`, and data hooks                 |
-| `@tanstack/react-query`      | Request state and caching                                                                         |
-| `react`                      | Components and hooks                                                                              |
-| `react/jsx-runtime`          | Compiled JSX                                                                                      |
-| `react-native`               | Cross-platform UI                                                                                 |
-| `zod`                        | Shared schemas                                                                                    |
+| Module                   | Use it for                                                                                        |
+| ------------------------ | ------------------------------------------------------------------------------------------------- |
+| `@pimi/plugin`           | Shared data, `defineRpc`, `defineSettings`, `defineAttachmentSource`, `RpcInput`, and `RpcOutput` |
+| `@pimi/plugin/client/ui` | Pimi UI components and UI hooks                                                                   |
+| `@pimi/plugin/client`    | Client contribution contexts, `usePaseo`, `useRpc`, `useSettings`, and data hooks                 |
+| `@tanstack/react-query`  | Request state and caching                                                                         |
+| `react`                  | Components and hooks                                                                              |
+| `react/jsx-runtime`      | Compiled JSX                                                                                      |
+| `react-native`           | Cross-platform UI                                                                                 |
+| `zod`                    | Shared schemas                                                                                    |
 
 The host owns its paired React and renderer versions. The SDK's React peer range permits patch
 versions for tooling and Node consumers; it does not change the app's pinned React version or
@@ -258,7 +258,7 @@ guarantee compatibility with another host's renderer.
 
 These exact module specifiers use the host's runtime instances. A client bundle that requests another host module fails with `Module "<name>" is not available in plugin client code`.
 
-Do not import `lucide-react-native`, `react-native-svg`, or DOM libraries. Set contribution `icon` fields to a [Lucide icon name](https://lucide.dev/icons/), inline SVG, or a component; Paseo validates the icon and renders it. See [Icons](#icons).
+Do not import `lucide-react-native`, `react-native-svg`, or DOM libraries. Set contribution `icon` fields to a [Lucide icon name](https://lucide.dev/icons/), inline SVG, or a component; Pimi validates the icon and renders it. See [Icons](#icons).
 
 ### Cross-platform rules
 
@@ -289,7 +289,7 @@ await client.playAudio(audio);
 ```
 
 The promise resolves when playback finishes and rejects if the file is invalid, playback
-fails, or the plugin unloads. Calls share Paseo's voice playback queue and play in order.
+fails, or the plugin unloads. Calls share Pimi's voice playback queue and play in order.
 Unloading a plugin cancels its active and queued audio. Voice playback controls can also
 interrupt that shared queue. Playback does not request microphone permission.
 
@@ -301,13 +301,17 @@ and does not promise delivery while the app is suspended or closed.
 
 ### External links and workspace browsers
 
-Use `ExternalLink` to open documentation outside Paseo:
+Use `ExternalLink` to open documentation outside Pimi:
 
 ```tsx
-import { ExternalLink } from "@getpaseo/plugin/client/ui";
+import { ExternalLink } from "@pimi/plugin/client/ui";
 
 export function DocumentationLink() {
-  return <ExternalLink href="https://paseo.sh/docs">Open documentation</ExternalLink>;
+  return (
+    <ExternalLink href="https://github.com/1ikeadragon/pimi/blob/main/README.md">
+      Open documentation
+    </ExternalLink>
+  );
 }
 ```
 
@@ -315,10 +319,10 @@ The component has accessible link semantics and uses the same opener as
 `openExternalUrl(url: string): Promise<void>`:
 
 ```ts
-import { openExternalUrl } from "@getpaseo/plugin/client";
+import { openExternalUrl } from "@pimi/plugin/client";
 
 export async function openDocumentation() {
-  await openExternalUrl("https://paseo.sh/docs");
+  await openExternalUrl("https://github.com/1ikeadragon/pimi/blob/main/README.md");
 }
 ```
 
@@ -346,13 +350,13 @@ Use `navigation.openBrowser` from a surface or panel. Check availability before 
 the action. This workspace panel chooses an external link on other platforms:
 
 ```tsx
-import type { PluginWorkspacePanelProps } from "@getpaseo/plugin/client";
-import { ExternalLink } from "@getpaseo/plugin/client/ui";
+import type { PluginWorkspacePanelProps } from "@pimi/plugin/client";
+import { ExternalLink } from "@pimi/plugin/client/ui";
 import { Pressable, Text } from "react-native";
 
 export function DocumentationPanel({ navigation, workspaceId, theme }: PluginWorkspacePanelProps) {
   const openBrowser = navigation?.openBrowser;
-  const url = "https://paseo.sh/docs";
+  const url = "https://github.com/1ikeadragon/pimi/blob/main/README.md";
 
   if (!openBrowser) {
     return <ExternalLink href={url}>Open documentation</ExternalLink>;
@@ -400,8 +404,8 @@ Use `openSettings`, `openScreen`, and `openPanel` for your own registered contri
 
 ### Server runtime
 
-Paseo provides `@getpaseo/plugin`, `@getpaseo/plugin/server`,
-`@getpaseo/plugin/server/provider`, `@getpaseo/plugin/server/acp`, and `zod` to server code. Backend
+Pimi provides `@pimi/plugin`, `@pimi/plugin/server`,
+`@pimi/plugin/server/provider`, `@pimi/plugin/server/acp`, and `zod` to server code. Backend
 contributions run in a daemon subprocess with Node access to the host machine. Keep filesystem,
 process, credential, and other machine-local work under `server/`. A plugin without
 `index.server.ts` starts no subprocess.
@@ -412,7 +416,7 @@ Follow [Build a provider plugin](/docs/plugins/providers) for direct and ACP imp
 session lifecycle, composer settings, timeline renderers, testing, and distribution.
 
 Call `server.registerProvider()` with a `ProviderRegistration` from
-`@getpaseo/plugin/server/provider`. Its connection accepts inputs with `send()` and emits complete state
+`@pimi/plugin/server/provider`. Its connection accepts inputs with `send()` and emits complete state
 snapshots through `onEvent()`. `send()` reports acceptance only; prompt disposition, turns,
 configuration, persistence, permissions, and failures are events.
 
@@ -420,29 +424,29 @@ Use the single `session.prompt` input for messages, structured commands, steerin
 effects. Repeat `clientMessageId` on the live user timeline item and publish exactly one matching
 `session.prompt_result`. Publish provider-created children as sessions with `parentSessionId`.
 
-Provider settings are toggle/select descriptors that Paseo renders in the composer. Keep
+Provider settings are toggle/select descriptors that Pimi renders in the composer. Keep
 provider-private options under `ProviderSessionConfig.providerOptions` on `session.open`.
 This record includes configured defaults and per-agent overrides; validate and apply it in your
 provider. See [Provider options](/docs/sdk/provider-options) for configuration and merge semantics.
 Host tools arrive as MCP servers in the complete
 session config.
 
-Paseo refreshes an agent by closing its current provider session and opening it with current
+Pimi refreshes an agent by closing its current provider session and opening it with current
 configuration and persistence. Providers re-read external state during `session.open`.
 
-Use `runAcpProvider()` from `@getpaseo/plugin/server/acp` to adapt a command-backed ACP. Add transformer
+Use `runAcpProvider()` from `@pimi/plugin/server/acp` to adapt a command-backed ACP. Add transformer
 hooks only for a vendor's discovery, configuration, notification, or tool-call differences.
 
 `ProviderRegistration.icon` is a file path relative to the plugin directory, such as `icon.svg`.
 It must resolve inside that directory to a regular file that follows the
-[SVG icon rules](#svg-rules). Paseo reads and validates the file when the plugin starts; the string
+[SVG icon rules](#svg-rules). Pimi reads and validates the file when the plugin starts; the string
 is never inline SVG or a URL.
 
 ### Usage sources
 
-**Requires Paseo 0.11.** Register a source from your server entry with
+**Requires Pimi 0.11.** Register a source from your server entry with
 `server.registerUsageSource()`. Import its contract and helpers from
-`@getpaseo/plugin/server/usage`.
+`@pimi/plugin/server/usage`.
 
 A source implements two calls:
 
@@ -492,7 +496,7 @@ Resolve the session account from that session's launch environment. Return `[]` 
 Never scan default stores from session discovery or scan agents from global discovery. Discovery is a query, with no agent
 lifecycle hooks. Closed agents have no session scope until resumed.
 
-Inputs name credential stores; never put credentials in inputs or reports. Paseo validates each
+Inputs name credential stores; never put credentials in inputs or reports. Pimi validates each
 input against your schema before calling `fetch()`. The same key in any scope is the same report;
 fetches share a five-minute cache only when their ordered login inputs match. Each login fetch
 has a 20-second deadline.
@@ -534,7 +538,7 @@ do not establish duration. When the provider omits it, use a neutral name such a
 “Primary limit” and explain the missing metadata next to the adapter.
 
 For numeric durations, use `windowFromReportedDuration()` from
-`@getpaseo/plugin/server/usage` (Paseo 0.11+). Pass the reported seconds or `null`, a neutral
+`@pimi/plugin/server/usage` (Pimi 0.11+). Pass the reported seconds or `null`, a neutral
 `unknown` identity and name, and an optional stable quota `scope`. The helper derives the ID,
 label, and short label together; it accepts no duration-label override. For named API periods,
 use `windowFromUsedPct()` with names justified by that field.
@@ -557,13 +561,13 @@ discovery, throw; the card shows the error until the next discovery removes it.
 Use `unavailable(problem)` to explain why an existing login cannot supply quota. It requires a
 problem; there is no zero-argument form. `expiresAt` is an ISO timestamp. A rejected login carries
 the upstream HTTP status. `refreshedBy` is a CLI name, such as `claude`, `codex`, `opencode`, `omp`, or
-`pi`. Paseo owns the remedy sentence. Do not put instructions or user-facing sentences in that
+`pi`. Pimi owns the remedy sentence. Do not put instructions or user-facing sentences in that
 field. For `no_quota`, `detail` is displayed verbatim.
 
 ```ts
 import { z } from "zod";
-import type { PluginServerContext } from "@getpaseo/plugin/server";
-import { hashAccountKey, unavailable } from "@getpaseo/plugin/server/usage";
+import type { PluginServerContext } from "@pimi/plugin/server";
+import { hashAccountKey, unavailable } from "@pimi/plugin/server/usage";
 import { findLoginStores, readLogin, readQuota } from "./server/logins";
 
 const input = z.object({ path: z.string() }).strict();
@@ -616,10 +620,10 @@ The source icon is a file path with the same rules as a provider icon.
 
 Each present entry default-exports one contribution function and returns cleanup. Client entries
 receive `PluginClientContext`; server entries receive `PluginServerContext`. Client registration methods return idempotent removers, except header buttons and composer pills,
-which return `{ update, remove }` handles. The entry cleanup runs before Paseo removes remaining registrations.
+which return `{ update, remove }` handles. The entry cleanup runs before Pimi removes remaining registrations.
 
 ```ts
-import type { PluginClientContext } from "@getpaseo/plugin/client";
+import type { PluginClientContext } from "@pimi/plugin/client";
 import { Main } from "./client/main";
 
 export default function contribute(client: PluginClientContext) {
@@ -636,13 +640,13 @@ Register async handlers with `server.addHook(name, handler)`. See [Hooks](/docs/
 
 ## Screens and sidebar items
 
-A screen is a full page of plugin UI. A sidebar item is a component Paseo renders in the sidebar
+A screen is a full page of plugin UI. A sidebar item is a component Pimi renders in the sidebar
 header or footer; it decides what a press does. Register the screen, then an item that opens it:
 
 `client/main.tsx`:
 
 ```tsx
-import type { PluginScreenProps } from "@getpaseo/plugin/client";
+import type { PluginScreenProps } from "@pimi/plugin/client";
 import { useMemo } from "react";
 import { Text, View } from "react-native";
 
@@ -671,8 +675,8 @@ export function Main({ theme, host, layout }: PluginScreenProps) {
 `index.client.tsx`:
 
 ```tsx
-import type { PluginClientContext, PluginSidebarItemProps } from "@getpaseo/plugin/client";
-import { SidebarRow } from "@getpaseo/plugin/client/ui";
+import type { PluginClientContext, PluginSidebarItemProps } from "@pimi/plugin/client";
+import { SidebarRow } from "@pimi/plugin/client/ui";
 import { Main } from "./client/main";
 
 function MainItem({ currentScreen, openScreen }: PluginSidebarItemProps) {
@@ -696,13 +700,13 @@ export default function contribute(client: PluginClientContext) {
 
 | Field        | Meaning                                                                                                                                                                                                                                                                                                                           |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `theme`      | Typed `PluginTheme` color tokens for the active Paseo theme.                                                                                                                                                                                                                                                                      |
+| `theme`      | Typed `PluginTheme` color tokens for the active Pimi theme.                                                                                                                                                                                                                                                                       |
 | `host`       | Selected host `id` and display `label`.                                                                                                                                                                                                                                                                                           |
 | `layout`     | `compact` and the `ios`, `android`, or `web` platform.                                                                                                                                                                                                                                                                            |
 | `params`     | The params the screen was opened with, as string keys and values. `{}` when none.                                                                                                                                                                                                                                                 |
 | `navigation` | Optional client navigation. `openAgent({ agentId, serverId? })` and `openWorkspace({ workspaceId, serverId? })` open targets on `serverId`, or on the selected host when omitted. `openBrowser({ url, workspaceId, serverId? })` is available only on Electron; see [links and browsers](#external-links-and-workspace-browsers). |
 
-Paseo owns the route, header, close action, host picker, error boundary, and query client. The plugin owns the screen body.
+Pimi owns the route, header, close action, host picker, error boundary, and query client. The plugin owns the screen body.
 
 `addScreen({ id, title, Component })` registers a screen. `title` is the screen header's title: a
 [display text](#runtime-translations), or a function that takes the screen's params and returns
@@ -740,7 +744,7 @@ of its items, else the first host.
 `Content` receives `theme`, `host`, `layout`, `close()`, and `openScreen(input)`. Opening a screen
 closes the popover.
 
-Render the item with the sidebar kit from `@getpaseo/plugin/client/ui`:
+Render the item with the sidebar kit from `@pimi/plugin/client/ui`:
 
 | Component          | Props and behavior                                                                                                                                                                                                                                                                                 |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -751,8 +755,8 @@ A popover anchors to the row that was pressed, whether the press landed on the r
 `trailing` content, so a per-row "More" button opens its popover next to its own row.
 
 ```tsx
-import type { PluginSidebarItemProps, PluginPopoverProps } from "@getpaseo/plugin/client";
-import { SidebarRow } from "@getpaseo/plugin/client/ui";
+import type { PluginSidebarItemProps, PluginPopoverProps } from "@pimi/plugin/client";
+import { SidebarRow } from "@pimi/plugin/client/ui";
 import { Pressable, Text } from "react-native";
 
 function SyncDetails({ theme, close, openScreen }: PluginPopoverProps) {
@@ -783,8 +787,8 @@ import type {
   PluginClientContext,
   PluginScreenProps,
   PluginSidebarItemProps,
-} from "@getpaseo/plugin/client";
-import { SidebarRow, SidebarSeparator } from "@getpaseo/plugin/client/ui";
+} from "@pimi/plugin/client";
+import { SidebarRow, SidebarSeparator } from "@pimi/plugin/client/ui";
 import { Text } from "react-native";
 import { botName, useBots } from "./client/bots";
 
@@ -847,12 +851,12 @@ function hideAlerts() {
 
 ## Host UI
 
-Import Paseo-owned UI from `@getpaseo/plugin/client/ui` in client code. This example
+Import Pimi-owned UI from `@pimi/plugin/client/ui` in client code. This example
 opens a controlled modal, renders a host icon, and confirms the action with a toast:
 
 ```tsx
-import type { PluginSurfaceProps } from "@getpaseo/plugin/client";
-import { Icon, Modal, useToast } from "@getpaseo/plugin/client/ui";
+import type { PluginSurfaceProps } from "@pimi/plugin/client";
+import { Icon, Modal, useToast } from "@pimi/plugin/client/ui";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
@@ -893,11 +897,11 @@ export function IssueActions({ theme }: PluginSurfaceProps) {
 
 ### Markdown
 
-Import `Markdown` from `@getpaseo/plugin/client/ui` to render a string with Paseo's
+Import `Markdown` from `@pimi/plugin/client/ui` to render a string with Pimi's
 Markdown presentation on web, iOS, and Android:
 
 ```tsx
-import { Markdown } from "@getpaseo/plugin/client/ui";
+import { Markdown } from "@pimi/plugin/client/ui";
 
 <Markdown>{"## Review\n\nThe checks **passed**."}</Markdown>;
 ```
@@ -951,8 +955,8 @@ Modal children keep the plugin runtime context. `usePaseo`, `useRpc`, `useWorksp
 
 ### Scrolling
 
-Import `ScrollView` and `FlatList` from `@getpaseo/plugin/client/ui` when content can appear in a
-Paseo modal. They accept React Native props and refs and integrate with the sheet's gestures. Outside
+Import `ScrollView` and `FlatList` from `@pimi/plugin/client/ui` when content can appear in a
+Pimi modal. They accept React Native props and refs and integrate with the sheet's gestures. Outside
 a sheet they use ordinary React Native scrolling. Do not import bottom-sheet libraries directly.
 
 Use one vertical scroll owner: either the default modal body, or your own list with
@@ -965,7 +969,7 @@ container without changing these gestures. Expand the sheet before using list me
 `scrollToEnd`; the sheet locks list offsets below its largest height.
 
 ```tsx
-import { FlatList, Modal } from "@getpaseo/plugin/client/ui";
+import { FlatList, Modal } from "@pimi/plugin/client/ui";
 import { Text } from "react-native";
 
 // Inside your controlled Modal:
@@ -995,7 +999,7 @@ user action and await it before reporting success. It rejects if the platform de
 clipboard is unavailable; browser permissions and secure-context requirements still apply.
 
 ```tsx
-import { copyText, useToast } from "@getpaseo/plugin/client/ui";
+import { copyText, useToast } from "@pimi/plugin/client/ui";
 
 // Inside your component:
 const toast = useToast();
@@ -1010,14 +1014,14 @@ async function copyResult() {
 ```
 
 Programmatic copying and native text selection are separate interactions. Use `<Text selectable>`
-for long-press selection and OS Copy. Import `TextInput` from `@getpaseo/plugin/client/ui` for modal forms. It accepts React Native
+for long-press selection and OS Copy. Import `TextInput` from `@pimi/plugin/client/ui` for modal forms. It accepts React Native
 input props and refs, supports OS Paste, and registers focus with the native sheet so the keyboard
 can raise the form. Outside a sheet it uses the ordinary input. A plain React Native input supports
 Paste too, but does not register focus with the sheet; the keyboard can cover it. No clipboard read
 API is needed for OS Paste. Avoid DOM clipboard code in native plugins and the deprecated
 `Clipboard` export from `react-native`.
 
-The runnable [modal UI example](https://github.com/getpaseo/paseo/tree/main/plugin-examples/modal-ui)
+The runnable [modal UI example](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/modal-ui)
 contains a padded form, full-width rows, a virtualized list, horizontal tabs, and a copy/paste input.
 
 ### Toasts
@@ -1041,7 +1045,7 @@ Showing another toast replaces the currently visible toast. An empty message is 
 ### Icons
 
 Every contribution `icon` field takes one of three forms, typed `PluginIcon` in
-`@getpaseo/plugin/client`:
+`@pimi/plugin/client`:
 
 | Form        | Example                     | Use it for                                          |
 | ----------- | --------------------------- | --------------------------------------------------- |
@@ -1052,14 +1056,14 @@ Every contribution `icon` field takes one of three forms, typed `PluginIcon` in
 Attachment sources take a Lucide name or inline SVG (`PluginSerializableIcon`), because each
 attached item stores its source's icon.
 
-Paseo validates the icon when the contribution registers. An unknown Lucide name or an SVG that
+Pimi validates the icon when the contribution registers. An unknown Lucide name or an SVG that
 breaks a rule fails the plugin with the reason:
 
 ```text
 Workspace panel review has an invalid icon: script elements are not allowed
 ```
 
-Paseo draws inline SVG at the surface's icon size and passes the surface's icon color as
+Pimi draws inline SVG at the surface's icon size and passes the surface's icon color as
 `currentColor`. Paint with `currentColor` to follow the theme; fixed fills keep their colors.
 
 A component receives `PluginIconProps`, `{ size, color }`, and renders within that size. Header
@@ -1105,7 +1109,7 @@ client.addWorkspacePanel({ id: "review", title: "Review", icon: { svg: reviewIco
 
 #### Render an icon
 
-`Icon` from `@getpaseo/plugin/client/ui` draws an icon in your own UI. Plugin bundles do
+`Icon` from `@pimi/plugin/client/ui` draws an icon in your own UI. Plugin bundles do
 not import `lucide-react-native` or `react-native-svg`.
 
 | Prop    | Type         | Required         | Behavior                                                     |
@@ -1120,11 +1124,11 @@ An unknown name or an SVG that breaks a rule renders nothing.
 ## Timeline items
 
 A plugin can replace an agent timeline entry with its own data and React Native renderer. Both
-registrations are client contributions. Paseo applies the transformer while building the render
+registrations are client contributions. Pimi applies the transformer while building the render
 model, including every live streaming update.
 
 ```tsx
-import type { PluginClientContext, PluginTimelineItemProps } from "@getpaseo/plugin/client";
+import type { PluginClientContext, PluginTimelineItemProps } from "@pimi/plugin/client";
 import { Text } from "react-native";
 import { z } from "zod";
 
@@ -1167,19 +1171,19 @@ provider- or tool-specific recognition. Returning `undefined` keeps the original
 input is `"streaming"` for the live assistant message, running tool calls, and loading reasoning;
 it is `"complete"` for committed or fetched messages and finished tools or reasoning.
 Assistant and reasoning callbacks receive the full accumulated text on each update, including
-paragraph separators. Paseo invokes transformers before splitting native Markdown or grouping
+paragraph separators. Pimi invokes transformers before splitting native Markdown or grouping
 tools in Overview. A claimed assistant message remains one source item throughout streaming;
 return `undefined` until recognizable if the first text is insufficient to identify it.
-Each replacement may set an optional plugin-local `id`; otherwise Paseo uses its index within that
+Each replacement may set an optional plugin-local `id`; otherwise Pimi uses its index within that
 source item's output.
 
-Renderers receive `agentId`, `item`, `timestamp`, `theme`, `host`, and `layout`. Paseo validates
+Renderers receive `agentId`, `item`, `timestamp`, `theme`, `host`, and `layout`. Pimi validates
 `item.data` with the registered schema before rendering. Keep transformers synchronous and
-deterministic. Paseo memoizes results by source-item reference and derives replacement identity from
+deterministic. Pimi memoizes results by source-item reference and derives replacement identity from
 the source row, so updates to one streaming item do not remount its renderer. Render `<StreamedText text={item.data.text} phase={item.data.phase} />` from
-`@getpaseo/plugin/client/ui` for plain text paced like Paseo's assistant rows. It accepts React Native
+`@pimi/plugin/client/ui` for plain text paced like Pimi's assistant rows. It accepts React Native
 `Text` props (including `style`) and supplies assistant typography and foreground color by default.
-Completion displays the full text immediately; the host owns pacing while streaming. Requires Paseo 0.13 or later.
+Completion displays the full text immediately; the host owns pacing while streaming. Requires Pimi 0.13 or later.
 
 Chat find (Ctrl or Cmd+F) finds and highlights text in replacement rows when the query also
 matches the original message. The host searches the original prompt text or the assistant reply
@@ -1193,7 +1197,7 @@ the web and desktop apps.
 A server handler can add a plugin-owned row to canonical history:
 
 ```ts
-import type { PluginHandlerContext } from "@getpaseo/plugin/server";
+import type { PluginHandlerContext } from "@pimi/plugin/server";
 
 async function publishReview(agentId: string, { paseo }: PluginHandlerContext) {
   await paseo.agents.ref(agentId).timeline.append({
@@ -1216,13 +1220,13 @@ async function publishReview(agentId: string, { paseo }: PluginHandlerContext) {
 
 The daemon stamps `pluginId` from the calling plugin session and rejects this RPC from non-plugin
 sessions. The row appears live, survives timeline refetches, and keeps only the latest value for the
-same plugin and `id`. If its renderer is missing, Paseo shows the existing unavailable row. Daemons
+same plugin and `id`. If its renderer is missing, Pimi shows the existing unavailable row. Daemons
 reject `data` over the limit rather than truncating it. Daemons that support this operation
 advertise `server_info.features.pluginTimelineItems`.
 
 ## Theme and layout
 
-Plugin UI runs on desktop, browser, iOS, and Android, across every Paseo theme. `theme` is a typed `PluginTheme` mapped from the active host theme. Color and spacing must come from those props. Hardcoded colors and unstyled `Text` break when the host theme changes.
+Plugin UI runs on desktop, browser, iOS, and Android, across every Pimi theme. `theme` is a typed `PluginTheme` mapped from the active host theme. Color and spacing must come from those props. Hardcoded colors and unstyled `Text` break when the host theme changes.
 
 Recreate styles when `theme` or `layout.compact` changes.
 
@@ -1252,7 +1256,7 @@ Workspace and agent panels receive the same `theme`, `layout`, and optional `nav
 `name`. A theme is data, so it needs no component file:
 
 ```ts
-import type { PluginClientContext } from "@getpaseo/plugin/client";
+import type { PluginClientContext } from "@pimi/plugin/client";
 
 export default function contribute(client: PluginClientContext) {
   client.addTheme({
@@ -1274,7 +1278,7 @@ export default function contribute(client: PluginClientContext) {
 }
 ```
 
-Every color is a hex string; anything else fails to load. Paseo expands the palette into the full
+Every color is a hex string; anything else fails to load. Pimi expands the palette into the full
 token set the built-in dark themes use, so a contributed theme covers panels, menus, diffs, status
 colors, and the terminal without listing them.
 
@@ -1289,11 +1293,11 @@ colors, and the terminal without listing them.
 | `mutedForeground` | Secondary text                                                    |
 | `ring`            | Focus rings, scrollbars, and terminal bright black                |
 
-`appearance` is `"light"` or `"dark"`. Paseo uses it to select the matching surface, status,
+`appearance` is `"light"` or `"dark"`. Pimi uses it to select the matching surface, status,
 diff, syntax, terminal, and shadow derivation.
 
 Only one contributed theme is active at a time. Selecting one persists the choice; if the plugin is
-later disabled or removed, Paseo falls back to the default theme rather than leaving the app
+later disabled or removed, Pimi falls back to the default theme rather than leaving the app
 unpainted.
 
 Themes need a host that supports them. A client released before `addTheme` cannot evaluate that client entry and reports
@@ -1313,19 +1317,19 @@ Call `client.openSettings(id)` or a Command Center callback's `openSettings(id)`
 of your own screens. Each installation has its own values and route, even when several hosts
 install the same plugin.
 
-The component receives `PluginSurfaceProps`. Paseo owns the header, back navigation, safe areas,
+The component receives `PluginSurfaceProps`. Pimi owns the header, back navigation, safe areas,
 scrolling, and the centered settings column. Compact windows push a full-screen detail; wide
 windows keep the settings sidebar. Render content inside that frame using React Native components.
 A disabled or removed plugin leaves an unavailable screen with working Back navigation.
 
 ### Named UI components
 
-Import settings components from `@getpaseo/plugin/client/ui`. They work with your own state and RPCs;
+Import settings components from `@pimi/plugin/client/ui`. They work with your own state and RPCs;
 no form wrapper or storage binding is required.
 
 ```tsx
 import { useState } from "react";
-import { SettingsCard, SettingsSection, SettingsSwitch } from "@getpaseo/plugin/client/ui";
+import { SettingsCard, SettingsSection, SettingsSwitch } from "@pimi/plugin/client/ui";
 
 export function DisplaySettings() {
   const [visible, setVisible] = useState(true);
@@ -1339,15 +1343,15 @@ export function DisplaySettings() {
 }
 ```
 
-| Component         | Props and behavior                                                                                                                       |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `SettingsSection` | Required `title`, `children`; optional `info` tooltip, `trailing` content, `testID`. Own section spacing and headings.                   |
-| `SettingsCard`    | `children`, optional `testID`. Owns the card surface and dividers between direct children. Give mapped rows stable React keys.           |
-| `SettingsRow`     | Required `label`; optional `hint`, `error`, `children`, `testID`. Wrap any custom control or content.                                    |
-| `SettingsSwitch`  | Row props plus required `value: boolean`, `onValueChange`; optional `disabled`.                                                          |
-| `SettingsSelect`  | Row props plus required string `value`, `options: { label, value }[]`, `onValueChange`; optional `disabled`. Uses Paseo's adaptive menu. |
-| `SettingsInput`   | Row props plus required `onChangeText`; optional `initialValue`, `placeholder`, `disabled`, `secureTextEntry`, `ref`.                    |
-| `SettingsAction`  | Row props plus required `actionLabel`, `onPress`; optional `disabled`.                                                                   |
+| Component         | Props and behavior                                                                                                                      |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `SettingsSection` | Required `title`, `children`; optional `info` tooltip, `trailing` content, `testID`. Own section spacing and headings.                  |
+| `SettingsCard`    | `children`, optional `testID`. Owns the card surface and dividers between direct children. Give mapped rows stable React keys.          |
+| `SettingsRow`     | Required `label`; optional `hint`, `error`, `children`, `testID`. Wrap any custom control or content.                                   |
+| `SettingsSwitch`  | Row props plus required `value: boolean`, `onValueChange`; optional `disabled`.                                                         |
+| `SettingsSelect`  | Row props plus required string `value`, `options: { label, value }[]`, `onValueChange`; optional `disabled`. Uses Pimi's adaptive menu. |
+| `SettingsInput`   | Row props plus required `onChangeText`; optional `initialValue`, `placeholder`, `disabled`, `secureTextEntry`, `ref`.                   |
+| `SettingsAction`  | Row props plus required `actionLabel`, `onPress`; optional `disabled`.                                                                  |
 
 `SettingsInput` owns in-progress text. `initialValue` seeds it when mounted. Its ref exposes
 `focus()`, `blur()`, `getText()`, and `replaceText(text)` for explicit programmatic changes.
@@ -1359,7 +1363,7 @@ can sit beside or inside these components.
 Define a settings document in `shared/`:
 
 ```ts
-import { defineSettings } from "@getpaseo/plugin";
+import { defineSettings } from "@pimi/plugin";
 import { z } from "zod";
 
 export const preferences = defineSettings({
@@ -1440,7 +1444,7 @@ versions produce `invalid` without silently resetting the file. Successful migra
 the new version once. These documents are ordinary host-side JSON, not a credential vault.
 Settings RPCs use the existing `daemon.manage` permission for plugin execution.
 
-See the complete [settings example](https://github.com/getpaseo/paseo/tree/main/plugin-examples/settings)
+See the complete [settings example](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/settings)
 for immediate controls, a draft editor with validation, custom content, and Command Center navigation.
 
 ## Workspace panels
@@ -1451,7 +1455,7 @@ Both receive the same panel contract as [file panels](#file-panels).
 `client/review.tsx`:
 
 ```tsx
-import { type PluginAgentPanelProps, useAgent, useWorkspace } from "@getpaseo/plugin/client";
+import { type PluginAgentPanelProps, useAgent, useWorkspace } from "@pimi/plugin/client";
 import { useMemo } from "react";
 import { Text, View } from "react-native";
 
@@ -1482,7 +1486,7 @@ export function ReviewPanel({ theme, layout, workspaceId, params }: PluginAgentP
 `index.client.tsx`:
 
 ```ts
-import type { PluginClientContext } from "@getpaseo/plugin/client";
+import type { PluginClientContext } from "@pimi/plugin/client";
 import { ReviewPanel } from "./client/review";
 
 export default function contribute(client: PluginClientContext) {
@@ -1514,7 +1518,7 @@ Every panel receives `PluginPanelProps<Params>` with `theme`, `host`, `layout`, 
 
 `tab.setModified(boolean)` marks unsaved work and asks before closing. `tab.state` is opaque
 persisted JSON, initially `undefined`; `tab.setState(value)` replaces it. Each tab owns its state.
-Paseo stores it without interpreting it. Validate it with `useTabState(tab, schema, defaultState)`:
+Pimi stores it without interpreting it. Validate it with `useTabState(tab, schema, defaultState)`:
 
 ```tsx
 const schema = z.object({ view: z.enum(["preview", "source"]) });
@@ -1523,17 +1527,17 @@ const [state, setState] = useTabState(tab, schema, { view: "preview" });
 // In an event handler, call setState({ view: "source" }).
 ```
 
-Import `useTabState` from `@getpaseo/plugin/client` and `z` from `zod`. The setter replaces the
+Import `useTabState` from `@pimi/plugin/client` and `z` from `zod`. The setter replaces the
 entire JSON value. State survives tab restoration and app reloads.
 
-The unified props, `addAgentPanel`, and `useTabState` require Paseo 0.13.0 or later.
+The unified props, `addAgentPanel`, and `useTabState` require Pimi 0.13.0 or later.
 
 **Deprecated until removal after 2027-04-23:** the 0.12 panel `context` and flat `agentId` props,
 `addWorkspacePanel({ context: "workspace" })`, and `addWorkspacePanel({ context: "agent" })`
 continue to work. Omit workspace `context`, register agent panels with `addAgentPanel`, and read
 `params.agentId`.
 
-Read cached state with `useWorkspace(workspaceId, selector)` and `useAgent(params.agentId, selector)`. A selector is required. Paseo compares its result shallowly, so selecting `{ name, status }` does not re-render when unrelated fields change. Select every field the component renders in one call; do not select the whole snapshot.
+Read cached state with `useWorkspace(workspaceId, selector)` and `useAgent(params.agentId, selector)`. A selector is required. Pimi compares its result shallowly, so selecting `{ name, status }` does not re-render when unrelated fields change. Select every field the component renders in one call; do not select the whole snapshot.
 
 Both hooks return `null` when the record is unavailable. Otherwise they run synchronously against normalized client state. Snapshot DTOs and their nested values are deeply readonly and frozen at runtime. Do not call plugin RPC to discover the current workspace or agent. Fetch optional or vendor-specific enrichment after the component renders.
 
@@ -1576,7 +1580,7 @@ Agent snapshot fields:
 | `parentAgentId`     | `string \| null`                                               |
 | `labels`            | `Record<string, string>`                                       |
 
-Paseo owns tab focus, splitting, closing, persistence, query state, the API/RPC providers, and the render error boundary. A restored tab whose plugin, panel, context, workspace, or agent is unavailable stays open with an unavailable message instead of crashing the workspace.
+Pimi owns tab focus, splitting, closing, persistence, query state, the API/RPC providers, and the render error boundary. A restored tab whose plugin, panel, context, workspace, or agent is unavailable stays open with an unavailable message instead of crashing the workspace.
 
 ## File panels
 
@@ -1586,7 +1590,7 @@ loading state, and writes the file when the user edits it. The tab shows a dot w
 reports unsaved changes.
 
 ```tsx
-import type { PluginClientContext } from "@getpaseo/plugin/client";
+import type { PluginClientContext } from "@pimi/plugin/client";
 import { PdfPanel } from "./client/pdf-panel";
 
 export default function contribute(client: PluginClientContext) {
@@ -1601,7 +1605,7 @@ export default function contribute(client: PluginClientContext) {
 ```
 
 `addFilePanel` takes a `PluginFilePanelContribution` and returns an idempotent cleanup function.
-Paseo also removes the registration when the client entry is unloaded.
+Pimi also removes the registration when the client entry is unloaded.
 
 | Field       | Required | Meaning                                                                  |
 | ----------- | -------- | ------------------------------------------------------------------------ |
@@ -1628,8 +1632,8 @@ props described under [Theme and layout](#theme-and-layout), plus:
 | `file`        | `PluginFile`            | File capability resolved from `params.path`, stable while the tab shows this file.                  |
 | `tab`         | `PluginTab`             | `setModified`, opaque persisted `state`, and `setState`. See [Workspace panels](#workspace-panels). |
 
-Paseo mounts your panel once it knows the file exists and its size, without reading it. The
-`file` object is stable, and its stat fields hold the latest version Paseo knows. Read them while
+Pimi mounts your panel once it knows the file exists and its size, without reading it. The
+`file` object is stable, and its stat fields hold the latest version Pimi knows. Read them while
 rendering; changing them does not re-render your panel. A `watch` listener, or a re-render from
 `useFileText`, `useFileBytes`, or `useFileUrl`, is how your panel learns they changed:
 
@@ -1653,7 +1657,7 @@ writes it back reports only `{ type: "changed" }`. A deleted file that comes bac
 A write rejects with `PluginFileConflictError` when the file changed on disk after the handle's
 last read or write. Pass `{ force: true }` to write anyway. A write rejects with
 `PluginFileDeletedError` when the file is gone, with or without `force`. The handle's own writes do not notify
-its watchers. Paseo owns the URL from `url()`: it stays valid until a URL for a newer version
+its watchers. Pimi owns the URL from `url()`: it stays valid until a URL for a newer version
 resolves or the tab closes. Do not build daemon URLs from `file.path`; local URLs also work when
 the daemon is remote.
 
@@ -1669,12 +1673,12 @@ disk, and keeps the current value during a re-read:
 | `useFileUrl(file)`   | `{ status: "ready", url: string }`       |
 
 Each also returns `{ status: "loading" }` before the first read and `{ status: "error", error }`
-when a read fails. For a deleted file, `error` is a `PluginFileDeletedError`. Show `Loading` from `@getpaseo/plugin/client/ui` until
+when a read fails. For a deleted file, `error` is a `PluginFileDeletedError`. Show `Loading` from `@pimi/plugin/client/ui` until
 your content is on screen; it fills the panel, so render it over content that is still laying out.
 
 ```tsx
-import { type PluginFilePanelProps, useFileUrl } from "@getpaseo/plugin/client";
-import { DocumentFrame, Loading } from "@getpaseo/plugin/client/ui";
+import { type PluginFilePanelProps, useFileUrl } from "@pimi/plugin/client";
+import { DocumentFrame, Loading } from "@pimi/plugin/client/ui";
 import { Text } from "react-native";
 
 export function PdfPanel({ file, theme }: PluginFilePanelProps) {
@@ -1701,8 +1705,8 @@ A panel that holds unsaved edits reads with `readText()` once, then handles `wat
 6. On `{ type: "deleted" }` or `PluginFileDeletedError`, tell the user the file is gone.
 
 Write pending edits before the component unmounts: opening the tab with another panel or closing
-the tab unmounts it. Paseo asks before closing a tab whose panel reports unsaved changes. The
-[Markdown panel](https://github.com/getpaseo/paseo/tree/main/plugin-examples/markdown-panel)
+the tab unmounts it. Pimi asks before closing a tab whose panel reports unsaved changes. The
+[Markdown panel](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/markdown-panel)
 example implements these steps.
 
 ### Selection and Open with
@@ -1710,15 +1714,15 @@ example implements these steps.
 A plugin panel is a candidate for every file its selector matches, text or binary. The built-in
 panels require the host's file kind: Markdown, HTML, and **Source** open text files; Image opens
 images. The Markdown and HTML panels each have a Preview and a Source view of the file, switched
-in their toolbar. **Source**, Paseo's editor, is the built-in panel for text files that no other
+in their toolbar. **Source**, Pimi's editor, is the built-in panel for text files that no other
 built-in panel claims; it is never offered beside another built-in panel. Candidates are ordered:
 the built-in panel that claims the file, then plugin panels in host catalog order, then Source
 when no other built-in claims the file.
 
 A remembered association selects its panel when that panel is available on the current host.
-Otherwise Paseo opens the first candidate. When a plugin panel is among several candidates and no
-association applies, Paseo asks once per tab open, over the panel it already opened. A file with
-one candidate never asks. With a Markdown plugin installed, the picker offers **Markdown — Paseo**
+Otherwise Pimi opens the first candidate. When a plugin panel is among several candidates and no
+association applies, Pimi asks once per tab open, over the panel it already opened. A file with
+one candidate never asks. With a Markdown plugin installed, the picker offers **Markdown — Pimi**
 and **Rich Markdown — markdown-panel**. A plugin that claims a text extension no built-in panel
 claims competes with Source, so its first open asks; a plugin that alone claims a binary file
 opens without asking.
@@ -1736,7 +1740,7 @@ have no Source panel.
 
 ### DocumentFrame
 
-Import `DocumentFrame` from `@getpaseo/plugin/client/ui` to display a local file URL from
+Import `DocumentFrame` from `@pimi/plugin/client/ui` to display a local file URL from
 `file.url()` or `useFileUrl`:
 
 | Prop     | Required | Meaning                                                                          |
@@ -1750,20 +1754,20 @@ with no scripts or same-origin access. Native uses a WebView with JavaScript, st
 navigation disabled. Where the platform cannot show the document inline, such as a PDF on Android,
 `DocumentFrame` shows a message naming the file type instead, so render it on every platform.
 
-Inline PDF rendering needs a daemon from Paseo 0.13.0 or later; older daemons report PDFs as
+Inline PDF rendering needs a daemon from Pimi 0.13.0 or later; older daemons report PDFs as
 `application/octet-stream`.
 
 ### Version requirement and examples
 
-File panels, `DocumentFrame`, and `Loading` require Paseo 0.13.0 or later. Declare
-`"requirements": { "paseo": ">=0.13.0" }` in `paseo-plugin.json`. Both daemon and app check the
+File panels, `DocumentFrame`, and `Loading` require Pimi 0.13.0 or later. Declare
+`"requirements": { "paseo": ">=0.13.0" }` in `pimi-plugin.json`. Both daemon and app check the
 [version requirement](#requirements); older apps skip the client bundle before evaluation.
-Writing with `writeBytes` needs a daemon from Paseo 0.13.0 or later.
+Writing with `writeBytes` needs a daemon from Pimi 0.13.0 or later.
 
 Complete directory examples:
 
-- [PDF panel](https://github.com/getpaseo/paseo/tree/main/plugin-examples/pdf-panel): `useFileUrl` with `Loading` and `DocumentFrame`.
-- [Markdown panel](https://github.com/getpaseo/paseo/tree/main/plugin-examples/markdown-panel): a bundled CodeMirror editor that reads once, saves with `writeText`, and resolves conflicts, with read-only native text.
+- [PDF panel](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/pdf-panel): `useFileUrl` with `Loading` and `DocumentFrame`.
+- [Markdown panel](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/markdown-panel): a bundled CodeMirror editor that reads once, saves with `writeText`, and resolves conflicts, with read-only native text.
 
 ## Command Center items
 
@@ -1772,7 +1776,7 @@ Open the Command Center with **⌘K** on macOS or **Ctrl+K** on Windows and Linu
 Register an action and open a panel from the callback:
 
 ```tsx
-import { defineRpc } from "@getpaseo/plugin";
+import { defineRpc } from "@pimi/plugin";
 import { z } from "zod";
 
 const refreshReview = defineRpc({
@@ -1824,7 +1828,7 @@ An agent callback may open either an agent panel or a workspace panel. A workspa
 
 ## Slash commands
 
-Register a command that runs in the Paseo client when the user submits `/name args` from the
+Register a command that runs in the Pimi client when the user submits `/name args` from the
 message composer. The text is never sent to the agent:
 
 ```ts
@@ -1849,8 +1853,8 @@ client.addSlashCommand({
 | `onSubmit`     | Yes      | Client callback for the matching context.      |
 
 `onSubmit` receives the matching Command Center callback context plus `args`. For `/review src`,
-`args` is `"src"`; Paseo trims only the remainder's leading and trailing whitespace and leaves
-parsing to the plugin. Paseo owns the autocomplete row, input clearing, and the error toast. It
+`args` is `"src"`; Pimi trims only the remainder's leading and trailing whitespace and leaves
+parsing to the plugin. Pimi owns the autocomplete row, input clearing, and the error toast. It
 does not wait for `onSubmit` or show a pending state; use a composer pill or panel for that.
 
 Precedence is built-in client commands, plugin commands, then provider commands. A lower-precedence
@@ -1859,7 +1863,7 @@ order wins a collision between plugins. Commands do not run while the composer h
 
 ## Header buttons
 
-Try the [button example](https://github.com/getpaseo/paseo/tree/main/plugin-examples/buttons) for
+Try the [button example](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/buttons) for
 actions, menus, custom icons and content, and visibility updates in both the header and composer.
 It switches one header button between modes; additional actions use a named Tools menu.
 
@@ -1890,7 +1894,7 @@ review.remove();
 ```
 
 Omit `label` for an icon-only header button. Menus and popovers show a chevron on wide layouts.
-Paseo moves excess contributions into a shared overflow menu. On phones and narrow windows the
+Pimi moves excess contributions into a shared overflow menu. On phones and narrow windows the
 header has no room for plugin buttons, so each one is a row of the workspace menu (`···`), with its
 icon and title; its menus and popovers open as pages of that sheet. Placement and overflow are host
 decisions.
@@ -1925,12 +1929,12 @@ const pill = client.addComposerPill({
 ```
 
 For pills that follow the agent directory, use an explicit [owned list subscription](/docs/sdk/events#follow-one-agents-status).
-The [local plugin example](https://github.com/getpaseo/paseo/blob/main/plugin-examples/local-plugin/client/main.tsx)
+The [local plugin example](https://github.com/1ikeadragon/pimi/blob/main/plugin-examples/local-plugin/client/main.tsx)
 replaces registrations on each snapshot and aborts the observation during entry cleanup, including pending bootstrap.
 
 ## Button descriptor
 
-These contracts are exported from `@getpaseo/plugin/client`.
+These contracts are exported from `@pimi/plugin/client`.
 
 | Field      | Required | Meaning                                                                 |
 | ---------- | -------- | ----------------------------------------------------------------------- |
@@ -1948,7 +1952,7 @@ type PluginButtonBehavior =
   | { kind: "popover"; Content: React.ComponentType<PluginButtonContentProps> };
 ```
 
-An action runs on the client. Paseo marks the button busy until its promise settles, blocks repeated
+An action runs on the client. Pimi marks the button busy until its promise settles, blocks repeated
 presses, and shows failures in a toast. A failed action can be retried. Use the client's `paseo` for
 ordinary operations and `rpc` for plugin-specific backend work.
 
@@ -1984,7 +1988,7 @@ const behavior: PluginButtonBehavior = {
 
 An item requires `kind: "item"`, `id`, `title`, and `behavior`. Its optional `icon`, `visible`, and
 `disabled` follow the button rules. A separator contains only `kind: "separator"` and `id`.
-Paseo removes leading, trailing, and consecutive separators after filtering hidden items.
+Pimi removes leading, trailing, and consecutive separators after filtering hidden items.
 
 Items can use all three behaviors. Nested menus open flyouts on wide layouts and pages with back
 navigation within the same compact sheet. Custom content pages open on selection, never hover.
@@ -1993,11 +1997,11 @@ Choosing an action closes the menu; opening another page keeps it open.
 ### Custom icons and popover content
 
 `PluginButtonIconProps` contains `theme`, `host`, `layout`, `size`, `color`, and the target context.
-Render a React Native icon or indicator within the supplied size. Paseo bounds the icon slot and
+Render a React Native icon or indicator within the supplied size. Pimi bounds the icon slot and
 owns all pointer interaction. The icon component can use plugin hooks.
 
 `PluginButtonContentProps` contains `theme`, `host`, `layout`, the target context, and `close()`.
-Render the body only; Paseo owns anchoring, scrolling, padding, and sheet presentation. Content can
+Render the body only; Pimi owns anchoring, scrolling, padding, and sheet presentation. Content can
 use `usePaseo`, `useRpc`, `useWorkspace`, `useAgent`, and the installation's React Query cache.
 
 The target context is one of:
@@ -2022,25 +2026,25 @@ Hiding or disabling a button closes its surface. Updating its behavior also clos
 Hiding preserves the registration, so showing it again restores its position. It does not cancel
 an action already in progress.
 
-`remove()` is idempotent. Updates after removal do nothing. Paseo removes outstanding buttons when
+`remove()` is idempotent. Updates after removal do nothing. Pimi removes outstanding buttons when
 the plugin installation is disposed (see [Hosts and lifecycle](#hosts-and-lifecycle)). Return cleanup from the client entry for
 your subscriptions, timers, and other resources.
 
-## Use the Paseo SDK
+## Use the Pimi SDK
 
-Use `usePaseo()` for ordinary Paseo operations from a surface. It borrows the selected host's existing connection; do not create another client.
+Use `usePimi()` for ordinary Pimi operations from a surface. It borrows the selected host's existing connection; do not create another client.
 
-`usePaseo()` is your plugin's one Paseo client, the same `client.paseo` your setup receives, in
+`usePimi()` is your plugin's one Pimi client, the same `client.paseo` your setup receives, in
 every surface. Release what you subscribe to in your cleanup; when the plugin is disabled, reloaded,
-or removed, or its host goes away, Paseo disposes the client and ends every subscription still open.
+or removed, or its host goes away, Pimi disposes the client and ends every subscription still open.
 
 ```tsx
-import { usePaseo } from "@getpaseo/plugin/client";
+import { usePaseo } from "@pimi/plugin/client";
 import { useEffect, useState } from "react";
 import { Text } from "react-native";
 
 function ProjectChanges() {
-  const paseo = usePaseo();
+  const paseo = usePimi();
   const [changes, setChanges] = useState(0);
   useEffect(() => {
     const observation = paseo.observeEvents(["project.update"]);
@@ -2052,11 +2056,11 @@ function ProjectChanges() {
 ```
 
 ```tsx
-import { type PluginSurfaceProps, usePaseo } from "@getpaseo/plugin/client";
+import { type PluginSurfaceProps, usePaseo } from "@pimi/plugin/client";
 import { Pressable, Text } from "react-native";
 
 function PullRequestAction({ theme }: PluginSurfaceProps) {
-  const paseo = usePaseo();
+  const paseo = usePimi();
 
   async function createReviewWorkspace() {
     const workspace = await paseo.workspaces.create({
@@ -2082,7 +2086,7 @@ function PullRequestAction({ theme }: PluginSurfaceProps) {
 }
 ```
 
-The returned API covers projects, workspaces, agents, terminals, providers, and daemon config. See the [SDK API reference](/docs/sdk/reference) for its methods. Connection lifecycle methods are intentionally absent because Paseo owns the connection.
+The returned API covers projects, workspaces, agents, terminals, providers, and daemon config. See the [SDK API reference](/docs/sdk/reference) for its methods. Connection lifecycle methods are intentionally absent because Pimi owns the connection.
 
 To run a helper the user shouldn't see, such as a classifier or summarizer, create it as a [background agent](/docs/sdk/agents#run-a-helper-as-a-background-agent) in an existing workspace.
 
@@ -2092,7 +2096,7 @@ Use `useHosts()` to display configured hosts and `getPaseoClient(serverId)` in a
 to run SDK operations on one of them:
 
 ```tsx
-import { getPaseoClient, useHosts, type PluginSurfaceProps } from "@getpaseo/plugin/client";
+import { getPaseoClient, useHosts, type PluginSurfaceProps } from "@pimi/plugin/client";
 import { useMemo, useState, type ReactElement } from "react";
 import { Pressable, Text, View } from "react-native";
 
@@ -2147,31 +2151,31 @@ on the target daemon. Acquire the API when performing an action to use the curre
 
 | Event or condition                                                                       | Result and caller action                                                                                                                                        |
 | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Unknown host ID                                                                          | Throws `Unknown Paseo host: <id>`; never falls through to another host.                                                                                         |
-| Host is not online                                                                       | Throws `Paseo host is disconnected: <id>`, including calls through a retained API. Retry when online.                                                           |
+| Unknown host ID                                                                          | Throws `Unknown Pimi host: <id>`; never falls through to another host.                                                                                          |
+| Host is not online                                                                       | Throws `Pimi host is disconnected: <id>`, including calls through a retained API. Retry when online.                                                            |
 | Same connection reconnects                                                               | Retained APIs remain usable after reconnection; observations resume automatically.                                                                              |
 | Connection settings change or the app switches connections, including automatic failover | The old API is released. Call `getPaseoClient(serverId)` again and recreate subscriptions.                                                                      |
 | Host is removed                                                                          | Its API is released; the removed ID is unknown.                                                                                                                 |
 | `client.dispose()`                                                                       | Releases that API and its observations. A later getter call returns a fresh API over the app connection. Disposing the old API again leaves the new API usable. |
 | Originating plugin unloads                                                               | All its borrowed APIs and observations are released, including those targeting other hosts. Retained handles cannot outlive the installation.                   |
-| Surface host selection changes                                                           | `usePaseo()` follows the selected host. An explicitly acquired API keeps its original target.                                                                   |
+| Surface host selection changes                                                           | `usePimi()` follows the selected host. An explicitly acquired API keeps its original target.                                                                    |
 
 You can also release individual subscriptions through the normal SDK API.
 
 Plugins are trusted app code; cross-host access is intentional. Summaries contain no connection
 URLs or credentials, and borrowed APIs provide no connection lifecycle controls. See the
-[host agents example](https://github.com/getpaseo/paseo/tree/main/plugin-examples/hosts).
+[host agents example](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/hosts).
 
 ## Add plugin-specific backend behavior
 
-Use plugin RPC only for work that is not a normal Paseo operation: reading a vendor API, accessing daemon-local resources, or keeping credentials off the client.
+Use plugin RPC only for work that is not a normal Pimi operation: reading a vendor API, accessing daemon-local resources, or keeping credentials off the client.
 
 Define one contract with Zod, handle it in the subprocess, and call it from the surface:
 
 `shared/greeting.ts`:
 
 ```ts
-import { defineRpc } from "@getpaseo/plugin";
+import { defineRpc } from "@pimi/plugin";
 import { z } from "zod";
 
 export const greeting = defineRpc({
@@ -2184,7 +2188,7 @@ export const greeting = defineRpc({
 `client/greeting.tsx`:
 
 ```tsx
-import { useRpc } from "@getpaseo/plugin/client";
+import { useRpc } from "@pimi/plugin/client";
 import { greeting } from "../shared/greeting";
 
 export function GreetingButton() {
@@ -2197,7 +2201,7 @@ export function GreetingButton() {
 `server/greeting.ts`:
 
 ```ts
-import type { RpcInput } from "@getpaseo/plugin";
+import type { RpcInput } from "@pimi/plugin";
 import { greeting } from "../shared/greeting";
 
 export function createGreeting({ name }: RpcInput<typeof greeting>) {
@@ -2208,7 +2212,7 @@ export function createGreeting({ name }: RpcInput<typeof greeting>) {
 `index.client.tsx`:
 
 ```ts
-import type { PluginClientContext } from "@getpaseo/plugin/client";
+import type { PluginClientContext } from "@pimi/plugin/client";
 import { GreetingButton } from "./client/greeting";
 
 export default function contribute(client: PluginClientContext) {
@@ -2220,7 +2224,7 @@ export default function contribute(client: PluginClientContext) {
 `index.server.ts`:
 
 ```ts
-import type { PluginServerContext } from "@getpaseo/plugin/server";
+import type { PluginServerContext } from "@pimi/plugin/server";
 import { createGreeting } from "./server/greeting";
 import { greeting } from "./shared/greeting";
 
@@ -2243,7 +2247,7 @@ Define the contract in `shared/`:
 
 ```ts
 // shared/diff.ts
-import { defineSubscription } from "@getpaseo/plugin";
+import { defineSubscription } from "@pimi/plugin";
 import { z } from "zod";
 
 export const diffWatch = defineSubscription({
@@ -2297,7 +2301,7 @@ disconnects, or the plugin stops. Pushes after the abort are dropped. `push` val
 against the contract and resolves once the event has left the plugin process; await it in a loop
 to pace a producer.
 
-Each subscriber runs its own handler. Paseo does not share one handler between clients and does
+Each subscriber runs its own handler. Pimi does not share one handler between clients and does
 not replay missed events: after a reconnect or a plugin reload, mounted surfaces subscribe again and
 the handler starts from the beginning. Share an
 expensive watcher inside your plugin when several subscribers need it.
@@ -2390,7 +2394,7 @@ an RPC with a `Uint8Array` input; `plugin-examples/diff-watch` watches a working
 Subscriptions and binary RPC values need a host that advertises them. Against an older host,
 `useSubscription` reports `error` asking to update the host, `client.subscribe` rejects `ready`
 with the same message, and an RPC with a `Uint8Array` input or output fails. Raise your plugin's
-`requirements.paseo` to the release that ships subscriptions.
+`requirements.pimi` to the release that ships subscriptions.
 
 ## Debug backend output
 
@@ -2401,9 +2405,9 @@ console.log("Refreshing issues");
 console.error("Issue refresh failed", error);
 ```
 
-Paseo adds `[paseo]` entries when the plugin starts loading, becomes ready, starts stopping, and has
+Pimi adds `[paseo]` entries when the plugin starts loading, becomes ready, starts stopping, and has
 stopped. It records compilation and load failures as stderr entries, including failures that happen
-before the plugin subprocess starts. Paseo also captures output emitted during initialization, RPC
+before the plugin subprocess starts. Pimi also captures output emitted during initialization, RPC
 handlers, cleanup, and process failure. Protocol traffic uses a separate channel, so `console.log()`
 cannot corrupt plugin RPCs.
 
@@ -2411,16 +2415,16 @@ Open **Settings → Plugins → Logs** for the plugin, or inspect the same recen
 CLI:
 
 ```bash
-paseo plugin logs my-plugin
-paseo plugin logs my-plugin --json
-paseo --host <url> plugin logs my-plugin
+pimi plugin logs my-plugin
+pimi plugin logs my-plugin --json
+pimi --host <url> plugin logs my-plugin
 ```
 
 The command returns a snapshot rather than following live output. Refresh the settings view or run
 the command again for newer entries. Each entry includes its timestamp, stdout or stderr stream,
 sequence, and message.
 
-Paseo retains up to 500 entries and 256 KiB per plugin in memory. Individual lines are capped at
+Pimi retains up to 500 entries and 256 KiB per plugin in memory. Individual lines are capped at
 16 KiB. Reload, disable, compilation failure, initialization failure, and process failure retain the
 tail. Removing the plugin clears it, and a daemon restart starts a new tail. Structured copies are
 also written to the daemon log at `$PASEO_HOME/daemon.log`.
@@ -2436,7 +2440,7 @@ An attachment source searches external resources and returns a stable text snaps
 `shared/issues.ts`:
 
 ```ts
-import { defineAttachmentSource, defineRpc } from "@getpaseo/plugin";
+import { defineAttachmentSource, defineRpc } from "@pimi/plugin";
 import { z } from "zod";
 
 export const searchIssues = defineRpc({
@@ -2470,7 +2474,7 @@ export const issues = defineAttachmentSource({
 `server/issues.ts`:
 
 ```ts
-import type { RpcInput } from "@getpaseo/plugin";
+import type { RpcInput } from "@pimi/plugin";
 import { searchIssues } from "../shared/issues";
 
 export function search({ query }: RpcInput<typeof searchIssues>) {
@@ -2481,7 +2485,7 @@ export function search({ query }: RpcInput<typeof searchIssues>) {
 `index.client.tsx`:
 
 ```ts
-import type { PluginClientContext } from "@getpaseo/plugin/client";
+import type { PluginClientContext } from "@pimi/plugin/client";
 import { issues } from "./shared/issues";
 
 export default function contribute(client: PluginClientContext) {
@@ -2493,7 +2497,7 @@ export default function contribute(client: PluginClientContext) {
 `index.server.ts`:
 
 ```ts
-import type { PluginServerContext } from "@getpaseo/plugin/server";
+import type { PluginServerContext } from "@pimi/plugin/server";
 import { search } from "./server/issues";
 import { searchIssues } from "./shared/issues";
 
@@ -2503,11 +2507,11 @@ export default function contribute(server: PluginServerContext) {
 }
 ```
 
-Paseo owns the composer menu, search picker, selected pill, draft state, and submission. The `text` value is the complete snapshot sent to the agent. `icon` is a Lucide name or `{ svg }`; see [Icons](#icons).
+Pimi owns the composer menu, search picker, selected pill, draft state, and submission. The `text` value is the complete snapshot sent to the agent. `icon` is a Lucide name or `{ svg }`; see [Icons](#icons).
 
 ## Hosts and lifecycle
 
-Plugins are installed per daemon. When the same contribution exists on several connected hosts, Paseo shows one sidebar item and adds a host picker. The selected host supplies the bundle, Paseo API, RPC transport, and query cache. Calls never fall through to another host when the selected host is offline.
+Plugins are installed per daemon. When the same contribution exists on several connected hosts, Pimi shows one sidebar item and adds a host picker. The selected host supplies the bundle, Pimi API, RPC transport, and query cache. Calls never fall through to another host when the selected host is offline.
 
 Attachment sources remain scoped to each composer's host.
 
@@ -2528,7 +2532,7 @@ reports `failed` because the plugin is absent from the runtime catalog until its
 ## Plugin sources
 
 Paste one of these source identifiers into **Settings → Plugins**, or pass it to
-`paseo plugin install`. `paseo plugin add <source>` and `paseo plugin install <source>` are aliases.
+`pimi plugin install`. `pimi plugin add <source>` and `pimi plugin install <source>` are aliases.
 The CLI resolves relative directory paths from your current working directory and expands `~`
 to your local home directory, preserving any `:plugin/path` suffix. With `--host`, use an absolute
 path that exists on the daemon host; plugin files are read there and are never uploaded by the CLI.
@@ -2556,7 +2560,7 @@ source for those locations. Use the `npm:` prefix for an unscoped package with b
 and subdirectory (`npm:review@1.2.0:nested`); without it, `user@host:path` is an SCP Git source.
 The package registry validates the selected version, tag, or range.
 
-Paseo resolves an identifier in this order:
+Pimi resolves an identifier in this order:
 
 1. A bare `owner/slug` is a registry id; local directory sources are `.` or `..`, or start with `./`, `../`, `.\`, `..\`, `/`, `~`, a Windows drive (`C:\` or `C:/`), or a UNC (`\\server\share`) prefix.
 2. Otherwise, recognize `npm:`, `github:`, or `git:` before interpreting a subdirectory suffix.
@@ -2571,33 +2575,32 @@ Paseo resolves an identifier in this order:
 5. Resolve a remaining npm package name with its optional selector through the host's registry.
    Reject anything else.
 
-The default registry is `https://plugins.paseo.sh`. Browse [published plugins](https://paseo.sh/plugins)
-and install with `paseo plugin add owner/slug`. Registry records own the revision and plugin path.
-Use `git:owner/repository` for explicit GitHub shorthand or a full Git URL.
-Set `PASEO_PLUGIN_REGISTRY` to use a self-hosted default URL, including a path prefix.
+Use `pimi plugin add registry.example.com/owner/slug` to install from a registry. Its records own
+the revision and plugin path. Set `PIMI_PLUGIN_REGISTRY` to enable the short `owner/slug` form.
+Use `github:owner/repository` or a full Git URL for an explicit Git source.
 Private registry credentials use `pluginRegistries: { "host": { "authorization": "Bearer token" } }`
 in daemon config. Restart the daemon after changing these startup settings. Credentials go only
 to that registry, never to artifact hosts or redirects. Installed plugins retain their recorded
 source and registry URL when defaults change.
 
-Directory lookup happens on the daemon host. The app uses the `paseo-plugin.json` ID; the CLI
+Directory lookup happens on the daemon host. The app uses the `pimi-plugin.json` ID; the CLI
 accepts `--id <runtime-id>` to override it. An existing installation ID is rejected without changing
 its enabled state or files.
 
 ```bash
-paseo plugin install /srv/paseo/plugins/review
-paseo plugin install github:acme/paseo-review
-paseo plugin install git:https://git.example.com:8443/acme/monorepo.git:plugins/review --ref main
-paseo plugin install git@git.example.com:acme/review.git
-paseo plugin install file:///srv/repos/monorepo:plugins/review
-paseo plugin install npm:paseo-review@1.2.0
-paseo plugin install npm:@acme/paseo-review@next
-paseo plugin install 'npm:@acme/paseo-review@>=1.2.0 <2.0.0' --id review-staging
-paseo plugin install npm:@acme/plugins@^1.2.0:plugins/review
+pimi plugin install /srv/paseo/plugins/review
+pimi plugin install github:acme/paseo-review
+pimi plugin install git:https://git.example.com:8443/acme/monorepo.git:plugins/review --ref main
+pimi plugin install git@git.example.com:acme/review.git
+pimi plugin install file:///srv/repos/monorepo:plugins/review
+pimi plugin install npm:paseo-review@1.2.0
+pimi plugin install npm:@acme/paseo-review@next
+pimi plugin install 'npm:@acme/paseo-review@>=1.2.0 <2.0.0' --id review-staging
+pimi plugin install npm:@acme/plugins@^1.2.0:plugins/review
 ```
 
 `--ref` applies only to Git and accepts a branch, tag, or commit for this installation. Without it,
-Paseo installs the remote's default HEAD. Installation selectors do not constrain later updates. The legacy
+Pimi installs the remote's default HEAD. Installation selectors do not constrain later updates. The legacy
 `--path relative/plugin/path` option is equivalent to a subdirectory suffix, including for npm.
 
 ### npm installation and publishing
@@ -2623,24 +2626,24 @@ deletes its managed files; removing a directory plugin keeps your source directo
 ## CLI reference
 
 ```bash
-paseo plugin init /absolute/path/to/plugin
-paseo plugin install /absolute/path/to/plugin
-paseo plugin install /absolute/path/to/plugin --id another-runtime-id
-paseo plugin add owner/slug
-paseo plugin add git:owner/repository
-paseo plugin add https://git.example.com/owner/repository.git --ref main
-paseo plugin add git:owner/monorepo:plugins/review
-paseo plugin ls [id]
-paseo plugin update <id>
-paseo plugin update --all --check
-paseo plugin update --all --yes
-paseo plugin update my-plugin --version 1.2.0
-paseo plugin update my-plugin --ref v2
-paseo plugin reload my-plugin
-paseo plugin logs my-plugin
-paseo plugin disable my-plugin
-paseo plugin enable my-plugin
-paseo plugin remove my-plugin
+pimi plugin init /absolute/path/to/plugin
+pimi plugin install /absolute/path/to/plugin
+pimi plugin install /absolute/path/to/plugin --id another-runtime-id
+pimi plugin add owner/slug
+pimi plugin add git:owner/repository
+pimi plugin add https://git.example.com/owner/repository.git --ref main
+pimi plugin add git:owner/monorepo:plugins/review
+pimi plugin ls [id]
+pimi plugin update <id>
+pimi plugin update --all --check
+pimi plugin update --all --yes
+pimi plugin update my-plugin --version 1.2.0
+pimi plugin update my-plugin --ref v2
+pimi plugin reload my-plugin
+pimi plugin logs my-plugin
+pimi plugin disable my-plugin
+pimi plugin enable my-plugin
+pimi plugin remove my-plugin
 ```
 
 `ls` and Settings show source identity and the current installed revision without contacting the
@@ -2672,10 +2675,10 @@ Put `--host <url>` before a management command when the target is not the CLI's 
 never deletes a directory source; it deletes managed files for Git and npm sources. The install-time
 `--id` is the runtime ID and allows the same directory or repository to be installed more than once.
 
-> **Trust every plugin you add.** `paseo plugin add` and `paseo plugin install` mean “I trust this codebase.” Server code and preparation commands run unsandboxed with the daemon user's access on the daemon host; client contributions run inside Paseo. Dependencies and future updates are part of that decision. With the global `--host` option, commands run on the remote daemon host.
+> **Trust every plugin you add.** `pimi plugin add` and `pimi plugin install` mean “I trust this codebase.” Server code and preparation commands run unsandboxed with the daemon user's access on the daemon host; client contributions run inside Pimi. Dependencies and future updates are part of that decision. With the global `--host` option, commands run on the remote daemon host.
 
 Most plugins should omit `build`. Use it only when the staged checkout must install a dependency
-that Paseo does not provide, generate source or assets, or perform another required preparation
+that Pimi does not provide, generate source or assets, or perform another required preparation
 step:
 
 ```json
@@ -2686,7 +2689,7 @@ step:
 }
 ```
 
-`build` is a list of non-empty argv arrays. Paseo runs each executable directly, without a shell,
+`build` is a list of non-empty argv arrays. Pimi runs each executable directly, without a shell,
 from the staged plugin directory after resolving the exact commit and manifest. It never infers a
 package manager or commands from lockfiles. Install and update both run `build` before validation,
 compilation, activation, or replacement. A failing command reports its output, discards the
@@ -2698,15 +2701,15 @@ Settings; see [Plugin sources](#plugin-sources) for install syntax.
 
 The daemon-wide **Enable plugins** switch lives under **Settings → Plugins**. A configured plugin remains `disabled` until that switch and the plugin's own enabled state are both on.
 
-The switch is the root `pluginsEnabled` field in `config.json`. After changing it, run `paseo reload --json`. Enabling starts every configured plugin whose own `enabled` value is not `false`; disabling tears down all plugins. No daemon restart is required. Manual edits to plugin source entries are not reloaded; use the plugin lifecycle commands for those.
+The switch is the root `pluginsEnabled` field in `config.json`. After changing it, run `pimi reload --json`. Enabling starts every configured plugin whose own `enabled` value is not `false`; disabling tears down all plugins. No daemon restart is required. Manual edits to plugin source entries are not reloaded; use the plugin lifecycle commands for those.
 
 ## Load failures
 
-Use `paseo plugin ls` to read the current status and error.
+Use `pimi plugin ls` to read the current status and error.
 
 | Symptom                                                               | Check                                                                                                                                              |
 | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `This plugin was made for an older version of Paseo`                  | The directory has only an `index.ts` entry. Follow the [migration guide](/docs/plugins/migration).                                                 |
+| `This plugin was made for an older version of Pimi`                   | The directory has only an `index.ts` entry. Follow the [migration guide](/docs/plugins/migration).                                                 |
 | `Plugin entry points are missing`                                     | Neither `index.client.tsx` nor `index.server.ts` exists with that exact name.                                                                      |
 | `server-only module cannot be imported into the plugin client bundle` | Client code imports `server/`. Move the work behind an RPC and import its contract from `shared/`.                                                 |
 | `client-only module cannot be imported into the plugin server bundle` | Server code imports `client/`. Register that contribution from `index.client.tsx` instead.                                                         |
@@ -2714,6 +2717,6 @@ Use `paseo plugin ls` to read the current status and error.
 | Sidebar item is missing                                               | The plugin is `running`, the item is not hidden in Settings > Sidebar, its component does not throw, and the client is on the installation's host. |
 | Client module is unavailable                                          | Import only the host-provided client modules listed above.                                                                                         |
 | RPC rejects                                                           | Check both Zod schemas and the daemon-side handler error.                                                                                          |
-| Edited code does not appear                                           | Run `npm run typecheck`, then `paseo plugin reload <id>`.                                                                                          |
-| Reload fails                                                          | Read `paseo plugin ls` and `paseo plugin logs <id>`, fix the source error, then reload; Paseo does not restore the previous bundle.                |
-| Plugin exits unexpectedly                                             | Read `paseo plugin logs <id>` for retained initialization, cleanup, stderr, and final crash output.                                                |
+| Edited code does not appear                                           | Run `npm run typecheck`, then `pimi plugin reload <id>`.                                                                                           |
+| Reload fails                                                          | Read `pimi plugin ls` and `pimi plugin logs <id>`, fix the source error, then reload; Pimi does not restore the previous bundle.                   |
+| Plugin exits unexpectedly                                             | Read `pimi plugin logs <id>` for retained initialization, cleanup, stderr, and final crash output.                                                 |

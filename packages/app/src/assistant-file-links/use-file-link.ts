@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { Alert } from "react-native";
-import { parseAgentDeepLink } from "@getpaseo/protocol/agent-deep-link";
+import { parseAgentDeepLink } from "@pimi/protocol/agent-deep-link";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
 import { getDesktopHost } from "@/desktop/host";
 import { isHttpUrl } from "@/utils/http-url";

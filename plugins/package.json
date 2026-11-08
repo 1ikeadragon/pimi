@@ -1,5 +1,5 @@
 {
-  "name": "@getpaseo/builtin-plugins",
+  "name": "@pimi/builtin-plugins",
   "version": "0.16.10",
   "private": true,
   "type": "module",
@@ -8,7 +8,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@getpaseo/plugin": "*",
+    "@pimi/plugin": "0.16.10",
     "zod": "4.6.7"
   },
   "devDependencies": {

@@ -1,4 +1,4 @@
-import type { TerminalHooksStatus } from "@getpaseo/protocol/messages";
+import type { TerminalHooksStatus } from "@pimi/protocol/messages";
 import {
   type AgentHookActivityInput,
   type AgentHookActivityState,

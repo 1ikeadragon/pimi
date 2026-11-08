@@ -19,7 +19,8 @@ import type {
   ProviderOverride,
 } from "./agent/provider-launch-config.js";
 import { ProviderOverrideSchema } from "./agent/provider-launch-config.js";
-import { AgentProviderSchema } from "@getpaseo/protocol/provider-manifest";
+import { AgentProviderSchema } from "@pimi/protocol/provider-manifest";
+import { shouldUseTlsForDefaultHostedRelay } from "@pimi/protocol/daemon-endpoints";
 import { hashDaemonPassword } from "./auth.js";
 import { resolveSpeechConfig } from "./speech/speech-config-resolver.js";
 import { readSpeechSettings } from "./speech/speech-settings.js";
@@ -37,7 +38,6 @@ export {
 } from "./persisted-config.js";
 
 const DEFAULT_PORT = 6767;
-const DEFAULT_RELAY_ENDPOINT = "relay.paseo.sh:443";
 const DEFAULT_TRUSTED_PROXIES = ["loopback"];
 
 interface ResolveBundledWebUiDistDirInput {
@@ -275,8 +275,8 @@ interface ResolvedRelay {
   enabled: boolean;
   enabledMutable: boolean;
   requireProtectedSecurity: boolean;
-  endpoint: string;
-  publicEndpoint: string;
+  endpoint: string | undefined;
+  publicEndpoint: string | undefined;
   useTls: boolean;
   publicUseTls: boolean;
 }
@@ -298,31 +298,34 @@ function resolveTlsFromEnv(
 }
 
 function resolveRelayEndpoints(input: ResolveRelayInput): {
-  endpoint: string;
-  publicEndpoint: string;
+  endpoint: string | undefined;
+  publicEndpoint: string | undefined;
 } {
   const endpoint =
-    input.env.PASEO_RELAY_ENDPOINT ??
-    input.persisted.daemon?.relay?.endpoint ??
-    DEFAULT_RELAY_ENDPOINT;
+    (input.env.PASEO_RELAY_ENDPOINT ?? input.persisted.daemon?.relay?.endpoint)?.trim() ||
+    undefined;
   const publicEndpoint =
-    input.env.PASEO_RELAY_PUBLIC_ENDPOINT ??
-    input.persisted.daemon?.relay?.publicEndpoint ??
-    endpoint;
+    (
+      input.env.PASEO_RELAY_PUBLIC_ENDPOINT ?? input.persisted.daemon?.relay?.publicEndpoint
+    )?.trim() || endpoint;
   return { endpoint, publicEndpoint };
 }
 
 function resolveRelayConfig(input: ResolveRelayInput): ResolvedRelay {
   const environmentEnabled = parseBooleanEnv(input.env.PASEO_RELAY_ENABLED);
-  const enabled =
-    input.cliRelayEnabled ?? environmentEnabled ?? input.persisted.daemon?.relay?.enabled ?? false;
   const { endpoint, publicEndpoint } = resolveRelayEndpoints(input);
+  const enabled =
+    endpoint !== undefined &&
+    (input.cliRelayEnabled ??
+      environmentEnabled ??
+      input.persisted.daemon?.relay?.enabled ??
+      false);
   const useTls =
     input.cliRelayUseTls ??
     resolveTlsFromEnv(
       input.env.PASEO_RELAY_USE_TLS,
       input.persisted.daemon?.relay?.useTls,
-      endpoint === DEFAULT_RELAY_ENDPOINT,
+      endpoint !== undefined && shouldUseTlsForDefaultHostedRelay(endpoint),
     );
   const publicUseTls = resolveTlsFromEnv(
     input.env.PASEO_RELAY_PUBLIC_USE_TLS,

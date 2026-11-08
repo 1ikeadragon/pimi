@@ -1,12 +1,12 @@
-import type { AgentAddress } from "@getpaseo/protocol/addresses";
-import { getParentAddressFromLabels } from "@getpaseo/protocol/agent-labels";
+import type { AgentAddress } from "@pimi/protocol/addresses";
+import { getParentAddressFromLabels } from "@pimi/protocol/agent-labels";
 import { useEffect, useMemo } from "react";
 import { usePendingArchiveAgentKeys } from "@/hooks/use-archive-agent";
 import equal from "fast-deep-equal";
 import { useStoreWithEqualityFn } from "zustand/traditional";
 import { useSessionStore, type Agent } from "@/stores/session-store";
 import { refreshProviderSubagents, useProviderSubagentStore } from "./provider-store";
-import type { ProviderSubagentDescriptorPayload } from "@getpaseo/protocol/messages";
+import type { ProviderSubagentDescriptorPayload } from "@pimi/protocol/messages";
 
 export interface PaseoSubagentRow {
   kind: "paseo";

@@ -23,8 +23,8 @@ import type {
   StoredSchedule,
   UpdateScheduleInput,
   UpdateScheduleNewAgentConfig,
-} from "@getpaseo/protocol/schedule/types";
-import type { FirstAgentContext } from "@getpaseo/protocol/messages";
+} from "@pimi/protocol/schedule/types";
+import type { FirstAgentContext } from "@pimi/protocol/messages";
 
 const SCHEDULE_TICK_INTERVAL_MS = 1000;
 

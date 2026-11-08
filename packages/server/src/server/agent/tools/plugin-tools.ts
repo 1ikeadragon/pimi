@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ProviderPaseoToolsPolicy } from "@getpaseo/protocol/provider-config";
+import type { ProviderPaseoToolsPolicy } from "@pimi/protocol/provider-config";
 import type { AgentManager } from "../agent-manager.js";
 import { isPaseoToolEnabled } from "../paseo-tool-policy.js";
 import type { PaseoToolDefinition } from "./types.js";
@@ -18,7 +18,7 @@ export function registerPluginTools(options: {
   for (const tool of agentManager.getPluginTools(callerAgentId)) {
     if (builtinNames.has(tool.name)) {
       throw new Error(
-        `Agent tool ${tool.name} from plugin ${tool.pluginId} collides with Paseo tool ${tool.name}`,
+        `Agent tool ${tool.name} from plugin ${tool.pluginId} collides with Pimi tool ${tool.name}`,
       );
     }
     if (!isPaseoToolEnabled(policy, tool.name)) continue;

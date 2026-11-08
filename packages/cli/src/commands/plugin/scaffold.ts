@@ -1,14 +1,41 @@
-import { mkdir, readdir, writeFile } from "node:fs/promises";
+import { cp, mkdir, readdir, stat, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import path from "node:path";
-import { PluginIdSchema } from "@getpaseo/protocol/messages";
+import { PluginIdSchema } from "@pimi/protocol/messages";
 import { resolveCliVersion } from "../../version.js";
+
+const require = createRequire(import.meta.url);
+const SDK_ENTRYPOINTS = {
+  plugin: "@pimi/plugin",
+  client: "@pimi/client",
+  protocol: "@pimi/protocol/addresses",
+};
+
+async function copySdkTypes(directory: string): Promise<void> {
+  const bundledCli = process.env.PASEO_CLI;
+  const bundledSdk = bundledCli && path.resolve(path.dirname(bundledCli), "../plugin-sdk");
+  const packaged = bundledSdk && (await stat(bundledSdk).catch(() => null))?.isDirectory();
+  await mkdir(path.join(directory, ".pimi-sdk"));
+  await Promise.all(
+    Object.entries(SDK_ENTRYPOINTS).map(([name, specifier]) =>
+      cp(
+        packaged ? path.join(bundledSdk, name) : path.dirname(require.resolve(specifier)),
+        path.join(directory, ".pimi-sdk", name),
+        {
+          recursive: true,
+          filter: async (source) => source.endsWith(".d.ts") || (await stat(source)).isDirectory(),
+        },
+      ),
+    ),
+  );
+}
 
 const OVERVIEW = `<!--
 OVERVIEW.md is required to list your plugin in the registry. Keep it beside
-paseo-plugin.json in your repository at the pinned commit and in your npm package.
+pimi-plugin.json in your repository at the pinned commit and in your npm package.
 Replace this comment with useful facts before publishing.
 
-This overview is for people choosing a plugin in Paseo, on the plugin page under
+This overview is for people choosing a plugin in Pimi, on the plugin page under
 its install command. README assumes a GitHub audience and includes technical
 details, installation instructions, and badges. Long, AI-generated READMEs leave
 people reading past that material to understand what the plugin does.
@@ -47,12 +74,19 @@ const TSCONFIG = {
     noEmit: true,
     esModuleInterop: true,
     allowSyntheticDefaultImports: true,
+    paths: {
+      "@pimi/plugin": ["./.pimi-sdk/plugin/index.d.ts"],
+      "@pimi/plugin/*": ["./.pimi-sdk/plugin/*.d.ts", "./.pimi-sdk/plugin/*/index.d.ts"],
+      "@pimi/client": ["./.pimi-sdk/client/index.d.ts"],
+      "@pimi/client/internal/daemon-client": ["./.pimi-sdk/client/daemon-client.d.ts"],
+      "@pimi/protocol/*": ["./.pimi-sdk/protocol/*.d.ts"],
+    },
   },
   include: ["**/*.ts", "**/*.tsx"],
 };
 
-const CLIENT_ENTRY = `import type { PluginClientContext, PluginSidebarItemProps } from "@getpaseo/plugin/client";
-import { SidebarRow } from "@getpaseo/plugin/client/ui";
+const CLIENT_ENTRY = `import type { PluginClientContext, PluginSidebarItemProps } from "@pimi/plugin/client";
+import { SidebarRow } from "@pimi/plugin/client/ui";
 import { GreetingScreen } from "./client/greeting";
 
 function GreetingItem({ currentScreen, openScreen }: PluginSidebarItemProps) {
@@ -72,7 +106,7 @@ export default function contribute(client: PluginClientContext) {
 }
 `;
 
-const SERVER_ENTRY = `import type { PluginServerContext } from "@getpaseo/plugin/server";
+const SERVER_ENTRY = `import type { PluginServerContext } from "@pimi/plugin/server";
 import { createGreeting } from "./server/greeting";
 import { greetingRpc } from "./shared/greeting";
 
@@ -82,7 +116,7 @@ export default function contribute(server: PluginServerContext) {
 }
 `;
 
-const SHARED_GREETING = `import { defineRpc } from "@getpaseo/plugin";
+const SHARED_GREETING = `import { defineRpc } from "@pimi/plugin";
 import { z } from "zod";
 
 export const greetingRpc = defineRpc({
@@ -92,7 +126,7 @@ export const greetingRpc = defineRpc({
 });
 `;
 
-const SERVER_GREETING = `import type { RpcInput } from "@getpaseo/plugin";
+const SERVER_GREETING = `import type { RpcInput } from "@pimi/plugin";
 import { greetingRpc } from "../shared/greeting";
 
 export function createGreeting({ name }: RpcInput<typeof greetingRpc>) {
@@ -100,8 +134,8 @@ export function createGreeting({ name }: RpcInput<typeof greetingRpc>) {
 }
 `;
 
-const CLIENT_GREETING = `import type { PluginScreenProps } from "@getpaseo/plugin/client";
-import { useRpc } from "@getpaseo/plugin/client";
+const CLIENT_GREETING = `import type { PluginScreenProps } from "@pimi/plugin/client";
+import { useRpc } from "@pimi/plugin/client";
 import { useMutation } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -131,17 +165,17 @@ export function GreetingScreen({ theme, layout }: PluginScreenProps) {
         accessibilityRole="button"
         accessibilityLabel="Create greeting"
         style={styles.button}
-        onPress={() => greeting.mutate({ name: "Paseo" })}
+        onPress={() => greeting.mutate({ name: "Pimi" })}
       >
         <Text style={styles.buttonText}>Create greeting</Text>
       </Pressable>
       <Pressable
         accessibilityRole="link"
-        accessibilityLabel="Open the Paseo website"
+        accessibilityLabel="Open the Pimi website"
         style={styles.button}
-        onPress={() => openExternal("https://paseo.sh")}
+        onPress={() => openExternal("https://1ikeadragon.github.io/pimi/")}
       >
-        <Text style={styles.buttonText}>Open paseo.sh</Text>
+        <Text style={styles.buttonText}>Open Pimi website</Text>
       </Pressable>
     </View>
   );
@@ -185,7 +219,7 @@ export async function scaffoldPluginDirectory(
     private: true,
     version: "0.0.0",
     files: [
-      "paseo-plugin.json",
+      "pimi-plugin.json",
       "OVERVIEW.md",
       "OVERVIEW.*.md",
       "index.client.ts",
@@ -198,7 +232,6 @@ export async function scaffoldPluginDirectory(
     ],
     scripts: { typecheck: "tsc --noEmit" },
     devDependencies: {
-      "@getpaseo/plugin": version,
       "@tanstack/react-query": "^5.90.11",
       "@types/react": "~19.2.0",
       react: "19.1.0",
@@ -209,14 +242,14 @@ export async function scaffoldPluginDirectory(
   };
   const files = new Map<string, string>([
     [
-      "paseo-plugin.json",
+      "pimi-plugin.json",
       `${JSON.stringify(
         {
           id,
           $comment:
             'Add "name": "My plugin" to set a display name. Add "icon": "assets/icon.png" for a PNG inside the package. Add image or video paths (relative to this manifest) or HTTPS URLs to media. Include local assets in package.json files.',
           media: [],
-          requirements: { paseo: `>=${version}` },
+          requirements: { pimi: `>=${version}` },
         },
         null,
         2,
@@ -232,6 +265,7 @@ export async function scaffoldPluginDirectory(
     ["client/greeting.tsx", CLIENT_GREETING],
     ["client/web.ts", CLIENT_WEB],
   ]);
+  await copySdkTypes(directory);
   await Promise.all(
     ["shared", "server", "client"].map((name) => mkdir(path.join(directory, name))),
   );

@@ -1,6 +1,6 @@
-import type { AgentSessionConfig } from "@getpaseo/protocol/agent-types";
-import type { AgentSnapshotPayload, CreateAgentRequestMessage } from "@getpaseo/protocol/messages";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
+import type { AgentSessionConfig } from "@pimi/protocol/agent-types";
+import type { AgentSnapshotPayload, CreateAgentRequestMessage } from "@pimi/protocol/messages";
+import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import { encodeImages } from "@/utils/encode-images";
 import type { UserMessageImageAttachment } from "@/types/stream";
 

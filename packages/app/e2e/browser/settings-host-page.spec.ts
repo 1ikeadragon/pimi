@@ -5,7 +5,7 @@ import {
 } from "../support/helpers/new-workspace";
 import { readFile, mkdir, rename, rm } from "node:fs/promises";
 import path from "node:path";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
+import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import { connectDaemonClient } from "../support/helpers/daemon-client-loader";
 import { expect, test } from "../support/fixtures";
 import { gotoAppShell, openSettings } from "../support/helpers/app";

@@ -1,4 +1,4 @@
-import type { ScheduleCadence } from "@getpaseo/protocol/schedule/types";
+import type { ScheduleCadence } from "@pimi/protocol/schedule/types";
 import { everyMsToParts } from "@/utils/schedule-format";
 
 type CronCadence = Extract<ScheduleCadence, { type: "cron" }>;

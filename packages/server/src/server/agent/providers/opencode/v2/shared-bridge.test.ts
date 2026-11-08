@@ -110,39 +110,39 @@ test("a shared plugin binds Paseo sessions without involving unrelated sessions"
     expect(refreshed).toEqual(["provider", "model", "agent", "command", "skill"]);
     await expect(
       rpc.bind({ sessionID: "paseo", ...plugin.options, token: "another-daemon" }),
-    ).resolves.toEqual({ error: "OpenCode session is already bound to another Paseo bridge" });
-    const own = { sessionID: "paseo", tools: { paseo_echo: {}, native: {} }, system: [] };
+    ).resolves.toEqual({ error: "OpenCode session is already bound to another Pimi bridge" });
+    const own = { sessionID: "paseo", tools: { pimi_echo: {}, native: {} }, system: [] };
     for (const hook of hooks) await hook(own);
-    expect(Object.keys(own.tools)).toEqual(["paseo_echo", "native"]);
+    expect(Object.keys(own.tools)).toEqual(["pimi_echo", "native"]);
     expect(
-      await installed.get("paseo_echo")!.execute({ value: "ok" }, { sessionID: "paseo" }),
+      await installed.get("pimi_echo")!.execute({ value: "ok" }, { sessionID: "paseo" }),
     ).toMatchObject({ content: [{ type: "text", text: "ok" }] });
     await dispose();
     hooks.length = 0;
     installed.clear();
     dispose = await module.default.setup(context);
-    const afterReload = { sessionID: "paseo", tools: { paseo_echo: {}, native: {} }, system: [] };
+    const afterReload = { sessionID: "paseo", tools: { pimi_echo: {}, native: {} }, system: [] };
     for (const hook of hooks) await hook(afterReload);
-    expect(Object.keys(afterReload.tools)).toEqual(["paseo_echo", "native"]);
+    expect(Object.keys(afterReload.tools)).toEqual(["pimi_echo", "native"]);
     expect(
-      await installed.get("paseo_echo")!.execute({ value: "reloaded" }, { sessionID: "paseo" }),
+      await installed.get("pimi_echo")!.execute({ value: "reloaded" }, { sessionID: "paseo" }),
     ).toMatchObject({ content: [{ type: "text", text: "reloaded" }] });
     await bridge.close();
     await dispose();
     hooks.length = 0;
     installed.clear();
     dispose = await module.default.setup(context);
-    const unrelated = { sessionID: "other", tools: { paseo_echo: {}, native: {} }, system: [] };
+    const unrelated = { sessionID: "other", tools: { pimi_echo: {}, native: {} }, system: [] };
     for (const hook of hooks) await hook(unrelated);
     expect(Object.keys(unrelated.tools)).toEqual(["native"]);
     structured = true;
     const structuredOnly = {
       sessionID: "other",
-      tools: { paseo_structured_output: {} },
+      tools: { pimi_structured_output: {} },
       system: [],
     };
     for (const hook of hooks) await hook(structuredOnly);
-    expect(Object.keys(structuredOnly.tools)).toEqual(["paseo_structured_output"]);
+    expect(Object.keys(structuredOnly.tools)).toEqual(["pimi_structured_output"]);
     const restarted = new OpenCodeBridge({
       paseoHome: home,
       logger: createTestLogger(),

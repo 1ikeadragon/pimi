@@ -1,8 +1,8 @@
-import { PluginClientStateProvider } from "@getpaseo/plugin/client/host";
+import { PluginClientStateProvider } from "@pimi/plugin/client/host";
 import { createPluginClientStateSource } from "@/plugins/client-state/source";
 import { useMemo } from "react";
-import type { PluginFilePanelProps } from "@getpaseo/plugin/client";
-import type { PluginTheme } from "@getpaseo/plugin";
+import type { PluginFilePanelProps } from "@pimi/plugin/client";
+import type { PluginTheme } from "@pimi/plugin";
 import { withUnistyles } from "react-native-unistyles";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { usePaneContext } from "@/panels/pane-context";

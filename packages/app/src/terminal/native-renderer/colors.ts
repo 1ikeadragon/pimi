@@ -1,5 +1,5 @@
 import type { ITheme } from "@xterm/xterm";
-import type { TerminalCell } from "@getpaseo/protocol/messages";
+import type { TerminalCell } from "@pimi/protocol/messages";
 import { PASEO_TERMINAL_STYLE_FLAGS } from "../../../modules/paseo-terminal/contract";
 
 import { darkTheme } from "@/styles/theme";

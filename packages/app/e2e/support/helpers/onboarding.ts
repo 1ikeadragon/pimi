@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { expect, type Locator, type Page } from "@playwright/test";
-import type { DaemonClient as InternalDaemonClient } from "@getpaseo/client/internal/daemon-client";
+import type { DaemonClient as InternalDaemonClient } from "@pimi/client/internal/daemon-client";
 import { addProjectFlow, addProjectFlowInput, chooseAddProjectMethod } from "./add-project-flow";
 import { connectDaemonClient } from "./daemon-client-loader";
 import { buildCreateAgentPreferences, buildSeededHost } from "./daemon-registry";

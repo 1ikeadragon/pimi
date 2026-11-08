@@ -1,7 +1,8 @@
 {
-  "name": "@getpaseo/plugin",
+  "name": "@pimi/plugin",
   "version": "0.16.10",
-  "description": "Paseo plugin SDK package",
+  "private": true,
+  "description": "Pimi plugin SDK package",
   "license": "Apache-2.0",
   "files": [
     "dist",
@@ -60,9 +61,6 @@
       "default": "./dist/server/lifecycle.js"
     }
   },
-  "publishConfig": {
-    "access": "public"
-  },
   "scripts": {
     "clean": "node ../../scripts/clean-package-dist.mjs",
     "build": "tsc -p tsconfig.json --incremental false",
@@ -78,8 +76,8 @@
     "use-sync-external-store": "^1.6.0"
   },
   "devDependencies": {
-    "@getpaseo/client": "0.16.10",
-    "@getpaseo/protocol": "0.16.10",
+    "@pimi/client": "0.16.10",
+    "@pimi/protocol": "0.16.10",
     "@types/node": "^20.9.0",
     "@types/react": "~19.2.0",
     "react": "19.2.3",
@@ -89,8 +87,8 @@
     "zod": "4.6.7"
   },
   "peerDependencies": {
-    "@getpaseo/client": "0.16.10",
-    "@getpaseo/protocol": "0.16.10",
+    "@pimi/client": "0.16.10",
+    "@pimi/protocol": "0.16.10",
     "react": ">=19.1.0 <20",
     "react-native": ">=0.81.5",
     "zod": "^4.4.3"

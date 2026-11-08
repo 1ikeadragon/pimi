@@ -188,8 +188,8 @@ import {
   buildPaseoToolDetailSections,
   type PaseoToolDetailField,
   type PaseoToolDetailSection,
-} from "@getpaseo/protocol/paseo-tool-call-detail";
-import { buildPaseoToolDetailSections as current } from "@getpaseo/protocol/paseo-tool-presentation/index";
+} from "@pimi/protocol/paseo-tool-call-detail";
+import { buildPaseoToolDetailSections as current } from "@pimi/protocol/paseo-tool-presentation/index";
 const field: PaseoToolDetailField = { label: "Agent", value: "agt_123" };
 const sections: PaseoToolDetailSection[] = [
   { kind: "prose", title: "Prompt", text: "Hello" },

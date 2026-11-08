@@ -1,6 +1,6 @@
-import { createPaseoApi, type PaseoApi } from "@getpaseo/client";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import type { PluginHostSummary } from "@getpaseo/plugin/client";
+import { createPaseoApi, type PaseoApi } from "@pimi/client";
+import type { DaemonClient } from "@pimi/client/internal/daemon-client";
+import type { PluginHostSummary } from "@pimi/plugin/client";
 
 export interface PluginHostsSource {
   getHosts(): readonly { serverId: string; label: string }[];

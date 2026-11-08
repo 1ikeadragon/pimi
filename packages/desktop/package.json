@@ -1,13 +1,12 @@
 {
-  "name": "@getpaseo/desktop",
+  "name": "@pimi/desktop",
   "version": "0.16.10",
   "private": true,
   "description": "Pimi desktop app (Electron)",
   "homepage": "https://1ikeadragon.github.io/pimi/",
   "license": "Apache-2.0",
   "author": {
-    "name": "Mohamed Boudra",
-    "email": "hello@moboudra.com"
+    "name": "Pimi contributors"
   },
   "repository": {
     "type": "git",
@@ -29,12 +28,11 @@
     "test:e2e:window-startup": "npm run build:main && node ./e2e/window-startup.e2e.mjs"
   },
   "dependencies": {
-    "@getpaseo/cli": "*",
-    "@getpaseo/client": "*",
-    "@getpaseo/highlight": "*",
-    "@getpaseo/server": "*",
+    "@pimi/cli": "*",
+    "@pimi/client": "*",
+    "@pimi/highlight": "*",
+    "@pimi/server": "*",
     "electron-log": "^5.4.3",
-    "electron-updater": "6.8.11",
     "markdown-it": "15.0.3",
     "ws": "8.22.2",
     "zod": "4.6.7"
@@ -49,5 +47,5 @@
     "vitest": "^4.1.6",
     "wait-on": "8.0.5"
   },
-  "desktopName": "Paseo.desktop"
+  "desktopName": "Pimi.desktop"
 }

@@ -1,7 +1,7 @@
 import type {
   ProviderHarnessUpdate,
   ProviderHarnessUpdateChannel,
-} from "@getpaseo/protocol/provider-harness-updates";
+} from "@pimi/protocol/provider-harness-updates";
 import compareVersions from "semver/functions/compare.js";
 import validVersion from "semver/functions/valid.js";
 import { basename } from "node:path";

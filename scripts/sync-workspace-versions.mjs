@@ -43,7 +43,7 @@ for (const workspacePath of workspacePaths) {
     changed = true;
   }
 
-  if (pkg.name === "@getpaseo/desktop") {
+  if (pkg.name === "@pimi/desktop") {
     for (const [field, value] of Object.entries(sharedMetadata)) {
       const currentValue = JSON.stringify(pkg[field]);
       const nextValue = JSON.stringify(value);
@@ -54,10 +54,10 @@ for (const workspacePath of workspacePaths) {
     }
   }
 
-  // Private workspaces (app, desktop) keep "*" for internal deps so npm always
-  // resolves the local sibling, never a registry artifact. Publishable workspaces
-  // get the root version so their published tarballs reference real npm versions.
-  const internalDepRange = pkg.private === true ? "*" : rootVersion;
+  // App entrypoints use workspace links; the libraries pin each other to this build.
+  const internalDepRange = ["packages/app", "packages/desktop"].includes(workspacePath)
+    ? "*"
+    : rootVersion;
 
   for (const section of dependencySections) {
     const deps = pkg[section];
@@ -66,7 +66,7 @@ for (const workspacePath of workspacePaths) {
     }
 
     for (const name of Object.keys(deps)) {
-      if (!name.startsWith("@getpaseo/")) {
+      if (!name.startsWith("@pimi/")) {
         continue;
       }
       if (name === pkg.name) {

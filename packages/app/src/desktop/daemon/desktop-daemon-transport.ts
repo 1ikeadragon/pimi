@@ -1,8 +1,5 @@
-import type {
-  DaemonTransport,
-  DaemonTransportFactory,
-} from "@getpaseo/client/internal/daemon-client";
-import { validatePort, validateSshHost } from "@getpaseo/protocol/ssh-transport";
+import type { DaemonTransport, DaemonTransportFactory } from "@pimi/client/internal/daemon-client";
+import { validatePort, validateSshHost } from "@pimi/protocol/ssh-transport";
 import type { DesktopDaemonTransportTarget } from "./desktop-daemon";
 import {
   defaultLocalDaemonTransportRpc,

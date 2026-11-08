@@ -22,7 +22,7 @@ import {
   SquarePen,
   SquareSlash,
 } from "lucide-react-native";
-import type { MatchRange } from "@getpaseo/protocol/search/text-match";
+import type { MatchRange } from "@pimi/protocol/search/text-match";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import type { Theme } from "@/styles/theme";
 import { Button } from "./button";

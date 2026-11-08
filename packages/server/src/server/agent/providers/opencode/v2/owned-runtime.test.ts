@@ -68,7 +68,7 @@ test("reports a bridge port change that has not been applied", async () => {
     settings: { env: { PASEO_OPENCODE_BRIDGE_PORT: actual === 1 ? "2" : "1" } },
   });
   try {
-    await expect(runtime.acquire()).rejects.toThrow("restart Paseo to apply the bridge port");
+    await expect(runtime.acquire()).rejects.toThrow("restart Pimi to apply the bridge port");
   } finally {
     await runtime.shutdown();
     await bridge.close();

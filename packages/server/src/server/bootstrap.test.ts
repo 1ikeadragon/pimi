@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { expect, test, onTestFinished } from "vitest";
-import { MutableDaemonConfigSchema } from "@getpaseo/protocol/messages";
+import { MutableDaemonConfigSchema } from "@pimi/protocol/messages";
 import { DaemonConfigStore } from "./daemon-config-store.js";
 import { loadPersistedConfig } from "./persisted-config.js";
 import {

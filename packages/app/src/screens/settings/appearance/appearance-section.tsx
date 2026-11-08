@@ -3,11 +3,7 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import {
-  SYNTAX_THEME_OPTIONS,
-  type SyntaxThemeId,
-  type SyntaxThemeOption,
-} from "@getpaseo/highlight";
+import { SYNTAX_THEME_OPTIONS, type SyntaxThemeId, type SyntaxThemeOption } from "@pimi/highlight";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { DropdownTrigger } from "@/components/ui/dropdown-trigger";
 import { SettingsSection } from "@/components/settings/headings/settings-section";

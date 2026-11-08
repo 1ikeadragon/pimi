@@ -1,4 +1,4 @@
-import type { PaseoAgentBackgroundWorkItem as AgentBackgroundWorkItem } from "@getpaseo/client";
+import type { PaseoAgentBackgroundWorkItem as AgentBackgroundWorkItem } from "@pimi/client";
 
 interface Port {
   list(): Promise<AgentBackgroundWorkItem[]>;

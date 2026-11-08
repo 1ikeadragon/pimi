@@ -1,6 +1,6 @@
 ---
 title: MCP reference
-description: Reference for the Paseo tools agents use to manage agents, workspaces, scripts, terminals, and schedules.
+description: Reference for the Pimi tools agents use to manage agents, workspaces, scripts, terminals, and schedules.
 nav: MCP reference
 order: 34
 category: Orchestration
@@ -8,25 +8,25 @@ category: Orchestration
 
 # MCP reference
 
-[Enable Paseo tools](/docs/orchestration#get-started) to give agents this catalog. Ask for an outcome in natural language, or use the tool interfaces below.
+[Enable Pimi tools](/docs/orchestration#get-started) to give agents this catalog. Ask for an outcome in natural language, or use the tool interfaces below.
 
 ## Configuration
 
-| Setting                       | Default | Purpose                                            |
-| ----------------------------- | ------- | -------------------------------------------------- |
-| `daemon.mcp.enabled`          | `true`  | Run the MCP server.                                |
-| `daemon.mcp.injectIntoAgents` | `false` | Give agents launched by Paseo access to its tools. |
+| Setting                       | Default | Purpose                                           |
+| ----------------------------- | ------- | ------------------------------------------------- |
+| `daemon.mcp.enabled`          | `true`  | Run the MCP server.                               |
+| `daemon.mcp.injectIntoAgents` | `false` | Give agents launched by Pimi access to its tools. |
 
-Depending on the provider, Paseo delivers tools through its native tool interface or MCP. The capabilities are the same. Start a new agent or reload an existing one after changing injection settings.
+Depending on the provider, Pimi delivers tools through its native tool interface or MCP. The capabilities are the same. Start a new agent or reload an existing one after changing injection settings.
 
-## Limit Paseo tools by provider
+## Limit Pimi tools by provider
 
-Use provider policies when different agent profiles should receive different Paseo tools. Enable
+Use provider policies when different agent profiles should receive different Pimi tools. Enable
 tool injection globally, then add `paseoTools` to the exact provider IDs you launch:
 
 ```json
 {
-  "$schema": "https://paseo.sh/schemas/paseo.config.v1.json",
+  "$schema": "https://github.com/1ikeadragon/pimi/blob/main/README.md.config.v1.json",
   "version": 1,
   "daemon": {
     "mcp": {
@@ -59,7 +59,7 @@ tool injection globally, then add `paseoTools` to the exact provider IDs you lau
 }
 ```
 
-Run `paseo reload` after editing `~/.paseo/config.json`, then start a new agent or reload an
+Run `pimi reload` after editing `~/.paseo/config.json`, then start a new agent or reload an
 existing one. A running session keeps the catalog it received at launch.
 
 Omitting `paseoTools` enables the complete catalog. Set `enabled` to `false` to remove the catalog,
@@ -100,7 +100,7 @@ MCP does not expose an agent-detach tool. Detaching is a manual user action in t
 | `get_agent_activity` | Return recent agent timeline entries as a curated summary.                                                                                                                                                                                                                                                                           |
 | `set_agent_mode`     | Switch an agent's session mode.                                                                                                                                                                                                                                                                                                      |
 
-Paseo agents receive finish, error, and permission notifications by default; set `notifyOnFinish: false` to disable them. External MCP clients use `get_agent_status` and `get_agent_activity` to check results.
+Pimi agents receive finish, error, and permission notifications by default; set `notifyOnFinish: false` to disable them. External MCP clients use `get_agent_status` and `get_agent_activity` to check results.
 
 ### Workspaces
 
@@ -115,15 +115,15 @@ For worktree isolation, `create_workspace` accepts the same useful choices as th
 
 ### Workspace scripts
 
-These tools manage scripts configured in a workspace's `paseo.json`. Each requires an explicit `workspaceId`; start and stop also require the configured `scriptName`.
+These tools manage scripts configured in a workspace's `pimi.json`. Each requires an explicit `workspaceId`; start and stop also require the configured `scriptName`.
 
 | Tool                     | Function                                                                                |
 | ------------------------ | --------------------------------------------------------------------------------------- |
 | `list_workspace_scripts` | List configured scripts with lifecycle, terminal, port, proxy URL, and health metadata. |
-| `start_workspace_script` | Start a configured script through Paseo's managed launcher.                             |
+| `start_workspace_script` | Start a configured script through Pimi's managed launcher.                              |
 | `stop_workspace_script`  | Stop a running script through its supervised terminal.                                  |
 
-See [Git worktrees](/docs/worktrees#scripts-and-services) for `paseo.json` configuration.
+See [Git worktrees](/docs/worktrees#scripts-and-services) for `pimi.json` configuration.
 
 ### Terminals
 

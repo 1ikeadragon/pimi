@@ -3,7 +3,7 @@ import type {
   PluginUpdateResult,
   PluginUpdateSelection,
   PluginUpdateProposal,
-} from "@getpaseo/protocol/messages";
+} from "@pimi/protocol/messages";
 
 interface UpdateClient {
   previewPluginUpdates(input: {

@@ -2,7 +2,7 @@ import { connectDaemonClient } from "./daemon-client-loader";
 import { startIsolatedHostDaemon } from "./isolated-host-daemon";
 import { seedWorkspace } from "./seed-client";
 import { getE2EDaemonPort } from "./daemon-port";
-import { PARENT_AGENT_ID_LABEL } from "@getpaseo/protocol/agent-labels";
+import { PARENT_AGENT_ID_LABEL } from "@pimi/protocol/agent-labels";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { daemonWsRoutePattern } from "./daemon-port";
 import type { SeededWorkspace } from "./seed-client";
@@ -342,7 +342,7 @@ export async function delegateFleetThroughMcp() {
   const { StreamableHTTPClientTransport } =
     await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
   const { z } = await import("zod");
-  type DaemonClient = import("@getpaseo/client/internal/daemon-client").DaemonClient;
+  type DaemonClient = import("@pimi/client/internal/daemon-client").DaemonClient;
   const workspace = await seedWorkspace({ repoPrefix: "fleet-mcp-" });
   const destination = await startIsolatedHostDaemon(`fleet_${crypto.randomUUID()}`);
   const a = await connectDaemonClient<DaemonClient>({ clientIdPrefix: "fleet-seed-A" });

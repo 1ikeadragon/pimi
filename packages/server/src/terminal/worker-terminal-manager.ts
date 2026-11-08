@@ -7,8 +7,8 @@ import { createExternalProcessEnv } from "../server/paseo-env.js";
 import { assertAbsolutePath, isSameOrDescendantPath } from "../server/path-utils.js";
 import { writtenDuringThisBoot } from "../server/pid-lock.js";
 import type { WorkerTerminalState } from "./terminal-worker-protocol.js";
-import type { TerminalActivity, TerminalActivityState } from "@getpaseo/protocol/terminal-activity";
-import { deriveTerminalActivityStatusBucket } from "@getpaseo/protocol/terminal-activity";
+import type { TerminalActivity, TerminalActivityState } from "@pimi/protocol/terminal-activity";
+import { deriveTerminalActivityStatusBucket } from "@pimi/protocol/terminal-activity";
 import type {
   ClientMessage,
   ServerMessage,

@@ -1,6 +1,6 @@
 import type { AgentStreamEvent } from "../agent-sdk-types.js";
-import { parentAddressLabels } from "@getpaseo/protocol/agent-labels";
-import type { ActiveTurnBehavior, AgentSnapshotPayload } from "@getpaseo/protocol/messages";
+import { parentAddressLabels } from "@pimi/protocol/agent-labels";
+import type { ActiveTurnBehavior, AgentSnapshotPayload } from "@pimi/protocol/messages";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
@@ -8,9 +8,9 @@ import {
   DaemonConnectionError,
   type FetchWorkspacesEntry,
   type WaitForFinishResult,
-} from "@getpaseo/client/internal/daemon-client";
-import type { DaemonTransportFactory } from "@getpaseo/client/internal/daemon-client-transport-types";
-import type { HostDirectory } from "@getpaseo/protocol/hosts";
+} from "@pimi/client/internal/daemon-client";
+import type { DaemonTransportFactory } from "@pimi/client/internal/daemon-client-transport-types";
+import type { HostDirectory } from "@pimi/protocol/hosts";
 import { OWNER_PERMISSIONS } from "../../authorization/index.js";
 import type { ConnectedHosts } from "../../connected-hosts/index.js";
 import { resolveRequiredProviderModel } from "../mcp-shared.js";

@@ -57,7 +57,7 @@ vi.mock("electron-log/main", () => ({
   },
 }));
 
-vi.mock("@getpaseo/server/daemon-control", async (importOriginal) => ({
+vi.mock("@pimi/server/daemon-control", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   resolvePaseoHome: () => mocks.paseoHome,
   spawnProcess: mocks.spawnProcess,

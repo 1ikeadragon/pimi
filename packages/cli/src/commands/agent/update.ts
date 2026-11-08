@@ -1,6 +1,6 @@
 import type { Command } from "commander";
-import type { AgentProviderNotice } from "@getpaseo/protocol/agent-types";
-import type { AgentSnapshotPayload } from "@getpaseo/protocol/messages";
+import type { AgentProviderNotice } from "@pimi/protocol/agent-types";
+import type { AgentSnapshotPayload } from "@pimi/protocol/messages";
 import { connectToDaemon } from "../../utils/client.js";
 import type {
   CommandOptions,

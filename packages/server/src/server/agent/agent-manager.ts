@@ -1,28 +1,28 @@
 import type { AttachedAgentTool, PluginAgentToolsRuntime } from "../plugins/agent-tools.js";
-import type { AgentToolResult } from "@getpaseo/plugin/server";
+import type { AgentToolResult } from "@pimi/plugin/server";
 import type { RuntimeCleanupCandidate } from "./idle-runtime-cleanup/index.js";
 import { ensureAgentLoaded } from "./agent-loading.js";
 import { projectTimelineRows } from "./timeline-projection.js";
 import type { PluginLifecycle } from "../plugins/lifecycle/index.js";
 import { describeHookAgent, publishAgentStream } from "../plugins/lifecycle/index.js";
-import type { PluginSessionOpenRequest } from "@getpaseo/plugin/server";
+import type { PluginSessionOpenRequest } from "@pimi/plugin/server";
 import { randomUUID } from "node:crypto";
 import { basename, resolve } from "node:path";
 import { stat } from "node:fs/promises";
 import {
   AGENT_LIFECYCLE_STATUSES,
   type AgentLifecycleStatus,
-} from "@getpaseo/protocol/agent-lifecycle";
+} from "@pimi/protocol/agent-lifecycle";
 import {
   getParentAgentIdFromLabels,
   hasOpenAgentTab,
   isDelegatedAgent,
   isOpenAgentTabLabel,
   PARENT_AGENT_ID_LABEL,
-} from "@getpaseo/protocol/agent-labels";
+} from "@pimi/protocol/agent-labels";
 import type { Logger } from "pino";
-import type { ToolPolicy } from "@getpaseo/protocol/agent-types";
-import type { ProviderPaseoToolsPolicy } from "@getpaseo/protocol/provider-config";
+import type { ToolPolicy } from "@pimi/protocol/agent-types";
+import type { ProviderPaseoToolsPolicy } from "@pimi/protocol/provider-config";
 import { z } from "zod";
 import type { TerminalManager } from "../../terminal/terminal-manager.js";
 
@@ -86,9 +86,9 @@ import { invokeRewindCapability, type RewindMode } from "./rewind/rewind.js";
 import { parseAgentMessage, projectAgentMessages } from "./agent-messages/index.js";
 import { isStaleProviderSessionError } from "./stale-provider-session-error.js";
 import {
-  PASEO_MCP_SERVER_NAME,
-  stripInternalPaseoMcpServer,
-  withRuntimePaseoMcpServer,
+  PIMI_MCP_SERVER_NAME,
+  stripInternalPimiMcpServer,
+  withRuntimePimiMcpServer,
 } from "./runtime-mcp-config.js";
 import { resolveCreateAgentTitles } from "./create-agent-title.js";
 import type { PaseoToolCatalogFactory } from "./tools/types.js";
@@ -99,7 +99,7 @@ import {
   PIMI_TASK_PROPOSAL_TOOL,
   PIMI_TASK_WORKER_LABEL,
   PimiTaskAgentTool,
-} from "@getpaseo/protocol/pimi-task";
+} from "@pimi/protocol/pimi-task";
 import {
   ProviderSubagentStore,
   type ProviderSubagentDescriptor,
@@ -287,7 +287,7 @@ function buildStoredAgentConfig(record: StoredAgentRecord): AgentSessionConfig {
     config.systemPrompt = record.config.systemPrompt;
   }
   if (record.config.mcpServers != null) config.mcpServers = record.config.mcpServers;
-  return stripInternalPaseoMcpServer(config);
+  return stripInternalPimiMcpServer(config);
 }
 
 export { AGENT_LIFECYCLE_STATUSES, type AgentLifecycleStatus };
@@ -1771,7 +1771,7 @@ export class AgentManager {
     let handedToRegistration = false;
     try {
       const importedConfig = await this.normalizeConfig(
-        stripInternalPaseoMcpServer(imported.config),
+        stripInternalPimiMcpServer(imported.config),
       );
       const timelineRows = buildImportedTimelineRows(imported.timeline);
       const initialTitle = resolveImportedAgentTitle(importedConfig, timelineRows);
@@ -1864,7 +1864,7 @@ export class AgentManager {
     );
     const providerLaunchConfig = this.resolveProviderLaunchConfig(launchConfig, launchContext);
     if (
-      Object.keys(stripInternalPaseoMcpServer(providerLaunchConfig).mcpServers ?? {}).length > 0 &&
+      Object.keys(stripInternalPimiMcpServer(providerLaunchConfig).mcpServers ?? {}).length > 0 &&
       existing.session.capabilities.supportsMcpServers !== true
     ) {
       throw this.unsupportedMcpError(providerLaunchConfig, launchContext);
@@ -4146,7 +4146,7 @@ export class AgentManager {
     launchContext: AgentLaunchContext,
   ): Promise<void> {
     if (
-      Object.keys(stripInternalPaseoMcpServer(launchConfig).mcpServers ?? {}).length === 0 ||
+      Object.keys(stripInternalPimiMcpServer(launchConfig).mcpServers ?? {}).length === 0 ||
       session.capabilities.supportsMcpServers === true
     ) {
       return;
@@ -5871,7 +5871,7 @@ export class AgentManager {
       withoutAppTools?: boolean;
     } = {},
   ): Promise<PreparedSessionConfig> {
-    const storedConfig = await this.normalizeConfig(stripInternalPaseoMcpServer(config), {
+    const storedConfig = await this.normalizeConfig(stripInternalPimiMcpServer(config), {
       env: options.env,
       purpose: options.purpose,
     });
@@ -5893,7 +5893,7 @@ export class AgentManager {
       this.mcpCallerAuthToken && !storedConfig.internal && options.purpose !== "history";
     const memoryPrompt = canRecallMemory ? memoryRecallInstructions(paseoToolPolicy) : [];
     const launchConfig = this.applyDaemonAppendSystemPrompt(
-      withRuntimePaseoMcpServer({
+      withRuntimePimiMcpServer({
         config: storedConfig,
         agentId,
         mcpBaseUrl:
@@ -6003,11 +6003,11 @@ export class AgentManager {
     launchContext: AgentLaunchContext,
   ): AgentSessionConfig {
     const savedServerNames = new Set(
-      Object.keys(stripInternalPaseoMcpServer(launchConfig).mcpServers ?? {}),
+      Object.keys(stripInternalPimiMcpServer(launchConfig).mcpServers ?? {}),
     );
     for (const name of Object.keys(launchContext.mcpServers ?? {})) {
       const owner = launchContext.mcpServerOwners?.[name];
-      if (name === PASEO_MCP_SERVER_NAME || savedServerNames.has(name)) {
+      if (name === PIMI_MCP_SERVER_NAME || savedServerNames.has(name)) {
         const existingOwner = savedServerNames.has(name)
           ? "agent saved configuration"
           : "Pimi internal MCP server";
@@ -6021,7 +6021,7 @@ export class AgentManager {
             mcpServers: { ...launchConfig.mcpServers, ...launchContext.mcpServers },
           }
         : launchConfig;
-    return launchContext.paseoTools ? stripInternalPaseoMcpServer(merged) : merged;
+    return launchContext.paseoTools ? stripInternalPimiMcpServer(merged) : merged;
   }
 
   private async requireAvailableClient(options: { provider: AgentProvider }): Promise<AgentClient> {

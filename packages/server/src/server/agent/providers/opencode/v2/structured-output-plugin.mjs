@@ -1,6 +1,6 @@
 import Ajv from "ajv";
 
-export const STRUCTURED_OUTPUT_TOOL = "paseo_structured_output";
+export const STRUCTURED_OUTPUT_TOOL = "pimi_structured_output";
 
 export async function registerStructuredOutput(context) {
   const ajv = new Ajv({ strict: false, allErrors: true });

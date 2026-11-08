@@ -42,7 +42,7 @@ Provider 选项不是主机边界。它们约束的是 Agent CLI，而 Agent CLI
 把写入限制在一个目录内，切断网络访问，并停止审批提示，让运行可以无人值守：
 
 ```ts
-import { createPaseoClient } from "@getpaseo/client";
+import { createPaseoClient } from "@pimi/client";
 
 const client = createPaseoClient({ url: "ws://127.0.0.1:6767/ws" });
 await client.connect();
@@ -86,7 +86,7 @@ await client.close();
 开启 Claude 自己的沙箱，把写入限制在项目内，禁止读取凭据目录，并只允许两个域名：
 
 ```ts
-import { createPaseoClient } from "@getpaseo/client";
+import { createPaseoClient } from "@pimi/client";
 
 const client = createPaseoClient({ url: "ws://127.0.0.1:6767/ws" });
 await client.connect();
@@ -138,7 +138,7 @@ await client.close();
 允许读取和编辑，禁止任何超出项目范围的访问，并按模式控制 shell 命令：
 
 ```ts
-import { createPaseoClient } from "@getpaseo/client";
+import { createPaseoClient } from "@pimi/client";
 
 const client = createPaseoClient({ url: "ws://127.0.0.1:6767/ws" });
 await client.connect();
@@ -175,11 +175,11 @@ await client.close();
 
 把 `permission: "deny"` 写成单个字符串，会一次性应用到所有工具。
 
-`ask` 会在 Paseo 中变成一个权限请求，请求待处理期间 `waitForFinish()` 返回 `permission`。无人值守的运行请使用 `allow` 和 `deny`。如何响应待处理的请求，请参见[事件](/docs/sdk/events)。
+`ask` 会在 Pimi 中变成一个权限请求，请求待处理期间 `waitForFinish()` 返回 `permission`。无人值守的运行请使用 `allow` 和 `deny`。如何响应待处理的请求，请参见[事件](/docs/sdk/events)。
 
 ## 模式与选项 {#modes-and-options}
 
-`modeId` 从 Provider 公布的列表中选择一个 Paseo 模式，daemon 会在应用中显示这个列表，并通过 [Provider 发现](/docs/sdk/providers)报告它。`options` 是 Provider 自己的配置。两者是独立的控制项，可以同时设置：
+`modeId` 从 Provider 公布的列表中选择一个 Pimi 模式，daemon 会在应用中显示这个列表，并通过 [Provider 发现](/docs/sdk/providers)报告它。`options` 是 Provider 自己的配置。两者是独立的控制项，可以同时设置：
 
 ```ts
 config: {

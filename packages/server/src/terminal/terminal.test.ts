@@ -1,7 +1,7 @@
-import { TerminalInputModeTracker } from "@getpaseo/protocol/terminal-input-mode";
+import { TerminalInputModeTracker } from "@pimi/protocol/terminal-input-mode";
 import { createTerminalSerializer } from "./terminal-serializer.js";
 import { readTerminalState } from "./test-utils/terminal-state.js";
-import type { TerminalState } from "@getpaseo/protocol/messages";
+import type { TerminalState } from "@pimi/protocol/messages";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { isPlatform } from "../test-utils/platform.js";
 import {

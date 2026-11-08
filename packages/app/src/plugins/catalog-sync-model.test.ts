@@ -1,9 +1,9 @@
 import appPackage from "../../package.json";
 import { afterEach, expect, it } from "vitest";
 import { QueryObserver } from "@tanstack/react-query";
-import { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import type { SessionOutboundMessage } from "@getpaseo/protocol/messages";
-import { settingsRpc } from "@getpaseo/plugin";
+import { DaemonClient } from "@pimi/client/internal/daemon-client";
+import type { SessionOutboundMessage } from "@pimi/protocol/messages";
+import { settingsRpc } from "@pimi/plugin";
 import { syncPluginCatalog } from "./catalog-sync-model";
 import { createPluginHosts } from "./hosts";
 import { PluginRegistry } from "./registry";

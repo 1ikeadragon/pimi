@@ -36,12 +36,12 @@ The worker writes `$PASEO_HOME/terminal-worker/<pid>.json` (owner-only) with its
 
 `TERMINAL_WORKER_PROTOCOL_VERSION` (`terminal-worker-protocol.ts`) is bumped whenever a request, response or event changes shape. A daemon classifies each live worker at start:
 
-| Worker reports                     | Daemon does                                                                                                                                                 |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| its own version                    | adopts it                                                                                                                                                   |
-| one version older                  | adopts it to drain: it keeps its terminals, takes no new ones, and is let go after its last terminal exits                                                  |
-| two or more older                  | shuts it down; its terminals close (logged)                                                                                                                 |
-| newer, or a version it cannot read | leaves it running, undriven; `list_terminals` and `create_terminal` answer `rpc_error` `terminal_worker_incompatible`, and `paseo daemon status` prints why |
+| Worker reports                     | Daemon does                                                                                                                                                |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| its own version                    | adopts it                                                                                                                                                  |
+| one version older                  | adopts it to drain: it keeps its terminals, takes no new ones, and is let go after its last terminal exits                                                 |
+| two or more older                  | shuts it down; its terminals close (logged)                                                                                                                |
+| newer, or a version it cannot read | leaves it running, undriven; `list_terminals` and `create_terminal` answer `rpc_error` `terminal_worker_incompatible`, and `pimi daemon status` prints why |
 
 Never more than two workers run. A new worker launches only when none is current, none is incompatible and fewer than two run. The count comes from the records, so an unreachable worker counts, as does one whose socket probe is inconclusive, and one a cleanup could not confirm gone. When two run, the daemon starts with no current worker, and the first terminal created after one of them exits launches it.
 
@@ -70,13 +70,13 @@ A worker outlives the installation that started it. An npm or desktop update rep
 - A copy is deleted once no record names it: after a draining worker exits, after a kill cleanup, and at daemon start. The daemon and the reaper delete copies, never the worker itself, so a worker exiting cannot remove a copy a new worker is about to launch from.
 - Dev (`.ts` source) launches from source and copies nothing.
 
-Each create carries the controlling daemon's environment and Paseo CLI path (`baseEnv`, `paseoCliPath`), so a terminal opened after an upgrade gets the new installation's `PASEO_CLI` while older terminals keep theirs.
+Each create carries the controlling daemon's environment and Pimi CLI path (`baseEnv`, `paseoCliPath`), so a terminal opened after an upgrade gets the new installation's `PASEO_CLI` while older terminals keep theirs.
 
 ## Desktop
 
 Desktop app updates and version-mismatch restarts stop the daemon with "keep terminals" on macOS and Linux, through `daemon stop --keep-terminals` (the shutdown RPC; SIGTERM always means "stop and close"). A daemon that predates the feature cannot keep terminals: the CLI refuses before sending anything, and desktop logs that and stops it with its terminals closed.
 
-On Windows every desktop stop closes terminals. In the desktop app the worker runs as `Paseo.exe` with `ELECTRON_RUN_AS_NODE`, and a surviving one would lock the install folder the NSIS update replaces. Restarts, crashes and npm self-updates keep terminals on Windows too.
+On Windows every desktop stop closes terminals. In the desktop app the worker runs as `Pimi.exe` with `ELECTRON_RUN_AS_NODE`, and a surviving one would lock the install folder the NSIS update replaces. Restarts, crashes and npm self-updates keep terminals on Windows too.
 
 ## Known limits
 

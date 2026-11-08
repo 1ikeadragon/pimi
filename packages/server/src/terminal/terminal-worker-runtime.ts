@@ -78,7 +78,7 @@ export function resolveTerminalWorkerEntry(input: {
   const bundleDirectory = fileURLToPath(new URL("../terminal-worker/", import.meta.url));
   if (!existsSync(path.join(bundleDirectory, TERMINAL_WORKER_BUNDLE_NAME))) {
     throw new TerminalWorkerRuntimeError(
-      `The terminal worker bundle is missing from ${bundleDirectory}; rebuild @getpaseo/server (npm run build).`,
+      `The terminal worker bundle is missing from ${bundleDirectory}; rebuild @pimi/server (npm run build).`,
     );
   }
   const require = createRequire(import.meta.url);

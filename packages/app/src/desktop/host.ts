@@ -1,7 +1,7 @@
 import { Platform } from "react-native";
 import { getElectronHost } from "@/desktop/electron/host";
 import type { BrowserKeyboardPolicy } from "@/keyboard";
-import type { SessionInboundMessage, SessionOutboundMessage } from "@getpaseo/protocol/messages";
+import type { SessionInboundMessage, SessionOutboundMessage } from "@pimi/protocol/messages";
 import type {
   PimiActivitySection,
   PimiDestination,
@@ -15,7 +15,7 @@ import type {
   PimiVoiceCommandInput,
   PimiVoiceResult,
   PimiWorkspaceSection,
-} from "@getpaseo/protocol/pimi-task";
+} from "@pimi/protocol/pimi-task";
 
 type BrowserAutomationExecuteRequest = Extract<
   SessionOutboundMessage,

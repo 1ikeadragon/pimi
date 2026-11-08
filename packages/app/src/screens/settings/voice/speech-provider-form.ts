@@ -1,4 +1,4 @@
-import type { SpeechSettingsPatch } from "@getpaseo/protocol/speech/rpc-schemas";
+import type { SpeechSettingsPatch } from "@pimi/protocol/speech/rpc-schemas";
 import {
   SPEECH_SITE_KIND,
   buildSpeechSitePatch,

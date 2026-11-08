@@ -45,7 +45,7 @@ import {
   AgentListItemPayloadSchema,
   AgentPermissionRequestPayloadSchema,
   AgentSnapshotPayloadSchema,
-} from "@getpaseo/protocol/messages";
+} from "@pimi/protocol/messages";
 import {
   createPersistedProjectRecord,
   createPersistedWorkspaceRecord,
@@ -58,7 +58,7 @@ import type {
   CreateScheduleInput,
   StoredSchedule,
   UpdateScheduleInput,
-} from "@getpaseo/protocol/schedule/types";
+} from "@pimi/protocol/schedule/types";
 import type { ScheduleService } from "../schedule/service.js";
 import type { WorkspaceGitService } from "../workspace-git-service.js";
 import {
@@ -77,9 +77,9 @@ import type { ForgeService } from "../../services/forge-service.js";
 import { areEquivalentPaths } from "../../utils/path.js";
 import { createTerminalManager, type TerminalManager } from "../../terminal/terminal-manager.js";
 import { startWorkerTerminalManager } from "../../terminal/worker-terminal-manager.js";
-import { PARENT_AGENT_ID_LABEL } from "@getpaseo/protocol/agent-labels";
-import { PASEO_TOOL_NAMES } from "@getpaseo/protocol/paseo-tool-presentation/index";
-import { MutableDaemonConfigSchema, type AgentProfile } from "@getpaseo/protocol/messages";
+import { PARENT_AGENT_ID_LABEL } from "@pimi/protocol/agent-labels";
+import { PASEO_TOOL_NAMES } from "@pimi/protocol/paseo-tool-presentation/index";
+import { MutableDaemonConfigSchema, type AgentProfile } from "@pimi/protocol/messages";
 import type { DaemonConfigStore } from "../daemon-config-store.js";
 import type { BrowserToolsBroker, BrowserToolsExecuteInput } from "../browser-tools/broker.js";
 import type { BrowserToolsResponsePayload } from "../browser-tools/errors.js";

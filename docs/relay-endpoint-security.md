@@ -1,8 +1,8 @@
 # Relay endpoint security
 
-The relay carries daemon sessions between a client and a daemon that cannot reach each other directly. The relay is untrusted, so the two endpoints secure the session themselves. This doc owns the protected construction, its mapping onto Paseo's handshake and record flow, the negotiation rules, and the enforcement flag. The threat model lives in [SECURITY.md](../SECURITY.md); the code is `packages/relay/src/secure-channel.ts`.
+The relay carries daemon sessions between a client and a daemon that cannot reach each other directly. The relay is untrusted, so the two endpoints secure the session themselves. This doc owns the protected construction, its mapping onto Pimi's handshake and record flow, the negotiation rules, and the enforcement flag. The threat model lives in [SECURITY.md](../SECURITY.md); the code is `packages/relay/src/secure-channel.ts`.
 
-Fixes [#359](https://github.com/getpaseo/paseo/issues/359): the legacy construction has no replay protection. A recorded legacy hello plus records replays onto a fresh daemon channel, and duplicated records are delivered twice.
+Fixes [#359](https://github.com/1ikeadragon/pimi/issues/359): the legacy construction has no replay protection. A recorded legacy hello plus records replays onto a fresh daemon channel, and duplicated records are delivered twice.
 
 ## Two modes
 

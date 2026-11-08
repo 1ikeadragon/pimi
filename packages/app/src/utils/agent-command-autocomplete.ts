@@ -2,7 +2,7 @@ import {
   compareMatchScores,
   type MatchScore,
   scoreTextFields,
-} from "@getpaseo/protocol/search/text-match";
+} from "@pimi/protocol/search/text-match";
 
 type CommandAutocompleteSource = "provider" | "plugin" | "client";
 

@@ -4,7 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, test } from "vitest";
-import type { WaitForFinishResult } from "@getpaseo/client/internal/daemon-client";
+import type { WaitForFinishResult } from "@pimi/client/internal/daemon-client";
 import type { AgentMessageDelivery } from "../agent-messages/index.js";
 import { buildStoredAgentPayload } from "../agent-projections.js";
 import { createTestLogger } from "../../../test-utils/test-logger.js";

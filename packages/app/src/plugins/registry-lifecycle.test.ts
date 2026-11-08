@@ -1,8 +1,8 @@
 import { filePanelTitle } from "@/file-panels/choice/presentation";
 import { i18n } from "@/i18n/i18next";
 import { createPluginHosts } from "./hosts";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import type { PaseoApi } from "@getpaseo/client";
+import type { DaemonClient } from "@pimi/client/internal/daemon-client";
+import type { PaseoApi } from "@pimi/client";
 import { expect, test } from "vitest";
 import { PluginRegistry } from "./registry";
 
@@ -29,7 +29,7 @@ function observingClient() {
 }
 
 function registry(
-  localeSource: import("@getpaseo/plugin/client/host").PluginLocaleSource = {
+  localeSource: import("@pimi/plugin/client/host").PluginLocaleSource = {
     getLocale: () => "en",
     subscribe: () => () => {},
   },
@@ -173,7 +173,7 @@ test("locale snapshots preserve installation state and observations, then releas
   const translated = {
     ...catalog("notes"),
     clientBundle: `(function(require) {
-    const {defineTranslations} = require("@getpaseo/plugin/client");
+    const {defineTranslations} = require("@pimi/plugin/client");
     const messages = defineTranslations({resources:{en:{title:"Notes"},"zh-CN":{title:"笔记"}}});
     return {default(plugin) {
       plugin.paseo.observeEvents(["notes"]);
@@ -200,7 +200,7 @@ test("locale snapshots preserve installation state and observations, then releas
   expect(before.locale).toBe("en");
   expect(
     before.i18n.resolve(
-      before.surfaces[0].title as import("@getpaseo/plugin/client").PluginText,
+      before.surfaces[0].title as import("@pimi/plugin/client").PluginText,
       before.locale,
     ),
   ).toBe("Notes");
@@ -213,7 +213,7 @@ test("locale snapshots preserve installation state and observations, then releas
   expect(after.filePanels[0].Component).toBe(before.filePanels[0].Component);
   expect(
     after.i18n.resolve(
-      after.surfaces[0].title as import("@getpaseo/plugin/client").PluginText,
+      after.surfaces[0].title as import("@pimi/plugin/client").PluginText,
       after.locale,
     ),
   ).toBe("笔记");

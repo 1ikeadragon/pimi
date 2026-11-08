@@ -14,8 +14,8 @@ export function seedPluginLinks(paseoHome, workspaceId, url, remoteWorkspaceId) 
     `
 import { useState } from "react";
 import { View, Text, Pressable } from "react-native";
-import { openExternalUrl } from "@getpaseo/plugin/client";
-import { ExternalLink } from "@getpaseo/plugin/client/ui";
+import { openExternalUrl } from "@pimi/plugin/client";
+import { ExternalLink } from "@pimi/plugin/client/ui";
 function Links({ navigation }) {
   const [result, setResult] = useState("Ready");
   return <View>

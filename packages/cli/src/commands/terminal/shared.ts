@@ -1,5 +1,5 @@
 import type { DaemonTarget } from "../../utils/daemon-target.js";
-import { createPaseoApi } from "@getpaseo/client";
+import { createPaseoApi } from "@pimi/client";
 import { connectToDaemon, getDaemonHost } from "../../utils/client.js";
 import type { CommandError, CommandOptions } from "../../output/index.js";
 

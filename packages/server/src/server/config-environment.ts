@@ -67,10 +67,23 @@ const CONFIG_CONTEXT_ENV_KEYS = [
   "OPENAI_TTS_API_KEY",
 ] as const;
 
+const PIMI_CONFIG_ALIASES = {
+  PASEO_PLUGIN_REGISTRY: "PIMI_PLUGIN_REGISTRY",
+  PASEO_RELAY_ENABLED: "PIMI_RELAY_ENABLED",
+  PASEO_RELAY_ENDPOINT: "PIMI_RELAY_ENDPOINT",
+  PASEO_RELAY_PUBLIC_ENDPOINT: "PIMI_RELAY_PUBLIC_ENDPOINT",
+  PASEO_RELAY_PUBLIC_USE_TLS: "PIMI_RELAY_PUBLIC_USE_TLS",
+  PASEO_RELAY_USE_TLS: "PIMI_RELAY_USE_TLS",
+} as const;
+
 export function configurationEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  return Object.fromEntries(
+  const config = Object.fromEntries(
     [...DAEMON_SETTING_ENV_KEYS, ...CONFIG_CONTEXT_ENV_KEYS].map((key) => [key, env[key]]),
   );
+  for (const [key, alias] of Object.entries(PIMI_CONFIG_ALIASES)) {
+    config[key] = env[alias] ?? config[key];
+  }
+  return config;
 }
 
 export function daemonLaunchEnvironment(input: {
@@ -82,6 +95,7 @@ export function daemonLaunchEnvironment(input: {
   const env = { ...input.env };
   if (input.mode === "managed") {
     for (const key of DAEMON_SETTING_ENV_KEYS) delete env[key];
+    for (const alias of Object.values(PIMI_CONFIG_ALIASES)) delete env[alias];
   }
   delete env.PASEO_HOST;
   delete env.PASEO_DESKTOP_MANAGED;

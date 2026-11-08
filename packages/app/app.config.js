@@ -1,5 +1,3 @@
-const fs = require("node:fs");
-const path = require("node:path");
 const pkg = require("./package.json");
 const withAndroidAsyncStorageSize = require("./plugins/with-android-async-storage-size");
 const withAndroidOptionalCamera = require("./plugins/with-android-optional-camera");
@@ -55,49 +53,10 @@ const buildProfile = isFdroidBuild
       ],
     };
 
-function resolveSecretFile(params) {
-  const fromEnv = process.env[params.envKey];
-  if (typeof fromEnv === "string" && fromEnv.trim().length > 0) {
-    return fromEnv.trim();
-  }
-
-  const fallbackAbsolutePath = path.resolve(__dirname, params.fallbackRelativePath);
-  if (fs.existsSync(fallbackAbsolutePath)) {
-    return params.fallbackRelativePath;
-  }
-
-  return undefined;
-}
-
 const variants = {
-  "pimi-android": {
-    name: "Pimi",
-    packageId: "io.github.ikeadragon.pimi",
-  },
-  production: {
-    name: "Paseo",
-    packageId: "sh.paseo",
-    googleServicesFile: resolveSecretFile({
-      envKey: "GOOGLE_SERVICES_FILE_PROD",
-      fallbackRelativePath: "./.secrets/google-services.prod.json",
-    }),
-    googleServiceInfoPlist: resolveSecretFile({
-      envKey: "GOOGLE_SERVICE_INFO_PLIST_PROD",
-      fallbackRelativePath: "./.secrets/GoogleService-Info.prod.plist",
-    }),
-  },
-  development: {
-    name: "Paseo Debug",
-    packageId: "sh.paseo.debug",
-    googleServicesFile: resolveSecretFile({
-      envKey: "GOOGLE_SERVICES_FILE_DEBUG",
-      fallbackRelativePath: "./.secrets/google-services.debug.json",
-    }),
-    googleServiceInfoPlist: resolveSecretFile({
-      envKey: "GOOGLE_SERVICE_INFO_PLIST_DEBUG",
-      fallbackRelativePath: "./.secrets/GoogleService-Info.debug.plist",
-    }),
-  },
+  "pimi-android": { name: "Pimi", packageId: "io.github.ikeadragon.pimi" },
+  production: { name: "Pimi", packageId: "io.github.ikeadragon.pimi" },
+  development: { name: "Pimi Debug", packageId: "io.github.ikeadragon.pimi.debug" },
 };
 
 const variant = variants[appVariant] ?? variants.production;
@@ -106,11 +65,11 @@ const nativeReleaseVersion = getNativeReleaseVersion(pkg.version);
 export default {
   expo: {
     name: variant.name,
-    slug: isPimiAndroid ? "pimi" : "voice-mobile",
+    slug: "pimi",
     version: nativeReleaseVersion.appVersion,
     orientation: "default",
-    icon: isPimiAndroid ? "./assets/images/pimi-icon.png" : "./assets/images/icon.png",
-    scheme: isPimiAndroid ? "pimi" : "paseo",
+    icon: "./assets/images/pimi-icon.png",
+    scheme: "pimi",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     ios: {
@@ -120,17 +79,12 @@ export default {
         ITSAppUsesNonExemptEncryption: false,
       },
       bundleIdentifier: variant.packageId,
-      ...(variant.googleServiceInfoPlist
-        ? { googleServicesFile: variant.googleServiceInfoPlist }
-        : {}),
       buildNumber: nativeReleaseVersion.iosBuildNumber,
     },
     android: {
       adaptiveIcon: {
-        backgroundColor: isPimiAndroid ? "#3a2c34" : "#000000",
-        foregroundImage: isPimiAndroid
-          ? "./assets/images/pimi-android-foreground.png"
-          : "./assets/images/android-icon-foreground.png",
+        backgroundColor: "#3a2c34",
+        foregroundImage: "./assets/images/pimi-android-foreground.png",
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
@@ -143,7 +97,6 @@ export default {
         ? { allowBackup: false, blockedPermissions: ["android.permission.SYSTEM_ALERT_WINDOW"] }
         : {}),
       versionCode: nativeReleaseVersion.androidVersionCode,
-      ...(variant.googleServicesFile ? { googleServicesFile: variant.googleServicesFile } : {}),
     },
     web: {
       output: "single",
@@ -163,9 +116,7 @@ export default {
       [
         "expo-splash-screen",
         {
-          image: isPimiAndroid
-            ? "./assets/images/pimi-splash.png"
-            : "./assets/images/splash-icon.png",
+          image: "./assets/images/pimi-splash.png",
           imageWidth: 200,
           resizeMode: "contain",
           backgroundColor: "#ffffff",
@@ -213,8 +164,6 @@ export default {
       diagnosticRevision: process.env.PASEO_DIAGNOSTIC_REVISION,
       diagnosticBuildTime: process.env.PASEO_DIAGNOSTIC_BUILD_TIME,
       router: {},
-      ...(isPimiAndroid ? {} : { eas: { projectId: "0e7f65ce-0367-46c8-a238-2b65963d235a" } }),
     },
-    ...(isPimiAndroid ? {} : { owner: "getpaseo" }),
   },
 };

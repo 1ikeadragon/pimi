@@ -10,9 +10,9 @@ import {
   createHostTransportFactory,
   parseHostTarget,
   HostTransportBudget,
-} from "@getpaseo/client/node";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import type { DaemonTransportFactory } from "@getpaseo/client/internal/daemon-client-transport-types";
+} from "@pimi/client/node";
+import type { DaemonClient } from "@pimi/client/internal/daemon-client";
+import type { DaemonTransportFactory } from "@pimi/client/internal/daemon-client-transport-types";
 import {
   HostSummarySchema,
   HostAddSchema,
@@ -21,8 +21,8 @@ import {
   type HostSummary,
   type HostAdd,
   type HostUpdate,
-} from "@getpaseo/protocol/hosts";
-import type { DaemonPermission, WSHelloMessage } from "@getpaseo/protocol/messages";
+} from "@pimi/protocol/hosts";
+import type { DaemonPermission, WSHelloMessage } from "@pimi/protocol/messages";
 import { webSocketProxyAgent } from "../network/index.js";
 
 export class HostError extends Error {

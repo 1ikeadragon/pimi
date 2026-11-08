@@ -6,18 +6,15 @@ nav: 公开 API
 
 # Hub 公开 API {#hub-public-api}
 
-Hub 公开 API 让自动化可以操作一个组织中的触发器、项目和 daemon。下文用 `PASEO_HUB_URL` 表示 Hub 的地址，例如 `https://hub.example.com`。
+Hub 公开 API 让自动化可以操作一个组织中的触发器、项目和 daemon。下文用 `PIMI_HUB_URL` 表示 Hub 的地址，例如 `https://hub.example.com`。
 
 ## API 参考 {#api-reference}
 
-- [交互式 API 参考](https://hub.paseo.sh/api/reference)
-- [OpenAPI 3.1 文档](https://hub.paseo.sh/api/openapi.json)
-
-这些是托管版 Paseo Hub 的标准参考端点。自托管的 Hub 在它自己的地址上提供相同的 `/api/reference` 和 `/api/openapi.json` 路径。
+请使用你配置的 Hub 地址来访问这些端点。
 
 ## 身份验证 {#authentication}
 
-运行 `paseo hub login [origin]` 获得交互式的 CLI 访问权限。在浏览器中批准后，Paseo 会在 `PASEO_HOME` 下为这个确切的地址保存一个持久、可撤销的组织凭据。未显式指定地址时，CLI 依次使用 `PASEO_HUB_URL`、当前保存的登录，然后是 `https://hub.paseo.sh`。
+运行 `pimi hub login [origin]` 获得交互式的 CLI 访问权限。在浏览器中批准后，Pimi 会在 `PASEO_HOME` 下为这个确切的地址保存一个持久、可撤销的组织凭据。未显式指定地址时，CLI 依次使用 `PIMI_HUB_URL`、当前保存的登录，然后是 `https://hub.example.com`。
 
 用于自动化时，请在 Hub 控制台的 **API keys** 下创建组织 API 密钥。两种凭据都是 bearer token：
 
@@ -40,16 +37,16 @@ API 密钥的作用域是组织。拥有该密钥的组织决定了它能访问�
 
 API 密钥不授予控制台访问权限。它们不能管理连接、项目或组织成员。
 
-CLI 凭据拥有当前 CLI 操作所需的权限范围，并且可以独立于 daemon 关系单独撤销。`paseo hub logout` 会删除当前的本地 CLI 凭据；它不会撤销或断开 daemon 身份。
+CLI 凭据拥有当前 CLI 操作所需的权限范围，并且可以独立于 daemon 关系单独撤销。`pimi hub logout` 会删除当前的本地 CLI 凭据；它不会撤销或断开 daemon 身份。
 
 API 失败时使用 RFC 9457 问题详情格式。缺失、无效或已撤销的凭据返回 `401`，类型为 `application/problem+json`：
 
 ```json
 {
-  "type": "https://paseo.sh/problems/unauthorized",
+  "type": "https://github.com/1ikeadragon/pimi/blob/main/README.md",
   "title": "Authentication required",
   "status": 401,
-  "detail": "Provide an active Paseo organization credential in the Authorization: Bearer header.",
+  "detail": "Provide an active Pimi organization credential in the Authorization: Bearer header.",
   "code": "unauthorized",
   "requestId": "5e967c44-fc22-4f6d-8fc5-1bbff33121af"
 }
@@ -59,7 +56,7 @@ API 失败时使用 RFC 9457 问题详情格式。缺失、无效或已撤销的
 
 ## 触发器校验和安装 {#trigger-validation-and-installation}
 
-`paseo hub deploy --dry-run` 通过 `POST /api/v1/triggers/validate` 校验每个 `.paseo/triggers/*.yml` 文件。`paseo hub deploy` 先校验所有文件，再通过 `POST /api/v1/triggers/install` 逐个安装。
+`pimi hub deploy --dry-run` 通过 `POST /api/v1/triggers/validate` 校验每个 `.paseo/triggers/*.yml` 文件。`pimi hub deploy` 先校验所有文件，再通过 `POST /api/v1/triggers/install` 逐个安装。
 
 两个端点都接受一份自包含的文档：
 
@@ -87,7 +84,7 @@ API 失败时使用 RFC 9457 问题详情格式。缺失、无效或已撤销的
 
 ## 项目列表 {#project-list}
 
-`GET /api/v1/projects` 返回 bearer 凭据所属组织中的活动项目。`paseo hub projects` 以表格形式显示项目。使用 `--json` 时，它返回 `{ "origin": "...", "projects": [...] }`，因此即使结果为空，也会记录解析出的 Hub。
+`GET /api/v1/projects` 返回 bearer 凭据所属组织中的活动项目。`pimi hub projects` 以表格形式显示项目。使用 `--json` 时，它返回 `{ "origin": "...", "projects": [...] }`，因此即使结果为空，也会记录解析出的 Hub。
 
 ```json
 {
@@ -114,7 +111,7 @@ API 失败时使用 RFC 9457 问题详情格式。缺失、无效或已撤销的
 }
 ```
 
-`paseo hub deploy --project <slug> --dry-run` 会用与实际部署完全相同的、在本地解析出的请求体调用此端点。
+`pimi hub deploy --project <slug> --dry-run` 会用与实际部署完全相同的、在本地解析出的请求体调用此端点。
 
 ## 旧版配置安装 {#legacy-configuration-install}
 
@@ -171,13 +168,13 @@ POST /api/v1/configurations/install
 示例：
 
 ```bash
-curl --fail-with-body -sS -X POST "$PASEO_HUB_URL/api/v1/configurations/install" \
-  -H "Authorization: Bearer $PASEO_HUB_API_KEY" \
+curl --fail-with-body -sS -X POST "$PIMI_HUB_URL/api/v1/configurations/install" \
+  -H "Authorization: Bearer $PIMI_HUB_API_KEY" \
   -H "Content-Type: application/json" \
   --data @configuration-install.json
 ```
 
-`paseo hub deploy -p <project>` 会用在本地发现的文件包调用这个旧版端点。在没有参数和环境变量凭据时，该命令使用与地址完全匹配的已保存登录。见[从 CLI 部署](/docs/hub/configuration#deploy-from-the-cli)。
+`pimi hub deploy -p <project>` 会用在本地发现的文件包调用这个旧版端点。在没有参数和环境变量凭据时，该命令使用与地址完全匹配的已保存登录。见[从 CLI 部署](/docs/hub/configuration#deploy-from-the-cli)。
 
 ## 发起手动运行 {#manual-run-dispatch}
 
@@ -221,8 +218,8 @@ POST /api/v1/manual-runs
 示例：
 
 ```bash
-curl --fail-with-body -sS -X POST "$PASEO_HUB_URL/api/v1/manual-runs" \
-  -H "Authorization: Bearer $PASEO_HUB_API_KEY" \
+curl --fail-with-body -sS -X POST "$PIMI_HUB_URL/api/v1/manual-runs" \
+  -H "Authorization: Bearer $PIMI_HUB_API_KEY" \
   -H "Content-Type: application/json" \
   --data '{
     "projectSlug": "my-project",
@@ -254,15 +251,15 @@ POST /api/v1/daemons/enrollment-tokens
 
 令牌在 10 分钟后过期，并在 daemon 注册时被消耗。
 
-`paseo hub connect [origin]` 会使用 `--api-key`、`PASEO_HUB_API_KEY` 或匹配的已保存登录执行此请求，然后把这个一次性令牌传给 daemon 的注册操作。daemon 会生成并保存它自己的关系凭据。
+`pimi hub connect [origin]` 会使用 `--api-key`、`PIMI_HUB_API_KEY` 或匹配的已保存登录执行此请求，然后把这个一次性令牌传给 daemon 的注册操作。daemon 会生成并保存它自己的关系凭据。
 
 ```bash
 curl --fail-with-body -sS -X POST \
-  "$PASEO_HUB_URL/api/v1/daemons/enrollment-tokens" \
-  -H "Authorization: Bearer $PASEO_HUB_API_KEY"
+  "$PIMI_HUB_URL/api/v1/daemons/enrollment-tokens" \
+  -H "Authorization: Bearer $PIMI_HUB_API_KEY"
 ```
 
-直接使用 API 的调用方可以把返回的令牌传给 daemon 注册协议。Paseo CLI 有意不接受原始注册令牌；`connect` 负责完整的、经过身份验证的单一交换流程。
+直接使用 API 的调用方可以把返回的令牌传给 daemon 注册协议。Pimi CLI 有意不接受原始注册令牌；`connect` 负责完整的、经过身份验证的单一交换流程。
 
 注册令牌不能重复使用。撤销 API 密钥会立即拒绝之后的 API 请求，并使该密钥签发的所有未消耗的注册令牌过期。撤销与签发之间的竞争会在新令牌被保存之前由 Hub 解决。
 

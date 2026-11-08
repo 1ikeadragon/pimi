@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { AgentStreamEventPayload } from "@getpaseo/protocol/messages";
-import type { AgentTimelineItem, ToolCallDetail } from "@getpaseo/protocol/agent-types";
+import type { AgentStreamEventPayload } from "@pimi/protocol/messages";
+import type { AgentTimelineItem, ToolCallDetail } from "@pimi/protocol/agent-types";
 import {
   createUserMessage,
   hydrateStreamState,

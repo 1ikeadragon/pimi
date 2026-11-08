@@ -8,9 +8,9 @@ import type {
   JsonValue,
   ProviderOptions,
   ToolPolicy,
-} from "@getpaseo/protocol/agent-types";
-import type { AgentMessage } from "@getpaseo/protocol/agent-message";
-import type { AgentAttachment } from "@getpaseo/protocol/messages";
+} from "@pimi/protocol/agent-types";
+import type { AgentMessage } from "@pimi/protocol/agent-message";
+import type { AgentAttachment } from "@pimi/protocol/messages";
 import type { PaseoToolCatalog } from "./tools/types.js";
 import type { HarnessInstallation } from "./harness-updates.js";
 

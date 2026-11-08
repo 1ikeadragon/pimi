@@ -38,10 +38,9 @@ test("the published schema stays current with the daemon's configuration schema"
     io: "input",
   });
   generated.title = "PaseoConfigV1";
-  expect(
-    publishedSchema,
-    "Run npm run generate:config-schema --workspace=@getpaseo/server",
-  ).toEqual(generated);
+  expect(publishedSchema, "Run npm run generate:config-schema --workspace=@pimi/server").toEqual(
+    generated,
+  );
 });
 
 test("editors retain the existing proxy configuration help", () => {

@@ -3,8 +3,8 @@ import {
   DaemonClient,
   getDaemonAuthFailureReason,
   type DaemonAuthFailureReason,
-} from "@getpaseo/client/internal/daemon-client";
-import type { DaemonClientConfig } from "@getpaseo/client/internal/daemon-client";
+} from "@pimi/client/internal/daemon-client";
+import type { DaemonClientConfig } from "@pimi/client/internal/daemon-client";
 import type { HostConnection } from "@/types/host-connection";
 import { createAppWebSocketFactory } from "@/runtime/websocket-factory";
 import { getOrCreateClientId } from "./client-id";

@@ -12,7 +12,7 @@ Hub 负责认证触发器、选择 workflow 并派发 Agent。它不会把 Provi
 external event → Hub → daemon → provider process → cwd, filesystem, network
 ```
 
-主机、Provider 凭据、文件系统、网络以及由此产生的操作仍由你掌控。daemon 认证、配对和中继边界见 [Paseo 安全](/docs/security)。
+主机、Provider 凭据、文件系统、网络以及由此产生的操作仍由你掌控。daemon 认证、配对和中继边界见 [Pimi 安全](/docs/security)。
 
 ## 选择 daemon 权限 {#choose-daemon-authority}
 

@@ -1,5 +1,5 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
-import { workspaceLabelKey } from "@getpaseo/protocol/workspace-labels";
+import { workspaceLabelKey } from "@pimi/protocol/workspace-labels";
 
 function add(index, id, labels) {
   if (!id || !labels.length) return;

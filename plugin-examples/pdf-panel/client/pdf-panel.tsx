@@ -1,5 +1,5 @@
-import { type PluginFilePanelProps, useFileUrl } from "@getpaseo/plugin/client";
-import { DocumentFrame, Loading } from "@getpaseo/plugin/client/ui";
+import { type PluginFilePanelProps, useFileUrl } from "@pimi/plugin/client";
+import { DocumentFrame, Loading } from "@pimi/plugin/client/ui";
 import { useMemo } from "react";
 import { Text, View } from "react-native";
 

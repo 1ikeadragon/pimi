@@ -8,9 +8,9 @@ nav: Git worktree
 
 Git worktree 是工作区的一种。
 
-[工作区](/docs/workspaces)是任务发生的地方。当工作区由 Git worktree 支撑时，Paseo 会在单独的分支上创建一个单独的目录，让并行的 Agent 互不干扰。
+[工作区](/docs/workspaces)是任务发生的地方。当工作区由 Git worktree 支撑时，Pimi 会在单独的分支上创建一个单独的目录，让并行的 Agent 互不干扰。
 
-本页介绍 Git 相关的细节：worktree 存放在哪里、分支如何选择，以及如何通过 `paseo.json` 配置 setup 钩子、脚本、终端和长时间运行的服务。
+本页介绍 Git 相关的细节：worktree 存放在哪里、分支如何选择，以及如何通过 `pimi.json` 配置 setup 钩子、脚本、终端和长时间运行的服务。
 
 ## 目录结构与工作流程 {#layout-and-workflow}
 
@@ -23,7 +23,7 @@ worktree 默认存放在 `$PASEO_HOME/worktrees/` 下，按源检出路径的哈
     └── bold-owl/
 ```
 
-使用自定义根目录时，Paseo 会在该目录下保持相同的哈希结构：
+使用自定义根目录时，Pimi 会在该目录下保持相同的哈希结构：
 
 ```json
 {
@@ -33,12 +33,12 @@ worktree 默认存放在 `$PASEO_HOME/worktrees/` 下，按源检出路径的哈
 }
 ```
 
-插件可以通过 [`worktree.create.before`](/docs/plugins/hooks#worktreecreatebefore) 将 worktree 放到磁盘上的自选位置。[worktree-placement 示例](https://github.com/getpaseo/paseo/tree/main/plugin-examples/worktree-placement) 将其放在源检出目录旁边。Paseo 验证路径并拒绝已存在的目标，同时支持在该位置列出、归档和删除 worktree。恢复时使用记录的原路径，不运行创建钩子。
+插件可以通过 [`worktree.create.before`](/docs/plugins/hooks#worktreecreatebefore) 将 worktree 放到磁盘上的自选位置。[worktree-placement 示例](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/worktree-placement) 将其放在源检出目录旁边。Pimi 验证路径并拒绝已存在的目标，同时支持在该位置列出、归档和删除 worktree。恢复时使用记录的原路径，不运行创建钩子。
 
-1. 创建一个使用 worktree 隔离的工作区，Paseo 会创建 worktree 并运行你的 setup 钩子
+1. 创建一个使用 worktree 隔离的工作区，Pimi 会创建 worktree 并运行你的 setup 钩子
 2. 在该工作区中启动一个或多个 Agent
 3. 对照基础分支审查 diff
-4. 合并或归档该工作区；使用该 worktree 的最后一个工作区被归档后，Paseo 会运行 teardown 并删除 worktree
+4. 合并或归档该工作区；使用该 worktree 的最后一个工作区被归档后，Pimi 会运行 teardown 并删除 worktree
 
 定时任务的运行默认会在结束时归档其工作区。在定时任务的应用表单中关闭 **Archive on finish**，即可[保留运行工作区](/docs/schedules#keep-run-workspaces)及其 worktree，直到你手动归档。
 
@@ -49,7 +49,7 @@ worktree 默认存放在 `$PASEO_HOME/worktrees/` 下，按源检出路径的哈
 从基础分支分出新分支：
 
 ```bash
-paseo workspace create \
+pimi workspace create \
   --isolation worktree \
   --mode branch-off \
   --new-branch feature/auth \
@@ -57,12 +57,12 @@ paseo workspace create \
   --base origin/main
 ```
 
-请使用 `origin/main` 而不是 `main`。Paseo 会在后台获取远程引用，因此远程跟踪分支是最新的，而你本地的 `main` 停留在你上次 pull 时的状态。不带前缀的 `main` 会优先解析到这个本地分支，worktree 就会从过时的历史开始。加上远程前缀可以明确指定已获取的引用。
+请使用 `origin/main` 而不是 `main`。Pimi 会在后台获取远程引用，因此远程跟踪分支是最新的，而你本地的 `main` 停留在你上次 pull 时的状态。不带前缀的 `main` 会优先解析到这个本地分支，worktree 就会从过时的历史开始。加上远程前缀可以明确指定已获取的引用。
 
 检出一个已有分支：
 
 ```bash
-paseo workspace create \
+pimi workspace create \
   --isolation worktree \
   --mode checkout-branch \
   --branch feature/existing \
@@ -72,17 +72,17 @@ paseo workspace create \
 或者在独立的工作区中打开一个 Pull Request：
 
 ```bash
-paseo workspace create \
+pimi workspace create \
   --isolation worktree \
   --mode checkout-pr \
   --pr-number 2186
 ```
 
-当 Paseo 无法从源检出推断代码托管平台时，添加 `--forge <name>`。
+当 Pimi 无法从源检出推断代码托管平台时，添加 `--forge <name>`。
 
-## paseo.json {#paseojson}
+## pimi.json {#paseojson}
 
-在仓库根目录放一个 `paseo.json`。Paseo 从你所选基础分支的已提交版本中读取它，因此其他分支中未提交的改动不会生效。
+在仓库根目录放一个 `pimi.json`。Pimi 从你所选基础分支的已提交版本中读取它，因此其他分支中未提交的改动不会生效。
 
 ```json
 {
@@ -118,9 +118,9 @@ paseo workspace create \
 
 ## 脚本与服务 {#scripts-and-services}
 
-`scripts` 是可以在 worktree 中按需运行的具名命令。把其中一个标记为 _service_，Paseo 就会把它作为长时间运行的进程进行监管，为它分配端口，并通过 daemon 的反向代理把 HTTP 流量路由给它。
+`scripts` 是可以在 worktree 中按需运行的具名命令。把其中一个标记为 _service_，Pimi 就会把它作为长时间运行的进程进行监管，为它分配端口，并通过 daemon 的反向代理把 HTTP 流量路由给它。
 
-可以在应用中运行它们，也可以在自动化中用 [`paseo script`](/docs/cli#workspace-scripts) 和[工作区脚本 MCP 工具](/docs/mcp#workspace-scripts)管理它们。
+可以在应用中运行它们，也可以在自动化中用 [`pimi script`](/docs/cli#workspace-scripts) 和[工作区脚本 MCP 工具](/docs/mcp#workspace-scripts)管理它们。
 
 ### 普通脚本 {#plain-scripts}
 
@@ -152,11 +152,11 @@ paseo workspace create \
 }
 ```
 
-省略 `port` 可以让 Paseo 自动分配端口。让你的进程绑定 `$PASEO_PORT`，而不是写死端口；每个 worktree 获得不同的端口，因此同一服务的多个副本可以共存。
+省略 `port` 可以让 Pimi 自动分配端口。让你的进程绑定 `$PASEO_PORT`，而不是写死端口；每个 worktree 获得不同的端口，因此同一服务的多个副本可以共存。
 
 ### 动态端口分配 {#dynamic-port-allocation}
 
-默认情况下，Paseo 向操作系统请求一个可用的临时端口。可以在 `~/.paseo/config.json` 中全局配置端口范围，也可以在 `paseo.json` 中按项目配置：
+默认情况下，Pimi 向操作系统请求一个可用的临时端口。可以在 `~/.paseo/config.json` 中全局配置端口范围，也可以在 `pimi.json` 中按项目配置：
 
 ```json
 // ~/.paseo/config.json
@@ -168,7 +168,7 @@ paseo workspace create \
 ```
 
 ```json
-// paseo.json
+// pimi.json
 {
   "worktree": {
     "servicePorts": { "range": "3000-4000" }
@@ -188,7 +188,7 @@ paseo workspace create \
 }
 ```
 
-Paseo 在工作区目录中运行该可执行文件，并传入四个参数：服务名、工作区 ID、分支名和 worktree 路径。由于脚本是直接执行的、不经过 shell，`portScript` 必须指向一个真正的可执行文件（例如编译后的二进制文件，或带有正确 shebang 行如 `#!/bin/bash` 的脚本），而不是内联的 shell 命令或管道。如果需要 shell 求值或管道，请把它们包装在一个小的可执行脚本中。没有分支时会传入空字符串。相同的值也可以通过 `PASEO_SCRIPTNAME`、`PASEO_WORKSPACE_ID`、`PASEO_BRANCH_NAME` 和 `PASEO_WORKTREE_PATH` 获取。它必须向 stdout 输出一个有效的 TCP 端口。同一块中 `portScript` 优先于 `range`。Paseo 信任外部分配器，因此返回的端口可能已经被占用，例如被 Paseo 将要连接的某个服务占用。
+Pimi 在工作区目录中运行该可执行文件，并传入四个参数：服务名、工作区 ID、分支名和 worktree 路径。由于脚本是直接执行的、不经过 shell，`portScript` 必须指向一个真正的可执行文件（例如编译后的二进制文件，或带有正确 shebang 行如 `#!/bin/bash` 的脚本），而不是内联的 shell 命令或管道。如果需要 shell 求值或管道，请把它们包装在一个小的可执行脚本中。没有分支时会传入空字符串。相同的值也可以通过 `PASEO_SCRIPTNAME`、`PASEO_WORKSPACE_ID`、`PASEO_BRANCH_NAME` 和 `PASEO_WORKTREE_PATH` 获取。它必须向 stdout 输出一个有效的 TCP 端口。同一块中 `portScript` 优先于 `range`。Pimi 信任外部分配器，因此返回的端口可能已经被占用，例如被 Pimi 将要连接的某个服务占用。
 
 ### 反向代理 {#reverse-proxy}
 
@@ -252,10 +252,10 @@ Setup、teardown、脚本和服务都能看到：
 ## 管理工作区 {#manage-the-workspace}
 
 ```bash
-paseo workspace ls
-paseo run --workspace <workspace-id> "implement auth"
-paseo workspace rename <workspace-id> "Auth rework"
-paseo workspace archive <workspace-id>
+pimi workspace ls
+pimi run --workspace <workspace-id> "implement auth"
+pimi workspace rename <workspace-id> "Auth rework"
+pimi workspace archive <workspace-id>
 ```
 
-对于常见情况，`paseo run --new-workspace worktree --worktree-mode branch-off --new-branch feature/auth --base origin/main "implement auth"` 会同时创建工作区和它的第一个 Agent。
+对于常见情况，`pimi run --new-workspace worktree --worktree-mode branch-off --new-branch feature/auth --base origin/main "implement auth"` 会同时创建工作区和它的第一个 Agent。

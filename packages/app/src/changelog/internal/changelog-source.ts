@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { isPimiProduct } from "@/utils/pimi-mobile";
 import { parseChangelog, type ChangelogRelease } from "./parse-changelog";
 
-const PASEO_CHANGELOG_URL = "https://raw.githubusercontent.com/getpaseo/paseo/main/CHANGELOG.md";
 const PIMI_CHANGELOG_URL = "https://raw.githubusercontent.com/1ikeadragon/pimi/main/CHANGELOG.md";
 
 export type ChangelogState =
@@ -43,8 +41,7 @@ export function useChangelog(enabled: boolean): Changelog {
 
     void (async () => {
       try {
-        const url = isPimiProduct() ? PIMI_CHANGELOG_URL : PASEO_CHANGELOG_URL;
-        const response = await fetch(url, { signal: controller.signal });
+        const response = await fetch(PIMI_CHANGELOG_URL, { signal: controller.signal });
         if (!response.ok) throw new Error(`Changelog request failed: ${response.status}`);
         const markdown = await response.text();
         if (cached?.markdown === markdown) return;

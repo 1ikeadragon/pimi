@@ -1,8 +1,8 @@
 import { createPlayAudio, type AudioEngine } from "@/audio";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
 import { createPluginHosts } from "./hosts";
-import type { PluginClientOpenPanelOptions } from "@getpaseo/plugin/client";
-import { subscribePluginRpc } from "@getpaseo/plugin/client/host";
+import type { PluginClientOpenPanelOptions } from "@pimi/plugin/client";
+import { subscribePluginRpc } from "@pimi/plugin/client/host";
 import {
   createPluginAgentActionContext,
   createPluginCapabilities,

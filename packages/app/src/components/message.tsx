@@ -30,10 +30,10 @@ import { formatDuration, formatMessageTimestamp } from "@/utils/time";
 import { resolveToolCallIcon } from "@/utils/tool-call-icon";
 import { useToolCallExpanded } from "@/tool-calls/expansion-context";
 import { useTargetAgentTitle } from "@/tool-calls/use-target-agent-title";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import type { AgentMessage } from "@getpaseo/protocol/agent-message";
-import type { AgentCapabilityFlags, ToolCallDetail } from "@getpaseo/protocol/agent-types";
-import type { AgentAttachment } from "@getpaseo/protocol/messages";
+import type { DaemonClient } from "@pimi/client/internal/daemon-client";
+import type { AgentMessage } from "@pimi/protocol/agent-message";
+import type { AgentCapabilityFlags, ToolCallDetail } from "@pimi/protocol/agent-types";
+import type { AgentAttachment } from "@pimi/protocol/messages";
 import MaskedView from "@react-native-masked-view/masked-view";
 import {
   Check,

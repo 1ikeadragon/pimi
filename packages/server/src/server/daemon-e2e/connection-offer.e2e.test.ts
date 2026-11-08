@@ -85,6 +85,7 @@ describe("ConnectionOfferV2 (daemon E2E)", () => {
       listen: "0.0.0.0",
       logger,
       relayEnabled: true,
+      relayEndpoint: "127.0.0.1:9",
     });
 
     try {
@@ -93,9 +94,8 @@ describe("ConnectionOfferV2 (daemon E2E)", () => {
         relayEnabled: daemon.config.relayEnabled,
         relayEndpoint: daemon.config.relayEndpoint,
         relayPublicEndpoint: daemon.config.relayPublicEndpoint,
-        appBaseUrl: daemon.config.appBaseUrl,
       });
-      expect(offerUrl.startsWith("https://app.paseo.sh/#offer=")).toBe(true);
+      expect(offerUrl.startsWith("pimi://pair/#offer=")).toBe(true);
 
       const offer = decodeOfferFromFragmentUrl(offerUrl) as {
         v: number;
@@ -108,7 +108,7 @@ describe("ConnectionOfferV2 (daemon E2E)", () => {
       expect(typeof offer.serverId).toBe("string");
       expect(offer.serverId.length).toBeGreaterThan(0);
       expect(offer.serverId.startsWith("srv_")).toBe(true);
-      expect(offer.relay.endpoint).toBe("relay.paseo.sh:443");
+      expect(offer.relay.endpoint).toBe("127.0.0.1:9");
       expect(typeof offer.daemonPublicKeyB64).toBe("string");
       expect(offer.daemonPublicKeyB64.length).toBeGreaterThan(0);
       expect(() => Buffer.from(offer.daemonPublicKeyB64, "base64")).not.toThrow();
@@ -129,6 +129,7 @@ describe("ConnectionOfferV2 (daemon E2E)", () => {
       listen: "0.0.0.0",
       logger: logger1,
       relayEnabled: true,
+      relayEndpoint: "127.0.0.1:9",
       paseoHomeRoot: tempHomeRoot,
       cleanup: false,
     });
@@ -157,6 +158,7 @@ describe("ConnectionOfferV2 (daemon E2E)", () => {
         listen: "0.0.0.0",
         logger: logger2,
         relayEnabled: true,
+        relayEndpoint: "127.0.0.1:9",
         paseoHomeRoot: tempHomeRoot,
         cleanup: false,
       });

@@ -1,6 +1,6 @@
 ---
 title: Connectivity
-description: Connect a Paseo client to your daemon through SSH, the relay, or Tailscale.
+description: Connect a Pimi client to your daemon through SSH, the relay, or Tailscale.
 nav: Connectivity
 order: 4
 category: Getting started
@@ -8,68 +8,63 @@ category: Getting started
 
 # Connectivity
 
-Your Paseo app connects to the daemon running on your computer or server. Paseo Desktop and the CLI can tunnel through SSH. Mobile clients can connect through the Paseo relay or directly with Tailscale.
+Your Pimi app connects to the daemon running on your computer or server. Pimi Desktop and the CLI can tunnel through SSH. Mobile clients can connect through your own Pimi Relay or directly with Tailscale.
 
 This is client-to-daemon transport. If you are looking for the service that starts agents from GitHub, Slack, and Discord events, that is [Hub](/docs/hub).
 
 - [SSH](#ssh)
-- [Paseo relay](#paseo-relay)
+- [Pimi relay](#pimi-relay)
 - [Tailscale](#tailscale)
 
 ## SSH
 
-SSH transport connects to an existing daemon through your local OpenSSH client. It does not install, start, or configure Paseo on the remote host.
+SSH transport connects to an existing daemon through your local OpenSSH client. It does not install, start, or configure Pimi on the remote host.
 
 Before connecting:
 
-1. Start the Paseo daemon on the remote host.
-2. Confirm `ssh user@host` works with a key or SSH agent. Paseo uses non-interactive SSH and follows your OpenSSH config.
+1. Start the Pimi daemon on the remote host.
+2. Confirm `ssh user@host` works with a key or SSH agent. Pimi uses non-interactive SSH and follows your OpenSSH config.
 
 The CLI accepts an SSH URI as its host:
 
 ```bash
-paseo --host ssh://user@host ls -a
+pimi --host ssh://user@host ls -a
 ```
 
 The daemon is expected at `127.0.0.1:6767` on the remote host. The port in the SSH URL is the SSH server port:
 
 ```bash
-paseo --host ssh://user@host:2222 ls -a
+pimi --host ssh://user@host:2222 ls -a
 ```
 
 Set a different remote daemon port with `daemonPort`:
 
 ```bash
-paseo --host 'ssh://user@host?daemonPort=7777' ls -a
+pimi --host 'ssh://user@host?daemonPort=7777' ls -a
 ```
 
-Put `--host` before the command. `paseo daemon status` observes the default local home; use `paseo --host ssh://user@host daemon status` to query a remote daemon. `paseo --host ssh://user@host run --cwd /path/on/remote ...` requires a working directory that exists on the remote host.
+Put `--host` before the command. `pimi daemon status` observes the default local home; use `pimi --host ssh://user@host daemon status` to query a remote daemon. `pimi --host ssh://user@host run --cwd /path/on/remote ...` requires a working directory that exists on the remote host.
 
-In Paseo Desktop, open **Settings → Add host → Remote SSH** and enter the same `ssh://` destination, including `:port` or `?daemonPort=` when those differ from the defaults.
+In Pimi Desktop, open **Settings → Add host → Remote SSH** and enter the same `ssh://` destination, including `:port` or `?daemonPort=` when those differ from the defaults.
 
-If the remote daemon has a password, enter it in **Daemon password**; it is stored with the host and sent on every connection, the same as a direct connection's password. SSH login itself stays key-based — Paseo never prompts for an SSH password.
+If the remote daemon has a password, enter it in **Daemon password**; it is stored with the host and sent on every connection, the same as a direct connection's password. SSH login itself stays key-based — Pimi never prompts for an SSH password.
 
-## Paseo relay
+## Pimi relay
 
-The relay works without Tailscale, port forwarding, or network configuration. Traffic is end-to-end encrypted.
+Run [Pimi Relay](https://github.com/1ikeadragon/pimi-relay#pair-a-device) and configure its public address in the daemon's `config.json`. Use TLS for a relay on the internet. This example leaves the relay off until you enable it.
 
-Relay is disabled until you enable it.
-
-### Enable relay from Paseo Desktop
-
-1. Open **Settings → your host → Pair a device**.
-2. Select **Enable relay**.
-3. Scan the QR code with Paseo on your phone, or copy the pairing link and paste it into the phone app.
-
-### Enable relay from the CLI
-
-Run:
-
-```bash
-paseo daemon pair
+```json
+{
+  "daemon": {
+    "relay": {
+      "endpoint": "relay.example.com:443",
+      "useTls": true
+    }
+  }
+}
 ```
 
-Confirm when prompted. Paseo prints a QR code and pairing link. Scan the QR code with Paseo on your phone, or choose **Paste pairing link** in the phone app.
+Restart Pimi, open **Settings → your host → Pair a device**, and select **Enable relay**. Or run `pimi daemon pair --relay`. Scan the QR code with Pimi on your phone or paste the pairing link there. Keep the link private and use a daemon password.
 
 ## Tailscale
 
@@ -91,7 +86,6 @@ Open `~/.paseo/config.json` and set `daemon.listen` to the Tailscale IP:
 
 ```json
 {
-  "$schema": "https://paseo.sh/schemas/paseo.config.v1.json",
   "version": 1,
   "daemon": {
     "listen": "100.101.102.103:6767"
@@ -106,26 +100,26 @@ To restrict access with a password, see [Password authentication](/docs/configur
 Restart the daemon:
 
 ```bash
-paseo daemon restart
+pimi daemon restart
 ```
 
-If Paseo Desktop manages the daemon, use **Settings → your host → Overview → Restart daemon**.
+If Pimi Desktop manages the daemon, use **Settings → your host → Overview → Restart daemon**.
 
 ### 3. Connect the phone app
 
 1. Connect Tailscale on your phone.
-2. Open Paseo and go to **Settings → Add host → Direct connection**.
+2. Open Pimi and go to **Settings → Add host → Direct connection**.
 3. Enter the Tailscale IP in **Host**.
 4. Enter `6767` in **Port**.
 5. Leave **Use SSL** off and select **Connect**.
 
-If the host was already paired through the relay, Paseo adds the direct connection to the same host.
+If the host was already paired through the relay, Pimi adds the direct connection to the same host.
 
 ## Troubleshooting
 
-- **SSH authentication failed:** Run `ssh user@host` in a terminal and fix the key, agent, host key, or `~/.ssh/config` entry there. Paseo does not prompt for SSH passwords.
-- **SSH connects but Paseo is refused:** Run `paseo daemon status` on the remote host. SSH transport does not start the daemon.
-- **SSH connects but Paseo reports "Password required":** The remote daemon is password-protected. Remove the SSH connection from the host and add it again, this time entering the daemon password in **Daemon password**.
+- **SSH authentication failed:** Run `ssh user@host` in a terminal and fix the key, agent, host key, or `~/.ssh/config` entry there. Pimi does not prompt for SSH passwords.
+- **SSH connects but Pimi is refused:** Run `pimi daemon status` on the remote host. SSH transport does not start the daemon.
+- **SSH connects but Pimi reports "Password required":** The remote daemon is password-protected. Remove the SSH connection from the host and add it again, this time entering the daemon password in **Daemon password**.
 - **Connection timed out:** Check that Tailscale is connected on both devices and that you used the daemon machine's Tailscale IP.
-- **Connection refused:** Run `paseo daemon status` and confirm the daemon is running on the configured IP and port.
-- **Config change has no effect:** Run `paseo reload`. `daemon.listen` is a startup setting, so restart when the command reports it.
+- **Connection refused:** Run `pimi daemon status` and confirm the daemon is running on the configured IP and port.
+- **Config change has no effect:** Run `pimi reload`. `daemon.listen` is a startup setting, so restart when the command reports it.

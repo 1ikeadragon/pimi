@@ -1,8 +1,8 @@
 import { createHostPluginClientBundleStore } from "@/plugins/client-bundles";
 import { watchdog } from "@/watchdog";
-import { createHostChannelTransport } from "@getpaseo/client/internal/hosts";
-import type { OwnedSubscription } from "@getpaseo/client";
-import type { HostDirectory } from "@getpaseo/protocol/hosts";
+import { createHostChannelTransport } from "@pimi/client/internal/hosts";
+import type { OwnedSubscription } from "@pimi/client";
+import type { HostDirectory } from "@pimi/protocol/hosts";
 import { useSyncExternalStore, useMemo } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import equal from "fast-deep-equal/es6";
@@ -12,7 +12,7 @@ import {
   type DaemonClientConfig,
   type ConnectionState,
   type FetchAgentsOptions,
-} from "@getpaseo/client/internal/daemon-client";
+} from "@pimi/client/internal/daemon-client";
 import {
   connectionFromListen,
   createRemoteSshHostConnection,
@@ -35,7 +35,7 @@ import {
   shouldUseTlsForDefaultHostedRelay,
 } from "@/utils/daemon-endpoints";
 import { resolveAppVersion } from "@/utils/app-version";
-import { ConnectionOfferSchema, type ConnectionOffer } from "@getpaseo/protocol/connection-offer";
+import { ConnectionOfferSchema, type ConnectionOffer } from "@pimi/protocol/connection-offer";
 import { HostConfirmations, type HostConfirmationRequest } from "./host-confirmation";
 import { shouldUseDesktopDaemon } from "@/desktop/daemon/desktop-daemon";
 import { isWeb } from "@/constants/platform";
@@ -54,8 +54,8 @@ import {
 } from "@/desktop/daemon/desktop-daemon-transport";
 import { getDesktopHost } from "@/desktop/host";
 import { readDesktopManagedLocalCredential } from "@/desktop/daemon/local-credential";
-import { CLIENT_CAPS } from "@getpaseo/protocol/client-capabilities";
-import { BROWSER_AUTOMATION_COMMAND_NAMES } from "@getpaseo/protocol/browser-automation/rpc-schemas";
+import { CLIENT_CAPS } from "@pimi/protocol/client-capabilities";
+import { BROWSER_AUTOMATION_COMMAND_NAMES } from "@pimi/protocol/browser-automation/rpc-schemas";
 import {
   useSessionStore,
   toDaemonServerInfo,

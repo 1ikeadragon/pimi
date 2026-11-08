@@ -939,7 +939,7 @@ export const en = {
             "Update isn't available because this branch is already up to date with {{baseRef}}",
           mergePrNoGithub: "Merge PR isn't available right now because GitHub isn't connected",
           archiveNotWorktree:
-            "Archive isn't available here because this workspace was not created as a Paseo worktree",
+            "Archive isn't available here because this workspace was not created as a Pimi worktree",
           mergePrNoForge:
             "Merge {{noun}} isn't available right now because {{brand}} isn't connected",
           mergePrMissing: "Merge PR isn't available because there isn't a pull request yet",
@@ -1302,7 +1302,7 @@ export const en = {
       discord: "Discord",
       github: "Create GitHub issue",
       whatsNew: "What's new",
-      appName: "Paseo",
+      appName: "Pimi",
     },
     sections: {
       sessions: "History",
@@ -1453,7 +1453,7 @@ export const en = {
       close: "Close window",
     },
     quitting: {
-      title: "Quitting Paseo...",
+      title: "Quitting Pimi...",
       detail: "Stopping the local daemon.",
     },
     daemon: {
@@ -1484,20 +1484,20 @@ export const en = {
       },
       management: {
         title: "Manage built-in daemon",
-        hint: "Let Paseo start and stop the built-in daemon",
+        hint: "Let Pimi start and stop the built-in daemon",
         pauseTitle: "Pause built-in daemon",
         pauseMessage:
           "This will stop the built-in daemon immediately. Running agents and terminals connected to the built-in daemon will be stopped.",
         pauseAndStop: "Pause and stop",
         registrationFailed:
-          "Built-in daemon started, but Paseo could not save the localhost connection. Toggle daemon management off and on again, or add localhost manually.",
+          "Built-in daemon started, but Pimi could not save the localhost connection. Toggle daemon management off and on again, or add localhost manually.",
         pausedStopFailed:
-          "Built-in daemon management was paused, but Paseo could not stop the daemon.",
+          "Built-in daemon management was paused, but Pimi could not stop the daemon.",
         updateFailed: "Unable to update built-in daemon management.",
       },
       keepRunning: {
         title: "Keep daemon running after quit",
-        hint: "Daemon keeps running when you quit Paseo",
+        hint: "Daemon keeps running when you quit Pimi",
       },
       logs: {
         title: "Log file",
@@ -1512,7 +1512,7 @@ export const en = {
       fullStatus: {
         title: "Full status",
         modalTitle: "Daemon status",
-        hint: "Runs `paseo daemon status` and shows the output",
+        hint: "Runs `pimi daemon status` and shows the output",
         view: "View status",
         copied: "Status copied to clipboard.",
         fetchFailed: "Failed to fetch daemon status: {{message}}",
@@ -1564,7 +1564,7 @@ export const en = {
     },
     rosetta: {
       title: "Download the Apple Silicon build",
-      runningIntel: "You're running the Intel build of Paseo under Rosetta on Apple Silicon.",
+      runningIntel: "You're running the Intel build of Pimi under Rosetta on Apple Silicon.",
       highCpu: "This causes high CPU usage. Download the Apple Silicon build to fix it.",
       download: "Download",
     },
@@ -1606,7 +1606,7 @@ export const en = {
         microphone: "Microphone status has not been checked yet.",
       },
       testNotification: {
-        title: "Paseo notification test",
+        title: "Pimi notification test",
         body: "If you can see this, desktop notifications work.",
         notDelivered: "Notification was not delivered. Check System Settings > Notifications.",
         failed: "Failed to send notification.",
@@ -1615,15 +1615,15 @@ export const en = {
     integrations: {
       cli: {
         statusFailed: "Unable to check CLI install status.",
-        installFailed: "Unable to install the Paseo CLI.",
-        uninstallFailed: "Unable to uninstall the Paseo CLI.",
+        installFailed: "Unable to install the Pimi CLI.",
+        uninstallFailed: "Unable to uninstall the Pimi CLI.",
         keptForeign:
-          "Kept a paseo command that Paseo didn't install. Remove it yourself to uninstall it.",
+          "Kept a paseo command that Pimi didn't install. Remove it yourself to uninstall it.",
       },
     },
   },
   rootError: {
-    title: "Paseo ran into a problem.",
+    title: "Pimi ran into a problem.",
     body: "Try again to reload the app. If this keeps happening, include the details below when you report it.",
     details: "Details",
   },
@@ -1726,7 +1726,7 @@ export const en = {
   },
   onboarding: {
     setup: {
-      title: "Paseo",
+      title: "Pimi",
       stepCounter: "Step {{current}} of {{total}}",
       skip: "Skip setup",
       continue: "Continue",
@@ -1734,13 +1734,13 @@ export const en = {
       steps: {
         appearance: {
           label: "Appearance",
-          title: "Welcome to Paseo",
+          title: "Welcome to Pimi",
           description: "Let's start by picking a look",
         },
         providers: {
           label: "Providers",
           title: "Your agents",
-          description: "Paseo runs the agent CLIs already on this computer",
+          description: "Pimi runs the agent CLIs already on this computer",
         },
         projects: {
           label: "Projects",
@@ -1760,14 +1760,14 @@ export const en = {
         },
         orchestration: {
           label: "Orchestration",
-          title: "Let agents use Paseo",
+          title: "Let agents use Pimi",
           description: "Let your agents create workspaces and talk to other agents",
         },
         phone: {
           label: "Mobile",
           title: "Take your agents with you",
           description:
-            "The fully featured native mobile app allows you to control any Paseo computer from your phone",
+            "The fully featured native mobile app allows you to control any Pimi computer from your phone",
           appStore: "App Store",
           googlePlay: "Google Play",
           connectTitle: "Choose how to connect",
@@ -1779,7 +1779,7 @@ export const en = {
         },
       },
     },
-    title: "Welcome to Paseo",
+    title: "Welcome to Pimi",
     subtitle: "Connect your computer to get started",
     actions: {
       settings: "Settings",
@@ -1887,7 +1887,7 @@ export const en = {
     },
     direct: {
       title: "Direct connection",
-      helper: "Enter the address of a Paseo server.",
+      helper: "Enter the address of a Pimi server.",
       fields: {
         host: "Host",
         port: "Port",
@@ -1929,7 +1929,7 @@ export const en = {
     },
     remoteSsh: {
       title: "Remote SSH",
-      helper: "Connect to a Paseo daemon running on the remote host.",
+      helper: "Connect to a Pimi daemon running on the remote host.",
       fields: {
         target: "SSH host",
         password: "Daemon password",
@@ -1987,11 +1987,14 @@ export const en = {
       loadingOffer: "Loading pairing offer...",
       failedToLoadOffer: "Failed to load pairing offer.",
       relayDisabled: "Relay is not enabled. Enable relay to pair a device.",
+      setupTitle: "Set up a relay",
+      setupDescription:
+        "For remote QR pairing, run Pimi Relay, set its address in config.json, and restart Pimi.",
       enableTitle: "Enable relay?",
       enableDescription:
         "Relay lets this device connect from anywhere. Pairing traffic is end-to-end encrypted.",
       relayDocs: "How relay works",
-      relayDocsAccessibility: "Read how Paseo relay works",
+      relayDocsAccessibility: "Read how Pimi Relay works",
       enableRelay: "Enable relay",
       enablingRelay: "Enabling...",
       notNow: "Not now",
@@ -1999,9 +2002,9 @@ export const en = {
         "Without relay, connect directly over TCP, Tailscale, or another VPN. No QR code is created.",
       tailscaleDocs: "Set up Tailscale",
       tailscaleDocsAccessibility: "Read how to connect over Tailscale",
-      updateRequired: "Update the host to enable relay from Paseo Desktop.",
+      updateRequired: "Update the host to enable relay from Pimi Desktop.",
       unavailable: "Pairing offer unavailable.",
-      hint: "Scan this QR code with Paseo on your phone, or copy the link below.",
+      hint: "Scan this QR code with Pimi on your phone, or copy the link below.",
       securityWarning:
         "Treat this pairing link like a password. Anyone with it can access this daemon.",
       qrUnavailable: "QR code unavailable.",
@@ -2036,7 +2039,7 @@ export const en = {
   serviceUrl: {
     title: "Open service URL",
     message: "Open {{url}}?",
-    inPaseo: "In Paseo",
+    inPaseo: "In Pimi",
     externalBrowser: "External browser",
     dontAskAgain: "Don't ask again",
   },
@@ -2089,7 +2092,7 @@ export const en = {
         alwaysUseFilename: "Always use for {{filename}}",
         option: "{{title}} — {{owner}}",
         builtin: {
-          owner: "Paseo",
+          owner: "Pimi",
           markdown: "Markdown",
           html: "HTML",
           image: "Image",
@@ -2186,8 +2189,8 @@ export const en = {
       other: "used {{count}} other tools",
     },
     paseoCalls: {
-      one: "called Paseo {{count}} time",
-      other: "called Paseo {{count}} times",
+      one: "called Pimi {{count}} time",
+      other: "called Pimi {{count}} times",
     },
     and: "and",
   },
@@ -2406,7 +2409,7 @@ export const en = {
       send: "Send",
       sending: "Sending...",
       sentTitle: "Test notification sent",
-      sentDescription: "Paseo handed the notification to the operating system.",
+      sentDescription: "Pimi handed the notification to the operating system.",
       sendFailedTitle: "Unable to send test notification",
     },
     hostSections: {
@@ -2489,14 +2492,14 @@ export const en = {
     metadataGeneration: {
       title: "Metadata generation",
       description:
-        "Choose the model Paseo uses for workspace titles, branch names, commit messages, and pull request drafts",
+        "Choose the model Pimi uses for workspace titles, branch names, commit messages, and pull request drafts",
       selection: "Model selection",
       automatic: "Automatic",
       preferred: "Manual",
-      automaticHint: "Paseo picks a fast available model",
-      preferredHint: "Choose the model Paseo uses",
+      automaticHint: "Pimi picks a fast available model",
+      preferredHint: "Choose the model Pimi uses",
       model: "Model",
-      modelHint: "Only this model is used. If it fails, Paseo does not try another model",
+      modelHint: "Only this model is used. If it fails, Pimi does not try another model",
       docs: "Docs",
       saveError: "Unable to update metadata generation",
     },
@@ -2586,7 +2589,7 @@ export const en = {
       browserData: {
         title: "Browser data",
         siteData: "Cookies and site data",
-        description: "Browser tabs share sign-ins and site data across Paseo.",
+        description: "Browser tabs share sign-ins and site data across Pimi.",
         clear: "Clear browser data",
         clearing: "Clearing...",
         confirmTitle: "Clear browser data?",
@@ -2625,7 +2628,7 @@ export const en = {
       serviceUrls: {
         options: {
           ask: "Ask",
-          inApp: "In Paseo",
+          inApp: "In Pimi",
           external: "External browser",
         },
       },
@@ -2705,7 +2708,7 @@ export const en = {
         label: "App updates",
         readyToInstall: "Ready to install: {{version}}",
         installTitle: "Install desktop update",
-        installMessage: "This updates Paseo on this computer",
+        installMessage: "This updates Pimi on this computer",
         installConfirm: "Install update",
         update: "Update",
         updateTo: "Update to {{version}}",
@@ -2869,7 +2872,7 @@ export const en = {
       commandLine: {
         title: "Command line",
         description: "Control and script agents from your terminal",
-        accessibilityLabel: "Install the Paseo CLI",
+        accessibilityLabel: "Install the Pimi CLI",
       },
     },
     permissions: {
@@ -2988,10 +2991,10 @@ export const en = {
         title: "Orchestration",
         unavailable: "Connect to this host to manage orchestration",
         enableTools: {
-          title: "Enable Paseo tools",
+          title: "Enable Pimi tools",
           hint: "Agents will be able to manage worktrees, agents and automations",
-          accessibilityLabel: "Inject Paseo tools",
-          updateFailed: "Unable to update Paseo tools.",
+          accessibilityLabel: "Inject Pimi tools",
+          updateFailed: "Unable to update Pimi tools.",
         },
         systemPrompt: {
           title: "System prompt",
@@ -3107,10 +3110,10 @@ export const en = {
             "This host is not connected. Wait for it to come online before restarting.",
           offlineTitle: "Host offline",
           offlineMessage:
-            "This host is offline. Paseo reconnects automatically-wait until it's back online before restarting.",
+            "This host is offline. Pimi reconnects automatically-wait until it's back online before restarting.",
           requestFailedTitle: "Error",
           requestFailedMessage:
-            "Failed to send the restart request. Paseo reconnects automatically-try again once the host shows as online.",
+            "Failed to send the restart request. Pimi reconnects automatically-try again once the host shows as online.",
           closeTerminals: "Restart and close terminals",
           closeTerminalsHint: "Restart and also close every terminal running on this host.",
           closeTerminalsConfirmMessage:
@@ -3119,7 +3122,7 @@ export const en = {
         },
         update: {
           desktopManagedHint:
-            "This daemon is managed by Paseo Desktop. Update Paseo Desktop on the host.",
+            "This daemon is managed by Pimi Desktop. Update Pimi Desktop on the host.",
           title: "Update daemon",
           hint: "Update the daemon to the latest version and restart it",
           confirm: "Update",
@@ -3238,13 +3241,13 @@ export const en = {
         savedToast: "Project updated",
       },
       readFailures: {
-        invalidTitle: "paseo.json couldn't be parsed",
+        invalidTitle: "pimi.json couldn't be parsed",
         invalidDescription: "Fix the file on disk, then reload.",
         missingTitle: "This host doesn't have this project",
         missingSingleHost: "The selected host has no record of this project.",
-        transportTitle: "Couldn't load paseo.json",
+        transportTitle: "Couldn't load pimi.json",
         transportFallback: "The host didn't respond.",
-        failedTitle: "Couldn't load paseo.json",
+        failedTitle: "Couldn't load pimi.json",
         failedDescription: "Reload to try again.",
       },
       worktree: {
@@ -3255,7 +3258,7 @@ export const en = {
           "See docs for more details and the environment variables available to these commands",
         setup: "Setup",
         setupAccessibility: "Worktree setup commands",
-        uncommittedTitle: "Commit paseo.json changes",
+        uncommittedTitle: "Commit pimi.json changes",
         uncommittedDescription:
           "New worktrees use the setup script from the base branch you select.",
         teardown: "Teardown",
@@ -3280,7 +3283,7 @@ export const en = {
         newScript: "New script",
         editScript: "Edit {{name}}",
         runAsService: "Run as a service",
-        serviceHint: "Paseo supervises the process and assigns a port via $PASEO_PORT",
+        serviceHint: "Pimi supervises the process and assigns a port via $PASEO_PORT",
         actions: {
           add: "Add script",
           edit: "Edit",
@@ -3289,7 +3292,7 @@ export const en = {
       },
       metadata: {
         title: "Metadata generation",
-        info: "Project-specific instructions injected into the AI prompts Paseo uses to generate metadata - use them to enforce your team's conventions like branch naming, commit style, or PR format",
+        info: "Project-specific instructions injected into the AI prompts Pimi uses to generate metadata - use them to enforce your team's conventions like branch naming, commit style, or PR format",
         branchName: "Branch names",
         branchNamePlaceholder: "Prefix branches with feat/ or fix/, mb/ for personal branches",
         commitMessage: "Commit messages",
@@ -3299,8 +3302,8 @@ export const en = {
       },
       writeFailures: {
         staleTitle: "Config changed on disk",
-        staleDescription: "Reload to fetch the latest paseo.json before saving.",
-        failedTitle: "Couldn't save paseo.json",
+        staleDescription: "Reload to fetch the latest pimi.json before saving.",
+        failedTitle: "Couldn't save pimi.json",
         failedDescription: "Try again, or reload the latest version from disk.",
       },
       actions: {

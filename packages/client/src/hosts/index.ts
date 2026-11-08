@@ -1,10 +1,10 @@
-import { MAX_HOST_CHANNEL_FRAME_BYTES } from "@getpaseo/protocol/binary-frames/index";
+import { MAX_HOST_CHANNEL_FRAME_BYTES } from "@pimi/protocol/binary-frames/index";
 import { safeRandomId } from "../daemon-client-transport-utils.js";
 import { DaemonClient } from "../daemon-client.js";
 import type { DaemonTransportFactory } from "../daemon-client-transport-types.js";
 import type { OwnedSubscription } from "../connection/index.js";
 import type { PaseoApi, createPaseoApi } from "../index.js";
-import type { HostAdd, HostUpdate, HostSummary, HostDirectory } from "@getpaseo/protocol/hosts";
+import type { HostAdd, HostUpdate, HostSummary, HostDirectory } from "@pimi/protocol/hosts";
 
 export interface PaseoHostActions {
   list(): Promise<HostDirectory>;

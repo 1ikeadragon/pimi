@@ -1,5 +1,5 @@
 import type { AgentTimelineItem } from "./agent-sdk-types.js";
-import type { JsonValue } from "@getpaseo/protocol/agent-types";
+import type { JsonValue } from "@pimi/protocol/agent-types";
 
 export const PLUGIN_TIMELINE_DATA_MAX_BYTES = 64 * 1024;
 

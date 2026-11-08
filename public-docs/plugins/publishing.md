@@ -1,6 +1,6 @@
 ---
 title: Publish a plugin
-description: Prepare, publish and submit a Paseo plugin to the reviewed registry.
+description: Prepare, publish and submit a Pimi plugin to the reviewed registry.
 nav: Publishing
 order: 45
 category: Plugins
@@ -10,7 +10,7 @@ category: Plugins
 
 Start with a working [plugin project](/docs/plugins). Prepare its listing, publish it on npm
 or push it to GitHub, then submit it to the registry. After approval, users install the reviewed
-version with `paseo plugin add owner/slug`.
+version with `pimi plugin add owner/slug`.
 
 1. Prepare your [listing page](#your-listing-page) and, for a visual plugin, an
    [interface image](#icons-and-screenshots).
@@ -23,7 +23,7 @@ For a private plugin, use [direct Git installation](#share-through-github-or-git
 ## Your listing page
 
 You can submit without `OVERVIEW.md`; the reviewer creates a listing page from your README and
-verified behavior. To maintain the page yourself, put `OVERVIEW.md` beside `paseo-plugin.json`
+verified behavior. To maintain the page yourself, put `OVERVIEW.md` beside `pimi-plugin.json`
 and include it in the published package. The scaffold already includes it in `files`.
 Your shipped overview replaces the reviewer-written page.
 
@@ -31,7 +31,7 @@ Explain these points in order, using headings only when they help:
 
 1. What the plugin does.
 2. How it works, when that is not obvious.
-3. Setup: settings, accounts, tokens, external tools, supported operating systems and Paseo versions.
+3. Setup: settings, accounts, tokens, external tools, supported operating systems and Pimi versions.
 4. Useful capabilities, settings, data access, permissions and limitations.
 
 Describe where data goes, including prompts and tool results sent to agent providers. Local storage
@@ -43,7 +43,7 @@ Use plain factual language and sentence case. Omit marketing, unsupported claims
 changelogs, contributing and license sections, and implementation details that do not help someone
 choose the plugin. The listing already provides plugin installation instructions.
 
-The publication validator rejects `paseo plugin add`, `npm install` and `npm i` anywhere in an
+The publication validator rejects `pimi plugin add`, `npm install` and `npm i` anywhere in an
 overview, including development or setup examples. Link to your README for those commands.
 
 Also supply a one-sentence description: use `package.json`'s `description` for npm or the manifest's
@@ -52,7 +52,7 @@ Also supply a one-sentence description: use `package.json`'s `description` for n
 ### Other languages
 
 Listings show in English and Simplified Chinese. English is required and translations are optional.
-Add a translated `name` and `description` to `paseo-plugin.json`, keyed by language tag:
+Add a translated `name` and `description` to `pimi-plugin.json`, keyed by language tag:
 
 ```json
 {
@@ -67,7 +67,7 @@ Add a translated `name` and `description` to `paseo-plugin.json`, keyed by langu
 
 Each field is optional, and a missing one shows the English text. The registry checks
 `translations` when it publishes the plugin: keys are canonical language tags other than `en`, and
-each value sets only `name` or `description`, as non-empty strings. Paseo itself does not read
+each value sets only `name` or `description`, as non-empty strings. Pimi itself does not read
 `translations`, so a mistake there fails publication, not installation.
 
 To translate the overview, publish a complete copy named for the language next to `OVERVIEW.md`,
@@ -86,7 +86,7 @@ Themes, panels and other visual plugin interfaces need at least one image showin
 interface. Use sample data and hide private details. An icon alone does not meet this requirement;
 plugins without their own visual interface do not need screenshots.
 
-Declare local images in `paseo-plugin.json` before publishing:
+Declare local images in `pimi-plugin.json` before publishing:
 
 ```json
 {
@@ -101,7 +101,7 @@ Declare local images in `paseo-plugin.json` before publishing:
 
 Create the referenced files and include `assets/` in `package.json`'s `files` list for npm.
 Paths are relative to the manifest, use forward slashes and stay inside the plugin directory.
-These metadata fields require Paseo 0.11.0 or later.
+These metadata fields require Pimi 0.11.0 or later.
 
 | Field   | Listing behavior                                                                                                                                                    |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -136,7 +136,7 @@ must match the package's repository. A matching source checkout is not required 
 
 ### 2. Lock installed dependencies
 
-Keep Paseo's host libraries and type-only dependencies in `devDependencies`. Add other runtime
+Keep Pimi's host libraries and type-only dependencies in `devDependencies`. Add other runtime
 libraries to `dependencies`. For registry submission, every installed dependency tree needs a lock
 with exact versions, resolved sources and integrity, including transitive dependencies.
 
@@ -166,7 +166,7 @@ npm run typecheck
 npm pack --dry-run --ignore-scripts
 ```
 
-Check the file list contains `paseo-plugin.json`, at least one runtime entry, every imported local
+Check the file list contains `pimi-plugin.json`, at least one runtime entry, every imported local
 module, any overview and assets you declared, and the shrinkwrap when required. Repository-only import aliases
 and files outside the package do not reach users. The scaffold includes the entries and `client/`,
 `server/` and `shared/`; add other asset directories to `files`.
@@ -183,8 +183,8 @@ npm publish --access public
 On a test daemon, install that exact published version and exercise its contributions:
 
 ```bash
-paseo plugin install npm:@acme/paseo-review@1.0.0
-paseo plugin ls
+pimi plugin install npm:@acme/paseo-review@1.0.0
+pimi plugin ls
 ```
 
 Require `running` with no error, then [submit the package](#plugin-registry).
@@ -196,7 +196,7 @@ runtime entries, imported files and listing assets. Git tags and commits are opt
 provide one to select a revision, or the reviewer resolves `main`.
 
 If preparation installs runtime npm dependencies, commit a synchronized `package-lock.json` and
-add this command to `paseo-plugin.json`:
+add this command to `pimi-plugin.json`:
 
 ```json
 {
@@ -212,8 +212,8 @@ command. See [preparation](#plugins-with-a-build-step) for generated files or ex
 Users can install directly from Git without a registry listing:
 
 ```bash
-paseo plugin add git:acme/paseo-review
-paseo plugin add git:acme/monorepo:plugins/review
+pimi plugin add git:acme/paseo-review
+pimi plugin add git:acme/monorepo:plugins/review
 ```
 
 Use `--ref` to select a branch, tag or commit for the initial installation. Direct installation
@@ -223,40 +223,14 @@ GitHub sources and public npm packages.
 
 ## Plugin registry
 
-Open the [submission form](https://github.com/getpaseo/plugins/issues/new?template=submit-plugin.yml).
-Use the form so the issue receives the submission label that starts intake.
-
-1. Use your plugin's name as the title.
-2. In **Source**, enter the public npm package name or page, or the GitHub repository/folder URL.
-   Include the version or Git reference if you want a specific release reviewed. npm defaults to
-   `latest`. Registry IDs and local directories are not submission sources.
-3. Select the categories that fit. Include any interface-image URLs in the issue description.
-
-The bot opens a review PR. The reviewer inspects the artifact and dependencies without running
-plugin code, completes the listing and records the exact approved version or commit. Publication
-requires the [review policy](https://github.com/getpaseo/plugins/blob/main/REVIEW.md), including
-locked installation inputs and appropriate data access, even when automated validation passes.
-
-If a change is requested, reply on the review PR with the corrected version/revision or requested
-image URL. The reviewer updates the pin and listing. Intake service errors retry automatically;
-missing images or an overview do not prevent opening the review PR.
-
-After approval and publication, users install your listing with:
-
-```bash
-paseo plugin add owner/slug
-```
-
-npm releases receive automatic update PRs. Submit Git updates manually with the desired revision.
-Existing registry installations use approved pins; direct npm/Git installs follow their own update
-rules in the [source reference](/docs/plugins/reference#plugin-sources).
+Pimi supports registries that you configure. Share a pinned Git URL or npm package directly, or publish its listing to a registry you operate.
 
 ## Plugins with a build step
 
-Paseo compiles TypeScript, so an ordinary plugin needs no separate publication build.
+Pimi compiles TypeScript, so an ordinary plugin needs no separate publication build.
 Keep generated modules in their runtime directory and host-provided modules external.
 
-Paseo suppresses npm lifecycle scripts during package acquisition. Commands explicitly declared in
+Pimi suppresses npm lifecycle scripts during package acquisition. Commands explicitly declared in
 manifest `build` still run, including scripts they invoke. Explain the purpose of those commands
 and keep their inputs locked and inspectable. Remove Git-only dependency-install commands from
 npm manifests when npm already installs the production dependencies.
@@ -287,7 +261,7 @@ npm publish --registry=https://npm.pkg.github.com
 [Configure GitHub authentication and package access](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-npm-registry)
 before publishing.
 
-To install the plugin, configure npm **on the daemon host, as the user running Paseo**:
+To install the plugin, configure npm **on the daemon host, as the user running Pimi**:
 
 1. Add your organization's registry to `~/.npmrc`:
 
@@ -308,7 +282,7 @@ To install the plugin, configure npm **on the daemon host, as the user running P
    paseo plugin install npm:@acme/paseo-review
    ```
 
-Paseo uses the host's npm registry settings and credentials for installation and updates.
+Pimi uses the host's npm registry settings and credentials for installation and updates.
 In the app, enter only the source identifier.
 
 :::

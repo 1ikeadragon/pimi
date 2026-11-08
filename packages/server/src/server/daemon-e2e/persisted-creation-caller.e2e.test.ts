@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import { expect, test } from "vitest";
-import { PARENT_AGENT_ID_LABEL } from "@getpaseo/protocol/agent-labels";
+import { PARENT_AGENT_ID_LABEL } from "@pimi/protocol/agent-labels";
 import { createDaemonTestContext, type DaemonTestContext } from "../test-utils/index.js";
 
 test.each(["agent", "workspace"] as const)(

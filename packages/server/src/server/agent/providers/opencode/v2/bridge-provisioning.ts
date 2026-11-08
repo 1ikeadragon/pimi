@@ -43,7 +43,7 @@ export async function provisionLocalBridge(input: {
   const manifest = path.join(directory, "package.json");
   if (created) await writeFileAtomic(manifest, PACKAGE);
   else if (!isManagedPackage(await readManagedManifest(manifest)))
-    throw new Error(`Cannot install OpenCode bridge: ${directory} is not managed by Paseo`);
+    throw new Error(`Cannot install OpenCode bridge: ${directory} is not managed by Pimi`);
   const artifact = await readFile(input.artifact);
   const state = await readFile(path.join(path.dirname(input.artifact), "state.mjs"));
   const stateTarget = path.join(directory, "state.mjs");

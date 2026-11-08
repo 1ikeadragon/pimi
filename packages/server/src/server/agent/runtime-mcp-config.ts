@@ -1,18 +1,18 @@
 import type { AgentSessionConfig, McpServerConfig } from "./agent-sdk-types.js";
 
-export const PASEO_MCP_SERVER_NAME = "pimi";
-const PASEO_MCP_PATHNAME = "/mcp/agents";
+export const PIMI_MCP_SERVER_NAME = "pimi";
+const PIMI_MCP_PATHNAME = "/mcp/agents";
 
-export function stripInternalPaseoMcpServer(config: AgentSessionConfig): AgentSessionConfig {
+export function stripInternalPimiMcpServer(config: AgentSessionConfig): AgentSessionConfig {
   const mcpServers = config.mcpServers;
   if (!mcpServers) {
     return config;
   }
 
   const nextMcpServers = { ...mcpServers };
-  for (const name of ["paseo", PASEO_MCP_SERVER_NAME]) {
+  for (const name of ["paseo", PIMI_MCP_SERVER_NAME]) {
     const server = nextMcpServers[name];
-    if (server && isInternalPaseoMcpServer(server)) delete nextMcpServers[name];
+    if (server && isInternalPimiMcpServer(server)) delete nextMcpServers[name];
   }
   if (Object.keys(mcpServers).length === Object.keys(nextMcpServers).length) return config;
 
@@ -25,7 +25,7 @@ export function stripInternalPaseoMcpServer(config: AgentSessionConfig): AgentSe
   return next;
 }
 
-export function withRuntimePaseoMcpServer(params: {
+export function withRuntimePimiMcpServer(params: {
   config: AgentSessionConfig;
   agentId: string;
   mcpBaseUrl: string | null;
@@ -36,15 +36,15 @@ export function withRuntimePaseoMcpServer(params: {
    */
   mcpAuthToken: string | null;
 }): AgentSessionConfig {
-  const storedConfig = stripInternalPaseoMcpServer(params.config);
-  if (!params.mcpBaseUrl || storedConfig.mcpServers?.[PASEO_MCP_SERVER_NAME]) {
+  const storedConfig = stripInternalPimiMcpServer(params.config);
+  if (!params.mcpBaseUrl || storedConfig.mcpServers?.[PIMI_MCP_SERVER_NAME]) {
     return storedConfig;
   }
 
   return {
     ...storedConfig,
     mcpServers: {
-      [PASEO_MCP_SERVER_NAME]: {
+      [PIMI_MCP_SERVER_NAME]: {
         type: "http",
         url: `${params.mcpBaseUrl}?callerAgentId=${params.agentId}`,
         ...(params.mcpAuthToken
@@ -56,13 +56,13 @@ export function withRuntimePaseoMcpServer(params: {
   };
 }
 
-function isInternalPaseoMcpServer(config: McpServerConfig): boolean {
+function isInternalPimiMcpServer(config: McpServerConfig): boolean {
   if (config.type !== "http" && config.type !== "sse") {
     return false;
   }
 
   try {
-    return new URL(config.url).pathname === PASEO_MCP_PATHNAME;
+    return new URL(config.url).pathname === PIMI_MCP_PATHNAME;
   } catch {
     return false;
   }

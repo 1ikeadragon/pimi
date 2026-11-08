@@ -1,6 +1,6 @@
 ---
 title: SDK API reference
-description: Public configuration, methods, handles, results, defaults, and lifecycle behavior for @getpaseo/client.
+description: Public configuration, methods, handles, results, defaults, and lifecycle behavior for @pimi/client.
 nav: API reference
 order: 58
 category: TypeScript SDK
@@ -8,7 +8,7 @@ category: TypeScript SDK
 
 # SDK API reference
 
-Import every supported runtime value and TypeScript type from `@getpaseo/client`.
+Import every supported runtime value and TypeScript type from `@pimi/client`.
 
 ## `createPaseoClient(config)`
 
@@ -33,7 +33,7 @@ Common optional configuration:
 | `reconnect.maxDelayMs`  | `number`      | Client default | Maximum reconnect delay.                         |
 | `logger`                | `PaseoLogger` | Unset          | Debug, info, warning, and error sink.            |
 
-Relay E2EE clients can also pass `e2ee.enabled` and `e2ee.daemonPublicKeyB64`. `appVersion`, `runtimeGeneration`, and runtime-metrics options exist for Paseo client surfaces; ordinary integrations can omit them.
+Relay E2EE clients can also pass `e2ee.enabled` and `e2ee.daemonPublicKeyB64`. `appVersion`, `runtimeGeneration`, and runtime-metrics options exist for Pimi client surfaces; ordinary integrations can omit them.
 
 ## Client lifecycle
 
@@ -133,14 +133,14 @@ See [events](./events.md#follow-provider-catalog-changes) for explicit event obs
 
 ## `client.workspaces`
 
-| Method                   | Result                        | Behavior                                                                                                                 |
-| ------------------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `list(options?)`         | `PaseoWorkspaceListResult`    | Lists, filters, pages, or subscribes to the workspace directory.                                                         |
-| `open(cwd)`              | `PaseoWorkspaceHandle`        | Reuses the active workspace for a directory or creates one.                                                              |
-| `create(options)`        | `PaseoWorkspaceHandle`        | Always creates a fresh directory-backed or Paseo-worktree workspace. `background: true` hides it from default discovery. |
-| `ref(workspaceOrId)`     | `PaseoWorkspaceHandle`        | Creates a local handle.                                                                                                  |
-| `archive(workspaceOrId)` | `PaseoWorkspaceArchiveResult` | Archives without first creating a handle.                                                                                |
-| `subscribe(handler)`     | Unsubscribe function          | Local listener for this API instance. Requires an owned `list({ subscribe: {} })` observation.                           |
+| Method                   | Result                        | Behavior                                                                                                                |
+| ------------------------ | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `list(options?)`         | `PaseoWorkspaceListResult`    | Lists, filters, pages, or subscribes to the workspace directory.                                                        |
+| `open(cwd)`              | `PaseoWorkspaceHandle`        | Reuses the active workspace for a directory or creates one.                                                             |
+| `create(options)`        | `PaseoWorkspaceHandle`        | Always creates a fresh directory-backed or Pimi-worktree workspace. `background: true` hides it from default discovery. |
+| `ref(workspaceOrId)`     | `PaseoWorkspaceHandle`        | Creates a local handle.                                                                                                 |
+| `archive(workspaceOrId)` | `PaseoWorkspaceArchiveResult` | Archives without first creating a handle.                                                                               |
+| `subscribe(handler)`     | Unsubscribe function          | Local listener for this API instance. Requires an owned `list({ subscribe: {} })` observation.                          |
 
 `create({ source, agent, background })` creates a workspace and its initial agent together.
 `agent` accepts agent creation options except `worktree`, `git`, `onEvent`, `idempotencyKey`,
@@ -187,7 +187,7 @@ Terminal handles expose:
 
 Capture accepts optional `start`, `end`, `stripAnsi`, and `requestId`. Line bounds are zero-based and inclusive across scrollback and the viewport. Negative bounds count from the end; omitted bounds capture all lines. `stripAnsi` defaults to `true`. A missing terminal returns empty lines.
 
-Use `workspace.terminals.create(options?)` and `workspace.terminals.list(options?)` to supply the workspace ID from a handle. Creation accepts the same options except `workspaceId`; listing accepts only `requestId`. Plugins get these methods through `usePaseo()` and the handler's `paseo` context.
+Use `workspace.terminals.create(options?)` and `workspace.terminals.list(options?)` to supply the workspace ID from a handle. Creation accepts the same options except `workspaceId`; listing accepts only `requestId`. Plugins get these methods through `usePimi()` and the handler's `paseo` context.
 
 ## `client.providers`
 

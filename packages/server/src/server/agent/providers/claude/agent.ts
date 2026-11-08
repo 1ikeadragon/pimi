@@ -24,7 +24,7 @@ import {
   type SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 import type { Logger } from "pino";
-import { AgentContextBreakdownSchema } from "@getpaseo/protocol/messages";
+import { AgentContextBreakdownSchema } from "@pimi/protocol/messages";
 import {
   mapClaudeCanceledToolCall,
   mapClaudeCompletedToolCall,

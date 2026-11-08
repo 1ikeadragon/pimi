@@ -1,13 +1,13 @@
-import { TerminalInputModeTracker } from "@getpaseo/protocol/terminal-input-mode";
-import { encodeTerminalKeyInput } from "@getpaseo/protocol/terminal-key-input";
-import type { SubscribeTerminalRequest } from "@getpaseo/protocol/messages";
+import { TerminalInputModeTracker } from "@pimi/protocol/terminal-input-mode";
+import { encodeTerminalKeyInput } from "@pimi/protocol/terminal-key-input";
+import type { SubscribeTerminalRequest } from "@pimi/protocol/messages";
 import { TerminalSessionController } from "./terminal-session-controller.js";
 import { SessionDelivery } from "../server/session/owned-subscriptions/index.js";
 import {
   decodeTerminalStreamFrame,
   TerminalStreamOpcode,
   type TerminalStreamFrame,
-} from "@getpaseo/protocol/binary-frames/index";
+} from "@pimi/protocol/binary-frames/index";
 import type { SessionOutboundMessage } from "../server/messages.js";
 import { createConnection } from "node:net";
 import { attachFramedSocket } from "./terminal-worker-frames.js";
@@ -43,8 +43,8 @@ import {
   resolvePaseoCliExecutablePath,
   type TerminalSession,
 } from "./terminal.js";
-import type { TerminalState } from "@getpaseo/protocol/messages";
-import type { TerminalActivity } from "@getpaseo/protocol/terminal-activity";
+import type { TerminalState } from "@pimi/protocol/messages";
+import type { TerminalActivity } from "@pimi/protocol/terminal-activity";
 import type {
   TerminalWorkerRequest,
   WorkerTerminalState,

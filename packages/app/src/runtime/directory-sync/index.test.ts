@@ -6,11 +6,8 @@ import {
   type SqliteValue,
 } from "@/runtime/replica-cache/row-store-sqlite";
 import { afterEach, describe, expect, it } from "vitest";
-import type {
-  DaemonClient,
-  WorkspaceLabelListPayload,
-} from "@getpaseo/client/internal/daemon-client";
-import type { SessionOutboundMessage } from "@getpaseo/protocol/messages";
+import type { DaemonClient, WorkspaceLabelListPayload } from "@pimi/client/internal/daemon-client";
+import type { SessionOutboundMessage } from "@pimi/protocol/messages";
 import {
   normalizeProjectDescriptor,
   normalizeWorkspaceDescriptor,

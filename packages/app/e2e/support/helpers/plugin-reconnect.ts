@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
-import { settingsRpc } from "@getpaseo/plugin";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
+import { settingsRpc } from "@pimi/plugin";
+import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import { z } from "zod";
 import { expect, type Page } from "../fixtures";
 import { gotoAppShell } from "./app";
@@ -14,7 +14,7 @@ const PLUGIN_ID = "retained-plugin-e2e";
 export function retainedPluginSource(version: string) {
   return `import { useState } from "react";
 import { Text, View, TextInput, Pressable } from "react-native";
-import { useSettings } from "@getpaseo/plugin/client";
+import { useSettings } from "@pimi/plugin/client";
 import { preferences } from "./shared/preferences";
 function Preferences({ color }) {
   const settings = useSettings(preferences);

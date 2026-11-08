@@ -1,5 +1,5 @@
-import { createPaseoApi, type PaseoApi } from "@getpaseo/client";
-import { createHostClient } from "@getpaseo/client/node";
+import { createPaseoApi, type PaseoApi } from "@pimi/client";
+import { createHostClient } from "@pimi/client/node";
 import { hashSync } from "bcryptjs";
 import { once } from "node:events";
 import { createRequire } from "node:module";
@@ -7,12 +7,12 @@ import {
   decodeTerminalStreamFrame,
   encodeTerminalStreamFrame,
   TerminalStreamOpcode,
-} from "@getpaseo/protocol/binary-frames/index";
+} from "@pimi/protocol/binary-frames/index";
 import {
   getDaemonAuthFailureReason,
   DaemonClient as HostClient,
-} from "@getpaseo/client/internal/daemon-client";
-import type { SessionOutboundMessage } from "@getpaseo/protocol/messages";
+} from "@pimi/client/internal/daemon-client";
+import type { SessionOutboundMessage } from "@pimi/protocol/messages";
 import { describe, expect, test, vi } from "vitest";
 import { withTimeout } from "../../utils/promise-timeout.js";
 import { DaemonClient } from "../test-utils/daemon-client.js";
@@ -35,7 +35,7 @@ import {
   openClientSecureChannel,
   type SecureChannel,
   type Transport,
-} from "@getpaseo/relay/e2ee";
+} from "@pimi/relay/e2ee";
 import {
   deriveSharedKey,
   decrypt,
@@ -43,10 +43,10 @@ import {
   exportPublicKey,
   generateKeyPair,
   importPublicKey,
-} from "@getpaseo/relay";
-import { buildRelayWebSocketUrl } from "@getpaseo/protocol/daemon-endpoints";
-import { ConnectionOfferSchema } from "@getpaseo/protocol/connection-offer";
-import { WSOutboundMessageSchema } from "@getpaseo/protocol/messages";
+} from "@pimi/relay";
+import { buildRelayWebSocketUrl } from "@pimi/protocol/daemon-endpoints";
+import { ConnectionOfferSchema } from "@pimi/protocol/connection-offer";
+import { WSOutboundMessageSchema } from "@pimi/protocol/messages";
 
 const nodeMajor = Number((process.versions.node ?? "0").split(".")[0] ?? "0");
 const shouldRunRelayE2e = process.env.FORCE_RELAY_E2E === "1" || nodeMajor < 25;

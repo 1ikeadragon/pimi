@@ -1,6 +1,6 @@
-import { PluginTranslationRuntime } from "@getpaseo/plugin/client/host";
+import { PluginTranslationRuntime } from "@pimi/plugin/client/host";
 import { QueryClient } from "@tanstack/react-query";
-import type { PluginThemeContribution } from "@getpaseo/plugin";
+import type { PluginThemeContribution } from "@pimi/plugin";
 import { describe, expect, it } from "vitest";
 import { darkTheme, lightTheme } from "@/styles/theme";
 import { collectPluginThemes, rememberPluginThemeHost } from "./themes";

@@ -1,7 +1,7 @@
 import type { PluginText } from "../text.js";
 import type { ComponentType } from "react";
-import type { PaseoApi } from "@getpaseo/client";
-import type { AgentTimelineItem, JsonValue } from "@getpaseo/protocol/agent-types";
+import type { PaseoApi } from "@pimi/client";
+import type { AgentTimelineItem, JsonValue } from "@pimi/protocol/agent-types";
 import type { ZodType, input as ZodInput, output as ZodOutput } from "zod";
 import type { PluginFile } from "./file.js";
 import type {
@@ -308,6 +308,8 @@ export interface PluginTimelineRendererContribution<Schema extends ZodType = Zod
 }
 
 export interface PluginCommandCapabilities {
+  pimi: PaseoApi;
+  /** @deprecated Use pimi. */
   paseo: PaseoApi;
   rpc<InputSchema extends ZodType, OutputSchema extends ZodType>(
     contract: PluginRpcContract<InputSchema, OutputSchema>,

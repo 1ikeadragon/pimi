@@ -569,6 +569,6 @@ it("preserves every message in fork history below the character budget", () => {
     rows: [row(1, { type: "user_message", text })],
   });
   expect(result.attachment.text).toBe(
-    `<chat-history-summary>\nChat history from a previous Paseo agent.\n\n[User] ${text}\n</chat-history-summary>`,
+    `<chat-history-summary>\nChat history from a previous Pimi agent.\n\n[User] ${text}\n</chat-history-summary>`,
   );
 });

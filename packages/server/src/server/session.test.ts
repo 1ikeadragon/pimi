@@ -26,15 +26,15 @@ import {
   assertPullRequestAutoMergeDisableReady,
   assertPullRequestAutoMergeEnableReady,
 } from "../services/github-service.js";
-import { PARENT_AGENT_ID_LABEL } from "@getpaseo/protocol/agent-labels";
-import { CLIENT_CAPS } from "@getpaseo/protocol/client-capabilities";
-import type { WorkspaceDescriptorPayload } from "@getpaseo/protocol/messages";
+import { PARENT_AGENT_ID_LABEL } from "@pimi/protocol/agent-labels";
+import { CLIENT_CAPS } from "@pimi/protocol/client-capabilities";
+import type { WorkspaceDescriptorPayload } from "@pimi/protocol/messages";
 import {
   decodeFileTransferFrame,
   encodeFileTransferFrame,
   FileTransferOpcode,
   type FileTransferFrame,
-} from "@getpaseo/protocol/binary-frames/index";
+} from "@pimi/protocol/binary-frames/index";
 import { Session } from "./session.js";
 import {
   terminalCleanupRecordPath,

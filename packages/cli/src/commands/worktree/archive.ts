@@ -1,6 +1,6 @@
 import path from "path";
 import type { Command } from "commander";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
+import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import { connectToDaemon, getDaemonHost } from "../../utils/client.js";
 import { resolveRepositoryDirectory } from "./repository-directory.js";
 import type {
@@ -99,13 +99,13 @@ export async function runArchiveCommandWithDeps(
       const error: CommandError = {
         code: "WORKTREE_NOT_FOUND",
         message: `Worktree not found: ${nameArg}`,
-        details: 'Use "paseo worktree ls" to list available worktrees',
+        details: 'Use "pimi worktree ls" to list available worktrees',
       };
       throw error;
     }
 
     // Archive the worktree. scope:"worktree" archives every active workspace on
-    // the directory and then removes the directory (Paseo-owned gated).
+    // the directory and then removes the directory (Pimi-owned gated).
     const response = await client.archivePaseoWorktree({
       worktreePath: worktree.worktreePath,
       scope: "worktree",

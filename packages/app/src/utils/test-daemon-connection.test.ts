@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { DaemonClientConfig } from "@getpaseo/client/internal/daemon-client";
-import { DaemonAuthenticationError } from "@getpaseo/client/internal/daemon-client";
+import type { DaemonClientConfig } from "@pimi/client/internal/daemon-client";
+import { DaemonAuthenticationError } from "@pimi/client/internal/daemon-client";
 import type { DaemonConnectionDependencies, DaemonProbeClient } from "./test-daemon-connection";
 
 class FakeDaemonClient implements DaemonProbeClient {

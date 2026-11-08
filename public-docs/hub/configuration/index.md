@@ -8,7 +8,7 @@ category: Hub
 
 # Hub configuration
 
-Each organization trigger is one self-contained YAML file. Keep triggers in your repository and deploy them with `paseo hub deploy`:
+Each organization trigger is one self-contained YAML file. Keep triggers in your repository and deploy them with `pimi hub deploy`:
 
 ```text
 .paseo/
@@ -18,7 +18,7 @@ Each organization trigger is one self-contained YAML file. Keep triggers in your
 
 ## Generated starter trigger
 
-Run `paseo hub init` from the repository the agent should work in. Setup selects an app connection and an available agent runtime, asks which user may trigger it, validates the result, and writes one file. It then asks whether to deploy. Interactive `paseo hub login` connects the daemon and points to this command; it does not write trigger files.
+Run `pimi hub init` from the repository the agent should work in. Setup selects an app connection and an available agent runtime, asks which user may trigger it, validates the result, and writes one file. It then asks whether to deploy. Interactive `pimi hub login` connects the daemon and points to this command; it does not write trigger files.
 
 For a Slack connection named `my-team`, the generated document looks like this:
 
@@ -86,9 +86,9 @@ Use a positive duration in `ms`, `s`, `m`, or `h`, up to `24h`. Omitting the fie
 Run from the repository root:
 
 ```sh
-paseo hub login https://hub.example.com
-paseo hub deploy --dry-run
-paseo hub deploy
+pimi hub login https://hub.example.com
+pimi hub deploy --dry-run
+pimi hub deploy
 ```
 
 Both deploy commands discover direct `.paseo/triggers/*.yml` files in deterministic path order. The CLI rejects nested files, `.yaml` extensions, symlinked trigger paths, and unreadable files. It does not search parent directories.
@@ -98,14 +98,13 @@ Dry-run validates each document against Hub without storing a revision. Deployme
 Origin precedence:
 
 1. `--hub`
-2. `PASEO_HUB_URL`
+2. `PIMI_HUB_URL`
 3. Active stored login
-4. `https://hub.paseo.sh`
 
 Credential precedence:
 
 1. `--api-key`
-2. `PASEO_HUB_API_KEY`
+2. `PIMI_HUB_API_KEY`
 3. Stored login for the exact resolved origin
 
 Flags and environment keys are not stored. Endpoint and credential behavior is unchanged between deploy and dry-run.
@@ -117,11 +116,11 @@ Existing project bundles use `.paseo/hub.yml`, direct `.paseo/workflows/*.yml` f
 Select the legacy deployment path explicitly:
 
 ```sh
-paseo hub deploy --project my-project --dry-run
-paseo hub deploy --project my-project
+pimi hub deploy --project my-project --dry-run
+pimi hub deploy --project my-project
 ```
 
-These commands send the complete bundle through the project configuration API. Dry-run validates without recording or activating a revision. `paseo hub init` does not create or migrate these bundles.
+These commands send the complete bundle through the project configuration API. Dry-run validates without recording or activating a revision. `pimi hub init` does not create or migrate these bundles.
 
 The following source and revision behavior applies to legacy project bundles.
 

@@ -5,7 +5,7 @@ Pod::Spec.new do |s|
   s.description    = 'Shapes and paints terminal frames on the terminal cell grid'
   s.license        = 'Apache-2.0'
   s.author         = 'Paseo'
-  s.homepage       = 'https://paseo.sh'
+  s.homepage       = 'https://1ikeadragon.github.io/pimi/'
   s.platforms      = { :ios => '15.1' }
   s.swift_version  = '5.4'
   s.source         = { :path => '.' }
