@@ -1436,6 +1436,12 @@ export class AgentManager {
     return this.timelineStore.fetch(id, options);
   }
 
+  getCompletedCompactionCount(id: string): number | undefined {
+    const agent = this.requireAgent(id);
+    if (!agent.historyPrimed) return undefined;
+    return this.timelineStore.getCompletedCompactionCount(id);
+  }
+
   listProviderSubagents(parentAgentId: string): ProviderSubagentDescriptor[] {
     this.requirePublicAgent(parentAgentId);
     return this.providerSubagents.list(parentAgentId);

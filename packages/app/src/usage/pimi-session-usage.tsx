@@ -24,8 +24,10 @@ import { Button } from "@/components/ui/button";
 import { DensityIcon } from "@/components/ui/density-icon";
 import { PressHighlight } from "@/components/ui/press-highlight";
 import { SearchField } from "@/components/ui/search-field";
+import { useFetchQuery } from "@/data/query";
 import { useAggregatedAgents, type AggregatedAgent } from "@/hooks/use-aggregated-agents";
 import { useProvidersSnapshot } from "@/hooks/use-providers-snapshot";
+import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { useLastWorkspaceSelection } from "@/stores/navigation-active-workspace-store";
 import { useSessionStore, type Agent } from "@/stores/session-store";
 import type { Theme } from "@/styles/theme";
@@ -36,6 +38,7 @@ import { UsageMeter } from "./meter";
 const RING_SIZE = 112;
 const RING_STROKE = 7;
 const TWO_COLUMN_MIN_WIDTH = 710;
+const COMPACTION_REFRESH_MS = 15_000;
 const ROW_SELECTED = { selected: true };
 const ROW_UNSELECTED = { selected: false };
 
@@ -187,8 +190,28 @@ const SessionRow = memo(function SessionRow({
   );
 });
 
+function useSessionCompactionCount(serverId: string, agentId: string) {
+  const client = useHostRuntimeClient(serverId);
+  const connected = useHostRuntimeIsConnected(serverId);
+  return useFetchQuery({
+    queryKey: ["session-compaction-count", serverId, agentId],
+    enabled: client !== null && connected,
+    queryFn: async () => {
+      if (!client) throw new Error("Host disconnected");
+      const result = await client.fetchAgentTimeline(agentId, { compactionSummaryOnly: true });
+      return result.completedCompactionCount ?? null;
+    },
+    dataShape: "value",
+    staleTimeMs: COMPACTION_REFRESH_MS,
+    refetchOnMount: true,
+    refetchInterval: (query) =>
+      typeof query.state.data === "number" ? COMPACTION_REFRESH_MS : false,
+  });
+}
+
 function SessionDetail({ agent }: { agent: AggregatedAgent }) {
   const { i18n, t } = useTranslation();
+  const compactions = useSessionCompactionCount(agent.serverId, agent.id);
   const { usage, model } = useSessionStore(
     useShallow((state) => {
       const current = state.sessions[agent.serverId]?.agents.get(agent.id);
@@ -252,6 +275,13 @@ function SessionDetail({ agent }: { agent: AggregatedAgent }) {
   } else if (capacity !== undefined) {
     contextLabel = `${number.format(capacity)} token capacity · usage unavailable`;
   }
+  let compactionLabel = "Compactions unavailable";
+  if (typeof compactions.data === "number") {
+    const label = compactions.data === 1 ? "compaction" : "compactions";
+    compactionLabel = `${number.format(compactions.data)} ${label} recorded`;
+  } else if (compactions.isLoading) {
+    compactionLabel = "Counting compactions…";
+  }
 
   return (
     <View style={styles.detail} testID="pimi-usage-context">
@@ -289,6 +319,9 @@ function SessionDetail({ agent }: { agent: AggregatedAgent }) {
         <View style={styles.contextCopy}>
           <Text style={styles.rowName}>{t("contextWindow.title")}</Text>
           <Text style={styles.muted}>{contextLabel}</Text>
+          <Text style={styles.muted} testID="pimi-usage-compaction-count">
+            {compactionLabel}
+          </Text>
         </View>
       </View>
       {reported.length > 0 ? (
