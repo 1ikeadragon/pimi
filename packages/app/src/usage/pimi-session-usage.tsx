@@ -84,16 +84,17 @@ export function PimiSessionUsage({
   const search = query.trim().toLowerCase();
   const sessions = useMemo(
     () =>
-      search
-        ? agents.filter((agent) =>
+      agents.filter(
+        (agent) =>
+          agent.status !== "closed" &&
+          (!search ||
             [
               sessionName(agent),
               agent.provider,
               agent.projectPlacement?.projectName,
               agent.serverLabel,
-            ].some((value) => value?.toLowerCase().includes(search)),
-          )
-        : agents,
+            ].some((value) => value?.toLowerCase().includes(search))),
+      ),
     [agents, search],
   );
   const selected =
@@ -112,8 +113,8 @@ export function PimiSessionUsage({
     [choose, selectedKey],
   );
 
-  let emptyMessage = "Start a chat to see its usage here.";
-  if (search) emptyMessage = "No matching sessions.";
+  let emptyMessage = "No active sessions. Start or resume a chat to see its usage.";
+  if (search) emptyMessage = "No matching active sessions.";
   else if (isInitialLoad) emptyMessage = "Loading sessions…";
   const empty = useMemo(() => <Text style={styles.empty}>{emptyMessage}</Text>, [emptyMessage]);
   const detail = selected ? <SessionDetail agent={selected} /> : null;
