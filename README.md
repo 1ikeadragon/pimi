@@ -8,9 +8,7 @@ Chat with your agents, track their work, and review the changes in one app.
 
 [Downloads](https://1ikeadragon.github.io/pimi/) · [Android APK](https://github.com/1ikeadragon/pimi/releases/download/pimi-android-v0.17.0-preview.1/Pimi-Android-arm64.apk) · [Release notes](https://github.com/1ikeadragon/pimi/releases/latest)
 
-Pair Pimi for Android with your desktop to chat, track tasks, and review changes on your phone. [Android setup and builds](docs/android.md#pimi-apk) · [Self-host Pimi Relay](https://github.com/1ikeadragon/pimi-relay)
-
-The desktop installers include the daemon and the `pimi` CLI. For remote pairing, configure your own relay or connect over a VPN.
+Replacing Paseo? [Keep your sessions and plugins](docs/paseo-migration.md).
 
 ## Chat and Tasks
 
@@ -38,46 +36,13 @@ Compare diffs across worktrees and repositories. Open **PRs** to see review requ
 
 ![Pull request queue and check results](assets/pimi/pull-requests.jpg)
 
-<details>
-<summary>Setup, Work, Memory, Spaces, Automations, Usage, and Library</summary>
-
-**Setup** gets you from the welcome screen to your first chat.
-
-![Pimi welcome screen](assets/pimi/onboarding.jpg)
-
-**Work** shows which branches are ready to start, in progress, or ready for review.
-
-![Work board with linked worktrees](assets/pimi/board.jpg)
-
-**Memory** keeps project notes available across providers.
-
-![Shared memory notes and their contents](assets/pimi/memory.jpg)
-
-**Spaces** is a scratchpad for links, images, and notes. Search it locally, open papers in Pimi, or give an agent a card ID.
-
-![Spaces with a paper preview, links, and scratch notes](assets/pimi/spaces.jpg)
-
-![An arXiv paper open inside Pimi](assets/pimi/spaces-reader.jpg)
-
-**Automations** runs jobs on a schedule and keeps their results in chat.
-
-![Active automations with their most recent runs](assets/pimi/automations.jpg)
-
-![A completed automation with a replay regression report](assets/pimi/automation-result.jpg)
-
-**Usage** shows context and recorded compactions. Run `/context` in Claude Code for a token breakdown. **Recap** brings together finished tasks and merged PRs.
-
-![Claude Code context breakdown and recorded compactions in Usage](assets/pimi/usage.jpg)
-
-![Usage Recap with completed tasks and merged pull requests](assets/pimi/usage-recap.jpg)
-
-**Library** is where you manage skills for your agents.
-
-![Installed and available skills in Library](assets/pimi/library.jpg)
-
-</details>
-
 Screenshots show Pimi 0.16.5 with sample projects and activity.
+
+## Use Pimi from your phone
+
+Install Pimi Desktop and the [Android APK](docs/android.md#pimi-apk). Run Pimi Relay on a server you control, point your desktop at it, and scan the desktop’s **Pair a device** QR code in the Android app. Keep the desktop awake, set a daemon password, and keep the QR code private.
+
+[Set up your own relay and pair Android](https://github.com/1ikeadragon/pimi-relay#pair-a-device) · [Connect over a private VPN](public-docs/connectivity.md#tailscale)
 
 ## Build from source
 

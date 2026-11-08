@@ -51,20 +51,7 @@ If the remote daemon has a password, enter it in **Daemon password**; it is stor
 
 ## Pimi relay
 
-Run [Pimi Relay](https://github.com/1ikeadragon/pimi-relay#pair-a-device) and configure its public address in the daemon's `config.json`. Use TLS for a relay on the internet. This example leaves the relay off until you enable it.
-
-```json
-{
-  "daemon": {
-    "relay": {
-      "endpoint": "relay.example.com:443",
-      "useTls": true
-    }
-  }
-}
-```
-
-Restart Pimi, open **Settings → your host → Pair a device**, and select **Enable relay**. Or run `pimi daemon pair --relay`. Scan the QR code with Pimi on your phone or paste the pairing link there. Keep the link private and use a daemon password.
+[Set up a self-hosted relay and pair your phone](https://github.com/1ikeadragon/pimi-relay#pair-a-device). The guide covers HTTPS, the daemon password, and Android pairing.
 
 ## Tailscale
 
