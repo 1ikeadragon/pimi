@@ -6,7 +6,7 @@ nav: Web UI
 
 # 自托管 Web UI {#self-hosting-the-web-ui}
 
-Pimi 的 daemon 可以自己提供浏览器 Web 应用，地址与它已用于 API 的地址相同。你不需要使用托管在 [app.paseo.sh](https://1ikeadragon.github.io/pimi/) 的应用：让浏览器指向你自己的 daemon，就能获得完整的 UI，连接到你自己的 Agent，运行在你掌控的基础设施上。
+Pimi 的 daemon 在 API 地址提供 Web 应用。在浏览器中打开该地址，即可连接自己的 Agent。
 
 以下情况适合这样做：
 

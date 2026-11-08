@@ -94,8 +94,8 @@ in
         description = ''
           How the daemon reaches the relay when `relay.enable = true`:
 
-          - `"hosted"` (default): use the upstream `app.paseo.sh` relay.
-            Preserves the current behavior; no extra options needed.
+          - `"hosted"` (default): legacy configuration value. Pimi does not
+            supply a relay endpoint in this mode.
           - `"remote"`: connect to a self-hosted relay at
             `relay.host:relay.port`. Sets `PASEO_RELAY_ENDPOINT` and
             `PASEO_RELAY_USE_TLS` for the daemon.
@@ -159,7 +159,7 @@ in
       default = { };
       example = lib.literalExpression ''
         {
-          PASEO_RELAY_ENDPOINT = "relay.paseo.sh:443";
+          PASEO_RELAY_ENDPOINT = "relay.example.com:443";
         }
       '';
       description = "Extra environment variables for the Paseo daemon.";

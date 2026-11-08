@@ -8,7 +8,7 @@ category: Getting started
 
 # Self-hosting the web UI
 
-Pimi's daemon can serve the browser web app itself, from the same address it already uses for the API. You don't need the hosted app at [app.paseo.sh](https://1ikeadragon.github.io/pimi/): point a browser at your own daemon and you get the full UI, connected to your own agents, on infrastructure you control.
+Pimi's daemon serves the web app from its API address. Open that address in a browser to use Pimi with your own agents.
 
 This is useful when you want to:
 
