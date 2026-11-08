@@ -107,10 +107,18 @@ export const PimiNewTaskDestination = PimiTaskFields.pick({
   .partial()
   .extend({ view: z.literal("new-task") });
 export const PimiSimpleDestinationView = z.enum(["tasks", "worktrees", "review-home", "spaces"]);
+export const PimiReviewPrDestination = z.object({
+  view: z.literal("review-pr"),
+  url: z
+    .string()
+    .max(512)
+    .regex(/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/[1-9]\d*\/?$/),
+});
 export type PimiDestination =
   | { view: z.infer<typeof PimiSimpleDestinationView> }
   | z.infer<typeof PimiMemoryDestination>
   | z.infer<typeof PimiNewTaskDestination>
+  | z.infer<typeof PimiReviewPrDestination>
   | { view: "review"; path: string; serverId?: string }
   | { view: "task-draft"; proposal: PimiTaskProposal };
 

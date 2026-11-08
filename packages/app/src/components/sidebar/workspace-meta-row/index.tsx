@@ -65,6 +65,7 @@ export function WorkspaceMetaRow({
   projectName,
   hostBadge,
   prHint,
+  openPullRequest,
   serviceSummary,
   labels = EMPTY_LABELS,
 }: {
@@ -72,6 +73,7 @@ export function WorkspaceMetaRow({
   projectName: string | null;
   hostBadge: HostBadgeModel | null;
   prHint: PrHint | null;
+  openPullRequest?: () => void;
   serviceSummary: WorkspaceServiceSummary | null;
   labels?: readonly WorkspaceLabelDefinition[];
 }) {
@@ -94,7 +96,12 @@ export function WorkspaceMetaRow({
       {items.map((item, index) => (
         <Fragment key={item.kind}>
           {index > 0 ? <Text style={styles.separator}>·</Text> : null}
-          <MetaItemNode item={item} hostBadge={hostBadge} leading={index === 0} />
+          <MetaItemNode
+            item={item}
+            hostBadge={hostBadge}
+            leading={index === 0}
+            openPullRequest={openPullRequest}
+          />
         </Fragment>
       ))}
     </View>
@@ -105,8 +112,10 @@ function MetaItemNode({
   item,
   hostBadge,
   leading,
+  openPullRequest,
 }: {
   item: MetaRowItem;
+  openPullRequest?: () => void;
   hostBadge: HostBadgeModel | null;
   /** First on the line, so this item's ink sets the rail the title above it already uses. */
   leading: boolean;
@@ -121,7 +130,7 @@ function MetaItemNode({
     return hostBadge ? <HostBadge badge={hostBadge} /> : null;
   }
   if (item.kind === "changeRequest") {
-    return <PullRequestItem hint={item.hint} />;
+    return <PullRequestItem hint={item.hint} openPullRequest={openPullRequest} />;
   }
   if (item.kind === "checks") {
     return <ChecksItem summary={item.summary} label={item.label} />;
@@ -177,15 +186,21 @@ function LabelsItem({
 
 /**
  * The only thing on the line that navigates, so it is the only thing that answers the
- * pointer: it brightens to full foreground and its icon becomes an external-link arrow,
- * saying where the click goes before you spend it.
+ * pointer: it brightens to full foreground and uses an external-link arrow when
+ * it opens the forge in a browser.
  *
  * `onHoverIn`/`onHoverOut` with local state is safe here despite the usual rule in
  * docs/hover.md — the state never leaves this Pressable, and nothing pressable is nested
  * inside it, so there is no second hover state machine to fight. Both icons are the same
  * size, so the swap can't move the target out from under the cursor.
  */
-function PullRequestItem({ hint }: { hint: PrHint }) {
+function PullRequestItem({
+  hint,
+  openPullRequest,
+}: {
+  hint: PrHint;
+  openPullRequest?: () => void;
+}) {
   const { t } = useTranslation();
   const [isHovered, setIsHovered] = useState(false);
   const presentation = getForgePresentation(normalizeForge(hint.forge));
@@ -193,9 +208,10 @@ function PullRequestItem({ hint }: { hint: PrHint }) {
   const handlePress = useCallback(
     (event: GestureResponderEvent) => {
       event.stopPropagation();
-      void openExternalUrl(hint.url);
+      if (openPullRequest) openPullRequest();
+      else void openExternalUrl(hint.url);
     },
-    [hint.url],
+    [hint.url, openPullRequest],
   );
   const handlePressIn = useCallback((event: GestureResponderEvent) => event.stopPropagation(), []);
   const handleHoverIn = useCallback(() => setIsHovered(true), []);
@@ -203,7 +219,7 @@ function PullRequestItem({ hint }: { hint: PrHint }) {
 
   return (
     <Pressable
-      accessibilityRole="link"
+      accessibilityRole={openPullRequest ? "button" : "link"}
       accessibilityLabel={t("workspace.git.pr.accessibility.pullRequest", {
         number: hint.number,
         context: presentation.changeRequestContext,
@@ -215,7 +231,7 @@ function PullRequestItem({ hint }: { hint: PrHint }) {
       onHoverOut={handleHoverOut}
       style={pressableItemStyle}
     >
-      {isHovered ? (
+      {isHovered && !openPullRequest ? (
         <ThemedExternalLink size={META_ICON_SIZE} uniProps={foregroundMapping} />
       ) : (
         <PullRequestStateIcon state={hint.state} size={META_ICON_SIZE} />

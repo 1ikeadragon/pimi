@@ -38,7 +38,9 @@ import { PimiAgentLabels, usePimiLabelNames } from "@/desktop/pimi-labels";
 import { useWorkspaceLabelDefinitions } from "@/workspace-labels";
 import { usePimiTaskBranches } from "./sidebar-model";
 import { getDesktopHost } from "@/desktop/host";
+import { PimiReviewPrDestination } from "@getpaseo/protocol/pimi-task";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
+import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
 import { PressHighlight } from "@/components/ui/press-highlight";
 import type { Agent } from "@/stores/session-store";
 
@@ -250,6 +252,7 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
             projectName={leadingProjectName}
             hostBadge={hostBadge ?? null}
             prHint={workspace.prHint}
+            openPullRequest={openPimiPullRequest(workspace)}
             serviceSummary={serviceSummary}
             labels={labels}
           />
@@ -263,6 +266,22 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
     </View>
   );
 });
+
+function openPimiPullRequest(workspace: SidebarWorkspaceEntry): (() => void) | undefined {
+  const host = getDesktopHost();
+  if (!host?.showPimiWorkspace || !workspace.prHint) return undefined;
+  const destination = PimiReviewPrDestination.safeParse({
+    view: "review-pr",
+    url: workspace.prHint.url,
+  });
+  if (destination.success) return () => host.showPimiWorkspace?.(destination.data);
+  const { serverId, workspaceId } = workspace;
+  if (!serverId) return undefined;
+  return () => {
+    host.dismissPimiWorkspace?.();
+    navigateToWorkspace({ serverId, workspaceId, target: { kind: "pull_request" } });
+  };
+}
 
 function WorkspaceStatusIndicator({
   bucket,

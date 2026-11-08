@@ -9,7 +9,7 @@ log.initialize({ spyRendererConsole: true });
 
 import { inheritLoginShellEnv } from "./login-shell-env.js";
 
-import { PimiReportLinkError } from "@getpaseo/protocol/pimi-task";
+import { PimiReportLinkError, PimiReviewPrDestination } from "@getpaseo/protocol/pimi-task";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import {
@@ -878,6 +878,10 @@ function registerPimiWorkspaceNavigation(): void {
     }
     if (view === "new-task") {
       const result = PimiNewTaskDestination.safeParse(destination);
+      if (result.success) openPimi(result.data, owner);
+    }
+    if (view === "review-pr") {
+      const result = PimiReviewPrDestination.safeParse(destination);
       if (result.success) openPimi(result.data, owner);
     }
     if (view === "review" && typeof checkout === "string" && path.isAbsolute(checkout)) {
