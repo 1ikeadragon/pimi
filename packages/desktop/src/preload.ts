@@ -115,6 +115,11 @@ contextBridge.exposeInMainWorld("paseoDesktop", {
           ipcRenderer.invoke("pimi:review:summary", checkout),
         getPimiRecap: (period: PimiRecapPeriod): Promise<PimiRecap> =>
           ipcRenderer.invoke("pimi:recap:get", period),
+        onPimiTasksChanged: (listener: () => void) => {
+          const onChange = () => listener();
+          ipcRenderer.on("pimi:tasks:changed", onChange);
+          return () => ipcRenderer.removeListener("pimi:tasks:changed", onChange);
+        },
         dismissPimiWorkspace: () => ipcRenderer.send("pimi:workspace:dismiss"),
         setPimiContentBounds: (bounds: PimiContentBounds) =>
           ipcRenderer.send("pimi:workspace:content-bounds", bounds),

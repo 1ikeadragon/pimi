@@ -142,6 +142,7 @@ export async function startPimi({
   launchEditor,
   openDictation,
   onTaskComplete = () => {},
+  onTaskChange = () => {},
 } = {}) {
   const host = "127.0.0.1";
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error("Invalid Pimi port.");
@@ -188,6 +189,7 @@ export async function startPimi({
     getInventory,
     onChange() {
       broadcast("tasks");
+      onTaskChange();
       invalidateLabels();
       invalidateInventory();
     },

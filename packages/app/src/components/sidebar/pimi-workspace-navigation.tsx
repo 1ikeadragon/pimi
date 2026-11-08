@@ -1,5 +1,5 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
-import { useCallback, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, type ReactNode } from "react";
 import { router, useGlobalSearchParams, usePathname } from "expo-router";
 import { ScrollView, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
@@ -22,6 +22,7 @@ import {
   X,
 } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
+import { create } from "zustand";
 import { getDesktopHost, usesPimiMacTitlebar } from "@/desktop/host";
 import { usePimiWorkspaceSection } from "@/desktop/pimi-console-content";
 import { DensityIcon } from "@/components/ui/density-icon";
@@ -54,18 +55,21 @@ export interface PimiSidebarControls {
 const NO_SHORTCUT: [] = [];
 const SELECTED = { selected: true } as const;
 export const PIMI_NAV_RAIL_WIDTH = 52;
+const useTaskActivity = create<{ unread: boolean }>(() => ({ unread: false }));
 
 function SidebarIcon({
   icon,
   label,
   onPress,
   active = false,
+  unread = false,
   testID,
 }: {
   icon: SidebarRowIcon;
   label: string;
   onPress: () => void;
   active?: boolean;
+  unread?: boolean;
   testID?: string;
 }) {
   return (
@@ -75,12 +79,13 @@ function SidebarIcon({
       tooltipKeys={NO_SHORTCUT}
       tooltipSide="right"
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={unread ? `${label}, new activity` : label}
       accessibilityState={active ? SELECTED : undefined}
       style={[styles.railButton, active && styles.railButtonSelected]}
       testID={testID}
     >
       <DensityIcon icon={icon} size="sm" color={active ? "foreground" : "foregroundMuted"} />
+      {unread ? <View style={[styles.activityDot, styles.railActivityDot]} /> : null}
     </HeaderToggleButton>
   );
 }
@@ -171,6 +176,14 @@ export function PimiWorkspaceNavigation({
   const host = getDesktopHost();
   const show = host?.showPimiWorkspace;
   const section = usePimiWorkspaceSection();
+  const tasksUnread = useTaskActivity((state) => state.unread) && section !== "tasks";
+  const activityDot = useMemo(() => <View style={styles.activityDot} />, []);
+  useEffect(() => {
+    if (section === "tasks") useTaskActivity.setState({ unread: false });
+    return host?.onPimiTasksChanged?.(() => {
+      if (section !== "tasks") useTaskActivity.setState({ unread: true });
+    });
+  }, [host, section]);
   const pathname = usePathname();
   const inAgentGrid = pathname === PIMI_AGENT_GRID_ROUTE;
   const inUsage = pathname === PIMI_USAGE_ROUTE;
@@ -248,6 +261,7 @@ export function PimiWorkspaceNavigation({
       icon: ListTodo,
       onPress: showTasks,
       active: section === "tasks",
+      unread: tasksUnread,
     },
     {
       label: "Work",
@@ -322,7 +336,7 @@ export function PimiWorkspaceNavigation({
         {children}
         {trailing}
       </View>
-      {workDestinations.map(({ label, icon, onPress, active }) => (
+      {workDestinations.map(({ label, icon, onPress, active, unread }) => (
         <SidebarHeaderRow
           key={label}
           label={label}
@@ -330,6 +344,8 @@ export function PimiWorkspaceNavigation({
           onPress={onPress}
           variant="compact"
           isActive={active}
+          accessibilityLabel={unread ? `${label}, new activity` : label}
+          trailing={unread ? activityDot : undefined}
         />
       ))}
       <Text style={styles.groupLabel}>Activity</Text>
@@ -357,6 +373,17 @@ export function PimiWorkspaceNavigation({
 }
 
 const styles = StyleSheet.create((theme) => ({
+  activityDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: theme.colors.foreground,
+  },
+  railActivityDot: {
+    position: "absolute",
+    top: 3,
+    right: 3,
+  },
   rail: {
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
