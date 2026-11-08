@@ -57,6 +57,17 @@ export async function repository(path) {
   return realpath((await git(path, "rev-parse", "--show-toplevel")).replace(/\r?\n$/, ""));
 }
 
+// Read configured fetch URLs without contacting a remote or changing Git state.
+export async function repositoryRemotes(cwd) {
+  const names = (await git(cwd, "remote")).trim().split("\n").filter(Boolean);
+  const remotes = [];
+  for (const name of names) {
+    const url = (await git(cwd, "remote", "get-url", name)).trim();
+    remotes.push({ name, url });
+  }
+  return remotes;
+}
+
 export async function discoverWorktrees(root) {
   const output = await git(root, "worktree", "list", "--porcelain", "-z");
   const worktrees = [];

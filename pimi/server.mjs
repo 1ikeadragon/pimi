@@ -37,6 +37,7 @@ import {
 } from "./git.mjs";
 import { labelRecord, labelsAt, projectLinkedLabels } from "./linked-labels.mjs";
 import { createPaseoConnection } from "./paseo.mjs";
+import { createPullRequests } from "./pull-requests.mjs";
 import { createTasks } from "./tasks.mjs";
 import { generateTour } from "./walkthrough.mjs";
 
@@ -767,6 +768,11 @@ export async function startPimi({
     return getInventory();
   }
 
+  const pullRequests = createPullRequests({
+    getInventory,
+    onChange: () => broadcast("pull-requests"),
+  });
+
   const postRoutes = new Map([
     ["/api/repositories", watchRepository],
     ["/api/review", startReview],
@@ -821,6 +827,17 @@ export async function startPimi({
 
   const getRoutes = new Map([
     ["/api/board", getInventory],
+    [
+      "/api/pull-requests",
+      (url) => pullRequests.queue({ force: url.searchParams.get("refresh") === "1" }),
+    ],
+    [
+      "/api/pull-request",
+      (url) =>
+        pullRequests.detail(url.searchParams.get("url"), {
+          force: url.searchParams.get("refresh") === "1",
+        }),
+    ],
     ["/api/tasks", tasks.list],
     [
       "/api/tasks/report-document",
@@ -946,6 +963,7 @@ export async function startPimi({
     },
     close: () => {
       closed = true;
+      pullRequests.close();
       unsubscribePaseo();
       labelListeners.clear();
       clearInterval(reconcileTimer);
