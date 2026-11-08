@@ -1,8 +1,8 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
 import { useCallback, type ReactNode } from "react";
 import { router, usePathname } from "expo-router";
-import { Text, View } from "react-native";
-import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import { ScrollView, Text, View } from "react-native";
+import { StyleSheet } from "react-native-unistyles";
 import {
   CircleGauge,
   Columns3,
@@ -22,7 +22,6 @@ import {
 import { useTranslation } from "react-i18next";
 import { getDesktopHost, usesPimiMacTitlebar } from "@/desktop/host";
 import { usePimiWorkspaceSection } from "@/desktop/pimi-console-content";
-import { PaseoLogo } from "@/components/icons/paseo-logo";
 import { DensityIcon } from "@/components/ui/density-icon";
 import { HeaderToggleButton } from "@/components/headers/header-toggle-button";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
@@ -31,6 +30,7 @@ import {
   buildNewWorkspaceRoute,
   buildOpenProjectRoute,
   buildSchedulesRoute,
+  buildSessionsRoute,
 } from "@/utils/host-routes";
 import { useSidebarNavItems } from "@/sidebar-nav/use-sidebar-nav-items";
 import {
@@ -103,8 +103,13 @@ export function PimiSidebarRail({
           onPress={controls.openPeek}
           testID="pimi-sidebar-peek"
         />
-        <PimiWorkspaceNavigation rail />
-        <View style={styles.railSpacer} />
+        <ScrollView
+          style={styles.railScroll}
+          contentContainerStyle={styles.railScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <PimiWorkspaceNavigation rail />
+        </ScrollView>
         <SidebarIcon icon={Pin} label={t("sidebar.actions.pinSidebar")} onPress={controls.pin} />
         <SidebarIcon icon={Settings} label={t("sidebar.actions.settings")} onPress={onSettings} />
       </View>
@@ -151,10 +156,14 @@ export function PimiWorkspaceNavigation({
   rail = false,
   onNavigate,
   trailing,
+  children,
+  secondaryNavigation,
 }: {
   rail?: boolean;
   onNavigate?: () => void;
   trailing?: ReactNode;
+  children?: ReactNode;
+  secondaryNavigation?: ReactNode;
 } = {}) {
   const host = getDesktopHost();
   const show = host?.showPimiWorkspace;
@@ -163,6 +172,7 @@ export function PimiWorkspaceNavigation({
   const inAgentGrid = pathname === PIMI_AGENT_GRID_ROUTE;
   const inUsage = pathname === PIMI_USAGE_ROUTE;
   const inAutomations = pathname === buildSchedulesRoute();
+  const inHistory = pathname === buildSessionsRoute();
   const { t } = useTranslation();
   const newWorkspaceLabel = t("newWorkspace.title");
   const openNewWorkspace = useCallback(() => {
@@ -175,11 +185,11 @@ export function PimiWorkspaceNavigation({
     host?.dismissPimiWorkspace?.();
     if (inAgentGrid) closePimiAgentGrid();
     else if (inUsage) closePimiUsage();
-    else if (inAutomations && !section) {
+    else if ((inAutomations || inHistory) && !section) {
       if (router.canGoBack()) router.back();
       else router.replace(buildOpenProjectRoute());
     }
-  }, [host, inAgentGrid, inAutomations, inUsage, onNavigate, section]);
+  }, [host, inAgentGrid, inAutomations, inHistory, inUsage, onNavigate, section]);
   const showAgentGrid = useCallback(() => {
     onNavigate?.();
     openPimiAgentGrid();
@@ -206,24 +216,51 @@ export function PimiWorkspaceNavigation({
   }, [onNavigate, show]);
   if (!show) return null;
 
-  const destinations = [
+  const chatDestination = {
+    label: "Chats",
+    icon: MessageSquare,
+    onPress: showChat,
+    active: !section && !inAgentGrid && !inUsage && !inAutomations && !inHistory,
+  };
+  const activityDestination = {
+    label: "Agents",
+    icon: LayoutGrid,
+    onPress: showAgentGrid,
+    active: !section && inAgentGrid,
+  };
+  const workDestinations = [
     {
-      label: "Chat",
-      icon: MessageSquare,
-      onPress: showChat,
-      active: !section && !inAgentGrid && !inUsage && !inAutomations,
+      label: "Tasks",
+      icon: ListTodo,
+      onPress: showTasks,
+      active: section === "tasks",
     },
     {
-      label: "Agent grid",
-      icon: LayoutGrid,
-      onPress: showAgentGrid,
-      active: !section && inAgentGrid,
+      label: "Work",
+      icon: Columns3,
+      onPress: showWorktrees,
+      active: section === "board",
     },
-    { label: "Tasks", icon: ListTodo, onPress: showTasks, active: section === "tasks" },
-    { label: "Work", icon: Columns3, onPress: showWorktrees, active: section === "board" },
-    { label: "Review", icon: FileDiff, onPress: showReview, active: section === "review" },
-    { label: "Memory", icon: NotebookText, onPress: showMemory, active: section === "memory" },
-    { label: "Spaces", icon: StickyNote, onPress: showSpaces, active: section === "spaces" },
+    {
+      label: "Review",
+      icon: FileDiff,
+      onPress: showReview,
+      active: section === "review",
+    },
+  ];
+  const libraryDestinations = [
+    {
+      label: "Memory",
+      icon: NotebookText,
+      onPress: showMemory,
+      active: section === "memory",
+    },
+    {
+      label: "Spaces",
+      icon: StickyNote,
+      onPress: showSpaces,
+      active: section === "spaces",
+    },
   ];
   if (rail) {
     return (
@@ -234,9 +271,11 @@ export function PimiWorkspaceNavigation({
           onPress={openNewWorkspace}
           testID="pimi-new-workspace-rail"
         />
-        {destinations.map((item) => (
-          <SidebarIcon key={item.label} {...item} />
-        ))}
+        {[chatDestination, ...workDestinations, activityDestination, ...libraryDestinations].map(
+          (item) => (
+            <SidebarIcon key={item.label} {...item} />
+          ),
+        )}
         <AutomationsRailButton active={!section && inAutomations} />
         <SidebarIcon
           icon={CircleGauge}
@@ -250,18 +289,14 @@ export function PimiWorkspaceNavigation({
   return (
     <View>
       <View style={styles.brand}>
-        <View style={styles.mark}>
-          <BrandMark />
-        </View>
         <View style={styles.brandLabel}>
           <Text style={styles.name}>Pimi</Text>
-          <Text style={styles.caption} numberOfLines={1}>
-            Your swarm’s best friend
-          </Text>
         </View>
+        <SidebarIcon {...chatDestination} label="Back to chats" testID="pimi-back-to-chats" />
+        {children}
         {trailing}
       </View>
-      {destinations.map(({ label, icon, onPress, active }) => (
+      {workDestinations.map(({ label, icon, onPress, active }) => (
         <SidebarHeaderRow
           key={label}
           label={label}
@@ -271,15 +306,29 @@ export function PimiWorkspaceNavigation({
           isActive={active}
         />
       ))}
-      <Text style={styles.section}>Agent tools</Text>
+      <Text style={styles.groupLabel}>Activity</Text>
+      <SidebarHeaderRow
+        label={activityDestination.label}
+        icon={activityDestination.icon}
+        onPress={activityDestination.onPress}
+        isActive={activityDestination.active}
+        variant="compact"
+      />
+      {secondaryNavigation}
+      <Text style={styles.groupLabel}>Library</Text>
+      {libraryDestinations.map(({ label, icon, onPress, active }) => (
+        <SidebarHeaderRow
+          key={label}
+          label={label}
+          icon={icon}
+          onPress={onPress}
+          variant="compact"
+          isActive={active}
+        />
+      ))}
     </View>
   );
 }
-
-const BrandMark = withUnistyles(PaseoLogo, (theme) => ({
-  size: 19,
-  color: theme.colors.accentForeground,
-}));
 
 const styles = StyleSheet.create((theme) => ({
   rail: {
@@ -324,7 +373,15 @@ const styles = StyleSheet.create((theme) => ({
   railButtonSelected: {
     backgroundColor: theme.colors.surfaceSidebarSelected,
   },
-  railSpacer: { flex: 1 },
+  railScroll: { flex: 1, width: "100%" },
+  railScrollContent: { alignItems: "center" },
+  groupLabel: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
   peekActions: {
     flexDirection: "row",
     alignItems: "center",
@@ -338,22 +395,9 @@ const styles = StyleSheet.create((theme) => ({
     paddingBottom: 9,
   },
   brandLabel: { flex: 1, minWidth: 0 },
-  mark: {
-    width: 31,
-    height: 31,
-    borderRadius: 9,
-    backgroundColor: theme.colors.accent,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  name: { color: theme.colors.foreground, fontSize: 16, fontWeight: theme.fontWeight.semibold },
-  caption: { color: theme.colors.foregroundMuted, fontSize: 11 },
-  section: {
-    color: theme.colors.foregroundMuted,
-    fontSize: 11,
-    fontWeight: "600",
-    paddingHorizontal: 15,
-    paddingTop: 12,
-    paddingBottom: 3,
+  name: {
+    color: theme.colors.foreground,
+    fontSize: 16,
+    fontWeight: theme.fontWeight.semibold,
   },
 }));

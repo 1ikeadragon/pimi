@@ -4,6 +4,8 @@ import { memo, useCallback, useMemo, useRef, type ComponentType, type ReactNode 
 import { useTranslation } from "react-i18next";
 import { View, type StyleProp, type ViewStyle } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
+import { HeaderToggleButton } from "@/components/headers/header-toggle-button";
+import { DensityIcon } from "@/components/ui/density-icon";
 import { SidebarHeaderRow } from "@/components/sidebar/sidebar-header-row";
 import { getDesktopHost } from "@/desktop/host";
 import { useShortcutKeys } from "@/hooks/use-shortcut-keys";
@@ -27,11 +29,14 @@ import {
 
 interface SidebarNavRowProps {
   onBeforeNavigate?: () => void;
+  iconOnly?: boolean;
 }
 
 interface SidebarNavRowsProps extends SidebarNavRowProps {
   /** Style for the group wrapper, which the sidebar owns. */
   style?: StyleProp<ViewStyle>;
+  /** Pimi separates creation/search from destinations; visibility and plugin order stay shared. */
+  pimiSection?: "actions" | "destinations" | "create";
   /** Sits to the right of the first row, which shrinks to make room. */
   firstRowTrailing?: ReactNode;
 }
@@ -41,14 +46,19 @@ interface SidebarNavRowsProps extends SidebarNavRowProps {
  * `sidebarNavItems` preference. Renders nothing — not even the bordered group
  * wrapper — when every item is hidden and there is no `firstRowTrailing`.
  */
-export function SidebarNavRows({ style, onBeforeNavigate, firstRowTrailing }: SidebarNavRowsProps) {
+export function SidebarNavRows({
+  style,
+  onBeforeNavigate,
+  firstRowTrailing,
+  pimiSection,
+}: SidebarNavRowsProps) {
   const { items } = useSidebarNavItems("header");
   const visibleItems = useMemo(() => items.filter((item) => item.visible), [items]);
   const groupRef = useRef<View | null>(null);
 
   if (visibleItems.length === 0 && !firstRowTrailing) return null;
 
-  const [firstRow, ...restRows] = visibleItems.map((item) => {
+  const renderItem = (item: (typeof visibleItems)[number]) => {
     if (item.kind === "plugin") {
       return (
         <PluginSidebarItem
@@ -62,7 +72,33 @@ export function SidebarNavRows({ style, onBeforeNavigate, firstRowTrailing }: Si
     }
     const Row = BUILTIN_ROWS[item.id];
     return <Row key={item.key} onBeforeNavigate={onBeforeNavigate} />;
-  });
+  };
+
+  if (pimiSection) {
+    const newWorkspace = visibleItems.find((item) => item.key === "new-workspace");
+    if (pimiSection === "create")
+      return newWorkspace ? (
+        <SidebarNewWorkspaceRow iconOnly onBeforeNavigate={onBeforeNavigate} />
+      ) : null;
+    const search = visibleItems.find((item) => item.key === "search");
+    const history = visibleItems.find((item) => item.key === "history");
+    return (
+      <View ref={groupRef} collapsable={false} style={style}>
+        {pimiSection === "actions" ? (
+          <View style={styles.pimiActions}>
+            {search ? <SidebarSearchRow iconOnly /> : null}
+            {history ? <SidebarHistoryRow iconOnly onBeforeNavigate={onBeforeNavigate} /> : null}
+          </View>
+        ) : (
+          visibleItems
+            .filter((item) => !["new-workspace", "search", "history"].includes(item.key))
+            .map(renderItem)
+        )}
+      </View>
+    );
+  }
+
+  const [firstRow, ...restRows] = visibleItems.map(renderItem);
 
   return (
     <View ref={groupRef} collapsable={false} style={style}>
@@ -81,6 +117,7 @@ export function SidebarNavRows({ style, onBeforeNavigate, firstRowTrailing }: Si
 
 const SidebarNewWorkspaceRow = memo(function SidebarNewWorkspaceRow({
   onBeforeNavigate,
+  iconOnly,
 }: SidebarNavRowProps) {
   const { t } = useTranslation();
   const pimi = Boolean(getDesktopHost()?.showPimiWorkspace);
@@ -95,7 +132,8 @@ const SidebarNewWorkspaceRow = memo(function SidebarNewWorkspaceRow({
   );
   const canUseActiveWorkspaceContext = Boolean(
     activeWorkspace &&
-    (supportsWorkspaceMultiplicity || canCreateWorktreeForProjectKind(activeWorkspace.projectKind)),
+      (supportsWorkspaceMultiplicity ||
+        canCreateWorktreeForProjectKind(activeWorkspace.projectKind)),
   );
 
   const handlePress = useCallback(() => {
@@ -125,6 +163,20 @@ const SidebarNewWorkspaceRow = memo(function SidebarNewWorkspaceRow({
     pimi,
   ]);
 
+  if (iconOnly)
+    return (
+      <HeaderToggleButton
+        onPress={handlePress}
+        tooltipLabel={t(builtinSidebarNavLabelKey("new-workspace"))}
+        tooltipKeys={shortcutKeys?.[0] ?? []}
+        tooltipSide="bottom"
+        accessibilityRole="button"
+        accessibilityLabel={t(builtinSidebarNavLabelKey("new-workspace"))}
+        testID="sidebar-global-new-workspace"
+      >
+        <DensityIcon icon={SquarePen} size="sm" color="foregroundMuted" />
+      </HeaderToggleButton>
+    );
   return (
     <SidebarHeaderRow
       icon={pimi ? SquarePen : Plus}
@@ -137,7 +189,7 @@ const SidebarNewWorkspaceRow = memo(function SidebarNewWorkspaceRow({
   );
 });
 
-function SidebarHistoryRow({ onBeforeNavigate }: SidebarNavRowProps) {
+function SidebarHistoryRow({ onBeforeNavigate, iconOnly }: SidebarNavRowProps) {
   const { t } = useTranslation();
   const pathname = usePathname();
   const handlePress = useCallback(() => {
@@ -145,6 +197,22 @@ function SidebarHistoryRow({ onBeforeNavigate }: SidebarNavRowProps) {
     router.push(buildSessionsRoute());
   }, [onBeforeNavigate]);
 
+  if (iconOnly)
+    return (
+      <HeaderToggleButton
+        onPress={handlePress}
+        tooltipLabel={t(builtinSidebarNavLabelKey("history"))}
+        tooltipKeys={[]}
+        tooltipSide="bottom"
+        accessibilityRole="button"
+        accessibilityLabel={t(builtinSidebarNavLabelKey("history"))}
+        testID="sidebar-sessions"
+        accessibilityState={{ selected: pathname.includes("/sessions") }}
+        style={pathname.includes("/sessions") ? styles.pimiActionSelected : undefined}
+      >
+        <DensityIcon icon={History} size="sm" color="foregroundMuted" />
+      </HeaderToggleButton>
+    );
   return (
     <SidebarHeaderRow
       icon={History}
@@ -157,7 +225,7 @@ function SidebarHistoryRow({ onBeforeNavigate }: SidebarNavRowProps) {
   );
 }
 
-function SidebarSearchRow() {
+function SidebarSearchRow({ iconOnly }: SidebarNavRowProps) {
   const { t } = useTranslation();
   const shortcutKeys = useShortcutKeys(builtinSidebarNavShortcutAction("search"));
   const setCommandCenterOpen = useKeyboardShortcutsStore((state) => state.setCommandCenterOpen);
@@ -165,6 +233,20 @@ function SidebarSearchRow() {
     setCommandCenterOpen(true);
   }, [setCommandCenterOpen]);
 
+  if (iconOnly)
+    return (
+      <HeaderToggleButton
+        onPress={handlePress}
+        tooltipLabel={t(builtinSidebarNavLabelKey("search"))}
+        tooltipKeys={shortcutKeys?.[0] ?? []}
+        tooltipSide="bottom"
+        accessibilityRole="button"
+        accessibilityLabel={t(builtinSidebarNavLabelKey("search"))}
+        testID="sidebar-search"
+      >
+        <DensityIcon icon={Search} size="sm" color="foregroundMuted" />
+      </HeaderToggleButton>
+    );
   return (
     <SidebarHeaderRow
       icon={Search}
@@ -204,7 +286,9 @@ const BUILTIN_ROWS: Record<BuiltinSidebarNavId, ComponentType<SidebarNavRowProps
   schedules: SidebarSchedulesRow,
 };
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme) => ({
+  pimiActionSelected: { backgroundColor: theme.colors.surfaceSidebarSelected },
+  pimiActions: { flexDirection: "row", alignItems: "center" },
   firstRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -213,4 +297,4 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-});
+}));
