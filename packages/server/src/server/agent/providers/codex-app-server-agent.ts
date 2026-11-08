@@ -7540,6 +7540,9 @@ export class CodexAppServerAgentClient implements AgentClient {
   ): Promise<ChildProcessWithoutNullStreams> {
     const launchPrefix = await resolveCodexLaunchPrefix(this.runtimeSettings);
     const args = [...launchPrefix.args, "app-server"];
+    if (this.runtimeSettings?.command?.mode !== "replace") {
+      args.push("-c", "analytics.enabled=false");
+    }
     if (options?.goalsEnabled) {
       args.push("--enable", "goals");
     }

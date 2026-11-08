@@ -44,6 +44,10 @@ Keep the pairing QR code and link private. Anyone with the link can control a pa
 
 When a daemon password is configured, relay clients send it in the encrypted `hello` message, so the relay never sees it. The daemon rejects a relay client that sends a wrong password or none, so a leaked pairing link alone does not grant access to a password-protected daemon.
 
+## Provider traffic
+
+Pimi disables Claude Code metrics, error reports, quality surveys, and automatic marketplace installation. Standard Codex and Copilot launches disable built-in client telemetry, and Copilot launches also disable session history sync to GitHub. Custom Codex and Copilot launch commands and explicitly configured exporters use their own settings. Model requests still go to the provider you select and follow that provider's data policy.
+
 ## Local daemon trust boundary
 
 By default, the daemon binds to `127.0.0.1`. With no password configured, anything that can reach the daemon socket can control the daemon. Loopback is reachable by other users on the machine and by some forwarding tools.
