@@ -11,6 +11,7 @@ import { parseAgentDeepLink } from "@getpaseo/protocol/agent-deep-link";
 import {
   PIMI_SPACE_REQUEST_BYTES,
   PIMI_VIDEO_EMBED_ORIGIN,
+  PIMI_X_EMBED_PAGE,
   PIMI_TASK_AGENT_SOCKET_FILE,
   PIMI_TASK_PIPE_PREFIX,
   PimiTaskAgentLinkWorkInput,
@@ -912,9 +913,10 @@ export async function startPimi({
     response.setHeader("cache-control", "no-store");
     response.setHeader("x-content-type-options", "nosniff");
     response.setHeader("referrer-policy", "no-referrer");
+    response.setHeader("permissions-policy", "autoplay=()");
     response.setHeader(
       "content-security-policy",
-      `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; frame-src ${PIMI_VIDEO_EMBED_ORIGIN}/embed/; frame-ancestors 'none'; form-action 'self'; base-uri 'none'`,
+      `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; frame-src ${PIMI_VIDEO_EMBED_ORIGIN}/embed/ ${PIMI_X_EMBED_PAGE}; frame-ancestors 'none'; form-action 'self'; base-uri 'none'`,
     );
 
     try {

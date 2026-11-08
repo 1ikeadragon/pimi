@@ -149,7 +149,9 @@ export const PIMI_SPACE_IMAGE_BYTES = 4 * 1024 * 1024;
 export const PIMI_SPACE_REQUEST_BYTES = 6 * 1024 * 1024;
 
 export const PIMI_VIDEO_EMBED_ORIGIN = "https://www.youtube-nocookie.com";
+export const PIMI_X_EMBED_PAGE = "https://platform.twitter.com/embed/Tweet.html";
 const youtubeVideoId = /^[A-Za-z0-9_-]{11}$/;
+const xStatusId = /^[1-9]\d{0,19}$/;
 
 export function parsePimiSpaceUrl(input: unknown): URL | null {
   if (typeof input !== "string" || input.length > 4096 || !/^https?:\/\/[^\s\\]+$/i.test(input))
@@ -191,6 +193,31 @@ export function pimiVideoEmbed(url: URL): string | null {
 
 export function isPimiVideoEmbed(url: URL): boolean {
   return url.origin === PIMI_VIDEO_EMBED_ORIGIN && pimiVideoEmbed(url) === url.href;
+}
+
+function xEmbedUrl(id: string | null): string | null {
+  return id && xStatusId.test(id) ? `${PIMI_X_EMBED_PAGE}?id=${id}&dnt=true` : null;
+}
+
+export function pimiSpaceEmbed(url: URL): string | null {
+  if (url.protocol !== "https:" || url.port || url.username || url.password) return null;
+  if (
+    ["x.com", "www.x.com", "twitter.com", "www.twitter.com", "mobile.twitter.com"].includes(
+      url.hostname,
+    )
+  ) {
+    const status = /^\/(?:[A-Za-z0-9_]{1,15}\/status|i\/web\/status)\/(\d+)\/?$/.exec(url.pathname);
+    return xEmbedUrl(status?.[1] ?? null);
+  }
+  return pimiVideoEmbed(url);
+}
+
+export function isPimiXEmbed(url: URL): boolean {
+  return xEmbedUrl(url.searchParams.get("id")) === url.href;
+}
+
+export function isPimiSpaceEmbed(url: URL): boolean {
+  return isPimiVideoEmbed(url) || isPimiXEmbed(url);
 }
 
 export interface PimiVoiceBubbleState {
