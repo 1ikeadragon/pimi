@@ -2,6 +2,12 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.1 - 2026-11-08
+
+- An explicit daemon home takes precedence over environment defaults when starting the daemon.
+
+[Download Pimi for Android](https://1ikeadragon.github.io/pimi/)
+
 ## 0.17.0 - 2026-11-08
 
 - Pimi ships its own daemon, `pimi` command, plugin SDK, and agent skills in the desktop installers.
