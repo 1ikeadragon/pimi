@@ -17,6 +17,39 @@
   --pimi-material: url("/pimi-textures/graphite.svg");
 }
 
+:root[data-appearance="sakura"] {
+  --pimi-ink:
+    url("/pimi-textures/sakura.svg"), radial-gradient(ellipse at 95% 9%, #e7b9e66b, transparent 70%);
+  --pimi-ink-size: min(100%, 1160px) auto, 100% 100%;
+  --pimi-ink-position: right bottom, center;
+  --pimi-glass: #fff7f9bb;
+}
+
+:root[data-appearance="cel-night"] {
+  --pimi-ink:
+    url("/pimi-textures/cel-night.svg"),
+    radial-gradient(ellipse at 88% 17%, #7279b939, transparent 72%);
+  --pimi-ink-size: min(100%, 1160px) auto, 100% 100%;
+  --pimi-ink-position: right bottom, center;
+  --pimi-material: url("/pimi-textures/graphite.svg");
+  --pimi-glass: #262945cc;
+}
+
+:root:is([data-appearance="sakura"], [data-appearance="cel-night"]) [data-pimi-background] {
+  background-position:
+    var(--pimi-ink-position),
+    top left;
+  background-size: var(--pimi-ink-size), auto;
+  background-repeat: no-repeat, no-repeat, repeat;
+}
+
+@media (prefers-contrast: no-preference) and (forced-colors: none) {
+  :root:is([data-appearance="sakura"], [data-appearance="cel-night"]) [data-pimi-glass] {
+    background-color: var(--pimi-glass);
+    backdrop-filter: blur(18px);
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   :root[data-appearance="system"] {
     --pimi-ink: radial-gradient(ellipse at 84% 14%, #aca9b209, transparent 76%);

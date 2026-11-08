@@ -41,7 +41,12 @@ import type {
 
 const AGENT_CONSOLE_URL = "pimi-agents://open";
 const APPEARANCE_FILE = "pimi-appearance.json";
-export type PimiAppearance = "system" | "light" | "dark" | "paper";
+const PIMI_APPEARANCES = ["system", "light", "dark", "paper", "sakura", "cel-night"] as const;
+export type PimiAppearance = (typeof PIMI_APPEARANCES)[number];
+
+function isPimiAppearance(value: unknown): value is PimiAppearance {
+  return PIMI_APPEARANCES.some((mode) => mode === value);
+}
 export type { PimiDestination } from "@pimi/protocol/pimi-task";
 export type WorkspaceLayout = "inline" | "attached" | "hidden";
 export interface PimiContentBounds extends Electron.Rectangle {
@@ -97,7 +102,7 @@ function getPimiAppearance(): PimiAppearance {
     const value: unknown = JSON.parse(
       readFileSync(path.join(app.getPath("userData"), APPEARANCE_FILE), "utf8"),
     );
-    if (value === "light" || value === "dark" || value === "paper") return value;
+    if (isPimiAppearance(value)) return value;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
       console.warn("Could not read Pimi appearance:", error);
@@ -107,7 +112,7 @@ function getPimiAppearance(): PimiAppearance {
 }
 
 export async function setPimiAppearance(mode: unknown): Promise<void> {
-  if (mode !== "system" && mode !== "light" && mode !== "dark" && mode !== "paper") {
+  if (!isPimiAppearance(mode)) {
     throw new Error("Choose a supported appearance.");
   }
   const save = appearanceWrites.then(async () => {
@@ -382,6 +387,8 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
   const appearance = getPimiAppearance();
   let backgroundColor = "#faf7f6";
   if (appearance === "paper") backgroundColor = "#f7f2e8";
+  if (appearance === "sakura") backgroundColor = "#f7edf5";
+  if (appearance === "cel-night") backgroundColor = "#171a2c";
   if (appearance === "dark" || (appearance === "system" && nativeTheme.shouldUseDarkColors)) {
     backgroundColor = "#232224";
   }
