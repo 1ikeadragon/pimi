@@ -20,6 +20,7 @@
 import { createCutoverProxy } from "./cutover-proxy.js";
 import type { ConnectionRole, RelaySessionAttachment } from "./types.js";
 
+type SocketAttachment = Pick<RelaySessionAttachment, "role" | "version" | "connectionId">;
 type RelayProtocolVersion = "1" | "2";
 
 const LEGACY_RELAY_VERSION: RelayProtocolVersion = "1";
@@ -203,9 +204,6 @@ export class RelayDurableObject {
       const parsed: unknown = JSON.parse(message);
       const parsedRecord = isRecord(parsed) ? parsed : null;
       if (parsedRecord?.type !== "ping") return;
-      // Logged so the daemon-side e2e idle test can assert no JSON ping reached the DO
-      // (which would indicate a regression to app-level pings that wake the DO).
-      console.log("[Relay DO] legacy_json_ping_received");
       try {
         ws.send(JSON.stringify({ type: "pong", ts: Date.now() }));
       } catch {
@@ -310,7 +308,7 @@ export class RelayDurableObject {
     }
   }
 
-  private fetchV1(request: Request, role: ConnectionRole, serverId: string): Response {
+  private fetchV1(request: Request, role: ConnectionRole): Response {
     const upgradeError = this.requireWebSocketUpgrade(request);
     if (upgradeError) return upgradeError;
 
@@ -321,26 +319,17 @@ export class RelayDurableObject {
     const [client, server] = this.createWebSocketPair();
     this.state.acceptWebSocket(server, [role]);
 
-    const attachment: RelaySessionAttachment = {
-      serverId,
+    const attachment: SocketAttachment = {
       role,
       version: LEGACY_RELAY_VERSION,
       connectionId: null,
-      createdAt: Date.now(),
     };
     serializeAttachment(server, attachment);
-
-    console.log(`[Relay DO] v1:${role} connected to session ${serverId}`);
 
     return this.asSwitchingProtocolsResponse(client);
   }
 
-  private fetchV2(
-    request: Request,
-    role: ConnectionRole,
-    serverId: string,
-    connectionId: string,
-  ): Response {
+  private fetchV2(request: Request, role: ConnectionRole, connectionId: string): Response {
     const upgradeError = this.requireWebSocketUpgrade(request);
     if (upgradeError) return upgradeError;
 
@@ -372,24 +361,12 @@ export class RelayDurableObject {
 
     this.state.acceptWebSocket(server, tags);
 
-    const attachment: RelaySessionAttachment = {
-      serverId,
+    const attachment: SocketAttachment = {
       role,
       version: CURRENT_RELAY_VERSION,
       connectionId: resolvedConnectionId || null,
-      createdAt: Date.now(),
     };
     serializeAttachment(server, attachment);
-
-    let roleSuffix = "";
-    if (isServerControl) {
-      roleSuffix = "(control)";
-    } else if (isServerData) {
-      roleSuffix = `(data:${resolvedConnectionId})`;
-    } else if (role === "client") {
-      roleSuffix = `(${resolvedConnectionId})`;
-    }
-    console.log(`[Relay DO] v2:${role}${roleSuffix} connected to session ${serverId}`);
 
     if (role === "client") {
       this.notifyControls({ type: "connected", connectionId: resolvedConnectionId });
@@ -436,10 +413,10 @@ export class RelayDurableObject {
     }
 
     if (version === LEGACY_RELAY_VERSION) {
-      return this.fetchV1(request, role, serverId);
+      return this.fetchV1(request, role);
     }
 
-    return this.fetchV2(request, role, serverId, connectionId);
+    return this.fetchV2(request, role, connectionId);
   }
 
   /**
@@ -461,8 +438,8 @@ export class RelayDurableObject {
       for (const target of targets) {
         try {
           target.send(message);
-        } catch (error) {
-          console.error(`[Relay DO] Failed to forward to ${targetRole}:`, error);
+        } catch {
+          console.error("[Relay DO] Legacy frame forwarding failed");
         }
       }
       return;
@@ -487,8 +464,8 @@ export class RelayDurableObject {
       for (const target of servers) {
         try {
           target.send(message);
-        } catch (error) {
-          console.error(`[Relay DO] Failed to forward client->server(${connectionId}):`, error);
+        } catch {
+          console.error("[Relay DO] Client-to-daemon forwarding failed");
         }
       }
       return;
@@ -499,8 +476,8 @@ export class RelayDurableObject {
     for (const target of targets) {
       try {
         target.send(message);
-      } catch (error) {
-        console.error(`[Relay DO] Failed to forward server->client(${connectionId}):`, error);
+      } catch {
+        console.error("[Relay DO] Daemon-to-client forwarding failed");
       }
     }
   }
@@ -508,7 +485,7 @@ export class RelayDurableObject {
   /**
    * Called when a WebSocket closes (wakes from hibernation).
    */
-  webSocketClose(ws: WebSocket, code: number, reason: string, _wasClean: boolean): void {
+  webSocketClose(ws: WebSocket, _code: number, _reason: string, _wasClean: boolean): void {
     const attachmentRaw = deserializeAttachment(ws);
     if (!isRecord(attachmentRaw)) return;
     const attachment = attachmentRaw;
@@ -516,10 +493,6 @@ export class RelayDurableObject {
     const version = getString(attachment, "version") ?? LEGACY_RELAY_VERSION;
     const role = getString(attachment, "role");
     const connectionId = getString(attachment, "connectionId");
-    const serverId = getString(attachment, "serverId");
-    console.log(
-      `[Relay DO] v${version}:${role ?? "unknown"}${connectionId ? `(${connectionId})` : ""} disconnected from session ${serverId ?? "unknown"} (${code}: ${reason})`,
-    );
 
     if (version === LEGACY_RELAY_VERSION) {
       return;
@@ -561,11 +534,8 @@ export class RelayDurableObject {
   /**
    * Called on WebSocket error.
    */
-  webSocketError(ws: WebSocket, error: unknown): void {
-    const attachmentRaw = deserializeAttachment(ws);
-    const attachment = isRecord(attachmentRaw) ? attachmentRaw : null;
-    const role = attachment ? getString(attachment, "role") : undefined;
-    console.error(`[Relay DO] WebSocket error for ${role ?? "unknown"}:`, error);
+  webSocketError(_ws: WebSocket, _error: unknown): void {
+    console.error("[Relay DO] WebSocket error");
   }
 }
 

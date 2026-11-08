@@ -106,8 +106,7 @@ has no dependency on the host-confirmation feature.
 
 Use a fresh English app with notification permission granted and first-use keyboard prompts
 already dismissed. Load this checkout from an isolated Metro. Start an isolated password-protected
-daemon and a local Wrangler relay with `--var 'PASEO_RELAY_UPSTREAM:'`; the checked-in upstream
-setting otherwise forwards traffic to the hosted relay, which drops password rejection replies.
+daemon and a local Wrangler relay to exercise the local Durable Object.
 Set `PAIRING_LINK` to the daemon's `relay://` URI with an intentionally incorrect `password` query
 parameter, and `PASSWORD` to its correct password. This exercises password retry even while the
 daemon accepts relay connections with no credential.
