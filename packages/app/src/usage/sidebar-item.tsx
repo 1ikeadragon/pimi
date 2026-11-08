@@ -17,6 +17,8 @@ import {
 } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { useRetainedPanelActive } from "@/components/retained-panel";
+import { getDesktopHost } from "@/desktop/host";
+import { openPimiUsage } from "@/navigation/pimi-usage";
 import { useAppVisible } from "@/hooks/use-app-visible";
 import { builtinSidebarNavLabelKey } from "@/sidebar-nav/model";
 import { useUsageDisplay } from "./display";
@@ -74,6 +76,10 @@ export function UsageSidebarRoot({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const openUsage = useCallback(() => {
+    if (getDesktopHost()?.showPimiWorkspace) {
+      openPimiUsage();
+      return;
+    }
     setMounted(true);
     setOpen(true);
   }, []);
