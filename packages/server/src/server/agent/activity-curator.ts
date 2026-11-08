@@ -1,10 +1,10 @@
 import type { AgentTimelineItem } from "./agent-sdk-types.js";
-import type { AgentMessage } from "@getpaseo/protocol/agent-message";
-import type { AgentAttachment } from "@getpaseo/protocol/messages";
+import type { AgentMessage } from "@pimi/protocol/agent-message";
+import type { AgentAttachment } from "@pimi/protocol/messages";
 import type { AgentTimelineRow } from "./agent-timeline-store-types.js";
-import { isLikelyExternalToolName } from "@getpaseo/protocol/tool-name-normalization";
-import { buildAgentMessageDisplay } from "@getpaseo/protocol/paseo-tool-presentation/index";
-import { buildToolCallDisplayModel } from "@getpaseo/protocol/tool-call-display";
+import { isLikelyExternalToolName } from "@pimi/protocol/tool-name-normalization";
+import { buildAgentMessageDisplay } from "@pimi/protocol/paseo-tool-presentation/index";
+import { buildToolCallDisplayModel } from "@pimi/protocol/tool-call-display";
 import { projectTimelineRows, selectItemsByProjectedLimit } from "./timeline-projection.js";
 
 const DEFAULT_MAX_ITEMS = 0;
@@ -306,7 +306,7 @@ function buildForkContextText(input: {
   agentTitle?: string | null;
   cwd?: string | null;
 }): string {
-  const header = ["Chat history from a previous Paseo agent."];
+  const header = ["Chat history from a previous Pimi agent."];
   const agentTitle = trimContextMetadata(input.agentTitle);
   const cwd = trimContextMetadata(input.cwd);
   if (agentTitle) {

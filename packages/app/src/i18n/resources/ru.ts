@@ -949,7 +949,7 @@ export const ru: TranslationResources = {
           updateCurrent: "Обновление недоступно: эта ветка уже синхронизирована с {{baseRef}}.",
           mergePrNoGithub: "Слияние PR сейчас недоступно: GitHub не подключён.",
           archiveNotWorktree:
-            "Архивирование недоступно: это рабочее пространство не было создано как worktree Paseo.",
+            "Архивирование недоступно: это рабочее пространство не было создано как worktree Pimi.",
           mergePrNoForge: "Слияние {{noun}} сейчас недоступно: {{brand}} не подключён.",
           mergePrMissing: "Слияние PR недоступно: PR ещё не создан.",
           mergePrDraft: "Слияние PR недоступно: PR всё ещё является черновиком.",
@@ -1313,7 +1313,7 @@ export const ru: TranslationResources = {
       discord: "Discord",
       github: "Создать issue на GitHub",
       whatsNew: "Что нового",
-      appName: "Paseo",
+      appName: "Pimi",
     },
     sections: {
       sessions: "История",
@@ -1465,7 +1465,7 @@ export const ru: TranslationResources = {
       close: "Закрыть окно",
     },
     quitting: {
-      title: "Завершение работы Paseo...",
+      title: "Завершение работы Pimi...",
       detail: "Остановка локального демона.",
     },
     daemon: {
@@ -1480,20 +1480,20 @@ export const ru: TranslationResources = {
       },
       management: {
         title: "Управление встроенным демоном",
-        hint: "Разрешить Paseo запускать и останавливать встроенный демон",
+        hint: "Разрешить Pimi запускать и останавливать встроенный демон",
         pauseTitle: "Приостановить встроенный демон",
         pauseMessage:
           "Это немедленно остановит встроенный демон. Запущенные агенты и терминалы, подключенные к встроенному демону, будут остановлены.",
         pauseAndStop: "Приостановить управление и остановить демон",
         registrationFailed:
-          "Встроенный демон запущен, но Paseo не удалось сохранить подключение к localhost. Выключите и снова включите управление демоном или добавьте localhost вручную.",
+          "Встроенный демон запущен, но Pimi не удалось сохранить подключение к localhost. Выключите и снова включите управление демоном или добавьте localhost вручную.",
         pausedStopFailed:
-          "Встроенное управление демоном было приостановлено, но Paseo не смог остановить демон.",
+          "Встроенное управление демоном было приостановлено, но Pimi не смог остановить демон.",
         updateFailed: "Не удалось изменить настройки управления встроенным демоном.",
       },
       keepRunning: {
         title: "Продолжать работу демона после выхода",
-        hint: "Демон продолжит работать после выхода из Paseo",
+        hint: "Демон продолжит работать после выхода из Pimi",
       },
       logs: {
         title: "Файл журнала",
@@ -1508,7 +1508,7 @@ export const ru: TranslationResources = {
       fullStatus: {
         title: "Полный статус",
         modalTitle: "Статус демона",
-        hint: "Выполняет команду `paseo daemon status` и показывает результат",
+        hint: "Выполняет команду `pimi daemon status` и показывает результат",
         view: "Посмотреть статус",
         copied: "Статус скопирован в буфер обмена.",
         fetchFailed: "Не удалось получить статус демона: {{message}}",
@@ -1564,7 +1564,7 @@ export const ru: TranslationResources = {
     },
     rosetta: {
       title: "Загрузите сборку Apple Silicon",
-      runningIntel: "Вы используете сборку Paseo для Intel через Rosetta на Apple Silicon.",
+      runningIntel: "Вы используете сборку Pimi для Intel через Rosetta на Apple Silicon.",
       highCpu:
         "Из-за этого процессор сильно загружен. Чтобы устранить проблему, скачайте сборку для Apple Silicon.",
       download: "Скачать",
@@ -1609,7 +1609,7 @@ export const ru: TranslationResources = {
         microphone: "Состояние микрофона ещё не проверялось.",
       },
       testNotification: {
-        title: "Тест уведомлений Paseo",
+        title: "Тест уведомлений Pimi",
         body: "Если вы это видите, уведомления на рабочем столе работают.",
         notDelivered:
           "Уведомление не доставлено. Проверьте раздел «Уведомления» в системных настройках.",
@@ -1619,15 +1619,15 @@ export const ru: TranslationResources = {
     integrations: {
       cli: {
         statusFailed: "Не удалось проверить состояние установки CLI.",
-        installFailed: "Не удалось установить Paseo CLI.",
-        uninstallFailed: "Не удалось удалить Paseo CLI.",
+        installFailed: "Не удалось установить Pimi CLI.",
+        uninstallFailed: "Не удалось удалить Pimi CLI.",
         keptForeign:
-          "Команда paseo, установленная не Paseo, оставлена. Чтобы удалить её, сделайте это вручную.",
+          "Команда paseo, установленная не Pimi, оставлена. Чтобы удалить её, сделайте это вручную.",
       },
     },
   },
   rootError: {
-    title: "В Paseo возникла проблема.",
+    title: "В Pimi возникла проблема.",
     body: "Попробуйте перезагрузить приложение. Если ошибка повторится, приложите приведённые ниже сведения к отчёту.",
     details: "Подробности",
   },
@@ -1731,7 +1731,7 @@ export const ru: TranslationResources = {
   },
   onboarding: {
     setup: {
-      title: "Paseo",
+      title: "Pimi",
       stepCounter: "Шаг {{current}} из {{total}}",
       skip: "Пропустить настройку",
       continue: "Продолжить",
@@ -1739,13 +1739,13 @@ export const ru: TranslationResources = {
       steps: {
         appearance: {
           label: "Оформление",
-          title: "Добро пожаловать в Paseo",
+          title: "Добро пожаловать в Pimi",
           description: "Начнём с выбора оформления",
         },
         providers: {
           label: "Провайдеры",
           title: "Ваши агенты",
-          description: "Paseo использует CLI агентов, уже установленные на этом компьютере",
+          description: "Pimi использует CLI агентов, уже установленные на этом компьютере",
         },
         projects: {
           label: "Проекты",
@@ -1765,7 +1765,7 @@ export const ru: TranslationResources = {
         },
         orchestration: {
           label: "Оркестрация",
-          title: "Дайте агентам доступ к Paseo",
+          title: "Дайте агентам доступ к Pimi",
           description:
             "Разрешите агентам создавать рабочие пространства и общаться с другими агентами",
         },
@@ -1773,7 +1773,7 @@ export const ru: TranslationResources = {
           label: "Мобильный",
           title: "Агенты всегда под рукой",
           description:
-            "Полнофункциональное нативное мобильное приложение позволяет управлять любым компьютером с Paseo с телефона",
+            "Полнофункциональное нативное мобильное приложение позволяет управлять любым компьютером с Pimi с телефона",
           appStore: "App Store",
           googlePlay: "Google Play",
           connectTitle: "Выберите способ подключения",
@@ -1785,7 +1785,7 @@ export const ru: TranslationResources = {
         },
       },
     },
-    title: "Добро пожаловать в Paseo",
+    title: "Добро пожаловать в Pimi",
     subtitle: "Подключите компьютер, чтобы начать",
     actions: {
       settings: "Настройки",
@@ -1893,7 +1893,7 @@ export const ru: TranslationResources = {
     },
     direct: {
       title: "Прямое подключение",
-      helper: "Введите адрес сервера Paseo.",
+      helper: "Введите адрес сервера Pimi.",
       fields: {
         host: "Хост",
         port: "Порт",
@@ -1936,7 +1936,7 @@ export const ru: TranslationResources = {
     },
     remoteSsh: {
       title: "Удалённый SSH",
-      helper: "Подключитесь к демону Paseo на удалённом хосте.",
+      helper: "Подключитесь к демону Pimi на удалённом хосте.",
       fields: {
         target: "Хост SSH",
         password: "Пароль демона",
@@ -1992,6 +1992,9 @@ export const ru: TranslationResources = {
       errorTitle: "Ошибка",
     },
     device: {
+      setupTitle: "Настройка ретранслятора",
+      setupDescription:
+        "Для удалённого подключения запустите Pimi Relay, укажите его адрес в config.json и перезапустите Pimi.",
       loadingOffer: "Загрузка данных для сопряжения...",
       failedToLoadOffer: "Не удалось загрузить данные для сопряжения.",
       relayDisabled:
@@ -2000,7 +2003,7 @@ export const ru: TranslationResources = {
       enableDescription:
         "Ретранслятор позволяет этому устройству подключаться откуда угодно. Трафик сопряжения защищён сквозным шифрованием.",
       relayDocs: "Как работает ретранслятор",
-      relayDocsAccessibility: "Узнать, как работает ретранслятор Paseo",
+      relayDocsAccessibility: "Узнать, как работает ретранслятор Pimi",
       enableRelay: "Включить ретранслятор",
       enablingRelay: "Включение ретранслятора...",
       notNow: "Не сейчас",
@@ -2008,9 +2011,9 @@ export const ru: TranslationResources = {
         "Без ретранслятора подключайтесь напрямую через TCP, Tailscale или другую VPN. QR-код создаваться не будет.",
       tailscaleDocs: "Настроить Tailscale",
       tailscaleDocsAccessibility: "Узнать, как подключиться через Tailscale",
-      updateRequired: "Обновите хост, чтобы включить ретранслятор из Paseo Desktop.",
+      updateRequired: "Обновите хост, чтобы включить ретранслятор из Pimi Desktop.",
       unavailable: "Данные для сопряжения недоступны.",
-      hint: "Отсканируйте этот QR-код с помощью Paseo на телефоне или скопируйте ссылку ниже.",
+      hint: "Отсканируйте этот QR-код с помощью Pimi на телефоне или скопируйте ссылку ниже.",
       securityWarning:
         "Обращайтесь с этой ссылкой для сопряжения как с паролем. Любой, у кого она есть, может получить доступ к этому демону.",
       qrUnavailable: "QR-код недоступен.",
@@ -2045,7 +2048,7 @@ export const ru: TranslationResources = {
   serviceUrl: {
     title: "Открыть URL сервиса",
     message: "Открыть {{url}}?",
-    inPaseo: "В Paseo",
+    inPaseo: "В Pimi",
     externalBrowser: "Внешний браузер",
     dontAskAgain: "Больше не спрашивать",
   },
@@ -2098,7 +2101,7 @@ export const ru: TranslationResources = {
         alwaysUseFilename: "Всегда использовать для {{filename}}",
         option: "{{title}} — {{owner}}",
         builtin: {
-          owner: "Paseo",
+          owner: "Pimi",
           markdown: "Markdown",
           html: "HTML",
           image: "Изображение",
@@ -2196,8 +2199,8 @@ export const ru: TranslationResources = {
       other: "использованы другие инструменты ({{count}})",
     },
     paseoCalls: {
-      one: "выполнен {{count}} вызов Paseo",
-      other: "выполнены вызовы Paseo ({{count}})",
+      one: "выполнен {{count}} вызов Pimi",
+      other: "выполнены вызовы Pimi ({{count}})",
     },
     and: "и",
   },
@@ -2378,7 +2381,7 @@ export const ru: TranslationResources = {
       send: "Отправить",
       sending: "Отправка...",
       sentTitle: "Тестовое уведомление отправлено",
-      sentDescription: "Paseo передал уведомление операционной системе.",
+      sentDescription: "Pimi передал уведомление операционной системе.",
       sendFailedTitle: "Не удалось отправить тестовое уведомление",
     },
     hostSections: {
@@ -2398,15 +2401,15 @@ export const ru: TranslationResources = {
     metadataGeneration: {
       title: "Генерация метаданных",
       description:
-        "Выберите модель, которую Paseo будет использовать для названий рабочих пространств и веток, сообщений коммитов и черновиков PR",
+        "Выберите модель, которую Pimi будет использовать для названий рабочих пространств и веток, сообщений коммитов и черновиков PR",
       selection: "Выбор модели",
       automatic: "Автоматически",
       preferred: "Вручную",
-      automaticHint: "Paseo выбирает быструю доступную модель",
-      preferredHint: "Выберите модель, которую использует Paseo",
+      automaticHint: "Pimi выбирает быструю доступную модель",
+      preferredHint: "Выберите модель, которую использует Pimi",
       model: "Модель",
       modelHint:
-        "Используется только эта модель. Если она не сработает, Paseo не будет пробовать другую модель",
+        "Используется только эта модель. Если она не сработает, Pimi не будет пробовать другую модель",
       docs: "Документация",
       saveError: "Не удалось обновить настройки генерации метаданных",
     },
@@ -2497,7 +2500,7 @@ export const ru: TranslationResources = {
       browserData: {
         title: "Данные браузера",
         siteData: "Файлы cookie и данные сайтов",
-        description: "Вкладки браузера в Paseo используют общие данные входа и данные сайтов.",
+        description: "Вкладки браузера в Pimi используют общие данные входа и данные сайтов.",
         clear: "Очистить данные браузера",
         clearing: "Очистка...",
         confirmTitle: "Очистить данные браузера?",
@@ -2540,7 +2543,7 @@ export const ru: TranslationResources = {
       serviceUrls: {
         options: {
           ask: "Спрашивать",
-          inApp: "В Paseo",
+          inApp: "В Pimi",
           external: "Внешний браузер",
         },
       },
@@ -2615,7 +2618,7 @@ export const ru: TranslationResources = {
       releaseChannel: {
         label: "Канал выпуска",
         description:
-          "Переключитесь на бета-канал, чтобы раньше получать обновления и помогать развивать Paseo.",
+          "Переключитесь на бета-канал, чтобы раньше получать обновления и помогать развивать Pimi.",
         stable: "Стабильный",
         beta: "Бета",
       },
@@ -2623,7 +2626,7 @@ export const ru: TranslationResources = {
         label: "Обновления приложения",
         readyToInstall: "Версия {{version}} готова к установке",
         installTitle: "Установить обновление настольного приложения",
-        installMessage: "Это обновит Paseo на этом компьютере.",
+        installMessage: "Это обновит Pimi на этом компьютере.",
         installConfirm: "Установить обновление",
         update: "Обновить",
         updateTo: "Обновить до {{version}}",
@@ -2790,7 +2793,7 @@ export const ru: TranslationResources = {
       commandLine: {
         title: "Командная строка",
         description: "Управляйте агентами и автоматизируйте их работу из терминала",
-        accessibilityLabel: "Установить Paseo CLI",
+        accessibilityLabel: "Установить Pimi CLI",
       },
     },
     permissions: {
@@ -2869,16 +2872,16 @@ export const ru: TranslationResources = {
       skills: {
         sectionTitle: "Навыки оркестрации",
         title: "Навыки оркестрации",
-        description: "Научите агентов пользоваться инструментами Paseo",
+        description: "Научите агентов пользоваться инструментами Pimi",
         docs: "Навыки",
         openDocs: "Открыть документацию по навыкам",
         unavailable: "Подключитесь к этому хосту, чтобы управлять навыками оркестрации",
         unsupported: "Обновите этот хост, чтобы управлять навыками оркестрации",
         updateAvailable: "Доступно обновление",
-        updateTitle: "Обновить навыки Paseo?",
-        uninstallTitle: "Удалить навыки Paseo?",
+        updateTitle: "Обновить навыки Pimi?",
+        uninstallTitle: "Удалить навыки Pimi?",
         uninstallMessage:
-          "Удаляет все навыки оркестрации Paseo из ~/.agents, ~/.claude и ~/.codex на этом хосте.",
+          "Удаляет все навыки оркестрации Pimi из ~/.agents, ~/.claude и ~/.codex на этом хосте.",
         choose: "Выбрать навыки",
         chooseAll: "Все навыки",
         chooseAllHint: "Устанавливать все встроенные навыки, включая добавленные позже.",
@@ -2911,10 +2914,10 @@ export const ru: TranslationResources = {
         title: "Оркестрация",
         unavailable: "Подключитесь к этому хосту, чтобы управлять оркестрацией.",
         enableTools: {
-          title: "Включить инструменты Paseo",
+          title: "Включить инструменты Pimi",
           hint: "Агенты смогут управлять worktree, агентами и расписаниями.",
-          accessibilityLabel: "Добавить инструменты Paseo",
-          updateFailed: "Не удалось обновить инструменты Paseo.",
+          accessibilityLabel: "Добавить инструменты Pimi",
+          updateFailed: "Не удалось обновить инструменты Pimi.",
         },
         systemPrompt: {
           title: "Системный промпт",
@@ -3032,10 +3035,10 @@ export const ru: TranslationResources = {
             "Этот хост не подключён. Дождитесь его появления в сети перед перезапуском.",
           offlineTitle: "Хост не в сети",
           offlineMessage:
-            "Этот хост не в сети. Paseo переподключится автоматически. Дождитесь подключения перед перезапуском.",
+            "Этот хост не в сети. Pimi переподключится автоматически. Дождитесь подключения перед перезапуском.",
           requestFailedTitle: "Ошибка",
           requestFailedMessage:
-            "Не удалось отправить запрос на перезапуск. Paseo переподключается автоматически. Повторите попытку, когда хост появится в сети.",
+            "Не удалось отправить запрос на перезапуск. Pimi переподключается автоматически. Повторите попытку, когда хост появится в сети.",
           closeTerminals: "Перезапустить и закрыть терминалы",
           closeTerminalsHint: "Перезапускает демон и закрывает все терминалы на этом хосте.",
           closeTerminalsConfirmMessage:
@@ -3044,7 +3047,7 @@ export const ru: TranslationResources = {
         },
         update: {
           desktopManagedHint:
-            "Этот демон управляется Paseo Desktop. Обновите Paseo Desktop на хосте.",
+            "Этот демон управляется Pimi Desktop. Обновите Pimi Desktop на хосте.",
           title: "Обновить демон",
           hint: "Обновить демон до последней версии и перезапустить его",
           confirm: "Обновить",
@@ -3165,13 +3168,13 @@ export const ru: TranslationResources = {
         savedToast: "Проект обновлён",
       },
       readFailures: {
-        invalidTitle: "Не удалось разобрать paseo.json",
+        invalidTitle: "Не удалось разобрать pimi.json",
         invalidDescription: "Исправьте файл на диске, затем загрузите его заново.",
         missingTitle: "У этого хоста нет этого проекта",
         missingSingleHost: "У выбранного хоста нет записей об этом проекте.",
-        transportTitle: "Не удалось загрузить paseo.json.",
+        transportTitle: "Не удалось загрузить pimi.json.",
         transportFallback: "Хост не ответил.",
-        failedTitle: "Не удалось загрузить paseo.json.",
+        failedTitle: "Не удалось загрузить pimi.json.",
         failedDescription: "Загрузите данные заново, чтобы повторить попытку.",
       },
       worktree: {
@@ -3182,7 +3185,7 @@ export const ru: TranslationResources = {
           "Дополнительную информацию и переменные среды, доступные для этих команд, см. в документации.",
         setup: "Настройка",
         setupAccessibility: "Команды настройки worktree",
-        uncommittedTitle: "Закоммитьте изменения в paseo.json",
+        uncommittedTitle: "Закоммитьте изменения в pimi.json",
         uncommittedDescription:
           "Новые worktree используют скрипт настройки из выбранной базовой ветки.",
         teardown: "Удаление",
@@ -3207,7 +3210,7 @@ export const ru: TranslationResources = {
         newScript: "Новый скрипт",
         editScript: "Изменить {{name}}",
         runAsService: "Запускать как сервис",
-        serviceHint: "Paseo управляет процессом и назначает порт через переменную $PASEO_PORT.",
+        serviceHint: "Pimi управляет процессом и назначает порт через переменную $PASEO_PORT.",
         actions: {
           add: "Добавить скрипт",
           edit: "Редактировать",
@@ -3216,7 +3219,7 @@ export const ru: TranslationResources = {
       },
       metadata: {
         title: "Генерация метаданных",
-        info: "Инструкции для этого проекта, добавляемые в промпты ИИ, с помощью которых Paseo генерирует метаданные. Используйте их, чтобы соблюдать принятые в команде правила именования веток, оформления коммитов и формата PR.",
+        info: "Инструкции для этого проекта, добавляемые в промпты ИИ, с помощью которых Pimi генерирует метаданные. Используйте их, чтобы соблюдать принятые в команде правила именования веток, оформления коммитов и формата PR.",
         branchName: "Названия веток",
         branchNamePlaceholder:
           "Добавляйте к веткам префиксы feat/ или fix/, а к личным веткам — mb/",
@@ -3228,9 +3231,9 @@ export const ru: TranslationResources = {
       },
       writeFailures: {
         staleTitle: "Конфигурация изменена на диске",
-        staleDescription: "Перед сохранением загрузите с диска последнюю версию paseo.json.",
-        failedTitle: "Не удалось сохранить paseo.json.",
-        failedDescription: "Повторите попытку или загрузите с диска последнюю версию paseo.json.",
+        staleDescription: "Перед сохранением загрузите с диска последнюю версию pimi.json.",
+        failedTitle: "Не удалось сохранить pimi.json.",
+        failedDescription: "Повторите попытку или загрузите с диска последнюю версию pimi.json.",
       },
       actions: {
         reload: "Загрузить заново",

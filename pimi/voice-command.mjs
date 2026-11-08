@@ -1,4 +1,4 @@
-import { PimiVoicePlan } from "@getpaseo/protocol/pimi-task";
+import { PimiVoicePlan } from "@pimi/protocol/pimi-task";
 import { RequestError } from "./git.mjs";
 
 function findTask(tasks, title) {

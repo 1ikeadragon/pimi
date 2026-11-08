@@ -33,9 +33,9 @@ import {
   type CaptureTerminalLinesResult,
 } from "./terminal-capture.js";
 import type { TerminalReplayOptions, TerminalReplayMetadata } from "./terminal-replay.js";
-import { TerminalInputModeTracker } from "@getpaseo/protocol/terminal-input-mode";
+import { TerminalInputModeTracker } from "@pimi/protocol/terminal-input-mode";
 import { TerminalActivityTracker } from "./activity/terminal-activity-tracker.js";
-import type { TerminalActivity, TerminalActivityState } from "@getpaseo/protocol/terminal-activity";
+import type { TerminalActivity, TerminalActivityState } from "@pimi/protocol/terminal-activity";
 
 const require = createRequire(import.meta.url);
 let nodePtySpawnHelperChecked = false;

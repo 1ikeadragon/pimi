@@ -28,7 +28,7 @@ Slack 可以通过两种方式连接 Hub：
 把机器人邀请到每个它需要关注的频道：
 
 ```text
-/invite @Paseo
+/invite @Pimi
 ```
 
 现在编写一个 [Slack 触发器](/docs/hub/triggers/slack)。

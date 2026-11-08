@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next";
-import type { PluginIcon } from "@getpaseo/plugin/client";
+import type { PluginIcon } from "@pimi/plugin/client";
 import type { FilePanel } from "../panels";
 import { parseFilePanelSelectorKey } from "../resolve";
 

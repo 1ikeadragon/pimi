@@ -17,7 +17,7 @@ const TABBED_PLUGIN_NAME = "Tabbed settings";
 /** Two settings screens, so the settings page shows a tab per screen. */
 const TABBED_SOURCE = `import React from "react";
 import { Text, View } from "react-native";
-import { defineTranslations, useTranslation } from "@getpaseo/plugin/client";
+import { defineTranslations, useTranslation } from "@pimi/plugin/client";
 
 const messages = defineTranslations({ resources: { en: { icon: "advanced-tab-icon" } } });
 

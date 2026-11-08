@@ -43,7 +43,7 @@ describe("plugin translation author types", () => {
   it("checks JSON keys, plural counts, literal interpolation names and imperative translation", () => {
     expect(
       typeErrors(`
-      import { defineTranslations, useTranslation, type PluginClientContext } from "@getpaseo/plugin/client";
+      import { defineTranslations, useTranslation, type PluginClientContext } from "@pimi/plugin/client";
       import en from "../../translations/client/locales/en.json";
       const json = defineTranslations({ resources: { en } });
       const literal = defineTranslations({ resources: { en: { greeting: "Hello {{name}}", value: "{{amount, number}}" } } });
@@ -75,9 +75,9 @@ describe("plugin translation author types", () => {
 it("keeps historical string descriptor helpers while accepting translated registrations", () => {
   expect(
     typeErrors(`
-    import { defineTranslations, type PluginText, type PluginFilePanelContribution, type PluginClientContext, type PluginScreenContribution, type PluginWorkspacePanelContribution, type PluginSettingsScreenContribution, type PluginSidebarItemContribution, type PluginSidebarContribution, type PluginCommandCenterItemContribution, type PluginClientSlashCommandContribution, type PluginButton, type PluginHeaderButtonContribution, type PluginComposerPillContribution, type PluginButtonMenuEntry } from "@getpaseo/plugin/client";
+    import { defineTranslations, type PluginText, type PluginFilePanelContribution, type PluginClientContext, type PluginScreenContribution, type PluginWorkspacePanelContribution, type PluginSettingsScreenContribution, type PluginSidebarItemContribution, type PluginSidebarContribution, type PluginCommandCenterItemContribution, type PluginClientSlashCommandContribution, type PluginButton, type PluginHeaderButtonContribution, type PluginComposerPillContribution, type PluginButtonMenuEntry } from "@pimi/plugin/client";
     import { z } from "zod";
-    import { defineAttachmentSource, type PluginThemeContribution, type PluginAttachmentSourceContribution } from "@getpaseo/plugin";
+    import { defineAttachmentSource, type PluginThemeContribution, type PluginAttachmentSourceContribution } from "@pimi/plugin";
     const messages = defineTranslations({ resources: { en: { title: "Notes" } } });
     const Component = () => null;
     function historicalScreen(screen: PluginScreenContribution) {

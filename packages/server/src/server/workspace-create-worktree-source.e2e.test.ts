@@ -12,7 +12,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import {
   DaemonClient as SocketDaemonClient,
   type WebSocketLike,
-} from "@getpaseo/client/internal/daemon-client";
+} from "@pimi/client/internal/daemon-client";
 import { createTestPaseoDaemon } from "./test-utils/paseo-daemon.js";
 
 // The reshaped workspace.create.request forwards its worktree `source`
@@ -690,9 +690,9 @@ const timer = setInterval(() => {
     const viewer = await connect("setup-viewer");
     const sibling = await connect("setup-viewer");
     const quiet = await connect("setup-quiet");
-    const viewerMessages: import("@getpaseo/protocol/messages").SessionOutboundMessage[] = [];
-    const quietMessages: import("@getpaseo/protocol/messages").SessionOutboundMessage[] = [];
-    const siblingMessages: import("@getpaseo/protocol/messages").SessionOutboundMessage[] = [];
+    const viewerMessages: import("@pimi/protocol/messages").SessionOutboundMessage[] = [];
+    const quietMessages: import("@pimi/protocol/messages").SessionOutboundMessage[] = [];
+    const siblingMessages: import("@pimi/protocol/messages").SessionOutboundMessage[] = [];
     viewer.subscribeRawMessages((message) => viewerMessages.push(message));
     quiet.subscribeRawMessages((message) => quietMessages.push(message));
     sibling.subscribeRawMessages((message) => siblingMessages.push(message));

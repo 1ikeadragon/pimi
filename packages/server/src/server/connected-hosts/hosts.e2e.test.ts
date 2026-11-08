@@ -4,10 +4,10 @@ import { createTestAgentClients } from "../test-utils/fake-agent-client.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { afterEach, expect, test } from "vitest";
-import { createPaseoApi } from "@getpaseo/client";
-import { createHostClient, createHostChannelTransport } from "@getpaseo/client/node";
+import { createPaseoApi } from "@pimi/client";
+import { createHostClient, createHostChannelTransport } from "@pimi/client/node";
 import { createTestPaseoDaemon, type TestPaseoDaemon } from "../test-utils/paseo-daemon.js";
-import type { HostDirectory } from "@getpaseo/protocol/hosts";
+import type { HostDirectory } from "@pimi/protocol/hosts";
 
 const cleanup: (() => Promise<unknown>)[] = [];
 
@@ -315,13 +315,13 @@ import {
   decodeTerminalStreamFrame,
   encodeTerminalStreamFrame,
   TerminalStreamOpcode,
-} from "@getpaseo/protocol/binary-frames/index";
+} from "@pimi/protocol/binary-frames/index";
 import {
   WSOutboundMessageSchema,
   type SessionOutboundMessage,
   type SessionInboundMessage,
-} from "@getpaseo/protocol/messages";
-import { DaemonClient } from "@getpaseo/client/internal/daemon-client";
+} from "@pimi/protocol/messages";
+import { DaemonClient } from "@pimi/client/internal/daemon-client";
 class RoutePeer {
   readonly messages: SessionOutboundMessage[] = [];
   readonly bytes: Uint8Array[] = [];
@@ -543,7 +543,7 @@ test("server plugins use ordinary remote SDK operations and retain qualified sou
   await writeFile(
     join(directory, "index.server.ts"),
     `
-import { defineRpc } from "@getpaseo/plugin";
+import { defineRpc } from "@pimi/plugin";
 import { z } from "zod";
 const operate = defineRpc({ name: "operate", input: z.object({ serverId: z.string(), path: z.string() }), output: z.object({ workspaceId: z.string(), registrationId: z.string(), sourceId: z.string() }) });
 export default function contribute(server) {
@@ -892,7 +892,7 @@ import {
   generateKeyPair,
   openDaemonSecureChannel,
   type Transport,
-} from "@getpaseo/relay/e2ee";
+} from "@pimi/relay/e2ee";
 test("a capability retry over a relay keeps the protected endpoint security it negotiated", async () => {
   const keys = generateKeyPair();
   const legacyReceived: unknown[] = [];
@@ -2391,7 +2391,7 @@ test(
 );
 
 test("a pre-write host budget rejection leaves sibling routes connected", async () => {
-  const { HostTransportBudget } = await import("@getpaseo/client/node");
+  const { HostTransportBudget } = await import("@pimi/client/node");
   const b = await daemon();
   const origin = createHostClient(
     `127.0.0.1:${b.port}`,

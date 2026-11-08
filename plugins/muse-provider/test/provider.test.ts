@@ -15,9 +15,9 @@ import {
   type ProviderRegistration,
   type ProviderLaunch,
   type ProviderInput,
-} from "@getpaseo/plugin/server/provider";
-import type { UsageSourceRegistration } from "@getpaseo/plugin/server";
-import { execCommand } from "@getpaseo/plugin/server";
+} from "@pimi/plugin/server/provider";
+import type { UsageSourceRegistration } from "@pimi/plugin/server";
+import { execCommand } from "@pimi/plugin/server";
 import contribute from "../index.server.js";
 
 const connections: ProviderConnection[] = [];

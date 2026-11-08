@@ -103,13 +103,13 @@ buildNpmPackage {
     npm run build:server
 
     # App workspace deps not covered by build:server
-    npm run build --workspace=@getpaseo/expo-two-way-audio
+    npm run build --workspace=@pimi/expo-two-way-audio
 
     # Expo web export for the Electron renderer
     ( cd packages/app && PASEO_WEB_PLATFORM=electron npx expo export --platform web )
 
     # Desktop main process
-    npm run build:main --workspace=@getpaseo/desktop
+    npm run build:main --workspace=@pimi/desktop
 
     ${lib.optionalString stdenv.hostPlatform.isDarwin ''
       # Let electron-builder create the native bundle layout (including helper
@@ -211,14 +211,14 @@ buildNpmPackage {
     ''}
 
     ${lib.optionalString stdenv.hostPlatform.isDarwin ''
-      app="$(find packages/desktop/release -maxdepth 3 -type d -name Paseo.app -print -quit)"
+      app="$(find packages/desktop/release-pimi -maxdepth 3 -type d -name Pimi.app -print -quit)"
       if [ -z "$app" ]; then
-        echo "electron-builder did not produce Paseo.app" >&2
+        echo "electron-builder did not produce Pimi.app" >&2
         exit 1
       fi
       mkdir -p "$out/Applications"
-      cp -R "$app" "$out/Applications/Paseo.app"
-      ln -s ../Applications/Paseo.app/Contents/MacOS/Paseo "$out/bin/paseo-desktop"
+      cp -R "$app" "$out/Applications/Pimi.app"
+      ln -s ../Applications/Pimi.app/Contents/MacOS/Pimi "$out/bin/paseo-desktop"
     ''}
 
     runHook postInstall
@@ -254,8 +254,8 @@ buildNpmPackage {
   ];
 
   meta = {
-    description = "Paseo desktop app (Electron wrapper)";
-    homepage = "https://github.com/getpaseo/paseo";
+    description = "Pimi desktop app (Electron wrapper)";
+    homepage = "https://github.com/1ikeadragon/pimi";
     license = lib.licenses.asl20;
     mainProgram = "paseo-desktop";
     platforms = lib.platforms.linux ++ lib.platforms.darwin;

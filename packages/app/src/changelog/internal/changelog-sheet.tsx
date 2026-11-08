@@ -26,7 +26,7 @@ import {
   type ChangelogSection,
 } from "./parse-changelog";
 
-const WEBSITE_CHANGELOG_URL = "https://paseo.sh/changelog";
+const WEBSITE_CHANGELOG_URL = "https://github.com/1ikeadragon/pimi/releases";
 const PIMI_RELEASES_URL = "https://github.com/1ikeadragon/pimi/releases";
 
 const ThemedGift = withUnistyles(Gift);

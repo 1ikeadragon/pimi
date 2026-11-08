@@ -38,7 +38,7 @@ import { PimiAgentLabels, usePimiLabelNames } from "@/desktop/pimi-labels";
 import { useWorkspaceLabelDefinitions } from "@/workspace-labels";
 import { usePimiTaskBranches } from "./sidebar-model";
 import { getDesktopHost } from "@/desktop/host";
-import { PimiReviewPrDestination } from "@getpaseo/protocol/pimi-task";
+import { PimiReviewPrDestination } from "@pimi/protocol/pimi-task";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
 import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
 import { PressHighlight } from "@/components/ui/press-highlight";

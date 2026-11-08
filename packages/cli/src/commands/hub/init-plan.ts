@@ -26,7 +26,7 @@ export interface HubInitScaffold {
 }
 
 export function hubLoginResumeCommand(step: "connect" | "init", origin: string): string {
-  return step === "connect" ? `paseo hub connect ${origin}` : "paseo hub init";
+  return step === "connect" ? `pimi hub connect ${origin}` : "pimi hub init";
 }
 
 export function resolveHubInitConnection(
@@ -100,7 +100,7 @@ function providerScaffold(
       connection,
       filters: { from_users: [user] },
       reply: "slack.reply",
-      testAction: "Mention `@Paseo have a look` in Slack.",
+      testAction: "Mention the configured bot in Slack and ask it to take a look.",
     };
   }
 
@@ -110,7 +110,7 @@ function providerScaffold(
     connection,
     filters: { from_users: [user] },
     reply: "discord.reply",
-    testAction: "Mention `@Paseo have a look` in Discord.",
+    testAction: "Mention the configured bot in Discord and ask it to take a look.",
   };
 }
 

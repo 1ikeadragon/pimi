@@ -3,11 +3,11 @@ import type {
   AgentModelDefinition,
   AgentProvider,
   ProviderSnapshotEntry,
-} from "@getpaseo/protocol/agent-types";
-import type { AgentProviderDefinition } from "@getpaseo/protocol/provider-manifest";
+} from "@pimi/protocol/agent-types";
+import type { AgentProviderDefinition } from "@pimi/protocol/provider-manifest";
 import type { DraftCommandTarget } from "@/agent-commands";
 import { i18n } from "@/i18n/i18next";
-import { compareMatchScores, scoreTextFields } from "@getpaseo/protocol/search/text-match";
+import { compareMatchScores, scoreTextFields } from "@pimi/protocol/search/text-match";
 import { filterSelectableModels } from "./model-catalog";
 
 export interface ProviderSelectionModelRow {

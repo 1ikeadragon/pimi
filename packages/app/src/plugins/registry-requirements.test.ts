@@ -1,6 +1,6 @@
 import { createPluginHosts } from "./hosts";
 import { afterEach, expect, it } from "vitest";
-import { DaemonClient } from "@getpaseo/client/internal/daemon-client";
+import { DaemonClient } from "@pimi/client/internal/daemon-client";
 import { PluginRegistry } from "./registry";
 
 const audio = { play: async () => 0 };
@@ -113,7 +113,7 @@ it("rejects the unreleased translation API on 0.12.0 before evaluating its impor
       {
         id: "translated",
         requirements: { paseo: ">=0.12.1" },
-        clientBundle: `(function(require) { require("@getpaseo/plugin/client").defineTranslations({ resources: { en: { title: "Notes" } } }); throw new Error("unsupported API evaluated"); })`,
+        clientBundle: `(function(require) { require("@pimi/plugin/client").defineTranslations({ resources: { en: { title: "Notes" } } }); throw new Error("unsupported API evaluated"); })`,
       },
     ],
     { client, audio },

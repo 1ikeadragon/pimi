@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ProviderPaseoToolsPolicy } from "@getpaseo/protocol/provider-config";
+import type { ProviderPaseoToolsPolicy } from "@pimi/protocol/provider-config";
 import {
   ProjectNoteKeySchema,
   ProjectNoteTextSchema,

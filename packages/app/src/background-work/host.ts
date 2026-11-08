@@ -1,5 +1,5 @@
-import type { PaseoAgentBackgroundWorkItem } from "@getpaseo/client";
-import type { SessionOutboundMessage } from "@getpaseo/protocol/messages";
+import type { PaseoAgentBackgroundWorkItem } from "@pimi/client";
+import type { SessionOutboundMessage } from "@pimi/protocol/messages";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
 import { createBackgroundWorkModel } from "./model";
 

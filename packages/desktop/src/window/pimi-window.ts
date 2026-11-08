@@ -4,8 +4,8 @@ import { readFileSync } from "node:fs";
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { readLocalCredentialForTarget, resolvePaseoHome } from "@getpaseo/server/daemon-control";
-import { parseAgentDeepLink, type AgentDeepLinkTarget } from "@getpaseo/protocol/agent-deep-link";
+import { readLocalCredentialForTarget, resolvePaseoHome } from "@pimi/server/daemon-control";
+import { parseAgentDeepLink, type AgentDeepLinkTarget } from "@pimi/protocol/agent-deep-link";
 import {
   isPimiArxivEmbed,
   isPimiSpaceEmbed,
@@ -14,7 +14,7 @@ import {
   PimiReportLinkRequest,
   PimiReportLinkTarget,
   type PimiReportLinkError,
-} from "@getpaseo/protocol/pimi-task";
+} from "@pimi/protocol/pimi-task";
 import type {
   PimiActivitySection,
   PimiDestination,
@@ -25,7 +25,7 @@ import type {
   PimiVoiceCommandInput,
   PimiVoiceResult,
   PimiWorkspaceSection,
-} from "@getpaseo/protocol/pimi-task";
+} from "@pimi/protocol/pimi-task";
 import { resolveDesktopDaemonStatus } from "../daemon/daemon-manager.js";
 import { createPimiWorkspaceSession } from "./pimi-workspace-session.js";
 import {
@@ -42,7 +42,7 @@ import type {
 const AGENT_CONSOLE_URL = "pimi-agents://open";
 const APPEARANCE_FILE = "pimi-appearance.json";
 export type PimiAppearance = "system" | "light" | "dark" | "paper";
-export type { PimiDestination } from "@getpaseo/protocol/pimi-task";
+export type { PimiDestination } from "@pimi/protocol/pimi-task";
 export type WorkspaceLayout = "inline" | "attached" | "hidden";
 export interface PimiContentBounds extends Electron.Rectangle {
   sidebar: boolean;

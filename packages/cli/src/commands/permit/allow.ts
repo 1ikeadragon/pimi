@@ -1,8 +1,5 @@
 import type { Command } from "commander";
-import type {
-  AgentPermissionRequest,
-  AgentPermissionResponse,
-} from "@getpaseo/protocol/agent-types";
+import type { AgentPermissionRequest, AgentPermissionResponse } from "@pimi/protocol/agent-types";
 import { connectToDaemon } from "../../utils/client.js";
 import type { CommandOptions, ListResult, OutputSchema, CommandError } from "../../output/index.js";
 

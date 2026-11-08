@@ -1,5 +1,5 @@
 import { compare, hashSync } from "bcryptjs";
-import { PIMI_SPACES_ROUTE } from "@getpaseo/protocol/pimi-task";
+import { PIMI_SPACES_ROUTE } from "@pimi/protocol/pimi-task";
 import { timingSafeEqual } from "node:crypto";
 import type { RequestHandler } from "express";
 import { matchesLocalCredential } from "./local-credential.js";

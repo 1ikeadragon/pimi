@@ -30,17 +30,9 @@ function toRecord(value: unknown): Record<string, unknown> | undefined {
 }
 
 function getNotificationIcon(): Electron.NativeImage | null {
-  const pimi = process.env.PIMI_DESKTOP === "1" || app.getName() === "Pimi";
   const candidates = [
-    ...(pimi
-      ? [
-          path.join(process.resourcesPath, "pimi-icon.png"),
-          path.resolve(__dirname, "../assets/pimi-icon.png"),
-        ]
-      : []),
-    path.resolve(__dirname, "../assets/icon.png"),
-    path.resolve(__dirname, "../assets/64x64.png"),
-    path.resolve(__dirname, "../assets/128x128.png"),
+    path.join(process.resourcesPath, "pimi-icon.png"),
+    path.resolve(__dirname, "../assets/pimi-icon.png"),
   ];
 
   for (const iconPath of candidates) {

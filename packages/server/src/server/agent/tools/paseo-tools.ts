@@ -9,7 +9,7 @@ import {
   PIMI_TASK_PROPOSAL_TOOL,
   PimiReviewSuggestionInput,
   PimiTaskProposalInput,
-} from "@getpaseo/protocol/pimi-task";
+} from "@pimi/protocol/pimi-task";
 import type { FinishSubscriptions, FinishRegistration } from "../finish-subscriptions/index.js";
 import type { AgentMessageDelivery } from "../agent-messages/index.js";
 import {
@@ -27,7 +27,7 @@ import type { Logger } from "pino";
 
 import type { AgentMode, AgentProvider, AgentSessionConfig } from "../agent-sdk-types.js";
 import type { AgentManager } from "../agent-manager.js";
-import { ActiveTurnBehaviorSchema, AgentProfileSchema } from "@getpaseo/protocol/messages";
+import { ActiveTurnBehaviorSchema, AgentProfileSchema } from "@pimi/protocol/messages";
 import type { DaemonConfigStore } from "../../daemon-config-store.js";
 import {
   AgentFeatureSchema,
@@ -56,11 +56,11 @@ import { createAgentCommand } from "../create-agent/create.js";
 import { inheritWorkspaceBackground } from "../create-agent/intent.js";
 import type { VoiceCallerContext, VoiceSpeakHandler } from "../../voice-types.js";
 import type { FirstAgentContext } from "../../messages.js";
-import { everyMsToFiveFieldCron } from "@getpaseo/protocol/schedule/cadence";
+import { everyMsToFiveFieldCron } from "@pimi/protocol/schedule/cadence";
 import { expandUserPath, isSameOrDescendantPath, resolvePathFromBase } from "../../path-utils.js";
 import type { TerminalManager } from "../../../terminal/terminal-manager.js";
-import { encodeTerminalKeyInput } from "@getpaseo/protocol/terminal-key-input";
-import { TerminalInputModeTracker } from "@getpaseo/protocol/terminal-input-mode";
+import { encodeTerminalKeyInput } from "@pimi/protocol/terminal-key-input";
+import { TerminalInputModeTracker } from "@pimi/protocol/terminal-input-mode";
 import type { CreatePaseoWorktreeWorkflowFn } from "../../worktree-session.js";
 import { computeNextRunAt, validateScheduleCadence } from "../../schedule/cron.js";
 import {
@@ -74,7 +74,7 @@ import {
   StoredScheduleSchema,
   type ScheduleCadence,
   type UpdateScheduleInput,
-} from "@getpaseo/protocol/schedule/types";
+} from "@pimi/protocol/schedule/types";
 import type { ProviderSnapshotManager } from "../provider-snapshot-manager.js";
 import {
   AgentModelSchema,
@@ -125,7 +125,7 @@ import {
   type PaseoToolExecutionContext,
   type PaseoToolResult,
 } from "./types.js";
-import type { ProviderPaseoToolsPolicy } from "@getpaseo/protocol/provider-config";
+import type { ProviderPaseoToolsPolicy } from "@pimi/protocol/provider-config";
 import { isPaseoToolEnabled } from "../paseo-tool-policy.js";
 
 export interface PaseoToolHostDependencies {
@@ -2617,7 +2617,7 @@ function createToolCatalog(
         "Start one configured workspace script through the managed workspace-script launcher.",
       inputSchema: {
         workspaceId: z.string().describe("Workspace ID containing the configured script."),
-        scriptName: z.string().min(1).describe("Configured paseo.json script name to start."),
+        scriptName: z.string().min(1).describe("Configured pimi.json script name to start."),
       },
       outputSchema: {
         script: WorkspaceScriptPayloadSchema,
@@ -2643,7 +2643,7 @@ function createToolCatalog(
       description: "Stop a running workspace script through its supervised terminal lifecycle.",
       inputSchema: {
         workspaceId: z.string().describe("Workspace ID containing the running script."),
-        scriptName: z.string().min(1).describe("Configured paseo.json script name to stop."),
+        scriptName: z.string().min(1).describe("Configured pimi.json script name to stop."),
       },
       outputSchema: {
         script: WorkspaceScriptPayloadSchema,

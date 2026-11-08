@@ -4,8 +4,6 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { app, autoUpdater, shell } from "electron";
 import log from "electron-log/main";
-import type { AppUpdateCheckResult, AppUpdateInstallResult } from "./app-update-service.js";
-import type { AppUpdateCheckIntent } from "./app-update-rollout.js";
 import {
   canReplacePimiBundle,
   discardStagedMacUpdate,
@@ -21,7 +19,29 @@ import {
   type PimiUpdateRelease,
 } from "./pimi-update-release.js";
 
+export type AppUpdateCheckIntent = "automatic" | "manual";
+
+export interface AppUpdateCheckResult {
+  hasUpdate: boolean;
+  readyToInstall: boolean;
+  manualInstall?: boolean;
+  currentVersion: string;
+  latestVersion: string;
+  body: string | null;
+  date: string | null;
+  errorMessage: string | null;
+}
+
+export interface AppUpdateInstallResult {
+  installed: boolean;
+  openedInstaller?: boolean;
+  version: string | null;
+  message: string;
+}
+
 const run = promisify(execFile);
+export const PIMI_UPDATE_CACHE_DIRECTORY = "pimi-updates";
+
 const RELEASE_CHECK_CACHE_MS = 30_000;
 const DOWNLOAD_RETENTION_MS = 7 * 24 * 60 * 60_000;
 
@@ -168,7 +188,7 @@ export class PimiAutoUpdater {
     if (previous && sameRelease(previous.release, release) && !(retry && previous.error)) {
       return previous;
     }
-    const cache = path.join(app.getPath("userData"), "pimi-updates");
+    const cache = path.join(app.getPath("userData"), PIMI_UPDATE_CACHE_DIRECTORY);
     if (!this.cleanedCache) {
       this.cleanedCache = true;
       void removeExpiredDownloads(cache).catch((error: NodeJS.ErrnoException) => {
@@ -312,8 +332,7 @@ export class PimiAutoUpdater {
 
   private quitForUpdate(): void {
     setImmediate(() => {
-      // Match electron-updater’s handoff so the desktop’s existing quit
-      // lifecycle does not run another update check or interrupt installation.
+      // Notify the quit lifecycle before handing off to the installer.
       autoUpdater.emit("before-quit-for-update");
       app.quit();
     });

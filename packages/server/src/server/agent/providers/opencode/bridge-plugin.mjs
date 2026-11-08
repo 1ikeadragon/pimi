@@ -14,7 +14,7 @@ export default async function paseoPlugin(input, options) {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
       const detail = formatErrorDetail(payload.issues ?? payload.details);
-      const message = payload.error ?? `Paseo OpenCode bridge failed: ${response.status}`;
+      const message = payload.error ?? `Pimi OpenCode bridge failed: ${response.status}`;
       const error = new Error(detail ? `${message}: ${detail}` : message);
       error.status = response.status;
       if (detail) error.details = detail;
@@ -60,7 +60,7 @@ export default async function paseoPlugin(input, options) {
         return {
           title: definition.title,
           output: formatToolResult(result),
-          metadata: { paseoTool: definition.name },
+          metadata: { pimiTool: definition.name },
         };
       },
     };
@@ -94,7 +94,7 @@ function formatErrorDetail(details) {
 }
 
 function logPluginError(stage, context, error) {
-  console.error(`[paseo-opencode-plugin] ${stage} failed`, {
+  console.error(`[pimi-opencode-plugin] ${stage} failed`, {
     ...context,
     error: error instanceof Error ? error.message : String(error),
   });

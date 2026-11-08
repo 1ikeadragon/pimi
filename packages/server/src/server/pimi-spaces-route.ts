@@ -1,6 +1,6 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
 import type { RequestHandler } from "express";
-import { PIMI_SPACE_IMAGE_BYTES } from "@getpaseo/protocol/pimi-task";
+import { PIMI_SPACE_IMAGE_BYTES } from "@pimi/protocol/pimi-task";
 import { z } from "zod";
 import {
   SpaceImageType,

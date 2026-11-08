@@ -35,7 +35,7 @@ const daemon = await createPaseoDaemon(
     agentStoragePath: path.join(paseoHome, "agents"),
     relayEnabled: false,
     relayEndpoint: "relay.paseo.sh:443",
-    appBaseUrl: "https://app.paseo.sh",
+    appBaseUrl: "https://1ikeadragon.github.io/pimi/",
     // Add custom config here, e.g.:
     // providerOverrides: { ... },
   },

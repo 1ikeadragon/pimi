@@ -1,6 +1,7 @@
 {
-  "name": "@getpaseo/highlight",
+  "name": "@pimi/highlight",
   "version": "0.16.10",
+  "private": true,
   "license": "Apache-2.0",
   "files": [
     "dist",
@@ -16,9 +17,6 @@
       "source": "./src/index.ts",
       "default": "./dist/index.js"
     }
-  },
-  "publishConfig": {
-    "access": "public"
   },
   "scripts": {
     "clean": "node ../../scripts/clean-package-dist.mjs",

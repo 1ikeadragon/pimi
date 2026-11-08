@@ -1,12 +1,9 @@
 import { MspConnection } from "./connection.js";
 import { MuseError } from "./errors.js";
 import { todoSchema, outputSchema } from "./wire.js";
-import type { ProviderEvent } from "@getpaseo/plugin/server/provider";
+import type { ProviderEvent } from "@pimi/plugin/server/provider";
 import type { z } from "zod";
-import type {
-  ProviderTimelineItem,
-  ProviderToolCallDetail,
-} from "@getpaseo/plugin/server/provider";
+import type { ProviderTimelineItem, ProviderToolCallDetail } from "@pimi/plugin/server/provider";
 import { patchSchema, toolArgsSchema, deltaSchema, type WireItem } from "./wire.js";
 
 export function unifiedDiff(content: string): string {

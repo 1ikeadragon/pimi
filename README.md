@@ -10,6 +10,8 @@ Chat with your agents, track their work, and review the changes in one app.
 
 Pair Pimi for Android with your desktop to chat, track tasks, and review changes on your phone. [Android setup and builds](docs/android.md#pimi-apk) · [Self-host Pimi Relay](https://github.com/1ikeadragon/pimi-relay)
 
+The desktop installers include the daemon and the `pimi` CLI. For remote pairing, configure your own relay or connect over a VPN.
+
 ## Chat and Tasks
 
 Ask an agent to track a task or send a few agents to explore it. Queue a follow-up or fork a chat to another provider.

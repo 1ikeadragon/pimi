@@ -1,7 +1,7 @@
 import type { Command } from "commander";
 import { connectToDaemon } from "../../utils/client.js";
 import { isSameOrDescendantPath } from "../../utils/paths.js";
-import type { DaemonClient, FetchAgentHistoryEntry } from "@getpaseo/client/internal/daemon-client";
+import type { DaemonClient, FetchAgentHistoryEntry } from "@pimi/client/internal/daemon-client";
 
 export function addDeleteOptions(cmd: Command): Command {
   return cmd

@@ -2,7 +2,7 @@
 import { router, type Href } from "expo-router";
 import { getDesktopHost } from "@/desktop/host";
 import { buildOpenProjectRoute } from "@/utils/host-routes";
-import type { PimiVoiceUsageTab } from "@getpaseo/protocol/pimi-task";
+import type { PimiVoiceUsageTab } from "@pimi/protocol/pimi-task";
 import type { z } from "zod";
 
 export const PIMI_USAGE_ROUTE = "/pimi-usage";

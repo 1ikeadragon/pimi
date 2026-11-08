@@ -1,7 +1,8 @@
 {
-  "name": "@getpaseo/protocol",
+  "name": "@pimi/protocol",
   "version": "0.16.10",
-  "description": "Paseo shared protocol schemas and wire types",
+  "private": true,
+  "description": "Pimi shared protocol schemas and wire types",
   "license": "Apache-2.0",
   "files": [
     "dist",
@@ -18,9 +19,6 @@
       "types": "./dist/addresses.d.ts",
       "default": "./dist/addresses.js"
     }
-  },
-  "publishConfig": {
-    "access": "public"
   },
   "scripts": {
     "clean": "node ../../scripts/clean-package-dist.mjs",

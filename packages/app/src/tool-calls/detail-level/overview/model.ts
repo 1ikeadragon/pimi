@@ -1,4 +1,4 @@
-import { getPaseoToolActionLabel } from "@getpaseo/protocol/paseo-tool-presentation/index";
+import { getPaseoToolActionLabel } from "@pimi/protocol/paseo-tool-presentation/index";
 import { isTurnTrigger } from "@/agent-stream/turn-membership";
 
 import { describeToolCall, type GroupableItem, type ToolCallRun } from "../grouping";

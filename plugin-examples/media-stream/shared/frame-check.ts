@@ -1,4 +1,4 @@
-import { defineRpc } from "@getpaseo/plugin";
+import { defineRpc } from "@pimi/plugin";
 import { z } from "zod";
 
 /** Sends one frame back to the daemon, which reports what arrived. */

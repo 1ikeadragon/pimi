@@ -13,7 +13,7 @@ import {
 import type { AgentClient, AgentProvider } from "../agent/agent-sdk-types.js";
 import { createTestAgentClients } from "./fake-agent-client.js";
 import type { PushNotificationSender } from "../push/index.js";
-import type { AgentProfile } from "@getpaseo/protocol/messages";
+import type { AgentProfile } from "@pimi/protocol/messages";
 
 interface TestPaseoDaemonOptions {
   daemonVersion?: string;
@@ -201,7 +201,7 @@ async function prepareTestDaemonConfig(
     providerOverrides: options.providerOverrides,
     agentStoragePath: path.join(paseoHome, "agents"),
     relayEnabled: options.relayEnabled ?? false,
-    relayEndpoint: options.relayEndpoint ?? "relay.paseo.sh:443",
+    relayEndpoint: options.relayEndpoint,
     relayUseTls: options.relayUseTls,
     relayPublicUseTls: options.relayPublicUseTls,
     relayRequireProtectedSecurity: options.relayRequireProtectedSecurity,

@@ -5,18 +5,15 @@ import {
   type PersistedConfig,
 } from "./persisted-config.js";
 import { ProviderOverrideSchema } from "./agent/provider-launch-config.js";
-import {
-  MutableDaemonConfigSchema,
-  MutableDaemonConfigPatchSchema,
-} from "@getpaseo/protocol/messages";
-import type { AgentSkillSelection } from "@getpaseo/protocol/messages";
-import type { SpeechSettingsPatch } from "@getpaseo/protocol/speech/rpc-schemas";
+import { MutableDaemonConfigSchema, MutableDaemonConfigPatchSchema } from "@pimi/protocol/messages";
+import type { AgentSkillSelection } from "@pimi/protocol/messages";
+import type { SpeechSettingsPatch } from "@pimi/protocol/speech/rpc-schemas";
 import { mergeSpeechSettingsPatch, type SpeechSettingsOwner } from "./speech/speech-settings.js";
 
-export type { MutableDaemonConfig, MutableDaemonConfigPatch } from "@getpaseo/protocol/messages";
+export type { MutableDaemonConfig, MutableDaemonConfigPatch } from "@pimi/protocol/messages";
 
-type MutableDaemonConfig = import("@getpaseo/protocol/messages").MutableDaemonConfig;
-type MutableDaemonConfigPatch = import("@getpaseo/protocol/messages").MutableDaemonConfigPatch;
+type MutableDaemonConfig = import("@pimi/protocol/messages").MutableDaemonConfig;
+type MutableDaemonConfigPatch = import("@pimi/protocol/messages").MutableDaemonConfigPatch;
 type ProviderOverride = import("./agent/provider-launch-config.js").ProviderOverride;
 
 interface SupportedMutableConfigPatch {
@@ -356,6 +353,7 @@ export class DaemonConfigStore {
   private readonly applyListeners = new Set<ConfigApplyListener>();
   private readonly fieldChangeHandlers = new Map<string, Set<FieldChangeHandler>>();
   private readonly relayEnabledMutable: boolean;
+  private readonly relayConfigured: boolean;
   private readonly reloadSource: DaemonConfigReloadSource | undefined;
   private readonly startupPersisted: PersistedConfig;
   private readonly speechOwner: SpeechSettingsOwner | undefined;
@@ -367,6 +365,7 @@ export class DaemonConfigStore {
     logger?: LoggerLike,
     options: {
       relayEnabledMutable?: boolean;
+      relayConfigured?: boolean;
       reloadSource?: DaemonConfigReloadSource;
       startupPersisted?: PersistedConfig;
       speech?: SpeechSettingsOwner;
@@ -375,13 +374,14 @@ export class DaemonConfigStore {
     this.paseoHome = paseoHome;
     this.logger = getLogger(logger);
     this.relayEnabledMutable = options.relayEnabledMutable ?? true;
+    this.relayConfigured = options.relayConfigured ?? true;
     this.reloadSource = options.reloadSource;
     this.speechOwner = options.speech;
     this.startupPersisted = options.startupPersisted ?? loadPersistedConfig(paseoHome, this.logger);
     this.lastKnownPersisted = this.startupPersisted;
     this.current = MutableDaemonConfigSchema.parse({
       ...initial,
-      relay: initial.relay ?? { enabled: true },
+      relay: initial.relay ?? { enabled: false },
       ...this.readSpeech(this.startupPersisted),
     });
   }
@@ -413,9 +413,14 @@ export class DaemonConfigStore {
   private async applySupportedPatch(
     parsedPatch: SupportedMutableConfigPatch,
   ): Promise<MutableDaemonConfig> {
+    if (parsedPatch.relay?.enabled === true && !this.relayConfigured) {
+      throw new Error(
+        "Set daemon.relay.endpoint in config.json and restart Pimi before enabling relay.",
+      );
+    }
     if (parsedPatch.relay?.enabled !== undefined && !this.relayEnabledMutable) {
       throw new Error(
-        "Relay is controlled by a daemon launch override. Remove PASEO_RELAY_ENABLED or the relay CLI flag before changing it here.",
+        "Relay is controlled by a daemon launch override. Remove the environment setting or relay CLI flag before changing it here.",
       );
     }
     const { removeProviders = [], ...patch } = parsedPatch;

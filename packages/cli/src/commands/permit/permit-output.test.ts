@@ -1,5 +1,5 @@
-import type { AgentPermissionRequest } from "@getpaseo/protocol/agent-types";
-import type { AgentSnapshotPayload } from "@getpaseo/protocol/messages";
+import type { AgentPermissionRequest } from "@pimi/protocol/agent-types";
+import type { AgentSnapshotPayload } from "@pimi/protocol/messages";
 import { describe, expect, it } from "vitest";
 import { render } from "../../output/index.js";
 import { permitResponseSchema, toPermissionResponseItem } from "./allow.js";

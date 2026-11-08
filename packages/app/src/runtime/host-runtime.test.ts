@@ -9,12 +9,12 @@ import type {
   ConnectionState,
   FetchAgentsEntry,
   FetchAgentsOptions,
-} from "@getpaseo/client/internal/daemon-client";
-import { DaemonAuthenticationError } from "@getpaseo/client/internal/daemon-client";
-import type { HostDirectory } from "@getpaseo/protocol/hosts";
-import type { ConnectionOffer } from "@getpaseo/protocol/connection-offer";
-import type { SessionOutboundMessage } from "@getpaseo/protocol/messages";
-import type { AgentPermissionRequest } from "@getpaseo/protocol/agent-types";
+} from "@pimi/client/internal/daemon-client";
+import { DaemonAuthenticationError } from "@pimi/client/internal/daemon-client";
+import type { HostDirectory } from "@pimi/protocol/hosts";
+import type { ConnectionOffer } from "@pimi/protocol/connection-offer";
+import type { SessionOutboundMessage } from "@pimi/protocol/messages";
+import type { AgentPermissionRequest } from "@pimi/protocol/agent-types";
 import type { HostConnection, HostProfile } from "@/types/host-connection";
 import { defaultHostAppearance } from "@/hosts/appearance";
 import { useSessionStore, type Agent } from "@/stores/session-store";

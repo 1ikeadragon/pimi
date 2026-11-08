@@ -4,7 +4,7 @@ import {
   type PluginButtonIconProps,
   type PluginClientContext,
   useWorkspace,
-} from "@getpaseo/plugin/client";
+} from "@pimi/plugin/client";
 import { useMemo } from "react";
 import { Pressable, Text, View } from "react-native";
 

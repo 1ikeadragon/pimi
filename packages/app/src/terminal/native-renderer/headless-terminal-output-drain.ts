@@ -12,7 +12,7 @@ export interface NativeTerminalParseSample {
 }
 
 export interface NativeTerminalOutputDrain {
-  replay(event: import("@getpaseo/client").TerminalReplayEvent): void;
+  replay(event: import("@pimi/client").TerminalReplayEvent): void;
   enqueueText(text: string): void;
   resize(): void;
   clear(): void;

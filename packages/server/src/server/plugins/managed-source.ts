@@ -1,7 +1,8 @@
 import {
   PluginRegistryIdentitySchema,
   parsePluginRegistryReference,
-} from "@getpaseo/protocol/plugin-registry";
+  PluginRegistryIdSchema,
+} from "@pimi/protocol/plugin-registry";
 import { resolveRegistryPlugin, type RegistryOptions } from "./managed-source/registry.js";
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
@@ -18,7 +19,7 @@ import {
   type PluginUpdateProposal,
   type PluginUpdateSelection,
   type PluginUpdateTarget,
-} from "@getpaseo/protocol/messages";
+} from "@pimi/protocol/messages";
 import { runGitCommand } from "../../utils/run-git-command.js";
 import { ensurePrivateDirectory, writePrivateFileAtomicSync } from "../private-files.js";
 import { readPluginManifest, type PluginManifest } from "./manifest.js";
@@ -164,6 +165,9 @@ export class ManagedPluginSources {
       const resolved = await resolveRegistryPlugin(registry, this.registryOptions, true);
       const candidate = await this.prepareInstall(resolved.input, resolved.target);
       return { ...candidate, record: { ...candidate.record, registry } };
+    }
+    if (PluginRegistryIdSchema.safeParse(input.source).success) {
+      throw new Error("Specify registry.example.com/owner/plugin or use github:owner/repository.");
     }
     const pluginPath = normalizePluginPath(input.pluginPath);
     const versionRoot = await this.createStagingRoot();

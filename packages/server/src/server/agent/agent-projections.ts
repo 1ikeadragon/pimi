@@ -1,5 +1,5 @@
 import { isSameOrDescendantPath } from "../path-utils.js";
-import { AgentContextBreakdownSchema } from "@getpaseo/protocol/messages";
+import { AgentContextBreakdownSchema } from "@pimi/protocol/messages";
 import type {
   AgentListItemPayload,
   AgentSnapshotPayload,

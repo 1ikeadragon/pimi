@@ -12,15 +12,16 @@ import {
   type PaseoConfigRaw,
   type PaseoConfigRevision,
   type ProjectConfigRpcError,
-} from "@getpaseo/protocol/paseo-config-schema";
+} from "@pimi/protocol/paseo-config-schema";
 export {
   PaseoConfigRevisionSchema,
   ProjectConfigRpcErrorSchema,
   type PaseoConfigRevision,
   type ProjectConfigRpcError,
-} from "@getpaseo/protocol/paseo-config-schema";
+} from "@pimi/protocol/paseo-config-schema";
 
-export const PASEO_CONFIG_FILE_NAME = "paseo.json";
+export const PIMI_CONFIG_FILE_NAME = "pimi.json";
+const LEGACY_CONFIG_FILE_NAME = "paseo.json";
 // Configuration is deliberately small. Bound both IO and main-thread JSON/schema work.
 export const MAX_PASEO_CONFIG_BYTES = 256 * 1024;
 
@@ -40,34 +41,45 @@ export interface WritePaseoConfigForEditInput {
 }
 
 export function resolvePaseoConfigPath(repoRoot: string): string {
-  return join(repoRoot, PASEO_CONFIG_FILE_NAME);
+  return join(repoRoot, PIMI_CONFIG_FILE_NAME);
 }
 
 function revision(stats: Stats): PaseoConfigRevision {
   return { mtimeMs: stats.mtimeMs, size: stats.size };
 }
 
-async function inspect(repoRoot: string): Promise<Stats | null> {
+async function inspectPath(configPath: string): Promise<Stats | null> {
   try {
-    return await stat(resolvePaseoConfigPath(repoRoot));
+    return await stat(configPath);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw error;
   }
 }
 
+export async function inspectProjectConfig(repoRoot: string) {
+  const preferred = resolvePaseoConfigPath(repoRoot);
+  const stats = await inspectPath(preferred);
+  if (stats) return { path: preferred, stats };
+  const legacy = join(repoRoot, LEGACY_CONFIG_FILE_NAME);
+  const legacyStats = await inspectPath(legacy);
+  return legacyStats ? { path: legacy, stats: legacyStats } : null;
+}
+
 export async function statPaseoConfigPath(repoRoot: string): Promise<PaseoConfigRevision | null> {
-  const stats = await inspect(repoRoot);
-  return stats ? revision(stats) : null;
+  const file = await inspectProjectConfig(repoRoot);
+  return file ? revision(file.stats) : null;
 }
 
 function admit(stats: Stats): void {
   if (!stats.isFile() || stats.size > MAX_PASEO_CONFIG_BYTES) {
-    throw new Error(`paseo.json must be a regular file of at most ${MAX_PASEO_CONFIG_BYTES} bytes`);
+    throw new Error(
+      `Project config must be a regular file of at most ${MAX_PASEO_CONFIG_BYTES} bytes`,
+    );
   }
 }
 
-function fingerprint(stats: Stats | null): string {
+function fingerprint(stats: Stats | null | undefined): string {
   return stats
     ? `${stats.dev}:${stats.ino}:${stats.size}:${stats.mtimeMs}:${stats.ctimeMs}`
     : "missing";
@@ -180,19 +192,17 @@ class ProjectConfigOwner {
   }
 
   private async load(root: string): Promise<Snapshot> {
-    const stats = await inspect(root);
+    const file = await inspectProjectConfig(root);
+    const stats = file?.stats;
     if (stats) admit(stats);
     const key = fingerprint(stats);
     const cached = this.snapshots.get(root);
     if (cached?.fingerprint === key) return this.remember(root, cached);
     let json: unknown = null;
-    if (stats) {
+    if (file) {
       // O_NONBLOCK prevents a regular-file -> FIFO replacement between stat and open
       // from waiting for a writer. Check the opened descriptor again before any read.
-      const handle = await open(
-        resolvePaseoConfigPath(root),
-        constants.O_RDONLY | constants.O_NONBLOCK,
-      );
+      const handle = await open(file.path, constants.O_RDONLY | constants.O_NONBLOCK);
       try {
         const openedStats = await handle.stat();
         admit(openedStats);
@@ -203,10 +213,10 @@ class ProjectConfigOwner {
           if (bytesRead === 0) break;
           length += bytesRead;
         }
-        if (length > MAX_PASEO_CONFIG_BYTES) throw new Error("paseo.json exceeds byte limit");
+        if (length > MAX_PASEO_CONFIG_BYTES) throw new Error("Project config exceeds byte limit");
         // Never publish bytes under a revision that did not describe the opened file.
         if (fingerprint(await handle.stat()) !== fingerprint(openedStats)) {
-          throw new Error("paseo.json changed while reading; retry the operation");
+          throw new Error("Project config changed while reading; retry the operation");
         }
         try {
           json = JSON.parse(bytes.toString("utf8", 0, length));
@@ -214,11 +224,11 @@ class ProjectConfigOwner {
           return this.remember(root, {
             fingerprint: key,
             edit: { ok: false, error: { code: "invalid_project_config" } },
-            runtime: { ok: false, configPath: resolvePaseoConfigPath(root), error },
+            runtime: { ok: false, configPath: file.path, error },
           });
         }
         if (fingerprint(openedStats) !== key) {
-          throw new Error("paseo.json was replaced while reading; retry the operation");
+          throw new Error("Project config was replaced while reading; retry the operation");
         }
       } finally {
         await handle.close();
@@ -248,11 +258,11 @@ class ProjectConfigOwner {
       if (Buffer.byteLength(content) > MAX_PASEO_CONFIG_BYTES) {
         return { ok: false, error: { code: "invalid_project_config" } };
       }
-      const tempPath = join(root, `.${PASEO_CONFIG_FILE_NAME}.${process.pid}.${randomUUID()}.tmp`);
+      const tempPath = join(root, `.${PIMI_CONFIG_FILE_NAME}.${process.pid}.${randomUUID()}.tmp`);
       try {
         await writeFile(tempPath, content, { flag: "wx" });
         const savedRevision = revision(await stat(tempPath));
-        const currentStats = await inspect(root);
+        const currentStats = (await inspectProjectConfig(root))?.stats;
         if (currentStats) admit(currentStats);
         const currentRevision = currentStats ? revision(currentStats) : null;
         if (!paseoConfigRevisionsEqual(currentRevision, input.expectedRevision)) {

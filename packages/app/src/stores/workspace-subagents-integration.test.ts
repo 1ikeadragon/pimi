@@ -1,5 +1,5 @@
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import { parentAddressLabels } from "@getpaseo/protocol/agent-labels";
+import type { DaemonClient } from "@pimi/client/internal/daemon-client";
+import { parentAddressLabels } from "@pimi/protocol/agent-labels";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildWorkspaceTabSnapshot,

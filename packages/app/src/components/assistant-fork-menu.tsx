@@ -1,5 +1,5 @@
 import { createContext, memo, useCallback, useContext, useMemo, useState } from "react";
-import type { AgentProvider } from "@getpaseo/protocol/agent-types";
+import type { AgentProvider } from "@pimi/protocol/agent-types";
 import { useTranslation } from "react-i18next";
 import { Text, View } from "react-native";
 import { Split } from "lucide-react-native";

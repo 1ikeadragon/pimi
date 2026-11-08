@@ -4,7 +4,7 @@
 # For any network-reachable deployment, change PASEO_PASSWORD first.
 services:
   paseo:
-    image: ghcr.io/getpaseo/paseo:latest
+    image: pimi:local
     container_name: paseo
     restart: unless-stopped
     ports:

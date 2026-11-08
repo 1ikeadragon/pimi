@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useFocusEffect } from "expo-router/react-navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { TerminalHooksStatus } from "@getpaseo/protocol/messages";
+import type { TerminalHooksStatus } from "@pimi/protocol/messages";
 import { SettingsCard, SettingsRow, SettingsSection } from "@/components/settings";
 import { Button } from "@/components/ui/button";
 import { useFetchQuery } from "@/data/query";

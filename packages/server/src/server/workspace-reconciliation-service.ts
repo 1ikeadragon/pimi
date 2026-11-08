@@ -1,7 +1,7 @@
 import { watch as watchPath } from "node:fs";
 import { stat } from "node:fs/promises";
 import { setImmediate as yieldToLoop } from "node:timers/promises";
-import type { ProjectCheckoutLitePayload } from "@getpaseo/protocol/messages";
+import type { ProjectCheckoutLitePayload } from "@pimi/protocol/messages";
 import type pino from "pino";
 import type {
   ProjectRegistry,

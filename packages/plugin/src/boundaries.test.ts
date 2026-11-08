@@ -58,7 +58,7 @@ function boundaryViolations(entry: string, runtime: "shared" | "server" | "clien
         if (runtime !== "server" && serverModule.test(module)) violations.push(label);
         pending.push(local);
       } else if (runtime === "shared") {
-        if (specifier !== "zod" && specifier !== "@getpaseo/protocol/agent-types")
+        if (specifier !== "zod" && specifier !== "@pimi/protocol/agent-types")
           violations.push(label);
       } else if (runtime === "server") {
         if (uiDependency.test(specifier) || /^@getpaseo\/plugin\/client(\/|$)/.test(specifier))
@@ -119,10 +119,10 @@ describe("plugin SDK import boundaries", () => {
   it("typechecks a 0.12 reveal-hook consumer without exposing the hook on current UI", () => {
     expect(
       typeErrors(`
-      import { useRevealedText, Icon } from "@getpaseo/plugin/client/react-native";
-      import { StreamedText } from "@getpaseo/plugin/client/ui";
+      import { useRevealedText, Icon } from "@pimi/plugin/client/react-native";
+      import { StreamedText } from "@pimi/plugin/client/ui";
       // @ts-expect-error the legacy hook is not part of the current UI API
-      import { useRevealedText as currentHook } from "@getpaseo/plugin/client/ui";
+      import { useRevealedText as currentHook } from "@pimi/plugin/client/ui";
       import { Text } from "react-native";
       function LegacyRow({ text, phase }: { text: string; phase: "streaming" | "complete" }) {
         const revealed: string = useRevealedText(text, phase);
@@ -163,8 +163,8 @@ describe("plugin example import boundaries", () => {
       if (specifier.startsWith(".")) {
         const imported = owner(resolveLocal(file, specifier));
         if (imported !== "shared" && imported !== runtime) violations.push(specifier);
-      } else if (specifier.startsWith("@getpaseo/plugin")) {
-        const entry = specifier.replace("@getpaseo/plugin", ".") as keyof typeof entries;
+      } else if (specifier.startsWith("@pimi/plugin")) {
+        const entry = specifier.replace("@pimi/plugin", ".") as keyof typeof entries;
         if (
           entry === "./client/host" ||
           entry.startsWith("./internal/") ||
@@ -187,7 +187,7 @@ describe("plugin panel SDK boundary", () => {
   it("accepts uniform params and persisted tab state alongside 0.12 panels", () => {
     expect(
       typeErrors(`
-      import { type PluginClientContext, type PluginFilePanelProps, type PluginWorkspacePanelProps, type PluginAgentPanelProps, type PluginTab, useTabState } from "@getpaseo/plugin/client";
+      import { type PluginClientContext, type PluginFilePanelProps, type PluginWorkspacePanelProps, type PluginAgentPanelProps, type PluginTab, useTabState } from "@pimi/plugin/client";
       import { z } from "zod";
       function FilePanel({ params, revision, tab, file }: PluginFilePanelProps) {
         const [state, setState] = useTabState(tab, z.object({ view: z.enum(["preview", "source"]) }), { view: "preview" });
@@ -218,7 +218,7 @@ describe("plugin agent tools SDK boundary", () => {
     expect(
       typeErrors(`
       import { z } from "zod";
-      import { defineAgentTool, type PluginServerContext, type AgentToolResult, type AgentToolContext, type AgentToolDefinition } from "@getpaseo/plugin/server";
+      import { defineAgentTool, type PluginServerContext, type AgentToolResult, type AgentToolContext, type AgentToolDefinition } from "@pimi/plugin/server";
       const tool: AgentToolDefinition = defineAgentTool({
         name: "create_issue",
         description: "Create an issue",
@@ -253,7 +253,7 @@ describe("lifecycle hook SDK types", () => {
   it("infers payloads and replacement requests and requires async handlers and new names", () => {
     expect(
       typeErrors(`
-      import type { PluginServerContext, PluginHooks, PluginHookPayload, PluginHookResult } from "@getpaseo/plugin/server";
+      import type { PluginServerContext, PluginHooks, PluginHookPayload, PluginHookResult } from "@pimi/plugin/server";
       export default function contribute(server: PluginServerContext) {
         server.addHook("worktree.create.before", async ({ request }) => {
           if (request.kind === "checkout-branch") {
@@ -309,9 +309,9 @@ describe("agent session reload SDK boundary", () => {
   it("exposes reload separately from snapshot refresh", () => {
     expect(
       typeErrors(`
-      import { type PluginServerContext } from "@getpaseo/plugin/server";
-      import { type PaseoAgentRefetchResult } from "@getpaseo/client";
-      async function reload(server: PluginServerContext, paseo: import("@getpaseo/client").PaseoApi) {
+      import { type PluginServerContext } from "@pimi/plugin/server";
+      import { type PaseoAgentRefetchResult } from "@pimi/client";
+      async function reload(server: PluginServerContext, paseo: import("@pimi/client").PaseoApi) {
         const agent = paseo.agents.ref("chosen-agent");
         const read: PaseoAgentRefetchResult | null = await agent.refresh("read-snapshot");
         const reopened: PaseoAgentRefetchResult | null = await agent.reload({ requestId: "reload-session" });
@@ -328,10 +328,10 @@ describe("plugin subscription SDK boundary", () => {
   it("types contracts, overloaded handlers, the client hook, and the client entry handle", () => {
     expect(
       typeErrors(`
-      import { defineRpc, defineSubscription, type SubscriptionEvent, type SubscriptionInput } from "@getpaseo/plugin";
-      import type { PluginClientContext } from "@getpaseo/plugin/client";
-      import { useRpc, useSubscription } from "@getpaseo/plugin/client";
-      import type { PluginServerContext, PluginSubscriptionContext } from "@getpaseo/plugin/server";
+      import { defineRpc, defineSubscription, type SubscriptionEvent, type SubscriptionInput } from "@pimi/plugin";
+      import type { PluginClientContext } from "@pimi/plugin/client";
+      import { useRpc, useSubscription } from "@pimi/plugin/client";
+      import type { PluginServerContext, PluginSubscriptionContext } from "@pimi/plugin/server";
       import { z } from "zod";
       const diffWatch = defineSubscription({
         name: "diff.watch",

@@ -1,12 +1,5 @@
-import type { PluginSurfaceProps } from "@getpaseo/plugin/client";
-import {
-  Modal,
-  ScrollView,
-  FlatList,
-  TextInput,
-  copyText,
-  useToast,
-} from "@getpaseo/plugin/client/ui";
+import type { PluginSurfaceProps } from "@pimi/plugin/client";
+import { Modal, ScrollView, FlatList, TextInput, copyText, useToast } from "@pimi/plugin/client/ui";
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
   Pressable,

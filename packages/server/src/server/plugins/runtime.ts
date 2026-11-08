@@ -1,14 +1,14 @@
 import { validateWorktreePath } from "../../utils/worktree-path.js";
-import type { PluginHookPayload } from "@getpaseo/plugin/server";
+import type { PluginHookPayload } from "@pimi/plugin/server";
 import type { PluginWireBeforeRequests, PluginBeforeResults } from "./lifecycle/index.js";
 import type { SessionOpenWireRequest, AttachedAgentTool } from "./agent-tools.js";
-import type { UsageScope } from "@getpaseo/plugin/server/usage";
+import type { UsageScope } from "@pimi/plugin/server/usage";
 import {
   ProviderStatusSchema,
   type ProviderStatus,
   type ProviderStatusRequest,
-} from "@getpaseo/plugin/server/provider";
-import type { PluginHookEvents, PluginHookAgent, AgentToolResult } from "@getpaseo/plugin/server";
+} from "@pimi/plugin/server/provider";
+import type { PluginHookEvents, PluginHookAgent, AgentToolResult } from "@pimi/plugin/server";
 import { validateBeforeRequest, validateBeforeResult } from "./lifecycle/index.js";
 import { fork } from "node:child_process";
 import path from "node:path";
@@ -23,10 +23,10 @@ import {
   type ProviderConnection,
   type ProviderEvent,
   type ProviderInput,
-} from "@getpaseo/plugin/server/provider";
-import type { PluginLogEntry } from "@getpaseo/protocol/messages";
+} from "@pimi/plugin/server/provider";
+import type { PluginLogEntry } from "@pimi/protocol/messages";
 import { compileDirectoryPlugin } from "./compiler.js";
-import type { PluginRequirements } from "@getpaseo/protocol/messages";
+import type { PluginRequirements } from "@pimi/protocol/messages";
 import type {
   PluginProcessMessage,
   PluginProcessRequest,

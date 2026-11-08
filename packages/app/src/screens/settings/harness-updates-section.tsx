@@ -2,7 +2,7 @@ import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import type { ProviderHarnessUpdateChannel } from "@getpaseo/protocol/provider-harness-updates";
+import type { ProviderHarnessUpdateChannel } from "@pimi/protocol/provider-harness-updates";
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "@/components/ui/external-link";
 import { SettingsSection } from "@/components/settings/headings/settings-section";

@@ -1,13 +1,9 @@
-import { PluginTranslationRuntime } from "@getpaseo/plugin/client/host";
+import { PluginTranslationRuntime } from "@pimi/plugin/client/host";
 import { QueryClient } from "@tanstack/react-query";
-import { createPaseoApi, type PaseoApi } from "@getpaseo/client";
-import { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import {
-  defineRpc,
-  type PluginAgentSnapshot,
-  type PluginWorkspaceSnapshot,
-} from "@getpaseo/plugin";
-import { type PluginCommandCenterItemContribution } from "@getpaseo/plugin/client";
+import { createPaseoApi, type PaseoApi } from "@pimi/client";
+import { DaemonClient } from "@pimi/client/internal/daemon-client";
+import { defineRpc, type PluginAgentSnapshot, type PluginWorkspaceSnapshot } from "@pimi/plugin";
+import { type PluginCommandCenterItemContribution } from "@pimi/plugin/client";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { InstalledPlugin } from "../types";

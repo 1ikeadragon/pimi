@@ -1,4 +1,4 @@
-import type { AgentAddress } from "@getpaseo/protocol/addresses";
+import type { AgentAddress } from "@pimi/protocol/addresses";
 import type { Agent } from "@/stores/session-store";
 import type { SubagentRow } from "./select";
 

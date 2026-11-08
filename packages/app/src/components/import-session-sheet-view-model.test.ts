@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { FetchRecentProviderSessionEntry } from "@getpaseo/client/internal/daemon-client";
+import type { FetchRecentProviderSessionEntry } from "@pimi/client/internal/daemon-client";
 import {
   aggregateSessionEntries,
   ALL_FILTER_VALUE,

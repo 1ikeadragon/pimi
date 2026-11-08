@@ -4,7 +4,7 @@ import { Platform, ScrollView, Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { router } from "expo-router";
 import { ArrowLeft, Settings } from "lucide-react-native";
-import type { PluginHostProps } from "@getpaseo/plugin/client";
+import type { PluginHostProps } from "@pimi/plugin/client";
 import { Button } from "@/components/ui/button";
 import { ToolbarButton, paneContentToolbarIconSize } from "@/components/ui/pane-content-toolbar";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";

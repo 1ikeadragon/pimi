@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AgentProfile } from "@getpaseo/protocol/messages";
+import type { AgentProfile } from "@pimi/protocol/messages";
 import {
   materializeAgentProfile,
   reconcileMaterializedProfileMode,

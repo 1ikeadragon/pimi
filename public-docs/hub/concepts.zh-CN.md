@@ -1,6 +1,6 @@
 ---
 title: Hub 工作原理
-description: Provider 事件如何到达 workflow 和 Paseo daemon。
+description: Provider 事件如何到达 workflow 和 Pimi daemon。
 nav: 工作原理
 ---
 
@@ -17,14 +17,14 @@ GitHub / Slack / Discord / manual request
                 workflow
           runs ordered agent steps
                     ↓
-             Paseo daemon
+             Pimi daemon
              starts the agent
 ```
 
 ## 组成部分 {#the-pieces}
 
 - **连接**让 Hub 接收来自 GitHub、Slack 或 Discord 的事件。
-- **daemon** 是一台运行 Paseo daemon 的已注册机器。
+- **daemon** 是一台运行 Pimi daemon 的已注册机器。
 - **项目**把一份配置与它使用的连接和 daemon 组织在一起。
 - **环境**指定 workflow step 在哪里运行：一个 daemon、它的工作目录，以及可选的 worktree。
 - **触发器**说明哪个 Provider 事件可以启动 workflow，以及允许哪些事件通过。

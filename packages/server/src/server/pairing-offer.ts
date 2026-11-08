@@ -1,4 +1,5 @@
 import type { Logger } from "pino";
+import { shouldUseTlsForDefaultHostedRelay } from "@pimi/protocol/daemon-endpoints";
 
 import {
   createConnectionOfferV2,
@@ -11,6 +12,7 @@ import { getOrCreateServerId } from "./server-id.js";
 
 export interface LocalPairingOffer {
   relayEnabled: boolean;
+  relayConfigured: boolean;
   url: string | null;
   qr: string | null;
 }
@@ -28,18 +30,18 @@ export async function generateLocalPairingOffer(args: {
   includeQr?: boolean;
   logger?: Logger;
 }): Promise<LocalPairingOffer> {
-  const relayEnabled = args.relayEnabled ?? true;
-  if (!relayEnabled) {
+  const relayEndpoint = args.relayEndpoint?.trim();
+  if (args.relayEnabled !== true || !relayEndpoint) {
     return {
       relayEnabled: false,
+      relayConfigured: Boolean(relayEndpoint),
       url: null,
       qr: null,
     };
   }
 
-  const relayEndpoint = args.relayEndpoint ?? "relay.paseo.sh:443";
   const relayPublicEndpoint = args.relayPublicEndpoint ?? relayEndpoint;
-  const relayUseTls = args.relayUseTls ?? relayEndpoint === "relay.paseo.sh:443";
+  const relayUseTls = args.relayUseTls ?? shouldUseTlsForDefaultHostedRelay(relayEndpoint);
   const relayPublicUseTls = args.relayPublicUseTls ?? relayUseTls;
   const appBaseUrl = args.appBaseUrl ?? DEFAULT_PAIRING_APP_BASE_URL;
   const serverId = getOrCreateServerId(args.paseoHome, { logger: args.logger });
@@ -57,6 +59,7 @@ export async function generateLocalPairingOffer(args: {
   if (args.includeQr === false) {
     return {
       relayEnabled: true,
+      relayConfigured: true,
       url,
       qr: null,
     };
@@ -71,6 +74,7 @@ export async function generateLocalPairingOffer(args: {
 
   return {
     relayEnabled: true,
+    relayConfigured: true,
     url,
     qr,
   };

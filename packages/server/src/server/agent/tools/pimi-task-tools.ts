@@ -18,7 +18,7 @@ import {
   PimiWorkLabelInput,
   type PimiMobileTaskOperation,
   type PimiTaskProposal,
-} from "@getpaseo/protocol/pimi-task";
+} from "@pimi/protocol/pimi-task";
 import {
   PaseoToolInputError,
   type PaseoToolConfig,

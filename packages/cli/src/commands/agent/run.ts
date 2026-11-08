@@ -2,8 +2,8 @@ import { Command, Option } from "commander";
 import {
   getStructuredAgentResponse,
   StructuredAgentResponseError,
-} from "@getpaseo/server/agent-response";
-import type { AgentSnapshotPayload } from "@getpaseo/protocol/messages";
+} from "@pimi/server/agent-response";
+import type { AgentSnapshotPayload } from "@pimi/protocol/messages";
 import { resolveCallerAgentId } from "../../utils/caller-agent.js";
 import { connectToDaemon } from "../../utils/client.js";
 import type {

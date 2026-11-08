@@ -68,7 +68,7 @@ function recordingProvider(native: boolean, callbacks: TestAgentClientOptions = 
 
 const pluginSource = `
 import { z } from "zod";
-import { defineAgentTool } from "@getpaseo/plugin/server";
+import { defineAgentTool } from "@pimi/plugin/server";
 let calls = 0;
 const tool = defineAgentTool({
   name: "plugin_echo", description: "Echo for the chosen agent",
@@ -612,7 +612,7 @@ test("a busy agent is steered after plugin reload and reopens only at its next i
 }, 60_000);
 
 const reloadRpcSource = pluginSource
-  .replace("import { z }", 'import { defineRpc } from "@getpaseo/plugin";\nimport { z }')
+  .replace("import { z }", 'import { defineRpc } from "@pimi/plugin";\nimport { z }')
   .replace(
     "  return () => {};",
     `

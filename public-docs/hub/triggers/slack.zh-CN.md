@@ -39,7 +39,7 @@ Slack 过滤器使用 ID，而不是显示名称或 Hub 连接的 slug。`from_u
 提及之后紧跟的是已声明的输入：
 
 ```text
-@Paseo repo=project agent=claude investigate the failed sync
+@Pimi repo=project agent=claude investigate the failed sync
 ```
 
 Hub 会读取连续的已声明头部，并把剩余部分作为 `${{ paseo.prompt }}` 提供。参见 [Workflow](/docs/hub/workflows)。

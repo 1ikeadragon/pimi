@@ -1,4 +1,4 @@
-import { normalizeAgentModelCatalog } from "@getpaseo/protocol/agent-types";
+import { normalizeAgentModelCatalog } from "@pimi/protocol/agent-types";
 import { createHash } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { homedir } from "node:os";
@@ -37,21 +37,21 @@ import {
   shutdownAgentClients,
   type ProviderDefinition,
 } from "./provider-registry.js";
-import { BUILTIN_PROVIDER_IDS } from "@getpaseo/protocol/provider-manifest";
+import { BUILTIN_PROVIDER_IDS } from "@pimi/protocol/provider-manifest";
 import { applyMutableProviderConfigToOverrides } from "../daemon-config-store.js";
 import {
   formatProviderDiagnostic,
   formatProviderDiagnosticError,
 } from "./providers/diagnostic-utils.js";
 import type { MutableDaemonConfig } from "../daemon-config-store.js";
-import type { HubExecutionAgentValidationIssue } from "@getpaseo/protocol/messages";
+import type { HubExecutionAgentValidationIssue } from "@pimi/protocol/messages";
 import {
   type AgentConfigurationValidationInput,
   validateAgentConfigurationAgainstProvider,
 } from "./agent-configuration-validator.js";
-import type { ProviderRegistration } from "@getpaseo/plugin/server/provider";
+import type { ProviderRegistration } from "@pimi/plugin/server/provider";
 import { PluginAgentClientRegistry } from "./plugin-provider.js";
-import type { ProviderHarnessUpdate } from "@getpaseo/protocol/provider-harness-updates";
+import type { ProviderHarnessUpdate } from "@pimi/protocol/provider-harness-updates";
 import { HarnessUpdateCatalog } from "./harness-updates.js";
 
 const DEFAULT_REFRESH_TIMEOUT_MS = 120_000;

@@ -1309,7 +1309,7 @@ export const ja: TranslationResources = {
       discord: "Discord",
       github: "GitHub Issueを作成",
       whatsNew: "新着情報",
-      appName: "Paseo",
+      appName: "Pimi",
     },
     sections: {
       sessions: "履歴",
@@ -1503,7 +1503,7 @@ export const ja: TranslationResources = {
       fullStatus: {
         title: "詳細ステータス",
         modalTitle: "デーモンのステータス",
-        hint: "`paseo daemon status`を実行して出力を表示します",
+        hint: "`pimi daemon status`を実行して出力を表示します",
         view: "ステータスを表示",
         copied: "ステータスをクリップボードにコピーしました。",
         fetchFailed: "デーモンのステータスの取得に失敗しました: {{message}}",
@@ -1608,15 +1608,15 @@ export const ja: TranslationResources = {
     integrations: {
       cli: {
         statusFailed: "CLIのインストール状態を確認できません。",
-        installFailed: "Paseo CLIをインストールできません。",
-        uninstallFailed: "Paseo CLI をアンインストールできません。",
+        installFailed: "Pimi CLIをインストールできません。",
+        uninstallFailed: "Pimi CLI をアンインストールできません。",
         keptForeign:
           "Paseoがインストールしていないpaseoコマンドは残しました。アンインストールするには手動で削除してください。",
       },
     },
   },
   rootError: {
-    title: "Paseo で問題が発生しました。",
+    title: "Pimi で問題が発生しました。",
     body: "アプリを再読み込みするにはもう一度お試しください。繰り返し発生する場合は、以下の詳細を添えて報告してください。",
     details: "詳細",
   },
@@ -1719,7 +1719,7 @@ export const ja: TranslationResources = {
   },
   onboarding: {
     setup: {
-      title: "Paseo",
+      title: "Pimi",
       stepCounter: "ステップ {{current}}/{{total}}",
       skip: "セットアップをスキップ",
       continue: "続ける",
@@ -1727,13 +1727,13 @@ export const ja: TranslationResources = {
       steps: {
         appearance: {
           label: "外観",
-          title: "Paseo へようこそ",
+          title: "Pimi へようこそ",
           description: "まずは外観を選びましょう",
         },
         providers: {
           label: "プロバイダー",
           title: "エージェント",
-          description: "Paseo はこのコンピューターにインストール済みのエージェント CLI を使います",
+          description: "Pimi はこのコンピューターにインストール済みのエージェント CLI を使います",
         },
         projects: {
           label: "プロジェクト",
@@ -1753,7 +1753,7 @@ export const ja: TranslationResources = {
         },
         orchestration: {
           label: "オーケストレーション",
-          title: "エージェントに Paseo を使わせる",
+          title: "エージェントに Pimi を使わせる",
           description:
             "エージェントがワークスペースを作成し、ほかのエージェントとやり取りできるようにします",
         },
@@ -1761,7 +1761,7 @@ export const ja: TranslationResources = {
           label: "モバイル",
           title: "エージェントを持ち歩く",
           description:
-            "フル機能のネイティブモバイルアプリで、スマートフォンからどの Paseo コンピューターでも操作できます",
+            "フル機能のネイティブモバイルアプリで、スマートフォンからどの Pimi コンピューターでも操作できます",
           appStore: "App Store",
           googlePlay: "Google Play",
           connectTitle: "接続方法を選択",
@@ -1923,7 +1923,7 @@ export const ja: TranslationResources = {
     },
     remoteSsh: {
       title: "リモート SSH",
-      helper: "リモートホストで動作する Paseo デーモンに接続します。",
+      helper: "リモートホストで動作する Pimi デーモンに接続します。",
       fields: {
         target: "SSH ホスト",
         password: "デーモンのパスワード",
@@ -1979,6 +1979,9 @@ export const ja: TranslationResources = {
       errorTitle: "エラー",
     },
     device: {
+      setupTitle: "リレーを設定",
+      setupDescription:
+        "リモートでペアリングするには、Pimi Relay を起動し、config.json にアドレスを設定して Pimi を再起動してください。",
       loadingOffer: "ペアリングオファーを読み込み中...",
       failedToLoadOffer: "ペアリングオファーの読み込みに失敗しました。",
       relayDisabled:
@@ -1987,7 +1990,7 @@ export const ja: TranslationResources = {
       enableDescription:
         "リレーを使うと、このデバイスからどこでも接続できます。ペアリング通信はエンドツーエンドで暗号化されます。",
       relayDocs: "リレーの仕組み",
-      relayDocsAccessibility: "Paseo リレーの仕組みを読む",
+      relayDocsAccessibility: "Pimi リレーの仕組みを読む",
       enableRelay: "リレーを有効にする",
       enablingRelay: "有効化中...",
       notNow: "今はしない",
@@ -1995,7 +1998,7 @@ export const ja: TranslationResources = {
         "リレーを使わない場合は、TCP、Tailscale、または別の VPN で直接接続してください。QR コードは作成されません。",
       tailscaleDocs: "Tailscale を設定",
       tailscaleDocsAccessibility: "Tailscale で接続する方法を読む",
-      updateRequired: "Paseo Desktop からリレーを有効にするにはホストを更新してください。",
+      updateRequired: "Pimi Desktop からリレーを有効にするにはホストを更新してください。",
       unavailable: "ペアリングオファーが利用できません。",
       hint: "スマートフォンのPaseoでこのQRコードをスキャンするか、以下のリンクをコピーしてください。",
       securityWarning:
@@ -2085,7 +2088,7 @@ export const ja: TranslationResources = {
         alwaysUseFilename: "{{filename}} に常に使用",
         option: "{{title}} — {{owner}}",
         builtin: {
-          owner: "Paseo",
+          owner: "Pimi",
           markdown: "Markdown",
           html: "HTML",
           image: "画像",
@@ -2366,7 +2369,7 @@ export const ja: TranslationResources = {
       send: "送信",
       sending: "送信中...",
       sentTitle: "テスト通知を送信しました",
-      sentDescription: "Paseo が通知をオペレーティングシステムに渡しました。",
+      sentDescription: "Pimi が通知をオペレーティングシステムに渡しました。",
       sendFailedTitle: "テスト通知を送信できません",
     },
     hostSections: {
@@ -2390,10 +2393,10 @@ export const ja: TranslationResources = {
       selection: "モデル選択",
       automatic: "自動",
       preferred: "手動",
-      automaticHint: "Paseo が利用可能な高速モデルを選択します",
-      preferredHint: "Paseo が使用するモデルを選択します",
+      automaticHint: "Pimi が利用可能な高速モデルを選択します",
+      preferredHint: "Pimi が使用するモデルを選択します",
       model: "モデル",
-      modelHint: "このモデルのみを使用します。失敗しても、Paseo は別のモデルを試しません",
+      modelHint: "このモデルのみを使用します。失敗しても、Pimi は別のモデルを試しません",
       docs: "ドキュメント",
       saveError: "メタデータ生成を更新できません",
     },
@@ -2769,7 +2772,7 @@ export const ja: TranslationResources = {
       commandLine: {
         title: "コマンドライン",
         description: "ターミナルからエージェントを制御し、スクリプトで操作",
-        accessibilityLabel: "Paseo CLI をインストール",
+        accessibilityLabel: "Pimi CLI をインストール",
       },
     },
     permissions: {
@@ -2848,7 +2851,7 @@ export const ja: TranslationResources = {
         ...en.settings.host.skills,
         sectionTitle: "オーケストレーションスキル",
         title: "オーケストレーションスキル",
-        description: "エージェントに Paseo ツールの使い方を教えます",
+        description: "エージェントに Pimi ツールの使い方を教えます",
         updateAvailable: "更新が利用可能",
         updateTitle: "Paseoスキルを更新しますか？",
         uninstallTitle: "Paseoスキルをアンインストールしますか？",
@@ -3140,13 +3143,13 @@ export const ja: TranslationResources = {
         savedToast: "プロジェクトを更新しました",
       },
       readFailures: {
-        invalidTitle: "paseo.jsonを解析できませんでした",
+        invalidTitle: "pimi.jsonを解析できませんでした",
         invalidDescription: "ディスク上のファイルを修正してから再読み込みしてください。",
         missingTitle: "このホストにはこのプロジェクトがありません",
         missingSingleHost: "選択したホストにはこのプロジェクトの記録がありません。",
-        transportTitle: "paseo.jsonを読み込めませんでした",
+        transportTitle: "pimi.jsonを読み込めませんでした",
         transportFallback: "ホストが応答しませんでした。",
-        failedTitle: "paseo.jsonを読み込めませんでした",
+        failedTitle: "pimi.jsonを読み込めませんでした",
         failedDescription: "再読み込みして再試行してください。",
       },
       worktree: {
@@ -3157,7 +3160,7 @@ export const ja: TranslationResources = {
           "これらのコマンドで使用可能な詳細と環境変数についてはドキュメントを参照してください",
         setup: "セットアップ",
         setupAccessibility: "ワークツリーセットアップコマンド",
-        uncommittedTitle: "paseo.json の変更をコミットしてください",
+        uncommittedTitle: "pimi.json の変更をコミットしてください",
         uncommittedDescription:
           "新しいワークツリーでは、選択したベースブランチのセットアップスクリプトが使われます。",
         teardown: "削除時",
@@ -3201,8 +3204,8 @@ export const ja: TranslationResources = {
       },
       writeFailures: {
         staleTitle: "設定がディスク上で変更されました",
-        staleDescription: "保存する前に最新のpaseo.jsonを取得するために再読み込みしてください。",
-        failedTitle: "paseo.jsonを保存できませんでした",
+        staleDescription: "保存する前に最新のpimi.jsonを取得するために再読み込みしてください。",
+        failedTitle: "pimi.jsonを保存できませんでした",
         failedDescription: "再試行するか、ディスクから最新バージョンを再読み込みしてください。",
       },
       actions: {

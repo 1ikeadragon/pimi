@@ -1,0 +1,6 @@
+{
+  "id": "linear",
+  "requirements": {
+    "pimi": ">=0.8.0"
+  }
+}

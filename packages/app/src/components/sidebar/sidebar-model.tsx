@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import React, { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
-import { getParentAddressFromLabels } from "@getpaseo/protocol/agent-labels";
-import { PIMI_TASK_WORKER_LABEL } from "@getpaseo/protocol/pimi-task";
+import { getParentAddressFromLabels } from "@pimi/protocol/agent-labels";
+import { PIMI_TASK_WORKER_LABEL } from "@pimi/protocol/pimi-task";
 import { useShallow } from "zustand/react/shallow";
 import { usePimiLinkedLabels } from "@/desktop/pimi-labels";
 import { getDesktopHost } from "@/desktop/host";

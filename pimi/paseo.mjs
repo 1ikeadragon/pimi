@@ -1,14 +1,14 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
-import { createPaseoClient } from "@getpaseo/client";
-import { buildAgentDeepLink } from "@getpaseo/protocol/agent-deep-link";
-import { workspaceLabelKey } from "@getpaseo/protocol/workspace-labels";
+import { createPaseoClient } from "@pimi/client";
+import { buildAgentDeepLink } from "@pimi/protocol/agent-deep-link";
+import { workspaceLabelKey } from "@pimi/protocol/workspace-labels";
 import {
   PIMI_SPACES_ROUTE,
   PIMI_TASK_WORKER_LABEL,
   PIMI_VOICE_COMMAND_ROUTE,
   PimiWorkLabelCreateInput,
   PimiWorkLabelInput,
-} from "@getpaseo/protocol/pimi-task";
+} from "@pimi/protocol/pimi-task";
 import { randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";

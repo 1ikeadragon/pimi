@@ -1,5 +1,5 @@
-import { parseHostTarget } from "@getpaseo/protocol/host-target";
-import { resolvePaseoHome } from "@getpaseo/server/daemon-control";
+import { parseHostTarget } from "@pimi/protocol/host-target";
+import { resolvePaseoHome } from "@pimi/server/daemon-control";
 
 export type DaemonTarget = { kind: "instance"; home: string } | { kind: "endpoint"; host: string };
 
@@ -14,6 +14,8 @@ export function selectDaemonTarget(
   }
   if (options.home !== undefined && options.host !== undefined)
     throw { code: "TARGET_AMBIGUOUS", message: "Choose either --home or --host, not both." };
+  const configuredHome = env.PIMI_HOME ?? env.PASEO_HOME;
+  const configuredHost = env.PIMI_HOST ?? env.PASEO_HOST;
   if (localOnly) {
     if (options.host !== undefined)
       throw {
@@ -22,19 +24,19 @@ export function selectDaemonTarget(
       };
     return {
       kind: "instance",
-      home: resolvePaseoHome({ PASEO_HOME: options.home ?? env.PASEO_HOME }),
+      home: resolvePaseoHome({ PIMI_HOME: options.home ?? configuredHome }),
     };
   }
   if (options.home !== undefined)
-    return { kind: "instance", home: resolvePaseoHome({ PASEO_HOME: options.home }) };
+    return { kind: "instance", home: resolvePaseoHome({ PIMI_HOME: options.home }) };
   if (options.host !== undefined) return { kind: "endpoint", host: options.host };
-  if (env.PASEO_HOME && env.PASEO_HOST)
+  if (configuredHome && configuredHost)
     throw {
       code: "TARGET_AMBIGUOUS",
-      message: "PASEO_HOME and PASEO_HOST are both set. Choose --home or --host explicitly.",
+      message: "Both a daemon home and host are set. Choose --home or --host explicitly.",
     };
-  if (env.PASEO_HOST) return { kind: "endpoint", host: env.PASEO_HOST };
-  return { kind: "instance", home: resolvePaseoHome({ PASEO_HOME: env.PASEO_HOME }) };
+  if (configuredHost) return { kind: "endpoint", host: configuredHost };
+  return { kind: "instance", home: resolvePaseoHome({ PIMI_HOME: configuredHome }) };
 }
 
 export function describeDaemonTarget(target: DaemonTarget): string {

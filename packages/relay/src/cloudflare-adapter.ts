@@ -99,6 +99,7 @@ function getGlobalWebSocketPair(): (new () => WebSocketPair) | undefined {
 
 interface Env {
   RELAY: DurableObjectNamespace;
+  PIMI_RELAY_UPSTREAM?: string;
   PASEO_RELAY_UPSTREAM?: string;
 }
 
@@ -544,8 +545,9 @@ export class RelayDurableObject {
  */
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    if (env.PASEO_RELAY_UPSTREAM) {
-      return createCutoverProxy(env.PASEO_RELAY_UPSTREAM).fetch(request);
+    const upstream = env.PIMI_RELAY_UPSTREAM ?? env.PASEO_RELAY_UPSTREAM;
+    if (upstream) {
+      return createCutoverProxy(upstream).fetch(request);
     }
 
     const url = new URL(request.url);

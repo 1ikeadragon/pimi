@@ -8,7 +8,7 @@ import { loadConfig } from "./config.js";
 import { loadPersistedConfig } from "./persisted-config.js";
 import { readSpeechSettings } from "./speech/speech-settings.js";
 import type { PersistedConfig } from "./persisted-config.js";
-import type { MutableDaemonConfig } from "@getpaseo/protocol/messages";
+import type { MutableDaemonConfig } from "@pimi/protocol/messages";
 
 function usageEnabled(persisted: PersistedConfig): boolean {
   return persisted.daemon?.usage?.enabled !== false;

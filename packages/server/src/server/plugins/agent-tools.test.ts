@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import { z } from "zod";
-import { defineAgentTool } from "@getpaseo/plugin/server";
+import { defineAgentTool } from "@pimi/plugin/server";
 import { serializeAgentTool } from "./agent-tools.js";
 import { serializePaseoToolInputParameters } from "../agent/tools/paseo-tool-serialization.js";
 

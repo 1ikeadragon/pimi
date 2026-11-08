@@ -7,7 +7,7 @@ import { basename, dirname, isAbsolute, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { setImmediate } from "node:timers/promises";
 import MarkdownIt from "markdown-it";
-import { parseAgentDeepLink } from "@getpaseo/protocol/agent-deep-link";
+import { parseAgentDeepLink } from "@pimi/protocol/agent-deep-link";
 import {
   PIMI_ARXIV_EMBED_ORIGIN,
   PIMI_MOBILE_TASK_REQUEST_LIMIT,
@@ -19,13 +19,13 @@ import {
   PIMI_TASK_PIPE_PREFIX,
   PimiTaskAgentLinkWorkInput,
   PimiTaskAgentTool,
-} from "@getpaseo/protocol/pimi-task";
+} from "@pimi/protocol/pimi-task";
 import {
   darkHighlightColors,
   highlightCodeWithBudget,
   isLanguageSupported,
   lightHighlightColors,
-} from "@getpaseo/highlight";
+} from "@pimi/highlight";
 import {
   command,
   createReview,

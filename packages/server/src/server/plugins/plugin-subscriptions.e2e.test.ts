@@ -6,10 +6,10 @@ import {
   DaemonClient,
   type OwnedSubscription,
   type WebSocketLike,
-} from "@getpaseo/client/internal/daemon-client";
+} from "@pimi/client/internal/daemon-client";
 import { afterEach, expect, test } from "vitest";
-import { defineRpc } from "@getpaseo/plugin";
-import { callPluginRpc } from "@getpaseo/plugin/client/host";
+import { defineRpc } from "@pimi/plugin";
+import { callPluginRpc } from "@pimi/plugin/client/host";
 import { z } from "zod";
 import { resolveDaemonVersion } from "../daemon-version.js";
 import { createTestPaseoDaemon, type TestPaseoDaemon } from "../test-utils/paseo-daemon.js";
@@ -18,8 +18,8 @@ const PLUGIN_ID = "subscriptions";
 
 // Written as an author writes a plugin: one contract per name, handlers that read like English.
 const SERVER_ENTRY = `
-import { defineRpc, defineSubscription } from "@getpaseo/plugin";
-import type { PluginServerContext } from "@getpaseo/plugin/server";
+import { defineRpc, defineSubscription } from "@pimi/plugin";
+import type { PluginServerContext } from "@pimi/plugin/server";
 import { z } from "zod";
 
 const ticks = defineSubscription({
@@ -344,8 +344,8 @@ test("one name cannot serve both an RPC and a subscription", async () => {
     const directory = await writePlugin(
       "collision",
       `
-import { defineRpc, defineSubscription } from "@getpaseo/plugin";
-import type { PluginServerContext } from "@getpaseo/plugin/server";
+import { defineRpc, defineSubscription } from "@pimi/plugin";
+import type { PluginServerContext } from "@pimi/plugin/server";
 import { z } from "zod";
 
 export default function contribute(server: PluginServerContext) {

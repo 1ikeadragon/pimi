@@ -1,4 +1,4 @@
-import { createPaseoClient, type PaseoClient } from "@getpaseo/client";
+import { createPaseoClient, type PaseoClient } from "@pimi/client";
 
 interface Issue {
   id: string;

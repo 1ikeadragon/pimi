@@ -1,4 +1,4 @@
-import type { TerminalActivityState } from "@getpaseo/protocol/terminal-activity";
+import type { TerminalActivityState } from "@pimi/protocol/terminal-activity";
 import type { CaptureTerminalLinesResult } from "./terminal-capture.js";
 import type {
   TerminalActivityListener,

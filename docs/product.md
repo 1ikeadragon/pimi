@@ -12,4 +12,4 @@ Memory gives providers shared project notes. Spaces holds links, images, and not
 
 The desktop app manages its local daemon. Agents run on the machine that hosts the daemon using that machine’s files and harness credentials. You can also connect to a daemon on another host. See the [architecture guide](architecture.md) for the client, daemon, and relay boundaries.
 
-The daemon, CLI, relay, and plugin APIs build on Paseo. See [Credits](../README.md#credits) and [the Apache license](../LICENSE). [The plugin guide](plugins.md) covers extensions.
+The daemon, CLI, relay, and plugin APIs build on Pimi. See [Credits](../README.md#credits) and [the Apache license](../LICENSE). [The plugin guide](plugins.md) covers extensions.

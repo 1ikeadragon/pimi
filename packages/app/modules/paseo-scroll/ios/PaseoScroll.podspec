@@ -5,7 +5,7 @@ Pod::Spec.new do |s|
   s.description    = 'Scroll view corrections for Paseo'
   s.license        = 'Apache-2.0'
   s.author         = 'Paseo'
-  s.homepage       = 'https://paseo.sh'
+  s.homepage       = 'https://1ikeadragon.github.io/pimi/'
   s.platforms      = { :ios => '15.1' }
   s.source         = { :path => '.' }
   s.static_framework = true

@@ -32,8 +32,8 @@ interface StartupSplashScreenProps {
   };
 }
 
-const GITHUB_ISSUE_URL = "https://github.com/getpaseo/paseo/issues/new";
-const DOCS_URL = "https://paseo.sh/docs";
+const GITHUB_ISSUE_URL = "https://github.com/1ikeadragon/pimi/issues/new";
+const DOCS_URL = "https://github.com/1ikeadragon/pimi/blob/main/README.md";
 const PIMI_GITHUB_ISSUE_URL = "https://github.com/1ikeadragon/pimi/issues/new";
 const PIMI_DOCS_URL = "https://github.com/1ikeadragon/pimi#readme";
 

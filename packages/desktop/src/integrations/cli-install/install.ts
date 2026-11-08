@@ -36,7 +36,7 @@ function buildCmdTrampoline(shimPath: string): string {
     "@echo off",
     `set "BUNDLED_CLI=${shimPath}"`,
     `if not exist "%BUNDLED_CLI%" (`,
-    `  echo Paseo CLI not found at %BUNDLED_CLI% — is Paseo installed? 1>&2`,
+    `  echo Pimi CLI not found at %BUNDLED_CLI%. 1>&2`,
     `  exit /b 1`,
     `)`,
     `call "%BUNDLED_CLI%" %*`,
@@ -50,10 +50,11 @@ export async function installCli(): Promise<InstallStatus> {
 
   await fs.mkdir(getLocalBinDir(), { recursive: true });
   if (await pathOrSymlinkExists(targetPath)) {
-    await fs.unlink(targetPath);
-  }
-  if (process.platform === "win32") {
-    await fs.writeFile(targetPath, buildCmdTrampoline(shimPath), "utf-8");
+    if (!(await isOwnInstall(targetPath))) {
+      throw new Error(`A different command already exists at ${targetPath}.`);
+    }
+  } else if (process.platform === "win32") {
+    await fs.writeFile(targetPath, buildCmdTrampoline(shimPath), { encoding: "utf-8", flag: "wx" });
   } else {
     await fs.symlink(resolveInstallSourcePath(shimPath), targetPath);
   }
@@ -67,16 +68,15 @@ export async function installCli(): Promise<InstallStatus> {
 }
 
 /**
- * Removes the CLI only when the file at the target is the one this app installs, so a `paseo` the
- * user put there some other way survives. The shell rc PATH line stays: it is harmless and other
- * tools in ~/.local/bin rely on it.
+ * Removes the CLI only when the file at the target is the one this app installs. The shell rc PATH
+ * line stays because other tools in ~/.local/bin rely on it.
  */
 export async function uninstallCli(): Promise<InstallStatus> {
   const targetPath = getCliTargetPath();
   if (await isOwnInstall(targetPath)) {
     await fs.unlink(targetPath);
   } else if (await pathOrSymlinkExists(targetPath)) {
-    log.warn("[integrations] Left a paseo CLI this app did not install", { targetPath });
+    log.warn("[integrations] Left a CLI this app did not install", { targetPath });
   }
   return getCliInstallStatus();
 }
@@ -95,5 +95,5 @@ async function isOwnInstall(targetPath: string): Promise<boolean> {
 
 export async function getCliInstallStatus(): Promise<InstallStatus> {
   const targetPath = getCliTargetPath();
-  return { installed: await pathOrSymlinkExists(targetPath) };
+  return { installed: await isOwnInstall(targetPath) };
 }

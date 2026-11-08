@@ -122,7 +122,7 @@ jobs:
         run: |
           codesign --verify --deep --strict mac-arm64/Pimi.app
           hdiutil verify "Pimi-${RELEASE_VERSION}-arm64.dmg"
-          test "$(mac-arm64/Pimi.app/Contents/Resources/bin/paseo --version)" = "$RELEASE_VERSION"
+          test "$(mac-arm64/Pimi.app/Contents/Resources/bin/pimi --version)" = "$RELEASE_VERSION"
           cp "Pimi-${RELEASE_VERSION}-arm64.dmg" Pimi-macOS-arm64.dmg
       - name: Verify Windows installer
         if: runner.os == 'Windows'
@@ -132,7 +132,7 @@ jobs:
           $installer = "Pimi-Setup-$env:RELEASE_VERSION-x64.exe"
           $version = (Get-Item -LiteralPath $installer).VersionInfo.ProductVersion
           if ($version -ne $env:RELEASE_VERSION) { throw "Unexpected installer version: $version" }
-          $cliVersion = & .\win-unpacked\resources\bin\paseo.cmd --version
+          $cliVersion = & .\win-unpacked\resources\bin\pimi.cmd --version
           if ($LASTEXITCODE -ne 0 -or $cliVersion -ne $env:RELEASE_VERSION) { throw "Unexpected CLI version: $cliVersion" }
           Copy-Item -LiteralPath $installer -Destination Pimi-Windows-x64.exe
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

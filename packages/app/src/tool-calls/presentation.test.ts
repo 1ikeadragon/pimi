@@ -1,5 +1,5 @@
-import type { AgentMessage } from "@getpaseo/protocol/agent-message";
-import type { ToolCallDetail } from "@getpaseo/protocol/agent-types";
+import type { AgentMessage } from "@pimi/protocol/agent-message";
+import type { ToolCallDetail } from "@pimi/protocol/agent-types";
 import { describe, expect, it } from "vitest";
 
 import { buildToolCallPresentation, type ToolCallPresentationIcon } from "./presentation";

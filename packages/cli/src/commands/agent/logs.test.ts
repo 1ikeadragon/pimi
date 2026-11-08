@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AgentTimelineItem } from "@getpaseo/protocol/agent-types";
+import type { AgentTimelineItem } from "@pimi/protocol/agent-types";
 import {
   createFollowJsonWriter,
   createFollowTranscriptWriter,

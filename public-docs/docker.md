@@ -1,6 +1,6 @@
 ---
 title: Docker
-description: Run the Paseo daemon and bundled web UI with the official Docker image.
+description: Run the Pimi daemon and bundled web UI with the official Docker image.
 nav: Docker
 order: 6
 category: Getting started
@@ -8,17 +8,18 @@ category: Getting started
 
 # Docker
 
-The official Paseo Docker image runs the daemon and serves the bundled browser UI from the same HTTP origin. It is meant for servers, dev boxes, NAS devices, homelab hosts, and other places where you want Paseo running without the desktop app.
+The official Pimi Docker image runs the daemon and serves the bundled browser UI from the same HTTP origin. It is meant for servers, dev boxes, NAS devices, homelab hosts, and other places where you want Pimi running without the desktop app.
 
-Docker images follow the stable Paseo release cadence. `ghcr.io/getpaseo/paseo:latest` points at the latest stable release, not an arbitrary `main` build.
+Docker images follow the stable Pimi release cadence. `pimi:local` points at the latest stable release, not an arbitrary `main` build.
 
 ```bash
+docker build -f docker/base/Dockerfile -t pimi:local .
 docker run -d --name paseo \
   -p 6767:6767 \
   -e PASEO_PASSWORD=change-me \
   -v "$PWD/paseo-home:/home/paseo" \
   -v "$PWD:/workspace" \
-  ghcr.io/getpaseo/paseo:latest
+  pimi:local
 ```
 
 Then open:
@@ -33,7 +34,7 @@ If you set `PASEO_PASSWORD`, use that same password when adding the direct daemo
 
 The image:
 
-- installs the Paseo daemon and CLI
+- installs the Pimi daemon and CLI
 - serves the bundled web UI
 - listens on `0.0.0.0:6767` inside the container
 - stores daemon state under `/home/paseo/.paseo`
@@ -41,14 +42,14 @@ The image:
 
 The image does not bundle agent CLIs such as Claude Code, Codex, OpenCode, Copilot, Pi, or Muse Code. Add the agents you use with a small child image.
 
-Host-side CLI commands select the container explicitly, for example `paseo project ls --host 127.0.0.1:6767`. Without an endpoint selector the CLI looks for a local home’s supervisor. Container environment settings are deployment overrides; worker restart preserves them. Your container manager owns full supervisor replacement.
+Host-side CLI commands select the container explicitly, for example `pimi project ls --host 127.0.0.1:6767`. Without an endpoint selector the CLI looks for a local home’s supervisor. Container environment settings are deployment overrides; worker restart preserves them. Your container manager owns full supervisor replacement.
 
 ## Docker Compose
 
 ```yaml
 services:
   paseo:
-    image: ghcr.io/getpaseo/paseo:latest
+    image: pimi:local
     container_name: paseo
     restart: unless-stopped
     ports:
@@ -72,7 +73,7 @@ docker compose up -d
 Create a child image for the providers you want available:
 
 ```Dockerfile
-FROM ghcr.io/getpaseo/paseo:latest
+FROM pimi:local
 
 USER root
 RUN npm install -g @openai/codex @anthropic-ai/claude-code opencode-ai
@@ -101,10 +102,10 @@ Agent credentials persist in `/home/paseo`.
 
 Mount two paths for most deployments:
 
-| Mount         | Purpose                                                                   |
-| ------------- | ------------------------------------------------------------------------- |
-| `/home/paseo` | Paseo state plus agent config and credentials such as `.codex`, `.claude` |
-| `/workspace`  | Code that Paseo and launched agents can read and write                    |
+| Mount         | Purpose                                                                  |
+| ------------- | ------------------------------------------------------------------------ |
+| `/home/paseo` | Pimi state plus agent config and credentials such as `.codex`, `.claude` |
+| `/workspace`  | Code that Pimi and launched agents can read and write                    |
 
 On Linux, the built-in `paseo` user is uid/gid `1000:1000`. Make mounted directories writable by that user, or run the container with Docker's `--user` / Compose `user:` option.
 
@@ -138,7 +139,7 @@ server {
 }
 ```
 
-If you reach Paseo by DNS name, allow that host:
+If you reach Pimi by DNS name, allow that host:
 
 ```yaml
 environment:

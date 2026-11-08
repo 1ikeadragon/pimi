@@ -957,7 +957,7 @@ export const fr: TranslationResources = {
           mergePrNoGithub:
             "Impossible de fusionner la PR pour l’instant : GitHub n’est pas connecté",
           archiveNotWorktree:
-            "Archivage indisponible : cet espace de travail n’a pas été créé comme worktree Paseo",
+            "Archivage indisponible : cet espace de travail n’a pas été créé comme worktree Pimi",
           mergePrNoForge:
             "Impossible de fusionner la {{noun}} pour l’instant : {{brand}} n’est pas connecté",
           mergePrMissing: "Impossible de fusionner la PR : il n’y a pas encore de pull request",
@@ -1326,7 +1326,7 @@ export const fr: TranslationResources = {
       discord: "Discord",
       github: "Créer un ticket GitHub",
       whatsNew: "Nouveautés",
-      appName: "Paseo",
+      appName: "Pimi",
     },
     sections: {
       sessions: "Historique",
@@ -1477,7 +1477,7 @@ export const fr: TranslationResources = {
       close: "Fermer la fenêtre",
     },
     quitting: {
-      title: "Fermeture de Paseo…",
+      title: "Fermeture de Pimi…",
       detail: "Arrêt du daemon local.",
     },
     daemon: {
@@ -1492,20 +1492,20 @@ export const fr: TranslationResources = {
       },
       management: {
         title: "Gérer le daemon intégré",
-        hint: "Laisser Paseo démarrer et arrêter le daemon intégré",
+        hint: "Laisser Pimi démarrer et arrêter le daemon intégré",
         pauseTitle: "Suspendre le daemon intégré",
         pauseMessage:
           "Le daemon intégré sera arrêté immédiatement. Les agents en cours et les terminaux connectés au daemon intégré seront arrêtés.",
         pauseAndStop: "Suspendre et arrêter",
         registrationFailed:
-          "Le daemon intégré a démarré, mais Paseo n’a pas pu enregistrer la connexion localhost. Désactivez puis réactivez la gestion du daemon, ou ajoutez localhost manuellement.",
+          "Le daemon intégré a démarré, mais Pimi n’a pas pu enregistrer la connexion localhost. Désactivez puis réactivez la gestion du daemon, ou ajoutez localhost manuellement.",
         pausedStopFailed:
-          "La gestion du daemon intégré a été suspendue, mais Paseo n’a pas pu arrêter le daemon.",
+          "La gestion du daemon intégré a été suspendue, mais Pimi n’a pas pu arrêter le daemon.",
         updateFailed: "Impossible de mettre à jour la gestion du daemon intégré.",
       },
       keepRunning: {
         title: "Laisser le daemon tourner après la fermeture",
-        hint: "Le daemon continue de tourner quand vous quittez Paseo",
+        hint: "Le daemon continue de tourner quand vous quittez Pimi",
       },
       logs: {
         title: "Fichier journal",
@@ -1520,7 +1520,7 @@ export const fr: TranslationResources = {
       fullStatus: {
         title: "Statut complet",
         modalTitle: "Statut du daemon",
-        hint: "Exécute `paseo daemon status` et affiche la sortie",
+        hint: "Exécute `pimi daemon status` et affiche la sortie",
         view: "Afficher le statut",
         copied: "Statut copié dans le presse-papiers.",
         fetchFailed: "Impossible de récupérer le statut du daemon : {{message}}",
@@ -1575,7 +1575,7 @@ export const fr: TranslationResources = {
     },
     rosetta: {
       title: "Téléchargez la version Apple Silicon",
-      runningIntel: "Vous utilisez la version Intel de Paseo via Rosetta sur Apple Silicon.",
+      runningIntel: "Vous utilisez la version Intel de Pimi via Rosetta sur Apple Silicon.",
       highCpu:
         "Cela entraîne une forte utilisation du processeur. Téléchargez la version Apple Silicon pour corriger le problème.",
       download: "Télécharger",
@@ -1624,7 +1624,7 @@ export const fr: TranslationResources = {
         microphone: "L’état du microphone n’a pas encore été vérifié.",
       },
       testNotification: {
-        title: "Test de notification Paseo",
+        title: "Test de notification Pimi",
         body: "Si vous voyez ceci, les notifications de bureau fonctionnent.",
         notDelivered:
           "La notification n’a pas été délivrée. Vérifiez Réglages système > Notifications.",
@@ -1634,15 +1634,15 @@ export const fr: TranslationResources = {
     integrations: {
       cli: {
         statusFailed: "Impossible de vérifier l’installation de la CLI.",
-        installFailed: "Impossible d’installer la CLI Paseo.",
-        uninstallFailed: "Impossible de désinstaller la CLI Paseo.",
+        installFailed: "Impossible d’installer la CLI Pimi.",
+        uninstallFailed: "Impossible de désinstaller la CLI Pimi.",
         keptForeign:
-          "Une commande paseo qui n’a pas été installée par Paseo a été conservée. Supprimez-la vous-même pour la désinstaller.",
+          "Une commande paseo qui n’a pas été installée par Pimi a été conservée. Supprimez-la vous-même pour la désinstaller.",
       },
     },
   },
   rootError: {
-    title: "Paseo a rencontré un problème.",
+    title: "Pimi a rencontré un problème.",
     body: "Réessayez pour recharger l’application. Si le problème persiste, joignez les détails ci-dessous à votre signalement.",
     details: "Détails",
   },
@@ -1747,7 +1747,7 @@ export const fr: TranslationResources = {
   },
   onboarding: {
     setup: {
-      title: "Paseo",
+      title: "Pimi",
       stepCounter: "Étape {{current}} sur {{total}}",
       skip: "Passer la configuration",
       continue: "Continuer",
@@ -1755,13 +1755,13 @@ export const fr: TranslationResources = {
       steps: {
         appearance: {
           label: "Apparence",
-          title: "Bienvenue dans Paseo",
+          title: "Bienvenue dans Pimi",
           description: "Commençons par choisir une apparence",
         },
         providers: {
           label: "Fournisseurs",
           title: "Vos agents",
-          description: "Paseo utilise les CLI d'agents déjà installées sur cet ordinateur",
+          description: "Pimi utilise les CLI d'agents déjà installées sur cet ordinateur",
         },
         projects: {
           label: "Projets",
@@ -1781,7 +1781,7 @@ export const fr: TranslationResources = {
         },
         orchestration: {
           label: "Orchestration",
-          title: "Laissez les agents utiliser Paseo",
+          title: "Laissez les agents utiliser Pimi",
           description:
             "Laissez vos agents créer des espaces de travail et parler à d'autres agents",
         },
@@ -1789,7 +1789,7 @@ export const fr: TranslationResources = {
           label: "Mobile",
           title: "Emportez vos agents partout",
           description:
-            "L'application mobile native complète vous permet de contrôler n'importe quel ordinateur Paseo depuis votre téléphone",
+            "L'application mobile native complète vous permet de contrôler n'importe quel ordinateur Pimi depuis votre téléphone",
           appStore: "App Store",
           googlePlay: "Google Play",
           connectTitle: "Choisissez comment vous connecter",
@@ -1801,7 +1801,7 @@ export const fr: TranslationResources = {
         },
       },
     },
-    title: "Bienvenue dans Paseo",
+    title: "Bienvenue dans Pimi",
     subtitle: "Connectez votre ordinateur pour commencer",
     actions: {
       settings: "Paramètres",
@@ -1909,7 +1909,7 @@ export const fr: TranslationResources = {
     },
     direct: {
       title: "Connexion directe",
-      helper: "Saisissez l’adresse d’un serveur Paseo.",
+      helper: "Saisissez l’adresse d’un serveur Pimi.",
       fields: {
         host: "Hôte",
         port: "Port",
@@ -1952,7 +1952,7 @@ export const fr: TranslationResources = {
     },
     remoteSsh: {
       title: "SSH distant",
-      helper: "Connectez-vous à un daemon Paseo qui tourne sur l’hôte distant.",
+      helper: "Connectez-vous à un daemon Pimi qui tourne sur l’hôte distant.",
       fields: {
         target: "Hôte SSH",
         password: "Mot de passe du daemon",
@@ -2008,6 +2008,9 @@ export const fr: TranslationResources = {
       errorTitle: "Erreur",
     },
     device: {
+      setupTitle: "Configurer un relais",
+      setupDescription:
+        "Pour associer un appareil à distance, lancez Pimi Relay, ajoutez son adresse à config.json et redémarrez Pimi.",
       loadingOffer: "Chargement de l’offre d’association…",
       failedToLoadOffer: "Impossible de charger l’offre d’association.",
       relayDisabled: "Le relais n’est pas activé. Activez-le pour associer un appareil.",
@@ -2015,7 +2018,7 @@ export const fr: TranslationResources = {
       enableDescription:
         "Le relais permet à cet appareil de se connecter depuis n’importe où. Le trafic d’association est chiffré de bout en bout.",
       relayDocs: "Fonctionnement du relais",
-      relayDocsAccessibility: "Découvrir le fonctionnement du relais Paseo",
+      relayDocsAccessibility: "Découvrir le fonctionnement du relais Pimi",
       enableRelay: "Activer le relais",
       enablingRelay: "Activation…",
       notNow: "Pas maintenant",
@@ -2023,9 +2026,9 @@ export const fr: TranslationResources = {
         "Sans relais, connectez-vous directement via TCP, Tailscale ou un autre VPN. Aucun code QR n’est créé.",
       tailscaleDocs: "Configurer Tailscale",
       tailscaleDocsAccessibility: "Lire comment se connecter via Tailscale",
-      updateRequired: "Mettez à jour l’hôte pour activer le relais depuis Paseo Desktop.",
+      updateRequired: "Mettez à jour l’hôte pour activer le relais depuis Pimi Desktop.",
       unavailable: "Offre d’association indisponible.",
-      hint: "Scannez ce code QR avec Paseo sur votre téléphone, ou copiez le lien ci-dessous.",
+      hint: "Scannez ce code QR avec Pimi sur votre téléphone, ou copiez le lien ci-dessous.",
       securityWarning:
         "Traitez ce lien d’association comme un mot de passe. Toute personne qui le possède peut accéder à ce daemon.",
       qrUnavailable: "Code QR indisponible.",
@@ -2060,7 +2063,7 @@ export const fr: TranslationResources = {
   serviceUrl: {
     title: "Ouvrir l’URL du service",
     message: "Ouvrir {{url}} ?",
-    inPaseo: "Dans Paseo",
+    inPaseo: "Dans Pimi",
     externalBrowser: "Navigateur externe",
     dontAskAgain: "Ne plus demander",
   },
@@ -2113,7 +2116,7 @@ export const fr: TranslationResources = {
         alwaysUseFilename: "Toujours utiliser pour {{filename}}",
         option: "{{title}} — {{owner}}",
         builtin: {
-          owner: "Paseo",
+          owner: "Pimi",
           markdown: "Markdown",
           html: "HTML",
           image: "Image",
@@ -2211,8 +2214,8 @@ export const fr: TranslationResources = {
       other: "{{count}} autres outils utilisés",
     },
     paseoCalls: {
-      one: "{{count}} appel à Paseo",
-      other: "{{count}} appels à Paseo",
+      one: "{{count}} appel à Pimi",
+      other: "{{count}} appels à Pimi",
     },
     and: "et",
   },
@@ -2394,7 +2397,7 @@ export const fr: TranslationResources = {
       send: "Envoyer",
       sending: "Envoi…",
       sentTitle: "Notification de test envoyée",
-      sentDescription: "Paseo a transmis la notification au système d’exploitation.",
+      sentDescription: "Pimi a transmis la notification au système d’exploitation.",
       sendFailedTitle: "Impossible d’envoyer la notification de test",
     },
     hostSections: {
@@ -2414,14 +2417,14 @@ export const fr: TranslationResources = {
     metadataGeneration: {
       title: "Génération de métadonnées",
       description:
-        "Choisissez le modèle utilisé par Paseo pour les titres d’espaces de travail, les noms de branches, les messages de commit et les brouillons de pull request",
+        "Choisissez le modèle utilisé par Pimi pour les titres d’espaces de travail, les noms de branches, les messages de commit et les brouillons de pull request",
       selection: "Sélection du modèle",
       automatic: "Automatique",
       preferred: "Manuel",
-      automaticHint: "Paseo choisit un modèle rapide disponible",
-      preferredHint: "Choisissez le modèle utilisé par Paseo",
+      automaticHint: "Pimi choisit un modèle rapide disponible",
+      preferredHint: "Choisissez le modèle utilisé par Pimi",
       model: "Modèle",
-      modelHint: "Seul ce modèle est utilisé. S’il échoue, Paseo n’essaie pas d’autre modèle",
+      modelHint: "Seul ce modèle est utilisé. S’il échoue, Pimi n’essaie pas d’autre modèle",
       docs: "Documentation",
       saveError: "Impossible de mettre à jour la génération de métadonnées",
     },
@@ -2513,7 +2516,7 @@ export const fr: TranslationResources = {
         title: "Données du navigateur",
         siteData: "Cookies et données des sites",
         description:
-          "Les onglets du navigateur partagent les connexions et les données des sites dans Paseo.",
+          "Les onglets du navigateur partagent les connexions et les données des sites dans Pimi.",
         clear: "Effacer les données du navigateur",
         clearing: "Effacement…",
         confirmTitle: "Effacer les données du navigateur ?",
@@ -2555,7 +2558,7 @@ export const fr: TranslationResources = {
       serviceUrls: {
         options: {
           ask: "Demander",
-          inApp: "Dans Paseo",
+          inApp: "Dans Pimi",
           external: "Navigateur externe",
         },
       },
@@ -2637,7 +2640,7 @@ export const fr: TranslationResources = {
         label: "Mises à jour de l’application",
         readyToInstall: "Prête à installer : {{version}}",
         installTitle: "Installer la mise à jour de l’app de bureau",
-        installMessage: "Paseo sera mis à jour sur cet ordinateur",
+        installMessage: "Pimi sera mis à jour sur cet ordinateur",
         installConfirm: "Installer la mise à jour",
         update: "Mettre à jour",
         updateTo: "Mettre à jour vers {{version}}",
@@ -2806,7 +2809,7 @@ export const fr: TranslationResources = {
       commandLine: {
         title: "Ligne de commande",
         description: "Pilotez et scriptez vos agents depuis votre terminal",
-        accessibilityLabel: "Installer la CLI Paseo",
+        accessibilityLabel: "Installer la CLI Pimi",
       },
     },
     permissions: {
@@ -2885,12 +2888,12 @@ export const fr: TranslationResources = {
         ...en.settings.host.skills,
         sectionTitle: "Skills d’orchestration",
         title: "Skills d’orchestration",
-        description: "Apprenez à vos agents à utiliser les outils Paseo",
+        description: "Apprenez à vos agents à utiliser les outils Pimi",
         updateAvailable: "Mise à jour disponible",
-        updateTitle: "Mettre à jour les skills Paseo ?",
-        uninstallTitle: "Désinstaller les skills Paseo ?",
+        updateTitle: "Mettre à jour les skills Pimi ?",
+        uninstallTitle: "Désinstaller les skills Pimi ?",
         uninstallMessage:
-          "Supprime tous les skills d’orchestration Paseo de ~/.agents, ~/.claude et ~/.codex sur cet hôte.",
+          "Supprime tous les skills d’orchestration Pimi de ~/.agents, ~/.claude et ~/.codex sur cet hôte.",
         choose: "Choisir les skills",
         chooseAll: "Tous les skills",
         chooseAllHint:
@@ -2924,10 +2927,10 @@ export const fr: TranslationResources = {
         title: "Orchestration",
         unavailable: "Connectez-vous à cet hôte pour gérer l’orchestration",
         enableTools: {
-          title: "Activer les outils Paseo",
+          title: "Activer les outils Pimi",
           hint: "Les agents pourront gérer les worktrees, les agents et les planifications",
-          accessibilityLabel: "Injecter les outils Paseo",
-          updateFailed: "Impossible de mettre à jour les outils Paseo.",
+          accessibilityLabel: "Injecter les outils Pimi",
+          updateFailed: "Impossible de mettre à jour les outils Pimi.",
         },
         systemPrompt: {
           title: "Prompt système",
@@ -3046,10 +3049,10 @@ export const fr: TranslationResources = {
             "Cet hôte n’est pas connecté. Attendez qu’il soit en ligne avant de redémarrer.",
           offlineTitle: "Hôte hors ligne",
           offlineMessage:
-            "Cet hôte est hors ligne. Paseo se reconnecte automatiquement : attendez qu’il soit de nouveau en ligne avant de redémarrer.",
+            "Cet hôte est hors ligne. Pimi se reconnecte automatiquement : attendez qu’il soit de nouveau en ligne avant de redémarrer.",
           requestFailedTitle: "Erreur",
           requestFailedMessage:
-            "Impossible d’envoyer la demande de redémarrage. Paseo se reconnecte automatiquement : réessayez quand l’hôte apparaît en ligne.",
+            "Impossible d’envoyer la demande de redémarrage. Pimi se reconnecte automatiquement : réessayez quand l’hôte apparaît en ligne.",
           closeTerminals: "Redémarrer et fermer les terminaux",
           closeTerminalsHint: "Redémarre et ferme aussi tous les terminaux ouverts sur cet hôte.",
           closeTerminalsConfirmMessage:
@@ -3059,7 +3062,7 @@ export const fr: TranslationResources = {
         },
         update: {
           desktopManagedHint:
-            "Ce daemon est géré par Paseo Desktop. Mettez à jour Paseo Desktop sur l’hôte.",
+            "Ce daemon est géré par Pimi Desktop. Mettez à jour Pimi Desktop sur l’hôte.",
           title: "Mettre à jour le daemon",
           hint: "Met à jour le daemon vers la dernière version puis le redémarre",
           confirm: "Mettre à jour",
@@ -3181,13 +3184,13 @@ export const fr: TranslationResources = {
         savedToast: "Projet mis à jour",
       },
       readFailures: {
-        invalidTitle: "Impossible d’analyser paseo.json",
+        invalidTitle: "Impossible d’analyser pimi.json",
         invalidDescription: "Corrigez le fichier sur le disque, puis rechargez.",
         missingTitle: "Ce projet n’existe pas sur cet hôte",
         missingSingleHost: "L’hôte sélectionné n’a aucune trace de ce projet.",
-        transportTitle: "Impossible de charger paseo.json",
+        transportTitle: "Impossible de charger pimi.json",
         transportFallback: "L’hôte n’a pas répondu.",
-        failedTitle: "Impossible de charger paseo.json",
+        failedTitle: "Impossible de charger pimi.json",
         failedDescription: "Rechargez pour réessayer.",
       },
       worktree: {
@@ -3198,7 +3201,7 @@ export const fr: TranslationResources = {
           "Consultez la documentation pour plus de détails et la liste des variables d’environnement disponibles pour ces commandes",
         setup: "Configuration",
         setupAccessibility: "Commandes de configuration du worktree",
-        uncommittedTitle: "Commitez les modifications de paseo.json",
+        uncommittedTitle: "Commitez les modifications de pimi.json",
         uncommittedDescription:
           "Les nouveaux worktrees utilisent le script de configuration de la branche de base sélectionnée.",
         teardown: "Démontage",
@@ -3223,7 +3226,7 @@ export const fr: TranslationResources = {
         newScript: "Nouveau script",
         editScript: "Modifier {{name}}",
         runAsService: "Exécuter comme service",
-        serviceHint: "Paseo supervise le processus et lui attribue un port via $PASEO_PORT",
+        serviceHint: "Pimi supervise le processus et lui attribue un port via $PASEO_PORT",
         actions: {
           add: "Ajouter un script",
           edit: "Modifier",
@@ -3232,7 +3235,7 @@ export const fr: TranslationResources = {
       },
       metadata: {
         title: "Génération des métadonnées",
-        info: "Instructions propres au projet, injectées dans les prompts IA que Paseo utilise pour générer les métadonnées : servez-vous-en pour imposer les conventions de votre équipe (nommage des branches, style de commit, format des PR).",
+        info: "Instructions propres au projet, injectées dans les prompts IA que Pimi utilise pour générer les métadonnées : servez-vous-en pour imposer les conventions de votre équipe (nommage des branches, style de commit, format des PR).",
         branchName: "Noms de branches",
         branchNamePlaceholder:
           "Préfixez les branches par feat/ ou fix/, et par mb/ pour les branches personnelles",
@@ -3245,8 +3248,8 @@ export const fr: TranslationResources = {
       writeFailures: {
         staleTitle: "Configuration modifiée sur le disque",
         staleDescription:
-          "Rechargez pour récupérer la dernière version de paseo.json avant d’enregistrer.",
-        failedTitle: "Impossible d’enregistrer paseo.json",
+          "Rechargez pour récupérer la dernière version de pimi.json avant d’enregistrer.",
+        failedTitle: "Impossible d’enregistrer pimi.json",
         failedDescription: "Réessayez ou rechargez la dernière version depuis le disque.",
       },
       actions: {

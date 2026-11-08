@@ -1,7 +1,7 @@
-import type { PluginSubscriptionContract } from "@getpaseo/plugin";
-import type { PluginSubscriptionContext } from "@getpaseo/plugin/server";
-import type { PaseoApi } from "@getpaseo/client";
-import { assertPluginWireValue } from "@getpaseo/protocol/binary-frames/index";
+import type { PluginSubscriptionContract } from "@pimi/plugin";
+import type { PluginSubscriptionContext } from "@pimi/plugin/server";
+import type { PaseoApi } from "@pimi/client";
+import { assertPluginWireValue } from "@pimi/protocol/binary-frames/index";
 import type { PluginProcessMessage, PluginProcessRequest } from "./plugin-process-protocol.js";
 
 export type PluginSubscriptionHandler = (
@@ -88,7 +88,7 @@ export class PluginSubscriptionHandlers {
     this.active.set(subscriptionId, { controller });
     let result: unknown;
     try {
-      result = registered.handler(parsed.data, { paseo, push, signal });
+      result = registered.handler(parsed.data, { pimi: paseo, paseo, push, signal });
     } catch (error) {
       this.active.delete(subscriptionId);
       controller.abort();

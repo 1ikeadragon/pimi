@@ -1,5 +1,5 @@
 /**
- * Output abstraction layer for the Paseo CLI.
+ * Output abstraction layer for the Pimi CLI.
  *
  * This module provides structured output rendering with support for multiple formats:
  * - table: Human-readable aligned tables (default)

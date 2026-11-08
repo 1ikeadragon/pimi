@@ -19,7 +19,7 @@ agent-device close --session terminal-author
 
 `close` writes the script. Keep selectors based on stable app IDs. Keep assertions as `wait`, `get`, `is`, or `find` commands; screenshots are evidence, not assertions.
 
-Run the Paseo mobile suite:
+Run the Pimi mobile suite:
 
 ```bash
 npm run test:e2e:mobile
@@ -242,7 +242,7 @@ For async elements, use `extendedWaitUntil`:
 
 Two reusable flows handle Expo dev client screens after launch:
 
-- `flows/launch.yaml` — handles dev launcher, dismisses dev menu, asserts "Welcome to Paseo"
+- `flows/launch.yaml` — handles dev launcher, dismisses dev menu, asserts "Welcome to Pimi"
 - `flows/dev-client.yaml` — same but without asserting a particular app route
 
 ### Reach the composer
@@ -366,9 +366,9 @@ Verify these distinct outcomes:
   exercises denied focus during lifecycle resume, beyond an ordinary media takeover.
 
 ```bash
-# Start voice mode in an existing composer, then background Paseo.
+# Start voice mode in an existing composer, then background Pimi.
 adb emu gsm call 5551234
-# Foreground Paseo while the call is still ringing, then end the simulated call.
+# Foreground Pimi while the call is still ringing, then end the simulated call.
 adb emu gsm cancel 5551234
 ```
 
@@ -380,7 +380,7 @@ This fix requires a rebuilt native app. An OTA update on an older binary retains
 
 ### Releasing the audio session when idle
 
-Paseo must not hold the OS audio session once it is neither capturing nor playing, or the user's
+Pimi must not hold the OS audio session once it is neither capturing nor playing, or the user's
 background music stays paused. On iOS this is not just a "while recording" problem: the
 `.playAndRecord`/`.voiceChat` category is non-mixing and survives backgrounding, and iOS re-asserts
 it every time the app returns to the foreground — so one dictation turn kills music for the life of
@@ -396,7 +396,7 @@ also releases on `OnAppEntersBackground`. The native side re-guards on `isRecord
 wrappers (voice provider + dictation) and only it knows the true state.
 
 This cannot be validated by a JS test — verify on a device: play music through Bluetooth earbuds,
-open Paseo, use dictation once, stop, and confirm the music resumes at full quality; then
+open Pimi, use dictation once, stop, and confirm the music resumes at full quality; then
 background/foreground the app and confirm it keeps playing at full quality.
 
 ## Unistyles + Reanimated

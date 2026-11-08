@@ -2,9 +2,9 @@ import { WebSocket } from "ws";
 import {
   DaemonClient as PublicDaemonClient,
   type WebSocketLike,
-} from "@getpaseo/client/internal/daemon-client";
+} from "@pimi/client/internal/daemon-client";
 import { expect, test } from "vitest";
-import { createPaseoApi } from "@getpaseo/client";
+import { createPaseoApi } from "@pimi/client";
 import { DaemonClient } from "./test-utils/daemon-client.js";
 import { createTestPaseoDaemon } from "./test-utils/paseo-daemon.js";
 

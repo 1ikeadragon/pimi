@@ -10,7 +10,7 @@ import {
   createTestLogger,
   deferred,
 } from "./test-fixtures/reconciliation-registries.js";
-import type { ProjectCheckoutLitePayload } from "@getpaseo/protocol/messages";
+import type { ProjectCheckoutLitePayload } from "@pimi/protocol/messages";
 import type pino from "pino";
 import { afterAll, beforeAll, afterEach, describe, expect, test } from "vitest";
 import {

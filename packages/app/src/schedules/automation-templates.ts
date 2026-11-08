@@ -1,5 +1,5 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
-import type { ScheduleCadence } from "@getpaseo/protocol/schedule/types";
+import type { ScheduleCadence } from "@pimi/protocol/schedule/types";
 
 export interface AutomationTemplate {
   id: string;

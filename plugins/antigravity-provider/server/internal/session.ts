@@ -10,7 +10,7 @@ import type {
   ProviderLaunch,
   ProviderTimelineItem,
   ProviderUsage,
-} from "@getpaseo/plugin/server/provider";
+} from "@pimi/plugin/server/provider";
 import { startDriver, selection, type Driver } from "./process.js";
 import { validateSelection } from "./catalog.js";
 import { PromptFiles } from "./prompt.js";

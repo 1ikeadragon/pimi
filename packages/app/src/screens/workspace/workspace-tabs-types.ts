@@ -5,5 +5,5 @@ export interface WorkspaceTabDescriptor {
   tabId: string;
   kind: WorkspaceTabTarget["kind"];
   target: WorkspaceTabTarget;
-  state?: import("@getpaseo/protocol/agent-types").JsonValue;
+  state?: import("@pimi/protocol/agent-types").JsonValue;
 }

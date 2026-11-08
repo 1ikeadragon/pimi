@@ -1,4 +1,4 @@
-import type { SpeechSettings, SpeechSettingsPatch } from "@getpaseo/protocol/speech/rpc-schemas";
+import type { SpeechSettings, SpeechSettingsPatch } from "@pimi/protocol/speech/rpc-schemas";
 
 import {
   PersistedConfigSchema,

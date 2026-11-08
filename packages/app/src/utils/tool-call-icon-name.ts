@@ -1,6 +1,6 @@
-import type { AgentMessage } from "@getpaseo/protocol/agent-message";
-import type { ToolCallDetail, ToolCallIconName } from "@getpaseo/protocol/agent-types";
-import { isPaseoToolName } from "@getpaseo/protocol/tool-name-normalization";
+import type { AgentMessage } from "@pimi/protocol/agent-message";
+import type { ToolCallDetail, ToolCallIconName } from "@pimi/protocol/agent-types";
+import { isPaseoToolName } from "@pimi/protocol/tool-name-normalization";
 
 export type ToolCallIcon = ToolCallIconName | "paseo";
 

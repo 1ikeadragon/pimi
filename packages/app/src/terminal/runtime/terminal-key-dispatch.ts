@@ -1,8 +1,5 @@
-import {
-  encodeTerminalKeyInput,
-  type TerminalKeyInput,
-} from "@getpaseo/protocol/terminal-key-input";
-import type { TerminalInputModeState } from "@getpaseo/protocol/terminal-input-mode";
+import { encodeTerminalKeyInput, type TerminalKeyInput } from "@pimi/protocol/terminal-key-input";
+import type { TerminalInputModeState } from "@pimi/protocol/terminal-input-mode";
 import { normalizeTerminalTransportKey } from "@/utils/terminal-keys";
 
 export interface TerminalKeyModifierState {

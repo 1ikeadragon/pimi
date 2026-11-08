@@ -21,7 +21,7 @@ import {
   type CreateWorktreeOptions,
   type WorktreeConfig,
 } from "./worktree";
-import type { PaseoConfig } from "@getpaseo/protocol/paseo-config-schema";
+import type { PaseoConfig } from "@pimi/protocol/paseo-config-schema";
 import {
   getPaseoWorktreeMetadataPath,
   readPaseoWorktreeMetadata,

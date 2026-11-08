@@ -1,15 +1,11 @@
 ---
-title: Hosted Hub
-description: Sign in to the managed Paseo Hub or self-host the same service.
-nav: Hosted
+title: Connect a Hub
+description: Connect Pimi to an existing compatible Hub.
+nav: Connect a Hub
 order: 73
 category: Hub
 ---
 
-# Hosted Hub
+# Connect a Hub
 
-[Paseo Hub](https://hub.paseo.sh) is the managed service. Create an account and your organization starts on the Free plan: one seat, a monthly allowance of agent runs, no card, and no expiry. Upgrade to Pro from **Billing** in Hub when you want unlimited runs, more seats, or invitations. The [Hub page](/hub) carries the current price and the figures each plan includes.
-
-Signing in opens **Home**, the same four-step checklist the [quickstart](/docs/hub/quickstart) walks through: connect an app, connect a daemon, create a trigger, run it.
-
-To start now, [run Hub yourself](/docs/hub/self-hosting). Projects, configuration, triggers, daemons, and activity use the same model in both forms. The managed service owns its GitHub App, Slack app, and Discord application; a self-hosted Hub uses apps you create and control, and has no plans or billing at all.
+Enter your compatible Hub's URL with `pimi hub login https://hub.example.com`. Pimi saves the login for that exact origin. See [Daemon connections](./daemons.md) to connect a host and grant the permissions you need.

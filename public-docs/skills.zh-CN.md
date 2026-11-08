@@ -17,12 +17,12 @@ nav: 技能
 
 ## 安装 {#installation}
 
-- **在 Paseo 中**：打开 **设置 → 你的主机 → Agents → 编排 skills**，选择要在该主机上安装的技能。
-- **在终端中**：在运行 Agent 的机器上执行 `npx skills add getpaseo/paseo`。
+- **在 Pimi 中**：打开 **设置 → 你的主机 → Agents → 编排 skills**，选择要在该主机上安装的技能。
+- **在终端中**：在运行 Agent 的机器上执行 `npx skills add 1ikeadragon/pimi`。
 
-使用同一张设置卡片更新或卸载技能。主机启动时也会刷新已选择安装的 Paseo 技能。
+使用同一张设置卡片更新或卸载技能。主机启动时也会刷新已选择安装的 Pimi 技能。
 
-## `/paseo`：Paseo 参考 {#paseo-paseo-reference}
+## `/paseo`：Pimi 参考 {#paseo-paseo-reference}
 
 其他技能所依赖的基础参考。它教 Agent 在委派之前先查看你的 [Agent 配置及其说明](/docs/agent-profiles#guide-delegation-with-notes)，然后应用选定的启动设置。如果没有合适的配置，它会引导 Agent 发现可用的 Provider 和模型，并告诉你采用了哪个备选方案。
 

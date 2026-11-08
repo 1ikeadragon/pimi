@@ -1,14 +1,14 @@
 export type { TerminalReplayEvent, TerminalStreamEvent } from "./terminal-stream-router.js";
-import type { AgentAddress } from "@getpaseo/protocol/addresses";
-import { parentAddressLabels } from "@getpaseo/protocol/agent-labels";
-export type { AgentAddress } from "@getpaseo/protocol/addresses";
+import type { AgentAddress } from "@pimi/protocol/addresses";
+import { parentAddressLabels } from "@pimi/protocol/agent-labels";
+export type { AgentAddress } from "@pimi/protocol/addresses";
 import { createHostActions, type PaseoHostActions } from "./hosts/index.js";
 export type { PaseoHostActions } from "./hosts/index.js";
-export type { HostAdd, HostUpdate, HostSummary, HostDirectory } from "@getpaseo/protocol/hosts";
+export type { HostAdd, HostUpdate, HostSummary, HostDirectory } from "@pimi/protocol/hosts";
 import type { OwnedSubscription } from "./connection/index.js";
 export type { OwnedSubscription, SubscriptionObserver } from "./connection/index.js";
 import type { DaemonClientConfig } from "./daemon-client.js";
-import type { AgentPermissionResponse } from "@getpaseo/protocol/agent-types";
+import type { AgentPermissionResponse } from "@pimi/protocol/agent-types";
 import type {
   AgentSnapshotPayload,
   CreationSnapshot,
@@ -34,7 +34,7 @@ import type {
   SessionOutboundMessage,
   WorkspaceDescriptorPayload,
   WorkspaceCreateRequest,
-} from "@getpaseo/protocol/messages";
+} from "@pimi/protocol/messages";
 import { DaemonClient, type CreateAgentRequestOptions } from "./daemon-client.js";
 import {
   createTerminalActions,
@@ -52,7 +52,7 @@ export type {
   PaseoTerminalCaptureResult,
   PaseoWorkspaceTerminalActions,
 } from "./terminals/index.js";
-import type { PluginTimelineItem } from "@getpaseo/protocol/agent-types";
+import type { PluginTimelineItem } from "@pimi/protocol/agent-types";
 import type {
   AgentBackgroundWorkItem,
   FetchAgentsEntry,
@@ -537,6 +537,8 @@ export interface PaseoConfigActions {
     requestId?: string,
   ): Promise<{ requestId: string; config: MutableDaemonConfig }>;
 }
+
+export type PimiApi = PaseoApi;
 
 export interface PaseoApi {
   readonly hosts: PaseoHostActions;

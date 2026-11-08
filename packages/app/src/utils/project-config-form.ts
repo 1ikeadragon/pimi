@@ -3,7 +3,7 @@ import type {
   PaseoMetadataGeneration,
   PaseoMetadataGenerationEntry,
   PaseoScriptEntryRaw,
-} from "@getpaseo/protocol/messages";
+} from "@pimi/protocol/messages";
 
 export type LifecycleOriginalKind = "string" | "array" | "missing";
 

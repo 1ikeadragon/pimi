@@ -3,7 +3,7 @@ name: pimi
 description: Pimi reference for managing hosts, projects, workspaces, workspace scripts, agents, schedules, and heartbeats.
 ---
 
-Pimi is a remote daemon that manages coding agents, terminals. Control it through MCP tools or the CLI.
+Pimi manages coding agents and terminals through a daemon. Use the Pimi MCP tools in an agent session, or the bundled `pimi` CLI from a shell.
 
 ## Connected hosts
 
@@ -19,30 +19,30 @@ Keep an agent's `{ serverId, agentId }` together. For example, call `send_agent_
 
 Remote paths and workspace IDs belong to the destination. Remote `list_agents` has no caller-directory default; pass `cwd` to filter it.
 
-## Spaces
-
-Call `search_pimi_spaces` with a few keywords when asked to find a note or link in Spaces. Use `read_pimi_space_item` with a matching `space:` reference or one the user gives you.
-
 Manage registrations through the CLI; use the returned `registrationId` for updates and removal:
 
 ```bash
-paseo --host localhost:6768 host add localhost:6779 --label build
-paseo --host localhost:6768 host ls --json
+pimi --host localhost:6768 host add localhost:6779 --label build
+pimi --host localhost:6768 host ls --json
 ```
+
+## Spaces
+
+Call `search_pimi_spaces` with a few keywords when asked to find a note or link in Spaces. Use `read_pimi_space_item` with a matching `space:` reference or one the user gives you.
 
 ## Projects
 
 Manage the daemon's project registry through the CLI:
 
 ```bash
-paseo project create [path]
-paseo project ls
-paseo project rename <project-id> <name>
-paseo project rename <project-id> --reset
-paseo project delete <project-id>
+pimi project create [path]
+pimi project ls
+pimi project rename <project-id> <name>
+pimi project rename <project-id> --reset
+pimi project delete <project-id>
 ```
 
-For a local daemon, `project create` defaults to the current directory and resolves relative paths on the CLI machine. With `--host` or `PASEO_HOST`, always provide a path; the target daemon interprets it on its own machine. Deleting a project archives its active workspaces and removes the project from Pimi without deleting the project directory.
+For a local daemon, `project create` defaults to the current directory and resolves relative paths on the CLI machine. With `--host`, always provide a path; the target daemon interprets it on its own machine. Deleting a project archives its active workspaces and removes the project from Pimi without deleting the project directory.
 
 ## Workspaces
 
@@ -60,7 +60,7 @@ Choose `baseBranch` explicitly: `origin/main` selects the remote-tracking branch
 
 ## Workspace scripts
 
-Configured `paseo.json` scripts use the same supervised lifecycle from tools and the CLI.
+Configured `pimi.json` scripts use the same supervised lifecycle from tools and the CLI.
 
 **`list_workspace_scripts`** — `{ workspaceId }`. Lists configured scripts with lifecycle, service port, proxy URLs, health, exit code, and terminal ID.
 
@@ -71,9 +71,9 @@ Configured `paseo.json` scripts use the same supervised lifecycle from tools and
 The matching CLI surface accepts either an explicit workspace ID or resolves the current directory:
 
 ```bash
-paseo script ls [--cwd <path> | --workspace <workspace-id>]
-paseo script start <name> [--cwd <path> | --workspace <workspace-id>]
-paseo script stop <name> [--cwd <path> | --workspace <workspace-id>]
+pimi script ls [--cwd <path> | --workspace <workspace-id>]
+pimi script start <name> [--cwd <path> | --workspace <workspace-id>]
+pimi script stop <name> [--cwd <path> | --workspace <workspace-id>]
 ```
 
 ## Agents
@@ -119,7 +119,7 @@ If no profile fits, or no profiles are configured, use the provider discovery to
 
 Only set feature IDs returned by `inspect_provider`. For Codex fast mode, look for `fast_mode` and pass `settings: { features: { "fast_mode": true } }` to `create_agent` or `update_agent`.
 
-## Schedules and heartbeats
+## Automations and heartbeats
 
 **`create_schedule`** — starts a new agent on a cron cadence. Required: `prompt`, `cron`, `provider`. Optional: `timezone`, `name`, `cwd`, `maxRuns`, `expiresIn`. Use when the recurring work should live in fresh agents.
 
@@ -140,17 +140,17 @@ If you want an explicit reply with `send_agent_prompt`, have the sender check `l
 The CLI and tools use the same ownership semantics even where their syntax differs:
 
 ```bash
-paseo workspace create --isolation worktree --mode branch-off --new-branch fix-x --base origin/main
-paseo workspace create --isolation worktree --mode checkout-branch --branch existing-work
-paseo workspace create --isolation worktree --mode checkout-pr --pr-number 42
-paseo run --provider codex/gpt-5.4 --mode full-access --workspace <workspace-id> "<prompt>"
-paseo run --provider codex/gpt-5.4 --mode full-access --new-workspace worktree --worktree-mode branch-off --new-branch fix-x --base origin/main "<prompt>"
-paseo send <agent-id> "<follow-up>"
-paseo ls
-paseo schedule create --cron "*/15 * * * *" "ping main build"
-paseo heartbeat create --cron "*/15 * * * *" "check the build"
+pimi workspace create --isolation worktree --mode branch-off --new-branch fix-x --base origin/main
+pimi workspace create --isolation worktree --mode checkout-branch --branch existing-work
+pimi workspace create --isolation worktree --mode checkout-pr --pr-number 42
+pimi run --provider codex/gpt-5.4 --mode full-access --workspace <workspace-id> "<prompt>"
+pimi run --provider codex/gpt-5.4 --mode full-access --new-workspace worktree --worktree-mode branch-off --new-branch fix-x --base origin/main "<prompt>"
+pimi send <agent-id> "<follow-up>"
+pimi ls
+pimi schedule create --cron "*/15 * * * *" "ping main build"
+pimi heartbeat create --cron "*/15 * * * *" "check the build"
 ```
 
-Discover with `paseo --help` and `paseo <cmd> --help`.
+Discover with `pimi --help` and `pimi <cmd> --help`.
 
 For product questions, setup, logs, version problems, or troubleshooting, use the **pimi-help** skill.

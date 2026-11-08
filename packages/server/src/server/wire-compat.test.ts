@@ -8,14 +8,14 @@ import pino from "pino";
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import { CLIENT_CAPS } from "@getpaseo/protocol/client-capabilities";
+import { CLIENT_CAPS } from "@pimi/protocol/client-capabilities";
 import {
   AgentTimelineItemPayloadSchema,
   FetchAgentTimelineResponseMessageSchema,
   SessionInboundMessageSchema,
   SessionOutboundMessageSchema,
   type SessionOutboundMessage,
-} from "@getpaseo/protocol/messages";
+} from "@pimi/protocol/messages";
 import { Session, type SessionOptions } from "./session.js";
 import { WorkspaceSetupObservation } from "./workspace-setup-observation.js";
 import { OWNER_PERMISSIONS } from "./authorization/index.js";

@@ -1,6 +1,6 @@
 # Catppuccin plugin example
 
-This example adds **Catppuccin Mocha** to Settings → Appearance. Paseo ships Catppuccin as a
+This example adds **Catppuccin Mocha** to Settings → Appearance. Pimi ships Catppuccin as a
 syntax-highlight theme; this contributes it as an app theme.
 
 A theme is client data, so the whole plugin is one `addTheme` call in `index.client.ts` and has no
@@ -20,9 +20,9 @@ Register it in `$PASEO_HOME/config.json`:
 }
 ```
 
-Then run `paseo reload` and pick **Catppuccin Mocha** in Settings → Appearance.
+Then run `pimi reload` and pick **Catppuccin Mocha** in Settings → Appearance.
 
 The colors come straight from the [Catppuccin Mocha](https://catppuccin.com/palette/) palette:
-`base`, `text`, `surface0`, `surface1`, `mauve`, `subtext0`, and `overlay0`. Paseo expands them
+`base`, `text`, `surface0`, `surface1`, `mauve`, `subtext0`, and `overlay0`. Pimi expands them
 into the full token set, so `accent` (`mauve`) drives buttons and selection while `border`
 (`surface1`, shared with `control`) stays the border and raised-surface tint.

@@ -2,7 +2,7 @@
 
 import assert from "node:assert";
 import { basename } from "node:path";
-import { createPaseoClient } from "@getpaseo/client";
+import { createPaseoClient } from "@pimi/client";
 import { createE2ETestContext } from "./helpers/test-daemon.ts";
 
 console.log("=== Workspace Rename Command ===\n");

@@ -1,8 +1,8 @@
-import { defineTranslations } from "@getpaseo/plugin/client";
-import { PluginTranslationRuntime } from "@getpaseo/plugin/client/host";
+import { defineTranslations } from "@pimi/plugin/client";
+import { PluginTranslationRuntime } from "@pimi/plugin/client/host";
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
-import type { PluginButton } from "@getpaseo/plugin/client";
+import type { PluginButton } from "@pimi/plugin/client";
 import type { InstalledPlugin } from "../types";
 import { PluginButtonStore, buttonMatches } from "./model";
 

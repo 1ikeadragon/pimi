@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 import { connectToDaemon } from "../../utils/client.js";
-import type { AgentDeepLinkTarget } from "@getpaseo/protocol/agent-deep-link";
+import type { AgentDeepLinkTarget } from "@pimi/protocol/agent-deep-link";
 import { openDesktopWithAgent } from "../open.js";
 import type {
   CommandError,
@@ -26,7 +26,7 @@ const openAgentSchema: OutputSchema<OpenAgentResult> = {
 
 export function addOpenOptions(command: Command): Command {
   return command
-    .description("Open an existing agent in Paseo Desktop")
+    .description("Open an existing agent in Pimi Desktop")
     .argument("<agent-id>", "Existing agent ID")
     .option("--server <server-id>", "Server ID (defaults to the local daemon)");
 }

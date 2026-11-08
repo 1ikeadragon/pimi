@@ -14,7 +14,7 @@ import {
 import type { CreateAgentOptions } from "./test-utils/index.js";
 import type { CreateAgentWorktreeTarget } from "./messages.js";
 import { createRealpathAwarePathMatcher } from "../utils/path.js";
-import { CLIENT_CAPS } from "@getpaseo/protocol/client-capabilities";
+import { CLIENT_CAPS } from "@pimi/protocol/client-capabilities";
 
 let ctx: DaemonTestContext;
 const tempRoots: string[] = [];

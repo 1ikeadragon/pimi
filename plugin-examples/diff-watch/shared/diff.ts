@@ -1,4 +1,4 @@
-import { defineSubscription } from "@getpaseo/plugin";
+import { defineSubscription } from "@pimi/plugin";
 import { z } from "zod";
 
 export const ChangedFileSchema = z.object({

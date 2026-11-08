@@ -14,7 +14,7 @@ import type {
   PimiVoiceCommandInput,
   PimiVoiceResult,
   PimiWorkspaceSection,
-} from "@getpaseo/protocol/pimi-task";
+} from "@pimi/protocol/pimi-task";
 
 // This preload runs in Electron's sandbox and is tsc-compiled (not bundled), so it MUST
 // NOT emit any runtime module load other than "electron" — a require() of a local or

@@ -1,11 +1,11 @@
-import { PluginTranslationRuntime } from "@getpaseo/plugin/client/host";
+import { PluginTranslationRuntime } from "@pimi/plugin/client/host";
 import { i18n } from "@/i18n/i18next";
 import type { AudioEngine } from "@/audio";
 import { useMemo, useSyncExternalStore } from "react";
 import { QueryClient } from "@tanstack/react-query";
-import { createPaseoApi } from "@getpaseo/client";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import { assertPluginCompatibility } from "@getpaseo/protocol/plugin-requirements";
+import { createPaseoApi } from "@pimi/client";
+import type { DaemonClient } from "@pimi/client/internal/daemon-client";
+import { assertPluginCompatibility } from "@pimi/protocol/plugin-requirements";
 import { resolveAppVersion } from "@/utils/app-version";
 import { createPluginClientRuntime } from "./client-runtime";
 import { createPluginSubscribe } from "./subscriptions";
@@ -27,7 +27,7 @@ export class PluginRegistry {
 
   constructor(
     private readonly dependencies: {
-      localeSource: import("@getpaseo/plugin/client/host").PluginLocaleSource;
+      localeSource: import("@pimi/plugin/client/host").PluginLocaleSource;
       version: string | null;
       createRuntime: typeof createPluginClientRuntime;
     },
@@ -78,7 +78,8 @@ export class PluginRegistry {
           plugin.id !== options.replacePluginId &&
           plugin.id === entry.id &&
           plugin.clientBundle === entry.clientBundle &&
-          plugin.requirements?.paseo === entry.requirements?.paseo,
+          (plugin.requirements?.pimi ?? plugin.requirements?.paseo) ===
+            (entry.requirements?.pimi ?? entry.requirements?.paseo),
       );
       return existing ? [existing] : [];
     });

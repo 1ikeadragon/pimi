@@ -4,7 +4,7 @@ import { readFile, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import pLimit from "p-limit";
 import { z } from "zod";
-import { parsePimiSpaceUrl, pimiSpaceEmbed } from "@getpaseo/protocol/pimi-task";
+import { parsePimiSpaceUrl, pimiSpaceEmbed } from "@pimi/protocol/pimi-task";
 import { writePrivateFileAtomic } from "./private-files.js";
 import { SpacesSearch } from "./pimi-spaces-search.js";
 

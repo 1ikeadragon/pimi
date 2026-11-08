@@ -84,11 +84,11 @@ export type PluginRegistries = z.infer<typeof PluginRegistriesSchema>;
 
 export function parsePluginRegistryReference(
   source: string,
-  defaultUrl = "https://plugins.paseo.sh",
+  defaultUrl?: string,
 ): PluginRegistryIdentity | null {
   const segments = source.split("/");
   if (segments.length === 2 && PluginRegistryIdSchema.safeParse(source).success)
-    return { url: defaultUrl.replace(/\/+$/, ""), id: source };
+    return defaultUrl ? { url: defaultUrl.replace(/\/+$/, ""), id: source } : null;
   const [host, ...rest] = segments;
   if (segments.length !== 3 || !host || !/[.:]/.test(host) || /[@?#\\]/.test(host)) return null;
   const id = rest.join("/");

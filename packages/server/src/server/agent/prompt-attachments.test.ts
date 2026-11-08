@@ -111,7 +111,7 @@ describe("prompt attachments", () => {
       }),
     ).toBe(
       [
-        `Paseo review attachment (${mode})`,
+        `Pimi review attachment (${mode})`,
         "CWD: /tmp/repo",
         "Base: main",
         "",

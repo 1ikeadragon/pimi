@@ -23,9 +23,9 @@ import {
   useFileUrl,
   usePaseo,
   useWorkspace,
-} from "@getpaseo/plugin/client";
+} from "@pimi/plugin/client";
 import { useQueryClient } from "@tanstack/react-query";
-import { DocumentFrame, Loading } from "@getpaseo/plugin/client/ui";
+import { DocumentFrame, Loading } from "@pimi/plugin/client/ui";
 function Pdf({ file, workspaceId }) {
   usePaseo();
   useQueryClient();

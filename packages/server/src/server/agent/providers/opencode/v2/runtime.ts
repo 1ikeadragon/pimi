@@ -140,7 +140,7 @@ export class V2Runtime {
     if (!port || !this.options.bridge) return;
     const actual = new URL(this.options.bridge.sharedV2Connection().baseUrl).port;
     if (Number(port) !== Number(actual))
-      throw new Error("PASEO_OPENCODE_BRIDGE_PORT changed; restart Paseo to apply the bridge port");
+      throw new Error("PASEO_OPENCODE_BRIDGE_PORT changed; restart Pimi to apply the bridge port");
   }
 
   private assertSharedConfiguration(

@@ -23,10 +23,20 @@ const args = parseArgs(process.argv);
 const serverId = args["server-id"] ?? process.env.PASEO_SERVER_ID;
 const daemonPublicKeyB64 = args["daemon-public-key-b64"] ?? process.env.PASEO_DAEMON_PUBLIC_KEY_B64;
 const relayEndpoint =
-  args["relay-endpoint"] ?? process.env.PASEO_RELAY_ENDPOINT ?? "relay.paseo.sh:443";
-const baseUrl = args["base-url"] ?? process.env.PASEO_APP_URL ?? "https://app.paseo.sh";
+  args["relay-endpoint"] ?? process.env.PIMI_RELAY_ENDPOINT ?? process.env.PASEO_RELAY_ENDPOINT;
+const baseUrl = args["base-url"] ?? process.env.PIMI_APP_URL ?? process.env.PASEO_APP_URL;
 const timeoutMs = Number(args["timeout-ms"] ?? process.env.PASEO_PROVE_TIMEOUT_MS ?? 60_000);
 const stabilityMs = Number(args["stability-ms"] ?? process.env.PASEO_PROVE_STABILITY_MS ?? 30_000);
+
+if (
+  typeof relayEndpoint !== "string" ||
+  !relayEndpoint ||
+  typeof baseUrl !== "string" ||
+  !baseUrl
+) {
+  console.error("Set --relay-endpoint and --base-url for the Pimi instance to probe.");
+  process.exit(2);
+}
 
 if (!serverId || typeof serverId !== "string") {
   console.error("Missing server ID. Provide --server-id or PASEO_SERVER_ID.");

@@ -1,11 +1,11 @@
-import { requirePluginText } from "@getpaseo/plugin/client/host";
+import { requirePluginText } from "@pimi/plugin/client/host";
 import type { createPluginHosts } from "./hosts";
 import { openExternalUrl } from "@/utils/open-external-url";
 import * as pluginUiRuntime from "./react-native/ui";
 import { useRevealedText } from "@/hooks/use-revealed-text";
 import { useSettings } from "./settings/use-settings";
-import * as pluginSharedRuntime from "@getpaseo/plugin";
-import * as pluginClientRuntime from "@getpaseo/plugin/client";
+import * as pluginSharedRuntime from "@pimi/plugin";
+import * as pluginClientRuntime from "@pimi/plugin/client";
 import * as React from "react";
 import * as ReactJsxRuntime from "react/jsx-runtime";
 // eslint-disable-next-line no-restricted-imports -- plugin client runtime injects host ReactNative.
@@ -13,7 +13,7 @@ import * as ReactNative from "react-native";
 // eslint-disable-next-line no-restricted-imports -- plugin bundles receive TanStack's real runtime, not Paseo's query wrappers.
 import * as ReactQuery from "@tanstack/react-query";
 import * as Zod from "zod";
-import { type PluginCleanup } from "@getpaseo/plugin";
+import { type PluginCleanup } from "@pimi/plugin";
 import {
   type PluginClientContext,
   type PluginAgentPanelContribution,
@@ -25,7 +25,7 @@ import {
   type PluginTimelineRendererContribution,
   type PluginTimelineTransformerContribution,
   type PluginButtonRegistration,
-} from "@getpaseo/plugin/client";
+} from "@pimi/plugin/client";
 import type {
   EvaluatedPlugin,
   PluginSidebarSection,
@@ -82,7 +82,7 @@ function isComponentType(value: unknown): boolean {
   );
 }
 
-function normalizePluginText(text: import("@getpaseo/plugin/client").PluginText) {
+function normalizePluginText(text: import("@pimi/plugin/client").PluginText) {
   return typeof text === "string" ? text.trim() : requirePluginText(text);
 }
 
@@ -241,6 +241,7 @@ export function runPluginClientBundle(
   }
   const pluginContext: PluginClientContext = {
     ...runtime,
+    pimi: runtime.paseo,
     addSettingsScreen(contribution) {
       const screenId = requireId(contribution.id, "settings screen id");
       if (settingsScreenIds.has(screenId))
@@ -508,14 +509,15 @@ export function runPluginClientBundle(
     },
   };
   const runtimeRequire = (name: string): unknown => {
+    name = name.replace(/^@getpaseo\/plugin(?=\/|$)/, "@pimi/plugin");
     // COMPAT(pluginReactNativeEntrypoint): added in v0.13.0, remove after 2027-04-20
-    if (name === "@getpaseo/plugin/client/react-native") return pluginReactNativeCompatRuntime;
-    if (name === "@getpaseo/plugin/client/ui") return pluginUiRuntime;
+    if (name === "@pimi/plugin/client/react-native") return pluginReactNativeCompatRuntime;
+    if (name === "@pimi/plugin/client/ui") return pluginUiRuntime;
     if (name === "react") return React;
     if (name === "react/jsx-runtime") return ReactJsxRuntime;
     if (name === "react-native") return ReactNative;
-    if (name === "@getpaseo/plugin") return pluginSharedRuntime;
-    if (name === "@getpaseo/plugin/client")
+    if (name === "@pimi/plugin") return pluginSharedRuntime;
+    if (name === "@pimi/plugin/client")
       return {
         ...pluginClientRuntime,
         useSettings,

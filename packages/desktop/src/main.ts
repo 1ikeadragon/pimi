@@ -16,7 +16,7 @@ import {
   PimiReviewListDestination,
   PimiReviewPrDestination,
   PimiVoiceCommandInput,
-} from "@getpaseo/protocol/pimi-task";
+} from "@pimi/protocol/pimi-task";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import {
@@ -78,7 +78,7 @@ import {
 import { createExternalUrlOpener } from "./features/opener.js";
 import { createBrowserCaptureService } from "./features/browser-capture.js";
 import { registerEditorTargetHandlers } from "./features/editor-targets/ipc.js";
-import { EDITOR_TARGETS, PIMI_EDITOR_TARGETS } from "./features/editor-targets/registry.js";
+import { PIMI_EDITOR_TARGETS } from "./features/editor-targets/registry.js";
 import { resolveAppIconPath } from "./features/stamped-icon.js";
 import { setupApplicationMenu } from "./features/menu.js";
 import {
@@ -131,7 +131,7 @@ import {
   buildAgentDeepLinkRoute,
   parseAgentDeepLink,
   type AgentDeepLinkTarget,
-} from "@getpaseo/protocol/agent-deep-link";
+} from "@pimi/protocol/agent-deep-link";
 import { AgentNavigationInbox, parseAgentDeepLinkFromArgv } from "./agent-navigation.js";
 import {
   PimiMemoryDestination,
@@ -139,10 +139,12 @@ import {
   PimiSimpleDestinationView,
   PimiSpacesDestination,
   PimiTaskProposal,
-} from "@getpaseo/protocol/pimi-task";
-import { getForgeDefinition } from "@getpaseo/protocol/forge-manifest";
+} from "@pimi/protocol/pimi-task";
+import { getForgeDefinition } from "@pimi/protocol/forge-manifest";
 
 const DEV_SERVER_URL = process.env.EXPO_DEV_URL ?? "http://localhost:8081";
+// Private Chromium origin retained for existing localStorage and IndexedDB.
+// External agent links use the pimi protocol registered by the installer.
 const APP_SCHEME = "paseo";
 const CONSOLE_URL = app.isPackaged ? `${APP_SCHEME}://app/` : new URL(DEV_SERVER_URL).href;
 
@@ -190,8 +192,7 @@ function setupPimiSessionPermissions(): void {
 }
 const PASEO_DEBUG = process.env.PASEO_DEBUG === "1";
 const DISABLE_SINGLE_INSTANCE_LOCK = process.env.PASEO_DISABLE_SINGLE_INSTANCE_LOCK === "1";
-const PIMI_DESKTOP = process.env.PIMI_DESKTOP === "1" || app.getName() === "Pimi";
-const APP_NAME = process.env.PASEO_TEST_APP_NAME?.trim() || (PIMI_DESKTOP ? "Pimi" : "Paseo");
+const APP_NAME = process.env.PASEO_TEST_APP_NAME?.trim() || "Pimi";
 const DESKTOP_WINDOW_CHROME_MODE = resolveDesktopWindowChromeMode({
   platform: process.platform,
   override: process.env.PASEO_DESKTOP_WINDOW_CONTROLS,
@@ -391,7 +392,7 @@ if (forcedUserDataDir) {
       windowsHide: true,
     }).trim();
     devWorktreeName = path.basename(topLevel);
-    // Main checkout (e.g. "paseo") gets default userData — only worktrees diverge.
+    // Main checkout (e.g. "Pimi") gets default userData — only worktrees diverge.
     const commonDir = path.resolve(
       topLevel,
       execFileSync("git", ["rev-parse", "--git-common-dir"], {
@@ -403,7 +404,7 @@ if (forcedUserDataDir) {
     );
     const isWorktree = path.resolve(topLevel, ".git") !== commonDir;
     if (isWorktree) {
-      app.setPath("userData", path.join(app.getPath("appData"), `Paseo-${devWorktreeName}`));
+      app.setPath("userData", path.join(app.getPath("appData"), `Pimi-${devWorktreeName}`));
       log.info("[worktree] isolated userData for worktree:", devWorktreeName);
     } else {
       devWorktreeName = null;
@@ -427,8 +428,8 @@ if (electronFlags) {
 
 if (process.platform === "linux") {
   // Keep the desktop/dock identity independent of the wrapped Electron filename.
-  app.setDesktopName("Paseo.desktop");
-  if (!app.commandLine.hasSwitch("class")) app.commandLine.appendSwitch("class", "Paseo");
+  app.setDesktopName("Pimi.desktop");
+  if (!app.commandLine.hasSwitch("class")) app.commandLine.appendSwitch("class", "Pimi");
   log.info("[linux-sandbox]", {
     enabled: !app.commandLine.hasSwitch("no-sandbox"),
     reason: process.env.PASEO_DESKTOP_SANDBOX_REASON ?? "Chromium default",
@@ -674,32 +675,10 @@ function getAppDistDir(): string {
 }
 
 function getWindowIconCandidates(): string[] {
-  if (PIMI_DESKTOP) {
-    return [
-      app.isPackaged
-        ? path.join(process.resourcesPath, "pimi-icon.png")
-        : path.resolve(__dirname, "../assets/pimi-icon.png"),
-    ];
-  }
-  if (app.isPackaged) {
-    if (process.platform === "win32") {
-      return [
-        path.join(process.resourcesPath, "icon.ico"),
-        path.join(process.resourcesPath, "icon.png"),
-      ];
-    }
-    return [path.join(process.resourcesPath, "icon.png")];
-  }
-  if (process.platform === "win32") {
-    return [
-      path.resolve(__dirname, "../assets/icon-dev.png"),
-      path.resolve(__dirname, "../assets/icon.ico"),
-      path.resolve(__dirname, "../assets/icon.png"),
-    ];
-  }
   return [
-    path.resolve(__dirname, "../assets/icon-dev.png"),
-    path.resolve(__dirname, "../assets/icon.png"),
+    app.isPackaged
+      ? path.join(process.resourcesPath, "pimi-icon.png")
+      : path.resolve(__dirname, "../assets/pimi-icon.png"),
   ];
 }
 
@@ -998,12 +977,12 @@ async function createWindow(
       additionalArguments: [
         `--paseo-console-url=${CONSOLE_URL}`,
         windowChromeModeArgument(DESKTOP_WINDOW_CHROME_MODE),
-        ...(PIMI_DESKTOP ? [pimiAppearanceArgument()] : []),
+        pimiAppearanceArgument(),
       ],
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      ...(PIMI_DESKTOP && { spellcheck: process.platform === "darwin" }),
+      spellcheck: process.platform === "darwin",
       webviewTag: true,
     },
   });
@@ -1011,7 +990,7 @@ async function createWindow(
     win: mainWindow,
     mode: DESKTOP_WINDOW_CHROME_MODE,
   });
-  if (PIMI_DESKTOP) mainWindow.on("page-title-updated", (event) => event.preventDefault());
+  mainWindow.on("page-title-updated", (event) => event.preventDefault());
 
   const webContentsId = mainWindow.webContents.id;
   options.onCreated?.(webContentsId);
@@ -1076,7 +1055,7 @@ async function createWindow(
     webPreferences.webSecurity = true;
     webPreferences.webviewTag = false;
     webPreferences.allowRunningInsecureContent = false;
-    if (PIMI_DESKTOP) webPreferences.spellcheck = false;
+    webPreferences.spellcheck = false;
     delete webPreferences.preload;
     delete params.preload;
     delete (webPreferences as { preloadURL?: string }).preloadURL;
@@ -1215,7 +1194,7 @@ function setupSingleInstanceLock(): boolean {
       isDefaultApp: false,
     });
     log.info("[open-project] second-instance openProjectPath:", openProjectPath);
-    // Relaunching the app (CLI `paseo [path]`, double-click, etc.) opens a new
+    // Relaunching the app (CLI `pimi [path]`, double-click, etc.) opens a new
     // window rather than focusing the existing one. Wait for bootstrap (not just
     // app.whenReady) so the protocol + IPC handlers exist before the window loads.
     void bootstrapComplete
@@ -1256,7 +1235,7 @@ async function bootstrap(): Promise<void> {
   }
 
   await app.whenReady();
-  if (PIMI_DESKTOP) setupPimiSessionPermissions();
+  setupPimiSessionPermissions();
 
   const appDistDir = getAppDistDir();
   protocol.handle(APP_SCHEME, (request) => {
@@ -1288,8 +1267,8 @@ async function bootstrap(): Promise<void> {
 
   await applyAppIcon();
   setupApplicationMenu({
-    onOpenPimi: PIMI_DESKTOP ? () => openPimi() : undefined,
-    onOpenSettings: PIMI_DESKTOP ? openPimiSettings : undefined,
+    onOpenPimi: () => openPimi(),
+    onOpenSettings: openPimiSettings,
     onNewWindow: () => {
       void desktopWindowOwner.openAdditional().catch((error) => {
         log.error("[window] failed to create window from menu", error);
@@ -1308,18 +1287,16 @@ async function bootstrap(): Promise<void> {
       .then((runtime) => runtime.observeWorkspaces())
       .catch((error) => log.debug("[pimi] workspace observation unavailable", error));
   };
-  registerDaemonManager(PIMI_DESKTOP ? observePimiWorkspaces : undefined);
+  registerDaemonManager(observePimiWorkspaces);
   registerWindowManager({ mode: DESKTOP_WINDOW_CHROME_MODE });
-  if (PIMI_DESKTOP) {
-    registerPimiWorkspaceNavigation();
-    observePimiWorkspaces();
-  }
+  registerPimiWorkspaceNavigation();
+  observePimiWorkspaces();
   registerDialogHandlers();
   registerNotificationHandlers();
   const openExternalUrl = createExternalUrlOpener({ open: shell.openExternal });
   ipcMain.handle("paseo:opener:openUrl", (_event, value: unknown) => openExternalUrl(value));
   registerEditorTargetHandlers({
-    targets: PIMI_DESKTOP ? PIMI_EDITOR_TARGETS : EDITOR_TARGETS,
+    targets: PIMI_EDITOR_TARGETS,
   });
   registerBrowserAutomationIpc();
 
@@ -1406,7 +1383,7 @@ const quitLifecycle = createQuitLifecycle({
   },
 });
 
-// electron-updater forwards this event through Electron's built-in autoUpdater.
+// The Pimi updater signals the quit lifecycle through Electron's autoUpdater.
 electronAutoUpdater.on("before-quit-for-update", () => {
   log.info("[auto-updater] before-quit-for-update", {
     currentVersion: app.getVersion(),

@@ -1,4 +1,4 @@
-import type { AgentSnapshotPayload } from "@getpaseo/protocol/messages";
+import type { AgentSnapshotPayload } from "@pimi/protocol/messages";
 import type { connectToDaemon } from "./client.js";
 
 type FetchAgentsOptions = NonNullable<

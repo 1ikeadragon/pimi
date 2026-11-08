@@ -1,14 +1,14 @@
 ---
 title: TypeScript SDK
-description: 在 TypeScript 程序中运行 Paseo 编程 Agent。
+description: 在 TypeScript 程序中运行 Pimi 编程 Agent。
 nav: 概览
 ---
 
 # TypeScript SDK {#typescript-sdk}
 
-`@getpaseo/client` 是一个 TypeScript 库，让你在自己的程序中驱动 Paseo daemon。你选择 Provider 和模型，给 Agent 一段提示词和一个目录，然后等待回答。
+`@pimi/client` 是一个 TypeScript 库，让你在自己的程序中驱动 Pimi daemon。你选择 Provider 和模型，给 Agent 一段提示词和一个目录，然后等待回答。
 
-工作由 daemon 完成：它启动 Provider 的 CLI，保持会话存活，并把会话流式传输到 Paseo 应用。你的程序是一个客户端。你创建的 Agent 会和你手动启动的 Agent 一起出现在 Paseo 中，并且在你的程序退出后仍然保留。
+工作由 daemon 完成：它启动 Provider 的 CLI，保持会话存活，并把会话流式传输到 Pimi 应用。你的程序是一个客户端。你创建的 Agent 会和你手动启动的 Agent 一起出现在 Pimi 中，并且在你的程序退出后仍然保留。
 
 可以用它来：
 
@@ -20,7 +20,7 @@ nav: 概览
 ## 启动 daemon {#start-a-daemon}
 
 ```bash
-npx @getpaseo/cli
+./packages/cli/bin/pimi
 ```
 
 它监听 `ws://127.0.0.1:6767/ws`。
@@ -28,9 +28,9 @@ npx @getpaseo/cli
 ## 运行 Agent {#run-an-agent}
 
 ```ts
-import { createPaseoClient } from "@getpaseo/client";
+import { createPimiClient } from "@pimi/client";
 
-const client = createPaseoClient({ url: "ws://127.0.0.1:6767/ws" });
+const client = createPimiClient({ url: "ws://127.0.0.1:6767/ws" });
 await client.connect();
 
 const agent = await client.agents.create({

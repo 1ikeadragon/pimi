@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createPaseoClient } from "@getpaseo/client";
+import { createPaseoClient } from "@pimi/client";
 import { createE2ETestContext } from "./helpers/test-daemon.ts";
 import { waitForTerminalOutput } from "./helpers/terminal.ts";
 

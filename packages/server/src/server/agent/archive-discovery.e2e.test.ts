@@ -6,10 +6,7 @@ import { expect, test } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { z } from "zod";
-import {
-  AgentListItemPayloadSchema,
-  AgentSnapshotPayloadSchema,
-} from "@getpaseo/protocol/messages";
+import { AgentListItemPayloadSchema, AgentSnapshotPayloadSchema } from "@pimi/protocol/messages";
 import { createTestPaseoDaemon } from "../test-utils/paseo-daemon.js";
 import { DaemonClient } from "../test-utils/daemon-client.js";
 import { createTestAgentClients } from "../test-utils/fake-agent-client.js";

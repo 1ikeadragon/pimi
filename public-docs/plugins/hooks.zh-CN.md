@@ -6,10 +6,10 @@ nav: 钩子
 
 # 插件钩子 {#plugin-hooks}
 
-在 `index.server.ts` 中使用 `server.addHook(name, handler)`。钩子在插件启用时运行，即使没有连接的应用。`addHook` 从 Paseo 0.14 起可用；将 `requirements.paseo` 设置为你开发插件时使用的版本。
+在 `index.server.ts` 中使用 `server.addHook(name, handler)`。钩子在插件启用时运行，即使没有连接的应用。`addHook` 从 Pimi 0.14 起可用；将 `requirements.pimi` 设置为你开发插件时使用的版本。
 
 ```ts
-import type { PluginServerContext } from "@getpaseo/plugin/server";
+import type { PluginServerContext } from "@pimi/plugin/server";
 
 export default function contribute(server: PluginServerContext) {
   const remove = server.addHook("agent.open.before", async ({ request }) => ({
@@ -22,10 +22,10 @@ export default function contribute(server: PluginServerContext) {
 
 ## 命名与等待 {#naming-and-timing}
 
-名称遵循 `subject.operation.position`：主体、操作、`before` 或 `after`。名称标识生命周期中的位置；Paseo 是否等待由每个钩子决定，见下表。`workspace` 包括所有工作区，`worktree` 仅包括 git worktree。
+名称遵循 `subject.operation.position`：主体、操作、`before` 或 `after`。名称标识生命周期中的位置；Pimi 是否等待由每个钩子决定，见下表。`workspace` 包括所有工作区，`worktree` 仅包括 git worktree。
 
-- 等待型钩子结束后 Paseo 才继续。抛出错误、返回无效数据或超过 30 秒会让操作失败，错误包含 `Plugin <id> <hook> failed: …`。修改请求的钩子收到 `{ request }`，可以返回完整的替换请求或 `undefined`。
-- 通知收到事件对象，返回 `Promise<void>`。Paseo 不等待；错误会记录在插件名下，原操作继续。`agent.turn.before` 和 `agent.permission.before` 分别在轮次开始或权限进入待处理状态时发出通知。
+- 等待型钩子结束后 Pimi 才继续。抛出错误、返回无效数据或超过 30 秒会让操作失败，错误包含 `Plugin <id> <hook> failed: …`。修改请求的钩子收到 `{ request }`，可以返回完整的替换请求或 `undefined`。
+- 通知收到事件对象，返回 `Promise<void>`。Pimi 不等待；错误会记录在插件名下，原操作继续。`agent.turn.before` 和 `agent.permission.before` 分别在轮次开始或权限进入待处理状态时发出通知。
 
 所有处理函数都必须为异步函数。轮次完成包括成功、失败和取消，请查看 `outcome`。权限完成包括所有处理结果，请查看 `resolution`。
 
@@ -43,7 +43,7 @@ server.addHook("worktree.create.after", async ({ worktree }) => {
 });
 ```
 
-Paseo 只观察返回的 Promise，因此独立任务没有错误报告，也没有取消 `signal`。
+Pimi 只观察返回的 Promise，因此独立任务没有错误报告，也没有取消 `signal`。
 
 ## 钩子一览 {#hooks}
 
@@ -145,7 +145,7 @@ server.addHook("workspace.archive.after", async ({ workspace }) => {
 
 ## worktree.create.before {#worktreecreatebefore}
 
-为新 worktree 选择路径和创建选项。通过应用、CLI、MCP 或创建 Agent 新建 worktree 时，Paseo 在 `git worktree add` 之前等待此钩子。钩子收到 `{ request }`，返回完整的替换请求，或返回 `undefined` 保持原值。抛出错误、返回无效数据或超过 30 秒会终止创建，错误包含插件和钩子名称。
+为新 worktree 选择路径和创建选项。通过应用、CLI、MCP 或创建 Agent 新建 worktree 时，Pimi 在 `git worktree add` 之前等待此钩子。钩子收到 `{ request }`，返回完整的替换请求，或返回 `undefined` 保持原值。抛出错误、返回无效数据或超过 30 秒会终止创建，错误包含插件和钩子名称。
 
 ```ts
 import { basename, dirname, join } from "node:path";
@@ -159,7 +159,7 @@ server.addHook("worktree.create.before", async ({ request }) => ({
 }));
 ```
 
-源检出目录为 `/home/me/src/paseo`、分支为 `feature/x` 时，目标为 `/home/me/src/paseo.feature-x`。完整插件见 [worktree-placement 示例](https://github.com/getpaseo/paseo/tree/main/plugin-examples/worktree-placement)。
+源检出目录为 `/home/me/src/paseo`、分支为 `feature/x` 时，目标为 `/home/me/src/paseo.feature-x`。完整插件见 [worktree-placement 示例](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/worktree-placement)。
 
 | 请求字段                                  | 含义                                                                                                                   |
 | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
@@ -177,15 +177,15 @@ server.addHook("worktree.create.before", async ({ request }) => ({
 
 返回 `path` 后，`slug` 仅用于 branch-off 分支命名；CLI 使用路径的最后一级目录名查找 worktree。
 
-除 `repoRoot` 和 `sourceCheckout` 外，所有字段都可以修改。返回所选 `kind` 的全部必填字段。Paseo 在钩子之后解析 Git 源计划，因此钩子可以在获取引用之前修改分支和基准，而 Git 之后仍可能选择唯一的最终分支名称。
+除 `repoRoot` 和 `sourceCheckout` 外，所有字段都可以修改。返回所选 `kind` 的全部必填字段。Pimi 在钩子之后解析 Git 源计划，因此钩子可以在获取引用之前修改分支和基准，而 Git 之后仍可能选择唯一的最终分支名称。
 
-Paseo 解析父目录中的符号链接并验证返回的路径。路径必须为绝对路径且不存在，不能是文件系统根目录、用户主目录、仓库根目录、`.git` 目录内的路径或仓库的祖先目录。目标已存在时创建失败，Paseo 不会为插件选择的路径添加后缀。插件应让 Paseo 创建目录。
+Pimi 解析父目录中的符号链接并验证返回的路径。路径必须为绝对路径且不存在，不能是文件系统根目录、用户主目录、仓库根目录、`.git` 目录内的路径或仓库的祖先目录。目标已存在时创建失败，Pimi 不会为插件选择的路径添加后缀。插件应让 Pimi 创建目录。
 
 顺序：`worktree.create.before` → `git worktree add` → `worktree.create.after` → 注册工作区。恢复缺失的 worktree 时使用记录的原路径，不运行这两个创建钩子。
 
 ## worktree.create.after {#worktreecreateafter}
 
-新的 git worktree 在磁盘上创建后，Paseo 会等待此钩子，然后才注册工作区、运行 setup、打开终端或启动 Agent。收到 `{ worktree: { path, branch, sourceCheckout } }`，分别是 worktree 绝对路径、分支名、来源 checkout 目录。此时还没有工作区 id。无需返回数据，直接写入 worktree 即可。抛出错误或超过 30 秒会中止创建并删除新 worktree。
+新的 git worktree 在磁盘上创建后，Pimi 会等待此钩子，然后才注册工作区、运行 setup、打开终端或启动 Agent。收到 `{ worktree: { path, branch, sourceCheckout } }`，分别是 worktree 绝对路径、分支名、来源 checkout 目录。此时还没有工作区 id。无需返回数据，直接写入 worktree 即可。抛出错误或超过 30 秒会中止创建并删除新 worktree。
 
 此钩子覆盖新建分支、检出分支和检出 PR。恢复缺失的已归档 worktree 使用独立路径，不触发此钩子。
 
@@ -324,9 +324,9 @@ server.addHook("agent.open.before", async ({ request }) => {
 `request.mcpServers` 使用与 `AgentSessionConfig.mcpServers` 相同的服务器配置。
 每个插件的映射从空开始，只在该插件自己的回调之间累积，不包含 Agent 已保存的服务器或其他插件的服务器。
 替换映射即可添加、替换或移除本插件的条目；返回 `undefined` 会保持不变。
-Paseo 按插件 ID 顺序合并各插件的最终映射。
+Pimi 按插件 ID 顺序合并各插件的最终映射。
 
-名称与已保存的服务器、Paseo 内部的 `paseo` 服务器或其他插件的服务器冲突时，会话打开失败，错误会指出服务器名称及双方来源。
+名称与已保存的服务器、Pimi 内部的 `paseo` 服务器或其他插件的服务器冲突时，会话打开失败，错误会指出服务器名称及双方来源。
 不支持 MCP 的 Provider 会报 `does not support MCP servers` 错误，并指出插件名称。
 `purpose: "history"` 的会话打开会忽略这些服务器。安装、停用和重新加载插件后，现有 Agent
 通过[会话重新打开行为](#attach-tools-to-agents)获取变化。
@@ -340,7 +340,7 @@ Paseo 按插件 ID 顺序合并各插件的最终映射。
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
-import { defineAgentTool, type PluginServerContext } from "@getpaseo/plugin/server";
+import { defineAgentTool, type PluginServerContext } from "@pimi/plugin/server";
 
 const appendWorkspaceNote = defineAgentTool({
   name: "append_workspace_note",
@@ -387,7 +387,7 @@ const agent = await paseo.agents.create({
 每个插件的 `request.tools` 都从空数组开始。同一插件中的后续回调会看到前面回调返回的工具；
 替换数组即可添加或移除工具。返回 `undefined` 会保留请求。`purpose: "history"` 时会忽略工具。
 
-从 `@getpaseo/plugin/server` 导入 `defineAgentTool`、`AgentToolDefinition`、`AgentToolContext`
+从 `@pimi/plugin/server` 导入 `defineAgentTool`、`AgentToolDefinition`、`AgentToolContext`
 和 `AgentToolResult`。辅助函数会根据 Zod schema 推断验证后的输入类型：
 
 ```ts
@@ -416,31 +416,31 @@ interface AgentToolResult {
 | `signal`     | 此次工具调用的中止信号；请把它传给文件操作或外部请求                                                |
 
 `execute` 在插件进程中运行。闭包和原始 Zod schema 保留在该进程中；只有工具元数据和调用的
-输入、结果会跨进程传递。Paseo 在调用 `execute` 前验证输入。无效输入会将 schema 问题返回给
+输入、结果会跨进程传递。Pimi 在调用 `execute` 前验证输入。无效输入会将 schema 问题返回给
 Agent。抛出的错误会转换为 `{ isError: true, text: message }`，插件继续运行。取消调用或关闭
 其传输连接会中止 `signal` 并丢弃结果。工具调用最长运行 10 分钟，与钩子的 30 秒超时分开。
 关闭或重新打开 Agent 会话会移除旧定义。
 
 在 `text` 中返回模型可见的文本。`structuredContent` 必须可序列化为 JSON；省略 `text` 时，
-Paseo 会将该值格式化为供模型读取的文本。设置 `isError: true` 可报告工具错误。
+Pimi 会将该值格式化为供模型读取的文本。设置 `isError: true` 可报告工具错误。
 
-Paseo 通过 Agent 工具传输提供附加的工具，按 Provider 的支持情况使用 MCP 或原生注册。
-同一份定义和回调适用于这两种方式。附加的工具遵循[与 Paseo 工具相同的限制](/docs/mcp#limit-paseo-tools-by-provider)。
+Pimi 通过 Agent 工具传输提供附加的工具，按 Provider 的支持情况使用 MCP 或原生注册。
+同一份定义和回调适用于这两种方式。附加的工具遵循[与 Pimi 工具相同的限制](/docs/mcp#limit-paseo-tools-by-provider)。
 只有该 Agent 能看到这些工具。
 
-名称必须匹配 `/^[a-z][a-z0-9_]*$/`，且不超过 64 个字符。如果名称与同一 Agent 的 Paseo
+名称必须匹配 `/^[a-z][a-z0-9_]*$/`，且不超过 64 个字符。如果名称与同一 Agent 的 Pimi
 工具或另一插件的工具冲突，会话打开会失败，并指出双方。一个插件内的重复名称也会导致
 会话打开失败。回调未选中的 Agent 不受影响。
 
 | 变更                                                  | Agent 何时收到变更                                                                                                                                                                 |
 | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 启动、停止或重新加载声明了 `agent.open.before` 的插件 | 已打开的会话会标记为过期。每个会话在下一次空闲提示词前重新打开；正在运行的轮次会继续，不会被中断。重新打开后的下一条提示词复用该会话。                                             |
-| 修改回调选择的 Agent                                  | 编辑此示例后运行 `paseo plugin reload agent-tools`，然后在 Agent 空闲时发送提示词。                                                                                                |
+| 修改回调选择的 Agent                                  | 编辑此示例后运行 `pimi plugin reload agent-tools`，然后在 Agent 空闲时发送提示词。                                                                                                 |
 | 立即应用                                              | 调用 `await paseo.agents.ref(id).reload({ requestId: "reload-notes" })`。`requestId` 可选。这会重新打开 Provider 会话，以 `reason: "refresh"` 再次运行钩子，并中断正在运行的轮次。 |
 | 读取当前快照                                          | 调用 `await paseo.agents.ref(id).refresh()`。这只读取状态，不会重新打开会话。                                                                                                      |
 
 如果自动重新打开失败，触发它的提示词会返回该错误。参阅
-[完整 agent-tools 示例](https://github.com/getpaseo/paseo/tree/main/plugin-examples/agent-tools)。
+[完整 agent-tools 示例](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/agent-tools)。
 
 ## agent.close.after {#agentcloseafter}
 
@@ -478,10 +478,10 @@ server.addHook("agent.turn.before", async ({ agent, turnId }) => {
 
 ### 在轮次结束时发送后续消息 {#send-a-follow-up-when-a-turn-ends}
 
-把 [server/inspect.ts](https://github.com/getpaseo/paseo/blob/main/plugin-examples/lifecycle-actions/server/inspect.ts) 复制到你的插件中。该辅助文件从 `@getpaseo/protocol/agent-types` 导入类型；请把与 daemon 版本相同的 `@getpaseo/protocol` 加入开发依赖，并在加载插件之前安装它们。`latestOutputText` 会拼接最近一条用户消息之后的文本片段。
+把 [server/inspect.ts](https://github.com/1ikeadragon/pimi/blob/main/plugin-examples/lifecycle-actions/server/inspect.ts) 复制到你的插件中。该辅助文件从 `@pimi/protocol/agent-types` 导入类型；请把与 daemon 版本相同的 `@pimi/protocol` 加入开发依赖，并在加载插件之前安装它们。`latestOutputText` 会拼接最近一条用户消息之后的文本片段。
 
 ```ts
-import type { PluginServerContext } from "@getpaseo/plugin/server";
+import type { PluginServerContext } from "@pimi/plugin/server";
 import { latestOutputText } from "./server/inspect";
 
 export default function contribute(server: PluginServerContext) {
@@ -518,10 +518,10 @@ Turn ends: "out of credits"
 
 ### 回应权限请求 {#answer-a-permission-request}
 
-使用同一个[辅助文件](https://github.com/getpaseo/paseo/blob/main/plugin-examples/lifecycle-actions/server/inspect.ts)中的 `shellCommand`：
+使用同一个[辅助文件](https://github.com/1ikeadragon/pimi/blob/main/plugin-examples/lifecycle-actions/server/inspect.ts)中的 `shellCommand`：
 
 ```ts
-import type { PluginServerContext } from "@getpaseo/plugin/server";
+import type { PluginServerContext } from "@pimi/plugin/server";
 import { shellCommand } from "./server/inspect";
 
 export default function contribute(server: PluginServerContext) {
@@ -579,7 +579,7 @@ Agent 钩子不包括 daemon 的私有临时辅助 Agent。后台 Agent 和后�
 Creation request
   → agent.create.before hooks (plugin-ID order; registration order within each plugin)
   → resolve defaults and validate provider configuration
-  → derive launch configuration with Paseo runtime tools and daemon prompt
+  → derive launch configuration with Pimi runtime tools and daemon prompt
   → agent.open.before hooks (same ordering; env and plugin-local tools and MCP servers)
   → set PASEO_AGENT_ID, PASEO_AGENT_CWD, and PASEO_WORKSPACE_ID when the agent has a workspace
   → open provider session and save agent configuration
@@ -612,14 +612,14 @@ Creation request
 
 ## 完整示例 {#complete-examples}
 
-| 插件                                                                                                   | 包含                                                      |
-| ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
-| [lifecycle-logger](https://github.com/getpaseo/paseo/tree/main/plugin-examples/lifecycle-logger)       | Agent、工作区和 worktree 钩子；隐去环境变量值的 JSON 日志 |
-| [lifecycle-actions](https://github.com/getpaseo/paseo/tree/main/plugin-examples/lifecycle-actions)     | 后续消息、权限、环境变量、切换 Provider、选择 worktree    |
-| [agent-configuration](https://github.com/getpaseo/paseo/tree/main/plugin-examples/agent-configuration) | MCP 注入以及 Codex 沙盒/批准选项                          |
-| [agent-tools](https://github.com/getpaseo/paseo/tree/main/plugin-examples/agent-tools)                 | 按标签选择 Agent，并在插件进程中执行文件操作的工具        |
+| 插件                                                                                                     | 包含                                                      |
+| -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| [lifecycle-logger](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/lifecycle-logger)       | Agent、工作区和 worktree 钩子；隐去环境变量值的 JSON 日志 |
+| [lifecycle-actions](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/lifecycle-actions)     | 后续消息、权限、环境变量、切换 Provider、选择 worktree    |
+| [agent-configuration](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/agent-configuration) | MCP 注入以及 Codex 沙盒/批准选项                          |
+| [agent-tools](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/agent-tools)                 | 按标签选择 Agent，并在插件进程中执行文件操作的工具        |
 
-用 `paseo plugin logs lifecycle-logger` 或主机的 `daemon.log` 读取 logger 的输出。
+用 `pimi plugin logs lifecycle-logger` 或主机的 `daemon.log` 读取 logger 的输出。
 
 ## 已重命名的钩子 {#renamed-hooks}
 

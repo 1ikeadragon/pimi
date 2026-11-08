@@ -1,4 +1,4 @@
-import { parseHostTarget } from "@getpaseo/protocol/host-target";
+import { parseHostTarget } from "@pimi/protocol/host-target";
 import { test, expect } from "vitest";
 import { selectDaemonTarget, describeDaemonTarget } from "./daemon-target.js";
 import {

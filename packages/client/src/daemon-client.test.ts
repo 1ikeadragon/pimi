@@ -12,19 +12,19 @@ import {
   type PluginClientBundle,
   type PluginClientBundleStore,
 } from "./daemon-client";
-import { CLIENT_CAPS } from "@getpaseo/protocol/client-capabilities";
-import { ChunkedTransport } from "@getpaseo/protocol/chunked-transport";
-import { BROWSER_AUTOMATION_COMMAND_NAMES } from "@getpaseo/protocol/browser-automation/rpc-schemas";
+import { CLIENT_CAPS } from "@pimi/protocol/client-capabilities";
+import { ChunkedTransport } from "@pimi/protocol/chunked-transport";
+import { BROWSER_AUTOMATION_COMMAND_NAMES } from "@pimi/protocol/browser-automation/rpc-schemas";
 import {
   decodeFileTransferFrame,
   encodeFileTransferFrame,
   FileTransferOpcode,
-} from "@getpaseo/protocol/binary-frames/index";
+} from "@pimi/protocol/binary-frames/index";
 import {
   encodeTerminalSnapshotPayload,
   encodeTerminalStreamFrame,
   TerminalStreamOpcode,
-} from "@getpaseo/protocol/terminal-stream-protocol";
+} from "@pimi/protocol/terminal-stream-protocol";
 
 expectTypeOf<"getGitDiff" extends keyof DaemonClient ? true : false>().toEqualTypeOf<false>();
 expectTypeOf<
@@ -8403,7 +8403,7 @@ import {
   openDaemonSecureChannel,
   type SecureChannel,
   type Transport as RelayWire,
-} from "@getpaseo/relay/e2ee";
+} from "@pimi/relay/e2ee";
 
 /**
  * An in-memory socket pair: the client side is a DaemonTransport, the daemon

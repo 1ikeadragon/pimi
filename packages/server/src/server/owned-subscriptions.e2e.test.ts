@@ -1,5 +1,5 @@
 import { MockLoadTestAgentClient } from "./agent/providers/mock-load-test-agent.js";
-import { createPaseoApi } from "@getpaseo/client";
+import { createPaseoApi } from "@pimi/client";
 import type { AgentManager } from "./agent/agent-manager.js";
 import { execFileSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -13,7 +13,7 @@ import {
   encodeFileTransferFrame,
   FileTransferOpcode,
   TerminalStreamOpcode,
-} from "@getpaseo/protocol/binary-frames/index";
+} from "@pimi/protocol/binary-frames/index";
 import { DaemonClient } from "./test-utils/daemon-client.js";
 import { createTestPaseoDaemon } from "./test-utils/paseo-daemon.js";
 import {

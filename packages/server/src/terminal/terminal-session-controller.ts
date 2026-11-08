@@ -23,7 +23,7 @@ import {
   decodeTerminalResizePayload,
   encodeTerminalStreamFrame,
   type TerminalStreamFrame,
-} from "@getpaseo/protocol/binary-frames/index";
+} from "@pimi/protocol/binary-frames/index";
 import { TerminalOutputCoalescer } from "./terminal-output-coalescer.js";
 import {
   MAX_CLIENT_BUFFERED_BYTES,
@@ -38,8 +38,8 @@ import type { TerminalSession } from "./terminal.js";
 import type { TerminalManager, TerminalsChangedEvent } from "./terminal-manager.js";
 import { applyTerminalSize } from "./terminal-size-ownership.js";
 import { TerminalWorkerIncompatibleError } from "./terminal-worker-pool.js";
-import type { TerminalActivity } from "@getpaseo/protocol/terminal-activity";
-import { terminalSubscriptionKey } from "@getpaseo/protocol/terminal-subscription-key";
+import type { TerminalActivity } from "@pimi/protocol/terminal-activity";
+import { terminalSubscriptionKey } from "@pimi/protocol/terminal-subscription-key";
 
 const MAX_TERMINAL_STREAM_SLOTS = 256;
 

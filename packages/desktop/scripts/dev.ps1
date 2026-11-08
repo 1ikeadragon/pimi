@@ -46,7 +46,7 @@ Remove-Item Env:\PASEO_DEV_RUNTIME_FALLBACK_ROOT -ErrorAction SilentlyContinue
 # the daemon binds to localhost and this script is never used for production.
 $env:PASEO_CORS_ORIGINS = "*"
 
-# Fully isolate the dev instance from a production Paseo install so `npm run dev`
+# Fully isolate the dev instance from a production Pimi install so `npm run dev`
 # works while the installed app is open. Without this the dev build loses the
 # Electron single-instance lock to the installed app and quits, and ends up
 # pointed at the production daemon, whose CORS allowlist rejects the Metro origin.
@@ -101,7 +101,7 @@ fs.writeFileSync(path, JSON.stringify(cfg, null, 2));
 
 Write-Host @"
 ======================================================
-  Paseo Desktop Dev (Windows)
+  Pimi Desktop Dev (Windows)
 ======================================================
   Metro:      http://localhost:$($env:EXPO_PORT)
   Daemon:     $($env:PASEO_LISTEN) (isolated)

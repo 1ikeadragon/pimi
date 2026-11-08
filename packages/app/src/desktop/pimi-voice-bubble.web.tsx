@@ -53,7 +53,7 @@ import {
   PimiVoiceNavigation,
   type PimiDestination,
   type PimiVoiceView,
-} from "@getpaseo/protocol/pimi-task";
+} from "@pimi/protocol/pimi-task";
 
 interface VoiceBubbleProps {
   enabled: boolean;

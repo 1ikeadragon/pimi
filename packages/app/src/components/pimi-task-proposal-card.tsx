@@ -8,7 +8,7 @@ import {
   PimiTaskProposalResult,
   type PimiReviewSuggestion,
   type PimiTaskProposal,
-} from "@getpaseo/protocol/pimi-task";
+} from "@pimi/protocol/pimi-task";
 import { useCallback } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";

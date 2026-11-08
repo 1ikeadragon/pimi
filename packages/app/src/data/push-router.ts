@@ -1,11 +1,11 @@
-import type { OwnedSubscription } from "@getpaseo/client";
-import type { ProviderSnapshotEntry } from "@getpaseo/protocol/agent-types";
+import type { OwnedSubscription } from "@pimi/client";
+import type { ProviderSnapshotEntry } from "@pimi/protocol/agent-types";
 import type { Query, QueryCacheNotifyEvent, QueryClient, QueryKey } from "@tanstack/react-query";
 import type {
   ListTerminalsResponse,
   MutableDaemonConfig,
   SessionOutboundMessage,
-} from "@getpaseo/protocol/messages";
+} from "@pimi/protocol/messages";
 import { invalidateCommandsForProviderChange } from "@/agent-commands/cache";
 import { shareCheckoutDiff } from "@/git/diff-sharing";
 import { orderCheckoutDiffFiles } from "@/git/diff-order";
@@ -73,10 +73,10 @@ export interface ServerDataQueryMeta extends Record<string, unknown> {
 export type ProvidersSnapshotUpdate = ProvidersSnapshotUpdateMessage;
 
 interface ServerDataPushClient {
-  getProvidersSnapshot: import("@getpaseo/client/internal/daemon-client").DaemonClient["getProvidersSnapshot"];
-  observeEvents: import("@getpaseo/client/internal/daemon-client").DaemonClient["observeEvents"];
-  observeCheckoutDiff: import("@getpaseo/client/internal/daemon-client").DaemonClient["observeCheckoutDiff"];
-  observeTerminals: import("@getpaseo/client/internal/daemon-client").DaemonClient["observeTerminals"];
+  getProvidersSnapshot: import("@pimi/client/internal/daemon-client").DaemonClient["getProvidersSnapshot"];
+  observeEvents: import("@pimi/client/internal/daemon-client").DaemonClient["observeEvents"];
+  observeCheckoutDiff: import("@pimi/client/internal/daemon-client").DaemonClient["observeCheckoutDiff"];
+  observeTerminals: import("@pimi/client/internal/daemon-client").DaemonClient["observeTerminals"];
 }
 
 interface PushRouterInput {

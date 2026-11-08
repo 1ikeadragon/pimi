@@ -6,7 +6,7 @@ import {
   type ToolCallItem,
 } from "@/types/stream";
 import { summarizeToolCalls, type OverviewSummary } from "@/tool-calls/detail-level/overview/model";
-import { isPimiActionTool } from "@getpaseo/protocol/pimi-task";
+import { isPimiActionTool } from "@pimi/protocol/pimi-task";
 
 export interface TurnSummary {
   tools: OverviewSummary;

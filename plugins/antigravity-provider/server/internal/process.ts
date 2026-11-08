@@ -1,8 +1,8 @@
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
-import { spawnProcess } from "@getpaseo/plugin/server";
+import { spawnProcess } from "@pimi/plugin/server";
 import { signalProcess } from "./signals.js";
 import { createInterface } from "node:readline";
-import type { ProviderLaunch, ProviderSessionConfig } from "@getpaseo/plugin/server/provider";
+import type { ProviderLaunch, ProviderSessionConfig } from "@pimi/plugin/server/provider";
 import {
   AntigravityError,
   decodeFrame,

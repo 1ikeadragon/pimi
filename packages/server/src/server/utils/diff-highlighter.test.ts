@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { setImmediate } from "node:timers/promises";
 import { measureMainThreadWork } from "../../test-utils/main-thread-work.js";
 import { SessionDelivery } from "../session/owned-subscriptions/index.js";
-import { highlightCode, highlightCodeWithBudget } from "@getpaseo/highlight";
+import { highlightCode, highlightCodeWithBudget } from "@pimi/highlight";
 import {
   parseDiff,
   reconstructNewFile,

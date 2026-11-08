@@ -5,7 +5,7 @@
 #
 # Then set `image: paseo-with-agents` in docker/docker-compose.example.yml.
 
-FROM ghcr.io/getpaseo/paseo:latest
+FROM pimi:local
 
 USER root
 RUN npm install -g \

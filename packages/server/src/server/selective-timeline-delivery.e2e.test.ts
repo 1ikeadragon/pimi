@@ -4,9 +4,9 @@ import os from "node:os";
 import path from "node:path";
 import { createPersistedWorkspaceRecord } from "./workspace-registry.js";
 import { afterEach, beforeEach, expect, test } from "vitest";
-import { CLIENT_CAPS } from "@getpaseo/protocol/client-capabilities";
-import type { SessionOutboundMessage } from "@getpaseo/protocol/messages";
-import { DaemonClient, type WebSocketLike } from "@getpaseo/client/internal/daemon-client";
+import { CLIENT_CAPS } from "@pimi/protocol/client-capabilities";
+import type { SessionOutboundMessage } from "@pimi/protocol/messages";
+import { DaemonClient, type WebSocketLike } from "@pimi/client/internal/daemon-client";
 import { WebSocket } from "ws";
 import { createTestPaseoDaemon, type TestPaseoDaemon } from "./test-utils/paseo-daemon.js";
 import {

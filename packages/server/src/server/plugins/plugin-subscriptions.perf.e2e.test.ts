@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { DaemonClient } from "@getpaseo/client/internal/daemon-client";
+import { DaemonClient } from "@pimi/client/internal/daemon-client";
 import { afterEach, expect, test } from "vitest";
 import { resolveDaemonVersion } from "../daemon-version.js";
 import { createTestPaseoDaemon } from "../test-utils/paseo-daemon.js";
@@ -13,8 +13,8 @@ const MIN_MEGABYTES_PER_SECOND = 200;
 
 // One buffer, pushed until the total is out: what a capture loop looks like.
 const SERVER_ENTRY = `
-import { defineSubscription } from "@getpaseo/plugin";
-import type { PluginServerContext } from "@getpaseo/plugin/server";
+import { defineSubscription } from "@pimi/plugin";
+import type { PluginServerContext } from "@pimi/plugin/server";
 import { z } from "zod";
 
 const stream = defineSubscription({

@@ -1,12 +1,12 @@
 ---
 title: 运行并行任务
-description: 在 Paseo 中让编程 Agent 在不同的 worktree 中运行，审查它们的 diff，并用终端和内置浏览器测试每个改动。
+description: 在 Pimi 中让编程 Agent 在不同的 worktree 中运行，审查它们的 diff，并用终端和内置浏览器测试每个改动。
 nav: 运行并行任务
 ---
 
 # 运行并行任务 {#run-parallel-tasks}
 
-使用 Paseo 桌面应用为多个编程 Agent 分配相互独立的任务，审查它们的改动，并运行结果。每个任务都有一个工作区，带有自己的 git worktree 和分支，Agent、文件、diff、终端和浏览器标签页都放在一起。
+使用 Pimi 桌面应用为多个编程 Agent 分配相互独立的任务，审查它们的改动，并运行结果。每个任务都有一个工作区，带有自己的 git worktree 和分支，Agent、文件、diff、终端和浏览器标签页都放在一起。
 
 开始之前，请准备好[桌面应用](/docs#desktop-app-recommended)、一个本地 git 仓库，以及至少一个[已安装并完成认证的编程 Agent](/docs/supported-providers)。下面的示例使用一个带有 `origin/main` 分支的仓库。
 
@@ -47,4 +47,4 @@ nav: 运行并行任务
 
 ## 让 Agent 协调这些任务 {#let-an-agent-coordinate-the-tasks}
 
-如果你想让 Agent 创建工作区、启动执行者并收集结果，请使用[编排](/docs/orchestration)。执行者会出现在 Paseo 中，你可以在它们工作时查看对话和改动。
+如果你想让 Agent 创建工作区、启动执行者并收集结果，请使用[编排](/docs/orchestration)。执行者会出现在 Pimi 中，你可以在它们工作时查看对话和改动。

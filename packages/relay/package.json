@@ -1,7 +1,8 @@
 {
-  "name": "@getpaseo/relay",
+  "name": "@pimi/relay",
   "version": "0.16.10",
-  "description": "Paseo relay for bridging daemon and client connections",
+  "private": true,
+  "description": "Pimi relay for bridging daemon and client connections",
   "license": "Apache-2.0",
   "files": [
     "dist",
@@ -22,9 +23,6 @@
       "types": "./dist/cloudflare-adapter.d.ts",
       "default": "./dist/cloudflare-adapter.js"
     }
-  },
-  "publishConfig": {
-    "access": "public"
   },
   "scripts": {
     "clean": "node ../../scripts/clean-package-dist.mjs",

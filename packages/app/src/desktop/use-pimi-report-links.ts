@@ -1,6 +1,6 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
 import { useEffect } from "react";
-import { PimiReportLinkTarget } from "@getpaseo/protocol/pimi-task";
+import { PimiReportLinkTarget } from "@pimi/protocol/pimi-task";
 import { parseAssistantFileLink, normalizeInlinePathTarget } from "@/assistant-file-links/parse";
 import { createWorkspaceBrowser } from "@/desktop/browser/store";
 import { getDesktopHost } from "@/desktop/host";

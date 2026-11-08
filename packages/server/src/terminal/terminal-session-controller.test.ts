@@ -9,7 +9,7 @@ import {
   TerminalStreamOpcode,
   decodeTerminalStreamFrame,
   type TerminalStreamFrame,
-} from "@getpaseo/protocol/binary-frames/index";
+} from "@pimi/protocol/binary-frames/index";
 import type { ServerMessage, TerminalSession } from "./terminal.js";
 import {
   TerminalSessionController,

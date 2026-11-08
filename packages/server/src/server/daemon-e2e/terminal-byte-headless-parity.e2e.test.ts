@@ -6,8 +6,8 @@ import { fileURLToPath } from "node:url";
 import { Terminal as HeadlessTerminal, type IBufferCell, type IBufferLine } from "@xterm/headless";
 import { expect, test } from "vitest";
 
-import type { TerminalCell, TerminalState } from "@getpaseo/protocol/messages";
-import type { TerminalStreamEvent } from "@getpaseo/client/internal/daemon-client";
+import type { TerminalCell, TerminalState } from "@pimi/protocol/messages";
+import type { TerminalStreamEvent } from "@pimi/client/internal/daemon-client";
 import { DaemonClient } from "../test-utils/daemon-client.js";
 import { createTestPaseoDaemon } from "../test-utils/paseo-daemon.js";
 

@@ -6,8 +6,8 @@ import {
   readPersistedConfig as loadPersistedConfig,
   savePersistedConfig,
   type PersistedConfig,
-} from "@getpaseo/server/configuration";
-import { readDaemonInstance, waitForDaemonReady } from "@getpaseo/server/daemon-control";
+} from "@pimi/server/configuration";
+import { readDaemonInstance, waitForDaemonReady } from "@pimi/server/daemon-control";
 import { withGlobalOptions } from "../utils/command-options.js";
 import type { CommandOptions } from "../output/index.js";
 import { launchLocalDaemon, parseTimeoutMs } from "./daemon/local-daemon.js";
@@ -115,12 +115,12 @@ function printNextSteps(pairingUrl: string | null, paseoHome: string, richUi: bo
   const daemonLogPath = path.join(paseoHome, "daemon.log");
   const nextStepsLines = [
     pairingUrl
-      ? "1. Open Paseo and scan the QR code above, or paste the pairing link."
-      : "1. Open Paseo and connect to your daemon.",
-    "2. Web app: https://app.paseo.sh",
-    "3. Desktop app: https://github.com/getpaseo/paseo/releases/latest",
-    "4. Docs: https://paseo.sh/docs",
-    `5. Example: paseo run --home ${JSON.stringify(paseoHome)} --output-schema schema.json "extract fields"`,
+      ? "1. Open Pimi and scan the QR code above, or paste the pairing link."
+      : "1. Open Pimi and connect to your daemon.",
+    "2. Web app: https://1ikeadragon.github.io/pimi/",
+    "3. Desktop app: https://github.com/1ikeadragon/pimi/releases/latest",
+    "4. Docs: https://github.com/1ikeadragon/pimi/blob/main/README.md",
+    `5. Example: pimi run --home ${JSON.stringify(paseoHome)} --output-schema schema.json "extract fields"`,
   ];
   const quickReferenceLines = [
     "1. paseo --help",
@@ -233,7 +233,7 @@ function persistSetupChoices(paseoHome: string, options: OnboardOptions): void {
 export async function runOnboard(options: OnboardOptions): Promise<void> {
   const richUi = process.stdin.isTTY && process.stdout.isTTY;
   if (richUi) {
-    intro("Welcome to Paseo");
+    intro("Welcome to Pimi");
   }
 
   if (options.listen && options.port) {
@@ -248,7 +248,7 @@ export async function runOnboard(options: OnboardOptions): Promise<void> {
   const alreadyRunning = await readDaemonInstance(paseoHome);
   persistSetupChoices(paseoHome, options);
   if (richUi) {
-    renderNote(paseoHome, "Paseo home");
+    renderNote(paseoHome, "Pimi home");
   }
 
   const voiceEnabled = await resolveAndPersistVoice(paseoHome, options);
@@ -275,7 +275,7 @@ export async function runOnboard(options: OnboardOptions): Promise<void> {
   if (options.relay === false) {
     log.message("Relay pairing skipped because --no-relay was provided.");
     printNextSteps(null, paseoHome, richUi);
-    if (richUi) outro("Paseo daemon is running.");
+    if (richUi) outro("Pimi daemon is running.");
     return;
   }
 
@@ -289,7 +289,7 @@ export async function runOnboard(options: OnboardOptions): Promise<void> {
     if (!shouldEnable) {
       printDirectConnectionGuidance();
       printNextSteps(null, paseoHome, richUi);
-      if (richUi) outro("Paseo daemon is running.");
+      if (richUi) outro("Pimi daemon is running.");
       return;
     }
     pairing = await resolveLocalPairingOffer({ paseoHome, enableRelay: true });
@@ -300,7 +300,7 @@ export async function runOnboard(options: OnboardOptions): Promise<void> {
     log.warn("Relay pairing URL is unavailable for this daemon configuration.");
     printNextSteps(null, paseoHome, richUi);
     if (richUi) {
-      outro("Paseo daemon is running.");
+      outro("Pimi daemon is running.");
     }
     return;
   }
@@ -314,6 +314,6 @@ export async function runOnboard(options: OnboardOptions): Promise<void> {
   );
   printNextSteps(pairing.url, paseoHome, richUi);
   if (richUi) {
-    outro("Paseo is ready!");
+    outro("Pimi is ready!");
   }
 }

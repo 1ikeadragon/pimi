@@ -8,8 +8,8 @@ import {
   PIMI_TASK_PAGE_SIZE,
   PimiTaskFields,
   type PimiMobileTaskDetail,
-} from "@getpaseo/protocol/pimi-task";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
+} from "@pimi/protocol/pimi-task";
+import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import { MenuHeader } from "@/components/headers/menu-header";
 import { Button } from "@/components/ui/button";
 import { Field, FormTextInput } from "@/components/ui/form-field";

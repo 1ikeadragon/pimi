@@ -1,5 +1,5 @@
 import { DaemonConfigStore } from "../../daemon-config-store.js";
-import type { PaseoServicePortAllocation } from "@getpaseo/protocol/paseo-config-schema";
+import type { PaseoServicePortAllocation } from "@pimi/protocol/paseo-config-schema";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

@@ -4,7 +4,7 @@ import type {
   ProviderModel,
   ProviderMode,
   ProviderStatus,
-} from "@getpaseo/plugin/server/provider";
+} from "@pimi/plugin/server/provider";
 import { probe } from "./process.js";
 import { AntigravityError } from "./wire.js";
 

@@ -1,5 +1,5 @@
 import { readTerminalState } from "./test-utils/terminal-state.js";
-import type { TerminalState } from "@getpaseo/protocol/messages";
+import type { TerminalState } from "@pimi/protocol/messages";
 // POSIX-only: node-pty + POSIX shell assertions
 /* eslint-disable max-nested-callbacks */
 import { describe, it, expect, afterEach } from "vitest";

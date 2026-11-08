@@ -1331,7 +1331,7 @@ export const es: TranslationResources = {
       discord: "Discord",
       github: "Crear incidencia en GitHub",
       whatsNew: "Novedades",
-      appName: "Paseo",
+      appName: "Pimi",
     },
     sections: {
       sessions: "Historial",
@@ -1503,7 +1503,7 @@ export const es: TranslationResources = {
           "Esto detendrá el demonio incorporado inmediatamente. Se detendrán los agentes en ejecución y los terminales conectados al demonio integrado.",
         pauseAndStop: "Pausa y para",
         registrationFailed:
-          "Built-in daemon started, but Paseo could not save the localhost connection. Toggle daemon management off and on again, or add localhost manually.",
+          "Built-in daemon started, but Pimi could not save the localhost connection. Toggle daemon management off and on again, or add localhost manually.",
         pausedStopFailed:
           "La gestión del demonio integrado se pausó, peroPaseono pudo detener el demonio.",
         updateFailed: "No se puede actualizar la gestión de demonios integrada.",
@@ -1525,7 +1525,7 @@ export const es: TranslationResources = {
       fullStatus: {
         title: "Estado completo",
         modalTitle: "EstadoDaemon",
-        hint: "Ejecuta`paseo daemon status`y muestra la salida.",
+        hint: "Ejecuta`pimi daemon status`y muestra la salida.",
         view: "Ver estado",
         copied: "Estado copiado al portapapeles.",
         fetchFailed: "No se pudo recuperar el estado del demonio:{{message}}",
@@ -1627,7 +1627,7 @@ export const es: TranslationResources = {
         microphone: "El estado del micrófono aún no se ha comprobado.",
       },
       testNotification: {
-        title: "Prueba de notificación de Paseo",
+        title: "Prueba de notificación de Pimi",
         body: "Si puede ver esto, las notificaciones de escritorio funcionan.",
         notDelivered:
           "La notificación no fue entregada. Verifique Configuración del sistema> Notificaciones.",
@@ -1638,14 +1638,14 @@ export const es: TranslationResources = {
       cli: {
         statusFailed: "No se puede verificar el estado de instalación deCLI.",
         installFailed: "No se puede instalar elPaseoCLI.",
-        uninstallFailed: "No se pudo desinstalar la CLI de Paseo.",
+        uninstallFailed: "No se pudo desinstalar la CLI de Pimi.",
         keptForeign:
-          "Se conservó un comando paseo que Paseo no instaló. Elimínalo tú mismo para desinstalarlo.",
+          "Se conservó un comando paseo que Pimi no instaló. Elimínalo tú mismo para desinstalarlo.",
       },
     },
   },
   rootError: {
-    title: "Paseo tuvo un problema.",
+    title: "Pimi tuvo un problema.",
     body: "Vuelve a intentarlo para recargar la app. Si sigue ocurriendo, incluye los detalles de abajo al reportarlo.",
     details: "Detalles",
   },
@@ -1748,7 +1748,7 @@ export const es: TranslationResources = {
   },
   onboarding: {
     setup: {
-      title: "Paseo",
+      title: "Pimi",
       stepCounter: "Paso {{current}} de {{total}}",
       skip: "Omitir configuración",
       continue: "Continuar",
@@ -1756,13 +1756,13 @@ export const es: TranslationResources = {
       steps: {
         appearance: {
           label: "Apariencia",
-          title: "Te damos la bienvenida a Paseo",
+          title: "Te damos la bienvenida a Pimi",
           description: "Empecemos por elegir una apariencia",
         },
         providers: {
           label: "Proveedores",
           title: "Tus agentes",
-          description: "Paseo usa las CLI de agentes que ya están en este ordenador",
+          description: "Pimi usa las CLI de agentes que ya están en este ordenador",
         },
         projects: {
           label: "Proyectos",
@@ -1782,14 +1782,14 @@ export const es: TranslationResources = {
         },
         orchestration: {
           label: "Orquestación",
-          title: "Deja que los agentes usen Paseo",
+          title: "Deja que los agentes usen Pimi",
           description: "Deja que tus agentes creen espacios de trabajo y hablen con otros agentes",
         },
         phone: {
           label: "Móvil",
           title: "Lleva tus agentes contigo",
           description:
-            "La app móvil nativa completa te permite controlar cualquier ordenador con Paseo desde tu teléfono",
+            "La app móvil nativa completa te permite controlar cualquier ordenador con Pimi desde tu teléfono",
           appStore: "App Store",
           googlePlay: "Google Play",
           connectTitle: "Elige cómo conectarte",
@@ -1952,7 +1952,7 @@ export const es: TranslationResources = {
     },
     remoteSsh: {
       title: "SSH remoto",
-      helper: "Conéctate a un daemon de Paseo en el host remoto.",
+      helper: "Conéctate a un daemon de Pimi en el host remoto.",
       fields: {
         target: "Host SSH",
         password: "Contraseña del daemon",
@@ -2008,6 +2008,9 @@ export const es: TranslationResources = {
       errorTitle: "Error",
     },
     device: {
+      setupTitle: "Configurar un relé",
+      setupDescription:
+        "Para emparejar a distancia, ejecuta Pimi Relay, configura su dirección en config.json y reinicia Pimi.",
       loadingOffer: "Cargando oferta de maridaje...",
       failedToLoadOffer: "No se pudo cargar la oferta de emparejamiento.",
       relayDisabled: "El relé no está habilitado. Habilite el relé para emparejar un dispositivo.",
@@ -2015,7 +2018,7 @@ export const es: TranslationResources = {
       enableDescription:
         "El relé permite conectar este dispositivo desde cualquier lugar. El tráfico de emparejamiento está cifrado de extremo a extremo.",
       relayDocs: "Cómo funciona el relé",
-      relayDocsAccessibility: "Leer cómo funciona el relé de Paseo",
+      relayDocsAccessibility: "Leer cómo funciona el relé de Pimi",
       enableRelay: "Habilitar relé",
       enablingRelay: "Habilitando...",
       notNow: "Ahora no",
@@ -2023,7 +2026,7 @@ export const es: TranslationResources = {
         "Sin relé, conéctese directamente por TCP, Tailscale u otra VPN. No se crea ningún código QR.",
       tailscaleDocs: "Configurar Tailscale",
       tailscaleDocsAccessibility: "Leer cómo conectarse con Tailscale",
-      updateRequired: "Actualice el host para habilitar el relé desde Paseo Desktop.",
+      updateRequired: "Actualice el host para habilitar el relé desde Pimi Desktop.",
       unavailable: "Oferta de maridaje no disponible.",
       hint: "Escanee este códigoQRconPaseoen su teléfono o copie el enlace a continuación.",
       securityWarning:
@@ -2113,7 +2116,7 @@ export const es: TranslationResources = {
         alwaysUseFilename: "Usar siempre para {{filename}}",
         option: "{{title}} — {{owner}}",
         builtin: {
-          owner: "Paseo",
+          owner: "Pimi",
           markdown: "Markdown",
           html: "HTML",
           image: "Imagen",
@@ -2210,8 +2213,8 @@ export const es: TranslationResources = {
       other: "usó {{count}} herramientas adicionales",
     },
     paseoCalls: {
-      one: "llamó a Paseo {{count}} vez",
-      other: "llamó a Paseo {{count}} veces",
+      one: "llamó a Pimi {{count}} vez",
+      other: "llamó a Pimi {{count}} veces",
     },
     and: "y",
   },
@@ -2392,7 +2395,7 @@ export const es: TranslationResources = {
       send: "Enviar",
       sending: "Enviando...",
       sentTitle: "Notificación de prueba enviada",
-      sentDescription: "Paseo entregó la notificación al sistema operativo.",
+      sentDescription: "Pimi entregó la notificación al sistema operativo.",
       sendFailedTitle: "No se pudo enviar la notificación de prueba",
     },
     hostSections: {
@@ -2412,14 +2415,14 @@ export const es: TranslationResources = {
     metadataGeneration: {
       title: "Generación de metadatos",
       description:
-        "Elige el modelo que Paseo usa para títulos de espacios de trabajo, nombres de ramas, mensajes de commit y borradores de pull requests",
+        "Elige el modelo que Pimi usa para títulos de espacios de trabajo, nombres de ramas, mensajes de commit y borradores de pull requests",
       selection: "Selección de modelo",
       automatic: "Automática",
       preferred: "Manual",
-      automaticHint: "Paseo elige un modelo rápido disponible",
-      preferredHint: "Elige el modelo que usa Paseo",
+      automaticHint: "Pimi elige un modelo rápido disponible",
+      preferredHint: "Elige el modelo que usa Pimi",
       model: "Modelo",
-      modelHint: "Solo se usa este modelo. Si falla, Paseo no prueba otro modelo",
+      modelHint: "Solo se usa este modelo. Si falla, Pimi no prueba otro modelo",
       docs: "Documentación",
       saveError: "No se pudo actualizar la generación de metadatos",
     },
@@ -2511,7 +2514,7 @@ export const es: TranslationResources = {
         title: "Datos del navegador",
         siteData: "Cookies y datos de sitios",
         description:
-          "Las pestañas del navegador comparten inicios de sesión y datos de sitios en Paseo.",
+          "Las pestañas del navegador comparten inicios de sesión y datos de sitios en Pimi.",
         clear: "Borrar datos del navegador",
         clearing: "Borrando...",
         confirmTitle: "¿Borrar los datos del navegador?",
@@ -2802,7 +2805,7 @@ export const es: TranslationResources = {
       commandLine: {
         title: "línea de comando",
         description: "Agentes de control y script desde tu terminal",
-        accessibilityLabel: "Instalar la CLI de Paseo",
+        accessibilityLabel: "Instalar la CLI de Pimi",
       },
     },
     permissions: {
@@ -2880,7 +2883,7 @@ export const es: TranslationResources = {
         ...en.settings.host.skills,
         sectionTitle: "Habilidades de orquestación",
         title: "Habilidades de orquestación",
-        description: "Enseña a tus agentes a usar las herramientas de Paseo",
+        description: "Enseña a tus agentes a usar las herramientas de Pimi",
         updateAvailable: "Actualización disponible",
         updateTitle: "¿Actualizar las habilidades dePaseo?",
         uninstallTitle: "¿Desinstalar las habilidadesPaseo?",
@@ -2922,7 +2925,7 @@ export const es: TranslationResources = {
           title: "Habilitar herramientasPaseo",
           hint: "Los agentes podrán gestionar árboles de trabajo, agentes y horarios.",
           accessibilityLabel: "Inyectar herramientasPaseo",
-          updateFailed: "No se pudieron actualizar las herramientas de Paseo.",
+          updateFailed: "No se pudieron actualizar las herramientas de Pimi.",
         },
         systemPrompt: {
           title: "Aviso del sistema",
@@ -3053,7 +3056,7 @@ export const es: TranslationResources = {
         },
         update: {
           desktopManagedHint:
-            "Este daemon está administrado por Paseo Desktop. Actualiza Paseo Desktop en el host.",
+            "Este daemon está administrado por Pimi Desktop. Actualiza Pimi Desktop en el host.",
           title: "Update daemon",
           hint: "Update the daemon to the latest version and restart it",
           confirm: "Update",
@@ -3172,13 +3175,13 @@ export const es: TranslationResources = {
         savedToast: "Proyecto actualizado",
       },
       readFailures: {
-        invalidTitle: "paseo.json no se pudo analizar",
+        invalidTitle: "pimi.json no se pudo analizar",
         invalidDescription: "Fije el archivo en el disco y luego vuelva a cargarlo.",
         missingTitle: "Este anfitrión no tiene este proyecto",
         missingSingleHost: "El anfitrión seleccionado no tiene registro de este proyecto.",
-        transportTitle: "No se pudo cargar paseo.json",
+        transportTitle: "No se pudo cargar pimi.json",
         transportFallback: "El anfitrión no respondió.",
-        failedTitle: "No se pudo cargar paseo.json",
+        failedTitle: "No se pudo cargar pimi.json",
         failedDescription: "Vuelva a cargar para intentarlo de nuevo.",
       },
       worktree: {
@@ -3189,7 +3192,7 @@ export const es: TranslationResources = {
           "Consulte los documentos para obtener más detalles y las variables de entorno disponibles para estos comandos.",
         setup: "Configuración",
         setupAccessibility: "Comandos de configuración del árbol de trabajo",
-        uncommittedTitle: "Confirma los cambios de paseo.json",
+        uncommittedTitle: "Confirma los cambios de pimi.json",
         uncommittedDescription:
           "Los árboles de trabajo nuevos usan el script de configuración de la rama base que selecciones.",
         teardown: "Demoler",
@@ -3234,8 +3237,8 @@ export const es: TranslationResources = {
       },
       writeFailures: {
         staleTitle: "Configuración cambiada en el disco",
-        staleDescription: "Vuelva a cargar para obtener el último paseo.json antes de guardar.",
-        failedTitle: "No se pudo guardar paseo.json",
+        staleDescription: "Vuelva a cargar para obtener el último pimi.json antes de guardar.",
+        failedTitle: "No se pudo guardar pimi.json",
         failedDescription: "Inténtelo de nuevo o vuelva a cargar la última versión desde el disco.",
       },
       actions: {

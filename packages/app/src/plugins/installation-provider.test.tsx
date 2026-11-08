@@ -1,7 +1,7 @@
-import { PluginTranslationRuntime } from "@getpaseo/plugin/client/host";
-import { usePaseo, useRpc } from "@getpaseo/plugin/client";
-import { defineRpc } from "@getpaseo/plugin";
-import type { PaseoApi } from "@getpaseo/client";
+import { PluginTranslationRuntime } from "@pimi/plugin/client/host";
+import { usePaseo, useRpc } from "@pimi/plugin/client";
+import { defineRpc } from "@pimi/plugin";
+import type { PaseoApi } from "@pimi/client";
 import { QueryClient } from "@tanstack/react-query";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";

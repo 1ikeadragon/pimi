@@ -1,9 +1,9 @@
-import { defineSubscription } from "@getpaseo/plugin";
-import type { PluginSubscriptionClosed } from "@getpaseo/plugin/client";
-import { subscribePluginRpc } from "@getpaseo/plugin/client/host";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import type { SubscriptionObserver } from "@getpaseo/client";
-import type { SessionOutboundMessage } from "@getpaseo/protocol/messages";
+import { defineSubscription } from "@pimi/plugin";
+import type { PluginSubscriptionClosed } from "@pimi/plugin/client";
+import { subscribePluginRpc } from "@pimi/plugin/client/host";
+import type { DaemonClient } from "@pimi/client/internal/daemon-client";
+import type { SubscriptionObserver } from "@pimi/client";
+import type { SessionOutboundMessage } from "@pimi/protocol/messages";
 import { expect, it } from "vitest";
 import { z } from "zod";
 import { createPluginSubscribe } from "./subscriptions";

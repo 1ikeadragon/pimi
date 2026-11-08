@@ -4,7 +4,7 @@ import {
   renderProviderImageOutputAsAssistantMarkdown,
 } from "../../provider-image-output.js";
 import type { SessionMessageAssistantTool } from "@opencode/client";
-import { STRUCTURED_OUTPUT_TOOL } from "./structured-output.js";
+import { isStructuredOutputTool } from "./structured-output.js";
 import type { SessionMessageInfo } from "@opencode/client";
 import type { AgentStreamEvent, AgentTimelineItem } from "../../../agent-sdk-types.js";
 
@@ -114,7 +114,7 @@ export class V2Timeline {
     let textOrdinal = 0;
     let reasoningOrdinal = 0;
     for (const [partIndex, part] of message.content.entries()) {
-      if (part.type === "tool" && part.name === STRUCTURED_OUTPUT_TOOL) {
+      if (part.type === "tool" && isStructuredOutputTool(part.name)) {
         this.structuredOutputPart(message.id, partIndex, part, state, push);
       } else if (part.type === "text" || part.type === "reasoning") {
         const ordinal = part.type === "text" ? textOrdinal++ : reasoningOrdinal++;

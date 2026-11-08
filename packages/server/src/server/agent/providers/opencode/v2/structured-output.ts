@@ -2,8 +2,13 @@ import { Ajv } from "ajv";
 import { z } from "zod";
 import type { SessionMessageInfo } from "@opencode/client";
 
-export const STRUCTURED_OUTPUT_TOOL = "paseo_structured_output";
+export const STRUCTURED_OUTPUT_TOOL = "pimi_structured_output";
 const schemas = new Ajv({ strict: false, allErrors: true });
+
+export function isStructuredOutputTool(name: string): boolean {
+  // Older OpenCode servers and their saved sessions can still emit this name.
+  return name === STRUCTURED_OUTPUT_TOOL || name === "paseo_structured_output";
+}
 
 export function structuredOutput(input: unknown) {
   const schema = z.union([z.boolean(), z.record(z.string(), z.json())]).parse(input);
@@ -17,7 +22,7 @@ export function structuredOutput(input: unknown) {
         for (const part of message.content) {
           if (
             part.type !== "tool" ||
-            part.name !== STRUCTURED_OUTPUT_TOOL ||
+            !isStructuredOutputTool(part.name) ||
             part.state.status !== "completed"
           )
             continue;

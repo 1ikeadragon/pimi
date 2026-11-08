@@ -1,8 +1,4 @@
-import {
-  useSubscription,
-  useWorkspace,
-  type PluginWorkspacePanelProps,
-} from "@getpaseo/plugin/client";
+import { useSubscription, useWorkspace, type PluginWorkspacePanelProps } from "@pimi/plugin/client";
 import { useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { diffWatch, type ChangedFile } from "../shared/diff";

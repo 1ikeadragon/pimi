@@ -15,7 +15,7 @@ export function createAudioEngine(
   callbacks: AudioEngineCallbacks,
   options?: AudioEngineOptions,
 ): AudioEngine {
-  const native = require("@getpaseo/expo-two-way-audio");
+  const native = require("@pimi/expo-two-way-audio");
 
   const refs: {
     initialized: boolean;

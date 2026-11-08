@@ -13,7 +13,7 @@ Use the user's request and current conversation as input, including any argument
 
 ## Prerequisites
 
-Read the **paseo** skill. Call `list_profiles` before choosing the advisor. Do not create the advisor until you have read the configured profiles and their `notes`.
+Read the **pimi** skill. Call `list_profiles` before choosing the advisor. Do not create the advisor until you have read the configured profiles and their `notes`.
 
 ## Picking the advisor
 
@@ -21,7 +21,7 @@ Read the **paseo** skill. Call `list_profiles` before choosing the advisor. Do n
 2. **Otherwise** choose the profile whose `notes` best fit the question. Match the actual work: design and approach, audit and review, or research and root-cause analysis.
 3. **Contrast helps.** When several profiles fit, prefer a different provider family from your own so the second opinion is genuinely fresh.
 
-Materialize the selected profile into `create_agent` as described by the **paseo** skill. If no profile fits, use Pimi's provider discovery fallback.
+Materialize the selected profile into `create_agent` as described by the **pimi** skill. If no profile fits, use Pimi's provider discovery fallback.
 
 ## The briefing
 

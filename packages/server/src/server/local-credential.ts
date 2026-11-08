@@ -2,10 +2,7 @@ import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { chmod, rename, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import {
-  normalizeLoopbackToLocalhost,
-  parseConnectionUri,
-} from "@getpaseo/protocol/daemon-endpoints";
+import { normalizeLoopbackToLocalhost, parseConnectionUri } from "@pimi/protocol/daemon-endpoints";
 
 const FILE_NAME = "local-credential";
 

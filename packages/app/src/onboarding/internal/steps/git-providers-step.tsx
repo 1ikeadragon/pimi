@@ -1,4 +1,4 @@
-import { getForgeDefinitionOrNeutral } from "@getpaseo/protocol/forge-manifest";
+import { getForgeDefinitionOrNeutral } from "@pimi/protocol/forge-manifest";
 import * as Clipboard from "expo-clipboard";
 import { Check, Copy, RotateCw } from "lucide-react-native";
 import { useCallback } from "react";

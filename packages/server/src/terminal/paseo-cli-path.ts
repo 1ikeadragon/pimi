@@ -6,7 +6,7 @@ import { dirname, join, resolve as resolvePath } from "node:path";
 // apart from terminal.ts so the daemon can resolve it without loading node-pty.
 
 const require = createRequire(import.meta.url);
-const PASEO_CLI_BIN_ENTRY = "@getpaseo/cli/bin/paseo";
+const PASEO_CLI_BIN_ENTRY = "@pimi/cli/bin/pimi";
 
 export function resolveExternalProcessPath(filePath: string): string {
   return filePath.replace(/\.asar(?=[/\\]|$)/, ".asar.unpacked");
@@ -79,5 +79,5 @@ function resolvePaseoCliShim(binDir: string): string | null {
 }
 
 function paseoCliShimNames(): string[] {
-  return process.platform === "win32" ? ["paseo.cmd", "paseo.exe", "paseo"] : ["paseo"];
+  return process.platform === "win32" ? ["pimi.cmd", "pimi.exe", "pimi"] : ["pimi"];
 }

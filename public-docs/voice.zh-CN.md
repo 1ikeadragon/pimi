@@ -1,16 +1,16 @@
 ---
 title: 语音
-description: Paseo 的语音架构、本地优先的模型执行以及 Provider 配置。
+description: Pimi 的语音架构、本地优先的模型执行以及 Provider 配置。
 nav: 语音
 ---
 
 # 语音 {#voice}
 
-Paseo 对语音提供一流的支持，可用于口述输入，以及与编程环境进行语音模式对话。
+Pimi 对语音提供一流的支持，可用于口述输入，以及与编程环境进行语音模式对话。
 
 ## 设计理念 {#philosophy}
 
-语音以本地优先。你可以完全在设备上运行语音功能，也可以为语音功能选择 OpenAI。对于语音推理和编排，Paseo 复用你机器上已安装并完成认证的 Agent Provider。
+语音以本地优先。你可以完全在设备上运行语音功能，也可以为语音功能选择 OpenAI。对于语音推理和编排，Pimi 复用你机器上已安装并完成认证的 Agent Provider。
 
 这让凭据和执行都留在你的环境中，也避免了引入一套独立的、只能在云端运行的语音系统。
 
@@ -70,7 +70,7 @@ Paseo 对语音提供一流的支持，可用于口述输入，以及与编程�
 }
 ```
 
-`language` 字段只适用于 OpenAI STT Provider：口述使用 `features.dictation.stt.language`，语音模式使用 `features.voiceMode.stt.language`。如果省略语音语言，Paseo 会先使用口述语言，再退回到 `en`。它对本地 Parakeet 模型没有任何作用。
+`language` 字段只适用于 OpenAI STT Provider：口述使用 `features.dictation.stt.language`，语音模式使用 `features.voiceMode.stt.language`。如果省略语音语言，Pimi 会先使用口述语言，再退回到 `en`。它对本地 Parakeet 模型没有任何作用。
 
 ## OpenAI 语音选项 {#openai-voice-option}
 
@@ -101,9 +101,9 @@ Paseo 对语音提供一流的支持，可用于口述输入，以及与编程�
 }
 ```
 
-`providers.openai.stt` 用于口述和语音模式的语音转文字，`providers.openai.tts` 用于语音模式的文字转语音。由于两者独立解析，你可以把 STT 和 TTS 指向不同的端点。未设置时，各自先退回到 `providers.openai.apiKey`/`baseUrl`，再退回到 `OPENAI_API_KEY`/`OPENAI_BASE_URL`。这些设置只配置 Paseo 的 OpenAI 语音流量，不会改变 Codex 或其他基于 OpenAI 的工具。
+`providers.openai.stt` 用于口述和语音模式的语音转文字，`providers.openai.tts` 用于语音模式的文字转语音。由于两者独立解析，你可以把 STT 和 TTS 指向不同的端点。未设置时，各自先退回到 `providers.openai.apiKey`/`baseUrl`，再退回到 `OPENAI_API_KEY`/`OPENAI_BASE_URL`。这些设置只配置 Pimi 的 OpenAI 语音流量，不会改变 Codex 或其他基于 OpenAI 的工具。
 
-Paseo 在配置的 OpenAI base URL 下使用以下路径：
+Pimi 在配置的 OpenAI base URL 下使用以下路径：
 
 - 口述 STT：`/v1/audio/transcriptions`
 - 语音模式 STT：`/v1/audio/transcriptions`

@@ -1,6 +1,6 @@
 import path from "node:path";
 import { readFileSync } from "node:fs";
-import type { TerminalActivity } from "@getpaseo/protocol/terminal-activity";
+import type { TerminalActivity } from "@pimi/protocol/terminal-activity";
 import { connectDaemonClient } from "./daemon-client-loader";
 import { withProjectOwnership } from "./project-ownership";
 import { createTempDirectory, createTempGitRepo } from "./workspace";
@@ -29,9 +29,9 @@ interface SeedProjectDescriptor {
  */
 export interface SeedDaemonClient {
   patchDaemonConfig(
-    config: import("@getpaseo/protocol/messages").MutableDaemonConfigPatch,
-  ): Promise<{ config: import("@getpaseo/protocol/messages").MutableDaemonConfig }>;
-  getDaemonConfig(): Promise<{ config: import("@getpaseo/protocol/messages").MutableDaemonConfig }>;
+    config: import("@pimi/protocol/messages").MutableDaemonConfigPatch,
+  ): Promise<{ config: import("@pimi/protocol/messages").MutableDaemonConfig }>;
+  getDaemonConfig(): Promise<{ config: import("@pimi/protocol/messages").MutableDaemonConfig }>;
   connect(): Promise<void>;
   close(): Promise<void>;
   addProject(cwd: string): Promise<{
@@ -161,7 +161,7 @@ export interface SeedDaemonClient {
   ): Promise<void>;
   listAgentBackgroundWork(
     agentId: string,
-  ): Promise<import("@getpaseo/client").PaseoAgentBackgroundWorkItem[]>;
+  ): Promise<import("@pimi/client").PaseoAgentBackgroundWorkItem[]>;
   waitForFinish(
     agentId: string,
     timeout?: number,

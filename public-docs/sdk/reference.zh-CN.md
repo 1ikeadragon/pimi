@@ -1,12 +1,12 @@
 ---
 title: SDK API 参考
-description: "@getpaseo/client 的公开配置、方法、句柄、结果、默认值和生命周期行为。"
+description: "@pimi/client 的公开配置、方法、句柄、结果、默认值和生命周期行为。"
 nav: API 参考
 ---
 
 # SDK API 参考 {#sdk-api-reference}
 
-所有受支持的运行时值和 TypeScript 类型都从 `@getpaseo/client` 导入。
+所有受支持的运行时值和 TypeScript 类型都从 `@pimi/client` 导入。
 
 ## `createPaseoClient(config)` {#createpaseoclientconfig}
 
@@ -31,7 +31,7 @@ nav: API 参考
 | `reconnect.maxDelayMs`  | `number`      | 客户端默认值 | 重连的最大延迟。                          |
 | `logger`                | `PaseoLogger` | 未设置       | 接收 debug、info、warning 和 error 日志。 |
 
-使用中继端到端加密的客户端还可以传入 `e2ee.enabled` 和 `e2ee.daemonPublicKeyB64`。`appVersion`、`runtimeGeneration` 和运行时指标选项供 Paseo 自己的客户端界面使用；普通集成可以省略它们。
+使用中继端到端加密的客户端还可以传入 `e2ee.enabled` 和 `e2ee.daemonPublicKeyB64`。`appVersion`、`runtimeGeneration` 和运行时指标选项供 Pimi 自己的客户端界面使用；普通集成可以省略它们。
 
 ## 客户端生命周期 {#client-lifecycle}
 
@@ -129,14 +129,14 @@ nav: API 参考
 
 ## `client.workspaces` {#clientworkspaces}
 
-| 方法                     | 结果                          | 行为                                                                                                      |
-| ------------------------ | ----------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `list(options?)`         | `PaseoWorkspaceListResult`    | 列出、过滤、分页或订阅工作区目录。                                                                        |
-| `open(cwd)`              | `PaseoWorkspaceHandle`        | 复用某个目录的活动工作区，或创建一个。                                                                    |
-| `create(options)`        | `PaseoWorkspaceHandle`        | 总是创建一个新的、由目录或 Paseo worktree 支撑的工作区。`background: true` 会把它从默认的发现结果中隐藏。 |
-| `ref(workspaceOrId)`     | `PaseoWorkspaceHandle`        | 创建一个本地句柄。                                                                                        |
-| `archive(workspaceOrId)` | `PaseoWorkspaceArchiveResult` | 无需先创建句柄即可归档。                                                                                  |
-| `subscribe(handler)`     | 取消订阅函数                  | 此 API 实例的本地监听器。需要一个由你持有的 `list({ subscribe: {} })` 观察。                              |
+| 方法                     | 结果                          | 行为                                                                                                     |
+| ------------------------ | ----------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `list(options?)`         | `PaseoWorkspaceListResult`    | 列出、过滤、分页或订阅工作区目录。                                                                       |
+| `open(cwd)`              | `PaseoWorkspaceHandle`        | 复用某个目录的活动工作区，或创建一个。                                                                   |
+| `create(options)`        | `PaseoWorkspaceHandle`        | 总是创建一个新的、由目录或 Pimi worktree 支撑的工作区。`background: true` 会把它从默认的发现结果中隐藏。 |
+| `ref(workspaceOrId)`     | `PaseoWorkspaceHandle`        | 创建一个本地句柄。                                                                                       |
+| `archive(workspaceOrId)` | `PaseoWorkspaceArchiveResult` | 无需先创建句柄即可归档。                                                                                 |
+| `subscribe(handler)`     | 取消订阅函数                  | 此 API 实例的本地监听器。需要一个由你持有的 `list({ subscribe: {} })` 观察。                             |
 
 `create({ source, agent, background })` 会同时创建一个工作区及其初始 Agent。`agent` 接受除 `worktree`、`git`、`onEvent`、`idempotencyKey` 和 `requestId` 之外的 Agent 创建选项。请在工作区选项上设置 `background`；`agent.background` 会被拒绝。见[一次性创建的示例](./agents.md#run-work-in-a-background-workspace)。
 
@@ -180,7 +180,7 @@ nav: API 参考
 
 capture 接受可选的 `start`、`end`、`stripAnsi` 和 `requestId`。行范围从零开始、包含两端，跨越回滚缓冲区和视口。负数范围从末尾开始计数；省略范围时捕获所有行。`stripAnsi` 默认为 `true`。终端不存在时返回空行。
 
-使用 `workspace.terminals.create(options?)` 和 `workspace.terminals.list(options?)` 可以从句柄提供工作区 ID。创建接受除 `workspaceId` 之外的相同选项；列表只接受 `requestId`。插件通过 `usePaseo()` 和处理函数的 `paseo` context 获得这些方法。
+使用 `workspace.terminals.create(options?)` 和 `workspace.terminals.list(options?)` 可以从句柄提供工作区 ID。创建接受除 `workspaceId` 之外的相同选项；列表只接受 `requestId`。插件通过 `usePimi()` 和处理函数的 `paseo` context 获得这些方法。
 
 ## `client.providers` {#clientproviders}
 

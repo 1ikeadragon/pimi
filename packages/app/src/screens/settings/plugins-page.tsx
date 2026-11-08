@@ -1,11 +1,11 @@
-import { formatPluginInstallation } from "@getpaseo/protocol/plugin-source-reference";
+import { formatPluginInstallation } from "@pimi/protocol/plugin-source-reference";
 import { PluginSettingsButton } from "@/plugins/settings";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { useMutation } from "@tanstack/react-query";
-import type { PluginListItem, PluginLogEntry } from "@getpaseo/protocol/messages";
+import type { PluginListItem, PluginLogEntry } from "@pimi/protocol/messages";
 import { MoreHorizontal, Trash2 } from "lucide-react-native";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
 import { SettingsCard, SettingsRow } from "@/components/settings";
@@ -33,7 +33,8 @@ import { pluginDisplayName, usePluginList } from "@/plugins/plugin-list";
 import { settingsStyles } from "@/styles/settings";
 import { confirmDialog } from "@/utils/confirm-dialog";
 
-const PLUGIN_SOURCE_DOCS_URL = "https://paseo.sh/docs/plugins/reference#plugin-sources";
+const PLUGIN_SOURCE_DOCS_URL =
+  "https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/reference.md#plugin-sources";
 type PluginRowAction = "reload" | "enable" | "disable" | "remove";
 
 function errorMessage(error: unknown): string {

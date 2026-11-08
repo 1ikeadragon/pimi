@@ -40,7 +40,7 @@ describe("daemon agent skill selection", () => {
     await store.set({ mode: "custom", skills: ["paseo-loop", "paseo", "paseo"] });
     expect(loadPersistedConfig(root).agents?.skills?.selection).toEqual({
       mode: "custom",
-      skills: ["paseo", "paseo-loop"],
+      skills: ["paseo-loop", "pimi"],
     });
   });
 

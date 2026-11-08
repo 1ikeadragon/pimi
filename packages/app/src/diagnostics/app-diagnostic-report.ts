@@ -1,4 +1,4 @@
-import type { ServerInfoStatusPayload } from "@getpaseo/protocol/messages";
+import type { ServerInfoStatusPayload } from "@pimi/protocol/messages";
 import type { HostRuntimeSnapshot } from "@/runtime/host-runtime";
 import type { HostConnection, HostProfile } from "@/types/host-connection";
 

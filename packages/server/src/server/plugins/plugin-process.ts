@@ -6,18 +6,18 @@ import {
   type PluginProcessMessage,
   type PluginProcessRequest,
 } from "./plugin-process-protocol.js";
-import type { UsageSourceRegistration } from "@getpaseo/plugin/server/usage";
+import type { UsageSourceRegistration } from "@pimi/plugin/server/usage";
 import type {
   SettingsDefinition,
   PluginRpcContract,
   PluginSubscriptionContract,
-} from "@getpaseo/plugin";
+} from "@pimi/plugin";
 import type {
   PluginHandlerContext,
   PluginServerContext,
   PluginServerContribution,
-} from "@getpaseo/plugin/server";
-import { assertPluginWireValue } from "@getpaseo/protocol/binary-frames/index";
+} from "@pimi/plugin/server";
+import { assertPluginWireValue } from "@pimi/protocol/binary-frames/index";
 import {
   PluginSubscriptionHandlers,
   type PluginSubscriptionHandler,
@@ -29,9 +29,9 @@ import {
   type ProviderConnection,
   type ProviderRegistration,
   ProviderStatusSchema,
-} from "@getpaseo/plugin/server/provider";
-import { createPaseoApi, type PaseoApi } from "@getpaseo/client";
-import { DaemonClient } from "@getpaseo/client/internal/daemon-client";
+} from "@pimi/plugin/server/provider";
+import { createPaseoApi, type PaseoApi } from "@pimi/client";
+import { DaemonClient } from "@pimi/client/internal/daemon-client";
 import { createPluginDaemonTransportFactory } from "./daemon-transport.js";
 import { createPluginClientId } from "./plugin-session-identity.js";
 
@@ -591,7 +591,7 @@ export function createPluginWorker(options: {
       .parseAsync(message.input)
       .then((input) => {
         if (!paseo) throw new Error("Plugin Paseo API is unavailable");
-        return registered.handler(input, { paseo });
+        return registered.handler(input, { pimi: paseo, paseo });
       })
       .then((output: unknown) => {
         assertPluginWireValue(output, "output");

@@ -1,4 +1,4 @@
-import { MAX_RELAY_WEBSOCKET_MESSAGE_BYTES } from "@getpaseo/protocol/websocket-message-limit";
+import { MAX_RELAY_WEBSOCKET_MESSAGE_BYTES } from "@pimi/protocol/websocket-message-limit";
 import { resolve, dirname, basename } from "path";
 import {
   open as openFile,
@@ -13,9 +13,9 @@ import {
 import { tmpdir } from "node:os";
 import { setImmediate } from "node:timers/promises";
 import { TTLCache } from "@isaacs/ttlcache";
-import type { CheckoutCommit, CheckoutCommitFile } from "@getpaseo/protocol/messages";
-import { parseGitHubRemoteIdentity, parseGitRemoteLocation } from "@getpaseo/protocol/git-remote";
-import { maxSecuredPlaintextByteLength } from "@getpaseo/relay";
+import type { CheckoutCommit, CheckoutCommitFile } from "@pimi/protocol/messages";
+import { parseGitHubRemoteIdentity, parseGitRemoteLocation } from "@pimi/protocol/git-remote";
+import { maxSecuredPlaintextByteLength } from "@pimi/relay";
 import type { Logger } from "pino";
 import type { ParsedDiffFile } from "../server/utils/diff-highlighter.js";
 import {

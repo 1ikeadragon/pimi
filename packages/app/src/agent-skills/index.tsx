@@ -4,7 +4,7 @@ import { Text, View } from "react-native";
 import { useFocusEffect } from "expo-router/react-navigation";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { Settings2 } from "lucide-react-native";
-import type { AgentSkillOperation, AgentSkillsStatus } from "@getpaseo/protocol/messages";
+import type { AgentSkillOperation, AgentSkillsStatus } from "@pimi/protocol/messages";
 import type { TFunction } from "i18next";
 import { SettingsCard, SettingsRow, SettingsSection } from "@/components/settings";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ const OP_KIND_ORDER: Record<AgentSkillOperation["kind"], number> = {
   delete: 2,
 };
 const ThemedSettings = withUnistyles(Settings2);
-const SKILLS_DOCS_URL = "https://paseo.sh/docs/skills";
+const SKILLS_DOCS_URL = "https://github.com/1ikeadragon/pimi/blob/main/docs/plugins.md";
 const mutedMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
 function formatUpdateMessage(ops: readonly AgentSkillOperation[], t: TFunction): string {

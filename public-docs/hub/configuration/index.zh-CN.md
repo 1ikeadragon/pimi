@@ -6,7 +6,7 @@ nav: 配置
 
 # Hub 配置 {#hub-configuration}
 
-每个组织触发器都是一个自包含的 YAML 文件。把触发器保存在你的仓库中，并用 `paseo hub deploy` 部署：
+每个组织触发器都是一个自包含的 YAML 文件。把触发器保存在你的仓库中，并用 `pimi hub deploy` 部署：
 
 ```text
 .paseo/
@@ -16,7 +16,7 @@ nav: 配置
 
 ## 生成的起步触发器 {#generated-starter-trigger}
 
-在 Agent 要工作的仓库中运行 `paseo hub init`。设置流程会选择一个应用连接和一个可用的 Agent 运行时，询问哪个用户可以触发它，校验结果并写入一个文件，然后询问是否部署。交互式的 `paseo hub login` 会连接 daemon 并提示你运行这条命令；它不会写入触发器文件。
+在 Agent 要工作的仓库中运行 `pimi hub init`。设置流程会选择一个应用连接和一个可用的 Agent 运行时，询问哪个用户可以触发它，校验结果并写入一个文件，然后询问是否部署。交互式的 `pimi hub login` 会连接 daemon 并提示你运行这条命令；它不会写入触发器文件。
 
 对于名为 `my-team` 的 Slack 连接，生成的文档如下：
 
@@ -84,9 +84,9 @@ run:
 在仓库根目录运行：
 
 ```sh
-paseo hub login https://hub.example.com
-paseo hub deploy --dry-run
-paseo hub deploy
+pimi hub login https://hub.example.com
+pimi hub deploy --dry-run
+pimi hub deploy
 ```
 
 两条部署命令都会按确定的路径顺序发现直接位于 `.paseo/triggers/*.yml` 的文件。CLI 会拒绝嵌套的文件、`.yaml` 扩展名、符号链接的触发器路径以及无法读取的文件。它不会搜索上级目录。
@@ -96,14 +96,13 @@ dry-run 会让 Hub 校验每个文档，但不保存版本。部署会先校验�
 地址的优先级：
 
 1. `--hub`
-2. `PASEO_HUB_URL`
+2. `PIMI_HUB_URL`
 3. 当前保存的登录
-4. `https://hub.paseo.sh`
 
 凭据的优先级：
 
 1. `--api-key`
-2. `PASEO_HUB_API_KEY`
+2. `PIMI_HUB_API_KEY`
 3. 与最终解析出的地址完全一致的已保存登录
 
 参数和环境变量中的密钥不会被保存。端点和凭据的行为在 deploy 和 dry-run 之间完全一致。
@@ -115,11 +114,11 @@ dry-run 会让 Hub 校验每个文档，但不保存版本。部署会先校验�
 显式选择旧版部署方式：
 
 ```sh
-paseo hub deploy --project my-project --dry-run
-paseo hub deploy --project my-project
+pimi hub deploy --project my-project --dry-run
+pimi hub deploy --project my-project
 ```
 
-这些命令会通过项目配置 API 发送完整的配置包。dry-run 只做校验，不会记录或激活版本。`paseo hub init` 不会创建或迁移这些配置包。
+这些命令会通过项目配置 API 发送完整的配置包。dry-run 只做校验，不会记录或激活版本。`pimi hub init` 不会创建或迁移这些配置包。
 
 以下关于来源和版本的行为适用于旧版项目配置包。
 

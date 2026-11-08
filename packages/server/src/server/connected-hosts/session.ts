@@ -1,9 +1,9 @@
-import { encodeHostRouteFrame, type HostRouteFrame } from "@getpaseo/protocol/binary-frames/index";
+import { encodeHostRouteFrame, type HostRouteFrame } from "@pimi/protocol/binary-frames/index";
 import type {
   SessionInboundMessage,
   SessionOutboundMessage,
   DaemonPermission,
-} from "@getpaseo/protocol/messages";
+} from "@pimi/protocol/messages";
 import { ConnectedHosts, HostError, type HostActor } from "./index.js";
 import type { SessionDelivery } from "../session/owned-subscriptions/index.js";
 

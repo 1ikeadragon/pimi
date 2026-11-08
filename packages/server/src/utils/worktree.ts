@@ -11,7 +11,7 @@ import {
   buildStringCommandShellInvocation,
   createStringCommandShellEnv,
 } from "./string-command-shell.js";
-import { readPaseoConfig } from "./paseo-config-file.js";
+import { inspectProjectConfig, readPaseoConfig } from "./paseo-config-file.js";
 export {
   PaseoConfigRawSchema,
   PaseoLifecycleCommandRawSchema,
@@ -20,8 +20,8 @@ export {
   PaseoConfigSchema,
   type PaseoConfig,
   type PaseoConfigRaw,
-} from "@getpaseo/protocol/paseo-config-schema";
-import { type PaseoConfig } from "@getpaseo/protocol/paseo-config-schema";
+} from "@pimi/protocol/paseo-config-schema";
+import { type PaseoConfig } from "@pimi/protocol/paseo-config-schema";
 import {
   createPaseoWorktreeChangeRequestHint,
   hasPaseoWorktreeMetadata,
@@ -48,7 +48,7 @@ import {
 } from "./path.js";
 import { terminateWithTreeKill } from "./tree-kill.js";
 
-export { slugify, validateBranchSlug } from "@getpaseo/protocol/branch-slug";
+export { slugify, validateBranchSlug } from "@pimi/protocol/branch-slug";
 
 const execFileAsync = promisify(execFile);
 const READ_ONLY_GIT_ENV = {
@@ -790,9 +790,10 @@ export async function seedPaseoConfigFile(options: {
   sourceCwd: string;
   targetCwd: string;
 }): Promise<void> {
-  const sourceConfigPath = join(options.sourceCwd, "paseo.json");
-  const targetConfigPath = join(options.targetCwd, "paseo.json");
-  await copyFile(sourceConfigPath, targetConfigPath, fsConstants.COPYFILE_EXCL).catch((error) => {
+  const source = await inspectProjectConfig(options.sourceCwd);
+  if (!source || (await inspectProjectConfig(options.targetCwd))) return;
+  const targetConfigPath = join(options.targetCwd, basename(source.path));
+  await copyFile(source.path, targetConfigPath, fsConstants.COPYFILE_EXCL).catch((error) => {
     const code = (error as NodeJS.ErrnoException).code;
     if (code !== "EEXIST" && code !== "ENOENT") throw error;
   });

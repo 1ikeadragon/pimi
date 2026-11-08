@@ -1,6 +1,6 @@
 ---
 title: Build a provider plugin
-description: Add a coding agent to Paseo directly or adapt an ACP agent.
+description: Add a coding agent to Pimi directly or adapt an ACP agent.
 nav: Provider plugins
 order: 46
 category: Plugins
@@ -8,10 +8,10 @@ category: Plugins
 
 # Build a provider plugin
 
-Start with the [plugin quickstart](/docs/plugins) if you have not built a Paseo plugin before.
+Start with the [plugin quickstart](/docs/plugins) if you have not built a Pimi plugin before.
 
-A provider plugin connects a coding agent to Paseo without adding it to Paseo core. [Publish the plugin](/docs/plugins/publishing) on npm or in a Git repository so users can
-install it with `paseo plugin install`.
+A provider plugin connects a coding agent to Pimi without adding it to Pimi core. [Publish the plugin](/docs/plugins/publishing) on npm or in a Git repository so users can
+install it with `pimi plugin install`.
 
 Choose one implementation path:
 
@@ -22,9 +22,9 @@ Choose one implementation path:
 
 The examples are:
 
-- [`provider-direct`](https://github.com/getpaseo/paseo/tree/main/plugin-examples/provider-direct): sessions, settings, prompts, persistence, child sessions, and a provider-owned timeline renderer;
-- [`provider-acp-transformer`](https://github.com/getpaseo/paseo/tree/main/plugin-examples/provider-acp-transformer): an ACP command template with a Zod-validated vendor edit transformer. Replace `example-acp --stdio` with an installed ACP agent before loading it;
-- [`inline-thinking`](https://github.com/getpaseo/paseo/tree/main/plugin-examples/inline-thinking): a renderer-only plugin that does not implement a provider.
+- [`provider-direct`](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/provider-direct): sessions, settings, prompts, persistence, child sessions, and a provider-owned timeline renderer;
+- [`provider-acp-transformer`](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/provider-acp-transformer): an ACP command template with a Zod-validated vendor edit transformer. Replace `example-acp --stdio` with an installed ACP agent before loading it;
+- [`inline-thinking`](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/inline-thinking): a renderer-only plugin that does not implement a provider.
 
 ## Register a direct provider
 
@@ -32,7 +32,7 @@ Add a server entry:
 
 ```ts
 // index.server.ts
-import type { PluginServerContext } from "@getpaseo/plugin/server";
+import type { PluginServerContext } from "@pimi/plugin/server";
 import { createProvider } from "./server/provider";
 
 export default function contribute(server: PluginServerContext) {
@@ -47,7 +47,7 @@ export default function contribute(server: PluginServerContext) {
 import {
   negotiateProviderCapabilities,
   type ProviderRegistration,
-} from "@getpaseo/plugin/server/provider";
+} from "@pimi/plugin/server/provider";
 
 const supported = ["prompt.message"] as const;
 
@@ -75,7 +75,7 @@ to `ProviderEvent` objects before publishing it.
 
 ## Launch the provider CLI
 
-Use `spawnProcess` and `execCommand` from `@getpaseo/plugin/server` for process transports
+Use `spawnProcess` and `execCommand` from `@pimi/plugin/server` for process transports
 and CLI probes. Both handle Windows `.cmd`/`.bat` launchers and quote shell arguments.
 Raw Node `spawn` and `execFile` reject those launchers on Windows.
 
@@ -86,7 +86,7 @@ shutdown; use `terminateProcess(child)` for a forced stop. It kills the process 
 including the CLI behind a command-script launcher. Bound your final wait for closed streams.
 
 ```ts
-import { spawnProcess, execCommand } from "@getpaseo/plugin/server";
+import { spawnProcess, execCommand } from "@pimi/plugin/server";
 
 const child = spawnProcess(launch.command, [...launch.args, "serve"], {
   env: launch.env,
@@ -101,7 +101,7 @@ const { stdout } = await execCommand(launch.command, [...launch.args, "--version
 
 ## Return models, modes, and thinking options
 
-Paseo requests the catalog before creating a session. Return the choices needed by the agent form:
+Pimi requests the catalog before creating a session. Return the choices needed by the agent form:
 
 ```ts
 if (input.type === "catalog") {
@@ -223,7 +223,7 @@ emit({ type: "session.turn", sessionId, turnId, state: "completed" });
 ```
 
 Publish exactly one `session.prompt_result` for each `clientMessageId`. Copy `clientMessageId` onto
-the user timeline item so Paseo replaces its optimistic message. Every started turn needs one
+the user timeline item so Pimi replaces its optimistic message. Every started turn needs one
 terminal `completed`, `failed`, or `canceled` event.
 
 At this point the provider is usable: users can select a model, open a session, send a message, and
@@ -265,34 +265,34 @@ emit({
 });
 ```
 
-Paseo renders these controls in the composer. A user change arrives as `session.configure`; apply it
+Pimi renders these controls in the composer. A user change arrives as `session.configure`; apply it
 and publish the committed `session.config` before `request.completed`. The provider may change the
 available controls at runtime, including after a model change.
 
 `settings` are user-facing controls. `providerOptions` is opaque JSON supplied at session creation
-for provider-specific configuration that Paseo does not render. A provider-specific token budget
+for provider-specific configuration that Pimi does not render. A provider-specific token budget
 belongs in one of those two places; it is not a dedicated prompt field.
 
 ## Add persistence and replay
 
 Advertise `session.persistence` when a native session can be reopened. Open a new native session
 when `session.open.persistence` is absent. Resume the identified native session when it is present.
-Return an opaque persistence value in `session.opened` or `session.persistence`; Paseo stores it
+Return an opaque persistence value in `session.opened` or `session.persistence`; Pimi stores it
 without inspecting it.
 
 When `history` is `"replay"`, publish the native session's existing `timeline.item` snapshots before
 `session.ready`. Use `history: "skip"` to open without replaying old rows.
 
-Paseo refreshes an agent by closing its current provider session and opening it again with current
+Pimi refreshes an agent by closing its current provider session and opening it again with current
 configuration and persistence. Re-read credentials, environment, global configuration, and MCP
 servers during `session.open`. There is no separate reload operation.
 
 Conversation and combined rewind require a core-restored session with persistence. After a
-successful rewind, Paseo closes the session and reopens its latest persistence value with
+successful rewind, Pimi closes the session and reopens its latest persistence value with
 `history: "replay"`. Publish the retained native branch before `session.ready`, including its
 children. File-only rewind keeps the current session and conversation history.
 
-Use `restoration: "core"` when Paseo can reopen a session from persistence. A provider-owned child
+Use `restoration: "core"` when Pimi can reopen a session from persistence. A provider-owned child
 uses `restoration: "parent"`; emit it as another `session.opened` event with `parentSessionId` and
 recreate it while restoring the parent.
 
@@ -308,12 +308,12 @@ All user input arrives through `session.prompt`:
 Publish `session.commands` to add structured commands to the composer. A command can start a normal
 turn or finish as a side effect with a `completed` prompt result.
 
-Advertise only capabilities you implement. If steering is unsupported, omit `prompt.steer`; Paseo
+Advertise only capabilities you implement. If steering is unsupported, omit `prompt.steer`; Pimi
 can replace the active turn instead.
 
 ## Permit idle runtime cleanup
 
-Paseo can release an idle resumable session after one hour when its daemon baseline allows cleanup.
+Pimi can release an idle resumable session after one hour when its daemon baseline allows cleanup.
 Add a provider-owned veto by advertising `session.can_stop_runtime` on the connection and the
 session's `session.opened` capabilities. Without this capability, the same baseline and one-hour
 idle period apply, and the plugin receives no safety request.
@@ -349,10 +349,10 @@ queued completion reports, or pending autonomous replies. This query must not st
 session. Return `false` while work remains. A rejected query, invalid response, or timeout also
 keeps the runtime alive. Never respond with `request.completed` for this query.
 
-Paseo always checks foreground work, permissions, queued deliveries, lifecycle operations,
+Pimi always checks foreground work, permissions, queued deliveries, lifecycle operations,
 working managed/native descendants, and outstanding local or remote finish subscriptions for the
 caller. Subscription protection lasts through registration, recovery and notification dispatch
-acknowledgment. A positive provider response never overrides these blockers. Paseo rechecks
+acknowledgment. A positive provider response never overrides these blockers. Pimi rechecks
 activity before the existing `session.close` operation. After protected work finishes, a fresh
 one-hour idle period starts. The saved provider persistence must resume the same conversation.
 The host setting `agents.idleRuntimeCleanup: false` disables collection for every provider.
@@ -360,7 +360,7 @@ The host setting `agents.idleRuntimeCleanup: false` disables collection for ever
 ## Publish timeline items
 
 Publish complete snapshots through `timeline.item`. Reuse an item `id` when updating streamed text,
-a running tool, or a todo list. Paseo derives the live delta and keeps the normal timeline.
+a running tool, or a todo list. Pimi derives the live delta and keeps the normal timeline.
 
 Built-in item types cover user and assistant messages, reasoning, tools, todos, errors,
 notifications, and compaction. Use a plugin item when your provider has a presentation that those
@@ -384,7 +384,7 @@ emit({
 Register the renderer independently in `index.client.tsx`:
 
 ```tsx
-import type { PluginClientContext } from "@getpaseo/plugin/client";
+import type { PluginClientContext } from "@pimi/plugin/client";
 import { z } from "zod";
 import { ReviewVerdict } from "./client/review-verdict";
 
@@ -412,8 +412,8 @@ daemon timeline append. A renderer does not require a provider implementation.
 Use the ACP shim when the agent already speaks ACP:
 
 ```ts
-import type { PluginServerContext } from "@getpaseo/plugin/server";
-import { runAcpProvider } from "@getpaseo/plugin/server/acp";
+import type { PluginServerContext } from "@pimi/plugin/server";
+import { runAcpProvider } from "@pimi/plugin/server/acp";
 
 export default function contribute(server: PluginServerContext) {
   server.registerProvider(
@@ -435,7 +435,7 @@ Use `transformers` only for vendor differences ACP cannot describe. Validate ven
 Zod and leave malformed or unrelated values unchanged:
 
 ```ts
-import type { AcpTransformer } from "@getpaseo/plugin/server/acp";
+import type { AcpTransformer } from "@pimi/plugin/server/acp";
 import { z } from "zod";
 
 const editSchema = z.object({

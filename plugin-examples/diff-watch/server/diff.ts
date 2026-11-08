@@ -1,6 +1,6 @@
 import { watch } from "node:fs";
-import type { SubscriptionInput } from "@getpaseo/plugin";
-import { execCommand } from "@getpaseo/plugin/server";
+import type { SubscriptionInput } from "@pimi/plugin";
+import { execCommand } from "@pimi/plugin/server";
 import type { ChangedFile, diffWatch } from "../shared/diff";
 
 const SETTLE_MS = 150;

@@ -1,6 +1,6 @@
 ---
 title: Hub FAQ
-description: Common questions about projects, connections, configuration, and daemons in Paseo Hub.
+description: Common questions about projects, connections, configuration, and daemons in Hub.
 nav: FAQ
 order: 78
 category: Hub
@@ -8,9 +8,9 @@ category: Hub
 
 # Hub FAQ
 
-## Do I need Hub to use Paseo?
+## Do I need Hub to use Pimi?
 
-No. Paseo runs agents on your machines without it. Hub adds what a single daemon cannot do on its own: starting agents from external activity, versioned configuration, a shared record of what ran, and team access.
+No. Pimi runs agents on your machines without it. Hub adds what a single daemon cannot do on its own: starting agents from external activity, versioned configuration, a shared record of what ran, and team access.
 
 ## Can one organization connect several GitHub organizations?
 
@@ -48,7 +48,7 @@ Dispatch fails and the event is recorded as failed. Nothing is queued, so trigge
 
 ## Does logging out disconnect my daemon?
 
-No. The stored CLI login is a human organization credential; the enrolled daemon has its own relationship credential. Interactive `paseo hub logout` offers to disconnect a daemon related to the same Hub. Declining is normal, and JSON or noninteractive logout never disconnects unless you pass `--disconnect-daemon`.
+No. The stored CLI login is a human organization credential; the enrolled daemon has its own relationship credential. Interactive `pimi hub logout` offers to disconnect a daemon related to the same Hub. Declining is normal, and JSON or noninteractive logout never disconnects unless you pass `--disconnect-daemon`.
 
 ## Can an agent reply back to Slack or Discord?
 

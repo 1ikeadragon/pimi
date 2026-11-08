@@ -13,7 +13,7 @@ import {
   type TerminalInputModeState,
   TerminalInputModeTracker,
   terminalInputModeStatesEqual,
-} from "@getpaseo/protocol/terminal-input-mode";
+} from "@pimi/protocol/terminal-input-mode";
 import {
   type PendingTerminalModifiers,
   hasPendingTerminalModifiers,
@@ -927,7 +927,7 @@ export class TerminalEmulatorRuntime {
     onFilePaste?.(file);
   }
 
-  replay(event: import("@getpaseo/client").TerminalReplayEvent): void {
+  replay(event: import("@pimi/client").TerminalReplayEvent): void {
     if (event.type === "begin") {
       this.replayResize ??= { shouldClaim: false };
       this.restoreOutput({ data: EMPTY_TERMINAL_OUTPUT, rows: event.rows, cols: event.cols });

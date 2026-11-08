@@ -1,38 +1,3 @@
 extends: ./electron-builder.yml
-appId: com.pimi.desktop
-productName: Pimi
-executableName: Pimi
-extraMetadata:
-  productName: Pimi
 directories:
   output: release-pimi
-publish: null
-files:
-  # Pimi uses the user's Claude executable. Keep the SDK library without its optional CLI binaries.
-  - "!node_modules/@anthropic-ai/claude-agent-sdk-*/**"
-protocols:
-  - name: Pimi agent link
-    schemes:
-      - paseo
-mac:
-  icon: assets/pimi-icon.icns
-  extraResources:
-    - from: assets/pimi-icon.png
-      to: pimi-icon.png
-    - from: ../../LICENSE
-      to: LICENSE
-  extendInfo:
-    NSMicrophoneUsageDescription: Pimi uses the microphone for voice commands, dictation, and chat Voice Mode.
-  artifactName: "Pimi-${version}-${arch}.${ext}"
-  # Ad-hoc preview signatures have no team ID for hardened runtime library validation.
-  hardenedRuntime: false
-  notarize: false
-  identity: "-"
-win:
-  icon: assets/pimi-icon.png
-  artifactName: "Pimi-Setup-${version}-${arch}.${ext}"
-  extraResources:
-    - from: assets/pimi-icon.png
-      to: pimi-icon.png
-    - from: ../../LICENSE
-      to: LICENSE

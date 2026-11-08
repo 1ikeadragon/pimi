@@ -228,7 +228,7 @@ export class OpenCodeV2Session implements AgentSession {
     await this.connection
       .unbindSession(this.id, this.config.cwd)
       .catch((error: unknown) =>
-        this.logger.warn({ error }, "Could not unbind the OpenCode Paseo bridge"),
+        this.logger.warn({ error }, "Could not unbind the OpenCode Pimi bridge"),
       );
     const next = await this.acquire();
     if (this.closed) {
@@ -602,7 +602,7 @@ export class OpenCodeV2Session implements AgentSession {
     await this.connection
       .unbindSession(this.id, this.config.cwd)
       .catch((error: unknown) =>
-        this.logger.warn({ error }, "Could not unbind the OpenCode Paseo bridge"),
+        this.logger.warn({ error }, "Could not unbind the OpenCode Pimi bridge"),
       );
     this.unbind?.();
     try {

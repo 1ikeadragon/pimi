@@ -1,4 +1,4 @@
-import type { PluginServerContext } from "@getpaseo/plugin/server";
+import type { PluginServerContext } from "@pimi/plugin/server";
 import { readChangedFiles, watchDirectory } from "./server/diff";
 import { diffWatch } from "./shared/diff";
 

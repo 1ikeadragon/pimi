@@ -5,7 +5,7 @@ Pod::Spec.new do |s|
   s.description = 'Publishes system bar and division geometry'
   s.license = 'Apache-2.0'
   s.author = 'Paseo'
-  s.homepage = 'https://paseo.sh'
+  s.homepage = 'https://1ikeadragon.github.io/pimi/'
   s.platforms = { :ios => '16.4' }
   s.swift_version = '5.4'
   s.source = { :path => '.' }

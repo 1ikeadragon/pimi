@@ -2,8 +2,8 @@ import type {
   ResolvedPluginButtonBehavior as PluginButtonBehavior,
   ResolvedPluginButtonMenuEntry as PluginButtonMenuEntry,
 } from "./validation";
-import type { PluginButtonIcon, PluginHostProps } from "@getpaseo/plugin/client";
-import type { PluginTheme } from "@getpaseo/plugin";
+import type { PluginButtonIcon, PluginHostProps } from "@pimi/plugin/client";
+import type { PluginTheme } from "@pimi/plugin";
 import {
   useCallback,
   useMemo,

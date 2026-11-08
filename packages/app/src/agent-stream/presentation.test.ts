@@ -1,4 +1,4 @@
-import { PluginTranslationRuntime } from "@getpaseo/plugin/client/host";
+import { PluginTranslationRuntime } from "@pimi/plugin/client/host";
 import { runPluginClientBundle, type PluginClientRuntime } from "@/plugins/evaluate";
 import { transformTimelineItem, type TimelineItemTransform } from "@/plugins/timeline/model";
 import type { InstalledPlugin } from "@/plugins/types";
@@ -10,7 +10,7 @@ import {
   type ToolCallItem,
   type UserMessageItem,
 } from "@/types/stream";
-import type { AgentStreamEventPayload } from "@getpaseo/protocol/messages";
+import type { AgentStreamEventPayload } from "@pimi/protocol/messages";
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 import { buildAgentStreamRenderModel } from "./model";
