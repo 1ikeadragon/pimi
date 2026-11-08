@@ -412,6 +412,7 @@ export interface AgentManagerOptions {
     agent: ManagedAgent,
     prompt: string,
   ) => Promise<string>;
+  isAutoNamingEnabled?: () => boolean;
   timelineStore?: InMemoryAgentTimelineStore;
   durableTimelineStore?: AgentTimelineStore;
   terminalManager?: TerminalManager | null;
@@ -921,6 +922,7 @@ export class AgentManager {
   private onAgentArchived?: AgentArchivedCallback;
   private onWorkspaceStateMayHaveChanged?: (params: { cwd: string }) => void;
   private readonly generateChatTitle?: AgentManagerOptions["generateChatTitle"];
+  private readonly isAutoNamingEnabled?: () => boolean;
   private logger: Logger;
   private readonly rescueTimeouts: Required<AgentManagerRescueTimeouts>;
   private readonly beforeSteerUnavailableFallback?: AgentManagerOptions["beforeSteerUnavailableFallback"];
@@ -936,6 +938,7 @@ export class AgentManager {
     this.onAgentAttention = options?.onAgentAttention;
     this.onWorkspaceStateMayHaveChanged = options?.onWorkspaceStateMayHaveChanged;
     this.generateChatTitle = options.generateChatTitle;
+    this.isAutoNamingEnabled = options.isAutoNamingEnabled;
     this.mcpBaseUrl = options?.mcpBaseUrl ?? null;
     this.mcpAuthToken = options?.mcpAuthToken ?? null;
     this.mcpCallerAuthToken = options.mcpCallerAuthToken;
@@ -5367,13 +5370,20 @@ export class AgentManager {
       if (!initial) return;
       const live = this.agents.get(agent.id);
       if (live) this.emitState(live, { persist: false });
-      if (!this.generateChatTitle || !agent.workspaceId || agent.background) return;
+      if (
+        !this.generateChatTitle ||
+        !agent.workspaceId ||
+        agent.background ||
+        this.isAutoNamingEnabled?.() === false
+      )
+        return;
 
       const title = await this.generateChatTitle(this, agent, prompt);
       const updated = await this.runLifecycleMutation(agent.id, () =>
         registry.updateRecord(agent.id, (current) => {
           // An explicit rename clears the provisional flag even when its text matches the fallback.
           if (
+            this.isAutoNamingEnabled?.() === false ||
             current.archivedAt ||
             current.createdAt !== initial.createdAt ||
             current.title !== initial.title ||

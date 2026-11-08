@@ -113,6 +113,7 @@ async function createPaseoWorktreeWithPriority(
       branch: createdWorktree.worktree.branchName || null,
       baseBranch: createdWorktree.worktree.comparisonBaseRef,
       title: input.title?.trim() || resolveFirstAgentPromptTitle(input.firstAgentContext),
+      titleManuallySet: Boolean(input.title?.trim()),
       expectsInitialAgent: Boolean(input.firstAgentContext),
       background: input.background,
       callerWorkspaceId: input.callerWorkspaceId,
@@ -187,6 +188,7 @@ export async function attemptFirstAgentBranchAutoName(options: {
   getCurrentBranch?: typeof getCurrentBranch;
   renameCurrentBranch?: typeof renameCurrentBranch;
   localBranchExists?: typeof localBranchExists;
+  canRename?: () => boolean;
 }): Promise<AttemptFirstAgentBranchAutoNameResult> {
   const firstAgentContext = options.firstAgentContext;
   if (!firstAgentContext || !buildAgentBranchNameSeed(firstAgentContext)) {
@@ -238,7 +240,7 @@ export async function attemptFirstAgentBranchAutoName(options: {
     placeholderBranchName,
     localBranchExists: localBranchExistsImpl,
   });
-  if (!targetName) {
+  if (!targetName || options.canRename?.() === false) {
     return { attempted: true, renamed: false, branchName: null };
   }
 

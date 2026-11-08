@@ -6,6 +6,7 @@ import type { AgentProvider } from "@pimi/protocol/agent-types";
 import { CombinedModelSelector } from "@/components/combined-model-selector";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Switch } from "@/components/ui/switch";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { useProvidersSnapshot } from "@/hooks/use-providers-snapshot";
 import { buildSelectableProviderSelectorProviders } from "@/provider-selection/provider-selection";
@@ -29,6 +30,7 @@ export function MetadataGenerationPage({ serverId }: { serverId: string }) {
   const savedMode: SelectionMode = configuredProvider ? "preferred" : "automatic";
   const [draftMode, setDraftMode] = useState<SelectionMode | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingAutoNaming, setIsSavingAutoNaming] = useState(false);
   const mode = draftMode ?? savedMode;
 
   useEffect(() => {
@@ -69,6 +71,23 @@ export function MetadataGenerationPage({ serverId }: { serverId: string }) {
       }
     },
     [saveProviders],
+  );
+
+  const setAutoNaming = useCallback(
+    async (autoNaming: boolean) => {
+      setIsSavingAutoNaming(true);
+      try {
+        await patchConfig({ metadataGeneration: { autoNaming } });
+      } catch (error) {
+        Alert.alert(
+          t("settings.metadataGeneration.saveError"),
+          error instanceof Error ? error.message : String(error),
+        );
+      } finally {
+        setIsSavingAutoNaming(false);
+      }
+    },
+    [patchConfig, t],
   );
 
   const handleModelSelect = useCallback(
@@ -149,6 +168,25 @@ export function MetadataGenerationPage({ serverId }: { serverId: string }) {
               serverId={serverId}
               desktopPlacement="bottom-start"
               desktopMinWidth={360}
+            />
+          </View>
+        ) : null}
+        {typeof config.metadataGeneration.autoNaming === "boolean" ? (
+          <View style={[settingsStyles.row, settingsStyles.rowBorder]}>
+            <View style={settingsStyles.rowContent}>
+              <Text style={settingsStyles.rowTitle}>
+                {t("settings.metadataGeneration.autoNaming")}
+              </Text>
+              <Text style={settingsStyles.rowHint}>
+                {t("settings.metadataGeneration.autoNamingHint")}
+              </Text>
+            </View>
+            <Switch
+              value={config.metadataGeneration.autoNaming}
+              disabled={isSavingAutoNaming}
+              onValueChange={setAutoNaming}
+              accessibilityLabel={t("settings.metadataGeneration.autoNaming")}
+              testID="metadata-generation-auto-naming"
             />
           </View>
         ) : null}

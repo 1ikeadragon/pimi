@@ -113,6 +113,7 @@ export class WorkspaceAutoName {
     const result: AttemptFirstAgentBranchAutoNameResult = await attemptFirstAgentBranchAutoName({
       cwd: worktreeRoot,
       firstAgentContext: input.firstAgentContext,
+      canRename: () => this.isEnabled(),
       generateBranchNameFromContext: ({ firstAgentContext }) => {
         return this.generateFromContext({
           cwd: input.workspace.cwd,
@@ -182,9 +183,15 @@ export class WorkspaceAutoName {
   ): Promise<void> {
     await this.workspaceRegistry.update(workspaceId, (current) => {
       let title = current.title;
-      if (!title || (input.promptTitle && title === input.promptTitle)) {
+      if (
+        this.isEnabled() &&
+        !current.archivedAt &&
+        !current.titleManuallySet &&
+        (!title || (input.promptTitle && title === input.promptTitle))
+      ) {
         title = input.title;
       }
+      if (title === current.title && !input.branch) return current;
       return {
         ...current,
         title,
@@ -194,12 +201,13 @@ export class WorkspaceAutoName {
     });
   }
 
-  private generateFromContext(input: {
+  private async generateFromContext(input: {
     cwd: string;
     firstAgentContext: FirstAgentContext;
     currentSelection: CurrentSelection;
   }): Promise<GeneratedWorkspaceName | null> {
-    return this.generateWorkspaceName({
+    if (!this.isEnabled()) return null;
+    const generated = await this.generateWorkspaceName({
       agentManager: this.agentManager,
       cwd: input.cwd,
       workspaceGitService: this.workspaceGitService,
@@ -209,10 +217,16 @@ export class WorkspaceAutoName {
       firstAgentContext: input.firstAgentContext,
       logger: this.logger,
     });
+    return this.isEnabled() ? generated : null;
+  }
+
+  private isEnabled(): boolean {
+    return this.readDaemonConfig().metadataGeneration?.autoNaming !== false;
   }
 
   private schedule(run: () => Promise<void>, context: { cwd: string; message: string }): void {
     setTimeout(() => {
+      if (!this.isEnabled()) return;
       void run().catch((error) => {
         this.logger.warn({ err: error, cwd: context.cwd }, context.message);
       });

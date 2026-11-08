@@ -2374,6 +2374,9 @@ export const ko: TranslationResources = {
     },
     plugins: pluginSettings.ko,
     metadataGeneration: {
+      autoNaming: "채팅과 작업 공간 이름 자동 지정",
+      autoNamingHint:
+        "첫 메시지에서 제목과 새 작업 트리의 브랜치 이름을 생성합니다. 직접 편집한 이름은 유지됩니다.",
       title: "메타데이터 생성",
       description:
         "워크스페이스 제목, 브랜치 이름, 커밋 메시지 및 풀 리퀘스트 초안에 사용할 모델을 선택하세요",

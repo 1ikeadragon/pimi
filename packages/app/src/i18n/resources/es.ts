@@ -2413,6 +2413,9 @@ export const es: TranslationResources = {
     },
     plugins: pluginSettings.es,
     metadataGeneration: {
+      autoNaming: "Nombrar chats y espacios de trabajo automáticamente",
+      autoNamingHint:
+        "Genera títulos y nombres de ramas de nuevos árboles de trabajo a partir del primer mensaje. Se conservan los nombres que edites.",
       title: "Generación de metadatos",
       description:
         "Elige el modelo que Pimi usa para títulos de espacios de trabajo, nombres de ramas, mensajes de commit y borradores de pull requests",

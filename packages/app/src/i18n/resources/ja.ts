@@ -2387,6 +2387,9 @@ export const ja: TranslationResources = {
     },
     plugins: pluginSettings.ja,
     metadataGeneration: {
+      autoNaming: "チャットとワークスペースに自動で名前を付ける",
+      autoNamingHint:
+        "最初のメッセージからタイトルと新しいワークツリーのブランチ名を生成します。編集した名前は維持されます。",
       title: "メタデータ生成",
       description:
         "ワークスペースのタイトル、ブランチ名、コミットメッセージ、プルリクエストの下書きに使用するモデルを選択します",

@@ -490,6 +490,7 @@ export interface PaseoDaemonConfig {
   resumePrompt?: string;
   providerCatalogRefreshTimeoutMs?: number;
   metadataGeneration?: {
+    autoNaming?: boolean;
     providers?: Array<{
       provider: string;
       model?: string;
@@ -592,6 +593,10 @@ function resolveReloadEnv(config: PaseoDaemonConfig): NodeJS.ProcessEnv {
   return config.configReload?.env ?? process.env;
 }
 
+function resolveMetadataGeneration(config: ResolvedDaemonSettings["metadataGeneration"]) {
+  return { providers: config?.providers ?? [], autoNaming: config?.autoNaming !== false };
+}
+
 function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): MutableDaemonConfig {
   const providers = config.providerOverrides ?? {};
 
@@ -612,9 +617,7 @@ function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): Mutab
     usage: { enabled: config.usageEnabled === true },
     browserTools: { enabled: config.browserToolsEnabled ?? false },
     providers,
-    metadataGeneration: {
-      providers: config.metadataGeneration?.providers ?? [],
-    },
+    metadataGeneration: resolveMetadataGeneration(config.metadataGeneration),
     autoArchiveAfterMerge: config.autoArchiveAfterMerge ?? false,
     enableTerminalAgentHooks: config.enableTerminalAgentHooks ?? false,
     idleRuntimeCleanup: config.idleRuntimeCleanup !== false,
@@ -1080,6 +1083,7 @@ export async function createPaseoDaemon(
     onWorkspaceStateMayHaveChanged: ({ cwd }) => {
       workspaceGitService.onWorkspaceStateMayHaveChanged(cwd);
     },
+    isAutoNamingEnabled: () => daemonConfigStore.get().metadataGeneration.autoNaming !== false,
     generateChatTitle: (manager, agent, firstPrompt) =>
       generateChatTitle({
         manager,

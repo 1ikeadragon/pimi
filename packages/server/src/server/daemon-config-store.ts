@@ -23,7 +23,7 @@ interface SupportedMutableConfigPatch {
   browserTools?: { enabled?: boolean };
   providers?: MutableDaemonConfig["providers"];
   removeProviders?: string[];
-  metadataGeneration?: MutableDaemonConfig["metadataGeneration"];
+  metadataGeneration?: MutableDaemonConfigPatch["metadataGeneration"];
   autoArchiveAfterMerge?: boolean;
   enableTerminalAgentHooks?: boolean;
   idleRuntimeCleanup?: boolean;
@@ -278,6 +278,13 @@ function pickRelayPatch(
   return Object.keys(picked).length > 0 ? { relay: picked } : {};
 }
 
+function pickMetadataGenerationPatch(metadata: MutableDaemonConfigPatch["metadataGeneration"]) {
+  const { providers, autoNaming } = metadata ?? {};
+  return providers !== undefined || autoNaming !== undefined
+    ? { providers, autoNaming }
+    : undefined;
+}
+
 function pickSupportedPatchFields(patch: MutableDaemonConfigPatch): SupportedMutableConfigPatch {
   return {
     ...pickRelayPatch(patch.relay),
@@ -290,9 +297,7 @@ function pickSupportedPatchFields(patch: MutableDaemonConfigPatch): SupportedMut
       : {}),
     ...(patch.providers !== undefined ? { providers: patch.providers } : {}),
     ...(patch.removeProviders !== undefined ? { removeProviders: patch.removeProviders } : {}),
-    ...(patch.metadataGeneration?.providers !== undefined
-      ? { metadataGeneration: { providers: patch.metadataGeneration.providers } }
-      : {}),
+    metadataGeneration: pickMetadataGenerationPatch(patch.metadataGeneration),
     ...(patch.autoArchiveAfterMerge !== undefined
       ? { autoArchiveAfterMerge: patch.autoArchiveAfterMerge }
       : {}),
@@ -738,16 +743,12 @@ function mergeMutableAgentPatch(
   if (providerOverrides) next["providers"] = providerOverrides;
   else delete next["providers"];
 
-  if (patch.metadataGeneration?.providers !== undefined) {
-    next["metadataGeneration"] = { providers: patch.metadataGeneration.providers };
-  } else if (removeProviders.length > 0 && persistedAgents?.metadataGeneration?.providers) {
-    const removed = new Set(removeProviders);
-    next["metadataGeneration"] = {
-      providers: persistedAgents.metadataGeneration.providers.filter(
-        (entry) => !removed.has(entry.provider),
-      ),
-    };
-  }
+  const metadata = mergeMetadataGenerationPatch(
+    persistedAgents,
+    patch.metadataGeneration,
+    removeProviders,
+  );
+  if (metadata) next["metadataGeneration"] = metadata;
 
   if (patch.skills?.selection !== undefined) {
     next["skills"] = { selection: patch.skills.selection };
@@ -759,6 +760,18 @@ function mergeMutableAgentPatch(
   }
 
   return Object.keys(next).length > 0 ? (next as PersistedConfig["agents"]) : undefined;
+}
+
+function mergeMetadataGenerationPatch(
+  agents: PersistedConfig["agents"],
+  patch: SupportedMutableConfigPatch["metadataGeneration"],
+  removeProviders: readonly string[],
+) {
+  const metadata = agents?.metadataGeneration;
+  if (!patch && (!metadata?.providers || removeProviders.length === 0)) return undefined;
+  const next = deepMerge({ ...metadata }, patch ?? {});
+  return omitMetadataGenerationProvidersFromConfig({ metadataGeneration: next }, removeProviders)
+    .metadataGeneration;
 }
 
 function mergeMutableDaemonPatch(

@@ -2494,6 +2494,9 @@ export const en = {
       description:
         "Choose the model Pimi uses for workspace titles, branch names, commit messages, and pull request drafts",
       selection: "Model selection",
+      autoNaming: "Automatically name chats and workspaces",
+      autoNamingHint:
+        "Generate titles and new worktree branch names from the first prompt. Names you edit are kept.",
       automatic: "Automatic",
       preferred: "Manual",
       automaticHint: "Pimi picks a fast available model",
