@@ -39,6 +39,7 @@ import { labelRecord, labelsAt, projectLinkedLabels } from "./linked-labels.mjs"
 import { createPaseoConnection } from "./paseo.mjs";
 import { createHostedReview } from "./hosted-review.mjs";
 import { createPullRequests } from "./pull-requests.mjs";
+import { listReviewPaths, readReviewSource } from "./review-files.mjs";
 import { createTasks } from "./tasks.mjs";
 import { generateTour } from "./walkthrough.mjs";
 
@@ -830,6 +831,13 @@ export async function startPimi({
     response.end(Buffer.from(data, "base64"));
   }
 
+  async function sourceResponse(path, source) {
+    const tokens = isLanguageSupported(path)
+      ? await highlightCodeWithBudget(source, path, { yieldToEventLoop: setImmediate })
+      : null;
+    return { source, tokens };
+  }
+
   const getRoutes = new Map([
     ["/api/board", getInventory],
     [
@@ -853,6 +861,18 @@ export async function startPimi({
       }),
     ],
     ["/api/editors", (url) => editorsFor(getReview(url.searchParams.get("id")))],
+    [
+      "/api/review-files",
+      async (url) => ({ paths: await listReviewPaths(getReview(url.searchParams.get("id"))) }),
+    ],
+    [
+      "/api/review-source",
+      async (url) => {
+        const review = getReview(url.searchParams.get("id"));
+        const path = url.searchParams.get("path");
+        return sourceResponse(path, await readReviewSource(review, path));
+      },
+    ],
   ]);
   const server = createServer(async (request, response) => {
     response.setHeader("cache-control", "no-store");
@@ -896,13 +916,7 @@ export async function startPimi({
           const review = getReview(url.searchParams.get("id"));
           const file = getFile(review, url.searchParams.get("path"));
           if (url.pathname === "/api/source") {
-            const source = await fileSource(review, file);
-            const tokens = isLanguageSupported(file.path)
-              ? await highlightCodeWithBudget(source, file.path, {
-                  yieldToEventLoop: setImmediate,
-                })
-              : null;
-            return json(response, { source, tokens });
+            return json(response, await sourceResponse(file.path, await fileSource(review, file)));
           }
           const patch = await filePatch(review, file);
           return json(response, {
