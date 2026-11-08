@@ -1,0 +1,167 @@
+name: Pimi desktop release
+
+on:
+  push:
+    tags:
+      - 'pimi-v[0-9]+.[0-9]+.[0-9]+'
+
+permissions: {}
+
+concurrency:
+  group: pimi-desktop-release
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: >-
+      github.repository == '1ikeadragon/pimi' &&
+      toJSON(github.event.repository.private) == 'false' &&
+      github.event.created && !github.event.deleted && !github.event.forced
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+      commit: ${{ steps.release.outputs.commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate tag and prepare changelog
+        id: release
+        shell: bash
+        run: |
+          tag="$GITHUB_REF_NAME"
+          [[ "$tag" =~ ^pimi-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          version="${tag#pimi-v}"
+          commit="$(git rev-parse "$GITHUB_SHA^{commit}")"
+          test "$(git rev-parse "refs/tags/$tag^{commit}")" = "$commit"
+          git merge-base --is-ancestor "$commit" origin/main
+          test "$(node -p "require('./package.json').version")" = "$version"
+          test "$(node -p "require('./packages/desktop/package.json').version")" = "$version"
+
+          node --input-type=module - "$version" > release-notes.md <<'NODE'
+          import { readFileSync } from "node:fs";
+          import { parseChangelogEntries } from "./scripts/changelog-utils.mjs";
+
+          const entries = parseChangelogEntries(readFileSync("CHANGELOG.md", "utf8"));
+          const entry = entries.find(({ version }) => version === process.argv[2]);
+          if (entry) process.stdout.write(entry.bodyLines.join("\n") + "\n");
+          NODE
+          previous="$(git for-each-ref --merged="$commit^" --sort=-version:refname --count=1 --format='%(refname)' 'refs/tags/pimi-v*')"
+          if [[ -n "$previous" ]]; then
+            printf '\n### Changes since %s\n\n```text\n' "${previous#refs/tags/}" >> release-notes.md
+            git log --first-parent --format='%h %s' "$previous..$commit" >> release-notes.md
+            printf '```\n' >> release-notes.md
+          fi
+          test -s release-notes.md
+          printf 'tag=%s\nversion=%s\ncommit=%s\n' "$tag" "$version" "$commit" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pimi-release-${{ github.run_attempt }}-notes
+          path: release-notes.md
+          if-no-files-found: error
+          retention-days: 1
+
+  build:
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            arch: arm64
+            platform: mac
+            asset: Pimi-macOS-arm64.dmg
+          - os: windows-2025
+            arch: x64
+            platform: win
+            asset: Pimi-Windows-x64.exe
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    env:
+      RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.validate.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .tool-versions
+          architecture: ${{ matrix.arch }}
+          package-manager-cache: false
+      - run: npm ci --no-audit --no-fund
+      - name: Build installer
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          EXPO_NO_TELEMETRY: '1'
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: npm run "pimi:package:$PLATFORM"
+        shell: bash
+      - name: Verify macOS installer
+        if: runner.os == 'macOS'
+        shell: bash
+        working-directory: packages/desktop/release-pimi
+        run: |
+          codesign --verify --deep --strict mac-arm64/Pimi.app
+          hdiutil verify "Pimi-${RELEASE_VERSION}-arm64.dmg"
+          test "$(mac-arm64/Pimi.app/Contents/Resources/bin/paseo --version)" = "$RELEASE_VERSION"
+          cp "Pimi-${RELEASE_VERSION}-arm64.dmg" Pimi-macOS-arm64.dmg
+      - name: Verify Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: packages/desktop/release-pimi
+        run: |
+          $installer = "Pimi-Setup-$env:RELEASE_VERSION-x64.exe"
+          $version = (Get-Item -LiteralPath $installer).VersionInfo.ProductVersion
+          if ($version -ne $env:RELEASE_VERSION) { throw "Unexpected installer version: $version" }
+          $cliVersion = & .\win-unpacked\resources\bin\paseo.cmd --version
+          if ($LASTEXITCODE -ne 0 -or $cliVersion -ne $env:RELEASE_VERSION) { throw "Unexpected CLI version: $cliVersion" }
+          Copy-Item -LiteralPath $installer -Destination Pimi-Windows-x64.exe
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pimi-release-${{ github.run_attempt }}-${{ matrix.platform }}
+          path: packages/desktop/release-pimi/${{ matrix.asset }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  publish:
+    needs: [validate, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: pimi-release-${{ github.run_attempt }}-*
+          path: release
+      - name: Publish installers and checksums
+        working-directory: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+          RELEASE_COMMIT: ${{ needs.validate.outputs.commit }}
+        run: |
+          # Resolve the peeled annotated tag, or the direct lightweight tag.
+          remote="$(git ls-remote "https://github.com/$GITHUB_REPOSITORY.git" "refs/tags/$RELEASE_TAG" "refs/tags/$RELEASE_TAG^{}" | tail -n 1 | cut -f 1)"
+          test "$remote" = "$RELEASE_COMMIT"
+
+          prefix="pimi-release-$GITHUB_RUN_ATTEMPT"
+          mv "$prefix-mac/Pimi-macOS-arm64.dmg" .
+          mv "$prefix-win/Pimi-Windows-x64.exe" .
+          test -s Pimi-macOS-arm64.dmg
+          test -s Pimi-Windows-x64.exe
+          sha256sum Pimi-macOS-arm64.dmg Pimi-Windows-x64.exe > SHA256SUMS.txt
+          gh release create "$RELEASE_TAG" Pimi-macOS-arm64.dmg Pimi-Windows-x64.exe SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --verify-tag --title "Pimi $RELEASE_VERSION" \
+            --notes-file "$prefix-notes/release-notes.md"

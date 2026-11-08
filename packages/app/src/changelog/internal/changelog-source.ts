@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
+import { getDesktopHost } from "@/desktop/host";
 import { parseChangelog, type ChangelogRelease } from "./parse-changelog";
 
-const CHANGELOG_URL = "https://raw.githubusercontent.com/getpaseo/paseo/main/CHANGELOG.md";
+const PASEO_CHANGELOG_URL = "https://raw.githubusercontent.com/getpaseo/paseo/main/CHANGELOG.md";
+const PIMI_CHANGELOG_URL = "https://raw.githubusercontent.com/1ikeadragon/pimi/main/CHANGELOG.md";
 
 export type ChangelogState =
   | { status: "loading" }
@@ -41,7 +43,8 @@ export function useChangelog(enabled: boolean): Changelog {
 
     void (async () => {
       try {
-        const response = await fetch(CHANGELOG_URL, { signal: controller.signal });
+        const url = getDesktopHost()?.pimiAppearance ? PIMI_CHANGELOG_URL : PASEO_CHANGELOG_URL;
+        const response = await fetch(url, { signal: controller.signal });
         if (!response.ok) throw new Error(`Changelog request failed: ${response.status}`);
         const markdown = await response.text();
         if (cached?.markdown === markdown) return;
