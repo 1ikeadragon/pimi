@@ -2437,6 +2437,18 @@ export const ja: TranslationResources = {
         baseUrl: "ベース URL",
         baseUrlHint: "OpenAI 互換サーバー用です。OpenAI を使う場合は空欄のままにします。",
       },
+      installation: {
+        title: "インストール済みモデル",
+        unavailable: "インストールの詳細を表示するにはホストを更新してください",
+        verified: "インストール時にアーカイブの SHA-256 を検証済み",
+        unrecorded: "検証記録なし",
+        noPublishedDigest: "公開チェックサムなし",
+        location: "このホストのインストール先",
+        reveal: "表示",
+        source: "カタログのダウンロード元",
+        openSource: "配布元の URL を開く",
+        checksum: "アーカイブの期待 SHA-256",
+      },
       models: {
         loading: "モデルを読み込み中...",
         loadError: "ローカルモデルを読み込めませんでした",

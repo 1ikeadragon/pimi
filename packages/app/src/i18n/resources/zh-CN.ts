@@ -2389,6 +2389,18 @@ export const zhCN: TranslationResources = {
         baseUrl: "基础 URL",
         baseUrlHint: "用于兼容 OpenAI 的服务器。留空则使用 OpenAI。",
       },
+      installation: {
+        title: "已安装的模型",
+        unavailable: "请更新主机以查看安装详情",
+        verified: "安装时已通过归档文件 SHA-256 校验",
+        unrecorded: "无校验记录",
+        noPublishedDigest: "未发布校验值",
+        location: "在此主机上的安装位置",
+        reveal: "显示",
+        source: "目录中的下载来源",
+        openSource: "打开来源链接",
+        checksum: "归档文件的预期 SHA-256",
+      },
       models: {
         loading: "正在加载模型...",
         loadError: "无法加载本地模型",

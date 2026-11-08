@@ -1,8 +1,11 @@
+import path from "node:path";
 import type { Logger } from "pino";
 
 import {
   deleteSherpaOnnxModel,
   ensureSherpaOnnxModel,
+  getSherpaOnnxModelDir,
+  hasVerifiedSherpaOnnxArchive,
   isSherpaOnnxModelInstalled,
 } from "./sherpa/model-downloader.js";
 import {
@@ -21,6 +24,7 @@ export type LocalSpeechModelInstallState =
 export interface LocalSpeechModelEntry {
   spec: LocalSpeechModelSpec;
   state: LocalSpeechModelInstallState;
+  installation?: { directory: string; archiveVerified: boolean };
 }
 
 type InFlightState = Extract<
@@ -61,7 +65,15 @@ export class LocalSpeechModelLibrary {
 
   async list(): Promise<LocalSpeechModelEntry[]> {
     return Promise.all(
-      listLocalSpeechModels().map(async (spec) => ({ spec, state: await this.getState(spec.id) })),
+      listLocalSpeechModels().map(async (spec) => {
+        const state = await this.getState(spec.id);
+        if (state.status !== "installed") return { spec, state };
+        const directory = path.resolve(getSherpaOnnxModelDir(this.modelsDir, spec.id));
+        const archiveVerified = spec.archiveSha256
+          ? await hasVerifiedSherpaOnnxArchive(directory, spec.archiveSha256)
+          : false;
+        return { spec, state, installation: { directory, archiveVerified } };
+      }),
     );
   }
 

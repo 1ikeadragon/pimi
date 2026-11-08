@@ -17,6 +17,7 @@ import { useToast } from "@/contexts/toast-api-context";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { useHostFeature } from "@/runtime/host-features";
 import { useHostRuntimeIsConnected } from "@/runtime/host-runtime";
+import { InstalledVoiceModels } from "./installed-voice-models";
 import { SpeechProviderSheet } from "./speech-provider-sheet";
 import { useLocalSpeechModels } from "./use-local-speech-models";
 import {
@@ -147,6 +148,7 @@ export function HostVoicePage({ serverId }: { serverId: string }) {
           {siteRow("voiceMode.tts", t("settings.voice.sites.voiceModeTts"))}
         </SettingsCard>
       </SettingsSection>
+      <InstalledVoiceModels models={localModels.models} serverId={serverId} />
       {sheet && sheetSite && sheetSite.provider !== "unknown" ? (
         <SpeechProviderSheet
           key={sheet.openCount}
