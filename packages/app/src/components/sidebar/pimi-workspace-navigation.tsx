@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, type ReactNode } from "react";
 import { router, useGlobalSearchParams, usePathname } from "expo-router";
 import { ScrollView, Text, View } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import {
   CircleGauge,
   Columns3,
@@ -27,6 +27,7 @@ import type { PimiActivitySection } from "@pimi/protocol/pimi-task";
 import { getDesktopHost, usesPimiMacTitlebar } from "@/desktop/host";
 import { usePimiWorkspaceSection } from "@/desktop/pimi-console-content";
 import { DensityIcon } from "@/components/ui/density-icon";
+import { PimiMark } from "@/components/icons/pimi-mark";
 import { HeaderToggleButton } from "@/components/headers/header-toggle-button";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { HEADER_INNER_HEIGHT } from "@/constants/layout";
@@ -56,6 +57,7 @@ export interface PimiSidebarControls {
 
 const NO_SHORTCUT: [] = [];
 const SELECTED = { selected: true } as const;
+const SidebarPimiMark = withUnistyles(PimiMark, (theme) => ({ color: theme.colors.foreground }));
 export const PIMI_NAV_RAIL_WIDTH = 52;
 const useWorkspaceActivity = create<Record<PimiActivitySection, boolean>>(() => ({
   tasks: false,
@@ -344,8 +346,8 @@ export function PimiWorkspaceNavigation({
   return (
     <View>
       <View style={styles.brand}>
-        <View style={styles.brandLabel}>
-          <Text style={styles.name}>Pimi</Text>
+        <View style={styles.brandLabel} accessibilityLabel="Pimi" testID="pimi-sidebar-mark">
+          <SidebarPimiMark size={24} />
         </View>
         <SidebarIcon {...chatDestination} label="Back to chats" testID="pimi-back-to-chats" />
         {children}
@@ -463,9 +465,4 @@ const styles = StyleSheet.create((theme) => ({
     paddingBottom: 9,
   },
   brandLabel: { flex: 1, minWidth: 0 },
-  name: {
-    color: theme.colors.foreground,
-    fontSize: 16,
-    fontWeight: theme.fontWeight.semibold,
-  },
 }));
