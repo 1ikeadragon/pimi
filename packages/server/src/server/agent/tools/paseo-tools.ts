@@ -914,7 +914,7 @@ function createToolCatalog(
     ): Promise<PaseoToolResult> {
       const tool = tools.get(name);
       if (!tool) {
-        throw new PaseoToolInputError(`Paseo tool not found: ${name}`);
+        throw new PaseoToolInputError(`Pimi tool not found: ${name}`);
       }
       return tool.handler(await parseToolInput(tool, input), context);
     },
@@ -1597,8 +1597,7 @@ function createToolCatalog(
     "create_workspace",
     {
       title: "Create workspace",
-      description:
-        "Create a workspace using an existing local checkout or a new Paseo-managed worktree.",
+      description: "Create a workspace using an existing local checkout or a new managed worktree.",
       inputSchema: {
         isolation: z.enum(["local", "worktree"]),
         path: z
@@ -2168,7 +2167,7 @@ function createToolCatalog(
     {
       title: "Send agent prompt",
       description:
-        "Send a task. Agent callers receive an immediate queued receipt; delivery follows after two quiet seconds per recipient. Completion reports include the target’s last response by default. Paseo supplies caller identity.",
+        "Send a task. Agent callers receive an immediate queued receipt; delivery follows after two quiet seconds per recipient. Completion reports include the target’s last response by default. The daemon supplies caller identity.",
       inputSchema: sendAgentPromptInputSchema,
       outputSchema: {
         success: z.boolean(),
@@ -2615,7 +2614,7 @@ function createToolCatalog(
     {
       title: "Start workspace script",
       description:
-        "Start one configured workspace script through Paseo's managed workspace-script launcher.",
+        "Start one configured workspace script through the managed workspace-script launcher.",
       inputSchema: {
         workspaceId: z.string().describe("Workspace ID containing the configured script."),
         scriptName: z.string().min(1).describe("Configured paseo.json script name to start."),

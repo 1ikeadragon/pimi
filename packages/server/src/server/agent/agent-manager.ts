@@ -114,6 +114,11 @@ function pimiActionInstructions(
   isTaskWorker: boolean,
 ): string[] {
   const instructions = [];
+  if (isPaseoToolEnabled(policy, PimiTaskAgentTool.createLabel)) {
+    instructions.push(
+      "When the user asks to create a workspace label, call create_pimi_label and choose its workspace from list_pimi_labels.",
+    );
+  }
   if (isPaseoToolEnabled(policy, PimiTaskAgentTool.create)) {
     instructions.push(
       "When the user asks to create or track a task, call create_pimi_task and continue in this chat. Use existing labels and link a clear repository. Creating a task does not require workers or reports.",

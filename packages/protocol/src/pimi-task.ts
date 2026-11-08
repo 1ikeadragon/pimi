@@ -1,6 +1,7 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
 import { z } from "zod";
 import { getPaseoToolLeafName } from "./tool-name-normalization.js";
+import { WORKSPACE_LABEL_COLORS } from "./workspace-labels.js";
 
 export const PimiTaskLabels = z.array(z.string().min(1));
 export const PimiTaskMode = z.enum(["chat", "worktree"]);
@@ -14,7 +15,7 @@ export const PimiTaskFields = z.object({
     "Use chat for general work in separate folders. Choose worktree when workers should edit an attached Git repository.",
   ),
   labels: PimiTaskLabels.optional().describe(
-    "Existing Paseo label names from list_pimi_labels. Replaces task labels; [] removes all.",
+    "Existing Pimi label names from list_pimi_labels. Replaces task labels; [] removes all.",
   ),
 });
 
@@ -63,6 +64,7 @@ export const PimiTaskAgentTool = {
   linkWork: "link_pimi_task_work",
   labels: "list_pimi_labels",
   labelWork: "set_pimi_work_label",
+  createLabel: "create_pimi_label",
 } as const;
 export const PimiTaskAgentListInput = z.strictObject({
   query: z.string().trim().max(100).optional().describe("Search task titles and briefs."),
@@ -113,7 +115,7 @@ const PimiTaskRepositoryPath = z
   .describe("Repository path returned by list_pimi_repositories.");
 export const PimiTaskAgentCreateInput = PimiTaskFields.omit({ mode: true })
   .extend({
-    labels: PimiTaskLabels.optional().describe("Existing label names from list_pimi_labels."),
+    labels: PimiTaskLabels.optional().describe("Existing Pimi label names from list_pimi_labels."),
     repository: PimiTaskRepositoryPath.optional(),
     stage: PimiTaskStage.optional().describe(
       "Set when the request specifies a stage. Defaults to To do.",
@@ -138,8 +140,13 @@ export const PimiTaskAgentUpdateInput = PimiTaskFields.partial()
   .strict();
 export const PimiWorkLabelInput = z.strictObject({
   workspaceId: z.string().min(1).describe("Workspace ID from list_pimi_labels workspaces."),
-  name: z.string().min(1).describe("Existing Paseo label name."),
+  name: z.string().min(1).describe("Existing Pimi label name."),
   assigned: z.boolean().describe("True to attach, false to remove."),
+});
+export const PimiWorkLabelCreateInput = z.strictObject({
+  workspaceId: z.string().min(1).describe("Workspace ID from list_pimi_labels workspaces."),
+  name: z.string().trim().min(1).describe("Name for the new shared Pimi label."),
+  color: z.enum(WORKSPACE_LABEL_COLORS).describe("Color for the new label."),
 });
 
 export const PimiTaskAgentLinkWorkInput = z.strictObject({

@@ -5,6 +5,7 @@ import { workspaceLabelKey } from "@getpaseo/protocol/workspace-labels";
 import {
   PIMI_SPACES_ROUTE,
   PIMI_TASK_WORKER_LABEL,
+  PimiWorkLabelCreateInput,
   PimiWorkLabelInput,
 } from "@getpaseo/protocol/pimi-task";
 import { randomUUID } from "node:crypto";
@@ -351,8 +352,23 @@ export function createPaseoConnection(settingsSource = {}) {
     const label = catalog.find(
       (entry) => workspaceLabelKey(entry.name) === workspaceLabelKey(name),
     );
-    if (!label) throw new RequestError("Choose an existing Paseo label.");
+    if (!label) throw new RequestError("Choose an existing Pimi label.");
     const result = await (await connect()).workspaceLabels.set({ workspaceId, label, assigned });
+    changed({ labels: true });
+    return result;
+  }
+
+  async function createWorkLabel(body) {
+    const parsed = PimiWorkLabelCreateInput.safeParse(body);
+    if (!parsed.success) throw new RequestError(parsed.error.message);
+    const { workspaceId, name, color } = parsed.data;
+    const result = await (
+      await connect()
+    ).workspaceLabels.set({
+      workspaceId,
+      label: { name, color },
+      assigned: true,
+    });
     changed({ labels: true });
     return result;
   }
@@ -612,6 +628,7 @@ export function createPaseoConnection(settingsSource = {}) {
     localServerId: async () => getDaemonHost(await connect()),
     labels,
     setWorkLabel,
+    createWorkLabel,
     memory: (input) => localData("/api/pimi/memory", "Memory", input),
     spaces: (input) => localData(PIMI_SPACES_ROUTE, "Spaces", input),
     subscribe(listener) {
