@@ -233,4 +233,3 @@ PASEO_TRUSTED_PROXIES=loopback,172.16.0.0/12 PASEO_WEB_UI_ENABLED=true paseo dae
 - [安全](/docs/security)：连接方式、中继加密、密码验证、主机白名单。
 - [配置](/docs/configuration)：`config.json`、环境变量和 CLI 覆盖项。
 - [CLI](/docs/cli)：`paseo daemon` 命令。
-- [社区项目](/docs/community)：社区构建的自托管工具。

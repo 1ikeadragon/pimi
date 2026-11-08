@@ -1,9 +1,6 @@
 import Svg, { Path } from "react-native-svg";
 
-/**
- * The four-colour Play mark, the same one as the website's download buttons
- * (packages/website/src/downloads.tsx). Brand colours are fixed, so it takes no color.
- */
+// Google Play brand colors.
 export function GooglePlayIcon({ size = 16 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
