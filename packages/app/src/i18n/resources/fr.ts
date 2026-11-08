@@ -2382,6 +2382,9 @@ export const fr: TranslationResources = {
     notifications: {
       title: "Notifications",
       permission: "Autorisation des notifications",
+      taskTitle: "Tâches terminées",
+      taskHint:
+        "En mode automatique, Pimi passe la tâche à Terminée et vous prévient quand tous ses changements sont fusionnés.",
       refreshAccessibility: "Actualiser l’autorisation des notifications",
       playSound: "Émettre un son",
       playSoundHint: "Émet un son à l’arrivée d’une notification de bureau",

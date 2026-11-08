@@ -79,6 +79,7 @@ const tasksView = createTasksView({
   message,
   agentChatLinks: agentChatActions,
   openReview: selectWorktree,
+  pullRequestActions,
   compareReview(card, base) {
     if (!activeWorktree || reviewScreen !== "code") {
       selectWorktree(card, base);
@@ -106,6 +107,7 @@ const reviewPrs = createReviewPullRequests({
   button,
   element,
   openDiff: openHostedReview,
+  openTask,
   showDetails: () => showReviewContent("details"),
   canOpenDiff: (item) => Boolean(item.url),
 });
@@ -115,6 +117,25 @@ function element(tag, className, text) {
   if (className) node.className = className;
   if (text != null) node.textContent = text;
   return node;
+}
+
+async function openTask(id) {
+  const request = view("tasks");
+  await tasksView.load();
+  if (request === viewRequest) tasksView.openTask(id);
+}
+
+async function openPullRequest(url) {
+  view("review");
+  selectReviewTab("pr");
+  await reviewPrs.open(url);
+}
+
+function pullRequestActions(...requests) {
+  const pr = requests.find(Boolean);
+  if (!pr) return [];
+  const label = { open: "View PR", closed: "Closed PR", merged: "Merged PR" }[pr.state];
+  return [button("button quiet", label, () => openPullRequest(pr.url))];
 }
 
 function button(className, label, click) {
@@ -266,7 +287,6 @@ function renderBoard(data) {
         card.unavailable ? "Worktree missing" : card.error,
         card.dirty ? "Working changes" : "",
         card.ahead ? `${card.ahead} ahead of base` : "",
-        card.prUrl ? "Open PR" : "",
       ].filter(Boolean);
       open.append(
         element("span", "card-name", card.name),
@@ -277,6 +297,14 @@ function renderBoard(data) {
         ),
       );
       item.append(open, labelChips(card.labels, data.labels, card.linkedLabels));
+      if (card.pullRequest || card.taskLinks?.length) {
+        const links = element("div", "experiment-actions");
+        links.append(...pullRequestActions(card.pullRequest));
+        for (const task of card.taskLinks ?? []) {
+          links.append(button("button quiet", task.title, () => openTask(task.id)));
+        }
+        item.append(links);
+      }
       if (card.workspaceId)
         item.append(
           labelPicker({
@@ -1234,9 +1262,7 @@ window.pimiWorkspace?.onNavigate(async (destination) => {
     return;
   }
   if (destination.view === "review-pr") {
-    view("review");
-    selectReviewTab("pr");
-    await reviewPrs.open(destination.url);
+    await openPullRequest(destination.url);
     return;
   }
   if (destination.view === "tasks") {
@@ -1244,9 +1270,7 @@ window.pimiWorkspace?.onNavigate(async (destination) => {
     return;
   }
   if (destination.view === "task") {
-    const request = view("tasks");
-    await tasksView.load();
-    if (request === viewRequest) tasksView.openTask(destination.id);
+    await openTask(destination.id);
     return;
   }
   if (destination.view === "task-draft" || destination.view === "new-task") {

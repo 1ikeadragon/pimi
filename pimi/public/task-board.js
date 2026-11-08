@@ -39,7 +39,9 @@ export function taskProgress(task, cardFor, agentFor) {
   const review = items.filter((item) => item === "review").length;
   const attention = items.includes("attention");
   let automatic = "backlog";
-  if (items.length) {
+  if (task.completedByPullRequest) {
+    automatic = "done";
+  } else if (items.length) {
     if (review === items.length) automatic = "review";
     else if (items.every((item) => item === "draft")) automatic = "ready";
     else automatic = "in-progress";
@@ -127,13 +129,13 @@ export function createTaskBoard({ element, button, lanes, open, move, create, pr
       new Option("Auto · " + taskStageLabel(progress.automatic), ""),
       ...taskStages.map(([id, label]) => new Option(label, id)),
     );
-    select.value = task.stage ?? (task.done ? "done" : "");
+    const manual = !task.completedByPullRequest && Boolean(task.stage || task.done);
+    select.value = manual ? (task.stage ?? "done") : "";
     select.disabled = pending;
     select.addEventListener("change", () => move(task.id, select.value || null));
     const stage = element("span", "task-card-stage");
-    stage.title =
-      task.stage || task.done ? "Move task · manual stage" : "Move task · automatic stage";
-    stage.dataset.manual = String(Boolean(task.stage || task.done));
+    stage.title = manual ? "Move task · manual stage" : "Move task · automatic stage";
+    stage.dataset.manual = String(manual);
     stage.append(taskGlyph("more"), select);
     card.append(content, stage);
     return card;
@@ -185,6 +187,7 @@ export function createTaskBoard({ element, button, lanes, open, move, create, pr
         labelSignature,
         task.stage,
         task.done,
+        task.completedByPullRequest,
         task.experiments.length,
         progress,
         pending,

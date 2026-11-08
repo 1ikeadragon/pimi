@@ -546,8 +546,22 @@ export function createDaemonCommandHandlers(): Record<string, DesktopCommandHand
   };
 }
 
-export function registerDaemonManager(): void {
+export function registerDaemonManager(onDaemonReady?: () => void): void {
   const handlers = createDaemonCommandHandlers();
+  if (onDaemonReady) {
+    for (const command of [
+      "desktop_daemon_status",
+      "start_desktop_daemon",
+      "restart_desktop_daemon",
+    ]) {
+      const handleStatus = handlers[command];
+      handlers[command] = async (args) => {
+        const status = (await handleStatus(args)) as DesktopDaemonStatus;
+        if (status.status === "running") onDaemonReady();
+        return status;
+      };
+    }
+  }
 
   ipcMain.handle(
     "paseo:invoke",

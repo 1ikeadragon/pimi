@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { DesktopPermissionRow } from "@/desktop/components/desktop-permission-row";
 import { useDesktopPermissions } from "@/desktop/permissions/use-desktop-permissions";
 import { useDesktopSettings } from "@/desktop/settings/desktop-settings";
+import { getDesktopHost } from "@/desktop/host";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
 import { settingsStyles } from "@/styles/settings";
 
@@ -83,6 +84,7 @@ export function DesktopNotificationsSection() {
   }
 
   const notificationsGranted = snapshot?.notifications.state === "granted";
+  const pimi = Boolean(getDesktopHost()?.pimiAppearance);
 
   return (
     <SettingsSection title={t("settings.notifications.title")} trailing={refreshButton}>
@@ -94,6 +96,14 @@ export function DesktopNotificationsSection() {
           onRequest={handleRequestNotifications}
           labels={permissionLabels}
         />
+        {pimi ? (
+          <View style={[settingsStyles.row, settingsStyles.rowBorder]}>
+            <View style={settingsStyles.rowContent}>
+              <Text style={settingsStyles.rowTitle}>{t("settings.notifications.taskTitle")}</Text>
+              <Text style={settingsStyles.rowHint}>{t("settings.notifications.taskHint")}</Text>
+            </View>
+          </View>
+        ) : null}
         <View style={[settingsStyles.row, settingsStyles.rowBorder]}>
           <View style={settingsStyles.rowContent}>
             <Text style={settingsStyles.rowTitle}>{t("settings.notifications.playSound")}</Text>
@@ -132,7 +142,7 @@ export function DesktopNotificationsSection() {
           size="sm"
           variant="success"
           title={t("settings.notifications.sentTitle")}
-          description={t("settings.notifications.sentDescription")}
+          description={pimi ? undefined : t("settings.notifications.sentDescription")}
           testID="desktop-notifications-test-success"
         />
       ) : null}

@@ -2342,6 +2342,8 @@ export const ko: TranslationResources = {
     notifications: {
       title: "알림",
       permission: "알림 권한",
+      taskTitle: "작업 완료",
+      taskHint: "자동 모드에서는 모든 작업이 병합되면 Pimi가 작업을 완료로 옮기고 알려 드립니다.",
       refreshAccessibility: "알림 권한 새로 고침",
       playSound: "소리 재생",
       playSoundHint: "데스크톱 알림이 도착하면 소리를 재생합니다",

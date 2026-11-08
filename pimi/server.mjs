@@ -137,6 +137,7 @@ export async function startPimi({
   listEditors = standaloneEditors,
   launchEditor,
   openDictation,
+  onTaskComplete = () => {},
 } = {}) {
   const host = "127.0.0.1";
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error("Invalid Pimi port.");
@@ -294,12 +295,20 @@ export async function startPimi({
     }, 250);
   }
   const unsubscribePaseo = paseo.subscribe((event) => {
+    if (closed) return;
+    if (event.workspaceReset) tasks.resetWorkspaceObservation();
     invalidateInventory(event);
     if (event.labels) invalidateLabels();
     if (event.labelUpdate) {
       void tasks.updateCatalogLabel(event.labelUpdate)?.catch((error) => {
         console.error("Pimi could not update task labels:", error.message);
       });
+    }
+    if (event.workspace) {
+      void tasks
+        .observeWorkspace(event.workspace, event.observedMerge)
+        .then((completed) => !closed && Promise.all((completed ?? []).map(onTaskComplete)))
+        .catch((error) => console.error("Pimi could not process a task PR update:", error.message));
     }
   });
 
@@ -374,7 +383,12 @@ export async function startPimi({
       agents.some((agent) => agent.status === "running" || agent.status === "initializing")
     )
       return "running";
-    if (facts.dirty || facts.ahead || state === "attention" || workspace?.openPrUrl)
+    if (
+      facts.dirty ||
+      facts.ahead ||
+      state === "attention" ||
+      workspace?.pullRequest?.state === "open"
+    )
       return "review";
     return "ready";
   }
@@ -450,6 +464,7 @@ export async function startPimi({
     const trackedAgents = new Set();
     const watched = new Set(roots);
     const linked = tasks.linkedWorktrees();
+    const taskLinks = tasks.worktreeTaskLinks();
     const entries = [...listed.values()];
     const gitConcurrency = 6;
     for (let i = 0; i < entries.length; i += gitConcurrency) {
@@ -463,6 +478,7 @@ export async function startPimi({
           const reviewOnly = !discovered && reviewWorktrees.has(worktree.path);
           if (!discovered && !reviewOnly) return null;
           const facts = await factsFor(worktree, linked.get(worktree.path));
+          const pr = workspace?.pullRequest;
           for (const agent of agents) trackedAgents.add(agent.id);
           return Object.assign(facts, {
             name: workspace?.name || worktree.branch,
@@ -475,7 +491,15 @@ export async function startPimi({
               ...labelsAt(workspaceLabels, workspace?.id),
               ...labelsAt(checkoutLabels, worktree.path),
             ],
-            prUrl: workspace?.openPrUrl,
+            prUrl: workspace?.pullRequest?.state === "open" ? workspace.pullRequest.url : undefined,
+            pullRequest: pr && { url: pr.url, state: pr.state },
+            taskLinks: (taskLinks.get(worktree.path) ?? [])
+              .filter(
+                ({ root, workspaceId }) =>
+                  root === worktree.root &&
+                  (!workspaceId || !workspace || workspaceId === workspace.id),
+              )
+              .map(({ id, title }) => ({ id, title })),
             previews: workspace?.previews,
           });
         }),
@@ -850,10 +874,16 @@ export async function startPimi({
     ],
     [
       "/api/pull-request",
-      (url) =>
-        pullRequests.detail(url.searchParams.get("url"), {
+      async (url) => {
+        const result = await pullRequests.detail(url.searchParams.get("url"), {
           force: url.searchParams.get("refresh") === "1",
-        }),
+        });
+        if (!result.item) return result;
+        return {
+          ...result,
+          item: { ...result.item, taskLinks: tasks.pullRequestTaskLinks(result.item.url) },
+        };
+      },
     ],
     ["/api/tasks", tasks.list],
     [
@@ -958,6 +988,7 @@ export async function startPimi({
   return {
     origin,
     appearance: appearance.read(),
+    observeWorkspaces: paseo.observeWorkspaces,
     prepareChatReview,
     getLinkedLabels,
     subscribeToLabels(listener) {

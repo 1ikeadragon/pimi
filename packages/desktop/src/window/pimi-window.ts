@@ -59,6 +59,7 @@ interface WorkspaceSurface {
 }
 let workspace: WorkspaceSurface | undefined;
 let workspaceRuntime: Promise<PimiRuntimeResult> | undefined;
+let onTaskComplete: ((task: { id: string; title: string }) => void | Promise<void>) | undefined;
 let opening: Promise<WorkspaceSurface> | undefined;
 let requestedOwner: BrowserWindow | undefined;
 let navigationRequest = 0;
@@ -127,6 +128,7 @@ export function pimiAppearanceArgument(): string {
 
 interface PimiRuntimeResult {
   origin: string;
+  observeWorkspaces(): Promise<void>;
   getLinkedLabels(): Promise<PimiLinkedLabels>;
   subscribeToLabels(listener: () => void): () => void;
   resolveReportLink(request: PimiReportLinkRequest): Promise<PimiReportLinkTarget>;
@@ -166,6 +168,7 @@ interface PimiRuntime {
     ) => Promise<Pick<EditorTargetDescriptor, "id" | "label" | "kind">[]>;
     launchEditor: (input: EditorTargetLaunchInput & { editorId: string }) => Promise<void>;
     connection: () => Promise<DesktopDaemonConnection>;
+    onTaskComplete: (task: { id: string; title: string }) => void | Promise<void>;
   }): Promise<PimiRuntimeResult>;
 }
 
@@ -334,6 +337,7 @@ async function createWorkspaceRuntime(runtimeDir: string): Promise<PimiRuntimeRe
     launchEditor: (input) => openEditorTarget(input, editors, PIMI_EDITOR_TARGETS),
     paths: process.env.PIMI_REPOS?.split(path.delimiter).filter(Boolean) ?? [],
     connection: connectToDesktopDaemon,
+    onTaskComplete: (task) => onTaskComplete?.(task),
   });
   const unsubscribeLabels = runtime.subscribeToLabels(() => {
     for (const win of BrowserWindow.getAllWindows()) {
@@ -347,7 +351,11 @@ async function createWorkspaceRuntime(runtimeDir: string): Promise<PimiRuntimeRe
   return runtime;
 }
 
-export function initializePimiWorkspace(runtimeDir: string): Promise<PimiRuntimeResult> {
+export function initializePimiWorkspace(
+  runtimeDir: string,
+  notifyTaskCompletion?: typeof onTaskComplete,
+): Promise<PimiRuntimeResult> {
+  if (notifyTaskCompletion) onTaskComplete = notifyTaskCompletion;
   workspaceRuntime ??= createWorkspaceRuntime(runtimeDir).catch((error) => {
     workspaceRuntime = undefined;
     throw error;

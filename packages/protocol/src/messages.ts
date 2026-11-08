@@ -4214,6 +4214,7 @@ export const WorkspaceScriptPayloadSchema = z.object({
 const WorkspaceGitRuntimePayloadSchema = z
   .object({
     currentBranch: z.string().nullable().optional(),
+    headSha: z.string().optional(),
     remoteUrl: z.string().nullable().optional(),
     isPaseoOwnedWorktree: z.boolean().optional(),
     isDirty: z.boolean().nullable().optional(),
@@ -4241,7 +4242,9 @@ export const WorkspaceGitHubRuntimePayloadSchema = z
         state: z.string(),
         baseRefName: z.string(),
         headRefName: z.string(),
+        headSha: z.string().optional(),
         isMerged: z.boolean(),
+        mergedAt: z.string().optional(),
         isDraft: z.boolean().optional(),
         mergeable: z.enum(["MERGEABLE", "CONFLICTING", "UNKNOWN"]).catch("UNKNOWN").optional(),
         checks: z

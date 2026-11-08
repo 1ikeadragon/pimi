@@ -16,6 +16,7 @@ export function createTasksView({
   message,
   agentChatLinks,
   openReview,
+  pullRequestActions,
   compareReview,
   refreshBoard,
 }) {
@@ -212,7 +213,7 @@ export function createTasksView({
       taskStages.map(([id, label]) => ({ id, label })),
       "Auto · " + taskStageLabel(progress.automatic),
     );
-    picker.value = task.stage ?? (task.done ? "done" : "");
+    picker.value = task.completedByPullRequest ? "" : (task.stage ?? (task.done ? "done" : ""));
     picker.disabled = stageRequests.has(task.id);
     $("task-close").textContent = task.done ? "Reopen task" : "Mark done";
     $("task-close").disabled =
@@ -408,7 +409,10 @@ export function createTasksView({
       actions.append(
         button("button secondary", "Read report", () => selectReportView("reports", item.id)),
       );
-    actions.append(...agentChatLinks(chatAgents));
+    actions.append(
+      ...agentChatLinks(chatAgents),
+      ...pullRequestActions(item.pullRequest, card?.pullRequest),
+    );
     if (card && !card.unavailable) {
       const base = repositoryFor(task, item)?.base || "";
       actions.append(
@@ -416,8 +420,7 @@ export function createTasksView({
         button("button quiet", "Compare alongside", () => compareReview(card, base)),
       );
     }
-    if (task.done) return actions;
-    if (!item.launch && !item.path && !item.report) {
+    if (!task.done && !item.launch && !item.path && !item.report) {
       const repositories = repositoriesFor(task);
       if (repositories.length > 1)
         actions.append(workItemRepositoryPicker(task, item, repositories));
@@ -430,7 +433,12 @@ export function createTasksView({
       discard.disabled = launches.has(task.id) || planning.has(task.id);
       actions.append(discard);
     }
-    if (item.launch && !item.report && reportErrors.has(item.id)) {
+    if (
+      (!task.done || task.completedByPullRequest) &&
+      item.launch &&
+      !item.report &&
+      reportErrors.has(item.id)
+    ) {
       const retry = button(
         "button secondary",
         "Retry report",
@@ -737,7 +745,7 @@ export function createTasksView({
   function reconcileReports() {
     if (reportRequests.size || inventory.daemonError) return;
     for (const task of tasks) {
-      if (task.done) continue;
+      if (task.done && !task.completedByPullRequest) continue;
       const item = task.experiments.find((entry) => {
         if (!entry.launch || entry.reportSource || autoCollected.has(entry.id)) return false;
         const agent = agentFor(entry);

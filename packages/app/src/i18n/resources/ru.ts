@@ -2366,6 +2366,9 @@ export const ru: TranslationResources = {
     notifications: {
       title: "Уведомления",
       permission: "Разрешение на уведомления",
+      taskTitle: "Завершение задач",
+      taskHint:
+        "В автоматическом режиме Pimi переводит задачу в «Готово» и сообщает вам, когда все её изменения слиты.",
       refreshAccessibility: "Обновить разрешение на уведомления",
       playSound: "Воспроизводить звук",
       playSoundHint: "Воспроизводит звук при получении уведомления на компьютере",

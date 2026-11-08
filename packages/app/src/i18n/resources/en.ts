@@ -2394,6 +2394,9 @@ export const en = {
     notifications: {
       title: "Notifications",
       permission: "Notification permission",
+      taskTitle: "Task completion",
+      taskHint:
+        "In Auto, Pimi moves the task to Done and lets you know when all its work has merged.",
       refreshAccessibility: "Refresh notification permission",
       playSound: "Play sound",
       playSoundHint: "Play a sound when a desktop notification arrives",

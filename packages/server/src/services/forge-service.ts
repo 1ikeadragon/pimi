@@ -130,6 +130,7 @@ export interface CurrentPullRequestStatus {
   headRefName: string;
   headSha?: string;
   isMerged: boolean;
+  mergedAt?: string;
   isDraft?: boolean;
   mergeable: PullRequestMergeable;
   checks: PullRequestCheck[];
