@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.16.3 - 2026-11-08
+
+### Added
+
+- Open linked tasks and pull requests from Work, Tasks, and Review.
+- Automatically move a task to Done after all linked worktrees have verified merges while Pimi is connected. Click the completion notification to open the task. Manual stages take precedence.
+
 ## 0.16.2 - 2026-11-08
 
 ### Added
