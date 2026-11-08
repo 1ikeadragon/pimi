@@ -27,6 +27,7 @@ interface NewWorkspaceProjectPickerInput {
   routeProjectContextViewKey: string | null;
   lastActiveProject: HostProjectListItem | null;
   allowAllProjects: boolean;
+  chooseProject?: boolean;
 }
 
 interface NewWorkspaceProjectPickerState {
@@ -88,6 +89,7 @@ export function useNewWorkspaceProjectPicker({
   routeProjectContextViewKey,
   lastActiveProject,
   allowAllProjects,
+  chooseProject,
 }: NewWorkspaceProjectPickerInput): NewWorkspaceProjectPickerState {
   const selectableProjects = useMemo(
     () =>
@@ -96,14 +98,23 @@ export function useNewWorkspaceProjectPicker({
   );
   const initialProject = useMemo(
     () =>
-      resolveInitialWorkspaceProject({
-        routeProject,
-        lastActiveProject,
-        projects: selectableProjects,
-        serverId: selectedServerId,
-        allowAllProjects,
-      }),
-    [allowAllProjects, lastActiveProject, routeProject, selectableProjects, selectedServerId],
+      chooseProject
+        ? null
+        : resolveInitialWorkspaceProject({
+            routeProject,
+            lastActiveProject,
+            projects: selectableProjects,
+            serverId: selectedServerId,
+            allowAllProjects,
+          }),
+    [
+      allowAllProjects,
+      chooseProject,
+      lastActiveProject,
+      routeProject,
+      selectableProjects,
+      selectedServerId,
+    ],
   );
 
   const selectionContextKey = createProjectSelectionContextKey({

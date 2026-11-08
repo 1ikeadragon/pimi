@@ -65,7 +65,10 @@ export function OpenProjectScreen() {
   const handleOpenPairDevice = useCallback(() => setIsPairDeviceOpen(true), []);
   const handleClosePairDevice = useCallback(() => setIsPairDeviceOpen(false), []);
   const startChat = useCallback(
-    () => router.push(buildNewWorkspaceRoute({ serverId: localServerId ?? undefined })),
+    () =>
+      router.push(
+        buildNewWorkspaceRoute({ serverId: localServerId ?? undefined, chooseProject: true }),
+      ),
     [localServerId, router],
   );
 
@@ -107,8 +110,8 @@ export function OpenProjectScreen() {
             {pimi ? (
               <HomeTile
                 icon={MessageSquare}
-                title="New chat"
-                description="Choose a project and an agent to get started."
+                title={t("newWorkspace.title")}
+                description="Choose a project to start a chat or open a workspace."
                 onPress={startChat}
                 accent
               />
