@@ -287,7 +287,7 @@ function ScheduleExecutionMenuItems({
         onSelect={onResume}
         testID={`schedule-menu-resume-${schedule.id}`}
       >
-        Resume schedule
+        Resume automation
       </DropdownMenuItem>
     );
   } else {
@@ -300,7 +300,7 @@ function ScheduleExecutionMenuItems({
         onSelect={onPause}
         testID={`schedule-menu-pause-${schedule.id}`}
       >
-        Pause schedule
+        Pause automation
       </DropdownMenuItem>
     );
   }

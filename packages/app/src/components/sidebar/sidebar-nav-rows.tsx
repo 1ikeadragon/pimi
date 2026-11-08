@@ -1,5 +1,5 @@
 import { router, usePathname } from "expo-router";
-import { CalendarClock, History, Plus, Search, SquarePen } from "lucide-react-native";
+import { Rocket, History, Plus, Search, SquarePen } from "lucide-react-native";
 import { memo, useCallback, useMemo, useRef, type ComponentType, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { View, type StyleProp, type ViewStyle } from "react-native";
@@ -187,7 +187,7 @@ function SidebarSchedulesRow({ onBeforeNavigate }: SidebarNavRowProps) {
 
   return (
     <SidebarHeaderRow
-      icon={CalendarClock}
+      icon={Rocket}
       label={t(builtinSidebarNavLabelKey("schedules"))}
       onPress={handlePress}
       isActive={pathname.includes("/schedules")}

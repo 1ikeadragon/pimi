@@ -13,6 +13,7 @@ import {
   NotebookText,
   PanelLeftOpen,
   Pin,
+  Rocket,
   Settings,
   StickyNote,
   SquarePen,
@@ -26,7 +27,12 @@ import { DensityIcon } from "@/components/ui/density-icon";
 import { HeaderToggleButton } from "@/components/headers/header-toggle-button";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { HEADER_INNER_HEIGHT } from "@/constants/layout";
-import { buildNewWorkspaceRoute } from "@/utils/host-routes";
+import {
+  buildNewWorkspaceRoute,
+  buildOpenProjectRoute,
+  buildSchedulesRoute,
+} from "@/utils/host-routes";
+import { useSidebarNavItems } from "@/sidebar-nav/use-sidebar-nav-items";
 import {
   closePimiAgentGrid,
   openPimiAgentGrid,
@@ -120,6 +126,26 @@ export function PimiSidebarPeekActions({ controls }: { controls: PimiSidebarCont
   );
 }
 
+function AutomationsRailButton({ active }: { active: boolean }) {
+  const { t } = useTranslation();
+  const { items } = useSidebarNavItems("header");
+  const open = useCallback(() => {
+    getDesktopHost()?.dismissPimiWorkspace?.();
+    router.navigate(buildSchedulesRoute());
+  }, []);
+  if (!items.some((item) => item.key === "schedules" && item.visible)) return null;
+
+  return (
+    <SidebarIcon
+      icon={Rocket}
+      label={t("sidebar.sections.schedules")}
+      onPress={open}
+      active={active}
+      testID="pimi-automations-rail"
+    />
+  );
+}
+
 export function PimiWorkspaceNavigation({
   rail = false,
   onNavigate,
@@ -135,6 +161,7 @@ export function PimiWorkspaceNavigation({
   const pathname = usePathname();
   const inAgentGrid = pathname === PIMI_AGENT_GRID_ROUTE;
   const inUsage = pathname === PIMI_USAGE_ROUTE;
+  const inAutomations = pathname === buildSchedulesRoute();
   const { t } = useTranslation();
   const newWorkspaceLabel = t("newWorkspace.title");
   const openNewWorkspace = useCallback(() => {
@@ -147,7 +174,11 @@ export function PimiWorkspaceNavigation({
     host?.dismissPimiWorkspace?.();
     if (inAgentGrid) closePimiAgentGrid();
     else if (inUsage) closePimiUsage();
-  }, [host, inAgentGrid, inUsage, onNavigate]);
+    else if (inAutomations && !section) {
+      if (router.canGoBack()) router.back();
+      else router.replace(buildOpenProjectRoute());
+    }
+  }, [host, inAgentGrid, inAutomations, inUsage, onNavigate, section]);
   const showAgentGrid = useCallback(() => {
     onNavigate?.();
     openPimiAgentGrid();
@@ -179,7 +210,7 @@ export function PimiWorkspaceNavigation({
       label: "Chat",
       icon: MessageSquare,
       onPress: showChat,
-      active: !section && !inAgentGrid && !inUsage,
+      active: !section && !inAgentGrid && !inUsage && !inAutomations,
     },
     {
       label: "Agent grid",
@@ -205,6 +236,7 @@ export function PimiWorkspaceNavigation({
         {destinations.map((item) => (
           <SidebarIcon key={item.label} {...item} />
         ))}
+        <AutomationsRailButton active={!section && inAutomations} />
         <SidebarIcon
           icon={CircleGauge}
           label="Usage"
