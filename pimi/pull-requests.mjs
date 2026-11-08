@@ -135,6 +135,7 @@ function normalize(raw, extras = {}) {
     checks,
     checksStatus: summarizeChecks(checks, knownChecks),
     reviewRequested: false,
+    authoredByMe: false,
     worktreePaths: [],
     ...extras,
   };
@@ -145,6 +146,7 @@ export function createPullRequests({ getInventory, onChange = () => {} }) {
     items: [],
     repositories: [],
     requestedReview: { status: "loading", truncated: false },
+    authored: { status: "loading", truncated: false },
     updatedAt: null,
     warnings: [],
     limits,
@@ -179,6 +181,42 @@ export function createPullRequests({ getInventory, onChange = () => {} }) {
       return {
         data: await gh([...args, "--json", requestedFields.replace(",statusCheckRollup", "")]),
         checksError: "CI checks are unavailable with the current GitHub permissions.",
+      };
+    }
+  }
+
+  async function accountPullRequests(query, flag, previous, previousSource) {
+    try {
+      const data = await gh([
+        "api",
+        "--hostname",
+        "github.com",
+        "--method",
+        "GET",
+        "search/issues",
+        "-f",
+        `q=is:pr is:open ${query}`,
+        "-f",
+        "sort=updated",
+        "-f",
+        "order=desc",
+        "-f",
+        `per_page=${limits.perSource}`,
+      ]);
+      if (!Array.isArray(data.items))
+        throw new Error("GitHub returned an invalid account pull request list.");
+      return {
+        items: data.items.map((item) => normalize(item, { [flag]: true })),
+        status: "ready",
+        truncated: data.total_count > data.items.length || Boolean(data.incomplete_results),
+      };
+    } catch (error) {
+      return {
+        items: previous.items
+          .filter((item) => item[flag])
+          .map((item) => ({ ...item, stale: true })),
+        ...unavailable(error),
+        truncated: previousSource.truncated,
       };
     }
   }
@@ -230,38 +268,15 @@ export function createPullRequests({ getInventory, onChange = () => {} }) {
       );
       for (const key of [...sources.keys()].slice(limits.repositories)) sources.delete(key);
     }
-    const requestedTask = gh([
-      "api",
-      "--hostname",
-      "github.com",
-      "--method",
-      "GET",
-      "search/issues",
-      "-f",
-      "q=is:pr is:open review-requested:@me",
-      "-f",
-      "sort=updated",
-      "-f",
-      "order=desc",
-      "-f",
-      `per_page=${limits.perSource}`,
-    ])
-      .then((data) => {
-        if (!Array.isArray(data.items))
-          throw new Error("GitHub returned an invalid review request list.");
-        return {
-          items: data.items.map((item) => normalize(item, { reviewRequested: true })),
-          status: "ready",
-          truncated: data.total_count > data.items.length || Boolean(data.incomplete_results),
-        };
-      })
-      .catch((error) => ({
-        items: previous.items
-          .filter((item) => item.reviewRequested)
-          .map((item) => Object.assign({}, item, { stale: true })),
-        ...unavailable(error),
-        truncated: previous.requestedReview.truncated,
-      }));
+    const accountTasks = Promise.all([
+      accountPullRequests(
+        "review-requested:@me",
+        "reviewRequested",
+        previous,
+        previous.requestedReview,
+      ),
+      accountPullRequests("author:@me", "authoredByMe", previous, previous.authored),
+    ]);
     const items = [];
     for (const source of sources.values()) {
       // Enqueued together below through a small worker pool.
@@ -324,14 +339,27 @@ export function createPullRequests({ getInventory, onChange = () => {} }) {
         }
       }),
     );
-    const requested = await requestedTask;
-    const merged = new Map(items.map((item) => [item.url.toLowerCase(), item]));
-    for (const item of requested.items) {
-      const existing = merged.get(item.url.toLowerCase());
-      if (existing) existing.reviewRequested = true;
-      else merged.set(item.url.toLowerCase(), item);
+    const [requested, mine] = await accountTasks;
+    const merged = new Map(
+      items.map((item) => [
+        item.url.toLowerCase(),
+        { ...item, reviewRequested: false, authoredByMe: false },
+      ]),
+    );
+    for (const [source, flag] of [
+      [requested, "reviewRequested"],
+      [mine, "authoredByMe"],
+    ]) {
+      for (const item of source.items) {
+        const key = item.url.toLowerCase();
+        const existing = merged.get(key);
+        if (existing) existing[flag] = true;
+        else
+          merged.set(key, { ...item, reviewRequested: false, authoredByMe: false, [flag]: true });
+      }
     }
     const { items: _requestedItems, ...requestedReview } = requested;
+    const { items: _authoredItems, ...authored } = mine;
     snapshot = {
       items: [...merged.values()].sort(
         (a, b) =>
@@ -340,6 +368,7 @@ export function createPullRequests({ getInventory, onChange = () => {} }) {
       ),
       repositories,
       requestedReview,
+      authored,
       updatedAt: new Date().toISOString(),
       warnings,
       limits,
