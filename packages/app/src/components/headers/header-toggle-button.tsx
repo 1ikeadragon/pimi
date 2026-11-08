@@ -18,6 +18,7 @@ interface HeaderToggleButtonState {
 interface HeaderToggleButtonProps extends Omit<PressableProps, "style" | "onPress" | "children"> {
   onPress: NonNullable<PressableProps["onPress"]>;
   tooltipLabel: string;
+  tooltipContent?: ReactNode;
   tooltipKeys: ShortcutKey[];
   tooltipSide: "left" | "right" | "top" | "bottom";
   tooltipDelayDuration?: number;
@@ -28,6 +29,7 @@ interface HeaderToggleButtonProps extends Omit<PressableProps, "style" | "onPres
 export function HeaderToggleButton({
   onPress,
   tooltipLabel,
+  tooltipContent,
   tooltipKeys,
   tooltipSide,
   tooltipDelayDuration = 0,
@@ -67,10 +69,12 @@ export function HeaderToggleButton({
           : children}
       </TooltipTrigger>
       <TooltipContent testID={tooltipTestID} side={tooltipSide} align="center" offset={8}>
-        <View style={styles.tooltipRow}>
-          <Text style={styles.tooltipText}>{tooltipLabel}</Text>
-          <Shortcut keys={tooltipKeys} style={styles.shortcut} />
-        </View>
+        {tooltipContent ?? (
+          <View style={styles.tooltipRow}>
+            <Text style={styles.tooltipText}>{tooltipLabel}</Text>
+            <Shortcut keys={tooltipKeys} style={styles.shortcut} />
+          </View>
+        )}
       </TooltipContent>
     </Tooltip>
   );

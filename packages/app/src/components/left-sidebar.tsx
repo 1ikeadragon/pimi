@@ -9,7 +9,16 @@ import {
   type LucideIcon,
 } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import {
   Pressable,
   ScrollView,
@@ -95,6 +104,7 @@ import { MobilePanelOverlay } from "@/mobile-panels/presentation";
 import { buildSettingsRoute } from "@/utils/host-routes";
 import { openHostOverview } from "@/navigation/settings-navigation";
 import { UsageSidebarItem, UsageSidebarRoot, useUsageSummary, useOpenSidebarUsage } from "@/usage";
+import { usageHoverDetails } from "@/usage/sidebar-item";
 import { SidebarAgentListSkeleton } from "./sidebar-agent-list-skeleton";
 import { SidebarCalloutSlot } from "./sidebar-callout-slot";
 import { SidebarWorkspaceList } from "./sidebar-workspace-list";
@@ -311,6 +321,7 @@ function FooterIconButton({
   icon,
   iconSizeAdjustment = 0,
   shortcutKeys,
+  tooltipContent,
 }: {
   onPress: () => void;
   testID: string;
@@ -319,6 +330,7 @@ function FooterIconButton({
   /** Only for a glyph that reads larger than the others at the same size. */
   iconSizeAdjustment?: number;
   shortcutKeys?: ReturnType<typeof useShortcutKeys>;
+  tooltipContent?: ReactNode;
   buttonRef?: RefObject<View | null>;
 }) {
   return (
@@ -349,7 +361,7 @@ function FooterIconButton({
         </Pressable>
       </TooltipTrigger>
       <TooltipContent side="top" align="center" offset={8} testID={`${testID}-tooltip`}>
-        <IconTooltipContent label={label} shortcutKeys={shortcutKeys} />
+        {tooltipContent ?? <IconTooltipContent label={label} shortcutKeys={shortcutKeys} />}
       </TooltipContent>
     </Tooltip>
   );
@@ -533,6 +545,7 @@ function SidebarUsageIcon({ label }: { label: string }) {
       testID="sidebar-usage-icon"
       label={label}
       icon={CircleGauge}
+      tooltipContent={usageHoverDetails}
     />
   );
 }

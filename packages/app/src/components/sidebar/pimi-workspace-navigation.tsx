@@ -45,6 +45,7 @@ import {
 import { closePimiUsage, openPimiUsage, PIMI_USAGE_ROUTE } from "@/navigation/pimi-usage";
 import { closePimiLibrary, openPimiLibrary, PIMI_LIBRARY_ROUTE } from "@/navigation/pimi-library";
 import { SidebarHeaderRow, type SidebarRowIcon } from "./sidebar-header-row";
+import { usageHoverDetails } from "@/usage/sidebar-item";
 
 export interface PimiSidebarControls {
   mode: "dock" | "rail" | "peek";
@@ -69,6 +70,7 @@ function SidebarIcon({
   active = false,
   unread = false,
   testID,
+  tooltipContent,
 }: {
   icon: SidebarRowIcon;
   label: string;
@@ -76,11 +78,13 @@ function SidebarIcon({
   active?: boolean;
   unread?: boolean;
   testID?: string;
+  tooltipContent?: ReactNode;
 }) {
   return (
     <HeaderToggleButton
       onPress={onPress}
       tooltipLabel={label}
+      tooltipContent={tooltipContent}
       tooltipKeys={NO_SHORTCUT}
       tooltipSide="right"
       accessibilityRole="button"
@@ -332,6 +336,7 @@ export function PimiWorkspaceNavigation({
           label="Usage"
           onPress={openPimiUsage}
           active={!section && inUsage}
+          tooltipContent={usageHoverDetails}
         />
       </View>
     );
