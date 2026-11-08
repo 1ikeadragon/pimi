@@ -97,8 +97,10 @@ export function daemonLaunchEnvironment(input: {
     for (const key of DAEMON_SETTING_ENV_KEYS) delete env[key];
     for (const alias of Object.values(PIMI_CONFIG_ALIASES)) delete env[alias];
   }
+  delete env.PIMI_HOST;
   delete env.PASEO_HOST;
   delete env.PASEO_DESKTOP_MANAGED;
+  env.PIMI_HOME = input.home;
   env.PASEO_HOME = input.home;
   if (input.desktopManaged) env.PASEO_DESKTOP_MANAGED = "1";
   return env;
