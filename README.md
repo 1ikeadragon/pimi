@@ -6,34 +6,34 @@
 
 Chat with your agents, track their work, and review the changes in one app.
 
-[Download for macOS or Windows](https://1ikeadragon.github.io/pimi/)
+[Download for macOS or Windows](https://1ikeadragon.github.io/pimi/) · [Release notes](https://github.com/1ikeadragon/pimi/releases/latest)
 
 ## Chat and Tasks
 
-Track something from chat or send agents to explore it in separate worktrees. Queue a follow-up, fork a chat across providers, or click Pimi to give a voice command.
+Ask an agent to track a task or send a few agents to explore it. Queue a follow-up, fork a chat to another provider, or click Pimi to give a voice command.
 
 ![Chat with a task created from a message](assets/pimi/chat.jpg)
 
-The Tasks board follows linked work and lets you move cards yourself. Open a task to read the agents’ reports.
+Linked work moves tasks along automatically. You can move cards yourself and read the agents’ reports from the task.
 
 ![Tasks board with stages, labels, and linked work](assets/pimi/task-board.jpg)
 
 ## Watch the swarm
 
-Tile agent sessions in **Agent grid**. Use **Work** to see where each worktree stands.
+Watch six sessions at once in **Agent grid** on a wide window. **Work** tracks the branches behind them.
 
 ![Agent grid with parallel sessions](assets/pimi/agent-grid.jpg)
 
 ## Review together
 
-Compare worktree diffs side by side. Switch to **PRs** for review requests, check results, and pull request details.
+Compare diffs across worktrees and repositories. Open **PRs** to see review requests, checks, and pull request details.
 
-![The same source file in two worktree diffs](assets/pimi/review.jpg)
+![Side-by-side diffs from two repositories](assets/pimi/review.jpg)
 
 ![Pull request queue and check results](assets/pimi/pull-requests.jpg)
 
 <details>
-<summary>Setup, Work, Memory, Spaces, Automations, and Usage</summary>
+<summary>Setup, Work, Memory, Spaces, Automations, Usage, and Library</summary>
 
 **Setup** gets you from the welcome screen to your first chat.
 
@@ -47,19 +47,31 @@ Compare worktree diffs side by side. Switch to **PRs** for review requests, chec
 
 ![Shared memory notes and their contents](assets/pimi/memory.jpg)
 
-**Spaces** holds links, images, and scratch notes. Open arXiv papers in Pimi, search notes and links locally, or copy a card ID for an agent.
+**Spaces** is a scratchpad for links, images, and notes. Search it locally, open papers in Pimi, or give an agent a card ID.
 
-![Spaces with scratch notes, a link, and an image](assets/pimi/spaces.jpg)
+![Spaces with a paper preview, links, and scratch notes](assets/pimi/spaces.jpg)
 
-**Automations** runs repeat jobs like PR review and project digests.
+![An arXiv paper open inside Pimi](assets/pimi/spaces-reader.jpg)
 
-![Automation schedules and templates](assets/pimi/automations.jpg)
+**Automations** runs jobs on a schedule and keeps their results in chat.
 
-**Usage** shows context, recorded compactions, and what shipped in Recap. Run `/context` in Claude Code to see its token breakdown.
+![Active automations with their most recent runs](assets/pimi/automations.jpg)
 
-![Session usage in Pimi](assets/pimi/usage.jpg)
+![A completed automation with a replay regression report](assets/pimi/automation-result.jpg)
+
+**Usage** shows context and recorded compactions. Run `/context` in Claude Code for a token breakdown. **Recap** brings together finished tasks and merged PRs.
+
+![Claude Code context breakdown and recorded compactions in Usage](assets/pimi/usage.jpg)
+
+![Usage Recap with completed tasks and merged pull requests](assets/pimi/usage-recap.jpg)
+
+**Library** is where you manage skills for your agents.
+
+![Installed and available skills in Library](assets/pimi/library.jpg)
 
 </details>
+
+Screenshots show Pimi 0.16.5 with sample projects and activity.
 
 ## Build from source
 
