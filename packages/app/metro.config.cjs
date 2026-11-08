@@ -7,6 +7,7 @@ const appNodeModulesRoot = path.resolve(projectRoot, "node_modules");
 const appSrcRoot = path.resolve(projectRoot, "src");
 const isWatchdogBuild = process.env.PASEO_WATCHDOG_BUILD === "1";
 const isFdroidBuild = process.env.PASEO_FDROID_BUILD === "1";
+const isPimiAndroid = process.env.APP_VARIANT === "pimi-android";
 const fdroidModuleOverrides = {
   "expo-camera": path.resolve(appSrcRoot, "fdroid/expo-camera.tsx"),
   "expo-notifications": path.resolve(appSrcRoot, "fdroid/expo-notifications.ts"),
@@ -18,6 +19,9 @@ const customWebPlatform = (process.env.PASEO_WEB_PLATFORM ?? "")
 
 const config = getDefaultConfig(projectRoot);
 config.cacheVersion = isWatchdogBuild ? "watchdog" : "standard";
+if (isPimiAndroid) {
+  config.cacheVersion = "pimi-android";
+}
 const defaultResolveRequest = config.resolver.resolveRequest ?? resolve;
 
 // Keep app exports deterministic across dev machines and CI. Metro's Watchman
@@ -85,7 +89,11 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   ) {
     return defaultResolveRequest(context, moduleName.replace(/-prod$/, "-profiling"), platform);
   }
-  if (isFdroidBuild && platform === "android" && fdroidModuleOverrides[moduleName]) {
+  if (
+    platform === "android" &&
+    fdroidModuleOverrides[moduleName] &&
+    (isFdroidBuild || (isPimiAndroid && moduleName === "expo-notifications"))
+  ) {
     return resolveWithCustomWebOverlay(context, fdroidModuleOverrides[moduleName], platform);
   }
 

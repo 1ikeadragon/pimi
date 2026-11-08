@@ -1,0 +1,84 @@
+diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt
+index f83033b..63614b8 100644
+--- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt
++++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt
+@@ -552,6 +552,10 @@ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
+         view.settings.allowFileAccess = allowFileAccess;
+     }
+ 
++    fun setBlockNetworkLoads(viewWrapper: RNCWebViewWrapper, value: Boolean) {
++        viewWrapper.webView.settings.blockNetworkLoads = value
++    }
++
+     fun setAllowFileAccessFromFileURLs(viewWrapper: RNCWebViewWrapper, value: Boolean) {
+         val view = viewWrapper.webView
+         view.settings.allowFileAccessFromFileURLs = value;
+diff --git a/node_modules/react-native-webview/android/src/newarch/com/reactnativecommunity/webview/RNCWebViewManager.java b/node_modules/react-native-webview/android/src/newarch/com/reactnativecommunity/webview/RNCWebViewManager.java
+index 4709e28..b461333 100644
+--- a/node_modules/react-native-webview/android/src/newarch/com/reactnativecommunity/webview/RNCWebViewManager.java
++++ b/node_modules/react-native-webview/android/src/newarch/com/reactnativecommunity/webview/RNCWebViewManager.java
+@@ -69,6 +69,12 @@ public class RNCWebViewManager extends ViewGroupManager<RNCWebViewWrapper>
+         mRNCWebViewManagerImpl.setAllowFileAccess(view, value);
+     }
+ 
++    @Override
++    @ReactProp(name = "blockNetworkLoads")
++    public void setBlockNetworkLoads(RNCWebViewWrapper view, boolean value) {
++        mRNCWebViewManagerImpl.setBlockNetworkLoads(view, value);
++    }
++
+     @Override
+     @ReactProp(name = "allowFileAccessFromFileURLs")
+     public void setAllowFileAccessFromFileURLs(RNCWebViewWrapper view, boolean value) {
+diff --git a/node_modules/react-native-webview/android/src/oldarch/com/reactnativecommunity/webview/RNCWebViewManager.java b/node_modules/react-native-webview/android/src/oldarch/com/reactnativecommunity/webview/RNCWebViewManager.java
+index 974337f..6b96022 100644
+--- a/node_modules/react-native-webview/android/src/oldarch/com/reactnativecommunity/webview/RNCWebViewManager.java
++++ b/node_modules/react-native-webview/android/src/oldarch/com/reactnativecommunity/webview/RNCWebViewManager.java
+@@ -51,6 +51,11 @@ public class RNCWebViewManager extends ViewGroupManager<RNCWebViewWrapper> {
+         mRNCWebViewManagerImpl.setAllowFileAccess(view, value);
+     }
+ 
++    @ReactProp(name = "blockNetworkLoads")
++    public void setBlockNetworkLoads(RNCWebViewWrapper view, boolean value) {
++        mRNCWebViewManagerImpl.setBlockNetworkLoads(view, value);
++    }
++
+     @ReactProp(name = "allowFileAccessFromFileURLs")
+     public void setAllowFileAccessFromFileURLs(RNCWebViewWrapper view, boolean value) {
+         mRNCWebViewManagerImpl.setAllowFileAccessFromFileURLs(view, value);
+diff --git a/node_modules/react-native-webview/lib/WebViewTypes.d.ts b/node_modules/react-native-webview/lib/WebViewTypes.d.ts
+index 998cc88..83a0df2 100644
+--- a/node_modules/react-native-webview/lib/WebViewTypes.d.ts
++++ b/node_modules/react-native-webview/lib/WebViewTypes.d.ts
+@@ -764,6 +764,7 @@ export interface MacOSWebViewProps extends WebViewSharedProps {
+     onContentProcessDidTerminate?: (event: WebViewTerminatedEvent) => void;
+ }
+ export interface AndroidWebViewProps extends WebViewSharedProps {
++    blockNetworkLoads?: boolean;
+     onNavigationStateChange?: (event: WebViewNavigation) => void;
+     onContentSizeChange?: (event: WebViewEvent) => void;
+     /**
+diff --git a/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts b/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts
+index 7f4e6c4..96e00c2 100644
+--- a/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts
++++ b/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts
+@@ -248,6 +248,7 @@ export interface NativeProps extends ViewProps {
+   fraudulentWebsiteWarningEnabled?: WithDefault<boolean, true>;
+   // !iOS only
+ 
++  blockNetworkLoads?: WithDefault<boolean, false>;
+   allowFileAccessFromFileURLs?: boolean;
+   allowUniversalAccessFromFileURLs?: boolean;
+   applicationNameForUserAgent?: string;
+diff --git a/node_modules/react-native-webview/src/WebViewTypes.ts b/node_modules/react-native-webview/src/WebViewTypes.ts
+index eca8141..5906c9f 100644
+--- a/node_modules/react-native-webview/src/WebViewTypes.ts
++++ b/node_modules/react-native-webview/src/WebViewTypes.ts
+@@ -945,6 +945,7 @@ export interface MacOSWebViewProps extends WebViewSharedProps {
+ }
+ 
+ export interface AndroidWebViewProps extends WebViewSharedProps {
++  blockNetworkLoads?: boolean;
+   onNavigationStateChange?: (event: WebViewNavigation) => void;
+   onContentSizeChange?: (event: WebViewEvent) => void;
+ 

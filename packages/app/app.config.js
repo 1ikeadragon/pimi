@@ -6,6 +6,7 @@ const withAndroidOptionalCamera = require("./plugins/with-android-optional-camer
 const withAndroidProfileable = require("./plugins/with-android-profileable");
 const withFdroidAutolinking = require("./plugins/with-fdroid-autolinking");
 const withPasteInput = require("./plugins/with-paste-input");
+const withPimiAndroidRelease = require("./plugins/with-pimi-android-release");
 const withAndroidScroll = require("./modules/paseo-scroll/app.plugin");
 const { getNativeReleaseVersion } = require("./native-release-version");
 const appVariant = process.env.APP_VARIANT ?? "production";
@@ -173,7 +174,9 @@ export default {
           },
         },
       ],
-      ...(isPimiAndroid ? [] : buildProfile.notificationPlugins),
+      ...(isPimiAndroid
+        ? [["expo-dev-client", { addGeneratedScheme: false }], withPimiAndroidRelease]
+        : buildProfile.notificationPlugins),
       "expo-audio",
       [
         "expo-gradle-jvmargs",

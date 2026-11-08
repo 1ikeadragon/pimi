@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Image, Pressable, ScrollView, Text, View, type ViewStyle } from "react-native";
+import { Pressable, ScrollView, Text, View, type ViewStyle } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import {
   CircleCheck,
@@ -743,18 +743,9 @@ function ActivityAvatar({ activity, size }: { activity: PrPaneActivity; size: nu
     ],
     [activity.avatarColor, size],
   );
-  const imageStyle = useMemo(() => ({ width: size, height: size, borderRadius: size / 2 }), [size]);
-  const imageSource = useMemo(
-    () => (activity.avatarUrl ? { uri: activity.avatarUrl } : null),
-    [activity.avatarUrl],
-  );
   return (
     <View style={frameStyle}>
-      {imageSource ? (
-        <Image source={imageSource} style={imageStyle} />
-      ) : (
-        <Text style={styles.avatarText}>{activity.author.slice(0, 1).toUpperCase()}</Text>
-      )}
+      <Text style={styles.avatarText}>{activity.author.slice(0, 1).toUpperCase()}</Text>
     </View>
   );
 }

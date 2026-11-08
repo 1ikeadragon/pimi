@@ -1,0 +1,186 @@
+diff --git a/node_modules/expo-camera/android/build.gradle b/node_modules/expo-camera/android/build.gradle
+index 851cadf..18ea50b 100644
+--- a/node_modules/expo-camera/android/build.gradle
++++ b/node_modules/expo-camera/android/build.gradle
+@@ -7,11 +7,16 @@ group = 'host.exp.exponent'
+ version = '57.0.6'
+ 
+ def barcodeScannerEnabled = findProperty('expo.camera.barcode-scanner-enabled')
+-def isBarcodeScannerEnabled = (barcodeScannerEnabled ?: "true").toString() != "false"
++def useOfflineQrScanner = findProperty("expo.camera.pimi-offline-qr") == "true"
++def isBarcodeScannerEnabled = !useOfflineQrScanner && (barcodeScannerEnabled ?: "true").toString() != "false"
+ 
+ android {
+   namespace "expo.modules.camera"
++  buildFeatures {
++    buildConfig true
++  }
+   defaultConfig {
++    buildConfigField "boolean", "PIMI_OFFLINE_QR", useOfflineQrScanner.toString()
+     versionCode 32
+     versionName "57.0.6"
+   }
+@@ -43,4 +48,5 @@ dependencies {
+   add(barcodeDependencyConfiguration, "com.google.android.gms:play-services-code-scanner:16.1.0")
+   add(barcodeDependencyConfiguration, "com.google.mlkit:barcode-scanning:17.3.0")
+   add(barcodeDependencyConfiguration, "androidx.camera:camera-mlkit-vision:${camerax_version}")
++  add(useOfflineQrScanner ? "implementation" : "compileOnly", "com.google.zxing:core:3.5.4")
+ }
+diff --git a/node_modules/expo-camera/android/shouldUsePublication.groovy b/node_modules/expo-camera/android/shouldUsePublication.groovy
+new file mode 100644
+index 0000000..9348397
+--- /dev/null
++++ b/node_modules/expo-camera/android/shouldUsePublication.groovy
+@@ -0,0 +1 @@
++providers.gradleProperty("expo.camera.pimi-offline-qr").orNull != "true"
+diff --git a/node_modules/expo-camera/android/src/main/java/expo/modules/camera/CameraViewModule.kt b/node_modules/expo-camera/android/src/main/java/expo/modules/camera/CameraViewModule.kt
+index 21382f8..1edc6c2 100644
+--- a/node_modules/expo-camera/android/src/main/java/expo/modules/camera/CameraViewModule.kt
++++ b/node_modules/expo-camera/android/src/main/java/expo/modules/camera/CameraViewModule.kt
+@@ -347,7 +347,7 @@ class CameraViewModule : Module() {
+       }
+ 
+       Prop("barcodeScannerSettings") { view, settings: BarcodeSettings? ->
+-        if (!CameraUtils.isMLKitBarcodeScannerAvailable()) {
++        if (!BuildConfig.PIMI_OFFLINE_QR && !CameraUtils.isMLKitBarcodeScannerAvailable()) {
+           appContext.jsLogger?.warn("Barcode scanning has been disabled")
+           return@Prop
+         }
+@@ -357,7 +357,7 @@ class CameraViewModule : Module() {
+       }
+ 
+       Prop("barcodeScannerEnabled") { view, enabled: Boolean? ->
+-        if (!CameraUtils.isMLKitBarcodeScannerAvailable()) {
++        if (!BuildConfig.PIMI_OFFLINE_QR && !CameraUtils.isMLKitBarcodeScannerAvailable()) {
+           view.setShouldScanBarcodes(false)
+           return@Prop
+         }
+diff --git a/node_modules/expo-camera/android/src/main/java/expo/modules/camera/ExpoCameraView.kt b/node_modules/expo-camera/android/src/main/java/expo/modules/camera/ExpoCameraView.kt
+index 999a22c..766906b 100644
+--- a/node_modules/expo-camera/android/src/main/java/expo/modules/camera/ExpoCameraView.kt
++++ b/node_modules/expo-camera/android/src/main/java/expo/modules/camera/ExpoCameraView.kt
+@@ -50,6 +50,7 @@ import androidx.core.app.ActivityCompat
+ import androidx.core.content.ContextCompat
+ import androidx.core.graphics.drawable.toDrawable
+ import expo.modules.camera.analyzers.BarcodeAnalyzer
++import expo.modules.camera.analyzers.OfflineQrAnalyzer
+ import expo.modules.camera.analyzers.toByteArray
+ import expo.modules.camera.common.BarcodeScannedEvent
+ import expo.modules.camera.common.CameraMountErrorEvent
+@@ -82,6 +83,7 @@ import kotlinx.coroutines.CoroutineExceptionHandler
+ import kotlinx.coroutines.CoroutineScope
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.SupervisorJob
++import kotlinx.coroutines.asExecutor
+ import kotlinx.coroutines.cancel
+ import kotlinx.coroutines.launch
+ import java.io.File
+@@ -544,13 +546,31 @@ class ExpoCameraView(
+     ImageAnalysis.Builder()
+       .setResolutionSelector(
+         ResolutionSelector.Builder()
+-          .setResolutionStrategy(ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY)
++          .setResolutionStrategy(
++            if (BuildConfig.PIMI_OFFLINE_QR) {
++              ResolutionStrategy(Size(1280, 720), ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER)
++            } else {
++              ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY
++            }
++          )
+           .build()
+       )
+       .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+       .build()
+       .also { analyzer ->
+-        if (shouldScanBarcodes && CameraUtils.isMLKitBarcodeScannerAvailable()) {
++        if (shouldScanBarcodes && BuildConfig.PIMI_OFFLINE_QR) {
++          val mainExecutor = ContextCompat.getMainExecutor(context)
++          analyzer.setAnalyzer(
++            Dispatchers.Default.asExecutor(),
++            OfflineQrAnalyzer {
++              mainExecutor.execute {
++                if (isAttachedToWindow && imageAnalysisUseCase === analyzer) {
++                  onBarcodeScanned(it)
++                }
++              }
++            }
++          )
++        } else if (shouldScanBarcodes && CameraUtils.isMLKitBarcodeScannerAvailable()) {
+           try {
+             analyzer.setAnalyzer(
+               ContextCompat.getMainExecutor(context),
+diff --git a/node_modules/expo-camera/android/src/main/java/expo/modules/camera/analyzers/OfflineQrAnalyzer.kt b/node_modules/expo-camera/android/src/main/java/expo/modules/camera/analyzers/OfflineQrAnalyzer.kt
+new file mode 100644
+index 0000000..d008540
+--- /dev/null
++++ b/node_modules/expo-camera/android/src/main/java/expo/modules/camera/analyzers/OfflineQrAnalyzer.kt
+@@ -0,0 +1,57 @@
++package expo.modules.camera.analyzers
++
++import android.os.Bundle
++import androidx.camera.core.ImageAnalysis
++import androidx.camera.core.ImageProxy
++import com.google.zxing.BinaryBitmap
++import com.google.zxing.PlanarYUVLuminanceSource
++import com.google.zxing.ReaderException
++import com.google.zxing.common.HybridBinarizer
++import com.google.zxing.qrcode.QRCodeReader
++import expo.modules.camera.records.BarcodeType
++import expo.modules.camera.utils.BarCodeScannerResult
++import kotlin.math.roundToInt
++
++class OfflineQrAnalyzer(
++  private val onComplete: (BarCodeScannerResult) -> Unit
++) : ImageAnalysis.Analyzer {
++  private val reader = QRCodeReader()
++  private var pixels = ByteArray(0)
++
++  override fun analyze(image: ImageProxy) {
++    try {
++      val width = image.width
++      val height = image.height
++      val luma = image.planes[0]
++      val buffer = luma.buffer
++      if (pixels.size != width * height) {
++        pixels = ByteArray(width * height)
++      }
++      // YUV_420_888 guarantees a one-byte Y pixel. Padding after the last row
++      // may be absent, so copy only the visible pixels from each row.
++      val offset = buffer.position()
++      for (row in 0 until height) {
++        buffer.position(offset + row * luma.rowStride)
++        buffer.get(pixels, row * width, width)
++      }
++      val source = PlanarYUVLuminanceSource(pixels, width, height, 0, 0, width, height, false)
++      val result = reader.decode(BinaryBitmap(HybridBinarizer(source)))
++      val corners = result.resultPoints.flatMap { listOf(it.x.roundToInt(), it.y.roundToInt()) }
++      onComplete(
++        BarCodeScannerResult(
++          BarcodeType.QR.mapToBarcode(),
++          result.text,
++          result.text,
++          Bundle.EMPTY,
++          corners.toMutableList(),
++          height,
++          width
++        )
++      )
++    } catch (_: ReaderException) {
++      // A frame without a readable QR code is normal while aiming the camera.
++    } finally {
++      image.close()
++    }
++  }
++}
+diff --git a/node_modules/expo-camera/expo-module.config.json b/node_modules/expo-camera/expo-module.config.json
+index 80abb75..7008c73 100644
+--- a/node_modules/expo-camera/expo-module.config.json
++++ b/node_modules/expo-camera/expo-module.config.json
+@@ -6,6 +6,7 @@
+   },
+   "android": {
+     "modules": ["expo.modules.camera.CameraViewModule"],
++    "shouldUsePublicationScriptPath": "android/shouldUsePublication.groovy",
+     "publication": {
+       "groupId": "host.exp.exponent",
+       "artifactId": "expo.modules.camera",

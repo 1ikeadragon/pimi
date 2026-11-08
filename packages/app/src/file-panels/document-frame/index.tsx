@@ -56,6 +56,7 @@ export function DocumentFrame({ url, testID }: { url: string; testID?: string })
       thirdPartyCookiesEnabled={false}
       cacheEnabled={false}
       incognito
+      {...(Platform.OS === "android" ? { blockNetworkLoads: true } : {})}
       allowFileAccess
       allowFileAccessFromFileURLs={false}
       allowUniversalAccessFromFileURLs={false}
