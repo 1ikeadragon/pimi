@@ -1,0 +1,20 @@
+{
+  "tree-sitter-json@0.24.8": "sha512-Tc9ZZYwHyWZ3Tt1VEw7Pa2scu1YO7/d2BCBbKTx5hXwig3UfdQjsOPkPyLpDJOn/m1UBEWYAtSdGAwCSyagBqQ==",
+  "tree-sitter-html@0.23.2": "sha512-TN+l+7cCeLx9db/1RhRSqMAZO/266Oh2BHb8J8hMSSFLuzYvFTYP/UnD3S0mny5awzw05KzFNgu2vnwzN9wVJg==",
+  "tree-sitter-css@0.23.2": "sha512-B7teNQrPIEEus37nvv00FcW6tw3bXsMUAZDi56OyZAp8cNebA1NPBEZxzIabtyHQnwXSKXeRtUzYhWxTa0JuAg==",
+  "@tree-sitter-grammars/tree-sitter-markdown@0.3.2": "sha512-hQXCcDVvg2t4E8cn7zz6jjIBerzk9E9ZlHxJp5IrUOpY4s1YVpXJbMeWZks2/V7lmkPRnnkM8IrTbQ5ltwEOnA==",
+  "@tree-sitter-grammars/tree-sitter-yaml@0.7.1": "sha512-AynBwkIoQCTgjDR33bDUp9Mqq+YTco0is3n5hRApMqG9of/6A4eQsfC1/uSEeHSUyMQSYawcAWamsexnVpIP4Q==",
+  "tree-sitter-go@0.23.4": "sha512-iQaHEs4yMa/hMo/ZCGqLfG61F0miinULU1fFh+GZreCRtKylFLtvn798ocCZjO2r/ungNZgAY1s1hPFyAwkc7w==",
+  "tree-sitter-java@0.23.5": "sha512-Yju7oQ0Xx7GcUT01mUglPP+bYfvqjNCGdxqigTnew9nLGoII42PNVP3bHrYeMxswiCRM0yubWmN5qk+zsg0zMA==",
+  "tree-sitter-javascript@0.23.1": "sha512-/bnhbrTD9frUYHQTiYnPcxyHORIw157ERBa6dqzaKxvR/x3PC4Yzd+D1pZIMS6zNg2v3a8BZ0oK7jHqsQo9fWA==",
+  "tree-sitter-python@0.23.6": "sha512-yIM9z0oxKIxT7bAtPOhgoVl6gTXlmlIhue7liFT4oBPF/lha7Ha4dQBS82Av6hMMRZoVnFJI8M6mL+SwWoLD3A==",
+  "tree-sitter-c@0.23.5": "sha512-riDWhqVIt8J14R7G0YMKlUy8E7eYR0Vp6DSGL90nX5CTAXkORCyp4WaOgNtfo8dEsHyZF5e/4E9Z9kWj+qLnTQ==",
+  "tree-sitter-rust@0.23.2": "sha512-mpII54xsZxTMdtNFxVk9WqhPTEP7kKEBkZyb8ulWlhnNJIFBQISpfmABpdqXtnaETeduVHEWABQ5H5o7KUH8XA==",
+  "tree-sitter-bash@0.23.3": "sha512-36cg/GQ2YmIbeiBeqeuh4fBJ6i4kgVouDaqTxqih5ysPag+zHufyIaxMOFeM8CeplwAK/Luj1o5XHqgdAfoCZg==",
+  "tree-sitter-typescript@0.23.2": "sha512-e04JUUKxTT53/x3Uq1zIL45DoYKVfHH4CZqwgZhPg5qYROl5nQjV+85ruFzFGZxu+QeFVbRTPDRnqL9UbU4VeA==",
+  "tree-sitter-cpp@0.23.4": "sha512-qR5qUDyhZ5jJ6V8/umiBxokRbe89bCGmcq/dk94wI4kN86qfdV8k0GHIUEKaqWgcu42wKal5E97LKpLeVW8sKw==",
+  "tree-sitter-swift@0.7.0": "sha512-cALPEQXdv60VBVTTCvvtJXNGcNchUr/olqtVPuEIovQ5yqRibnt1fNFxDD5ggcjEaA+IN1ggPdU3yT51ucesYw==",
+  "tree-sitter-php@0.24.2": "sha512-zwgAePc/HozNaWOOfwRAA+3p8yhuehRw8Fb7vn5qd2XjiIc93uJPryDTMYTSjBRjVIUg/KY6pM3rRzs8dSwKfw==",
+  "tree-sitter-ruby@0.23.1": "sha512-d9/RXgWjR6HanN7wTYhS5bpBQLz1VkH048Vm3CodPGyJVnamXMGb8oEhDypVCBq4QnHui9sTXuJBBP3WtCw5RA==",
+  "tree-sitter-c-sharp@0.23.1": "sha512-9zZ4FlcTRWWfRf6f4PgGhG8saPls6qOOt75tDfX7un9vQZJmARjPrAC6yBNCX2T/VKcCjIDbgq0evFaB3iGhQw=="
+}

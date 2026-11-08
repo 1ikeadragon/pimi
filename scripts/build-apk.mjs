@@ -69,6 +69,7 @@ function run(command, args, cwd) {
   if (result.status !== 0) throw new Error(`${command} failed (${result.status ?? result.signal})`);
 }
 const signing = pimi ? signingOptions() : null;
+if (pimi) run(process.execPath, ["scripts/prepare-native-markdown.mjs", "--force"], root);
 run("npm", ["run", "build:app-deps"], root);
 run(
   "npx",

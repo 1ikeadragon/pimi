@@ -3996,3 +3996,82 @@ diff --git a/node_modules/react-native-enriched-markdown/lib/module/web/utils.js
 +}
  //# sourceMappingURL=utils.js.map
 \ No newline at end of file
+diff --git a/node_modules/react-native-enriched-markdown/vendor-grammars.mjs b/node_modules/react-native-enriched-markdown/vendor-grammars.mjs
+--- a/node_modules/react-native-enriched-markdown/vendor-grammars.mjs
++++ b/node_modules/react-native-enriched-markdown/vendor-grammars.mjs
+@@ -60,16 +60,17 @@
+   path.join(repoRoot, 'packages/react-native-enriched-markdown/package.json')
+ );
+-
++
+ function parseArgs(argv) {
+-  const args = { only: null, runtimeSrc: null, force: false, fromNpm: false, vendorDir: null, manifest: null };
++  const args = { only: null, runtimeSrc: null, force: false, fromNpm: false, vendorDir: null, manifest: null, integrity: null };
+   for (let i = 0; i < argv.length; i++) {
+     if (argv[i] === '--only') args.only = argv[++i].split(',').map((s) => s.trim());
+     else if (argv[i] === '--runtime-src') args.runtimeSrc = argv[++i];
+     else if (argv[i] === '--force') args.force = true;
+     else if (argv[i] === '--from-npm') args.fromNpm = true;
+     else if (argv[i] === '--vendor-dir') args.vendorDir = argv[++i];
+     else if (argv[i] === '--manifest') args.manifest = argv[++i];
++    else if (argv[i] === '--integrity') args.integrity = argv[++i];
+     // --grammars-only is accepted for backward compatibility; the single restore
+     // flow already covers grammars, so it is a no-op.
+     else if (argv[i] === '--grammars-only') continue;
+   }
+@@ -391,9 +392,9 @@
+   }
+   return `https://registry.npmjs.org/${pkg}/-/${pkg}-${version}.tgz`;
+ }
+-
++
+-async function downloadNpmTarballs(grammars, ids) {
++async function downloadNpmTarballs(grammars, ids, integrity) {
+   const byPkg = new Map();
+   for (const id of ids) {
+     const spec = grammars[id];
+     const key = `${spec.package}@${spec.version}`;
+@@ -404,17 +405,21 @@
+   const extracted = new Map();
+   await Promise.all(
+     [...byPkg.entries()].map(async ([key, { spec }]) => {
+       const url = npmTarballUrl(spec.package, spec.version);
++      const expected = integrity[key];
++      if (!expected) fail(`Missing archive integrity for ${key}`);
+       log(`downloading ${key} ...`);
+       let buf;
+       try {
+-        const res = await fetch(url);
++        const res = await fetch(url, { redirect: 'error' });
+         if (!res.ok) fail(`${key}: HTTP ${res.status} for ${url}`);
+         buf = Buffer.from(await res.arrayBuffer());
+       } catch (err) {
+         fail(`${key}: download failed: ${err.message}`);
+       }
++      const actual = 'sha512-' + crypto.createHash('sha512').update(buf).digest('base64');
++      if (actual !== expected) fail(`Archive integrity mismatch for ${key}`);
+       const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ts-npm-'));
+       const tgz = path.join(tmp, 'pkg.tar.gz');
+       fs.writeFileSync(tgz, buf);
+       const untar = spawnSync('tar', ['-xzf', tgz, '-C', tmp], { stdio: 'pipe' });
+@@ -456,14 +461,17 @@
+     // The pre-built registry is already shipped in the tarball, so no
+     // registry regeneration is needed.
+     const ids = requested;
+     const stampFile = path.join(vendorOut, 'grammars', '.stamp');
+-    const stampKey = args.only ? null : npmGrammarStampKey(manifest, ids);
++    if (!args.integrity) fail('Pass the pinned grammar archives with --integrity');
++    const pins = fs.readFileSync(args.integrity);
++    const stampKey = args.only ? null : npmGrammarStampKey(manifest, ids) + '|' +
++      crypto.createHash('sha256').update(pins).digest('hex');
+-
++
+     if (!args.force && stampKey && everyGrammarPresent(ids) && readStamp(stampFile) === stampKey) {
+       log('grammar sources already up to date; skipping.');
+     } else {
+-      const tarballs = await downloadNpmTarballs(manifest.grammars, ids);
++      const tarballs = await downloadNpmTarballs(manifest.grammars, ids, JSON.parse(pins));
+       try {
+         for (const id of ids) {
+           const spec = requireSpec(manifest, id);
+           const key = `${spec.package}@${spec.version}`;

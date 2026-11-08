@@ -36,17 +36,17 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@noble/ciphers": "^2.4.0",
-    "@noble/curves": "^2.4.0",
-    "@noble/hashes": "^2.4.0",
-    "base64-js": "^1.5.1",
-    "tweetnacl": "^1.0.3",
-    "ws": "^8.14.2"
+    "@noble/ciphers": "2.4.0",
+    "@noble/curves": "2.4.0",
+    "@noble/hashes": "2.4.0",
+    "base64-js": "1.5.1",
+    "tweetnacl": "1.0.3"
   },
   "devDependencies": {
     "@types/node": "^20.9.0",
     "@types/ws": "^8.5.8",
     "typescript": "^5.2.2",
-    "vitest": "^4.1.6"
+    "vitest": "^4.1.6",
+    "ws": "8.22.2"
   }
 }
