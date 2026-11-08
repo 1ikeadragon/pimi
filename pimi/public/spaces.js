@@ -22,6 +22,19 @@ function imageUrl(id) {
   return "/api/spaces/image?id=" + encodeURIComponent(id);
 }
 
+function inlineEmbed(url) {
+  if (typeof url !== "string") return null;
+  if (/^https:\/\/www\.youtube-nocookie\.com\/embed\/[A-Za-z0-9_-]{11}$/.test(url)) {
+    return { kind: "youtube", name: "YouTube", title: "YouTube video player", url };
+  }
+  if (
+    /^https:\/\/platform\.twitter\.com\/embed\/Tweet\.html\?id=[1-9]\d{0,19}&dnt=true$/.test(url)
+  ) {
+    return { kind: "x", name: "X", title: "X post", url };
+  }
+  return null;
+}
+
 export function createSpacesView({ $, api, button, element, message }) {
   const section = $("spaces");
   const grid = $("spaces-items");
@@ -30,13 +43,57 @@ export function createSpacesView({ $, api, button, element, message }) {
   const form = $("spaces-card-form");
   const text = $("spaces-note-text");
   const preview = $("spaces-card-image");
-  const player = $("spaces-video-player");
-  const play = $("spaces-play");
   const date = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
   let current;
+  let active = false;
   let suspended = false;
   let busy = false;
   let ready = false;
+  const sources = new WeakMap();
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const { target, isIntersecting, intersectionRatio } of entries) {
+        if (!isIntersecting || intersectionRatio === 0) target.replaceChildren();
+        else if (active && !document.hidden && target.isConnected && !target.firstElementChild) {
+          const embed = sources.get(target);
+          if (!embed) continue;
+          const frame = element("iframe");
+          frame.title = embed.title;
+          frame.setAttribute("sandbox", "allow-scripts allow-same-origin");
+          frame.setAttribute("credentialless", "");
+          frame.setAttribute(
+            "allow",
+            embed.kind === "youtube"
+              ? "autoplay 'none'; encrypted-media; fullscreen"
+              : "autoplay 'none'",
+          );
+          frame.referrerPolicy = "no-referrer";
+          frame.src = embed.url;
+          target.append(frame);
+        }
+      }
+    },
+    { threshold: 0.01 },
+  );
+
+  function updateEmbedVisibility() {
+    observer.disconnect();
+    observer.takeRecords();
+    for (const target of grid.querySelectorAll(".spaces-embed")) {
+      if (active && !document.hidden) observer.observe(target);
+      else target.replaceChildren();
+    }
+  }
+
+  function resume() {
+    active = true;
+    updateEmbedVisibility();
+    if (!suspended) return;
+    suspended = false;
+    editor.showModal();
+  }
+
+  document.addEventListener("visibilitychange", updateEmbedVisibility);
 
   function showEmpty() {
     $("spaces-empty").hidden = !ready || grid.childElementCount > 0;
@@ -99,7 +156,6 @@ export function createSpacesView({ $, api, button, element, message }) {
     $("spaces-card-link").hidden = !isLink;
     $("spaces-card-url").textContent = item?.url ?? "";
     $("spaces-open-link").dataset.spaceUrl = item?.url ?? "";
-    play.hidden = !item?.embedUrl;
     $("spaces-close").textContent = isNote ? "Cancel" : "Close";
     message("spaces-card-error", "");
     editor.showModal();
@@ -119,10 +175,13 @@ export function createSpacesView({ $, api, button, element, message }) {
       open.append(img);
     } else if (item.kind === "link") {
       const url = new URL(item.url);
-      const title = item.embedUrl ? "YouTube" : url.host;
+      const embed = inlineEmbed(item.embedUrl);
+      const title = embed?.name ?? url.host;
       const badge = element("span", "spaces-link-icon");
       badge.append(
-        $(item.embedUrl ? "spaces-video-icon" : "spaces-link-icon").content.cloneNode(true),
+        $(embed?.kind === "youtube" ? "spaces-video-icon" : "spaces-link-icon").content.cloneNode(
+          true,
+        ),
       );
       const caption = element("span", "spaces-link-caption");
       caption.append(
@@ -130,6 +189,12 @@ export function createSpacesView({ $, api, button, element, message }) {
         element("span", "subtitle", url.host + url.pathname),
       );
       open.append(badge, caption);
+      if (embed) {
+        const slot = element("div", "spaces-embed");
+        slot.dataset.embedKind = embed.kind;
+        sources.set(slot, embed);
+        node.append(slot);
+      }
     } else {
       open.append(element("span", "spaces-note-preview", item.text));
     }
@@ -149,22 +214,30 @@ export function createSpacesView({ $, api, button, element, message }) {
     return node;
   }
 
+  function removeCard(id) {
+    const node = $("space-card-" + id);
+    const slot = node?.querySelector(".spaces-embed");
+    if (slot) observer.unobserve(slot);
+    node?.remove();
+  }
+
   function insert(item) {
-    $("space-card-" + item.id)?.remove();
-    grid.prepend(card(item));
+    removeCard(item.id);
+    const node = card(item);
+    grid.prepend(node);
+    const slot = node.querySelector(".spaces-embed");
+    if (slot && active && !document.hidden) observer.observe(slot);
     showEmpty();
   }
 
   function load() {
-    if (suspended) {
-      suspended = false;
-      editor.showModal();
-      return;
-    }
+    if (suspended) return resume();
+    active = true;
     return run(async () => {
       const { items } = await api("spaces", { action: "list" });
       ready = true;
       grid.replaceChildren(...items.map(card));
+      updateEmbedVisibility();
       showEmpty();
     });
   }
@@ -207,25 +280,8 @@ export function createSpacesView({ $, api, button, element, message }) {
 
   $("spaces-new").addEventListener("click", () => openCard());
   $("spaces-close").addEventListener("click", () => editor.close());
-  play.addEventListener("click", (event) => {
-    if (!event.isTrusted || !current?.embedUrl) return;
-    const frame = element("iframe", "spaces-video-frame");
-    frame.title = "YouTube video player";
-    frame.setAttribute("sandbox", "allow-scripts allow-same-origin");
-    frame.setAttribute("credentialless", "");
-    frame.setAttribute("allow", "encrypted-media; fullscreen");
-    frame.referrerPolicy = "no-referrer";
-    frame.src = current.embedUrl;
-    player.replaceChildren(frame);
-    play.hidden = true;
-    frame.focus();
-  });
   window.pimiWorkspace?.onSpaceLinkError(() => {
     message("spaces-card-error", "Couldn’t open this link in your browser.");
-  });
-  editor.addEventListener("close", () => {
-    player.replaceChildren();
-    play.hidden = !current?.embedUrl;
   });
   $("spaces-copy").addEventListener(
     "click",
@@ -240,7 +296,7 @@ export function createSpacesView({ $, api, button, element, message }) {
     const { id } = current;
     void run(async () => {
       await api("spaces", { action: "remove", id });
-      $("space-card-" + id)?.remove();
+      removeCard(id);
       editor.close();
       suspended = false;
       showEmpty();
@@ -271,7 +327,10 @@ export function createSpacesView({ $, api, button, element, message }) {
 
   return {
     load,
+    resume,
     suspend() {
+      active = false;
+      updateEmbedVisibility();
       if (!editor.open) return;
       confirmation.close();
       editor.close();

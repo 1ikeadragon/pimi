@@ -1154,7 +1154,7 @@ if (window.pimiWorkspace) {
     if (mode === "hidden") {
       ++viewRequest;
       spacesView.suspend();
-    }
+    } else if (!$("spaces").hidden) spacesView.resume();
     document.documentElement.dataset.workspaceLayout = mode;
     window.dispatchEvent(new Event("pimi-layout-change"));
   });

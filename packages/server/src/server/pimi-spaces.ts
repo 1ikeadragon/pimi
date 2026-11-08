@@ -4,7 +4,7 @@ import { readFile, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import pLimit from "p-limit";
 import { z } from "zod";
-import { parsePimiSpaceUrl, pimiVideoEmbed } from "@getpaseo/protocol/pimi-task";
+import { parsePimiSpaceUrl, pimiSpaceEmbed } from "@getpaseo/protocol/pimi-task";
 import { writePrivateFileAtomic } from "./private-files.js";
 
 const MAX_CARDS = 200;
@@ -92,7 +92,7 @@ export class PimiSpaces {
     if (!file.link) return { id: file.id, updatedAt, kind: "note", text };
     const url = parsePimiSpaceUrl(text);
     if (!url) throw new SpaceInputError("This card contains an invalid link.");
-    return { id: file.id, updatedAt, kind: "link", url: url.href, embedUrl: pimiVideoEmbed(url) };
+    return { id: file.id, updatedAt, kind: "link", url: url.href, embedUrl: pimiSpaceEmbed(url) };
   }
 
   async read(id: string) {
