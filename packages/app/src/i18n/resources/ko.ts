@@ -1968,6 +1968,20 @@ export const ko: TranslationResources = {
       unableToPair: "호스트를 페어링할 수 없습니다",
       errorTitle: "오류",
     },
+    local: {
+      wifi: "같은 Wi-Fi",
+      remote: "원격",
+      description:
+        "같은 Wi-Fi 네트워크에서 휴대전화를 이 컴퓨터에 연결하세요. 릴레이가 필요하지 않습니다.",
+      interface: "네트워크 주소",
+      enable: "로컬 페어링 켜기",
+      disable: "로컬 페어링 끄기",
+      sharing: "페어링을 끄거나 호스트가 다시 시작될 때까지 {{address}}에서 공유합니다.",
+      password: "휴대전화에서 이 호스트의 비밀번호를 입력하라는 메시지가 표시됩니다.",
+      noNetwork:
+        "로컬 네트워크를 찾을 수 없습니다. 컴퓨터를 Wi-Fi 또는 이더넷에 연결하고 다시 시도하세요.",
+      copyFailed: "링크를 복사하지 못했습니다. 링크를 선택하거나 QR 코드를 스캔하세요.",
+    },
     device: {
       setupTitle: "릴레이 설정",
       setupDescription:

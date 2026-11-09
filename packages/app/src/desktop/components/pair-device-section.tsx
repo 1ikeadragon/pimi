@@ -165,7 +165,7 @@ function PairDeviceBody(props: PairDeviceBodyProps) {
   if (!props.offer.url) {
     return <Text style={styles.stateLine}>{t("pairing.device.unavailable")}</Text>;
   }
-  return <PairingOffer {...props} offer={props.offer} />;
+  return <PairingOffer {...props} url={props.offer.url} />;
 }
 
 function OfferLoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
@@ -248,10 +248,14 @@ function RelayHeroBadge() {
   );
 }
 
-function PairingOffer(props: PairDeviceBodyProps & { offer: { url: string } }) {
+export function PairingOffer(
+  props: Pick<PairDeviceBodyProps, "qrSvg" | "qrError" | "copied" | "onCopy"> & {
+    url: string;
+  },
+) {
   const { t } = useTranslation();
   const inputRef = useRef<EditingTextInputHandle>(null);
-  useEffect(() => inputRef.current?.replaceText(props.offer.url), [props.offer.url]);
+  useEffect(() => inputRef.current?.replaceText(props.url), [props.url]);
   return (
     <View style={styles.offer}>
       <Text style={styles.offerHint}>{t("pairing.device.hint")}</Text>
@@ -263,7 +267,7 @@ function PairingOffer(props: PairDeviceBodyProps & { offer: { url: string } }) {
           <TextInput
             ref={inputRef}
             style={styles.linkInput}
-            initialValue={props.offer.url}
+            initialValue={props.url}
             readOnly
             selectTextOnFocus
             accessibilityLabel={t("pairing.link.label")}

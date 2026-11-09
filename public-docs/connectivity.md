@@ -1,6 +1,6 @@
 ---
 title: Connectivity
-description: Connect a Pimi client to your daemon through SSH, the relay, or Tailscale.
+description: Connect a Pimi client to your daemon over Wi-Fi, SSH, the relay, or Tailscale.
 nav: Connectivity
 order: 4
 category: Getting started
@@ -8,13 +8,22 @@ category: Getting started
 
 # Connectivity
 
-Your Pimi app connects to the daemon running on your computer or server. Pimi Desktop and the CLI can tunnel through SSH. Mobile clients can connect through your own Pimi Relay or directly with Tailscale.
+Your Pimi app connects to the daemon running on your computer or server. Pair a phone on the same Wi-Fi, connect through your own Pimi Relay, or use Tailscale. Pimi Desktop and the CLI can also tunnel through SSH.
 
 This is client-to-daemon transport. If you are looking for the service that starts agents from GitHub, Slack, and Discord events, that is [Hub](/docs/hub).
 
+- [Same Wi-Fi](#same-wi-fi)
 - [SSH](#ssh)
 - [Pimi relay](#pimi-relay)
 - [Tailscale](#tailscale)
+
+## Same Wi-Fi
+
+1. Connect your phone and computer to the same Wi-Fi network.
+2. In Pimi Desktop, open **Settings → your local host → Pair a device → Same Wi-Fi**. Select your network address if asked, then choose **Enable local pairing**.
+3. In Pimi on your phone, scan the QR code or paste the pairing link. If the host has a password, enter it when asked.
+
+The connection is encrypted and stays on your network. Treat the pairing link like a password. **Turn off local pairing** disconnects Wi-Fi clients. Restarting the host also turns sharing off; enable it again and scan the new QR code to reconnect. Guest networks that isolate devices may block the connection.
 
 ## SSH
 

@@ -3,6 +3,12 @@ import path from "node:path";
 import { app, ipcMain, powerMonitor } from "electron";
 import log from "electron-log/main";
 import {
+  PIMI_LOCAL_PAIRING_ROUTE,
+  PimiLocalPairingRequest,
+  PimiLocalPairingStatus,
+} from "@pimi/protocol/connection-offer";
+import { parseHostPort } from "@pimi/protocol/daemon-endpoints";
+import {
   resolvePaseoHome,
   startDaemonInstance,
   DaemonInstanceError,
@@ -477,6 +483,37 @@ export function createDaemonCommandHandlers(): Record<string, DesktopCommandHand
       runningUnderARM64Translation: isRunningUnderARM64Translation(),
     }),
     desktop_daemon_status: () => resolveDesktopDaemonStatus(),
+    desktop_local_pairing: async (args) => {
+      const input = PimiLocalPairingRequest.parse(args);
+      const status = await resolveDesktopDaemonStatus();
+      if (!status.listen || !status.desktopManaged || status.status !== "running") {
+        throw new Error("Connect Pimi to its local desktop host to pair over Wi-Fi.");
+      }
+      const { host, port } = parseHostPort(status.listen);
+      if (host !== "127.0.0.1" && host !== "localhost" && host !== "::1") {
+        throw new Error("Wi-Fi pairing requires the desktop host to listen on loopback.");
+      }
+      const credential = readLocalCredentialForTarget(status.home, status.listen);
+      if (!credential) throw new Error("Could not authenticate to the local Pimi host.");
+      const response = await fetch(
+        `http://${host === "::1" ? "[::1]" : host}:${port}${PIMI_LOCAL_PAIRING_ROUTE}`,
+        {
+          method: "POST",
+          headers: { authorization: `Bearer ${credential}`, "content-type": "application/json" },
+          body: JSON.stringify(input),
+          redirect: "error",
+          signal: AbortSignal.timeout(5000),
+        },
+      );
+      if (response.status === 404)
+        throw new Error("Update the local Pimi host to pair over Wi-Fi.");
+      const payload = await response.json();
+      if (!response.ok)
+        throw new Error(
+          typeof payload?.error === "string" ? payload.error : "Local pairing failed.",
+        );
+      return PimiLocalPairingStatus.parse(payload);
+    },
     desktop_local_credential: async (args) => {
       const instance = await readDaemonInstance(getPaseoHome());
       if (!instance?.desktopManaged || typeof args?.listen !== "string") return null;

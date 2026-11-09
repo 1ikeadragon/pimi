@@ -244,6 +244,8 @@ import {
   matchesLocalCredential,
   writeLocalCredential,
 } from "./local-credential.js";
+import { createLocalNetworkPairing } from "./local-network-pairing.js";
+import { PIMI_LOCAL_PAIRING_ROUTE, PimiLocalPairingRequest } from "@pimi/protocol/connection-offer";
 import { createWebUiMiddleware } from "./web-ui.js";
 import { WorkspaceAutoName } from "./workspace-auto-name.js";
 import { createGitMutationService } from "./session/git-mutation/git-mutation-service.js";
@@ -891,6 +893,37 @@ export async function createPaseoDaemon(
       }
       next();
     };
+  const localNetworkPairing = createLocalNetworkPairing({
+    serverId,
+    daemonPublicKeyB64: daemonKeyPair.publicKeyB64,
+    daemonKeyPair: daemonKeyPair.keyPair,
+    hasPassword: Boolean(daemonAuth.password),
+    logger: logger.child({ module: "local-pairing" }),
+    attach: (...args) => {
+      if (!wsServer) throw new Error("The local host is still starting.");
+      return wsServer.attachExternalSocket(...args);
+    },
+  });
+  app.post(
+    PIMI_LOCAL_PAIRING_ROUTE,
+    requireLocalPimi("Local pairing"),
+    express.json({ limit: "1kb", inflate: false }),
+    (req, res) => {
+      res.setHeader("Cache-Control", "no-store");
+      const input = PimiLocalPairingRequest.safeParse(req.body);
+      if (!input.success) {
+        res.status(400).json({ error: "Invalid local pairing request." });
+        return;
+      }
+      void localNetworkPairing.request(input.data).then(
+        (status) => res.json(status),
+        (error: unknown) =>
+          res.status(409).json({
+            error: error instanceof Error ? error.message : "Could not change local pairing.",
+          }),
+      );
+    },
+  );
   const pimiSpaces = new PimiSpaces(config.paseoHome);
   const parseSpacesRequest = express.json({ limit: PIMI_SPACE_REQUEST_BYTES, inflate: false });
   app.post(
@@ -2081,6 +2114,7 @@ export async function createPaseoDaemon(
     const keepTerminals = options?.keepTerminals === true;
     let terminalShutdownError: unknown = null;
     localCredential = null;
+    await localNetworkPairing.close();
     await deleteLocalCredential(config.paseoHome);
     // Stop tracking plugin provider registrations before anything tears plugins
     // down, so plugin shutdown cannot withdraw a provider from under an agent

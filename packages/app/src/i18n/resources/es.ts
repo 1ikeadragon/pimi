@@ -2007,6 +2007,20 @@ export const es: TranslationResources = {
       unableToPair: "No se puede emparejar el host",
       errorTitle: "Error",
     },
+    local: {
+      wifi: "Misma red Wi-Fi",
+      remote: "Remoto",
+      description:
+        "Conecta tu teléfono a este equipo en la misma red Wi-Fi. No necesitas un servidor de retransmisión.",
+      interface: "Dirección de red",
+      enable: "Activar emparejamiento local",
+      disable: "Desactivar emparejamiento local",
+      sharing: "Se comparte en {{address}} hasta que lo desactives o se reinicie el host.",
+      password: "Tu teléfono te pedirá la contraseña de este host.",
+      noNetwork:
+        "No se encontró una red local. Conecta este equipo por Wi-Fi o Ethernet y vuelve a intentarlo.",
+      copyFailed: "No se pudo copiar el enlace. Puedes seleccionarlo o escanear el código QR.",
+    },
     device: {
       setupTitle: "Configurar un relé",
       setupDescription:
