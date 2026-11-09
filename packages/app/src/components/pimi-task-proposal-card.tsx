@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { getDesktopHost } from "@/desktop/host";
 import { openPimiTasks } from "@/navigation/pimi-tasks";
 import { isPimiAndroid } from "@/utils/pimi-mobile";
+import { AGENT_PROVIDER_DEFINITIONS } from "@pimi/protocol/provider-manifest";
 import {
   PimiReviewSuggestionResult,
   PimiTaskCreatedResult,
@@ -69,6 +70,9 @@ export function readPimiReviewSuggestion(output: unknown): PimiReviewSuggestion 
 
 export function PimiTaskProposalCard({ proposal }: { proposal: PimiTaskProposal }) {
   const count = proposal.experiments?.length ?? 0;
+  const assigned = (proposal.experiments ?? []).flatMap(({ provider, ...item }) =>
+    provider ? [{ ...item, provider }] : [],
+  );
   const reviewDraft = useCallback(
     () => getDesktopHost()?.showPimiWorkspace?.({ view: "task-draft", proposal }),
     [proposal],
@@ -84,11 +88,31 @@ export function PimiTaskProposalCard({ proposal }: { proposal: PimiTaskProposal 
       <Text style={styles.brief} numberOfLines={3}>
         {proposal.brief}
       </Text>
+      {assigned.length > 0 ? (
+        <View style={styles.assignments}>
+          {assigned.map(({ title, hypothesis, provider }) => (
+            <View key={JSON.stringify([title, hypothesis, provider])} style={styles.assignment}>
+              <Text style={styles.assignmentTitle} numberOfLines={1}>
+                {title}
+              </Text>
+              <Text style={styles.provider} numberOfLines={1}>
+                {providerLabel(provider)}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
       <Button onPress={reviewDraft} size="sm" style={styles.action}>
         Review task draft
       </Button>
     </View>
   );
+}
+
+function providerLabel(selection: string) {
+  const id = selection.split("/", 1)[0];
+  const label = AGENT_PROVIDER_DEFINITIONS.find((provider) => provider.id === id)?.label ?? id;
+  return id.length === selection.length ? label : `${label} · ${selection.slice(id.length + 1)}`;
 }
 
 export function PimiReviewSuggestionCard({ suggestion }: { suggestion: PimiReviewSuggestion }) {
@@ -127,5 +151,17 @@ const styles = StyleSheet.create((theme) => ({
   meta: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm },
   title: { color: theme.colors.foreground, fontSize: theme.fontSize.base, fontWeight: "600" },
   brief: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.base, lineHeight: 20 },
+  assignments: { gap: theme.spacing[1] },
+  assignment: { flexDirection: "row", alignItems: "center", gap: theme.spacing[2] },
+  assignmentTitle: { flex: 1, color: theme.colors.foreground, fontSize: theme.fontSize.sm },
+  provider: {
+    maxWidth: "48%",
+    color: theme.colors.foregroundMuted,
+    backgroundColor: theme.colors.surface2,
+    paddingHorizontal: theme.spacing[2],
+    paddingVertical: theme.spacing[1],
+    borderRadius: theme.borderRadius.sm,
+    fontSize: theme.fontSize.sm,
+  },
   action: { alignSelf: "flex-end" },
 }));

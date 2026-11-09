@@ -517,16 +517,26 @@ export function createPaseoConnection(settingsSource = {}) {
       client.providers.waitForReady({ cwd, timeoutMs: 8000 }),
     ]);
     const configured = config.metadataGeneration?.providers?.[0];
-    const models = entries
-      .filter((entry) => entry.enabled && entry.status === "ready")
-      .flatMap((entry) =>
-        (entry.models ?? []).map((model) => ({
-          id: `${entry.provider}/${model.id}`,
-          label: `${entry.label ?? entry.provider} · ${model.label ?? model.id}`,
-          thinkingOptionId: model.defaultThinkingOptionId ?? undefined,
-        })),
-      );
-    return { models, preferred: configured && `${configured.provider}/${configured.model}` };
+    const ready = entries.filter((entry) => entry.enabled && entry.status === "ready");
+    const models = ready.flatMap((entry) =>
+      (entry.models ?? []).map((model) => ({
+        id: `${entry.provider}/${model.id}`,
+        label: `${entry.label ?? entry.provider} · ${model.label ?? model.id}`,
+        thinkingOptionId: model.defaultThinkingOptionId ?? undefined,
+      })),
+    );
+    const defaults = Object.fromEntries(
+      ready.flatMap(({ provider, models: providerModels }) => {
+        const preferred = providerModels?.find((model) => model.isDefault) ?? providerModels?.[0];
+        return preferred ? [[provider, `${provider}/${preferred.id}`]] : [];
+      }),
+    );
+    const preferred = configured && `${configured.provider}/${configured.model}`;
+    return {
+      models,
+      defaults,
+      preferred: models.find((model) => model.id === preferred)?.id ?? models[0]?.id,
+    };
   }
 
   async function checkTaskModel(config) {
@@ -558,16 +568,24 @@ export function createPaseoConnection(settingsSource = {}) {
     const { self } = await client.hosts.list();
     if (source.serverId !== self.serverId)
       throw new RequestError("Open the originating chat’s host to start its workers.", 409);
-    const snapshot = await client.agents.ref(source.agentId).refresh();
+    const agent = client.agents.ref(source.agentId);
+    const snapshot = await agent.refresh();
     if (!snapshot?.agent || snapshot.agent.archivedAt)
       throw new RequestError("Reopen the originating chat before starting its workers.", 409);
-    return source;
+    const { attachment, truncated } = await agent.buildForkContext();
+    if (!attachment)
+      throw new RequestError("Couldn’t read context from the originating chat. Try again.", 409);
+    return {
+      parent: source,
+      context: attachment,
+      contextStatus: truncated ? "excerpt" : "included",
+    };
   }
 
   async function launchExperiment(task, experiment) {
     const client = await connect();
     const slug = `pimi-${experiment.workspaceId.slice(4)}`;
-    const { mode, parent } = experiment.launch;
+    const { mode, parent, context } = experiment.launch;
     const chat = mode === "chat" || mode === "research";
     const cwd = chat ? join(workspaceRoot, mode, experiment.id) : task.root;
     if (chat) await mkdir(cwd, { recursive: true, mode: 0o700 });
@@ -591,6 +609,7 @@ export function createPaseoConnection(settingsSource = {}) {
         title: experiment.title,
         config: experiment.launch.config,
         prompt: experiment.launch.prompt,
+        ...(context ? { attachments: [context] } : {}),
         ...(parent
           ? {
               parent,

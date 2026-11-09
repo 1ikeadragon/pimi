@@ -4,6 +4,7 @@ import { mkdir, readFile, realpath, rename, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname } from "node:path";
 import { z } from "zod";
+import { TextAttachmentSchema } from "@pimi/protocol/messages";
 import {
   PIMI_TASK_PAGE_SIZE,
   PimiExperimentFields,
@@ -18,6 +19,7 @@ import {
   PimiTaskProposal,
   PimiTaskSource,
   PimiTaskStage,
+  PimiTaskWorkProvider,
 } from "@pimi/protocol/pimi-task";
 
 import { workspaceLabelKey } from "@pimi/protocol/workspace-labels";
@@ -40,6 +42,7 @@ const modelConfig = z.object({
 });
 const experimentSchema = ideaFields.extend({
   id: z.uuid(),
+  provider: PimiTaskWorkProvider.optional(),
   root: z.string().nullable().optional(),
   path: z.string().nullable(),
   workspaceId: z.string().nullable(),
@@ -50,6 +53,9 @@ const experimentSchema = ideaFields.extend({
       prompt: z.string(),
       mode: PimiStoredTaskMode.optional(),
       parent: taskSource.optional(),
+      modelLabel: z.string().optional(),
+      contextStatus: z.enum(["included", "excerpt"]).optional(),
+      context: TextAttachmentSchema.optional(),
     })
     .nullable(),
   error: z.string().nullable(),
@@ -72,6 +78,30 @@ const taskSchema = taskFields.extend({
 const maxExperiments = 8;
 const recapPageSize = 100;
 const modelInput = z.object({ id: z.uuid(), model: z.string().min(1).max(512) });
+const runInput = modelInput.partial({ model: true });
+
+function publicWorkItem(item) {
+  if (!item.launch?.context) return item;
+  const { context: _privateContext, ...launch } = item.launch;
+  return { ...item, launch };
+}
+
+function publicTask(task) {
+  if (!task.experiments.some((item) => item.launch?.context)) return task;
+  return { ...task, experiments: task.experiments.map(publicWorkItem) };
+}
+
+function modelForWorkItem(choices, item, defaultModel) {
+  const requested = item.launch?.config.provider ?? item.provider ?? defaultModel;
+  const defaults = choices.defaults ?? {};
+  const modelId = requested && Object.hasOwn(defaults, requested) ? defaults[requested] : requested;
+  const selected = choices.models.find(({ id }) => id === modelId);
+  if (!selected) {
+    const detail = requested ? `“${requested}” is unavailable.` : "Choose a default model.";
+    throw new RequestError(`${item.title} · ${detail}`, 409);
+  }
+  return selected;
+}
 
 function storedPullRequest(pr, previous) {
   const same = previous?.url === pr.url && previous.state === pr.state;
@@ -153,7 +183,18 @@ function taskDetails(task) {
     ...taskSummary(task),
     brief: task.brief,
     work: task.experiments.map(
-      ({ id, title, hypothesis, path, root, workspaceId, report, pullRequest }) => ({
+      ({
+        id,
+        title,
+        hypothesis,
+        path,
+        root,
+        workspaceId,
+        report,
+        pullRequest,
+        provider,
+        launch,
+      }) => ({
         id,
         title,
         brief: hypothesis,
@@ -161,6 +202,7 @@ function taskDetails(task) {
         repository: root,
         workspaceId,
         hasReport: Boolean(report),
+        provider: launch?.config.provider ?? provider,
         ...(pullRequest ? { pullRequest: pullRequest.url } : {}),
       }),
     ),
@@ -177,7 +219,7 @@ function modelDirectory(task) {
   return task.root;
 }
 
-function experimentPrompt(task, experiment, mode, repository) {
+function experimentPrompt(task, experiment, mode, repository, hasContext) {
   const instructions =
     mode === "chat"
       ? [
@@ -191,6 +233,11 @@ function experimentPrompt(task, experiment, mode, repository) {
   return [
     ...instructions,
     "Work on this item only. Follow the brief, then verify what you can.",
+    ...(hasContext
+      ? [
+          "The originating chat is reference material. Use relevant facts and follow this work brief when they conflict.",
+        ]
+      : []),
     "Your final message becomes the report. Include the outcome, files or areas changed, what you verified, and open questions. Distinguish checks you ran from assumptions.",
     `Task: ${task.title}\n${task.brief}`,
     `Work item: ${experiment.title}\n${experiment.hypothesis}`,
@@ -309,13 +356,14 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
     );
     const { proposal, ...fields } = input;
     const existing = proposal && state.find((task) => task.id === proposal.id);
-    if (existing) return existing;
+    if (existing) return publicTask(existing);
     const task = await buildTask(fields, {
       id: proposal?.id,
       source: proposal?.source,
       ideas: proposal?.experiments,
     });
-    return (await insertTask(task, (draft) => draft.find(({ id }) => id === task.id))).task;
+    const saved = await insertTask(task, (draft) => draft.find(({ id }) => id === task.id));
+    return publicTask(saved.task);
   }
 
   async function buildTask(fields, { id = randomUUID(), source, ideas = [], stage } = {}) {
@@ -383,7 +431,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
       if (task.repositories.some((repository) => repository.root === root))
         throw new RequestError("This repository is already attached.", 409);
       pinRepository(task, root, base);
-      return task;
+      return publicTask(task);
     });
   }
 
@@ -402,7 +450,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
         if (input.done) task.stage = "done";
         else if (task.stage === "done") task.stage = null;
       }
-      return Object.assign(task, input);
+      return publicTask(Object.assign(task, input));
     });
   }
 
@@ -433,7 +481,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
     return update((draft) => {
       const task = getTask(draft, id);
       applyStage(task, stage);
-      return task;
+      return publicTask(task);
     });
   }
 
@@ -532,6 +580,28 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
         throw new RequestError("Choose a repository attached to this task.");
       }
       item.root = root;
+      return item;
+    });
+  }
+
+  function assignModel(body) {
+    const { id, experimentId, model } = readInput(
+      z.strictObject({
+        id: z.uuid(),
+        experimentId: z.uuid(),
+        model: PimiTaskWorkProvider.nullable(),
+      }),
+      body,
+    );
+    return update((draft) => {
+      const task = getTask(draft, id);
+      checkOpen(task);
+      const item = getExperiment(task, experimentId);
+      if (running.has(id) || item.launch || item.path || item.report) {
+        throw new RequestError("Only an unstarted work item can change models.", 409);
+      }
+      if (model) item.provider = model;
+      else delete item.provider;
       return item;
     });
   }
@@ -645,39 +715,45 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
   }
 
   async function run(body) {
-    const { id, model } = readInput(modelInput, body);
+    const { id, model } = readInput(runInput, body);
     if (running.has(id)) throw new RequestError("Agents are already starting.", 409);
     const task = getTask(state, id);
     checkOpen(task);
     // Limit simultaneous provider and workspace setup calls per task.
-    const drafts = task.experiments.filter((entry) => !entry.path && !entry.report);
-    if (!drafts.length) throw new RequestError("Add a work item to start.");
-    const pending = drafts
-      .filter((entry) => !entry.launch || entry.launch.config.provider === model)
-      .slice(0, 4);
-    if (!pending.length) {
-      throw new RequestError("Retry unfinished launches with their original model.", 409);
-    }
+    const pending = task.experiments.filter((entry) => !entry.path && !entry.report).slice(0, 4);
+    if (!pending.length) throw new RequestError("Add a work item to start.");
 
     running.add(id);
     try {
-      const parent =
+      const choices = await paseo.taskModels(modelDirectory(task));
+      const selections = new Map(
+        pending.map((item) => [item.id, modelForWorkItem(choices, item, model)]),
+      );
+      const handoff =
         task.source && pending.some((entry) => !entry.launch)
           ? await paseo.taskParent(task.source)
           : undefined;
-      const selected = await selectModel(task, model);
-      const config = {
+      const uniqueModels = new Map(
+        [...selections.values()].map((selected) => [selected.id, selected]),
+      );
+      const toConfig = (selected) => ({
         provider: selected.id,
-        ...(selected.thinkingOptionId ? { thinkingOptionId: selected.thinkingOptionId } : {}),
-      };
-      try {
-        await paseo.checkTaskModel(config);
-      } catch (error) {
-        throw new RequestError(
-          `Model check failed: ${error.message} Choose another model or check Agent Console settings.`,
-          502,
-        );
-      }
+        thinkingOptionId: selected.thinkingOptionId,
+      });
+      const modelChecks = await Promise.allSettled(
+        [...uniqueModels.values()].map(async (selected) => {
+          try {
+            await paseo.checkTaskModel(toConfig(selected));
+          } catch (error) {
+            throw new RequestError(
+              `${selected.label} failed its model check. ${error.message}`,
+              502,
+            );
+          }
+        }),
+      );
+      const failedCheck = modelChecks.find((check) => check.status === "rejected");
+      if (failedCheck) throw failedCheck.reason;
       const launches = await update((draft) => {
         const current = getTask(draft, id);
         checkOpen(current);
@@ -693,11 +769,13 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
           if (experiment.report)
             throw new RequestError("A work item changed. Review the drafts and try again.", 409);
           experiment.workspaceId ??= `wks_${experiment.id.replaceAll("-", "").slice(0, 16)}`;
+          const selected = selections.get(experimentId);
           experiment.launch ??= {
-            config,
+            config: toConfig(selected),
             mode,
-            prompt: experimentPrompt(current, experiment, mode, repository),
-            ...(parent ? { parent } : {}),
+            modelLabel: selected.label,
+            prompt: experimentPrompt(current, experiment, mode, repository, Boolean(handoff)),
+            ...handoff,
           };
           experiment.error = null;
           return experiment;
@@ -718,6 +796,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
             const current = getExperiment(getTask(draft, id), experiment.id);
             current.path = path ?? null;
             current.error = error ?? null;
+            if (path) delete current.launch.context;
             return { id: current.id, error: current.error };
           });
         }),
@@ -738,7 +817,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
     const task = getTask(state, id);
     if (!task.completedByPullRequest) checkOpen(task);
     const experiment = getExperiment(task, experimentId);
-    if (experiment.reportSource) return experiment;
+    if (experiment.reportSource) return publicWorkItem(experiment);
     if (!experiment.launch) {
       throw new RequestError("This work item has no Pimi agent.");
     }
@@ -747,11 +826,11 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
       const currentTask = getTask(draft, id);
       if (!currentTask.completedByPullRequest) checkOpen(currentTask);
       const current = getExperiment(currentTask, experimentId);
-      if (current.reportSource) return current;
+      if (current.reportSource) return publicWorkItem(current);
       current.report = result.slice(0, 24000);
       current.reportSource = current.report ? "agent" : null;
       current.reportTruncated = result.length > 24000;
-      return current;
+      return publicWorkItem(current);
     });
   }
 
@@ -942,7 +1021,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
           ),
         )
         .map(({ id, title }) => ({ id, title })),
-    list: () => ({ tasks: state, error: readError }),
+    list: () => ({ tasks: state.map(publicTask), error: readError }),
     reportText(id, experimentId) {
       const item = getExperiment(getTask(state, id), experimentId);
       if (!item.report) throw new RequestError("This report is not ready.", 404);
@@ -957,6 +1036,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
     create,
     attachRepository,
     assignRepository,
+    assignModel,
     save,
     setStage,
     addIdea,

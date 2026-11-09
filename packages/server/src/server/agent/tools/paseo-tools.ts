@@ -1577,7 +1577,7 @@ function createToolCatalog(
       {
         title: "Propose a Pimi task",
         description:
-          "Open a draft for work the user wants delegated to separate agents. Include up to four independent work items. Use chat for separate research folders and worktree for repository edits. Wait for the user to start the workers. For tracking in the current chat, use create_pimi_task.",
+          "Open a draft for work the user wants delegated to separate agents. Include up to four independent work items. Set each requested experiments[].provider to a provider ID or exact provider/model from available providers. Use chat for separate research folders and worktree for repository edits. Wait for the user to start the workers. For tracking in the current chat, use create_pimi_task.",
         inputSchema: PimiTaskProposalInput,
       },
       async (input) => {

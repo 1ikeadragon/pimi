@@ -38,6 +38,8 @@ export function createTasksView({
   let dictation;
   let request = 0;
   const models = new Map();
+  let modelRevision = 0;
+  const taskDefaults = new Map();
   const modelRequests = new Set();
   const modelErrors = new Map();
   const launches = new Set();
@@ -55,6 +57,14 @@ export function createTasksView({
     task.repositories ?? (task.root ? [{ root: task.root, base: task.base }] : []);
   const repositoryFor = (task, item) =>
     repositoriesFor(task).find(({ root }) => root === (item.root ?? task.root));
+
+  function modelForItem(item, choices) {
+    const requested = item.launch?.config.provider ?? item.provider ?? $("task-model").value;
+    const id = Object.hasOwn(choices?.defaults ?? {}, requested)
+      ? choices.defaults[requested]
+      : requested;
+    return { id, model: choices?.models.find((model) => model.id === id) };
+  }
 
   function preserveFocus(container) {
     const active = document.activeElement;
@@ -248,25 +258,38 @@ export function createTasksView({
     if (!plan.hidden && pending.length && plan.dataset.hasDrafts !== "true") plan.open = true;
     plan.dataset.hasDrafts = String(Boolean(pending.length));
     $("task-model").disabled = active || !choices?.models.length;
-    $("task-models").hidden = !modelErrors.has(task.id) && choices?.models.length !== 0;
+    const blocked = pending.slice(0, 4).find((item) => !modelForItem(item, choices).model);
+    $("task-models").hidden =
+      !modelErrors.has(task.id) && choices?.models.length !== 0 && !(choices && blocked);
     $("task-models").disabled = active || modelRequests.has(task.id);
     const modelChosen = Boolean($("task-model").value && choices?.models.length);
-    $("run-task").disabled = active || !modelChosen || !pending.length;
+    $("run-task").disabled = active || Boolean(blocked) || !pending.length;
     $("run-task").hidden = !pending.length;
     $("suggest-experiments").disabled = active || !modelChosen || task.experiments.length > 6;
-    $("run-task").textContent = pending.length > 4 ? "Start next 4" : "Start agents";
-    $("task-run-note").textContent = modelControlNote(task, choices, active);
+    $("run-task").textContent = launchLabel(pending);
+    $("task-run-note").textContent = modelControlNote(task, choices, active, blocked);
   }
 
-  function modelControlNote({ id, mode, source }, choices, active) {
+  function launchLabel(pending) {
+    if (pending.length > 4) return "Start next 4";
+    return pending.every((item) => item.launch) ? "Retry launches" : "Start agents";
+  }
+
+  function modelControlNote({ id, mode, source }, choices, active, blocked) {
     if (planning.has(id)) return "Drafting two work items from the brief…";
-    if (active) return "Checking the model and starting agents…";
+    if (active) return "Checking the assigned models and starting agents…";
     if (modelRequests.has(id)) return "Finding available models…";
     if (modelErrors.has(id)) return modelErrors.get(id);
     if (choices?.models.length === 0) return "No ready models. Check Agent Console settings.";
+    if (blocked && choices) {
+      if (blocked.launch)
+        return `Restore ${blocked.launch.modelLabel ?? blocked.launch.config.provider} to retry “${blocked.title}”.`;
+      return `Choose an available model for “${blocked.title}”.`;
+    }
     const location = mode === "chat" ? "in separate folders" : "in separate Git worktrees";
-    const destination = source ? "the task and the original chat" : "the task";
-    return `Agents work ${location} and report to ${destination}.`;
+    return source
+      ? `Agents work ${location}. They use context from the original chat and report back there.`
+      : `Agents work ${location} and report to the task.`;
   }
 
   function discoverModels(task) {
@@ -417,6 +440,7 @@ export function createTasksView({
       );
     }
     if (!task.done && !item.launch && !item.path && !item.report) {
+      actions.append(workItemModelPicker(task, item));
       const repositories = repositoriesFor(task);
       if (repositories.length > 1)
         actions.append(workItemRepositoryPicker(task, item, repositories));
@@ -447,6 +471,56 @@ export function createTasksView({
     return actions;
   }
 
+  function workItemModelPicker(task, item) {
+    const choices = models.get(task.id);
+    const picker = element("select", "work-item-model");
+    picker.setAttribute("aria-label", `Model for ${item.title}`);
+    const { id: modelId, model } = modelForItem(item, choices);
+    const fallback = choices?.models.find(({ id }) => id === $("task-model").value);
+    const defaultLabel = fallback ? `Default · ${fallback.label}` : "Use task default";
+    picker.replaceChildren(new Option(defaultLabel, ""));
+    if (item.provider && !model) {
+      const unavailable = new Option(
+        choices ? `Unavailable · ${item.provider}` : item.provider,
+        modelId,
+      );
+      unavailable.disabled = true;
+      picker.append(unavailable);
+    }
+    for (const { id, label } of choices?.models ?? []) picker.append(new Option(label, id));
+    picker.value = item.provider ? modelId : "";
+    picker.disabled = launches.has(task.id) || planning.has(task.id) || !choices?.models.length;
+    picker.addEventListener("change", () => {
+      void perform(picker, async () => {
+        try {
+          await api("tasks/assign-model", {
+            id: task.id,
+            experimentId: item.id,
+            model: picker.value || null,
+          });
+          await load();
+        } catch (error) {
+          picker.value = item.provider ? modelId : "";
+          throw error;
+        }
+      });
+    });
+    return picker;
+  }
+
+  function workerLaunchDetails(item, choices) {
+    if (!item.launch) return null;
+    const { id, model } = modelForItem(item, choices);
+    const label = item.launch.modelLabel ?? model?.label ?? id;
+    const details = element("div", "experiment-model-details");
+    details.append(element("span", "experiment-model-label", label));
+    if (item.launch.contextStatus) {
+      const subject = item.launch.contextStatus === "excerpt" ? "Chat excerpt" : "Chat context";
+      details.append(element("span", "subtitle", `${subject} ${item.path ? "attached" : "ready"}`));
+    }
+    return details;
+  }
+
   function workItemRepositoryPicker(task, item, repositories) {
     const picker = element("select", "work-item-repository");
     picker.setAttribute("aria-label", `Repository for ${item.title}`);
@@ -474,6 +548,7 @@ export function createTasksView({
   }
 
   function renderExperiments(task) {
+    const choices = models.get(task.id);
     const entries = task.experiments.map((item) => {
       const card = cardFor(item);
       const workspaceAgents = card?.agents ?? [];
@@ -493,6 +568,8 @@ export function createTasksView({
       visible(),
       launches.has(task.id),
       planning.has(task.id),
+      choices?.revision,
+      $("task-model").value,
       entries,
       [...reportRequests],
       [...reportErrors],
@@ -525,6 +602,8 @@ export function createTasksView({
         if (chat) context = repo ? `Chat · ${repo} reference` : "Chat";
         else if (repo) context = `${repo} · ${card?.branch || "New worktree"}`;
         row.append(element("p", "subtitle", context));
+        const launchDetails = workerLaunchDetails(item, choices);
+        if (launchDetails) row.append(launchDetails);
         const error = agent?.error || item.error;
         if (error) row.append(element("p", "warning", error));
         if (reportErrors.has(item.id))
@@ -628,8 +707,10 @@ export function createTasksView({
     }
     renderWorkItemForm(task, repositories);
     const choice = models.get(task.id);
-    const original = drafts(task).find((item) => item.launch)?.launch.config.provider;
-    options($("task-model"), choice?.models ?? [], "Choose a model", original ?? choice?.preferred);
+    const picker = $("task-model");
+    const preferred = taskDefaults.get(task.id) ?? choice?.preferred;
+    options(picker, choice?.models ?? [], "Choose a model", preferred);
+    picker.value = choice?.models.some(({ id }) => id === preferred) ? preferred : "";
     showModelControls(task);
     renderExperiments(task);
     discoverModels(task);
@@ -786,6 +867,8 @@ export function createTasksView({
         checkbox.checked = true;
         const description = element("span", "task-proposal-description");
         description.append(element("strong", "", idea.title), element("span", "", idea.hypothesis));
+        if (idea.provider)
+          description.append(element("span", "experiment-model-label", idea.provider));
         label.append(checkbox, description);
         return label;
       }),
@@ -1044,7 +1127,8 @@ export function createTasksView({
     modelErrors.delete(task.id);
     showModelControls(task);
     try {
-      models.set(task.id, await api("tasks/models", { id: task.id }));
+      const catalog = await api("tasks/models", { id: task.id });
+      models.set(task.id, { ...catalog, revision: ++modelRevision });
     } catch (error) {
       modelErrors.set(task.id, error.message);
     } finally {
@@ -1057,7 +1141,13 @@ export function createTasksView({
     const task = selected();
     if (task) void loadModels(task);
   });
-  $("task-model").addEventListener("change", () => showModelControls(selected()));
+  $("task-model").addEventListener("change", () => {
+    const task = selected();
+    if (!task) return;
+    taskDefaults.set(task.id, $("task-model").value);
+    showModelControls(task);
+    renderExperiments(task);
+  });
   $("suggest-experiments").addEventListener("click", () => {
     const task = selected();
     const model = $("task-model").value;
@@ -1087,7 +1177,7 @@ export function createTasksView({
     void (async () => {
       message("task-warning", "");
       try {
-        await api("tasks/run", { id: task.id, model });
+        await api("tasks/run", { id: task.id, model: model || undefined });
         await Promise.all([load(), refreshBoard()]);
       } catch (error) {
         if (selectedId === task.id) message("task-warning", error.message);

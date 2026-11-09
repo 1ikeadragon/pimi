@@ -130,7 +130,7 @@ function pimiActionInstructions(
     instructions.push(
       isTaskWorker
         ? "Finish your assigned work item. Open a new task only if the user asks."
-        : "Use propose_pimi_task when the user asks to delegate or split work across agents. Wait for them to start the workers.",
+        : "Use propose_pimi_task when the user asks to delegate or split work across agents. Put each requested provider or provider/model in that work item's provider field. Wait for the user to start the workers.",
     );
   }
   if (isPaseoToolEnabled(policy, PimiTaskAgentTool.update)) {

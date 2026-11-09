@@ -24,8 +24,20 @@ export const PimiExperimentFields = z.object({
   hypothesis: z.string().trim().min(1).max(1600),
 });
 
+export const PimiTaskWorkProvider = z
+  .string()
+  .trim()
+  .min(1)
+  .max(512)
+  .describe(
+    "Requested provider ID or exact provider/model from the provider catalog. Omit to use the task's default model.",
+  );
+
 export const PimiTaskProposalInput = PimiTaskFields.extend({
-  experiments: z.array(PimiExperimentFields).max(4).optional(),
+  experiments: z
+    .array(PimiExperimentFields.extend({ provider: PimiTaskWorkProvider.optional() }))
+    .max(4)
+    .optional(),
 });
 
 export const PimiTaskSource = z.object({

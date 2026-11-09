@@ -913,6 +913,7 @@ export async function startPimi({
     ["/api/tasks/create", tasks.create],
     ["/api/tasks/repository", tasks.attachRepository],
     ["/api/tasks/assign-repository", tasks.assignRepository],
+    ["/api/tasks/assign-model", tasks.assignModel],
     ["/api/tasks/save", tasks.save],
     ["/api/work/label", paseo.setWorkLabel],
     ["/api/tasks/stage", tasks.setStage],

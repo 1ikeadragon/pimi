@@ -55,6 +55,8 @@ export type {
 import type { PluginTimelineItem } from "@pimi/protocol/agent-types";
 import type {
   AgentBackgroundWorkItem,
+  AgentForkContextOptions,
+  AgentForkContextPayload,
   FetchAgentsEntry,
   FetchAgentsOptions,
   FetchAgentsPageInfo,
@@ -410,6 +412,8 @@ export interface PaseoAgentHandle {
   readonly archivedAt: NonNullable<PaseoAgent["archivedAt"]> | null;
   readonly timeline: PaseoAgentTimelineHandle;
   readonly backgroundWork: PaseoAgentBackgroundWorkHandle;
+  /** Capture portable chat context for a continuation or delegated task. */
+  buildForkContext(options?: AgentForkContextOptions): Promise<AgentForkContextPayload>;
   current(): PaseoAgent | null;
   refresh(requestId?: string): Promise<PaseoAgentRefetchResult | null>;
   /**
@@ -970,6 +974,7 @@ function createAgentHandleFactory(
     let serverId = daemonClient.getLastServerInfoMessage()?.serverId;
     const handle: PaseoAgentHandle = {
       id,
+      buildForkContext: (options) => daemonClient.buildAgentForkContext(id, options),
       get address() {
         serverId ??= daemonClient.getLastServerInfoMessage()?.serverId;
         if (!serverId) throw new Error("Connect to a host before obtaining an agent address");
