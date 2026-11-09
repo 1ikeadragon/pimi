@@ -2,6 +2,10 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.9 - 2026-11-10
+
+- Open the selected project in IDE mode before starting a chat.
+
 ## 0.17.8 - 2026-11-09
 
 - Switch projects or add a local folder from the IDE title bar. Explorer, editor tabs, and chat line up in a single row with softer dividers.
