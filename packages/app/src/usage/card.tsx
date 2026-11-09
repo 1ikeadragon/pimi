@@ -80,7 +80,7 @@ export function UsageCard({
   return (
     <View style={containerStyle} testID={`usage-report-${entry.id}`}>
       <View style={styles.header}>
-        <UsageSourceIcon svg={entry.icon ?? null} size={14} />
+        <UsageSourceIcon svg={entry.icon ?? null} size={16} tone="foreground" />
         <Text style={styles.name} numberOfLines={1}>
           {entry.sourceLabel}
         </Text>

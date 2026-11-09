@@ -175,10 +175,15 @@ const SessionRow = memo(function SessionRow({
       highlightStyle={styles.rowSelected}
       accessibilityRole="button"
       accessibilityState={selected ? ROW_SELECTED : ROW_UNSELECTED}
+      aria-pressed={selected}
       onPress={choose}
       testID={`pimi-usage-session-${agent.id}`}
     >
-      <DensityIcon icon={ProviderIcon} size="sm" color="foregroundMuted" />
+      <DensityIcon
+        icon={ProviderIcon}
+        size="sm"
+        color={selected ? "foreground" : "foregroundMuted"}
+      />
       <View style={styles.rowTitle}>
         <Text style={styles.rowName} numberOfLines={1}>
           {sessionName(agent)}
@@ -271,7 +276,7 @@ function SessionDetail({ agent }: { agent: AggregatedAgent }) {
             {sessionName(agent)}
           </Text>
           <View style={styles.providerLine}>
-            <DensityIcon icon={ProviderIcon} size="sm" color="foregroundMuted" />
+            <DensityIcon icon={ProviderIcon} size="sm" color="foreground" />
             <Text style={styles.muted} numberOfLines={1}>
               {[provider, model].filter(Boolean).join(" · ")}
             </Text>

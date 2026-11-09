@@ -19,8 +19,23 @@ function UsageSourceIconBase({
 const ThemedUsageSourceIcon = withUnistyles(UsageSourceIconBase);
 
 const mutedIconColor = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
+const foregroundIconColor = (theme: Theme) => ({ color: theme.colors.foreground });
 
 /** The source's catalog SVG, or a generic gauge when the source ships none. */
-export function UsageSourceIcon({ svg, size }: { svg: string | null; size: number }) {
-  return <ThemedUsageSourceIcon svg={svg} size={size} uniProps={mutedIconColor} />;
+export function UsageSourceIcon({
+  svg,
+  size,
+  tone = "muted",
+}: {
+  svg: string | null;
+  size: number;
+  tone?: "muted" | "foreground";
+}) {
+  return (
+    <ThemedUsageSourceIcon
+      svg={svg}
+      size={size}
+      uniProps={tone === "foreground" ? foregroundIconColor : mutedIconColor}
+    />
+  );
 }
