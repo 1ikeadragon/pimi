@@ -1,20 +1,102 @@
 /* Pimi addition to the Paseo fork. Apache-2.0. */
+.review-mode-bar,
+.review-mode-switch,
+.review-pr-tabs,
+.review-pr-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.review-mode-bar {
+  justify-content: space-between;
+  margin-bottom: 12px;
+  flex: none;
+}
+.review-mode-switch,
+.review-pr-tabs {
+  padding: 2px;
+  border-radius: var(--control-radius);
+  background: var(--surface);
+}
+.review-mode-switch [aria-pressed="true"],
+.review-pr-tabs [aria-pressed="true"] {
+  background: var(--selected);
+  color: var(--text);
+}
+#review[data-mode="prs"] .review-heading {
+  min-height: 0;
+  margin-bottom: 0;
+  justify-content: flex-end;
+}
+#review[data-mode="prs"] .review-heading > :first-child,
+#review[data-mode="prs"] #change-review-worktree,
+#review[data-mode="prs"] #compare-worktrees {
+  display: none;
+}
+#review[data-mode="prs"][data-screen="code"] .review-heading {
+  margin-bottom: 8px;
+}
+#review[data-mode="prs"][data-screen="code"] .review-heading > :first-child {
+  display: block;
+  flex-basis: 165px;
+}
+#review[data-mode="prs"] :is(#review-title, #review-repo) {
+  display: none;
+}
+#review[data-mode="prs"][data-screen="details"] .desk {
+  grid-template-columns: minmax(0, 1fr);
+}
+#review[data-mode="prs"] .desk {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+#review-pr-context {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  min-width: 0;
+  border-bottom: 1px solid var(--line);
+}
+#review-pr-identity {
+  min-width: 0;
+}
+.review-pr-tabs {
+  flex: none;
+}
+#review-pr-inbox-back {
+  display: none;
+}
 #review-pr-nav {
   display: flex;
   flex-direction: column;
+  flex: 0 0 clamp(220px, 26%, 300px);
   min-height: 0;
   min-width: 0;
+  overflow: hidden;
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  border-radius: var(--panel-radius);
+}
+#review[data-screen="home"] #review-pr-nav {
+  flex: 1;
+}
+.review-pr-controls {
+  align-items: stretch;
+  flex-direction: column;
+  padding: 0 12px 10px;
 }
 .review-pr-nav-heading {
   display: flex;
   align-items: center;
   gap: 7px;
-  min-height: 42px;
-  padding: 6px 10px;
+  min-height: 48px;
+  padding: 8px 12px;
 }
 .review-pr-nav-heading h2 {
   margin: 0;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
 }
 .review-pr-nav-heading .count {
@@ -25,18 +107,22 @@
   padding: 4px 6px;
 }
 .review-pr-search {
-  margin: 0 8px 7px;
-  width: calc(100% - 16px);
+  width: 100%;
   min-width: 0;
 }
 .review-pr-filters {
   display: flex;
   gap: 4px;
-  padding: 0 8px 7px;
+  flex-wrap: wrap;
 }
 .review-pr-filters button {
   font-size: 11px;
   padding: 4px 8px;
+}
+.review-pr-filter-count:not(:empty) {
+  margin-inline-start: 5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 .review-pr-filters [aria-pressed="true"] {
   background: var(--selected);
@@ -55,9 +141,47 @@
   color: var(--muted);
 }
 .review-pr-list {
+  flex: 1;
   min-height: 0;
   overflow: auto;
   padding: 3px 5px 8px;
+}
+#review[data-screen="home"] .review-pr-nav-heading {
+  padding: 12px 18px 8px;
+}
+#review[data-screen="home"] .review-pr-nav-heading h2 {
+  font-size: 18px;
+}
+#review[data-screen="home"] .review-pr-controls {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  padding-inline: 18px;
+}
+#review[data-screen="home"] .review-pr-search {
+  width: min(260px, 100%);
+}
+#review[data-screen="home"] .review-pr-list {
+  border-top: 1px solid var(--line);
+  padding: 4px 12px 60px;
+}
+#review[data-screen="home"] .review-pr-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, auto) auto;
+  align-items: center;
+  column-gap: 16px;
+  padding: 12px 10px;
+}
+#review[data-screen="home"] .review-pr-row-title {
+  grid-column: 1;
+  grid-row: 1;
+  font-size: 13px;
+}
+#review[data-screen="home"] .review-pr-row-meta {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: 11px;
 }
 .review-pr-row {
   display: flex;
@@ -142,24 +266,47 @@
 .review-pr-detail-heading {
   max-width: 940px;
 }
-.review-pr-detail-heading h1 {
-  font-size: 23px;
+.review-pr-detail-heading h2,
+.review-pr-pending-title {
+  font-size: 17px;
   font-weight: 600;
   line-height: 1.35;
   overflow-wrap: anywhere;
-  margin: 6px 0 8px;
+  margin: 4px 0;
 }
 .review-pr-detail-heading .context-label {
   margin: 0;
 }
 .review-pr-detail-heading .subtitle {
-  margin: 5px 0 10px;
+  margin: 3px 0;
 }
 .review-pr-detail-state {
-  margin: 8px 0;
+  margin-top: 4px;
 }
 .review-pr-detail-state .review-pr-chip {
-  font-size: 12px;
+  font-size: 11px;
+}
+@media (max-width: 880px) {
+  #review[data-mode="prs"]:not([data-screen="home"]) #review-pr-nav {
+    display: none;
+  }
+  #review-pr-inbox-back:not([hidden]) {
+    display: inline-flex;
+  }
+}
+@media (max-width: 560px) {
+  #review[data-mode="prs"][data-screen="code"] .desk {
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+  #review-pr-context {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  #review[data-screen="home"] .review-pr-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+  }
 }
 .review-pr-detail-actions {
   display: flex;
@@ -237,11 +384,13 @@
 }
 .review-pr-open-form {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   align-items: center;
-  margin-top: auto;
-  padding: 8px;
-  border-top: 1px solid var(--line);
+  padding: 0 12px 10px;
+}
+#review[data-screen="home"] .review-pr-open-form {
+  max-width: 470px;
+  padding-inline: 18px;
 }
 .review-pr-open-form .search {
   flex: 1;

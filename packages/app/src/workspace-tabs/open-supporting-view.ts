@@ -1,4 +1,6 @@
 import { supportsDesktopPaneSplits } from "@/constants/layout";
+import { getDesktopHost } from "@/desktop/host";
+import { PimiReviewPrDestination } from "@pimi/protocol/pimi-task";
 import { revealWorkspaceTab } from "./navigation";
 import {
   collectAllPanes,
@@ -32,6 +34,8 @@ interface OpenWorkspaceChangesInput extends WorkspaceViewInput {
 
 interface OpenWorkspacePullRequestInput extends WorkspaceViewInput {
   destination: PullRequestOpenLocation;
+  url?: string | null;
+  workspace?: { githubRuntime?: { pullRequest?: { url: string } | null } | null } | null;
 }
 
 function supportingViewsBelongInExplorer(input: WorkspaceViewInput): boolean {
@@ -68,6 +72,15 @@ export function openComposerChanges(input: OpenWorkspaceChangesInput): string | 
 /** Opens the workspace pull request at its semantic destination. */
 export function openWorkspacePullRequest(input: OpenWorkspacePullRequestInput): string | null {
   if (!input.workspaceKey) return null;
+  const desktop = getDesktopHost();
+  const url = input.url ?? input.workspace?.githubRuntime?.pullRequest?.url;
+  if (desktop?.showPimiWorkspace && url) {
+    const destination = PimiReviewPrDestination.safeParse({ view: "review-pr", url });
+    if (destination.success) {
+      desktop.showPimiWorkspace(destination.data);
+      return null;
+    }
+  }
   let tabId: string | null;
   if (supportingViewsBelongInExplorer(input) || input.destination === "explorer") {
     const store = useWorkspaceLayoutStore.getState();

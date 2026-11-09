@@ -23,15 +23,15 @@ export function createReviewPullRequests({
   openDiff,
   openTask,
   showDetails,
-  canOpenDiff,
 }) {
   const nav = $("review-pr-nav");
   const details = $("review-pr-details");
+  const identity = $("review-pr-identity");
   let snapshot;
   let activeUrl;
   let currentItem;
   let detailVisible = false;
-  let filter = "all";
+  let filter = "requested";
   let query = "";
   let listRequest = 0;
   let detailRequest = 0;
@@ -45,6 +45,7 @@ export function createReviewPullRequests({
   const heading = element("div", "review-pr-nav-heading");
   const title = element("h2", "", "Pull requests");
   const count = element("span", "count");
+  const controls = element("div", "review-pr-controls");
   const refreshButton = button(
     "button quiet review-pr-refresh",
     "Refresh",
@@ -65,9 +66,14 @@ export function createReviewPullRequests({
   filters.setAttribute("aria-label", "Pull request filter");
   filters.setAttribute("role", "group");
   const allButton = button("button quiet", "All", () => setFilter("all"));
-  const mineButton = button("button quiet", "Mine", () => setFilter("mine"));
+  const mineButton = button("button quiet", "My open PRs", () => setFilter("mine"));
   const requestedButton = button("button quiet", "To review", () => setFilter("requested"));
-  filters.append(allButton, mineButton, requestedButton);
+  const filterCounts = [requestedButton, mineButton, allButton].map((control) => {
+    const badge = element("span", "review-pr-filter-count");
+    control.append(badge);
+    return badge;
+  });
+  filters.append(requestedButton, mineButton, allButton);
   const listStatus = element("p", "review-pr-list-status");
   listStatus.setAttribute("role", "status");
   const list = element("div", "review-pr-list");
@@ -96,7 +102,8 @@ export function createReviewPullRequests({
     urlInput.value = "";
   });
   urlInput.addEventListener("input", () => urlInput.setCustomValidity(""));
-  nav.replaceChildren(heading, search, filters, listStatus, list, openForm);
+  controls.append(filters, search);
+  nav.replaceChildren(heading, controls, openForm, listStatus, list);
   renderList();
 
   function setFilter(next) {
@@ -164,22 +171,39 @@ export function createReviewPullRequests({
   }
   function renderList() {
     const items = snapshot?.items || [];
-    const shown = items.filter(
+    const requested = items.filter((item) => item.reviewRequested);
+    const mine = items.filter((item) => item.authoredByMe && item.state === "open");
+    const scope = { requested, mine, all: items }[filter];
+    const shown = scope.filter(
       (item) =>
-        (filter !== "requested" || item.reviewRequested) &&
-        (filter !== "mine" || item.authoredByMe) &&
-        (!query ||
-          `${repository(item)} ${item.number} ${item.title} ${author(item)}`
-            .toLowerCase()
-            .includes(query)),
+        !query ||
+        `${repository(item)} ${item.number} ${item.title} ${author(item)}`
+          .toLowerCase()
+          .includes(query),
     );
+    for (const [index, entries] of [requested, mine, items].entries())
+      filterCounts[index].textContent = snapshot ? String(entries.length) : "";
     count.textContent =
-      shown.length === items.length ? String(items.length) : `${shown.length} / ${items.length}`;
+      shown.length === scope.length ? String(scope.length) : `${shown.length} / ${scope.length}`;
     allButton.setAttribute("aria-pressed", String(filter === "all"));
     mineButton.setAttribute("aria-pressed", String(filter === "mine"));
     requestedButton.setAttribute("aria-pressed", String(filter === "requested"));
     refreshButton.disabled = fetching || Boolean(snapshot?.refreshing);
     refreshButton.textContent = refreshButton.disabled ? "Refreshing…" : "Refresh";
+    const hasWarnings = renderListStatus();
+    const focusedUrl = list.contains(document.activeElement)
+      ? document.activeElement.closest(".review-pr-row")?.dataset.prUrl
+      : undefined;
+    if (!shown.length) {
+      list.replaceChildren(renderEmptyList(hasWarnings));
+      return;
+    }
+    const rows = shown.map(renderRow);
+    list.replaceChildren(...rows);
+    if (focusedUrl)
+      rows.find((row) => row.dataset.prUrl === focusedUrl)?.focus({ preventScroll: true });
+  }
+  function renderListStatus() {
     const messages = sourceMessages();
     const status = [listError, snapshot?.stale ? "Showing saved results." : "", ...messages].filter(
       Boolean,
@@ -192,12 +216,7 @@ export function createReviewPullRequests({
       "has-warning",
       Boolean(listError || messages.length || snapshot?.stale),
     );
-    list.replaceChildren();
-    if (!shown.length) {
-      list.append(renderEmptyList(messages.length > 0));
-      return;
-    }
-    list.append(...shown.map(renderRow));
+    return messages.length > 0;
   }
   function renderEmptyList(hasWarnings) {
     const empty = element("div", "review-pr-empty");
@@ -222,7 +241,8 @@ export function createReviewPullRequests({
   }
   function renderRow(item) {
     const row = button("review-pr-row", "", () => void open(item.url));
-    row.setAttribute("aria-pressed", String(item.url === activeUrl));
+    row.dataset.prUrl = item.url;
+    row.setAttribute("aria-pressed", String(detailVisible && item.url === activeUrl));
     const meta = element("span", "review-pr-row-meta", `${repository(item)} · #${item.number}`);
     const rowTitle = element("span", "review-pr-row-title", item.title);
     const statuses = element("span", "review-pr-row-status");
@@ -276,6 +296,10 @@ export function createReviewPullRequests({
   function renderDetails() {
     if (!detailVisible) return;
     const item = currentItem;
+    $("review-pr-changes").disabled = !item;
+    identity.replaceChildren(
+      item ? renderDetailHeader(item) : element("h2", "review-pr-pending-title", "Pull request"),
+    );
     details.replaceChildren();
     if (!item) {
       const empty = element("div", "review-pr-empty");
@@ -290,7 +314,6 @@ export function createReviewPullRequests({
       details.append(empty);
       return;
     }
-    details.append(renderDetailHeader(item));
     if (detailError || detailStale) {
       const notice = element(
         "p",
@@ -308,6 +331,18 @@ export function createReviewPullRequests({
       details.append(notice);
     }
     details.append(renderStats(item));
+    const actions = element("div", "review-pr-detail-actions");
+    const refreshDetailsButton = button(
+      "button quiet",
+      detailLoading ? "Refreshing…" : "Refresh details",
+      () => void loadDetail(item.url, true),
+    );
+    refreshDetailsButton.disabled = detailLoading;
+    actions.append(refreshDetailsButton);
+    for (const task of item.taskLinks ?? []) {
+      actions.append(button("button quiet", task.title, () => openTask(task.id)));
+    }
+    details.append(actions);
     const description = section("Description");
     const missing = detailLoading ? "Loading description…" : "No description provided.";
     description.append(renderMarkdown(item.bodyHtml, text(item.body) || missing));
@@ -318,7 +353,7 @@ export function createReviewPullRequests({
   function renderDetailHeader(item) {
     const header = element("header", "review-pr-detail-heading");
     const context = element("p", "context-label", `${repository(item)} · #${item.number}`);
-    const detailTitle = element("h1", "", item.title);
+    const detailTitle = element("h2", "", item.title);
     const metadata = element(
       "p",
       "subtitle",
@@ -337,33 +372,6 @@ export function createReviewPullRequests({
       state.append(chip(REVIEW_LABELS[item.reviewDecision], reviewTone(item.reviewDecision)));
     if (item.mergeable === "CONFLICTING") state.append(chip("Merge conflicts", "failure"));
     header.append(state);
-    const actions = element("div", "review-pr-detail-actions");
-    const diff = button("button primary", "Review changes", () => openDiff(item));
-    const available = canOpenDiff
-      ? Boolean(canOpenDiff(item))
-      : Boolean(item.worktreePaths?.length);
-    diff.disabled = !available;
-    actions.append(
-      diff,
-      button(
-        "button quiet",
-        detailLoading ? "Refreshing…" : "Refresh",
-        () => void loadDetail(item.url, true),
-      ),
-    );
-    actions.lastElementChild.disabled = detailLoading;
-    for (const task of item.taskLinks ?? []) {
-      actions.append(button("button quiet", task.title, () => openTask(task.id)));
-    }
-    header.append(actions);
-    if (!available)
-      header.append(
-        element(
-          "p",
-          "subtitle",
-          "Open a local worktree for this repository to review its diff here.",
-        ),
-      );
     return header;
   }
   function renderStats(item) {
@@ -492,6 +500,10 @@ export function createReviewPullRequests({
     detailVisible = false;
     ++detailRequest;
     detailLoading = false;
+    renderList();
   }
-  return { refresh, open, close, setFilter };
+  function showChanges() {
+    if (detailVisible && currentItem) openDiff(currentItem);
+  }
+  return { refresh, open, close, setFilter, showChanges };
 }

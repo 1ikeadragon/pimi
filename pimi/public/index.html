@@ -521,6 +521,24 @@
       </section>
 
       <section id="review" class="review-view" hidden aria-label="Code review">
+        <div class="review-mode-bar">
+          <div class="review-mode-switch" role="group" aria-label="Review source">
+            <button id="review-mode-prs" class="button quiet" type="button" aria-pressed="true">
+              Pull requests
+            </button>
+            <button
+              id="review-mode-worktrees"
+              class="button quiet"
+              type="button"
+              aria-pressed="false"
+            >
+              Worktrees
+            </button>
+          </div>
+          <button id="review-pr-inbox-back" class="button quiet" type="button" hidden>
+            ← Pull requests
+          </button>
+        </div>
         <div class="section-header review-heading">
           <div>
             <p id="review-repo" class="context-label">Worktree review</p>
@@ -529,15 +547,6 @@
           </div>
           <div id="review-actions" class="review-actions" hidden>
             <div id="previews" class="previews" hidden></div>
-            <button
-              id="review-pr-back"
-              class="button quiet glyph-button"
-              aria-label="Pull request details"
-              title="Pull request details"
-              hidden
-            >
-              <svg class="glyph" aria-hidden="true"><use href="#glyph-branch" /></svg>
-            </button>
             <button
               id="change-review-worktree"
               class="button quiet glyph-button"
@@ -653,8 +662,30 @@
           <button id="diff-find-close" class="button quiet" type="button">Done</button>
         </div>
         <div id="review-columns" class="review-columns">
+          <section id="review-pr-nav" aria-label="Pull request inbox" hidden></section>
           <div id="review-desk" class="desk">
-            <aside class="files" aria-label="Review navigation">
+            <div id="review-pr-context" hidden>
+              <div id="review-pr-identity"></div>
+              <div class="review-pr-tabs" role="group" aria-label="Pull request view">
+                <button
+                  id="review-pr-overview"
+                  class="button quiet"
+                  type="button"
+                  aria-pressed="true"
+                >
+                  Overview
+                </button>
+                <button
+                  id="review-pr-changes"
+                  class="button quiet"
+                  type="button"
+                  aria-pressed="false"
+                >
+                  Changes
+                </button>
+              </div>
+            </div>
+            <aside id="review-file-navigation" class="files" aria-label="Review navigation">
               <div class="review-rail-tabs" role="group" aria-label="Browse review">
                 <button id="review-tab-worktrees" type="button" aria-pressed="true">
                   Worktrees
@@ -664,14 +695,6 @@
                 </button>
                 <button id="review-tab-files" type="button" aria-pressed="false" disabled>
                   Files
-                </button>
-                <button
-                  id="review-tab-pr"
-                  type="button"
-                  aria-label="Pull requests"
-                  aria-pressed="false"
-                >
-                  PRs
                 </button>
               </div>
               <section id="review-worktrees-nav" class="review-rail-content" aria-label="Worktrees">
@@ -725,12 +748,6 @@
                 </div>
                 <div id="review-source-list" class="file-list"></div>
               </section>
-              <section
-                id="review-pr-nav"
-                class="review-rail-content"
-                aria-label="Pull requests"
-                hidden
-              ></section>
             </aside>
             <div class="workspace">
               <section id="review-entry" class="review-entry" aria-labelledby="review-entry-title">
@@ -738,13 +755,10 @@
                   <svg class="glyph" aria-hidden="true"><use href="#glyph-review" /></svg>
                 </div>
                 <h2 id="review-entry-title">Choose what to review</h2>
-                <p class="subtitle">Open a worktree or pull request from the sidebar.</p>
+                <p class="subtitle">Choose a worktree to see its changes.</p>
                 <div class="task-actions">
                   <button id="review-add-repository" class="button secondary" type="button">
                     Add repository…
-                  </button>
-                  <button id="review-open-pr" class="button quiet" type="button">
-                    Open pull request…
                   </button>
                   <button id="review-resume" class="button secondary" type="button" hidden>
                     Resume review
