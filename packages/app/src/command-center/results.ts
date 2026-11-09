@@ -83,6 +83,16 @@ export interface CommandCenterFileResult {
   run(): void;
 }
 
+export interface CommandCenterCodeResult {
+  kind: "code";
+  id: string;
+  filePath: string;
+  startLine: number;
+  title: string;
+  subtitle: string;
+  run(): void;
+}
+
 export interface CommandCenterContributionResult {
   kind: "contribution";
   id: string;
@@ -96,6 +106,7 @@ export type CommandCenterResult =
   | CommandCenterWorkspaceResult
   | CommandCenterAgentResult
   | CommandCenterFileResult
+  | CommandCenterCodeResult
   | CommandCenterContributionResult;
 
 export interface CommandCenterResultSection {
@@ -119,8 +130,19 @@ interface MutableCommandCenterResultSection {
 }
 
 export type CommandCenterListRow =
-  | { kind: "section"; key: string; title?: string; divider: boolean; height: number }
-  | { kind: "result"; key: string; result: CommandCenterResult; height: number };
+  | {
+      kind: "section";
+      key: string;
+      title?: string;
+      divider: boolean;
+      height: number;
+    }
+  | {
+      kind: "result";
+      key: string;
+      result: CommandCenterResult;
+      height: number;
+    };
 
 export interface CommandCenterListProjection {
   rows: readonly CommandCenterListRow[];
@@ -185,6 +207,7 @@ function contributionSearchFields(
 function hasSubtitleLine(result: CommandCenterResult): boolean {
   if (result.kind === "workspace" || result.kind === "agent") return true;
   if (result.kind === "file") return false;
+  if (result.kind === "code") return true;
   const presentation = result.contribution.presentation;
   return presentation.kind === "action" && Boolean(presentation.subtitle);
 }
