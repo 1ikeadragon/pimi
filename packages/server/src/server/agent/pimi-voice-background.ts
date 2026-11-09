@@ -28,6 +28,14 @@ const MAX_ROUNDS = 8;
 const TIMEOUT_MS = 90_000;
 const savedTask = z.object({ created: z.literal(true), task: z.object({ id: z.uuid() }) });
 
+export class PimiVoiceToolsUnavailableError extends Error {
+  constructor() {
+    super(
+      "Ask Pimi’s background tools are disabled for this provider. Check your host’s agent tool settings.",
+    );
+  }
+}
+
 function toolInputSchema(schema: PaseoToolConfig["inputSchema"]) {
   if (!schema) return {};
   return z.toJSONSchema(schema instanceof z.ZodType ? schema : z.object(schema), {
@@ -79,6 +87,7 @@ export async function runPimiVoiceBackground(options: {
   const tools = [...catalog.tools.values()].filter(
     ({ name }) => voiceTools.has(name) && (options.taskStage || !taskWrites.has(name)),
   );
+  if (!tools.length) throw new PimiVoiceToolsUnavailableError();
   const available = new Set(tools.map(({ name }) => name));
   const saved = new Set<string>();
   const signal = AbortSignal.any([options.signal, AbortSignal.timeout(TIMEOUT_MS)]);

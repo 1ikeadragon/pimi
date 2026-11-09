@@ -329,7 +329,7 @@ export function voicePlanOpensNewChat(open: z.infer<typeof PimiVoicePlan>["open"
 }
 
 export function isExplicitVoiceChatRequest(transcript: string): boolean {
-  const chat = "(?:a |another )?(?:new |fresh )?(?:chat|conversation)\\b";
+  const chat = "(?:a |another )?(?:new |fresh )?(?:chat|conversation|thread)\\b";
   const declined = new RegExp(
     `\\b(?:don.t|do not|never|without)\\s+(?:opening|starting|creating|open|start|create|launch|begin|make)\\s+${chat}`,
     "i",
@@ -343,6 +343,7 @@ export function isExplicitVoiceChatRequest(transcript: string): boolean {
 
 export interface PimiVoiceResult {
   message: string;
+  failed?: boolean;
   destination?: PimiDestination;
   navigation?: PimiVoiceNavigation;
   chat?: { serverId: string; workspaceId: string; agentId: string };

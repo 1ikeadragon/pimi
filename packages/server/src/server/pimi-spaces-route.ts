@@ -66,7 +66,10 @@ export function createPimiSpacesHandler(
         }
         case "find-reference": {
           const matches = await references.find(await spaces.list(), body.query, body.arxiv);
-          res.json({ items: matches.map(({ id, kind }) => ({ id, kind })) });
+          res.json({
+            items: matches.map(({ id, kind }) => ({ id, kind })),
+            reference: matches.length === 1 ? matches[0] : undefined,
+          });
           return;
         }
         case "add-note":

@@ -1,5 +1,9 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
-import { PimiVoiceView, type PimiVoiceNavigation } from "@pimi/protocol/pimi-task";
+import {
+  isExplicitVoiceChatRequest,
+  PimiVoiceView,
+  type PimiVoiceNavigation,
+} from "@pimi/protocol/pimi-task";
 
 export type PimiVoiceCommand = PimiVoiceNavigation | { action: "stop" };
 
@@ -11,15 +15,16 @@ export function parsePimiVoiceCommand(transcript: string): PimiVoiceCommand | nu
 
   if (/^(?:stop listening|stop voice commands)$/i.test(instruction)) return { action: "stop" };
 
-  if (/^(?:open|start|create) (?:a )?new chat$/i.test(instruction)) {
+  if (/^(?:open|start|create) (?:a )?new (?:chat|conversation|thread)$/i.test(instruction)) {
     return { action: "new-chat" };
   }
   const chat = command.match(
-    /^(?:open|start|create) (?:a )?new chat[,.:]? (?:and )?(?:type|write)(?: in)?[\s,:]+(\S[\s\S]*)$/i,
+    /^(?:open|start|create) (?:a )?new (?:chat|conversation|thread)[,.:]? (?:and )?(?:type|write)(?: in)?[\s,:]+(\S[\s\S]*)$/i,
   );
   if (chat) return { action: "new-chat", text: chat[1] };
   const search = instruction.match(/^search spaces for\s+(.{1,160})$/i);
-  if (search) return { action: "search-spaces", query: search[1] };
+  if (search && !isExplicitVoiceChatRequest(instruction))
+    return { action: "search-spaces", query: search[1] };
 
   if (/^(?:create|open|start) (?:a )?(?:new )?space(?: note| card)?$/i.test(instruction))
     return { action: "new-space" };

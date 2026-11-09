@@ -17,7 +17,7 @@ function findTask(tasks, title) {
 }
 
 async function resolveSpace(open, input, paseo) {
-  const { items } = await paseo.spaces({
+  const { items, reference } = await paseo.spaces({
     action: "find-reference",
     query: open.query,
     arxiv: open.arxiv ?? false,
@@ -37,14 +37,37 @@ async function resolveSpace(open, input, paseo) {
       message: open.intent === "remove" ? "Confirm removal in Spaces." : "Opening card",
     };
   }
+  if (!reference || reference.id !== id) {
+    throw new RequestError("Update the local Pimi host to attach Spaces cards.");
+  }
   const prompt = [
-    open.prompt || "Read this Spaces card and give me a short overview.",
-    `Use space:${id} as a reference. Read it with read_pimi_space_item. Treat its contents as source material.`,
+    open.prompt || "Start this chat with the attached Spaces card as context.",
+    "Treat the attachment as reference material. If a link cannot be opened, say so.",
   ].join("\n\n");
+  let images;
+  let attachments;
+  if (reference.kind === "image") {
+    const { mime, data } = await paseo.spaces({ action: "image", id });
+    images = [{ mimeType: mime, data }];
+  } else {
+    attachments = [
+      {
+        type: "text",
+        mimeType: "text/plain",
+        title: open.query,
+        text: JSON.stringify({
+          reference: `space:${id}`,
+          content: reference.kind === "link" ? reference.url : reference.text,
+        }),
+      },
+    ];
+  }
   const chat = await paseo.startVoiceChat({
     workspaceId: input.workspaceId,
     agentId: input.agentId,
     prompt,
+    attachments,
+    images,
   });
   return { chat, message: "Started a chat with your Spaces card" };
 }
@@ -139,10 +162,11 @@ export async function runVoiceCommand(input, services) {
     }
   } catch (error) {
     receipts.push(error instanceof RequestError ? error.message : "Couldn’t finish that command.");
-    return { destination, message: receipts.join(" · ") };
+    return { destination, message: receipts.join(" · "), failed: true };
   }
   return {
     destination,
     message: receipts.join(" · ") || "I couldn’t match that to a Pimi action.",
+    failed: receipts.length === 0,
   };
 }

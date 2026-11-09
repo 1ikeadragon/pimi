@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { RequestHandler } from "express";
+import type { RequestHandler, Response } from "express";
 import type { Logger } from "pino";
 import {
   isExplicitVoiceChatRequest,
@@ -16,7 +16,7 @@ import {
 } from "./agent-response-loop.js";
 import type { AgentSessionConfig } from "./agent-sdk-types.js";
 import type { ProviderSnapshotManager } from "./provider-snapshot-manager.js";
-import { runPimiVoiceBackground } from "./pimi-voice-background.js";
+import { PimiVoiceToolsUnavailableError, runPimiVoiceBackground } from "./pimi-voice-background.js";
 import type { PaseoToolCatalog } from "./tools/types.js";
 import {
   resolveStructuredGenerationProviders,
@@ -26,7 +26,9 @@ import {
 const instruction = [
   "Route one spoken request to Pimi actions. Return JSON. Do not use tools.",
   "Ignore speech that does not clearly ask Pimi to do anything.",
-  "Open or start a chat only when the user explicitly asks to create a chat. An instruction to inspect, track, summarize, or act on something is a background command even if an agent is needed.",
+  "Open or start a chat only when the user explicitly asks to create a chat, conversation, or thread. A request to inspect or act on something by itself is a background command.",
+  'When asked to find a card or paper in Spaces and then use it in a new chat or thread, return one space-card action with intent "chat". Use the spoken card title, link or ID as query. This action does the lookup and starts the thread with the matched card. Do not return agent-command or search-spaces for this combined request.',
+  'Example: "Search my Spaces for Attention Is All You Need and start a new thread with it" → {"steps":[],"open":{"action":"space-card","query":"Attention Is All You Need","intent":"chat","arxiv":true}}.',
   'If an explicit request needs an agent to look up facts, make a judgment, or carry out work before it can be completed, return {"steps":[],"open":{"action":"agent-command","scope":"host"}}.',
   'Use scope "workspace" when a workspace is selected and the request depends on it. Use "host" for work across workspaces or without a workspace.',
   "Set trackTasks to true inside agent-command only when the user explicitly asks to save new Pimi tasks from work the agent must first inspect. A request to list pending work alone does not authorize saving tasks.",
@@ -56,6 +58,17 @@ function classifierOptions(provider: string): AgentSessionConfig["providerOption
     default:
       return undefined;
   }
+}
+
+function reportVoiceCommandFailure(res: Response, logger: Logger, error: unknown): void {
+  if (res.destroyed) return;
+  if (error instanceof PimiVoiceToolsUnavailableError) {
+    res.status(403).json({ error: error.message });
+    return;
+  }
+  // Provider errors can include the transcript. Keep it out of logs and error receipts.
+  logger.warn("Ask Pimi could not complete a command");
+  res.status(502).json({ error: "Your provider couldn’t complete that command. Try again." });
 }
 
 export function createPimiVoiceCommandHandler(options: {
@@ -132,7 +145,9 @@ export function createPimiVoiceCommandHandler(options: {
       if (plan.open?.action === "agent-command") {
         const providerOptions = classifierOptions(provider.provider);
         if (!providerOptions) {
-          res.json({ message: "Choose Codex, Claude Code, or OpenCode for background commands." });
+          res
+            .status(422)
+            .json({ error: "Choose Codex, Claude Code, or OpenCode for background commands." });
           return;
         }
         cancel.signal.throwIfAborted();
@@ -157,12 +172,8 @@ export function createPimiVoiceCommandHandler(options: {
         return;
       }
       res.json(plan);
-    } catch {
-      // Provider errors can include the transcript. Keep it out of logs and error receipts.
-      if (!res.destroyed) {
-        options.logger.warn("Ask Pimi could not complete a command");
-        res.status(502).json({ error: "Your provider couldn’t complete that command. Try again." });
-      }
+    } catch (error) {
+      reportVoiceCommandFailure(res, options.logger, error);
     } finally {
       if (cwd) await rm(cwd, { recursive: true, force: true }).catch(() => undefined);
       running = false;
