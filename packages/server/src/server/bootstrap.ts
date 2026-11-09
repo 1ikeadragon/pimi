@@ -152,6 +152,7 @@ import { createAgentMcpServer } from "./agent/mcp-server.js";
 import { ProjectMemory } from "./project-memory.js";
 import { createPimiMemoryHandler } from "./pimi-memory-route.js";
 import { PimiSpaces } from "./pimi-spaces.js";
+import { searchPimiCodebase } from "./pimi-codebase-index.js";
 import { createPimiSpacesHandler } from "./pimi-spaces-route.js";
 import {
   PIMI_SPACES_ROUTE,
@@ -1687,6 +1688,7 @@ export async function createPaseoDaemon(
     projectRegistry,
     projectMemory: canUseCallerScopedTools ? projectMemory : undefined,
     pimiSpaces: canUseCallerScopedTools ? pimiSpaces : undefined,
+    searchCodebase: canUseCallerScopedTools ? searchPimiCodebase : undefined,
     pimiTaskHome: canUseCallerScopedTools ? config.paseoHome : undefined,
     createDirectoryWorkspace: async (cwd, title, projectId, context) => {
       const workspace = await workspaceProvisioning.createWorkspaceForDirectory(

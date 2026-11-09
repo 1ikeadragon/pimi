@@ -1,3 +1,5 @@
+import { searchPimiCodebase } from "./pimi-codebase-index.js";
+import type { PimiCodebaseSearchRequest } from "@pimi/protocol/messages";
 import { type WorkspaceRuntimeStore } from "./workspace-runtime-store/index.js";
 import type { AgentMessageDelivery } from "./agent/agent-messages/index.js";
 import { AgentDirectory, type BackgroundVisibility } from "./agent/directory.js";
@@ -3185,6 +3187,8 @@ export class Session {
         return this.checkoutSession.handleValidateBranchRequest(msg);
       case "branch_suggestions_request":
         return this.checkoutSession.handleBranchSuggestionsRequest(msg);
+      case "pimi.codebase.search.request":
+        return this.handlePimiCodebaseSearch(msg);
       case "directory_suggestions_request":
         return this.handleDirectorySuggestionsRequest(msg);
       case "checkout.diff.get.request":
@@ -5467,6 +5471,27 @@ export class Session {
         },
       });
       throw error;
+    }
+  }
+
+  private async handlePimiCodebaseSearch(msg: PimiCodebaseSearchRequest): Promise<void> {
+    const { workspaceId, query, limit, requestId } = msg;
+    const signal = this.delivery.requestSignal;
+    try {
+      const workspace = await this.workspaceRegistry.get(workspaceId);
+      if (!workspace || workspace.archivedAt) throw new Error("This workspace is unavailable.");
+      const result = await searchPimiCodebase(workspace.cwd, query, limit, signal);
+      if (signal.aborted) return;
+      this.emit({
+        type: "pimi.codebase.search.response",
+        payload: { requestId, result, error: null },
+      });
+    } catch (error) {
+      if (signal.aborted) return;
+      this.emit({
+        type: "pimi.codebase.search.response",
+        payload: { requestId, result: null, error: errorToFriendlyMessage(error) },
+      });
     }
   }
 
