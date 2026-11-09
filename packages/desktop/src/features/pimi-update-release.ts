@@ -131,8 +131,9 @@ async function findWindowsRelease(
   fileName: string,
   signal: AbortSignal,
 ): Promise<PimiUpdateRelease | null> {
-  // GitHub's Latest can be Mac-only. Page through published releases within
-  // the same check deadline until we reach the newest Windows installer.
+  // GitHub's Latest can be Mac-only, and the list can be out of version order.
+  // Compare every candidate within the same check deadline.
+  let latest: PimiUpdateRelease | null = null;
   for (let page = 1; ; page += 1) {
     const url = `${RELEASE_ENDPOINT}?per_page=${RELEASE_PAGE_SIZE}&page=${page}`;
     const rows = await readReleaseMetadata(url, signal);
@@ -141,12 +142,11 @@ async function findWindowsRelease(
       const parsed = releaseSchema.safeParse(row);
       if (!parsed.success) continue;
       const version = releaseVersion(parsed.data.tag_name);
-      if (!version) continue;
-      if (!isNewerPimiVersion(version, currentVersion)) return null;
+      if (!version || !isNewerPimiVersion(version, latest?.version ?? currentVersion)) continue;
       const installer = selectInstaller(parsed.data, version, fileName);
-      if (installer) return installer;
+      if (installer) latest = installer;
     }
-    if (rows.length < RELEASE_PAGE_SIZE) return null;
+    if (rows.length < RELEASE_PAGE_SIZE) return latest;
   }
 }
 
