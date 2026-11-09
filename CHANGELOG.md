@@ -2,6 +2,10 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.11 - 2026-11-10
+
+- Restore in-app updates on Apple silicon.
+
 ## 0.17.10 - 2026-11-10
 
 - Switch providers from chat and pick up where you left off. Unsent handoffs keep their history after a restart.
