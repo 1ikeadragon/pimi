@@ -6,7 +6,7 @@ import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { z } from "zod";
 
-const RELEASE_ENDPOINT = "https://api.github.com/repos/1ikeadragon/pimi/releases/latest";
+const RELEASE_ENDPOINT = "https://api.github.com/repos/1ikeadragon/pimi/releases";
 const RELEASE_ASSET_BASE = "https://github.com/1ikeadragon/pimi/releases/download";
 const DOWNLOAD_HOSTS = new Set([
   "github.com",
@@ -16,6 +16,7 @@ const DOWNLOAD_HOSTS = new Set([
 const RELEASE_TIMEOUT_MS = 10_000;
 const DOWNLOAD_TIMEOUT_MS = 10 * 60_000;
 const MAX_RELEASE_METADATA_BYTES = 1024 * 1024;
+const RELEASE_PAGE_SIZE = 15;
 const GITHUB_MAX_ASSET_BYTES = 2 * 1024 ** 3 - 1;
 const VERSION_PATTERN = /^(0|[1-9]\d{0,8})\.(0|[1-9]\d{0,8})\.(0|[1-9]\d{0,8})$/;
 
@@ -70,16 +71,11 @@ function streamResponse(response: Response): Readable {
   return Readable.fromWeb(response.body as import("node:stream/web").ReadableStream);
 }
 
-export async function checkPimiRelease(
-  fileName: string,
-  currentVersion: string,
-  signal?: AbortSignal,
-): Promise<PimiUpdateRelease | null> {
-  const timeout = AbortSignal.timeout(RELEASE_TIMEOUT_MS);
-  const response = await fetch(RELEASE_ENDPOINT, {
+async function readReleaseMetadata(url: string, signal: AbortSignal): Promise<unknown> {
+  const response = await fetch(url, {
     headers: { accept: "application/vnd.github+json" },
     redirect: "error",
-    signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+    signal,
   });
   if (!response.ok) {
     await response.body?.cancel();
@@ -93,19 +89,25 @@ export async function checkPimiRelease(
     if (length > MAX_RELEASE_METADATA_BYTES) throw new Error("Pimi release metadata is too large.");
     chunks.push(chunk);
   }
-  const parsed = releaseSchema.safeParse(JSON.parse(Buffer.concat(chunks).toString("utf8")));
-  if (!parsed.success || !parsed.data.tag_name.startsWith("pimi-v")) {
-    throw new Error("GitHub did not return a verified immutable Pimi release.");
-  }
-  const release = parsed.data;
-  const version = release.tag_name.slice("pimi-v".length);
-  if (!isNewerPimiVersion(version, currentVersion)) return null;
+  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+}
 
+function releaseVersion(tag: string): string | null {
+  const version = /^pimi-(?:all-)?v(.+)$/.exec(tag)?.[1];
+  return version && VERSION_PATTERN.test(version) ? version : null;
+}
+
+function selectInstaller(
+  release: z.infer<typeof releaseSchema>,
+  version: string,
+  fileName: string,
+): PimiUpdateRelease | null {
   let matching = release.assets.filter((asset) => asset.name === fileName);
   if (fileName === "Pimi-macOS-arm64.dmg" && matching.length === 0) {
     matching = release.assets.filter((asset) => asset.name === "Pimi-macOS-arm64-manual.dmg");
   }
-  if (matching.length !== 1) {
+  if (!matching.length) return null;
+  if (matching.length > 1) {
     throw new Error("The immutable Pimi release is missing this platform’s installer.");
   }
   const asset = matching[0];
@@ -122,6 +124,52 @@ export async function checkPimiRelease(
     digest: asset.digest.slice("sha256:".length),
     url,
   };
+}
+
+async function findWindowsRelease(
+  currentVersion: string,
+  fileName: string,
+  signal: AbortSignal,
+): Promise<PimiUpdateRelease | null> {
+  // GitHub's Latest can be Mac-only. Page through published releases within
+  // the same check deadline until we reach the newest Windows installer.
+  for (let page = 1; ; page += 1) {
+    const url = `${RELEASE_ENDPOINT}?per_page=${RELEASE_PAGE_SIZE}&page=${page}`;
+    const rows = await readReleaseMetadata(url, signal);
+    if (!Array.isArray(rows)) throw new Error("GitHub did not return a Pimi release list.");
+    for (const row of rows) {
+      const parsed = releaseSchema.safeParse(row);
+      if (!parsed.success) continue;
+      const version = releaseVersion(parsed.data.tag_name);
+      if (!version) continue;
+      if (!isNewerPimiVersion(version, currentVersion)) return null;
+      const installer = selectInstaller(parsed.data, version, fileName);
+      if (installer) return installer;
+    }
+    if (rows.length < RELEASE_PAGE_SIZE) return null;
+  }
+}
+
+export async function checkPimiRelease(
+  fileName: string,
+  currentVersion: string,
+  signal?: AbortSignal,
+): Promise<PimiUpdateRelease | null> {
+  const timeout = AbortSignal.timeout(RELEASE_TIMEOUT_MS);
+  const checkSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
+  const metadata = await readReleaseMetadata(`${RELEASE_ENDPOINT}/latest`, checkSignal);
+  const parsed = releaseSchema.safeParse(metadata);
+  const version = parsed.success ? releaseVersion(parsed.data.tag_name) : null;
+  if (!parsed.success || !version) {
+    throw new Error("GitHub did not return a verified immutable Pimi release.");
+  }
+  if (!isNewerPimiVersion(version, currentVersion)) return null;
+  const installer = selectInstaller(parsed.data, version, fileName);
+  if (installer) return installer;
+  if (fileName === "Pimi-Windows-x64.exe") {
+    return findWindowsRelease(currentVersion, fileName, checkSignal);
+  }
+  throw new Error("The immutable Pimi release is missing this platform’s installer.");
 }
 
 async function fetchPimiInstaller(url: string, signal: AbortSignal): Promise<Response> {

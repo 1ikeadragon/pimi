@@ -1,6 +1,6 @@
 # Pimi desktop releases
 
-[GitHub Actions](../.github/workflows/pimi-release.yml) builds the Apple silicon installer first, then Windows x64, from a new `pimi-vX.Y.Z` tag on `main`. It publishes the installers, release notes, and SHA-256 checksums together.
+[GitHub Actions](../.github/workflows/pimi-release.yml) builds Apple silicon by default from a `pimi-vX.Y.Z` tag on `main`. Use `pimi-all-vX.Y.Z` to build Apple silicon first, then Windows x64. Pick one tag for each version. The release includes installers, release notes, and SHA-256 checksums.
 
 Without an `APPLE_TEAM_ID` repository variable, the Mac installer is ad hoc signed. Pimi can install it in-app, and macOS may require approval when opening the new version. The release notes flag the signing status.
 
@@ -25,7 +25,7 @@ Set `APPLE_TEAM_ID` as a repository Actions variable using the 10-character Team
 1. Bump the root version, run `npm run version:sync-internal`, and refresh `package-lock.json` with `npm install --package-lock-only --ignore-scripts`. Run `./scripts/update-nix.sh` for the new lockfile.
 2. Add a dated `## X.Y.Z - YYYY-MM-DD` entry to `CHANGELOG.md`. Describe changes users will notice.
 3. Run `npm run typecheck` and smoke-test the changed behavior. Commit and push to `main`.
-4. Create and push `pimi-vX.Y.Z` at the tested commit. Watch both build jobs and verify the [published release](https://github.com/1ikeadragon/pimi/releases/latest).
+4. Create and push the tag at the tested commit. Watch the selected build jobs and verify the [published release](https://github.com/1ikeadragon/pimi/releases/latest). When shipping Windows, update its website button to the new Windows installer.
 
 Compare the downloads against `SHA256SUMS.txt` from the release. For the first signed build, check both a fresh macOS install and an in-app update from the previous release on a separate Mac.
 

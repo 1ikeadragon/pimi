@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "pimi-v[0-9]+.[0-9]+.[0-9]+"
+      - "pimi-all-v[0-9]+.[0-9]+.[0-9]+"
 
 permissions: {}
 
@@ -25,6 +26,7 @@ jobs:
       tag: ${{ steps.release.outputs.tag }}
       version: ${{ steps.release.outputs.version }}
       commit: ${{ steps.release.outputs.commit }}
+      build_windows: ${{ steps.release.outputs.build_windows }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -37,9 +39,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="$GITHUB_REF_NAME"
-          release_tag='^pimi-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+          release_tag='^pimi-(all-)?v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
           [[ "$tag" =~ $release_tag ]]
-          version="${tag#pimi-v}"
+          version="${tag##*v}"
+          build_windows=false
+          if [[ "$tag" == pimi-all-v* ]]; then build_windows=true; fi
           commit="$(git rev-parse "$GITHUB_SHA^{commit}")"
           test "$(git rev-parse "refs/tags/$tag^{commit}")" = "$commit"
           git merge-base --is-ancestor "$commit" origin/main
@@ -58,8 +62,10 @@ jobs:
           previous="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1 \
             --exclude-drafts --exclude-pre-releases --json tagName --jq '.[0].tagName // empty')"
           if [[ -n "$previous" ]]; then
-            [[ "$previous" =~ $release_tag && "$tag" != "$previous" ]]
-            test "$(printf '%s\n' "$previous" "$tag" | sort -V | tail -n 1)" = "$tag"
+            [[ "$previous" =~ $release_tag ]]
+            previous_version="${previous##*v}"
+            test "$version" != "$previous_version"
+            test "$(printf '%s\n' "$previous_version" "$version" | sort -V | tail -n 1)" = "$version"
             previous_commit="$(git rev-parse "refs/tags/$previous^{commit}")"
             if ! git merge-base --is-ancestor "$previous_commit" "$commit"; then
               # Use the matching source tree on main as the 0.17.8 changelog baseline.
@@ -74,7 +80,8 @@ jobs:
             printf '```\n' >> release-notes.md
           fi
           test -s release-notes.md
-          printf 'tag=%s\nversion=%s\ncommit=%s\n' "$tag" "$version" "$commit" >> "$GITHUB_OUTPUT"
+          printf 'tag=%s\nversion=%s\ncommit=%s\nbuild_windows=%s\n' \
+            "$tag" "$version" "$commit" "$build_windows" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: pimi-release-${{ github.run_attempt }}-notes
@@ -208,6 +215,7 @@ jobs:
   windows:
     name: Build Windows installer
     needs: [validate, mac]
+    if: needs.validate.outputs.build_windows == 'true'
     runs-on: windows-2025
     timeout-minutes: 35
     permissions:
@@ -254,6 +262,9 @@ jobs:
 
   publish:
     needs: [validate, mac, windows]
+    if: >-
+      !cancelled() && needs.validate.result == 'success' && needs.mac.result == 'success' &&
+      (needs.validate.outputs.build_windows != 'true' || needs.windows.result == 'success')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -272,6 +283,7 @@ jobs:
           RELEASE_VERSION: ${{ needs.validate.outputs.version }}
           RELEASE_COMMIT: ${{ needs.validate.outputs.commit }}
           MAC_AD_HOC: ${{ vars.APPLE_TEAM_ID == '' }}
+          BUILD_WINDOWS: ${{ needs.validate.outputs.build_windows }}
         run: |
           # Resolve the peeled annotated tag, or the direct lightweight tag.
           remote="$(git ls-remote "https://github.com/$GITHUB_REPOSITORY.git" "refs/tags/$RELEASE_TAG" "refs/tags/$RELEASE_TAG^{}" | tail -n 1 | cut -f 1)"
@@ -279,13 +291,17 @@ jobs:
 
           prefix="pimi-release-$GITHUB_RUN_ATTEMPT"
           mv "$prefix-mac/Pimi-macOS-arm64.dmg" .
-          mv "$prefix-win/Pimi-Windows-x64.exe" .
           test -s Pimi-macOS-arm64.dmg
-          test -s Pimi-Windows-x64.exe
+          assets=(Pimi-macOS-arm64.dmg)
+          if [[ "$BUILD_WINDOWS" == true ]]; then
+            mv "$prefix-win/Pimi-Windows-x64.exe" .
+            test -s Pimi-Windows-x64.exe
+            assets+=(Pimi-Windows-x64.exe)
+          fi
           if [[ "$MAC_AD_HOC" == true ]]; then
             printf '\n### macOS signing\n\nThe Apple silicon disk image is ad hoc signed and is not notarized. macOS may require approval when opening the new version.\n' >> "$prefix-notes/release-notes.md"
           fi
-          sha256sum Pimi-macOS-arm64.dmg Pimi-Windows-x64.exe > SHA256SUMS.txt
-          gh release create "$RELEASE_TAG" Pimi-macOS-arm64.dmg Pimi-Windows-x64.exe SHA256SUMS.txt \
+          sha256sum "${assets[@]}" > SHA256SUMS.txt
+          gh release create "$RELEASE_TAG" "${assets[@]}" SHA256SUMS.txt \
             --repo "$GITHUB_REPOSITORY" --verify-tag --title "Pimi $RELEASE_VERSION" \
             --notes-file "$prefix-notes/release-notes.md"
