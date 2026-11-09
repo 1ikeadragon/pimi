@@ -510,7 +510,7 @@ interface BuildChangesHeaderModelInput {
   diffMode: "uncommitted" | "base" | "all";
   gitActions: GitActions;
   mode: ChangesToolbarMode;
-  onOpenPullRequest: () => void;
+  onOpenPullRequest: (url: string) => void;
   onSelectBase: () => void;
   onSelectAll: () => void;
   onSelectUncommitted: () => void;
@@ -524,6 +524,7 @@ function buildChangesHeaderModel(input: BuildChangesHeaderModelInput): {
   repository: ChangesRepositoryToolbarModel;
   comparison: ChangesComparisonToolbarModel;
 } {
+  const { pullRequest, onOpenPullRequest } = input;
   return {
     repository: {
       baseRef: input.baseRef,
@@ -531,8 +532,8 @@ function buildChangesHeaderModel(input: BuildChangesHeaderModelInput): {
       branchName: input.branchName,
       cwd: input.cwd,
       gitActions: input.compact ? input.gitActions : null,
-      pullRequest: input.pullRequest
-        ? { ...input.pullRequest, onOpen: input.onOpenPullRequest }
+      pullRequest: pullRequest
+        ? { ...pullRequest, onOpen: () => onOpenPullRequest(pullRequest.url) }
         : null,
       serverId: input.serverId,
       workspaceId: input.workspaceId,
@@ -1461,14 +1462,18 @@ function useDiffTabNavigation({
     },
     [openWorkspaceTab, persistenceKey],
   );
-  const openPullRequest = useCallback(() => {
-    if (!persistenceKey) return;
-    openWorkspacePullRequest({
-      isCompact: isMobile,
-      workspaceKey: persistenceKey,
-      destination: pullRequestOpenLocation,
-    });
-  }, [isMobile, persistenceKey, pullRequestOpenLocation]);
+  const openPullRequest = useCallback(
+    (url: string) => {
+      if (!persistenceKey) return;
+      openWorkspacePullRequest({
+        isCompact: isMobile,
+        workspaceKey: persistenceKey,
+        destination: pullRequestOpenLocation,
+        url,
+      });
+    },
+    [isMobile, persistenceKey, pullRequestOpenLocation],
+  );
   return {
     openDiff,
     openCommit,

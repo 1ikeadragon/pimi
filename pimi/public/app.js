@@ -54,6 +54,7 @@ let boardRequest;
 let boardSignature;
 let boardData;
 let viewRequest = 0;
+let reviewMode = "prs";
 let reviewScreen = "home";
 let railTab = "worktrees";
 let reviewKey;
@@ -109,7 +110,6 @@ const reviewPrs = createReviewPullRequests({
   openDiff: openHostedReview,
   openTask,
   showDetails: () => showReviewContent("details"),
-  canOpenDiff: (item) => Boolean(item.url),
 });
 
 function element(tag, className, text) {
@@ -127,7 +127,8 @@ async function openTask(id) {
 
 async function openPullRequest(url) {
   view("review");
-  selectReviewTab("pr");
+  setReviewMode("prs");
+  void reviewPrs.refresh();
   await reviewPrs.open(url);
 }
 
@@ -388,14 +389,35 @@ async function watchRepository(event) {
   }
 }
 
+function setReviewMode(mode) {
+  if (mode !== reviewMode) {
+    worktreeComparison.close();
+    if (mode === "worktrees") reviewPrs.close();
+  }
+  reviewMode = mode;
+  $("review").dataset.mode = mode;
+  for (const name of ["prs", "worktrees"]) {
+    $("review-mode-" + name).setAttribute("aria-pressed", String(mode === name));
+  }
+  $("review-pr-nav").hidden = mode !== "prs";
+}
+
 function showReviewContent(screen) {
-  if (reviewScreen === "details" && screen !== "details") reviewPrs.close();
   reviewScreen = screen;
+  const isPr = reviewMode === "prs";
+  const selectedPr = isPr && screen !== "home";
   $("review-entry").hidden = screen !== "home";
+  $("review-desk").hidden = isPr && screen === "home";
+  $("review-pr-context").hidden = !selectedPr;
+  $("review-pr-inbox-back").hidden = !selectedPr;
+  $("review-file-navigation").hidden = isPr && screen !== "code";
+  $("review-tab-worktrees").hidden = isPr;
   $("review-code").hidden = screen !== "code";
   $("review-pr-details").hidden = screen !== "details";
   $("review-actions").hidden = screen !== "code";
-  $("review-resume").hidden = !review;
+  $("review-resume").hidden = !review || Boolean(review.pr);
+  $("review-pr-overview").setAttribute("aria-pressed", String(screen === "details"));
+  $("review-pr-changes").setAttribute("aria-pressed", String(screen === "code"));
   $("review").dataset.screen = screen;
   if (screen !== "code") diffFind.close();
 }
@@ -403,7 +425,7 @@ function showReviewContent(screen) {
 function selectReviewTab(tab) {
   if ((tab === "changes" || tab === "files") && !activeWorktree) tab = "worktrees";
   railTab = tab;
-  for (const name of ["worktrees", "changes", "files", "pr"]) {
+  for (const name of ["worktrees", "changes", "files"]) {
     $("review-tab-" + name).setAttribute("aria-pressed", String(name === tab));
     $("review-" + name + "-nav").hidden = name !== tab;
   }
@@ -411,7 +433,6 @@ function selectReviewTab(tab) {
     if (reviewScreen !== "code") showCurrentReview();
     if (tab === "files") void reviewFiles.open(review?.id);
   }
-  if (tab === "pr") void reviewPrs.refresh();
 }
 
 function clearReviewComparison() {
@@ -432,11 +453,11 @@ function showCurrentReview() {
   $("review-title").textContent = activeWorktree.name;
   if (review) {
     renderReviewSummary(review);
-    $("review-pr-back").hidden = !review.pr?.url;
   }
 }
 
 function selectWorktree(card, base = "", prUrl = "") {
+  setReviewMode(prUrl ? "prs" : "worktrees");
   const nextKey = JSON.stringify([card.path, base, prUrl]);
   if (nextKey === reviewKey && (review || loading)) {
     view("review");
@@ -459,7 +480,6 @@ function selectWorktree(card, base = "", prUrl = "") {
   $("mode").value = prUrl ? "pr" : "all";
   $("mode").disabled = Boolean(card.hosted);
   $("compare-worktrees").disabled = Boolean(card.hosted);
-  $("review-pr-back").hidden = !prUrl;
   $("review-tab-changes").disabled = false;
   $("review-tab-files").disabled = !sameCheckout;
   updateCompareControls();
@@ -548,6 +568,7 @@ function renderReviewWorktrees(cards = boardData?.cards ?? []) {
 
 function openReviewPicker(warning = "") {
   view("review");
+  setReviewMode("worktrees");
   showReviewContent("home");
   selectReviewTab("worktrees");
   $("review-repo").textContent = "";
@@ -557,6 +578,17 @@ function openReviewPicker(warning = "") {
   message("review-warning", warning);
   renderReviewWorktrees();
   void refreshBoard();
+}
+
+function openReviewInbox(filter) {
+  view("review");
+  setReviewMode("prs");
+  worktreeComparison.close();
+  reviewPrs.close();
+  showReviewContent("home");
+  message("review-warning", "");
+  if (filter) reviewPrs.setFilter(filter);
+  void reviewPrs.refresh();
 }
 
 function updateCompareControls() {
@@ -686,7 +718,6 @@ function installComparison(result, previousFiles) {
   const paths = new Set(result.files.map((file) => file.path));
   selected = previousFiles.filter((path) => paths.has(path) || sourceSelections.has(path));
   if (!selected.length && result.files.length) selected = [result.files[0].path];
-  $("review-pr-back").hidden = !result.pr?.url;
   if (reviewScreen === "code") renderReviewSummary(result);
   if (railTab === "files") void reviewFiles.open(result.id);
   void loadReviewEditors(result);
@@ -1184,16 +1215,28 @@ appearance.addEventListener("change", async () => {
   }
 });
 $("show-review").addEventListener("click", () => {
-  if (reviewScreen === "home") openReviewPicker();
-  else view("review");
-  void reviewPrs.refresh();
+  if (reviewMode === "prs" && reviewScreen !== "home") {
+    view("review");
+    void reviewPrs.refresh();
+  } else openReviewInbox();
 });
+$("review-mode-prs").addEventListener("click", () => openReviewInbox());
+$("review-mode-worktrees").addEventListener("click", () => openReviewPicker());
+$("review-pr-inbox-back").addEventListener("click", () => {
+  openReviewInbox();
+  $("review-pr-search").focus();
+});
+$("review-pr-overview").addEventListener("click", () => {
+  message("review-warning", "");
+  showReviewContent("details");
+});
+$("review-pr-changes").addEventListener("click", () => reviewPrs.showChanges());
 $("change-review-worktree").addEventListener("click", () => {
   selectReviewTab("worktrees");
   $("review-worktree-search").focus();
 });
 $("compare-worktrees").addEventListener("click", () => worktreeComparison.open());
-for (const tab of ["worktrees", "changes", "files", "pr"]) {
+for (const tab of ["worktrees", "changes", "files"]) {
   $("review-tab-" + tab).addEventListener("click", () => selectReviewTab(tab));
 }
 $("review-worktree-search").addEventListener("input", () => renderReviewWorktrees());
@@ -1205,16 +1248,6 @@ $("review-resume").addEventListener("click", () => {
   showCurrentReview();
   selectReviewTab("changes");
   message("review-warning", "");
-});
-$("review-pr-back").addEventListener("click", () => {
-  const url = review?.pr?.url || $("pr").value;
-  if (!url) return;
-  selectReviewTab("pr");
-  void reviewPrs.open(url);
-});
-$("review-open-pr").addEventListener("click", () => {
-  selectReviewTab("pr");
-  $("review-pr-url").focus();
 });
 $("review-add-repository").addEventListener("click", () => {
   $("show-board").click();
@@ -1263,9 +1296,7 @@ window.pimiWorkspace?.onNavigate(async (destination) => {
     return;
   }
   if (destination.view === "review-prs") {
-    openReviewPicker();
-    reviewPrs.setFilter(destination.filter ?? "all");
-    selectReviewTab("pr");
+    openReviewInbox(destination.filter);
     return;
   }
   if (destination.view === "review-pr") {
@@ -1335,10 +1366,11 @@ function focusViewSearch(event, reviewing) {
     worktrees: "review-worktree-search",
     changes: "file-search",
     files: "review-source-search",
-    pr: "review-pr-search",
   }[railTab];
-  const search = $(reviewing ? reviewSearch : listSearch);
-  if (!search || search.closest("[hidden]")) return;
+  let searchId = reviewing ? reviewSearch : listSearch;
+  if (reviewing && reviewMode === "prs" && reviewScreen !== "code") searchId = "review-pr-search";
+  const search = $(searchId);
+  if (!search || search.closest("[hidden]") || !search.getClientRects().length) return;
   event.preventDefault();
   search.focus();
 }
@@ -1365,6 +1397,6 @@ document.addEventListener("keydown", (event) => {
 connectLiveUpdates({
   refreshBoard,
   refreshTasks: tasksView.load,
-  refreshPullRequests: () => !$("review").hidden && railTab === "pr" && reviewPrs.refresh(),
+  refreshPullRequests: () => !$("review").hidden && reviewMode === "prs" && reviewPrs.refresh(),
   status: (text) => message("live-status", text),
 });

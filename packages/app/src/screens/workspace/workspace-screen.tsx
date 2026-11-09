@@ -2482,6 +2482,7 @@ function WorkspaceScreenContent({
             isCompact: isMobile,
             workspaceKey: persistenceKey,
             destination: pullRequestOpenLocation,
+            workspace: workspaceDescriptor,
           });
           return true;
         }
@@ -2509,6 +2510,7 @@ function WorkspaceScreenContent({
       openWorkspaceTabFocused,
       persistenceKey,
       pullRequestOpenLocation,
+      workspaceDescriptor,
     ],
   );
 
