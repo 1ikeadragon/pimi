@@ -82,21 +82,10 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  build:
+  mac:
+    name: Build macOS installer
     needs: validate
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-15
-            arch: arm64
-            platform: mac
-            asset: Pimi-macOS-arm64.dmg
-          - os: windows-2025
-            arch: x64
-            platform: win
-            asset: Pimi-Windows-x64.exe
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-15
     timeout-minutes: 35
     permissions:
       contents: read
@@ -110,20 +99,20 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .tool-versions
-          architecture: ${{ matrix.arch }}
+          architecture: arm64
           package-manager-cache: false
       - run: npm ci --no-audit --no-fund
         env:
           EXPO_NO_TELEMETRY: "1"
           PIMI_SKIP_NATIVE_MARKDOWN_ASSETS: "1"
       - name: Build macOS app inputs
-        if: runner.os == 'macOS' && vars.APPLE_TEAM_ID != ''
+        if: vars.APPLE_TEAM_ID != ''
         env:
           EXPO_NO_TELEMETRY: "1"
           NODE_OPTIONS: --max-old-space-size=4096
         run: npm run pimi:prepare:desktop
       - name: Sign and notarize macOS installer
-        if: runner.os == 'macOS' && vars.APPLE_TEAM_ID != ''
+        if: vars.APPLE_TEAM_ID != ''
         shell: bash
         env:
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE_P12 }}
@@ -161,7 +150,7 @@ jobs:
           jq -e '.status == "Accepted"' "$RUNNER_TEMP/pimi-notary.json" > /dev/null
           xcrun stapler staple "$dmg"
       - name: Verify macOS installer
-        if: runner.os == 'macOS' && vars.APPLE_TEAM_ID != ''
+        if: vars.APPLE_TEAM_ID != ''
         shell: bash
         working-directory: packages/desktop/release-pimi
         env:
@@ -188,14 +177,14 @@ jobs:
           syspolicy_check distribution "$app"
           test "$("$app/Contents/Resources/bin/pimi" --version)" = "$RELEASE_VERSION"
           cp "$dmg" Pimi-macOS-arm64.dmg
-      - name: Build manual macOS installer
-        if: runner.os == 'macOS' && vars.APPLE_TEAM_ID == ''
+      - name: Build ad hoc macOS installer
+        if: vars.APPLE_TEAM_ID == ''
         env:
           EXPO_NO_TELEMETRY: "1"
           NODE_OPTIONS: --max-old-space-size=4096
         run: npm run pimi:package:mac
-      - name: Verify manual macOS installer
-        if: runner.os == 'macOS' && vars.APPLE_TEAM_ID == ''
+      - name: Verify ad hoc macOS installer
+        if: vars.APPLE_TEAM_ID == ''
         shell: bash
         working-directory: packages/desktop/release-pimi
         run: |
@@ -207,16 +196,45 @@ jobs:
           app="$mountpoint/Pimi.app"
           codesign --verify --deep --strict "$app"
           test "$("$app/Contents/Resources/bin/pimi" --version)" = "$RELEASE_VERSION"
-          cp "$dmg" Pimi-macOS-arm64-manual.dmg
+          cp "$dmg" Pimi-macOS-arm64.dmg
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pimi-release-${{ github.run_attempt }}-mac
+          path: packages/desktop/release-pimi/Pimi-macOS-arm64.dmg
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  windows:
+    name: Build Windows installer
+    needs: [validate, mac]
+    runs-on: windows-2025
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    env:
+      RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.validate.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .tool-versions
+          architecture: x64
+          package-manager-cache: false
+      - run: npm ci --no-audit --no-fund
+        env:
+          EXPO_NO_TELEMETRY: "1"
+          PIMI_SKIP_NATIVE_MARKDOWN_ASSETS: "1"
       - name: Build Windows installer
-        if: runner.os == 'Windows'
         env:
           EXPO_NO_TELEMETRY: "1"
           NODE_OPTIONS: --max-old-space-size=4096
         run: npm run pimi:package:win
         shell: bash
       - name: Verify Windows installer
-        if: runner.os == 'Windows'
         shell: pwsh
         working-directory: packages/desktop/release-pimi
         run: |
@@ -228,14 +246,14 @@ jobs:
           Copy-Item -LiteralPath $installer -Destination Pimi-Windows-x64.exe
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: pimi-release-${{ github.run_attempt }}-${{ matrix.platform }}
-          path: packages/desktop/release-pimi/${{ runner.os == 'macOS' && vars.APPLE_TEAM_ID == '' && 'Pimi-macOS-arm64-manual.dmg' || matrix.asset }}
+          name: pimi-release-${{ github.run_attempt }}-win
+          path: packages/desktop/release-pimi/Pimi-Windows-x64.exe
           if-no-files-found: error
           compression-level: 0
           retention-days: 1
 
   publish:
-    needs: [validate, build]
+    needs: [validate, mac, windows]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -253,21 +271,21 @@ jobs:
           RELEASE_TAG: ${{ needs.validate.outputs.tag }}
           RELEASE_VERSION: ${{ needs.validate.outputs.version }}
           RELEASE_COMMIT: ${{ needs.validate.outputs.commit }}
-          MAC_ASSET: ${{ vars.APPLE_TEAM_ID == '' && 'Pimi-macOS-arm64-manual.dmg' || 'Pimi-macOS-arm64.dmg' }}
+          MAC_AD_HOC: ${{ vars.APPLE_TEAM_ID == '' }}
         run: |
           # Resolve the peeled annotated tag, or the direct lightweight tag.
           remote="$(git ls-remote "https://github.com/$GITHUB_REPOSITORY.git" "refs/tags/$RELEASE_TAG" "refs/tags/$RELEASE_TAG^{}" | tail -n 1 | cut -f 1)"
           test "$remote" = "$RELEASE_COMMIT"
 
           prefix="pimi-release-$GITHUB_RUN_ATTEMPT"
-          mv "$prefix-mac/$MAC_ASSET" .
+          mv "$prefix-mac/Pimi-macOS-arm64.dmg" .
           mv "$prefix-win/Pimi-Windows-x64.exe" .
-          test -s "$MAC_ASSET"
+          test -s Pimi-macOS-arm64.dmg
           test -s Pimi-Windows-x64.exe
-          if [[ "$MAC_ASSET" == Pimi-macOS-arm64-manual.dmg ]]; then
-            printf '\n### macOS manual download\n\nThe Apple silicon disk image is ad hoc signed and is not notarized. It is excluded from automatic updates. macOS may block the first launch.\n' >> "$prefix-notes/release-notes.md"
+          if [[ "$MAC_AD_HOC" == true ]]; then
+            printf '\n### macOS signing\n\nThe Apple silicon disk image is ad hoc signed and is not notarized. macOS may require approval when opening the new version.\n' >> "$prefix-notes/release-notes.md"
           fi
-          sha256sum "$MAC_ASSET" Pimi-Windows-x64.exe > SHA256SUMS.txt
-          gh release create "$RELEASE_TAG" "$MAC_ASSET" Pimi-Windows-x64.exe SHA256SUMS.txt \
+          sha256sum Pimi-macOS-arm64.dmg Pimi-Windows-x64.exe > SHA256SUMS.txt
+          gh release create "$RELEASE_TAG" Pimi-macOS-arm64.dmg Pimi-Windows-x64.exe SHA256SUMS.txt \
             --repo "$GITHUB_REPOSITORY" --verify-tag --title "Pimi $RELEASE_VERSION" \
             --notes-file "$prefix-notes/release-notes.md"

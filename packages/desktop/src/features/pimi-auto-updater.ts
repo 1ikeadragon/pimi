@@ -85,7 +85,12 @@ async function removeExpiredDownloads(cache: string): Promise<void> {
     }
     // A detach failure can leave a read-only disk image mounted here. Remove
     // only known files and the empty directory, never recurse through a mount.
-    for (const file of ["Pimi-macOS-arm64.dmg", "Pimi-Windows-x64.exe", "install.log"]) {
+    for (const file of [
+      "Pimi-macOS-arm64.dmg",
+      "Pimi-macOS-arm64-manual.dmg",
+      "Pimi-Windows-x64.exe",
+      "install.log",
+    ]) {
       await rm(path.join(directory, file), { force: true });
     }
     await rmdir(directory).catch(() => undefined);

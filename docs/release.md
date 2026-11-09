@@ -1,8 +1,8 @@
 # Pimi desktop releases
 
-[GitHub Actions](../.github/workflows/pimi-release.yml) builds Apple silicon and Windows x64 installers from a new `pimi-vX.Y.Z` tag on `main`. It publishes the installers, release notes, and SHA-256 checksums together.
+[GitHub Actions](../.github/workflows/pimi-release.yml) builds the Apple silicon installer first, then Windows x64, from a new `pimi-vX.Y.Z` tag on `main`. It publishes the installers, release notes, and SHA-256 checksums together.
 
-Without an `APPLE_TEAM_ID` repository variable, releases include `Pimi-macOS-arm64-manual.dmg`. That build is ad hoc signed and can be downloaded from GitHub Releases. macOS may block the first launch. The Mac updater accepts only the separate notarized installer.
+Without an `APPLE_TEAM_ID` repository variable, the Mac installer is ad hoc signed. Pimi can install it in-app, and macOS may require approval when opening the new version. The release notes flag the signing status.
 
 ## Set up macOS signing
 

@@ -101,26 +101,23 @@ export async function checkPimiRelease(
   const version = release.tag_name.slice("pimi-v".length);
   if (!isNewerPimiVersion(version, currentVersion)) return null;
 
-  const matching = release.assets.filter((asset) => asset.name === fileName);
-  if (
-    fileName === "Pimi-macOS-arm64.dmg" &&
-    matching.length === 0 &&
-    release.assets.some((asset) => asset.name === "Pimi-macOS-arm64-manual.dmg")
-  ) {
-    throw new Error(
-      "This release has a manual Mac download. Open Pimi's GitHub Releases to get it.",
-    );
+  let matching = release.assets.filter((asset) => asset.name === fileName);
+  if (fileName === "Pimi-macOS-arm64.dmg" && matching.length === 0) {
+    matching = release.assets.filter((asset) => asset.name === "Pimi-macOS-arm64-manual.dmg");
   }
-  const url = `${RELEASE_ASSET_BASE}/${release.tag_name}/${fileName}`;
-  if (matching.length !== 1 || matching[0].browser_download_url !== url) {
+  if (matching.length !== 1) {
     throw new Error("The immutable Pimi release is missing this platform’s installer.");
   }
   const asset = matching[0];
+  const url = `${RELEASE_ASSET_BASE}/${release.tag_name}/${asset.name}`;
+  if (asset.browser_download_url !== url) {
+    throw new Error("The immutable Pimi release has an invalid installer URL.");
+  }
   return {
     version,
     notes: release.body,
     publishedAt: release.published_at,
-    fileName,
+    fileName: asset.name,
     bytes: asset.size,
     digest: asset.digest.slice("sha256:".length),
     url,
