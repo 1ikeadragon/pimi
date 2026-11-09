@@ -14,6 +14,7 @@ interface SidebarOrderStoreState {
   setPinnedWorkspaceOrder: (keys: string[]) => void;
   getWorkspaceOrder: (projectViewKey: string) => string[];
   setWorkspaceOrder: (projectViewKey: string, keys: string[]) => void;
+  setWorkspaceOrders: (orders: ReadonlyArray<readonly [string, string[]]>) => void;
 }
 
 interface SidebarOrderPersistedState {
@@ -168,12 +169,17 @@ export const useSidebarOrderStore = create<SidebarOrderStoreState>()(
         if (!projectViewKey.trim()) return [];
         return get().workspaceOrderByProject[projectViewKey] ?? [];
       },
-      setWorkspaceOrder: (projectViewKey, keys) => {
-        if (!projectViewKey.trim()) return;
+      setWorkspaceOrder: (projectViewKey, keys) =>
+        get().setWorkspaceOrders([[projectViewKey, keys]]),
+      setWorkspaceOrders: (orders) => {
+        const entries = orders
+          .filter(([projectViewKey]) => projectViewKey.trim())
+          .map(([projectViewKey, keys]) => [projectViewKey, dedupeKeys(keys)] as const);
+        if (entries.length === 0) return;
         set((state) => ({
           workspaceOrderByProject: {
             ...state.workspaceOrderByProject,
-            [projectViewKey]: dedupeKeys(keys),
+            ...Object.fromEntries(entries),
           },
         }));
       },

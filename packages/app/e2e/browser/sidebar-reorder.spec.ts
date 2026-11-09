@@ -65,21 +65,7 @@ async function finishSidebarDrag(page: Page): Promise<void> {
   await page.waitForTimeout(60);
 }
 
-async function dragWithoutReordering(rows: Locator): Promise<void> {
-  const before = await rowTestIds(rows);
-  const source = await visibleBoundingBox(rows.nth(0));
-  const target = await visibleBoundingBox(rows.nth(1));
-  const page = rows.page();
-  await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 5 });
-  await finishSidebarDrag(page);
-  await expect.poll(() => rowTestIds(rows)).toEqual(before);
-}
-
-test("projects and pinned chats reorder while ordinary workspaces stay newest first", async ({
-  page,
-}) => {
+test("projects, ordinary workspaces, and pinned chats can all be reordered", async ({ page }) => {
   const firstProject = await seedWorkspace({ repoPrefix: "sidebar-reorder-first-" });
   const secondProject = await seedWorkspace({ repoPrefix: "sidebar-reorder-second-" });
 
@@ -113,7 +99,11 @@ test("projects and pinned chats reorder while ordinary workspaces stay newest fi
     await expect
       .poll(() => rowTestIds(ordinaryRows))
       .toEqual([secondWorkspaceTestId, firstWorkspaceTestId]);
-    await dragWithoutReordering(ordinaryRows);
+    await quickDragFirstRowAfterSecond(ordinaryRows, pressWorkspaceRow);
+    await reconnectSidebar(page);
+    await expect
+      .poll(() => rowTestIds(ordinaryRows))
+      .toEqual([firstWorkspaceTestId, secondWorkspaceTestId]);
 
     await firstProject.client.setWorkspacePinned(firstProject.workspaceId, true);
     await secondProject.client.setWorkspacePinned(secondProject.workspaceId, true);

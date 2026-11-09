@@ -2,7 +2,7 @@ context platform=ios timeout=60000 retries=0
 env APP_ID=sh.paseo.debug
 
 # Start with the sidebar closed. WORKSPACE_ROW is the testID of a visible,
-# unselected PINNED workspace row. Ordinary workspace rows are not draggable.
+# unselected PINNED workspace row.
 # Hold past drag arming (180ms), then release.
 open "${APP_ID}"
 press "label=\"Open menu\""
