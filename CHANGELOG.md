@@ -2,6 +2,11 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.12 - 2026-11-10
+
+- Select text in chat or code in the editor and add a note to your next message.
+- Restore in-app updates on Apple silicon.
+
 ## 0.17.11 - 2026-11-10
 
 - Restore in-app updates on Apple silicon.
