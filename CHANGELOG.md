@@ -2,6 +2,14 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.10 - 2026-11-10
+
+- Switch providers from chat and pick up where you left off. Unsent handoffs keep their history after a restart.
+- Send work to several providers from one chat. Worker cards show each provider and its status. Tasks can use a different model for each worker.
+- Bar and line charts follow your theme and animate as data changes. Reduced motion skips the animation.
+- Ask Pimi can search Spaces, check unfinished work, and open the view you ask for. Voice history keeps the transcript and result together.
+- Add a custom provider and see provider icons more clearly in Usage.
+
 ## 0.17.9 - 2026-11-10
 
 - Open the selected project in IDE mode before starting a chat.
