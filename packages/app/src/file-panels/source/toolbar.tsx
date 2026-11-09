@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, type ReactNode } from "react";
 import { Text, View } from "react-native";
 import { FileDiff } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
@@ -36,6 +36,8 @@ export function TextFileToolbar({
   cursor,
   vimMode,
   conflict,
+  blame,
+  children,
 }: {
   size: number;
   lineCount: number;
@@ -45,6 +47,8 @@ export function TextFileToolbar({
   cursor?: { line: number; column: number };
   vimMode?: string | null;
   conflict?: FileConflictAlertState | null;
+  blame?: ReactNode;
+  children?: ReactNode;
 }) {
   const { t } = useTranslation();
   const { target, openPreferredTarget } = usePaneContext();
@@ -63,25 +67,32 @@ export function TextFileToolbar({
     },
     { value: "source" as const, label: t("panels.file.editor.source"), testID: "file-mode-source" },
   ];
-  return (
+  const alert = conflict ? <FileConflictAlert state={conflict} /> : null;
+  const toolbar = (
     <View style={styles.chrome}>
-      <PaneContentToolbar testID="file-panel-bar">
+      <PaneContentToolbar testID="file-panel-bar" style={blame ? styles.footer : undefined}>
         <View style={styles.row}>
           <View style={styles.metadata}>
-            <Text
-              style={styles.whisper}
-              numberOfLines={1}
-              accessibilityLabel={t("panels.file.editor.fileSize", { size: formatFileSize(size) })}
-            >
-              {formatFileSize(size)}
-            </Text>
-            <Text
-              style={styles.whisper}
-              numberOfLines={1}
-              accessibilityLabel={t("panels.file.editor.lines", { count: lineCount })}
-            >
-              {t("panels.file.editor.lines", { count: lineCount })}
-            </Text>
+            {blame ?? (
+              <>
+                <Text
+                  style={styles.whisper}
+                  numberOfLines={1}
+                  accessibilityLabel={t("panels.file.editor.fileSize", {
+                    size: formatFileSize(size),
+                  })}
+                >
+                  {formatFileSize(size)}
+                </Text>
+                <Text
+                  style={styles.whisper}
+                  numberOfLines={1}
+                  accessibilityLabel={t("panels.file.editor.lines", { count: lineCount })}
+                >
+                  {t("panels.file.editor.lines", { count: lineCount })}
+                </Text>
+              </>
+            )}
           </View>
           <View
             style={styles.status}
@@ -147,14 +158,26 @@ export function TextFileToolbar({
           ) : null}
         </View>
       </PaneContentToolbar>
-      {conflict ? <FileConflictAlert state={conflict} /> : null}
+      {!blame && alert}
     </View>
+  );
+  return (
+    <>
+      {blame ? alert : toolbar}
+      {children}
+      {blame ? toolbar : null}
+    </>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
   chrome: {
     flexShrink: 0,
+  },
+  footer: {
+    borderBottomWidth: 0,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
   },
   row: {
     height: "100%",

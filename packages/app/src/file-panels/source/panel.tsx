@@ -18,6 +18,9 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { isWeb } from "@/constants/platform";
 import { useAppSettings } from "@/hooks/use-settings";
+import { usePimiWorkbenchMode } from "@/desktop/use-pimi-workbench";
+import { usePaneContext } from "@/panels/pane-context";
+import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
 import { confirmDialog } from "@/utils/confirm-dialog";
 import { formatFileSize } from "@/utils/format-file-size";
 import type { Theme } from "@/styles/theme";
@@ -166,6 +169,9 @@ function EditableTextFile({
 }: TextFilePanelProps) {
   const { settings } = useAppSettings();
   const { t } = useTranslation();
+  const { serverId } = usePaneContext();
+  const editorMode =
+    usePimiWorkbenchMode(buildWorkspaceTabPersistenceKey({ serverId, workspaceId })) === "editor";
   const [model] = useState(() => new FileEditorModel({ file }));
   const [view, setView] = useTextFileView(params, revision);
   const [cursor, setCursor] = useState({ line: 1, column: 1 });
@@ -226,6 +232,16 @@ function EditableTextFile({
     };
   }
   const showPreview = Preview !== undefined && view === "preview";
+  const footer = editorMode && !Preview;
+  const blame = !showPreview ? (
+    <FileLineBlame
+      path={params.path}
+      content={snapshot.content}
+      status={snapshot.status}
+      line={cursor.line}
+      inline={footer}
+    />
+  ) : null;
   return (
     <View style={styles.container}>
       <TextFileToolbar
@@ -237,28 +253,23 @@ function EditableTextFile({
         cursor={showPreview ? undefined : cursor}
         vimMode={showPreview ? null : vimMode}
         conflict={conflict}
-      />
-      {showPreview ? (
-        <Preview text={snapshot.content} params={params} workspaceId={workspaceId} host={host} />
-      ) : (
-        <SourceEditor
-          model={model}
-          filename={params.path}
-          location={editorLocation}
-          navigationRevision={revision}
-          vimEnabled={settings.vimKeybindings}
-          onCursorChange={setCursor}
-          onVimModeChange={setVimMode}
-        />
-      )}
-      {!showPreview ? (
-        <FileLineBlame
-          path={params.path}
-          content={snapshot.content}
-          status={snapshot.status}
-          line={cursor.line}
-        />
-      ) : null}
+        blame={footer ? blame : undefined}
+      >
+        {showPreview ? (
+          <Preview text={snapshot.content} params={params} workspaceId={workspaceId} host={host} />
+        ) : (
+          <SourceEditor
+            model={model}
+            filename={params.path}
+            location={editorLocation}
+            navigationRevision={revision}
+            vimEnabled={settings.vimKeybindings}
+            onCursorChange={setCursor}
+            onVimModeChange={setVimMode}
+          />
+        )}
+        {!footer && blame}
+      </TextFileToolbar>
     </View>
   );
 }

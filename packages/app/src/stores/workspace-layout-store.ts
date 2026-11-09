@@ -155,6 +155,7 @@ interface WorkspaceLayoutStore {
   layoutByWorkspace: Record<string, WorkspaceLayout>;
   workbenchByWorkspace: Record<string, WorkspaceWorkbench>;
   switchWorkbench: (workspaceKey: string, mode: WorkbenchMode) => "ok" | "unsaved" | "unavailable";
+  toggleWorkbenchChat: (workspaceKey: string) => "ok" | "unsaved" | "unavailable";
   splitSizesByWorkspace: Record<string, Record<string, number[]>>;
   explorerSidebarWidthByWorkspace: Record<string, number>;
   pinnedAgentIdsByWorkspace: Record<string, Set<string>>;
@@ -655,6 +656,7 @@ function getOpenTabPlacement(
   workspaceKey: string,
   target: WorkspaceTabTarget,
   placement: WorkspaceTabPlacement | undefined,
+  revealSidePane = false,
 ): {
   layout: WorkspaceLayout;
   placement: WorkspaceTabPlacement;
@@ -687,8 +689,15 @@ function getOpenTabPlacement(
       paneId: fallbackPane.id,
     };
   }
+  const showWorkbenchSidePane =
+    revealSidePane &&
+    requestedPane?.hidden &&
+    requestedPane.id === state.sidePaneIdByWorkspace[workspaceKey] &&
+    state.workbenchByWorkspace[workspaceKey]?.mode === "editor";
   return {
-    layout,
+    layout: showWorkbenchSidePane
+      ? (setPaneHiddenInLayout({ layout, paneId: requestedPane.id, hidden: false }) ?? layout)
+      : layout,
     placement: resolvedPlacement,
     explorerSidebarPaneId,
   };
@@ -1155,6 +1164,37 @@ export function createWorkspaceLayoutStore(
           });
           return "ok";
         },
+        toggleWorkbenchChat: (workspaceKey) => {
+          if (get().workbenchByWorkspace[workspaceKey]?.mode !== "editor") return "unavailable";
+          const paneId = get().ensureSidePane(workspaceKey, { focus: false });
+          if (!paneId) return "unavailable";
+          const layout = getWorkspaceLayout(get().layoutByWorkspace, workspaceKey);
+          const pane = findPaneById(layout.root, paneId);
+          if (!pane) return "unavailable";
+          if (!pane.tabIds.length) {
+            const opened = get().openTab({
+              workspaceKey,
+              target: { kind: "new_tab" },
+              intent: "new",
+              placement: { mode: "pane", paneId },
+            });
+            return opened ? "ok" : "unavailable";
+          }
+          const hide = !pane.hidden;
+          if (
+            hide &&
+            pane.tabIds.some((tabId) => getWorkspacePanelAttributes(workspaceKey, tabId).modified)
+          ) {
+            return "unsaved";
+          }
+          const next = setPaneHiddenInLayout({ layout, paneId, hidden: hide });
+          if (!next) return "unavailable";
+          set((state) => ({
+            ...withoutFocusRestoration(state, workspaceKey),
+            layoutByWorkspace: { ...state.layoutByWorkspace, [workspaceKey]: next },
+          }));
+          return "ok";
+        },
         splitSizesByWorkspace: {},
         explorerSidebarWidthByWorkspace: {},
         pinnedAgentIdsByWorkspace: {},
@@ -1221,6 +1261,7 @@ export function createWorkspaceLayoutStore(
             normalizedWorkspaceKey,
             normalizedTarget,
             input.placement,
+            input.intent !== "background",
           );
           let result;
           if (input.intent === "new") {

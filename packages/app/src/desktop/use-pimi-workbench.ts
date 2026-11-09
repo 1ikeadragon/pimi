@@ -76,6 +76,7 @@ export function usePimiWorkbench() {
   return {
     mode,
     select,
+    activeWorkspaceKey: current ? workspaceKey : null,
     available: Boolean(getDesktopHost()?.showPimiWorkspace) && layoutMode === "split-panes",
   };
 }
