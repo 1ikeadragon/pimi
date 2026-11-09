@@ -16,7 +16,7 @@ function findTask(tasks, title) {
   return matches[0];
 }
 
-async function resolveSpace(open, input, paseo) {
+async function resolveSpace(open, input, paseo, chatProvider) {
   const { items, reference } = await paseo.spaces({
     action: "find-reference",
     query: open.query,
@@ -65,6 +65,7 @@ async function resolveSpace(open, input, paseo) {
   const chat = await paseo.startVoiceChat({
     workspaceId: input.workspaceId,
     agentId: input.agentId,
+    chatProvider,
     prompt,
     attachments,
     images,
@@ -72,7 +73,7 @@ async function resolveSpace(open, input, paseo) {
   return { chat, message: "Started a chat with your Spaces card" };
 }
 
-async function resolveNavigation(open, input, { paseo, tasks, getInventory }) {
+async function resolveNavigation(open, input, { paseo, tasks, getInventory }, chatProvider) {
   switch (open.action) {
     case "review-worktree": {
       const board = await getInventory();
@@ -108,7 +109,7 @@ async function resolveNavigation(open, input, { paseo, tasks, getInventory }) {
         message: "Opening task",
       };
     case "space-card":
-      return resolveSpace(open, input, paseo);
+      return resolveSpace(open, input, paseo, chatProvider);
     default:
       return { navigation: open, message: "" };
   }
@@ -157,7 +158,7 @@ export async function runVoiceCommand(input, services) {
       }
     }
     if (plan.open) {
-      const result = await resolveNavigation(plan.open, input, services);
+      const result = await resolveNavigation(plan.open, input, services, plan.chatProvider);
       return { ...result, message: [...receipts, result.message].filter(Boolean).join(" · ") };
     }
   } catch (error) {

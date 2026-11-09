@@ -479,7 +479,14 @@ export function createPaseoConnection(settingsSource = {}) {
     };
   }
 
-  async function startVoiceChat({ workspaceId, agentId, prompt, attachments, images }) {
+  async function startVoiceChat({
+    workspaceId,
+    agentId,
+    chatProvider,
+    prompt,
+    attachments,
+    images,
+  }) {
     const client = await connect();
     const serverId = await getDaemonHost(client);
     let workspace = workspaceId ? client.workspaces.ref(workspaceId) : null;
@@ -496,10 +503,10 @@ export function createPaseoConnection(settingsSource = {}) {
     const selected =
       activeAgent?.provider && activeAgent.model
         ? activeAgent
-        : await reviewProvider(workspace.directory);
+        : (chatProvider ?? (await reviewProvider(workspace.directory)));
     const agent = await workspace.agents.create({
       config: {
-        provider: `${selected.provider}/${selected.model}`,
+        provider: selected.model ? `${selected.provider}/${selected.model}` : selected.provider,
         thinkingOptionId:
           selected.effectiveThinkingOptionId ?? selected.thinkingOptionId ?? undefined,
       },

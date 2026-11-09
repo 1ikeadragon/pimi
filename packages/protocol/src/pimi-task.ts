@@ -340,29 +340,44 @@ export const PimiVoicePlan = z.strictObject({
         scope: z.enum(["workspace", "host"]),
         trackTasks: z.literal(true).optional(),
         stage: PimiTaskStage.optional(),
+        showAfter: PimiVoiceView.optional(),
       }),
     ])
     .optional(),
 });
 
+export type PimiVoicePlan = z.infer<typeof PimiVoicePlan>;
+
 export const PimiVoiceCommandResponse = z.union([
-  PimiVoicePlan,
-  z.strictObject({ message: z.string().min(1).max(1000) }),
+  PimiVoicePlan.extend({
+    chatProvider: z
+      .strictObject({
+        provider: z.string().min(1),
+        model: z.string().min(1).optional(),
+        thinkingOptionId: z.string().min(1).optional(),
+      })
+      .optional(),
+  }),
+  z.strictObject({
+    message: z.string().min(1).max(1000),
+    navigation: z.strictObject({ action: z.literal("show"), view: PimiVoiceView }).optional(),
+  }),
 ]);
 
-export function voicePlanOpensNewChat(open: z.infer<typeof PimiVoicePlan>["open"]): boolean {
+export function voicePlanOpensNewChat(open: PimiVoicePlan["open"]): boolean {
   return open?.action === "new-chat" || (open?.action === "space-card" && open.intent === "chat");
 }
 
 export function isExplicitVoiceChatRequest(transcript: string): boolean {
-  const chat = "(?:a |another )?(?:new |fresh )?(?:chat|conversation|thread)\\b";
+  const chat =
+    "(?:(?:a|another|any)\\s+)?(?:(?:brand[- ]new|new|fresh|separate)\\s+)?(?:chats?|conversations?|threads?)\\b";
   const declined = new RegExp(
-    `\\b(?:don.t|do not|never|without)\\s+(?:opening|starting|creating|open|start|create|launch|begin|make)\\s+${chat}`,
+    `\\b(?:don.t|do not|never|without)\\s+(?:(?:actually|just)\\s+)?(?:open(?:ing)?|start(?:ing)?|creat(?:e|ing)|launch(?:ing)?|begin(?:ning)?|mak(?:e|ing)|spin(?:ning)? up)\\s+(?:me\\s+)?${chat}`,
     "i",
   );
   if (declined.test(transcript)) return false;
   return new RegExp(
-    `(?:^|[,;.!?]|\\b(?:and|then|to)\\b)\\s*(?:(?:hey pimi|pimi|ok(?:ay)?|please|can you|could you|would you)[\\s,]+)*(?:open|start|create|launch|begin|make)\\s+(?:me\\s+)?${chat}`,
+    `(?:^|[,;.!?]|\\b(?:and|then)\\b)\\s*(?:(?:hey pimi|pimi|ok(?:ay)?|please|can you|could you|would you|i (?:want|need) you to|i.d like you to|um|uh|just|actually)[\\s,]+)*(?:open|start|create|launch|begin|make|spin up)\\s+(?:me\\s+)?${chat}`,
     "i",
   ).test(transcript);
 }

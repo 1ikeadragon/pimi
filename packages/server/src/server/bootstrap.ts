@@ -1145,10 +1145,11 @@ export async function createPaseoDaemon(
         const { mcp, providers } = daemonConfigStore.get();
         return createPaseoToolCatalog({
           ...createAgentToolHostDependencies({
-            paseoToolPolicy:
-              mcp.enabled && mcp.injectIntoAgents
-                ? resolvePaseoToolPolicy(provider, providers)
-                : { enabled: false },
+            // A local Ask Pimi command gets its own bounded tool list. The
+            // injection switch controls tools exposed to regular chats.
+            paseoToolPolicy: mcp.enabled
+              ? resolvePaseoToolPolicy(provider, providers)
+              : { enabled: false },
           }),
           voiceCommand: true,
         });
