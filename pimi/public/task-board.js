@@ -65,19 +65,57 @@ function taskGlyph(name) {
   return icon;
 }
 
-export function createTaskBoard({ element, button, lanes, open, move, create, preserveFocus }) {
+export function createTaskBoard({
+  element,
+  button,
+  lanes,
+  open,
+  move,
+  create,
+  createLabel,
+  preserveFocus,
+}) {
   let lastSignature;
   let dragging;
+  let pressing;
   let queued;
 
   function finishDrag() {
     dragging = undefined;
     lanes.querySelector(".task-lane-target")?.classList.remove("task-lane-target");
+    flush();
+  }
+
+  function flush() {
+    if (pressing || dragging) return;
     if (!queued) return;
     const entries = queued;
     queued = undefined;
     render(entries);
   }
+
+  lanes.addEventListener("pointerdown", (event) => {
+    if (pressing || !event.isPrimary || event.button !== 0 || !event.target.closest("button"))
+      return;
+    const { pointerId } = event;
+    const listeners = new AbortController();
+    pressing = true;
+    function release() {
+      listeners.abort();
+      // Keep the pressed control attached until the browser dispatches its click.
+      setTimeout(() => {
+        pressing = false;
+        flush();
+      }, 0);
+    }
+    function end(pointer) {
+      if (pointer.pointerId === pointerId) release();
+    }
+    const options = { capture: true, signal: listeners.signal };
+    window.addEventListener("pointerup", end, options);
+    window.addEventListener("pointercancel", end, options);
+    window.addEventListener("blur", release, { signal: listeners.signal });
+  });
 
   function createCard({ task, progress, repositories, pending, labels }) {
     const card = element("article", "task-card");
@@ -141,15 +179,15 @@ export function createTaskBoard({ element, button, lanes, open, move, create, pr
     return card;
   }
 
-  function createLane(id, title, entries) {
+  function createLane(id, title, entries, addLabel) {
     const lane = element("section", "lane task-lane");
     const heading = element("div", "lane-heading");
     heading.append(element("h2", "", title), element("span", "count", entries.length));
     if (id === "backlog") {
       const add = button("button quiet glyph-button task-lane-add", "", create);
       add.id = "task-lane-add";
-      add.title = "New task";
-      add.setAttribute("aria-label", "New task in To Do");
+      add.title = addLabel;
+      add.setAttribute("aria-label", `${addLabel} in To Do`);
       add.append(taskGlyph("compose"));
       heading.append(add);
     }
@@ -176,11 +214,13 @@ export function createTaskBoard({ element, button, lanes, open, move, create, pr
   }
 
   function render(entries) {
-    if (dragging) {
+    if (pressing || dragging) {
       queued = entries;
       return;
     }
-    const signature = JSON.stringify(
+    const addLabel = createLabel();
+    const signature = JSON.stringify([
+      addLabel,
       entries.map(({ task, progress, pending, repositories, labelSignature }) => [
         task.id,
         task.title,
@@ -193,7 +233,7 @@ export function createTaskBoard({ element, button, lanes, open, move, create, pr
         pending,
         repositories,
       ]),
-    );
+    ]);
     if (signature === lastSignature) return;
     lastSignature = signature;
     const restore = preserveFocus(lanes);
@@ -202,6 +242,7 @@ export function createTaskBoard({ element, button, lanes, open, move, create, pr
         id,
         label,
         entries.filter(({ progress }) => progress.stage === id),
+        addLabel,
       ),
     );
     replaceBoardLanes(lanes, next, "data-item-id");
