@@ -109,6 +109,7 @@ import {
 import { AgentBackgroundWorkStore, type AgentBackgroundWorkItem } from "./background-work/index.js";
 import { withTimeout } from "../../utils/promise-timeout.js";
 import { extractAttention } from "../persistence-hooks.js";
+import { PIMI_VISUALIZATION_INSTRUCTIONS } from "@pimi/protocol/chat-visualization";
 
 function pimiActionInstructions(
   policy: ProviderPaseoToolsPolicy | undefined,
@@ -5901,7 +5902,13 @@ export class AgentManager {
     const interactiveChat =
       !storedConfig.internal && !options.background && options.purpose !== "history";
     const pimiInstructions = interactiveChat
-      ? pimiActionInstructions(paseoToolPolicy, Boolean(options.labels?.[PIMI_TASK_WORKER_LABEL]))
+      ? [
+          ...pimiActionInstructions(
+            paseoToolPolicy,
+            Boolean(options.labels?.[PIMI_TASK_WORKER_LABEL]),
+          ),
+          PIMI_VISUALIZATION_INSTRUCTIONS,
+        ]
       : [];
     const canRecallMemory =
       this.mcpCallerAuthToken && !storedConfig.internal && options.purpose !== "history";

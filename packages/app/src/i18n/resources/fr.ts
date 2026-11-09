@@ -349,6 +349,10 @@ export const fr: TranslationResources = {
     },
   },
   message: {
+    visualization: {
+      previous: "Point de données précédent",
+      next: "Point de données suivant",
+    },
     diagram: {
       diagram: "Diagramme",
       zoomIn: "Zoomer",

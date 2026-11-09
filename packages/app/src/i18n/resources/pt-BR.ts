@@ -347,6 +347,10 @@ export const ptBR: TranslationResources = {
     },
   },
   message: {
+    visualization: {
+      previous: "Ponto de dados anterior",
+      next: "Próximo ponto de dados",
+    },
     diagram: {
       diagram: "Diagrama",
       zoomIn: "Aproximar",

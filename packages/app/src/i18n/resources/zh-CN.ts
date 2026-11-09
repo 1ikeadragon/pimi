@@ -342,6 +342,10 @@ export const zhCN: TranslationResources = {
     },
   },
   message: {
+    visualization: {
+      previous: "上一个数据点",
+      next: "下一个数据点",
+    },
     diagram: {
       diagram: "图表",
       zoomIn: "放大",

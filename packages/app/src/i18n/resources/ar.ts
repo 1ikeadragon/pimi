@@ -343,6 +343,10 @@ export const ar: TranslationResources = {
     },
   },
   message: {
+    visualization: {
+      previous: "نقطة البيانات السابقة",
+      next: "نقطة البيانات التالية",
+    },
     diagram: {
       diagram: "مخطط",
       zoomIn: "تكبير",

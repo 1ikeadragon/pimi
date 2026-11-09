@@ -348,6 +348,10 @@ export const ja: TranslationResources = {
     },
   },
   message: {
+    visualization: {
+      previous: "前のデータ点",
+      next: "次のデータ点",
+    },
     diagram: {
       diagram: "図",
       zoomIn: "拡大",

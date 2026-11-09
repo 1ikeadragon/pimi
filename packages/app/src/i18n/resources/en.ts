@@ -339,6 +339,10 @@ export const en = {
     },
   },
   message: {
+    visualization: {
+      previous: "Previous data point",
+      next: "Next data point",
+    },
     diagram: {
       diagram: "Diagram",
       zoomIn: "Zoom in",

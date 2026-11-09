@@ -348,6 +348,10 @@ export const es: TranslationResources = {
     },
   },
   message: {
+    visualization: {
+      previous: "Punto de datos anterior",
+      next: "Siguiente punto de datos",
+    },
     diagram: {
       diagram: "Diagrama",
       zoomIn: "Acercar",

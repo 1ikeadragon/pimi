@@ -13,13 +13,14 @@ import type { Theme } from "@/styles/theme";
 import { isWeb } from "@/constants/platform";
 import { density, resolveDensity } from "@/styles/density";
 import { MarkdownBlockStack } from "./block-stack";
-import { WEB_RENDERERS } from "./renderers";
+import { ASSISTANT_WEB_RENDERERS, WEB_RENDERERS } from "./renderers";
 import { createMarkdownStyles } from "./styles";
 import { PENDING_MARKDOWN_IMAGE } from "./source";
 import { splitStreamingMarkdown } from "./streaming";
 import { useMarkdownSource, type MarkdownImageContext } from "./images";
 
 import { MermaidFence, MermaidStreamingContext, splitMermaidFences } from "./fence/mermaid";
+import { Visualization } from "./fence/visualization";
 
 const ThemedMarkdown = withUnistyles(EnrichedMarkdownText);
 const MD4C_FLAGS = { latexMath: false, hardSoftBreaks: true, admonitions: true };
@@ -51,6 +52,7 @@ export interface MarkdownRendererProps extends MarkdownImageContext {
   streaming?: boolean;
   onLinkPress?: (url: string) => unknown;
   agentCommands?: boolean;
+  visualizations?: boolean;
 }
 
 /** All Markdown surfaces share the same engine and source adaptation. */
@@ -85,6 +87,7 @@ const MarkdownPart = memo(function MarkdownPart({
   streaming = false,
   onLinkPress,
   agentCommands: _agentCommands,
+  visualizations = false,
   commandHints = null,
   ...imageContext
 }: MarkdownRendererProps & { commandHints?: CommandHints | null }) {
@@ -128,18 +131,22 @@ const MarkdownPart = memo(function MarkdownPart({
   const closeImage = useStableEvent(() => setImage(null));
   const segments = useMemo(
     () =>
-      isWeb ? [{ kind: "markdown", id: "0", source: markdown }] : splitMermaidFences(markdown),
-    [markdown],
+      isWeb
+        ? [{ kind: "markdown" as const, id: "0", source: markdown }]
+        : splitMermaidFences(markdown, visualizations),
+    [markdown, visualizations],
   );
   return (
     <MermaidStreamingContext.Provider value={streaming}>
       <MarkdownBlockStack imageSources={imageSources}>
-        {segments.map((segment) =>
-          segment.kind === "mermaid" ? (
-            <MermaidFence key={`${segment.kind}:${segment.id}`} code={segment.source} />
-          ) : (
+        {segments.map((segment) => {
+          const key = `${segment.kind}:${segment.id}`;
+          if (segment.kind === "mermaid") return <MermaidFence key={key} code={segment.source} />;
+          if (segment.kind === "visualization")
+            return <Visualization key={key} chart={segment.chart} />;
+          return (
             <ThemedMarkdown
-              key={`${segment.kind}:${segment.id}`}
+              key={key}
               markdown={segment.source}
               uniProps={pickMarkdownStyle(compact, muted)}
               flavor="github"
@@ -153,10 +160,10 @@ const MarkdownPart = memo(function MarkdownPart({
               streamingAnimation={false}
               onLinkPress={pressLink}
               onImagePress={pressImage}
-              renderers={isWeb ? WEB_RENDERERS : undefined}
+              renderers={visualizations ? ASSISTANT_WEB_RENDERERS : WEB_RENDERERS}
             />
-          ),
-        )}
+          );
+        })}
       </MarkdownBlockStack>
       {image ? <AttachmentLightbox source={image} onClose={closeImage} /> : null}
     </MermaidStreamingContext.Provider>

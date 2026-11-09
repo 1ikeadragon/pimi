@@ -344,6 +344,10 @@ export const ko: TranslationResources = {
     },
   },
   message: {
+    visualization: {
+      previous: "이전 데이터 포인트",
+      next: "다음 데이터 포인트",
+    },
     diagram: {
       diagram: "다이어그램",
       zoomIn: "확대",

@@ -347,6 +347,10 @@ export const ru: TranslationResources = {
     },
   },
   message: {
+    visualization: {
+      previous: "Предыдущая точка данных",
+      next: "Следующая точка данных",
+    },
     diagram: {
       diagram: "Диаграмма",
       zoomIn: "Увеличить масштаб",
