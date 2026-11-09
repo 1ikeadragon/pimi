@@ -1,15 +1,24 @@
+import { useCallback, useRef } from "react";
 import { Text, View } from "react-native";
+import { FileDiff } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { PaneContentToolbar } from "@/components/ui/pane-content-toolbar";
+import {
+  PaneContentToolbar,
+  ToolbarButton,
+  paneContentToolbarIconSize,
+} from "@/components/ui/pane-content-toolbar";
+import { extraMutedIconColorMapping } from "@/components/ui/icon-button-chrome";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { usePaneContext } from "@/panels/pane-context";
 import type { Theme } from "@/styles/theme";
 import { formatFileSize } from "@/utils/format-file-size";
 import { FileConflictAlert, type FileConflictAlertState } from "./conflict-alert";
 import type { FileEditorStatus } from "./editor/model";
 
 const ThemedSpinner = withUnistyles(LoadingSpinner);
+const ThemedFileDiff = withUnistyles(FileDiff);
 const spinnerMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
 export type TextFileView = "preview" | "source";
@@ -38,6 +47,14 @@ export function TextFileToolbar({
   conflict?: FileConflictAlertState | null;
 }) {
   const { t } = useTranslation();
+  const { target, openPreferredTarget } = usePaneContext();
+  const lastDiffRequestId = useRef(0);
+  const openCurrentFileDiff = useCallback(() => {
+    if (target.kind !== "file") return;
+    const focusRequestId = Math.max(Date.now(), lastDiffRequestId.current + 1);
+    lastDiffRequestId.current = focusRequestId;
+    openPreferredTarget({ kind: "working_diff", focusPath: target.path, focusRequestId }, "diffs");
+  }, [openPreferredTarget, target]);
   const views = [
     {
       value: "preview" as const,
@@ -114,6 +131,19 @@ export function TextFileToolbar({
               testID="file-preview-mode"
               options={views}
             />
+          ) : null}
+          {target.kind === "file" ? (
+            <ToolbarButton
+              label={t("workspace.git.diff.openDiffTab")}
+              onPress={openCurrentFileDiff}
+              testID="file-open-current-diff"
+            >
+              <ThemedFileDiff
+                size={paneContentToolbarIconSize(false)}
+                strokeWidth={1.5}
+                uniProps={extraMutedIconColorMapping}
+              />
+            </ToolbarButton>
           ) : null}
         </View>
       </PaneContentToolbar>
