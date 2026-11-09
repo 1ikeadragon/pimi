@@ -4854,6 +4854,25 @@ export class DaemonClient {
     return { baseRef: payload.baseRef, commits: payload.commits };
   }
 
+  async getLineBlame(input: {
+    cwd: string;
+    path: string;
+    line: number;
+    contentHash: string;
+    signal?: AbortSignal;
+  }) {
+    if (this.lastServerInfoMessage?.features?.gitBlame !== true)
+      throw new Error("Update the host to show Git blame.");
+    const { signal, ...query } = input;
+    signal?.throwIfAborted();
+    const response = await this.sendNamespacedCorrelatedSessionRequest<"checkout.blame.response">({
+      message: { type: "checkout.blame.request", ...query },
+      timeout: 10_000,
+    });
+    signal?.throwIfAborted();
+    return response.result;
+  }
+
   async getCommitFileDiff(
     cwd: string,
     sha: string,

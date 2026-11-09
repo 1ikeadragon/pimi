@@ -3179,6 +3179,8 @@ export class Session {
         return this.checkoutSession.handleCommitsListRequest(msg);
       case "checkout.commits.file_diff.request":
         return this.checkoutSession.handleCommitFileDiffRequest(msg, this.delivery.requestSignal);
+      case "checkout.blame.request":
+        return this.checkoutSession.handleBlameRequest(msg, this.delivery.requestSignal);
       case "validate_branch_request":
         return this.checkoutSession.handleValidateBranchRequest(msg);
       case "branch_suggestions_request":

@@ -25,6 +25,7 @@ import { FilePanelLoading } from "../loading";
 import type { FileConflictAlertState } from "./conflict-alert";
 import { FileEditorModel, getFileConflictCallout } from "./editor/model";
 import { FileEditorView } from "./editor/view";
+import { FileLineBlame } from "./editor/blame";
 import { selectSourcePresentation } from "./readonly/presentation";
 import { FileSourceView } from "./readonly/view";
 import { TextFileToolbar, type TextFileView } from "./toolbar";
@@ -250,6 +251,14 @@ function EditableTextFile({
           onVimModeChange={setVimMode}
         />
       )}
+      {!showPreview ? (
+        <FileLineBlame
+          path={params.path}
+          content={snapshot.content}
+          status={snapshot.status}
+          line={cursor.line}
+        />
+      ) : null}
     </View>
   );
 }
