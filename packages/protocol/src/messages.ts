@@ -2537,6 +2537,15 @@ export const CheckoutCommitFileDiffRequestSchema = z.object({
   requestId: z.string(),
 });
 
+export const CheckoutBlameRequestSchema = z.object({
+  type: z.literal("checkout.blame.request"),
+  cwd: z.string(),
+  path: z.string(),
+  line: z.number().int().positive(),
+  contentHash: z.string().regex(/^[a-f0-9]{64}$/),
+  requestId: z.string(),
+});
+
 const GitHubRepoSegmentSchema = z.string().regex(/^[A-Za-z0-9._-]+$/);
 
 const CheckoutCheckDetailsRequestPayloadSchema = z.object({
@@ -3558,6 +3567,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   CheckoutGithubSetAutoMergeRequestSchema,
   CheckoutCommitsListRequestSchema,
   CheckoutCommitFileDiffRequestSchema,
+  CheckoutBlameRequestSchema,
   CheckoutForgeGetCheckDetailsRequestSchema,
   CheckoutGithubGetCheckDetailsRequestSchema,
   CheckoutPrStatusRequestSchema,
@@ -3938,6 +3948,7 @@ export const ServerInfoStatusPayloadSchema = z
         workspaceArchiveUndo: z.boolean().optional(),
         // COMPAT(workspaceFileEditing): added in v0.2.0, remove after 2027-01-18 once daemon floor >= v0.2.0.
         workspaceFileEditing: z.boolean().optional(),
+        gitBlame: z.boolean().optional(),
         // COMPAT(fileByteWrites): added in v0.13.0, remove gate after 2027-04-20.
         fileByteWrites: z.boolean().optional(),
         // COMPAT(providerUsageList): added in v0.1.98, drop the gate when daemon floor >= v0.1.98.
@@ -5979,6 +5990,27 @@ export const CheckoutCommitFileDiffResponseSchema = z.object({
   }),
 });
 
+export const CheckoutBlameResultSchema = z.union([
+  z.object({
+    status: z.literal("committed"),
+    sha: z.string(),
+    author: z.string(),
+    authoredAt: z.string(),
+    summary: z.string(),
+  }),
+  z.object({
+    status: z.enum(["uncommitted", "untracked", "not_git", "stale", "unavailable", "changed"]),
+  }),
+]);
+
+export const CheckoutBlameResponseSchema = z.object({
+  type: z.literal("checkout.blame.response"),
+  payload: z.object({
+    result: CheckoutBlameResultSchema,
+    requestId: z.string(),
+  }),
+});
+
 const CheckoutGithubCheckAnnotationSchema = z.object({
   path: z.string().optional(),
   startLine: z.number().optional(),
@@ -7462,6 +7494,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   CheckoutGithubSetAutoMergeResponseSchema,
   CheckoutCommitsListResponseSchema,
   CheckoutCommitFileDiffResponseSchema,
+  CheckoutBlameResponseSchema,
   CheckoutForgeGetCheckDetailsResponseSchema,
   CheckoutGithubGetCheckDetailsResponseSchema,
   CheckoutPrStatusResponseSchema,
@@ -7837,6 +7870,8 @@ export type CheckoutCommitsListRequest = z.infer<typeof CheckoutCommitsListReque
 export type CheckoutCommitsListResponse = z.infer<typeof CheckoutCommitsListResponseSchema>;
 export type CheckoutCommitFileDiffRequest = z.infer<typeof CheckoutCommitFileDiffRequestSchema>;
 export type CheckoutCommitFileDiffResponse = z.infer<typeof CheckoutCommitFileDiffResponseSchema>;
+export type CheckoutBlameRequest = z.infer<typeof CheckoutBlameRequestSchema>;
+export type CheckoutBlameResult = z.infer<typeof CheckoutBlameResultSchema>;
 export type ParsedDiffFile = z.infer<typeof ParsedDiffFileSchema>;
 export type CheckoutPrCreateRequest = z.infer<typeof CheckoutPrCreateRequestSchema>;
 export type CheckoutPrCreateResponse = z.infer<typeof CheckoutPrCreateResponseSchema>;

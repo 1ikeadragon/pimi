@@ -8,6 +8,7 @@ import type {
   BranchSuggestionsRequest,
   CheckoutCommitsListRequest,
   CheckoutCommitFileDiffRequest,
+  CheckoutBlameRequest,
   CheckoutRefreshRequest,
   CheckoutRenameBranchRequest,
   CheckoutStatusRequest,
@@ -54,6 +55,7 @@ import {
   getCommitFileDiff,
 } from "../../../utils/checkout-git.js";
 import { runGitCommand } from "../../../utils/run-git-command.js";
+import { getLineBlame } from "../../../utils/git-blame.js";
 import { expandTilde } from "../../../utils/path.js";
 import type { GitMetadataGenerator } from "./git-metadata-generator.js";
 
@@ -310,6 +312,24 @@ export class CheckoutSession {
       this.host.emit({
         type: "checkout.commits.file_diff.response",
         payload: { cwd, sha, path, file: null, error: toCheckoutError(error), requestId },
+      });
+    }
+  }
+
+  async handleBlameRequest(msg: CheckoutBlameRequest, signal: AbortSignal): Promise<void> {
+    try {
+      const result = await getLineBlame({ ...msg, cwd: expandTilde(msg.cwd), signal });
+      if (signal.aborted) return;
+      this.host.emit({
+        type: "checkout.blame.response",
+        payload: { result, requestId: msg.requestId },
+      });
+    } catch (error) {
+      if (signal.aborted) return;
+      this.logger.debug({ err: error }, "Editor line blame unavailable");
+      this.host.emit({
+        type: "checkout.blame.response",
+        payload: { result: { status: "unavailable" }, requestId: msg.requestId },
       });
     }
   }

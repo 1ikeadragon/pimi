@@ -45,6 +45,7 @@ export function configureGitProcessPolicy(policy: GitProcessPolicy): void {
 
 export interface GitCommandOptions {
   cwd: string;
+  signal?: AbortSignal;
   input?: string | Buffer;
   env?: ProcessEnvRecord;
   envOverlay?: ProcessEnvRecord;
@@ -391,6 +392,7 @@ function executeGitCommand<Output>(
 
       let child: ReturnType<typeof spawnProcess>;
       try {
+        options.signal?.throwIfAborted();
         // `core.quotepath=false` makes git emit raw UTF-8 paths instead of
         // octal-escaping non-ASCII bytes (e.g. `测试文件.txt` vs `"\346\265\213..."`).
         // `core.fsmonitor=false` prevents repository config from launching a command.
@@ -401,6 +403,7 @@ function executeGitCommand<Output>(
             cwd: options.cwd,
             envOverlay,
             shell: false,
+            signal: options.signal,
             stdio: [options.input === undefined ? "ignore" : "pipe", "pipe", "pipe"],
           },
         );
