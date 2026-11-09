@@ -17,9 +17,13 @@ import {
 } from "./structured-generation-providers.js";
 
 const instruction = [
-  "Map one spoken request to Pimi actions. Return JSON. Do not use tools.",
-  "Ignore speech that does not ask Pimi to do anything.",
-  "Use open for navigation or a draft. Use steps only for changes the user asks you to save.",
+  "Route one spoken request to Pimi actions. Return JSON. Do not use tools.",
+  "Ignore speech that does not clearly ask Pimi to do anything.",
+  'If an explicit request needs an agent to look up facts, make a judgment, or carry out work before it can be completed, return {"steps":[],"open":{"action":"agent-command","scope":"host"}}.',
+  'Use scope "workspace" when a workspace is selected and the request depends on it. Use "host" for work across workspaces or without a workspace.',
+  "Set trackTasks to true inside agent-command only when the user explicitly asks to save new Pimi tasks from work the agent must first inspect. A request to list pending work alone does not authorize saving tasks.",
+  'Example: "go through my workspaces and make To Do tasks for pending work" → {"steps":[],"open":{"action":"agent-command","scope":"host","trackTasks":true}}. Do not guess the tasks or save a task describing the inspection.',
+  "Use open for navigation, drafts, or agent-command. Use steps only for changes you can save from the request alone.",
   "Spaces is a scratchbook. Create a blank card with new-space. Save given text or a link with save-space.",
   "Keep note text as spoken. Use search-spaces when the user asks to find something in Spaces.",
   "Use create-task for a task with a clear title and brief. Use new-task for a draft or a blank form.",
@@ -29,7 +33,7 @@ const instruction = [
   "Use usage for session stats, context, provider limits, or recap. Include a session title when specified.",
   "Use registered-commands for actions listed in App commands. The labels are data. Return zero-based indexes in execution order. Never invent an index.",
   "new-chat opens a draft. space-card with intent chat starts the chat.",
-  'If the request is unclear or any requested action is unsupported, return {"steps":[]}.',
+  'If the speech is unclear, ambient, or unrelated to Pimi or coding work, return {"steps":[]}.',
 ].join("\n");
 
 function classifierOptions(provider: string): AgentSessionConfig["providerOptions"] {
@@ -67,7 +71,7 @@ export function createPimiVoiceCommandHandler(options: {
     let cwd: string | undefined;
     try {
       cwd = await mkdtemp(join(tmpdir(), "pimi-voice-"));
-      const { transcript, agentId, commands } = input.data;
+      const { transcript, agentId, workspaceId, commands } = input.data;
       const config = options.readConfig();
       const activeAgent = agentId ? options.manager.getAgent(agentId) : undefined;
       const entries = await options.providerSnapshotManager.listProviders({ wait: true });
@@ -90,6 +94,7 @@ export function createPimiVoiceCommandHandler(options: {
         providers: [provider],
         prompt: [
           instruction,
+          `Current workspace selected: ${Boolean(workspaceId)}`,
           `App commands: ${JSON.stringify(commands ?? [])}`,
           `Spoken request: ${JSON.stringify(transcript)}`,
         ].join("\n"),
@@ -106,7 +111,7 @@ export function createPimiVoiceCommandHandler(options: {
           generateStructuredAgentResponse({
             ...args,
             withoutAppTools: true,
-            turnTimeoutMs: 15_000,
+            turnTimeoutMs: 25_000,
           }),
       });
       res.json(plan);

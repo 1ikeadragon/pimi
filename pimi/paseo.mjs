@@ -479,9 +479,15 @@ export function createPaseoConnection(settingsSource = {}) {
     };
   }
 
-  async function startVoiceChat({ workspaceId, agentId, prompt }) {
+  async function startVoiceChat({ workspaceId, agentId, prompt, systemPrompt, pimiTools }) {
     const client = await connect();
     const serverId = await getDaemonHost(client);
+    if (pimiTools) {
+      const { config } = await client.config.get();
+      if (!config.mcp.enabled || !config.mcp.injectIntoAgents) {
+        throw new RequestError("Enable Pimi tools on this host to track work from Ask Pimi.", 409);
+      }
+    }
     let workspace = workspaceId ? client.workspaces.ref(workspaceId) : null;
     if (workspace) await workspace.refresh();
     if (!workspace?.directory) {
@@ -497,11 +503,19 @@ export function createPaseoConnection(settingsSource = {}) {
       activeAgent?.provider && activeAgent.model
         ? activeAgent
         : await reviewProvider(workspace.directory);
+    // Codex may require approval even for MCP reads. Grant only the named Pimi tools
+    // needed for an explicit request to save tasks, without changing its approval mode.
+    const preapproved =
+      selected.provider === "codex" && pimiTools
+        ? pimiTools.map((tool) => ({ kind: "mcp", server: "pimi", tool }))
+        : undefined;
     const agent = await workspace.agents.create({
       config: {
         provider: `${selected.provider}/${selected.model}`,
         thinkingOptionId:
           selected.effectiveThinkingOptionId ?? selected.thinkingOptionId ?? undefined,
+        ...(systemPrompt ? { systemPrompt } : {}),
+        ...(preapproved ? { toolPolicy: { preapproved } } : {}),
       },
       prompt,
     });
@@ -739,7 +753,8 @@ export function createPaseoConnection(settingsSource = {}) {
     createWorkLabel,
     memory: (input) => localData("/api/pimi/memory", "Memory", input),
     spaces: (input) => localData(PIMI_SPACES_ROUTE, "Spaces", input),
-    classifyVoiceCommand: (input) => localData(PIMI_VOICE_COMMAND_ROUTE, "Ask Pimi", input, 25000),
+    // Allow for provider discovery and startup as well as the classification turn.
+    classifyVoiceCommand: (input) => localData(PIMI_VOICE_COMMAND_ROUTE, "Ask Pimi", input, 40_000),
     startVoiceChat,
     subscribe(listener) {
       changeListeners.add(listener);

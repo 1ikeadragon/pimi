@@ -98,6 +98,7 @@ import {
   PIMI_REVIEW_SUGGESTION_TOOL,
   PIMI_TASK_PROPOSAL_TOOL,
   PIMI_TASK_WORKER_LABEL,
+  PIMI_VOICE_TRACK_WORK_TOOLS,
   PimiTaskAgentTool,
 } from "@pimi/protocol/pimi-task";
 import {
@@ -5844,11 +5845,14 @@ export class AgentManager {
     if (!config.toolPolicy) return;
     const serverNames = new Set(Object.keys(config.mcpServers ?? {}));
     for (const grant of config.toolPolicy.preapproved) {
-      if (!serverNames.has(grant.server)) {
-        throw new Error(
-          `toolPolicy preapproval '${grant.server}.${grant.tool}' requires MCP server '${grant.server}' in the same agent request`,
-        );
-      }
+      if (serverNames.has(grant.server)) continue;
+      // The daemon injects this server after normalizing the request. Only these
+      // app-owned tools can be named without an explicit MCP server configuration.
+      if (grant.server === PIMI_MCP_SERVER_NAME && PIMI_VOICE_TRACK_WORK_TOOLS.includes(grant.tool))
+        continue;
+      throw new Error(
+        `toolPolicy preapproval '${grant.server}.${grant.tool}' requires MCP server '${grant.server}' in the same agent request`,
+      );
     }
   }
 
@@ -6031,7 +6035,14 @@ export class AgentManager {
             mcpServers: { ...launchConfig.mcpServers, ...launchContext.mcpServers },
           }
         : launchConfig;
-    return launchContext.paseoTools ? stripInternalPimiMcpServer(merged) : merged;
+    const configured = launchContext.paseoTools ? stripInternalPimiMcpServer(merged) : merged;
+    if (!configured.toolPolicy || configured.mcpServers?.[PIMI_MCP_SERVER_NAME]) return configured;
+    // If the user disables Pimi tools, don't give the provider an approval entry
+    // for a server that is no longer attached when the chat is resumed.
+    const grants = configured.toolPolicy.preapproved;
+    const preapproved = grants.filter((grant) => grant.server !== PIMI_MCP_SERVER_NAME);
+    if (preapproved.length === grants.length) return configured;
+    return { ...configured, toolPolicy: preapproved.length ? { preapproved } : undefined };
   }
 
   private async requireAvailableClient(options: { provider: AgentProvider }): Promise<AgentClient> {

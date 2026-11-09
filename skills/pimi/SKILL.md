@@ -92,7 +92,7 @@ Agent-scoped `create_agent` defaults `notifyOnFinish` to true. Set it to `false`
 
 **`update_agent`** — `{ agentId, name?, labels?, settings? }`. Use `settings` for runtime changes on an existing agent: `modeId`, `model`, `thinkingOptionId`, and provider-specific `features`. For Codex fast mode, pass `settings: { features: { "fast_mode": true } }`.
 
-**`list_agents`** — filter by `cwd`, `statuses`, `sinceHours`, `includeArchived`; set `includeBackground: true` to include agents in background workspaces.
+**`list_agents`** — use `workspaceId` for one exact workspace, or filter by `cwd`, `statuses`, `sinceHours`, or `includeArchived`. Set `includeBackground: true` to include agents in background workspaces.
 
 **`archive_agent`** — `{ agentId }`. Interrupts if running, removes from active list.
 

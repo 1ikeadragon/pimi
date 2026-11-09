@@ -66,6 +66,16 @@ export const PimiTaskAgentTool = {
   labelWork: "set_pimi_work_label",
   createLabel: "create_pimi_label",
 } as const;
+export const PIMI_VOICE_TRACK_WORK_TOOLS: readonly string[] = [
+  "list_workspaces",
+  "list_agents",
+  "get_agent_activity",
+  PimiTaskAgentTool.list,
+  PimiTaskAgentTool.get,
+  PimiTaskAgentTool.repositories,
+  PimiTaskAgentTool.create,
+  PimiTaskAgentTool.linkWork,
+];
 export const PimiTaskAgentListInput = z.strictObject({
   query: z.string().trim().max(100).optional().describe("Search task titles and briefs."),
   offset: z.number().int().nonnegative().optional().describe("Use nextOffset from the prior page."),
@@ -296,7 +306,16 @@ export const PimiVoicePlan = z.strictObject({
       ]),
     )
     .max(3),
-  open: PimiVoiceNavigation.optional(),
+  open: z
+    .discriminatedUnion("action", [
+      ...PimiVoiceNavigation.options,
+      z.strictObject({
+        action: z.literal("agent-command"),
+        scope: z.enum(["workspace", "host"]),
+        trackTasks: z.literal(true).optional(),
+      }),
+    ])
+    .optional(),
 });
 
 export interface PimiVoiceResult {
