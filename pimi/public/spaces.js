@@ -188,6 +188,42 @@ export function createSpacesView({ $, api, button, element, message }) {
     }
   }
 
+  function showLinkText(item, status = "") {
+    const body = $("spaces-card-link-text");
+    body.textContent = item?.preview?.text ?? "";
+    body.hidden = !body.textContent;
+    message("spaces-card-link-status", item?.preview?.truncated ? "Preview excerpt" : status);
+    if (item?.preview?.title) $("spaces-card-title").textContent = item.preview.title;
+  }
+
+  async function loadLinkText(item) {
+    try {
+      const { item: loaded } = await api("spaces", { action: "preview-link", id: item.id });
+      if (!editor.open || current?.id !== item.id) return;
+      current = loaded;
+      showLinkText(loaded, loaded.preview ? "" : "Link text unavailable.");
+      const caption = $("space-card-" + item.id)?.querySelector(".spaces-link-caption");
+      if (caption && loaded.preview) {
+        if (loaded.preview.title)
+          caption.querySelector("strong").textContent = loaded.preview.title;
+        const summary = caption.querySelector(".spaces-link-summary");
+        summary.textContent = loaded.preview.text;
+        summary.hidden = !loaded.preview.text;
+      }
+    } catch {
+      if (editor.open && current?.id === item.id) showLinkText(item, "Couldn’t load link text.");
+    }
+  }
+
+  function openLinkDetails(item) {
+    const link = item?.kind === "link" ? item : null;
+    $("spaces-card-link").hidden = !link;
+    $("spaces-card-url").textContent = link?.url ?? "";
+    $("spaces-open-link").dataset.spaceUrl = link?.url ?? "";
+    showLinkText(link, link && !link.preview ? "Loading link text…" : "");
+    if (link && !link.preview) void loadLinkText(link);
+  }
+
   function openCard(item, draftText = "") {
     current = item;
     const isImage = item?.kind === "image";
@@ -207,12 +243,10 @@ export function createSpacesView({ $, api, button, element, message }) {
     else preview.removeAttribute("src");
     $("spaces-remove").hidden = !item;
     $("spaces-copy").hidden = !item;
-    $("spaces-card-link").hidden = !isLink;
-    $("spaces-card-url").textContent = item?.url ?? "";
-    $("spaces-open-link").dataset.spaceUrl = item?.url ?? "";
     $("spaces-close").textContent = isNote ? "Cancel" : "Close";
     message("spaces-card-error", "");
     editor.showModal();
+    openLinkDetails(item);
     updatePaperReader();
     (isNote ? text : $("spaces-close")).focus();
   }
@@ -232,14 +266,17 @@ export function createSpacesView({ $, api, button, element, message }) {
       const url = new URL(item.url);
       const embed = inlineEmbed(item.embedUrl);
       const repository = githubRepository(url);
-      const title = embed?.name ?? repository ?? url.host;
+      const title = item.preview?.title || (embed?.name ?? repository ?? url.host);
       const badge = element("span", "spaces-link-icon");
       const icon = embed?.icon ?? (repository ? "repo" : "link");
       badge.append($(`spaces-${icon}-icon`).content.cloneNode(true));
       const caption = element("span", "spaces-link-caption");
+      const summary = element("span", "spaces-link-summary", item.preview?.text);
+      summary.hidden = !item.preview?.text;
       caption.append(
         element("strong", "", title),
         element("span", "subtitle", repository ? "GitHub repository" : url.host + url.pathname),
+        summary,
       );
       open.append(badge, caption);
       if (embed) {
@@ -351,6 +388,13 @@ export function createSpacesView({ $, api, button, element, message }) {
     if (!active || generation !== searchGeneration || query !== searchInput.value.trim()) return;
     ready = true;
     grid.replaceChildren(...result.items.map(card));
+    if (query && result.unindexedLinks) {
+      const count = result.unindexedLinks;
+      message(
+        "spaces-status",
+        `Link text unavailable for ${count} ${count === 1 ? "card" : "cards"}.`,
+      );
+    } else message("spaces-status", "");
     updateEmbedVisibility();
     showEmpty();
     return result.items;

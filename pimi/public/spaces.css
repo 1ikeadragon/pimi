@@ -143,9 +143,28 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.spaces-link-caption > .spaces-link-summary:not([hidden]) {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  margin-top: 3px;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
 .spaces-card-link-detail {
   display: grid;
   gap: 9px;
+}
+#spaces-card-link-text {
+  max-height: 45vh;
+  margin: 0;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  user-select: text;
+}
+#spaces-card-link-status {
+  margin: 0;
 }
 #spaces-card-url {
   margin: 0;

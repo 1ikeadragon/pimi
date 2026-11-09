@@ -68,7 +68,10 @@ export class SpacesSearch {
 
     for (const card of cards) {
       if (card.kind === "image") continue;
-      const content = card.kind === "note" ? card.text : card.url;
+      const content =
+        card.kind === "note"
+          ? card.text
+          : [card.preview?.title, card.preview?.text, card.url].filter(Boolean).join("\n");
       const normalized = content.toLowerCase();
       const exact = terms.every((term) => normalized.includes(term));
       let chunks: Chunk[] = [];

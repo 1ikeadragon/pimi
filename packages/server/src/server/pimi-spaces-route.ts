@@ -20,9 +20,22 @@ const imageSignatures = {
     bytes.toString("ascii", 0, 4) === "RIFF" && bytes.toString("ascii", 8, 12) === "WEBP",
 };
 
+function decodePastedImage(data: string, mime: z.infer<typeof SpaceImageType>): Buffer {
+  const bytes = Buffer.from(data, "base64");
+  if (
+    bytes.length > PIMI_SPACE_IMAGE_BYTES ||
+    bytes.toString("base64") !== data ||
+    !imageSignatures[mime](bytes)
+  ) {
+    throw new SpaceInputError("Paste a valid PNG, JPEG or WebP image up to 4 MB.");
+  }
+  return bytes;
+}
+
 const input = z.discriminatedUnion("action", [
   z.strictObject({ action: z.literal("list") }),
   z.strictObject({ action: z.literal("search"), query: SpaceSearchQuery }),
+  z.strictObject({ action: z.literal("preview-link"), id: SpaceItemId }),
   z.strictObject({
     action: z.literal("find-reference"),
     query: SpaceSearchQuery,
@@ -61,7 +74,17 @@ export function createPimiSpacesHandler(
           return;
         case "search": {
           const result = await spaces.search(body.query);
-          res.json({ items: result.items.map(({ card }) => card), mode: result.mode });
+          res.json({
+            items: result.items.map(({ card }) => card),
+            mode: result.mode,
+            unindexedLinks: result.unindexedLinks,
+          });
+          return;
+        }
+        case "preview-link": {
+          const item = await spaces.read(body.id);
+          if (item?.kind !== "link") throw new SpaceInputError("This link no longer exists.", 404);
+          res.json({ item });
           return;
         }
         case "find-reference": {
@@ -90,15 +113,9 @@ export function createPimiSpacesHandler(
           return;
         }
         case "add-image": {
-          const bytes = Buffer.from(body.data, "base64");
-          if (
-            bytes.length > PIMI_SPACE_IMAGE_BYTES ||
-            bytes.toString("base64") !== body.data ||
-            !imageSignatures[body.mime](bytes)
-          ) {
-            throw new SpaceInputError("Paste a valid PNG, JPEG or WebP image up to 4 MB.");
-          }
-          res.json({ item: await spaces.addImage(bytes, body.mime) });
+          res.json({
+            item: await spaces.addImage(decodePastedImage(body.data, body.mime), body.mime),
+          });
         }
       }
     } catch (error) {

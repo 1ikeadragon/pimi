@@ -468,7 +468,10 @@ export function pimiSpaceEmbed(url: URL): string | null {
       url.hostname,
     )
   ) {
-    const status = /^\/(?:[A-Za-z0-9_]{1,15}\/status|i\/web\/status)\/(\d+)\/?$/.exec(url.pathname);
+    const status =
+      /^\/(?:[A-Za-z0-9_]{1,15}\/status|i\/web\/status)\/(\d+)(?:\/(?:photo|video)\/\d+)?\/?$/.exec(
+        url.pathname,
+      );
     return xEmbedUrl(status?.[1] ?? null);
   }
   return pimiArxivEmbed(url) ?? pimiVideoEmbed(url);
