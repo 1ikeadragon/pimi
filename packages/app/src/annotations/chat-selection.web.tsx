@@ -1,36 +1,23 @@
 import { createAssistantSelectionClipboardContent } from "@/assistant-selection-copy/content.web";
-import { getOverlayRoot, useGlobalOverlayLayer } from "@/lib/overlay-root";
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
-  useMemo,
   useRef,
   useState,
   type CSSProperties,
-  type MouseEvent,
   type ReactNode,
 } from "react";
-import { createPortal } from "react-dom";
-import { View } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
-import { MessageSquarePlus } from "lucide-react-native";
-import { Button } from "@/components/ui/button";
-import { SPACING } from "@/styles/theme";
 import { buildDraftStoreKey } from "@/stores/draft-keys";
-import { AnnotationSheet } from "./sheet";
+import { AnnotationAction, AnnotationEditor, type AnnotationAnchor } from "./popover.web";
 import { addAnnotationToChat, type AnnotationTarget } from "./target";
 import { ANNOTATION_CHARACTER_LIMIT, type AnnotationCapture } from "./model";
 
 interface SelectionCapture {
   capture: AnnotationCapture;
-  left: number;
-  top: number;
+  anchor: AnnotationAnchor;
+  sourceElement: HTMLElement | null;
 }
 const DISPLAY_CONTENTS: CSSProperties = { display: "contents" };
-function keepSelection(event: MouseEvent<HTMLDivElement>) {
-  event.preventDefault();
-}
 
 function messageAtSelectionEdge(
   node: Node,
@@ -72,10 +59,20 @@ function captureSelection(
   const rect = range.getBoundingClientRect();
   if ((!rect.width && !rect.height) || rect.bottom <= 0 || rect.top >= window.innerHeight)
     return null;
+  const capturedRange = range.cloneRange();
+  const anchor = () => {
+    const bounds = capturedRange.getBoundingClientRect();
+    return { x: bounds.left, y: bounds.top, width: bounds.width, height: bounds.height };
+  };
   return {
     capture: { quote, source: { kind: "chat", ...target, messageId: start.id, role: start.role } },
-    left: rect.left,
-    top: rect.bottom,
+    anchor,
+    sourceElement:
+      (range.startContainer instanceof Element
+        ? range.startContainer
+        : range.startContainer.parentElement
+      )?.closest<HTMLElement>('[data-testid="user-message"], [data-testid="assistant-message"]') ??
+      null,
   };
 }
 
@@ -92,16 +89,9 @@ export function ChatAnnotationSelection({
   const [draft, setDraft] = useState<{
     capture: AnnotationCapture;
     target: AnnotationTarget;
+    anchor: AnnotationAnchor;
+    sourceElement: HTMLElement | null;
   } | null>(null);
-  const [toolbarSize, setToolbarSize] = useState({ width: 0, height: 0 });
-  useLayoutEffect(() => {
-    if (!toolbar.current || !selection) return;
-    const { width, height } = toolbar.current.getBoundingClientRect();
-    setToolbarSize((current) =>
-      current.width === width && current.height === height ? current : { width, height },
-    );
-  }, [selection]);
-  const overlayLayer = useGlobalOverlayLayer("floating", Boolean(selection));
   const serverId = target?.serverId;
   const agentId = target?.agentId;
   useEffect(() => {
@@ -132,15 +122,52 @@ export function ChatAnnotationSelection({
       window.removeEventListener("resize", update);
     };
   }, [serverId, agentId, draft]);
+  useEffect(() => {
+    if (!selection) return;
+    const focusAction = (event: KeyboardEvent) => {
+      if (
+        event.key !== "Tab" ||
+        event.shiftKey ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.isComposing
+      )
+        return;
+      const action = toolbar.current?.querySelector<HTMLElement>('[role="button"], button');
+      if (!action || action.contains(document.activeElement)) return;
+      event.preventDefault();
+      action.focus({ preventScroll: true });
+    };
+    document.addEventListener("keydown", focusAction, true);
+    return () => document.removeEventListener("keydown", focusAction, true);
+  }, [selection]);
   const annotate = useCallback(() => {
     if (!selection || !serverId || !agentId) return;
     setDraft({
       capture: selection.capture,
+      anchor: selection.anchor,
+      sourceElement: selection.sourceElement,
       target: { serverId, agentId, draftKey: buildDraftStoreKey({ serverId, agentId }) },
     });
     setSelection(null);
   }, [selection, serverId, agentId]);
-  const closeDraft = useCallback(() => setDraft(null), []);
+  const closeDraft = useCallback(() => {
+    setDraft(null);
+    const source = draft?.sourceElement;
+    if (!source?.isConnected) return;
+    const previous = source.getAttribute("tabindex");
+    source.tabIndex = -1;
+    source.addEventListener(
+      "blur",
+      () => {
+        if (previous === null) source.removeAttribute("tabindex");
+        else source.setAttribute("tabindex", previous);
+      },
+      { once: true },
+    );
+    source.focus({ preventScroll: true });
+  }, [draft]);
   const saveDraft = useCallback(
     async (note: string) => {
       if (!draft) throw new Error("The annotation is no longer available.");
@@ -148,48 +175,25 @@ export function ChatAnnotationSelection({
     },
     [draft],
   );
-  const toolbarStyle = useMemo<CSSProperties>(() => {
-    if (!selection) return {};
-    return {
-      position: "fixed",
-      left: Math.max(
-        SPACING[2],
-        Math.min(selection.left, window.innerWidth - toolbarSize.width - SPACING[2]),
-      ),
-      top: Math.max(
-        SPACING[2],
-        Math.min(selection.top + SPACING[2], window.innerHeight - toolbarSize.height - SPACING[2]),
-      ),
-      zIndex: overlayLayer,
-      pointerEvents: "auto",
-    };
-  }, [selection, toolbarSize, overlayLayer]);
 
   return (
     <>
       <div ref={root} style={DISPLAY_CONTENTS}>
         {children}
       </div>
-      {selection && target
-        ? createPortal(
-            <div ref={toolbar} onMouseDown={keepSelection} style={toolbarStyle}>
-              <View style={styles.action}>
-                <Button
-                  leftIcon={MessageSquarePlus}
-                  onPress={annotate}
-                  accessibilityLabel="Annotate selected text"
-                  testID="annotate-chat-selection"
-                >
-                  Annotate
-                </Button>
-              </View>
-            </div>,
-            getOverlayRoot(),
-          )
-        : null}
+      {selection && target ? (
+        <AnnotationAction
+          anchor={selection.anchor}
+          onPress={annotate}
+          actionRef={toolbar}
+          label="Annotate selected text"
+          testID="annotate-chat-selection"
+        />
+      ) : null}
       {draft ? (
-        <AnnotationSheet
+        <AnnotationEditor
           capture={draft.capture}
+          anchor={draft.anchor}
           canSave={Boolean(
             target && serverId === draft.target.serverId && agentId === draft.target.agentId,
           )}
@@ -200,13 +204,3 @@ export function ChatAnnotationSelection({
     </>
   );
 }
-
-const styles = StyleSheet.create((theme) => ({
-  action: {
-    backgroundColor: theme.colors.surface0,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing[1],
-  },
-}));

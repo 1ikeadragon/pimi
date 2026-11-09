@@ -1,8 +1,8 @@
-import { View } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
-import { MessageSquarePlus } from "lucide-react-native";
-import { Button } from "@/components/ui/button";
-import { AnnotationSheet } from "@/annotations/sheet";
+import {
+  AnnotationAction,
+  AnnotationEditor,
+  type AnnotationAnchor,
+} from "@/annotations/popover.web";
 import {
   addAnnotationToChat,
   useFileAnnotationTarget,
@@ -77,13 +77,41 @@ export function FileEditorView({
   const [annotationDraft, setAnnotationDraft] = useState<{
     capture: AnnotationCapture;
     target: AnnotationTarget;
+    anchor: AnnotationAnchor;
   } | null>(null);
+  const selectionAnchor = useCallback(() => {
+    const view = viewRef.current;
+    if (!view || !selectedCapture) return null;
+    const rect = view.coordsAtPos(view.state.selection.main.head);
+    return rect
+      ? { x: rect.left, y: rect.top, width: rect.right - rect.left, height: rect.bottom - rect.top }
+      : null;
+  }, [selectedCapture]);
   const handleAnnotate = useCallback(() => {
-    if (selectedCapture && annotationTarget) {
-      setAnnotationDraft({ capture: selectedCapture, target: annotationTarget });
+    const view = viewRef.current;
+    if (selectedCapture && annotationTarget && view) {
+      const position = view.state.selection.main.head;
+      const fallback = selectionAnchor();
+      const anchor = () => {
+        const current = viewRef.current;
+        const rect =
+          current && position <= current.state.doc.length ? current.coordsAtPos(position) : null;
+        return rect
+          ? {
+              x: rect.left,
+              y: rect.top,
+              width: rect.right - rect.left,
+              height: rect.bottom - rect.top,
+            }
+          : fallback;
+      };
+      setAnnotationDraft({ capture: selectedCapture, target: annotationTarget, anchor });
     }
-  }, [selectedCapture, annotationTarget]);
-  const handleCloseAnnotation = useCallback(() => setAnnotationDraft(null), []);
+  }, [selectedCapture, annotationTarget, selectionAnchor]);
+  const handleCloseAnnotation = useCallback(() => {
+    setAnnotationDraft(null);
+    viewRef.current?.focus();
+  }, []);
   const handleSaveAnnotation = useCallback(
     async (note: string) => {
       if (!annotationDraft) throw new Error("The annotation is no longer available.");
@@ -259,21 +287,18 @@ export function FileEditorView({
         style={HOST_STYLE}
       />
       <FileFind model={find} editor={viewRef} />
-      {selectedCapture && annotationTarget ? (
-        <View style={annotationStyles.action}>
-          <Button
-            leftIcon={MessageSquarePlus}
-            accessibilityLabel="Annotate selected code"
-            testID="annotate-editor-selection"
-            onPress={handleAnnotate}
-          >
-            Annotate
-          </Button>
-        </View>
+      {selectedCapture && annotationTarget && !annotationDraft ? (
+        <AnnotationAction
+          anchor={selectionAnchor}
+          onPress={handleAnnotate}
+          label="Annotate selected code"
+          testID="annotate-editor-selection"
+        />
       ) : null}
       {annotationDraft ? (
-        <AnnotationSheet
+        <AnnotationEditor
           capture={annotationDraft.capture}
+          anchor={annotationDraft.anchor}
           canSave={annotationTarget?.draftKey === annotationDraft.target.draftKey}
           onClose={handleCloseAnnotation}
           onSave={handleSaveAnnotation}
@@ -282,19 +307,6 @@ export function FileEditorView({
     </div>
   );
 }
-
-const annotationStyles = StyleSheet.create((theme) => ({
-  action: {
-    position: "absolute",
-    right: theme.spacing[3],
-    top: theme.spacing[3],
-    backgroundColor: theme.colors.surface0,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing[1],
-  },
-}));
 
 const remoteUpdate = Annotation.define<boolean>();
 const FRAME_STYLE = {
