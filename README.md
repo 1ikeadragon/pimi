@@ -28,15 +28,21 @@ Watch six sessions at once in **Agent grid** on a wide window. **Work** tracks t
 
 ![Agent grid with parallel sessions](assets/pimi/agent-grid.jpg)
 
+## Edit beside your agents
+
+Choose **IDE Mode** in the title bar. Open a file from Explorer, edit it beside chat, and check its diff or Git blame without leaving the workspace.
+
+![IDE Mode with Explorer, a split Git diff, and a chat draft](assets/pimi/ide-mode.jpg)
+
 ## Review together
 
-Compare diffs across worktrees and repositories. Open **PRs** to see review requests, checks, and pull request details.
+Review opens to your pull request inbox. See requests and your own open PRs, or switch to **Worktrees** to compare changes across repositories.
 
 ![Side-by-side diffs from two repositories](assets/pimi/review.jpg)
 
 ![Pull request queue and check results](assets/pimi/pull-requests.jpg)
 
-Screenshots show Pimi 0.16.5 with sample projects and activity.
+Screenshots use sample projects and activity.
 
 ## Use Pimi from your phone
 
@@ -62,6 +68,7 @@ On Windows, run `npm run pimi:package:win` after `npm ci`. Builds land in `packa
 ## Credits
 
 - Pimi is a fork of [Paseo](https://github.com/getpaseo/paseo), by Mohamed Boudra and contributors. It uses [Electron](https://github.com/electron/electron), [Git](https://github.com/git/git), and [GitHub CLI](https://github.com/cli/cli).
+- The editor uses [CodeMirror](https://codemirror.net/) and [Lezer](https://lezer.codemirror.net/).
 - Spaces search uses [Potion Base 2M](https://huggingface.co/minishlab/potion-base-2M) and [Hugging Face Tokenizers](https://github.com/huggingface/tokenizers.js).
 - Blush artwork is adapted from Sophia L. Crownfield’s [_Studies of Ferns_](https://commons.wikimedia.org/wiki/File%3ADrawing%2C_Studies_of_Ferns%2C_early_20th_century_%28CH_18345009%29.jpg).
 - Community appearances draw from [Ayu](https://github.com/ayu-theme/vscode-ayu), [One Dark Pro](https://github.com/Binaryify/OneDark-Pro), [Nord](https://www.nordtheme.com/docs/colors-and-palettes/), [Gruvbox](https://github.com/ellisonleao/gruvbox.nvim), and [Catppuccin](https://catppuccin.com/palette/). [Palette licenses](packages/app/public/pimi-textures/PALETTE-LICENSES.txt)
