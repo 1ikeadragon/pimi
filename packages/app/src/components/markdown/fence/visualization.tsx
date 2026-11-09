@@ -1,11 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AccessibilityInfo, Text, View, type LayoutChangeEvent } from "react-native";
-import Svg, { Circle, G, Line, Polyline, Rect, Text as SvgText } from "react-native-svg";
+import Svg, {
+  Circle,
+  G,
+  Line,
+  Path,
+  Polygon,
+  Polyline,
+  Rect,
+  Text as SvgText,
+} from "react-native-svg";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import type { ChatVisualization } from "@pimi/protocol/chat-visualization";
 import { Button } from "@/components/ui/button";
+import { PressHighlight } from "@/components/ui/press-highlight";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { isWeb } from "@/constants/platform";
 import type { Theme } from "@/styles/theme";
@@ -195,6 +205,15 @@ function ChartPlot({
         }
         return (
           <G key={name}>
+            {chart.type === "area" ? (
+              <Polygon
+                points={`${x(0)},${zero} ${values
+                  .map((value, index) => `${x(index)},${animatedY(name, value, index)}`)
+                  .join(" ")} ${x(values.length - 1)},${zero}`}
+                fill={color}
+                opacity={0.16}
+              />
+            ) : null}
             <Polyline
               points={values
                 .map((value, index) => `${x(index)},${animatedY(name, value, index)}`)
@@ -308,7 +327,7 @@ function ChartPoint({
   );
 }
 
-export function Visualization({ chart }: { chart: ChatVisualization }) {
+function CartesianVisualization({ chart }: { chart: ChatVisualization }) {
   const { t } = useTranslation();
   const [width, setWidth] = useState(0);
   const [index, setIndex] = useState(0);
@@ -426,6 +445,285 @@ export function Visualization({ chart }: { chart: ChatVisualization }) {
   );
 }
 
+// Normalize before summing so even several Number.MAX_VALUE slices remain finite.
+function sliceFractions(chart: ChatVisualization): number[] {
+  const values = chart.series[0].values;
+  const scale = Math.max(...values);
+  const normalized = values.map((value) => value / scale);
+  const total = normalized.reduce((sum, value) => sum + value, 0);
+  return normalized.map((value) => value / total);
+}
+
+function formatPercent(fraction: number, value: number): string {
+  if (value > 0 && fraction < 0.0001) return "<0.01%";
+  return `${Number((fraction * 100).toFixed(2))}%`;
+}
+
+const RADIAL_SIZE = 184;
+const RADIAL_RADIUS = 84;
+const RADIAL_CENTER = RADIAL_SIZE / 2;
+
+function slicePath(start: number, fraction: number, innerRadius: number): string {
+  const end = start + fraction * Math.PI * 2;
+  const middle = (start + end) / 2;
+  const point = (angle: number, radius: number) =>
+    `${RADIAL_CENTER + Math.sin(angle) * radius},${RADIAL_CENTER - Math.cos(angle) * radius}`;
+  // Two arcs also represent a full circle, where a single SVG arc has coincident ends.
+  const outer = `M${point(start, RADIAL_RADIUS)} A${RADIAL_RADIUS},${RADIAL_RADIUS} 0 0 1 ${point(
+    middle,
+    RADIAL_RADIUS,
+  )} A${RADIAL_RADIUS},${RADIAL_RADIUS} 0 0 1 ${point(end, RADIAL_RADIUS)}`;
+  return innerRadius > 0
+    ? `${outer} L${point(end, innerRadius)} A${innerRadius},${innerRadius} 0 0 0 ${point(
+        middle,
+        innerRadius,
+      )} A${innerRadius},${innerRadius} 0 0 0 ${point(start, innerRadius)} Z`
+    : `${outer} L${RADIAL_CENTER},${RADIAL_CENTER} Z`;
+}
+
+function RadialSlice({
+  path,
+  index,
+  label,
+  selected,
+  colors,
+  onSelect,
+  onInspect,
+}: {
+  path: string;
+  index: number;
+  label: string;
+  selected: boolean;
+  colors?: ChartColors;
+  onSelect: (index: number) => void;
+  onInspect: (label: string, open: boolean) => void;
+}) {
+  const select = useCallback(() => onSelect(index), [index, onSelect]);
+  const hover = useCallback(
+    (event: { pointerType: string }) => {
+      if (event.pointerType === "touch") return;
+      select();
+      onInspect(label, true);
+    },
+    [label, onInspect, select],
+  );
+  const leave = useCallback(() => onInspect(label, false), [label, onInspect]);
+  return (
+    <Path
+      testID={`chat-visualization-slice-${index}`}
+      d={path}
+      fill={colors?.series[index % colors.series.length]}
+      opacity={selected ? 1 : 0.72}
+      stroke={colors?.grid}
+      strokeWidth={1.5}
+      onPress={select}
+      {...(isWeb ? { onPointerEnter: hover, onPointerLeave: leave } : null)}
+    />
+  );
+}
+
+function RadialPlot({
+  chart,
+  colors,
+  selected,
+  onSelect,
+  onInspect,
+}: {
+  chart: ChatVisualization;
+  colors?: ChartColors;
+  selected: number;
+  onSelect: (index: number) => void;
+  onInspect: (label: string, open: boolean) => void;
+}) {
+  const transition = useChartTransition(chart);
+  const fractions = sliceFractions(chart);
+  const from = transition.previous;
+  const previous =
+    from && (from.type === "pie" || from.type === "donut") ? sliceFractions(from) : [];
+  let start = 0;
+  return (
+    <Svg width={RADIAL_SIZE} height={RADIAL_SIZE} accessible={false}>
+      {fractions.map((fraction, index) => {
+        const label = chart.labels[index];
+        const oldIndex = from?.labels.indexOf(label) ?? -1;
+        const animated =
+          (previous[oldIndex] ?? 0) * (1 - transition.progress) + fraction * transition.progress;
+        const path = slicePath(start, animated, chart.type === "donut" ? RADIAL_RADIUS * 0.58 : 0);
+        start += animated * Math.PI * 2;
+        if (animated <= 0) return null;
+        return (
+          <RadialSlice
+            key={label}
+            path={path}
+            index={index}
+            label={label}
+            selected={selected === index}
+            colors={colors}
+            onSelect={onSelect}
+            onInspect={onInspect}
+          />
+        );
+      })}
+    </Svg>
+  );
+}
+
+const ThemedRadialPlot = withUnistyles(RadialPlot);
+
+function SliceLegendItem({
+  chart,
+  index,
+  fraction,
+  selected,
+  colors,
+  onSelect,
+}: {
+  chart: ChatVisualization;
+  index: number;
+  fraction: number;
+  selected: boolean;
+  colors?: ChartColors;
+  onSelect: (index: number) => void;
+}) {
+  const [focused, setFocused] = useState(false);
+  const value = chart.series[0].values[index].toString();
+  const percent = formatPercent(fraction, chart.series[0].values[index]);
+  const [hovered, setHovered] = useState(false);
+  const accessibilityState = useMemo(() => ({ selected }), [selected]);
+  const select = useCallback(() => onSelect(index), [index, onSelect]);
+  const focus = useCallback(() => {
+    setFocused(true);
+    select();
+  }, [select]);
+  const blur = useCallback(() => setFocused(false), []);
+  const hover = useCallback(() => setHovered(true), []);
+  const leave = useCallback(() => setHovered(false), []);
+  return (
+    <PressHighlight
+      testID={`chat-visualization-slice-legend-${index}`}
+      accessibilityRole="button"
+      accessibilityState={accessibilityState}
+      accessibilityLabel={`${chart.labels[index]}. ${value}${
+        chart.unit ? ` ${chart.unit}` : ""
+      }. ${percent}`}
+      onPress={select}
+      onFocus={focus}
+      onBlur={blur}
+      onHoverIn={hover}
+      onHoverOut={leave}
+      highlightStyle={styles.sliceSelected}
+      style={[
+        styles.sliceLegend,
+        (selected || hovered) && styles.sliceSelected,
+        focused && styles.pointFocused,
+      ]}
+    >
+      <Svg width={8} height={8} accessible={false}>
+        <Circle cx={4} cy={4} r={4} fill={colors?.series[index % colors.series.length]} />
+      </Svg>
+      <Text style={[styles.caption, styles.sliceLabel]}>{chart.labels[index]}</Text>
+      <Text style={styles.number}>{value}</Text>
+      <Text style={styles.caption}>{percent}</Text>
+    </PressHighlight>
+  );
+}
+
+const ThemedSliceLegendItem = withUnistyles(SliceLegendItem);
+
+function RadialVisualization({ chart }: { chart: ChatVisualization }) {
+  const [index, setIndex] = useState(0);
+  const [inspectedLabel, setInspectedLabel] = useState<string | null>(null);
+  const selected = Math.min(index, chart.labels.length - 1);
+  const inspected = chart.labels.indexOf(inspectedLabel ?? "");
+  const fractions = sliceFractions(chart);
+  const inspect = useCallback((label: string, open: boolean) => {
+    setInspectedLabel((current) => {
+      if (open) return label;
+      return current === label ? null : current;
+    });
+  }, []);
+  const changeOpen = useCallback((open: boolean) => {
+    if (!open) setInspectedLabel(null);
+  }, []);
+  useEffect(() => {
+    if (!isWeb || inspected < 0) return;
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      setInspectedLabel(null);
+    };
+    window.addEventListener("keydown", dismiss, true);
+    return () => window.removeEventListener("keydown", dismiss, true);
+  }, [inspected]);
+  const details = (point: number) => (
+    <View style={styles.selection}>
+      <Text style={styles.title}>{chart.labels[point]}</Text>
+      <Text selectable style={styles.number}>
+        {chart.series[0].values[point].toString()}
+        {chart.unit ? ` ${chart.unit}` : ""} ·{" "}
+        {formatPercent(fractions[point], chart.series[0].values[point])}
+      </Text>
+    </View>
+  );
+  return (
+    <View style={styles.card} testID="chat-visualization">
+      <View style={styles.header}>
+        <Text accessibilityRole="header" style={styles.title}>
+          {chart.title}
+        </Text>
+        {chart.unit ? <Text style={styles.caption}>{chart.unit}</Text> : null}
+      </View>
+      <View style={styles.radialPlot}>
+        <Tooltip open={inspected >= 0} onOpenChange={changeOpen}>
+          {/* The SVG paths handle hit testing; this noninteractive anchor positions the shared tooltip. */}
+          <TooltipTrigger
+            disabled
+            accessible={false}
+            pointerEvents="none"
+            style={styles.radialAnchor}
+          />
+          <ThemedRadialPlot
+            chart={chart}
+            selected={selected}
+            onSelect={setIndex}
+            onInspect={inspect}
+            uniProps={mapChartColors}
+          />
+          <TooltipContent testID="chat-visualization-tooltip">
+            {inspected >= 0 ? details(inspected) : null}
+          </TooltipContent>
+        </Tooltip>
+      </View>
+      <Text style={styles.caption}>{chart.series[0].name}</Text>
+      <View>
+        {chart.labels.map((label, point) => (
+          <ThemedSliceLegendItem
+            key={label}
+            chart={chart}
+            index={point}
+            fraction={fractions[point]}
+            selected={selected === point}
+            onSelect={setIndex}
+            uniProps={mapChartColors}
+          />
+        ))}
+      </View>
+      <View style={styles.detail} accessibilityLiveRegion="polite">
+        {details(selected)}
+      </View>
+    </View>
+  );
+}
+
+export function Visualization({ chart }: { chart: ChatVisualization }) {
+  return chart.type === "pie" || chart.type === "donut" ? (
+    <RadialVisualization chart={chart} />
+  ) : (
+    <CartesianVisualization chart={chart} />
+  );
+}
+
 const styles = StyleSheet.create((theme) => ({
   card: {
     backgroundColor: theme.colors.surface1,
@@ -435,11 +733,44 @@ const styles = StyleSheet.create((theme) => ({
     padding: theme.spacing[3],
     gap: theme.spacing[2],
   },
-  header: { flexDirection: "row", alignItems: "baseline", flexWrap: "wrap", gap: theme.spacing[2] },
+  radialPlot: { width: RADIAL_SIZE, height: RADIAL_SIZE, alignSelf: "center" },
+  radialAnchor: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: RADIAL_SIZE,
+    height: RADIAL_SIZE,
+  },
+  sliceLegend: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+    padding: theme.spacing[2],
+    borderWidth: 1,
+    borderColor: "transparent",
+    borderRadius: theme.borderRadius.sm,
+  },
+  sliceSelected: { backgroundColor: theme.colors.surface2 },
+  sliceLabel: { flex: 1, minWidth: 0 },
+  header: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    flexWrap: "wrap",
+    gap: theme.spacing[2],
+  },
   plot: { height: PLOT_HEIGHT, alignSelf: "stretch" },
   // Full-height targets keep zero values and small line markers inspectable.
-  point: { position: "absolute", top: 0, bottom: 0, borderWidth: 1, borderColor: "transparent" },
-  pointFocused: { borderColor: theme.colors.borderAccent, borderRadius: theme.borderRadius.sm },
+  point: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  pointFocused: {
+    borderColor: theme.colors.borderAccent,
+    borderRadius: theme.borderRadius.sm,
+  },
   axisLabels: {
     direction: "ltr",
     flexDirection: "row",
@@ -472,7 +803,11 @@ const styles = StyleSheet.create((theme) => ({
     fontWeight: theme.fontWeight.semibold,
     flexShrink: 1,
   },
-  caption: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm, flexShrink: 1 },
+  caption: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+    flexShrink: 1,
+  },
   number: {
     color: theme.colors.foreground,
     fontSize: theme.fontSize.sm,
