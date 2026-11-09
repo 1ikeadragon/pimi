@@ -5,10 +5,11 @@ import type { PanelDescriptor, PanelIconProps } from "@/panels/panel-registry";
 export function buildDraftPanelDescriptor(input: {
   isCreating: boolean;
   pendingPrompt?: string | null;
+  isProviderHandoff?: boolean;
   icon: ComponentType<PanelIconProps>;
 }): PanelDescriptor {
   const { icon, isCreating, pendingPrompt } = input;
-  const newAgentLabel = i18n.t("panels.draft.newAgent");
+  const newAgentLabel = input.isProviderHandoff ? "Continue chat" : i18n.t("panels.draft.newAgent");
   const creatingLabel = pendingPrompt?.trim() || newAgentLabel;
   if (isCreating) {
     return {

@@ -1,5 +1,7 @@
 import { Button } from "@/components/ui/button";
+import { ModelProviderGlyph } from "@/components/model-browser";
 import { getDesktopHost } from "@/desktop/host";
+import { useProvidersSnapshot } from "@/hooks/use-providers-snapshot";
 import { openPimiTasks } from "@/navigation/pimi-tasks";
 import { isPimiAndroid } from "@/utils/pimi-mobile";
 import { AGENT_PROVIDER_DEFINITIONS } from "@pimi/protocol/provider-manifest";
@@ -91,14 +93,12 @@ export function PimiTaskProposalCard({ proposal }: { proposal: PimiTaskProposal 
       {assigned.length > 0 ? (
         <View style={styles.assignments}>
           {assigned.map(({ title, hypothesis, provider }) => (
-            <View key={JSON.stringify([title, hypothesis, provider])} style={styles.assignment}>
-              <Text style={styles.assignmentTitle} numberOfLines={1}>
-                {title}
-              </Text>
-              <Text style={styles.provider} numberOfLines={1}>
-                {providerLabel(provider)}
-              </Text>
-            </View>
+            <ProposedWorker
+              key={JSON.stringify([title, hypothesis, provider])}
+              serverId={proposal.source.serverId}
+              title={title}
+              provider={provider}
+            />
           ))}
         </View>
       ) : null}
@@ -109,10 +109,40 @@ export function PimiTaskProposalCard({ proposal }: { proposal: PimiTaskProposal 
   );
 }
 
-function providerLabel(selection: string) {
-  const id = selection.split("/", 1)[0];
-  const label = AGENT_PROVIDER_DEFINITIONS.find((provider) => provider.id === id)?.label ?? id;
-  return id.length === selection.length ? label : `${label} · ${selection.slice(id.length + 1)}`;
+function ProposedWorker({
+  title,
+  provider,
+  serverId,
+}: {
+  title: string;
+  provider: string;
+  serverId: string;
+}) {
+  const id = provider.split("/", 1)[0];
+  const { entries } = useProvidersSnapshot(serverId);
+  const entry = entries?.find((item) => item.provider === id);
+  const label =
+    entry?.label ?? AGENT_PROVIDER_DEFINITIONS.find((item) => item.id === id)?.label ?? id;
+  const modelId = provider.slice(id.length + 1);
+  const model = entry?.models?.find((item) => item.id === modelId)?.label ?? modelId;
+  return (
+    <View style={styles.assignment}>
+      <View style={styles.providerRow}>
+        <ModelProviderGlyph provider={id} serverId={serverId} size={14} />
+        <Text style={styles.providerName} numberOfLines={1}>
+          {label}
+        </Text>
+        {model ? (
+          <Text style={styles.providerModel} numberOfLines={1}>
+            · {model}
+          </Text>
+        ) : null}
+      </View>
+      <Text style={styles.assignmentTitle} numberOfLines={2}>
+        {title}
+      </Text>
+    </View>
+  );
 }
 
 export function PimiReviewSuggestionCard({ suggestion }: { suggestion: PimiReviewSuggestion }) {
@@ -151,17 +181,29 @@ const styles = StyleSheet.create((theme) => ({
   meta: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm },
   title: { color: theme.colors.foreground, fontSize: theme.fontSize.base, fontWeight: "600" },
   brief: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.base, lineHeight: 20 },
-  assignments: { gap: theme.spacing[1] },
-  assignment: { flexDirection: "row", alignItems: "center", gap: theme.spacing[2] },
-  assignmentTitle: { flex: 1, color: theme.colors.foreground, fontSize: theme.fontSize.sm },
-  provider: {
-    maxWidth: "48%",
-    color: theme.colors.foregroundMuted,
+  assignments: { flexDirection: "row", flexWrap: "wrap", gap: theme.spacing[2] },
+  assignment: {
+    flexGrow: 1,
+    flexBasis: 172,
     backgroundColor: theme.colors.surface2,
-    paddingHorizontal: theme.spacing[2],
-    paddingVertical: theme.spacing[1],
-    borderRadius: theme.borderRadius.sm,
-    fontSize: theme.fontSize.sm,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    padding: theme.spacing[2],
+    gap: theme.spacing[1],
+    borderRadius: theme.borderRadius.md,
   },
+  providerRow: { flexDirection: "row", alignItems: "center", gap: theme.spacing[1] },
+  providerName: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.sm,
+    fontWeight: "600",
+    flexShrink: 1,
+  },
+  providerModel: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+    flexShrink: 1,
+  },
+  assignmentTitle: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm },
   action: { alignSelf: "flex-end" },
 }));

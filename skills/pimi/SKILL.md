@@ -84,6 +84,8 @@ pimi script stop <name> [--cwd <path> | --workspace <workspace-id>]
 
 **`create_agent`** — required: `title`, `provider` (`claude/opus`, `codex/gpt-5.4`, …), `initialPrompt`. Optional: `workspaceId`, `notifyOnFinish`, `settings`, `labels`. Returns `{ agentId, workspaceId, … }`.
 
+For a handoff or a second provider's take in this chat, set `inheritContext: true` when creating a worker on this host. Keep the prompt focused and bring the result back here.
+
 Initial runtime settings live under `settings`: `modeId`, `thinkingOptionId`, and provider-specific `features`. Agent profiles are the preferred source for these values. For Codex fast mode, pass `settings: { features: { "fast_mode": true } }` when creating the agent.
 
 Agent-scoped creation always creates your subagent. On your own host, omit `workspaceId` to use your current workspace. On another host, first list or create a workspace with that `serverId`, then pass its `workspaceId` and the same `serverId` to `create_agent`. Placement never changes parentage.

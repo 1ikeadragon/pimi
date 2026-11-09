@@ -7,7 +7,8 @@ import type { ToastApi } from "@/components/toast-host";
 import type { AgentScreenAgent } from "@/hooks/use-agent-screen-state-machine";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import { useHostFeature } from "@/runtime/host-features";
-import { generateDraftId } from "@/stores/draft-keys";
+import { buildDraftStoreKey, generateDraftId } from "@/stores/draft-keys";
+import { useDraftStore } from "@/stores/draft-store";
 import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
 import { useSessionStore } from "@/stores/session-store";
 import {
@@ -54,6 +55,7 @@ export interface ForkAgentRequest {
   workspaceId?: string;
   target: AssistantForkTarget;
   boundary?: ForkAgentBoundary;
+  handoffFromProvider?: string;
 }
 
 export interface UseForkAgentInput {
@@ -68,7 +70,9 @@ function buildChatHistoryAttachment(input: {
   serverId: string;
   agentId: string;
   payload: Awaited<ReturnType<DaemonClient["buildAgentForkContext"]>>;
+  sourceProvider?: string;
   missingAttachmentMessage: string;
+  handoffFromProvider?: string;
 }): WorkspaceComposerAttachment {
   if (!input.payload.attachment) {
     throw new Error(input.missingAttachmentMessage);
@@ -76,13 +80,18 @@ function buildChatHistoryAttachment(input: {
   return {
     kind: "chat_history",
     id: `chat_history:${input.draftId}`,
-    attachment: input.payload.attachment,
+    attachment: input.handoffFromProvider
+      ? { ...input.payload.attachment, title: "Provider handoff" }
+      : input.payload.attachment,
     source: {
       serverId: input.serverId,
       agentId: input.agentId,
       boundaryMessageId: input.payload.boundaryMessageId,
       boundaryCursor: input.payload.boundaryCursor,
       itemCount: input.payload.itemCount,
+      providerLabel: input.handoffFromProvider,
+      providerId: input.handoffFromProvider ? input.sourceProvider : undefined,
+      truncated: input.payload.truncated,
     },
   };
 }
@@ -142,67 +151,81 @@ export function useForkAgent(
   const client = useSessionStore((state) => state.sessions[serverId]?.client ?? null);
   const supportsAgentForkContext = useHostFeature(serverId, "agentForkContext") && !readOnly;
 
-  return useStableEvent(async ({ agentId, agent, workspaceId, target, boundary }) => {
-    try {
-      if (!supportsAgentForkContext) {
-        toast?.error(t("message.actions.forkUnavailable"));
-        return;
-      }
-      if (!client) {
-        throw new Error(t("workspace.terminal.hostDisconnected"));
-      }
-      const draftSetup = buildForkDraftSetup(agent, target);
-      const prepareForkDraft = async () => {
-        const draftId = generateDraftId();
-        const payload = await client.buildAgentForkContext(agentId, boundary);
-        const attachment = buildChatHistoryAttachment({
-          draftId,
-          serverId,
-          agentId,
-          payload,
-          missingAttachmentMessage: t("message.actions.forkFailed"),
-        });
-        useWorkspaceAttachmentsStore.getState().setWorkspaceAttachments({
-          scopeKey: buildDraftWorkspaceAttachmentScopeKey(draftId),
-          attachments: [attachment],
-        });
-        return draftId;
-      };
-
-      if (target !== "workspace") {
-        if (!workspaceId) {
-          throw new Error(t("message.actions.forkMissingWorkspace"));
+  return useStableEvent(
+    async ({ agentId, agent, workspaceId, target, boundary, handoffFromProvider }) => {
+      try {
+        if (!supportsAgentForkContext) {
+          toast?.error(t("message.actions.forkUnavailable"));
+          return;
         }
-        const draftId = await prepareForkDraft();
-        navigateToWorkspace({
-          serverId,
-          workspaceId,
-          target: buildForkDraftTabTarget(draftSetup, draftId),
-        });
-        return;
-      }
+        if (!client) {
+          throw new Error(t("workspace.terminal.hostDisconnected"));
+        }
+        const draftSetup = buildForkDraftSetup(agent, target);
+        const prepareForkDraft = async () => {
+          const draftId = generateDraftId();
+          const payload = await client.buildAgentForkContext(agentId, boundary);
+          const attachment = buildChatHistoryAttachment({
+            draftId,
+            serverId,
+            agentId,
+            payload,
+            sourceProvider: agent.provider,
+            handoffFromProvider,
+            missingAttachmentMessage: t("message.actions.forkFailed"),
+          });
+          useWorkspaceAttachmentsStore.getState().setWorkspaceAttachments({
+            scopeKey: buildDraftWorkspaceAttachmentScopeKey(draftId),
+            attachments: [attachment],
+          });
+          if (handoffFromProvider) {
+            const drafts = useDraftStore.getState();
+            const source = drafts.getDraftInput(buildDraftStoreKey({ serverId, agentId }));
+            if (source) {
+              drafts.saveDraftInput({
+                draftKey: buildDraftStoreKey({ serverId, agentId: "", draftId }),
+                draft: source,
+              });
+            }
+          }
+          return draftId;
+        };
 
-      const draftId = await prepareForkDraft();
-      const sourceDirectory =
-        agent.projectPlacement?.checkout?.cwd?.trim() || agent.cwd.trim() || undefined;
-      if (draftSetup) {
-        useWorkspaceDraftSubmissionStore.getState().setDraftSetup({
-          draftId,
-          setup: draftSetup,
-          sourceDirectory,
-        });
+        if (target !== "workspace") {
+          if (!workspaceId) {
+            throw new Error(t("message.actions.forkMissingWorkspace"));
+          }
+          const draftId = await prepareForkDraft();
+          navigateToWorkspace({
+            serverId,
+            workspaceId,
+            target: buildForkDraftTabTarget(draftSetup, draftId),
+          });
+          return;
+        }
+
+        const draftId = await prepareForkDraft();
+        const sourceDirectory =
+          agent.projectPlacement?.checkout?.cwd?.trim() || agent.cwd.trim() || undefined;
+        if (draftSetup) {
+          useWorkspaceDraftSubmissionStore.getState().setDraftSetup({
+            draftId,
+            setup: draftSetup,
+            sourceDirectory,
+          });
+        }
+        router.push(
+          buildNewWorkspaceRoute({
+            serverId,
+            sourceDirectory,
+            displayName: agent.projectPlacement?.projectName,
+            projectId: agent.projectPlacement?.projectKey,
+            draftId,
+          }),
+        );
+      } catch (error) {
+        toast?.error(toErrorMessage(error) || t("message.actions.forkFailed"));
       }
-      router.push(
-        buildNewWorkspaceRoute({
-          serverId,
-          sourceDirectory,
-          displayName: agent.projectPlacement?.projectName,
-          projectId: agent.projectPlacement?.projectKey,
-          draftId,
-        }),
-      );
-    } catch (error) {
-      toast?.error(toErrorMessage(error) || t("message.actions.forkFailed"));
-    }
-  });
+    },
+  );
 }

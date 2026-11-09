@@ -110,6 +110,8 @@ import { AgentBackgroundWorkStore, type AgentBackgroundWorkItem } from "./backgr
 import { withTimeout } from "../../utils/promise-timeout.js";
 import { extractAttention } from "../persistence-hooks.js";
 import { PIMI_VISUALIZATION_INSTRUCTIONS } from "@pimi/protocol/chat-visualization";
+import { buildAgentForkContextAttachment, MAX_FORK_CONTEXT_CHARS } from "./activity-curator.js";
+import { isChatHistoryAttachment } from "./prompt-attachments.js";
 
 function pimiActionInstructions(
   policy: ProviderPaseoToolsPolicy | undefined,
@@ -123,14 +125,14 @@ function pimiActionInstructions(
   }
   if (isPaseoToolEnabled(policy, PimiTaskAgentTool.create)) {
     instructions.push(
-      "When the user asks to create or track a task, call create_pimi_task and continue in this chat. Use existing labels and link a clear repository. Creating a task does not require workers or reports.",
+      "When the user asks to track work without separate workers, call create_pimi_task and continue in this chat. Use existing labels and link a clear repository.",
     );
   }
   if (isPaseoToolEnabled(policy, PIMI_TASK_PROPOSAL_TOOL)) {
     instructions.push(
       isTaskWorker
         ? "Finish your assigned work item. Open a new task only if the user asks."
-        : "Use propose_pimi_task when the user asks to delegate or split work across agents. Put each requested provider or provider/model in that work item's provider field. Wait for the user to start the workers.",
+        : "Use propose_pimi_task when the user asks to track delegated work in Tasks. Put each requested provider or provider/model in that work item's provider field. Wait for the user to start the workers.",
     );
   }
   if (isPaseoToolEnabled(policy, PimiTaskAgentTool.update)) {
@@ -141,6 +143,11 @@ function pimiActionInstructions(
   if (isPaseoToolEnabled(policy, PIMI_REVIEW_SUGGESTION_TOOL)) {
     instructions.push(
       `When the user asks to see changes or the diff is ready for review, call ${PIMI_REVIEW_SUGGESTION_TOOL}.`,
+    );
+  }
+  if (isPaseoToolEnabled(policy, "create_agent")) {
+    instructions.push(
+      "For another provider's input or a handoff in this chat, call create_agent for each requested provider with a focused initialPrompt, inheritContext: true, and notifyOnFinish: true. Use separate worktrees for parallel edits. Bring their results back here. Create a Task only if asked to track the work.",
     );
   }
   return instructions;
@@ -171,6 +178,12 @@ function submittedPromptText(prompt: AgentPromptInput): string {
     .flatMap((block) => (block.type === "text" && !("mimeType" in block) ? [block.text] : []))
     .join("\n")
     .trim();
+}
+
+function captureInitialChatContext(agent: ManagedAgent, prompt: AgentPromptInput): void {
+  if (agent.lastUserMessageAt || agent.initialChatContext || !Array.isArray(prompt)) return;
+  const history = prompt.find(isChatHistoryAttachment);
+  if (history) agent.initialChatContext = history.text.slice(0, MAX_FORK_CONTEXT_CHARS);
 }
 
 export class AgentManagerShuttingDownError extends Error {
@@ -533,6 +546,7 @@ interface ManagedAgentBase {
   persistence: AgentPersistenceHandle | null;
   historyPrimed: boolean;
   lastUserMessageAt: Date | null;
+  initialChatContext?: string;
   activeTurnId: string | null;
   activeTurnStartedAt: Date | null;
   lastUsage?: AgentUsage;
@@ -1446,6 +1460,30 @@ export class AgentManager {
   fetchTimeline(id: string, options?: AgentTimelineFetchOptions): AgentTimelineFetchResult {
     this.requireAgent(id);
     return this.timelineStore.fetch(id, options);
+  }
+
+  async buildForkContext(
+    id: string,
+    options: {
+      boundaryCursor?: { epoch: string; seq: number };
+      boundaryMessageId?: string;
+    } = {},
+  ) {
+    const agent = this.requirePublicAgent(id);
+    const timeline = this.fetchTimeline(id, { direction: "tail", limit: 0 });
+    const record = await this.registry?.get(id);
+    return buildAgentForkContextAttachment({
+      rows: timeline.rows,
+      cursorBoundary: options.boundaryCursor
+        ? { timelineEpoch: timeline.epoch, cursor: options.boundaryCursor }
+        : null,
+      boundaryMessageId: options.boundaryMessageId,
+      agentTitle: record?.title ?? agent.config.title,
+      cwd: agent.cwd,
+      provider: agent.provider,
+      model: agent.runtimeInfo?.model ?? agent.config.model,
+      inheritedContext: agent.initialChatContext ?? record?.initialChatContext,
+    });
   }
 
   getCompletedCompactionCount(id: string): number | undefined {
@@ -3083,6 +3121,7 @@ export class AgentManager {
               event.item.clientMessageId === options.clientMessageId,
           )
         : undefined;
+      captureInitialChatContext(agent, prompt);
       if (options?.clientMessageId) {
         this.recordSubmittedPrompt(agent, prompt, options.clientMessageId, "accepted", {
           messageId: options.clientMessageId,

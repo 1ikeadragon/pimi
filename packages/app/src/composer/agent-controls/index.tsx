@@ -791,6 +791,7 @@ function ControlledAgentControls({
             disabled={disabled}
             isModelLoading={isModelLoading}
             canSelectProvider={canSelectProvider}
+            openModelPickerOnProviders={Boolean(onSelectProviderAndModel) && !canSelectProvider}
             canSelectModel={canSelectModel}
             canSelectThinking={canSelectThinking}
             modelSelectorProviders={effectiveModelSelectorProviders}
@@ -887,6 +888,7 @@ interface DesktopAgentControlsContentProps {
   disabled: boolean;
   isModelLoading: boolean;
   canSelectProvider: boolean;
+  openModelPickerOnProviders: boolean;
   canSelectModel: boolean;
   canSelectThinking: boolean;
   modelSelectorProviders: ProviderSelectorProvider[];
@@ -949,6 +951,7 @@ function DesktopAgentControlsContent(props: DesktopAgentControlsContentProps) {
     disabled,
     isModelLoading,
     canSelectProvider,
+    openModelPickerOnProviders,
     canSelectModel,
     canSelectThinking,
     modelSelectorProviders,
@@ -1025,6 +1028,7 @@ function DesktopAgentControlsContent(props: DesktopAgentControlsContentProps) {
                 providers={modelSelectorProviders}
                 selectedProvider={provider}
                 selectedModel={selectedModelId ?? ""}
+                openOnProviders={openModelPickerOnProviders}
                 onSelect={handleDesktopModelSelect}
                 profiles={agentProfiles}
                 onApplyProfile={onApplyAgentProfile}
@@ -1590,19 +1594,23 @@ function useAgentProviderHandoff({
   serverId,
   agentId,
   agent,
+  providerEntry,
   handleSelectModel,
 }: {
   serverId: string;
   agentId: string;
   agent: AgentControlsSlice;
+  providerEntry?: { label?: string | null } | null;
   handleSelectModel: (modelId: string) => Promise<void>;
 }) {
   const toast = useToast();
   const supportsForkContext = useHostFeature(serverId, "agentForkContext");
   const canSwitchProvider = supportsForkContext && Boolean(agent?.workspaceId);
   const agentProvider = agent?.provider;
+  const providerLabel = providerEntry?.label;
   const forkAgent = useForkAgent({ serverId, toast });
   const handoffPending = useRef(false);
+  const [isHandoffPending, setIsHandoffPending] = useState(false);
   const selectProviderModel = useCallback(
     async (provider: AgentProvider, modelId: string) => {
       if (provider === agentProvider) {
@@ -1613,21 +1621,33 @@ function useAgentProviderHandoff({
       const source = useSessionStore.getState().sessions[serverId]?.agents?.get(agentId);
       if (!source?.workspaceId) return;
       handoffPending.current = true;
+      setIsHandoffPending(true);
       try {
         await forkAgent({
           agentId,
           agent: source,
           workspaceId: source.workspaceId,
           target: { provider, model: modelId },
+          handoffFromProvider: providerLabel ?? source.provider,
         });
       } finally {
         handoffPending.current = false;
+        setIsHandoffPending(false);
       }
     },
-    [agentId, agentProvider, canSwitchProvider, forkAgent, handleSelectModel, serverId],
+    [
+      agentId,
+      agentProvider,
+      canSwitchProvider,
+      forkAgent,
+      handleSelectModel,
+      providerLabel,
+      serverId,
+    ],
   );
   return {
     canSwitchProvider,
+    isHandoffPending,
     selectProviderModel,
     selectInPicker: canSwitchProvider ? selectProviderModel : undefined,
   };
@@ -1718,12 +1738,19 @@ export const AgentControls = memo(function AgentControls({
     },
     [agentId, agentProvider, client, toast, updatePreferences],
   );
-  const { canSwitchProvider, selectProviderModel, selectInPicker } = useAgentProviderHandoff({
-    serverId,
-    agentId,
-    agent,
-    handleSelectModel,
-  });
+  const { canSwitchProvider, isHandoffPending, selectProviderModel, selectInPicker } =
+    useAgentProviderHandoff({
+      serverId,
+      agentId,
+      agent,
+      providerEntry: snapshotSelectedEntry,
+      handleSelectModel,
+    });
+  const isAgentModelLoading = [
+    isHandoffPending,
+    snapshotIsLoading,
+    selectedProviderIsLoading,
+  ].includes(true);
   const agentModelSelectorProviders = useMemo(() => {
     if (canSwitchProvider && snapshotEntries?.length) {
       return buildSelectableProviderSelectorProviders(
@@ -1909,7 +1936,7 @@ export const AgentControls = memo(function AgentControls({
         onSelectThinkingOption={handleSelectThinkingOption}
         features={agent.features}
         onSetFeature={handleSetFeature}
-        isModelLoading={snapshotIsLoading || selectedProviderIsLoading}
+        isModelLoading={isAgentModelLoading}
         onModelSelectorOpen={handleModelSelectorOpen}
         onRetryModelProvider={handleRetryModelProvider}
         isRetryingModelProvider={snapshotIsRefreshing}

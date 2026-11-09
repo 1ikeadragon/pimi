@@ -43,6 +43,7 @@ import {
   type InlinePathTarget,
 } from "@/components/message";
 import { PlanCard } from "@/components/plan-card";
+import { PimiDelegationCard, readPimiDelegation } from "@/components/pimi-delegation-card";
 import {
   PimiCreatedTaskCard,
   PimiReviewSuggestionCard,
@@ -53,6 +54,7 @@ import {
 } from "@/components/pimi-task-proposal-card";
 import { getDesktopHost } from "@/desktop/host";
 import {
+  isPimiDelegationTool,
   isPimiReviewSuggestionTool,
   isPimiTaskCreateTool,
   isPimiTaskProposalTool,
@@ -909,7 +911,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
             );
           }
 
-          return (
+          const toolRow = (
             <ToolCallSlot
               itemId={item.id}
               onInlineDetailsExpandedChangeByItemId={setInlineDetailsExpanded}
@@ -927,6 +929,23 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
               maxDetailHeight={options.maxDetailHeight}
             />
           );
+          if (
+            resolvedServerId &&
+            data.status === "completed" &&
+            !data.error &&
+            data.detail.type === "unknown" &&
+            isPimiDelegationTool(data.name)
+          ) {
+            const delegation = readPimiDelegation(data.detail.output);
+            if (
+              delegation?.source.serverId === resolvedServerId &&
+              delegation.source.agentId === agentId &&
+              delegation.worker.id !== agentId
+            ) {
+              return <PimiDelegationCard delegation={delegation}>{toolRow}</PimiDelegationCard>;
+            }
+          }
+          return toolRow;
         }
 
         const data = payload.data;

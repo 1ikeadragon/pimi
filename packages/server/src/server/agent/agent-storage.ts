@@ -51,6 +51,7 @@ const STORED_AGENT_SCHEMA = z.object({
   updatedAt: z.string(),
   lastActivityAt: z.string().optional(),
   lastUserMessageAt: z.string().nullable().optional(),
+  initialChatContext: z.string().optional(),
   title: z.string().nullable().optional(),
   provisionalTitle: z.boolean().optional(),
   labels: z.record(z.string(), z.string()).default({}),
@@ -377,6 +378,7 @@ export class AgentStorage {
         title: titleOverride === undefined ? (existing?.title ?? null) : titleOverride,
         createdAt: existing?.createdAt,
         internal: hasInternalOverride ? options?.internal : (agent.internal ?? existing?.internal),
+        previousInitialChatContext: existing?.initialChatContext,
       });
       record.provisionalTitle = options?.provisionalTitle ?? existing?.provisionalTitle;
 

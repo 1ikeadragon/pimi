@@ -34,6 +34,7 @@ interface CombinedModelSelectorProps {
   selectedModel: string;
   onSelect: (provider: AgentProvider, modelId: string) => void;
   isLoading: boolean;
+  openOnProviders?: boolean;
   profiles?: AgentProfilePicker | null;
   onApplyProfile?: (profileId: string) => void;
   onEditProfiles?: () => void;
@@ -76,6 +77,7 @@ export function CombinedModelSelector({
   selectedModel,
   onSelect,
   isLoading,
+  openOnProviders,
   profiles = null,
   onApplyProfile,
   onEditProfiles,
@@ -107,20 +109,21 @@ export function CombinedModelSelector({
     profiles,
     serverId,
   });
-  const { prepareToOpen, reset } = browser;
+  const { prepareToOpen, reset, showAll } = browser;
 
   const handleOpenChange = useCallback(
     (open: boolean) => {
       setIsOpen(open);
       if (open) {
-        prepareToOpen();
+        if (openOnProviders && providers.length > 1) showAll();
+        else prepareToOpen();
         onOpen?.();
         return;
       }
       reset();
       onClose?.();
     },
-    [onClose, onOpen, prepareToOpen, reset],
+    [onClose, onOpen, openOnProviders, prepareToOpen, providers.length, reset, showAll],
   );
 
   const handleSelect = useCallback(

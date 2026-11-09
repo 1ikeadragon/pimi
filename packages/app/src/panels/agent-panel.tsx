@@ -23,6 +23,7 @@ import { useStoreWithEqualityFn } from "zustand/traditional";
 import { useAgentStreamTail } from "@/agent-stream/use-agent-stream-tail";
 import { AgentStreamView, type AgentStreamViewHandle } from "@/agent-stream/view";
 import { ArchivedAgentCallout } from "@/components/archived-agent-callout";
+import { useProviderIcon } from "@/components/provider-icons";
 import { PimiAgentLabels } from "@/desktop/pimi-labels";
 import { ComposerDock } from "@/composer/dock";
 import { FileDropZone } from "@/components/file-drop/file-drop-zone";
@@ -44,7 +45,10 @@ import { RewindComposerRestoreProvider } from "@/components/rewind/composer-rest
 import { useAgentDescriptor } from "@/agent-presentation";
 import { useToastHost, type ToastApi, type ToastState } from "@/components/toast-host";
 import type { WorkspaceComposerAttachment } from "@/attachments/types";
-import { useWorkspaceAttachmentScopeKey } from "@/attachments/workspace-attachments-store";
+import {
+  useHasProviderHandoff,
+  useWorkspaceAttachmentScopeKey,
+} from "@/attachments/workspace-attachments-store";
 import { COMPACT_CONTENT_WIDTH, useIsCompactFormFactor } from "@/constants/layout";
 import { isNative, isWeb } from "@/constants/platform";
 import { useAgentAttentionClear } from "@/hooks/use-agent-attention-clear";
@@ -365,9 +369,11 @@ export const agentPanelRegistration = definePanel("agent", {
 });
 
 export function useDraftPanelDescriptor(
-  target: { kind: "draft"; draftId: string },
+  target: { kind: "draft"; draftId: string; setup?: { provider: string } },
   context: { serverId: string },
 ) {
+  const isProviderHandoff = useHasProviderHandoff(target.draftId);
+  const ProviderIcon = useProviderIcon(target.setup?.provider ?? "", context.serverId);
   const createDescriptorState = useCreateFlowStore(
     useShallow((state) => {
       const pending = state.pendingByDraftId[target.draftId];
@@ -386,7 +392,8 @@ export function useDraftPanelDescriptor(
 
   return buildDraftPanelDescriptor({
     ...createDescriptorState,
-    icon: SquarePen,
+    isProviderHandoff,
+    icon: isProviderHandoff && target.setup ? ProviderIcon : SquarePen,
   });
 }
 

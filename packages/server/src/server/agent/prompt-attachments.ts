@@ -4,6 +4,12 @@ import type { AgentPromptContentBlock, AgentPromptInput } from "./agent-sdk-type
 
 const REVIEW_LINE_MARKERS = { add: "+", remove: "-", context: " " } as const;
 
+export function isChatHistoryAttachment(
+  block: AgentPromptContentBlock,
+): block is Extract<AgentAttachment, { type: "text" }> {
+  return block.type === "text" && "mimeType" in block && block.contextKind === "chat_history";
+}
+
 export function buildAgentPrompt(
   text: string,
   images?: Array<{ data: string; mimeType: string }>,
@@ -19,7 +25,7 @@ export function buildAgentPrompt(
   const chatHistoryAttachments: AgentAttachment[] = [];
   const otherAttachments: AgentAttachment[] = [];
   for (const attachment of attachments ?? []) {
-    if (attachment.type === "text" && attachment.contextKind === "chat_history") {
+    if (isChatHistoryAttachment(attachment)) {
       chatHistoryAttachments.push(attachment);
     } else {
       otherAttachments.push(attachment);

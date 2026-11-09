@@ -5239,6 +5239,7 @@ export const AgentForkContextResponseMessageSchema = z.object({
     agentId: z.string(),
     attachment: TextAttachmentSchema.nullable(),
     itemCount: z.number().int().nonnegative(),
+    truncated: z.literal(true).optional(),
     boundaryMessageId: z.string().nullable(),
     boundaryCursor: AgentTimelineCursorSchema.nullable().optional(),
     error: z.string().nullable(),

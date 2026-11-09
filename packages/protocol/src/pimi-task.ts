@@ -45,6 +45,20 @@ export const PimiTaskSource = z.object({
   agentId: z.string().trim().min(1).max(256),
 });
 
+export const PimiDelegationResult = z.object({
+  pimiDelegation: z.object({
+    source: PimiTaskSource,
+    worker: z.object({
+      id: z.string().min(1),
+      provider: z.string().min(1),
+      model: z.string().nullable().optional(),
+      title: z.string().trim().min(1).max(512),
+    }),
+    sharedContext: z.boolean(),
+    shortened: z.literal(true).optional(),
+  }),
+});
+
 export const PimiTaskProposal = PimiTaskProposalInput.extend({
   mode: PimiStoredTaskMode.transform((mode) => {
     if (mode === "research") return "chat";
@@ -543,9 +557,16 @@ export function isPimiTaskCreateTool(name: string): boolean {
   return matchesToolName(name, PimiTaskAgentTool.create);
 }
 
+export function isPimiDelegationTool(name: string): boolean {
+  return matchesToolName(name, "create_agent");
+}
+
 export function isPimiActionTool(name: string): boolean {
   return (
-    isPimiTaskProposalTool(name) || isPimiReviewSuggestionTool(name) || isPimiTaskCreateTool(name)
+    isPimiTaskProposalTool(name) ||
+    isPimiReviewSuggestionTool(name) ||
+    isPimiTaskCreateTool(name) ||
+    isPimiDelegationTool(name)
   );
 }
 

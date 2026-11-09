@@ -88,6 +88,9 @@ export interface ChatHistoryContextAttachment {
     boundaryMessageId?: string | null;
     boundaryCursor?: { epoch: string; seq: number } | null;
     itemCount?: number;
+    providerLabel?: string;
+    providerId?: string;
+    truncated?: boolean;
   };
 }
 

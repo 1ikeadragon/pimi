@@ -8,6 +8,7 @@ import { randomUUID } from "node:crypto";
 import {
   PIMI_REVIEW_SUGGESTION_TOOL,
   PIMI_TASK_PROPOSAL_TOOL,
+  PimiDelegationResult,
   PimiReviewSuggestionInput,
   PimiTaskProposalInput,
 } from "@pimi/protocol/pimi-task";
@@ -27,7 +28,7 @@ import { ensureValidJson } from "../../json-utils.js";
 import type { Logger } from "pino";
 
 import type { AgentMode, AgentProvider, AgentSessionConfig } from "../agent-sdk-types.js";
-import type { AgentManager } from "../agent-manager.js";
+import type { AgentManager, ManagedAgent } from "../agent-manager.js";
 import {
   ActiveTurnBehaviorSchema,
   AgentProfileSchema,
@@ -1376,6 +1377,12 @@ function createToolCatalog(
   };
   const agentToAgentInputSchema = {
     ...canonicalCreateAgentFields,
+    inheritContext: z
+      .literal(true)
+      .optional()
+      .describe(
+        "Attach the current chat as reference. Use only when the user asks to hand off this chat or asks multiple providers to work on the task discussed here.",
+      ),
     notifyOnFinish: z
       .boolean()
       .optional()
@@ -1398,6 +1405,7 @@ function createToolCatalog(
     ...commonCreateAgentFields,
     ...legacyCreateAgentPlacementFields,
     notifyOnFinish: agentToAgentInputSchema.notifyOnFinish,
+    inheritContext: agentToAgentInputSchema.inheritContext,
   };
   const legacyTopLevelCreateAgentInputSchema = {
     ...commonCreateAgentFields,
@@ -1883,6 +1891,7 @@ function createToolCatalog(
         currentModeId: z.string().nullable(),
         availableModes: z.array(ProviderModeSchema),
         guidance: z.string().optional(),
+        pimiDelegation: PimiDelegationResult.shape.pimiDelegation.optional(),
       },
     },
     async (args: unknown) => {
@@ -1896,6 +1905,7 @@ function createToolCatalog(
       }
       const selectedProvider = resolveRequiredProviderModel(parsedArgs.provider).provider;
       const inheritedConfig = resolveInheritedProviderConfig(selectedProvider);
+      const context = await delegationContext(resolvedArgs);
       const { snapshot, initialPromptStarted } = await createAgentCommand(
         {
           agentManager,
@@ -1916,6 +1926,7 @@ function createToolCatalog(
           provider: parsedArgs.provider,
           title: parsedArgs.title,
           initialPrompt: parsedArgs.initialPrompt,
+          attachments: context ? [context.attachment] : undefined,
           config: inheritedConfig,
           cwd: resolvedArgs.cwd,
           workspaceId: resolvedArgs.workspaceId,
@@ -1943,22 +1954,51 @@ function createToolCatalog(
         callerAgentId && notifyOnFinish && initialPromptStarted
           ? "You will get notified when the created agent finishes, errors, or needs permission. Do not poll for status; continue with other work until the notification arrives."
           : "Creation acknowledged. Observe completion using get_agent_status/get_agent_activity or SDK/RPC subscriptions and wait APIs.";
-      const response = {
-        content: [],
-        structuredContent: ensureValidJson({
-          agentId: currentSnapshot.id,
-          type: snapshot.provider,
-          status: currentSnapshot.lifecycle,
-          cwd: currentSnapshot.cwd,
-          ...(currentSnapshot.workspaceId ? { workspaceId: currentSnapshot.workspaceId } : {}),
-          currentModeId: currentSnapshot.currentModeId,
-          availableModes: currentSnapshot.availableModes,
-          ...(guidance ? { guidance } : {}),
-        }),
-      };
-      return response;
+      const pimiDelegation = localDelegationReceipt(resolvedArgs, currentSnapshot, context);
+      const payload = ensureValidJson({
+        agentId: currentSnapshot.id,
+        type: snapshot.provider,
+        status: currentSnapshot.lifecycle,
+        cwd: currentSnapshot.cwd,
+        ...(currentSnapshot.workspaceId ? { workspaceId: currentSnapshot.workspaceId } : {}),
+        currentModeId: currentSnapshot.currentModeId,
+        availableModes: currentSnapshot.availableModes,
+        guidance,
+      });
+      return pimiDelegation
+        ? {
+            content: [{ type: "text", text: JSON.stringify({ ...payload, pimiDelegation }) }],
+            structuredContent: { ...payload, pimiDelegation },
+          }
+        : { content: [], structuredContent: payload };
     },
   );
+
+  async function delegationContext(args: ResolvedCreateAgentToolArgs) {
+    if (!callerAgentId || args.kind !== "agent-scoped" || !args.parsedArgs.inheritContext) return;
+    return agentManager.buildForkContext(callerAgentId);
+  }
+
+  function localDelegationReceipt(
+    args: ResolvedCreateAgentToolArgs,
+    worker: ManagedAgent,
+    context: Awaited<ReturnType<typeof delegationContext>>,
+  ) {
+    if (!callerAgentId || !options.serverId || args.kind !== "agent-scoped" || args.detached) {
+      return;
+    }
+    return {
+      source: { serverId: options.serverId, agentId: callerAgentId },
+      worker: {
+        id: worker.id,
+        provider: worker.provider,
+        model: worker.runtimeInfo?.model ?? worker.config.model ?? null,
+        title: args.parsedArgs.title.slice(0, 512),
+      },
+      sharedContext: Boolean(context),
+      ...(context?.truncated ? { shortened: true as const } : {}),
+    };
+  }
 
   type ResolvedCreateAgentToolArgs =
     | {

@@ -32,6 +32,7 @@ interface ProjectionOptions {
   title?: string | null;
   createdAt?: string;
   internal?: boolean;
+  previousInitialChatContext?: string;
   /**
    * Archive timestamp, supplied by a caller holding the stored record. A live
    * managed agent cannot know this: an archived agent is resumed back into
@@ -91,6 +92,7 @@ export function toStoredAgentRecord(
     updatedAt: agent.updatedAt.toISOString(),
     lastActivityAt: agent.updatedAt.toISOString(),
     lastUserMessageAt: agent.lastUserMessageAt ? agent.lastUserMessageAt.toISOString() : null,
+    initialChatContext: agent.initialChatContext ?? options?.previousInitialChatContext,
     title: options?.title ?? null,
     labels: agent.labels,
     lastStatus: agent.lifecycle,

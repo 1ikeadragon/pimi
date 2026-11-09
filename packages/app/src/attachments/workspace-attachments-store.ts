@@ -192,6 +192,17 @@ export function useWorkspaceAttachments(scopeKey: string): readonly WorkspaceCom
   );
 }
 
+export function useHasProviderHandoff(draftId: string): boolean {
+  const scopeKey = buildDraftWorkspaceAttachmentScopeKey(draftId);
+  return useWorkspaceAttachmentsStore((state) =>
+    Boolean(
+      state.attachmentsByScope[scopeKey]?.some(
+        (attachment) => attachment.kind === "chat_history" && attachment.source.providerLabel,
+      ),
+    ),
+  );
+}
+
 export function collectWorkspaceAttachmentsForScopes(input: {
   attachmentsByScope: Record<string, readonly WorkspaceComposerAttachment[]>;
   scopeKeys: readonly string[];

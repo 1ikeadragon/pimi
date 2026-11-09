@@ -78,6 +78,7 @@ export interface CreateAgentFromMcpInput {
   provider: string;
   title: string;
   initialPrompt?: string;
+  attachments?: AgentAttachment[];
   config?: Partial<AgentSessionConfig>;
   cwd?: string;
   workspaceId?: string;
@@ -352,7 +353,9 @@ async function resolveMcpCreateAgent(
       background: inheritAgentBackground(input.background, parentAgent),
       env: input.env,
     },
-    prompt: trimmedPrompt ? trimmedPrompt : undefined,
+    prompt: trimmedPrompt
+      ? buildAgentPrompt(trimmedPrompt, undefined, input.attachments)
+      : undefined,
     source: input.callerAgentId
       ? { kind: "agent-message", agentId: input.callerAgentId }
       : undefined,

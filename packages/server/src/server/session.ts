@@ -148,7 +148,6 @@ import {
 import { buildStoredAgentPayload, toAgentPayload } from "./agent/agent-projections.js";
 import { assertPluginTimelineDataSize } from "./agent/agent-timeline-content.js";
 import { parsePluginClientId } from "./plugins/plugin-session-identity.js";
-import { buildAgentForkContextAttachment } from "./agent/activity-curator.js";
 import { buildAgentPrompt } from "./agent/prompt-attachments.js";
 import type { StructuredGenerationDaemonConfig } from "./agent/structured-generation-providers.js";
 import {
@@ -8732,24 +8731,14 @@ export class Session {
     msg: Extract<SessionInboundMessage, { type: "agent.fork_context.request" }>,
   ): Promise<void> {
     try {
-      const snapshot = await ensureAgentLoaded(msg.agentId, {
+      await ensureAgentLoaded(msg.agentId, {
         agentManager: this.agentManager,
         agentStorage: this.agentStorage,
         logger: this.sessionLogger,
       });
-      const agentPayload = await this.buildAgentPayload(snapshot);
-      const timeline = this.agentManager.fetchTimeline(msg.agentId, {
-        direction: "tail",
-        limit: 0,
-      });
-      const forkContext = buildAgentForkContextAttachment({
-        rows: timeline.rows,
-        cursorBoundary: msg.boundaryCursor
-          ? { timelineEpoch: timeline.epoch, cursor: msg.boundaryCursor }
-          : null,
+      const forkContext = await this.agentManager.buildForkContext(msg.agentId, {
+        boundaryCursor: msg.boundaryCursor,
         boundaryMessageId: msg.boundaryMessageId,
-        agentTitle: agentPayload.title,
-        cwd: snapshot.cwd,
       });
 
       this.emit({
@@ -8759,6 +8748,7 @@ export class Session {
           agentId: msg.agentId,
           attachment: forkContext.attachment,
           itemCount: forkContext.itemCount,
+          ...(forkContext.truncated ? { truncated: true as const } : {}),
           boundaryCursor: forkContext.boundaryCursor,
           boundaryMessageId: forkContext.boundaryMessageId,
           error: null,

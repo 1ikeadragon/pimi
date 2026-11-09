@@ -33,6 +33,7 @@ import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import type { WorkspaceComposerAttachment } from "@/attachments/types";
 import {
   useDraftWorkspaceAttachmentScopeKey,
+  useHasProviderHandoff,
   useWorkspaceAttachmentScopeKey,
   useWorkspaceAttachmentsStore,
 } from "@/attachments/workspace-attachments-store";
@@ -261,8 +262,9 @@ interface WorkspaceDraftComposerProps {
 function resolveImportPillPress(
   onOpenImportSheet: (() => void) | undefined,
   isSubmitting: boolean,
+  isProviderHandoff: boolean,
 ): (() => void) | null {
-  if (isSubmitting) {
+  if (isSubmitting || isProviderHandoff) {
     return null;
   }
   return onOpenImportSheet ?? null;
@@ -378,6 +380,7 @@ export function WorkspaceDraftComposer({
     workspaceId,
   });
   const draftAttachmentScopeKey = useDraftWorkspaceAttachmentScopeKey(draftId);
+  const isProviderHandoff = useHasProviderHandoff(draftId);
   const openInSidePane = useSettings((settings) => settings.openInSidePane);
   const attachmentScopeKeys = useMemo(
     () => [draftAttachmentScopeKey, workspaceAttachmentScopeKey].filter(Boolean),
@@ -559,7 +562,11 @@ export function WorkspaceDraftComposer({
   const handleDropdownCloseFocus = useCallback(() => {
     focusInputRef.current?.();
   }, []);
-  const importPillPress = resolveImportPillPress(onOpenImportSheet, isSubmitting);
+  const importPillPress = resolveImportPillPress(
+    onOpenImportSheet,
+    isSubmitting,
+    isProviderHandoff,
+  );
   const composerAgentControls = useMemo(
     () => ({
       ...composerState.agentControls,

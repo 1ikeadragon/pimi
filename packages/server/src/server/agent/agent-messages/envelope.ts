@@ -1,4 +1,4 @@
-import { renderPromptAttachmentAsText } from "../prompt-attachments.js";
+import { isChatHistoryAttachment, renderPromptAttachmentAsText } from "../prompt-attachments.js";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import type {
@@ -143,16 +143,26 @@ export function prepareAgentMessage(
     }
   }
   const messageId = id ?? randomUUID();
-  const text = typeof prompt === "string" ? prompt : prompt.flatMap(renderMessageText).join("\n\n");
-  // Render textual attachments before wrapping, so provider replay still contains one
-  // complete envelope instead of an envelope followed by provider-rendered context.
+  const text =
+    typeof prompt === "string"
+      ? prompt
+      : prompt
+          .filter((block) => !isChatHistoryAttachment(block))
+          .flatMap(renderMessageText)
+          .join("\n\n");
+  // Render ordinary text attachments inside the envelope. Keep inherited history
+  // separate so another handoff can preserve it without changing the sender message.
   const envelope = formatAgentMessage({ id: messageId, source: source ?? null, text });
   return {
     messageId,
     prompt:
       typeof prompt === "string"
         ? envelope
-        : [{ type: "text", text: envelope }, ...prompt.filter((block) => block.type === "image")],
+        : [
+            ...prompt.filter(isChatHistoryAttachment),
+            { type: "text", text: envelope },
+            ...prompt.filter((block) => block.type === "image"),
+          ],
   };
 }
 

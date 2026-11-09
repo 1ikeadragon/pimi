@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { TFunction } from "i18next";
 import React from "react";
 import {
+  ArrowRightLeft,
   CircleDot,
   FileText,
   GitPullRequest,
@@ -14,6 +15,7 @@ import type { WorkspaceComposerAttachment } from "@/attachments/types";
 import { getFileTypeLabel } from "@/attachments/file-types";
 import { isPullRequestContextAttachment } from "@/attachments/workspace-attachment-utils";
 import { getForgePresentation } from "@/git/forge";
+import { ModelProviderGlyph } from "@/components/model-browser";
 import { ICON_SIZE, type Theme } from "@/styles/theme";
 
 export interface AttachmentPillContent {
@@ -127,10 +129,22 @@ export function getWorkspaceAttachmentPillContent(
     };
   }
   if (attachment.kind === "chat_history") {
+    const { providerLabel, providerId, serverId, truncated } = attachment.source;
+    let icon = providerLabel ? attachmentHandoffIcon : attachmentFileIcon;
+    if (providerId) {
+      icon = <ModelProviderGlyph provider={providerId} serverId={serverId} size={ICON_SIZE.sm} />;
+    }
     return {
-      icon: attachmentFileIcon,
+      icon,
       title: attachment.attachment.title ?? t("message.attachments.textAttachment"),
-      subtitle: getTextAttachmentSubtitle(attachment.attachment, t),
+      subtitle: [
+        providerLabel
+          ? `From ${providerLabel}`
+          : getTextAttachmentSubtitle(attachment.attachment, t),
+        truncated ? "Shortened history" : "",
+      ]
+        .filter(Boolean)
+        .join(" · "),
     };
   }
   return {
@@ -141,6 +155,7 @@ export function getWorkspaceAttachmentPillContent(
 }
 
 const ThemedAttachmentFileText = withUnistyles(FileText);
+const ThemedAttachmentHandoff = withUnistyles(ArrowRightLeft);
 const ThemedAttachmentGitPullRequest = withUnistyles(GitPullRequest);
 const ThemedAttachmentCircleDot = withUnistyles(CircleDot);
 const ThemedAttachmentMessageSquareCode = withUnistyles(MessageSquareCode);
@@ -159,6 +174,9 @@ const attachmentGithubIssueIcon = (
 );
 const attachmentFileIcon = (
   <ThemedAttachmentFileText size={ICON_SIZE.sm} uniProps={iconForegroundMutedMapping} />
+);
+const attachmentHandoffIcon = (
+  <ThemedAttachmentHandoff size={ICON_SIZE.sm} uniProps={iconForegroundMutedMapping} />
 );
 const attachmentBrowserIcon = (
   <ThemedAttachmentMousePointer size={ICON_SIZE.sm} uniProps={iconForegroundMutedMapping} />
