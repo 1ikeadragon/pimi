@@ -23,7 +23,6 @@ import {
 } from "@pimi/protocol/terminal-profiles";
 import { AgentProfilesSection } from "@/agent-profiles";
 import { AgentSkillsSection } from "@/agent-skills";
-import { getDesktopHost } from "@/desktop/host";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
 import { SettingsTextAreaCard } from "@/components/settings-textarea";
 import { Alert as InlineAlert } from "@/components/ui/alert";
@@ -303,7 +302,7 @@ export function HostAgentsPage({ serverId }: { serverId: string }) {
           <Text style={styles.emptyText}>{t("settings.host.agents.unavailable")}</Text>
         </View>
       )}
-      {!getDesktopHost()?.showPimiWorkspace ? <AgentSkillsSection serverId={serverId} /> : null}
+      <AgentSkillsSection serverId={serverId} />
       <AgentProfilesSection serverId={serverId} />
     </View>
   );
@@ -1657,11 +1656,9 @@ export function HostTerminalsPage({ serverId }: { serverId: string }) {
 
   return (
     <View>
-      {!getDesktopHost()?.showPimiWorkspace ? (
-        <SettingsSection title="Terminal agents">
-          <EnableTerminalAgentHooksCard serverId={serverId} />
-        </SettingsSection>
-      ) : null}
+      <SettingsSection title="Terminal agents">
+        <EnableTerminalAgentHooksCard serverId={serverId} />
+      </SettingsSection>
       <TerminalProfilesSection serverId={serverId} />
     </View>
   );
