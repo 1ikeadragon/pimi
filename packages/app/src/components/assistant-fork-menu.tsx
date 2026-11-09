@@ -18,7 +18,7 @@ import { buildSelectableProviderSelectorProviders } from "@/provider-selection/p
 import { useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { ICON_SIZE, type Theme } from "@/styles/theme";
 
-export type AssistantForkTarget = "tab" | "workspace" | { provider: AgentProvider };
+export type AssistantForkTarget = "tab" | "workspace" | { provider: AgentProvider; model?: string };
 
 interface ForkProviderScope {
   serverId: string;

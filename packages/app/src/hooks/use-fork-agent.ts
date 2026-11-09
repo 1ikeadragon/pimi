@@ -1,7 +1,6 @@
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import type { AgentForkContextOptions, DaemonClient } from "@pimi/client/internal/daemon-client";
-import type { AgentProvider } from "@pimi/protocol/agent-types";
 import type { WorkspaceComposerAttachment } from "@/attachments/types";
 import type { AssistantForkTarget } from "@/components/assistant-fork-menu";
 import type { ToastApi } from "@/components/toast-host";
@@ -90,14 +89,14 @@ function buildChatHistoryAttachment(input: {
 
 function buildForkDraftSetup(
   agent: ForkAgentSource,
-  provider: AgentProvider | undefined,
+  target: AssistantForkTarget,
 ): WorkspaceDraftTabSetup | undefined {
-  if (provider && provider !== agent.provider) {
+  if (typeof target !== "string" && target.provider !== agent.provider) {
     return {
-      provider,
+      provider: target.provider,
       cwd: agent.cwd,
       modeId: null,
-      model: null,
+      model: target.model ?? null,
       thinkingOptionId: null,
       featureValues: {},
     };
@@ -152,8 +151,7 @@ export function useForkAgent(
       if (!client) {
         throw new Error(t("workspace.terminal.hostDisconnected"));
       }
-      const provider = typeof target === "string" ? undefined : target.provider;
-      const draftSetup = buildForkDraftSetup(agent, provider);
+      const draftSetup = buildForkDraftSetup(agent, target);
       const prepareForkDraft = async () => {
         const draftId = generateDraftId();
         const payload = await client.buildAgentForkContext(agentId, boundary);
