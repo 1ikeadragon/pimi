@@ -60,9 +60,17 @@ jobs:
           if [[ -n "$previous" ]]; then
             [[ "$previous" =~ $release_tag && "$tag" != "$previous" ]]
             test "$(printf '%s\n' "$previous" "$tag" | sort -V | tail -n 1)" = "$tag"
-            git merge-base --is-ancestor "refs/tags/$previous^{commit}" "$commit"
+            previous_commit="$(git rev-parse "refs/tags/$previous^{commit}")"
+            if ! git merge-base --is-ancestor "$previous_commit" "$commit"; then
+              # Use the matching source tree on main as the 0.17.8 changelog baseline.
+              test "$previous" = pimi-v0.17.8
+              release_base="8010f9e34d9f6b0e86435bff90bf412d5909d0b4"
+              git merge-base --is-ancestor "$release_base" "$commit"
+              test "$(git rev-parse "$previous_commit^{tree}")" = "$(git rev-parse "$release_base^{tree}")"
+              previous_commit="$release_base"
+            fi
             printf '\n### Changes since %s\n\n```text\n' "$previous" >> release-notes.md
-            git log --first-parent --format='%h %s' "refs/tags/$previous..$commit" >> release-notes.md
+            git log --first-parent --format='%h %s' "$previous_commit..$commit" >> release-notes.md
             printf '```\n' >> release-notes.md
           fi
           test -s release-notes.md
