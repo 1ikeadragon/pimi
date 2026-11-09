@@ -54,6 +54,9 @@ contextBridge.exposeInMainWorld("pimiWorkspace", {
   chrome: process.platform === "darwin" ? "mac" : "standard",
   setSection: (section: PimiWorkspaceSection) =>
     ipcRenderer.send("pimi:workspace:section", section),
+  setReviewLocation: (
+    location: { view: "review-pr"; url: string } | { view: "review-prs" } | { view: "review-home" },
+  ) => ipcRenderer.send("pimi:workspace:review-location", location),
   onLayoutChange: (apply: (mode: WorkspaceLayout) => void) => {
     onLayoutChange = apply;
     apply(layout);

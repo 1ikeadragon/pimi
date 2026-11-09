@@ -11,6 +11,7 @@ import {
   isPimiSpaceEmbed,
   parsePimiSpaceUrl,
   PimiLinkedLabels,
+  PimiReviewPrDestination,
   PimiReportLinkRequest,
   PimiReportLinkTarget,
   type PimiReportLinkError,
@@ -91,6 +92,10 @@ interface WorkspaceSurface {
   options: PimiWindowOptions;
   layout: WorkspaceLayout;
   section: PimiWorkspaceSection;
+  reviewLocation?:
+    | { view: "review-pr"; url: string }
+    | { view: "review-prs" }
+    | { view: "review-home" };
   prepareChatReview: PimiRuntimeResult["prepareChatReview"];
 }
 let workspace: WorkspaceSurface | undefined;
@@ -302,7 +307,11 @@ function attach(surface: WorkspaceSurface, win: BrowserWindow): void {
   surface.host = win;
   win.contentView.addChildView(surface.view);
   surface.view.webContents.send("pimi:voice:state", voiceBubbleStates.get(win) ?? VOICE_OFF);
-  const sendSection = () => win.webContents.send("pimi:workspace:section", surface.section);
+  const sendSection = () => {
+    if (surface.reviewLocation)
+      win.webContents.send("pimi:workspace:review-location", surface.reviewLocation);
+    win.webContents.send("pimi:workspace:section", surface.section);
+  };
   const notifyWorkspaceClick = () => {
     if (!win.isDestroyed()) win.webContents.send("pimi:workspace:click");
   };
@@ -455,6 +464,25 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
     if (section === surface.section) return;
     surface.section = section;
     surface.host?.webContents.send("pimi:workspace:section", section);
+  });
+  contents.ipc.on("pimi:workspace:review-location", (event, value: unknown) => {
+    if (
+      event.senderFrame !== contents.mainFrame ||
+      new URL(event.senderFrame.url).origin !== runtime.origin
+    )
+      return;
+    let location: WorkspaceSurface["reviewLocation"];
+    if (value && typeof value === "object" && "view" in value) {
+      if (value.view === "review-prs" || value.view === "review-home")
+        location = { view: value.view };
+      else {
+        const parsed = PimiReviewPrDestination.safeParse(value);
+        if (parsed.success) location = parsed.data;
+      }
+    }
+    if (!location) return;
+    surface.reviewLocation = location;
+    surface.host?.webContents.send("pimi:workspace:review-location", location);
   });
   contents.ipc.on("pimi:voice:toggle", (event) => {
     if (
