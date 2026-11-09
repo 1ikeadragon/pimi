@@ -12,13 +12,21 @@ type Fence =
 type Segment = ({ kind: "markdown"; source: string } | Fence) & { id: string };
 
 /** Native enriched-markdown has no fenced-block override. */
-export function splitMermaidFences(markdown: string, allowVisualizations = false): Segment[] {
-  if (!/mermaid/i.test(markdown) && !(allowVisualizations && /pimi-chart/i.test(markdown))) {
+export function splitMermaidFences(
+  markdown: string,
+  allowVisualizations = false,
+  allowMermaid = true,
+): Segment[] {
+  if (
+    !(allowMermaid && /mermaid/i.test(markdown)) &&
+    !(allowVisualizations && /pimi-chart/i.test(markdown))
+  ) {
     return [{ kind: "markdown", id: "0", source: markdown }];
   }
   const segments: Segment[] = [];
   const definitions = new Map<string, Definition>();
   let cursor = 0;
+  const chartSlots = new Map<string, number>();
   function appendFence(position: NonNullable<RootContent["position"]>, fence: Fence): void {
     const start = position.start.offset!;
     const end = position.end.offset!;
@@ -29,7 +37,15 @@ export function splitMermaidFences(markdown: string, allowVisualizations = false
         source: markdown.slice(cursor, start),
       });
     }
-    segments.push({ ...fence, id: String(segments.length) });
+    const chartId = fence.kind === "visualization" ? fence.chart.id : undefined;
+    const slot = chartId === undefined ? undefined : chartSlots.get(chartId);
+    if (slot !== undefined) {
+      // Reuse the first slot and React key; prose and earlier replies remain untouched.
+      segments[slot] = { ...fence, id: segments[slot].id };
+    } else {
+      if (chartId !== undefined) chartSlots.set(chartId, segments.length);
+      segments.push({ ...fence, id: String(segments.length) });
+    }
     cursor = end;
   }
   function visit(node: RootContent): void {
@@ -37,7 +53,8 @@ export function splitMermaidFences(markdown: string, allowVisualizations = false
       definitions.set(node.identifier, node);
     if (node.type === "code" && node.position) {
       const lang = node.lang?.toLowerCase();
-      if (lang === "mermaid") appendFence(node.position, { kind: "mermaid", source: node.value });
+      if (allowMermaid && lang === "mermaid")
+        appendFence(node.position, { kind: "mermaid", source: node.value });
       if (allowVisualizations && lang === PIMI_VISUALIZATION_FENCE) {
         const chart = parseChatVisualization(node.value);
         if (chart) appendFence(node.position, { kind: "visualization", source: node.value, chart });

@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Text, View, type LayoutChangeEvent } from "react-native";
+import { AccessibilityInfo, Text, View, type LayoutChangeEvent } from "react-native";
 import Svg, { Circle, G, Line, Polyline, Rect, Text as SvgText } from "react-native-svg";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
@@ -14,6 +14,57 @@ const AXIS_WIDTH = 52;
 const PLOT_INSET = 8;
 const GRID_STEPS = 4;
 const MIN_LABEL_WIDTH = 64;
+// A brief, bounded transition; exact readouts always show the current snapshot.
+const TRANSITION_MS = 240;
+
+function useChartTransition(chart: ChatVisualization) {
+  const source = JSON.stringify(chart);
+  const snapshot = useMemo(() => JSON.parse(source) as ChatVisualization, [source]);
+  const previous = useRef<ChatVisualization | null>(null);
+  const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
+  const [transition, setTransition] = useState({
+    previous: null as ChatVisualization | null,
+    progress: 1,
+  });
+  useEffect(() => {
+    let active = true;
+    const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduceMotion);
+    async function readMotionPreference() {
+      try {
+        const enabled = await AccessibilityInfo.isReduceMotionEnabled();
+        if (active) setReduceMotion(enabled);
+      } catch {
+        if (active) setReduceMotion(true);
+      }
+    }
+    void readMotionPreference();
+    return () => {
+      active = false;
+      subscription?.remove();
+    };
+  }, []);
+  useEffect(() => {
+    // Until the platform preference is known, show exact data without movement.
+    if (reduceMotion === null) return;
+    const from = previous.current;
+    previous.current = snapshot;
+    if (reduceMotion) {
+      setTransition({ previous: from, progress: 1 });
+      return;
+    }
+    let frame = 0;
+    const start = performance.now();
+    setTransition({ previous: from, progress: 0 });
+    const advance = (now: number) => {
+      const elapsed = Math.min(1, Math.max(0, (now - start) / TRANSITION_MS));
+      setTransition({ previous: from, progress: 1 - (1 - elapsed) ** 3 });
+      if (elapsed < 1) frame = requestAnimationFrame(advance);
+    };
+    frame = requestAnimationFrame(advance);
+    return () => cancelAnimationFrame(frame);
+  }, [snapshot, reduceMotion]);
+  return transition;
+}
 
 function chartColors(theme: Theme) {
   const { colors, colorScheme } = theme;
@@ -51,6 +102,7 @@ function ChartPlot({
   selected: number;
   onSelect: (index: number) => void;
 }) {
+  const transition = useChartTransition(chart);
   const selectPoint = useMemo(
     () => chart.labels.map((_, index) => () => onSelect(index)),
     [chart.labels, onSelect],
@@ -68,6 +120,18 @@ function ChartPlot({
   const x = (index: number) => AXIS_WIDTH + step * (index + 0.5);
   const y = (value: number) => plotBottom - ((value - min) / range) * plotHeight;
   const zero = y(0);
+  const previousLabels = transition.previous?.labels ?? [];
+  const previousSeries = new Map(
+    transition.previous?.series.map((series) => [series.name, series]),
+  );
+  const animatedY = (name: string, value: number, index: number) => {
+    const oldIndex = previousLabels.indexOf(chart.labels[index]);
+    const from = previousSeries.get(name)?.values[oldIndex] ?? 0;
+    // Normalize before interpolation: subtracting finite numeric extremes can overflow.
+    const start = Math.max(min, Math.min(max, from / scale));
+    const normalized = start * (1 - transition.progress) + (value / scale) * transition.progress;
+    return y(Math.max(min, Math.min(max, normalized)));
+  };
   const barWidth = Math.min((step * 0.75) / chart.series.length, 24);
   const ticks = [0];
   if (min !== max) {
@@ -116,7 +180,7 @@ function ChartPlot({
           return (
             <G key={name}>
               {values.map((value, index) => {
-                const end = y(value / scale);
+                const end = animatedY(name, value, index);
                 return (
                   <Rect
                     key={chart.labels[index]}
@@ -136,14 +200,21 @@ function ChartPlot({
         return (
           <G key={name}>
             <Polyline
-              points={values.map((value, index) => `${x(index)},${y(value / scale)}`).join(" ")}
+              points={values
+                .map((value, index) => `${x(index)},${animatedY(name, value, index)}`)
+                .join(" ")}
               fill="none"
               stroke={color}
               strokeWidth={2}
               strokeLinejoin="round"
               strokeLinecap="round"
             />
-            <Circle cx={x(selected)} cy={y(values[selected] / scale)} r={4} fill={color} />
+            <Circle
+              cx={x(selected)}
+              cy={animatedY(name, values[selected], selected)}
+              r={4}
+              fill={color}
+            />
           </G>
         );
       })}

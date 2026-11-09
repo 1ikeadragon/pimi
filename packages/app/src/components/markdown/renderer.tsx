@@ -57,7 +57,9 @@ export interface MarkdownRendererProps extends MarkdownImageContext {
 
 /** All Markdown surfaces share the same engine and source adaptation. */
 export const MarkdownRenderer = memo(function MarkdownRenderer(props: MarkdownRendererProps) {
-  const streaming = !isWeb && !!props.streaming;
+  // Same-reply chart identities must share one segment registry across streaming boundaries.
+  const streaming =
+    !isWeb && !!props.streaming && !(props.visualizations && /pimi-chart/i.test(props.text));
   // Only completed lines affect block closure. Do not run mdast on every reveal frame.
   const completeLines = streaming ? props.text.slice(0, props.text.lastIndexOf("\n") + 1) : "";
   const boundary = useMemo(
@@ -131,9 +133,9 @@ const MarkdownPart = memo(function MarkdownPart({
   const closeImage = useStableEvent(() => setImage(null));
   const segments = useMemo(
     () =>
-      isWeb
+      isWeb && !visualizations
         ? [{ kind: "markdown" as const, id: "0", source: markdown }]
-        : splitMermaidFences(markdown, visualizations),
+        : splitMermaidFences(markdown, visualizations, !isWeb),
     [markdown, visualizations],
   );
   return (
