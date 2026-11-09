@@ -626,7 +626,7 @@ function useAppSidebarLayout({
     !isCompactLayout &&
     !isWorkspaceFocusModeEnabled &&
     Boolean(getDesktopHost()?.showPimiWorkspace);
-  useFollowWorkbenchMode(activeWorkspaceKey, pimiSidebarEnabled);
+  useFollowWorkbenchMode(activeWorkspaceKey, Boolean(getDesktopHost()?.showPimiWorkspace));
   const desktopSidebarVisible = resolveDesktopSidebarVisibility({
     chromeEnabled,
     isCompactLayout,

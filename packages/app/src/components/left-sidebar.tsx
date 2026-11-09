@@ -51,6 +51,7 @@ import { SidebarNavRows } from "@/components/sidebar/sidebar-nav-rows";
 import { PimiMobileNavigation } from "@/components/sidebar/pimi-mobile-navigation";
 import {
   PIMI_NAV_RAIL_WIDTH,
+  PIMI_IDE_NAV_RAIL_WIDTH,
   PimiSidebarPeekActions,
   PimiSidebarRail,
   PimiWorkspaceNavigation,
@@ -845,8 +846,9 @@ function DesktopSidebar({
     [pimi, handleOpenProject, handleWorkspacePress],
   );
   const rail = pimiSidebar?.mode === "rail";
+  const railWidth = pimiSidebar?.ide ? PIMI_IDE_NAV_RAIL_WIDTH : PIMI_NAV_RAIL_WIDTH;
   const frameWidth = useAnimatedStyle(() => ({
-    width: rail ? PIMI_NAV_RAIL_WIDTH : (divisionLayout?.sidebarWidth ?? resizeWidth.value),
+    width: rail ? railWidth : (divisionLayout?.sidebarWidth ?? resizeWidth.value),
   }));
   // The panel host gets no width of its own: the dock sizes to this view and the overlay fills the
   // window. A Reanimated width on the host reached Android after React had switched presentation,
@@ -967,6 +969,7 @@ function DesktopSidebar({
         resizePressed={resizePressed}
         chrome={chrome}
         onSettings={handleSettings}
+        onAddProject={handleOpenProject}
       >
         {sidebarContent}
       </DesktopSidebarFrame>
@@ -1045,6 +1048,7 @@ function DesktopSidebarFrame({
   resizePressed,
   chrome,
   onSettings,
+  onAddProject,
   children,
 }: {
   style: React.ComponentProps<typeof Animated.View>["style"];
@@ -1053,6 +1057,7 @@ function DesktopSidebarFrame({
   resizePressed: boolean;
   chrome: React.ReactNode;
   onSettings: () => void;
+  onAddProject: () => void;
   children: React.ReactNode;
 }) {
   const mode = pimiSidebar?.mode;
@@ -1076,7 +1081,13 @@ function DesktopSidebarFrame({
         {chrome}
         {children}
       </Animated.View>
-      {rail ? <PimiSidebarRail controls={pimiSidebar} onSettings={onSettings} /> : null}
+      {rail ? (
+        <PimiSidebarRail
+          controls={pimiSidebar}
+          onSettings={onSettings}
+          onAddProject={onAddProject}
+        />
+      ) : null}
     </Animated.View>
   );
 }

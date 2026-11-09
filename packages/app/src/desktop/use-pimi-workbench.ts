@@ -26,9 +26,17 @@ export function usePimiWorkbenchMode(workspaceKey: string | null) {
 /** Keep the selected mode when navigating between workspaces in the same window. */
 export function useFollowWorkbenchMode(workspaceKey: string | null, enabled: boolean) {
   const hydrated = useWorkspaceLayoutStoreHydrated();
+  const layoutMode = useWorkspaceLayoutStore((state) => state.layoutMode);
   const last = useRef<string | null>(null);
   useLayoutEffect(() => {
-    if (!hydrated || !enabled || !workspaceKey || workspaceKey === last.current) return;
+    if (
+      !hydrated ||
+      !enabled ||
+      layoutMode !== "split-panes" ||
+      !workspaceKey ||
+      workspaceKey === last.current
+    )
+      return;
     const previous = last.current;
     last.current = workspaceKey;
     const state = useWorkspaceLayoutStore.getState();
@@ -38,7 +46,7 @@ export function useFollowWorkbenchMode(workspaceKey: string | null, enabled: boo
     else if (previous) {
       state.switchWorkbench(workspaceKey, state.workbenchByWorkspace[previous]?.mode ?? "agent");
     }
-  }, [enabled, hydrated, workspaceKey]);
+  }, [enabled, hydrated, layoutMode, workspaceKey]);
 }
 
 export function usePimiWorkbench() {
