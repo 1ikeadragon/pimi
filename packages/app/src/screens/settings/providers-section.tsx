@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
+import type { ProviderOverride } from "@pimi/protocol/provider-config";
+import { BUILTIN_PROVIDER_IDS } from "@pimi/protocol/provider-manifest";
 import {
   Alert,
   Pressable,
@@ -24,6 +26,7 @@ import {
   type AcpProviderCatalogItem,
 } from "@/hooks/use-acp-provider-catalog";
 import { ProviderCatalogList } from "@/components/provider-catalog-list";
+import { Button } from "@/components/ui/button";
 import { useProviderIcon } from "@/components/provider-icons";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { SkeletonPulse, useSkeletonPulse } from "@/components/ui/skeleton";
@@ -35,6 +38,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { HarnessUpdatesSection } from "./harness-updates-section";
+import { CustomProviderSheet } from "./custom-provider-sheet";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
 import { useProviderSettingsStore } from "@/stores/provider-settings-store";
 import { confirmDialog } from "@/utils/confirm-dialog";
@@ -43,6 +47,7 @@ import { ChevronRight, MoreHorizontal, Trash2 } from "lucide-react-native";
 
 type ProviderDefinition = ReturnType<typeof buildProviderDefinitions>[number];
 type ProviderEntry = NonNullable<ReturnType<typeof useProvidersSnapshot>["entries"]>[number];
+const DEFAULT_PROVIDER_ROWS = new Set(["claude", "codex", "opencode"]);
 
 type StatusTone = "success" | "warning" | "danger" | "muted" | "loading";
 
@@ -368,8 +373,20 @@ export function ProvidersSection({ serverId }: ProvidersSectionProps) {
   const [removingProviderId, setRemovingProviderId] = useState<string | null>(null);
   const removingProviderIdRef = useRef<string | null>(null);
   const [installingProviderId, setInstallingProviderId] = useState<string | null>(null);
+  const [showAllProviders, setShowAllProviders] = useState(false);
+  const [addingCustomProvider, setAddingCustomProvider] = useState(false);
 
   const providerDefinitions = useMemo(() => buildProviderDefinitions(entries), [entries]);
+  const visibleProviders = providerDefinitions.filter((def) => {
+    const entry = entries?.find((candidate) => candidate.provider === def.id);
+    return (
+      showAllProviders ||
+      DEFAULT_PROVIDER_ROWS.has(def.id) ||
+      entry?.status === "ready" ||
+      entry?.source === "custom" ||
+      Boolean(config?.providers && Object.hasOwn(config.providers, def.id))
+    );
+  });
   const hasServer = serverId.length > 0;
 
   /** Config owns derived providers and opt-in bundled catalog providers. */
@@ -457,12 +474,68 @@ export function ProvidersSection({ serverId }: ProvidersSectionProps) {
     [installingProviderId, patchConfig, refresh, supportsHopliteProvider, toast],
   );
 
+  const addCustomProvider = useCallback(
+    async (id: string, provider: ProviderOverride) => {
+      if (!config) throw new Error(t("settings.providers.unavailable"));
+      if (
+        BUILTIN_PROVIDER_IDS.includes(id) ||
+        Object.hasOwn(config.providers, id) ||
+        entries?.some((entry) => entry.provider === id) ||
+        getAcpProviderCatalog().some((entry) => entry.id === id)
+      ) {
+        throw new Error(t("settings.providers.custom.duplicateId"));
+      }
+      const saved = await patchConfig({ providers: { [id]: provider } });
+      if (!saved) throw new Error(t("settings.providers.unavailable"));
+      void refresh([id]).catch(() => toast.error(t("settings.providers.custom.refreshFailed")));
+    },
+    [config, entries, patchConfig, refresh, t, toast],
+  );
+
+  const toggleShowAllProviders = useCallback(() => setShowAllProviders((current) => !current), []);
+  const openCustomProvider = useCallback(() => setAddingCustomProvider(true), []);
+  const closeCustomProvider = useCallback(() => setAddingCustomProvider(false), []);
+  const canExpandProviders =
+    hasServer &&
+    isConnected &&
+    !isLoading &&
+    (showAllProviders || visibleProviders.length < providerDefinitions.length);
+  const showProvidersAction = useMemo(
+    () =>
+      canExpandProviders ? (
+        <Button
+          size="sm"
+          variant="ghost"
+          onPress={toggleShowAllProviders}
+          testID="providers-show-all"
+        >
+          {t(showAllProviders ? "settings.providers.showFewer" : "settings.providers.showAll")}
+        </Button>
+      ) : undefined,
+    [canExpandProviders, showAllProviders, t, toggleShowAllProviders],
+  );
+  const addCustomProviderAction = useMemo(
+    () => (
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={!config}
+        onPress={openCustomProvider}
+        testID="provider-add-custom"
+      >
+        {t("settings.providers.custom.title")}
+      </Button>
+    ),
+    [config, openCustomProvider, t],
+  );
+
   return (
     <>
       <SettingsSection
         title={t("settings.providers.title")}
         testID="host-page-providers-card"
         style={styles.sectionSpacing}
+        trailing={showProvidersAction}
       >
         {!hasServer || !isConnected ? (
           <View style={[settingsStyles.card, styles.emptyCard]}>
@@ -470,9 +543,9 @@ export function ProvidersSection({ serverId }: ProvidersSectionProps) {
           </View>
         ) : null}
         {hasServer && isConnected && isLoading ? <ProviderRowsSkeleton /> : null}
-        {hasServer && isConnected && !isLoading && providerDefinitions.length > 0 ? (
+        {hasServer && isConnected && !isLoading && visibleProviders.length > 0 ? (
           <View style={settingsStyles.card}>
-            {providerDefinitions.map((def, index) => {
+            {visibleProviders.map((def, index) => {
               const entry = entries?.find((candidate) => candidate.provider === def.id);
               if (!entry) return null;
               return (
@@ -507,6 +580,7 @@ export function ProvidersSection({ serverId }: ProvidersSectionProps) {
           title={t("settings.providers.addProvider")}
           testID="host-page-add-provider-card"
           style={styles.addProviderSection}
+          trailing={addCustomProviderAction}
         >
           <ProviderCatalogList
             serverId={serverId}
@@ -514,6 +588,9 @@ export function ProvidersSection({ serverId }: ProvidersSectionProps) {
             onInstall={handleInstall}
           />
         </SettingsSection>
+      ) : null}
+      {addingCustomProvider ? (
+        <CustomProviderSheet onAdd={addCustomProvider} onClose={closeCustomProvider} />
       ) : null}
     </>
   );

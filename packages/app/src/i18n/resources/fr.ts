@@ -3125,6 +3125,24 @@ export const fr: TranslationResources = {
     providers: {
       title: "Fournisseurs",
       addProvider: "Ajouter un fournisseur",
+      showAll: "Tout afficher",
+      showFewer: "Afficher moins",
+      custom: {
+        title: "Ajouter un fournisseur personnalisé",
+        name: "Nom",
+        id: "ID du fournisseur",
+        idHint: "Utilisez des minuscules, des chiffres et des tirets. Commencez par une lettre.",
+        harness: "Environnement de l’agent",
+        settings: "Configuration (JSON)",
+        acpHint:
+          "Saisissez la commande sous forme de tableau d’arguments. Elle s’exécute sur cet hôte.",
+        profileHint:
+          "Paramètres facultatifs tels que env, command ou models. Ils sont enregistrés sur cet hôte.",
+        invalidJson: "Saisissez du JSON valide.",
+        invalidSettings: "Vérifiez les paramètres du fournisseur et leurs valeurs.",
+        duplicateId: "Cet ID est déjà utilisé. Choisissez-en un autre.",
+        refreshFailed: "Fournisseur enregistré. Actualisez l’hôte pour charger ses modèles.",
+      },
       providerDetails: "Détails du fournisseur {{name}}",
       enableProvider: "Activer {{name}}",
       unavailable: "Connectez-vous à cet hôte pour voir les fournisseurs",

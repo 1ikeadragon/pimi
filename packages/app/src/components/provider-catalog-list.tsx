@@ -29,6 +29,7 @@ const TILE_GAP = SPACING[3];
 /** Narrowest tile that keeps the icon, type badge, install link, and Add on one row. */
 const MIN_TILE_WIDTH = 300;
 const MAX_COLUMNS = 4;
+const FEATURED_PROVIDERS = new Set(["gemini", "deepseek-harness", "qwen-code"]);
 
 const ThemedPackagePlus = withUnistyles(PackagePlus);
 const ThemedSvgXml = withUnistyles(SvgXml);
@@ -123,7 +124,10 @@ export function ProviderCatalogList({
   const availableEntries = useMemo(
     () =>
       rankProviderCatalog(
-        catalogEntries.filter((entry) => !installedIds.has(entry.id)),
+        catalogEntries.filter(
+          (entry) =>
+            !installedIds.has(entry.id) && (search.trim() || FEATURED_PROVIDERS.has(entry.id)),
+        ),
         search,
       ),
     [catalogEntries, installedIds, search],
