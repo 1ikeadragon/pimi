@@ -2349,10 +2349,11 @@ function createToolCatalog(
     "list_agents",
     {
       title: "List agents",
-      description: "List recent agents as compact metadata.",
+      description: "List agents as compact metadata. Use workspaceId for one exact workspace.",
       inputSchema: {
         includeBackground: z.boolean().optional().default(false),
         includeArchived: z.boolean().optional().default(false),
+        workspaceId: z.string().min(1).optional().describe("Exact ID from list_workspaces."),
         cwd: z.string().optional(),
         sinceHours: z
           .number()
@@ -2371,12 +2372,13 @@ function createToolCatalog(
     async ({
       includeBackground = false,
       includeArchived = false,
+      workspaceId,
       cwd,
       sinceHours = 48,
       statuses,
       limit = 50,
     }) => {
-      const callerCwd = callerAgentId ? resolveCallerAgent()?.cwd : undefined;
+      const callerCwd = callerAgentId && !workspaceId ? resolveCallerAgent()?.cwd : undefined;
       const requestedCwd = cwd?.trim() ? expandUserPath(cwd) : callerCwd;
       if (!options.workspaceRegistry) throw new Error("Workspace registry is not configured");
       const directory = new AgentDirectory({
@@ -2397,8 +2399,9 @@ function createToolCatalog(
             new Set(providerSnapshotManager.listRegisteredProviderIds()),
           ),
       });
+      const snapshots = await directory.list({ includeBackground, includeArchived });
       const agents = selectAgentListItems(
-        await directory.list({ includeBackground, includeArchived }),
+        workspaceId ? snapshots.filter((agent) => agent.workspaceId === workspaceId) : snapshots,
         { cwd: requestedCwd, statuses, sinceHours, limit },
       );
 
@@ -3393,6 +3396,7 @@ function createToolCatalog(
         agentManager,
         agentStorage,
         logger: childLogger,
+        purpose: "history",
       });
       const timeline = agentManager.getTimeline(agentId);
       const snapshot = agentManager.getAgent(agentId);
