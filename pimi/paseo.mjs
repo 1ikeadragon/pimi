@@ -136,7 +136,30 @@ export function createPaseoConnection(settingsSource = {}) {
     previews: runningPreviews(workspace.scripts),
     root: workspace.projectKind === "git" ? workspace.projectRootPath : undefined,
     pullRequest: workspacePullRequest(workspace),
+    gitState: [
+      workspace.gitRuntime?.isDirty,
+      workspace.gitRuntime?.aheadBehind?.ahead,
+      workspace.gitRuntime?.aheadOfOrigin,
+      workspace.gitRuntime?.headSha,
+    ],
   });
+  const agentWork = (agent) => [agent.cwd, agent.workspaceId, agent.status, agent.needsInput];
+  const workspaceWork = (workspace) => [
+    workspace.path,
+    workspace.root,
+    workspace.state,
+    workspace.pullRequest?.state === "open",
+    workspace.gitState,
+  ];
+
+  function directoryObservation(value, workFields) {
+    return {
+      signature: signature(value),
+      work: workFields && signature(workFields(value)),
+      path: value.path,
+      root: value.root,
+    };
+  }
 
   async function observeDirectory(client, connectedAt) {
     const agents = new Map();
@@ -208,15 +231,22 @@ export function createPaseoConnection(settingsSource = {}) {
       }
       return workspace ? { workspace, observedMerge } : undefined;
     }
-    const observe = (cache, id, value, event) => {
-      if (!value) {
-        if (!cache.delete(id)) return;
-        changed(event);
+    const observe = (cache, id, value, event, workFields) => {
+      const previous = cache.get(id) ?? {};
+      const next = value ? directoryObservation(value, workFields) : {};
+      if (previous.signature === next.signature) return;
+      if (value) cache.set(id, next);
+      else cache.delete(id);
+      if (initialized && next.work !== previous.work) {
+        const moved = next.path !== previous.path || next.root !== previous.root;
+        changed({
+          ...event,
+          workActivity: true,
+          path: next.path ?? previous.path,
+          roots: moved ? [next.root, previous.root].filter(Boolean) : undefined,
+        });
         return;
       }
-      const next = signature(value);
-      if (cache.get(id) === next) return;
-      cache.set(id, next);
       changed(event);
     };
     // These are directory state streams, never token/timeline streams.
@@ -225,7 +255,8 @@ export function createPaseoConnection(settingsSource = {}) {
         agents,
         update.agent?.id ?? update.agentId,
         update.kind === "upsert" ? agentView(update.agent) : null,
-        initialized ? { activity: "board" } : undefined,
+        undefined,
+        agentWork,
       ),
     );
     client.workspaces.subscribe((update) => {
@@ -234,12 +265,9 @@ export function createPaseoConnection(settingsSource = {}) {
       const workspace = update.kind === "upsert" ? workspaceView(update.workspace) : null;
       if (!initialized) initialWorkspaceChanges.add(id);
       observeReview(id, update.kind === "upsert" ? update.workspace : null, initialized);
-      const differs = !workspace || workspaces.get(id) !== signature(workspace);
+      const differs = !workspace || workspaces.get(id)?.signature !== signature(workspace);
       if (differs)
-        observe(workspaces, id, workspace, {
-          ...observePullRequest(id, workspace, true),
-          ...(initialized ? { activity: "board" } : {}),
-        });
+        observe(workspaces, id, workspace, observePullRequest(id, workspace, true), workspaceWork);
       observe(workspaceLabels, id, workspace && [workspace.path, workspace.labels], {
         labels: true,
       });
@@ -268,7 +296,8 @@ export function createPaseoConnection(settingsSource = {}) {
         .list({ scope: "active", page: { limit: 200 }, subscribe: {} })
         .then(({ entries }) => {
           for (const { agent } of entries) {
-            if (!agents.has(agent.id)) agents.set(agent.id, signature(agentView(agent)));
+            if (!agents.has(agent.id))
+              agents.set(agent.id, directoryObservation(agentView(agent), agentWork));
           }
         }),
       client.workspaces
@@ -286,6 +315,7 @@ export function createPaseoConnection(settingsSource = {}) {
                   entry.id,
                   workspace,
                   observePullRequest(entry.id, workspace, false),
+                  workspaceWork,
                 );
               }
             }
