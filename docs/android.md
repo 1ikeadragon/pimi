@@ -2,7 +2,7 @@
 
 ## Pimi APK
 
-[Download the signed ARM64 preview](https://github.com/1ikeadragon/pimi/releases/tag/pimi-android-v0.17.0-preview.1).
+[Download the signed ARM64 preview](https://github.com/1ikeadragon/pimi/releases/tag/pimi-android-v0.17.8-preview.1).
 
 Pimi for Android runs chats on your paired host. You can browse workspace
 files and diffs, open Work, tile agents, and check usage. Tasks reads and
@@ -11,9 +11,12 @@ encrypted Wi-Fi pairing or a password-protected host paired over the encrypted r
 cross-repository Review, and Usage Recap stay on desktop for this preview.
 Cloud push notifications are unavailable in the preview.
 
-On the desktop, open **Pair a device** in your local host settings and choose
-**Same Wi-Fi** or **Remote**. Scan the QR code in Pimi for Android or paste
-the pairing link. Pimi decodes QR codes on the device with ZXing.
+On Pimi Desktop 0.17.8, open **Pair a device** in your local host settings.
+Choose **Same Wi-Fi**, enable local pairing, then scan the QR code in Pimi for
+Android or paste the pairing link. Pimi decodes QR codes on the device with
+ZXing. After restarting the desktop daemon or changing its network address,
+enable local pairing again and use the new link.
+
 Remote pairing uses the configured relay, including a self-hosted
 [Pimi Relay](https://github.com/1ikeadragon/pimi-relay). Use WSS for a relay
 reachable over the internet.
