@@ -97,8 +97,9 @@
     "version:sync-internal": "node scripts/sync-workspace-versions.mjs",
     "pimi": "node pimi/server.mjs",
     "pimi:desktop": "cross-env PIMI_DESKTOP=1 npm run dev --workspace=@pimi/desktop",
-    "pimi:package:mac": "npm run build:server && cross-env PASEO_WEB_PLATFORM=electron npm run build:web --workspace=@pimi/app && npm run build:main --workspace=@pimi/desktop && npm exec --workspace=@pimi/desktop -- electron-builder --config electron-builder.pimi.yml --mac dmg --arm64 --publish never",
-    "pimi:package:win": "node -e \"if (process.platform !== 'win32' || process.arch !== 'x64') throw new Error('Run this command on Windows with x64 Node.js and run npm ci first.')\" && npm run build:server && cross-env PASEO_WEB_PLATFORM=electron npm run build:web --workspace=@pimi/app && npm run build:main --workspace=@pimi/desktop && npm exec --workspace=@pimi/desktop -- electron-builder --config electron-builder.pimi.yml --win nsis --x64 --publish never"
+    "pimi:prepare:desktop": "npm run build:server && cross-env PASEO_WEB_PLATFORM=electron npm run build:web --workspace=@pimi/app && npm run build:main --workspace=@pimi/desktop",
+    "pimi:package:mac": "npm run pimi:prepare:desktop && npm exec --workspace=@pimi/desktop -- electron-builder --config electron-builder.pimi.yml --mac dmg --arm64 --publish never",
+    "pimi:package:win": "node -e \"if (process.platform !== 'win32' || process.arch !== 'x64') throw new Error('Run this command on Windows with x64 Node.js and run npm ci first.')\" && npm run pimi:prepare:desktop && npm exec --workspace=@pimi/desktop -- electron-builder --config electron-builder.pimi.yml --win nsis --x64 --publish never"
   },
   "devDependencies": {
     "@types/ws": "^8.5.14",
