@@ -13,6 +13,7 @@ export interface ResizeHandleProps {
   testID?: string;
   direction: "horizontal" | "vertical";
   hitAreaAlignment?: "center" | "end";
+  subdued?: boolean;
   groupId: string;
   index: number;
   sizes: number[];
@@ -39,6 +40,7 @@ export function ResizeHandle({
   testID,
   direction,
   hitAreaAlignment = "center",
+  subdued = false,
   groupId,
   index,
   sizes,
@@ -205,9 +207,8 @@ export function ResizeHandle({
     () => [
       styles.handle,
       direction === "horizontal" ? styles.handleHorizontal : styles.handleVertical,
-      { backgroundColor: theme.colors.border },
     ],
-    [direction, theme.colors.border],
+    [direction],
   );
   const highlightStyle = useMemo(
     () => [
@@ -256,6 +257,7 @@ export function ResizeHandle({
 
   return (
     <View style={handleStyle} testID={testID}>
+      <View pointerEvents="none" style={[styles.seam, subdued && styles.subduedSeam]} />
       {highlighted && (
         <View
           pointerEvents="none"
@@ -288,7 +290,9 @@ export function ResizeHandle({
   );
 }
 
-const styles = StyleSheet.create((_theme) => ({
+const styles = StyleSheet.create((theme) => ({
+  seam: { ...StyleSheet.absoluteFillObject, backgroundColor: theme.colors.border },
+  subduedSeam: { opacity: 0.6 },
   handle: {
     position: "relative",
     flexShrink: 0,
