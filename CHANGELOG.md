@@ -2,6 +2,12 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.5 - 2026-11-09
+
+- Drag workspaces within a sidebar project to set their order.
+- Keep task cards clickable while the board updates.
+- Show the Work unread dot when a checkout appears, disappears, or moves to another lane.
+
 ## 0.17.4 - 2026-11-09
 
 - Added Ayu Light, One Dark Pro, Nord, Gruvbox Dark, and Catppuccin Mocha to Appearance.
