@@ -33,7 +33,7 @@ import { isWeb } from "@/constants/platform";
 import { getDesktopHost, usesPimiMacTitlebar } from "./host";
 import { usePimiReportLinks } from "./use-pimi-report-links";
 import { PimiNavigationHistory } from "./pimi-navigation-history";
-import { usePimiWorkbench } from "./use-pimi-workbench";
+import { PimiDraftEditorAction, usePimiWorkbench } from "./use-pimi-workbench";
 
 export const PIMI_CONSOLE_CONTENT_ID = "pimi-console-content";
 const fill = { flex: 1 } as const;
@@ -197,6 +197,7 @@ export function PimiConsoleContent({
   const [leftOffset, setLeftOffset] = useState(0);
   const [titlebarSlot, setTitlebarSlot] = useState<HTMLDivElement | null>(null);
   const previousPath = useRef(pathname);
+  const openDraftInEditor = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (pathname === previousPath.current) return;
@@ -253,28 +254,30 @@ export function PimiConsoleContent({
   const historyPadding =
     ownsTopLeft && hasTopLeftControls ? DESKTOP_TRAFFIC_LIGHT_WIDTH - leftOffset : 0;
   return (
-    <View style={fill}>
-      {hasHistoryBar ? (
-        <PimiTitlebar
-          pathname={pathname}
-          section={section}
-          padding={historyPadding}
-          slotRef={setTitlebarSlot}
-          projects={projects}
-        />
-      ) : null}
-      <WindowChromeRegion
-        corners={hasHistoryBar ? "none" : consoleCorners}
-        topLeftOffset={!hasHistoryBar && ownsTopLeft ? leftOffset : 0}
-      >
-        {console}
-      </WindowChromeRegion>
-      {covered && topInset > 0 ? (
-        <View style={styles.titlebar} testID="pimi-workspace-titlebar">
-          <TitlebarDragRegion />
-        </View>
-      ) : null}
-    </View>
+    <PimiDraftEditorAction.Provider value={openDraftInEditor}>
+      <View style={fill}>
+        {hasHistoryBar ? (
+          <PimiTitlebar
+            pathname={pathname}
+            section={section}
+            padding={historyPadding}
+            slotRef={setTitlebarSlot}
+            projects={projects}
+          />
+        ) : null}
+        <WindowChromeRegion
+          corners={hasHistoryBar ? "none" : consoleCorners}
+          topLeftOffset={!hasHistoryBar && ownsTopLeft ? leftOffset : 0}
+        >
+          {console}
+        </WindowChromeRegion>
+        {covered && topInset > 0 ? (
+          <View style={styles.titlebar} testID="pimi-workspace-titlebar">
+            <TitlebarDragRegion />
+          </View>
+        ) : null}
+      </View>
+    </PimiDraftEditorAction.Provider>
   );
 }
 

@@ -1,12 +1,24 @@
-import { useCallback, useLayoutEffect, useRef } from "react";
-import { router } from "expo-router";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useLayoutEffect,
+  useRef,
+  type RefObject,
+} from "react";
+import { router, usePathname } from "expo-router";
+import { useIsFocused } from "expo-router/react-navigation";
 import { useToast } from "@/contexts/toast-context";
 import { getDesktopHost } from "@/desktop/host";
+import { useStableEvent } from "@/hooks/use-stable-event";
+import { resolveWorkspaceSelectionStatus } from "@/navigation/host-runtime-bootstrap";
 import {
   navigateToWorkspace,
   useActiveWorkspaceSelection,
   useLastWorkspaceSelection,
+  type ActiveWorkspaceSelection,
 } from "@/stores/navigation-active-workspace-store";
+import { useHasHydratedWorkspaces, useWorkspaceExists } from "@/stores/session-store-hooks";
 import {
   useWorkspaceLayoutStore,
   useWorkspaceLayoutStoreHydrated,
@@ -15,7 +27,30 @@ import type { WorkbenchMode } from "@/stores/workspace-workbench";
 import { buildOpenProjectRoute } from "@/utils/host-routes";
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
 
-let requestedModeForNextWorkspace: WorkbenchMode | null = null;
+let requestedModeForNextWorkspace: { mode: WorkbenchMode; workspaceKey?: string } | null = null;
+
+export const PimiDraftEditorAction = createContext<RefObject<(() => void) | null> | null>(null);
+
+export function usePimiDraftEditorAction(open: () => void) {
+  const action = useContext(PimiDraftEditorAction);
+  const focused = useIsFocused();
+  const openDraft = useStableEvent(open);
+  useLayoutEffect(() => {
+    if (!action || !focused) return;
+    action.current = openDraft;
+    return () => {
+      if (action.current === openDraft) action.current = null;
+    };
+  }, [action, focused, openDraft]);
+}
+
+export function navigateToNewWorkspaceInEditor(selection: ActiveWorkspaceSelection): void {
+  const workspaceKey = buildWorkspaceTabPersistenceKey(selection);
+  if (!workspaceKey) return;
+  requestedModeForNextWorkspace = { mode: "editor", workspaceKey };
+  getDesktopHost()?.dismissPimiWorkspace?.();
+  navigateToWorkspace(selection);
+}
 
 export function usePimiWorkbenchMode(workspaceKey: string | null) {
   return useWorkspaceLayoutStore(
@@ -29,20 +64,18 @@ export function useFollowWorkbenchMode(workspaceKey: string | null, enabled: boo
   const layoutMode = useWorkspaceLayoutStore((state) => state.layoutMode);
   const last = useRef<string | null>(null);
   useLayoutEffect(() => {
-    if (
-      !hydrated ||
-      !enabled ||
-      layoutMode !== "split-panes" ||
-      !workspaceKey ||
-      workspaceKey === last.current
-    )
-      return;
+    if (!hydrated || !enabled || layoutMode !== "split-panes" || !workspaceKey) return;
+    const requested = requestedModeForNextWorkspace;
+    const requestedMode =
+      requested && (!requested.workspaceKey || requested.workspaceKey === workspaceKey)
+        ? requested.mode
+        : null;
+    if (!requestedMode && workspaceKey === last.current) return;
     const previous = last.current;
     last.current = workspaceKey;
     const state = useWorkspaceLayoutStore.getState();
-    const requested = requestedModeForNextWorkspace;
     requestedModeForNextWorkspace = null;
-    if (requested) state.switchWorkbench(workspaceKey, requested);
+    if (requestedMode) state.switchWorkbench(workspaceKey, requestedMode);
     else if (previous) {
       state.switchWorkbench(workspaceKey, state.workbenchByWorkspace[previous]?.mode ?? "agent");
     }
@@ -50,18 +83,31 @@ export function useFollowWorkbenchMode(workspaceKey: string | null, enabled: boo
 }
 
 export function usePimiWorkbench() {
+  const onDraftRoute = usePathname() === "/new";
+  const draftEditorAction = useContext(PimiDraftEditorAction);
   const current = useActiveWorkspaceSelection();
   const last = useLastWorkspaceSelection();
+  const lastServerId = last?.serverId ?? null;
+  const lastWorkspaceStatus = resolveWorkspaceSelectionStatus({
+    hasHydratedWorkspaces: useHasHydratedWorkspaces(lastServerId),
+    workspaceExists: useWorkspaceExists(lastServerId, last?.workspaceId ?? null),
+  });
   const layoutMode = useWorkspaceLayoutStore((state) => state.layoutMode);
-  const selection = current ?? last;
+  const selection = onDraftRoute
+    ? null
+    : (current ?? (lastWorkspaceStatus === "missing" ? null : last));
   const workspaceKey = selection && buildWorkspaceTabPersistenceKey(selection);
   const mode = usePimiWorkbenchMode(workspaceKey);
   const toast = useToast();
 
   const select = useCallback(
     (next: WorkbenchMode) => {
+      if (onDraftRoute) {
+        if (next === "editor") draftEditorAction?.current?.();
+        return;
+      }
       if (!selection) {
-        requestedModeForNextWorkspace = next;
+        requestedModeForNextWorkspace = { mode: next };
         getDesktopHost()?.dismissPimiWorkspace?.();
         router.navigate(buildOpenProjectRoute());
         toast.show("Open a project to use IDE Mode.");
@@ -78,7 +124,7 @@ export function usePimiWorkbench() {
       getDesktopHost()?.dismissPimiWorkspace?.();
       navigateToWorkspace(selection);
     },
-    [selection, toast],
+    [draftEditorAction, onDraftRoute, selection, toast],
   );
 
   return {

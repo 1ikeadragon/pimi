@@ -13,6 +13,7 @@ import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { createNameId } from "mnemonic-id";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigation } from "expo-router";
 import { Composer } from "@/composer";
 import { ComposerDock } from "@/composer/dock";
 import { useComposerEditingSession, useComposerFullscreen } from "@/composer/editing-session";
@@ -25,6 +26,10 @@ import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { MenuHeader } from "@/components/headers/menu-header";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { useToast } from "@/contexts/toast-context";
+import {
+  navigateToNewWorkspaceInEditor,
+  usePimiDraftEditorAction,
+} from "@/desktop/use-pimi-workbench";
 import { useAgentInputDraft } from "@/composer/draft/input-draft";
 import { useForgeSearchQuery } from "@/git/use-forge-search-query";
 import { useCheckoutStatusQuery } from "@/git/use-status-query";
@@ -858,6 +863,7 @@ export function NewWorkspaceScreen({
   const { t } = useTranslation();
   const isCompact = useIsCompactFormFactor();
   const toast = useToast();
+  const navigation = useNavigation();
   const composerEditing = useNewWorkspaceComposerEditing();
   const { leaveFullscreen } = composerEditing;
   const mergeWorkspaces = useCallback(
@@ -895,6 +901,7 @@ export function NewWorkspaceScreen({
     WorkspaceCreationResult | { workspace: null }
   >({ workspace: null });
   const [pendingAction, setPendingAction] = useState<"chat" | "empty" | "terminal" | null>(null);
+  const emptyWorkspaceInFlight = useRef(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
   const openAddProjectPicker = useOpenAddProject();
@@ -1286,6 +1293,51 @@ export function NewWorkspaceScreen({
     ],
   );
 
+  const openEmptyWorkspace = useCallback(
+    async (payload: MessagePayload, inEditor = false) => {
+      if (emptyWorkspaceInFlight.current) return;
+      emptyWorkspaceInFlight.current = true;
+      setPendingAction("empty");
+      let navigated = false;
+      try {
+        await runCreateEmptyWorkspace({
+          payload,
+          ensureWorkspace: async (request) => (await ensureWorkspace(request)).workspace,
+          serverId: selectedServerId,
+          navigate: (targetServerId, workspaceId) => {
+            if (!isStillOnCreateScreen() || (inEditor && !navigation.isFocused())) return;
+            navigated = true;
+            leaveFullscreen();
+            const selection = { serverId: targetServerId, workspaceId };
+            if (inEditor) navigateToNewWorkspaceInEditor(selection);
+            else navigateToWorkspace(selection);
+          },
+        });
+      } finally {
+        emptyWorkspaceInFlight.current = false;
+        if (!navigated) setPendingAction(null);
+      }
+    },
+    [ensureWorkspace, isStillOnCreateScreen, leaveFullscreen, navigation, selectedServerId],
+  );
+
+  usePimiDraftEditorAction(() => {
+    if (isPending) return;
+    if (!selectedProject || !selectedSourceDirectory) {
+      openProjectPicker();
+      return;
+    }
+    setErrorMessage(null);
+    void openEmptyWorkspace(
+      { cwd: selectedSourceDirectory, text: "", attachments: [] },
+      true,
+    ).catch((error) => {
+      const message = toErrorMessage(error);
+      setErrorMessage(message);
+      toast.error(message);
+    });
+  });
+
   const handleSubmitNewWorkspace = useCallback(
     async (payload: MessagePayload) => {
       if (chooseProject && !selectedProject) {
@@ -1297,26 +1349,7 @@ export function NewWorkspaceScreen({
         await composerState?.persistFormPreferences();
         await updateFormPreferences({ launchTarget });
         if (isEmptyWorkspaceSubmission(payload)) {
-          setPendingAction("empty");
-          let outcome: SubmitOutcome = "background";
-          await runCreateEmptyWorkspace({
-            payload,
-            ensureWorkspace: async (request) => (await ensureWorkspace(request)).workspace,
-            serverId: selectedServerId,
-            navigate: (targetServerId, workspaceId) => {
-              if (!isStillOnCreateScreen()) {
-                return;
-              }
-              outcome = "navigated";
-              leaveFullscreen();
-              navigateToWorkspace({ serverId: targetServerId, workspaceId });
-            },
-          });
-          // Nothing navigated, so this screen may still be mounted under another route. Release
-          // the pending lock it would otherwise keep forever.
-          if (outcome === "background") {
-            setPendingAction(null);
-          }
+          await openEmptyWorkspace(payload);
           return;
         }
 
@@ -1360,7 +1393,7 @@ export function NewWorkspaceScreen({
       forkDraftSetup,
       isStillOnCreateScreen,
       launchTarget,
-      leaveFullscreen,
+      openEmptyWorkspace,
       openProjectPicker,
       selectedProject,
       selectedServerId,
