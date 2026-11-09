@@ -146,7 +146,7 @@ export function registerPimiTaskTools(options: {
     handler: (input: unknown, context: PaseoToolExecutionContext) => Promise<PaseoToolResult>,
   ) => void;
   home?: string;
-  resolveSource: () => PimiTaskProposal["source"];
+  resolveSource: () => PimiTaskProposal["source"] | undefined;
 }): void {
   const { home } = options;
   if (!home) return;

@@ -352,16 +352,17 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
   async function createFromAgent(body) {
     if (readError) throw new RequestError(readError, 503);
     const { repository, stage, source, ...fields } = readInput(
-      PimiTaskAgentCreateInput.extend({ source: PimiTaskSource }),
+      PimiTaskAgentCreateInput.extend({ source: PimiTaskSource.optional() }),
       body,
     );
-    // Coalesce retries from the same chat. A closed task can be tracked again.
+    // Voice requests have no source chat. Both paths can track closed tasks again.
     const findExisting = (entries) =>
       entries.find(
         (task) =>
           !task.done &&
-          task.source?.serverId === source.serverId &&
-          task.source.agentId === source.agentId &&
+          (!source ||
+            (task.source?.serverId === source.serverId &&
+              task.source.agentId === source.agentId)) &&
           task.title === fields.title &&
           task.brief === fields.brief &&
           (!repository || task.repositories.some(({ root }) => root === repository)),
