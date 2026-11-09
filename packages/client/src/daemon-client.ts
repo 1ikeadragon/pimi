@@ -4854,6 +4854,19 @@ export class DaemonClient {
     return { baseRef: payload.baseRef, commits: payload.commits };
   }
 
+  async searchPimiCodebase(workspaceId: string, query: string, limit = 12) {
+    if (this.lastServerInfoMessage?.features?.pimiCodebaseSearch !== true) {
+      throw new Error("Update this host to search code.");
+    }
+    const response =
+      await this.sendNamespacedCorrelatedSessionRequest<"pimi.codebase.search.response">({
+        message: { type: "pimi.codebase.search.request", workspaceId, query, limit },
+        timeout: 45_000,
+      });
+    if (!response.result) throw new Error(response.error ?? "Code search is unavailable.");
+    return response.result;
+  }
+
   async getLineBlame(input: {
     cwd: string;
     path: string;

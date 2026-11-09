@@ -2546,6 +2546,17 @@ export const CheckoutBlameRequestSchema = z.object({
   requestId: z.string(),
 });
 
+export const PimiCodebaseQuerySchema = z.string().trim().min(1).max(512);
+export const PimiCodebaseLimitSchema = z.number().int().min(1).max(30);
+
+const PimiCodebaseSearchRequestSchema = z.object({
+  type: z.literal("pimi.codebase.search.request"),
+  workspaceId: z.string().trim().min(1).max(256),
+  query: PimiCodebaseQuerySchema,
+  limit: PimiCodebaseLimitSchema,
+  requestId: z.string(),
+});
+
 const GitHubRepoSegmentSchema = z.string().regex(/^[A-Za-z0-9._-]+$/);
 
 const CheckoutCheckDetailsRequestPayloadSchema = z.object({
@@ -3568,6 +3579,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   CheckoutCommitsListRequestSchema,
   CheckoutCommitFileDiffRequestSchema,
   CheckoutBlameRequestSchema,
+  PimiCodebaseSearchRequestSchema,
   CheckoutForgeGetCheckDetailsRequestSchema,
   CheckoutGithubGetCheckDetailsRequestSchema,
   CheckoutPrStatusRequestSchema,
@@ -3949,6 +3961,7 @@ export const ServerInfoStatusPayloadSchema = z
         // COMPAT(workspaceFileEditing): added in v0.2.0, remove after 2027-01-18 once daemon floor >= v0.2.0.
         workspaceFileEditing: z.boolean().optional(),
         gitBlame: z.boolean().optional(),
+        pimiCodebaseSearch: z.boolean().optional(),
         // COMPAT(fileByteWrites): added in v0.13.0, remove gate after 2027-04-20.
         fileByteWrites: z.boolean().optional(),
         // COMPAT(providerUsageList): added in v0.1.98, drop the gate when daemon floor >= v0.1.98.
@@ -6011,6 +6024,32 @@ export const CheckoutBlameResponseSchema = z.object({
   }),
 });
 
+export const PimiCodebaseSearchResultSchema = z.object({
+  mode: z.enum(["hybrid", "keyword"]),
+  filesIndexed: z.number().int().nonnegative(),
+  chunksIndexed: z.number().int().nonnegative(),
+  partial: z.boolean(),
+  results: z
+    .array(
+      z.object({
+        path: z.string(),
+        startLine: z.number().int().positive(),
+        endLine: z.number().int().positive(),
+        excerpt: z.string(),
+      }),
+    )
+    .max(30),
+});
+
+const PimiCodebaseSearchResponseSchema = z.object({
+  type: z.literal("pimi.codebase.search.response"),
+  payload: z.object({
+    requestId: z.string(),
+    result: PimiCodebaseSearchResultSchema.nullable(),
+    error: z.string().nullable(),
+  }),
+});
+
 const CheckoutGithubCheckAnnotationSchema = z.object({
   path: z.string().optional(),
   startLine: z.number().optional(),
@@ -7495,6 +7534,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   CheckoutCommitsListResponseSchema,
   CheckoutCommitFileDiffResponseSchema,
   CheckoutBlameResponseSchema,
+  PimiCodebaseSearchResponseSchema,
   CheckoutForgeGetCheckDetailsResponseSchema,
   CheckoutGithubGetCheckDetailsResponseSchema,
   CheckoutPrStatusResponseSchema,
@@ -7870,6 +7910,8 @@ export type CheckoutCommitsListRequest = z.infer<typeof CheckoutCommitsListReque
 export type CheckoutCommitsListResponse = z.infer<typeof CheckoutCommitsListResponseSchema>;
 export type CheckoutCommitFileDiffRequest = z.infer<typeof CheckoutCommitFileDiffRequestSchema>;
 export type CheckoutCommitFileDiffResponse = z.infer<typeof CheckoutCommitFileDiffResponseSchema>;
+export type PimiCodebaseSearchRequest = z.infer<typeof PimiCodebaseSearchRequestSchema>;
+export type PimiCodebaseSearchResult = z.infer<typeof PimiCodebaseSearchResultSchema>;
 export type CheckoutBlameRequest = z.infer<typeof CheckoutBlameRequestSchema>;
 export type CheckoutBlameResult = z.infer<typeof CheckoutBlameResultSchema>;
 export type ParsedDiffFile = z.infer<typeof ParsedDiffFileSchema>;

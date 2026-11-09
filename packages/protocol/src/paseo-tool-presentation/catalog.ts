@@ -374,6 +374,11 @@ export const PASEO_TOOL_CATALOG = {
     detail: { inputOrder: ["provider", "cwd", "settings"] },
   },
 
+  search_pimi_codebase: {
+    label: "Search code",
+    completedLabel: "Searched code",
+    context: field("query"),
+  },
   search_pimi_spaces: {
     label: "Search Spaces",
     completedLabel: "Searched Spaces",
