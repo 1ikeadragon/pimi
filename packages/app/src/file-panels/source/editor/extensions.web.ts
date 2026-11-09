@@ -13,6 +13,9 @@ import {
   lineNumbers,
 } from "@codemirror/view";
 import { createCodeMirrorHighlightStyle, type HighlightStyle } from "@pimi/highlight";
+import { Compartment } from "@codemirror/state";
+
+export const editorHistory = new Compartment();
 
 export interface EditorVisualTheme {
   colorScheme: "light" | "dark";
@@ -30,7 +33,7 @@ export interface EditorVisualTheme {
 export function editorBaseExtensions(onSave: () => void) {
   return [
     lineNumbers(),
-    history(),
+    editorHistory.of(history()),
     drawSelection(),
     indentOnInput(),
     bracketMatching(),
