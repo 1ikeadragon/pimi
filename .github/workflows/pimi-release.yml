@@ -109,13 +109,13 @@ jobs:
           EXPO_NO_TELEMETRY: "1"
           PIMI_SKIP_NATIVE_MARKDOWN_ASSETS: "1"
       - name: Build macOS app inputs
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && vars.APPLE_TEAM_ID != ''
         env:
           EXPO_NO_TELEMETRY: "1"
           NODE_OPTIONS: --max-old-space-size=4096
         run: npm run pimi:prepare:desktop
       - name: Sign and notarize macOS installer
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && vars.APPLE_TEAM_ID != ''
         shell: bash
         env:
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE_P12 }}
@@ -153,7 +153,7 @@ jobs:
           jq -e '.status == "Accepted"' "$RUNNER_TEMP/pimi-notary.json" > /dev/null
           xcrun stapler staple "$dmg"
       - name: Verify macOS installer
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && vars.APPLE_TEAM_ID != ''
         shell: bash
         working-directory: packages/desktop/release-pimi
         env:
@@ -180,6 +180,26 @@ jobs:
           syspolicy_check distribution "$app"
           test "$("$app/Contents/Resources/bin/pimi" --version)" = "$RELEASE_VERSION"
           cp "$dmg" Pimi-macOS-arm64.dmg
+      - name: Build manual macOS installer
+        if: runner.os == 'macOS' && vars.APPLE_TEAM_ID == ''
+        env:
+          EXPO_NO_TELEMETRY: "1"
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: npm run pimi:package:mac
+      - name: Verify manual macOS installer
+        if: runner.os == 'macOS' && vars.APPLE_TEAM_ID == ''
+        shell: bash
+        working-directory: packages/desktop/release-pimi
+        run: |
+          dmg="Pimi-${RELEASE_VERSION}-arm64.dmg"
+          hdiutil verify "$dmg"
+          mountpoint="$(mktemp -d "$RUNNER_TEMP/pimi-dmg.XXXXXX")"
+          trap 'hdiutil detach "$mountpoint" -quiet || true; rmdir "$mountpoint"' EXIT
+          hdiutil attach "$dmg" -readonly -nobrowse -noautoopen -mountpoint "$mountpoint"
+          app="$mountpoint/Pimi.app"
+          codesign --verify --deep --strict "$app"
+          test "$("$app/Contents/Resources/bin/pimi" --version)" = "$RELEASE_VERSION"
+          cp "$dmg" Pimi-macOS-arm64-manual.dmg
       - name: Build Windows installer
         if: runner.os == 'Windows'
         env:
@@ -201,7 +221,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: pimi-release-${{ github.run_attempt }}-${{ matrix.platform }}
-          path: packages/desktop/release-pimi/${{ matrix.asset }}
+          path: packages/desktop/release-pimi/${{ runner.os == 'macOS' && vars.APPLE_TEAM_ID == '' && 'Pimi-macOS-arm64-manual.dmg' || matrix.asset }}
           if-no-files-found: error
           compression-level: 0
           retention-days: 1
@@ -225,17 +245,21 @@ jobs:
           RELEASE_TAG: ${{ needs.validate.outputs.tag }}
           RELEASE_VERSION: ${{ needs.validate.outputs.version }}
           RELEASE_COMMIT: ${{ needs.validate.outputs.commit }}
+          MAC_ASSET: ${{ vars.APPLE_TEAM_ID == '' && 'Pimi-macOS-arm64-manual.dmg' || 'Pimi-macOS-arm64.dmg' }}
         run: |
           # Resolve the peeled annotated tag, or the direct lightweight tag.
           remote="$(git ls-remote "https://github.com/$GITHUB_REPOSITORY.git" "refs/tags/$RELEASE_TAG" "refs/tags/$RELEASE_TAG^{}" | tail -n 1 | cut -f 1)"
           test "$remote" = "$RELEASE_COMMIT"
 
           prefix="pimi-release-$GITHUB_RUN_ATTEMPT"
-          mv "$prefix-mac/Pimi-macOS-arm64.dmg" .
+          mv "$prefix-mac/$MAC_ASSET" .
           mv "$prefix-win/Pimi-Windows-x64.exe" .
-          test -s Pimi-macOS-arm64.dmg
+          test -s "$MAC_ASSET"
           test -s Pimi-Windows-x64.exe
-          sha256sum Pimi-macOS-arm64.dmg Pimi-Windows-x64.exe > SHA256SUMS.txt
-          gh release create "$RELEASE_TAG" Pimi-macOS-arm64.dmg Pimi-Windows-x64.exe SHA256SUMS.txt \
+          if [[ "$MAC_ASSET" == Pimi-macOS-arm64-manual.dmg ]]; then
+            printf '\n### macOS manual download\n\nThe Apple silicon disk image is ad hoc signed and is not notarized. It is excluded from automatic updates. macOS may block the first launch.\n' >> "$prefix-notes/release-notes.md"
+          fi
+          sha256sum "$MAC_ASSET" Pimi-Windows-x64.exe > SHA256SUMS.txt
+          gh release create "$RELEASE_TAG" "$MAC_ASSET" Pimi-Windows-x64.exe SHA256SUMS.txt \
             --repo "$GITHUB_REPOSITORY" --verify-tag --title "Pimi $RELEASE_VERSION" \
             --notes-file "$prefix-notes/release-notes.md"

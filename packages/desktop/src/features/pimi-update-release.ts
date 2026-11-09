@@ -102,6 +102,15 @@ export async function checkPimiRelease(
   if (!isNewerPimiVersion(version, currentVersion)) return null;
 
   const matching = release.assets.filter((asset) => asset.name === fileName);
+  if (
+    fileName === "Pimi-macOS-arm64.dmg" &&
+    matching.length === 0 &&
+    release.assets.some((asset) => asset.name === "Pimi-macOS-arm64-manual.dmg")
+  ) {
+    throw new Error(
+      "This release has a manual Mac download. Open Pimi's GitHub Releases to get it.",
+    );
+  }
   const url = `${RELEASE_ASSET_BASE}/${release.tag_name}/${fileName}`;
   if (matching.length !== 1 || matching[0].browser_download_url !== url) {
     throw new Error("The immutable Pimi release is missing this platform’s installer.");
