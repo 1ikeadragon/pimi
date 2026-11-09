@@ -12,7 +12,11 @@ import {
   iconButtonChromeGlyphSize,
   mutedIconColorMapping,
 } from "@/components/ui/icon-button-chrome";
-import { HEADER_INNER_HEIGHT_MOBILE, HEADER_TOP_PADDING_MOBILE } from "@/constants/layout";
+import {
+  HEADER_INNER_HEIGHT_MOBILE,
+  HEADER_TOP_PADDING_MOBILE,
+  WORKSPACE_SECONDARY_HEADER_HEIGHT,
+} from "@/constants/layout";
 import type { ShortcutKey } from "@/utils/format-shortcut";
 
 const ThemedArrowLeft = withUnistyles(ArrowLeft);
@@ -20,6 +24,7 @@ const ThemedArrowLeft = withUnistyles(ArrowLeft);
 const NO_SHORTCUT: ShortcutKey[] = [];
 
 interface CompactHeaderProps {
+  desktopPane?: boolean;
   /** The leading island: the sidebar menu, or a back button. */
   navigation: "menu" | "back";
   /** Back button action. Defaults to navigating back. */
@@ -42,6 +47,7 @@ interface CompactHeaderProps {
  * offset by the header height still lines up.
  */
 export function CompactHeader({
+  desktopPane,
   navigation,
   onBack,
   title,
@@ -65,8 +71,8 @@ export function CompactHeader({
 
   return (
     <IconButtonChromeProvider value="header-island">
-      <View style={rootStyle}>
-        <View style={styles.row}>
+      <View style={desktopPane ? styles.desktopPane : rootStyle}>
+        <View style={[styles.row, desktopPane && styles.desktopPaneRow]}>
           <View style={styles.island}>
             {navigation === "menu" ? <SidebarMenuToggle /> : <BackButton onBack={onBack} />}
           </View>
@@ -142,6 +148,11 @@ const styles = StyleSheet.create((theme) => ({
   root: {
     paddingHorizontal: theme.spacing[3],
   },
+  desktopPane: {
+    paddingHorizontal: theme.spacing[2],
+    backgroundColor: theme.colors.surfaceSidebar,
+  },
+  desktopPaneRow: { height: WORKSPACE_SECONDARY_HEADER_HEIGHT },
   row: {
     height: HEADER_INNER_HEIGHT_MOBILE,
     flexDirection: "row",

@@ -29,6 +29,7 @@ interface ExplorerSidebarDockProps extends Pick<
   | "onCreateNewTab"
   | "onExitFocusMode"
 > {
+  editorChrome?: boolean;
   hoveredCloseTabKey: string | null;
   onCloseTabsToLeft: (tabId: string, tabs: WorkspaceTabDescriptor[]) => Promise<void> | void;
   onCloseTabsToRight: (tabId: string, tabs: WorkspaceTabDescriptor[]) => Promise<void> | void;
@@ -51,6 +52,7 @@ interface ExplorerSidebarDockProps extends Pick<
 
 /** A dock shell over the shared panel host. It owns no workspace-pane capabilities. */
 export function ExplorerSidebarDock({
+  editorChrome,
   pane,
   uiTabs,
   normalizedServerId,
@@ -125,6 +127,7 @@ export function ExplorerSidebarDock({
             <TitlebarDragRegion />
             <View style={styles.tabRow}>
               <WorkspaceDesktopTabsRow
+                editorChrome={editorChrome}
                 host="explorer"
                 launchPurpose="supporting"
                 isFocused={isWorkspaceFocused}
@@ -157,7 +160,7 @@ export function ExplorerSidebarDock({
               />
             </View>
             {headerAction ? <View style={styles.headerAction}>{headerAction}</View> : null}
-            <View pointerEvents="none" style={styles.tabRailDivider} />
+            {!editorChrome && <View pointerEvents="none" style={styles.tabRailDivider} />}
           </WindowChromeSafeArea>
           <View style={styles.content}>
             <WorkspacePanelHost

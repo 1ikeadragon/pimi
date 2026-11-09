@@ -30,6 +30,7 @@ import { getOpenAgentTabLabel } from "@pimi/protocol/agent-labels";
 import {
   memo,
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -38,6 +39,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { useStoreWithEqualityFn } from "zustand/traditional";
 import { useIsFocused } from "expo-router/react-navigation";
 import { BackHandler, Text, View } from "react-native";
@@ -52,6 +54,7 @@ import type { Theme } from "@/styles/theme";
 import invariant from "tiny-invariant";
 import { SidebarMenuToggle } from "@/components/headers/sidebar-menu-toggle";
 import { ScreenHeader } from "@/components/headers/screen-header";
+import { PimiTitlebarSlot } from "@/components/headers/menu-header";
 import { MenuHeader } from "@/components/headers/menu-header";
 import { FloatingHeaderLayout } from "@/components/floating-header";
 import { StreamTopOverlayProvider, supportsStreamTopOverlay } from "@/agent-stream/top-overlay";
@@ -812,6 +815,29 @@ function WorkspaceContentProviders({
         <SheetPaneHostProvider value={sheetPaneHost}>{children}</SheetPaneHostProvider>
       </DiffDocumentWorkspaceCacheProvider>
     </WorkspaceFocusProvider>
+  );
+}
+
+function useIdeTitlebarSlot(editorMode: boolean, showScreenHeader: boolean) {
+  const slot = useContext(PimiTitlebarSlot);
+  return editorMode && showScreenHeader ? slot : undefined;
+}
+
+function IdeWorkspaceTitlebar({
+  slot,
+  active,
+  children,
+}: {
+  slot: HTMLDivElement | null | undefined;
+  active: boolean;
+  children: ReactNode;
+}) {
+  if (!slot || !active) return null;
+  return createPortal(
+    <View style={styles.ideTitlebar} testID="pimi-ide-workspace-chrome">
+      {children}
+    </View>,
+    slot,
   );
 }
 
@@ -3313,6 +3339,8 @@ function WorkspaceScreenContent({
     () => shouldShowWorkspaceScreenHeader({ isFocusModeEnabled, isMobile }),
     [isFocusModeEnabled, isMobile],
   );
+  const ideTitlebarSlot = useIdeTitlebarSlot(editorMode, showScreenHeader);
+  const hasIdeTitlebar = ideTitlebarSlot !== undefined;
   const renderExplorerSidebarHeaderAction = useCallback(
     () => (
       <WorkspaceExplorerSidebarToggle
@@ -3363,50 +3391,54 @@ function WorkspaceScreenContent({
       `${WORKSPACE_FLOATING_PANEL_PORTAL_HOST_PREFIX}:${normalizedServerId}:${normalizedWorkspaceId}`,
     [normalizedServerId, normalizedWorkspaceId],
   );
-  const renderWorkspaceScreenHeader = useCallback(
-    () =>
-      showScreenHeader ? (
-        <ScreenHeader
-          left={
-            <>
-              <SidebarMenuToggle />
-              <WorkspaceHeaderTitleBar
-                isLoading={isWorkspaceHeaderLoading}
-                title={workspaceHeaderTitle}
-                subtitle={workspaceHeaderSubtitle}
-                isSubtitleDistinct={isWorkspaceHeaderSubtitleDistinct}
-                currentBranchName={currentBranchName}
-                normalizedServerId={normalizedServerId}
-                showWorkspaceSetup={showWorkspaceSetup}
-                importAgentDisabled={!canOpenImportSheet}
-                copyPathDisabled={!workspaceDirectory}
-                onOpenImportSheet={openImportSheet}
-                onCopyWorkspacePath={handleCopyWorkspacePath}
-                onCopyBranchName={handleCopyBranchName}
-                onOpenSetupTab={handleOpenSetupTab}
-              />
-            </>
-          }
-          right={headerRight}
-        />
-      ) : null,
+  const workspaceTitle = useMemo(
+    () => (
+      <WorkspaceHeaderTitleBar
+        isLoading={isWorkspaceHeaderLoading}
+        title={workspaceHeaderTitle}
+        subtitle={workspaceHeaderSubtitle}
+        isSubtitleDistinct={isWorkspaceHeaderSubtitleDistinct}
+        currentBranchName={currentBranchName}
+        normalizedServerId={normalizedServerId}
+        showWorkspaceSetup={showWorkspaceSetup}
+        importAgentDisabled={!canOpenImportSheet}
+        copyPathDisabled={!workspaceDirectory}
+        onOpenImportSheet={openImportSheet}
+        onCopyWorkspacePath={handleCopyWorkspacePath}
+        onCopyBranchName={handleCopyBranchName}
+        onOpenSetupTab={handleOpenSetupTab}
+      />
+    ),
     [
       canOpenImportSheet,
       currentBranchName,
       handleCopyBranchName,
       handleCopyWorkspacePath,
       handleOpenSetupTab,
-      headerRight,
       isWorkspaceHeaderLoading,
       normalizedServerId,
       openImportSheet,
-      showScreenHeader,
       showWorkspaceSetup,
       workspaceDirectory,
       workspaceHeaderSubtitle,
       workspaceHeaderTitle,
       isWorkspaceHeaderSubtitleDistinct,
     ],
+  );
+  const renderWorkspaceScreenHeader = useCallback(
+    () =>
+      showScreenHeader && !hasIdeTitlebar ? (
+        <ScreenHeader
+          left={
+            <>
+              <SidebarMenuToggle />
+              {workspaceTitle}
+            </>
+          }
+          right={headerRight}
+        />
+      ) : null,
+    [headerRight, showScreenHeader, hasIdeTitlebar, workspaceTitle],
   );
   const compactHeaderScripts = useMemo(
     () => ({
@@ -3484,6 +3516,7 @@ function WorkspaceScreenContent({
           : null;
       return (
         <CompactWorkspaceHeader
+          desktopPane={editorMode && !isMobile}
           headerVariant={actionsOnly ? "full" : "compact"}
           actionsActive={isRouteFocused && (!isMobile || workspacePanelActive)}
           tabSwitcher={tabSwitcher}
@@ -3696,6 +3729,7 @@ function WorkspaceScreenContent({
           {shouldRenderDesktopPaneFallback ? (
             <NewTabLauncherProvider value={newTabLauncher}>
               <WorkspaceDesktopTabsRow
+                editorChrome={editorMode}
                 paneId={focusedPaneIdOrUndefined}
                 ownsKeyboardShortcuts={false}
                 isFocused={isRouteFocused}
@@ -3740,6 +3774,7 @@ function WorkspaceScreenContent({
     if (!explorerPane) return null;
     const dock = (
       <ExplorerSidebarDock
+        editorChrome={editorMode && !isMobile}
         pane={explorerPane}
         uiTabs={uiTabs}
         normalizedServerId={normalizedServerId}
@@ -3855,6 +3890,12 @@ function WorkspaceScreenContent({
     },
   );
 
+  const ideWorkspaceTitlebar = (
+    <IdeWorkspaceTitlebar slot={ideTitlebarSlot} active={isRouteFocused}>
+      {workspaceTitle}
+      {headerRight}
+    </IdeWorkspaceTitlebar>
+  );
   const renderedWorkspaceScreen = (
     <RenderProfile id="WorkspaceScreenContent">
       <View style={containerStyle}>
@@ -3883,6 +3924,7 @@ function WorkspaceScreenContent({
               onReorderTabsInPane={handleReorderTabsInPane}
               onSplitPane={handleSplitPane}
             >
+              {ideWorkspaceTitlebar}
               {workspaceCenterColumn}
               {sharedExplorer}
             </WorkspaceTabDragScope>
@@ -3964,6 +4006,13 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "stretch",
   },
   editorWorkbenchRow: { flexDirection: "row-reverse" },
+  ideTitlebar: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+  },
   centerColumn: {
     flex: 1,
     minHeight: 0,

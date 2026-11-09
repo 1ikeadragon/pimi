@@ -49,6 +49,7 @@ export function useExplorerGeometry({
     resizeHandle: (
       <View style={[styles.resize, left ? styles.right : styles.left]}>
         <ResizeHandle
+          subdued={left}
           testID="workspace-explorer-sidebar-resize-handle"
           direction="horizontal"
           hitAreaAlignment={left ? "center" : "end"}

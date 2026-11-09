@@ -532,6 +532,7 @@ function sameWidths(left: number[], right: number[]): boolean {
 
 export interface WorkspaceDesktopTabsRowProps {
   host?: PaneHost;
+  editorChrome?: boolean;
   launchPurpose?: WorkspaceTabLaunchPurpose;
   paneId?: string;
   isFocused?: boolean;
@@ -1070,8 +1071,13 @@ export function WorkspaceDesktopTabsRow(props: WorkspaceDesktopTabsRowProps) {
   );
 }
 
+function desktopTabRailSurface(host: PaneHost, editorChrome: boolean): WorkspaceTabRailSurface {
+  return host === "explorer" || editorChrome ? "sidebar" : "surface";
+}
+
 function ResolvedWorkspaceDesktopTabsRow({
   host = "main",
+  editorChrome = false,
   launchPurpose = "primary",
   paneId,
   isFocused = false,
@@ -1311,7 +1317,7 @@ function ResolvedWorkspaceDesktopTabsRow({
     createNewTab,
   });
 
-  const rail: WorkspaceTabRailSurface = host === "explorer" ? "sidebar" : "surface";
+  const rail = desktopTabRailSurface(host, editorChrome);
   const onSidebar = rail === "sidebar";
 
   const renderTab = useCallback(
@@ -1403,7 +1409,11 @@ function ResolvedWorkspaceDesktopTabsRow({
 
   const row = (
     <View
-      style={[styles.tabsContainer, onSidebar && styles.tabsContainerSidebar]}
+      style={[
+        styles.tabsContainer,
+        onSidebar && styles.tabsContainerSidebar,
+        editorChrome && styles.tabsContainerIntegrated,
+      ]}
       testID="workspace-tabs-row"
       onLayout={handleTabsContainerLayout}
     >
@@ -1646,6 +1656,7 @@ const styles = StyleSheet.create((theme) => ({
   tabsContainerSidebar: {
     backgroundColor: theme.colors.surfaceSidebar,
   },
+  tabsContainerIntegrated: { borderBottomColor: "transparent" },
   tabsScroll: {
     minWidth: 0,
   },

@@ -432,6 +432,7 @@ function SplitNodeView({
   renderMainHeader,
   renderCompactHeader,
 }: SplitNodeViewProps) {
+  const workbenchMode = usePimiWorkbenchMode(`${normalizedServerId}:${normalizedWorkspaceId}`);
   const [groupContainerSize, setGroupContainerSize] = useState(0);
   const groupId = node.kind === "group" ? node.group.id : null;
   const groupDirection = node.kind === "group" ? node.group.direction : null;
@@ -593,6 +594,7 @@ function SplitNodeView({
           !isSplitNodeHiddenForPresentation(child, maximizedPaneId) &&
           !isSplitNodeHiddenForPresentation(node.group.children[index + 1], maximizedPaneId) ? (
             <ResizeHandle
+              subdued={workbenchMode === "editor"}
               testID="workspace-split-resize-handle"
               direction={node.group.direction}
               groupId={node.group.id}
@@ -802,6 +804,7 @@ const SplitPaneView = memo(function SplitPaneView({
             <WindowChromeSafeArea placement="inline" style={styles.paneTabs}>
               <TitlebarDragRegion />
               <WorkspaceDesktopTabsRow
+                editorChrome={workbenchMode === "editor"}
                 paneId={pane.id}
                 isFocused={isFocused && isWorkspaceFocused}
                 tabs={desktopTabRowItems}

@@ -17,6 +17,7 @@ import { IconButtonChromeProvider } from "@/components/ui/icon-button-chrome";
 export { MobileWorkspaceTabSwitcher } from "./tab-switcher";
 
 interface CompactWorkspaceHeaderProps {
+  desktopPane?: boolean;
   serverId: string;
   isLoading: boolean;
   title: string;
@@ -34,6 +35,7 @@ interface CompactWorkspaceHeaderProps {
 
 /** The compact header with the workspace's project row and controls. */
 export function CompactWorkspaceHeader({
+  desktopPane,
   isLoading,
   title,
   subtitle,
@@ -81,10 +83,11 @@ export function CompactWorkspaceHeader({
     <IconButtonChromeProvider value="header-island">
       {headerVariant === "compact" ? (
         <CompactHeader
+          desktopPane={desktopPane}
           navigation="menu"
           title={title}
           titleTestID="workspace-header-title"
-          subtitle={projectRow}
+          subtitle={desktopPane ? undefined : projectRow}
           loading={isLoading}
           actions={actionsInBar ? undefined : actions}
         />
