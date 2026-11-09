@@ -49,6 +49,7 @@ import {
 } from "@/utils/host-routes";
 import { getVoiceReadinessState } from "@/utils/server-info-capabilities";
 import {
+  isExplicitVoiceChatRequest,
   PIMI_VOICE_COMMAND_LIMIT,
   PimiVoiceNavigation,
   type PimiDestination,
@@ -72,6 +73,7 @@ const PHASE_STATUS = {
   processing: "Transcribing…",
   listening: "Listening",
 };
+const WORKING = "Working…";
 
 const VOICE_OFF = { selected: false };
 const VOICE_ON = { selected: true };
@@ -293,9 +295,12 @@ function DesktopVoiceBubble({
         );
         return;
       }
-      const commands = contributions.slice(0, PIMI_VOICE_COMMAND_LIMIT);
+      const wantsChat = isExplicitVoiceChatRequest(transcript);
+      const commands = contributions
+        .filter(({ id }) => wantsChat || !id.endsWith("tab:new-agent"))
+        .slice(0, PIMI_VOICE_COMMAND_LIMIT);
       commandRunning.current = true;
-      listener.setMessage("Working…");
+      listener.setMessage(WORKING);
       void (async () => {
         try {
           const result = await bridge.runCommand({
@@ -305,12 +310,13 @@ function DesktopVoiceBubble({
             commands: commands.map((entry) => commandTitle(entry).slice(0, 160)),
           });
           if (result.destination) host.showPimiWorkspace?.(result.destination);
-          if (result.chat) {
+          if (result.chat && wantsChat) {
             host.dismissPimiWorkspace?.();
             const { serverId, workspaceId, agentId: id } = result.chat;
             navigateToWorkspace({ serverId, workspaceId, target: { kind: "agent", agentId: id } });
           }
-          const target = result.navigation;
+          const target =
+            result.navigation?.action === "new-chat" && !wantsChat ? undefined : result.navigation;
           const navigation =
             target?.action === "registered-commands"
               ? await runRegisteredCommands(target.indexes, commands, () => currentCommands.current)
@@ -355,7 +361,7 @@ function DesktopVoiceBubble({
     [active, bridge, status, visible, workspaceLevel],
   );
   useEffect(() => {
-    if (!message) return;
+    if (!message || message === WORKING) return;
     const timer = window.setTimeout(() => setMessage(""), 6500);
     return () => window.clearTimeout(timer);
   }, [setMessage, message]);

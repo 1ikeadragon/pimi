@@ -1140,6 +1140,18 @@ export async function createPaseoDaemon(
       manager: agentManager,
       providerSnapshotManager,
       readConfig: () => daemonConfigStore.get(),
+      createBackgroundCatalog: (provider) => {
+        const { mcp, providers } = daemonConfigStore.get();
+        return createPaseoToolCatalog({
+          ...createAgentToolHostDependencies({
+            paseoToolPolicy:
+              mcp.enabled && mcp.injectIntoAgents
+                ? resolvePaseoToolPolicy(provider, providers)
+                : { enabled: false },
+          }),
+          voiceCommand: true,
+        });
+      },
       logger,
     }),
   );

@@ -313,10 +313,33 @@ export const PimiVoicePlan = z.strictObject({
         action: z.literal("agent-command"),
         scope: z.enum(["workspace", "host"]),
         trackTasks: z.literal(true).optional(),
+        stage: PimiTaskStage.optional(),
       }),
     ])
     .optional(),
 });
+
+export const PimiVoiceCommandResponse = z.union([
+  PimiVoicePlan,
+  z.strictObject({ message: z.string().min(1).max(1000) }),
+]);
+
+export function voicePlanOpensNewChat(open: z.infer<typeof PimiVoicePlan>["open"]): boolean {
+  return open?.action === "new-chat" || (open?.action === "space-card" && open.intent === "chat");
+}
+
+export function isExplicitVoiceChatRequest(transcript: string): boolean {
+  const chat = "(?:a |another )?(?:new |fresh )?(?:chat|conversation)\\b";
+  const declined = new RegExp(
+    `\\b(?:don.t|do not|never|without)\\s+(?:opening|starting|creating|open|start|create|launch|begin|make)\\s+${chat}`,
+    "i",
+  );
+  if (declined.test(transcript)) return false;
+  return new RegExp(
+    `(?:^|[,;.!?]|\\b(?:and|then|to)\\b)\\s*(?:(?:hey pimi|pimi|ok(?:ay)?|please|can you|could you|would you)[\\s,]+)*(?:open|start|create|launch|begin|make)\\s+(?:me\\s+)?${chat}`,
+    "i",
+  ).test(transcript);
+}
 
 export interface PimiVoiceResult {
   message: string;

@@ -1,6 +1,6 @@
 import { compare, hashSync } from "bcryptjs";
 import { PIMI_LOCAL_PAIRING_ROUTE } from "@pimi/protocol/connection-offer";
-import { PIMI_SPACES_ROUTE } from "@pimi/protocol/pimi-task";
+import { PIMI_SPACES_ROUTE, PIMI_VOICE_COMMAND_ROUTE } from "@pimi/protocol/pimi-task";
 import { timingSafeEqual } from "node:crypto";
 import type { RequestHandler } from "express";
 import { matchesLocalCredential } from "./local-credential.js";
@@ -122,6 +122,7 @@ const SELF_AUTHENTICATING_ROUTES = new Set([
   PIMI_MEMORY_ROUTE,
   PIMI_SPACES_ROUTE,
   PIMI_LOCAL_PAIRING_ROUTE,
+  PIMI_VOICE_COMMAND_ROUTE,
 ]);
 
 function isBearerFreeRoute(path: string): boolean {

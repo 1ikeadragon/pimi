@@ -154,6 +154,8 @@ export interface PaseoToolHostDependencies {
   projectMemory?: ProjectMemory;
   pimiSpaces?: PimiSpaces;
   pimiTaskHome?: string;
+  /** Only the local Ask Pimi runner constructs this catalog. */
+  voiceCommand?: true;
   createDirectoryWorkspace?: (
     cwd: string,
     title?: string | null,
@@ -625,7 +627,10 @@ function resolveTerminalKeyToken({ key, literal, preamble }: TerminalKeyTokenInp
 }
 
 export function createPaseoToolCatalog(options: PaseoToolHostDependencies): PaseoToolCatalog {
-  return createToolCatalog(options, options.callerAgentId ? "agent" : "top-level");
+  return createToolCatalog(
+    options,
+    options.callerAgentId || options.voiceCommand ? "agent" : "top-level",
+  );
 }
 
 export function createPaseoAgentToolManifest(
@@ -644,9 +649,11 @@ function registerSpacesTools(
     handler: (input: Input) => Promise<PaseoToolResult>,
   ) => void,
   resolveCallerAgent: () => { internal?: boolean } | null,
+  voiceCommand?: true,
 ): void {
   if (scope !== "agent" || !spaces) return;
   function requireCaller() {
+    if (voiceCommand) return;
     const caller = resolveCallerAgent();
     if (!caller || caller.internal) {
       throw new PaseoToolInputError("Spaces cards can be opened from a Pimi agent session.");
@@ -1467,6 +1474,7 @@ function createToolCatalog(
       registerTool,
       home: options.pimiTaskHome,
       resolveSource() {
+        if (options.voiceCommand) return undefined;
         const agent = resolveCallerAgent();
         if (!callerAgentId || !options.serverId || !agent || agent.internal || agent.background) {
           throw new PaseoToolInputError("Pimi task tools are available in interactive chats.");
@@ -1542,7 +1550,13 @@ function createToolCatalog(
     );
   }
 
-  registerSpacesTools(scope, options.pimiSpaces, registerTool, resolveCallerAgent);
+  registerSpacesTools(
+    scope,
+    options.pimiSpaces,
+    registerTool,
+    resolveCallerAgent,
+    options.voiceCommand,
+  );
 
   if (scope === "agent" && options.projectMemory) {
     registerProjectMemoryTools({

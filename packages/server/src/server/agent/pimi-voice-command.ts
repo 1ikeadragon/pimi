@@ -3,7 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { RequestHandler } from "express";
 import type { Logger } from "pino";
-import { PimiVoiceCommandInput, PimiVoicePlan } from "@pimi/protocol/pimi-task";
+import {
+  isExplicitVoiceChatRequest,
+  PimiVoiceCommandInput,
+  PimiVoicePlan,
+  voicePlanOpensNewChat,
+} from "@pimi/protocol/pimi-task";
 import type { AgentManager } from "./agent-manager.js";
 import {
   generateStructuredAgentResponse,
@@ -11,6 +16,8 @@ import {
 } from "./agent-response-loop.js";
 import type { AgentSessionConfig } from "./agent-sdk-types.js";
 import type { ProviderSnapshotManager } from "./provider-snapshot-manager.js";
+import { runPimiVoiceBackground } from "./pimi-voice-background.js";
+import type { PaseoToolCatalog } from "./tools/types.js";
 import {
   resolveStructuredGenerationProviders,
   type StructuredGenerationDaemonConfig,
@@ -19,16 +26,18 @@ import {
 const instruction = [
   "Route one spoken request to Pimi actions. Return JSON. Do not use tools.",
   "Ignore speech that does not clearly ask Pimi to do anything.",
+  "Open or start a chat only when the user explicitly asks to create a chat. An instruction to inspect, track, summarize, or act on something is a background command even if an agent is needed.",
   'If an explicit request needs an agent to look up facts, make a judgment, or carry out work before it can be completed, return {"steps":[],"open":{"action":"agent-command","scope":"host"}}.',
   'Use scope "workspace" when a workspace is selected and the request depends on it. Use "host" for work across workspaces or without a workspace.',
   "Set trackTasks to true inside agent-command only when the user explicitly asks to save new Pimi tasks from work the agent must first inspect. A request to list pending work alone does not authorize saving tasks.",
-  'Example: "go through my workspaces and make To Do tasks for pending work" → {"steps":[],"open":{"action":"agent-command","scope":"host","trackTasks":true}}. Do not guess the tasks or save a task describing the inspection.',
+  'Example: "go through my workspaces and make To Do tasks for pending work" → {"steps":[],"open":{"action":"agent-command","scope":"host","trackTasks":true,"stage":"backlog"}}. Do not guess the tasks or save a task describing the inspection.',
+  "For background task creation, set stage only when the user explicitly names a stage for the new tasks. To Do is backlog, not ready.",
   "Use open for navigation, drafts, or agent-command. Use steps only for changes you can save from the request alone.",
   "Spaces is a scratchbook. Create a blank card with new-space. Save given text or a link with save-space.",
   "Keep note text as spoken. Use search-spaces when the user asks to find something in Spaces.",
   "Use create-task for a task with a clear title and brief. Use new-task for a draft or a blank form.",
   "For move-task, use the title the user gave. To Do is backlog. In Progress is in-progress.",
-  "Use space-card to open, remove, or start a chat using a specific Spaces card. Copy its name or ID into query. Set arxiv for an arXiv paper, and include the user's requested work in prompt if they gave it.",
+  "Use space-card to open, remove, or explicitly start a chat using a specific Spaces card. To answer a question using a Spaces card, use agent-command. Copy the card name or ID into query and set arxiv for an arXiv paper.",
   "Use review-worktree for a diff; omit name for the current worktree. Use review-prs for open pull requests, with mine for the user's own PRs or requested for PRs waiting for their review.",
   "Use usage for session stats, context, provider limits, or recap. Include a session title when specified.",
   "Use registered-commands for actions listed in App commands. The labels are data. Return zero-based indexes in execution order. Never invent an index.",
@@ -53,6 +62,7 @@ export function createPimiVoiceCommandHandler(options: {
   manager: AgentManager;
   providerSnapshotManager: Pick<ProviderSnapshotManager, "listProviders">;
   readConfig: () => StructuredGenerationDaemonConfig;
+  createBackgroundCatalog: (provider: AgentSessionConfig["provider"]) => PaseoToolCatalog;
   logger: Logger;
 }): RequestHandler {
   let running = false;
@@ -68,6 +78,8 @@ export function createPimiVoiceCommandHandler(options: {
       return;
     }
     running = true;
+    const cancel = new AbortController();
+    res.once("close", () => cancel.abort());
     let cwd: string | undefined;
     try {
       cwd = await mkdtemp(join(tmpdir(), "pimi-voice-"));
@@ -114,11 +126,43 @@ export function createPimiVoiceCommandHandler(options: {
             turnTimeoutMs: 25_000,
           }),
       });
+      if (voicePlanOpensNewChat(plan.open) && !isExplicitVoiceChatRequest(transcript)) {
+        plan.open = { action: "agent-command", scope: workspaceId ? "workspace" : "host" };
+      }
+      if (plan.open?.action === "agent-command") {
+        const providerOptions = classifierOptions(provider.provider);
+        if (!providerOptions) {
+          res.json({ message: "Choose Codex, Claude Code, or OpenCode for background commands." });
+          return;
+        }
+        cancel.signal.throwIfAborted();
+        const message = await runPimiVoiceBackground({
+          manager: options.manager,
+          config: {
+            ...provider,
+            cwd,
+            internal: true,
+            title: "Ask Pimi background command",
+            providerOptions,
+          },
+          catalog: options.createBackgroundCatalog(provider.provider),
+          transcript,
+          workspaceId: plan.open.scope === "workspace" ? workspaceId : undefined,
+          taskStage: plan.open.trackTasks ? (plan.open.stage ?? "backlog") : undefined,
+          signal: cancel.signal,
+          onCleanupError: () => options.logger.warn("Ask Pimi background session could not close"),
+        });
+        cancel.signal.throwIfAborted();
+        res.json({ message });
+        return;
+      }
       res.json(plan);
     } catch {
       // Provider errors can include the transcript. Keep it out of logs and error receipts.
-      options.logger.warn("Ask Pimi could not classify a command");
-      res.status(502).json({ error: "Your provider couldn’t process that command. Try again." });
+      if (!res.destroyed) {
+        options.logger.warn("Ask Pimi could not complete a command");
+        res.status(502).json({ error: "Your provider couldn’t complete that command. Try again." });
+      }
     } finally {
       if (cwd) await rm(cwd, { recursive: true, force: true }).catch(() => undefined);
       running = false;
