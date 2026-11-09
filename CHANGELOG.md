@@ -2,6 +2,12 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.8 - 2026-11-09
+
+- Switch projects or add a local folder from the IDE title bar. Explorer, editor tabs, and chat line up in a single row with softer dividers.
+- Search worktree code from Command Center and jump straight to the matching line. Agents can search the same local index.
+- Review history restores the pull request, selected file, and diff position. Back from Review returns to your IDE without a stop on an unrelated view.
+
 ## 0.17.7 - 2026-11-09
 
 - Switch between Agent Mode and IDE Mode from the desktop title bar. Edit files with Explorer and chat beside your code.
