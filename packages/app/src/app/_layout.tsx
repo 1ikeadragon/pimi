@@ -475,9 +475,12 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
     isWorkspaceRoute,
     pathname,
   });
+  const ideProjects = pimiSidebar?.ide ? pimiSidebar : undefined;
   const sidebarChrome = (
     <SidebarChrome
-      mounted={isCompactLayout ? chromeEnabled : desktopSidebarMounted}
+      mounted={
+        isCompactLayout ? chromeEnabled : desktopSidebarMounted && ideProjects?.mode !== "rail"
+      }
       presentation={sidebarPresentation}
       keyboardShortcutsEnabled={keyboardShortcutsEnabled}
       pimiSidebar={pimiSidebar}
@@ -508,7 +511,11 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
               : appChromeLayout.contentCorners
           }
         >
-          <PimiConsoleContent sidebar={sidebarOccupiesColumn} pathname={pathname}>
+          <PimiConsoleContent
+            sidebar={sidebarOccupiesColumn}
+            pathname={pathname}
+            projects={ideProjects}
+          >
             {children}
           </PimiConsoleContent>
         </WindowChromeRegion>
@@ -647,15 +654,15 @@ function useAppSidebarLayout({
     pathname,
     ide,
   );
-  const sidebarOccupiesColumn = desktopSidebarVisible || pimiSidebar !== undefined;
-  const sidebarPresentation = pimiSidebar
-    ? "dock"
-    : resolveLeftSidebarPresentation({
-        chromeEnabled,
-        isCompactLayout,
-        isFocusModeEnabled: isWorkspaceFocusModeEnabled,
-        desktopSidebarVisible,
-      });
+  const ideProjectsClosed = pimiSidebar?.ide === true && pimiSidebar.mode === "rail";
+  const sidebarOccupiesColumn =
+    !ideProjectsClosed && (desktopSidebarVisible || pimiSidebar !== undefined);
+  const sidebarPresentation = resolveLeftSidebarPresentation({
+    chromeEnabled,
+    isCompactLayout,
+    isFocusModeEnabled: isWorkspaceFocusModeEnabled || ideProjectsClosed,
+    desktopSidebarVisible: sidebarOccupiesColumn,
+  });
   const applyPanelLayout = usePanelStore((state) => state.applyPanelLayout);
   // Publishes the layout to the store, which owns the panel targets each layout allows.
   useLayoutEffect(() => {
