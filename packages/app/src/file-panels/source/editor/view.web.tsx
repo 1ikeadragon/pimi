@@ -1,4 +1,22 @@
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { View } from "react-native";
+import { StyleSheet } from "react-native-unistyles";
+import { MessageSquarePlus } from "lucide-react-native";
+import { Button } from "@/components/ui/button";
+import { AnnotationSheet } from "@/annotations/sheet";
+import {
+  addAnnotationToChat,
+  useFileAnnotationTarget,
+  type AnnotationTarget,
+} from "@/annotations/target";
+import type { AnnotationCapture } from "@/annotations/model";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { FileFind, FileFindModel } from "../find/index.web";
 import { Annotation, Compartment, EditorState, Transaction } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
@@ -54,6 +72,25 @@ export function FileEditorView({
   onReady,
 }: FileEditorViewProps) {
   const { serverId, workspaceId, tabId } = usePaneContext();
+  const annotationTarget = useFileAnnotationTarget(serverId, workspaceId);
+  const [selectedCapture, setSelectedCapture] = useState<AnnotationCapture | null>(null);
+  const [annotationDraft, setAnnotationDraft] = useState<{
+    capture: AnnotationCapture;
+    target: AnnotationTarget;
+  } | null>(null);
+  const handleAnnotate = useCallback(() => {
+    if (selectedCapture && annotationTarget) {
+      setAnnotationDraft({ capture: selectedCapture, target: annotationTarget });
+    }
+  }, [selectedCapture, annotationTarget]);
+  const handleCloseAnnotation = useCallback(() => setAnnotationDraft(null), []);
+  const handleSaveAnnotation = useCallback(
+    async (note: string) => {
+      if (!annotationDraft) throw new Error("The annotation is no longer available.");
+      await addAnnotationToChat(annotationDraft.target, annotationDraft.capture, note);
+    },
+    [annotationDraft],
+  );
   const retentionKey = JSON.stringify([serverId, workspaceId, tabId, filename]);
   const navigation = JSON.stringify([location.lineStart, location.lineEnd, navigationRevision]);
   const appliedNavigation = useRef<string | null>(null);
@@ -77,6 +114,31 @@ export function FileEditorView({
   useLayoutEffect(() => {
     if (!hostRef.current) return;
     const values = initial.current;
+    function reportSelection(state: EditorState) {
+      const head = state.selection.main.head;
+      const line = state.doc.lineAt(head);
+      onCursorChangeRef.current({ line: line.number, column: head - line.from + 1 });
+      const { from, to } = state.selection.main;
+      const first = state.doc.lineAt(from);
+      const last = state.doc.lineAt(to);
+      setSelectedCapture(
+        from === to || state.selection.ranges.length !== 1
+          ? null
+          : {
+              source: {
+                kind: "file",
+                serverId,
+                workspaceId,
+                path: values.filename,
+                startLine: first.number,
+                startColumn: from - first.from + 1,
+                endLine: last.number,
+                endColumn: to - last.from + 1,
+              },
+              quote: state.doc.sliceString(from, to, values.model.getSnapshot().lineSeparator),
+            },
+      );
+    }
     const extensions = [
       vimCompartment.of(values.vimEnabled ? vim() : []),
       find.extension,
@@ -90,9 +152,7 @@ export function FileEditorView({
           values.model.edit(update.state.doc.sliceString(0, undefined, lineSeparator));
         }
         if (update.selectionSet || update.docChanged) {
-          const head = update.state.selection.main.head;
-          const line = update.state.doc.lineAt(head);
-          onCursorChangeRef.current({ line: line.number, column: head - line.from + 1 });
+          reportSelection(update.state);
         }
       }),
     ];
@@ -109,9 +169,7 @@ export function FileEditorView({
       scrollTo: restored?.scroll,
     });
     viewRef.current = view;
-    const head = view.state.selection.main.head;
-    const line = view.state.doc.lineAt(head);
-    onCursorChangeRef.current({ line: line.number, column: head - line.from + 1 });
+    reportSelection(view.state);
     values.onReady();
     return () => {
       const saved = values.model.getSnapshot();
@@ -124,7 +182,7 @@ export function FileEditorView({
       view.destroy();
       viewRef.current = null;
     };
-  }, [find, model, retentionKey]);
+  }, [find, model, retentionKey, serverId, workspaceId]);
 
   useEffect(() => {
     const view = viewRef.current;
@@ -201,9 +259,42 @@ export function FileEditorView({
         style={HOST_STYLE}
       />
       <FileFind model={find} editor={viewRef} />
+      {selectedCapture && annotationTarget ? (
+        <View style={annotationStyles.action}>
+          <Button
+            leftIcon={MessageSquarePlus}
+            accessibilityLabel="Annotate selected code"
+            testID="annotate-editor-selection"
+            onPress={handleAnnotate}
+          >
+            Annotate
+          </Button>
+        </View>
+      ) : null}
+      {annotationDraft ? (
+        <AnnotationSheet
+          capture={annotationDraft.capture}
+          canSave={annotationTarget?.draftKey === annotationDraft.target.draftKey}
+          onClose={handleCloseAnnotation}
+          onSave={handleSaveAnnotation}
+        />
+      ) : null}
     </div>
   );
 }
+
+const annotationStyles = StyleSheet.create((theme) => ({
+  action: {
+    position: "absolute",
+    right: theme.spacing[3],
+    top: theme.spacing[3],
+    backgroundColor: theme.colors.surface0,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: theme.spacing[1],
+  },
+}));
 
 const remoteUpdate = Annotation.define<boolean>();
 const FRAME_STYLE = {

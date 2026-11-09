@@ -1,3 +1,4 @@
+import { annotationToAgentAttachment } from "@/annotations/model";
 import type { ComposerAttachment } from "@/attachments/types";
 import type { ImageAttachment } from "@/composer/types";
 import {
@@ -45,6 +46,11 @@ export function splitComposerAttachmentsForSubmit(
       : buildForgeAttachmentFromSearchItem;
 
   for (const attachment of attachments) {
+    if (attachment.kind === "annotation") {
+      agentAttachments.push(annotationToAgentAttachment(attachment));
+      continue;
+    }
+
     if (attachment.kind === "image") {
       images.push(attachment.metadata);
       continue;

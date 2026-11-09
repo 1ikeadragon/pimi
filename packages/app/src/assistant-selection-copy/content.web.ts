@@ -92,6 +92,7 @@ turndown.addRule("compactListItem", {
 
 export function createAssistantSelectionClipboardContent(
   selection: Selection | null,
+  options: { preserveSelectedCodeWhitespace?: boolean } = {},
 ): MarkdownClipboardContent | null {
   if (!selection || selection.rangeCount !== 1 || selection.isCollapsed) {
     return null;
@@ -104,7 +105,11 @@ export function createAssistantSelectionClipboardContent(
   }
 
   if (parts.length === 1) {
-    const partialCode = createPartialCodeContent(range, parts[0]!.message);
+    const partialCode = createPartialCodeContent(
+      range,
+      parts[0]!.message,
+      options.preserveSelectedCodeWhitespace ?? false,
+    );
     if (partialCode) {
       return partialCode;
     }
@@ -165,13 +170,17 @@ function startAfterImageFrame(range: Range): Range {
  * a drag that starts or ends in the gap beside a block anchors at the edge of the
  * neighbouring block, which selects nothing there.
  */
-function createPartialCodeContent(range: Range, message: Element): MarkdownClipboardContent | null {
+function createPartialCodeContent(
+  range: Range,
+  message: Element,
+  preserveWhitespace: boolean,
+): MarkdownClipboardContent | null {
   const region = selectedCodeRegion(range, message);
   if (!region) {
     return null;
   }
 
-  const code = selectedCodeText(range);
+  const code = selectedCodeText(range, preserveWhitespace);
   if (!code) {
     return null;
   }
@@ -214,7 +223,7 @@ function closestCodeRegion(node: Node, message: Element): Element | null {
   return element?.closest(`[${MARKDOWN_COPY_IGNORE_ATTRIBUTE}]`) ? null : region;
 }
 
-function selectedCodeText(range: Range): string {
+function selectedCodeText(range: Range, preserveWhitespace: boolean): string {
   const fragment = range.cloneContents();
   // The hover Copy button lives inside the `pre`, so a selection that reaches the
   // end of the block sweeps it up too.
@@ -224,7 +233,9 @@ function selectedCodeText(range: Range): string {
   // Deliberately untrimmed — leading indentation is part of the code. Trailing line
   // breaks are the exception: newlines are their own text nodes between rendered
   // lines, so a selection that overshoots the end of a line sweeps one in.
-  return (fragment.textContent ?? "").replace(TRAILING_CODE_LINE_BREAKS, "");
+  const text = fragment.textContent ?? "";
+  // An annotation is a source snapshot, so it retains even a selected terminal newline.
+  return preserveWhitespace ? text : text.replace(TRAILING_CODE_LINE_BREAKS, "");
 }
 
 function flattenClipboardListMarkup(html: string): string {

@@ -1,3 +1,4 @@
+import type { AnnotationAttachment } from "@/annotations/model";
 import type {
   AgentAttachment,
   ForgeSearchItem,
@@ -107,6 +108,7 @@ export interface WorkspaceFileComposerAttachment {
 }
 
 export type UserComposerAttachment =
+  | AnnotationAttachment
   | { kind: "image"; metadata: AttachmentMetadata }
   | { kind: "file"; attachment: UploadedFileAttachment }
   | WorkspaceFileComposerAttachment

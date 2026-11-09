@@ -1,3 +1,4 @@
+import { AnnotationAttachmentSchema } from "@/annotations/model";
 import {
   NEW_WORKSPACE_PICKER_ATTACHMENT_OWNER,
   type AttachmentMetadata,
@@ -112,6 +113,7 @@ export const UserComposerAttachmentSchema: z.ZodType<UserComposerAttachment> = z
     z.strictObject({ kind: z.literal("forge_change_request"), item: ChangeRequestItemSchema }),
     z.strictObject({ kind: z.literal("github_issue"), item: IssueItemSchema }),
     PluginResourceComposerAttachmentSchema,
+    AnnotationAttachmentSchema,
     z.strictObject({
       kind: z.literal("github_pr"),
       item: ChangeRequestItemSchema,

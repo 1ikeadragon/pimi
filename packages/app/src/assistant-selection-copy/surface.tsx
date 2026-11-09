@@ -3,6 +3,7 @@ import { View, type StyleProp, type ViewStyle } from "react-native";
 
 interface AssistantSelectionCopySurfaceProps {
   children: ReactNode;
+  annotationTarget?: { serverId: string; agentId: string };
   style?: StyleProp<ViewStyle>;
 }
 

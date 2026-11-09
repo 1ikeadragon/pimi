@@ -1,3 +1,4 @@
+import { AnnotationPill } from "@/annotations/pill";
 import {
   useComposerEditingSession,
   useComposerFullscreen,
@@ -447,6 +448,17 @@ interface RenderComposerAttachmentPillArgs {
 
 function renderComposerAttachmentPill(args: RenderComposerAttachmentPillArgs): ReactElement {
   const { attachment, index, disabled, onOpen, onRemove, labels } = args;
+  if (attachment.kind === "annotation") {
+    return (
+      <AnnotationPill
+        key={attachment.id}
+        attachment={attachment}
+        disabled={disabled}
+        index={index}
+        onRemove={onRemove}
+      />
+    );
+  }
   if (attachment.kind === "image") {
     return (
       <ImageAttachmentPill

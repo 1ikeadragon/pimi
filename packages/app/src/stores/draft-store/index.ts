@@ -1,3 +1,4 @@
+import type { AnnotationAttachment } from "@/annotations/model";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -49,6 +50,10 @@ interface DraftStoreActions {
     draftKey: string;
     lifecycle?: Exclude<DraftLifecycleState, "active">;
   }) => void;
+  attachAnnotation: (input: {
+    draftKey: string;
+    attachment: AnnotationAttachment;
+  }) => Promise<void>;
   attachWorkspaceFile: (input: {
     draftKey: string;
     attachment: WorkspaceFileComposerAttachment;
@@ -372,6 +377,34 @@ export const useDraftStore = create<DraftStore>()(
         });
 
         scheduleAttachmentGc();
+      },
+
+      attachAnnotation: async ({ draftKey, attachment }) => {
+        await get().hydrateDraftInput({ draftKey });
+        set((state) => {
+          const existing = state.drafts[draftKey];
+          const draft = toDraftInputIfReady(existing) ?? {
+            text: "",
+            attachments: [],
+          };
+          return {
+            drafts: {
+              ...state.drafts,
+              [draftKey]: createDraftRecord({
+                draft: {
+                  ...draft,
+                  attachments: [...draft.attachments, attachment],
+                },
+                lifecycle: "active",
+                previousVersion: existing?.version,
+              }),
+            },
+            attachmentFocusRequestByDraftKey: {
+              ...state.attachmentFocusRequestByDraftKey,
+              [draftKey]: (state.attachmentFocusRequestByDraftKey[draftKey] ?? 0) + 1,
+            },
+          };
+        });
       },
 
       attachWorkspaceFile: async ({ draftKey, attachment }) => {

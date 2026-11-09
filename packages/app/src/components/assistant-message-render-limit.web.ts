@@ -1,6 +1,8 @@
+import { ASSISTANT_MESSAGE_RENDER_CHARACTER_LIMIT } from "./assistant-message-render-limit.shared";
 import type { CappedAssistantMessage } from "./assistant-message-render-limit.shared";
 export {
   getUtf8ByteLength,
+  ASSISTANT_MESSAGE_RENDER_CHARACTER_LIMIT,
   type CappedAssistantMessage,
 } from "./assistant-message-render-limit.shared";
 
@@ -8,8 +10,6 @@ const graphemeSegmenter =
   typeof Intl.Segmenter === "function"
     ? new Intl.Segmenter(undefined, { granularity: "grapheme" })
     : null;
-
-export const ASSISTANT_MESSAGE_RENDER_CHARACTER_LIMIT = 32_000;
 
 export function capAssistantMessageForRender(message: string): CappedAssistantMessage {
   if (message.length <= ASSISTANT_MESSAGE_RENDER_CHARACTER_LIMIT) {
