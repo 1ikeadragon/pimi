@@ -2,6 +2,13 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.7 - 2026-11-09
+
+- Switch between Agent Mode and IDE Mode from the desktop title bar. Edit files with Explorer and chat beside your code.
+- Open a file’s split or unified diff in the editor and see Git blame for the current line.
+- Switching modes keeps your tabs, chat drafts, and recent editor undo history. Save pending edits before switching.
+- Added two default skills for narrowing a request and verifying the real app flow before shipping.
+
 ## 0.17.6 - 2026-11-09
 
 - Review opens to a pull request inbox. Filter by review requests or your own open PRs, then switch between the PR overview and its diff. Worktree review has its own tab.
