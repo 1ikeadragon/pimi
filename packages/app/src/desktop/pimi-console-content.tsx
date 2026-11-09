@@ -9,8 +9,10 @@ import {
   type ReactNode,
 } from "react";
 import type { PimiWorkspaceSection } from "@pimi/protocol/pimi-task";
-import { View } from "react-native";
-import { CodeXml, MessageSquare } from "lucide-react-native";
+import { Text, View } from "react-native";
+import { CodeXml, FolderOpen, MessageSquare } from "lucide-react-native";
+import type { PimiSidebarControls } from "@/components/sidebar/pimi-workspace-navigation";
+import { DensityIcon } from "@/components/ui/density-icon";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
 import { ToolbarButton, paneContentToolbarIconSize } from "@/components/ui/pane-content-toolbar";
 import { extraMutedIconColorMapping } from "@/components/ui/icon-button-chrome";
@@ -36,6 +38,7 @@ import { usePimiWorkbench } from "./use-pimi-workbench";
 export const PIMI_CONSOLE_CONTENT_ID = "pimi-console-content";
 const fill = { flex: 1 } as const;
 const PIMI_GLASS = { "pimi-glass": "" };
+type ProjectPickerControls = Pick<PimiSidebarControls, "mode" | "openPeek" | "closePeek">;
 const SLOT_STYLE = { flex: 1, minWidth: 0, height: "100%", display: "flex" } as const;
 const SECTION_TITLES: Record<PimiWorkspaceSection, string> = {
   tasks: "Tasks",
@@ -132,12 +135,15 @@ function PimiTitlebar({
   section,
   padding,
   slotRef,
+  projects,
 }: {
   pathname: string;
   section: PimiWorkspaceSection | null;
   padding: number;
   slotRef: (element: HTMLDivElement | null) => void;
+  projects?: ProjectPickerControls;
 }) {
+  const projectsOpen = projects?.mode === "peek";
   return (
     <View
       style={[styles.historyBar, { paddingLeft: padding }]}
@@ -146,6 +152,19 @@ function PimiTitlebar({
     >
       <TitlebarDragRegion />
       <PimiNavigationHistory pathname={pathname} section={section} />
+      {projects ? (
+        <ToolbarButton
+          testID="pimi-ide-projects"
+          label="Projects"
+          aria-expanded={projectsOpen}
+          selected={projectsOpen}
+          onPress={projectsOpen ? projects.closePeek : projects.openPeek}
+          style={styles.projectsButton}
+        >
+          <DensityIcon icon={FolderOpen} size="sm" color="foregroundMuted" />
+          <Text style={styles.projectsLabel}>Projects</Text>
+        </ToolbarButton>
+      ) : null}
       {section ? (
         <ScreenTitle testID="pimi-view-title">{SECTION_TITLES[section]}</ScreenTitle>
       ) : null}
@@ -159,10 +178,12 @@ export function PimiConsoleContent({
   children,
   sidebar,
   pathname,
+  projects,
 }: {
   children: ReactNode;
   sidebar: boolean;
   pathname: string;
+  projects?: ProjectPickerControls;
 }) {
   usePimiReportLinks();
   const host = getDesktopHost();
@@ -239,6 +260,7 @@ export function PimiConsoleContent({
           section={section}
           padding={historyPadding}
           slotRef={setTitlebarSlot}
+          projects={projects}
         />
       ) : null}
       <WindowChromeRegion
@@ -257,6 +279,13 @@ export function PimiConsoleContent({
 }
 
 const styles = StyleSheet.create((theme) => ({
+  projectsButton: {
+    width: "auto",
+    flexDirection: "row",
+    paddingHorizontal: theme.spacing[2],
+    gap: theme.spacing[1],
+  },
+  projectsLabel: { color: theme.colors.foreground, fontSize: theme.fontSize.sm },
   workbenchActions: { flexDirection: "row", alignItems: "center", gap: theme.spacing[2] },
   historyBar: {
     position: "relative",

@@ -7,7 +7,6 @@ import {
   CircleGauge,
   Columns3,
   FileDiff,
-  FolderPlus,
   LayoutGrid,
   ListTodo,
   MessageSquare,
@@ -59,7 +58,6 @@ const NO_SHORTCUT: [] = [];
 const SELECTED = { selected: true } as const;
 const SidebarPimiMark = withUnistyles(PimiMark, (theme) => ({ color: theme.colors.foreground }));
 export const PIMI_NAV_RAIL_WIDTH = 52;
-export const PIMI_IDE_NAV_RAIL_WIDTH = 84;
 const useWorkspaceActivity = create<Record<PimiActivitySection, boolean>>(() => ({
   tasks: false,
   board: false,
@@ -74,7 +72,6 @@ function SidebarIcon({
   unread = false,
   testID,
   tooltipContent,
-  visibleLabel,
 }: {
   icon: SidebarRowIcon;
   label: string;
@@ -83,7 +80,6 @@ function SidebarIcon({
   unread?: boolean;
   testID?: string;
   tooltipContent?: ReactNode;
-  visibleLabel?: string;
 }) {
   return (
     <HeaderToggleButton
@@ -95,15 +91,10 @@ function SidebarIcon({
       accessibilityRole="button"
       accessibilityLabel={unread ? `${label}, new activity` : label}
       accessibilityState={active ? SELECTED : undefined}
-      style={[
-        styles.railButton,
-        visibleLabel && styles.labeledRailButton,
-        active && styles.railButtonSelected,
-      ]}
+      style={[styles.railButton, active && styles.railButtonSelected]}
       testID={testID}
     >
       <DensityIcon icon={icon} size="sm" color={active ? "foreground" : "foregroundMuted"} />
-      {visibleLabel ? <Text style={styles.railButtonLabel}>{visibleLabel}</Text> : null}
       {unread ? <View style={[styles.activityDot, styles.railActivityDot]} /> : null}
     </HeaderToggleButton>
   );
@@ -123,15 +114,15 @@ function usePimiSidebarActivity(section: ReturnType<typeof usePimiWorkspaceSecti
   return activity;
 }
 
-function IdeSidebarNavigation() {
+function IdeSidebarNavigation({ close }: { close: () => void }) {
   const section = usePimiWorkspaceSection();
   const activity = usePimiSidebarActivity(section);
-  const openReview = useCallback(
-    () => getDesktopHost()?.showPimiWorkspace?.({ view: "review-home" }),
-    [],
-  );
+  const openReview = useCallback(() => {
+    close();
+    getDesktopHost()?.showPimiWorkspace?.({ view: "review-home" });
+  }, [close]);
   return (
-    <View style={styles.railDestinations}>
+    <>
       <SidebarIcon icon={LayoutGrid} label="Agent Grid" onPress={openPimiAgentGrid} />
       <SidebarIcon
         icon={FileDiff}
@@ -140,18 +131,16 @@ function IdeSidebarNavigation() {
         active={section === "review"}
         unread={activity.review && section !== "review"}
       />
-    </View>
+    </>
   );
 }
 
 export function PimiSidebarRail({
   controls,
   onSettings,
-  onAddProject,
 }: {
   controls: PimiSidebarControls;
   onSettings: () => void;
-  onAddProject: () => void;
 }) {
   const { t } = useTranslation();
   const macTitlebar = usesPimiMacTitlebar();
@@ -160,39 +149,21 @@ export function PimiSidebarRail({
       <View style={styles.railChrome}>
         <TitlebarDragRegion />
       </View>
-      <View
-        style={[
-          styles.railCard,
-          controls.ide && styles.ideRailCard,
-          macTitlebar && styles.pimiMacRail,
-        ]}
-      >
+      <View style={[styles.railCard, macTitlebar && styles.pimiMacRail]}>
         <SidebarIcon
           icon={PanelLeftOpen}
-          label={controls.ide ? "Projects" : t("sidebar.actions.peekSidebar")}
-          visibleLabel={controls.ide ? "Projects" : undefined}
+          label={t("sidebar.actions.peekSidebar")}
           onPress={controls.openPeek}
           testID="pimi-sidebar-peek"
         />
-        {controls.ide ? (
-          <SidebarIcon
-            icon={FolderPlus}
-            label={t("sidebar.actions.addProject")}
-            visibleLabel="Add folder"
-            onPress={onAddProject}
-            testID="pimi-ide-add-project"
-          />
-        ) : null}
         <ScrollView
           style={styles.railScroll}
           contentContainerStyle={styles.railScrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {controls.ide ? <IdeSidebarNavigation /> : <PimiWorkspaceNavigation rail />}
+          <PimiWorkspaceNavigation rail />
         </ScrollView>
-        {!controls.ide ? (
-          <SidebarIcon icon={Pin} label={t("sidebar.actions.pinSidebar")} onPress={controls.pin} />
-        ) : null}
+        <SidebarIcon icon={Pin} label={t("sidebar.actions.pinSidebar")} onPress={controls.pin} />
         <SidebarIcon icon={Settings} label={t("sidebar.actions.settings")} onPress={onSettings} />
       </View>
     </View>
@@ -203,9 +174,11 @@ export function PimiSidebarPeekActions({ controls }: { controls: PimiSidebarCont
   const { t } = useTranslation();
   return (
     <View style={styles.peekActions}>
-      {!controls.ide ? (
+      {controls.ide ? (
+        <IdeSidebarNavigation close={controls.closePeek} />
+      ) : (
         <SidebarIcon icon={Pin} label={t("sidebar.actions.pinSidebar")} onPress={controls.pin} />
-      ) : null}
+      )}
       <SidebarIcon
         icon={X}
         label={t("sidebar.actions.closeSidebar")}
@@ -466,7 +439,6 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: 0,
     borderWidth: 0,
   },
-  ideRailCard: { width: PIMI_IDE_NAV_RAIL_WIDTH - 10 },
   railDestinations: {
     gap: 4,
     alignItems: "center",
@@ -476,17 +448,6 @@ const styles = StyleSheet.create((theme) => ({
   },
   railButton: {
     borderRadius: 8,
-  },
-  labeledRailButton: {
-    width: PIMI_IDE_NAV_RAIL_WIDTH - 12,
-    height: "auto",
-    minHeight: 48,
-    gap: theme.spacing[1],
-    paddingVertical: theme.spacing[2],
-  },
-  railButtonLabel: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.sm,
   },
   railButtonSelected: {
     backgroundColor: theme.colors.surfaceSidebarSelected,
