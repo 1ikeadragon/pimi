@@ -17,7 +17,7 @@ import {
   type SetStateAction,
 } from "react";
 import { useStableEvent } from "@/hooks/use-stable-event";
-import { Text, View, type LayoutChangeEvent } from "react-native";
+import { View, type LayoutChangeEvent } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -25,6 +25,10 @@ import Animated, {
 } from "react-native-reanimated";
 import { StyleSheet } from "react-native-unistyles";
 import { ResizeHandle } from "@/components/resize-handle";
+import { Button } from "@/components/ui/button";
+import { Shortcut } from "@/components/ui/shortcut";
+import { useShortcutKeys } from "@/hooks/use-shortcut-keys";
+import { useKeyboardShortcutsStore } from "@/stores/keyboard-shortcuts-store";
 import { RetainedPanel } from "@/components/retained-panel";
 import {
   hasMultipleVisiblePanes,
@@ -837,11 +841,7 @@ const SplitPaneView = memo(function SplitPaneView({
         </AdaptiveWorkspaceChrome>
 
         <View style={styles.paneContent}>
-          {emptyEditor ? (
-            <View style={styles.emptyEditor}>
-              <Text style={styles.emptyEditorText}>Choose a file from Explorer.</Text>
-            </View>
-          ) : null}
+          {emptyEditor ? <EmptyEditorAction /> : null}
           <WorkspacePanelHost
             paneId={pane.id}
             tabs={paneTabs}
@@ -865,6 +865,22 @@ function getNodeKey(node: SplitNode): string {
     return node.pane.id;
   }
   return node.group.id;
+}
+
+function EmptyEditorAction() {
+  const keys = useShortcutKeys("command-center.files");
+  const openFiles = useCallback(
+    () => useKeyboardShortcutsStore.getState().setCommandCenterOpen(true, "files"),
+    [],
+  );
+  const shortcut = useMemo(() => (keys ? <Shortcut chord={keys} /> : null), [keys]);
+  return (
+    <View style={styles.emptyEditor} pointerEvents="box-none">
+      <Button variant="ghost" testID="pimi-ide-open-file" onPress={openFiles} trailing={shortcut}>
+        Open file
+      </Button>
+    </View>
+  );
 }
 
 function wrapRootPaneForStableMount(node: SplitNode): SplitNode {
@@ -951,7 +967,6 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     justifyContent: "center",
   },
-  emptyEditorText: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm },
   pane: {
     position: "relative",
     flex: 1,

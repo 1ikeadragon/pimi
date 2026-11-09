@@ -26,11 +26,13 @@ export function FileLineBlame({
   content,
   status,
   line,
+  inline = false,
 }: {
   path: string;
   content: string;
   status: FileEditorStatus;
   line: number;
+  inline?: boolean;
 }) {
   const { serverId, workspaceId } = usePaneContext();
   const { isWorkspaceFocused } = usePaneFocus();
@@ -97,7 +99,7 @@ export function FileLineBlame({
   const result = answer?.query === query ? answer.result : null;
   const label = blameLabel(status, Boolean(client && cwd), result);
   return (
-    <View style={styles.footer} testID="file-editor-blame">
+    <View style={[styles.row, !inline && styles.footer]} testID="file-editor-blame">
       <Text style={styles.text} numberOfLines={1} accessibilityLabel={label}>
         {label}
       </Text>
@@ -116,10 +118,14 @@ export function FileLineBlame({
 }
 
 const styles = StyleSheet.create((theme) => ({
-  footer: {
+  row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    flexShrink: 1,
+    minWidth: 0,
+    gap: theme.spacing[2],
+  },
+  footer: {
     minHeight: 25,
     paddingHorizontal: 12,
     borderTopWidth: 1,

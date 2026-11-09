@@ -36,8 +36,16 @@ function paneWithTabs(pane: SplitPane, tabs: WorkspaceTab[], focusedTabId = pane
   };
 }
 
-function paneNode(id: string, tabs: WorkspaceTab[], focus?: string | null): SplitNode {
-  return { kind: "pane", pane: paneWithTabs({ id, tabIds: [], focusedTabId: null }, tabs, focus) };
+function paneNode(
+  id: string,
+  tabs: WorkspaceTab[],
+  focus?: string | null,
+  hidden?: boolean,
+): SplitNode {
+  return {
+    kind: "pane",
+    pane: paneWithTabs({ id, tabIds: [], focusedTabId: null, hidden }, tabs, focus),
+  };
 }
 
 export function isWorkbenchChatTarget(target: WorkspaceTab["target"]) {
@@ -80,6 +88,7 @@ export function createEditorWorkbench(
   );
   const focused = findPaneById(current.layout.root, current.layout.focusedPaneId)?.focusedTabId;
   const chats = all.filter(isChat);
+  const emptyChat = chats.length === 0;
   const chatLauncher = chats.length ? undefined : all.find((tab) => tab.target.kind === "new_tab");
   if (chats.length === 0) chats.push(chatLauncher ?? createNewWorkspaceTab());
   const visibleTabs = new Set(
@@ -115,8 +124,8 @@ export function createEditorWorkbench(
     group: {
       id: ids.createNodeId("group"),
       direction: "horizontal",
-      children: [center, paneNode(sidePaneId, chats, focusedChat?.tabId)],
-      sizes: [0.66, 0.34],
+      children: [center, paneNode(sidePaneId, chats, focusedChat?.tabId, emptyChat || undefined)],
+      sizes: [0.72, 0.28],
     },
   };
   return {
@@ -146,7 +155,7 @@ export function restoreWorkbench(
 ): WorkbenchPreset {
   const tabs = collectAllTabs(live.root);
   const byId = new Map(tabs.map((tab) => [tab.tabId, tab]));
-  const panes = collectAllPanes(template.layout.root);
+  const panes = collectAllPanes(template.layout.root, true);
   const placed = new Set(panes.flatMap((pane) => pane.tabIds));
   const explorerPaneId = panes.find((pane) => pane.id === template.explorerPaneId)?.id ?? null;
   const sidePaneId = panes.find((pane) => pane.id === template.sidePaneId)?.id ?? null;
@@ -174,9 +183,14 @@ export function restoreWorkbench(
       const tab = byId.get(id);
       return tab ? [tab] : [];
     });
+    const added = additions.get(node.pane.id) ?? [];
+    const revealChat = mode === "editor" && node.pane.id === sidePaneId && added.some(isChat);
     return {
       kind: "pane",
-      pane: paneWithTabs(node.pane, [...previous, ...(additions.get(node.pane.id) ?? [])]),
+      pane: paneWithTabs(revealChat ? { ...node.pane, hidden: undefined } : node.pane, [
+        ...previous,
+        ...added,
+      ]),
     };
   };
   return {

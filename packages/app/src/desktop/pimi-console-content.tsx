@@ -1,5 +1,6 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -11,8 +12,12 @@ import type { PimiWorkspaceSection } from "@pimi/protocol/pimi-task";
 import { View } from "react-native";
 import { CodeXml, MessageSquare } from "lucide-react-native";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
+import { ToolbarButton, paneContentToolbarIconSize } from "@/components/ui/pane-content-toolbar";
+import { extraMutedIconColorMapping } from "@/components/ui/icon-button-chrome";
+import { useToast } from "@/contexts/toast-context";
+import { findPaneById, useWorkspaceLayoutStore } from "@/stores/workspace-layout-store";
 import type { WorkbenchMode } from "@/stores/workspace-workbench";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { PimiTitlebarSlot } from "@/components/headers/menu-header";
 import { ScreenTitle } from "@/components/headers/screen-title";
@@ -54,29 +59,68 @@ function shouldShowPimiTitlebar(pathname: string, covered: boolean): boolean {
 const WORKBENCH_OPTIONS: SegmentedControlOption<WorkbenchMode>[] = [
   {
     value: "agent",
-    label: "Agent Mode",
+    label: "Agent",
+    accessibilityLabel: "Agent Mode",
     icon: (props) => <MessageSquare {...props} />,
     testID: "pimi-agent-mode",
   },
   {
     value: "editor",
-    label: "IDE Mode",
+    label: "IDE",
+    accessibilityLabel: "IDE Mode",
     icon: (props) => <CodeXml {...props} />,
     testID: "pimi-ide-mode",
   },
 ];
 
-function PimiWorkbenchToggle() {
-  const { mode, select, available } = usePimiWorkbench();
+const ThemedChatIcon = withUnistyles(MessageSquare);
+
+function WorkbenchChatButton({ workspaceKey }: { workspaceKey: string }) {
+  const open = useWorkspaceLayoutStore((state) => {
+    const layout = state.layoutByWorkspace[workspaceKey];
+    const paneId = state.sidePaneIdByWorkspace[workspaceKey];
+    const pane = layout && paneId ? findPaneById(layout.root, paneId) : null;
+    return Boolean(pane && !pane.hidden);
+  });
+  const toast = useToast();
+  const toggle = useCallback(() => {
+    if (useWorkspaceLayoutStore.getState().toggleWorkbenchChat(workspaceKey) === "unsaved") {
+      toast.show("Save your changes before hiding this pane.");
+    }
+  }, [toast, workspaceKey]);
+  return (
+    <ToolbarButton
+      testID="pimi-ide-chat-toggle"
+      label={open ? "Hide chat pane" : "Show chat pane"}
+      selected={open}
+      onPress={toggle}
+    >
+      <ThemedChatIcon
+        size={paneContentToolbarIconSize(false)}
+        strokeWidth={1.5}
+        uniProps={extraMutedIconColorMapping}
+      />
+    </ToolbarButton>
+  );
+}
+
+function PimiWorkbenchToggle({ covered }: { covered: boolean }) {
+  const { mode, select, activeWorkspaceKey, available } = usePimiWorkbench();
   if (!available) return null;
   return (
     <WindowChromeRegion corners="top-right">
-      <WindowChromeSafeArea placement="inline">
+      <WindowChromeSafeArea placement="inline" style={styles.workbenchActions}>
+        {!covered && mode === "editor" && activeWorkspaceKey ? (
+          <WorkbenchChatButton workspaceKey={activeWorkspaceKey} />
+        ) : null}
         <SegmentedControl
           options={WORKBENCH_OPTIONS}
           value={mode}
           onValueChange={select}
           size="sm"
+          appearance="track"
+          accessibilityLabel="Workspace mode"
+          testID="pimi-workbench-switch"
         />
       </WindowChromeSafeArea>
     </WindowChromeRegion>
@@ -106,7 +150,7 @@ function PimiTitlebar({
         <ScreenTitle testID="pimi-view-title">{SECTION_TITLES[section]}</ScreenTitle>
       ) : null}
       <div ref={slotRef} style={SLOT_STYLE} />
-      <PimiWorkbenchToggle />
+      <PimiWorkbenchToggle covered={section !== null} />
     </View>
   );
 }
@@ -213,6 +257,7 @@ export function PimiConsoleContent({
 }
 
 const styles = StyleSheet.create((theme) => ({
+  workbenchActions: { flexDirection: "row", alignItems: "center", gap: theme.spacing[2] },
   historyBar: {
     position: "relative",
     height: HEADER_INNER_HEIGHT,
