@@ -12,8 +12,16 @@ export async function resolveSessionAdmission(input: {
   credential: WSHelloMessage["auth"];
   passwordHash: string | undefined;
   localCredential: string | null;
+  lanAccessCode?: string;
 }): Promise<AdmissionResolution> {
-  const { credential, passwordHash, localCredential } = input;
+  const { credential, passwordHash, localCredential, lanAccessCode } = input;
+  if (lanAccessCode) {
+    if (!credential) return { rejection: "password_required" };
+    return credential.kind === "password" &&
+      matchesLocalCredential(lanAccessCode, credential.password)
+      ? { admission: { principalId: "owner", permissions: OWNER_PERMISSIONS } }
+      : { rejection: "incorrect_password" };
+  }
   if (!passwordHash) {
     return { admission: { principalId: "owner", permissions: OWNER_PERMISSIONS } };
   }

@@ -134,7 +134,8 @@ import {
 const WS_CLOSE_DAEMON_AUTH_FAILED = 4401;
 
 export interface ExternalSocketMetadata {
-  transport: "relay" | "hub";
+  transport: "relay" | "lan" | "hub";
+  lanAccessCode?: string;
   externalSessionKey?: string;
   relayConnectionId?: string;
   /** Negotiated endpoint security for relay-carried sockets. */
@@ -154,11 +155,12 @@ interface PendingConnection {
   identity: WebSocketConnectionIdentity;
   admission: SessionAdmission | null;
   authenticating: boolean;
+  lanAccessCode?: string;
 }
 
 interface WebSocketConnectionIdentity {
   connectionId: string;
-  transport: "direct" | "relay" | "hub";
+  transport: "direct" | "relay" | "lan" | "hub";
   peer: "loopback" | "local_ipc" | "external";
   browserOrigin: boolean;
   host?: string;
@@ -555,7 +557,7 @@ export class VoiceAssistantWebSocketServer {
   private readonly pendingConnections: Map<WebSocketLike, PendingConnection> = new Map();
   private readonly sessions: Map<WebSocketLike, SessionConnection> = new Map();
   private readonly socketIdentities: Map<WebSocketLike, WebSocketConnectionIdentity> = new Map();
-  private readonly pimiPasswordRelaySockets = new WeakSet<WebSocketLike>();
+  private readonly pimiProtectedPasswordSockets = new WeakSet<WebSocketLike>();
   private readonly externalSessionsByKey: Map<string, ReconnectableSessionConnection> = new Map();
   private readonly pluginSocketIds = new WeakMap<WebSocketLike, string>();
   private readonly pluginSocketCleanup = new WeakMap<WebSocketLike, () => void>();
@@ -1498,6 +1500,7 @@ export class VoiceAssistantWebSocketServer {
       identity,
       admission,
       authenticating: false,
+      lanAccessCode: metadata?.lanAccessCode,
     };
     const timeout = setTimeout(() => {
       if (this.pendingConnections.get(ws) !== pending) {
@@ -1879,7 +1882,11 @@ export class VoiceAssistantWebSocketServer {
       const resolved = await resolveSessionAdmission({
         credential: message.auth,
         passwordHash: this.passwordHash,
-        localCredential: this.credentialSource?.localCredential?.() ?? null,
+        localCredential:
+          pending.identity.transport === "lan"
+            ? null
+            : (this.credentialSource?.localCredential?.() ?? null),
+        lanAccessCode: pending.lanAccessCode,
       });
       if (this.pendingConnections.get(ws) !== pending) return false;
       if ("rejection" in resolved) {
@@ -1891,13 +1898,13 @@ export class VoiceAssistantWebSocketServer {
       // No-password owners, local credentials, routed peers, and legacy relay sessions do not
       // authenticate a remote Pimi user. The proof belongs to this socket, including on reconnect.
       if (
-        this.passwordHash &&
+        (this.passwordHash || pending.lanAccessCode) &&
         message.auth?.kind === "password" &&
         !message.routed &&
-        pending.identity.transport === "relay" &&
+        (pending.identity.transport === "relay" || pending.identity.transport === "lan") &&
         pending.identity.securityMode === "protected"
       ) {
-        this.pimiPasswordRelaySockets.add(ws);
+        this.pimiProtectedPasswordSockets.add(ws);
       }
       return true;
     } catch (error) {
@@ -2714,7 +2721,8 @@ export class VoiceAssistantWebSocketServer {
             })
           : {
               status: "error" as const,
-              error: "Pimi Tasks requires a protected relay connection with a host password.",
+              error:
+                "Pimi Tasks requires encrypted pairing with a host password or Wi-Fi pairing link.",
             };
         // Recheck permissions in case this session was narrowed while desktop handled the request.
         if (
@@ -2773,7 +2781,7 @@ export class VoiceAssistantWebSocketServer {
 
   private isPimiMobileAuthorized(ws: WebSocketLike, connection: SessionConnection): boolean {
     return (
-      this.pimiPasswordRelaySockets.has(ws) &&
+      this.pimiProtectedPasswordSockets.has(ws) &&
       connection.principalId === "owner" &&
       !connection.session.isRouted() &&
       connection.session.allowsPermission("daemon.manage")

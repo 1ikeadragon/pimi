@@ -1978,6 +1978,21 @@ export const ja: TranslationResources = {
       unableToPair: "ホストをペアリングできません",
       errorTitle: "エラー",
     },
+    local: {
+      wifi: "同じWi-Fi",
+      remote: "リモート",
+      description:
+        "同じWi-Fiネットワーク上のスマートフォンをこのコンピューターに接続します。リレーは不要です。",
+      interface: "ネットワークアドレス",
+      enable: "ローカルペアリングを有効にする",
+      disable: "ローカルペアリングを無効にする",
+      sharing: "無効にするかホストを再起動するまで、{{address}} で共有します。",
+      password: "スマートフォンでこのホストのパスワードの入力を求められます。",
+      noNetwork:
+        "ローカルネットワークが見つかりません。Wi-FiまたはEthernetに接続してから、もう一度お試しください。",
+      copyFailed:
+        "リンクをコピーできませんでした。リンクを選択するか、QRコードをスキャンしてください。",
+    },
     device: {
       setupTitle: "リレーを設定",
       setupDescription:

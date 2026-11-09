@@ -6,14 +6,15 @@
 
 Pimi for Android runs chats on your paired host. You can browse workspace
 files and diffs, open Work, tile agents, and check usage. Tasks reads and
-writes the board on a running Pimi Desktop 0.16.6 or newer. It needs a
-password-protected host paired over the encrypted relay. Memory, Spaces,
+writes the board on a running Pimi Desktop 0.16.6 or newer. It needs an
+encrypted Wi-Fi pairing or a password-protected host paired over the encrypted relay. Memory, Spaces,
 cross-repository Review, and Usage Recap stay on desktop for this preview.
 Cloud push notifications are unavailable in the preview.
 
-On the desktop, open **Pair device**. Scan the QR code in Pimi for Android or
-paste the pairing link. Pimi decodes QR codes on the device with ZXing.
-The offer selects the relay, including a self-hosted
+On the desktop, open **Pair a device** in your local host settings and choose
+**Same Wi-Fi** or **Remote**. Scan the QR code in Pimi for Android or paste
+the pairing link. Pimi decodes QR codes on the device with ZXing.
+Remote pairing uses the configured relay, including a self-hosted
 [Pimi Relay](https://github.com/1ikeadragon/pimi-relay). Use WSS for a relay
 reachable over the internet.
 

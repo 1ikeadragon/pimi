@@ -1983,6 +1983,19 @@ export const en = {
       unableToPair: "Unable to pair host",
       errorTitle: "Error",
     },
+    local: {
+      wifi: "Same Wi-Fi",
+      remote: "Remote",
+      description: "Connect your phone to this computer on the same Wi-Fi. No relay needed.",
+      interface: "Network address",
+      enable: "Enable local pairing",
+      disable: "Turn off local pairing",
+      sharing: "Sharing on {{address}} until you turn it off or the host restarts.",
+      password: "Your phone will ask for this host’s password.",
+      noNetwork:
+        "No local network found. Connect this computer to Wi-Fi or Ethernet and try again.",
+      copyFailed: "Could not copy the link. You can select it or scan the QR code instead.",
+    },
     device: {
       loadingOffer: "Loading pairing offer...",
       failedToLoadOffer: "Failed to load pairing offer.",

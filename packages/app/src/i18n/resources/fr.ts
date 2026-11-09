@@ -2007,6 +2007,21 @@ export const fr: TranslationResources = {
       unableToPair: "Impossible d’associer l’hôte",
       errorTitle: "Erreur",
     },
+    local: {
+      wifi: "Même réseau Wi-Fi",
+      remote: "À distance",
+      description:
+        "Connectez votre téléphone à cet ordinateur sur le même réseau Wi-Fi. Aucun relais nécessaire.",
+      interface: "Adresse réseau",
+      enable: "Activer le jumelage local",
+      disable: "Désactiver le jumelage local",
+      sharing:
+        "Partage actif sur {{address}} jusqu’à sa désactivation ou au redémarrage de l’hôte.",
+      password: "Votre téléphone demandera le mot de passe de cet hôte.",
+      noNetwork:
+        "Aucun réseau local trouvé. Connectez cet ordinateur en Wi-Fi ou Ethernet, puis réessayez.",
+      copyFailed: "Impossible de copier le lien. Sélectionnez-le ou scannez le code QR.",
+    },
     device: {
       setupTitle: "Configurer un relais",
       setupDescription:

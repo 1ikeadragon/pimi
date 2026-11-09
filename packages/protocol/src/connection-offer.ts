@@ -24,6 +24,20 @@ export type ConnectionOfferV2 = z.infer<typeof ConnectionOfferV2Schema>;
 export const ConnectionOfferSchema = ConnectionOfferV2Schema;
 export type ConnectionOffer = ConnectionOfferV2;
 
+export const PIMI_LOCAL_PAIRING_ROUTE = "/api/pimi/local-pairing";
+export const PimiLocalPairingRequest = z.discriminatedUnion("action", [
+  z.strictObject({ action: z.literal("status") }),
+  z.strictObject({ action: z.literal("enable"), address: z.ipv4() }),
+  z.strictObject({ action: z.literal("disable") }),
+]);
+export type PimiLocalPairingRequest = z.infer<typeof PimiLocalPairingRequest>;
+
+export const PimiLocalPairingStatus = z.object({
+  addresses: z.array(z.object({ address: z.ipv4(), name: z.string() })),
+  active: z.object({ address: z.ipv4(), url: z.string(), needsPassword: z.boolean() }).nullable(),
+});
+export type PimiLocalPairingStatus = z.infer<typeof PimiLocalPairingStatus>;
+
 function decodeBase64UrlToUtf8(input: string): string {
   const base64 = input.replace(/-/g, "+").replace(/_/g, "/");
   const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");

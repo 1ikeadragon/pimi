@@ -1992,6 +1992,20 @@ export const ptBR: TranslationResources = {
       unableToPair: "Não foi possível parear host",
       errorTitle: "Erro",
     },
+    local: {
+      wifi: "Mesma rede Wi-Fi",
+      remote: "Remoto",
+      description:
+        "Conecte seu celular a este computador pela mesma rede Wi-Fi. Não é preciso usar um relay.",
+      interface: "Endereço de rede",
+      enable: "Ativar pareamento local",
+      disable: "Desativar pareamento local",
+      sharing: "Compartilhando em {{address}} até você desativar ou o host reiniciar.",
+      password: "Seu celular vai pedir a senha deste host.",
+      noNetwork:
+        "Nenhuma rede local encontrada. Conecte este computador por Wi-Fi ou Ethernet e tente novamente.",
+      copyFailed: "Não foi possível copiar o link. Você pode selecioná-lo ou escanear o código QR.",
+    },
     device: {
       setupTitle: "Configurar um relay",
       setupDescription:

@@ -1957,6 +1957,19 @@ export const ar: TranslationResources = {
       unableToPair: "غير قادر على إقران المضيف",
       errorTitle: "خطأ",
     },
+    local: {
+      wifi: "شبكة Wi-Fi نفسها",
+      remote: "عن بُعد",
+      description: "صِل هاتفك بهذا الكمبيوتر عبر شبكة Wi-Fi نفسها. لا حاجة إلى خادم ترحيل.",
+      interface: "عنوان الشبكة",
+      enable: "تفعيل الاقتران المحلي",
+      disable: "إيقاف الاقتران المحلي",
+      sharing: "المشاركة نشطة على {{address}} حتى توقفها أو يُعاد تشغيل المضيف.",
+      password: "سيطلب هاتفك كلمة مرور هذا المضيف.",
+      noNetwork:
+        "لم يتم العثور على شبكة محلية. صِل هذا الكمبيوتر بشبكة Wi-Fi أو Ethernet وحاول مجددًا.",
+      copyFailed: "تعذّر نسخ الرابط. يمكنك تحديده أو مسح رمز QR بدلًا من ذلك.",
+    },
     device: {
       setupTitle: "إعداد مرحّل",
       setupDescription:

@@ -1936,6 +1936,18 @@ export const zhCN: TranslationResources = {
       unableToPair: "无法配对 host",
       errorTitle: "错误",
     },
+    local: {
+      wifi: "同一 Wi-Fi",
+      remote: "远程",
+      description: "通过同一 Wi-Fi 网络将手机连接到此电脑，无需中继。",
+      interface: "网络地址",
+      enable: "启用本地配对",
+      disable: "关闭本地配对",
+      sharing: "正在通过 {{address}} 共享，直到你关闭共享或主机重启。",
+      password: "手机会提示你输入此主机的密码。",
+      noNetwork: "未找到本地网络。请将此电脑连接到 Wi-Fi 或以太网后重试。",
+      copyFailed: "无法复制链接。你可以选中链接或扫描二维码。",
+    },
     device: {
       setupTitle: "设置中继",
       setupDescription:
