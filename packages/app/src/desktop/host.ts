@@ -217,6 +217,14 @@ export interface DesktopHostBridge {
     get: () => PimiWorkspaceSection | null;
     subscribe: (listener: () => void) => () => void;
   };
+  pimiReviewLocation?: {
+    get: () =>
+      | { view: "review-pr"; url: string }
+      | { view: "review-prs" }
+      | { view: "review-home" }
+      | null;
+    subscribe: (listener: () => void) => () => void;
+  };
   onPimiWorkspaceClick?: (listener: () => void) => () => void;
   pimiReportLinks?: {
     onOpen: (listener: (target: PimiReportLinkTarget) => void) => () => void;

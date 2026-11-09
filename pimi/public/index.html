@@ -521,121 +521,128 @@
       </section>
 
       <section id="review" class="review-view" hidden aria-label="Code review">
-        <div class="review-mode-bar">
-          <div class="review-mode-switch" role="group" aria-label="Review source">
-            <button id="review-mode-prs" class="button quiet" type="button" aria-pressed="true">
-              Pull requests
-            </button>
-            <button
-              id="review-mode-worktrees"
-              class="button quiet"
-              type="button"
-              aria-pressed="false"
-            >
-              Worktrees
-            </button>
-          </div>
-          <button id="review-pr-inbox-back" class="button quiet" type="button" hidden>
-            ← Pull requests
-          </button>
-        </div>
-        <div class="section-header review-heading">
-          <div>
-            <p id="review-repo" class="context-label">Worktree review</p>
-            <h1 id="review-title">Review</h1>
-            <p id="review-meta" class="subtitle" role="status"></p>
-          </div>
-          <div id="review-actions" class="review-actions" hidden>
-            <div id="previews" class="previews" hidden></div>
-            <button
-              id="change-review-worktree"
-              class="button quiet glyph-button"
-              aria-label="Change worktree"
-              title="Change worktree"
-            >
-              <svg class="glyph" aria-hidden="true"><use href="#glyph-board" /></svg>
-            </button>
-            <button
-              id="compare-worktrees"
-              class="button quiet glyph-button"
-              aria-label="Compare worktrees"
-              title="Compare worktrees"
-            >
-              <svg class="glyph" aria-hidden="true"><use href="#glyph-compare" /></svg>
-            </button>
-            <button
-              id="show-diff-find"
-              class="button quiet glyph-button"
-              aria-label="Find in open diffs"
-              title="Find in open diffs"
-              aria-keyshortcuts="Meta+F Control+F"
-            >
-              <svg class="glyph" aria-hidden="true"><use href="#glyph-search" /></svg>
-            </button>
-            <button
-              id="refresh-comparison"
-              class="button quiet glyph-button"
-              aria-label="Refresh diff"
-              title="Refresh diff"
-            >
-              <svg class="glyph" aria-hidden="true"><use href="#glyph-reload" /></svg>
-            </button>
-            <details id="comparison-settings" class="watch comparison-settings">
-              <summary
-                class="button quiet glyph-button"
-                aria-label="Comparison settings"
-                title="Comparison settings"
+        <div class="review-toolbar">
+          <div class="review-mode-bar">
+            <div class="review-mode-switch" role="group" aria-label="Review source">
+              <button id="review-mode-prs" class="button quiet" type="button" aria-pressed="true">
+                Pull requests
+              </button>
+              <button
+                id="review-mode-worktrees"
+                class="button quiet"
+                type="button"
+                aria-pressed="false"
               >
-                <svg class="glyph" aria-hidden="true"><use href="#glyph-settings" /></svg>
-              </summary>
-              <div class="watch-panel">
-                <form id="compare" class="compare">
-                  <label
-                    >Comparison
-                    <select id="mode">
-                      <option value="all">Branch + working changes</option>
-                      <option value="committed">Committed changes</option>
-                      <option value="working">Working changes only</option>
-                      <option value="pr">GitHub pull request</option>
-                    </select>
-                  </label>
-                  <label id="base-control"
-                    >Base ref <input id="base" placeholder="Auto-detect base" autocomplete="off"
-                  /></label>
-                  <label id="pr-control" hidden
-                    >Pull request URL
-                    <input
-                      id="pr"
-                      placeholder="https://github.com/owner/repo/pull/123"
-                      autocomplete="off"
-                  /></label>
-                  <button id="load-review" class="button secondary" type="submit">
-                    Load changes
+                Worktrees
+              </button>
+            </div>
+            <button id="review-pr-inbox-back" class="button quiet" type="button" hidden>
+              ← Pull requests
+            </button>
+          </div>
+          <div class="section-header review-heading">
+            <div>
+              <p id="review-repo" class="context-label">Worktree review</p>
+              <h1 id="review-title">Review</h1>
+              <p id="review-meta" class="subtitle" role="status"></p>
+            </div>
+            <div id="review-actions" class="review-actions" hidden>
+              <div id="previews" class="previews" hidden></div>
+              <button
+                id="change-review-worktree"
+                class="button quiet glyph-button"
+                aria-label="Change worktree"
+                title="Change worktree"
+              >
+                <svg class="glyph" aria-hidden="true"><use href="#glyph-board" /></svg>
+              </button>
+              <button
+                id="compare-worktrees"
+                class="button quiet glyph-button"
+                aria-label="Compare worktrees"
+                title="Compare worktrees"
+              >
+                <svg class="glyph" aria-hidden="true"><use href="#glyph-compare" /></svg>
+              </button>
+              <button
+                id="show-diff-find"
+                class="button quiet glyph-button"
+                aria-label="Find in open diffs"
+                title="Find in open diffs"
+                aria-keyshortcuts="Meta+F Control+F"
+              >
+                <svg class="glyph" aria-hidden="true"><use href="#glyph-search" /></svg>
+              </button>
+              <button
+                id="refresh-comparison"
+                class="button quiet glyph-button"
+                aria-label="Refresh diff"
+                title="Refresh diff"
+              >
+                <svg class="glyph" aria-hidden="true"><use href="#glyph-reload" /></svg>
+              </button>
+              <details id="comparison-settings" class="watch comparison-settings">
+                <summary
+                  class="button quiet glyph-button"
+                  aria-label="Comparison settings"
+                  title="Comparison settings"
+                >
+                  <svg class="glyph" aria-hidden="true"><use href="#glyph-settings" /></svg>
+                </summary>
+                <div class="watch-panel">
+                  <form id="compare" class="compare">
+                    <label
+                      >Comparison
+                      <select id="mode">
+                        <option value="all">Branch + working changes</option>
+                        <option value="committed">Committed changes</option>
+                        <option value="working">Working changes only</option>
+                        <option value="pr">GitHub pull request</option>
+                      </select>
+                    </label>
+                    <label id="base-control"
+                      >Base ref <input id="base" placeholder="Auto-detect base" autocomplete="off"
+                    /></label>
+                    <label id="pr-control" hidden
+                      >Pull request URL
+                      <input
+                        id="pr"
+                        placeholder="https://github.com/owner/repo/pull/123"
+                        autocomplete="off"
+                    /></label>
+                    <button id="load-review" class="button secondary" type="submit">
+                      Load changes
+                    </button>
+                  </form>
+                </div>
+              </details>
+              <details id="review-tools" class="watch comparison-settings">
+                <summary
+                  class="button quiet glyph-button"
+                  aria-label="Review tools"
+                  title="Review tools"
+                >
+                  <svg class="glyph" aria-hidden="true"><use href="#glyph-more" /></svg>
+                </summary>
+                <div class="watch-panel review-tool-menu">
+                  <button id="file-tour" class="button quiet" type="button" disabled>
+                    File tour
                   </button>
-                </form>
-              </div>
-            </details>
-            <details id="review-tools" class="watch comparison-settings">
-              <summary
-                class="button quiet glyph-button"
-                aria-label="Review tools"
-                title="Review tools"
+                  <button id="ai-tour" class="button quiet" type="button" disabled>
+                    Explain changes
+                  </button>
+                  <span id="tour-status" class="tour-status" role="status"></span>
+                </div>
+              </details>
+              <select
+                id="review-editor"
+                class="editor-picker"
+                aria-label="Open worktree in"
+                disabled
               >
-                <svg class="glyph" aria-hidden="true"><use href="#glyph-more" /></svg>
-              </summary>
-              <div class="watch-panel review-tool-menu">
-                <button id="file-tour" class="button quiet" type="button" disabled>
-                  File tour
-                </button>
-                <button id="ai-tour" class="button quiet" type="button" disabled>
-                  Explain changes
-                </button>
-                <span id="tour-status" class="tour-status" role="status"></span>
-              </div>
-            </details>
-            <select id="review-editor" class="editor-picker" aria-label="Open worktree in" disabled>
-              <option value="">Open in…</option>
-            </select>
+                <option value="">Open in…</option>
+              </select>
+            </div>
           </div>
         </div>
         <p id="review-warning" class="warning" role="alert" hidden></p>

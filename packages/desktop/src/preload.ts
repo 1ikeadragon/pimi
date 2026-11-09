@@ -115,6 +115,12 @@ let settingsPending = false;
 let openSettings: (() => void) | undefined;
 let workspaceSection: PimiWorkspaceSection | null = null;
 const workspaceListeners = new Set<() => void>();
+type ReviewLocation =
+  | { view: "review-pr"; url: string }
+  | { view: "review-prs" }
+  | { view: "review-home" };
+let reviewLocation: ReviewLocation | null = null;
+const reviewLocationListeners = new Set<() => void>();
 if (pimiAppearance) {
   document.addEventListener(
     "DOMContentLoaded",
@@ -130,6 +136,10 @@ if (pimiAppearance) {
   ipcRenderer.on("pimi:workspace:section", (_event, section: PimiWorkspaceSection | null) => {
     workspaceSection = section;
     for (const listener of workspaceListeners) listener();
+  });
+  ipcRenderer.on("pimi:workspace:review-location", (_event, location: ReviewLocation) => {
+    reviewLocation = location;
+    for (const listener of reviewLocationListeners) listener();
   });
 }
 contextBridge.exposeInMainWorld("paseoDesktop", {
@@ -169,6 +179,13 @@ contextBridge.exposeInMainWorld("paseoDesktop", {
             return () => {
               workspaceListeners.delete(listener);
             };
+          },
+        },
+        pimiReviewLocation: {
+          get: () => reviewLocation,
+          subscribe: (listener: () => void) => {
+            reviewLocationListeners.add(listener);
+            return () => reviewLocationListeners.delete(listener);
           },
         },
         onPimiWorkspaceClick: (listener: () => void) => {

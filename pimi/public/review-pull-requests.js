@@ -23,6 +23,8 @@ export function createReviewPullRequests({
   openDiff,
   openTask,
   showDetails,
+  onOpen,
+  onOpened,
 }) {
   const nav = $("review-pr-nav");
   const details = $("review-pr-details");
@@ -480,9 +482,10 @@ export function createReviewPullRequests({
       }
     }
   }
-  async function open(url) {
+  async function open(url, options = {}) {
     if (!url) return;
     const changed = activeUrl !== url;
+    const openedFromHome = onOpen?.(url, activeUrl);
     activeUrl = url;
     detailVisible = true;
     if (changed) {
@@ -495,6 +498,8 @@ export function createReviewPullRequests({
     showDetails();
     renderList();
     await loadDetail(url);
+    if (activeUrl === url && (changed || openedFromHome || options.restore))
+      onOpened?.(url, currentItem);
   }
   function close() {
     detailVisible = false;

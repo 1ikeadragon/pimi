@@ -59,8 +59,12 @@ let reviewScreen = "home";
 let railTab = "worktrees";
 let reviewKey;
 let reviewRequest;
+let currentReviewPrUrl;
+const reviewPrStates = new Map();
+let pendingReviewPrRestore;
 const sourceSelections = new Set();
 const scrollRestores = new Map();
+const MAX_REVIEW_SCROLL_RESTORES = 100;
 const patchCache = new Map();
 const renderedPanes = new Map();
 const diffFind = createDiffFind($);
@@ -110,7 +114,76 @@ const reviewPrs = createReviewPullRequests({
   openDiff: openHostedReview,
   openTask,
   showDetails: () => showReviewContent("details"),
+  onOpen: (url, previousUrl) => {
+    const openedFromHome = reviewScreen === "home";
+    captureReviewPrState(previousUrl);
+    pendingReviewPrRestore = undefined;
+    currentReviewPrUrl = url;
+    publishReviewLocation({ view: "review-pr", url });
+    return openedFromHome;
+  },
+  onOpened: restoreReviewPrState,
 });
+
+function publishReviewLocation(location) {
+  window.pimiWorkspace?.setReviewLocation?.(location);
+}
+
+function rememberReviewScroll(path, position) {
+  if (!review?.files.some((file) => file.path === path)) return;
+  scrollRestores.delete(path);
+  scrollRestores.set(path, position);
+  if (scrollRestores.size > MAX_REVIEW_SCROLL_RESTORES)
+    scrollRestores.delete(scrollRestores.keys().next().value);
+}
+
+function publishSelectedReviewLocation(prUrl) {
+  publishReviewLocation(prUrl ? { view: "review-pr", url: prUrl } : { view: "review-home" });
+}
+
+function reviewFilesToLoad(keepSelection, prUrl) {
+  const restoring = pendingReviewPrRestore?.url === prUrl ? pendingReviewPrRestore : undefined;
+  if (restoring) return { restoring, previousFiles: [...restoring.state.selected] };
+  return { restoring, previousFiles: keepSelection ? [...selected] : [] };
+}
+
+function canReuseCurrentReview(nextKey, prUrl) {
+  return nextKey === reviewKey && (review || loading) && pendingReviewPrRestore?.url !== prUrl;
+}
+
+function captureReviewPrState(url) {
+  if (!url || reviewMode !== "prs" || reviewScreen === "home") return;
+  const patchScroll = new Map(scrollRestores);
+  for (const [path, pane] of renderedPanes) {
+    const content = pane.querySelector(".patch");
+    if (content) patchScroll.set(path, { top: content.scrollTop, left: content.scrollLeft });
+  }
+  reviewPrStates.delete(url);
+  reviewPrStates.set(url, {
+    screen: reviewScreen,
+    selected: [...selected],
+    sources: [...sourceSelections],
+    railTab,
+    fileQuery: $("file-search").value,
+    detailScroll: $("review-pr-details").scrollTop,
+    patchScroll,
+    head: review?.head,
+    base: review?.base.sha,
+  });
+  if (reviewPrStates.size > 50) reviewPrStates.delete(reviewPrStates.keys().next().value);
+}
+
+function restoreReviewPrState(url, item) {
+  const state = reviewPrStates.get(url);
+  if (!state || reviewScreen !== "details") return;
+  if (state.screen !== "code") {
+    $("review-pr-details").scrollTop = state.detailScroll;
+    return;
+  }
+  if (!item) return;
+  pendingReviewPrRestore = { url, state };
+  openHostedReview(item);
+}
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -126,10 +199,11 @@ async function openTask(id) {
 }
 
 async function openPullRequest(url) {
+  publishReviewLocation({ view: "review-pr", url });
   view("review");
   setReviewMode("prs");
   void reviewPrs.refresh();
-  await reviewPrs.open(url);
+  await reviewPrs.open(url, { restore: true });
 }
 
 function pullRequestActions(...requests) {
@@ -457,9 +531,10 @@ function showCurrentReview() {
 }
 
 function selectWorktree(card, base = "", prUrl = "") {
+  publishSelectedReviewLocation(prUrl);
   setReviewMode(prUrl ? "prs" : "worktrees");
   const nextKey = JSON.stringify([card.path, base, prUrl]);
-  if (nextKey === reviewKey && (review || loading)) {
+  if (canReuseCurrentReview(nextKey, prUrl)) {
     view("review");
     showCurrentReview();
     if (railTab === "worktrees") selectReviewTab("changes");
@@ -567,6 +642,8 @@ function renderReviewWorktrees(cards = boardData?.cards ?? []) {
 }
 
 function openReviewPicker(warning = "") {
+  captureReviewPrState(currentReviewPrUrl);
+  publishReviewLocation({ view: "review-home" });
   view("review");
   setReviewMode("worktrees");
   showReviewContent("home");
@@ -581,6 +658,8 @@ function openReviewPicker(warning = "") {
 }
 
 function openReviewInbox(filter) {
+  captureReviewPrState(currentReviewPrUrl);
+  publishReviewLocation({ view: "review-prs" });
   view("review");
   setReviewMode("prs");
   worktreeComparison.close();
@@ -602,15 +681,13 @@ function renderReviewSummary(result) {
   const baseDisplay = /^[a-f0-9]{40}(?:[a-f0-9]{24})?$/i.test(baseLabel)
     ? baseLabel.slice(0, 8)
     : baseLabel;
-  const source =
-    result.pr?.label ||
-    (result.head ? `${baseDisplay} → ${result.head.slice(0, 8)}` : "No commits yet");
+  const source = result.head ? `${baseDisplay} → ${result.head.slice(0, 8)}` : "No commits yet";
   const meta = $("review-meta");
   meta.title = result.head
     ? `${result.base.label} → ${result.head}`
     : "Changes since an empty tree";
   meta.textContent = [
-    source,
+    result.pr ? "" : source,
     result.live ? "Includes working changes" : "Pinned commits",
     result.hosted ? "GitHub snapshot" : "",
     !result.hosted && !result.canOpenFiles ? "PR head differs from local checkout" : "",
@@ -660,7 +737,7 @@ async function loadReview({ keepSelection = false } = {}) {
   const request = ++generation;
   reviewRequest?.abort();
   reviewRequest = new AbortController();
-  const previousFiles = keepSelection ? [...selected] : [];
+  const { restoring, previousFiles } = reviewFilesToLoad(keepSelection, prUrl);
   loading = true;
   $("load-review").disabled = true;
   $("refresh-comparison").disabled = true;
@@ -683,7 +760,7 @@ async function loadReview({ keepSelection = false } = {}) {
       reviewRequest.signal,
     );
     if (request !== generation) return;
-    installComparison(result, previousFiles);
+    installComparison(result, previousFiles, restoring);
   } catch (error) {
     if (request !== generation) return;
     message("review-warning", error.message);
@@ -701,11 +778,22 @@ async function loadReview({ keepSelection = false } = {}) {
   }
 }
 
-function installComparison(result, previousFiles) {
+function installComparison(result, previousFiles, restoring) {
   scrollRestores.clear();
-  for (const path of previousFiles) {
-    const content = renderedPanes.get(path)?.querySelector(".patch");
-    if (content) scrollRestores.set(path, { top: content.scrollTop, left: content.scrollLeft });
+  if (restoring) {
+    if (restoring.state.head === result.head && restoring.state.base === result.base.sha) {
+      for (const [path, position] of restoring.state.patchScroll)
+        scrollRestores.set(path, position);
+    }
+    sourceSelections.clear();
+    for (const path of restoring.state.sources) sourceSelections.add(path);
+    $("file-search").value = restoring.state.fileQuery;
+    pendingReviewPrRestore = undefined;
+  } else {
+    for (const path of previousFiles) {
+      const content = renderedPanes.get(path)?.querySelector(".patch");
+      if (content) scrollRestores.set(path, { top: content.scrollTop, left: content.scrollLeft });
+    }
   }
   review = result;
   reviewEditors = [];
@@ -719,6 +807,7 @@ function installComparison(result, previousFiles) {
   selected = previousFiles.filter((path) => paths.has(path) || sourceSelections.has(path));
   if (!selected.length && result.files.length) selected = [result.files[0].path];
   if (reviewScreen === "code") renderReviewSummary(result);
+  if (restoring) selectReviewTab(restoring.state.railTab);
   if (railTab === "files") void reviewFiles.open(result.id);
   void loadReviewEditors(result);
 }
@@ -1017,6 +1106,8 @@ function createPane(path) {
 function renderPanes() {
   for (const [path, pane] of renderedPanes) {
     if (!selected.includes(path)) {
+      const content = pane.querySelector(".patch");
+      if (content) rememberReviewScroll(path, { top: content.scrollTop, left: content.scrollLeft });
       renderedPanes.delete(path);
       pane.remove();
     }
@@ -1255,6 +1346,7 @@ $("review-add-repository").addEventListener("click", () => {
   $("repo-path").focus();
 });
 async function navigateToWorktreeReview(destination) {
+  publishReviewLocation({ view: "review-home" });
   const request = view("review");
   if (destination.reviewNotice) {
     openReviewPicker(destination.reviewNotice);
@@ -1292,7 +1384,7 @@ window.pimiWorkspace?.onNavigate(async (destination) => {
     return;
   }
   if (destination.view === "review-home") {
-    $("show-review").click();
+    openReviewPicker();
     return;
   }
   if (destination.view === "review-prs") {
