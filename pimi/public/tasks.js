@@ -123,6 +123,7 @@ export function createTasksView({
     },
     move: moveTask,
     create: () => beginCreate(),
+    createLabel: () => (draft ? "Resume draft" : "New task"),
     preserveFocus,
   });
 
@@ -159,11 +160,6 @@ export function createTasksView({
     }
     renderTaskBoard(entries);
     $("new-task-label").textContent = draft ? "Resume draft" : "New task";
-    const laneAdd = $("task-lane-add");
-    if (laneAdd) {
-      laneAdd.title = draft ? "Resume draft" : "New task";
-      laneAdd.setAttribute("aria-label", draft ? "Resume draft in To Do" : "New task in To Do");
-    }
   }
 
   function renderLabels(container, names = [], onChange, linked = []) {
