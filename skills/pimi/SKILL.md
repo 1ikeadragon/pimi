@@ -58,6 +58,10 @@ Choose `baseBranch` explicitly: `origin/main` selects the remote-tracking branch
 
 **`rename_workspace`** — `{ workspaceId, name }`. Rename workspace.
 
+## Find code
+
+Use `search_pimi_codebase` when you know what the code should do but can't name the file or identifier. Open the returned file and check the surrounding lines before citing it.
+
 ## Workspace scripts
 
 Configured `pimi.json` scripts use the same supervised lifecycle from tools and the CLI.
