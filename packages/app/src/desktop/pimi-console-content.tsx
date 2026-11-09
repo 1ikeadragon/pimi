@@ -9,16 +9,24 @@ import {
 } from "react";
 import type { PimiWorkspaceSection } from "@pimi/protocol/pimi-task";
 import { View } from "react-native";
+import { CodeXml, MessageSquare } from "lucide-react-native";
+import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
+import type { WorkbenchMode } from "@/stores/workspace-workbench";
 import { StyleSheet } from "react-native-unistyles";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { PimiTitlebarSlot } from "@/components/headers/menu-header";
 import { ScreenTitle } from "@/components/headers/screen-title";
 import { DESKTOP_TRAFFIC_LIGHT_WIDTH, HEADER_INNER_HEIGHT } from "@/constants/layout";
-import { useHasWindowChromeObstruction, WindowChromeRegion } from "@/utils/desktop-window";
+import {
+  useHasWindowChromeObstruction,
+  WindowChromeRegion,
+  WindowChromeSafeArea,
+} from "@/utils/desktop-window";
 import { isWeb } from "@/constants/platform";
 import { getDesktopHost, usesPimiMacTitlebar } from "./host";
 import { usePimiReportLinks } from "./use-pimi-report-links";
 import { PimiNavigationHistory } from "./pimi-navigation-history";
+import { usePimiWorkbench } from "./use-pimi-workbench";
 
 export const PIMI_CONSOLE_CONTENT_ID = "pimi-console-content";
 const fill = { flex: 1 } as const;
@@ -41,6 +49,38 @@ export function usePimiWorkspaceSection() {
 
 function shouldShowPimiTitlebar(pathname: string, covered: boolean): boolean {
   return isWeb && Boolean(getDesktopHost()?.showPimiWorkspace) && (pathname !== "/" || covered);
+}
+
+const WORKBENCH_OPTIONS: SegmentedControlOption<WorkbenchMode>[] = [
+  {
+    value: "agent",
+    label: "Agent Mode",
+    icon: (props) => <MessageSquare {...props} />,
+    testID: "pimi-agent-mode",
+  },
+  {
+    value: "editor",
+    label: "IDE Mode",
+    icon: (props) => <CodeXml {...props} />,
+    testID: "pimi-ide-mode",
+  },
+];
+
+function PimiWorkbenchToggle() {
+  const { mode, select, available } = usePimiWorkbench();
+  if (!available) return null;
+  return (
+    <WindowChromeRegion corners="top-right">
+      <WindowChromeSafeArea placement="inline">
+        <SegmentedControl
+          options={WORKBENCH_OPTIONS}
+          value={mode}
+          onValueChange={select}
+          size="sm"
+        />
+      </WindowChromeSafeArea>
+    </WindowChromeRegion>
+  );
 }
 
 function PimiTitlebar({
@@ -66,6 +106,7 @@ function PimiTitlebar({
         <ScreenTitle testID="pimi-view-title">{SECTION_TITLES[section]}</ScreenTitle>
       ) : null}
       <div ref={slotRef} style={SLOT_STYLE} />
+      <PimiWorkbenchToggle />
     </View>
   );
 }

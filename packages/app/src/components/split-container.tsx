@@ -1,3 +1,4 @@
+import { usePimiWorkbenchMode } from "@/desktop/use-pimi-workbench";
 import {
   AdaptiveWorkspaceChrome,
   type WorkspaceCompactHeaderActions,
@@ -16,7 +17,7 @@ import {
   type SetStateAction,
 } from "react";
 import { useStableEvent } from "@/hooks/use-stable-event";
-import { View, type LayoutChangeEvent } from "react-native";
+import { Text, View, type LayoutChangeEvent } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -54,6 +55,7 @@ import type { WorkspaceTabDescriptor } from "@/screens/workspace/workspace-tabs-
 import {
   collectAllPanes,
   createDefaultLayout,
+  DEFAULT_PANE_ID,
   selectExplorerSidebarPaneId,
   useWorkspaceLayoutStore,
   type SplitNode,
@@ -434,8 +436,9 @@ function SplitNodeView({
     groupId ? state.splitSizesByWorkspace[workspaceKey]?.[groupId] : undefined,
   );
   const groupChildren = node.kind === "group" ? node.group.children : EMPTY_SPLIT_NODES;
+  const defaultGroupSizes = node.kind === "group" ? node.group.sizes : EMPTY_SPLIT_SIZES;
   const groupSizes =
-    storedGroupSizes ?? (node.kind === "group" ? node.group.sizes : EMPTY_SPLIT_SIZES);
+    storedGroupSizes?.length === groupChildren.length ? storedGroupSizes : defaultGroupSizes;
   const visibleFlex = useMemo(
     () => resolveVisibleGroupFlex(groupChildren, groupSizes, maximizedPaneId),
     [groupChildren, groupSizes, maximizedPaneId],
@@ -700,6 +703,9 @@ const SplitPaneView = memo(function SplitPaneView({
   }, [stableOnFocusPane, pane.id]);
 
   const paneId = pane.id;
+  const workbenchMode = usePimiWorkbenchMode(`${normalizedServerId}:${normalizedWorkspaceId}`);
+  const emptyEditor =
+    workbenchMode === "editor" && paneId === DEFAULT_PANE_ID && !activeTabDescriptor;
   const handleCloseTabsToLeft = useCallback(
     (tabId: string) => onCloseTabsToLeft(tabId, paneTabs),
     [onCloseTabsToLeft, paneTabs],
@@ -831,6 +837,11 @@ const SplitPaneView = memo(function SplitPaneView({
         </AdaptiveWorkspaceChrome>
 
         <View style={styles.paneContent}>
+          {emptyEditor ? (
+            <View style={styles.emptyEditor}>
+              <Text style={styles.emptyEditorText}>Choose a file from Explorer.</Text>
+            </View>
+          ) : null}
           <WorkspacePanelHost
             paneId={pane.id}
             tabs={paneTabs}
@@ -880,10 +891,16 @@ function removePaneFromSplitTree(node: SplitNode, paneId: string | null): SplitN
     return node.pane.id === paneId ? null : node;
   }
 
-  const children = node.group.children.flatMap((child) => {
+  const retained = node.group.children.flatMap((child, index) => {
     const nextChild = removePaneFromSplitTree(child, paneId);
-    return nextChild ? [nextChild] : [];
+    return nextChild ? [{ child: nextChild, size: node.group.sizes[index] ?? 1 }] : [];
   });
+  if (
+    retained.every(({ child }, index) => child === node.group.children[index]) &&
+    retained.length === node.group.children.length
+  )
+    return node;
+  const children = retained.map(({ child }) => child);
   if (children.length === 0) {
     return null;
   }
@@ -895,7 +912,7 @@ function removePaneFromSplitTree(node: SplitNode, paneId: string | null): SplitN
     group: {
       ...node.group,
       children,
-      sizes: children.map(() => 1 / children.length),
+      sizes: retained.map(({ size }) => size),
     },
   };
 }
@@ -929,6 +946,12 @@ const styles = StyleSheet.create((theme) => ({
     minWidth: 0,
     minHeight: 0,
   },
+  emptyEditor: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyEditorText: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm },
   pane: {
     position: "relative",
     flex: 1,

@@ -58,6 +58,7 @@ import { WorkspacePinShortcutHandler } from "@/components/workspace-pin-shortcut
 import { WorkspaceRenameHost } from "@/components/workspace-rename-host";
 import { WorkspaceArchiveUndoShortcutHost } from "@/workspace/archive-undo";
 import { WorkspaceExplorerOpenGesture } from "@/mobile-panels/explorer-open-gesture";
+import { useFollowWorkbenchMode, usePimiWorkbenchMode } from "@/desktop/use-pimi-workbench";
 import { PimiLabelsProvider } from "@/desktop/pimi-labels";
 import { HarnessUpdateNotice } from "@/components/harness-update-notice";
 import { ProviderSettingsHost } from "@/components/provider-settings-host";
@@ -607,11 +608,13 @@ function useAppSidebarLayout({
   });
 
   const activeWorkspace = useActiveWorkspaceSelection();
+  const activeWorkspaceKey = activeWorkspace
+    ? `${activeWorkspace.serverId}:${activeWorkspace.workspaceId}`
+    : null;
+  const ide = usePimiWorkbenchMode(activeWorkspaceKey) === "editor";
   const explorerVisible = useIsExplorerSidebarOpen({
     isCompact: isCompactLayout,
-    workspaceKey: activeWorkspace
-      ? `${activeWorkspace.serverId}:${activeWorkspace.workspaceId}`
-      : null,
+    workspaceKey: activeWorkspaceKey,
   });
   const appContentMinimumWidth = resolveDesktopAppContentMinimum({
     explorerVisible: isWorkspaceRoute && explorerVisible,
@@ -623,6 +626,7 @@ function useAppSidebarLayout({
     !isCompactLayout &&
     !isWorkspaceFocusModeEnabled &&
     Boolean(getDesktopHost()?.showPimiWorkspace);
+  useFollowWorkbenchMode(activeWorkspaceKey, pimiSidebarEnabled);
   const desktopSidebarVisible = resolveDesktopSidebarVisibility({
     chromeEnabled,
     isCompactLayout,
@@ -637,7 +641,12 @@ function useAppSidebarLayout({
         viewportWidth,
       }),
   });
-  const pimiSidebar = usePimiSidebar(pimiSidebarEnabled, desktopSidebarVisible, pathname);
+  const pimiSidebar = usePimiSidebar(
+    pimiSidebarEnabled,
+    desktopSidebarVisible && !ide,
+    pathname,
+    ide,
+  );
   const sidebarOccupiesColumn = desktopSidebarVisible || pimiSidebar !== undefined;
   const sidebarPresentation = pimiSidebar
     ? "dock"
@@ -675,6 +684,7 @@ function usePimiSidebar(
   enabled: boolean,
   docked: boolean,
   pathname: string,
+  ide: boolean,
 ): PimiSidebarControls | undefined {
   const [peekPath, setPeekPath] = useState<string | null>(null);
   const openDesktopAgentList = usePanelStore((state) => state.openDesktopAgentList);
@@ -709,8 +719,8 @@ function usePimiSidebar(
   const unpinnedMode = peeking ? "peek" : "rail";
   return useMemo(
     () =>
-      enabled ? { mode: docked ? "dock" : unpinnedMode, openPeek, closePeek, pin } : undefined,
-    [enabled, docked, unpinnedMode, openPeek, closePeek, pin],
+      enabled ? { mode: docked ? "dock" : unpinnedMode, openPeek, closePeek, pin, ide } : undefined,
+    [enabled, docked, unpinnedMode, openPeek, closePeek, pin, ide],
   );
 }
 

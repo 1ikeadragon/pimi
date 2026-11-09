@@ -4,6 +4,15 @@ import { create } from "zustand";
 import { persist, type StateStorage } from "zustand/middleware";
 import type { z } from "zod";
 import { WorkspaceLayoutPersistedStateSchema } from "./workspace-layout-storage";
+import {
+  createEditorWorkbench,
+  isWorkbenchChatTarget,
+  isWorkbenchDocument,
+  restoreWorkbench,
+  type WorkbenchMode,
+  type WorkspaceWorkbench,
+} from "./workspace-workbench";
+import { getWorkspacePanelAttributes } from "@/panels/panel-instance-attributes";
 import type { JsonValue } from "@pimi/protocol/agent-types";
 import type { WorkspaceTab, WorkspaceTabTarget } from "@/workspace-tabs/model";
 import {
@@ -144,6 +153,8 @@ interface WorkspaceLayoutStore {
    */
   sheetsByWorkspace: Record<string, readonly SheetTab[]>;
   layoutByWorkspace: Record<string, WorkspaceLayout>;
+  workbenchByWorkspace: Record<string, WorkspaceWorkbench>;
+  switchWorkbench: (workspaceKey: string, mode: WorkbenchMode) => "ok" | "unsaved" | "unavailable";
   splitSizesByWorkspace: Record<string, Record<string, number[]>>;
   explorerSidebarWidthByWorkspace: Record<string, number>;
   pinnedAgentIdsByWorkspace: Record<string, Set<string>>;
@@ -627,6 +638,18 @@ function ensurePersistedExplorerSidebarPane(input: {
   };
 }
 
+function getWorkbenchPlacement(
+  state: WorkspaceLayoutStore,
+  workspaceKey: string,
+  target: WorkspaceTabTarget,
+): WorkspaceTabPlacement {
+  if (state.workbenchByWorkspace[workspaceKey]?.mode !== "editor") return AMBIENT_PLACEMENT;
+  if (isWorkbenchDocument(target)) return { mode: "prefer", paneId: DEFAULT_PANE_ID };
+  const sidePaneId = state.sidePaneIdByWorkspace[workspaceKey];
+  if (sidePaneId && isWorkbenchChatTarget(target)) return { mode: "prefer", paneId: sidePaneId };
+  return AMBIENT_PLACEMENT;
+}
+
 function getOpenTabPlacement(
   state: WorkspaceLayoutStore,
   workspaceKey: string,
@@ -642,7 +665,7 @@ function getOpenTabPlacement(
     layout,
     state.explorerSidebarPaneIdByWorkspace[workspaceKey],
   );
-  const requestedPlacement = placement ?? AMBIENT_PLACEMENT;
+  const requestedPlacement = placement ?? getWorkbenchPlacement(state, workspaceKey, target);
   const supportsPane = (pane: SplitPane) =>
     panelTargetSupportsHostForWorkspaceKey(
       workspaceKey,
@@ -975,6 +998,7 @@ function createExplorerSidebarPane(
 
 const PERSISTED_SLICES = [
   "layoutByWorkspace",
+  "workbenchByWorkspace",
   "pinnedAgentIdsByWorkspace",
   "splitSizesByWorkspace",
   "explorerSidebarWidthByWorkspace",
@@ -1004,6 +1028,7 @@ function createPersistedStateProjection() {
     }
     const state: WorkspaceLayoutPersistedState = {
       layoutByWorkspace,
+      workbenchByWorkspace: source.workbenchByWorkspace,
       pinnedAgentIdsByWorkspace: Object.fromEntries(
         Object.entries(source.pinnedAgentIdsByWorkspace).map(([key, agentIds]) => [
           key,
@@ -1088,6 +1113,48 @@ export function createWorkspaceLayoutStore(
         sheetsByWorkspace: {},
         focusRequest: null,
         layoutByWorkspace: {},
+        workbenchByWorkspace: {},
+        switchWorkbench: (workspaceKey, mode) => {
+          const state = get();
+          if (!workspaceKey || state.layoutMode !== "split-panes") return "unavailable";
+          const prior = state.workbenchByWorkspace[workspaceKey];
+          if ((prior?.mode ?? "agent") === mode) return "ok";
+          const layout = getWorkspaceLayout(state.layoutByWorkspace, workspaceKey);
+          if (
+            collectAllTabs(layout.root).some(
+              ({ tabId }) => getWorkspacePanelAttributes(workspaceKey, tabId).modified,
+            )
+          )
+            return "unsaved";
+          const current = {
+            layout,
+            explorerPaneId: resolveExplorerSidebarPaneId(
+              layout,
+              state.explorerSidebarPaneIdByWorkspace[workspaceKey],
+            ),
+            sidePaneId: state.sidePaneIdByWorkspace[workspaceKey] ?? null,
+          };
+          const next = prior
+            ? restoreWorkbench(prior.alternate, layout, mode)
+            : createEditorWorkbench(current, ids);
+          set({
+            ...withoutFocusRestoration(state, workspaceKey),
+            layoutByWorkspace: { ...state.layoutByWorkspace, [workspaceKey]: next.layout },
+            workbenchByWorkspace: {
+              ...state.workbenchByWorkspace,
+              [workspaceKey]: { mode, alternate: current },
+            },
+            explorerSidebarPaneIdByWorkspace: {
+              ...state.explorerSidebarPaneIdByWorkspace,
+              [workspaceKey]: next.explorerPaneId,
+            },
+            sidePaneIdByWorkspace: {
+              ...state.sidePaneIdByWorkspace,
+              [workspaceKey]: next.sidePaneId,
+            },
+          });
+          return "ok";
+        },
         splitSizesByWorkspace: {},
         explorerSidebarWidthByWorkspace: {},
         pinnedAgentIdsByWorkspace: {},
@@ -2250,6 +2317,7 @@ export function createWorkspaceLayoutStore(
             const hasAny =
               normalizedWorkspaceKey in state.pendingOpenByWorkspace ||
               normalizedWorkspaceKey in state.layoutByWorkspace ||
+              normalizedWorkspaceKey in state.workbenchByWorkspace ||
               normalizedWorkspaceKey in state.splitSizesByWorkspace ||
               normalizedWorkspaceKey in state.explorerSidebarWidthByWorkspace ||
               normalizedWorkspaceKey in state.pinnedAgentIdsByWorkspace ||
@@ -2270,6 +2338,8 @@ export function createWorkspaceLayoutStore(
             } = state.pullRequestTabAutoOpenedByWorkspace;
             const { [normalizedWorkspaceKey]: _layout, ...layoutByWorkspace } =
               state.layoutByWorkspace;
+            const { [normalizedWorkspaceKey]: _workbench, ...workbenchByWorkspace } =
+              state.workbenchByWorkspace;
             const { [normalizedWorkspaceKey]: _splits, ...splitSizesByWorkspace } =
               state.splitSizesByWorkspace;
             const {
@@ -2293,6 +2363,7 @@ export function createWorkspaceLayoutStore(
               pendingOpenByWorkspace,
               pullRequestTabAutoOpenedByWorkspace,
               layoutByWorkspace,
+              workbenchByWorkspace,
               splitSizesByWorkspace,
               explorerSidebarWidthByWorkspace,
               pinnedAgentIdsByWorkspace,
@@ -2347,6 +2418,7 @@ export function createWorkspaceLayoutStore(
           return {
             ...currentState,
             layoutByWorkspace,
+            workbenchByWorkspace: result.data.workbenchByWorkspace ?? {},
             pinnedAgentIdsByWorkspace: Object.fromEntries(
               Object.entries(result.data.pinnedAgentIdsByWorkspace ?? {}).map(([key, agentIds]) => [
                 key,

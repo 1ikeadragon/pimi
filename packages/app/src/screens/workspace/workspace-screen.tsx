@@ -16,6 +16,7 @@ import { revealWorkspaceTab } from "@/workspace-tabs/navigation";
 import type { LayoutChangeEvent } from "react-native";
 import { ExplorerSidebarDock } from "@/screens/workspace/explorer-sidebar";
 import { ForgeShorthandProvider } from "@/git/forge-shorthand";
+import { usePimiWorkbenchMode } from "@/desktop/use-pimi-workbench";
 import { ExplorerFrame } from "./explorer-sidebar/frame";
 import { WorkspaceTabDragScope } from "@/components/workspace-tab-drag-scope";
 import {
@@ -814,15 +815,24 @@ function WorkspaceContentProviders({
   );
 }
 
+function getEditorPaneTitle(tabs: WorkspaceTabDescriptor[], activeKey: string, paneId: string) {
+  const target = tabs.find((tab) => tab.key === activeKey)?.target;
+  if (target?.kind === "file") return target.path.split(/[\\/]/).at(-1) ?? "Editor";
+  if (target?.kind === "terminal") return "Terminal";
+  return paneId === DEFAULT_PANE_ID ? "Editor" : "Chat";
+}
+
 function WorkspacePanelSurface({
   launcher,
   children,
   tabIds,
   workspaceKey,
+  editorMode,
   onLayout,
 }: {
   onLayout: (event: LayoutChangeEvent) => void;
   workspaceKey: string;
+  editorMode: boolean;
   launcher: NewTabLauncher;
   children: ReactNode;
   tabIds: readonly string[];
@@ -832,7 +842,10 @@ function WorkspacePanelSurface({
     <WorkspaceComposerEditingSessionsProvider workspaceKey={workspaceKey} tabIds={tabIds}>
       <NewTabLauncherProvider value={launcher}>
         <SheetHostScope enabled={!isCompact}>
-          <View style={styles.threePaneRow} onLayout={onLayout}>
+          <View
+            style={[styles.threePaneRow, editorMode && styles.editorWorkbenchRow]}
+            onLayout={onLayout}
+          >
             {children}
           </View>
         </SheetHostScope>
@@ -1139,6 +1152,7 @@ function WorkspaceScreenContent({
       }),
     [normalizedServerId, normalizedWorkspaceId],
   );
+  const editorMode = usePimiWorkbenchMode(persistenceKey) === "editor";
   const openTab = useWorkspaceLayoutStore((state) => state.openTab);
   const replaceWorkspaceTabTarget = useWorkspaceLayoutStore((state) => state.replaceTab);
   const openWorkspaceTabFocused = useCallback(
@@ -1708,14 +1722,15 @@ function WorkspaceScreenContent({
         return;
       }
       const target = createWorkspaceFileTabTarget(normalizedLocation);
+      const placement = editorMode ? undefined : FOCUSED_PANE_PLACEMENT;
       const tabId = parentTabId
-        ? revealWorkspaceChildTab(persistenceKey, target, parentTabId, FOCUSED_PANE_PLACEMENT)
-        : openWorkspaceTabFocused(persistenceKey, target, FOCUSED_PANE_PLACEMENT);
+        ? revealWorkspaceChildTab(persistenceKey, target, parentTabId, placement)
+        : openWorkspaceTabFocused(persistenceKey, target, placement);
       if (tabId) {
         navigateToTabId(tabId);
       }
     },
-    [navigateToTabId, openWorkspaceTabFocused, revealWorkspaceChildTab, persistenceKey],
+    [editorMode, navigateToTabId, openWorkspaceTabFocused, revealWorkspaceChildTab, persistenceKey],
   );
 
   const handleOpenPreferredAssistantFile = useCallback(
@@ -3463,15 +3478,19 @@ function WorkspaceScreenContent({
       actionsOnly = false,
     ) => {
       const tabSwitcher = renderWorkspaceTabSwitcher(headerTabs, headerActiveTabKey, actions);
+      const editorTitle =
+        editorMode && actions.pane
+          ? getEditorPaneTitle(headerTabs, headerActiveTabKey, actions.pane.id)
+          : null;
       return (
         <CompactWorkspaceHeader
           headerVariant={actionsOnly ? "full" : "compact"}
           actionsActive={isRouteFocused && (!isMobile || workspacePanelActive)}
           tabSwitcher={tabSwitcher}
           isLoading={isWorkspaceHeaderLoading}
-          title={workspaceHeaderTitle}
-          subtitle={workspaceHeaderSubtitle}
-          isSubtitleDistinct={isWorkspaceHeaderSubtitleDistinct}
+          title={editorTitle ?? workspaceHeaderTitle}
+          subtitle={editorTitle ? "" : workspaceHeaderSubtitle}
+          isSubtitleDistinct={!editorTitle && isWorkspaceHeaderSubtitleDistinct}
           serverId={normalizedServerId}
           onToggleExplorer={handleToggleExplorerSidebar}
           explorerToggleLabel={explorerSidebarToggleLabel}
@@ -3501,6 +3520,7 @@ function WorkspaceScreenContent({
     },
     [
       renderWorkspaceTabSwitcher,
+      editorMode,
       isFocusModeEnabled,
       toggleFocusMode,
       canOpenImportSheet,
@@ -3752,6 +3772,7 @@ function WorkspaceScreenContent({
         isWorkspaceActive={isRouteFocused}
         persistenceKey={persistenceKey}
         containerWidth={workspaceViewportWidth}
+        side={editorMode ? "left" : "right"}
         isOpen={isExplorerSidebarShowing && !desktopFocusModeEnabled}
       >
         {dock}
@@ -3787,6 +3808,7 @@ function WorkspaceScreenContent({
     renderExplorerSidebarHeaderAction,
     workspaceViewportWidth,
     desktopFocusModeEnabled,
+    editorMode,
   ]);
 
   const { revealDirectory } = useFileExplorerActions({
@@ -3846,6 +3868,7 @@ function WorkspaceScreenContent({
           onLayout={measureWorkspaceWidth}
           launcher={newTabLauncher}
           workspaceKey={workspacePanelKey}
+          editorMode={editorMode}
           tabIds={workspacePanelTabIds}
         >
           <FloatingPanelPortalHostNameProvider hostName={workspaceFloatingPanelPortalHostName}>
@@ -3940,6 +3963,7 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "stretch",
   },
+  editorWorkbenchRow: { flexDirection: "row-reverse" },
   centerColumn: {
     flex: 1,
     minHeight: 0,

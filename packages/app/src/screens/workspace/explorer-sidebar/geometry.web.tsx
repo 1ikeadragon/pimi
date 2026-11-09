@@ -12,36 +12,46 @@ export function useExplorerGeometry({
   containerWidth,
   onResize,
   overlay,
+  side,
 }: ExplorerGeometryInput): ExplorerGeometry {
   const [previewWidth, setPreviewWidth] = useState<number | null>(null);
   const requestedWidth = previewWidth ?? width;
-  const sizes = resolveExplorerSidebarDockSizes({ requestedWidth, containerWidth });
+  const left = side === "left";
+  const widthIndex = left ? 0 : 1;
+  const dockSizes = resolveExplorerSidebarDockSizes({ requestedWidth, containerWidth });
+  const sizes = left ? dockSizes.toReversed() : dockSizes;
   const preview = useCallback(
     (_id: string, next: number[]) => {
       setPreviewWidth(
-        resolveExplorerSidebarWidth({ requestedWidth: next[1] * containerWidth, containerWidth }),
+        resolveExplorerSidebarWidth({
+          requestedWidth: next[widthIndex] * containerWidth,
+          containerWidth,
+        }),
       );
     },
-    [containerWidth],
+    [containerWidth, widthIndex],
   );
   const commit = useCallback(
     (_id: string, next: number[]) => {
       setPreviewWidth(null);
       onResize(
-        resolveExplorerSidebarWidth({ requestedWidth: next[1] * containerWidth, containerWidth }),
+        resolveExplorerSidebarWidth({
+          requestedWidth: next[widthIndex] * containerWidth,
+          containerWidth,
+        }),
       );
     },
-    [containerWidth, onResize],
+    [containerWidth, onResize, widthIndex],
   );
   return {
     frameStyle: inlineUnistylesStyle({ width: overlay ? undefined : requestedWidth }),
     panelStyle: undefined,
     resizeHandle: (
-      <View style={styles.resize}>
+      <View style={[styles.resize, left ? styles.right : styles.left]}>
         <ResizeHandle
           testID="workspace-explorer-sidebar-resize-handle"
           direction="horizontal"
-          hitAreaAlignment="end"
+          hitAreaAlignment={left ? "center" : "end"}
           groupId="explorer-sidebar"
           index={0}
           sizes={sizes}
@@ -54,5 +64,7 @@ export function useExplorerGeometry({
   };
 }
 const styles = StyleSheet.create({
-  resize: { position: "absolute", left: 0, top: 0, bottom: 0, zIndex: 2, flexDirection: "row" },
+  resize: { position: "absolute", top: 0, bottom: 0, zIndex: 2, flexDirection: "row" },
+  left: { left: 0 },
+  right: { right: 0 },
 });

@@ -1,3 +1,4 @@
+import { isWorkbenchDocument } from "@/stores/workspace-workbench";
 import { revealWorkspaceTab } from "./navigation";
 import type { OpenInSidePanePreferences } from "@/hooks/use-settings";
 import {
@@ -86,10 +87,28 @@ function canReplacePreview(input: {
   );
 }
 
+function prefersEditorCenter(workspaceKey: string, target: WorkspaceTabTarget) {
+  const state = useWorkspaceLayoutStore.getState();
+  return state.workbenchByWorkspace[workspaceKey]?.mode === "editor" && isWorkbenchDocument(target);
+}
+
 /** Opens an implicit target according to its source-specific desktop preference. */
 export function openPreferredWorkspaceTarget(
   input: OpenPreferredWorkspaceTargetInput,
 ): string | null {
+  if (input.workspaceKey && prefersEditorCenter(input.workspaceKey, input.target)) {
+    const workspaceKey = input.workspaceKey;
+    const store = useWorkspaceLayoutStore.getState();
+    return revealWorkspaceTab(
+      workspaceKey,
+      store.openTab({
+        workspaceKey,
+        target: input.target,
+        intent: "reveal",
+        parentTabId: input.parentTabId ?? undefined,
+      }),
+    );
+  }
   return openWorkspaceTargetAtLocation({
     workspaceKey: input.workspaceKey,
     target: input.target,
@@ -150,13 +169,14 @@ export function openPreferredWorkspacePreview(
     return openPreferredWorkspaceTarget(input);
   }
 
+  const editorCenter = prefersEditorCenter(input.workspaceKey, input.target);
   const mainPane = resolveMainPane({
     workspaceKey: input.workspaceKey,
     explorerSidebarPaneId: input.explorerSidebarPaneId,
-    lastMainPaneId: input.lastMainPaneId,
+    lastMainPaneId: editorCenter ? DEFAULT_PANE_ID : input.lastMainPaneId,
   });
   const destinationPaneId =
-    canOpenBeside() && input.preferences[input.source]
+    !editorCenter && canOpenBeside() && input.preferences[input.source]
       ? store.ensureSidePane(input.workspaceKey)
       : mainPane?.id;
   if (!destinationPaneId) return null;
