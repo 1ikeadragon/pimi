@@ -4,6 +4,7 @@ import type { MobilePanelOverlay } from "@/mobile-panels/presentation";
 export interface ExplorerGeometryInput {
   width: number;
   containerWidth: number;
+  side: "left" | "right";
   overlay: boolean;
   resizeEnabled: boolean;
   onResize: (width: number) => void;

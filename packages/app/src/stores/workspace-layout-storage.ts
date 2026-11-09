@@ -97,6 +97,19 @@ const WorkspaceLayoutStorageSchema: z.ZodType<WorkspaceLayout> = z.strictObject(
 export const WorkspaceLayoutPersistedStateSchema = z.strictObject({
   pinnedAgentIdsByWorkspace: z.record(z.string(), z.array(z.string())).optional(),
   layoutByWorkspace: z.record(z.string(), WorkspaceLayoutStorageSchema),
+  workbenchByWorkspace: z
+    .record(
+      z.string(),
+      z.strictObject({
+        mode: z.enum(["agent", "editor"]),
+        alternate: z.strictObject({
+          layout: WorkspaceLayoutStorageSchema,
+          explorerPaneId: z.string().nullable(),
+          sidePaneId: z.string().nullable(),
+        }),
+      }),
+    )
+    .optional(),
   splitSizesByWorkspace: z.record(z.string(), z.record(z.string(), z.array(z.number()))).optional(),
   explorerSidebarWidthByWorkspace: z.record(z.string(), z.number()).optional(),
   // COMPAT(explorerSidebarWidth): added in v0.6, remove after 2027-08-25.

@@ -48,6 +48,7 @@ import { usageHoverDetails } from "@/usage/sidebar-item";
 
 export interface PimiSidebarControls {
   mode: "dock" | "rail" | "peek";
+  ide: boolean;
   openPeek: () => void;
   closePeek: () => void;
   pin: () => void;
@@ -99,6 +100,41 @@ function SidebarIcon({
   );
 }
 
+function usePimiSidebarActivity(section: ReturnType<typeof usePimiWorkspaceSection>) {
+  const host = getDesktopHost();
+  const activity = useWorkspaceActivity();
+  useEffect(() => {
+    if (section === "tasks" || section === "board" || section === "review") {
+      useWorkspaceActivity.setState({ [section]: false });
+    }
+    return host?.onPimiWorkspaceActivity?.((target) => {
+      if (section !== target) useWorkspaceActivity.setState({ [target]: true });
+    });
+  }, [host, section]);
+  return activity;
+}
+
+function IdeSidebarNavigation() {
+  const section = usePimiWorkspaceSection();
+  const activity = usePimiSidebarActivity(section);
+  const openReview = useCallback(
+    () => getDesktopHost()?.showPimiWorkspace?.({ view: "review-home" }),
+    [],
+  );
+  return (
+    <View style={styles.railDestinations}>
+      <SidebarIcon icon={LayoutGrid} label="Agent Grid" onPress={openPimiAgentGrid} />
+      <SidebarIcon
+        icon={FileDiff}
+        label="Review"
+        onPress={openReview}
+        active={section === "review"}
+        unread={activity.review && section !== "review"}
+      />
+    </View>
+  );
+}
+
 export function PimiSidebarRail({
   controls,
   onSettings,
@@ -116,7 +152,7 @@ export function PimiSidebarRail({
       <View style={[styles.railCard, macTitlebar && styles.pimiMacRail]}>
         <SidebarIcon
           icon={PanelLeftOpen}
-          label={t("sidebar.actions.peekSidebar")}
+          label={controls.ide ? "Projects" : t("sidebar.actions.peekSidebar")}
           onPress={controls.openPeek}
           testID="pimi-sidebar-peek"
         />
@@ -125,9 +161,11 @@ export function PimiSidebarRail({
           contentContainerStyle={styles.railScrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <PimiWorkspaceNavigation rail />
+          {controls.ide ? <IdeSidebarNavigation /> : <PimiWorkspaceNavigation rail />}
         </ScrollView>
-        <SidebarIcon icon={Pin} label={t("sidebar.actions.pinSidebar")} onPress={controls.pin} />
+        {!controls.ide ? (
+          <SidebarIcon icon={Pin} label={t("sidebar.actions.pinSidebar")} onPress={controls.pin} />
+        ) : null}
         <SidebarIcon icon={Settings} label={t("sidebar.actions.settings")} onPress={onSettings} />
       </View>
     </View>
@@ -138,7 +176,9 @@ export function PimiSidebarPeekActions({ controls }: { controls: PimiSidebarCont
   const { t } = useTranslation();
   return (
     <View style={styles.peekActions}>
-      <SidebarIcon icon={Pin} label={t("sidebar.actions.pinSidebar")} onPress={controls.pin} />
+      {!controls.ide ? (
+        <SidebarIcon icon={Pin} label={t("sidebar.actions.pinSidebar")} onPress={controls.pin} />
+      ) : null}
       <SidebarIcon
         icon={X}
         label={t("sidebar.actions.closeSidebar")}
@@ -185,17 +225,9 @@ export function PimiWorkspaceNavigation({
   const host = getDesktopHost();
   const show = host?.showPimiWorkspace;
   const section = usePimiWorkspaceSection();
-  const activity = useWorkspaceActivity();
+  const activity = usePimiSidebarActivity(section);
   const unreadFor = (target: PimiActivitySection) => activity[target] && section !== target;
   const activityDot = useMemo(() => <View style={styles.activityDot} />, []);
-  useEffect(() => {
-    if (section === "tasks" || section === "board" || section === "review") {
-      useWorkspaceActivity.setState({ [section]: false });
-    }
-    return host?.onPimiWorkspaceActivity?.((target) => {
-      if (section !== target) useWorkspaceActivity.setState({ [target]: true });
-    });
-  }, [host, section]);
   const pathname = usePathname();
   const inAgentGrid = pathname === PIMI_AGENT_GRID_ROUTE;
   const inUsage = pathname === PIMI_USAGE_ROUTE;

@@ -15,6 +15,7 @@ import type { ExplorerFrameProps } from "./frame-props";
 
 function ExplorerFrameBase({
   children,
+  side = "right",
   surfaceColor,
   presentation,
   isOpen,
@@ -36,8 +37,12 @@ function ExplorerFrameBase({
     [persistenceKey, resize],
   );
   const geometry = useExplorerGeometry({
-    width: resolveExplorerSidebarWidth({ requestedWidth: storedWidth, containerWidth }),
+    width: resolveExplorerSidebarWidth({
+      requestedWidth: storedWidth ?? (side === "left" ? 240 : undefined),
+      containerWidth,
+    }),
     containerWidth,
+    side,
     overlay,
     resizeEnabled,
     onResize,

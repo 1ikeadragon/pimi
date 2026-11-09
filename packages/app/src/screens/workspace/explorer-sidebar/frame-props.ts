@@ -6,5 +6,6 @@ export interface ExplorerFrameProps {
   containerWidth: number;
   isOpen: boolean;
   isWorkspaceActive: boolean;
+  side?: "left" | "right";
   surfaceColor?: string;
 }

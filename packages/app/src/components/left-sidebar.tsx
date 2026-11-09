@@ -855,10 +855,7 @@ function DesktopSidebar({
     () => [staticStyles.desktopSidebar, frameWidth],
     [frameWidth],
   );
-  const pimiSidebarSurface =
-    pimiSidebar?.mode === "dock" && usesPimiMacTitlebar()
-      ? styles.pimiMacChrome
-      : styles.pimiSidebarInset;
+  const pimiSidebarSurface = getPimiSidebarSurface(pimiSidebar);
   const desktopSidebarBorderStyle = useMemo(
     () => [
       pimiSidebar ? pimiSidebarSurface : styles.desktopSidebarBorder(divisionLayout !== null),
@@ -883,7 +880,7 @@ function DesktopSidebar({
     () => [styles.sidebarHeaderGroup, ownsTopLeft && styles.sidebarHeaderGroupBelowChrome],
     [ownsTopLeft],
   );
-  const showFullChrome = ownsTopLeft || pimiSidebar !== undefined;
+  const showFullChrome = ownsSidebarDragChrome(ownsTopLeft, pimiSidebar);
   const chrome = useMemo(
     () => <SidebarDragChrome full={showFullChrome} theme={theme} />,
     [showFullChrome, theme],
@@ -896,19 +893,14 @@ function DesktopSidebar({
     <View style={desktopSidebarBorderStyle}>
       <View style={styles.sidebarDragArea}>
         {pimiSidebar ? null : chrome}
-        {pimi ? (
-          <PimiWorkspaceNavigation
-            onNavigate={closePeek}
-            trailing={peekActions}
-            secondaryNavigation={
-              <SidebarNavRows pimiSection="destinations" onBeforeNavigate={handleWorkspacePress} />
-            }
-          >
-            <SidebarNavRows pimiSection="actions" onBeforeNavigate={handleWorkspacePress} />
-          </PimiWorkspaceNavigation>
-        ) : (
-          <SidebarNavRows style={sidebarHeaderGroupStyle} onBeforeNavigate={handleWorkspacePress} />
-        )}
+        <DesktopSidebarNavigation
+          pimi={pimi}
+          controls={pimiSidebar}
+          closePeek={closePeek}
+          peekActions={peekActions}
+          onNavigate={handleWorkspacePress}
+          headerStyle={sidebarHeaderGroupStyle}
+        />
       </View>
 
       {pimi ? <View style={styles.pimiProjectHeader}>{projectHeader}</View> : null}
@@ -979,6 +971,48 @@ function DesktopSidebar({
         {sidebarContent}
       </DesktopSidebarFrame>
     </MobilePanelOverlay>
+  );
+}
+
+function getPimiSidebarSurface(controls?: PimiSidebarControls) {
+  return controls?.mode === "dock" && usesPimiMacTitlebar()
+    ? styles.pimiMacChrome
+    : styles.pimiSidebarInset;
+}
+
+function ownsSidebarDragChrome(ownsTopLeft: boolean, controls?: PimiSidebarControls) {
+  return ownsTopLeft || controls !== undefined;
+}
+
+function DesktopSidebarNavigation({
+  pimi,
+  controls,
+  closePeek,
+  peekActions,
+  onNavigate,
+  headerStyle,
+}: {
+  pimi: boolean;
+  controls?: PimiSidebarControls;
+  closePeek?: () => void;
+  peekActions: React.ReactNode;
+  onNavigate: () => void;
+  headerStyle: React.ComponentProps<typeof SidebarNavRows>["style"];
+}) {
+  const destinations = useMemo(
+    () => <SidebarNavRows pimiSection="destinations" onBeforeNavigate={onNavigate} />,
+    [onNavigate],
+  );
+  if (controls?.ide) return peekActions;
+  if (!pimi) return <SidebarNavRows style={headerStyle} onBeforeNavigate={onNavigate} />;
+  return (
+    <PimiWorkspaceNavigation
+      onNavigate={closePeek}
+      trailing={peekActions}
+      secondaryNavigation={destinations}
+    >
+      <SidebarNavRows pimiSection="actions" onBeforeNavigate={onNavigate} />
+    </PimiWorkspaceNavigation>
   );
 }
 
@@ -1055,11 +1089,8 @@ function WorkspacesSectionHeader({
   onNewWorkspace?: () => void;
 }) {
   const { t } = useTranslation();
-  const title = onAddProject
-    ? "Projects"
-    : getDesktopHost()?.showPimiWorkspace
-      ? "Sessions"
-      : "Workspaces";
+  const workspaceLabel = getDesktopHost()?.showPimiWorkspace ? "Sessions" : "Workspaces";
+  const title = onAddProject ? "Projects" : workspaceLabel;
   return (
     <SidebarSectionHeader title={title}>
       {onNewWorkspace ? (
