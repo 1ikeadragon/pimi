@@ -17,8 +17,11 @@ if (window.pimiWorkspace?.onVoiceState) {
   const badge = $("pimi-voice-status");
   const copy = $("pimi-voice-message");
   const wave = $("pimi-voice-wave");
+  const receiptCard = $("pimi-voice-receipt");
+  const transcript = $("pimi-voice-transcript");
+  const result = $("pimi-voice-result");
   const bars = [...wave.querySelectorAll("rect")];
-  window.pimiWorkspace.onVoiceState(({ visible, active, status, level }) => {
+  window.pimiWorkspace.onVoiceState(({ visible, active, status, level, receipt }) => {
     dock.hidden = !visible;
     toggle.setAttribute("aria-pressed", String(active));
     toggle.setAttribute("aria-label", active ? "Pimi · Stop listening" : "Pimi · Start listening");
@@ -27,6 +30,16 @@ if (window.pimiWorkspace?.onVoiceState) {
     if (copy.textContent !== status) copy.textContent = status;
     badge.hidden = !status;
     wave.toggleAttribute("hidden", !active);
+    receiptCard.hidden = !receipt;
+    if (receipt) {
+      if (transcript.textContent !== receipt.transcript)
+        transcript.textContent = receipt.transcript;
+      if (result.textContent !== receipt.message) result.textContent = receipt.message;
+      if (receiptCard.dataset.state !== receipt.state) receiptCard.dataset.state = receipt.state;
+    } else {
+      transcript.textContent = "";
+      result.textContent = "";
+    }
     bars.forEach((bar, index) => {
       const height = 4 + level * [8, 13, 10][index];
       bar.setAttribute("height", String(height));

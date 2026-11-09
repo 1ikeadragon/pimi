@@ -140,6 +140,7 @@ export function usePimiVoiceListener({
       }
       try {
         if (outcome.text.trim()) onTranscript(outcome.text);
+        else setMessage("No words recognized. Try saying the command again.");
       } catch (error) {
         stop(error instanceof Error ? error.message : "Could not apply that command.");
       }

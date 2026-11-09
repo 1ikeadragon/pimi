@@ -235,6 +235,7 @@ export interface DesktopHostBridge {
     publish: (state: PimiVoiceBubbleState) => void;
     onToggle: (toggle: () => void) => () => void;
     onPause: (pause: () => void) => () => void;
+    onDismissReceipt?: (dismiss: () => void) => () => void;
   };
   onPimiOpenSettings?: (open: () => void) => () => void;
   pimiAppearance?: {

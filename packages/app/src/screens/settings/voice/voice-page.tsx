@@ -14,10 +14,12 @@ import { Alert } from "@/components/ui/alert";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/contexts/toast-api-context";
+import { getDesktopHost } from "@/desktop/host";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { useHostFeature } from "@/runtime/host-features";
 import { useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { InstalledVoiceModels } from "./installed-voice-models";
+import { AskPimiHistory } from "./ask-pimi-history";
 import { SpeechProviderSheet } from "./speech-provider-sheet";
 import { useLocalSpeechModels } from "./use-local-speech-models";
 import {
@@ -42,6 +44,15 @@ function errorMessage(error: unknown): string {
 }
 
 export function HostVoicePage({ serverId }: { serverId: string }) {
+  return (
+    <View testID="voice-settings">
+      {getDesktopHost()?.pimiVoice ? <AskPimiHistory /> : null}
+      <HostVoiceControls serverId={serverId} />
+    </View>
+  );
+}
+
+function HostVoiceControls({ serverId }: { serverId: string }) {
   const { t } = useTranslation();
   const toast = useToast();
   const isConnected = useHostRuntimeIsConnected(serverId);
@@ -118,7 +129,7 @@ export function HostVoicePage({ serverId }: { serverId: string }) {
   const sheetSite = sheet ? getSpeechSite(features, sheet.siteId) : null;
 
   return (
-    <View testID="voice-settings">
+    <>
       <SettingsSection title={t("settings.voice.dictation.title")} testID="voice-dictation">
         <SettingsCard>
           <FeatureSwitchRow
@@ -163,7 +174,7 @@ export function HostVoicePage({ serverId }: { serverId: string }) {
           save={save}
         />
       ) : null}
-    </View>
+    </>
   );
 }
 

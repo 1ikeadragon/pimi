@@ -219,6 +219,11 @@ contextBridge.exposeInMainWorld("paseoDesktop", {
             ipcRenderer.on("pimi:voice:pause", listener);
             return () => ipcRenderer.removeListener("pimi:voice:pause", listener);
           },
+          onDismissReceipt: (dismiss: () => void) => {
+            const listener = () => dismiss();
+            ipcRenderer.on("pimi:voice:dismiss-receipt", listener);
+            return () => ipcRenderer.removeListener("pimi:voice:dismiss-receipt", listener);
+          },
         },
         onPimiOpenSettings: (open: () => void) => {
           openSettings = open;

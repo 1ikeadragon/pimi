@@ -441,12 +441,20 @@ export function isPimiSpaceEmbed(url: URL): boolean {
   return isPimiVideoEmbed(url) || isPimiXEmbed(url) || isPimiArxivEmbed(url);
 }
 
-export interface PimiVoiceBubbleState {
-  visible: boolean;
-  active: boolean;
-  status: string;
-  level: number;
-}
+export const PimiVoiceBubbleState = z.strictObject({
+  visible: z.boolean(),
+  active: z.boolean(),
+  status: z.string().max(240),
+  level: z.number().min(0).max(1),
+  receipt: z
+    .strictObject({
+      transcript: z.string().max(4096),
+      message: z.string().max(1600),
+      state: z.enum(["working", "finished", "error"]),
+    })
+    .optional(),
+});
+export type PimiVoiceBubbleState = z.infer<typeof PimiVoiceBubbleState>;
 
 export const PimiReportLinkRequest = z.strictObject({
   taskId: z.uuid(),

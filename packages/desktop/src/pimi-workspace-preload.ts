@@ -29,6 +29,9 @@ window.addEventListener(
     if (event.target instanceof Element && event.target.closest("#pimi-voice-toggle")) {
       ipcRenderer.send("pimi:voice:toggle");
     }
+    if (event.target instanceof Element && event.target.closest("#pimi-voice-dismiss")) {
+      ipcRenderer.send("pimi:voice:dismiss-receipt");
+    }
     const spaceLink =
       event.target instanceof Element ? event.target.closest("button[data-space-url]") : null;
     if (spaceLink)

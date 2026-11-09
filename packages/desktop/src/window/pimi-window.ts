@@ -518,6 +518,16 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
       return;
     surface.host.webContents.send("pimi:voice:toggle");
   });
+  contents.ipc.on("pimi:voice:dismiss-receipt", (event) => {
+    if (
+      event.senderFrame !== contents.mainFrame ||
+      URL.parse(event.senderFrame.url)?.origin !== runtime.origin ||
+      !surface.host ||
+      surface.host.isDestroyed()
+    )
+      return;
+    surface.host.webContents.send("pimi:voice:dismiss-receipt");
+  });
   contents.on("did-finish-load", () => {
     if (surface.host) sendLayout(surface, surface.layout);
     if (surface.host) {

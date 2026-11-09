@@ -340,11 +340,86 @@ body {
   fill: currentColor;
 }
 
+.voice-command-feedback {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+  min-width: 0;
+}
+
+.voice-command-receipt {
+  width: min(340px, calc(100vw - 94px));
+  padding: 0 12px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--canvas);
+  color: var(--text);
+}
+
+.voice-command-receipt > header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.voice-command-receipt > header button {
+  margin-left: auto;
+  padding: 3px 6px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 18px;
+}
+
+.voice-command-receipt-content {
+  max-height: 180px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.voice-command-receipt-content p {
+  margin: 0;
+}
+
+.voice-command-receipt-content .voice-command-result {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.voice-command-receipt[data-state="working"] .voice-command-result::before {
+  flex: 0 0 7px;
+  height: 7px;
+  border: 1px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  content: "";
+}
+
+.voice-command-receipt[data-state="error"] .voice-command-result::before {
+  content: "!";
+}
+
+@keyframes voice-receipt-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .voice-command-status rect {
     transition:
       height 140ms ease-out,
       y 140ms ease-out;
+  }
+  .voice-command-receipt[data-state="working"] .voice-command-result::before {
+    animation: voice-receipt-spin 750ms linear infinite;
   }
 }
 

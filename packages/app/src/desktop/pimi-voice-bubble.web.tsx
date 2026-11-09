@@ -1,18 +1,21 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
 import { router, usePathname } from "expo-router";
-import { Mic, Square } from "lucide-react-native";
-import { useEffect, useMemo, useRef } from "react";
-import { Image, Text, View } from "react-native";
+import { Check, CircleAlert, Mic, Square, X } from "lucide-react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Image, ScrollView, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import type { CommandCenterContribution } from "@/command-center/contributions";
 import { useCommandCenterContributions } from "@/command-center/provider";
 import { DensityIcon } from "@/components/ui/density-icon";
+import { Button } from "@/components/ui/button";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { VolumeMeter } from "@/components/volume-meter";
 import { useVoiceOptional } from "@/contexts/voice-context";
 import { getDesktopHost, type DesktopHostBridge } from "@/desktop/host";
 import { usePimiWorkspaceSection } from "@/desktop/pimi-console-content";
 import { parsePimiVoiceCommand } from "@/desktop/pimi-voice-command";
+import { usePimiVoiceHistory } from "@/desktop/pimi-voice-history";
 import { usePimiVoiceListener } from "@/desktop/use-pimi-voice-listener.web";
 import { useAppSettings } from "@/hooks/use-settings";
 import { useLocalDaemonServerId } from "@/hooks/use-is-local-daemon";
@@ -51,6 +54,7 @@ import { getVoiceReadinessState } from "@/utils/server-info-capabilities";
 import {
   isExplicitVoiceChatRequest,
   PIMI_VOICE_COMMAND_LIMIT,
+  type PimiVoiceBubbleState,
   PimiVoiceNavigation,
   type PimiDestination,
   type PimiVoiceView,
@@ -73,8 +77,7 @@ const PHASE_STATUS = {
   processing: "Transcribing…",
   listening: "Listening",
 };
-const WORKING = "Working…";
-
+const BUSY = "Still working on your last command. Say this again when it finishes.";
 const VOICE_OFF = { selected: false };
 const VOICE_ON = { selected: true };
 const VOICE_DOG = { uri: "/pimi-textures/voice-dog.svg" };
@@ -245,6 +248,81 @@ function useCommandVoiceUnavailable(localServerId: string): string | null {
   return null;
 }
 
+function VoiceReceipt({
+  receipt,
+  dismiss,
+}: {
+  receipt: NonNullable<PimiVoiceBubbleState["receipt"]>;
+  dismiss: () => void;
+}) {
+  return (
+    <View style={styles.receipt} testID="ask-pimi-receipt">
+      <View style={styles.receiptHeader}>
+        <DensityIcon icon={Check} size="sm" color="foregroundMuted" />
+        <Text style={styles.receiptTitle}>Heard</Text>
+        <Button
+          variant="ghost"
+          size="sm"
+          leftIcon={X}
+          onPress={dismiss}
+          accessibilityLabel="Dismiss Ask Pimi receipt"
+        />
+      </View>
+      <ScrollView style={styles.receiptContent}>
+        <Text selectable style={styles.transcript}>
+          {receipt.transcript}
+        </Text>
+        <View style={styles.receiptResult} accessibilityLiveRegion="polite">
+          {receipt.state === "working" ? <LoadingSpinner color={styles.statusText.color} /> : null}
+          {receipt.state === "error" ? (
+            <DensityIcon icon={CircleAlert} size="sm" color="statusDanger" />
+          ) : null}
+          <Text selectable style={styles.statusText}>
+            {receipt.message}
+          </Text>
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+function VoiceFeedback({
+  status,
+  active,
+  level,
+  receipt,
+  dismissReceipt,
+}: {
+  status: string;
+  active: boolean;
+  level: number;
+  receipt: PimiVoiceBubbleState["receipt"];
+  dismissReceipt: () => void;
+}) {
+  return (
+    <View style={styles.feedback}>
+      {status ? (
+        <View style={styles.status}>
+          {active ? (
+            <View style={styles.meter}>
+              <VolumeMeter
+                volume={level}
+                orientation="horizontal"
+                variant="compact"
+                isSpeaking={level > 0}
+              />
+            </View>
+          ) : null}
+          <Text style={styles.statusText} accessibilityLiveRegion="polite">
+            {status}
+          </Text>
+        </View>
+      ) : null}
+      {receipt ? <VoiceReceipt receipt={receipt} dismiss={dismissReceipt} /> : null}
+    </View>
+  );
+}
+
 function DesktopVoiceBubble({
   host,
   bridge,
@@ -269,30 +347,52 @@ function DesktopVoiceBubble({
   }, [contributions]);
   const unavailable = useCommandVoiceUnavailable(localServerId);
   const commandRunning = useRef(false);
+  const [receiptId, setReceiptId] = useState<string | null>(null);
+  const receiptEntry = usePimiVoiceHistory((state) =>
+    state.entries.find(({ id }) => id === receiptId),
+  );
+  const dismissReceipt = useCallback(() => setReceiptId(null), []);
+  const receipt = useMemo((): PimiVoiceBubbleState["receipt"] => {
+    if (!receiptEntry) return undefined;
+    if (!receiptEntry.outcome)
+      return { transcript: receiptEntry.transcript, message: "Working…", state: "working" };
+    return {
+      transcript: receiptEntry.transcript,
+      message: receiptEntry.outcome.message,
+      state: receiptEntry.outcome.failed ? "error" : "finished",
+    };
+  }, [receiptEntry]);
   const listener = usePimiVoiceListener({
     client: connected ? client : null,
     unavailable,
     onTranscript: (transcript) => {
+      const { record, finish } = usePimiVoiceHistory.getState();
+      const recordId = record(transcript);
+      const complete = (message: string, failed = false) => finish(recordId, { message, failed });
       const command = parsePimiVoiceCommand(transcript);
       if (command?.action === "stop") {
         listener.stop();
-        listener.setMessage("Microphone off");
+        setReceiptId(recordId);
+        complete("Microphone off");
         return;
       }
       if (commandRunning.current) {
-        listener.setMessage("Still working on your last command.");
+        listener.setMessage(BUSY);
+        complete(BUSY, true);
         return;
       }
+      setReceiptId(recordId);
       const agentId =
         useSessionStore.getState().sessions[localServerId]?.focusedAgentId ?? undefined;
       const navigationContext = { host, localServerId, selection, pathname, agentId };
       if (command) {
         const parsed = PimiVoiceNavigation.safeParse(command);
-        listener.setMessage(
-          parsed.success
-            ? (applyVoiceCommand(parsed.data, navigationContext) ?? "")
-            : "Try a shorter command.",
-        );
+        try {
+          if (parsed.success) complete(applyVoiceCommand(parsed.data, navigationContext) ?? "Done");
+          else complete("Try a shorter command.", true);
+        } catch {
+          complete("Couldn’t finish that command.", true);
+        }
         return;
       }
       const wantsChat = isExplicitVoiceChatRequest(transcript);
@@ -300,7 +400,6 @@ function DesktopVoiceBubble({
         .filter(({ id }) => wantsChat || !id.endsWith("tab:new-agent"))
         .slice(0, PIMI_VOICE_COMMAND_LIMIT);
       commandRunning.current = true;
-      listener.setMessage(WORKING);
       void (async () => {
         try {
           const result = await bridge.runCommand({
@@ -321,20 +420,24 @@ function DesktopVoiceBubble({
             target?.action === "registered-commands"
               ? await runRegisteredCommands(target.indexes, commands, () => currentCommands.current)
               : target && applyVoiceCommand(target, navigationContext);
-          listener.setMessage([result.message, navigation].filter(Boolean).join(" · "));
+          complete(
+            [result.message, navigation].filter(Boolean).join(" · ") || "Done",
+            result.failed,
+          );
         } catch (error) {
           const message = error instanceof Error ? error.message.split("Error: ").at(-1) : "";
-          listener.setMessage(message || "Couldn’t finish that command.");
+          complete(message || "Couldn’t finish that command.", true);
         } finally {
           commandRunning.current = false;
+          listener.setMessage((current) => (current === BUSY ? "" : current));
         }
       })();
     },
   });
 
-  const { phase, message, level, setMessage, stop, toggle } = listener;
+  const { phase, message, level, stop, toggle } = listener;
   const active = phase !== "off";
-  const status = message || PHASE_STATUS[phase];
+  const status = message || (receipt && !active ? "" : PHASE_STATUS[phase]);
   const label = active ? "Pimi · Stop listening" : "Pimi · Start listening";
   const workspaceLevel = section ? level : 0;
   const badgeStyle = useMemo(() => [styles.badge, active && styles.activeBadge], [active]);
@@ -350,6 +453,7 @@ function DesktopVoiceBubble({
     [bridge, toggle, visible],
   );
   useEffect(() => bridge.onPause(() => stop()), [bridge, stop]);
+  useEffect(() => bridge.onDismissReceipt?.(dismissReceipt), [bridge, dismissReceipt]);
   useEffect(
     () =>
       bridge.publish({
@@ -357,35 +461,21 @@ function DesktopVoiceBubble({
         active: visible && active,
         status: visible ? status.slice(0, 240) : "",
         level: visible ? workspaceLevel : 0,
+        receipt: visible ? receipt : undefined,
       }),
-    [active, bridge, status, visible, workspaceLevel],
+    [active, bridge, receipt, status, visible, workspaceLevel],
   );
-  useEffect(() => {
-    if (!message || message === WORKING) return;
-    const timer = window.setTimeout(() => setMessage(""), 6500);
-    return () => window.clearTimeout(timer);
-  }, [setMessage, message]);
 
-  if (!visible || section || (!enabled && !active && !status)) return null;
+  if (!visible || section || (!enabled && !active && !status && !receipt)) return null;
   return (
     <View pointerEvents="box-none" style={[styles.dock, aboveComposer && styles.aboveComposer]}>
-      {status ? (
-        <View style={styles.status}>
-          {active ? (
-            <View style={styles.meter}>
-              <VolumeMeter
-                volume={level}
-                orientation="horizontal"
-                variant="compact"
-                isSpeaking={level > 0}
-              />
-            </View>
-          ) : null}
-          <Text style={styles.statusText} accessibilityLiveRegion="polite">
-            {status}
-          </Text>
-        </View>
-      ) : null}
+      <VoiceFeedback
+        status={status}
+        active={active}
+        level={level}
+        receipt={receipt}
+        dismissReceipt={dismissReceipt}
+      />
       <Tooltip delayDuration={400} enabledOnDesktop enabledOnMobile={false}>
         <TooltipTrigger
           accessibilityLabel={label}
@@ -417,13 +507,36 @@ const styles = StyleSheet.create((theme) => ({
   dock: {
     position: "absolute",
     right: 16,
+    left: 16,
     bottom: 16,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "flex-end",
     gap: 6,
     zIndex: 12,
   },
   aboveComposer: { bottom: 140 },
+  feedback: { alignItems: "flex-end", flexShrink: 1, gap: 6 },
+  receipt: {
+    width: 340,
+    maxWidth: "100%",
+    backgroundColor: theme.colors.surface0,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.borderRadius.lg,
+    paddingHorizontal: theme.spacing[3],
+    paddingBottom: theme.spacing[3],
+  },
+  receiptHeader: { flexDirection: "row", alignItems: "center", gap: theme.spacing[1] },
+  receiptTitle: { flex: 1, color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm },
+  receiptContent: { maxHeight: 180 },
+  transcript: { color: theme.colors.foreground, fontSize: theme.fontSize.base },
+  receiptResult: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+    marginTop: theme.spacing[2],
+  },
   status: {
     maxWidth: 230,
     minHeight: 30,
@@ -448,6 +561,7 @@ const styles = StyleSheet.create((theme) => ({
   button: {
     width: 42,
     height: 42,
+    flexShrink: 0,
     borderRadius: theme.borderRadius.full,
     borderColor: theme.colors.borderAccent,
     borderWidth: 1,

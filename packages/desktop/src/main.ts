@@ -15,6 +15,7 @@ import {
   PimiReportLinkError,
   PimiReviewListDestination,
   PimiReviewPrDestination,
+  PimiVoiceBubbleState,
   PimiVoiceCommandInput,
 } from "@pimi/protocol/pimi-task";
 import path from "node:path";
@@ -863,26 +864,11 @@ function registerPimiWorkspaceNavigation(): void {
     if (owner) hidePimiWorkspace(owner);
   });
   ipcMain.on("pimi:voice:state", (event, value: unknown) => {
-    if (!isConsoleFrame(event) || !value || typeof value !== "object") return;
-    const { visible, active, status, level } = value as {
-      visible?: unknown;
-      active?: unknown;
-      status?: unknown;
-      level?: unknown;
-    };
-    if (
-      typeof visible !== "boolean" ||
-      typeof active !== "boolean" ||
-      typeof status !== "string" ||
-      status.length > 240 ||
-      typeof level !== "number" ||
-      !Number.isFinite(level) ||
-      level < 0 ||
-      level > 1
-    )
-      return;
+    if (!isConsoleFrame(event)) return;
+    const state = PimiVoiceBubbleState.safeParse(value);
+    if (!state.success) return;
     const owner = BrowserWindow.fromWebContents(event.sender);
-    if (owner) updatePimiVoiceBubble(owner, { visible, active, status, level });
+    if (owner) updatePimiVoiceBubble(owner, state.data);
   });
   ipcMain.on("pimi:workspace:content-bounds", (event, value: unknown) => {
     if (!isConsoleFrame(event) || !value || typeof value !== "object") return;
