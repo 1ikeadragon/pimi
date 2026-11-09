@@ -1,6 +1,6 @@
 {
   "name": "@pimi/protocol",
-  "version": "0.17.5",
+  "version": "0.17.6",
   "private": true,
   "description": "Pimi shared protocol schemas and wire types",
   "license": "Apache-2.0",

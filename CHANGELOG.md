@@ -2,6 +2,13 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.6 - 2026-11-09
+
+- Review opens to a pull request inbox. Filter by review requests or your own open PRs, then switch between the PR overview and its diff. Worktree review has its own tab.
+- Ask Pimi can inspect work and track tasks in the background. Say you want a new chat when you want one to open.
+- Pair a phone with Pimi from Settings on the same Wi-Fi.
+- Find orchestration skills and terminal hooks in host settings.
+
 ## 0.17.5 - 2026-11-09
 
 - Drag workspaces within a sidebar project to set their order.
