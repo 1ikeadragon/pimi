@@ -1,12 +1,20 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { FileFind, FileFindModel } from "../find/index.web";
 import { Annotation, Compartment, EditorState, Transaction } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
+import { history } from "@codemirror/commands";
 import { getLanguageForFile } from "@pimi/highlight";
 import { getCM, vim } from "@replit/codemirror-vim";
 import type { WorkspaceFileLocation } from "@/workspace/file-open";
 import type { FileEditorModel } from "./model";
-import { editorBaseExtensions, editorTheme, type EditorVisualTheme } from "./extensions.web";
+import { usePaneContext } from "@/panels/pane-context";
+import { takeRetainedEditor, retainEditor } from "./retained-state.web";
+import {
+  editorBaseExtensions,
+  editorHistory,
+  editorTheme,
+  type EditorVisualTheme,
+} from "./extensions.web";
 
 interface FileEditorViewProps {
   model: FileEditorModel;
@@ -45,6 +53,10 @@ export function FileEditorView({
   onVimModeChange,
   onReady,
 }: FileEditorViewProps) {
+  const { serverId, workspaceId, tabId } = usePaneContext();
+  const retentionKey = JSON.stringify([serverId, workspaceId, tabId, filename]);
+  const navigation = JSON.stringify([location.lineStart, location.lineEnd, navigationRevision]);
+  const appliedNavigation = useRef<string | null>(null);
   const [find] = useState(() => new FileFindModel());
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -57,48 +69,62 @@ export function FileEditorView({
     content: snapshot.content,
     onReady,
   });
+  initial.current = { filename, model, theme, vimEnabled, content: snapshot.content, onReady };
   const onCursorChangeRef = useRef(onCursorChange);
   onCursorChangeRef.current = onCursorChange;
 
-  useEffect(() => {
+  // Capture scroll before React removes the editor's DOM during pane reparenting.
+  useLayoutEffect(() => {
     if (!hostRef.current) return;
     const values = initial.current;
+    const extensions = [
+      vimCompartment.of(values.vimEnabled ? vim() : []),
+      find.extension,
+      ...editorBaseExtensions(() => void values.model.save()),
+      languageCompartment.of(getLanguageForFile(values.filename)?.extension ?? []),
+      wrappingCompartment.of(wrappingForFile(values.filename)),
+      themeCompartment.of(editorTheme(values.theme)),
+      EditorView.updateListener.of((update) => {
+        if (update.docChanged && !update.transactions.some((tr) => tr.annotation(remoteUpdate))) {
+          const { lineSeparator } = values.model.getSnapshot();
+          values.model.edit(update.state.doc.sliceString(0, undefined, lineSeparator));
+        }
+        if (update.selectionSet || update.docChanged) {
+          const head = update.state.selection.main.head;
+          const line = update.state.doc.lineAt(head);
+          onCursorChangeRef.current({ line: line.number, column: head - line.from + 1 });
+        }
+      }),
+    ];
+    const opening = values.model.getSnapshot();
+    const restored = takeRetainedEditor(
+      retentionKey,
+      opening.status === "clean" && !opening.modified ? opening.content : null,
+      extensions,
+    );
+    appliedNavigation.current = restored?.navigation ?? null;
     const view = new EditorView({
       parent: hostRef.current,
-      state: EditorState.create({
-        doc: values.content,
-        extensions: [
-          vimCompartment.of(values.vimEnabled ? vim() : []),
-          find.extension,
-          ...editorBaseExtensions(() => void values.model.save()),
-          languageCompartment.of(getLanguageForFile(values.filename)?.extension ?? []),
-          wrappingCompartment.of(wrappingForFile(values.filename)),
-          themeCompartment.of(editorTheme(values.theme)),
-          EditorView.updateListener.of((update) => {
-            if (
-              update.docChanged &&
-              !update.transactions.some((tr) => tr.annotation(remoteUpdate))
-            ) {
-              const { lineSeparator } = values.model.getSnapshot();
-              values.model.edit(update.state.doc.sliceString(0, undefined, lineSeparator));
-            }
-            if (update.selectionSet || update.docChanged) {
-              const head = update.state.selection.main.head;
-              const line = update.state.doc.lineAt(head);
-              onCursorChangeRef.current({ line: line.number, column: head - line.from + 1 });
-            }
-          }),
-        ],
-      }),
+      state: restored?.state ?? EditorState.create({ doc: values.content, extensions }),
+      scrollTo: restored?.scroll,
     });
     viewRef.current = view;
-    onCursorChangeRef.current({ line: 1, column: 1 });
+    const head = view.state.selection.main.head;
+    const line = view.state.doc.lineAt(head);
+    onCursorChangeRef.current({ line: line.number, column: head - line.from + 1 });
     values.onReady();
     return () => {
+      const saved = values.model.getSnapshot();
+      retainEditor(
+        retentionKey,
+        view,
+        saved.status === "clean" && !saved.modified ? saved.content : null,
+        appliedNavigation.current,
+      );
       view.destroy();
       viewRef.current = null;
     };
-  }, [find]);
+  }, [find, model, retentionKey]);
 
   useEffect(() => {
     const view = viewRef.current;
@@ -106,15 +132,23 @@ export function FileEditorView({
     const document = view.state.toText(snapshot.content);
     if (view.state.doc.eq(document)) return;
     const head = Math.min(view.state.selection.main.head, document.length);
+    // A disk reload starts a new undo history. Old edits must not be replayed
+    // over another writer's content, either here or after a later remount.
+    view.dispatch({ effects: editorHistory.reconfigure([]) });
     view.dispatch({
       changes: { from: 0, to: view.state.doc.length, insert: document },
       selection: { anchor: head },
+      effects: editorHistory.reconfigure(history()),
       annotations: [remoteUpdate.of(true), Transaction.addToHistory.of(false)],
     });
-  }, [snapshot.content]);
+  }, [model, retentionKey, snapshot.content]);
 
   useEffect(() => {
     const view = viewRef.current;
+    // The original line target remains in the tab after the user moves around.
+    // Only a new target/revision should override their restored cursor/scroll.
+    if (appliedNavigation.current === navigation) return;
+    appliedNavigation.current = navigation;
     if (!view || !location.lineStart) return;
     const lineStart = Math.min(location.lineStart, view.state.doc.lines);
     const lineEnd = Math.min(location.lineEnd ?? lineStart, view.state.doc.lines);
@@ -124,7 +158,7 @@ export function FileEditorView({
       selection: { anchor: from, head: lineEnd > lineStart ? to : from },
       effects: EditorView.scrollIntoView(from, { y: "center" }),
     });
-  }, [location.lineEnd, location.lineStart, navigationRevision]);
+  }, [location.lineEnd, location.lineStart, model, navigation, retentionKey]);
 
   useEffect(() => {
     viewRef.current?.dispatch({
@@ -155,7 +189,7 @@ export function FileEditorView({
     cm.on("vim-mode-change", handleModeChange);
     onVimModeChange("NORMAL");
     return () => cm.off("vim-mode-change", handleModeChange);
-  }, [onVimModeChange, vimEnabled]);
+  }, [model, onVimModeChange, retentionKey, vimEnabled]);
 
   return (
     <div style={FRAME_STYLE}>
