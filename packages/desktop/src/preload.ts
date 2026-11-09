@@ -137,7 +137,7 @@ if (pimiAppearance) {
     workspaceSection = section;
     for (const listener of workspaceListeners) listener();
   });
-  ipcRenderer.on("pimi:workspace:review-location", (_event, location: ReviewLocation) => {
+  ipcRenderer.on("pimi:workspace:review-location", (_event, location: ReviewLocation | null) => {
     reviewLocation = location;
     for (const listener of reviewLocationListeners) listener();
   });

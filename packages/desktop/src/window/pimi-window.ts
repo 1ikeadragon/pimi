@@ -42,6 +42,19 @@ import type {
 
 const AGENT_CONSOLE_URL = "pimi-agents://open";
 const APPEARANCE_FILE = "pimi-appearance.json";
+const DESTINATION_SECTIONS: Record<PimiDestination["view"], PimiWorkspaceSection> = {
+  tasks: "tasks",
+  task: "tasks",
+  "task-draft": "tasks",
+  "new-task": "tasks",
+  worktrees: "board",
+  review: "review",
+  "review-home": "review",
+  "review-prs": "review",
+  "review-pr": "review",
+  memory: "memory",
+  spaces: "spaces",
+};
 const PIMI_APPEARANCES = [
   "system",
   "light",
@@ -267,7 +280,7 @@ export async function showPimiWindow(
       : destination;
   if (request !== navigationRequest || requestedOwner !== owner || owner.isDestroyed()) return;
   workspace.owner = owner;
-  attach(workspace, owner);
+  attach(workspace, owner, navigation && DESTINATION_SECTIONS[navigation.view]);
   reveal(owner, workspace.view);
   if (navigation) workspace.view.webContents.send("pimi:workspace:navigate", navigation);
 }
@@ -301,7 +314,11 @@ function closeIfUnhosted(surface: WorkspaceSurface): void {
   if (!surface.view.webContents.isDestroyed()) surface.view.webContents.close();
 }
 
-function attach(surface: WorkspaceSurface, win: BrowserWindow): void {
+function attach(
+  surface: WorkspaceSurface,
+  win: BrowserWindow,
+  destinationSection?: PimiWorkspaceSection,
+): void {
   if (surface.host === win) return;
   surface.releaseHost?.();
   surface.host = win;
@@ -315,7 +332,13 @@ function attach(surface: WorkspaceSurface, win: BrowserWindow): void {
   const notifyWorkspaceClick = () => {
     if (!win.isDestroyed()) win.webContents.send("pimi:workspace:click");
   };
-  sendSection();
+  if (destinationSection) {
+    // The retained view may still be showing its last route. Don't put that route in host history.
+    win.webContents.send("pimi:workspace:review-location", null);
+    win.webContents.send("pimi:workspace:section", destinationSection);
+  } else {
+    sendSection();
+  }
   win.webContents.on("did-finish-load", sendSection);
   surface.view.webContents.ipc.on("pimi:workspace:click", notifyWorkspaceClick);
   const resize = () => {
