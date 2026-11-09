@@ -32,6 +32,8 @@ Watch six sessions at once in **Agent grid** on a wide window. **Work** tracks t
 
 Choose **IDE Mode** in the title bar. Open a file from Explorer, edit it beside chat, and check its diff or Git blame without leaving the workspace.
 
+Use **Search codebase** in the Command Center to find code by behavior or identifier. Select a result to jump to its line. The index builds on the workspace host using the bundled search model.
+
 ![IDE Mode with Explorer, a split Git diff, and a chat draft](assets/pimi/ide-mode.jpg)
 
 ## Review together
