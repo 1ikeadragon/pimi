@@ -6,6 +6,8 @@ import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import type { ChatVisualization } from "@pimi/protocol/chat-visualization";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { isWeb } from "@/constants/platform";
 import type { Theme } from "@/styles/theme";
 import { inlineUnistylesStyle } from "@/styles/unistyles-inline-style";
 
@@ -94,19 +96,13 @@ function ChartPlot({
   colors,
   width,
   selected,
-  onSelect,
 }: {
   chart: ChatVisualization;
   colors?: ChartColors;
   width: number;
   selected: number;
-  onSelect: (index: number) => void;
 }) {
   const transition = useChartTransition(chart);
-  const selectPoint = useMemo(
-    () => chart.labels.map((_, index) => () => onSelect(index)),
-    [chart.labels, onSelect],
-  );
   if (!colors || width <= AXIS_WIDTH + PLOT_INSET) return null;
   const data = chart.series.flatMap(({ values }) => values);
   // Scale first so a valid finite input spanning both numeric extremes can still be plotted.
@@ -218,17 +214,6 @@ function ChartPlot({
           </G>
         );
       })}
-      {chart.labels.map((label, index) => (
-        <Rect
-          key={label}
-          x={AXIS_WIDTH + index * step}
-          y={0}
-          width={step}
-          height={PLOT_HEIGHT}
-          fill="transparent"
-          onPress={selectPoint[index]}
-        />
-      ))}
     </Svg>
   );
 }
@@ -264,10 +249,88 @@ function ChartValues({
 
 const ThemedChartValues = withUnistyles(ChartValues);
 
+function ChartPoint({
+  chart,
+  index,
+  width,
+  open,
+  onSelect,
+  onInspect,
+}: {
+  chart: ChatVisualization;
+  index: number;
+  width: number;
+  open: boolean;
+  onSelect: (index: number) => void;
+  onInspect: (label: string, open: boolean) => void;
+}) {
+  const label = chart.labels[index];
+  const [focused, setFocused] = useState(false);
+  const select = useCallback(() => onSelect(index), [index, onSelect]);
+  const focus = useCallback(() => {
+    setFocused(true);
+    select();
+  }, [select]);
+  const blur = useCallback(() => setFocused(false), []);
+  const inspect = useCallback((next: boolean) => onInspect(label, next), [label, onInspect]);
+  const description = [
+    label,
+    ...chart.series.map(
+      ({ name, values }) => `${name}: ${values[index]}${chart.unit ? ` ${chart.unit}` : ""}`,
+    ),
+  ].join(". ");
+  return (
+    <Tooltip open={open} onOpenChange={inspect}>
+      <TooltipTrigger
+        accessibilityRole="button"
+        accessibilityLabel={description}
+        testID={`chat-visualization-point-${index}`}
+        onHoverIn={select}
+        onFocus={focus}
+        onBlur={blur}
+        onPress={select}
+        style={[
+          styles.point,
+          inlineUnistylesStyle({ left: AXIS_WIDTH + index * width, width }),
+          focused && styles.pointFocused,
+        ]}
+      />
+      <TooltipContent testID="chat-visualization-tooltip">
+        <View style={styles.selection}>
+          <Text style={styles.title}>
+            {label}
+            {chart.unit ? ` · ${chart.unit}` : ""}
+          </Text>
+          <ThemedChartValues chart={chart} selected={index} uniProps={mapChartColors} />
+        </View>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 export function Visualization({ chart }: { chart: ChatVisualization }) {
   const { t } = useTranslation();
   const [width, setWidth] = useState(0);
   const [index, setIndex] = useState(0);
+  const [inspectedLabel, setInspectedLabel] = useState<string | null>(null);
+  const openLabel = chart.labels.includes(inspectedLabel ?? "") ? inspectedLabel : null;
+  const inspect = useCallback((label: string, open: boolean) => {
+    setInspectedLabel((current) => {
+      if (open) return label;
+      return current === label ? null : current;
+    });
+  }, []);
+  useEffect(() => {
+    if (!isWeb || openLabel === null) return;
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      setInspectedLabel(null);
+    };
+    window.addEventListener("keydown", dismiss, true);
+    return () => window.removeEventListener("keydown", dismiss, true);
+  }, [openLabel]);
   const last = chart.labels.length - 1;
   const selected = Math.min(index, last);
   const labelWidth = Math.max(0, width - AXIS_WIDTH - PLOT_INSET) / chart.labels.length;
@@ -291,9 +354,20 @@ export function Visualization({ chart }: { chart: ChatVisualization }) {
           chart={chart}
           selected={selected}
           width={width}
-          onSelect={setIndex}
           uniProps={mapChartColors}
         />
+        {labelWidth > 0 &&
+          chart.labels.map((label, point) => (
+            <ChartPoint
+              key={label}
+              chart={chart}
+              index={point}
+              width={labelWidth}
+              open={openLabel === label}
+              onSelect={setIndex}
+              onInspect={inspect}
+            />
+          ))}
       </View>
       <View
         style={[
@@ -363,6 +437,9 @@ const styles = StyleSheet.create((theme) => ({
   },
   header: { flexDirection: "row", alignItems: "baseline", flexWrap: "wrap", gap: theme.spacing[2] },
   plot: { height: PLOT_HEIGHT, alignSelf: "stretch" },
+  // Full-height targets keep zero values and small line markers inspectable.
+  point: { position: "absolute", top: 0, bottom: 0, borderWidth: 1, borderColor: "transparent" },
+  pointFocused: { borderColor: theme.colors.borderAccent, borderRadius: theme.borderRadius.sm },
   axisLabels: {
     direction: "ltr",
     flexDirection: "row",
