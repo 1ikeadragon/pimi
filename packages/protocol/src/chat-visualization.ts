@@ -44,7 +44,12 @@ export function parseChatVisualization(source: string): ChatVisualization | null
   return result.success ? result.data : null;
 }
 
-export const PIMI_VISUALIZATION_INSTRUCTIONS =
-  `When a chart helps answer the user, put JSON in a fenced ${PIMI_VISUALIZATION_FENCE} block. Example: ` +
-  '{"type":"bar","title":"Jobs by day","labels":["Mon","Tue"],"series":[{"name":"Jobs","values":[4,7]}]}. ' +
-  `Use bar or line, up to ${MAX_POINTS} distinct labels and ${MAX_SERIES} distinctly named series. Each series needs one number per label. Add a short unit if useful. When data changes within a reply, reuse an optional short id on complete chart snapshots to update the first chart in place. Across replies, emit a complete updated chart; earlier replies remain historical snapshots. Do not emit JavaScript, CSS, or animation instructions inside chart JSON; Pimi animates supported charts and respects reduced motion. Use Mermaid for flow diagrams. Use real data or label it as an example.`;
+export const PIMI_VISUALIZATION_INSTRUCTIONS = [
+  `Use a ${PIMI_VISUALIZATION_FENCE} block for interactive bar and line charts. Put only JSON inside the block.`,
+  `\`\`\`${PIMI_VISUALIZATION_FENCE}`,
+  '{"type":"bar","id":"jobs","title":"Jobs by day","labels":["Mon","Tue"],"series":[{"name":"Jobs","values":[4,7]}]}',
+  "```",
+  `Use up to ${MAX_POINTS} distinct labels and ${MAX_SERIES} distinctly named series. Give each series one number per label. Add a short unit when useful.`,
+  "To update a chart within the same reply, send another complete block with the same id. In a new reply, send a new complete block.",
+  "Use Mermaid for flow diagrams. Use real values or label the chart as an example.",
+].join("\n");
