@@ -195,6 +195,8 @@ export async function startPimi({
   let updateTimer;
   let closed = false;
   let inventoryRevision = 0;
+  let workActivityPending = false;
+  let workActivitySignature;
   const paseo = createPaseoConnection({ connection, native, taskState });
   const tasks = await createTasks({
     file: taskState,
@@ -204,7 +206,7 @@ export async function startPimi({
       broadcast("tasks");
       onActivity("tasks");
       invalidateLabels();
-      invalidateInventory();
+      invalidateInventory({ workActivity: true });
     },
   });
   const appearance = getAppearance
@@ -278,6 +280,19 @@ export async function startPimi({
   let inventorySignature;
   const discoveryCache = new Map();
   const factsCache = new Map();
+  const changedCheckouts = new Set();
+  const changedRepositories = new Set();
+
+  async function clearChangedGitCache(cache, pendingPaths) {
+    const changed = [...pendingPaths];
+    pendingPaths.clear();
+    await Promise.all(
+      changed.map(async (path) => {
+        cache.delete(path);
+        cache.delete(await realpath(path).catch(() => path));
+      }),
+    );
+  }
 
   async function discoverRoots(rootsToRead) {
     const results = [];
@@ -305,11 +320,13 @@ export async function startPimi({
     }
   }
 
-  function invalidateInventory({ path } = {}) {
+  function invalidateInventory({ path, workActivity, roots: changedRoots } = {}) {
     inventoryAt = 0;
     ++inventoryRevision;
-    if (path) factsCache.delete(path);
-    if (closed || !eventClients.size || updateTimer) return;
+    if (path) changedCheckouts.add(path);
+    for (const root of changedRoots ?? []) changedRepositories.add(root);
+    workActivityPending ||= native && (workActivity === true || Boolean(path));
+    if (closed || updateTimer || (!eventClients.size && !workActivityPending)) return;
     // Coalesce directory/checkout bursts, without subscribing to agent token streams.
     updateTimer = setTimeout(() => {
       updateTimer = undefined;
@@ -388,8 +405,11 @@ export async function startPimi({
       if (eventClients.size) return;
       clearInterval(reconcileTimer);
       clearInterval(heartbeatTimer);
-      clearTimeout(updateTimer);
-      reconcileTimer = heartbeatTimer = updateTimer = undefined;
+      reconcileTimer = heartbeatTimer = undefined;
+      if (!workActivityPending) {
+        clearTimeout(updateTimer);
+        updateTimer = undefined;
+      }
     });
     invalidateInventory();
   }
@@ -430,6 +450,11 @@ export async function startPimi({
   }
 
   async function loadInventory() {
+    // In-flight reads finish before clearing paths, which may be daemon-side aliases.
+    await Promise.all([
+      clearChangedGitCache(factsCache, changedCheckouts),
+      clearChangedGitCache(discoveryCache, changedRepositories),
+    ]);
     const daemonTask = paseo.directory();
     const localRoots = [...new Set([...roots, ...tasks.roots()])];
     const localDiscovery = discoverRoots(localRoots);
@@ -556,8 +581,10 @@ export async function startPimi({
   function getInventory() {
     // Concurrent tabs share the same Git and daemon reads. Fast clicks use the last inventory.
     if (inventory && Date.now() - inventoryAt < 1500) return inventory;
+    if (inventoryTask) return inventoryTask;
+    workActivityPending = false;
     const revision = inventoryRevision;
-    inventoryTask ??= loadInventory()
+    inventoryTask = loadInventory()
       .then((result) => {
         inventory = result;
         inventoryAt = revision === inventoryRevision ? Date.now() : 0;
@@ -567,6 +594,18 @@ export async function startPimi({
         if (signature !== inventorySignature) {
           inventorySignature = signature;
           broadcast("board");
+        }
+        if (native && !closed) {
+          // A Work dot signals a checkout joining, leaving, or moving lanes on the board.
+          const next = JSON.stringify(
+            result.cards
+              .filter((card) => !card.reviewOnly)
+              .map(({ path, lane }) => JSON.stringify([path, lane]))
+              .sort(),
+          );
+          const previous = workActivitySignature;
+          workActivitySignature = next;
+          if (previous !== undefined && previous !== next) onActivity("board");
         }
         return result;
       })
@@ -1046,7 +1085,10 @@ export async function startPimi({
   return {
     origin,
     appearance: appearance.read(),
-    observeWorkspaces: paseo.observeWorkspaces,
+    async observeWorkspaces() {
+      await paseo.observeWorkspaces();
+      await getInventory();
+    },
     prepareChatReview,
     getLinkedLabels,
     getRecap: tasks.recap,
