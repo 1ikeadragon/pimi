@@ -1,4 +1,7 @@
-import { collectRetainedAttachmentIds } from "@/attachments/gc-retention";
+import {
+  collectRetainedAttachmentIds,
+  waitForAttachmentRetentionReads,
+} from "@/attachments/gc-retention";
 import { getAttachmentStore } from "@/attachments/store";
 import type { AttachmentMetadata, SaveAttachmentInput } from "@/attachments/types";
 
@@ -174,6 +177,7 @@ export async function garbageCollectAttachments(input: {
   const previousGarbageCollection = garbageCollectionTail;
   const currentGarbageCollection = (async () => {
     await previousGarbageCollection;
+    await waitForAttachmentRetentionReads();
     while (activePersistence.size > 0) {
       await Promise.allSettled(activePersistence);
     }

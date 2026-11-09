@@ -147,7 +147,7 @@ function pimiActionInstructions(
   }
   if (isPaseoToolEnabled(policy, "create_agent")) {
     instructions.push(
-      "For another provider's input or a handoff in this chat, call create_agent for each requested provider with a focused initialPrompt, inheritContext: true, and notifyOnFinish: true. Use separate worktrees for parallel edits. Bring their results back here. Create a Task only if asked to track the work.",
+      "When the user asks another agent or provider to take over or contribute, call create_agent with the requested provider/model, a focused initialPrompt, and notifyOnFinish: true. For work discussed in this chat on this host, set inheritContext: true. Preserve the user's edit and launch constraints. Use separate worktrees for parallel edits. Report the result here when the completion notification arrives. Create a Task only when the user asks to track the work.",
     );
   }
   return instructions;

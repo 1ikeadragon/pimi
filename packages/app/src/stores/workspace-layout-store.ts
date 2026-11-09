@@ -75,6 +75,11 @@ import {
 import { isSheetTabModified, resolveCompactSheetPolicy } from "@/workspace-tabs/compact-sheet";
 import { panelResourceKey, type CompactSheetPolicy } from "@/panels/panel-manifest";
 import { createValidatedPersistStorage } from "@/storage/validated-persist-storage";
+import {
+  buildDraftWorkspaceAttachmentScopeKey,
+  useWorkspaceAttachmentsStore,
+} from "@/attachments/workspace-attachments-store";
+
 import { panelTargetSupportsHostForWorkspaceKey } from "@/plugins/workspace-panels/locations";
 
 export {
@@ -2486,6 +2491,67 @@ export function createWorkspaceLayoutStore(
 }
 
 export const useWorkspaceLayoutStore = createWorkspaceLayoutStore();
+
+function openDraftIds(
+  state: Pick<WorkspaceLayoutStore, "layoutByWorkspace" | "sheetsByWorkspace">,
+): Set<string> {
+  const ids = new Set<string>();
+  const tabs = [
+    ...Object.values(state.layoutByWorkspace).flatMap((layout) => collectAllTabs(layout.root)),
+    ...Object.values(state.sheetsByWorkspace).flatMap((sheets) => sheets.map((sheet) => sheet.tab)),
+  ];
+  for (const tab of tabs) if (tab.target.kind === "draft") ids.add(tab.target.draftId);
+  return ids;
+}
+
+// Closing a draft (including its pane or workspace) releases its persisted history.
+// Moving it between panes/sheets keeps the same draft id and keeps its context.
+useWorkspaceLayoutStore.subscribe((state, previous) => {
+  if (
+    state.layoutByWorkspace === previous.layoutByWorkspace &&
+    state.sheetsByWorkspace === previous.sheetsByWorkspace
+  )
+    return;
+  const remaining = openDraftIds(state);
+  for (const draftId of openDraftIds(previous)) {
+    if (remaining.has(draftId)) continue;
+    const scopeKey = buildDraftWorkspaceAttachmentScopeKey(draftId);
+    const attachments = useWorkspaceAttachmentsStore.getState().attachmentsByScope[scopeKey];
+    if (!attachments?.some((attachment) => attachment.kind === "chat_history")) continue;
+    useWorkspaceAttachmentsStore.getState().setWorkspaceAttachments({
+      scopeKey,
+      attachments: attachments.filter((attachment) => attachment.kind !== "chat_history"),
+    });
+  }
+});
+
+// Remove history left by an interrupted draft close or an incomplete fork, once
+// both durable indexes are loaded. Never prune while layout hydration is pending.
+function pruneClosedDraftHistory(): void {
+  if (
+    !useWorkspaceLayoutStore.persist.hasHydrated() ||
+    !useWorkspaceAttachmentsStore.persist.hasHydrated()
+  )
+    return;
+  const openScopes = new Set(
+    [...openDraftIds(useWorkspaceLayoutStore.getState())].map(
+      buildDraftWorkspaceAttachmentScopeKey,
+    ),
+  );
+  const attachments = useWorkspaceAttachmentsStore.getState();
+  for (const [scopeKey, entries] of Object.entries(attachments.attachmentsByScope)) {
+    if (!scopeKey.startsWith(buildDraftWorkspaceAttachmentScopeKey("")) || openScopes.has(scopeKey))
+      continue;
+    if (!entries.some((entry) => entry.kind === "chat_history")) continue;
+    attachments.setWorkspaceAttachments({
+      scopeKey,
+      attachments: entries.filter((entry) => entry.kind !== "chat_history"),
+    });
+  }
+}
+useWorkspaceLayoutStore.persist.onFinishHydration(pruneClosedDraftHistory);
+useWorkspaceAttachmentsStore.persist.onFinishHydration(pruneClosedDraftHistory);
+pruneClosedDraftHistory();
 
 /**
  * The agent tabs that exist right now, including sheet tabs, across every workspace of this host,

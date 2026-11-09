@@ -1,65 +1,33 @@
 ---
 name: pimi-handoff
-description: Hand off the current task to another agent with full context. Use when the user says "handoff", "hand off", "hand this to", or wants to pass work to another agent.
+description: Pass the current work to another agent or provider. Use when the user asks to hand off, transfer, or have another agent take over this task.
 user-invocable: true
 ---
 
-# Handoff Skill
+# Hand off work
 
-Transfer the current task — context, decisions, failed attempts, constraints — to a fresh agent. The receiving agent starts with **zero context**, so the handoff prompt must be a self-contained briefing.
+Use the user's request and current conversation to identify the receiving agent, assignment, and constraints. A handoff creates a subagent and reports its result in this chat. Create a Task only when the user asks to track the work.
 
-Use the user's request and current conversation as input, including any arguments supplied with the skill invocation.
+## Choose the recipient
 
-## Prerequisites
+Read the **pimi** skill. Call `list_profiles` and read the profile notes. Honor the user's requested profile or provider/model; otherwise choose the profile that fits the assignment. Copy its provider/model and runtime settings into `create_agent`. If no profile fits, discover available providers and models as described in **pimi**.
 
-Read the **pimi** skill. Call `list_profiles` before choosing the receiving agent. Do not create it until you have read the configured profiles and their `notes`.
+Use the current workspace unless the user requests another location. For a requested worktree, or parallel agents editing the same repository, call `create_workspace` with `isolation: "worktree"` first and pass the returned `workspaceId`.
 
-## Parsing arguments
+## Assign the work
 
-1. **Agent profile** — explicit profile name first; otherwise choose the profile whose `notes` best match the work. Materialize it into `create_agent` as described by the **pimi** skill. If no profile fits, use Pimi's provider discovery fallback.
-2. **Isolation** — "in a worktree" / "worktree" → create a workspace with `isolation: "worktree"`, using a short branch name derived from the task.
-3. **Task description** — anything else the user said.
+Call `create_agent` with:
 
-## The handoff prompt
+- `title`: a short description of the assignment.
+- `provider`: the selected provider/model.
+- `initialPrompt`: what to do next, what is already done, relevant files, unresolved issues, acceptance criteria, and the user's constraints. Include only details that affect the work. Preserve investigate-only, no-edit, no-launch, and commit/publish boundaries explicitly.
+- `inheritContext: true`: attach this chat when the recipient is on this host. The attachment is reference history and may be shortened; keep essential instructions in `initialPrompt`.
+- `notifyOnFinish: true`: receive completion, error, or permission updates.
 
-The receiving agent has zero context. Include:
+For another host, omit `inheritContext` and include the necessary context, decisions, and failed attempts in `initialPrompt`. Discover or create the destination workspace and pass both `serverId` and `workspaceId` as described in **pimi**.
 
-```
-## Task
-[Imperative description.]
+## Follow through
 
-## Context
-[Why this task exists, required context.]
+Use the returned agent ID and workspace to link the receiving agent. Continue independent work while waiting for its notification; do not poll. When it finishes, report the result and any unresolved issue here. If it errors or needs permission, report that state without claiming completion.
 
-## Relevant files
-- `path/to/file.ts` — [what it is and why it matters]
-
-## Current state
-[What's done, what works, what doesn't.]
-
-## What was tried
-- [Approach] — [why it failed or was abandoned]
-
-## Decisions
-- [Decision — rationale]
-
-## Acceptance criteria
-- [ ] [Criterion]
-
-## Constraints
-- [Must-not / must-preserve]
-```
-
-**Preserve task semantics.** Investigate-only → "DO NOT edit files." Fix → "implement the fix." Refactor → "refactor, not rewrite." Carry the user's exact intent.
-
-## Launch
-
-Prepare the handoff in a dedicated workspace:
-
-1. Select the current workspace or call `create_workspace` with the requested isolation.
-2. Call `create_agent` with a `[Handoff] <task>` title, the briefing as initial prompt, and the selected `workspaceId` when explicit placement is needed.
-3. Return the agent and workspace to the user, explaining that it remains in your subagent track until they detach it manually.
-
-Do not encode independence as a create mode and do not invoke CLI or wire-level detach operations. Detach is a user gesture in the subagents track.
-
-Do not wait or poll for the agent to finish.
+The recipient remains a subagent until the user detaches it in the app. Do not use CLI or wire-level detach operations.

@@ -1381,7 +1381,7 @@ function createToolCatalog(
       .literal(true)
       .optional()
       .describe(
-        "Attach the current chat as reference. Use only when the user asks to hand off this chat or asks multiple providers to work on the task discussed here.",
+        "Attach the current chat as reference for a handoff or another agent's contribution to this task. Same host only. The new initialPrompt defines the assignment; history may be shortened.",
       ),
     notifyOnFinish: z
       .boolean()

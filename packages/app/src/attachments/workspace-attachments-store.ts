@@ -1,7 +1,12 @@
 import { useMemo } from "react";
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import {
+  createChatHistoryPersistStorage,
+  type PersistedChatHistory,
+} from "./chat-history-persistence";
 import { useShallow } from "zustand/shallow";
-import type { WorkspaceComposerAttachment } from "./types";
+import type { ChatHistoryContextAttachment, WorkspaceComposerAttachment } from "./types";
 
 const EMPTY_WORKSPACE_ATTACHMENTS: readonly WorkspaceComposerAttachment[] = [];
 
@@ -113,56 +118,91 @@ export function appendWorkspaceAttachment(
   return [...next, attachment];
 }
 
-export const useWorkspaceAttachmentsStore = create<WorkspaceAttachmentsStore>()((set) => ({
-  attachmentsByScope: {},
-  setWorkspaceAttachments: ({ scopeKey, attachments }) => {
-    set((state) => {
-      const current = state.attachmentsByScope[scopeKey] ?? EMPTY_WORKSPACE_ATTACHMENTS;
-      if (areWorkspaceAttachmentsEqual(current, attachments)) {
-        return state;
-      }
-      if (attachments.length === 0) {
-        if (!state.attachmentsByScope[scopeKey]) {
-          return state;
-        }
-        const next = { ...state.attachmentsByScope };
-        delete next[scopeKey];
-        return { attachmentsByScope: next };
-      }
-      return {
+const chatHistoryStorage = createChatHistoryPersistStorage();
+export const flushWorkspaceChatHistory = () => chatHistoryStorage.flush();
+
+export const useWorkspaceAttachmentsStore = create<WorkspaceAttachmentsStore>()(
+  persist(
+    (set) => ({
+      attachmentsByScope: {},
+      setWorkspaceAttachments: ({ scopeKey, attachments }) => {
+        set((state) => {
+          const current = state.attachmentsByScope[scopeKey] ?? EMPTY_WORKSPACE_ATTACHMENTS;
+          if (areWorkspaceAttachmentsEqual(current, attachments)) {
+            return state;
+          }
+          if (attachments.length === 0) {
+            if (!state.attachmentsByScope[scopeKey]) {
+              return state;
+            }
+            const next = { ...state.attachmentsByScope };
+            delete next[scopeKey];
+            return { attachmentsByScope: next };
+          }
+          return {
+            attachmentsByScope: {
+              ...state.attachmentsByScope,
+              [scopeKey]: attachments,
+            },
+          };
+        });
+      },
+      addWorkspaceAttachment: ({ scopeKey, attachment }) => {
+        set((state) => {
+          const current = state.attachmentsByScope[scopeKey] ?? EMPTY_WORKSPACE_ATTACHMENTS;
+          const attachments = appendWorkspaceAttachment(current, attachment);
+          if (areWorkspaceAttachmentsEqual(current, attachments)) {
+            return state;
+          }
+          return {
+            attachmentsByScope: {
+              ...state.attachmentsByScope,
+              [scopeKey]: attachments,
+            },
+          };
+        });
+      },
+      clearWorkspaceAttachments: ({ scopeKey }) => {
+        set((state) => {
+          if (!state.attachmentsByScope[scopeKey]) {
+            return state;
+          }
+          const next = { ...state.attachmentsByScope };
+          delete next[scopeKey];
+          return { attachmentsByScope: next };
+        });
+      },
+    }),
+    {
+      name: "pimi-draft-chat-history",
+      storage: chatHistoryStorage,
+      partialize: (state) => ({
+        attachmentsByScope: Object.fromEntries(
+          Object.entries(state.attachmentsByScope)
+            .map(
+              ([scope, attachments]) =>
+                [
+                  scope,
+                  attachments.filter(
+                    (attachment): attachment is ChatHistoryContextAttachment =>
+                      attachment.kind === "chat_history",
+                  ),
+                ] as const,
+            )
+            .filter(([, attachments]) => attachments.length > 0),
+        ),
+      }),
+      merge: (persisted, current) => ({
+        ...current,
+        // A draft created during hydration takes precedence over its stored version.
         attachmentsByScope: {
-          ...state.attachmentsByScope,
-          [scopeKey]: attachments,
+          ...(persisted as PersistedChatHistory | undefined)?.attachmentsByScope,
+          ...current.attachmentsByScope,
         },
-      };
-    });
-  },
-  addWorkspaceAttachment: ({ scopeKey, attachment }) => {
-    set((state) => {
-      const current = state.attachmentsByScope[scopeKey] ?? EMPTY_WORKSPACE_ATTACHMENTS;
-      const attachments = appendWorkspaceAttachment(current, attachment);
-      if (areWorkspaceAttachmentsEqual(current, attachments)) {
-        return state;
-      }
-      return {
-        attachmentsByScope: {
-          ...state.attachmentsByScope,
-          [scopeKey]: attachments,
-        },
-      };
-    });
-  },
-  clearWorkspaceAttachments: ({ scopeKey }) => {
-    set((state) => {
-      if (!state.attachmentsByScope[scopeKey]) {
-        return state;
-      }
-      const next = { ...state.attachmentsByScope };
-      delete next[scopeKey];
-      return { attachmentsByScope: next };
-    });
-  },
-}));
+      }),
+    },
+  ),
+);
 
 export function useWorkspaceAttachmentScopeKey(input: WorkspaceAttachmentScope): string {
   const isDraftScope = input.kind === "draft";

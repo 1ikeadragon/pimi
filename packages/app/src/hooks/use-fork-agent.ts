@@ -13,6 +13,7 @@ import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store"
 import { useSessionStore } from "@/stores/session-store";
 import {
   buildDraftWorkspaceAttachmentScopeKey,
+  flushWorkspaceChatHistory,
   useWorkspaceAttachmentsStore,
 } from "@/attachments/workspace-attachments-store";
 import { useWorkspaceDraftSubmissionStore } from "@/stores/workspace-draft-submission-store";
@@ -178,6 +179,15 @@ export function useForkAgent(
             scopeKey: buildDraftWorkspaceAttachmentScopeKey(draftId),
             attachments: [attachment],
           });
+          // Do not expose a continuation draft that cannot survive a restart.
+          try {
+            await flushWorkspaceChatHistory();
+          } catch (error) {
+            useWorkspaceAttachmentsStore.getState().clearWorkspaceAttachments({
+              scopeKey: buildDraftWorkspaceAttachmentScopeKey(draftId),
+            });
+            throw error;
+          }
           if (handoffFromProvider) {
             const drafts = useDraftStore.getState();
             const source = drafts.getDraftInput(buildDraftStoreKey({ serverId, agentId }));
