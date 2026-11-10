@@ -20,8 +20,9 @@ function fenced(fence: string, json: string): string[] {
 
 /** Written from the catalog's own constants, so the prompt and the parser cannot disagree. */
 export const PIMI_VISUALIZATION_INSTRUCTIONS = [
-  `When an answer compares numbers or shows a trend, a distribution, or a breakdown, show it in a ${PIMI_CHART_FENCE} or ${PIMI_VIEW_FENCE} block, not a Markdown table of numbers and not a Mermaid xychart or pie. Use Mermaid only for flows, sequences, and structure.`,
-  "Put only JSON inside the block. Use real values or label the chart as an example.",
+  `When numbers compare, trend, or break down, show them in a ${PIMI_CHART_FENCE} or ${PIMI_VIEW_FENCE} block, not a Markdown table of numbers and not a Mermaid xychart or pie. Say one or two numbers in a sentence instead. Use Mermaid only for flows, sequences, and structure.`,
+  `Pick the form by the question: bar to compare or rank (sorted by value), line for change over time, donut for up to five parts of a whole, scatter for a relationship, ${PIMI_VIEW_FENCE} for several metrics or a sortable table. For a dashboard, a diagram, or a choice between forms, read the pimi-visualize skill first.`,
+  "Put only JSON inside the block. Use real values or label the chart as an example. Make the title state the finding, and give the unit and time range.",
   `${PIMI_CHART_FENCE} is one chart. Its type is the chart kind: ${Object.keys(CHART_POINT_LIMITS).join(", ")}.`,
   ...fenced(PIMI_CHART_FENCE, CHART_EXAMPLE),
   `Give each series one number per label. Use up to ${VIEW_LIMITS.series} distinctly named series and distinct labels: up to ${CHART_POINT_LIMITS.bar} for bar, pie and donut, ${CHART_POINT_LIMITS.line} for line and area. For pie and donut, use one series with nonnegative values and a positive total. For scatter, omit labels and give each series points as [x, y] pairs: up to ${CHART_POINT_LIMITS.scatter} per series, ${VIEW_LIMITS.scatterPoints} in total.`,

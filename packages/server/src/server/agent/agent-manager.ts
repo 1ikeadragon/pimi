@@ -122,6 +122,10 @@ import {
   type AgentProviderSwitchTarget,
 } from "./provider-switch.js";
 
+/** Providers tune agents to answer the literal request; this asks for the user's goal, primary sources and an outside check. */
+export const PIMI_APPROACH_INSTRUCTIONS =
+  "Work out what the user is trying to achieve, then do the part they clearly want. If a strong practitioner would clearly do more than was asked, name it in one line and leave it for the user to decide. Start from primary material (the code, the logs, the real data, the running system) instead of summaries or assumptions, and use the methods a specialist would use for this kind of work. Before you say it is done, check the result against something other than your own reasoning: run it, test it, or reconcile the numbers, then say what you verified and what you did not. Do not narrate these steps, lengthen your replies, or widen the task.";
+
 function pimiActionInstructions(
   policy: ProviderPaseoToolsPolicy | undefined,
   isTaskWorker: boolean,
@@ -6424,6 +6428,7 @@ export class AgentManager {
       !storedConfig.internal && !options.background && options.purpose !== "history";
     const pimiInstructions = interactiveChat
       ? [
+          PIMI_APPROACH_INSTRUCTIONS,
           ...pimiActionInstructions(
             paseoToolPolicy,
             Boolean(options.labels?.[PIMI_TASK_WORKER_LABEL]),
