@@ -1,7 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import type { ProviderOverride } from "@pimi/protocol/provider-config";
+import equal from "fast-deep-equal";
+import { ProviderOverrideSchema, type ProviderOverride } from "@pimi/protocol/provider-config";
 import { BUILTIN_PROVIDER_IDS } from "@pimi/protocol/provider-manifest";
 import {
   Alert,
@@ -375,6 +376,7 @@ export function ProvidersSection({ serverId }: ProvidersSectionProps) {
   const [installingProviderId, setInstallingProviderId] = useState<string | null>(null);
   const [showAllProviders, setShowAllProviders] = useState(false);
   const [addingCustomProvider, setAddingCustomProvider] = useState(false);
+  const [editingCustomProvider, setEditingCustomProvider] = useState<string | null>(null);
 
   const providerDefinitions = useMemo(() => buildProviderDefinitions(entries), [entries]);
   const visibleProviders = providerDefinitions.filter((def) => {
@@ -404,9 +406,13 @@ export function ProvidersSection({ serverId }: ProvidersSectionProps) {
 
   const handleOpenProviderSettings = useCallback(
     (providerId: string) => {
+      if (config?.providers[providerId]?.extends) {
+        setEditingCustomProvider(providerId);
+        return;
+      }
       openProviderSettings({ serverId, provider: providerId });
     },
-    [openProviderSettings, serverId],
+    [config, openProviderSettings, serverId],
   );
 
   const handleToggleEnabled = useCallback(
@@ -474,27 +480,49 @@ export function ProvidersSection({ serverId }: ProvidersSectionProps) {
     [installingProviderId, patchConfig, refresh, supportsHopliteProvider, toast],
   );
 
-  const addCustomProvider = useCallback(
+  const saveCustomProvider = useCallback(
     async (id: string, provider: ProviderOverride) => {
       if (!config) throw new Error(t("settings.providers.unavailable"));
       if (
-        BUILTIN_PROVIDER_IDS.includes(id) ||
-        Object.hasOwn(config.providers, id) ||
-        entries?.some((entry) => entry.provider === id) ||
-        getAcpProviderCatalog().some((entry) => entry.id === id)
+        editingCustomProvider !== id &&
+        (BUILTIN_PROVIDER_IDS.includes(id) ||
+          Object.hasOwn(config.providers, id) ||
+          entries?.some((entry) => entry.provider === id) ||
+          getAcpProviderCatalog().some((entry) => entry.id === id))
       ) {
         throw new Error(t("settings.providers.custom.duplicateId"));
       }
-      const saved = await patchConfig({ providers: { [id]: provider } });
+      const editing = editingCustomProvider === id;
+      const saved = await patchConfig(
+        editing ? { replaceProviders: { [id]: provider } } : { providers: { [id]: provider } },
+      );
       if (!saved) throw new Error(t("settings.providers.unavailable"));
+      const expected = Object.fromEntries(
+        Object.entries(provider).filter(([, value]) => value !== undefined),
+      );
+      if (editing && !equal(ProviderOverrideSchema.safeParse(saved.providers[id]).data, expected)) {
+        throw new Error("This host did not apply the provider changes. Check the host version.");
+      }
       void refresh([id]).catch(() => toast.error(t("settings.providers.custom.refreshFailed")));
     },
-    [config, entries, patchConfig, refresh, t, toast],
+    [config, editingCustomProvider, entries, patchConfig, refresh, t, toast],
   );
 
   const toggleShowAllProviders = useCallback(() => setShowAllProviders((current) => !current), []);
   const openCustomProvider = useCallback(() => setAddingCustomProvider(true), []);
-  const closeCustomProvider = useCallback(() => setAddingCustomProvider(false), []);
+  const closeCustomProvider = useCallback(() => {
+    setAddingCustomProvider(false);
+    setEditingCustomProvider(null);
+  }, []);
+  const showDiagnostics = useCallback(() => {
+    if (!editingCustomProvider) return;
+    closeCustomProvider();
+    openProviderSettings({ serverId, provider: editingCustomProvider });
+  }, [closeCustomProvider, editingCustomProvider, openProviderSettings, serverId]);
+  const editProfile = useMemo(() => {
+    const provider = editingCustomProvider ? config?.providers[editingCustomProvider] : undefined;
+    return editingCustomProvider && provider ? { id: editingCustomProvider, provider } : undefined;
+  }, [config, editingCustomProvider]);
   const canExpandProviders =
     hasServer &&
     isConnected &&
@@ -527,6 +555,20 @@ export function ProvidersSection({ serverId }: ProvidersSectionProps) {
       </Button>
     ),
     [config, openCustomProvider, t],
+  );
+
+  const customSheet = useMemo(
+    () =>
+      addingCustomProvider || editProfile ? (
+        <CustomProviderSheet
+          key={editProfile?.id ?? "new"}
+          initial={editProfile}
+          onSave={saveCustomProvider}
+          onClose={closeCustomProvider}
+          onDiagnostics={editProfile ? showDiagnostics : undefined}
+        />
+      ) : null,
+    [addingCustomProvider, closeCustomProvider, editProfile, saveCustomProvider, showDiagnostics],
   );
 
   return (
@@ -589,9 +631,7 @@ export function ProvidersSection({ serverId }: ProvidersSectionProps) {
           />
         </SettingsSection>
       ) : null}
-      {addingCustomProvider ? (
-        <CustomProviderSheet onAdd={addCustomProvider} onClose={closeCustomProvider} />
-      ) : null}
+      {customSheet}
     </>
   );
 }

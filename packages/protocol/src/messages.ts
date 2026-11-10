@@ -45,7 +45,7 @@ import { CLIENT_CAPS } from "./client-capabilities.js";
 import { AGENT_LIFECYCLE_STATUSES } from "./agent-lifecycle.js";
 import { MAX_EXPLICIT_AGENT_TITLE_CHARS } from "./agent-title-limits.js";
 import { AgentProviderSchema } from "./provider-manifest.js";
-import { ProviderPaseoToolsPolicySchema } from "./provider-config.js";
+import { ProviderOverridesSchema, ProviderPaseoToolsPolicySchema } from "./provider-config.js";
 import { MAX_AGENT_USAGE_SAMPLES, TOOL_CALL_ICON_NAMES } from "./agent-types.js";
 import { WORKSPACE_LABEL_COLORS } from "./workspace-labels.js";
 import {
@@ -267,6 +267,7 @@ export const MutableDaemonConfigPatchSchema = z
     providers: z
       .record(z.string(), MutableDaemonProviderConfigSchema.partial().passthrough())
       .optional(),
+    replaceProviders: ProviderOverridesSchema.optional(),
     removeProviders: z.array(z.string().min(1)).optional(),
     metadataGeneration: z
       .object({

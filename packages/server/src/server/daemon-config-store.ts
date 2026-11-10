@@ -22,6 +22,7 @@ interface SupportedMutableConfigPatch {
   usage?: { enabled: boolean };
   browserTools?: { enabled?: boolean };
   providers?: MutableDaemonConfig["providers"];
+  replaceProviders?: MutableDaemonConfigPatch["replaceProviders"];
   removeProviders?: string[];
   metadataGeneration?: MutableDaemonConfigPatch["metadataGeneration"];
   autoArchiveAfterMerge?: boolean;
@@ -103,6 +104,26 @@ function deepMerge<T extends Record<string, unknown>>(
   }
 
   return next as T;
+}
+
+function mergeConfigPatch(
+  current: MutableDaemonConfig,
+  patch: Omit<SupportedMutableConfigPatch, "features" | "removeProviders">,
+  removedProviders: readonly string[],
+): MutableDaemonConfig {
+  const { replaceProviders, ...mergePatch } = patch;
+  for (const [id, profile] of Object.entries(replaceProviders ?? {})) {
+    if (
+      !profile.extends ||
+      current.providers[id]?.extends !== profile.extends ||
+      removedProviders.includes(id)
+    ) {
+      throw new Error(`Custom provider ${id} is no longer available to edit.`);
+    }
+  }
+  const merged = deepMerge(current, mergePatch);
+  if (replaceProviders) merged.providers = { ...merged.providers, ...replaceProviders };
+  return merged;
 }
 
 function omitProvidersFromConfig<T extends { providers?: Record<string, unknown> }>(
@@ -296,6 +317,7 @@ function pickSupportedPatchFields(patch: MutableDaemonConfigPatch): SupportedMut
       ? { browserTools: { enabled: patch.browserTools.enabled } }
       : {}),
     ...(patch.providers !== undefined ? { providers: patch.providers } : {}),
+    ...(patch.replaceProviders !== undefined ? { replaceProviders: patch.replaceProviders } : {}),
     ...(patch.removeProviders !== undefined ? { removeProviders: patch.removeProviders } : {}),
     metadataGeneration: pickMetadataGenerationPatch(patch.metadataGeneration),
     ...(patch.autoArchiveAfterMerge !== undefined
@@ -431,7 +453,7 @@ export class DaemonConfigStore {
     const { removeProviders = [], ...patch } = parsedPatch;
     const { features: speechPatch, ...configPatch } = patch;
     const removedProviders = Array.from(new Set(removeProviders));
-    const merged = deepMerge(this.current, configPatch);
+    const merged = mergeConfigPatch(this.current, configPatch, removedProviders);
     if (speechPatch !== undefined) Object.assign(merged, this.readPatchedSpeech(speechPatch));
     if (parsedPatch.skills?.selection !== undefined) {
       merged.skills = { selection: parsedPatch.skills.selection };
@@ -722,6 +744,7 @@ function mergeMutableAgentPatch(
 ): PersistedConfig["agents"] {
   if (
     patch.providers === undefined &&
+    patch.replaceProviders === undefined &&
     patch.metadataGeneration === undefined &&
     patch.skills === undefined &&
     !hasRestartRecoveryPatch(patch) &&
@@ -740,7 +763,9 @@ function mergeMutableAgentPatch(
     persistedProviderOverrides,
     patch.providers,
   );
-  if (providerOverrides) next["providers"] = providerOverrides;
+  if (patch.replaceProviders) {
+    next["providers"] = { ...providerOverrides, ...patch.replaceProviders };
+  } else if (providerOverrides) next["providers"] = providerOverrides;
   else delete next["providers"];
 
   const metadata = mergeMetadataGenerationPatch(
