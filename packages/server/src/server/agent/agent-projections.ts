@@ -33,6 +33,7 @@ interface ProjectionOptions {
   createdAt?: string;
   internal?: boolean;
   previousInitialChatContext?: string;
+  previousPendingProviderContext?: string;
   /**
    * Archive timestamp, supplied by a caller holding the stored record. A live
    * managed agent cannot know this: an archived agent is resumed back into
@@ -74,6 +75,15 @@ export function resolveEffectiveThinkingOptionId(options: {
   return normalizeThinkingOptionId(options.configuredThinkingOptionId);
 }
 
+/** An agent that does not know what it owes its provider leaves the stored value alone. */
+function resolveStoredPendingProviderContext(
+  agent: ManagedAgent,
+  options: ProjectionOptions | undefined,
+): string | undefined {
+  if (agent.pendingProviderContext === undefined) return options?.previousPendingProviderContext;
+  return agent.pendingProviderContext ?? undefined;
+}
+
 export function toStoredAgentRecord(
   agent: ManagedAgent,
   options?: ProjectionOptions,
@@ -93,6 +103,7 @@ export function toStoredAgentRecord(
     lastActivityAt: agent.updatedAt.toISOString(),
     lastUserMessageAt: agent.lastUserMessageAt ? agent.lastUserMessageAt.toISOString() : null,
     initialChatContext: agent.initialChatContext ?? options?.previousInitialChatContext,
+    pendingProviderContext: resolveStoredPendingProviderContext(agent, options),
     title: options?.title ?? null,
     labels: agent.labels,
     lastStatus: agent.lifecycle,

@@ -147,6 +147,7 @@ import { createSpeechService } from "./speech/speech-runtime.js";
 import { createSpeechSettingsOwner } from "./speech/speech-settings.js";
 import { AgentManager } from "./agent/agent-manager.js";
 import { AgentStorage } from "./agent/agent-storage.js";
+import { FileCarriedTimelineStore } from "./agent/carried-timeline.js";
 import { attachAgentStoragePersistence } from "./persistence-hooks.js";
 import { createAgentMcpServer } from "./agent/mcp-server.js";
 import { ProjectMemory } from "./project-memory.js";
@@ -1113,6 +1114,10 @@ export async function createPaseoDaemon(
     clients: initialAgentManagerState.clients,
     providerDefinitions: initialAgentManagerState.providerDefinitions,
     registry: agentStorage,
+    carriedTimelines: new FileCarriedTimelineStore(
+      path.join(config.paseoHome, "agent-carried-timelines"),
+      logger,
+    ),
     appendSystemPrompt: config.appendSystemPrompt,
     onWorkspaceStateMayHaveChanged: ({ cwd }) => {
       workspaceGitService.onWorkspaceStateMayHaveChanged(cwd);

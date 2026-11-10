@@ -387,6 +387,18 @@ export interface PluginTimelineItem {
   data: JsonValue;
 }
 
+export interface AgentProviderSwitchEndpoint {
+  provider: AgentProvider;
+  providerLabel?: string;
+  model?: string | null;
+  modelLabel?: string;
+}
+
+export interface AgentProviderSwitchMarker {
+  from: AgentProviderSwitchEndpoint;
+  to: AgentProviderSwitchEndpoint;
+}
+
 export interface AgentTaskItem {
   text: string;
   completed: boolean;
@@ -406,6 +418,7 @@ export type AgentTimelineItem =
       type: "notification";
       level: "info" | "warning" | "error";
       message: string;
+      providerSwitch?: AgentProviderSwitchMarker;
     }
   | CompactionTimelineItem
   | PluginTimelineItem;

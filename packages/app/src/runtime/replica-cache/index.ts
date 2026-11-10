@@ -1,6 +1,7 @@
 import { findMountedWindowStart } from "@/agent-stream/history-window";
 import { z } from "zod";
 import {
+  AgentProviderSwitchMarkerSchema,
   AgentStatusSchema,
   AgentTimelineItemPayloadSchema,
   WorkspaceGitHubRuntimePayloadSchema,
@@ -146,6 +147,7 @@ const StoredTimelineItemSchema = z.discriminatedUnion("kind", [
     sourceType: z.enum(["error", "notification"]),
     level: z.enum(["info", "warning", "error"]),
     message: z.string(),
+    providerSwitch: AgentProviderSwitchMarkerSchema.optional(),
   }),
   z.strictObject({
     ...TimelineItemBaseShape,
@@ -478,6 +480,7 @@ function serializeTimelineItem(item: StreamItem): StoredTimelineItem | null {
         sourceType: item.sourceType,
         level: item.level,
         message: item.message,
+        ...(item.providerSwitch ? { providerSwitch: item.providerSwitch } : {}),
       };
     case "compaction":
       return {
@@ -568,6 +571,7 @@ function deserializeBuiltinTimelineItem(
         sourceType: item.sourceType,
         level: item.level,
         message: item.message,
+        ...(item.providerSwitch ? { providerSwitch: item.providerSwitch } : {}),
       };
     case "compaction":
       return {

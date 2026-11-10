@@ -1,6 +1,7 @@
 import type { AgentMessage } from "@pimi/protocol/agent-message";
 import type {
   AgentProvider,
+  AgentProviderSwitchMarker,
   AgentTimelineItem,
   JsonValue,
   ToolCallDetail,
@@ -794,6 +795,8 @@ export interface NotificationItem {
   timestamp: Date;
   level: NotificationLevel;
   message: string;
+  /** Present when this notification marks the chat moving to another provider. */
+  providerSwitch?: AgentProviderSwitchMarker;
 }
 
 export interface CompactionItem {
@@ -1571,6 +1574,7 @@ function reduceTimelineEvent(
         timestamp,
         level: item.level,
         message: item.message,
+        ...(item.providerSwitch ? { providerSwitch: item.providerSwitch } : {}),
       };
       return appendNotification(state, notification);
     }

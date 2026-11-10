@@ -300,6 +300,7 @@ import type {
   AgentPermissionRequest,
   AgentPermissionResponse,
   AgentPersistenceHandle,
+  AgentProviderSwitchMarker,
   ProviderStatus,
   AgentRuntimeInfo,
   AgentTimelineItem,
@@ -755,6 +756,23 @@ const ToolCallTimelineItemPayloadSchema: z.ZodType<ToolCallTimelineItem, unknown
     ToolCallCanceledPayloadSchema,
   ]);
 
+const AgentProviderSwitchEndpointSchema = z.object({
+  provider: AgentProviderSchema,
+  providerLabel: z.string().optional(),
+  model: z.string().nullable().optional(),
+  modelLabel: z.string().optional(),
+});
+
+/**
+ * Marks where a chat moved to another provider. It rides on a notification so a
+ * client that predates it still shows the notification's message.
+ */
+export const AgentProviderSwitchMarkerSchema: z.ZodType<AgentProviderSwitchMarker, unknown> =
+  z.object({
+    from: AgentProviderSwitchEndpointSchema,
+    to: AgentProviderSwitchEndpointSchema,
+  });
+
 // zod-aot 0.20.4 miscompiles this as a nested discriminated union by omitting
 // the inner tool_call branch from the generated outer dispatch.
 export const AgentTimelineItemPayloadSchema: z.ZodType<AgentTimelineItem, unknown> = z.union([
@@ -794,6 +812,7 @@ export const AgentTimelineItemPayloadSchema: z.ZodType<AgentTimelineItem, unknow
     type: z.literal("notification"),
     level: z.enum(["info", "warning", "error"]),
     message: z.string(),
+    providerSwitch: AgentProviderSwitchMarkerSchema.optional(),
   }),
   z.object({
     type: z.literal("compaction"),
@@ -2225,6 +2244,31 @@ export const AgentConfigApplyResponseMessageSchema = z.object({
   payload: AgentActionResponsePayloadSchema,
 });
 
+/**
+ * Moves one chat to another provider in place: same agent, same timeline, a new
+ * provider session. A model change within the current provider stays on
+ * `set_agent_model_request`.
+ */
+export const AgentProviderSwitchRequestMessageSchema = z.object({
+  type: z.literal("agent.provider.switch.request"),
+  agentId: z.string(),
+  provider: AgentProviderSchema,
+  model: z.string().optional(),
+  requestId: z.string(),
+});
+
+export const AgentProviderSwitchResponseMessageSchema = z.object({
+  type: z.literal("agent.provider.switch.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    accepted: z.boolean(),
+    error: z.string().nullable(),
+    // A machine-readable reason. Kept a string so new codes never narrow the wire type.
+    errorCode: z.string().optional(),
+  }),
+});
+
 export const AgentDetachRequestMessageSchema = z.object({
   type: z.literal("agent.detach.request"),
   agentId: z.string(),
@@ -3582,6 +3626,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   SetAgentThinkingRequestMessageSchema,
   SetAgentFeatureRequestMessageSchema,
   AgentConfigApplyRequestMessageSchema,
+  AgentProviderSwitchRequestMessageSchema,
   AgentDetachRequestMessageSchema,
   AgentRewindRequestMessageSchema,
   AgentPermissionResponseMessageSchema,
@@ -4090,6 +4135,8 @@ export const ServerInfoStatusPayloadSchema = z
         agentProfiles: z.boolean().optional(),
         // COMPAT(agentConfigApply): added in v0.3.2, remove gate after 2027-02-11.
         agentConfigApply: z.boolean().optional(),
+        // COMPAT(agentProviderSwitch): added in v0.17.15, remove gate after 2027-05-10.
+        agentProviderSwitch: z.boolean().optional(),
       })
       .optional(),
   })
@@ -7528,6 +7575,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   SetAgentThinkingResponseMessageSchema,
   SetAgentFeatureResponseMessageSchema,
   AgentConfigApplyResponseMessageSchema,
+  AgentProviderSwitchResponseMessageSchema,
   AgentDetachResponseMessageSchema,
   AgentRewindResponseMessageSchema,
   UpdateAgentResponseMessageSchema,
@@ -7841,6 +7889,12 @@ export type ProjectSuggestion = z.infer<typeof ProjectSuggestionSchema>;
 export type ProjectSuggestionsResponse = z.infer<typeof ProjectSuggestionsResponseSchema>;
 export type FetchAgentRequestMessage = z.infer<typeof FetchAgentRequestMessageSchema>;
 export type AgentForkContextRequestMessage = z.infer<typeof AgentForkContextRequestMessageSchema>;
+export type AgentProviderSwitchRequestMessage = z.infer<
+  typeof AgentProviderSwitchRequestMessageSchema
+>;
+export type AgentProviderSwitchResponseMessage = z.infer<
+  typeof AgentProviderSwitchResponseMessageSchema
+>;
 export type SendAgentMessageRequest = z.infer<typeof SendAgentMessageRequestSchema>;
 export type WaitForFinishRequest = z.infer<typeof WaitForFinishRequestSchema>;
 export type DictationStreamStartMessage = z.infer<typeof DictationStreamStartMessageSchema>;

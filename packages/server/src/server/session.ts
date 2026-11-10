@@ -79,6 +79,10 @@ import {
 } from "./persistence-hooks.js";
 import { ensureAgentLoaded, ensureUnarchivedAgentLoaded } from "./agent/agent-loading.js";
 import {
+  AgentProviderSwitchError,
+  resolveAgentProviderSwitchTarget,
+} from "./agent/provider-switch.js";
+import {
   sendPromptToAgent,
   waitForAgentRunStartWithTimeout,
   unarchiveAgentState,
@@ -3043,6 +3047,8 @@ export class Session {
       }
       case "agent.fork_context.request":
         return this.handleAgentForkContextRequest(msg);
+      case "agent.provider.switch.request":
+        return this.handleAgentProviderSwitchRequest(msg);
       default:
         return undefined;
     }
@@ -8730,6 +8736,72 @@ export class Session {
         source,
       );
     }
+  }
+
+  private async handleAgentProviderSwitchRequest(
+    msg: Extract<SessionInboundMessage, { type: "agent.provider.switch.request" }>,
+  ): Promise<void> {
+    const { agentId, requestId, provider } = msg;
+    this.sessionLogger.info(
+      { agentId, provider, model: msg.model, requestId },
+      "session: agent.provider.switch.request",
+    );
+    try {
+      const record = await this.agentStorage.get(agentId);
+      if (record?.archivedAt) {
+        throw new AgentProviderSwitchError(
+          "agent_not_switchable",
+          "Unarchive this chat before switching providers",
+        );
+      }
+      const agent = await ensureAgentLoaded(agentId, {
+        agentManager: this.agentManager,
+        agentStorage: this.agentStorage,
+        logger: this.sessionLogger,
+      });
+      const target = await resolveAgentProviderSwitchTarget({
+        providerSnapshotManager: this.providerSnapshotManager,
+        provider,
+        model: msg.model,
+        cwd: agent.cwd,
+      });
+      const switched = await this.agentManager.switchAgentProvider(agentId, target, {
+        source: await this.describeProviderSwitchSource(agent),
+      });
+      await this.agentUpdates.forwardLiveAgent(switched);
+      this.emit({
+        type: "agent.provider.switch.response",
+        payload: { requestId, agentId, accepted: true, error: null },
+      });
+    } catch (error) {
+      this.sessionLogger.error(
+        { err: error, agentId, provider, requestId },
+        "session: agent.provider.switch.request error",
+      );
+      this.emit({
+        type: "agent.provider.switch.response",
+        payload: {
+          requestId,
+          agentId,
+          accepted: false,
+          error: getErrorMessage(error),
+          ...(error instanceof AgentProviderSwitchError ? { errorCode: error.code } : {}),
+        },
+      });
+    }
+  }
+
+  /** Display names for the timeline marker. A provider that cannot be read keeps its ids. */
+  private async describeProviderSwitchSource(agent: ManagedAgent) {
+    const model = agent.runtimeInfo?.model ?? agent.config.model;
+    const entry = await this.providerSnapshotManager
+      .getProvider({ provider: agent.provider, cwd: agent.cwd, wait: false })
+      .catch(() => null);
+    return {
+      provider: agent.provider,
+      providerLabel: entry?.label ?? this.providerSnapshotManager.getProviderLabel(agent.provider),
+      modelLabel: entry?.models?.find((candidate) => candidate.id === model)?.label,
+    };
   }
 
   private async handleAgentForkContextRequest(

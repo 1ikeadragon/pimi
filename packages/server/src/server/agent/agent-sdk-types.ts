@@ -3,6 +3,7 @@ import type {
   AgentFeatureSelect,
   AgentFeatureToggle,
   AgentProviderNotice,
+  AgentProviderSwitchMarker,
   AgentTaskItem,
   AgentUsage,
   JsonValue,
@@ -402,6 +403,7 @@ export type AgentTimelineItem =
       type: "notification";
       level: "info" | "warning" | "error";
       message: string;
+      providerSwitch?: AgentProviderSwitchMarker;
     }
   | CompactionTimelineItem
   | PluginTimelineItem;

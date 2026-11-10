@@ -4302,6 +4302,44 @@ export class DaemonClient {
     return payload.notice ?? null;
   }
 
+  /**
+   * Moves a chat to another provider in place: the agent id and timeline stay,
+   * and the host hands the conversation so far to the new provider with the next
+   * prompt. Gated on `server_info.features.agentProviderSwitch`.
+   */
+  async switchAgentProvider(
+    agentId: string,
+    target: { provider: string; model?: string },
+  ): Promise<void> {
+    const requestId = this.createRequestId();
+    const message = SessionInboundMessageSchema.parse({
+      type: "agent.provider.switch.request",
+      agentId,
+      provider: target.provider,
+      ...(target.model ? { model: target.model } : {}),
+      requestId,
+    });
+    const payload = await this.sendRequest({
+      requestId,
+      message,
+      // The host stops the running turn, closes one provider process and starts another.
+      timeout: 150_000,
+      options: { skipQueue: true },
+      select: (msg) => {
+        if (msg.type !== "agent.provider.switch.response") {
+          return null;
+        }
+        if (msg.payload.requestId !== requestId) {
+          return null;
+        }
+        return msg.payload;
+      },
+    });
+    if (!payload.accepted) {
+      throw new Error(payload.error ?? "The host could not switch this chat to another provider");
+    }
+  }
+
   async restartServer(
     reason?: string,
     requestId?: string,

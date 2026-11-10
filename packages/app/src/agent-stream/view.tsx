@@ -125,6 +125,7 @@ import {
 import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import { useForkAgent } from "@/hooks/use-fork-agent";
+import { ProviderSwitchMarker } from "@/components/provider-switch-marker";
 import { isWeb } from "@/constants/platform";
 import type { Theme } from "@/styles/theme";
 import { recordRenderProfileReasons } from "@/utils/render-profiler";
@@ -1053,6 +1054,11 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
             );
 
           case "notification":
+            if (item.providerSwitch) {
+              return (
+                <ProviderSwitchMarker marker={item.providerSwitch} serverId={resolvedServerId} />
+              );
+            }
             return <Notification level={item.level} message={item.message} />;
 
           case "todo_list":

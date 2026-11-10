@@ -1590,7 +1590,7 @@ function ThinkingComboboxOption({
   );
 }
 
-function useAgentProviderHandoff({
+function useAgentProviderSwitch({
   serverId,
   agentId,
   agent,
@@ -1604,50 +1604,87 @@ function useAgentProviderHandoff({
   handleSelectModel: (modelId: string) => Promise<void>;
 }) {
   const toast = useToast();
+  const { updatePreferences } = useFormPreferences();
+  const client = useSessionStore((state) => state.sessions[serverId]?.client ?? null);
+  const supportsProviderSwitch = useHostFeature(serverId, "agentProviderSwitch");
+  // COMPAT(agentProviderSwitch): added in v0.17.15, remove after 2027-05-10. A host
+  // without in-place switching continues the chat in a new draft seeded with its
+  // history; delete `forkToProvider` and everything that feeds it with this tag.
   const supportsForkContext = useHostFeature(serverId, "agentForkContext");
-  const canSwitchProvider = supportsForkContext && Boolean(agent?.workspaceId);
+  const canForkToProvider = supportsForkContext && Boolean(agent?.workspaceId);
+  const canSwitchProvider = supportsProviderSwitch || canForkToProvider;
   const agentProvider = agent?.provider;
   const providerLabel = providerEntry?.label;
   const forkAgent = useForkAgent({ serverId, toast });
-  const handoffPending = useRef(false);
-  const [isHandoffPending, setIsHandoffPending] = useState(false);
+  const switchPending = useRef(false);
+  const [isSwitchPending, setIsSwitchPending] = useState(false);
+
+  const switchInPlace = useCallback(
+    async (provider: AgentProvider, modelId: string) => {
+      if (!client) return;
+      try {
+        await client.switchAgentProvider(agentId, { provider, model: modelId });
+      } catch (error) {
+        console.warn("[AgentControls] switchAgentProvider failed", error);
+        toast.error(toErrorMessage(error));
+        return;
+      }
+      await updatePreferences((current) =>
+        mergeProviderPreferences({ preferences: current, provider, updates: { model: modelId } }),
+      ).catch((error) => {
+        console.warn("[AgentControls] persist switched model preference failed", error);
+      });
+    },
+    [agentId, client, toast, updatePreferences],
+  );
+
+  const forkToProvider = useCallback(
+    async (provider: AgentProvider, modelId: string) => {
+      const source = useSessionStore.getState().sessions[serverId]?.agents?.get(agentId);
+      if (!source?.workspaceId) return;
+      await forkAgent({
+        agentId,
+        agent: source,
+        workspaceId: source.workspaceId,
+        target: { provider, model: modelId },
+        handoffFromProvider: providerLabel ?? source.provider,
+      });
+    },
+    [agentId, forkAgent, providerLabel, serverId],
+  );
+
   const selectProviderModel = useCallback(
     async (provider: AgentProvider, modelId: string) => {
       if (provider === agentProvider) {
         await handleSelectModel(modelId);
         return;
       }
-      if (!canSwitchProvider || handoffPending.current) return;
-      const source = useSessionStore.getState().sessions[serverId]?.agents?.get(agentId);
-      if (!source?.workspaceId) return;
-      handoffPending.current = true;
-      setIsHandoffPending(true);
+      if (!canSwitchProvider || switchPending.current) return;
+      switchPending.current = true;
+      setIsSwitchPending(true);
       try {
-        await forkAgent({
-          agentId,
-          agent: source,
-          workspaceId: source.workspaceId,
-          target: { provider, model: modelId },
-          handoffFromProvider: providerLabel ?? source.provider,
-        });
+        if (supportsProviderSwitch) {
+          await switchInPlace(provider, modelId);
+        } else {
+          await forkToProvider(provider, modelId);
+        }
       } finally {
-        handoffPending.current = false;
-        setIsHandoffPending(false);
+        switchPending.current = false;
+        setIsSwitchPending(false);
       }
     },
     [
-      agentId,
       agentProvider,
       canSwitchProvider,
-      forkAgent,
+      forkToProvider,
       handleSelectModel,
-      providerLabel,
-      serverId,
+      supportsProviderSwitch,
+      switchInPlace,
     ],
   );
   return {
     canSwitchProvider,
-    isHandoffPending,
+    isSwitchPending,
     selectProviderModel,
     selectInPicker: canSwitchProvider ? selectProviderModel : undefined,
   };
@@ -1738,8 +1775,8 @@ export const AgentControls = memo(function AgentControls({
     },
     [agentId, agentProvider, client, toast, updatePreferences],
   );
-  const { canSwitchProvider, isHandoffPending, selectProviderModel, selectInPicker } =
-    useAgentProviderHandoff({
+  const { canSwitchProvider, isSwitchPending, selectProviderModel, selectInPicker } =
+    useAgentProviderSwitch({
       serverId,
       agentId,
       agent,
@@ -1747,7 +1784,7 @@ export const AgentControls = memo(function AgentControls({
       handleSelectModel,
     });
   const isAgentModelLoading = [
-    isHandoffPending,
+    isSwitchPending,
     snapshotIsLoading,
     selectedProviderIsLoading,
   ].includes(true);

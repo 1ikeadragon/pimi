@@ -53,6 +53,7 @@ const STORED_AGENT_SCHEMA = z.object({
   lastActivityAt: z.string().optional(),
   lastUserMessageAt: z.string().nullable().optional(),
   initialChatContext: z.string().optional(),
+  pendingProviderContext: z.string().optional(),
   title: z.string().nullable().optional(),
   provisionalTitle: z.boolean().optional(),
   labels: z.record(z.string(), z.string()).default({}),
@@ -99,6 +100,14 @@ export type SerializableAgentConfig = Pick<
 export type StoredAgentRecord = z.infer<typeof STORED_AGENT_SCHEMA>;
 export function parseStoredAgentRecord(value: unknown): StoredAgentRecord {
   return STORED_AGENT_SCHEMA.parse(value);
+}
+
+/** Context a snapshot keeps from the stored record when the live agent does not carry it. */
+function previousConversationContext(existing: StoredAgentRecord | null | undefined) {
+  return {
+    previousInitialChatContext: existing?.initialChatContext,
+    previousPendingProviderContext: existing?.pendingProviderContext,
+  };
 }
 
 export class AgentStorage {
@@ -380,7 +389,7 @@ export class AgentStorage {
         title: titleOverride === undefined ? (existing?.title ?? null) : titleOverride,
         createdAt: existing?.createdAt,
         internal: hasInternalOverride ? options?.internal : (agent.internal ?? existing?.internal),
-        previousInitialChatContext: existing?.initialChatContext,
+        ...previousConversationContext(existing),
       });
       record.provisionalTitle = options?.provisionalTitle ?? existing?.provisionalTitle;
 

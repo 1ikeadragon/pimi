@@ -46,6 +46,29 @@ Reload releases the old runtime before resuming its durable session: an idle pro
 still own an exclusive writer. A close failure retains that runtime for cleanup and blocks the
 replacement. Once closure succeeds, a failed resume leaves the durable agent closed and retryable.
 
+### Switching providers
+
+Picking another provider's model in a chat replaces the provider session under the same Pimi agent
+ID. It runs in the reload lifecycle lane and shares its machinery: cancel the active run, release the
+old runtime, install the new session. The differences:
+
+- The new session is created, never resumed, and its config starts from the target provider's
+  defaults. Model, mode, thinking, feature values and provider options stay behind. `cwd`, title,
+  system prompt, MCP servers and tool policy move with the chat.
+- Provider, model and availability checks run before the old session is touched. A failure after the
+  old runtime is released reopens the original provider thread; if that also fails the agent is left
+  closed and retryable, as after a failed reload.
+- The new provider has no memory of the chat. The daemon builds the same curated summary a fork uses,
+  stores it on the agent record as `pendingProviderContext`, sends it with the next prompt, and clears
+  it once the provider accepts that turn. Switching again before prompting rebuilds it.
+- A provider's history now starts at the switch, so the rows before it are written to
+  `$PASEO_HOME/agent-carried-timelines/{agentId}.json` and replayed ahead of provider history whenever
+  the timeline is rebuilt: resume after a restart, reload from disk, rewind. Rewind cannot cross a
+  switch.
+
+The old provider's native session is left as it was. It is not archived there and can be imported
+again as a separate chat.
+
 Idle resumable runtimes are collected after one hour without activity, checked once a minute.
 Collection releases the process and preserves the agent record, conversation, relationships, and
 provider session. The next prompt resumes that session. Set `agents.idleRuntimeCleanup: false` in
