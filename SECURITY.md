@@ -86,6 +86,8 @@ The preview can run a file’s inline scripts inside a sandbox. Its content secu
 
 In a regular web browser, a preview can still navigate its own frame to an external URL. This can send data available inside the preview, such as its own contents and your IP address. Use **Source** to read HTML without running it.
 
+An HTML visual an agent adds to a chat runs in this same sandbox as soon as you scroll to it, without a click. The Desktop and Android protections above apply to it. In a regular web browser the navigation gap applies too, and there it needs no interaction: a visual written by an agent that was steered by hostile content can send what the agent put in it by navigating its own frame. Use Pimi Desktop when agents read untrusted content.
+
 ## Agent authentication
 
 Paseo wraps agent CLIs (Claude Code, Codex, OpenCode) but does not manage their authentication. Each agent provider handles its own credentials. Paseo never stores or transmits provider API keys. Agents run in your user context with your existing credentials.

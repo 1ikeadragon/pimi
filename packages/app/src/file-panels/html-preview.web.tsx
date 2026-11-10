@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { withPreviewCsp } from "./html-preview-csp";
+import { readHtmlPreviewHeight, withPreviewCsp, type HtmlPreviewEmbed } from "./html-preview-csp";
 
 // `allow-scripts` alone: the file gets an opaque origin, so a plan page can run
 // its own scripts (Excalidraw, charts) but cannot reach the Paseo app's DOM,
@@ -16,37 +16,57 @@ import { withPreviewCsp } from "./html-preview-csp";
 // over with a directive browsers ignore.
 const SANDBOX = "allow-scripts";
 
-const iframeStyle = {
-  flex: 1,
-  minHeight: 0,
-  border: "none",
-  backgroundColor: "white",
-} as const;
-
 export function FileHtmlPreview({
   html,
   title,
   testID,
+  embed,
+  onContentHeight,
 }: {
   html: string;
   title?: string;
   testID?: string;
+  /** Themes the document and makes it report its content height. */
+  embed?: HtmlPreviewEmbed;
+  onContentHeight?: (height: number) => void;
 }) {
   const { t } = useTranslation();
+  const frame = useRef<HTMLIFrameElement>(null);
   // A document URL lets the browser resolve fragment links within the preview.
   // srcDoc would inherit the app URL and navigate the frame back into Paseo.
   const source = useMemo(
-    () => `data:text/html;charset=utf-8,${encodeURIComponent(withPreviewCsp(html))}`,
-    [html],
+    () => `data:text/html;charset=utf-8,${encodeURIComponent(withPreviewCsp(html, embed))}`,
+    [html, embed],
+  );
+  useEffect(() => {
+    if (!onContentHeight) return;
+    // The frame is untrusted. Only its own window is listened to, and only a height is read.
+    const receive = (event: MessageEvent) => {
+      if (event.source !== frame.current?.contentWindow) return;
+      const height = readHtmlPreviewHeight(event.data);
+      if (height !== null) onContentHeight(height);
+    };
+    window.addEventListener("message", receive);
+    return () => window.removeEventListener("message", receive);
+  }, [onContentHeight]);
+  const style = useMemo(
+    () => ({
+      flex: 1,
+      minHeight: 0,
+      border: "none",
+      backgroundColor: embed ? "transparent" : "white",
+    }),
+    [embed],
   );
   return (
     <iframe
+      ref={frame}
       data-testid={testID}
       title={title ?? t("panels.file.filePanels.builtin.html")}
       src={source}
       sandbox={SANDBOX}
       referrerPolicy="no-referrer"
-      style={iframeStyle}
+      style={style}
     />
   );
 }

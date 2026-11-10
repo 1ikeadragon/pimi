@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useRef } from "react";
 import { Platform } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import { WebView } from "react-native-webview";
-import { withPreviewCsp } from "./html-preview-csp";
+import { WebView, type WebViewMessageEvent } from "react-native-webview";
+import { readHtmlPreviewHeight, withPreviewCsp, type HtmlPreviewEmbed } from "./html-preview-csp";
 import { htmlPreviewNavigationKind } from "./html-preview-navigation";
 
 // A preview is a viewer, not a browser. Only the document Paseo hands the WebView
@@ -37,12 +37,17 @@ export function FileHtmlPreview({
   html,
   title,
   testID,
+  embed,
+  onContentHeight,
 }: {
   html: string;
   title?: string;
   testID?: string;
+  /** Themes the document and makes it report its content height. */
+  embed?: HtmlPreviewEmbed;
+  onContentHeight?: (height: number) => void;
 }) {
-  const document = useMemo(() => withPreviewCsp(html), [html]);
+  const document = useMemo(() => withPreviewCsp(html, embed), [html, embed]);
   const source = useMemo(() => ({ html: document, baseUrl: BASE_URL }), [document]);
   // Latched per document rather than once for the lifetime of the WebView: the
   // file pane re-renders with new content on every live-file refresh, and each of
@@ -60,11 +65,27 @@ export function FileHtmlPreview({
     [document],
   );
 
+  // The page is untrusted. Its messages are parsed as data and only a height is read.
+  const receive = useCallback(
+    (event: WebViewMessageEvent) => {
+      let data: unknown;
+      try {
+        data = JSON.parse(event.nativeEvent.data);
+      } catch {
+        return;
+      }
+      const height = readHtmlPreviewHeight(data);
+      if (height !== null) onContentHeight?.(height);
+    },
+    [onContentHeight],
+  );
+
   return (
     <WebView
       testID={testID}
       accessibilityLabel={title}
-      style={styles.webview}
+      style={embed ? styles.embedded : styles.webview}
+      onMessage={onContentHeight ? receive : undefined}
       source={source}
       originWhitelist={ORIGIN_WHITELIST}
       onShouldStartLoadWithRequest={allowOnlyInitialDocument}
@@ -83,5 +104,9 @@ const styles = StyleSheet.create(() => ({
   webview: {
     flex: 1,
     backgroundColor: "white",
+  },
+  embedded: {
+    flex: 1,
+    backgroundColor: "transparent",
   },
 }));
