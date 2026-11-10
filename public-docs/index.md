@@ -32,29 +32,10 @@ The daemon can also serve the browser web app itself, so you can use the full UI
 
 Configuration and local state live under `PASEO_HOME` (defaults to `~/.paseo`).
 
-## Docker
-
-For servers, dev boxes, NAS devices, or homelab hosts, build and run the local image:
-
-```bash
-docker build -f docker/base/Dockerfile -t pimi:local .
-docker run -d --name pimi \
-  -p 6767:6767 \
-  -e PASEO_PASSWORD=change-me \
-  -v "$PWD/paseo-home:/home/paseo" \
-  -v "$PWD:/workspace" \
-  pimi:local
-```
-
-Then open `http://localhost:6767`.
-
-The image runs the daemon and serves the bundled web UI. It does not bundle agent CLIs, so extend it with the agents you use. See [Docker](/docs/docker) for Compose, reverse proxy, agent install, and security examples.
-
 ## Where next
 
 - [Run parallel tasks](/docs/parallel-development), use separate worktrees, review diffs, and test changes in the desktop app.
 - [Connectivity](/docs/connectivity), connect through the relay or Tailscale.
-- [Docker](/docs/docker), run the daemon and bundled web UI in a container.
 - [Workspaces](/docs/workspaces), the project, workspace, and session model Pimi is built around.
 - [Providers](/docs/providers), what a provider is and how Pimi wraps existing CLIs.
 - [Orchestration](/docs/orchestration), let one agent delegate work to other providers and models.

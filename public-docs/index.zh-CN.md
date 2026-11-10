@@ -30,29 +30,10 @@ daemon 还可以自己提供浏览器网页应用，这样你无需托管版应�
 
 配置和本地状态位于 `PASEO_HOME` 下（默认为 `~/.paseo`）。
 
-## Docker {#docker}
-
-在服务器、开发机、NAS 设备或家庭实验室主机上，运行官方镜像：
-
-```bash
-docker build -f docker/base/Dockerfile -t pimi:local .
-docker run -d --name pimi \
-  -p 6767:6767 \
-  -e PASEO_PASSWORD=change-me \
-  -v "$PWD/paseo-home:/home/paseo" \
-  -v "$PWD:/workspace" \
-  pimi:local
-```
-
-然后打开 `http://localhost:6767`。
-
-该镜像运行 daemon 并提供内置的网页界面。它不包含 Agent CLI，因此请用你使用的 Agent 扩展它。Compose、反向代理、Agent 安装和安全方面的示例见 [Docker](/docs/docker)。
-
 ## 接下来 {#where-next}
 
 - [运行并行任务](/docs/parallel-development)：在桌面应用中使用独立的 worktree、审查 diff 并测试改动。
 - [连接](/docs/connectivity)：通过中继或 Tailscale 连接。
-- [Docker](/docs/docker)：在容器中运行 daemon 和内置网页界面。
 - [工作区](/docs/workspaces)：Pimi 所围绕的项目、工作区和会话模型。
 - [Provider](/docs/providers)：什么是 Provider，以及 Pimi 如何封装现有 CLI。
 - [编排](/docs/orchestration)：让一个 Agent 把工作委派给其他 Provider 和模型。

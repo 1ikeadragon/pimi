@@ -22,7 +22,7 @@ Set `APPLE_TEAM_ID` as a repository Actions variable using the 10-character Team
 
 ## Cut a release
 
-1. Bump the root version, run `npm run version:sync-internal`, and refresh `package-lock.json` with `npm install --package-lock-only --ignore-scripts`. Run `./scripts/update-nix.sh` for the new lockfile.
+1. Bump the root version, run `npm run version:sync-internal`, and refresh `package-lock.json` with `npm install --package-lock-only --ignore-scripts`.
 2. Add a dated `## X.Y.Z - YYYY-MM-DD` entry to `CHANGELOG.md`. Describe changes users will notice.
 3. Run `npm run typecheck` and smoke-test the changed behavior. Commit and push to `main`.
 4. Create and push the tag at the tested commit. Watch the selected build jobs and verify the [published release](https://github.com/1ikeadragon/pimi/releases/latest). When shipping Windows, update its website button to the new Windows installer.

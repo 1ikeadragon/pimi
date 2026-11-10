@@ -102,22 +102,6 @@ Pimi 使用主机白名单校验传入请求的 `Host` 请求头。主机无法�
 
 对于移动端访问，我们仍然推荐使用中继，它开箱即用地把身份验证和端到端加密结合在一起。密码验证主要适用于直接的局域网或 VPN 连接，在不使用中继的情况下提供访问控制。
 
-## 用 Docker 自托管 {#docker-self-hosting}
-
-官方 Docker 镜像在一个容器中运行 daemon 和内置的 Web UI。它在容器内绑定 `0.0.0.0:6767`，以便 Docker 端口发布和反向代理可以正常工作。
-
-对于 Docker 部署：
-
-- 在把端口发布到局域网、VPN 或公网地址之前，设置 `PASEO_PASSWORD`。
-- 在 localhost 之外通过浏览器访问时，在反向代理上使用 HTTPS。
-- 为你用来访问容器的所有 DNS 名称设置 `PASEO_HOSTNAMES`。
-- 让 `/workspace` 挂载只包含 Agent 应该能读写的仓库。
-- 把 `/home/paseo` 视为敏感目录，它可能包含 daemon 状态和 Provider 凭据。
-
-镜像以非 root 的 `paseo` 用户运行 daemon 和它启动的 Agent，但容器用户隔离不能替代谨慎的挂载。Agent 仍然可以访问你挂载到容器中的任何代码和凭据。
-
-Compose 和反向代理的示例见 [Docker](/docs/docker)。
-
 ## Linux 桌面沙盒 {#linux-desktop-sandbox}
 
 每次在 Linux 上启动桌面应用时，Pimi 都会检查 Chromium 沙盒是否可用。当用户命名空间可用，或已安装的沙盒辅助程序可用时，它会保持沙盒启用。`.deb` 和 `.rpm` 安装包会配置这个辅助程序。
@@ -152,6 +136,5 @@ Hub CLI 凭据是 bearer 密钥。远程 Hub 地址必须使用 HTTPS；只有�
 - **像对待密码一样对待二维码**，除非你同时设置了密码，否则任何拿到配对信息的人都可以连接你的 daemon
 - **设置密码**，如果你绑定到网络地址，它可以阻止未经授权的客户端控制你的 Agent
 - **不要在没有密码的情况下绑定到 0.0.0.0**，否则你网络中的任何设备都可以连接
-- **严格限定 Docker 挂载范围**，Agent 可以访问挂载的工作区和 Provider 凭据
 - **保持 daemon 为最新版本**，安全改进会定期发布
 - **保护 Hub 配置分支**，对 `.paseo` 文件包的推送权限决定了该项目能访问什么，见 [Hub 的工作原理](/docs/hub/concepts)

@@ -114,7 +114,7 @@ Agent Provider，包括 Pimi 自带的一等 Provider 和你在 `agents.provider
 
 ## 内置的 Web UI {#bundled-web-ui}
 
-daemon 可以在同一个 HTTP 服务器上提供浏览器 Web 客户端。官方 Docker 镜像中默认启用此功能，普通 CLI 和由桌面应用管理的 daemon 默认关闭。
+daemon 可以在同一个 HTTP 服务器上提供浏览器 Web 客户端。普通 CLI 和由桌面应用管理的 daemon 默认关闭此功能。
 
 从 CLI 启用它：
 
