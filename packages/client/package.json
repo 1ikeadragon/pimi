@@ -1,6 +1,6 @@
 {
   "name": "@pimi/client",
-  "version": "0.17.13",
+  "version": "0.17.14",
   "private": true,
   "description": "Pimi client SDK package",
   "license": "Apache-2.0",
@@ -46,8 +46,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@pimi/protocol": "0.17.13",
-    "@pimi/relay": "0.17.13",
+    "@pimi/protocol": "0.17.14",
+    "@pimi/relay": "0.17.14",
     "ws": "8.22.2",
     "zod": "4.6.7"
   },

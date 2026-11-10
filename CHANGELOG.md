@@ -2,6 +2,15 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.14 - 2026-11-10
+
+- Press Up and Down in the composer to walk through every message you sent in a chat, including multi-line ones.
+- Copilot, Cursor, Kimi, Kiro, Trae, and custom ACP agents now learn Pimi's chart format and chat actions.
+- Ask Pimi hears quiet speech, keeps what you said when you press Stop early, and shows your words and its reply as message bubbles with a short sound.
+- Preview custom HTML visuals inside a chat or open them in a tab.
+- After an app update, an idle background daemon moves to the new version by itself. If agents are working, Pimi offers a restart instead of interrupting them.
+- Review suggestions and task proposals are labeled in the chat timeline.
+
 ## 0.17.13 - 2026-11-10
 
 - Delegate from a chat and open each worker from its provider card. Start a subagent from the chat’s Subagents menu to keep it under that chat.
