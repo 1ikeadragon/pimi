@@ -2,6 +2,14 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.13 - 2026-11-10
+
+- Delegate from a chat and open each worker from its provider card. Start a subagent from the chat’s Subagents menu to keep it under that chat.
+- Create and edit provider profiles with their own binaries, arguments, environment variables, and harness settings.
+- See reported token and cost breakdowns and inspect recent usage over time.
+- Inspect values in bar, line, area, pie, and donut charts with a pointer, keyboard, or touch.
+- Search text from supported Spaces link previews. Annotation notes open beside the text or code you selected.
+
 ## 0.17.12 - 2026-11-10
 
 - Select text in chat or code in the editor and add a note to your next message.
