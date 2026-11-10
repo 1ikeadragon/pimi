@@ -1,6 +1,6 @@
 {
   "name": "@pimi/builtin-plugins",
-  "version": "0.17.16",
+  "version": "0.17.17",
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
@@ -9,7 +9,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@pimi/plugin": "0.17.16",
+    "@pimi/plugin": "0.17.17",
     "zod": "4.6.7"
   },
   "devDependencies": {

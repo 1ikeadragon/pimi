@@ -2,6 +2,16 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.17 - 2026-11-11
+
+- Pimi tools are on unless you turn them off, so agents can start Claude, Codex, and other providers as worker cards, use shared memory, and track tasks. When the tools are off, agents say so instead of running other agent CLIs in a shell.
+- Ask an agent to use several providers, such as "use codex and claude for this", and it starts one worker per provider. Name a provider alone and the worker uses that provider's default model and mode.
+- Workers appear in the sidebar under the chat that started them, with their provider and status.
+- HTML visuals opened in a tab use the app theme, as they do in chat.
+- A chart or dashboard with a field Pimi does not know still draws, and a dashboard drops only the tile it cannot read. A block that cannot be drawn shows a short note with its data behind Show data.
+- Click an annotation in the composer to jump to the quoted text, which pulses so you can find it. Use the pencil to edit the note.
+- Ask Pimi and agents can read the text of links saved in Spaces, including the full text of arXiv papers. For a request that needs more than a short answer, Ask Pimi offers to start a chat.
+
 ## 0.17.16 - 2026-11-10
 
 - Select text in chat or code in the editor and click once to annotate it. The note opens under your selection: press Enter to save it, or Escape to drop it.
