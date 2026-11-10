@@ -34,6 +34,7 @@ import type { Theme } from "@/styles/theme";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
 import { resolveProviderLabel } from "@/utils/provider-definitions";
 import { UsageMeter } from "./meter";
+import { SessionUsageReport } from "./session-report";
 
 const RING_SIZE = 112;
 const RING_STROKE = 7;
@@ -249,25 +250,6 @@ function SessionDetail({ agent }: { agent: AggregatedAgent }) {
     () => new Intl.NumberFormat(i18n.resolvedLanguage),
     [i18n.resolvedLanguage],
   );
-  const currency = useMemo(
-    () =>
-      new Intl.NumberFormat(i18n.resolvedLanguage, {
-        style: "currency",
-        currency: "USD",
-        maximumFractionDigits: 6,
-      }),
-    [i18n.resolvedLanguage],
-  );
-  const counts = [
-    { name: "Input", value: usage?.inputTokens },
-    { name: "Cache read", value: usage?.cachedInputTokens },
-    { name: "Output", value: usage?.outputTokens },
-  ];
-  const cost = usage?.totalCostUsd;
-  const reported = counts.flatMap(({ name, value }) =>
-    value === undefined ? [] : [{ name, value: number.format(value) }],
-  );
-  if (cost !== undefined) reported.push({ name: "Reported cost", value: currency.format(cost) });
   return (
     <View style={styles.detail} testID="pimi-usage-context">
       <View style={styles.detailHeader}>
@@ -287,19 +269,7 @@ function SessionDetail({ agent }: { agent: AggregatedAgent }) {
         </Button>
       </View>
       <SessionContext agent={agent} usage={usage} number={number} />
-      {reported.length > 0 ? (
-        <>
-          <Text style={styles.reportCaption}>Latest reported usage</Text>
-          <View style={styles.metrics}>
-            {reported.map(({ name, value }) => (
-              <View key={name} style={styles.metric}>
-                <Text style={styles.muted}>{name}</Text>
-                <Text style={styles.metricValue}>{value}</Text>
-              </View>
-            ))}
-          </View>
-        </>
-      ) : null}
+      {usage ? <SessionUsageReport usage={usage} locale={i18n.resolvedLanguage} /> : null}
       {agent.provider === "claude" ? (
         <ContextBreakdown report={usage?.contextBreakdown} number={number} />
       ) : null}
@@ -461,21 +431,6 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: theme.fontSize["2xl"],
     color: theme.colors.foreground,
   },
-  metrics: { flexDirection: "row", flexWrap: "wrap", gap: theme.spacing[2] },
-  metric: {
-    minWidth: 110,
-    flexGrow: 1,
-    padding: theme.spacing[3],
-    gap: theme.spacing[1],
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.surface2,
-  },
-  metricValue: {
-    fontVariant: ["tabular-nums"],
-    fontSize: theme.fontSize.lg,
-    color: theme.colors.foreground,
-  },
-  reportCaption: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm },
   breakdown: {
     paddingTop: theme.spacing[3],
     borderTopColor: theme.colors.border,

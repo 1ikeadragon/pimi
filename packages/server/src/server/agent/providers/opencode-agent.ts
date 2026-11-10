@@ -757,7 +757,13 @@ function maxFiniteNumber(left: number | undefined, right: number): number {
 
 function assignUsageNumber(
   usage: AgentUsage,
-  key: Exclude<keyof AgentUsage, "contextBreakdown">,
+  key:
+    | "inputTokens"
+    | "cachedInputTokens"
+    | "cacheWriteInputTokens"
+    | "outputTokens"
+    | "reasoningOutputTokens"
+    | "reportedTotalTokens",
   value: number | undefined,
 ) {
   if (value !== undefined) {
@@ -954,7 +960,10 @@ function mergeOpenCodeStepFinishUsage(
 
   assignUsageNumber(usage, "inputTokens", inputTokens);
   assignUsageNumber(usage, "cachedInputTokens", cacheReadTokens);
+  assignUsageNumber(usage, "cacheWriteInputTokens", cacheWriteTokens);
   assignUsageNumber(usage, "outputTokens", outputTokens);
+  assignUsageNumber(usage, "reasoningOutputTokens", reasoningTokens);
+  assignUsageNumber(usage, "reportedTotalTokens", readPositiveFiniteNumber(part.tokens?.total));
   if (totalTokens > 0) {
     usage.contextWindowUsedTokens = totalTokens;
   }

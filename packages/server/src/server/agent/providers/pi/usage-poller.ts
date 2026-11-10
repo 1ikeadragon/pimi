@@ -22,18 +22,24 @@ function createScheduler(): PiUsagePollScheduler {
 }
 
 function toAgentUsage(stats: PiSessionStats): AgentUsage | undefined {
-  const inputTokens = stats.tokens?.input ?? 0;
-  const cachedInputTokens = stats.tokens?.cacheRead ?? 0;
-  const outputTokens = stats.tokens?.output ?? 0;
-  const totalCostUsd = stats.cost ?? 0;
+  const inputTokens = stats.tokens?.input;
+  const cachedInputTokens = stats.tokens?.cacheRead;
+  const cacheWriteInputTokens = stats.tokens?.cacheWrite;
+  const reportedTotalTokens = stats.tokens?.total;
+  const outputTokens = stats.tokens?.output;
+  const totalCostUsd = stats.cost;
   const contextWindowMaxTokens = stats.contextUsage?.contextWindow ?? undefined;
   const contextWindowUsedTokens = stats.contextUsage?.tokens ?? undefined;
 
   if (
-    inputTokens === 0 &&
-    cachedInputTokens === 0 &&
-    outputTokens === 0 &&
-    totalCostUsd === 0 &&
+    [
+      inputTokens,
+      cachedInputTokens,
+      cacheWriteInputTokens,
+      outputTokens,
+      reportedTotalTokens,
+      totalCostUsd,
+    ].every((value) => value === undefined || value === 0) &&
     contextWindowMaxTokens === undefined &&
     contextWindowUsedTokens === undefined
   ) {
@@ -41,9 +47,12 @@ function toAgentUsage(stats: PiSessionStats): AgentUsage | undefined {
   }
 
   return {
+    reportScope: "session",
     inputTokens,
     cachedInputTokens,
+    cacheWriteInputTokens,
     outputTokens,
+    reportedTotalTokens,
     totalCostUsd,
     ...(typeof contextWindowMaxTokens === "number" ? { contextWindowMaxTokens } : {}),
     ...(typeof contextWindowUsedTokens === "number" ? { contextWindowUsedTokens } : {}),
@@ -54,6 +63,8 @@ function isSameUsage(left: AgentUsage, right: AgentUsage): boolean {
   return (
     left.inputTokens === right.inputTokens &&
     left.cachedInputTokens === right.cachedInputTokens &&
+    left.cacheWriteInputTokens === right.cacheWriteInputTokens &&
+    left.reportedTotalTokens === right.reportedTotalTokens &&
     left.outputTokens === right.outputTokens &&
     left.totalCostUsd === right.totalCostUsd &&
     left.contextWindowMaxTokens === right.contextWindowMaxTokens &&

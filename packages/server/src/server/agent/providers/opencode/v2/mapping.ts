@@ -39,9 +39,11 @@ export function modesFromV2(agents: AgentInfo[]): AgentMode[] {
 
 export function usageFromV2(session: SessionInfo): AgentUsage {
   return {
+    reportScope: "session",
     inputTokens: session.tokens.input,
     outputTokens: session.tokens.output,
     cachedInputTokens: session.tokens.cache.read,
+    cacheWriteInputTokens: session.tokens.cache.write,
     totalCostUsd: session.cost,
   };
 }

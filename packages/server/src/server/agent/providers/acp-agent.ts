@@ -755,6 +755,10 @@ export function mapACPUsage(usage: Usage | null | undefined): AgentUsage | undef
     inputTokens: usage.inputTokens ?? undefined,
     outputTokens: usage.outputTokens ?? undefined,
     cachedInputTokens: usage.cachedReadTokens ?? undefined,
+    cacheWriteInputTokens: usage.cachedWriteTokens ?? undefined,
+    reasoningOutputTokens: usage.thoughtTokens ?? undefined,
+    reportedTotalTokens: usage.totalTokens ?? undefined,
+    reportScope: "session",
   };
 }
 
@@ -1783,7 +1787,6 @@ export class ACPAgentSession implements AgentSession, ACPClient {
   private waitForInitialCommands: boolean;
   private initialCommandsWaitTimeoutMs: number;
   private readonly extensionCommandsParser?: ACPExtensionCommandsParser;
-  private currentTurnUsage: AgentUsage | undefined;
   private activeForegroundTurnId: string | null = null;
   private fallbackAssistantMessageId: string | null = null;
   private closed = false;
@@ -3367,9 +3370,8 @@ export class ACPAgentSession implements AgentSession, ACPClient {
 
   // ACP reports context occupancy out of band from the prompt response, so the
   // composer's context meter cannot read it from `turn_completed`. Forward it as
-  // the same `usage_updated` snapshot the native adapters emit, preserving the
-  // turn usage this session already recorded. The guards match the meter's own
-  // validity rules, so a provider cannot push a window the meter would reject.
+  // the same `usage_updated` event the native adapters emit. Keep the counters
+  // in the prompt response so a context update doesn't record them twice.
   private handleUsageUpdate(update: UsageUpdate): void {
     const contextWindowMaxTokens =
       Number.isFinite(update.size) && update.size > 0 ? update.size : undefined;
@@ -3382,7 +3384,11 @@ export class ACPAgentSession implements AgentSession, ACPClient {
       type: "usage_updated",
       provider: this.provider,
       usage: {
-        ...this.currentTurnUsage,
+        ...(update.cost?.currency === "USD" &&
+        Number.isFinite(update.cost.amount) &&
+        update.cost.amount >= 0
+          ? { totalCostUsd: update.cost.amount, reportScope: "session" }
+          : {}),
         contextWindowMaxTokens,
         contextWindowUsedTokens,
       },
@@ -3391,8 +3397,6 @@ export class ACPAgentSession implements AgentSession, ACPClient {
   }
 
   private handlePromptResponse(response: PromptResponse, turnId: string): void {
-    this.currentTurnUsage = mapACPUsage(response.usage) ?? this.currentTurnUsage;
-
     switch (response.stopReason) {
       case "cancelled":
         this.synthesizeCanceledToolCalls();
@@ -3411,7 +3415,7 @@ export class ACPAgentSession implements AgentSession, ACPClient {
         this.finishTurn({
           type: "turn_completed",
           provider: this.provider,
-          usage: this.currentTurnUsage,
+          usage: mapACPUsage(response.usage),
           turnId,
         });
         break;

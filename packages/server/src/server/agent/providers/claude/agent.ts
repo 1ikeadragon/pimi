@@ -2217,11 +2217,20 @@ class ClaudeContextUsageState {
         return undefined;
       }
       const usage: AgentUsage = {
+        reportScope: "turn",
         inputTokens: message.usage.input_tokens,
         cachedInputTokens: message.usage.cache_read_input_tokens,
+        cacheWriteInputTokens: message.usage.cache_creation_input_tokens,
         outputTokens: message.usage.output_tokens,
         totalCostUsd: message.total_cost_usd,
       };
+      const modelCosts = Object.entries(message.modelUsage ?? {})
+        .filter(
+          ([model, value]) =>
+            model.length <= 256 && Number.isFinite(value.costUSD) && value.costUSD >= 0,
+        )
+        .map(([model, value]) => ({ model, usd: value.costUSD }));
+      if (modelCosts.length > 0 && modelCosts.length <= 16) usage.modelCosts = modelCosts;
 
       const modelContextWindowMaxTokens = this.recordModelUsage(message.modelUsage, modelId);
       if (this.contextWindowMaxTokens !== undefined) {

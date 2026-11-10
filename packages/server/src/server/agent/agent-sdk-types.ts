@@ -1,10 +1,10 @@
 import type {
-  AgentContextBreakdown,
   AgentFeature,
   AgentFeatureSelect,
   AgentFeatureToggle,
   AgentProviderNotice,
   AgentTaskItem,
+  AgentUsage,
   JsonValue,
   ProviderOptions,
   ToolPolicy,
@@ -20,6 +20,7 @@ export type {
   AgentFeatureToggle,
   AgentProviderNotice,
   AgentTaskItem,
+  AgentUsage,
 };
 
 export type AgentProvider = string;
@@ -218,16 +219,6 @@ export type SteerResult =
 
 export interface SteerActiveTurnOptions extends AgentSteerOptions {
   expectedTurnId: string;
-}
-
-export interface AgentUsage {
-  inputTokens?: number;
-  cachedInputTokens?: number;
-  outputTokens?: number;
-  totalCostUsd?: number;
-  contextWindowMaxTokens?: number;
-  contextWindowUsedTokens?: number;
-  contextBreakdown?: AgentContextBreakdown;
 }
 
 export const TOOL_CALL_ICON_NAMES = [

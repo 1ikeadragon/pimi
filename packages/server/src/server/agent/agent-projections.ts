@@ -1,5 +1,5 @@
 import { isSameOrDescendantPath } from "../path-utils.js";
-import { AgentContextBreakdownSchema } from "@pimi/protocol/messages";
+import { AgentContextBreakdownSchema, AgentUsageSchema } from "@pimi/protocol/messages";
 import type {
   AgentListItemPayload,
   AgentSnapshotPayload,
@@ -103,6 +103,7 @@ export function toStoredAgentRecord(
     features: normalizeFeatures(agent.features),
     persistence,
     lastError: agent.lastError ?? undefined,
+    lastUsage: sanitizeUsage(agent.lastUsage),
     requiresAttention: agent.attention.requiresAttention,
     attentionReason: agent.attention.requiresAttention ? agent.attention.attentionReason : null,
     attentionTimestamp: agent.attention.requiresAttention
@@ -276,6 +277,7 @@ export function buildStoredAgentPayload(
     ...visibilityFlags(record),
     labels: normalizeLabels(record.labels),
     ...(typeof record.lastError === "string" ? { lastError: record.lastError } : {}),
+    ...(record.lastUsage && { lastUsage: record.lastUsage }),
     ...(providerAvailable ? {} : { providerUnavailable: true }),
   };
 }
@@ -530,43 +532,18 @@ function sanitizeMetadataArray(value: unknown): AgentMetadata[] | undefined {
   return sanitized.length > 0 ? sanitized : undefined;
 }
 
-type UsageNumericField = Exclude<keyof AgentUsage, "contextBreakdown">;
-
-function assignFiniteNumber(
-  source: { [key: string]: JsonValue },
-  target: AgentUsage,
-  field: UsageNumericField,
-): boolean {
-  const raw = source[field];
-  if (typeof raw === "number" && Number.isFinite(raw)) {
-    target[field] = raw;
-    return true;
-  }
-  return raw === undefined || raw === null;
-}
-
 function sanitizeUsage(value: unknown): AgentUsage | undefined {
   const sanitized = sanitizeOptionalJson(value);
-  if (!sanitized || !isJsonObject(sanitized)) {
-    return undefined;
-  }
-  const result: AgentUsage = {};
-  const fields: UsageNumericField[] = [
-    "inputTokens",
-    "cachedInputTokens",
-    "outputTokens",
-    "totalCostUsd",
-    "contextWindowMaxTokens",
-    "contextWindowUsedTokens",
-  ];
-  for (const field of fields) {
-    if (!assignFiniteNumber(sanitized, result, field)) {
-      return undefined;
-    }
-  }
-  const breakdown = AgentContextBreakdownSchema.safeParse(sanitized.contextBreakdown);
-  if (breakdown.success) result.contextBreakdown = breakdown.data;
-  return Object.keys(result).length ? result : undefined;
+  if (!sanitized || !isJsonObject(sanitized)) return undefined;
+  const fields = Object.fromEntries(
+    Object.entries(sanitized).filter(([, field]) => field !== null),
+  );
+  const contextBreakdown = AgentContextBreakdownSchema.safeParse(fields.contextBreakdown).data;
+  delete fields.contextBreakdown;
+  const parsed = AgentUsageSchema.safeParse(
+    contextBreakdown ? { ...fields, contextBreakdown } : fields,
+  );
+  return parsed.success && Object.keys(parsed.data).length ? parsed.data : undefined;
 }
 
 function sanitizeRuntimeInfo(

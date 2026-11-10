@@ -196,14 +196,29 @@ export interface AgentContextBreakdown {
   categories: { name: string; tokens: number; kind: "used" | "free" | "buffer" | "deferred" }[];
 }
 
-export interface AgentUsage {
+export interface AgentUsageCounters {
   inputTokens?: number;
   cachedInputTokens?: number;
+  cacheWriteInputTokens?: number;
   outputTokens?: number;
+  reasoningOutputTokens?: number;
+  reportedTotalTokens?: number;
   totalCostUsd?: number;
+}
+
+export interface AgentUsageSample extends AgentUsageCounters {
+  capturedAt: string;
+}
+
+export const MAX_AGENT_USAGE_SAMPLES = 36;
+
+export interface AgentUsage extends AgentUsageCounters {
   contextWindowMaxTokens?: number;
   contextWindowUsedTokens?: number;
   contextBreakdown?: AgentContextBreakdown;
+  reportScope?: "request" | "turn" | "session";
+  modelCosts?: { model: string; usd: number }[];
+  recentSamples?: AgentUsageSample[];
 }
 
 export const TOOL_CALL_ICON_NAMES = [

@@ -1091,10 +1091,15 @@ export function toAgentUsage(tokenUsage: unknown): AgentUsage | undefined {
   );
   const contextWindowUsedTokens = firstPositiveFiniteNumber(last?.total_tokens, last?.totalTokens);
   return {
+    reportScope: "request",
     inputTokens: typeof last?.inputTokens === "number" ? last.inputTokens : undefined,
     cachedInputTokens:
       typeof last?.cachedInputTokens === "number" ? last.cachedInputTokens : undefined,
     outputTokens: typeof last?.outputTokens === "number" ? last.outputTokens : undefined,
+    reasoningOutputTokens:
+      typeof last?.reasoningOutputTokens === "number" ? last.reasoningOutputTokens : undefined,
+    reportedTotalTokens:
+      typeof last?.totalTokens === "number" ? last.totalTokens : contextWindowUsedTokens,
     ...(contextWindowMaxTokens !== undefined ? { contextWindowMaxTokens } : {}),
     ...(contextWindowUsedTokens !== undefined ? { contextWindowUsedTokens } : {}),
   };

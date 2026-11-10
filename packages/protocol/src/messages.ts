@@ -46,7 +46,7 @@ import { AGENT_LIFECYCLE_STATUSES } from "./agent-lifecycle.js";
 import { MAX_EXPLICIT_AGENT_TITLE_CHARS } from "./agent-title-limits.js";
 import { AgentProviderSchema } from "./provider-manifest.js";
 import { ProviderPaseoToolsPolicySchema } from "./provider-config.js";
-import { TOOL_CALL_ICON_NAMES } from "./agent-types.js";
+import { MAX_AGENT_USAGE_SAMPLES, TOOL_CALL_ICON_NAMES } from "./agent-types.js";
 import { WORKSPACE_LABEL_COLORS } from "./workspace-labels.js";
 import {
   ChatCreateRequestSchema,
@@ -457,14 +457,29 @@ export const AgentContextBreakdownSchema = z.object({
     .max(64),
 });
 
-const AgentUsageSchema: z.ZodType<AgentUsage> = z.object({
+const agentUsageCounters = z.object({
   inputTokens: z.number().optional(),
   cachedInputTokens: z.number().optional(),
+  cacheWriteInputTokens: z.number().optional(),
   outputTokens: z.number().optional(),
+  reasoningOutputTokens: z.number().optional(),
+  reportedTotalTokens: z.number().optional(),
   totalCostUsd: z.number().optional(),
+});
+
+export const AgentUsageSchema: z.ZodType<AgentUsage> = agentUsageCounters.extend({
   contextWindowMaxTokens: z.number().optional(),
   contextWindowUsedTokens: z.number().optional(),
   contextBreakdown: AgentContextBreakdownSchema.optional(),
+  reportScope: z.enum(["request", "turn", "session"]).optional(),
+  modelCosts: z
+    .array(z.object({ model: z.string().max(256), usd: z.number().nonnegative() }))
+    .max(16)
+    .optional(),
+  recentSamples: z
+    .array(agentUsageCounters.extend({ capturedAt: z.iso.datetime() }))
+    .max(MAX_AGENT_USAGE_SAMPLES)
+    .optional(),
 });
 
 const McpStdioServerConfigSchema = z.object({

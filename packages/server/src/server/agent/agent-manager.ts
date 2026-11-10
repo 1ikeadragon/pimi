@@ -3,6 +3,7 @@ import type { AgentToolResult } from "@pimi/plugin/server";
 import type { RuntimeCleanupCandidate } from "./idle-runtime-cleanup/index.js";
 import { ensureAgentLoaded } from "./agent-loading.js";
 import { projectTimelineRows } from "./timeline-projection.js";
+import { withRecordedUsage } from "./usage-samples.js";
 import type { PluginLifecycle } from "../plugins/lifecycle/index.js";
 import { describeHookAgent, publishAgentStream } from "../plugins/lifecycle/index.js";
 import type { PluginSessionOpenRequest } from "@pimi/plugin/server";
@@ -1751,6 +1752,7 @@ export class AgentManager {
       workspaceId,
       launchEnv,
       persistence: handle,
+      lastUsage: record?.lastUsage,
       restoring: true,
     });
   }
@@ -2405,7 +2407,7 @@ export class AgentManager {
         persistence: record.persistence ?? null,
         historyPrimed: true,
         lastUserMessageAt: record.lastUserMessageAt ? new Date(record.lastUserMessageAt) : null,
-        lastUsage: undefined,
+        lastUsage: record.lastUsage,
         lastError: record.lastError ?? undefined,
         attention,
         internal: record.internal,
@@ -4954,13 +4956,14 @@ export class AgentManager {
 
   private onStreamUsageUpdated(agent: ActiveManagedAgent, usage: AgentUsage): void {
     const previous = agent.lastUsage;
-    if (usage.contextBreakdown) {
+    if (usage.contextBreakdown || usage.contextWindowMaxTokens !== undefined) {
       agent.lastUsage = { ...previous, ...usage };
     } else if (previous?.contextBreakdown) {
       agent.lastUsage = { ...usage, contextBreakdown: previous.contextBreakdown };
     } else {
       agent.lastUsage = usage;
     }
+    agent.lastUsage = withRecordedUsage(previous, agent.lastUsage, usage);
     this.emitState(agent);
   }
 
@@ -5132,7 +5135,8 @@ export class AgentManager {
     );
     if (terminalDisposition === "stale") return;
     if (event.usage) {
-      agent.lastUsage = { ...agent.lastUsage, ...event.usage };
+      const previous = agent.lastUsage;
+      agent.lastUsage = withRecordedUsage(previous, { ...previous, ...event.usage }, event.usage);
     }
     // If no usage on turn_completed, keep lastUsage as-is so context window
     // data accumulated during streaming isn't lost when the provider omits
