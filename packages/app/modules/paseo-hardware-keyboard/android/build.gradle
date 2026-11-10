@@ -14,3 +14,8 @@ dependencies {
   implementation 'com.facebook.react:react-android'
   testImplementation 'junit:junit:4.13.2'
 }
+
+// Pin resolved dependency versions in gradle.lockfile. Refresh with --write-locks.
+dependencyLocking {
+  lockAllConfigurations()
+}

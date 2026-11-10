@@ -23,3 +23,8 @@ dependencies {
   androidTestImplementation "androidx.test:runner:1.6.2"
   androidTestImplementation "androidx.test.ext:junit:1.2.1"
 }
+
+// Pin resolved dependency versions in gradle.lockfile. Refresh with --write-locks.
+dependencyLocking {
+  lockAllConfigurations()
+}

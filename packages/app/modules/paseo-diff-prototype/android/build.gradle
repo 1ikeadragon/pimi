@@ -26,3 +26,8 @@ android {
     cmake { path "CMakeLists.txt" }
   }
 }
+
+// Pin resolved dependency versions in gradle.lockfile. Refresh with --write-locks.
+dependencyLocking {
+  lockAllConfigurations()
+}
