@@ -984,7 +984,13 @@ function ChatAgentContent({
   const draft = useMemo<DraftConversation | null>(
     () =>
       target.kind === "draft"
-        ? { tabId, workspaceId, draftId: target.draftId, setup: target.setup }
+        ? {
+            tabId,
+            workspaceId,
+            draftId: target.draftId,
+            setup: target.setup,
+            parent: target.parent,
+          }
         : null,
     [tabId, target, workspaceId],
   );
@@ -1512,10 +1518,11 @@ function DraftComposerSection({
       tabId={draft.tabId}
       draftId={draft.draftId}
       initialSetup={draft.setup}
+      parent={draft.parent}
       isPaneFocused={isPaneFocused}
       editingSession={editingSession}
       onCreated={handleCreated}
-      onOpenImportSheet={openImportSheet}
+      onOpenImportSheet={draft.parent ? undefined : openImportSheet}
     />
   );
 }

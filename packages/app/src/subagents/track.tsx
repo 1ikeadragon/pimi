@@ -3,7 +3,7 @@ import { useHosts } from "@/runtime/host-runtime";
 import { useCallback, useMemo, type ReactElement, type ReactNode } from "react";
 import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Archive, Unlink } from "lucide-react-native";
+import { Archive, GitFork, Unlink } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useProviderIcon } from "@/components/provider-icons";
 import { ComposerTrackActions, ComposerTrackPill, ComposerTrackRow } from "@/composer/tracks";
@@ -29,6 +29,7 @@ import {
 } from "./track-presentation";
 
 const ThemedArchive = withUnistyles(Archive);
+const ThemedGitFork = withUnistyles(GitFork);
 const ThemedUnlink = withUnistyles(Unlink);
 
 const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
@@ -39,6 +40,7 @@ const foregroundMutedColorMapping = (theme: Theme) => ({
 export interface SubagentsTrackProps {
   serverId: string;
   rows: SubagentRow[];
+  onCreateSubagent?: () => void;
   onOpenSubagent: (address: AgentAddress) => void;
   onOpenProviderSubagent: (parentAgentId: string, subagentId: string) => void;
   /**
@@ -71,6 +73,7 @@ function useRowPresentation(row: SubagentRow, serverId: string): WorkspaceTabPre
 export function SubagentsTrack({
   serverId,
   rows,
+  onCreateSubagent,
   onOpenSubagent,
   onOpenProviderSubagent,
   sheetTabFor,
@@ -84,11 +87,16 @@ export function SubagentsTrack({
 
   const isArchivingFinished = archiveFinishedStatus.kind === "archiving";
   const isArchiveFinishedFailed = archiveFinishedStatus.kind === "failed";
-  if (rows.length === 0 && !isArchivingFinished && !isArchiveFinishedFailed) {
+  if (rows.length === 0 && !onCreateSubagent && !isArchivingFinished && !isArchiveFinishedFailed) {
     return null;
   }
 
-  const pill = buildSubagentPillPresentation(t, rows);
+  const pill = rows.length
+    ? buildSubagentPillPresentation(t, rows)
+    : {
+        segments: [{ bucket: null, text: t("subagents.title") }],
+        accessibilityLabel: t("subagents.title"),
+      };
   const finishedCount = countFinishedSubagents(rows);
   const showArchiveFinished = finishedCount > 0 || isArchivingFinished || isArchiveFinishedFailed;
   const sheets = rows.map(sheetTabFor);
@@ -102,6 +110,7 @@ export function SubagentsTrack({
       accessibilityLabel={pill.accessibilityLabel}
       panelTitle={t("subagents.title")}
     >
+      {onCreateSubagent ? <CreateSubagentRow onPress={onCreateSubagent} /> : null}
       {showArchiveFinished && onArchiveFinished ? (
         <ComposerTrackActions divided={rows.length > 0}>
           <ArchiveFinishedRow
@@ -124,6 +133,27 @@ export function SubagentsTrack({
         />
       ))}
     </ComposerTrackPill>
+  );
+}
+
+function CreateSubagentRow({ onPress }: { onPress: () => void }) {
+  const renderRow = useCallback(
+    () => (
+      <>
+        <ThemedGitFork size={ROW_ICON_SIZE} uniProps={foregroundMutedColorMapping} />
+        <Text style={styles.rowLabel}>New subagent</Text>
+      </>
+    ),
+    [],
+  );
+  return (
+    <ComposerTrackRow
+      accessibilityLabel="New subagent"
+      testID="subagents-track-new"
+      onPress={onPress}
+    >
+      {renderRow}
+    </ComposerTrackRow>
   );
 }
 

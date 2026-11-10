@@ -1,4 +1,5 @@
 import type { AgentProvider } from "@pimi/protocol/agent-types";
+import type { AgentAddress } from "@pimi/protocol/addresses";
 import type { JsonValue } from "@pimi/protocol/agent-types";
 import type { WorkspaceFileTabTarget } from "@/workspace/file-open";
 
@@ -34,7 +35,7 @@ export type PluginWorkspaceTabTarget =
 
 export type WorkspaceTabTarget =
   | { kind: "new_tab" }
-  | { kind: "draft"; draftId: string; setup?: WorkspaceDraftTabSetup }
+  | { kind: "draft"; draftId: string; setup?: WorkspaceDraftTabSetup; parent?: AgentAddress }
   | { kind: "agent"; agentId: string }
   | { kind: "provider_subagent"; parentAgentId: string; subagentId: string }
   | { kind: "terminal"; terminalId: string }

@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import type { AgentCapabilityFlags } from "@pimi/protocol/agent-types";
+import type { AgentAddress } from "@pimi/protocol/addresses";
 import type { PendingMessageSubmission } from "@/composer/submission/model";
 import type { AgentScreenAgent } from "@/hooks/use-agent-screen-state-machine";
 import { type PendingCreateAttempt, useCreateFlowStore } from "@/stores/create-flow-store";
@@ -27,6 +28,7 @@ export interface DraftConversation {
   workspaceId: string;
   draftId: string;
   setup?: WorkspaceDraftTabSetup;
+  parent?: AgentAddress;
 }
 
 /** The timeline a draft shows while its first prompt creates the agent. */

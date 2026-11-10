@@ -1,3 +1,4 @@
+import type { AgentAddress } from "@pimi/protocol/addresses";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Keyboard, StyleSheet as RNStyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
@@ -104,6 +105,7 @@ function resolveDraftModeId(input: {
 
 async function submitDraftCreateRequest(input: {
   draftId: string;
+  parent?: AgentAddress;
   attempt: { clientMessageId: string };
   text: string;
   images?: UserMessageImageAttachment[];
@@ -167,6 +169,7 @@ async function submitDraftCreateRequest(input: {
     config,
     workspaceId,
     initialPrompt: text,
+    ...(input.parent && { callerAgentId: input.parent.agentId }),
     clientMessageId: attempt.clientMessageId,
     ...(imagesData && imagesData.length > 0 ? { images: imagesData } : {}),
     ...(attachmentsArray && attachmentsArray.length > 0 ? { attachments: attachmentsArray } : {}),
@@ -253,6 +256,7 @@ interface WorkspaceDraftComposerProps {
   tabId: string;
   draftId: string;
   initialSetup?: WorkspaceDraftTabSetup;
+  parent?: AgentAddress;
   isPaneFocused: boolean;
   editingSession: ComposerEditingSession;
   onCreated: (snapshot: AgentSnapshotPayload) => void;
@@ -280,6 +284,7 @@ export function WorkspaceDraftComposer({
   tabId,
   draftId,
   initialSetup = undefined,
+  parent,
   isPaneFocused,
   editingSession,
   onCreated,
@@ -441,12 +446,15 @@ export function WorkspaceDraftComposer({
           selectModelMessage: t("workspaceSetup.errors.selectModel"),
         }),
       createRequest: async ({ attempt, text, images, attachments, cwd }) => {
+        if (parent && parent.serverId !== serverId)
+          throw new Error("The parent chat belongs to another host.");
         if (pendingAutoSubmit?.agentCreation) {
           const result = await pendingAutoSubmit.agentCreation.result;
           return { agentId: result.id, result };
         }
         return submitDraftCreateRequest({
           draftId,
+          parent,
           attempt,
           text,
           images,

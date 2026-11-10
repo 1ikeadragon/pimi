@@ -10,6 +10,7 @@ import { usePaneContext, usePaneFocus } from "@/panels/pane-context";
 import { useSettings } from "@/hooks/use-settings";
 import { PluginComposerPills } from "@/plugins";
 import { useSessionStore } from "@/stores/session-store";
+import { generateDraftId } from "@/stores/draft-keys";
 import {
   useArchiveFinishedSubagents,
   useArchiveSubagent,
@@ -109,6 +110,13 @@ export const AgentTracks = memo(function AgentTracks({
     },
     [openSubagentTarget],
   );
+  const handleCreateSubagent = useCallback(() => {
+    openSubagentTarget({
+      kind: "draft",
+      draftId: generateDraftId(),
+      parent: { serverId, agentId },
+    });
+  }, [agentId, openSubagentTarget, serverId]);
   const sheetTabFor = useSubagentSheetTab(workspaceKey, tabId);
   const pimiReview = usePimiWorkspaceReview(serverId, workspaceId);
   const handleOpenChanges = useCallback(() => {
@@ -130,6 +138,7 @@ export const AgentTracks = memo(function AgentTracks({
       <SubagentsTrack
         serverId={serverId}
         rows={subagentRows}
+        onCreateSubagent={handleCreateSubagent}
         onOpenSubagent={handleOpenSubagent}
         onOpenProviderSubagent={handleOpenProviderSubagent}
         sheetTabFor={sheetTabFor}

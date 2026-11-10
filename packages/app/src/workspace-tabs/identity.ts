@@ -13,7 +13,14 @@ export function normalizeWorkspaceTabTarget(
       return null;
     }
     const setup = normalizeWorkspaceDraftTabSetup(value.setup);
-    return setup ? { kind: "draft", draftId, setup } : { kind: "draft", draftId };
+    const serverId = trimNonEmpty(value.parent?.serverId);
+    const agentId = trimNonEmpty(value.parent?.agentId);
+    return {
+      kind: "draft",
+      draftId,
+      ...(setup && { setup }),
+      ...(serverId && agentId && { parent: { serverId, agentId } }),
+    };
   }
   if (value.kind === "new_tab") {
     return { kind: "new_tab" };
