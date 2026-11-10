@@ -31,6 +31,7 @@ import {
   type ReactElement,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { i18n } from "@/i18n/i18next";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { getDesktopHost } from "@/desktop/host";
@@ -139,7 +140,12 @@ import { useKeyboardActionHandler } from "@/hooks/use-keyboard-action-handler";
 import type { KeyboardActionDefinition } from "@/keyboard/keyboard-action-dispatcher";
 import type { MessageInputKeyboardActionKind } from "@/keyboard/actions";
 import { submitAgentInput } from "@/composer/submit";
-import { ComposerRecall } from "@/composer/recall";
+import {
+  ComposerRecall,
+  SentMessageHistory,
+  type SentMessagePage,
+  type SentMessagePageRequest,
+} from "@/composer/recall";
 import { createMessageSubmissionWriter } from "@/composer/submission/writer";
 import { ComposerKeyboardScopeProvider, useComposerKeyboardScope } from "@/composer/keyboard-scope";
 import { useAppSettings } from "@/hooks/use-settings";
@@ -289,6 +295,34 @@ function buildRealtimeVoiceButtonStyle(pressed: boolean, voiceButtonDisabled: bo
   return [styles.realtimeVoiceButton, pressedStyle, disabledStyle].filter(
     (value): value is object => Boolean(value),
   );
+}
+
+interface SentMessageSource {
+  serverId: string;
+  agentId: string;
+}
+
+/** Reads sent messages straight from the daemon, leaving the loaded timeline window as it is. */
+async function fetchSentMessagePage(
+  source: SentMessageSource,
+  request: SentMessagePageRequest,
+): Promise<SentMessagePage> {
+  const client = getHostRuntimeStore().getClient(source.serverId);
+  if (!client) throw new Error(i18n.t("workspace.terminal.hostDisconnected"));
+  const page =
+    request.beforeSeq === null
+      ? { limit: request.limit }
+      : { limit: request.limit, beforeSeq: request.beforeSeq };
+  const payload = await client.listAgentTimelinePrompts(source.agentId, { page });
+  const newestFirst = payload.prompts.toReversed();
+  return {
+    epoch: payload.epoch,
+    // A host that advertises prompt pages sends `text` with every paged prompt.
+    messages: newestFirst.flatMap((prompt) =>
+      prompt.text === undefined ? [] : [{ seq: prompt.seq, text: prompt.text }],
+    ),
+    hasOlder: payload.hasOlder === true,
+  };
 }
 
 function buildAgentStateSelector(serverId: string, agentId: string) {
@@ -1501,7 +1535,26 @@ function ComposerContentImpl({
   );
   useEffect(() => () => cursorPublication.cancel(), [cursorPublication]);
   const autocompleteRef = useRef<ComposerAutocompleteHandle>(null);
-  const recall = useMemo(() => new ComposerRecall(), []);
+  // Only a timeline the daemon has served can be paged; a draft's id names no agent it knows.
+  const canPageSentMessages = useSessionStore((state) => {
+    const session = state.sessions[serverId];
+    const supportsPromptPages = session?.serverInfo?.features?.agentTimelinePromptPages === true;
+    return supportsPromptPages && session.agentTimelineCursor.has(agentId);
+  });
+  const sentMessageHistory = useMemo(
+    () =>
+      new SentMessageHistory(
+        canPageSentMessages
+          ? (request) => fetchSentMessagePage({ serverId, agentId }, request)
+          : null,
+      ),
+    [agentId, canPageSentMessages, serverId],
+  );
+  const recall = useMemo(() => new ComposerRecall(sentMessageHistory), [sentMessageHistory]);
+  const readLoadedSentMessages = useCallback(
+    () => selectAgentSentMessages(useSessionStore.getState().sessions[serverId], agentId),
+    [agentId, serverId],
+  );
   const [isProcessing, setIsProcessing] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<PendingFileAttachment[]>([]);
   const nextPendingFileId = useRef(0);
@@ -2158,15 +2211,25 @@ function ComposerContentImpl({
   const handleCommandKeyPress = useCallback(
     (event: ComposerKeyPressEvent) => {
       if (autocompleteRef.current?.onKeyPress(event)) return true;
-      const recalledText = recall.handleKeyPress(event, () =>
-        selectAgentSentMessages(useSessionStore.getState().sessions[serverId], agentId),
-      );
-      if (recalledText === null) return false;
+      const recalled = recall.handleKeyPress(event, readLoadedSentMessages);
+      if (recalled === null) return false;
       event.preventDefault();
-      replaceUserInput(recalledText);
+      if (recalled.kind === "show") replaceUserInput(recalled.text);
       return true;
     },
-    [agentId, recall, replaceUserInput, serverId],
+    [readLoadedSentMessages, recall, replaceUserInput],
+  );
+
+  // An Up pressed ahead of an older page shows its message once the page arrives.
+  useEffect(
+    () =>
+      sentMessageHistory.subscribe(() => {
+        const input = messageInputRef.current?.getInputSnapshot();
+        if (!input) return;
+        const recalledText = recall.resume(input, readLoadedSentMessages);
+        if (recalledText !== null) replaceUserInput(recalledText);
+      }),
+    [readLoadedSentMessages, recall, replaceUserInput, sentMessageHistory],
   );
 
   const cancelButtonStyle = useCallback(

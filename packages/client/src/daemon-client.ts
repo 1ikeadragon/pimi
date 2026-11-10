@@ -735,6 +735,10 @@ export type AgentTimelinePromptIndexPayload = Extract<
   { type: "agent.timeline.list_prompts.response" }
 >["payload"];
 
+export type AgentTimelinePromptPageRequest = NonNullable<
+  Extract<SessionInboundMessage, { type: "agent.timeline.list_prompts.request" }>["page"]
+>;
+
 export type ProviderSubagentListPayload = Extract<
   SessionOutboundMessage,
   { type: "agent.provider_subagents.list.response" }
@@ -3820,15 +3824,20 @@ export class DaemonClient {
     return payload;
   }
 
+  /**
+   * Without `page`, the preview index of every prompt. With `page`, that many prompts
+   * with their full text; requires `server_info.features.agentTimelinePromptPages`.
+   */
   async listAgentTimelinePrompts(
     agentId: string,
-    options: { requestId?: string; timeout?: number } = {},
+    options: { requestId?: string; timeout?: number; page?: AgentTimelinePromptPageRequest } = {},
   ): Promise<AgentTimelinePromptIndexPayload> {
     const requestId = this.createRequestId(options.requestId);
     const message = SessionInboundMessageSchema.parse({
       type: "agent.timeline.list_prompts.request",
       agentId,
       requestId,
+      ...(options.page ? { page: options.page } : {}),
     });
     const payload = await this.sendRequest({
       requestId,

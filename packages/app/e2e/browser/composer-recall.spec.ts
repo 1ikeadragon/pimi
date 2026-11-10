@@ -7,6 +7,12 @@ import {
   typeIntoFocusedComposer,
 } from "../support/helpers/composer";
 import { openAgentRoute, seedMockAgentWorkspace } from "../support/helpers/mock-agent";
+import {
+  expectTimelinePromptNotMounted,
+  expectTimelinePromptVisible,
+  openAgentTimeline,
+  seedLongMockAgentTimeline,
+} from "../support/helpers/timeline-pagination";
 
 function userMessages(page: Page) {
   return page.getByTestId("user-message");
@@ -82,6 +88,60 @@ test.describe("Composer recall", () => {
       await expect(popover.first()).toBeVisible({ timeout: 30_000 });
     } finally {
       await session.cleanup();
+    }
+  });
+
+  test("Up walks past a multi-line message to the one before it", async ({ page }) => {
+    const session = await seedMockAgentWorkspace({
+      repoPrefix: "composer-recall-multiline-",
+      title: "Composer recall multi-line",
+    });
+    try {
+      await openAgentRoute(page, session);
+      await expectComposerVisible(page);
+      await sendAndWaitForMessage(page, "fix the auth bug", 1);
+      await sendAndWaitForMessage(page, "add tests\nfor the login form", 2);
+      await sendAndWaitForMessage(page, "run them", 3);
+
+      await pressInComposer(page, "ArrowUp");
+      await expectComposerDraft(page, "run them");
+      await pressInComposer(page, "ArrowUp");
+      await expectComposerDraft(page, "add tests\nfor the login form");
+      await pressInComposer(page, "ArrowUp");
+      await expectComposerDraft(page, "fix the auth bug");
+      await pressInComposer(page, "ArrowDown");
+      await expectComposerDraft(page, "add tests\nfor the login form");
+
+      await pressInComposer(page, "Home");
+      await pressInComposer(page, "ArrowUp");
+      await pressInComposer(page, "ArrowUp");
+      await expectComposerDraft(page, "add tests\nfor the login form");
+    } finally {
+      await session.cleanup();
+    }
+  });
+
+  test("Up reaches messages older than the loaded timeline without loading them into it", async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    const agent = await seedLongMockAgentTimeline({ turns: 45 });
+    try {
+      await openAgentTimeline(page, agent);
+      await expectComposerVisible(page);
+      await expectTimelinePromptVisible(page, agent.newestPrompt);
+      await expectTimelinePromptNotMounted(page, agent.oldestPrompt);
+
+      for (const prompt of agent.prompts.toReversed()) {
+        await pressInComposer(page, "ArrowUp");
+        await expectComposerDraft(page, prompt);
+      }
+      await expectTimelinePromptNotMounted(page, agent.oldestPrompt);
+
+      await pressInComposer(page, "ArrowDown");
+      await expectComposerDraft(page, agent.prompts[1]);
+    } finally {
+      await agent.cleanup();
     }
   });
 });

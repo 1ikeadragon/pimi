@@ -2082,6 +2082,14 @@ export const AgentTimelineListPromptsRequestMessageSchema = z.object({
   type: z.literal("agent.timeline.list_prompts.request"),
   agentId: z.string(),
   requestId: z.string(),
+  // COMPAT(agentTimelinePromptPages): added in v0.17.14, remove optional after 2027-05-10.
+  // With a page the response carries full prompt text; without one, the whole preview index.
+  page: z
+    .object({
+      beforeSeq: z.number().int().nonnegative().optional(),
+      limit: z.number().int().positive(),
+    })
+    .optional(),
 });
 
 export const ProviderSubagentListRequestMessageSchema = z.object({
@@ -3958,6 +3966,8 @@ export const ServerInfoStatusPayloadSchema = z
         rewind: z.boolean().optional(),
         // COMPAT(agentTimelinePromptIndex): added in v0.2.X, drop the gate when floor >= v0.2.X.
         agentTimelinePromptIndex: z.boolean().optional(),
+        // COMPAT(agentTimelinePromptPages): added in v0.17.14, remove gate after 2027-05-10.
+        agentTimelinePromptPages: z.boolean().optional(),
         // COMPAT(agentHistorySearch): added in v0.3.0, remove gate after 2027-02-07.
         agentHistorySearch: z.boolean().optional(),
         // COMPAT(checkoutRefresh): added in v0.1.86, remove gate after 2026-11-29.
@@ -5062,8 +5072,12 @@ export const AgentTimelineListPromptsResponseMessageSchema = z.object({
         seq: z.number().int().nonnegative(),
         timestamp: z.string(),
         preview: z.string(),
+        // COMPAT(agentTimelinePromptPages): added in v0.17.14, remove optional after 2027-05-10.
+        text: z.string().optional(),
       }),
     ),
+    // COMPAT(agentTimelinePromptPages): added in v0.17.14, remove optional after 2027-05-10.
+    hasOlder: z.boolean().optional(),
     error: z.string().nullable(),
   }),
 });

@@ -120,7 +120,10 @@ import {
 } from "./workspace-labels/index.js";
 
 import { AgentManager, AgentRunCancellationError } from "./agent/agent-manager.js";
-import { buildTimelinePromptIndex } from "./agent/timeline-prompt-index.js";
+import {
+  buildTimelinePromptIndex,
+  buildTimelinePromptPage,
+} from "./agent/timeline-prompt-index.js";
 import { ProviderSnapshotManager } from "./agent/provider-snapshot-manager.js";
 import type {
   AgentManagerEvent,
@@ -2755,7 +2758,7 @@ export class Session {
     if (!this.authorization.allowsOutbound(response)) return;
     if (!this.supports(CLIENT_CAPS.pluginBinaryPayloads) || this.onBinaryMessage === null)
       throw new Error(
-        `Update Paseo to receive the binary output of plugin RPC ${request.pluginId}.${request.method}`,
+        `Update Pimi to receive the binary output of plugin RPC ${request.pluginId}.${request.method}`,
       );
     await this.emitBinaryReply(
       encodePluginOutputFrame(request.requestId, output),
@@ -8493,7 +8496,9 @@ export class Session {
         direction: "tail",
         limit: 1,
       });
-      const index = buildTimelinePromptIndex(timeline.epoch, rows);
+      const index = msg.page
+        ? buildTimelinePromptPage(timeline.epoch, rows, msg.page)
+        : buildTimelinePromptIndex(timeline.epoch, rows);
       this.emitForSource(
         {
           type: "agent.timeline.list_prompts.response",
@@ -8692,7 +8697,7 @@ export class Session {
                     timestamp: new Date().toISOString(),
                     item: {
                       type: "assistant_message",
-                      text: "Please upgrade the Paseo app to view this subagent conversation.",
+                      text: "Please upgrade the Pimi app to view this subagent conversation.",
                     },
                   },
                 ],
@@ -9184,7 +9189,7 @@ export class Session {
       ...snapshot,
       status: "failed" as const,
       error:
-        "Workspace setup is blocked pending approval of code from a fork pull request. Update Paseo to review and run setup.",
+        "Workspace setup is blocked pending approval of code from a fork pull request. Update Pimi to review and run setup.",
     };
     return message.type === "workspace_setup_progress"
       ? { ...message, payload: { ...message.payload, ...legacySnapshot } }

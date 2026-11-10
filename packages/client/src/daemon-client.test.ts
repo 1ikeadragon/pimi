@@ -1849,6 +1849,64 @@ test("lists the full agent prompt index", async () => {
   });
 });
 
+test("requests a page of full-text agent prompts", async () => {
+  const logger = createMockLogger();
+  const mock = createMockTransport();
+  const client = new DaemonClient({
+    url: "ws://test",
+    clientId: "clsk_unit_test",
+    logger,
+    reconnect: { enabled: false },
+    transportFactory: () => mock.transport,
+  });
+  clients.push(client);
+
+  const connectPromise = client.connect();
+  mock.triggerOpen();
+  await connectPromise;
+
+  const responsePromise = client.listAgentTimelinePrompts("agent-1", {
+    requestId: "req-prompts-2",
+    page: { beforeSeq: 9, limit: 30 },
+  });
+
+  expect(parseSentFrame(mock.sent[0])).toEqual({
+    type: "agent.timeline.list_prompts.request",
+    requestId: "req-prompts-2",
+    agentId: "agent-1",
+    page: { beforeSeq: 9, limit: 30 },
+  });
+
+  const prompt = {
+    seq: 4,
+    timestamp: "2026-01-01T00:00:00.000Z",
+    preview: "First prompt",
+    text: "First\nprompt",
+  };
+  mock.triggerMessage(
+    wrapSessionMessage({
+      type: "agent.timeline.list_prompts.response",
+      payload: {
+        requestId: "req-prompts-2",
+        agentId: "agent-1",
+        epoch: "epoch-1",
+        prompts: [prompt],
+        hasOlder: true,
+        error: null,
+      },
+    }),
+  );
+
+  await expect(responsePromise).resolves.toEqual({
+    requestId: "req-prompts-2",
+    agentId: "agent-1",
+    epoch: "epoch-1",
+    prompts: [prompt],
+    hasOlder: true,
+    error: null,
+  });
+});
+
 test("honors explicit fetchAgents timeout below the session RPC default", async () => {
   useHeartbeatClock();
   const logger = createMockLogger();

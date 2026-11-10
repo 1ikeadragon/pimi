@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  AgentTimelineListPromptsRequestMessageSchema,
   AgentTimelineListPromptsResponseMessageSchema,
   AgentStreamMessageSchema,
   FetchAgentTimelineResponseMessageSchema,
@@ -35,6 +36,38 @@ describe("shared messages stream parsing", () => {
         preview: "Review the pagination behavior",
       },
     ]);
+  });
+
+  it("parses a page of full-text prompts and the request that asks for it", () => {
+    const parsed = AgentTimelineListPromptsResponseMessageSchema.parse({
+      type: "agent.timeline.list_prompts.response",
+      payload: {
+        requestId: "req-prompts-2",
+        agentId: "agent_live",
+        epoch: "epoch-1",
+        prompts: [
+          {
+            seq: 42,
+            timestamp: "2026-02-08T20:10:00.000Z",
+            preview: "Review the pagination behavior",
+            text: "Review the\npagination behavior",
+          },
+        ],
+        hasOlder: true,
+        error: null,
+      },
+    });
+
+    expect(parsed.payload.hasOlder).toBe(true);
+    expect(parsed.payload.prompts[0]?.text).toBe("Review the\npagination behavior");
+    expect(
+      AgentTimelineListPromptsRequestMessageSchema.parse({
+        type: "agent.timeline.list_prompts.request",
+        agentId: "agent_live",
+        requestId: "req-prompts-2",
+        page: { beforeSeq: 42, limit: 30 },
+      }).page,
+    ).toEqual({ beforeSeq: 42, limit: 30 });
   });
 
   it("parses representative fetch_agent_timeline_response payload", () => {

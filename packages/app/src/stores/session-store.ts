@@ -9,6 +9,7 @@ import {
   handoffCreatedAgentUserMessageToStream,
   removeSubmittedUserMessage,
   type StreamItem,
+  type TimelinePosition,
   type TodoEntry,
   type UserMessageItem,
 } from "@/types/stream";
@@ -338,22 +339,27 @@ export function selectAgentTimelineState(
   return items.length > 0 ? { status: "painted", items } : { status: "cold" };
 }
 
-/** Text of the loaded user messages, newest first, with back-to-back repeats collapsed. */
+export interface SentMessage {
+  text: string;
+  /** Null until the daemon has placed the message in the timeline. */
+  position: TimelinePosition | null;
+}
+
+/** The loaded user messages, newest first. Older ones may exist outside the loaded window. */
 export function selectAgentSentMessages(
   session: SessionState | undefined,
   agentId: string,
-): string[] {
+): SentMessage[] {
   if (!session) return [];
   const items = [
     ...(session.agentStreamTail.get(agentId) ?? []),
     ...(session.agentStreamHead.get(agentId) ?? []),
   ];
-  const messages: string[] = [];
+  const messages: SentMessage[] = [];
   for (let index = items.length - 1; index >= 0; index -= 1) {
     const item = items[index];
-    if (item.kind !== "user_message" || item.text.trim().length === 0) continue;
-    if (messages[messages.length - 1] === item.text) continue;
-    messages.push(item.text);
+    if (item.kind !== "user_message") continue;
+    messages.push({ text: item.text, position: item.timelineCursor ?? null });
   }
   return messages;
 }

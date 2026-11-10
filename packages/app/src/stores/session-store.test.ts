@@ -236,13 +236,17 @@ describe("agent timeline state", () => {
     ).toEqual({ status: "synced", items: [], range: null, older: "none", newer: "none" });
   });
 
-  it("lists sent messages newest first, including the live head", () => {
+  it("lists the loaded sent messages newest first, including the live head", () => {
     initializeTestSession();
-    const sent = (id: string, text: string) => ({ ...submittedMessage(id), text });
+    const sent = (id: string, text: string, seq: number) => ({
+      ...submittedMessage(id),
+      text,
+      timelineCursor: { epoch: "epoch-1", seq },
+    });
     useSessionStore.getState().applyAgentTimelineResponseState("test-server", "agent-1", {
-      items: [sent("m1", "fix the auth bug"), sent("m2", "add tests"), sent("m3", "add tests")],
-      head: [sent("m4", "  "), sent("m5", "refactor the wrong module")],
-      range: { epoch: "epoch-1", startSeq: 1, endSeq: 5 },
+      items: [sent("m1", "fix the auth bug", 1), sent("m2", "add tests", 2)],
+      head: [{ ...submittedMessage("m3"), text: "refactor the wrong module" }],
+      range: { epoch: "epoch-1", startSeq: 1, endSeq: 2 },
       older: "none",
       newer: false,
       synchronized: true,
@@ -251,8 +255,43 @@ describe("agent timeline state", () => {
 
     expect(
       selectAgentSentMessages(useSessionStore.getState().sessions["test-server"], "agent-1"),
-    ).toEqual(["refactor the wrong module", "add tests", "fix the auth bug"]);
+    ).toEqual([
+      { text: "refactor the wrong module", position: null },
+      { text: "add tests", position: { epoch: "epoch-1", seq: 2 } },
+      { text: "fix the auth bug", position: { epoch: "epoch-1", seq: 1 } },
+    ]);
     expect(selectAgentSentMessages(undefined, "agent-1")).toEqual([]);
+  });
+
+  it("lists only the loaded window when a long turn pushed older sent messages out of it", () => {
+    initializeTestSession();
+    const toolCalls: StreamItem[] = Array.from({ length: 39 }, (_, index) => ({
+      kind: "assistant_message",
+      id: `a${index}`,
+      text: `step ${index}`,
+      timestamp: new Date("2026-07-31T10:00:00.000Z"),
+      timelineCursor: { epoch: "epoch-1", seq: 92 + index },
+    }));
+    useSessionStore.getState().applyAgentTimelineResponseState("test-server", "agent-1", {
+      items: [
+        {
+          ...submittedMessage("m9"),
+          text: "latest",
+          timelineCursor: { epoch: "epoch-1", seq: 91 },
+        },
+        ...toolCalls,
+      ],
+      head: [],
+      range: { epoch: "epoch-1", startSeq: 91, endSeq: 130 },
+      older: "available",
+      newer: false,
+      synchronized: true,
+      acknowledgedClientMessageIds: [],
+    });
+
+    expect(
+      selectAgentSentMessages(useSessionStore.getState().sessions["test-server"], "agent-1"),
+    ).toEqual([{ text: "latest", position: { epoch: "epoch-1", seq: 91 } }]);
   });
 
   it("preserves older availability when an applied response leaves it unchanged", () => {
