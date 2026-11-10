@@ -1,10 +1,12 @@
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
+import { ChevronDown, ChevronUp } from "lucide-react-native";
 import type { PimiDelegation } from "@/utils/pimi-delegation";
 import { AGENT_PROVIDER_DEFINITIONS } from "@pimi/protocol/provider-manifest";
 import { ModelProviderGlyph } from "@/components/model-browser";
 import { Button } from "@/components/ui/button";
+import { PressHighlight } from "@/components/ui/press-highlight";
 import { useProvidersSnapshot } from "@/hooks/use-providers-snapshot";
 import { useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { selectAgentTurnPresentation, useSessionStore, type Agent } from "@/stores/session-store";
@@ -24,22 +26,30 @@ function matchesWorker(agent: Agent | undefined, { source, worker }: PimiDelegat
   return true;
 }
 
-function workerStatus(agent: Agent | undefined, connected: boolean, isActive: boolean) {
-  let status = "Created · Status unavailable";
-  if (agent) {
-    if (!connected) status = "Offline · Status unavailable";
-    else if (agent.archivedAt) status = "Archived";
-    else if (agent.pendingPermissions.length || agent.attentionReason === "permission")
-      status = "Needs permission";
-    else if (agent.status === "error") status = "Failed";
-    else if (isActive || agent.status === "running" || (agent.backgroundWork?.count ?? 0) > 0)
-      status = "Working";
-    else if (agent.status === "initializing") status = "Starting";
-    else if (agent.status === "closed") status = "Closed";
-    else if (agent.attentionReason === "finished") status = "Finished";
-    else status = "Idle";
-  }
-  return status;
+type WorkerTone = "idle" | "working" | "attention" | "failed" | "done";
+
+interface WorkerStatus {
+  label: string;
+  tone: WorkerTone;
+}
+
+function workerStatus(
+  agent: Agent | undefined,
+  connected: boolean,
+  isActive: boolean,
+): WorkerStatus {
+  if (!agent) return { label: "Created", tone: "idle" };
+  if (!connected) return { label: "Offline", tone: "idle" };
+  if (agent.archivedAt) return { label: "Archived", tone: "idle" };
+  if (agent.pendingPermissions.length || agent.attentionReason === "permission")
+    return { label: "Needs permission", tone: "attention" };
+  if (agent.status === "error") return { label: "Failed", tone: "failed" };
+  if (isActive || agent.status === "running" || (agent.backgroundWork?.count ?? 0) > 0)
+    return { label: "Working", tone: "working" };
+  if (agent.status === "initializing") return { label: "Starting", tone: "working" };
+  if (agent.status === "closed") return { label: "Closed", tone: "idle" };
+  if (agent.attentionReason === "finished") return { label: "Finished", tone: "done" };
+  return { label: "Idle", tone: "idle" };
 }
 
 function workerLabels(
@@ -89,105 +99,145 @@ export function PimiDelegationCard({
   );
   const status = workerStatus(agent, connected, isActive);
   let contextLabel = "Separate context";
-  if (sharedContext) contextLabel = shortened ? "Context shared · Shortened" : "Context shared";
+  if (sharedContext) contextLabel = shortened ? "Context shared, shortened" : "Context shared";
+  const title = agent?.title || worker.title;
+  const meta = [providerLabel, modelLabel, contextLabel].filter(Boolean).join(" · ");
   return (
     <View style={styles.card} testID="pimi-delegation-card">
       <View style={styles.header}>
-        <View style={styles.identity}>
-          <ModelProviderGlyph
-            provider={provider}
-            serverId={source.serverId}
-            size={18}
-            tone="foreground"
-          />
-          <Text style={styles.provider} numberOfLines={1}>
-            {providerLabel}
-          </Text>
-        </View>
-        <Text style={styles.status} accessibilityLiveRegion="polite">
-          {status}
-        </Text>
+        <DelegationRow
+          title={title}
+          meta={meta}
+          status={status}
+          onOpen={agent ? openAgent : undefined}
+          provider={provider}
+          serverId={source.serverId}
+        />
+        <Button
+          variant="ghost"
+          size="sm"
+          leftIcon={detailsOpen ? ChevronUp : ChevronDown}
+          accessibilityLabel={detailsOpen ? "Hide details" : "Show details"}
+          onPress={toggleDetails}
+        />
       </View>
-      {modelLabel ? (
-        <Text style={styles.meta} selectable>
-          {modelLabel}
-        </Text>
-      ) : null}
-      <Text style={styles.title} selectable>
-        {agent?.title || worker.title}
-      </Text>
-      <View style={styles.footer}>
-        <Text style={styles.context}>{contextLabel}</Text>
-        <View style={styles.actions}>
-          <Button variant="ghost" size="sm" onPress={toggleDetails}>
-            {detailsOpen ? "Hide details" : "Details"}
-          </Button>
-          {agent ? (
-            <Button variant="secondary" size="sm" onPress={openAgent}>
-              Open agent
-            </Button>
-          ) : null}
-        </View>
-      </View>
-      {detailsOpen ? children : null}
+      {detailsOpen ? <View style={styles.details}>{children}</View> : null}
     </View>
+  );
+}
+
+const GLYPH_SIZE = 16;
+
+/** The whole row opens the agent, so there is no separate button to find. */
+function DelegationRow({
+  title,
+  meta,
+  status,
+  provider,
+  serverId,
+  onOpen,
+}: {
+  title: string;
+  meta: string;
+  status: WorkerStatus;
+  provider: string;
+  serverId: string;
+  onOpen?: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const hoverIn = useCallback(() => setHovered(true), []);
+  const hoverOut = useCallback(() => setHovered(false), []);
+  const rowStyle = useMemo(
+    () => [styles.row, hovered && onOpen && styles.rowHovered],
+    [hovered, onOpen],
+  );
+  const dotStyle = useMemo(() => [styles.dot, DOT_STYLES[status.tone]], [status.tone]);
+  return (
+    <PressHighlight
+      accessibilityRole="button"
+      accessibilityLabel={`Open agent: ${title}. ${status.label}`}
+      disabled={!onOpen}
+      onPress={onOpen}
+      onHoverIn={hoverIn}
+      onHoverOut={hoverOut}
+      highlightStyle={styles.rowHovered}
+      style={rowStyle}
+    >
+      <ModelProviderGlyph
+        provider={provider}
+        serverId={serverId}
+        size={GLYPH_SIZE}
+        tone="foreground"
+      />
+      <View style={styles.text}>
+        <Text style={styles.title} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text style={styles.meta} numberOfLines={1}>
+          {meta}
+        </Text>
+      </View>
+      <View style={styles.status}>
+        <View style={dotStyle} />
+        <Text style={styles.statusText} accessibilityLiveRegion="polite">
+          {status.label}
+        </Text>
+      </View>
+    </PressHighlight>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
   card: {
-    marginVertical: theme.spacing[2],
-    padding: theme.spacing[3],
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.spacing[3],
+    marginVertical: theme.spacing[1],
+    borderRadius: theme.borderRadius.lg,
     backgroundColor: theme.colors.surface1,
-    gap: theme.spacing[2],
+    overflow: "hidden",
   },
-  header: {
+  header: { flexDirection: "row", alignItems: "center", paddingRight: theme.spacing[1] },
+  row: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: theme.spacing[2],
     flexWrap: "wrap",
+    columnGap: theme.spacing[3],
+    rowGap: theme.spacing[1],
+    paddingVertical: theme.spacing[2],
+    paddingHorizontal: theme.spacing[3],
   },
-  identity: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[2],
-    flexShrink: 1,
-  },
-  provider: {
-    color: theme.colors.foreground,
-    fontSize: theme.fontSize.sm,
-    fontWeight: "600",
-    flexShrink: 1,
-  },
-  status: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm },
-  meta: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm },
+  rowHovered: { backgroundColor: theme.colors.surface2 },
+  text: { flex: 1, minWidth: 140, gap: 2 },
   title: {
     color: theme.colors.foreground,
     fontSize: theme.fontSize.sm,
-    lineHeight: 20,
+    fontWeight: theme.fontWeight.medium,
   },
-  footer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    flexWrap: "wrap",
-    gap: theme.spacing[2],
-  },
-  context: {
+  meta: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm },
+  status: { flexDirection: "row", alignItems: "center", gap: theme.spacing[1.5] },
+  statusText: {
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
-    backgroundColor: theme.colors.surface2,
-    paddingHorizontal: theme.spacing[2],
-    paddingVertical: theme.spacing[1],
-    borderRadius: theme.spacing[1],
+    fontVariant: ["tabular-nums"],
   },
-  actions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[1],
+  dot: { width: 7, height: 7, borderRadius: theme.borderRadius.full },
+  dotIdle: { backgroundColor: theme.colors.border },
+  dotWorking: { backgroundColor: theme.colors.statusDotRunning },
+  dotAttention: { backgroundColor: theme.colors.statusDotWarning },
+  dotFailed: { backgroundColor: theme.colors.statusDotDanger },
+  dotDone: { backgroundColor: theme.colors.statusDotSuccess },
+  details: {
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    paddingHorizontal: theme.spacing[3],
+    paddingVertical: theme.spacing[2],
   },
 }));
+
+const DOT_STYLES = {
+  idle: styles.dotIdle,
+  working: styles.dotWorking,
+  attention: styles.dotAttention,
+  failed: styles.dotFailed,
+  done: styles.dotDone,
+} satisfies Record<WorkerTone, unknown>;

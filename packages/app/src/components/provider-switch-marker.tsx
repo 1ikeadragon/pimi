@@ -1,12 +1,15 @@
 import { memo } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
+import { ArrowRight } from "lucide-react-native";
 import type {
   AgentProviderSwitchEndpoint,
   AgentProviderSwitchMarker,
 } from "@pimi/protocol/agent-types";
 import { ModelProviderGlyph } from "@/components/model-browser";
-import { ICON_SIZE } from "@/styles/theme";
+import { DensityIcon } from "@/components/ui/density-icon";
+
+const GLYPH_SIZE = 13;
 
 function endpointLabel(endpoint: AgentProviderSwitchEndpoint): string {
   const provider = endpoint.providerLabel ?? endpoint.provider;
@@ -23,7 +26,7 @@ function Endpoint({
 }) {
   return (
     <View style={styles.endpoint}>
-      <ModelProviderGlyph provider={endpoint.provider} serverId={serverId} size={ICON_SIZE.sm} />
+      <ModelProviderGlyph provider={endpoint.provider} serverId={serverId} size={GLYPH_SIZE} />
       <Text style={styles.label} numberOfLines={1}>
         {endpointLabel(endpoint)}
       </Text>
@@ -31,7 +34,10 @@ function Endpoint({
   );
 }
 
-/** Shows where in a chat the provider changed. */
+/**
+ * Marks where in a chat the provider changed: a rule across the thread with the two providers
+ * at its center, so the change reads as a seam in the conversation rather than as a message.
+ */
 export const ProviderSwitchMarker = memo(function ProviderSwitchMarker({
   marker,
   serverId,
@@ -45,9 +51,13 @@ export const ProviderSwitchMarker = memo(function ProviderSwitchMarker({
       testID="provider-switch-marker"
       accessibilityLabel={`${endpointLabel(marker.from)} → ${endpointLabel(marker.to)}`}
     >
-      <Endpoint endpoint={marker.from} serverId={serverId} />
-      <Text style={styles.arrow}>→</Text>
-      <Endpoint endpoint={marker.to} serverId={serverId} />
+      <View style={styles.rule} />
+      <View style={styles.center}>
+        <Endpoint endpoint={marker.from} serverId={serverId} />
+        <DensityIcon icon={ArrowRight} size="sm" sizeAdjustment={-4} color="foregroundMuted" />
+        <Endpoint endpoint={marker.to} serverId={serverId} />
+      </View>
+      <View style={styles.rule} />
     </View>
   );
 });
@@ -56,10 +66,24 @@ const styles = StyleSheet.create((theme) => ({
   row: {
     flexDirection: "row",
     alignItems: "center",
+    gap: theme.spacing[3],
+    paddingVertical: theme.spacing[2],
+  },
+  // The rules give way first, so two long model names still fit a narrow chat.
+  rule: {
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: theme.spacing[4],
+    height: 1,
+    backgroundColor: theme.colors.border,
+  },
+  center: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     flexWrap: "wrap",
+    flexShrink: 1,
     gap: theme.spacing[2],
-    marginVertical: theme.spacing[2],
-    paddingHorizontal: theme.spacing[3],
   },
   endpoint: {
     flexDirection: "row",
@@ -71,9 +95,5 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
     flexShrink: 1,
-  },
-  arrow: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.sm,
   },
 }));
