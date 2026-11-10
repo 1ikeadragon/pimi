@@ -10,6 +10,19 @@ protocols:
       - pimi
 afterPack: ./scripts/after-pack.js
 afterSign: ./scripts/after-sign.js
+# Keep the Electron locales for the app's UI languages (packages/app/src/i18n/locales.ts).
+# Matching ignores case and treats "_" like "-", so "en" also keeps en_GB and the
+# *_FEMININE/*_MASCULINE/*_NEUTER variants, and "pt-BR" keeps pt_BR but not pt_PT.
+electronLanguages:
+  - en
+  - ar
+  - es
+  - fr
+  - ja
+  - ko
+  - pt-BR
+  - ru
+  - zh-CN
 directories:
   output: release
 files:
@@ -27,6 +40,35 @@ files:
   - "!node_modules/@pimi/*/.tasks/**"
   - "!node_modules/@pimi/*/conversations/**"
   - "!node_modules/@pimi/*/test-results/**"
+  # Nothing the daemon imports reaches these. @opencode/client's "." and "./service"
+  # entries (the only ones Pimi imports) never load its effect/protocol/schema chunks,
+  # and @anthropic-ai/sdk and ai are not imported by any shipped file.
+  - "!node_modules/effect/**"
+  - "!node_modules/fast-check/**"
+  - "!node_modules/pure-rand/**"
+  - "!node_modules/@opencode/protocol/**"
+  - "!node_modules/@opencode/schema/**"
+  - "!node_modules/@anthropic-ai/sdk/**"
+  - "!node_modules/ai/**"
+  - "!node_modules/@ai-sdk/**"
+  # The plugin compiler only loads typescript/lib/typescript.js.
+  - "!node_modules/typescript/bin/**"
+  - "!node_modules/typescript/lib/{_tsc,tsc,_tsserver,tsserver,_typingsInstaller,typingsInstaller,watchGuard}.js"
+  - "!node_modules/typescript/lib/{cs,de,es,fr,it,ja,ko,pl,pt-br,ru,tr,zh-cn,zh-tw}/**"
+  # Third-party TypeScript sources. The extglob keeps .d.ts, .d.mts and .d.cts.
+  - "!node_modules/**/!(*.d).{ts,mts,cts}"
+  # Daemon source-tree leftovers. The packaged daemon runs dist/scripts/supervisor-entrypoint.js.
+  - "!node_modules/@pimi/server/scripts/**"
+  - "!node_modules/@pimi/server/CLAUDE.md"
+  - "!node_modules/@pimi/server/tsconfig*.json"
+  # Compiled test helpers that only other test helpers import.
+  - "!node_modules/@pimi/*/dist/**/test-utils/**"
+  - "!node_modules/@pimi/*/dist/**/test-fixtures/**"
+  - "!node_modules/@pimi/*/dist/**/*.fixture.js"
+  - "!node_modules/@pimi/server/dist/server/server/agent/providers/pi/extensions/*-fixture-test.js"
+  - "!node_modules/@pimi/server/dist/server/server/agent/providers/claude/test-rewind-claude-sdk.js"
+  - "!node_modules/@pimi/server/dist/server/server/agent/providers/opencode/test-server-manager.js"
+  - "!node_modules/@pimi/server/dist/server/server/agent/rewind/test-rewind-session.js"
 asarUnpack:
   - dist/daemon/node-entrypoint-runner.js
   - node_modules/@pimi/server/dist/server/terminal/shell-integration/**/*

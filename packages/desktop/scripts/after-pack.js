@@ -73,6 +73,38 @@ function pruneSharpLibvips(nodeModules, platform, arch) {
   }
 }
 
+// sherpa-onnx-darwin-* ships libonnxruntime.<version>.dylib plus an unversioned copy.
+// sherpa-onnx.node and the sherpa C/C++ API dylibs link @rpath/libonnxruntime.<version>.dylib
+// (verified with otool -L), and the JS loader never names the file, so the copy is dead weight.
+function pruneSherpaOnnxRuntimeCopy(nodeModules, platform, arch) {
+  if (platform !== "darwin") return;
+  const dir = path.join(nodeModules, `sherpa-onnx-darwin-${arch}`);
+  if (!fs.existsSync(dir)) return;
+  const hasVersionedRuntime = fs
+    .readdirSync(dir)
+    .some((entry) => /^libonnxruntime\.\d+(\.\d+)*\.dylib$/.test(entry));
+  if (hasVersionedRuntime) {
+    rmSafe(path.join(dir, "libonnxruntime.dylib"));
+  }
+}
+
+// On macOS and Linux the esbuild package keeps a byte-identical copy of the platform binary at
+// esbuild/bin/esbuild. The plugin compiler points esbuild at @esbuild/<platform>-<arch>/bin/esbuild
+// through ESBUILD_BINARY_PATH (plugins/compiler-esbuild.ts), so only that copy is used. On Windows
+// esbuild/bin/esbuild is a small JS stub and the binary is @esbuild/win32-*/esbuild.exe, so skip it.
+function pruneEsbuildBinaryCopy(nodeModules, platform, arch) {
+  if (platform === "win32") return;
+  const platformBinary = path.join(
+    nodeModules,
+    "@esbuild",
+    `${platform}-${arch}`,
+    "bin",
+    "esbuild",
+  );
+  if (!fs.existsSync(platformBinary)) return;
+  rmSafe(path.join(nodeModules, "esbuild", "bin", "esbuild"));
+}
+
 function pruneNativeModules(appOutDir, platform, arch, productFilename) {
   const resourcesDir =
     platform === "darwin"
@@ -87,6 +119,8 @@ function pruneNativeModules(appOutDir, platform, arch, productFilename) {
   pruneClaudeAgentSdk(nodeModules, platform, arch);
   pruneNodePty(nodeModules, platform, arch);
   pruneSharpLibvips(nodeModules, platform, arch);
+  pruneSherpaOnnxRuntimeCopy(nodeModules, platform, arch);
+  pruneEsbuildBinaryCopy(nodeModules, platform, arch);
 
   const after = dirSizeSync(nodeModules);
   const savedMB = ((before - after) / 1024 / 1024).toFixed(1);
