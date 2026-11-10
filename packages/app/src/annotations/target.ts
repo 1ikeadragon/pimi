@@ -7,7 +7,13 @@ import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
 import { revealWorkspaceTab } from "@/workspace-tabs/navigation";
 import { resolveFocusedChatTarget } from "@/composer/focused-chat-target";
 import { generateMessageId } from "@/types/stream";
-import { AnnotationAttachmentSchema, type AnnotationCapture } from "./model";
+import { hasDraftContent } from "@/composer/draft/input-draft-core";
+import type { UserComposerAttachment } from "@/attachments/types";
+import {
+  AnnotationAttachmentSchema,
+  type AnnotationAttachment,
+  type AnnotationCapture,
+} from "./model";
 
 export interface AnnotationTarget {
   serverId: string;
@@ -44,24 +50,67 @@ export function isAnnotationTargetAvailable(target: AnnotationTarget): boolean {
   return Boolean(target.workspaceKey && target.tabId);
 }
 
+export class AnnotationTargetUnavailableError extends Error {
+  constructor() {
+    super("The target chat is no longer available");
+    this.name = "AnnotationTargetUnavailableError";
+  }
+}
+
+/** Adds the annotation to the target chat's draft with an empty note, ready for its editor. */
 export async function addAnnotationToChat(
   target: AnnotationTarget,
   capture: AnnotationCapture,
-  note: string,
-) {
+): Promise<AnnotationAttachment> {
   await useDraftStore.getState().hydrateDraftInput({ draftKey: target.draftKey });
-  if (!isAnnotationTargetAvailable(target))
-    throw new Error("The target chat is no longer available.");
-  await useDraftStore.getState().attachAnnotation({
-    draftKey: target.draftKey,
-    attachment: AnnotationAttachmentSchema.parse({
-      kind: "annotation",
-      id: generateMessageId(),
-      ...capture,
-      note,
-    }),
+  if (!isAnnotationTargetAvailable(target)) throw new AnnotationTargetUnavailableError();
+  const attachment = AnnotationAttachmentSchema.parse({
+    kind: "annotation",
+    id: generateMessageId(),
+    ...capture,
+    note: "",
   });
+  await useDraftStore.getState().attachAnnotation({ draftKey: target.draftKey, attachment });
+  return attachment;
+}
+
+function editDraftAttachments(
+  draftKey: string,
+  edit: (attachments: UserComposerAttachment[]) => UserComposerAttachment[],
+) {
+  const store = useDraftStore.getState();
+  const draft = store.getDraftInput(draftKey);
+  if (!draft) return;
+  const next = { ...draft, attachments: edit(draft.attachments) };
+  if (hasDraftContent(next)) store.saveDraftInput({ draftKey, draft: next });
+  else store.clearDraftInput({ draftKey, lifecycle: "abandoned" });
+}
+
+function isAnnotation(
+  attachment: UserComposerAttachment,
+  id: string,
+): attachment is AnnotationAttachment {
+  return attachment.kind === "annotation" && attachment.id === id;
+}
+
+export function saveAnnotationNote(target: AnnotationTarget, id: string, note: string) {
+  editDraftAttachments(target.draftKey, (attachments) =>
+    attachments.map((attachment) =>
+      isAnnotation(attachment, id) ? { ...attachment, note } : attachment,
+    ),
+  );
+}
+
+export function removeAnnotation(target: AnnotationTarget, id: string) {
+  editDraftAttachments(target.draftKey, (attachments) =>
+    attachments.filter((attachment) => !isAnnotation(attachment, id)),
+  );
+}
+
+/** Shows the chat the annotation went to and puts the cursor in its composer. */
+export function focusAnnotationTarget(target: AnnotationTarget) {
   if (target.workspaceKey && target.tabId) revealWorkspaceTab(target.workspaceKey, target.tabId);
+  useDraftStore.getState().requestComposerFocus({ draftKey: target.draftKey });
 }
 
 /** Match the file panel's existing add-to-chat routing, then reject archived/unknown chats. */

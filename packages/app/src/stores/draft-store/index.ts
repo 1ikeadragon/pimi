@@ -50,10 +50,12 @@ interface DraftStoreActions {
     draftKey: string;
     lifecycle?: Exclude<DraftLifecycleState, "active">;
   }) => void;
+  /** Adds the annotation without taking focus: its note editor opens at the source first. */
   attachAnnotation: (input: {
     draftKey: string;
     attachment: AnnotationAttachment;
   }) => Promise<void>;
+  requestComposerFocus: (input: { draftKey: string }) => void;
   attachWorkspaceFile: (input: {
     draftKey: string;
     attachment: WorkspaceFileComposerAttachment;
@@ -399,12 +401,17 @@ export const useDraftStore = create<DraftStore>()(
                 previousVersion: existing?.version,
               }),
             },
-            attachmentFocusRequestByDraftKey: {
-              ...state.attachmentFocusRequestByDraftKey,
-              [draftKey]: (state.attachmentFocusRequestByDraftKey[draftKey] ?? 0) + 1,
-            },
           };
         });
+      },
+
+      requestComposerFocus: ({ draftKey }) => {
+        set((state) => ({
+          attachmentFocusRequestByDraftKey: {
+            ...state.attachmentFocusRequestByDraftKey,
+            [draftKey]: (state.attachmentFocusRequestByDraftKey[draftKey] ?? 0) + 1,
+          },
+        }));
       },
 
       attachWorkspaceFile: async ({ draftKey, attachment }) => {

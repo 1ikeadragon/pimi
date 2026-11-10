@@ -1,18 +1,13 @@
 import {
-  AnnotationAction,
-  AnnotationEditor,
-  type AnnotationAnchor,
-} from "@/annotations/popover.web";
-import {
-  addAnnotationToChat,
-  useFileAnnotationTarget,
-  type AnnotationTarget,
-} from "@/annotations/target";
-import type { AnnotationCapture } from "@/annotations/model";
+  EditorAnnotationSelection,
+  annotationEditorExtension,
+} from "@/annotations/editor-selection.web";
+import { useFileAnnotationTarget } from "@/annotations/target";
 import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -73,52 +68,16 @@ export function FileEditorView({
 }: FileEditorViewProps) {
   const { serverId, workspaceId, tabId } = usePaneContext();
   const annotationTarget = useFileAnnotationTarget(serverId, workspaceId);
-  const [selectedCapture, setSelectedCapture] = useState<AnnotationCapture | null>(null);
-  const [annotationDraft, setAnnotationDraft] = useState<{
-    capture: AnnotationCapture;
-    target: AnnotationTarget;
-    anchor: AnnotationAnchor;
-  } | null>(null);
-  const selectionAnchor = useCallback(() => {
-    const view = viewRef.current;
-    if (!view || !selectedCapture) return null;
-    const rect = view.coordsAtPos(view.state.selection.main.head);
-    return rect
-      ? { x: rect.left, y: rect.top, width: rect.right - rect.left, height: rect.bottom - rect.top }
-      : null;
-  }, [selectedCapture]);
-  const handleAnnotate = useCallback(() => {
-    const view = viewRef.current;
-    if (selectedCapture && annotationTarget && view) {
-      const position = view.state.selection.main.head;
-      const fallback = selectionAnchor();
-      const anchor = () => {
-        const current = viewRef.current;
-        const rect =
-          current && position <= current.state.doc.length ? current.coordsAtPos(position) : null;
-        return rect
-          ? {
-              x: rect.left,
-              y: rect.top,
-              width: rect.right - rect.left,
-              height: rect.bottom - rect.top,
-            }
-          : fallback;
-      };
-      setAnnotationDraft({ capture: selectedCapture, target: annotationTarget, anchor });
-    }
-  }, [selectedCapture, annotationTarget, selectionAnchor]);
-  const handleCloseAnnotation = useCallback(() => {
-    setAnnotationDraft(null);
-    viewRef.current?.focus();
-  }, []);
-  const handleSaveAnnotation = useCallback(
-    async (note: string) => {
-      if (!annotationDraft) throw new Error("The annotation is no longer available.");
-      await addAnnotationToChat(annotationDraft.target, annotationDraft.capture, note);
-    },
-    [annotationDraft],
+  // State, not just the ref: the annotation layer subscribes to each editor as it is created.
+  // Bumped whenever the editor behind `viewRef` is created or torn down. The instance itself is
+  // not passed as a prop: React's development profiling walks changed props, and walking an
+  // editor reaches objects that throw when read.
+  const [viewEpoch, setViewEpoch] = useState(0);
+  const annotatedFile = useMemo(
+    () => ({ serverId, workspaceId, path: filename }),
+    [serverId, workspaceId, filename],
   );
+  const getLineSeparator = useCallback(() => model.getSnapshot().lineSeparator, [model]);
   const retentionKey = JSON.stringify([serverId, workspaceId, tabId, filename]);
   const navigation = JSON.stringify([location.lineStart, location.lineEnd, navigationRevision]);
   const appliedNavigation = useRef<string | null>(null);
@@ -146,30 +105,11 @@ export function FileEditorView({
       const head = state.selection.main.head;
       const line = state.doc.lineAt(head);
       onCursorChangeRef.current({ line: line.number, column: head - line.from + 1 });
-      const { from, to } = state.selection.main;
-      const first = state.doc.lineAt(from);
-      const last = state.doc.lineAt(to);
-      setSelectedCapture(
-        from === to || state.selection.ranges.length !== 1
-          ? null
-          : {
-              source: {
-                kind: "file",
-                serverId,
-                workspaceId,
-                path: values.filename,
-                startLine: first.number,
-                startColumn: from - first.from + 1,
-                endLine: last.number,
-                endColumn: to - last.from + 1,
-              },
-              quote: state.doc.sliceString(from, to, values.model.getSnapshot().lineSeparator),
-            },
-      );
     }
     const extensions = [
       vimCompartment.of(values.vimEnabled ? vim() : []),
       find.extension,
+      annotationEditorExtension,
       ...editorBaseExtensions(() => void values.model.save()),
       languageCompartment.of(getLanguageForFile(values.filename)?.extension ?? []),
       wrappingCompartment.of(wrappingForFile(values.filename)),
@@ -197,9 +137,11 @@ export function FileEditorView({
       scrollTo: restored?.scroll,
     });
     viewRef.current = view;
+    setViewEpoch((epoch) => epoch + 1);
     reportSelection(view.state);
     values.onReady();
     return () => {
+      setViewEpoch((epoch) => epoch + 1);
       const saved = values.model.getSnapshot();
       retainEditor(
         retentionKey,
@@ -287,23 +229,13 @@ export function FileEditorView({
         style={HOST_STYLE}
       />
       <FileFind model={find} editor={viewRef} />
-      {selectedCapture && annotationTarget && !annotationDraft ? (
-        <AnnotationAction
-          anchor={selectionAnchor}
-          onPress={handleAnnotate}
-          label="Annotate selected code"
-          testID="annotate-editor-selection"
-        />
-      ) : null}
-      {annotationDraft ? (
-        <AnnotationEditor
-          capture={annotationDraft.capture}
-          anchor={annotationDraft.anchor}
-          canSave={annotationTarget?.draftKey === annotationDraft.target.draftKey}
-          onClose={handleCloseAnnotation}
-          onSave={handleSaveAnnotation}
-        />
-      ) : null}
+      <EditorAnnotationSelection
+        editor={viewRef}
+        epoch={viewEpoch}
+        file={annotatedFile}
+        target={annotationTarget}
+        getLineSeparator={getLineSeparator}
+      />
     </div>
   );
 }

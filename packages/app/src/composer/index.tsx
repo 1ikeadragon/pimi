@@ -375,6 +375,8 @@ interface RenderAttachmentTrayArgs {
   isComposerLocked: boolean;
   handleOpenAttachment: (attachment: ComposerAttachment) => void;
   handleRemoveAttachment: (index: number) => void;
+  handleChangeAnnotationNote: (id: string, note: string) => void;
+  focusInput: () => void;
   labels: {
     openImage: string;
     removeImage: string;
@@ -392,6 +394,8 @@ function renderAttachmentTray(args: RenderAttachmentTrayArgs): ReactElement | nu
     isComposerLocked,
     handleOpenAttachment,
     handleRemoveAttachment,
+    handleChangeAnnotationNote,
+    focusInput,
     labels,
   } = args;
   if (selectedAttachments.length === 0 && pendingFiles.length === 0) return null;
@@ -405,6 +409,8 @@ function renderAttachmentTray(args: RenderAttachmentTrayArgs): ReactElement | nu
           disabled: isComposerLocked,
           onOpen: handleOpenAttachment,
           onRemove: handleRemoveAttachment,
+          onChangeAnnotationNote: handleChangeAnnotationNote,
+          onFocusInput: focusInput,
           labels,
         }),
       )}
@@ -477,6 +483,8 @@ interface RenderComposerAttachmentPillArgs {
   disabled: boolean;
   onOpen: (attachment: ComposerAttachment) => void;
   onRemove: (index: number) => void;
+  onChangeAnnotationNote: (id: string, note: string) => void;
+  onFocusInput: () => void;
   labels: RenderAttachmentTrayArgs["labels"];
 }
 
@@ -490,6 +498,8 @@ function renderComposerAttachmentPill(args: RenderComposerAttachmentPillArgs): R
         disabled={disabled}
         index={index}
         onRemove={onRemove}
+        onChangeNote={args.onChangeAnnotationNote}
+        onFocusComposer={args.onFocusInput}
       />
     );
   }
@@ -2067,6 +2077,19 @@ function ComposerContentImpl({
     [removeAttachment, selectedAttachments, setSelectedAttachments],
   );
 
+  const handleChangeAnnotationNote = useCallback(
+    (id: string, note: string) => {
+      setSelectedAttachments((current) =>
+        current.map((attachment) =>
+          attachment.kind === "annotation" && attachment.id === id
+            ? { ...attachment, note }
+            : attachment,
+        ),
+      );
+    },
+    [setSelectedAttachments],
+  );
+
   const handleOpenAttachment = useCallback(
     (attachment: ComposerAttachment) => {
       openComposerAttachment({
@@ -2553,6 +2576,8 @@ function ComposerContentImpl({
         isComposerLocked,
         handleOpenAttachment,
         handleRemoveAttachment,
+        handleChangeAnnotationNote,
+        focusInput,
         labels: {
           openImage: t("composer.attachments.openImage"),
           removeImage: t("composer.attachments.removeImage"),
@@ -2566,6 +2591,8 @@ function ComposerContentImpl({
     [
       handleOpenAttachment,
       handleRemoveAttachment,
+      handleChangeAnnotationNote,
+      focusInput,
       isComposerLocked,
       serverId,
       selectedAttachments,
