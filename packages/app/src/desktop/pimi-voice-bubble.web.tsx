@@ -2,14 +2,12 @@
 import { router, usePathname } from "expo-router";
 import { CircleAlert, Mic, Square, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Image, ScrollView, Text, View } from "react-native";
+import { Image, ScrollView, Text, View, type ViewStyle } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import Animated, { FadeInUp, ReduceMotion } from "react-native-reanimated";
 import type { CommandCenterContribution } from "@/command-center/contributions";
 import { useCommandCenterContributions } from "@/command-center/provider";
 import { DensityIcon } from "@/components/ui/density-icon";
 import { Button } from "@/components/ui/button";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { VolumeMeter } from "@/components/volume-meter";
 import { useVoiceOptional } from "@/contexts/voice-context";
@@ -86,7 +84,61 @@ const BUSY = "Still working on your last command. Say this again when it finishe
 const VOICE_OFF = { selected: false };
 const VOICE_ON = { selected: true };
 const VOICE_DOG = { uri: "/pimi-textures/voice-dog.svg" };
-const BUBBLE_POP = FadeInUp.duration(160).reduceMotion(ReduceMotion.System);
+const WORKING = "Working…";
+const BUBBLE_POP_ANIMATION = "pimi-voice-bubble-pop";
+const TYPING_DOT_ANIMATION = "pimi-voice-typing-dot";
+// The reply follows the transcript by a beat, so the exchange reads as two turns.
+const REPLY_DELAY_MS = 110;
+const TYPING_DOT_STAGGER_MS = 160;
+// Bubbles float over arbitrary app content with no panel behind them.
+const BUBBLE_SHADOW = "0 1px 2px #0000001a, 0 8px 24px #00000024";
+
+// A bubble grows out of its sender's corner and settles after a small overshoot. With reduced
+// motion the keyframes are never defined, so bubbles and typing dots appear at rest.
+function ensureVoiceBubbleKeyframes() {
+  if (typeof document === "undefined" || document.getElementById(BUBBLE_POP_ANIMATION)) return;
+  const style = document.createElement("style");
+  style.id = BUBBLE_POP_ANIMATION;
+  style.textContent = `@media (prefers-reduced-motion: no-preference) {
+  @keyframes ${BUBBLE_POP_ANIMATION} {
+    0% { opacity: 0; transform: translateY(12px) scale(0.6); }
+    55% { opacity: 1; transform: translateY(-2px) scale(1.035); }
+    78% { transform: translateY(0) scale(0.99); }
+    100% { opacity: 1; transform: none; }
+  }
+  @keyframes ${TYPING_DOT_ANIMATION} {
+    0%, 60%, 100% { opacity: 0.35; transform: translateY(0); }
+    30% { opacity: 1; transform: translateY(-3px); }
+  }
+}`;
+  document.head.appendChild(style);
+}
+ensureVoiceBubbleKeyframes();
+
+// The CSS animation props are not part of ViewStyle without the generated expo-env.d.ts.
+function bubblePop(origin: "bottom right" | "bottom left", delayMs: number): ViewStyle {
+  return {
+    flexShrink: 1,
+    transformOrigin: origin,
+    animationName: BUBBLE_POP_ANIMATION,
+    animationDuration: "420ms",
+    animationTimingFunction: "cubic-bezier(0.2, 0.8, 0.2, 1)",
+    animationDelay: `${delayMs}ms`,
+    animationFillMode: "backwards",
+  } as unknown as ViewStyle;
+}
+const OUTGOING_POP = bubblePop("bottom right", 0);
+const INCOMING_POP = bubblePop("bottom left", REPLY_DELAY_MS);
+const TYPING_DOTS = ["first", "second", "third"].map((id, index) => ({
+  id,
+  motion: {
+    animationName: TYPING_DOT_ANIMATION,
+    animationDuration: "1200ms",
+    animationIterationCount: "infinite",
+    animationTimingFunction: "ease-in-out",
+    animationDelay: `${index * TYPING_DOT_STAGGER_MS}ms`,
+  } as unknown as ViewStyle,
+}));
 
 const WORKSPACE_VIEWS: Partial<Record<PimiVoiceView, PimiDestination>> = {
   tasks: { view: "tasks" },
@@ -265,11 +317,13 @@ function VoiceReceipt({
     <View style={styles.receipt} testID="ask-pimi-receipt">
       <ScrollView style={styles.receiptContent} contentContainerStyle={styles.receiptMessages}>
         <View style={styles.outgoing}>
-          <Animated.View entering={BUBBLE_POP} style={styles.transcriptBubble}>
-            <Text selectable style={styles.transcript}>
-              {receipt.transcript}
-            </Text>
-          </Animated.View>
+          <View style={OUTGOING_POP}>
+            <View style={styles.transcriptBubble}>
+              <Text selectable style={styles.transcript}>
+                {receipt.transcript}
+              </Text>
+            </View>
+          </View>
           <Button
             variant="ghost"
             size="sm"
@@ -278,21 +332,36 @@ function VoiceReceipt({
             accessibilityLabel="Dismiss Ask Pimi receipt"
           />
         </View>
-        <Animated.View
-          key={receipt.state}
-          entering={BUBBLE_POP}
-          style={styles.receiptResult}
-          accessibilityLiveRegion="polite"
-        >
-          {receipt.state === "working" ? <LoadingSpinner color={styles.statusText.color} /> : null}
-          {receipt.state === "error" ? (
-            <DensityIcon icon={CircleAlert} size="sm" color="statusDanger" />
-          ) : null}
-          <Text selectable style={styles.statusText}>
-            {receipt.message}
-          </Text>
-        </Animated.View>
+        {/* Keyed by state so the result pops in where the typing bubble was. */}
+        <View key={receipt.state} style={styles.incoming} accessibilityLiveRegion="polite">
+          <View style={INCOMING_POP}>
+            {receipt.state === "working" ? (
+              <TypingBubble />
+            ) : (
+              <View style={styles.receiptResult}>
+                {receipt.state === "error" ? (
+                  <DensityIcon icon={CircleAlert} size="sm" color="statusDanger" />
+                ) : null}
+                <Text selectable style={styles.reply}>
+                  {receipt.message}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
       </ScrollView>
+    </View>
+  );
+}
+
+function TypingBubble() {
+  return (
+    <View style={styles.typingBubble} accessibilityRole="progressbar" accessibilityLabel={WORKING}>
+      {TYPING_DOTS.map(({ id, motion }) => (
+        <View key={id} style={motion}>
+          <View style={styles.typingDot} />
+        </View>
+      ))}
     </View>
   );
 }
@@ -370,7 +439,7 @@ function DesktopVoiceBubble({
   const receipt = useMemo((): PimiVoiceBubbleState["receipt"] => {
     if (!receiptEntry) return undefined;
     if (!receiptEntry.outcome)
-      return { transcript: receiptEntry.transcript, message: "Working…", state: "working" };
+      return { transcript: receiptEntry.transcript, message: WORKING, state: "working" };
     return {
       transcript: receiptEntry.transcript,
       message: receiptEntry.outcome.message,
@@ -542,20 +611,21 @@ const styles = StyleSheet.create((theme) => ({
     width: 340,
     maxWidth: "100%",
   },
-  receiptContent: { maxHeight: 180 },
-  receiptMessages: { gap: theme.spacing[2] },
+  receiptContent: { maxHeight: 196 },
+  // The scroll view clips, so the padding leaves room for bubble shadows and the pop overshoot.
+  receiptMessages: { gap: theme.spacing[2], padding: theme.spacing[2] },
   outgoing: { flexDirection: "row", alignItems: "flex-start", justifyContent: "flex-end" },
+  incoming: { flexDirection: "row", justifyContent: "flex-start", paddingRight: theme.spacing[8] },
   transcriptBubble: {
-    flexShrink: 1,
     backgroundColor: theme.colors.accent,
     borderRadius: theme.borderRadius.xl,
     borderBottomRightRadius: theme.borderRadius.sm,
     paddingHorizontal: theme.spacing[3],
     paddingVertical: theme.spacing[2],
+    boxShadow: BUBBLE_SHADOW,
   },
   transcript: { color: theme.colors.accentForeground, fontSize: theme.fontSize.base },
   receiptResult: {
-    alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[2],
@@ -566,6 +636,27 @@ const styles = StyleSheet.create((theme) => ({
     borderBottomLeftRadius: theme.borderRadius.sm,
     paddingHorizontal: theme.spacing[3],
     paddingVertical: theme.spacing[2],
+    boxShadow: BUBBLE_SHADOW,
+  },
+  reply: { color: theme.colors.foreground, fontSize: theme.fontSize.base, flexShrink: 1 },
+  typingBubble: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: theme.colors.surface0,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.borderRadius.xl,
+    borderBottomLeftRadius: theme.borderRadius.sm,
+    paddingHorizontal: theme.spacing[3],
+    paddingVertical: theme.spacing[3],
+    boxShadow: BUBBLE_SHADOW,
+  },
+  typingDot: {
+    width: 7,
+    height: 7,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.foregroundMuted,
   },
   status: {
     maxWidth: 230,
