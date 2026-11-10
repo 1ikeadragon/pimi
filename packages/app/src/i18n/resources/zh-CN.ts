@@ -1293,7 +1293,6 @@ export const zhCN: TranslationResources = {
       diagnostics: "运行诊断",
       shortcuts: "键盘快捷键",
       reportIssue: "报告问题",
-      discord: "Discord",
       github: "创建 GitHub Issue",
       whatsNew: "新功能",
       appName: "Pimi",

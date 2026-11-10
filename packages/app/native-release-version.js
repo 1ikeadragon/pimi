@@ -1,11 +1,5 @@
 const versionPattern = /^(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?$/;
 const stableIosBuildSlot = 999;
-const FDROID_ABI_VERSION_CODE_SUFFIXES = {
-  "armeabi-v7a": 1,
-  "arm64-v8a": 2,
-  x86: 3,
-  x86_64: 4,
-};
 
 function getNativeReleaseVersion(version) {
   const match = versionPattern.exec(version);
@@ -48,16 +42,6 @@ function getNativeReleaseVersion(version) {
   };
 }
 
-function getFdroidVersionCodes(version) {
-  const { androidVersionCode } = getNativeReleaseVersion(version);
-  return Object.entries(FDROID_ABI_VERSION_CODE_SUFFIXES).map(([abi, suffix]) => ({
-    abi,
-    versionCode: androidVersionCode * 10 + suffix,
-  }));
-}
-
 module.exports = {
-  FDROID_ABI_VERSION_CODE_SUFFIXES,
-  getFdroidVersionCodes,
   getNativeReleaseVersion,
 };

@@ -15,18 +15,12 @@ import {
   Smartphone,
 } from "lucide-react-native";
 import { PaseoLogo } from "@/components/icons/paseo-logo";
-import { CommunityLinks } from "@/components/community-links";
 import { MenuHeader } from "@/components/headers/menu-header";
 import { useOpenAddProject } from "@/hooks/use-open-add-project";
 import { useImportSession } from "@/hooks/use-import-session";
 import { useHostChooser } from "@/hosts/host-chooser";
 import { usePanelStore } from "@/stores/panel-store";
-import {
-  useIsCompactFormFactor,
-  HEADER_INNER_HEIGHT,
-  HEADER_INNER_HEIGHT_MOBILE,
-  HEADER_TOP_PADDING_MOBILE,
-} from "@/constants/layout";
+import { useIsCompactFormFactor } from "@/constants/layout";
 import { useLocalDaemonServerId } from "@/hooks/use-is-local-daemon";
 import { getDesktopHost } from "@/desktop/host";
 import { PairDeviceModal } from "@/desktop/components/pair-device-modal";
@@ -185,11 +179,6 @@ export function OpenProjectScreen() {
             ) : null}
           </View>
         </View>
-        {pimi ? null : (
-          <View style={styles.communityRow}>
-            <CommunityLinks />
-          </View>
-        )}
       </ScrollView>
       <PairDeviceModal
         serverId={localServerId ?? ""}
@@ -332,16 +321,5 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.base,
     lineHeight: 18,
-  },
-  communityRow: {
-    flexShrink: 0,
-    paddingBottom: {
-      xs: HEADER_INNER_HEIGHT_MOBILE + HEADER_TOP_PADDING_MOBILE + theme.spacing[2],
-      md: HEADER_INNER_HEIGHT + theme.spacing[2],
-    },
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 0,
   },
 }));

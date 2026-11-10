@@ -5,7 +5,6 @@ import { Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { QrCode, Link2, ClipboardPaste, Terminal } from "lucide-react-native";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
-import { isFdroidBuild } from "@/constants/build-profile";
 import { isNative } from "@/constants/platform";
 import { isElectronRuntime } from "@/desktop/host";
 import type { Theme } from "@/styles/theme";
@@ -119,7 +118,7 @@ export function AddHostMethodModal({
         </PressHighlight>
       ) : null}
 
-      {isNative && !isFdroidBuild ? (
+      {isNative ? (
         <PressHighlight
           style={styles.option}
           onPress={handleScan}

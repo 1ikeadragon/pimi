@@ -64,9 +64,8 @@ At the start of non-trivial work, list `docs/` and skim anything relevant to the
 | [docs/explorer-sidebar.md](docs/explorer-sidebar.md)                 | Explorer sidebar, side-pane, and compact workspace sheet host contracts, lifecycle, placement, routing preferences             |
 | [docs/ad-hoc-daemon-testing.md](docs/ad-hoc-daemon-testing.md)       | Isolated in-process daemon test harness                                                                                        |
 | [docs/browser-capture-harness.md](docs/browser-capture-harness.md)   | Real-Electron browser screenshot harness and compositor-surface gotcha                                                         |
-| [docs/android.md](docs/android.md)                                   | App variants, local/cloud builds, EAS workflows, version codes, F-Droid source builds and store metadata                       |
+| [docs/android.md](docs/android.md)                                   | App variants, local builds, version codes, Gradle memory                                                                       |
 | [docs/paseo-migration.md](docs/paseo-migration.md)                   | Replace Paseo with Pimi while preserving sessions, worktrees, and plugins                                                      |
-| [docs/docker.md](docs/docker.md)                                     | Running the daemon and bundled web UI in Docker, volumes, agent images, security                                               |
 | [docs/release.md](docs/release.md)                                   | Release playbook, draft releases, completion checklist                                                                         |
 | [docs/terminal-worker.md](docs/terminal-worker.md)                   | Terminal worker process model, socket/record/secret, protocol-bump rule and draining, the worker's file copy, Windows desktop  |
 | [docs/terminal-activity.md](docs/terminal-activity.md)               | Terminal activity indicators — source-agnostic tracker, agent hook reporting, adding a new hook provider                       |

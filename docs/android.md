@@ -50,13 +50,11 @@ Controlled by `APP_VARIANT` in `packages/app/app.config.js` (vanilla Expo, no cu
 | `development`  | Pimi Debug | `io.github.ikeadragon.pimi.debug` |
 | `pimi-android` | Pimi       | `io.github.ikeadragon.pimi`       |
 
-EAS profiles: `development`, `production`, and `production-apk` in `packages/app/eas.json`.
-
 `development` uses Android `debug`.
 
 ## Version codes
 
-`packages/app/native-release-version.js` is the single definition of native and F-Droid version-code math. Do not re-derive these numbers anywhere else — Android and iOS use these values to identify builds.
+`packages/app/native-release-version.js` is the single definition of native version-code math. Do not re-derive these numbers anywhere else — Android and iOS use these values to identify builds.
 
 The base version code comes from the package version:
 
@@ -64,7 +62,7 @@ The base version code comes from the package version:
 major * 1_000_000 + minor * 1_000 + patch
 ```
 
-Prerelease metadata is ignored, so `0.1.102-beta.1` and `0.1.102` both produce `1102`. The same value is used as the iOS `buildNumber` because `packages/app/eas.json` uses EAS's local app version source. Do not re-enable EAS remote version counters or Android `autoIncrement`; F-Droid and other source-based builders need the native build number to be visible in the repo.
+Prerelease metadata is ignored, so `0.1.102-beta.1` and `0.1.102` both produce `1102`. The same value is used as the iOS `buildNumber` so the native build number is visible in the repo. Do not add a remote version counter or Android `autoIncrement`.
 
 The formula reserves three digits each for minor and patch. If either reaches `1000`, change the formula before cutting that release.
 
@@ -232,32 +230,9 @@ Register this package before React Native's core package through its Expo config
 Android builds use the prebuilt `react-android` library, so patching Java under `node_modules` does
 not change the shipped scroll view. Keep this behavior in the app's compiled native module.
 
-## F-Droid / source-only Android builds
+## Gradle memory
 
-F-Droid builds should set `PASEO_FDROID_BUILD=1` when running Expo prebuild:
-
-```bash
-cd packages/app
-PASEO_FDROID_BUILD=1 APP_VARIANT=production npx expo prebuild --platform android --clean --non-interactive
-cd android
-PASEO_FDROID_BUILD=1 ./gradlew assembleRelease --no-daemon --max-workers=1 -Dorg.gradle.parallel=false
-```
-
-The flag must be present for both prebuild and Gradle because Gradle starts Metro for the release bundle. Keep the source build serial and daemon-free as shown above: compiling every Expo module can exhaust memory when Gradle workers run in parallel. The profile enables source-built Expo modules, excludes the proprietary camera, Firebase notification, and Expo development-client native modules, disables Gradle dependency metadata, and substitutes JavaScript stubs for camera and notifications. The resulting app supports direct and pasted-link pairing but not QR scanning or push notifications.
-
-For a single-ABI APK, pass React Native's architecture property to Gradle:
-
-```bash
-PASEO_FDROID_BUILD=1 ./gradlew assembleRelease \
-  -PreactNativeArchitectures=arm64-v8a \
-  --no-daemon --max-workers=1 -Dorg.gradle.parallel=false
-```
-
-Supported values are `armeabi-v7a`, `arm64-v8a`, `x86`, and `x86_64`. The F-Droid profile filters native libraries to that ABI and changes the APK version code to `baseVersionCode * 10 + abiSuffix`, where the suffixes are ordered `1` through `4` in that same sequence. F-Droid metadata should use four build blocks with `VercodeOperation` entries `10 * %c + 1` through `10 * %c + 4` and pass the matching `reactNativeArchitectures` value in each build command. Builds without a single architecture keep the base version code.
-
-Keep the excluded npm packages installed. Normal builds use them, while the F-Droid profile removes only their Android native modules and config plugins. Pimi always applies `expo-gradle-jvmargs` with `-Xmx4096m` and `-XX:MaxMetaspaceSize=1024m` so local Expo prebuilds have enough Gradle heap whether they use precompiled AARs or source-built Expo modules.
-
-The EAS `production-apk` profile uses the large Android resource class. Release builds compile the native ABIs and run Hermes bundling in the same Gradle invocation; the default worker can exhaust its remaining memory and kill Hermes with exit code 137 even when Gradle's own heap is correctly sized.
+Pimi applies `expo-gradle-jvmargs` with `-Xmx4096m` and `-XX:MaxMetaspaceSize=1024m` so local Expo prebuilds have enough Gradle heap. Release builds compile the native ABIs and run Hermes bundling in the same Gradle invocation. On a small machine, the default worker count can exhaust the remaining memory and kill Hermes with exit code 137 even when Gradle's own heap is sized correctly. If that happens, build with `--no-daemon --max-workers=1 -Dorg.gradle.parallel=false`.
 
 ### React version lockstep
 

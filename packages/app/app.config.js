@@ -2,56 +2,39 @@ const pkg = require("./package.json");
 const withAndroidAsyncStorageSize = require("./plugins/with-android-async-storage-size");
 const withAndroidOptionalCamera = require("./plugins/with-android-optional-camera");
 const withAndroidProfileable = require("./plugins/with-android-profileable");
-const withFdroidAutolinking = require("./plugins/with-fdroid-autolinking");
 const withPasteInput = require("./plugins/with-paste-input");
 const withPimiAndroidRelease = require("./plugins/with-pimi-android-release");
 const withAndroidScroll = require("./modules/paseo-scroll/app.plugin");
 const { getNativeReleaseVersion } = require("./native-release-version");
 const appVariant = process.env.APP_VARIANT ?? "production";
 const isPimiAndroid = appVariant === "pimi-android";
-const isFdroidBuild = process.env.PASEO_FDROID_BUILD === "1";
 const isWatchdogBuild = process.env.PASEO_WATCHDOG_BUILD === "1";
 const isProfileBuild = process.env.PASEO_PROFILE_BUILD === "1";
 
-const buildProfile = isFdroidBuild
-  ? {
-      androidPermissions: [
-        "RECORD_AUDIO",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
-      ],
-      cameraPlugins: [],
-      fdroidPlugins: [withFdroidAutolinking],
-      notificationPlugins: [],
-    }
-  : {
-      androidPermissions: [
-        "RECORD_AUDIO",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
-        "CAMERA",
-        "android.permission.CAMERA",
-      ],
-      cameraPlugins: [
-        [
-          "expo-camera",
-          {
-            cameraPermission:
-              "Allow $(PRODUCT_NAME) to access your camera to scan pairing QR codes.",
-          },
-        ],
-      ],
-      fdroidPlugins: [],
-      notificationPlugins: [
-        [
-          "expo-notifications",
-          {
-            icon: "./assets/images/notification-icon.png",
-            color: "#20744A",
-          },
-        ],
-      ],
-    };
+const androidPermissions = [
+  "RECORD_AUDIO",
+  "android.permission.RECORD_AUDIO",
+  "android.permission.MODIFY_AUDIO_SETTINGS",
+  "CAMERA",
+  "android.permission.CAMERA",
+];
+const cameraPlugins = [
+  [
+    "expo-camera",
+    {
+      cameraPermission: "Allow $(PRODUCT_NAME) to access your camera to scan pairing QR codes.",
+    },
+  ],
+];
+const notificationPlugins = [
+  [
+    "expo-notifications",
+    {
+      icon: "./assets/images/notification-icon.png",
+      color: "#20744A",
+    },
+  ],
+];
 
 const variants = {
   "pimi-android": { name: "Pimi", packageId: "io.github.ikeadragon.pimi" },
@@ -91,7 +74,7 @@ export default {
       softwareKeyboardLayoutMode: "resize",
       // Allow HTTP connections for local network hosts (required for release builds)
       usesCleartextTraffic: true,
-      permissions: buildProfile.androidPermissions,
+      permissions: androidPermissions,
       package: variant.packageId,
       ...(isPimiAndroid
         ? { allowBackup: false, blockedPermissions: ["android.permission.SYSTEM_ALERT_WINDOW"] }
@@ -111,7 +94,7 @@ export default {
       withPasteInput,
       withAndroidScroll,
       [withAndroidAsyncStorageSize, 64],
-      ...buildProfile.cameraPlugins,
+      ...cameraPlugins,
       withAndroidOptionalCamera,
       [
         "expo-splash-screen",
@@ -127,7 +110,7 @@ export default {
       ],
       ...(isPimiAndroid
         ? [["expo-dev-client", { addGeneratedScheme: false }], withPimiAndroidRelease]
-        : buildProfile.notificationPlugins),
+        : notificationPlugins),
       "expo-audio",
       [
         "expo-gradle-jvmargs",
@@ -148,7 +131,6 @@ export default {
           },
         },
       ],
-      ...buildProfile.fdroidPlugins,
       ...(isProfileBuild || isWatchdogBuild ? [withAndroidProfileable] : []),
     ],
     experiments: {
@@ -158,7 +140,6 @@ export default {
     },
     extra: {
       ...(isPimiAndroid ? { pimiAndroid: true } : {}),
-      fdroidBuild: isFdroidBuild,
       profileBuild: isProfileBuild,
       watchdogBuild: isWatchdogBuild,
       diagnosticRevision: process.env.PASEO_DIAGNOSTIC_REVISION,

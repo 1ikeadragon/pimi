@@ -21,7 +21,6 @@ import { buildOpenProjectRoute } from "@/utils/host-routes";
 import { PaseoLogo } from "@/components/icons/paseo-logo";
 import { isPimiAndroid } from "@/utils/pimi-mobile";
 import { openExternalUrl } from "@/utils/open-external-url";
-import { isFdroidBuild } from "@/constants/build-profile";
 import { isWeb, isNative } from "@/constants/platform";
 import { getDesktopHost, isElectronRuntime } from "@/desktop/host";
 
@@ -199,52 +198,51 @@ export function WelcomeScreen() {
   const handleOpenPasteLink = useAddHost({ method: "link", onAdded: finishOnboarding });
   const handleScanQr = useAddHost({ method: "scan", onAdded: finishOnboarding });
 
-  const actions: WelcomeAction[] =
-    isWeb || isFdroidBuild
-      ? [
-          {
-            key: "direct-connection",
-            label: t("pairing.connectionMethods.direct.title"),
-            testID: "welcome-direct-connection",
-            primary: true,
-            icon: Link2,
-            onPress: handleOpenDirect,
-          },
-          {
-            key: "paste-pairing-link",
-            label: t("pairing.connectionMethods.pasteLink.title"),
-            testID: "welcome-paste-pairing-link",
-            primary: false,
-            icon: ClipboardPaste,
-            onPress: handleOpenPasteLink,
-          },
-        ]
-      : [
-          {
-            key: "scan-qr",
-            label: t("pairing.connectionMethods.scanQr.title"),
-            testID: "welcome-scan-qr",
-            primary: true,
-            icon: QrCode,
-            onPress: handleScanQr,
-          },
-          {
-            key: "direct-connection",
-            label: t("pairing.connectionMethods.direct.title"),
-            testID: "welcome-direct-connection",
-            primary: false,
-            icon: Link2,
-            onPress: handleOpenDirect,
-          },
-          {
-            key: "paste-pairing-link",
-            label: t("pairing.connectionMethods.pasteLink.title"),
-            testID: "welcome-paste-pairing-link",
-            primary: false,
-            icon: ClipboardPaste,
-            onPress: handleOpenPasteLink,
-          },
-        ];
+  const actions: WelcomeAction[] = isWeb
+    ? [
+        {
+          key: "direct-connection",
+          label: t("pairing.connectionMethods.direct.title"),
+          testID: "welcome-direct-connection",
+          primary: true,
+          icon: Link2,
+          onPress: handleOpenDirect,
+        },
+        {
+          key: "paste-pairing-link",
+          label: t("pairing.connectionMethods.pasteLink.title"),
+          testID: "welcome-paste-pairing-link",
+          primary: false,
+          icon: ClipboardPaste,
+          onPress: handleOpenPasteLink,
+        },
+      ]
+    : [
+        {
+          key: "scan-qr",
+          label: t("pairing.connectionMethods.scanQr.title"),
+          testID: "welcome-scan-qr",
+          primary: true,
+          icon: QrCode,
+          onPress: handleScanQr,
+        },
+        {
+          key: "direct-connection",
+          label: t("pairing.connectionMethods.direct.title"),
+          testID: "welcome-direct-connection",
+          primary: false,
+          icon: Link2,
+          onPress: handleOpenDirect,
+        },
+        {
+          key: "paste-pairing-link",
+          label: t("pairing.connectionMethods.pasteLink.title"),
+          testID: "welcome-paste-pairing-link",
+          primary: false,
+          icon: ClipboardPaste,
+          onPress: handleOpenPasteLink,
+        },
+      ];
 
   if (isElectronRuntime()) {
     actions.splice(1, 0, {

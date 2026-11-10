@@ -1301,7 +1301,6 @@ export const ar: TranslationResources = {
       diagnostics: "تشغيل التشخيص",
       shortcuts: "اختصارات لوحة المفاتيح",
       reportIssue: "الإبلاغ عن مشكلة",
-      discord: "Discord",
       github: "إنشاء مشكلة على GitHub",
       whatsNew: "ما الجديد",
       appName: "Pimi",
