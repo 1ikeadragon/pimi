@@ -2,6 +2,14 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.15 - 2026-11-10
+
+- Switch a chat to another provider from the model picker and stay in the same chat. The new provider continues with the conversation, and the thread marks where the model changed.
+- Charts in chat show a crosshair and the values for the point under the pointer. Click a legend entry to hide a series.
+- Agents can show dashboards in chat with metrics, sparklines, sortable tables, and progress, and can draw scatter plots and stacked bars.
+- HTML visuals run in the chat when you scroll to them, follow the app theme, and fit their content.
+- Delegated agents show as one row with a status dot. Click the row to open the agent.
+
 ## 0.17.14 - 2026-11-10
 
 - Press Up and Down in the composer to walk through every message you sent in a chat, including multi-line ones.
