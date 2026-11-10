@@ -1,3 +1,5 @@
+import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
+import { withNetworkInitiator } from "../../../../network/activity.js";
 import { createHash } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
 import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
@@ -56,7 +58,9 @@ interface DownloadToFileOptions {
 
 async function downloadToFile(options: DownloadToFileOptions): Promise<void> {
   const { url, outputPath } = options;
-  const res = await fetch(url, { signal: options.signal });
+  const res = await withNetworkInitiator(NETWORK_PURPOSE.speech, () =>
+    fetch(url, { signal: options.signal }),
+  );
   if (!res.ok) {
     throw new Error(`Failed to download ${url}: ${res.status} ${res.statusText}`);
   }

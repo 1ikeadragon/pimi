@@ -2392,6 +2392,7 @@ export const fr: TranslationResources = {
       notifications: "Notifications",
       permissions: "Autorisations",
       diagnostics: "Diagnostic",
+      network: "Réseau",
       about: "À propos",
     },
     layout: en.settings.layout,

@@ -38,18 +38,24 @@
   color: var(--muted);
 }
 
-.spaces-board {
-  position: relative;
-  min-height: 400px;
-  padding: clamp(13px, 2vw, 22px);
-  border: 1px solid var(--line);
-  border-radius: var(--panel-radius);
-  background-color: color-mix(in srgb, var(--surface) 85%, transparent);
+/* The dot grid covers the whole view, edge to edge, behind the header and cards. It lives on a
+   fixed layer instead of body so theme-specific body backgrounds keep their own layer lists. */
+#spaces::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
   background-image: radial-gradient(
     color-mix(in srgb, var(--control-line) 70%, transparent) 1px,
     transparent 1px
   );
   background-size: 17px 17px;
+}
+
+.spaces-board {
+  position: relative;
+  min-height: 400px;
 }
 
 .spaces-empty {
@@ -183,10 +189,6 @@
   background: var(--surface);
 }
 
-.spaces-load-preview {
-  align-self: flex-start;
-  margin: 0 12px 6px;
-}
 .spaces-embed[data-embed-kind="youtube"] {
   min-height: 200px;
   aspect-ratio: 16 / 9;

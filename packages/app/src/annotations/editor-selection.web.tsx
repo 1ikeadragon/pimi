@@ -3,18 +3,31 @@ import { StateEffect, StateField, type EditorState, type Extension } from "@code
 import { Decoration, EditorView, type DecorationSet, type ViewUpdate } from "@codemirror/view";
 import { useToast } from "@/contexts/toast-context";
 import {
+  registerAnnotationRevealer,
   registerAnnotationSource,
   type AnnotationEditorOutcome,
   type AnnotationEditSession,
 } from "./edit-session";
-import { ANNOTATION_CHARACTER_LIMIT, type AnnotationCapture, type AnnotationSource } from "./model";
+import {
+  ANNOTATION_CHARACTER_LIMIT,
+  type AnnotationAttachment,
+  type AnnotationCapture,
+  type AnnotationSource,
+} from "./model";
 import {
   ANNOTATION_MARK_CLASS,
+  ANNOTATION_PULSE_MARK_CLASS,
   AnnotationHighlightStyle,
   AnnotationNoteEditor,
   AnnotationToolbar,
   type AnnotationEditorHandle,
 } from "./popover.web";
+import {
+  ANNOTATION_PULSE_TOTAL_MS,
+  ANNOTATION_SOURCE_TOP_OFFSET_PX,
+  annotationPulseKeyframes,
+  prefersReducedMotion,
+} from "./pulse.web";
 import {
   isPointNearRect,
   isSelectionRectVisible,
@@ -77,11 +90,31 @@ const highlightField = StateField.define<DecorationSet>({
   provide: (field) => EditorView.decorations.from(field),
 });
 
+const setPulse = StateEffect.define<DocRange | null>();
+const pulseMark = Decoration.mark({ class: ANNOTATION_PULSE_MARK_CLASS });
+const pulseField = StateField.define<DecorationSet>({
+  create: () => Decoration.none,
+  update(value, transaction) {
+    let next = value.map(transaction.changes);
+    for (const effect of transaction.effects) {
+      if (!effect.is(setPulse)) continue;
+      const range = effect.value;
+      next =
+        range && range.from < range.to
+          ? Decoration.set([pulseMark.range(range.from, range.to)])
+          : Decoration.none;
+    }
+    return next;
+  },
+  provide: (field) => EditorView.decorations.from(field),
+});
+
 const updateListeners = new WeakMap<EditorView, (update: ViewUpdate) => void>();
 
 /** Add to the editor's extensions; `EditorAnnotationSelection` drives it. */
 export const annotationEditorExtension: Extension = [
   highlightField,
+  pulseField,
   EditorView.updateListener.of((update) => updateListeners.get(update.view)?.(update)),
 ];
 
@@ -173,6 +206,55 @@ function locateQuote(
   const index = content.indexOf(text);
   const unique = index !== -1 && content.indexOf(text, index + 1) === -1;
   return unique ? { from: index, to: index + text.length } : null;
+}
+
+let currentPulse: (() => void) | null = null;
+
+/**
+ * Scrolls the editor until the annotated code sits near its top, puts the cursor at its start, and
+ * pulses it the way a chat quote pulses. Only one source pulses at a time. Returns false when the
+ * code is no longer in the file; the editor then shows the saved lines without a pulse.
+ */
+function revealEditorRange(
+  view: EditorView,
+  source: Extract<AnnotationSource, { kind: "file" }>,
+  quote: string,
+): boolean {
+  currentPulse?.();
+  const range = locateQuote(view.state, source, quote);
+  const offset = Math.min(ANNOTATION_SOURCE_TOP_OFFSET_PX, view.scrollDOM.clientHeight / 3);
+  if (!range) {
+    const { doc } = view.state;
+    const line = doc.line(Math.min(source.startLine, doc.lines));
+    view.dispatch({
+      selection: { anchor: line.from },
+      effects: EditorView.scrollIntoView(line.from, { y: "start", yMargin: offset }),
+    });
+    return false;
+  }
+  view.dispatch({
+    selection: { anchor: range.from },
+    effects: [
+      EditorView.scrollIntoView(range.from, { y: "start", yMargin: offset }),
+      setPulse.of(range),
+    ],
+  });
+  // The mark inherits the opacity, so the editor content keeps animating it across line redraws.
+  const animation = view.contentDOM.animate(annotationPulseKeyframes(prefersReducedMotion()), {
+    duration: ANNOTATION_PULSE_TOTAL_MS,
+    easing: "ease-in-out",
+  });
+  let stopped = false;
+  function dispose() {
+    if (stopped) return;
+    stopped = true;
+    if (currentPulse === dispose) currentPulse = null;
+    animation.cancel();
+    if (view.dom.isConnected) view.dispatch({ effects: setPulse.of(null) });
+  }
+  currentPulse = dispose;
+  animation.finished.then(dispose, () => {});
+  return true;
 }
 
 export function EditorAnnotationSelection({
@@ -287,6 +369,26 @@ export function EditorAnnotationSelection({
   );
 
   useEffect(() => registerAnnotationSource(openEditor), [openEditor]);
+
+  const revealSource = useCallback(
+    (attachment: AnnotationAttachment): boolean => {
+      const { source, quote } = attachment;
+      if (!view || !view.dom.isConnected || source.kind !== "file") return false;
+      const sameFile =
+        source.serverId === serverId && source.workspaceId === workspaceId && source.path === path;
+      // An editor in a hidden pane or tab has no size and cannot scroll.
+      if (!sameFile || view.scrollDOM.clientHeight === 0) return false;
+      if (!revealEditorRange(view, source, quote)) {
+        toast.show("The annotated code has changed. Showing its lines instead.", {
+          variant: "warning",
+        });
+      }
+      return true;
+    },
+    [view, serverId, workspaceId, path, toast],
+  );
+
+  useEffect(() => registerAnnotationRevealer(revealSource), [revealSource]);
 
   const annotate = useCallback(async () => {
     if (surface.kind !== "toolbar" || !target) return;

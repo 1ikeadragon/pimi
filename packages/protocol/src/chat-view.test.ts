@@ -61,6 +61,16 @@ const NODE_SAMPLES: Record<ViewNodeType, Record<string, unknown>> = {
   progress: { type: "progress", label: "Done", value: 3, max: 10, tone: "warning" },
   text: { type: "text", content: "Plain", tone: "negative", emphasis: "strong" },
   badge: { type: "badge", label: "Beta", tone: "neutral" },
+  flow: {
+    type: "flow",
+    direction: "down",
+    lanes: [{ id: "cli", label: "CLI" }],
+    nodes: [
+      { id: "a", label: "parse", lane: "cli", detail: "Reads argv", tone: "warning" },
+      { id: "b", label: "run" },
+    ],
+    edges: [{ from: "a", to: "b", label: "ok" }],
+  },
 };
 
 describe("pimi-chart blocks written for the previous schema", () => {

@@ -499,6 +499,15 @@ are treated as unset, with one warning naming the variable in `daemon.log`.
 Agent and terminal environments are unchanged. System proxy settings and SOCKS-only
 `ALL_PROXY` configurations are not supported.
 
+Settings > Network lists the daemon's and the desktop app's own outbound requests
+(`diagnostics.network.list`, gated on `features.networkActivity`). The daemon records them from
+Node's diagnostics channels, so every fetch, `node:http(s)` request, and `ws` handshake in the
+daemon process appears without call-site changes. Child processes do not: agent providers,
+plugin processes, and terminals. A request is labelled by the host it went to; when you add a
+call site that reaches arbitrary hosts, wrap it in `withNetworkInitiator`
+(`packages/server/src/server/network/activity.ts`) or its hosts show as unknown. Only method,
+host, port, and path are recorded, never query strings, headers, or bodies.
+
 ## Deployment models
 
 1. **Local daemon** (default): `pimi daemon start` on `127.0.0.1:6767`

@@ -4,7 +4,9 @@ import type { AgentMode, AgentModelDefinition, AgentUsage } from "../../../agent
 export function modelRef(id: string, variant?: string | null): ModelRef {
   const slash = id.indexOf("/");
   if (slash < 1 || slash === id.length - 1)
-    throw new Error("OpenCode model must be provider/model");
+    throw new Error(
+      `OpenCode model "${id}" must be <provider>/<model>, for example opencode/big-pickle. With create_agent, pass provider "opencode/<provider>/<model>", for example opencode/opencode/big-pickle; list_models lists the ids.`,
+    );
   return {
     providerID: id.slice(0, slash),
     id: id.slice(slash + 1),

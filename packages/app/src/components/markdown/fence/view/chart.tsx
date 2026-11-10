@@ -1,20 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  AccessibilityInfo,
-  Text,
-  View,
-  type GestureResponderEvent,
-  type LayoutChangeEvent,
-  type PointerEvent,
-} from "react-native";
+import { AccessibilityInfo, Text, View, type LayoutChangeEvent } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import type { ChartNode } from "@pimi/protocol/chat-view";
 import { Button } from "@/components/ui/button";
 import { PressHighlight } from "@/components/ui/press-highlight";
-import { isWeb } from "@/constants/platform";
 import { inlineUnistylesStyle } from "@/styles/unistyles-inline-style";
+import { SceneInteraction, useInspection } from "./interaction";
 import { SceneCanvas } from "./painter";
 import {
   CARTESIAN_HEIGHT,
@@ -118,170 +111,6 @@ function Readout({ target, unit }: { target: SceneTarget; unit?: string }) {
   );
 }
 
-function FocusTarget({
-  target,
-  index,
-  onSelect,
-  onInspect,
-}: {
-  target: SceneTarget;
-  index: number;
-  onSelect: (index: number) => void;
-  onInspect: (key: string, open: boolean) => void;
-}) {
-  const [focused, setFocused] = useState(false);
-  const select = useCallback(() => onSelect(index), [index, onSelect]);
-  const focus = useCallback(() => {
-    setFocused(true);
-    onSelect(index);
-    onInspect(target.key, true);
-  }, [index, onInspect, onSelect, target.key]);
-  const blur = useCallback(() => {
-    setFocused(false);
-    onInspect(target.key, false);
-  }, [onInspect, target.key]);
-  return (
-    <PressHighlight
-      accessibilityRole="button"
-      accessibilityLabel={target.description}
-      testID={`chat-visualization-point-${index}`}
-      onPress={select}
-      onFocus={focus}
-      onBlur={blur}
-      style={[
-        styles.focusTarget,
-        inlineUnistylesStyle({
-          left: target.box.x,
-          top: target.box.y,
-          width: target.box.width,
-          height: target.box.height,
-        }),
-        focused && styles.focused,
-      ]}
-    />
-  );
-}
-
-const POPOVER_GAP = 10;
-
-/**
- * The readout for the inspected target, placed from the scene's own geometry, beside the target
- * and inside the plot's width. A portal tooltip
- * measures its anchor after mounting, which loses the race when the target changes under a moving
- * pointer.
- */
-function ScenePopover({
-  target,
-  unit,
-  width,
-}: {
-  target: SceneTarget;
-  unit?: string;
-  width: number;
-}) {
-  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
-  const measure = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
-    const { width: measuredWidth, height } = nativeEvent.layout;
-    setSize({ width: measuredWidth, height });
-  }, []);
-  const position = useMemo(() => {
-    // Laid out off-screen first; placement needs the measured size.
-    if (!size) return { left: 0, top: 0, opacity: 0 };
-    // Beside the target, never over it: right of it while there is room, otherwise left.
-    const right = target.anchor.x + POPOVER_GAP;
-    const left = right + size.width <= width ? right : target.anchor.x - POPOVER_GAP - size.width;
-    return { left: Math.max(0, left), top: Math.max(0, target.anchor.y - size.height / 2) };
-  }, [size, target.anchor.x, target.anchor.y, width]);
-  return (
-    <View
-      testID="chat-visualization-tooltip"
-      accessible={false}
-      onLayout={measure}
-      style={[styles.popover, inlineUnistylesStyle(position)]}
-    >
-      <Readout target={target} unit={unit} />
-    </View>
-  );
-}
-
-/**
- * Selection for any scene. Pointer and touch are resolved against the scene's geometry by one
- * surface; each target also has its own element so a keyboard or screen reader can reach it.
- * Those elements take no pointer events, so the surface below them decides what was hit.
- */
-function SceneInteraction({
-  scene,
-  unit,
-  inspected,
-  onSelect,
-  onInspect,
-}: {
-  scene: ChartScene;
-  unit?: string;
-  inspected: number;
-  onSelect: (index: number) => void;
-  onInspect: (key: string | null, open: boolean) => void;
-}) {
-  const hover = useCallback(
-    ({ nativeEvent, currentTarget }: PointerEvent) => {
-      if (nativeEvent.pointerType === "touch") return;
-      // offsetX is relative to whichever child is under the pointer, so the position is taken
-      // against the surface that owns the scene's coordinates.
-      const surface = (currentTarget as unknown as Element).getBoundingClientRect();
-      const index = hitTestScene(
-        scene,
-        nativeEvent.clientX - surface.left,
-        nativeEvent.clientY - surface.top,
-      );
-      if (index === null) {
-        onInspect(null, false);
-        return;
-      }
-      onSelect(index);
-      onInspect(scene.targets[index].key, true);
-    },
-    [onInspect, onSelect, scene],
-  );
-  const leave = useCallback(() => onInspect(null, false), [onInspect]);
-  const press = useCallback(
-    ({ nativeEvent }: GestureResponderEvent) => {
-      const index = hitTestScene(scene, nativeEvent.locationX, nativeEvent.locationY);
-      if (index === null) return;
-      onSelect(index);
-      onInspect(scene.targets[index].key, true);
-    },
-    [onInspect, onSelect, scene],
-  );
-  const target = scene.targets[inspected];
-  return (
-    <View
-      style={styles.fill}
-      // Pointer events exist only on web; touch and native select by press below.
-      {...(isWeb ? { onPointerMove: hover, onPointerLeave: leave } : null)}
-    >
-      <PressHighlight
-        accessible={false}
-        focusable={false}
-        testID="chat-visualization-surface"
-        style={styles.fill}
-        onPress={press}
-      />
-      {scene.targets.map((item, index) => (
-        <FocusTarget
-          key={item.key}
-          target={item}
-          index={index}
-          onSelect={onSelect}
-          onInspect={onInspect}
-        />
-      ))}
-      {target ? (
-        <ScenePopover key={target.key} target={target} unit={unit} width={scene.width} />
-      ) : null}
-    </View>
-  );
-}
-
 function LegendToggle({
   entry,
   index,
@@ -376,7 +205,6 @@ export function ChartView({ chart }: { chart: ChartNode }) {
   const [width, setWidth] = useState(0);
   const [switchedOff, setSwitchedOff] = useState(NOTHING_HIDDEN);
   const [index, setIndex] = useState(0);
-  const [inspectedKey, setInspectedKey] = useState<string | null>(null);
   const transition = useChartTransition(chart);
 
   const keys = useMemo(() => legendKeys(chart), [chart]);
@@ -392,7 +220,17 @@ export function ChartView({ chart }: { chart: ChartNode }) {
 
   const last = scene.targets.length - 1;
   const selected = Math.min(index, last);
-  const inspected = scene.targets.findIndex(({ key }) => key === inspectedKey);
+  const { inspected, inspect } = useInspection(scene.targets);
+  const hitTest = useCallback((x: number, y: number) => hitTestScene(scene, x, y), [scene]);
+  const popoverUnit = isRadialChart(chart) ? undefined : chart.unit;
+  const renderPopover = useCallback(
+    (target: number) => <Readout target={scene.targets[target]} unit={popoverUnit} />,
+    [popoverUnit, scene.targets],
+  );
+  const bounds = useMemo(
+    () => ({ width: scene.width, height: scene.height }),
+    [scene.height, scene.width],
+  );
   const radial = isRadialChart(chart) ? chart : null;
   const isRadial = radial !== null;
   const axes = isRadialChart(chart) ? null : chart;
@@ -402,12 +240,6 @@ export function ChartView({ chart }: { chart: ChartNode }) {
     const measured = Math.floor(nativeEvent.layout.width);
     // A hidden retained panel reports zero; keep the last real width.
     if (measured > 0) setWidth(measured);
-  }, []);
-  const inspect = useCallback((key: string | null, open: boolean) => {
-    setInspectedKey((current) => {
-      if (open) return key;
-      return key === null || current === key ? null : current;
-    });
   }, []);
   const toggle = useCallback(
     (key: string) => {
@@ -429,18 +261,6 @@ export function ChartView({ chart }: { chart: ChartNode }) {
   );
   const previous = useCallback(() => setIndex(Math.max(0, selected - 1)), [selected]);
   const next = useCallback(() => setIndex(Math.min(last, selected + 1)), [last, selected]);
-
-  useEffect(() => {
-    if (!isWeb || inspected < 0) return;
-    const dismiss = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      event.stopPropagation();
-      setInspectedKey(null);
-    };
-    window.addEventListener("keydown", dismiss, true);
-    return () => window.removeEventListener("keydown", dismiss, true);
-  }, [inspected]);
 
   const legend = scene.legend.map((entry, position) => (
     <LegendToggle
@@ -472,11 +292,13 @@ export function ChartView({ chart }: { chart: ChartNode }) {
           <SceneCanvas scene={scene} selected={selected} />
           {width > 0 ? (
             <SceneInteraction
-              scene={scene}
-              unit={isRadial ? undefined : chart.unit}
+              targets={scene.targets}
+              bounds={bounds}
+              hitTest={hitTest}
               inspected={inspected}
               onSelect={setIndex}
               onInspect={inspect}
+              renderPopover={renderPopover}
             />
           ) : null}
         </View>
@@ -553,28 +375,9 @@ const styles = StyleSheet.create((theme) => ({
   slices: { flexGrow: 1, flexShrink: 1, flexBasis: 200, minWidth: 0 },
   // ltr: the plot is positioned in pixels from the left edge.
   plot: { direction: "ltr" },
-  fill: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
-  focusTarget: {
-    position: "absolute",
-    pointerEvents: "none",
-    borderWidth: 1,
-    borderColor: "transparent",
-  },
   focused: {
     borderColor: theme.colors.borderAccent,
     borderRadius: theme.borderRadius.sm,
-  },
-  popover: {
-    position: "absolute",
-    pointerEvents: "none",
-    paddingVertical: theme.spacing[1],
-    paddingHorizontal: theme.spacing[2],
-    borderRadius: theme.borderRadius.lg,
-    backgroundColor: theme.colors.popover,
-    borderWidth: theme.borderWidth[1],
-    borderColor: theme.colors.borderAccent,
-    ...theme.shadow.md,
-    zIndex: 2,
   },
   axisLabels: { direction: "ltr", height: AXIS_LABEL_HEIGHT },
   axisLabel: {

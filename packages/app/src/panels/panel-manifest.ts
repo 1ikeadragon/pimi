@@ -158,6 +158,14 @@ const manifests = {
     compactSheet: null,
     resourceKey: (target) => target.sha,
   },
+  html_visual: {
+    kind: "html_visual",
+    supportedHosts: ["main", "explorer"],
+    showCloseButton: true,
+    singleton: false,
+    compactSheet: { openAsTab: false },
+    resourceKey: (target) => target.visualId,
+  },
 } satisfies PanelManifestByKind;
 
 export function getPanelManifest<K extends WorkspaceTabTarget["kind"]>(kind: K): PanelManifest<K> {

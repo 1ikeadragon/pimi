@@ -58,6 +58,7 @@ import {
   type PimiVoiceBubbleState,
   PimiVoiceNavigation,
   type PimiDestination,
+  type PimiVoiceEffect,
   type PimiVoiceView,
 } from "@pimi/protocol/pimi-task";
 
@@ -336,7 +337,7 @@ function VoiceReceipt({
         <View key={receipt.state} style={styles.incoming} accessibilityLiveRegion="polite">
           <View style={INCOMING_POP}>
             {receipt.state === "working" ? (
-              <TypingBubble />
+              <TypingBubble status={receipt.message === WORKING ? "" : receipt.message} />
             ) : (
               <View style={styles.receiptResult}>
                 {receipt.state === "error" ? (
@@ -354,14 +355,23 @@ function VoiceReceipt({
   );
 }
 
-function TypingBubble() {
+function TypingBubble({ status }: { status: string }) {
   return (
-    <View style={styles.typingBubble} accessibilityRole="progressbar" accessibilityLabel={WORKING}>
+    <View
+      style={styles.typingBubble}
+      accessibilityRole="progressbar"
+      accessibilityLabel={status || WORKING}
+    >
       {TYPING_DOTS.map(({ id, motion }) => (
         <View key={id} style={motion}>
           <View style={styles.typingDot} />
         </View>
       ))}
+      {status ? (
+        <Text style={styles.typingStatus} numberOfLines={1} testID="ask-pimi-progress">
+          {status}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -430,6 +440,13 @@ function DesktopVoiceBubble({
     currentCommands.current = contributions;
   }, [contributions]);
   const unavailable = useCommandVoiceUnavailable(localServerId);
+  // COMPAT(askPimiAgent): added in v0.17.18, remove the gate after 2027-05-11. Older hosts
+  // keep the request they already accept.
+  const askAgent = useSessionStore(
+    (state) => state.sessions[localServerId]?.serverInfo?.features?.askPimiAgent === true,
+  );
+  const [progress, setProgress] = useState("");
+  useEffect(() => bridge.onStatus?.(setProgress), [bridge]);
   const commandRunning = useRef(false);
   const [receiptId, setReceiptId] = useState<string | null>(null);
   const receiptEntry = usePimiVoiceHistory((state) =>
@@ -438,14 +455,19 @@ function DesktopVoiceBubble({
   const dismissReceipt = useCallback(() => setReceiptId(null), []);
   const receipt = useMemo((): PimiVoiceBubbleState["receipt"] => {
     if (!receiptEntry) return undefined;
-    if (!receiptEntry.outcome)
-      return { transcript: receiptEntry.transcript, message: WORKING, state: "working" };
+    if (!receiptEntry.outcome) {
+      return {
+        transcript: receiptEntry.transcript,
+        message: progress ? `${progress}…` : WORKING,
+        state: "working",
+      };
+    }
     return {
       transcript: receiptEntry.transcript,
       message: receiptEntry.outcome.message,
       state: receiptEntry.outcome.failed ? "error" : "finished",
     };
-  }, [receiptEntry]);
+  }, [progress, receiptEntry]);
   const listener = usePimiVoiceListener({
     client: connected ? client : null,
     unavailable,
@@ -486,6 +508,7 @@ function DesktopVoiceBubble({
         .filter(({ id }) => wantsChat || !id.endsWith("tab:new-agent"))
         .slice(0, PIMI_VOICE_COMMAND_LIMIT);
       commandRunning.current = true;
+      setProgress("");
       void (async () => {
         try {
           const result = await bridge.runCommand({
@@ -493,28 +516,47 @@ function DesktopVoiceBubble({
             agentId,
             workspaceId: selection?.serverId === localServerId ? selection.workspaceId : undefined,
             commands: commands.map((entry) => commandTitle(entry).slice(0, 160)),
+            ...(askAgent && { agent: true as const }),
           });
-          if (result.destination) host.showPimiWorkspace?.(result.destination);
-          if (result.chat && wantsChat) {
-            host.dismissPimiWorkspace?.();
-            const { serverId, workspaceId, agentId: id } = result.chat;
-            navigateToWorkspace({ serverId, workspaceId, target: { kind: "agent", agentId: id } });
+          if (result.ignored) {
+            // Background speech asked for nothing. Keep it in history and show no receipt.
+            complete("No request heard");
+            setReceiptId((current) => (current === recordId ? null : current));
+            return;
           }
-          const target =
-            result.navigation?.action === "new-chat" && !wantsChat ? undefined : result.navigation;
-          const navigation =
-            target?.action === "registered-commands"
-              ? await runRegisteredCommands(target.indexes, commands, () => currentCommands.current)
-              : target && applyVoiceCommand(target, navigationContext);
-          complete(
-            [result.message, navigation].filter(Boolean).join(" · ") || "Done",
-            result.failed,
-          );
+          const applyEffect = async (effect: PimiVoiceEffect) => {
+            if (effect.destination) host.showPimiWorkspace?.(effect.destination);
+            if (effect.chat && wantsChat) {
+              host.dismissPimiWorkspace?.();
+              const { serverId, workspaceId, agentId: id } = effect.chat;
+              navigateToWorkspace({
+                serverId,
+                workspaceId,
+                target: { kind: "agent", agentId: id },
+              });
+            }
+            const target =
+              effect.navigation?.action === "new-chat" && !wantsChat
+                ? undefined
+                : effect.navigation;
+            if (target?.action === "registered-commands") {
+              return runRegisteredCommands(target.indexes, commands, () => currentCommands.current);
+            }
+            const opened = target && applyVoiceCommand(target, navigationContext);
+            // Ask Pimi's own reply already says what it opened.
+            return askAgent && result.message ? undefined : opened;
+          };
+          const notes = [];
+          for (const effect of [result, ...(result.effects ?? [])]) {
+            notes.push(await applyEffect(effect));
+          }
+          complete([result.message, ...notes].filter(Boolean).join(" · ") || "Done", result.failed);
         } catch (error) {
           const message = error instanceof Error ? error.message.split("Error: ").at(-1) : "";
           complete(message || "Couldn’t finish that command.", true);
         } finally {
           commandRunning.current = false;
+          setProgress("");
           listener.setMessage((current) => (current === BUSY ? "" : current));
         }
       })();
@@ -651,6 +693,12 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing[3],
     paddingVertical: theme.spacing[3],
     boxShadow: BUBBLE_SHADOW,
+  },
+  typingStatus: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+    marginLeft: theme.spacing[1],
+    flexShrink: 1,
   },
   typingDot: {
     width: 7,

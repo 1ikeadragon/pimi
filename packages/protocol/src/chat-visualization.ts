@@ -1,37 +1,153 @@
 import { PIMI_ARTIFACT_FENCE } from "./chat-artifact.js";
+import { HTML_LIMITS, PIMI_HTML_FENCE, PIMI_HTML_VARIABLES } from "./chat-html.js";
+import { PIMI_VEGA_FENCE, VEGA_LIMITS } from "./chat-vega.js";
 import {
-  CHART_POINT_LIMITS,
-  PIMI_CHART_FENCE,
   PIMI_VIEW_FENCE,
   VIEW_LIMITS,
   VIEW_NODE_FIELDS,
   VIEW_TONES,
+  type ChatView,
 } from "./chat-view.js";
 
-const CHART_EXAMPLE =
-  '{"type":"bar","id":"jobs","title":"Jobs by day","unit":"jobs","labels":["Mon","Tue","Wed"],"series":[{"name":"Passed","values":[4,7,5]},{"name":"Failed","values":[1,0,2]}],"stacked":true}';
+/**
+ * The examples are objects, not strings, so the view examples are checked against the catalog's
+ * types at build time. The chart example has no type here: the Vega-Lite types live in the app.
+ */
+export const VEGA_EXAMPLE = {
+  title: "Pro revenue passed Free in March 2026",
+  data: {
+    values: [
+      { month: "Jan", plan: "Free", usd: 410 },
+      { month: "Jan", plan: "Pro", usd: 280 },
+      { month: "Feb", plan: "Free", usd: 430 },
+      { month: "Feb", plan: "Pro", usd: 390 },
+      { month: "Mar", plan: "Free", usd: 440 },
+      { month: "Mar", plan: "Pro", usd: 520 },
+    ],
+  },
+  mark: "line",
+  encoding: {
+    x: { field: "month", type: "ordinal", sort: null, title: null },
+    y: { field: "usd", type: "quantitative", title: "Revenue (USD)" },
+    color: { field: "plan", type: "nominal", title: null },
+  },
+};
 
-const VIEW_EXAMPLE =
-  '{"id":"build","title":"Build health","root":{"type":"stack","children":[{"type":"grid","columns":2,"children":[{"type":"metric","label":"Pass rate","value":"98%","delta":"+2%","tone":"positive","trend":[91,94,96,98]},{"type":"metric","label":"Median time","value":"4m 12s"}]},{"type":"chart","kind":"line","title":"Failures by day","labels":["Mon","Tue","Wed"],"series":[{"name":"Failures","values":[3,1,2]}]}]}}';
+export const VIEW_EXAMPLE = {
+  id: "build",
+  title: "Build is healthy; two slow suites",
+  root: {
+    type: "stack",
+    children: [
+      {
+        type: "grid",
+        columns: 2,
+        children: [
+          {
+            type: "metric",
+            label: "Pass rate",
+            value: "98%",
+            delta: "+2%",
+            tone: "positive",
+            hint: "vs last week",
+            trend: [91, 94, 96, 98],
+          },
+          { type: "metric", label: "Median time", value: "4m 12s" },
+        ],
+      },
+      { type: "progress", label: "Coverage against the 80% goal", value: 71, max: 80 },
+      {
+        type: "table",
+        columns: [{ label: "Suite" }, { label: "Time (s)", align: "end" }],
+        rows: [
+          ["e2e", 148],
+          ["integration", 96],
+        ],
+      },
+    ],
+  },
+} satisfies ChatView;
 
-function fenced(fence: string, json: string): string[] {
-  return [`\`\`\`${fence}`, json, "```"];
+export const FLOW_EXAMPLE = {
+  id: "request-path",
+  title: "A request passes auth before the handler",
+  root: {
+    type: "flow",
+    lanes: [
+      { id: "edge", label: "Edge" },
+      { id: "app", label: "App" },
+    ],
+    nodes: [
+      { id: "router", label: "router.ts", lane: "edge" },
+      {
+        id: "auth",
+        label: "checkAuth",
+        lane: "edge",
+        detail: "Rejects expired tokens with 401",
+      },
+      { id: "handler", label: "handleRequest", lane: "app" },
+      { id: "login", label: "Login page", lane: "edge", tone: "warning" },
+    ],
+    edges: [
+      { from: "router", to: "auth" },
+      { from: "auth", to: "handler", label: "valid" },
+      { from: "auth", to: "login", label: "expired" },
+    ],
+  },
+} satisfies ChatView;
+
+export const HTML_EXAMPLE = [
+  "<title>Tip calculator</title>",
+  "<style>input{background:var(--pimi-surface);color:var(--pimi-fg);border:1px solid var(--pimi-border);border-radius:6px;padding:4px 8px}</style>",
+  '<label>Bill <input id="bill" type="number" value="40"></label>',
+  '<p id="tip"></p>',
+  "<script>",
+  'const bill = document.getElementById("bill"), tip = document.getElementById("tip");',
+  'const draw = () => { tip.textContent = "20% tip: $" + (bill.value * 0.2).toFixed(2); };',
+  'bill.addEventListener("input", draw); draw();',
+  "</script>",
+].join("\n");
+
+function fenced(fence: string, body: string): string[] {
+  return [`\`\`\`${fence}`, body, "```"];
 }
 
-/** Written from the catalog's own constants, so the prompt and the parser cannot disagree. */
+/** Agents are not taught the chart node: a chart is a pimi-vega block. Stored chats still draw it. */
+const TAUGHT_NODE_FIELDS = Object.entries(VIEW_NODE_FIELDS).filter(([type]) => type !== "chart");
+
+/** Written from the parsers' own constants, so the prompt and the parsers cannot disagree. */
 export const PIMI_VISUALIZATION_INSTRUCTIONS = [
-  `When numbers compare, trend, or break down, show them in a ${PIMI_CHART_FENCE} or ${PIMI_VIEW_FENCE} block, not a Markdown table of numbers and not a Mermaid xychart or pie. Say one or two numbers in a sentence instead. Use Mermaid only for flows, sequences, and structure.`,
-  `Pick the form by the question: bar to compare or rank (sorted by value), line for change over time, donut for up to five parts of a whole, scatter for a relationship, ${PIMI_VIEW_FENCE} for several metrics or a sortable table. For a dashboard, a diagram, or a choice between forms, read the pimi-visualize skill first.`,
-  "Put only JSON inside the block. Use real values or label the chart as an example. Make the title state the finding, and give the unit and time range.",
-  `${PIMI_CHART_FENCE} is one chart. Its type is the chart kind: ${Object.keys(CHART_POINT_LIMITS).join(", ")}.`,
-  ...fenced(PIMI_CHART_FENCE, CHART_EXAMPLE),
-  `Give each series one number per label. Use up to ${VIEW_LIMITS.series} distinctly named series and distinct labels: up to ${CHART_POINT_LIMITS.bar} for bar, pie and donut, ${CHART_POINT_LIMITS.line} for line and area. For pie and donut, use one series with nonnegative values and a positive total. For scatter, omit labels and give each series points as [x, y] pairs: up to ${CHART_POINT_LIMITS.scatter} per series, ${VIEW_LIMITS.scatterPoints} in total.`,
-  `${PIMI_VIEW_FENCE} combines nodes under one root, for example headline metrics above a chart or a table.`,
-  ...fenced(PIMI_VIEW_FENCE, VIEW_EXAMPLE),
+  "Pimi chat draws four kinds of visual block. When a reply holds three or more numbers that compare, trend, break down into shares, or relate to each other, draw them, even when the user did not ask for a chart. A Markdown table does not replace the chart. Choose the block by what is shown, and use the first that fits:",
+  `1. A chart of numbers (trend, comparison, ranking, distribution, share, or relationship): a ${PIMI_VEGA_FENCE} block.`,
+  `2. Headline metrics, a table of records, progress against a limit, or a flow, pipeline, architecture, call path, or dependency graph: a ${PIMI_VIEW_FENCE} block.`,
+  `3. Something the user operates, such as a calculator, simulator, or explorer with sliders, inputs, or toggles: a ${PIMI_HTML_FENCE} block.`,
+  "4. A sequence diagram, state machine, or gantt chart: a mermaid block. Use Mermaid for nothing else: no flowchart, graph, pie, or xychart.",
+  "Write the block straight into the reply as a fenced code block with that name, holding only what the block takes: no comments, and no code fence inside it. Say one or two numbers in a sentence instead of drawing them.",
+  'Use real values, or put "sample" in the title. Make the title state the finding, with its unit and time range. For a dashboard, or when two forms could fit, read the pimi-visualize skill first.',
+  "",
+  `${PIMI_VEGA_FENCE} holds one Vega-Lite v6 spec as JSON:`,
+  ...fenced(PIMI_VEGA_FENCE, JSON.stringify(VEGA_EXAMPLE)),
+  `- Put the rows inline in data.values, one object per row: up to ${VEGA_LIMITS.rows} rows and ${VEGA_LIMITS.sourceLength} characters for the block. Aggregate or sample larger data first.`,
+  '- Give raw rows and let the spec do the math with "aggregate", "bin", "stack", or "transform". For a distribution, use mark "bar" with x {"bin": true} and y {"aggregate": "count"}.',
+  '- To compare several measures per item, write one row per item and measure, then use "color" with "xOffset" for grouped bars.',
+  '- Set "type" on every field. Add "sort": null to keep the row order, such as months.',
+  '- Leave out "$schema", "width", "config", colors, and fonts. Pimi fits the width and applies its theme, and tooltips are already on.',
+  '- The chart cannot load anything. A "url" or "href" property anywhere in the spec makes the block fail.',
+  "",
+  `${PIMI_VIEW_FENCE} holds JSON with a title and one root node. Nodes nest, for example metrics above a table:`,
+  ...fenced(PIMI_VIEW_FENCE, JSON.stringify(VIEW_EXAMPLE)),
+  "A flow node lays its boxes out for you. Give each box a short id and the name the code uses as its label, put the explanation in detail, and group boxes into lanes by layer or owner:",
+  ...fenced(PIMI_VIEW_FENCE, JSON.stringify(FLOW_EXAMPLE)),
   'Each node is an object with a "type" and these fields:',
-  ...Object.entries(VIEW_NODE_FIELDS).map(([type, fields]) => `- ${type}: ${fields}`),
-  `A tone is one of ${VIEW_TONES.join(", ")}. Every text field is plain text. There are no fields for Markdown, HTML, links, images, or colors, and an unknown field makes the block invalid.`,
-  `Limits: ${VIEW_LIMITS.nodes} nodes, ${VIEW_LIMITS.depth} levels, ${VIEW_LIMITS.children} children per node, ${VIEW_LIMITS.tableColumns} table columns, ${VIEW_LIMITS.tableRows} table rows, ${VIEW_LIMITS.trendPoints} trend points, ${VIEW_LIMITS.title} characters per title, ${VIEW_LIMITS.label} per label, ${VIEW_LIMITS.cell} per table cell, ${VIEW_LIMITS.text} per text, ${VIEW_LIMITS.sourceLength} for the block.`,
-  "To update a chart or view within the same reply, send another complete block with the same id. In a new reply, send a new complete block.",
-  `For a custom visual that needs its own controls or layout, use the pimi-artifacts skill. Save self-contained HTML in the workspace and show it with a ${PIMI_ARTIFACT_FENCE} JSON block containing title and workspace-relative path. It runs inline in the chat.`,
+  ...TAUGHT_NODE_FIELDS.map(([type, fields]) => `- ${type}: ${fields}`),
+  `A tone is one of ${VIEW_TONES.join(", ")}. Every text field is plain text: no Markdown, HTML, links, images, or colors.`,
+  `Limits: ${VIEW_LIMITS.nodes} nodes, ${VIEW_LIMITS.depth} levels, ${VIEW_LIMITS.children} children per node, ${VIEW_LIMITS.tableColumns} table columns, ${VIEW_LIMITS.tableRows} table rows, ${VIEW_LIMITS.trendPoints} trend points, ${VIEW_LIMITS.title} characters per title, ${VIEW_LIMITS.label} per label, ${VIEW_LIMITS.value} per metric value, ${VIEW_LIMITS.cell} per table cell, ${VIEW_LIMITS.text} per text, ${VIEW_LIMITS.sourceLength} for the block. A flow holds up to ${VIEW_LIMITS.flowNodes} boxes, ${VIEW_LIMITS.flowEdges} edges, and ${VIEW_LIMITS.flowLanes} lanes, with ${VIEW_LIMITS.flowLabel} characters per box label, ${VIEW_LIMITS.flowEdgeLabel} per edge label, and ${VIEW_LIMITS.flowDetail} per detail. Every edge must name two different boxes by id.`,
+  `To update a ${PIMI_VIEW_FENCE} block within the same reply, send another complete block with the same id.`,
+  "",
+  `${PIMI_HTML_FENCE} holds one HTML document or fragment, up to ${HTML_LIMITS.sourceLength} characters. Pimi runs it inline and shows its <title> above it:`,
+  ...fenced(PIMI_HTML_FENCE, HTML_EXAMPLE),
+  "- It runs in a sandbox with no network, storage, or navigation. Remote scripts, styles, fonts, images, and fetch all fail, so write the CSS, JavaScript, and data inline.",
+  `- Pimi sets the page background, text color, and font. Style everything else with these custom properties so it follows light and dark themes, and never hardcode a page or text color: ${PIMI_HTML_VARIABLES.map((name) => `--pimi-${name}`).join(", ")}.`,
+  "- Start every control at a realistic value, so the first render already shows an answer. Lay it out to fit 360 px wide, and let the page take its natural height: no 100vh.",
+  `- For a visual larger than the limit, or one the user wants kept as a file, use the pimi-artifacts skill: save the HTML in the workspace and show it with a ${PIMI_ARTIFACT_FENCE} block.`,
 ].join("\n");

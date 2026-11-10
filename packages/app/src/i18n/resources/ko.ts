@@ -2351,6 +2351,7 @@ export const ko: TranslationResources = {
       notifications: "알림",
       permissions: "권한",
       diagnostics: "진단",
+      network: "네트워크",
       about: "정보",
     },
     layout: en.settings.layout,

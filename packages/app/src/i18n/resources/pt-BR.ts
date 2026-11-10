@@ -2374,6 +2374,7 @@ export const ptBR: TranslationResources = {
       notifications: "Notificações",
       permissions: "Permissões",
       diagnostics: "Diagnósticos",
+      network: "Rede",
       about: "Sobre",
     },
     layout: en.settings.layout,

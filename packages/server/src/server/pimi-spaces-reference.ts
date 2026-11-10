@@ -1,3 +1,5 @@
+import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
+import { withNetworkInitiator } from "./network/activity.js";
 import { isPimiArxivEmbed } from "@pimi/protocol/pimi-task";
 import { SpaceInputError, type SpaceCard } from "./pimi-spaces.js";
 
@@ -31,7 +33,9 @@ async function fetchTitles(ids: string[]): Promise<Map<string, string>> {
   const url = new URL("https://export.arxiv.org/api/query");
   url.searchParams.set("id_list", ids.join(","));
   url.searchParams.set("max_results", String(ids.length));
-  const response = await fetch(url, { redirect: "error", signal: AbortSignal.timeout(4000) });
+  const response = await withNetworkInitiator(NETWORK_PURPOSE.spaces, () =>
+    fetch(url, { redirect: "error", signal: AbortSignal.timeout(4000) }),
+  );
   if (!response.ok || !response.body) throw new Error("arXiv metadata is unavailable.");
   const reader = response.body.getReader();
   const decoder = new TextDecoder();

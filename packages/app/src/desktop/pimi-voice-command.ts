@@ -39,7 +39,9 @@ export function parsePimiVoiceCommand(transcript: string): PimiVoiceCommand | nu
   );
   if (brief) return { action: "new-task", brief: brief[1] };
 
-  const view = instruction.match(/^(?:open|show(?: me)?|go to|switch to) ([a-z]+)$/i);
+  const view = instruction.match(
+    /^(?:open|show(?: me)?|go to|switch to) (?:(?:my|the) )?([a-z]+)(?: (?:view|screen|page|tab))?$/i,
+  );
   const parsed = PimiVoiceView.safeParse(view?.[1].toLowerCase());
   return parsed.success ? { action: "show", view: parsed.data } : null;
 }

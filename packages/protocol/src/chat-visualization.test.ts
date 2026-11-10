@@ -17,7 +17,11 @@ function examples(): { language: string; source: string }[] {
 
 it("teaches one valid example of each block", () => {
   const blocks = examples();
-  expect(blocks.map(({ language }) => language)).toEqual([PIMI_CHART_FENCE, PIMI_VIEW_FENCE]);
+  expect(blocks.map(({ language }) => language)).toEqual([
+    PIMI_CHART_FENCE,
+    PIMI_VIEW_FENCE,
+    PIMI_VIEW_FENCE,
+  ]);
   for (const { language, source } of blocks) {
     const fence = viewFenceOf(language);
     expect(fence).not.toBeNull();
@@ -41,5 +45,7 @@ it("keeps the standing rules", () => {
   );
   expect(PIMI_VISUALIZATION_INSTRUCTIONS).toContain("another complete block with the same id");
   expect(PIMI_VISUALIZATION_INSTRUCTIONS).toContain("pimi-artifacts skill");
-  expect(PIMI_VISUALIZATION_INSTRUCTIONS).toContain("Mermaid only for flows");
+  expect(PIMI_VISUALIZATION_INSTRUCTIONS).toContain(
+    "Use Mermaid only for sequence diagrams, state machines, and gantt charts.",
+  );
 });

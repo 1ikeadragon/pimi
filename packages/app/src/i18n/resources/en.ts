@@ -2375,6 +2375,7 @@ export const en = {
       notifications: "Notifications",
       permissions: "Permissions",
       diagnostics: "Diagnostics",
+      network: "Network",
       about: "About",
     },
     layout: {

@@ -185,7 +185,10 @@ interface PimiRuntimeResult {
   observeWorkspaces(): Promise<void>;
   getLinkedLabels(): Promise<PimiLinkedLabels>;
   getRecap(period: PimiRecapPeriod): PimiRecap;
-  runVoiceCommand(input: PimiVoiceCommandInput): Promise<PimiVoiceResult>;
+  runVoiceCommand(
+    input: PimiVoiceCommandInput,
+    onStatus: (status: string) => void,
+  ): Promise<PimiVoiceResult>;
   subscribeToLabels(listener: () => void): () => void;
   resolveReportLink(request: PimiReportLinkRequest): Promise<PimiReportLinkTarget>;
   prepareChatReview(

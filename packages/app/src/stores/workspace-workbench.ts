@@ -53,7 +53,12 @@ export function isWorkbenchChatTarget(target: WorkspaceTab["target"]) {
 }
 
 export function isWorkbenchDocument(target: WorkspaceTab["target"]) {
-  return target.kind === "file" || target.kind === "working_diff" || target.kind === "commit_diff";
+  return (
+    target.kind === "file" ||
+    target.kind === "working_diff" ||
+    target.kind === "commit_diff" ||
+    target.kind === "html_visual"
+  );
 }
 
 function isChat(tab: WorkspaceTab) {

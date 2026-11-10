@@ -2364,6 +2364,7 @@ export const ja: TranslationResources = {
       notifications: "通知",
       permissions: "権限",
       diagnostics: "診断",
+      network: "ネットワーク",
       about: "アプリ情報",
     },
     layout: en.settings.layout,

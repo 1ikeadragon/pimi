@@ -3,6 +3,7 @@ import { Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import type { ViewNode } from "@pimi/protocol/chat-view";
 import { ChartView } from "./chart";
+import { FlowView } from "./flow";
 import { BadgeView, MetricView, ProgressView, TextView } from "./nodes";
 import { TableView } from "./table";
 
@@ -80,6 +81,8 @@ export function ViewNodeView({ node }: { node: ViewNode }): ReactElement {
       return <TextView node={node} />;
     case "badge":
       return <BadgeView node={node} />;
+    case "flow":
+      return <FlowView node={node} />;
   }
 }
 

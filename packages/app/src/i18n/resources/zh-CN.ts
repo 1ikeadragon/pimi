@@ -2314,6 +2314,7 @@ export const zhCN: TranslationResources = {
       notifications: "通知",
       permissions: "权限",
       diagnostics: "诊断",
+      network: "网络",
       about: "关于",
     },
     layout: en.settings.layout,

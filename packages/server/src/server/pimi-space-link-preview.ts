@@ -1,3 +1,5 @@
+import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
+import { withNetworkInitiator } from "./network/activity.js";
 import type { LookupAddress } from "node:dns";
 import { lookup } from "node:dns/promises";
 import { get as httpGet, type IncomingMessage } from "node:http";
@@ -120,7 +122,10 @@ async function readPage(
 ) {
   let url = start;
   for (let redirects = 0; redirects <= 3; redirects += 1) {
-    const response = await requestPage(url, accept, signal);
+    const target = url;
+    const response = await withNetworkInitiator(NETWORK_PURPOSE.spaces, () =>
+      requestPage(target, accept, signal),
+    );
     const status = response.statusCode ?? 0;
     if ([301, 302, 303, 307, 308].includes(status) && response.headers.location) {
       response.destroy();

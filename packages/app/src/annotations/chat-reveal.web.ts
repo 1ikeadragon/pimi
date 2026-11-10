@@ -4,16 +4,15 @@ import type { ChatFindProps } from "@/agent-stream/chat-find/types";
 import { PROMPT_JUMP_TOP_INSET_PX } from "@/agent-stream/prompt-jump-settle";
 import { messageContents } from "./chat-highlight.web";
 import type { AnnotationTextSelector } from "./model";
-import { ANNOTATION_PULSE_HIGHLIGHT_NAME, ANNOTATION_PULSE_OPACITY } from "./popover.web";
+import { ANNOTATION_PULSE_HIGHLIGHT_NAME } from "./popover.web";
+import {
+  ANNOTATION_PULSE_TOTAL_MS,
+  ANNOTATION_SOURCE_TOP_OFFSET_PX,
+  annotationPulseKeyframes,
+  prefersReducedMotion,
+} from "./pulse.web";
 import { resolveSelectorRange } from "./text-selector.web";
 
-const PULSE_DURATION_MS = 650;
-const HOLD_MS = 1575;
-const FADE_MS = 450;
-const TOTAL_MS = 1.5 * PULSE_DURATION_MS + HOLD_MS + FADE_MS;
-const PEAK_OPACITY = 0.45;
-/** Where the quote lands below the top of the chat, at most a third of the way down. */
-const SOURCE_TOP_OFFSET_PX = 120;
 /** Rows of a long message mount over a few frames before the quote can be found in them. */
 const QUOTE_SEARCH_FRAMES = 10;
 const SETTLED_FRAMES = 3;
@@ -48,26 +47,6 @@ function ancestorElement(range: Range): Element | null {
   return node instanceof Element ? node : node.parentElement;
 }
 
-function pulseKeyframes(reducedMotion: boolean): Keyframe[] {
-  const at = (milliseconds: number) => milliseconds / TOTAL_MS;
-  const holdEnd = at(TOTAL_MS - FADE_MS);
-  if (reducedMotion) {
-    return [
-      { offset: 0, [ANNOTATION_PULSE_OPACITY]: PEAK_OPACITY },
-      { offset: holdEnd, [ANNOTATION_PULSE_OPACITY]: PEAK_OPACITY },
-      { offset: 1, [ANNOTATION_PULSE_OPACITY]: 0 },
-    ];
-  }
-  return [
-    { offset: 0, [ANNOTATION_PULSE_OPACITY]: 0 },
-    { offset: at(PULSE_DURATION_MS * 0.5), [ANNOTATION_PULSE_OPACITY]: PEAK_OPACITY },
-    { offset: at(PULSE_DURATION_MS), [ANNOTATION_PULSE_OPACITY]: 0 },
-    { offset: at(PULSE_DURATION_MS * 1.5), [ANNOTATION_PULSE_OPACITY]: PEAK_OPACITY },
-    { offset: holdEnd, [ANNOTATION_PULSE_OPACITY]: PEAK_OPACITY },
-    { offset: 1, [ANNOTATION_PULSE_OPACITY]: 0 },
-  ];
-}
-
 /**
  * Scrolls the chat until the quote sits near its top, then pulses the quote and fades it out.
  * Only one quote pulses at a time. The user scrolling before the chat lands cancels quietly;
@@ -85,7 +64,7 @@ export function revealChatQuote(input: {
   const { root, messageId, selector, getNavigation, onNotice, onDone } = input;
   current?.();
   const registry = typeof Highlight !== "undefined" && "highlights" in CSS ? CSS.highlights : null;
-  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const reducedMotion = prefersReducedMotion();
   const scrollAbort = new AbortController();
   const deadline = performance.now() + LOCATE_TIMEOUT_MS;
   let frame = 0;
@@ -186,7 +165,10 @@ export function revealChatQuote(input: {
           const quote = resolve();
           if (!quote) return null;
           const scroller = scrollParent(rows[0]!);
-          const offset = Math.min(SOURCE_TOP_OFFSET_PX, (scroller?.clientHeight ?? 0) / 3);
+          const offset = Math.min(
+            ANNOTATION_SOURCE_TOP_OFFSET_PX,
+            (scroller?.clientHeight ?? 0) / 3,
+          );
           return quote.getBoundingClientRect().top - offset + PROMPT_JUMP_TOP_INSET_PX;
         },
       });
@@ -209,8 +191,8 @@ export function revealChatQuote(input: {
     if (animated === element) return;
     animation?.cancel();
     animated = element;
-    animation = element.animate(pulseKeyframes(reducedMotion), {
-      duration: TOTAL_MS,
+    animation = element.animate(annotationPulseKeyframes(reducedMotion), {
+      duration: ANNOTATION_PULSE_TOTAL_MS,
       easing: "ease-in-out",
     });
     animation.currentTime = performance.now() - pulseStartedAt;

@@ -112,6 +112,7 @@ import type {
   DaemonGetPairingOfferResponse,
   DaemonConfigReloadResponse,
   DiagnosticsResponse,
+  NetworkActivitySnapshot,
   AgentRewindResponseMessage,
   ListTerminalsResponse,
   CreateTerminalResponse,
@@ -5879,6 +5880,22 @@ export class DaemonClient {
       responseType: "daemon.get_pairing_offer.response",
       timeout: options?.timeout,
     });
+  }
+
+  /** Recent outbound requests the daemon process made. Requires `features.networkActivity`. */
+  async listNetworkActivity(options?: {
+    includeLocal?: boolean;
+    limit?: number;
+  }): Promise<NetworkActivitySnapshot> {
+    const payload =
+      await this.sendNamespacedCorrelatedSessionRequest<"diagnostics.network.list.response">({
+        message: {
+          type: "diagnostics.network.list.request",
+          includeLocal: options?.includeLocal,
+          limit: options?.limit,
+        },
+      });
+    return payload.snapshot;
   }
 
   async collectDiagnostics(requestId?: string): Promise<DiagnosticsPayload> {

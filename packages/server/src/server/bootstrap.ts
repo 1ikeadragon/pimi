@@ -1,6 +1,11 @@
 import { createRestartRecovery } from "./agent/restart-recovery/index.js";
 import { sendPromptToAgent } from "./agent/agent-prompt.js";
 import { generateChatTitle } from "./agent/chat-title-generator.js";
+import {
+  AskPimiToolSessions,
+  createAskPimiMcpHandler,
+  PIMI_ASK_MCP_ROUTE,
+} from "./agent/pimi-ask-mcp.js";
 import { createPimiVoiceCommandHandler } from "./agent/pimi-voice-command.js";
 import { createIdleRuntimeCleanup } from "./agent/idle-runtime-cleanup/index.js";
 import {
@@ -1139,6 +1144,18 @@ export async function createPaseoDaemon(
       resolvePaseoToolPolicy(provider, daemonConfigStore.get().providers),
     logger,
   });
+  const askPimiSessions = new AskPimiToolSessions();
+  const handleAskPimiTools = createAskPimiMcpHandler(askPimiSessions, () =>
+    logger.warn("Ask Pimi tool request failed"),
+  );
+  app.all(PIMI_ASK_MCP_ROUTE, (req, res, next) => {
+    // Only a harness started on this machine by an Ask Pimi turn calls this route.
+    if (!isLoopbackRemoteAddress(req.socket.remoteAddress) || req.headers.origin !== undefined) {
+      res.status(403).json({ error: "Ask Pimi tools are available only on this host." });
+      return;
+    }
+    void handleAskPimiTools(req, res, next);
+  });
   app.post(
     PIMI_VOICE_COMMAND_ROUTE,
     requireLocalPimi("Ask Pimi"),
@@ -1146,7 +1163,7 @@ export async function createPaseoDaemon(
       manager: agentManager,
       providerSnapshotManager,
       readConfig: () => daemonConfigStore.get(),
-      createBackgroundCatalog: (provider) => {
+      createToolCatalog: (provider) => {
         const { mcp, providers } = daemonConfigStore.get();
         return createPaseoToolCatalog({
           ...createAgentToolHostDependencies({
@@ -1158,6 +1175,12 @@ export async function createPaseoDaemon(
           }),
           voiceCommand: true,
         });
+      },
+      spaces: pimiSpaces,
+      sessions: askPimiSessions,
+      toolsUrl: () => {
+        const agentTools = createAgentMcpBaseUrl(boundListenTarget);
+        return agentTools ? new URL(PIMI_ASK_MCP_ROUTE, agentTools).toString() : null;
       },
       logger,
     }),

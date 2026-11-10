@@ -1093,7 +1093,8 @@ export async function startPimi({
     prepareChatReview,
     getLinkedLabels,
     getRecap: tasks.recap,
-    runVoiceCommand: (input) => runVoiceCommand(input, { paseo, tasks, getInventory }),
+    runVoiceCommand: (input, onStatus) =>
+      runVoiceCommand(input, { paseo, tasks, getInventory }, onStatus),
     subscribeToLabels(listener) {
       labelListeners.add(listener);
       return () => labelListeners.delete(listener);

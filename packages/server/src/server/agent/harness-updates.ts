@@ -1,3 +1,5 @@
+import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
+import { withNetworkInitiator } from "../network/activity.js";
 import type {
   ProviderHarnessUpdate,
   ProviderHarnessUpdateChannel,
@@ -120,11 +122,13 @@ async function installationChannel(
 }
 
 async function fetchReleaseVersion(url: string): Promise<string | null> {
-  const response = await fetch(url, {
-    redirect: "error",
-    signal: AbortSignal.timeout(RELEASE_TIMEOUT_MS),
-    headers: { accept: "application/json" },
-  });
+  const response = await withNetworkInitiator(NETWORK_PURPOSE.updates, () =>
+    fetch(url, {
+      redirect: "error",
+      signal: AbortSignal.timeout(RELEASE_TIMEOUT_MS),
+      headers: { accept: "application/json" },
+    }),
+  );
   if (!response.ok || !response.body) {
     await response.body?.cancel();
     return null;

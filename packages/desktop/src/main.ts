@@ -8,6 +8,13 @@ log.transports.console.level = "info";
 log.initialize({ spyRendererConsole: true });
 
 import { inheritLoginShellEnv } from "./login-shell-env.js";
+import {
+  getDesktopNetworkActivity,
+  installDesktopNodeNetworkMonitor,
+  observeSessionNetwork,
+} from "./diagnostics/network-activity.js";
+import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
+installDesktopNodeNetworkMonitor();
 
 import {
   PimiOpenTaskDestination,
@@ -186,6 +193,8 @@ function setupPimiSessionPermissions(): void {
     );
   });
   const browserSession = session.fromPartition(PASEO_BROWSER_PROFILE_PARTITION);
+  observeSessionNetwork(consoleSession, { source: "app" });
+  observeSessionNetwork(browserSession, { source: "browser", purpose: NETWORK_PURPOSE.browser });
   browserSession.setPermissionCheckHandler(() => false);
   browserSession.setPermissionRequestHandler((_contents, _permission, reply) => reply(false));
   browserSession.setDevicePermissionHandler(() => false);
@@ -804,6 +813,18 @@ function registerPimiWorkspaceNavigation(): void {
     if (!isConsoleFrame(event)) throw new Error("Open Pimi Settings to change appearance.");
     await setPimiAppearance(mode);
   });
+  ipcMain.handle("pimi:network-activity:list", (event, value: unknown) => {
+    if (!isConsoleFrame(event)) throw new Error("Open Pimi Settings to view network activity.");
+    const input =
+      typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+    return getDesktopNetworkActivity({
+      includeLocal: input.includeLocal === true,
+      limit:
+        typeof input.limit === "number" && Number.isInteger(input.limit) && input.limit > 0
+          ? Math.min(input.limit, 1000)
+          : 300,
+    });
+  });
   ipcMain.handle("pimi:labels:get", async (event) => {
     if (!isConsoleFrame(event)) throw new Error("Open Pimi to read linked labels.");
     const runtime = await initializePimiWorkspace(path.join(app.getAppPath(), "dist"));
@@ -819,7 +840,10 @@ function registerPimiWorkspaceNavigation(): void {
     if (!isConsoleFrame(event)) throw new Error("Ask Pimi is only available in the app.");
     const input = PimiVoiceCommandInput.parse(value);
     const runtime = await initializePimiWorkspace(path.join(app.getAppPath(), "dist"));
-    return runtime.runVoiceCommand(input);
+    const { sender } = event;
+    return runtime.runVoiceCommand(input, (status) => {
+      if (!sender.isDestroyed()) sender.send("pimi:voice:status", status);
+    });
   });
   ipcMain.handle("pimi:review:summary", (event, checkout: unknown) => {
     if (

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { ChevronDown, ChevronRight } from "lucide-react-native";
 import { Button } from "@/components/ui/button";
@@ -21,14 +21,42 @@ function pendingTitle(source: string): string | null {
   }
 }
 
-function PendingView({ source }: { source: string }) {
-  const { t } = useTranslation();
-  const title = pendingTitle(source);
+/** The frame every chat visual sits in, with its heading above the content. */
+export function VisualCard({
+  title,
+  subtitle,
+  testID,
+  children,
+}: {
+  title?: string | null;
+  subtitle?: string | null;
+  testID: string;
+  children: ReactNode;
+}) {
   return (
-    <View style={styles.card} testID="chat-view-pending">
-      {title ? <Text style={styles.title}>{title}</Text> : null}
-      <Text style={styles.caption}>{t("message.visualization.drawing")}</Text>
+    <View style={styles.card} testID={testID}>
+      {title ? (
+        <Text accessibilityRole="header" style={styles.title}>
+          {title}
+        </Text>
+      ) : null}
+      {subtitle ? <Text style={styles.caption}>{subtitle}</Text> : null}
+      {children}
     </View>
+  );
+}
+
+/** Shown while a visual is still arriving or still being drawn. */
+export function PendingCaption() {
+  const { t } = useTranslation();
+  return <Text style={styles.caption}>{t("message.visualization.drawing")}</Text>;
+}
+
+export function PendingView({ source }: { source: string }) {
+  return (
+    <VisualCard title={pendingTitle(source)} testID="chat-view-pending">
+      <PendingCaption />
+    </VisualCard>
   );
 }
 
@@ -36,15 +64,23 @@ function PendingView({ source }: { source: string }) {
  * A block that ended without a valid view. The agent's data stays one click away, so nothing is
  * lost, but a broken block reads as a note rather than a wall of JSON in the reply.
  */
-function FailedView({ source }: { source: string }) {
+export function FailedView({
+  source,
+  message = "Couldn’t draw this chart.",
+  showLabel = "Show data",
+  hideLabel = "Hide data",
+}: {
+  source: string;
+  message?: string;
+  showLabel?: string;
+  hideLabel?: string;
+}) {
   const [open, setOpen] = useState(false);
   const toggle = useCallback(() => setOpen((value) => !value), []);
-  const title = pendingTitle(source);
   return (
-    <View style={styles.card} testID="chat-view-failed">
-      {title ? <Text style={styles.title}>{title}</Text> : null}
+    <VisualCard title={pendingTitle(source)} testID="chat-view-failed">
       <View style={styles.failedRow}>
-        <Text style={styles.caption}>Couldn’t draw this chart.</Text>
+        <Text style={styles.caption}>{message}</Text>
         <Button
           variant="ghost"
           size="sm"
@@ -52,7 +88,7 @@ function FailedView({ source }: { source: string }) {
           onPress={toggle}
           testID="chat-view-failed-toggle"
         >
-          {open ? "Hide data" : "Show data"}
+          {open ? hideLabel : showLabel}
         </Button>
       </View>
       {open ? (
@@ -62,7 +98,7 @@ function FailedView({ source }: { source: string }) {
           </Text>
         </ScrollView>
       ) : null}
-    </View>
+    </VisualCard>
   );
 }
 
@@ -91,14 +127,9 @@ export function ViewFence({
 }) {
   if (!view) return failed ? <FailedView source={source} /> : <PendingView source={source} />;
   return (
-    <View style={styles.card} testID="chat-view">
-      {view.title ? (
-        <Text accessibilityRole="header" style={styles.title}>
-          {view.title}
-        </Text>
-      ) : null}
+    <VisualCard title={view.title} testID="chat-view">
       <ViewNodeView node={view.root} />
-    </View>
+    </VisualCard>
   );
 }
 

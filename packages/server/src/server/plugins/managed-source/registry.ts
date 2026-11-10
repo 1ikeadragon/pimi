@@ -1,3 +1,5 @@
+import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
+import { withNetworkInitiator } from "../../network/activity.js";
 import {
   PluginRegistryArtifactSchema,
   PluginRegistryIdSchema,
@@ -38,11 +40,13 @@ export async function resolveRegistryPlugin(
   const url = `${identity.url.replace(/\/+$/, "")}/plugins/${identity.id}.json`;
   let response: Response;
   try {
-    response = await fetch(url, {
-      headers,
-      redirect: "error",
-      signal: AbortSignal.timeout(30000),
-    });
+    response = await withNetworkInitiator(NETWORK_PURPOSE.plugins, () =>
+      fetch(url, {
+        headers,
+        redirect: "error",
+        signal: AbortSignal.timeout(30000),
+      }),
+    );
   } catch (cause) {
     const guidance = install
       ? `Plugin ${identity.id} was not installed. Retry or use an explicit npm: or github: source.`

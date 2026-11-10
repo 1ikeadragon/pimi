@@ -1,4 +1,6 @@
 /// <reference lib="dom" />
+import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
+import { withNetworkInitiator } from "./network/activity.js";
 import { WebSocket } from "ws";
 import type pino from "pino";
 import { buildRelayWebSocketUrl } from "@pimi/protocol/daemon-endpoints";
@@ -57,7 +59,10 @@ const RELAY_WEBSOCKET_OPTIONS = {
 } as const;
 
 function createDefaultRelayWebSocket(url: string): RelayWebSocketLike {
-  return new WebSocket(url, { ...RELAY_WEBSOCKET_OPTIONS, agent: webSocketProxyAgent(url) });
+  return withNetworkInitiator(
+    NETWORK_PURPOSE.relay,
+    () => new WebSocket(url, { ...RELAY_WEBSOCKET_OPTIONS, agent: webSocketProxyAgent(url) }),
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

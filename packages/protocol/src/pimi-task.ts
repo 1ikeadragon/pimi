@@ -203,7 +203,8 @@ export const PimiNewTaskDestination = PimiTaskFields.pick({
   .extend({ view: z.literal("new-task") });
 export const PimiOpenTaskDestination = PimiTaskAgentGetInput.extend({ view: z.literal("task") });
 export const PimiSimpleDestinationView = z.enum(["tasks", "worktrees", "review-home"]);
-const PimiPullRequestFilter = z.enum(["all", "mine", "requested"]);
+export const PimiPullRequestFilter = z.enum(["all", "mine", "requested"]);
+export type PimiPullRequestFilter = z.infer<typeof PimiPullRequestFilter>;
 export const PimiReviewListDestination = z.object({
   view: z.literal("review-prs"),
   filter: PimiPullRequestFilter.optional(),
@@ -247,6 +248,10 @@ export const PimiVoiceCommandInput = z.strictObject({
   agentId: z.string().min(1).max(256).optional(),
   workspaceId: z.string().min(1).max(256).optional(),
   commands: z.array(z.string().min(1).max(160)).max(PIMI_VOICE_COMMAND_LIMIT).optional(),
+  // COMPAT(askPimiAgent): added in v0.17.18. Send only when server_info.features.askPimiAgent
+  // is set, because older hosts reject unknown fields. Make it the only request shape and
+  // remove the gate after 2027-05-11.
+  agent: z.literal(true).optional(),
 });
 export type PimiVoiceCommandInput = z.infer<typeof PimiVoiceCommandInput>;
 
@@ -348,21 +353,52 @@ export const PimiVoicePlan = z.strictObject({
 
 export type PimiVoicePlan = z.infer<typeof PimiVoicePlan>;
 
+const chatProvider = z.strictObject({
+  provider: z.string().min(1),
+  model: z.string().min(1).optional(),
+  thinkingOptionId: z.string().min(1).optional(),
+});
 export const PimiVoiceCommandResponse = z.union([
-  PimiVoicePlan.extend({
-    chatProvider: z
-      .strictObject({
-        provider: z.string().min(1),
-        model: z.string().min(1).optional(),
-        thinkingOptionId: z.string().min(1).optional(),
-      })
-      .optional(),
-  }),
+  PimiVoicePlan.extend({ chatProvider: chatProvider.optional() }),
   z.strictObject({
     message: z.string().min(1).max(1000),
     navigation: z.strictObject({ action: z.literal("show"), view: PimiVoiceView }).optional(),
   }),
 ]);
+
+// What Ask Pimi asks the app to show. The host resolves each one after the agent's turn, so
+// nothing here changes saved data: a removal only opens the card's own confirmation.
+export const PimiAskAction = z.discriminatedUnion("action", [
+  ...PimiVoiceNavigation.options,
+  z.strictObject({ action: z.literal("task"), id: z.uuid() }),
+  z.strictObject({ action: z.literal("card"), id: z.uuid(), intent: z.enum(["open", "remove"]) }),
+  // The chat starts from the user's own words. The agent only selects the card to attach.
+  z.strictObject({ action: z.literal("start-chat"), card: z.uuid().optional() }),
+]);
+export type PimiAskAction = z.infer<typeof PimiAskAction>;
+export const PIMI_ASK_ACTION_LIMIT = 3;
+export const PIMI_ASK_MESSAGE_LIMIT = 1200;
+
+export const PimiAskResult = z.strictObject({
+  message: z.string().max(PIMI_ASK_MESSAGE_LIMIT),
+  actions: z.array(PimiAskAction).max(PIMI_ASK_ACTION_LIMIT),
+  // Speech that asked for nothing. The app dismisses it without an error.
+  ignored: z.literal(true).optional(),
+  chatProvider: chatProvider.optional(),
+});
+export type PimiAskResult = z.infer<typeof PimiAskResult>;
+
+// One JSON object per line. Status lines report progress, and the last line is the result or
+// an error.
+export const PIMI_ASK_STREAM_TYPE = "application/x-ndjson";
+export const PimiAskEvent = z.discriminatedUnion("type", [
+  z.strictObject({ type: z.literal("status"), text: z.string().min(1).max(80) }),
+  z.strictObject({ type: z.literal("result"), result: PimiAskResult }),
+  z.strictObject({ type: z.literal("error"), error: z.string().min(1).max(240) }),
+]);
+export type PimiAskEvent = z.infer<typeof PimiAskEvent>;
+
+export type PimiVoiceCommandResponse = z.infer<typeof PimiVoiceCommandResponse>;
 
 export function voicePlanOpensNewChat(open: PimiVoicePlan["open"]): boolean {
   return open?.action === "new-chat" || (open?.action === "space-card" && open.intent === "chat");
@@ -382,12 +418,18 @@ export function isExplicitVoiceChatRequest(transcript: string): boolean {
   ).test(transcript);
 }
 
-export interface PimiVoiceResult {
-  message: string;
-  failed?: boolean;
+export interface PimiVoiceEffect {
   destination?: PimiDestination;
   navigation?: PimiVoiceNavigation;
   chat?: { serverId: string; workspaceId: string; agentId: string };
+}
+
+export interface PimiVoiceResult extends PimiVoiceEffect {
+  message: string;
+  failed?: boolean;
+  ignored?: boolean;
+  // Further screens requested in the same Ask Pimi turn, applied in order after the first.
+  effects?: PimiVoiceEffect[];
 }
 
 export const PIMI_SPACES_ROUTE = "/api/pimi/spaces";

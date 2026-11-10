@@ -1,3 +1,4 @@
+import type { PimiHtmlVariable } from "@pimi/protocol/chat-html";
 import type { Theme } from "@/styles/theme";
 import type { HtmlPreviewEmbed } from "./html-preview-csp";
 
@@ -11,6 +12,7 @@ export function htmlPreviewTheme(theme: Theme): { embed: HtmlPreviewEmbed } {
     const { colors } = theme;
     embed = {
       colorScheme: theme.colorScheme === "dark" ? "dark" : "light",
+      // Typed by the list agents are told, so a property cannot be promised and not supplied.
       variables: {
         bg: colors.surface1,
         surface: colors.surface2,
@@ -21,7 +23,7 @@ export function htmlPreviewTheme(theme: Theme): { embed: HtmlPreviewEmbed } {
         "accent-fg": colors.accentForeground ?? colors.foreground,
         font: theme.fontFamily.ui,
         mono: theme.fontFamily.mono,
-      },
+      } satisfies Record<PimiHtmlVariable, string>,
     };
     embeds.set(theme, embed);
   }

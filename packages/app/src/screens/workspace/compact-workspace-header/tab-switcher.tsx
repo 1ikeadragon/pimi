@@ -67,6 +67,9 @@ function getFallbackTabOptionLabel(
   if (tab.target.kind === "commit_diff") {
     return tab.target.sha.slice(0, 7);
   }
+  if (tab.target.kind === "html_visual") {
+    return tab.target.title;
+  }
   return labels.agent;
 }
 
@@ -119,6 +122,9 @@ function getFallbackTabOptionDescription(
   }
   if (tab.target.kind === "plugin") {
     return tab.target.panelId;
+  }
+  if (tab.target.kind === "html_visual") {
+    return "Visual";
   }
   return tab.target.path;
 }

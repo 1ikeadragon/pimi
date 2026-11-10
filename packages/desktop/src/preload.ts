@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
+import type { NetworkActivitySnapshot } from "@pimi/protocol/messages";
 import type { BrowserKeyboardPolicy } from "./features/browser-keyboard/index.js";
 import type { DesktopWindowChromeMode } from "./window/chrome.js";
 import type { PimiAppearance, PimiContentBounds, PimiDestination } from "./window/pimi-window.js";
@@ -208,6 +209,13 @@ contextBridge.exposeInMainWorld("paseoDesktop", {
         pimiVoice: {
           runCommand: (input: PimiVoiceCommandInput): Promise<PimiVoiceResult> =>
             ipcRenderer.invoke("pimi:voice:command", input),
+          onStatus: (report: (status: string) => void) => {
+            const listener = (_event: unknown, status: unknown) => {
+              if (typeof status === "string") report(status);
+            };
+            ipcRenderer.on("pimi:voice:status", listener);
+            return () => ipcRenderer.removeListener("pimi:voice:status", listener);
+          },
           publish: (state: PimiVoiceBubbleState) => ipcRenderer.send("pimi:voice:state", state),
           onToggle: (toggle: () => void) => {
             const listener = () => toggle();
@@ -245,6 +253,10 @@ contextBridge.exposeInMainWorld("paseoDesktop", {
       }
     : {}),
   windowChromeMode: readWindowChromeMode(),
+  networkActivity: {
+    list: (input: { includeLocal?: boolean; limit?: number }): Promise<NetworkActivitySnapshot> =>
+      ipcRenderer.invoke("pimi:network-activity:list", input),
+  },
   invoke: (command: string, args?: Record<string, unknown>) =>
     ipcRenderer.invoke("paseo:invoke", command, args),
   getPendingOpenProject: () =>

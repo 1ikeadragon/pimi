@@ -5,17 +5,21 @@ import {
   parseChatArtifact,
   type ChatArtifact,
 } from "@pimi/protocol/chat-artifact";
+import { PIMI_HTML_FENCE, parseChatHtml, type ChatHtml } from "@pimi/protocol/chat-html";
+import { PIMI_VEGA_FENCE, parseChatVega, type ChatVega } from "@pimi/protocol/chat-vega";
 import { parseChatView, viewFenceOf, type ChatView } from "@pimi/protocol/chat-view";
 
 type Fence =
   | { kind: "mermaid"; source: string }
   | { kind: "artifact"; source: string; artifact: ChatArtifact }
   // `view` is null for a block that is still streaming and not yet valid.
-  | { kind: "view"; source: string; view: ChatView | null; failed?: boolean };
+  | { kind: "view"; source: string; view: ChatView | null; failed?: boolean }
+  | { kind: "vega"; source: string; vega: ChatVega | null; failed?: boolean }
+  | { kind: "html"; source: string; html: ChatHtml | null; failed?: boolean };
 type Segment = ({ kind: "markdown"; source: string } | Fence) & { id: string };
 
 export interface FenceSplitOptions {
-  /** Extract `pimi-chart`, `pimi-view` and `pimi-artifact` blocks. Assistant replies only. */
+  /** Extract the `pimi-*` visual blocks. Assistant replies only. */
   visualizations?: boolean;
   mermaid?: boolean;
   /** The reply is still arriving, so an invalid view block may only be unfinished. */
@@ -23,7 +27,10 @@ export interface FenceSplitOptions {
 }
 
 /** Matches text that may hold a block rendered outside the Markdown library. */
-export const PIMI_FENCE_PATTERN = /pimi-(?:chart|view|artifact)/i;
+export const PIMI_FENCE_PATTERN = /pimi-(?:chart|view|artifact|vega|html)/i;
+
+/** A fenced block ends with its closing fence; one still being written does not. */
+const CLOSED_FENCE = /\n[ \t]*(?:`{3,}|~{3,})[ \t]*$/;
 
 /** The id an agent has written so far in a block that is not yet complete JSON. */
 function pendingViewId(source: string): string | undefined {
@@ -88,6 +95,28 @@ export function splitMermaidFences(
       );
     } else appendFence(position, { kind: "view", source: node.value, view: null, failed: true });
   }
+  function appendVega(position: NonNullable<RootContent["position"]>, node: Code): void {
+    const vega = parseChatVega(node.value);
+    // An unparsed spec in a reply that is still arriving is only unfinished.
+    appendFence(position, {
+      kind: "vega",
+      source: node.value,
+      vega,
+      failed: !vega && !streaming,
+    });
+  }
+  function appendHtml(position: NonNullable<RootContent["position"]>, node: Code): void {
+    // HTML has no parse to tell a whole document from half of one, and half a document would
+    // run. Until the reply ends, only a closed block is shown.
+    const closed = CLOSED_FENCE.test(markdown.slice(position.start.offset, position.end.offset));
+    const html = closed || !streaming ? parseChatHtml(node.value) : null;
+    appendFence(position, {
+      kind: "html",
+      source: node.value,
+      html,
+      failed: !html && (closed || !streaming),
+    });
+  }
   function visit(node: RootContent): void {
     if (node.type === "definition" && !definitions.has(node.identifier))
       definitions.set(node.identifier, node);
@@ -96,6 +125,8 @@ export function splitMermaidFences(
       if (allowMermaid && lang === "mermaid")
         appendFence(node.position, { kind: "mermaid", source: node.value });
       if (allowVisualizations) appendView(node.position, node);
+      if (allowVisualizations && lang === PIMI_VEGA_FENCE) appendVega(node.position, node);
+      if (allowVisualizations && lang === PIMI_HTML_FENCE) appendHtml(node.position, node);
       if (allowVisualizations && lang === PIMI_ARTIFACT_FENCE) {
         const artifact = parseChatArtifact(node.value);
         if (artifact)

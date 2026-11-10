@@ -1568,6 +1568,15 @@ export const DiagnosticsRequestSchema = z.object({
   requestId: z.string(),
 });
 
+export const DiagnosticsNetworkListRequestSchema = z.object({
+  type: z.literal("diagnostics.network.list.request"),
+  requestId: z.string(),
+  /** Include loopback and Unix-socket requests in the recent-request list. Hosts always count them. */
+  includeLocal: z.boolean().optional(),
+  /** Most recent requests to return, newest first. The daemon caps it at its buffer size. */
+  limit: z.number().int().positive().optional(),
+});
+
 export const PluginCatalogGetRequestSchema = z.object({
   type: z.literal("plugin.catalog.get.request"),
   requestId: z.string(),
@@ -3561,6 +3570,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   HubManagementDaemonDisconnectRequestSchema,
   HubManagementDaemonPermissionsUpdateRequestSchema,
   DiagnosticsRequestSchema,
+  DiagnosticsNetworkListRequestSchema,
   PluginCatalogGetRequestSchema,
   PluginListRequestSchema,
   PluginLogsGetRequestSchema,
@@ -4044,6 +4054,8 @@ export const ServerInfoStatusPayloadSchema = z
         agentThinkingUpdate: z.boolean().optional(),
         // COMPAT(daemonDiagnostics): added in v0.1.100, remove gate after 2026-12-25 once daemon floor >= v0.1.100.
         daemonDiagnostics: z.boolean().optional(),
+        // COMPAT(networkActivity): added in v0.17.18, remove gate after 2027-05-11.
+        networkActivity: z.boolean().optional(),
         // COMPAT(daemonSelfUpdate): added in v0.1.93, remove gate after 2026-12-13.
         daemonSelfUpdate: z.boolean().optional(),
         // COMPAT(terminalsSurviveRestart): added in v0.12.0, remove gate after 2027-04-21.
@@ -4091,6 +4103,8 @@ export const ServerInfoStatusPayloadSchema = z
         // COMPAT(providerHarnessUpdates): Pimi hosts advertise the check RPC.
         providerHarnessUpdates: z.boolean().optional(),
         pimiMobileTasks: z.boolean().optional(),
+        // COMPAT(askPimiAgent): added in v0.17.18, remove gate after 2027-05-11.
+        askPimiAgent: z.boolean().optional(),
         // COMPAT(hopliteProvider): added after v0.11.2, remove after 2027-04-15 once host floor includes the bundled adapter.
         hopliteProvider: z.boolean().optional(),
         // COMPAT(importSessionWorkspaceTarget): added in v0.1.110, remove gate after 2027-01-16.
@@ -5587,6 +5601,64 @@ export const DiagnosticsResponseSchema = z.object({
       diagnostic: z.string(),
     })
     .passthrough(),
+});
+
+// Purpose, source, and state stay open strings so a newer producer can add values
+// without breaking an older reader.
+export const NetworkActivityRequestSchema = z.object({
+  id: z.string(),
+  /** Producer process: "daemon", "app", or "browser". */
+  source: z.string(),
+  startedAtMs: z.number(),
+  method: z.string(),
+  /** "http", "https", "ws", "wss", or "unix". */
+  protocol: z.string(),
+  host: z.string(),
+  port: z.number().int().nullable(),
+  /** Path only. Query strings and fragments are never recorded. */
+  path: z.string(),
+  status: z.number().int().nullable(),
+  errorCode: z.string().nullable(),
+  durationMs: z.number().nullable(),
+  responseBytes: z.number().nullable(),
+  /** Display label for why the request was made, such as "Spaces previews" or "Other". */
+  purpose: z.string(),
+  /** False when neither a known call site nor a known host explains the request. */
+  known: z.boolean(),
+  local: z.boolean(),
+  /** "pending", "complete", or "error". */
+  state: z.string(),
+});
+export type NetworkActivityRequest = z.infer<typeof NetworkActivityRequestSchema>;
+
+export const NetworkActivityHostSchema = z.object({
+  source: z.string(),
+  host: z.string(),
+  purpose: z.string(),
+  known: z.boolean(),
+  local: z.boolean(),
+  count: z.number().int(),
+  errors: z.number().int(),
+  bytes: z.number(),
+  lastSeenMs: z.number(),
+});
+export type NetworkActivityHost = z.infer<typeof NetworkActivityHostSchema>;
+
+export const NetworkActivitySnapshotSchema = z.object({
+  capturedSinceMs: z.number(),
+  requests: z.array(NetworkActivityRequestSchema),
+  hosts: z.array(NetworkActivityHostSchema),
+  /** Hosts evicted from the aggregate table after it reached its cap. */
+  droppedHosts: z.number().int(),
+});
+export type NetworkActivitySnapshot = z.infer<typeof NetworkActivitySnapshotSchema>;
+
+export const DiagnosticsNetworkListResponseSchema = z.object({
+  type: z.literal("diagnostics.network.list.response"),
+  payload: z.object({
+    requestId: z.string(),
+    snapshot: NetworkActivitySnapshotSchema,
+  }),
 });
 
 export const SetDaemonConfigResponseMessageSchema = z.object({
@@ -7566,6 +7638,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   HubManagementDaemonDisconnectResponseSchema,
   HubManagementDaemonPermissionsUpdateResponseSchema,
   DiagnosticsResponseSchema,
+  DiagnosticsNetworkListResponseSchema,
   GetDaemonConfigResponseMessageSchema,
   SetDaemonConfigResponseMessageSchema,
   ReadProjectConfigResponseMessageSchema,
@@ -7827,6 +7900,7 @@ export type DaemonGetStatusResponse = z.infer<typeof DaemonGetStatusResponseSche
 export type DaemonGetPairingOfferResponse = z.infer<typeof DaemonGetPairingOfferResponseSchema>;
 export type DaemonConfigReloadResponse = z.infer<typeof DaemonConfigReloadResponseSchema>;
 export type DiagnosticsResponse = z.infer<typeof DiagnosticsResponseSchema>;
+export type DiagnosticsNetworkListResponse = z.infer<typeof DiagnosticsNetworkListResponseSchema>;
 export type GetProvidersSnapshotResponseMessage = z.infer<
   typeof GetProvidersSnapshotResponseMessageSchema
 >;

@@ -22,7 +22,8 @@ import { useMarkdownSource, type MarkdownImageContext } from "./images";
 import { MermaidFence, MermaidStreamingContext } from "./fence/mermaid";
 import { PIMI_FENCE_PATTERN, splitMermaidFences } from "./fence/mermaid/segments";
 import { ViewFence } from "./fence/view";
-import { ChatArtifactCard } from "./fence/artifact";
+import { ChatArtifactCard, ChatHtmlCard } from "./fence/artifact";
+import { VegaFence } from "./fence/vega";
 
 const ThemedMarkdown = withUnistyles(EnrichedMarkdownText);
 const MD4C_FLAGS = { latexMath: false, hardSoftBreaks: true, admonitions: true };
@@ -151,6 +152,24 @@ const MarkdownPart = memo(function MarkdownPart({
               <ViewFence
                 key={key}
                 view={segment.view}
+                source={segment.source}
+                failed={segment.failed}
+              />
+            );
+          if (segment.kind === "vega")
+            return (
+              <VegaFence
+                key={key}
+                vega={segment.vega}
+                source={segment.source}
+                failed={segment.failed}
+              />
+            );
+          if (segment.kind === "html")
+            return (
+              <ChatHtmlCard
+                key={key}
+                html={segment.html}
                 source={segment.source}
                 failed={segment.failed}
               />

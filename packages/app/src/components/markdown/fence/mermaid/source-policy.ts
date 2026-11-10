@@ -9,8 +9,10 @@
 // to the source code block. Formatting-only `<br>` and `<i>` tags are common
 // in generated labels and carry no resource-bearing attributes; all other
 // tags (and entity-encoded text that could smuggle one) are rejected.
+// `url(` is matched as a whole word: CSS only reads it as a function there, and
+// a label such as `BASE64URL(SHA256(x))` is ordinary text.
 const UNSAFE_MERMAID_SOURCE =
-  /@\s*\{|url\s*\(|@import\b|themeCSS|&#|<(?!\/?(?:br|i)\s*\/?>)[a-z!/]/i;
+  /@\s*\{|\burl\s*\(|@import\b|themeCSS|&#|<(?!\/?(?:br|i)\s*\/?>)[a-z!/]/i;
 
 // Mermaid labels can contain escaped text. Decode the escape forms we care
 // about before running the denylist so disguised HTML still gets caught.

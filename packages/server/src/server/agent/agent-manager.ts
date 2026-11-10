@@ -128,14 +128,29 @@ export const PIMI_APPROACH_INSTRUCTIONS =
 
 // Without its tools an agent asked to delegate or remember improvises: it runs `claude -p` or
 // `codex exec` in a shell, or writes Pimi's memory files by hand. Neither shows up in Pimi.
-const PIMI_TOOLS_OFF_INSTRUCTIONS =
-  "Pimi's agent tools are turned off on this host, so you cannot start other agents or providers, use shared memory, or track tasks here. If the user asks for one of these, say that Pimi tools are off and that they can turn on Enable Pimi tools in this host's settings in Pimi. Do not run claude, codex, opencode, or another agent CLI from a shell instead, and do not write Pimi's memory or task files yourself.";
+function pimiToolsOffInstructions(provider: string, hostToolsEnabled: boolean): string {
+  const [where, fix] = hostToolsEnabled
+    ? [
+        `for this provider (${provider})`,
+        `switch this chat to another provider, or remove "paseoTools": { "enabled": false } from agents.providers.${provider} in this host's Pimi config.json`,
+      ]
+    : [
+        "on this host",
+        "turn on Enable Pimi tools under Orchestration in this host's settings in Pimi",
+      ];
+  return `Pimi's agent tools are turned off ${where}, so you cannot start other agents or providers, use shared memory, or track tasks here. If the user asks for one of these, say that Pimi tools are off ${where} and that they can ${fix}. Do not run claude, codex, opencode, or another agent CLI from a shell instead, and do not write Pimi's memory or task files yourself.`;
+}
 
-function pimiActionInstructions(
-  policy: ProviderPaseoToolsPolicy | undefined,
-  isTaskWorker: boolean,
-): string[] {
-  if (!isPaseoToolPolicyEnabled(policy)) return [PIMI_TOOLS_OFF_INSTRUCTIONS];
+function pimiActionInstructions(input: {
+  policy: ProviderPaseoToolsPolicy | undefined;
+  provider: string;
+  hostToolsEnabled: boolean;
+  isTaskWorker: boolean;
+}): string[] {
+  const { policy, isTaskWorker } = input;
+  if (!isPaseoToolPolicyEnabled(policy)) {
+    return [pimiToolsOffInstructions(input.provider, input.hostToolsEnabled)];
+  }
   const instructions = [];
   if (isPaseoToolEnabled(policy, PimiTaskAgentTool.createLabel)) {
     instructions.push(
@@ -166,7 +181,7 @@ function pimiActionInstructions(
   }
   if (isPaseoToolEnabled(policy, "create_agent")) {
     instructions.push(
-      "When the user asks another agent or provider to take over, contribute, or answer, including requests like \"use codex and claude for this\" or \"ask claude too\", call create_agent once per named provider or model, each with a focused initialPrompt and notifyOnFinish: true. This includes a model of your own provider, such as another Claude model: use create_agent, not your built-in subagent or Task tool. Never run claude, codex, opencode, gemini, or another agent CLI from a shell to get another model's answer: Pimi shows create_agent workers as cards the user can open, and a shell call or built-in subagent hides them. When the user wants a visual of the workers' findings, ask each worker for findings and draw the visual yourself following your visualization instructions; do not tell workers which diagram format to use. For work discussed in this chat on this host, set inheritContext: true, unless the user wants an independent view that should not see this chat's reasoning. Preserve the user's edit and launch constraints. Use separate worktrees for parallel edits. Report the result here when the completion notification arrives. Create a Task only when the user asks to track the work.",
+      'When the user asks for other agents, workers, or providers to do, split, or answer something, such as "use codex and claude for this", "ask claude too", or "split this: one agent does X, another does Y", call create_agent once per requested worker, even one on your own provider, each with a focused initialPrompt and notifyOnFinish: true. Omit provider for a worker the user named no provider or model for; it then runs on yours. Leave background unset: a background worker is hidden from the user. Pimi shows create_agent workers as cards the user can open. Your built-in subagent tool (Task or Agent in Claude Code) and agent CLIs run from a shell (claude, codex, opencode, gemini) show the user nothing, so never use either for a worker the user asked for or to get another model\'s answer; keep the built-in tool for your own lookups. To follow up with a worker you created, call send_agent_prompt with its agentId, not a built-in messaging tool. When the user wants a visual of the workers\' findings, ask each worker for findings and draw the visual yourself following your visualization instructions; do not tell workers which diagram format to use. For work discussed in this chat on this host, set inheritContext: true, unless the user wants an independent view that should not see this chat\'s reasoning. Preserve the user\'s edit and launch constraints. Use separate worktrees for parallel edits. Report the result here when the completion notification arrives. Add the work to Pimi\'s Tasks board only when the user asks to track it.',
     );
   }
   return instructions;
@@ -530,7 +545,10 @@ export interface CreateAgentOptions {
   owner?: AgentOwner;
   /** Background agents stay out of discovery, tabs, tracks and attention. Fixed at creation. */
   background?: boolean;
-  /** Run an internal model query without app tools or plugin hooks. */
+  /**
+   * Run an internal model query without app tools or plugin hooks. MCP servers named in the
+   * query's own config are still attached.
+   */
   withoutAppTools?: boolean;
 }
 
@@ -6422,8 +6440,8 @@ export class AgentManager {
       purpose: options.purpose,
     });
     if (options.withoutAppTools) {
+      // The caller's own MCP servers stay: an internal query can bring its own bounded tools.
       const launchConfig = { ...storedConfig };
-      delete launchConfig.mcpServers;
       delete launchConfig.daemonAppendSystemPrompt;
       return { storedConfig, launchConfig, paseoToolPolicy: { enabled: false } };
     }
@@ -6435,10 +6453,12 @@ export class AgentManager {
     const pimiInstructions = interactiveChat
       ? [
           PIMI_APPROACH_INSTRUCTIONS,
-          ...pimiActionInstructions(
-            paseoToolPolicy,
-            Boolean(options.labels?.[PIMI_TASK_WORKER_LABEL]),
-          ),
+          ...pimiActionInstructions({
+            policy: paseoToolPolicy,
+            provider: storedConfig.provider,
+            hostToolsEnabled: this.paseoToolsEnabled,
+            isTaskWorker: Boolean(options.labels?.[PIMI_TASK_WORKER_LABEL]),
+          }),
           PIMI_VISUALIZATION_INSTRUCTIONS,
         ]
       : [];

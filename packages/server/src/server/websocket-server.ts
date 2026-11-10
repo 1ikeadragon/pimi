@@ -2031,6 +2031,8 @@ export class VoiceAssistantWebSocketServer {
         // COMPAT(relayProtectedSecurity): added in v0.13.0, remove gate after 2027-04-21.
         relayProtectedSecurity: true,
         pimiMobileTasks: true,
+        // COMPAT(askPimiAgent): added in v0.17.18, remove gate after 2027-05-11.
+        askPimiAgent: true,
         usageSetting: true,
         usageSources: true,
         ownedSubscriptions: true,
@@ -2092,6 +2094,8 @@ export class VoiceAssistantWebSocketServer {
         pluginSourceInstallation: true,
         pluginSourceUpdates: true,
         pluginLogs: true,
+        // COMPAT(networkActivity): added in v0.17.18, remove gate after 2027-05-11.
+        networkActivity: true,
         // COMPAT(pluginThemes): added in v0.5.0, remove gate after 2027-08-20.
         pluginThemes: true,
         pluginSettings: true,

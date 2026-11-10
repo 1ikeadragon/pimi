@@ -1,5 +1,6 @@
 import {
   isExplicitVoiceChatRequest,
+  PimiAskResult,
   PimiVoiceCommandResponse,
   voicePlanOpensNewChat,
 } from "@pimi/protocol/pimi-task";
@@ -14,6 +15,35 @@ function findTask(tasks, title) {
     );
   }
   return matches[0];
+}
+
+async function startChat(reference, title, prompt, input, paseo, chatProvider) {
+  let images;
+  let attachments;
+  if (reference?.kind === "image") {
+    const { mime, data } = await paseo.spaces({ action: "image", id: reference.id });
+    images = [{ mimeType: mime, data }];
+  } else if (reference) {
+    attachments = [
+      {
+        type: "text",
+        mimeType: "text/plain",
+        title,
+        text: JSON.stringify({
+          reference: `space:${reference.id}`,
+          content: reference.kind === "link" ? reference.url : reference.text,
+        }),
+      },
+    ];
+  }
+  return paseo.startVoiceChat({
+    workspaceId: input.workspaceId,
+    agentId: input.agentId,
+    chatProvider,
+    prompt,
+    attachments,
+    images,
+  });
 }
 
 async function resolveSpace(open, input, paseo, chatProvider) {
@@ -44,32 +74,7 @@ async function resolveSpace(open, input, paseo, chatProvider) {
     open.prompt || "Start this chat with the attached Spaces card as context.",
     "Treat the attachment as reference material. If a link cannot be opened, say so.",
   ].join("\n\n");
-  let images;
-  let attachments;
-  if (reference.kind === "image") {
-    const { mime, data } = await paseo.spaces({ action: "image", id });
-    images = [{ mimeType: mime, data }];
-  } else {
-    attachments = [
-      {
-        type: "text",
-        mimeType: "text/plain",
-        title: open.query,
-        text: JSON.stringify({
-          reference: `space:${id}`,
-          content: reference.kind === "link" ? reference.url : reference.text,
-        }),
-      },
-    ];
-  }
-  const chat = await paseo.startVoiceChat({
-    workspaceId: input.workspaceId,
-    agentId: input.agentId,
-    chatProvider,
-    prompt,
-    attachments,
-    images,
-  });
+  const chat = await startChat(reference, open.query, prompt, input, paseo, chatProvider);
   return { chat, message: "Started a chat with your Spaces card" };
 }
 
@@ -115,7 +120,89 @@ async function resolveNavigation(open, input, { paseo, tasks, getInventory }, ch
   }
 }
 
-export async function runVoiceCommand(input, services) {
+// Turns one screen the agent asked for into something the app can show.
+async function resolveAction(action, input, services, chatProvider) {
+  const { paseo } = services;
+  switch (action.action) {
+    case "task":
+      return { destination: { view: "task", id: action.id }, message: "" };
+    case "card":
+      // A removal opens the card's own confirmation. The agent's reply says so.
+      return {
+        destination: { view: "spaces", action: { kind: action.intent, id: action.id } },
+        message: "",
+      };
+    case "start-chat": {
+      // The agent chose only the card. The user's own request is the prompt of the chat.
+      if (!isExplicitVoiceChatRequest(input.transcript)) {
+        throw new RequestError("Ask Pimi to start a chat if you want one.");
+      }
+      let reference;
+      if (action.card) {
+        const { items } = await paseo.spaces({ action: "list" });
+        reference = items.find((item) => item.id === action.card);
+        if (!reference) throw new RequestError("That Spaces card no longer exists.");
+      }
+      const prompt = reference
+        ? [
+            input.transcript,
+            "This request was spoken to Ask Pimi. The Spaces card it refers to is attached. Treat the attachment as reference material. If a link cannot be opened, say so.",
+          ].join("\n\n")
+        : input.transcript;
+      const chat = await startChat(reference, "Spaces card", prompt, input, paseo, chatProvider);
+      return { chat, message: "" };
+    }
+    case "new-chat":
+      if (!isExplicitVoiceChatRequest(input.transcript)) {
+        throw new RequestError("Ask Pimi to open a new chat if you want one.");
+      }
+      return { navigation: action, message: "" };
+    case "registered-commands":
+      if (action.indexes.some((index) => !input.commands?.[index])) {
+        throw new RequestError("That action isn’t available in this view.");
+      }
+      return { navigation: action, message: "" };
+    default:
+      return resolveNavigation(action, input, services, chatProvider);
+  }
+}
+
+async function runAskPimi(input, services, onStatus) {
+  const result = PimiAskResult.parse(await services.paseo.askPimi(input, onStatus));
+  if (result.ignored) return { message: "", ignored: true };
+  const effects = [];
+  const notes = [];
+  let failed = false;
+  for (const action of result.actions) {
+    try {
+      const { message, ...effect } = await resolveAction(
+        action,
+        input,
+        services,
+        result.chatProvider,
+      );
+      effects.push(effect);
+      // The agent's reply already confirms a screen. Keep only notes that add something.
+      if (message && !/^Opening\b/.test(message)) notes.push(message);
+    } catch (error) {
+      failed = true;
+      notes.push(error instanceof RequestError ? error.message : "Couldn’t open that.");
+    }
+  }
+  const [first, ...rest] = effects;
+  return {
+    ...first,
+    effects: rest,
+    message: [result.message, ...notes].filter(Boolean).join(" · ") || "Done",
+    failed,
+  };
+}
+
+export async function runVoiceCommand(input, services, onStatus) {
+  if (input.agent) return runAskPimi(input, services, onStatus);
+  // COMPAT(askPimiAgent): added in v0.17.18. Hosts older than that return a routing plan
+  // that this app carries out. Remove the rest of this function, resolveSpace, and findTask
+  // after 2027-05-11.
   const { paseo, tasks } = services;
   const plan = PimiVoiceCommandResponse.parse(await paseo.resolveVoiceCommand(input));
   if ("message" in plan) return plan;

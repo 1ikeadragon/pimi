@@ -2374,6 +2374,7 @@ export const ar: TranslationResources = {
       notifications: "الإشعارات",
       permissions: "الأذونات",
       diagnostics: "التشخيص",
+      network: "الشبكة",
       about: "عن",
     },
     layout: en.settings.layout,

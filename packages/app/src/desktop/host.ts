@@ -2,7 +2,11 @@ import { Platform } from "react-native";
 import { getElectronHost } from "@/desktop/electron/host";
 import type { BrowserKeyboardPolicy } from "@/keyboard";
 import type { PIMI_APPEARANCE_THEMES } from "@/styles/theme";
-import type { SessionInboundMessage, SessionOutboundMessage } from "@pimi/protocol/messages";
+import type {
+  NetworkActivitySnapshot,
+  SessionInboundMessage,
+  SessionOutboundMessage,
+} from "@pimi/protocol/messages";
 import type {
   PimiActivitySection,
   PimiDestination,
@@ -191,9 +195,14 @@ export type PimiAppearance = "system" | keyof typeof PIMI_APPEARANCE_THEMES;
 export type PimiGitProvider = "github" | "gitlab";
 export type PimiGitAuthStatus = "connected" | "cli-missing" | "unverified";
 
+export interface DesktopNetworkActivityBridge {
+  list: (input: { includeLocal?: boolean; limit?: number }) => Promise<NetworkActivitySnapshot>;
+}
+
 export interface DesktopHostBridge {
   platform?: string;
   windowChromeMode?: string;
+  networkActivity?: DesktopNetworkActivityBridge;
   invoke?: DesktopInvokeBridge["invoke"];
   taskDictation?: { complete: (text: string | null) => void };
   getPimiGitAuthStatus?: (provider: PimiGitProvider) => Promise<PimiGitAuthStatus>;
@@ -232,6 +241,8 @@ export interface DesktopHostBridge {
   };
   pimiVoice?: {
     runCommand: (input: PimiVoiceCommandInput) => Promise<PimiVoiceResult>;
+    /** Progress lines from the command now running, such as "Searching Spaces". */
+    onStatus?: (report: (status: string) => void) => () => void;
     publish: (state: PimiVoiceBubbleState) => void;
     onToggle: (toggle: () => void) => () => void;
     onPause: (pause: () => void) => () => void;

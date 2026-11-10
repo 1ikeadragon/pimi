@@ -28,6 +28,7 @@ import {
   Gauge,
   Keyboard,
   Stethoscope,
+  Activity,
   Info,
   Bell,
   Shield,
@@ -119,6 +120,7 @@ import { PluginSettingsContent } from "@/plugins/settings";
 import { usePluginDisplayName } from "@/plugins/plugin-list";
 import { HostPluginsPage } from "@/screens/settings/plugins-page";
 import { MetadataGenerationPage } from "@/screens/settings/metadata-generation-page";
+import { NetworkSection } from "@/screens/settings/network/network-section";
 import { HostVoicePage } from "@/screens/settings/voice/voice-page";
 import ProjectsScreen from "@/screens/projects-screen";
 import ProjectSettingsScreen from "@/screens/project-settings-screen";
@@ -228,6 +230,7 @@ const SIDEBAR_SECTION_ITEMS: SidebarSectionItem[] = [
     Content: DesktopPermissionsSection,
   },
   { id: "diagnostics", labelKey: "settings.sections.diagnostics", icon: Stethoscope },
+  { id: "network", labelKey: "settings.sections.network", icon: Activity },
   { id: "about", labelKey: "settings.sections.about", icon: Info },
 ];
 
@@ -1411,6 +1414,8 @@ export default function SettingsScreen({ view }: SettingsScreenProps) {
               handlePlaybackTest={handlePlaybackTest}
             />
           );
+        case "network":
+          return <NetworkSection serverId={activeHostServerId} />;
         case "about":
           return (
             <AboutSection

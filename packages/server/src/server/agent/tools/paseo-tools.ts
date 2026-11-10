@@ -138,6 +138,7 @@ import { isPaseoToolEnabled } from "../paseo-tool-policy.js";
 
 // Reading a link fetches the page; Ask Pimi has 90 seconds for its whole request.
 const PAGE_TIMEOUT_MS = 20_000;
+const LIST_MODELS_LIMIT = 50;
 
 export interface PaseoToolHostDependencies {
   agentMessages?: () => AgentMessageDelivery;
@@ -1353,7 +1354,7 @@ function createToolCatalog(
       .boolean()
       .optional()
       .describe(
-        "True creates a background agent: hidden from tabs, default lists, your subagent track and notifications. You still get its finish notification and can address it by id. Omit to inherit your own value (false without a caller); use it for helpers the user does not need to watch.",
+        "True hides the agent from the user: no tab, no card in your subagent track or the sidebar, no notifications. You still get its finish notification and can address it by id. Omit it (inherits your own value, false without a caller) for any worker the user asked for; set true only when the user asks for a hidden agent.",
       ),
   };
   const legacyCreateAgentPlacementFields = {
@@ -1371,7 +1372,7 @@ function createToolCatalog(
       .min(1)
       .optional()
       .describe(
-        "Existing workspace id. Agent-scoped calls default to the caller workspace; top-level calls create a new local workspace when omitted.",
+        "Omit to use your own workspace (top-level calls create a new local workspace). Pass only an id returned by list_workspaces or create_workspace.",
       ),
   };
   const agentToAgentInputSchema = {
@@ -1425,8 +1426,18 @@ function createToolCatalog(
       .optional()
       .describe("Legacy feature values. Prefer settings.features."),
   };
+  // Advertised shape only: withDefaultModel fills an omitted provider before the strict parse.
   const createAgentInputSchema = z
-    .object(scope === "agent" ? agentToAgentInputSchema : canonicalTopLevelInputSchema)
+    .object(
+      scope === "agent"
+        ? {
+            ...agentToAgentInputSchema,
+            provider: ProviderOrProviderModelInputSchema.optional().describe(
+              "Provider/model pair, for example codex/gpt-5.4, or a provider alone for its default model. Omit to use your own provider and model.",
+            ),
+          }
+        : canonicalTopLevelInputSchema,
+    )
     .passthrough();
   const agentToAgentCreateAgentArgsSchema = z.object(agentToAgentInputSchema).strict();
   const legacyAgentToAgentCreateAgentArgsSchema = z.object(legacyAgentToAgentInputSchema).strict();
@@ -1879,7 +1890,9 @@ function createToolCatalog(
     {
       title: "Create agent",
       description:
-        "Create an agent. Agent-scoped creation defaults to your workspace and creates your subagent. Top-level creation without workspaceId creates a new local workspace. Requires a provider (codex, or codex/gpt-5.4 for a specific model) and an initial prompt. For a different provider, omitting settings.modeId starts the agent in that provider's default mode. Do not guess; call list_providers and list_models first if uncertain.",
+        scope === "agent"
+          ? "Create an agent in your workspace as your subagent; the user sees it as a card in this chat. Requires an initial prompt. provider is a provider (codex) or provider/model (codex/gpt-5.4); omit it to use your own provider and model. For a different provider, omitting settings.modeId starts the agent in that provider's default mode. Do not guess ids; call list_providers and list_models first if uncertain."
+          : "Create an agent. Top-level creation without workspaceId creates a new local workspace. Requires a provider (codex, or codex/gpt-5.4 for a specific model) and an initial prompt. Omitting settings.modeId starts the agent in the provider's default mode. Do not guess; call list_providers and list_models first if uncertain.",
       inputSchema: createAgentInputSchema,
       outputSchema: {
         agentId: z.string(),
@@ -2016,9 +2029,14 @@ function createToolCatalog(
       };
 
   // Agents asked to "use claude" name the provider alone; that means its default model.
+  // An agent that names no provider gets its own provider and model.
   async function withDefaultModel(args: unknown): Promise<unknown> {
     if (typeof args !== "object" || args === null) return args;
-    const provider = (args as { provider?: unknown }).provider;
+    const requested = (args as { provider?: unknown }).provider;
+    const caller = requested === undefined || requested === null ? resolveCallerAgent() : null;
+    const callerModel = caller?.config.model ?? caller?.runtimeInfo?.model;
+    if (caller && callerModel) return { ...args, provider: `${caller.provider}/${callerModel}` };
+    const provider = caller ? caller.provider : requested;
     if (typeof provider !== "string" || !provider.trim() || provider.includes("/")) return args;
     const id = provider.trim();
     const parsed = AgentProviderEnum.safeParse(id);
@@ -3382,25 +3400,46 @@ function createToolCatalog(
     "list_models",
     {
       title: "List models",
-      description: "List models for an agent provider.",
+      description: `List models for an agent provider, default model first. Returns at most ${LIST_MODELS_LIMIT}; pass query to search a larger catalog.`,
       inputSchema: {
         provider: AgentProviderEnum,
+        query: z
+          .string()
+          .optional()
+          .describe("Case-insensitive text to match in the model id or label, for example kimi."),
       },
       outputSchema: {
         provider: z.string(),
         models: z.array(AgentModelSchema),
+        total: z.number(),
+        guidance: z.string().optional(),
       },
     },
-    async ({ provider }) => {
-      const models = await providerSnapshotManager.listModels({
+    async ({ provider, query }) => {
+      const all = await providerSnapshotManager.listModels({
         provider,
         wait: true,
       });
+      const needle = query?.trim().toLowerCase();
+      const matched = needle
+        ? all.filter((model) => `${model.id}\n${model.label ?? ""}`.toLowerCase().includes(needle))
+        : all;
+      // A router provider can list hundreds of models, which overflows an agent's tool output limit.
+      const models = [
+        ...matched.filter((model) => model.isDefault),
+        ...matched.filter((model) => !model.isDefault),
+      ].slice(0, LIST_MODELS_LIMIT);
       return {
         content: [],
         structuredContent: ensureValidJson({
           provider,
           models,
+          total: matched.length,
+          ...(models.length < matched.length
+            ? {
+                guidance: `Showing ${models.length} of ${matched.length} models. Pass query to narrow by id or label.`,
+              }
+            : {}),
         }),
       };
     },

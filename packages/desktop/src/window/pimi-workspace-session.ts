@@ -1,4 +1,6 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
+import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
+import { observeSessionNetwork } from "../diagnostics/network-activity.js";
 import { session } from "electron";
 import {
   isPimiArxivEmbed,
@@ -57,7 +59,7 @@ function xAsset(url: URL, frameUrl: URL, method: string, resource: string): bool
 }
 
 const arxivStaticOrigin = "https://static.arxiv.org";
-const arxivDocumentFilter = { urls: [`${PIMI_ARXIV_EMBED_ORIGIN}/html/*`] };
+const arxivDocumentPrefix = `${PIMI_ARXIV_EMBED_ORIGIN}/html/`;
 const arxivDocumentCsp = [
   "default-src 'none'",
   `style-src 'unsafe-inline' ${PIMI_ARXIV_EMBED_ORIGIN} ${arxivStaticOrigin}`,
@@ -211,16 +213,22 @@ export function createPimiWorkspaceSession(origin: string): Electron.Session {
     ];
     reply({ responseHeaders });
   });
-  isolated.webRequest.onErrorOccurred(arxivDocumentFilter, (details) => {
-    const url = URL.parse(details.url);
-    if (
-      details.resourceType === "subFrame" &&
-      details.error !== "net::ERR_ABORTED" &&
-      url &&
-      isPimiArxivEmbed(url)
-    ) {
-      reportPaperUnavailable(details);
-    }
+  // Electron keeps one onErrorOccurred per session, so the paper check runs inside the observer.
+  observeSessionNetwork(isolated, {
+    source: "app",
+    purpose: NETWORK_PURPOSE.spaces,
+    onErrorOccurred: (details) => {
+      if (!details.url.startsWith(arxivDocumentPrefix)) return;
+      const url = URL.parse(details.url);
+      if (
+        details.resourceType === "subFrame" &&
+        details.error !== "net::ERR_ABORTED" &&
+        url &&
+        isPimiArxivEmbed(url)
+      ) {
+        reportPaperUnavailable(details);
+      }
+    },
   });
   return isolated;
 }

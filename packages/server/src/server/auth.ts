@@ -119,6 +119,8 @@ export const PIMI_MEMORY_ROUTE = "/api/pimi/memory";
 const SELF_AUTHENTICATING_ROUTES = new Set([
   "/api/files/download",
   "/mcp/agents",
+  // Authenticated by the per-turn credential in pimi-ask-mcp.ts.
+  "/mcp/ask-pimi",
   PIMI_MEMORY_ROUTE,
   PIMI_SPACES_ROUTE,
   PIMI_LOCAL_PAIRING_ROUTE,

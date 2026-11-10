@@ -7,12 +7,15 @@ import { AttachmentLabel, AttachmentPill } from "@/components/attachment-pill";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { isNative } from "@/constants/platform";
+import { useToast } from "@/contexts/toast-context";
+import { useSettings } from "@/hooks/use-settings";
 import {
   openAnnotationAtSource,
   revealAnnotationSource,
   type AnnotationEditorOutcome,
   type AnnotationEditSession,
 } from "./edit-session";
+import { FILE_REVEAL_NOTICE, goToFileAnnotation } from "./file-reveal";
 import { AnnotationPillEditor } from "./pill-editor";
 import { AnnotationSheet } from "./sheet";
 import { annotationSourceLabel, annotationTitle, type AnnotationAttachment } from "./model";
@@ -68,18 +71,30 @@ export function AnnotationPill({
     if (usesSheet) setEditing("sheet");
     else setEditing(openAnnotationAtSource(session) ? "source" : "popover");
   }, [usesSheet, session]);
-  // On web a chat quote's pill goes to its source, and the pencil edits the note. A file
-  // annotation, a chat that is not open, and the sheet layouts edit the note from the pill.
-  const goesToSource = !usesSheet && attachment.source.kind === "chat";
-  // The quote is now in the chat, so the card showing it closes until the pointer comes back.
+  // On web the pill goes to its source, and the pencil edits the note. A file annotation opens
+  // its file in the editor, in IDE Mode where the window has it. A chat that is not open and the
+  // sheet layouts edit the note from the pill.
+  const goesToSource = !usesSheet;
+  const toast = useToast();
+  const openInSidePane = useSettings((settings) => settings.openInSidePane);
+  // The source is now on screen, so the card showing it closes until the pointer comes back.
   const [revealed, setRevealed] = useState(false);
   const handleOpen = useCallback(() => {
+    if (goesToSource && attachment.source.kind === "file") {
+      setRevealed(true);
+      goToFileAnnotation({
+        attachment,
+        preferences: openInSidePane,
+        onNotice: (notice) => toast.show(FILE_REVEAL_NOTICE[notice], { variant: "warning" }),
+      });
+      return;
+    }
     if (goesToSource && revealAnnotationSource(attachment)) {
       setRevealed(true);
       return;
     }
     handleEdit();
-  }, [goesToSource, attachment, handleEdit]);
+  }, [goesToSource, attachment, handleEdit, openInSidePane, toast]);
   const handlePointerLeave = useCallback(() => setRevealed(false), []);
   const editAction = useMemo(
     () =>
@@ -93,6 +108,10 @@ export function AnnotationPill({
         : undefined,
     [goesToSource, handleEdit],
   );
+  let openLabel = "Edit annotation";
+  if (goesToSource) {
+    openLabel = attachment.source.kind === "file" ? "Go to annotated code" : "Go to annotated text";
+  }
   const note = attachment.note.trim();
 
   return (
@@ -106,7 +125,7 @@ export function AnnotationPill({
               onOpen={handleOpen}
               onRemove={handleRemove}
               action={editAction}
-              openAccessibilityLabel={goesToSource ? "Go to annotated text" : "Edit annotation"}
+              openAccessibilityLabel={openLabel}
               removeAccessibilityLabel="Remove annotation"
             >
               <AttachmentLabel

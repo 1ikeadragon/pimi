@@ -47,6 +47,8 @@ export const ANNOTATION_PULSE_HIGHLIGHT_NAME = "pimi-annotation-pulse";
 /** Animated on an ancestor of the quote; the pulse highlight inherits it. */
 export const ANNOTATION_PULSE_OPACITY = "--pimi-annotation-pulse-opacity";
 export const ANNOTATION_MARK_CLASS = "cm-pimi-annotation";
+/** The code a composer pill went to, pulsing with the opacity animated on the editor content. */
+export const ANNOTATION_PULSE_MARK_CLASS = "cm-pimi-annotation-pulse";
 
 const EDITOR_WIDTH = 320;
 const INPUT_MIN_HEIGHT = 56;
@@ -76,14 +78,14 @@ const ENTER_STYLE: CSSProperties = {
 // Adapted from T3 Code apps/web/src/index.css (MIT, © 2026 T3 Tools Inc.).
 /**
  * Paints annotated text in chat and in the code editor: a solid accent tint on the text whose note
- * is open, and the pulse on a quote the chat just scrolled to. Saved annotations are not marked.
+ * is open, and the pulse on a quote or code a composer pill just went to. Saved annotations are not marked.
  */
 export function AnnotationHighlightStyle() {
   const accent = styles.highlight.color;
   const active = `color-mix(in srgb, ${accent} 45%, transparent)`;
   const pulse = `color-mix(in srgb, ${accent} calc(var(${ANNOTATION_PULSE_OPACITY}) * 100%), transparent)`;
   return (
-    <style>{`@property ${ANNOTATION_PULSE_OPACITY} { syntax: "<number>"; inherits: true; initial-value: 0; } ::highlight(${ANNOTATION_HIGHLIGHT_NAME}) { background-color: ${active}; } .${ANNOTATION_MARK_CLASS} { background-color: ${active}; } ::highlight(${ANNOTATION_PULSE_HIGHLIGHT_NAME}) { background-color: ${pulse}; }`}</style>
+    <style>{`@property ${ANNOTATION_PULSE_OPACITY} { syntax: "<number>"; inherits: true; initial-value: 0; } ::highlight(${ANNOTATION_HIGHLIGHT_NAME}) { background-color: ${active}; } .${ANNOTATION_MARK_CLASS} { background-color: ${active}; } ::highlight(${ANNOTATION_PULSE_HIGHLIGHT_NAME}) { background-color: ${pulse}; } .${ANNOTATION_PULSE_MARK_CLASS} { background-color: ${pulse}; }`}</style>
   );
 }
 

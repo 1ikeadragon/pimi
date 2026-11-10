@@ -52,6 +52,11 @@ export function navigateToNewWorkspaceInEditor(selection: ActiveWorkspaceSelecti
   navigateToWorkspace(selection);
 }
 
+/** Agent and IDE Mode exist only in the desktop window's split-pane layout. */
+export function canSwitchWorkbench(layoutMode = useWorkspaceLayoutStore.getState().layoutMode) {
+  return Boolean(getDesktopHost()?.showPimiWorkspace) && layoutMode === "split-panes";
+}
+
 export function usePimiWorkbenchMode(workspaceKey: string | null) {
   return useWorkspaceLayoutStore(
     (state) => (workspaceKey && state.workbenchByWorkspace[workspaceKey]?.mode) || "agent",
@@ -131,6 +136,6 @@ export function usePimiWorkbench() {
     mode,
     select,
     activeWorkspaceKey: current ? workspaceKey : null,
-    available: Boolean(getDesktopHost()?.showPimiWorkspace) && layoutMode === "split-panes",
+    available: canSwitchWorkbench(layoutMode),
   };
 }

@@ -74,6 +74,11 @@ export function usePaneContext(): PaneContextValue {
   return value;
 }
 
+/** For content that also renders outside a pane, such as a chat reply shown in a preview. */
+export function useOptionalPaneContext(): PaneContextValue | null {
+  return useContext(PaneContext);
+}
+
 export function usePaneFocus(): PaneFocusContextValue {
   const value = useContext(PaneFocusContext);
   invariant(value, "PaneFocusContext is required");

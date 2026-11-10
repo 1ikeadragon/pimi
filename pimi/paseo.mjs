@@ -3,9 +3,11 @@ import { createPaseoClient } from "@pimi/client";
 import { buildAgentDeepLink } from "@pimi/protocol/agent-deep-link";
 import { workspaceLabelKey } from "@pimi/protocol/workspace-labels";
 import {
+  PIMI_ASK_STREAM_TYPE,
   PIMI_SPACES_ROUTE,
   PIMI_TASK_WORKER_LABEL,
   PIMI_VOICE_COMMAND_ROUTE,
+  PimiAskEvent,
   PimiWorkLabelCreateInput,
   PimiWorkLabelInput,
 } from "@pimi/protocol/pimi-task";
@@ -723,7 +725,7 @@ export function createPaseoConnection(settingsSource = {}) {
     return JSON.parse(text).ideas;
   }
 
-  async function localData(route, feature, input, timeoutMs = 6000) {
+  async function localRequest(route, feature, input, timeoutMs) {
     const settings = await settingsSource.connection?.();
     if (!settingsSource.native || !settings?.localDataCredential) {
       throw new RequestError(`Connect Pimi to its local agent host to open ${feature}.`, 503);
@@ -731,9 +733,8 @@ export function createPaseoConnection(settingsSource = {}) {
     const url = localAgentUrl(settings);
     url.protocol = "http:";
     url.pathname = route;
-    let response;
     try {
-      response = await fetch(url, {
+      return await fetch(url, {
         method: "POST",
         headers: {
           authorization: "Bearer " + settings.localDataCredential,
@@ -746,6 +747,10 @@ export function createPaseoConnection(settingsSource = {}) {
     } catch {
       throw new RequestError(`Couldn’t reach ${feature} on the local host. Try again.`, 503);
     }
+  }
+
+  async function localData(route, feature, input, timeoutMs = 6000) {
+    const response = await localRequest(route, feature, input, timeoutMs);
     if (!response.headers.get("content-type")?.startsWith("application/json")) {
       throw new RequestError(`Update the local agent host to open ${feature} in Pimi.`, 503);
     }
@@ -753,6 +758,39 @@ export function createPaseoConnection(settingsSource = {}) {
     if (!response.ok)
       throw new RequestError(payload.error || `${feature} is unavailable.`, response.status);
     return payload;
+  }
+
+  // Ask Pimi reports progress while it works, then sends one result or error line.
+  async function askPimi(input, onStatus) {
+    const feature = "Ask Pimi";
+    const response = await localRequest(PIMI_VOICE_COMMAND_ROUTE, feature, input, 150_000);
+    const type = response.headers.get("content-type") ?? "";
+    if (!response.ok || !type.startsWith(PIMI_ASK_STREAM_TYPE) || !response.body) {
+      const payload = type.startsWith("application/json") ? await response.json() : {};
+      throw new RequestError(payload.error || `${feature} is unavailable.`, response.status);
+    }
+    const lost = new RequestError(`Couldn’t reach ${feature} on the local host. Try again.`, 503);
+    const decoder = new TextDecoder();
+    let buffered = "";
+    try {
+      for await (const chunk of response.body) {
+        buffered += decoder.decode(chunk, { stream: true });
+        if (buffered.length > 64 * 1024) throw lost;
+        let end;
+        while ((end = buffered.indexOf("\n")) >= 0) {
+          const line = buffered.slice(0, end);
+          buffered = buffered.slice(end + 1);
+          if (!line.trim()) continue;
+          const event = PimiAskEvent.parse(JSON.parse(line));
+          if (event.type === "status") onStatus?.(event.text);
+          else if (event.type === "error") throw new RequestError(event.error, 502);
+          else return event.result;
+        }
+      }
+    } catch (error) {
+      throw error instanceof RequestError ? error : lost;
+    }
+    throw lost;
   }
 
   return {
@@ -769,6 +807,7 @@ export function createPaseoConnection(settingsSource = {}) {
     spaces: (input) => localData(PIMI_SPACES_ROUTE, "Spaces", input),
     // Allow for provider discovery and startup as well as the classification turn.
     resolveVoiceCommand: (input) => localData(PIMI_VOICE_COMMAND_ROUTE, "Ask Pimi", input, 150_000),
+    askPimi,
     startVoiceChat,
     subscribe(listener) {
       changeListeners.add(listener);

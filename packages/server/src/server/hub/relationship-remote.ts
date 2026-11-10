@@ -1,3 +1,5 @@
+import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
+import { withNetworkInitiator } from "../network/activity.js";
 import { WebSocket } from "ws";
 import { z } from "zod";
 import { webSocketProxyAgent } from "../network/index.js";
@@ -166,15 +168,19 @@ export class DirectHubRelationshipRemote implements HubRelationshipRemote {
 
   openSocket(input: HubSocketCredentials, events: HubSocketEvents): HubSocketConnection {
     let sessionProtocol: "legacy" | "session-v1" = "legacy";
-    const socket = new WebSocket(input.webSocketUrl, {
-      agent: webSocketProxyAgent(input.webSocketUrl),
-      handshakeTimeout: this.requestTimeoutMs,
-      headers: {
-        authorization: `Bearer ${input.credential}`,
-        "x-paseo-daemon-id": input.daemonId,
-        "x-paseo-session-protocol": "1",
-      },
-    });
+    const socket = withNetworkInitiator(
+      NETWORK_PURPOSE.hub,
+      () =>
+        new WebSocket(input.webSocketUrl, {
+          agent: webSocketProxyAgent(input.webSocketUrl),
+          handshakeTimeout: this.requestTimeoutMs,
+          headers: {
+            authorization: `Bearer ${input.credential}`,
+            "x-paseo-daemon-id": input.daemonId,
+            "x-paseo-session-protocol": "1",
+          },
+        }),
+    );
     let settled = false;
     let heartbeat: ReturnType<typeof setInterval> | undefined;
     const stopHeartbeat = () => {
@@ -242,7 +248,7 @@ export class DirectHubRelationshipRemote implements HubRelationshipRemote {
     const timeout = setTimeout(() => controller.abort(), this.requestTimeoutMs);
     timeout.unref?.();
     try {
-      return await operation(controller.signal);
+      return await withNetworkInitiator(NETWORK_PURPOSE.hub, () => operation(controller.signal));
     } catch (error) {
       if (controller.signal.aborted) throw new Error("Hub request timed out", { cause: error });
       throw error;

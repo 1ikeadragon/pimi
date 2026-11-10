@@ -47,7 +47,7 @@ export const SYNTAX_THEME_OPTIONS: readonly SyntaxThemeOption[] = [
 export type SyntaxColors = Record<HighlightStyle, string>;
 
 // A compact per-theme role palette. `expandRolePalette` maps these roles onto
-// all 20 HighlightStyle tokens, so every theme stays complete and internally
+// all 22 HighlightStyle tokens, so every theme stays complete and internally
 // consistent. GitHub keeps its own hand-tuned maps (colors.ts) for exactness
 // and byte-for-byte back-compat with the previous default.
 interface RolePalette {
@@ -61,6 +61,8 @@ interface RolePalette {
   tag: string;
   attribute: string; // attributes, properties
   operator: string;
+  inserted: string; // added lines in a diff
+  deleted: string; // removed lines in a diff
 }
 
 function expandRolePalette(r: RolePalette): SyntaxColors {
@@ -85,6 +87,8 @@ function expandRolePalette(r: RolePalette): SyntaxColors {
     meta: r.comment,
     heading: r.function,
     link: r.string,
+    inserted: r.inserted,
+    deleted: r.deleted,
   };
 }
 
@@ -100,6 +104,8 @@ const catppuccinLatte: RolePalette = {
   tag: "#8839ef",
   attribute: "#df8e1d",
   operator: "#04a5e5",
+  inserted: "#40a02b",
+  deleted: "#d20f39",
 };
 const catppuccinMocha: RolePalette = {
   base: "#cdd6f4",
@@ -112,6 +118,8 @@ const catppuccinMocha: RolePalette = {
   tag: "#cba6f7",
   attribute: "#f9e2af",
   operator: "#89dceb",
+  inserted: "#a6e3a1",
+  deleted: "#f38ba8",
 };
 
 // --- Dracula (dark only) -------------------------------------------------
@@ -126,6 +134,8 @@ const dracula: RolePalette = {
   tag: "#ff79c6",
   attribute: "#50fa7b",
   operator: "#ff79c6",
+  inserted: "#50fa7b",
+  deleted: "#ff5555",
 };
 
 // --- Tokyo Night (Day light / Night dark) --------------------------------
@@ -140,6 +150,8 @@ const tokyoDay: RolePalette = {
   tag: "#f52a65",
   attribute: "#8c6c3e",
   operator: "#006a83",
+  inserted: "#587539",
+  deleted: "#f52a65",
 };
 const tokyoNight: RolePalette = {
   base: "#c0caf5",
@@ -152,6 +164,8 @@ const tokyoNight: RolePalette = {
   tag: "#f7768e",
   attribute: "#e0af68",
   operator: "#89ddff",
+  inserted: "#9ece6a",
+  deleted: "#f7768e",
 };
 
 // --- One (One Light / One Dark) ------------------------------------------
@@ -166,6 +180,8 @@ const oneLight: RolePalette = {
   tag: "#e45649",
   attribute: "#986801",
   operator: "#0184bc",
+  inserted: "#50a14f",
+  deleted: "#e45649",
 };
 const oneDark: RolePalette = {
   base: "#abb2bf",
@@ -178,6 +194,8 @@ const oneDark: RolePalette = {
   tag: "#e06c75",
   attribute: "#d19a66",
   operator: "#56b6c2",
+  inserted: "#98c379",
+  deleted: "#e06c75",
 };
 
 // --- Nord (Snow Storm light / Polar Night dark) ---------------------------
@@ -192,6 +210,8 @@ const nordLight: RolePalette = {
   tag: "#5e81ac",
   attribute: "#8f5e91",
   operator: "#5e81ac",
+  inserted: "#4f894c",
+  deleted: "#bf616a",
 };
 const nordDark: RolePalette = {
   base: "#d8dee9",
@@ -204,6 +224,8 @@ const nordDark: RolePalette = {
   tag: "#81a1c1",
   attribute: "#8fbcbb",
   operator: "#81a1c1",
+  inserted: "#a3be8c",
+  deleted: "#bf616a",
 };
 
 // --- Gruvbox (Light / Dark) ----------------------------------------------
@@ -218,6 +240,8 @@ const gruvboxLight: RolePalette = {
   tag: "#076678",
   attribute: "#b57614",
   operator: "#af3a03",
+  inserted: "#79740e",
+  deleted: "#9d0006",
 };
 const gruvboxDark: RolePalette = {
   base: "#ebdbb2",
@@ -230,6 +254,8 @@ const gruvboxDark: RolePalette = {
   tag: "#83a598",
   attribute: "#fabd2f",
   operator: "#fe8019",
+  inserted: "#b8bb26",
+  deleted: "#fb4934",
 };
 
 // --- Solarized (Light / Dark — shared accents, different base/comment) ----
@@ -244,6 +270,8 @@ const solarizedLight: RolePalette = {
   tag: "#268bd2",
   attribute: "#b58900",
   operator: "#859900",
+  inserted: "#859900",
+  deleted: "#dc322f",
 };
 const solarizedDark: RolePalette = {
   base: "#839496",
@@ -256,6 +284,8 @@ const solarizedDark: RolePalette = {
   tag: "#268bd2",
   attribute: "#b58900",
   operator: "#859900",
+  inserted: "#859900",
+  deleted: "#dc322f",
 };
 
 export function isSyntaxThemeId(value: string): value is SyntaxThemeId {

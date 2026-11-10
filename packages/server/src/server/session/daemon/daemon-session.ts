@@ -8,11 +8,15 @@ import {
   collectDaemonDiagnostics,
   type DaemonWebSocketRuntimeDiagnosticSnapshot,
 } from "./diagnostics.js";
+import { getDaemonNetworkActivity } from "../../network/activity.js";
 import { DaemonSelfUpdateSessionController } from "./daemon-self-update-session-controller.js";
 import type { ManagedAgent } from "../../agent/agent-manager.js";
 import type { PersistedProjectRecord, PersistedWorkspaceRecord } from "../../workspace-registry.js";
 import type { HubRelationshipManagement } from "../../hub/relationship-controller.js";
 import type { DaemonConfigReloadResult } from "../../daemon-config-store.js";
+
+const NETWORK_ACTIVITY_DEFAULT_LIMIT = 300;
+const NETWORK_ACTIVITY_MAX_LIMIT = 1000;
 
 export interface DaemonRuntimeConfig {
   listen: string | null;
@@ -289,6 +293,21 @@ export class DaemonSession {
         },
       });
     }
+  }
+
+  handleNetworkActivityListRequest(
+    msg: Extract<SessionInboundMessage, { type: "diagnostics.network.list.request" }>,
+  ): void {
+    this.host.emit({
+      type: "diagnostics.network.list.response",
+      payload: {
+        requestId: msg.requestId,
+        snapshot: getDaemonNetworkActivity().snapshot({
+          includeLocal: msg.includeLocal,
+          limit: Math.min(msg.limit ?? NETWORK_ACTIVITY_DEFAULT_LIMIT, NETWORK_ACTIVITY_MAX_LIMIT),
+        }),
+      },
+    });
   }
 
   async handleDiagnosticsRequest(

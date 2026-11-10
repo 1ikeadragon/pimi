@@ -44,6 +44,9 @@ export const syntaxRoleTags: ReadonlyArray<{ tag: Tag; role: HighlightStyle }> =
   { tag: tags.heading, role: "heading" },
   { tag: tags.link, role: "link" },
   { tag: tags.url, role: "link" },
+  // Diff and patch lines.
+  { tag: tags.inserted, role: "inserted" },
+  { tag: tags.deleted, role: "deleted" },
 ];
 
 export const staticSyntaxHighlighter = tagHighlighter(

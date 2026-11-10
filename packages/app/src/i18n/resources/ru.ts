@@ -2375,6 +2375,7 @@ export const ru: TranslationResources = {
       notifications: "Уведомления",
       permissions: "Разрешения",
       diagnostics: "Диагностика",
+      network: "Сеть",
       about: "О приложении",
     },
     layout: en.settings.layout,

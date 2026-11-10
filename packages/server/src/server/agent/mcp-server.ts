@@ -8,7 +8,7 @@ import type {
 
 import { addModelVisibleStructuredContent } from "./tools/paseo-tool-serialization.js";
 import { createPaseoToolCatalog, type PaseoToolHostDependencies } from "./tools/paseo-tools.js";
-import type { PaseoToolResult } from "./tools/types.js";
+import type { PaseoToolDefinition, PaseoToolResult } from "./tools/types.js";
 
 export type AgentMcpServerOptions = PaseoToolHostDependencies;
 
@@ -28,14 +28,16 @@ function toMcpToolResult(result: PaseoToolResult): CallToolResult {
   };
 }
 
-export async function createAgentMcpServer(options: AgentMcpServerOptions): Promise<McpServer> {
-  const catalog = await createPaseoToolCatalog(options);
+export function createToolMcpServer(
+  tools: Iterable<PaseoToolDefinition>,
+  execute: (name: string, args: unknown, signal?: AbortSignal) => Promise<PaseoToolResult>,
+): McpServer {
   const server = new McpServer({
     name: "pimi",
     version: "2.0.0",
   });
 
-  for (const tool of catalog.tools.values()) {
+  for (const tool of tools) {
     server.registerTool(
       tool.name,
       {
@@ -44,9 +46,16 @@ export async function createAgentMcpServer(options: AgentMcpServerOptions): Prom
         inputSchema: tool.inputSchema,
       },
       async (args: unknown, context?: McpToolContext) =>
-        toMcpToolResult(await catalog.executeTool(tool.name, args, { signal: context?.signal })),
+        toMcpToolResult(await execute(tool.name, args, context?.signal)),
     );
   }
 
   return server;
+}
+
+export async function createAgentMcpServer(options: AgentMcpServerOptions): Promise<McpServer> {
+  const catalog = await createPaseoToolCatalog(options);
+  return createToolMcpServer(catalog.tools.values(), (name, args, signal) =>
+    catalog.executeTool(name, args, { signal }),
+  );
 }

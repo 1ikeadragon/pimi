@@ -3,6 +3,7 @@ import { Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { ChevronDown, ChevronUp, PanelTopOpen } from "lucide-react-native";
 import type { ChatArtifact } from "@pimi/protocol/chat-artifact";
+import type { ChatHtml } from "@pimi/protocol/chat-html";
 import { useAssistantFileLinkEnvironment } from "@/assistant-file-links";
 import { useRetainedPanelActive } from "@/components/retained-panel";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,10 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { isWeb } from "@/constants/platform";
 import { FileHtmlPreview } from "@/file-panels/html-preview";
 import { htmlPreviewTheme } from "@/file-panels/html-preview-theme";
+import { rememberHtmlVisual } from "@/html-visuals/store";
+import { useOptionalPaneContext } from "@/panels/pane-context";
 import { decodeUtf8 } from "@/utils/decode-utf8";
+import { FailedView, PendingView } from "./view";
 
 // Full-size artifacts can still use the workspace file panel.
 const MAX_INLINE_ARTIFACT_BYTES = 1024 * 1024;
@@ -60,8 +64,6 @@ function ArtifactPreview({ artifact }: { artifact: ChatArtifact }) {
   const visible = useHasBeenVisible(card);
   const [state, setState] = useState<PreviewState>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
-  const [collapsed, setCollapsed] = useState(false);
-  const [height, setHeight] = useState(INITIAL_PREVIEW_HEIGHT);
   const canRead = Boolean(client?.readFile && workspaceRoot);
 
   useEffect(() => {
@@ -88,18 +90,104 @@ function ArtifactPreview({ artifact }: { artifact: ChatArtifact }) {
   }, [attempt, client, path, visible, workspaceRoot]);
 
   const retry = useCallback(() => setAttempt((count) => count + 1), []);
-  const toggle = useCallback(() => setCollapsed((value) => !value), []);
   const openInTab = useCallback(
     () => onOpenWorkspaceFile?.({ raw: path, path }, "main"),
     [onOpenWorkspaceFile, path],
   );
+  return (
+    <VisualFrame
+      frame={card}
+      title={title}
+      state={canRead ? state : UNREADABLE}
+      onOpenInTab={onOpenWorkspaceFile ? openInTab : undefined}
+      onRetry={canRead ? retry : undefined}
+    />
+  );
+}
+
+const INLINE_HTML_TITLE = "Visual";
+
+/**
+ * A `pimi-html` block: the document is the block's own body. `html` is null while the block is
+ * still being written, and for a block that ended empty or over the size cap, which `failed` marks.
+ */
+export function ChatHtmlCard({
+  html,
+  source,
+  failed = false,
+}: {
+  html: ChatHtml | null;
+  source: string;
+  failed?: boolean;
+}) {
+  const active = useRetainedPanelActive();
+  if (!html) {
+    return failed ? (
+      <FailedView
+        source={source}
+        message="Couldn’t show this visual."
+        showLabel="Show source"
+        hideLabel="Hide source"
+      />
+    ) : (
+      <PendingView source="" />
+    );
+  }
+  // A chat kept alive in the background runs no documents; it loads again when it is shown.
+  if (!active) return null;
+  // A new document is a new frame, with its own height and collapse state.
+  return <InlineHtmlPreview key={html.html} visual={html} />;
+}
+
+function InlineHtmlPreview({ visual }: { visual: ChatHtml }) {
+  const pane = useOptionalPaneContext();
+  const card = useRef<View>(null);
+  const visible = useHasBeenVisible(card);
+  const title = visual.title ?? INLINE_HTML_TITLE;
+  // The reply is split again on every streamed token; the first parse stands for the document.
+  const [html] = useState(visual.html);
+  const state = useMemo<PreviewState>(
+    () => (visible ? { status: "ready", html } : { status: "loading" }),
+    [html, visible],
+  );
+  const openTab = pane?.openTab;
+  const openInTab = useCallback(() => {
+    openTab?.({ kind: "html_visual", visualId: rememberHtmlVisual({ html, title }), title });
+  }, [html, openTab, title]);
+  return (
+    <VisualFrame
+      frame={card}
+      title={title}
+      state={state}
+      onOpenInTab={openTab ? openInTab : undefined}
+    />
+  );
+}
+
+/** The card an HTML visual runs in, whether its document came from a file or from the reply. */
+function VisualFrame({
+  frame,
+  title,
+  state,
+  onOpenInTab,
+  onRetry,
+}: {
+  frame: React.RefObject<View | null>;
+  title: string;
+  state: PreviewState;
+  onOpenInTab?: () => void;
+  onRetry?: () => void;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  const [height, setHeight] = useState(INITIAL_PREVIEW_HEIGHT);
+  const toggle = useCallback(() => setCollapsed((value) => !value), []);
   const fitContent = useCallback((contentHeight: number) => {
     setHeight(Math.min(MAX_PREVIEW_HEIGHT, Math.max(MIN_PREVIEW_HEIGHT, contentHeight)));
   }, []);
   const frameStyle = useMemo(() => [styles.preview, { height }], [height]);
 
   return (
-    <View ref={card} style={styles.card} testID="chat-artifact">
+    <View ref={frame} style={styles.card} testID="chat-artifact">
       <View style={styles.header}>
         <Text style={styles.title} numberOfLines={1}>
           {title}
@@ -110,8 +198,8 @@ function ArtifactPreview({ artifact }: { artifact: ChatArtifact }) {
             size="sm"
             leftIcon={PanelTopOpen}
             accessibilityLabel="Open artifact in tab"
-            disabled={!onOpenWorkspaceFile}
-            onPress={openInTab}
+            disabled={!onOpenInTab}
+            onPress={onOpenInTab}
           >
             Open in tab
           </Button>
@@ -126,11 +214,11 @@ function ArtifactPreview({ artifact }: { artifact: ChatArtifact }) {
       </View>
       {collapsed ? null : (
         <ArtifactBody
-          state={canRead ? state : UNREADABLE}
+          state={state}
           title={title}
           frameStyle={frameStyle}
           onContentHeight={fitContent}
-          onRetry={canRead ? retry : undefined}
+          onRetry={onRetry}
         />
       )}
     </View>

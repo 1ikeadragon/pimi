@@ -2389,6 +2389,7 @@ export const es: TranslationResources = {
       notifications: "Notificaciones",
       permissions: "Permisos",
       diagnostics: "Diagnóstico",
+      network: "Red",
       about: "Acerca de",
     },
     layout: en.settings.layout,

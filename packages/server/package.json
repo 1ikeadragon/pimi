@@ -50,6 +50,11 @@
       "source": "./src/server/auth.ts",
       "default": "./dist/server/server/auth.js"
     },
+    "./network-activity": {
+      "types": "./dist/server/server/network/activity.d.ts",
+      "source": "./src/server/network/activity.ts",
+      "default": "./dist/server/server/network/activity.js"
+    },
     "./pairing": {
       "types": "./dist/server/server/pairing-offer.d.ts",
       "source": "./src/server/pairing-offer.ts",

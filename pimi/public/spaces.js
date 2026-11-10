@@ -283,20 +283,10 @@ export function createSpacesView({ $, api, button, element, message }) {
         const slot = element("div", "spaces-embed");
         slot.dataset.embedKind = embed.kind;
         sources.set(slot, embed);
-        slot.hidden = true;
-        const loadPreview = button(
-          "button quiet spaces-load-preview",
-          `Load ${embed.name} preview`,
-          () => {
-            requestedPreviews.add(slot);
-            slot.hidden = false;
-            if (embed.kind === "arxiv") slot.parentElement.hidden = false;
-            loadPreview.remove();
-            if (active && !document.hidden) observer.observe(slot);
-          },
-        );
-        loadPreview.hidden = unavailablePapers.has(embed.url);
-        node.append(loadPreview);
+        // Previews load on their own as each card scrolls into view; the observer loads only
+        // what is visible and unloads what scrolls away.
+        requestedPreviews.add(slot);
+        slot.hidden = unavailablePapers.has(embed.url);
         if (embed.kind === "arxiv") {
           const peek = button("spaces-paper-peek", "", () => openCard(item));
           peek.tabIndex = -1;

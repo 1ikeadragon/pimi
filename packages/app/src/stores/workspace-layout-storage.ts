@@ -45,6 +45,7 @@ const WorkspaceTabTargetStorageSchema = z.discriminatedUnion("kind", [
   }),
   z.strictObject({ kind: z.literal("setup"), workspaceId: z.string() }),
   z.strictObject({ kind: z.literal("commit_diff"), sha: z.string() }),
+  z.strictObject({ kind: z.literal("html_visual"), visualId: z.string(), title: z.string() }),
   z.discriminatedUnion("context", [
     z.strictObject({
       kind: z.literal("plugin"),
