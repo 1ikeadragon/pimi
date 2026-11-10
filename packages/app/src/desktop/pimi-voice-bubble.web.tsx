@@ -75,6 +75,8 @@ const PHASE_STATUS = {
   off: "",
   starting: "Starting microphone…",
   processing: "Transcribing…",
+  finishing: "Transcribing…",
+  hearing: "Hearing you…",
   listening: "Listening",
 };
 const BUSY = "Still working on your last command. Say this again when it finishes.";
@@ -436,9 +438,11 @@ function DesktopVoiceBubble({
   });
 
   const { phase, message, level, stop, toggle } = listener;
-  const active = phase !== "off";
-  const status = message || (receipt && !active ? "" : PHASE_STATUS[phase]);
-  const label = active ? "Pimi · Stop listening" : "Pimi · Start listening";
+  const finishing = phase === "finishing";
+  const active = phase !== "off" && !finishing;
+  const status = message || PHASE_STATUS[phase];
+  let label = active ? "Pimi · Stop listening" : "Pimi · Start listening";
+  if (finishing) label = "Pimi · Finishing transcript";
   const workspaceLevel = section ? level : 0;
   const badgeStyle = useMemo(() => [styles.badge, active && styles.activeBadge], [active]);
 
@@ -481,6 +485,7 @@ function DesktopVoiceBubble({
           accessibilityLabel={label}
           accessibilityRole="button"
           accessibilityState={active ? VOICE_ON : VOICE_OFF}
+          disabled={finishing}
           testID="pimi-voice-toggle"
           onPress={toggle}
           style={styles.button}
