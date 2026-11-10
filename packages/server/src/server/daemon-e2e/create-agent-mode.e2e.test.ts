@@ -5,7 +5,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { expect, test } from "vitest";
 import { createDaemonTestContext } from "../test-utils/index.js";
 
-test("an attended MCP caller can discover and supply a cross-provider child mode", async () => {
+test("an attended MCP caller starts a cross-provider child in its default mode or a chosen one", async () => {
   const artifacts = path.join(process.cwd(), ".artifacts");
   await mkdir(artifacts, { recursive: true });
   const root = await mkdtemp(path.join(artifacts, "create-agent-mode-"));
@@ -32,15 +32,10 @@ test("an attended MCP caller can discover and supply a cross-provider child mode
       title: "Cross-provider child",
       initialPrompt: "Reply with OK",
     };
-    const refused = await mcp.callTool({ name: "create_agent", arguments: args });
-    expect(refused.isError).toBe(true);
-    expect.soft(refused.content).toEqual([
-      expect.objectContaining({
-        type: "text",
-        text: expect.stringContaining("Pass an explicit mode in settings.modeId"),
-      }),
-    ]);
-    expect((await ctx.client.fetchAgents({ subscribe: {} })).entries).toHaveLength(1);
+    const defaulted = await mcp.callTool({ name: "create_agent", arguments: args });
+    expect(defaulted.isError).not.toBe(true);
+    expect(defaulted.structuredContent).toMatchObject({ type: "codex" });
+    expect((await ctx.client.fetchAgents({ subscribe: {} })).entries).toHaveLength(2);
 
     const inspected = await mcp.callTool({
       name: "inspect_provider",

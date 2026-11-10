@@ -11,7 +11,7 @@ function isWorkspaceHtmlPath(path: string): boolean {
   );
 }
 
-const artifactSchema = z.strictObject({
+const artifactSchema = z.object({
   title: z.string().trim().min(1).max(120),
   path: z
     .string()

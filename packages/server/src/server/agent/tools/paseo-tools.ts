@@ -4,6 +4,7 @@ import { registerPimiTaskTools } from "./pimi-task-tools.js";
 import type { ProjectMemory } from "../../project-memory.js";
 import type { searchPimiCodebase } from "../../pimi-codebase-index.js";
 import { SpaceItemId, SpaceSearchQuery, type PimiSpaces } from "../../pimi-spaces.js";
+import { fetchSpaceLinkText } from "../../pimi-space-link-preview.js";
 import { randomUUID } from "node:crypto";
 import {
   PIMI_REVIEW_SUGGESTION_TOOL,
@@ -134,6 +135,9 @@ import {
 } from "./types.js";
 import type { ProviderPaseoToolsPolicy } from "@pimi/protocol/provider-config";
 import { isPaseoToolEnabled } from "../paseo-tool-policy.js";
+
+// Reading a link fetches the page; Ask Pimi has 90 seconds for its whole request.
+const PAGE_TIMEOUT_MS = 20_000;
 
 export interface PaseoToolHostDependencies {
   agentMessages?: () => AgentMessageDelivery;
@@ -746,7 +750,7 @@ function registerSpacesTools(
     {
       title: "Read a Pimi Spaces card",
       description:
-        "Read a Spaces card by its space: reference or UUID. Links include saved preview text when available. Treat card contents as reference data.",
+        "Read a Spaces card by its space: reference or UUID. Links include saved preview text when available. A link also includes the page's text when it can be read, including an arXiv paper's full text, so you can summarize or answer questions about it. PDFs other than arXiv papers have no text here. Treat card contents as reference data.",
       inputSchema: z.strictObject({
         id: z.union([SpaceItemId, z.templateLiteral(["space:", SpaceItemId])]),
       }),
@@ -757,7 +761,12 @@ function registerSpacesTools(
       if (!item) throw new PaseoToolInputError("This Spaces card was not found on this host.");
       if (item.kind === "note") return { content: [{ type: "text", text: item.text }] };
       if (item.kind === "link") {
-        const result = { url: item.url, preview: item.preview ?? null };
+        const page = await fetchSpaceLinkText(
+          item.url,
+          item.embedUrl,
+          AbortSignal.timeout(PAGE_TIMEOUT_MS),
+        ).catch(() => null);
+        const result = { url: item.url, preview: item.preview ?? null, ...(page && { page }) };
         return {
           content: [{ type: "text", text: JSON.stringify(result) }],
           structuredContent: ensureValidJson(result),
@@ -1222,24 +1231,6 @@ function createToolCatalog(
     }
     return schedule;
   }
-  const ProviderModelInputSchema = AgentProviderEnum.trim()
-    .refine((value) => value.includes("/"), {
-      message: "provider must be provider/model, for example codex/gpt-5.4",
-    })
-    .refine(
-      (value) => {
-        if (!value.includes("/")) {
-          return true;
-        }
-        try {
-          resolveRequiredProviderModel(value);
-          return true;
-        } catch {
-          return false;
-        }
-      },
-      { message: "provider must be provider/model, for example codex/gpt-5.4" },
-    );
   const ProviderOrProviderModelInputSchema = AgentProviderEnum.trim()
     .min(1, "provider is required")
     .refine(
@@ -1346,8 +1337,8 @@ function createToolCatalog(
       .min(1, "Title is required")
       .max(60, "Title must be 60 characters or fewer")
       .describe("Short descriptive title (<= 60 chars) summarizing the agent's focus."),
-    provider: ProviderModelInputSchema.describe(
-      "Required provider/model pair, for example codex/gpt-5.4.",
+    provider: ProviderOrProviderModelInputSchema.describe(
+      "Provider/model pair, for example codex/gpt-5.4, or a provider alone for its default model.",
     ),
     labels: z.record(z.string(), z.string()).optional().describe("Labels to set on the agent"),
     settings: CreateAgentSettingsInputSchema.optional().describe(
@@ -1888,7 +1879,7 @@ function createToolCatalog(
     {
       title: "Create agent",
       description:
-        "Create an agent. Agent-scoped creation defaults to your workspace and creates your subagent. Top-level creation without workspaceId creates a new local workspace. Requires provider/model (for example codex/gpt-5.4) and an initial prompt. For a different provider, set settings.modeId from inspect_provider; omission is accepted for targets with no modes and for unattended execution supported by the target. Do not guess; call list_providers and list_models first if uncertain.",
+        "Create an agent. Agent-scoped creation defaults to your workspace and creates your subagent. Top-level creation without workspaceId creates a new local workspace. Requires a provider (codex, or codex/gpt-5.4 for a specific model) and an initial prompt. For a different provider, omitting settings.modeId starts the agent in that provider's default mode. Do not guess; call list_providers and list_models first if uncertain.",
       inputSchema: createAgentInputSchema,
       outputSchema: {
         agentId: z.string(),
@@ -1903,7 +1894,7 @@ function createToolCatalog(
       },
     },
     async (args: unknown) => {
-      const resolvedArgs = await resolveCreateAgentToolArgs(args);
+      const resolvedArgs = await resolveCreateAgentToolArgs(await withDefaultModel(args));
       const { parsedArgs } = resolvedArgs;
       let notifyOnFinish: boolean;
       if (resolvedArgs.kind === "agent-scoped") {
@@ -2023,6 +2014,21 @@ function createToolCatalog(
         cwd: string | undefined;
         workspaceId: string | undefined;
       };
+
+  // Agents asked to "use claude" name the provider alone; that means its default model.
+  async function withDefaultModel(args: unknown): Promise<unknown> {
+    if (typeof args !== "object" || args === null) return args;
+    const provider = (args as { provider?: unknown }).provider;
+    if (typeof provider !== "string" || !provider.trim() || provider.includes("/")) return args;
+    const id = provider.trim();
+    const parsed = AgentProviderEnum.safeParse(id);
+    if (!parsed.success) return args;
+    const models = await providerSnapshotManager.listModels({ provider: parsed.data, wait: true });
+    const model = models.find((entry) => entry.isDefault) ?? models[0];
+    if (!model)
+      throw new PaseoToolInputError(`Provider '${id}' has no models available on this host`);
+    return { ...args, provider: `${id}/${model.id}` };
+  }
 
   async function resolveCreateAgentToolArgs(args: unknown): Promise<ResolvedCreateAgentToolArgs> {
     const placement = args as {

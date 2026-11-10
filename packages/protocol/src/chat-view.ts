@@ -4,7 +4,11 @@ export const PIMI_CHART_FENCE = "pimi-chart";
 export const PIMI_VIEW_FENCE = "pimi-view";
 export type ViewFence = typeof PIMI_CHART_FENCE | typeof PIMI_VIEW_FENCE;
 
-/** Agent output is untrusted. Every cap is enforced before a view reaches a renderer. */
+/**
+ * Agent output is untrusted. Every cap is enforced before a view reaches a renderer. Fields the
+ * catalog does not name are dropped, not rejected: nothing reaches a renderer except what the
+ * schemas below define, and one stray key should not turn a whole chart into raw JSON.
+ */
 export const VIEW_LIMITS = {
   /** Roughly twice the largest valid table, so no valid view is rejected for its size. */
   sourceLength: 32_768,
@@ -74,7 +78,7 @@ function categoryData(maxPoints: number) {
     labels: z.array(labelSchema).min(1).max(maxPoints),
     series: z
       .array(
-        z.strictObject({
+        z.object({
           name: labelSchema,
           values: z.array(z.number()).min(1).max(maxPoints),
         }),
@@ -92,7 +96,7 @@ const chartHeading = {
 const axisTitles = { xLabel: labelSchema.optional(), yLabel: labelSchema.optional() };
 
 const barChartSchema = z
-  .strictObject({
+  .object({
     ...chartHeading,
     kind: z.literal("bar"),
     ...categoryData(VIEW_LIMITS.categoryPoints),
@@ -102,7 +106,7 @@ const barChartSchema = z
   .refine(isAlignedCategoryData);
 
 const lineChartSchema = z
-  .strictObject({
+  .object({
     ...chartHeading,
     kind: z.literal("line"),
     ...categoryData(VIEW_LIMITS.continuousPoints),
@@ -111,7 +115,7 @@ const lineChartSchema = z
   .refine(isAlignedCategoryData);
 
 const areaChartSchema = z
-  .strictObject({
+  .object({
     ...chartHeading,
     kind: z.literal("area"),
     ...categoryData(VIEW_LIMITS.continuousPoints),
@@ -121,7 +125,7 @@ const areaChartSchema = z
   .refine(isAlignedCategoryData);
 
 const radialChartSchema = z
-  .strictObject({
+  .object({
     ...chartHeading,
     kind: z.enum(["pie", "donut"]),
     ...categoryData(VIEW_LIMITS.categoryPoints),
@@ -135,12 +139,12 @@ const radialChartSchema = z
   );
 
 const scatterChartSchema = z
-  .strictObject({
+  .object({
     ...chartHeading,
     kind: z.literal("scatter"),
     series: z
       .array(
-        z.strictObject({
+        z.object({
           name: labelSchema,
           points: z
             .array(z.tuple([z.number(), z.number()]))
@@ -165,7 +169,7 @@ const chartSchema = z.discriminatedUnion("kind", [
   scatterChartSchema,
 ]);
 
-const metricSchema = z.strictObject({
+const metricSchema = z.object({
   type: z.literal("metric"),
   label: labelSchema,
   value: text(VIEW_LIMITS.value),
@@ -176,11 +180,11 @@ const metricSchema = z.strictObject({
 });
 
 const tableSchema = z
-  .strictObject({
+  .object({
     type: z.literal("table"),
     columns: z
       .array(
-        z.strictObject({
+        z.object({
           label: labelSchema,
           align: z.enum(["start", "end"]).optional(),
         }),
@@ -204,7 +208,7 @@ const tableSchema = z
   );
 
 const progressSchema = z
-  .strictObject({
+  .object({
     type: z.literal("progress"),
     label: labelSchema,
     value: z.number().nonnegative(),
@@ -213,14 +217,14 @@ const progressSchema = z
   })
   .refine(({ value, max }) => value <= max);
 
-const textSchema = z.strictObject({
+const textSchema = z.object({
   type: z.literal("text"),
   content: text(VIEW_LIMITS.text),
   tone: toneSchema.optional(),
   emphasis: z.enum(["normal", "strong", "subtle"]).optional(),
 });
 
-const badgeSchema = z.strictObject({
+const badgeSchema = z.object({
   type: z.literal("badge"),
   label: text(VIEW_LIMITS.value),
   tone: toneSchema.optional(),
@@ -262,19 +266,19 @@ const childrenSchema: z.ZodType<ViewNode[]> = z.lazy(() =>
   z.array(nodeSchema).min(1).max(VIEW_LIMITS.children),
 );
 
-const stackSchema = z.strictObject({
+const stackSchema = z.object({
   type: z.literal("stack"),
   direction: z.enum(["column", "row"]).optional(),
   children: childrenSchema,
 });
 
-const gridSchema = z.strictObject({
+const gridSchema = z.object({
   type: z.literal("grid"),
   columns: z.number().int().min(1).max(4).optional(),
   children: childrenSchema,
 });
 
-const sectionSchema = z.strictObject({
+const sectionSchema = z.object({
   type: z.literal("section"),
   title: titleSchema,
   children: childrenSchema,
@@ -287,7 +291,7 @@ const nodeSchema: z.ZodType<ViewNode> = z.discriminatedUnion("type", [
   ...leafSchemas,
 ]);
 
-const viewSchema = z.strictObject({
+const viewSchema = z.object({
   id: idSchema.optional(),
   title: titleSchema.optional(),
   root: nodeSchema,
@@ -344,6 +348,19 @@ function isWithinTreeLimits(root: unknown): boolean {
 }
 
 /**
+ * Keeps the valid parts of a layout. An agent that gets one tile or table wrong should still show
+ * the rest of its view, so an invalid child is dropped rather than failing the whole block. Runs
+ * after the tree limits, so the repeated validation stays bounded.
+ */
+function salvageNode(node: unknown): unknown {
+  if (!isRecord(node) || !Array.isArray(node.children)) return node;
+  const children = node.children
+    .map(salvageNode)
+    .filter((child) => nodeSchema.safeParse(child).success);
+  return { ...node, children };
+}
+
+/**
  * A chart block is the chart itself with `type` naming its kind, the shape stored chats
  * already contain. It becomes a view whose root is that chart.
  */
@@ -367,7 +384,7 @@ export function parseChatView(fence: ViewFence, source: string): ChatView | null
   if (!isRecord(data)) return null;
   const document = fence === PIMI_CHART_FENCE ? chartDocument(data) : data;
   if (!isRecord(document) || !isWithinTreeLimits(document.root)) return null;
-  const result = viewSchema.safeParse(document);
+  const result = viewSchema.safeParse({ ...document, root: salvageNode(document.root) });
   if (!result.success) return null;
   if (fence === PIMI_CHART_FENCE && result.data.root.type !== "chart") return null;
   return result.data;

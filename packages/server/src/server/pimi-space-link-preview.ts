@@ -13,6 +13,7 @@ import {
 } from "@pimi/protocol/pimi-task";
 
 const MAX_RESPONSE_BYTES = 512 * 1024;
+const USER_AGENT = "Mozilla/5.0 (compatible; PimiLinkReader/1.0)";
 const MAX_PREVIEW_TEXT = 8192;
 const MAX_TITLE = 300;
 export const SpaceLinkPreview = z.strictObject({
@@ -97,7 +98,13 @@ async function requestPage(
         ...(secure && { servername: hostname, rejectUnauthorized: true }),
         agent: false,
         signal,
-        headers: { host: url.host, accept, "accept-encoding": "identity" },
+        // Sites such as Wikipedia refuse requests that name no client.
+        headers: {
+          host: url.host,
+          accept,
+          "accept-encoding": "identity",
+          "user-agent": USER_AGENT,
+        },
       },
       resolve,
     );
@@ -105,7 +112,12 @@ async function requestPage(
   });
 }
 
-async function readPage(start: URL, accept: string, signal: AbortSignal) {
+async function readPage(
+  start: URL,
+  accept: string,
+  signal: AbortSignal,
+  maxBytes = MAX_RESPONSE_BYTES,
+) {
   let url = start;
   for (let redirects = 0; redirects <= 3; redirects += 1) {
     const response = await requestPage(url, accept, signal);
@@ -132,9 +144,9 @@ async function readPage(start: URL, accept: string, signal: AbortSignal) {
     let bytes = 0;
     let truncated = false;
     for await (const chunk of response as AsyncIterable<Buffer>) {
-      chunks.push(chunk.subarray(0, MAX_RESPONSE_BYTES - bytes));
+      chunks.push(chunk.subarray(0, maxBytes - bytes));
       bytes += chunk.length;
-      if (bytes > MAX_RESPONSE_BYTES) {
+      if (bytes > maxBytes) {
         truncated = true;
         break;
       }
@@ -282,4 +294,58 @@ export async function fetchSpaceLinkPreview(
   if (page.type === "text/plain") return makePreview("", page.body, page.truncated);
   const { title, text } = htmlText(page.body, false);
   return makePreview(title, text, page.truncated);
+}
+
+// A saved page's text for an agent to read in full, beyond the short preview kept for search.
+// arXiv HTML papers run to a few megabytes, mostly markup and math; the text cap keeps one read
+// inside a model's context.
+const MAX_PAGE_BYTES = 6 * 1024 * 1024;
+const MAX_PAGE_TEXT = 60_000;
+const PAGE_CACHE_SIZE = 8;
+export interface SpaceLinkText {
+  title: string;
+  text: string;
+  truncated: boolean;
+}
+const pages = new Map<string, Promise<SpaceLinkText | null>>();
+
+/**
+ * The readable text of a saved link: an arXiv paper from its HTML version, any other page from
+ * its main content. Null for a post or video, whose preview already holds its text, and for a
+ * page that is not HTML or plain text, such as a PDF.
+ */
+export function fetchSpaceLinkText(
+  url: string,
+  embedUrl: string | null,
+  signal: AbortSignal,
+): Promise<SpaceLinkText | null> {
+  const embed = embedUrl ? new URL(embedUrl) : null;
+  if (embed && (isPimiXEmbed(embed) || isPimiVideoEmbed(embed))) return Promise.resolve(null);
+  const target = embed && isPimiArxivEmbed(embed) ? embed : new URL(url);
+  let pending = pages.get(target.href);
+  if (!pending) {
+    pending = readPage(
+      target,
+      "text/html, application/xhtml+xml, text/plain",
+      signal,
+      MAX_PAGE_BYTES,
+    ).then((page) => {
+      if (!page) return null;
+      const { title, text } =
+        page.type === "text/plain" ? { title: "", text: page.body } : htmlText(page.body, false);
+      const body = compact(text);
+      if (!body) return null;
+      return {
+        title: compact(title).replaceAll("\n", " ").slice(0, MAX_TITLE),
+        text: body.slice(0, MAX_PAGE_TEXT),
+        truncated: page.truncated || body.length > MAX_PAGE_TEXT,
+      };
+    });
+    // A failed read is not kept, so the next request tries again.
+    const forget = () => pages.delete(target.href);
+    pending.then((page) => page ?? forget(), forget);
+    pages.set(target.href, pending);
+    while (pages.size > PAGE_CACHE_SIZE) pages.delete(pages.keys().next().value!);
+  }
+  return pending;
 }

@@ -68,8 +68,8 @@ describe("resolveAndValidateCreateAgentMode", () => {
     expect(resolved).toBeUndefined();
   });
 
-  it("refuses cross-provider inheritance with the target provider's modes in the message", () => {
-    expect(() =>
+  it("starts a cross-provider agent in the target's default mode", () => {
+    expect(
       resolveAndValidateCreateAgentMode({
         requestedMode: undefined,
         targetProvider: "opencode",
@@ -77,13 +77,11 @@ describe("resolveAndValidateCreateAgentMode", () => {
         unattended: false,
         availableModes: OPENCODE_MODES,
       }),
-    ).toThrow(
-      "cannot inherit mode 'bypassPermissions' from caller (provider 'claude') for new agent (provider 'opencode'). Pass an explicit mode in settings.modeId. Available modes for 'opencode': build, plan",
-    );
+    ).toBeUndefined();
   });
 
-  it("refuses cross-provider inheritance even when the caller mode is null", () => {
-    expect(() =>
+  it("uses the target's default mode when the caller has no mode", () => {
+    expect(
       resolveAndValidateCreateAgentMode({
         requestedMode: undefined,
         targetProvider: "codex",
@@ -91,9 +89,7 @@ describe("resolveAndValidateCreateAgentMode", () => {
         unattended: false,
         availableModes: CODEX_MODES,
       }),
-    ).toThrow(
-      "cannot inherit mode '<none>' from caller (provider 'opencode') for new agent (provider 'codex'). Pass an explicit mode in settings.modeId. Available modes for 'codex': auto, full-access",
-    );
+    ).toBeUndefined();
   });
 
   it("uses the provider default when the cross-provider target has no modes", () => {
@@ -133,8 +129,8 @@ describe("resolveAndValidateCreateAgentMode", () => {
     expect(resolved).toBe("default");
   });
 
-  it("renders 'unknown' in cross-provider error when target modes are unknown", () => {
-    expect(() =>
+  it("uses the target's default mode when its modes are unknown", () => {
+    expect(
       resolveAndValidateCreateAgentMode({
         requestedMode: undefined,
         targetProvider: "zai-custom",
@@ -142,7 +138,7 @@ describe("resolveAndValidateCreateAgentMode", () => {
         unattended: false,
         availableModes: undefined,
       }),
-    ).toThrow("Available modes for 'zai-custom': unknown");
+    ).toBeUndefined();
   });
 
   it("inherits target's unattended mode when caller is unattended cross-provider", () => {
@@ -169,8 +165,8 @@ describe("resolveAndValidateCreateAgentMode", () => {
     expect(resolved).toBe("full-access");
   });
 
-  it("still refuses cross-provider inheritance when caller is not unattended", () => {
-    expect(() =>
+  it("does not carry an unattended mode to a child of an attended caller", () => {
+    expect(
       resolveAndValidateCreateAgentMode({
         requestedMode: undefined,
         targetProvider: "codex",
@@ -179,13 +175,11 @@ describe("resolveAndValidateCreateAgentMode", () => {
         availableModes: CODEX_MODES,
         targetUnattendedMode: "full-access",
       }),
-    ).toThrow(
-      "cannot inherit mode 'default' from caller (provider 'claude') for new agent (provider 'codex'). Pass an explicit mode in settings.modeId. Available modes for 'codex': auto, full-access",
-    );
+    ).toBeUndefined();
   });
 
-  it("still refuses cross-provider inheritance when target has no unattended mode", () => {
-    expect(() =>
+  it("uses the target's default mode when it has no unattended mode", () => {
+    expect(
       resolveAndValidateCreateAgentMode({
         requestedMode: undefined,
         targetProvider: "zai-custom",
@@ -194,9 +188,7 @@ describe("resolveAndValidateCreateAgentMode", () => {
         availableModes: undefined,
         targetUnattendedMode: undefined,
       }),
-    ).toThrow(
-      "cannot inherit mode 'bypassPermissions' from caller (provider 'claude') for new agent (provider 'zai-custom'). Pass an explicit mode in settings.modeId. Available modes for 'zai-custom': unknown",
-    );
+    ).toBeUndefined();
   });
 
   it("explicit mode wins over unattended inheritance", () => {

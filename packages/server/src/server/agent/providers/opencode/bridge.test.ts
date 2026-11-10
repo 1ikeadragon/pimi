@@ -503,7 +503,7 @@ describe("OpenCodeBridge", () => {
         ["caller"],
       );
       try {
-        const input = { provider: "codex", title: "Invalid provider", initialPrompt: "Hello" };
+        const input = { provider: "codex/", title: "Invalid provider", initialPrompt: "Hello" };
         const response = await fetch(
           `${options.baseUrl}/_internal/opencode/sessions/caller/tools/create_agent`,
           {

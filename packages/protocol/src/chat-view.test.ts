@@ -142,15 +142,15 @@ describe("pimi-chart", () => {
       ],
     };
     expect(chart(scatter)?.root).toMatchObject({ kind: "scatter", series: scatter.series });
-    expect(chart({ ...scatter, labels: ["a", "b"] })).toBeNull();
+    expect(chart({ ...scatter, labels: ["a", "b"] })?.root).not.toHaveProperty("labels");
     expect(chart({ ...scatter, series: [{ name: "Builds", points: [[1, 2, 3]] }] })).toBeNull();
     expect(chart({ ...scatter, series: [{ name: "Builds", points: [[1, "2"]] }] })).toBeNull();
     expect(chart({ ...scatter, series: [{ name: "Builds", points: [] }] })).toBeNull();
   });
 
-  it("refuses stacking and axis titles where they have no meaning", () => {
-    expect(chart({ ...BAR, type: "line", stacked: true })).toBeNull();
-    expect(chart({ ...BAR, type: "pie", xLabel: "x" })).toBeNull();
+  it("drops stacking and axis titles where they have no meaning", () => {
+    expect(chart({ ...BAR, type: "line", stacked: true })?.root).not.toHaveProperty("stacked");
+    expect(chart({ ...BAR, type: "pie", xLabel: "x" })?.root).not.toHaveProperty("xLabel");
   });
 
   it("only holds a chart", () => {
@@ -338,16 +338,32 @@ describe("hostile input", () => {
       '{"type":"bar","title":"t","labels":["a"],"series":[{"name":"s","values":[null]}]}',
     ],
     [
+      "an unknown kind",
+      '{"type":"radar","title":"t","labels":["a"],"series":[{"name":"s","values":[1]}]}',
+    ],
+    ["an unknown node", '{"root":{"type":"html","content":"<b>x</b>"}}'],
+    ["children that are not nodes", '{"root":{"type":"stack","children":["x",1,null,[]]}}'],
+    [
+      "children that are not a list",
+      '{"root":{"type":"stack","children":{"0":{"type":"text","content":"x"}}}}',
+    ],
+    ["a root that is a list", '{"root":[{"type":"text","content":"x"}]}'],
+  ];
+
+  it.each(hostile)("returns null for %s", (_name, source) => {
+    expect(parseChatView(PIMI_CHART_FENCE, source)).toBeNull();
+    expect(parseChatView(PIMI_VIEW_FENCE, source)).toBeNull();
+  });
+
+  // Unknown fields are dropped, so a stray key never reaches a renderer and never costs the chart.
+  const extraFields: [string, string][] = [
+    [
       "an unknown chart key",
       '{"type":"bar","title":"t","labels":["a"],"series":[{"name":"s","values":[1]}],"color":"#f00"}',
     ],
     [
       "an unknown series key",
       '{"type":"bar","title":"t","labels":["a"],"series":[{"name":"s","values":[1],"color":"red"}]}',
-    ],
-    [
-      "an unknown kind",
-      '{"type":"radar","title":"t","labels":["a"],"series":[{"name":"s","values":[1]}]}',
     ],
     [
       "a prototype key",
@@ -361,24 +377,21 @@ describe("hostile input", () => {
       "a nested prototype key",
       '{"root":{"type":"text","content":"x","__proto__":{"type":"badge"}}}',
     ],
-    ["an unknown node", '{"root":{"type":"html","content":"<b>x</b>"}}'],
     ["a node with a link", '{"root":{"type":"text","content":"x","href":"https://example.com"}}'],
+    ["an unknown view key", '{"root":{"type":"text","content":"x"},"script":"alert(1)"}'],
     [
       "a node with a style",
       '{"root":{"type":"badge","label":"x","tone":"neutral","style":{"color":"red"}}}',
     ],
-    ["an unknown view key", '{"root":{"type":"text","content":"x"},"script":"alert(1)"}'],
-    ["children that are not nodes", '{"root":{"type":"stack","children":["x",1,null,[]]}}'],
-    [
-      "children that are not a list",
-      '{"root":{"type":"stack","children":{"0":{"type":"text","content":"x"}}}}',
-    ],
-    ["a root that is a list", '{"root":[{"type":"text","content":"x"}]}'],
   ];
 
-  it.each(hostile)("returns null for %s", (_name, source) => {
-    expect(parseChatView(PIMI_CHART_FENCE, source)).toBeNull();
-    expect(parseChatView(PIMI_VIEW_FENCE, source)).toBeNull();
+  it.each(extraFields)("drops %s", (_name, source) => {
+    const fence = source.includes('"root"') ? PIMI_VIEW_FENCE : PIMI_CHART_FENCE;
+    const parsed = parseChatView(fence, source);
+    expect(parsed).not.toBeNull();
+    const text = JSON.stringify(parsed);
+    for (const key of ["color", "href", "style", "script", "polluted", "prototype"])
+      expect(text).not.toContain(`"${key}"`);
   });
 
   it("leaves prototypes untouched", () => {

@@ -32,14 +32,6 @@ function isUnattendedCreateConfigParent(parent: AgentCreateConfigParent): boolea
   return parent.isUnattended;
 }
 
-function formatCreateConfigParentMode(parent: AgentCreateConfigParent): string {
-  return parent.modeId ?? "<none>";
-}
-
-function formatCreateConfigParentSource(parent: AgentCreateConfigParent): string {
-  return `caller (provider '${parent.provider}')`;
-}
-
 export function resolveAndValidateCreateAgentMode(
   input: ResolveCreateAgentModeInput,
 ): string | undefined {
@@ -72,13 +64,9 @@ export function resolveAndValidateCreateAgentMode(
     return input.targetUnattendedMode;
   }
 
-  if (availableModes?.length === 0) {
-    return undefined;
-  }
-
-  throw new Error(
-    `cannot inherit mode '${formatCreateConfigParentMode(parent)}' from ${formatCreateConfigParentSource(parent)} for new agent (provider '${targetProvider}'). Pass an explicit mode in settings.modeId. Available modes for '${targetProvider}': ${listModes(availableModes)}`,
-  );
+  // Another provider's modes do not map onto this one's, so the agent starts in the target's own
+  // default mode, which asks before acting the way that provider normally does.
+  return undefined;
 }
 
 export function resolveDefaultAgentCreateConfig(

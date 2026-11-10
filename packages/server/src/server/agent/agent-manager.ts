@@ -126,10 +126,16 @@ import {
 export const PIMI_APPROACH_INSTRUCTIONS =
   "Work out what the user is trying to achieve, then do the part they clearly want. If a strong practitioner would clearly do more than was asked, name it in one line and leave it for the user to decide. Start from primary material (the code, the logs, the real data, the running system) instead of summaries or assumptions, and use the methods a specialist would use for this kind of work. Before you say it is done, check the result against something other than your own reasoning: run it, test it, or reconcile the numbers, then say what you verified and what you did not. Do not narrate these steps, lengthen your replies, or widen the task.";
 
+// Without its tools an agent asked to delegate or remember improvises: it runs `claude -p` or
+// `codex exec` in a shell, or writes Pimi's memory files by hand. Neither shows up in Pimi.
+const PIMI_TOOLS_OFF_INSTRUCTIONS =
+  "Pimi's agent tools are turned off on this host, so you cannot start other agents or providers, use shared memory, or track tasks here. If the user asks for one of these, say that Pimi tools are off and that they can turn on Enable Pimi tools in this host's settings in Pimi. Do not run claude, codex, opencode, or another agent CLI from a shell instead, and do not write Pimi's memory or task files yourself.";
+
 function pimiActionInstructions(
   policy: ProviderPaseoToolsPolicy | undefined,
   isTaskWorker: boolean,
 ): string[] {
+  if (!isPaseoToolPolicyEnabled(policy)) return [PIMI_TOOLS_OFF_INSTRUCTIONS];
   const instructions = [];
   if (isPaseoToolEnabled(policy, PimiTaskAgentTool.createLabel)) {
     instructions.push(
@@ -160,7 +166,7 @@ function pimiActionInstructions(
   }
   if (isPaseoToolEnabled(policy, "create_agent")) {
     instructions.push(
-      "When the user asks another agent or provider to take over or contribute, call create_agent with the requested provider/model, a focused initialPrompt, and notifyOnFinish: true. For work discussed in this chat on this host, set inheritContext: true, unless the user wants an independent view that should not see this chat's reasoning. Preserve the user's edit and launch constraints. Use separate worktrees for parallel edits. Report the result here when the completion notification arrives. Create a Task only when the user asks to track the work.",
+      'When the user asks another agent or provider to take over, contribute, or answer, including requests like "use codex and claude for this" or "ask claude too", call create_agent once per named provider or provider/model, each with a focused initialPrompt and notifyOnFinish: true. Never run claude, codex, opencode, gemini, or another agent CLI from a shell to get another model\'s answer: Pimi shows create_agent workers as cards the user can open, and a shell call hides them. For work discussed in this chat on this host, set inheritContext: true, unless the user wants an independent view that should not see this chat\'s reasoning. Preserve the user\'s edit and launch constraints. Use separate worktrees for parallel edits. Report the result here when the completion notification arrives. Create a Task only when the user asks to track the work.',
     );
   }
   return instructions;

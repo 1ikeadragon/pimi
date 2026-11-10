@@ -10,10 +10,10 @@ nav: MCP 参考
 
 ## 配置 {#configuration}
 
-| 设置                          | 默认值  | 用途                                    |
-| ----------------------------- | ------- | --------------------------------------- |
-| `daemon.mcp.enabled`          | `true`  | 运行 MCP 服务器。                       |
-| `daemon.mcp.injectIntoAgents` | `false` | 让 Pimi 启动的 Agent 可以使用它的工具。 |
+| 设置                          | 默认值 | 用途                                    |
+| ----------------------------- | ------ | --------------------------------------- |
+| `daemon.mcp.enabled`          | `true` | 运行 MCP 服务器。                       |
+| `daemon.mcp.injectIntoAgents` | `true` | 让 Pimi 启动的 Agent 可以使用它的工具。 |
 
 根据 Provider 的不同，Pimi 通过其原生工具接口或 MCP 提供工具，能力是相同的。修改注入设置后，请启动新的 Agent 或重新加载已有的 Agent。
 

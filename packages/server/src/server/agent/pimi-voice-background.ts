@@ -101,6 +101,8 @@ export async function runPimiVoiceBackground(options: {
     "Agent lists cover at most the last 30 days. Activity shows the latest 30 items. Say which window you checked when the user asks for all history.",
     "When asked to track unfinished work, check existing tasks first. Save only clearly unfinished work the user asked to track. Use an exact repository path if known.",
     `Stage shown on the board when saving tasks: ${stageLabel ?? "task creation unavailable"}.`,
+    "For a question about a Spaces card, read it with read_pimi_space_item. A link's page field holds the article or paper text, so answer from it rather than saying the content is unavailable.",
+    'The reply is a short spoken bubble. When the request needs more than a few sentences, such as a full summary, a comparison, or follow-up work, give the short answer and end by offering a new chat for the rest, for example: Say "start a chat with this paper" to go through it in full.',
     "Use batches for independent reads. Continue pagination as needed. Say which work could not be checked. Summarize the outcome in plain text for the Pimi bubble. Report saved tasks only after the tool confirms success.",
     ...(options.showAfter
       ? [
