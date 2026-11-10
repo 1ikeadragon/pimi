@@ -660,7 +660,7 @@ ipcMain.handle("paseo:browser:copy-element", (_event, payload: unknown) =>
 protocol.registerSchemesAsPrivileged([
   {
     scheme: APP_SCHEME,
-    privileges: { standard: true, secure: true, supportFetchAPI: true },
+    privileges: { standard: true, secure: true, supportFetchAPI: true, codeCache: true },
   },
 ]);
 

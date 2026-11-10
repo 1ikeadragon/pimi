@@ -1,5 +1,5 @@
 import type pino from "pino";
-import { OpenAI } from "openai";
+import type { OpenAI } from "openai";
 import { Readable } from "node:stream";
 import type { SpeechStreamResult, TextToSpeechProvider } from "../../speech-provider.js";
 
@@ -14,7 +14,7 @@ export interface TTSConfig {
 }
 
 export class OpenAITTS implements TextToSpeechProvider {
-  private readonly openaiClient: OpenAI;
+  private openaiClient: Promise<OpenAI> | null = null;
   private readonly config: TTSConfig;
   private readonly logger: pino.Logger;
 
@@ -26,15 +26,23 @@ export class OpenAITTS implements TextToSpeechProvider {
       ...ttsConfig,
     };
     this.logger = parentLogger.child({ module: "agent", provider: "openai", component: "tts" });
-    this.openaiClient = new OpenAI({
-      apiKey: ttsConfig.apiKey,
-      ...(ttsConfig.baseUrl ? { baseURL: ttsConfig.baseUrl } : {}),
-    });
 
     this.logger.info(
       { voice: this.config.voice, model: this.config.model, format: this.config.responseFormat },
       "TTS (OpenAI) initialized",
     );
+  }
+
+  // The SDK is large and speech defaults to local providers, so load it on first request.
+  private getClient(): Promise<OpenAI> {
+    this.openaiClient ??= import("openai").then(
+      ({ OpenAI }) =>
+        new OpenAI({
+          apiKey: this.config.apiKey,
+          ...(this.config.baseUrl ? { baseURL: this.config.baseUrl } : {}),
+        }),
+    );
+    return this.openaiClient;
   }
 
   public getConfig(): TTSConfig {
@@ -54,7 +62,9 @@ export class OpenAITTS implements TextToSpeechProvider {
         "Synthesizing speech",
       );
 
-      const response = await this.openaiClient.audio.speech.create({
+      const response = await (
+        await this.getClient()
+      ).audio.speech.create({
         model: this.config.model!,
         voice: this.config.voice!,
         input: text,

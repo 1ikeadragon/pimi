@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import type pino from "pino";
-import { OpenAI } from "openai";
+import type { OpenAI } from "openai";
 import { writeFile, unlink } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
@@ -47,7 +47,7 @@ function isLogprobTokenArray(value: unknown): value is LogprobToken[] {
 }
 
 export class OpenAISTT implements SpeechToTextProvider {
-  private readonly openaiClient: OpenAI;
+  private openaiClient: Promise<OpenAI> | null = null;
   private readonly config: STTConfig;
   private readonly logger: pino.Logger;
   public readonly id = "openai" as const;
@@ -55,11 +55,19 @@ export class OpenAISTT implements SpeechToTextProvider {
   constructor(sttConfig: STTConfig, parentLogger: pino.Logger) {
     this.config = sttConfig;
     this.logger = parentLogger.child({ module: "agent", provider: "openai", component: "stt" });
-    this.openaiClient = new OpenAI({
-      apiKey: sttConfig.apiKey,
-      ...(sttConfig.baseUrl ? { baseURL: sttConfig.baseUrl } : {}),
-    });
     this.logger.info({ model: sttConfig.model || "whisper-1" }, "STT (OpenAI Whisper) initialized");
+  }
+
+  // The SDK is large and speech defaults to local providers, so load it on first request.
+  private getClient(): Promise<OpenAI> {
+    this.openaiClient ??= import("openai").then(
+      ({ OpenAI }) =>
+        new OpenAI({
+          apiKey: this.config.apiKey,
+          ...(this.config.baseUrl ? { baseURL: this.config.baseUrl } : {}),
+        }),
+    );
+    return this.openaiClient;
   }
 
   public createSession(params: {
@@ -203,7 +211,9 @@ export class OpenAISTT implements SpeechToTextProvider {
         modelToUse === "gpt-4o-transcribe" || modelToUse === "gpt-4o-mini-transcribe";
       const includeLogprobs: ["logprobs"] = ["logprobs"];
 
-      const response = await this.openaiClient.audio.transcriptions.create({
+      const response = await (
+        await this.getClient()
+      ).audio.transcriptions.create({
         file: await import("fs").then((fs) => fs.createReadStream(tempFilePath!)),
         language,
         model: modelToUse,

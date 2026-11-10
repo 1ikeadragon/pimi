@@ -107,9 +107,17 @@ export function observeSessionNetwork(
     if (record) recorder.finish(record, { status: details.statusCode });
   });
   target.webRequest.onErrorOccurred(NETWORK_FILTER, (details) => {
+    const errorCode = details.error.replace(/^net::/, "");
+    // Chromium reports ERR_CACHE_MISS for duplicate preload requests. They are not failures.
+    if (errorCode === "ERR_CACHE_MISS") {
+      const pendingRecord = take(details.id);
+      if (pendingRecord) recorder.discard(pendingRecord);
+      options.onErrorOccurred?.(details);
+      return;
+    }
     // Requests cancelled before headers were sent (blocked by a session policy) have no record yet.
     const record = take(details.id) ?? startRecord(details.url, details.method, options);
-    if (record) recorder.finish(record, { errorCode: details.error.replace(/^net::/, "") });
+    if (record) recorder.finish(record, { errorCode });
     options.onErrorOccurred?.(details);
   });
 }

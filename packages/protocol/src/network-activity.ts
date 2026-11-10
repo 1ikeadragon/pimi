@@ -238,6 +238,24 @@ export class NetworkActivityRecorder {
     aggregate.bytes += record.responseBytes ?? 0;
   }
 
+  /** Removes a pending record that turned out not to be a request, and its host count. */
+  discard(record: NetworkActivityRequest): void {
+    if (record.state !== "pending") return;
+    const index = this.ring.indexOf(record);
+    if (index === -1) return;
+    // Rebuild oldest-first without the record so the write position stays at the end.
+    const ordered = [...this.ring.slice(this.next), ...this.ring.slice(0, this.next)].filter(
+      (entry) => entry !== record,
+    );
+    this.ring.splice(0, this.ring.length, ...ordered);
+    this.next = ordered.length % this.capacity;
+    const key = hostKey(record);
+    const aggregate = this.hosts.get(key);
+    if (!aggregate) return;
+    aggregate.count -= 1;
+    if (aggregate.count <= 0) this.hosts.delete(key);
+  }
+
   snapshot(options: NetworkActivitySnapshotOptions = {}): NetworkActivitySnapshot {
     const limit = Math.min(options.limit ?? this.capacity, this.capacity);
     const requests: NetworkActivityRequest[] = [];
