@@ -6,6 +6,7 @@ import {
   type ToolCallItem,
 } from "@/types/stream";
 import { summarizeToolCalls, type OverviewSummary } from "@/tool-calls/detail-level/overview/model";
+import { readPimiDelegationToolCall } from "@/utils/pimi-delegation";
 import { isPimiActionTool } from "@pimi/protocol/pimi-task";
 
 export interface TurnSummary {
@@ -104,7 +105,8 @@ function staysVisibleWhenCollapsed(item: StreamItem): boolean {
     (item.kind === "tool_call" &&
       item.payload.source === "agent" &&
       item.payload.data.status === "completed" &&
-      isPimiActionTool(item.payload.data.name))
+      (isPimiActionTool(item.payload.data.name) ||
+        readPimiDelegationToolCall(item.payload.data) !== null))
   );
 }
 

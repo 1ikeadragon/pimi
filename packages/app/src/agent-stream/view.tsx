@@ -43,7 +43,8 @@ import {
   type InlinePathTarget,
 } from "@/components/message";
 import { PlanCard } from "@/components/plan-card";
-import { PimiDelegationCard, readPimiDelegation } from "@/components/pimi-delegation-card";
+import { PimiDelegationCard } from "@/components/pimi-delegation-card";
+import { readPimiDelegationToolCall } from "@/utils/pimi-delegation";
 import {
   PimiCreatedTaskCard,
   PimiReviewSuggestionCard,
@@ -54,7 +55,6 @@ import {
 } from "@/components/pimi-task-proposal-card";
 import { getDesktopHost } from "@/desktop/host";
 import {
-  isPimiDelegationTool,
   isPimiReviewSuggestionTool,
   isPimiTaskCreateTool,
   isPimiTaskProposalTool,
@@ -935,21 +935,14 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
               maxDetailHeight={options.maxDetailHeight}
             />
           );
+          const delegation = readPimiDelegationToolCall(data);
           if (
             resolvedServerId &&
-            data.status === "completed" &&
-            !data.error &&
-            data.detail.type === "unknown" &&
-            isPimiDelegationTool(data.name)
+            delegation?.source.serverId === resolvedServerId &&
+            delegation.source.agentId === agentId &&
+            delegation.worker.id !== agentId
           ) {
-            const delegation = readPimiDelegation(data.detail.output);
-            if (
-              delegation?.source.serverId === resolvedServerId &&
-              delegation.source.agentId === agentId &&
-              delegation.worker.id !== agentId
-            ) {
-              return <PimiDelegationCard delegation={delegation}>{toolRow}</PimiDelegationCard>;
-            }
+            return <PimiDelegationCard delegation={delegation}>{toolRow}</PimiDelegationCard>;
           }
           return toolRow;
         }

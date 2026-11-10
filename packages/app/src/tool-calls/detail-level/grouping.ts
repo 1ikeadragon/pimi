@@ -1,5 +1,6 @@
 import { isTurnTrigger, isTurnBoundary } from "@/agent-stream/turn-membership";
 import type { ToolCallDetail } from "@pimi/protocol/agent-types";
+import { readPimiDelegationToolCall } from "@/utils/pimi-delegation";
 import { isPimiActionTool } from "@pimi/protocol/pimi-task";
 import type { StreamItem, ToolCallItem, ThoughtItem } from "@/types/stream";
 
@@ -74,6 +75,8 @@ export function isGroupableToolCall(
   if (item.kind !== "tool_call" || isTurnTrigger(item)) {
     return false;
   }
+  if (item.payload.source === "agent" && readPimiDelegationToolCall(item.payload.data))
+    return false;
   const descriptor = describeToolCall(item);
   return (
     descriptor.detail.type !== "plan" &&

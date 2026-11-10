@@ -1,7 +1,7 @@
 import { useCallback, useState, type ReactNode } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import { PimiDelegationResult } from "@pimi/protocol/pimi-task";
+import type { PimiDelegation } from "@/utils/pimi-delegation";
 import { AGENT_PROVIDER_DEFINITIONS } from "@pimi/protocol/provider-manifest";
 import { ModelProviderGlyph } from "@/components/model-browser";
 import { Button } from "@/components/ui/button";
@@ -10,37 +10,7 @@ import { useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { selectAgentTurnPresentation, useSessionStore, type Agent } from "@/stores/session-store";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-export function readPimiDelegation(output: unknown) {
-  if (isRecord(output) && output.isError) return null;
-  // Claude's buildToolOutput preserves generic MCP results under `output`.
-  if (isRecord(output) && "output" in output && !("structuredContent" in output)) {
-    output = output.output;
-  }
-  const direct = PimiDelegationResult.safeParse(
-    isRecord(output) ? (output.structuredContent ?? output) : output,
-  );
-  if (direct.success) return direct.data.pimiDelegation;
-  // Providers may relay the MCP text block instead of its structured payload.
-  const content = isRecord(output) ? output.content : output;
-  const block = Array.isArray(content) && content.length === 1 ? content[0] : content;
-  const serialized = isRecord(block) && block.type === "text" ? block.text : block;
-  if (typeof serialized !== "string") return null;
-  try {
-    const parsed = PimiDelegationResult.safeParse(JSON.parse(serialized));
-    return parsed.success ? parsed.data.pimiDelegation : null;
-  } catch {
-    // Unrecognized tool output remains visible in the original tool row.
-    return null;
-  }
-}
-
-type Delegation = NonNullable<ReturnType<typeof readPimiDelegation>>;
-
-function matchesWorker(agent: Agent | undefined, { source, worker }: Delegation) {
+function matchesWorker(agent: Agent | undefined, { source, worker }: PimiDelegation) {
   if (
     agent &&
     (agent.serverId !== source.serverId ||
@@ -91,7 +61,7 @@ export function PimiDelegationCard({
   delegation,
   children,
 }: {
-  delegation: Delegation;
+  delegation: PimiDelegation;
   children: ReactNode;
 }) {
   const { source, worker, sharedContext, shortened } = delegation;
