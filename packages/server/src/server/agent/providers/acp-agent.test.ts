@@ -906,6 +906,8 @@ describe("mapACPUsage", () => {
       inputTokens: 11,
       outputTokens: 7,
       cachedInputTokens: 5,
+      reportScope: "session",
+      reportedTotalTokens: 18,
     });
   });
 });
@@ -3733,6 +3735,222 @@ describe("ACPAgentSession", () => {
       expect.objectContaining({ type: "turn_completed", turnId }),
     ]);
   }, 3_000);
+});
+
+describe("ACPAgentSession daemon instructions", () => {
+  const DAEMON_INSTRUCTIONS = "Use a pimi-chart block for interactive charts.";
+  const INSTRUCTION_BLOCK = {
+    type: "text",
+    text: `<pimi-instructions>\n${DAEMON_INSTRUCTIONS}\n</pimi-instructions>\n\n`,
+  };
+  const SESSION_STATE = { sessionId: "session-1", modes: null, models: null, configOptions: [] };
+
+  function makeSession(
+    args: {
+      daemonAppendSystemPrompt?: string;
+      prompt?: (...args: unknown[]) => Promise<unknown>;
+      replay?: (session: ACPAgentSession) => Promise<void>;
+    } = {},
+  ) {
+    const prompt = vi.fn(args.prompt ?? (async () => ({ stopReason: "end_turn" })));
+
+    class TestSession extends ACPAgentSession {
+      protected override async spawnProcess(): Promise<SpawnedACPProcess> {
+        return {
+          child: createProbeChildStub(),
+          connection: {
+            ...openPromptConnection(prompt),
+            newSession: async () => SESSION_STATE,
+            loadSession: async () => {
+              await args.replay?.(this);
+              return SESSION_STATE;
+            },
+          } as unknown as ClientSideConnection,
+          initialize: { agentCapabilities: { loadSession: true } },
+        } as SpawnedACPProcess;
+      }
+    }
+
+    const session = new TestSession(
+      {
+        provider: "test-acp",
+        cwd: "/tmp/paseo-acp-test",
+        ...(args.daemonAppendSystemPrompt
+          ? { daemonAppendSystemPrompt: args.daemonAppendSystemPrompt }
+          : {}),
+      },
+      {
+        provider: "test-acp",
+        logger: createTestLogger(),
+        defaultCommand: ["test-acp"],
+        defaultModes: [],
+        capabilities: {
+          supportsStreaming: true,
+          supportsSessionPersistence: true,
+          supportsDynamicModes: true,
+          supportsMcpServers: true,
+          supportsReasoningStream: true,
+          supportsToolInvocations: true,
+        },
+        handle: { sessionId: "session-1", provider: "test-acp" },
+      },
+    );
+    const events: AgentStreamEvent[] = [];
+    session.subscribe((event) => events.push(event));
+    return { session, prompt, events };
+  }
+
+  function sentPrompts(prompt: ReturnType<typeof vi.fn>): unknown[] {
+    return prompt.mock.calls.map((call) => (call[0] as { prompt: unknown }).prompt);
+  }
+
+  function userMessageTexts(events: AgentStreamEvent[]): string[] {
+    return events.flatMap((event) =>
+      event.type === "timeline" && event.item.type === "user_message" ? [event.item.text] : [],
+    );
+  }
+
+  async function runTurn(session: ACPAgentSession, text: string): Promise<void> {
+    await session.startTurn(text);
+    await vi.waitFor(() =>
+      expect(asInternals<ACPSessionInternals>(session).activeForegroundTurnId).toBeNull(),
+    );
+  }
+
+  async function replayUserChunk(
+    session: ACPAgentSession,
+    text: string,
+    messageId?: string,
+  ): Promise<void> {
+    await session.sessionUpdate({
+      sessionId: "session-1",
+      update: {
+        sessionUpdate: "user_message_chunk",
+        ...(messageId ? { messageId } : {}),
+        content: { type: "text", text },
+      } as SessionUpdate,
+    });
+  }
+
+  async function replayedUserMessages(session: ACPAgentSession): Promise<string[]> {
+    const history: AgentStreamEvent[] = [];
+    for await (const event of session.streamHistory()) {
+      history.push(event);
+    }
+    return userMessageTexts(history);
+  }
+
+  test("sends the instructions once, ahead of the first prompt, and keeps them out of the timeline", async () => {
+    const { session, prompt, events } = makeSession({
+      daemonAppendSystemPrompt: DAEMON_INSTRUCTIONS,
+    });
+    await session.initializeNewSession();
+
+    await runTurn(session, "chart my jobs");
+    await runTurn(session, "now by week");
+
+    expect(sentPrompts(prompt)).toEqual([
+      [INSTRUCTION_BLOCK, { type: "text", text: "chart my jobs" }],
+      [{ type: "text", text: "now by week" }],
+    ]);
+    expect(userMessageTexts(events)).toEqual(["chart my jobs", "now by week"]);
+  });
+
+  test("sends nothing extra when the daemon has no instructions", async () => {
+    const { session, prompt } = makeSession();
+    await session.initializeNewSession();
+
+    await runTurn(session, "hello");
+
+    expect(sentPrompts(prompt)).toEqual([[{ type: "text", text: "hello" }]]);
+  });
+
+  test("sends the instructions again on the first prompt of a resumed session", async () => {
+    const { session, prompt } = makeSession({ daemonAppendSystemPrompt: DAEMON_INSTRUCTIONS });
+    await session.initializeResumedSession();
+
+    await runTurn(session, "continue");
+    await runTurn(session, "and again");
+
+    expect(sentPrompts(prompt)).toEqual([
+      [INSTRUCTION_BLOCK, { type: "text", text: "continue" }],
+      [{ type: "text", text: "and again" }],
+    ]);
+  });
+
+  test("holds the instructions back until the first prompt that is not a slash command", async () => {
+    const { session, prompt } = makeSession({ daemonAppendSystemPrompt: DAEMON_INSTRUCTIONS });
+    await session.initializeNewSession();
+
+    await runTurn(session, "/compact");
+    await runTurn(session, "chart my jobs");
+
+    expect(sentPrompts(prompt)).toEqual([
+      [{ type: "text", text: "/compact" }],
+      [INSTRUCTION_BLOCK, { type: "text", text: "chart my jobs" }],
+    ]);
+  });
+
+  test("sends the instructions again when the prompt that carried them was rejected", async () => {
+    const responses = [
+      () => Promise.reject(new Error("prompt failed")),
+      () => Promise.resolve({ stopReason: "end_turn" }),
+    ];
+    const { session, prompt } = makeSession({
+      daemonAppendSystemPrompt: DAEMON_INSTRUCTIONS,
+      prompt: () => responses.shift()!(),
+    });
+    await session.initializeNewSession();
+
+    await runTurn(session, "first");
+    await runTurn(session, "second");
+
+    expect(sentPrompts(prompt)).toEqual([
+      [INSTRUCTION_BLOCK, { type: "text", text: "first" }],
+      [INSTRUCTION_BLOCK, { type: "text", text: "second" }],
+    ]);
+  });
+
+  test("strips replayed instructions from the user message they were sent with", async () => {
+    const { session } = makeSession({
+      replay: async (replaying) => {
+        await replayUserChunk(replaying, "<pimi-instructions>\nUse a pimi-chart", "user-1");
+        await replayUserChunk(replaying, " block.\n</pimi-instructions>\n\n", "user-1");
+        await replayUserChunk(replaying, "chart my jobs", "user-1");
+        await replayUserChunk(replaying, "now by week", "user-2");
+      },
+    });
+
+    await session.initializeResumedSession();
+
+    expect(await replayedUserMessages(session)).toEqual(["chart my jobs", "now by week"]);
+  });
+
+  test("drops a replayed user message that holds only the instructions", async () => {
+    const { session } = makeSession({
+      replay: async (replaying) => {
+        await replayUserChunk(replaying, INSTRUCTION_BLOCK.text, "user-1");
+        await replayUserChunk(replaying, "chart my jobs", "user-2");
+      },
+    });
+
+    await session.initializeResumedSession();
+
+    expect(await replayedUserMessages(session)).toEqual(["chart my jobs"]);
+  });
+
+  test("keeps instruction-like text that does not lead a replayed user message", async () => {
+    const text = "what does <pimi-instructions>x</pimi-instructions> mean?";
+    const { session } = makeSession({
+      replay: async (replaying) => {
+        await replayUserChunk(replaying, text, "user-1");
+      },
+    });
+
+    await session.initializeResumedSession();
+
+    expect(await replayedUserMessages(session)).toEqual([text]);
+  });
 });
 
 interface ACPCloseInternals {

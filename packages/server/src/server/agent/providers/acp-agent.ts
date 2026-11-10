@@ -634,7 +634,8 @@ class ACPImportHistoryCollector {
     current: { messageId: string | null; text: string } | null;
     hasConversation: boolean;
   }): void {
-    if (state.current?.text.trim()) state.completed.push(state.current.text);
+    const text = state.current ? stripACPDaemonInstructions(state.current.text) : "";
+    if (text.trim()) state.completed.push(text);
     state.current = null;
   }
 }
@@ -1794,6 +1795,7 @@ export class ACPAgentSession implements AgentSession, ACPClient {
   private historyRuntimeReleased = false;
   private replayingHistory = false;
   private bootstrapThreadEventPending = false;
+  private daemonInstructionsDelivered = false;
   private readonly terminateProcess: ProcessTerminator;
 
   constructor(config: AgentSessionConfig, options: ACPAgentSessionOptions) {
@@ -2016,17 +2018,21 @@ export class ACPAgentSession implements AgentSession, ACPClient {
     const child = this.child;
     const failOnDisconnect = () => void this.failDisconnectedTurn(turnId, child);
     connection.signal.addEventListener("abort", failOnDisconnect, { once: true });
+    const daemonInstructions = this.takeDaemonInstructions(prompt);
     void connection
       .prompt({
         sessionId: this.sessionId,
         messageId,
-        prompt: toACPContentBlocks(prompt),
+        prompt: [...daemonInstructions, ...toACPContentBlocks(prompt)],
       })
       .then((response) => {
         this.handlePromptResponse(response, turnId);
         return;
       })
       .catch((error) => {
+        if (daemonInstructions.length > 0) {
+          this.daemonInstructionsDelivered = false;
+        }
         const summary = summarizeACPRequestError(error);
         this.finishTurn({
           type: "turn_failed",
@@ -2040,6 +2046,21 @@ export class ACPAgentSession implements AgentSession, ACPClient {
       .finally(() => connection.signal.removeEventListener("abort", failOnDisconnect));
 
     return { turnId };
+  }
+
+  // ACP has no system prompt channel, so the daemon's instructions ride ahead of one prompt per
+  // connection. A slash command has to lead its prompt to be recognized, so it goes out untouched
+  // and the instructions wait for the next prompt.
+  private takeDaemonInstructions(prompt: AgentPromptInput): ContentBlock[] {
+    const instructions = this.config.daemonAppendSystemPrompt?.trim();
+    if (!instructions || this.daemonInstructionsDelivered) {
+      return [];
+    }
+    if (extractPromptText(prompt).trimStart().startsWith("/")) {
+      return [];
+    }
+    this.daemonInstructionsDelivered = true;
+    return [{ type: "text", text: wrapACPDaemonInstructions(instructions) }];
   }
 
   // The SDK aborts the connection without rejecting the pending prompt, and before the child's
@@ -3231,10 +3252,14 @@ export class ACPAgentSession implements AgentSession, ACPClient {
       return [];
     }
     this.pendingUserMessage = null;
+    const text = stripACPDaemonInstructions(pending.text);
+    if (!text && text !== pending.text) {
+      return [];
+    }
     return [
       this.wrapTimeline({
         type: "user_message",
-        text: pending.text,
+        text,
         ...(pending.messageId ? { messageId: pending.messageId } : {}),
       }),
     ];
@@ -3763,6 +3788,18 @@ function toACPContentBlocks(prompt: AgentPromptInput): ContentBlock[] {
     }
   }
   return contentBlocks;
+}
+
+const ACP_DAEMON_INSTRUCTIONS_PATTERN = /^\s*<pimi-instructions>[\s\S]*?<\/pimi-instructions>\s*/;
+
+function wrapACPDaemonInstructions(instructions: string): string {
+  return `<pimi-instructions>\n${instructions}\n</pimi-instructions>\n\n`;
+}
+
+// Providers replay the prompt that carried the daemon's instructions as a user message. Only a
+// leading block is removed, so a user quoting the tag mid-message keeps their text.
+function stripACPDaemonInstructions(text: string): string {
+  return text.replace(ACP_DAEMON_INSTRUCTIONS_PATTERN, "");
 }
 
 function extractPromptText(prompt: AgentPromptInput): string {
