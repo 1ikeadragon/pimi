@@ -33,11 +33,13 @@ If the user names profiles, use those. If fewer than two suitable profiles are c
   This is analysis only. Do NOT edit, create, or delete any files. Do NOT write code.
   ```
 
+- **No inherited chat.** Omit `inheritContext`. A member that reads this chat starts from the reasoning you are stuck in. This is the exception to the rule in **pimi**.
+
 - **Trust the finish notification.** Do not poll, send hurry-ups, or interrupt. Models can reason for 15–30 minutes. You can go idle and Pimi will notify you.
 
 ## Workflow
 
-1. Write a problem-level prompt
+1. Write a problem-level prompt: the goal, the symptom, constraints, relevant file paths, and what was tried. Leave out your current theory.
 2. Create both agents in parallel via Pimi with `[Committee] <task>` titles and the same prompt
 3. Wait for both responses
 4. Resolve disagreements by passing their arguments between each other

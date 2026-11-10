@@ -388,6 +388,8 @@ export const PASEO_TOOL_CATALOG = {
     label: "Read Spaces card",
     completedLabel: "Read Spaces card",
   },
+  suggest_pimi_review: { label: "Suggest review", completedLabel: "Suggested review" },
+  propose_pimi_task: { label: "Propose task", completedLabel: "Proposed task" },
 
   // Browser
   browser_list_tabs: browser("List browser tabs", "Listed browser tabs"),

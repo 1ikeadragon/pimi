@@ -76,7 +76,7 @@ export async function waitForDaemonReady(
     if (!instance)
       throw new DaemonInstanceError(
         "DAEMON_NOT_RUNNING",
-        `Daemon is not running for ${home}. Start with: paseo daemon start --home ${JSON.stringify(home)}`,
+        `Daemon is not running for ${home}. Start with: pimi daemon start --home ${JSON.stringify(home)}`,
       );
     if (options.instance && !isSamePidLock(instance, options.instance)) {
       throw new DaemonInstanceError(

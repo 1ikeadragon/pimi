@@ -15,6 +15,7 @@ Use the Pimi checkout when available. Check the plugin API at the installed vers
 
 - [Plugin guide](https://github.com/1ikeadragon/pimi/blob/main/docs/plugins.md)
 - [Plugin API reference](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/reference.md)
+- [Plugin hooks](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/hooks.md)
 - [SDK reference](https://github.com/1ikeadragon/pimi/blob/main/public-docs/sdk/reference.md)
 - [Plugin examples](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples)
 
@@ -22,30 +23,31 @@ Use the Pimi checkout when available. Check the plugin API at the installed vers
 
 Pick the contribution that matches the request. Each row names the registration, when it fits, and where the full contract lives. Most plugins combine several: a slash command that calls an RPC, which appends a timeline row, which a renderer draws.
 
-| Contribution              | Registration                                                | Use it when                                                                                                                                                      | Reference                                                                                                         |
-| ------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Screen and sidebar item   | `addScreen` + `addSidebarHeaderItem`/`addSidebarFooterItem` | A full screen of plugin UI, or sidebar header or footer rows that open a screen or popover                                                                       | reference.md → Screens and sidebar items                                                                          |
-| Workspace panel           | `addWorkspacePanel`                                         | UI that lives as a tab beside agents, terminals, files, and diffs; `locations: ["explorer"]` for the Explorer                                                    | reference.md → Workspace panels                                                                                   |
-| File panel                | `addFilePanel`                                              | View or edit a matching file inside the file tab through its file handle                                                                                         | reference.md → File panels; `plugin-examples/pdf-panel`, `plugin-examples/markdown-panel`                         |
-| Command Center item       | `addCommandCenterItem`                                      | A global, workspace, or agent action reachable from ⌘K                                                                                                           | reference.md → Command Center items                                                                               |
-| Client slash command      | `addSlashCommand`                                           | A `/command args` in the composer that runs plugin code instead of prompting the agent                                                                           | reference.md → Slash commands                                                                                     |
-| Composer pill             | `addComposerPill`                                           | A per-agent button in the composer track bar next to Tasks and Subagents                                                                                         | reference.md → Composer pills                                                                                     |
-| Timeline transformer      | `addTimelineTransformer` + `addTimelineRenderer`            | Replace, explode, or hide a built-in timeline item, including while it streams                                                                                   | reference.md → Timeline items; `plugin-examples/timeline-items`, `plugin-examples/inline-thinking`                |
-| Timeline row              | `pimi.agents.ref(id).timeline.append(...)`                  | Push a plugin-owned row into an agent timeline from a server handler and update it later                                                                         | reference.md → Append a timeline row from the daemon                                                              |
-| Attachment source         | `client.addAttachmentSource` + `server.handle`              | Let the user attach a searchable external resource, such as an issue, to a prompt                                                                                | reference.md → Add a composer attachment source; `plugin-examples/linear`                                         |
-| Theme                     | `addTheme`                                                  | A light or dark palette under Settings → Appearance                                                                                                              | reference.md → Contribute a theme; `plugin-examples/catppuccin`                                                   |
-| Plugin RPC                | `defineRpc` + `server.handle` + `useRpc`                    | Daemon-side work that is not a normal Pimi operation: vendor APIs, credentials, local files                                                                      | reference.md → Add plugin-specific backend behavior                                                               |
-| Plugin subscription       | `defineSubscription` + `server.handle` + `useSubscription`  | A daemon handler that pushes events while a surface listens: watchers, tails, live media; a top-level `Uint8Array` rides as binary                               | reference.md → Stream events from the daemon; `plugin-examples/diff-watch`, `plugin-examples/media-stream`        |
-| Lifecycle events          | `server.on`                                                 | Observe agent/workspace lifecycle, inspect ended turns, and answer permission requests                                                                           | [Lifecycle hooks](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/reference.md#lifecycle-hooks) |
-| Creation and launch hooks | `server.before`                                             | `agent.create` edits saved config; `agent.session_open` contributes launch-only `env`, `tools`, `mcpServers` on every open; `workspace.create` chooses isolation | [Before hooks](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/reference.md#before-hooks)       |
-| Pimi SDK                  | `usePimi()` / handler `{ pimi }`                            | Normal Pimi operations: workspaces, agents, providers, config                                                                                                    | reference.md → Use the Pimi SDK                                                                                   |
+| Contribution            | Registration                                                | Use it when                                                                                                                                                                                                                     | Reference                                                                                                  |
+| ----------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Screen and sidebar item | `addScreen` + `addSidebarHeaderItem`/`addSidebarFooterItem` | A full screen of plugin UI, or sidebar header or footer rows that open a screen or popover                                                                                                                                      | reference.md → Screens and sidebar items                                                                   |
+| Workspace panel         | `addWorkspacePanel`                                         | UI that lives as a tab beside agents, terminals, files, and diffs; `locations: ["explorer"]` for the Explorer                                                                                                                   | reference.md → Workspace panels                                                                            |
+| File panel              | `addFilePanel`                                              | View or edit a matching file inside the file tab through its file handle                                                                                                                                                        | reference.md → File panels; `plugin-examples/pdf-panel`, `plugin-examples/markdown-panel`                  |
+| Command Center item     | `addCommandCenterItem`                                      | A global, workspace, or agent action reachable from ⌘K                                                                                                                                                                          | reference.md → Command Center items                                                                        |
+| Client slash command    | `addSlashCommand`                                           | A `/command args` in the composer that runs plugin code instead of prompting the agent                                                                                                                                          | reference.md → Slash commands                                                                              |
+| Composer pill           | `addComposerPill`                                           | A per-agent button in the composer track bar next to Tasks and Subagents                                                                                                                                                        | reference.md → Composer pills                                                                              |
+| Timeline transformer    | `addTimelineTransformer` + `addTimelineRenderer`            | Replace, explode, or hide a built-in timeline item, including while it streams                                                                                                                                                  | reference.md → Timeline items; `plugin-examples/timeline-items`, `plugin-examples/inline-thinking`         |
+| Timeline row            | `pimi.agents.ref(id).timeline.append(...)`                  | Push a plugin-owned row into an agent timeline from a server handler and update it later                                                                                                                                        | reference.md → Append a timeline row from the daemon                                                       |
+| Attachment source       | `client.addAttachmentSource` + `server.handle`              | Let the user attach a searchable external resource, such as an issue, to a prompt                                                                                                                                               | reference.md → Add a composer attachment source; `plugin-examples/linear`                                  |
+| Theme                   | `addTheme`                                                  | A light or dark palette under Settings → Appearance                                                                                                                                                                             | reference.md → Contribute a theme; `plugin-examples/catppuccin`                                            |
+| Plugin RPC              | `defineRpc` + `server.handle` + `useRpc`                    | Daemon-side work that is not a normal Pimi operation: vendor APIs, credentials, local files                                                                                                                                     | reference.md → Add plugin-specific backend behavior                                                        |
+| Plugin subscription     | `defineSubscription` + `server.handle` + `useSubscription`  | A daemon handler that pushes events while a surface listens: watchers, tails, live media; a top-level `Uint8Array` rides as binary                                                                                              | reference.md → Stream events from the daemon; `plugin-examples/diff-watch`, `plugin-examples/media-stream` |
+| Notification hooks      | `server.addHook`                                            | Observe agent and workspace lifecycle, inspect ended turns, and answer permission requests: `agent.turn.after`, `agent.permission.before`, `workspace.create.after`, …                                                          | [Hooks](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/hooks.md#hooks)                  |
+| Request-changing hooks  | `server.addHook`                                            | `agent.create.before` edits saved config; `agent.open.before` contributes launch-only `env`, `tools`, `mcpServers` on every open; `workspace.create.before` chooses isolation; `worktree.create.before` chooses branch and path | [Hooks](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/hooks.md#hooks)                  |
+| Pimi SDK                | `usePimi()` / handler `{ pimi }`                            | Normal Pimi operations: workspaces, agents, providers, config                                                                                                                                                                   | reference.md → Use the Pimi SDK                                                                            |
 
 | Lifecycle task                                                         | Example                                                                                                  |
 | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Log all eleven hooks                                                   | [lifecycle-logger](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/lifecycle-logger)       |
+| Log every hook except `worktree.create.before`                         | [lifecycle-logger](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/lifecycle-logger)       |
 | Follow-ups, permissions, environment, provider switching, worktrees    | [lifecycle-actions](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/lifecycle-actions)     |
 | Inject launch-only MCP servers and save Codex sandbox/approval options | [agent-configuration](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/agent-configuration) |
 | Attach a tool to selected agents                                       | [agent-tools](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/agent-tools)                 |
+| Choose where a worktree is created                                     | [worktree-placement](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/worktree-placement)   |
 
 ## Create the project
 
@@ -109,7 +111,7 @@ export default function contribute(client: PluginClientContext) {
 import type { PluginServerContext } from "@pimi/plugin/server";
 
 export default function contribute(server: PluginServerContext) {
-  // Register daemon-side RPC handlers here.
+  // Register RPC handlers and hooks here.
   return () => {};
 }
 ```
@@ -365,13 +367,24 @@ Inputs and outputs are validated on both sides. A top-level `Uint8Array` input o
 
 Use TanStack Query for async request state, caching, and mutations.
 
+### Register hooks
+
+Call `server.addHook(name, handler)` inside `contribute(server)`. Every handler is `async`. Names follow `subject.operation.position`. There are fourteen:
+
+| Subject   | Changes the request (`{ request }` in, replacement or `undefined` out)              | Notifies                                                                                                                                                       |
+| --------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Workspace | `workspace.create.before`                                                           | `workspace.create.after`, `workspace.archive.after`                                                                                                            |
+| Worktree  | `worktree.create.before`                                                            | `worktree.create.after` (Pimi waits for it; throw to abort creation)                                                                                           |
+| Agent     | `agent.create.before` (saved config), `agent.open.before` (launch-only, every open) | `agent.create.after`, `agent.close.after`, `agent.archive.after`, `agent.turn.before`, `agent.turn.after`, `agent.permission.before`, `agent.permission.after` |
+
+A request-changing hook that throws, returns invalid data, or runs past 30 seconds fails the operation. Pimi does not wait for any other notification, including `agent.turn.before` and `agent.permission.before`. To answer a permission, call `context.pimi.agents.ref(agent.id).respondToPermission({ requestId, response })` from `agent.permission.before`. `server.on` and `server.before` are deprecated; convert them with the [renamed hooks table](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/hooks.md#renamed-hooks).
+
 ### Contribute tools and MCP servers at session open
 
-Use `before("agent.session_open")` for per-agent tools and plugin-owned MCP servers. Add this
-callback inside `contribute(server)`:
+Use the `agent.open.before` hook for per-agent tools and plugin-owned MCP servers:
 
 ```ts
-server.before("agent.session_open", ({ request }) => {
+server.addHook("agent.open.before", async ({ request }) => {
   if (request.provider !== "codex") return;
   return {
     ...request,
@@ -384,12 +397,12 @@ server.before("agent.session_open", ({ request }) => {
 ```
 
 `tools` and `mcpServers` start empty for each plugin and accumulate across its own callbacks.
-They are launch-only. Use `agent.create` to edit configuration that should be saved with the agent.
-See [Attach tools to agents](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/reference.md#attach-tools-to-agents)
+They are launch-only. Use `agent.create.before` to edit configuration that should be saved with the agent.
+See [Attach tools to agents](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/hooks.md#attach-tools-to-agents)
 for `defineAgentTool` and targeting, and
-[Inject MCP servers](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/reference.md#inject-mcp-servers) for server configuration and collisions.
+[Inject MCP servers](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/hooks.md#inject-mcp-servers) for server configuration and collisions.
 
-Starting, stopping, or reloading a plugin with a session-open hook marks open agent sessions stale.
+Starting, stopping, or reloading a plugin with an `agent.open.before` hook marks open agent sessions stale.
 Each reopens before its next idle prompt without interrupting a running turn.
 `await pimi.agents.ref(id).reload()` applies changes immediately and interrupts a running turn;
 `refresh()` only reads the current snapshot.
@@ -673,7 +686,12 @@ pimi plugin install npm:@acme/pimi-review
 pimi plugin install npm:@acme/pimi-review@1.2.0
 pimi plugin install github:owner/repository
 pimi plugin install github:owner/repository --ref main
-pimi plugin update my-plugin
+pimi plugin install owner/slug
+pimi plugin install registry.example.com/owner/slug
+pimi plugin update my-plugin --check
+pimi plugin update my-plugin --yes
+pimi plugin update --all --check
+pimi plugin update --all --yes
 pimi plugin ls
 pimi plugin reload my-plugin
 pimi plugin logs my-plugin
@@ -681,6 +699,10 @@ pimi plugin disable my-plugin
 pimi plugin enable my-plugin
 pimi plugin remove my-plugin
 ```
+
+`owner/slug` installs from the plugin registry and needs a default registry on the daemon; name the registry host when there is none. A registry install rejects `--ref`; use `github:owner/repository` to choose a revision.
+
+`update` asks for confirmation and fails without a terminal. Run it with `--check` to see what would change, then with `--yes` to apply. Pass one plugin ID or `--all`, not both. `--ref <ref>` and `--version <version>` apply a specific Git or npm target to one plugin without asking.
 
 For npm, ensure npm is on the daemon's `PATH`; use that host's registry configuration and credentials. Install selectors choose
 content once; they do not pin updates. `install` and `add` are aliases. Follow the

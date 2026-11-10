@@ -919,46 +919,96 @@ async function createAgentMcpServer(
   return server;
 }
 
-describe("bundled Paseo skill", () => {
-  it("documents only advertised create_workspace input names", async () => {
+describe("bundled Pimi skill", () => {
+  async function readSkillAndAdvertisedTools(callerAgentId?: string) {
     const server = await createAgentMcpServer({
       agentManager: new BoundaryAgentManagerFake() as AgentManager,
       agentStorage: new BoundaryAgentStorageFake() as AgentStorage,
       providerSnapshotManager:
         new BoundaryProviderSnapshotManagerFake() as unknown as ProviderSnapshotManager,
+      ...(callerAgentId ? { callerAgentId } : {}),
       logger: createTestLogger(),
     });
     const client = await connectInMemoryMcpClient(server);
-
     try {
       const skill = await readFile(
-        new URL("../../../../../skills/paseo/SKILL.md", import.meta.url),
+        new URL("../../../../../skills/pimi/SKILL.md", import.meta.url),
         "utf8",
       );
-      const paragraph = skill.split("\n").find((line) => line.startsWith("**`create_workspace`**"));
-      expect(paragraph).toBeTypeOf("string");
-      // The final sentence describes output, rather than tool inputs.
-      const inputGuidance = paragraph!.split("Returns ")[0]!;
-      const documentedInputs = [...inputGuidance.matchAll(/`([a-zA-Z][a-zA-Z0-9]*)`/g)].map(
-        (match) => match[1]!,
-      );
-      expect(documentedInputs.length).toBeGreaterThan(0);
       const { tools } = await client.listTools();
-      const tool = tools.find((entry) => entry.name === "create_workspace")!;
-      const properties = tool.inputSchema.properties!;
-      const advertisedNamesAndValues = new Set([
+      return { skill, tools };
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  }
+
+  function toolParagraph(skill: string, toolName: string): string {
+    const paragraph = skill.split("\n").find((line) => line.startsWith(`**\`${toolName}\`**`));
+    if (paragraph === undefined) throw new Error(`The skill has no ${toolName} paragraph`);
+    return paragraph.slice(`**\`${toolName}\`**`.length);
+  }
+
+  function advertisedInput(
+    tools: Awaited<ReturnType<typeof readSkillAndAdvertisedTools>>["tools"],
+    toolName: string,
+  ) {
+    const tool = tools.find((entry) => entry.name === toolName);
+    if (!tool) throw new Error(`${toolName} is not advertised`);
+    const properties = tool.inputSchema.properties ?? {};
+    return {
+      required: [...(tool.inputSchema.required ?? [])].sort(),
+      namesAndValues: new Set<unknown>([
         ...Object.keys(properties),
         ...Object.values(properties).flatMap((property) =>
           typeof property === "object" && property !== null && Array.isArray(property.enum)
             ? property.enum
             : [],
         ),
-      ]);
-      expect(documentedInputs.filter((name) => !advertisedNamesAndValues.has(name))).toEqual([]);
-    } finally {
-      await client.close();
-      await server.close();
-    }
+      ]),
+    };
+  }
+
+  // Every identifier inside a code span, so `{ workspaceId?, title }` yields both names.
+  function codeSpanIdentifiers(text: string): string[] {
+    return [...text.matchAll(/`([^`]+)`/g)].flatMap((span) =>
+      [...span[1]!.matchAll(/[a-zA-Z][a-zA-Z0-9]*/g)].map((match) => match[0]),
+    );
+  }
+
+  it("documents only advertised create_workspace input names", async () => {
+    const { skill, tools } = await readSkillAndAdvertisedTools();
+    // The final sentence describes output, rather than tool inputs.
+    const inputGuidance = toolParagraph(skill, "create_workspace").split("Returns ")[0]!;
+    const documentedInputs = [...inputGuidance.matchAll(/`([a-zA-Z][a-zA-Z0-9]*)`/g)].map(
+      (match) => match[1]!,
+    );
+    expect(documentedInputs.length).toBeGreaterThan(0);
+    const { namesAndValues } = advertisedInput(tools, "create_workspace");
+    expect(documentedInputs.filter((name) => !namesAndValues.has(name))).toEqual([]);
+  });
+
+  it("documents the advertised rename_workspace input shape", async () => {
+    const { skill, tools } = await readSkillAndAdvertisedTools("agent-1");
+    const paragraph = toolParagraph(skill, "rename_workspace");
+    const shape = /`\{([^`]*)\}`/.exec(paragraph)?.[1];
+    expect(shape).toBeTypeOf("string");
+    const fields = shape!.split(",").map((field) => field.trim());
+    const { required, namesAndValues } = advertisedInput(tools, "rename_workspace");
+
+    expect(fields.filter((field) => !field.endsWith("?")).sort()).toEqual(required);
+    expect(codeSpanIdentifiers(paragraph).filter((name) => !namesAndValues.has(name))).toEqual([]);
+  });
+
+  it("documents the create_schedule inputs an agent is offered", async () => {
+    const { skill, tools } = await readSkillAndAdvertisedTools("agent-1");
+    const paragraph = toolParagraph(skill, "create_schedule");
+    const documentedRequired = /Required:(.*?)Optional:/.exec(paragraph)?.[1];
+    expect(documentedRequired).toBeTypeOf("string");
+    const { required, namesAndValues } = advertisedInput(tools, "create_schedule");
+
+    expect(codeSpanIdentifiers(documentedRequired!).sort()).toEqual(required);
+    expect(codeSpanIdentifiers(paragraph).filter((name) => !namesAndValues.has(name))).toEqual([]);
   });
 });
 
@@ -1270,7 +1320,7 @@ describe("browser MCP tools", () => {
     expect(response.content).toEqual([
       {
         type: "text",
-        text: "No Paseo browser tabs are open. Call browser_new_tab to create one.",
+        text: "No Pimi browser tabs are open. Call browser_new_tab to create one.",
       },
     ]);
     expect(response.structuredContent).toEqual({
@@ -1305,7 +1355,7 @@ describe("browser MCP tools", () => {
     expect(response.content).toEqual([
       {
         type: "text",
-        text: "This browser tool needs a workspace. Start the agent from a Paseo workspace before calling browser_new_tab or browser_list_tabs.",
+        text: "This browser tool needs a workspace. Start the agent from a Pimi workspace before calling browser_new_tab or browser_list_tabs.",
       },
     ]);
     expect(response.structuredContent).toEqual({
@@ -1313,7 +1363,7 @@ describe("browser MCP tools", () => {
       error: {
         code: "browser_denied",
         message:
-          "This browser tool needs a workspace. Start the agent from a Paseo workspace before calling browser_new_tab or browser_list_tabs.",
+          "This browser tool needs a workspace. Start the agent from a Pimi workspace before calling browser_new_tab or browser_list_tabs.",
         retryable: false,
       },
       context: { agentId: "agent-1", cwd: REPO_CWD },

@@ -16,6 +16,7 @@ Use the local Pimi checkout when available. For an installed release, start with
 - [Android setup](https://github.com/1ikeadragon/pimi/blob/main/docs/android.md)
 - [Network activity and pairing](https://github.com/1ikeadragon/pimi/blob/main/SECURITY.md)
 - [Troubleshooting](https://github.com/1ikeadragon/pimi/blob/main/public-docs/troubleshooting.md)
+- [Custom providers](https://github.com/1ikeadragon/pimi/blob/main/public-docs/custom-providers.md): other API backends, ACP agents, custom binaries, and provider aliases in `config.json`
 
 ## Identify the host
 
@@ -31,7 +32,11 @@ Use read-only checks on the daemon machine. Add `--host <address>` if the CLI wo
 pimi --version
 pimi daemon status --json
 pimi provider diagnostic <provider> --json
+pimi provider ls --json
+pimi usage ls --json
 ```
+
+`pimi provider ls` shows which providers the daemon found, including custom ones. `pimi usage ls` shows provider account quotas and balances; use it for rate-limit or out-of-credit questions. It does not report an agent's token consumption.
 
 If `pimi` is missing from the shell, use the binary shipped with the desktop install:
 

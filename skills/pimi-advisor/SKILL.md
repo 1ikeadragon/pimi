@@ -19,13 +19,13 @@ Read the **pimi** skill. Call `list_profiles` before choosing the advisor. Do no
 
 1. **User named a profile** (`--profile UI Work`) → select it by name.
 2. **Otherwise** choose the profile whose `notes` best fit the question. Match the actual work: design and approach, audit and review, or research and root-cause analysis.
-3. **Contrast helps.** When several profiles fit, prefer a different provider family from your own so the second opinion is genuinely fresh.
+3. **Contrast helps.** When several profiles fit, prefer a different provider family from your own.
 
 Materialize the selected profile into `create_agent` as described by the **pimi** skill. If no profile fits, use Pimi's provider discovery fallback.
 
 ## The briefing
 
-The advisor has zero context. Make it self-contained:
+Set `inheritContext: true` when the advisor runs on this host, so it can read this chat. The attached history may be shortened and does not define the task. Write the briefing so it stands without it:
 
 - The question, sharply.
 - What you've considered and what you've ruled out.
@@ -51,7 +51,7 @@ If the user's request contains another skill reference, such as `/unslop`, `/ski
 Parse the forwarded skill name from the user's request (`/<name>`, `/skill:<name>`, or `$<name>`), excluding this skill's own invocation. In the briefing, tell the advisor explicitly:
 
 ```
-Invoke the `<name>` skill against this task. Load it via the Skill tool before doing anything else.
+Invoke the `<name>` skill against this task. Load it the way your provider loads skills before doing anything else.
 ```
 
 Pass through any remaining arguments after the skill name as the skill's own input. The advisor — not you — runs the skill; you're still just the orchestrator handing it the work.
