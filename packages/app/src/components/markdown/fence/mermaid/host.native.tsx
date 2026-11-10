@@ -16,7 +16,6 @@ import { HighlightedCodeBlock } from "@/components/highlighted-code-block";
 import type { Theme } from "@/styles/theme";
 import type { MarkdownFenceRendererProps } from "./types";
 import type { MermaidRenderRequest } from "./render-model";
-import { mermaidRuntimeHtml } from "./runtime/html.gen";
 import {
   parseMermaidRuntimeMessage,
   serializeMermaidRuntimeRenderMessage,
@@ -24,13 +23,13 @@ import {
 } from "./runtime/messages";
 import { MermaidRuntimeRequestDriver } from "./runtime/request-driver";
 import { useMermaidRenderModel } from "./use-render-model";
+import { useMermaidRuntimeHtml } from "./use-runtime-html";
 import { getDiagramBoxStyle } from "./presentation";
 
 interface MermaidFenceHostImplProps extends MarkdownFenceRendererProps {
   colorScheme?: "light" | "dark";
 }
 
-const WEBVIEW_SOURCE = { html: mermaidRuntimeHtml };
 const WEBVIEW_ORIGIN_WHITELIST = ["*"];
 const MAX_PREVIEW_HEIGHT = 480;
 
@@ -55,6 +54,8 @@ function MermaidWebView({
   onRenderFailed,
   style,
 }: MermaidWebViewProps) {
+  const { html, failed } = useMermaidRuntimeHtml();
+  const source = useMemo(() => (html === null ? null : { html }), [html]);
   const webViewRef = useRef<WebView | null>(null);
   const driverRef = useRef<MermaidRuntimeRequestDriver | null>(null);
   driverRef.current ??= new MermaidRuntimeRequestDriver();
@@ -82,6 +83,13 @@ function MermaidWebView({
   useEffect(() => {
     sendRequest(driverRef.current?.update(request) ?? null);
   }, [request, sendRequest]);
+
+  // The runtime never arrived, so no request can settle: fail each one through the same path a
+  // render error takes, which leaves the source visible.
+  const failedRevision = failed ? (request?.revision ?? null) : null;
+  useEffect(() => {
+    if (failedRevision !== null) onRenderFailed(failedRevision);
+  }, [failedRevision, onRenderFailed]);
 
   const handleMessage = useCallback(
     (event: WebViewMessageEvent) => {
@@ -114,10 +122,14 @@ function MermaidWebView({
     [],
   );
 
+  // Until the document arrives the host keeps showing its pending state, and the WebView mounts
+  // once with its final source, so the runtime is never reloaded.
+  if (source === null) return null;
+
   return (
     <WebView
       ref={webViewRef}
-      source={WEBVIEW_SOURCE}
+      source={source}
       originWhitelist={WEBVIEW_ORIGIN_WHITELIST}
       style={[webViewStyles.webView, style]}
       onMessage={handleMessage}

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { DiagramColorScheme, MermaidRenderRequest } from "./render-model";
-import { mermaidRuntimeHtml } from "./runtime/html.gen";
 import { parseMermaidRuntimeMessage, type MermaidRuntimeRenderMessage } from "./runtime/messages";
 import { MermaidRuntimeRequestDriver } from "./runtime/request-driver";
+import { useMermaidRuntimeHtml } from "./use-runtime-html";
 
 export interface MermaidRenderedMessage {
   revision: number;
@@ -24,6 +24,7 @@ export function MermaidIframeRuntime({
   onRendered,
   onRenderFailed,
 }: MermaidIframeRuntimeProps) {
+  const { html, failed } = useMermaidRuntimeHtml();
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const driverRef = useRef<MermaidRuntimeRequestDriver | null>(null);
   driverRef.current ??= new MermaidRuntimeRequestDriver();
@@ -44,6 +45,13 @@ export function MermaidIframeRuntime({
   useEffect(() => {
     sendRequest(driverRef.current?.update(request) ?? null);
   }, [request, sendRequest]);
+
+  // The runtime never arrived, so no request can settle: fail each one through the same path a
+  // render error takes, which leaves the source visible.
+  const failedRevision = failed ? (request?.revision ?? null) : null;
+  useEffect(() => {
+    if (failedRevision !== null) onRenderFailed(failedRevision);
+  }, [failedRevision, onRenderFailed]);
 
   useEffect(() => {
     function receiveMessage(event: MessageEvent): void {
@@ -66,6 +74,10 @@ export function MermaidIframeRuntime({
     return () => window.removeEventListener("message", receiveMessage);
   }, [onRenderFailed, onRendered, sendRequest]);
 
+  // Until the document arrives the host keeps showing its pending state, and the iframe mounts
+  // once with its final document, so the runtime is never reloaded.
+  if (html === null) return null;
+
   // `inert` (not just tabIndex) because the Modal focus trap focuses descendants
   // programmatically; a focused iframe swallows every keystroke, including Escape.
   return (
@@ -75,7 +87,7 @@ export function MermaidIframeRuntime({
       aria-hidden
       inert
       sandbox="allow-scripts"
-      srcDoc={mermaidRuntimeHtml}
+      srcDoc={html}
       tabIndex={-1}
       style={iframeStyle}
     />
