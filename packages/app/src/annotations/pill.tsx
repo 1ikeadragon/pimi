@@ -2,13 +2,14 @@ import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { ICON_SIZE, type Theme } from "@/styles/theme";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Text, View } from "react-native";
-import { MessageSquare } from "lucide-react-native";
+import { MessageSquare, Pencil } from "lucide-react-native";
 import { AttachmentLabel, AttachmentPill } from "@/components/attachment-pill";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { isNative } from "@/constants/platform";
 import {
   openAnnotationAtSource,
+  revealAnnotationSource,
   type AnnotationEditorOutcome,
   type AnnotationEditSession,
 } from "./edit-session";
@@ -17,9 +18,11 @@ import { AnnotationSheet } from "./sheet";
 import { annotationSourceLabel, annotationTitle, type AnnotationAttachment } from "./model";
 
 const ThemedMessageSquare = withUnistyles(MessageSquare);
+const ThemedPencil = withUnistyles(Pencil);
 const iconAppearance = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
 const annotationIcon = <ThemedMessageSquare size={ICON_SIZE.sm} uniProps={iconAppearance} />;
+const pencilIcon = <ThemedPencil size={ICON_SIZE.sm} uniProps={iconAppearance} />;
 
 /** Where the note is being edited: at the annotated text, beside the pill, or in a sheet. */
 type Editing = "closed" | "source" | "popover" | "sheet";
@@ -61,23 +64,49 @@ export function AnnotationPill({
     }),
     [attachment, saveNote, handleRemove, onFocusComposer],
   );
-  const handleOpen = useCallback(() => {
+  const handleEdit = useCallback(() => {
     if (usesSheet) setEditing("sheet");
     else setEditing(openAnnotationAtSource(session) ? "source" : "popover");
   }, [usesSheet, session]);
+  // On web a chat quote's pill goes to its source, and the pencil edits the note. A file
+  // annotation, a chat that is not open, and the sheet layouts edit the note from the pill.
+  const goesToSource = !usesSheet && attachment.source.kind === "chat";
+  // The quote is now in the chat, so the card showing it closes until the pointer comes back.
+  const [revealed, setRevealed] = useState(false);
+  const handleOpen = useCallback(() => {
+    if (goesToSource && revealAnnotationSource(attachment)) {
+      setRevealed(true);
+      return;
+    }
+    handleEdit();
+  }, [goesToSource, attachment, handleEdit]);
+  const handlePointerLeave = useCallback(() => setRevealed(false), []);
+  const editAction = useMemo(
+    () =>
+      goesToSource
+        ? {
+            icon: pencilIcon,
+            onPress: handleEdit,
+            accessibilityLabel: "Edit annotation note",
+            testID: "composer-annotation-edit",
+          }
+        : undefined,
+    [goesToSource, handleEdit],
+  );
   const note = attachment.note.trim();
 
   return (
     <>
-      <HoverCard disabled={usesSheet || disabled || editing !== "closed"}>
+      <HoverCard disabled={usesSheet || disabled || revealed || editing !== "closed"}>
         <HoverCardTrigger>
-          <View ref={pill} collapsable={false}>
+          <View ref={pill} collapsable={false} onPointerLeave={handlePointerLeave}>
             <AttachmentPill
               testID="composer-annotation-pill"
               disabled={disabled}
               onOpen={handleOpen}
               onRemove={handleRemove}
-              openAccessibilityLabel="Edit annotation"
+              action={editAction}
+              openAccessibilityLabel={goesToSource ? "Go to annotated text" : "Edit annotation"}
               removeAccessibilityLabel="Remove annotation"
             >
               <AttachmentLabel

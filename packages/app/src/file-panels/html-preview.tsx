@@ -43,11 +43,15 @@ export function FileHtmlPreview({
   html: string;
   title?: string;
   testID?: string;
-  /** Themes the document and makes it report its content height. */
+  /** Themes the document. */
   embed?: HtmlPreviewEmbed;
   onContentHeight?: (height: number) => void;
 }) {
-  const document = useMemo(() => withPreviewCsp(html, embed), [html, embed]);
+  const reportHeight = Boolean(onContentHeight);
+  const document = useMemo(
+    () => withPreviewCsp(html, embed, reportHeight),
+    [html, embed, reportHeight],
+  );
   const source = useMemo(() => ({ html: document, baseUrl: BASE_URL }), [document]);
   // Latched per document rather than once for the lifetime of the WebView: the
   // file pane re-renders with new content on every live-file refresh, and each of

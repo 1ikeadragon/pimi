@@ -85,8 +85,18 @@ export function readHtmlPreviewHeight(data: unknown): number | null {
   return typeof height === "number" && Number.isFinite(height) && height > 0 ? height : null;
 }
 
-export function withPreviewCsp(html: string, embed?: HtmlPreviewEmbed): string {
+/**
+ * `embed` themes the document wherever it is shown, in a chat or in a tab, because a visual
+ * styled with the `--pimi-*` properties has no colors without them. `reportHeight` is only for a
+ * frame that sizes itself to its content.
+ */
+export function withPreviewCsp(
+  html: string,
+  embed?: HtmlPreviewEmbed,
+  reportHeight = false,
+): string {
   const document = html.startsWith(BOM) ? html.slice(BOM.length) : html;
   // The policy stays first so it is in force before the theme style or the reporter parse.
-  return PROLOGUE + (embed ? embedStyle(embed) + HEIGHT_REPORTER : "") + document;
+  const theme = embed ? embedStyle(embed) : "";
+  return PROLOGUE + theme + (reportHeight ? HEIGHT_REPORTER : "") + document;
 }

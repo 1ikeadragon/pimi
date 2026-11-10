@@ -43,7 +43,7 @@ import {
   createHistoryStartSettleScheduler,
   type HistoryStartSettleScheduler,
 } from "./history-start-settle-scheduler";
-import { useChatFindSelectedMessageId } from "@/agent-stream/chat-find";
+import { useAddressableMessageId } from "@/agent-stream/chat-find";
 import { useScrollToMessage } from "./use-scroll-to-message.web";
 
 interface CreateWebStreamStrategyInput {
@@ -383,8 +383,8 @@ function WebStreamViewport(props: StreamRenderInput & { isMobileBreakpoint: bool
   // Chat find counts and highlights occurrences from the DOM, so every block row of
   // the message it selected has to be mounted even when the scroll window is nowhere
   // near it. Without this a hit in a far paragraph is invisible to the count and Next
-  // walks off to the following message.
-  const chatFindMessageId = useChatFindSelectedMessageId();
+  // walks off to the following message. An annotation's quote is found the same way.
+  const chatFindMessageId = useAddressableMessageId();
   const chatFindRowIndexes = useMemo(() => {
     if (!chatFindMessageId) return null;
     const indexes = segments.historyVirtualized.flatMap((item, index) =>

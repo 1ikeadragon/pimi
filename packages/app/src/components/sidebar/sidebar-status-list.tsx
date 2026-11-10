@@ -868,7 +868,11 @@ function StatusWorkspaceRowInnerContent({
   }, [endDragPress]);
 
   return (
-    <SidebarWorkspaceRowFrame workspace={workspace} isDragging={isDragging}>
+    <SidebarWorkspaceRowFrame
+      workspace={workspace}
+      isDragging={isDragging}
+      indented={inStatusGroup}
+    >
       {({ isHovered, contextMenuOpen, onContextMenuOpenChange, hoverHandlers }) => {
         const showShortcut = showShortcutBadge && shortcutNumber !== null;
         const {

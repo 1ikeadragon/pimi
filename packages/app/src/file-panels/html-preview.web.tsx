@@ -26,7 +26,7 @@ export function FileHtmlPreview({
   html: string;
   title?: string;
   testID?: string;
-  /** Themes the document and makes it report its content height. */
+  /** Themes the document. */
   embed?: HtmlPreviewEmbed;
   onContentHeight?: (height: number) => void;
 }) {
@@ -34,9 +34,11 @@ export function FileHtmlPreview({
   const frame = useRef<HTMLIFrameElement>(null);
   // A document URL lets the browser resolve fragment links within the preview.
   // srcDoc would inherit the app URL and navigate the frame back into Paseo.
+  const reportHeight = Boolean(onContentHeight);
   const source = useMemo(
-    () => `data:text/html;charset=utf-8,${encodeURIComponent(withPreviewCsp(html, embed))}`,
-    [html, embed],
+    () =>
+      `data:text/html;charset=utf-8,${encodeURIComponent(withPreviewCsp(html, embed, reportHeight))}`,
+    [html, embed, reportHeight],
   );
   useEffect(() => {
     if (!onContentHeight) return;

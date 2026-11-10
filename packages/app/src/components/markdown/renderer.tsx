@@ -147,7 +147,14 @@ const MarkdownPart = memo(function MarkdownPart({
           const key = `${segment.kind}:${segment.id}`;
           if (segment.kind === "mermaid") return <MermaidFence key={key} code={segment.source} />;
           if (segment.kind === "view")
-            return <ViewFence key={key} view={segment.view} source={segment.source} />;
+            return (
+              <ViewFence
+                key={key}
+                view={segment.view}
+                source={segment.source}
+                failed={segment.failed}
+              />
+            );
           if (segment.kind === "artifact")
             return <ChatArtifactCard key={key} artifact={segment.artifact} />;
           return (

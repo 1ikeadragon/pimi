@@ -43,6 +43,7 @@ import { navigateToAgent } from "@/utils/navigate-to-agent";
 import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
 import { PressHighlight } from "@/components/ui/press-highlight";
 import type { Agent } from "@/stores/session-store";
+import { SidebarAgentLineage } from "@/components/sidebar/sidebar-agent-lineage";
 
 const needsInputColorMapping = (theme: Theme) => ({
   color: theme.colors.surface0,
@@ -56,10 +57,13 @@ const ThemedCircleAlert = withUnistyles(CircleAlert);
 export function SidebarWorkspaceRowFrame({
   workspace,
   isDragging = false,
+  indented = false,
   children,
 }: {
   workspace: SidebarWorkspaceEntry;
   isDragging?: boolean;
+  /** The row carries `rowIndented`, so the rows nested under it start on the same rail. */
+  indented?: boolean;
   children: (input: {
     isHovered: boolean;
     contextMenuOpen: boolean;
@@ -97,6 +101,13 @@ export function SidebarWorkspaceRowFrame({
           hoverHandlers,
         })}
       </WorkspaceHoverCard>
+      {!isDragging ? (
+        <SidebarAgentLineage
+          serverId={workspace.serverId}
+          workspaceId={workspace.workspaceId}
+          indentStyle={indented ? sidebarWorkspaceRowStyles.rowIndented : undefined}
+        />
+      ) : null}
       {!isDragging ? <PimiTaskBranchRows workspaceKey={workspace.workspaceKey} /> : null}
     </>
   );

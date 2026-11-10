@@ -8,7 +8,8 @@ export interface WorkspaceAgentActivity {
   enteredAt: Date | null;
 }
 
-function workspaceAgentStatus(agent: Agent): Agent["status"] {
+/** An agent whose turn has closed is idle even before its lifecycle status catches up. */
+export function workspaceAgentStatus(agent: Pick<Agent, "status" | "turn">): Agent["status"] {
   if (agent.turn.phase === "open") return "running";
   return agent.status === "running" ? "idle" : agent.status;
 }

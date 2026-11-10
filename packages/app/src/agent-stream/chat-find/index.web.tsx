@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type ReactNode,
 } from "react";
 import { View, Text } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
@@ -39,13 +40,32 @@ const ROOT_STYLE = {
 } as const;
 let nextHighlightId = 0;
 
-/**
- * The message chat find has landed on, for surfaces that must keep it addressable:
- * the row that lifts its render cap, and the web virtualizer that has to mount every
- * block row of it so the whole message can be counted and highlighted.
- */
-export function useChatFindSelectedMessageId(): string | null {
+/** The message chat find has landed on; its row lifts its render cap so every match shows. */
+function useChatFindSelectedMessageId(): string | null {
   return useContext(SelectedMessage);
+}
+
+const RevealingMessage = createContext<string | null>(null);
+
+/** A message another surface is scrolling to, such as an annotation's source. */
+export function ChatMessageReveal({
+  messageId,
+  children,
+}: {
+  messageId: string | null;
+  children: ReactNode;
+}) {
+  return <RevealingMessage.Provider value={messageId}>{children}</RevealingMessage.Provider>;
+}
+
+/**
+ * The message whose block rows the web virtualizer keeps mounted even far from the scroll
+ * window, so a match or quote in any paragraph of it can be counted, measured and highlighted:
+ * one being revealed, else the one chat find landed on.
+ */
+export function useAddressableMessageId(): string | null {
+  const selected = useContext(SelectedMessage);
+  return useContext(RevealingMessage) ?? selected;
 }
 
 export function ChatFindExpansion({ messageId, children }: ChatFindExpansionProps) {

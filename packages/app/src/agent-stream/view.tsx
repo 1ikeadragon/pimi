@@ -1294,6 +1294,11 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       ],
     );
 
+    // Going to an annotation's source scrolls the chat the way chat find does.
+    const annotationNavigation = useMemo(
+      () => ({ viewportRef, revealLoadedMessage, visibleMessageIds: mountedMessageIds }),
+      [revealLoadedMessage, mountedMessageIds],
+    );
     const findItems = useMemo(
       () => [...effectiveStreamItems, ...(effectiveStreamHead ?? [])],
       [effectiveStreamItems, effectiveStreamHead],
@@ -1312,6 +1317,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
           <AssistantSelectionCopySurface
             style={stylesheet.container}
             annotationTarget={annotationTarget}
+            annotationNavigation={annotationNavigation}
           >
             <MessageOuterSpacingProvider disableOuterSpacing>
               <ToolCallExpansionContext.Provider value={toolCallExpansion}>

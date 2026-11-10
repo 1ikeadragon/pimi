@@ -38,8 +38,7 @@ function WebCodeBlock({ code, language }: CodeBlockRendererProps) {
 function ViewCodeBlock({ fence, ...props }: CodeBlockRendererProps & { fence: ViewFenceName }) {
   const streaming = useContext(MermaidStreamingContext);
   const view = useMemo(() => parseChatView(fence, props.code), [fence, props.code]);
-  if (view || streaming) return <ViewFence view={view} source={props.code} />;
-  return <WebCodeBlock {...props} />;
+  return <ViewFence view={view} source={props.code} failed={!view && !streaming} />;
 }
 
 function AssistantCodeBlock(props: CodeBlockRendererProps) {

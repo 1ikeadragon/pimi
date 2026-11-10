@@ -42,6 +42,10 @@ export interface AnnotationEditorHandle {
 }
 
 export const ANNOTATION_HIGHLIGHT_NAME = "pimi-annotation";
+/** The quote a composer pill went to, pulsing while the chat lands on it. */
+export const ANNOTATION_PULSE_HIGHLIGHT_NAME = "pimi-annotation-pulse";
+/** Animated on an ancestor of the quote; the pulse highlight inherits it. */
+export const ANNOTATION_PULSE_OPACITY = "--pimi-annotation-pulse-opacity";
 export const ANNOTATION_MARK_CLASS = "cm-pimi-annotation";
 
 const EDITOR_WIDTH = 320;
@@ -69,11 +73,17 @@ const ENTER_STYLE: CSSProperties = {
   transformOrigin: "top left",
 };
 
-/** Paints the annotated text while its note editor is open, in chat and in the code editor. */
+// Adapted from T3 Code apps/web/src/index.css (MIT, © 2026 T3 Tools Inc.).
+/**
+ * Paints annotated text in chat and in the code editor: a solid accent tint on the text whose note
+ * is open, and the pulse on a quote the chat just scrolled to. Saved annotations are not marked.
+ */
 export function AnnotationHighlightStyle() {
-  const color = styles.highlight.backgroundColor;
+  const accent = styles.highlight.color;
+  const active = `color-mix(in srgb, ${accent} 45%, transparent)`;
+  const pulse = `color-mix(in srgb, ${accent} calc(var(${ANNOTATION_PULSE_OPACITY}) * 100%), transparent)`;
   return (
-    <style>{`::highlight(${ANNOTATION_HIGHLIGHT_NAME}) { background-color: ${color}; } .${ANNOTATION_MARK_CLASS} { background-color: ${color}; }`}</style>
+    <style>{`@property ${ANNOTATION_PULSE_OPACITY} { syntax: "<number>"; inherits: true; initial-value: 0; } ::highlight(${ANNOTATION_HIGHLIGHT_NAME}) { background-color: ${active}; } .${ANNOTATION_MARK_CLASS} { background-color: ${active}; } ::highlight(${ANNOTATION_PULSE_HIGHLIGHT_NAME}) { background-color: ${pulse}; }`}</style>
   );
 }
 
@@ -441,7 +451,7 @@ export function AnnotationNoteEditor({
 }
 
 const styles = StyleSheet.create((theme) => ({
-  highlight: { backgroundColor: theme.colors.statusWarningTint },
+  highlight: { color: theme.colors.accent },
   toolbarButton: { ...theme.shadow.sm },
   editor: {
     backgroundColor: theme.colors.surface0,

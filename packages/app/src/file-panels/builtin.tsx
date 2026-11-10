@@ -1,10 +1,11 @@
 import { useWorkspace, useFileUrl, type PluginFilePanelProps } from "@pimi/plugin/client";
 import { useCallback, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { ZoomableImage } from "@/components/zoomable-viewport/image";
 import { useSessionStore } from "@/stores/session-store";
 import { FileHtmlPreview } from "./html-preview";
+import { htmlPreviewTheme } from "./html-preview-theme";
 import { FilePanelLoading } from "./loading";
 import { FileMarkdownPreview } from "./markdown-preview";
 import { TextFilePanel, type TextFilePreviewProps } from "./source/panel";
@@ -49,11 +50,16 @@ function MarkdownPreview({ text, params, workspaceId, host }: TextFilePreviewPro
   );
 }
 
-/** The page owns its scrolling, so there is no ScrollView around it. */
+const ThemedHtmlPreview = withUnistyles(FileHtmlPreview);
+
+/**
+ * The page owns its scrolling, so there is no ScrollView around it. It gets the same theme as a
+ * visual shown in chat, so opening that visual in a tab looks the same.
+ */
 function HtmlPreview({ text }: TextFilePreviewProps) {
   return (
     <View style={styles.container}>
-      <FileHtmlPreview html={text} testID="file-html-preview" />
+      <ThemedHtmlPreview html={text} testID="file-html-preview" uniProps={htmlPreviewTheme} />
     </View>
   );
 }

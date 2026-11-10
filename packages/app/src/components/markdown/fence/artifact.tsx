@@ -9,8 +9,7 @@ import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { isWeb } from "@/constants/platform";
 import { FileHtmlPreview } from "@/file-panels/html-preview";
-import type { HtmlPreviewEmbed } from "@/file-panels/html-preview-csp";
-import type { Theme } from "@/styles/theme";
+import { htmlPreviewTheme } from "@/file-panels/html-preview-theme";
 import { decodeUtf8 } from "@/utils/decode-utf8";
 
 // Full-size artifacts can still use the workspace file panel.
@@ -179,39 +178,13 @@ function ArtifactBody({
         title={title}
         testID="chat-artifact-preview"
         onContentHeight={onContentHeight}
-        uniProps={mapEmbed}
+        uniProps={htmlPreviewTheme}
       />
     </View>
   );
 }
 
 const ThemedHtmlPreview = withUnistyles(FileHtmlPreview);
-
-// One embed per theme object: a new identity would rebuild the document and restart its script.
-const embeds = new WeakMap<Theme, HtmlPreviewEmbed>();
-
-function mapEmbed(theme: Theme): { embed: HtmlPreviewEmbed } {
-  let embed = embeds.get(theme);
-  if (!embed) {
-    const { colors } = theme;
-    embed = {
-      colorScheme: theme.colorScheme === "dark" ? "dark" : "light",
-      variables: {
-        bg: colors.surface1,
-        surface: colors.surface2,
-        fg: colors.foreground,
-        muted: colors.foregroundMuted,
-        border: colors.border,
-        accent: colors.accent,
-        "accent-fg": colors.accentForeground ?? colors.foreground,
-        font: theme.fontFamily.ui,
-        mono: theme.fontFamily.mono,
-      },
-    };
-    embeds.set(theme, embed);
-  }
-  return { embed };
-}
 
 const styles = StyleSheet.create((theme) => ({
   card: {

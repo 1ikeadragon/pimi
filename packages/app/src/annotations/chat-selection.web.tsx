@@ -9,10 +9,13 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
+import { ChatMessageReveal } from "@/agent-stream/chat-find";
 import { useToast } from "@/contexts/toast-context";
 import { buildDraftStoreKey } from "@/stores/draft-keys";
 import { messageContents, observeChatHighlight } from "./chat-highlight.web";
+import { revealChatQuote, type ChatNavigation, type ChatRevealNotice } from "./chat-reveal.web";
 import {
+  registerAnnotationRevealer,
   registerAnnotationSource,
   type AnnotationEditorOutcome,
   type AnnotationEditSession,
@@ -254,12 +257,20 @@ function ChatAnnotationEditor({
   );
 }
 
+const REVEAL_NOTICE: Record<ChatRevealNotice, string> = {
+  unreachable: "Could not scroll to the annotated text",
+  quoteChanged: "The annotated text has changed. Showing its message instead.",
+};
+
 export function ChatAnnotationSelection({
   children,
   target,
+  navigation,
 }: {
   children: ReactNode;
   target?: ChatTarget;
+  /** How this chat scrolls to a message, for going to an annotation's source from its pill. */
+  navigation?: ChatNavigation;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const toolbar = useRef<HTMLDivElement>(null);
@@ -346,6 +357,44 @@ export function ChatAnnotationSelection({
     return registerAnnotationSource(openEditor);
   }, [serverId, agentId, openEditor]);
 
+  // Going to a source keeps every row of its message mounted, so the quote can be found in it.
+  const [revealing, setRevealing] = useState<string | null>(null);
+  const navigationRef = useRef(navigation);
+  navigationRef.current = navigation;
+  useEffect(() => {
+    const element = root.current;
+    if (!element || !serverId || !agentId) return;
+    let dispose: (() => void) | null = null;
+    const unregister = registerAnnotationRevealer((attachment) => {
+      const { source, quote } = attachment;
+      if (source.kind !== "chat" || source.serverId !== serverId || source.agentId !== agentId)
+        return false;
+      // A chat in a hidden pane or tab has no size and cannot scroll.
+      const bounds = paneBounds(element);
+      if (!navigationRef.current || bounds.right <= bounds.left || bounds.bottom <= bounds.top)
+        return false;
+      dispose?.();
+      setRevealing(source.messageId);
+      dispose = revealChatQuote({
+        root: element,
+        messageId: source.messageId,
+        selector: attachment.selector ?? { text: quote, prefix: "", suffix: "" },
+        getNavigation: () => navigationRef.current ?? null,
+        onNotice: (notice) => toast.show(REVEAL_NOTICE[notice], { variant: "warning" }),
+        onDone() {
+          dispose = null;
+          setRevealing(null);
+        },
+      });
+      return true;
+    });
+    return () => {
+      unregister();
+      dispose?.();
+      setRevealing(null);
+    };
+  }, [serverId, agentId, toast]);
+
   const annotate = useCallback(async () => {
     if (surface.kind !== "toolbar" || !serverId || !agentId) return;
     const annotationTarget = {
@@ -402,7 +451,7 @@ export function ChatAnnotationSelection({
   return (
     <>
       <div ref={root} style={DISPLAY_CONTENTS}>
-        {children}
+        <ChatMessageReveal messageId={revealing}>{children}</ChatMessageReveal>
       </div>
       {target ? <AnnotationHighlightStyle /> : null}
       {surface.kind === "toolbar" && target ? (

@@ -34,3 +34,24 @@ export function openAnnotationAtSource(session: AnnotationEditSession): boolean 
   }
   return false;
 }
+
+/** Scrolls a surface to the annotation's source and marks it, when that surface shows it. */
+type AnnotationRevealer = (attachment: AnnotationAttachment) => boolean;
+
+const revealers = new Set<AnnotationRevealer>();
+
+/** A chat on web offers to go to quotes from its messages; native chats do not register. */
+export function registerAnnotationRevealer(revealer: AnnotationRevealer): () => void {
+  revealers.add(revealer);
+  return () => {
+    revealers.delete(revealer);
+  };
+}
+
+/** False when no open chat can go to this annotation's source; the caller edits the note instead. */
+export function revealAnnotationSource(attachment: AnnotationAttachment): boolean {
+  for (const revealer of revealers) {
+    if (revealer(attachment)) return true;
+  }
+  return false;
+}

@@ -11,7 +11,7 @@ type Fence =
   | { kind: "mermaid"; source: string }
   | { kind: "artifact"; source: string; artifact: ChatArtifact }
   // `view` is null for a block that is still streaming and not yet valid.
-  | { kind: "view"; source: string; view: ChatView | null };
+  | { kind: "view"; source: string; view: ChatView | null; failed?: boolean };
 type Segment = ({ kind: "markdown"; source: string } | Fence) & { id: string };
 
 export interface FenceSplitOptions {
@@ -86,7 +86,7 @@ export function splitMermaidFences(
         { kind: "view", source: node.value, view: null },
         pendingViewId(node.value),
       );
-    }
+    } else appendFence(position, { kind: "view", source: node.value, view: null, failed: true });
   }
   function visit(node: RootContent): void {
     if (node.type === "definition" && !definitions.has(node.identifier))

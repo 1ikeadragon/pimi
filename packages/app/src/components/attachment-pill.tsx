@@ -1,5 +1,5 @@
 import { type ReactNode, useCallback, useMemo, useState } from "react";
-import { Image, Pressable, Text, View } from "react-native";
+import { Image, Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { X } from "lucide-react-native";
 import { isNative } from "@/constants/platform";
@@ -12,6 +12,14 @@ import type { Theme } from "@/styles/theme";
 // height so mixed attachment trays line up.
 const ATTACHMENT_CONTENT_HEIGHT = 48;
 
+/** A second press target inside the pill, after its body. */
+interface AttachmentPillAction {
+  icon: ReactNode;
+  onPress: () => void;
+  accessibilityLabel: string;
+  testID?: string;
+}
+
 interface AttachmentPillProps {
   onOpen: () => void;
   onRemove: () => void;
@@ -19,6 +27,7 @@ interface AttachmentPillProps {
   removeAccessibilityLabel: string;
   disabled?: boolean;
   testID?: string;
+  action?: AttachmentPillAction;
   children: ReactNode;
 }
 
@@ -29,13 +38,15 @@ export function AttachmentPill({
   removeAccessibilityLabel,
   disabled = false,
   testID,
+  action,
   children,
 }: AttachmentPillProps) {
   const isCompact = useIsCompactFormFactor();
   const [isBodyHovered, setIsBodyHovered] = useState(false);
   const [isCloseHovered, setIsCloseHovered] = useState(false);
+  const [isActionHovered, setIsActionHovered] = useState(false);
   const alwaysShow = isNative || isCompact;
-  const showRemove = alwaysShow || isBodyHovered || isCloseHovered;
+  const showRemove = alwaysShow || isBodyHovered || isCloseHovered || isActionHovered;
   const closeButtonStyle = useMemo(
     () => [styles.closeButton, !showRemove && styles.closeButtonHidden],
     [showRemove],
@@ -44,20 +55,43 @@ export function AttachmentPill({
   const handleBodyHoverOut = useCallback(() => setIsBodyHovered(false), []);
   const handleCloseHoverIn = useCallback(() => setIsCloseHovered(true), []);
   const handleCloseHoverOut = useCallback(() => setIsCloseHovered(false), []);
+  const handleActionHoverIn = useCallback(() => setIsActionHovered(true), []);
+  const handleActionHoverOut = useCallback(() => setIsActionHovered(false), []);
+  const body = (
+    <Pressable
+      testID={testID}
+      onPress={onOpen}
+      disabled={disabled}
+      onHoverIn={handleBodyHoverIn}
+      onHoverOut={handleBodyHoverOut}
+      accessibilityRole="button"
+      accessibilityLabel={openAccessibilityLabel}
+      style={action ? undefined : styles.frame}
+    >
+      {children}
+    </Pressable>
+  );
   return (
     <View style={styles.wrapper}>
-      <Pressable
-        testID={testID}
-        onPress={onOpen}
-        disabled={disabled}
-        onHoverIn={handleBodyHoverIn}
-        onHoverOut={handleBodyHoverOut}
-        accessibilityRole="button"
-        accessibilityLabel={openAccessibilityLabel}
-        style={styles.frame}
-      >
-        {children}
-      </Pressable>
+      {action ? (
+        <View style={styles.frameWithAction}>
+          {body}
+          <Pressable
+            testID={action.testID}
+            onPress={action.onPress}
+            disabled={disabled}
+            onHoverIn={handleActionHoverIn}
+            onHoverOut={handleActionHoverOut}
+            accessibilityRole="button"
+            accessibilityLabel={action.accessibilityLabel}
+            style={actionButtonStyle}
+          >
+            {action.icon}
+          </Pressable>
+        </View>
+      ) : (
+        body
+      )}
       <Pressable
         onPress={onRemove}
         disabled={disabled}
@@ -141,6 +175,10 @@ export function AttachmentThumbnail({ metadata }: { metadata: AttachmentMetadata
   return <Image source={source} style={styles.thumbnail} />;
 }
 
+function actionButtonStyle({ hovered }: PressableStateCallbackType & { hovered?: boolean }) {
+  return [styles.actionButton, hovered && styles.actionButtonHovered];
+}
+
 const ThemedX = withUnistyles(X);
 const iconForegroundMutedMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
@@ -153,6 +191,25 @@ const styles = StyleSheet.create((theme) => ({
     borderWidth: theme.borderWidth[1],
     borderColor: theme.colors.borderAccent,
     overflow: "hidden",
+  },
+  frameWithAction: {
+    flexDirection: "row",
+    borderRadius: theme.borderRadius.md,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.borderAccent,
+    overflow: "hidden",
+  },
+  actionButton: {
+    width: 32,
+    height: ATTACHMENT_CONTENT_HEIGHT,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surface1,
+    borderLeftWidth: theme.borderWidth[1],
+    borderLeftColor: theme.colors.border,
+  },
+  actionButtonHovered: {
+    backgroundColor: theme.colors.surface2,
   },
   labelBody: {
     height: ATTACHMENT_CONTENT_HEIGHT,

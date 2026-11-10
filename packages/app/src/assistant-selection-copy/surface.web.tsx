@@ -1,4 +1,5 @@
 import { ChatAnnotationSelection } from "@/annotations/chat-selection.web";
+import type { ChatNavigation } from "@/annotations/chat-reveal.web";
 import { useCallback, type ClipboardEvent, type CSSProperties, type ReactNode } from "react";
 import { View, type StyleProp, type ViewStyle } from "react-native";
 import { createAssistantSelectionClipboardContent } from "./content.web";
@@ -6,6 +7,7 @@ import { createAssistantSelectionClipboardContent } from "./content.web";
 interface AssistantSelectionCopySurfaceProps {
   children: ReactNode;
   annotationTarget?: { serverId: string; agentId: string };
+  annotationNavigation?: ChatNavigation;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -16,6 +18,7 @@ export function AssistantSelectionCopySurface({
   children,
   style,
   annotationTarget,
+  annotationNavigation,
 }: AssistantSelectionCopySurfaceProps) {
   const handleCopy = useCallback((event: ClipboardEvent<HTMLDivElement>) => {
     const content = createAssistantSelectionClipboardContent(window.getSelection());
@@ -29,7 +32,7 @@ export function AssistantSelectionCopySurface({
   }, []);
 
   return (
-    <ChatAnnotationSelection target={annotationTarget}>
+    <ChatAnnotationSelection target={annotationTarget} navigation={annotationNavigation}>
       <div onCopy={handleCopy} style={DISPLAY_CONTENTS}>
         <View style={style} dataSet={CHAT_BACKGROUND}>
           {children}
