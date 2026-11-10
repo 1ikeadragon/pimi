@@ -19,8 +19,9 @@ import { PENDING_MARKDOWN_IMAGE } from "./source";
 import { splitStreamingMarkdown } from "./streaming";
 import { useMarkdownSource, type MarkdownImageContext } from "./images";
 
-import { MermaidFence, MermaidStreamingContext, splitMermaidFences } from "./fence/mermaid";
-import { Visualization } from "./fence/visualization";
+import { MermaidFence, MermaidStreamingContext } from "./fence/mermaid";
+import { PIMI_FENCE_PATTERN, splitMermaidFences } from "./fence/mermaid/segments";
+import { ViewFence } from "./fence/view";
 import { ChatArtifactCard } from "./fence/artifact";
 
 const ThemedMarkdown = withUnistyles(EnrichedMarkdownText);
@@ -58,11 +59,9 @@ export interface MarkdownRendererProps extends MarkdownImageContext {
 
 /** All Markdown surfaces share the same engine and source adaptation. */
 export const MarkdownRenderer = memo(function MarkdownRenderer(props: MarkdownRendererProps) {
-  // Same-reply chart identities must share one segment registry across streaming boundaries.
+  // Same-reply view identities must share one segment registry across streaming boundaries.
   const streaming =
-    !isWeb &&
-    !!props.streaming &&
-    !(props.visualizations && /pimi-(?:chart|artifact)/i.test(props.text));
+    !isWeb && !!props.streaming && !(props.visualizations && PIMI_FENCE_PATTERN.test(props.text));
   // Only completed lines affect block closure. Do not run mdast on every reveal frame.
   const completeLines = streaming ? props.text.slice(0, props.text.lastIndexOf("\n") + 1) : "";
   const boundary = useMemo(
@@ -138,8 +137,8 @@ const MarkdownPart = memo(function MarkdownPart({
     () =>
       isWeb && !visualizations
         ? [{ kind: "markdown" as const, id: "0", source: markdown }]
-        : splitMermaidFences(markdown, visualizations, !isWeb),
-    [markdown, visualizations],
+        : splitMermaidFences(markdown, { visualizations, mermaid: !isWeb, streaming }),
+    [markdown, visualizations, streaming],
   );
   return (
     <MermaidStreamingContext.Provider value={streaming}>
@@ -147,8 +146,8 @@ const MarkdownPart = memo(function MarkdownPart({
         {segments.map((segment) => {
           const key = `${segment.kind}:${segment.id}`;
           if (segment.kind === "mermaid") return <MermaidFence key={key} code={segment.source} />;
-          if (segment.kind === "visualization")
-            return <Visualization key={key} chart={segment.chart} />;
+          if (segment.kind === "view")
+            return <ViewFence key={key} view={segment.view} source={segment.source} />;
           if (segment.kind === "artifact")
             return <ChatArtifactCard key={key} artifact={segment.artifact} />;
           return (

@@ -351,6 +351,12 @@ export const ja: TranslationResources = {
     visualization: {
       previous: "前のデータ点",
       next: "次のデータ点",
+      drawing: "グラフを描画中...",
+      sort: {
+        ascending: "{{column}}、昇順",
+        descending: "{{column}}、降順",
+        unsorted: "{{column}}、並べ替えなし",
+      },
     },
     diagram: {
       diagram: "図",

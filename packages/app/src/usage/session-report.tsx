@@ -2,8 +2,8 @@ import { useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import type { AgentUsage, AgentUsageCounters, AgentUsageSample } from "@pimi/protocol/agent-types";
-import type { ChatVisualization } from "@pimi/protocol/chat-visualization";
-import { Visualization } from "@/components/markdown/fence/visualization";
+import type { ChartNode } from "@pimi/protocol/chat-view";
+import { ChartCard } from "@/components/markdown/fence/view";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
 
 const COUNTERS = [
@@ -37,10 +37,7 @@ function reportLabels(samples: AgentUsageSample[], date: Intl.DateTimeFormat) {
   });
 }
 
-function historyChart(
-  samples: AgentUsageSample[],
-  date: Intl.DateTimeFormat,
-): ChatVisualization | null {
+function historyChart(samples: AgentUsageSample[], date: Intl.DateTimeFormat): ChartNode | null {
   const candidates = COUNTERS.filter(
     ([, field]) => samples.filter((sample) => sample[field] !== undefined).length >= 2,
   );
@@ -52,7 +49,8 @@ function historyChart(
     .slice(0, 4)
     .map(([name, field]) => ({ name, values: included.map((sample) => sample[field]!) }));
   return {
-    type: "line",
+    type: "chart",
+    kind: "line",
     title: "Recorded token reports",
     unit: "tokens",
     labels: reportLabels(included, date),
@@ -68,10 +66,11 @@ function buildReport(usage: AgentUsage, locale: string | undefined) {
     const value = usage[field] ?? latest?.[field];
     return typeof value === "number" ? [{ name, value }] : [];
   });
-  const breakdown: ChatVisualization | null =
+  const breakdown: ChartNode | null =
     counts.length > 0
       ? {
-          type: "bar",
+          type: "chart",
+          kind: "bar",
           title: "Reported tokens",
           unit: "tokens",
           labels: counts.map(({ name }) => name),
@@ -88,10 +87,11 @@ function buildReport(usage: AgentUsage, locale: string | undefined) {
   const trend = historyChart(recent, date);
   const costs = recent.filter((sample) => sample.totalCostUsd !== undefined);
   const byModel = usage.modelCosts ?? [];
-  let cost: ChatVisualization | null = null;
+  let cost: ChartNode | null = null;
   if (byModel.length) {
     cost = {
-      type: "bar",
+      type: "chart",
+      kind: "bar",
       title: "Cost by model",
       unit: "USD",
       labels: byModel.map(({ model }) => model),
@@ -99,7 +99,8 @@ function buildReport(usage: AgentUsage, locale: string | undefined) {
     };
   } else if (costs.length >= 2) {
     cost = {
-      type: "line",
+      type: "chart",
+      kind: "line",
       title: "Recorded cost reports",
       unit: "USD",
       labels: reportLabels(costs, date),
@@ -160,7 +161,7 @@ export function SessionUsageReport({ usage, locale }: { usage: AgentUsage; local
       {selection && choices.length > 1 ? (
         <SegmentedControl value={selection} onValueChange={setView} options={choices} />
       ) : null}
-      {chart ? <Visualization key={selection} chart={chart} /> : null}
+      {chart ? <ChartCard key={selection} chart={chart} /> : null}
       {selection === "trend" ? (
         <Text style={styles.muted}>
           Each point is a provider report. Missing counters are skipped.

@@ -1,0 +1,379 @@
+import { z } from "zod";
+
+export const PIMI_CHART_FENCE = "pimi-chart";
+export const PIMI_VIEW_FENCE = "pimi-view";
+export type ViewFence = typeof PIMI_CHART_FENCE | typeof PIMI_VIEW_FENCE;
+
+/** Agent output is untrusted. Every cap is enforced before a view reaches a renderer. */
+export const VIEW_LIMITS = {
+  /** Roughly twice the largest valid table, so no valid view is rejected for its size. */
+  sourceLength: 32_768,
+  /** A view is one chat block; more nodes than this is a page, not a block. */
+  nodes: 48,
+  /** Bounds parser and renderer recursion. */
+  depth: 5,
+  /** Keeps one layout container readable on a phone. */
+  children: 12,
+  /** One distinguishable colour per series. */
+  series: 8,
+  /** Bars and slices need a readable width and label each. */
+  categoryPoints: 36,
+  /** A line stays legible at about two pixels per point on a phone. */
+  continuousPoints: 120,
+  /** Every scatter point is its own focusable target. */
+  scatterPoints: 360,
+  /** Columns stay readable without scrolling far sideways. */
+  tableColumns: 8,
+  /** A longer table belongs in a file. */
+  tableRows: 50,
+  /** A sparkline is about a hundred pixels wide. */
+  trendPoints: 60,
+  /** One line of heading. */
+  title: 120,
+  /** One line beside a mark, a column or a tile. */
+  label: 64,
+  /** Fits beside a title. */
+  unit: 24,
+  /** A metric value is a figure, not a sentence. */
+  value: 32,
+  /** A short paragraph; longer prose belongs in the reply. */
+  text: 1000,
+  /** One table cell. */
+  cell: 120,
+} as const;
+
+function text(max: number) {
+  return z.string().trim().min(1).max(max);
+}
+
+const idSchema = text(VIEW_LIMITS.label);
+const titleSchema = text(VIEW_LIMITS.title);
+const labelSchema = text(VIEW_LIMITS.label);
+const unitSchema = text(VIEW_LIMITS.unit);
+const toneSchema = z.enum(["neutral", "positive", "negative", "warning"]);
+
+function hasDistinctNames(series: readonly { name: string }[]): boolean {
+  return new Set(series.map(({ name }) => name)).size === series.length;
+}
+
+interface CategoryData {
+  labels: string[];
+  series: { name: string; values: number[] }[];
+}
+
+function isAlignedCategoryData({ labels, series }: CategoryData): boolean {
+  return (
+    new Set(labels).size === labels.length &&
+    hasDistinctNames(series) &&
+    series.every(({ values }) => values.length === labels.length)
+  );
+}
+
+function categoryData(maxPoints: number) {
+  return {
+    labels: z.array(labelSchema).min(1).max(maxPoints),
+    series: z
+      .array(
+        z.strictObject({
+          name: labelSchema,
+          values: z.array(z.number()).min(1).max(maxPoints),
+        }),
+      )
+      .min(1)
+      .max(VIEW_LIMITS.series),
+  };
+}
+
+const chartHeading = {
+  type: z.literal("chart"),
+  title: titleSchema,
+  unit: unitSchema.optional(),
+};
+const axisTitles = { xLabel: labelSchema.optional(), yLabel: labelSchema.optional() };
+
+const barChartSchema = z
+  .strictObject({
+    ...chartHeading,
+    kind: z.literal("bar"),
+    ...categoryData(VIEW_LIMITS.categoryPoints),
+    stacked: z.boolean().optional(),
+    ...axisTitles,
+  })
+  .refine(isAlignedCategoryData);
+
+const lineChartSchema = z
+  .strictObject({
+    ...chartHeading,
+    kind: z.literal("line"),
+    ...categoryData(VIEW_LIMITS.continuousPoints),
+    ...axisTitles,
+  })
+  .refine(isAlignedCategoryData);
+
+const areaChartSchema = z
+  .strictObject({
+    ...chartHeading,
+    kind: z.literal("area"),
+    ...categoryData(VIEW_LIMITS.continuousPoints),
+    stacked: z.boolean().optional(),
+    ...axisTitles,
+  })
+  .refine(isAlignedCategoryData);
+
+const radialChartSchema = z
+  .strictObject({
+    ...chartHeading,
+    kind: z.enum(["pie", "donut"]),
+    ...categoryData(VIEW_LIMITS.categoryPoints),
+  })
+  .refine(isAlignedCategoryData)
+  .refine(
+    ({ series }) =>
+      series.length === 1 &&
+      series[0].values.every((value) => value >= 0) &&
+      series[0].values.some((value) => value > 0),
+  );
+
+const scatterChartSchema = z
+  .strictObject({
+    ...chartHeading,
+    kind: z.literal("scatter"),
+    series: z
+      .array(
+        z.strictObject({
+          name: labelSchema,
+          points: z
+            .array(z.tuple([z.number(), z.number()]))
+            .min(1)
+            .max(VIEW_LIMITS.continuousPoints),
+        }),
+      )
+      .min(1)
+      .max(VIEW_LIMITS.series),
+    ...axisTitles,
+  })
+  .refine(({ series }) => {
+    const total = series.reduce((count, { points }) => count + points.length, 0);
+    return hasDistinctNames(series) && total <= VIEW_LIMITS.scatterPoints;
+  });
+
+const chartSchema = z.discriminatedUnion("kind", [
+  barChartSchema,
+  lineChartSchema,
+  areaChartSchema,
+  radialChartSchema,
+  scatterChartSchema,
+]);
+
+const metricSchema = z.strictObject({
+  type: z.literal("metric"),
+  label: labelSchema,
+  value: text(VIEW_LIMITS.value),
+  delta: text(VIEW_LIMITS.value).optional(),
+  tone: toneSchema.optional(),
+  hint: titleSchema.optional(),
+  trend: z.array(z.number()).min(2).max(VIEW_LIMITS.trendPoints).optional(),
+});
+
+const tableSchema = z
+  .strictObject({
+    type: z.literal("table"),
+    columns: z
+      .array(
+        z.strictObject({
+          label: labelSchema,
+          align: z.enum(["start", "end"]).optional(),
+        }),
+      )
+      .min(1)
+      .max(VIEW_LIMITS.tableColumns),
+    rows: z
+      .array(
+        z
+          .array(z.union([z.string().trim().max(VIEW_LIMITS.cell), z.number()]))
+          .min(1)
+          .max(VIEW_LIMITS.tableColumns),
+      )
+      .min(1)
+      .max(VIEW_LIMITS.tableRows),
+  })
+  .refine(
+    ({ columns, rows }) =>
+      new Set(columns.map(({ label }) => label)).size === columns.length &&
+      rows.every((row) => row.length === columns.length),
+  );
+
+const progressSchema = z
+  .strictObject({
+    type: z.literal("progress"),
+    label: labelSchema,
+    value: z.number().nonnegative(),
+    max: z.number().positive(),
+    tone: toneSchema.optional(),
+  })
+  .refine(({ value, max }) => value <= max);
+
+const textSchema = z.strictObject({
+  type: z.literal("text"),
+  content: text(VIEW_LIMITS.text),
+  tone: toneSchema.optional(),
+  emphasis: z.enum(["normal", "strong", "subtle"]).optional(),
+});
+
+const badgeSchema = z.strictObject({
+  type: z.literal("badge"),
+  label: text(VIEW_LIMITS.value),
+  tone: toneSchema.optional(),
+});
+
+const leafSchemas = [
+  metricSchema,
+  chartSchema,
+  tableSchema,
+  progressSchema,
+  textSchema,
+  badgeSchema,
+] as const;
+
+type LeafNode = z.infer<(typeof leafSchemas)[number]>;
+
+/** Layout nodes hold nodes, so their types are written out; a schema cannot infer its own type. */
+interface StackNode {
+  type: "stack";
+  direction?: "column" | "row";
+  children: ViewNode[];
+}
+
+interface GridNode {
+  type: "grid";
+  columns?: number;
+  children: ViewNode[];
+}
+
+interface SectionNode {
+  type: "section";
+  title: string;
+  children: ViewNode[];
+}
+
+export type ViewNode = LeafNode | StackNode | GridNode | SectionNode;
+
+const childrenSchema: z.ZodType<ViewNode[]> = z.lazy(() =>
+  z.array(nodeSchema).min(1).max(VIEW_LIMITS.children),
+);
+
+const stackSchema = z.strictObject({
+  type: z.literal("stack"),
+  direction: z.enum(["column", "row"]).optional(),
+  children: childrenSchema,
+});
+
+const gridSchema = z.strictObject({
+  type: z.literal("grid"),
+  columns: z.number().int().min(1).max(4).optional(),
+  children: childrenSchema,
+});
+
+const sectionSchema = z.strictObject({
+  type: z.literal("section"),
+  title: titleSchema,
+  children: childrenSchema,
+});
+
+const nodeSchema: z.ZodType<ViewNode> = z.discriminatedUnion("type", [
+  stackSchema,
+  gridSchema,
+  sectionSchema,
+  ...leafSchemas,
+]);
+
+const viewSchema = z.strictObject({
+  id: idSchema.optional(),
+  title: titleSchema.optional(),
+  root: nodeSchema,
+});
+
+export type ViewNodeType = ViewNode["type"];
+export type ViewTone = z.infer<typeof toneSchema>;
+export type ChartNode = z.infer<typeof chartSchema>;
+export type ChartKind = ChartNode["kind"];
+export type ChatView = z.infer<typeof viewSchema>;
+
+/** Points one series may hold, per chart kind. */
+export const CHART_POINT_LIMITS: Record<ChartKind, number> = {
+  bar: VIEW_LIMITS.categoryPoints,
+  line: VIEW_LIMITS.continuousPoints,
+  area: VIEW_LIMITS.continuousPoints,
+  scatter: VIEW_LIMITS.continuousPoints,
+  pie: VIEW_LIMITS.categoryPoints,
+  donut: VIEW_LIMITS.categoryPoints,
+};
+
+/** The fields of each node as an agent is told them. A new node type cannot compile without an entry. */
+export const VIEW_NODE_FIELDS: Record<ViewNodeType, string> = {
+  stack: 'children; optional direction "column" (default) or "row"',
+  grid: `children; optional columns 1-4 (default 2), fewer when narrow`,
+  section: "title, children",
+  metric:
+    "label, value (string); optional delta (string), tone, hint, trend (numbers drawn as a sparkline)",
+  chart: `kind (${Object.keys(CHART_POINT_LIMITS).join(", ")}), title, labels, series [{name, values}]; optional unit, xLabel, yLabel, stacked (bar and area). Scatter has no labels: series [{name, points: [[x, y], ...]}]`,
+  table:
+    'columns [{label, optional align "start" or "end"}] with distinct labels, rows of strings or numbers, one cell per column',
+  progress: "label, value, max; optional tone",
+  text: 'content; optional tone, emphasis "normal", "strong" or "subtle"',
+  badge: "label; optional tone",
+};
+export const VIEW_TONES = toneSchema.options;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Rejects oversized trees before the recursive schema walks them. */
+function isWithinTreeLimits(root: unknown): boolean {
+  let level: unknown[] = [root];
+  let nodes = 0;
+  for (let depth = 1; level.length > 0; depth++) {
+    nodes += level.length;
+    if (depth > VIEW_LIMITS.depth || nodes > VIEW_LIMITS.nodes) return false;
+    level = level.flatMap((node) =>
+      isRecord(node) && Array.isArray(node.children) ? node.children : [],
+    );
+  }
+  return true;
+}
+
+/**
+ * A chart block is the chart itself with `type` naming its kind, the shape stored chats
+ * already contain. It becomes a view whose root is that chart.
+ */
+function chartDocument(data: Record<string, unknown>): unknown {
+  const { id, type, ...chart } = data;
+  const isChartNode = type === "chart";
+  if (!isChartNode && "kind" in chart) return null;
+  const root = isChartNode ? { type, ...chart } : { type: "chart", kind: type, ...chart };
+  return id === undefined ? { root } : { id, root };
+}
+
+/** Returns null for anything that is not a valid view; the caller then shows the source. */
+export function parseChatView(fence: ViewFence, source: string): ChatView | null {
+  if (source.length > VIEW_LIMITS.sourceLength) return null;
+  let data: unknown;
+  try {
+    data = JSON.parse(source);
+  } catch {
+    return null;
+  }
+  if (!isRecord(data)) return null;
+  const document = fence === PIMI_CHART_FENCE ? chartDocument(data) : data;
+  if (!isRecord(document) || !isWithinTreeLimits(document.root)) return null;
+  const result = viewSchema.safeParse(document);
+  if (!result.success) return null;
+  if (fence === PIMI_CHART_FENCE && result.data.root.type !== "chart") return null;
+  return result.data;
+}
+
+export function viewFenceOf(language: string | null | undefined): ViewFence | null {
+  const name = language?.toLowerCase();
+  return name === PIMI_CHART_FENCE || name === PIMI_VIEW_FENCE ? name : null;
+}

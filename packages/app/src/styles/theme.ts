@@ -217,6 +217,39 @@ const darkStatusDotColors = {
   statusDotRunning: "#5caaf6",
 };
 
+// Chart series colors — the eight categorical slots a chart assigns to its series, in order.
+// Brighter than the status family on purpose: a series is told apart by hue alone across thin
+// lines and small swatches, and the status band's 55-60% chroma collapses there. The slot order
+// alternates warm and cool so neighbours stay distinct under protanopia and deuteranopia; the
+// dark steps are the same eight hues stepped for dark surfaces. Reordering recolors every
+// stored chart, and replacing one value needs the whole set checked again for adjacent-pair
+// separation.
+const lightChartColors = {
+  chartSeries: [
+    "#2a78d6", // blue
+    "#eb6834", // orange
+    "#1baf7a", // aqua
+    "#eda100", // yellow
+    "#e87ba4", // magenta
+    "#008300", // green
+    "#6250d6", // violet
+    "#e34948", // red
+  ],
+} as const;
+
+const darkChartColors = {
+  chartSeries: [
+    "#3987e5",
+    "#d95926",
+    "#199e70",
+    "#c98500",
+    "#d55181",
+    "#008300",
+    "#9085e9",
+    "#e66767",
+  ],
+} as const;
+
 export interface LightThemeConfig {
   surface0: string;
   surface1: string;
@@ -305,6 +338,7 @@ export function buildLightSemanticColors(tint: LightThemeConfig) {
     ...lightStatusColors,
     ...lightStatusTints,
     ...lightStatusDotColors,
+    ...lightChartColors,
 
     terminal: {
       background: tint.surface0,
@@ -438,6 +472,7 @@ export function buildDarkSemanticColors(tint: DarkThemeConfig) {
     ...darkStatusColors,
     ...darkStatusTints,
     ...darkStatusDotColors,
+    ...darkChartColors,
 
     terminal: {
       background: tint.surface0,

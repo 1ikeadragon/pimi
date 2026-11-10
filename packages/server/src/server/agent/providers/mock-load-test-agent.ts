@@ -280,6 +280,20 @@ function parseSettledAssistantImageMarkdown(prompt: AgentPromptInput): string | 
   return match?.[1] ?? null;
 }
 
+interface AssistantMarkdownPrompt {
+  markdown: string;
+  streamed: boolean;
+}
+
+/** Replies with the Markdown after the first line, so fenced blocks can be tried by hand. */
+function parseAssistantMarkdownPrompt(prompt: AgentPromptInput): AssistantMarkdownPrompt | null {
+  const match = /^(emit|stream) assistant markdown:[ \t]*\r?\n([\s\S]+)$/i.exec(
+    promptToText(prompt),
+  );
+  if (!match) return null;
+  return { markdown: match[2], streamed: match[1].toLowerCase() === "stream" };
+}
+
 const ROLLOUT_FLAG_PREVIEW = [
   "Ship it dark behind the new-surface flag, then turn it on for internal users before everyone else.",
   "",
@@ -907,6 +921,7 @@ export class MockLoadTestAgentSession implements AgentSession {
     const structuredBranchName = parseStructuredBranchNamePrompt(prompt);
     const settledAssistantImageMarkdown = parseSettledAssistantImageMarkdown(prompt);
     const steeringReplayShape = parseSteeringReplayShape(prompt);
+    const assistantMarkdown = parseAssistantMarkdownPrompt(prompt);
     const scheduleTurn = () => {
       if (shouldEmitTurnFailure(prompt)) {
         this.scheduleFailedTurn(turn);
@@ -923,6 +938,10 @@ export class MockLoadTestAgentSession implements AgentSession {
         this.scheduleSettledAssistantTurn(turn, JSON.stringify(structuredBranchName));
       } else if (settledAssistantImageMarkdown) {
         this.scheduleSettledAssistantTurn(turn, settledAssistantImageMarkdown);
+      } else if (assistantMarkdown?.streamed) {
+        this.scheduleStreamingAssistantTurn(turn, assistantMarkdown.markdown);
+      } else if (assistantMarkdown) {
+        this.scheduleSettledAssistantTurn(turn, assistantMarkdown.markdown);
       } else if (shouldEmitPlanApprovalPrompt(prompt)) {
         this.schedulePlanApprovalTurn(turn);
       } else if (questionPrompt) {

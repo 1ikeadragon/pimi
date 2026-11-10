@@ -342,6 +342,12 @@ export const en = {
     visualization: {
       previous: "Previous data point",
       next: "Next data point",
+      drawing: "Drawing chart...",
+      sort: {
+        ascending: "{{column}}, sorted ascending",
+        descending: "{{column}}, sorted descending",
+        unsorted: "{{column}}, not sorted",
+      },
     },
     diagram: {
       diagram: "Diagram",

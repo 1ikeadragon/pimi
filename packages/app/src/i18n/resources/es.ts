@@ -351,6 +351,12 @@ export const es: TranslationResources = {
     visualization: {
       previous: "Punto de datos anterior",
       next: "Siguiente punto de datos",
+      drawing: "Dibujando gráfico...",
+      sort: {
+        ascending: "{{column}}, orden ascendente",
+        descending: "{{column}}, orden descendente",
+        unsorted: "{{column}}, sin ordenar",
+      },
     },
     diagram: {
       diagram: "Diagrama",

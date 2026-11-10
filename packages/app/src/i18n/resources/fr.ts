@@ -352,6 +352,12 @@ export const fr: TranslationResources = {
     visualization: {
       previous: "Point de données précédent",
       next: "Point de données suivant",
+      drawing: "Tracé du graphique...",
+      sort: {
+        ascending: "{{column}}, tri croissant",
+        descending: "{{column}}, tri décroissant",
+        unsorted: "{{column}}, non trié",
+      },
     },
     diagram: {
       diagram: "Diagramme",

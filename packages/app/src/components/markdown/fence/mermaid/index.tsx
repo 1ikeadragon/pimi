@@ -2,7 +2,6 @@ import { createContext, useContext } from "react";
 import { withUnistyles } from "react-native-unistyles";
 import type { Theme } from "@/styles/theme";
 import { MermaidFenceHost } from "./host";
-export { splitMermaidFences } from "./segments";
 export const MermaidStreamingContext = createContext(false);
 const ThemedHost = withUnistyles(MermaidFenceHost);
 const styles = (theme: Theme) => ({

@@ -1,65 +1,36 @@
-import { z } from "zod";
 import { PIMI_ARTIFACT_FENCE } from "./chat-artifact.js";
+import {
+  CHART_POINT_LIMITS,
+  PIMI_CHART_FENCE,
+  PIMI_VIEW_FENCE,
+  VIEW_LIMITS,
+  VIEW_NODE_FIELDS,
+  VIEW_TONES,
+} from "./chat-view.js";
 
-export const PIMI_VISUALIZATION_FENCE = "pimi-chart";
+const CHART_EXAMPLE =
+  '{"type":"bar","id":"jobs","title":"Jobs by day","unit":"jobs","labels":["Mon","Tue","Wed"],"series":[{"name":"Passed","values":[4,7,5]},{"name":"Failed","values":[1,0,2]}],"stacked":true}';
 
-const MAX_POINTS = 36;
-const MAX_SERIES = 4;
-const MAX_SOURCE_LENGTH = 16_384;
+const VIEW_EXAMPLE =
+  '{"id":"build","title":"Build health","root":{"type":"stack","children":[{"type":"grid","columns":2,"children":[{"type":"metric","label":"Pass rate","value":"98%","delta":"+2%","tone":"positive","trend":[91,94,96,98]},{"type":"metric","label":"Median time","value":"4m 12s"}]},{"type":"chart","kind":"line","title":"Failures by day","labels":["Mon","Tue","Wed"],"series":[{"name":"Failures","values":[3,1,2]}]}]}}';
 
-const visualizationSchema = z
-  .strictObject({
-    type: z.enum(["bar", "line", "area", "pie", "donut"]),
-    id: z.string().trim().min(1).max(64).optional(),
-    title: z.string().trim().min(1).max(120),
-    unit: z.string().trim().min(1).max(24).optional(),
-    labels: z.array(z.string().trim().min(1).max(64)).min(1).max(MAX_POINTS),
-    series: z
-      .array(
-        z.strictObject({
-          name: z.string().trim().min(1).max(64),
-          values: z.array(z.number()).min(1).max(MAX_POINTS),
-        }),
-      )
-      .min(1)
-      .max(MAX_SERIES),
-  })
-  .refine(
-    ({ labels, series }) =>
-      new Set(labels).size === labels.length &&
-      new Set(series.map(({ name }) => name)).size === series.length &&
-      series.every(({ values }) => values.length === labels.length),
-  )
-  .refine(
-    ({ type, series }) =>
-      (type !== "pie" && type !== "donut") ||
-      (series.length === 1 &&
-        series[0].values.every((value) => value >= 0) &&
-        series[0].values.some((value) => value > 0)),
-  );
-
-export type ChatVisualization = z.infer<typeof visualizationSchema>;
-
-export function parseChatVisualization(source: string): ChatVisualization | null {
-  if (source.length > MAX_SOURCE_LENGTH) return null;
-  let data: unknown;
-  try {
-    data = JSON.parse(source);
-  } catch {
-    return null;
-  }
-  const result = visualizationSchema.safeParse(data);
-  return result.success ? result.data : null;
+function fenced(fence: string, json: string): string[] {
+  return [`\`\`\`${fence}`, json, "```"];
 }
 
+/** Written from the catalog's own constants, so the prompt and the parser cannot disagree. */
 export const PIMI_VISUALIZATION_INSTRUCTIONS = [
-  `Use a ${PIMI_VISUALIZATION_FENCE} block for interactive bar, line, area, pie, or donut charts. Put only JSON inside the block.`,
-  `\`\`\`${PIMI_VISUALIZATION_FENCE}`,
-  '{"type":"bar","id":"jobs","title":"Jobs by day","labels":["Mon","Tue"],"series":[{"name":"Jobs","values":[4,7]}]}',
-  "```",
-  `Use up to ${MAX_POINTS} distinct labels and ${MAX_SERIES} distinctly named series. Give each series one number per label. Add a short unit when useful.`,
-  "For pie and donut charts, use one series with nonnegative values and a positive total.",
-  "To update a chart within the same reply, send another complete block with the same id. In a new reply, send a new complete block.",
-  "Use Mermaid for flow diagrams. Use real values or label the chart as an example.",
-  `For a custom visual that needs its own controls or layout, use the pimi-artifacts skill. Save self-contained HTML in the workspace and show it with a ${PIMI_ARTIFACT_FENCE} JSON block containing title and workspace-relative path.`,
+  `When an answer compares numbers or shows a trend, a distribution, or a breakdown, show it in a ${PIMI_CHART_FENCE} or ${PIMI_VIEW_FENCE} block, not a Markdown table of numbers and not a Mermaid xychart or pie. Use Mermaid only for flows, sequences, and structure.`,
+  "Put only JSON inside the block. Use real values or label the chart as an example.",
+  `${PIMI_CHART_FENCE} is one chart. Its type is the chart kind: ${Object.keys(CHART_POINT_LIMITS).join(", ")}.`,
+  ...fenced(PIMI_CHART_FENCE, CHART_EXAMPLE),
+  `Give each series one number per label. Use up to ${VIEW_LIMITS.series} distinctly named series and distinct labels: up to ${CHART_POINT_LIMITS.bar} for bar, pie and donut, ${CHART_POINT_LIMITS.line} for line and area. For pie and donut, use one series with nonnegative values and a positive total. For scatter, omit labels and give each series points as [x, y] pairs: up to ${CHART_POINT_LIMITS.scatter} per series, ${VIEW_LIMITS.scatterPoints} in total.`,
+  `${PIMI_VIEW_FENCE} combines nodes under one root, for example headline metrics above a chart or a table.`,
+  ...fenced(PIMI_VIEW_FENCE, VIEW_EXAMPLE),
+  'Each node is an object with a "type" and these fields:',
+  ...Object.entries(VIEW_NODE_FIELDS).map(([type, fields]) => `- ${type}: ${fields}`),
+  `A tone is one of ${VIEW_TONES.join(", ")}. Every text field is plain text. There are no fields for Markdown, HTML, links, images, or colors, and an unknown field makes the block invalid.`,
+  `Limits: ${VIEW_LIMITS.nodes} nodes, ${VIEW_LIMITS.depth} levels, ${VIEW_LIMITS.children} children per node, ${VIEW_LIMITS.tableColumns} table columns, ${VIEW_LIMITS.tableRows} table rows, ${VIEW_LIMITS.trendPoints} trend points, ${VIEW_LIMITS.title} characters per title, ${VIEW_LIMITS.label} per label, ${VIEW_LIMITS.cell} per table cell, ${VIEW_LIMITS.text} per text, ${VIEW_LIMITS.sourceLength} for the block.`,
+  "To update a chart or view within the same reply, send another complete block with the same id. In a new reply, send a new complete block.",
+  `For a custom visual that needs its own controls or layout, use the pimi-artifacts skill. Save self-contained HTML in the workspace and show it with a ${PIMI_ARTIFACT_FENCE} JSON block containing title and workspace-relative path. It runs inline in the chat.`,
 ].join("\n");

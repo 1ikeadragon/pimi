@@ -20,6 +20,7 @@ const testTheme = {
     statusDotDanger: "#f12e2f",
     statusDotWarning: "#b37824",
     statusDotRunning: "#268ae0",
+    chartSeries: lightTheme.colors.chartSeries,
     accent: "#2563eb",
     accentForeground: "#ffffff",
     destructive: "#dc2626",

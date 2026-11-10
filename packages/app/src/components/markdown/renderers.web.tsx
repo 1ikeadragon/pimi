@@ -1,5 +1,5 @@
 import { Text } from "react-native";
-import { forwardRef, useCallback, useMemo, useState, type ComponentProps } from "react";
+import { forwardRef, useCallback, useContext, useMemo, useState, type ComponentProps } from "react";
 import type {
   CodeBlockRendererProps,
   LinkRendererProps,
@@ -11,12 +11,13 @@ import { useForgeShorthand } from "@/git/forge-shorthand";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { HighlightedCodeBlock } from "@/components/highlighted-code-block";
 import {
-  PIMI_VISUALIZATION_FENCE,
-  parseChatVisualization,
-} from "@pimi/protocol/chat-visualization";
+  parseChatView,
+  viewFenceOf,
+  type ViewFence as ViewFenceName,
+} from "@pimi/protocol/chat-view";
 import type { Theme } from "@/styles/theme";
-import { MermaidFence } from "./fence/mermaid";
-import { Visualization } from "./fence/visualization";
+import { MermaidFence, MermaidStreamingContext } from "./fence/mermaid";
+import { ViewFence } from "./fence/view";
 import { markdownLinkSource } from "./source";
 
 const ThemedCodeBlock = withUnistyles(HighlightedCodeBlock);
@@ -33,11 +34,17 @@ function WebCodeBlock({ code, language }: CodeBlockRendererProps) {
   return <ThemedCodeBlock code={code} language={language} uniProps={codeStyle} />;
 }
 
+/** A view block the segment splitter left in the Markdown, such as one that ended invalid. */
+function ViewCodeBlock({ fence, ...props }: CodeBlockRendererProps & { fence: ViewFenceName }) {
+  const streaming = useContext(MermaidStreamingContext);
+  const view = useMemo(() => parseChatView(fence, props.code), [fence, props.code]);
+  if (view || streaming) return <ViewFence view={view} source={props.code} />;
+  return <WebCodeBlock {...props} />;
+}
+
 function AssistantCodeBlock(props: CodeBlockRendererProps) {
-  if (props.language?.toLowerCase() === PIMI_VISUALIZATION_FENCE) {
-    const chart = parseChatVisualization(props.code);
-    if (chart) return <Visualization chart={chart} />;
-  }
+  const fence = viewFenceOf(props.language);
+  if (fence) return <ViewCodeBlock {...props} fence={fence} />;
   return <WebCodeBlock {...props} />;
 }
 

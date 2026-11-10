@@ -346,6 +346,12 @@ export const ar: TranslationResources = {
     visualization: {
       previous: "نقطة البيانات السابقة",
       next: "نقطة البيانات التالية",
+      drawing: "جارٍ رسم المخطط...",
+      sort: {
+        ascending: "{{column}}، مرتب تصاعديًا",
+        descending: "{{column}}، مرتب تنازليًا",
+        unsorted: "{{column}}، غير مرتب",
+      },
     },
     diagram: {
       diagram: "مخطط",

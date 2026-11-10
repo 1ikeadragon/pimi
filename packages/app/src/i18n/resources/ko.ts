@@ -347,6 +347,12 @@ export const ko: TranslationResources = {
     visualization: {
       previous: "이전 데이터 포인트",
       next: "다음 데이터 포인트",
+      drawing: "차트 그리는 중...",
+      sort: {
+        ascending: "{{column}}, 오름차순 정렬",
+        descending: "{{column}}, 내림차순 정렬",
+        unsorted: "{{column}}, 정렬 안 됨",
+      },
     },
     diagram: {
       diagram: "다이어그램",

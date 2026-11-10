@@ -350,6 +350,12 @@ export const ptBR: TranslationResources = {
     visualization: {
       previous: "Ponto de dados anterior",
       next: "Próximo ponto de dados",
+      drawing: "Desenhando gráfico...",
+      sort: {
+        ascending: "{{column}}, ordem crescente",
+        descending: "{{column}}, ordem decrescente",
+        unsorted: "{{column}}, sem ordenação",
+      },
     },
     diagram: {
       diagram: "Diagrama",

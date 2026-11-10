@@ -345,6 +345,12 @@ export const zhCN: TranslationResources = {
     visualization: {
       previous: "上一个数据点",
       next: "下一个数据点",
+      drawing: "正在绘制图表...",
+      sort: {
+        ascending: "{{column}}，升序排列",
+        descending: "{{column}}，降序排列",
+        unsorted: "{{column}}，未排序",
+      },
     },
     diagram: {
       diagram: "图表",

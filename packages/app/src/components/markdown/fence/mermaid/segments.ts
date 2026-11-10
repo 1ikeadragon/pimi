@@ -1,39 +1,59 @@
 import { fromMarkdown } from "mdast-util-from-markdown";
-import type { Definition, RootContent } from "mdast";
+import type { Code, Definition, RootContent } from "mdast";
 import {
   PIMI_ARTIFACT_FENCE,
   parseChatArtifact,
   type ChatArtifact,
 } from "@pimi/protocol/chat-artifact";
-import {
-  PIMI_VISUALIZATION_FENCE,
-  parseChatVisualization,
-  type ChatVisualization,
-} from "@pimi/protocol/chat-visualization";
+import { parseChatView, viewFenceOf, type ChatView } from "@pimi/protocol/chat-view";
 
 type Fence =
   | { kind: "mermaid"; source: string }
   | { kind: "artifact"; source: string; artifact: ChatArtifact }
-  | { kind: "visualization"; source: string; chart: ChatVisualization };
+  // `view` is null for a block that is still streaming and not yet valid.
+  | { kind: "view"; source: string; view: ChatView | null };
 type Segment = ({ kind: "markdown"; source: string } | Fence) & { id: string };
+
+export interface FenceSplitOptions {
+  /** Extract `pimi-chart`, `pimi-view` and `pimi-artifact` blocks. Assistant replies only. */
+  visualizations?: boolean;
+  mermaid?: boolean;
+  /** The reply is still arriving, so an invalid view block may only be unfinished. */
+  streaming?: boolean;
+}
+
+/** Matches text that may hold a block rendered outside the Markdown library. */
+export const PIMI_FENCE_PATTERN = /pimi-(?:chart|view|artifact)/i;
+
+/** The id an agent has written so far in a block that is not yet complete JSON. */
+function pendingViewId(source: string): string | undefined {
+  return /"id"\s*:\s*"([^"\\]*)"/.exec(source)?.[1];
+}
 
 /** Native enriched-markdown has no fenced-block override. */
 export function splitMermaidFences(
   markdown: string,
-  allowVisualizations = false,
-  allowMermaid = true,
+  {
+    visualizations: allowVisualizations = false,
+    mermaid: allowMermaid = true,
+    streaming = false,
+  }: FenceSplitOptions = {},
 ): Segment[] {
   if (
     !(allowMermaid && /mermaid/i.test(markdown)) &&
-    !(allowVisualizations && /pimi-(?:chart|artifact)/i.test(markdown))
+    !(allowVisualizations && PIMI_FENCE_PATTERN.test(markdown))
   ) {
     return [{ kind: "markdown", id: "0", source: markdown }];
   }
   const segments: Segment[] = [];
   const definitions = new Map<string, Definition>();
   let cursor = 0;
-  const chartSlots = new Map<string, number>();
-  function appendFence(position: NonNullable<RootContent["position"]>, fence: Fence): void {
+  const viewSlots = new Map<string, number>();
+  function appendFence(
+    position: NonNullable<RootContent["position"]>,
+    fence: Fence,
+    viewId?: string,
+  ): void {
     const start = position.start.offset!;
     const end = position.end.offset!;
     if (start > cursor) {
@@ -43,16 +63,30 @@ export function splitMermaidFences(
         source: markdown.slice(cursor, start),
       });
     }
-    const chartId = fence.kind === "visualization" ? fence.chart.id : undefined;
-    const slot = chartId === undefined ? undefined : chartSlots.get(chartId);
-    if (slot !== undefined) {
-      // Reuse the first slot and React key; prose and earlier replies remain untouched.
-      segments[slot] = { ...fence, id: segments[slot].id };
-    } else {
-      if (chartId !== undefined) chartSlots.set(chartId, segments.length);
+    const slot = viewId === undefined ? undefined : viewSlots.get(viewId);
+    const isPendingUpdate = fence.kind === "view" && fence.view === null;
+    if (slot === undefined) {
+      if (viewId !== undefined) viewSlots.set(viewId, segments.length);
       segments.push({ ...fence, id: String(segments.length) });
+    } else if (!isPendingUpdate) {
+      // Reuse the first slot and React key; prose and earlier replies remain untouched.
+      // An update that is still streaming leaves the last valid view in that slot.
+      segments[slot] = { ...fence, id: segments[slot].id };
     }
     cursor = end;
+  }
+  function appendView(position: NonNullable<RootContent["position"]>, node: Code): void {
+    const fence = viewFenceOf(node.lang);
+    if (!fence) return;
+    const view = parseChatView(fence, node.value);
+    if (view) appendFence(position, { kind: "view", source: node.value, view }, view.id);
+    else if (streaming) {
+      appendFence(
+        position,
+        { kind: "view", source: node.value, view: null },
+        pendingViewId(node.value),
+      );
+    }
   }
   function visit(node: RootContent): void {
     if (node.type === "definition" && !definitions.has(node.identifier))
@@ -61,10 +95,7 @@ export function splitMermaidFences(
       const lang = node.lang?.toLowerCase();
       if (allowMermaid && lang === "mermaid")
         appendFence(node.position, { kind: "mermaid", source: node.value });
-      if (allowVisualizations && lang === PIMI_VISUALIZATION_FENCE) {
-        const chart = parseChatVisualization(node.value);
-        if (chart) appendFence(node.position, { kind: "visualization", source: node.value, chart });
-      }
+      if (allowVisualizations) appendView(node.position, node);
       if (allowVisualizations && lang === PIMI_ARTIFACT_FENCE) {
         const artifact = parseChatArtifact(node.value);
         if (artifact)

@@ -350,6 +350,12 @@ export const ru: TranslationResources = {
     visualization: {
       previous: "Предыдущая точка данных",
       next: "Следующая точка данных",
+      drawing: "Построение диаграммы...",
+      sort: {
+        ascending: "{{column}}, по возрастанию",
+        descending: "{{column}}, по убыванию",
+        unsorted: "{{column}}, без сортировки",
+      },
     },
     diagram: {
       diagram: "Диаграмма",
