@@ -1,4 +1,6 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { spawn, type ChildProcess } from "node:child_process";
+import { once } from "node:events";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { hostname, tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -181,6 +183,390 @@ describe("daemon-manager commands", () => {
     expect(await handler({ listen: "remote:6799" })).toBeNull();
     writeFileSync(lockPath, JSON.stringify({ ...lock, desktopManaged: false }));
     expect(await handler({ listen: "localhost:6799" })).toBeNull();
+  });
+
+  describe("version check on start", () => {
+    const APP_VERSION = "1.2.3";
+    const OLD_VERSION = "1.2.2";
+    const LISTEN = "127.0.0.1:6799";
+    const IDLE_PROCESS = "setInterval(() => {}, 1000); setTimeout(() => process.exit(0), 60000);";
+    // Stands in for the supervisor desktop launches: it publishes the lock the real one would.
+    const BUNDLED_SUPERVISOR = `
+      const fs = require("node:fs");
+      const os = require("node:os");
+      const path = require("node:path");
+      fs.mkdirSync(process.env.PASEO_HOME, { recursive: true });
+      fs.writeFileSync(
+        path.join(process.env.PASEO_HOME, "paseo.pid"),
+        JSON.stringify({
+          pid: process.pid,
+          startedAt: new Date().toISOString(),
+          hostname: os.hostname(),
+          uid: process.getuid ? process.getuid() : 0,
+          listen: "${LISTEN}",
+          ...(process.env.PASEO_DESKTOP_MANAGED === "1" ? { desktopManaged: true } : {}),
+        }),
+      );
+      ${IDLE_PROCESS}
+    `;
+
+    interface RunningProcess {
+      pid: number;
+      isAlive(): boolean;
+      exited: Promise<unknown>;
+    }
+
+    interface FakeCli {
+      stopRequests: string[][];
+      versions: Map<number, string | null>;
+      afterStatus: (() => void) | null;
+      agentQueries: string[][];
+      listAgents: () => unknown;
+    }
+
+    let processes: ChildProcess[];
+
+    function lockPath(): string {
+      return path.join(mocks.paseoHome, "paseo.pid");
+    }
+
+    function readLock(): { pid: number; startedAt: string; desktopManaged?: boolean } {
+      return JSON.parse(readFileSync(lockPath(), "utf8"));
+    }
+
+    async function startProcess(): Promise<RunningProcess> {
+      const child = spawn(process.execPath, ["-e", IDLE_PROCESS], { stdio: "ignore" });
+      processes.push(child);
+      const exited = once(child, "exit");
+      await once(child, "spawn");
+      return {
+        pid: child.pid as number,
+        isAlive: () => child.exitCode === null && child.signalCode === null,
+        exited,
+      };
+    }
+
+    function publishLock(pid: number, options: { desktopManaged: boolean }): void {
+      mkdirSync(mocks.paseoHome, { recursive: true });
+      writeFileSync(
+        lockPath(),
+        JSON.stringify({
+          pid,
+          startedAt: new Date().toISOString(),
+          hostname: hostname(),
+          uid: process.getuid?.() ?? 0,
+          listen: LISTEN,
+          ...(options.desktopManaged ? { desktopManaged: true } : {}),
+        }),
+      );
+    }
+
+    async function startRunningDaemon(options: {
+      desktopManaged: boolean;
+      version: string | null;
+      cli: FakeCli;
+    }): Promise<RunningProcess> {
+      const daemon = await startProcess();
+      publishLock(daemon.pid, options);
+      options.cli.versions.set(daemon.pid, options.version);
+      return daemon;
+    }
+
+    /** Answers `daemon status` from the lock in the test home and `daemon stop` by ending its owner. */
+    function installFakeCli(): FakeCli {
+      const cli: FakeCli = {
+        stopRequests: [],
+        versions: new Map(),
+        afterStatus: null,
+        agentQueries: [],
+        listAgents: () => [],
+      };
+      mocks.runExternalCliJsonCommand.mockImplementation(async (args: string[]) => {
+        if (args[0] === "agent") {
+          cli.agentQueries.push(args);
+          return cli.listAgents();
+        }
+        if (args[1] === "stop") {
+          cli.stopRequests.push(args);
+          process.kill(readLock().pid, "SIGTERM");
+          return { action: "shutdown_requested" };
+        }
+        const lock = readLock();
+        const version = cli.versions.has(lock.pid) ? cli.versions.get(lock.pid) : APP_VERSION;
+        const payload = {
+          localDaemon: "running",
+          serverId: "srv_test",
+          pid: lock.pid,
+          startedAt: lock.startedAt,
+          listen: LISTEN,
+          hostname: hostname(),
+          desktopManaged: lock.desktopManaged === true,
+          ...(version ? { daemonVersion: version } : {}),
+        };
+        cli.afterStatus?.();
+        cli.afterStatus = null;
+        return payload;
+      });
+      return cli;
+    }
+
+    function versionCheckLogs(): unknown[] {
+      return mocks.logInfo.mock.calls
+        .filter((call) => call[1] === "daemon version check")
+        .map((call) => call[2]);
+    }
+
+    beforeEach(() => {
+      processes = [];
+      mocks.createNodeEntrypointInvocation.mockReturnValue({
+        command: process.execPath,
+        args: ["-e", BUNDLED_SUPERVISOR],
+        env: {},
+      });
+    });
+
+    afterEach(() => {
+      for (const child of processes) child.kill("SIGKILL");
+      try {
+        process.kill(readLock().pid, "SIGKILL");
+      } catch {
+        // No daemon was left in this test home.
+      }
+    });
+
+    it("restarts an idle desktop-managed daemon left by an older app version", async () => {
+      const cli = installFakeCli();
+      cli.listAgents = () => [{ status: "idle" }, { status: "error" }, { status: "closed" }];
+      const old = await startRunningDaemon({ desktopManaged: true, version: OLD_VERSION, cli });
+
+      const status = await createDaemonCommandHandlers().start_desktop_daemon();
+
+      await old.exited;
+      expect(cli.stopRequests).toHaveLength(1);
+      expect(cli.stopRequests[0].slice(0, 4)).toEqual(["daemon", "stop", "--host", LISTEN]);
+      expect(status).toMatchObject({
+        status: "running",
+        pid: readLock().pid,
+        version: APP_VERSION,
+        desktopManaged: true,
+        ownedByDesktop: true,
+      });
+      expect(readLock().pid).not.toBe(old.pid);
+      expect(versionCheckLogs()).toEqual([
+        expect.objectContaining({
+          appVersion: APP_VERSION,
+          daemonVersion: OLD_VERSION,
+          ownedByDesktop: false,
+          desktopManaged: true,
+          agentActivity: "idle",
+          restart: true,
+        }),
+      ]);
+      expect(cli.agentQueries).toEqual([
+        ["agent", "ls", "--global", "--background", "--home", mocks.paseoHome, "--json"],
+      ]);
+    });
+
+    it.each(["running", "initializing"])(
+      "attaches to an older desktop-managed daemon while an agent is %s",
+      async (agentStatus) => {
+        const cli = installFakeCli();
+        const daemon = await startRunningDaemon({
+          desktopManaged: true,
+          version: OLD_VERSION,
+          cli,
+        });
+        cli.listAgents = () => [{ status: "idle" }, { status: agentStatus }];
+
+        const status = await createDaemonCommandHandlers().start_desktop_daemon();
+
+        expect(status).toMatchObject({
+          pid: daemon.pid,
+          version: OLD_VERSION,
+          ownedByDesktop: false,
+        });
+        expect(daemon.isAlive()).toBe(true);
+        expect(cli.stopRequests).toEqual([]);
+        expect(versionCheckLogs()).toEqual([
+          expect.objectContaining({ agentActivity: "busy", restart: false }),
+        ]);
+      },
+    );
+
+    it("attaches to an older desktop-managed daemon when its agents cannot be listed", async () => {
+      const cli = installFakeCli();
+      const daemon = await startRunningDaemon({ desktopManaged: true, version: OLD_VERSION, cli });
+      cli.listAgents = () => {
+        throw new Error("daemon did not answer");
+      };
+
+      const status = await createDaemonCommandHandlers().start_desktop_daemon();
+
+      expect(status).toMatchObject({ pid: daemon.pid, ownedByDesktop: false });
+      expect(daemon.isAlive()).toBe(true);
+      expect(cli.stopRequests).toEqual([]);
+      expect(versionCheckLogs()).toEqual([
+        expect.objectContaining({
+          agentActivity: "unknown",
+          agentActivityError: "daemon did not answer",
+          restart: false,
+        }),
+      ]);
+    });
+
+    it("attaches to an older desktop-managed daemon when the agent list is unreadable", async () => {
+      const cli = installFakeCli();
+      const daemon = await startRunningDaemon({ desktopManaged: true, version: OLD_VERSION, cli });
+      cli.listAgents = () => ({ agents: "not a list" });
+
+      await createDaemonCommandHandlers().start_desktop_daemon();
+
+      expect(daemon.isAlive()).toBe(true);
+      expect(cli.stopRequests).toEqual([]);
+      expect(versionCheckLogs()).toEqual([
+        expect.objectContaining({ agentActivity: "unknown", restart: false }),
+      ]);
+    });
+
+    it("leaves a daemon the user started on another version running", async () => {
+      const cli = installFakeCli();
+      const daemon = await startRunningDaemon({ desktopManaged: false, version: OLD_VERSION, cli });
+
+      const status = await createDaemonCommandHandlers().start_desktop_daemon();
+
+      expect(status).toMatchObject({
+        pid: daemon.pid,
+        version: OLD_VERSION,
+        ownedByDesktop: false,
+      });
+      expect(daemon.isAlive()).toBe(true);
+      expect(cli.stopRequests).toEqual([]);
+      expect(versionCheckLogs()).toEqual([
+        expect.objectContaining({
+          appVersion: APP_VERSION,
+          daemonVersion: OLD_VERSION,
+          ownedByDesktop: false,
+          desktopManaged: false,
+          restart: false,
+        }),
+      ]);
+    });
+
+    it("restarts the daemon this app launched when its version differs", async () => {
+      const cli = installFakeCli();
+      const handlers = createDaemonCommandHandlers();
+      const launched = await handlers.start_desktop_daemon();
+      expect(launched).toMatchObject({ status: "running", ownedByDesktop: true });
+      const launchedPid = readLock().pid;
+      cli.versions.set(launchedPid, OLD_VERSION);
+      cli.listAgents = () => [{ status: "running" }];
+
+      const status = await handlers.start_desktop_daemon();
+
+      expect(readLock().pid).not.toBe(launchedPid);
+      expect(status).toMatchObject({
+        pid: readLock().pid,
+        version: APP_VERSION,
+        ownedByDesktop: true,
+      });
+      expect(cli.stopRequests).toHaveLength(1);
+    });
+
+    it("attaches to a desktop-managed daemon on the app's version", async () => {
+      const cli = installFakeCli();
+      const daemon = await startRunningDaemon({ desktopManaged: true, version: APP_VERSION, cli });
+
+      const status = await createDaemonCommandHandlers().start_desktop_daemon();
+
+      expect(status).toMatchObject({
+        pid: daemon.pid,
+        version: APP_VERSION,
+        ownedByDesktop: false,
+      });
+      expect(daemon.isAlive()).toBe(true);
+      expect(cli.stopRequests).toEqual([]);
+    });
+
+    it("attaches to a desktop-managed daemon that reports no version", async () => {
+      const cli = installFakeCli();
+      const daemon = await startRunningDaemon({ desktopManaged: true, version: null, cli });
+
+      const status = await createDaemonCommandHandlers().start_desktop_daemon();
+
+      expect(status).toMatchObject({ pid: daemon.pid, version: null, ownedByDesktop: false });
+      expect(daemon.isAlive()).toBe(true);
+      expect(cli.stopRequests).toEqual([]);
+    });
+
+    it("does not stop a daemon that replaced the one it checked", async () => {
+      const cli = installFakeCli();
+      const checked = await startRunningDaemon({ desktopManaged: true, version: OLD_VERSION, cli });
+      const replacement = await startProcess();
+      cli.versions.set(replacement.pid, OLD_VERSION);
+      cli.afterStatus = () => publishLock(replacement.pid, { desktopManaged: true });
+
+      const status = await createDaemonCommandHandlers().start_desktop_daemon();
+
+      expect(status).toMatchObject({ pid: replacement.pid, ownedByDesktop: false });
+      expect(replacement.isAlive()).toBe(true);
+      expect(checked.isAlive()).toBe(true);
+      expect(cli.stopRequests).toEqual([]);
+    });
+
+    it("leaves an older desktop-managed daemon running while management is disabled", async () => {
+      const cli = installFakeCli();
+      const daemon = await startRunningDaemon({ desktopManaged: true, version: OLD_VERSION, cli });
+      mocks.settings = {
+        ...DEFAULT_DESKTOP_SETTINGS,
+        daemon: { ...DEFAULT_DESKTOP_SETTINGS.daemon, manageBuiltInDaemon: false },
+      };
+
+      await expect(createDaemonCommandHandlers().start_desktop_daemon()).rejects.toThrow(
+        "Built-in daemon management is disabled.",
+      );
+
+      expect(daemon.isAlive()).toBe(true);
+      expect(readLock().pid).toBe(daemon.pid);
+      expect(cli.stopRequests).toEqual([]);
+    });
+
+    it("keeps automatic stops away from an attached desktop-managed daemon", async () => {
+      const cli = installFakeCli();
+      const daemon = await startRunningDaemon({ desktopManaged: true, version: OLD_VERSION, cli });
+      const stop = createDaemonCommandHandlers().stop_desktop_daemon;
+
+      for (const reason of ["quit", "settings", "app_update", "host_remove", "version_mismatch"]) {
+        expect(await stop({ reason })).toMatchObject({ pid: daemon.pid });
+      }
+      await expect(
+        stop({ reason: "version_mismatch", pid: daemon.pid, startedAt: "outdated-confirmation" }),
+      ).rejects.toThrow("Daemon changed since confirmation");
+      await expect(
+        stop({ reason: "quit", pid: daemon.pid, startedAt: readLock().startedAt }),
+      ).rejects.toThrow("Daemon changed since confirmation");
+
+      expect(daemon.isAlive()).toBe(true);
+      expect(cli.stopRequests).toEqual([]);
+    });
+
+    it("stops an attached daemon for a version restart the user confirmed", async () => {
+      const cli = installFakeCli();
+      const daemon = await startRunningDaemon({ desktopManaged: true, version: OLD_VERSION, cli });
+      cli.listAgents = () => [{ status: "running" }];
+      const handlers = createDaemonCommandHandlers();
+
+      const stopped = await handlers.stop_desktop_daemon({
+        reason: "version_mismatch",
+        pid: daemon.pid,
+        startedAt: readLock().startedAt,
+      });
+      await daemon.exited;
+      const status = await handlers.start_desktop_daemon();
+
+      expect(stopped).toMatchObject({ status: "stopped" });
+      expect(cli.stopRequests[0].includes("--keep-terminals")).toBe(process.platform !== "win32");
+      expect(status).toMatchObject({ version: APP_VERSION, ownedByDesktop: true });
+    });
   });
 });
 

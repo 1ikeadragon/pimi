@@ -223,6 +223,36 @@ export async function confirmAndStopDesktopDaemon(): Promise<DesktopDaemonStatus
   );
 }
 
+/**
+ * Replaces the running local daemon with the one bundled in this app once the user confirms.
+ * Resolves to null when they cancel.
+ */
+export async function confirmAndRestartDesktopDaemonOnAppVersion(
+  appVersion: string,
+): Promise<DesktopDaemonStatus | null> {
+  const captured = await getDesktopDaemonStatus();
+  if (captured.pid && captured.startedAt) {
+    const confirmed = await confirmDialog({
+      title: i18n.t("desktop.daemon.versionCallout.confirmTitle"),
+      message: i18n.t("desktop.daemon.versionCallout.confirmMessage", {
+        appVersion,
+        home: captured.home,
+        pid: captured.pid,
+      }),
+      confirmLabel: i18n.t("desktop.daemon.versionCallout.restart"),
+      cancelLabel: i18n.t("common.actions.cancel"),
+      destructive: true,
+    });
+    if (!confirmed) return null;
+    await invokeDesktopCommand("stop_desktop_daemon", {
+      reason: "version_mismatch",
+      pid: captured.pid,
+      startedAt: captured.startedAt,
+    });
+  }
+  return startDesktopDaemon();
+}
+
 export async function restartDesktopDaemon(): Promise<DesktopDaemonStatus> {
   return parseDesktopDaemonStatus(await invokeDesktopCommand("restart_desktop_daemon"));
 }

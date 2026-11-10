@@ -1526,6 +1526,7 @@ export const ptBR: TranslationResources = {
       },
       advancedSettings: "Configurações avançadas",
       openAdvancedSettings: "Abrir configurações avançadas do daemon",
+      versionCallout: en.desktop.daemon.versionCallout,
       versionMismatch:
         "As versões do app e do daemon não coincidem. Atualize ambos para a mesma versão para a melhor experiência.",
       loadFailed: "Não foi possível carregar o status do daemon desktop.",

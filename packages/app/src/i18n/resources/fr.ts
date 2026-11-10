@@ -1531,6 +1531,7 @@ export const fr: TranslationResources = {
       },
       advancedSettings: "Paramètres avancés",
       openAdvancedSettings: "Ouvrir les paramètres avancés du daemon",
+      versionCallout: en.desktop.daemon.versionCallout,
       versionMismatch:
         "Les versions de l’application et du daemon ne correspondent pas. Mettez-les à jour vers la même version pour une meilleure expérience.",
       loadFailed: "Impossible de charger le statut du daemon de l’application de bureau.",

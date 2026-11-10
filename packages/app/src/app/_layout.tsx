@@ -109,6 +109,7 @@ import { PIMI_TASKS_ROUTE } from "@/navigation/pimi-tasks";
 import { PIMI_WORK_ROUTE } from "@/navigation/pimi-work";
 import { PimiVoiceBubble } from "@/desktop/pimi-voice-bubble";
 import { loadDesktopSettings } from "@/desktop/settings/desktop-settings";
+import { DaemonVersionCalloutSource } from "@/desktop/daemon/version-callout-source";
 import { RosettaCalloutSource } from "@/desktop/updates/rosetta-callout-source";
 import { UpdateCalloutSource } from "@/desktop/updates/update-callout-source";
 import { useActiveWorktreeNewAction } from "@/hooks/use-active-worktree-new-action";
@@ -554,6 +555,7 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
         <DownloadToast />
         <RosettaCalloutSource />
         <UpdateCalloutSource />
+        <DaemonVersionCalloutSource />
         <LegacyAgentSkillsMigration />
         <WorkspaceSetupSuggestion inWorkspace={isWorkspaceRoute} />
         <CommandCenterRootActions />

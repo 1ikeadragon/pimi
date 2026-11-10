@@ -274,11 +274,92 @@ function normalizeVersion(version: string | null): string | null {
   return trimmed.replace(/^v/i, "");
 }
 
-function shouldRestartForVersion(current: DesktopDaemonStatus): boolean {
-  if (!current.ownedByDesktop) return false;
+interface DaemonInstanceIdentity {
+  pid: number | null;
+  startedAt: string | null;
+}
+
+function isInstance(instance: DaemonInstance, identity: DaemonInstanceIdentity): boolean {
+  return instance.pid === identity.pid && instance.startedAt === identity.startedAt;
+}
+
+function differsFromAppVersion(current: DesktopDaemonStatus): boolean {
   const appVersion = normalizeVersion(resolveDesktopAppVersion());
   const daemonVersion = normalizeVersion(current.version);
   return Boolean(appVersion && daemonVersion && appVersion !== daemonVersion);
+}
+
+type AgentActivity = { state: "idle" } | { state: "busy" } | { state: "unknown"; error: string };
+
+// The statuses the daemon itself counts as an agent doing work (`isAgentBusy` in the server).
+const BUSY_AGENT_STATUSES = new Set(["initializing", "running"]);
+const AGENT_ACTIVITY_TIMEOUT_MS = 10_000;
+
+function isBusyAgent(agent: unknown): boolean {
+  if (typeof agent !== "object" || agent === null || !("status" in agent)) {
+    throw new Error("Agent list entry has no status.");
+  }
+  if (typeof agent.status !== "string") throw new Error("Agent list entry has no status.");
+  return BUSY_AGENT_STATUSES.has(agent.status);
+}
+
+/**
+ * Whether the daemon in `home` has an agent mid-run, background agents included. An answer that
+ * fails, times out or cannot be read is "unknown"; callers must not stop a daemon on it.
+ */
+async function readAgentActivity(home: string): Promise<AgentActivity> {
+  let deadline: NodeJS.Timeout | undefined;
+  const timedOut = new Promise<never>((_resolve, reject) => {
+    deadline = setTimeout(
+      () => reject(new Error(`Agent list timed out after ${AGENT_ACTIVITY_TIMEOUT_MS}ms.`)),
+      AGENT_ACTIVITY_TIMEOUT_MS,
+    );
+  });
+  try {
+    const agents = await Promise.race([
+      runExternalCliJsonCommand([
+        "agent",
+        "ls",
+        "--global",
+        "--background",
+        "--home",
+        home,
+        "--json",
+      ]),
+      timedOut,
+    ]);
+    if (!Array.isArray(agents)) throw new Error("Agent list output is not a list.");
+    return { state: agents.some(isBusyAgent) ? "busy" : "idle" };
+  } catch (error) {
+    return { state: "unknown", error: error instanceof Error ? error.message : String(error) };
+  } finally {
+    clearTimeout(deadline);
+  }
+}
+
+interface VersionRestartDecision {
+  restart: boolean;
+  agentActivity: AgentActivity["state"] | null;
+  agentActivityError: string | null;
+}
+
+/**
+ * A daemon the user started is never replaced. The one this session launched always is. One an
+ * earlier app session left running is replaced only while no agent is mid-run: it would otherwise
+ * stay on the old version for good, but restarting it interrupts whatever its agents are doing,
+ * so a busy one is left for the user to restart.
+ */
+async function decideVersionRestart(current: DesktopDaemonStatus): Promise<VersionRestartDecision> {
+  const unchecked = { agentActivity: null, agentActivityError: null };
+  if (!differsFromAppVersion(current)) return { restart: false, ...unchecked };
+  if (current.ownedByDesktop) return { restart: true, ...unchecked };
+  if (!current.desktopManaged) return { restart: false, ...unchecked };
+  const activity = await readAgentActivity(current.home);
+  return {
+    restart: activity.state === "idle",
+    agentActivity: activity.state,
+    agentActivityError: activity.state === "unknown" ? activity.error : null,
+  };
 }
 
 function assertBuiltInDaemonManagementEnabled(settings: DesktopSettings): void {
@@ -300,14 +381,22 @@ async function startDaemon(): Promise<DesktopDaemonStatus> {
     desktopManaged: current.desktopManaged,
   });
   if (current.status === "running" || current.status === "starting") {
-    if (shouldRestartForVersion(current)) {
-      logDesktopDaemonLifecycle("daemon version mismatch, restarting", {
-        appVersion: normalizeVersion(resolveDesktopAppVersion()),
-        daemonVersion: normalizeVersion(current.version),
-      });
+    const decision = await decideVersionRestart(current);
+    logDesktopDaemonLifecycle("daemon version check", {
+      appVersion: normalizeVersion(resolveDesktopAppVersion()),
+      daemonVersion: normalizeVersion(current.version),
+      daemonPid: current.pid,
+      ownedByDesktop: current.ownedByDesktop,
+      desktopManaged: current.desktopManaged,
+      ...decision,
+    });
+    if (!decision.restart) return current;
+    if (current.ownedByDesktop) {
       await stopDesktopDaemon("version_mismatch");
     } else {
-      return current;
+      // An agent that starts between the activity check and this stop is interrupted. The stop
+      // re-reads the daemon's identity, not its activity, so that window stays open.
+      await stopDaemonFromEarlierSession(current);
     }
   }
 
@@ -348,27 +437,63 @@ export async function stopDesktopDaemon(
     ownedLaunch.home === home &&
     isSameDaemonInstance(instance, ownedLaunch.instance),
   );
+  // The reasons a user confirms against a named instance. A confirmed version restart is still
+  // their decision; its reason only decides that terminals survive it.
   const explicit =
-    reason === "manual_ipc" &&
+    (reason === "manual_ipc" || reason === "version_mismatch") &&
     confirmedInstance &&
     instance &&
-    instance.pid === confirmedInstance.pid &&
-    instance.startedAt === confirmedInstance.startedAt;
+    isInstance(instance, confirmedInstance);
   if (confirmedInstance && !explicit)
     throw new Error(
       "Daemon changed since confirmation; inspect its current home and PID before stopping it.",
     );
   if (!instance || (!owned && !explicit)) return resolveDesktopDaemonStatus();
-  const keepTerminals = keepsTerminalsOnStop(reason, process.platform);
-  logDesktopDaemonLifecycle("stopping captured supervisor", {
-    reason,
-    pid: instance.pid,
-    owned,
-    keepTerminals,
-  });
-  await stopCapturedDaemon({ home, instance, reason, keepTerminals });
+  await stopSupervisor({ home, instance, reason, owned });
   if (owned) ownedLaunch = null;
   return resolveDesktopDaemonStatus();
+}
+
+/**
+ * Stops the desktop-managed daemon an earlier app session left running, so the bundled version
+ * replaces it. Only the instance the version check probed is stopped; whatever took its place
+ * since then is attached to as it is.
+ */
+async function stopDaemonFromEarlierSession(probed: DesktopDaemonStatus): Promise<void> {
+  const home = getPaseoHome();
+  const instance = await readDaemonInstance(home);
+  if (!instance?.desktopManaged || !isInstance(instance, probed)) {
+    logDesktopDaemonLifecycle("daemon changed since version check, attaching", {
+      probedPid: probed.pid,
+      daemonPid: instance?.pid ?? null,
+      desktopManaged: instance?.desktopManaged === true,
+    });
+    return;
+  }
+  await stopSupervisor({ home, instance, reason: "version_mismatch", owned: false });
+}
+
+interface StopSupervisorInput {
+  home: string;
+  instance: DaemonInstance;
+  reason: DesktopDaemonStopReason;
+  owned: boolean;
+}
+
+async function stopSupervisor(input: StopSupervisorInput): Promise<void> {
+  const keepTerminals = keepsTerminalsOnStop(input.reason, process.platform);
+  logDesktopDaemonLifecycle("stopping captured supervisor", {
+    reason: input.reason,
+    pid: input.instance.pid,
+    owned: input.owned,
+    keepTerminals,
+  });
+  await stopCapturedDaemon({
+    home: input.home,
+    instance: input.instance,
+    reason: input.reason,
+    keepTerminals,
+  });
 }
 
 export interface StopCapturedDaemonInput {

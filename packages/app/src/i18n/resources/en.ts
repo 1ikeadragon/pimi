@@ -1525,6 +1525,18 @@ export const en = {
       openAdvancedSettings: "Open advanced daemon settings",
       versionMismatch:
         "App and daemon versions don't match. Update both to the same version for the best experience.",
+      versionCallout: {
+        title: "Daemon is on an older version",
+        description: "The local daemon is on {{daemonVersion}} and this app is on {{appVersion}}.",
+        warning: "Restarting it interrupts running agents.",
+        restart: "Restart daemon",
+        restarting: "Restarting…",
+        restartingDescription: "Restarting the local daemon…",
+        failedTitle: "Daemon restart failed",
+        confirmTitle: "Restart local daemon?",
+        confirmMessage:
+          "The daemon restarts on {{appVersion}}. Running agents will be interrupted.\nHome: {{home}}\nSupervisor PID: {{pid}}",
+      },
       loadFailed: "Unable to load desktop daemon status.",
     },
     updates: {

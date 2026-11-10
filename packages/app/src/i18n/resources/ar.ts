@@ -1499,6 +1499,7 @@ export const ar: TranslationResources = {
       },
       advancedSettings: "الإعدادات المتقدمة",
       openAdvancedSettings: "افتح إعدادات البرنامج الخفي المتقدمة",
+      versionCallout: en.desktop.daemon.versionCallout,
       versionMismatch:
         "إصدارا التطبيق والبرنامج الخفي غير متطابقين. قم بتحديث كلاهما إلى نفس الإصدار للحصول على أفضل تجربة.",
       loadFailed: "غير قادر على تحميل حالة البرنامج الخفي لسطح المكتب.",

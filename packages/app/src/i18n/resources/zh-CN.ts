@@ -1487,6 +1487,7 @@ export const zhCN: TranslationResources = {
       },
       advancedSettings: "高级设置",
       openAdvancedSettings: "打开 daemon 高级设置",
+      versionCallout: en.desktop.daemon.versionCallout,
       versionMismatch: "App 和 daemon 版本不匹配。请将两者更新到相同版本，以获得最佳体验。",
       loadFailed: "无法加载桌面 daemon 状态。",
     },
