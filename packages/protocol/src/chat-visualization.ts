@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PIMI_ARTIFACT_FENCE } from "./chat-artifact.js";
 
 export const PIMI_VISUALIZATION_FENCE = "pimi-chart";
 
@@ -60,4 +61,5 @@ export const PIMI_VISUALIZATION_INSTRUCTIONS = [
   "For pie and donut charts, use one series with nonnegative values and a positive total.",
   "To update a chart within the same reply, send another complete block with the same id. In a new reply, send a new complete block.",
   "Use Mermaid for flow diagrams. Use real values or label the chart as an example.",
+  `For a custom visual that needs its own controls or layout, use the pimi-artifacts skill. Save self-contained HTML in the workspace and show it with a ${PIMI_ARTIFACT_FENCE} JSON block containing title and workspace-relative path.`,
 ].join("\n");

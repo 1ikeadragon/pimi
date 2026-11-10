@@ -1,6 +1,11 @@
 import { fromMarkdown } from "mdast-util-from-markdown";
 import type { Definition, RootContent } from "mdast";
 import {
+  PIMI_ARTIFACT_FENCE,
+  parseChatArtifact,
+  type ChatArtifact,
+} from "@pimi/protocol/chat-artifact";
+import {
   PIMI_VISUALIZATION_FENCE,
   parseChatVisualization,
   type ChatVisualization,
@@ -8,6 +13,7 @@ import {
 
 type Fence =
   | { kind: "mermaid"; source: string }
+  | { kind: "artifact"; source: string; artifact: ChatArtifact }
   | { kind: "visualization"; source: string; chart: ChatVisualization };
 type Segment = ({ kind: "markdown"; source: string } | Fence) & { id: string };
 
@@ -19,7 +25,7 @@ export function splitMermaidFences(
 ): Segment[] {
   if (
     !(allowMermaid && /mermaid/i.test(markdown)) &&
-    !(allowVisualizations && /pimi-chart/i.test(markdown))
+    !(allowVisualizations && /pimi-(?:chart|artifact)/i.test(markdown))
   ) {
     return [{ kind: "markdown", id: "0", source: markdown }];
   }
@@ -58,6 +64,11 @@ export function splitMermaidFences(
       if (allowVisualizations && lang === PIMI_VISUALIZATION_FENCE) {
         const chart = parseChatVisualization(node.value);
         if (chart) appendFence(node.position, { kind: "visualization", source: node.value, chart });
+      }
+      if (allowVisualizations && lang === PIMI_ARTIFACT_FENCE) {
+        const artifact = parseChatArtifact(node.value);
+        if (artifact)
+          appendFence(node.position, { kind: "artifact", source: node.value, artifact });
       }
     } else if ("children" in node) node.children.forEach(visit);
   }

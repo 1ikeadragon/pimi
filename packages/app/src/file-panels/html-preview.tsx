@@ -33,7 +33,15 @@ const ORIGIN_WHITELIST = ["*"];
 // would arrive with no injected policy and a clean slate to egress from.
 const BASE_URL = "about:blank";
 
-export function FileHtmlPreview({ html, testID }: { html: string; testID?: string }) {
+export function FileHtmlPreview({
+  html,
+  title,
+  testID,
+}: {
+  html: string;
+  title?: string;
+  testID?: string;
+}) {
   const document = useMemo(() => withPreviewCsp(html), [html]);
   const source = useMemo(() => ({ html: document, baseUrl: BASE_URL }), [document]);
   // Latched per document rather than once for the lifetime of the WebView: the
@@ -55,6 +63,7 @@ export function FileHtmlPreview({ html, testID }: { html: string; testID?: strin
   return (
     <WebView
       testID={testID}
+      accessibilityLabel={title}
       style={styles.webview}
       source={source}
       originWhitelist={ORIGIN_WHITELIST}

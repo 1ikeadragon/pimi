@@ -21,6 +21,7 @@ import { useMarkdownSource, type MarkdownImageContext } from "./images";
 
 import { MermaidFence, MermaidStreamingContext, splitMermaidFences } from "./fence/mermaid";
 import { Visualization } from "./fence/visualization";
+import { ChatArtifactCard } from "./fence/artifact";
 
 const ThemedMarkdown = withUnistyles(EnrichedMarkdownText);
 const MD4C_FLAGS = { latexMath: false, hardSoftBreaks: true, admonitions: true };
@@ -59,7 +60,9 @@ export interface MarkdownRendererProps extends MarkdownImageContext {
 export const MarkdownRenderer = memo(function MarkdownRenderer(props: MarkdownRendererProps) {
   // Same-reply chart identities must share one segment registry across streaming boundaries.
   const streaming =
-    !isWeb && !!props.streaming && !(props.visualizations && /pimi-chart/i.test(props.text));
+    !isWeb &&
+    !!props.streaming &&
+    !(props.visualizations && /pimi-(?:chart|artifact)/i.test(props.text));
   // Only completed lines affect block closure. Do not run mdast on every reveal frame.
   const completeLines = streaming ? props.text.slice(0, props.text.lastIndexOf("\n") + 1) : "";
   const boundary = useMemo(
@@ -146,6 +149,8 @@ const MarkdownPart = memo(function MarkdownPart({
           if (segment.kind === "mermaid") return <MermaidFence key={key} code={segment.source} />;
           if (segment.kind === "visualization")
             return <Visualization key={key} chart={segment.chart} />;
+          if (segment.kind === "artifact")
+            return <ChatArtifactCard key={key} artifact={segment.artifact} />;
           return (
             <ThemedMarkdown
               key={key}
