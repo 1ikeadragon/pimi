@@ -2,6 +2,13 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.16 - 2026-11-10
+
+- Select text in chat or code in the editor and click once to annotate it. The note opens under your selection: press Enter to save it, or Escape to drop it.
+- Hover an annotation chip in the composer to read the quote and note. Click it to edit.
+- Agents choose between a sentence, a chart, a dashboard, a diagram, and an HTML visual with a new visualization skill, and put the finding in the chart title.
+- Agents in chats check their results against the code or data before they report them, and say what they did not verify.
+
 ## 0.17.15 - 2026-11-10
 
 - Switch a chat to another provider from the model picker and stay in the same chat. The new provider continues with the conversation, and the thread marks where the model changed.
