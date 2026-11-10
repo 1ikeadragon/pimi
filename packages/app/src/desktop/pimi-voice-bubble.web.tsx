@@ -1,9 +1,10 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
 import { router, usePathname } from "expo-router";
-import { Check, CircleAlert, Mic, Square, X } from "lucide-react-native";
+import { CircleAlert, Mic, Square, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Image, ScrollView, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
+import Animated, { FadeInUp, ReduceMotion } from "react-native-reanimated";
 import type { CommandCenterContribution } from "@/command-center/contributions";
 import { useCommandCenterContributions } from "@/command-center/provider";
 import { DensityIcon } from "@/components/ui/density-icon";
@@ -16,6 +17,8 @@ import { getDesktopHost, type DesktopHostBridge } from "@/desktop/host";
 import { usePimiWorkspaceSection } from "@/desktop/pimi-console-content";
 import { parsePimiVoiceCommand } from "@/desktop/pimi-voice-command";
 import { usePimiVoiceHistory } from "@/desktop/pimi-voice-history";
+import { useDesktopSettings } from "@/desktop/settings/desktop-settings";
+import { usePimiVoiceCue } from "@/desktop/use-pimi-voice-cue.web";
 import { usePimiVoiceListener } from "@/desktop/use-pimi-voice-listener.web";
 import { useAppSettings } from "@/hooks/use-settings";
 import { useLocalDaemonServerId } from "@/hooks/use-is-local-daemon";
@@ -83,6 +86,7 @@ const BUSY = "Still working on your last command. Say this again when it finishe
 const VOICE_OFF = { selected: false };
 const VOICE_ON = { selected: true };
 const VOICE_DOG = { uri: "/pimi-textures/voice-dog.svg" };
+const BUBBLE_POP = FadeInUp.duration(160).reduceMotion(ReduceMotion.System);
 
 const WORKSPACE_VIEWS: Partial<Record<PimiVoiceView, PimiDestination>> = {
   tasks: { view: "tasks" },
@@ -259,22 +263,27 @@ function VoiceReceipt({
 }) {
   return (
     <View style={styles.receipt} testID="ask-pimi-receipt">
-      <View style={styles.receiptHeader}>
-        <DensityIcon icon={Check} size="sm" color="foregroundMuted" />
-        <Text style={styles.receiptTitle}>Heard</Text>
-        <Button
-          variant="ghost"
-          size="sm"
-          leftIcon={X}
-          onPress={dismiss}
-          accessibilityLabel="Dismiss Ask Pimi receipt"
-        />
-      </View>
-      <ScrollView style={styles.receiptContent}>
-        <Text selectable style={styles.transcript}>
-          {receipt.transcript}
-        </Text>
-        <View style={styles.receiptResult} accessibilityLiveRegion="polite">
+      <ScrollView style={styles.receiptContent} contentContainerStyle={styles.receiptMessages}>
+        <View style={styles.outgoing}>
+          <Animated.View entering={BUBBLE_POP} style={styles.transcriptBubble}>
+            <Text selectable style={styles.transcript}>
+              {receipt.transcript}
+            </Text>
+          </Animated.View>
+          <Button
+            variant="ghost"
+            size="sm"
+            leftIcon={X}
+            onPress={dismiss}
+            accessibilityLabel="Dismiss Ask Pimi receipt"
+          />
+        </View>
+        <Animated.View
+          key={receipt.state}
+          entering={BUBBLE_POP}
+          style={styles.receiptResult}
+          accessibilityLiveRegion="polite"
+        >
           {receipt.state === "working" ? <LoadingSpinner color={styles.statusText.color} /> : null}
           {receipt.state === "error" ? (
             <DensityIcon icon={CircleAlert} size="sm" color="statusDanger" />
@@ -282,7 +291,7 @@ function VoiceReceipt({
           <Text selectable style={styles.statusText}>
             {receipt.message}
           </Text>
-        </View>
+        </Animated.View>
       </ScrollView>
     </View>
   );
@@ -293,12 +302,14 @@ function VoiceFeedback({
   active,
   level,
   receipt,
+  receiptId,
   dismissReceipt,
 }: {
   status: string;
   active: boolean;
   level: number;
   receipt: PimiVoiceBubbleState["receipt"];
+  receiptId: string | null;
   dismissReceipt: () => void;
 }) {
   return (
@@ -320,7 +331,7 @@ function VoiceFeedback({
           </Text>
         </View>
       ) : null}
-      {receipt ? <VoiceReceipt receipt={receipt} dismiss={dismissReceipt} /> : null}
+      {receipt ? <VoiceReceipt key={receiptId} receipt={receipt} dismiss={dismissReceipt} /> : null}
     </View>
   );
 }
@@ -336,6 +347,8 @@ function DesktopVoiceBubble({
 }) {
   const section = usePimiWorkspaceSection();
   const { settings, isLoading } = useAppSettings();
+  const { settings: desktopSettings } = useDesktopSettings();
+  const { playCue, isPlayingCue } = usePimiVoiceCue(desktopSettings.notifications.playSound);
   const visible = !isLoading && settings.pimiVoiceButton;
   const localServerId = useLocalDaemonServerId() ?? "";
   const client = useHostRuntimeClient(localServerId);
@@ -367,9 +380,11 @@ function DesktopVoiceBubble({
   const listener = usePimiVoiceListener({
     client: connected ? client : null,
     unavailable,
+    isPlayingCue,
     onTranscript: (transcript) => {
       const { record, finish } = usePimiVoiceHistory.getState();
       const recordId = record(transcript);
+      playCue();
       const complete = (message: string, failed = false) => finish(recordId, { message, failed });
       const command = parsePimiVoiceCommand(transcript);
       if (command?.action === "stop") {
@@ -478,6 +493,7 @@ function DesktopVoiceBubble({
         active={active}
         level={level}
         receipt={receipt}
+        receiptId={receiptId}
         dismissReceipt={dismissReceipt}
       />
       <Tooltip delayDuration={400} enabledOnDesktop enabledOnMobile={false}>
@@ -525,22 +541,31 @@ const styles = StyleSheet.create((theme) => ({
   receipt: {
     width: 340,
     maxWidth: "100%",
-    backgroundColor: theme.colors.surface0,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.borderRadius.lg,
-    paddingHorizontal: theme.spacing[3],
-    paddingBottom: theme.spacing[3],
   },
-  receiptHeader: { flexDirection: "row", alignItems: "center", gap: theme.spacing[1] },
-  receiptTitle: { flex: 1, color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm },
   receiptContent: { maxHeight: 180 },
-  transcript: { color: theme.colors.foreground, fontSize: theme.fontSize.base },
+  receiptMessages: { gap: theme.spacing[2] },
+  outgoing: { flexDirection: "row", alignItems: "flex-start", justifyContent: "flex-end" },
+  transcriptBubble: {
+    flexShrink: 1,
+    backgroundColor: theme.colors.accent,
+    borderRadius: theme.borderRadius.xl,
+    borderBottomRightRadius: theme.borderRadius.sm,
+    paddingHorizontal: theme.spacing[3],
+    paddingVertical: theme.spacing[2],
+  },
+  transcript: { color: theme.colors.accentForeground, fontSize: theme.fontSize.base },
   receiptResult: {
+    alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[2],
-    marginTop: theme.spacing[2],
+    backgroundColor: theme.colors.surface0,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.borderRadius.xl,
+    borderBottomLeftRadius: theme.borderRadius.sm,
+    paddingHorizontal: theme.spacing[3],
+    paddingVertical: theme.spacing[2],
   },
   status: {
     maxWidth: 230,

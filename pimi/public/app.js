@@ -11,6 +11,18 @@ import { createReviewPullRequests } from "./review-pull-requests.js";
 import { createReviewFiles } from "./review-files.js";
 
 const $ = (id) => document.getElementById(id);
+
+function popVoiceBubble(bubble) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  bubble.animate(
+    [
+      { opacity: 0, transform: "translateY(5px) scale(.97)" },
+      { opacity: 1, transform: "none" },
+    ],
+    { duration: 160, easing: "ease-out" },
+  );
+}
+
 if (window.pimiWorkspace?.onVoiceState) {
   const dock = $("pimi-voice-dock");
   const toggle = $("pimi-voice-toggle");
@@ -20,6 +32,7 @@ if (window.pimiWorkspace?.onVoiceState) {
   const receiptCard = $("pimi-voice-receipt");
   const transcript = $("pimi-voice-transcript");
   const result = $("pimi-voice-result");
+  const resultBubble = result.parentElement;
   const bars = [...wave.querySelectorAll("rect")];
   window.pimiWorkspace.onVoiceState(({ visible, active, status, level, receipt }) => {
     dock.hidden = !visible;
@@ -32,10 +45,15 @@ if (window.pimiWorkspace?.onVoiceState) {
     wave.toggleAttribute("hidden", !active);
     receiptCard.hidden = !receipt;
     if (receipt) {
-      if (transcript.textContent !== receipt.transcript)
+      if (transcript.textContent !== receipt.transcript) {
         transcript.textContent = receipt.transcript;
-      if (result.textContent !== receipt.message) result.textContent = receipt.message;
-      if (receiptCard.dataset.state !== receipt.state) receiptCard.dataset.state = receipt.state;
+        popVoiceBubble(transcript);
+      }
+      if (result.textContent !== receipt.message || receiptCard.dataset.state !== receipt.state) {
+        result.textContent = receipt.message;
+        receiptCard.dataset.state = receipt.state;
+        popVoiceBubble(resultBubble);
+      }
     } else {
       transcript.textContent = "";
       result.textContent = "";

@@ -110,14 +110,13 @@
           aria-label="Ask Pimi receipt"
           hidden
         >
-          <header>
-            <span aria-hidden="true">✓</span> Heard
-            <button id="pimi-voice-dismiss" type="button" aria-label="Dismiss Ask Pimi receipt">
-              ×
-            </button>
-          </header>
           <div class="voice-command-receipt-content">
-            <p id="pimi-voice-transcript"></p>
+            <div class="voice-command-outgoing">
+              <p id="pimi-voice-transcript"></p>
+              <button id="pimi-voice-dismiss" type="button" aria-label="Dismiss Ask Pimi receipt">
+                ×
+              </button>
+            </div>
             <p class="voice-command-result" role="status"><span id="pimi-voice-result"></span></p>
           </div>
         </section>

@@ -349,31 +349,26 @@ body {
 
 .voice-command-receipt {
   width: min(340px, calc(100vw - 94px));
-  padding: 0 12px 12px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--canvas);
-  color: var(--text);
 }
 
-.voice-command-receipt > header {
+.voice-command-outgoing {
   display: flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--muted);
-  font-size: 12px;
+  align-items: start;
+  justify-content: end;
 }
 
-.voice-command-receipt > header button {
-  margin-left: auto;
-  padding: 3px 6px;
+.voice-command-outgoing button {
+  flex: none;
+  padding: 4px 8px;
   border: 0;
   background: transparent;
-  color: inherit;
+  color: var(--muted);
   font-size: 18px;
 }
 
 .voice-command-receipt-content {
+  display: grid;
+  gap: 8px;
   max-height: 180px;
   overflow: auto;
   overflow-wrap: anywhere;
@@ -384,13 +379,26 @@ body {
   margin: 0;
 }
 
+#pimi-voice-transcript {
+  padding: 8px 12px;
+  border-radius: 16px 16px 4px 16px;
+  background: var(--accent);
+  color: var(--accent-text);
+  transform-origin: bottom right;
+}
+
 .voice-command-receipt-content .voice-command-result {
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  justify-self: start;
   gap: 6px;
-  margin-top: 7px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px 16px 16px 4px;
+  background: var(--canvas);
   color: var(--muted);
   font-size: 12px;
+  transform-origin: bottom left;
 }
 
 .voice-command-receipt[data-state="working"] .voice-command-result::before {
