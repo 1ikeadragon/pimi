@@ -185,25 +185,32 @@ async function runListHeartbeats(
 
 function addCadenceOptions(command: Command): Command {
   return command
-    .option("--cron <expr>", "Five-field cron cadence")
+    .option("--cron <expr>", "Five-field cron cadence, read in UTC unless --timezone is set")
     .option("--timezone <iana>", "IANA time zone for --cron")
     .option("--every <duration>", "Repeat at this interval, at least 30s (for example: 90s, 15m)")
-    .option("--in <duration>", "Fire once after this long (for example: 20m)")
+    .option(
+      "--in <duration>",
+      "Fire once after this long (for example: 20m); waits for the agent's turn to end",
+    )
     .option("--at <time>", "Fire once at this ISO 8601 time");
 }
 
 export function createHeartbeatCommand(): Command {
-  const heartbeat = new Command("heartbeat").description("Manage this agent's heartbeats");
+  const heartbeat = new Command("heartbeat").description(
+    "Prompts sent back to this agent later; create, update, and delete run inside an agent",
+  );
   addJsonAndDaemonHostOptions(
     addCadenceOptions(
       heartbeat
         .command("create")
-        .description("Send this agent a prompt later: on a cadence, at an interval, or once")
+        .description(
+          "Send this agent a prompt later: on a cron cadence, at an interval, or once. For work in a new agent on each run, use `pimi automation create`",
+        )
         .argument("<prompt>", "Prompt to send"),
     )
       .option("--name <name>", "Heartbeat name; creating one with the same name replaces it")
-      .option("--max-runs <n>", "Maximum number of runs")
-      .option("--expires-in <duration>", "Time to live"),
+      .option("--max-runs <n>", "Delete the heartbeat after this many fires")
+      .option("--expires-in <duration>", "Delete the heartbeat after this long"),
   ).action(withOutput(runCreateHeartbeat));
   addJsonAndDaemonHostOptions(
     addCadenceOptions(

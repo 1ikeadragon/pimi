@@ -18,6 +18,7 @@ const HEARTBEAT_TICK_INTERVAL_MS = 1000;
 // Every fire is an agent turn, and a fire while the agent is busy fails. Below 30 seconds an
 // interval mostly produces failed fires and wakeups that cost tokens without doing work.
 export const MIN_HEARTBEAT_INTERVAL_MS = 30_000;
+const MAX_HEARTBEAT_PROMPT_LENGTH = 100_000;
 
 export class HeartbeatNotFoundError extends Error {
   constructor(id: string) {
@@ -182,7 +183,14 @@ export class HeartbeatService {
     if (!prompt) {
       throw new Error("Heartbeat prompt is required");
     }
+    if (prompt.length > MAX_HEARTBEAT_PROMPT_LENGTH) {
+      throw new Error(`Heartbeat prompt is longer than ${MAX_HEARTBEAT_PROMPT_LENGTH} characters`);
+    }
     validateHeartbeatCadence(input.cadence);
+    // An unparseable expiry never compares as past, so the heartbeat would never end.
+    if (input.expiresAt != null && Number.isNaN(new Date(input.expiresAt).getTime())) {
+      throw new Error(`Invalid heartbeat expiry: ${input.expiresAt}`);
+    }
     if (input.maxRuns != null && (!Number.isInteger(input.maxRuns) || input.maxRuns <= 0)) {
       throw new Error("maxRuns must be a positive integer");
     }
@@ -340,6 +348,11 @@ export class HeartbeatService {
       await this.sendToAgent(claimed);
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
+      // A one-time or last fire is deleted below, taking `lastRun` with it; the log keeps why.
+      this.logger.warn(
+        { err: cause, heartbeatId: id, agentId: claimed.agentId },
+        "Heartbeat fire failed",
+      );
     }
     const finished = await this.store.update(id, (current) => ({
       ...current,

@@ -327,17 +327,20 @@ export function createAutomationCommand(): Command {
     automation
       .command("create")
       .description(
-        "Create an automation that runs a new agent on a schedule, or by hand when no cadence is given",
+        "Create an automation: a new agent runs the prompt on each run, on a cadence or (with no cadence) only by hand. Created inside an agent, it waits for the user's approval",
       )
       .argument("<prompt>", "Prompt for the automation's agent")
       .requiredOption("--name <name>", "Automation name")
       .option("--cron <expr>", "Five-field cron cadence")
-      .option("--every <duration>", "Cron-compatible interval preset (for example: 15m, 1h)")
+      .option(
+        "--every <duration>",
+        "Interval that divides an hour or a day evenly (for example: 15m, 2h)",
+      )
       .option("--timezone <iana>", "IANA time zone for the cadence (default: UTC)")
       .requiredOption("--provider <provider>", "Agent provider, or provider/model")
       .option(
         "--mode <mode>",
-        "Provider mode (default: the provider's unattended mode if it has one, otherwise its default mode)",
+        "Provider mode (default: the provider's unattended mode if it has one, otherwise its default mode). A run that stops at a permission prompt fails",
       )
       .option("--thinking <id>", "Thinking option ID")
       .option("--cwd <path>", "Project directory (default: current; required with --host)")
@@ -352,34 +355,37 @@ export function createAutomationCommand(): Command {
   addJsonAndDaemonHostOptions(
     automation
       .command("inspect")
-      .description("Show an automation and its recent audit history")
+      .description("Show an automation and its last 10 audit entries, including skipped runs")
       .argument("<id>", "Automation ID"),
   ).action(withOutput(runInspect));
   addJsonAndDaemonHostOptions(
     automation
       .command("pause")
-      .description("Pause an automation")
+      .description("Stop an automation from firing until it is resumed")
       .argument("<id>", "Automation ID"),
   ).action(withOutput(stateCommand("pause")));
   addJsonAndDaemonHostOptions(
     automation
       .command("resume")
-      .description("Resume a paused automation")
+      .description("Resume a paused automation and clear its failure count")
       .argument("<id>", "Automation ID"),
   ).action(withOutput(stateCommand("resume")));
   addJsonAndDaemonHostOptions(
     automation
       .command("approve")
-      .description("Approve an automation an agent created")
+      .description("Approve an automation an agent created (refused inside an agent)")
       .argument("<id>", "Automation ID"),
   ).action(withOutput(stateCommand("approve")));
   addJsonAndDaemonHostOptions(
-    automation.command("rm").description("Delete an automation").argument("<id>", "Automation ID"),
+    automation
+      .command("rm")
+      .description("Delete an automation and its run history")
+      .argument("<id>", "Automation ID"),
   ).action(withOutput(runDelete));
   addJsonAndDaemonHostOptions(
     automation
       .command("run")
-      .description("Start a run now; prints the run while it is running")
+      .description("Start a run now and return while it is running; read the result with `runs`")
       .argument("<id>", "Automation ID"),
   ).action(withOutput(runRun));
   addJsonAndDaemonHostOptions(

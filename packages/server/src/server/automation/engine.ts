@@ -1,4 +1,5 @@
 import { stat } from "node:fs/promises";
+import { setTimeout as delay } from "node:timers/promises";
 import type { Logger } from "pino";
 import type {
   Automation,
@@ -13,6 +14,7 @@ import type { PersistedWorkspaceRecord } from "../workspace-registry.js";
 import type { CreatePaseoWorktreeWorkflowResult } from "../worktree-session.js";
 
 const STEP_OUTPUT_LIMIT = 24_000;
+const PERMISSION_POLL_MS = 1000;
 
 export type AutomationEngineAgentManager = Pick<
   AgentManager,
@@ -34,7 +36,7 @@ export interface AutomationEngineDeps {
   archiveWorkspace: (workspaceId: string) => Promise<void>;
 }
 
-export type RunStopReason = "cancelled" | "timed_out";
+export type RunStopReason = "cancelled" | "timed_out" | "permission";
 
 // Live state of one running run, shared between the step and whoever stops it.
 export interface RunHandle {
@@ -42,9 +44,15 @@ export interface RunHandle {
   stopReason: RunStopReason | null;
 }
 
+const STOP_MESSAGES: Record<RunStopReason, string> = {
+  cancelled: "The run was cancelled",
+  timed_out: "The run hit its time limit",
+  permission: "The agent stopped at a permission prompt; nobody is there to answer it",
+};
+
 export class RunStoppedError extends Error {
   constructor(readonly reason: RunStopReason) {
-    super(reason === "timed_out" ? "The run hit its time limit" : "The run was cancelled");
+    super(STOP_MESSAGES[reason]);
     this.name = "RunStoppedError";
   }
 }
@@ -86,6 +94,23 @@ async function assertProjectDirectory(cwd: string): Promise<void> {
       throw new Error(`Project ${cwd} no longer exists`, { cause: error });
     }
     throw error;
+  }
+}
+
+// A turn that asks for permission stays open until someone answers, and nobody watches an
+// automation run. Without this the run would sit there until its time limit, holding a
+// concurrency slot. Resolves true when the agent asks; rejects when `signal` aborts.
+async function waitForPermissionPrompt(
+  agentManager: AutomationEngineAgentManager,
+  agentId: string,
+  signal: AbortSignal,
+): Promise<boolean> {
+  for (;;) {
+    const event = await agentManager.waitForAgentEvent(agentId, { waitForActive: true, signal });
+    if (event.permission) {
+      return true;
+    }
+    await delay(PERMISSION_POLL_MS, undefined, { signal });
   }
 }
 
@@ -157,7 +182,36 @@ export async function runAgentStep(
     if (handle.stopReason) {
       throw new RunStoppedError(handle.stopReason);
     }
-    const result = await deps.agentManager.runAgent(agentId, node.prompt);
+    const turnAgentId = agentId;
+    const permissionWatch = new AbortController();
+    void waitForPermissionPrompt(deps.agentManager, turnAgentId, permissionWatch.signal)
+      .then(async () => {
+        if (!handle.stopReason) {
+          handle.stopReason = "permission";
+          await deps.agentManager.cancelAgentRun(turnAgentId);
+        }
+        return undefined;
+      })
+      .catch((error: unknown) => {
+        if (!permissionWatch.signal.aborted) {
+          deps.logger.warn(
+            { err: error, automationId: automation.id, runId: run.id },
+            "Failed to watch automation agent for permission prompts",
+          );
+        }
+      });
+    let result: Awaited<ReturnType<AutomationEngineAgentManager["runAgent"]>>;
+    try {
+      result = await deps.agentManager.runAgent(turnAgentId, node.prompt);
+    } catch (error) {
+      // A stopped turn can surface as a failed turn; report why it was stopped.
+      if (handle.stopReason) {
+        throw new RunStoppedError(handle.stopReason);
+      }
+      throw error;
+    } finally {
+      permissionWatch.abort();
+    }
     if (result.canceled) {
       throw new RunStoppedError(handle.stopReason ?? "cancelled");
     }

@@ -606,14 +606,18 @@ function createRegistryEntry(
     ? profileModels.map((model) => mapModel(provider, model))
     : [];
 
+  // Runtime mode lists (Claude, Codex) carry ids and labels only. The manifest says which mode
+  // is the provider's unattended one; without it an unattended create finds no such mode and
+  // falls back to the provider's default, which stops at permission prompts.
   const decorateModes = (modes: AgentMode[]): AgentMode[] =>
     modes.map((mode) => {
-      if (mode.icon && mode.colorTier) return mode;
       const definitionMode = resolved.definition.modes.find((d) => d.id === mode.id);
       if (!definitionMode) return mode;
+      const isUnattended = mode.isUnattended ?? definitionMode.isUnattended;
       return Object.assign({}, mode, {
         icon: mode.icon ?? definitionMode.icon,
         colorTier: mode.colorTier ?? definitionMode.colorTier,
+        ...(isUnattended === undefined ? {} : { isUnattended }),
       });
     });
 

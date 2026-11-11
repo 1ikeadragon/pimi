@@ -1000,8 +1000,9 @@ function createToolCatalog(
     return resolveCallerAgent()?.cwd ?? process.cwd();
   }
 
-  // The automation's agent takes the caller's provider, model, mode, thinking and features
-  // unless a provider is given.
+  // The automation's agent takes the caller's provider, model, thinking and features unless a
+  // provider is given. It does not take the caller's mode: runs are unattended, so they use the
+  // provider's unattended mode whatever mode the creating agent happens to be in.
   function resolveAutomationAgentNode(provider: string | undefined) {
     const callerAgent = resolveCallerAgent();
     if (!callerAgent && !provider?.trim()) {
@@ -1028,7 +1029,6 @@ function createToolCatalog(
       return {};
     }
     return {
-      ...(agent.currentModeId ? { modeId: agent.currentModeId } : {}),
       ...(agent.config.thinkingOptionId ? { thinkingOptionId: agent.config.thinkingOptionId } : {}),
       ...(agent.config.featureValues ? { featureValues: agent.config.featureValues } : {}),
     };
@@ -2564,25 +2564,39 @@ function createToolCatalog(
     {
       title: "Create automation",
       description:
-        "Create an automation that starts a new agent with this prompt on a cron cadence, or only when run by hand if cron is omitted. It stays pending and does not run until the user approves it in the Automations screen.",
+        "Set up work that a new agent does on each run, on a cron cadence or, with no cron, only when someone runs it. It starts pending and never runs until the user approves it in the Automations screen; you cannot approve it, so tell the user it is waiting there. To prompt yourself later in this conversation, use create_heartbeat instead, which needs no approval. Each run's agent knows nothing of this conversation and has nobody to answer questions, so write the prompt as a complete brief. Calling this again with the same name replaces your automation and returns it to pending.",
       inputSchema: z
         .object({
           name: z.string().trim().min(1, "name is required"),
           prompt: z.string().trim().min(1, "prompt is required"),
-          cron: z.string().trim().min(1).optional(),
+          cron: z
+            .string()
+            .trim()
+            .min(1)
+            .optional()
+            .describe(
+              "Five-field cron, read in UTC unless timezone is set. Omit for an automation that runs only by hand.",
+            ),
           timezone: z
             .string()
             .trim()
             .min(1)
             .optional()
-            .describe("IANA time zone for the cron cadence. For example: America/New_York."),
+            .describe(
+              "IANA time zone for cron, for example America/New_York. Set it whenever the user names a local time.",
+            ),
           provider: (scope === "agent" ? AgentProviderEnum.optional() : AgentProviderEnum).describe(
-            "Provider, or provider/model (for example: codex or codex/gpt-5.4). Defaults to the caller's provider in an agent-scoped session.",
+            "Provider, or provider/model (for example: codex or codex/gpt-5.4). Defaults to your own provider and model.",
           ),
-          cwd: z.string().optional(),
-          workspace: z.enum(["project", "worktree"]).optional(),
-          maxRuns: z.number().int().positive().optional(),
-          expiresIn: durationInputSchema.optional(),
+          cwd: z.string().optional().describe("Project directory. Defaults to your own."),
+          workspace: z
+            .enum(["project", "worktree"])
+            .optional()
+            .describe(
+              "project (default) runs in the project directory. worktree gives each run a new worktree; use it when runs edit files.",
+            ),
+          maxRuns: z.number().int().positive().optional().describe("End after this many runs."),
+          expiresIn: durationInputSchema.optional().describe("End after this long, such as 7d."),
         })
         .superRefine(addCronIssue),
       outputSchema: AutomationSchema.shape,
@@ -2638,7 +2652,8 @@ function createToolCatalog(
     "list_automations",
     {
       title: "List automations",
-      description: "List all automations on this host.",
+      description:
+        "List every automation on this host, the user's and other agents' included, with status, next run, and last run.",
       inputSchema: {},
       outputSchema: { automations: z.array(AutomationSchema) },
     },
@@ -2652,7 +2667,8 @@ function createToolCatalog(
     "inspect_automation",
     {
       title: "Inspect automation",
-      description: "Inspect an automation and its audit history.",
+      description:
+        "Show one automation and its last 50 audit entries: who created, approved, or paused it, and each run that started, finished, or was skipped, with the reason for a skip.",
       inputSchema: { id: z.string().min(1) },
       outputSchema: {
         automation: AutomationSchema,
@@ -2669,7 +2685,8 @@ function createToolCatalog(
     "pause_automation",
     {
       title: "Pause automation",
-      description: "Pause an active automation.",
+      description:
+        "Stop an active automation from firing. You cannot resume it; only the user can. Fails on an automation that is still pending.",
       inputSchema: { id: z.string().min(1) },
       outputSchema: AutomationSchema.shape,
     },
@@ -2685,7 +2702,8 @@ function createToolCatalog(
     "delete_automation",
     {
       title: "Delete automation",
-      description: "Delete an automation you created that is still waiting for approval.",
+      description:
+        "Delete an automation you created that is still pending. Once the user has approved it, only the user can delete it.",
       inputSchema: { id: z.string().min(1) },
       outputSchema: { success: z.boolean() },
     },
@@ -2711,7 +2729,8 @@ function createToolCatalog(
     "automation_runs",
     {
       title: "Automation runs",
-      description: "List an automation's recent runs, newest first.",
+      description:
+        "List an automation's runs, newest first (20 unless limit is set). Each has its status, error, agent, and the agent's final message as output, cut at 24,000 characters. The newest 50 runs from the last 30 days are kept.",
       inputSchema: { id: z.string().min(1), limit: z.number().int().positive().optional() },
       outputSchema: { runs: z.array(AutomationRunSchema) },
     },
@@ -2727,7 +2746,8 @@ function createToolCatalog(
     "run_automation_once",
     {
       title: "Run automation once",
-      description: "Start a run of an active automation now. Returns the run while it is running.",
+      description:
+        "Start a run of an active automation now, outside its cadence. Returns at once with the run still running; read the result later with automation_runs. Fails when the automation is pending or paused, already has its limit of concurrent runs, or has used its runs for the hour. A failed run counts toward the three in a row that pause the automation.",
       inputSchema: { id: z.string().min(1) },
       outputSchema: AutomationRunSchema.shape,
     },
@@ -2744,25 +2764,53 @@ function createToolCatalog(
     {
       title: "Create heartbeat",
       description:
-        "Send yourself a prompt later. Give exactly one of: cron (a cron cadence), every (an interval of at least 30s), in (once, after a duration), or at (once, at an ISO time).",
+        "Send a prompt back to yourself, in this conversation, later. It needs no approval. Use it to check on something you started (a build, a pull request, a long job) or to remind yourself. Use create_automation when the work should run in a new agent each time and keep going after this conversation. Give exactly one of cron, every, in, or at. A one-time heartbeat (in, at) waits for your turn to end. A recurring one that comes due while you are mid-turn fails that fire, which still counts toward maxRuns. Your heartbeats are deleted when you are archived.",
       inputSchema: z
         .object({
           prompt: z.string().trim().min(1, "prompt is required"),
-          cron: z.string().trim().min(1).optional(),
+          cron: z
+            .string()
+            .trim()
+            .min(1)
+            .optional()
+            .describe("Five-field cron, read in UTC unless timezone is set."),
           timezone: z
             .string()
             .trim()
             .min(1)
             .optional()
-            .describe("IANA time zone for the cron cadence. For example: America/New_York."),
-          every: durationInputSchema.optional().describe("Interval, for example 90s or 15m."),
+            .describe(
+              "IANA time zone for cron, for example America/New_York. Set it whenever the user names a local time.",
+            ),
+          every: durationInputSchema
+            .optional()
+            .describe(
+              "Repeat at this interval, 30s at least, for example 90s or 15m. The first fire is one interval from now.",
+            ),
           in: durationInputSchema
             .optional()
             .describe("Fire once after this long, for example 20m."),
-          at: z.string().trim().min(1).optional().describe("Fire once at this ISO 8601 time."),
-          name: z.string().optional(),
-          maxRuns: z.number().int().positive().optional(),
-          expiresIn: durationInputSchema.optional(),
+          at: z
+            .string()
+            .trim()
+            .min(1)
+            .optional()
+            .describe(
+              "Fire once at this ISO 8601 time, for example 2026-11-12T09:00:00+05:30. Without an offset it is read in the host's local time.",
+            ),
+          name: z
+            .string()
+            .optional()
+            .describe("Creating a heartbeat with a name you already used replaces that one."),
+          maxRuns: z
+            .number()
+            .int()
+            .positive()
+            .optional()
+            .describe("Delete the heartbeat after this many fires."),
+          expiresIn: durationInputSchema
+            .optional()
+            .describe("Delete the heartbeat after this long, such as 2h."),
         })
         .superRefine(addCronIssue),
       outputSchema: HeartbeatSchema.shape,
@@ -2794,7 +2842,8 @@ function createToolCatalog(
     "delete_heartbeat",
     {
       title: "Delete heartbeat",
-      description: "Delete one of your heartbeats.",
+      description:
+        "Delete one of your heartbeats by id. Do it once the thing it was watching is finished, so it stops waking you.",
       inputSchema: { id: z.string().min(1) },
       outputSchema: { success: z.boolean() },
     },
@@ -2818,7 +2867,8 @@ function createToolCatalog(
     "list_heartbeats",
     {
       title: "List heartbeats",
-      description: "List your heartbeats with when each fires next.",
+      description:
+        "List your heartbeats: id, name, cadence, next fire time, and whether the last fire succeeded.",
       inputSchema: {},
       outputSchema: { heartbeats: z.array(HeartbeatSchema) },
     },

@@ -32,6 +32,11 @@ const DAEMON_AUTOMATION_AGENT_CAP = 4;
 const FAILURES_BEFORE_PAUSE = 3;
 const AUDIT_ENTRIES_RETURNED = 50;
 const HOUR_MS = 60 * 60_000;
+// Cron cannot fire more often than once a minute; an interval gets the same floor, so a bad
+// definition cannot turn the tick loop into a stream of skipped runs.
+const MIN_EVERY_MS = 60_000;
+const MAX_NAME_LENGTH = 200;
+const MAX_PROMPT_LENGTH = 100_000;
 
 export class AutomationNotFoundError extends Error {
   constructor(id: string) {
@@ -104,7 +109,19 @@ function normalizeDefinition(definition: AutomationDefinition): NormalizedDefini
     throw new Error(issues.map((issue) => issue.message).join("; "));
   }
   if (definition.trigger.kind === "schedule") {
-    validateCadence(definition.trigger.cadence);
+    const cadence = definition.trigger.cadence;
+    if (cadence.type === "every" && cadence.everyMs < MIN_EVERY_MS) {
+      throw new Error(`An automation cannot run more often than every ${MIN_EVERY_MS / 1000}s`);
+    }
+    validateCadence(cadence);
+  }
+  if (definition.name.trim().length > MAX_NAME_LENGTH) {
+    throw new Error(`Name is longer than ${MAX_NAME_LENGTH} characters`);
+  }
+  for (const node of definition.flow.nodes) {
+    if (node.kind === "agent" && node.prompt.length > MAX_PROMPT_LENGTH) {
+      throw new Error(`Prompt is longer than ${MAX_PROMPT_LENGTH} characters`);
+    }
   }
   const limits = { ...DEFAULT_AUTOMATION_LIMITS, ...definition.limits };
   if (limits.expiresAt !== null && Number.isNaN(new Date(limits.expiresAt).getTime())) {
@@ -137,6 +154,7 @@ export class AutomationService {
   private readonly engine: AutomationEngineDeps;
   private readonly activeRuns = new Map<string, ActiveRun>();
   private readonly originLocks = new Map<string, Promise<unknown>>();
+  private admission: Promise<unknown> = Promise.resolve();
   private tickTimer: ReturnType<typeof setInterval> | null = null;
   private ticking = false;
 
@@ -436,11 +454,21 @@ export class AutomationService {
     if (actor.kind === "agent" && automation.status !== "active") {
       throw new AutomationStateError(`Automation ${id} is paused`);
     }
-    const refusal = await this.admissionRefusal(automation, new Date());
-    if (refusal) {
-      throw new AutomationStateError(refusal);
-    }
-    return this.startRun(automation, { kind: "manual", actor }, actor);
+    return this.admit(async () => {
+      const refusal = await this.admissionRefusal(automation, new Date());
+      if (refusal) {
+        throw new AutomationStateError(refusal);
+      }
+      return this.startRun(automation, { kind: "manual", actor }, actor);
+    });
+  }
+
+  // Checking the limits and registering the run happen one admission at a time. Otherwise two
+  // starts that arrive together both pass the check and exceed the caps.
+  private admit<T>(work: () => Promise<T>): Promise<T> {
+    const next = this.admission.catch(() => undefined).then(work);
+    this.admission = next;
+    return next;
   }
 
   async cancelRun(automationId: string, runId: string): Promise<AutomationRun> {
@@ -601,6 +629,11 @@ export class AutomationService {
       clearTimeout(timer);
     }
     try {
+      // Deleting an automation cancels its runs and removes their records; nothing is left to
+      // finish, and touching the run store would recreate its directory.
+      if ((await this.store.automations.get(automation.id)) === null) {
+        return;
+      }
       await this.finishRun({ automationId: automation.id, runId: run.id, status, output, error });
     } catch (finishError) {
       this.logger.error(
@@ -741,26 +774,37 @@ export class AutomationService {
       return;
     }
     const daemon: AutomationActor = { kind: "daemon" };
-    const refusal = await this.admissionRefusal(claimed, now);
-    if (refusal) {
-      await this.audit.append({
-        automationId: id,
-        action: "run_skipped",
-        actor: daemon,
-        runId: null,
-        detail: refusal,
-      });
-      return;
-    }
-    try {
-      await this.startRun(
-        claimed,
-        { kind: "trigger", event: { kind: "schedule", scheduledFor } },
-        daemon,
-      );
-    } catch (error) {
-      this.logger.error({ err: error, automationId: id }, "Failed to start scheduled run");
-    }
+    const slot: string = scheduledFor;
+    await this.admit(async () => {
+      const refusal = await this.admissionRefusal(claimed, now);
+      if (refusal) {
+        await this.audit.append({
+          automationId: id,
+          action: "run_skipped",
+          actor: daemon,
+          runId: null,
+          detail: refusal,
+        });
+        return;
+      }
+      try {
+        await this.startRun(
+          claimed,
+          { kind: "trigger", event: { kind: "schedule", scheduledFor: slot } },
+          daemon,
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error({ err: error, automationId: id }, "Failed to start scheduled run");
+        await this.audit.append({
+          automationId: id,
+          action: "run_skipped",
+          actor: daemon,
+          runId: null,
+          detail: `could not start: ${message}`.slice(0, 300),
+        });
+      }
+    });
   }
 
   private async endAutomation(id: string, now: Date): Promise<void> {
