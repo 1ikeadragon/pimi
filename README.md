@@ -10,42 +10,6 @@ Chat with your agents, track their work, and review the changes in one app.
 
 Replacing Paseo? [Keep your sessions and plugins](docs/paseo-migration.md).
 
-## Chat and Tasks
-
-Ask an agent to track a task or send a few agents to explore it. Queue a follow-up or fork a chat to another provider.
-
-![Chat with a task created from a message](assets/pimi/chat.jpg)
-
-Linked work moves tasks along automatically. You can move cards yourself and read the agents’ reports from the task.
-
-![Tasks board with stages, labels, and linked work](assets/pimi/task-board.jpg)
-
-Click Pimi and say “Show my open PRs” or “Start a chat with the arXiv paper in Spaces called Attention Is All You Need.”
-
-## Watch the swarm
-
-Watch six sessions at once in **Agent grid** on a wide window. **Work** tracks the branches behind them.
-
-![Agent grid with parallel sessions](assets/pimi/agent-grid.jpg)
-
-## Edit beside your agents
-
-Choose **IDE Mode** in the title bar. Open a file from Explorer, edit it beside chat, and check its diff or Git blame without leaving the workspace.
-
-Use **Search codebase** in the Command Center to find code by behavior or identifier. Select a result to jump to its line. The index builds on the workspace host using the bundled search model.
-
-![IDE Mode with Explorer, a split Git diff, and a chat draft](assets/pimi/ide-mode.jpg)
-
-## Review together
-
-Review opens to your pull request inbox. See requests and your own open PRs, or switch to **Worktrees** to compare changes across repositories.
-
-![Side-by-side diffs from two repositories](assets/pimi/review.jpg)
-
-![Pull request queue and check results](assets/pimi/pull-requests.jpg)
-
-Screenshots use sample projects and activity.
-
 ## Use Pimi from your phone
 
 Install Pimi Desktop and the [Android APK](docs/android.md#pimi-apk). Run Pimi Relay on a server you control, point your desktop at it, and scan the desktop’s **Pair a device** QR code in the Android app. Keep the desktop awake, set a daemon password, and keep the QR code private.
