@@ -34,12 +34,12 @@ Use the first row that answers the question. Go to a later row only when an earl
 | Records to scan or sort                                            | `pimi-view` table; Markdown table when cells need links or code   | Write numbers as numbers and put the unit in the column label, so sorting works. Order rows by the column that answers the question.                                                                                   |
 | A value against a limit (budget, quota, coverage goal)             | `pimi-view` progress                                              | `value` and `max` in the same unit, with the unit in the label.                                                                                                                                                        |
 | A process, pipeline, architecture, call path, or dependency graph  | `pimi-view` flow                                                  | Name boxes as the code does and put what each one does in `detail`. Group boxes into lanes by layer or owner. Label the edges that branch. Up to 24 boxes; split a larger system into an overview and one detail flow. |
-| A sequence of messages or a state machine                          | Mermaid `sequenceDiagram` or `stateDiagram-v2`                    | Up to 12 participants or states. Label every message or transition.                                                                                                                                                    |
+| A sequence of messages or a state machine                          | Mermaid `sequenceDiagram` or `stateDiagram-v2`                    | Up to 5 participants or 8 states, and 15 arrows with each note counted as one: the diagram is shrunk to fit the column and a 480 px box. Split a longer one in two. Label every message or transition.                 |
 | A timeline or plan                                                 | Mermaid `gantt` for dated work; a numbered list for ordered steps | Give every dated item a start and a length. Steps without dates read better as a list.                                                                                                                                 |
 | To try inputs: a calculator, what-if sliders, filters, a simulator | `pimi-html`                                                       | Use it only when the user would change an input. Follow the **pimi-artifacts** skill.                                                                                                                                  |
 | A map, or a layout no other block can express                      | `pimi-html`                                                       | Draw it as inline SVG. Follow the **pimi-artifacts** skill.                                                                                                                                                            |
 
-Two approaches compared on qualities, not numbers, go in a Markdown table with one row per criterion and a sentence that names the pick.
+Two approaches compared on qualities, not numbers, go in a `pimi-view` table with one row per criterion and one column per approach, then a sentence that names the pick. Its cells wrap, so the criterion and both approaches fit a phone; a third approach scrolls sideways.
 
 ## Charts
 
@@ -48,11 +48,12 @@ Two approaches compared on qualities, not numbers, go in a Markdown table with o
 - Title each axis with its unit, or set `"title": null` when the labels already say what they are.
 - Sort bars by value. Keep the given order with `"sort": null` only when the categories have their own order, such as dates, versions, or size ranges.
 - A bar's axis starts at zero. When the change is small next to the level (480 ms to 495 ms), chart the difference or the percent change from the first value, and say so in the title.
-- Stack bars or areas only when the parts add up to a total the user cares about.
+- Stack bars or areas only when the parts add up to a total the user cares about. To show how each series moved, draw lines: in a stack only the bottom series has a level baseline.
+- On a line, `color` draws a separate line for each value of its field. To mark some points on one line, such as failed runs, use `layer`: the line first, then a `point` mark with a `transform` that filters to those rows.
 - Color follows the series order and Pimi sets the palette, so do not set colors. Keep the same series names in every chart of a reply, and refer to a series by name, never by color.
 - To mark a threshold or target, use `layer`: the data mark first, then a `rule` with `"datum"` at the value.
 - Use one plot per block. `facet`, `concat`, and `repeat` draw wider than a phone and scroll sideways; use them only for up to three small panels.
-- Follow the chart with one sentence that says what it means or what to do. Do not list the values again; pointing at a mark shows them.
+- Follow the chart with one sentence that says what it means or what to do. Do not list the values again in prose or in a table; pointing at a mark shows them. Add a table only for columns the chart does not show.
 
 ## Views
 
@@ -61,12 +62,14 @@ Two approaches compared on qualities, not numbers, go in a Markdown table with o
 - Set `tone` by whether the change is good, not by its sign: latency down 12% is positive. Tone only the one or two items that need attention and leave the rest neutral. Say the same thing in words ("Failing", "+12%"), since tone is only a color.
 - Use a `text` node for a one-line verdict or caveat. Longer explanation goes in the reply.
 - Align numeric table columns with `"align":"end"`.
+- A phone shows four table columns and scrolls sideways for the rest. Put the name first and the columns that answer the question next.
 
 ## Diagrams
 
 - Draw only the parts the question is about. Name boxes as the code does, so the user can search for them.
 - Keep a flow box `label` to the name. Put what the box does, or why it matters, in `detail`; the reader sees it on hover or press.
 - Declare lanes in the order the flow passes through them. When every edge moves forward through the lanes, each lane is a band across the flow and a pipeline reads straight down. A flow that goes back and forth between lanes, such as client and server, draws its lanes as swimlanes.
+- A phone fits three boxes side by side, and a wider flow scrolls sideways. When more than three boxes feed or follow the same box, keep the two that matter and merge the rest into one box that lists them in its `detail`.
 - Label only edges that branch or carry a condition, in a word or two. An edge back to an earlier box draws dashed, so you can show a retry or a loop.
 - Leave `direction` out unless the flow reads better one way. A flow too wide for the column turns down by itself.
 - In Mermaid, use plain text labels. Only `<br>` and `<i>` tags render; other tags, `&#` entities, and `@{...}` shapes make the diagram show as source.
