@@ -180,19 +180,18 @@ hydration at startup makes likely. A screen that mounts a nested navigator (the
 root stack's `h/[serverId]`) is passed in `nestedNavigatorScreens` so the nested
 stack owns its own screens. See [unistyles.md](unistyles.md).
 
-## Regression Shape
+## Verification
 
-Pure helper tests are useful but not enough. The failure mode here is native
-route-tree state, so a real regression should launch native with seeded persisted
-state:
+The failure mode here is native route-tree state, so verify by launching native
+with seeded persisted state:
 
 1. Seed `paseo:last-workspace-route-selection` with a valid
    `{ serverId, workspaceId }`.
 2. Launch the native app cold.
-3. Assert a real screen is visible, not the blank tree.
-4. Assert no `[Layout children]` warning appears.
+3. Confirm a real screen is visible, not the blank tree.
+4. Confirm no `[Layout children]` warning appears.
 
-The pure policy tests should still enforce the boundary split:
+Keep the boundary split:
 
 - root startup with a saved workspace returns `/h/[serverId]`;
 - host index with the same saved workspace returns

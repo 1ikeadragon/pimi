@@ -103,7 +103,7 @@ Desktop packaging ships the entire built-in plugin directory as an external reso
 including declarations. The external esbuild compiler cannot read Electron's `app.asar`
 filesystem, and packaging dependencies excludes `.d.ts` files needed for import validation.
 Built-ins can import only host modules (`@pimi/plugin/*`, `zod`) and Node built-ins:
-outside the archive, nothing resolves an npm dependency, and the dist build test cannot catch
+outside the archive, nothing resolves an npm dependency, and a dev run cannot catch
 one because it resolves through the repository's `node_modules`.
 The packaged-app smoke check requires every listed built-in to start without relying on
 account credentials.
@@ -136,7 +136,7 @@ selection is unavailable for registry installs; install an explicit source to se
 
 Registry overviews are untrusted author content, even before installation. Render them with
 `@pimi/protocol/plugin-overview`: no raw HTML, HTTPS-only links and images, no relative
-URLs, and isolated external links. The shared corpus is `packages/protocol/tests/fixtures/plugin-overview.json`.
+URLs, and isolated external links.
 Installed-plugin descriptions in the app remain plain text.
 
 Use `host/owner/slug` for a registry at `https://host`, or set
@@ -272,8 +272,7 @@ imports the other. Re-exports follow the same rule; tree shaking does not establ
 React, React Native, JSX runtimes, and client hooks must never be reachable from the root or any
 server entry. Node and platform-specific code must never be reachable from the shared root.
 
-The SDK boundary checks and real plugin-subprocess tests enforce these rules. Every SDK change
-must preserve them and update the public reference, migration guide, scaffold, and examples when
+Every SDK change must preserve these rules and update the public reference, migration guide, scaffold, and examples when
 an author-facing import changes. The plugin compiler enforces the same runtime entry rules for
 plugin-authored code. Keep the package export map and host-provided module maps consistent.
 
@@ -359,7 +358,7 @@ mounted hooks.
 The byte rule (a top-level `Uint8Array` is binary, a nested one is a validation error) is checked
 once per hop by `assertPluginWireValue`. Bytes ride plugin binary frames, opcodes `0x20`-`0x2f`
 (`packages/protocol/src/binary-frames/plugin.ts`); nothing on the path copies or re-encodes them,
-and `plugin-subscriptions.perf.e2e.test.ts` locks that. Keep it that way: never stringify a plugin
+and nothing enforces that. Keep it that way: never stringify a plugin
 payload for a log, and the client's bootstrap buffer holds bytes only until the first observer
 attaches. Binary outputs reach only clients that send `pluginBinaryPayloads`. A binary input
 frame (`0x22`) becomes a synthetic `plugin.rpc.invoke.request` and runs through the normal message

@@ -363,8 +363,7 @@ owned by Unistyles' change listeners. Chromium defers their events while a windo
 is hidden; reading `matches` on those same lists can consume the pending change.
 CSS variables then follow the OS theme while `withUnistyles` props retain the old
 colors. Keep this patch until upstream reads the scheme through separate lists.
-The desktop browser E2E checks both transition directions in an isolated Electron
-process, because Playwright's focus emulation prevents real hidden-page behavior.
+Check both transition directions in a real Electron window, because Playwright's focus emulation prevents real hidden-page behavior.
 
 Register every dependency patch in `scripts/postinstall-patches.mjs`. A file in
 `patches/` is inert unless that script knows which installed package activates

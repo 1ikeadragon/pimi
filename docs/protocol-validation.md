@@ -8,7 +8,7 @@ The reason is mobile performance. A captured 353 KB provider snapshot cost about
 
 `packages/protocol/src/validation/ws-outbound.ts` is the shipped boundary. It validates the envelope with a generated validator that checks only each session message's `type` tag, then runs the generated validator for that one message type and returns the validated data. Issue paths from the message validator, including nested union branches, are prefixed with `message`, so callers see the same issues as when one validator covered the whole envelope. It does not normalize, repair, or re-validate the generated result.
 
-Keep one generated function per message type. zod-aot inlines every nested schema into the function it compiles, so compiling `WSOutboundMessageSchema` as a whole produced one 11 MB function. On V8 (daemon clients, plugin hosts, the CLI, and Electron), the Maglev tier compiled that function once it was hot, allocating about 800 MB and stalling for seconds, and compiled it again after each deoptimization. Hermes has no JIT, so mobile never showed it. `packages/protocol/tests/validation/ws-outbound.test.ts` fails if a generated function grows past 1 MB.
+Keep one generated function per message type. zod-aot inlines every nested schema into the function it compiles, so compiling `WSOutboundMessageSchema` as a whole produced one 11 MB function. On V8 (daemon clients, plugin hosts, the CLI, and Electron), the Maglev tier compiled that function once it was hot, allocating about 800 MB and stalling for seconds, and compiled it again after each deoptimization. Hermes has no JIT, so mobile never showed it. A generated function must stay under 1 MB.
 
 Generated validators preserve unknown keys where Zod object parsing strips them. The client dispatch path uses known `type` and payload fields, so this passthrough behavior is accepted for inbound messages. The wire format is unchanged.
 
@@ -23,11 +23,11 @@ The protocol package owns generation.
 - `packages/protocol/scripts/watch-validation-aot.mjs` reruns generation while editing protocol sources.
 - `packages/protocol/codegen/generated/ws-outbound.compile.ts`, `packages/protocol/src/generated/validation/ws-outbound.aot.ts`, and `packages/protocol/src/generated/validation/ws-outbound-schema-metadata.ts` are generated and gitignored. The metadata module lets generated code reach schema fallback/default values.
 
-Generation runs from protocol-owned lifecycle hooks: `prebuild`, `pretypecheck`, `pretest`, and `watch`. Installs do not run generation: published packages consume protocol from prebuilt `dist`, and local build/typecheck/test flows generate the source file at the point it is actually needed.
+Generation runs from protocol-owned lifecycle hooks: `prebuild`, `pretypecheck`, and `watch`. Installs do not run generation: published packages consume protocol from prebuilt `dist`, and local build/typecheck flows generate the source file at the point it is actually needed.
 
-## Regression Tests
+## Patched cases
 
-zod-aot is exact-pinned and young enough that compiler patches are treated as part of this package. `packages/protocol/tests/validation/ws-outbound.test.ts` keeps small regression tests for the patched cases:
+zod-aot is exact-pinned and young enough that compiler patches are treated as part of this package. Check these when you change the compiler pin or the patches:
 
 - discriminated-union branch output must propagate `.default()` fields
 - current sequential item routing must accept `tool_call`-like status branches
@@ -38,6 +38,6 @@ zod-aot is exact-pinned and young enough that compiler patches are treated as pa
 
 Message schemas are structural declarations. Do not put `.transform()`, `.catch()`, or `.preprocess()` on WebSocket message schemas. If parsed data needs normalization, put it in an explicit consumer or post-validation pass.
 
-Use `z.discriminatedUnion()` when every branch has a shared literal tag. Plain `z.union()` is acceptable only when there is no shared literal discriminator or when a generated-code regression test proves that specific shape is miscompiled.
+Use `z.discriminatedUnion()` when every branch has a shared literal tag. Plain `z.union()` is acceptable only when there is no shared literal discriminator or when the generated code for that specific shape is shown to be miscompiled.
 
 Defaults are allowed only on primitive leaves. Do not place `.default()` on large arrays, item schemas, or big containers in inbound message schemas.

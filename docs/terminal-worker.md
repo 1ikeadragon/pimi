@@ -47,7 +47,7 @@ Never more than two workers run. A new worker launches only when none is current
 
 **The frozen envelope never changes across versions:** the frame format (4-byte length + `v8.serialize`), `hello`/`helloAck`, the `listTerminals` info fields and `shutdown`. That is what lets any daemon close any worker: a kill stop sends `shutdown` to a newer worker it cannot otherwise drive. Protocol 5 hard cuts unreleased protocols 1 through 4, including the acknowledgement-based replay contract: those workers are obsolete and close. For future versions, keep a previous-version adapter so the draining worker can still be driven, and drop the adapter for the version before that.
 
-Tests stand up other versions with `PASEO_TERMINAL_WORKER_PROTOCOL_OVERRIDE`, read by the worker. It is test-only.
+`PASEO_TERMINAL_WORKER_PROTOCOL_OVERRIDE`, read by the worker, stands up another protocol version for version-skew checks. It is for development only.
 
 ## Display replay
 
@@ -65,7 +65,7 @@ Clients decode begin/data/end events directly; replay is always chunked. Capture
 
 A worker outlives the installation that started it. An npm or desktop update replaces that installation's files, and the next terminal the old worker creates would load node-pty's `spawn-helper` and the zsh integration from paths that no longer exist. So a built daemon does not launch the worker from its install:
 
-- `npm run build` bundles the worker with esbuild (`packages/server/scripts/build-terminal-worker.mjs`) into `dist/server/terminal-worker/` with its `shell-integration/` beside it. Only node-pty stays external. A package loaded through a module-local `createRequire` is invisible to esbuild and would be missing at run time; `terminal-worker-runtime.test.ts` fails if the bundle loads anything but built-ins and node-pty.
+- `npm run build` bundles the worker with esbuild (`packages/server/scripts/build-terminal-worker.mjs`) into `dist/server/terminal-worker/` with its `shell-integration/` beside it. Only node-pty stays external. A package loaded through a module-local `createRequire` is invisible to esbuild and would be missing at run time; the bundle must load nothing but built-ins and node-pty.
 - Before launching, the daemon copies the bundle, the shell integration and node-pty (this platform's native build only) into `$PASEO_HOME/terminal-worker/<paseoVersion>-<hash>/` and launches from there. The hash covers the bundle and node-pty, so a local rebuild of the same version gets its own copy.
 - A copy is deleted once no record names it: after a draining worker exits, after a kill cleanup, and at daemon start. The daemon and the reaper delete copies, never the worker itself, so a worker exiting cannot remove a copy a new worker is about to launch from.
 - Dev (`.ts` source) launches from source and copies nothing.

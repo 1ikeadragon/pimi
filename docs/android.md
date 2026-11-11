@@ -120,14 +120,6 @@ until the app process restarts. Rebuild the native app after changing this patch
 a Metro reload cannot update it. Remove the patch when the installed
 `expo-modules-core` includes the fix.
 
-Run its native regression tests from `packages/app/android` after prebuild:
-
-```bash
-./gradlew :expo-modules-core:testDebugUnitTest \
-  --tests expo.modules.kotlin.activityresult.AppContextActivityResultRegistryRecreationTest \
-  --no-daemon --max-workers=1 -Dorg.gradle.parallel=false
-```
-
 From repo root:
 
 ```bash
@@ -148,8 +140,6 @@ workflows leave diagnostics disabled.
 The older `android`, `android:development`, and `ios` commands remain aliases for development.
 `android:production` still builds and installs a release through Expo; use `build:apk` when you
 need an artifact. `android:clear` removes the generated Android project.
-
-Run `npm run test:android --workspace=@pimi/app` explicitly with a local Android toolchain to prebuild Android and run native module unit tests. Ordinary CI does not prebuild Android or run these tests.
 
 ### Diagnostic logs without ADB
 
@@ -218,13 +208,7 @@ This is the Android counterpart of the iOS local-simulator flow in [development.
 `modules/paseo-scroll` replaces React Native's vertical scroll view with `PaseoScrollView`, which
 keeps React Native's scroll manager interface and corrects `maintainVisibleContentPosition` for the
 chat timeline. [agent-stream-disclosure.md](agent-stream-disclosure.md#scroll-view-corrections)
-lists the corrections and the React Native issues they work around. Its instrumentation test,
-`VisibleContentPositionClampTest`, mounts through React Native's own mounting manager:
-
-```bash
-cd packages/app/android
-./gradlew :paseo-scroll:connectedDebugAndroidTest --no-daemon --max-workers=2 -Dorg.gradle.parallel=false
-```
+lists the corrections and the React Native issues they work around.
 
 Register this package before React Native's core package through its Expo config plugin. Normal
 Android builds use the prebuilt `react-android` library, so patching Java under `node_modules` does

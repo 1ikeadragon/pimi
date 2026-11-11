@@ -76,11 +76,3 @@ The client learns its own `4002` and `4003` from the relay E2EE transport, which
 ## Known limitation
 
 While a daemon accepts legacy clients, a transcript recorded from any legacy session (hello, credentials, commands) can still be replayed to it. Pinning on the client does not change that, because the attacker replays the old client's transcript, not the pinned client's. The only remedy is enabling the flag on that daemon.
-
-## Testing
-
-- `packages/relay/src/noise/noise.test.ts`: vendored vectors, replay and out-of-order rejection at the cipher-state level.
-- `packages/relay/src/protected-records.test.ts`: framing round trips and every malformed-record rule.
-- `packages/relay/src/secure-channel.test.ts`: both modes, mixed versions, policy rejection, retries, recorded-transcript replay, downgrade attempts.
-- `packages/server/src/server/websocket/secure-relay-ingress.test.ts`: daemon admission and the flag.
-- `packages/server/src/server/daemon-e2e/relay-transport.e2e.test.ts`: real daemon through the wrangler relay. Set `PASEO_RELAY_E2E_PORT` to run the same cases against an already-running relay such as the Elixir relay in Docker.

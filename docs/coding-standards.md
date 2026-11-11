@@ -78,7 +78,7 @@ For testing rules, see [testing.md](testing.md).
 
 - A change should look like a thoughtful edit to existing code, not a new layer next to it. New coordinator wrapping a coordinator, new flag bypassing the normal path, new helper duplicating an existing selector — stop and reshape instead.
 - Refactors preserve behavior by default. No removing features to simplify code without explicit approval.
-- Have a verification plan _before_ refactoring — name the invariants, confirm a test holds them, write one if not. See [testing.md](testing.md).
+- Have a verification plan _before_ refactoring — name the invariants and how you will check each in the real app. See [testing.md](testing.md).
 - Migrate all callers and remove old paths in the same refactor. No fallback behavior unless explicitly designed.
 
 ## React
@@ -104,7 +104,7 @@ Inactive retained panels use `display: none`, so DOM and layout APIs report zero
 
 - Suspend geometry-derived updates while either measured dimension is non-positive. Preserve the last valid state until the surface reports positive geometry again.
 - Enforce the rule at the measurement boundary shared by every trigger. Guarding only an `onLayout` or `ResizeObserver` callback still lets effects, content changes, and imperative remeasurement publish hidden geometry.
-- Test the hide-and-reveal path through a real retained surface. Settled assertions do not catch stale geometry painted during the first returned frames.
+- Check the hide-and-reveal path on a real retained surface, and watch the first returned frames. The settled state does not show stale geometry painted early.
 
 ## Naming
 

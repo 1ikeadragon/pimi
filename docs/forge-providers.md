@@ -24,8 +24,8 @@ For forge `acme`, the expected end state is:
    `packages/server/src/services/forge-registry.ts`.
 
 3. **App modules** - a forge splits into a pure logic half and a view half so
-   logic consumers (URL builders, merge-capability, native checks, and the
-   Node-based e2e harness) never pull the client rendering stack:
+   logic consumers (URL builders, merge-capability, and native checks)
+   never pull the client rendering stack:
    - `packages/app/src/git/forges/acme.ts` - logic: `id`, optional `urlGrammar`
      (source links and pasted issue/change-request reference paths), optional
      `facts` (schema, merge-capability, native-check fallbacks). No
@@ -125,7 +125,7 @@ Two registries live under `packages/app/src/git/forges/`:
 derivation, and native fallback checks; `CLIENT_FORGE_VIEW_MODULES` (`view.ts`)
 drives icon/color lookup and PR-pane contributions. Logic consumers must import
 the logic registry only — importing the view registry (or a `.view.tsx` module)
-from a logic path pulls react-native and breaks the Node-based e2e harness.
+from a logic path pulls react-native and breaks Node-side consumers.
 
 Per-forge brand colors live on the module, not in `styles/theme.ts`. Use the
 Unistyles-safe pattern from `docs/unistyles.md`: no `useUnistyles()`. Brand icon
@@ -164,9 +164,8 @@ To add `acme`:
    adapters. Widening a shared field is not forge-local: it also affects the
    already-shipped forges/GitHub call sites and the forge check-details RPC, so verify every consumer rather than assuming the change
    only reaches the new adapter.
-9. Run targeted tests: manifest/registry/resolver, the adapter test, protocol
-   checkout PR schema, app forge URL/presentation tests, app merge capability,
-   and any PR-pane native data tests touched.
+9. Verify in the real app ([testing.md](testing.md)): source links, the PR pane,
+   and merge capability against a real repository on the new forge.
 
 Run `npm run typecheck` after each implementation slice. If protocol or client
 declarations are stale, run `npm run build:client`; if server/CLI declarations

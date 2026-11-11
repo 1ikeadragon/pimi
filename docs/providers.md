@@ -379,48 +379,7 @@ const PROVIDER_ICONS: Record<string, typeof Bot> = {
 
 If no icon is registered, `getProviderIcon()` falls back to a generic `Bot` icon from lucide.
 
-### 5. Add E2E test config
-
-In `packages/server/src/server/daemon-e2e/agent-configs.ts`, add your provider:
-
-```ts
-export const agentConfigs = {
-  // ... existing configs ...
-  "my-provider": {
-    provider: "my-provider",
-    model: "default-model-id",
-    modes: {
-      full: "autonomous", // Mode with no permission prompts
-      ask: "default", // Mode that requires permission approval
-    },
-  },
-} as const satisfies Record<string, AgentTestConfig>;
-```
-
-Add an availability check in `isProviderAvailable()`. Note `isCommandAvailable` is async, so all branches `await` it:
-
-```ts
-case "my-provider":
-  return (
-    (await isCommandAvailable("my-agent-binary")) &&
-    Boolean(process.env.MY_PROVIDER_API_KEY)
-  );
-```
-
-Add to the `allProviders` array (current built-ins are `claude`, `codex`, `copilot`, `opencode`, `pi`, `omp`):
-
-```ts
-export const allProviders: AgentProvider[] = [
-  "claude",
-  "codex",
-  "copilot",
-  "opencode",
-  "pi",
-  "my-provider",
-];
-```
-
-### 6. Run typecheck
+### 5. Run typecheck
 
 ```bash
 npm run typecheck
@@ -514,8 +473,7 @@ interface AgentSession {
 2. Add to the provider manifest (same as ACP step 2 above)
 3. Add factory to the registry (same as ACP step 3 above)
 4. Add icon (same as ACP step 4 above)
-5. Add E2E config (same as ACP step 5 above)
-6. Run typecheck
+5. Run typecheck
 
 ---
 
@@ -538,15 +496,6 @@ pimi ls -a -g
 # Check if the provider reports models
 pimi models --provider my-provider
 ```
-
-### E2E test patterns
-
-The E2E configs in `agent-configs.ts` expose two helpers:
-
-- `getFullAccessConfig(provider)` -- returns config for a session with no permission prompts
-- `getAskModeConfig(provider)` -- returns config for a session that triggers permission requests
-
-Tests use `isProviderAvailable(provider)` to skip when the binary or credentials are missing, so CI will not fail for providers that are not installed.
 
 ---
 

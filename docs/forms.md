@@ -6,12 +6,11 @@ whatever screen you happen to be near.
 
 Golden example files:
 
-- `packages/app/src/schedules/schedule-form-model.ts` (+ `.test.ts`) — the model
+- `packages/app/src/schedules/schedule-form-model.ts` — the model
 - `packages/app/src/schedules/use-schedule-form-model.ts` — model lifetime adapter
 - `packages/app/src/schedules/use-schedule-form-provider-snapshot.ts` — async input adapter
 - `packages/app/src/components/schedules/schedule-form-sheet.tsx` — render + intent dispatch
 - `packages/app/src/schedules/aggregated-schedules.ts` / `hooks/use-schedules.ts` — load-state gating
-- `packages/app/e2e/schedules-*.spec.ts` — the behavioral contract
 
 ## The form model
 

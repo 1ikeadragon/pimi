@@ -151,9 +151,3 @@ definition, no longer eligible to begin.
   and use the retained-panel active signal to stop timers, polling, and other genuine background work.
   Hidden chat content is suspended on web only, through `retained-chat-content.web.tsx`, where DOM
   nodes carry no Fabric ownership; the native file keeps the chat live.
-
-## Tests
-
-`packages/app/src/mobile-panels/model.test.ts` exercises command, drag, cancellation, interruption,
-rapid-command, position-settlement, and width-projection sequences through the transition model. Add
-a sequence there whenever ownership or ordering changes.

@@ -63,8 +63,7 @@ loads daemon bootstrap eagerly, even when a caller only uses a path or process h
 Keep process-management and configuration dependencies independent of bootstrap and
 WebSocket message schemas. Shared configuration schemas belong in protocol leaf modules;
 `messages` imports and re-exports them. This prevents every supervising process from
-retaining the daemon's runtime and wire-schema allocations. The server export tests guard
-these dependency trees with tree-shaking disabled to match unbundled production imports.
+retaining the daemon's runtime and wire-schema allocations.
 
 Terminals do not live in the daemon process: their PTYs run in a detached terminal worker that
 survives daemon restarts, crashes and upgrades. See [terminal-worker.md](terminal-worker.md).

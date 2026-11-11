@@ -139,7 +139,6 @@ Drop a hunk when the installed LegendList ships its fix.
 
 `modules/paseo-scroll` replaces React Native's scroll view on both platforms with a subclass:
 Android's `PaseoScrollView` and iOS's `PaseoScrollViewComponentView`.
-`VisibleContentPositionClampTest` covers Android; iOS has no native test harness.
 
 **Content clamp.** A mount that shrinks the content while `maintainVisibleContentPosition` is set
 applies the shrink twice on both platforms: the scroll view clamps its offset to the new end during
