@@ -85,6 +85,14 @@ import {
   AutomationRunRetryResponseSchema,
   AutomationCompileRequestSchema,
   AutomationCompileResponseSchema,
+  AutomationDraftStartRequestSchema,
+  AutomationDraftStartResponseSchema,
+  AutomationDraftListRequestSchema,
+  AutomationDraftListResponseSchema,
+  AutomationDraftRetryRequestSchema,
+  AutomationDraftRetryResponseSchema,
+  AutomationDraftDismissRequestSchema,
+  AutomationDraftDismissResponseSchema,
   AutomationTriggerCheckRequestSchema,
   AutomationTriggerCheckResponseSchema,
 } from "./automation/rpc-schemas.js";
@@ -172,9 +180,43 @@ const MutableStructuredGenerationProviderSchema = z
   })
   .passthrough();
 
+export const PIMI_MODEL_FEATURE_KEYS = [
+  "title",
+  "branchName",
+  "commitMessage",
+  "pullRequest",
+  "automation",
+  "askPimi",
+] as const;
+
+// One optional model per Pimi model call site. A missing key means "same as the default".
+const MutablePimiModelFeaturesSchema = z
+  .object({
+    title: MutableStructuredGenerationProviderSchema.optional(),
+    branchName: MutableStructuredGenerationProviderSchema.optional(),
+    commitMessage: MutableStructuredGenerationProviderSchema.optional(),
+    pullRequest: MutableStructuredGenerationProviderSchema.optional(),
+    automation: MutableStructuredGenerationProviderSchema.optional(),
+    askPimi: MutableStructuredGenerationProviderSchema.optional(),
+  })
+  .strict();
+
+// In a patch, `null` clears an override.
+const MutablePimiModelFeaturesPatchSchema = z
+  .object({
+    title: MutableStructuredGenerationProviderSchema.nullable().optional(),
+    branchName: MutableStructuredGenerationProviderSchema.nullable().optional(),
+    commitMessage: MutableStructuredGenerationProviderSchema.nullable().optional(),
+    pullRequest: MutableStructuredGenerationProviderSchema.nullable().optional(),
+    automation: MutableStructuredGenerationProviderSchema.nullable().optional(),
+    askPimi: MutableStructuredGenerationProviderSchema.nullable().optional(),
+  })
+  .strict();
+
 const MutableMetadataGenerationConfigSchema = z
   .object({
     providers: z.array(MutableStructuredGenerationProviderSchema).default([]),
+    features: MutablePimiModelFeaturesSchema.optional(),
     autoNaming: z.boolean(),
   })
   .passthrough();
@@ -257,6 +299,7 @@ export const MutableDaemonConfigPatchSchema = z
     metadataGeneration: z
       .object({
         providers: z.array(MutableStructuredGenerationProviderSchema).optional(),
+        features: MutablePimiModelFeaturesPatchSchema.optional(),
         autoNaming: z.boolean().optional(),
       })
       .passthrough()
@@ -1204,6 +1247,44 @@ export const ExternalResourceAttachmentMetadataSchema = z.object({
   url: z.string(),
 });
 
+const annotationPositionSchema = z.number().int().positive();
+
+/** Where an annotated quote came from: a range in a workspace file, or a message in a chat. */
+export const AnnotationSourceSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("file"),
+    serverId: z.string(),
+    workspaceId: z.string(),
+    path: z.string(),
+    startLine: annotationPositionSchema,
+    startColumn: annotationPositionSchema,
+    endLine: annotationPositionSchema,
+    endColumn: annotationPositionSchema,
+  }),
+  z.object({
+    kind: z.literal("chat"),
+    serverId: z.string(),
+    agentId: z.string(),
+    messageId: z.string(),
+    role: z.enum(["user", "assistant"]),
+  }),
+]);
+
+/** Finds a chat quote again in the rendered message after it reflows. */
+export const AnnotationTextSelectorSchema = z.object({
+  text: z.string(),
+  prefix: z.string(),
+  suffix: z.string(),
+});
+
+/** What a sent message keeps of an annotation so its pill can go back to the source. */
+export const AnnotationAttachmentMetadataSchema = z.object({
+  source: AnnotationSourceSchema,
+  quote: z.string(),
+  note: z.string(),
+  selector: AnnotationTextSelectorSchema.optional(),
+});
+
 export const TextAttachmentSchema = z
   .object({
     type: z.literal("text"),
@@ -1212,6 +1293,7 @@ export const TextAttachmentSchema = z
     title: z.string().nullable().optional(),
     text: z.string(),
     externalResource: ExternalResourceAttachmentMetadataSchema.optional(),
+    annotation: AnnotationAttachmentMetadataSchema.optional(),
   })
   .transform(({ contextKind, ...attachment }) => ({
     ...attachment,
@@ -2541,6 +2623,22 @@ const PimiCodebaseSearchRequestSchema = z.object({
 });
 
 const GitHubRepoSegmentSchema = z.string().regex(/^[A-Za-z0-9._-]+$/);
+// Editor navigation. `path` is relative to the workspace; `line` and `column` are 1-based and
+// locate `symbol` in the editor buffer. `content` is the unsaved buffer, sent when it differs from
+// disk so a semantic provider reads the same text the user is looking at.
+const CodeNavigationQueryRequestSchema = z.object({
+  type: z.literal("code.navigation.query.request"),
+  workspaceId: z.string().trim().min(1).max(256),
+  path: z.string().min(1).max(4096),
+  line: z.number().int().positive(),
+  column: z.number().int().positive(),
+  symbol: z.string().min(1).max(256),
+  kind: z.enum(["definition", "references", "rename"]),
+  newName: z.string().min(1).max(256).optional(),
+  content: z.string().max(2_000_000).optional(),
+  requestId: z.string(),
+});
+
 
 const CheckoutCheckDetailsRequestPayloadSchema = z.object({
   cwd: z.string(),
@@ -3418,6 +3516,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   CheckoutBlameRequestSchema,
   PimiCodebaseSearchRequestSchema,
   CheckoutForgeGetCheckDetailsRequestSchema,
+  CodeNavigationQueryRequestSchema,
   CheckoutPrStatusRequestSchema,
   PullRequestTimelineRequestSchema,
   CheckoutSwitchBranchRequestSchema,
@@ -3493,6 +3592,10 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   AutomationRunMarkReadRequestSchema,
   AutomationRunRetryRequestSchema,
   AutomationCompileRequestSchema,
+  AutomationDraftStartRequestSchema,
+  AutomationDraftListRequestSchema,
+  AutomationDraftRetryRequestSchema,
+  AutomationDraftDismissRequestSchema,
   AutomationTriggerCheckRequestSchema,
   HeartbeatCreateRequestSchema,
   HeartbeatUpdateRequestSchema,
@@ -5511,6 +5614,47 @@ const PimiCodebaseSearchResponseSchema = z.object({
 });
 
 const CheckoutGithubCheckAnnotationSchema = z.object({
+export const CodeNavigationResultSchema = z.object({
+  // "name" is a text match on the identifier, with no scope awareness; "typescript" is exact.
+  provider: z.enum(["name", "typescript"]),
+  // Why a more precise provider did not answer, when one was tried.
+  note: z.string().nullable(),
+  results: z
+    .array(
+      z.object({
+        path: z.string(),
+        line: z.number().int().positive(),
+        column: z.number().int().positive(),
+        preview: z.string(),
+        role: z.enum(["definition", "reference"]),
+      }),
+    )
+    .max(500),
+  truncated: z.boolean(),
+  // Rename only: the text replacements to apply, ends exclusive.
+  edits: z
+    .array(
+      z.object({
+        path: z.string(),
+        line: z.number().int().positive(),
+        column: z.number().int().positive(),
+        endLine: z.number().int().positive(),
+        endColumn: z.number().int().positive(),
+        newText: z.string(),
+      }),
+    )
+    .max(5000),
+});
+
+const CodeNavigationQueryResponseSchema = z.object({
+  type: z.literal("code.navigation.query.response"),
+  payload: z.object({
+    requestId: z.string(),
+    result: CodeNavigationResultSchema.nullable(),
+    error: z.string().nullable(),
+  }),
+});
+
   path: z.string().optional(),
   startLine: z.number().optional(),
   endLine: z.number().optional(),
@@ -6796,6 +6940,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   CheckoutBlameResponseSchema,
   PimiCodebaseSearchResponseSchema,
   CheckoutForgeGetCheckDetailsResponseSchema,
+  CodeNavigationQueryResponseSchema,
   CheckoutPrStatusResponseSchema,
   PullRequestTimelineResponseSchema,
   CheckoutSwitchBranchResponseSchema,
@@ -6859,6 +7004,10 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   AutomationRunMarkReadResponseSchema,
   AutomationRunRetryResponseSchema,
   AutomationCompileResponseSchema,
+  AutomationDraftStartResponseSchema,
+  AutomationDraftListResponseSchema,
+  AutomationDraftRetryResponseSchema,
+  AutomationDraftDismissResponseSchema,
   AutomationTriggerCheckResponseSchema,
   HeartbeatCreateResponseSchema,
   HeartbeatUpdateResponseSchema,
@@ -7032,6 +7181,10 @@ export type AutomationRunGetResponse = z.infer<typeof AutomationRunGetResponseSc
 export type AutomationRunMarkReadResponse = z.infer<typeof AutomationRunMarkReadResponseSchema>;
 export type AutomationRunRetryResponse = z.infer<typeof AutomationRunRetryResponseSchema>;
 export type AutomationCompileResponse = z.infer<typeof AutomationCompileResponseSchema>;
+export type AutomationDraftStartResponse = z.infer<typeof AutomationDraftStartResponseSchema>;
+export type AutomationDraftListResponse = z.infer<typeof AutomationDraftListResponseSchema>;
+export type AutomationDraftRetryResponse = z.infer<typeof AutomationDraftRetryResponseSchema>;
+export type AutomationDraftDismissResponse = z.infer<typeof AutomationDraftDismissResponseSchema>;
 export type AutomationTriggerCheckResponse = z.infer<typeof AutomationTriggerCheckResponseSchema>;
 export type HeartbeatCreateResponse = z.infer<typeof HeartbeatCreateResponseSchema>;
 export type HeartbeatUpdateResponse = z.infer<typeof HeartbeatUpdateResponseSchema>;
@@ -7069,6 +7222,9 @@ export type DictationStreamFinishMessage = z.infer<typeof DictationStreamFinishM
 export type DictationStreamCancelMessage = z.infer<typeof DictationStreamCancelMessageSchema>;
 export type CreateAgentRequestMessage = z.infer<typeof CreateAgentRequestMessageSchema>;
 export type AgentAttachment = z.infer<typeof AgentAttachmentSchema>;
+export type AnnotationSource = z.infer<typeof AnnotationSourceSchema>;
+export type AnnotationTextSelector = z.infer<typeof AnnotationTextSelectorSchema>;
+export type AnnotationAttachmentMetadata = z.infer<typeof AnnotationAttachmentMetadataSchema>;
 export type ForgeChangeRequestAttachment = z.infer<typeof ForgeChangeRequestAttachmentSchema>;
 export type ForgeIssueAttachment = z.infer<typeof ForgeIssueAttachmentSchema>;
 export type UploadedFileAttachment = z.infer<typeof UploadedFileAttachmentSchema>;
@@ -7160,6 +7316,8 @@ export type CheckoutCommitFileDiffResponse = z.infer<typeof CheckoutCommitFileDi
 export type PimiCodebaseSearchRequest = z.infer<typeof PimiCodebaseSearchRequestSchema>;
 export type PimiCodebaseSearchResult = z.infer<typeof PimiCodebaseSearchResultSchema>;
 export type CheckoutBlameRequest = z.infer<typeof CheckoutBlameRequestSchema>;
+export type CodeNavigationQueryRequest = z.infer<typeof CodeNavigationQueryRequestSchema>;
+export type CodeNavigationResult = z.infer<typeof CodeNavigationResultSchema>;
 export type CheckoutBlameResult = z.infer<typeof CheckoutBlameResultSchema>;
 export type ParsedDiffFile = z.infer<typeof ParsedDiffFileSchema>;
 export type CheckoutPrCreateRequest = z.infer<typeof CheckoutPrCreateRequestSchema>;

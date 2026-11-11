@@ -11,11 +11,10 @@ import { useToast } from "@/contexts/toast-context";
 import { useSettings } from "@/hooks/use-settings";
 import {
   openAnnotationAtSource,
-  revealAnnotationSource,
   type AnnotationEditorOutcome,
   type AnnotationEditSession,
 } from "./edit-session";
-import { FILE_REVEAL_NOTICE, goToFileAnnotation } from "./file-reveal";
+import { goToAnnotationSource } from "./go-to-source";
 import { AnnotationPillEditor } from "./pill-editor";
 import { AnnotationSheet } from "./sheet";
 import { annotationSourceLabel, annotationTitle, type AnnotationAttachment } from "./model";
@@ -80,16 +79,13 @@ export function AnnotationPill({
   // The source is now on screen, so the card showing it closes until the pointer comes back.
   const [revealed, setRevealed] = useState(false);
   const handleOpen = useCallback(() => {
-    if (goesToSource && attachment.source.kind === "file") {
-      setRevealed(true);
-      goToFileAnnotation({
-        attachment,
+    if (
+      goesToSource &&
+      goToAnnotationSource(attachment, {
         preferences: openInSidePane,
-        onNotice: (notice) => toast.show(FILE_REVEAL_NOTICE[notice], { variant: "warning" }),
-      });
-      return;
-    }
-    if (goesToSource && revealAnnotationSource(attachment)) {
+        onNotice: (message) => toast.show(message, { variant: "warning" }),
+      })
+    ) {
       setRevealed(true);
       return;
     }

@@ -103,6 +103,8 @@ export function useFaviconStatus() {
   const workspaceStatuses = useWorkspaceStatusesForBadges();
   const [colorScheme, setColorScheme] = useState<ColorScheme>(getSystemColorScheme);
   const lastDockBadgeCountRef = useRef<number | undefined>(undefined);
+  // undefined so the first value is always sent, clearing a stale report after a reload.
+  const lastAgentsRunningRef = useRef<boolean | undefined>(undefined);
 
   // Listen for system color scheme changes
   useEffect(() => {
@@ -123,6 +125,17 @@ export function useFaviconStatus() {
 
     const status = deriveFaviconStatus(agents);
     updateFavicon(status, colorScheme);
+
+    const agentsRunning = status === "running";
+    if (agentsRunning !== lastAgentsRunningRef.current) {
+      lastAgentsRunningRef.current = agentsRunning;
+      void getDesktopHost()
+        ?.window?.getCurrentWindow?.()
+        ?.setAgentsRunning?.(agentsRunning)
+        ?.catch((error: unknown) => {
+          console.warn("[useFaviconStatus] Failed to report running agents for keep-awake", error);
+        });
+    }
 
     const dockBadgeCount = deriveMacDockBadgeCountFromWorkspaceStatuses(workspaceStatuses);
     if (dockBadgeCount !== lastDockBadgeCountRef.current) {

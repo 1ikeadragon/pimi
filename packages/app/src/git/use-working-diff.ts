@@ -7,7 +7,6 @@ import {
   buildReviewDraftKey,
   useInlineReviewController,
   useReviewAttachmentSnapshot,
-  useReviewFeedback,
 } from "@/review";
 import { useCheckoutDiffQuery } from "@/git/use-diff-query";
 import { useCheckoutStatusQuery } from "@/git/use-status-query";
@@ -92,13 +91,6 @@ export function useWorkingDiff({
     baseRef,
   });
 
-  const reviewFeedback = useReviewFeedback({
-    serverId,
-    workspaceId,
-    reviewDraftKey,
-    attachment: reviewAttachment,
-  });
-
   return {
     status,
     isStatusLoading,
@@ -117,7 +109,6 @@ export function useWorkingDiff({
     isDiffLoading,
     reviewActions,
     reviewAttachment,
-    reviewFeedback,
   };
 }
 

@@ -7,7 +7,8 @@ import {
   generateStructuredAgentResponseWithFallback,
 } from "./agent/agent-response-loop.js";
 import {
-  resolveStructuredGenerationProviders,
+  resolvePimiModel,
+  PimiModelUnavailableError,
   type StructuredGenerationDaemonConfig,
 } from "./agent/structured-generation-providers.js";
 import { buildAgentBranchNameSeed } from "./agent/prompt-attachments.js";
@@ -102,14 +103,15 @@ export async function generateBranchNameFromFirstAgentContext(
     generateStructuredAgentResponseWithFallback;
 
   try {
-    const providers = options.providerSnapshotManager
-      ? await resolveStructuredGenerationProviders({
+    const { providers, pinned } = options.providerSnapshotManager
+      ? await resolvePimiModel({
+          feature: "branchName",
           cwd: options.cwd,
           providerSnapshotManager: options.providerSnapshotManager,
           daemonConfig: options.daemonConfig,
           currentSelection: options.currentSelection,
         })
-      : [];
+      : { providers: [], pinned: false };
     const result = await generator({
       manager: options.agentManager,
       cwd: options.cwd,
@@ -121,6 +123,8 @@ export async function generateBranchNameFromFirstAgentContext(
       schemaName: "BranchName",
       maxRetries: 2,
       providers,
+      pinned,
+      feature: "branchName",
       persistSession: false,
       logger: options.logger,
       agentConfigOverrides: {
@@ -133,6 +137,10 @@ export async function generateBranchNameFromFirstAgentContext(
       branch: result.branch.trim() || null,
     };
   } catch (error) {
+    if (error instanceof PimiModelUnavailableError) {
+      options.logger.warn({ err: error }, "Workspace name generation skipped: model unavailable");
+      return null;
+    }
     const attempts = error instanceof StructuredAgentFallbackError ? error.attempts : undefined;
     options.logger.error(
       { err: error, attempts },

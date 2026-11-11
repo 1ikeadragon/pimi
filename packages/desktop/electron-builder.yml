@@ -51,9 +51,10 @@ files:
   - "!node_modules/@anthropic-ai/sdk/**"
   - "!node_modules/ai/**"
   - "!node_modules/@ai-sdk/**"
-  # The plugin compiler only loads typescript/lib/typescript.js.
+  # The plugin compiler loads typescript/lib/typescript.js and editor navigation spawns tsserver.js
+  # (with _tsserver.js and, on Windows, watchGuard.js), so those stay.
   - "!node_modules/typescript/bin/**"
-  - "!node_modules/typescript/lib/{_tsc,tsc,_tsserver,tsserver,_typingsInstaller,typingsInstaller,watchGuard}.js"
+  - "!node_modules/typescript/lib/{_tsc,tsc,_typingsInstaller,typingsInstaller}.js"
   - "!node_modules/typescript/lib/{cs,de,es,fr,it,ja,ko,pl,pt-br,ru,tr,zh-cn,zh-tw}/**"
   # Third-party TypeScript sources. The extglob keeps .d.ts, .d.mts and .d.cts.
   - "!node_modules/**/!(*.d).{ts,mts,cts}"

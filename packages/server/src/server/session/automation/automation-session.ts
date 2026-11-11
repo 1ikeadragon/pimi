@@ -218,6 +218,46 @@ export class AutomationSession {
           },
         }));
       default:
+        return this.dispatchDraft(msg);
+    }
+  }
+
+  // Describing an automation: drafts compile in the background on the service.
+  private dispatchDraft(msg: SessionInboundMessage): Promise<void> | undefined {
+    switch (msg.type) {
+      case "automation.draft.start.request":
+        return this.handle(msg, async () => ({
+          type: "automation.draft.start.response",
+          payload: {
+            requestId: msg.requestId,
+            draft: await this.automations.startDraft({
+              description: msg.description,
+              cwd: msg.cwd,
+            }),
+          },
+        }));
+      case "automation.draft.list.request":
+        return this.handle(msg, async () => ({
+          type: "automation.draft.list.response",
+          payload: { requestId: msg.requestId, drafts: await this.automations.listDrafts() },
+        }));
+      case "automation.draft.retry.request":
+        return this.handle(msg, async () => ({
+          type: "automation.draft.retry.response",
+          payload: {
+            requestId: msg.requestId,
+            draft: await this.automations.retryDraft(msg.draftId),
+          },
+        }));
+      case "automation.draft.dismiss.request":
+        return this.handle(msg, async () => {
+          await this.automations.dismissDraft(msg.draftId);
+          return {
+            type: "automation.draft.dismiss.response",
+            payload: { requestId: msg.requestId, draftId: msg.draftId },
+          };
+        });
+      default:
         return undefined;
     }
   }

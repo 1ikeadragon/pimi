@@ -58,7 +58,14 @@ function innerOverflow(node: HTMLElement | null): number {
  * with the scroll bars, the wheel or a drag; zoom with ctrl or ⌘ and the wheel, a trackpad pinch,
  * a touch pinch on native, or the buttons.
  */
-export function ChatVisualViewport({ children }: { children: ReactNode }) {
+export function ChatVisualViewport({
+  children,
+  toolbarLeading,
+}: {
+  children: ReactNode;
+  /** Extra controls at the start of the zoom toolbar. */
+  toolbarLeading?: ReactNode;
+}) {
   const { t } = useTranslation();
   const [viewport, setViewport] = useState<Size | null>(null);
   const [content, setContent] = useState<Size | null>(null);
@@ -252,6 +259,7 @@ export function ChatVisualViewport({ children }: { children: ReactNode }) {
         </ScrollView>
       </GestureDetector>
       <View style={styles.toolbar}>
+        {toolbarLeading}
         <Button
           variant="ghost"
           size="sm"

@@ -31,28 +31,21 @@ export interface RetryAutomationRunInput {
   runId: string;
 }
 
-export interface CompileAutomationInput {
-  description: string;
-  cwd: string;
-}
-
 export interface UpdateAutomationInput {
   automationId: string;
   definition: AutomationDefinition;
 }
 
 export interface UseAutomationMutationsResult {
-  createAutomation: (input: CreateAutomationInput) => Promise<void>;
+  createAutomation: (input: CreateAutomationInput) => Promise<Automation>;
   updateAutomation: (input: UpdateAutomationInput) => Promise<void>;
   pauseAutomation: (id: string) => Promise<void>;
   resumeAutomation: (id: string) => Promise<void>;
   approveAutomation: (id: string) => Promise<void>;
   deleteAutomation: (id: string) => Promise<void>;
-  runAutomationNow: (id: string) => Promise<void>;
+  runAutomationNow: (id: string) => Promise<AutomationRun>;
   retryAutomationRun: (input: RetryAutomationRunInput) => Promise<AutomationRun>;
-  compileAutomation: (input: CompileAutomationInput) => Promise<AutomationDefinition>;
   isRetrying: boolean;
-  isCompiling: boolean;
   isCreating: boolean;
   isUpdating: boolean;
   isPausing: boolean;
@@ -142,9 +135,9 @@ export function useAutomationMutations({
   }, [queryClient]);
 
   const createMutation = useMutation({
-    mutationFn: async (input: CreateAutomationInput): Promise<void> => {
+    mutationFn: async (input: CreateAutomationInput): Promise<Automation> => {
       const client = requireClient(serverId, t("common.errors.daemonClientUnavailable"));
-      await client.automationCreate(input);
+      return (await client.automationCreate(input)).automation;
     },
     onSettled: invalidate,
   });
@@ -234,9 +227,9 @@ export function useAutomationMutations({
   });
 
   const runNowMutation = useMutation({
-    mutationFn: async (id: string): Promise<void> => {
+    mutationFn: async (id: string): Promise<AutomationRun> => {
       const client = requireClient(serverId, t("common.errors.daemonClientUnavailable"));
-      await client.automationRunStart({ automationId: id });
+      return (await client.automationRunStart({ automationId: id })).run;
     },
     onSettled: invalidate,
   });
@@ -249,27 +242,13 @@ export function useAutomationMutations({
     onSettled: invalidate,
   });
 
-  const compileMutation = useMutation({
-    mutationFn: async (input: CompileAutomationInput): Promise<AutomationDefinition> => {
-      const client = requireClient(serverId, t("common.errors.daemonClientUnavailable"));
-      return (await client.automationCompile(input)).definition;
-    },
-  });
-
   const retryAutomationRun = useCallback(
     (input: RetryAutomationRunInput) => retryMutation.mutateAsync(input),
     [retryMutation],
   );
 
-  const compileAutomation = useCallback(
-    (input: CompileAutomationInput) => compileMutation.mutateAsync(input),
-    [compileMutation],
-  );
-
   const createAutomation = useCallback(
-    async (input: CreateAutomationInput): Promise<void> => {
-      await createMutation.mutateAsync(input);
-    },
+    (input: CreateAutomationInput): Promise<Automation> => createMutation.mutateAsync(input),
     [createMutation],
   );
 
@@ -309,9 +288,7 @@ export function useAutomationMutations({
   );
 
   const runAutomationNow = useCallback(
-    async (id: string): Promise<void> => {
-      await runNowMutation.mutateAsync(id);
-    },
+    (id: string): Promise<AutomationRun> => runNowMutation.mutateAsync(id),
     [runNowMutation],
   );
 
@@ -324,9 +301,7 @@ export function useAutomationMutations({
     deleteAutomation,
     runAutomationNow,
     retryAutomationRun,
-    compileAutomation,
     isRetrying: retryMutation.isPending,
-    isCompiling: compileMutation.isPending,
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isPausing: pauseMutation.isPending,

@@ -202,6 +202,7 @@ import {
   type ActiveWorkspaceRef,
 } from "./workspace-archive-service.js";
 import { setupAutoArchiveOnMerge } from "./auto-archive-on-merge/index.js";
+import { closeAllTsServers, closeTsServer } from "./code-navigation/index.js";
 import { wrapSessionMessage, type SessionOutboundMessage } from "./messages.js";
 import type { TerminalManager } from "../terminal/terminal-manager.js";
 import { startWorkerTerminalManager } from "../terminal/worker-terminal-manager.js";
@@ -490,14 +491,7 @@ export interface PaseoDaemonConfig {
   resumeOnStartup?: boolean;
   resumePrompt?: string;
   providerCatalogRefreshTimeoutMs?: number;
-  metadataGeneration?: {
-    autoNaming?: boolean;
-    providers?: Array<{
-      provider: string;
-      model?: string;
-      thinkingOptionId?: string;
-    }>;
-  };
+  metadataGeneration?: NonNullable<PersistedConfig["agents"]>["metadataGeneration"];
   providerOverrides?: Record<string, ProviderOverride>;
   log?: PersistedConfig["log"];
   onLifecycleIntent?: (intent: DaemonLifecycleIntent) => void;
@@ -587,7 +581,11 @@ function resolveReloadEnv(config: PaseoDaemonConfig): NodeJS.ProcessEnv {
 }
 
 function resolveMetadataGeneration(config: ResolvedDaemonSettings["metadataGeneration"]) {
-  return { providers: config?.providers ?? [], autoNaming: config?.autoNaming !== false };
+  return {
+    providers: config?.providers ?? [],
+    ...(config?.features ? { features: config.features } : {}),
+    autoNaming: config?.autoNaming !== false,
+  };
 }
 
 function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): MutableDaemonConfig {
@@ -1210,6 +1208,7 @@ export async function createPaseoDaemon(
   await workspaceLabelService.initialize();
   logger.info({ elapsed: elapsed() }, "Workspace registries bootstrapped");
   const teardownArchivedWorkspaceRuntime = (workspaceId: string): void => {
+    closeTsServer(workspaceId);
     scriptRuntimeStore.removeForWorkspace(workspaceId);
     releaseWorkspaceServicePortPlan(workspaceId);
   };
@@ -2081,6 +2080,7 @@ export async function createPaseoDaemon(
     unsubscribePluginProviders();
     unsubscribePluginSessionChanges();
     workspaceReconciliation.dispose();
+    closeAllTsServers();
     scriptHealthMonitor.stop();
     unsubscribeIdleRuntimeCleanup();
     await idleRuntimeCleanup.close();

@@ -1,5 +1,11 @@
+import { queryCodeNavigation } from "./code-navigation/index.js";
 import { searchPimiCodebase } from "./pimi-codebase-index.js";
-import type { PimiCodebaseSearchRequest } from "@pimi/protocol/messages";
+import type {
+  CodeNavigationQueryRequest,
+  MutableDaemonConfigPatch,
+  PimiCodebaseSearchRequest,
+} from "@pimi/protocol/messages";
+import { canRunAskPimi } from "./agent/pimi-voice-command.js";
 import { type WorkspaceRuntimeStore } from "./workspace-runtime-store/index.js";
 import type { AgentMessageDelivery } from "./agent/agent-messages/index.js";
 import { AgentDirectory } from "./agent/directory.js";
@@ -2771,7 +2777,8 @@ export class Session {
       case "daemon.update.request":
         return this.daemonSession.handleUpdateRequest(msg);
       case "set_daemon_config_request":
-        return this.daemonConfigStore.patch(msg.config).then((config) => {
+        return this.assertPimiModelFeaturesSelectable(msg.config).then(async () => {
+          const config = await this.daemonConfigStore.patch(msg.config);
           return this.emit({
             type: "set_daemon_config_response",
             payload: {
@@ -2786,6 +2793,25 @@ export class Session {
         return this.projectConfigSession.handleWriteProjectConfigRequest(msg);
       default:
         return undefined;
+    }
+  }
+
+  /** A per-feature Pimi model must name an enabled provider; Ask Pimi also needs a harness it can drive. */
+  private async assertPimiModelFeaturesSelectable(config: MutableDaemonConfigPatch): Promise<void> {
+    const features = config.metadataGeneration?.features;
+    const chosen = Object.entries(features ?? {}).filter(([, entry]) => entry);
+    if (chosen.length === 0) return;
+    const entries = await this.providerSnapshotManager.listProviders({ wait: true });
+    for (const [feature, entry] of chosen) {
+      if (!entry) continue;
+      if (
+        !entries.some((candidate) => candidate.enabled && candidate.provider === entry.provider)
+      ) {
+        throw new Error(`${entry.provider} is disabled or not installed.`);
+      }
+      if (feature === "askPimi" && !canRunAskPimi(entry.provider)) {
+        throw new Error("Ask Pimi runs on Claude Code, Codex, or OpenCode.");
+      }
     }
   }
 
@@ -2806,6 +2832,8 @@ export class Session {
         return this.checkoutSession.handleBranchSuggestionsRequest(msg);
       case "pimi.codebase.search.request":
         return this.handlePimiCodebaseSearch(msg);
+      case "code.navigation.query.request":
+        return this.handleCodeNavigationQuery(msg);
       case "directory_suggestions_request":
         return this.handleDirectorySuggestionsRequest(msg);
       case "checkout.diff.get.request":
@@ -5021,6 +5049,30 @@ export class Session {
       if (signal.aborted) return;
       this.emit({
         type: "pimi.codebase.search.response",
+        payload: { requestId, result: null, error: errorToFriendlyMessage(error) },
+      });
+    }
+  }
+
+  private async handleCodeNavigationQuery(msg: CodeNavigationQueryRequest): Promise<void> {
+    const { workspaceId, requestId, ...query } = msg;
+    const signal = this.delivery.requestSignal;
+    try {
+      const workspace = await this.workspaceRegistry.get(workspaceId);
+      if (!workspace || workspace.archivedAt) throw new Error("This workspace is unavailable.");
+      const result = await queryCodeNavigation(
+        { ...query, workspaceId, cwd: workspace.cwd },
+        signal,
+      );
+      if (signal.aborted) return;
+      this.emit({
+        type: "code.navigation.query.response",
+        payload: { requestId, result, error: null },
+      });
+    } catch (error) {
+      if (signal.aborted) return;
+      this.emit({
+        type: "code.navigation.query.response",
         payload: { requestId, result: null, error: errorToFriendlyMessage(error) },
       });
     }

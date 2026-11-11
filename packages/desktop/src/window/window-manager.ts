@@ -7,8 +7,48 @@ import {
   clipboard,
   ipcMain,
   nativeTheme,
+  powerMonitor,
+  powerSaveBlocker,
   shell,
 } from "electron";
+
+// Keep the display awake while agents run and the machine is on AC power, like Codex and T3 Code.
+// Each renderer reports whether any agent is running; its report is dropped when its webContents
+// is destroyed or crashes, so a closed window can't keep the display awake. A reloaded renderer
+// sends its first value unconditionally. Power source changes re-evaluate.
+const agentsRunningBySender = new Map<number, boolean>();
+let keepAwakeBlockerId: number | null = null;
+let keepAwakePowerListenersInstalled = false;
+
+function syncKeepAwake(): void {
+  const anyRunning = [...agentsRunningBySender.values()].some(Boolean);
+  const want = anyRunning && !powerMonitor.isOnBatteryPower();
+  if (want && keepAwakeBlockerId === null) {
+    keepAwakeBlockerId = powerSaveBlocker.start("prevent-display-sleep");
+  } else if (!want && keepAwakeBlockerId !== null) {
+    powerSaveBlocker.stop(keepAwakeBlockerId);
+    keepAwakeBlockerId = null;
+  }
+}
+
+function setAgentsRunning(sender: WebContents, running: boolean): void {
+  if (!keepAwakePowerListenersInstalled) {
+    keepAwakePowerListenersInstalled = true;
+    powerMonitor.on("on-ac", syncKeepAwake);
+    powerMonitor.on("on-battery", syncKeepAwake);
+  }
+  const senderId = sender.id;
+  if (!agentsRunningBySender.has(senderId)) {
+    const forget = () => {
+      agentsRunningBySender.delete(senderId);
+      syncKeepAwake();
+    };
+    sender.once("destroyed", forget);
+    sender.on("render-process-gone", forget);
+  }
+  agentsRunningBySender.set(senderId, running);
+  syncKeepAwake();
+}
 
 import type { WindowState, WindowStateStore } from "../settings/window-state.js";
 import type { DesktopWindowChromeMode } from "./chrome.js";
@@ -191,6 +231,11 @@ export function registerWindowManager(input: { mode: DesktopWindowChromeMode }):
         });
       }
     }
+  });
+
+  ipcMain.handle("paseo:window:setAgentsRunning", (event, running: unknown) => {
+    if (typeof running !== "boolean") return;
+    setAgentsRunning(event.sender, running);
   });
 
   ipcMain.handle("paseo:window:updateChrome", (event, update?: unknown) => {

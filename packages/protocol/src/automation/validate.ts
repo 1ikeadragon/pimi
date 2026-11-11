@@ -1,13 +1,44 @@
 import type {
   AutomationConditionNode,
+  AutomationConditionOperator,
   AutomationDefinition,
   AutomationFlow,
   AutomationPullRequestEvent,
 } from "./types.js";
 
+export type AutomationIssueCode =
+  | "name_required"
+  | "project_required"
+  | "pr_repo"
+  | "pr_events"
+  | "no_steps"
+  | "too_many_steps"
+  | "bad_step_id"
+  | "duplicate_step_id"
+  | "edge_missing_step"
+  | "self_edge"
+  | "duplicate_edge"
+  | "branch_required"
+  | "branch_not_allowed"
+  | "cycle"
+  | "missing_prompt"
+  | "missing_provider"
+  | "bad_reference"
+  | "check_needs_before"
+  | "check_needs_after"
+  | "check_needs_input"
+  | "check_needs_value"
+  | "invalid_pattern";
+
+// `code` and `nodeId` let an editor place and word the issue itself; `message` is the English
+// text the daemon, CLI and agent tools show.
 export interface AutomationIssue {
   path: string;
   message: string;
+  code: AutomationIssueCode;
+  nodeId?: string;
+  /** The `{{...}}` reference a `bad_reference` issue is about, without the braces. */
+  ref?: string;
 }
 
 export const MAX_AUTOMATION_NODES = 24;
@@ -65,6 +96,11 @@ export function renderAutomationTemplate(text: string, context: AutomationTempla
   });
 }
 
+/** `is_empty` and `not_empty` test the input alone; every other operator compares with `value`. */
+export function conditionOperatorNeedsValue(operator: AutomationConditionOperator): boolean {
+  return operator !== "is_empty" && operator !== "not_empty";
+}
+
 export function evaluateAutomationCondition(node: AutomationConditionNode, input: string): boolean {
   const subject = input.trim();
   const expected = node.value.trim();
@@ -77,6 +113,10 @@ export function evaluateAutomationCondition(node: AutomationConditionNode, input
       return subject.toLowerCase() === expected.toLowerCase();
     case "not_equals":
       return subject.toLowerCase() !== expected.toLowerCase();
+    case "starts_with":
+      return subject.toLowerCase().startsWith(expected.toLowerCase());
+    case "ends_with":
+      return subject.toLowerCase().endsWith(expected.toLowerCase());
     case "matches":
       return new RegExp(node.value, "i").test(subject);
     case "is_empty":
@@ -161,6 +201,9 @@ function validateReferences(input: {
         issues.push({
           path,
           message: `{{${ref}}} in step ${nodeId} must name a step that runs before it`,
+          code: "bad_reference",
+          nodeId,
+          ref,
         });
       }
       continue;
@@ -168,11 +211,20 @@ function validateReferences(input: {
     if (ref.startsWith("trigger.")) {
       const field = ref.slice("trigger.".length);
       if (definition.trigger.kind !== "pull_request") {
-        issues.push({ path, message: `{{${ref}}} needs a pull request trigger` });
+        issues.push({
+          path,
+          message: `{{${ref}}} needs a pull request trigger`,
+          code: "bad_reference",
+          nodeId,
+          ref,
+        });
       } else if (!(PULL_REQUEST_TEMPLATE_FIELDS as readonly string[]).includes(field)) {
         issues.push({
           path,
           message: `{{${ref}}} is not a trigger field; use one of ${PULL_REQUEST_TEMPLATE_FIELDS.join(", ")}`,
+          code: "bad_reference",
+          nodeId,
+          ref,
         });
       }
       continue;
@@ -180,6 +232,9 @@ function validateReferences(input: {
     issues.push({
       path,
       message: `{{${ref}}} in step ${nodeId} is not a reference; use {{steps.<id>.output}} or {{trigger.<field>}}`,
+      code: "bad_reference",
+      nodeId,
+      ref,
     });
   }
 }
@@ -187,13 +242,14 @@ function validateReferences(input: {
 function validateFlowShape(definition: AutomationDefinition, issues: AutomationIssue[]): boolean {
   const { flow } = definition;
   if (flow.nodes.length === 0) {
-    issues.push({ path: "flow.nodes", message: "Add at least one step" });
+    issues.push({ path: "flow.nodes", message: "Add at least one step", code: "no_steps" });
     return false;
   }
   if (flow.nodes.length > MAX_AUTOMATION_NODES) {
     issues.push({
       path: "flow.nodes",
       message: `An automation has at most ${MAX_AUTOMATION_NODES} steps`,
+      code: "too_many_steps",
     });
   }
   const kinds = new Map<string, string>();
@@ -202,10 +258,17 @@ function validateFlowShape(definition: AutomationDefinition, issues: AutomationI
       issues.push({
         path: `flow.nodes.${node.id}`,
         message: `Step id "${node.id}" may use only letters, digits, - and _`,
+        code: "bad_step_id",
+        nodeId: node.id,
       });
     }
     if (kinds.has(node.id)) {
-      issues.push({ path: `flow.nodes.${node.id}`, message: `Duplicate step id ${node.id}` });
+      issues.push({
+        path: `flow.nodes.${node.id}`,
+        message: `Duplicate step id ${node.id}`,
+        code: "duplicate_step_id",
+        nodeId: node.id,
+      });
     }
     kinds.set(node.id, node.kind);
   }
@@ -214,17 +277,31 @@ function validateFlowShape(definition: AutomationDefinition, issues: AutomationI
   for (const edge of flow.edges) {
     const path = `flow.edges.${edge.from}->${edge.to}`;
     if (!kinds.has(edge.from) || !kinds.has(edge.to)) {
-      issues.push({ path, message: `Edge ${edge.from} -> ${edge.to} names a missing step` });
+      issues.push({
+        path,
+        message: `Edge ${edge.from} -> ${edge.to} names a missing step`,
+        code: "edge_missing_step",
+      });
       edgesValid = false;
       continue;
     }
     if (edge.from === edge.to) {
-      issues.push({ path, message: `Step ${edge.from} cannot depend on itself` });
+      issues.push({
+        path,
+        message: `Step ${edge.from} cannot depend on itself`,
+        code: "self_edge",
+        nodeId: edge.from,
+      });
       edgesValid = false;
     }
     const key = `${edge.from}\u0000${edge.to}\u0000${edge.branch ?? ""}`;
     if (seenEdges.has(key)) {
-      issues.push({ path, message: `Duplicate edge ${edge.from} -> ${edge.to}` });
+      issues.push({
+        path,
+        message: `Duplicate edge ${edge.from} -> ${edge.to}`,
+        code: "duplicate_edge",
+        nodeId: edge.from,
+      });
     }
     seenEdges.add(key);
     const fromCondition = kinds.get(edge.from) === "condition";
@@ -232,14 +309,25 @@ function validateFlowShape(definition: AutomationDefinition, issues: AutomationI
       issues.push({
         path,
         message: `Edge from condition ${edge.from} needs a true or false branch`,
+        code: "branch_required",
+        nodeId: edge.from,
       });
     }
     if (!fromCondition && edge.branch) {
-      issues.push({ path, message: `Only edges from a condition take a branch` });
+      issues.push({
+        path,
+        message: `Only edges from a condition take a branch`,
+        code: "branch_not_allowed",
+        nodeId: edge.from,
+      });
     }
   }
   if (edgesValid && topologicalOrder(flow) === null) {
-    issues.push({ path: "flow.edges", message: "The steps form a loop; a flow must not cycle" });
+    issues.push({
+      path: "flow.edges",
+      message: "The steps form a loop; a flow must not cycle",
+      code: "cycle",
+    });
     return false;
   }
   return edgesValid;
@@ -251,10 +339,18 @@ function validateTrigger(definition: AutomationDefinition, issues: AutomationIss
     return;
   }
   if (!REPO_PATTERN.test(trigger.repo.trim())) {
-    issues.push({ path: "trigger.repo", message: "Repository must be owner/name" });
+    issues.push({
+      path: "trigger.repo",
+      message: "Repository must be owner/name",
+      code: "pr_repo",
+    });
   }
   if (trigger.events.length === 0) {
-    issues.push({ path: "trigger.events", message: "Pick at least one pull request event" });
+    issues.push({
+      path: "trigger.events",
+      message: "Pick at least one pull request event",
+      code: "pr_events",
+    });
   }
 }
 
@@ -269,10 +365,10 @@ function isValidPattern(source: string): boolean {
 export function validateAutomationDefinition(definition: AutomationDefinition): AutomationIssue[] {
   const issues: AutomationIssue[] = [];
   if (!definition.name.trim()) {
-    issues.push({ path: "name", message: "Name is required" });
+    issues.push({ path: "name", message: "Name is required", code: "name_required" });
   }
   if (!definition.project.cwd.trim()) {
-    issues.push({ path: "project.cwd", message: "Project is required" });
+    issues.push({ path: "project.cwd", message: "Project is required", code: "project_required" });
   }
   validateTrigger(definition, issues);
   if (!validateFlowShape(definition, issues)) {
@@ -282,10 +378,20 @@ export function validateAutomationDefinition(definition: AutomationDefinition): 
     const path = `flow.nodes.${node.id}`;
     if (node.kind === "agent") {
       if (!node.prompt.trim()) {
-        issues.push({ path: `${path}.prompt`, message: `Step ${node.id} needs a prompt` });
+        issues.push({
+          path: `${path}.prompt`,
+          message: `Step ${node.id} needs a prompt`,
+          code: "missing_prompt",
+          nodeId: node.id,
+        });
       }
       if (!node.provider.trim()) {
-        issues.push({ path: `${path}.provider`, message: `Step ${node.id} needs a provider` });
+        issues.push({
+          path: `${path}.provider`,
+          message: `Step ${node.id} needs a provider`,
+          code: "missing_provider",
+          nodeId: node.id,
+        });
       }
       validateReferences({
         definition,
@@ -297,18 +403,43 @@ export function validateAutomationDefinition(definition: AutomationDefinition): 
       continue;
     }
     if (!definition.flow.edges.some((edge) => edge.to === node.id)) {
-      issues.push({ path, message: `Condition ${node.id} needs a step before it to test` });
+      issues.push({
+        path,
+        message: `Condition ${node.id} needs a step before it to test`,
+        code: "check_needs_before",
+        nodeId: node.id,
+      });
     }
     if (!definition.flow.edges.some((edge) => edge.from === node.id)) {
-      issues.push({ path, message: `Condition ${node.id} needs a step after it` });
+      issues.push({
+        path,
+        message: `Condition ${node.id} needs a step after it`,
+        code: "check_needs_after",
+        nodeId: node.id,
+      });
     }
     if (!node.input.trim()) {
-      issues.push({ path: `${path}.input`, message: `Condition ${node.id} needs an input` });
+      issues.push({
+        path: `${path}.input`,
+        message: `Condition ${node.id} needs an input`,
+        code: "check_needs_input",
+        nodeId: node.id,
+      });
+    }
+    if (conditionOperatorNeedsValue(node.operator) && !node.value.trim()) {
+      issues.push({
+        path: `${path}.value`,
+        message: `Condition ${node.id} needs text to compare with`,
+        code: "check_needs_value",
+        nodeId: node.id,
+      });
     }
     if (node.operator === "matches" && !isValidPattern(node.value)) {
       issues.push({
         path: `${path}.value`,
         message: `Condition ${node.id} has an invalid pattern`,
+        code: "invalid_pattern",
+        nodeId: node.id,
       });
     }
     validateReferences({

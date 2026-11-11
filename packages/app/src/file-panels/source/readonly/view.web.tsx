@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { FileFind, FileFindModel } from "../find/index.web";
+import { CodeNavigation } from "../navigation/code-navigation.web";
 import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { getLanguageForFile } from "@pimi/highlight";
@@ -91,7 +92,9 @@ export function FileSourceView({
 
   return (
     <div style={FRAME_STYLE}>
-      <div ref={hostRef} data-testid="file-source-editor" style={HOST_STYLE} />
+      <CodeNavigation editor={viewRef} filename={filename} readOnly>
+        <div ref={hostRef} data-testid="file-source-editor" style={HOST_STYLE} />
+      </CodeNavigation>
       <FileFind model={find} editor={viewRef} />
       {ready ? null : <FilePanelLoading />}
     </div>

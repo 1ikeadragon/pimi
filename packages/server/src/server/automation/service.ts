@@ -10,6 +10,7 @@ import {
   type AutomationActor,
   type AutomationAuditEntry,
   type AutomationDefinition,
+  type AutomationDraft,
   type AutomationOrigin,
   type AutomationPullRequestEvent,
   type AutomationRun,
@@ -37,6 +38,16 @@ const TICK_INTERVAL_MS = 1000;
 const DAEMON_AUTOMATION_AGENT_CAP = 4;
 const FAILURES_BEFORE_PAUSE = 3;
 const AUDIT_ENTRIES_RETURNED = 50;
+// A ready draft stays listed this long so every open client can announce it.
+const READY_DRAFT_RETENTION_MS = 60 * 60_000;
+// A failed draft waits for a retry or a dismissal this long before it is dropped.
+const FAILED_DRAFT_RETENTION_MS = 7 * 24 * 60 * 60_000;
+// A draft that is still compiling is never expired.
+const DRAFT_RETENTION_MS: Record<AutomationDraft["state"], number | null> = {
+  drafting: null,
+  ready: READY_DRAFT_RETENTION_MS,
+  failed: FAILED_DRAFT_RETENTION_MS,
+};
 const HOUR_MS = 60 * 60_000;
 // Cron cannot fire more often than once a minute; an interval gets the same floor, so a bad
 // definition cannot turn the tick loop into a stream of skipped runs.
@@ -318,6 +329,98 @@ export class AutomationService {
 
   compile(input: { description: string; cwd: string }): Promise<AutomationDefinition> {
     return this.compileDefinition(input);
+  }
+
+  // Compiling takes an LLM turn, so a draft records the request and the turn runs in the
+  // background. Success saves a pending automation (origin `compiled`) and the draft names it;
+  // failure keeps the reason on the draft for a retry.
+  async startDraft(input: { description: string; cwd: string }): Promise<AutomationDraft> {
+    const description = input.description.trim();
+    if (!description) {
+      throw new Error("Describe the automation first");
+    }
+    const now = new Date().toISOString();
+    const draft = await this.store.drafts.put({
+      id: randomBytes(4).toString("hex"),
+      description,
+      cwd: input.cwd,
+      state: "drafting",
+      error: null,
+      automationId: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    this.compileDraft(draft);
+    return draft;
+  }
+
+  async listDrafts(): Promise<AutomationDraft[]> {
+    const now = Date.now();
+    const drafts: AutomationDraft[] = [];
+    for (const draft of await this.store.drafts.list()) {
+      const retentionMs = DRAFT_RETENTION_MS[draft.state];
+      if (retentionMs !== null && new Date(draft.updatedAt).getTime() < now - retentionMs) {
+        await this.store.drafts.delete(draft.id);
+        continue;
+      }
+      drafts.push(draft);
+    }
+    return drafts.sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  }
+
+  async retryDraft(id: string): Promise<AutomationDraft> {
+    // The state check lives in the update, which the store serializes, so two retries cannot
+    // both see "failed" and start two compiles.
+    const draft = requireFound(
+      await this.store.drafts.update(id, (current) => {
+        if (current.state !== "failed") {
+          throw new AutomationStateError(`Draft ${id} is ${current.state}, not failed`);
+        }
+        return {
+          ...current,
+          state: "drafting",
+          error: null,
+          updatedAt: new Date().toISOString(),
+        };
+      }),
+      id,
+    );
+    this.compileDraft(draft);
+    return draft;
+  }
+
+  // Dismissing a draft that is still compiling drops its result when the turn ends.
+  async dismissDraft(id: string): Promise<void> {
+    await this.store.drafts.delete(id);
+  }
+
+  private compileDraft(draft: AutomationDraft): void {
+    void (async () => {
+      let automationId: string | null = null;
+      let error: string | null = null;
+      try {
+        const definition = await this.compileDefinition({
+          description: draft.description,
+          cwd: draft.cwd,
+        });
+        if (!(await this.store.drafts.get(draft.id))) {
+          return;
+        }
+        automationId = (await this.create({ definition, origin: { kind: "compiled" } })).id;
+      } catch (caught) {
+        error = caught instanceof Error ? caught.message : String(caught);
+        this.logger.warn({ err: caught, draftId: draft.id }, "Automation draft failed to compile");
+      }
+      await this.store.drafts.update(draft.id, (current) => ({
+        ...current,
+        state: automationId ? "ready" : "failed",
+        error,
+        automationId,
+        updatedAt: new Date().toISOString(),
+      }));
+    })().catch((caught) => {
+      this.logger.error({ err: caught, draftId: draft.id }, "Failed to record automation draft");
+    });
   }
 
   async list(): Promise<Automation[]> {
@@ -1200,6 +1303,16 @@ export class AutomationService {
   // Runs left `running` by a previous daemon process failed; missed schedule slots are skipped.
   private async recover(): Promise<void> {
     const now = new Date();
+    for (const draft of await this.store.drafts.list()) {
+      if (draft.state === "drafting") {
+        await this.store.drafts.update(draft.id, (current) => ({
+          ...current,
+          state: "failed",
+          error: "The daemon restarted before the draft was ready",
+          updatedAt: now.toISOString(),
+        }));
+      }
+    }
     for (const automation of await this.store.automations.list()) {
       for (const run of await this.store.listRuns(automation.id)) {
         if (run.status !== "running") {

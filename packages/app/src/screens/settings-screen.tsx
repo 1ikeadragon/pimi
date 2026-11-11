@@ -267,11 +267,11 @@ const HOST_SECTION_ITEMS: HostSectionItem[] = [
 
 const PIMI_HOST_ORDER: HostSectionSlug[] = [
   "providers",
+  "metadata",
   "agents",
   "voice",
   "projects",
   "workspaces",
-  "metadata",
   "usage",
   "terminals",
   "plugins",

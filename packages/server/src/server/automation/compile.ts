@@ -16,7 +16,7 @@ import type { AgentManager } from "../agent/agent-manager.js";
 import { generateStructuredAgentResponseWithFallback } from "../agent/agent-response-loop.js";
 import type { ProviderSnapshotManager } from "../agent/provider-snapshot-manager.js";
 import {
-  resolveStructuredGenerationProviders,
+  resolvePimiModel,
   type StructuredGenerationDaemonConfig,
 } from "../agent/structured-generation-providers.js";
 
@@ -24,6 +24,8 @@ const MAX_DESCRIPTION_LENGTH = 8000;
 // Full compile attempts; each after the first is told what was wrong with the last graph.
 const COMPILE_ATTEMPTS = 2;
 const MODELS_LISTED_PER_PROVIDER = 8;
+// A model turn that has not replied by now is hung; the provider fails and the next one runs.
+const COMPILE_TURN_TIMEOUT_MS = 5 * 60_000;
 
 // What the compiler model writes. Smaller than a definition: cron instead of a cadence union,
 // a profile by name, no limits.
@@ -131,7 +133,7 @@ function buildPrompt(input: {
     "",
     "Steps:",
     "- agent: a new coding agent runs `prompt` in the project. Nobody can answer its questions, so write each prompt as a complete brief: the task, what a finished result looks like, and what to leave alone. Pick provider and model from the list below; prefer the first provider and its default model unless the description names one. Set workspace to worktree only when the step edits files.",
-    "- condition: tests `input` with `operator` against `value` and continues on the edges whose branch matches (`true` or `false`). Operators: contains, not_contains, equals, not_equals, matches (case-insensitive regex), is_empty, not_empty. To branch on a judgement, have an agent step answer with one word (for example YES or NO) and test that output.",
+    "- condition: tests `input` with `operator` against `value` and continues on the edges whose branch matches (`true` or `false`). Operators: contains, not_contains, equals, not_equals, starts_with, ends_with, matches (case-insensitive regex), is_empty, not_empty. `value` is required for every operator except is_empty and not_empty. To branch on a judgement, have an agent step answer with one word (for example YES or NO) and test that output with starts_with or equals.",
     "",
     "Wiring:",
     '- edges {from, to} run `to` after `from`. Edges leaving a condition need branch "true" or "false"; no other edge has a branch. Steps with no path between them run at the same time.',
@@ -196,7 +198,8 @@ export async function compileAutomation(
   const profileList = profiles
     .map((profile) => `- ${profile.name}${profile.notes ? `: ${profile.notes.slice(0, 160)}` : ""}`)
     .join("\n");
-  const generationProviders = await resolveStructuredGenerationProviders({
+  const { providers: generationProviders, pinned } = await resolvePimiModel({
+    feature: "automation",
     cwd,
     providerSnapshotManager: deps.providerSnapshotManager,
     daemonConfig: deps.getDaemonConfig(),
@@ -216,7 +219,10 @@ export async function compileAutomation(
       schema: CompiledAutomationSchema,
       schemaName: "PimiAutomation",
       providers: generationProviders,
+      pinned,
+      feature: "automation",
       maxRetries: 1,
+      turnTimeoutMs: COMPILE_TURN_TIMEOUT_MS,
       persistSession: false,
       logger: deps.logger,
       agentConfigOverrides: { title: "Automation compiler", internal: true },

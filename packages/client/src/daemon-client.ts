@@ -16,7 +16,7 @@ import {
   type TimelineSubscription,
 } from "./connection/index.js";
 import { CreationClient } from "./creation/index.js";
-import type { CreationSnapshot } from "@pimi/protocol/messages";
+import type { CodeNavigationQueryRequest, CreationSnapshot } from "@pimi/protocol/messages";
 import type { z } from "zod";
 import type { SessionEventSubscription } from "@pimi/protocol/messages";
 import type { LocalSpeechModel } from "@pimi/protocol/speech/rpc-schemas";
@@ -702,6 +702,22 @@ export type AutomationRunRetryPayload = Extract<
 export type AutomationCompilePayload = Extract<
   SessionOutboundMessage,
   { type: "automation.compile.response" }
+>["payload"];
+export type AutomationDraftStartPayload = Extract<
+  SessionOutboundMessage,
+  { type: "automation.draft.start.response" }
+>["payload"];
+export type AutomationDraftListPayload = Extract<
+  SessionOutboundMessage,
+  { type: "automation.draft.list.response" }
+>["payload"];
+export type AutomationDraftRetryPayload = Extract<
+  SessionOutboundMessage,
+  { type: "automation.draft.retry.response" }
+>["payload"];
+export type AutomationDraftDismissPayload = Extract<
+  SessionOutboundMessage,
+  { type: "automation.draft.dismiss.response" }
 >["payload"];
 export type AutomationTriggerCheckPayload = Extract<
   SessionOutboundMessage,
@@ -4687,6 +4703,16 @@ export class DaemonClient {
     return response.result;
   }
 
+  async queryCodeNavigation(input: Omit<CodeNavigationQueryRequest, "type" | "requestId">) {
+    const response =
+      await this.sendNamespacedCorrelatedSessionRequest<"code.navigation.query.response">({
+        message: { type: "code.navigation.query.request", ...input },
+        timeout: 15_000,
+      });
+    if (!response.result) throw new Error(response.error ?? "Code navigation is unavailable.");
+    return response.result;
+  }
+
   async getLineBlame(input: {
     cwd: string;
     path: string;
@@ -6552,6 +6578,51 @@ export class DaemonClient {
         cwd: options.cwd,
       },
       timeout: 240_000,
+    });
+  }
+
+  // Returns at once; the compile runs on the daemon and lands as a pending automation.
+  async automationDraftStart(options: {
+    description: string;
+    cwd: string;
+    requestId?: string;
+  }): Promise<AutomationDraftStartPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "automation.draft.start.request",
+        description: options.description,
+        cwd: options.cwd,
+      },
+    });
+  }
+
+  async automationDraftList(
+    options: { requestId?: string } = {},
+  ): Promise<AutomationDraftListPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "automation.draft.list.request" },
+    });
+  }
+
+  async automationDraftRetry(options: {
+    draftId: string;
+    requestId?: string;
+  }): Promise<AutomationDraftRetryPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "automation.draft.retry.request", draftId: options.draftId },
+    });
+  }
+
+  async automationDraftDismiss(options: {
+    draftId: string;
+    requestId?: string;
+  }): Promise<AutomationDraftDismissPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "automation.draft.dismiss.request", draftId: options.draftId },
     });
   }
 

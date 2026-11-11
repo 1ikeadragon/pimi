@@ -2,6 +2,14 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.20 - 2026-11-12
+
+- Automations open in a full-screen editor built around the step graph, replacing the old dialog. Drag the canvas to pan, scroll or pinch to zoom, and use Fit to recenter. The graph opens centered at a readable size.
+- Checks read as a sentence: "Go to Yes when [reply from a step] [starts with] [text]". Pick a preset from Start from, try a sample reply in Try it, and use the new "starts with" and "ends with" tests. A check that compares with empty text can't be saved.
+- Describe it drafts in the background. Keep working, and a notification says when the draft is ready to open. A failed draft offers Retry, and a draft still in progress can be dismissed.
+- Unsaved edits in the automation editor survive a dropped connection, and leaving with unsaved edits asks first.
+- While agents run and the Mac is on AC power, Pimi keeps the display awake.
+
 ## 0.17.19 - 2026-11-11
 
 - Automations can run several steps. Connect agent steps and checks into a graph on the automation's canvas. Steps that don't depend on each other run at the same time, and a later step can use an earlier step's output. A failed run shows which step failed, and Retry reruns from that step, keeping the earlier results.

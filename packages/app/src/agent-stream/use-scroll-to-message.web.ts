@@ -15,6 +15,9 @@ interface UseScrollToMessageInput {
   onNearBottomChange: (value: boolean) => void;
 }
 
+/** `scrollend` is the signal; this only covers a glide that never fires it. */
+const SMOOTH_SCROLL_FALLBACK_MS = 1200;
+
 const SCROLL_AFFECTING_KEYS = new Set([
   "ArrowDown",
   "ArrowUp",
@@ -118,12 +121,41 @@ export function useScrollToMessage({
         `[data-message-id="${CSS.escape(messageId)}"]`,
       );
       if (mounted) {
+        // The occurrence names where the viewport should land; going to the message's top first
+        // and then to the occurrence is two jumps, which reads as a flicker.
+        const occurrenceTop = occurrence?.targetTop() ?? null;
         const delta =
-          mounted.getBoundingClientRect().top -
+          (occurrenceTop ?? mounted.getBoundingClientRect().top) -
           container.getBoundingClientRect().top -
           PROMPT_JUMP_TOP_INSET_PX;
-        container.scrollTop += delta;
-        settleController.start(messageId);
+        const glide =
+          occurrence?.smooth === true &&
+          occurrenceTop !== null &&
+          Math.abs(delta) > 1 &&
+          !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (glide) {
+          // The settle loop would snap to the target on its first frame; it starts once the glide ends.
+          const start = () => {
+            container.removeEventListener("scrollend", start);
+            window.clearTimeout(timer);
+            if (occurrence.signal.aborted) return;
+            settleController.start(messageId);
+          };
+          const timer = window.setTimeout(start, SMOOTH_SCROLL_FALLBACK_MS);
+          container.addEventListener("scrollend", start, { once: true });
+          occurrence.signal.addEventListener(
+            "abort",
+            () => {
+              container.removeEventListener("scrollend", start);
+              window.clearTimeout(timer);
+            },
+            { once: true },
+          );
+          container.scrollTo({ top: container.scrollTop + delta, behavior: "smooth" });
+        } else {
+          container.scrollTop += delta;
+          settleController.start(messageId);
+        }
         onNearBottomChange(false);
         return;
       }

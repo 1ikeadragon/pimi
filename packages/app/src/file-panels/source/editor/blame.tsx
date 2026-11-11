@@ -11,6 +11,8 @@ import { useWorkspaceDirectory, useWorkspaceFields } from "@/stores/session-stor
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
 import type { FileEditorStatus } from "./model";
 
+const DEBOUNCE_MS = 80;
+
 const labels = {
   uncommitted: "Uncommitted line",
   untracked: "Untracked file",
@@ -50,20 +52,21 @@ export function FileLineBlame({
     () => ({ client, cwd, path, content, line, head, retry, status }),
     [client, cwd, path, content, line, head, retry, status],
   );
-  const [answer, setAnswer] = useState<{ query: object; result: CheckoutBlameResult } | null>(null);
+  const [answer, setAnswer] = useState<{
+    query: object;
+    file: string;
+    result: CheckoutBlameResult;
+  } | null>(null);
   const hash = useRef<{ content: string; value: Promise<string> } | null>(null);
-  const pending = useRef<Promise<void> | null>(null);
   const enabled = mode === "editor" && visible && isWorkspaceFocused && status === "clean";
 
   useEffect(() => {
     if (!enabled || !client || !cwd) return;
     const abort = new AbortController();
+    const file = `${cwd}\0${path}`;
     const timer = setTimeout(() => {
-      // Serialize requests: rapid line changes never create concurrent Git work.
-      const previous = pending.current;
-      const work = (async () => {
-        await previous;
-        if (abort.signal.aborted) return;
+      // The server shares one whole-file blame per file, so concurrent requests are cheap.
+      void (async () => {
         if (hash.current?.content !== content) {
           hash.current = {
             content,
@@ -79,15 +82,13 @@ export function FileLineBlame({
           contentHash,
           signal: abort.signal,
         });
-        if (!abort.signal.aborted) setAnswer({ query, result });
+        if (!abort.signal.aborted) setAnswer({ query, file, result });
       })().catch(() => {
-        if (!abort.signal.aborted) setAnswer({ query, result: { status: "unavailable" } });
+        if (!abort.signal.aborted) {
+          setAnswer({ query, file, result: { status: "unavailable" } });
+        }
       });
-      pending.current = work;
-      void work.finally(() => {
-        if (pending.current === work) pending.current = null;
-      });
-    }, 350);
+    }, DEBOUNCE_MS);
     return () => {
       clearTimeout(timer);
       abort.abort();
@@ -97,10 +98,16 @@ export function FileLineBlame({
   const handleRetry = useCallback(() => setRetry((value) => value + 1), []);
   if (mode !== "editor") return null;
   const result = answer?.query === query ? answer.result : null;
-  const label = blameLabel(status, Boolean(client && cwd), result);
+  // Keep the previous line's label (dimmed) while the next one loads; never across files.
+  const shown = result ?? (answer?.file === `${cwd}\0${path}` ? answer.result : null);
+  const label = blameLabel(status, Boolean(client && cwd), shown);
   return (
     <View style={[styles.row, !inline && styles.footer]} testID="file-editor-blame">
-      <Text style={styles.text} numberOfLines={1} accessibilityLabel={label}>
+      <Text
+        style={[styles.text, shown && !result && styles.stale]}
+        numberOfLines={1}
+        accessibilityLabel={label}
+      >
         {label}
       </Text>
       {status === "clean" && (result?.status === "unavailable" || result?.status === "stale") ? (
@@ -132,6 +139,7 @@ const styles = StyleSheet.create((theme) => ({
     borderTopColor: theme.colors.border,
     backgroundColor: theme.colors.surface0,
   },
+  stale: { opacity: 0.55 },
   text: { flexShrink: 1, color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm },
 }));
 

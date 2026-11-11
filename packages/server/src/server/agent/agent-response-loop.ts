@@ -3,6 +3,10 @@ import Ajv, { type ErrorObject, type Options as AjvOptions } from "ajv";
 import type { AgentProvider, AgentSessionConfig } from "./agent-sdk-types.js";
 import type { AgentManager } from "./agent-manager.js";
 import { withTimeout } from "../../utils/promise-timeout.js";
+import {
+  PimiModelUnavailableError,
+  type PimiModelFeature,
+} from "./structured-generation-providers.js";
 
 export interface StructuredGenerationLogger {
   info: (obj: object, msg?: string) => void;
@@ -89,6 +93,10 @@ export interface StructuredAgentGenerationWithFallbackOptions<T> {
   prompt: string;
   schema: z.ZodType<T> | JsonSchema;
   providers: readonly StructuredGenerationProvider[];
+  /** The Pimi feature making the call. Logged with every model call. */
+  feature: PimiModelFeature;
+  /** The user chose these models, so all being unavailable throws PimiModelUnavailableError. */
+  pinned?: boolean;
   agentConfigOverrides?: Omit<
     AgentSessionConfig,
     "provider" | "cwd" | "model" | "thinkingOptionId"
@@ -96,6 +104,7 @@ export interface StructuredAgentGenerationWithFallbackOptions<T> {
   persistSession?: boolean;
   maxRetries?: number;
   schemaName?: string;
+  turnTimeoutMs?: number;
   logger?: StructuredGenerationLogger;
   runner?: <TResult>(options: StructuredAgentGenerationOptions<TResult>) => Promise<TResult>;
 }
@@ -412,6 +421,22 @@ function errorMessage(error: unknown): string {
   return String(error);
 }
 
+function logModelCall(
+  logger: StructuredGenerationLogger | undefined,
+  feature: PimiModelFeature,
+  candidate: StructuredGenerationProvider,
+): void {
+  logger?.info(
+    {
+      feature,
+      provider: candidate.provider,
+      model: candidate.model,
+      thinkingOptionId: candidate.thinkingOptionId,
+    },
+    "Pimi model call",
+  );
+}
+
 export async function generateStructuredAgentResponseWithFallback<T>(
   options: StructuredAgentGenerationWithFallbackOptions<T>,
 ): Promise<T> {
@@ -421,10 +446,13 @@ export async function generateStructuredAgentResponseWithFallback<T>(
     prompt,
     schema,
     providers,
+    feature,
+    pinned,
     agentConfigOverrides,
     persistSession,
     maxRetries,
     schemaName,
+    turnTimeoutMs,
     logger,
     runner,
   } = options;
@@ -455,6 +483,7 @@ export async function generateStructuredAgentResponseWithFallback<T>(
       continue;
     }
 
+    logModelCall(logger, feature, candidate);
     try {
       const result = await runStructured({
         manager,
@@ -463,6 +492,7 @@ export async function generateStructuredAgentResponseWithFallback<T>(
         maxRetries,
         schemaName,
         persistSession,
+        ...(turnTimeoutMs ? { turnTimeoutMs } : {}),
         agentConfig: {
           ...agentConfigOverrides,
           provider: candidate.provider,
@@ -497,5 +527,22 @@ export async function generateStructuredAgentResponseWithFallback<T>(
     }
   }
 
-  throw new StructuredAgentFallbackError(attempts);
+  throw failureFor(attempts, feature, pinned);
+}
+
+function failureFor(
+  attempts: readonly StructuredGenerationAttempt[],
+  feature: PimiModelFeature,
+  pinned: boolean | undefined,
+): Error {
+  const [firstAttempt] = attempts;
+  if (pinned && firstAttempt && attempts.every((attempt) => !attempt.available)) {
+    return new PimiModelUnavailableError({
+      feature,
+      provider: firstAttempt.provider,
+      model: firstAttempt.model ?? undefined,
+      reason: firstAttempt.error ?? "the provider is unavailable",
+    });
+  }
+  return new StructuredAgentFallbackError([...attempts]);
 }
