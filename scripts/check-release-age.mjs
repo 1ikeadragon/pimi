@@ -26,7 +26,12 @@ function lockPackages(text) {
 const base = process.argv[2];
 const head = lockPackages(readFileSync("package-lock.json", "utf8"));
 const before = base
-  ? lockPackages(execFileSync("git", ["show", `${base}:package-lock.json`], { encoding: "utf8", maxBuffer: 1 << 28 }))
+  ? lockPackages(
+      execFileSync("git", ["show", `${base}:package-lock.json`], {
+        encoding: "utf8",
+        maxBuffer: 1 << 28,
+      }),
+    )
   : new Map();
 const toCheck = [...head.entries()].filter(([key]) => !before.has(key)).map(([, pkg]) => pkg);
 
@@ -35,7 +40,9 @@ const now = Date.now();
 
 async function check(pkg) {
   if (!pkg.resolved?.startsWith(REGISTRY)) {
-    failures.push(`${pkg.name}@${pkg.version}: not from the npm registry (${pkg.resolved ?? "no resolved url"})`);
+    failures.push(
+      `${pkg.name}@${pkg.version}: not from the npm registry (${pkg.resolved ?? "no resolved url"})`,
+    );
     return;
   }
   const url = REGISTRY + pkg.name.replace("/", "%2f");
@@ -51,7 +58,9 @@ async function check(pkg) {
   }
   const days = (now - Date.parse(published)) / 86_400_000;
   if (days < MIN_DAYS) {
-    failures.push(`${pkg.name}@${pkg.version}: published ${published} (${days.toFixed(1)} days ago)`);
+    failures.push(
+      `${pkg.name}@${pkg.version}: published ${published} (${days.toFixed(1)} days ago)`,
+    );
   }
 }
 
@@ -68,7 +77,9 @@ await Promise.all(
   }),
 );
 
-console.log(`Checked ${toCheck.length} package versions ${base ? `added since ${base}` : "in package-lock.json"}.`);
+console.log(
+  `Checked ${toCheck.length} package versions ${base ? `added since ${base}` : "in package-lock.json"}.`,
+);
 if (failures.length > 0) {
   console.error(`Packages must be at least ${MIN_DAYS} days old:\n${failures.sort().join("\n")}`);
   process.exit(1);
