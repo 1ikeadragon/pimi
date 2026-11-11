@@ -1502,14 +1502,6 @@ export async function createPaseoDaemon(
           permissions: options.permissions,
           hubExecutionAgents: options.agents,
         },
-        options.sessionProtocol === "legacy"
-          ? {
-              type: "hello",
-              clientId: `hub:${options.daemonId}`,
-              clientType: "hub",
-              protocolVersion: 1,
-            }
-          : undefined,
       );
     },
     updateAttachedPermissions: (principalId, permissions) => {

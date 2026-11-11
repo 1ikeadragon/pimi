@@ -3670,6 +3670,10 @@ export const ServerInfoStatusPayloadSchema = z
     features: z.object({
       hopliteProvider: z.boolean().optional(),
       binaryChunkingV1: z.boolean().optional(),
+      // Hub (getpaseo/hub) is a separate codebase that requires these three; Pimi clients ignore them.
+      hubAgentRpc: z.boolean().optional(),
+      agentRequestReceipts: z.boolean().optional(),
+      providersSnapshot: z.boolean().optional(),
     }),
   })
   .passthrough();

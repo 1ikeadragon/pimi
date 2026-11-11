@@ -91,6 +91,12 @@ the daemon does not retry revocation in the background.
 
 ## Cross-repository compatibility
 
+The daemon offers `x-paseo-session-protocol: 1` on the Hub WebSocket upgrade and fails the
+connection unless the Hub echoes it; the Hub then sends its own `hello`. Hub runs agents only when
+`server_info.features` carries `hubAgentRpc` and `agentRequestReceipts`, and browses providers only
+with `providersSnapshot`, so the daemon always sends all three. Hub accepts any provider ID string
+and ignores timeline `collapsed` values.
+
 The consumer implementation lives in Pimi Cloud. Cloud owns its copy of the Hub wire schemas and
 has no Pimi runtime or build dependency. Cross-repository end-to-end verification separately builds
 a Pimi source checkout and exercises the real daemon, CLI, direct WebSocket, Cloud service, and

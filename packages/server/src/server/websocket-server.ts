@@ -1064,12 +1064,11 @@ export class VoiceAssistantWebSocketServer {
     ws: WebSocketLike,
     metadata?: ExternalSocketMetadata,
     admission: SessionAdmission | null = null,
-    initialHello?: WSHelloMessage,
   ): Promise<void> {
     if (metadata?.transport === "relay") {
       this.incrementRuntimeCounter("relayExternalSocketAttached");
     }
-    await this.attachSocket(ws, undefined, metadata, false, admission, initialHello);
+    await this.attachSocket(ws, undefined, metadata, false, admission);
   }
 
   public async attachPluginSocket(
@@ -1461,7 +1460,6 @@ export class VoiceAssistantWebSocketServer {
     metadata?: ExternalSocketMetadata,
     allowDuringStartup = false,
     admission: SessionAdmission | null = null,
-    initialHello?: WSHelloMessage,
   ): Promise<void> {
     if (
       this.connectionLifecycle === "stopping" ||
@@ -1518,7 +1516,6 @@ export class VoiceAssistantWebSocketServer {
       },
       "Client connected; awaiting hello",
     );
-    if (initialHello) await this.handleHelloSafely({ ws, message: initialHello, pending });
   }
 
   private createSessionConnection(params: {
@@ -1981,6 +1978,10 @@ export class VoiceAssistantWebSocketServer {
       ...(this.serverCapabilities ? { capabilities: this.serverCapabilities } : {}),
       features: {
         binaryChunkingV1: true,
+        // Hub (getpaseo/hub) refuses agent RPCs and provider browsing without these.
+        hubAgentRpc: true,
+        agentRequestReceipts: true,
+        providersSnapshot: true,
         hopliteProvider: this.providerSnapshotManager.supportsConfigRequiredProvider("hoplite"),
       },
     };

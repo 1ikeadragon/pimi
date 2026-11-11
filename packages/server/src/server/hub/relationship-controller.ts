@@ -175,7 +175,6 @@ export interface HubRelationshipControllerOptions {
       principalId: string;
       permissions: readonly DaemonPermission[];
       agents: HubExecutionAgents;
-      sessionProtocol: "legacy" | "session-v1";
     },
   ) => Promise<void>;
   updateAttachedPermissions: (
@@ -458,8 +457,7 @@ export class HubRelationshipController implements HubRelationshipManagement {
     const generation = ++this.generation;
     this.state = reconnecting ? "reconnecting" : "connecting";
     const events: HubSocketEvents = {
-      connected: (socket, sessionProtocol) =>
-        this.socketConnected(generation, record, socket, sessionProtocol),
+      connected: (socket) => this.socketConnected(generation, record, socket),
       rejected: (statusCode) => this.socketRejected(generation, statusCode),
       closed: (code) => this.socketClosed(generation, record, code),
       failed: (error) => this.socketFailed(generation, record, error),
@@ -474,12 +472,7 @@ export class HubRelationshipController implements HubRelationshipManagement {
     );
   }
 
-  private socketConnected(
-    generation: number,
-    record: ActiveRecord,
-    socket: WebSocketLike,
-    sessionProtocol: "legacy" | "session-v1",
-  ): void {
+  private socketConnected(generation: number, record: ActiveRecord, socket: WebSocketLike): void {
     if (generation !== this.generation) {
       socket.close();
       return;
@@ -493,7 +486,6 @@ export class HubRelationshipController implements HubRelationshipManagement {
       principalId: hubPrincipalId(record),
       permissions: record.relationship.permissions,
       agents: this.executionAgentsFor(record.relationship.daemonId),
-      sessionProtocol,
     });
   }
 

@@ -46,7 +46,7 @@ export interface HubSocketCredentials {
 }
 
 export interface HubSocketEvents {
-  connected(socket: WebSocketLike, sessionProtocol: "legacy" | "session-v1"): void;
+  connected(socket: WebSocketLike): void;
   rejected(statusCode: 401 | 403): void;
   closed(code: number): void;
   failed(error: Error): void;
@@ -167,7 +167,7 @@ export class DirectHubRelationshipRemote implements HubRelationshipRemote {
   }
 
   openSocket(input: HubSocketCredentials, events: HubSocketEvents): HubSocketConnection {
-    let sessionProtocol: "legacy" | "session-v1" = "legacy";
+    let sessionProtocolAccepted = false;
     const socket = withNetworkInitiator(
       NETWORK_PURPOSE.hub,
       () =>
@@ -199,12 +199,14 @@ export class DirectHubRelationshipRemote implements HubRelationshipRemote {
       lastPongAt = Date.now();
     });
     socket.once("upgrade", (response) => {
-      if (response.headers["x-paseo-session-protocol"] === "1") {
-        sessionProtocol = "session-v1";
-      }
+      sessionProtocolAccepted = response.headers["x-paseo-session-protocol"] === "1";
     });
     socket.once("open", () => {
       if (settled) return;
+      if (!sessionProtocolAccepted) {
+        fail(new Error("Hub did not accept the session protocol; update the Hub"));
+        return;
+      }
       lastPongAt = Date.now();
       heartbeat = setInterval(() => {
         if (socket.readyState !== WebSocket.OPEN) return;
@@ -217,7 +219,7 @@ export class DirectHubRelationshipRemote implements HubRelationshipRemote {
         });
       }, SOCKET_PING_INTERVAL_MS);
       heartbeat.unref?.();
-      events.connected(socket as WebSocketLike, sessionProtocol);
+      events.connected(socket as WebSocketLike);
     });
     socket.once("unexpected-response", (_request, response) => {
       if (settled) {
