@@ -94,6 +94,11 @@ const patchedPackages = [
     patchPrefix: "react-native-svg+",
     cwd: "packages/app",
   },
+  // Android: drop the JitPack repository; none of its dependencies resolve from there.
+  {
+    nodeModulesPath: "node_modules/@react-native-masked-view/masked-view",
+    patchPrefix: "@react-native-masked-view+masked-view+",
+  },
   {
     nodeModulesPath: "node_modules/@mattermost/react-native-paste-input",
     patchPrefix: "@mattermost+react-native-paste-input+",

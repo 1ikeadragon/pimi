@@ -1,9 +1,17 @@
+const fs = require("node:fs");
+const path = require("node:path");
 const {
   AndroidConfig,
   withAndroidManifest,
+  withDangerousMod,
   withGradleProperties,
+  withProjectBuildGradle,
   withSettingsGradle,
 } = require("expo/config-plugins");
+
+// Gradle checks every downloaded artifact against these SHA-256 hashes. Regenerate after a
+// dependency change; docs/android.md has the command.
+const verificationMetadata = path.join(__dirname, "pimi-android-verification-metadata.xml");
 
 const excludedModules = [
   "expo-notifications",
@@ -28,13 +36,42 @@ function withPimiAndroidRelease(config) {
     return modConfig;
   });
   config = withGradleProperties(config, (modConfig) => {
-    const key = "expo.camera.pimi-offline-qr";
+    // The React Native Gradle plugin adds JitPack to every project unless this is false.
+    const properties = {
+      "expo.camera.pimi-offline-qr": "true",
+      "react.includeJitpackRepository": "false",
+    };
     modConfig.modResults = modConfig.modResults.filter(
-      (entry) => entry.type !== "property" || entry.key !== key,
+      (entry) => entry.type !== "property" || !(entry.key in properties),
     );
-    modConfig.modResults.push({ type: "property", key, value: "true" });
+    for (const [key, value] of Object.entries(properties)) {
+      modConfig.modResults.push({ type: "property", key, value });
+    }
     return modConfig;
   });
+  // Nothing resolves from JitPack. The Expo template still declares it for all projects.
+  config = withProjectBuildGradle(config, (modConfig) => {
+    const contents = modConfig.modResults.contents.replace(
+      /^[ \t]*maven \{ url ['"]https:\/\/(www\.)?jitpack\.io['"] \}\n/m,
+      "",
+    );
+    if (/jitpack/i.test(contents)) {
+      throw new Error(
+        "Could not remove the JitPack repository from the Android root build.gradle.",
+      );
+    }
+    modConfig.modResults.contents = contents;
+    return modConfig;
+  });
+  config = withDangerousMod(config, [
+    "android",
+    (modConfig) => {
+      const gradleDir = path.join(modConfig.modRequest.platformProjectRoot, "gradle");
+      fs.mkdirSync(gradleDir, { recursive: true });
+      fs.copyFileSync(verificationMetadata, path.join(gradleDir, "verification-metadata.xml"));
+      return modConfig;
+    },
+  ]);
   return withAndroidManifest(config, (modConfig) => {
     const application = AndroidConfig.Manifest.getMainApplicationOrThrow(modConfig.modResults);
     const metadata = (application["meta-data"] ??= []);
