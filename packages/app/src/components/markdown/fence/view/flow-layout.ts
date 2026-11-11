@@ -24,6 +24,8 @@ const TEXT_WIDTH = 140;
 const NARROW_TEXT_WIDTH = 72;
 const MIN_BOX_WIDTH = 64;
 const MAX_LINES = 5;
+/** How many characters a word may run past its line before it is cut. */
+const WORD_OVERHANG = 3;
 const EDGE_LABEL_FONT_SIZE = 11;
 const EDGE_LABEL_CHARACTER_WIDTH = 6.2;
 const EDGE_LABEL_HEIGHT = 16;
@@ -117,7 +119,7 @@ function round(value: number): number {
 
 /** Breaks an identifier where a reader would: after punctuation, before a capital, else anywhere. */
 function splitWord(word: string, capacity: number): string[] {
-  if (word.length <= capacity) return [word];
+  if (word.length <= capacity + WORD_OVERHANG) return [word];
   const pieces = word.split(/(?<=[./_\-:])|(?<=[a-z0-9])(?=[A-Z])/);
   const parts: string[] = [];
   let current = "";
@@ -127,9 +129,12 @@ function splitWord(word: string, capacity: number): string[] {
       current = "";
     }
     current += piece;
-    while (current.length > capacity) {
-      parts.push(current.slice(0, capacity));
-      current = current.slice(capacity);
+    // A word with no place to break is cut into even pieces. One that is only a little too
+    // long stays whole and widens its box, so no line is left holding a letter or two.
+    while (current.length > capacity + WORD_OVERHANG) {
+      const cut = Math.ceil(current.length / Math.ceil(current.length / capacity));
+      parts.push(current.slice(0, cut));
+      current = current.slice(cut);
     }
   }
   if (current) parts.push(current);

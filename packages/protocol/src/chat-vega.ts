@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseBlockJson } from "./chat-json.js";
 
 export const PIMI_VEGA_FENCE = "pimi-vega";
 
@@ -117,7 +118,7 @@ export function parseChatVega(source: string): ChatVega | null {
   if (source.length > VEGA_LIMITS.sourceLength) return null;
   let data: unknown;
   try {
-    data = JSON.parse(source);
+    data = parseBlockJson(source);
   } catch {
     return null;
   }

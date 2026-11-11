@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseBlockJson } from "./chat-json.js";
 
 export const PIMI_CHART_FENCE = "pimi-chart";
 export const PIMI_VIEW_FENCE = "pimi-view";
@@ -486,7 +487,7 @@ export function parseChatView(fence: ViewFence, source: string): ChatView | null
   if (source.length > VIEW_LIMITS.sourceLength) return null;
   let data: unknown;
   try {
-    data = JSON.parse(source);
+    data = parseBlockJson(source);
   } catch {
     return null;
   }

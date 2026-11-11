@@ -88,12 +88,43 @@ function fitToColumn(spec: Record<string, unknown>, width: number): TopLevelSpec
   } as unknown as TopLevelSpec;
 }
 
-/** A narrow column gets its legend below the plot and slanted category labels, so none are lost. */
-function fitConfigToColumn(config: Config, width: number): Config {
+/** The least room a slanted label needs along the axis before it runs into the next one. */
+const SLANTED_LABEL_PITCH = 14;
+/** What the y axis and its title take from a narrow chart, roughly. */
+const NARROW_AXIS_ROOM = 48;
+
+/** How many categories the x axis shows, or null when the spec does not say it plainly. */
+function discreteXCount(spec: Record<string, unknown>): number | null {
+  const layers = Array.isArray(spec.layer) ? spec.layer.filter(isRecord) : [];
+  const encoding = [spec.encoding, ...layers.map((layer) => layer.encoding)].find(
+    (candidate) => isRecord(candidate) && isRecord(candidate.x),
+  );
+  const x = isRecord(encoding) && isRecord(encoding.x) ? encoding.x : null;
+  const rows = isRecord(spec.data) ? spec.data.values : null;
+  if (!x || typeof x.field !== "string" || x.bin || x.timeUnit || !Array.isArray(rows)) return null;
+  if ("transform" in spec) return null;
+  const { field } = x;
+  return new Set(rows.map((row) => (isRecord(row) ? row[field] : row))).size;
+}
+
+/**
+ * A narrow column gets its legend below the plot and slanted category labels, which fit about
+ * three times as many as level ones. Vega tests slanted labels by their bounding boxes and would
+ * drop labels that read fine, so every label is kept while the axis has room for them. Past
+ * that, labels are dropped until the rest are apart: forty run numbers on top of each other
+ * read as none.
+ */
+function fitConfigToColumn(config: Config, width: number, categories: number | null): Config {
   if (width >= SIDE_LEGEND_MIN_WIDTH) return config;
+  const roomy =
+    categories !== null && (width - NARROW_AXIS_ROOM) / categories >= SLANTED_LABEL_PITCH;
   return {
     ...config,
-    axisXDiscrete: { ...config.axisXDiscrete, labelAngle: -40, labelOverlap: false },
+    axisXDiscrete: {
+      ...config.axisXDiscrete,
+      labelAngle: -40,
+      labelOverlap: roomy ? false : "greedy",
+    },
     legend: {
       ...config.legend,
       orient: "bottom",
@@ -112,7 +143,7 @@ export function createVegaView(
   target: { renderer: "svg"; container: Element } | { renderer: "none" },
 ): View {
   const compiled = compile(fitToColumn(spec, width), {
-    config: fitConfigToColumn(config, width),
+    config: fitConfigToColumn(config, width, discreteXCount(spec)),
     logger: silent,
   });
   const runtime = parse(compiled.spec, undefined, { ast: true });

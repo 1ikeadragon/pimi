@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Text, View } from "react-native";
+import { Text, View, type LayoutChangeEvent } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { ChevronDown, ChevronUp } from "lucide-react-native";
 import type { ViewNode } from "@pimi/protocol/chat-view";
@@ -18,7 +18,12 @@ interface TableSort {
   direction: SortDirection;
 }
 
+/** A column of short values, such as numbers, stays readable narrower than one of words. */
+const SHORT_COLUMN_WIDTH = 72;
 const MIN_COLUMN_WIDTH = 96;
+const SHORT_CELL_LENGTH = 8;
+/** Past this a longer cell earns its column no more room; it wraps instead. */
+const MAX_COLUMN_WEIGHT = 28;
 const SORT_ICON_SIZE = 12;
 
 const ThemedChevronUp = withUnistyles(ChevronUp);
@@ -55,15 +60,37 @@ function nextSort(current: TableSort | null, column: number): TableSort | null {
   return null;
 }
 
+interface ColumnFit {
+  /** The column's share of the table's width, from its longest cell. */
+  flex: number;
+  minWidth: number;
+}
+
+function fitColumns(node: TableNode): ColumnFit[] {
+  return node.columns.map(({ label }, column) => {
+    const longestCell = node.rows.reduce(
+      (length, row) => Math.max(length, (row[column] ?? "").toString().length),
+      0,
+    );
+    // The heading wraps onto a second line, so only the cells decide how narrow a column may be.
+    return {
+      flex: Math.min(MAX_COLUMN_WEIGHT, Math.max(SHORT_CELL_LENGTH, longestCell, label.length)),
+      minWidth: longestCell <= SHORT_CELL_LENGTH ? SHORT_COLUMN_WIDTH : MIN_COLUMN_WIDTH,
+    };
+  });
+}
+
 function HeaderCell({
   label,
   column,
+  fit,
   alignEnd,
   direction,
   onSort,
 }: {
   label: string;
   column: number;
+  fit: ColumnFit;
   alignEnd: boolean;
   direction: SortDirection | null;
   onSort: (column: number) => void;
@@ -79,9 +106,14 @@ function HeaderCell({
       aria-sort={direction ?? "none"}
       onPress={sort}
       highlightStyle={styles.pressed}
-      style={[styles.cell, styles.headerCell, alignEnd && styles.cellEnd]}
+      style={[
+        styles.cell,
+        styles.headerCell,
+        alignEnd && styles.cellEnd,
+        inlineUnistylesStyle(fit),
+      ]}
     >
-      <Text numberOfLines={1} style={styles.headerText}>
+      <Text numberOfLines={2} style={styles.headerText}>
         {label}
       </Text>
       {/* The slot is always reserved so sorting never changes a column's width. */}
@@ -112,18 +144,31 @@ export function TableView({ node }: { node: TableNode }) {
   const changeSort = useCallback((column: number) => {
     setSort((current) => nextSort(current, column));
   }, []);
+  const columns = useMemo(() => fitColumns(node), [node]);
+  const [available, setAvailable] = useState(0);
+  const measure = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
+    const measured = Math.floor(nativeEvent.layout.width);
+    // A hidden retained panel reports zero; keep the last real width.
+    if (measured > 0) setAvailable(measured);
+  }, []);
+  // A scroller's content is as wide as its longest lines, so a table of sentences would never
+  // wrap and would push its later columns off a phone. The table is given the card's width
+  // instead, and scrolls only when its columns cannot all be legible in it.
+  const needed = columns.reduce((sum, column) => sum + column.minWidth, 0);
+  const width = Math.max(available, needed);
   return (
     <ScrollView
       horizontal
-      showsHorizontalScrollIndicator={false}
+      showsHorizontalScrollIndicator={needed > available}
       style={FILL}
       contentContainerStyle={GROW}
+      onLayout={measure}
     >
       <View
         testID="chat-view-table"
         style={[
           styles.table,
-          inlineUnistylesStyle({ minWidth: node.columns.length * MIN_COLUMN_WIDTH }),
+          inlineUnistylesStyle(available > 0 ? { width } : { minWidth: needed }),
         ]}
       >
         <View style={styles.row}>
@@ -132,6 +177,7 @@ export function TableView({ node }: { node: TableNode }) {
               key={label}
               label={label}
               column={column}
+              fit={columns[column]}
               alignEnd={alignEnd[column]}
               direction={active?.column === column ? active.direction : null}
               onSort={changeSort}
@@ -143,7 +189,11 @@ export function TableView({ node }: { node: TableNode }) {
             {cells.map((cell, column) => (
               <View
                 key={node.columns[column].label}
-                style={[styles.cell, alignEnd[column] && styles.cellEnd]}
+                style={[
+                  styles.cell,
+                  alignEnd[column] && styles.cellEnd,
+                  inlineUnistylesStyle(columns[column]),
+                ]}
               >
                 <Text
                   selectable
@@ -171,8 +221,6 @@ const styles = StyleSheet.create((theme) => ({
   row: { flexDirection: "row" },
   rowBorder: { borderTopWidth: 1, borderColor: theme.colors.border },
   cell: {
-    flex: 1,
-    minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: theme.spacing[2],

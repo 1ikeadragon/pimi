@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Pressable, View, type ViewStyle } from "react-native";
+import { Pressable, View, type LayoutChangeEvent, type ViewStyle } from "react-native";
 import { Code, Maximize2, Workflow } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
@@ -51,7 +51,20 @@ function MermaidFenceHostImpl({
   const visible = state.visible;
   const canShowDiagram = visible !== null && hasRuntimeContent;
   const diagramVisible = canShowDiagram && !showSource;
-  const runtimeHeight = Math.max(visible?.height ?? 240, 1);
+  const [columnWidth, setColumnWidth] = useState(0);
+  const measureColumn = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
+    const measured = Math.floor(nativeEvent.layout.width);
+    // A hidden retained panel reports zero; keep the last real width.
+    if (measured > 0) setColumnWidth(measured);
+  }, []);
+  const padding = typeof textStyle.padding === "number" ? textStyle.padding : 0;
+  // A diagram wider than the column is drawn smaller to fit it, so the box takes the height the
+  // drawing ends up with. At the diagram's full height a phone shows a small drawing in a tall
+  // empty box.
+  const runtimeHeight = Math.max(
+    fittedDiagramHeight(visible, columnWidth - padding * 2) + padding * 2,
+    1,
+  );
   const actions = useMemo(
     () => [
       {
@@ -85,6 +98,7 @@ function MermaidFenceHostImpl({
 
   return (
     <>
+      <View onLayout={measureColumn} style={columnProbeStyle} />
       {sourceVisible ? (
         <View style={sourceContainerStyle}>
           <HighlightedCodeBlock
@@ -138,6 +152,16 @@ function MermaidFenceHostImpl({
   );
 }
 
+function fittedDiagramHeight(
+  diagram: { width: number; height: number } | null,
+  available: number,
+): number {
+  if (!diagram) return 240;
+  if (available <= 0 || diagram.width <= available) return diagram.height;
+  return Math.ceil((diagram.height * available) / diagram.width);
+}
+
+const columnProbeStyle: ViewStyle = { alignSelf: "stretch", height: 0 };
 const MEASURING_SIZE = { width: 240, height: 240 };
 /**
  * The toolbar overlays the top of the box (8px offset + 32px compact buttons) and the box clips
