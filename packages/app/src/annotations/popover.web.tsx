@@ -42,9 +42,9 @@ export interface AnnotationEditorHandle {
 }
 
 export const ANNOTATION_HIGHLIGHT_NAME = "pimi-annotation";
-/** The quote a composer pill went to, pulsing while the chat lands on it. */
-export const ANNOTATION_PULSE_HIGHLIGHT_NAME = "pimi-annotation-pulse";
-/** Animated on an ancestor of the quote; the pulse highlight inherits it. */
+/** A rounded box over the chat quote a composer pill went to; its layer fades in and out. */
+export const ANNOTATION_PULSE_BOX_CLASS = "pimi-annotation-pulse-box";
+/** Animated on the code editor content; the code pulse mark inherits it. */
 export const ANNOTATION_PULSE_OPACITY = "--pimi-annotation-pulse-opacity";
 export const ANNOTATION_MARK_CLASS = "cm-pimi-annotation";
 /** The code a composer pill went to, pulsing with the opacity animated on the editor content. */
@@ -85,7 +85,7 @@ export function AnnotationHighlightStyle() {
   const active = `color-mix(in srgb, ${accent} 45%, transparent)`;
   const pulse = `color-mix(in srgb, ${accent} calc(var(${ANNOTATION_PULSE_OPACITY}) * 100%), transparent)`;
   return (
-    <style>{`@property ${ANNOTATION_PULSE_OPACITY} { syntax: "<number>"; inherits: true; initial-value: 0; } ::highlight(${ANNOTATION_HIGHLIGHT_NAME}) { background-color: ${active}; } .${ANNOTATION_MARK_CLASS} { background-color: ${active}; } ::highlight(${ANNOTATION_PULSE_HIGHLIGHT_NAME}) { background-color: ${pulse}; } .${ANNOTATION_PULSE_MARK_CLASS} { background-color: ${pulse}; }`}</style>
+    <style>{`@property ${ANNOTATION_PULSE_OPACITY} { syntax: "<number>"; inherits: true; initial-value: 0; } ::highlight(${ANNOTATION_HIGHLIGHT_NAME}) { background-color: ${active}; } .${ANNOTATION_MARK_CLASS} { background-color: ${active}; } .${ANNOTATION_PULSE_BOX_CLASS} { position: absolute; border-radius: 4px; background-color: ${active}; } .${ANNOTATION_PULSE_MARK_CLASS} { background-color: ${pulse}; }`}</style>
   );
 }
 

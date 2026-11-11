@@ -4,13 +4,8 @@ import type { ChatFindProps } from "@/agent-stream/chat-find/types";
 import { PROMPT_JUMP_TOP_INSET_PX } from "@/agent-stream/prompt-jump-settle";
 import { messageContents } from "./chat-highlight.web";
 import type { AnnotationTextSelector } from "./model";
-import { ANNOTATION_PULSE_HIGHLIGHT_NAME } from "./popover.web";
-import {
-  ANNOTATION_PULSE_TOTAL_MS,
-  ANNOTATION_SOURCE_TOP_OFFSET_PX,
-  annotationPulseKeyframes,
-  prefersReducedMotion,
-} from "./pulse.web";
+import { ANNOTATION_SOURCE_TOP_OFFSET_PX, prefersReducedMotion } from "./pulse.web";
+import { playQuotePulse } from "./pulse-overlay.web";
 import { resolveSelectorRange } from "./text-selector.web";
 
 /** Rows of a long message mount over a few frames before the quote can be found in them. */
@@ -42,11 +37,6 @@ function renderedRows(root: HTMLElement, messageId: string): HTMLElement[] {
   return findMessageRows(root, messageId).filter((row) => row.getBoundingClientRect().height > 0);
 }
 
-function ancestorElement(range: Range): Element | null {
-  const node = range.commonAncestorContainer;
-  return node instanceof Element ? node : node.parentElement;
-}
-
 /**
  * Scrolls the chat until the quote sits near its top, then pulses the quote and fades it out.
  * Only one quote pulses at a time. The user scrolling before the chat lands cancels quietly;
@@ -63,7 +53,6 @@ export function revealChatQuote(input: {
 }): () => void {
   const { root, messageId, selector, getNavigation, onNotice, onDone } = input;
   current?.();
-  const registry = typeof Highlight !== "undefined" && "highlights" in CSS ? CSS.highlights : null;
   const reducedMotion = prefersReducedMotion();
   const scrollAbort = new AbortController();
   const deadline = performance.now() + LOCATE_TIMEOUT_MS;
@@ -75,10 +64,7 @@ export function revealChatQuote(input: {
   let settledFrames = 0;
   let lastTop: number | null = null;
   let range: Range | null = null;
-  let highlight: Highlight | null = null;
-  let animation: Animation | null = null;
-  let animated: Element | null = null;
-  let pulseStartedAt = 0;
+  let stopPulse: (() => void) | null = null;
 
   const resolve = () => resolveSelectorRange(messageContents(root, messageId), selector);
 
@@ -90,10 +76,7 @@ export function revealChatQuote(input: {
     scrollAbort.abort();
     stopListeningForIntent();
     observer.disconnect();
-    animation?.cancel();
-    if (highlight && registry?.get(ANNOTATION_PULSE_HIGHLIGHT_NAME) === highlight) {
-      registry.delete(ANNOTATION_PULSE_HIGHLIGHT_NAME);
-    }
+    stopPulse?.();
   }
   function finish(notice?: ChatRevealNotice) {
     if (stopped) return;
@@ -109,7 +92,7 @@ export function revealChatQuote(input: {
 
   // The settle loop stops on a wheel or key; the reveal stops with it instead of pulsing later.
   const userScrolled = () => {
-    if (!highlight) finish();
+    if (!stopPulse) finish();
   };
   root.addEventListener("wheel", userScrolled, { passive: true });
   root.addEventListener("touchstart", userScrolled, { passive: true });
@@ -161,6 +144,7 @@ export function revealChatQuote(input: {
       scrolledToQuote = true;
       navigation.viewportRef.current?.scrollToMessage?.(messageId, {
         signal: scrollAbort.signal,
+        smooth: true,
         targetTop() {
           const quote = resolve();
           if (!quote) return null;
@@ -187,33 +171,10 @@ export function revealChatQuote(input: {
     pulse(found);
   }
 
-  function animate(element: Element) {
-    if (animated === element) return;
-    animation?.cancel();
-    animated = element;
-    animation = element.animate(annotationPulseKeyframes(reducedMotion), {
-      duration: ANNOTATION_PULSE_TOTAL_MS,
-      easing: "ease-in-out",
-    });
-    animation.currentTime = performance.now() - pulseStartedAt;
-    animation.finished.then(
-      () => finish(),
-      () => {},
-    );
-  }
-
   function pulse(found: Range) {
     stopListeningForIntent();
-    if (!registry) {
-      finish();
-      return;
-    }
     range = found;
-    highlight = new Highlight(found);
-    registry.set(ANNOTATION_PULSE_HIGHLIGHT_NAME, highlight);
-    pulseStartedAt = performance.now();
-    const element = ancestorElement(found);
-    if (element) animate(element);
+    stopPulse = playQuotePulse({ range: found, reducedMotion, onDone: finish });
     observer.observe(root, { childList: true, subtree: true, characterData: true });
   }
 
@@ -228,14 +189,12 @@ export function revealChatQuote(input: {
     }
     range.setStart(repaired.startContainer, repaired.startOffset);
     range.setEnd(repaired.endContainer, repaired.endOffset);
-    const element = ancestorElement(range);
-    if (element) animate(element);
   }
   const observer = new MutationObserver(() => {
     if (!range) return;
     const detached =
       range.collapsed || !range.startContainer.isConnected || !range.endContainer.isConnected;
-    if (!detached && animated?.isConnected) return;
+    if (!detached) return;
     cancelAnimationFrame(frame);
     frame = requestAnimationFrame(repair);
   });
