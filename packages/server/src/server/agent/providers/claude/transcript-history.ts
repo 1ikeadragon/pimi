@@ -159,18 +159,6 @@ export interface ClaudeTranscriptWindow {
   startOffset: number;
 }
 
-/** True when the session owns sidechain or workflow files. Their ownership is resolved across the
- * whole parent transcript, so such sessions cannot be replayed one window at a time. */
-export async function claudeTranscriptHasSidechains(historyPath: string): Promise<boolean> {
-  const sessionDirectory = path.join(
-    path.dirname(historyPath),
-    path.basename(historyPath, ".jsonl"),
-  );
-  const subagents = await optionalDirectory(path.join(sessionDirectory, "subagents"));
-  if (subagents.length > 0) return true;
-  return (await optionalDirectory(path.join(sessionDirectory, "workflows"))).length > 0;
-}
-
 /** Lines of the file before `end`, last line first, with each line's byte offset. */
 async function* reverseLines(
   fd: FileHandle,
@@ -292,16 +280,22 @@ async function closeReplaySources(descriptors: Iterable<FileHandle>): Promise<vo
   if (failure) throw failure.reason;
 }
 
-async function indexHistory(
-  historyPath: string,
-  descriptors: Map<string, FileHandle>,
-): Promise<ClaudeReplayHistory> {
+interface SidechainLayout {
+  sessionDirectory: string;
+  /** Subagent transcripts beside the session, excluding the parent transcript itself. */
+  sidechainFiles: string[];
+  workflowFiles: Map<string, string[]>;
+  metaByAgentId: Map<string, ClaudeSubagentMeta>;
+}
+
+/** List sidechain and workflow files and read the small meta sidecars; no transcript is opened. */
+async function discoverSidechains(historyPath: string): Promise<SidechainLayout> {
   const sessionDirectory = path.join(
     path.dirname(historyPath),
     path.basename(historyPath, ".jsonl"),
   );
   const sidechainDirectory = path.join(sessionDirectory, "subagents");
-  const sidechainFiles = [historyPath];
+  const sidechainFiles: string[] = [];
   const workflowFiles = new Map<string, string[]>();
   const metaByAgentId = new Map<string, ClaudeSubagentMeta>();
   const directories = [sidechainDirectory];
@@ -331,6 +325,102 @@ async function indexHistory(
       if (meta) metaByAgentId.set(agentId, meta);
     }
   }
+  return { sessionDirectory, sidechainFiles, workflowFiles, metaByAgentId };
+}
+
+function compareReplayTimestamps(a: RecordLocation, b: RecordLocation): number {
+  if (!a.timestamp && !b.timestamp) return 0;
+  if (!a.timestamp) return 1;
+  if (!b.timestamp) return -1;
+  return Date.parse(a.timestamp) - Date.parse(b.timestamp);
+}
+
+/** Subagent and workflow sources that read their transcripts only when iterated. A windowed
+ * replay opens just the children owned by the turns it shows. */
+export interface ClaudeSidechainSources {
+  subagents: ReadonlyMap<string, ClaudeReplayHistory["subagents"][number]>;
+  workflows: ClaudeWorkflowRun[];
+  workflowEntriesByRunId: ReadonlyMap<string, AsyncIterable<TranscriptEntry>>;
+  /** Task tool_use ids claimed by meta sidecars, whether or not the child has been read. */
+  metaToolUseIds: ReadonlySet<string>;
+}
+
+export async function openClaudeSidechainSources(
+  historyPath: string,
+): Promise<ClaudeSidechainSources> {
+  const layout = await discoverSidechains(historyPath);
+  const subagents = new Map<string, ClaudeReplayHistory["subagents"][number]>();
+  for (const file of layout.sidechainFiles) {
+    const agentId = /^agent-(.+)\.jsonl$/.exec(path.basename(file))?.[1];
+    if (!agentId) continue;
+    subagents.set(agentId, {
+      agentId,
+      meta: layout.metaByAgentId.get(agentId) ?? null,
+      entries: lazyRecords(
+        [file],
+        (entry) => entry.isSidechain === true && entry.agentId === agentId,
+      ),
+    });
+  }
+  const workflowEntriesByRunId = new Map<string, AsyncIterable<TranscriptEntry>>();
+  for (const [runId, files] of layout.workflowFiles) {
+    workflowEntriesByRunId.set(
+      runId,
+      lazyRecords(files, (entry) => entry.type !== "user" || !isToolResult(entry), true),
+    );
+  }
+  const metaToolUseIds = new Set<string>();
+  for (const meta of layout.metaByAgentId.values()) {
+    const id = meta.toolUseId?.trim();
+    if (id) metaToolUseIds.add(id);
+  }
+  return {
+    subagents,
+    workflows: await readWorkflows(layout.sessionDirectory),
+    workflowEntriesByRunId,
+    metaToolUseIds,
+  };
+}
+
+/** Records of `files` that pass `keep`, parsed on each iteration with a descriptor owned by it. */
+function lazyRecords(
+  files: readonly string[],
+  keep: (entry: TranscriptEntry) => boolean,
+  chronological = false,
+): AsyncIterable<TranscriptEntry> {
+  return {
+    async *[Symbol.asyncIterator]() {
+      yield* assignTaskNotificationReplayIds(read());
+    },
+  };
+  async function* read(): AsyncGenerator<TranscriptEntry> {
+    const collected: { entry: TranscriptEntry; location: RecordLocation }[] = [];
+    for (const file of files) {
+      const fd = await fs.open(file, "r");
+      try {
+        for await (const record of locatedRecords(file, fd)) {
+          if (!keep(record.entry)) continue;
+          if (chronological) collected.push(record);
+          else yield record.entry;
+        }
+      } finally {
+        await fd.close();
+      }
+    }
+    if (chronological) {
+      collected.sort((a, b) => compareReplayTimestamps(a.location, b.location));
+      for (const { entry } of collected) yield entry;
+    }
+  }
+}
+
+async function indexHistory(
+  historyPath: string,
+  descriptors: Map<string, FileHandle>,
+): Promise<ClaudeReplayHistory> {
+  const layout = await discoverSidechains(historyPath);
+  const { sessionDirectory, workflowFiles, metaByAgentId } = layout;
+  const sidechainFiles = [historyPath, ...layout.sidechainFiles];
   const parentLocations: RecordLocation[] = [];
   const locationsByAgentId = new Map<string, RecordLocation[]>();
   async function scan(
@@ -357,12 +447,7 @@ async function indexHistory(
       await scan(file, (entry, location) => {
         if (entry.type !== "user" || isToolResult(entry)) locations.push(location);
       });
-    locations.sort((a, b) => {
-      if (!a.timestamp && !b.timestamp) return 0;
-      if (!a.timestamp) return 1;
-      if (!b.timestamp) return -1;
-      return Date.parse(a.timestamp) - Date.parse(b.timestamp);
-    });
+    locations.sort(compareReplayTimestamps);
     workflowEntriesByRunId.set(runId, indexedRecords(locations, descriptors));
   }
   return {

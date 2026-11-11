@@ -675,6 +675,12 @@ export interface AgentUsageSession {
   sessionKey: string;
 }
 
+/** One block of older history: rows to prepend, and the provider subagents those rows own. */
+export type OlderHistoryEvent = Extract<
+  AgentStreamEvent,
+  { type: "timeline" | "provider_subagent" }
+>;
+
 export interface AgentSession {
   usageSession?(): AgentUsageSession | null;
   readonly provider: AgentProvider;
@@ -692,7 +698,7 @@ export interface AgentSession {
   /** True while a windowed replay has left older turns of the transcript unread. */
   hasOlderHistory?(): boolean;
   /** Read the next older block of history, oldest first; empty once nothing older remains. */
-  loadOlderHistory?(): Promise<Extract<AgentStreamEvent, { type: "timeline" }>[]>;
+  loadOlderHistory?(): Promise<OlderHistoryEvent[]>;
   getRuntimeInfo(): Promise<AgentRuntimeInfo>;
   getAvailableModes(): Promise<AgentMode[]>;
   getCurrentMode(): Promise<string | null>;

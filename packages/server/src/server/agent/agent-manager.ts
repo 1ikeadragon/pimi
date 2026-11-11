@@ -60,6 +60,7 @@ import {
   type ImportedTimelineEntry,
   type ImportableProviderSession,
   type ListImportableSessionsOptions,
+  type OlderHistoryEvent,
 } from "./agent-sdk-types.js";
 import { buildArchivedAgentRecord, type ArchivedStoredAgentRecord } from "./agent-archive.js";
 import { toStoredAgentRecord } from "./agent-projections.js";
@@ -5194,41 +5195,54 @@ export class AgentManager {
     }
   }
 
-  private projectOlderHistoryEvents(
-    events: readonly Extract<AgentStreamEvent, { type: "timeline" }>[],
-  ): Extract<AgentStreamEvent, { type: "timeline" }>[] {
-    const projected: Extract<AgentStreamEvent, { type: "timeline" }>[] = [];
+  private projectOlderHistoryEvents(events: readonly OlderHistoryEvent[]): {
+    timeline: Extract<AgentStreamEvent, { type: "timeline" }>[];
+    subagents: Extract<AgentStreamEvent, { type: "provider_subagent" }>[];
+  } {
+    const timeline: Extract<AgentStreamEvent, { type: "timeline" }>[] = [];
+    const subagents: Extract<AgentStreamEvent, { type: "provider_subagent" }>[] = [];
     for (const rawEvent of events) {
       const event = limitAgentStreamEventContent(rawEvent);
+      if (event.type === "provider_subagent") {
+        subagents.push(event);
+        continue;
+      }
       if (event.type !== "timeline") continue;
       for (const item of projectAgentMessages(withoutCarriedContext(event.item))) {
-        projected.push({ ...event, item });
+        timeline.push({ ...event, item });
       }
     }
-    return projected;
+    return { timeline, subagents };
   }
 
-  private async readAllOlderHistory(
-    agent: ActiveManagedAgent,
-  ): Promise<Extract<AgentStreamEvent, { type: "timeline" }>[]> {
-    const blocks: Extract<AgentStreamEvent, { type: "timeline" }>[][] = [];
+  private async readAllOlderHistory(agent: ActiveManagedAgent): Promise<{
+    timeline: Extract<AgentStreamEvent, { type: "timeline" }>[];
+    subagents: Extract<AgentStreamEvent, { type: "provider_subagent" }>[];
+  }> {
+    const blocks: ReturnType<AgentManager["projectOlderHistoryEvents"]>[] = [];
     while (agent.session.hasOlderHistory?.()) {
       blocks.unshift(this.projectOlderHistoryEvents(await agent.session.loadOlderHistory!()));
     }
-    return blocks.flat();
+    return {
+      timeline: blocks.flatMap((block) => block.timeline),
+      subagents: blocks.flatMap((block) => block.subagents),
+    };
   }
 
   /** Returns true when only the newest turns were replayed and older ones stay on demand. */
   private async prepareWindowedHistory(
     agent: ActiveManagedAgent,
     historyEvents: Extract<AgentStreamEvent, { type: "timeline" }>[],
+    historySubagentEvents: Extract<AgentStreamEvent, { type: "provider_subagent" }>[],
   ): Promise<boolean> {
     if (!agent.session.hasOlderHistory?.()) return false;
     if (this.timelineStore.getItems(agent.id).length === 0) {
       this.timelineStore.rebase(agent.id, WINDOWED_TIMELINE_BASE_SEQ);
       return true;
     }
-    historyEvents.unshift(...(await this.readAllOlderHistory(agent)));
+    const older = await this.readAllOlderHistory(agent);
+    historyEvents.unshift(...older.timeline);
+    historySubagentEvents.unshift(...older.subagents);
     return false;
   }
 
@@ -5244,12 +5258,16 @@ export class AgentManager {
     while (this.timelineStore.hasOlderAvailable(agentId)) {
       const loaded = this.timelineStore.countRowsBefore(agentId, options.beforeSeq ?? Infinity);
       if (!options.all && loaded >= (options.rowsWanted ?? 0)) return;
-      const events = this.projectOlderHistoryEvents(await agent.session.loadOlderHistory!());
+      const block = this.projectOlderHistoryEvents(await agent.session.loadOlderHistory!());
       if (this.timelineStore.getEpoch(agentId) !== epoch) return;
       this.timelineStore.prependItems(
         agentId,
-        events.map((event) => ({ item: event.item, timestamp: event.timestamp })),
+        block.timeline.map((event) => ({ item: event.item, timestamp: event.timestamp })),
       );
+      for (const event of block.subagents) {
+        const update = this.providerSubagents.apply(agentId, event.provider, event.event);
+        this.dispatch({ type: "provider_subagent", event: update });
+      }
       if (!agent.session.hasOlderHistory?.()) this.timelineStore.setOlderAvailable(agentId, false);
     }
   }
@@ -5320,7 +5338,9 @@ export class AgentManager {
 
     // A forced rebuild replaces the whole timeline, so a windowed replay is read to its start.
     if (agent.session.hasOlderHistory?.()) {
-      historyEvents.unshift(...(await this.readAllOlderHistory(agent)));
+      const older = await this.readAllOlderHistory(agent);
+      historyEvents.unshift(...older.timeline);
+      providerSubagentEvents.unshift(...older.subagents);
     }
     this.agentStreamCoalescer.flushAndDiscard(agent.id);
     await this.deleteCommittedTimeline(agent.id);
@@ -5396,7 +5416,7 @@ export class AgentManager {
     // A windowed replay read only the newest turns. An empty timeline numbers them from a high
     // base so older blocks can be added below; a timeline that already holds carried rows needs
     // the whole history before it can be recorded.
-    const windowed = await this.prepareWindowedHistory(agent, historyEvents);
+    const windowed = await this.prepareWindowedHistory(agent, historyEvents, historySubagentEvents);
     // The replay is the timeline, so drop the rows a previous hydration committed.
     // Keeping them would leave getTimelineRows reading one copy per hydration.
     await this.deleteCommittedTimeline(agent.id);
