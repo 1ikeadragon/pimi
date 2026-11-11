@@ -43,6 +43,7 @@ import { labelRecord, labelsAt, projectLinkedLabels } from "./linked-labels.mjs"
 import { createPaseoConnection } from "./paseo.mjs";
 import { createHostedReview } from "./hosted-review.mjs";
 import { createPullRequests } from "./pull-requests.mjs";
+import { createSpacePosters } from "./space-poster.mjs";
 import { listReviewPaths, readReviewSource } from "./review-files.mjs";
 import { createTasks } from "./tasks.mjs";
 import { generateTour } from "./walkthrough.mjs";
@@ -960,6 +961,21 @@ export async function startPimi({
     response.end(Buffer.from(data, "base64"));
   }
 
+  const spacePosters = createSpacePosters();
+  async function respondSpacePoster(request, response, id) {
+    if (request.headers["sec-fetch-site"] !== "same-origin") {
+      throw new RequestError("Open this poster in Pimi Spaces.", 403);
+    }
+    const data = await spacePosters.poster(id);
+    if (!data) throw new RequestError("This video has no poster.", 404);
+    // A video's poster is kept by the window, so Spaces never asks again.
+    response.writeHead(200, {
+      "content-type": "image/jpeg",
+      "cache-control": "private, max-age=31536000, immutable",
+    });
+    response.end(data);
+  }
+
   async function sourceResponse(path, source) {
     const tokens = isLanguageSupported(path)
       ? await highlightCodeWithBudget(source, path, { yieldToEventLoop: setImmediate })
@@ -1032,6 +1048,10 @@ export async function startPimi({
         if (url.pathname === "/api/events") return openEvents(request, response);
         if (url.pathname === "/api/spaces/image") {
           await respondSpaceImage(request, response, url.searchParams.get("id"));
+          return;
+        }
+        if (url.pathname === "/api/spaces/poster") {
+          await respondSpacePoster(request, response, url.searchParams.get("v"));
           return;
         }
         const asset = assets.get(url.pathname);
