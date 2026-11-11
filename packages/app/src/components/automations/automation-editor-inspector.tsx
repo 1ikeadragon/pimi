@@ -1277,6 +1277,7 @@ function TryCheck({
     setSample(text);
   }, []);
   const verdict = useMemo<boolean | null>(() => {
+    if (!sample.trim()) return null;
     if (conditionOperatorNeedsValue(step.operator) && !step.value.trim()) return null;
     try {
       return evaluateAutomationCondition(

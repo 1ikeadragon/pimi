@@ -11,6 +11,8 @@ import { inlineUnistylesStyle } from "@/styles/unistyles-inline-style";
 const MIN_SCALE = 0.25;
 const MAX_SCALE = 4;
 const STEP = 1.25;
+// Fit stops shrinking here: node titles and subtitles stay legible.
+const MIN_READABLE_SCALE = 0.8;
 const FIT_MARGIN = 32;
 // Pointer travel before a press on the canvas becomes a pan, so a tap still selects a node.
 const DRAG_THRESHOLD = 4;
@@ -32,20 +34,24 @@ function clampScale(scale: number): number {
   return Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale));
 }
 
-/** Scales and centres the graph in the room below `topInset`, never enlarging past 100%. */
+/**
+ * Scales the graph to fit the room below `topInset`, but never below `MIN_READABLE_SCALE` or
+ * above 100%. An axis that fits is centred; one that does not starts at its margin, so the
+ * trigger stays in view at the left (or top) and the person pans for the rest.
+ */
 function fitTransform(content: Size, viewport: Size, topInset: number): Transform {
   const room = { width: viewport.width, height: Math.max(1, viewport.height - topInset) };
-  const scale = clampScale(
-    Math.min(
-      1,
-      (room.width - FIT_MARGIN * 2) / content.width,
-      (room.height - FIT_MARGIN * 2) / content.height,
-    ),
+  const fitScale = Math.min(
+    (room.width - FIT_MARGIN * 2) / content.width,
+    (room.height - FIT_MARGIN * 2) / content.height,
   );
+  const scale = Math.min(1, Math.max(MIN_READABLE_SCALE, fitScale));
+  const axis = (roomSize: number, contentSize: number) =>
+    contentSize <= roomSize - FIT_MARGIN * 2 ? (roomSize - contentSize) / 2 : FIT_MARGIN;
   return {
     scale,
-    x: (room.width - content.width * scale) / 2,
-    y: topInset + (room.height - content.height * scale) / 2,
+    x: axis(room.width, content.width * scale),
+    y: topInset + axis(room.height, content.height * scale),
   };
 }
 
