@@ -50,9 +50,9 @@ export const ANNOTATION_MARK_CLASS = "cm-pimi-annotation";
 /** The code a composer pill went to, pulsing with the opacity animated on the editor content. */
 export const ANNOTATION_PULSE_MARK_CLASS = "cm-pimi-annotation-pulse";
 
-const EDITOR_WIDTH = 320;
-const INPUT_MIN_HEIGHT = 56;
-const INPUT_MAX_HEIGHT = 160;
+const EDITOR_WIDTH = 280;
+const INPUT_MIN_HEIGHT = 36;
+const INPUT_MAX_HEIGHT = 120;
 const ENTER_ANIMATION_NAME = "pimi-annotation-enter";
 const ENTER_DURATION_MS = 130;
 
@@ -433,7 +433,7 @@ export function AnnotationNoteEditor({
           </Text>
         ) : null}
         <View style={styles.footer}>
-          <Text style={styles.hint}>Enter to save</Text>
+          <Text style={styles.hint}>↵ to save</Text>
           <Button size="sm" variant="ghost" onPress={cancel} testID="annotation-cancel">
             Cancel
           </Button>
@@ -456,9 +456,9 @@ const styles = StyleSheet.create((theme) => ({
   highlight: { color: theme.colors.accent },
   toolbarButton: { ...theme.shadow.sm },
   editor: {
-    backgroundColor: theme.colors.surface0,
+    backgroundColor: theme.colors.popover,
     borderWidth: theme.borderWidth[1],
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.borderAccent,
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing[2],
     gap: theme.spacing[1],
@@ -470,7 +470,7 @@ const styles = StyleSheet.create((theme) => ({
     borderWidth: 0,
     paddingHorizontal: theme.spacing[1],
     paddingVertical: theme.spacing[1],
-    fontSize: theme.fontSize.sm,
+    fontSize: theme.fontSize.base,
     minHeight: INPUT_MIN_HEIGHT,
     maxHeight: INPUT_MAX_HEIGHT,
     textAlignVertical: "top",

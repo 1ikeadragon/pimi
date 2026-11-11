@@ -13,7 +13,6 @@ import {
   Pressable,
   type PressableStateCallbackType,
   Text,
-  type TextStyle,
   View,
   type StyleProp,
   type ViewStyle,
@@ -27,6 +26,7 @@ import {
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { createReviewEditorScope } from "./editor";
 import { isWeb } from "@/constants/platform";
+import { isMacUserAgent } from "@/utils/mac-user-agent";
 import { inlineUnistylesStyle } from "@/styles/unistyles-inline-style";
 import type { Theme } from "@/styles/theme";
 import {
@@ -37,6 +37,7 @@ import {
 } from "./store";
 import { buildReviewableDiffTargetKey, type ReviewableDiffTarget } from "@/utils/diff-layout";
 import {
+  INLINE_REVIEW_BLOCK_MAX_WIDTH,
   INLINE_REVIEW_EDITOR_HEIGHT,
   INLINE_REVIEW_GAP,
   INLINE_REVIEW_VERTICAL_PADDING,
@@ -392,6 +393,8 @@ export function getInlineReviewThreadViewportStyle({
   return [stickyStyle, widthStyle];
 }
 
+const SUBMIT_HINT = isMacUserAgent() ? "⌘↵" : "Ctrl+↵";
+
 export function InlineReviewEditor({
   body,
   onChangeBody,
@@ -457,13 +460,13 @@ export function InlineReviewEditor({
     };
   }, [canSave, handleSave, onCancel]);
 
-  const inputStyle = useMemo<StyleProp<TextStyle>>(
-    () => [styles.editorInput, isFocused && styles.editorInputFocused],
+  const blockStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [styles.editorBlock, isFocused && styles.editorBlockFocused],
     [isFocused],
   );
 
   return (
-    <View style={styles.editorBlock} testID={testID}>
+    <View style={blockStyle} testID={testID}>
       <TextInput
         ref={inputRef}
         accessibilityLabel={t("review.comment.label")}
@@ -475,9 +478,10 @@ export function InlineReviewEditor({
         onChangeText={onChangeBody}
         onFocus={handleFocus}
         onBlur={handleBlur}
-        style={inputStyle}
+        style={styles.editorInput}
       />
       <View style={styles.editorActions}>
+        <Text style={styles.editorHint}>{SUBMIT_HINT}</Text>
         <Button
           accessibilityLabel={t("review.comment.cancelAccessibility")}
           testID={testID ? `${testID}-cancel` : undefined}
@@ -549,6 +553,9 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing[3],
   },
   commentBlock: {
+    alignSelf: "flex-start",
+    width: "100%",
+    maxWidth: INLINE_REVIEW_BLOCK_MAX_WIDTH,
     backgroundColor: theme.colors.surface2,
     borderWidth: theme.borderWidth[1],
     borderColor: theme.colors.borderAccent,
@@ -593,27 +600,31 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.surface3,
   },
   editorBlock: {
-    minHeight: INLINE_REVIEW_EDITOR_HEIGHT,
+    alignSelf: "flex-start",
+    width: "100%",
+    maxWidth: INLINE_REVIEW_BLOCK_MAX_WIDTH,
+    // The row height is computed from INLINE_REVIEW_EDITOR_HEIGHT, so the block cannot grow.
+    height: INLINE_REVIEW_EDITOR_HEIGHT,
     backgroundColor: theme.colors.surface2,
     borderWidth: theme.borderWidth[1],
     borderColor: theme.colors.borderAccent,
     borderRadius: theme.borderRadius.lg,
-    paddingHorizontal: theme.spacing[3],
-    paddingVertical: theme.spacing[3],
-    gap: theme.spacing[3],
+    padding: theme.spacing[2],
+    gap: theme.spacing[1],
+  },
+  editorBlockFocused: {
+    borderColor: theme.colors.accent,
   },
   editorInput: {
     flex: 1,
     minHeight: 0,
     color: theme.colors.foreground,
-    backgroundColor: theme.colors.surface1,
-    borderWidth: theme.borderWidth[1],
-    borderColor: theme.colors.border,
-    borderRadius: theme.borderRadius.md,
-    paddingHorizontal: theme.spacing[3],
-    paddingVertical: theme.spacing[2],
-    fontSize: theme.fontSize.content,
-    lineHeight: theme.fontSize.content * 1.4,
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    paddingHorizontal: theme.spacing[1],
+    paddingVertical: 0,
+    fontSize: theme.fontSize.base,
+    lineHeight: 20,
     textAlignVertical: "top",
     ...(isWeb
       ? {
@@ -622,13 +633,16 @@ const styles = StyleSheet.create((theme) => ({
         }
       : {}),
   },
-  editorInputFocused: {
-    borderColor: theme.colors.accent,
-  },
   editorActions: {
     flexDirection: "row",
     justifyContent: "flex-end",
     alignItems: "center",
-    gap: theme.spacing[2],
+    gap: theme.spacing[1],
+  },
+  editorHint: {
+    flex: 1,
+    paddingHorizontal: theme.spacing[1],
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
   },
 }));
