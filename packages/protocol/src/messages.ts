@@ -2179,6 +2179,18 @@ export const AgentDetachResponseMessageSchema = z.object({
   payload: AgentActionResponsePayloadSchema,
 });
 
+/** Resume the subagents an agent's Stop also stopped, and the agent itself if it was mid-turn. */
+export const AgentSubagentsResumeRequestMessageSchema = z.object({
+  type: z.literal("agent.subagents.resume.request"),
+  agentId: z.string(),
+  requestId: z.string(),
+});
+
+export const AgentSubagentsResumeResponseMessageSchema = z.object({
+  type: z.literal("agent.subagents.resume.response"),
+  payload: AgentActionResponsePayloadSchema,
+});
+
 export const AgentRewindModeSchema = z.enum(["conversation", "files", "both"]);
 
 export const AgentRewindRequestMessageSchema = z.object({
@@ -3366,6 +3378,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   AgentConfigApplyRequestMessageSchema,
   AgentProviderSwitchRequestMessageSchema,
   AgentDetachRequestMessageSchema,
+  AgentSubagentsResumeRequestMessageSchema,
   AgentRewindRequestMessageSchema,
   AgentPermissionResponseMessageSchema,
   CheckoutStatusRequestSchema,
@@ -6711,6 +6724,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   AgentConfigApplyResponseMessageSchema,
   AgentProviderSwitchResponseMessageSchema,
   AgentDetachResponseMessageSchema,
+  AgentSubagentsResumeResponseMessageSchema,
   AgentRewindResponseMessageSchema,
   UpdateAgentResponseMessageSchema,
   ProjectRenameResponseSchema,

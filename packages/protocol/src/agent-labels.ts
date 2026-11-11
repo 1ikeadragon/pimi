@@ -2,6 +2,21 @@ import type { AgentAddress } from "./addresses.js";
 export const PARENT_SERVER_ID_LABEL = "paseo.parent-server-id";
 export const PARENT_AGENT_ID_LABEL = "paseo.parent-agent-id";
 const OPEN_AGENT_TAB_LABEL_PREFIX = "paseo.open-agent-tab.";
+/** On a subagent stopped with an ancestor: the ID of the agent whose Stop reached it. */
+export const STOPPED_BY_AGENT_ID_LABEL = "paseo.stopped-by-agent-id";
+/**
+ * On an agent whose Stop also stopped subagents: `"mid-turn"` when its own turn was interrupted,
+ * `"idle"` when only its subagents were working.
+ */
+export const STOPPED_WITH_SUBAGENTS_LABEL = "paseo.stopped-with-subagents";
+export type StoppedWithSubagents = "mid-turn" | "idle";
+
+export function getStoppedByAgentIdFromLabels(
+  labels: Record<string, unknown> | null | undefined,
+): string | null {
+  const stoppedBy = labels?.[STOPPED_BY_AGENT_ID_LABEL];
+  return typeof stoppedBy === "string" && stoppedBy.length > 0 ? stoppedBy : null;
+}
 
 export function getOpenAgentTabLabel(clientId: string): string {
   return `${OPEN_AGENT_TAB_LABEL_PREFIX}${clientId}`;

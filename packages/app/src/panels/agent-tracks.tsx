@@ -19,6 +19,7 @@ import {
   useSubagentsForParent,
 } from "@/subagents";
 import { ParentAgentPill } from "@/subagents/parent";
+import { StoppedSubagentsPill } from "@/subagents/stopped-pill";
 import { SubagentsTrack } from "@/subagents/track";
 import type { TodoEntry } from "@/types/stream";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
@@ -144,6 +145,7 @@ export const AgentTracks = memo(function AgentTracks({
         archiveFinishedStatus={archiveFinishedSubagents.status}
         onDetachSubagent={detachSubagent}
       />
+      <StoppedSubagentsPill serverId={serverId} agentId={agentId} />
       <PluginComposerPills
         serverId={serverId}
         workspaceId={workspaceId}

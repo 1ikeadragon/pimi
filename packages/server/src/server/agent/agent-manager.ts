@@ -20,6 +20,8 @@ import {
   isDelegatedAgent,
   isOpenAgentTabLabel,
   PARENT_AGENT_ID_LABEL,
+  STOPPED_BY_AGENT_ID_LABEL,
+  STOPPED_WITH_SUBAGENTS_LABEL,
 } from "@pimi/protocol/agent-labels";
 import type { Logger } from "pino";
 import type { AgentProviderSwitchMarker, ToolPolicy } from "@pimi/protocol/agent-types";
@@ -771,7 +773,8 @@ type ActiveManagedAgent =
   | ManagedAgentError;
 
 type LiveManagedAgent = ActiveManagedAgent;
-type AgentLabelPatch = Record<string, string | null>;
+/** `null` removes a label. */
+export type AgentLabelPatch = Record<string, string | null>;
 
 function attachManagedTurnIdentity(
   agent: ActiveManagedAgent,
@@ -2959,6 +2962,49 @@ export class AgentManager {
     });
   }
 
+  /** Applies a label patch to a live or stored-only agent and publishes the change. */
+  async patchLabels(agentId: string, patch: AgentLabelPatch): Promise<void> {
+    await this.runLifecycleMutation(agentId, async () => {
+      const result = await this.writeLabels(agentId, patch);
+      if (!result.live && result.record && !result.record.internal) {
+        this.dispatchStoredAgentState(result.record);
+      }
+    });
+  }
+
+  /**
+   * A new turn ends the stop that `stop-cascade.ts` recorded: the agent drops its own markers,
+   * and an agent whose Stop held subagents lets them go without resuming them.
+   */
+  private releaseStopMarkers(agent: ManagedAgent): void {
+    const labels = agent.labels;
+    if (!labels[STOPPED_BY_AGENT_ID_LABEL] && !labels[STOPPED_WITH_SUBAGENTS_LABEL]) {
+      return;
+    }
+    const heldSubagents = Boolean(labels[STOPPED_WITH_SUBAGENTS_LABEL]);
+    void (async () => {
+      await this.patchLabels(agent.id, {
+        [STOPPED_BY_AGENT_ID_LABEL]: null,
+        [STOPPED_WITH_SUBAGENTS_LABEL]: null,
+      });
+      if (!heldSubagents) {
+        return;
+      }
+      const held = new Set<string>();
+      for (const live of this.agents.values()) {
+        if (live.labels[STOPPED_BY_AGENT_ID_LABEL] === agent.id) held.add(live.id);
+      }
+      for (const record of (await this.registry?.listActive()) ?? []) {
+        if (record.labels?.[STOPPED_BY_AGENT_ID_LABEL] === agent.id) held.add(record.id);
+      }
+      for (const subagentId of held) {
+        await this.patchLabels(subagentId, { [STOPPED_BY_AGENT_ID_LABEL]: null });
+      }
+    })().catch((error: unknown) => {
+      this.logger.warn({ err: error, agentId: agent.id }, "Failed to release stop markers");
+    });
+  }
+
   private async writeLabels(agentId: string, patch: AgentLabelPatch): Promise<WriteLabelsResult> {
     const liveAgent = this.agents.get(agentId);
     if (liveAgent) {
@@ -3558,6 +3604,7 @@ export class AgentManager {
       agent.attention = { requiresAttention: false };
       agent.lifecycle = "running";
       this.touchUpdatedAt(agent);
+      this.releaseStopMarkers(agent);
       // AgentManager owns the accepted-turn boundary. Publish liveness before the canonical
       // prompt so clients can retire optimistic activity without painting an idle frame.
       // The provider's duplicate start for this turn is suppressed at the ingestion boundary.

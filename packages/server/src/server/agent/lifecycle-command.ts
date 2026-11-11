@@ -2,16 +2,20 @@ import type { Logger } from "pino";
 
 import {
   AgentRunCancellationError,
+  type AgentLabelPatch,
   type AgentRunCancellationResult,
   type ManagedAgent,
 } from "./agent-manager.js";
 import type { StoredAgentRecord } from "./agent-storage.js";
 import type { AgentProviderNotice } from "./agent-sdk-types.js";
+import { stopWorkingSubagents } from "./stop-cascade.js";
 
 export type LifecycleAgentSnapshot = Pick<ManagedAgent, "id" | "cwd" | "lifecycle" | "internal">;
 
 export interface LifecycleAgentManager {
   getAgent(agentId: string): LifecycleAgentSnapshot | null;
+  listAgents(): Pick<ManagedAgent, "id" | "labels">[];
+  patchLabels(agentId: string, patch: AgentLabelPatch): Promise<void>;
   hasInFlightRun(agentId: string): boolean;
   cancelAgentRun(agentId: string): Promise<AgentRunCancellationResult>;
   clearAgentAttention(agentId: string): Promise<void>;
@@ -37,6 +41,7 @@ export interface LifecycleAgentManager {
 
 export interface LifecycleAgentStorage {
   get(agentId: string): Promise<StoredAgentRecord | null>;
+  listActive(): Promise<StoredAgentRecord[]>;
   upsert(record: StoredAgentRecord): Promise<void>;
 }
 
@@ -93,11 +98,23 @@ async function requestAgentRunCancellation(
   };
 }
 
+/**
+ * Stop: interrupts the agent's turn and every working subagent below it. The subagents are
+ * marked so Resume can restart them (`stop-cascade.ts`).
+ */
 export async function cancelAgentRunCommand(
-  dependencies: Pick<AgentLifecycleCommandDependencies, "agentManager" | "logger">,
+  dependencies: AgentLifecycleCommandDependencies,
   agentId: string,
 ): Promise<CancelAgentRunResult> {
-  const result = await requestAgentRunCancellation(dependencies, agentId);
+  if (!dependencies.agentManager.getAgent(agentId)) {
+    throw new Error(`Agent ${agentId} not found`);
+  }
+  const wasMidTurn = dependencies.agentManager.hasInFlightRun(agentId);
+  // Subagents stop alongside the agent: one blocked waiting on a subagent returns sooner.
+  const [result] = await Promise.all([
+    requestAgentRunCancellation(dependencies, agentId),
+    stopWorkingSubagents(dependencies, { agentId, wasMidTurn }),
+  ]);
   if (result.cancellation.status === "refused") {
     dependencies.logger.warn(
       { agentId },

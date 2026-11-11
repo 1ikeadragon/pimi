@@ -1,3 +1,4 @@
+import { getStoppedByAgentIdFromLabels } from "@pimi/protocol/agent-labels";
 import type { AgentSnapshotPayload } from "@pimi/protocol/messages";
 import type { AgentStreamEvent } from "../../agent-sdk-types.js";
 import type { HostObservation } from "../../host-operations/index.js";
@@ -11,7 +12,15 @@ interface ObservationScope {
     signal?: AbortSignal,
   ): Promise<T>;
 }
+/**
+ * A subagent interrupted by an ancestor's Stop is paused, not finished: the parent hears from it
+ * when it finishes after Resume or a later prompt (`stop-cascade.ts`).
+ */
+function isStoppedByAncestor(snapshot: AgentSnapshotPayload | null | undefined): boolean {
+  return snapshot?.status === "idle" && getStoppedByAgentIdFromLabels(snapshot.labels) !== null;
+}
 function isTerminal(snapshot: AgentSnapshotPayload, event?: AgentStreamEvent): boolean {
+  if (event?.type === "turn_canceled" && isStoppedByAncestor(snapshot)) return false;
   if (snapshot.status === "closed" || snapshot.status === "error") return true;
   return (
     snapshot.status === "idle" &&
@@ -83,7 +92,9 @@ export async function openFinishObservation(
         void host
           .wait(record.childAgentId, lifetime)
           .then((result) => {
-            buffer.pushInitial(result);
+            buffer.pushInitial(
+              isStoppedByAncestor(result.final) ? { ...result, status: "timeout" } : result,
+            );
             return undefined;
           })
           .catch((error) => buffer.fail(error));

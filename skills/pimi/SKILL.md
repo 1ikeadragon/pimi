@@ -108,7 +108,7 @@ Agent-scoped `create_agent` defaults `notifyOnFinish` to true. Set it to `false`
 
 **`get_agent_activity`** — `{ agentId, limit? }`. Reads an agent's recent timeline as a summary. Use it when the finish notification does not carry enough of the result.
 
-**`cancel_agent`** — `{ agentId }`. Stops the current run and keeps the agent for follow-up prompts.
+**`cancel_agent`** — `{ agentId }`. Stops the current run and the runs of its working subagents, keeping them for follow-up prompts. When the user asks you to pause your subagents, cancel each one; to resume, send it a `send_agent_prompt`.
 
 **`archive_agent`** — `{ agentId }`. Interrupts if running, removes from active list. Use it when the work is done.
 

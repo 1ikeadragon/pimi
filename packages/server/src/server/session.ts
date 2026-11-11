@@ -144,6 +144,7 @@ import {
   setAgentModeCommand,
   updateAgentCommand,
 } from "./agent/lifecycle-command.js";
+import { resumeStoppedSubagents } from "./agent/stop-cascade.js";
 import { buildStoredAgentPayload, toAgentPayload } from "./agent/agent-projections.js";
 import { assertPluginTimelineDataSize } from "./agent/agent-timeline-content.js";
 import { parsePluginClientId } from "./plugins/plugin-session-identity.js";
@@ -2598,6 +2599,8 @@ export class Session {
     switch (msg.type) {
       case "agent.detach.request":
         return this.handleDetachAgentRequest(msg.agentId, msg.requestId);
+      case "agent.subagents.resume.request":
+        return this.handleResumeStoppedSubagentsRequest(msg.agentId, msg.requestId);
       default:
         return undefined;
     }
@@ -3226,6 +3229,37 @@ export class Session {
     }
 
     return { agentId, archivedAt };
+  }
+
+  private async handleResumeStoppedSubagentsRequest(
+    agentId: string,
+    requestId: string,
+  ): Promise<void> {
+    try {
+      await resumeStoppedSubagents(
+        {
+          agentManager: this.agentManager,
+          agentStorage: this.agentStorage,
+          logger: this.sessionLogger,
+        },
+        agentId,
+      );
+      this.emit({
+        type: "agent.subagents.resume.response",
+        payload: { requestId, agentId, accepted: true, error: null },
+      });
+    } catch (error) {
+      this.sessionLogger.error({ err: error, agentId }, "Failed to resume stopped subagents");
+      this.emit({
+        type: "agent.subagents.resume.response",
+        payload: {
+          requestId,
+          agentId,
+          accepted: false,
+          error: getErrorMessageOr(error, "Failed to resume stopped subagents"),
+        },
+      });
+    }
   }
 
   private async handleDetachAgentRequest(agentId: string, requestId: string): Promise<void> {
@@ -4645,7 +4679,11 @@ export class Session {
 
     try {
       await cancelAgentRunCommand(
-        { agentManager: this.agentManager, logger: this.sessionLogger },
+        {
+          agentManager: this.agentManager,
+          agentStorage: this.agentStorage,
+          logger: this.sessionLogger,
+        },
         agentId,
       );
       if (requestId) {

@@ -206,6 +206,26 @@ Permission requests are notification checkpoints, not the end of that subscripti
 The permission notification includes the normalized request plus the child and request IDs, so the caller can inspect it and respond without fetching agent status.
 A watched child that closes before its finish event also notifies the caller so delegated work cannot disappear silently during archive or workspace teardown.
 
+### Stop reaches subagents
+
+Stop on an agent (the composer's Stop, `pimi stop`, or the `cancel_agent` tool) also interrupts
+every working managed subagent below it, recursively. Before interrupting one, the daemon sets
+`paseo.stopped-by-agent-id` on it to the stopped agent's ID; the stopped agent gets
+`paseo.stopped-with-subagents`, `mid-turn` or `idle` depending on whether its own turn was
+interrupted. A finish subscription treats a cancel on a marked subagent as a pause and keeps
+watching. Without that, each canceled subagent would report "was canceled" and wake the parent
+the user just stopped. The parent hears from the subagent when it next finishes.
+
+While markers exist, the stopped agent's composer track shows **Stopped with N subagents ·
+Resume**. Resume (`agent.subagents.resume.request`, `packages/server/src/server/agent/stop-cascade.ts`)
+clears the markers, sends each marked subagent `Continue where you left off.`, and sends the
+stopped agent the same prompt only when it was `mid-turn`. Any other turn start drops an agent's
+own markers; on the stopped agent it also releases its subagents without resuming them, so typing
+a new message dismisses Resume. The agent can still prompt them with `send_agent_prompt`.
+
+Stop reaches managed subagents on the same daemon only. Provider subagents follow their
+provider's own cancel. A stopped subagent shows **Done** in the track because its turn settled.
+
 ## Provider-managed child agents
 
 Some providers can create their own child sessions inside one provider runtime. OMP's task tool reports these with `child_session` events; `AgentManager` imports the live provider handle, stamps `paseo.parent-agent-id`, and surfaces the result as a normal subagent in the parent's subagents track.
@@ -453,6 +473,8 @@ Each agent is a single JSON file. Fields relevant to this doc:
 | `archivedAt`                                 | `string?`     | Soft-delete timestamp (ISO 8601)                                                   |
 | `labels["paseo.parent-agent-id"]`            | `string?`     | Parent agent ID, set automatically for agent-scoped creation and removed by detach |
 | `labels["paseo.open-agent-tab.<client-id>"]` | `string?`     | `"true"` protects an open tab on that client; detach clears every matching label   |
+| `labels["paseo.stopped-by-agent-id"]`        | `string?`     | Agent whose Stop interrupted this subagent; cleared by Resume or the next turn     |
+| `labels["paseo.stopped-with-subagents"]`     | `string?`     | `mid-turn` / `idle` on an agent whose Stop also stopped subagents                  |
 | `lastStatus`                                 | `AgentStatus` | `initializing` / `idle` / `running` / `error` / `closed`                           |
 
 See [`docs/data-model.md`](./data-model.md) for the full agent record.

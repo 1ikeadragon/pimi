@@ -2184,7 +2184,8 @@ function createToolCatalog(
     "cancel_agent",
     {
       title: "Cancel agent run",
-      description: "Abort the agent's current run but keep the agent alive for future tasks.",
+      description:
+        "Abort the agent's current run and the runs of its working subagents, keeping all of them for future tasks. Continue any of them with send_agent_prompt.",
       inputSchema: {
         agentId: z.string(),
       },
@@ -2194,7 +2195,7 @@ function createToolCatalog(
     },
     async ({ agentId }) => {
       const { cancelled } = await cancelAgentRunCommand(
-        { agentManager, logger: childLogger },
+        { agentManager, agentStorage, logger: childLogger },
         agentId,
       );
       return {

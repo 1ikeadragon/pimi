@@ -3224,6 +3224,19 @@ export class DaemonClient {
     }
   }
 
+  async resumeStoppedSubagents(agentId: string): Promise<void> {
+    const payload =
+      await this.sendNamespacedCorrelatedSessionRequest<"agent.subagents.resume.response">({
+        message: {
+          type: "agent.subagents.resume.request",
+          agentId,
+        },
+      });
+    if (!payload.accepted) {
+      throw new Error(payload.error ?? "resumeStoppedSubagents rejected");
+    }
+  }
+
   async updateAgent(
     agentId: string,
     updates: { name?: string; labels?: Record<string, string> },
