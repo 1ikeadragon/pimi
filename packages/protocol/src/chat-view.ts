@@ -57,6 +57,14 @@ export const VIEW_LIMITS = {
   flowEdgeLabel: 24,
   /** Shown when the reader points at or presses a box. */
   flowDetail: 240,
+  /** Each participant is a column; more leave a phone under 54 px a column. */
+  sequenceParticipants: 6,
+  /** Messages, notes and groups together. A longer exchange is two diagrams. */
+  sequenceSteps: 30,
+  /** A message wraps under its arrow, so it can be a short sentence. */
+  sequenceLabel: 96,
+  /** One or two lines across the diagram. */
+  sequenceNote: 160,
 } as const;
 
 function text(max: number) {
@@ -300,6 +308,61 @@ const flowSchema = z
   })
   .refine(isConnectedFlow);
 
+const sequenceMessageSchema = z.object({
+  from: flowTextSchema,
+  to: flowTextSchema,
+  label: text(VIEW_LIMITS.sequenceLabel),
+  reply: z.boolean().optional(),
+  tone: toneSchema.optional(),
+});
+const sequenceNoteSchema = z.object({ note: text(VIEW_LIMITS.sequenceNote) });
+const sequenceGroupLabel = text(VIEW_LIMITS.flowLabel);
+// Groups nest two deep, enough for the branches of an alternative inside a loop. The levels are
+// written out so the parser's recursion is bounded by the schema, not by the source.
+const sequenceInnerGroupSchema = z.object({
+  group: sequenceGroupLabel,
+  steps: z.array(z.union([sequenceMessageSchema, sequenceNoteSchema])).min(1),
+});
+const sequenceGroupSchema = z.object({
+  group: sequenceGroupLabel,
+  steps: z
+    .array(z.union([sequenceMessageSchema, sequenceNoteSchema, sequenceInnerGroupSchema]))
+    .min(1),
+});
+const sequenceStepSchema = z.union([
+  sequenceMessageSchema,
+  sequenceNoteSchema,
+  sequenceGroupSchema,
+]);
+
+export type SequenceStep = z.infer<typeof sequenceStepSchema>;
+
+/** Every step in order, with the steps inside groups. */
+function flattenSequenceSteps(steps: readonly SequenceStep[]): SequenceStep[] {
+  return steps.flatMap((step) =>
+    "steps" in step ? [step, ...flattenSequenceSteps(step.steps)] : [step],
+  );
+}
+
+const sequenceSchema = z
+  .object({
+    type: z.literal("sequence"),
+    participants: z
+      .array(z.object({ id: flowTextSchema, label: flowTextSchema }))
+      .min(2)
+      .max(VIEW_LIMITS.sequenceParticipants),
+    steps: z.array(sequenceStepSchema).min(1).max(VIEW_LIMITS.sequenceSteps),
+  })
+  .refine(({ participants, steps }) => {
+    const ids = new Set(participants.map(({ id }) => id));
+    const all = flattenSequenceSteps(steps);
+    return (
+      ids.size === participants.length &&
+      all.length <= VIEW_LIMITS.sequenceSteps &&
+      all.every((step) => !("from" in step) || (ids.has(step.from) && ids.has(step.to)))
+    );
+  });
+
 const leafSchemas = [
   metricSchema,
   chartSchema,
@@ -308,6 +371,7 @@ const leafSchemas = [
   textSchema,
   badgeSchema,
   flowSchema,
+  sequenceSchema,
 ] as const;
 
 type LeafNode = z.infer<(typeof leafSchemas)[number]>;
@@ -373,6 +437,7 @@ export type ViewTone = z.infer<typeof toneSchema>;
 export type ChartNode = z.infer<typeof chartSchema>;
 export type ChartKind = ChartNode["kind"];
 export type FlowNode = z.infer<typeof flowSchema>;
+export type SequenceNode = z.infer<typeof sequenceSchema>;
 export type ChatView = z.infer<typeof viewSchema>;
 
 /** Points one series may hold, per chart kind. */
@@ -399,6 +464,7 @@ export const VIEW_NODE_FIELDS: Record<ViewNodeType, string> = {
   text: 'content; optional tone, emphasis "normal", "strong" or "subtle"',
   badge: "label; optional tone",
   flow: `nodes [{id, label, optional detail, lane, tone}], edges [{from, to, optional label}] naming node ids; optional direction "right" (default) or "down", lanes [{id, label}]. Cycles are allowed; an edge from a node to itself is not`,
+  sequence: `participants [{id, label}] in column order, steps in time order. A step is a message {from, to, label, optional reply (true draws a dashed return arrow), tone}, a note {note}, or a group {group, steps}: a labelled frame around a loop, an optional part, or one branch of an alternative. from and to name participant ids and may be the same participant`,
 };
 export const VIEW_TONES = toneSchema.options;
 

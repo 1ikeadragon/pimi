@@ -5,6 +5,7 @@ import type { ViewNode } from "@pimi/protocol/chat-view";
 import { ChartView } from "./chart";
 import { FlowView } from "./flow";
 import { BadgeView, MetricView, ProgressView, TextView } from "./nodes";
+import { SequenceView } from "./sequence";
 import { TableView } from "./table";
 
 type NodeOf<Type extends ViewNode["type"]> = Extract<ViewNode, { type: Type }>;
@@ -83,6 +84,8 @@ export function ViewNodeView({ node }: { node: ViewNode }): ReactElement {
       return <BadgeView node={node} />;
     case "flow":
       return <FlowView node={node} />;
+    case "sequence":
+      return <SequenceView node={node} />;
   }
 }
 
