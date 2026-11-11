@@ -31,7 +31,11 @@ export function WorkspaceHeaderProjectRow({
   return (
     <View style={styles.row}>
       {showProject ? (
-        <Text testID="workspace-header-subtitle" style={styles.project} numberOfLines={1}>
+        <Text
+          testID="workspace-header-subtitle"
+          style={hostBadge ? styles.projectBesideHost : styles.project}
+          numberOfLines={1}
+        >
           {subtitle}
         </Text>
       ) : null}
@@ -43,7 +47,9 @@ export function WorkspaceHeaderProjectRow({
 
 const styles = StyleSheet.create((theme) => ({
   // The compact header stretches this row to its available title width. Within that width,
-  // the project truncates and HostBadge yields its label while retaining its fixed icon.
+  // HostBadge yields its label first while retaining its fixed icon. Beside a host the project
+  // does not shrink below its cap: even a weighted shrink takes a subpixel off it, which is enough
+  // for the browser to ellipsize a short name ("re…" for "repo").
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -59,6 +65,15 @@ const styles = StyleSheet.create((theme) => ({
     },
     flexShrink: 1,
     minWidth: 0,
+  },
+  projectBesideHost: {
+    color: theme.colors.foregroundMuted,
+    fontSize: {
+      xs: theme.fontSize.sm,
+      md: theme.fontSize.base,
+    },
+    flexShrink: 0,
+    maxWidth: "60%",
   },
   separator: {
     color: theme.colors.foregroundExtraMuted,
