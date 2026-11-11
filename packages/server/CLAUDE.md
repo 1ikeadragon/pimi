@@ -1,10 +1,10 @@
-# AGENTS.md — Paseo Server Development Guide
+# AGENTS.md — Pimi Server Development Guide
 
 For AI coding agents working in `packages/server`. Supplements [CLAUDE.md](../CLAUDE.md) at the repo root.
 
 ## Project Overview
 
-Paseo is a mobile + CLI app for monitoring and controlling local AI coding agents (Claude Code, Codex, GitHub Copilot, OpenCode, Pi). The daemon runs on your machine, manages agent processes, and streams their output over WebSocket to clients.
+Pimi is a desktop workspace for monitoring and controlling local AI coding agents (Claude Code, Codex, GitHub Copilot, OpenCode, Pi). The daemon runs on your machine, manages agent processes, and streams their output over WebSocket to clients.
 
 ---
 
@@ -124,7 +124,7 @@ There is no automated test suite and you do not write unit tests. Verify in the 
 1. **NEVER restart the daemon on port 6767** — it kills your own process
 2. **NEVER assume timeouts need a restart** — they can be transient
 3. **Always run `npm run typecheck` after changes**
-4. **NEVER make breaking WebSocket/message schema changes** — always backward-compatible
+4. **No backward compatibility for WebSocket/message schemas.** The app, CLI, and daemon ship together; change every side in one commit. See [../docs/protocol-compatibility.md](../docs/protocol-compatibility.md).
 
 ---
 
