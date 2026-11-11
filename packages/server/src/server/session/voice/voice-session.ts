@@ -1086,7 +1086,6 @@ export class VoiceSession {
 
     this.registerVoiceCallerContext?.(agentId, {
       childAgentDefaultLabels: {},
-      allowCustomCwd: false,
       enableVoiceTools: true,
     });
   }

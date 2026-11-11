@@ -6,7 +6,5 @@ export type VoiceSpeakHandler = (params: {
 
 export interface VoiceCallerContext {
   childAgentDefaultLabels?: Record<string, string>;
-  lockedCwd?: string;
-  allowCustomCwd?: boolean;
   enableVoiceTools?: boolean;
 }

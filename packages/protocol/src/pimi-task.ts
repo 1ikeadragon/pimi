@@ -330,12 +330,11 @@ export const PimiAskAction = z.discriminatedUnion("action", [
   z.strictObject({ action: z.literal("start-chat"), card: z.uuid().optional() }),
 ]);
 export type PimiAskAction = z.infer<typeof PimiAskAction>;
-export const PIMI_ASK_ACTION_LIMIT = 3;
 export const PIMI_ASK_MESSAGE_LIMIT = 1200;
 
 export const PimiAskResult = z.strictObject({
   message: z.string().max(PIMI_ASK_MESSAGE_LIMIT),
-  actions: z.array(PimiAskAction).max(PIMI_ASK_ACTION_LIMIT),
+  actions: z.array(PimiAskAction),
   // Speech that asked for nothing. The app dismisses it without an error.
   ignored: z.literal(true).optional(),
   chatProvider: chatProvider.optional(),

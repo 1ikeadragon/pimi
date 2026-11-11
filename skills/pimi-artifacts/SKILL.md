@@ -8,7 +8,7 @@ Use the **pimi-visualize** skill to decide whether the question needs HTML at al
 ## Inline or file
 
 - Write the HTML inline in a `pimi-html` block. This is the default: nothing is written to the workspace, and the visual runs in the reply.
-- Write a workspace file and show it with a `pimi-artifact` block only when the HTML is larger than the `pimi-html` limit in the system prompt, or the user asked for a file to keep.
+- Write a workspace file and show it with a `pimi-artifact` block only when the HTML is large, or the user asked for a file to keep.
 
 ```pimi-html
 <title>Tip calculator</title>

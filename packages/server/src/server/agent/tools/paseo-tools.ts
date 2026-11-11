@@ -64,7 +64,7 @@ import { createAgentCommand } from "../create-agent/create.js";
 import { inheritWorkspaceBackground } from "../create-agent/intent.js";
 import type { VoiceCallerContext, VoiceSpeakHandler } from "../../voice-types.js";
 import type { FirstAgentContext } from "../../messages.js";
-import { expandUserPath, isSameOrDescendantPath, resolvePathFromBase } from "../../path-utils.js";
+import { expandUserPath, resolvePathFromBase } from "../../path-utils.js";
 import type { TerminalManager } from "../../../terminal/terminal-manager.js";
 import { encodeTerminalKeyInput } from "@pimi/protocol/terminal-key-input";
 import { TerminalInputModeTracker } from "@pimi/protocol/terminal-input-mode";
@@ -558,19 +558,9 @@ function buildScheduleUpdateInput(input: ScheduleUpdateToolInput): UpdateSchedul
   };
 }
 
-function resolveChildAgentCwd(params: {
-  parentCwd: string;
-  requestedCwd?: string;
-  lockedCwd?: string;
-  allowCustomCwd: boolean;
-}): string {
-  const lockedCwd = params.lockedCwd?.trim();
-  if (lockedCwd) {
-    return expandUserPath(lockedCwd);
-  }
-
+function resolveChildAgentCwd(params: { parentCwd: string; requestedCwd?: string }): string {
   const requestedCwd = params.requestedCwd?.trim();
-  if (!requestedCwd || !params.allowCustomCwd) {
+  if (!requestedCwd) {
     return params.parentCwd;
   }
 
@@ -871,7 +861,6 @@ function createToolCatalog(
     serverId: options.serverId ?? "self",
     callerAgentId,
     caller: () => resolveCallerAgent(),
-    lockedCwd: callerContext?.lockedCwd,
     hosts: () => {
       if (!options.hosts) throw new Error("Connected hosts are not configured");
       return options.hosts();
@@ -1037,8 +1026,6 @@ function createToolCatalog(
       return resolveChildAgentCwd({
         parentCwd: callerAgent.cwd,
         requestedCwd,
-        lockedCwd: callerContext?.lockedCwd,
-        allowCustomCwd: callerContext?.allowCustomCwd ?? true,
       });
     }
 
@@ -1970,10 +1957,6 @@ function createToolCatalog(
       );
       if (!existingWorkspace) {
         throw new PaseoToolInputError(`Workspace ${workspaceId} not found`);
-      }
-      const lockedCwd = callerContext?.lockedCwd?.trim();
-      if (lockedCwd && !isSameOrDescendantPath(expandUserPath(lockedCwd), existingWorkspace.cwd)) {
-        throw new PaseoToolInputError(`Workspace ${workspaceId} is outside the allowed cwd`);
       }
       return { cwd: existingWorkspace.cwd, workspaceId };
     }

@@ -105,8 +105,6 @@ export interface CreateAgentFromMcpInput {
   onWorktreeCreated?: (createdWorktree: CreatePaseoWorktreeWorkflowResult) => void;
   callerAgentId?: string;
   callerContext?: {
-    lockedCwd?: string;
-    allowCustomCwd?: boolean;
     childAgentDefaultLabels?: Record<string, string>;
   } | null;
 
@@ -376,8 +374,6 @@ function resolveMcpInitialCwd(
   return resolveChildAgentCwd({
     parentCwd: parentAgent.cwd,
     requestedCwd: input.cwd,
-    lockedCwd: input.callerContext?.lockedCwd,
-    allowCustomCwd: input.callerContext?.allowCustomCwd ?? true,
   });
 }
 
@@ -489,19 +485,9 @@ function requireParentAgent(agentManager: AgentManager, parentAgentId: string): 
   return parentAgent;
 }
 
-function resolveChildAgentCwd(params: {
-  parentCwd: string;
-  requestedCwd?: string;
-  lockedCwd?: string;
-  allowCustomCwd: boolean;
-}): string {
-  const lockedCwd = params.lockedCwd?.trim();
-  if (lockedCwd) {
-    return expandUserPath(lockedCwd);
-  }
-
+function resolveChildAgentCwd(params: { parentCwd: string; requestedCwd?: string }): string {
   const requestedCwd = params.requestedCwd?.trim();
-  if (!requestedCwd || !params.allowCustomCwd) {
+  if (!requestedCwd) {
     return params.parentCwd;
   }
 

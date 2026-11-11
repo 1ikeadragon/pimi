@@ -16,7 +16,6 @@ export interface MermaidRenderInput {
   source: string;
   phase: MarkdownPhase;
   colorScheme: DiagramColorScheme;
-  rejected: boolean;
   cached: RenderedDiagram | null;
 }
 
@@ -31,7 +30,7 @@ export interface MermaidRenderModel {
   source: string;
   phase: MarkdownPhase;
   colorScheme: DiagramColorScheme;
-  status: "pending" | "rendered" | "failed" | "rejected";
+  status: "pending" | "rendered" | "failed";
   visible: RenderedDiagram | null;
 }
 
@@ -84,16 +83,6 @@ function reduceRendered(
 }
 
 export function createMermaidRenderModel(input: MermaidRenderInput): MermaidRenderModel {
-  if (input.rejected) {
-    return {
-      revision: 1,
-      source: input.source,
-      phase: input.phase,
-      colorScheme: input.colorScheme,
-      status: "rejected",
-      visible: input.phase === "complete" ? null : input.cached,
-    };
-  }
   return {
     revision: 1,
     source: input.source,
@@ -134,17 +123,6 @@ export function reduceMermaidRenderModel(
       ...state,
       phase: input.phase,
       visible: finalFailure ? null : state.visible,
-    };
-  }
-
-  if (input.rejected) {
-    return {
-      revision: state.revision + 1,
-      source: input.source,
-      phase: input.phase,
-      colorScheme: input.colorScheme,
-      status: "rejected",
-      visible: input.phase === "complete" ? null : (input.cached ?? state.visible),
     };
   }
 

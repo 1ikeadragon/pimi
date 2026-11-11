@@ -7,7 +7,6 @@ import {
   type DiagramDimensions,
   type RenderedDiagram,
 } from "./render-model";
-import { containsUnsafeMermaidSource } from "./source-policy";
 import type { MarkdownPhase } from "./types";
 
 const renderCache = new Map<string, RenderedDiagram>();
@@ -45,7 +44,6 @@ export function useMermaidRenderModel({
       source,
       phase,
       colorScheme,
-      rejected: containsUnsafeMermaidSource(source),
       cached: readCachedRender(source, colorScheme),
     }),
     [colorScheme, phase, source],
