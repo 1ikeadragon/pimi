@@ -17,8 +17,10 @@ type Location = CodeNavigationResult["results"][number];
 const ThemedX = withUnistyles(X);
 const mutedIcon = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
-export function providerLabel(provider: CodeNavigationResult["provider"]): string {
-  return provider === "typescript" ? "TypeScript" : "by name";
+export function providerLabel(
+  result: Pick<CodeNavigationResult, "provider" | "serverName">,
+): string {
+  return result.provider === "name" ? "by name" : (result.serverName ?? "language server");
 }
 
 /** Results of a navigation query, docked at the bottom of the editor and grouped by file. */
@@ -46,7 +48,7 @@ export function NavigationResultsPanel({
   if (state.status === "loading") subtitle = "Searching…";
   else if (state.status === "results") {
     const count = state.result.results.length;
-    subtitle = `${providerLabel(state.result.provider)} · ${count}${state.result.truncated ? "+" : ""} ${
+    subtitle = `${providerLabel(state.result)} · ${count}${state.result.truncated ? "+" : ""} ${
       count === 1 ? "result" : "results"
     }`;
   }

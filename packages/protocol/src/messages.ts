@@ -2612,7 +2612,6 @@ const PimiCodebaseSearchRequestSchema = z.object({
   requestId: z.string(),
 });
 
-const GitHubRepoSegmentSchema = z.string().regex(/^[A-Za-z0-9._-]+$/);
 // Editor navigation. `path` is relative to the workspace; `line` and `column` are 1-based and
 // locate `symbol` in the editor buffer. `content` is the unsaved buffer, sent when it differs from
 // disk so a semantic provider reads the same text the user is looking at.
@@ -2623,12 +2622,13 @@ const CodeNavigationQueryRequestSchema = z.object({
   line: z.number().int().positive(),
   column: z.number().int().positive(),
   symbol: z.string().min(1).max(256),
-  kind: z.enum(["definition", "references", "rename"]),
+  kind: z.enum(["definition", "references", "rename", "capabilities"]),
   newName: z.string().min(1).max(256).optional(),
   content: z.string().max(2_000_000).optional(),
   requestId: z.string(),
 });
 
+const GitHubRepoSegmentSchema = z.string().regex(/^[A-Za-z0-9._-]+$/);
 
 const CheckoutCheckDetailsRequestPayloadSchema = z.object({
   cwd: z.string(),
@@ -3504,8 +3504,8 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   CheckoutCommitFileDiffRequestSchema,
   CheckoutBlameRequestSchema,
   PimiCodebaseSearchRequestSchema,
-  CheckoutForgeGetCheckDetailsRequestSchema,
   CodeNavigationQueryRequestSchema,
+  CheckoutForgeGetCheckDetailsRequestSchema,
   CheckoutPrStatusRequestSchema,
   PullRequestTimelineRequestSchema,
   CheckoutSwitchBranchRequestSchema,
@@ -5591,8 +5591,19 @@ const PimiCodebaseSearchResponseSchema = z.object({
 });
 
 export const CodeNavigationResultSchema = z.object({
-  // "name" is a text match on the identifier, with no scope awareness; "typescript" is exact.
-  provider: z.enum(["name", "typescript"]),
+  // "name" is a text match on the identifier, with no scope awareness; "typescript" and "lsp"
+  // come from a language server and are exact.
+  provider: z.enum(["name", "typescript", "lsp"]),
+  // The server that answered, for display; null for name matching.
+  serverName: z.string().nullable(),
+  // Whether this file's language can be renamed, and what to install when it cannot. A null
+  // tooltip with `available: false` means the file has no language server mapping at all.
+  renameSupport: z.object({
+    available: z.boolean(),
+    tooltip: z.string().nullable(),
+    // The language this file maps to, with whether a working server was found for it.
+    language: z.object({ id: z.string(), label: z.string(), serverFound: z.boolean() }).nullable(),
+  }),
   // Why a more precise provider did not answer, when one was tried.
   note: z.string().nullable(),
   results: z
@@ -6915,8 +6926,8 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   CheckoutCommitFileDiffResponseSchema,
   CheckoutBlameResponseSchema,
   PimiCodebaseSearchResponseSchema,
-  CheckoutForgeGetCheckDetailsResponseSchema,
   CodeNavigationQueryResponseSchema,
+  CheckoutForgeGetCheckDetailsResponseSchema,
   CheckoutPrStatusResponseSchema,
   PullRequestTimelineResponseSchema,
   CheckoutSwitchBranchResponseSchema,
@@ -7291,9 +7302,9 @@ export type CheckoutCommitFileDiffRequest = z.infer<typeof CheckoutCommitFileDif
 export type CheckoutCommitFileDiffResponse = z.infer<typeof CheckoutCommitFileDiffResponseSchema>;
 export type PimiCodebaseSearchRequest = z.infer<typeof PimiCodebaseSearchRequestSchema>;
 export type PimiCodebaseSearchResult = z.infer<typeof PimiCodebaseSearchResultSchema>;
-export type CheckoutBlameRequest = z.infer<typeof CheckoutBlameRequestSchema>;
 export type CodeNavigationQueryRequest = z.infer<typeof CodeNavigationQueryRequestSchema>;
 export type CodeNavigationResult = z.infer<typeof CodeNavigationResultSchema>;
+export type CheckoutBlameRequest = z.infer<typeof CheckoutBlameRequestSchema>;
 export type CheckoutBlameResult = z.infer<typeof CheckoutBlameResultSchema>;
 export type ParsedDiffFile = z.infer<typeof ParsedDiffFileSchema>;
 export type CheckoutPrCreateRequest = z.infer<typeof CheckoutPrCreateRequestSchema>;

@@ -253,6 +253,27 @@ export interface MenuItemProps {
   tooltip?: string;
 }
 
+function ItemTooltip({
+  tooltip,
+  disabled,
+  children,
+}: {
+  tooltip: string | undefined;
+  disabled: boolean;
+  children: ReactElement;
+}): ReactElement {
+  if (!tooltip) return children;
+  return (
+    <Tooltip delayDuration={250} enabledOnDesktop enabledOnMobile={false}>
+      {/* A disabled row takes no pointer events, so its tooltip hangs off a wrapper. */}
+      <TooltipTrigger asChild>{disabled ? <View>{children}</View> : children}</TooltipTrigger>
+      <TooltipContent side="right" align="center" offset={10}>
+        <Text style={styles.tooltipText}>{tooltip}</Text>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 export function MenuItem({
   children,
   description,
@@ -366,17 +387,10 @@ export function MenuItem({
     </Pressable>
   );
 
-  if (!tooltip) {
-    return content;
-  }
-
   return (
-    <Tooltip delayDuration={250} enabledOnDesktop enabledOnMobile={false}>
-      <TooltipTrigger asChild>{content}</TooltipTrigger>
-      <TooltipContent side="right" align="center" offset={10}>
-        <Text style={styles.tooltipText}>{tooltip}</Text>
-      </TooltipContent>
-    </Tooltip>
+    <ItemTooltip tooltip={tooltip} disabled={Boolean(isDisabled)}>
+      {content}
+    </ItemTooltip>
   );
 }
 

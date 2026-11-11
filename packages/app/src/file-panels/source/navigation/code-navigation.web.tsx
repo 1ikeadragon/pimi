@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState, type ReactNode, type RefObject } from "react";
 import { selectAll } from "@codemirror/commands";
+import type { CodeNavigationResult } from "@pimi/protocol/messages";
 import { EditorSelection } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import * as Clipboard from "expo-clipboard";
@@ -70,12 +71,6 @@ function captureTarget(view: EditorView, event: unknown): ClickTarget {
   return { symbol, searchText: searchText.trim().replace(/\s+/g, " ").slice(0, 512) };
 }
 
-const TYPESCRIPT_EXTENSION = /\.(?:[cm]?[jt]s|[jt]sx)$/i;
-
-function isTypeScriptFileName(filename: string): boolean {
-  return TYPESCRIPT_EXTENSION.test(filename);
-}
-
 function validateIdentifier(value: string): string | null {
   return /^[\p{L}_$][\p{L}\p{N}_$]*$/u.test(value) ? null : "Use a valid identifier.";
 }
@@ -109,6 +104,9 @@ export function CodeNavigation({
   const client = useSessionStore((state) => state.sessions[serverId]?.client ?? null);
   const toast = useToast();
   const cwd = useWorkspaceDirectory(serverId, workspaceId);
+  const [renameSupport, setRenameSupport] = useState<CodeNavigationResult["renameSupport"] | null>(
+    null,
+  );
   const [renaming, setRenaming] = useState<NonNullable<ClickTarget["symbol"]> | null>(null);
   const [target, setTarget] = useState<ClickTarget>({ symbol: null, searchText: "" });
   const [panel, setPanel] = useState<NavigationPanelState | null>(null);
@@ -117,9 +115,26 @@ export function CodeNavigation({
   const handleContextMenu = useCallback(
     (event: unknown) => {
       const view = editor.current;
-      if (view) setTarget(captureTarget(view, event));
+      if (!view) return;
+      const captured = captureTarget(view, event);
+      setTarget(captured);
+      if (readOnly || !client) return;
+      // Whether this file's language can be renamed is answered by the daemon: it knows which
+      // servers are installed. The item appears once the answer arrives.
+      setRenameSupport(null);
+      client
+        .queryCodeNavigation({
+          workspaceId,
+          path: filename,
+          line: captured.symbol?.line ?? 1,
+          column: captured.symbol?.column ?? 1,
+          symbol: captured.symbol?.text ?? "x",
+          kind: "capabilities",
+        })
+        .then((result) => setRenameSupport(result.renameSupport))
+        .catch(() => setRenameSupport(null));
     },
-    [editor],
+    [client, editor, filename, readOnly, workspaceId],
   );
 
   const jumpTo = useCallback(
@@ -165,7 +180,7 @@ export function CodeNavigation({
         if (token !== sequence.current) return;
         if (kind === "definition" && result.results.length === 1) {
           setPanel(null);
-          toast.show(`Definition · ${providerLabel(result.provider)}`);
+          toast.show(`Definition · ${providerLabel(result)}`);
           jumpTo(result.results[0]);
           return;
         }
@@ -289,7 +304,7 @@ export function CodeNavigation({
   const handleCut = useCallback(() => void cut(), [cut]);
   const handleCopy = useCallback(() => void copy(), [copy]);
   const handlePaste = useCallback(() => void paste(), [paste]);
-  const canRename = !readOnly && isTypeScriptFileName(filename);
+  const showRename = !readOnly && renameSupport !== null && renameSupport.language !== null;
   const hasSelection = target.searchText.length > 0;
   const closePanel = useCallback(() => {
     sequence.current++;
@@ -317,9 +332,10 @@ export function CodeNavigation({
           >
             Find References
           </ContextMenuItem>
-          {canRename ? (
+          {showRename ? (
             <ContextMenuItem
-              disabled={!target.symbol}
+              disabled={!target.symbol || !renameSupport?.available}
+              tooltip={renameSupport?.tooltip ?? undefined}
               onSelect={startRename}
               testID="editor-menu-rename"
             >
