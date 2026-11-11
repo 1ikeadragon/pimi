@@ -135,13 +135,6 @@
               "server/daemon-worker.ts": ["appendFileSync", "mkdirSync"],
               // Startup host identity: memoized scutil lookup is warmed before listening; later callers use the cache.
               "server/host-name.ts": ["execFileSync"],
-              // TODO: relationship persistence is atomic with enrollment/revocation state transitions; serialize those transitions before async writes.
-              "server/hub/relationship-controller.ts": [
-                "existsSync",
-                "readFileSync",
-                "renameSync",
-                "rmSync"
-              ],
               // Local client bootstrap: reads the local credential and pid lock to select/authenticate a daemon connection.
               "server/local-credential.ts": ["readFileSync"],
               // Startup logger construction: create the log directory before opening the logging destination.
