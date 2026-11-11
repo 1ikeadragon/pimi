@@ -1,6 +1,6 @@
 ---
 name: pimi-visualize
-description: Choose and design a chart, dashboard, diagram, table, or interactive visual in Pimi chat. Use when the user asks to visualize, chart, graph, plot, diagram, compare, or "show me" a trend, breakdown, distribution, dashboard, system, or flow, wants something made easier to see, or when a reply is about to contain a table of numbers.
+description: Choose and design a chart, dashboard, diagram, table, or interactive visual in Pimi chat, and write the pimi-vega, pimi-view, and pimi-html blocks. Use when the user asks to visualize, chart, graph, plot, or diagram a trend, breakdown, distribution, dashboard, system, or flow.
 ---
 
 Read `formats.md` beside this file before you write any block: it gives each block's format, an example, and its limits. This skill decides which block to use and what goes in it.
@@ -39,8 +39,8 @@ Use the first row that answers the question. Go to a later row only when an earl
 | Messages between participants in order (handshake, request lifecycle) | `pimi-view` sequence                                              | One participant per system or actor, in the order the exchange first reaches them, up to five. Copy message text from the source. Set `reply` on returns, `tone` on the error, and put a retry loop or each branch of an alternative in a `group`. Past 30 steps, split it in two. |
 | A state machine                                                       | `pimi-view` flow                                                  | One box per state, one edge per transition, labelled with its event. Set `tone` on the failure states.                                                                                                                                                                             |
 | A timeline or plan                                                    | Mermaid `gantt` for dated work; a numbered list for ordered steps | Give every dated item a start and a length. Steps without dates read better as a list. This is the only diagram to write in Mermaid, unless the user asks for Mermaid by name.                                                                                                     |
-| To try inputs: a calculator, what-if sliders, filters, a simulator    | `pimi-html`                                                       | Use it only when the user would change an input. Follow the **pimi-artifacts** skill.                                                                                                                                                                                              |
-| A map, or a layout no other block can express                         | `pimi-html`                                                       | Draw it as inline SVG. Follow the **pimi-artifacts** skill.                                                                                                                                                                                                                        |
+| To try inputs: a calculator, what-if sliders, filters, a simulator    | `pimi-html`                                                       | Use it only when the user would change an input. Follow "Writing a pimi-html block" below.                                                                                                                                                                                         |
+| A map, or a layout no other block can express                         | `pimi-html`                                                       | Draw it as inline SVG. Follow "Writing a pimi-html block" below.                                                                                                                                                                                                                   |
 
 Two approaches compared on qualities, not numbers, go in a `pimi-view` table with one row per criterion and one column per approach, then a sentence that names the pick. Its cells wrap, so the criterion and both approaches fit a phone; a third approach scrolls sideways.
 
@@ -87,3 +87,41 @@ Two approaches compared on qualities, not numbers, go in a `pimi-view` table wit
 - Would an earlier row of the table answer the question? Use it.
 - In `pimi-vega`: does every `field` name a column that exists in `data.values`, spelled the same, and does every field have a `type`? A wrong field name draws an empty chart.
 - In `pimi-view`: one cell per column in every row, distinct flow box ids with every edge naming two of them, every sequence `from` and `to` naming a participant id, and no Markdown in text fields.
+
+## Writing a pimi-html block
+
+### Inline or file
+
+- Write the HTML inline in a `pimi-html` block. This is the default: nothing is written to the workspace, and the visual runs in the reply.
+- Write a workspace file and show it with a `pimi-artifact` block only when the user asked for a file to keep. When the HTML is larger than the `pimi-html` limit, aggregate or sample the data and say so in the title instead.
+
+```pimi-html
+<title>Tip calculator</title>
+<style>input{background:var(--pimi-surface);color:var(--pimi-fg);border:1px solid var(--pimi-border);border-radius:6px;padding:4px 8px}</style>
+<label>Bill <input id="bill" type="number" value="40"></label>
+<p id="tip"></p>
+<script>
+const bill = document.getElementById("bill"), tip = document.getElementById("tip");
+const draw = () => { tip.textContent = "20% tip: $" + (bill.value * 0.2).toFixed(2); };
+bill.addEventListener("input", draw); draw();
+</script>
+```
+
+For a file, save one `.html` file of 1 MB at most and point at it with its workspace-relative path, using forward slashes:
+
+```pimi-artifact
+{"title":"Latency explorer","path":"latency-explorer.html"}
+```
+
+### Rules for both
+
+- Give the document a `<title>`. Pimi shows it above an inline visual.
+- The page runs in a sandbox with no network, no storage, and no navigation. Remote scripts, styles, fonts, images, and `fetch` fail, and so do `localStorage` and links to other pages. Put the CSS, JavaScript, and data in the document, and keep state in JavaScript variables.
+- Pimi sets the page background, text color, and font, and gives the body 16 px of padding. Style everything else with these custom properties so the visual follows light and dark themes: `--pimi-bg`, `--pimi-surface`, `--pimi-fg`, `--pimi-muted`, `--pimi-border`, `--pimi-accent`, `--pimi-accent-fg`, `--pimi-font`, `--pimi-mono`. Do not hardcode a page or text color: black text disappears in the dark theme.
+- Style form controls yourself with those properties. A browser's default input, select, and button are light even in the dark theme.
+- The frame follows the content's height up to 640 px, then scrolls. Let the page flow at its natural height; do not size anything with `100vh`.
+- Lay it out to fit 360 px wide with no sideways scroll: stack controls above the result, and give a drawing `width: 100%` with a `viewBox`.
+- One idea per visual. Start every control at a realistic value, so the first render already answers the question, and update the result on every `input` event without a submit button.
+- Draw charts inside the page as inline SVG or canvas. There is no chart library to load.
+- Use the user's data when you have it, and write "sample data" on the page when the values are not real.
+- Do not write three backticks anywhere inside a `pimi-html` block; they end the block.
