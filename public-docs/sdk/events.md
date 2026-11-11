@@ -59,7 +59,7 @@ unsubscribe();
 
 Pass `subscribe(listener, { onError })` to receive setup or list errors. After a setup failure, create a new subscription; after a list failure, the list is read again on the next reconnect. Without `onError`, the error is logged.
 
-`list()` rejects and `subscribe()` throws when the host does not advertise `features.agentBackgroundWork`; ask the user to update the host. For an item with `canStop`, call `backgroundWork.stop(item)` to wait for provider confirmation. Stop requires `features.agentBackgroundWorkStop`.
+For an item with `canStop`, call `backgroundWork.stop(item)` to wait for provider confirmation.
 
 ## Follow timeline events
 
@@ -154,10 +154,3 @@ unsubscribe();
 Provider and project `subscribe()` calls request their own updates and release that demand on unsubscribe. For an initial project cache, buffer updates while awaiting `client.projects.list()`, then apply them after the snapshot.
 
 Call `client.close()` when the application no longer needs the connection.
-
-## Older daemons
-
-The same methods use the existing connection and legacy delivery behavior. Old directory subscriptions
-share a server slot: a later filtered observation replaces that slot's filter. Handles have local IDs
-and separate callbacks, but independent server filters require an updated daemon. Releasing a handle
-detaches its callbacks; old daemons may continue sending broadcasts.

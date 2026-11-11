@@ -221,7 +221,7 @@ pimi terminal kill <terminal-id>
 
 不带 `--workspace` 时，创建会打开 `--cwd` 或当前目录对应的项目，并复用其中最早的活动工作区。不带 `--workspace` 的列表会按 `--cwd` 或当前目录过滤，可能包含多个工作区。`ls --all` 列出主机上的所有终端，不能与目录或工作区过滤条件一起使用。
 
-创建和列表的结果包含 `id`、`name`、`cwd` 和 `workspaceId`。使用 `--json` 获得结构化输出，使用全局的 `--host` 选项指定另一个 daemon。这些命令需要一个支持[工作区终端 API](/docs/sdk/reference#clientterminals) 的主机；较旧的主机会返回一条更新提示。
+创建和列表的结果包含 `id`、`name`、`cwd` 和 `workspaceId`。使用 `--json` 获得结构化输出，使用全局的 `--host` 选项指定另一个 daemon。
 
 ## 工作区脚本 {#workspace-scripts}
 
@@ -375,7 +375,7 @@ pimi daemon stop --home ~/paseo-test
 
 `status` 分别显示本地进程管理器的状态、它发布的端点、配置的地址和 RPC 可达性。已停止的主目录从不会在其配置的地址上被探测。未绑定但仍在运行的进程管理器显示为 **not ready**。如果经过身份验证的本地连接仍然打开，但状态详情超时，结果仍为 `reachable`，并附带一条说明详情不可用的备注。worker 和 Provider 字段会被省略。显式的 `--host` 查询在其状态请求失败时仍然会失败。
 
-`reload` 校验文件、应用运行时安全的更改，并报告 `appliedPaths`、`restartRequiredPaths` 和 `overrideControlledPaths`。它从不会隐式重启。使用 `--json` 或 `--format yaml` 获得结构化结果。缺少这项能力的较旧主机会报告需要更新。
+`reload` 校验文件、应用运行时安全的更改，并报告 `appliedPaths`、`restartRequiredPaths` 和 `overrideControlledPaths`。它从不会隐式重启。使用 `--json` 或 `--format yaml` 获得结构化结果。
 
 根级别名 `start`、`status`、`restart`、`reload` 和 `pair` 与 `daemon` 下的命令相同。根级的 `run` 和 `stop` 仍然是 Agent 操作。
 

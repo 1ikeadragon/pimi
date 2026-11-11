@@ -610,8 +610,7 @@ accounts without rediscovering identity. If a store switches accounts, the exist
 new login's quota until the next discovery. Reports are cached for five minutes; `forceRefresh`
 bypasses that cache. Entries carry `id`, `account.label`, and `fetchedAt`. Failed accounts also carry optional
 `loginErrors` entries with `harness` and each login's failed `report`. Clients gate the feature
-on `server_info.features.usageSources`. The older `provider.usage.list` RPC maps the same reports
-for 0.10 clients and renders problems into its `error` string.
+on `server_info.features.usageSources`.
 
 The source icon is a file path with the same rules as a provider icon.
 
@@ -1219,8 +1218,7 @@ async function publishReview(agentId: string, { paseo }: PluginHandlerContext) {
 The daemon stamps `pluginId` from the calling plugin session and rejects this RPC from non-plugin
 sessions. The row appears live, survives timeline refetches, and keeps only the latest value for the
 same plugin and `id`. If its renderer is missing, Pimi shows the existing unavailable row. Daemons
-reject `data` over the limit rather than truncating it. Daemons that support this operation
-advertise `server_info.features.pluginTimelineItems`.
+reject `data` over the limit rather than truncating it.
 
 ## Theme and layout
 
@@ -2385,13 +2383,6 @@ useSubscription(mediaStream, { source }, (bytes) => {
 Events from one subscription arrive in push order, JSON and binary alike.
 `plugin-examples/media-stream` streams video and audio this way and uploads a frame back through
 an RPC with a `Uint8Array` input; `plugin-examples/diff-watch` watches a working tree.
-
-### Older hosts
-
-Subscriptions and binary RPC values need a host that advertises them. Against an older host,
-`useSubscription` reports `error` asking to update the host, `client.subscribe` rejects `ready`
-with the same message, and an RPC with a `Uint8Array` input or output fails. Raise your plugin's
-`requirements.pimi` to the release that ships subscriptions.
 
 ## Debug backend output
 

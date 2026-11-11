@@ -11,7 +11,7 @@ Fixes [#359](https://github.com/1ikeadragon/pimi/issues/359): the legacy constru
 | `legacy`    | X25519 + NaCl `box`, random nonces               | none                             |
 | `protected` | `Noise_NK_25519_ChaChaPoly_SHA256` (revision 34) | counters, fresh daemon ephemeral |
 
-Two updated peers always negotiate `protected`. An old peer on either side falls to `legacy` while the daemon permits it. Everything in `packages/relay/src/encrypted-channel.ts` is the legacy construction and is unchanged.
+Pimi's daemon and clients always negotiate `protected`, and the client refuses `legacy`. The relay library keeps `legacy` for third-party callers; everything in `packages/relay/src/encrypted-channel.ts` is that construction.
 
 The shared entry points are `openClientSecureChannel` and `openDaemonSecureChannel`. Callers get a `SecureChannel` and ask it `securityMode()`; nothing outside the module branches on the construction.
 
@@ -20,7 +20,7 @@ The shared entry points are `openClientSecureChannel` and `openDaemonSecureChann
 - **Pattern:** NK. The daemon's static key is the existing `$PASEO_HOME/daemon-keypair.json` X25519 key that pairing already distributes. There is no second daemon identity.
 - **Prologue:** the ASCII bytes `paseo-relay-e2ee/1`.
 - **Primitives:** `@noble/curves` x25519, `@noble/ciphers` ChaCha20-Poly1305, `@noble/hashes` SHA-256 and HMAC. The state machine in `packages/relay/src/noise/` is our own implementation of the spec and is checked against vendored third-party vectors in `noise/fixtures/`.
-- **Message 1** (`-> e, es`) travels inside the legacy hello: `{ type: "e2ee_hello", key, capabilities, protected: { v: 1, message: <base64> } }`. `key` is a separate legacy ephemeral so an old daemon still completes a legacy handshake. The Noise payload is the offered parameters.
+- **Message 1** (`-> e, es`) travels inside the legacy hello: `{ type: "e2ee_hello", key, capabilities, protected: { v: 1, message: <base64> } }`. `key` is a separate legacy ephemeral that the library's `legacy` mode uses. The Noise payload is the offered parameters.
 - **Message 2** (`<- e, ee`) travels inside the ready: `{ type: "e2ee_ready", protected: { v: 1, message: <base64> } }`. Its payload is the selected parameters. The outer `capabilities` field is ignored in protected mode because it is not authenticated.
 - **Parameters payload:** two bytes, `[0x01 version][flags]`. Flag bit 0 is `binaryCiphertext`. Unknown versions, reserved flag bits, and a selection the client did not offer fail the handshake.
 - **Split:** the initiator sends with the first cipher state and receives with the second. The daemon is the mirror. Nonces are 64-bit little-endian in a 12-byte nonce, reserved synchronously before any await, never wrapped. A receiver advances its counter only after the tag verifies.
@@ -61,7 +61,7 @@ The handshake result is read in one place, `HostRuntimeController` when the host
 
 Within one client process the floor also rises on its own. `DaemonClient` and the Node host connector remember a protected result and require it on every later attempt, so a reconnect after a relay drop cannot be answered in legacy mode even before the pin is persisted.
 
-The daemon refuses a legacy client with close `1008` and reason `protected endpoint security required`, and logs `relay_e2ee_handshake_rejected`. That close code stops at the relay: both relays replace a daemon-side close with their own (the wrangler relay sends `1012 Server disconnected`), so an old client sees an ordinary disconnect and keeps retrying. The only client-detectable failure is the client's own `4002`, which stops reconnecting and tells the user to update.
+The daemon refuses a legacy client with close `1008` and reason `protected endpoint security required`, and logs `relay_e2ee_handshake_rejected`. That close code stops at the relay: both relays replace a daemon-side close with their own (the wrangler relay sends `1012 Server disconnected`), so a legacy client sees an ordinary disconnect and keeps retrying. The only client-detectable failure is the client's own `4002`, which stops reconnecting.
 
 The client learns its own `4002` and `4003` from the relay E2EE transport, which reports the close the moment the channel decides it. A socket close event arrives later and the channel's error callback earlier; neither is what `DaemonClient` acts on, because acting on the error would start a reconnect before the code is known.
 

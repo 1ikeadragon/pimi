@@ -490,7 +490,7 @@ export default function contribute(server: PluginServerContext) {
 
 内置的 Claude 发现优先使用 macOS 钥匙串中的登录，只有当钥匙串为空时才使用 Claude Code 的凭据文件。`CLAUDE_CONFIG_DIR` 选择该文件所在的目录。新的 token 使用 OAuth 资料中的账号和组织 ID；已过期或被拒绝的资料使用存储位置的哈希。Codex 依次优先使用 Codex CLI、OpenCode、Pi 和 OMP，并按保存的元数据或 JWT 声明中的 ChatGPT 账号 ID 分组。Pi 和 OMP 的登录在过期后仍可被发现。OMP 需要 `node:sqlite`。
 
-不带 ID 调用 `usage.list_reports` 时会发现账号。带 ID 调用时，它会刷新已知的账号，而不重新发现身份。如果某个存储切换了账号，现有卡片会显示新登录的配额，直到下一次发现。报告会缓存五分钟；`forceRefresh` 会绕过缓存。条目携带 `id`、`account.label` 和 `fetchedAt`。失败的账号还会携带可选的 `loginErrors` 条目，其中包含 `harness` 和每个登录失败的 `report`。客户端通过 `server_info.features.usageSources` 判断是否启用此功能。较旧的 `provider.usage.list` RPC 会为 0.10 客户端映射同样的报告，并把问题渲染到它的 `error` 字符串中。
+不带 ID 调用 `usage.list_reports` 时会发现账号。带 ID 调用时，它会刷新已知的账号，而不重新发现身份。如果某个存储切换了账号，现有卡片会显示新登录的配额，直到下一次发现。报告会缓存五分钟；`forceRefresh` 会绕过缓存。条目携带 `id`、`account.label` 和 `fetchedAt`。失败的账号还会携带可选的 `loginErrors` 条目，其中包含 `harness` 和每个登录失败的 `report`。客户端通过 `server_info.features.usageSources` 判断是否启用此功能。
 
 来源图标是一个文件路径，规则与 Provider 图标相同。
 
@@ -1015,7 +1015,7 @@ async function publishReview(agentId: string, { paseo }: PluginHandlerContext) {
 | `version` | 正整数     | 是       | 选择渲染器契约的版本。                       |
 | `data`    | 兼容 JSON  | 是       | 渲染器负载，JSON 序列化后最多 64 KiB。       |
 
-daemon 会根据发起调用的插件会话写入 `pluginId`，并拒绝来自非插件会话的此 RPC。该行会实时出现，在时间线重新获取后依然保留，并且对于同一插件和 `id` 只保留最新的值。如果它的渲染器缺失，Pimi 会显示现有的“不可用”行。daemon 会拒绝超过限制的 `data`，而不是截断它。支持此操作的 daemon 会声明 `server_info.features.pluginTimelineItems`。
+daemon 会根据发起调用的插件会话写入 `pluginId`，并拒绝来自非插件会话的此 RPC。该行会实时出现，在时间线重新获取后依然保留，并且对于同一插件和 `id` 只保留最新的值。如果它的渲染器缺失，Pimi 会显示现有的“不可用”行。daemon 会拒绝超过限制的 `data`，而不是截断它。
 
 ## 主题与布局 {#theme-and-layout}
 
@@ -2058,10 +2058,6 @@ useSubscription(mediaStream, { source }, (bytes) => {
 ```
 
 同一个订阅的事件按推送顺序到达，JSON 和二进制都一样。`plugin-examples/media-stream` 用这种方式传输视频和音频，并通过一个输入为 `Uint8Array` 的 RPC 把一帧上传回去；`plugin-examples/diff-watch` 监听工作树。
-
-### 旧版主机 {#older-hosts}
-
-订阅和二进制 RPC 值需要主机声明支持。连接旧版主机时，`useSubscription` 会报告 `error` 并提示更新主机，`client.subscribe` 的 `ready` 会以同样的信息拒绝，带有 `Uint8Array` 输入或输出的 RPC 会失败。请把插件的 `requirements.pimi` 提高到包含订阅功能的版本。
 
 ## 调试后端输出 {#debug-backend-output}
 

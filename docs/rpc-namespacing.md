@@ -70,8 +70,6 @@ Forge-neutral behavior currently uses `checkout.forge.*` for checkout-scoped ope
 
 - `checkout.forge.*` for operations whose request/response shape is genuinely
   forge-neutral and whose implementation dispatches through the forge resolver.
-- `checkout.github.*` for existing GitHub-specific compatibility RPCs while
-  callers migrate to the neutral `checkout.forge.*` shape
 
 Do not put GitHub-specific enums or semantics into `checkout.forge.*` RPC names. A generic forge RPC should only exist when the behavior is genuinely forge-neutral.
 

@@ -19,7 +19,7 @@ Terminal frames share the daemon main event loop with all agent traffic. The `ev
 
 ## Invariants (the easy-to-break ones)
 
-- **Replay is incremental across the daemon and SDK.** Capable clients request their configured history, bounded by [worker retention](terminal-worker.md#process-model). Older apps retain their own 200-row request. Explicit SDK history demand is unchanged against older ANSI hosts, which apply their existing 500-row ceiling. Begin resets once, chunks keep a streaming UTF-8 decoder/parser, and each renderer suppresses generated replies while parsing replay. Never concatenate capable replay chunks to feed the renderer.
+- **Replay is incremental across the daemon and SDK.** Clients request their configured history, bounded by [worker retention](terminal-worker.md#process-model). Begin resets once, chunks keep a streaming UTF-8 decoder/parser, and each renderer suppresses generated replies while parsing replay. Never concatenate replay chunks to feed the renderer.
 - **Replay serialization reads xterm directly.** The [worker](terminal-worker.md#process-model) uses its existing buffer; text capture translates only the requested rows, and readiness scans row strings. Do not rebuild a full cell-object grid. Serialization still allocates a whole ANSI string and UTF-8 bytes before bounded delivery; chunking does not bound those allocations.
 - **Coalescers are leading+trailing throttles.** The first chunk after an idle window flushes immediately (synchronously); only sustained bursts wait for the trailing timer. Reverting to trailing-only adds a full window (~5ms) to every keystroke echo.
 - **Output coalescing happens in the worker, before IPC.** One socket frame per pty chunk was a main-loop flood under build output. Non-output messages (snapshotReady/titleChange/exit) must flush the coalescer first so ordering is preserved.
@@ -49,5 +49,5 @@ Terminal frames share the daemon main event loop with all agent traffic. The `ev
 ## Known remaining contention (follow-up candidates)
 
 - A single large `agent_stream` message (e.g. a 250KB diff payload) measurably delays terminal echo (~100ms-class dips) — cost is split between daemon serialization and app-side parse/render on the shared browser main thread. See [agent-stream-performance.md](agent-stream-performance.md) for that pipeline's own budgets.
-- Relay-attached clients pay pure-JS tweetnacl encryption on the daemon main loop (`packages/relay/src/encrypted-channel.ts`). Negotiated binary application frames stay binary ciphertext and avoid base64 encode/decode; text and mixed-version traffic remain base64 WebSocket text frames.
+- Relay-attached clients pay pure-JS encryption on the daemon main loop (`packages/relay/src/protected-records.ts`). Negotiated binary application frames stay binary ciphertext and avoid base64 encode/decode; text frames remain base64 WebSocket text.
 - `sendToClient` re-stringifies session messages per socket; only matters for multi-socket connections.

@@ -106,7 +106,7 @@ pimi plugin ls
 2. 把 `/absolute/path/to/workspace-plugin` 粘贴到 **插件来源**。
 3. 选择 **安装插件**。应用会使用 `pimi-plugin.json` 中的插件 ID。
 
-来源字段也接受 Git 仓库、npm 包和插件子目录。可接受的语法和解析规则见[插件来源](/docs/plugins/reference#plugin-sources)。如果表单要求你更新主机，请先更新该主机再安装；已有的管理操作仍然可用。
+来源字段也接受 Git 仓库、npm 包和插件子目录。可接受的语法和解析规则见[插件来源](/docs/plugins/reference#plugin-sources)。
 
 每个已安装插件的行都会显示它的状态和描述。用它的开关启用或停用它，打开它的三点菜单可以进行设置、查看日志、重新加载和移除。
 

@@ -300,7 +300,7 @@ export default function contribute(server: PluginServerContext) {
 }
 ```
 
-保留你现有的 ID 和构建命令。缺少 `requirements.pimi` 表示 `<0.8.0`，因此即使文件已经移动，Pimi 0.8 及更高版本也会拒绝该插件。仅仅添加这个字段并不会迁移代码。请把本地的 `@pimi/plugin` 开发依赖更新到你的目标版本，并在类型检查之前重新安装依赖。
+保留你现有的 ID 和构建命令。没有 `requirements.pimi` 的插件无法加载，即使文件已经移动。仅仅添加这个字段并不会迁移代码。请把本地的 `@pimi/plugin` 开发依赖更新到你的目标版本，并在类型检查之前重新安装依赖。
 
 版本范围和预发布版本的语义见[版本要求](reference#requirements)。
 

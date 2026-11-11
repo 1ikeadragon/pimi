@@ -59,7 +59,7 @@ The worker paces replay writes on its local socket; the daemon synchronously que
 
 Live traffic that fills the shared worker socket beyond 4 MiB disconnects the stalled controller. Reconnection adopts the surviving sessions and requests fresh replay for existing streams. Readiness does not require a revision: adoption announces readiness without one, while the replay capture supplies the revision used for deduplication.
 
-The SDK advertises `terminal_chunked_replay` only because it decodes begin/data/end. Capable clients receive these events directly; the daemon collects one Restore frame only for older ANSI clients. The SDK normalizes an older host's single Restore into the same lifecycle. Capture stays a worker request; bootstrap readiness uses `hasOutput`, not a transported grid.
+Clients decode begin/data/end events directly; replay is always chunked. Capture stays a worker request; bootstrap readiness uses `hasOutput`, not a transported grid.
 
 ## Running from its own copy
 

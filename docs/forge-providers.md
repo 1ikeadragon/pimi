@@ -55,8 +55,7 @@ keeps the brand id (`"gitea"`, `"forgejo"`, `"codeberg"`).
 Protocol does not validate per-forge fact fields. Consumers that understand a
 facts family validate at runtime with their own schema/guard. Unknown or
 schema-mismatched facts render neutrally instead of failing the whole message
-parse. This is the version-skew win: an old client can receive facts from a
-newer forge and still show the PR/MR in a neutral state.
+parse.
 
 Check results keep a stable normalized `status` for aggregation and an optional
 open `traits: string[]` for composable forge-neutral refinements such as
@@ -163,8 +162,7 @@ To add `acme`:
    `workflowRunId` as the alternative address. Expect this step to touch
    `forge-service.ts`, `messages.ts`, and the call-site guards of the other
    adapters. Widening a shared field is not forge-local: it also affects the
-   already-shipped forges/GitHub call sites and the capability-gated RPC (e.g.
-   `forgeCheckDetails`), so verify every consumer rather than assuming the change
+   already-shipped forges/GitHub call sites and the forge check-details RPC, so verify every consumer rather than assuming the change
    only reaches the new adapter.
 9. Run targeted tests: manifest/registry/resolver, the adapter test, protocol
    checkout PR schema, app forge URL/presentation tests, app merge capability,

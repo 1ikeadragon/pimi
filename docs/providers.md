@@ -159,17 +159,15 @@ Saved provider/model choices are user intent. Catalogue failure must not erase t
 another model. Creation reads the caller's host and directory directly; an earlier global snapshot
 must not settle a project form's initial selection.
 
-The server's provider keys never cross the wire. Clients advertising `provider_snapshot_references`
-receive directory-to-hash announcements; an unknown hash uses the existing snapshot request.
+The server's provider keys never cross the wire. Clients receive directory-to-hash announcements; an unknown hash uses the existing snapshot request.
 The manager detaches each fresh result once and publishes its content identity with the entry;
 readers share these values read-only. Each target keeps its published snapshot until membership,
 content or discovery freshness changes. All affected targets commit before subscribers run;
 subscriber failures are logged without changing discovery or configuration outcomes.
 The session compares both sides of a committed transition under the client's current visibility
 policy and sends only visible changes. It combines result identities with the client's encoding
-and icon policy, without traversing models. Reference hashes exclude freshness;
-legacy embedded hashes include it. Only responses that send a body compact the catalogue.
-Per-provider `fetchedAt` travels separately for reference clients and still means when discovery succeeded. `generatedAt`
+and icon policy, without traversing models. Reference hashes exclude freshness. Only responses that send a body compact the catalogue.
+Per-provider `fetchedAt` travels separately and still means when discovery succeeded. `generatedAt`
 remains the time the response or announcement was generated. Refresh keeps settled entries visible
 until the next result, so unchanged discovery sends freshness without another model body.
 
@@ -177,7 +175,6 @@ The app's snapshot cache owns compact expansion and stores one body per server/h
 directory/hash/freshness records under the same byte budget. Missing bodies share a React Query
 request; directory queries cancel superseded pulls before accepting pushes. Default SDK clients
 keep expanded entries and full updates. Only callers that own materialization opt into wire snapshots.
-Keep the full encoding for older clients; compact-snapshot support alone does not imply reference support.
 
 Settings refresh invalidates requested providers across known targets and refreshes them in their
 actual execution context, so every connected client receives the refreshed view. Discovery shares

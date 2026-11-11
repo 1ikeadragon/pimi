@@ -329,8 +329,7 @@ After migrating the entries and imports, add the minimum runtime version to `pim
 }
 ```
 
-Keep your existing ID and build commands. Missing `requirements.pimi` means `<0.8.0`, so Pimi 0.8 and later
-reject the plugin even if its files have been moved. Adding the field alone does not migrate the
+Keep your existing ID and build commands. A plugin without `requirements.pimi` fails to load, even if its files have been moved. Adding the field alone does not migrate the
 code. Update the local `@pimi/plugin` development dependency to the version you target and
 reinstall dependencies before typechecking.
 

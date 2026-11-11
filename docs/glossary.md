@@ -66,4 +66,3 @@ Authoritative terminology. UI label wins. Don't invent synonyms; use what's here
 ## Inconsistencies (documented, not papered over)
 
 - CLI `--host <host>` description `"Daemon host target"` (`packages/cli/src/utils/command-options.ts:5`) blurs daemon/host; the app keeps them distinct.
-- `WorkspaceDescriptorPayloadSchema.workspaceKind` accepts legacy `"checkout"` on the wire (`packages/protocol/src/messages.ts:2187`) while `PersistedWorkspaceKind` does not (`packages/server/src/server/workspace-registry-model.ts:8`).

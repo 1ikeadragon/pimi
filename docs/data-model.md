@@ -179,7 +179,7 @@ Each agent is stored as a separate JSON file, grouped by project directory.
 
 ## Runtime-only Terminal Sessions
 
-Terminals are live daemon state, not persisted JSON records. A terminal carries a `workspaceId` while it is running; workspace-scoped terminal lists include only terminals with the matching `workspaceId`. Legacy live terminals without an owner remain visible to unscoped terminal reads but contribute to no workspace status.
+Terminals are live daemon state, not persisted JSON records. A terminal carries a `workspaceId` while it is running; workspace-scoped terminal lists include only terminals with the matching `workspaceId`.
 
 Terminal activity contributes to the workspace status bucket **per `workspaceId`**: a working terminal drives `running` onto the workspace it carries only. Same-`cwd` siblings are untouched; terminal visibility is likewise `workspaceId`-scoped.
 
@@ -278,9 +278,6 @@ and remove. List order is the display order.
 Absent and empty mean different things for terminal profiles — omitting the key falls back to
 `DEFAULT_TERMINAL_PROFILES`, while `[]` means the user removed them all. Agent profiles have no
 defaults, so both mean none.
-
-`PersistedConfigSchema` parses strictly, so a daemon that predates a field drops it on write
-rather than storing something it cannot describe.
 
 ### Agent provider Pimi tools
 
@@ -487,7 +484,7 @@ Array of workspace records. A workspace is a specific working directory within a
 | `pinnedAt`                     | `string \| null` (ISO 8601)                                  | Pinned-to-top-of-sidebar timestamp; null means "not pinned"                                                                                                                                   |
 | `untrustedSource`              | `{ kind: "change_request", forge, number, headRepository }?` | Provenance captured when a cross-repository change request creates the workspace. Missing means repository automation is allowed; explicit setup removes the field.                           |
 
-> **Opaque-ID invariant:** `workspaceId` is opaque identity, never a filesystem path. Filesystem and git operations take `cwd`/`workspaceDirectory` only — never the id. A compatibility-only first-materialization bootstrap still groups pre-registry agent records by path and Git remote so existing installs retain their legacy records. That grouping never runs against a live registry, and its keys are not runtime project or workspace identity.
+> **Opaque-ID invariant:** `workspaceId` is opaque identity, never a filesystem path. Filesystem and git operations take `cwd`/`workspaceDirectory` only — never the id.
 
 ### Workspace label catalog
 

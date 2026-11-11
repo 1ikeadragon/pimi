@@ -184,12 +184,12 @@ Communicates with the daemon via the same WebSocket protocol as the app.
 
 Enables remote access when the daemon is behind a firewall.
 
-- Updated peers negotiate a Noise `NK` session with per-record counters; peers on either side that predate it fall back to the legacy NaCl `box` construction. [docs/relay-endpoint-security.md](relay-endpoint-security.md) owns the mapping, negotiation, and the `daemon.relay.requireProtectedSecurity` flag
+- Peers negotiate a Noise `NK` session with per-record counters. The client refuses the library's legacy NaCl `box` mode. [docs/relay-endpoint-security.md](relay-endpoint-security.md) owns the mapping, negotiation, and the `daemon.relay.requireProtectedSecurity` flag
 - The relay is zero-knowledge — it routes encrypted bytes and cannot read content
 - Client and daemon channels with identical API (`openClientSecureChannel`, `openDaemonSecureChannel`)
 - Pairing via QR code transfers the daemon's public key to the client
 - New homes keep relay disabled until pairing consent. `DaemonConfigStore` persists the desired state, while the relay runtime starts or stops the outbound transport live; pairing reads that current state instead of a startup snapshot.
-- Optional E2EE capability negotiation preserves application frame kind: text plaintext uses base64 ciphertext text frames, while binary plaintext uses raw ciphertext binary frames; mixed-version peers remain base64-only
+- Optional E2EE capability negotiation preserves application frame kind: text plaintext uses base64 ciphertext text frames, while binary plaintext uses raw ciphertext binary frames
 - Self-hosted relays opt into TLS with `daemon.relay.useTls` or `PASEO_RELAY_USE_TLS=true`; the public (client-facing) TLS setting can be overridden independently via `daemon.relay.publicUseTls` or `PASEO_RELAY_PUBLIC_USE_TLS`
 
 The production relay server lives in [1ikeadragon/pimi-relay](https://github.com/1ikeadragon/pimi-relay). It is a distributed Elixir service. The Cloudflare relay implementation in this monorepo is retained as legacy code and is not deployed.
@@ -257,8 +257,7 @@ Server → Client:  status message with payload { status: "server_info",
 ```
 
 There is no dedicated welcome message; the server emits one initial `status.server_info` after
-accepting hello. Modern clients negotiate `owned_subscriptions` against
-`features.ownedSubscriptions`. Connecting or attaching a local listener creates no application-data
+accepting hello. Connecting or attaching a local listener creates no application-data
 demand. A list is a snapshot; adding `subscribe: {}` creates an independent server ID. The client
 correlates the initial reply by request ID, then routes updates by subscription ID.
 
@@ -267,11 +266,11 @@ subscriptions and ongoing operations; the final JSON/binary send boundary requir
 request or subscription provenance. Domain modules own filtering, bootstrap and resource teardown.
 The shared ownership boundary only tracks source and lifetime. Releasing a subscription acknowledges
 its teardown; reconnect creates new server IDs for surviving client handles. See
-[protocol compatibility](protocol-compatibility.md) for the legacy boundary.
+[protocol compatibility](protocol-compatibility.md#owned-observations).
 
 **Top-level WS envelopes** are `hello`, `recording_state`, `ping`/`pong`, and `session` (which wraps the rich union of session messages).
 
-Client liveness checks use the top-level JSON `ping`/`pong` envelope, not a session RPC or RFC6455 control ping. Current clients ping every 10 seconds, beginning one interval after connecting. The first ping claims an application-ownership lease for that physical socket, all later inbound activity renews it, and the daemon forcibly terminates the socket if the lease expires. A legacy or raw socket that never sends an application ping never enters this lease and is not closed for omitting one. Session RPC timeouts are operation failures, not proof that the socket is dead. A subscription bootstrap timeout closes its source to clear any unknown server-owned registration; the failed handle is released before other surviving handles reconnect.
+Client liveness checks use the top-level JSON `ping`/`pong` envelope, not a session RPC or RFC6455 control ping. Current clients ping every 10 seconds, beginning one interval after connecting. The first ping claims an application-ownership lease for that physical socket, all later inbound activity renews it, and the daemon forcibly terminates the socket if the lease expires. A raw socket that never sends an application ping never enters this lease and is not closed for omitting one. Session RPC timeouts are operation failures, not proof that the socket is dead. A subscription bootstrap timeout closes its source to clear any unknown server-owned registration; the failed handle is released before other surviving handles reconnect.
 
 Every physical send path enforces an 8 MiB outbound high-water mark, including JSON broadcasts, binary terminal frames, and the encrypted relay adapter's asynchronous queue. This sits above the terminal stream's 4 MiB soft backpressure threshold, leaving room for snapshot catch-up before the hard cutoff. JSON is serialized once per broadcast after sockets already at the limit are removed, then its exact byte length is checked for every remaining socket. A frame that would cross the limit is not sent; that physical socket is forcibly terminated without disturbing other sockets attached to the same logical session. Multiple tabs and simultaneous direct and relay paths may legitimately share a client id.
 
@@ -288,9 +287,8 @@ New session RPCs use dotted names with `.request` and `.response` suffixes, such
 - `agent_deleted`, `agent_archived`, `agent_status`, `agent_list`
 - `checkout_status_update`, `checkout_diff_update`, and the full `checkout_*` request/response set for git operations
 
-Agent snapshots optionally carry the daemon-owned active turn identity, and turn lifecycle stream events
-optionally carry the same `turnId`. New clients use these fields when present and normalize an old daemon's
-status once at the directory boundary rather than maintaining a second activity model.
+Agent snapshots carry the daemon-owned active turn identity, and turn lifecycle stream events
+carry the same `turnId`.
 
 - Terminal subscribe/input/capture commands
 - Voice/dictation streaming events (`dictation_stream_*`, `assistant_chunk`, `audio_output`, `transcription_result`)
@@ -302,14 +300,13 @@ entry-kind filters, match mode, blank-query behavior, and hidden-directory trave
 request without `cwd` searches the host home for absolute project paths; a request with `cwd`
 searches that workspace and returns relative entries. Clients may prepend their small host-scoped
 recent-project list for bare queries, but must not parse filesystem query syntax or re-filter a
-correlated daemon response. The legacy `directories` response field remains a projection of the
-typed `entries` list.
+correlated daemon response.
 
 **Binary frames (terminal stream protocol):**
 
 Terminal I/O is sent as binary WebSocket frames decoded by `decodeTerminalStreamFrame` in `shared/binary-frames/terminal.ts`. The layout is:
 
-- 1-byte opcode: `Output (0x01)`, `Input (0x02)`, `Resize (0x03)`, `Snapshot (0x04)`
+- 1-byte opcode: `Output (0x01)`, `Input (0x02)`, `Resize (0x03)`, `Snapshot (0x04)`, `ReplayBegin (0x06)`, `ReplayData (0x07)`, `ReplayEnd (0x08)`
 - 1-byte slot: terminal slot id
 - variable payload: bytes for output/input, JSON-encoded `{ rows, cols }` for resize, terminal snapshot for snapshot
 
@@ -323,18 +320,7 @@ messages or transfers.
 
 ### Compatibility rules
 
-- WebSocket schemas are append-only. Add fields, do not remove fields, and never make optional fields required.
-- New wire enum values must be gated at serialization with `session.supports(CLIENT_CAPS.someCapability)`.
-- Capabilities belong to the physical source socket. `session.supports(...)` reads the requesting or observing source at the domain projection boundary; one socket must not borrow a sibling's capabilities.
-
-Example: adding a new enum value
-
-```ts
-// 1. Add CLIENT_CAPS.newThing = "new_thing"
-// 2. Let new clients advertise it in WS hello
-// 3. Keep the shared producer schema strict
-// 4. Gate the new emitted value: session.supports(CLIENT_CAPS.newThing) ? "new_value" : "old_value"
-```
+The app, CLI, plugins, and daemon ship together. See [protocol compatibility](protocol-compatibility.md) for how schema changes land.
 
 ### Creation ownership
 

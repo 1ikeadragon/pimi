@@ -140,8 +140,7 @@ Or install the directory from the app:
 
 The source field also accepts Git repositories, npm packages, and plugin subdirectories. See
 [Plugin sources](/docs/plugins/reference#plugin-sources) for the accepted syntax and resolution
-rules. If the form asks you to update the host, update that host before installing; the existing
-management actions remain available.
+rules.
 
 Each installed plugin row shows its status and description. Use its switch to enable or disable it,
 and open its three-dot menu for settings, logs, reload, and removal.

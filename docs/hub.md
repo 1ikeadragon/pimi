@@ -37,10 +37,6 @@ browser control, and permission management still require their own permissions. 
 Creating an agent may create a directory workspace. The same `hub.execute` session can title that
 workspace through `workspace.title.set.request` without `workspace.manage`.
 
-Clients using this contract check `server_info.features.hubAgentRpc` and
-`server_info.features.agentRequestReceipts` once. An older host must be upgraded; do not silently
-fall back to creating a fresh agent when continuation was requested.
-
 Hub owns conversation keys, trigger policy, execution records, and the mapping to workspace/agent
 IDs. None of these routing concepts are part of the generic daemon RPCs. Creation accepts ordinary
 provider configuration, exact MCP tool policy, environment, and workspace/worktree selection.
@@ -53,7 +49,7 @@ Provider controls remain provider-native; see [providers.md](providers.md).
 creation keys and message IDs identify the operation across attempts. A creation key is daemon-wide;
 a message ID is scoped to its agent. Reusing either with different arguments is a conflict.
 `workspace.create.request.idempotencyKey` provides the same creation guarantee for directory and
-worktree workspaces; check `server_info.features.workspaceRequestReceipts` before using it.
+worktree workspaces.
 Workspace creation keys and agent creation keys have separate namespaces. The app keeps these keys
 for the lifetime of a draft and reuses the first message ID after failures.
 

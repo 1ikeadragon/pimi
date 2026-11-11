@@ -170,7 +170,7 @@ server.addHook("worktree.create.before", async ({ request }) => ({
 | `path`                                    | 绝对目标路径，初始值为已处理现有路径后缀的默认位置                                                                     |
 | `repoRoot`                                | 只读，主仓库根目录                                                                                                     |
 | `sourceCheckout`                          | 只读，源检出根目录，也支持从另一个 worktree 发起创建                                                                   |
-| `forge`、`changeRequestNumber`、`headRef` | 变更请求检出标识；旧版 GitHub 检出用 `githubPrNumber` 代替 `forge` 和 `changeRequestNumber`                            |
+| `forge`、`changeRequestNumber`、`headRef` | 变更请求检出标识                                                                                                       |
 | `headRepositoryOwner`、`headRepository`   | 可选的源仓库信息；`headRepository` 仅用于变更请求检出                                                                  |
 | `checkoutRefs`                            | 可选的获取源：`{ remoteName?: string, remoteRef: string }[]`                                                           |
 | `pushRemoteUrl`、`trackOriginHead`        | 可选的推送目标和跟踪策略                                                                                               |

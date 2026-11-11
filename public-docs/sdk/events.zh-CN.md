@@ -57,7 +57,7 @@ unsubscribe();
 
 传入 `subscribe(listener, { onError })` 可接收读取当前列表失败的错误；此时不会调用监听器，下次重连时会重新读取。未提供 `onError` 时会记录错误。
 
-主机未声明 `features.agentBackgroundWork` 时，`list()` 会 reject，`subscribe()` 会抛出错误；请让用户更新主机。对具有 `canStop` 的项目调用 `backgroundWork.stop(item)`，等待提供方确认。停止操作需要 `features.agentBackgroundWorkStop`。
+对具有 `canStop` 的项目调用 `backgroundWork.stop(item)`，等待提供方确认。
 
 ## 跟踪时间线事件 {#follow-timeline-events}
 
@@ -152,7 +152,3 @@ unsubscribe();
 Provider 和项目的 `subscribe()` 调用会请求各自的更新，并在取消订阅时释放该需求。对于初始的项目缓存，请在 await `client.projects.list()` 期间缓冲更新，拿到快照后再应用它们。
 
 当应用不再需要连接时，调用 `client.close()`。
-
-## 旧版 daemon {#older-daemons}
-
-同样的方法会使用现有的连接和旧的投递行为。旧版的目录订阅共享一个服务器槽位：之后带过滤条件的观察会替换该槽位的过滤条件。句柄有本地 ID 和各自的回调，但独立的服务器端过滤需要更新后的 daemon。释放句柄会解除它的回调；旧版 daemon 可能会继续发送广播。

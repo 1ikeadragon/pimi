@@ -63,10 +63,7 @@ all currently available rows of an active run. There is no per-turn cap: a large
 exceed the target. Local history mounting uses the same boundaries so revealing older rows
 does not change the collapse state of a turn already displayed.
 
-`wholeTurns` is a preference negotiated once at the client fetch boundary. Hosts advertising
-`features.wholeTurnTimeline` receive it; other hosts receive the existing item-based request.
-Reading history remains available on older hosts, whose pages can still split turns. Forward
-catch-up stays incremental, but its reset snapshot honors a supported whole-turn request.
+Forward catch-up stays incremental, but its reset snapshot honors a whole-turn request.
 Source coverage still includes interleaved tool updates.
 
 Canonical IDs define runs. With missing IDs, human prompts, heartbeats and typed received
@@ -148,14 +145,6 @@ Child transcripts use the same projected-page reconciliation as the main convers
 retains rendered items and sequence cursors, never a second cache of source events. Pagination
 uses the projected display anchor; live updates advance the source cursor without moving tools.
 
-Clients advertising `projected_subagent_timeline` receive child streams and projected fetches.
-Updated clients require `features.projectedSubagentTimeline` for child history; older hosts show
-an update-host notice for that pane.
-Older clients retain child names/status and receive an upgrade message when opening a child
-conversation. This gate affects only the child transcript; it does not gate the connection,
-main conversation, or current-context forks. A legacy `canonical` root request still receives
-projected items.
-
 ## Client replica lifetime
 
 The session projection remains host-scoped for as long as the host is registered. The viewed-timeline
@@ -198,28 +187,23 @@ prevents a page from duplicating rows it already covers without coupling display
 shorter-lived submission registry. Unreconciled local presentations are not persisted in the durable
 replica cache.
 
-## Selective and legacy delivery
+## Selective delivery
 
-The app chooses one delivery policy from `server_info.features.selectiveAgentTimeline`:
+The daemon sends the chats this session has opened, plus any visible agent pane. A chat
+enters that set the first time the user opens it and leaves when its tab closes or the session
+ends, independently of mounted or retained React views: switching workspaces, evicting a retained
+view, app backgrounding, and reconnect all preserve the demand. There is no recent-agent limit.
+Restored workspace layout is a release signal, never a source. It carries a tab for every chat the
+user has ever opened on the host, and a catch-up fetch resumes its agent on the daemon, so
+subscribing from layout spawns a provider session per historical tab at every launch and stamps
+every one of those workspaces as just used (see
+[agent lifecycle](agent-lifecycle.md#workspace-activity)). Visible chats get the first catch-up
+attempt; the rest follow when those attempts settle, including failures, so a failed visible chat
+does not starve background recovery. Split panes catch up together. Hidden chats update the
+replica; on web their retained presentation stays suspended until revealed, on native it keeps
+rendering. Revealing a chat reads the current store and preserves its local UI state.
 
-- Selective daemons receive the chats this session has opened, plus any visible agent pane. A chat
-  enters that set the first time the user opens it and leaves when its tab closes or the session
-  ends, independently of mounted or retained React views: switching workspaces, evicting a retained
-  view, app backgrounding, and reconnect all preserve the demand. There is no recent-agent limit.
-  Restored workspace layout is a release signal, never a source. It carries a tab for every chat the
-  user has ever opened on the host, and a catch-up fetch resumes its agent on the daemon, so
-  subscribing from layout spawns a provider session per historical tab at every launch and stamps
-  every one of those workspaces as just used (see
-  [agent lifecycle](agent-lifecycle.md#workspace-activity)). Visible chats get the first catch-up
-  attempt; the rest follow when those attempts settle, including failures, so a failed visible chat
-  does not starve background recovery. Split panes catch up together. Hidden chats update the
-  replica; on web their retained presentation stays suspended until revealed, on native it keeps
-  rendering. Revealing a chat reads the current store and preserves its local UI state.
-- Legacy daemons keep globally streaming agent timelines. Visibility still triggers the existing
-  authoritative catch-up, but the app does not issue selective-subscription RPCs.
-
-This policy is owned by `viewed-timeline-sync.ts`; downstream reducers do not branch on daemon
-version.
+`viewed-timeline-sync.ts` owns this policy.
 
 ## Projected pages reconcile with live presentation
 
@@ -251,16 +235,13 @@ Timeline render batching does not delay lifecycle application. Directory status 
 submission. Overlapping sends settle independently rather than collapsing to one newest pending
 message.
 
-Daemons advertising `server_info.features.canonicalSubmittedPrompts` guarantee that every accepted
-human prompt carrying a client message id is recorded and streamed as a canonical `user_message` with that
-same id. This includes daemon-handled commands that do not allocate a foreground turn; their submitted
-row is recorded before handler output. The app tracks submission transactions only for hosts with this
-capability. Older hosts keep the shipped untracked optimistic-row behavior and roll that row back on RPC
-rejection.
+Every accepted human prompt carrying a client message id is recorded and streamed as a canonical
+`user_message` with that same id. This includes daemon-handled commands that do not allocate a foreground
+turn; their submitted row is recorded before handler output.
 
 Turn activity has one client-side replica. Lifecycle events can attach `turnId`, and agent snapshots can
 expose `activeTurn: { turnId, startedAt } | null`. An identified terminal cannot close a different
-identified turn; an unnamed legacy terminal can close the current turn. Snapshots, stream events,
+identified turn; an unnamed terminal can close the current turn. Snapshots, stream events,
 cancellation requests, and every visible surface update the same per-agent record. The snapshot covers
 both user-started foreground turns and autonomous provider turns;
 foreground control ownership remains a separate daemon concern. Cancellation request identity is stored
@@ -283,13 +264,10 @@ The optional `agentMessage` payload carries event, sender, and delivered text. S
 presentation (`protocol/paseo-tool-presentation`) owns its heading and expanded details, next to the
 labels for every Pimi MCP tool. The daemon
 must not construct UI labels or prepend sender labels to the semantic message body. The existing
-`tool_call` / `plain_text` envelope is a compatibility adapter: older clients still parse the row and
-expand its body. New clients use the typed payload, never infer the event from a tool name or parse
-XML. Stream reduction and disk-cache serialization preserve the payload without rendering it.
+`tool_call` / `plain_text` envelope carries it. Clients use the typed payload, never infer the event
+from a tool name or parse XML. Stream reduction and disk-cache serialization preserve the payload without rendering it.
 
-The compatibility boundary for older daemons is snapshot normalization: running/idle status becomes an
-anonymous active turn or idle state once, and downstream code consumes the same activity shape. The app
-does not combine anonymous lifecycle events, timestamps, timeline rows, and resume coverage to infer a
+The app does not combine anonymous lifecycle events, timestamps, timeline rows, and resume coverage to infer a
 second running state. Disconnect preserves the last replicated turn until cache or network hydration
 advances it; replica removal remains the destructive close boundary. Elapsed time comes only from turn
 liveness, never from submission records or whichever timeline rows happen to be mounted.
@@ -300,10 +278,8 @@ the wire. A correlated provider echo records the provider's native identity inte
 dispatching another timeline event. Rewind resolves the wire identity to that provider identity at
 the provider boundary. Daemon-handled prompts follow the same identity rule.
 
-Content matching is limited to the dated compatibility path for daemon timelines created before
-that field existed. Canonical ingestion may match only an explicit unreconciled local candidate;
-the draft-create handoff is the one boundary that also permits the legacy canonical twin to have
-arrived first. Generic reducers and consumers do not reimplement message identity matching.
+Canonical ingestion matches by identity, and only an explicit unreconciled local candidate.
+Generic reducers and consumers do not reimplement message identity matching.
 
 Ordinary bootstrap, same-epoch reset, and catch-up replacement preserve unmatched locally submitted
 rows because a provider may never echo them. A known epoch change or rewind replaces history and

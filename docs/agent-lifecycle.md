@@ -237,11 +237,6 @@ Default workspace and agent lists, including History requests, exclude backgroun
 `includeBackground` includes it. Exact-ID operations bypass discovery filtering. The app
 replicates inclusively and filters at each surface.
 
-Sources without the `background_agents` hello capability get workspace-only visibility on
-inclusive reads and subscriptions: agents in background workspaces, but no agent-level background
-agents. Older apps replicate inclusively and auto-open a tab for every root agent, so a classifier
-run would otherwise open a tab each turn. That visibility has its own directory sync generation.
-
 Sequenced directories keep complete canonical collections. A filtered read must never replace
 those collections with its subset. Inclusive and default observations have distinct cursor
 scopes, so changing scope requires a fresh snapshot rather than reusing an incomplete cache.

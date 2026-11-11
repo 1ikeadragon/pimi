@@ -183,9 +183,7 @@ disabled during acquisition; manifest preparation owns required commands before 
 
 List responses retain the closed `source: directory | git` enum. The optional `installation`
 projection carries identity and current revision. Old npm metadata remains accepted but is no longer
-emitted. Installation uses `features.pluginSourceInstallation`; reviewed preview/apply uses
-`features.pluginSourceUpdates`, gated by the SDK and CLI entry. The old immediate-update request
-returns update-client guidance. Basic management remains independently available.
+emitted. Updates go through reviewed preview/apply.
 
 Preview returns exact targets and expected installed identity/root/revision. Apply validates those
 values, acquires the displayed artifact or commit, then rechecks state before activation. No review
@@ -557,7 +555,7 @@ string is never inline SVG or a URL.
 
 Register a usage source from `index.server.ts` with `server.registerUsageSource()`. Import `UsageSourceRegistration` and normalization helpers from `@pimi/plugin/server/usage`. The plugin owns account discovery, harness labels, and credential-store reads; the daemon owns account grouping and the fetch cache. Agent popovers use only the agent's own login. The host-wide Usage modal falls back across an account's logins; any success shows usage only, and all failures show every login's labeled error and remedy. Follow the [usage source discovery contract](../public-docs/plugins/reference.md#usage-sources). The resolved launch environment crosses into the trusted, unsandboxed plugin subprocess for session discovery. Usage queries never run lifecycle hooks. Inputs are validated in the plugin process and remain daemon-side. `icon` uses the same SVG file rules as provider icons.
 
-When the host’s **Check usage** switch is off, the daemon rejects usage requests before discovery, without reading logins or calling vendors. Otherwise, the daemon calls discovery for `usage.list_reports`; the client gates this RPC on `server_info.features.usageSources`. The old `provider.usage.list` RPC maps discovered reports for older clients.
+When the host’s **Check usage** switch is off, the daemon rejects usage requests before discovery, without reading logins or calling vendors. Otherwise, the daemon calls discovery for `usage.list_reports`.
 
 ## Contribute sidebar items
 
@@ -624,8 +622,8 @@ only around the trigger do not reach those bodies.
 
 Request observation with `client.paseo.agents.list({ subscribe: {} })` and consume the returned
 `subscription` handle. Plain `list()` and agent/workspace directory `.subscribe(handler)` listeners create no daemon
-demand. Provider and project `subscribe()` calls establish their own demand. On capable daemons, each
-list-and-subscribe call has its own server ID, even for the same query. Older daemons retain
+demand. Provider and project `subscribe()` calls establish their own demand. Each
+list-and-subscribe call has its own server ID, even for the same query; see
 [shared delivery behavior](protocol-compatibility.md#owned-observations). Handle snapshots
 also run after reconnect; replace your view before applying its subsequent updates. An installation
 stays loaded during a dropped connection while the app retains its `DaemonClient` object. An
@@ -676,8 +674,7 @@ replaces the previous row from that plugin on live clients and fresh timeline fe
 the daemon's in-memory timeline and survive scroll, refetch, and reconnect, but not a daemon
 restart. A row without an installed renderer shows an unavailable placeholder. Serialized `data`
 must be at most 64 KiB; the daemon rejects a larger append instead of storing a payload that cannot
-be rendered intact. The daemon advertises this RPC through
-`server_info.features.pluginTimelineItems`.
+be rendered intact.
 
 ## Contribute client slash commands
 
@@ -734,8 +731,7 @@ export default function contribute(client: PluginClientContext) {
 
 Attachment sources stay scoped to the composer's host. Unlike sidebar contributions, equal sources
 on several hosts are not coalesced. The selected snapshot submits as a text attachment with neutral
-external-resource presentation, so it remains readable if the plugin is removed or an older peer
-drops the optional presentation fields.
+external-resource presentation, so it remains readable if the plugin is removed.
 
 ## Contribute settings
 
@@ -762,10 +758,7 @@ contract. Unistyles needs every theme name at `StyleSheet.configure` time, so
 provider rewrites the matching slot when the selection changes. See [unistyles.md](unistyles.md)
 for the runtime-patching rules the appearance settings share.
 
-`addTheme` is a client registration and belongs in `index.client.tsx`. A client that predates it
-cannot evaluate that entry. Daemons advertise
-`features.pluginThemes` in `server_info`; the plugin theme catalog is the one place the app reads it, and
-a host without it contributes no themes.
+`addTheme` is a client registration and belongs in `index.client.tsx`.
 
 The selection persists as `theme: "plugin"` plus a `pluginThemeId` of `<pluginId>/theme/<themeId>`,
 so equal themes on several hosts coalesce the way sidebar contributions do. Two hosts can answer

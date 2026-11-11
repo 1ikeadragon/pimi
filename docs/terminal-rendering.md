@@ -20,7 +20,7 @@ The daemon, native and web buffers all load `@xterm/addon-unicode-graphemes`: th
 
 Every buffer must use the same table. The daemon answers cursor-position reports (`CSI 6n`) from its buffer, and a client re-parses the daemon's ANSI replay with its own table. A disagreement moves the cursor and the later cells of any row that holds a disputed cluster: after replay from a Unicode 6 daemon, the cursor that followed `A😀😀😀B` lands inside the third emoji.
 
-Daemons that use grapheme widths advertise `server_info.features["terminal-grapheme-widths"]`. `terminal-pane.tsx` reads it once and passes `characterWidths` to the emulator. Against an older daemon the app keeps each renderer's previous table: xterm's default on native, Unicode 11 on web. An older app against a newer daemon cannot match it, because every client shares the daemon's one buffer. A terminal kept by a worker from an unreleased pre-grapheme build keeps that worker's table until it exits.
+A terminal kept by a worker from an unreleased pre-grapheme build keeps that worker's table until it exits.
 
 The table follows Unicode grapheme clusters, as Node's `string-width` does for Ink-based agent TUIs. Indic conjuncts follow the same rule: `क्ष` and `स्ते` take one column, and the native views scale them down to fit it. Shells measure with the C library's `wcwidth` instead. glibc counts `❤️` as one column, `👋🏽` as four and `क्ष` as two, so a line editor that measures those disagrees with the terminal.
 
