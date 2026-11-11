@@ -66,9 +66,6 @@ its workspace is background. Explicit false or true overrides inheritance. Agent
 creates its workspace applies `background` to both the workspace and the agent. To hide one agent
 in an existing workspace, see [background agents](./agents.md#run-a-helper-as-a-background-agent).
 
-Creation and inclusive discovery require `features.backgroundWorkspaces`; the client rejects an
-unsupported host with an update-host message.
-
 ## Start an agent in a workspace
 
 Create through the workspace handle:

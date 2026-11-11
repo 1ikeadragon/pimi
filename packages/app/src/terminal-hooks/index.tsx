@@ -6,7 +6,6 @@ import { SettingsCard, SettingsRow, SettingsSection } from "@/components/setting
 import { Button } from "@/components/ui/button";
 import { useFetchQuery } from "@/data/query";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
-import { useHostFeature } from "@/runtime/host-features";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 
 const PROVIDER_LABELS = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode" };
@@ -20,7 +19,6 @@ const STATE_LABELS = {
 export function TerminalHooksSection({ serverId }: { serverId: string }) {
   const client = useHostRuntimeClient(serverId);
   const connected = useHostRuntimeIsConnected(serverId);
-  const canInspect = useHostFeature(serverId, "terminalHookManagement");
   const { config, patchConfig } = useDaemonConfig(serverId);
   const queryClient = useQueryClient();
   const queryKey = ["host", serverId, "terminal-hooks"] as const;
@@ -30,7 +28,7 @@ export function TerminalHooksSection({ serverId }: { serverId: string }) {
       if (!client) throw new Error("Host disconnected");
       return client.getTerminalHooksStatus();
     },
-    enabled: connected && client !== null && canInspect,
+    enabled: connected && client !== null,
     retry: false,
     dataShape: "value",
     staleTimeMs: 0,
@@ -38,8 +36,8 @@ export function TerminalHooksSection({ serverId }: { serverId: string }) {
   const { refetch } = query;
   useFocusEffect(
     useCallback(() => {
-      if (connected && canInspect) void refetch();
-    }, [canInspect, connected, refetch]),
+      if (connected) void refetch();
+    }, [connected, refetch]),
   );
 
   const changeHooks = useMutation({
@@ -51,7 +49,7 @@ export function TerminalHooksSection({ serverId }: { serverId: string }) {
       } else {
         const changed = await patchConfig({ enableTerminalAgentHooks: action === "install" });
         if (!changed) throw new Error("Host disconnected");
-        if (canInspect) await refetch();
+        await refetch();
       }
     },
   });
@@ -65,9 +63,9 @@ export function TerminalHooksSection({ serverId }: { serverId: string }) {
   );
   const handleRetry = useCallback(() => mutate("retry"), [mutate]);
   const handleRefresh = useCallback(() => void refetch(), [refetch]);
-  let hint = "Install the bundled hooks to see agent activity from terminals.";
-  if (!connected) hint = "Connect to a host to manage its hooks.";
-  else if (!canInspect) hint = "Update this host to verify each installation.";
+  const hint = connected
+    ? "Install the bundled hooks to see agent activity from terminals."
+    : "Connect to a host to manage its hooks.";
 
   return (
     <SettingsSection title="Terminal hooks">
@@ -86,7 +84,7 @@ export function TerminalHooksSection({ serverId }: { serverId: string }) {
             {enabled ? "Uninstall hooks" : "Install hooks"}
           </Button>
         </SettingsRow>
-        {connected && canInspect ? (
+        {connected ? (
           <TerminalHooksStatusRow
             status={status}
             enabled={enabled}

@@ -85,7 +85,6 @@ export interface WorkspaceDirectoryDeps {
   listTerminalActivityContributions(): Promise<
     Array<{ cwd: string; workspaceId?: string; activity: TerminalActivity | null }>
   >;
-  isProviderVisibleToClient(provider: string): boolean;
   buildWorkspaceDescriptor(input: {
     workspace: PersistedWorkspaceRecord;
     projectRecord?: PersistedProjectRecord | null;
@@ -277,12 +276,7 @@ export class WorkspaceDirectory {
     }
 
     // Background agents report to their creator; they never move the workspace's status.
-    const activeAgents = agents.filter(
-      (agent) =>
-        !agent.archivedAt &&
-        !agent.background &&
-        this.deps.isProviderVisibleToClient(agent.provider),
-    );
+    const activeAgents = agents.filter((agent) => !agent.archivedAt && !agent.background);
     this.applyAgentBucketContributions({
       activeAgents,
       descriptorsByWorkspaceId,

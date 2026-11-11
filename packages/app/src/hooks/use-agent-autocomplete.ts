@@ -142,29 +142,6 @@ function resolveDraftQueryConfig(draft?: DraftCommandTarget): DraftCommandConfig
   };
 }
 
-function mapDirectorySuggestionsToEntries(payload: {
-  entries?: Array<{ path: string; kind: string }>;
-  directories?: string[];
-}): DirectorySuggestionEntry[] {
-  if (Array.isArray(payload.entries) && payload.entries.length > 0) {
-    return payload.entries.flatMap((entry) => {
-      if (
-        !entry ||
-        typeof entry.path !== "string" ||
-        (entry.kind !== "file" && entry.kind !== "directory")
-      ) {
-        return [];
-      }
-      return [{ path: entry.path, kind: entry.kind }];
-    });
-  }
-
-  return (payload.directories ?? []).map((path) => ({
-    path,
-    kind: "directory" as const,
-  }));
-}
-
 const CLIENT_COMMAND_ICONS = {
   "archive-agent": "archive",
   "replace-agent-with-draft": "new-draft",
@@ -608,7 +585,7 @@ export function useAgentAutocomplete(input: UseAgentAutocompleteInput): AgentAut
       if (response.error) {
         throw new Error(response.error);
       }
-      return mapDirectorySuggestionsToEntries(response);
+      return response.entries;
     },
     enabled:
       mode === "file" &&

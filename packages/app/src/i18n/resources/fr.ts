@@ -2300,7 +2300,6 @@ export const fr: TranslationResources = {
     empty: "Aucune donnée d’utilisation",
     errorTitle: "Impossible de charger l’utilisation",
     hostUnavailable: "Connectez-vous à {{host}} pour voir l’utilisation du fournisseur",
-    hostUpgradeRequired: "Mettez à jour {{host}} pour voir l’utilisation du fournisseur",
     clientUnavailable: "La connexion à l’hôte n’est pas prête",
     retry: "Réessayer",
     tooltipLoading: "Chargement de l’utilisation du forfait...",
@@ -2487,7 +2486,6 @@ export const fr: TranslationResources = {
       },
       installation: {
         title: "Modèles installés",
-        unavailable: "Mettez à jour l’hôte pour voir les détails de l’installation",
         verified: "SHA-256 de l’archive vérifié à l’installation",
         unrecorded: "Vérification non enregistrée",
         noPublishedDigest: "Aucune somme de contrôle publiée",

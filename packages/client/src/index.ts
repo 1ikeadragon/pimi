@@ -7,7 +7,6 @@ export type { PaseoHostActions } from "./hosts/index.js";
 export type { HostAdd, HostUpdate, HostSummary, HostDirectory } from "@pimi/protocol/hosts";
 import type { OwnedSubscription } from "./connection/index.js";
 export type { OwnedSubscription, SubscriptionObserver } from "./connection/index.js";
-import type { DaemonClientConfig } from "./daemon-client.js";
 import type { AgentPermissionResponse } from "@pimi/protocol/agent-types";
 import type {
   AgentSnapshotPayload,
@@ -62,7 +61,6 @@ import type {
   FetchAgentTimelineCursor,
   FetchAgentTimelineDirection,
   FetchAgentTimelinePayload,
-  FetchAgentTimelineProjection,
   SendMessageOptions,
   WaitForFinishResult,
 } from "./daemon-client.js";
@@ -88,7 +86,6 @@ export interface PaseoLogger {
 }
 
 export interface PaseoClientConfig {
-  capabilities?: DaemonClientConfig["capabilities"];
   url: string;
   clientId?: string;
   appVersion?: string;
@@ -293,7 +290,6 @@ export interface PaseoAgentTimelineRefetchOptions {
   direction?: FetchAgentTimelineDirection;
   cursor?: FetchAgentTimelineCursor;
   limit?: number;
-  projection?: FetchAgentTimelineProjection;
   requestId?: string;
 }
 
@@ -596,8 +592,6 @@ function toDaemonAgentCreateOptions(
   if (requestOptions.notifyOnFinish) {
     if (!relationship.callerAgentId)
       throw new Error("Finish notifications require a parent on this host.");
-    if (!serverInfo?.features?.agentFinishNotifications)
-      throw new Error("Update the agent host to launch workers that report to this chat.");
   }
   return {
     ...requestOptions,

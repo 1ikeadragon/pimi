@@ -2284,7 +2284,6 @@ export const en = {
     empty: "No usage data",
     errorTitle: "Unable to load usage",
     hostUnavailable: "Connect to {{host}} to see usage",
-    hostUpgradeRequired: "Update {{host}} to see usage",
     clientUnavailable: "Host connection is not ready",
     retry: "Try again",
     tooltipLoading: "Loading plan usage...",
@@ -2569,7 +2568,6 @@ export const en = {
       },
       installation: {
         title: "Installed models",
-        unavailable: "Update the host to see install details",
         verified: "Archive SHA-256 verified at install",
         unrecorded: "Verification not recorded",
         noPublishedDigest: "No published checksum",

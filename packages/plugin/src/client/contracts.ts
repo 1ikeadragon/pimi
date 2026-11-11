@@ -40,7 +40,7 @@ export interface PluginHostProps {
 }
 
 interface PluginNavigableHostProps extends PluginHostProps {
-  /** Client-owned navigation. Undefined on older hosts; hide dependent affordances when absent. */
+  /** Client-owned navigation. Hide dependent affordances when absent. */
   readonly navigation?: {
     /** Present only on Electron. The browser runs locally; serverId selects workspace ownership. */
     readonly openBrowser?: (input: {

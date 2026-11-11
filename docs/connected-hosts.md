@@ -72,7 +72,6 @@ physical reconnect and keepalive; the registry retains configuration, identity a
 status. Unreachable registrations remain saved. Identity is pinned when discovered. Self and duplicate
 registrations remain inspectable; a changed destination requires explicit identity replacement.
 
-Both daemons advertise `connectedHosts`; the shared link additionally requires `hostMultiplexing`.
 A completes capability and pinned-identity checks on each physical recovery before admitting channels. There is no local fallback. The registry retries an unreachable destination
 with capped backoff. Self, duplicate, changed-identity, and
 authentication failures stay in `error` until an update changes the connection, `enabled`, or

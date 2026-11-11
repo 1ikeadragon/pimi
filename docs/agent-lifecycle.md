@@ -240,9 +240,6 @@ replicates inclusively and filters at each surface.
 Sequenced directories keep complete canonical collections. A filtered read must never replace
 those collections with its subset. Inclusive and default observations have distinct cursor
 scopes, so changing scope requires a fresh snapshot rather than reusing an incomplete cache.
-Clients gate background workspaces and inclusive discovery on `features.backgroundWorkspaces`.
-They gate a background agent placed in an existing workspace or under a caller on
-`features.backgroundAgents`.
 
 ### Private daemon helpers
 

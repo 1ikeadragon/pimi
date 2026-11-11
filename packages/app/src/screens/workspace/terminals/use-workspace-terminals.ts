@@ -138,10 +138,10 @@ export function useWorkspaceTerminals(input: UseWorkspaceTerminalsInput) {
         ? await client.createTerminal(workspaceDirectory, profile.name, undefined, {
             command: profile.command,
             args: profile.args,
-            workspaceId: normalizedWorkspaceId || undefined,
+            workspaceId: normalizedWorkspaceId,
           })
         : await client.createTerminal(workspaceDirectory, undefined, undefined, {
-            workspaceId: normalizedWorkspaceId || undefined,
+            workspaceId: normalizedWorkspaceId,
           });
       // The daemon reports a failed spawn (e.g. a profile command that isn't
       // installed) via payload.error with a null terminal. Surface it instead

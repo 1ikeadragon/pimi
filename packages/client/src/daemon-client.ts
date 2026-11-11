@@ -20,7 +20,6 @@ import type { CreationSnapshot } from "@pimi/protocol/messages";
 import type { z } from "zod";
 import type { SessionEventSubscription } from "@pimi/protocol/messages";
 import type { LocalSpeechModel } from "@pimi/protocol/speech/rpc-schemas";
-import { CLIENT_CAPS, type ClientCapability } from "@pimi/protocol/client-capabilities";
 import type { AgentAttentionNotificationPayload } from "@pimi/protocol/agent-attention-notification";
 import { MAX_WEBSOCKET_MESSAGE_BYTES } from "@pimi/protocol/websocket-message-limit";
 import type { PimiMobileTaskOperation, PimiMobileTaskResult } from "@pimi/protocol/pimi-task";
@@ -444,7 +443,6 @@ export interface DaemonClientConfig {
   runtimeMetricsIntervalMs?: number;
   runtimeMetricsWindowMs?: number;
   trace?: DaemonClientTrace;
-  capabilities?: Partial<Record<ClientCapability, unknown>>;
 }
 
 export interface DaemonClientTrace {
@@ -683,7 +681,6 @@ export type FetchAgentTimelinePayload = FetchAgentTimelineResponseMessage["paylo
 export type AgentForkContextPayload = AgentForkContextResponseMessage["payload"];
 
 export type FetchAgentTimelineDirection = FetchAgentTimelinePayload["direction"];
-export type FetchAgentTimelineProjection = FetchAgentTimelinePayload["projection"];
 export type FetchAgentTimelineCursor = NonNullable<FetchAgentTimelinePayload["startCursor"]>;
 export interface FetchAgentOptions {
   agentId: string;
@@ -696,7 +693,6 @@ export interface FetchAgentTimelineOptions {
   direction?: FetchAgentTimelineDirection;
   cursor?: FetchAgentTimelineCursor;
   limit?: number;
-  projection?: FetchAgentTimelineProjection;
   mergeWindow?: boolean;
   compactionSummaryOnly?: boolean;
   requestId?: string;
@@ -1264,12 +1260,6 @@ interface PingProbe {
   drivesLivenessFailure: boolean;
 }
 
-export function supportsUsageReports(
-  features: ServerInfoStatusPayload["features"] | undefined,
-): boolean {
-  return features?.usageSources === true;
-}
-
 function buildFetchAgentsRequest(
   options: FetchAgentsOptions | undefined,
   requestId: string,
@@ -1738,10 +1728,6 @@ export class DaemonClient {
         code: "host_offline",
         serverId: this.destinationServerId,
       });
-    if (this.lastServerInfoMessage?.features?.connectedHosts !== true)
-      throw Object.assign(new Error("Update the managing daemon to use connected hosts"), {
-        code: "unsupported_capability",
-      });
   }
   async listHosts(): Promise<HostDirectory> {
     this.requireConnectedHosts();
@@ -1807,10 +1793,6 @@ export class DaemonClient {
   }
   async openHostLink(channelId: string): Promise<string> {
     this.requireConnectedHosts();
-    if (this.getLastServerInfoMessage()?.features?.hostMultiplexing !== true)
-      throw Object.assign(new Error("Update the destination daemon"), {
-        code: "unsupported_capability",
-      });
     return (
       await this.sendCorrelatedSessionRequest({
         message: { type: "hosts.link.open.request", channelId },
@@ -1941,26 +1923,9 @@ export class DaemonClient {
   onAgentAttentionRequired(
     handler: (notification: AgentAttentionRequiredNotification) => void,
   ): () => void {
-    const unsubscribeLegacy = this.on("agent_stream", (message) => {
-      if (message.payload.event.type !== "attention_required") {
-        return;
-      }
-      const event = message.payload.event;
-      handler({
-        agentId: message.payload.agentId,
-        reason: event.reason,
-        timestamp: event.timestamp,
-        shouldNotify: event.shouldNotify,
-        ...(event.notification ? { notification: event.notification } : {}),
-      });
-    });
-    const unsubscribeDedicated = this.on("agent_attention_required", (message) => {
+    return this.on("agent_attention_required", (message) => {
       handler(message.payload);
     });
-    return () => {
-      unsubscribeLegacy();
-      unsubscribeDedicated();
-    };
   }
 
   // ============================================================================
@@ -2594,8 +2559,6 @@ export class DaemonClient {
     return this.owned.observe<CorrelatedResponsePayload<T>>(
       async (accept) => {
         resetSource = false;
-        if (message.type === "workspace.setup.subscribe.request")
-          this.requireWorkspaceSetupObservation();
         const requestId = this.createRequestId(options?.requestId);
         const request = SessionInboundMessageSchema.parse({ ...message, requestId });
         try {
@@ -2665,8 +2628,6 @@ export class DaemonClient {
   observeAgents(
     options: Omit<FetchAgentsOptions, "subscribe"> = {},
   ): OwnedSubscription<FetchAgentsPayload> {
-    if (options.includeBackground || options.filter?.includeBackground)
-      this.requireBackgroundWorkspaces();
     const { signal, requestId, timeout, ...query } = options;
     return this.observe(
       "fetch_agents_response",
@@ -2678,8 +2639,6 @@ export class DaemonClient {
   observeWorkspaces(
     options: Omit<FetchWorkspacesOptions, "subscribe"> = {},
   ): OwnedSubscription<FetchWorkspacesPayload> {
-    if (options.includeBackground || options.filter?.includeBackground)
-      this.requireBackgroundWorkspaces();
     const { signal, requestId, ...query } = options;
     return this.observe(
       "fetch_workspaces_response",
@@ -2695,8 +2654,6 @@ export class DaemonClient {
   async fetchAgents(
     options?: FetchAgentsOptions,
   ): Promise<FetchAgentsPayload & { subscription?: OwnedSubscription<FetchAgentsPayload> }> {
-    if (options?.includeBackground || options?.filter?.includeBackground)
-      this.requireBackgroundWorkspaces();
     if (options?.subscribe) {
       if (options.subscribe.subscriptionId !== undefined)
         throw new Error("Subscription IDs are assigned by the host");
@@ -2723,7 +2680,6 @@ export class DaemonClient {
   }
 
   async fetchAgentHistory(options?: FetchAgentHistoryOptions): Promise<FetchAgentHistoryPayload> {
-    if (options?.filter?.includeBackground) this.requireBackgroundWorkspaces();
     const resolvedRequestId = this.createRequestId(options?.requestId);
     const message = SessionInboundMessageSchema.parse({
       type: "fetch_agent_history_request",
@@ -2787,8 +2743,6 @@ export class DaemonClient {
   ): Promise<
     FetchWorkspacesPayload & { subscription?: OwnedSubscription<FetchWorkspacesPayload> }
   > {
-    if (options?.includeBackground || options?.filter?.includeBackground)
-      this.requireBackgroundWorkspaces();
     if (options?.subscribe) {
       if (options.subscribe.subscriptionId !== undefined)
         throw new Error("Subscription IDs are assigned by the host");
@@ -2817,12 +2771,12 @@ export class DaemonClient {
     });
   }
 
-  /** Finds one workspace by id across pages, background ones included when the host has them. */
+  /** Finds one workspace by id across pages, background ones included. */
   async findWorkspace(
     workspaceId: string,
     options?: { requestId?: string },
   ): Promise<FetchWorkspacesEntry | null> {
-    const filter = this.supportsBackgroundWorkspaces() ? { includeBackground: true } : {};
+    const filter = { includeBackground: true };
     let cursor: string | undefined;
     let requestId = options?.requestId;
     do {
@@ -3110,11 +3064,6 @@ export class DaemonClient {
     );
   }
 
-  private requireWorkspaceSetupObservation(): void {
-    if (this.lastServerInfoMessage?.features?.workspaceSetupObservation !== true)
-      throw new Error("Update the host to view workspace setup details");
-  }
-
   async fetchWorkspaceSetupStatus(
     workspaceId: string,
     requestId?: string,
@@ -3210,31 +3159,12 @@ export class DaemonClient {
     },
   });
 
-  // Background workspaces are gated once at the transport boundary.
-  private requireBackgroundWorkspaces(): void {
-    if (this.lastServerInfoMessage?.features?.backgroundWorkspaces !== true) {
-      throw new Error("Update the host to use background workspaces.");
-    }
-  }
-
-  supportsBackgroundWorkspaces(): boolean {
-    return this.lastServerInfoMessage?.features?.backgroundWorkspaces === true;
-  }
-
-  // A background request that creates its own workspace needs background workspaces.
-  private requireBackgroundCreation(options: CreateAgentRequestOptions): void {
-    if (options.workspaceId === undefined && options.callerAgentId === undefined) {
-      this.requireBackgroundWorkspaces();
-    }
-  }
-
   async createAgent(options: CreateAgentRequestOptions): Promise<AgentSnapshotPayload> {
     if (options.git !== undefined || options.worktreeName !== undefined) {
       throw new Error(
         "Legacy git/worktreeName agent placement was removed. Use createWorkspace({ source, agent, idempotencyKey }) or create a workspace first and pass workspaceId.",
       );
     }
-    if (options.background !== undefined) this.requireBackgroundCreation(options);
     const result = await this.creations.createAgent({
       ...options,
       config: resolveAgentConfig(options),
@@ -3600,7 +3530,6 @@ export class DaemonClient {
       ...(options.direction ? { direction: options.direction } : {}),
       ...(options.cursor ? { cursor: options.cursor } : {}),
       ...(typeof options.limit === "number" ? { limit: options.limit } : {}),
-      ...(options.projection ? { projection: options.projection } : {}),
       ...(options.mergeWindow === true ? { mergeWindow: true } : {}),
       ...(compactionSummaryOnly ? { compactionSummaryOnly: true, limit: 1 } : {}),
     });
@@ -3658,7 +3587,7 @@ export class DaemonClient {
 
   /**
    * Without `page`, the preview index of every prompt. With `page`, that many prompts
-   * with their full text; requires `server_info.features.agentTimelinePromptPages`.
+   * with their full text.
    */
   async listAgentTimelinePrompts(
     agentId: string,
@@ -3852,18 +3781,6 @@ export class DaemonClient {
     text: string,
     options: SendMessageOptions = {},
   ): Promise<{ deliveryStatus?: "queued" }> {
-    if (
-      options.sourceAgentId &&
-      this.lastServerInfoMessage?.features?.agentMessageProvenance !== true
-    ) {
-      throw new Error("Update the Paseo host to send messages with agent provenance.");
-    }
-    if (
-      options.sourceAgentServerId &&
-      this.lastServerInfoMessage?.features?.agentMessageBatching !== true
-    ) {
-      throw new Error("Update the Paseo host to send messages with a qualified agent address.");
-    }
     const requestId = this.createRequestId();
     const messageId = options.messageId ?? crypto.randomUUID();
     const message = SessionInboundMessageSchema.parse({
@@ -4085,7 +4002,6 @@ export class DaemonClient {
    * chaining the single-field setters when the values belong together so client
    * interruption and other mutations cannot interleave between steps. A
    * provider rejection can still leave earlier steps applied.
-   * Gated on `server_info.features.agentConfigApply`.
    */
   async applyAgentConfig(
     agentId: string,
@@ -4121,7 +4037,7 @@ export class DaemonClient {
   /**
    * Moves a chat to another provider in place: the agent id and timeline stay,
    * and the host hands the conversation so far to the new provider with the next
-   * prompt. Gated on `server_info.features.agentProviderSwitch`.
+   * prompt.
    */
   async switchAgentProvider(
     agentId: string,
@@ -4718,9 +4634,6 @@ export class DaemonClient {
   }
 
   async searchPimiCodebase(workspaceId: string, query: string, limit = 12) {
-    if (this.lastServerInfoMessage?.features?.pimiCodebaseSearch !== true) {
-      throw new Error("Update this host to search code.");
-    }
     const response =
       await this.sendNamespacedCorrelatedSessionRequest<"pimi.codebase.search.response">({
         message: { type: "pimi.codebase.search.request", workspaceId, query, limit },
@@ -4737,8 +4650,6 @@ export class DaemonClient {
     contentHash: string;
     signal?: AbortSignal;
   }) {
-    if (this.lastServerInfoMessage?.features?.gitBlame !== true)
-      throw new Error("Update the host to show Git blame.");
     const { signal, ...query } = input;
     signal?.throwIfAborted();
     const response = await this.sendNamespacedCorrelatedSessionRequest<"checkout.blame.response">({
@@ -5017,7 +4928,6 @@ export class DaemonClient {
     requestId?: string,
   ): Promise<WorkspaceCreatePayload> {
     const resolvedRequestId = this.createRequestId(requestId ?? input.requestId);
-    if (input.background !== undefined || input.callerAgentId) this.requireBackgroundWorkspaces();
     if (input.agent?.background !== undefined)
       throw new Error("Configure background on the workspace, not its initial agent.");
     const result = await this.creations.createWorkspace({
@@ -5239,7 +5149,6 @@ export class DaemonClient {
     cwd: string;
     path: string;
     content: string;
-    /** `base64` requires `server_info.features.fileByteWrites`. */
     contentEncoding?: "utf-8" | "base64";
     expectedModifiedAt: string;
     expectedRevision?: string;
@@ -5747,9 +5656,6 @@ export class DaemonClient {
     },
     onReport?: (report: UsageReportEntry) => void,
   ): Promise<UsageListReportsPayload> {
-    if (!supportsUsageReports(this.getLastServerInfoMessage()?.features)) {
-      throw new Error("Update the host to see usage.");
-    }
     if (options?.agentId !== undefined && options.reportIds !== undefined)
       throw new Error("agentId and reportIds cannot be combined");
     const requestId = this.createRequestId(options?.requestId);
@@ -5824,8 +5730,6 @@ export class DaemonClient {
   }
 
   async requestPimiTask(operation: PimiMobileTaskOperation): Promise<PimiMobileTaskResult> {
-    if (this.getLastServerInfoMessage()?.features?.pimiMobileTasks !== true)
-      throw new Error("Update Pimi Desktop to use Tasks on this host.");
     const payload = await this.sendCorrelatedSessionRequest({
       message: { type: "pimi.tasks.request", operation },
       responseType: "pimi.tasks.response",
@@ -6362,13 +6266,13 @@ export class DaemonClient {
 
   async createTerminal(
     cwd: string,
-    name?: string,
-    requestId?: string,
-    options?: {
+    name: string | undefined,
+    requestId: string | undefined,
+    options: {
       agentId?: string;
       command?: string;
       args?: string[];
-      workspaceId?: string;
+      workspaceId: string;
       size?: { rows: number; cols: number };
     },
   ): Promise<CreateTerminalPayload> {
@@ -6377,11 +6281,11 @@ export class DaemonClient {
       type: "create_terminal_request",
       cwd,
       name,
-      agentId: options?.agentId,
-      command: options?.command,
-      args: options?.args,
-      ...(options?.workspaceId !== undefined ? { workspaceId: options.workspaceId } : {}),
-      ...(options?.size !== undefined ? { size: options.size } : {}),
+      agentId: options.agentId,
+      command: options.command,
+      args: options.args,
+      workspaceId: options.workspaceId,
+      ...(options.size !== undefined ? { size: options.size } : {}),
       requestId: resolvedRequestId,
     });
     return this.sendCorrelatedRequest({
@@ -6723,10 +6627,7 @@ export class DaemonClient {
         clientType: this.config.clientType ?? "cli",
         protocolVersion: 1,
         ...(auth ? { auth } : {}),
-        capabilities: {
-          ...DEFAULT_CLIENT_CAPABILITIES,
-          ...this.config.capabilities,
-        },
+        capabilities: DEFAULT_CLIENT_CAPABILITIES,
         ...(this.config.appVersion ? { appVersion: this.config.appVersion } : {}),
       });
     } catch (error) {
@@ -7256,9 +7157,7 @@ export class DaemonClient {
       const serverInfo = parseServerInfoStatusPayload(consumerMessage.payload);
       if (serverInfo) {
         if (this.chunkedTransport)
-          this.chunkedTransport.enabled =
-            serverInfo.features?.binaryChunkingV1 === true &&
-            this.config.capabilities?.[CLIENT_CAPS.binaryChunkingV1] !== false;
+          this.chunkedTransport.enabled = serverInfo.features?.binaryChunkingV1 === true;
         this.lastServerInfoMessage = serverInfo;
         this.destinationServerId = serverInfo.serverId;
         this.connectionFailure = undefined;

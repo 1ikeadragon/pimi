@@ -106,7 +106,6 @@ const unsubscribe = agent.timeline.subscribe((update) => {
 const page = await agent.timeline.refetch({
   direction: "before",
   limit: 100,
-  projection: "projected",
 });
 
 for (const entry of page.entries) {

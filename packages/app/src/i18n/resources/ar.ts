@@ -2247,7 +2247,6 @@ export const ar: TranslationResources = {
     empty: "لا توجد بيانات استخدام",
     errorTitle: "تعذّر تحميل بيانات الاستخدام",
     hostUnavailable: "اتصل بـ{{host}} لعرض استخدام المزوّد",
-    hostUpgradeRequired: "حدّث {{host}} لعرض استخدام المزوّد",
     clientUnavailable: "اتصال المضيف غير جاهز",
     retry: "حاول مرة أخرى",
     tooltipLoading: "جارٍ تحميل استخدام الخطة...",
@@ -2469,7 +2468,6 @@ export const ar: TranslationResources = {
       },
       installation: {
         title: "النماذج المثبتة",
-        unavailable: "حدّث المضيف لعرض تفاصيل التثبيت",
         verified: "تم التحقق من SHA-256 للأرشيف عند التثبيت",
         unrecorded: "لم يُسجّل التحقق",
         noPublishedDigest: "لا توجد بصمة منشورة",

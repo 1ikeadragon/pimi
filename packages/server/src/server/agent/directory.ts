@@ -22,7 +22,6 @@ export class AgentDirectory {
       workspaces: Pick<WorkspaceRegistry, "get">;
       projectLive(agent: ManagedAgent): Promise<AgentSnapshotPayload>;
       projectStored(record: StoredAgentRecord): AgentSnapshotPayload;
-      isProviderVisible(provider: string): boolean;
       isStoredProviderAvailable(record: StoredAgentRecord): boolean;
     },
   ) {}
@@ -134,9 +133,7 @@ export class AgentDirectory {
     const active = await Promise.all(
       selectedLive.filter(matches).map((agent) => this.deps.projectLive(agent)),
     );
-    return [...active, ...stored]
-      .filter(matches)
-      .filter((agent) => this.deps.isProviderVisible(agent.provider));
+    return [...active, ...stored].filter(matches);
   }
 }
 

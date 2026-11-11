@@ -23,14 +23,10 @@ import { expandTilde } from "../../../utils/path.js";
 
 /**
  * The collaborators a provider-catalog request reaches that are NOT part of the
- * provider domain. The visibility predicate is owned by the Session shell because
- * agent-lifecycle shares it; it reads client state (appVersion / capabilities) LIVE,
- * mutated post-construction via updateAppVersion / updateClientCapabilities. The two
- * agent-control reads expose provider availability and draft features the AgentManager owns.
+ * provider domain. The two agent-control reads expose provider availability and draft features the AgentManager owns.
  */
 export interface ProviderCatalogSessionHost {
   emit(msg: SessionOutboundMessage): void;
-  isProviderVisibleToClient(provider: string): boolean;
   publishSnapshot(project: () => SessionOutboundMessage | null): void;
   listProviderAvailability(): Promise<ProviderAvailability[]>;
   listDraftFeatures(config: AgentSessionConfig): Promise<AgentFeature[]>;
@@ -68,8 +64,7 @@ export class ProviderCatalogSession {
     if (this.unsubscribeSnapshotEvents) return;
     const handleProviderSnapshotChange = (transition: ProviderSnapshotTransition) => {
       this.host.publishSnapshot(() => {
-        const previous = this.visibleSnapshot(transition.previous);
-        const current = this.visibleSnapshot(transition.current);
+        const { previous, current } = transition;
         if (sameSnapshotRecords(previous.records, current.records)) return null;
         return { type: "providers_snapshot_update", payload: this.snapshotPayload(current) };
       });
@@ -85,15 +80,6 @@ export class ProviderCatalogSession {
       this.unsubscribeSnapshotEvents();
       this.unsubscribeSnapshotEvents = null;
     }
-  }
-
-  private visibleSnapshot(snapshot: ProviderSnapshot): ProviderSnapshot {
-    return {
-      ...snapshot,
-      records: snapshot.records.filter(({ entry }) =>
-        this.host.isProviderVisibleToClient(entry.provider),
-      ),
-    };
   }
 
   private snapshotPayload(snapshot: ProviderSnapshot, request?: { ifNoneMatch?: string }) {
@@ -331,9 +317,7 @@ export class ProviderCatalogSession {
   ): Promise<void> {
     const fetchedAt = new Date().toISOString();
     try {
-      const providers = (await this.host.listProviderAvailability()).filter((provider) =>
-        this.host.isProviderVisibleToClient(provider.provider),
-      );
+      const providers = await this.host.listProviderAvailability();
       this.host.emit({
         type: "list_available_providers_response",
         payload: {
@@ -361,7 +345,7 @@ export class ProviderCatalogSession {
     msg: Extract<SessionInboundMessage, { type: "get_providers_snapshot_request" }>,
   ): Promise<void> {
     const cwd = msg.cwd?.trim() ? resolveSnapshotCwd(expandTilde(msg.cwd)) : undefined;
-    const snapshot = this.visibleSnapshot(this.providerSnapshotManager.getSnapshot(cwd));
+    const snapshot = this.providerSnapshotManager.getSnapshot(cwd);
     this.host.emit({
       type: "get_providers_snapshot_response",
       payload: {
@@ -400,7 +384,7 @@ export class ProviderCatalogSession {
     this.host.emit({
       type: "provider.harness_updates.check.response",
       payload: {
-        updates: updates.filter(({ provider }) => this.host.isProviderVisibleToClient(provider)),
+        updates,
         requestId: msg.requestId,
       },
     });

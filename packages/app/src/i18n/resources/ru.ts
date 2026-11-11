@@ -2284,7 +2284,6 @@ export const ru: TranslationResources = {
     empty: "Нет данных об использовании",
     errorTitle: "Не удалось загрузить данные об использовании",
     hostUnavailable: "Подключитесь к {{host}}, чтобы увидеть использование провайдера",
-    hostUpgradeRequired: "Обновите {{host}}, чтобы увидеть использование провайдера",
     clientUnavailable: "Соединение с хостом не готово",
     retry: "Повторить",
     tooltipLoading: "Загрузка использования плана...",
@@ -2473,7 +2472,6 @@ export const ru: TranslationResources = {
       },
       installation: {
         title: "Установленные модели",
-        unavailable: "Обновите хост для просмотра сведений об установке",
         verified: "SHA-256 архива проверен при установке",
         unrecorded: "Записи о проверке нет",
         noPublishedDigest: "Контрольная сумма не опубликована",

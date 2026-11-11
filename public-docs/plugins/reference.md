@@ -609,8 +609,7 @@ metadata or JWT claims. Pi and OMP logins remain discoverable when expired. OMP 
 accounts without rediscovering identity. If a store switches accounts, the existing card shows the
 new login's quota until the next discovery. Reports are cached for five minutes; `forceRefresh`
 bypasses that cache. Entries carry `id`, `account.label`, and `fetchedAt`. Failed accounts also carry optional
-`loginErrors` entries with `harness` and each login's failed `report`. Clients gate the feature
-on `server_info.features.usageSources`.
+`loginErrors` entries with `harness` and each login's failed `report`.
 
 The source icon is a file path with the same rules as a provider icon.
 

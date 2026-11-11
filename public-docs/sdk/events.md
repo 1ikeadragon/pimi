@@ -108,7 +108,6 @@ Turn completion comes from `turn_completed`, `turn_failed`, or `turn_canceled`. 
 const page = await agent.timeline.refetch({
   direction: "before",
   limit: 100,
-  projection: "projected",
 });
 
 for (const entry of page.entries) {

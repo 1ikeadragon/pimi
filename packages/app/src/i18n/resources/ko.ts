@@ -2260,7 +2260,6 @@ export const ko: TranslationResources = {
     empty: "사용량 데이터가 없습니다",
     errorTitle: "사용량을 불러올 수 없습니다",
     hostUnavailable: "{{host}}에 연결하여 제공업체 사용량을 확인하세요",
-    hostUpgradeRequired: "{{host}}를 업데이트하여 제공업체 사용량을 확인하세요",
     clientUnavailable: "호스트 연결이 준비되지 않았습니다",
     retry: "다시 시도",
     tooltipLoading: "플랜 사용량 불러오는 중...",
@@ -2446,7 +2445,6 @@ export const ko: TranslationResources = {
       },
       installation: {
         title: "설치된 모델",
-        unavailable: "설치 정보를 보려면 호스트를 업데이트하세요",
         verified: "설치 시 아카이브 SHA-256 확인됨",
         unrecorded: "확인 기록 없음",
         noPublishedDigest: "공개 체크섬 없음",

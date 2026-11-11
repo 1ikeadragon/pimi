@@ -2231,7 +2231,6 @@ function createToolCatalog(
             record,
             new Set(providerSnapshotManager.listRegisteredProviderIds()),
           ),
-        isProviderVisible: () => true,
         isStoredProviderAvailable: (record) =>
           isStoredAgentProviderAvailable(
             record,

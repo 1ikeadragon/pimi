@@ -56,8 +56,6 @@ const workspace = await client.workspaces.create({
 
 `background` 只能在创建时设置。省略时默认为 false；当 `callerAgentId` 指明是某个 Agent 在创建新工作区时，省略则继承调用方的可见性：调用方 Agent 或其工作区为后台时即为 true。显式的 false 或 true 会覆盖继承。同时创建工作区的 Agent 创建请求会把 `background` 同时应用到工作区和 Agent。要在已有工作区中隐藏单个 Agent，见[后台 Agent](./agents.md#run-a-helper-as-a-background-agent)。
 
-创建和包含后台工作区的发现都需要 `features.backgroundWorkspaces`；对于不支持的主机，客户端会拒绝并提示更新主机。
-
 ## 在工作区中启动 Agent {#start-an-agent-in-a-workspace}
 
 通过工作区句柄创建：

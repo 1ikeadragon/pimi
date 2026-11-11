@@ -2,7 +2,6 @@ export interface TerminalResizeRequest {
   rows: number;
   cols: number;
   shouldClaim: boolean;
-  forceClaim?: boolean;
 }
 
 export function createTerminalResizeDebouncer(input: {
@@ -28,7 +27,6 @@ export function createTerminalResizeDebouncer(input: {
       pending = {
         ...resize,
         shouldClaim: (pending?.shouldClaim ?? false) || resize.shouldClaim,
-        forceClaim: (pending?.forceClaim ?? false) || resize.forceClaim || undefined,
       };
       if (timeout !== null) {
         clearTimeout(timeout);

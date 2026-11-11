@@ -83,7 +83,6 @@ import {
   BrowserAutomationExecuteRequestSchema,
   BrowserAutomationExecuteResponseSchema,
 } from "./browser-automation/rpc-schemas.js";
-import { BrowserAutomationHostCapabilitySchema } from "./browser-automation/capabilities.js";
 import {
   PaseoConfigRawSchema,
   PaseoLifecycleCommandRawSchema,
@@ -901,7 +900,7 @@ export const AgentSnapshotPayloadSchema = z.object({
   attentionTimestamp: z.string().nullable().optional(),
   archivedAt: z.string().nullable().optional(),
   providerUnavailable: z.boolean().optional(),
-  // Private helper marker, retained for exact-ID snapshots and older wire messages.
+  // Private helper marker, retained for exact-ID snapshots.
   internal: z.boolean().optional(),
   // Background agent: hidden from default discovery, tabs, tracks and notifications.
   // Fixed at creation. Effective background also includes the workspace's flag.
@@ -1904,11 +1903,6 @@ export const ProviderHarnessUpdatesRequestMessageSchema = z.object({
   requestId: z.string(),
 });
 
-export const ProviderUsageListRequestMessageSchema = z.object({
-  type: z.literal("provider.usage.list.request"),
-  requestId: z.string(),
-});
-
 export const UsageListReportsRequestMessageSchema = z.object({
   type: z.literal("usage.list_reports.request"),
   agentId: z.string().optional(),
@@ -1981,8 +1975,6 @@ export const FetchAgentTimelineRequestMessageSchema = z.object({
   cursor: AgentTimelineCursorSchema.optional(),
   // 0 means "all matching rows for this query window".
   limit: z.number().int().nonnegative().optional(),
-  // Default should be projected for app timeline loading.
-  projection: z.enum(["projected", "canonical"]).optional(),
   // Allow the client to merge this bounded page outside its contiguous loaded range.
   mergeWindow: z.boolean().optional(),
   compactionSummaryOnly: z.literal(true).optional(),
@@ -3086,15 +3078,14 @@ export const UnsubscribeTerminalsRequestSchema = z.object({
 export const CreateTerminalRequestSchema = z.object({
   type: z.literal("create_terminal_request"),
   cwd: z.string(),
-  workspaceId: z.string().optional(),
+  workspaceId: z.string(),
   name: z.string().optional(),
   agentId: z.string().optional(),
   command: z.string().optional(),
   args: z.array(z.string()).optional(),
-  // Initial PTY size. Added in v0.1.107; the app no longer sends it (the estimate cache that fed
-  // it was removed — the pane-focus resize claim sizes the PTY instead). Kept and honored
-  // permanently: released v0.1.107 clients still send it, and programmatic callers may pass an
-  // exact size. Daemons without it start at 80x24 and the first resize corrects that.
+  // Initial PTY size. The app does not send it (the pane-focus resize claim sizes the PTY);
+  // programmatic callers may pass an exact size. Without it the PTY starts at 80x24 and the
+  // first resize corrects that.
   size: z
     .object({
       rows: z.number().int().positive(),
@@ -3422,7 +3413,6 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   RefreshProvidersSnapshotRequestMessageSchema,
   ProviderDiagnosticRequestMessageSchema,
   ProviderHarnessUpdatesRequestMessageSchema,
-  ProviderUsageListRequestMessageSchema,
   UsageListReportsRequestMessageSchema,
   ResumeAgentRequestMessageSchema,
   ImportAgentRequestMessageSchema,
@@ -3678,28 +3668,8 @@ export const ServerInfoStatusPayloadSchema = z
     desktopManaged: z.boolean(),
     capabilities: ServerCapabilitiesSchema.optional(),
     features: z.object({
-      creationLifecycle: z.boolean().optional(),
-      backgroundWorkspaces: z.boolean().optional(),
-      connectedHosts: z.boolean().optional(),
-      hostMultiplexing: z.boolean().optional(),
-      usageSources: z.boolean().optional(),
-      pluginSettings: z.boolean().optional(),
-      pluginTimelineItems: z.boolean().optional(),
-      terminalHookManagement: z.boolean().optional(),
-      gitBlame: z.boolean().optional(),
-      pimiCodebaseSearch: z.boolean().optional(),
-      agentFinishNotifications: z.boolean().optional(),
-      wholeTurnTimeline: z.boolean().optional(),
-      pimiMobileTasks: z.boolean().optional(),
       hopliteProvider: z.boolean().optional(),
-      explicitEventSubscriptions: z.boolean().optional(),
-      ownedSubscriptions: z.boolean().optional(),
       binaryChunkingV1: z.boolean().optional(),
-      workspaceSetupObservation: z.boolean().optional(),
-      workspaceSortTimes: z.boolean().optional(),
-      agentMessageProvenance: z.boolean().optional(),
-      agentMessageBatching: z.boolean().optional(),
-      checkoutDiffAll: z.boolean().optional(),
     }),
   })
   .passthrough();
@@ -4374,8 +4344,7 @@ export const OpenProjectResponseMessageSchema = z.object({
     requestId: z.string(),
     workspace: WorkspaceDescriptorPayloadSchema.nullable(),
     error: z.string().nullable(),
-    // Unknown codes from newer daemons degrade to null; clients fall back to `error`.
-    errorCode: z.enum(["directory_not_found"]).nullish().catch(null),
+    errorCode: z.enum(["directory_not_found"]).nullish(),
   }),
 });
 
@@ -4385,7 +4354,7 @@ export const ProjectAddResponseSchema = z.object({
     requestId: z.string(),
     project: WorkspaceProjectDescriptorPayloadSchema.nullable(),
     error: z.string().nullable(),
-    errorCode: z.enum(["directory_not_found"]).nullish().catch(null),
+    errorCode: z.enum(["directory_not_found"]).nullish(),
   }),
 });
 
@@ -4405,8 +4374,7 @@ export const ProjectCreateDirectoryResponseSchema = z.object({
     directoryPath: z.string().nullable(),
     project: WorkspaceProjectDescriptorPayloadSchema.nullable(),
     error: z.string().nullable(),
-    // Error codes are open-ended on the wire so older clients can still parse
-    // responses after a newer daemon learns another failure reason.
+    // Error codes are open-ended on the wire.
     errorCode: z.string().nullable(),
   }),
 });
@@ -4537,7 +4505,6 @@ export const FetchAgentTimelineResponseMessageSchema = z.object({
     agentId: z.string(),
     agent: AgentSnapshotPayloadSchema.nullable(),
     direction: z.enum(["tail", "before", "after"]),
-    projection: z.enum(["projected", "canonical"]),
     epoch: z.string(),
     reset: z.boolean(),
     staleCursor: z.boolean(),
@@ -4690,7 +4657,6 @@ export const ProviderSubagentTimelineResponseMessageSchema = z.object({
     provider: AgentProviderSchema.nullable(),
     direction: z.enum(["tail", "before", "after"]),
     epoch: z.string(),
-    projection: z.literal("projected").optional(),
     startCursor: AgentTimelineCursorSchema.nullable().optional(),
     endCursor: AgentTimelineCursorSchema.nullable().optional(),
     reset: z.boolean(),
@@ -5742,12 +5708,12 @@ const PullRequestTimelineCommentItemSchema = z.object({
   // Forge-neutral discussion/thread id this comment belongs to, independent of a
   // file position. GitLab maps its discussion id here so general (non-file)
   // reply chains group into one thread; file-position threads also carry it.
-  // Absent on standalone comments and on timelines from daemons that predate it.
+  // Absent on standalone comments.
   threadId: z.string().optional(),
   // Forge-neutral resolution state for a thread that has no file position, e.g. a
   // GitLab general (non-file) discussion that is resolvable. File-position threads
   // carry their resolution under `location.isResolved` instead. Absent on ordinary
-  // comments, on forges that expose no thread resolution, and on older timelines.
+  // comments and on forges that expose no thread resolution.
   threadIsResolved: z.boolean().optional(),
   location: z
     .object({
@@ -5901,16 +5867,12 @@ export const ForgeSearchResponseSchema = z.object({
 export const DirectorySuggestionsResponseSchema = z.object({
   type: z.literal("directory_suggestions_response"),
   payload: z.object({
-    directories: z.array(z.string()),
-    entries: z
-      .array(
-        z.object({
-          path: z.string(),
-          kind: z.enum(["file", "directory"]),
-        }),
-      )
-      .optional()
-      .default([]),
+    entries: z.array(
+      z.object({
+        path: z.string(),
+        kind: z.enum(["file", "directory"]),
+      }),
+    ),
     error: z.string().nullable(),
     requestId: z.string(),
   }),
@@ -6208,7 +6170,6 @@ export const ProviderHarnessUpdatesResponseMessageSchema = z.object({
 });
 
 export const ProviderUsageToneSchema = z.enum(["default", "ok", "warning", "danger"]);
-export const ProviderUsageStatusSchema = z.enum(["available", "unavailable", "error"]);
 
 export const ProviderUsageWindowSchema = z.object({
   id: z.string(),
@@ -6244,29 +6205,6 @@ export const ProviderUsageDetailSchema = z.object({
   label: z.string(),
   value: z.string(),
   tone: ProviderUsageToneSchema.optional(),
-});
-
-export const ProviderUsageSchema = z.object({
-  providerId: z.string(),
-  displayName: z.string(),
-  status: ProviderUsageStatusSchema,
-  planLabel: z.string().nullable(),
-  sourceLabel: z.string().nullable().optional(),
-  fetchedAt: z.string().nullable().optional(),
-  nextRefreshAt: z.string().nullable().optional(),
-  windows: z.array(ProviderUsageWindowSchema),
-  balances: z.array(ProviderUsageBalanceSchema).optional(),
-  details: z.array(ProviderUsageDetailSchema).optional(),
-  error: z.string().nullable().optional(),
-});
-
-export const ProviderUsageListResponseMessageSchema = z.object({
-  type: z.literal("provider.usage.list.response"),
-  payload: z.object({
-    requestId: z.string(),
-    fetchedAt: z.string(),
-    providers: z.array(ProviderUsageSchema),
-  }),
 });
 
 export const UsageProblemSchema = z.discriminatedUnion("kind", [
@@ -7058,7 +6996,6 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   RefreshProvidersSnapshotResponseMessageSchema,
   ProviderDiagnosticResponseMessageSchema,
   ProviderHarnessUpdatesResponseMessageSchema,
-  ProviderUsageListResponseMessageSchema,
   UsageListReportsUpdateMessageSchema,
   UsageListReportsResponseMessageSchema,
   ListCommandsResponseSchema,
@@ -7230,14 +7167,9 @@ export type UsageProblem = z.infer<typeof UsageProblemSchema>;
 export type UsageReport = z.infer<typeof UsageReportSchema>;
 export type UsageReportEntry = z.infer<typeof UsageReportEntrySchema>;
 export type UsageListReportsResponseMessage = z.infer<typeof UsageListReportsResponseMessageSchema>;
-export type ProviderUsageStatus = z.infer<typeof ProviderUsageStatusSchema>;
-export type ProviderUsage = z.infer<typeof ProviderUsageSchema>;
 export type ProviderUsageWindow = z.infer<typeof ProviderUsageWindowSchema>;
 export type ProviderUsageBalance = z.infer<typeof ProviderUsageBalanceSchema>;
 export type ProviderUsageDetail = z.infer<typeof ProviderUsageDetailSchema>;
-export type ProviderUsageListResponseMessage = z.infer<
-  typeof ProviderUsageListResponseMessageSchema
->;
 export type ScheduleCreateResponse = z.infer<typeof ScheduleCreateResponseSchema>;
 export type ScheduleListResponse = z.infer<typeof ScheduleListResponseSchema>;
 export type ScheduleInspectResponse = z.infer<typeof ScheduleInspectResponseSchema>;
@@ -7537,12 +7469,7 @@ export const WSHelloMessageSchema = z.object({
   appVersion: z.string().optional(),
   capabilities: z
     .object({
-      voice: z.boolean().optional(),
-      [CLIENT_CAPS.helloRejection]: z.boolean().optional(),
-      pushNotifications: z.boolean().optional(),
-      [CLIENT_CAPS.allProviders]: z.boolean().optional(),
-      [CLIENT_CAPS.reasoningMergeEnum]: z.boolean().optional(),
-      [CLIENT_CAPS.browserHost]: BrowserAutomationHostCapabilitySchema.optional(),
+      [CLIENT_CAPS.binaryChunkingV1]: z.boolean().optional(),
     })
     .passthrough()
     .optional(),

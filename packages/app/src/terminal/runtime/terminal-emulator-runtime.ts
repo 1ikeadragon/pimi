@@ -90,26 +90,22 @@ export interface TerminalResizeEvent {
   rows: number;
   cols: number;
   shouldClaim: boolean;
-  forceClaim?: boolean;
 }
 
 export interface TerminalResizeRequest {
   forceRefresh?: boolean;
   shouldClaim?: boolean;
-  forceClaim?: boolean;
 }
 
 export function createTerminalResizeEvent(input: {
   rows: number;
   cols: number;
   shouldClaim: boolean;
-  forceClaim: boolean;
 }): TerminalResizeEvent {
   return {
     rows: input.rows,
     cols: input.cols,
     shouldClaim: input.shouldClaim,
-    forceClaim: input.shouldClaim && input.forceClaim,
   };
 }
 
@@ -676,7 +672,6 @@ export class TerminalEmulatorRuntime {
       if (this.deferReplayResize(resizeInput)) return;
       const forceRefresh = resizeInput?.forceRefresh ?? false;
       const shouldClaim = resizeInput?.shouldClaim ?? true;
-      const forceClaim = resizeInput?.forceClaim ?? false;
       const currentTerminal = this.terminal;
       const currentFitAddon = this.fitAddon;
       if (!currentTerminal || !currentFitAddon) {
@@ -696,13 +691,7 @@ export class TerminalEmulatorRuntime {
       const nextRows = currentTerminal.rows;
       const nextCols = currentTerminal.cols;
       const previous = this.lastSize;
-      if (
-        !forceRefresh &&
-        !forceClaim &&
-        previous &&
-        previous.rows === nextRows &&
-        previous.cols === nextCols
-      ) {
+      if (!forceRefresh && previous && previous.rows === nextRows && previous.cols === nextCols) {
         return;
       }
 
@@ -713,7 +702,6 @@ export class TerminalEmulatorRuntime {
           rows: nextRows,
           cols: nextCols,
           shouldClaim,
-          forceClaim,
         }),
       );
     };
@@ -943,7 +931,6 @@ export class TerminalEmulatorRuntime {
     this.replayResize = {
       forceRefresh: this.replayResize.forceRefresh || input?.forceRefresh,
       shouldClaim: this.replayResize.shouldClaim || (input?.shouldClaim ?? true),
-      forceClaim: this.replayResize.forceClaim || input?.forceClaim,
     };
     return true;
   }

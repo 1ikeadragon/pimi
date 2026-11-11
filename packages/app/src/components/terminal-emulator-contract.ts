@@ -45,12 +45,7 @@ export interface TerminalEmulatorProps {
   onFindResult?: (result: TerminalFindResult) => void;
   onInput?: (data: string) => Promise<void> | void;
   onFocus?: () => Promise<void> | void;
-  onResize?: (input: {
-    rows: number;
-    cols: number;
-    shouldClaim: boolean;
-    forceClaim?: boolean;
-  }) => Promise<void> | void;
+  onResize?: (input: { rows: number; cols: number; shouldClaim: boolean }) => Promise<void> | void;
   onTerminalKey?: (input: {
     key: string;
     ctrl: boolean;

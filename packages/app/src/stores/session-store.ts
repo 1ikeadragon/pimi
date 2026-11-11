@@ -156,7 +156,7 @@ export function normalizeWorkspaceDescriptor(
     projectRootPath: payload.projectRootPath,
     // Canonicalize the workspace directory once, at the store boundary, so every
     // consumer can read workspace.workspaceDirectory directly. Empty means "no
-    // usable directory" (older daemons may omit it; the wire field is optional).
+    // usable directory".
     workspaceDirectory: normalizeWorkspacePath(payload.workspaceDirectory) ?? "",
     worktreeSlug: payload.worktreeSlug,
     setupStatus: payload.setupStatus,

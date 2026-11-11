@@ -17,6 +17,10 @@ import { useIsLocalDaemon } from "@/hooks/use-is-local-daemon";
 import { settingsStyles } from "@/styles/settings";
 import { openDesktopTarget, useDesktopOpenTargets } from "@/workspace/desktop-open-targets";
 
+type InstalledModel = LocalSpeechModel & {
+  installation: NonNullable<LocalSpeechModel["installation"]>;
+};
+
 export function InstalledVoiceModels({
   models,
   serverId,
@@ -26,9 +30,11 @@ export function InstalledVoiceModels({
 }) {
   const { t } = useTranslation();
   const isLocal = useIsLocalDaemon(serverId);
-  const installed = models.filter((model) => model.status === "installed");
+  const installed = models.filter(
+    (model): model is InstalledModel => model.status === "installed" && !!model.installation,
+  );
   const { targets } = useDesktopOpenTargets({
-    isLocalExecution: isLocal && installed.some((model) => model.installation),
+    isLocalExecution: isLocal && installed.length > 0,
   });
   const fileManager = targets.find((target) => target.kind === "file-manager");
 
@@ -49,13 +55,13 @@ function InstalledVoiceModel({
   model,
   fileManagerId,
 }: {
-  model: LocalSpeechModel;
+  model: InstalledModel;
   fileManagerId?: string;
 }) {
   const { t } = useTranslation();
   const toast = useToast();
   const { id, label, archiveUrl, archiveSha256, installation } = model;
-  const directory = installation?.directory;
+  const { directory } = installation;
   const reveal = useCallback(() => {
     if (!fileManagerId || !directory) return;
     void openDesktopTarget({
@@ -73,9 +79,6 @@ function InstalledVoiceModel({
     [archiveSha256, archiveUrl, directory],
   );
 
-  if (!installation || !archiveUrl) {
-    return <SettingsRow label={label} hint={t("settings.voice.installation.unavailable")} />;
-  }
   let status = t("settings.voice.installation.noPublishedDigest");
   if (archiveSha256) {
     status = installation.archiveVerified

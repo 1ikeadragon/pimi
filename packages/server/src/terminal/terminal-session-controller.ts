@@ -557,19 +557,7 @@ export class TerminalSessionController {
         return;
       }
 
-      const workspaceId = msg.workspaceId ?? (await this.resolveLegacyTerminalWorkspaceId(msg.cwd));
-      if (!workspaceId) {
-        this.emit({
-          type: "create_terminal_response",
-          payload: {
-            terminal: null,
-            error: "workspaceId is required",
-            requestId: msg.requestId,
-          },
-        });
-        return;
-      }
-
+      const { workspaceId } = msg;
       const workspaces = await this.listTerminalWorkspaceRefs();
       if (!workspaces.some((workspace) => workspace.workspaceId === workspaceId)) {
         throw new Error(`Workspace ${workspaceId} is not active or does not exist`);
@@ -614,31 +602,6 @@ export class TerminalSessionController {
         },
       });
     }
-  }
-
-  private async resolveLegacyTerminalWorkspaceId(cwd: string): Promise<string | null> {
-    const workspaceRefs = await this.listTerminalWorkspaceRefs();
-    if (workspaceRefs.length === 0) {
-      return null;
-    }
-
-    const exactMatch = workspaceRefs.find((workspace) => this.isSamePath(workspace.cwd, cwd));
-    if (exactMatch) {
-      return exactMatch.workspaceId;
-    }
-
-    const ownerRoot = this.resolveTerminalOwnerRoot(
-      cwd,
-      workspaceRefs.map((workspace) => workspace.cwd),
-    );
-    if (!ownerRoot) {
-      return null;
-    }
-
-    return (
-      workspaceRefs.find((workspace) => this.isSamePath(workspace.cwd, ownerRoot))?.workspaceId ??
-      null
-    );
   }
 
   private async handleRenameTerminalRequest(msg: RenameTerminalRequest): Promise<void> {

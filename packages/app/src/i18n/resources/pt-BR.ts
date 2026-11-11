@@ -2283,7 +2283,6 @@ export const ptBR: TranslationResources = {
     empty: "Sem dados de uso",
     errorTitle: "Não foi possível carregar o uso",
     hostUnavailable: "Conecte-se a {{host}} para ver o uso do provedor",
-    hostUpgradeRequired: "Atualize {{host}} para ver o uso do provedor",
     clientUnavailable: "A conexão com o host não está pronta",
     retry: "Tentar novamente",
     tooltipLoading: "Carregando uso do plano...",
@@ -2470,7 +2469,6 @@ export const ptBR: TranslationResources = {
       },
       installation: {
         title: "Modelos instalados",
-        unavailable: "Atualize o host para ver os detalhes da instalação",
         verified: "SHA-256 do arquivo verificado na instalação",
         unrecorded: "Verificação sem registro",
         noPublishedDigest: "Sem soma de verificação publicada",

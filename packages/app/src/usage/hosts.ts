@@ -4,12 +4,7 @@ import {
   useActiveWorkspaceSelection,
   useLastWorkspaceSelection,
 } from "@/stores/navigation-active-workspace-store";
-import {
-  resolveUsageHostId,
-  resolveUsageModalHostId,
-  type UsageHost,
-  type UsageHostChoice,
-} from "./model";
+import { resolveUsageHostId, type UsageHost, type UsageHostChoice } from "./model";
 import { setUsageHost } from "./preferences";
 import { useUsageHosts } from "./queries";
 
@@ -29,7 +24,7 @@ function useUsageHostChoice(): UsageHostChoice {
   };
 }
 
-/** The host the sidebar Usage row reads, or null when none reports usage. */
+/** The host the sidebar Usage row reads, or null when none is connected. */
 export function useUsageHostId(): string | null {
   return resolveUsageHostId(useUsageHostChoice());
 }
@@ -55,5 +50,5 @@ export function useUsageHostSelection(): {
     },
     [updateSettings],
   );
-  return { serverId: resolveUsageModalHostId(choice), connectedHosts, select };
+  return { serverId: resolveUsageHostId(choice), connectedHosts, select };
 }

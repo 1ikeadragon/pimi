@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next";
-import { supportsUsageReports } from "@pimi/client/internal/daemon-client";
 import { useCallback, useMemo } from "react";
 import {
   skipToken,
@@ -8,7 +7,6 @@ import {
   type QueryClient,
   type QueryKey,
 } from "@tanstack/react-query";
-import { useShallow } from "zustand/shallow";
 import { useFetchQuery } from "@/data/query";
 import {
   getHostRuntimeStore,
@@ -16,7 +14,6 @@ import {
   useHostRuntimeIsConnected,
   useHosts,
 } from "@/runtime/host-runtime";
-import { useSessionStore, type SessionState } from "@/stores/session-store";
 import { useUsageSetting } from "./setting";
 import { usageCopy } from "./copy";
 import {
@@ -112,10 +109,6 @@ async function getReport(
   );
 }
 
-function supportsUsage(session: SessionState | undefined): boolean {
-  return supportsUsageReports(session?.serverInfo?.features);
-}
-
 async function refreshReports(queryClient: QueryClient, serverId: string): Promise<void> {
   await queryClient.fetchQuery({
     queryKey: usageReportsQueryKey(serverId),
@@ -137,11 +130,10 @@ export function useHostUsage(serverId: string): { view: UsageView; refresh: () =
   const setting = useUsageSetting(serverId);
   const queryClient = useQueryClient();
   const isConnected = useHostRuntimeIsConnected(serverId);
-  const isSupported = useSessionStore((state) => supportsUsage(state.sessions[serverId]));
   const query = useFetchQuery({
     queryKey: usageReportsQueryKey(serverId),
     queryFn: () => listReports(queryClient, serverId),
-    enabled: isConnected && isSupported && setting.enabled,
+    enabled: isConnected && setting.enabled,
     dataShape: "list",
     staleTimeMs: REPORTS_STALE_TIME_MS,
   });
@@ -155,7 +147,6 @@ export function useHostUsage(serverId: string): { view: UsageView; refresh: () =
       hostLabel,
       enabled: setting.ready ? setting.enabled : undefined,
       isConnected,
-      supportsUsage: isSupported,
       query: toQueryState(query),
     },
     t,
@@ -220,9 +211,8 @@ export function useAgentUsage(serverId: string, agentId: string): AgentUsageView
 /** Whether a host is connected and reports usage, read without fetching anything. */
 export function useHostReportsUsage(serverId: string): boolean {
   const isConnected = useHostRuntimeIsConnected(serverId);
-  const isSupported = useSessionStore((state) => supportsUsage(state.sessions[serverId]));
   const setting = useUsageSetting(serverId);
-  return isConnected && isSupported && setting.enabled;
+  return isConnected && setting.enabled;
 }
 
 /** Every host with whether it is connected and reports usage, in host order. */
@@ -230,18 +220,14 @@ export function useUsageHosts(): UsageHost[] {
   const hosts = useHosts();
   const serverIds = useMemo(() => hosts.map((host) => host.serverId), [hosts]);
   const connectionStatuses = useHostRuntimeConnectionStatuses(serverIds);
-  const supportedServerIds = useSessionStore(
-    useShallow((state) => serverIds.filter((serverId) => supportsUsage(state.sessions[serverId]))),
-  );
   return useMemo(
     () =>
       hosts.map((host) => ({
         serverId: host.serverId,
         label: host.label,
         isConnected: connectionStatuses.get(host.serverId) === "online",
-        supportsUsage: supportedServerIds.includes(host.serverId),
       })),
-    [connectionStatuses, hosts, supportedServerIds],
+    [connectionStatuses, hosts],
   );
 }
 

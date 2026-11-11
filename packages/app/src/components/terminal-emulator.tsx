@@ -109,12 +109,7 @@ interface TerminalEmulatorProps {
   onFindResult?: (result: TerminalFindResult) => void;
   onInput?: (data: string) => Promise<void> | void;
   onFocus?: () => Promise<void> | void;
-  onResize?: (input: {
-    rows: number;
-    cols: number;
-    shouldClaim: boolean;
-    forceClaim?: boolean;
-  }) => Promise<void> | void;
+  onResize?: (input: { rows: number; cols: number; shouldClaim: boolean }) => Promise<void> | void;
   onTerminalKey?: (input: {
     key: string;
     ctrl: boolean;
@@ -259,10 +254,10 @@ export default function TerminalEmulator({
         runtimeRef.current?.clear();
       },
       claimSize: () => {
-        runtimeRef.current?.resize({ forceClaim: true, shouldClaim: true });
+        runtimeRef.current?.resize({ forceRefresh: true, shouldClaim: true });
       },
       showKeyboard: () => {
-        runtimeRef.current?.resize({ forceClaim: true, shouldClaim: true });
+        runtimeRef.current?.resize({ forceRefresh: true, shouldClaim: true });
         runtimeRef.current?.focus();
       },
       blur: () => {
@@ -291,10 +286,10 @@ export default function TerminalEmulator({
         runtimeRef.current?.clear();
       },
       claimSize: () => {
-        runtimeRef.current?.resize({ forceClaim: true, shouldClaim: true });
+        runtimeRef.current?.resize({ forceRefresh: true, shouldClaim: true });
       },
       showKeyboard: () => {
-        runtimeRef.current?.resize({ forceClaim: true, shouldClaim: true });
+        runtimeRef.current?.resize({ forceRefresh: true, shouldClaim: true });
         runtimeRef.current?.focus();
       },
       blur: () => {
@@ -506,7 +501,7 @@ export default function TerminalEmulator({
     if (focusRequestToken <= 0) {
       return () => {};
     }
-    runtimeRef.current?.resize({ forceClaim: true, shouldClaim: true });
+    runtimeRef.current?.resize({ forceRefresh: true, shouldClaim: true });
     return focusWithRetries({
       focus: () => {
         runtimeRef.current?.focus();
@@ -526,7 +521,7 @@ export default function TerminalEmulator({
     if (resizeRequestToken <= 0) {
       return;
     }
-    runtimeRef.current?.resize({ forceClaim: false, shouldClaim: false });
+    runtimeRef.current?.resize({ shouldClaim: false });
   }, [resizeRequestToken]);
 
   const showTerminalContextMenu = useCallback(() => {

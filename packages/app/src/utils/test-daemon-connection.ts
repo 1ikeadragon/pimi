@@ -134,7 +134,6 @@ export async function buildClientConfig(
   connection: HostConnection,
   serverId?: string,
   options: {
-    capabilities?: DaemonClientConfig["capabilities"];
     trace?: DaemonClientConfig["trace"];
     createPluginClientBundleStore?: DaemonClientConfig["createPluginClientBundleStore"];
     password?: string;
@@ -160,7 +159,6 @@ export async function buildClientConfig(
     webSocketFactory: createAppWebSocketFactory(),
     reconnect: { enabled: false },
     ...resolveConnectionCredentials(connection, options),
-    ...(options.capabilities ? { capabilities: options.capabilities } : {}),
     ...(options.trace ? { trace: options.trace } : {}),
     createPluginClientBundleStore: options.createPluginClientBundleStore,
     ...((connection.type === "directSocket" || connection.type === "directPipe") &&
@@ -290,7 +288,6 @@ interface ProbeOptions {
   timeoutMs?: number;
   password?: string;
   localCredential?: DaemonClientConfig["localCredential"];
-  capabilities?: DaemonClientConfig["capabilities"];
   trace?: DaemonClientConfig["trace"];
   createPluginClientBundleStore?: DaemonClientConfig["createPluginClientBundleStore"];
 }

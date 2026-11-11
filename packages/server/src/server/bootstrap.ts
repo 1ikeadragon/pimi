@@ -1258,7 +1258,7 @@ export async function createPaseoDaemon(
     teardownArchivedWorkspaceRuntime(workspaceId);
   };
   // external path→workspace adapter, not ownership: archive-by-path requests that
-  // arrive with a worktree path and no workspaceId (old clients / CLI).
+  // arrive with a worktree path and no workspaceId (CLI).
   const findWorkspaceIdForCwdExternal = async (cwd: string): Promise<string | null> => {
     // Explicit archive administration must prefer an archived exact match to an active ancestor.
     return resolveWorkspaceIdForPath(cwd, await workspaceRegistry.listAll());

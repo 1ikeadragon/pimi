@@ -109,23 +109,16 @@ export function resolveUsageView(
     enabled?: boolean;
     hostLabel: string;
     isConnected: boolean;
-    supportsUsage: boolean;
     query: UsageQueryState | undefined;
   },
   t: TFunction = i18n.t,
 ): UsageView {
-  const { hostLabel, isConnected, supportsUsage, query } = input;
+  const { hostLabel, isConnected, query } = input;
   if (!isConnected)
     return {
       kind: "unavailable",
       message: t("providerUsage.hostUnavailable", { host: hostLabel }),
     };
-  if (!supportsUsage) {
-    return {
-      kind: "unavailable",
-      message: t("providerUsage.hostUpgradeRequired", { host: hostLabel }),
-    };
-  }
   if (input.enabled === false)
     return { kind: "off", message: t("providerUsage.off", { host: hostLabel }) };
   if (query?.data) {
@@ -172,7 +165,6 @@ export interface UsageHost {
   serverId: string;
   label: string;
   isConnected: boolean;
-  supportsUsage: boolean;
 }
 
 /** Where usage looks for its host: the user's saved pick, then the workspace they are in. */
@@ -183,26 +175,15 @@ export interface UsageHostChoice {
 }
 
 /**
- * The host the sidebar Usage row reads: the picked host, else the active workspace's host, else the
- * first host. Each only while it is connected and reports usage.
+ * The host the Usage row and modal read: the picked host, else the active workspace's host, else the
+ * first host. Each only while it is connected.
  */
 export function resolveUsageHostId(choice: UsageHostChoice): string | null {
-  const reporting = choice.hosts.filter((host) => host.isConnected && host.supportsUsage);
+  const reporting = choice.hosts.filter((host) => host.isConnected);
   const find = (serverId: string | null) => reporting.find((host) => host.serverId === serverId);
   return (
     (find(choice.pickedServerId) ?? find(choice.activeServerId) ?? reporting[0])?.serverId ?? null
   );
-}
-
-/**
- * The host the Usage modal shows: the picked host while it is connected, even one that cannot
- * report usage so the modal says to update it; else the sidebar row's host; else the first
- * connected host.
- */
-export function resolveUsageModalHostId(choice: UsageHostChoice): string | null {
-  const connected = choice.hosts.filter((host) => host.isConnected);
-  const picked = connected.find((host) => host.serverId === choice.pickedServerId);
-  return picked?.serverId ?? resolveUsageHostId(choice) ?? connected[0]?.serverId ?? null;
 }
 
 /** Current outcome owns messages; only a successful poll owns values and freshness. */

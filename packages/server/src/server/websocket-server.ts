@@ -462,7 +462,6 @@ interface SessionConnectionBase {
   principalId: string;
   sessionKey: string;
   clientId: string;
-  appVersion: string | null;
   connectionLogger: pino.Logger;
   sockets: Set<WebSocketLike>;
 }
@@ -482,8 +481,6 @@ type SessionConnection = ReconnectableSessionConnection | PluginSessionConnectio
 interface SocketSessionOptions {
   sourceId?: string;
   clientId: string;
-  appVersion: string | null;
-  clientCapabilities: Record<string, unknown> | null;
   permissions: readonly DaemonPermission[];
   connectionLogger: pino.Logger;
   onMessage: (message: SessionOutboundMessage) => void;
@@ -1527,20 +1524,15 @@ export class VoiceAssistantWebSocketServer {
   private createSessionConnection(params: {
     ws: WebSocketLike;
     clientId: string;
-    appVersion: string | null;
-    clientCapabilities: Record<string, unknown> | null;
     connectionLogger: pino.Logger;
     lifecycle: { kind: "reconnectable" } | { kind: "ephemeral-plugin"; pluginId: string };
     admission: SessionAdmission;
   }): SessionConnection {
-    const { ws, clientId, appVersion, clientCapabilities, connectionLogger, lifecycle, admission } =
-      params;
+    const { ws, clientId, connectionLogger, lifecycle, admission } = params;
     let connection: SessionConnection | null = null;
 
     const session = this.createSocketSession({
       clientId,
-      appVersion,
-      clientCapabilities,
       permissions: admission.permissions,
       sourceId:
         lifecycle.kind === "ephemeral-plugin"
@@ -1600,7 +1592,6 @@ export class VoiceAssistantWebSocketServer {
       hubExecutionAgents: admission.hubExecutionAgents,
       sessionKey: sessionConnectionKey(admission.principalId, clientId),
       clientId,
-      appVersion,
       connectionLogger,
       sockets: new Set([ws]),
     };
@@ -1608,7 +1599,7 @@ export class VoiceAssistantWebSocketServer {
       lifecycle.kind === "ephemeral-plugin"
         ? { ...base, lifecycle: "ephemeral-plugin", pluginId: lifecycle.pluginId }
         : { ...base, lifecycle: "reconnectable", externalDisconnectCleanupTimeout: null };
-    session.updateClientCapabilities(clientCapabilities, ws, appVersion);
+    session.registerClientSource(ws);
     return connection;
   }
 
@@ -1628,8 +1619,6 @@ export class VoiceAssistantWebSocketServer {
       sourceId: options.sourceId,
       browserToolsBroker: this.browserToolsBroker,
       clientId: options.clientId,
-      appVersion: options.appVersion,
-      clientCapabilities: options.clientCapabilities,
       permissions: options.permissions,
       onMessage: options.onMessage,
       onMessageToSource: options.onMessageToSource,
@@ -1752,7 +1741,7 @@ export class VoiceAssistantWebSocketServer {
         },
         "Rejected hello due to protocol version mismatch",
       );
-      await this.rejectHello(ws, message, "incompatible_protocol");
+      await this.rejectHello(ws, "incompatible_protocol");
       return;
     }
 
@@ -1810,8 +1799,6 @@ export class VoiceAssistantWebSocketServer {
     const connection = this.createSessionConnection({
       ws,
       clientId,
-      appVersion: message.appVersion ?? null,
-      clientCapabilities: message.capabilities ?? null,
       connectionLogger,
       lifecycle: pluginId ? { kind: "ephemeral-plugin", pluginId } : { kind: "reconnectable" },
       admission: admitted,
@@ -1879,7 +1866,7 @@ export class VoiceAssistantWebSocketServer {
       if (this.pendingConnections.get(ws) !== pending) return false;
       if ("rejection" in resolved) {
         this.clearPendingConnection(ws);
-        await this.rejectHello(ws, message, resolved.rejection);
+        await this.rejectHello(ws, resolved.rejection);
         return false;
       }
       pending.admission = resolved.admission;
@@ -1899,7 +1886,7 @@ export class VoiceAssistantWebSocketServer {
       pending.connectionLogger.error({ err: error }, "Failed to resolve hello credential");
       if (this.pendingConnections.get(ws) === pending) {
         this.clearPendingConnection(ws);
-        await this.rejectHello(ws, message, "incorrect_password");
+        await this.rejectHello(ws, "incorrect_password");
       }
       return false;
     }
@@ -1907,17 +1894,12 @@ export class VoiceAssistantWebSocketServer {
 
   private async rejectHello(
     ws: WebSocketLike,
-    hello: WSHelloMessage,
     reason: "password_required" | "incorrect_password" | "incompatible_protocol",
   ): Promise<void> {
-    // Older clients discard unknown frames, then use the close code and reason.
-    // They never send hello.auth, so avoid sending an unknown envelope to them.
-    if (hello.auth || hello.capabilities?.[CLIENT_CAPS.helloRejection] === true) {
-      try {
-        await ws.send(JSON.stringify({ type: "hello.rejected", reason, accepts: ["password"] }));
-      } catch {
-        // The close reason remains the compatibility signal.
-      }
+    try {
+      await ws.send(JSON.stringify({ type: "hello.rejected", reason, accepts: ["password"] }));
+    } catch {
+      // The close code and reason still tell the client why it was rejected.
     }
     const closeReason = {
       password_required: "Password required",
@@ -1956,12 +1938,7 @@ export class VoiceAssistantWebSocketServer {
     existing.session.setPermissions(pending.admission!.permissions);
     existing.session.setRouted(message.routed === true);
     this.assignHostSource(existing, message, pending.admission!.principalId);
-    const newAppVersion = message.appVersion ?? null;
-    if (newAppVersion && newAppVersion !== existing.appVersion) {
-      existing.appVersion = newAppVersion;
-      existing.session.updateAppVersion(newAppVersion);
-    }
-    existing.session.updateClientCapabilities(message.capabilities ?? null, ws, newAppVersion);
+    existing.session.registerClientSource(ws);
     existing.sockets.add(ws);
     this.sessions.set(ws, existing);
     pending.identity.sessionId = existing.session.getSessionId();
@@ -2003,28 +1980,8 @@ export class VoiceAssistantWebSocketServer {
       desktopManaged: this.daemonRuntimeConfig?.desktopManaged === true,
       ...(this.serverCapabilities ? { capabilities: this.serverCapabilities } : {}),
       features: {
-        connectedHosts: true,
-        hostMultiplexing: true,
-        pimiMobileTasks: true,
-        usageSources: true,
-        ownedSubscriptions: true,
         binaryChunkingV1: true,
-        creationLifecycle: true,
-        backgroundWorkspaces: true,
-        workspaceSetupObservation: true,
-        workspaceSortTimes: true,
-        pluginSettings: true,
-        pluginTimelineItems: true,
-        terminalHookManagement: true,
-        gitBlame: true,
-        pimiCodebaseSearch: true,
-        ...(this.finishSubscriptions ? { agentFinishNotifications: true } : {}),
-        wholeTurnTimeline: true,
         hopliteProvider: this.providerSnapshotManager.supportsConfigRequiredProvider("hoplite"),
-        explicitEventSubscriptions: true,
-        agentMessageProvenance: true,
-        agentMessageBatching: true,
-        checkoutDiffAll: true,
       },
     };
   }

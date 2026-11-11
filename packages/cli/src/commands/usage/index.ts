@@ -13,7 +13,6 @@ interface UsageOptions extends CommandOptions {
 
 type UsageSelection = { kind: "list" } | { kind: "inspect"; id: string };
 interface UsageClient {
-  getLastServerInfoMessage(): { features?: { usageSources?: boolean } } | null;
   listUsageReports: DaemonClient["listUsageReports"];
   close: DaemonClient["close"];
 }
@@ -34,9 +33,6 @@ export async function runUsageCommand(
   }
   const client = await connect({ target: options.daemonTarget });
   try {
-    if (client.getLastServerInfoMessage()?.features?.usageSources !== true) {
-      throw { code: "UNSUPPORTED_HOST", message: "Update the host to use usage reports." };
-    }
     if (selection.kind === "list") {
       const { reports } = await client.listUsageReports({
         agentId: options.agent,

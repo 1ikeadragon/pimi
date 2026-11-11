@@ -6,10 +6,9 @@
  * (`CheckoutPrStatusResponse.payload.forge`). The model keeps the `PullRequest`
  * noun in code and types; the PR↔MR relabel, the number prefix, the brand mark,
  * and the icon are a UI concern driven by the manifest entry for that id. An
- * unknown/absent forge (e.g. a self-hosted forge a newer daemon reports to an
- * older client) renders neutrally — never GitHub-branded. A null/empty forge
- * still maps to GitHub so old daemons (which never send a forge) render exactly
- * as before.
+ * unknown forge id renders neutrally, never GitHub-branded. A null or empty
+ * forge maps to GitHub, the protocol's default for a status the daemon cannot
+ * attribute to a forge.
  */
 import { FORGE_DEFINITIONS, getForgeDefinitionOrNeutral } from "@pimi/protocol/forge-manifest";
 import { normalizeHost, parseGitRemoteLocation } from "@pimi/protocol/git-remote";

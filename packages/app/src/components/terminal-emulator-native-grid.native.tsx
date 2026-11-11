@@ -340,7 +340,6 @@ function NativeTerminalEmulator({
         rows: policyResult.measuredSize.rows,
         cols: policyResult.measuredSize.cols,
         shouldClaim: policyResult.resizeClaim !== null,
-        forceClaim: policyResult.resizeClaim?.force,
       });
       // Ready waits for the grid size, so the pane attaches with it and the daemon replays the
       // terminal at that size instead of the PTY's.

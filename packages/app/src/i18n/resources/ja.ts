@@ -2273,7 +2273,6 @@ export const ja: TranslationResources = {
     empty: "使用状況データがありません",
     errorTitle: "使用状況を読み込めません",
     hostUnavailable: "{{host}} に接続してプロバイダーの使用状況を確認してください",
-    hostUpgradeRequired: "{{host}} を更新してプロバイダーの使用状況を確認してください",
     clientUnavailable: "ホスト接続の準備ができていません",
     retry: "再試行",
     tooltipLoading: "プラン使用状況を読み込み中...",
@@ -2460,7 +2459,6 @@ export const ja: TranslationResources = {
       },
       installation: {
         title: "インストール済みモデル",
-        unavailable: "インストールの詳細を表示するにはホストを更新してください",
         verified: "インストール時にアーカイブの SHA-256 を検証済み",
         unrecorded: "検証記録なし",
         noPublishedDigest: "公開チェックサムなし",

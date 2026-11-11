@@ -139,7 +139,6 @@ export interface ProcessTimelineResponseInput {
   payload: {
     agentId: string;
     direction: TimelineDirection;
-    projection: "projected" | "canonical";
     reset: boolean;
     epoch: string;
     window: { minSeq: number; maxSeq: number; nextSeq: number };

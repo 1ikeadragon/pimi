@@ -27,7 +27,6 @@ import { v4 as uuidv4 } from "uuid";
 import { lstat, mkdir, mkdtemp, rename, rm, stat } from "node:fs/promises";
 import { basename, join, resolve, sep } from "path";
 import { homedir } from "node:os";
-import { CLIENT_CAPS, type ClientCapability } from "@pimi/protocol/client-capabilities";
 import {
   serializeAgentStreamEvent,
   type AgentSnapshotPayload,
@@ -314,34 +313,10 @@ type ProviderSubagentManagerEvent = Extract<
   { type: "provider_subagent" }
 >["event"];
 
-// TODO: Remove once all app store clients are on >=0.1.45 and understand arbitrary provider strings.
-// Clients before 0.1.45 validate providers with z.enum(["claude", "codex", "opencode"]) and reject
-// the entire session message if they encounter an unknown provider.
-const LEGACY_PROVIDER_IDS = new Set(["claude", "codex", "opencode"]);
-const MIN_VERSION_ALL_PROVIDERS = "0.1.45";
 function errorToFriendlyMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
   return "Unknown error";
-}
-
-function isAppVersionAtLeast(appVersion: string | null, minVersion: string): boolean {
-  if (!appVersion) return false;
-  // Strip prerelease suffix: "0.1.45-beta.4" -> "0.1.45"
-  const base = appVersion.replace(/-.*$/, "");
-  const parts = base.split(".").map(Number);
-  const minParts = minVersion.split(".").map(Number);
-  for (let i = 0; i < minParts.length; i++) {
-    const a = parts[i] ?? 0;
-    const b = minParts[i] ?? 0;
-    if (a > b) return true;
-    if (a < b) return false;
-  }
-  return true;
-}
-
-function clientSupportsAllProviders(appVersion: string | null): boolean {
-  return isAppVersionAtLeast(appVersion, MIN_VERSION_ALL_PROVIDERS);
 }
 
 type DeleteFencedAgentStorage = AgentStorage & {
@@ -472,8 +447,6 @@ export interface SessionOptions {
   browserToolsBroker?: BrowserToolsBroker | null;
   clientId: string;
   permissions: readonly DaemonPermission[];
-  appVersion?: string | null;
-  clientCapabilities?: Record<string, unknown> | null;
   onMessage: (msg: SessionOutboundMessage) => void;
   onMessageToSource?: (source: object, msg: SessionOutboundMessage) => void | Promise<void>;
   onBinaryMessage?: (frame: Uint8Array) => void;
@@ -622,22 +595,6 @@ export type SessionLifecycleIntent =
       keepTerminals: boolean;
     };
 
-function parseClientCapabilities(
-  capabilities: Record<string, unknown> | null | undefined,
-): ReadonlySet<ClientCapability> {
-  if (!capabilities) {
-    return new Set();
-  }
-  const known = new Set<ClientCapability>(Object.values(CLIENT_CAPS));
-  const result: ClientCapability[] = [];
-  for (const [key, value] of Object.entries(capabilities)) {
-    if (value === true && known.has(key as ClientCapability)) {
-      result.push(key as ClientCapability);
-    }
-  }
-  return new Set(result);
-}
-
 function sessionRequestId(message: SessionInboundMessage): string | null {
   if ("requestId" in message && typeof message.requestId === "string") {
     return message.requestId;
@@ -758,8 +715,6 @@ export class Session {
   private readonly browserToolsBroker: SessionOptions["browserToolsBroker"];
   private readonly clientId: string;
   private readonly authorization: SessionAuthorization;
-  private appVersion: string | null;
-  private clientCapabilities: ReadonlySet<ClientCapability>;
   private readonly sessionId: string;
   private readonly onMessage: (msg: SessionOutboundMessage) => void;
   private readonly onMessageToSource:
@@ -814,8 +769,6 @@ export class Session {
   private readonly clientSources = new Map<
     object,
     {
-      capabilities: ReadonlySet<ClientCapability>;
-      appVersion: string | null;
       activity: ClientActivity | null;
       pushToken: string | null;
     }
@@ -870,8 +823,6 @@ export class Session {
     const {
       clientId,
       permissions,
-      appVersion,
-      clientCapabilities,
       onMessage,
       onMessageToSource,
       onBinaryMessage,
@@ -930,8 +881,6 @@ export class Session {
     this.clientId = clientId;
     this.authorization = new SessionAuthorization(permissions);
 
-    this.appVersion = appVersion ?? null;
-    this.clientCapabilities = parseClientCapabilities(clientCapabilities);
     this.sessionId = uuidv4();
     this.hostSourceId = hostSource(options);
     this.connectedHostSession = createHostSession(options, this);
@@ -1057,7 +1006,6 @@ export class Session {
     this.providerCatalogSession = new ProviderCatalogSession({
       host: {
         emit: (msg) => this.emit(msg),
-        isProviderVisibleToClient: (provider) => this.isProviderVisibleToClient(provider),
         publishSnapshot: (project) => {
           for (const subscription of this.eventSubscriptions.values()) {
             if (!subscription.events.has("providers_snapshot_update")) continue;
@@ -1172,7 +1120,6 @@ export class Session {
       workspaces: this.workspaceRegistry,
       projectLive: (agent) => this.buildAgentPayload(agent),
       projectStored: (record) => this.buildStoredAgentPayload(record),
-      isProviderVisible: (provider) => this.isProviderVisibleToClient(provider),
       isStoredProviderAvailable: (record) =>
         isStoredAgentProviderAvailable(
           record,
@@ -1185,7 +1132,6 @@ export class Session {
       emit: (message) => this.emit(message),
       enrichAgentPayload: (payload) => this.enrichAgentPayload(payload),
       buildStoredAgentPayload: (record) => this.buildStoredAgentPayload(record),
-      isProviderVisibleToClient: (provider) => this.isProviderVisibleToClient(provider),
       buildProjectPlacementForWorkspaceId: (workspaceId) =>
         this.buildProjectPlacementForWorkspaceId(workspaceId),
       emitWorkspaceUpdateForWorkspaceId: (workspaceId) =>
@@ -1278,7 +1224,6 @@ export class Session {
         this.agentDirectory.workspaceLastUserMessageTimes(workspaceIds),
       listProviderSubagentActivity: async () => this.agentManager.listProviderSubagentActivity(),
       listTerminalActivityContributions: () => this.listTerminalActivityContributions(),
-      isProviderVisibleToClient: (provider) => this.isProviderVisibleToClient(provider),
       buildWorkspaceDescriptor: (input) => this.buildWorkspaceDescriptor(input),
     });
 
@@ -1324,28 +1269,13 @@ export class Session {
     this.sessionLogger.trace({}, "agent.session.lifecycle.created");
   }
 
-  updateAppVersion(appVersion: string | null): void {
-    if (appVersion && appVersion !== this.appVersion) {
-      this.appVersion = appVersion;
-    }
-  }
-
-  updateClientCapabilities(
-    capabilities: Record<string, unknown> | null,
-    source?: object,
-    appVersion = this.appVersion,
-  ): void {
-    this.clientCapabilities = parseClientCapabilities(capabilities);
-    if (source) {
-      this.delivery.attach(source);
-      this.clientSources.set(source, {
-        capabilities: this.clientCapabilities,
-        appVersion,
-        activity: this.clientSources.get(source)?.activity ?? null,
-        pushToken: this.clientSources.get(source)?.pushToken ?? null,
-      });
-      this.refreshObservationProducers();
-    }
+  registerClientSource(source: object): void {
+    this.delivery.attach(source);
+    this.clientSources.set(source, {
+      activity: this.clientSources.get(source)?.activity ?? null,
+      pushToken: this.clientSources.get(source)?.pushToken ?? null,
+    });
+    this.refreshObservationProducers();
   }
 
   clearAgentTimelineSubscription(source: object): void {
@@ -1390,20 +1320,6 @@ export class Session {
     for (const subscription of this.timelineSubscriptions.values()) {
       if (subscription.agentIds.has(event.agentId)) subscription.owner.emit(message);
     }
-  }
-
-  supports(capability: ClientCapability): boolean {
-    const source = this.delivery.currentSource;
-    return source
-      ? this.supportsForSource(capability, source)
-      : this.clientCapabilities.has(capability);
-  }
-
-  supportsForSource(capability: ClientCapability, source: object): boolean {
-    return (
-      this.clientSources.get(source)?.capabilities.has(capability) ??
-      this.clientCapabilities.has(capability)
-    );
   }
 
   emitProjectUpdate(update: ProjectUpdate): Promise<void> {
@@ -2092,20 +2008,6 @@ export class Session {
     registeredProviderIds = new Set(this.providerSnapshotManager.listRegisteredProviderIds()),
   ): AgentSnapshotPayload {
     return buildStoredAgentPayload(record, registeredProviderIds);
-  }
-
-  private isProviderVisibleToClient(provider: string): boolean {
-    if (
-      this.supports(CLIENT_CAPS.allProviders) ||
-      clientSupportsAllProviders(
-        this.delivery.currentSource
-          ? (this.clientSources.get(this.delivery.currentSource)?.appVersion ?? null)
-          : this.appVersion,
-      )
-    ) {
-      return true;
-    }
-    return LEGACY_PROVIDER_IDS.has(provider);
   }
 
   private async buildProjectPlacementForWorkspace(
@@ -5248,13 +5150,9 @@ export class Session {
         matchMode,
         limit,
       });
-      const directories = entries
-        .filter((entry) => entry.kind === "directory")
-        .map((entry) => entry.path);
       this.emit({
         type: "directory_suggestions_response",
         payload: {
-          directories,
           entries,
           error: null,
           requestId,
@@ -5264,7 +5162,6 @@ export class Session {
       this.emit({
         type: "directory_suggestions_response",
         payload: {
-          directories: [],
           entries: [],
           error: error instanceof Error ? error.message : String(error),
           requestId,
@@ -5432,16 +5329,14 @@ export class Session {
   private async getAgentPayloadById(agentId: string): Promise<AgentSnapshotPayload | null> {
     const live = this.agentManager.getAgent(agentId);
     if (live) {
-      const payload = await this.buildAgentPayload(live);
-      return this.isProviderVisibleToClient(payload.provider) ? payload : null;
+      return this.buildAgentPayload(live);
     }
 
     const settled = await this.readSettledAgent(agentId);
     if (!settled) {
       return null;
     }
-    const payload = this.buildStoredAgentPayload(settled.record);
-    return this.isProviderVisibleToClient(payload.provider) ? payload : null;
+    return this.buildStoredAgentPayload(settled.record);
   }
 
   private async resolveDelegationRootWorkspaceId(agentId: string): Promise<string | null> {
@@ -6300,8 +6195,6 @@ export class Session {
       if (owner) {
         this.agentUpdates.beginSubscription({
           subscriptionId: owner.id,
-          isProviderVisible: (provider) =>
-            this.delivery.forSource(owner.source, () => this.isProviderVisibleToClient(provider)),
           filter: request.filter,
           backgroundVisibility,
           syncEnabled: Boolean(request.sync),
@@ -7860,13 +7753,11 @@ export class Session {
         throw new Error(`Workspace not found: ${workspaceId}`);
       }
 
-      const agents = (
-        await this.listAgentPayloads({
-          workspaceIds: [workspaceId],
-          includeBackground: true,
-          includeAncestors: true,
-        })
-      ).filter((agent) => this.isProviderVisibleToClient(agent.provider));
+      const agents = await this.listAgentPayloads({
+        workspaceIds: [workspaceId],
+        includeBackground: true,
+        includeAncestors: true,
+      });
       const agentsById = new Map(agents.map((agent) => [agent.id, agent] as const));
       const candidates = agents
         .filter((agent) => !agent.archivedAt && !agent.background)
@@ -7954,7 +7845,6 @@ export class Session {
     source?: object,
   ): Promise<void> {
     const direction: AgentTimelineFetchDirection = msg.direction ?? (msg.cursor ? "after" : "tail");
-    const projection = "projected" as const;
     const cursor: AgentTimelineCursor | undefined = msg.cursor
       ? {
           epoch: msg.cursor.epoch,
@@ -8006,7 +7896,6 @@ export class Session {
             agentId: msg.agentId,
             agent: agentPayload,
             direction,
-            projection,
             epoch: selectedTimeline.timeline.epoch,
             reset: fetchedControlTimeline.reset,
             staleCursor: fetchedControlTimeline.staleCursor,
@@ -8027,13 +7916,7 @@ export class Session {
                 seqEnd: entry.seqEnd,
                 sourceSeqRanges: entry.sourceSeqRanges,
                 turnId: undefined as string | undefined,
-                collapsed: (
-                  source
-                    ? this.supportsForSource(CLIENT_CAPS.reasoningMergeEnum, source)
-                    : this.supports(CLIENT_CAPS.reasoningMergeEnum)
-                )
-                  ? entry.collapsed
-                  : entry.collapsed.filter((value) => value !== "reasoning_merge"),
+                collapsed: entry.collapsed,
               };
               payloadEntry.turnId = entry.turnId;
               return payloadEntry;
@@ -8056,7 +7939,6 @@ export class Session {
             agentId: msg.agentId,
             agent: null,
             direction,
-            projection,
             epoch: "",
             reset: false,
             staleCursor: false,
@@ -8330,7 +8212,6 @@ export class Session {
             provider: descriptor.provider,
             direction,
             epoch: timeline.epoch,
-            projection: "projected",
             startCursor:
               timeline.startSeq === null ? null : { epoch: timeline.epoch, seq: timeline.startSeq },
             endCursor:

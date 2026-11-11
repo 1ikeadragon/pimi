@@ -2298,7 +2298,6 @@ export const es: TranslationResources = {
     empty: "No hay datos de uso",
     errorTitle: "No se pudo cargar el uso",
     hostUnavailable: "Conéctate a {{host}} para ver el uso del proveedor",
-    hostUpgradeRequired: "Actualiza {{host}} para ver el uso del proveedor",
     clientUnavailable: "La conexión con el host no está lista",
     retry: "Intentar de nuevo",
     tooltipLoading: "Cargando uso del plan...",
@@ -2485,7 +2484,6 @@ export const es: TranslationResources = {
       },
       installation: {
         title: "Modelos instalados",
-        unavailable: "Actualiza el host para ver los detalles de instalación",
         verified: "SHA-256 del archivo verificado al instalar",
         unrecorded: "Verificación sin registrar",
         noPublishedDigest: "Sin suma de verificación publicada",

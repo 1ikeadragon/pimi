@@ -2223,7 +2223,6 @@ export const zhCN: TranslationResources = {
     empty: "暂无用量数据",
     errorTitle: "无法加载用量",
     hostUnavailable: "连接到 {{host}} 以查看提供商用量",
-    hostUpgradeRequired: "更新 {{host}} 以查看提供商用量",
     clientUnavailable: "主机连接尚未就绪",
     retry: "重试",
     tooltipLoading: "正在加载套餐用量...",
@@ -2407,7 +2406,6 @@ export const zhCN: TranslationResources = {
       },
       installation: {
         title: "已安装的模型",
-        unavailable: "请更新主机以查看安装详情",
         verified: "安装时已通过归档文件 SHA-256 校验",
         unrecorded: "无校验记录",
         noPublishedDigest: "未发布校验值",

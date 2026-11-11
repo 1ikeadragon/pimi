@@ -310,7 +310,6 @@ export const useProviderSubagentStore = create<ProviderSubagentState>((set) => (
         payload: {
           ...payload,
           agentId: payload.subagentId,
-          projection: "projected",
           startCursor:
             payload.startCursor ??
             (entries.length ? { seq: Math.min(...entries.map((entry) => entry.seqStart)) } : null),

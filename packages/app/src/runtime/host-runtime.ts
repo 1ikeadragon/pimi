@@ -54,8 +54,6 @@ import {
 } from "@/desktop/daemon/desktop-daemon-transport";
 import { getDesktopHost } from "@/desktop/host";
 import { readDesktopManagedLocalCredential } from "@/desktop/daemon/local-credential";
-import { CLIENT_CAPS } from "@pimi/protocol/client-capabilities";
-import { BROWSER_AUTOMATION_COMMAND_NAMES } from "@pimi/protocol/browser-automation/rpc-schemas";
 import {
   useSessionStore,
   toDaemonServerInfo,
@@ -564,17 +562,6 @@ function createDefaultDeps(
 ): HostRuntimeControllerDeps {
   const browserHostAvailable =
     typeof getDesktopHost()?.browser?.executeAutomationCommand === "function";
-  const browserAutomationCapabilities = browserHostAvailable
-    ? {
-        [CLIENT_CAPS.browserHost]: {
-          supportedCommands: [...BROWSER_AUTOMATION_COMMAND_NAMES],
-          hostKind: "desktop app",
-        },
-      }
-    : undefined;
-  const appCapabilities = {
-    ...browserAutomationCapabilities,
-  };
 
   return {
     createClient: ({ host, connection, clientId, runtimeGeneration }) => {
@@ -586,7 +573,6 @@ function createDefaultDeps(
         clientType: "mobile",
         appVersion: resolveAppVersion() ?? undefined,
         runtimeGeneration,
-        capabilities: appCapabilities,
         trace: createPerformanceTrace({ host: host.serverId, connection: connection.id }),
         providerSnapshots: "wire",
         createPluginClientBundleStore: createHostPluginClientBundleStore,
@@ -684,7 +670,6 @@ function createDefaultDeps(
         ...(host.password ? { password: host.password } : {}),
         localCredential: () => readDesktopManagedLocalCredential(connection),
         ...(timeoutMs !== undefined ? { timeoutMs } : {}),
-        capabilities: appCapabilities,
         trace: createPerformanceTrace({ host: host.serverId, connection: connection.id }),
         createPluginClientBundleStore: createHostPluginClientBundleStore,
       });
@@ -696,7 +681,7 @@ function createDefaultDeps(
         queryClient,
         serverId: host.serverId,
       });
-      if (!browserAutomationCapabilities) {
+      if (!browserHostAvailable) {
         return unmountServerData;
       }
       const unmountBrowserAutomation = mountBrowserAutomationDaemonClientHandler(client, {
@@ -2482,7 +2467,6 @@ export class HostRuntimeStore {
     const host = this.hosts.find((candidate) => candidate.serverId === serverId);
     if (
       !client?.isConnected ||
-      !client.getLastServerInfoMessage()?.features?.connectedHosts ||
       host?.connections.some((connection) => connection.type === "routed")
     )
       return;

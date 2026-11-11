@@ -291,11 +291,6 @@ export class ConnectedHosts {
             "duplicate_host",
             "Another registration already owns this daemon. Remove the duplicate registration.",
           );
-        if (info.features?.connectedHosts !== true || info.features?.hostMultiplexing !== true)
-          throw new HostError(
-            "unsupported_capability",
-            "Update the destination daemon to use connected hosts; retrying automatically.",
-          );
         // Pin and persist under the same writer as management to prevent discovery races.
         await this.mutate(async () => {
           if (stopped) return;
@@ -354,7 +349,7 @@ export class ConnectedHosts {
           code: "host_offline",
           message: "Cannot reach host. Check the connection; retrying automatically.",
         };
-      else if (row.error?.code !== "unsupported_capability") row.error = null;
+      else row.error = null;
       if (row.error?.code === "authentication_failed") {
         row.status = "error";
         row.nextRetryAt = null;
@@ -486,10 +481,6 @@ export class ConnectedHosts {
               "server_id_mismatch",
               "Host identity changed; explicit replacement required",
             );
-            return;
-          }
-          if (info.features?.connectedHosts !== true) {
-            route.close("unsupported_capability", "Update the destination daemon");
             return;
           }
           verified = true;

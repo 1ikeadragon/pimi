@@ -478,7 +478,7 @@ Agent and terminal environments are unchanged. System proxy settings and SOCKS-o
 `ALL_PROXY` configurations are not supported.
 
 Settings > Network lists the daemon's and the desktop app's own outbound requests
-(`diagnostics.network.list`, gated on `features.networkActivity`). The daemon records them from
+(`diagnostics.network.list`). The daemon records them from
 Node's diagnostics channels, so every fetch, `node:http(s)` request, and `ws` handshake in the
 daemon process appears without call-site changes. Child processes do not: agent providers,
 plugin processes, and terminals. A request is labelled by the host it went to; when you add a
