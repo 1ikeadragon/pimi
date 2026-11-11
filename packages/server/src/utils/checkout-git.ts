@@ -12,7 +12,7 @@ import {
 } from "fs/promises";
 import { tmpdir } from "node:os";
 import { setImmediate } from "node:timers/promises";
-import { TTLCache } from "@isaacs/ttlcache";
+import { LRUCache } from "lru-cache";
 import type { CheckoutCommit, CheckoutCommitFile } from "@pimi/protocol/messages";
 import { parseGitHubRemoteIdentity, parseGitRemoteLocation } from "@pimi/protocol/git-remote";
 import { maxSecuredPlaintextByteLength } from "@pimi/relay";
@@ -82,17 +82,24 @@ export type GitMutationRefreshReason =
   | "create-worktree";
 
 const DISCARD_CHANGES_TIMEOUT_MS = 120_000;
-const DEFAULT_PULL_REQUEST_STATUS_CACHE_TTL_MS = 30_000;
 const PULL_REQUEST_STATUS_CACHE_MAX = 1_000;
-const DEFAULT_SHORTSTAT_CACHE_TTL_MS = 15_000;
 const SHORTSTAT_CACHE_MAX = 1_000;
 
-let pullRequestStatusCacheTtlMs = DEFAULT_PULL_REQUEST_STATUS_CACHE_TTL_MS;
-let pullRequestStatusCache = createPullRequestStatusCache(pullRequestStatusCacheTtlMs);
+// lru-cache rejects null values, so a cached "no shortstat" result is boxed.
+interface CachedShortstat {
+  shortstat: CheckoutShortstat | null;
+}
+
+const pullRequestStatusCache = new LRUCache<string, PullRequestStatusResult>({
+  ttl: 30_000,
+  max: PULL_REQUEST_STATUS_CACHE_MAX,
+});
 const pullRequestStatusInFlight = new Map<string, Promise<PullRequestStatusResult>>();
 const lastSuccessfulPullRequestStatus = new Map<string, PullRequestStatusResult>();
-let shortstatCacheTtlMs = DEFAULT_SHORTSTAT_CACHE_TTL_MS;
-let shortstatCache = createShortstatCache(shortstatCacheTtlMs);
+const shortstatCache = new LRUCache<string, CachedShortstat>({
+  ttl: 15_000,
+  max: SHORTSTAT_CACHE_MAX,
+});
 const shortstatInFlight = new Map<string, Promise<CheckoutShortstat | null>>();
 
 interface CheckoutReadCacheOptions {
@@ -136,22 +143,6 @@ function throwBranchNotFound(branch: string | undefined): never {
   throw new Error(`Branch not found: ${branch ?? "unknown"}`);
 }
 
-function createPullRequestStatusCache(ttlMs: number) {
-  return new TTLCache<string, PullRequestStatusResult>({
-    ttl: ttlMs,
-    max: PULL_REQUEST_STATUS_CACHE_MAX,
-    checkAgeOnGet: true,
-  });
-}
-
-function createShortstatCache(ttlMs: number) {
-  return new TTLCache<string, CheckoutShortstat | null>({
-    ttl: ttlMs,
-    max: SHORTSTAT_CACHE_MAX,
-    checkAgeOnGet: true,
-  });
-}
-
 function getPullRequestStatusCacheKey(cwd: string, headSha: string | null): string {
   return `${resolve(cwd)}\u0000${headSha ?? ""}`;
 }
@@ -169,40 +160,6 @@ function rememberPullRequestStatus(cacheKey: string, status: PullRequestStatusRe
 
 function getShortstatCacheKey(cwd: string): string {
   return resolve(cwd);
-}
-
-export function __resetPullRequestStatusCacheForTests(): void {
-  pullRequestStatusCache.clear();
-  pullRequestStatusCache.cancelTimer();
-  pullRequestStatusCacheTtlMs = DEFAULT_PULL_REQUEST_STATUS_CACHE_TTL_MS;
-  pullRequestStatusCache = createPullRequestStatusCache(pullRequestStatusCacheTtlMs);
-  pullRequestStatusInFlight.clear();
-  lastSuccessfulPullRequestStatus.clear();
-}
-
-export function __setPullRequestStatusCacheTtlForTests(ttlMs: number): void {
-  pullRequestStatusCache.clear();
-  pullRequestStatusCache.cancelTimer();
-  pullRequestStatusCacheTtlMs = ttlMs;
-  pullRequestStatusCache = createPullRequestStatusCache(ttlMs);
-  pullRequestStatusInFlight.clear();
-  lastSuccessfulPullRequestStatus.clear();
-}
-
-export function __resetCheckoutShortstatCacheForTests(): void {
-  shortstatCache.clear();
-  shortstatCache.cancelTimer();
-  shortstatCacheTtlMs = DEFAULT_SHORTSTAT_CACHE_TTL_MS;
-  shortstatCache = createShortstatCache(shortstatCacheTtlMs);
-  shortstatInFlight.clear();
-}
-
-export function __setCheckoutShortstatCacheTtlForTests(ttlMs: number): void {
-  shortstatCache.clear();
-  shortstatCache.cancelTimer();
-  shortstatCacheTtlMs = ttlMs;
-  shortstatCache = createShortstatCache(ttlMs);
-  shortstatInFlight.clear();
 }
 
 interface CheckoutFileChange {
@@ -2738,10 +2695,9 @@ export async function listCheckoutCommits({
   return { baseRef: comparisonBaseRef, commits };
 }
 
-const commitRenamesCache = new TTLCache<string, Promise<ReadonlyMap<string, string>>>({
+const commitRenamesCache = new LRUCache<string, Promise<ReadonlyMap<string, string>>>({
   max: 100,
   ttl: 60_000,
-  checkAgeOnGet: true,
 });
 
 function getCommitRenames(cwd: string, sha: string): Promise<ReadonlyMap<string, string>> {
@@ -3042,7 +2998,7 @@ function getOrLoadCheckoutShortstat(
   if (!options?.force) {
     const cached = shortstatCache.get(cacheKey);
     if (cached !== undefined) {
-      return Promise.resolve(cached);
+      return Promise.resolve(cached.shortstat);
     }
 
     const existing = shortstatInFlight.get(cacheKey);
@@ -3053,7 +3009,7 @@ function getOrLoadCheckoutShortstat(
 
   const load = getCheckoutShortstatUncached(cwd, context)
     .then((shortstat) => {
-      shortstatCache.set(cacheKey, shortstat);
+      shortstatCache.set(cacheKey, { shortstat });
       return shortstat;
     })
     .finally(() => {
@@ -3200,7 +3156,7 @@ export async function getCheckoutWorktreeState(
 }
 
 export function getCachedCheckoutShortstat(cwd: string): CheckoutShortstat | null | undefined {
-  return shortstatCache.get(getShortstatCacheKey(cwd));
+  return shortstatCache.get(getShortstatCacheKey(cwd))?.shortstat;
 }
 
 export function warmCheckoutShortstatInBackground(
