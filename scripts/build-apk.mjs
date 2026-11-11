@@ -9,6 +9,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -71,6 +72,13 @@ function run(command, args, cwd) {
 const signing = pimi ? signingOptions() : null;
 if (pimi) run(process.execPath, ["scripts/prepare-native-markdown.mjs", "--force"], root);
 run("npm", ["run", "build:app-deps"], root);
+// Prebuild from the template inside the locked `expo` package. Without --template, Expo
+// falls back to downloading expo-template-bare-minimum from npm when the local unpack fails.
+const expoTemplate = path.join(
+  path.dirname(createRequire(path.join(app, "/")).resolve("expo/package.json")),
+  "template.tgz",
+);
+if (!existsSync(expoTemplate)) throw new Error(`Missing Expo template: ${expoTemplate}`);
 run(
   "npx",
   [
@@ -79,6 +87,8 @@ run(
     "prebuild",
     "--platform",
     "android",
+    "--template",
+    expoTemplate,
     "--no-install",
     ...(pimi ? ["--clean"] : []),
   ],

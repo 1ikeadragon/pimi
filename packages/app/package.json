@@ -9,7 +9,7 @@
     "start:expo": "cross-env APP_VARIANT=development expo start",
     "android": "npm run dev:android",
     "android:development": "npm run dev:android",
-    "android:production": "npm --prefix ../.. run build:client && cross-env APP_VARIANT=production expo prebuild --platform android --clean --non-interactive && cross-env APP_VARIANT=production expo run:android --variant=release",
+    "android:production": "npm --prefix ../.. run build:client && cross-env APP_VARIANT=production expo prebuild --platform android --template ../../node_modules/expo/template.tgz --clean --non-interactive && cross-env APP_VARIANT=production expo run:android --variant=release",
     "android:release": "npm run android:production",
     "android:clear": "node -e \"require('node:fs').rmSync('android', { recursive: true, force: true })\"",
     "ios": "npm run dev:ios",
@@ -24,7 +24,7 @@
     "profile:workspace-switching": "node ./scripts/profile-workspace-switching.mjs",
     "profile:workspace-tabs": "node ./scripts/profile-workspace-tabs.mjs",
     "build:mermaid-runtime": "node ./src/components/markdown/fence/mermaid/build-runtime.mjs",
-    "dev:android": "npm --prefix ../.. run build:client && cross-env APP_VARIANT=development expo prebuild --platform android --clean --non-interactive && cross-env APP_VARIANT=development expo run:android --variant=debug",
+    "dev:android": "npm --prefix ../.. run build:client && cross-env APP_VARIANT=development expo prebuild --platform android --template ../../node_modules/expo/template.tgz --clean --non-interactive && cross-env APP_VARIANT=development expo run:android --variant=debug",
     "dev:ios": "npm --prefix ../.. run build:client && cross-env APP_VARIANT=development expo run:ios",
     "build:apk": "npm --prefix ../.. run build:apk",
     "build:apk:arm64": "npm --prefix ../.. run build:apk:arm64"

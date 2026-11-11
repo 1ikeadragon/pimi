@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { closeSync, existsSync, mkdirSync, openSync, readdirSync } from "node:fs";
 import { basename, dirname, join, resolve as resolvePath } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 
 const rootDir = resolvePath(import.meta.dirname, "..");
 const appDir = join(rootDir, "packages/app");
@@ -59,9 +60,16 @@ async function main() {
   try {
     run("npm", ["--prefix", rootDir, "run", "build:client"], { cwd: rootDir });
     console.log("Generating iOS project...");
-    run("npx", ["expo", "prebuild", "--platform", "ios", "--non-interactive"], {
-      cwd: appDir,
-    });
+    // The template inside the locked `expo` package; never Expo's npm download fallback.
+    const expoTemplate = join(
+      dirname(createRequire(join(appDir, "/")).resolve("expo/package.json")),
+      "template.tgz",
+    );
+    run(
+      "npx",
+      ["expo", "prebuild", "--platform", "ios", "--template", expoTemplate, "--non-interactive"],
+      { cwd: appDir },
+    );
 
     const nativeProject = getNativeProject();
     console.log(`Building iOS app (${nativeProject.scheme}); log: ${nativeBuildLog}`);
