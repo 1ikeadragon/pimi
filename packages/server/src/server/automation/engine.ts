@@ -33,7 +33,9 @@ export interface AutomationEngineDeps {
     cwd: string;
     firstAgentContext: FirstAgentContext;
   }) => Promise<CreatePaseoWorktreeWorkflowResult>;
-  archiveWorkspace: (workspaceId: string) => Promise<void>;
+  // keepDirectory archives the workspace and its agents but leaves the directory alone: no
+  // teardown commands, no removal. Pass it unless the run created the worktree.
+  archiveWorkspace: (workspaceId: string, options: { keepDirectory: boolean }) => Promise<void>;
 }
 
 export type RunStopReason = "cancelled" | "timed_out" | "permission";
@@ -57,8 +59,14 @@ export class RunStoppedError extends Error {
   }
 }
 
+/** The workspace a run step opened, and whether the run made its worktree. */
+export interface RunWorkspace {
+  workspaceId: string;
+  createdWorktree: boolean;
+}
+
 export interface AgentStepCallbacks {
-  onWorkspace: (workspaceId: string) => Promise<void>;
+  onWorkspace: (workspace: RunWorkspace) => Promise<void>;
   onAgent: (agentId: string, modeId: string | null) => Promise<void>;
 }
 
@@ -130,16 +138,18 @@ export async function runAgentStep(
   const { automation, run, node, handle, callbacks } = input;
   await assertProjectDirectory(automation.project.cwd);
   const title = `${automation.name} · ${summarizeRunCause(run)}`;
-  const workspace =
-    node.workspace === "worktree"
-      ? (
-          await deps.createWorktreeWorkspace({
-            cwd: automation.project.cwd,
-            firstAgentContext: { prompt: node.prompt },
-          })
-        ).workspace
-      : await deps.createDirectoryWorkspace({ cwd: automation.project.cwd, title });
-  await callbacks.onWorkspace(workspace.workspaceId);
+  // Project mode opens a new workspace record on the project directory, which may be a checkout
+  // or worktree the user works in. Only a worktree made here belongs to the run.
+  const createdWorktree = node.workspace === "worktree";
+  const workspace = createdWorktree
+    ? (
+        await deps.createWorktreeWorkspace({
+          cwd: automation.project.cwd,
+          firstAgentContext: { prompt: node.prompt },
+        })
+      ).workspace
+    : await deps.createDirectoryWorkspace({ cwd: automation.project.cwd, title });
+  await callbacks.onWorkspace({ workspaceId: workspace.workspaceId, createdWorktree });
 
   let agentId: string | null = null;
   try {
@@ -231,12 +241,14 @@ export async function runAgentStep(
     };
   } finally {
     if (agentId === null) {
-      await deps.archiveWorkspace(workspace.workspaceId).catch((error: unknown) => {
-        deps.logger.warn(
-          { err: error, automationId: automation.id, runId: run.id },
-          "Failed to archive automation workspace after the agent could not start",
-        );
-      });
+      await deps
+        .archiveWorkspace(workspace.workspaceId, { keepDirectory: !createdWorktree })
+        .catch((error: unknown) => {
+          deps.logger.warn(
+            { err: error, automationId: automation.id, runId: run.id },
+            "Failed to archive automation workspace after the agent could not start",
+          );
+        });
     }
   }
 }

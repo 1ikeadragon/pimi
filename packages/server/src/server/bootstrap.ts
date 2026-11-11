@@ -1452,7 +1452,10 @@ export async function createPaseoDaemon(
     await emitWorkspaceUpdatesExternal([result.workspace.workspaceId]);
     return result;
   };
-  const archiveAutomationWorkspaceExternal = async (workspaceId: string) => {
+  const archiveAutomationWorkspaceExternal = async (
+    workspaceId: string,
+    options: { keepDirectory: boolean },
+  ) => {
     await archiveByScope(
       {
         paseoHome: config.paseoHome,
@@ -1484,6 +1487,7 @@ export async function createPaseoDaemon(
       {
         scope: { kind: "workspace", workspaceId },
         requestId: "automation-run-workspace",
+        keepDirectory: options.keepDirectory,
       },
     );
   };

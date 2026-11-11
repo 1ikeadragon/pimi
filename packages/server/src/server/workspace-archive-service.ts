@@ -84,6 +84,9 @@ export interface ArchiveByScopeRequest {
   // Aborting cancels the archive at its next checkpoint. Removing the worktree directory is the
   // point of no return: once it starts the archive completes.
   signal?: AbortSignal;
+  // Archive the workspace records and their agents only: no teardown commands, no directory
+  // removal. For a workspace that borrowed a directory someone else owns.
+  keepDirectory?: boolean;
 }
 
 /**
@@ -216,7 +219,7 @@ async function archiveByScopeWithPriority(
       }
     }
 
-    if (target.backing !== null) {
+    if (target.backing !== null && !request.keepDirectory) {
       const removal = await maybeRemoveDirectory(
         dependencies,
         { requestId: request.requestId, checkpoint },

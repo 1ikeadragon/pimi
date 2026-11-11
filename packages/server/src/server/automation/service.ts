@@ -24,6 +24,7 @@ import { computeNextRunAt, validateCadence, withHostTimeZone } from "./cron.js";
 import {
   type AutomationEngineDeps,
   type RunHandle,
+  type RunWorkspace,
   RunStoppedError,
   runAgentStep,
 } from "./engine.js";
@@ -583,6 +584,7 @@ export class AutomationService {
           status: "running",
           agentId: null,
           workspaceId: null,
+          createdWorktree: false,
           modeId: null,
           startedAt: now,
           endedAt: null,
@@ -630,7 +632,7 @@ export class AutomationService {
     let status: AutomationRunStatus = "succeeded";
     let output: string | null = null;
     let error: string | null = null;
-    let workspaceIdSeen: string | null = null;
+    let workspaceSeen: RunWorkspace | null = null;
     try {
       const result = await runAgentStep(this.engine, {
         automation,
@@ -638,12 +640,12 @@ export class AutomationService {
         node: flow.agent,
         handle,
         callbacks: {
-          onWorkspace: async (workspaceId) => {
-            workspaceIdSeen = workspaceId;
+          onWorkspace: async (workspace) => {
+            workspaceSeen = workspace;
             await runs.update(run.id, (current) => ({
               ...current,
-              reportWorkspaceId: workspaceId,
-              steps: current.steps.map((step) => ({ ...step, workspaceId })),
+              reportWorkspaceId: workspace.workspaceId,
+              steps: current.steps.map((step) => ({ ...step, ...workspace })),
             }));
           },
           onAgent: async (agentId, modeId) => {
@@ -671,7 +673,15 @@ export class AutomationService {
       // finish, and touching the run store would recreate its directory. The workspace the run
       // opened goes with it.
       if ((await this.store.automations.get(automation.id)) === null) {
-        this.archiveRunWorkspaces([{ ...run, reportWorkspaceId: workspaceIdSeen, steps: [] }]);
+        // Read through a typed local: TypeScript does not see the callback assign it.
+        const seen = workspaceSeen as RunWorkspace | null;
+        this.archiveRunWorkspaces([
+          {
+            ...run,
+            reportWorkspaceId: seen?.workspaceId ?? null,
+            steps: run.steps.map((step) => ({ ...step, ...seen })),
+          },
+        ]);
         return;
       }
       await this.finishRun({ automationId: automation.id, runId: run.id, status, output, error });
@@ -743,9 +753,6 @@ export class AutomationService {
     if (autoPaused) {
       await this.audit.append({
         automationId: input.automationId,
-      if (run.reportWorkspaceId) {
-        workspaceIds.add(run.reportWorkspaceId);
-      }
         action: "auto_paused",
         actor: daemon,
         runId: input.runId,
@@ -769,27 +776,33 @@ export class AutomationService {
     this.archiveRunWorkspaces(await this.store.pruneRuns(automationId, now));
   }
 
-  // Archives the workspaces (and any worktree they own) of runs whose records are gone. Runs
-  // one at a time in the background: archiving touches git and should not hold up the caller.
+  // Archives the workspaces of runs whose records are gone, with their agents. A worktree goes
+  // too only when the run created it; a project directory or worktree the run opened in stays
+  // untouched. Runs one at a time in the background: archiving touches git and should not hold
+  // up the caller.
   private archiveRunWorkspaces(runs: readonly AutomationRun[]): void {
-    const workspaceIds = new Set<string>();
+    // workspaceId -> keepDirectory
+    const workspaces = new Map<string, boolean>();
     for (const run of runs) {
       for (const step of run.steps) {
         if (step.workspaceId) {
-          workspaceIds.add(step.workspaceId);
+          workspaces.set(step.workspaceId, step.createdWorktree !== true);
         }
       }
+      if (run.reportWorkspaceId && !workspaces.has(run.reportWorkspaceId)) {
+        workspaces.set(run.reportWorkspaceId, true);
+      }
     }
-    if (workspaceIds.size === 0) {
+    if (workspaces.size === 0) {
       return;
     }
-    this.archiveQueue = this.archiveQueue.then(() => this.archiveEach(workspaceIds));
+    this.archiveQueue = this.archiveQueue.then(() => this.archiveEach(workspaces));
   }
 
-  private async archiveEach(workspaceIds: Iterable<string>): Promise<void> {
-    for (const workspaceId of workspaceIds) {
+  private async archiveEach(workspaces: ReadonlyMap<string, boolean>): Promise<void> {
+    for (const [workspaceId, keepDirectory] of workspaces) {
       try {
-        await this.engine.archiveWorkspace(workspaceId);
+        await this.engine.archiveWorkspace(workspaceId, { keepDirectory });
       } catch (error) {
         this.logger.warn({ err: error, workspaceId }, "Failed to archive automation run workspace");
       }
