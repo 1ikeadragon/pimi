@@ -3280,11 +3280,9 @@ export const ar: TranslationResources = {
       describe: "صِفها",
       delete: "حذف الأتمتة",
       settings: "إعدادات الأتمتة",
+      discard: "تجاهل",
     },
     confirm: {
-      discardTitle: "تجاهل التغييرات؟",
-      discardMessage: "ستفقد التغييرات غير المحفوظة على هذه الأتمتة.",
-      discard: "تجاهل",
       deleteTitle: "حذف الأتمتة؟",
       deleteMessage: 'سيتم حذف "{{name}}" وسجل تشغيلها.',
       delete: "حذف",

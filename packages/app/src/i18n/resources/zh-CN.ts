@@ -3207,11 +3207,9 @@ export const zhCN: TranslationResources = {
       describe: "用描述生成",
       delete: "删除自动化",
       settings: "自动化设置",
+      discard: "放弃",
     },
     confirm: {
-      discardTitle: "放弃更改？",
-      discardMessage: "此自动化未保存的更改将丢失。",
-      discard: "放弃",
       deleteTitle: "删除自动化？",
       deleteMessage: "将删除“{{name}}”及其运行记录。",
       delete: "删除",

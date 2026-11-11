@@ -3425,11 +3425,9 @@ export const en = {
       describe: "Describe it",
       delete: "Delete automation",
       settings: "Automation settings",
+      discard: "Discard",
     },
     confirm: {
-      discardTitle: "Discard changes?",
-      discardMessage: "Your unsaved changes to this automation will be lost.",
-      discard: "Discard",
       deleteTitle: "Delete automation?",
       deleteMessage: '"{{name}}" and its run history will be deleted.',
       delete: "Delete",

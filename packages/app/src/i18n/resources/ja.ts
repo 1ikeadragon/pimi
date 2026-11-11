@@ -3281,11 +3281,9 @@ export const ja: TranslationResources = {
       describe: "説明から作成",
       delete: "オートメーションを削除",
       settings: "オートメーションの設定",
+      discard: "破棄",
     },
     confirm: {
-      discardTitle: "変更を破棄しますか？",
-      discardMessage: "このオートメーションの未保存の変更は失われます。",
-      discard: "破棄",
       deleteTitle: "オートメーションを削除しますか？",
       deleteMessage: "「{{name}}」と実行履歴が削除されます。",
       delete: "削除",

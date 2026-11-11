@@ -30,6 +30,38 @@ interface Size {
   height: number;
 }
 
+/** A node to bring into view, in canvas pixels. A new `key` is a new request. */
+export interface CanvasReveal {
+  key: number;
+  box: { x: number; y: number; width: number; height: number };
+}
+
+/**
+ * Pans just far enough to bring `box` inside the viewport (below `topInset`), leaving the view
+ * alone when it is already there. Zoom never changes.
+ */
+function revealTransform(
+  current: Transform,
+  box: CanvasReveal["box"],
+  viewport: Size,
+  topInset: number,
+): Transform {
+  const pan = (from: number, size: number, offset: number, low: number, high: number) => {
+    const start = from * current.scale + offset;
+    const end = (from + size) * current.scale + offset;
+    if (start < low) return low - start;
+    if (end > high) return Math.max(low - start, high - end);
+    return 0;
+  };
+  return {
+    scale: current.scale,
+    x: current.x + pan(box.x, box.width, current.x, FIT_MARGIN, viewport.width - FIT_MARGIN),
+    y:
+      current.y +
+      pan(box.y, box.height, current.y, topInset + FIT_MARGIN, viewport.height - FIT_MARGIN),
+  };
+}
+
 function clampScale(scale: number): number {
   return Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale));
 }
@@ -88,13 +120,16 @@ export function AutomationCanvasViewport({
   height,
   topInset,
   fitKey,
+  reveal,
   children,
 }: {
   width: number;
   height: number;
   topInset: number;
-  /** Fits again whenever this changes, such as when the graph gains a node. */
+  /** Fits again whenever this changes, such as the graph turning from a row to a column. */
   fitKey: string;
+  /** A node to pan into view when it is off screen, such as one just added. */
+  reveal: CanvasReveal | null;
   children: ReactNode;
 }) {
   const { t } = useTranslation();
@@ -141,7 +176,20 @@ export function AutomationCanvasViewport({
   const measured = viewport !== null;
   useEffect(() => {
     if (measured) fit();
-  }, [fit, fitKey, measured, topInset]);
+  }, [fit, fitKey, measured]);
+  // The palette lays out after the first fit; until the person moves the view, fit below it.
+  useEffect(() => {
+    if (measured && !touched.current) fit();
+  }, [fit, measured, topInset]);
+
+  const revealed = useRef<number | null>(null);
+  useEffect(() => {
+    const size = viewportRef.current;
+    if (!reveal || !size || revealed.current === reveal.key) return;
+    revealed.current = reveal.key;
+    touched.current = true;
+    apply(revealTransform(transformRef.current, reveal.box, size, topInsetRef.current));
+  }, [apply, measured, reveal]);
 
   const panBy = useCallback(
     (dx: number, dy: number) => {

@@ -499,7 +499,10 @@ const styles = StyleSheet.create((theme) => ({
   },
   createActions: {
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
+    justifyContent: "center",
+    maxWidth: "100%",
     gap: theme.spacing[2],
   },
   filterRowControls: {

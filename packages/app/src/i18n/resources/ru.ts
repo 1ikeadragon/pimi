@@ -3308,11 +3308,9 @@ export const ru: TranslationResources = {
       describe: "Описать словами",
       delete: "Удалить автоматизацию",
       settings: "Настройки автоматизации",
+      discard: "Отменить",
     },
     confirm: {
-      discardTitle: "Отменить изменения?",
-      discardMessage: "Несохранённые изменения этой автоматизации будут потеряны.",
-      discard: "Отменить",
       deleteTitle: "Удалить автоматизацию?",
       deleteMessage: "«{{name}}» и история запусков будут удалены.",
       delete: "Удалить",

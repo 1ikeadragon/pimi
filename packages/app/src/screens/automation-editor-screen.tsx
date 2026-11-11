@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { Text, View, type LayoutChangeEvent } from "react-native";
-import { useNavigation, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import {
   Bot,
@@ -64,8 +64,16 @@ import {
   type FormPreferences,
 } from "@/hooks/use-form-preferences";
 import { useProjects } from "@/hooks/use-projects";
-import { AutomationCanvasViewport } from "@/components/automations/automation-canvas-viewport";
+import {
+  AutomationCanvasViewport,
+  type CanvasReveal,
+} from "@/components/automations/automation-canvas-viewport";
 import { useHosts } from "@/runtime/host-runtime";
+import {
+  clearAutomationEditorDraft,
+  draftKeyFor,
+  readAutomationEditorDraft,
+} from "@/stores/automation-editor-draft-store";
 import { useSessionStore } from "@/stores/session-store";
 import {
   buildAutomationEditorDefinition,
@@ -79,7 +87,11 @@ import {
   type EditorStep,
 } from "@/automations/automation-editor-model";
 import type { Theme } from "@/styles/theme";
-import { layoutAutomationGraph } from "@/automations/automation-editor-layout";
+import {
+  layoutAutomationGraph,
+  NODE_HEIGHT,
+  NODE_WIDTH,
+} from "@/automations/automation-editor-layout";
 import { buildAutomationProjectTargets } from "@/automations/automation-project-targets";
 import { AUTOMATION_TEMPLATES } from "@/automations/automation-templates";
 import { useAutomationEditorModel } from "@/automations/use-automation-editor-model";
@@ -128,6 +140,18 @@ export function AutomationEditorScreen(props: AutomationEditorScreenProps): Reac
   const latched = useRef<AggregatedAutomation | null>(null);
   if (found) latched.current = found;
   const stored = found ?? latched.current;
+  // Unsaved edits live in a store, so the editor reopens on them. Discarding clears them and
+  // remounts the editor on the stored automation.
+  const draftKey = draftKeyFor({
+    serverId: props.serverId,
+    automationId: props.mode === "edit" ? props.automationId : undefined,
+    origin: `new:${props.templateId ?? ""}:${props.duplicateId ?? ""}`,
+  });
+  const [discardCount, setDiscardCount] = useState(0);
+  const discardDraft = useCallback(() => {
+    clearAutomationEditorDraft(draftKey);
+    setDiscardCount((count) => count + 1);
+  }, [draftKey]);
 
   let body: ReactElement;
   if (needsStored && !stored && loadState.status !== "loaded") {
@@ -144,7 +168,15 @@ export function AutomationEditorScreen(props: AutomationEditorScreenProps): Reac
       </View>
     );
   } else {
-    body = <AutomationEditor {...props} stored={stored} />;
+    body = (
+      <AutomationEditor
+        key={`${draftKey}#${discardCount}`}
+        {...props}
+        stored={stored}
+        draftKey={draftKey}
+        onDiscard={discardDraft}
+      />
+    );
   }
   return <View style={styles.container}>{body}</View>;
 }
@@ -230,11 +262,23 @@ function AutomationEditor({
   templateId,
   describe,
   stored,
-}: AutomationEditorScreenProps & { stored: AggregatedAutomation | null }): ReactElement {
+  draftKey,
+  onDiscard,
+}: AutomationEditorScreenProps & {
+  stored: AggregatedAutomation | null;
+  draftKey: string;
+  onDiscard: () => void;
+}): ReactElement {
   const { t } = useTranslation();
   const compact = useIsCompactFormFactor();
-  const { snapshot, updatePreferences } = useEditorSnapshot({ mode, serverId, templateId, stored });
-  const { model, state, providers } = useAutomationEditorModel(snapshot);
+  const { snapshot, updatePreferences } = useEditorSnapshot({
+    mode,
+    serverId,
+    templateId,
+    stored,
+    draftKey,
+  });
+  const { model, state, providers } = useAutomationEditorModel(snapshot, draftKey);
   const automation = mode === "edit" ? stored : null;
   const mutationServerId = state.selectedServerId ?? "";
   const mutations = useAutomationMutations({ serverId: mutationServerId });
@@ -260,13 +304,10 @@ function AutomationEditor({
     updatePreferences,
   });
 
-  // Leaving with unsaved changes asks first.
-  const dirtyRef = useUnsavedChangesGuard(state.dirty);
-
   const actions = useEditorActions({
     automation,
     mutations,
-    dirtyRef,
+    draftKey,
     onRunStarted: runs.showStartedRun,
   });
   const {
@@ -281,10 +322,7 @@ function AutomationEditor({
   const closeDescribe = useCallback(() => setDescribeOpen(false), []);
   // A described automation drafts in the background and shows up in the list.
   const router = useRouter();
-  const leaveForList = useCallback(() => {
-    dirtyRef.current = false;
-    router.replace(buildAutomationsRoute());
-  }, [dirtyRef, router]);
+  const leaveForList = useCallback(() => router.replace(buildAutomationsRoute()), [router]);
   const openSettings = useCallback(() => {
     model.select({ kind: "none" });
     setSettingsOpen(true);
@@ -292,7 +330,7 @@ function AutomationEditor({
 
   // Canvas
   const nodeText = useNodeText(state);
-  const { handleAddAfter, handleInsert, handleConnect, linkRefusal, handlePalette } =
+  const { handleAddAfter, handleInsert, handleConnect, linkRefusal, handlePalette, revealRequest } =
     useCanvasHandlers(model, state);
 
   const showDescribe = mode === "create" && (describeOpen || state.steps.length === 0);
@@ -316,6 +354,16 @@ function AutomationEditor({
     () => layoutAutomationGraph({ steps: state.steps, edges: state.edges, direction }),
     [direction, state.edges, state.steps],
   );
+
+  const reveal = useMemo<CanvasReveal | null>(() => {
+    const box = revealRequest ? layout.nodes.get(revealRequest.id) : undefined;
+    return revealRequest && box
+      ? {
+          key: revealRequest.key,
+          box: { x: box.x, y: box.y, width: NODE_WIDTH, height: NODE_HEIGHT },
+        }
+      : null;
+  }, [layout.nodes, revealRequest]);
 
   return (
     <>
@@ -347,6 +395,14 @@ function AutomationEditor({
         approving={mutations.isApproving}
         runningNow={mutations.isRunningNow}
       />
+      {state.dirty ? (
+        <UnsavedBar
+          canSave={state.canSave}
+          saving={saving}
+          onSave={handleSave}
+          onDiscard={onDiscard}
+        />
+      ) : null}
       <EditorNotices message={state.submitError ?? actionError ?? linkRefusal} />
       <View style={styles.body}>
         <View style={styles.canvasArea}>
@@ -355,7 +411,8 @@ function AutomationEditor({
             width={layout.width}
             height={layout.height}
             topInset={paletteInset}
-            fitKey={`${layout.width}x${layout.height}:${direction}`}
+            fitKey={direction}
+            reveal={reveal}
           >
             <AutomationEditorCanvas
               state={state}
@@ -375,7 +432,6 @@ function AutomationEditor({
             <DescribePanel
               state={state}
               onClose={state.steps.length > 0 ? closeDescribe : null}
-              dirty={state.dirty}
               onStarted={leaveForList}
             />
           ) : null}
@@ -405,6 +461,42 @@ function useBlockedReason(state: AutomationEditorState): string | null {
     : null;
 }
 
+function UnsavedBar({
+  canSave,
+  saving,
+  onSave,
+  onDiscard,
+}: {
+  canSave: boolean;
+  saving: boolean;
+  onSave: () => void;
+  onDiscard: () => void;
+}): ReactElement {
+  const { t } = useTranslation();
+  return (
+    <View style={styles.unsavedBar} testID="automation-unsaved-bar">
+      <Text style={styles.unsavedText} numberOfLines={1}>
+        {t("automationEditor.status.unsaved")}
+      </Text>
+      <View style={styles.unsavedActions}>
+        <Button size="sm" variant="ghost" onPress={onDiscard} testID="automation-unsaved-discard">
+          {t("automationEditor.actions.discard")}
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          onPress={onSave}
+          loading={saving}
+          disabled={!canSave}
+          testID="automation-unsaved-save"
+        >
+          {t("automationEditor.actions.save")}
+        </Button>
+      </View>
+    </View>
+  );
+}
+
 function EditorNotices({ message }: { message: string | null }): ReactElement | null {
   if (!message) return null;
   return (
@@ -419,11 +511,13 @@ function useEditorSnapshot({
   serverId,
   templateId,
   stored,
+  draftKey,
 }: {
   mode: AutomationEditorScreenProps["mode"];
   serverId: string | undefined;
   templateId: string | undefined;
   stored: AggregatedAutomation | null;
+  draftKey: string;
 }) {
   const { t } = useTranslation();
   const { projects } = useProjects();
@@ -446,11 +540,17 @@ function useEditorSnapshot({
           limits: stored.limits,
         }
       : undefined;
-    return { template, source, serverId: stored?.serverId ?? serverId ?? null };
+    return {
+      template,
+      source,
+      serverId: stored?.serverId ?? serverId ?? null,
+      draft: readAutomationEditorDraft(draftKey) ?? undefined,
+    };
   });
   const snapshot = useMemo<AutomationEditorSnapshot>(
     () => ({
       mode,
+      draft: initial.draft,
       source: initial.source,
       template: initial.template,
       hosts,
@@ -514,17 +614,22 @@ function useEditorSave({
 function useCanvasHandlers(model: AutomationEditorModel, state: AutomationEditorState) {
   const { t } = useTranslation();
   const selectedStepId = state.selection.kind === "step" ? state.selection.id : null;
+  // The step just added, so the canvas can pan it into view.
+  const [revealRequest, setRevealRequest] = useState<{ key: number; id: string } | null>(null);
+  const requestReveal = useCallback((id: string | null) => {
+    if (id) setRevealRequest((current) => ({ key: (current?.key ?? 0) + 1, id }));
+  }, []);
   const handleAddAfter = useCallback(
     (kind: EditorStep["kind"], from: { nodeId: string; branch?: AutomationEdgeBranch }) => {
-      model.addStep(kind, from);
+      requestReveal(model.addStep(kind, from));
     },
-    [model],
+    [model, requestReveal],
   );
   const handleInsert = useCallback(
     (kind: EditorStep["kind"], edge: AutomationEdge) => {
-      model.insertStep(kind, edge);
+      requestReveal(model.insertStep(kind, edge));
     },
-    [model],
+    [model, requestReveal],
   );
   const [linkRefusal, setLinkRefusal] = useState<string | null>(null);
   const handleConnect = useCallback(
@@ -542,20 +647,22 @@ function useCanvasHandlers(model: AutomationEditorModel, state: AutomationEditor
   const handlePalette = useCallback(
     (kind: EditorStep["kind"]) => {
       const selected = state.steps.find((step) => step.id === selectedStepId);
-      model.addStep(
-        kind,
-        selected
-          ? {
-              nodeId: selected.id,
-              ...(selected.kind === "condition" ? { branch: "true" as const } : {}),
-            }
-          : { nodeId: TRIGGER_NODE_ID },
+      requestReveal(
+        model.addStep(
+          kind,
+          selected
+            ? {
+                nodeId: selected.id,
+                ...(selected.kind === "condition" ? { branch: "true" as const } : {}),
+              }
+            : { nodeId: TRIGGER_NODE_ID },
+        ),
       );
     },
-    [model, selectedStepId, state.steps],
+    [model, requestReveal, selectedStepId, state.steps],
   );
 
-  return { handleAddAfter, handleInsert, handleConnect, linkRefusal, handlePalette };
+  return { handleAddAfter, handleInsert, handleConnect, linkRefusal, handlePalette, revealRequest };
 }
 
 function useEditorRuns({
@@ -612,44 +719,15 @@ function useEditorRuns({
   return { runId, setRunId, showRun, setShowRun, runList, runView, runStatuses, showStartedRun };
 }
 
-function useUnsavedChangesGuard(dirty: boolean) {
-  const { t } = useTranslation();
-  const navigation = useNavigation();
-  const dirtyRef = useRef(dirty);
-  dirtyRef.current = dirty;
-  useEffect(() => {
-    return navigation.addListener("beforeRemove", (event) => {
-      // Leaving through the sidebar keeps this screen in the stack, unfocused, and a later stack
-      // change removes it. A prompt then would sit over an unrelated screen, so only a screen the
-      // person is looking at asks; an unfocused one is discarded.
-      if (!dirtyRef.current || !navigation.isFocused()) return;
-      event.preventDefault();
-      void (async () => {
-        const confirmed = await confirmDialog({
-          title: t("automationEditor.confirm.discardTitle"),
-          message: t("automationEditor.confirm.discardMessage"),
-          confirmLabel: t("automationEditor.confirm.discard"),
-          destructive: true,
-        });
-        if (confirmed) {
-          dirtyRef.current = false;
-          navigation.dispatch(event.data.action);
-        }
-      })();
-    });
-  }, [navigation, t]);
-  return dirtyRef;
-}
-
 function useEditorActions({
   automation,
   mutations,
-  dirtyRef,
+  draftKey,
   onRunStarted,
 }: {
   automation: AggregatedAutomation | null;
   mutations: UseAutomationMutationsResult;
-  dirtyRef: { current: boolean };
+  draftKey: string;
   onRunStarted: (run: AutomationRun) => void;
 }) {
   const { t } = useTranslation();
@@ -696,11 +774,11 @@ function useEditorActions({
       if (!confirmed) return;
       await runAction(async () => {
         await mutations.deleteAutomation(automation.id);
-        dirtyRef.current = false;
+        clearAutomationEditorDraft(draftKey);
         router.replace(buildAutomationsRoute());
       });
     })();
-  }, [automation, dirtyRef, mutations, router, runAction, t]);
+  }, [automation, draftKey, mutations, router, runAction, t]);
   return {
     actionError,
     handleApprove,
@@ -842,11 +920,6 @@ function EditorToolbar(props: {
           label={statusLabel}
           variant={automation ? STATUS_VARIANT[automation.status] : "muted"}
         />
-        {state.dirty ? (
-          <Text style={styles.unsaved} numberOfLines={1}>
-            {t("automationEditor.status.unsaved")}
-          </Text>
-        ) : null}
       </View>
       <View style={styles.toolbarEnd}>
         {automation ? (
@@ -1171,12 +1244,10 @@ function Palette({
 
 function DescribePanel({
   state,
-  dirty,
   onClose,
   onStarted,
 }: {
   state: AutomationEditorState;
-  dirty: boolean;
   onClose: (() => void) | null;
   onStarted: () => void;
 }): ReactElement {
@@ -1190,18 +1261,7 @@ function DescribePanel({
   const canStart = Boolean(cwd && serverId && description.trim()) && !starting;
   const handleStart = useCallback(async () => {
     if (!canStart || !serverId) return;
-    // Describing leaves the editor, and the graph with it.
-    if (
-      dirty &&
-      !(await confirmDialog({
-        title: t("automationEditor.confirm.discardTitle"),
-        message: t("automationEditor.confirm.discardMessage"),
-        confirmLabel: t("automationEditor.confirm.discard"),
-        destructive: true,
-      }))
-    ) {
-      return;
-    }
+    // The canvas keeps its unsaved graph as a draft, so describing leaves nothing behind.
     setError(null);
     setStarting(true);
     try {
@@ -1211,7 +1271,7 @@ function DescribePanel({
       setError(toErrorMessage(startError));
       setStarting(false);
     }
-  }, [canStart, cwd, description, dirty, drafts, onStarted, serverId, t]);
+  }, [canStart, cwd, description, drafts, onStarted, serverId]);
   const handlePress = useCallback(() => void handleStart(), [handleStart]);
   return (
     <View style={styles.describe} testID="automation-describe-panel">
@@ -1322,9 +1382,26 @@ const styles = StyleSheet.create((theme) => ({
   placeholder: {
     color: theme.colors.foregroundMuted,
   },
-  unsaved: {
+  unsavedBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: theme.spacing[2],
+    paddingHorizontal: theme.spacing[4],
+    paddingVertical: theme.spacing[1],
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+    backgroundColor: theme.colors.surface1,
+  },
+  unsavedText: {
+    flexShrink: 1,
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
+  },
+  unsavedActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
   },
   blocked: {
     flexShrink: 1,

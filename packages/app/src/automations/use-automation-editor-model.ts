@@ -1,6 +1,10 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useProvidersSnapshot } from "@/hooks/use-providers-snapshot";
 import {
+  claimAutomationEditorDraft,
+  writeAutomationEditorDraft,
+} from "@/stores/automation-editor-draft-store";
+import {
   openAutomationEditor,
   type AutomationEditorModel,
   type AutomationEditorSnapshot,
@@ -10,12 +14,24 @@ import {
 /** Opens the editor model once per mount and keeps its host, project and preference inputs live. */
 export type EditorProvidersSnapshot = ReturnType<typeof useProvidersSnapshot>;
 
-export function useAutomationEditorModel(snapshot: AutomationEditorSnapshot): {
+export function useAutomationEditorModel(
+  snapshot: AutomationEditorSnapshot,
+  draftKey: string,
+): {
   model: AutomationEditorModel;
   state: AutomationEditorState;
   providers: EditorProvidersSnapshot;
 } {
   const [model] = useState(() => openAutomationEditor(snapshot));
+  const [owner] = useState(() => Symbol(draftKey));
+
+  // Unsaved edits outlive this editor; a clean editor leaves no draft behind.
+  useEffect(() => {
+    claimAutomationEditorDraft(draftKey, owner);
+    return model.subscribe(() => {
+      writeAutomationEditorDraft(draftKey, owner, model.getState().dirty ? model.getDraft() : null);
+    });
+  }, [draftKey, model, owner]);
 
   useEffect(() => {
     return () => {

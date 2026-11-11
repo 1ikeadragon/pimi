@@ -3265,11 +3265,9 @@ export const ko: TranslationResources = {
       describe: "설명으로 만들기",
       delete: "자동화 삭제",
       settings: "자동화 설정",
+      discard: "버리기",
     },
     confirm: {
-      discardTitle: "변경 사항을 버릴까요?",
-      discardMessage: "이 자동화의 저장되지 않은 변경 사항이 사라집니다.",
-      discard: "버리기",
       deleteTitle: "자동화를 삭제할까요?",
       deleteMessage: '"{{name}}"과(와) 실행 기록이 삭제됩니다.',
       delete: "삭제",

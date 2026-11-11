@@ -3314,11 +3314,9 @@ export const es: TranslationResources = {
       describe: "Descríbela",
       delete: "Eliminar automatización",
       settings: "Ajustes de la automatización",
+      discard: "Descartar",
     },
     confirm: {
-      discardTitle: "¿Descartar cambios?",
-      discardMessage: "Se perderán los cambios sin guardar de esta automatización.",
-      discard: "Descartar",
       deleteTitle: "¿Eliminar automatización?",
       deleteMessage: 'Se eliminarán "{{name}}" y su historial de ejecuciones.',
       delete: "Eliminar",

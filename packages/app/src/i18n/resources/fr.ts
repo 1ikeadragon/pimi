@@ -3326,11 +3326,9 @@ export const fr: TranslationResources = {
       describe: "La décrire",
       delete: "Supprimer l'automatisation",
       settings: "Réglages de l'automatisation",
+      discard: "Abandonner",
     },
     confirm: {
-      discardTitle: "Abandonner les modifications ?",
-      discardMessage: "Les modifications non enregistrées de cette automatisation seront perdues.",
-      discard: "Abandonner",
       deleteTitle: "Supprimer l'automatisation ?",
       deleteMessage: "« {{name}} » et son historique d'exécutions seront supprimés.",
       delete: "Supprimer",

@@ -3294,11 +3294,9 @@ export const ptBR: TranslationResources = {
       describe: "Descrever",
       delete: "Excluir automação",
       settings: "Configurações da automação",
+      discard: "Descartar",
     },
     confirm: {
-      discardTitle: "Descartar alterações?",
-      discardMessage: "As alterações não salvas desta automação serão perdidas.",
-      discard: "Descartar",
       deleteTitle: "Excluir automação?",
       deleteMessage: '"{{name}}" e o histórico de execuções serão excluídos.',
       delete: "Excluir",

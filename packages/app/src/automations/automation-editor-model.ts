@@ -125,8 +125,27 @@ export interface EditorProblem {
   cronError?: string;
 }
 
+/** The user-editable part of the editor, kept across the editor unmounting. */
+export interface AutomationEditorDraft {
+  name: string;
+  triggerKind: EditorTriggerKind;
+  cron: CronCadence;
+  intervalMs: number;
+  prRepo: string;
+  prEvents: PullRequestEvent[];
+  steps: EditorStep[];
+  edges: AutomationEdge[];
+  maxRuns: string;
+  selectedServerId: string | null;
+  workingDir: string;
+  projectDisplay: AutomationEditorDisplay | null;
+  defaults: EditorDefaults;
+}
+
 export interface AutomationEditorSnapshot {
   mode: "create" | "edit";
+  /** Unsaved edits to reopen on, instead of `source`/`template`. The editor opens dirty. */
+  draft?: AutomationEditorDraft;
   /**
    * What the editor opens on: the stored automation when editing; a template, a duplicate or
    * nothing when creating.
@@ -188,6 +207,8 @@ export type ConnectRefusal = "not_found" | "self" | "branch_required" | "duplica
 
 export interface AutomationEditorModel {
   getState: () => AutomationEditorState;
+  /** The editable content as it stands now. */
+  getDraft: () => AutomationEditorDraft;
   subscribe: (listener: () => void) => () => void;
   close: () => void;
   applyHosts: (hosts: readonly AutomationEditorHost[]) => void;
@@ -760,30 +781,66 @@ function seedProjectDisplay(
   return null;
 }
 
+function seedContent(
+  snapshot: AutomationEditorSnapshot,
+  seededDefaults: EditorDefaults,
+): Pick<
+  AutomationEditorState,
+  | "name"
+  | "triggerKind"
+  | "cron"
+  | "intervalMs"
+  | "prRepo"
+  | "prEvents"
+  | "steps"
+  | "edges"
+  | "maxRuns"
+> {
+  const { draft } = snapshot;
+  if (draft) {
+    return {
+      name: draft.name,
+      triggerKind: draft.triggerKind,
+      cron: draft.cron,
+      intervalMs: draft.intervalMs,
+      prRepo: draft.prRepo,
+      prEvents: [...draft.prEvents],
+      steps: draft.steps,
+      edges: draft.edges,
+      maxRuns: draft.maxRuns,
+    };
+  }
+  const maxRuns = snapshot.source?.limits?.maxRuns;
+  return {
+    name: snapshot.source?.name ?? snapshot.template?.name ?? "",
+    ...seedTrigger(snapshot.source?.trigger, snapshot.template, snapshot.timezone),
+    ...seedSteps(snapshot, seededDefaults),
+    maxRuns: maxRuns ? String(maxRuns) : "",
+  };
+}
+
 /** The editor's state before host providers resolve, built from what it was opened with. */
 function seedEditorState(
   snapshot: AutomationEditorSnapshot,
   seededDefaults: EditorDefaults,
   projectTargets: AutomationEditorSnapshot["projectTargets"],
 ): AutomationEditorState {
-  const selectedServerId = resolveInitialServerId(snapshot);
-  const workingDir = snapshot.source?.project.cwd ?? "";
+  const draft = snapshot.draft;
+  const selectedServerId = draft ? draft.selectedServerId : resolveInitialServerId(snapshot);
+  const workingDir = draft ? draft.workingDir : (snapshot.source?.project.cwd ?? "");
   const initialTarget = findProjectTarget(projectTargets, selectedServerId, workingDir);
   const providerSnapshotRequest =
     selectedServerId && workingDir.trim() ? { serverId: selectedServerId, cwd: workingDir } : null;
-  const maxRuns = snapshot.source?.limits?.maxRuns;
+  const content = seedContent(snapshot, seededDefaults);
   return {
     mode: snapshot.mode,
-    name: snapshot.source?.name ?? snapshot.template?.name ?? "",
-    ...seedTrigger(snapshot.source?.trigger, snapshot.template, snapshot.timezone),
-    ...seedSteps(snapshot, seededDefaults),
+    ...content,
     selection: { kind: "none" },
-    maxRuns: maxRuns ? String(maxRuns) : "",
     hosts: [...snapshot.hosts],
     selectedServerId,
     projectOptions: [],
     selectedProjectOptionId: initialTarget?.optionId ?? "",
-    projectDisplay: seedProjectDisplay(initialTarget, workingDir),
+    projectDisplay: draft?.projectDisplay ?? seedProjectDisplay(initialTarget, workingDir),
     workingDir,
     projectIsGit: null,
     defaults: seededDefaults,
@@ -801,6 +858,24 @@ function seedEditorState(
   };
 }
 
+function draftOf(state: AutomationEditorState): AutomationEditorDraft {
+  return {
+    name: state.name,
+    triggerKind: state.triggerKind,
+    cron: state.cron,
+    intervalMs: state.intervalMs,
+    prRepo: state.prRepo,
+    prEvents: state.prEvents,
+    steps: state.steps,
+    edges: state.edges,
+    maxRuns: state.maxRuns,
+    selectedServerId: state.selectedServerId,
+    workingDir: state.workingDir,
+    projectDisplay: state.projectDisplay,
+    defaults: state.defaults,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // The model
 // ---------------------------------------------------------------------------
@@ -813,10 +888,10 @@ export function openAutomationEditor(snapshot: AutomationEditorSnapshot): Automa
   let preferences = snapshot.preferences ?? null;
   let userModified: UserModifiedFields = { ...INITIAL_USER_MODIFIED };
   // Edits since the last save; the editor is dirty while this is above the saved mark.
-  let edits = 0;
+  let edits = snapshot.draft ? 1 : 0;
   let savedEdits = 0;
   const thinkingDrafts = new Map<string, string>();
-  const seededDefaults = seedDefaults(snapshot.source);
+  const seededDefaults = snapshot.draft?.defaults ?? seedDefaults(snapshot.source);
   const initialValues = seedInitialValues(seededDefaults);
   const timezone = snapshot.timezone;
 
@@ -856,7 +931,10 @@ export function openAutomationEditor(snapshot: AutomationEditorSnapshot): Automa
 
   /** A user edit: counts toward unsaved changes and clears a stale save error. */
   function edit(next: AutomationEditorState): void {
-    edits += 1;
+    // An edit that leaves the content as it was (the same text set again) is not a change.
+    if (JSON.stringify(draftOf(next)) !== JSON.stringify(draftOf(state))) {
+      edits += 1;
+    }
     publish({ ...next, submitError: null });
   }
 
@@ -964,6 +1042,7 @@ export function openAutomationEditor(snapshot: AutomationEditorSnapshot): Automa
 
   return {
     getState: () => state,
+    getDraft: () => draftOf(state),
     subscribe(listener) {
       if (closed) {
         return () => {};
