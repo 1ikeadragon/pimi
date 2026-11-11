@@ -4,6 +4,7 @@
 
 - Node.js (see `.tool-versions` for exact version)
 - npm workspaces (comes with Node)
+- Dependencies installed with `npm ci` and `npm run setup` (see [Installing dependencies](#installing-dependencies))
 
 ## Running the dev server
 
@@ -511,6 +512,47 @@ For tighter loops, you can rebuild a single workspace:
 - Changed `packages/server/src/*`, `packages/cli/src/*`, `packages/relay/src/*`, or `packages/highlight/src/*`: `npm run build:server`.
 - Changed app build dependencies: `npm run build:app-deps`.
 
+## Installing dependencies
+
+From the repository root, run:
+
+```bash
+npm ci
+npm run setup
+```
+
+The root `package-lock.json` locks all workspace dependencies. Only examples installed outside
+the workspaces keep their own lockfiles.
+
+`.npmrc` sets `ignore-scripts=true`, so `npm ci` and `npm install` run no lifecycle scripts,
+including the root package's own. `npm run setup` does the install-time work instead: it rebuilds
+the allowlisted dependencies with their scripts, applies [dependency patches](#dependency-patches),
+and restores the native Markdown grammar sources. Run it after every `npm ci` or `npm install`.
+
+The allowlist is the package names after `npm rebuild --ignore-scripts=false` in the root `setup`
+script. Add a package only when its script does work Pimi needs and nothing else does:
+
+| Package                          | Script                                        | In setup                                                       |
+| -------------------------------- | --------------------------------------------- | -------------------------------------------------------------- |
+| `@shopify/react-native-skia`     | Copies prebuilt Skia libraries into `libs/`   | Yes. Android and iOS builds link them.                         |
+| `node-pty`                       | Builds from source when no prebuild matches   | No. It ships prebuilds for macOS arm64 and Windows x64.        |
+| `esbuild`                        | Swaps its JS launcher for the platform binary | No. The launcher finds the binary in the `@esbuild/*` package. |
+| `fsevents`                       | Implicit `node-gyp rebuild`                   | No. The package ships `fsevents.node`.                         |
+| `msgpackr-extract`               | Picks a prebuilt binary                       | No. It loads the `@msgpackr-extract/*` prebuild at runtime.    |
+| `react-native-enriched-markdown` | Downloads native Markdown assets              | No. Root `enriched-markdown` config turns both downloads off.  |
+| `electron-winstaller`            | Selects a 7-Zip binary for Squirrel           | No. Windows releases use NSIS.                                 |
+
+Electron 44 has no install script. It downloads its binary on first launch and checks it against
+the `checksums.json` in the package.
+
+`ignore-scripts` also skips `pre*` and `post*` scripts around `npm run <name>`. Do not add them;
+chain the step inside the script, as `packages/protocol` does with `generate:validators`.
+
+Every `package.json` pins exact versions, and `save-exact=true` keeps new dependencies exact.
+Peer dependency ranges and `@pimi/*` workspace links, which `npm run version:sync-internal` owns,
+are the exceptions. `min-release-age=10` stops `npm install` from resolving a version published
+less than 10 days ago.
+
 ## Dependency patches
 
 `npm run setup` applies `patches/*.patch` through `scripts/apply-patches.mjs`. Run it after
@@ -526,10 +568,6 @@ patch every build the consumers use: Metro resolves the `react-native` field of 
 
 ## Dependency overrides and workspace tooling
 
-Run `npm ci` at the repository root. The root `package-lock.json` locks all
-workspace dependencies. Only examples installed outside the workspaces keep
-their own lockfiles.
-
 Root `package.json` `overrides` pin one Expo SDK across the tree (`expo`, `expo-router`,
 `react-native`, …). npm does not apply those overrides to packages it places under a
 workspace's own `node_modules`. When `expo-module-scripts` was declared in
@@ -539,9 +577,28 @@ Declare tooling that peer-depends on `expo` or `react-native` in the root `devDe
 where the overrides apply; workspace scripts still find the binary through the root
 `node_modules/.bin`.
 
-## Dependency signature audit
+## Dependency checks
 
-The `quality` CI job runs `npm audit signatures`. It verifies every lockfile package's registry
+The `validate` job of the [release workflow](../.github/workflows/pimi-release.yml) runs these
+before any installer builds. Run them locally before you push a release tag, passing the previous
+release tag to `check-release-age.mjs`.
+
+| Command                                    | Fails when                                                                                        |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `node scripts/check-lockfile.mjs`          | A package does not resolve to its `https://registry.npmjs.org/` tarball with a `sha512` integrity |
+| `node scripts/check-release-age.mjs [ref]` | A version added since `ref` (default: the whole lockfile) is less than 10 days old                |
+| `node scripts/check-malware-feed.mjs`      | A locked version is in Aikido's malware feed                                                      |
+| `npm audit signatures --min-release-age=0` | An installed package's registry signature or provenance attestation does not verify               |
+
+`check-lockfile.mjs` and `check-malware-feed.mjs` fail closed: an unreadable input, a suspiciously
+small lockfile, or a check that cannot catch a planted bad entry fails the run.
+
+`npm audit signatures` needs `npm ci` first and audits only the packages installed for the current
+platform. Pass `--min-release-age=0`: with the `.npmrc` age limit, npm hides younger versions from
+the documents it reads and fails with `ETARGET` on any locked version under 10 days old.
+`check-release-age.mjs` owns the age limit.
+
+`npm audit signatures` verifies every lockfile package's registry
 signature and, for packages published with provenance, fetches
 `/-/npm/v1/attestations/<name>@<version>` from the registry. Cloudflare caches that document
 for a year. An edge that cached it in the seconds before the registry attached the publish

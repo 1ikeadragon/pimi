@@ -24,7 +24,7 @@ Set `APPLE_TEAM_ID` as a repository Actions variable using the 10-character Team
 
 1. Bump the root version, run `npm run version:sync-internal`, and refresh `package-lock.json` with `npm install --package-lock-only --ignore-scripts`.
 2. Add a dated `## X.Y.Z - YYYY-MM-DD` entry to `CHANGELOG.md`. Describe changes users will notice.
-3. Run `npm run typecheck` and smoke-test the changed behavior. Commit and push to `main`.
+3. Run `npm run typecheck` and the [dependency checks](development.md#dependency-checks), and smoke-test the changed behavior. Commit and push to `main`. The release workflow runs the same checks before it builds and stops on the first failure.
 4. Create and push the tag at the tested commit. Watch the selected build jobs and verify the [published release](https://github.com/1ikeadragon/pimi/releases/latest). When shipping Windows, update its website button to the new Windows installer.
 
 Compare the downloads against `SHA256SUMS.txt` from the release. For the first signed build, check both a fresh macOS install and an in-app update from the previous release on a separate Mac.
