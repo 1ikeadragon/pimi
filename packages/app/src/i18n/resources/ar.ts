@@ -261,6 +261,16 @@ export const ar: TranslationResources = {
     scrollToBottom: "قم بالتمرير إلى الأسفل",
     historyLoadFailed: "تعذر تحميل سجل الوكيل",
     messageCapped: "تم اقتطاع هذه الرسالة ({{bytes}} بايت).",
+    working: {
+      stopping: "جارٍ الإيقاف",
+      waitingApproval: "في انتظار موافقتك",
+      starting: "جارٍ تشغيل {{provider}}…",
+      sending: "جارٍ الإرسال",
+      thinking: "يفكر",
+      writing: "يكتب",
+      compacting: "جارٍ الضغط",
+      working: "يعمل",
+    },
     permission: {
       rejectedPlan: "خطة مرفوضة",
       approvedPlan: "خطة معتمدة",

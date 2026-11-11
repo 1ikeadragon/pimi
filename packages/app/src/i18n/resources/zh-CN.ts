@@ -260,6 +260,16 @@ export const zhCN: TranslationResources = {
     scrollToBottom: "滚动到底部",
     historyLoadFailed: "无法加载智能体历史记录",
     messageCapped: "此消息已被截断（{{bytes}} 字节）。",
+    working: {
+      stopping: "正在停止",
+      waitingApproval: "等待你的批准",
+      starting: "正在启动 {{provider}}…",
+      sending: "正在发送",
+      thinking: "思考中",
+      writing: "撰写中",
+      compacting: "正在压缩",
+      working: "处理中",
+    },
     permission: {
       rejectedPlan: "已拒绝的计划",
       approvedPlan: "已批准的计划",
