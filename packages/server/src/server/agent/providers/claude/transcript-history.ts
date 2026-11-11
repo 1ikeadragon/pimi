@@ -15,6 +15,7 @@ import {
 
 interface TranscriptEntry extends ClaudeReplayEntry {
   isSidechain?: unknown;
+  isMeta?: unknown;
 }
 
 interface RecordLocation {
@@ -201,34 +202,78 @@ function isNoiseRecord(line: Buffer): boolean {
   return line.subarray(0, NOISE_RECORD_PREFIX.length).equals(NOISE_RECORD_PREFIX);
 }
 
+/** Ids of the content blocks of one type: `tool_use` blocks carry `id`, results `tool_use_id`. */
+function toolBlockIds(entry: TranscriptEntry, type: "tool_use" | "tool_result"): string[] {
+  const content = entry.message?.content;
+  if (!Array.isArray(content)) return [];
+  const ids: string[] = [];
+  for (const block of content as { type?: unknown; id?: unknown; tool_use_id?: unknown }[]) {
+    if (block?.type !== type) continue;
+    const id = type === "tool_use" ? block.id : block.tool_use_id;
+    if (typeof id === "string") ids.push(id);
+  }
+  return ids;
+}
+
+/**
+ * Feeds one record of a backwards scan and says whether a window may start at it. Tracks the tool
+ * results seen so far whose tool_use lies further back; a window starting while any is open would
+ * hold a result without its call.
+ */
+function isTurnBoundary(entry: TranscriptEntry, unmatchedResults: Set<string>): boolean {
+  if (entry.type === "assistant") {
+    for (const id of toolBlockIds(entry, "tool_use")) unmatchedResults.delete(id);
+    return false;
+  }
+  if (entry.type !== "user") return false;
+  if (isToolResult(entry)) {
+    for (const id of toolBlockIds(entry, "tool_result")) unmatchedResults.add(id);
+    return false;
+  }
+  return entry.isMeta !== true && unmatchedResults.size === 0;
+}
+
 /**
  * Read the newest `prompts` user turns that end before `endOffset` (default end of file) by
  * scanning the file backwards, so the cost follows the window and not the transcript size.
- * Returns null when the window would need more than WINDOW_MAX_SCAN_BYTES.
+ * A turn boundary is a real user prompt (not a tool result, not an `isMeta` injection) with no
+ * tool_use before it whose result lands after it. When the scan limit is reached first, returns
+ * null, or with `partial` the turns found so far (null when none were found).
  */
 export async function readClaudeTranscriptWindow(
   historyPath: string,
-  options: { prompts: number; endOffset?: number },
+  options: { prompts: number; endOffset?: number; partial?: boolean },
 ): Promise<ClaudeTranscriptWindow | null> {
   const fd = await fs.open(historyPath, "r");
   try {
     const stat = await fd.stat();
     if (stat.isDirectory()) return null;
     const end = Math.min(options.endOffset ?? stat.size, stat.size);
-    const found: TranscriptEntry[] = [];
+    let found: TranscriptEntry[] = [];
     let prompts = 0;
     let startOffset = 0;
-    for await (const { line, offset } of reverseLines(fd, end, WINDOW_MAX_SCAN_BYTES)) {
-      if (line.length === 0 || isNoiseRecord(line)) continue;
-      const entry = parseRecord(line.toString("utf8"));
-      if (!entry || entry.isSidechain === true) continue;
-      found.push(entry);
-      if (entry.type !== "user" || isToolResult(entry)) continue;
-      prompts += 1;
-      if (prompts >= options.prompts) {
-        startOffset = offset;
-        break;
+    // Tool results seen in the window whose tool_use has not been reached yet.
+    const unmatchedResults = new Set<string>();
+    let oldestBoundary: { length: number; offset: number } | null = null;
+    try {
+      for await (const { line, offset } of reverseLines(fd, end, WINDOW_MAX_SCAN_BYTES)) {
+        if (line.length === 0 || isNoiseRecord(line)) continue;
+        const entry = parseRecord(line.toString("utf8"));
+        if (!entry || entry.isSidechain === true) continue;
+        found.push(entry);
+        if (!isTurnBoundary(entry, unmatchedResults)) continue;
+        prompts += 1;
+        oldestBoundary = { length: found.length, offset };
+        if (prompts >= options.prompts) {
+          startOffset = offset;
+          break;
+        }
       }
+    } catch (error) {
+      if (!(error instanceof WindowTooLargeError)) throw error;
+      if (!options.partial || !oldestBoundary) return null;
+      found = found.slice(0, oldestBoundary.length);
+      startOffset = oldestBoundary.offset;
     }
     found.reverse();
     return {
@@ -239,9 +284,6 @@ export async function readClaudeTranscriptWindow(
       ),
       startOffset,
     };
-  } catch (error) {
-    if (error instanceof WindowTooLargeError) return null;
-    throw error;
   } finally {
     await fd.close();
   }
