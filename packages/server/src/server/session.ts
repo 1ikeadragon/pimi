@@ -282,7 +282,6 @@ import {
   type WorkspaceArchiveUndoInput,
 } from "./workspace-archive-operations.js";
 import { WorkspaceSetupRuntime } from "./workspace-setup-runtime.js";
-import { SessionAuthorization, type DaemonPermission } from "./authorization/index.js";
 
 function resolveWorkspaceSetupRuntime(
   runtime: WorkspaceSetupRuntime | undefined,
@@ -443,7 +442,6 @@ export interface SessionOptions {
   routed?: boolean;
   browserToolsBroker?: BrowserToolsBroker | null;
   clientId: string;
-  permissions: readonly DaemonPermission[];
   onMessage: (msg: SessionOutboundMessage) => void;
   onMessageToSource?: (source: object, msg: SessionOutboundMessage) => void | Promise<void>;
   onBinaryMessage?: (frame: Uint8Array) => void;
@@ -590,22 +588,6 @@ export type SessionLifecycleIntent =
       keepTerminals: boolean;
     };
 
-function sessionRequestId(message: SessionInboundMessage): string | null {
-  if ("requestId" in message && typeof message.requestId === "string") {
-    return message.requestId;
-  }
-  if (
-    "payload" in message &&
-    typeof message.payload === "object" &&
-    message.payload !== null &&
-    "requestId" in message.payload &&
-    typeof message.payload.requestId === "string"
-  ) {
-    return message.payload.requestId;
-  }
-  return null;
-}
-
 type RegistryTransition = "created" | "unarchived" | "existing";
 
 interface ArchivedRecordSnapshot {
@@ -688,7 +670,6 @@ export class Session {
   }
   readonly delivery = new SessionDelivery(
     (source, message) => {
-      if (!this.authorization.allowsOutbound(message)) return;
       if (this.onMessageToSource) return this.onMessageToSource(source, message);
       this.onMessage(message);
     },
@@ -709,7 +690,6 @@ export class Session {
   );
   private readonly browserToolsBroker: SessionOptions["browserToolsBroker"];
   private readonly clientId: string;
-  private readonly authorization: SessionAuthorization;
   private readonly sessionId: string;
   private readonly onMessage: (msg: SessionOutboundMessage) => void;
   private readonly onMessageToSource:
@@ -816,7 +796,6 @@ export class Session {
   constructor(options: SessionOptions) {
     const {
       clientId,
-      permissions,
       onMessage,
       onMessageToSource,
       onBinaryMessage,
@@ -873,7 +852,6 @@ export class Session {
     } = options;
     this.browserToolsBroker = options.browserToolsBroker;
     this.clientId = clientId;
-    this.authorization = new SessionAuthorization(permissions);
 
     this.sessionId = uuidv4();
     this.hostSourceId = hostSource(options);
@@ -2048,21 +2026,6 @@ export class Session {
           },
           "agent.session.inbound",
         );
-      if (!this.authorization.allowsInbound(msg)) {
-        const requestId = sessionRequestId(msg);
-        if (requestId) {
-          this.emit({
-            type: "rpc_error",
-            payload: {
-              requestId,
-              requestType: msg.type,
-              error: `Session is not authorized for ${msg.type}`,
-              code: msg.type.startsWith("hosts.") ? "permission_denied" : "access_denied",
-            },
-          });
-        }
-        return;
-      }
       try {
         await this.dispatchInboundMessage(msg, source);
       } catch (error) {
@@ -2102,43 +2065,12 @@ export class Session {
     }
   }
 
-  public setPermissions(permissions: readonly DaemonPermission[]): void {
-    this.authorization.replacePermissions(permissions);
-    this.connectedHostSession?.revoke();
-    if (!this.authorization.allowsPermission("workspace.write")) {
-      void this.delivery
-        .releaseFamily("browser-host")
-        .catch((error) =>
-          this.sessionLogger.error({ err: error }, "Failed to release revoked browser hosting"),
-        );
-    }
-    // Binary plugin events skip the outbound permission check, so revocation ends the streams.
-    if (!this.authorization.allowsPermission("daemon.manage")) {
-      void this.delivery
-        .releaseFamily("plugin-rpc")
-        .catch((error) =>
-          this.sessionLogger.error(
-            { err: error },
-            "Failed to release revoked plugin subscriptions",
-          ),
-        );
-    }
-  }
-
-  public getPermissions(): DaemonPermission[] {
-    return this.authorization.listPermissions();
-  }
-
-  public allowsInbound(message: SessionInboundMessage): boolean {
-    return this.authorization.allowsInbound(message);
-  }
-
-  public allowsPermission(permission: DaemonPermission): boolean {
-    return this.authorization.allowsPermission(permission);
+  /** Closes routed host sessions opened before this session resumed on a new socket. */
+  public closeHostRoutes(): void {
+    this.connectedHostSession?.closeRoutes();
   }
 
   public publishToSource(source: object, message: SessionOutboundMessage): void {
-    if (!this.authorization.allowsOutbound(message)) return;
     this.emitSubscribedEvent(message, source);
   }
 
@@ -2453,8 +2385,6 @@ export class Session {
       this.emit(response);
       return;
     }
-    // The frame is the binary form of the response, so it needs the response's permission.
-    if (!this.authorization.allowsOutbound(response)) return;
     if (this.onBinaryMessage === null)
       throw new Error(
         `This connection cannot carry the binary output of plugin RPC ${request.pluginId}.${request.method}`,
@@ -2506,7 +2436,6 @@ export class Session {
           owner.emit(message);
           return;
         }
-        if (!this.authorization.allowsOutbound(message)) return;
         if (this.onBinaryMessage === null) {
           subscription.release();
           close("This connection cannot carry binary plugin events");
@@ -3151,7 +3080,7 @@ export class Session {
     }
     if (binaryFrame.kind === "plugin") {
       const frame = binaryFrame.frame;
-      // The binary form of plugin.rpc.invoke.request; it authorizes and replies like the JSON form.
+      // The binary form of plugin.rpc.invoke.request; it replies like the JSON form.
       if (frame.opcode !== PluginFrameOpcode.Input) return;
       await this.handleMessage(
         {
@@ -3163,9 +3092,6 @@ export class Session {
         },
         source,
       );
-      return;
-    }
-    if (!this.authorization.allowsPermission("workspace.write")) {
       return;
     }
     if (binaryFrame.kind === "file_transfer") {
@@ -4161,9 +4087,6 @@ export class Session {
         )
       : undefined;
     try {
-      if (request.agent && !this.authorization.allowsPermission("workspace.write")) {
-        throw new Error("Session is not authorized to create an agent");
-      }
       const agentInput = request.agent;
       const creation = await this.creationService.create(
         {
@@ -8634,7 +8557,6 @@ export class Session {
   private emitSubscribedEvent(message: SessionOutboundMessage, onlySource?: object): boolean {
     const event = sessionEventCategory(message);
     if (!event) return false;
-    if (!this.authorization.allowsOutbound(message)) return true;
     const notified = new Set<object>();
     for (const subscription of this.eventSubscriptions.values()) {
       if (
@@ -8649,7 +8571,6 @@ export class Session {
   }
 
   private emit(msg: SessionOutboundMessage): void {
-    if (!this.authorization.allowsOutbound(msg)) return;
     if (msg.type === "workspace_setup_progress") {
       const { workspaceId, subscriptionId: _subscriptionId, ...snapshot } = msg.payload;
       this.workspaceSetupObservation.publish(workspaceId, snapshot);
@@ -8838,8 +8759,7 @@ function createHostSession(options: SessionOptions, session: Session): Connected
   return new ConnectedHostSession(
     options.connectedHosts,
     session.delivery,
-    { sourceId: options.sourceId ?? "owner", manageSources: false },
-    () => session.getPermissions(),
+    hostSource(options),
     (message) => session.publish(message),
     () => session.isRouted(),
     session.getSessionId(),

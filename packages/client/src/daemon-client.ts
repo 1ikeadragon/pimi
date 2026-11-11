@@ -411,7 +411,6 @@ export interface DaemonClientConfig {
   /** Deliver compact bodies/hash references to a caller-owned snapshot cache.
    * The default keeps public SDK snapshot entries expanded. */
   providerSnapshots?: "wire";
-  sessionPermissions?: import("@pimi/protocol/messages").DaemonPermission[];
   url: string;
   clientId: string;
   /** Create one cache for the confirmed daemon identity, retained for this client lifetime. */
@@ -6576,9 +6575,6 @@ export class DaemonClient {
       const auth = this.helloAuth;
       this.sendJsonMessage("hello", "hello", {
         type: "hello",
-        ...(this.config.sessionPermissions
-          ? { sessionPermissions: this.config.sessionPermissions }
-          : {}),
         clientId: this.config.clientId,
         clientType: this.config.clientType ?? "cli",
         protocolVersion: 1,

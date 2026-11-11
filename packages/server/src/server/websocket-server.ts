@@ -117,7 +117,6 @@ import type { SecurityMode } from "@pimi/relay/e2ee";
 import type { BrowserToolsBroker } from "./browser-tools/broker.js";
 import type { DaemonRuntimeConfig } from "./session/daemon/daemon-session.js";
 import { DirectorySyncService } from "./directory-sync/index.js";
-import { OWNER_PERMISSIONS, type DaemonPermission } from "./authorization/index.js";
 import type { WorkspaceLabelService } from "./workspace-labels/index.js";
 import {
   APPLICATION_SOCKET_LEASE_CHECK_INTERVAL_MS,
@@ -140,16 +139,12 @@ export interface ExternalSocketMetadata {
   securityMode?: SecurityMode;
 }
 
-export interface SessionAdmission {
-  principalId: string;
-  permissions: readonly DaemonPermission[];
-}
-
 interface PendingConnection {
   connectionLogger: pino.Logger;
   helloTimeout: ReturnType<typeof setTimeout> | null;
   identity: WebSocketConnectionIdentity;
-  admission: SessionAdmission | null;
+  /** Set once a credential is verified, or up front for sockets the daemon itself authenticated. */
+  admitted: boolean;
   authenticating: boolean;
   lanAccessCode?: string;
 }
@@ -452,8 +447,6 @@ export interface WebSocketLike {
 
 interface SessionConnectionBase {
   session: Session;
-  principalId: string;
-  sessionKey: string;
   clientId: string;
   connectionLogger: pino.Logger;
   sockets: Set<WebSocketLike>;
@@ -474,7 +467,6 @@ type SessionConnection = ReconnectableSessionConnection | PluginSessionConnectio
 interface SocketSessionOptions {
   sourceId?: string;
   clientId: string;
-  permissions: readonly DaemonPermission[];
   connectionLogger: pino.Logger;
   onMessage: (message: SessionOutboundMessage) => void;
   onMessageToSource?: (source: object, message: SessionOutboundMessage) => void | Promise<void>;
@@ -499,10 +491,8 @@ const WS_CLOSE_INCOMPATIBLE_PROTOCOL = 4003;
 const WS_CLOSE_SERVER_SHUTDOWN = 1001;
 const WS_PROTOCOL_VERSION = 1;
 const WS_RUNTIME_METRICS_FLUSH_MS = 30_000;
-const OWNER_SESSION_ADMISSION: SessionAdmission = {
-  principalId: "owner",
-  permissions: OWNER_PERMISSIONS,
-};
+// Producer id of direct (non-plugin, non-routed) sessions. Persisted as `source.id` in hosts.json.
+const DIRECT_SOURCE_ID = "owner";
 
 export class MissingDaemonVersionError extends Error {
   constructor() {
@@ -982,13 +972,7 @@ export class VoiceAssistantWebSocketServer {
         }
       }
 
-      await this.attachSocket(
-        ws,
-        request,
-        undefined,
-        false,
-        hasHeaderCredential ? OWNER_SESSION_ADMISSION : null,
-      );
+      await this.attachSocket(ws, request, undefined, false, hasHeaderCredential);
     } finally {
       ws.resume();
     }
@@ -1072,7 +1056,7 @@ export class VoiceAssistantWebSocketServer {
     this.pluginSocketIds.set(ws, pluginId);
     this.pluginSocketCleanup.set(ws, resolve);
     try {
-      await this.attachSocket(ws, undefined, undefined, true, OWNER_SESSION_ADMISSION);
+      await this.attachSocket(ws, undefined, undefined, true, true);
     } catch (error) {
       this.pluginSocketIds.delete(ws);
       this.finishPluginSocketCleanup(ws);
@@ -1420,7 +1404,7 @@ export class VoiceAssistantWebSocketServer {
     request?: unknown,
     metadata?: ExternalSocketMetadata,
     allowDuringStartup = false,
-    admission: SessionAdmission | null = null,
+    preAdmitted = false,
   ): Promise<void> {
     if (
       this.connectionLifecycle === "stopping" ||
@@ -1443,7 +1427,7 @@ export class VoiceAssistantWebSocketServer {
       connectionLogger,
       helloTimeout: null,
       identity,
-      admission,
+      admitted: preAdmitted,
       authenticating: false,
       lanAccessCode: metadata?.lanAccessCode,
     };
@@ -1484,18 +1468,14 @@ export class VoiceAssistantWebSocketServer {
     clientId: string;
     connectionLogger: pino.Logger;
     lifecycle: { kind: "reconnectable" } | { kind: "ephemeral-plugin"; pluginId: string };
-    admission: SessionAdmission;
   }): SessionConnection {
-    const { ws, clientId, connectionLogger, lifecycle, admission } = params;
+    const { ws, clientId, connectionLogger, lifecycle } = params;
     let connection: SessionConnection | null = null;
 
     const session = this.createSocketSession({
       clientId,
-      permissions: admission.permissions,
       sourceId:
-        lifecycle.kind === "ephemeral-plugin"
-          ? `plugin:${lifecycle.pluginId}`
-          : admission.principalId,
+        lifecycle.kind === "ephemeral-plugin" ? `plugin:${lifecycle.pluginId}` : DIRECT_SOURCE_ID,
       connectionLogger,
       onMessage: (msg) => {
         if (!connection) {
@@ -1544,8 +1524,6 @@ export class VoiceAssistantWebSocketServer {
 
     const base: SessionConnectionBase = {
       session,
-      principalId: admission.principalId,
-      sessionKey: sessionConnectionKey(admission.principalId, clientId),
       clientId,
       connectionLogger,
       sockets: new Set([ws]),
@@ -1574,7 +1552,6 @@ export class VoiceAssistantWebSocketServer {
       sourceId: options.sourceId,
       browserToolsBroker: this.browserToolsBroker,
       clientId: options.clientId,
-      permissions: options.permissions,
       onMessage: options.onMessage,
       onMessageToSource: options.onMessageToSource,
       onBinaryMessage: options.onBinaryMessage,
@@ -1699,7 +1676,7 @@ export class VoiceAssistantWebSocketServer {
     }
 
     pending.authenticating = true;
-    if (!pending.admission && !(await this.admitPendingHello(ws, message, pending))) return;
+    if (!pending.admitted && !(await this.admitPendingHello(ws, message, pending))) return;
 
     const clientId = message.clientId.trim();
     if (clientId.length === 0) {
@@ -1726,22 +1703,12 @@ export class VoiceAssistantWebSocketServer {
     }
 
     this.clearPendingConnection(ws);
-    let admitted = pending.admission;
-    if (!admitted) throw new Error("Admitted hello has no session admission");
-    if (message.sessionPermissions)
-      admitted = {
-        ...admitted,
-        permissions: admitted.permissions.filter((permission) =>
-          message.sessionPermissions!.includes(permission),
-        ),
-      };
-    pending.admission = admitted;
+    if (!pending.admitted) throw new Error("Hello reached session creation without admission");
     pending.identity.clientId = clientId;
     if (message.appVersion) {
       pending.identity.appVersion = message.appVersion;
     }
-    const sessionKey = sessionConnectionKey(admitted.principalId, clientId);
-    const existing = pluginId ? undefined : this.externalSessionsByKey.get(sessionKey);
+    const existing = pluginId ? undefined : this.externalSessionsByKey.get(clientId);
     if (existing) {
       this.resumeSession({ ws, message, pending, existing });
       return;
@@ -1754,13 +1721,12 @@ export class VoiceAssistantWebSocketServer {
       clientId,
       connectionLogger,
       lifecycle: pluginId ? { kind: "ephemeral-plugin", pluginId } : { kind: "reconnectable" },
-      admission: admitted,
     });
     connection.session.setRouted(message.routed === true);
-    this.assignHostSource(connection, message, admitted.principalId, pluginId);
+    this.assignHostSource(connection, message, pluginId);
     this.sessions.set(ws, connection);
     if (connection.lifecycle === "reconnectable") {
-      this.externalSessionsByKey.set(sessionKey, connection);
+      this.externalSessionsByKey.set(clientId, connection);
     }
     pending.identity.sessionId = connection.session.getSessionId();
     this.sendHelloResponse(ws, connection.session, message);
@@ -1804,9 +1770,9 @@ export class VoiceAssistantWebSocketServer {
     message: WSHelloMessage,
     pending: PendingConnection,
   ): Promise<boolean> {
-    if (pending.admission) return true;
+    if (pending.admitted) return true;
     try {
-      const resolved = await resolveSessionAdmission({
+      const rejection = await resolveSessionAdmission({
         credential: message.auth,
         passwordHash: this.passwordHash,
         localCredential:
@@ -1816,12 +1782,12 @@ export class VoiceAssistantWebSocketServer {
         lanAccessCode: pending.lanAccessCode,
       });
       if (this.pendingConnections.get(ws) !== pending) return false;
-      if ("rejection" in resolved) {
+      if (rejection) {
         this.clearPendingConnection(ws);
-        await this.rejectHello(ws, resolved.rejection);
+        await this.rejectHello(ws, rejection);
         return false;
       }
-      pending.admission = resolved.admission;
+      pending.admitted = true;
       // No-password owners, local credentials, routed peers, and legacy relay sessions do not
       // authenticate a remote Pimi user. The proof belongs to this socket, including on reconnect.
       if (
@@ -1882,13 +1848,14 @@ export class VoiceAssistantWebSocketServer {
       clearTimeout(existing.externalDisconnectCleanupTimeout);
       existing.externalDisconnectCleanupTimeout = null;
     }
+    // The resuming hello may change routed state or producer; channels reopen under the new one.
     for (const socket of existing.sockets) {
-      this.hostLinks.get(socket)?.close("permission_denied");
+      this.hostLinks.get(socket)?.close();
       this.hostLinks.delete(socket);
     }
-    existing.session.setPermissions(pending.admission!.permissions);
+    existing.session.closeHostRoutes();
     existing.session.setRouted(message.routed === true);
-    this.assignHostSource(existing, message, pending.admission!.principalId);
+    this.assignHostSource(existing, message);
     existing.session.registerClientSource(ws);
     existing.sockets.add(ws);
     this.sessions.set(ws, existing);
@@ -1907,15 +1874,14 @@ export class VoiceAssistantWebSocketServer {
   private assignHostSource(
     connection: SessionConnection,
     hello: WSHelloMessage,
-    principalId: string,
     pluginId?: string,
   ): void {
     if (pluginId) return;
     const producer = hello.producer;
     const sourceId =
       hello.routed && producer
-        ? `route:${[principalId, producer.serverId, producer.sourceId].map(encodeURIComponent).join(":")}`
-        : principalId;
+        ? `route:${[DIRECT_SOURCE_ID, producer.serverId, producer.sourceId].map(encodeURIComponent).join(":")}`
+        : DIRECT_SOURCE_ID;
     connection.session.setHostSource(sourceId);
   }
 
@@ -1927,7 +1893,6 @@ export class VoiceAssistantWebSocketServer {
       hostname: getHostName(),
       version: this.daemonVersion,
       sourceId: session.getHostSourceId(),
-      permissions: session.getPermissions(),
       desktopManaged: this.daemonRuntimeConfig?.desktopManaged === true,
       ...(this.serverCapabilities ? { capabilities: this.serverCapabilities } : {}),
       features: {
@@ -2145,9 +2110,9 @@ export class VoiceAssistantWebSocketServer {
     }
     connection.sockets.clear();
     if (connection.lifecycle === "reconnectable") {
-      const existing = this.externalSessionsByKey.get(connection.sessionKey);
+      const existing = this.externalSessionsByKey.get(connection.clientId);
       if (existing === connection) {
-        this.externalSessionsByKey.delete(connection.sessionKey);
+        this.externalSessionsByKey.delete(connection.clientId);
       }
     }
 
@@ -2385,16 +2350,11 @@ export class VoiceAssistantWebSocketServer {
     let link = this.hostLinks.get(ws);
     if (!link) {
       link = new DaemonLinkEndpoint({
-        identity: JSON.stringify([connection.principalId, connection.clientId]),
-        permissions: () => connection.session.getPermissions(),
+        identity: connection.clientId,
         routed: () => connection.session.isRouted(),
         bufferedAmount: () => this.socketBufferedAmount(ws),
         delivery: connection.session.delivery,
-        admit: (socket, permissions) =>
-          this.attachSocket(socket, undefined, undefined, false, {
-            principalId: connection.principalId,
-            permissions,
-          }),
+        admit: (socket) => this.attachSocket(socket, undefined, undefined, false, true),
       });
       this.hostLinks.set(ws, link);
     }
@@ -2410,18 +2370,6 @@ export class VoiceAssistantWebSocketServer {
     if (request.type === "pimi.tasks.request") {
       await activeConnection.session.delivery.request(ws, request, async () => {
         const { session } = activeConnection;
-        if (!session.allowsInbound(request)) {
-          session.delivery.reply({
-            type: "rpc_error",
-            payload: {
-              requestId: request.requestId,
-              requestType: request.type,
-              code: "access_denied",
-              error: "This session cannot access Pimi Tasks.",
-            },
-          });
-          return;
-        }
         const authorized = this.isPimiMobileAuthorized(ws, activeConnection);
         if (!authorized) activeConnection.connectionLogger.warn("Denied mobile Pimi Tasks request");
         const result = authorized
@@ -2437,12 +2385,8 @@ export class VoiceAssistantWebSocketServer {
               error:
                 "Pimi Tasks requires encrypted pairing with a host password or Wi-Fi pairing link.",
             };
-        // Recheck permissions in case this session was narrowed while desktop handled the request.
-        if (
-          !session.allowsInbound(request) ||
-          (authorized && !this.isPimiMobileAuthorized(ws, activeConnection))
-        )
-          return;
+        // Recheck in case the session resumed as routed while desktop handled the request.
+        if (authorized && !this.isPimiMobileAuthorized(ws, activeConnection)) return;
         session.delivery.reply({
           type: "pimi.tasks.response",
           payload: { requestId: request.requestId, ...result },
@@ -2493,12 +2437,7 @@ export class VoiceAssistantWebSocketServer {
   }
 
   private isPimiMobileAuthorized(ws: WebSocketLike, connection: SessionConnection): boolean {
-    return (
-      this.pimiProtectedPasswordSockets.has(ws) &&
-      connection.principalId === "owner" &&
-      !connection.session.isRouted() &&
-      connection.session.allowsPermission("daemon.manage")
-    );
+    return this.pimiProtectedPasswordSockets.has(ws) && !connection.session.isRouted();
   }
 
   private handleRawMessageError(params: {
@@ -2829,10 +2768,6 @@ function createWebSocketConnectionIdentity(
     ...(metadata?.relayConnectionId ? { relayConnectionId: metadata.relayConnectionId } : {}),
     ...(metadata?.securityMode ? { securityMode: metadata.securityMode } : {}),
   };
-}
-
-function sessionConnectionKey(principalId: string, clientId: string): string {
-  return JSON.stringify([principalId, clientId]);
 }
 
 function toConnectionLogFields(identity: WebSocketConnectionIdentity): Record<string, string> {

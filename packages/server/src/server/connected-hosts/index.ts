@@ -22,7 +22,7 @@ import {
   type HostAdd,
   type HostUpdate,
 } from "@pimi/protocol/hosts";
-import type { DaemonPermission, WSHelloMessage } from "@pimi/protocol/messages";
+import type { WSHelloMessage } from "@pimi/protocol/messages";
 import { webSocketProxyAgent } from "../network/index.js";
 
 export class HostError extends Error {
@@ -36,10 +36,6 @@ export class HostError extends Error {
 }
 const SavedSchema = HostSummarySchema.extend({ connection: z.string() });
 type Saved = z.infer<typeof SavedSchema>;
-export interface HostActor {
-  sourceId: string;
-  manageSources: boolean;
-}
 interface Live {
   client: DaemonClient;
   accepted: boolean;
@@ -120,11 +116,12 @@ export class ConnectedHosts {
     const { connection: _secret, ...summary } = row;
     return structuredClone(summary);
   }
-  add(input: HostAdd, actor: HostActor): Promise<HostSummary> {
+  /** `sourceId` is the authenticated producer of the calling session; it owns the source key. */
+  add(input: HostAdd, sourceId: string): Promise<HostSummary> {
     return this.mutate(async () => {
       input = HostAddSchema.parse(input);
       const target = parseHostTarget(input.connection);
-      const source = { id: actor.sourceId, key: input.sourceKey ?? randomUUID() };
+      const source = { id: sourceId, key: input.sourceKey ?? randomUUID() };
       const existing = this.rows.find(
         (row) => row.source.id === source.id && row.source.key === source.key,
       );
@@ -164,19 +161,10 @@ export class ConnectedHosts {
       return this.summary(row);
     });
   }
-  update(id: string, patch: HostUpdate, actor: HostActor): Promise<HostSummary> {
+  update(id: string, patch: HostUpdate): Promise<HostSummary> {
     return this.mutate(async () => {
       patch = HostUpdateSchema.parse(patch);
       const previous = this.require(id);
-      if (
-        (patch.connection !== undefined || patch.metadata !== undefined || patch.replaceIdentity) &&
-        actor.sourceId !== previous.source.id &&
-        !actor.manageSources
-      )
-        throw new HostError(
-          "permission_denied",
-          "Only the source or access manager can replace its connection and metadata",
-        );
       if (patch.replaceIdentity && patch.connection === undefined)
         throw new HostError(
           "invalid_connection",
@@ -210,14 +198,9 @@ export class ConnectedHosts {
       return this.summary(previous);
     });
   }
-  remove(id: string, actor: HostActor): Promise<void> {
+  remove(id: string): Promise<void> {
     return this.mutate(async () => {
       const row = this.require(id);
-      if (actor.sourceId !== row.source.id && !actor.manageSources)
-        throw new HostError(
-          "permission_denied",
-          "Only the source or access manager can remove this host. Disable it to stop access.",
-        );
       const rows = this.rows.filter((entry) => entry !== row);
       await this.persist(rows);
       this.stop(id, "host_unknown");
@@ -377,7 +360,6 @@ export class ConnectedHosts {
     scopeId: string;
     sourceId: string;
     originSessionId: string;
-    permissions: readonly DaemonPermission[];
     signal: AbortSignal;
     frame(data: string | Uint8Array): void;
     ended(code: string, message: string): void;
@@ -519,7 +501,6 @@ export class ConnectedHosts {
               clientId,
               routed: true,
               producer: { serverId: this.self.serverId, sourceId: input.sourceId },
-              sessionPermissions: input.permissions,
               auth: undefined,
             }),
           );

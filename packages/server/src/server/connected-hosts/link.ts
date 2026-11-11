@@ -6,11 +6,7 @@ import {
   encodeHostRouteFrame,
   type HostRouteFrame,
 } from "@pimi/protocol/binary-frames/index";
-import type {
-  DaemonPermission,
-  SessionInboundMessage,
-  SessionOutboundMessage,
-} from "@pimi/protocol/messages";
+import type { SessionInboundMessage, SessionOutboundMessage } from "@pimi/protocol/messages";
 
 /** A logical socket has no network resources or authority of its own. */
 export class VirtualHostSocket extends EventEmitter {
@@ -59,18 +55,17 @@ export class VirtualHostSocket extends EventEmitter {
   }
 }
 
-/** One authenticated physical source owns all its channels and their admission ceiling. */
+/** One authenticated physical source owns all its channels; each channel is admitted under it. */
 export class DaemonLinkEndpoint {
   private readonly channels = new Map<string, { scopeId: string; socket: VirtualHostSocket }>();
   private closed = false;
   constructor(
     private readonly parent: {
       identity: string;
-      permissions(): readonly DaemonPermission[];
       routed(): boolean;
       bufferedAmount(): number | null;
       delivery: SessionDelivery;
-      admit(socket: VirtualHostSocket, permissions: readonly DaemonPermission[]): Promise<void>;
+      admit(socket: VirtualHostSocket): Promise<void>;
     },
   ) {}
   handles(message: SessionInboundMessage): boolean {
@@ -108,8 +103,6 @@ export class DaemonLinkEndpoint {
         socket?.close();
       });
       const id = owner.id;
-      // Capture actual authenticated authority. The caller hello can only reduce it.
-      const ceiling = [...this.parent.permissions()];
       socket = new VirtualHostSocket(
         async (data) => {
           const output: SessionOutboundMessage | null =
@@ -169,7 +162,7 @@ export class DaemonLinkEndpoint {
       );
       this.channels.set(id, { scopeId: message.channelId, socket });
       try {
-        await this.parent.admit(socket, ceiling);
+        await this.parent.admit(socket);
         if (this.closed || socket.readyState !== 1) {
           socket.close();
           return;
@@ -202,14 +195,11 @@ export class DaemonLinkEndpoint {
     socket.feed(frame.payload);
     return true;
   }
-  close(reason: "host_offline" | "permission_denied" = "host_offline"): void {
+  close(): void {
     if (this.closed) return;
     this.closed = true;
     for (const { socket } of this.channels.values())
-      socket.close(
-        reason === "permission_denied" ? 1008 : 1000,
-        "Physical link authority or connection changed",
-      );
+      socket.close(1000, "Physical link connection changed");
     this.channels.clear();
   }
 }

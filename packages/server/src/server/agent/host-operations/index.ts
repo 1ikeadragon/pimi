@@ -11,7 +11,6 @@ import {
 } from "@pimi/client/internal/daemon-client";
 import type { DaemonTransportFactory } from "@pimi/client/internal/daemon-client-transport-types";
 import type { HostDirectory } from "@pimi/protocol/hosts";
-import { OWNER_PERMISSIONS } from "../../authorization/index.js";
 import type { ConnectedHosts } from "../../connected-hosts/index.js";
 import { resolveRequiredProviderModel } from "../mcp-shared.js";
 import { selectAgentListItems } from "../agent-projections.js";
@@ -101,7 +100,6 @@ export function createToolHosts(hosts: ConnectedHosts): ToolHosts {
             scopeId: randomUUID(),
             sourceId: "mcp",
             originSessionId: "mcp",
-            permissions: OWNER_PERMISSIONS,
             signal: signal ? AbortSignal.any([lifetime.signal, signal]) : lifetime.signal,
             frame: (data) => {
               for (const listener of messages) listener(data, typeof data !== "string");

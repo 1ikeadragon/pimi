@@ -1,10 +1,6 @@
 import { encodeHostRouteFrame, type HostRouteFrame } from "@pimi/protocol/binary-frames/index";
-import type {
-  SessionInboundMessage,
-  SessionOutboundMessage,
-  DaemonPermission,
-} from "@pimi/protocol/messages";
-import { ConnectedHosts, HostError, type HostActor } from "./index.js";
+import type { SessionInboundMessage, SessionOutboundMessage } from "@pimi/protocol/messages";
+import { ConnectedHosts, HostError } from "./index.js";
 import type { SessionDelivery } from "../session/owned-subscriptions/index.js";
 
 type HostRequest<T extends SessionInboundMessage["type"]> = Extract<
@@ -25,8 +21,7 @@ export class ConnectedHostSession {
   constructor(
     private readonly hosts: ConnectedHosts,
     private readonly delivery: SessionDelivery,
-    private readonly actor: HostActor,
-    private readonly permissions: () => DaemonPermission[],
+    private sourceId: string,
     private readonly emit: (message: SessionOutboundMessage) => void,
     private readonly routed: () => boolean,
     private readonly originSessionId: string,
@@ -42,18 +37,16 @@ export class ConnectedHostSession {
     }
   }
   setSource(sourceId: string): void {
-    this.actor.sourceId = sourceId;
+    this.sourceId = sourceId;
   }
   dispatch(message: SessionInboundMessage): Promise<void> | undefined {
     if (!message.type.startsWith("hosts.")) return;
     return this.handle(message);
   }
-  revoke(): void {
+  /** A resumed session may carry a different producer or routed state; routes reopen under it. */
+  closeRoutes(): void {
     for (const route of this.routes.values())
-      route.fail(
-        "permission_denied",
-        "Caller authority changed. Reconnecting with current grants.",
-      );
+      route.fail("host_offline", "The session reconnected. Reopen the route.");
     void this.delivery.releaseFamily("host-route");
   }
   private async handle(message: SessionInboundMessage): Promise<void> {
@@ -94,7 +87,6 @@ export class ConnectedHostSession {
     });
   }
   private async execute(message: SessionInboundMessage): Promise<void> {
-    const actor = { ...this.actor, manageSources: this.permissions().includes("access.manage") };
     switch (message.type) {
       case "hosts.list.request":
         return this.list(message);
@@ -103,7 +95,7 @@ export class ConnectedHostSession {
           type: "hosts.add.response",
           payload: {
             requestId: message.requestId,
-            host: await this.hosts.add(message.input, actor),
+            host: await this.hosts.add(message.input, this.sourceId),
           },
         });
         return;
@@ -112,12 +104,12 @@ export class ConnectedHostSession {
           type: "hosts.update.response",
           payload: {
             requestId: message.requestId,
-            host: await this.hosts.update(message.registrationId, message.patch, actor),
+            host: await this.hosts.update(message.registrationId, message.patch),
           },
         });
         return;
       case "hosts.remove.request":
-        await this.hosts.remove(message.registrationId, actor);
+        await this.hosts.remove(message.registrationId);
         this.emit({ type: "hosts.remove.response", payload: { requestId: message.requestId } });
         return;
       case "hosts.route.open.request":
@@ -202,9 +194,8 @@ export class ConnectedHostSession {
       const route = await this.hosts.openRoute({
         serverId: message.serverId,
         scopeId: message.scopeId,
-        sourceId: this.actor.sourceId,
+        sourceId: this.sourceId,
         originSessionId: this.originSessionId,
-        permissions: this.permissions(),
         signal: owner.signal,
         frame: (data) => {
           const output: SessionOutboundMessage | null =

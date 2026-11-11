@@ -117,19 +117,6 @@ export {
 // Mutable daemon config schemas (shared between server store and client)
 // ---------------------------------------------------------------------------
 
-export const DAEMON_PERMISSIONS = [
-  "daemon.read",
-  "daemon.manage",
-  "tunnel.manage",
-  "access.manage",
-  "workspace.read",
-  "workspace.write",
-  "workspace.manage",
-  "automation.manage",
-] as const;
-export const DaemonPermissionSchema = z.enum(DAEMON_PERMISSIONS);
-export type DaemonPermission = z.infer<typeof DaemonPermissionSchema>;
-
 const MutableDaemonProviderModelSchema = z
   .object({
     id: z.string().min(1),
@@ -3558,9 +3545,8 @@ export const ServerInfoStatusPayloadSchema = z
     serverId: z.string().trim().min(1),
     hostname: z.string(),
     version: z.string(),
-    // Authenticated producer for host registration ownership, separate from admission authority.
+    // Authenticated producer for host registration ownership.
     sourceId: z.string().optional(),
-    permissions: z.array(DaemonPermissionSchema),
     desktopManaged: z.boolean(),
     capabilities: ServerCapabilitiesSchema.optional(),
     features: z.object({
@@ -7200,7 +7186,6 @@ export const WSPongMessageSchema = z.object({
 
 export const WSHelloMessageSchema = z.object({
   type: z.literal("hello"),
-  sessionPermissions: z.array(DaemonPermissionSchema).optional(),
   routed: z.boolean().optional(),
   producer: z
     .object({ serverId: z.string().min(1).max(256), sourceId: z.string().min(1).max(1024) })
