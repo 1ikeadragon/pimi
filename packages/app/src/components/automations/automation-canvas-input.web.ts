@@ -150,17 +150,3 @@ export function useDeleteSelectedStep(onDelete: (() => void) | null): void {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [enabled]);
 }
-
-/** Web: closing or reloading the page with unsaved changes asks first. */
-export function useBeforeUnloadGuard(dirty: boolean): void {
-  useEffect(() => {
-    if (!dirty) {
-      return;
-    }
-    const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-    };
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [dirty]);
-}

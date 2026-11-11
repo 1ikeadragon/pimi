@@ -12,6 +12,3 @@ export function useCanvasDragConnect(
 
 /** Native has no Delete key; the inspector deletes the step. */
 export function useDeleteSelectedStep(_onDelete: (() => void) | null): void {}
-
-/** Native has no page to unload. */
-export function useBeforeUnloadGuard(_dirty: boolean): void {}

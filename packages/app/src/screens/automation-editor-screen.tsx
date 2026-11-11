@@ -25,10 +25,7 @@ import type {
   AutomationRunStepStatus,
 } from "@pimi/protocol/automation/types";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
-import {
-  useBeforeUnloadGuard,
-  useDeleteSelectedStep,
-} from "@/components/automations/automation-canvas-input";
+import { useDeleteSelectedStep } from "@/components/automations/automation-canvas-input";
 import {
   AutomationEditorCanvas,
   problemKey,
@@ -620,7 +617,6 @@ function useUnsavedChangesGuard(dirty: boolean) {
   const navigation = useNavigation();
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
-  useBeforeUnloadGuard(dirty);
   useEffect(() => {
     return navigation.addListener("beforeRemove", (event) => {
       // Leaving through the sidebar keeps this screen in the stack, unfocused, and a later stack
