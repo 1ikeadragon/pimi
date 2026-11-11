@@ -262,7 +262,11 @@ export function ZoomableViewport({
   const renderedCanvasStyle = useMemo<React.CSSProperties>(() => {
     let cursor: React.CSSProperties["cursor"] = "default";
     if (transform.scale > 1) cursor = isDragging ? "grabbing" : "grab";
-    return { ...canvasDomStyle, cursor };
+    // A drag only pans zoomed content. At the fitted scale a one-finger swipe belongs to the
+    // page, or to a scroller around the viewport such as a wide gantt chart's; a pinch still
+    // reaches the handlers because the browser is not allowed to zoom.
+    const touchAction = transform.scale > 1 ? "none" : "pan-x pan-y";
+    return { ...canvasDomStyle, cursor, touchAction };
   }, [isDragging, transform.scale]);
   const renderedContentStyle = useMemo<React.CSSProperties>(
     () => ({
@@ -333,7 +337,6 @@ const canvasDomStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   overflow: "hidden",
-  touchAction: "none",
   userSelect: "none",
 };
 const contentDomStyle: React.CSSProperties = {
