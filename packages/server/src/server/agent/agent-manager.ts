@@ -243,13 +243,14 @@ function buildSwitchedSessionConfig(
   current: AgentSessionConfig,
   target: AgentProviderSwitchTarget,
 ): AgentSessionConfig {
-  const { cwd, title, systemPrompt, mcpServers, toolPolicy, internal } = current;
+  const { cwd, title, systemPrompt, mcpServers, toolPolicy, internal, profile } = current;
   const { provider, model, modeId, featureValues } = target;
   return {
     provider,
     cwd,
     title,
     systemPrompt,
+    profile,
     mcpServers,
     toolPolicy,
     internal,
@@ -437,6 +438,7 @@ function buildStoredAgentConfig(record: StoredAgentRecord): AgentSessionConfig {
     config.systemPrompt = record.config.systemPrompt;
   }
   if (record.config.mcpServers != null) config.mcpServers = record.config.mcpServers;
+  if (record.config.profile != null) config.profile = record.config.profile;
   return stripInternalPimiMcpServer(config);
 }
 
@@ -1723,7 +1725,12 @@ export class AgentManager {
         config,
         env: options.env,
       });
-      config = { ...request.config, internal: config.internal };
+      // The hook sees the wire config, which has no `profile` record; keep the one we resolved.
+      config = {
+        ...request.config,
+        internal: config.internal,
+        ...(config.profile ? { profile: config.profile } : {}),
+      };
       options = { ...options, env: request.env };
     }
     // A stored agent without a provider thread is recreated under its own id, and

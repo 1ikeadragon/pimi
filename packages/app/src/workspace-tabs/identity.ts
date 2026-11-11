@@ -104,7 +104,15 @@ export function normalizeWorkspaceDraftTabSetup(
       typeof record.thinkingOptionId === "string" ? record.thinkingOptionId : null,
     ),
     featureValues: isPlainRecord(record.featureValues) ? { ...record.featureValues } : {},
+    ...normalizeSetupProfile(record.profile),
   };
+}
+
+function normalizeSetupProfile(value: unknown): Pick<WorkspaceDraftTabSetup, "profile"> {
+  if (!isPlainRecord(value)) return {};
+  const id = typeof value.id === "string" ? value.id.trim() : "";
+  const name = typeof value.name === "string" ? value.name : "";
+  return id ? { profile: { id, name } } : {};
 }
 
 export function workspaceTabTargetsEqual(
@@ -185,6 +193,7 @@ function workspaceDraftTabSetupsEqual(
     left.modeId === right.modeId &&
     left.model === right.model &&
     left.thinkingOptionId === right.thinkingOptionId &&
+    left.profile?.id === right.profile?.id &&
     recordsShallowEqual(left.featureValues, right.featureValues)
   );
 }

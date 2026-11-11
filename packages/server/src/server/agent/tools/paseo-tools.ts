@@ -60,7 +60,8 @@ import {
   requireActiveWorkspaceForArchive,
   type ArchiveDependencies,
 } from "../../workspace-archive-service.js";
-import { createAgentCommand } from "../create-agent/create.js";
+import { createAgentCommand, formatProviderModel } from "../create-agent/create.js";
+import { requireAgentProfile } from "../profiles/resolve.js";
 import { inheritWorkspaceBackground } from "../create-agent/intent.js";
 import type { VoiceCallerContext, VoiceSpeakHandler } from "../../voice-types.js";
 import type { FirstAgentContext } from "../../messages.js";
@@ -102,7 +103,7 @@ import {
   sendPromptToAgent,
   waitForAgentRunStartWithTimeout,
 } from "../agent-prompt.js";
-import { respondToAgentPermission } from "../permission-response.js";
+import { respondToAgentPermission, type PermissionResponder } from "../permission-response.js";
 import {
   archiveAgentCommand,
   cancelAgentRunCommand,
@@ -883,6 +884,17 @@ function createToolCatalog(
     return parentAgent;
   };
 
+  const resolvePermissionResponder = async (): Promise<PermissionResponder> => {
+    const caller = resolveCallerAgent();
+    if (!caller) return { kind: "tool" };
+    const record = await agentStorage.get(caller.id);
+    return {
+      kind: "agent",
+      agentId: caller.id,
+      title: record?.title ?? caller.config.title ?? caller.id,
+    };
+  };
+
   const workspaceBackgroundIntent = (background: boolean | undefined) => {
     const caller = resolveCallerAgent();
     return {
@@ -1003,10 +1015,25 @@ function createToolCatalog(
   // The automation's agent takes the caller's provider, model, thinking and features unless a
   // provider is given. It does not take the caller's mode: runs are unattended, so they use the
   // provider's unattended mode whatever mode the creating agent happens to be in.
-  function resolveAutomationAgentNode(provider: string | undefined) {
+  // A profile's provider and model stand in for a provider the caller left out.
+  function resolveAutomationProfile(requestedProvider: string | undefined, profileName?: string) {
+    const profile = profileName
+      ? requireAgentProfile(daemonConfigStore?.get().agentProfiles ?? [], profileName)
+      : null;
+    const provider =
+      requestedProvider?.trim() || !profile?.provider
+        ? requestedProvider
+        : formatProviderModel(profile.provider, profile.model);
+    return { profileFields: profile ? { profileId: profile.id } : {}, provider };
+  }
+
+  function resolveAutomationAgentNode(requestedProvider: string | undefined, profileName?: string) {
+    const { profileFields, provider } = resolveAutomationProfile(requestedProvider, profileName);
     const callerAgent = resolveCallerAgent();
     if (!callerAgent && !provider?.trim()) {
-      throw new PaseoToolInputError("provider is required outside an agent-scoped session");
+      throw new PaseoToolInputError(
+        "provider is required outside an agent-scoped session unless the profile sets one",
+      );
     }
     const override = provider?.trim()
       ? resolveProviderAndModelArg({ provider, defaultProvider: provider })
@@ -1020,6 +1047,7 @@ function createToolCatalog(
       title: "Agent",
       provider: resolvedProvider,
       ...(model ? { model } : {}),
+      ...profileFields,
       ...inheritedAgentSettings(inherited),
     };
   }
@@ -1132,6 +1160,13 @@ function createToolCatalog(
       "Provider/model pair, for example codex/gpt-5.4, or a provider alone for its default model.",
     ),
     labels: z.record(z.string(), z.string()).optional().describe("Labels to set on the agent"),
+    profile: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        "Agent profile id or exact name from list_profiles. The agent gets the profile's instructions, and its provider, model, mode, thinking, and features fill anything you leave out. Values you pass win.",
+      ),
     settings: CreateAgentSettingsInputSchema.optional().describe(
       "Initial runtime settings for the new agent.",
     ),
@@ -1193,7 +1228,12 @@ function createToolCatalog(
               "Provider/model pair, for example codex/gpt-5.4, or a provider alone for its default model. Omit to use your own provider and model.",
             ),
           }
-        : canonicalTopLevelInputSchema,
+        : {
+            ...canonicalTopLevelInputSchema,
+            provider: ProviderOrProviderModelInputSchema.optional().describe(
+              "Provider/model pair, for example codex/gpt-5.4, or a provider alone for its default model. Required unless the profile sets a provider.",
+            ),
+          },
     )
     .passthrough();
   const agentToAgentCreateAgentArgsSchema = z.object(agentToAgentInputSchema).strict();
@@ -1658,7 +1698,9 @@ function createToolCatalog(
       },
     },
     async (args: unknown) => {
-      const resolvedArgs = await resolveCreateAgentToolArgs(await withDefaultModel(args));
+      const resolvedArgs = await resolveCreateAgentToolArgs(
+        await withDefaultModel(withProfileProvider(args)),
+      );
       const { parsedArgs } = resolvedArgs;
       const { notifyOnFinish } = parsedArgs;
       const selectedProvider = resolveRequiredProviderModel(parsedArgs.provider).provider;
@@ -1678,10 +1720,12 @@ function createToolCatalog(
           ...(options.ensureWorkspaceForCreate
             ? { ensureWorkspaceForCreate: options.ensureWorkspaceForCreate }
             : {}),
+          getAgentProfiles: () => daemonConfigStore?.get().agentProfiles ?? [],
         },
         {
           kind: "mcp",
           provider: parsedArgs.provider,
+          profile: parsedArgs.profile,
           title: parsedArgs.title,
           initialPrompt: parsedArgs.initialPrompt,
           attachments: context ? [context.attachment] : undefined,
@@ -1773,6 +1817,18 @@ function createToolCatalog(
 
   // Agents asked to "use claude" name the provider alone; that means its default model.
   // An agent that names no provider gets its own provider and model.
+  // A profile that names a provider stands in for an omitted provider argument.
+  function withProfileProvider(args: unknown): unknown {
+    if (typeof args !== "object" || args === null) return args;
+    const { profile: requested, provider } = args as { profile?: unknown; provider?: unknown };
+    if (typeof requested !== "string" || (provider !== undefined && provider !== null)) {
+      return args;
+    }
+    const profile = requireAgentProfile(daemonConfigStore?.get().agentProfiles ?? [], requested);
+    if (!profile.provider) return args;
+    return { ...args, provider: formatProviderModel(profile.provider, profile.model) };
+  }
+
   async function withDefaultModel(args: unknown): Promise<unknown> {
     if (typeof args !== "object" || args === null) return args;
     const requested = (args as { provider?: unknown }).provider;
@@ -2585,9 +2641,17 @@ function createToolCatalog(
             .describe(
               "IANA time zone for cron, for example America/New_York. Set it whenever the user names a local time.",
             ),
-          provider: (scope === "agent" ? AgentProviderEnum.optional() : AgentProviderEnum).describe(
-            "Provider, or provider/model (for example: codex or codex/gpt-5.4). Defaults to your own provider and model.",
+          provider: AgentProviderEnum.optional().describe(
+            "Provider, or provider/model (for example: codex or codex/gpt-5.4). Defaults to the profile's provider, then your own provider and model.",
           ),
+          profile: z
+            .string()
+            .trim()
+            .min(1)
+            .optional()
+            .describe(
+              "Agent profile id or name from list_profiles. Each run's agent gets the profile's instructions and, unless you pass provider, its provider and model.",
+            ),
           cwd: z.string().optional().describe("Project directory. Defaults to your own."),
           workspace: z
             .enum(["project", "worktree"])
@@ -2628,7 +2692,7 @@ function createToolCatalog(
             flow: {
               nodes: [
                 {
-                  ...resolveAutomationAgentNode(input.provider),
+                  ...resolveAutomationAgentNode(input.provider, input.profile),
                   workspace: input.workspace ?? "project",
                   prompt: input.prompt.trim(),
                 },
@@ -2959,11 +3023,11 @@ function createToolCatalog(
     {
       title: "List agent profiles",
       description:
-        "List agent profiles: named provider/model/mode bundles a human configured for specific " +
-        "kinds of work. Read each profile's `notes` to pick the one that fits the task you're " +
-        "delegating, then copy its `provider`, `model`, `modeId`, `thinkingOptionId`, and " +
-        "`featureValues` into create_agent (there is no `profile` parameter). Returns an empty " +
-        "list if none are configured.",
+        "List agent profiles: named launch setups for kinds of work, each with instructions " +
+        "the agent gets as its system prompt and optional provider, model, mode, and thinking. " +
+        "Read each profile's `notes` to pick the one that fits the task you're delegating, then " +
+        "pass its id or name as `profile` to create_agent. A profile without `provider` works " +
+        "with any provider. Returns an empty list if none are configured.",
       inputSchema: {},
       outputSchema: {
         profiles: z.array(AgentProfileSchema),
@@ -3143,7 +3207,7 @@ function createToolCatalog(
     {
       title: "Respond to permission",
       description:
-        "Approve or deny a pending permission request with an AgentManager-compatible response payload.",
+        "Approve or deny a pending permission request with an AgentManager-compatible response payload. The target agent's chat records which agent answered.",
       inputSchema: {
         agentId: z.string(),
         requestId: z.string(),
@@ -3151,19 +3215,28 @@ function createToolCatalog(
       },
       outputSchema: {
         success: z.boolean(),
+        decision: z.enum(["allow", "deny"]),
+        tool: z.string().optional(),
+        summary: z.string().optional(),
       },
     },
     async ({ agentId, requestId, response }) => {
-      await respondToAgentPermission({
+      const outcome = await respondToAgentPermission({
         agentManager,
         agentId,
         requestId,
         response,
+        responder: await resolvePermissionResponder(),
         logger: childLogger,
       });
       return {
         content: [],
-        structuredContent: ensureValidJson({ success: true }),
+        structuredContent: ensureValidJson({
+          success: true,
+          decision: outcome.decision,
+          ...(outcome.request ? { tool: outcome.request.tool } : {}),
+          ...(outcome.request?.summary ? { summary: outcome.request.summary } : {}),
+        }),
       };
     },
   );

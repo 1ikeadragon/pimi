@@ -3258,4 +3258,5 @@ export const ptBR: TranslationResources = {
       },
     },
   },
+  profiles: en.profiles,
 };

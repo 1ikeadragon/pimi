@@ -19,6 +19,7 @@ export default function NewWorkspaceRoute() {
     projectId?: string;
     draftId?: string;
     chooseProject?: string;
+    profile?: string;
   }>();
   const serverId = typeof params.serverId === "string" ? params.serverId : "";
   const sourceDirectory = typeof params.dir === "string" ? params.dir : undefined;
@@ -26,6 +27,7 @@ export default function NewWorkspaceRoute() {
   const projectId = typeof params.projectId === "string" ? params.projectId : undefined;
   const draftId = typeof params.draftId === "string" ? params.draftId : undefined;
   const chooseProject = params.chooseProject === "1";
+  const initialProfileId = typeof params.profile === "string" ? params.profile : undefined;
   const screenKey = JSON.stringify([
     serverId,
     sourceDirectory ?? null,
@@ -33,6 +35,7 @@ export default function NewWorkspaceRoute() {
     projectId ?? null,
     draftId ?? null,
     chooseProject,
+    initialProfileId ?? null,
   ]);
 
   // The shell remounts this route when the viewport crosses the compact breakpoint;
@@ -55,6 +58,7 @@ export default function NewWorkspaceRoute() {
             projectId={projectId}
             draftId={draftId}
             chooseProject={chooseProject}
+            initialProfileId={initialProfileId}
           />
         </ComposerEditingScope>
       </WorkspaceComposerEditingSessionsProvider>

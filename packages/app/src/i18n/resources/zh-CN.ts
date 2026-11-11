@@ -3171,4 +3171,5 @@ export const zhCN: TranslationResources = {
       },
     },
   },
+  profiles: en.profiles,
 };

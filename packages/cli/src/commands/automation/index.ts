@@ -31,6 +31,7 @@ interface AutomationCreateOptions extends CommandOptions {
   cron?: string;
   timezone?: string;
   provider?: string;
+  profile?: string;
   mode?: string;
   thinking?: string;
   cwd?: string;
@@ -101,6 +102,7 @@ function buildDefinition(prompt: string, options: AutomationCreateOptions): Auto
   const { provider, model } = resolveProviderAndModel({ provider: options.provider });
   const mode = options.mode?.trim();
   const thinking = options.thinking?.trim();
+  const profile = options.profile?.trim();
   const expiresAt = options.expiresIn
     ? new Date(Date.now() + parseDuration(options.expiresIn)).toISOString()
     : undefined;
@@ -118,6 +120,7 @@ function buildDefinition(prompt: string, options: AutomationCreateOptions): Auto
           ...(model ? { model } : {}),
           ...(mode ? { modeId: mode } : {}),
           ...(thinking ? { thinkingOptionId: thinking } : {}),
+          ...(profile ? { profileId: profile } : {}),
           workspace: options.worktree ? "worktree" : "project",
           prompt: trimmedPrompt,
         },
@@ -338,6 +341,10 @@ export function createAutomationCommand(): Command {
       )
       .option("--timezone <iana>", "IANA time zone for the cadence (default: the host's time zone)")
       .requiredOption("--provider <provider>", "Agent provider, or provider/model")
+      .option(
+        "--profile <name>",
+        "Agent profile id or name; each run's agent gets the profile's instructions",
+      )
       .option(
         "--mode <mode>",
         "Provider mode (default: the provider's unattended mode if it has one, otherwise its default mode). A run that stops at a permission prompt fails",

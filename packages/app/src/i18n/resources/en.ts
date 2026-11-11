@@ -3349,6 +3349,47 @@ export const en = {
       },
     },
   },
+  profiles: {
+    title: "Profiles",
+    description:
+      "A profile is a ready setup for a kind of work: instructions the agent starts with, and optionally a provider, model, mode and thinking level.",
+    newProfile: "New profile",
+    newProfileTitle: "New profile",
+    builtIn: "Built-in",
+    anyProvider: "Any provider",
+    anyProviderDescription: "Keeps whatever provider and model the agent is started with",
+    usedByOne: "Used by {{count}} automation",
+    usedBy: "Used by {{count}} automations",
+    empty: "No profiles on this host yet.",
+    unavailable: "Connect to this host to manage its profiles.",
+    loading: "Loading profiles…",
+    notFound: "This profile no longer exists on this host.",
+    back: "Profiles",
+    instructionsLabel: "Instructions",
+    instructionsHint:
+      "The agent starts with these as its system prompt. Editing them later does not change agents already running.",
+    instructionsPlaceholder: "You review code changes as an adversary…",
+    resetToDefault: "Reset to default",
+    resetConfirmTitle: "Reset to default?",
+    resetConfirmMessage:
+      'Replace your changes to "{{name}}" with the version that ships with Pimi?',
+    delete: "Delete",
+    deleteConfirmTitle: "Delete profile?",
+    deleteConfirmMessage: 'Delete "{{name}}"?',
+    deleteUsedConfirmMessage:
+      'Delete "{{name}}"? These automations use it and will be paused: {{automations}}.',
+    tryIt: "Try it",
+    tryItHint: "Start a new agent with this profile",
+    attachedLabel: "Profile: {{name}}",
+    detach: "Remove profile",
+    instructionsApplyToNewAgents: "{{name}}: instructions apply to new agents",
+    startNewAgent: "Start new agent with this profile",
+    movedToProfiles: "Agent profiles have their own page now.",
+    openProfiles: "Open profiles",
+    automationProfileLabel: "Profile",
+    automationNoProfile: "None",
+    automationProfileHint: "The run's agent starts with the profile's instructions",
+  },
 } as const;
 
 type WidenStringLeaves<T> = {

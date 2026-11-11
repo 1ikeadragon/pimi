@@ -95,6 +95,8 @@ export interface Agent {
   model: string | null;
   features?: AgentFeature[];
   thinkingOptionId?: string | null;
+  /** The agent profile the agent was created with, as it was named then. */
+  profile?: { id: string; name: string } | null;
   requiresAttention?: boolean;
   attentionReason?: "finished" | "error" | "permission" | null;
   attentionTimestamp?: Date | null;

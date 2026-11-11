@@ -9,6 +9,8 @@ export interface AutomationTemplate {
   description: string;
   prompt: string;
   cadence: Extract<Cadence, { type: "cron" }>;
+  /** A built-in agent profile for the run's agent; left out when the host does not have it. */
+  profileId?: string;
 }
 
 export const AUTOMATION_TEMPLATES: readonly AutomationTemplate[] = [

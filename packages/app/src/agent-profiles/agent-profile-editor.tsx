@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState, type ReactElement } from "react";
 import type { AgentProfile } from "@pimi/protocol/messages";
 import { AgentProfileEditModal } from "./settings/agent-profile-edit-modal";
-import { generateAgentProfileId } from "./internal/profile-id";
+import { upsertAgentProfile } from "./internal/profile-list";
 import type { AgentProfileSeed, AgentProfileValue } from "./internal/profile-form-model";
 import { useAgentProfiles } from "./internal/use-agent-profiles";
 
@@ -45,12 +45,8 @@ export function useAgentProfileEditor(serverId: string | null): AgentProfileEdit
 
   const handleSave = useCallback(
     async (value: AgentProfileValue) => {
-      const current = profiles ?? [];
-      const editing = request?.mode === "edit" ? request.profile : undefined;
-      const next: AgentProfile[] = editing
-        ? current.map((entry) => (entry.id === editing.id ? { id: entry.id, ...value } : entry))
-        : [...current, { id: generateAgentProfileId(), ...value }];
-      await saveProfiles(next);
+      const editingId = request?.mode === "edit" ? request.profile.id : null;
+      await saveProfiles(upsertAgentProfile(profiles ?? [], editingId, value));
       setRequest(null);
     },
     [profiles, request, saveProfiles],

@@ -12,6 +12,7 @@ import {
   Trash2,
 } from "lucide-react-native";
 import type { TFunction } from "i18next";
+import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Pressable, Text, View } from "react-native";
@@ -21,7 +22,6 @@ import {
   getTerminalProfileIcon,
   DEFAULT_TERMINAL_PROFILES,
 } from "@pimi/protocol/terminal-profiles";
-import { AgentProfilesSection } from "@/agent-profiles";
 import { AgentSkillsSection } from "@/agent-skills";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
 import { SettingsTextAreaCard } from "@/components/settings-textarea";
@@ -58,6 +58,7 @@ import { settingsStyles } from "@/styles/settings";
 import type { HostConnection, HostProfile } from "@/types/host-connection";
 import { confirmDialog } from "@/utils/confirm-dialog";
 import { isVersionMismatch } from "@/desktop/updates/desktop-updates";
+import { buildProfilesRoute } from "@/utils/host-routes";
 import { resolveAppVersion } from "@/utils/app-version";
 import { formatConnectionStatus, getConnectionStatusTone } from "@/utils/daemons";
 import { formatLatency } from "@/utils/latency";
@@ -303,8 +304,26 @@ export function HostAgentsPage({ serverId }: { serverId: string }) {
         </View>
       )}
       <AgentSkillsSection serverId={serverId} />
-      <AgentProfilesSection serverId={serverId} />
+      <AgentProfilesLinkSection />
     </View>
+  );
+}
+
+function AgentProfilesLinkSection() {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const openProfiles = useCallback(() => {
+    router.push(buildProfilesRoute());
+  }, [router]);
+  return (
+    <SettingsSection title={t("settings.host.agentProfiles.sectionTitle")}>
+      <View style={[settingsStyles.card, styles.emptyCard]} testID="agent-profiles-moved">
+        <Text style={styles.emptyText}>{t("profiles.movedToProfiles")}</Text>
+        <Button variant="secondary" onPress={openProfiles} testID="agent-profiles-open">
+          {t("profiles.openProfiles")}
+        </Button>
+      </View>
+    </SettingsSection>
   );
 }
 

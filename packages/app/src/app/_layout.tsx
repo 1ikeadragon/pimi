@@ -1013,6 +1013,8 @@ function AppWithSidebar({ children }: { children: ReactNode }) {
       pathname === "/new" ||
       pathname === "/sessions" ||
       pathname === "/automations" ||
+      pathname === "/profiles" ||
+      pathname.startsWith("/profiles/") ||
       routeHasKnownHost);
 
   return <AppContainer chromeEnabled={shouldShowAppChrome}>{children}</AppContainer>;
@@ -1051,6 +1053,8 @@ function RootStack() {
         <Stack.Screen name="pimi-library" />
         <Stack.Screen name="sessions" />
         <Stack.Screen name="automations" />
+        <Stack.Screen name="profiles/index" />
+        <Stack.Screen name="profiles/[serverId]/[profileId]" />
       </Stack.Protected>
       <Stack.Screen name="h/[serverId]" />
       <Stack.Screen name="settings/hosts/[serverId]/index" />

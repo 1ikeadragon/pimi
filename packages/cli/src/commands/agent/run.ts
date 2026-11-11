@@ -3,7 +3,7 @@ import {
   getStructuredAgentResponse,
   StructuredAgentResponseError,
 } from "@pimi/server/agent-response";
-import type { AgentSnapshotPayload } from "@pimi/protocol/messages";
+import type { AgentProfile, AgentSnapshotPayload } from "@pimi/protocol/messages";
 import { resolveCallerAgentId } from "../../utils/caller-agent.js";
 import { connectToDaemon } from "../../utils/client.js";
 import type {
@@ -38,6 +38,10 @@ export function addRunOptions(cmd: Command): Command {
       "Model to use (e.g., claude-sonnet-4-20250514, claude-3-5-haiku-20241022)",
     )
     .option("--thinking <id>", "Thinking option ID to use for this run")
+    .option(
+      "--profile <name>",
+      "Agent profile id or name: adds its instructions; its provider, model, mode, and thinking fill flags you leave out",
+    )
     .option("--mode <mode>", "Provider-specific mode (e.g., plan, default, bypass)")
     .option("--new-workspace <local|worktree>", "Create a separate local or worktree workspace")
     .option("--worktree-mode <mode>", "Worktree mode: branch-off, checkout-branch, or checkout-pr")
@@ -108,6 +112,7 @@ export interface AgentRunOptions extends CommandOptions {
   provider?: string;
   model?: string;
   thinking?: string;
+  profile?: string;
   mode?: string;
   newWorkspace?: string;
   worktreeMode?: string;
@@ -347,6 +352,56 @@ function validateRunWorkspaceOptions(options: AgentRunOptions): void {
   }
 }
 
+type RunClient = Awaited<ReturnType<typeof connectToDaemon>>;
+
+// Same lookup as the daemon: id, then exact name, then name ignoring case.
+async function requireRunProfile(client: RunClient, requested: string): Promise<AgentProfile> {
+  const profiles = (await client.getDaemonConfig()).config.agentProfiles ?? [];
+  const wanted = requested.trim();
+  const lower = wanted.toLowerCase();
+  const profile =
+    profiles.find((entry) => entry.id === wanted) ??
+    profiles.find((entry) => entry.name === wanted) ??
+    profiles.find((entry) => entry.name.toLowerCase() === lower);
+  if (!profile) {
+    throw {
+      code: "UNKNOWN_PROFILE",
+      message: `Unknown agent profile: ${requested}`,
+      details: profiles.length
+        ? `Profiles on this host: ${profiles.map((entry) => entry.name).join(", ")}`
+        : "This host has no agent profiles.",
+    } satisfies CommandError;
+  }
+  return profile;
+}
+
+function profileDefaultProvider(
+  profile: AgentProfile | null,
+  options: Pick<AgentRunOptions, "model">,
+): string | undefined {
+  if (!profile?.provider) return undefined;
+  if (options.model || !profile.model) return profile.provider;
+  return `${profile.provider}/${profile.model}`;
+}
+
+interface RunLaunch {
+  provider: ReturnType<typeof resolveProviderAndModel>;
+  /** `{ profileId }` when `--profile` was given, for spreading into the create request. */
+  profileFields: { profileId?: string };
+}
+
+// The profile is looked up client-side only to default the provider; the daemon applies it.
+async function resolveRunLaunch(client: RunClient, options: AgentRunOptions): Promise<RunLaunch> {
+  const profile = options.profile ? await requireRunProfile(client, options.profile) : null;
+  return {
+    provider: resolveProviderAndModel({
+      ...options,
+      defaultProvider: profileDefaultProvider(profile, options),
+    }),
+    profileFields: profile ? { profileId: profile.id } : {},
+  };
+}
+
 function validateRunOptions(prompt: string, options: AgentRunOptions, outputSchema: unknown): void {
   if (!prompt || prompt.trim().length === 0) {
     throw {
@@ -556,12 +611,15 @@ export async function runRunCommand(
   validateRunOptions(prompt, options, outputSchema);
   const waitTimeoutMs = parseWaitTimeoutOption(options.waitTimeout);
 
-  const resolvedProviderModel = resolveProviderAndModel(options);
   const resolvedTitle = options.title ?? options.name;
 
   const client = await connectToDaemon({ target: options.daemonTarget });
 
   try {
+    const { provider: resolvedProviderModel, profileFields } = await resolveRunLaunch(
+      client,
+      options,
+    );
     // Resolve working directory
     const cwd = options.cwd ?? process.cwd();
     const thinkingOptionId = options.thinking?.trim();
@@ -600,6 +658,7 @@ export async function runRunCommand(
             modeId: options.mode,
             model: resolvedProviderModel.model,
             thinkingOptionId,
+            ...profileFields,
             initialPrompt: structuredPrompt,
             outputSchema,
             images,
@@ -671,6 +730,7 @@ export async function runRunCommand(
       modeId: options.mode,
       model: resolvedProviderModel.model,
       thinkingOptionId,
+      ...profileFields,
       initialPrompt: prompt,
       images,
       env: requestEnv,

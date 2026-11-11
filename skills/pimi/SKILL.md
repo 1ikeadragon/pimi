@@ -128,16 +128,9 @@ Allow only what the user's instructions for this work cover. Otherwise tell the 
 
 ## Agent profiles and provider discovery
 
-**`list_profiles`** — named launch bundles configured by the human. Before choosing how to launch a delegated agent, call this tool and read every profile's `notes`. Pick a named profile the user requested, or the profile whose notes best match the work.
+**`list_profiles`** — agent profiles: named setups for kinds of work, configured by the human. Before launching a delegated agent, call this tool and read every profile's `notes`. Pick the profile the user named, or the one whose notes best match the work.
 
-There is no `profile` parameter on `create_agent`. Materialize the selected profile into the call:
-
-- combine `provider` and `model` as the `provider/model` value for `create_agent.provider`
-- copy `modeId` to `settings.modeId`
-- copy `thinkingOptionId` to `settings.thinkingOptionId`
-- copy `featureValues` to `settings.features`
-
-Omit absent values. Do not remember a selected profile or infer drift later; a profile is only launch configuration.
+Pass the profile's id or name as `profile` to `create_agent`. The agent starts with the profile's instructions as its system prompt, and the profile's provider, model, mode, thinking, and features fill anything you leave out; values you pass win. A profile without `provider` works with any provider, so pass `provider` with it. Put the assignment itself in `prompt`; the profile only sets up the agent.
 
 If no profile fits, or no profiles are configured, use the provider discovery tools below. Tell the user when you fall back because no configured profile fits.
 
@@ -183,7 +176,7 @@ Pick by where the work runs:
 
 **`create_heartbeat`** — `prompt` and exactly one of `cron`, `every` (30s at least), `in`, or `at`. Optional: `timezone` (with `cron`), `name`, `maxRuns`, `expiresIn`. A one-time heartbeat (`in`, `at`) waits for your turn to end. A recurring one that comes due while you are mid-turn fails that fire, and the fire still counts toward `maxRuns`, so pick an interval longer than your turns. To change a heartbeat, create it again with the same `name`. `list_heartbeats` shows yours. Call `delete_heartbeat` with the `id` once the thing it watches is finished.
 
-**`create_automation`** — `name` and `prompt`. Optional: `cron`, `timezone`, `provider`, `cwd`, `workspace`, `maxRuns`, `expiresIn`. Omit `cron` for an automation that runs only by hand.
+**`create_automation`** — `name` and `prompt`. Optional: `cron`, `timezone`, `provider`, `profile`, `cwd`, `workspace`, `maxRuns`, `expiresIn`. Omit `cron` for an automation that runs only by hand. With `profile`, each run's agent starts with that profile's instructions.
 
 - It starts `pending` and does not run until the user approves it in the Automations screen. You cannot approve it. Tell the user it is waiting there; `run_automation_once` and `pause_automation` fail until they do.
 - Each run's agent starts with no memory of this conversation and nobody to ask. Write the prompt as a complete brief: the task, what a finished result looks like, and what to leave alone.
@@ -210,6 +203,7 @@ pimi workspace create --isolation worktree --mode checkout-branch --branch exist
 pimi workspace create --isolation worktree --mode checkout-pr --pr-number 42
 pimi run --provider codex/gpt-5.4 --mode full-access --workspace <workspace-id> "<prompt>"
 pimi run --provider codex/gpt-5.4 --mode full-access --new-workspace worktree --worktree-mode branch-off --new-branch fix-x --base origin/main "<prompt>"
+pimi run --profile "Adversarial reviewer" --provider claude "<prompt>"
 pimi send <agent-id> "<follow-up>"
 pimi ls
 pimi automation create --provider codex --cron "0 9 * * 1-5" --timezone Europe/Paris --name "Morning build check" "<prompt>"

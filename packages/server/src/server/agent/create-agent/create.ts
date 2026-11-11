@@ -24,6 +24,9 @@ import { resolveCreateAgentTitles } from "../create-agent-title.js";
 import { buildAgentPrompt } from "../prompt-attachments.js";
 import { normalizeClientMessageId, resolveClientMessageId } from "../../client-message-id.js";
 import { resolveRequiredProviderModel, type ResolvedProviderModel } from "../mcp-shared.js";
+import type { AgentProfile } from "@pimi/protocol/agent-profile";
+import { applyAgentProfile } from "../profiles/apply.js";
+import { requireAgentProfile } from "../profiles/resolve.js";
 import {
   inheritAgentBackground,
   inheritWorkspaceBackground,
@@ -48,6 +51,8 @@ export interface CreateAgentCommandDependencies {
   createPaseoWorktree?: CreatePaseoWorktreeWorkflowFn;
   // Mints a fresh directory workspace for a cwd and returns its id.
   ensureWorkspaceForCreate?: EnsureWorkspaceForCreate;
+  /** The host's agent profiles, read when a creation names one. */
+  getAgentProfiles?: () => readonly AgentProfile[];
 }
 
 export type EnsureWorkspaceForCreate = (
@@ -61,6 +66,8 @@ export interface CreateAgentFromSessionInput {
   onAgentReady?: (agent: ManagedAgent) => Promise<void>;
   agentId?: string;
   config: AgentSessionConfig;
+  /** An agent profile id or exact name. Values in `config` win over the profile's. */
+  profile?: string;
   workspaceId: string;
   background: boolean;
   initialPrompt?: string;
@@ -78,7 +85,10 @@ export interface CreateAgentFromSessionInput {
 
 export interface CreateAgentFromMcpInput {
   kind: "mcp";
-  provider: string;
+  /** "provider" or "provider/model". May be omitted when `profile` names a provider. */
+  provider?: string;
+  /** An agent profile id or exact name. Explicit arguments win over the profile's values. */
+  profile?: string;
   title: string;
   initialPrompt?: string;
   attachments?: AgentAttachment[];
@@ -171,8 +181,9 @@ interface ResolvedCreateAgent {
 
 export async function createAgentCommand(
   dependencies: CreateAgentCommandDependencies,
-  input: CreateAgentCommandInput,
+  rawInput: CreateAgentCommandInput,
 ): Promise<CreateAgentCommandResult> {
+  const input = applyRequestedProfile(dependencies, rawInput);
   const resolved =
     input.kind === "session"
       ? await resolveSessionCreateAgent(dependencies, input)
@@ -226,6 +237,53 @@ export async function createAgentCommand(
     initialPromptStarted,
     initialPromptError,
     ...(resolved.createdWorktree ? { createdWorktree: resolved.createdWorktree } : {}),
+  };
+}
+
+/** What an MCP creation asked for, in profile-settings form, before a profile fills the gaps. */
+function mcpRequestedSettings(
+  input: CreateAgentFromMcpInput,
+): Parameters<typeof applyAgentProfile>[1] {
+  const named = input.provider?.trim() ? resolveProviderModel(input.provider) : null;
+  const passthrough = input.config;
+  return {
+    provider: named?.provider,
+    model: named?.model ?? passthrough?.model,
+    modeId: input.mode ?? passthrough?.modeId,
+    thinkingOptionId: input.thinking ?? passthrough?.thinkingOptionId,
+    featureValues: input.features ?? passthrough?.featureValues,
+    systemPrompt: passthrough?.systemPrompt,
+  };
+}
+
+function applyRequestedProfile(
+  dependencies: CreateAgentCommandDependencies,
+  input: CreateAgentCommandInput,
+): CreateAgentCommandInput {
+  const requested = input.profile?.trim();
+  if (!requested) return input;
+  const profile = requireAgentProfile(dependencies.getAgentProfiles?.() ?? [], requested);
+  if (input.kind === "session") {
+    const applied = applyAgentProfile(profile, input.config);
+    return { ...input, config: { ...applied.settings, profile: applied.profile } };
+  }
+  const passthrough = input.config;
+  const requestedSettings = mcpRequestedSettings(input);
+  const applied = applyAgentProfile(profile, requestedSettings);
+  const { provider, model, thinkingOptionId, featureValues, systemPrompt } = applied.settings;
+  // An unattended creation (an automation step) keeps its own mode: a profile's interactive mode
+  // would leave it waiting for a permission nobody grants.
+  const modeId = input.unattended ? requestedSettings.modeId : applied.settings.modeId;
+  if (!provider) {
+    throw new Error(`provider is required: profile "${profile.name}" does not set one`);
+  }
+  return {
+    ...input,
+    provider: formatProviderModel(provider, model),
+    mode: modeId,
+    thinking: thinkingOptionId,
+    features: featureValues,
+    config: { ...passthrough, systemPrompt, profile: applied.profile },
   };
 }
 
@@ -289,7 +347,7 @@ async function resolveMcpCreateAgent(
   dependencies: CreateAgentCommandDependencies,
   input: CreateAgentFromMcpInput,
 ): Promise<ResolvedCreateAgent> {
-  const resolvedProviderModel = resolveProviderModel(input.provider);
+  const resolvedProviderModel = resolveProviderModel(input.provider ?? "");
   const provider = resolvedProviderModel.provider;
   const parentAgent = input.callerAgentId
     ? requireParentAgent(dependencies.agentManager, input.callerAgentId)

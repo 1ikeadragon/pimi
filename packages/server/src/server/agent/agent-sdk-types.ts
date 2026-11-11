@@ -2,6 +2,7 @@ import type {
   AgentFeature,
   AgentFeatureSelect,
   AgentFeatureToggle,
+  AgentPermissionResolutionMarker,
   AgentProviderNotice,
   AgentProviderSwitchMarker,
   AgentTaskItem,
@@ -394,6 +395,7 @@ export type AgentTimelineItem =
       level: "info" | "warning" | "error";
       message: string;
       providerSwitch?: AgentProviderSwitchMarker;
+      permissionResolution?: AgentPermissionResolutionMarker;
     }
   | CompactionTimelineItem
   | PluginTimelineItem;
@@ -599,6 +601,8 @@ export interface AgentSessionConfig {
    * persisted into agent config so daemon setting changes apply cleanly.
    */
   daemonAppendSystemPrompt?: string;
+  /** The agent profile the agent was created with. */
+  profile?: { id: string; name: string };
   modeId?: string;
   model?: string;
   thinkingOptionId?: string;

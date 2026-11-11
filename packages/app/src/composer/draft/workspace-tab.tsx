@@ -103,6 +103,39 @@ function resolveDraftModeId(input: {
   return null;
 }
 
+interface DraftComposerSelection {
+  selectedProvider: string | null;
+  effectiveModeId: string;
+  effectiveModelId: string | null;
+  effectiveThinkingOptionId: string | null;
+  featureValues: Record<string, unknown> | undefined;
+  attachedProfile: { id: string } | null;
+}
+
+// A pending auto-submit (from the new-workspace screen) wins over the tab's own composer.
+function buildDraftCreateConfig(input: {
+  provider: string;
+  cwd: string;
+  autoSubmitConfig: AutoSubmitConfig | null;
+  composerState: DraftComposerSelection;
+}) {
+  const { autoSubmitConfig, composerState } = input;
+  const modeIdOverride = resolveDraftModeIdOverride({
+    autoSubmitConfig,
+    effectiveModeId: composerState.effectiveModeId,
+  });
+  return buildWorkspaceDraftAgentConfig({
+    provider: input.provider,
+    cwd: input.cwd,
+    ...modeIdOverride,
+    model: autoSubmitConfig?.model ?? (composerState.effectiveModelId || undefined),
+    thinkingOptionId:
+      autoSubmitConfig?.thinkingOptionId ?? (composerState.effectiveThinkingOptionId || undefined),
+    featureValues: autoSubmitConfig?.featureValues ?? composerState.featureValues,
+    ...(composerState.attachedProfile ? { profileId: composerState.attachedProfile.id } : {}),
+  });
+}
+
 async function submitDraftCreateRequest(input: {
   draftId: string;
   parent?: AgentAddress;
@@ -115,13 +148,7 @@ async function submitDraftCreateRequest(input: {
   workspaceDirectory: string | null;
   workspaceId: string | null;
   autoSubmitConfig: AutoSubmitConfig | null;
-  composerState: {
-    selectedProvider: string | null;
-    effectiveModeId: string;
-    effectiveModelId: string | null;
-    effectiveThinkingOptionId: string | null;
-    featureValues: Record<string, unknown> | undefined;
-  };
+  composerState: DraftComposerSelection;
   hostDisconnectedMessage: string;
   selectModelMessage: string;
 }): Promise<{ agentId: string | null; result: AgentSnapshotPayload }> {
@@ -148,19 +175,7 @@ async function submitDraftCreateRequest(input: {
   if (!provider) {
     throw new Error(input.selectModelMessage);
   }
-  const modeIdOverride = resolveDraftModeIdOverride({
-    autoSubmitConfig,
-    effectiveModeId: composerState.effectiveModeId,
-  });
-  const config = buildWorkspaceDraftAgentConfig({
-    provider,
-    cwd,
-    ...modeIdOverride,
-    model: autoSubmitConfig?.model ?? (composerState.effectiveModelId || undefined),
-    thinkingOptionId:
-      autoSubmitConfig?.thinkingOptionId ?? (composerState.effectiveThinkingOptionId || undefined),
-    featureValues: autoSubmitConfig?.featureValues ?? composerState.featureValues,
-  });
+  const config = buildDraftCreateConfig({ provider, cwd, autoSubmitConfig, composerState });
 
   const attachmentsArray = Array.isArray(attachments) ? attachments : undefined;
   const imagesData = await encodeImages(images);
@@ -321,6 +336,7 @@ export function WorkspaceDraftComposer({
       initialServerId: serverId,
       initialValues: draftInitialValues,
       initialFeatureValues: draftSetup?.featureValues,
+      ...(draftSetup?.profile ? { initialProfileId: draftSetup.profile.id } : {}),
       isVisible: true,
       lockedWorkingDir: draftWorkingDirectory ?? undefined,
     },

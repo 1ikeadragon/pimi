@@ -111,6 +111,7 @@ export function normalizeAgentSnapshot(snapshot: AgentSnapshotPayload, serverId:
     model: snapshot.model ?? null,
     features: snapshot.features,
     thinkingOptionId: snapshot.thinkingOptionId ?? null,
+    profile: snapshot.profile ?? null,
     requiresAttention: snapshot.requiresAttention ?? false,
     attentionReason: snapshot.attentionReason ?? null,
     attentionTimestamp,

@@ -108,6 +108,7 @@ Use `pimi run` to start a new agent with a task:
 ```bash
 pimi run "implement user authentication"
 pimi run --provider codex "refactor the API layer"
+pimi run --profile "Adversarial reviewer" "review the current diff"
 pimi run --no-wait "run the focused test suite"
 pimi run --output-schema schema.json "name this branch"
 pimi run --new-workspace worktree --worktree-mode branch-off --new-branch feature/x --base origin/main "implement feature X"

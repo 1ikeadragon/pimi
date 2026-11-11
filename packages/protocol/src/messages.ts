@@ -21,11 +21,17 @@ import {
   HostsRouteClosedSchema,
 } from "./hosts.js";
 import { PluginRegistryIdentitySchema } from "./plugin-registry.js";
-import { AgentProfileSchema, AgentSkillSelectionSchema } from "./agent-profile.js";
+import {
+  AgentProfileRefSchema,
+  AgentProfileSchema,
+  AgentSkillSelectionSchema,
+} from "./agent-profile.js";
 export {
+  AgentProfileRefSchema,
   AgentProfileSchema,
   AgentSkillSelectionSchema,
   type AgentProfile,
+  type AgentProfileRef,
   type AgentSkillSelection,
 } from "./agent-profile.js";
 import { PluginIdSchema, PluginRequirementsSchema, PluginSourceSchema } from "./plugin-config.js";
@@ -221,6 +227,8 @@ export const MutableDaemonConfigSchema = z
     appendSystemPrompt: z.string().default(""),
     terminalProfiles: z.array(TerminalProfileSchema).optional(),
     agentProfiles: z.array(AgentProfileSchema).optional(),
+    // Keys of built-in profiles the user deleted; they are not seeded again.
+    agentProfilesRemovedBuiltins: z.array(z.string()).optional(),
     skills: z.object({ selection: AgentSkillSelectionSchema.optional() }).strict().optional(),
     pluginsEnabled: z.boolean().optional(),
     plugins: z.record(PluginIdSchema, PluginSourceSchema).optional(),
@@ -255,6 +263,7 @@ export const MutableDaemonConfigPatchSchema = z
     appendSystemPrompt: z.string().optional(),
     terminalProfiles: z.array(TerminalProfileSchema).optional(),
     agentProfiles: z.array(AgentProfileSchema).optional(),
+    agentProfilesRemovedBuiltins: z.array(z.string()).optional(),
     pluginsEnabled: z.boolean().optional(),
     plugins: z.record(PluginIdSchema, PluginSourceSchema).optional(),
     features: SpeechSettingsPatchSchema.optional(),
@@ -271,6 +280,7 @@ import type {
   AgentPermissionRequest,
   AgentPermissionResponse,
   AgentPersistenceHandle,
+  AgentPermissionResolutionMarker,
   AgentProviderSwitchMarker,
   ProviderStatus,
   AgentRuntimeInfo,
@@ -508,6 +518,9 @@ const AgentSessionConfigSchema = z.object({
   toolPolicy: ToolPolicySchema.optional(),
   systemPrompt: z.string().optional(),
   mcpServers: z.record(z.string(), McpServerConfigSchema).optional(),
+  // Create only: an agent profile id or exact name. The daemon adds the profile's instructions
+  // to the system prompt and records the profile on the agent.
+  profileId: z.string().optional(),
 });
 
 const AgentPermissionUpdateSchema = z.record(z.string(), z.unknown());
@@ -725,6 +738,18 @@ export const AgentProviderSwitchMarkerSchema: z.ZodType<AgentProviderSwitchMarke
     to: AgentProviderSwitchEndpointSchema,
   });
 
+/** Marks where another agent answered this agent's permission prompt. */
+export const AgentPermissionResolutionMarkerSchema: z.ZodType<
+  AgentPermissionResolutionMarker,
+  unknown
+> = z.object({
+  decision: z.enum(["allow", "deny"]),
+  kind: z.enum(["tool", "plan", "question", "mode", "other"]),
+  tool: z.string(),
+  summary: z.string().optional(),
+  resolvedBy: z.object({ agentId: z.string(), title: z.string() }),
+});
+
 // zod-aot 0.20.4 miscompiles this as a nested discriminated union by omitting
 // the inner tool_call branch from the generated outer dispatch.
 export const AgentTimelineItemPayloadSchema: z.ZodType<AgentTimelineItem, unknown> = z.union([
@@ -765,6 +790,7 @@ export const AgentTimelineItemPayloadSchema: z.ZodType<AgentTimelineItem, unknow
     level: z.enum(["info", "warning", "error"]),
     message: z.string(),
     providerSwitch: AgentProviderSwitchMarkerSchema.optional(),
+    permissionResolution: AgentPermissionResolutionMarkerSchema.optional(),
   }),
   z.object({
     type: z.literal("compaction"),
@@ -899,6 +925,8 @@ export const AgentSnapshotPayloadSchema = z.object({
   lastError: z.string().optional(),
   title: z.string().nullable(),
   labels: z.record(z.string(), z.string()).default({}),
+  // The agent profile this agent was created with, as it was named then.
+  profile: AgentProfileRefSchema.nullable().optional(),
   requiresAttention: z.boolean().optional(),
   attentionReason: z.enum(["finished", "error", "permission"]).nullable().optional(),
   attentionTimestamp: z.string().nullable().optional(),

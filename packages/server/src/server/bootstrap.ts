@@ -267,6 +267,7 @@ import {
 import { PluginService } from "./plugins/index.js";
 import { BuiltinPluginLoader } from "./plugins/builtin/index.js";
 import { ManagedPluginSources } from "./plugins/managed-source.js";
+import { keepBuiltinProfilesSeeded } from "./agent/profiles/seed.js";
 
 const MCP_DEBUG_BATCH_LIMIT = 10;
 const MCP_DEBUG_SECRET = "[redacted]";
@@ -447,6 +448,7 @@ export interface PaseoDaemonConfig {
   appendSystemPrompt?: string;
   terminalProfiles?: TerminalProfile[];
   agentProfiles?: AgentProfile[];
+  agentProfilesRemovedBuiltins?: string[];
   skillSelection?: AgentSkillSelection;
   pluginsEnabled?: boolean;
   plugins?: Record<string, PluginSource>;
@@ -626,6 +628,10 @@ function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): Mutab
     initialConfig.agentProfiles = config.agentProfiles;
   }
 
+  if (config.agentProfilesRemovedBuiltins !== undefined) {
+    initialConfig.agentProfilesRemovedBuiltins = config.agentProfilesRemovedBuiltins;
+  }
+
   return initialConfig;
 }
 
@@ -685,6 +691,7 @@ export async function createPaseoDaemon(
       },
     },
   });
+  keepBuiltinProfilesSeeded(daemonConfigStore, logger);
   const orchestrationSkills = createOrchestrationSkills(daemonConfigStore);
   void orchestrationSkills.autoUpdate().catch((error) => {
     logger.error({ err: error }, "Failed to maintain orchestration skills at startup");
@@ -1417,6 +1424,7 @@ export async function createPaseoDaemon(
     providerSnapshotManager,
     createPaseoWorktree: createPaseoWorktreeForTools,
     ensureWorkspaceForCreate: ensureWorkspaceForCreateAndBroadcastExternal,
+    getAgentProfiles: () => daemonConfigStore.get().agentProfiles ?? [],
   };
   const createAgent = (input: Parameters<typeof createAgentCommand>[1]) =>
     createAgentCommand(createAgentCommandDependencies, input);
@@ -1487,6 +1495,7 @@ export async function createPaseoDaemon(
     createDirectoryWorkspace: createAutomationDirectoryWorkspaceExternal,
     createWorktreeWorkspace: createAutomationWorktreeExternal,
     archiveWorkspace: archiveAutomationWorkspaceExternal,
+    getAgentProfiles: () => daemonConfigStore.get().agentProfiles ?? [],
   });
   await automationService.start();
   const heartbeatService = new HeartbeatService({

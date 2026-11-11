@@ -3272,4 +3272,5 @@ export const ru: TranslationResources = {
       },
     },
   },
+  profiles: en.profiles,
 };

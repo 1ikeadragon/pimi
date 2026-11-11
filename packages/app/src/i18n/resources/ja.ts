@@ -3246,4 +3246,5 @@ export const ja: TranslationResources = {
       },
     },
   },
+  profiles: en.profiles,
 } as const;

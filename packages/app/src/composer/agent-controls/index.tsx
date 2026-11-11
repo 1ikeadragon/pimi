@@ -104,7 +104,11 @@ import {
   type AgentProfileSeed,
   type DraftAgentProfileControls,
 } from "@/agent-profiles";
-import { buildSettingsHostSectionRoute } from "@/utils/host-routes";
+import { buildProfilesRoute } from "@/utils/host-routes";
+import { buildDraftAgentSetup } from "@/client-slash-commands";
+import { generateDraftId } from "@/stores/draft-keys";
+import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
+import { ProfileChip } from "@/composer/draft/profile-chip";
 
 interface AgentControlOption {
   id: string;
@@ -163,6 +167,9 @@ export interface DraftAgentControlsProps {
   selectedThinkingOptionId: string;
   onSelectThinkingOption: (thinkingOptionId: string) => void;
   onApplyAgentProfile: DraftAgentProfileControls["applyProfile"];
+  /** The profile the draft will be created with, shown as a chip until sent or removed. */
+  attachedProfile?: { id: string; name: string } | null;
+  onDetachAgentProfile?: () => void;
   features?: AgentFeature[];
   onSetFeature?: (featureId: string, value: unknown) => void;
   onDropdownClose?: () => void;
@@ -294,7 +301,7 @@ function useEditAgentProfilesNavigation(
 ): (() => void) | undefined {
   const handleEdit = useCallback(() => {
     if (!serverId) return;
-    router.push(buildSettingsHostSectionRoute(serverId, "agents"));
+    router.push(buildProfilesRoute());
   }, [serverId]);
   return serverId && isSupported ? handleEdit : undefined;
 }
@@ -411,6 +418,7 @@ type AgentControlsSlice = {
   runtimeThinkingOptionId: string | null;
   thinkingOptionId: string | null | undefined;
   lastUsage: unknown;
+  profile: { id: string; name: string } | null;
 } | null;
 
 function selectAgentControlsSlice(
@@ -432,6 +440,7 @@ function selectAgentControlsSlice(
     runtimeThinkingOptionId: currentAgent.runtimeInfo?.thinkingOptionId ?? null,
     thinkingOptionId: currentAgent.thinkingOptionId,
     lastUsage: currentAgent.lastUsage,
+    profile: currentAgent.profile ?? null,
   };
 }
 
@@ -1766,9 +1775,31 @@ export const AgentControls = memo(function AgentControls({
     () => resolveSnapshotModeIds(snapshotSelectedEntry),
     [snapshotSelectedEntry],
   );
+  const startNewAgentWithProfile = useCallback(
+    (profile: { id: string; name: string }) => {
+      const session = useSessionStore.getState().sessions[serverId];
+      const current = session?.agents?.get(agentId) ?? session?.agentDetails?.get(agentId);
+      if (!current?.workspaceId) return;
+      navigateToWorkspace({
+        serverId,
+        workspaceId: current.workspaceId,
+        target: {
+          kind: "draft",
+          draftId: generateDraftId(),
+          setup: { ...buildDraftAgentSetup(current), profile },
+        },
+      });
+    },
+    [agentId, serverId],
+  );
   const profileTarget = useMemo<AgentProfileApplyTarget>(
-    () => ({ kind: "agent", agentId, availableModeIds: profileModeIds }),
-    [agentId, profileModeIds],
+    () => ({
+      kind: "agent",
+      agentId,
+      availableModeIds: profileModeIds,
+      onStartNewAgent: startNewAgentWithProfile,
+    }),
+    [agentId, profileModeIds, startNewAgentWithProfile],
   );
   const agentProfiles = useAgentProfilePicker({
     serverId,
@@ -1904,6 +1935,14 @@ export const AgentControls = memo(function AgentControls({
     <>
       {commandCenterRegistration}
       {profileEditor.element}
+      {agent.profile ? (
+        <ProfileChip
+          serverId={serverId}
+          profile={agent.profile}
+          onDetach={undefined}
+          disabled={false}
+        />
+      ) : null}
       <ControlledAgentControls
         provider={agent.provider}
         modelSelectorProviders={agentModelSelectorProviders}
@@ -1952,6 +1991,8 @@ export function DraftAgentControls({
   selectedThinkingOptionId,
   onSelectThinkingOption,
   onApplyAgentProfile,
+  attachedProfile = null,
+  onDetachAgentProfile,
   features,
   onSetFeature,
   onDropdownClose,
@@ -2023,6 +2064,14 @@ export function DraftAgentControls({
   return (
     <>
       {profileEditor.element}
+      {attachedProfile ? (
+        <ProfileChip
+          serverId={modelSelectorServerId}
+          profile={attachedProfile}
+          onDetach={onDetachAgentProfile}
+          disabled={disabled}
+        />
+      ) : null}
       <ControlledAgentControls
         provider={selectedProvider ?? ""}
         modelSelectorProviders={modelSelectorProviders}

@@ -144,6 +144,7 @@ export function toAgentPayload(
     model: agent.config.model ?? null,
     thinkingOptionId,
     effectiveThinkingOptionId,
+    profile: agent.config.profile ?? null,
     ...(runtimeInfo ? { runtimeInfo } : {}),
     createdAt: agent.createdAt.toISOString(),
     updatedAt: agent.updatedAt.toISOString(),
@@ -232,6 +233,25 @@ function visibilityFlags(agent: {
   };
 }
 
+function storedConfigFields(
+  record: StoredAgentRecord,
+  runtimeInfo: ReturnType<typeof buildStoredRuntimeInfo>,
+): Pick<
+  AgentSnapshotPayload,
+  "model" | "profile" | "thinkingOptionId" | "effectiveThinkingOptionId"
+> {
+  const thinkingOptionId = record.config?.thinkingOptionId ?? null;
+  return {
+    model: record.config?.model ?? null,
+    profile: record.config?.profile ?? null,
+    thinkingOptionId,
+    effectiveThinkingOptionId: resolveEffectiveThinkingOptionId({
+      runtimeInfo,
+      configuredThinkingOptionId: thinkingOptionId,
+    }),
+  };
+}
+
 export function buildStoredAgentPayload(
   record: StoredAgentRecord,
   validProviders: Iterable<AgentProvider>,
@@ -263,12 +283,7 @@ export function buildStoredAgentPayload(
     provider: record.provider,
     cwd: record.cwd,
     ...(record.workspaceId ? { workspaceId: record.workspaceId } : {}),
-    model: record.config?.model ?? null,
-    thinkingOptionId: record.config?.thinkingOptionId ?? null,
-    effectiveThinkingOptionId: resolveEffectiveThinkingOptionId({
-      runtimeInfo,
-      configuredThinkingOptionId: record.config?.thinkingOptionId ?? null,
-    }),
+    ...storedConfigFields(record, runtimeInfo),
     ...(runtimeInfo ? { runtimeInfo } : {}),
     createdAt: createdAt.toISOString(),
     updatedAt: updatedAt.toISOString(),
@@ -425,6 +440,9 @@ function buildSerializableConfig(config: AgentSessionConfig): SerializableAgentC
   }
   if (config.mcpServers) {
     serializable.mcpServers = config.mcpServers;
+  }
+  if (config.profile) {
+    serializable.profile = { ...config.profile };
   }
   return Object.keys(serializable).length ? serializable : null;
 }

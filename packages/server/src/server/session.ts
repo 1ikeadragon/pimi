@@ -376,7 +376,7 @@ type AgentUpdatesFilter = FetchAgentsRequestFilter;
 type CreateAgentRequestMessage = Extract<SessionInboundMessage, { type: "create_agent_request" }>;
 
 interface ResolvedSessionCreateAgentIntent {
-  config: AgentSessionConfig;
+  config: CreateAgentRequestMessage["config"];
   intent: CreateAgentIntent;
   background: boolean;
   createdDirectoryWorkspace: boolean;
@@ -4295,6 +4295,7 @@ export class Session {
         throw new Error(`Working directory does not exist or is not a directory: ${resolvedCwd}`);
       }
 
+      const { profileId, ...sessionConfig } = resolvedIntent.config;
       const { snapshot, liveSnapshot, initialPromptStarted } = await createAgentCommand(
         {
           agentManager: this.agentManager,
@@ -4304,6 +4305,7 @@ export class Session {
           paseoHome: this.paseoHome,
           worktreesRoot: this.worktreesRoot,
           providerSnapshotManager: this.providerSnapshotManager,
+          getAgentProfiles: () => this.daemonConfigStore.get().agentProfiles ?? [],
         },
         {
           kind: "session",
@@ -4312,7 +4314,8 @@ export class Session {
             await onAgentReady?.(await this.buildAgentPayload(agent));
           },
           agentId,
-          config: resolvedIntent.config,
+          config: sessionConfig,
+          profile: profileId,
           workspaceId: resolvedIntent.intent.workspaceId,
           background: resolvedIntent.background,
           initialPrompt,
@@ -4933,6 +4936,7 @@ export class Session {
         agentId,
         requestId,
         response,
+        responder: { kind: "client" },
         logger: this.sessionLogger,
       });
       // Request outcomes are independent of whether this socket (or its logical Session)

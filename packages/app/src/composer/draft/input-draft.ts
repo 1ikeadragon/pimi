@@ -27,6 +27,11 @@ import { AfterPaintPublication } from "@/composer/after-paint-publication";
 import { useShallow } from "zustand/shallow";
 import type { ComposerTextSource } from "@/composer/text-source";
 import { isWeb } from "@/constants/platform";
+import {
+  materializeAgentProfile,
+  useAgentProfiles,
+  type MaterializedAgentProfile,
+} from "@/agent-profiles";
 
 type AttachmentUpdater =
   | UserComposerAttachment[]
@@ -38,6 +43,14 @@ interface AgentInputDraftComposerOptions {
   initialFeatureValues?: Record<string, unknown>;
   isVisible?: boolean;
   lockedWorkingDir?: string;
+  /** An agent profile to apply once the host's profiles and providers have loaded. */
+  initialProfileId?: string;
+}
+
+/** The profile a draft is attached to: sent as `profileId` when the agent is created. */
+export interface DraftAttachedProfile {
+  id: string;
+  name: string;
 }
 
 interface UseAgentInputDraftInput {
@@ -53,6 +66,7 @@ type DraftComposerState = UseAgentFormStateResult & {
   featureValues: Record<string, unknown> | undefined;
   agentControls: DraftAgentControlsProps;
   commandDraft: DraftCommandTarget;
+  attachedProfile: DraftAttachedProfile | null;
 };
 
 export interface AgentInputDraft {
@@ -191,10 +205,15 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
     [saveDraft],
   );
 
+  // Kept until the draft is sent or the user detaches it; changing the model does not detach it,
+  // because the instructions are what the profile adds.
+  const [attachedProfile, setAttachedProfile] = useState<DraftAttachedProfile | null>(null);
+
   const clear = useCallback(
     (lifecycle: "sent" | "abandoned") => {
       textPublication.cancel();
       useDraftStore.getState().clearDraftInput({ draftKey, lifecycle });
+      setAttachedProfile(null);
     },
     [draftKey, textPublication],
   );
@@ -289,12 +308,24 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
   });
 
   const applyDraftAgentProfile = useCallback(
-    (profile: Parameters<typeof formState.applyProfileFromUser>[0]) => {
-      formState.applyProfileFromUser(profile);
-      applyProfileFeatureValues(profile.featureValues);
+    (profile: MaterializedAgentProfile) => {
+      // A profile without a provider keeps the draft's provider and adds only its instructions.
+      if (profile.provider) {
+        formState.applyProfileFromUser(profile);
+        applyProfileFeatureValues(profile.featureValues);
+      }
+      setAttachedProfile({ id: profile.id, name: profile.name });
     },
     [applyProfileFeatureValues, formState],
   );
+  const detachAgentProfile = useCallback(() => setAttachedProfile(null), []);
+
+  useApplyInitialProfile({
+    profileId: composerOptions?.initialProfileId ?? null,
+    serverId: formState.selectedServerId,
+    formState,
+    apply: applyDraftAgentProfile,
+  });
 
   const commandDraft = useMemo(
     () =>
@@ -331,8 +362,11 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
         features: draftFeatures,
         onSetFeature: setDraftFeatureValue,
         onApplyAgentProfile: applyDraftAgentProfile,
+        attachedProfile,
+        onDetachAgentProfile: detachAgentProfile,
       }),
       commandDraft,
+      attachedProfile,
     };
   }, [
     commandDraft,
@@ -343,6 +377,8 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
     draftFeatures,
     draftFeatureValues,
     applyDraftAgentProfile,
+    attachedProfile,
+    detachAgentProfile,
     formState,
     setDraftFeatureValue,
     workingDir,
@@ -360,6 +396,36 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
     attachmentFocusRequestId,
     composerState,
   };
+}
+
+/**
+ * Applies a profile named by the route (Try it, or a new agent started from a running one) once:
+ * after the host's profiles arrive and, for a profile with a provider, once that provider's models
+ * have loaded so the draft can select them.
+ */
+function useApplyInitialProfile(input: {
+  profileId: string | null;
+  serverId: string | null;
+  formState: UseAgentFormStateResult;
+  apply: (profile: MaterializedAgentProfile) => void;
+}): void {
+  const { profileId, serverId, formState, apply } = input;
+  const { profiles } = useAgentProfiles(profileId ? serverId : null);
+  const appliedRef = useRef<string | null>(null);
+  const providerReady = useCallback(
+    (provider: string) =>
+      !formState.isAllModelsLoading &&
+      formState.modelSelectorProviders.some((entry) => entry.id === provider),
+    [formState.isAllModelsLoading, formState.modelSelectorProviders],
+  );
+  useEffect(() => {
+    if (!profileId || appliedRef.current === profileId || !profiles) return;
+    const profile = profiles.find((entry) => entry.id === profileId);
+    if (!profile) return;
+    if (profile.provider && !providerReady(profile.provider)) return;
+    appliedRef.current = profileId;
+    apply(materializeAgentProfile(profile));
+  }, [apply, profileId, profiles, providerReady]);
 }
 
 export const __private__ = {

@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { Brain, Folder, GitBranch } from "lucide-react-native";
 import { StyleSheet } from "react-native-unistyles";
 import type { AgentProvider } from "@pimi/protocol/agent-types";
@@ -34,6 +35,7 @@ import {
   type SelectFieldRenderOptionInput,
 } from "@/components/ui/select-field";
 import { formatThinkingOptionLabel } from "@/agent-controls/labels";
+import { useAgentProfiles } from "@/agent-profiles";
 import {
   mergeProviderPreferences,
   useFormPreferences,
@@ -97,6 +99,7 @@ function buildDefinition(input: {
   automation: Automation | undefined;
   provider: AgentProvider;
   cwd: string;
+  profileId: string;
 }): AutomationDefinition {
   const { state, automation } = input;
   const storedAgent = automation?.flow.nodes.find((node) => node.kind === "agent");
@@ -117,6 +120,7 @@ function buildDefinition(input: {
           id: agentId,
           kind: "agent",
           title: storedAgent?.kind === "agent" ? storedAgent.title : "Agent",
+          ...(input.profileId ? { profileId: input.profileId } : {}),
           provider: input.provider,
           ...(model ? { model } : {}),
           ...(modeId ? { modeId } : {}),
@@ -321,6 +325,13 @@ function OpenAutomationFormSheet({
   );
   const model = useAutomationFormModel(snapshot);
   const state = useSyncExternalStore(model.subscribe, model.getState, model.getState);
+  const [profileId, setProfileId] = useState(() => {
+    const storedAgent = automation?.flow.nodes.find((node) => node.kind === "agent");
+    if (storedAgent?.kind === "agent") {
+      return storedAgent.profileId ?? "";
+    }
+    return template?.profileId ?? "";
+  });
   const providerSnapshot = useAutomationFormProviderSnapshot(model, state);
   const mutationServerId = state.selectedServerId ?? serverId ?? "";
   const { createAutomation, updateAutomation, isCreating, isUpdating } = useAutomationMutations({
@@ -364,14 +375,14 @@ function OpenAutomationFormSheet({
       return false;
     }
     await persistPreferences();
-    const definition = buildDefinition({ state, automation, provider, cwd });
+    const definition = buildDefinition({ state, automation, provider, cwd, profileId });
     if (mode === "edit" && automation) {
       await updateAutomation({ automationId: automation.id, definition });
       return true;
     }
     await createAutomation({ definition });
     return true;
-  }, [createAutomation, mode, persistPreferences, automation, state, updateAutomation]);
+  }, [createAutomation, mode, persistPreferences, automation, profileId, state, updateAutomation]);
 
   const handleSubmit = useCallback(async () => {
     if (!canSubmit) {
@@ -438,6 +449,8 @@ function OpenAutomationFormSheet({
         controlSize={controlSize}
         cadenceError={cadenceError}
         mutationServerId={mutationServerId}
+        profileId={profileId}
+        onChangeProfileId={setProfileId}
       />
     </AdaptiveModalSheet>
   );
@@ -450,6 +463,8 @@ interface AutomationFormFieldsProps {
   controlSize: ControlSize;
   cadenceError: string | null;
   mutationServerId: string;
+  profileId: string;
+  onChangeProfileId: (profileId: string) => void;
 }
 
 function AutomationFormFields({
@@ -459,6 +474,8 @@ function AutomationFormFields({
   controlSize,
   cadenceError,
   mutationServerId,
+  profileId,
+  onChangeProfileId,
 }: AutomationFormFieldsProps): ReactElement {
   const triggerDisplay = useMemo<SelectFieldDisplay>(
     () => ({ label: state.triggerKind === "manual" ? "Run by hand" : "On a schedule" }),
@@ -493,6 +510,13 @@ function AutomationFormFields({
           textAlignVertical="top"
         />
       </Field>
+
+      <AutomationProfileField
+        serverId={state.selectedServerId}
+        value={profileId}
+        onChange={onChangeProfileId}
+        size={controlSize}
+      />
 
       <SelectField
         label="Trigger"
@@ -539,6 +563,75 @@ function AutomationFormFields({
 
       {state.submitError ? <Text style={styles.submitError}>{state.submitError}</Text> : null}
     </>
+  );
+}
+
+const NO_PROFILE_VALUE = "__none__";
+
+// Profiles live on a host, so the list follows the selected host. A stored or template profile the
+// host does not have is dropped, which also repairs an automation whose profile was deleted.
+function AutomationProfileField({
+  serverId,
+  value,
+  onChange,
+  size,
+}: {
+  serverId: string | null;
+  value: string;
+  onChange: (profileId: string) => void;
+  size: ControlSize;
+}): ReactElement {
+  const { t } = useTranslation();
+  const { profiles } = useAgentProfiles(serverId);
+  useEffect(() => {
+    if (profiles && value && !profiles.some((profile) => profile.id === value)) {
+      onChange("");
+    }
+  }, [onChange, profiles, value]);
+  const options = useMemo<SelectFieldOption<string>[]>(
+    () => [
+      {
+        id: NO_PROFILE_VALUE,
+        value: NO_PROFILE_VALUE,
+        label: t("profiles.automationNoProfile"),
+        testID: "automation-profile-option-none",
+      },
+      ...(profiles ?? []).map((profile) => ({
+        id: profile.id,
+        value: profile.id,
+        label: profile.name,
+        description: profile.notes,
+        testID: `automation-profile-option-${profile.id}`,
+      })),
+    ],
+    [profiles, t],
+  );
+  const selected = profiles?.find((profile) => profile.id === value) ?? null;
+  const selectedDisplay = useMemo<SelectFieldDisplay>(
+    () => ({ label: selected?.name ?? t("profiles.automationNoProfile") }),
+    [selected, t],
+  );
+  const handleChange = useCallback(
+    (next: string) => onChange(next === NO_PROFILE_VALUE ? "" : next),
+    [onChange],
+  );
+  return (
+    <SelectField
+      label={t("profiles.automationProfileLabel")}
+      hint={t("profiles.automationProfileHint")}
+      value={selected ? selected.id : NO_PROFILE_VALUE}
+      selectedDisplay={selectedDisplay}
+      options={options}
+      onChange={handleChange}
+      placeholder={t("profiles.automationNoProfile")}
+      emptyText={t("profiles.empty")}
+      loading={serverId !== null && profiles === null}
+      disabled={!serverId}
+      searchable={options.length > 7}
+      title={t("profiles.automationProfileLabel")}
+      size={size}
+      triggerTestID="automation-profile-trigger"
+    />
   );
 }
 

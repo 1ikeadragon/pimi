@@ -383,6 +383,22 @@ export interface AgentProviderSwitchMarker {
   to: AgentProviderSwitchEndpoint;
 }
 
+/**
+ * Records that another agent answered this agent's permission prompt. The prompt itself is
+ * not a timeline row, so without this the chat shows nothing between the request and the tool
+ * running.
+ */
+export interface AgentPermissionResolutionMarker {
+  decision: "allow" | "deny";
+  kind: AgentPermissionRequestKind;
+  /** Display name of what was asked for, such as "Shell" or "Edit". */
+  tool: string;
+  /** The command, path or query, when the request has one. */
+  summary?: string;
+  /** `title` is the responder's title when it answered; a client that knows the agent shows its current one. */
+  resolvedBy: { agentId: string; title: string };
+}
+
 export interface AgentTaskItem {
   text: string;
   completed: boolean;
@@ -403,6 +419,7 @@ export type AgentTimelineItem =
       level: "info" | "warning" | "error";
       message: string;
       providerSwitch?: AgentProviderSwitchMarker;
+      permissionResolution?: AgentPermissionResolutionMarker;
     }
   | CompactionTimelineItem
   | PluginTimelineItem;
@@ -540,6 +557,11 @@ export interface AgentSessionConfig {
    * Mapped by each provider to its native instruction field.
    */
   systemPrompt?: string;
+  /**
+   * Create only: an agent profile id or exact name. The daemon adds the profile's instructions to
+   * the system prompt and records the profile on the agent.
+   */
+  profileId?: string;
   modeId?: string;
   model?: string;
   thinkingOptionId?: string;

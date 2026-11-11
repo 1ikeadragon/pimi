@@ -31,6 +31,9 @@ export const AutomationAgentNodeSchema = z.object({
   id: z.string().min(1),
   kind: z.literal("agent"),
   title: z.string(),
+  // An agent profile: its instructions become the agent's system prompt when the step starts,
+  // and its model, mode and thinking apply where the step sets none.
+  profileId: z.string().min(1).optional(),
   provider: AgentProviderSchema,
   model: z.string().min(1).optional(),
   thinkingOptionId: z.string().min(1).optional(),

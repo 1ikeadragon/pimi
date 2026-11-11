@@ -1,4 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
+import type { AgentProfile } from "@pimi/protocol/agent-profile";
+import { requireAgentProfile } from "../agent/profiles/resolve.js";
 import { rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { Logger } from "pino";
@@ -62,6 +64,8 @@ export class AutomationStateError extends Error {
 export interface AutomationServiceOptions extends Omit<AutomationEngineDeps, "logger"> {
   paseoHome: string;
   logger: Logger;
+  /** The host's agent profiles; an agent step may name one. */
+  getAgentProfiles: () => readonly AgentProfile[];
 }
 
 interface ActiveRun {
@@ -103,7 +107,29 @@ function scheduledNextRunAt(
   return computeNextRunAt(automation.trigger.cadence, now).toISOString();
 }
 
-function normalizeDefinition(definition: AutomationDefinition): NormalizedDefinition {
+// An agent step's profile is stored by id; callers may name it.
+function normalizeFlowProfiles(
+  flow: AutomationDefinition["flow"],
+  profiles: readonly AgentProfile[],
+): AutomationDefinition["flow"] {
+  return {
+    ...flow,
+    nodes: flow.nodes.map((node) => {
+      if (node.kind !== "agent") return node;
+      const requested = node.profileId?.trim();
+      if (!requested) {
+        const { profileId: _dropped, ...rest } = node;
+        return rest;
+      }
+      return { ...node, profileId: requireAgentProfile(profiles, requested).id };
+    }),
+  };
+}
+
+function normalizeDefinition(
+  definition: AutomationDefinition,
+  profiles: readonly AgentProfile[],
+): NormalizedDefinition {
   const issues = validateAutomationDefinition(definition);
   if (issues.length > 0) {
     throw new Error(issues.map((issue) => issue.message).join("; "));
@@ -137,7 +163,7 @@ function normalizeDefinition(definition: AutomationDefinition): NormalizedDefini
     description: description ? description : null,
     project: { cwd: resolve(definition.project.cwd.trim()) },
     trigger,
-    flow: definition.flow,
+    flow: normalizeFlowProfiles(definition.flow, profiles),
     limits,
   };
 }
@@ -156,6 +182,7 @@ export class AutomationService {
   private readonly store: AutomationStore;
   private readonly audit: AutomationAuditLog;
   private readonly engine: AutomationEngineDeps;
+  private readonly getAgentProfiles: () => readonly AgentProfile[];
   private readonly activeRuns = new Map<string, ActiveRun>();
   private readonly originLocks = new Map<string, Promise<unknown>>();
   private admission: Promise<unknown> = Promise.resolve();
@@ -166,6 +193,7 @@ export class AutomationService {
   constructor(options: AutomationServiceOptions) {
     this.logger = options.logger.child({ module: "automation-service" });
     this.paseoHome = options.paseoHome;
+    this.getAgentProfiles = options.getAgentProfiles;
     const dir = join(options.paseoHome, "automations");
     this.store = new AutomationStore({ dir, logger: this.logger });
     this.audit = new AutomationAuditLog({ dir, logger: this.logger });
@@ -226,7 +254,7 @@ export class AutomationService {
     definition: AutomationDefinition;
     origin: AutomationOrigin;
   }): Promise<Automation> {
-    const fields = normalizeDefinition(input.definition);
+    const fields = normalizeDefinition(input.definition, this.getAgentProfiles());
     const origin = input.origin;
     const actor: AutomationActor = origin;
     const now = new Date();
@@ -303,7 +331,7 @@ export class AutomationService {
     definition: AutomationDefinition;
     actor: AutomationActor;
   }): Promise<Automation> {
-    const fields = normalizeDefinition(input.definition);
+    const fields = normalizeDefinition(input.definition, this.getAgentProfiles());
     const now = new Date();
     const updated = await this.store.automations.update(input.id, (current) => {
       if (current.status === "ended") {
@@ -715,6 +743,9 @@ export class AutomationService {
     if (autoPaused) {
       await this.audit.append({
         automationId: input.automationId,
+      if (run.reportWorkspaceId) {
+        workspaceIds.add(run.reportWorkspaceId);
+      }
         action: "auto_paused",
         actor: daemon,
         runId: input.runId,
@@ -743,9 +774,6 @@ export class AutomationService {
   private archiveRunWorkspaces(runs: readonly AutomationRun[]): void {
     const workspaceIds = new Set<string>();
     for (const run of runs) {
-      if (run.reportWorkspaceId) {
-        workspaceIds.add(run.reportWorkspaceId);
-      }
       for (const step of run.steps) {
         if (step.workspaceId) {
           workspaceIds.add(step.workspaceId);

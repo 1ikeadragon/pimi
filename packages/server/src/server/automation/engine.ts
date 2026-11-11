@@ -149,6 +149,8 @@ export async function runAgentStep(
     const created = await deps.createAgent({
       kind: "mcp",
       provider: formatProviderModel(node.provider, node.model),
+      // Read when the step starts, so a run uses the profile as it is now.
+      profile: node.profileId,
       config: {
         provider: node.provider,
         cwd: workspace.cwd,

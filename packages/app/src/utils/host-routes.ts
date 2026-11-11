@@ -400,6 +400,15 @@ export function buildAutomationsRoute() {
   return "/automations" as const;
 }
 
+export function buildProfilesRoute() {
+  return "/profiles" as const;
+}
+
+/** `profileId` "new" opens the create form. */
+export function buildProfileEditorRoute(serverId: string, profileId: string) {
+  return `/profiles/${encodeURIComponent(serverId)}/${encodeURIComponent(profileId)}` as const;
+}
+
 export function buildOpenProjectRoute() {
   return "/open-project" as const;
 }
@@ -411,6 +420,8 @@ interface NewWorkspaceRouteOptions {
   projectId?: string;
   draftId?: string;
   chooseProject?: boolean;
+  /** Agent profile to attach to the new draft. */
+  profileId?: string;
 }
 
 function buildNewWorkspaceSearch(options: NewWorkspaceRouteOptions): string {
@@ -433,6 +444,9 @@ function buildNewWorkspaceSearch(options: NewWorkspaceRouteOptions): string {
   }
   if (options.chooseProject) {
     params.set("chooseProject", "1");
+  }
+  if (options.profileId) {
+    params.set("profile", options.profileId);
   }
   return params.toString();
 }

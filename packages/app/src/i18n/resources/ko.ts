@@ -3229,4 +3229,5 @@ export const ko: TranslationResources = {
       },
     },
   },
+  profiles: en.profiles,
 };

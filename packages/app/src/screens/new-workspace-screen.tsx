@@ -172,6 +172,8 @@ interface NewWorkspaceScreenProps {
   displayName?: string;
   draftId?: string;
   chooseProject?: boolean;
+  /** Attach this profile to the draft on open ("Try it" on the profile page). */
+  initialProfileId?: string;
 }
 
 // A terminal launch sends argv, not a message: there is nothing to attach and
@@ -446,6 +448,7 @@ async function createWorkspaceChatAgent(input: CreateChatAgentInput): Promise<Su
       model: composerState.effectiveModelId || undefined,
       thinkingOptionId: composerState.effectiveThinkingOptionId || undefined,
       featureValues: composerState.featureValues,
+      ...(composerState.attachedProfile ? { profileId: composerState.attachedProfile.id } : {}),
     },
     initialPrompt: text,
     clientMessageId: `${input.draftId}:initial-message`,
@@ -518,13 +521,16 @@ function buildComposerConfig(input: {
   workspaceDirectory: string | null;
   sourceDirectory: string | null;
   initialSetup?: WorkspaceDraftTabSetup | null;
+  initialProfileId?: string;
 }): Parameters<typeof useAgentInputDraft>[0]["composer"] {
   const { serverId, workspaceDirectory, sourceDirectory, initialSetup } = input;
+  const initialProfileId = input.initialProfileId ?? initialSetup?.profile?.id;
   const workingDir = workspaceDirectory || sourceDirectory || undefined;
   return {
     initialServerId: serverId || null,
     initialValues: buildComposerInitialValues({ initialSetup }),
     initialFeatureValues: initialSetup?.featureValues,
+    ...(initialProfileId ? { initialProfileId } : {}),
     isVisible: true,
     lockedWorkingDir: workingDir,
   };
@@ -832,6 +838,7 @@ export function NewWorkspaceScreen({
   displayName: displayNameProp,
   draftId,
   chooseProject,
+  initialProfileId,
 }: NewWorkspaceScreenProps) {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
@@ -976,6 +983,7 @@ export function NewWorkspaceScreen({
       workspaceDirectory: workspace?.workspaceDirectory ?? null,
       sourceDirectory: selectedSourceDirectory,
       initialSetup: forkDraftSetup?.setup,
+      initialProfileId,
     }),
   });
   const composerState = chatDraft.composerState;

@@ -82,6 +82,8 @@ export interface AgentProfileFormState {
   icon: string;
   color: string;
   notes: string;
+  instructions: string;
+  /** Empty means "any provider": the profile carries instructions only. */
   provider: string;
   modelId: string;
   modeId: string;
@@ -124,6 +126,7 @@ export interface AgentProfileFormModel {
   setName: (value: string) => void;
   setAppearance: (value: { icon: string; color: string }) => void;
   setNotes: (value: string) => void;
+  setInstructions: (value: string) => void;
   setProvider: (providerId: string, display: AgentProfileFormDisplay) => void;
   setModel: (modelId: string, display: AgentProfileFormDisplay | null) => void;
   setMode: (modeId: string, display: AgentProfileFormDisplay | null) => void;
@@ -339,18 +342,28 @@ export function buildFeatureRequestKey(request: AgentProfileFeatureRequest | nul
 function buildSubmitValue(state: AgentProfileFormState): AgentProfileValue | null {
   const name = state.name.trim();
   const notes = state.notes.trim();
-  if (!name || !state.provider) {
+  const instructions = state.instructions.trim();
+  if (!name) {
     return null;
   }
+  // Model, mode, thinking and features belong to a provider; "any provider" stores none.
+  const providerScoped = state.provider
+    ? {
+        provider: state.provider,
+        ...(state.modelId ? { model: state.modelId } : {}),
+        ...(state.modeId ? { modeId: state.modeId } : {}),
+        ...(state.thinkingOptionId ? { thinkingOptionId: state.thinkingOptionId } : {}),
+        ...(Object.keys(state.featureValues).length > 0
+          ? { featureValues: state.featureValues }
+          : {}),
+      }
+    : {};
   return {
     name,
     ...(state.icon ? { icon: state.icon } : {}),
     ...(state.color ? { color: state.color } : {}),
-    provider: state.provider,
-    ...(state.modelId ? { model: state.modelId } : {}),
-    ...(state.modeId ? { modeId: state.modeId } : {}),
-    ...(state.thinkingOptionId ? { thinkingOptionId: state.thinkingOptionId } : {}),
-    ...(Object.keys(state.featureValues).length > 0 ? { featureValues: state.featureValues } : {}),
+    ...providerScoped,
+    ...(instructions ? { instructions } : {}),
     ...(notes ? { notes } : {}),
   };
 }
@@ -365,7 +378,7 @@ function resolveFeatureStatus(
   return featuresAreCurrent ? "complete" : "pending";
 }
 
-const BLANK_PROFILE: AgentProfileValue = { name: "", provider: "" };
+const BLANK_PROFILE: AgentProfileValue = { name: "" };
 
 /** A stored id doubles as its own label until the catalog can upgrade it. */
 function seedDisplay(value: string | undefined): AgentProfileFormDisplay | null {
@@ -380,7 +393,7 @@ function buildInitialState(snapshot: AgentProfileFormSnapshot): AgentProfileForm
   const profile = snapshot.profile ?? BLANK_PROFILE;
   const seed = snapshot.mode === "create" ? snapshot.seed : undefined;
   const name = seed?.name ?? profile.name;
-  const provider = seed?.provider ?? profile.provider;
+  const provider = seed?.provider ?? profile.provider ?? "";
   const modelId = seed?.modelId ?? profile.model ?? "";
   return {
     mode: snapshot.mode,
@@ -388,6 +401,7 @@ function buildInitialState(snapshot: AgentProfileFormSnapshot): AgentProfileForm
     icon: profile.icon ?? "",
     color: profile.color ?? "",
     notes: profile.notes ?? "",
+    instructions: profile.instructions ?? "",
     provider,
     modelId,
     modeId: profile.modeId ?? "",
@@ -494,10 +508,7 @@ export function openAgentProfileForm(snapshot: AgentProfileFormSnapshot): AgentP
         hasProvider && (thinking.length > 0 || Boolean(withOptions.thinkingOptionId)),
       showFeaturesField: hasProvider && features.length > 0,
     };
-    const canSubmit =
-      withOptions.name.trim().length > 0 &&
-      withOptions.provider.length > 0 &&
-      !withOptions.isSubmitting;
+    const canSubmit = withOptions.name.trim().length > 0 && !withOptions.isSubmitting;
     const resolved: AgentProfileFormState = { ...withOptions, disclosure, canSubmit };
     return { ...resolved, submitValue: canSubmit ? buildSubmitValue(resolved) : null };
   }
@@ -554,6 +565,7 @@ export function openAgentProfileForm(snapshot: AgentProfileFormSnapshot): AgentP
     setAppearance: (value) =>
       publish((current) => ({ ...current, icon: value.icon, color: value.color })),
     setNotes: (value) => publish((current) => ({ ...current, notes: value })),
+    setInstructions: (value) => publish((current) => ({ ...current, instructions: value })),
     setProvider: (providerId, display) =>
       publish((current) => {
         if (current.provider === providerId) {

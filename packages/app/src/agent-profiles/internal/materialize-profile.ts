@@ -7,6 +7,9 @@ import type { AgentConfigApply, AgentProfile } from "@pimi/protocol/messages";
  * every consumer would otherwise re-derive the same trim-and-drop rules.
  */
 export interface MaterializedAgentProfile {
+  id: string;
+  name: string;
+  /** Empty for a profile that works with any provider: applying it keeps the current one. */
   provider: string;
   /** Empty when the profile names no model, meaning "leave the model alone". */
   modelId: string;
@@ -21,6 +24,8 @@ function trimmed(value: string | undefined): string {
 
 export function materializeAgentProfile(profile: AgentProfile): MaterializedAgentProfile {
   return {
+    id: profile.id,
+    name: profile.name,
     provider: trimmed(profile.provider),
     modelId: trimmed(profile.model),
     modeId: trimmed(profile.modeId),

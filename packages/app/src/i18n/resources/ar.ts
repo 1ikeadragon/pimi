@@ -3244,4 +3244,5 @@ export const ar: TranslationResources = {
       },
     },
   },
+  profiles: en.profiles,
 };

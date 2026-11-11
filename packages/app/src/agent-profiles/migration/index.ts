@@ -94,7 +94,7 @@ function buildMigratedProfiles(input: {
 }): AgentProfile[] {
   const existingSelections = new Set(
     input.existing.map((profile) =>
-      favoriteKey({ provider: profile.provider, modelId: profile.model?.trim() ?? "" }),
+      favoriteKey({ provider: profile.provider ?? "", modelId: profile.model?.trim() ?? "" }),
     ),
   );
   const existingIds = new Set(input.existing.map((profile) => profile.id));

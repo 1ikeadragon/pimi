@@ -3278,4 +3278,5 @@ export const es: TranslationResources = {
       },
     },
   },
+  profiles: en.profiles,
 };

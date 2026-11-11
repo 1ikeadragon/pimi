@@ -156,23 +156,15 @@ An [automation](/docs/automations) starts a new agent for each run. A heartbeat 
 
 ### Agent profiles
 
-| Tool            | Function                                                                                                                           |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `list_profiles` | Return the host's saved agent profiles, including their notes and launch settings. Returns an empty list when none are configured. |
+| Tool            | Function                                                                                                                                    |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `list_profiles` | Return the host's agent profiles, including their notes, instructions, and launch settings. Returns an empty list when none are configured. |
 
 Before delegating, read each profile's `notes` and choose the profile the user named or the one that fits the task. See [Agent profiles](/docs/agent-profiles) for setup and example notes.
 
-`create_agent` has no profile parameter and requires a `provider/model` pair. If the profile has no model, call `list_models` for its provider and choose an available model for the task before launching. Apply the chosen profile's values to the launch request:
+Pass the chosen profile's id or name as `profile` to `create_agent`. The agent starts with the profile's instructions as its system prompt, and the profile's provider, model, mode, thinking level, and features fill anything the call leaves out; values in the call win. A profile without a provider needs `provider` in the call. `create_automation` also takes `profile`: each run's agent starts with that profile's instructions.
 
-| Profile field                   | `create_agent` field                                                        |
-| ------------------------------- | --------------------------------------------------------------------------- |
-| `provider` and optional `model` | `provider` as `provider/model`, using the saved or discovered model ID      |
-| `modeId`                        | `settings.modeId`                                                           |
-| `thinkingOptionId`              | `settings.thinkingOptionId`                                                 |
-| `featureValues`                 | `settings.features`                                                         |
-| `notes`                         | Selection guidance for the orchestrator; supply the task in `initialPrompt` |
-
-Omit absent optional settings. If no profile fits, use provider discovery to choose available settings.
+If no profile fits, use provider discovery to choose available settings.
 
 ### Providers
 

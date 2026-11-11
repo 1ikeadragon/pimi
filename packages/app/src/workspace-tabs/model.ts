@@ -10,6 +10,8 @@ export interface WorkspaceDraftTabSetup {
   model: string | null;
   thinkingOptionId: string | null;
   featureValues: Record<string, unknown>;
+  /** The agent profile the draft starts with; its instructions go to the daemon on send. */
+  profile?: { id: string; name: string };
 }
 
 export interface WorkspaceWorkingDiffTabTarget {

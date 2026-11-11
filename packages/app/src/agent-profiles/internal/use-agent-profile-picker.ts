@@ -15,6 +15,7 @@ import {
 } from "./materialize-profile";
 import { buildAgentProfileTags } from "./profile-summary";
 import { useAgentProfiles } from "./use-agent-profiles";
+import { showProfileInstructionsToast } from "./profile-instructions-toast";
 
 /** The draft composer owns profile application as one state transition. */
 export interface DraftAgentProfileControls {
@@ -22,12 +23,19 @@ export interface DraftAgentProfileControls {
 }
 
 export type AgentProfileApplyTarget =
-  | { kind: "agent"; agentId: string; availableModeIds: readonly string[] | null }
+  | {
+      kind: "agent";
+      agentId: string;
+      availableModeIds: readonly string[] | null;
+      /** Opens a new draft with the profile attached; its instructions need a new agent. */
+      onStartNewAgent?: (profile: { id: string; name: string }) => void;
+    }
   | { kind: "draft"; controls: DraftAgentProfileControls };
 
 /** Everything the model picker renders for one profile. It never sees the profile itself. */
 export interface AgentProfilePickerRow {
   id: string;
+  /** Empty for a profile that works with any provider. */
   provider: string;
   /** Empty when the profile names no model. */
   modelId: string;
@@ -81,7 +89,7 @@ export function useAgentProfilePicker(
       return [];
     }
     const available = new Set(availableProviders);
-    return profiles.filter((profile) => available.has(profile.provider));
+    return profiles.filter((profile) => !profile.provider || available.has(profile.provider));
   }, [availableProviders, profiles]);
 
   const formatFeatureCount = useCallback(
@@ -96,16 +104,21 @@ export function useAgentProfilePicker(
     () =>
       applicableProfiles.map((profile) => ({
         id: profile.id,
-        provider: profile.provider,
+        provider: profile.provider ?? "",
         modelId: profile.model?.trim() ?? "",
         icon: profile.icon ?? "",
         color: profile.color ?? "",
         name: profile.name,
-        summary: buildAgentProfileTags({ profile, entries, formatFeatureCount })
+        summary: buildAgentProfileTags({
+          profile,
+          entries,
+          formatFeatureCount,
+          anyProviderLabel: t("profiles.anyProvider"),
+        })
           .map((tag) => tag.label)
           .join(" · "),
       })),
-    [applicableProfiles, entries, formatFeatureCount],
+    [applicableProfiles, entries, formatFeatureCount, t],
   );
 
   const persistSelection = useCallback(
@@ -141,6 +154,23 @@ export function useAgentProfilePicker(
         return;
       }
 
+      // A running agent read its system prompt when it started, so a profile's instructions
+      // reach only a new agent.
+      const announceInstructions = () => {
+        if (!profile.instructions?.trim()) return;
+        showProfileInstructionsToast({
+          toast,
+          message: t("profiles.instructionsApplyToNewAgents", { name: profile.name }),
+          actionLabel: t("profiles.startNewAgent"),
+          onStartNewAgent: target.onStartNewAgent
+            ? () => target.onStartNewAgent?.({ id: profile.id, name: profile.name })
+            : null,
+        });
+      };
+      if (!resolved.provider) {
+        announceInstructions();
+        return;
+      }
       const reconciled = reconcileMaterializedProfileMode(resolved, target.availableModeIds);
       if (!reconciled) {
         return;
@@ -151,13 +181,17 @@ export function useAgentProfilePicker(
       }
       void client
         .applyAgentConfig(target.agentId, toAgentConfigApply(reconciled))
-        .then((notice) => showProviderNoticeToast(toast, notice))
+        .then((notice) => {
+          showProviderNoticeToast(toast, notice);
+          announceInstructions();
+          return undefined;
+        })
         .catch((error) => {
           console.warn("[useAgentProfilePicker] applyAgentConfig failed", error);
           toast.error(toErrorMessage(error));
         });
     },
-    [applicableProfiles, client, persistSelection, target, toast],
+    [applicableProfiles, client, persistSelection, t, target, toast],
   );
 
   return useMemo(

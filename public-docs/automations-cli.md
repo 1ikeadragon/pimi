@@ -62,7 +62,7 @@ pimi automation create \
   "Draft release notes from the commits since the last tag."
 ```
 
-Other options: `--mode <mode>` (default: the provider's unattended mode if it has one, otherwise its default mode), `--thinking <id>`. A run that stops at a permission prompt fails.
+Other options: `--mode <mode>` (default: the provider's unattended mode if it has one, otherwise its default mode), `--thinking <id>`, `--profile <name>` (each run's agent starts with that agent profile's instructions). A run that stops at a permission prompt fails.
 
 Run inside a Pimi agent, `create` makes a **pending** automation that waits for your approval. Approve it in the app or with `pimi automation approve <id>` from a normal terminal; agents cannot approve.
 

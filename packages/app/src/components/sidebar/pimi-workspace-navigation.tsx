@@ -7,6 +7,7 @@ import {
   CircleGauge,
   Columns3,
   FileDiff,
+  IdCard,
   LayoutGrid,
   ListTodo,
   MessageSquare,
@@ -33,6 +34,7 @@ import {
   buildNewWorkspaceRoute,
   buildOpenProjectRoute,
   buildAutomationsRoute,
+  buildProfilesRoute,
   buildSessionsRoute,
 } from "@/utils/host-routes";
 import { useSidebarNavItems } from "@/sidebar-nav/use-sidebar-nav-items";
@@ -234,6 +236,7 @@ export function PimiWorkspaceNavigation({
   const inLibrary = pathname === PIMI_LIBRARY_ROUTE;
   const inAutomations = pathname === buildAutomationsRoute();
   const inHistory = pathname === buildSessionsRoute();
+  const inProfiles = pathname.startsWith(buildProfilesRoute());
   const { t } = useTranslation();
   const newWorkspaceLabel = t("newWorkspace.title");
   const openNewWorkspace = useCallback(() => {
@@ -247,11 +250,26 @@ export function PimiWorkspaceNavigation({
     if (inAgentGrid) closePimiAgentGrid();
     else if (inUsage) closePimiUsage();
     else if (inLibrary) closePimiLibrary();
-    else if ((inAutomations || inHistory) && !section) {
+    else if ((inAutomations || inHistory || inProfiles) && !section) {
       if (router.canGoBack()) router.back();
       else router.replace(buildOpenProjectRoute());
     }
-  }, [host, inAgentGrid, inAutomations, inHistory, inLibrary, inUsage, onNavigate, section]);
+  }, [
+    host,
+    inAgentGrid,
+    inAutomations,
+    inHistory,
+    inLibrary,
+    inProfiles,
+    inUsage,
+    onNavigate,
+    section,
+  ]);
+  const showProfiles = useCallback(() => {
+    onNavigate?.();
+    host?.dismissPimiWorkspace?.();
+    router.navigate(buildProfilesRoute());
+  }, [host, onNavigate]);
   const showAgentGrid = useCallback(() => {
     onNavigate?.();
     openPimiAgentGrid();
@@ -282,7 +300,14 @@ export function PimiWorkspaceNavigation({
     label: "Chats",
     icon: MessageSquare,
     onPress: showChat,
-    active: !section && !inAgentGrid && !inUsage && !inAutomations && !inHistory && !inLibrary,
+    active:
+      !section &&
+      !inAgentGrid &&
+      !inUsage &&
+      !inAutomations &&
+      !inHistory &&
+      !inLibrary &&
+      !inProfiles,
   };
   const activityDestination = {
     label: "Agents",
@@ -314,6 +339,12 @@ export function PimiWorkspaceNavigation({
     },
   ];
   const libraryDestinations = [
+    {
+      label: t("profiles.title"),
+      icon: IdCard,
+      onPress: showProfiles,
+      active: !section && inProfiles,
+    },
     {
       label: "Memory",
       icon: NotebookText,

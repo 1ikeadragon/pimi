@@ -23,12 +23,16 @@ export function buildAgentProfileTags(input: {
   profile: AgentProfile;
   entries: readonly ProviderSnapshotEntry[] | undefined;
   formatFeatureCount: (count: number) => string;
+  /** Shown for a profile without a provider. */
+  anyProviderLabel: string;
 }): AgentProfileTag[] {
   const entries = input.entries ?? [];
-  const entry = findEntry(entries, input.profile.provider);
-  const tags: AgentProfileTag[] = [
-    { id: "provider", label: entry?.label ?? input.profile.provider },
-  ];
+  const provider = input.profile.provider;
+  if (!provider) {
+    return [{ id: "provider", label: input.anyProviderLabel }];
+  }
+  const entry = findEntry(entries, provider);
+  const tags: AgentProfileTag[] = [{ id: "provider", label: entry?.label ?? provider }];
 
   const modelId = input.profile.model?.trim();
   if (modelId) {
