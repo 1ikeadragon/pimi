@@ -7753,7 +7753,7 @@ export class Session {
     if (direction === "after" || msg.compactionSummaryOnly) return;
     await this.agentManager.ensureTimelineRowsBefore(msg.agentId, {
       beforeSeq: direction === "before" && cursor ? cursor.seq : undefined,
-      rowsWanted: (msg.limit ?? 200) * 2,
+      rowsWanted: msg.limit ?? 200,
       all: msg.limit === 0,
     });
   }
