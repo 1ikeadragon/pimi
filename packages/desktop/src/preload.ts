@@ -300,6 +300,8 @@ contextBridge.exposeInMainWorld("paseoDesktop", {
         };
       },
       setBadgeCount: (count?: number) => ipcRenderer.invoke("paseo:window:setBadgeCount", count),
+      setAgentsRunning: (running: boolean) =>
+        ipcRenderer.invoke("paseo:window:setAgentsRunning", running),
     }),
   },
   dialog: {

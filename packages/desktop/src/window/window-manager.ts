@@ -7,8 +7,36 @@ import {
   clipboard,
   ipcMain,
   nativeTheme,
+  powerMonitor,
+  powerSaveBlocker,
   shell,
 } from "electron";
+
+// Keep the display awake while agents run and the machine is on AC power, like Codex and T3 Code.
+// The renderer reports whether any agent is running; power source changes re-evaluate.
+let agentsRunning = false;
+let keepAwakeBlockerId: number | null = null;
+let keepAwakePowerListenersInstalled = false;
+
+function syncKeepAwake(): void {
+  const want = agentsRunning && !powerMonitor.isOnBatteryPower();
+  if (want && keepAwakeBlockerId === null) {
+    keepAwakeBlockerId = powerSaveBlocker.start("prevent-display-sleep");
+  } else if (!want && keepAwakeBlockerId !== null) {
+    powerSaveBlocker.stop(keepAwakeBlockerId);
+    keepAwakeBlockerId = null;
+  }
+}
+
+function setAgentsRunning(running: boolean): void {
+  if (!keepAwakePowerListenersInstalled) {
+    keepAwakePowerListenersInstalled = true;
+    powerMonitor.on("on-ac", syncKeepAwake);
+    powerMonitor.on("on-battery", syncKeepAwake);
+  }
+  agentsRunning = running;
+  syncKeepAwake();
+}
 
 import type { WindowState, WindowStateStore } from "../settings/window-state.js";
 import type { DesktopWindowChromeMode } from "./chrome.js";
@@ -191,6 +219,11 @@ export function registerWindowManager(input: { mode: DesktopWindowChromeMode }):
         });
       }
     }
+  });
+
+  ipcMain.handle("paseo:window:setAgentsRunning", (_event, running: unknown) => {
+    if (typeof running !== "boolean") return;
+    setAgentsRunning(running);
   });
 
   ipcMain.handle("paseo:window:updateChrome", (event, update?: unknown) => {
