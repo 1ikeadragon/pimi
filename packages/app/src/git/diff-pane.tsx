@@ -34,7 +34,7 @@ import {
 import { type ParsedDiffFile } from "@/git/use-diff-query";
 import type { ChangesState } from "@/panels/changes/state";
 import { defaultChangesState } from "@/panels/changes/state";
-import { ReviewCommentSheet, ReviewFeedbackAction } from "@/review";
+import { ReviewCommentSheet } from "@/review";
 import { DiffDocument, type WorkingDiffMode } from "@/git/diff-document";
 import { ChangedFilesTree } from "@/git/changed-files-tree";
 import { JUMP_TO_FILE_CLEARANCE, JumpToFile } from "@/git/jump-to-file";
@@ -1573,7 +1573,6 @@ export function ChangesSurface({
     isDiffLoading,
     reviewActions,
     reviewAttachment,
-    reviewFeedback,
   } = useWorkingDiff({
     presentation,
     serverId,
@@ -1814,24 +1813,12 @@ export function ChangesSurface({
       >
         <DiffDocument
           files={files}
-          contentInsetBottom={floatingActionsClearance(
-            [jumpToFileInset, reviewFeedback.clearance],
-            bottomInset,
-          )}
+          contentInsetBottom={floatingActionsClearance([jumpToFileInset], bottomInset)}
           collapseState={collapseState}
           displayPreferences={sharedDisplayPreferences}
           mode={workingMode}
         />
       </DiffBodyContent>
-      <ReviewFeedbackAction
-        bottomOffset={jumpToFileInset}
-        enabled={enabled}
-        hasDiff={presentation !== "tree"}
-        model={reviewFeedback.model}
-        state={reviewFeedback.state}
-        serverId={serverId}
-        workspaceId={workspaceId}
-      />
     </View>
   );
   const bodyContent = (

@@ -321,24 +321,6 @@ export function useReviewAttachmentSnapshot(input: {
   );
 }
 
-/** Acknowledgement removes only the versions included in that submission. */
-export function clearSentReviewDraftComments(input: {
-  key: string;
-  comments: readonly ReviewDraftComment[];
-}): void {
-  const sentById = new Map(input.comments.map((comment) => [comment.id, comment]));
-  useReviewDraftStore.setState((state) => {
-    const current = state.drafts[input.key];
-    if (!current) return state;
-    const remaining = current.filter((comment) => {
-      const sent = sentById.get(comment.id);
-      return !sent || sent.updatedAt !== comment.updatedAt || sent.body !== comment.body;
-    });
-    if (remaining.length === current.length) return state;
-    return { drafts: { ...state.drafts, [input.key]: remaining } };
-  });
-}
-
 /** Acknowledgement can remove the original while the user still has an edit open. */
 export function saveReviewDraftComment(input: {
   key: string;
