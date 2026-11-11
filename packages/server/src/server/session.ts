@@ -1,7 +1,15 @@
-import { queryCodeNavigation } from "./code-navigation/index.js";
+import {
+  clearLspDetectionCache,
+  listLanguageServers,
+  queryCodeNavigation,
+  testLanguageServer,
+  validateLanguageServerOverrides,
+} from "./code-navigation/index.js";
 import { searchPimiCodebase } from "./pimi-codebase-index.js";
 import type {
   CodeNavigationQueryRequest,
+  CodeNavigationServersListRequest,
+  CodeNavigationServerTestRequest,
   MutableDaemonConfigPatch,
   PimiCodebaseSearchRequest,
 } from "@pimi/protocol/messages";
@@ -2778,7 +2786,9 @@ export class Session {
         return this.daemonSession.handleUpdateRequest(msg);
       case "set_daemon_config_request":
         return this.assertPimiModelFeaturesSelectable(msg.config).then(async () => {
+          await validateLanguageServerOverrides(msg.config.editorLanguageServers);
           const config = await this.daemonConfigStore.patch(msg.config);
+          if (msg.config.editorLanguageServers !== undefined) clearLspDetectionCache();
           return this.emit({
             type: "set_daemon_config_response",
             payload: {
@@ -2834,6 +2844,10 @@ export class Session {
         return this.handlePimiCodebaseSearch(msg);
       case "code.navigation.query.request":
         return this.handleCodeNavigationQuery(msg);
+      case "code.navigation.servers.list.request":
+        return this.handleCodeNavigationServersList(msg);
+      case "code.navigation.servers.test.request":
+        return this.handleCodeNavigationServerTest(msg);
       case "directory_suggestions_request":
         return this.handleDirectorySuggestionsRequest(msg);
       case "checkout.diff.get.request":
@@ -5061,7 +5075,12 @@ export class Session {
       const workspace = await this.workspaceRegistry.get(workspaceId);
       if (!workspace || workspace.archivedAt) throw new Error("This workspace is unavailable.");
       const result = await queryCodeNavigation(
-        { ...query, workspaceId, cwd: workspace.cwd },
+        {
+          ...query,
+          workspaceId,
+          cwd: workspace.cwd,
+          languageServers: this.daemonConfigStore.get().editorLanguageServers ?? [],
+        },
         signal,
       );
       if (signal.aborted) return;
@@ -5076,6 +5095,40 @@ export class Session {
         payload: { requestId, result: null, error: errorToFriendlyMessage(error) },
       });
     }
+  }
+
+  private async handleCodeNavigationServersList(
+    msg: CodeNavigationServersListRequest,
+  ): Promise<void> {
+    try {
+      const servers = await listLanguageServers(
+        this.daemonConfigStore.get().editorLanguageServers ?? [],
+      );
+      this.emit({
+        type: "code.navigation.servers.list.response",
+        payload: { requestId: msg.requestId, servers, error: null },
+      });
+    } catch (error) {
+      this.emit({
+        type: "code.navigation.servers.list.response",
+        payload: { requestId: msg.requestId, servers: [], error: errorToFriendlyMessage(error) },
+      });
+    }
+  }
+
+  private async handleCodeNavigationServerTest(
+    msg: CodeNavigationServerTestRequest,
+  ): Promise<void> {
+    const result = await testLanguageServer(
+      msg.language,
+      msg.command,
+      msg.args ?? [],
+      this.daemonConfigStore.get().editorLanguageServers ?? [],
+    );
+    this.emit({
+      type: "code.navigation.servers.test.response",
+      payload: { requestId: msg.requestId, ...result },
+    });
   }
 
   private async handleDirectorySuggestionsRequest(msg: DirectorySuggestionsRequest): Promise<void> {

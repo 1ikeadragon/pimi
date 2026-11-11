@@ -195,13 +195,14 @@ export const nameProvider: CodeNavigationProvider = async (query, signal) => {
     // nodes still gets a list to choose from.
     return {
       provider: "name",
+      serverName: null,
       note: null,
       results: definitions.length > 0 ? definitions : results,
       truncated,
       edits: [],
     };
   }
-  return { provider: "name", note: null, results, truncated, edits: [] };
+  return { provider: "name", serverName: null, note: null, results, truncated, edits: [] };
 };
 
 interface FileClassifier {

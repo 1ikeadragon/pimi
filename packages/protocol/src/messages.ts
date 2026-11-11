@@ -234,6 +234,14 @@ const MutableRelayConfigSchema = z
   })
   .passthrough();
 
+// A language server the user chose in place of auto-detection. `command` is an absolute path to an
+// executable file; it is launched directly with `args`, never through a shell.
+export const EditorLanguageServerSchema = z.object({
+  language: z.string().min(1).max(32),
+  command: z.string().min(1).max(4096),
+  args: z.array(z.string().max(4096)).max(32),
+});
+
 export const MutableDaemonConfigSchema = z
   .object({
     relay: MutableRelayConfigSchema,
@@ -274,6 +282,7 @@ export const MutableDaemonConfigSchema = z
     resumePrompt: z.string().optional(),
     appendSystemPrompt: z.string().default(""),
     terminalProfiles: z.array(TerminalProfileSchema).optional(),
+    editorLanguageServers: z.array(EditorLanguageServerSchema).optional(),
     agentProfiles: z.array(AgentProfileSchema).optional(),
     // Keys of built-in profiles the user deleted; they are not seeded again.
     agentProfilesRemovedBuiltins: z.array(z.string()).optional(),
@@ -311,6 +320,7 @@ export const MutableDaemonConfigPatchSchema = z
     resumePrompt: z.string().optional(),
     appendSystemPrompt: z.string().optional(),
     terminalProfiles: z.array(TerminalProfileSchema).optional(),
+    editorLanguageServers: z.array(EditorLanguageServerSchema).optional(),
     agentProfiles: z.array(AgentProfileSchema).optional(),
     agentProfilesRemovedBuiltins: z.array(z.string()).optional(),
     pluginsEnabled: z.boolean().optional(),
@@ -2623,7 +2633,6 @@ const PimiCodebaseSearchRequestSchema = z.object({
   requestId: z.string(),
 });
 
-const GitHubRepoSegmentSchema = z.string().regex(/^[A-Za-z0-9._-]+$/);
 // Editor navigation. `path` is relative to the workspace; `line` and `column` are 1-based and
 // locate `symbol` in the editor buffer. `content` is the unsaved buffer, sent when it differs from
 // disk so a semantic provider reads the same text the user is looking at.
@@ -2634,12 +2643,28 @@ const CodeNavigationQueryRequestSchema = z.object({
   line: z.number().int().positive(),
   column: z.number().int().positive(),
   symbol: z.string().min(1).max(256),
-  kind: z.enum(["definition", "references", "rename"]),
+  kind: z.enum(["definition", "references", "rename", "capabilities"]),
   newName: z.string().min(1).max(256).optional(),
   content: z.string().max(2_000_000).optional(),
   requestId: z.string(),
 });
 
+const CodeNavigationServersListRequestSchema = z.object({
+  type: z.literal("code.navigation.servers.list.request"),
+  requestId: z.string(),
+});
+
+// Starts the server to see whether it comes up. `command` tests a candidate before it is saved;
+// without one, the server that would be used now is tested.
+const CodeNavigationServerTestRequestSchema = z.object({
+  type: z.literal("code.navigation.servers.test.request"),
+  language: z.string().min(1).max(32),
+  command: z.string().min(1).max(4096).optional(),
+  args: z.array(z.string().max(4096)).max(32).optional(),
+  requestId: z.string(),
+});
+
+const GitHubRepoSegmentSchema = z.string().regex(/^[A-Za-z0-9._-]+$/);
 
 const CheckoutCheckDetailsRequestPayloadSchema = z.object({
   cwd: z.string(),
@@ -3516,8 +3541,10 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   CheckoutCommitFileDiffRequestSchema,
   CheckoutBlameRequestSchema,
   PimiCodebaseSearchRequestSchema,
-  CheckoutForgeGetCheckDetailsRequestSchema,
   CodeNavigationQueryRequestSchema,
+  CodeNavigationServersListRequestSchema,
+  CodeNavigationServerTestRequestSchema,
+  CheckoutForgeGetCheckDetailsRequestSchema,
   CheckoutPrStatusRequestSchema,
   PullRequestTimelineRequestSchema,
   CheckoutSwitchBranchRequestSchema,
@@ -5615,8 +5642,19 @@ const PimiCodebaseSearchResponseSchema = z.object({
 });
 
 export const CodeNavigationResultSchema = z.object({
-  // "name" is a text match on the identifier, with no scope awareness; "typescript" is exact.
-  provider: z.enum(["name", "typescript"]),
+  // "name" is a text match on the identifier, with no scope awareness; "typescript" and "lsp"
+  // come from a language server and are exact.
+  provider: z.enum(["name", "typescript", "lsp"]),
+  // The server that answered, for display; null for name matching.
+  serverName: z.string().nullable(),
+  // Whether this file's language can be renamed, and what to install when it cannot. A null
+  // tooltip with `available: false` means the file has no language server mapping at all.
+  renameSupport: z.object({
+    available: z.boolean(),
+    tooltip: z.string().nullable(),
+    // The language this file maps to, with whether a working server was found for it.
+    language: z.object({ id: z.string(), label: z.string(), serverFound: z.boolean() }).nullable(),
+  }),
   // Why a more precise provider did not answer, when one was tried.
   note: z.string().nullable(),
   results: z
@@ -5644,6 +5682,41 @@ export const CodeNavigationResultSchema = z.object({
       }),
     )
     .max(5000),
+});
+
+export const CodeNavigationServerStatusSchema = z.object({
+  language: z.string(),
+  label: z.string(),
+  extensions: z.array(z.string()),
+  // "bundled" is TypeScript, which Pimi runs itself and does not offer to configure.
+  source: z.enum(["auto", "custom", "bundled"]),
+  name: z.string().nullable(),
+  path: z.string().nullable(),
+  version: z.string().nullable(),
+  status: z.enum(["found", "not_found", "failed"]),
+  error: z.string().nullable(),
+  installHint: z.string().nullable(),
+  custom: z.object({ command: z.string(), args: z.array(z.string()) }).nullable(),
+});
+
+const CodeNavigationServersListResponseSchema = z.object({
+  type: z.literal("code.navigation.servers.list.response"),
+  payload: z.object({
+    requestId: z.string(),
+    servers: z.array(CodeNavigationServerStatusSchema),
+    error: z.string().nullable(),
+  }),
+});
+
+const CodeNavigationServerTestResponseSchema = z.object({
+  type: z.literal("code.navigation.servers.test.response"),
+  payload: z.object({
+    requestId: z.string(),
+    ok: z.boolean(),
+    name: z.string().nullable(),
+    version: z.string().nullable(),
+    error: z.string().nullable(),
+  }),
 });
 
 const CodeNavigationQueryResponseSchema = z.object({
@@ -6940,8 +7013,10 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   CheckoutCommitFileDiffResponseSchema,
   CheckoutBlameResponseSchema,
   PimiCodebaseSearchResponseSchema,
-  CheckoutForgeGetCheckDetailsResponseSchema,
   CodeNavigationQueryResponseSchema,
+  CodeNavigationServersListResponseSchema,
+  CodeNavigationServerTestResponseSchema,
+  CheckoutForgeGetCheckDetailsResponseSchema,
   CheckoutPrStatusResponseSchema,
   PullRequestTimelineResponseSchema,
   CheckoutSwitchBranchResponseSchema,
@@ -7316,9 +7391,15 @@ export type CheckoutCommitFileDiffRequest = z.infer<typeof CheckoutCommitFileDif
 export type CheckoutCommitFileDiffResponse = z.infer<typeof CheckoutCommitFileDiffResponseSchema>;
 export type PimiCodebaseSearchRequest = z.infer<typeof PimiCodebaseSearchRequestSchema>;
 export type PimiCodebaseSearchResult = z.infer<typeof PimiCodebaseSearchResultSchema>;
-export type CheckoutBlameRequest = z.infer<typeof CheckoutBlameRequestSchema>;
 export type CodeNavigationQueryRequest = z.infer<typeof CodeNavigationQueryRequestSchema>;
 export type CodeNavigationResult = z.infer<typeof CodeNavigationResultSchema>;
+export type CodeNavigationServerStatus = z.infer<typeof CodeNavigationServerStatusSchema>;
+export type CodeNavigationServersListRequest = z.infer<
+  typeof CodeNavigationServersListRequestSchema
+>;
+export type CodeNavigationServerTestRequest = z.infer<typeof CodeNavigationServerTestRequestSchema>;
+export type EditorLanguageServer = z.infer<typeof EditorLanguageServerSchema>;
+export type CheckoutBlameRequest = z.infer<typeof CheckoutBlameRequestSchema>;
 export type CheckoutBlameResult = z.infer<typeof CheckoutBlameResultSchema>;
 export type ParsedDiffFile = z.infer<typeof ParsedDiffFileSchema>;
 export type CheckoutPrCreateRequest = z.infer<typeof CheckoutPrCreateRequestSchema>;

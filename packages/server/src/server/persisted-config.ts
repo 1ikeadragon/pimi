@@ -18,6 +18,7 @@ import {
 } from "./private-files.js";
 import { AgentProfileSchema, AgentSkillSelectionSchema } from "@pimi/protocol/agent-profile";
 import { PluginIdSchema, PluginSourceSchema } from "@pimi/protocol/plugin-config";
+import { EditorLanguageServerSchema } from "@pimi/protocol/messages";
 import { TerminalProfileSchema } from "@pimi/protocol/terminal-profile";
 import { PaseoServicePortAllocationSchema } from "@pimi/protocol/paseo-config-schema";
 import { DEFAULT_PAIRING_APP_BASE_URL } from "./connection-offer.js";
@@ -290,6 +291,7 @@ export const PersistedConfigSchema = z
         enableTerminalAgentHooks: z.boolean().optional(),
         appendSystemPrompt: z.string().optional(),
         terminalProfiles: z.array(TerminalProfileSchema).optional(),
+        editorLanguageServers: z.array(EditorLanguageServerSchema).optional(),
         agentProfiles: z.array(AgentProfileSchema).optional(),
         agentProfilesRemovedBuiltins: z.array(z.string()).optional(),
         cors: z

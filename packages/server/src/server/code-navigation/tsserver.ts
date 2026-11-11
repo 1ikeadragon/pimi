@@ -2,9 +2,13 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
-import type { CodeNavigationResult } from "@pimi/protocol/messages";
 import { buildSelfNodeCommand } from "../paseo-env.js";
-import type { CodeNavigationEdit, CodeNavigationLocation, CodeNavigationQuery } from "./types.js";
+import type {
+  CodeNavigationEdit,
+  CodeNavigationLocation,
+  CodeNavigationQuery,
+  ProviderResult,
+} from "./types.js";
 
 // tsserver's stdio protocol, spoken directly: a JSON request per line in, `Content-Length` framed
 // JSON out. Responses carry `request_seq`; everything else (events) is ignored.
@@ -305,7 +309,7 @@ function toEdits(cwd: string, body: RenameBody, newName: string): CodeNavigation
 }
 
 /** Answers definition, references and rename from tsserver. Throws when it cannot. */
-export async function queryTsServer(query: CodeNavigationQuery): Promise<CodeNavigationResult> {
+export async function queryTsServer(query: CodeNavigationQuery): Promise<ProviderResult> {
   const file = resolve(query.cwd, query.path);
   if (!insideWorkspace(query.cwd, file)) {
     throw new TsServerUnavailableError("The file is outside this workspace.");
@@ -325,7 +329,14 @@ export async function queryTsServer(query: CodeNavigationQuery): Promise<CodeNav
       throw new Error(body.info.localizedErrorMessage ?? "This symbol cannot be renamed.");
     }
     const edits = toEdits(query.cwd, body, query.newName ?? query.symbol);
-    return { provider: "typescript", note: null, results: [], truncated: false, edits };
+    return {
+      provider: "typescript",
+      serverName: "TypeScript",
+      note: null,
+      results: [],
+      truncated: false,
+      edits,
+    };
   }
 
   if (query.kind === "definition") {
@@ -334,12 +345,12 @@ export async function queryTsServer(query: CodeNavigationQuery): Promise<CodeNav
       start: TsPosition;
     }>;
     const located = await toLocations(query.cwd, body, true);
-    return { provider: "typescript", note: null, ...located, edits: [] };
+    return { provider: "typescript", serverName: "TypeScript", note: null, ...located, edits: [] };
   }
 
   const body = (await server.request("references", position, NAVIGATION_TIMEOUT_MS)) as {
     refs: Array<{ file: string; start: TsPosition; lineText?: string; isDefinition?: boolean }>;
   };
   const located = await toLocations(query.cwd, body.refs, false);
-  return { provider: "typescript", note: null, ...located, edits: [] };
+  return { provider: "typescript", serverName: "TypeScript", note: null, ...located, edits: [] };
 }

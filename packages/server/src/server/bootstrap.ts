@@ -202,7 +202,7 @@ import {
   type ActiveWorkspaceRef,
 } from "./workspace-archive-service.js";
 import { setupAutoArchiveOnMerge } from "./auto-archive-on-merge/index.js";
-import { closeAllTsServers, closeTsServer } from "./code-navigation/index.js";
+import { closeAllCodeNavigation, closeCodeNavigationWorkspace } from "./code-navigation/index.js";
 import { wrapSessionMessage, type SessionOutboundMessage } from "./messages.js";
 import type { TerminalManager } from "../terminal/terminal-manager.js";
 import { startWorkerTerminalManager } from "../terminal/worker-terminal-manager.js";
@@ -217,6 +217,7 @@ import type { AgentClient, AgentProvider } from "./agent/agent-sdk-types.js";
 import type {
   AgentProfile,
   AgentSkillSelection,
+  EditorLanguageServer,
   FirstAgentContext,
   PluginSource,
   TerminalProfile,
@@ -450,6 +451,7 @@ export interface PaseoDaemonConfig {
   enableTerminalAgentHooks?: boolean;
   appendSystemPrompt?: string;
   terminalProfiles?: TerminalProfile[];
+  editorLanguageServers?: EditorLanguageServer[];
   agentProfiles?: AgentProfile[];
   agentProfilesRemovedBuiltins?: string[];
   skillSelection?: AgentSkillSelection;
@@ -622,6 +624,10 @@ function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): Mutab
 
   if (config.terminalProfiles !== undefined) {
     initialConfig.terminalProfiles = config.terminalProfiles;
+  }
+
+  if (config.editorLanguageServers !== undefined) {
+    initialConfig.editorLanguageServers = config.editorLanguageServers;
   }
 
   if (config.agentProfiles !== undefined) {
@@ -1208,7 +1214,7 @@ export async function createPaseoDaemon(
   await workspaceLabelService.initialize();
   logger.info({ elapsed: elapsed() }, "Workspace registries bootstrapped");
   const teardownArchivedWorkspaceRuntime = (workspaceId: string): void => {
-    closeTsServer(workspaceId);
+    closeCodeNavigationWorkspace(workspaceId);
     scriptRuntimeStore.removeForWorkspace(workspaceId);
     releaseWorkspaceServicePortPlan(workspaceId);
   };
@@ -2080,7 +2086,7 @@ export async function createPaseoDaemon(
     unsubscribePluginProviders();
     unsubscribePluginSessionChanges();
     workspaceReconciliation.dispose();
-    closeAllTsServers();
+    closeAllCodeNavigation();
     scriptHealthMonitor.stop();
     unsubscribeIdleRuntimeCleanup();
     await idleRuntimeCleanup.close();

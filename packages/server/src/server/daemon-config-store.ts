@@ -32,6 +32,7 @@ interface SupportedMutableConfigPatch {
   resumePrompt?: string;
   appendSystemPrompt?: string;
   terminalProfiles?: MutableDaemonConfig["terminalProfiles"];
+  editorLanguageServers?: MutableDaemonConfig["editorLanguageServers"];
   agentProfiles?: MutableDaemonConfig["agentProfiles"];
   agentProfilesRemovedBuiltins?: MutableDaemonConfig["agentProfilesRemovedBuiltins"];
   skills?: MutableDaemonConfig["skills"];
@@ -234,6 +235,7 @@ const RELOADABLE_PATHS = [
   "daemon.enableTerminalAgentHooks",
   "daemon.appendSystemPrompt",
   "daemon.terminalProfiles",
+  "daemon.editorLanguageServers",
   "daemon.agentProfiles",
   "daemon.agentProfilesRemovedBuiltins",
   "app.baseUrl",
@@ -263,6 +265,7 @@ const PERSISTED_TO_MUTABLE_PATH = new Map<string, string>([
   ["daemon.enableTerminalAgentHooks", "enableTerminalAgentHooks"],
   ["daemon.appendSystemPrompt", "appendSystemPrompt"],
   ["daemon.terminalProfiles", "terminalProfiles"],
+  ["daemon.editorLanguageServers", "editorLanguageServers"],
   ["daemon.agentProfiles", "agentProfiles"],
   ["daemon.agentProfilesRemovedBuiltins", "agentProfilesRemovedBuiltins"],
   ["app.baseUrl", "app.baseUrl"],
@@ -330,6 +333,14 @@ function pickMetadataGenerationPatch(metadata: MutableDaemonConfigPatch["metadat
     : undefined;
 }
 
+function pickEditorPatch(
+  patch: MutableDaemonConfigPatch,
+): Pick<SupportedMutableConfigPatch, "editorLanguageServers"> {
+  return patch.editorLanguageServers === undefined
+    ? {}
+    : { editorLanguageServers: patch.editorLanguageServers };
+}
+
 function pickSupportedPatchFields(patch: MutableDaemonConfigPatch): SupportedMutableConfigPatch {
   return {
     ...pickRelayPatch(patch.relay),
@@ -359,6 +370,7 @@ function pickSupportedPatchFields(patch: MutableDaemonConfigPatch): SupportedMut
       ? { appendSystemPrompt: patch.appendSystemPrompt }
       : {}),
     ...(patch.terminalProfiles !== undefined ? { terminalProfiles: patch.terminalProfiles } : {}),
+    ...pickEditorPatch(patch),
     ...(patch.agentProfiles !== undefined ? { agentProfiles: patch.agentProfiles } : {}),
     ...(patch.agentProfilesRemovedBuiltins !== undefined
       ? { agentProfilesRemovedBuiltins: patch.agentProfilesRemovedBuiltins }
@@ -878,6 +890,9 @@ function mergeMutableDaemonPatch(
   }
   if (patch.appendSystemPrompt !== undefined) next.appendSystemPrompt = patch.appendSystemPrompt;
   if (patch.terminalProfiles !== undefined) next.terminalProfiles = patch.terminalProfiles;
+  if (patch.editorLanguageServers !== undefined) {
+    next.editorLanguageServers = patch.editorLanguageServers;
+  }
   if (patch.agentProfiles !== undefined) next.agentProfiles = patch.agentProfiles;
   if (patch.agentProfilesRemovedBuiltins !== undefined) {
     next.agentProfilesRemovedBuiltins = patch.agentProfilesRemovedBuiltins;
