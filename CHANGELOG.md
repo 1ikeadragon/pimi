@@ -2,6 +2,16 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.19 - 2026-11-11
+
+- Automations can run several steps. Connect agent steps and checks into a graph on the automation's canvas. Steps that don't depend on each other run at the same time, and a later step can use an earlier step's output. A failed run shows which step failed, and Retry reruns from that step, keeping the earlier results.
+- Describe an automation in plain words and Pimi drafts the steps and schedule for you to review and edit before saving. A drafted automation waits for your approval, as one an agent creates does.
+- Automations can start on pull requests: when a PR opens, gets new commits, or has a review requested. Pimi checks with the `gh` CLI, and each new PR commit starts one run.
+- Agents and the CLI can edit an automation's steps and retry a failed run.
+- Flow diagrams have a new look. Each box has a coloured icon tile for its kind, edges are dashed and move on desktop, and edge labels are small rounded pills. Hover or tap a box to highlight it and its connections.
+- Tapping a chart or diagram on a touch screen now selects it.
+- The Android app no longer crashes when you open a chat with a flow diagram.
+
 ## 0.17.18 - 2026-11-11
 
 - Automations replace schedules. Run an agent on a cron schedule or at an interval, in the provider's unattended mode. A run that hits a permission prompt fails at once instead of hanging. Automations an agent creates wait until you approve them. **Upgrading deletes the old `schedules` folder in your Pimi home, so recreate any schedules you still need as automations.**
