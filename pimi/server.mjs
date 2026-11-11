@@ -952,7 +952,11 @@ export async function startPimi({
       throw new RequestError("Open this image in Pimi Spaces.", 403);
     }
     const { mime, data } = await paseo.spaces({ action: "image", id });
-    response.writeHead(200, { "content-type": mime });
+    // A card's image never changes under its id, so the window keeps it instead of asking again.
+    response.writeHead(200, {
+      "content-type": mime,
+      "cache-control": "private, max-age=31536000, immutable",
+    });
     response.end(Buffer.from(data, "base64"));
   }
 

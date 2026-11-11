@@ -71,6 +71,7 @@ export function createSpacesView({ $, api, button, element, message }) {
   let copyTimer;
   let feedback;
   const sources = new WeakMap();
+  const signatures = new WeakMap();
   const requestedPreviews = new WeakSet();
   const unavailablePapers = new Set();
 
@@ -371,13 +372,52 @@ export function createSpacesView({ $, api, button, element, message }) {
     }
   }
 
+  // Reuse the card of every unchanged item so its images stay decoded and its embeds do not
+  // reload; only added, edited, removed or moved cards touch the DOM.
+  function reconcileCards(items) {
+    const existing = new Map();
+    for (const node of grid.children) existing.set(node.id, node);
+    const wanted = new Set();
+    let cursor = grid.firstElementChild;
+    for (const item of items) {
+      const id = "space-card-" + item.id;
+      wanted.add(id);
+      const signature = JSON.stringify(item);
+      let node = existing.get(id);
+      if (!node || signatures.get(node) !== signature) {
+        const old = node?.querySelector(".spaces-embed");
+        if (old) observer.unobserve(old);
+        const next = card(item);
+        signatures.set(next, signature);
+        if (node) node.replaceWith(next);
+        node = next;
+        if (cursor === existing.get(id)) cursor = node;
+      } else {
+        // A reused card follows the cleared list of unavailable papers like a new one would.
+        const slot = node.querySelector(".spaces-embed");
+        if (slot) {
+          slot.hidden = unavailablePapers.has(sources.get(slot).url);
+          if (slot.parentElement !== node) slot.parentElement.hidden = slot.hidden;
+        }
+      }
+      if (node === cursor) cursor = cursor.nextElementSibling;
+      else grid.insertBefore(node, cursor);
+    }
+    for (const [id, node] of existing) {
+      if (wanted.has(id)) continue;
+      const slot = node.querySelector(".spaces-embed");
+      if (slot) observer.unobserve(slot);
+      node.remove();
+    }
+  }
+
   async function loadCards() {
     const generation = ++searchGeneration;
     const query = searchInput.value.trim();
     const result = await api("spaces", query ? { action: "search", query } : { action: "list" });
     if (!active || generation !== searchGeneration || query !== searchInput.value.trim()) return;
     ready = true;
-    grid.replaceChildren(...result.items.map(card));
+    reconcileCards(result.items);
     if (query && result.unindexedLinks) {
       const count = result.unindexedLinks;
       message(
