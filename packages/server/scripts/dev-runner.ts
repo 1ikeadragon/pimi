@@ -1,11 +1,10 @@
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "url";
-import dotenv from "dotenv";
 
-dotenv.config({
-  path: fileURLToPath(new URL("../.env", import.meta.url)),
-  quiet: true,
-});
+// Variables already in the environment win, as they did with dotenv.
+const envFile = fileURLToPath(new URL("../.env", import.meta.url));
+if (existsSync(envFile)) process.loadEnvFile(envFile);
 
 const daemonRunnerEntry = fileURLToPath(new URL("./supervisor-entrypoint.ts", import.meta.url));
 

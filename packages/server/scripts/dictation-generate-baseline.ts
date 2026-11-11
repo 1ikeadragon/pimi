@@ -1,8 +1,11 @@
-import "dotenv/config";
+import { existsSync } from "node:fs";
 import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { OpenAI } from "openai";
+
+// Loads ./.env from the working directory, as dotenv/config did. Existing variables win.
+if (existsSync(".env")) process.loadEnvFile(".env");
 
 function requireEnv(name: string): string {
   const value = process.env[name];
