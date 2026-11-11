@@ -1,4 +1,4 @@
-import { buildHostRootRoute } from "@/utils/host-routes";
+import { buildAutomationEditorRoute, buildHostRootRoute } from "@/utils/host-routes";
 import type { NotificationOpenSource, NotificationTap } from "./source";
 
 export const WEB_NOTIFICATION_CLICK_EVENT = "paseo:web-notification-click";
@@ -6,6 +6,7 @@ export const WEB_NOTIFICATION_CLICK_EVENT = "paseo:web-notification-click";
 export type NotificationOpenTarget =
   | { kind: "agent"; serverId: string; agentId: string }
   | { kind: "terminal"; serverId: string; workspaceId: string; terminalId: string }
+  | { kind: "automation"; serverId: string; automationId: string }
   | { kind: "host"; serverId: string };
 
 function readId(data: object, key: string): string {
@@ -22,6 +23,8 @@ export function parseNotificationOpenTarget(data: unknown): NotificationOpenTarg
   if (workspaceId && terminalId) return { kind: "terminal", serverId, workspaceId, terminalId };
   const agentId = readId(data, "agentId");
   if (agentId) return { kind: "agent", serverId, agentId };
+  const automationId = readId(data, "automationId");
+  if (automationId) return { kind: "automation", serverId, automationId };
   return { kind: "host", serverId };
 }
 
@@ -45,6 +48,8 @@ export function createNotificationOpenRouter(deps: NotificationOpenRouterDeps) {
       deps.openAgent({ serverId: target.serverId, agentId: target.agentId });
     } else if (target?.kind === "terminal") {
       deps.openTerminal(target);
+    } else if (target?.kind === "automation") {
+      deps.openRoute(buildAutomationEditorRoute(target.serverId, target.automationId));
     } else if (target?.kind === "host") {
       deps.openRoute(buildHostRootRoute(target.serverId));
     }

@@ -85,6 +85,14 @@ import {
   AutomationRunRetryResponseSchema,
   AutomationCompileRequestSchema,
   AutomationCompileResponseSchema,
+  AutomationDraftStartRequestSchema,
+  AutomationDraftStartResponseSchema,
+  AutomationDraftListRequestSchema,
+  AutomationDraftListResponseSchema,
+  AutomationDraftRetryRequestSchema,
+  AutomationDraftRetryResponseSchema,
+  AutomationDraftDismissRequestSchema,
+  AutomationDraftDismissResponseSchema,
   AutomationTriggerCheckRequestSchema,
   AutomationTriggerCheckResponseSchema,
 } from "./automation/rpc-schemas.js";
@@ -3481,6 +3489,10 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   AutomationRunMarkReadRequestSchema,
   AutomationRunRetryRequestSchema,
   AutomationCompileRequestSchema,
+  AutomationDraftStartRequestSchema,
+  AutomationDraftListRequestSchema,
+  AutomationDraftRetryRequestSchema,
+  AutomationDraftDismissRequestSchema,
   AutomationTriggerCheckRequestSchema,
   HeartbeatCreateRequestSchema,
   HeartbeatUpdateRequestSchema,
@@ -6834,6 +6846,10 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   AutomationRunMarkReadResponseSchema,
   AutomationRunRetryResponseSchema,
   AutomationCompileResponseSchema,
+  AutomationDraftStartResponseSchema,
+  AutomationDraftListResponseSchema,
+  AutomationDraftRetryResponseSchema,
+  AutomationDraftDismissResponseSchema,
   AutomationTriggerCheckResponseSchema,
   HeartbeatCreateResponseSchema,
   HeartbeatUpdateResponseSchema,
@@ -7007,6 +7023,10 @@ export type AutomationRunGetResponse = z.infer<typeof AutomationRunGetResponseSc
 export type AutomationRunMarkReadResponse = z.infer<typeof AutomationRunMarkReadResponseSchema>;
 export type AutomationRunRetryResponse = z.infer<typeof AutomationRunRetryResponseSchema>;
 export type AutomationCompileResponse = z.infer<typeof AutomationCompileResponseSchema>;
+export type AutomationDraftStartResponse = z.infer<typeof AutomationDraftStartResponseSchema>;
+export type AutomationDraftListResponse = z.infer<typeof AutomationDraftListResponseSchema>;
+export type AutomationDraftRetryResponse = z.infer<typeof AutomationDraftRetryResponseSchema>;
+export type AutomationDraftDismissResponse = z.infer<typeof AutomationDraftDismissResponseSchema>;
 export type AutomationTriggerCheckResponse = z.infer<typeof AutomationTriggerCheckResponseSchema>;
 export type HeartbeatCreateResponse = z.infer<typeof HeartbeatCreateResponseSchema>;
 export type HeartbeatUpdateResponse = z.infer<typeof HeartbeatUpdateResponseSchema>;

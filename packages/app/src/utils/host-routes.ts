@@ -400,6 +400,27 @@ export function buildAutomationsRoute() {
   return "/automations" as const;
 }
 
+export interface NewAutomationRouteOptions {
+  serverId?: string;
+  templateId?: string;
+  duplicateId?: string;
+  describe?: boolean;
+}
+
+export function buildNewAutomationRoute(options: NewAutomationRouteOptions = {}) {
+  const params = new URLSearchParams();
+  if (options.serverId) params.set("serverId", options.serverId);
+  if (options.templateId) params.set("template", options.templateId);
+  if (options.duplicateId) params.set("duplicate", options.duplicateId);
+  if (options.describe) params.set("describe", "1");
+  const query = params.toString();
+  return query ? (`/automations/new?${query}` as const) : ("/automations/new" as const);
+}
+
+export function buildAutomationEditorRoute(serverId: string, automationId: string) {
+  return `/automations/${encodeURIComponent(serverId)}/${encodeURIComponent(automationId)}` as const;
+}
+
 export function buildProfilesRoute() {
   return "/profiles" as const;
 }

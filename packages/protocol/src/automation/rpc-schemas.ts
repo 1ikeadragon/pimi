@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   AutomationAuditEntrySchema,
   AutomationDefinitionSchema,
+  AutomationDraftSchema,
   AutomationOriginSchema,
   AutomationRunSchema,
   AutomationSchema,
@@ -196,6 +197,52 @@ export const AutomationCompileRequestSchema = z.object({
 export const AutomationCompileResponseSchema = z.object({
   type: z.literal("automation.compile.response"),
   payload: z.object({ requestId: z.string(), definition: AutomationDefinitionSchema }),
+});
+
+// Compiles a description in the background into a pending automation. Returns at once with the
+// draft; list drafts to see it become ready or fail.
+export const AutomationDraftStartRequestSchema = z.object({
+  type: z.literal("automation.draft.start.request"),
+  requestId: z.string(),
+  description: z.string(),
+  cwd: z.string(),
+});
+
+export const AutomationDraftStartResponseSchema = z.object({
+  type: z.literal("automation.draft.start.response"),
+  payload: z.object({ requestId: z.string(), draft: AutomationDraftSchema }),
+});
+
+export const AutomationDraftListRequestSchema = z.object({
+  type: z.literal("automation.draft.list.request"),
+  requestId: z.string(),
+});
+
+export const AutomationDraftListResponseSchema = z.object({
+  type: z.literal("automation.draft.list.response"),
+  payload: z.object({ requestId: z.string(), drafts: z.array(AutomationDraftSchema) }),
+});
+
+export const AutomationDraftRetryRequestSchema = z.object({
+  type: z.literal("automation.draft.retry.request"),
+  requestId: z.string(),
+  draftId: z.string(),
+});
+
+export const AutomationDraftRetryResponseSchema = z.object({
+  type: z.literal("automation.draft.retry.response"),
+  payload: z.object({ requestId: z.string(), draft: AutomationDraftSchema }),
+});
+
+export const AutomationDraftDismissRequestSchema = z.object({
+  type: z.literal("automation.draft.dismiss.request"),
+  requestId: z.string(),
+  draftId: z.string(),
+});
+
+export const AutomationDraftDismissResponseSchema = z.object({
+  type: z.literal("automation.draft.dismiss.response"),
+  payload: z.object({ requestId: z.string(), draftId: z.string() }),
 });
 
 // Polls a pull-request trigger now instead of waiting for its next poll.

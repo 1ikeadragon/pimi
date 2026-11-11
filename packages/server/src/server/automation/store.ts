@@ -2,9 +2,11 @@ import { readFile, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import type { Logger } from "pino";
 import {
+  AutomationDraftSchema,
   AutomationRunSchema,
   AutomationSchema,
   type Automation,
+  type AutomationDraft,
   type AutomationRun,
 } from "@pimi/protocol/automation/types";
 import { writeJsonFileAtomic } from "../atomic-file.js";
@@ -23,12 +25,14 @@ interface LegacyFlow {
 }
 
 // $PASEO_HOME/automations/<id>.json, $PASEO_HOME/automations/runs/<automationId>/<runId>.json,
-// and $PASEO_HOME/automations/triggers/<automationId>.json for pull-request trigger state.
+// $PASEO_HOME/automations/triggers/<automationId>.json for pull-request trigger state, and
+// $PASEO_HOME/automations/drafts/<draftId>.json for descriptions compiling in the background.
 export class AutomationStore {
   readonly dir: string;
   private readonly logger: Logger;
   readonly automations: JsonRecordStore<Automation>;
   readonly triggerStates: JsonRecordStore<PullRequestTriggerState>;
+  readonly drafts: JsonRecordStore<AutomationDraft>;
   private readonly runStores = new Map<string, JsonRecordStore<AutomationRun>>();
 
   constructor(options: { dir: string; logger: Logger }) {
@@ -45,6 +49,12 @@ export class AutomationStore {
       schema: PullRequestTriggerStateSchema,
       logger: this.logger,
       label: "automation trigger state",
+    });
+    this.drafts = new JsonRecordStore({
+      dir: join(this.dir, "drafts"),
+      schema: AutomationDraftSchema,
+      logger: this.logger,
+      label: "automation draft",
     });
   }
 

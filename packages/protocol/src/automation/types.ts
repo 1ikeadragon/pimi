@@ -276,3 +276,20 @@ export const AutomationAuditEntrySchema = z.object({
   detail: z.string().nullable(),
 });
 export type AutomationAuditEntry = z.infer<typeof AutomationAuditEntrySchema>;
+
+// A description being compiled into a pending automation in the background. A ready draft names
+// the automation it became; a failed one keeps the reason so the owner can retry.
+export const AutomationDraftStateSchema = z.enum(["drafting", "ready", "failed"]);
+export type AutomationDraftState = z.infer<typeof AutomationDraftStateSchema>;
+
+export const AutomationDraftSchema = z.object({
+  id: z.string(),
+  description: z.string(),
+  cwd: z.string(),
+  state: AutomationDraftStateSchema,
+  error: z.string().nullable(),
+  automationId: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type AutomationDraft = z.infer<typeof AutomationDraftSchema>;

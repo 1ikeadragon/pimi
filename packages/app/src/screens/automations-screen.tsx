@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
 import { ScrollView, Text, View } from "react-native";
+import { useRouter } from "expo-router";
 import { useIsFocused } from "expo-router/react-navigation";
 import { LayoutTemplate, Plus, Rocket } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import { AutomationDraftRows } from "@/components/automations/automation-draft-rows";
+import { useAutomationDrafts, type AggregatedAutomationDraft } from "@/hooks/use-automation-drafts";
 import type { Theme } from "@/styles/theme";
 import { MenuHeader } from "@/components/headers/menu-header";
 import {
@@ -15,11 +18,6 @@ import {
 import { DropdownTrigger } from "@/components/ui/dropdown-trigger";
 import { HostFilter } from "@/components/hosts/host-filter";
 import { ALL_HOSTS_OPTION_ID } from "@/components/hosts/host-picker";
-import { AutomationFormSheet } from "@/components/automations/automation-form-sheet";
-import {
-  AutomationCompileSheet,
-  type CompiledAutomationDraft,
-} from "@/components/automations/automation-compile-sheet";
 import {
   AutomationsTable,
   type AutomationRowView,
@@ -48,20 +46,7 @@ import {
   buildAutomationProjectTargets,
 } from "@/automations/automation-project-targets";
 import { AUTOMATION_TEMPLATES, type AutomationTemplate } from "@/automations/automation-templates";
-import type { Automation } from "@pimi/protocol/automation/types";
-
-type FormState =
-  | { mode: "closed" }
-  | { mode: "describe" }
-  | { mode: "create"; template?: AutomationTemplate; draft?: CompiledAutomationDraft }
-  | { mode: "edit"; serverId: string; automation: Automation };
-
-function formServerId(form: FormState): string | undefined {
-  if (form.mode === "edit") {
-    return form.serverId;
-  }
-  return form.mode === "create" ? form.draft?.serverId : undefined;
-}
+import { buildAutomationEditorRoute, buildNewAutomationRoute } from "@/utils/host-routes";
 
 const STATUS_FILTER_OPTIONS: { value: AutomationBucket; label: string; testID: string }[] = [
   { value: "runnable", label: "Active", testID: "automations-filter-active" },
@@ -69,6 +54,7 @@ const STATUS_FILTER_OPTIONS: { value: AutomationBucket; label: string; testID: s
 ];
 
 const EMPTY_AUTOMATIONS: AggregatedAutomation[] = [];
+const NO_DRAFTS: AggregatedAutomationDraft[] = [];
 
 // Module-scope themed icon so the trigger's `leading` is a stable element.
 const ThemedLayoutTemplate = withUnistyles(LayoutTemplate);
@@ -95,7 +81,7 @@ function AutomationsScreenContent(): ReactElement {
   const { agents } = useAggregatedAgents({ includeArchived: true });
   const { projects } = useProjects();
   const hosts = useHosts();
-  const [form, setForm] = useState<FormState>({ mode: "closed" });
+  const router = useRouter();
   const [selectedHost, setSelectedHost] = useState(ALL_HOSTS_OPTION_ID);
   const [statusFilter, setStatusFilter] = useState<AutomationBucket>("runnable");
 
@@ -109,17 +95,18 @@ function AutomationsScreenContent(): ReactElement {
   }, [hosts, selectedHost]);
 
   const openCreate = useCallback(
-    (template?: AutomationTemplate) => setForm({ mode: "create", template }),
-    [],
+    (template?: AutomationTemplate) =>
+      router.push(buildNewAutomationRoute({ templateId: template?.id })),
+    [router],
   );
-  const openEdit = useCallback((automation: AggregatedAutomation) => {
-    setForm({ mode: "edit", serverId: automation.serverId, automation });
-  }, []);
-  const closeForm = useCallback(() => setForm({ mode: "closed" }), []);
-  const openDescribe = useCallback(() => setForm({ mode: "describe" }), []);
-  const openCompiled = useCallback(
-    (draft: CompiledAutomationDraft) => setForm({ mode: "create", draft }),
-    [],
+  const openEdit = useCallback(
+    (automation: AggregatedAutomation) =>
+      router.push(buildAutomationEditorRoute(automation.serverId, automation.id)),
+    [router],
+  );
+  const openDescribe = useCallback(
+    () => router.push(buildNewAutomationRoute({ describe: true })),
+    [router],
   );
 
   const agentsByKey = useMemo(() => {
@@ -179,6 +166,18 @@ function AutomationsScreenContent(): ReactElement {
     );
   }, [resolvedRows, selectedHost, statusFilter, hosts.length]);
 
+  const allDrafts = useAutomationDrafts();
+  // A ready draft is already a pending automation in the list.
+  const drafts = useMemo(
+    () =>
+      allDrafts.filter(
+        (draft) =>
+          draft.state !== "ready" &&
+          (selectedHost === ALL_HOSTS_OPTION_ID || draft.serverId === selectedHost),
+      ),
+    [allDrafts, selectedHost],
+  );
+
   const showLoadError = isError && loadState.status !== "loaded";
   const showHostFilter = hosts.length > 1;
 
@@ -187,6 +186,7 @@ function AutomationsScreenContent(): ReactElement {
       <MenuHeader title={t("sidebar.sections.automations")} inPimiTitlebar />
       <AutomationsScreenBody
         rows={visibleRows}
+        drafts={statusFilter === "runnable" ? drafts : NO_DRAFTS}
         loadState={loadState}
         hostErrors={hostErrors}
         connectingHosts={connectingHosts}
@@ -202,26 +202,13 @@ function AutomationsScreenContent(): ReactElement {
         onDescribe={openDescribe}
         onEdit={openEdit}
       />
-      <AutomationCompileSheet
-        visible={form.mode === "describe"}
-        onClose={closeForm}
-        onCompiled={openCompiled}
-      />
-      <AutomationFormSheet
-        serverId={formServerId(form)}
-        visible={form.mode === "create" || form.mode === "edit"}
-        onClose={closeForm}
-        mode={form.mode === "edit" ? "edit" : "create"}
-        automation={form.mode === "edit" ? form.automation : undefined}
-        template={form.mode === "create" ? form.template : undefined}
-        draft={form.mode === "create" ? form.draft?.definition : undefined}
-      />
     </View>
   );
 }
 
 function AutomationsScreenBody({
   rows,
+  drafts,
   loadState,
   hostErrors,
   connectingHosts,
@@ -238,6 +225,7 @@ function AutomationsScreenBody({
   onEdit,
 }: {
   rows: AutomationRowView[];
+  drafts: readonly AggregatedAutomationDraft[];
   loadState: AggregateLoadState<AggregatedAutomation>;
   hostErrors: AutomationHostError[];
   connectingHosts: AutomationHostInput[];
@@ -274,7 +262,7 @@ function AutomationsScreenBody({
     );
   }
 
-  if (bodyState.kind === "empty") {
+  if (bodyState.kind === "empty" && drafts.length === 0) {
     return (
       <View style={styles.centered}>
         {hostErrors.length > 0 ? <AutomationHostErrorsBanner errors={hostErrors} /> : null}
@@ -288,9 +276,11 @@ function AutomationsScreenBody({
     );
   }
 
-  let automationsContent: ReactElement;
+  let automationsContent: ReactElement | null;
   if (rows.length > 0) {
     automationsContent = <AutomationsTable rows={rows} onEditAutomation={onEdit} />;
+  } else if (drafts.length > 0) {
+    automationsContent = null;
   } else if (statusFilter === "ended") {
     automationsContent = <AutomationsEndedEmptyState />;
   } else {
@@ -339,6 +329,7 @@ function AutomationsScreenBody({
         testID="automations-list"
       >
         {hostErrors.length > 0 ? <AutomationHostErrorsBanner errors={hostErrors} /> : null}
+        {drafts.length > 0 ? <AutomationDraftRows drafts={drafts} /> : null}
         {automationsContent}
       </ScrollView>
     </View>
