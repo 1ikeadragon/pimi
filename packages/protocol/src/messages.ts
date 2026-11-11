@@ -320,6 +320,7 @@ export const MutableDaemonConfigPatchSchema = z
   .partial()
   .passthrough();
 
+export type PimiModelFeature = (typeof PIMI_MODEL_FEATURE_KEYS)[number];
 export type MutableDaemonConfig = z.infer<typeof MutableDaemonConfigSchema>;
 export type MutableDaemonConfigPatch = z.infer<typeof MutableDaemonConfigPatchSchema>;
 import type {
