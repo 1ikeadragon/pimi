@@ -18,15 +18,19 @@ import { PressHighlight } from "@/components/ui/press-highlight";
 import { isWeb } from "@/constants/platform";
 import { getDesktopHost } from "@/desktop/host";
 import { usePendingArchiveAgentKeys } from "@/hooks/use-archive-agent";
+import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
 import { usePanelStore } from "@/stores/panel-store";
 import { useSessionStore } from "@/stores/session-store";
 import { density, densityIconBox } from "@/styles/density";
+import { useProviderSubagentStore } from "@/subagents/provider-store";
 import {
   selectSidebarLineageChats,
   sidebarLineageWorkspaceKey,
-  type SidebarLineageAgent,
   type SidebarLineageChat,
+  type SidebarLineageWorker,
 } from "@/subagents/sidebar-lineage";
+import { SUBAGENT_STATUS_LABEL_KEYS } from "@/subagents/status";
+import { SubagentStatusDot } from "@/subagents/status-dot";
 import { resolveRowLabel } from "@/subagents/track-presentation";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
 import { aggregateSidebarStateBuckets, type SidebarStateBucket } from "@/utils/sidebar-agent-state";
@@ -36,9 +40,9 @@ import { STATUS_INDICATOR_FILLED_DOT_SIZE } from "@/utils/status-indicator-geome
 const PROVIDER_GLYPH_SIZE = 14;
 
 /**
- * The user's expand/collapse choice per chat, for this app session. Absent means the default:
- * expanded while any of the chat's subagents is working. Kept outside the row so a virtualized
- * sidebar that remounts the row keeps the choice.
+ * The user's expand/collapse choice per chat, for this app session. Absent means expanded: every
+ * child listed here is live, so it is worth showing until the user folds it. Kept outside the row
+ * so a virtualized sidebar that remounts the row keeps the choice.
  */
 const useLineageExpansionStore = create<{
   expanded: Readonly<Record<string, boolean>>;
@@ -51,16 +55,40 @@ const useLineageExpansionStore = create<{
 
 // Mirrors the workspace row's press: navigation only closes the compact sidebar when it reveals a
 // different workspace, so a row in the workspace already shown closes it itself.
-function openAgent(agent: SidebarLineageAgent) {
+function openAgent(agent: { serverId: string; agentId: string }) {
   getDesktopHost()?.dismissPimiWorkspace?.();
   usePanelStore.getState().showMobileAgent();
   navigateToAgent({ serverId: agent.serverId, agentId: agent.agentId });
 }
 
+function openWorker(worker: SidebarLineageWorker) {
+  if (worker.kind === "agent") {
+    openAgent(worker);
+    return;
+  }
+  getDesktopHost()?.dismissPimiWorkspace?.();
+  usePanelStore.getState().showMobileAgent();
+  navigateToWorkspace({
+    serverId: worker.serverId,
+    workspaceId: worker.workspaceId,
+    target: {
+      kind: "provider_subagent",
+      parentAgentId: worker.parentAgentId,
+      subagentId: worker.subagentId,
+    },
+  });
+}
+
+function workerKey(worker: SidebarLineageWorker): string {
+  return worker.kind === "agent"
+    ? `${worker.serverId}:${worker.agentId}`
+    : `${worker.serverId}:${worker.parentAgentId}:${worker.subagentId}`;
+}
+
 /**
- * The chats in one workspace that have subagents, each with its subagents indented under it.
- * Renders nothing for a workspace without any, which is almost every row, so the cost there is
- * one shared-index lookup per session-store update.
+ * The chats in one workspace that have live subagents, each with those subagents indented under
+ * it. Renders nothing for a workspace without any, which is almost every row, so the cost there
+ * is one shared-index lookup per session-store update.
  */
 export const SidebarAgentLineage = memo(function SidebarAgentLineage({
   serverId,
@@ -73,10 +101,14 @@ export const SidebarAgentLineage = memo(function SidebarAgentLineage({
   indentStyle?: StyleProp<ViewStyle>;
 }): ReactElement | null {
   const workspaceKey = serverId ? sidebarLineageWorkspaceKey(serverId, workspaceId) : null;
+  const descriptors = useProviderSubagentStore((state) => state.descriptors);
+  const hiddenFromTrack = useProviderSubagentStore((state) => state.hiddenFromTrack);
   const selectChats = useCallback(
     (state: ReturnType<typeof useSessionStore.getState>) =>
-      workspaceKey ? selectSidebarLineageChats(state.sessions, workspaceKey) : null,
-    [workspaceKey],
+      workspaceKey
+        ? selectSidebarLineageChats(state.sessions, { descriptors, hiddenFromTrack }, workspaceKey)
+        : null,
+    [workspaceKey, descriptors, hiddenFromTrack],
   );
   const chats = useStoreWithEqualityFn(useSessionStore, selectChats, equal);
   if (!chats?.length || !workspaceKey) return null;
@@ -102,7 +134,8 @@ function SidebarAgentLineageChats({
     return chats.flatMap((chat) => {
       if (pendingArchive.has(`${chat.serverId}:${chat.agentId}`)) return [];
       const workers = chat.workers.filter(
-        (worker) => !pendingArchive.has(`${worker.serverId}:${worker.agentId}`),
+        (worker) =>
+          worker.kind !== "agent" || !pendingArchive.has(`${worker.serverId}:${worker.agentId}`),
       );
       if (workers.length === 0) return [];
       return [workers.length === chat.workers.length ? chat : { ...chat, workers }];
@@ -126,8 +159,7 @@ function SidebarLineageChatGroup({ chat }: { chat: SidebarLineageChat }) {
   const { t } = useTranslation();
   const chatKey = `${chat.serverId}:${chat.agentId}`;
   const choice = useLineageExpansionStore((state) => state.expanded[chatKey]);
-  const anyWorking = chat.workers.some((worker) => worker.bucket === "running");
-  const expanded = choice ?? anyWorking;
+  const expanded = choice ?? true;
   const toggle = useCallback(() => {
     useLineageExpansionStore.getState().setExpanded(chatKey, !expanded);
   }, [chatKey, expanded]);
@@ -180,7 +212,7 @@ function SidebarLineageChatGroup({ chat }: { chat: SidebarLineageChat }) {
       {expanded ? (
         <View style={styles.workers}>
           {chat.workers.map((worker) => (
-            <SidebarLineageWorkerRow key={`${worker.serverId}:${worker.agentId}`} worker={worker} />
+            <SidebarLineageWorkerRow key={workerKey(worker)} worker={worker} />
           ))}
         </View>
       ) : null}
@@ -188,11 +220,12 @@ function SidebarLineageChatGroup({ chat }: { chat: SidebarLineageChat }) {
   );
 }
 
-function SidebarLineageWorkerRow({ worker }: { worker: SidebarLineageAgent }) {
+function SidebarLineageWorkerRow({ worker }: { worker: SidebarLineageWorker }) {
   const { t } = useTranslation();
-  const open = useCallback(() => openAgent(worker), [worker]);
+  const open = useCallback(() => openWorker(worker), [worker]);
   const title = resolveRowLabel(worker.title) ?? t("common.states.loading");
-  const status = t(STATUS_LABEL_KEYS[worker.bucket]);
+  const status = t(SUBAGENT_STATUS_LABEL_KEYS[worker.bucket]);
+  const id = worker.kind === "agent" ? worker.agentId : worker.subagentId;
   return (
     <PressHighlight
       accessibilityRole={isWeb ? undefined : "button"}
@@ -200,7 +233,7 @@ function SidebarLineageWorkerRow({ worker }: { worker: SidebarLineageAgent }) {
       onPress={open}
       style={rowStyle}
       highlightStyle={styles.rowPressed}
-      testID={`sidebar-agent-lineage-worker-${worker.agentId}`}
+      testID={`sidebar-agent-lineage-worker-${id}`}
     >
       <View style={styles.glyphSlot}>
         <ModelProviderGlyph
@@ -212,7 +245,10 @@ function SidebarLineageWorkerRow({ worker }: { worker: SidebarLineageAgent }) {
       <Text style={styles.workerTitle} numberOfLines={1}>
         {title}
       </Text>
-      <LineageStatusDot bucket={worker.bucket} />
+      <SubagentStatusDot
+        bucket={worker.bucket}
+        testID={`sidebar-agent-lineage-status-${worker.bucket}`}
+      />
       <Text style={styles.statusText} numberOfLines={1}>
         {status}
       </Text>
@@ -220,15 +256,7 @@ function SidebarLineageWorkerRow({ worker }: { worker: SidebarLineageAgent }) {
   );
 }
 
-/** One name per state across the app: these are the sidebar's status-group labels. */
-const STATUS_LABEL_KEYS = {
-  needs_input: "sidebar.statusBucket.needsInput",
-  failed: "sidebar.statusBucket.failed",
-  attention: "sidebar.statusBucket.readyToReview",
-  running: "sidebar.statusBucket.working",
-  done: "sidebar.statusBucket.done",
-} as const satisfies Record<SidebarStateBucket, string>;
-
+/** The chat's own dot: its workspace-row state folded with its children's. */
 function LineageStatusDot({ bucket }: { bucket: SidebarStateBucket }) {
   return <View style={dotStyleFor(bucket)} testID={`sidebar-agent-lineage-status-${bucket}`} />;
 }

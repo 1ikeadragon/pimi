@@ -30,7 +30,7 @@ import {
 } from "@/subagents/provider-store";
 import type { PendingPermission } from "@/types/shared";
 import type { StreamItem } from "@/types/stream";
-import { deriveSubagentStatusBucket } from "@/subagents";
+import { providerSubagentStatusBucket } from "@/subagents";
 import { TIMELINE_FETCH_PAGE_SIZE } from "@/timeline/timeline-fetch-policy";
 import type { TurnPresentation } from "@/timeline/turn-liveness";
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
@@ -105,9 +105,7 @@ function useProviderSubagentDescriptor(
     tooltip: label,
     titleState: descriptor ? "ready" : "loading",
     icon: useProviderIcon(provider, context.serverId),
-    statusBucket: descriptor
-      ? deriveSubagentStatusBucket(providerSubagentLifecycleStatus(descriptor.status))
-      : null,
+    statusBucket: descriptor ? providerSubagentStatusBucket(descriptor.status) : null,
   };
 }
 

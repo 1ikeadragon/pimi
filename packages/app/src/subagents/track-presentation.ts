@@ -1,32 +1,9 @@
 import type { TFunction } from "i18next";
 import type { ComposerTrackPillSegment } from "@/composer/tracks";
 import type { SidebarStateBucket } from "@/utils/sidebar-agent-state";
-import type { AgentLifecycleStatus } from "@pimi/protocol/agent-lifecycle";
 import { STATUS_BUCKET_ORDER } from "@/utils/sidebar-agent-state";
 import type { SubagentRow } from "./select";
 import { isFinishedSubagent } from "./archive-finished";
-import { providerSubagentLifecycleStatus } from "./provider-store";
-
-function presentationStatus(row: SubagentRow) {
-  if (row.kind === "paseo") {
-    if (row.turn.phase === "open") return "running";
-    return row.status === "running" ? "idle" : row.status;
-  }
-  return providerSubagentLifecycleStatus(row.status);
-}
-
-/**
- * A child's mark reports what it is doing, not whether anyone read it: the track is where a
- * failed child stays visible after the parent's own attention is cleared.
- */
-export function deriveSubagentStatusBucket(
-  status: AgentLifecycleStatus,
-  backgroundWork?: { count: number } | null,
-): SidebarStateBucket {
-  if (status === "error") return "failed";
-  if (status === "running" || (backgroundWork?.count ?? 0) > 0) return "running";
-  return "done";
-}
 
 export interface SubagentRowPresentationData {
   key: string;
@@ -45,17 +22,13 @@ export function buildSubagentRowPresentationData(row: SubagentRow): SubagentRowP
   const label = description ?? title;
   const providerSubtitle = row.kind === "provider" ? resolveRowLabel(row.subtitle) : null;
   const subtitle = providerSubtitle ?? (description ? title : null);
-  const status = presentationStatus(row);
   return {
     key: `${row.kind}_subagent_${row.id}`,
     kind: "agent",
     label: label ?? "",
     subtitle: subtitle ?? "",
     titleState: label ? "ready" : "loading",
-    statusBucket: deriveSubagentStatusBucket(
-      status,
-      row.kind === "paseo" ? row.backgroundWork : undefined,
-    ),
+    statusBucket: row.statusBucket,
   };
 }
 
@@ -86,9 +59,9 @@ export interface SubagentPillPresentation {
  * "1 failed" over a child that is still working says the fan-out has stopped. Every state present
  * gets its own mark and its own count, in the order the sidebar's status groups list them.
  *
- * It stays one line because subagent rows only ever reach three states — see
- * `buildSubagentRowPresentationData`, which reports no attention of its own — so the pill is two
- * segments at worst, and falls back to naming what it opens once nothing is happening.
+ * Subagent rows reach needs input, failed and working (`./status.ts` reports no "ready to review"
+ * for a child), so the pill is three segments at worst, and falls back to naming what it opens
+ * once nothing is happening.
  */
 export function buildSubagentPillPresentation(
   t: TFunction,
@@ -132,7 +105,7 @@ function totalLabel(t: TFunction, total: number): string {
  * Empty when every child is done: a finished fan-out is not worth a colour above the composer.
  */
 function summarizeSubagentStatus(rows: readonly SubagentRow[]): SubagentStatusCount[] {
-  const buckets = rows.map((row) => buildSubagentRowPresentationData(row).statusBucket);
+  const buckets = rows.map((row) => row.statusBucket);
   return ACTIVE_STATUS_BUCKET_ORDER.flatMap((bucket) => {
     const count = buckets.filter((candidate) => candidate === bucket).length;
     return count > 0 ? [{ bucket, count }] : [];

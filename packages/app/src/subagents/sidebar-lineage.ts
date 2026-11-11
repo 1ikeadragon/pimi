@@ -1,26 +1,57 @@
 import { getParentAddressFromLabels } from "@pimi/protocol/agent-labels";
+import type { ProviderSubagentDescriptorPayload } from "@pimi/protocol/messages";
 import { PIMI_TASK_WORKER_LABEL } from "@pimi/protocol/pimi-task";
 import type { Agent } from "@/stores/session-store";
 import { deriveSidebarStateBucket, type SidebarStateBucket } from "@/utils/sidebar-agent-state";
 import { workspaceAgentStatus } from "@/utils/workspace-agent-activity";
+import {
+  isLiveSubagentStatus,
+  managedSubagentStatusBucket,
+  providerSubagentStatusBucket,
+  type SubagentStatusBucket,
+} from "./status";
+import { resolveRowLabel } from "./track-presentation";
 import { isWorkspaceRootAgent } from "./workspace-root-policy";
 
-/** One agent as the sidebar lineage draws it. Only fields the row paints, so equality stays cheap. */
-export interface SidebarLineageAgent {
+/** One child as the sidebar lineage draws it. Only fields the row paints, so equality stays cheap. */
+export type SidebarLineageWorker =
+  | {
+      kind: "agent";
+      serverId: string;
+      agentId: string;
+      provider: Agent["provider"];
+      title: string | null;
+      bucket: SubagentStatusBucket;
+    }
+  | {
+      kind: "provider";
+      serverId: string;
+      workspaceId: string;
+      parentAgentId: string;
+      subagentId: string;
+      provider: ProviderSubagentDescriptorPayload["provider"];
+      title: string | null;
+      bucket: SubagentStatusBucket;
+    };
+
+/** A chat in a workspace and the children it started that still want a look. */
+export interface SidebarLineageChat {
   serverId: string;
   agentId: string;
-  provider: Agent["provider"];
   title: string | null;
+  /** The chat's own state, as its workspace row would show it. */
   bucket: SidebarStateBucket;
-}
-
-/** A chat in a workspace and the managed subagents it started. */
-export interface SidebarLineageChat extends SidebarLineageAgent {
-  workers: SidebarLineageAgent[];
+  workers: SidebarLineageWorker[];
 }
 
 interface SessionAgents {
   agents: ReadonlyMap<string, Agent>;
+}
+
+/** The slice of the provider-subagent store the lineage reads. */
+export interface ProviderSubagentsSnapshot {
+  descriptors: ReadonlyMap<string, ProviderSubagentDescriptorPayload>;
+  hiddenFromTrack: ReadonlySet<string>;
 }
 
 const EMPTY_CHATS: SidebarLineageChat[] = [];
@@ -33,91 +64,155 @@ function isVisible(agent: Agent): boolean {
   return !agent.archivedAt && !agent.background;
 }
 
-/**
- * Lifecycle error stays visible here as it does in the subagents track: a failed child is the
- * thing the lineage exists to surface, so it does not wait for unread attention.
- */
-function lineageBucket(agent: Agent): SidebarStateBucket {
-  const status = workspaceAgentStatus(agent);
-  const bucket = deriveSidebarStateBucket({
-    status,
+function chatBucket(agent: Agent): SidebarStateBucket {
+  return deriveSidebarStateBucket({
+    status: workspaceAgentStatus(agent),
     backgroundWork: agent.backgroundWork,
     pendingPermissionCount: agent.pendingPermissions.length,
     requiresAttention: agent.requiresAttention,
     attentionReason: agent.attentionReason,
   });
-  return bucket === "done" && status === "error" ? "failed" : bucket;
 }
 
-function toLineageAgent(agent: Agent): SidebarLineageAgent {
-  return {
-    serverId: agent.serverId,
-    agentId: agent.id,
-    provider: agent.provider,
-    title: agent.title,
-    bucket: lineageBucket(agent),
-  };
-}
-
-function byCreatedAt(left: Agent, right: Agent): number {
-  return left.createdAt.getTime() - right.createdAt.getTime();
+interface ChatEntry {
+  parent: Agent;
+  workers: Array<{ createdAt: number; worker: SidebarLineageWorker }>;
 }
 
 /**
- * Every workspace's chats that have visible managed subagents, keyed by
- * `sidebarLineageWorkspaceKey`. One pass over the agents plus a sort per chat.
+ * Every workspace's chats that have live children, keyed by `sidebarLineageWorkspaceKey`. One
+ * pass over the agents and the provider descriptors, plus a sort per chat.
  *
- * Membership follows the track (`select.ts`): the parent comes from the parent labels and
- * archived or background children are left out. A chat is listed under its own workspace only
- * when it is a workspace root there, so a same-workspace subagent never appears both as a worker
- * and as a chat of its own; its own children stay one click away in its track. A Pimi task worker
- * in another workspace is left out because the sidebar already nests that workspace under the
- * chat's workspace.
+ * The lineage is a quiet projection of each chat's subagents track (`select.ts`): the same
+ * managed and provider children, minus the finished ones. A child stays while it is working,
+ * needs input or has failed (`./status.ts`); once it is done it leaves the sidebar, and a chat
+ * with no such child has no row, because the parent's own finish already carries the news.
+ *
+ * A chat is listed under its own workspace only when it is a workspace root there, so a
+ * same-workspace subagent never appears both as a worker and as a chat of its own; its own
+ * children stay one click away in its track. A Pimi task worker in another workspace is left out
+ * because the sidebar already nests that workspace under the chat's workspace.
  */
 export function buildSidebarLineageIndex(
   sessions: Readonly<Record<string, SessionAgents>>,
+  providers: ProviderSubagentsSnapshot,
 ): Map<string, SidebarLineageChat[]> {
-  const childrenByParent = new Map<string, { parent: Agent; children: Agent[] }>();
+  const chats = new Map<string, ChatEntry>();
+  collectManagedChildren(sessions, chats);
+  collectProviderChildren(sessions, providers, chats);
+  return groupChatsByWorkspace(sessions, chats);
+}
+
+function addWorker(
+  chats: Map<string, ChatEntry>,
+  parent: Agent,
+  createdAt: number,
+  worker: SidebarLineageWorker,
+): void {
+  const key = `${parent.serverId}:${parent.id}`;
+  const entry = chats.get(key);
+  if (entry) entry.workers.push({ createdAt, worker });
+  else chats.set(key, { parent, workers: [{ createdAt, worker }] });
+}
+
+/** The parent a managed child is listed under, or null when the lineage leaves the child out. */
+function lineageParent(
+  sessions: Readonly<Record<string, SessionAgents>>,
+  serverId: string,
+  agent: Agent,
+): Agent | null {
+  if (!isVisible(agent)) return null;
+  const address = getParentAddressFromLabels(agent.labels, serverId);
+  if (!address) return null;
+  const parent = sessions[address.serverId]?.agents.get(address.agentId);
+  if (!parent || !isVisible(parent) || !parent.workspaceId) return null;
+  if (agent.labels[PIMI_TASK_WORKER_LABEL] && agent.workspaceId !== parent.workspaceId) {
+    return null;
+  }
+  return parent;
+}
+
+function collectManagedChildren(
+  sessions: Readonly<Record<string, SessionAgents>>,
+  chats: Map<string, ChatEntry>,
+): void {
   for (const [serverId, session] of Object.entries(sessions)) {
     for (const agent of session.agents.values()) {
-      if (!isVisible(agent)) continue;
-      const address = getParentAddressFromLabels(agent.labels, serverId);
-      if (!address) continue;
-      const parent = sessions[address.serverId]?.agents.get(address.agentId);
-      if (!parent || !isVisible(parent) || !parent.workspaceId) continue;
-      if (agent.labels[PIMI_TASK_WORKER_LABEL] && agent.workspaceId !== parent.workspaceId) {
-        continue;
-      }
-      const key = `${address.serverId}:${address.agentId}`;
-      const entry = childrenByParent.get(key);
-      if (entry) entry.children.push(agent);
-      else childrenByParent.set(key, { parent, children: [agent] });
+      const parent = lineageParent(sessions, serverId, agent);
+      if (!parent) continue;
+      const bucket = managedSubagentStatusBucket(agent);
+      if (!isLiveSubagentStatus(bucket)) continue;
+      addWorker(chats, parent, agent.createdAt.getTime(), {
+        kind: "agent",
+        serverId: agent.serverId,
+        agentId: agent.id,
+        provider: agent.provider,
+        title: agent.title,
+        bucket,
+      });
     }
   }
+}
 
-  const index = new Map<string, Array<{ parent: Agent; children: Agent[] }>>();
-  for (const entry of childrenByParent.values()) {
+function collectProviderChildren(
+  sessions: Readonly<Record<string, SessionAgents>>,
+  providers: ProviderSubagentsSnapshot,
+  chats: Map<string, ChatEntry>,
+): void {
+  for (const [key, descriptor] of providers.descriptors) {
+    // Nested provider children live in their own parent's track, as they do in the panel.
+    if (descriptor.parentSubagentId || providers.hiddenFromTrack.has(key)) continue;
+    const bucket = providerSubagentStatusBucket(descriptor.status);
+    if (!isLiveSubagentStatus(bucket)) continue;
+    const serverId = key.slice(0, key.indexOf("\0"));
+    const parent = sessions[serverId]?.agents.get(descriptor.parentAgentId);
+    if (!parent || !isVisible(parent) || !parent.workspaceId) continue;
+    addWorker(chats, parent, Date.parse(descriptor.createdAt), {
+      kind: "provider",
+      serverId,
+      workspaceId: parent.workspaceId,
+      parentAgentId: descriptor.parentAgentId,
+      subagentId: descriptor.id,
+      provider: descriptor.provider,
+      title: resolveRowLabel(descriptor.description) ?? resolveRowLabel(descriptor.title),
+      bucket,
+    });
+  }
+}
+
+function groupChatsByWorkspace(
+  sessions: Readonly<Record<string, SessionAgents>>,
+  chats: ReadonlyMap<string, ChatEntry>,
+): Map<string, SidebarLineageChat[]> {
+  const byWorkspace = new Map<string, ChatEntry[]>();
+  for (const entry of chats.values()) {
     const { parent } = entry;
     const grandparent = parent.parentAgentId
       ? sessions[parent.serverId]?.agents.get(parent.parentAgentId)
       : undefined;
     if (!isWorkspaceRootAgent(parent, grandparent)) continue;
     const key = sidebarLineageWorkspaceKey(parent.serverId, parent.workspaceId ?? "");
-    const chats = index.get(key);
-    if (chats) chats.push(entry);
-    else index.set(key, [entry]);
+    const list = byWorkspace.get(key);
+    if (list) list.push(entry);
+    else byWorkspace.set(key, [entry]);
   }
 
   const result = new Map<string, SidebarLineageChat[]>();
-  for (const [key, entries] of index) {
-    entries.sort((left, right) => byCreatedAt(left.parent, right.parent));
+  for (const [key, entries] of byWorkspace) {
+    entries.sort(
+      (left, right) => left.parent.createdAt.getTime() - right.parent.createdAt.getTime(),
+    );
     result.set(
       key,
-      entries.map(({ parent, children }) =>
-        Object.assign(toLineageAgent(parent), {
-          workers: children.sort(byCreatedAt).map(toLineageAgent),
-        }),
-      ),
+      entries.map(({ parent, workers }) => ({
+        serverId: parent.serverId,
+        agentId: parent.id,
+        title: parent.title,
+        bucket: chatBucket(parent),
+        workers: workers
+          .sort((left, right) => left.createdAt - right.createdAt)
+          .map(({ worker }) => worker),
+      })),
     );
   }
   return result;
@@ -125,19 +220,23 @@ export function buildSidebarLineageIndex(
 
 /**
  * The session store notifies on every stream tick, and every workspace row runs its selector on
- * each one. The index is rebuilt only when an agent map is replaced, and shared by all rows, so a
- * row's selector is a few identity checks and a map lookup.
+ * each one. The index is rebuilt only when an agent map or the provider descriptors are replaced,
+ * and shared by all rows, so a row's selector is a few identity checks and a map lookup.
  */
 let cachedMaps: Array<ReadonlyMap<string, Agent>> = [];
 let cachedServerIds: string[] = [];
+let cachedProviders: ProviderSubagentsSnapshot | null = null;
 let cachedIndex: Map<string, SidebarLineageChat[]> | null = null;
 
 function getSidebarLineageIndex(
   sessions: Readonly<Record<string, SessionAgents>>,
+  providers: ProviderSubagentsSnapshot,
 ): Map<string, SidebarLineageChat[]> {
   const serverIds = Object.keys(sessions);
   const unchanged =
     cachedIndex !== null &&
+    cachedProviders?.descriptors === providers.descriptors &&
+    cachedProviders.hiddenFromTrack === providers.hiddenFromTrack &&
     serverIds.length === cachedServerIds.length &&
     serverIds.every(
       (serverId, index) =>
@@ -146,13 +245,15 @@ function getSidebarLineageIndex(
   if (unchanged && cachedIndex) return cachedIndex;
   cachedServerIds = serverIds;
   cachedMaps = serverIds.map((serverId) => sessions[serverId]?.agents ?? new Map());
-  cachedIndex = buildSidebarLineageIndex(sessions);
+  cachedProviders = providers;
+  cachedIndex = buildSidebarLineageIndex(sessions, providers);
   return cachedIndex;
 }
 
 export function selectSidebarLineageChats(
   sessions: Readonly<Record<string, SessionAgents>>,
+  providers: ProviderSubagentsSnapshot,
   workspaceKey: string,
 ): SidebarLineageChat[] {
-  return getSidebarLineageIndex(sessions).get(workspaceKey) ?? EMPTY_CHATS;
+  return getSidebarLineageIndex(sessions, providers).get(workspaceKey) ?? EMPTY_CHATS;
 }

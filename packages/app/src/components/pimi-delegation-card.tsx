@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { ChevronDown, ChevronUp } from "lucide-react-native";
@@ -9,7 +10,13 @@ import { Button } from "@/components/ui/button";
 import { PressHighlight } from "@/components/ui/press-highlight";
 import { useProvidersSnapshot } from "@/hooks/use-providers-snapshot";
 import { useHostRuntimeIsConnected } from "@/runtime/host-runtime";
-import { selectAgentTurnPresentation, useSessionStore, type Agent } from "@/stores/session-store";
+import { useSessionStore, type Agent } from "@/stores/session-store";
+import {
+  managedSubagentStatusBucket,
+  SUBAGENT_STATUS_LABEL_KEYS,
+  type SubagentStatusBucket,
+} from "@/subagents/status";
+import { SubagentStatusDot } from "@/subagents/status-dot";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
 
 function matchesWorker(agent: Agent | undefined, { source, worker }: PimiDelegation) {
@@ -26,30 +33,23 @@ function matchesWorker(agent: Agent | undefined, { source, worker }: PimiDelegat
   return true;
 }
 
-type WorkerTone = "idle" | "working" | "attention" | "failed" | "done";
-
 interface WorkerStatus {
   label: string;
-  tone: WorkerTone;
+  bucket: SubagentStatusBucket | "inactive";
 }
 
-function workerStatus(
-  agent: Agent | undefined,
-  connected: boolean,
-  isActive: boolean,
-): WorkerStatus {
-  if (!agent) return { label: "Created", tone: "idle" };
-  if (!connected) return { label: "Offline", tone: "idle" };
-  if (agent.archivedAt) return { label: "Archived", tone: "idle" };
-  if (agent.pendingPermissions.length || agent.attentionReason === "permission")
-    return { label: "Needs permission", tone: "attention" };
-  if (agent.status === "error") return { label: "Failed", tone: "failed" };
-  if (isActive || agent.status === "running" || (agent.backgroundWork?.count ?? 0) > 0)
-    return { label: "Working", tone: "working" };
-  if (agent.status === "initializing") return { label: "Starting", tone: "working" };
-  if (agent.status === "closed") return { label: "Closed", tone: "idle" };
-  if (agent.attentionReason === "finished") return { label: "Finished", tone: "done" };
-  return { label: "Idle", tone: "idle" };
+/**
+ * The worker's state in the words and colors the track and sidebar use for the same child
+ * (`@/subagents/status`). Offline and archived are not states of the child, so they get their own
+ * labels and the inactive dot; an unknown worker shows no state rather than a guess.
+ */
+function useWorkerStatus(agent: Agent | undefined, connected: boolean): WorkerStatus | null {
+  const { t } = useTranslation();
+  if (!agent) return null;
+  if (!connected) return { label: t("common.connectionStatus.offline"), bucket: "inactive" };
+  if (agent.archivedAt) return { label: t("agentList.badges.archived"), bucket: "inactive" };
+  const bucket = managedSubagentStatusBucket(agent);
+  return { label: t(SUBAGENT_STATUS_LABEL_KEYS[bucket]), bucket };
 }
 
 function workerLabels(
@@ -80,9 +80,6 @@ export function PimiDelegationCard({
     const session = state.sessions[source.serverId];
     return session?.agents.get(worker.id) ?? session?.agentDetails.get(worker.id);
   });
-  const isActive = useSessionStore(
-    (state) => selectAgentTurnPresentation(state.sessions[source.serverId], worker.id).isActive,
-  );
   const connected = useHostRuntimeIsConnected(source.serverId);
   const { entries } = useProvidersSnapshot(source.serverId);
   const toggleDetails = useCallback(() => setDetailsOpen((open) => !open), []);
@@ -90,6 +87,7 @@ export function PimiDelegationCard({
     () => navigateToAgent({ serverId: source.serverId, agentId: worker.id }),
     [source.serverId, worker.id],
   );
+  const status = useWorkerStatus(agent, connected);
   if (!matchesWorker(agent, delegation)) return children;
   const provider = agent?.provider ?? worker.provider;
   const { providerLabel, modelLabel } = workerLabels(
@@ -97,7 +95,6 @@ export function PimiDelegationCard({
     provider,
     agent ? agent.model : worker.model,
   );
-  const status = workerStatus(agent, connected, isActive);
   let contextLabel = "Separate context";
   if (sharedContext) contextLabel = shortened ? "Context shared, shortened" : "Context shared";
   const title = agent?.title || worker.title;
@@ -139,7 +136,7 @@ function DelegationRow({
 }: {
   title: string;
   meta: string;
-  status: WorkerStatus;
+  status: WorkerStatus | null;
   provider: string;
   serverId: string;
   onOpen?: () => void;
@@ -151,11 +148,10 @@ function DelegationRow({
     () => [styles.row, hovered && onOpen && styles.rowHovered],
     [hovered, onOpen],
   );
-  const dotStyle = useMemo(() => [styles.dot, DOT_STYLES[status.tone]], [status.tone]);
   return (
     <PressHighlight
       accessibilityRole="button"
-      accessibilityLabel={`Open agent: ${title}. ${status.label}`}
+      accessibilityLabel={status ? `Open agent: ${title}. ${status.label}` : `Open agent: ${title}`}
       disabled={!onOpen}
       onPress={onOpen}
       onHoverIn={hoverIn}
@@ -177,12 +173,17 @@ function DelegationRow({
           {meta}
         </Text>
       </View>
-      <View style={styles.status}>
-        <View style={dotStyle} />
-        <Text style={styles.statusText} accessibilityLiveRegion="polite">
-          {status.label}
-        </Text>
-      </View>
+      {status ? (
+        <View style={styles.status}>
+          <SubagentStatusDot
+            bucket={status.bucket}
+            testID={`pimi-delegation-status-${status.bucket}`}
+          />
+          <Text style={styles.statusText} accessibilityLiveRegion="polite">
+            {status.label}
+          </Text>
+        </View>
+      ) : null}
     </PressHighlight>
   );
 }
@@ -220,12 +221,6 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: theme.fontSize.sm,
     fontVariant: ["tabular-nums"],
   },
-  dot: { width: 7, height: 7, borderRadius: theme.borderRadius.full },
-  dotIdle: { backgroundColor: theme.colors.border },
-  dotWorking: { backgroundColor: theme.colors.statusDotRunning },
-  dotAttention: { backgroundColor: theme.colors.statusDotWarning },
-  dotFailed: { backgroundColor: theme.colors.statusDotDanger },
-  dotDone: { backgroundColor: theme.colors.statusDotSuccess },
   details: {
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
@@ -233,11 +228,3 @@ const styles = StyleSheet.create((theme) => ({
     paddingVertical: theme.spacing[2],
   },
 }));
-
-const DOT_STYLES = {
-  idle: styles.dotIdle,
-  working: styles.dotWorking,
-  attention: styles.dotAttention,
-  failed: styles.dotFailed,
-  done: styles.dotDone,
-} satisfies Record<WorkerTone, unknown>;

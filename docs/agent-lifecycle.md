@@ -365,7 +365,7 @@ The `failed` bucket follows unread `error` attention, not lifecycle status. An a
 until its next turn starts, so reading the chat dismisses the red dot the same way it dismisses the
 green one. For the same reason every new failure raises `error` attention, including a failed reload
 that leaves the lifecycle at `error`, and replaces unread `finished` attention; otherwise the failed
-agent would show the green dot or none. Subagents track marks are the exception: they follow the
+agent would show the green dot or none. Subagent marks are the exception: they follow the
 child's lifecycle, because the track is where a failed child stays visible.
 
 ## The subagents track
@@ -402,6 +402,12 @@ Claude Code announces subagent lifecycle on the SDK stream (`task_started` / `ta
 - **Nested ownership comes from the launching sidechain, not `spawn_depth` alone.** A sidechain's Agent or Bash tool call records the direct owner of that `tool_use_id`; the following `task_started` inherits it. This routes a grandchild descriptor and child-owned background notifications without relying on labels or flattening them into the managed parent.
 - **On replay, `<session>/subagents/` holds every descendant beside the root.** Resolve the tree one proven generation at a time: the root transcript admits direct children, then each admitted sidechain transcript admits its children by `toolUseId`. `spawnDepth` orders candidates but does not establish ownership. Unresolved sidecars remain excluded as ambient or unrelated work.
 - **Replay `totalTokens` is a context-size reading, not cumulative spend.** Claude Code finalizes a subagent by summing the _last_ assistant message's usage block and shipping that as `usage.total_tokens`. Summing per-entry usage instead multiplies the cached prefix by the turn count and reports a number several times larger than the live path.
+
+### Where else a child shows
+
+A child appears in its parent's delegation card (`packages/app/src/components/pimi-delegation-card.tsx`), in the track, and in the sidebar lineage under its parent chat (`packages/app/src/subagents/sidebar-lineage.ts`). All three name and color its state with `packages/app/src/subagents/status.ts`: **Needs input**, **Failed**, **Working**, **Done**, the sidebar's status-group words. A child never shows **Ready to review**; the parent's own finish carries that news.
+
+The sidebar lineage is a quiet projection of the track: the same managed and top-level provider children, minus the done ones. A finished child leaves the sidebar, and a chat with no working, blocked, or failed child has no row there. A failed child stays until it is archived or runs again.
 
 Archived Pimi subagents disappear from the track, by design. To remove one from the track without closing its tab, use the **archive button** on the row — it opens a confirm dialog and archives the subagent on confirm. Provider-owned rows have no individual Pimi lifecycle controls.
 

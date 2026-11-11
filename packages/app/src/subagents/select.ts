@@ -7,6 +7,11 @@ import { useStoreWithEqualityFn } from "zustand/traditional";
 import { useSessionStore, type Agent } from "@/stores/session-store";
 import { refreshProviderSubagents, useProviderSubagentStore } from "./provider-store";
 import type { ProviderSubagentDescriptorPayload } from "@pimi/protocol/messages";
+import {
+  managedSubagentStatusBucket,
+  providerSubagentStatusBucket,
+  type SubagentStatusBucket,
+} from "./status";
 
 export interface PaseoSubagentRow {
   kind: "paseo";
@@ -22,6 +27,7 @@ export interface PaseoSubagentRow {
   turn: Agent["turn"];
   requiresAttention: Agent["requiresAttention"];
   createdAt: Agent["createdAt"];
+  statusBucket: SubagentStatusBucket;
 }
 
 export interface ProviderSubagentRow {
@@ -39,6 +45,7 @@ export interface ProviderSubagentRow {
   status: ProviderSubagentDescriptorPayload["status"];
   requiresAttention: boolean;
   createdAt: Date;
+  statusBucket: SubagentStatusBucket;
 }
 
 export type SubagentRow = PaseoSubagentRow | ProviderSubagentRow;
@@ -69,6 +76,7 @@ function toSubagentRow(agent: Agent): SubagentRow {
     turn: agent.turn,
     requiresAttention: agent.requiresAttention,
     createdAt: agent.createdAt,
+    statusBucket: managedSubagentStatusBucket(agent),
   };
 }
 
@@ -157,6 +165,7 @@ export function selectProviderSubagentsForParent(
       status: subagent.status,
       requiresAttention: subagent.status === "failed",
       createdAt: new Date(subagent.createdAt),
+      statusBucket: providerSubagentStatusBucket(subagent.status),
     });
   }
   rows.sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime());
