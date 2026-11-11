@@ -2612,6 +2612,22 @@ const PimiCodebaseSearchRequestSchema = z.object({
 });
 
 const GitHubRepoSegmentSchema = z.string().regex(/^[A-Za-z0-9._-]+$/);
+// Editor navigation. `path` is relative to the workspace; `line` and `column` are 1-based and
+// locate `symbol` in the editor buffer. `content` is the unsaved buffer, sent when it differs from
+// disk so a semantic provider reads the same text the user is looking at.
+const CodeNavigationQueryRequestSchema = z.object({
+  type: z.literal("code.navigation.query.request"),
+  workspaceId: z.string().trim().min(1).max(256),
+  path: z.string().min(1).max(4096),
+  line: z.number().int().positive(),
+  column: z.number().int().positive(),
+  symbol: z.string().min(1).max(256),
+  kind: z.enum(["definition", "references", "rename"]),
+  newName: z.string().min(1).max(256).optional(),
+  content: z.string().max(2_000_000).optional(),
+  requestId: z.string(),
+});
+
 
 const CheckoutCheckDetailsRequestPayloadSchema = z.object({
   cwd: z.string(),
@@ -3488,6 +3504,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   CheckoutBlameRequestSchema,
   PimiCodebaseSearchRequestSchema,
   CheckoutForgeGetCheckDetailsRequestSchema,
+  CodeNavigationQueryRequestSchema,
   CheckoutPrStatusRequestSchema,
   PullRequestTimelineRequestSchema,
   CheckoutSwitchBranchRequestSchema,
@@ -5573,6 +5590,47 @@ const PimiCodebaseSearchResponseSchema = z.object({
 });
 
 const CheckoutGithubCheckAnnotationSchema = z.object({
+export const CodeNavigationResultSchema = z.object({
+  // "name" is a text match on the identifier, with no scope awareness; "typescript" is exact.
+  provider: z.enum(["name", "typescript"]),
+  // Why a more precise provider did not answer, when one was tried.
+  note: z.string().nullable(),
+  results: z
+    .array(
+      z.object({
+        path: z.string(),
+        line: z.number().int().positive(),
+        column: z.number().int().positive(),
+        preview: z.string(),
+        role: z.enum(["definition", "reference"]),
+      }),
+    )
+    .max(500),
+  truncated: z.boolean(),
+  // Rename only: the text replacements to apply, ends exclusive.
+  edits: z
+    .array(
+      z.object({
+        path: z.string(),
+        line: z.number().int().positive(),
+        column: z.number().int().positive(),
+        endLine: z.number().int().positive(),
+        endColumn: z.number().int().positive(),
+        newText: z.string(),
+      }),
+    )
+    .max(5000),
+});
+
+const CodeNavigationQueryResponseSchema = z.object({
+  type: z.literal("code.navigation.query.response"),
+  payload: z.object({
+    requestId: z.string(),
+    result: CodeNavigationResultSchema.nullable(),
+    error: z.string().nullable(),
+  }),
+});
+
   path: z.string().optional(),
   startLine: z.number().optional(),
   endLine: z.number().optional(),
@@ -6857,6 +6915,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   CheckoutBlameResponseSchema,
   PimiCodebaseSearchResponseSchema,
   CheckoutForgeGetCheckDetailsResponseSchema,
+  CodeNavigationQueryResponseSchema,
   CheckoutPrStatusResponseSchema,
   PullRequestTimelineResponseSchema,
   CheckoutSwitchBranchResponseSchema,
@@ -7232,6 +7291,8 @@ export type CheckoutCommitFileDiffResponse = z.infer<typeof CheckoutCommitFileDi
 export type PimiCodebaseSearchRequest = z.infer<typeof PimiCodebaseSearchRequestSchema>;
 export type PimiCodebaseSearchResult = z.infer<typeof PimiCodebaseSearchResultSchema>;
 export type CheckoutBlameRequest = z.infer<typeof CheckoutBlameRequestSchema>;
+export type CodeNavigationQueryRequest = z.infer<typeof CodeNavigationQueryRequestSchema>;
+export type CodeNavigationResult = z.infer<typeof CodeNavigationResultSchema>;
 export type CheckoutBlameResult = z.infer<typeof CheckoutBlameResultSchema>;
 export type ParsedDiffFile = z.infer<typeof ParsedDiffFileSchema>;
 export type CheckoutPrCreateRequest = z.infer<typeof CheckoutPrCreateRequestSchema>;

@@ -13,6 +13,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { FileFind, FileFindModel } from "../find/index.web";
+import { CodeNavigation } from "../navigation/code-navigation.web";
 import { Annotation, Compartment, EditorState, Transaction } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { history } from "@codemirror/commands";
@@ -76,6 +77,10 @@ export function FileEditorView({
   const annotatedFile = useMemo(
     () => ({ serverId, workspaceId, path: filename }),
     [serverId, workspaceId, filename],
+  );
+  const getUnsavedContent = useCallback(
+    () => (model.getSnapshot().modified ? (viewRef.current?.state.doc.toString() ?? null) : null),
+    [model],
   );
   const getLineSeparator = useCallback(() => model.getSnapshot().lineSeparator, [model]);
   const retentionKey = JSON.stringify([serverId, workspaceId, tabId, filename]);
@@ -221,13 +226,20 @@ export function FileEditorView({
 
   return (
     <div style={FRAME_STYLE}>
-      <div
-        ref={hostRef}
-        data-pmono=""
-        data-testid="file-source-editor"
-        aria-label={`Source editor for ${filename}`}
-        style={HOST_STYLE}
-      />
+      <CodeNavigation
+        editor={viewRef}
+        filename={filename}
+        readOnly={false}
+        getUnsavedContent={getUnsavedContent}
+      >
+        <div
+          ref={hostRef}
+          data-pmono=""
+          data-testid="file-source-editor"
+          aria-label={`Source editor for ${filename}`}
+          style={HOST_STYLE}
+        />
+      </CodeNavigation>
       <FileFind model={find} editor={viewRef} />
       <EditorAnnotationSelection
         editor={viewRef}

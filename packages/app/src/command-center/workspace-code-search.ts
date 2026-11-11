@@ -1,16 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useWorkspaceLayoutStore } from "@/stores/workspace-layout-store";
 import { useActiveWorkspaceSelection } from "@/stores/navigation-active-workspace-store";
 import { useSessionStore } from "@/stores/session-store";
 import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import { useWorkspaceDirectory } from "@/stores/session-store-hooks";
 import { clearCommandCenterFocusRestoreElement } from "@/utils/command-center-focus-restore";
-import {
-  createWorkspaceFileTabTarget,
-  normalizeWorkspaceFileLocation,
-} from "@/workspace/file-open";
-import { revealWorkspaceTab } from "@/workspace-tabs/navigation";
-import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
+import { openWorkspaceFileLocation } from "@/workspace/file-open/open-location";
 
 const CODE_SEARCH_DEBOUNCE_MS = 300;
 const CODE_SEARCH_LIMIT = 30;
@@ -122,24 +116,12 @@ export function useWorkspaceCodeSearch(input: { enabled: boolean; query: string 
   const openResult = useCallback(
     (result: WorkspaceCodeSearchResult) => {
       if (!serverId || !workspaceId) return;
-      const location = normalizeWorkspaceFileLocation({
-        path: result.path,
-        lineStart: result.startLine,
-        lineEnd: result.endLine,
-      });
-      if (!location) return;
-      const workspaceKey = buildWorkspaceTabPersistenceKey({
+      clearCommandCenterFocusRestoreElement();
+      openWorkspaceFileLocation({
         serverId,
         workspaceId,
+        location: { path: result.path, lineStart: result.startLine, lineEnd: result.endLine },
       });
-      if (!workspaceKey) return;
-      clearCommandCenterFocusRestoreElement();
-      const tabId = useWorkspaceLayoutStore.getState().openTab({
-        workspaceKey,
-        target: createWorkspaceFileTabTarget(location),
-        intent: "reveal",
-      });
-      if (tabId) revealWorkspaceTab(workspaceKey, tabId);
     },
     [serverId, workspaceId],
   );

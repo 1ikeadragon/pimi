@@ -16,3 +16,5 @@ export {
   resolveSyntaxColors,
 } from "./themes.js";
 export { highlightCodeWithBudget, HIGHLIGHT_MAX_SOURCE_BYTES } from "./budgeted-highlighter.js";
+export { createOccurrenceClassifier } from "./occurrences.js";
+export type { DeclarationTier, OccurrenceClassifier } from "./occurrences.js";

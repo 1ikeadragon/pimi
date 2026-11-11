@@ -16,7 +16,7 @@ import {
   type TimelineSubscription,
 } from "./connection/index.js";
 import { CreationClient } from "./creation/index.js";
-import type { CreationSnapshot } from "@pimi/protocol/messages";
+import type { CodeNavigationQueryRequest, CreationSnapshot } from "@pimi/protocol/messages";
 import type { z } from "zod";
 import type { SessionEventSubscription } from "@pimi/protocol/messages";
 import type { LocalSpeechModel } from "@pimi/protocol/speech/rpc-schemas";
@@ -4673,6 +4673,16 @@ export class DaemonClient {
         timeout: 45_000,
       });
     if (!response.result) throw new Error(response.error ?? "Code search is unavailable.");
+    return response.result;
+  }
+
+  async queryCodeNavigation(input: Omit<CodeNavigationQueryRequest, "type" | "requestId">) {
+    const response =
+      await this.sendNamespacedCorrelatedSessionRequest<"code.navigation.query.response">({
+        message: { type: "code.navigation.query.request", ...input },
+        timeout: 15_000,
+      });
+    if (!response.result) throw new Error(response.error ?? "Code navigation is unavailable.");
     return response.result;
   }
 
