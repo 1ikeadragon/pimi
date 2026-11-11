@@ -1,9 +1,8 @@
-/// <reference lib="dom" />
 /**
- * E2EE crypto primitives using NaCl (tweetnacl).
+ * E2EE crypto primitives, byte-compatible with NaCl crypto_box.
  *
- * - Key exchange: Curve25519 (nacl.box.before)
- * - Encryption: XSalsa20-Poly1305 (nacl.box.after / open.after)
+ * - Key exchange: X25519, then HSalsa20 with a zero nonce (crypto_box_beforenm)
+ * - Encryption: XSalsa20-Poly1305 (crypto_secretbox: 16-byte tag, then ciphertext)
  *
  * Bundle format (binary):
  *   [nonce (24 bytes)] [ciphertext...]
@@ -12,7 +11,9 @@
  * byte-oriented so frame kind is never inferred from plaintext contents.
  */
 
-import nacl from "tweetnacl";
+import { x25519 } from "@noble/curves/ed25519.js";
+import { hsalsa, xsalsa20poly1305 } from "@noble/ciphers/salsa.js";
+import { randomBytes, u32, utf8ToBytes } from "@noble/ciphers/utils.js";
 import { fromByteArray, toByteArray } from "base64-js";
 
 export interface KeyPair {
@@ -22,44 +23,10 @@ export interface KeyPair {
 
 export type SharedKey = Uint8Array; // 32 bytes (box.before)
 
-const NONCE_LENGTH = nacl.box.nonceLength; // 24
-const ZERO_X25519_SHARED_RESULT = new Uint8Array(nacl.box.sharedKeyLength);
-
-let prngReady = false;
-
-interface GlobalWithCrypto {
-  crypto?: Crypto;
-}
-
-function getGlobalCrypto(): Crypto | undefined {
-  const g = globalThis as GlobalWithCrypto;
-  return g.crypto;
-}
-
-function ensurePrng(): void {
-  if (prngReady) return;
-
-  try {
-    nacl.randomBytes(1);
-    prngReady = true;
-    return;
-  } catch {
-    // fallthrough
-  }
-
-  const cryptoObj = getGlobalCrypto();
-  if (cryptoObj?.getRandomValues) {
-    nacl.setPRNG((x, n) => {
-      const buf = new Uint8Array(n);
-      cryptoObj.getRandomValues(buf);
-      x.set(buf, 0);
-    });
-    prngReady = true;
-    return;
-  }
-
-  throw new Error("No secure PRNG available for tweetnacl (missing crypto.getRandomValues)");
-}
+const KEY_LENGTH = 32;
+const NONCE_LENGTH = 24;
+// hsalsa reads native-endian word views of these bytes, as noble's own xsalsa20 does.
+const SIGMA = u32(utf8ToBytes("expand 32-byte k"));
 
 function encodeBase64(bytes: Uint8Array): string {
   return fromByteArray(bytes);
@@ -96,57 +63,59 @@ function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
 }
 
 export function generateKeyPair(): KeyPair {
-  ensurePrng();
-  const { publicKey, secretKey } = nacl.box.keyPair();
-  return { publicKey, secretKey };
+  const secretKey = randomBytes(KEY_LENGTH);
+  return { publicKey: x25519.getPublicKey(secretKey), secretKey };
 }
 
 export function exportPublicKey(publicKey: Uint8Array): string {
-  if (!(publicKey instanceof Uint8Array) || publicKey.byteLength !== nacl.box.publicKeyLength) {
-    throw new Error(`Invalid public key length (expected ${nacl.box.publicKeyLength})`);
+  if (!(publicKey instanceof Uint8Array) || publicKey.byteLength !== KEY_LENGTH) {
+    throw new Error(`Invalid public key length (expected ${KEY_LENGTH})`);
   }
   return encodeBase64(publicKey);
 }
 
 export function importPublicKey(base64: string): Uint8Array {
   const bytes = decodePublicKeyBase64(base64);
-  if (bytes.byteLength !== nacl.box.publicKeyLength) {
-    throw new Error(`Invalid public key length (expected ${nacl.box.publicKeyLength})`);
+  if (bytes.byteLength !== KEY_LENGTH) {
+    throw new Error(`Invalid public key length (expected ${KEY_LENGTH})`);
   }
   return bytes;
 }
 
 export function exportSecretKey(secretKey: Uint8Array): string {
-  if (!(secretKey instanceof Uint8Array) || secretKey.byteLength !== nacl.box.secretKeyLength) {
-    throw new Error(`Invalid secret key length (expected ${nacl.box.secretKeyLength})`);
+  if (!(secretKey instanceof Uint8Array) || secretKey.byteLength !== KEY_LENGTH) {
+    throw new Error(`Invalid secret key length (expected ${KEY_LENGTH})`);
   }
   return encodeBase64(secretKey);
 }
 
 export function importSecretKey(base64: string): Uint8Array {
   const bytes = decodeBase64(base64);
-  if (bytes.byteLength !== nacl.box.secretKeyLength) {
-    throw new Error(`Invalid secret key length (expected ${nacl.box.secretKeyLength})`);
+  if (bytes.byteLength !== KEY_LENGTH) {
+    throw new Error(`Invalid secret key length (expected ${KEY_LENGTH})`);
   }
   return bytes;
 }
 
 export function deriveSharedKey(ourSecretKey: Uint8Array, peerPublicKey: Uint8Array): SharedKey {
-  if (ourSecretKey.byteLength !== nacl.box.secretKeyLength) {
-    throw new Error(`Invalid secret key length (expected ${nacl.box.secretKeyLength})`);
+  if (ourSecretKey.byteLength !== KEY_LENGTH) {
+    throw new Error(`Invalid secret key length (expected ${KEY_LENGTH})`);
   }
-  if (peerPublicKey.byteLength !== nacl.box.publicKeyLength) {
-    throw new Error(`Invalid peer public key length (expected ${nacl.box.publicKeyLength})`);
+  if (peerPublicKey.byteLength !== KEY_LENGTH) {
+    throw new Error(`Invalid peer public key length (expected ${KEY_LENGTH})`);
   }
 
-  const rawSharedResult = nacl.scalarMult(ourSecretKey, peerPublicKey);
-  const isAllZero = nacl.verify(rawSharedResult, ZERO_X25519_SHARED_RESULT);
-  rawSharedResult.fill(0);
-  if (isAllZero) {
+  let rawSharedResult: Uint8Array;
+  try {
+    // Throws on low-order points and an all-zero result.
+    rawSharedResult = x25519.getSharedSecret(ourSecretKey, peerPublicKey);
+  } catch {
     throw new Error("Invalid peer public key");
   }
-
-  return nacl.box.before(peerPublicKey, ourSecretKey);
+  const sharedKey = new Uint8Array(KEY_LENGTH);
+  hsalsa(SIGMA, u32(rawSharedResult), new Uint32Array(4), u32(sharedKey));
+  rawSharedResult.fill(0);
+  return sharedKey;
 }
 
 /**
@@ -154,10 +123,9 @@ export function deriveSharedKey(ourSecretKey: Uint8Array, peerPublicKey: Uint8Ar
  *   [nonce (24)] [ciphertext...]
  */
 export function encrypt(sharedKey: SharedKey, data: string | ArrayBuffer): ArrayBuffer {
-  ensurePrng();
-  const nonce = nacl.randomBytes(NONCE_LENGTH);
+  const nonce = randomBytes(NONCE_LENGTH);
   const plaintext = toUint8(data);
-  const ciphertext = nacl.box.after(plaintext, nonce, sharedKey);
+  const ciphertext = xsalsa20poly1305(sharedKey, nonce).encrypt(plaintext);
   const out = new Uint8Array(nonce.byteLength + ciphertext.byteLength);
   out.set(nonce, 0);
   out.set(ciphertext, nonce.byteLength);
@@ -172,8 +140,10 @@ export function decrypt(sharedKey: SharedKey, data: ArrayBuffer): ArrayBuffer {
 
   const nonce = bytes.slice(0, NONCE_LENGTH);
   const ciphertext = bytes.slice(NONCE_LENGTH);
-  const opened = nacl.box.open.after(ciphertext, nonce, sharedKey);
-  if (!opened) {
+  let opened: Uint8Array;
+  try {
+    opened = xsalsa20poly1305(sharedKey, nonce).decrypt(ciphertext);
+  } catch {
     throw new Error("Decryption failed");
   }
 
