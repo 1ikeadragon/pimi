@@ -176,11 +176,16 @@ Use `browser_wait` for text or a URL to appear, `browser_screenshot` for visual 
 Pick by where the work runs:
 
 - **Heartbeat** — a prompt sent back to you, in this conversation, later. It needs no approval and is deleted when you are archived. Use it to check on a build, pull request, or long job you started, or to remind yourself.
-- **Automation** — a new agent on every run, on a cron cadence or by hand. It needs the user's approval and keeps running after this conversation ends. Use it for recurring work the user wants to keep.
+- **Automation** — new agents on every run, on a cron cadence, on GitHub pull request events, or by hand. It needs the user's approval and keeps running after this conversation ends. Use it for recurring work the user wants to keep.
 
 **`create_heartbeat`** — `prompt` and exactly one of `cron`, `every` (30s at least), `in`, or `at`. Optional: `timezone` (with `cron`), `name`, `maxRuns`, `expiresIn`. A one-time heartbeat (`in`, `at`) waits for your turn to end. A recurring one that comes due while you are mid-turn fails that fire, and the fire still counts toward `maxRuns`, so pick an interval longer than your turns. To change a heartbeat, create it again with the same `name`. `list_heartbeats` shows yours. Call `delete_heartbeat` with the `id` once the thing it watches is finished.
 
-**`create_automation`** — `name` and `prompt`. Optional: `cron`, `timezone`, `provider`, `profile`, `cwd`, `workspace`, `maxRuns`, `expiresIn`. Omit `cron` for an automation that runs only by hand. With `profile`, each run's agent starts with that profile's instructions as they stand when the run starts, and `prompt` carries only the task.
+**`create_automation`** — `name` and `prompt`, or `steps` and `edges` for a graph. Optional: `cron` and `timezone`, or `pullRequest` (`repo`, `events`); `provider`, `profile`, `cwd`, `workspace`, `maxRuns`, `expiresIn`. Omit `cron` and `pullRequest` for an automation that runs only by hand. With `profile`, each run's agent starts with that profile's instructions as they stand when the run starts, and `prompt` carries only the task.
+
+- **Steps.** An agent step (`kind: "agent"`, `id`, `prompt`) runs a new agent; a condition step (`kind: "condition"`, `input`, `operator`, `value`) tests text. An edge `{from, to}` runs `to` after `from`; an edge leaving a condition needs `branch: "true"` or `"false"`. Steps with no path between them run at the same time, up to 3 agents per run. Reference an earlier step's final reply with `{{steps.<id>.output}}`. A failed step skips what depends on it; other branches keep going.
+- **Pull requests.** The host's `gh` polls `repo` every minute. `opened`, `synchronize` and `review_requested` (from the `gh` user) fire once per head commit; pull requests open at approval wait until they change. Prompts read `{{trigger.number}}`, `{{trigger.url}}`, `{{trigger.headRef}}` and the other `{{trigger.*}}` fields the tool lists.
+- **`update_automation`** — `id` and the fields to change; `prompt` or `steps` replace the whole flow. It returns the automation to `pending`.
+- **`retry_automation_run`** — `id` and `runId` of a failed or cancelled run. Reruns the steps that did not succeed and reuses the outputs of those that did.
 
 - It starts `pending` and does not run until the user approves it in the Automations screen. You cannot approve it. Tell the user it is waiting there; `run_automation_once` and `pause_automation` fail until they do.
 - Each run's agent starts with no memory of this conversation and nobody to ask. Write the prompt as a complete brief: the task, what a finished result looks like, and what to leave alone.
@@ -211,6 +216,10 @@ pimi run --profile "Adversarial reviewer" --provider claude "<prompt>"
 pimi send <agent-id> "<follow-up>"
 pimi ls
 pimi automation create --provider codex --cron "0 9 * * 1-5" --timezone Europe/Paris --name "Morning build check" "<prompt>"
+pimi automation create --name "PR review" --pr owner/repo --pr-events opened,synchronize --flow flow.json
+pimi automation compile "<plain-text description>" --save
+pimi automation retry <automation-id> <run-id>
+pimi automation steps <automation-id> <run-id>
 pimi heartbeat create --every 15m "check the build"
 pimi heartbeat create --in 20m "check whether CI finished"
 pimi agent mode <agent-id> --list

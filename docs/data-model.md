@@ -62,7 +62,8 @@ $PASEO_HOME/
 ├── automations/
 │   ├── {automationId}.json              # One file per automation
 │   ├── audit.jsonl                      # Append-only audit log (mode 0600)
-│   └── runs/{automationId}/{runId}.json # One file per run
+│   ├── runs/{automationId}/{runId}.json # One file per run
+│   └── triggers/{automationId}.json     # Pull request trigger state
 ├── heartbeats/
 │   └── {heartbeatId}.json               # One file per live heartbeat
 ├── projects/
@@ -382,9 +383,10 @@ options from the previous variant.
 
 Schemas: `packages/protocol/src/automation/types.ts` and `packages/protocol/src/heartbeat/types.ts`. IDs are 8 hex characters; run IDs are UUIDs.
 
-- **Automation** — `$PASEO_HOME/automations/{id}.json`. A definition (name, project, trigger, flow of nodes and edges, limits) plus state (`status`, `pausedReason`, `origin`, `nextRunAt`, `consecutiveFailures`, `revision`). `status` is `pending` until the owner approves an agent-created automation; agents cannot approve. Edits bump `revision`, and each run records the revision it ran.
-- **Run** — `$PASEO_HOME/automations/runs/{automationId}/{runId}.json`, written while the run is in flight so a crash leaves a record. The store keeps the newest 50 runs per automation and none older than 30 days; a running run is never pruned.
+- **Automation** — `$PASEO_HOME/automations/{id}.json`. A definition (name, project, trigger, flow of nodes and edges, limits) plus state (`status`, `pausedReason`, `origin`, `nextRunAt`, `consecutiveFailures`, `revision`). `status` is `pending` until the owner approves an agent-created automation; agents cannot approve. Edits bump `revision`, and each run records the revision it ran. The flow is a DAG of agent and condition nodes; node ids are what `{{steps.<id>.output}}` refers to, so renaming one breaks templates that use it. Nodes carry no canvas position: the app lays the graph out each time.
+- **Run** — `$PASEO_HOME/automations/runs/{automationId}/{runId}.json`, written while the run is in flight so a crash leaves a record. It holds one `steps` entry per node with status, agent, and output. A retry is a new run whose `cause` (`kind: "retry"`) names the old one; it copies the old run's succeeded steps and runs the rest against the current flow. The store keeps the newest 50 runs per automation and none older than 30 days; a running run is never pruned.
 - **Audit** — `$PASEO_HOME/automations/audit.jsonl`, one line per create, edit, approve, pause, run, and delete, with the actor. Append-only; the file is created with mode 0600.
+- **Trigger state** — `$PASEO_HOME/automations/triggers/{automationId}.json`, the head commit last seen for each open pull request and the heads that already fired. The first poll, and the first after the repository changes, only records heads, so pull requests already open do not fire. Deleted with the automation.
 - **Heartbeat** — `$PASEO_HOME/heartbeats/{id}.json`. A prompt the daemon sends back into one agent, on a `cron`, `every` (at least 30s), or `once` cadence. The file is deleted when the heartbeat ends (one-time fire, `maxRuns`, expiry, or its agent is gone).
 
 A daemon from before automations stored `$PASEO_HOME/schedules/`. The daemon deletes that directory at startup without migrating it.
