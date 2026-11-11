@@ -1,6 +1,6 @@
 {
   "name": "@pimi/cli",
-  "version": "0.17.17",
+  "version": "0.17.18",
   "private": true,
   "description": "Pimi CLI - control your AI coding agents from the command line",
   "license": "Apache-2.0",
@@ -22,9 +22,9 @@
   },
   "dependencies": {
     "@clack/prompts": "1.1.0",
-    "@pimi/client": "0.17.17",
-    "@pimi/protocol": "0.17.17",
-    "@pimi/server": "0.17.17",
+    "@pimi/client": "0.17.18",
+    "@pimi/protocol": "0.17.18",
+    "@pimi/server": "0.17.18",
     "commander": "12.1.0",
     "mime-types": "2.1.35",
     "yaml": "2.8.4",

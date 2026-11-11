@@ -1,6 +1,6 @@
 {
   "name": "@pimi/plugin",
-  "version": "0.17.17",
+  "version": "0.17.18",
   "private": true,
   "description": "Pimi plugin SDK package",
   "license": "Apache-2.0",
@@ -70,8 +70,8 @@
     "use-sync-external-store": "1.6.0"
   },
   "devDependencies": {
-    "@pimi/client": "0.17.17",
-    "@pimi/protocol": "0.17.17",
+    "@pimi/client": "0.17.18",
+    "@pimi/protocol": "0.17.18",
     "@types/node": "20.19.37",
     "@types/react": "19.2.14",
     "react": "19.2.3",
@@ -80,8 +80,8 @@
     "zod": "4.6.7"
   },
   "peerDependencies": {
-    "@pimi/client": "0.17.17",
-    "@pimi/protocol": "0.17.17",
+    "@pimi/client": "0.17.18",
+    "@pimi/protocol": "0.17.18",
     "react": ">=19.1.0 <20",
     "react-native": ">=0.81.5",
     "zod": "^4.4.3"

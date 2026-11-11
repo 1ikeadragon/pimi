@@ -2,6 +2,21 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.18 - 2026-11-11
+
+- Automations replace schedules. Run an agent on a cron schedule or at an interval, in the provider's unattended mode. A run that hits a permission prompt fails at once instead of hanging. Automations an agent creates wait until you approve them. **Upgrading deletes the old `schedules` folder in your Pimi home, so recreate any schedules you still need as automations.**
+- Heartbeats are separate from automations. You can change or delete them from the CLI.
+- Agent profiles: save instructions, a provider, a model and a thinking level as a profile, manage profiles on the new Profiles page, and run automations as a profile. The four built-in profiles are rewritten. ACP agents now receive profile instructions.
+- Stop a chat and its working subagents stop with it. The chat shows "Stopped with N subagents · Resume", and Resume restarts them where they left off.
+- When one agent answers another agent's permission prompt, the chat shows which agent allowed or denied it.
+- Open any chat visual in its own tab: charts, flows, sequence diagrams, tables and Mermaid diagrams, as well as HTML visuals. Pan and zoom charts, flows and tables with a drag, the scroll wheel, a pinch, or the −, + and Fit buttons.
+- Sequence and state diagrams are drawn natively and wrap long messages on a phone. Sequence diagrams and flow box borders are readable in light and dark themes, and flow arrowheads land on their boxes.
+- Charts with log-scale bars, and heatmaps whose transform is written inside their data, now draw. Mermaid gantt charts are wide enough to read and scroll sideways on a phone. Tables, charts and flows fit a phone screen.
+- Subagents use one set of status words everywhere, and the sidebar shows only live subagents under their chat.
+- Hub is removed.
+- Supply chain: release builds check npm signatures and lockfile sources, refuse packages younger than 10 days, and check packages against a malware feed. npm install scripts are off. Several small dependencies are replaced with built-in Node APIs or local helpers.
+- Pimi now ships for macOS on Apple silicon and Windows x64 only, plus Android. Linux and Windows arm64 builds are dropped.
+
 ## 0.17.17 - 2026-11-11
 
 - Pimi tools are on unless you turn them off, so agents can start Claude, Codex, and other providers as worker cards, use shared memory, and track tasks. When the tools are off, agents say so instead of running other agent CLIs in a shell.
