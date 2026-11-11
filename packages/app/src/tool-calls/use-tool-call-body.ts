@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ToolCallDetail } from "@pimi/protocol/agent-types";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
 
@@ -21,7 +21,7 @@ const CACHE_BYTES = 16 * 1024 * 1024;
 const PREFETCH_CONCURRENCY = 3;
 const cache = new Map<string, { detail: ToolCallDetail; bytes: number }>();
 let cacheBytes = 0;
-const inFlight = new Map<string, Promise<void>>();
+const inFlight = new Map<string, Promise<ToolCallDetail>>();
 let prefetchActive = 0;
 const prefetchQueue: Array<() => void> = [];
 
@@ -30,7 +30,7 @@ function cacheKey(source: ToolBodySource, omitted: number): string {
   return [source.serverId, source.agentId, source.turnId ?? "", source.callId, omitted].join("\0");
 }
 
-function load(source: ToolBodySource, key: string): Promise<void> {
+function load(source: ToolBodySource, key: string): Promise<ToolCallDetail> {
   const pending = inFlight.get(key);
   if (pending) return pending;
   const client = getHostRuntimeStore().getClient(source.serverId);
@@ -50,7 +50,7 @@ function load(source: ToolBodySource, key: string): Promise<void> {
         cache.delete(oldKey);
         cacheBytes -= entry.bytes;
       }
-      return undefined;
+      return detail;
     })
     .finally(() => inFlight.delete(key));
   inFlight.set(key, request);
@@ -92,7 +92,9 @@ export function useToolCallBody(
     serverId && agentId && callId && omitted > 0
       ? cacheKey({ serverId, agentId, callId, turnId }, omitted)
       : null;
-  const [, rerender] = useReducer((n: number) => n + 1, 0);
+  // The result lives in state: React Compiler memoizes this hook on its inputs, so a render that
+  // read only the module cache would never see a body that arrived after the first render.
+  const [loaded, setLoaded] = useState<{ key: string; detail: ToolCallDetail } | null>(null);
   const [failedKey, setFailedKey] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
@@ -102,8 +104,8 @@ export function useToolCallBody(
     let cancelled = false;
     setFailedKey(null);
     load({ serverId, agentId, callId, turnId }, key).then(
-      () => {
-        if (!cancelled) rerender();
+      (detail) => {
+        if (!cancelled) setLoaded({ key, detail });
         return undefined;
       },
       () => {
@@ -117,7 +119,7 @@ export function useToolCallBody(
   }, [key, serverId, agentId, callId, turnId, attempt]);
 
   if (!key) return { detail: preview, status: "ready", retry };
-  const full = cache.get(key);
-  if (full) return { detail: full.detail, status: "ready", retry };
+  const full = loaded?.key === key ? loaded.detail : cache.get(key)?.detail;
+  if (full) return { detail: full, status: "ready", retry };
   return { detail: preview, status: failedKey === key ? "error" : "loading", retry };
 }
