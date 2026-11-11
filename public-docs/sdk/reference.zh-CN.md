@@ -248,7 +248,7 @@ try {
 
 注册和获取主机失败时会提供稳定的 `code`：`host_unknown`、`host_disabled`、`host_offline`、
 `permission_denied`、`unsupported_capability`、`authentication_failed`、`server_id_mismatch`、
-`self_host` 或 `duplicate_host`。普通 RPC 权限代码（包括 `access_denied`）保持不变。
+`self_host` 或 `duplicate_host`。普通 RPC 错误代码保持不变。
 多路复用属于传输层；调用方使用相同的客户端/API 操作和生命周期。发现主机不会授予执行权限。
 
 ## 错误与清理 {#errors-and-cleanup}

@@ -1,54 +1,35 @@
-# Daemon permissions
+# Daemon access
 
-The daemon authorizes principals with semantic permissions. RPC names and protocol namespaces are not authority.
+The daemon has one authority. A session the daemon admits can do everything the daemon user can: run agents and terminals, read and write files, change configuration, manage plugins and connected hosts. There are no principals, roles, grants, or per-RPC permissions. Admission is the security boundary, so the work is in deciding who gets admitted.
 
-## Model
+## Admission
 
-```text
-principal -> grants
-    |
-    +-- authenticated by a device or service credential
-    `-- opens a session with equal or narrower authority
-```
+`packages/server/src/server/session-admission-auth.ts` decides admission from the hello. The socket's transport picks the credential it must present:
 
-A principal is the durable identity the daemon authorizes. A credential proves that a device or service represents it. Keep them separate so you can rotate credentials, attach more than one device, and revoke access without inventing daemon user accounts.
+| Transport                      | Admitted when                                                                                   |
+| ------------------------------ | ----------------------------------------------------------------------------------------------- |
+| Local-network pairing          | `hello.auth` is a password equal to that pairing's access code. Other credentials are rejected. |
+| Direct or relay, no password   | Always. Relay sockets still need the end-to-end handshake first.                                |
+| Direct or relay, with password | `hello.auth` is the password or the current local credential.                                   |
+| Direct, bearer header          | Pre-admitted after the header is checked against the password, or when no password is set.      |
+| Plugin socket                  | Pre-admitted. The daemon opened it for a trusted local plugin.                                  |
+| Connected-host channel         | Pre-admitted under its physical link, which went through one of the rows above.                 |
 
-A pairing invitation is neither. It is an expiring, single-use exchange that creates a principal and credential with the permissions selected by its issuer.
+A rejected hello gets `hello.rejected` and close code `4401`. Nothing else is sent before admission. [SECURITY.md](../SECURITY.md#local-daemon-trust-boundary) owns the password, local credential, and relay pairing threat model.
 
-## Permissions
+The relay pairing offer and the local-network access code do not create an identity on the daemon. The offer only carries the key for the end-to-end handshake, so a relay client still needs the password when one is set. The access code is the credential for its local-network connection, in place of the password.
 
-| Permission          | Authority                                                                  |
-| ------------------- | -------------------------------------------------------------------------- |
-| `daemon.read`       | Daemon status, diagnostics, configuration, and provider information        |
-| `daemon.manage`     | Restart, update, configuration changes, providers, skills, and plugins     |
-| `tunnel.manage`     | Relay, service tunnel, and public endpoint relationships                   |
-| `access.manage`     | Pairing invitations, principals, credentials, grants, and revocation       |
-| `workspace.read`    | Projects, workspaces, agents, timelines, files, diffs, and terminal output |
-| `workspace.write`   | Prompts, agent control, files, terminals, git operations, and scripts      |
-| `workspace.manage`  | Create, rename, archive, and remove projects and workspaces                |
-| `automation.manage` | Schedules, heartbeats, and loops                                           |
+## What still narrows a session
 
-Agents and terminals use workspace authority. Both can execute code and mutate the workspace, so separate write permissions would claim an isolation boundary the daemon cannot enforce.
+These checks are not permissions. They follow from how the session was admitted, so keep them when you change admission.
 
-Connected-host management uses `tunnel.manage`; source-owned connection and metadata replacement
-requires the producer or `access.manage`. Routed operations retain both caller and link authority,
-see [Connected hosts](connected-hosts.md#ownership-and-authority).
+- A routed session, one admitted through a connected-host channel, cannot open another host link or route. Connected hosts are one hop. See [Connected hosts](connected-hosts.md#ownership-and-authority).
+- Pimi Tasks on mobile answers only on a socket that proved the password over a protected relay or local-network connection, and only while the session is not routed. A local credential, a passwordless daemon, or a legacy relay session does not authenticate a remote person.
+- Plugin sockets own the `plugin:` client ID namespace. Other sockets cannot claim it, and plugin sessions do not resume.
+- Resuming a session closes its connected-host links and routes, because the new hello can change its producer or routed state.
 
-Owner, operator, and viewer are UI presets expanded into explicit permissions. Do not persist them as roles. Adding a permission must not silently widen an existing principal.
+## Adding access control
 
-Permissions are additive allows. Missing authority denies the operation. Do not add deny precedence.
+Do not reintroduce a permission enum or an operation table without a caller that gets less than full authority on a live path. Hub was the only such caller and it is gone. A check that every admitted session passes is not a control; it only hides that the boundary is admission.
 
-## Resources
-
-Permissions are daemon-wide today. Future grants may select workspaces or agents, but operation classification remains inside the authorization module:
-
-```ts
-type Grant = {
-  permission: Permission;
-  resource: { kind: "daemon" } | { kind: "workspace"; ids: string[] };
-};
-```
-
-A delegating principal can grant only authority it already possesses. A session may attenuate its principal's grants but cannot widen them.
-
-Workspace-scoped grants require every resource-bearing operation and outbound observation to enforce the same workspace boundary. File preview currently accepts any daemon-readable regular file, so it must gain resource enforcement before workspace-specific access ships.
+File preview reads any regular file the daemon can read. Workspace-scoped access would need every resource-bearing operation and outbound event to enforce the same workspace boundary first.

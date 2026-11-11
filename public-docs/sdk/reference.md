@@ -260,7 +260,7 @@ is lost rejects with `DaemonConnectionError` (`code: "DAEMON_CONNECTION_LOST"`),
 
 Registration and host acquisition failures expose a stable `code`: `host_unknown`, `host_disabled`, `host_offline`,
 `permission_denied`, `unsupported_capability`, `authentication_failed`, `server_id_mismatch`,
-`self_host`, or `duplicate_host`. Ordinary RPC permission codes, including `access_denied`, pass through
+`self_host`, or `duplicate_host`. Ordinary RPC error codes pass through
 unchanged. Multiplexing is a transport; consumers use the same client/API operations and lifecycle.
 Discovery does not grant execution authority.
 

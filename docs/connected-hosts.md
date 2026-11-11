@@ -11,23 +11,25 @@ target description. Replacement inputs never come back through a read API. Keep 
 when collecting diagnostics or backing up daemon state.
 
 The authenticated producer owns its source key. Repeating an unchanged add returns the saved entry,
-including a user's disabled state. Changed input requires an explicit update. Display labels and
-access can be changed by users with `tunnel.manage`; connection and metadata changes require the
-producer or `access.manage`. Removing a producer-managed entry allows that producer to add it again.
-Disabling retains the opt-out.
+including a user's disabled state. Changed input requires an explicit update. Any admitted session
+can update or remove any entry, because every admitted session has the daemon's full authority (see
+[Daemon access](permissions.md)). Removing a producer-managed entry allows that producer to add it
+again. Disabling retains the opt-out.
 
 Each enabled registration owns one physical daemon link, shared by status monitoring and every
 routed API scope. Each scope owns an isolated virtual session on B. A derives its identity from the
-admitted origin session, producer, and logical SDK scope. B admits virtual sessions under the actual
-physical link principal, then intersects forwarded caller grants with that link's current authority.
-Changing or resuming a parent's grants closes its existing channels; reconnect re-admits demand with
-current authority. A routed API cannot select a second hop, and saving a host grants no reverse access.
+admitted origin session, producer, and logical SDK scope. B admits a virtual session only through a
+physical link that B already admitted, strips any credential from the routed hello, and marks the
+session routed. Resuming the parent session closes its existing channels; reconnect re-admits demand.
+A routed API cannot select a second hop, and saving a host grants no reverse access.
 
-A producer that registers a host through a routed API is qualified on B as
-`route:<B principal>:<A serverId>:<A producer>`, with each component percent-encoded. This namespace belongs to the authenticated link
-principal. An ordinary direct B consumer does not become that producer by supplying a source key.
-The optional `server_info.sourceId` reports this producer identity separately from the authenticated admission principal.
-Trusted server plugins retain the authority of their runtime; they are not sandboxed by this feature.
+Direct sessions use the producer `owner`, plugin sessions `plugin:<id>`. A producer that registers a
+host through a routed API is qualified on B as `route:owner:<A serverId>:<A producer>`, with each
+component percent-encoded. These ids are stored in `hosts.json`, so changing the format orphans
+existing producer keys. Only a routed hello carries a producer; an ordinary direct B consumer does
+not become that producer by supplying a source key. The optional `server_info.sourceId` reports the
+session's producer. Trusted server plugins retain the authority of their runtime; they are not
+sandboxed by this feature.
 
 ## Delegating agents
 
@@ -85,8 +87,8 @@ waiters and queued sends. Submitted requests with no response fail with `DaemonC
 (`DAEMON_CONNECTION_LOST`), optional `outcome: "unknown"` and known `serverId`. Inspect the destination
 before retrying a mutation.
 Ordinary non-recoverable mutations are not automatically replayed. Existing acknowledged/idempotent
-creation recovery retains its request identity and resumes through the ordinary creation lifecycle. Multiplexing changes only the transport: ordinary permission
-RPC codes pass through unchanged, and connection/recovery behavior matches direct clients.
+creation recovery retains its request identity and resumes through the ordinary creation lifecycle. Multiplexing changes only the transport: ordinary RPC error
+codes pass through unchanged, and connection/recovery behavior matches direct clients.
 
 Text session envelopes carry a channel identifier. Binary routing adds an opcode, a bounded UTF-8
 channel identifier, and the original terminal or file-transfer bytes. It never converts those bytes to

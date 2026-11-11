@@ -1207,7 +1207,6 @@ if (current.status === "ready") {
 
 缺失的文档使用 schema 默认值。无效的数据、失败的迁移以及不受支持的更新版本会产生 `invalid`，而不会
 悄悄重置文件。成功的迁移只会持久化一次新版本。这些文档是普通的主机端 JSON，而不是凭据保险库。
-设置相关的 RPC 使用现有的 `daemon.manage` 权限来执行插件。
 
 完整的[设置示例](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/settings)
 包含即时生效的控件、带校验的草稿编辑器、自定义内容以及 Command Center 导航。

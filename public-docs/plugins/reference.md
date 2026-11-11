@@ -1437,7 +1437,6 @@ installation deletes its settings. Reinstalling that ID starts from defaults.
 A missing document uses schema defaults. Invalid data, failed migrations, and unsupported newer
 versions produce `invalid` without silently resetting the file. Successful migrations persist
 the new version once. These documents are ordinary host-side JSON, not a credential vault.
-Settings RPCs use the existing `daemon.manage` permission for plugin execution.
 
 See the complete [settings example](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/settings)
 for immediate controls, a draft editor with validation, custom content, and Command Center navigation.
