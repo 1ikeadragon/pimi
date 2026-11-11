@@ -1,5 +1,10 @@
 export const PIMI_HTML_FENCE = "pimi-html";
 
+export const HTML_LIMITS = {
+  /** A reply carries this inline. A larger visual is a workspace file shown with pimi-artifact. */
+  sourceLength: 131_072,
+} as const;
+
 /**
  * The custom properties an HTML visual is themed with, each exposed to the document as
  * `--pimi-<name>`. The app fills every one from its theme, and the agent is told this same list.
@@ -42,8 +47,8 @@ function documentTitle(html: string): string | null {
   return title || null;
 }
 
-/** Returns null for an empty block; the caller then shows the source. */
+/** Returns null for an empty or oversized block; the caller then shows the source. */
 export function parseChatHtml(source: string): ChatHtml | null {
-  if (!source.trim()) return null;
+  if (!source.trim() || source.length > HTML_LIMITS.sourceLength) return null;
   return { html: source, title: documentTitle(source) };
 }

@@ -2,6 +2,7 @@
 import { z } from "zod";
 import {
   isExplicitVoiceChatRequest,
+  PIMI_ASK_ACTION_LIMIT,
   PimiAskAction,
   PimiPullRequestFilter,
   PimiTaskAgentTool,
@@ -11,18 +12,22 @@ import {
 } from "@pimi/protocol/pimi-task";
 import type { PimiSpaces, SpaceCard } from "../pimi-spaces.js";
 import {
+  PaseoToolInputError,
   type PaseoToolCatalog,
   type PaseoToolConfig,
   type PaseoToolDefinition,
   type PaseoToolResult,
 } from "./tools/types.js";
 
+// One spoken request gets a fixed budget. A request that needs more belongs in a chat.
+const MAX_CALLS = 24;
+const MAX_SAVES = 8;
 const MAX_LISTED_CARDS = 40;
 const EXCERPT = 200;
 
 // Tools from the host catalog that a spoken request may use, with the progress line shown
 // while each one runs. Everything else in the catalog stays out of reach.
-const HOST_TOOLS: ReadonlyArray<readonly [name: string, status: string]> = [
+const HOST_TOOLS: ReadonlyArray<readonly [name: string, status: string, saves?: true]> = [
   ["search_pimi_spaces", "Searching Spaces"],
   ["read_pimi_space_item", "Reading a Spaces card"],
   ["list_workspaces", "Checking workspaces"],
@@ -31,9 +36,9 @@ const HOST_TOOLS: ReadonlyArray<readonly [name: string, status: string]> = [
   [PimiTaskAgentTool.list, "Checking tasks"],
   [PimiTaskAgentTool.get, "Reading a task"],
   [PimiTaskAgentTool.repositories, "Checking repositories"],
-  [PimiTaskAgentTool.create, "Saving a task"],
-  [PimiTaskAgentTool.update, "Updating a task"],
-  [PimiTaskAgentTool.linkWork, "Linking work to a task"],
+  [PimiTaskAgentTool.create, "Saving a task", true],
+  [PimiTaskAgentTool.update, "Updating a task", true],
+  [PimiTaskAgentTool.linkWork, "Linking work to a task", true],
 ];
 
 export interface AskPimiReference {
@@ -110,6 +115,7 @@ export function createAskPimiToolset(options: {
 }): AskPimiToolset {
   const { catalog, spaces } = options;
   const toolset: AskPimiToolset = { tools: [], calls: 0, actions: [], saved: [], references: [] };
+  let saves = 0;
 
   const remember = (reference: AskPimiReference) => {
     if (toolset.references.some((entry) => entry.id === reference.id)) return;
@@ -118,7 +124,7 @@ export function createAskPimiToolset(options: {
   const register = (
     name: string,
     status: string,
-    config: { description: string; inputSchema: PaseoToolConfig["inputSchema"] },
+    config: { description: string; inputSchema: PaseoToolConfig["inputSchema"]; saves?: true },
     handler: (input: never) => Promise<PaseoToolResult>,
   ) => {
     toolset.tools.push({
@@ -127,23 +133,41 @@ export function createAskPimiToolset(options: {
       inputSchema: config.inputSchema,
       handler: async (input) => {
         toolset.calls += 1;
+        if (toolset.calls > MAX_CALLS) {
+          throw new PaseoToolInputError(
+            "This request has used its tool budget. Reply now with what you found.",
+          );
+        }
+        if (config.saves) {
+          saves += 1;
+          if (saves > MAX_SAVES) {
+            throw new PaseoToolInputError(
+              "This request has saved as much as one spoken request can. Reply now.",
+            );
+          }
+        }
         options.onStatus(status);
         return handler(input as never);
       },
     });
   };
   const queue = (action: PimiAskAction, done: string) => {
-    toolset.actions.push(action);
+    if (toolset.actions.length >= PIMI_ASK_ACTION_LIMIT) {
+      throw new PaseoToolInputError("Pimi can open only a few screens per request.");
+    }
+    const parsed = PimiAskAction.safeParse(action);
+    if (!parsed.success) throw new PaseoToolInputError(parsed.error.message, parsed.error.issues);
+    toolset.actions.push(parsed.data);
     return text({ ok: true, note: done });
   };
 
-  for (const [name, status] of HOST_TOOLS) {
+  for (const [name, status, changes] of HOST_TOOLS) {
     const tool = catalog.getTool(name);
     if (!tool) continue;
     register(
       name,
       status,
-      { description: tool.description, inputSchema: withoutHost(tool.inputSchema) },
+      { description: tool.description, inputSchema: withoutHost(tool.inputSchema), saves: changes },
       async (input: Record<string, unknown>) => {
         const { serverId: _serverId, ...local } = input;
         // Bound how much chat history one spoken request can pull in.
@@ -195,6 +219,7 @@ export function createAskPimiToolset(options: {
         description:
           "Save a note or a link the user dictated as a new Spaces card. Keep their words. Use it only when the user asks to save, note, or remember something.",
         inputSchema: z.strictObject({ text: z.string().trim().min(1).max(4096) }),
+        saves: true,
       },
       async ({ text: note }: { text: string }) => {
         const card = await spaces.addNote(note);

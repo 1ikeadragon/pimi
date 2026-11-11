@@ -205,6 +205,7 @@ export function createHostResolver(input: {
   callerAgentId?: string;
   /** The destination can't see the caller, so its background defaults resolve before routing. */
   caller: () => BackgroundCaller | null;
+  lockedCwd?: string;
 }) {
   return {
     directory: () => input.hosts().directory(),
@@ -214,6 +215,8 @@ export function createHostResolver(input: {
     ): Promise<T> {
       const destination = serverId ?? input.serverId;
       if (destination === input.serverId) return action(input.local);
+      if (input.lockedCwd)
+        throw new Error("This caller is restricted to its local working directory");
       return input.hosts().use(destination, async (client) =>
         action({
           async createAgent(args) {

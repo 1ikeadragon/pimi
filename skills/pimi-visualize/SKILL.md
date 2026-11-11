@@ -3,7 +3,7 @@ name: pimi-visualize
 description: Choose and design a chart, dashboard, diagram, table, or interactive visual in Pimi chat. Use when the user asks to visualize, chart, graph, plot, diagram, compare, or "show me" a trend, breakdown, distribution, dashboard, system, or flow, wants something made easier to see, or when a reply is about to contain a table of numbers.
 ---
 
-The system prompt gives each block's format, one example, and the limits that apply. This skill decides which block to use and what goes in it.
+The system prompt gives each block's format, one example, and its limits. This skill decides which block to use and what goes in it.
 
 ## Before you draw
 
@@ -27,7 +27,7 @@ Use the first row that answers the question. Go to a later row only when an earl
 | Several series over time                                           | `pimi-vega`, mark `line` with `color`                             | One row per date and series. Up to seven series; past that, keep the largest and sum the rest as "Other".                                                                                                              |
 | Several measures for a few items (3 frameworks, 4 metrics)         | `pimi-vega`, mark `bar` with `color` and `xOffset`                | One row per item and measure. Put the measure on `x`, the item on `color` and `xOffset`. When the measures have different units, use a `pimi-view` table instead: one shared axis would mislead.                       |
 | Parts of a whole                                                   | `pimi-vega`, mark `arc`                                           | `theta` for the value, `color` for the part, `"innerRadius": 60` for a donut. Up to five parts. To compare shares between groups, use a stacked bar with `"stack": "normalize"`.                                       |
-| A distribution                                                     | `pimi-vega`, mark `bar` with `"bin": true`                        | Give the raw values, one row each; `x` is the binned field and `y` is `{"aggregate": "count"}`. Name the median or p95 in the title. For very large data, bin it yourself and plot one bar per bin.                    |
+| A distribution                                                     | `pimi-vega`, mark `bar` with `"bin": true`                        | Give the raw values, one row each; `x` is the binned field and `y` is `{"aggregate": "count"}`. Name the median or p95 in the title. Above the row limit, bin the data yourself and plot one bar per bin.              |
 | A relationship between two measures                                | `pimi-vega`, mark `point`                                         | One row per item. Title both axes with units. Say in the sentence whether they move together.                                                                                                                          |
 | Two dimensions at once (hour by weekday)                           | `pimi-vega`, mark `rect`                                          | Both dimensions `ordinal`, the value on `color` as `quantitative`.                                                                                                                                                     |
 | Several headline figures (build health, cost, usage)               | `pimi-view` metrics                                               | Two to four metrics that answer the question, then a table of the detail. Put a chart of the same data in its own `pimi-vega` block after it.                                                                          |
@@ -69,7 +69,7 @@ Two approaches compared on qualities, not numbers, go in a Markdown table with o
 - Declare lanes in the order the flow passes through them. When every edge moves forward through the lanes, each lane is a band across the flow and a pipeline reads straight down. A flow that goes back and forth between lanes, such as client and server, draws its lanes as swimlanes.
 - Label only edges that branch or carry a condition, in a word or two. An edge back to an earlier box draws dashed, so you can show a retry or a loop.
 - Leave `direction` out unless the flow reads better one way. A flow too wide for the column turns down by itself.
-- In Mermaid, use plain text labels. Mermaid runs in strict mode, so HTML in labels is sanitized.
+- In Mermaid, use plain text labels. Only `<br>` and `<i>` tags render; other tags, `&#` entities, and `@{...}` shapes make the diagram show as source.
 
 ## Before you send
 

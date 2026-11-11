@@ -1,6 +1,6 @@
 import { PIMI_ARTIFACT_FENCE } from "./chat-artifact.js";
-import { PIMI_HTML_FENCE, PIMI_HTML_VARIABLES } from "./chat-html.js";
-import { PIMI_VEGA_FENCE } from "./chat-vega.js";
+import { HTML_LIMITS, PIMI_HTML_FENCE, PIMI_HTML_VARIABLES } from "./chat-html.js";
+import { PIMI_VEGA_FENCE, VEGA_LIMITS } from "./chat-vega.js";
 import {
   PIMI_VIEW_FENCE,
   VIEW_LIMITS,
@@ -127,7 +127,7 @@ export const PIMI_VISUALIZATION_INSTRUCTIONS = [
   "",
   `${PIMI_VEGA_FENCE} holds one Vega-Lite v6 spec as JSON:`,
   ...fenced(PIMI_VEGA_FENCE, JSON.stringify(VEGA_EXAMPLE)),
-  "- Put the rows inline in data.values, one object per row. Aggregate or sample large data first.",
+  `- Put the rows inline in data.values, one object per row: up to ${VEGA_LIMITS.rows} rows and ${VEGA_LIMITS.sourceLength} characters for the block. Aggregate or sample larger data first.`,
   '- Give raw rows and let the spec do the math with "aggregate", "bin", "stack", or "transform". For a distribution, use mark "bar" with x {"bin": true} and y {"aggregate": "count"}.',
   '- To compare several measures per item, write one row per item and measure, then use "color" with "xOffset" for grouped bars.',
   '- Set "type" on every field. Add "sort": null to keep the row order, such as months.',
@@ -144,10 +144,10 @@ export const PIMI_VISUALIZATION_INSTRUCTIONS = [
   `Limits: ${VIEW_LIMITS.nodes} nodes, ${VIEW_LIMITS.depth} levels, ${VIEW_LIMITS.children} children per node, ${VIEW_LIMITS.tableColumns} table columns, ${VIEW_LIMITS.tableRows} table rows, ${VIEW_LIMITS.trendPoints} trend points, ${VIEW_LIMITS.title} characters per title, ${VIEW_LIMITS.label} per label, ${VIEW_LIMITS.value} per metric value, ${VIEW_LIMITS.cell} per table cell, ${VIEW_LIMITS.text} per text, ${VIEW_LIMITS.sourceLength} for the block. A flow holds up to ${VIEW_LIMITS.flowNodes} boxes, ${VIEW_LIMITS.flowEdges} edges, and ${VIEW_LIMITS.flowLanes} lanes, with ${VIEW_LIMITS.flowLabel} characters per box label, ${VIEW_LIMITS.flowEdgeLabel} per edge label, and ${VIEW_LIMITS.flowDetail} per detail. Every edge must name two different boxes by id.`,
   `To update a ${PIMI_VIEW_FENCE} block within the same reply, send another complete block with the same id.`,
   "",
-  `${PIMI_HTML_FENCE} holds one HTML document or fragment. Pimi runs it inline and shows its <title> above it:`,
+  `${PIMI_HTML_FENCE} holds one HTML document or fragment, up to ${HTML_LIMITS.sourceLength} characters. Pimi runs it inline and shows its <title> above it:`,
   ...fenced(PIMI_HTML_FENCE, HTML_EXAMPLE),
   "- It runs in a sandbox with no network, storage, or navigation. Remote scripts, styles, fonts, images, and fetch all fail, so write the CSS, JavaScript, and data inline.",
   `- Pimi sets the page background, text color, and font. Style everything else with these custom properties so it follows light and dark themes, and never hardcode a page or text color: ${PIMI_HTML_VARIABLES.map((name) => `--pimi-${name}`).join(", ")}.`,
   "- Start every control at a realistic value, so the first render already shows an answer. Lay it out to fit 360 px wide, and let the page take its natural height: no 100vh.",
-  `- For a large visual, or one the user wants kept as a file, use the pimi-artifacts skill: save the HTML in the workspace and show it with a ${PIMI_ARTIFACT_FENCE} block.`,
+  `- For a visual larger than the limit, or one the user wants kept as a file, use the pimi-artifacts skill: save the HTML in the workspace and show it with a ${PIMI_ARTIFACT_FENCE} block.`,
 ].join("\n");

@@ -69,10 +69,10 @@ Arguments marked `?` are optional.
 
 Tools return structured errors rather than failing silently. The ones agents see most:
 
-| Code                | Meaning                                                                |
-| ------------------- | ---------------------------------------------------------------------- |
-| `browser_disabled`  | Browser tools are turned off on this host.                             |
-| `browser_no_host`   | No browser host (desktop app) is connected. Retryable.                 |
-| `browser_stale_ref` | The ref no longer matches the page — take a new snapshot.              |
-| `browser_timeout`   | The element never became actionable, or the wait condition never held. |
-| `browser_denied`    | The action isn't allowed — e.g. no history to navigate.                |
+| Code                | Meaning                                                                         |
+| ------------------- | ------------------------------------------------------------------------------- |
+| `browser_disabled`  | Browser tools are turned off on this host.                                      |
+| `browser_no_host`   | No browser host (desktop app) is connected. Retryable.                          |
+| `browser_stale_ref` | The ref no longer matches the page — take a new snapshot.                       |
+| `browser_timeout`   | The element never became actionable, or the wait condition never held.          |
+| `browser_denied`    | The action isn't allowed — e.g. a non-`http(s)` URL, or no history to navigate. |

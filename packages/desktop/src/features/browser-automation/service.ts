@@ -70,6 +70,7 @@ const WAIT_POLL_INTERVAL_MS = 25;
 const PIXEL_CAPTURE_TIMEOUT_MS = 5_000;
 const PIXEL_CAPTURE_RETRY_INTERVAL_MS = 200;
 const SCREENSHOT_NO_FRAME_MESSAGE = "The tab has not painted yet. Retry the screenshot.";
+const ALLOWED_PAGE_URL_PROTOCOLS = new Set(["http:", "https:"]);
 const MAX_EVALUATE_RESULT_JSON_LENGTH = 80_000;
 const MAX_EVALUATE_RESULT_PREVIEW_LENGTH = 79_000;
 const MAX_EVALUATE_ERROR_MESSAGE_LENGTH = 2_000;
@@ -1164,6 +1165,13 @@ async function executeNavigate(
     return target;
   }
   return withDialogCapture(target.contents, async () => {
+    if (!isAllowedPageUrl(url)) {
+      return fail(
+        requestId,
+        "browser_denied",
+        "Browser navigation only supports http and https URLs.",
+      );
+    }
     snapshotEngine.clearBrowser(browserId);
     await target.contents.loadURL(url);
     return {
@@ -1362,6 +1370,14 @@ async function executeFullPageScreenshot(
       },
     };
   });
+}
+
+function isAllowedPageUrl(value: string): boolean {
+  try {
+    return ALLOWED_PAGE_URL_PROTOCOLS.has(new URL(value).protocol);
+  } catch {
+    return false;
+  }
 }
 
 async function executeUpload(

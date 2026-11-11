@@ -5,9 +5,9 @@ export const PIMI_VIEW_FENCE = "pimi-view";
 export type ViewFence = typeof PIMI_CHART_FENCE | typeof PIMI_VIEW_FENCE;
 
 /**
- * Every cap is enforced before a view reaches a renderer, so the layouts stay readable and the
- * recursion bounded. Fields the catalog does not name are dropped, not rejected: one stray key
- * should not turn a whole chart into raw JSON.
+ * Agent output is untrusted. Every cap is enforced before a view reaches a renderer. Fields the
+ * catalog does not name are dropped, not rejected: nothing reaches a renderer except what the
+ * schemas below define, and one stray key should not turn a whole chart into raw JSON.
  */
 export const VIEW_LIMITS = {
   /** Roughly twice the largest valid table, so no valid view is rejected for its size. */
