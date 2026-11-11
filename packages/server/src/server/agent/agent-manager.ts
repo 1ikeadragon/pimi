@@ -125,7 +125,7 @@ import {
 
 /** Scopes Pimi's tools and keeps agents from opening a browser to check their own visuals. */
 const PIMI_SCOPE_INSTRUCTIONS =
-  "Ordinary coding tasks need no Pimi tools. Show a visual by writing its block in the reply. Never open a browser, take a screenshot, or start a server to check or show your own chart or page, unless the user asked for browser work.";
+  "Ordinary coding tasks need no Pimi tools. Show a visual by writing its block in the reply: Pimi draws it, so it needs no check. Never open a browser, take a screenshot, load browser tools, or start a server to check or show your own chart or page, unless the user asked for browser work. If you could not check something, say so in one line.";
 
 // Without its tools an agent asked to delegate or remember improvises: it runs `claude -p` or
 // `codex exec` in a shell, or writes Pimi's memory files by hand. Neither shows up in Pimi.

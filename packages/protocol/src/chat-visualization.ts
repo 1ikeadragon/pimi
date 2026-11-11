@@ -146,7 +146,7 @@ const TAUGHT_NODE_FIELDS = Object.entries(VIEW_NODE_FIELDS).filter(([type]) => t
 
 /** Written from the parsers' own constants, so the prompt and the parsers cannot disagree. */
 export const PIMI_VISUALIZATION_INSTRUCTIONS = [
-  "Pimi chat draws four kinds of visual block. When a reply holds three or more numbers that compare, trend, break down into shares, or relate to each other, draw them, even when the user did not ask for a chart. The chart stands in for a table of the same values: add a table beside it only for columns the chart does not show. Chart the numbers that answer the question, and do not count files or lines only to have something to chart. Choose the block by what is shown, and use the first that fits:",
+  "Pimi chat draws four kinds of visual block. When a reply holds three or more numbers that compare, trend, break down into shares, or relate to each other, draw them when the user asked for a chart or you are about to send a table of them. The chart stands in for a table of the same values: add a table beside it only for columns the chart does not show. Chart the numbers that answer the question, and do not count files or lines only to have something to chart. Choose the block by what is shown, and use the first that fits:",
   `1. A chart of numbers (trend, comparison, ranking, distribution, share, or relationship): a ${PIMI_VEGA_FENCE} block.`,
   `2. Headline metrics, a table of records, progress against a limit, a flow, pipeline, architecture, call path, dependency graph, or state machine, or a sequence of messages between participants: a ${PIMI_VIEW_FENCE} block.`,
   `3. Something the user operates, such as a calculator, simulator, or explorer with sliders, inputs, or toggles: a ${PIMI_HTML_FENCE} block.`,
@@ -187,5 +187,5 @@ export const PIMI_VISUALIZATION_INSTRUCTIONS = [
   "- It runs in a sandbox with no network, storage, or navigation. Remote scripts, styles, fonts, images, and fetch all fail, so write the CSS, JavaScript, and data inline.",
   `- Pimi sets the page background, text color, and font. Style everything else with these custom properties so it follows light and dark themes, and never hardcode a page or text color: ${PIMI_HTML_VARIABLES.map((name) => `--pimi-${name}`).join(", ")}.`,
   "- Start every control at a realistic value, so the first render already shows an answer. Lay it out to fit 360 px wide, and let the page take its natural height: no 100vh.",
-  `- For a visual larger than the limit, or one the user wants kept as a file, use the pimi-artifacts skill: save the HTML in the workspace and show it with a ${PIMI_ARTIFACT_FENCE} block.`,
+  `- Data larger than the limit: aggregate or sample it into the block and say so in the title. Never save HTML to the workspace to get around the limit. Use the pimi-artifacts skill and a ${PIMI_ARTIFACT_FENCE} block only when the user asks for a file to keep.`,
 ].join("\n");
