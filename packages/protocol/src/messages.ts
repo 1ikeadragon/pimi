@@ -1212,6 +1212,44 @@ export const ExternalResourceAttachmentMetadataSchema = z.object({
   url: z.string(),
 });
 
+const annotationPositionSchema = z.number().int().positive();
+
+/** Where an annotated quote came from: a range in a workspace file, or a message in a chat. */
+export const AnnotationSourceSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("file"),
+    serverId: z.string(),
+    workspaceId: z.string(),
+    path: z.string(),
+    startLine: annotationPositionSchema,
+    startColumn: annotationPositionSchema,
+    endLine: annotationPositionSchema,
+    endColumn: annotationPositionSchema,
+  }),
+  z.object({
+    kind: z.literal("chat"),
+    serverId: z.string(),
+    agentId: z.string(),
+    messageId: z.string(),
+    role: z.enum(["user", "assistant"]),
+  }),
+]);
+
+/** Finds a chat quote again in the rendered message after it reflows. */
+export const AnnotationTextSelectorSchema = z.object({
+  text: z.string(),
+  prefix: z.string(),
+  suffix: z.string(),
+});
+
+/** What a sent message keeps of an annotation so its pill can go back to the source. */
+export const AnnotationAttachmentMetadataSchema = z.object({
+  source: AnnotationSourceSchema,
+  quote: z.string(),
+  note: z.string(),
+  selector: AnnotationTextSelectorSchema.optional(),
+});
+
 export const TextAttachmentSchema = z
   .object({
     type: z.literal("text"),
@@ -1220,6 +1258,7 @@ export const TextAttachmentSchema = z
     title: z.string().nullable().optional(),
     text: z.string(),
     externalResource: ExternalResourceAttachmentMetadataSchema.optional(),
+    annotation: AnnotationAttachmentMetadataSchema.optional(),
   })
   .transform(({ contextKind, ...attachment }) => ({
     ...attachment,
@@ -7064,6 +7103,9 @@ export type DictationStreamFinishMessage = z.infer<typeof DictationStreamFinishM
 export type DictationStreamCancelMessage = z.infer<typeof DictationStreamCancelMessageSchema>;
 export type CreateAgentRequestMessage = z.infer<typeof CreateAgentRequestMessageSchema>;
 export type AgentAttachment = z.infer<typeof AgentAttachmentSchema>;
+export type AnnotationSource = z.infer<typeof AnnotationSourceSchema>;
+export type AnnotationTextSelector = z.infer<typeof AnnotationTextSelectorSchema>;
+export type AnnotationAttachmentMetadata = z.infer<typeof AnnotationAttachmentMetadataSchema>;
 export type ForgeChangeRequestAttachment = z.infer<typeof ForgeChangeRequestAttachmentSchema>;
 export type ForgeIssueAttachment = z.infer<typeof ForgeIssueAttachmentSchema>;
 export type UploadedFileAttachment = z.infer<typeof UploadedFileAttachmentSchema>;

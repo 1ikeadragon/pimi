@@ -2,6 +2,7 @@ import { useDisclosureHold } from "@/agent-stream/disclosure";
 import { MessagePreview, MessageSender } from "@/components/user-message";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import { getAgentAttachmentPillContent } from "@/attachments/attachment-pill-content";
+import { SentAnnotationPill } from "@/annotations/sent-pill";
 import { AssistantForkMenu, type AssistantForkTarget } from "@/components/assistant-fork-menu";
 import { AttachmentLightbox, type ImageLightboxSource } from "@/components/attachment-lightbox";
 import {
@@ -496,6 +497,14 @@ export const UserMessage = memo(function UserMessage({
             {hasAttachments ? (
               <View style={attachmentPreviewContainerStyle}>
                 {attachments.map((attachment, index) => {
+                  if (attachment.type === "text" && attachment.annotation) {
+                    return (
+                      <SentAnnotationPill
+                        key={`annotation:${attachment.annotation.quote.slice(0, 48)}:${attachment.annotation.note.slice(0, 16)}`}
+                        annotation={attachment.annotation}
+                      />
+                    );
+                  }
                   const content = getAgentAttachmentPillContent(attachment, t);
                   return (
                     <AttachmentFrame
