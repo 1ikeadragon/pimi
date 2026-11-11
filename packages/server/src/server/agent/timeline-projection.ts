@@ -566,13 +566,18 @@ export class TimelineProjection {
         : requestedStart;
       const start = this.trimStartToByteBudget(wholeStart, low);
       // Choose the window before extending the right edge, so a prompt jump
-      // cannot lose its target when the next turn is arbitrarily large.
-      if (input.wholeTurns) {
+      // cannot lose its target when the next turn is arbitrarily large. A cursor that sits exactly
+      // on a row boundary is a previous page's start (possibly a mid-turn byte-budget trim), so
+      // the rows after it were already delivered and the edge must not move.
+      const extendRightEdge =
+        input.wholeTurns &&
+        !(low < this.rows.length && this.rows[low].seqStart === input.cursorSeq);
+      if (extendRightEdge) {
         while (low < this.rows.length && continuesProjectedTurn(this.rows[low - 1], this.rows[low]))
           low++;
       }
       let selectedEnd = endSeq;
-      if (input.wholeTurns)
+      if (extendRightEdge)
         selectedEnd = low === this.rows.length ? input.bounds.maxSeq : this.rows[low].seqStart - 1;
       return {
         entries: this.rows.slice(start, low),
