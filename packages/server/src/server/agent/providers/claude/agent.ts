@@ -5594,7 +5594,7 @@ class ClaudeAgentSession implements AgentSession {
       let sidechainsMs = 0;
       await withClaudeReplayHistory(historyPath, async (history) => {
         const indexedMs = performance.now() - replayStartedAt;
-        const replay = await this.ingestPersistedSidechains(history);
+        const replay = await this.ingestPersistedSidechains(history, this.toolUseCache);
         this.commitSidechainEvents(replay.events);
         sidechainsMs = performance.now() - replayStartedAt - indexedMs;
         await this.ingestPersistedHistory(history.parentEntries, replay.ownership);
@@ -5660,7 +5660,10 @@ class ClaudeAgentSession implements AgentSession {
   }> {
     const buffered: ClaudeHistoryEntry[] = [];
     for await (const entry of entries) buffered.push(entry);
-    const sidechains = await this.ingestWindowSidechains(buffered);
+    // An older block is converted while a live turn may be running, so its tool calls are matched
+    // in a cache of their own and never settle or clobber the live turn's entries.
+    const toolUseCache = options.newest ? this.toolUseCache : new Map<string, ToolUseCacheEntry>();
+    const sidechains = await this.ingestWindowSidechains(buffered, toolUseCache);
     const timeline: PersistedTimelineEntry[] = [];
     // Older blocks are read after newer ones; their anchors go in front, and their task
     // snapshots would overwrite the newer state, so they are not observed.
@@ -5678,7 +5681,7 @@ class ClaudeAgentSession implements AgentSession {
     this.persistedProviderSubagentEvents = [];
     try {
       for (const entry of buffered) {
-        await this.ingestPersistedHistoryEntry(entry, timeline, replay, anchors);
+        await this.ingestPersistedHistoryEntry(entry, timeline, replay, toolUseCache, anchors);
       }
     } finally {
       // Owned notifications are routed to their child during ingestion.
@@ -5693,7 +5696,10 @@ class ClaudeAgentSession implements AgentSession {
   }
 
   /** Open the children and workflows owned by `entries`, directly or through a child's own Tasks. */
-  private async ingestWindowSidechains(entries: readonly ClaudeHistoryEntry[]): Promise<{
+  private async ingestWindowSidechains(
+    entries: readonly ClaudeHistoryEntry[],
+    toolUseCache: Map<string, ToolUseCacheEntry>,
+  ): Promise<{
     ownership: ClaudeReplayOwnership;
     events: ClaudeProviderSubagentEvent[];
   }> {
@@ -5735,7 +5741,7 @@ class ClaudeAgentSession implements AgentSession {
       workflows: sources.workflows,
       workflowEntriesByRunId: new Map(sources.workflowEntriesByRunId),
     };
-    const result = await this.ingestPersistedSidechains(history);
+    const result = await this.ingestPersistedSidechains(history, toolUseCache);
     return result;
   }
 
@@ -5753,9 +5759,10 @@ class ClaudeAgentSession implements AgentSession {
       const window = await readClaudeTranscriptWindow(older.path, {
         prompts: CLAUDE_HISTORY_OLDER_PROMPTS,
         endOffset: older.endOffset,
+        partial: true,
       });
       if (!window) {
-        // Too much to scan in one block: stop offering older history rather than stall the daemon.
+        // Not even one turn fits in the scan limit: stop offering older history rather than stall the daemon.
         this.olderHistory = null;
         return [];
       }
@@ -5797,7 +5804,7 @@ class ClaudeAgentSession implements AgentSession {
   ): Promise<void> {
     const timeline: PersistedTimelineEntry[] = [];
     for await (const entry of entries) {
-      await this.ingestPersistedHistoryEntry(entry, timeline, replay);
+      await this.ingestPersistedHistoryEntry(entry, timeline, replay, this.toolUseCache);
     }
 
     if (timeline.length > 0) {
@@ -5806,7 +5813,10 @@ class ClaudeAgentSession implements AgentSession {
     }
   }
 
-  private async ingestPersistedSidechains(history: ClaudeReplayHistory): Promise<{
+  private async ingestPersistedSidechains(
+    history: ClaudeReplayHistory,
+    toolUseCache: Map<string, ToolUseCacheEntry>,
+  ): Promise<{
     ownership: ClaudeReplayOwnership;
     events: ClaudeProviderSubagentEvent[];
   }> {
@@ -5824,7 +5834,7 @@ class ClaudeAgentSession implements AgentSession {
     const subagentReplay = await observeReplaySubagents({
       subagents,
       parent: parentFacts,
-      convertEntry: (entry) => this.convertHistoryEntry(entry),
+      convertEntry: (entry) => this.convertHistoryEntry(entry, toolUseCache),
     });
     const observations = [
       ...subagentReplay.observations,
@@ -5832,7 +5842,7 @@ class ClaudeAgentSession implements AgentSession {
         workflows: history.workflows,
         parentEntries: history.parentEntries,
         entriesByRunId: history.workflowEntriesByRunId,
-        convertEntry: (entry) => this.convertHistoryEntry(entry),
+        convertEntry: (entry) => this.convertHistoryEntry(entry, toolUseCache),
       })),
     ];
     this.taskProtocolSource.restore(subagentReplay.restored);
@@ -5856,6 +5866,7 @@ class ClaudeAgentSession implements AgentSession {
     entry: ClaudeHistoryEntry,
     timeline: PersistedTimelineEntry[],
     replay: ClaudeReplayOwnership,
+    toolUseCache: Map<string, ToolUseCacheEntry>,
     olderAnchors?: { userMessageIds: string[]; rewindAnchors: ClaudeRewindTurnAnchor[] },
   ): Promise<void> {
     if (entry.isSidechain) {
@@ -5871,7 +5882,7 @@ class ClaudeAgentSession implements AgentSession {
       ? replay.toolOwners.get(notificationToolUseId)
       : undefined;
     if (notificationOwner) {
-      for (const item of await this.convertHistoryEntry(entry)) {
+      for (const item of await this.convertHistoryEntry(entry, toolUseCache)) {
         this.persistedProviderSubagentEvents.push({
           type: "provider_subagent",
           provider: "claude",
@@ -5888,7 +5899,7 @@ class ClaudeAgentSession implements AgentSession {
     const taskSnapshot = olderAnchors ? null : this.taskState.observe(entry);
     const items = [
       ...(taskSnapshot ? [taskSnapshot] : []),
-      ...(await this.convertHistoryEntry(entry)).map((item) =>
+      ...(await this.convertHistoryEntry(entry, toolUseCache)).map((item) =>
         labelReplayedSubagentCard(item, replay.subagentToolCalls),
       ),
     ];
@@ -5941,9 +5952,14 @@ class ClaudeAgentSession implements AgentSession {
     });
   }
 
-  private async convertHistoryEntry(entry: ClaudeHistoryEntry): Promise<AgentTimelineItem[]> {
+  private async convertHistoryEntry(
+    entry: ClaudeHistoryEntry,
+    toolUseCache: Map<string, ToolUseCacheEntry>,
+  ): Promise<AgentTimelineItem[]> {
     return (
-      await convertClaudeHistoryEntry(entry, (content) => this.mapBlocksToTimeline(content))
+      await convertClaudeHistoryEntry(entry, (content) =>
+        this.mapBlocksToTimeline(content, { toolUseCache }),
+      )
     ).map(limitAgentTimelineItemContent);
   }
 
@@ -5965,6 +5981,7 @@ class ClaudeAgentSession implements AgentSession {
       textMessageType?: "assistant_message" | "user_message";
       suppressAssistantText?: boolean;
       suppressReasoning?: boolean;
+      toolUseCache?: Map<string, ToolUseCacheEntry>;
     },
   ): Promise<AgentTimelineItem[]> {
     const textMessageType = options?.textMessageType ?? "assistant_message";
@@ -5999,6 +6016,7 @@ class ClaudeAgentSession implements AgentSession {
         textMessageType,
         suppressText,
         suppressReasoning,
+        toolUseCache: options?.toolUseCache ?? this.toolUseCache,
       });
     }
 
@@ -6046,6 +6064,7 @@ class ClaudeAgentSession implements AgentSession {
       textMessageType: "assistant_message" | "user_message";
       suppressText: boolean;
       suppressReasoning: boolean;
+      toolUseCache: Map<string, ToolUseCacheEntry>;
     },
   ): Promise<void> {
     switch (block.type) {
@@ -6062,7 +6081,7 @@ class ClaudeAgentSession implements AgentSession {
       case "tool_use":
       case "server_tool_use":
       case "mcp_tool_use":
-        this.handleToolUseStart(block, context.items);
+        this.handleToolUseStart(block, context.items, context.toolUseCache);
         break;
       case "tool_result":
       case "mcp_tool_result":
@@ -6071,7 +6090,7 @@ class ClaudeAgentSession implements AgentSession {
       case "code_execution_tool_result":
       case "bash_code_execution_tool_result":
       case "text_editor_code_execution_tool_result":
-        await this.handleToolResult(block, context.items);
+        await this.handleToolResult(block, context.items, context.toolUseCache);
         break;
       default:
         break;
@@ -6096,8 +6115,12 @@ class ClaudeAgentSession implements AgentSession {
     return true;
   }
 
-  private handleToolUseStart(block: ClaudeContentChunk, items: AgentTimelineItem[]): void {
-    const entry = this.upsertToolUseEntry(block);
+  private handleToolUseStart(
+    block: ClaudeContentChunk,
+    items: AgentTimelineItem[],
+    toolUseCache: Map<string, ToolUseCacheEntry>,
+  ): void {
+    const entry = this.upsertToolUseEntry(block, toolUseCache);
     if (!entry) {
       return;
     }
@@ -6105,7 +6128,7 @@ class ClaudeAgentSession implements AgentSession {
       return;
     }
     entry.started = true;
-    this.toolUseCache.set(entry.id, entry);
+    toolUseCache.set(entry.id, entry);
     this.pushToolCall(
       mapClaudeRunningToolCall({
         name: entry.name,
@@ -6120,9 +6143,10 @@ class ClaudeAgentSession implements AgentSession {
   private async handleToolResult(
     block: ClaudeContentChunk,
     items: AgentTimelineItem[],
+    toolUseCache: Map<string, ToolUseCacheEntry>,
   ): Promise<void> {
     const entry =
-      typeof block.tool_use_id === "string" ? this.toolUseCache.get(block.tool_use_id) : undefined;
+      typeof block.tool_use_id === "string" ? toolUseCache.get(block.tool_use_id) : undefined;
     const blockToolName = typeof block.tool_name === "string" ? block.tool_name : undefined;
     const toolName = entry?.name ?? blockToolName ?? "tool";
     const callId =
@@ -6162,7 +6186,7 @@ class ClaudeAgentSession implements AgentSession {
     }
 
     if (typeof block.tool_use_id === "string") {
-      this.toolUseCache.delete(block.tool_use_id);
+      toolUseCache.delete(block.tool_use_id);
     }
   }
 
@@ -6408,12 +6432,15 @@ class ClaudeAgentSession implements AgentSession {
     }
   }
 
-  private upsertToolUseEntry(block: ClaudeContentChunk): ToolUseCacheEntry | null {
+  private upsertToolUseEntry(
+    block: ClaudeContentChunk,
+    toolUseCache: Map<string, ToolUseCacheEntry>,
+  ): ToolUseCacheEntry | null {
     const id = typeof block.id === "string" ? block.id : undefined;
     if (!id) {
       return null;
     }
-    const existing = this.toolUseCache.get(id) ?? createDefaultToolUseCacheEntry(id, block);
+    const existing = toolUseCache.get(id) ?? createDefaultToolUseCacheEntry(id, block);
 
     if (typeof block.name === "string" && block.name.length > 0) {
       existing.name = block.name;
@@ -6435,7 +6462,7 @@ class ClaudeAgentSession implements AgentSession {
       }
     }
 
-    this.toolUseCache.set(id, existing);
+    toolUseCache.set(id, existing);
     return existing;
   }
 
