@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   View,
   type GestureResponderEvent,
@@ -172,9 +172,11 @@ export function SceneInteraction({
   clearBox?: boolean;
   testIDPrefix?: string;
 }) {
+  const hovering = useRef(false);
   const hover = useCallback(
     ({ nativeEvent, currentTarget }: PointerEvent) => {
       if (nativeEvent.pointerType === "touch") return;
+      hovering.current = true;
       // offsetX is relative to whichever child is under the pointer, so the position is taken
       // against the surface that owns the scene's coordinates.
       const surface = (currentTarget as unknown as Element).getBoundingClientRect();
@@ -188,11 +190,31 @@ export function SceneInteraction({
     },
     [hitTest, onInspect, onSelect, targets],
   );
-  const leave = useCallback(() => onInspect(null, false), [onInspect]);
+  // Leaving closes only what a hovering pointer opened. A tap's selection stays until the next
+  // tap: a finger lifting off also leaves, and touch-emulating browsers send a mouse leave from
+  // a cursor that never entered.
+  const leave = useCallback(() => {
+    if (!hovering.current) return;
+    hovering.current = false;
+    onInspect(null, false);
+  }, [onInspect]);
   const press = useCallback(
-    ({ nativeEvent }: GestureResponderEvent) => {
-      const index = hitTest(nativeEvent.locationX, nativeEvent.locationY);
-      if (index === null) return;
+    ({ nativeEvent, currentTarget }: GestureResponderEvent) => {
+      let { locationX: x, locationY: y } = nativeEvent;
+      // On web a press arrives as the DOM click, which has no locationX; place it against the
+      // surface the way hover does.
+      if (isWeb && typeof x !== "number") {
+        const click = nativeEvent as unknown as MouseEvent;
+        const surface = (currentTarget as unknown as Element).getBoundingClientRect();
+        x = click.clientX - surface.left;
+        y = click.clientY - surface.top;
+      }
+      const index = hitTest(x, y);
+      // A tap on empty space lets go of the target, so a touch reader can clear a focus.
+      if (index === null) {
+        onInspect(null, false);
+        return;
+      }
       onSelect(index);
       onInspect(targets[index].key, true);
     },
