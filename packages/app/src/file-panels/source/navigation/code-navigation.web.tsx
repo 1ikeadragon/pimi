@@ -20,7 +20,7 @@ import { useSessionStore } from "@/stores/session-store";
 import { useKeyboardShortcutsStore } from "@/stores/keyboard-shortcuts-store";
 import { openWorkspaceFileLocation } from "@/workspace/file-open/open-location";
 import { useLanguageServerNotice } from "./language-server-notice.web";
-import { groupEditsByPath, replaceInEditor, writeOtherFiles } from "./rename-edits";
+import { groupEditsByPath, planEditorReplacement, writeOtherFiles } from "./rename-edits";
 import {
   NavigationResultsPanel,
   providerLabel,
@@ -284,12 +284,15 @@ export function CodeNavigation({
       });
       if (!confirmed) return;
 
+      // The current file's edits are checked against the open document before any other file is
+      // written, so a stale document cannot leave the rename half applied.
+      const own = byPath.get(filename);
+      const applyOwn = own ? planEditorReplacement(view, docAtQuery, own, symbol.text) : null;
       // Every other file is rewritten first, each over the version that was read: a file that
       // changed on disk refuses the write, and the current file is left untouched.
       await writeOtherFiles({ client, cwd, byPath, currentPath: filename, oldName: symbol.text });
-      const own = byPath.get(filename);
-      if (own) {
-        replaceInEditor(view, docAtQuery, own, symbol.text);
+      if (applyOwn) {
+        applyOwn();
         onSave?.();
       }
       toast.show(

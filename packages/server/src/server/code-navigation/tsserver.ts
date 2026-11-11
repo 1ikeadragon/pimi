@@ -21,6 +21,8 @@ const MAX_RESULTS = 500;
 const MAX_EDITS = 5_000;
 const MAX_PREVIEW_CHARS = 200;
 const STOP_GRACE_MS = 2_000;
+// Each tsserver holds a whole project in memory, so only the most recently used few stay alive.
+const MAX_SERVERS = 3;
 
 const TS_EXTENSIONS = new Set(["ts", "tsx", "mts", "cts", "js", "jsx", "mjs", "cjs"]);
 
@@ -71,7 +73,7 @@ class TsServerProcess {
     number,
     { resolve(body: unknown): void; reject(error: Error): void }
   >();
-  private readonly dirtyFiles = new Set<string>();
+  private readonly openFiles = new Set<string>();
   private idleTimer: NodeJS.Timeout | null = null;
   private exited = false;
 
@@ -107,14 +109,22 @@ class TsServerProcess {
     return !this.exited;
   }
 
-  /** Opens `file` so the project loads, with the unsaved buffer when the editor has one. */
+  /**
+   * Opens `file` so the project loads. With the editor's unsaved buffer that content is the
+   * file's text; without it the file is re-read from disk, since tsserver keeps an open file's
+   * text until told otherwise.
+   */
   async syncFile(file: string, content: string | undefined): Promise<void> {
     if (content !== undefined) {
-      this.dirtyFiles.add(file);
+      this.openFiles.add(file);
       this.send("open", { file, fileContent: content, projectRootPath: this.cwd });
       return;
     }
-    if (this.dirtyFiles.delete(file)) this.send("reload", { file, tmpfile: file });
+    if (this.openFiles.has(file)) {
+      this.send("reload", { file, tmpfile: file });
+      return;
+    }
+    this.openFiles.add(file);
     this.send("open", { file, projectRootPath: this.cwd });
   }
 
@@ -217,12 +227,23 @@ const servers = new Map<string, TsServerProcess>();
 
 function serverFor(workspaceId: string, cwd: string): TsServerProcess {
   const existing = servers.get(workspaceId);
-  if (existing?.alive && existing.cwd === cwd) return existing;
+  if (existing?.alive && existing.cwd === cwd) {
+    // Map order is recency: re-insert so the least recently used is first.
+    servers.delete(workspaceId);
+    servers.set(workspaceId, existing);
+    return existing;
+  }
   existing?.stop();
   const server = new TsServerProcess(cwd, resolveTsServerPath(cwd), () => {
     if (servers.get(workspaceId) === server) servers.delete(workspaceId);
   });
+  servers.delete(workspaceId);
   servers.set(workspaceId, server);
+  for (const [id, oldest] of servers) {
+    if (servers.size <= MAX_SERVERS) break;
+    oldest.stop();
+    servers.delete(id);
+  }
   return server;
 }
 

@@ -75,13 +75,17 @@ export async function writeOtherFiles(input: {
   }
 }
 
-/** Applies the edits to the open document as one transaction, so one undo restores the file. */
-export function replaceInEditor(
+/**
+ * Checks that the edits still apply to the open document and returns the function that applies
+ * them as one transaction, so one undo restores the file. Throws before anything is written when
+ * the document changed or no longer matches; the caller runs the returned function last.
+ */
+export function planEditorReplacement(
   view: EditorView,
   docAtQuery: Text,
   edits: RenameEdit[],
   oldName: string,
-): void {
+): () => void {
   if (!view.state.doc.eq(docAtQuery)) {
     throw new Error("The file changed while renaming; rename again.");
   }
@@ -95,8 +99,14 @@ export function replaceInEditor(
     to--;
     nextTo--;
   }
-  view.dispatch({
-    changes: { from, to, insert: next.slice(from, nextTo) },
-    userEvent: "input.rename",
-  });
+  return () => {
+    // The document must still be the one the plan was made from.
+    if (!view.state.doc.eq(docAtQuery)) {
+      throw new Error("The file changed while renaming; rename again.");
+    }
+    view.dispatch({
+      changes: { from, to, insert: next.slice(from, nextTo) },
+      userEvent: "input.rename",
+    });
+  };
 }
