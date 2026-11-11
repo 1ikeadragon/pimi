@@ -623,7 +623,10 @@ function useUnsavedChangesGuard(dirty: boolean) {
   useBeforeUnloadGuard(dirty);
   useEffect(() => {
     return navigation.addListener("beforeRemove", (event) => {
-      if (!dirtyRef.current) return;
+      // Leaving through the sidebar keeps this screen in the stack, unfocused, and a later stack
+      // change removes it. A prompt then would sit over an unrelated screen, so only a screen the
+      // person is looking at asks; an unfocused one is discarded.
+      if (!dirtyRef.current || !navigation.isFocused()) return;
       event.preventDefault();
       void (async () => {
         const confirmed = await confirmDialog({
