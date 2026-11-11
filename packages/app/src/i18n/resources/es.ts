@@ -354,6 +354,8 @@ export const es: TranslationResources = {
       previous: "Punto de datos anterior",
       next: "Siguiente punto de datos",
       drawing: "Dibujando gráfico...",
+      openInTab: "Abrir en pestaña",
+      openInTabLabel: "Abrir visualización en pestaña",
       sort: {
         ascending: "{{column}}, orden ascendente",
         descending: "{{column}}, orden descendente",
@@ -365,7 +367,7 @@ export const es: TranslationResources = {
       zoomIn: "Acercar",
       zoomOut: "Alejar",
       resetZoom: "Restablecer vista",
-      fullscreen: "Pantalla completa",
+      fit: "Ajustar a la vista",
       viewSource: "Ver fuente",
       viewDiagram: "Ver diagrama",
     },

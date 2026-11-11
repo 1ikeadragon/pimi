@@ -354,6 +354,8 @@ export const ja: TranslationResources = {
       previous: "前のデータ点",
       next: "次のデータ点",
       drawing: "グラフを描画中...",
+      openInTab: "タブで開く",
+      openInTabLabel: "ビジュアルをタブで開く",
       sort: {
         ascending: "{{column}}、昇順",
         descending: "{{column}}、降順",
@@ -365,7 +367,7 @@ export const ja: TranslationResources = {
       zoomIn: "拡大",
       zoomOut: "縮小",
       resetZoom: "表示をリセット",
-      fullscreen: "全画面表示",
+      fit: "全体を表示",
       viewSource: "ソースを表示",
       viewDiagram: "図を表示",
     },

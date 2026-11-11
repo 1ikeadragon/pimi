@@ -350,6 +350,8 @@ export const ko: TranslationResources = {
       previous: "이전 데이터 포인트",
       next: "다음 데이터 포인트",
       drawing: "차트 그리는 중...",
+      openInTab: "탭에서 열기",
+      openInTabLabel: "시각 자료를 탭에서 열기",
       sort: {
         ascending: "{{column}}, 오름차순 정렬",
         descending: "{{column}}, 내림차순 정렬",
@@ -361,7 +363,7 @@ export const ko: TranslationResources = {
       zoomIn: "확대",
       zoomOut: "축소",
       resetZoom: "보기 초기화",
-      fullscreen: "전체 화면",
+      fit: "화면에 맞추기",
       viewSource: "소스 보기",
       viewDiagram: "다이어그램 보기",
     },

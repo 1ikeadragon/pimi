@@ -345,6 +345,8 @@ export const en = {
       previous: "Previous data point",
       next: "Next data point",
       drawing: "Drawing chart...",
+      openInTab: "Open in tab",
+      openInTabLabel: "Open visual in tab",
       sort: {
         ascending: "{{column}}, sorted ascending",
         descending: "{{column}}, sorted descending",
@@ -356,7 +358,7 @@ export const en = {
       zoomIn: "Zoom in",
       zoomOut: "Zoom out",
       resetZoom: "Reset view",
-      fullscreen: "Fullscreen",
+      fit: "Fit to view",
       viewSource: "View source",
       viewDiagram: "View diagram",
     },

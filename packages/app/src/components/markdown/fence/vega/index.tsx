@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { View, type LayoutChangeEvent } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import type { ChatVega } from "@pimi/protocol/chat-vega";
+import { useOpenChatVisualInTab } from "../open-in-tab";
 import { FailedView, PendingCaption, PendingView, VisualCard } from "../view";
 import { VegaCanvas } from "./canvas";
 import { vegaTheme } from "./theme";
@@ -22,14 +23,13 @@ function loadRuntime(): Promise<Runtime> {
 
 const ThemedCanvas = withUnistyles(VegaCanvas);
 
-function VegaCard({ vega, source }: { vega: ChatVega; source: string }) {
+/**
+ * The chart itself, laid out for the width it is given: the chat column in a card, the whole pane
+ * in a tab. `onFailed` is called when the spec cannot be drawn.
+ */
+export function VegaPlot({ spec, onFailed }: { spec: ChatVega["spec"]; onFailed: () => void }) {
   const [runtime, setRuntime] = useState<Runtime | null>(null);
-  const [failed, setFailed] = useState(false);
   const [width, setWidth] = useState(0);
-  // The reply is split again on every streamed token, which parses a fresh, equal spec. The card
-  // is keyed by its source, so the first one stands for all of them and the chart is drawn once.
-  const [spec] = useState(vega.spec);
-  const fail = useCallback(() => setFailed(true), []);
   useEffect(() => {
     let current = true;
     loadRuntime()
@@ -38,32 +38,53 @@ function VegaCard({ vega, source }: { vega: ChatVega; source: string }) {
         return;
       })
       .catch(() => {
-        if (current) setFailed(true);
+        if (current) onFailed();
       });
     return () => {
       current = false;
     };
-  }, []);
+  }, [onFailed]);
   const measure = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
-    setWidth(Math.floor(nativeEvent.layout.width));
+    const measured = Math.floor(nativeEvent.layout.width);
+    // A hidden retained panel reports zero; keep the last real width.
+    if (measured > 0) setWidth(measured);
   }, []);
+  return (
+    <View style={styles.plot} onLayout={measure}>
+      {runtime && width > 0 ? (
+        <ThemedCanvas
+          runtime={runtime}
+          spec={spec}
+          width={width}
+          onFailed={onFailed}
+          uniProps={vegaTheme}
+        />
+      ) : (
+        <PendingCaption />
+      )}
+    </View>
+  );
+}
+
+const VEGA_TAB_TITLE = "Chart";
+
+function VegaCard({ vega, source }: { vega: ChatVega; source: string }) {
+  const [failed, setFailed] = useState(false);
+  // The reply is split again on every streamed token, which parses a fresh, equal spec. The card
+  // is keyed by its source, so the first one stands for all of them and the chart is drawn once.
+  const [visual] = useState(() => ({ kind: "vega" as const, vega }));
+  const fail = useCallback(() => setFailed(true), []);
+  const openInTab = useOpenChatVisualInTab(visual, vega.title ?? VEGA_TAB_TITLE);
 
   if (failed) return <FailedView source={source} />;
   return (
-    <VisualCard title={vega.title} subtitle={vega.subtitle} testID="chat-vega">
-      <View style={styles.plot} onLayout={measure}>
-        {runtime && width > 0 ? (
-          <ThemedCanvas
-            runtime={runtime}
-            spec={spec}
-            width={width}
-            onFailed={fail}
-            uniProps={vegaTheme}
-          />
-        ) : (
-          <PendingCaption />
-        )}
-      </View>
+    <VisualCard
+      title={vega.title}
+      subtitle={vega.subtitle}
+      testID="chat-vega"
+      onOpenInTab={openInTab}
+    >
+      <VegaPlot spec={visual.vega.spec} onFailed={fail} />
     </VisualCard>
   );
 }

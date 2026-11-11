@@ -349,6 +349,8 @@ export const ar: TranslationResources = {
       previous: "نقطة البيانات السابقة",
       next: "نقطة البيانات التالية",
       drawing: "جارٍ رسم المخطط...",
+      openInTab: "فتح في علامة تبويب",
+      openInTabLabel: "فتح العرض المرئي في علامة تبويب",
       sort: {
         ascending: "{{column}}، مرتب تصاعديًا",
         descending: "{{column}}، مرتب تنازليًا",
@@ -360,7 +362,7 @@ export const ar: TranslationResources = {
       zoomIn: "تكبير",
       zoomOut: "تصغير",
       resetZoom: "إعادة تعيين العرض",
-      fullscreen: "ملء الشاشة",
+      fit: "ملاءمة للعرض",
       viewSource: "عرض المصدر",
       viewDiagram: "عرض المخطط",
     },

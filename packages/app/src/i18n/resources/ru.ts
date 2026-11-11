@@ -353,6 +353,8 @@ export const ru: TranslationResources = {
       previous: "Предыдущая точка данных",
       next: "Следующая точка данных",
       drawing: "Построение диаграммы...",
+      openInTab: "Открыть во вкладке",
+      openInTabLabel: "Открыть визуализацию во вкладке",
       sort: {
         ascending: "{{column}}, по возрастанию",
         descending: "{{column}}, по убыванию",
@@ -364,7 +366,7 @@ export const ru: TranslationResources = {
       zoomIn: "Увеличить масштаб",
       zoomOut: "Уменьшить масштаб",
       resetZoom: "Сбросить масштаб",
-      fullscreen: "Полноэкранный режим",
+      fit: "Вписать в окно",
       viewSource: "Показать исходный код",
       viewDiagram: "Показать диаграмму",
     },

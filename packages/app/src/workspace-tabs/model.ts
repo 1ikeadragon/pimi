@@ -50,8 +50,8 @@ export type WorkspaceTabTarget =
   | PluginWorkspaceTabTarget
   | { kind: "setup"; workspaceId: string }
   | { kind: "commit_diff"; sha: string }
-  // A visual written inline in a chat. The document stays in memory, so the tab is not restored.
-  | { kind: "html_visual"; visualId: string; title: string };
+  // A visual written inline in a chat. It stays in memory, so the tab is not restored.
+  | { kind: "chat_visual"; visualId: string; title: string };
 
 export interface WorkspaceTab {
   tabId: string;

@@ -348,6 +348,8 @@ export const zhCN: TranslationResources = {
       previous: "上一个数据点",
       next: "下一个数据点",
       drawing: "正在绘制图表...",
+      openInTab: "在标签页中打开",
+      openInTabLabel: "在标签页中打开可视化",
       sort: {
         ascending: "{{column}}，升序排列",
         descending: "{{column}}，降序排列",
@@ -359,7 +361,7 @@ export const zhCN: TranslationResources = {
       zoomIn: "放大",
       zoomOut: "缩小",
       resetZoom: "重置视图",
-      fullscreen: "全屏",
+      fit: "适应视图",
       viewSource: "查看源码",
       viewDiagram: "查看图表",
     },

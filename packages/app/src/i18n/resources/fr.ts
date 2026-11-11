@@ -355,6 +355,8 @@ export const fr: TranslationResources = {
       previous: "Point de données précédent",
       next: "Point de données suivant",
       drawing: "Tracé du graphique...",
+      openInTab: "Ouvrir dans un onglet",
+      openInTabLabel: "Ouvrir le visuel dans un onglet",
       sort: {
         ascending: "{{column}}, tri croissant",
         descending: "{{column}}, tri décroissant",
@@ -366,7 +368,7 @@ export const fr: TranslationResources = {
       zoomIn: "Zoomer",
       zoomOut: "Dézoomer",
       resetZoom: "Réinitialiser la vue",
-      fullscreen: "Plein écran",
+      fit: "Ajuster à la vue",
       viewSource: "Afficher la source",
       viewDiagram: "Afficher le diagramme",
     },

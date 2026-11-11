@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { ChevronDown, ChevronUp, PanelTopOpen } from "lucide-react-native";
+import { ChevronDown, ChevronUp } from "lucide-react-native";
 import type { ChatArtifact } from "@pimi/protocol/chat-artifact";
 import type { ChatHtml } from "@pimi/protocol/chat-html";
 import { useAssistantFileLinkEnvironment } from "@/assistant-file-links";
@@ -11,9 +11,8 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { isWeb } from "@/constants/platform";
 import { FileHtmlPreview } from "@/file-panels/html-preview";
 import { htmlPreviewTheme } from "@/file-panels/html-preview-theme";
-import { rememberHtmlVisual } from "@/html-visuals/store";
-import { useOptionalPaneContext } from "@/panels/pane-context";
 import { decodeUtf8 } from "@/utils/decode-utf8";
+import { OpenInTabButton, useOpenChatVisualInTab } from "./open-in-tab";
 import { FailedView, PendingView } from "./view";
 
 // Full-size artifacts can still use the workspace file panel.
@@ -140,7 +139,6 @@ export function ChatHtmlCard({
 }
 
 function InlineHtmlPreview({ visual }: { visual: ChatHtml }) {
-  const pane = useOptionalPaneContext();
   const card = useRef<View>(null);
   const visible = useHasBeenVisible(card);
   const title = visual.title ?? INLINE_HTML_TITLE;
@@ -150,18 +148,12 @@ function InlineHtmlPreview({ visual }: { visual: ChatHtml }) {
     () => (visible ? { status: "ready", html } : { status: "loading" }),
     [html, visible],
   );
-  const openTab = pane?.openTab;
-  const openInTab = useCallback(() => {
-    openTab?.({ kind: "html_visual", visualId: rememberHtmlVisual({ html, title }), title });
-  }, [html, openTab, title]);
-  return (
-    <VisualFrame
-      frame={card}
-      title={title}
-      state={state}
-      onOpenInTab={openTab ? openInTab : undefined}
-    />
+  const tabVisual = useMemo(
+    () => ({ kind: "html" as const, html: { html, title } }),
+    [html, title],
   );
+  const openInTab = useOpenChatVisualInTab(tabVisual, title);
+  return <VisualFrame frame={card} title={title} state={state} onOpenInTab={openInTab} />;
 }
 
 /** The card an HTML visual runs in, whether its document came from a file or from the reply. */
@@ -193,16 +185,7 @@ function VisualFrame({
           {title}
         </Text>
         <View style={styles.actions}>
-          <Button
-            variant="ghost"
-            size="sm"
-            leftIcon={PanelTopOpen}
-            accessibilityLabel="Open artifact in tab"
-            disabled={!onOpenInTab}
-            onPress={onOpenInTab}
-          >
-            Open in tab
-          </Button>
+          <OpenInTabButton onPress={onOpenInTab} />
           <Button
             variant="ghost"
             size="sm"

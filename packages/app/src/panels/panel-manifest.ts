@@ -158,8 +158,8 @@ const manifests = {
     compactSheet: null,
     resourceKey: (target) => target.sha,
   },
-  html_visual: {
-    kind: "html_visual",
+  chat_visual: {
+    kind: "chat_visual",
     supportedHosts: ["main", "explorer"],
     showCloseButton: true,
     singleton: false,

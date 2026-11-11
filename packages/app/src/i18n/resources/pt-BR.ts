@@ -353,6 +353,8 @@ export const ptBR: TranslationResources = {
       previous: "Ponto de dados anterior",
       next: "Próximo ponto de dados",
       drawing: "Desenhando gráfico...",
+      openInTab: "Abrir em aba",
+      openInTabLabel: "Abrir visual em aba",
       sort: {
         ascending: "{{column}}, ordem crescente",
         descending: "{{column}}, ordem decrescente",
@@ -364,7 +366,7 @@ export const ptBR: TranslationResources = {
       zoomIn: "Aproximar",
       zoomOut: "Afastar",
       resetZoom: "Redefinir visualização",
-      fullscreen: "Tela cheia",
+      fit: "Ajustar à visualização",
       viewSource: "Ver fonte",
       viewDiagram: "Ver diagrama",
     },

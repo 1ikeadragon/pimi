@@ -1,13 +1,19 @@
 import { useCallback, useMemo, useState } from "react";
-import { Pressable, View, type LayoutChangeEvent, type ViewStyle } from "react-native";
-import { Code, Maximize2, Workflow } from "lucide-react-native";
+import {
+  Pressable,
+  View,
+  type LayoutChangeEvent,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
+import { Code, PanelTopOpen, Workflow } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { HighlightedCodeBlock } from "@/components/highlighted-code-block";
 import { ZoomableViewport } from "@/components/zoomable-viewport";
 import type { Theme } from "@/styles/theme";
 import type { MarkdownFenceRendererProps } from "./types";
-import { MermaidFullscreenViewer } from "./fullscreen-viewer.web";
+import { useOpenChatVisualInTab } from "../open-in-tab";
 import { MermaidIframeRuntime, type MermaidRenderedMessage } from "./iframe-runtime.web";
 import { useMermaidRenderModel } from "./use-render-model";
 import { getDiagramBoxStyle } from "./presentation";
@@ -31,11 +37,8 @@ function MermaidFenceHostImpl({
   });
   const [hasRuntimeContent, setHasRuntimeContent] = useState(false);
   const [showSource, setShowSource] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const showSourcePress = useCallback(() => setShowSource(true), []);
   const showDiagramPress = useCallback(() => setShowSource(false), []);
-  const openFullscreen = useCallback(() => setIsFullscreen(true), []);
-  const closeFullscreen = useCallback(() => setIsFullscreen(false), []);
   const handleRendered = useCallback(
     (message: MermaidRenderedMessage) => {
       setHasRuntimeContent(true);
@@ -49,6 +52,11 @@ function MermaidFenceHostImpl({
     [rendered],
   );
   const visible = state.visible;
+  const tabVisual = useMemo(
+    () => (visible ? { kind: "mermaid" as const, source: visible.source } : null),
+    [visible],
+  );
+  const openInTab = useOpenChatVisualInTab(tabVisual, t("message.diagram.diagram"));
   const canShowDiagram = visible !== null && hasRuntimeContent;
   const diagramVisible = canShowDiagram && !showSource;
   const [columnWidth, setColumnWidth] = useState(0);
@@ -58,11 +66,17 @@ function MermaidFenceHostImpl({
     if (measured > 0) setColumnWidth(measured);
   }, []);
   const padding = typeof textStyle.padding === "number" ? textStyle.padding : 0;
+  // Mermaid lays a gantt chart out across the width of its frame, so a gantt drawn in the narrow
+  // measuring frame, or shrunk to a phone column, overprints its labels. A gantt gets a frame at
+  // least GANTT_MIN_WIDTH wide and scrolls sideways when the column is narrower.
+  const ganttWidth = GANTT_SOURCE.test(code)
+    ? Math.max(columnWidth - padding * 2, GANTT_MIN_WIDTH)
+    : null;
   // A diagram wider than the column is drawn smaller to fit it, so the box takes the height the
   // drawing ends up with. At the diagram's full height a phone shows a small drawing in a tall
   // empty box.
   const runtimeHeight = Math.max(
-    fittedDiagramHeight(visible, columnWidth - padding * 2) + padding * 2,
+    fittedDiagramHeight(visible, ganttWidth ?? columnWidth - padding * 2) + padding * 2,
     1,
   );
   const actions = useMemo(
@@ -72,29 +86,38 @@ function MermaidFenceHostImpl({
         label: t("message.diagram.viewSource"),
         onPress: showSourcePress,
       },
-      {
-        icon: Maximize2,
-        label: t("message.diagram.fullscreen"),
-        onPress: openFullscreen,
-        testID: "mermaid-fullscreen",
-      },
+      ...(openInTab
+        ? [
+            {
+              icon: PanelTopOpen,
+              label: t("message.visualization.openInTab"),
+              onPress: openInTab,
+              testID: "chat-visual-open-in-tab",
+            },
+          ]
+        : []),
     ],
-    [openFullscreen, showSourcePress, t],
+    [openInTab, showSourcePress, t],
   );
   const diagramStyle = useMemo(
     () => [
       getDiagramBoxStyle(textStyle),
       containerStyle,
       { height: Math.min(runtimeHeight, MAX_PREVIEW_HEIGHT), minHeight: MIN_DIAGRAM_BOX_HEIGHT },
+      ganttWidth === null ? null : { width: ganttWidth + padding * 2 },
     ],
-    [runtimeHeight, textStyle],
+    [ganttWidth, padding, runtimeHeight, textStyle],
   );
-  const diagramSize = useMemo(
-    () => (visible ? { width: visible.width, height: visible.height } : MEASURING_SIZE),
-    [visible],
-  );
+  const diagramSize = useMemo(() => {
+    if (visible) return { width: visible.width, height: visible.height };
+    return ganttWidth === null ? MEASURING_SIZE : { ...MEASURING_SIZE, width: ganttWidth };
+  }, [ganttWidth, visible]);
   const sourceVisible = !diagramVisible;
-  const viewportStyle = diagramVisible ? diagramStyle : measuringStyle;
+  let viewportStyle: StyleProp<ViewStyle> = diagramStyle;
+  if (!diagramVisible) {
+    viewportStyle = ganttWidth === null ? measuringStyle : [measuringStyle, { width: ganttWidth }];
+  }
+  const scrollStyle = ganttWidth !== null && diagramVisible ? ganttScrollStyle : boundaryStyle;
 
   return (
     <>
@@ -125,7 +148,7 @@ function MermaidFenceHostImpl({
           ) : null}
         </View>
       ) : null}
-      <div inert={!diagramVisible} style={boundaryStyle}>
+      <div inert={!diagramVisible} style={scrollStyle}>
         <ZoomableViewport
           accessibilityLabel={t("message.diagram.diagram")}
           actions={actions}
@@ -141,13 +164,6 @@ function MermaidFenceHostImpl({
           />
         </ZoomableViewport>
       </div>
-      {isFullscreen && visible ? (
-        <MermaidFullscreenViewer
-          source={visible.source}
-          colorScheme={visible.colorScheme}
-          onClose={closeFullscreen}
-        />
-      ) : null}
     </>
   );
 }
@@ -170,6 +186,11 @@ const MEASURING_SIZE = { width: 240, height: 240 };
 const MIN_DIAGRAM_BOX_HEIGHT = 56;
 const MAX_PREVIEW_HEIGHT = 480;
 const boundaryStyle: React.CSSProperties = { display: "contents" };
+/** A diagram that starts with `gantt`, after any front matter, directive or comment lines. */
+const GANTT_SOURCE = /^\s*gantt\b/m;
+/** Wide enough for a year of month ticks and task labels beside their bars. */
+const GANTT_MIN_WIDTH = 760;
+const ganttScrollStyle: React.CSSProperties = { overflowX: "auto", overflowY: "hidden" };
 const sourceContainerStyle: ViewStyle = { position: "relative" };
 /**
  * The viewport's own root is `flex: 1`, so as a flex item it has `flex-basis: 0%` and that basis

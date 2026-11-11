@@ -57,7 +57,7 @@ export function isWorkbenchDocument(target: WorkspaceTab["target"]) {
     target.kind === "file" ||
     target.kind === "working_diff" ||
     target.kind === "commit_diff" ||
-    target.kind === "html_visual"
+    target.kind === "chat_visual"
   );
 }
 

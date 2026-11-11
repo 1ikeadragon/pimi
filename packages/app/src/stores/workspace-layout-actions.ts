@@ -1109,7 +1109,7 @@ function isEphemeralTab(tab: WorkspaceTab): boolean {
   return (
     tab.target.kind === "commit_diff" ||
     tab.target.kind === "new_tab" ||
-    tab.target.kind === "html_visual"
+    tab.target.kind === "chat_visual"
   );
 }
 

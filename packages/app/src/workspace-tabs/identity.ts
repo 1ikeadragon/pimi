@@ -74,9 +74,9 @@ function normalizeSimpleWorkspaceTabTarget(value: WorkspaceTabTarget): Workspace
       const sha = trimNonEmpty(value.sha);
       return sha ? { kind: "commit_diff", sha } : null;
     }
-    case "html_visual": {
+    case "chat_visual": {
       const visualId = trimNonEmpty(value.visualId);
-      return visualId ? { kind: "html_visual", visualId, title: value.title } : null;
+      return visualId ? { kind: "chat_visual", visualId, title: value.title } : null;
     }
     default:
       return null;
@@ -174,7 +174,7 @@ function secondaryWorkspaceTabTargetsEqual(
   if (left.kind === "commit_diff" && right.kind === "commit_diff") {
     return left.sha === right.sha;
   }
-  if (left.kind === "html_visual" && right.kind === "html_visual") {
+  if (left.kind === "chat_visual" && right.kind === "chat_visual") {
     return left.visualId === right.visualId;
   }
   return false;
@@ -239,8 +239,8 @@ export function buildDeterministicWorkspaceTabId(target: WorkspaceTabTarget): st
   if (target.kind === "commit_diff") {
     return `commit_diff_${target.sha}`;
   }
-  if (target.kind === "html_visual") {
-    return `html_visual_${target.visualId}`;
+  if (target.kind === "chat_visual") {
+    return `chat_visual_${target.visualId}`;
   }
   if (target.kind === "working_diff") {
     return "working_diff";

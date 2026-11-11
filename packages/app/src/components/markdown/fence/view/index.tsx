@@ -1,10 +1,11 @@
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { ChevronDown, ChevronRight } from "lucide-react-native";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { StyleSheet } from "react-native-unistyles";
 import type { ChartNode, ChatView } from "@pimi/protocol/chat-view";
+import { OpenInTabButton, useOpenChatVisualInTab } from "../open-in-tab";
 import { ChartView } from "./chart";
 import { ViewNodeView } from "./registry";
 
@@ -26,20 +27,31 @@ export function VisualCard({
   title,
   subtitle,
   testID,
+  onOpenInTab,
   children,
 }: {
   title?: string | null;
   subtitle?: string | null;
   testID: string;
+  /** Shown as "Open in tab" beside the heading when the chat can open tabs. */
+  onOpenInTab?: () => void;
   children: ReactNode;
 }) {
+  const heading = title ? (
+    <Text accessibilityRole="header" style={styles.title}>
+      {title}
+    </Text>
+  ) : null;
   return (
     <View style={styles.card} testID={testID}>
-      {title ? (
-        <Text accessibilityRole="header" style={styles.title}>
-          {title}
-        </Text>
-      ) : null}
+      {onOpenInTab ? (
+        <View style={styles.header}>
+          <View style={styles.heading}>{heading}</View>
+          <OpenInTabButton onPress={onOpenInTab} />
+        </View>
+      ) : (
+        heading
+      )}
       {subtitle ? <Text style={styles.caption}>{subtitle}</Text> : null}
       {children}
     </View>
@@ -111,6 +123,8 @@ export function ChartCard({ chart }: { chart: ChartNode }) {
   );
 }
 
+const VIEW_TAB_TITLE = "Visual";
+
 /**
  * A `pimi-chart` or `pimi-view` block. `view` is null while the block is still streaming and
  * not yet valid, and for a block that ended invalid, which `failed` marks.
@@ -125,9 +139,11 @@ export function ViewFence({
   /** The block is complete and still not a valid view. */
   failed?: boolean;
 }) {
+  const visual = useMemo(() => (view ? { kind: "view" as const, view } : null), [view]);
+  const openInTab = useOpenChatVisualInTab(visual, view?.title ?? VIEW_TAB_TITLE);
   if (!view) return failed ? <FailedView source={source} /> : <PendingView source={source} />;
   return (
-    <VisualCard title={view.title} testID="chat-view">
+    <VisualCard title={view.title} testID="chat-view" onOpenInTab={openInTab}>
       <ViewNodeView node={view.root} />
     </VisualCard>
   );
@@ -142,6 +158,15 @@ const styles = StyleSheet.create((theme) => ({
     padding: theme.spacing[4],
     gap: theme.spacing[3],
   },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+    // The ghost button's own padding would push the heading down; let it overhang the card's.
+    marginVertical: -theme.spacing[1],
+    marginRight: -theme.spacing[2],
+  },
+  heading: { flex: 1, minWidth: 0 },
   title: {
     color: theme.colors.foreground,
     fontSize: theme.fontSize.base,
