@@ -7,6 +7,12 @@ import type { CodeNavigationQuery, ProviderResult } from "./types.js";
 import { closeAllTsServers, closeTsServer } from "./tsserver.js";
 
 export type { CodeNavigationQuery, LanguageServerOverride } from "./types.js";
+export { clearLspDetectionCache } from "./lsp-servers.js";
+export {
+  listLanguageServers,
+  testLanguageServer,
+  validateLanguageServerOverrides,
+} from "./lsp-status.js";
 
 export function closeCodeNavigationWorkspace(workspaceId: string): void {
   closeTsServer(workspaceId);
@@ -31,13 +37,16 @@ async function renameSupportFor(query: CodeNavigationQuery): Promise<RenameSuppo
   const language = lspLanguageForPath(query.path);
   if (!language) return { available: false, tooltip: null, language: null };
   const launch = await resolveLspLaunch(language, query.languageServers);
-  const label = language.id.charAt(0).toUpperCase() + language.id.slice(1);
   return launch
-    ? { available: true, tooltip: null, language: { id: language.id, label, serverFound: true } }
+    ? {
+        available: true,
+        tooltip: null,
+        language: { id: language.id, label: language.label, serverFound: true },
+      }
     : {
         available: false,
         tooltip: renameHint(language),
-        language: { id: language.id, label, serverFound: false },
+        language: { id: language.id, label: language.label, serverFound: false },
       };
 }
 

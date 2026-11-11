@@ -19,6 +19,7 @@ import { usePaneContext } from "@/panels/pane-context";
 import { useSessionStore } from "@/stores/session-store";
 import { useKeyboardShortcutsStore } from "@/stores/keyboard-shortcuts-store";
 import { openWorkspaceFileLocation } from "@/workspace/file-open/open-location";
+import { useLanguageServerNotice } from "./language-server-notice.web";
 import { groupEditsByPath, replaceInEditor, writeOtherFiles } from "./rename-edits";
 import {
   NavigationResultsPanel,
@@ -103,6 +104,7 @@ export function CodeNavigation({
   const { serverId, workspaceId } = usePaneContext();
   const client = useSessionStore((state) => state.sessions[serverId]?.client ?? null);
   const toast = useToast();
+  useLanguageServerNotice({ serverId, workspaceId, filename });
   const cwd = useWorkspaceDirectory(serverId, workspaceId);
   const [renameSupport, setRenameSupport] = useState<CodeNavigationResult["renameSupport"] | null>(
     null,

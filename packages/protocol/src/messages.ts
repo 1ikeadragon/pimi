@@ -234,6 +234,14 @@ const MutableRelayConfigSchema = z
   })
   .passthrough();
 
+// A language server the user chose in place of auto-detection. `command` is an absolute path to an
+// executable file; it is launched directly with `args`, never through a shell.
+export const EditorLanguageServerSchema = z.object({
+  language: z.string().min(1).max(32),
+  command: z.string().min(1).max(4096),
+  args: z.array(z.string().max(4096)).max(32),
+});
+
 export const MutableDaemonConfigSchema = z
   .object({
     relay: MutableRelayConfigSchema,
@@ -274,6 +282,7 @@ export const MutableDaemonConfigSchema = z
     resumePrompt: z.string().optional(),
     appendSystemPrompt: z.string().default(""),
     terminalProfiles: z.array(TerminalProfileSchema).optional(),
+    editorLanguageServers: z.array(EditorLanguageServerSchema).optional(),
     agentProfiles: z.array(AgentProfileSchema).optional(),
     // Keys of built-in profiles the user deleted; they are not seeded again.
     agentProfilesRemovedBuiltins: z.array(z.string()).optional(),
@@ -311,6 +320,7 @@ export const MutableDaemonConfigPatchSchema = z
     resumePrompt: z.string().optional(),
     appendSystemPrompt: z.string().optional(),
     terminalProfiles: z.array(TerminalProfileSchema).optional(),
+    editorLanguageServers: z.array(EditorLanguageServerSchema).optional(),
     agentProfiles: z.array(AgentProfileSchema).optional(),
     agentProfilesRemovedBuiltins: z.array(z.string()).optional(),
     pluginsEnabled: z.boolean().optional(),
@@ -2628,6 +2638,21 @@ const CodeNavigationQueryRequestSchema = z.object({
   requestId: z.string(),
 });
 
+const CodeNavigationServersListRequestSchema = z.object({
+  type: z.literal("code.navigation.servers.list.request"),
+  requestId: z.string(),
+});
+
+// Starts the server to see whether it comes up. `command` tests a candidate before it is saved;
+// without one, the server that would be used now is tested.
+const CodeNavigationServerTestRequestSchema = z.object({
+  type: z.literal("code.navigation.servers.test.request"),
+  language: z.string().min(1).max(32),
+  command: z.string().min(1).max(4096).optional(),
+  args: z.array(z.string().max(4096)).max(32).optional(),
+  requestId: z.string(),
+});
+
 const GitHubRepoSegmentSchema = z.string().regex(/^[A-Za-z0-9._-]+$/);
 
 const CheckoutCheckDetailsRequestPayloadSchema = z.object({
@@ -3505,6 +3530,8 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   CheckoutBlameRequestSchema,
   PimiCodebaseSearchRequestSchema,
   CodeNavigationQueryRequestSchema,
+  CodeNavigationServersListRequestSchema,
+  CodeNavigationServerTestRequestSchema,
   CheckoutForgeGetCheckDetailsRequestSchema,
   CheckoutPrStatusRequestSchema,
   PullRequestTimelineRequestSchema,
@@ -5633,6 +5660,41 @@ export const CodeNavigationResultSchema = z.object({
     .max(5000),
 });
 
+export const CodeNavigationServerStatusSchema = z.object({
+  language: z.string(),
+  label: z.string(),
+  extensions: z.array(z.string()),
+  // "bundled" is TypeScript, which Pimi runs itself and does not offer to configure.
+  source: z.enum(["auto", "custom", "bundled"]),
+  name: z.string().nullable(),
+  path: z.string().nullable(),
+  version: z.string().nullable(),
+  status: z.enum(["found", "not_found", "failed"]),
+  error: z.string().nullable(),
+  installHint: z.string().nullable(),
+  custom: z.object({ command: z.string(), args: z.array(z.string()) }).nullable(),
+});
+
+const CodeNavigationServersListResponseSchema = z.object({
+  type: z.literal("code.navigation.servers.list.response"),
+  payload: z.object({
+    requestId: z.string(),
+    servers: z.array(CodeNavigationServerStatusSchema),
+    error: z.string().nullable(),
+  }),
+});
+
+const CodeNavigationServerTestResponseSchema = z.object({
+  type: z.literal("code.navigation.servers.test.response"),
+  payload: z.object({
+    requestId: z.string(),
+    ok: z.boolean(),
+    name: z.string().nullable(),
+    version: z.string().nullable(),
+    error: z.string().nullable(),
+  }),
+});
+
 const CodeNavigationQueryResponseSchema = z.object({
   type: z.literal("code.navigation.query.response"),
   payload: z.object({
@@ -6927,6 +6989,8 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   CheckoutBlameResponseSchema,
   PimiCodebaseSearchResponseSchema,
   CodeNavigationQueryResponseSchema,
+  CodeNavigationServersListResponseSchema,
+  CodeNavigationServerTestResponseSchema,
   CheckoutForgeGetCheckDetailsResponseSchema,
   CheckoutPrStatusResponseSchema,
   PullRequestTimelineResponseSchema,
@@ -7304,6 +7368,12 @@ export type PimiCodebaseSearchRequest = z.infer<typeof PimiCodebaseSearchRequest
 export type PimiCodebaseSearchResult = z.infer<typeof PimiCodebaseSearchResultSchema>;
 export type CodeNavigationQueryRequest = z.infer<typeof CodeNavigationQueryRequestSchema>;
 export type CodeNavigationResult = z.infer<typeof CodeNavigationResultSchema>;
+export type CodeNavigationServerStatus = z.infer<typeof CodeNavigationServerStatusSchema>;
+export type CodeNavigationServersListRequest = z.infer<
+  typeof CodeNavigationServersListRequestSchema
+>;
+export type CodeNavigationServerTestRequest = z.infer<typeof CodeNavigationServerTestRequestSchema>;
+export type EditorLanguageServer = z.infer<typeof EditorLanguageServerSchema>;
 export type CheckoutBlameRequest = z.infer<typeof CheckoutBlameRequestSchema>;
 export type CheckoutBlameResult = z.infer<typeof CheckoutBlameResultSchema>;
 export type ParsedDiffFile = z.infer<typeof ParsedDiffFileSchema>;

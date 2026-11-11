@@ -4686,6 +4686,23 @@ export class DaemonClient {
     return response.result;
   }
 
+  async listCodeNavigationServers() {
+    const payload =
+      await this.sendNamespacedCorrelatedSessionRequest<"code.navigation.servers.list.response">({
+        message: { type: "code.navigation.servers.list.request" },
+        timeout: 45_000,
+      });
+    if (payload.error) throw new Error(payload.error);
+    return payload.servers;
+  }
+
+  async testCodeNavigationServer(input: { language: string; command?: string; args?: string[] }) {
+    return this.sendNamespacedCorrelatedSessionRequest<"code.navigation.servers.test.response">({
+      message: { type: "code.navigation.servers.test.request", ...input },
+      timeout: 30_000,
+    });
+  }
+
   async getLineBlame(input: {
     cwd: string;
     path: string;

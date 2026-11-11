@@ -217,6 +217,7 @@ import type { AgentClient, AgentProvider } from "./agent/agent-sdk-types.js";
 import type {
   AgentProfile,
   AgentSkillSelection,
+  EditorLanguageServer,
   FirstAgentContext,
   PluginSource,
   TerminalProfile,
@@ -450,6 +451,7 @@ export interface PaseoDaemonConfig {
   enableTerminalAgentHooks?: boolean;
   appendSystemPrompt?: string;
   terminalProfiles?: TerminalProfile[];
+  editorLanguageServers?: EditorLanguageServer[];
   agentProfiles?: AgentProfile[];
   agentProfilesRemovedBuiltins?: string[];
   skillSelection?: AgentSkillSelection;
@@ -622,6 +624,10 @@ function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): Mutab
 
   if (config.terminalProfiles !== undefined) {
     initialConfig.terminalProfiles = config.terminalProfiles;
+  }
+
+  if (config.editorLanguageServers !== undefined) {
+    initialConfig.editorLanguageServers = config.editorLanguageServers;
   }
 
   if (config.agentProfiles !== undefined) {

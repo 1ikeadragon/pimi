@@ -20,6 +20,7 @@ export interface LspServerSpec {
 
 export interface LspLanguage {
   id: string;
+  label: string;
   /** The LSP `languageId` sent in didOpen. */
   languageId: string;
   extensions: string[];
@@ -30,6 +31,7 @@ export interface LspLanguage {
 export const LSP_LANGUAGES: LspLanguage[] = [
   {
     id: "rust",
+    label: "Rust",
     languageId: "rust",
     extensions: ["rs"],
     servers: [
@@ -39,6 +41,7 @@ export const LSP_LANGUAGES: LspLanguage[] = [
   },
   {
     id: "python",
+    label: "Python",
     languageId: "python",
     extensions: ["py", "pyi"],
     servers: [
@@ -50,6 +53,7 @@ export const LSP_LANGUAGES: LspLanguage[] = [
   },
   {
     id: "php",
+    label: "PHP",
     languageId: "php",
     extensions: ["php"],
     servers: [
@@ -60,6 +64,7 @@ export const LSP_LANGUAGES: LspLanguage[] = [
   },
   {
     id: "go",
+    label: "Go",
     languageId: "go",
     extensions: ["go"],
     servers: [{ name: "gopls", command: "gopls", args: [] }],

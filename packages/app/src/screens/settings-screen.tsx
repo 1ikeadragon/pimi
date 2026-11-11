@@ -118,6 +118,7 @@ import {
 import { PluginSettingsContent } from "@/plugins/settings";
 import { usePluginDisplayName } from "@/plugins/plugin-list";
 import { HostPluginsPage } from "@/screens/settings/plugins-page";
+import { HostEditorPage } from "@/screens/settings/editor-page";
 import { MetadataGenerationPage } from "@/screens/settings/metadata-generation-page";
 import { NetworkSection } from "@/screens/settings/network/network-section";
 import { HostVoicePage } from "@/screens/settings/voice/voice-page";
@@ -262,6 +263,7 @@ const HOST_SECTION_ITEMS: HostSectionItem[] = [
   { id: "providers", labelKey: "settings.hostSections.providers", icon: Boxes },
   { id: "usage", labelKey: "settings.hostSections.usage", icon: Gauge },
   { id: "terminals", labelKey: "settings.hostSections.terminals", icon: SquareTerminal },
+  { id: "editor", labelKey: "settings.hostSections.editor", icon: Code2 },
   { id: "plugins", labelKey: "settings.hostSections.plugins", icon: Blocks },
 ];
 
@@ -274,6 +276,7 @@ const PIMI_HOST_ORDER: HostSectionSlug[] = [
   "workspaces",
   "usage",
   "terminals",
+  "editor",
   "plugins",
   "connections",
   "pair-device",
@@ -313,6 +316,8 @@ function renderHostSettingsContent(
       return <HostUsagePage serverId={view.serverId} />;
     case "terminals":
       return <HostTerminalsPage serverId={view.serverId} />;
+    case "editor":
+      return <HostEditorPage serverId={view.serverId} />;
     case "plugins":
       return <HostPluginsPage serverId={view.serverId} />;
     case "host":

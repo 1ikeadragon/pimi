@@ -75,6 +75,8 @@ export class LspProcess {
   private ready: Promise<void>;
   private exited = false;
   private capabilities: Record<string, unknown> = {};
+  /** What the server called itself in `initialize`, once it has answered. */
+  serverInfo: { name?: string; version?: string } | null = null;
   /** False until the server has answered one request after starting; the first can be slow. */
   warm = false;
   // rust-analyzer reports `experimental/serverStatus` while it loads the project and answers
@@ -129,8 +131,12 @@ export class LspProcess {
           rename: { prepareSupport: true },
         },
       },
-    })) as { capabilities?: Record<string, unknown> } | null;
+    })) as {
+      capabilities?: Record<string, unknown>;
+      serverInfo?: { name?: string; version?: string };
+    } | null;
     this.capabilities = result?.capabilities ?? {};
+    this.serverInfo = result?.serverInfo ?? null;
     this.notify("initialized", {});
     this.initializedAt = Date.now();
   }
@@ -144,6 +150,11 @@ export class LspProcess {
       if (this.quiescent === null && Date.now() - this.initializedAt > STATUS_GRACE_MS) return;
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
+  }
+
+  /** Resolves when the server has answered `initialize`; rejects if it could not start. */
+  whenReady(timeoutMs: number): Promise<void> {
+    return this.withTimeout(this.ready, timeoutMs, "start");
   }
 
   /** Brings the server's copy of `path` to `text`, opening it first if needed. */
