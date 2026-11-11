@@ -1,27 +1,10 @@
 ---
 title: 故障排查
-description: 修复 Linux AppImage 启动错误、找不到 Provider 以及环境不一致的问题。
+description: 修复找不到 Provider 以及环境不一致的问题。
 nav: 常见问题
 ---
 
 # 故障排查 {#troubleshooting}
-
-## Linux 上 AppImage 无法打开 {#appimage-wont-open-on-linux}
-
-让下载的 AppImage 可执行，然后在终端中启动它，查看错误信息：
-
-```bash
-chmod +x Pimi-x86_64.AppImage
-./Pimi-x86_64.AppImage
-```
-
-如果报告 `error loading libfuse.so.2`，请不使用 FUSE 运行：
-
-```bash
-./Pimi-x86_64.AppImage --appimage-extract-and-run
-```
-
-Pimi 窗口应该会打开。你也可以从[下载页面](https://1ikeadragon.github.io/pimi/)获取 `.deb`（Debian/Ubuntu）或 `.rpm`（Fedora）进行安装。
 
 ## Pimi 找不到我的 Provider {#paseo-cant-find-my-provider}
 
@@ -92,7 +75,6 @@ pimi --host <host:port> provider diagnostic <provider> --json
 | 平台    | 路径                           |
 | ------- | ------------------------------ |
 | macOS   | `~/Library/Logs/Pimi/main.log` |
-| Linux   | `~/.config/Pimi/logs/main.log` |
 | Windows | `%APPDATA%\Pimi\logs\main.log` |
 
 ## 我修改了 config.json，但什么都没发生 {#i-changed-configjson-but-nothing-happened}

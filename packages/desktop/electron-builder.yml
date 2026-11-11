@@ -119,31 +119,6 @@ mac:
   target:
     - dmg
     - zip
-linux:
-  category: Development
-  icon: assets/pimi-icon.png
-  artifactName: "Pimi-${version}-${arch}.${ext}"
-  vendor: "Pimi"
-  extraResources:
-    - from: bin/pimi
-      to: bin/pimi
-    # Existing desktop installs can still have an old shell link into the bundle.
-    - from: bin/paseo
-      to: bin/paseo
-  target:
-    - AppImage
-    - deb
-    - rpm
-    - tar.gz
-deb:
-  afterInstall: scripts/linux-sandbox/after-install.tpl
-rpm:
-  afterInstall: scripts/linux-sandbox/after-install.tpl
-appImage:
-  # A nonempty argument list replaces builder's hardcoded --no-sandbox default.
-  executableArgs: ["--class=Pimi"]
-  # Keep this filename stable so manual replacement preserves shortcuts and shell links.
-  artifactName: "Pimi-${arch}.${ext}"
 win:
   artifactName: "Pimi-Setup-${version}-${arch}.${ext}"
   icon: assets/pimi-icon.png
@@ -156,11 +131,9 @@ win:
     - target: nsis
       arch:
         - x64
-        - arm64
     - target: zip
       arch:
         - x64
-        - arm64
 nsis:
   oneClick: false
   perMachine: false

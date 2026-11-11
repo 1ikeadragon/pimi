@@ -1,10 +1,9 @@
-export function describeSandbox(input: { disabled: boolean; launcherReason?: string }): {
+export function describeSandbox(input: { disabled: boolean }): {
   enabled: boolean;
   reason: string;
 } {
   return {
     enabled: !input.disabled,
-    reason:
-      input.launcherReason ?? (input.disabled ? "requested by --no-sandbox" : "Chromium default"),
+    reason: input.disabled ? "requested by --no-sandbox" : "Chromium default",
   };
 }

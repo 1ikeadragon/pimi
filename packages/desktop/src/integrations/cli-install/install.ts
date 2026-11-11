@@ -24,7 +24,6 @@ function resolveInstallSourcePath(shimPath: string): string {
     isPackaged: app.isPackaged,
     executablePath: app.getPath("exe"),
     shimPath,
-    appImagePath: process.env.APPIMAGE,
   });
 }
 

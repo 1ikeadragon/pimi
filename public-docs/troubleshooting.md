@@ -1,29 +1,12 @@
 ---
 title: Troubleshooting
-description: Fix Linux AppImage launch errors, missing providers, and environment mismatches.
+description: Fix missing providers, and environment mismatches.
 nav: Common problems
 order: 90
 category: Troubleshooting
 ---
 
 # Troubleshooting
-
-## AppImage won't open on Linux
-
-Make the downloaded AppImage executable, then launch it from a terminal to see any error:
-
-```bash
-chmod +x Pimi-x86_64.AppImage
-./Pimi-x86_64.AppImage
-```
-
-If it reports `error loading libfuse.so.2`, run without FUSE:
-
-```bash
-./Pimi-x86_64.AppImage --appimage-extract-and-run
-```
-
-The Pimi window should open. You can also install the `.deb` on Debian/Ubuntu or the `.rpm` on Fedora from the [download page](https://1ikeadragon.github.io/pimi/).
 
 ## Pimi can't find my provider
 
@@ -94,7 +77,6 @@ Desktop app log location:
 | Platform | Path                           |
 | -------- | ------------------------------ |
 | macOS    | `~/Library/Logs/Pimi/main.log` |
-| Linux    | `~/.config/Pimi/logs/main.log` |
 | Windows  | `%APPDATA%\Pimi\logs\main.log` |
 
 ## I changed config.json but nothing happened

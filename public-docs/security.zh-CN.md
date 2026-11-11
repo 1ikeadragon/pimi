@@ -102,14 +102,6 @@ Pimi 使用主机白名单校验传入请求的 `Host` 请求头。主机无法�
 
 对于移动端访问，我们仍然推荐使用中继，它开箱即用地把身份验证和端到端加密结合在一起。密码验证主要适用于直接的局域网或 VPN 连接，在不使用中继的情况下提供访问控制。
 
-## Linux 桌面沙盒 {#linux-desktop-sandbox}
-
-每次在 Linux 上启动桌面应用时，Pimi 都会检查 Chromium 沙盒是否可用。当用户命名空间可用，或已安装的沙盒辅助程序可用时，它会保持沙盒启用。`.deb` 和 `.rpm` 安装包会配置这个辅助程序。
-
-当两者都不可用时，AppImage 和解压后的 tar 包会在禁用 Chromium 沙盒的情况下启动。如果你需要 Chromium 进程隔离，请使用 `.deb` 或 `.rpm` 软件包。显式传入 `--no-sandbox` 会禁用沙盒。
-
-打开 **设置 → 诊断 → App diagnostic** 查看沙盒状态及原因。[桌面日志](/docs/troubleshooting#reading-the-logs)也会记录同样的决定。
-
 ## Agent 身份验证 {#agent-authentication}
 
 Pimi 封装了 Agent CLI（Claude Code、Codex、OpenCode、Muse Code），但不管理它们的身份验证。每个 Agent Provider 自行处理凭据：

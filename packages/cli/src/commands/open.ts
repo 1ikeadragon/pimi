@@ -17,22 +17,6 @@ function findDesktopApp(): string | null {
     return null;
   }
 
-  if (process.platform === "linux") {
-    const candidates = [
-      "/usr/bin/Pimi",
-      "/opt/Pimi/Pimi",
-      path.join(homedir(), "Applications", "Pimi.AppImage"),
-    ];
-
-    for (const candidate of candidates) {
-      if (existsSync(candidate)) {
-        return candidate;
-      }
-    }
-
-    return null;
-  }
-
   if (process.platform === "win32") {
     const localAppData = process.env.LOCALAPPDATA;
     if (!localAppData) {

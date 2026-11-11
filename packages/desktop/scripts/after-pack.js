@@ -3,15 +3,12 @@ const path = require("path");
 
 const { smokePackagedDesktopApp } = require("../e2e/packaged-app-smoke.js");
 
-const { installLinuxLauncher } = require("./linux-sandbox");
-
 // electron-builder arch enum → Node.js arch string
 const ARCH_MAP = { 0: "ia32", 1: "x64", 2: "armv7l", 3: "arm64", 4: "universal" };
 
 const RIPGREP_PLATFORM_DIR = {
   darwin: { arm64: "arm64-darwin", x64: "x64-darwin" },
-  linux: { arm64: "arm64-linux", x64: "x64-linux" },
-  win32: { arm64: "arm64-win32", x64: "x64-win32" },
+  win32: { x64: "x64-win32" },
 };
 
 function rmSafe(target) {
@@ -149,11 +146,7 @@ exports.default = async function afterPack(context) {
 
   pruneNativeModules(context.appOutDir, platform, arch, context.packager.appInfo.productFilename);
 
-  if (platform === "linux") {
-    installLinuxLauncher(context.appOutDir);
-  }
-
-  if (platform === "linux" || platform === "win32") {
+  if (platform === "win32") {
     if (arch !== process.arch) {
       console.log(
         `Skipping packaged-app smoke: build arch ${arch} differs from host ${process.arch}.`,

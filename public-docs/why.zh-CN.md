@@ -12,7 +12,7 @@ Pimi 是一个完整的 Agent 开发环境。你可以运行编程 Agent、编�
 
 打开桌面应用，选择一个项目和一个 Agent，然后开始工作。对话、编辑器、终端、diff 和浏览器以分栏的形式放在一起。运行你的应用、检查结果、让 Agent 修改，都不用离开工作区。
 
-桌面应用支持 macOS、Windows 和 Linux。它会自动启动和管理本地 daemon。
+桌面应用支持 macOS 和 Windows。它会自动启动和管理本地 daemon。
 
 ## 并行运行任务 {#run-tasks-in-parallel}
 

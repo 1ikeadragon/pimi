@@ -14,7 +14,7 @@ Pimi is a full agentic development environment. Run coding agents, edit files, r
 
 Open the desktop app, choose a project and an agent, and start working. Keep the conversation, editor, terminal, diffs, and browser together in split panes. Run your app, inspect the result, and ask the agent for changes without leaving the workspace.
 
-The desktop app is available on macOS, Windows, and Linux. It starts and manages its local daemon automatically.
+The desktop app is available on macOS and Windows. It starts and manages its local daemon automatically.
 
 ## Run tasks in parallel
 

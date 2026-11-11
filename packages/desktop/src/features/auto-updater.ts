@@ -41,13 +41,6 @@ export function downloadAndInstallUpdate(
   return updater.install(currentVersion, onBeforeQuit);
 }
 
-export function shouldInstallAppUpdateOnQuit(input: {
-  platform: NodeJS.Platform;
-  isAppImage: boolean;
-}): boolean {
-  return !(input.platform === "linux" && input.isAppImage);
-}
-
 export async function installAppUpdateOnQuit({
   currentVersion,
   signal,
@@ -56,13 +49,5 @@ export async function installAppUpdateOnQuit({
   releaseChannel: AppReleaseChannel;
   signal: AbortSignal;
 }): Promise<boolean> {
-  if (
-    !shouldInstallAppUpdateOnQuit({
-      platform: process.platform,
-      isAppImage: Boolean(process.env.APPIMAGE),
-    })
-  ) {
-    return false;
-  }
   return updater.installOnQuit(currentVersion, signal);
 }
