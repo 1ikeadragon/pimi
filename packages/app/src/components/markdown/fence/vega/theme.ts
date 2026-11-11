@@ -6,7 +6,9 @@ export interface VegaTheme {
   config: Config;
 }
 
-const themes = new WeakMap<Theme, VegaTheme>();
+// Keyed by the theme's colors, not the theme: `withUnistyles` hands over a new Proxy of the theme
+// on every render, while the colors object behind it stays the same until the theme changes.
+const themes = new WeakMap<Theme["colors"], { font: string; value: VegaTheme }>();
 const LABEL_SIZE = 11;
 
 /**
@@ -14,11 +16,12 @@ const LABEL_SIZE = 11;
  * theme and palette draws the same chart in its own tokens. For `withUnistyles`.
  */
 export function vegaTheme(theme: Theme): { theme: VegaTheme } {
-  let value = themes.get(theme);
+  const { colors } = theme;
+  const font = theme.fontFamily.ui;
+  const cached = themes.get(colors);
+  let value = cached?.font === font ? cached.value : undefined;
   if (!value) {
-    const { colors } = theme;
     const [primary] = colors.chartSeries;
-    const font = theme.fontFamily.ui;
     const text = { font, fontSize: LABEL_SIZE };
     value = {
       config: {
@@ -83,7 +86,7 @@ export function vegaTheme(theme: Theme): { theme: VegaTheme } {
         title: { color: colors.foreground, font, fontSize: 13, fontWeight: "normal" },
       },
     };
-    themes.set(theme, value);
+    themes.set(colors, { font, value });
   }
   return { theme: value };
 }
