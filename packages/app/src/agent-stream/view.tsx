@@ -126,6 +126,7 @@ import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store"
 import { useStableEvent } from "@/hooks/use-stable-event";
 import { useForkAgent } from "@/hooks/use-fork-agent";
 import { ProviderSwitchMarker } from "@/components/provider-switch-marker";
+import { PermissionResolutionNote } from "@/components/permission-resolution-note";
 import { isWeb } from "@/constants/platform";
 import type { Theme } from "@/styles/theme";
 import { recordRenderProfileReasons } from "@/utils/render-profiler";
@@ -1047,6 +1048,14 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
             if (item.providerSwitch) {
               return (
                 <ProviderSwitchMarker marker={item.providerSwitch} serverId={resolvedServerId} />
+              );
+            }
+            if (item.permissionResolution) {
+              return (
+                <PermissionResolutionNote
+                  marker={item.permissionResolution}
+                  serverId={resolvedServerId}
+                />
               );
             }
             return <Notification level={item.level} message={item.message} />;

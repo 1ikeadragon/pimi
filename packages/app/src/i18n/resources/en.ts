@@ -268,6 +268,9 @@ export const en = {
       implement: "Implement",
       question: "How would you like to proceed?",
       proposedPlan: "Proposed plan",
+      allowedBy: "Allowed by {{agent}}",
+      deniedBy: "Denied by {{agent}}",
+      answeredBy: "Answered by {{agent}}",
     },
   },
   agentPanel: {

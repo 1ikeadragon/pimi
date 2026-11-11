@@ -151,7 +151,7 @@ function parseJsonText(value: unknown): unknown {
   }
 }
 
-function unwrapMcpResult(output: unknown): unknown {
+export function unwrapMcpResult(output: unknown): unknown {
   if (!isRecord(output)) return output;
 
   if (output.structuredContent !== undefined) {

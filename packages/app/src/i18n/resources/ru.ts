@@ -275,6 +275,9 @@ export const ru: TranslationResources = {
       implement: "Реализовать",
       question: "Как бы вы хотели продолжить?",
       proposedPlan: "Предлагаемый план",
+      allowedBy: "Разрешил агент {{agent}}",
+      deniedBy: "Отклонил агент {{agent}}",
+      answeredBy: "Ответил агент {{agent}}",
     },
   },
   agentPanel: {

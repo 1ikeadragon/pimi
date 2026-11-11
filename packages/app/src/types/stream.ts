@@ -1,6 +1,7 @@
 import type { AgentMessage } from "@pimi/protocol/agent-message";
 import type {
   AgentProvider,
+  AgentPermissionResolutionMarker,
   AgentProviderSwitchMarker,
   AgentTimelineItem,
   JsonValue,
@@ -760,6 +761,8 @@ export interface NotificationItem {
   message: string;
   /** Present when this notification marks the chat moving to another provider. */
   providerSwitch?: AgentProviderSwitchMarker;
+  /** Present when this notification records another agent answering a permission prompt. */
+  permissionResolution?: AgentPermissionResolutionMarker;
 }
 
 export interface CompactionItem {
@@ -1537,6 +1540,7 @@ function reduceTimelineEvent(
         level: item.level,
         message: item.message,
         ...(item.providerSwitch ? { providerSwitch: item.providerSwitch } : {}),
+        ...(item.permissionResolution ? { permissionResolution: item.permissionResolution } : {}),
       };
       return appendNotification(state, notification);
     }

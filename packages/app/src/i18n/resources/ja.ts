@@ -275,6 +275,9 @@ export const ja: TranslationResources = {
       implement: "実装",
       question: "どのように続けますか？",
       proposedPlan: "提案されたプラン",
+      allowedBy: "{{agent}} が許可",
+      deniedBy: "{{agent}} が拒否",
+      answeredBy: "{{agent}} が回答",
     },
   },
   agentPanel: {

@@ -569,6 +569,10 @@ export function isPimiDelegationTool(name: string): boolean {
   return matchesToolName(name, "create_agent");
 }
 
+export function isPimiPermissionResponseTool(name: string): boolean {
+  return matchesToolName(name, "respond_to_permission");
+}
+
 export function isPimiActionTool(name: string): boolean {
   return (
     isPimiTaskProposalTool(name) ||

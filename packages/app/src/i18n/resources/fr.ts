@@ -277,6 +277,9 @@ export const fr: TranslationResources = {
       implement: "Implémenter",
       question: "Comment souhaitez-vous procéder ?",
       proposedPlan: "Plan proposé",
+      allowedBy: "Autorisé par {{agent}}",
+      deniedBy: "Refusé par {{agent}}",
+      answeredBy: "Répondu par {{agent}}",
     },
   },
   agentPanel: {

@@ -274,6 +274,9 @@ export const ptBR: TranslationResources = {
       implement: "Implementar",
       question: "Como você quer prosseguir?",
       proposedPlan: "Plano proposto",
+      allowedBy: "Permitido por {{agent}}",
+      deniedBy: "Negado por {{agent}}",
+      answeredBy: "Respondido por {{agent}}",
     },
   },
   agentPanel: {

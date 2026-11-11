@@ -1,6 +1,7 @@
 import type { ToolCallDetail } from "../agent-types.js";
 import { getPaseoToolLeafName, isPaseoToolName } from "../tool-name-normalization.js";
 import { getPaseoToolEntry, PASEO_TOOL_CATALOG, type PaseoToolName } from "./catalog.js";
+import { unwrapMcpResult } from "./detail-sections.js";
 import { toSummaryText } from "./summary-text.js";
 
 export { buildAgentMessageDisplay, type AgentMessageDisplay } from "./agent-message.js";
@@ -37,7 +38,9 @@ export function buildPaseoToolDisplay(input: PaseoToolDisplayInput): PaseoToolDi
 
   const toolInput = readToolInput(input.detail);
   const targetAgent = input.targetAgentTitle ?? readString(toolInput.agentId);
-  const summary = formatContext(entry.context?.(toolInput, targetAgent));
+  const summary = formatContext(
+    entry.context?.(toolInput, targetAgent, readToolOutput(input.detail)),
+  );
   return { displayName: entry.label, ...(summary ? { summary } : {}) };
 }
 
@@ -73,6 +76,28 @@ function readToolInput(detail: ToolCallDetail): Readonly<Record<string, unknown>
   return typeof value === "object" && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
+}
+
+/**
+ * The call's structured result. Providers deliver it as the object itself, as an MCP result,
+ * as JSON text, or wrapped once more under `output`.
+ */
+function readToolOutput(detail: ToolCallDetail): Readonly<Record<string, unknown>> {
+  if (detail.type !== "unknown") return {};
+  let value = unwrapMcpResult(detail.output);
+  if (typeof value === "string" && value.startsWith("{")) {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return {};
+    }
+  }
+  if (!isRecord(value)) return {};
+  return isRecord(value.output) ? value.output : value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function readString(value: unknown): string | undefined {

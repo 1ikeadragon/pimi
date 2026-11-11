@@ -275,6 +275,9 @@ export const es: TranslationResources = {
       implement: "Implementar",
       question: "¿Cómo le gustaría proceder?",
       proposedPlan: "Plan propuesto",
+      allowedBy: "Permitido por {{agent}}",
+      deniedBy: "Denegado por {{agent}}",
+      answeredBy: "Respondido por {{agent}}",
     },
   },
   agentPanel: {

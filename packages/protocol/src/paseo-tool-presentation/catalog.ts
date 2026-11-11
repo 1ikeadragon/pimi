@@ -8,8 +8,15 @@
 
 type ToolInput = Readonly<Record<string, unknown>>;
 
-/** `targetAgent` is the target agent's title when known, else its ID. */
-export type PaseoToolContext = (input: ToolInput, targetAgent: string | undefined) => unknown;
+/**
+ * `targetAgent` is the target agent's title when known, else its ID. `output` is the call's
+ * result once it has one.
+ */
+export type PaseoToolContext = (
+  input: ToolInput,
+  targetAgent: string | undefined,
+  output: ToolInput,
+) => unknown;
 
 export interface PaseoToolDetailSpec {
   promptField?: string;
@@ -104,6 +111,17 @@ function field(...keys: string[]): PaseoToolContext {
 
 function targetAgent(): PaseoToolContext {
   return (_input, agent) => agent;
+}
+
+/** "Allowed for Fix login · Shell npm test" once the call returns; the target agent until then. */
+function permissionResponseContext(): PaseoToolContext {
+  return (_input, agent, output) => {
+    const { decision, tool, summary } = output;
+    if (decision !== "allow" && decision !== "deny") return agent;
+    const verb = decision === "allow" ? "Allowed" : "Denied";
+    const subject = [tool, summary].filter((part) => typeof part === "string" && part).join(" ");
+    return [agent ? `${verb} for ${agent}` : verb, subject].filter(Boolean).join(" · ");
+  };
 }
 
 function fieldOrTargetAgent(key: string): PaseoToolContext {
@@ -219,7 +237,7 @@ export const PASEO_TOOL_CATALOG = {
   respond_to_permission: {
     label: "Respond to permission",
     completedLabel: "Responded to permission",
-    context: targetAgent(),
+    context: permissionResponseContext(),
     detail: { inputOrder: ["agentId", "requestId", "response"] },
   },
 

@@ -1,7 +1,7 @@
 import { isTurnTrigger, isTurnBoundary } from "@/agent-stream/turn-membership";
 import type { ToolCallDetail } from "@pimi/protocol/agent-types";
 import { readPimiDelegationToolCall } from "@/utils/pimi-delegation";
-import { isPimiActionTool } from "@pimi/protocol/pimi-task";
+import { isPimiActionTool, isPimiPermissionResponseTool } from "@pimi/protocol/pimi-task";
 import type { StreamItem, ToolCallItem, ThoughtItem } from "@/types/stream";
 
 export interface ToolCallDescriptor {
@@ -81,7 +81,9 @@ export function isGroupableToolCall(
   return (
     descriptor.detail.type !== "plan" &&
     descriptor.name.trim().toLowerCase() !== "speak" &&
-    !isPimiActionTool(descriptor.name)
+    !isPimiActionTool(descriptor.name) &&
+    // Stays its own row so a collapsed turn still says whose prompt was answered and with what.
+    !isPimiPermissionResponseTool(descriptor.name)
   );
 }
 

@@ -272,6 +272,9 @@ export const zhCN: TranslationResources = {
       implement: "实施",
       question: "你想如何继续？",
       proposedPlan: "建议计划",
+      allowedBy: "由 {{agent}} 允许",
+      deniedBy: "由 {{agent}} 拒绝",
+      answeredBy: "由 {{agent}} 回答",
     },
   },
   agentPanel: {

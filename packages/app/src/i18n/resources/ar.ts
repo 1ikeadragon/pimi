@@ -273,6 +273,9 @@ export const ar: TranslationResources = {
       implement: "ينفذ",
       question: "كيف تريد المتابعة؟",
       proposedPlan: "الخطة المقترحة",
+      allowedBy: "سمح به {{agent}}",
+      deniedBy: "رفضه {{agent}}",
+      answeredBy: "أجاب عنه {{agent}}",
     },
   },
   agentPanel: {

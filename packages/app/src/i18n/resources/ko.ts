@@ -273,6 +273,9 @@ export const ko: TranslationResources = {
       implement: "구현",
       question: "어떻게 진행할까요?",
       proposedPlan: "제안된 계획",
+      allowedBy: "{{agent}}이(가) 허용함",
+      deniedBy: "{{agent}}이(가) 거부함",
+      answeredBy: "{{agent}}이(가) 답변함",
     },
   },
   agentPanel: {
