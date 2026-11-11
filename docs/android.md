@@ -41,6 +41,32 @@ the APK before copying it to that path. Keep the same signing key for future
 updates. Keep the keystore and password file outside the checkout with
 user-only access and an offline backup.
 
+### Gradle dependencies
+
+`packages/app/android` is generated, so its Gradle supply-chain settings live in
+`packages/app/plugins/with-pimi-android-release.js`, which applies only to the `pimi-android`
+variant. It removes the JitPack repository the Expo template and the React Native Gradle plugin add,
+and copies `packages/app/plugins/pimi-android-verification-metadata.xml` to
+`android/gradle/verification-metadata.xml`. Gradle then fails the build when any downloaded
+artifact, including plugins, does not match its SHA-256 there. The
+`@react-native-masked-view/masked-view` patch removes the JitPack repository from that package.
+Native modules checked into this repository pin their Maven versions in a `gradle.lockfile` next
+to their `build.gradle`; refresh one with `./gradlew :<module>:dependencies --write-locks`.
+
+After a dependency change, the release build fails verification. Regenerate the metadata from
+`packages/app/android` after the prebuild that `npm run pimi:package:android` runs, then copy it
+back and review the diff:
+
+```sh
+APP_VARIANT=pimi-android ./gradlew --write-verification-metadata sha256 assembleRelease \
+  --no-daemon --max-workers=2 -Dorg.gradle.parallel=false -PreactNativeArchitectures=arm64-v8a
+cp gradle/verification-metadata.xml ../plugins/pimi-android-verification-metadata.xml
+```
+
+The hashes record what Gradle downloaded when you regenerated them. Regenerate on a clean Gradle
+cache (`GRADLE_USER_HOME` pointed at an empty directory) when you need them to come from the
+repositories rather than an earlier local download.
+
 ## App variants
 
 Controlled by `APP_VARIANT` in `packages/app/app.config.js` (vanilla Expo, no custom Gradle plugin):
