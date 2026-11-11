@@ -16,6 +16,8 @@ import type { Theme } from "@/styles/theme";
 const CHARACTER_WIDTH = 6.8;
 const ARROW_HEIGHT = 12;
 const ARROW_LENGTH = 7;
+/** A message line reads a step above the lifelines it crosses. */
+const ARROW_STROKE = 1.5;
 const ARROW_HALF_WIDTH = 3.5;
 const SELF_HEIGHT = 18;
 const SELF_REACH = 18;
@@ -102,7 +104,7 @@ function Arrow({
           d={`M ${from} 3 H ${out} V ${bottom} H ${tip + side * ARROW_LENGTH}`}
           fill="none"
           stroke={color}
-          strokeWidth={1.25}
+          strokeWidth={ARROW_STROKE}
           strokeDasharray={dash}
         />
         <Polygon
@@ -124,7 +126,7 @@ function Arrow({
         x2={neck}
         y2={y}
         stroke={color}
-        strokeWidth={1.25}
+        strokeWidth={ARROW_STROKE}
         strokeDasharray={dash}
       />
       <Polygon
@@ -138,7 +140,7 @@ function Arrow({
 const ThemedArrow = withUnistyles(Arrow);
 
 const ARROW_COLORS: Record<ViewTone, (theme: Theme) => { color: string }> = {
-  neutral: (theme) => ({ color: theme.colors.foregroundMuted }),
+  neutral: (theme) => ({ color: theme.colors.foreground }),
   positive: (theme) => ({ color: theme.colors.statusSuccess }),
   negative: (theme) => ({ color: theme.colors.statusDanger }),
   warning: (theme) => ({ color: theme.colors.statusWarning }),
@@ -337,7 +339,7 @@ const styles = StyleSheet.create((theme) => ({
     marginHorizontal: "auto",
     justifyContent: "center",
     backgroundColor: theme.colors.surface2,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.foregroundMuted,
     borderWidth: 1,
     borderRadius: theme.borderRadius.md,
     // Five columns on a phone leave about 60 px a name.
@@ -357,7 +359,7 @@ const styles = StyleSheet.create((theme) => ({
     top: 0,
     bottom: 0,
     width: 1,
-    backgroundColor: theme.colors.border,
+    backgroundColor: theme.colors.foregroundMuted,
   },
   messageRow: { paddingTop: theme.spacing[1.5], paddingBottom: theme.spacing[1] },
   message: {
@@ -376,14 +378,14 @@ const styles = StyleSheet.create((theme) => ({
     position: "absolute",
     top: 0,
     bottom: 0,
-    borderColor: theme.colors.borderAccent,
+    borderColor: theme.colors.foregroundMuted,
     borderLeftWidth: 1,
     borderRightWidth: 1,
   },
   openRow: { paddingTop: theme.spacing[2] },
   frameTop: {
     flexDirection: "row",
-    borderColor: theme.colors.borderAccent,
+    borderColor: theme.colors.foregroundMuted,
     borderTopWidth: 1,
     borderLeftWidth: 1,
     borderRightWidth: 1,
@@ -391,8 +393,8 @@ const styles = StyleSheet.create((theme) => ({
     borderTopRightRadius: theme.borderRadius.md,
   },
   groupLabel: {
-    color: theme.colors.foregroundMuted,
-    backgroundColor: theme.colors.surface2,
+    color: theme.colors.foreground,
+    backgroundColor: theme.colors.surface3,
     fontSize: 11,
     lineHeight: 16,
     fontWeight: theme.fontWeight.medium,
@@ -404,7 +406,7 @@ const styles = StyleSheet.create((theme) => ({
   closeRow: { paddingBottom: theme.spacing[2] },
   frameBottom: {
     height: 6,
-    borderColor: theme.colors.borderAccent,
+    borderColor: theme.colors.foregroundMuted,
     borderBottomWidth: 1,
     borderLeftWidth: 1,
     borderRightWidth: 1,
@@ -414,9 +416,11 @@ const styles = StyleSheet.create((theme) => ({
   noteRow: { paddingVertical: theme.spacing[1] },
   note: {
     backgroundColor: theme.colors.surface2,
+    borderColor: theme.colors.foregroundMuted,
+    borderWidth: 1,
     borderRadius: theme.borderRadius.md,
     paddingHorizontal: theme.spacing[2],
     paddingVertical: theme.spacing[1],
   },
-  noteText: { color: theme.colors.foregroundMuted, fontSize: 12, lineHeight: 16 },
+  noteText: { color: theme.colors.foreground, fontSize: 12, lineHeight: 16 },
 }));

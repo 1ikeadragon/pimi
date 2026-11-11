@@ -300,17 +300,17 @@ function verticalCubicPath(points: readonly Point[]): string {
   return path;
 }
 
-function arrowHead(tip: Point, from: Point): string {
-  const dx = tip.x - from.x;
-  const dy = tip.y - from.y;
-  const length = Math.hypot(dx, dy) || 1;
-  const ux = dx / length;
-  const uy = dy / length;
-  const baseX = tip.x - ux * ARROW_LENGTH;
-  const baseY = tip.y - uy * ARROW_LENGTH;
-  const corner = (side: number) =>
-    `${round(baseX - uy * ARROW_HALF_WIDTH * side)},${round(baseY + ux * ARROW_HALF_WIDTH * side)}`;
-  return `${round(tip.x)},${round(tip.y)} ${corner(1)} ${corner(-1)}`;
+/**
+ * An edge arrives at a box side along the flow axis, its tip on the side. The line ends at the
+ * head's base, so its last stretch runs straight along the axis into the head instead of still
+ * bending under it, and no stroke shows through the head. The painter draws heads above the boxes
+ * so the tip lands on the border instead of under it.
+ */
+function arrowEnd(side: Point, unit: Point): { base: Point; head: string } {
+  const base = { x: side.x - unit.x * ARROW_LENGTH, y: side.y - unit.y * ARROW_LENGTH };
+  const corner = (sign: number) =>
+    `${round(base.x - unit.y * ARROW_HALF_WIDTH * sign)},${round(base.y + unit.x * ARROW_HALF_WIDTH * sign)}`;
+  return { base, head: `${round(side.x)},${round(side.y)} ${corner(1)} ${corner(-1)}` };
 }
 
 /** Spreads the ends of several edges along one side of a box, ordered to avoid crossing. */
@@ -769,9 +769,13 @@ function paintLayout(flow: FlowNode, layout: FlowLayout, available: number): Flo
     };
     // A back edge is routed with the flow and drawn against it, so its arrow lands on its target.
     const drawn = back ? points.toReversed() : points;
-    const tip = drawn[drawn.length - 1];
+    const side = drawn[drawn.length - 1];
     const before = drawn[drawn.length - 2];
-    const approach = horizontal ? { x: before.x, y: tip.y } : { x: tip.x, y: before.y };
+    const unit = horizontal
+      ? { x: Math.sign(side.x - before.x), y: 0 }
+      : { x: 0, y: Math.sign(side.y - before.y) };
+    const end = arrowEnd(side, unit);
+    const stroked = [...drawn.slice(0, -1), end.base];
     const label = labelText
       ? (() => {
           const size = edgeLabelSize(labelText);
@@ -789,8 +793,8 @@ function paintLayout(flow: FlowNode, layout: FlowLayout, available: number): Flo
       key: `${layout.edges[edge].from}>${layout.edges[edge].to}`,
       from: layout.edges[edge].from,
       to: layout.edges[edge].to,
-      path: horizontal ? cubicPath(drawn) : verticalCubicPath(drawn),
-      arrow: arrowHead(tip, approach.x === tip.x && approach.y === tip.y ? before : approach),
+      path: horizontal ? cubicPath(stroked) : verticalCubicPath(stroked),
+      arrow: end.head,
       back,
       label,
     };

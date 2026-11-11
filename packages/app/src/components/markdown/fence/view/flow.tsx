@@ -100,7 +100,6 @@ function FlowPainter({
               strokeWidth={active ? 1.75 : 1.25}
               strokeDasharray={edge.back ? BACK_EDGE_DASH : undefined}
             />
-            <Polygon points={edge.arrow} fill={stroke} />
           </G>
         );
       })}
@@ -164,6 +163,18 @@ function FlowPainter({
               <Circle cx={box.x + box.width - 6} cy={box.y + 6} r={2} fill={colors.marker} />
             ) : null}
           </G>
+        );
+      })}
+      {/* Heads go above the boxes so each tip lands on its box's border, not under it. */}
+      {edges.map((edge) => {
+        const active = touches(edge.from, edge.to);
+        return (
+          <Polygon
+            key={`head:${edge.key}`}
+            points={edge.arrow}
+            fill={active ? colors.highlight : colors.edge}
+            opacity={active ? 1 : EDGE_OPACITY}
+          />
         );
       })}
     </Svg>
