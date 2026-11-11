@@ -1,6 +1,6 @@
 ---
 title: MCP reference
-description: Reference for the Pimi tools agents use to manage agents, workspaces, scripts, terminals, and schedules.
+description: Reference for the Pimi tools agents use to manage agents, workspaces, scripts, terminals, automations, and heartbeats.
 nav: MCP reference
 order: 34
 category: Orchestration
@@ -135,27 +135,24 @@ See [Git worktrees](/docs/worktrees#scripts-and-services) for `pimi.json` config
 | `capture_terminal`   | Capture plain-text output from a terminal session.                           |
 | `send_terminal_keys` | Send text or special key tokens to a terminal session.                       |
 
-### Schedules and heartbeats
+### Automations and heartbeats
 
-Both use the same cron engine, but they have deliberately different interfaces.
+An [automation](/docs/automations) starts a new agent for each run. A heartbeat sends a prompt back into the calling agent.
 
-| Tool                | Function                                                                     |
-| ------------------- | ---------------------------------------------------------------------------- |
-| `create_schedule`   | Create a cron schedule that starts a new agent for each run.                 |
-| `list_schedules`    | List new-agent schedules managed by the daemon.                              |
-| `inspect_schedule`  | Inspect a schedule and its run history.                                      |
-| `pause_schedule`    | Pause an active schedule.                                                    |
-| `resume_schedule`   | Resume a paused schedule.                                                    |
-| `update_schedule`   | Change a schedule's cron, prompt, agent settings, limits, or other settings. |
-| `schedule_logs`     | Return recent runs and output for a schedule.                                |
-| `run_schedule_once` | Start one new-agent schedule run without changing its cron.                  |
-| `delete_schedule`   | Delete a new-agent schedule permanently.                                     |
-| `create_heartbeat`  | Send a recurring cron-backed prompt into the current agent.                  |
-| `delete_heartbeat`  | Delete one of the current agent's heartbeats.                                |
+| Tool                  | Function                                                                                                                                                                                   |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `create_automation`   | Create an automation with a name and prompt, on a cron cadence or run by hand when `cron` is omitted. It uses the caller's provider, model, mode, and thinking unless `provider` is given. |
+| `list_automations`    | List all automations on this host.                                                                                                                                                         |
+| `inspect_automation`  | Inspect an automation and its audit history.                                                                                                                                               |
+| `pause_automation`    | Pause an active automation.                                                                                                                                                                |
+| `delete_automation`   | Delete an automation you created that is still waiting for approval.                                                                                                                       |
+| `automation_runs`     | List an automation's recent runs, newest first.                                                                                                                                            |
+| `run_automation_once` | Start a run of an active automation now.                                                                                                                                                   |
+| `create_heartbeat`    | Send yourself a prompt later: give exactly one of `cron`, `every` (at least 30s), `in` (once, after a duration), or `at` (once, at an ISO time).                                           |
+| `delete_heartbeat`    | Delete one of your heartbeats.                                                                                                                                                             |
+| `list_heartbeats`     | List your heartbeats with when each fires next.                                                                                                                                            |
 
-MCP heartbeats are ephemeral: create or delete them. To change one, delete it and create a replacement. Pause, resume, update, inspect, logs, and run-once apply to new-agent schedules only.
-
-New-agent run workspaces are archived when each run ends by default. `create_schedule` and `update_schedule` do not expose **Archive on finish** (`archiveOnFinish`); [change the option in the app](/docs/schedules#keep-run-workspaces) to keep subsequent run workspaces active.
+`create_automation` always creates a pending automation. It does not run until the user [approves it](/docs/automations#approval). Agents cannot approve, resume, or update automations. To change a heartbeat, delete it and create a replacement.
 
 ### Agent profiles
 

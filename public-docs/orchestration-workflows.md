@@ -85,7 +85,7 @@ A heartbeat prompts the same agent periodically, preserving its conversation:
 
 > Use Pimi to create a heartbeat every 10 minutes. Continue this migration in small steps, run the focused checks after each step, and delete the heartbeat when the migration is complete. Set it to expire after two hours.
 
-The agent resumes the task on that cadence. For a fresh agent on each run, [create a schedule](/docs/schedules) instead.
+The agent resumes the task on that cadence. For a fresh agent on each run, [create an automation](/docs/automations) instead.
 
 ## Where the work appears
 

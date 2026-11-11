@@ -1,6 +1,6 @@
 ---
 title: CLI 参考
-description: "Pimi CLI 参考：在终端中管理项目、工作区、Agent、插件、脚本、定时任务、daemon 和权限。"
+description: "Pimi CLI 参考：在终端中管理项目、工作区、Agent、插件、脚本、自动化、daemon 和权限。"
 nav: CLI 参考
 ---
 
@@ -321,14 +321,14 @@ pimi wait <id> --timeout 60   # 60 second timeout
 
 适用于脚本中，或一个 Agent 需要等待另一个 Agent 的情况。
 
-## 定时任务 {#schedules}
+## 自动化 {#automations}
 
-按 cron 定时任务运行 Agent。CLI 也接受简单的节奏预设，并把它们编译为 cron。完整参考见[在 CLI 中使用定时任务](/docs/schedules-cli)。
+在 cron 节奏下或手动用一段提示词运行新的 Agent。`--every` 预设会编译为 cron。完整参考（包括 heartbeat）见[在 CLI 中使用自动化](/docs/automations-cli)。
 
 ```bash
-pimi schedule create --every 30m --cwd ~/dev/my-app "Continue the refactor and leave a note."
-pimi schedule ls
-pimi schedule pause <id>
+pimi automation create --every 30m --name refactor --provider codex --cwd ~/dev/my-app "Continue the refactor and leave a note."
+pimi automation ls
+pimi automation pause <id>
 ```
 
 ## 权限 {#permissions}

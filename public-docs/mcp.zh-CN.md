@@ -1,6 +1,6 @@
 ---
 title: MCP 参考
-description: Agent 用来管理 Agent、工作区、脚本、终端和定时任务的 Pimi 工具参考。
+description: Agent 用来管理 Agent、工作区、脚本、终端、自动化和 heartbeat 的 Pimi 工具参考。
 nav: MCP 参考
 ---
 
@@ -127,27 +127,24 @@ Pimi Agent 默认会收到完成、错误和权限通知；设置 `notifyOnFinis
 | `capture_terminal`   | 捕获终端会话的纯文本输出。                 |
 | `send_terminal_keys` | 向终端会话发送文本或特殊按键标记。         |
 
-### 定时任务与 heartbeat {#schedules-and-heartbeats}
+### 自动化与 heartbeat {#automations-and-heartbeats}
 
-两者使用相同的 cron 引擎，但接口有意设计得不同。
+[自动化](/docs/automations)每次运行都会启动一个新的 Agent。heartbeat 会把一段提示词发回调用它的 Agent。
 
-| 工具                | 功能                                                      |
-| ------------------- | --------------------------------------------------------- |
-| `create_schedule`   | 创建一个 cron 定时任务，每次运行都启动一个新的 Agent。    |
-| `list_schedules`    | 列出 daemon 管理的新建 Agent 定时任务。                   |
-| `inspect_schedule`  | 查看定时任务及其运行历史。                                |
-| `pause_schedule`    | 暂停一个活动的定时任务。                                  |
-| `resume_schedule`   | 恢复一个已暂停的定时任务。                                |
-| `update_schedule`   | 修改定时任务的 cron、提示词、Agent 设置、限制或其他设置。 |
-| `schedule_logs`     | 返回定时任务最近的运行及输出。                            |
-| `run_schedule_once` | 启动一次新建 Agent 的定时任务运行，不改变它的 cron。      |
-| `delete_schedule`   | 永久删除一个新建 Agent 的定时任务。                       |
-| `create_heartbeat`  | 向当前 Agent 发送一段由 cron 驱动的周期性提示词。         |
-| `delete_heartbeat`  | 删除当前 Agent 的某个 heartbeat。                         |
+| 工具                  | 功能                                                                                                                                                 |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `create_automation`   | 用名称和提示词创建自动化，按 cron 节奏运行；省略 `cron` 时只能手动运行。除非指定 `provider`，否则使用调用者的 Provider、模型、模式和 thinking 设置。 |
+| `list_automations`    | 列出该主机上的所有自动化。                                                                                                                           |
+| `inspect_automation`  | 查看自动化及其审计历史。                                                                                                                             |
+| `pause_automation`    | 暂停一个活动的自动化。                                                                                                                               |
+| `delete_automation`   | 删除你创建的、仍在等待审批的自动化。                                                                                                                 |
+| `automation_runs`     | 列出自动化最近的运行，最新的在前。                                                                                                                   |
+| `run_automation_once` | 立即启动一次活动自动化的运行。                                                                                                                       |
+| `create_heartbeat`    | 稍后给自己发送一段提示词：`cron`、`every`（至少 30 秒）、`in`（延迟后触发一次）或 `at`（在某个 ISO 时间触发一次）只能指定一个。                      |
+| `delete_heartbeat`    | 删除你的某个 heartbeat。                                                                                                                             |
+| `list_heartbeats`     | 列出你的 heartbeat 及各自的下次触发时间。                                                                                                            |
 
-MCP heartbeat 是临时的：只能创建或删除。要修改一个 heartbeat，请删除它并创建一个替代的。暂停、恢复、更新、查看、日志和单次运行只适用于新建 Agent 的定时任务。
-
-默认情况下，新建 Agent 的定时任务每次运行结束时都会归档其工作区。`create_schedule` 和 `update_schedule` 不提供 **Archive on finish**（`archiveOnFinish`）；要让之后的运行工作区保持活跃，请[在应用中修改该选项](/docs/schedules#keep-run-workspaces)。
+`create_automation` 创建的自动化总是处于 pending 状态，在用户[审批](/docs/automations#approval)之前不会运行。Agent 不能审批、恢复或更新自动化。要修改 heartbeat，请删除它并创建一个替代的。
 
 ### Agent 配置 {#agent-profiles}
 

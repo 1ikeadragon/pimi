@@ -10,12 +10,12 @@ category: Orchestration
 
 Skills give your agents reusable instructions for delegation, handoffs, and reviews. You can also [ask for these workflows directly](/docs/orchestration-workflows) without installing skills.
 
-| Skill              | Use it to                                                            |
-| ------------------ | -------------------------------------------------------------------- |
-| `/paseo`           | Look up how to manage agents, workspaces, schedules, and heartbeats. |
-| `/paseo-handoff`   | Transfer a task and its context to another agent.                    |
-| `/paseo-committee` | Get two independent analyses of a difficult problem.                 |
-| `/paseo-advisor`   | Get a second opinion on your current work.                           |
+| Skill              | Use it to                                                              |
+| ------------------ | ---------------------------------------------------------------------- |
+| `/paseo`           | Look up how to manage agents, workspaces, automations, and heartbeats. |
+| `/paseo-handoff`   | Transfer a task and its context to another agent.                      |
+| `/paseo-committee` | Get two independent analyses of a difficult problem.                   |
+| `/paseo-advisor`   | Get a second opinion on your current work.                             |
 
 ## Installation
 

@@ -1,6 +1,6 @@
 ---
 name: pimi
-description: Pimi tool and CLI reference for hosts, projects, workspaces, scripts, terminals, agents and subagents, profiles and providers, permissions, schedules, heartbeats, browser tabs, Spaces, and code search.
+description: Pimi tool and CLI reference for hosts, projects, workspaces, scripts, terminals, agents and subagents, profiles and providers, permissions, automations, heartbeats, browser tabs, Spaces, and code search.
 ---
 
 Pimi manages coding agents and terminals through a daemon. Use the Pimi MCP tools in an agent session, or the bundled `pimi` CLI from a shell.
@@ -176,17 +176,17 @@ Use `browser_wait` for text or a URL to appear, `browser_screenshot` for visual 
 
 ## Automations and heartbeats
 
-**`create_schedule`** — starts a new agent on a cron cadence. Required: `prompt`, `cron`. Optional: `provider`, `timezone`, `name`, `cwd`, `isolation` (`local` or `worktree`), `maxRuns`, `expiresIn`. Use when the recurring work should live in fresh agents.
+**`create_automation`** — starts a new agent with a prompt on a cron cadence, or only when run by hand if you omit `cron`. Required: `name`, `prompt`. Optional: `cron`, `timezone`, `provider`, `cwd`, `workspace` (`project` or `worktree`), `maxRuns`, `expiresIn`. Use when the recurring work should live in fresh agents.
 
-A schedule you create starts `pending` and does not run until the user clicks Approve on it in the Schedules screen. Tell the user it needs their approval there. Until they approve, `run_schedule_once`, `resume_schedule`, and `pause_schedule` fail with "waiting for approval"; do not call them. Calling `create_schedule` again with the same name and target puts the schedule back to `pending`, so change an approved schedule with `update_schedule`.
+An automation you create starts `pending` and does not run until the user clicks Approve on it in the Automations screen. Tell the user it needs their approval there. Until they approve, `run_automation_once` and `pause_automation` fail with "waiting for approval"; do not call them. Calling `create_automation` again with the same name replaces it and puts it back to `pending`.
 
-Without `provider`, runs use your provider, model, and mode; without `cwd`, your working directory. Set `isolation` to `worktree` when each run should edit in its own worktree and not in that directory.
+Without `provider`, runs use your provider, model, and mode; without `cwd`, your working directory. Set `workspace` to `worktree` when each run should edit in its own worktree and not in that directory.
 
-**`create_heartbeat`** — sends you a prompt on a cron cadence. Required: `prompt`, `cron`. Optional: `timezone`, `name`, `maxRuns`, `expiresIn`. Use for reminders, PR/build babysitting, and status checks that should return to this conversation.
+Manage automations by `id` with `list_automations`, `inspect_automation`, `automation_runs`, `pause_automation`, and `run_automation_once`. `delete_automation` removes only a pending automation you created. After the user approves one, call `run_automation_once` to test it without waiting for its cadence.
 
-**`delete_heartbeat`** — `{ id }`. Stops one of your heartbeats. No tool lists or updates heartbeats: keep the `id` that `create_heartbeat` returns, and delete and recreate to change the task or cadence.
+**`create_heartbeat`** — sends you a prompt later, back into this conversation. Required: `prompt` and exactly one of `cron` (with optional `timezone`), `every` (an interval of at least 30s), `in` (once, after a duration), or `at` (once, at an ISO 8601 time). Optional: `name`, `maxRuns`, `expiresIn`. Creating one with an existing name replaces it. Use for reminders, PR/build babysitting, and status checks. A one-time heartbeat waits until you finish your turn; a recurring one that comes due while you are busy fails that fire.
 
-Manage a schedule by `id` with `list_schedules`, `inspect_schedule`, `update_schedule`, `pause_schedule`, `resume_schedule`, `run_schedule_once`, `schedule_logs`, and `delete_schedule`. `update_schedule` changes only the fields you pass. After the user approves a new schedule, call `run_schedule_once` to test it without waiting for its cadence.
+**`list_heartbeats`** lists yours with when each fires next. **`delete_heartbeat`** — `{ id }` — stops one. To change a heartbeat, create it again with the same name.
 
 ## Waiting
 
@@ -206,8 +206,9 @@ pimi run --provider codex/gpt-5.4 --mode full-access --workspace <workspace-id> 
 pimi run --provider codex/gpt-5.4 --mode full-access --new-workspace worktree --worktree-mode branch-off --new-branch fix-x --base origin/main "<prompt>"
 pimi send <agent-id> "<follow-up>"
 pimi ls
-pimi schedule create --cron "*/15 * * * *" "ping main build"
-pimi heartbeat create --cron "*/15 * * * *" "check the build"
+pimi automation create --cron "0 9 * * 1-5" --name "Morning build check" "ping main build"
+pimi heartbeat create --every 15m "check the build"
+pimi heartbeat create --in 20m "check whether CI finished"
 pimi agent mode <agent-id> --list
 pimi agent mode <agent-id> <mode>
 pimi agent update <agent-id> --name <name> --label key=value

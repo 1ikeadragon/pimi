@@ -1,6 +1,6 @@
 ---
 title: 编排
-description: 跨 Provider 和机器协调 Agent、委派工作，并用定时任务和 heartbeat 让任务持续推进。
+description: 跨 Provider 和机器协调 Agent、委派工作，并用自动化和 heartbeat 让任务持续推进。
 nav: 概览
 ---
 
@@ -19,7 +19,7 @@ Pimi 让你的编程 Agent 协调其他 Agent，把工作分配到不同的 Prov
 - **创建工作区和 worktree**：为相互独立的改动提供各自的[工作目录](/docs/worktrees)。
 - **跨机器工作**：使用 [CLI](/docs/cli#connecting-to-a-remote-daemon) 在另一台可访问的 Pimi 主机上启动和管理 Agent。
 - **按专长选择**：使用 [Agent 配置](/docs/agent-profiles)及其说明，为 UI 工作、规划或审查选择设置。
-- **创建定时任务**：在[指定时间](/docs/schedules)用新的 Agent 运行一段提示词。
+- **创建自动化**：[按计划或手动](/docs/automations)用新的 Agent 运行一段提示词。
 - **创建 heartbeat**：定期提示同一个 Agent，让它[继续它的任务](/docs/orchestration-workflows#keep-an-agent-working-with-a-heartbeat)。
 
 ## 开始使用 {#get-started}
@@ -66,5 +66,5 @@ pimi ls -a
 - [委派实现并获取独立审查](/docs/orchestration-workflows#implement-then-review)。
 - [在不同的 worktree 中运行并行改动](/docs/orchestration-workflows#parallelize-edits-without-collisions)。
 - [协调另一台机器上的工作](/docs/orchestration-workflows#work-on-another-machine)。
-- [创建周期性任务](/docs/schedules)，或[用 heartbeat 继续任务](/docs/orchestration-workflows#keep-an-agent-working-with-a-heartbeat)。
+- [创建自动化](/docs/automations)，或[用 heartbeat 继续任务](/docs/orchestration-workflows#keep-an-agent-working-with-a-heartbeat)。
 - [安装可复用的编排技能](/docs/skills)。

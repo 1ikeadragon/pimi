@@ -1,6 +1,6 @@
 ---
 title: CLI reference
-description: "Pimi CLI reference: manage projects, workspaces, agents, plugins, scripts, schedules, daemons, and permissions from your terminal."
+description: "Pimi CLI reference: manage projects, workspaces, agents, plugins, scripts, automations, daemons, and permissions from your terminal."
 nav: CLI reference
 order: 35
 category: Orchestration
@@ -337,14 +337,14 @@ pimi wait <id> --timeout 60   # 60 second timeout
 
 Useful in scripts or when one agent needs to wait for another.
 
-## Schedules
+## Automations
 
-Run an agent on a cron schedule. The CLI also accepts simple cadence presets and compiles them to cron. See [Schedules from the CLI](/docs/schedules-cli) for the full reference.
+Run a new agent with a prompt on a cron cadence or by hand. `--every` presets compile to cron. See [Automations from the CLI](/docs/automations-cli) for the full reference, including heartbeats.
 
 ```bash
-pimi schedule create --every 30m --cwd ~/dev/my-app "Continue the refactor and leave a note."
-pimi schedule ls
-pimi schedule pause <id>
+pimi automation create --every 30m --name refactor --provider codex --cwd ~/dev/my-app "Continue the refactor and leave a note."
+pimi automation ls
+pimi automation pause <id>
 ```
 
 ## Permissions

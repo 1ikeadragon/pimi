@@ -99,7 +99,8 @@ workspace for a directory clears it. The store lives in memory and resets on dae
 | `server/agent/providers/`       | Provider adapters (see "Agent providers" below)                                |
 | `server/orchestration-skills/`  | Bundled catalog, host selection, convergence, and skill-directory transactions |
 | `server/relay-transport.ts`     | Outbound relay connection with E2E encryption                                  |
-| `server/schedule/`              | Cron-based scheduled agents                                                    |
+| `server/automation/`            | Automations: triggers, runs, audit log, approval                               |
+| `server/heartbeat/`             | Heartbeats: prompts sent back into one agent on a cadence or once              |
 
 ### `packages/protocol` — Wire schemas and shared protocol types
 
@@ -169,8 +170,8 @@ Commander.js CLI with Docker-style commands. Common agent operations are also ex
 - `pimi daemon start/run/stop/restart/status/reload/config/pair/set-password`
 - `pimi terminal ls/create/capture/send-keys/kill`
 - `pimi script ls/start/stop`
-- `pimi schedule create/ls/inspect/update/pause/resume/run-once/logs/delete`
-- `pimi heartbeat create/update/delete`
+- `pimi automation create/ls/inspect/pause/resume/approve/rm/run/runs`
+- `pimi heartbeat create/update/delete/ls`
 - `pimi project create/ls/rename/delete`
 - `pimi workspace create/ls/rename/archive`
 - `pimi permit allow/deny/ls`
@@ -450,7 +451,8 @@ $PASEO_HOME/
 ├── projects/projects.json                      # Project registry
 ├── projects/workspaces.json                    # Workspace registry
 ├── projects/icons/                             # Custom project icon images
-├── schedules/                                  # Scheduled-agent definitions and runs
+├── automations/                                # Automation definitions, runs, audit log
+├── heartbeats/                                 # Live heartbeats
 ├── config.json                                 # Daemon config (mutable)
 ├── daemon-keypair.json                         # Daemon identity for relay/E2EE
 ├── push-tokens.json                            # Mobile push tokens

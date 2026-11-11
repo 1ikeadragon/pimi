@@ -335,7 +335,10 @@ export function createAutomationCommand(): Command {
       .option("--every <duration>", "Cron-compatible interval preset (for example: 15m, 1h)")
       .option("--timezone <iana>", "IANA time zone for the cadence (default: UTC)")
       .requiredOption("--provider <provider>", "Agent provider, or provider/model")
-      .option("--mode <mode>", "Provider mode (default: the provider's unattended mode)")
+      .option(
+        "--mode <mode>",
+        "Provider mode (default: the provider's unattended mode if it has one, otherwise its default mode)",
+      )
       .option("--thinking <id>", "Thinking option ID")
       .option("--cwd <path>", "Project directory (default: current; required with --host)")
       .option("--worktree", "Run each time in a new worktree instead of the project directory")

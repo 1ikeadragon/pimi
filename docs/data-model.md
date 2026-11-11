@@ -59,8 +59,12 @@ $PASEO_HOME/
 │       └── {agentId}.json               # One file per agent
 ├── agent-carried-timelines/
 │   └── {agentId}.json                   # Timeline rows from providers a chat has switched away from
-├── schedules/
-│   └── {scheduleId}.json                # One file per schedule
+├── automations/
+│   ├── {automationId}.json              # One file per automation
+│   ├── audit.jsonl                      # Append-only audit log (mode 0600)
+│   └── runs/{automationId}/{runId}.json # One file per run
+├── heartbeats/
+│   └── {heartbeatId}.json               # One file per live heartbeat
 ├── projects/
 │   ├── projects.json                    # Project registry
 │   ├── workspaces.json                  # Workspace registry
@@ -374,51 +378,16 @@ options from the previous variant.
 
 ---
 
-## 3. Schedule
+## 3. Automations and heartbeats
 
-**Path:** `$PASEO_HOME/schedules/{id}.json`
+Schemas: `packages/protocol/src/automation/types.ts` and `packages/protocol/src/heartbeat/types.ts`. IDs are 8 hex characters; run IDs are UUIDs.
 
-One file per schedule. ID is 8 hex characters.
+- **Automation** — `$PASEO_HOME/automations/{id}.json`. A definition (name, project, trigger, flow of nodes and edges, limits) plus state (`status`, `pausedReason`, `origin`, `nextRunAt`, `consecutiveFailures`, `revision`). `status` is `pending` until the owner approves an agent-created automation; agents cannot approve. Edits bump `revision`, and each run records the revision it ran.
+- **Run** — `$PASEO_HOME/automations/runs/{automationId}/{runId}.json`, written while the run is in flight so a crash leaves a record. The store keeps the newest 50 runs per automation and none older than 30 days; a running run is never pruned.
+- **Audit** — `$PASEO_HOME/automations/audit.jsonl`, one line per create, edit, approve, pause, run, and delete, with the actor. Append-only; the file is created with mode 0600.
+- **Heartbeat** — `$PASEO_HOME/heartbeats/{id}.json`. A prompt the daemon sends back into one agent, on a `cron`, `every` (at least 30s), or `once` cadence. The file is deleted when the heartbeat ends (one-time fire, `maxRuns`, expiry, or its agent is gone).
 
-| Field       | Type                                  | Description                      |
-| ----------- | ------------------------------------- | -------------------------------- |
-| `id`        | `string`                              | 8-char hex ID                    |
-| `name`      | `string?`                             | Human-readable name              |
-| `prompt`    | `string`                              | The prompt to send               |
-| `cadence`   | `ScheduleCadence`                     | Timing (see below)               |
-| `target`    | `ScheduleTarget`                      | What to run (see below)          |
-| `status`    | `"active" \| "paused" \| "completed"` | Current state                    |
-| `createdAt` | `string` (ISO 8601)                   |                                  |
-| `updatedAt` | `string` (ISO 8601)                   |                                  |
-| `nextRunAt` | `string?` (ISO 8601)                  | Next scheduled execution         |
-| `lastRunAt` | `string?` (ISO 8601)                  | Last execution time              |
-| `pausedAt`  | `string?` (ISO 8601)                  | When paused                      |
-| `expiresAt` | `string?` (ISO 8601)                  | Auto-expire time                 |
-| `maxRuns`   | `number?`                             | Max executions before completing |
-| `runs`      | `ScheduleRun[]`                       | Execution history                |
-
-### Nested: ScheduleCadence (discriminated union on `type`)
-
-- `{ type: "cron", expression: string, timezone?: string }` — canonical cadence for new writes; absent `timezone` means UTC
-- `{ type: "every", everyMs: number }` — legacy rolling interval, still readable and executable during the compatibility window
-
-### Nested: ScheduleTarget (discriminated union on `type`)
-
-- `{ type: "agent", agentId: string }` — send to existing agent
-- `{ type: "new-agent", config: { provider, cwd, modeId?, model?, thinkingOptionId?, title?, providerOptions?, featureValues?, systemPrompt?, mcpServers? } }` — create a new agent
-
-### Nested: ScheduleRun
-
-| Field          | Type                                   | Description             |
-| -------------- | -------------------------------------- | ----------------------- |
-| `id`           | `string`                               | Run ID                  |
-| `scheduledFor` | `string` (ISO 8601)                    | Intended execution time |
-| `startedAt`    | `string` (ISO 8601)                    |                         |
-| `endedAt`      | `string?` (ISO 8601)                   |                         |
-| `status`       | `"running" \| "succeeded" \| "failed"` |                         |
-| `agentId`      | `string?` (UUID)                       | Agent used for this run |
-| `output`       | `string?`                              | Agent output text       |
-| `error`        | `string?`                              | Error message if failed |
+A daemon from before automations stored `$PASEO_HOME/schedules/`. The daemon deletes that directory at startup without migrating it.
 
 ---
 
