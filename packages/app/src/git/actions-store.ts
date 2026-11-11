@@ -43,22 +43,6 @@ function resolveClient(serverId: string) {
   return client;
 }
 
-type AutoMergeActionsRpc = "forge" | "github";
-
-function resolveAutoMergeActionsRpc(serverId: string): AutoMergeActionsRpc {
-  const session = useSessionStore.getState().sessions[serverId];
-  if (session?.serverInfo?.features?.checkoutForgeSetAutoMerge === true) {
-    return "forge";
-  }
-  // COMPAT(githubAutoMergeRpc): use the legacy GitHub RPC with daemons that
-  // predate checkout.forge.set_auto_merge.*. Remove after 2027-01-17 once the
-  // supported daemon floor is >= v0.2.0.
-  if (session?.serverInfo?.features?.checkoutGithubSetAutoMerge === true) {
-    return "github";
-  }
-  throw new Error("Update the host to use auto-merge actions.");
-}
-
 function setStatus(
   key: CheckoutKey,
   actionId: CheckoutGitAsyncActionId,
@@ -292,20 +276,13 @@ export const useCheckoutGitActionsStore = create<CheckoutGitActionsStoreState>()
   },
 
   enablePrAutoMerge: async ({ serverId, cwd, method }) => {
-    const rpc = resolveAutoMergeActionsRpc(serverId);
     await runCheckoutAction({
       serverId,
       cwd,
       actionId: `enable-pr-auto-merge-${method}`,
       run: async () => {
         const client = resolveClient(serverId);
-        // COMPAT(githubAutoMergeRpc): use the legacy GitHub RPC with daemons
-        // that predate checkout.forge.set_auto_merge.*. Remove after 2027-01-17
-        // once the supported daemon floor is >= v0.2.0.
-        const payload =
-          rpc === "forge"
-            ? await client.checkoutForgeSetAutoMerge(cwd, { enabled: true, method })
-            : await client.checkoutGithubSetAutoMerge(cwd, { enabled: true, method });
+        const payload = await client.checkoutForgeSetAutoMerge(cwd, { enabled: true, method });
         if (payload.error) {
           throw new Error(payload.error.message);
         }
@@ -314,20 +291,13 @@ export const useCheckoutGitActionsStore = create<CheckoutGitActionsStoreState>()
   },
 
   disablePrAutoMerge: async ({ serverId, cwd }) => {
-    const rpc = resolveAutoMergeActionsRpc(serverId);
     await runCheckoutAction({
       serverId,
       cwd,
       actionId: "disable-pr-auto-merge",
       run: async () => {
         const client = resolveClient(serverId);
-        // COMPAT(githubAutoMergeRpc): use the legacy GitHub RPC with daemons
-        // that predate checkout.forge.set_auto_merge.*. Remove after 2027-01-17
-        // once the supported daemon floor is >= v0.2.0.
-        const payload =
-          rpc === "forge"
-            ? await client.checkoutForgeSetAutoMerge(cwd, { enabled: false })
-            : await client.checkoutGithubSetAutoMerge(cwd, { enabled: false });
+        const payload = await client.checkoutForgeSetAutoMerge(cwd, { enabled: false });
         if (payload.error) {
           throw new Error(payload.error.message);
         }

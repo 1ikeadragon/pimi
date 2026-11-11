@@ -71,21 +71,6 @@ test("coalesces per account, caches errors, and refreshes only requested IDs", a
   expect(counts.get("a")).toBe(3);
 });
 
-test("legacy listing uses oldest fetchedAt", async () => {
-  let now = 1000;
-  const registry = new UsageSourceRegistry(() => now);
-  registry.register(
-    source({
-      id: "source",
-      discover: async () => ["a", "b"].map((account) => ({ key: account, input: { account } })),
-    }),
-  );
-  await registry.listReports();
-  now = 2000;
-  await registry.listReports({ reportIds: ["source:b"], forceRefresh: true });
-  expect((await registry.listLegacyUsage()).fetchedAt).toBe(new Date(1000).toISOString());
-});
-
 test("concurrent requests for the same ID share one vendor fetch", async () => {
   let finish!: (report: unknown) => void;
   const response = new Promise<unknown>((resolve) => {
@@ -169,24 +154,6 @@ test("a failed fetch is logged as well as reported", async () => {
   const [report] = await registry.listReports();
   expect(report?.report).toEqual({ status: "error", error: err.message });
   expect(warnings).toEqual([[{ sourceId: "claude", err }, "Usage fetch failed"]]);
-});
-
-test("legacy listing distinguishes labeled accounts and preserves unlabeled names", async () => {
-  const registry = new UsageSourceRegistry(() => 1000);
-  registry.register(
-    source({
-      id: "claude",
-      discover: async () =>
-        ["work", "personal", "default"].map((key) => ({
-          key,
-          label: key === "default" ? undefined : key,
-          input: {},
-        })),
-    }),
-  );
-  expect(
-    (await registry.listLegacyUsage()).providers.map((provider) => provider.displayName),
-  ).toEqual(["claude (work)", "claude (personal)", "claude"]);
 });
 
 test("duplicate logins prefer discovery order across unavailable, error and thrown fetches", async () => {

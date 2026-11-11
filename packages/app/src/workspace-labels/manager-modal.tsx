@@ -211,9 +211,6 @@ export function WorkspaceLabelManagerModal({
           {state.host?.status === "offline" ? (
             <Text style={styles.muted}>{t("workspaceLabels.manage.offline")}</Text>
           ) : null}
-          {state.host?.status === "unsupported" ? (
-            <Text style={styles.muted}>{t("workspaceLabels.manage.updateHost")}</Text>
-          ) : null}
           {(state.error ?? state.host?.error) ? (
             <Text style={styles.error} testID="workspace-label-manager-error">
               {state.error ?? state.host?.error}

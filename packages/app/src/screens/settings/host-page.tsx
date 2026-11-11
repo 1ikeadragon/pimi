@@ -565,11 +565,6 @@ function RestartDaemonCard({ host }: { host: HostProfile }) {
   // close-terminals restart must name the processes left running until the user retries.
   const [restartError, setRestartError] = useState<string | null>(null);
   const isMountedRef = useRef(true);
-  // COMPAT(terminalsSurviveRestart): added in v0.12.0, remove gate after 2027-04-21.
-  const terminalsSurviveRestart = useSessionStore(
-    (state) =>
-      state.sessions[host.serverId]?.serverInfo?.features?.terminalsSurviveRestart === true,
-  );
 
   useEffect(() => {
     return () => {
@@ -676,23 +671,21 @@ function RestartDaemonCard({ host }: { host: HostProfile }) {
             : t("settings.host.daemon.restart.confirm")}
         </Button>
       </View>
-      {terminalsSurviveRestart ? (
-        <View style={settingsStyles.row}>
-          <View style={settingsStyles.rowContent}>
-            <Text style={settingsStyles.rowHint}>
-              {t("settings.host.daemon.restart.closeTerminalsHint")}
-            </Text>
-          </View>
-          <Button
-            variant="outline"
-            onPress={handleRestartAndCloseTerminals}
-            disabled={isRestarting || !daemonClient || !isConnected}
-            testID="host-page-restart-close-terminals-button"
-          >
-            {t("settings.host.daemon.restart.closeTerminals")}
-          </Button>
+      <View style={settingsStyles.row}>
+        <View style={settingsStyles.rowContent}>
+          <Text style={settingsStyles.rowHint}>
+            {t("settings.host.daemon.restart.closeTerminalsHint")}
+          </Text>
         </View>
-      ) : null}
+        <Button
+          variant="outline"
+          onPress={handleRestartAndCloseTerminals}
+          disabled={isRestarting || !daemonClient || !isConnected}
+          testID="host-page-restart-close-terminals-button"
+        >
+          {t("settings.host.daemon.restart.closeTerminals")}
+        </Button>
+      </View>
       {restartError ? (
         <View style={styles.cardAlert}>
           <InlineAlert
@@ -725,9 +718,6 @@ function UpdateDaemonCard({ host }: { host: HostProfile }) {
 
   const daemonVersion = useSessionStore(
     (state) => state.sessions[host.serverId]?.serverInfo?.version ?? null,
-  );
-  const supportsSelfUpdate = useSessionStore(
-    (state) => state.sessions[host.serverId]?.serverInfo?.features?.daemonSelfUpdate === true,
   );
   const desktopManaged = useSessionStore(
     (state) => state.sessions[host.serverId]?.serverInfo?.desktopManaged === true,
@@ -847,8 +837,7 @@ function UpdateDaemonCard({ host }: { host: HostProfile }) {
       });
   }, [daemonClient, host.label, host.serverId, isHostConnected, t]);
 
-  const shouldShowUpdate = hasVersionMismatch && (supportsSelfUpdate || desktopManaged);
-  if (!shouldShowUpdate && updateState.status !== "complete") {
+  if (!hasVersionMismatch && updateState.status !== "complete") {
     return null;
   }
 

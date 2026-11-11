@@ -10,8 +10,7 @@ import {
 import type { WorkspaceDescriptor } from "@/stores/session-store";
 import { useWorkspaceLayoutStore } from "@/stores/workspace-layout-store";
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
-import { archiveWorkspaceWithUndo, supportsWorkspaceArchiveUndo } from "@/workspace/archive-undo";
-import { archiveWorkspaceOptimistically } from "@/workspace/workspace-archive";
+import { archiveWorkspaceWithUndo } from "@/workspace/archive-undo";
 
 function purgeArchivedWorkspaceState(input: { serverId: string; workspaceId: string }): void {
   const workspaceKey = buildWorkspaceTabPersistenceKey(input);
@@ -63,18 +62,12 @@ export function useWorkspaceArchive(input: ArchiveWorkspaceInput): WorkspaceArch
     onSetHiding?.(true);
     try {
       onArchiveStarted();
-      if (supportsWorkspaceArchiveUndo(serverId)) {
-        await archiveWorkspaceWithUndo({
-          client,
-          workspace,
-          toast,
-          onArchiveCommitted: () => purgeArchivedWorkspaceState(workspace),
-        });
-      } else {
-        // COMPAT(workspaceArchiveUndo): hosts before v0.15.3 cannot undo; remove after 2027-05-06.
-        await archiveWorkspaceOptimistically({ client, workspace });
-        purgeArchivedWorkspaceState(workspace);
-      }
+      await archiveWorkspaceWithUndo({
+        client,
+        workspace,
+        toast,
+        onArchiveCommitted: () => purgeArchivedWorkspaceState(workspace),
+      });
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : t("sidebar.workspace.toasts.archiveFailed"),

@@ -25,7 +25,7 @@ test("closed deliveries do not increase memory used by unrelated promises", () =
 test("concurrent requests keep their source through asynchronous work", async () => {
   const delivery = new SessionDelivery(() => {});
   const sources = [{}, {}];
-  for (const source of sources) delivery.attach(source, true);
+  for (const source of sources) delivery.attach(source);
 
   const requests: Promise<void>[] = [];
   for (const [index, source] of sources.entries()) {
@@ -49,8 +49,8 @@ test("an asynchronous projection keeps its source after close without delaying c
   const other = new SessionDelivery(() => {});
   const source = {};
   const otherSource = {};
-  delivery.attach(source, true);
-  other.attach(otherSource, true);
+  delivery.attach(source);
+  other.attach(otherSource);
   let resume!: () => void;
   const paused = new Promise<void>((resolve) => {
     resume = resolve;
@@ -78,15 +78,15 @@ test("close finishes with a paused request and late work sees cancellation witho
   const other = new SessionDelivery((_source, message) => sent.push(`other:${message.type}`));
   const source = {};
   const otherSource = {};
-  delivery.attach(source, true);
-  other.attach(otherSource, true);
+  delivery.attach(source);
+  other.attach(otherSource);
   let resume!: () => void;
   const paused = new Promise<void>((resolve) => {
     resume = resolve;
   });
   let stopped = false;
   const request = delivery.request(source, { type: "ping", requestId: "pending" }, async () => {
-    delivery.begin("test", undefined, () => {
+    delivery.begin("test", () => {
       stopped = true;
     });
     await paused;
@@ -135,7 +135,7 @@ test("close finishes with a paused request and late work sees cancellation witho
 test("a failed in-flight request does not fail delivery teardown", async () => {
   const delivery = new SessionDelivery(() => {});
   const source = {};
-  delivery.attach(source, true);
+  delivery.attach(source);
   let resume!: () => void;
   const paused = new Promise<void>((resolve) => {
     resume = resolve;
@@ -154,16 +154,16 @@ test("a failed in-flight request does not fail delivery teardown", async () => {
 test("failed teardown still closes the delivery and rejects late work", async () => {
   const delivery = new SessionDelivery(() => {});
   const source = {};
-  delivery.attach(source, true);
+  delivery.attach(source);
   await delivery.request(source, { type: "ping", requestId: "subscribe" }, async () => {
-    delivery.begin("test", undefined, () => {
+    delivery.begin("test", () => {
       throw new Error("teardown failed");
     });
   });
 
   await expect(delivery.close()).rejects.toThrow("teardown failed");
   await expect(delivery.close()).rejects.toThrow("teardown failed");
-  expect(() => delivery.attach({}, true)).toThrow("Session delivery is closed");
+  expect(() => delivery.attach({})).toThrow("Session delivery is closed");
   expect(() => delivery.forSource(source, () => {})).toThrow("Session delivery is closed");
   await expect(
     delivery.request(source, { type: "ping", requestId: "late" }, async () => {}),
@@ -185,12 +185,12 @@ test("owned send completion retains source proofs and reports physical failures 
       throw failure;
     },
   );
-  delivery.attach(source, true);
+  delivery.attach(source);
   await delivery.request(
     source,
     { type: "hosts.link.open.request", requestId: "open", channelId: "scope" },
     async () => {
-      const owner = delivery.begin("host-link", undefined, () => {});
+      const owner = delivery.begin("host-link", () => {});
       await expect(
         owner.emitAndWait({
           type: "hosts.route.frame",

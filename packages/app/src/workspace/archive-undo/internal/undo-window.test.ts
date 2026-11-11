@@ -34,6 +34,7 @@ function workspace(id: string): WorkspaceDescriptor {
   return {
     createdAt: null,
     lastUserMessageAt: null,
+    setupStatus: null,
     id,
     projectId: "project",
     projectDisplayName: "Project",

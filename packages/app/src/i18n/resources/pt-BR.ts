@@ -310,7 +310,6 @@ export const ptBR: TranslationResources = {
     title: "Histórico de agentes",
     empty: "Nenhuma sessão ainda",
     noMatches: "Nenhuma sessão corresponde",
-    tooManyMatches: "Muitos resultados — refine a busca",
     hostLoadFailed: "{{host}}: Não foi possível carregar o histórico",
     searchPlaceholder: "Buscar no histórico",
     actions: {
@@ -375,7 +374,6 @@ export const ptBR: TranslationResources = {
       forkInNewWorkspace: "Bifurcar em um novo workspace",
       forkWithProvider: "Bifurcar com outro provedor",
       forkNoOtherProviders: "Não há outros provedores disponíveis neste host.",
-      forkUnavailable: "Atualize o host para usar isto.",
       forkMissingWorkspace: "Este agente não está em um workspace.",
       forkFailed: "Falha ao bifurcar o chat",
       openFile: "Abrir arquivo",
@@ -471,7 +469,6 @@ export const ptBR: TranslationResources = {
     },
     status: {
       connectHost: "Conecte-se a um host para importar sessões",
-      updateHost: "Atualize o host para importar sessões.",
       noProviders: "Nenhum provedor importável está ativado.",
       loading: "Carregando sessões recentes...",
       failedProvider: "Não foi possível carregar as sessões de {{provider}}",
@@ -503,7 +500,6 @@ export const ptBR: TranslationResources = {
       hostOffline: "{{hostName}} está offline",
       cannotReachHost: "Não é possível acessar {{hostName}}",
       hostStatus: "Status do host: {{status}}",
-      needsHostUpgrade: "Atualize o host para restaurar este workspace",
       manageHost: "Gerenciar host",
       recovery: {
         archivedTitle: "Workspace arquivado",
@@ -599,7 +595,6 @@ export const ptBR: TranslationResources = {
       },
     },
     setup: {
-      updateHost: "Atualize o host para ver os detalhes da configuração do espaço de trabalho",
       descriptor: {
         label: "Configuração",
         completed: "Configuração concluída",
@@ -674,8 +669,6 @@ export const ptBR: TranslationResources = {
     },
     terminal: {
       hostDisconnected: "Host não está conectado",
-      updateHost: "Atualize o host para usar o renderizador de terminal nativo.",
-      restoreRequiresUpdate: "Atualize o host para visualizar os terminais.",
       unableToSubscribe: "Não foi possível assinar o terminal",
       fileUploaded: "Arquivo enviado",
       pasteFileFailed: "Falha ao colar o arquivo: {{reason}}",
@@ -1191,7 +1184,6 @@ export const ptBR: TranslationResources = {
     createConfirm: "Criar",
     creating: "Criando…",
     name: "Nome da etiqueta",
-    updateHostUse: "Atualize este host para usar etiquetas.",
     errors: {
       update: "Não foi possível atualizar a etiqueta",
       load: "Não foi possível carregar as etiquetas",
@@ -1226,7 +1218,6 @@ export const ptBR: TranslationResources = {
       deleteMessage_one: "Isso remove a etiqueta de {{count}} workspace neste host.",
       deleteMessage_other: "Isso remove a etiqueta de {{count}} workspaces neste host.",
       offline: "Este host está offline.",
-      updateHost: "Atualize este host para gerenciar etiquetas.",
     },
   },
   changelog: {
@@ -1257,7 +1248,6 @@ export const ptBR: TranslationResources = {
         created: "Criação",
         manual: "Manual",
         lastPrompt: "Último prompt",
-        updateHost: "Atualize os hosts para ordenar os espaços de trabalho",
       },
       grouping: {
         label: "Agrupamento",
@@ -1364,7 +1354,6 @@ export const ptBR: TranslationResources = {
       toasts: {
         hostDisconnected: "Host não está conectado",
         removeFailed: "Falha ao remover alguns workspaces",
-        updateHostToRemove: "Atualize o host para remover projetos.",
       },
       empty: {
         title: "Nenhum projeto ainda",
@@ -2035,7 +2024,6 @@ export const ptBR: TranslationResources = {
         "Sem relay, conecte diretamente por TCP, Tailscale ou outra VPN. Nenhum código QR é criado.",
       tailscaleDocs: "Configurar Tailscale",
       tailscaleDocsAccessibility: "Ler como conectar pelo Tailscale",
-      updateRequired: "Atualize o host para ativar o relay pelo Pimi Desktop.",
       unavailable: "Oferta de pareamento indisponível.",
       hint: "Escaneie este QR code com o Pimi no seu celular ou copie o link abaixo.",
       securityWarning:
@@ -2184,7 +2172,6 @@ export const ptBR: TranslationResources = {
       directoryMissing: "Diretório do workspace não encontrado.",
       empty: "Nenhuma alteração",
       loadError: "Falha ao carregar diff",
-      capabilityMissing: "Atualize o host para ver diffs de commits.",
     },
   },
   toolCallDetails: {
@@ -2441,7 +2428,6 @@ export const ptBR: TranslationResources = {
     },
     voice: {
       offline: "Conecte-se a este host para configurar a voz.",
-      updateHost: "Atualize o host para configurar a voz.",
       saveError: "Não foi possível atualizar as configurações de voz",
       provider: "Provedor",
       providers: {
@@ -2995,7 +2981,6 @@ export const ptBR: TranslationResources = {
       agentProfiles: {
         sectionTitle: "Perfis de agente",
         unavailable: "Conecte-se a este host para gerenciar perfis de agente",
-        unsupported: "Este host executa um daemon que ainda não é compatível com perfis de agente",
         emptyState:
           "Nenhum perfil ainda. Adicione um para iniciar agentes a partir de um provedor e modelo salvos.",
         addProfileTitle: "Adicionar perfil de agente",

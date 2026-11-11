@@ -37,6 +37,7 @@ function createWorkspace(
   return {
     createdAt: null,
     lastUserMessageAt: null,
+    setupStatus: null,
     id: input.id,
     projectId: input.projectId ?? "project-1",
     projectDisplayName: input.projectDisplayName ?? "Project 1",

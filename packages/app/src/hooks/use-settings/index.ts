@@ -6,7 +6,6 @@ import type { AppLanguage } from "@/i18n/locales";
 import {
   DEFAULT_DESKTOP_SETTINGS,
   loadDesktopSettings,
-  migrateLegacyDesktopSettings,
   useDesktopSettings,
 } from "@/desktop/settings/desktop-settings";
 import { isElectronRuntime } from "@/desktop/host";
@@ -124,7 +123,6 @@ const productionDeps: SettingsDeps = {
   desktop: {
     isElectron: isElectronRuntime,
     loadDesktopSettings,
-    migrateLegacyDesktopSettings,
   },
 };
 

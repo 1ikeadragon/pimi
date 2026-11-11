@@ -12,7 +12,6 @@ export interface NewWorkspaceInitialServerInput {
   lastActiveProject: HostProjectListItem | null;
   projects: readonly HostProjectListItem[];
   hostConnectionStatusByServerId: ReadonlyMap<string, HostRuntimeConnectionStatus>;
-  workspaceMultiplicityByServerId: ReadonlyMap<string, boolean>;
 }
 
 function knownServerId(serverIds: ReadonlySet<string>, serverId: string | null | undefined) {
@@ -20,27 +19,14 @@ function knownServerId(serverIds: ReadonlySet<string>, serverId: string | null |
   return normalized && serverIds.has(normalized) ? normalized : null;
 }
 
-function supportsAllProjects(
-  workspaceMultiplicityByServerId: ReadonlyMap<string, boolean>,
-  serverId: string,
-) {
-  return workspaceMultiplicityByServerId.get(serverId) === true;
-}
-
 function canUseProjectForServer(input: {
   project: HostProjectListItem;
   projects: readonly HostProjectListItem[];
   serverId: string;
-  workspaceMultiplicityByServerId: ReadonlyMap<string, boolean>;
 }) {
-  const allowAllProjects = supportsAllProjects(
-    input.workspaceMultiplicityByServerId,
-    input.serverId,
-  );
   const selectableProjects = filterWorkspaceProjectsForHost({
     projects: input.projects,
     serverId: input.serverId,
-    allowAllProjects,
   });
   const project =
     resolveHostProjectCandidate({
@@ -51,7 +37,6 @@ function canUseProjectForServer(input: {
   return canCreateWorkspaceForHostProject({
     project,
     serverId: input.serverId,
-    allowAllProjects,
   });
 }
 
@@ -59,7 +44,6 @@ function findLastActiveProjectServerId(input: {
   serverIds: ReadonlySet<string>;
   lastActiveProject: HostProjectListItem | null;
   projects: readonly HostProjectListItem[];
-  workspaceMultiplicityByServerId: ReadonlyMap<string, boolean>;
 }) {
   if (!input.lastActiveProject) {
     return null;
@@ -74,7 +58,6 @@ function findLastActiveProjectServerId(input: {
         project: input.lastActiveProject,
         projects: input.projects,
         serverId: host.serverId,
-        workspaceMultiplicityByServerId: input.workspaceMultiplicityByServerId,
       })
     ) {
       return host.serverId;
@@ -87,14 +70,12 @@ function findLastActiveProjectServerId(input: {
 function hasSelectableProject(input: {
   projects: readonly HostProjectListItem[];
   serverId: string;
-  workspaceMultiplicityByServerId: ReadonlyMap<string, boolean>;
 }) {
   return input.projects.some((project) =>
     canUseProjectForServer({
       project,
       projects: input.projects,
       serverId: input.serverId,
-      workspaceMultiplicityByServerId: input.workspaceMultiplicityByServerId,
     }),
   );
 }
@@ -128,14 +109,12 @@ export function resolveNewWorkspaceInitialServerId(input: NewWorkspaceInitialSer
     hasSelectableProject({
       projects: input.projects,
       serverId,
-      workspaceMultiplicityByServerId: input.workspaceMultiplicityByServerId,
     }),
   );
   const serverIdsWithProjects = input.allServerIds.filter((serverId) =>
     hasSelectableProject({
       projects: input.projects,
       serverId,
-      workspaceMultiplicityByServerId: input.workspaceMultiplicityByServerId,
     }),
   );
 
@@ -143,7 +122,6 @@ export function resolveNewWorkspaceInitialServerId(input: NewWorkspaceInitialSer
     serverIds,
     lastActiveProject: input.lastActiveProject,
     projects: input.projects,
-    workspaceMultiplicityByServerId: input.workspaceMultiplicityByServerId,
   });
   if (
     lastActiveProjectServerId &&
@@ -210,7 +188,6 @@ export function resolveNewWorkspaceAutomaticServerId(
     serverIds,
     lastActiveProject: input.lastActiveProject,
     projects: input.projects,
-    workspaceMultiplicityByServerId: input.workspaceMultiplicityByServerId,
   });
   const hasOnlineServer = input.allServerIds.some((serverId) =>
     isOnline(input.hostConnectionStatusByServerId, serverId),
@@ -225,12 +202,10 @@ export function resolveNewWorkspaceAutomaticServerId(
   const currentHasProject = hasSelectableProject({
     projects: input.projects,
     serverId: currentServerId,
-    workspaceMultiplicityByServerId: input.workspaceMultiplicityByServerId,
   });
   const nextHasProject = hasSelectableProject({
     projects: input.projects,
     serverId: nextServerId,
-    workspaceMultiplicityByServerId: input.workspaceMultiplicityByServerId,
   });
   if (
     isKnownUnreachable(input.hostConnectionStatusByServerId, currentServerId) &&

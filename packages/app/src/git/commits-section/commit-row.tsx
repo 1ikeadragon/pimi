@@ -2,13 +2,13 @@ import { memo, useCallback } from "react";
 import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { ThemedChevron, chevronColorMapping } from "@/git/themed-chevron";
-import type { ClassifiedCheckoutCommit } from "@/git/use-commits-query";
+import type { CheckoutCommit } from "@pimi/protocol/messages";
 import { CODE_SURFACE_DATASET } from "@/styles/code-surface";
 import { useTimeAgo } from "@/hooks/use-time-ago";
 import { CommitGraphNode } from "./commit-graph-node";
 
 interface CommitRowProps {
-  commit: ClassifiedCheckoutCommit;
+  commit: CheckoutCommit;
   isFirst: boolean;
   isLast: boolean;
   onCommitPress: (sha: string) => void;

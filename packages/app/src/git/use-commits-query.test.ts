@@ -8,7 +8,6 @@ describe("resolveCheckoutCommitsQueryResult", () => {
     expect(
       resolveCheckoutCommitsQueryResult({
         enabled: false,
-        capabilityPresent: true,
         canFetch: true,
         data: undefined,
         isPlaceholderData: false,
@@ -21,7 +20,6 @@ describe("resolveCheckoutCommitsQueryResult", () => {
     expect(
       resolveCheckoutCommitsQueryResult({
         enabled: true,
-        capabilityPresent: true,
         canFetch: true,
         data: undefined,
         isPlaceholderData: false,
@@ -34,7 +32,6 @@ describe("resolveCheckoutCommitsQueryResult", () => {
     expect(
       resolveCheckoutCommitsQueryResult({
         enabled: true,
-        capabilityPresent: true,
         canFetch: true,
         data: EMPTY_COMMITS,
         isPlaceholderData: false,
@@ -48,7 +45,6 @@ describe("resolveCheckoutCommitsQueryResult", () => {
     expect(
       resolveCheckoutCommitsQueryResult({
         enabled: true,
-        capabilityPresent: true,
         canFetch: true,
         data: undefined,
         isPlaceholderData: false,
@@ -61,7 +57,6 @@ describe("resolveCheckoutCommitsQueryResult", () => {
     expect(
       resolveCheckoutCommitsQueryResult({
         enabled: false,
-        capabilityPresent: true,
         canFetch: true,
         data: EMPTY_COMMITS,
         isPlaceholderData: false,
@@ -74,7 +69,6 @@ describe("resolveCheckoutCommitsQueryResult", () => {
     expect(
       resolveCheckoutCommitsQueryResult({
         enabled: true,
-        capabilityPresent: true,
         canFetch: true,
         data: EMPTY_COMMITS,
         isPlaceholderData: true,

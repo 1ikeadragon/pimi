@@ -26,7 +26,6 @@ interface DesktopSettingsPatch {
 export interface DesktopSettingsStore {
   get(): Promise<DesktopSettings>;
   patch(patch: unknown): Promise<DesktopSettings>;
-  migrateLegacyRendererSettings(legacySettings: unknown): Promise<DesktopSettings>;
 }
 
 export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
@@ -67,11 +66,9 @@ const DesktopSettingsSchema = z
 
 const MigrationsSchema = z
   .looseObject({
-    legacyRendererSettingsImported: z.boolean().catch(false),
     daemonStopOnQuitDefaultApplied: z.boolean().catch(false),
   })
   .catch(() => ({
-    legacyRendererSettingsImported: false,
     daemonStopOnQuitDefaultApplied: false,
   }));
 
@@ -116,7 +113,6 @@ function buildDefaultDocument(): PersistedDesktopSettingsDocument {
     version: 1,
     settings: buildDefaultSettings(),
     migrations: {
-      legacyRendererSettingsImported: false,
       daemonStopOnQuitDefaultApplied: true,
     },
   };
@@ -169,27 +165,6 @@ function coerceDesktopSettingsPatch(input: unknown): DesktopSettingsPatch {
   return patch;
 }
 
-function pickDesktopSettingsFromLegacyRendererSettings(
-  legacySettings: unknown,
-): DesktopSettingsPatch {
-  if (!isRecord(legacySettings)) {
-    return {};
-  }
-
-  const patch: DesktopSettingsPatch = {};
-  const releaseChannel = coerceReleaseChannel(legacySettings.releaseChannel);
-  if (releaseChannel) {
-    patch.releaseChannel = releaseChannel;
-  }
-
-  const manageBuiltInDaemon = coerceBoolean(legacySettings.manageBuiltInDaemon);
-  if (manageBuiltInDaemon !== null) {
-    patch.daemon = { manageBuiltInDaemon };
-  }
-
-  return patch;
-}
-
 function mergeDesktopSettings(
   current: StoredDesktopSettings,
   patch: DesktopSettingsPatch,
@@ -200,10 +175,6 @@ function mergeDesktopSettings(
     notifications: { ...current.notifications, ...patch.notifications },
     daemon: { ...current.daemon, ...patch.daemon },
   };
-}
-
-function hasLegacyRendererOwnedPatch(patch: DesktopSettingsPatch): boolean {
-  return patch.releaseChannel !== undefined || patch.daemon?.manageBuiltInDaemon !== undefined;
 }
 
 function coerceDocument(input: unknown): PersistedDesktopSettingsDocument {
@@ -268,16 +239,6 @@ export function createDesktopSettingsStore({
     return document;
   }
 
-  async function initializeLegacyRendererMigration(): Promise<PersistedDesktopSettingsDocument> {
-    try {
-      return await loadDocument();
-    } catch {
-      const document = buildDefaultDocument();
-      await persistDocument(document);
-      return document;
-    }
-  }
-
   return {
     async get(): Promise<DesktopSettings> {
       const document = await loadDocument();
@@ -291,33 +252,6 @@ export function createDesktopSettingsStore({
       await persistDocument({
         ...current,
         settings: next,
-        migrations: {
-          ...current.migrations,
-          legacyRendererSettingsImported:
-            current.migrations.legacyRendererSettingsImported ||
-            hasLegacyRendererOwnedPatch(coercedPatch),
-        },
-      });
-      return toDesktopSettings(next);
-    },
-
-    async migrateLegacyRendererSettings(legacySettings: unknown): Promise<DesktopSettings> {
-      const current = await initializeLegacyRendererMigration();
-      if (current.migrations.legacyRendererSettingsImported) {
-        return toDesktopSettings(current.settings);
-      }
-
-      const next = mergeDesktopSettings(
-        current.settings,
-        pickDesktopSettingsFromLegacyRendererSettings(legacySettings),
-      );
-      await persistDocument({
-        ...current,
-        settings: next,
-        migrations: {
-          ...current.migrations,
-          legacyRendererSettingsImported: true,
-        },
       });
       return toDesktopSettings(next);
     },

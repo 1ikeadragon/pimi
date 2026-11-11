@@ -440,11 +440,6 @@ function DesktopVoiceBubble({
     currentCommands.current = contributions;
   }, [contributions]);
   const unavailable = useCommandVoiceUnavailable(localServerId);
-  // COMPAT(askPimiAgent): added in v0.17.18, remove the gate after 2027-05-11. Older hosts
-  // keep the request they already accept.
-  const askAgent = useSessionStore(
-    (state) => state.sessions[localServerId]?.serverInfo?.features?.askPimiAgent === true,
-  );
   const [progress, setProgress] = useState("");
   useEffect(() => bridge.onStatus?.(setProgress), [bridge]);
   const commandRunning = useRef(false);
@@ -516,7 +511,6 @@ function DesktopVoiceBubble({
             agentId,
             workspaceId: selection?.serverId === localServerId ? selection.workspaceId : undefined,
             commands: commands.map((entry) => commandTitle(entry).slice(0, 160)),
-            ...(askAgent && { agent: true as const }),
           });
           if (result.ignored) {
             // Background speech asked for nothing. Keep it in history and show no receipt.
@@ -544,7 +538,7 @@ function DesktopVoiceBubble({
             }
             const opened = target && applyVoiceCommand(target, navigationContext);
             // Ask Pimi's own reply already says what it opened.
-            return askAgent && result.message ? undefined : opened;
+            return result.message ? undefined : opened;
           };
           const notes = [];
           for (const effect of [result, ...(result.effects ?? [])]) {

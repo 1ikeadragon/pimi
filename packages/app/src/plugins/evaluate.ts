@@ -2,7 +2,6 @@ import { requirePluginText } from "@pimi/plugin/client/host";
 import type { createPluginHosts } from "./hosts";
 import { openExternalUrl } from "@/utils/open-external-url";
 import * as pluginUiRuntime from "./react-native/ui";
-import { useRevealedText } from "@/hooks/use-revealed-text";
 import { useSettings } from "./settings/use-settings";
 import * as pluginSharedRuntime from "@pimi/plugin";
 import * as pluginClientRuntime from "@pimi/plugin/client";
@@ -18,10 +17,8 @@ import {
   type PluginClientContext,
   type PluginAgentPanelContribution,
   type PluginWorkspacePanelContribution as WorkspacePanelInput,
-  type PluginScreenProps,
   type PluginScreenTitle,
   type PluginText,
-  type PluginSurfaceProps,
   type PluginTimelineRendererContribution,
   type PluginTimelineTransformerContribution,
   type PluginButtonRegistration,
@@ -33,12 +30,10 @@ import type {
   PluginThemeContribution,
   PluginCommandCenterItemContribution,
   PluginClientSlashCommandContribution,
-  PluginSidebarContribution,
   PluginScreenContribution,
   PluginSidebarItemContribution,
   PluginWorkspacePanelContribution,
 } from "./types";
-import type { ComponentType } from "react";
 import { parsePluginIcon, parseSerializablePluginIcon } from "./icons";
 import { parsePluginThemeContribution } from "./themes";
 
@@ -109,16 +104,11 @@ export type PluginClientRuntime = Pick<
   | "rpc"
   | "openSettings"
   | "openScreen"
-  | "openSurface"
   | "openPanel"
   | "subscribe"
   | "addComposerPill"
   | "addHeaderButton"
 > & { hosts: ReturnType<typeof createPluginHosts> };
-
-// COMPAT(pluginReactNativeEntrypoint): added in v0.13.0, remove after 2027-04-20
-// The 0.12 entry exposed the reveal hook as well as UI components.
-const pluginReactNativeCompatRuntime = { ...pluginUiRuntime, useRevealedText };
 
 export function runPluginClientBundle(
   id: string,
@@ -130,7 +120,6 @@ export function runPluginClientBundle(
     surfaces: [],
     settingsScreens: [],
     sidebarItems: { header: [], footer: [] },
-    legacySidebarItems: [],
     filePanels: [],
     workspacePanels: [],
     commandCenterItems: [],
@@ -277,32 +266,6 @@ export function runPluginClientBundle(
     addSidebarFooterItem(contribution: PluginSidebarItemContribution) {
       return addSidebarItem("footer", contribution);
     },
-    // COMPAT(pluginSidebarAliases): added in v0.11.0, remove after 2027-03-29
-    // Titled by its id; a legacy item pointing at it lends the header its own title instead.
-    addSurface(surfaceId: string, Component: ComponentType<PluginSurfaceProps>) {
-      if (!isComponentType(Component)) throw new Error(`Screen ${surfaceId} is not a component`);
-      return pluginContext.addScreen({
-        id: surfaceId,
-        title: surfaceId,
-        Component: (props: PluginScreenProps) => React.createElement(Component, props),
-      });
-    },
-    // COMPAT(pluginSidebarAliases): added in v0.11.0, remove after 2027-03-29
-    addSidebarItem(contribution: PluginSidebarContribution) {
-      const normalizedId = requireId(contribution.id, "sidebar item id");
-      const legacy = {
-        id: normalizedId,
-        title: normalizePluginText(contribution.title),
-        icon: parsePluginIcon(`Sidebar item ${normalizedId}`, contribution.icon),
-        surface: requireId(contribution.surface, "sidebar surface id"),
-      };
-      // Shares the header's ids: the sidebar orders both kinds of item under one key.
-      const ids = sidebarItemIds.header;
-      if (ids.has(normalizedId)) throw new Error(`Duplicate sidebar header item: ${normalizedId}`);
-      if (!legacy.title) throw new Error(`Sidebar item ${normalizedId} has no title`);
-      ids.add(normalizedId);
-      return register(collector.legacySidebarItems, legacy, () => ids.delete(normalizedId));
-    },
     addFilePanel(contribution) {
       const panelId = requireId(contribution.id, "file panel id");
       if (filePanelIds.has(panelId)) throw new Error(`Duplicate file panel: ${panelId}`);
@@ -350,14 +313,8 @@ export function runPluginClientBundle(
     addAgentPanel(contribution: PluginAgentPanelContribution<PluginText>) {
       return registerPanel({ ...contribution, context: "agent" });
     },
-    addWorkspacePanel(input: WorkspacePanelInput<PluginText>) {
-      // COMPAT(pluginAgentPanelAlias): added in v0.13.0, remove after 2027-04-23
-      if (input.context === "agent") return pluginContext.addAgentPanel(input);
-      // COMPAT(pluginPanelFlatProps): added in v0.13.0, remove after 2027-04-23
-      if (input.context !== undefined && input.context !== "workspace") {
-        throw new Error(`Workspace panel ${input.id} has invalid context`);
-      }
-      return registerPanel({ ...input, context: "workspace" });
+    addWorkspacePanel(contribution: WorkspacePanelInput<PluginText>) {
+      return registerPanel({ ...contribution, context: "workspace" });
     },
     addCommandCenterItem(contribution: PluginCommandCenterItemContribution) {
       const normalizedId = requireId(contribution.id, "Command Center item id");
@@ -510,8 +467,6 @@ export function runPluginClientBundle(
   };
   const runtimeRequire = (name: string): unknown => {
     name = name.replace(/^@getpaseo\/plugin(?=\/|$)/, "@pimi/plugin");
-    // COMPAT(pluginReactNativeEntrypoint): added in v0.13.0, remove after 2027-04-20
-    if (name === "@pimi/plugin/client/react-native") return pluginReactNativeCompatRuntime;
     if (name === "@pimi/plugin/client/ui") return pluginUiRuntime;
     if (name === "react") return React;
     if (name === "react/jsx-runtime") return ReactJsxRuntime;
@@ -549,11 +504,6 @@ export function runPluginClientBundle(
     entryCleanup = setup(pluginContext);
     if (typeof entryCleanup !== "function")
       throw new Error(`Plugin ${id} contribution must return a cleanup function`);
-    for (const item of collector.legacySidebarItems) {
-      if (!surfaceIds.has(item.surface)) {
-        throw new Error(`Sidebar item ${item.id} references missing surface ${item.surface}`);
-      }
-    }
   } catch (error) {
     stopped = true;
     try {
@@ -586,7 +536,6 @@ export function runPluginClientBundle(
     surfaces: collector.surfaces,
     settingsScreens: collector.settingsScreens,
     sidebarItems: collector.sidebarItems,
-    legacySidebarItems: collector.legacySidebarItems,
     filePanels: collector.filePanels,
     workspacePanels: collector.workspacePanels as EvaluatedPlugin["workspacePanels"],
     commandCenterItems: collector.commandCenterItems,

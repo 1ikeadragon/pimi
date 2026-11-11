@@ -23,73 +23,61 @@ import { buildWorkspaceSource } from "../workspace/create.js";
 export { resolveProviderAndModel } from "../../utils/provider-model.js";
 
 export function addRunOptions(cmd: Command): Command {
-  return (
-    cmd
-      .description("Create and start an agent with a task")
-      .argument("<prompt>", "The task/prompt for the agent")
-      .option("--no-wait", "Return immediately without waiting for completion")
-      // COMPAT(backgroundRunFlag): --background was the documented spelling of
-      // --no-wait. Added in v0.2.0; remove after 2027-04-01.
-      .addOption(new Option("-d, --background", "Legacy alias for --no-wait").hideHelp())
-      // COMPAT(detachRunFlag): --detach used to mean background execution, not
-      // ownership transfer. Added in v0.2.0; remove after 2027-01-17.
-      .addOption(new Option("--detach", "Legacy alias for --no-wait").hideHelp())
-      .option("--title <title>", "Assign a title to the agent")
-      .addOption(new Option("--name <name>", "Hidden alias for --title").hideHelp())
-      .option(
-        "--provider <provider>",
-        "Agent provider, or provider/model (e.g. codex or codex/gpt-5.4)",
-      )
-      .option(
-        "--model <model>",
-        "Model to use (e.g., claude-sonnet-4-20250514, claude-3-5-haiku-20241022)",
-      )
-      .option("--thinking <id>", "Thinking option ID to use for this run")
-      .option("--mode <mode>", "Provider-specific mode (e.g., plan, default, bypass)")
-      .option("--new-workspace <local|worktree>", "Create a separate local or worktree workspace")
-      .addOption(new Option("--worktree <name>", "Legacy workspace isolation alias").hideHelp())
-      .option(
-        "--worktree-mode <mode>",
-        "Worktree mode: branch-off, checkout-branch, or checkout-pr",
-      )
-      .option("--worktree-slug <slug>", "Managed worktree path slug")
-      .option("--new-branch <name>", "New branch name for branch-off mode")
-      .option("--base <ref>", "Base ref for branch-off mode")
-      .option("--branch <name>", "Existing branch for checkout-branch mode")
-      .option("--pr-number <n>", "Pull request or change request number for checkout-pr mode")
-      .option("--forge <forge>", "Forge for checkout-pr mode")
-      .option(
-        "--workspace <id>",
-        "Run in an existing workspace (defaults to the caller workspace when agent-scoped)",
-      )
-      .option(
-        "--image <path>",
-        "Attach image(s) to the initial prompt (can be used multiple times)",
-        collectMultiple,
-        [],
-      )
-      .option("--cwd <path>", "Working directory (default: current)")
-      .option(
-        "--env <key=value>",
-        "Set environment variable(s) for the agent process (can be used multiple times)",
-        collectMultiple,
-        [],
-      )
-      .option(
-        "--label <key=value>",
-        "Add label(s) to the agent (can be used multiple times)",
-        collectMultiple,
-        [],
-      )
-      .option(
-        "--wait-timeout <duration>",
-        "Maximum time to wait for agent to finish (e.g., 30s, 5m, 1h). Default: no limit",
-      )
-      .option(
-        "--output-schema <schema>",
-        "Output JSON matching the provided schema file path or inline JSON schema",
-      )
-  );
+  return cmd
+    .description("Create and start an agent with a task")
+    .argument("<prompt>", "The task/prompt for the agent")
+    .option("--no-wait", "Return immediately without waiting for completion")
+    .option("--title <title>", "Assign a title to the agent")
+    .addOption(new Option("--name <name>", "Hidden alias for --title").hideHelp())
+    .option(
+      "--provider <provider>",
+      "Agent provider, or provider/model (e.g. codex or codex/gpt-5.4)",
+    )
+    .option(
+      "--model <model>",
+      "Model to use (e.g., claude-sonnet-4-20250514, claude-3-5-haiku-20241022)",
+    )
+    .option("--thinking <id>", "Thinking option ID to use for this run")
+    .option("--mode <mode>", "Provider-specific mode (e.g., plan, default, bypass)")
+    .option("--new-workspace <local|worktree>", "Create a separate local or worktree workspace")
+    .option("--worktree-mode <mode>", "Worktree mode: branch-off, checkout-branch, or checkout-pr")
+    .option("--worktree-slug <slug>", "Managed worktree path slug")
+    .option("--new-branch <name>", "New branch name for branch-off mode")
+    .option("--base <ref>", "Base ref for branch-off mode")
+    .option("--branch <name>", "Existing branch for checkout-branch mode")
+    .option("--pr-number <n>", "Pull request or change request number for checkout-pr mode")
+    .option("--forge <forge>", "Forge for checkout-pr mode")
+    .option(
+      "--workspace <id>",
+      "Run in an existing workspace (defaults to the caller workspace when agent-scoped)",
+    )
+    .option(
+      "--image <path>",
+      "Attach image(s) to the initial prompt (can be used multiple times)",
+      collectMultiple,
+      [],
+    )
+    .option("--cwd <path>", "Working directory (default: current)")
+    .option(
+      "--env <key=value>",
+      "Set environment variable(s) for the agent process (can be used multiple times)",
+      collectMultiple,
+      [],
+    )
+    .option(
+      "--label <key=value>",
+      "Add label(s) to the agent (can be used multiple times)",
+      collectMultiple,
+      [],
+    )
+    .option(
+      "--wait-timeout <duration>",
+      "Maximum time to wait for agent to finish (e.g., 30s, 5m, 1h). Default: no limit",
+    )
+    .option(
+      "--output-schema <schema>",
+      "Output JSON matching the provided schema file path or inline JSON schema",
+    );
 }
 
 /** Result type for agent run command */
@@ -115,8 +103,6 @@ export const agentRunSchema: OutputSchema<AgentRunResult> = {
 
 export interface AgentRunOptions extends CommandOptions {
   wait?: boolean;
-  background?: boolean;
-  detach?: boolean;
   title?: string;
   name?: string;
   provider?: string;
@@ -124,7 +110,6 @@ export interface AgentRunOptions extends CommandOptions {
   thinking?: string;
   mode?: string;
   newWorkspace?: string;
-  worktree?: string;
   worktreeMode?: string;
   worktreeSlug?: string;
   newBranch?: string;
@@ -141,18 +126,14 @@ export interface AgentRunOptions extends CommandOptions {
   outputSchema?: string;
 }
 
-function resolveNewWorkspaceKind(options: AgentRunOptions): string | undefined {
-  return options.newWorkspace ?? (options.worktree ? "worktree" : undefined);
-}
-
 function buildRunWorkspaceSource(options: AgentRunOptions, cwd: string) {
-  const newWorkspace = resolveNewWorkspaceKind(options) ?? "local";
+  const newWorkspace = options.newWorkspace ?? "local";
   return buildWorkspaceSource({
     daemonTarget: options.daemonTarget,
     isolation: newWorkspace,
     path: cwd,
     mode: options.worktreeMode,
-    worktreeSlug: options.worktreeSlug ?? options.worktree,
+    worktreeSlug: options.worktreeSlug,
     newBranch: options.newBranch,
     base: options.base,
     branch: options.branch,
@@ -316,7 +297,7 @@ function structuredRunSchema(output: Record<string, unknown>): OutputSchema<Agen
 }
 
 function validateRunWorkspaceOptions(options: AgentRunOptions): void {
-  const newWorkspace = resolveNewWorkspaceKind(options);
+  const newWorkspace = options.newWorkspace;
   if (
     options.newWorkspace &&
     options.newWorkspace !== "local" &&
@@ -326,14 +307,6 @@ function validateRunWorkspaceOptions(options: AgentRunOptions): void {
       code: "INVALID_OPTIONS",
       message: `Unsupported new workspace kind: ${options.newWorkspace}`,
       details: "Use --new-workspace local or --new-workspace worktree",
-    } satisfies CommandError;
-  }
-
-  if (options.newWorkspace && options.worktree) {
-    throw {
-      code: "INVALID_OPTIONS",
-      message: "--new-workspace and --worktree cannot be combined",
-      details: "Use --new-workspace worktree and the supported worktree options",
     } satisfies CommandError;
   }
 
@@ -372,16 +345,6 @@ function validateRunWorkspaceOptions(options: AgentRunOptions): void {
       details: "Select an existing workspace or explicitly create a new one",
     } satisfies CommandError;
   }
-
-  // COMPAT(worktreeRunFlag): --worktree implies a new worktree-isolated workspace.
-  // Added in v0.2.0; remove after 2027-01-17.
-  if (options.worktree && options.workspace) {
-    throw {
-      code: "INVALID_OPTIONS",
-      message: "--worktree and --workspace cannot be combined",
-      details: "Use --new-workspace worktree instead of the legacy --worktree flag",
-    } satisfies CommandError;
-  }
 }
 
 function validateRunOptions(prompt: string, options: AgentRunOptions, outputSchema: unknown): void {
@@ -391,10 +354,6 @@ function validateRunOptions(prompt: string, options: AgentRunOptions, outputSche
       message: "A prompt is required",
       details: "Usage: paseo agent run [options] <prompt>",
     } satisfies CommandError;
-  }
-
-  if (options.background) {
-    console.error("Warning: --background (-d) is deprecated. Use --no-wait instead.");
   }
 
   validateRunWorkspaceOptions(options);
@@ -408,10 +367,8 @@ function validateRunOptions(prompt: string, options: AgentRunOptions, outputSche
   }
 }
 
-export function waitsForFinish(
-  options: Pick<AgentRunOptions, "wait" | "background" | "detach">,
-): boolean {
-  return options.wait !== false && !options.background && !options.detach;
+export function waitsForFinish(options: Pick<AgentRunOptions, "wait">): boolean {
+  return options.wait !== false;
 }
 
 function parseWaitTimeoutOption(waitTimeout: string | undefined): number {
@@ -547,7 +504,7 @@ async function resolveRunWorkspace(
   cwd: string,
   callerAgentId: string | undefined,
 ): Promise<RunWorkspace> {
-  const newWorkspace = resolveNewWorkspaceKind(options);
+  const newWorkspace = options.newWorkspace;
   const explicit = newWorkspace ? undefined : options.workspace?.trim();
   if (explicit) {
     console.error(`Using workspace ${explicit}`);

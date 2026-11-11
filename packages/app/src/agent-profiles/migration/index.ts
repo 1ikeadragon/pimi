@@ -18,19 +18,11 @@ export interface LegacyFavoriteMigrationStorage {
 }
 
 export interface LegacyFavoriteMigrationHost {
-  getLastServerInfoMessage(): {
-    features?: { agentProfiles?: boolean; agentConfigApply?: boolean };
-  } | null;
   getDaemonConfig(): Promise<{ config: { agentProfiles?: AgentProfile[] } }>;
   patchDaemonConfig(patch: {
     agentProfiles: AgentProfile[];
   }): Promise<{ config: { agentProfiles?: AgentProfile[] } }>;
   getProvidersSnapshot(): Promise<{ entries: ProviderSnapshotEntry[] }>;
-}
-
-function supportsMigration(host: LegacyFavoriteMigrationHost): boolean {
-  const features = host.getLastServerInfoMessage()?.features;
-  return features?.agentProfiles === true && features.agentConfigApply === true;
 }
 
 function completionKey(serverId: string): string {
@@ -179,9 +171,6 @@ export class LegacyFavoriteProfileMigration {
   }
 
   private async run(serverId: string, host: LegacyFavoriteMigrationHost): Promise<void> {
-    if (!supportsMigration(host)) {
-      return;
-    }
     const markerKey = completionKey(serverId);
     if ((await readValidatedString(this.storage, markerKey, z.literal("1"))) === "1") {
       return;

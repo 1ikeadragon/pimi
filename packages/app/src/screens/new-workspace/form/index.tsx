@@ -41,8 +41,6 @@ export interface NewWorkspaceFormProps {
     selectedOptionId: string;
     triggerLabel: string;
     selectedServerId: string;
-    /** COMPAT(workspaceMultiplicity): without it only worktree-capable projects are selectable. */
-    supportsWorkspaceMultiplicity: boolean;
     onSelect: (id: string) => void;
     onAddProject: () => void;
   };
@@ -82,22 +80,12 @@ function hostOptionTestID(serverId: string): string {
   return `new-workspace-host-picker-option-${serverId}`;
 }
 
-function isProjectSelectable(
-  project: HostProjectListItem,
-  supportsWorkspaceMultiplicity: boolean,
-): boolean {
-  return (
-    supportsWorkspaceMultiplicity ||
-    project.hosts.some((host) => host.worktreeSupport !== "unsupported")
-  );
-}
-
 function useProjectPicker(
   project: NewWorkspaceFormProps["project"],
   isPending: boolean,
 ): { renderOption: RenderOption; footer: ReactNode } {
   const { projectByOptionId, iconDataByProjectViewKey, selectedServerId } = project;
-  const { supportsWorkspaceMultiplicity, onAddProject } = project;
+  const { onAddProject } = project;
   const renderOption = useCallback<RenderOption>(
     (row) => {
       const item = projectByOptionId.get(row.option.id);
@@ -107,17 +95,11 @@ function useProjectPicker(
           project={item}
           iconDataUri={item ? (iconDataByProjectViewKey.get(item.viewKey) ?? null) : null}
           selectedServerId={selectedServerId}
-          disabled={isPending || !item || !isProjectSelectable(item, supportsWorkspaceMultiplicity)}
+          disabled={isPending || !item}
         />
       );
     },
-    [
-      iconDataByProjectViewKey,
-      isPending,
-      projectByOptionId,
-      selectedServerId,
-      supportsWorkspaceMultiplicity,
-    ],
+    [iconDataByProjectViewKey, isPending, projectByOptionId, selectedServerId],
   );
   const footer = useMemo(() => <AddProjectOption onPress={onAddProject} />, [onAddProject]);
   return { renderOption, footer };

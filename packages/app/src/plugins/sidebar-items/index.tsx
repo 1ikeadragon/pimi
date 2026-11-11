@@ -37,7 +37,6 @@ import { SurfaceErrorBoundary } from "../surface-error-boundary";
 import { toPluginTheme } from "../theme";
 import type { PluginSidebarSection } from "../types";
 import { SidebarItemFrameContext, type SidebarItemFrame } from "./frame";
-import { LegacyPluginSidebarRow } from "./legacy";
 import { resolvePluginPlatform } from "../platform";
 
 export { SidebarRow, SidebarSeparator } from "./kit";
@@ -45,8 +44,6 @@ export { SidebarRow, SidebarSeparator } from "./kit";
 type PopoverContent = ComponentType<PluginPopoverProps>;
 
 const pluginThemeMapping = (theme: Theme) => ({ theme: toPluginTheme(theme) });
-
-type PluginItemGroup = Extract<PluginSidebarGroup, { kind: "item" }>;
 
 function renderNothing() {
   return null;
@@ -60,19 +57,11 @@ interface PluginSidebarItemEntryProps {
   onBeforeNavigate?: () => void;
 }
 
-type PluginSidebarItemHostProps = Omit<PluginSidebarItemEntryProps, "group"> & {
-  group: PluginItemGroup;
-};
-
 /**
  * One plugin sidebar item. Renders the item's `Component` from the host `selectPluginSidebarTarget` picks,
- * inside the plugin's runtime and its own error boundary: a throwing item renders nothing. A legacy
- * `addSidebarItem` group renders the app's own row.
+ * inside the plugin's runtime and its own error boundary: a throwing item renders nothing.
  */
 export function PluginSidebarItem({ group, ...props }: PluginSidebarItemEntryProps) {
-  if (group.kind === "legacy") {
-    return <LegacyPluginSidebarRow group={group} onBeforeNavigate={props.onBeforeNavigate} />;
-  }
   return <ThemedPluginSidebarItem {...props} group={group} uniProps={pluginThemeMapping} />;
 }
 
@@ -82,7 +71,7 @@ function PluginSidebarItemHost({
   fallbackAnchorRef,
   onBeforeNavigate,
   theme,
-}: PluginSidebarItemHostProps & { theme: PluginTheme }) {
+}: PluginSidebarItemEntryProps & { theme: PluginTheme }) {
   const pathname = usePathname();
   const routeParams = useGlobalSearchParams();
   const { plugin, item } = selectPluginSidebarTarget(group, hostIdFromPathname(pathname));

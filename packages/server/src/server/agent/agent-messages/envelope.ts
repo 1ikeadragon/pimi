@@ -214,9 +214,6 @@ function projectAgentMessage(item: AgentTimelineItem): AgentTimelineItem | null 
       },
       text: message.text,
     },
-    // COMPAT(agentMessageToolEnvelope): added in v0.11.1; remove after 2027-04-08
-    // once clients can accept a dedicated timeline variant. Older clients still
-    // parse this existing shape and can expand the delivered body.
     name: "agent_message",
     status: "completed",
     error: null,

@@ -123,27 +123,6 @@ export async function rebindPaseoWorktreeChangeRequestHint(
   });
 }
 
-export async function pinPaseoWorktreeBranchIdentityIfMissing(
-  worktreeRoot: string,
-  branch: string,
-): Promise<boolean> {
-  return mutateMetadata(worktreeRoot, async (root) => {
-    const metadata = await readMetadataFile(root);
-    if (!metadata || metadata.changeRequestLookupTarget) {
-      return false;
-    }
-    const target = createPaseoWorktreeChangeRequestHint({
-      headRef: branch,
-      localBranchName: branch,
-    });
-    await writePaseoWorktreeMetadataFile(root, {
-      ...metadata,
-      changeRequestLookupTarget: target,
-    });
-    return true;
-  });
-}
-
 async function getGitDirForWorktreeRoot(worktreeRoot: string): Promise<string> {
   const gitPath = join(worktreeRoot, ".git");
   let info;

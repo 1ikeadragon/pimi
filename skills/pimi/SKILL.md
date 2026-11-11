@@ -92,7 +92,7 @@ pimi script stop <name> [--cwd <path> | --workspace <workspace-id>]
 
 `background: true` hides the agent from tabs, default lists, and your subagents track. You still get its finish notification and can address it by ID. Omit it to inherit your own value. Use it for a helper the user does not need to watch.
 
-Initial runtime settings live under `settings`: `modeId`, `thinkingOptionId`, and provider-specific `features`. Agent profiles are the preferred source for these values. For Codex fast mode, pass `settings: { features: { "fast_mode": true } }` when creating the agent.
+Initial runtime settings live under `settings`: `modeId`, `thinkingOptionId`, and provider-specific `features`. Agent profiles are the preferred source for these values. For Codex speed, pass `settings: { features: { "service_tier": "<tier id>" } }` when creating the agent, using a tier id from `inspect_provider`.
 
 Agent-scoped creation always creates your subagent. On your own host, omit `workspaceId` to use your current workspace. On another host, first list or create a workspace with that `serverId`, then pass its `workspaceId` and the same `serverId` to `create_agent`. Placement never changes parentage.
 
@@ -102,7 +102,7 @@ Agent-scoped `create_agent` defaults `notifyOnFinish` to true. Set it to `false`
 
 **`send_agent_prompt`** — `{ agentId, prompt, activeTurnBehavior? }`. Use for follow-ups to an existing agent. Agent-scoped calls default to `steer`; top-level calls default to `interrupt`. Set `activeTurnBehavior` to `steer` or `interrupt` to override the default. Steering falls back to interruption when unavailable. CLI agent sends use the same defaults and accept `--behavior steer|interrupt`. Agent-scoped calls return a queued receipt immediately; messages to each recipient deliver after two quiet seconds. Top-level calls return after dispatch acknowledgement. Agent-scoped calls default `notifyOnFinish` to true; top-level calls have no parent callback.
 
-**`update_agent`** — `{ agentId, name?, labels?, settings? }`. Use `settings` for runtime changes on an existing agent: `modeId`, `model`, `thinkingOptionId`, and provider-specific `features`. For Codex fast mode, pass `settings: { features: { "fast_mode": true } }`.
+**`update_agent`** — `{ agentId, name?, labels?, settings? }`. Use `settings` for runtime changes on an existing agent: `modeId`, `model`, `thinkingOptionId`, and provider-specific `features`. For Codex speed, pass `settings: { features: { "service_tier": "<tier id>" } }`.
 
 **`list_agents`** — use `workspaceId` for one exact workspace, or filter by `cwd`, `statuses`, `sinceHours`, or `includeArchived`. Set `includeBackground: true` to include agents in background workspaces.
 
@@ -147,7 +147,7 @@ If no profile fits, or no profiles are configured, use the provider discovery to
 
 **`inspect_provider`** — compact provider capability and feature inspection. Required: `provider`; pass `cwd` when you are not in an agent-scoped session. Optional: `settings` with draft `model`, `modeId`, `thinkingOptionId`, and `features`.
 
-Only set feature IDs returned by `inspect_provider`. For Codex fast mode, look for `fast_mode` and pass `settings: { features: { "fast_mode": true } }` to `create_agent` or `update_agent`.
+Only set feature IDs returned by `inspect_provider`. For Codex speed, look for `service_tier` and pass `settings: { features: { "service_tier": "<tier id>" } }` to `create_agent` or `update_agent`.
 
 ## Terminals
 

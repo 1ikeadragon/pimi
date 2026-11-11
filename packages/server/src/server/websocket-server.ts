@@ -180,8 +180,6 @@ interface WebSocketServerConfig {
   hostnames?: HostnamesConfig;
   getAllowedOrigins?: () => Set<string>;
   getHostnames?: () => HostnamesConfig | undefined;
-  daemonStatusRpc?: boolean;
-  relayConfig?: boolean;
   startPaused?: boolean;
 }
 
@@ -333,7 +331,6 @@ function createFallbackWorkspaceGitService(): WorkspaceGitService {
 function createNoopProjectRegistry(): ProjectRegistry {
   return {
     initialize: async () => {},
-    existsOnDisk: async () => true,
     list: async () => [],
     get: async () => null,
     getOrCreateActiveByRoot: async (input) => ({
@@ -358,7 +355,6 @@ function createNoopProjectRegistry(): ProjectRegistry {
 function createNoopWorkspaceRegistry(): WorkspaceRegistry {
   return {
     initialize: async () => {},
-    existsOnDisk: async () => true,
     listAll: async () => [],
     listActive: async () => [],
     get: async () => null,
@@ -467,7 +463,6 @@ interface SessionConnectionBase {
   sessionKey: string;
   clientId: string;
   appVersion: string | null;
-  clientCapabilities: Record<string, unknown> | null;
   connectionLogger: pino.Logger;
   sockets: Set<WebSocketLike>;
 }
@@ -627,8 +622,6 @@ export class VoiceAssistantWebSocketServer {
   private readonly browserToolsBroker: BrowserToolsBroker | null;
   private readonly hubRelationships: HubRelationshipManagement | null;
   private connectionLifecycle: "starting" | "accepting" | "stopping" = "accepting";
-  private readonly advertiseDaemonStatusRpc: boolean;
-  private readonly advertiseRelayConfig: boolean;
   private readonly directorySync = new DirectorySyncService();
   private readonly pluginRuntime: SessionOptions["pluginRuntime"];
   private readonly orchestrationSkills: SessionOptions["orchestrationSkills"];
@@ -703,8 +696,6 @@ export class VoiceAssistantWebSocketServer {
   ) {
     this.logger = logger.child({ module: "websocket-server" });
     this.workspaceSetupRuntime = workspaceSetupRuntime;
-    this.advertiseDaemonStatusRpc = wsConfig.daemonStatusRpc !== false;
-    this.advertiseRelayConfig = wsConfig.relayConfig !== false;
     this.connectionLifecycle = wsConfig.startPaused === true ? "starting" : "accepting";
     this.serverId = serverId;
     if (typeof daemonVersion !== "string" || daemonVersion.trim().length === 0) {
@@ -749,7 +740,6 @@ export class VoiceAssistantWebSocketServer {
       join(paseoHome, "creations"),
       this.logger.child({ module: "creation" }),
       (snapshot) => this.validateCompletedCreation(snapshot),
-      join(paseoHome, "agent-requests"),
     );
     this.projectRegistry = projectRegistry ?? createNoopProjectRegistry();
     this.workspaceRegistry = workspaceRegistry ?? createNoopWorkspaceRegistry();
@@ -989,7 +979,6 @@ export class VoiceAssistantWebSocketServer {
     // pending hello handler so an eager client cannot lose its first message.
     ws.pause();
     try {
-      // COMPAT(headerAuth): added in v0.9.1, remove after 2027-03-24.
       const protocol = extractWsBearerProtocol(request.headers["sec-websocket-protocol"]);
       const token =
         extractHttpBearerToken(request.headers.authorization) ?? extractWsBearerToken(protocol);
@@ -1612,7 +1601,6 @@ export class VoiceAssistantWebSocketServer {
       sessionKey: sessionConnectionKey(admission.principalId, clientId),
       clientId,
       appVersion,
-      clientCapabilities,
       connectionLogger,
       sockets: new Set([ws]),
     };
@@ -1973,17 +1961,7 @@ export class VoiceAssistantWebSocketServer {
       existing.appVersion = newAppVersion;
       existing.session.updateAppVersion(newAppVersion);
     }
-    const newClientCapabilities = message.capabilities ?? null;
-    // COMPAT(selectiveAgentTimeline): added in v0.1.106. Every capable resumed
-    // hello resets membership before server_info so stale retained-session
-    // state cannot leak. Remove after 2027-01-12.
-    existing.session.updateClientCapabilities(newClientCapabilities, ws, newAppVersion);
-    if (
-      JSON.stringify(existing.clientCapabilities ?? null) !==
-      JSON.stringify(newClientCapabilities ?? null)
-    ) {
-      existing.clientCapabilities = newClientCapabilities;
-    }
+    existing.session.updateClientCapabilities(message.capabilities ?? null, ws, newAppVersion);
     existing.sockets.add(ws);
     this.sessions.set(ws, existing);
     pending.identity.sessionId = existing.session.getSessionId();
@@ -2022,214 +2000,31 @@ export class VoiceAssistantWebSocketServer {
       version: this.daemonVersion,
       sourceId: session.getHostSourceId(),
       permissions: session.getPermissions(),
-      // COMPAT(desktopManaged): added in v0.1.X, remove optional parsing after 2027-01-16.
       desktopManaged: this.daemonRuntimeConfig?.desktopManaged === true,
       ...(this.serverCapabilities ? { capabilities: this.serverCapabilities } : {}),
       features: {
         connectedHosts: true,
         hostMultiplexing: true,
-        // COMPAT(relayProtectedSecurity): added in v0.13.0, remove gate after 2027-04-21.
-        relayProtectedSecurity: true,
         pimiMobileTasks: true,
-        // COMPAT(askPimiAgent): added in v0.17.18, remove gate after 2027-05-11.
-        askPimiAgent: true,
-        usageSetting: true,
         usageSources: true,
         ownedSubscriptions: true,
         binaryChunkingV1: true,
-        agentRequestReceipts: true,
-        workspaceRequestReceipts: true,
         creationLifecycle: true,
-        hubAgentRpc: true,
         backgroundWorkspaces: true,
-        // COMPAT(backgroundAgents): added in v0.15.0; remove gate after 2027-05-03.
-        backgroundAgents: true,
-        workspaceBaseBranch: true,
-        // COMPAT(directorySync): added in v0.3.x, remove gate after 2027-02-12.
-        directorySync: true,
-        // COMPAT(workspaceLabels): added in v0.5.0, remove after 2027-08-14.
-        ...(this.workspaceLabelService ? { workspaceLabels: true } : {}),
-        // COMPAT(workspaceSetupRun): added in v0.7.3, remove gate after 2027-09-02.
-        workspaceSetupRun: true,
         workspaceSetupObservation: true,
         workspaceSortTimes: true,
-        // COMPAT(providersSnapshot): keep optional until all clients rely on snapshot flow.
-        providersSnapshot: true,
-        // COMPAT(providersSnapshotCwd): added in v0.3.2, remove gate after 2027-02-10.
-        providersSnapshotCwd: true,
-        // COMPAT(checkoutForgeSetAutoMerge): added in v0.2.0-beta.1. Remove the
-        // feature gate and legacy fallback after 2027-01-17 once the supported
-        // daemon floor is >= v0.2.0.
-        checkoutForgeSetAutoMerge: true,
-        // COMPAT(checkoutGithubSetAutoMerge): added in v0.1.75 and retained as
-        // the fallback for checkoutForgeSetAutoMerge. Stop advertising it after
-        // 2027-01-17 once supported floors are >= v0.2.0.
-        checkoutGithubSetAutoMerge: true,
-        // COMPAT(githubCheckDetails): added in v0.1.92 and retained as the
-        // fallback for forgeCheckDetails. Stop advertising it after 2027-01-17
-        // once supported floors are >= v0.2.0.
-        githubCheckDetails: true,
-        // COMPAT(forgeCheckDetails): added in v0.2.0-beta.1. Remove the feature
-        // gate and legacy fallback after 2027-01-17 once the supported daemon
-        // floor is >= v0.2.0.
-        forgeCheckDetails: true,
-        // COMPAT(forgeSearch): added in v0.2.0-beta.1. Remove the feature gate
-        // and legacy fallback after 2027-01-17 once the supported daemon floor
-        // is >= v0.2.0.
-        forgeSearch: true,
-        // COMPAT(daemonStatusRpc): added in v0.1.76, remove gate after 2026-11-18.
-        ...(this.advertiseDaemonStatusRpc ? { daemonStatusRpc: true } : {}),
-        // COMPAT(daemonConfigReload): added in v0.4.0, remove gate after 2027-02-14.
-        daemonConfigReload: true,
-        // COMPAT(speechSettings): added in v0.12.0, remove gate after 2027-04-18.
-        speechSettings: true,
-        // COMPAT(relayConfig): added in v0.2.6, remove gate after 2027-01-31.
-        ...(this.advertiseRelayConfig ? { relayConfig: true } : {}),
-        // COMPAT(pushTokenRevocation): added in v0.3.2, remove gate after 2027-02-10.
-        pushTokenRevocation: true,
-        // COMPAT(plugins): added in v0.3.0, remove gate after 2027-08-07.
-        plugins: true,
-        pluginManagement: true,
-        pluginGitManagement: true,
-        pluginSourceInstallation: true,
-        pluginSourceUpdates: true,
-        pluginLogs: true,
-        // COMPAT(networkActivity): added in v0.17.18, remove gate after 2027-05-11.
-        networkActivity: true,
-        // COMPAT(pluginThemes): added in v0.5.0, remove gate after 2027-08-20.
-        pluginThemes: true,
         pluginSettings: true,
         pluginTimelineItems: true,
-        // COMPAT(pluginSubscriptions): added in v0.15.0, remove gate after 2027-05-02.
-        pluginSubscriptions: true,
-        // COMPAT(skillManagement): added in v0.4.0, remove gate after 2027-08-16.
-        skillManagement: true,
         terminalHookManagement: true,
-        // COMPAT(idleRuntimeCleanupSetting): added in v0.13.0, remove gate after 2027-04-26.
-        idleRuntimeCleanupSetting: true,
-        resumeOnStartupSetting: true,
-        // COMPAT(terminalRestoreModes): added in v0.1.81, remove gate after 2026-11-23.
-        "terminal-restore-modes": true,
-        // COMPAT(terminalInputModeReplay): added in v0.2.6, remove gate after 2027-02-02.
-        "terminal-input-mode-replay": true,
-        // COMPAT(terminalSizeOwnership): added in v0.2.6, remove gate after 2027-02-02.
-        "terminal-size-ownership": true,
-        // COMPAT(terminalGraphemeWidths): added in v0.15.0, remove gate after 2027-05-01.
-        "terminal-grapheme-widths": true,
-        workspaceTerminals: true,
-        // COMPAT(rewind): added in v0.1.X, drop the gate when floor >= v0.1.X.
-        rewind: true,
-        // COMPAT(agentTimelinePromptIndex): added in v0.2.X, drop the gate when floor >= v0.2.X.
-        agentTimelinePromptIndex: true,
-        // COMPAT(agentTimelinePromptPages): added in v0.17.14, remove gate after 2027-05-10.
-        agentTimelinePromptPages: true,
-        // COMPAT(agentHistorySearch): added in v0.3.0, remove gate after 2027-02-07.
-        agentHistorySearch: true,
-        // COMPAT(checkoutRefresh): added in v0.1.86, remove gate after 2026-11-29.
-        checkoutRefresh: true,
-        // COMPAT(workspaceMultiplicity): added in v0.1.97, drop the gate when floor >= v0.1.97
-        workspaceMultiplicity: true,
-        // COMPAT(projectRemove): added in v0.1.97, drop the gate when floor >= v0.1.97.
-        projectRemove: true,
-        // COMPAT(projectAdd): added in v0.1.97, drop the gate when floor >= v0.1.97.
-        projectAdd: true,
-        // COMPAT(projectList): added in v0.2.4, drop the gate when floor >= v0.2.4.
-        projectList: true,
-        // COMPAT(projectSuggestions): added in v0.14.1, remove gate after 2027-05-01.
-        projectSuggestions: true,
-        // COMPAT(worktreeRestore): keep through 2027-01-11 for clients older than v0.1.105.
-        worktreeRestore: true,
-        // COMPAT(workspaceRecovery): added in v0.1.105, remove after 2027-01-11 once daemon floor >= v0.1.105.
-        workspaceRecovery: true,
-        // COMPAT(workspaceArchiveUndo): added in v0.15.3, remove gate after 2027-05-06.
-        workspaceArchiveUndo: true,
-        // COMPAT(workspaceFileEditing): added in v0.2.0, remove after 2027-01-18 once daemon floor >= v0.2.0.
-        workspaceFileEditing: true,
         gitBlame: true,
         pimiCodebaseSearch: true,
-        // COMPAT(fileByteWrites): added in v0.13.0, remove gate after 2027-04-20.
-        fileByteWrites: true,
-        // COMPAT(providerUsageList): added in v0.1.98, drop the gate when daemon floor >= v0.1.98.
-        providerUsageList: true,
-        // COMPAT(agentDetach): added in v0.1.98, remove gate after 2026-12-19 once daemon floor >= v0.1.98.
-        agentDetach: true,
         ...(this.finishSubscriptions ? { agentFinishNotifications: true } : {}),
-        // COMPAT(agentThinkingUpdate): added in v0.2.4, remove gate after 2027-01-28.
-        agentThinkingUpdate: true,
-        // COMPAT(daemonDiagnostics): added in v0.1.100, remove gate after 2026-12-25 once daemon floor >= v0.1.100.
-        daemonDiagnostics: true,
-        // COMPAT(daemonSelfUpdate): added in v0.1.93, remove gate after 2026-12-13.
-        daemonSelfUpdate: this.daemonRuntimeConfig?.desktopManaged !== true,
-        // COMPAT(terminalsSurviveRestart): added in v0.12.0, remove gate after 2027-04-21.
-        terminalsSurviveRestart: true,
-        // COMPAT(agentForkContext): added in v0.1.102, remove gate after 2026-12-28.
-        agentForkContext: true,
-        // COMPAT(agentForkContextCursor): added in v0.1.108, remove gate after 2027-01-14.
-        agentForkContextCursor: true,
-        // COMPAT(providerSubagents): added in v0.1.107, remove gate after 2027-01-12.
-        providerSubagents: true,
-        // COMPAT(agentBackgroundWork): added after v0.11.0-beta.5, remove gate after 2027-04-06.
-        agentBackgroundWork: true,
-        // COMPAT(agentBackgroundWorkStop): added after v0.15.0, remove after 2027-05-03.
-        agentBackgroundWorkStop: true,
-        // COMPAT(projectedSubagentTimeline): added after v0.8.0, remove gates after 2027-03-14; retain advertisement.
-        projectedSubagentTimeline: true,
         wholeTurnTimeline: true,
-        // COMPAT(providerSubagentNesting): added in v0.7, remove gate after 2027-03-04.
-        providerSubagentNesting: true,
-        // COMPAT(workspacePinning): added in v0.1.107, remove gate after 2027-01-12.
-        workspacePinning: true,
-        // COMPAT(workspaceMarkUnread): added in v0.5.0, remove after 2027-08-20.
-        workspaceMarkUnread: true,
-        // COMPAT(hubRelationship): added in v0.1.X, drop the gate when floor >= v0.1.X.
-        hubRelationship: true,
-        // COMPAT(projectGithubClone): added in v0.1.108, remove gate after 2027-01-15.
-        projectGithubClone: true,
-        // COMPAT(workspaceGithubRepositorySearch): added in v0.1.108, remove gate after 2027-01-15.
-        workspaceGithubRepositorySearch: true,
-        // COMPAT(projectCreateDirectory): added in v0.1.108, remove gate after 2027-01-15.
-        projectCreateDirectory: true,
-        // COMPAT(commitsList): added in v0.1.110, remove gate after 2027-01-16.
-        commitsList: true,
-        // COMPAT(commitBaseClassification): added in v0.2.0, remove gate after 2027-01-23.
-        commitBaseClassification: true,
-        // COMPAT(providerRemoval): added in v0.1.105, drop the gate when floor >= v0.1.105.
-        providerRemoval: true,
-        providerHarnessUpdates: true,
         hopliteProvider: this.providerSnapshotManager.supportsConfigRequiredProvider("hoplite"),
-        // COMPAT(importSessionWorkspaceTarget): added in v0.1.110, remove gate after 2027-01-16.
-        importSessionWorkspaceTarget: true,
-        // COMPAT(importSessionSearch): added in v0.7.3, remove gate after 2027-03-02.
-        importSessionSearch: true,
-        // COMPAT(forgeProviders): added in v0.2.0-beta.1. Drop the gate after
-        // 2027-01-17 once the supported daemon floor is >= v0.2.0.
-        forgeProviders: true,
-        // COMPAT(selectiveAgentTimeline): added in v0.1.106, remove after 2027-01-12.
-        selectiveAgentTimeline: true,
         explicitEventSubscriptions: true,
-        // COMPAT(canonicalSubmittedPrompts): added in v0.2.6, remove gate after 2027-01-30.
-        canonicalSubmittedPrompts: true,
         agentMessageProvenance: true,
         agentMessageBatching: true,
-        // COMPAT(stableProjectIdentity): added in v0.1.109, remove gate after 2027-01-15.
-        stableProjectIdentity: true,
-        // COMPAT(workspaceScriptManagement): added in v0.1.105, remove gate after 2027-01-10.
-        workspaceScriptManagement: true,
-        // COMPAT(projectCustomIcon): added in v0.2.0, remove after 2027-01-20.
-        projectCustomIcon: true,
-        // COMPAT(fsEntryOps): added in v0.3.0, remove gate after 2027-02-08.
-        fsEntryOps: true,
-        // COMPAT(fsEntryDuplicate): added in v0.3.0, remove gate after 2027-02-09.
-        fsEntryDuplicate: true,
-        // COMPAT(checkoutDiscardChanges): added in v0.3.0, remove gate after 2027-02-08.
-        checkoutDiscardChanges: true,
         checkoutDiffAll: true,
-        // COMPAT(agentProfiles): added in v0.3.2, remove gate after 2027-02-11.
-        agentProfiles: true,
-        // COMPAT(agentConfigApply): added in v0.3.2, remove gate after 2027-02-11.
-        agentConfigApply: true,
-        // COMPAT(agentProviderSwitch): added in v0.17.15, remove gate after 2027-05-10.
-        agentProviderSwitch: true,
       },
     };
   }
@@ -2973,12 +2768,7 @@ export class VoiceAssistantWebSocketServer {
     }> = [];
 
     for (const [ws, connection] of this.sessions) {
-      if (
-        connection.session.delivery.isModern(ws)
-          ? !connection.session.wantsSourceEvent(ws, "agent_attention_required")
-          : !(await connection.session.subscribesToAgent(agent, ws))
-      )
-        continue;
+      if (!connection.session.wantsSourceEvent(ws, "agent_attention_required")) continue;
       clientEntries.push({
         ws,
         state: this.getClientActivityState(connection.session, ws),
@@ -3017,42 +2807,16 @@ export class VoiceAssistantWebSocketServer {
       const shouldNotify =
         plan.inAppRecipientIndex !== null &&
         notificationEntries[plan.inAppRecipientIndex]?.ws === ws;
-      const timestamp = new Date().toISOString();
-      const connection = this.sessions.get(ws);
-      const attentionPayload = {
-        agentId: params.agentId,
-        reason: params.reason,
-        timestamp,
-        shouldNotify,
-        notification,
-      };
-      const message = wrapSessionMessage(
-        connection?.session.delivery.isModern(ws) ||
-          connection?.session.supportsForSource(CLIENT_CAPS.selectiveAgentTimeline, ws)
-          ? {
-              type: "agent_attention_required",
-              payload: attentionPayload,
-            }
-          : {
-              type: "agent_stream",
-              payload: {
-                agentId: params.agentId,
-                event: {
-                  type: "attention_required",
-                  provider: params.provider,
-                  reason: params.reason,
-                  timestamp,
-                  shouldNotify,
-                  notification,
-                },
-                timestamp,
-              },
-            },
-      );
-
-      if (message.type === "session" && this.sessions.get(ws)?.session.delivery.isModern(ws))
-        this.sessions.get(ws)!.session.publishToSource(ws, message.message);
-      else this.sendToClient(ws, message);
+      this.sessions.get(ws)?.session.publishToSource(ws, {
+        type: "agent_attention_required",
+        payload: {
+          agentId: params.agentId,
+          reason: params.reason,
+          timestamp: new Date().toISOString(),
+          shouldNotify,
+          notification,
+        },
+      });
     }
   }
 
@@ -3069,19 +2833,7 @@ export class VoiceAssistantWebSocketServer {
     }> = [];
 
     for (const [ws, connection] of this.sessions) {
-      if (
-        connection.session.delivery.isModern(ws)
-          ? !connection.session.wantsSourceEvent(ws, "terminal_attention_required")
-          : !(await connection.session.subscribesToTerminalDirectory(
-              {
-                cwd: params.cwd,
-                ...(params.workspaceId ? { workspaceId: params.workspaceId } : {}),
-              },
-              ws,
-            ))
-      ) {
-        continue;
-      }
+      if (!connection.session.wantsSourceEvent(ws, "terminal_attention_required")) continue;
       clientEntries.push({
         ws,
         state: this.getClientActivityState(connection.session, ws),
@@ -3129,7 +2881,7 @@ export class VoiceAssistantWebSocketServer {
       const shouldNotify =
         plan.inAppRecipientIndex !== null &&
         notificationEntries[plan.inAppRecipientIndex]?.ws === ws;
-      const message = wrapSessionMessage({
+      this.sessions.get(ws)?.session.publishToSource(ws, {
         type: "terminal_attention_required",
         payload: {
           serverId: this.serverId,
@@ -3142,9 +2894,6 @@ export class VoiceAssistantWebSocketServer {
           shouldNotify,
         },
       });
-      if (message.type === "session" && this.sessions.get(ws)?.session.delivery.isModern(ws))
-        this.sessions.get(ws)!.session.publishToSource(ws, message.message);
-      else this.sendToClient(ws, message);
     }
   }
 }

@@ -1,6 +1,5 @@
 import { TerminalFind, type TerminalPaneFindHandle } from "@/terminal/find";
 import type { TerminalFindResult } from "@/terminal/runtime/terminal-emulator-runtime";
-import type { TerminalCharacterWidths } from "@/terminal/character-widths";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useRetainedPanelActive } from "@/components/retained-panel";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -296,21 +295,6 @@ export function TerminalPane({
   const client = useHostRuntimeClient(serverId);
   const isConnected = useHostRuntimeIsConnected(serverId);
   const isTerminalPresented = retainedPanelActive && isWorkspaceFocused;
-  const supportsTerminalRestoreModes = useSessionStore(
-    (state) => state.sessions[serverId]?.serverInfo?.features?.["terminal-restore-modes"] === true,
-  );
-  const supportsTerminalInputModeReplay = useSessionStore(
-    (state) =>
-      state.sessions[serverId]?.serverInfo?.features?.["terminal-input-mode-replay"] === true,
-  );
-  const supportsTerminalSizeOwnership = useSessionStore(
-    (state) => state.sessions[serverId]?.serverInfo?.features?.["terminal-size-ownership"] === true,
-  );
-  const characterWidths: TerminalCharacterWidths = useSessionStore((state) =>
-    state.sessions[serverId]?.serverInfo?.features?.["terminal-grapheme-widths"] === true
-      ? "graphemes"
-      : "legacy",
-  );
   const setFocusedTerminalId = useSessionStore((state) => state.setFocusedTerminalId);
 
   const scopeKey = useMemo(() => terminalScopeKey({ serverId, cwd }), [serverId, cwd]);
@@ -598,7 +582,6 @@ export function TerminalPane({
 
   const getStreamRestoreOptions = useStableEvent(() =>
     resolveTerminalRestoreOptions({
-      supportsTerminalRestoreModes,
       scrollbackLines: settings.terminalScrollbackLines,
       canClaimSize: canRequestFocusClaim({
         isWorkspaceFocused: terminalPresentedRef.current,
@@ -908,8 +891,6 @@ export function TerminalPane({
       size: nextSize,
       previousSentSize: lastSentTerminalSizeRef.current,
       shouldClaim: input.shouldClaim,
-      forceClaim: input.forceClaim ?? false,
-      supportsTerminalSizeOwnership,
       readiness: {
         isWorkspaceFocused: isTerminalPresented,
         isPaneFocused,
@@ -1179,8 +1160,6 @@ export function TerminalPane({
             ref={emulatorRef}
             dom={TERMINAL_EMULATOR_DOM_PROPS}
             streamKey={terminalStreamKey}
-            supportsTerminalInputModeReplay={supportsTerminalInputModeReplay}
-            characterWidths={characterWidths}
             testId="terminal-surface"
             xtermTheme={xtermTheme}
             scrollbackLines={settings.terminalScrollbackLines}

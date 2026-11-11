@@ -16,7 +16,6 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/contexts/toast-api-context";
 import { getDesktopHost } from "@/desktop/host";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
-import { useHostFeature } from "@/runtime/host-features";
 import { useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { InstalledVoiceModels } from "./installed-voice-models";
 import { AskPimiHistory } from "./ask-pimi-history";
@@ -56,7 +55,6 @@ function HostVoiceControls({ serverId }: { serverId: string }) {
   const { t } = useTranslation();
   const toast = useToast();
   const isConnected = useHostRuntimeIsConnected(serverId);
-  const supported = useHostFeature(serverId, "speechSettings");
   const { config, patchConfig } = useDaemonConfig(serverId);
   const localModels = useLocalSpeechModels(serverId);
   const { refresh: refreshModels } = localModels;
@@ -100,9 +98,6 @@ function HostVoiceControls({ serverId }: { serverId: string }) {
 
   if (!isConnected) {
     return <Alert size="md" variant="warning" title={t("settings.voice.offline")} />;
-  }
-  if (!supported) {
-    return <Alert size="md" variant="warning" title={t("settings.voice.updateHost")} />;
   }
   const features = config?.features;
   if (!features) {

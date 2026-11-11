@@ -31,19 +31,8 @@ class FakeProfileHost {
   shouldFailCatalog = false;
   catalogLoadingReads = 0;
 
-  constructor(
-    profiles: AgentProfile[] = [],
-    readonly supported = true,
-  ) {
+  constructor(profiles: AgentProfile[] = []) {
     this.config = { agentProfiles: profiles };
-  }
-
-  getLastServerInfoMessage() {
-    return {
-      features: this.supported
-        ? { agentProfiles: true, agentConfigApply: true }
-        : { agentProfiles: false, agentConfigApply: false },
-    };
   }
 
   async getDaemonConfig() {
@@ -152,19 +141,6 @@ describe("legacy favourite profile migration", () => {
 
     expect(firstHost.patches).toHaveLength(1);
     expect(secondHost.patches).toHaveLength(1);
-  });
-
-  it("waits for profile capabilities without consuming the host migration", async () => {
-    const storage = migrationStorage();
-    const migration = new LegacyFavoriteProfileMigration(storage);
-    const oldHost = new FakeProfileHost([], false);
-
-    await migration.migrateHost("host-a", oldHost);
-
-    const upgradedHost = new FakeProfileHost();
-    await migration.migrateHost("host-a", upgradedHost);
-    expect(oldHost.patches).toHaveLength(0);
-    expect(upgradedHost.patches).toHaveLength(1);
   });
 
   it("retries after a failed host write", async () => {

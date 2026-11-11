@@ -95,22 +95,6 @@ describe("sidebar view store", () => {
     });
   });
 
-  it("migrates a pre-v2 single host filter to the multi-host list", () => {
-    expect(
-      migrateSidebarViewState({
-        groupMode: "status",
-        hostFilter: "host-a",
-      }),
-    ).toEqual({
-      workspaceSort: "created",
-      showBackground: false,
-      groupMode: "status",
-      hostFilters: ["host-a"],
-      projectFilters: [],
-      labelFilter: { labels: [] },
-    });
-  });
-
   it("keeps current persisted sidebar view state during version migration", () => {
     expect(
       migrateSidebarViewState({

@@ -201,7 +201,7 @@ export interface DesktopNetworkActivityBridge {
 
 export interface DesktopHostBridge {
   platform?: string;
-  windowChromeMode?: string;
+  windowChromeMode?: DesktopWindowChromeMode;
   networkActivity?: DesktopNetworkActivityBridge;
   invoke?: DesktopInvokeBridge["invoke"];
   taskDictation?: { complete: (text: string | null) => void };
@@ -300,16 +300,7 @@ export function isElectronRuntimeMac(): boolean {
 }
 
 export function getDesktopWindowChromeMode(): DesktopWindowChromeMode | null {
-  const host = getDesktopHost();
-  if (!host) return null;
-  const mode = host.windowChromeMode;
-  if (mode === "native-mac" || mode === "custom-windows" || mode === "custom-linux") {
-    return mode;
-  }
-  // COMPAT(windowChromeMode): added in v0.5.3; remove after 2026-11-25.
-  if (isElectronRuntimeMac()) return "native-mac";
-  if (host.platform?.toLowerCase() === "linux") return "custom-linux";
-  return "custom-windows";
+  return getDesktopHost()?.windowChromeMode ?? null;
 }
 
 export function usesPimiMacTitlebar(): boolean {

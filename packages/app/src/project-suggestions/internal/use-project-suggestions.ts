@@ -18,17 +18,14 @@ export interface SuggestionRow {
   addFailure: string | null | undefined;
 }
 
-export type SuggestionList =
-  | { status: "unsupported" }
-  | {
-      status: "ready";
-      rows: SuggestionRow[];
-      /** True while any provider, or the provider list itself, is still pending. */
-      isReading: boolean;
-      /** True while checked rows are being added; the selection is frozen until it settles. */
-      isAdding: boolean;
-      toggle: (suggestion: ProjectSuggestion) => void;
-    };
+export interface SuggestionList {
+  rows: SuggestionRow[];
+  /** True while any provider, or the provider list itself, is still pending. */
+  isReading: boolean;
+  /** True while checked rows are being added; the selection is frozen until it settles. */
+  isAdding: boolean;
+  toggle: (suggestion: ProjectSuggestion) => void;
+}
 
 export interface ProjectSuggestionsController {
   list: SuggestionList;
@@ -97,9 +94,7 @@ export function useProjectSuggestions(
   }, [mutateAsync, checkedRootPaths]);
 
   const list = useMemo((): SuggestionList => {
-    if (state.status === "unsupported") return state;
     return {
-      status: "ready",
       rows: suggestions.map((suggestion) => ({
         suggestion,
         checked: checkedRootPaths.includes(suggestion.rootPath),

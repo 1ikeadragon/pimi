@@ -155,8 +155,6 @@ function availableDetails(report: Extract<UsageReport, { status: "available" }>)
 }
 
 function successfulTime(entry: UsageReportEntry): string | undefined {
-  // COMPAT(usageSuccessfulAt): added in v0.12.0, remove after 2027-04-17 once daemon floor >= v0.12.0.
-  // Only available reports from older daemons can use their attempt timestamp as freshness.
   if (entry.report.status === "available") return entry.successfulAt ?? entry.fetchedAt;
   return entry.lastSuccessful?.fetchedAt;
 }

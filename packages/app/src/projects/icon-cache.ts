@@ -118,43 +118,24 @@ export class ProjectIconCache {
     this.schedulePersist();
   }
 
-  query(
-    target: ProjectIconTarget,
-    supportsCustomIcons: boolean | null,
-    getClient: () => DaemonClient | null,
-    connected: boolean,
-  ) {
-    // COMPAT(projectIconCache): daemons before v0.2.7 do not expose an effective revision, so
-    // their icon results remain memory-only.
+  query(target: ProjectIconTarget, getClient: () => DaemonClient | null, connected: boolean) {
+    // Projects without an effective revision (empty-project descriptors) stay memory-only.
     const revision = target.iconRevision ?? target.customIconRevision ?? "automatic";
     const identity: ProjectIconIdentity | null = target.iconRevision
       ? { serverId: target.serverId, projectId: target.projectId, revision: target.iconRevision }
       : null;
     const cached = identity ? this.read(identity) : { hit: false as const };
-    const lookup = resolveLookup(target, supportsCustomIcons);
-    let queryKey: readonly string[];
-    if (!lookup) {
-      queryKey = ["projectIcon", target.serverId, "pending", target.projectId];
-    } else if (lookup.kind === "project") {
-      queryKey = ["projectIcon", target.serverId, target.projectId, revision];
-    } else {
-      queryKey = ["projectIcon", target.serverId, "legacy", lookup.cwd];
-    }
     return {
-      queryKey,
+      queryKey: ["projectIcon", target.serverId, target.projectId, revision],
       queryFn: async () => {
-        if (!lookup) return null;
         const client = getClient();
         if (!client) return null;
-        const result =
-          lookup.kind === "project"
-            ? await client.getProjectIcon(lookup.projectId)
-            : await client.requestProjectIcon(lookup.cwd);
+        const result = await client.getProjectIcon(target.projectId);
         if (result.error) throw new Error(result.error);
         if (identity) this.write(identity, result.icon);
         return result.icon;
       },
-      enabled: Boolean(lookup && getClient() && connected),
+      enabled: Boolean(getClient() && connected),
       staleTime: Infinity,
       gcTime: 1000 * 60 * 60,
       refetchOnMount: false as const,
@@ -198,13 +179,3 @@ export class ProjectIconCache {
 }
 
 export const projectIconCache = new ProjectIconCache(projectIconCacheStorage);
-
-function resolveLookup(
-  target: Pick<ProjectIconTarget, "projectId" | "iconWorkingDir">,
-  supportsCustomIcons: boolean | null,
-): { kind: "project"; projectId: string } | { kind: "legacy"; cwd: string } | null {
-  if (supportsCustomIcons === null) return null;
-  return supportsCustomIcons
-    ? { kind: "project", projectId: target.projectId }
-    : { kind: "legacy", cwd: target.iconWorkingDir };
-}

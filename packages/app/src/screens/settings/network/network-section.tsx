@@ -16,7 +16,6 @@ import { Switch } from "@/components/ui/switch";
 import { getIsElectron } from "@/constants/platform";
 import { useFetchQuery } from "@/data/query";
 import { getDesktopHost } from "@/desktop/host";
-import { useHostFeature } from "@/runtime/host-features";
 import { useHostRuntimeClient, useHostRuntimeIsConnected, useHosts } from "@/runtime/host-runtime";
 import { settingsStyles } from "@/styles/settings";
 import { formatTimeAgo, formatTimeOfDay } from "@/utils/time";
@@ -56,9 +55,7 @@ function queryState(input: {
 function useDaemonNetworkActivity(serverId: string, includeLocal: boolean) {
   const client = useHostRuntimeClient(serverId);
   const connected = useHostRuntimeIsConnected(serverId);
-  // COMPAT(networkActivity): added in v0.17.18, remove gate after 2027-05-11.
-  const supported = useHostFeature(serverId, "networkActivity");
-  const enabled = Boolean(client) && connected && supported;
+  const enabled = Boolean(client) && connected;
   const query = useFetchQuery({
     dataShape: "value",
     queryKey: ["network-activity", "daemon", serverId, includeLocal] as const,
@@ -68,8 +65,7 @@ function useDaemonNetworkActivity(serverId: string, includeLocal: boolean) {
     refetchInterval: enabled ? POLL_INTERVAL_MS : false,
     retry: false,
   });
-  let unavailableMessage = "Update the host to see network activity";
-  if (!connected || !client) unavailableMessage = "Host is offline";
+  const unavailableMessage = "Host is offline";
   return {
     snapshot: enabled ? query.data : undefined,
     state: queryState({
@@ -78,7 +74,6 @@ function useDaemonNetworkActivity(serverId: string, includeLocal: boolean) {
       isPending: query.isPending,
       error: query.error,
     }),
-    supported,
   };
 }
 
@@ -243,11 +238,7 @@ function NetworkActivityView({ serverId }: { serverId: string }) {
           <Alert
             variant="warning"
             title={daemon.state.message}
-            description={
-              daemon.supported
-                ? "Daemon requests appear once the host reconnects."
-                : "This host's daemon predates network activity recording."
-            }
+            description="Daemon requests appear once the host reconnects."
             testID="network-daemon-unavailable"
           />
         </View>

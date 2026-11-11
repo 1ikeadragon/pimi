@@ -12,13 +12,13 @@ import type {
   PluginCommandCenterItemContribution as SDKPluginCommandCenterItemContribution,
   PluginClientSlashCommandContribution as SDKPluginClientSlashCommandContribution,
   PluginComposerPillContribution as SDKPluginComposerPillContribution,
-  PluginSidebarContribution as SDKPluginSidebarContribution,
   PluginSidebarItemContribution as SDKPluginSidebarItemContribution,
   PluginScreenContribution as SDKPluginScreenContribution,
   PluginSettingsScreenContribution as SDKPluginSettingsScreenContribution,
   PluginTimelineRendererContribution,
   PluginTimelineTransformerContribution,
   PluginPanelLocation,
+  PluginAgentPanelContribution as SDKPluginAgentPanelContribution,
   PluginWorkspacePanelContribution as SDKPluginWorkspacePanelContribution,
 } from "@pimi/plugin/client";
 
@@ -28,14 +28,12 @@ type PluginThemeContribution = SDKPluginThemeContribution<PluginText>;
 type PluginCommandCenterItemContribution = SDKPluginCommandCenterItemContribution<PluginText>;
 type PluginClientSlashCommandContribution = SDKPluginClientSlashCommandContribution<PluginText>;
 type PluginComposerPillContribution = SDKPluginComposerPillContribution<PluginText>;
-type PluginSidebarContribution = SDKPluginSidebarContribution<PluginText>;
 type PluginSidebarItemContribution = SDKPluginSidebarItemContribution<PluginText>;
 type PluginScreenContribution = SDKPluginScreenContribution<PluginText>;
 type PluginSettingsScreenContribution = SDKPluginSettingsScreenContribution<PluginText>;
-type WorkspacePanelInput = SDKPluginWorkspacePanelContribution<PluginText>;
 type PluginWorkspacePanelContribution =
-  | (Extract<WorkspacePanelInput, { context?: "workspace" }> & { context: "workspace" })
-  | Extract<WorkspacePanelInput, { context: "agent" }>;
+  | (SDKPluginWorkspacePanelContribution<PluginText> & { context: "workspace" })
+  | (SDKPluginAgentPanelContribution<PluginText> & { context: "agent" });
 
 export type PluginSidebarSection = "header" | "footer";
 
@@ -49,9 +47,6 @@ export interface EvaluatedPlugin {
   surfaces: PluginScreenContribution[];
   settingsScreens: PluginSettingsScreenContribution[];
   sidebarItems: Record<PluginSidebarSection, PluginSidebarItemContribution[]>;
-  // COMPAT(pluginSidebarAliases): added in v0.11.0, remove after 2027-03-29
-  /** `addSidebarItem` registrations, so `/plugin/<id>/sidebar/<item>` routes keep resolving. */
-  legacySidebarItems: PluginSidebarContribution[];
   filePanels: PluginFilePanelContribution[];
   workspacePanels: EvaluatedPluginWorkspacePanelContribution[];
   commandCenterItems: PluginCommandCenterItemContribution[];
@@ -85,7 +80,6 @@ export type {
   PluginCommandCenterItemContribution,
   PluginClientSlashCommandContribution,
   PluginComposerPillContribution,
-  PluginSidebarContribution,
   PluginSidebarItemContribution,
   PluginScreenContribution,
   PluginSettingsScreenContribution,

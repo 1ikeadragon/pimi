@@ -565,12 +565,7 @@ export class DirectorySync {
     });
     try {
       await this.waitForSessionMetadata(client, source);
-      const serverInfo = useSessionStore.getState().sessions[this.serverId]?.serverInfo;
-      const supportsProjectList = serverInfo?.features?.projectList === true;
-      const supportsDirectorySync = serverInfo?.features?.directorySync === true;
-      const projectsReady = supportsProjectList
-        ? this.fetchProjectSnapshot(client, source, transaction, supportsDirectorySync)
-        : Promise.resolve();
+      const projectsReady = this.fetchProjectSnapshot(client, source, transaction);
       await Promise.all([
         projectsReady,
         this.fetchWorkspaceSnapshot(
@@ -578,15 +573,9 @@ export class DirectorySync {
           source,
           transaction,
           input?.subscribe === true,
-          supportsDirectorySync,
           projectsReady,
         ),
       ]);
-      if (!supportsProjectList) {
-        this.buildLegacyProjectSnapshot(transaction.snapshot);
-        (transaction.snapshot.syncModes ??= {}).projects =
-          transaction.snapshot.syncModes?.workspaces;
-      }
       this.completeWorkspaceRefresh(client, source, transaction);
     } catch (error) {
       const deltas = this.workspaceTransactions.fail(transaction);
@@ -600,7 +589,6 @@ export class DirectorySync {
     source: DirectorySourceToken,
     transaction: DirectoryTransaction<WorkspaceRefreshSnapshot, WorkspaceDirectoryDelta>,
     initialSubscribe: boolean,
-    supportsDirectorySync: boolean,
     projectsReady: Promise<void>,
   ): Promise<void> {
     let cursor: string | null = null;
@@ -610,9 +598,7 @@ export class DirectorySync {
         ...(client.supportsBackgroundWorkspaces() ? { includeBackground: true } : {}),
         sort: [{ key: "activity_at", direction: "desc" }],
         page: cursor ? { limit: PAGE_LIMIT, cursor } : { limit: PAGE_LIMIT },
-        ...(supportsDirectorySync
-          ? { sync: transaction.snapshot.requestCursors.workspaces ?? {} }
-          : {}),
+        sync: transaction.snapshot.requestCursors.workspaces ?? {},
       };
       let payload: FetchWorkspacesPayload;
       if (subscribe) {
@@ -639,15 +625,6 @@ export class DirectorySync {
     }
   }
 
-  private buildLegacyProjectSnapshot(snapshot: WorkspaceDirectorySnapshot): void {
-    for (const workspace of snapshot.workspaces.values()) {
-      if (!snapshot.projects.has(workspace.projectId)) {
-        const project = legacyProjectDescriptorFromWorkspace(workspace);
-        snapshot.projects.set(project.projectId, project);
-      }
-    }
-  }
-
   async refreshAll(): Promise<void> {
     await Promise.all([
       this.refreshAgents({ subscribe: {} }),
@@ -663,12 +640,7 @@ export class DirectorySync {
 
   async connectWorkspaceLabels(): Promise<void> {
     const { client } = this.requireOnline();
-    const serverInfo = client.getLastServerInfoMessage();
-    await workspaceLabels.connect({
-      serverId: this.serverId,
-      client,
-      supportsWorkspaceLabels: serverInfo?.features?.workspaceLabels === true,
-    });
+    await workspaceLabels.connect({ serverId: this.serverId, client });
   }
 
   acceptWorkspaces(workspaces: readonly WorkspaceDescriptor[]): void {
@@ -713,9 +685,7 @@ export class DirectorySync {
         ...(client.supportsBackgroundWorkspaces() ? { includeBackground: true } : {}),
         sort: AGENT_SORT,
         page: cursor ? { limit, cursor } : { limit },
-        ...(!input.filter && cursor === null && this.supportsDirectorySync()
-          ? { sync: this.readCursors().agents ?? {} }
-          : {}),
+        ...(!input.filter && cursor === null ? { sync: this.readCursors().agents ?? {} } : {}),
       };
       let payload: FetchAgentsPayload;
       if (subscribe) {
@@ -786,13 +756,6 @@ export class DirectorySync {
     }));
   }
 
-  private supportsDirectorySync(): boolean {
-    return (
-      useSessionStore.getState().sessions[this.serverId]?.serverInfo?.features?.directorySync ===
-      true
-    );
-  }
-
   private commitAgentSnapshot(
     snapshot: AgentSnapshot,
     deltas: readonly AgentDirectoryDelta[],
@@ -814,13 +777,10 @@ export class DirectorySync {
     client: DaemonClient,
     source: DirectorySourceToken,
     transaction: DirectoryTransaction<WorkspaceRefreshSnapshot, WorkspaceDirectoryDelta>,
-    supportsDirectorySync: boolean,
   ): Promise<void> {
-    const payload = await client.listProjects(
-      supportsDirectorySync
-        ? { sync: transaction.snapshot.requestCursors.projects ?? {} }
-        : undefined,
-    );
+    const payload = await client.listProjects({
+      sync: transaction.snapshot.requestCursors.projects ?? {},
+    });
     this.assertWorkspaceTransactionCurrent(client, source, transaction);
     if (payload.sync?.mode !== "changes") transaction.snapshot.projects.clear();
     (transaction.snapshot.syncModes ??= {}).projects = payload.sync?.mode ?? "snapshot";
@@ -1018,17 +978,6 @@ export class DirectorySync {
   private abortPendingSessionWaits(): void {
     for (const abort of this.abortSessionWaits) abort();
   }
-}
-
-function legacyProjectDescriptorFromWorkspace(workspace: WorkspaceDescriptor): ProjectDescriptor {
-  return {
-    projectId: workspace.projectId,
-    projectKey: null,
-    projectDisplayName: workspace.projectDisplayName,
-    projectCustomName: workspace.projectCustomName ?? null,
-    projectRootPath: workspace.projectRootPath,
-    projectKind: workspace.projectKind,
-  };
 }
 
 export class DirectoryRefreshSupersededError extends Error {}

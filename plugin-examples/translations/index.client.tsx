@@ -26,7 +26,6 @@ export default function contribute(client: PluginClientContext) {
     id: "notes",
     title: messages.message("title"),
     icon: "NotebookPen",
-    context: "workspace",
     locations: ["workspace", "explorer"],
     Component: Notes,
   });

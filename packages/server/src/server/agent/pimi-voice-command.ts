@@ -6,10 +6,8 @@ import type { Logger } from "pino";
 import {
   PIMI_ASK_STREAM_TYPE,
   PimiVoiceCommandInput,
-  PimiVoiceNavigation,
   type PimiAskEvent,
   type PimiAskResult,
-  type PimiVoiceCommandResponse,
 } from "@pimi/protocol/pimi-task";
 import type { PimiSpaces } from "../pimi-spaces.js";
 import type { AgentManager } from "./agent-manager.js";
@@ -94,22 +92,6 @@ function reportFailure(logger: Logger): string {
   // Provider errors can include the transcript. Keep it out of logs and error receipts.
   logger.warn("Ask Pimi could not complete a command");
   return "Your provider couldn’t complete that command. Try again.";
-}
-
-// COMPAT(askPimiAgent): added in v0.17.18. Apps older than that expect a routing plan or a
-// message with an optional view. Remove after 2027-05-11, with the request's agent field.
-function legacyResponse(result: PimiAskResult): PimiVoiceCommandResponse {
-  if (result.ignored) return { steps: [] };
-  const [first] = result.actions;
-  const navigation = PimiVoiceNavigation.safeParse(first);
-  if (result.actions.length === 1 && navigation.success && navigation.data.action !== "show") {
-    return { steps: [], open: navigation.data };
-  }
-  const view = result.actions.find((action) => action.action === "show");
-  return {
-    message: result.message.slice(0, 1000) || "Done",
-    ...(view && { navigation: view }),
-  };
 }
 
 interface AskPimiOutcome {
@@ -237,7 +219,6 @@ export function createPimiVoiceCommandHandler(options: {
     running = true;
     const cancel = new AbortController();
     res.once("close", () => cancel.abort());
-    const streaming = input.data.agent === true;
     const send = (event: PimiAskEvent) => {
       if (!res.destroyed) res.write(`${JSON.stringify(event)}\n`);
     };
@@ -261,10 +242,8 @@ export function createPimiVoiceCommandHandler(options: {
         });
         return;
       }
-      if (streaming) {
-        res.status(200).setHeader("Content-Type", PIMI_ASK_STREAM_TYPE);
-        res.flushHeaders();
-      }
+      res.status(200).setHeader("Content-Type", PIMI_ASK_STREAM_TYPE);
+      res.flushHeaders();
       let lastStatus = "";
       const { result, toolset } = await ask(
         input.data,
@@ -272,7 +251,7 @@ export function createPimiVoiceCommandHandler(options: {
         providers,
         mcpUrl,
         (status) => {
-          if (!streaming || status === lastStatus) return;
+          if (status === lastStatus) return;
           lastStatus = status;
           send({ type: "status", text: status });
         },
@@ -286,12 +265,8 @@ export function createPimiVoiceCommandHandler(options: {
           references: toolset.references,
         });
       }
-      if (streaming) {
-        send({ type: "result", result });
-        res.end();
-      } else {
-        res.json(legacyResponse(result));
-      }
+      send({ type: "result", result });
+      res.end();
     } catch {
       if (res.destroyed) return;
       const error = reportFailure(options.logger);

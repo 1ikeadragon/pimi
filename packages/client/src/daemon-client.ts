@@ -7,11 +7,10 @@ import {
 } from "@pimi/protocol/binary-frames/index";
 import { messageTooLargeError } from "./daemon-client-transport-utils.js";
 import type { HostAdd, HostUpdate, HostDirectory } from "@pimi/protocol/hosts";
-import { legacyUsageIcon } from "./legacy-usage-icons.js";
 import { subscribeTimeline, type TimelineMessage } from "./timeline-subscription/index.js";
 import { ProviderSnapshotUpdates } from "./provider-snapshots/index.js";
 import {
-  ConnectionSubscriptions,
+  OwnedSubscriptions,
   type OwnedSubscription,
   DEFAULT_CLIENT_CAPABILITIES,
   type TimelineSubscription,
@@ -26,9 +25,8 @@ import type { AgentAttentionNotificationPayload } from "@pimi/protocol/agent-att
 import { MAX_WEBSOCKET_MESSAGE_BYTES } from "@pimi/protocol/websocket-message-limit";
 import type { PimiMobileTaskOperation, PimiMobileTaskResult } from "@pimi/protocol/pimi-task";
 import {
-  AgentCreateFailedStatusPayloadSchema,
-  AgentCreatedStatusPayloadSchema,
   AgentRefreshedStatusPayloadSchema,
+  AgentCreateFailedStatusPayloadSchema,
   AgentResumedStatusPayloadSchema,
   CheckoutRenameBranchResponseSchema,
   parseServerInfoStatusPayload,
@@ -69,9 +67,7 @@ import type {
   CheckoutPrMergeResponse,
   CheckoutPrMergeMethod,
   CheckoutForgeSetAutoMergeResponse,
-  CheckoutGithubSetAutoMergeResponse,
   CheckoutForgeGetCheckDetailsResponse,
-  CheckoutGithubGetCheckDetailsResponse,
   CheckoutPrStatusResponse,
   PullRequestTimelineResponse,
   CheckoutSwitchBranchResponse,
@@ -82,8 +78,6 @@ import type {
   BranchSuggestionsResponse,
   ForgeSearchResponse,
   ForgeSearchRequest,
-  GitHubSearchResponse,
-  GitHubSearchRequest,
   DirectorySuggestionsResponse,
   PaseoWorktreeListResponse,
   PaseoWorktreeArchiveResponse,
@@ -106,7 +100,6 @@ import type {
   GetProvidersSnapshotResponseMessage,
   RefreshProvidersSnapshotResponseMessage,
   ProviderDiagnosticResponseMessage,
-  ProviderUsageListResponseMessage,
   UsageReportEntry,
   DaemonGetStatusResponse,
   DaemonGetPairingOfferResponse,
@@ -132,7 +125,6 @@ import type {
   PluginListItem,
   PluginLogEntry,
   PluginSourceStatusItem,
-  PluginSourceUpdateItem,
   PluginUpdateSelection,
   PluginUpdateProposal,
   PluginUpdatePreview,
@@ -184,10 +176,9 @@ import {
 } from "./daemon-client-transport.js";
 import { DaemonClientRuntimeMetrics } from "./daemon-client-runtime-metrics.js";
 import {
-  normalizeListProviderModelsPayload,
   normalizeProviderSnapshotUpdateMessage,
   normalizeProvidersSnapshotPayload,
-} from "./compat/normalize-provider-models.js";
+} from "./provider-snapshots.js";
 import { TerminalStreamRouter, type TerminalStreamEvent } from "./terminal-stream-router.js";
 import type {
   BrowserAutomationExecuteRequest,
@@ -280,7 +271,6 @@ function chooseConnectionAuth(
   else if (password) helloAuth = { kind: "password", password };
   const headers: Record<string, string> = {};
   const compatibleBearer = localCredential ? null : compatibleBearerPassword(password);
-  // COMPAT(headerAuth): added in v0.9.1, remove after 2027-03-24.
   if (compatibleBearer) headers.Authorization = `Bearer ${compatibleBearer}`;
   else if (!localCredential && config.authHeader) headers.Authorization = config.authHeader;
   return {
@@ -537,7 +527,6 @@ export interface CreatePaseoWorktreeInput extends Pick<
   | "refName"
   | "action"
   | "checkoutSource"
-  | "githubPrNumber"
 > {}
 
 type CheckoutStatusPayload = CheckoutStatusResponse["payload"];
@@ -555,9 +544,7 @@ type CheckoutRefreshPayload = CheckoutRefreshResponse["payload"];
 type CheckoutPrCreatePayload = CheckoutPrCreateResponse["payload"];
 type CheckoutPrMergePayload = CheckoutPrMergeResponse["payload"];
 type CheckoutForgeSetAutoMergePayload = CheckoutForgeSetAutoMergeResponse["payload"];
-type CheckoutGithubSetAutoMergePayload = CheckoutGithubSetAutoMergeResponse["payload"];
 type CheckoutForgeGetCheckDetailsPayload = CheckoutForgeGetCheckDetailsResponse["payload"];
-type CheckoutGithubGetCheckDetailsPayload = CheckoutGithubGetCheckDetailsResponse["payload"];
 type CheckoutPrStatusPayload = CheckoutPrStatusResponse["payload"];
 type PullRequestTimelinePayload = PullRequestTimelineResponse["payload"];
 type CheckoutSwitchBranchPayload = CheckoutSwitchBranchResponse["payload"];
@@ -568,7 +555,6 @@ type StashListPayload = StashListResponse["payload"];
 type ValidateBranchPayload = ValidateBranchResponse["payload"];
 type BranchSuggestionsPayload = BranchSuggestionsResponse["payload"];
 type ForgeSearchPayload = ForgeSearchResponse["payload"];
-type GitHubSearchPayload = GitHubSearchResponse["payload"];
 type DirectorySuggestionsPayload = DirectorySuggestionsResponse["payload"];
 type PaseoWorktreeListPayload = PaseoWorktreeListResponse["payload"];
 type PaseoWorktreeArchivePayload = PaseoWorktreeArchiveResponse["payload"];
@@ -609,7 +595,6 @@ type ListAvailableProvidersPayload = ListAvailableProvidersResponse["payload"];
 type GetProvidersSnapshotPayload = GetProvidersSnapshotResponseMessage["payload"];
 type RefreshProvidersSnapshotPayload = RefreshProvidersSnapshotResponseMessage["payload"];
 type ProviderDiagnosticPayload = ProviderDiagnosticResponseMessage["payload"];
-type ProviderUsageListPayload = ProviderUsageListResponseMessage["payload"];
 interface UsageListReportsPayload {
   requestId: string;
   reports: UsageReportEntry[];
@@ -642,7 +627,6 @@ interface ListCommandsOptions {
   requestId?: string;
   draftConfig?: ListCommandsDraftConfig;
 }
-type LegacyListCommandsOptions = Omit<ListCommandsOptions, "agentId">;
 type SetVoiceModePayload = Extract<
   SessionOutboundMessage,
   { type: "set_voice_mode_response" }
@@ -706,9 +690,8 @@ export interface FetchAgentOptions {
   requestId?: string;
   timeout?: number;
 }
-type LegacyFetchAgentOptions = Omit<FetchAgentOptions, "agentId">;
 export interface FetchAgentTimelineOptions {
-  /** Prefer whole-turn pages when supported; older hosts retain item-based paging. */
+  /** Request whole-turn pages instead of item-based paging. */
   wholeTurns?: boolean;
   direction?: FetchAgentTimelineDirection;
   cursor?: FetchAgentTimelineCursor;
@@ -756,33 +739,6 @@ export interface FetchProviderSubagentTimelineOptions {
   timeout?: number;
 }
 
-// COMPAT(daemon-client-object-options): added in v0.1.102; remove after
-// 2026-12-29 once SDK callers have migrated to object parameters.
-function normalizeFetchAgentOptions(
-  input: FetchAgentOptions | string,
-  legacyOptions?: LegacyFetchAgentOptions | string,
-): FetchAgentOptions {
-  if (typeof input !== "string") {
-    return input;
-  }
-  if (typeof legacyOptions === "string") {
-    return { agentId: input, requestId: legacyOptions };
-  }
-  return { agentId: input, ...legacyOptions };
-}
-
-function normalizeListCommandsOptions(
-  input: ListCommandsOptions | string,
-  legacyOptions?: LegacyListCommandsOptions | string,
-): ListCommandsOptions {
-  if (typeof input !== "string") {
-    return input;
-  }
-  if (typeof legacyOptions === "string") {
-    return { agentId: input, requestId: legacyOptions };
-  }
-  return { agentId: input, ...legacyOptions };
-}
 export interface AgentForkContextOptions {
   boundaryCursor?: FetchAgentTimelineCursor;
   boundaryMessageId?: string;
@@ -795,8 +751,7 @@ type ShutdownRequestedStatusPayload = z.infer<typeof ShutdownRequestedStatusPayl
 export interface ShutdownServerOptions {
   requestId?: string;
   timeout?: number;
-  // Leave terminals running for the next daemon. Only daemons advertising
-  // `features.terminalsSurviveRestart` honor it; check before sending.
+  // Leave terminals running for the next daemon.
   keepTerminals?: boolean;
 }
 export interface DaemonStatusOptions {
@@ -1018,7 +973,6 @@ interface CorrelatedResponseIdentity {
 interface PendingBinaryFileRead {
   cwd: string;
   path: string;
-  maxBytes?: number;
 }
 
 interface BinaryFileTransferState extends PendingBinaryFileRead {
@@ -1310,39 +1264,10 @@ interface PingProbe {
   drivesLivenessFailure: boolean;
 }
 
-// COMPAT(providerUsageList): added in v0.1.98, remove after 2027-03-26.
-export function supportsUsageReports(features: ServerInfoStatusPayload["features"]): boolean {
-  return features?.usageSources === true || features?.providerUsageList === true;
-}
-
-export class TerminalKeepUnsupportedError extends Error {
-  readonly code = "TERMINALS_KEEP_UNSUPPORTED";
-  // Own fields reach the CLI's JSON error output, which desktop reads.
-  readonly version: string | null;
-
-  constructor(target: string, version: string | null) {
-    super(
-      `The daemon at ${target}${version ? ` (v${version})` : ""} closes terminals when it stops. Update it first, or run \`paseo daemon stop\` to stop it and close them.`,
-    );
-    this.name = "TerminalKeepUnsupportedError";
-    this.version = version;
-  }
-}
-
-/**
- * Gate for an explicit "keep terminals" stop. Older daemons drop `keepTerminals` and close the
- * terminals anyway, so read the capability on the connection that will carry the shutdown and
- * refuse before sending it.
- */
-// COMPAT(terminalsSurviveRestart): added in v0.12.0, remove gate after 2027-04-21.
-export function requireTerminalKeepCapability(
-  client: Pick<DaemonClient, "getLastServerInfoMessage">,
-  target: string,
-): void {
-  const serverInfo = client.getLastServerInfoMessage();
-  if (serverInfo?.features?.terminalsSurviveRestart !== true) {
-    throw new TerminalKeepUnsupportedError(target, serverInfo?.version ?? null);
-  }
+export function supportsUsageReports(
+  features: ServerInfoStatusPayload["features"] | undefined,
+): boolean {
+  return features?.usageSources === true;
 }
 
 function buildFetchAgentsRequest(
@@ -1371,11 +1296,7 @@ export class DaemonClient {
     emit: (message) => this.deliverSessionMessage(message),
     failed: (error) => this.logger.error({ err: error }, "Failed to resolve provider snapshot"),
   });
-  private readonly owned = new ConnectionSubscriptions({
-    send: (message) =>
-      this.sendSessionMessageOrThrow(
-        SessionInboundMessageSchema.parse({ ...message, requestId: this.createRequestId() }),
-      ),
+  private readonly owned = new OwnedSubscriptions({
     release: async (subscriptionId) => {
       if (!this.isConnected) return;
       try {
@@ -2268,7 +2189,6 @@ export class DaemonClient {
     /** Sends the request in another form, such as a binary frame; defaults to `message`. */
     transmit?: () => Promise<void>;
   }): Promise<T> {
-    const wire = this.owned.prepareRequest(params.message);
     const timeout = params.timeout ?? DEFAULT_SESSION_RPC_TIMEOUT_MS;
     const { promise, cancel } = this.waitForWithCancel<RpcWaitResult<T>>(
       (msg) => {
@@ -2284,7 +2204,7 @@ export class DaemonClient {
             }),
           };
         }
-        const value = params.select(wire.receive(msg));
+        const value = params.select(msg);
         if (value === null) {
           return null;
         }
@@ -2299,7 +2219,7 @@ export class DaemonClient {
     try {
       const sent = params.transmit
         ? params.transmit()
-        : this.sendSessionMessageOrThrow(wire.message);
+        : this.sendSessionMessageOrThrow(params.message);
       const result = await Promise.race([promise, sent.then(() => promise)]);
       if (result.kind === "error") throw result.error;
       return result.value;
@@ -2307,8 +2227,6 @@ export class DaemonClient {
       const err = error instanceof Error ? error : new Error(String(error));
       cancel(err);
       throw err;
-    } finally {
-      await wire.finish();
     }
   }
 
@@ -2673,15 +2591,13 @@ export class DaemonClient {
     options?: { requestId?: string; timeout?: number; signal?: AbortSignal },
   ): OwnedSubscription<CorrelatedResponsePayload<T>> {
     let resetSource = false;
-    return this.owned.observeRequest<CorrelatedResponsePayload<T>>(
-      message,
-      async (query, accept) => {
+    return this.owned.observe<CorrelatedResponsePayload<T>>(
+      async (accept) => {
         resetSource = false;
-        if (query.type === "workspace.setup.subscribe.request")
+        if (message.type === "workspace.setup.subscribe.request")
           this.requireWorkspaceSetupObservation();
-        if (query.type === "plugin.rpc.subscribe.request") this.requirePluginSubscriptions();
         const requestId = this.createRequestId(options?.requestId);
-        const request = SessionInboundMessageSchema.parse({ ...query, requestId });
+        const request = SessionInboundMessageSchema.parse({ ...message, requestId });
         try {
           return await this.sendCorrelatedRequest<T, CorrelatedResponsePayload<T>>({
             message: request,
@@ -3195,12 +3111,7 @@ export class DaemonClient {
   }
 
   private requireWorkspaceSetupObservation(): void {
-    if (
-      this.lastServerInfoMessage?.features?.workspaceSetupObservation !== true ||
-      this.lastServerInfoMessage.features.ownedSubscriptions !== true ||
-      this.config.capabilities?.[CLIENT_CAPS.workspaceSetupObservation] === false ||
-      this.config.capabilities?.[CLIENT_CAPS.ownedSubscriptions] === false
-    )
+    if (this.lastServerInfoMessage?.features?.workspaceSetupObservation !== true)
       throw new Error("Update the host to view workspace setup details");
   }
 
@@ -3228,17 +3139,7 @@ export class DaemonClient {
     });
   }
 
-  async fetchAgent(options: FetchAgentOptions): Promise<FetchAgentResult | null>;
-  async fetchAgent(agentId: string, requestId?: string): Promise<FetchAgentResult | null>;
-  async fetchAgent(
-    agentId: string,
-    options?: LegacyFetchAgentOptions,
-  ): Promise<FetchAgentResult | null>;
-  async fetchAgent(
-    input: FetchAgentOptions | string,
-    legacyOptions?: LegacyFetchAgentOptions | string,
-  ): Promise<FetchAgentResult | null> {
-    const options = normalizeFetchAgentOptions(input, legacyOptions);
+  async fetchAgent(options: FetchAgentOptions): Promise<FetchAgentResult | null> {
     const resolvedRequestId = this.createRequestId(options.requestId);
     const message = SessionInboundMessageSchema.parse({
       type: "fetch_agent_request",
@@ -3274,9 +3175,6 @@ export class DaemonClient {
   // ============================================================================
 
   private readonly creations = new CreationClient({
-    supports: (feature) => {
-      return this.lastServerInfoMessage?.features?.[feature] === true;
-    },
     requestId: () => this.createRequestId(),
     request: (kind, input) =>
       kind === "workspace"
@@ -3310,8 +3208,6 @@ export class DaemonClient {
         void observation.release().catch(error);
       };
     },
-    legacyAgent: (input) => this.createLegacyAgent(input),
-    legacyWorkspace: (input) => this.createLegacyWorkspace(input, input.requestId),
   });
 
   // Background workspaces are gated once at the transport boundary.
@@ -3325,14 +3221,10 @@ export class DaemonClient {
     return this.lastServerInfoMessage?.features?.backgroundWorkspaces === true;
   }
 
-  // Background on a request that creates its workspace predates background agents: older hosts
-  // apply it to the new workspace. Placing a background agent in an existing workspace, or
-  // under a caller, needs a host that knows background agents.
+  // A background request that creates its own workspace needs background workspaces.
   private requireBackgroundCreation(options: CreateAgentRequestOptions): void {
     if (options.workspaceId === undefined && options.callerAgentId === undefined) {
       this.requireBackgroundWorkspaces();
-    } else if (this.lastServerInfoMessage?.features?.backgroundAgents !== true) {
-      throw new Error("Update the host to use background agents.");
     }
   }
 
@@ -3349,63 +3241,6 @@ export class DaemonClient {
     });
     if (result.error || !result.agent) throw new Error(result.error ?? "Agent creation failed");
     return result.agent;
-  }
-
-  private async createLegacyAgent(
-    options: CreateAgentRequestOptions,
-  ): Promise<AgentSnapshotPayload> {
-    const requestId = this.createRequestId(options.requestId);
-    const config = resolveAgentConfig(options);
-
-    const message = SessionInboundMessageSchema.parse({
-      type: "create_agent_request",
-      requestId,
-      config,
-      ...(options.env ? { env: options.env } : {}),
-      ...(options.workspaceId !== undefined ? { workspaceId: options.workspaceId } : {}),
-      ...(options.callerAgentId !== undefined ? { callerAgentId: options.callerAgentId } : {}),
-      ...(options.initialPrompt ? { initialPrompt: options.initialPrompt } : {}),
-      idempotencyKey: options.idempotencyKey,
-      ...(options.clientMessageId ? { clientMessageId: options.clientMessageId } : {}),
-      ...(options.outputSchema ? { outputSchema: options.outputSchema } : {}),
-      ...(options.images && options.images.length > 0 ? { images: options.images } : {}),
-      ...(options.attachments && options.attachments.length > 0
-        ? { attachments: options.attachments }
-        : {}),
-      ...(options.git ? { git: options.git } : {}),
-      ...(options.worktree ? { worktree: options.worktree } : {}),
-      ...(options.autoArchive !== undefined ? { autoArchive: options.autoArchive } : {}),
-      ...(options.background !== undefined ? { background: options.background } : {}),
-      ...(options.worktreeName ? { worktreeName: options.worktreeName } : {}),
-      ...(options.labels && Object.keys(options.labels).length > 0
-        ? { labels: options.labels }
-        : {}),
-    });
-
-    const status = await this.sendRequest({
-      requestId,
-      message,
-      options: { skipQueue: true },
-      select: (msg) => {
-        if (msg.type !== "status") {
-          return null;
-        }
-        const created = AgentCreatedStatusPayloadSchema.safeParse(msg.payload);
-        if (created.success && created.data.requestId === requestId) {
-          return created.data;
-        }
-        const failed = AgentCreateFailedStatusPayloadSchema.safeParse(msg.payload);
-        if (failed.success && failed.data.requestId === requestId) {
-          return failed.data;
-        }
-        return null;
-      },
-    });
-    if (status.status === "agent_create_failed") {
-      throw new Error(status.error);
-    }
-
-    return status.agent;
   }
 
   async deleteAgent(agentId: string): Promise<void> {
@@ -3753,14 +3588,11 @@ export class DaemonClient {
     agentId: string,
     options: FetchAgentTimelineOptions = {},
   ): Promise<FetchAgentTimelinePayload> {
-    // COMPAT(wholeTurnTimeline): added after v0.13.2 (#8010); remove after 2027-04-27 once the daemon floor supports whole-turn pages.
-    // Reading history predates this capability and must keep working on older hosts.
-    const supportsWholeTurns = this.lastServerInfoMessage?.features?.wholeTurnTimeline === true;
     const compactionSummaryOnly = options.compactionSummaryOnly === true;
     const resolvedRequestId = this.createRequestId(options.requestId);
     const message = SessionInboundMessageSchema.parse({
       type: "fetch_agent_timeline_request",
-      ...(supportsWholeTurns && !compactionSummaryOnly && options.wholeTurns !== undefined
+      ...(!compactionSummaryOnly && options.wholeTurns !== undefined
         ? { wholeTurns: options.wholeTurns }
         : {}),
       agentId,
@@ -3770,7 +3602,6 @@ export class DaemonClient {
       ...(typeof options.limit === "number" ? { limit: options.limit } : {}),
       ...(options.projection ? { projection: options.projection } : {}),
       ...(options.mergeWindow === true ? { mergeWindow: true } : {}),
-      // Older hosts ignore the summary flag and return at most one row.
       ...(compactionSummaryOnly ? { compactionSummaryOnly: true, limit: 1 } : {}),
     });
 
@@ -3888,7 +3719,6 @@ export class DaemonClient {
     agentId: string,
     options: { requestId?: string; timeout?: number } = {},
   ): Promise<AgentBackgroundWorkItem[]> {
-    this.assertAgentBackgroundWorkSupported();
     const payload =
       await this.sendNamespacedCorrelatedSessionRequest<"agent.background_work.list.response">({
         requestId: options.requestId,
@@ -3904,9 +3734,6 @@ export class DaemonClient {
     item: AgentBackgroundWorkItem,
     options: { requestId?: string; timeout?: number } = {},
   ): Promise<void> {
-    // COMPAT(agentBackgroundWorkStop): added after v0.15.0, remove after 2027-05-03.
-    if (this.lastServerInfoMessage?.features?.agentBackgroundWorkStop !== true)
-      throw new Error("Update the host to stop background work.");
     if (!item.canStop || !item.stopToken) throw new Error("Background work cannot be stopped.");
     const payload =
       await this.sendNamespacedCorrelatedSessionRequest<"agent.background_work.stop.response">({
@@ -3925,15 +3752,7 @@ export class DaemonClient {
   observeAgentBackgroundWork(
     options: { signal?: AbortSignal } = {},
   ): OwnedSubscription<CorrelatedResponsePayload<"session.events.set_subscription.response">> {
-    this.assertAgentBackgroundWorkSupported();
     return this.observeEvents(["agent.background_work.update"], options);
-  }
-
-  private assertAgentBackgroundWorkSupported(): void {
-    // COMPAT(agentBackgroundWork): added after v0.11.0-beta.5, remove gate after 2027-04-06.
-    if (this.lastServerInfoMessage?.features?.agentBackgroundWork !== true) {
-      throw new Error("Update the host to see an agent's background work.");
-    }
   }
 
   async fetchProviderSubagentTimeline(
@@ -3941,10 +3760,6 @@ export class DaemonClient {
     subagentId: string,
     options: FetchProviderSubagentTimelineOptions = {},
   ): Promise<ProviderSubagentTimelinePayload> {
-    // COMPAT(projectedSubagentTimeline): added after v0.8.0, remove after 2027-03-14.
-    if (this.lastServerInfoMessage?.features?.projectedSubagentTimeline !== true) {
-      throw new Error("Update the host to view subagent conversations.");
-    }
     const requestId = this.createRequestId(options.requestId);
     const message = SessionInboundMessageSchema.parse({
       type: "agent.provider_subagents.timeline.get.request",
@@ -5008,22 +4823,6 @@ export class DaemonClient {
     });
   }
 
-  async checkoutGithubSetAutoMerge(
-    cwd: string,
-    input: { enabled: true; method: CheckoutPrMergeMethod } | { enabled: false },
-    requestId?: string,
-  ): Promise<CheckoutGithubSetAutoMergePayload> {
-    return this.sendNamespacedCorrelatedSessionRequest<"checkout.github.set_auto_merge.response">({
-      requestId,
-      message: {
-        type: "checkout.github.set_auto_merge.request",
-        cwd,
-        enabled: input.enabled,
-        ...(input.enabled ? { mergeMethod: input.method } : {}),
-      },
-    });
-  }
-
   async checkoutForgeGetCheckDetails(
     input: {
       cwd: string;
@@ -5048,31 +4847,6 @@ export class DaemonClient {
           changeRequestNumber: input.changeRequestNumber,
         },
         timeout: 60000,
-      },
-    );
-  }
-
-  async checkoutGithubGetCheckDetails(
-    input: {
-      cwd: string;
-      repoOwner?: string;
-      repoName?: string;
-      checkRunId?: number;
-      workflowRunId?: number;
-    },
-    requestId?: string,
-  ): Promise<CheckoutGithubGetCheckDetailsPayload> {
-    return this.sendNamespacedCorrelatedSessionRequest<"checkout.github.get_check_details.response">(
-      {
-        requestId,
-        message: {
-          type: "checkout.github.get_check_details.request",
-          cwd: input.cwd,
-          repoOwner: input.repoOwner,
-          repoName: input.repoName,
-          checkRunId: input.checkRunId,
-          workflowRunId: input.workflowRunId,
-        },
       },
     );
   }
@@ -5233,7 +5007,6 @@ export class DaemonClient {
         ...(input.refName !== undefined ? { refName: input.refName } : {}),
         ...(input.action !== undefined ? { action: input.action } : {}),
         ...(input.checkoutSource !== undefined ? { checkoutSource: input.checkoutSource } : {}),
-        ...(input.githubPrNumber !== undefined ? { githubPrNumber: input.githubPrNumber } : {}),
       },
       responseType: "create_paseo_worktree_response",
     });
@@ -5261,31 +5034,6 @@ export class DaemonClient {
       setupTerminalId: result.setupTerminalId ?? null,
       requestId: result.requestId ?? resolvedRequestId,
     };
-  }
-
-  private async createLegacyWorkspace(
-    input: CreateWorkspaceRequestOptions,
-    requestId?: string,
-  ): Promise<WorkspaceCreatePayload> {
-    return this.sendCorrelatedSessionRequest({
-      requestId,
-      message: {
-        type: "workspace.create.request",
-        source: input.source,
-        // COMPAT(workspaceRequestReceipts): added in v0.8.0; remove after 2027-03-15 once the daemon floor supports workspace receipts.
-        ...(this.lastServerInfoMessage?.features?.workspaceRequestReceipts &&
-        input.idempotencyKey !== undefined
-          ? { idempotencyKey: input.idempotencyKey }
-          : {}),
-        ...(input.title !== undefined ? { title: input.title } : {}),
-        ...(input.background !== undefined ? { background: input.background } : {}),
-        ...(input.callerAgentId ? { callerAgentId: input.callerAgentId } : {}),
-        ...(input.firstAgentContext !== undefined
-          ? { firstAgentContext: input.firstAgentContext }
-          : {}),
-      },
-      responseType: "workspace.create.response",
-    });
   }
 
   async validateBranch(
@@ -5335,23 +5083,6 @@ export class DaemonClient {
       },
       responseType: "forge.search.response",
       timeout: 15000,
-    });
-  }
-
-  async searchGitHub(
-    options: { cwd: string; query: string; limit?: number; kinds?: GitHubSearchRequest["kinds"] },
-    requestId?: string,
-  ): Promise<GitHubSearchPayload> {
-    return this.sendCorrelatedSessionRequest({
-      requestId,
-      message: {
-        type: "github_search_request",
-        cwd: options.cwd,
-        query: options.query,
-        limit: options.limit,
-        kinds: options.kinds,
-      },
-      responseType: "github_search_response",
     });
   }
 
@@ -5439,7 +5170,7 @@ export class DaemonClient {
     timeout?: number,
   ): Promise<FileReadResult> {
     const resolvedRequestId = this.createRequestId(requestId);
-    this.pendingBinaryFileReads.set(resolvedRequestId, { cwd, path, maxBytes });
+    this.pendingBinaryFileReads.set(resolvedRequestId, { cwd, path });
     try {
       const payload = await this.requestFileExplorer(
         cwd,
@@ -5704,7 +5435,7 @@ export class DaemonClient {
     provider: AgentProvider,
     options?: { cwd?: string; requestId?: string },
   ): Promise<ListProviderModelsPayload> {
-    const payload = await this.sendCorrelatedSessionRequest({
+    return this.sendCorrelatedSessionRequest({
       requestId: options?.requestId,
       message: {
         type: "list_provider_models_request",
@@ -5715,7 +5446,6 @@ export class DaemonClient {
       // Provider SDK cold starts (especially model discovery) can exceed 60s.
       timeout: 90000,
     });
-    return normalizeListProviderModelsPayload(payload);
   }
 
   async listProviderModes(
@@ -5800,9 +5530,6 @@ export class DaemonClient {
 
   async getDaemonStatus(options?: DaemonStatusOptions): Promise<DaemonStatusPayload> {
     if (!this.lastServerInfoMessage) throw new DaemonConnectionError("Transport not connected");
-    if (this.lastServerInfoMessage?.features?.daemonStatusRpc !== true) {
-      throw new Error("Update the host to read daemon status.");
-    }
     return this.sendCorrelatedSessionRequest({
       requestId: options?.requestId,
       message: {
@@ -5814,7 +5541,6 @@ export class DaemonClient {
   }
 
   async reloadDaemonConfig(requestId?: string): Promise<DaemonConfigReloadResponse["payload"]> {
-    this.requireDaemonConfigReloadSupport();
     return this.sendNamespacedCorrelatedSessionRequest({
       requestId,
       message: { type: "daemon.config.reload.request" },
@@ -5827,7 +5553,6 @@ export class DaemonClient {
     permissions: readonly string[] = [],
     requestId?: string,
   ) {
-    this.requireHubRelationshipSupport();
     return this.sendCorrelatedSessionRequest({
       requestId,
       message: { type: "hub.management.daemon.connect.request", hubUrl, token, permissions },
@@ -5839,7 +5564,6 @@ export class DaemonClient {
     input: { grant?: readonly string[]; revoke?: readonly string[] },
     requestId?: string,
   ) {
-    this.requireHubRelationshipSupport();
     return this.sendCorrelatedSessionRequest({
       requestId,
       message: {
@@ -5852,7 +5576,6 @@ export class DaemonClient {
   }
 
   async getHubStatus(requestId?: string) {
-    this.requireHubRelationshipSupport();
     return this.sendCorrelatedSessionRequest({
       requestId,
       message: { type: "hub.management.daemon.get_status.request" },
@@ -5861,7 +5584,6 @@ export class DaemonClient {
   }
 
   async disconnectHub(force = false, requestId?: string) {
-    this.requireHubRelationshipSupport();
     return this.sendCorrelatedSessionRequest({
       requestId,
       message: { type: "hub.management.daemon.disconnect.request", force },
@@ -6016,15 +5738,6 @@ export class DaemonClient {
     });
   }
 
-  async listProviderUsage(options?: { requestId?: string }): Promise<ProviderUsageListPayload> {
-    return this.sendNamespacedCorrelatedSessionRequest({
-      requestId: options?.requestId,
-      message: {
-        type: "provider.usage.list.request",
-      },
-    });
-  }
-
   async listUsageReports(
     options?: {
       agentId?: string;
@@ -6034,56 +5747,11 @@ export class DaemonClient {
     },
     onReport?: (report: UsageReportEntry) => void,
   ): Promise<UsageListReportsPayload> {
-    const features = this.getLastServerInfoMessage()?.features;
-    if (!supportsUsageReports(features)) {
+    if (!supportsUsageReports(this.getLastServerInfoMessage()?.features)) {
       throw new Error("Update the host to see usage.");
     }
     if (options?.agentId !== undefined && options.reportIds !== undefined)
       throw new Error("agentId and reportIds cannot be combined");
-    // COMPAT(providerUsageList): added in v0.1.98, remove after 2027-03-26.
-    if (features?.usageSources !== true) {
-      if (options?.agentId !== undefined)
-        return { requestId: this.createRequestId(options.requestId), reports: [] };
-      // Released hosts serve a five-minute cache and have no forceRefresh option.
-      const payload = await this.listProviderUsage({ requestId: options?.requestId });
-      return {
-        requestId: payload.requestId,
-        reports: payload.providers
-          .filter(
-            (provider) => !options?.reportIds || options.reportIds.includes(provider.providerId),
-          )
-          .map((provider) => {
-            // COMPAT(providerUsageList): added in v0.1.98, remove after 2027-03-26.
-            // 0.10 reports have no typed problems; preserve their unavailable badge and error text.
-            let report: UsageListReportsPayload["reports"][number]["report"];
-            if (provider.status === "available") {
-              report = {
-                status: "available",
-                windows: provider.windows,
-                balances: provider.balances ?? undefined,
-                details: provider.details ?? undefined,
-                planLabel: provider.planLabel ?? undefined,
-              };
-            } else if (provider.status === "error") {
-              report = { status: "error", error: provider.error ?? "" };
-            } else {
-              report = {
-                status: "unavailable",
-                problem: { kind: "no_quota", detail: provider.error ?? "" },
-              };
-            }
-            return {
-              id: provider.providerId,
-              sourceId: provider.providerId,
-              sourceLabel: provider.displayName,
-              icon: legacyUsageIcon(provider.providerId),
-              account: {},
-              fetchedAt: provider.fetchedAt ?? payload.fetchedAt,
-              report,
-            };
-          }),
-      };
-    }
     const requestId = this.createRequestId(options?.requestId);
     const reports: UsageReportEntry[] = [];
     let active = true;
@@ -6126,17 +5794,7 @@ export class DaemonClient {
     }
   }
 
-  async listCommands(options: ListCommandsOptions): Promise<ListCommandsPayload>;
-  async listCommands(agentId: string, requestId?: string): Promise<ListCommandsPayload>;
-  async listCommands(
-    agentId: string,
-    options?: LegacyListCommandsOptions,
-  ): Promise<ListCommandsPayload>;
-  async listCommands(
-    input: ListCommandsOptions | string,
-    legacyOptions?: LegacyListCommandsOptions | string,
-  ): Promise<ListCommandsPayload> {
-    const options = normalizeListCommandsOptions(input, legacyOptions);
+  async listCommands(options: ListCommandsOptions): Promise<ListCommandsPayload> {
     return this.sendCorrelatedSessionRequest({
       requestId: options.requestId,
       message: {
@@ -6219,11 +5877,7 @@ export class DaemonClient {
       if (clientBundle === undefined) {
         throw new Error(`Plugin catalog left out the client bundle for ${plugin.id}`);
       }
-      // COMPAT(pluginCatalogBundleHash): introduced by PR #6732 (unreleased); remove after
-      // 2027-04-27 once the daemon floor includes bundle hashes. Older bundles are not retained.
-      if (plugin.clientBundleHash !== undefined) {
-        retained.set(plugin.id, { clientBundleHash: plugin.clientBundleHash, clientBundle });
-      }
+      retained.set(plugin.id, { clientBundleHash: plugin.clientBundleHash, clientBundle });
       return Object.assign(plugin, { clientBundle });
     });
     this.pluginClientBundles = retained;
@@ -6357,10 +6011,6 @@ export class DaemonClient {
     ref?: string;
   }): Promise<PluginListItem> {
     const requestId = this.createRequestId();
-    // COMPAT(pluginSourceInstallation): added in v0.8.0; remove after 2027-03-16 once daemon floor supports source identifiers.
-    if (this.getLastServerInfoMessage()?.features?.pluginSourceInstallation !== true) {
-      throw new Error("Update the host to install plugin sources.");
-    }
     const payload = await this.sendCorrelatedSessionRequest({
       requestId,
       message: {
@@ -6390,16 +6040,9 @@ export class DaemonClient {
     return payload.plugins;
   }
 
-  private requirePluginUpdates(): void {
-    // COMPAT(pluginSourceUpdates): added in v0.8.0; remove after 2027-03-16 once daemon floor supports reviewed updates.
-    if (this.getLastServerInfoMessage()?.features?.pluginSourceUpdates !== true)
-      throw new Error("Update the host to review plugin updates.");
-  }
-
   async previewPluginUpdates(
     input: { pluginId?: string; target?: PluginUpdateSelection } = {},
   ): Promise<PluginUpdatePreview[]> {
-    this.requirePluginUpdates();
     const requestId = this.createRequestId();
     const payload = await this.sendCorrelatedSessionRequest({
       requestId,
@@ -6411,27 +6054,12 @@ export class DaemonClient {
   }
 
   async applyPluginUpdates(proposals: PluginUpdateProposal[]): Promise<PluginUpdateResult[]> {
-    this.requirePluginUpdates();
     const requestId = this.createRequestId();
     const payload = await this.sendCorrelatedSessionRequest({
       requestId,
       message: { type: "plugin.source.update.apply.request", requestId, proposals },
       responseType: "plugin.source.update.apply.response",
       timeout: 300_000,
-    });
-    return payload.plugins;
-  }
-
-  async updatePluginSources(pluginId?: string): Promise<PluginSourceUpdateItem[]> {
-    const requestId = this.createRequestId();
-    const payload = await this.sendCorrelatedSessionRequest({
-      requestId,
-      message: {
-        type: "plugin.source.update.request",
-        requestId,
-        ...(pluginId ? { pluginId } : {}),
-      },
-      responseType: "plugin.source.update.response",
     });
     return payload.plugins;
   }
@@ -6504,7 +6132,6 @@ export class DaemonClient {
       });
       return payload.output;
     }
-    this.requirePluginSubscriptions();
     const frame = encodePluginInputFrame({ requestId, pluginId, method, payload: input });
     const payload = await this.sendCorrelatedRequest({
       requestId,
@@ -6529,11 +6156,6 @@ export class DaemonClient {
       { type: "plugin.rpc.subscribe.request", pluginId, method, input },
       options,
     );
-  }
-
-  private requirePluginSubscriptions(): void {
-    if (this.lastServerInfoMessage?.features?.pluginSubscriptions !== true)
-      throw new Error("Update the host to use plugin subscriptions and binary plugin RPC");
   }
 
   async respondToPermissionAndWait(
@@ -7074,20 +6696,6 @@ export class DaemonClient {
     return this.lastServerInfoMessage;
   }
 
-  private requireHubRelationshipSupport(): void {
-    // COMPAT(hubRelationship): added in v0.1.X, drop the gate when floor >= v0.1.X.
-    if (this.lastServerInfoMessage?.features?.hubRelationship !== true) {
-      throw new Error("Update the host to use Hub relationship management.");
-    }
-  }
-
-  private requireDaemonConfigReloadSupport(): void {
-    // COMPAT(daemonConfigReload): added in v0.4.0, remove gate after 2027-02-14.
-    if (this.lastServerInfoMessage?.features?.daemonConfigReload !== true) {
-      throw new Error("Update the host to reload daemon configuration.");
-    }
-  }
-
   private resolveTransportUrlForAttempt(): string {
     return this.config.url;
   }
@@ -7362,8 +6970,6 @@ export class DaemonClient {
       frameKind = "output";
     } else if (frame.opcode === TerminalStreamOpcode.Snapshot) {
       frameKind = "snapshot";
-    } else if (frame.opcode === TerminalStreamOpcode.Restore) {
-      frameKind = "output";
     }
     this.runtimeMetrics?.recordBinaryFrame(
       frameKind,
@@ -7397,30 +7003,7 @@ export class DaemonClient {
     }
 
     if (frame.opcode === FileTransferOpcode.FileChunk) {
-      // COMPAT(fileReadByteBudget): added in v0.5.0, remove after 2027-02-21 once daemon floor >= v0.5.0.
-      // Old daemons stream despite maxBytes; discard before client-side accumulation.
-      if (transfer.maxBytes && transfer.size > transfer.maxBytes) {
-        return;
-      }
       transfer.chunks.push(frame.payload);
-      return;
-    }
-
-    // COMPAT(fileReadByteBudget): added in v0.5.0, remove after 2027-02-21 once daemon floor >= v0.5.0.
-    if (transfer.maxBytes && transfer.size > transfer.maxBytes) {
-      this.activeBinaryFileTransfers.delete(frame.requestId);
-      this.handleSessionMessage({
-        type: "file_explorer_response",
-        payload: {
-          cwd: transfer.cwd,
-          path: transfer.path,
-          mode: "file",
-          directory: null,
-          file: null,
-          error: "File is too large to display",
-          requestId: frame.requestId,
-        },
-      });
       return;
     }
 
@@ -7651,7 +7234,6 @@ export class DaemonClient {
   }
 
   private handleSessionMessage(msg: SessionOutboundMessage): void {
-    msg = this.owned.normalize(msg);
     if (
       msg.type === "providers_snapshot_update" &&
       this.config.providerSnapshots !== "wire" &&
@@ -7685,10 +7267,7 @@ export class DaemonClient {
           this.reconnectAttempt = 0;
           this.updateConnectionState({ status: "connected" }, { event: "HELLO_SERVER_INFO" });
           this.startLivenessHeartbeat();
-          this.owned.restore(serverInfo, {
-            ...DEFAULT_CLIENT_CAPABILITIES,
-            ...this.config.capabilities,
-          });
+          this.owned.restore();
           this.creations.reconnect();
           this.flushPendingSendQueue();
           this.resolveConnect();

@@ -69,7 +69,6 @@ export interface PaseoWorkspaceTerminalActions {
 type TerminalClient = Pick<
   DaemonClient,
   | "ensureConnected"
-  | "getLastServerInfoMessage"
   | "createTerminal"
   | "listTerminals"
   | "sendTerminalInput"
@@ -84,10 +83,6 @@ export function createTerminalActions(
 ): PaseoTerminalActions {
   function client(): TerminalClient {
     daemonClient.ensureConnected();
-    // COMPAT(workspaceTerminals): added in v0.7.3, remove gate after 2027-09-05.
-    if (daemonClient.getLastServerInfoMessage()?.features?.workspaceTerminals !== true) {
-      throw new Error("Update the host to use workspace terminals through the SDK.");
-    }
     return daemonClient;
   }
 

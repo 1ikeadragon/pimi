@@ -184,35 +184,14 @@ export function removeSubmittedUserMessage(input: {
   return { tail: remove(input.tail), head: remove(input.head) };
 }
 
-// COMPAT(userMessageClientId): added in v0.2.0, remove after 2027-01-20 once the
-// supported daemon floor emits clientMessageId on submitted user messages. Until then a
-// locally submitted row (clientMessageId, no messageId) and its canonical twin from an
-// old daemon (messageId, no clientMessageId) share no identifier, so canonical ingestion
-// may match an explicit local candidate by the id supplied over the wire or by text.
-function matchesLegacyCanonicalUserMessage(
-  submitted: UserMessageItem,
-  canonical: UserMessageItem,
-): boolean {
-  if (submitted.clientMessageId === undefined || submitted.messageId !== undefined) return false;
-  if (canonical.messageId === undefined) return false;
-  return canonical.messageId === submitted.clientMessageId || canonical.text === submitted.text;
-}
-
-type UserMessageMatchPolicy = "canonical-incoming" | "handoff";
-
-function matchesUserMessage(
-  existing: UserMessageItem,
-  incoming: UserMessageItem,
-  policy: UserMessageMatchPolicy,
-): boolean {
+function matchesUserMessage(existing: UserMessageItem, incoming: UserMessageItem): boolean {
   if (existing.clientMessageId && incoming.clientMessageId) {
     return existing.clientMessageId === incoming.clientMessageId;
   }
   if (existing.messageId && incoming.messageId) {
     return existing.messageId === incoming.messageId;
   }
-  if (matchesLegacyCanonicalUserMessage(existing, incoming)) return true;
-  return policy === "handoff" && matchesLegacyCanonicalUserMessage(incoming, existing);
+  return false;
 }
 
 export function upsertUserMessage(
@@ -237,10 +216,9 @@ function produceUserMessage(
   incoming: UserMessageItem,
   insertAt: number | null,
   presentationPolicy: UserMessagePresentationPolicy,
-  matchPolicy: UserMessageMatchPolicy = "canonical-incoming",
 ): UserMessageProductionResult {
   const index = items.findIndex(
-    (item) => item.kind === "user_message" && matchesUserMessage(item, incoming, matchPolicy),
+    (item) => item.kind === "user_message" && matchesUserMessage(item, incoming),
   );
   if (index < 0) {
     if (insertAt === null) {
@@ -288,7 +266,6 @@ export interface UserMessageStreamUpsertInput {
   message: UserMessageItem;
   insert: "tail" | "head" | "prepend-tail" | "none";
   presentation: UserMessagePresentationPolicy;
-  matchPolicy?: UserMessageMatchPolicy;
 }
 
 export interface UserMessageStreamUpsertResult extends ApplyStreamEventResult {
@@ -303,13 +280,7 @@ export interface UserMessageStreamUpsertResult extends ApplyStreamEventResult {
 export function upsertUserMessageAcrossStream(
   input: UserMessageStreamUpsertInput,
 ): UserMessageStreamUpsertResult {
-  const tailResult = produceUserMessage(
-    input.tail,
-    input.message,
-    null,
-    input.presentation,
-    input.matchPolicy,
-  );
+  const tailResult = produceUserMessage(input.tail, input.message, null, input.presentation);
   if (tailResult.matched) {
     return {
       tail: tailResult.items,
@@ -324,13 +295,7 @@ export function upsertUserMessageAcrossStream(
       },
     };
   }
-  const headResult = produceUserMessage(
-    input.head,
-    input.message,
-    null,
-    input.presentation,
-    input.matchPolicy,
-  );
+  const headResult = produceUserMessage(input.head, input.message, null, input.presentation);
   if (headResult.matched) {
     return {
       tail: input.tail,
@@ -360,7 +325,6 @@ export function upsertUserMessageAcrossStream(
       input.message,
       input.head.length,
       input.presentation,
-      input.matchPolicy,
     );
     return {
       tail: input.tail,
@@ -380,7 +344,6 @@ export function upsertUserMessageAcrossStream(
     input.message,
     input.insert === "prepend-tail" ? 0 : input.tail.length,
     input.presentation,
-    input.matchPolicy,
   );
   return {
     tail: inserted.items,
@@ -892,7 +855,6 @@ export function handoffCreatedAgentUserMessageToStream(params: {
     ...params,
     insert: "tail",
     presentation: "incoming",
-    matchPolicy: "handoff",
   });
 }
 

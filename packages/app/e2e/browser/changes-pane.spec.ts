@@ -393,40 +393,6 @@ test("Changes shows a failed base selection and lets the user retry", async ({ p
   await expect(picker).toContainText("release");
 });
 
-test("Changes shows the base as text on a host without the base-branch capability", async ({
-  page,
-}) => {
-  let baseRequests = 0;
-  await page.routeWebSocket(daemonWsRoutePattern(), (browser) => {
-    const server = browser.connectToServer();
-    browser.onMessage((frame) => {
-      if (typeof frame === "string") {
-        const envelope = JSON.parse(frame) as { message?: { type?: string } };
-        if (envelope.message?.type === "workspace.base_branch.set.request") baseRequests += 1;
-      }
-      server.send(frame);
-    });
-    server.onMessage((frame) => {
-      if (typeof frame === "string") {
-        const envelope = JSON.parse(frame) as {
-          message?: { payload?: { status?: string; features?: Record<string, unknown> } };
-        };
-        const payload = envelope.message?.payload;
-        if (payload?.status === "server_info" && payload.features) {
-          delete payload.features.workspaceBaseBranch;
-          browser.send(JSON.stringify(envelope));
-          return;
-        }
-      }
-      browser.send(frame);
-    });
-  });
-  const workspace = await createWorktreeWithCommittedDiff();
-  await openWorkspaceChangesSurface(page, workspace);
-  await expect(page.getByTestId("workspace-base-branch-trigger")).toHaveCount(0);
-  expect(baseRequests).toBe(0);
-});
-
 test("Changes shows no base on a checkout that is not a Paseo worktree", async ({ page }) => {
   const workspace = await createWorkspaceWithCommittedDiff();
   await openWorkspaceChangesSurface(page, workspace);

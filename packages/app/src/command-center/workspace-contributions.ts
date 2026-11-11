@@ -113,8 +113,6 @@ export interface WorkspaceCommandCenterSource {
     canSplitPanes: boolean;
     canOpenBrowserTabs: boolean;
     isGit: boolean;
-    /** Host supports the `workspacePinning` feature. */
-    canPin: boolean;
     /** The workspace has setup commands or a setup error — same gate as the header menu. */
     canShowSetup: boolean;
   };
@@ -585,21 +583,19 @@ export function buildWorkspaceCommandCenterContributions(
     contributions.push(buildGitContribution(source, action, 100 + index, "query"));
   }
 
-  if (source.capabilities.canPin) {
-    contributions.push(
-      buildWorkspaceAction({
-        source,
-        id: "workspace:pin",
-        rank: 20,
-        title: source.isPinned ? source.labels.unpin : source.labels.pin,
-        keywords: ["pin", "unpin", "favorite", "sticky"],
-        icon: source.isPinned ? source.icons.unpin : source.icons.pin,
-        shortcutKeys: source.shortcuts.pinWorkspace,
-        action: { id: "workspace.pin", scope: "sidebar" },
-        visibility: "always",
-      }),
-    );
-  }
+  contributions.push(
+    buildWorkspaceAction({
+      source,
+      id: "workspace:pin",
+      rank: 20,
+      title: source.isPinned ? source.labels.unpin : source.labels.pin,
+      keywords: ["pin", "unpin", "favorite", "sticky"],
+      icon: source.isPinned ? source.icons.unpin : source.icons.pin,
+      shortcutKeys: source.shortcuts.pinWorkspace,
+      action: { id: "workspace.pin", scope: "sidebar" },
+      visibility: "always",
+    }),
+  );
 
   contributions.push(
     buildWorkspaceAction({

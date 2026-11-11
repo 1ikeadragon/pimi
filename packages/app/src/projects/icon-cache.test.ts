@@ -35,7 +35,7 @@ describe("ProjectIconCache", () => {
   it("uses the shared target revision in its query key", () => {
     const cache = new ProjectIconCache(new MemoryStorage());
 
-    expect(cache.query(target, true, () => null, false).queryKey).toEqual([
+    expect(cache.query(target, () => null, false).queryKey).toEqual([
       "projectIcon",
       "host-a",
       "project-a",
@@ -47,38 +47,38 @@ describe("ProjectIconCache", () => {
     const storage = new MemoryStorage();
     const writer = new ProjectIconCache(storage);
     writer.setHosts([target.serverId]);
-    await writer.query(target, true, () => clientWith(icon), true).queryFn();
+    await writer.query(target, () => clientWith(icon), true).queryFn();
     await writer.flush();
 
     const reader = new ProjectIconCache(storage);
     reader.setHosts([target.serverId]);
     await reader.restore();
 
-    expect(reader.query(target, true, () => null, false).initialData).toEqual(icon);
+    expect(reader.query(target, () => null, false).initialData).toEqual(icon);
   });
 
   it("persists an explicit no-icon result", async () => {
     const storage = new MemoryStorage();
     const writer = new ProjectIconCache(storage);
     writer.setHosts([target.serverId]);
-    await writer.query(target, true, () => clientWith(null), true).queryFn();
+    await writer.query(target, () => clientWith(null), true).queryFn();
     await writer.flush();
 
     const reader = new ProjectIconCache(storage);
     reader.setHosts([target.serverId]);
     await reader.restore();
-    expect(reader.query(target, true, () => null, false)).toHaveProperty("initialData", null);
+    expect(reader.query(target, () => null, false)).toHaveProperty("initialData", null);
   });
 
   it("misses only the project whose revision changed", async () => {
     const cache = new ProjectIconCache(new MemoryStorage());
     const other = { ...target, projectId: "project-b" };
-    await cache.query(target, true, () => clientWith(icon), true).queryFn();
-    await cache.query(other, true, () => clientWith(null), true).queryFn();
+    await cache.query(target, () => clientWith(icon), true).queryFn();
+    await cache.query(other, () => clientWith(null), true).queryFn();
 
     expect(
-      cache.query({ ...target, iconRevision: "revision-b" }, true, () => null, false),
+      cache.query({ ...target, iconRevision: "revision-b" }, () => null, false),
     ).not.toHaveProperty("initialData");
-    expect(cache.query(other, true, () => null, false)).toHaveProperty("initialData", null);
+    expect(cache.query(other, () => null, false)).toHaveProperty("initialData", null);
   });
 });

@@ -395,5 +395,8 @@ function toCreateAgentWorktree(target: CreateAgentWorktreeTarget | undefined) {
   if (target.mode === "checkout-branch") {
     return { refName: target.branch, action: "checkout" as const };
   }
-  return { githubPrNumber: target.prNumber, action: "checkout" as const };
+  return {
+    checkoutSource: { kind: "change_request" as const, number: target.prNumber },
+    action: "checkout" as const,
+  };
 }

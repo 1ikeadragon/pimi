@@ -4072,7 +4072,6 @@ describe("ForgeService", () => {
           isMerged: false,
         },
         featuresEnabled: true,
-        githubFeaturesEnabled: true,
         error: null,
         requestId: "req-old",
       },
@@ -4111,7 +4110,6 @@ describe("ForgeService", () => {
           reviewDecision: "pending",
         },
         featuresEnabled: true,
-        githubFeaturesEnabled: true,
         error: null,
         requestId: "req-new",
       },
@@ -4344,7 +4342,6 @@ describe("ForgeService", () => {
     ).resolves.toEqual({
       featuresEnabled: true,
       authState: "authenticated",
-      githubFeaturesEnabled: true,
       items: [
         {
           kind: "change_request",
@@ -4537,7 +4534,6 @@ describe("ForgeService", () => {
     ).resolves.toEqual({
       featuresEnabled: true,
       authState: "authenticated",
-      githubFeaturesEnabled: true,
       items: [
         {
           kind: "change_request",

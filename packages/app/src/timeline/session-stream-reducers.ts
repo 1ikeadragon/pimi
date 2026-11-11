@@ -1075,27 +1075,6 @@ function deriveCanonicalAcknowledgements(params: {
   return [...acknowledged];
 }
 
-function selectEntriesOwnedByTimelinePage(
-  payload: ProcessTimelineResponseInput["payload"],
-): TimelineResponseEntry[] {
-  // COMPAT(projectedBeforePageOwnership): added in v0.2.6, remove after 2027-02-02
-  // once the supported daemon floor paginates projected before pages.
-  if (
-    payload.direction !== "before" ||
-    payload.projection !== "projected" ||
-    !payload.startCursor ||
-    !payload.endCursor
-  ) {
-    return payload.entries;
-  }
-
-  const pageStartSeq = payload.startCursor.seq;
-  const pageEndSeq = payload.endCursor.seq;
-  return payload.entries.filter(
-    (entry) => entry.seqStart >= pageStartSeq && entry.seqStart <= pageEndSeq,
-  );
-}
-
 function resolveOlderTimelineAvailability(input: {
   payload: ProcessTimelineResponseInput["payload"];
   cursor: TimelineCursor | null | undefined;
@@ -1265,7 +1244,7 @@ export function processTimelineResponse(
   // ------------------------------------------------------------------
   // Convert entries to timeline units
   // ------------------------------------------------------------------
-  const timelineUnits = selectEntriesOwnedByTimelinePage(payload).map((entry) => ({
+  const timelineUnits = payload.entries.map((entry) => ({
     seq: entry.seqStart,
     seqEnd: entry.seqEnd,
     sourceSeqRanges:

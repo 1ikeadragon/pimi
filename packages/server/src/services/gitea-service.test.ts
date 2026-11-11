@@ -3037,8 +3037,6 @@ describe("createGiteaService", () => {
     });
 
     const result = await service.searchIssuesAndPrs({ cwd: "/repo", query: "", limit: 10 });
-
-    expect(result.githubFeaturesEnabled).toBe(true);
     expect(result.items).toEqual([
       {
         kind: "change_request",
@@ -3106,7 +3104,6 @@ describe("createGiteaService", () => {
     expect(result).toEqual({
       featuresEnabled: true,
       authState: "authenticated",
-      githubFeaturesEnabled: true,
       items: [
         {
           kind: "change_request",
@@ -3172,7 +3169,6 @@ describe("createGiteaService", () => {
       items: [],
       featuresEnabled: false,
       authState: "cli_missing",
-      githubFeaturesEnabled: false,
     });
 
     const unauthenticated = makeService(() => {
@@ -3183,7 +3179,6 @@ describe("createGiteaService", () => {
         items: [],
         featuresEnabled: false,
         authState: "unauthenticated",
-        githubFeaturesEnabled: false,
       },
     );
   });

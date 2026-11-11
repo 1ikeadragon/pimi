@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from "react";
 import { i18n } from "@/i18n/i18next";
-import { useHostFeature } from "@/runtime/host-features";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
 import { useWorkspaceFields } from "@/stores/session-store-hooks";
 import { markWorkspaceUnread } from "@/workspace/mark-unread";
@@ -20,9 +19,8 @@ export function useWorkspaceReadState({
   workspaceId: string;
 }): WorkspaceReadStateController {
   const status = useWorkspaceFields(serverId, workspaceId, (workspace) => workspace.status);
-  const supportsMarkUnread = useHostFeature(serverId, "workspaceMarkUnread");
   const hasClearableAttention = status === "attention" || status === "failed";
-  const canMarkUnread = supportsMarkUnread && status === "done";
+  const canMarkUnread = status === "done";
 
   const clearAttention = useCallback(async () => {
     if (!hasClearableAttention) {

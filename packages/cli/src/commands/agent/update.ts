@@ -45,12 +45,7 @@ export interface AgentMetadataChanges {
   labels?: Record<string, string>;
 }
 
-interface AgentUpdateServerInfo {
-  features?: { agentThinkingUpdate?: boolean };
-}
-
 export interface AgentUpdateClient {
-  getLastServerInfoMessage(): AgentUpdateServerInfo | null;
   updateAgent(agentId: string, updates: AgentMetadataChanges): Promise<void>;
   setAgentThinkingOption(
     agentId: string,
@@ -86,13 +81,6 @@ export async function applyAgentChanges(
   changes: AgentChanges,
 ): Promise<AppliedAgentChanges> {
   if (changes.type === "thinking") {
-    // COMPAT(agentThinkingUpdate): added in v0.2.4, remove gate after 2027-01-28.
-    if (client.getLastServerInfoMessage()?.features?.agentThinkingUpdate !== true) {
-      throw {
-        code: "DAEMON_UPDATE_REQUIRED",
-        message: "Update the host to use agent thinking updates.",
-      } satisfies CommandError;
-    }
     const notice = await client.setAgentThinkingOption(agentId, changes.thinkingOptionId);
     return { notice };
   }

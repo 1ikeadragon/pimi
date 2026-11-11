@@ -25,7 +25,7 @@ export interface DaemonProbeClient {
   readonly authFailureReason?: DaemonAuthFailureReason | null;
   connect(): Promise<void>;
   close(): Promise<void>;
-  getLastServerInfoMessage(): { serverId: string; hostname: string | null } | null;
+  getLastServerInfoMessage(): { serverId: string; hostname: string } | null;
 }
 
 export interface DaemonConnectionDependencies<TClient extends DaemonProbeClient> {
@@ -263,7 +263,7 @@ export function connectAndProbe(
           resolve({
             client,
             serverId: serverInfo.serverId,
-            hostname: serverInfo.hostname,
+            hostname: serverInfo.hostname.trim() || null,
           });
           return;
         })

@@ -65,8 +65,8 @@ function getOpenIntentTarget(openIntent: WorkspaceOpenIntent): WorkspaceTabTarge
   return { kind: "draft", draftId: openIntent.draftId };
 }
 
-// COMPAT(workspace-open-url): added in v0.12.0, remove after 2027-01-22.
-// Bookmarks and older clients still send ?open=; internal navigation uses pending model state.
+// Agent deep links (buildHostAgentDetailRoute) and bookmarks carry ?open=; internal navigation
+// uses pending model state.
 function stripOpenSearchParamFromBrowserUrl() {
   if (!isWeb || typeof window === "undefined") {
     return;
@@ -84,7 +84,7 @@ function clearConsumedOpenIntent(input: {
 }) {
   input.navigation.setParams({ open: undefined });
   if (isWeb) {
-    // Expo commits the incoming browser URL after setParams. Strip the consumed legacy input
+    // Expo commits the incoming browser URL after setParams. Strip the consumed input
     // after that commit so it cannot be restored into the address bar and replayed on reload.
     window.setTimeout(stripOpenSearchParamFromBrowserUrl, 0);
   }

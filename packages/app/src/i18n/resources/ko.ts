@@ -307,7 +307,6 @@ export const ko: TranslationResources = {
     title: "기록",
     empty: "아직 세션이 없습니다",
     noMatches: "일치하는 세션이 없습니다",
-    tooManyMatches: "일치 항목이 너무 많습니다 — 검색 범위를 좁히세요",
     hostLoadFailed: "{{host}}: 기록을 불러오지 못했습니다",
     searchPlaceholder: "기록 검색",
     actions: {
@@ -372,7 +371,6 @@ export const ko: TranslationResources = {
       forkInNewWorkspace: "새 워크스페이스로 분기",
       forkWithProvider: "다른 제공업체로 분기",
       forkNoOtherProviders: "이 호스트에서 사용할 수 있는 다른 제공업체가 없습니다.",
-      forkUnavailable: "이를 사용하려면 호스트를 업데이트하세요.",
       forkMissingWorkspace: "이 에이전트는 워크스페이스에 속해 있지 않습니다.",
       forkFailed: "채팅을 분기하지 못했습니다.",
       openFile: "파일 열기",
@@ -468,7 +466,6 @@ export const ko: TranslationResources = {
     },
     status: {
       connectHost: "세션을 가져오려면 호스트에 연결하세요",
-      updateHost: "세션을 가져오려면 호스트를 업데이트하세요.",
       noProviders: "가져올 수 있는 프로바이더가 활성화되어 있지 않습니다.",
       loading: "최근 세션을 불러오는 중...",
       failedProvider: "{{provider}} 세션을 불러올 수 없습니다",
@@ -500,7 +497,6 @@ export const ko: TranslationResources = {
       hostOffline: "{{hostName}}이(가) 오프라인입니다",
       cannotReachHost: "{{hostName}}에 연결할 수 없습니다",
       hostStatus: "호스트 상태: {{status}}",
-      needsHostUpgrade: "이 워크스페이스를 복원하려면 호스트를 업데이트하세요.",
       manageHost: "호스트 관리",
       recovery: {
         archivedTitle: "워크스페이스가 보관되었습니다",
@@ -595,7 +591,6 @@ export const ko: TranslationResources = {
       },
     },
     setup: {
-      updateHost: "작업 공간 설정 세부 정보를 보려면 호스트를 업데이트하세요",
       descriptor: {
         label: "설정",
         completed: "설정 완료",
@@ -670,8 +665,6 @@ export const ko: TranslationResources = {
     },
     terminal: {
       hostDisconnected: "호스트가 연결되어 있지 않습니다",
-      updateHost: "기본 터미널 렌더러를 사용하도록 호스트를 업데이트합니다.",
-      restoreRequiresUpdate: "터미널을 보려면 호스트를 업데이트하세요.",
       unableToSubscribe: "터미널을 구독할 수 없습니다",
       fileUploaded: "파일을 업로드했습니다",
       pasteFileFailed: "파일을 붙여넣지 못했습니다: {{reason}}",
@@ -1175,7 +1168,6 @@ export const ko: TranslationResources = {
     createConfirm: "만들기",
     creating: "만드는 중…",
     name: "레이블 이름",
-    updateHostUse: "레이블을 사용하려면 호스트를 업데이트하세요.",
     errors: { update: "레이블을 업데이트할 수 없습니다", load: "레이블을 불러올 수 없습니다" },
     colors: {
       violet: "보라",
@@ -1207,7 +1199,6 @@ export const ko: TranslationResources = {
       deleteMessage_one: "이 호스트의 워크스페이스 {{count}}개에서 레이블을 제거합니다.",
       deleteMessage_other: "이 호스트의 워크스페이스 {{count}}개에서 레이블을 제거합니다.",
       offline: "이 호스트는 오프라인입니다.",
-      updateHost: "레이블을 관리하려면 호스트를 업데이트하세요.",
     },
   },
   changelog: {
@@ -1238,7 +1229,6 @@ export const ko: TranslationResources = {
         created: "생성일",
         manual: "수동",
         lastPrompt: "마지막 프롬프트",
-        updateHost: "작업 공간을 정렬하려면 호스트를 업데이트하세요",
       },
       grouping: {
         label: "그룹화",
@@ -1345,7 +1335,6 @@ export const ko: TranslationResources = {
       toasts: {
         hostDisconnected: "호스트가 연결되어 있지 않습니다",
         removeFailed: "일부 워크스페이스를 제거하지 못했습니다",
-        updateHostToRemove: "프로젝트를 제거하려면 호스트를 업데이트하세요.",
       },
       empty: {
         title: "아직 프로젝트가 없습니다",
@@ -2012,7 +2001,6 @@ export const ko: TranslationResources = {
         "릴레이 없이 TCP, Tailscale 또는 다른 VPN을 통해 직접 연결하세요. QR 코드가 생성되지 않습니다.",
       tailscaleDocs: "Tailscale 설정",
       tailscaleDocsAccessibility: "Tailscale로 연결하는 방법 읽기",
-      updateRequired: "Pimi 데스크톱에서 릴레이를 활성화하려면 호스트를 업데이트하세요.",
       unavailable: "페어링 정보를 사용할 수 없습니다.",
       hint: "휴대폰의 Paseo로 이 QR 코드를 스캔하거나 아래 링크를 복사하세요.",
       securityWarning:
@@ -2161,7 +2149,6 @@ export const ko: TranslationResources = {
       directoryMissing: "워크스페이스 디렉터리를 찾을 수 없습니다.",
       empty: "변경사항 없음",
       loadError: "Diff를 불러오지 못했습니다.",
-      capabilityMissing: "커밋 diff를 보려면 호스트를 업데이트하세요.",
     },
   },
   toolCallDetails: {
@@ -2417,7 +2404,6 @@ export const ko: TranslationResources = {
     },
     voice: {
       offline: "음성을 설정하려면 이 호스트에 연결하세요.",
-      updateHost: "음성을 설정하려면 호스트를 업데이트하세요.",
       saveError: "음성 설정을 업데이트할 수 없습니다",
       provider: "제공자",
       providers: {
@@ -2966,7 +2952,6 @@ export const ko: TranslationResources = {
       agentProfiles: {
         sectionTitle: "에이전트 프로필",
         unavailable: "에이전트 프로필을 관리하려면 이 호스트에 연결하세요",
-        unsupported: "이 호스트에서 실행 중인 데몬은 아직 에이전트 프로필을 지원하지 않습니다",
         emptyState:
           "아직 프로필이 없습니다. 저장된 프로바이더와 모델로 에이전트를 시작하려면 하나 추가하세요.",
         addProfileTitle: "에이전트 프로필 추가",

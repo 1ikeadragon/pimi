@@ -131,8 +131,6 @@ export const piSubagents: PiExtension = {
         type: "sub_agent" as const,
         subAgentType: args.data.agent,
         description: args.data.task,
-        // COMPAT(subagent-log): remove after 2027-04-30.
-        log: "",
       };
       const base = {
         type: "upsert" as const,

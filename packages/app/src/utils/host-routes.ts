@@ -102,23 +102,6 @@ function isUrlSafeWorkspaceId(value: string): boolean {
   return /^[A-Za-z0-9._~-]+$/.test(value);
 }
 
-function isLegacyPathLikeWorkspaceValue(value: string): boolean {
-  return value.includes("/") || value.includes("\\") || /^[A-Za-z]:[\\/]/.test(value);
-}
-
-function hasLegacyDecodeNoise(value: string): boolean {
-  for (const character of value) {
-    const codePoint = character.codePointAt(0);
-    if (codePoint == null) continue;
-    if (codePoint < 0x20 || codePoint === 0x7f || codePoint === 0xfffd) return true;
-  }
-  return false;
-}
-
-function isCleanLegacyPathDecode(value: string): boolean {
-  return isLegacyPathLikeWorkspaceValue(value) && !hasLegacyDecodeNoise(value);
-}
-
 export type WorkspaceOpenIntent =
   | { kind: "agent"; agentId: string }
   | { kind: "terminal"; terminalId: string }
@@ -215,17 +198,6 @@ export function decodeWorkspaceIdFromPathSegment(workspaceIdSegment: string): st
     const prefixedDecoded =
       tryDecodeBase64UrlNoPadUtf8(encodedPayload) ?? decodeBase64UrlNoPadUtf8(encodedPayload);
     return prefixedDecoded ? normalizeWorkspaceId(prefixedDecoded) : null;
-  }
-
-  // COMPAT(legacyPathWorkspaceId): IDs were path-shaped before v0.1.95. Remove when deep-link floor >= v0.2.0.
-  const base64Decoded = tryDecodeBase64UrlNoPadUtf8(decoded);
-  if (base64Decoded && isCleanLegacyPathDecode(base64Decoded)) {
-    return normalizeWorkspaceId(base64Decoded);
-  }
-
-  const relaxedBase64Decoded = decodeBase64UrlNoPadUtf8(decoded);
-  if (relaxedBase64Decoded && isCleanLegacyPathDecode(relaxedBase64Decoded)) {
-    return normalizeWorkspaceId(relaxedBase64Decoded);
   }
 
   return normalizeWorkspaceId(decoded);

@@ -15,12 +15,6 @@ class RecordingAgentUpdateClient implements AgentUpdateClient {
   readonly thinkingUpdates: Array<{ agentId: string; thinkingOptionId: string }> = [];
   thinkingNotice: AgentProviderNotice | null = null;
 
-  constructor(private readonly supportsThinkingUpdate = true) {}
-
-  getLastServerInfoMessage() {
-    return { features: { agentThinkingUpdate: this.supportsThinkingUpdate } };
-  }
-
   async updateAgent(agentId: string, updates: AgentMetadataChanges): Promise<void> {
     this.metadataUpdates.push({ agentId, updates });
   }
@@ -48,19 +42,6 @@ describe("applyAgentChanges", () => {
     expect(result).toEqual({
       notice: null,
     });
-  });
-
-  it("requires a daemon that advertises thinking updates", async () => {
-    const client = new RecordingAgentUpdateClient(false);
-
-    await expect(
-      applyAgentChanges(client, "agent-1", { type: "thinking", thinkingOptionId: "high" }),
-    ).rejects.toMatchObject({
-      code: "DAEMON_UPDATE_REQUIRED",
-      message: "Update the host to use agent thinking updates.",
-    });
-    expect(client.metadataUpdates).toEqual([]);
-    expect(client.thinkingUpdates).toEqual([]);
   });
 
   it("returns the provider notice from a thinking update", async () => {

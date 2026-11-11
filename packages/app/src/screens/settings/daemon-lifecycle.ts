@@ -8,7 +8,6 @@ interface WorkerStatus {
   pid: number;
   serverId: string;
   version: string | null;
-  // Absent on daemons without terminalsSurviveRestart, which have no terminal cleanup to report.
   terminalCleanupUnconfirmed?: UnconfirmedTerminalProcess[];
 }
 interface StatusReader {
@@ -21,7 +20,7 @@ export interface SettingsDaemonRestartDeps extends StatusReader {
 
 /**
  * Acknowledgment starts the wait; only a different ready worker completes it. Terminals survive
- * the restart unless `killTerminals` is set (daemons advertising terminalsSurviveRestart); then
+ * the restart unless `killTerminals` is set; then
  * the replacement must also report every terminal process gone.
  */
 export async function restartDaemonFromSettings(

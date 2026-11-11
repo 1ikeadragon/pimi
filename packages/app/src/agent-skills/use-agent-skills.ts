@@ -8,7 +8,6 @@ import type {
 } from "@pimi/protocol/messages";
 import { useToast } from "@/contexts/toast-context";
 import { useFetchQuery } from "@/data/query";
-import { useHostFeature } from "@/runtime/host-features";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { confirmDialog } from "@/utils/confirm-dialog";
 
@@ -20,7 +19,6 @@ export function useAgentSkills(serverId: string) {
   const queryClient = useQueryClient();
   const client = useHostRuntimeClient(serverId);
   const connected = useHostRuntimeIsConnected(serverId);
-  const supported = useHostFeature(serverId, "skillManagement");
   const queryKey = useMemo(() => ["host", serverId, "agent-skills"] as const, [serverId]);
   const reportedQueryError = useRef<Error | null>(null);
   const report = useCallback(
@@ -36,7 +34,7 @@ export function useAgentSkills(serverId: string) {
       if (!client) throw new Error(t("settings.host.skills.unavailable"));
       return client.getAgentSkillsStatus();
     },
-    enabled: supported && client !== null,
+    enabled: client !== null,
     retry: false,
     dataShape: "value",
     staleTimeMs: 0,
@@ -117,7 +115,6 @@ export function useAgentSkills(serverId: string) {
   );
   return {
     connected,
-    supported,
     status: query.data ?? null,
     isLoading: query.isLoading,
     isWorking,

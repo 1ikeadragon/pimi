@@ -1,18 +1,16 @@
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { fetchQueryOptions, useFetchQuery } from "@/data/query";
-import { useHostFeature } from "@/runtime/host-features";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 
 const CHECK_INTERVAL_MS = 30 * 60_000;
 
 export function useHarnessUpdates(serverId: string) {
-  const supportsUpdates = useHostFeature(serverId, "providerHarnessUpdates");
   const client = useHostRuntimeClient(serverId);
   const connected = useHostRuntimeIsConnected(serverId);
   const queryClient = useQueryClient();
   const queryKey = ["provider-harness-updates", serverId] as const;
-  const enabled = supportsUpdates && connected && Boolean(client);
+  const enabled = connected && Boolean(client);
   const query = useFetchQuery({
     dataShape: "value",
     queryKey,
@@ -34,5 +32,5 @@ export function useHarnessUpdates(serverId: string) {
       }),
     );
   }, [client, enabled, queryClient, serverId]);
-  return { ...query, enabled, supportsUpdates, checkNow };
+  return { ...query, enabled, checkNow };
 }

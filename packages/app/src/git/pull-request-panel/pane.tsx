@@ -31,7 +31,6 @@ import { MarkdownRenderer } from "@/components/markdown/renderer";
 import { getDefaultMarkdownClipboardEnvironment } from "@/utils/rich-clipboard-default-environment";
 import { writeMarkdownToRichClipboard } from "@/utils/rich-clipboard";
 import { useHostRuntimeClient } from "@/runtime/host-runtime";
-import { useSessionStore } from "@/stores/session-store";
 import { useWorkspaceAttachmentsStore } from "@/attachments/workspace-attachments-store";
 import { useToast } from "@/contexts/toast-context";
 import { useCheckoutGitActionsStore } from "@/git/actions-store";
@@ -206,18 +205,6 @@ export function PullRequestPane({
   );
   const toast = useToast();
   const daemonClient = useHostRuntimeClient(serverId);
-  // COMPAT(githubCheckDetailsRpc): recognize the legacy capability on daemons
-  // predating checkout.forge.get_check_details.*. Remove after 2027-01-17 once
-  // the supported daemon floor is >= v0.2.0.
-  const canFetchGitHubCheckDetails = useSessionStore(
-    (state) => state.sessions[serverId]?.serverInfo?.features?.githubCheckDetails === true,
-  );
-  const canFetchForgeCheckDetails = useSessionStore(
-    (state) => state.sessions[serverId]?.serverInfo?.features?.forgeCheckDetails === true,
-  );
-  const forgeProvidersEnabled = useSessionStore(
-    (state) => state.sessions[serverId]?.serverInfo?.features?.forgeProviders === true,
-  );
   const addWorkspaceAttachment = useWorkspaceAttachmentsStore(
     (state) => state.addWorkspaceAttachment,
   );
@@ -230,9 +217,6 @@ export function PullRequestPane({
     void openExternalUrl(data.url);
   }, [data.url]);
 
-  const refreshSupported = useSessionStore(
-    (state) => state.sessions[serverId]?.serverInfo?.features?.checkoutRefresh === true,
-  );
   const runRefresh = useCheckoutGitActionsStore((state) => state.refresh);
   const isRefreshing =
     useCheckoutGitActionsStore((state) =>
@@ -376,13 +360,7 @@ export function PullRequestPane({
       let details = null;
       try {
         const ref = check.detailRef;
-        // The neutral forge RPC fetches detail for any forge; fall back to the
-        // legacy github-only RPC only for GitHub against a daemon that predates
-        // it. A non-GitHub forge therefore needs the neutral capability present.
-        const canFetchDetail =
-          canFetchForgeCheckDetails || (check.provider === "github" && canFetchGitHubCheckDetails);
         if (
-          canFetchDetail &&
           daemonClient &&
           (ref?.checkRunId !== undefined || ref?.workflowRunId !== undefined) &&
           data.repoOwner &&
@@ -397,12 +375,7 @@ export function PullRequestPane({
               workflowRunId: ref.workflowRunId,
               changeRequestNumber: data.number,
             };
-            // COMPAT(githubCheckDetailsRpc): use the legacy GitHub RPC with
-            // daemons predating checkout.forge.get_check_details.*. Remove after
-            // 2027-01-17 once the supported daemon floor is >= v0.2.0.
-            const payload = canFetchForgeCheckDetails
-              ? await daemonClient.checkoutForgeGetCheckDetails(request)
-              : await daemonClient.checkoutGithubGetCheckDetails(request);
+            const payload = await daemonClient.checkoutForgeGetCheckDetails(request);
             details = payload.success ? payload.details : null;
           } catch {
             details = null;
@@ -427,8 +400,6 @@ export function PullRequestPane({
     },
     [
       addWorkspaceAttachment,
-      canFetchForgeCheckDetails,
-      canFetchGitHubCheckDetails,
       cwd,
       daemonClient,
       data.forge,
@@ -472,8 +443,6 @@ export function PullRequestPane({
         changeRequestNumber: data.number,
         open: checksOpen,
         onToggle: handleToggleChecks,
-        enabled: forgeProvidersEnabled,
-        canFetchCheckDetails: canFetchForgeCheckDetails,
       })
     : null;
 
@@ -493,35 +462,33 @@ export function PullRequestPane({
               {t("workspace.git.pr.actions.viewPullRequest")}
             </Button>
           </View>
-          {refreshSupported ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={
-                isRefreshing
-                  ? t("workspace.git.diff.refreshing")
-                  : t("workspace.git.diff.refreshState", { brand: forgePresentation.brandLabel })
-              }
-              testID="pr-pane-refresh"
-              style={toolbarRefreshButtonStyle}
-              hitSlop={8}
-              onPress={handleRefresh}
-              disabled={isRefreshing}
-            >
-              <View style={styles.refreshIcon}>
-                {isRefreshing ? (
-                  <ThemedLoadingSpinner
-                    size={paneContentToolbarIconSize(isCompact)}
-                    uniProps={foregroundMutedColorMapping}
-                  />
-                ) : (
-                  <ThemedRotateCw
-                    size={paneContentToolbarIconSize(isCompact)}
-                    uniProps={foregroundMutedColorMapping}
-                  />
-                )}
-              </View>
-            </Pressable>
-          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              isRefreshing
+                ? t("workspace.git.diff.refreshing")
+                : t("workspace.git.diff.refreshState", { brand: forgePresentation.brandLabel })
+            }
+            testID="pr-pane-refresh"
+            style={toolbarRefreshButtonStyle}
+            hitSlop={8}
+            onPress={handleRefresh}
+            disabled={isRefreshing}
+          >
+            <View style={styles.refreshIcon}>
+              {isRefreshing ? (
+                <ThemedLoadingSpinner
+                  size={paneContentToolbarIconSize(isCompact)}
+                  uniProps={foregroundMutedColorMapping}
+                />
+              ) : (
+                <ThemedRotateCw
+                  size={paneContentToolbarIconSize(isCompact)}
+                  uniProps={foregroundMutedColorMapping}
+                />
+              )}
+            </View>
+          </Pressable>
         </PaneContentToolbar>
 
         <Pressable onPress={handleOpenPrUrl} style={styles.header}>

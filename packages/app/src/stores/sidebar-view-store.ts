@@ -95,7 +95,6 @@ const SidebarViewPersistedStateSchema = z.strictObject({
   showBackground: z.boolean().optional(),
   groupMode: PersistedSidebarGroupModeSchema.optional(),
   hostFilters: z.array(z.string()).optional(),
-  hostFilter: z.string().nullable().optional(),
   projectFilters: z.array(z.string()).optional(),
   groupModeByServerId: z.record(z.string(), PersistedSidebarGroupModeSchema).optional(),
   labelFilter: SidebarLabelFilterSchema.optional(),
@@ -112,19 +111,6 @@ function readLegacyGroupMode(persistedState: SidebarViewStorageState): SidebarGr
   const modes = Object.values(groupModeByServerId);
   if (modes.length === 0) return null;
   return modes.includes("status") ? "status" : "project";
-}
-
-// Reads the host filter from any persisted shape: the current `hostFilters` array, or the
-// pre-v2 single `hostFilter` string (null/absent meant "all hosts").
-function readHostFilters(persistedState: SidebarViewStorageState): string[] {
-  const hostFilters = persistedState.hostFilters;
-  if (hostFilters) {
-    return hostFilters;
-  }
-  // COMPAT(sidebarHostFilters): added in v0.1.102, remove after 2026-12-30 once pre-v2 persisted
-  // sidebar state (a single `hostFilter` string) has aged out.
-  const legacyHostFilter = persistedState.hostFilter;
-  return legacyHostFilter ? [legacyHostFilter] : [];
 }
 
 export function migrateSidebarViewState(persistedState: unknown): SidebarViewPersistedState {
@@ -157,7 +143,7 @@ export function migrateSidebarViewState(persistedState: unknown): SidebarViewPer
     showBackground: state.showBackground ?? false,
     groupMode: state.groupMode === "status" ? "status" : "project",
     workspaceSort: state.workspaceSort ?? "created",
-    hostFilters: readHostFilters(state),
+    hostFilters: state.hostFilters ?? [],
     projectFilters: state.projectFilters ?? [],
     labelFilter: state.labelFilter
       ? normalizeSidebarLabelFilter(state.labelFilter)

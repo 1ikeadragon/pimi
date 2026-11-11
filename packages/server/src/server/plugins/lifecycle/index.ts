@@ -72,15 +72,6 @@ const worktreeRequestSchema = z.discriminatedUnion("kind", [
       headRepository: z.string().optional(),
     })
     .strict(),
-  z
-    .object({
-      ...worktreeRequestFields,
-      ...changeRequestFields,
-      kind: z.literal("checkout-github-pr"),
-      baseRef: z.string().min(1),
-      githubPrNumber: z.number().int().positive(),
-    })
-    .strict(),
 ]);
 
 const beforeSchemas = {
@@ -265,13 +256,9 @@ export class PluginHookHandlers implements PluginLifecycleRegistration {
       this.register(name, handler as Handler),
     );
     this.addHook = registration.addHook;
-    this.on = registration.on;
-    this.before = registration.before;
   }
 
   readonly addHook: PluginLifecycleRegistration["addHook"];
-  readonly on: PluginLifecycleRegistration["on"];
-  readonly before: PluginLifecycleRegistration["before"];
 
   catalog(): string[] {
     return [...this.handlers.keys()];

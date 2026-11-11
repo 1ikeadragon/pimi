@@ -46,15 +46,6 @@ export async function runCloneCommand(
 
   const client = await connectToDaemon({ target: options.daemonTarget });
 
-  if (client.getLastServerInfoMessage()?.features?.projectGithubClone !== true) {
-    await client.close().catch(() => {});
-    throw cmdError(
-      "UNSUPPORTED_BY_HOST",
-      "This daemon does not support cloning GitHub repos.",
-      "Update the host to a newer Pimi version.",
-    );
-  }
-
   try {
     const response = await client.cloneGithubProject({
       repo,

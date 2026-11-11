@@ -69,7 +69,7 @@ The required root manifest is `pimi-plugin.json`:
 {
   "id": "my-plugin",
   "description": "Reviews changes before merge",
-  "requirements": { "paseo": ">=0.8.0" }
+  "requirements": { "pimi": ">=0.8.0" }
 }
 ```
 
@@ -97,10 +97,9 @@ these fields during installation.
 
 ### Requirements
 
-`requirements` is an optional object. Its currently supported key, `paseo`, accepts an npm semver
-range. An omitted `requirements.pimi` means `<0.8.0`: the plugin predates the first breaking
-plugin release. Pimi 0.8 and later reject it with a link to the [migration guide](migration).
-Empty strings, invalid ranges, and unknown manifest requirement keys are rejected.
+`requirements.pimi` is required and accepts an npm semver range. A plugin without it fails to
+load with an error that asks the author to add the range. Empty strings, invalid ranges, and
+unknown manifest requirement keys are rejected.
 
 | Range            | Compatible releases                                                          |
 | ---------------- | ---------------------------------------------------------------------------- |
@@ -725,8 +724,7 @@ screen with other params shows the new params.
 adds a row to the footer, between **Add project** and the footer's icon row. The icon row is fixed;
 plugins can't add to it. Both take `{ id, title, Component }`. `title` labels the item in
 Settings > Sidebar, where users reorder and hide items, and is the default label and accessibility
-label of `SidebarRow`. Settings shows a generic plugin icon for these items; a row from the
-deprecated `addSidebarItem` keeps its registered icon.
+label of `SidebarRow`. Settings shows a generic plugin icon for these items.
 
 With the plugin on several hosts, an item renders from the host of the screen the app shows. Off a
 host's screens, it uses the host last picked in one of the plugin's screens or last opened from one
@@ -1532,10 +1530,9 @@ entire JSON value. State survives tab restoration and app reloads.
 
 The unified props, `addAgentPanel`, and `useTabState` require Pimi 0.13.0 or later.
 
-**Deprecated until removal after 2027-04-23:** the 0.12 panel `context` and flat `agentId` props,
-`addWorkspacePanel({ context: "workspace" })`, and `addWorkspacePanel({ context: "agent" })`
-continue to work. Omit workspace `context`, register agent panels with `addAgentPanel`, and read
-`params.agentId`.
+The 0.12 panel `context` and flat `agentId` props, `addWorkspacePanel({ context: "workspace" })`,
+and `addWorkspacePanel({ context: "agent" })` are removed. Omit workspace `context`, register agent
+panels with `addAgentPanel`, and read `params.agentId`.
 
 Read cached state with `useWorkspace(workspaceId, selector)` and `useAgent(params.agentId, selector)`. A selector is required. Pimi compares its result shallowly, so selecting `{ name, status }` does not re-render when unrelated fields change. Select every field the component renders in one call; do not select the whole snapshot.
 
@@ -1760,7 +1757,7 @@ Inline PDF rendering needs a daemon from Pimi 0.13.0 or later; older daemons rep
 ### Version requirement and examples
 
 File panels, `DocumentFrame`, and `Loading` require Pimi 0.13.0 or later. Declare
-`"requirements": { "paseo": ">=0.13.0" }` in `pimi-plugin.json`. Both daemon and app check the
+`"requirements": { "pimi": ">=0.13.0" }` in `pimi-plugin.json`. Both daemon and app check the
 [version requirement](#requirements); older apps skip the client bundle before evaluation.
 Writing with `writeBytes` needs a daemon from Pimi 0.13.0 or later.
 
@@ -2600,8 +2597,7 @@ pimi plugin install npm:@acme/plugins@^1.2.0:plugins/review
 ```
 
 `--ref` applies only to Git and accepts a branch, tag, or commit for this installation. Without it,
-Pimi installs the remote's default HEAD. Installation selectors do not constrain later updates. The legacy
-`--path relative/plugin/path` option is equivalent to a subdirectory suffix, including for npm.
+Pimi installs the remote's default HEAD. Installation selectors do not constrain later updates.
 
 ### npm installation and publishing
 
@@ -2684,7 +2680,7 @@ step:
 ```json
 {
   "id": "review",
-  "requirements": { "paseo": ">=0.8.0" },
+  "requirements": { "pimi": ">=0.8.0" },
   "build": [["npm", "ci", "--omit=dev"]]
 }
 ```

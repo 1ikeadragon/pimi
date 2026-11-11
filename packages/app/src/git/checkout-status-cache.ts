@@ -89,7 +89,7 @@ export function applyCheckoutStatusUpdateFromEvent({
 }
 
 function normalizeCheckoutBaseRef<T extends CheckoutStatusPayload>(payload: T): T {
-  // COMPAT(workspaceBaseBranch): hosts <= v0.11.2 only send the display ref; remove after 2027-10-14.
+  // The exact ref is the base ref the app shows and compares against; baseRefExact is optional on the wire.
   return !payload.isGit || payload.baseRefExact === undefined
     ? payload
     : { ...payload, baseRef: payload.baseRefExact };

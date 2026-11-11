@@ -10,7 +10,7 @@ export interface SubscriptionObserver<T> {
   error?(error: unknown): void;
 }
 
-/** A stable local lifetime. IDs change on reconnect; legacy IDs identify local listeners only. */
+/** A stable local lifetime. IDs change on reconnect. */
 export interface OwnedSubscription<T> {
   readonly subscriptionId: string | null;
   readonly ready: Promise<SubscriptionSnapshot<T>>;

@@ -89,17 +89,6 @@ describe("plugin management commands", () => {
     vi.clearAllMocks();
   });
 
-  it("requires host support before attempting a management RPC", async () => {
-    await expect(
-      runPluginListCommand(undefined, { daemonTarget }, {} as never),
-    ).rejects.toMatchObject({
-      code: "DAEMON_UPDATE_REQUIRED",
-      message: "Update the host to use plugin management.",
-    });
-    expect(listPlugins).not.toHaveBeenCalled();
-    expect(close).toHaveBeenCalledTimes(1);
-  });
-
   it("keeps status as a hidden alias for the network-free plugin list", async () => {
     features.pluginManagement = true;
     const command = createPluginCommand();
@@ -129,16 +118,6 @@ describe("plugin management commands", () => {
     const result = await runPluginListCommand("legacy-plugin", { daemonTarget }, {} as never);
 
     expect(result.data.map((plugin) => plugin.id)).toEqual(["legacy-plugin"]);
-  });
-
-  it("requires plugin log support before attempting the RPC", async () => {
-    await expect(
-      runPluginLogsCommand("example", { daemonTarget }, {} as never),
-    ).rejects.toMatchObject({
-      code: "DAEMON_UPDATE_REQUIRED",
-      message: "Update the host to view plugin logs.",
-    });
-    expect(getPluginLogs).not.toHaveBeenCalled();
   });
 
   it("returns readable and JSON plugin log output", async () => {
@@ -179,22 +158,6 @@ describe("plugin management commands", () => {
     stderr.mockRestore();
   });
 
-  it("requires source support for directory installs without using the legacy RPC", async () => {
-    features.pluginManagement = true;
-    features.pluginGitManagement = true;
-    const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
-
-    await expect(
-      runPluginInstallCommand("/plugins/trusted-plugin", { daemonTarget }, {} as never),
-    ).rejects.toMatchObject({
-      code: "DAEMON_UPDATE_REQUIRED",
-      message: "Update the host to install plugin sources.",
-    });
-    expect(installPluginSource).not.toHaveBeenCalled();
-    expect(installDirectoryPlugin).not.toHaveBeenCalled();
-    stderr.mockRestore();
-  });
-
   it.each([undefined, false, true])(
     "installs with source support and Git support=%s",
     async (gitSupport) => {
@@ -202,22 +165,6 @@ describe("plugin management commands", () => {
       features.pluginGitManagement = gitSupport;
       await runPluginInstallCommand("npm:@acme/review@^1.0.0", { daemonTarget }, {} as never);
       expect(installPluginSource).toHaveBeenCalledWith({ source: "npm:@acme/review@^1.0.0" });
-      expect(close).toHaveBeenCalledTimes(1);
-    },
-  );
-
-  it.each([undefined, false])(
-    "rejects installs before an RPC when source support=%s despite Git support",
-    async (sourceSupport) => {
-      features.pluginGitManagement = true;
-      features.pluginSourceInstallation = sourceSupport;
-      await expect(
-        runPluginInstallCommand("owner/review", { daemonTarget }, {} as never),
-      ).rejects.toMatchObject({
-        code: "DAEMON_UPDATE_REQUIRED",
-        message: "Update the host to install plugin sources.",
-      });
-      expect(installPluginSource).not.toHaveBeenCalled();
       expect(close).toHaveBeenCalledTimes(1);
     },
   );
@@ -232,38 +179,6 @@ describe("plugin management commands", () => {
       expect(close).toHaveBeenCalledTimes(1);
     },
   );
-
-  it.each([undefined, false])(
-    "rejects reviewed updates when support=%s despite legacy Git support",
-    async (gitSupport) => {
-      features.pluginSourceInstallation = true;
-      features.pluginGitManagement = true;
-      features.pluginSourceUpdates = gitSupport;
-      await expect(
-        runPluginUpdateCommand("review", { daemonTarget }, {} as never),
-      ).rejects.toMatchObject({
-        code: "DAEMON_UPDATE_REQUIRED",
-        message: "Update the host to review plugin updates.",
-      });
-      expect(previewPluginUpdates).not.toHaveBeenCalled();
-      expect(close).toHaveBeenCalledTimes(1);
-    },
-  );
-
-  it("folds the legacy --path option into the plugin source reference", async () => {
-    features.pluginSourceInstallation = true;
-    const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
-    const command = createPluginCommand();
-
-    await command.parseAsync(["install", "git:owner/monorepo", "--path", "plugins/review"], {
-      from: "user",
-    });
-
-    expect(installPluginSource).toHaveBeenCalledWith({
-      source: "git:owner/monorepo:plugins/review",
-    });
-    stderr.mockRestore();
-  });
 
   it("keeps an absolute monorepo path as one plugin source reference", async () => {
     features.pluginSourceInstallation = true;

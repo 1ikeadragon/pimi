@@ -208,28 +208,23 @@ export function resolveUsageModalHostId(choice: UsageHostChoice): string | null 
 /** Current outcome owns messages; only a successful poll owns values and freshness. */
 export function resolveUsageReport(entry: UsageReportEntry, t: TFunction) {
   const available = entry.report.status === "available";
-  // COMPAT(usageLastSuccessful): added in v0.12.0, remove after 2027-04-17 once daemon floor >= v0.12.0.
-  // Older daemons cannot provide history; a failed attempt is never a successful update.
+  // A failed attempt is never a successful update.
   const snapshot = available ? null : (entry.lastSuccessful ?? null);
   const content = entry.report.status === "available" ? entry.report : (snapshot?.report ?? null);
   const messages: string[] = [];
   if (!available) {
-    if (entry.loginErrors)
-      messages.push(
-        ...entry.loginErrors.map(
-          (login) => `${login.harness}: ${usageProblemText(login.report, t)}`,
-        ),
-      );
-    // COMPAT(usageLoginErrors): added in v0.11.0, remove after 2027-04-05 once daemon floor >= v0.11.0.
-    else messages.push(usageProblemText(entry.report, t));
+    messages.push(
+      ...(entry.loginErrors ?? []).map(
+        (login) => `${login.harness}: ${usageProblemText(login.report, t)}`,
+      ),
+    );
   }
   return {
     windows: content?.windows ?? [],
     balances: content?.balances ?? [],
     details: content?.details ?? [],
     planLabel: content?.planLabel ?? null,
-    // COMPAT(usageSuccessfulAt): added in v0.12.0, remove after 2027-04-17 once daemon floor >= v0.12.0.
-    // Old daemons expose only attempt time for available reports, never for failures.
+    // Only available entries carry successfulAt; failures show the retained snapshot's time.
     successfulAt: available
       ? (entry.successfulAt ?? entry.fetchedAt)
       : (snapshot?.fetchedAt ?? null),

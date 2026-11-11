@@ -280,9 +280,7 @@ Absent and empty mean different things for terminal profiles — omitting the ke
 defaults, so both mean none.
 
 `PersistedConfigSchema` parses strictly, so a daemon that predates a field drops it on write
-rather than storing something it cannot describe. That is why the client gates the agent profiles
-UI on `server_info.features.agentProfiles` instead of letting a save appear to succeed against an
-older daemon.
+rather than storing something it cannot describe.
 
 ### Agent provider Pimi tools
 
@@ -347,14 +345,12 @@ requests.
 
 Environment variables override `config.json`:
 
-| Environment variable                 | Setting                  |
-| ------------------------------------ | ------------------------ |
-| `PASEO_GIT_MAX_PROCESSES_PER_SECOND` | `maxProcessesPerSecond`  |
-| `PASEO_GIT_MAX_PROCESS_CONCURRENCY`  | `maxProcessConcurrency`  |
-| `PASEO_GIT_CONCURRENCY`              | Legacy concurrency alias |
+| Environment variable                 | Setting                 |
+| ------------------------------------ | ----------------------- |
+| `PASEO_GIT_MAX_PROCESSES_PER_SECOND` | `maxProcessesPerSecond` |
+| `PASEO_GIT_MAX_PROCESS_CONCURRENCY`  | `maxProcessConcurrency` |
 
-`PASEO_GIT_MAX_PROCESS_CONCURRENCY` wins when it and the legacy alias are both set. Run `pimi reload`
-after changing `config.json`. Environment changes require a daemon restart; the launch environment
+Run `pimi reload` after changing `config.json`. Environment changes require a daemon restart; the launch environment
 remains authoritative during reload.
 
 ### Speech configuration

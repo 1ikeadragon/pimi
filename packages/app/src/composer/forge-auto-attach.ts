@@ -25,7 +25,6 @@ interface ComposerForgeAutoAttachInput {
   isConnected: boolean;
   serverId: string;
   cwd: string;
-  supportsForgeSearch?: boolean;
   setAttachments: Dispatch<SetStateAction<UserComposerAttachment[]>>;
   onChangeRequestDetected?: () => void;
   onChangeRequestAdded?: (item: ForgeSearchItem) => void;
@@ -478,7 +477,6 @@ async function fetchForgeRefSearch({
         serverId: snapshot.serverId,
         cwd: snapshot.cwd,
         query: String(ref.number),
-        supportsForgeSearch: snapshot.supportsForgeSearch,
         enabled: true,
       }),
     );

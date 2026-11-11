@@ -12,14 +12,6 @@ export function useFileHandle(input: {
 }): FileHandle | null {
   const { serverId, target, absolutePath, observing } = input;
   const client = useSessionStore((state) => state.sessions[serverId]?.client ?? null);
-  // COMPAT(workspaceFileEditing): added in v0.2.0, remove after 2027-01-18 once daemon floor >= v0.2.0.
-  const workspaceFileEditing = useSessionStore(
-    (state) => state.sessions[serverId]?.serverInfo?.features?.workspaceFileEditing === true,
-  );
-  // COMPAT(fileByteWrites): added in v0.13.0, remove gate after 2027-04-20.
-  const fileByteWrites = useSessionStore(
-    (state) => state.sessions[serverId]?.serverInfo?.features?.fileByteWrites === true,
-  );
   const cwd = target?.cwd ?? null;
   const path = target?.path ?? null;
   const [handle, setHandle] = useState<{ key: string; handle: FileHandle } | null>(null);
@@ -30,11 +22,11 @@ export function useFileHandle(input: {
       setHandle(null);
       return;
     }
-    const session = createDaemonFileSession(client, { workspaceFileEditing, fileByteWrites });
+    const session = createDaemonFileSession(client);
     const next = new FileHandle(session, { cwd, path }, absolutePath);
     setHandle({ key: `${cwd}:${path}`, handle: next });
     return () => next.dispose();
-  }, [absolutePath, client, cwd, fileByteWrites, path, workspaceFileEditing]);
+  }, [absolutePath, client, cwd, path]);
 
   const current = handle?.key === key ? handle.handle : null;
   useEffect(() => {

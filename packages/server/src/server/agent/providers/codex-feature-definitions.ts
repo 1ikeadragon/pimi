@@ -53,7 +53,5 @@ export function buildCodexFeatures(input: {
 
 export function readCodexServiceTier(values: Record<string, unknown> | undefined): string | null {
   const tier = values?.service_tier;
-  if (typeof tier === "string") return tier;
-  // COMPAT(codexFastPreference): added in v0.10.0, remove after 2027-03-29 once saved Fast preferences have migrated.
-  return values?.fast_mode ? "fast" : null;
+  return typeof tier === "string" ? tier : null;
 }

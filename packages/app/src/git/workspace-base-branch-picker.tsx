@@ -11,7 +11,6 @@ import { ToolbarLabelSelectTrigger } from "@/components/ui/toolbar-label-trigger
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Button } from "@/components/ui/button";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
-import { useSessionStore } from "@/stores/session-store";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { invalidateCheckoutGitQueriesForClient } from "./query-keys";
 
@@ -34,10 +33,6 @@ export function WorkspaceBaseBranchPicker({ serverId, workspaceId, cwd, baseRef 
   const { t } = useTranslation();
   const client = useHostRuntimeClient(serverId);
   const connected = useHostRuntimeIsConnected(serverId);
-  // COMPAT(workspaceBaseBranch): added after v0.11.2, remove gate after 2027-10-14.
-  const supported = useSessionStore(
-    (state) => state.sessions[serverId]?.serverInfo?.features?.workspaceBaseBranch === true,
-  );
   const queryClient = useQueryClient();
   const anchorRef = useRef<View>(null);
   const [open, setOpen] = useState(false);
@@ -56,7 +51,7 @@ export function WorkspaceBaseBranchPicker({ serverId, workspaceId, cwd, baseRef 
       if (result.error) throw new Error(result.error);
       return result.branches;
     },
-    enabled: open && supported && connected && Boolean(client),
+    enabled: open && connected && Boolean(client),
     retry: false,
     dataShape: "value",
     staleTimeMs: 0,
@@ -128,7 +123,7 @@ export function WorkspaceBaseBranchPicker({ serverId, workspaceId, cwd, baseRef 
     [t, isPending, error, isError, handleRetry],
   );
 
-  if (!supported || !workspaceId) return <Text style={styles.text}>{label}</Text>;
+  if (!workspaceId) return <Text style={styles.text}>{label}</Text>;
 
   return (
     <View ref={anchorRef} collapsable={false} style={styles.anchor}>

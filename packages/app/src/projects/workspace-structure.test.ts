@@ -22,6 +22,7 @@ function workspace(id: string, projectId: string, root: string): WorkspaceDescri
   return {
     createdAt: null,
     lastUserMessageAt: null,
+    setupStatus: null,
     id,
     projectId,
     projectDisplayName: "acme/app",

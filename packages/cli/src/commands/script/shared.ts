@@ -13,16 +13,7 @@ export interface WorkspaceScriptCommandOptions extends CommandOptions {
 export async function connectWorkspaceScriptClient(target: DaemonTarget): Promise<DaemonClient> {
   const daemonHost = getDaemonHost({ target });
   try {
-    const client = await connectToDaemon({ target });
-    // COMPAT(workspaceScriptManagement): added in v0.1.105, remove gate after 2027-01-10.
-    if (!client.getLastServerInfoMessage()?.features?.workspaceScriptManagement) {
-      await client.close().catch(() => {});
-      throw {
-        code: "DAEMON_UPDATE_REQUIRED",
-        message: "Update the host to use workspace script management.",
-      } satisfies CommandError;
-    }
-    return client;
+    return await connectToDaemon({ target });
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && "message" in error) {
       throw error;

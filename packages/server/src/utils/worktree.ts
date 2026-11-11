@@ -201,17 +201,6 @@ export type WorktreeSource =
       localBranchName?: string;
       pushRemoteUrl?: string;
       trackOriginHead?: boolean;
-    }
-  | {
-      kind: "checkout-github-pr";
-      githubPrNumber: number;
-      headRef: string;
-      headRepositoryOwner?: string;
-      baseRefName: string;
-      checkoutRefs?: WorktreeCheckoutRef[];
-      localBranchName?: string;
-      pushRemoteUrl?: string;
-      trackOriginHead?: boolean;
     };
 
 export interface CreateWorktreeOptions {
@@ -1325,7 +1314,6 @@ function planCreatedLocalBranch(
     case "checkout-branch":
       return source.branchName;
     case "checkout-change-request":
-    case "checkout-github-pr":
       return sourcePlan.branchName;
     default:
       return null;
@@ -1371,9 +1359,7 @@ export const createWorktree = async ({
   worktreePath: explicitWorktreePath,
 }: CreateWorktreeOptions): Promise<CreatedWorktree> => {
   const branchesBefore =
-    source.kind === "checkout-branch" ||
-    source.kind === "checkout-change-request" ||
-    source.kind === "checkout-github-pr"
+    source.kind === "checkout-branch" || source.kind === "checkout-change-request"
       ? await listLocalBranchNames(cwd)
       : new Set<string>();
   const sourcePlan = await resolveWorktreeSourcePlan({ cwd, source, desiredSlug: worktreeSlug });
@@ -1574,14 +1560,12 @@ async function resolveWorktreeSourcePlan({
         addArguments: [source.branchName],
       };
     }
-    case "checkout-change-request":
-    case "checkout-github-pr": {
+    case "checkout-change-request": {
       const localBranchCandidate = source.localBranchName ?? source.headRef;
       await validateGitBranchName(cwd, localBranchCandidate);
       const localBranchName = await resolveUniqueLocalBranchName(cwd, localBranchCandidate);
       const normalizedBaseRefName = normalizeRequiredBaseBranch(source.baseRefName);
-      const changeRequestNumber =
-        source.kind === "checkout-github-pr" ? source.githubPrNumber : source.changeRequestNumber;
+      const changeRequestNumber = source.changeRequestNumber;
       await fetchWorktreeCheckoutRefs({
         cwd,
         localBranchName,

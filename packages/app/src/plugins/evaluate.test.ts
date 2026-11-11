@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { useRevealedText } from "@/hooks/use-revealed-text";
 import { runPluginClientBundle, type PluginClientRuntime } from "./evaluate";
 
 const runtime = {
@@ -7,7 +6,6 @@ const runtime = {
   async rpc() {},
   openSettings() {},
   openScreen() {},
-  openSurface() {},
   openPanel() {},
   addHeaderButton() {
     return { update() {}, remove() {} };
@@ -208,7 +206,6 @@ describe("evaluatePluginClientBundle", () => {
     expect(plugin.sidebarItems.footer.map(({ id, title }) => ({ id, title }))).toEqual([
       { id: "main", title: "Status" },
     ]);
-    expect(plugin.legacySidebarItems).toEqual([]);
   });
 
   it.each([
@@ -257,53 +254,6 @@ describe("evaluatePluginClientBundle", () => {
         ),
       ),
     ).toThrow("Sidebar item main has no title");
-  });
-
-  it("expands the addSurface and addSidebarItem aliases to a screen and a legacy header item", () => {
-    const plugin = evaluatePluginClientBundle(
-      "example",
-      bundle(`
-        function Surface() { return null; }
-        plugin.addSurface("main", Surface);
-        plugin.addSidebarItem({ id: "entry", title: "Example", icon: "Blocks", surface: "main" });
-      `),
-    );
-
-    expect(plugin.surfaces.map(({ id, title }) => ({ id, title }))).toEqual([
-      { id: "main", title: "main" },
-    ]);
-    expect(plugin.sidebarItems).toEqual({ header: [], footer: [] });
-    expect(plugin.legacySidebarItems).toEqual([
-      { id: "entry", title: "Example", icon: "Blocks", surface: "main" },
-    ]);
-  });
-
-  it("releases an addSidebarItem alias's header id", () => {
-    const plugin = evaluatePluginClientBundle(
-      "example",
-      bundle(`
-        plugin.addScreen({ id: "main", title: "Main", Component: function Screen() { return null; } });
-        const remove = plugin.addSidebarItem({ id: "entry", title: "Example", icon: "Blocks", surface: "main" });
-        remove();
-        plugin.addSidebarHeaderItem({ id: "entry", title: "Replacement", Component() { return null; } });
-      `),
-    );
-
-    expect(plugin.sidebarItems.header.map((item) => item.title)).toEqual(["Replacement"]);
-    expect(plugin.legacySidebarItems).toEqual([]);
-  });
-
-  it("rejects a header item that reuses an addSidebarItem id", () => {
-    expect(() =>
-      evaluatePluginClientBundle(
-        "example",
-        bundle(`
-          plugin.addScreen({ id: "main", title: "Main", Component: function Screen() { return null; } });
-          plugin.addSidebarItem({ id: "entry", title: "Example", icon: "Blocks", surface: "main" });
-          plugin.addSidebarHeaderItem({ id: "entry", title: "Other", Component() { return null; } });
-        `),
-      ),
-    ).toThrow("Duplicate sidebar header item: entry");
   });
 
   it("collects a declarative attachment source", () => {
@@ -382,20 +332,18 @@ describe("evaluatePluginClientBundle", () => {
     ).toEqual([{ id: "open-review", title: "Open review", icon: "Scan", context: "agent" }]);
   });
 
-  it("registers workspace and agent panels with stable aliases", () => {
+  it("registers workspace and agent panels", () => {
     const plugin = evaluatePluginClientBundle(
       "panels",
       bundle(`
       const Component = () => null;
       plugin.addWorkspacePanel({ id: "workspace", title: "Workspace", icon: "File", Component });
       plugin.addAgentPanel({ id: "agent", title: "Agent", icon: "File", Component });
-      plugin.addWorkspacePanel({ id: "legacy", title: "Legacy", icon: "File", context: "agent", Component });
     `),
     );
     expect(plugin.workspacePanels.map(({ id, context }) => ({ id, context }))).toEqual([
       { id: "workspace", context: "workspace" },
       { id: "agent", context: "agent" },
-      { id: "legacy", context: "agent" },
     ]);
   });
 
@@ -535,7 +483,7 @@ describe("evaluatePluginClientBundle", () => {
     const plugin = evaluatePluginClientBundle(
       "review",
       bundle(`
-        if (!plugin.paseo || !plugin.rpc || !plugin.openSurface || !plugin.openPanel || !plugin.addComposerPill) {
+        if (!plugin.paseo || !plugin.rpc || !plugin.openPanel || !plugin.addComposerPill) {
           throw new Error("missing client runtime");
         }
       `),
@@ -641,17 +589,6 @@ describe("evaluatePluginClientBundle", () => {
     ).toThrow("Duplicate theme: mocha");
   });
 
-  it("rejects a sidebar placement whose surface does not exist", () => {
-    expect(() =>
-      evaluatePluginClientBundle(
-        "example",
-        bundle(`
-          plugin.addSidebarItem({ id: "main", title: "Example", icon: "Blocks", surface: "missing" });
-        `),
-      ),
-    ).toThrow("references missing surface missing");
-  });
-
   it("rejects a bundle without a default contribution function", () => {
     expect(() => evaluatePluginClientBundle("example", `(function() { return {}; })`)).toThrow(
       "must default export a function",
@@ -696,7 +633,7 @@ describe("evaluatePluginClientBundle", () => {
           if (typeof Icon !== "function" || typeof Modal !== "function" || typeof Modal.Content !== "function" || typeof useToast !== "function" || typeof SettingsSection !== "function" || typeof SidebarRow !== "function" || typeof StreamedText !== "function") {
             throw new Error("React Native plugin UI is incomplete");
           }
-          plugin.addSurface("main", function Surface() { return null; });
+          plugin.addScreen({ id: "main", title: "Main", Component: function Screen() { return null; } });
           return function() {};
         };
         return module.exports;
@@ -704,21 +641,6 @@ describe("evaluatePluginClientBundle", () => {
     );
 
     expect(plugin.surfaces.map((surface) => surface.id)).toEqual(["main"]);
-  });
-
-  it("keeps the host reveal hook on the deprecated client/react-native entry", () => {
-    const plugin = evaluatePluginClientBundle(
-      "legacy-reveal",
-      bundle(`
-        const legacy = require("@pimi/plugin/client/react-native");
-        const ui = require("@pimi/plugin/client/ui");
-        if (typeof legacy.useRevealedText !== "function") throw new Error("Missing legacy reveal hook");
-        if (legacy.StreamedText !== ui.StreamedText) throw new Error("Missing current UI exports");
-        if ("useRevealedText" in ui) throw new Error("Legacy hook leaked into current UI");
-        plugin.addScreen({ id: "reveal", title: "Reveal", Component: legacy.useRevealedText });
-      `),
-    );
-    expect(plugin.surfaces[0]?.Component).toBe(useRevealedText);
   });
 
   it("keeps shared and client runtime exports separate", () => {
@@ -804,7 +726,7 @@ describe("evaluatePluginClientBundle", () => {
       evaluatePluginClientBundle(
         "example",
         `(function() { return { default: function(plugin) {
-          plugin.addSurface("main", function() { return null; });
+          plugin.addScreen({ id: "main", title: "Main", Component: function Screen() { return null; } });
           throw new Error("setup exploded");
         } }; })`,
       ),

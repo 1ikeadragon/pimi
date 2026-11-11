@@ -94,15 +94,6 @@ export interface AgentSelectOption {
   metadata?: AgentMetadata;
 }
 
-export function normalizeAgentModelDefinition(model: AgentModelDefinition): AgentModelDefinition {
-  const defaultThinkingOptionId =
-    model.defaultThinkingOptionId ?? model.thinkingOptions?.find((option) => option.isDefault)?.id;
-  if (!defaultThinkingOptionId || defaultThinkingOptionId === model.defaultThinkingOptionId) {
-    return model;
-  }
-  return { ...model, defaultThinkingOptionId };
-}
-
 /** A provider addresses models by ID; repeated rows retain the first definition. */
 export function normalizeAgentModelCatalog(models: AgentModelDefinition[]): AgentModelDefinition[] {
   const ids = new Set<string>();
@@ -294,7 +285,6 @@ export type ToolCallDetail =
       type: "worktree_setup";
       worktreePath: string;
       branchName: string;
-      log: string;
       commands: Array<{
         index: number;
         command: string;
@@ -311,12 +301,6 @@ export type ToolCallDetail =
       subAgentType?: string;
       description?: string;
       childSessionId?: string;
-      log?: string;
-      actions?: Array<{
-        index: number;
-        toolName: string;
-        summary?: string;
-      }>;
     }
   | {
       type: "plain_text";

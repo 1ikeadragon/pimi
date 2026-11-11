@@ -126,11 +126,6 @@ Use `--output-schema` to return only matching JSON output. You can pass a schema
 
 By default, `pimi run` waits for completion. Use `--no-wait` to return immediately while the agent keeps running, the same flag `pimi send` takes.
 
-The old `run --background` and `-d` aliases still mean `--no-wait`. They are deprecated, hidden
-from help, and print a warning to stderr. Use `--no-wait` in scripts. Workspace visibility is
-selected separately with `workspace create --background`; this release does not repurpose
-`run --background`.
-
 ## Projects
 
 Register the current directory as a project, then list the projects known to the daemon:

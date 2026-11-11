@@ -84,9 +84,4 @@ checkout_pr_merge_request;
 checkout_pr_merge_response;
 ```
 
-Do not add new flat names. When migrating old RPCs, keep protocol compatibility rules in mind:
-
-- Add the new names first.
-- Gate new feature behavior through `server_info.features.*` when an old host cannot support it.
-- Keep old names accepted until the compatibility window expires.
-- Mark shims with `COMPAT(...)` and a removal date.
+Do not add new flat names. To migrate an old RPC, rename it in the schema, the daemon, and every client in one commit. Do not keep the old name as an alias: see [protocol-compatibility.md](protocol-compatibility.md).

@@ -43,9 +43,6 @@ function renderGitlabHeaderMeta(facts: GitlabMergeFacts): ReactNode {
 }
 
 function renderGitlabChecksSection(facts: GitlabMergeFacts, ctx: PaneChecksSlotContext): ReactNode {
-  if (!ctx.enabled) {
-    return null;
-  }
   const summary = deriveGitlabPipelineSummary(facts);
   if (!summary) {
     return null;
@@ -58,7 +55,6 @@ function renderGitlabChecksSection(facts: GitlabMergeFacts, ctx: PaneChecksSlotC
       summary={summary}
       open={ctx.open}
       onToggle={ctx.onToggle}
-      canFetchCheckDetails={ctx.canFetchCheckDetails}
     />
   );
 }
@@ -105,7 +101,6 @@ function GitLabPipelineSection({
   summary,
   open,
   onToggle,
-  canFetchCheckDetails,
 }: {
   serverId: string;
   cwd: string;
@@ -113,7 +108,6 @@ function GitLabPipelineSection({
   summary: GitlabPipelineSummary;
   open: boolean;
   onToggle: () => void;
-  canFetchCheckDetails: boolean;
 }) {
   const { t } = useTranslation();
   const { pipeline, isLoading, isPlaceholderData, error } = useGitLabPipeline({
@@ -121,7 +115,7 @@ function GitLabPipelineSection({
     cwd,
     pipelineId: summary.id,
     changeRequestNumber,
-    enabled: open && canFetchCheckDetails,
+    enabled: open,
     live: isPipelineActiveStatus(summary.rawStatus),
   });
 

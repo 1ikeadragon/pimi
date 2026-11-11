@@ -1,5 +1,4 @@
 import { shareCheckoutDiff } from "./diff-sharing";
-import { useSessionStore } from "@/stores/session-store";
 import { useMemo } from "react";
 import { useRetainedPanelActive } from "@/components/retained-panel";
 import { useReplicaQuery } from "@/data/query";
@@ -50,11 +49,6 @@ export function useCheckoutDiffQuery({
   enabled = true,
   queryScope,
 }: UseCheckoutDiffQueryOptions) {
-  // COMPAT(checkoutDiffAll): added in v0.12.0, remove after 2027-04-21 once host floor includes All changes.
-  const allSupported = useSessionStore(
-    (state) => state.sessions[serverId]?.serverInfo?.features?.checkoutDiffAll === true,
-  );
-  const requiresUpdate = mode === "all" && !allSupported;
   const retainedPanelActive = useRetainedPanelActive();
   const queryEnabled = enabled && retainedPanelActive;
   const isConnected = useHostRuntimeIsConnected(serverId);
@@ -77,7 +71,7 @@ export function useCheckoutDiffQuery({
     return normalizedScope ? [...comparisonKey, "scope", normalizedScope] : comparisonKey;
   }, [serverId, cwd, compareMode, compareBaseRef, compareIgnoreWhitespace, queryScope]);
   const subscriptionId = useMemo(() => `checkoutDiff:${JSON.stringify(queryKey)}`, [queryKey]);
-  const routeEnabled = Boolean(queryEnabled && isConnected && cwd && !requiresUpdate);
+  const routeEnabled = Boolean(queryEnabled && isConnected && cwd);
 
   const query = useReplicaQuery<CheckoutDiffQueryPayload>({
     queryKey,
@@ -97,16 +91,7 @@ export function useCheckoutDiffQuery({
     }),
   });
 
-  return deriveCheckoutDiffResult(
-    requiresUpdate && isConnected
-      ? {
-          requestId: "unsupported",
-          cwd,
-          files: [],
-          error: { code: "UNKNOWN", message: "Update the host to view All changes" },
-        }
-      : (query.data ?? null),
-  );
+  return deriveCheckoutDiffResult(query.data ?? null);
 }
 
 export interface CheckoutDiffResult {

@@ -261,13 +261,13 @@ export function createHostResolver(input: {
           },
           async sendPrompt(args) {
             const agentId = args.agentId as string;
-            // Human sends retain the established mode RPC on older connected hosts.
+            // Human sends set the mode through the mode RPC.
             // Agent sends apply their requested mode when the recipient dispatches the batch.
             if (!input.callerAgentId && args.sessionMode !== undefined) {
               await client.setAgentMode(agentId, args.sessionMode as string);
             }
             const agent = (
-              await client.fetchAgent(agentId).catch((error) => {
+              await client.fetchAgent({ agentId }).catch((error) => {
                 // Snapshot preflight precedes sendMessage, so failure is definitely unsent.
                 throw new HostOperationRejectedError(error);
               })
@@ -300,7 +300,7 @@ export function createHostResolver(input: {
             });
           },
           async getStatus(args) {
-            const agent = (await client.fetchAgent(args.agentId as string))?.agent;
+            const agent = (await client.fetchAgent({ agentId: args.agentId as string }))?.agent;
             if (!agent) throw new Error(`Agent ${args.agentId} not found`);
             return result({ status: agent.status, snapshot: agent });
           },
@@ -311,7 +311,7 @@ export function createHostResolver(input: {
               direction: "tail",
               limit: limit ?? 0,
             });
-            const agent = (await client.fetchAgent(agentId))?.agent;
+            const agent = (await client.fetchAgent({ agentId }))?.agent;
             if (!agent) throw new Error(`Agent ${agentId} not found`);
             return result({
               agentId,
@@ -365,7 +365,10 @@ export function createHostResolver(input: {
                       baseBranch: args.baseBranch as string | undefined,
                       branchName: args.branchName as string | undefined,
                       refName: args.branch as string | undefined,
-                      githubPrNumber: args.prNumber as number | undefined,
+                      checkoutSource:
+                        args.prNumber === undefined
+                          ? undefined
+                          : { kind: "change_request", number: args.prNumber as number },
                       worktreeSlug: args.worktreeSlug as string | undefined,
                     },
               title: args.title as string | undefined,
@@ -389,7 +392,7 @@ function workspaceSummary(workspace: FetchWorkspacesEntry) {
     projectId: workspace.projectId,
     cwd: workspace.workspaceDirectory,
     isolation: workspace.workspaceKind === "worktree" ? "worktree" : "local",
-    kind: workspace.workspaceKind === "checkout" ? "local_checkout" : workspace.workspaceKind,
+    kind: workspace.workspaceKind,
     title: workspace.title,
     background: workspace.background,
   };
@@ -400,7 +403,7 @@ function remoteObservation(client: DaemonClient): HostObservation {
     async observe(agentId, handler, signal, onError) {
       const observation = client.observeTimeline([agentId], { signal });
       const refresh = async (event?: AgentStreamEvent) => {
-        let snapshot = (await client.fetchAgent(agentId))?.agent ?? null;
+        let snapshot = (await client.fetchAgent({ agentId }))?.agent ?? null;
         let lastMessage: string | null = null;
         if (
           snapshot &&

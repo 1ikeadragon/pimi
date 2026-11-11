@@ -39,7 +39,6 @@ import type { TerminalManager, TerminalsChangedEvent } from "./terminal-manager.
 import { applyTerminalSize } from "./terminal-size-ownership.js";
 import { TerminalWorkerIncompatibleError } from "./terminal-worker-pool.js";
 import type { TerminalActivity } from "@pimi/protocol/terminal-activity";
-import { terminalSubscriptionKey } from "@pimi/protocol/terminal-subscription-key";
 
 const MAX_TERMINAL_STREAM_SLOTS = 256;
 
@@ -66,7 +65,6 @@ interface ActiveTerminalStream {
   unsubscribe: () => void;
   needsSnapshot: boolean;
   snapshotInFlight: boolean;
-  retrySnapshotErrors: boolean;
   // Readiness is independent of revision: reconnect adoption has no revision.
   snapshotReady: boolean;
   restore?: TerminalRestoreOptions;
@@ -84,7 +82,6 @@ export interface TerminalSessionControllerOptions {
   terminalManager: TerminalManager | null;
   emit: (msg: SessionOutboundMessage) => void;
   hasBinaryChannel: () => boolean;
-  supportsChunkedReplay?: (source: object) => boolean;
   isPathWithinRoot: (rootPath: string, candidatePath: string) => boolean;
   sessionLogger: pino.Logger;
   listTerminalWorkspaceRefs?: () => Promise<readonly TerminalWorkspaceRef[]>;
@@ -148,7 +145,7 @@ export class TerminalSessionController {
   private readonly activeStreams = new Map<number, ActiveTerminalStream>();
   private nextSlot = 0;
 
-  constructor(private readonly options: TerminalSessionControllerOptions) {
+  constructor(options: TerminalSessionControllerOptions) {
     this.terminalManager = options.terminalManager;
     this.emit = options.emit;
     this.hasBinaryChannel = options.hasBinaryChannel;
@@ -202,18 +199,12 @@ export class TerminalSessionController {
     switch (msg.type) {
       case "subscribe_terminals_request":
         return this.handleSubscribeTerminalsRequest(msg, ownership);
-      case "unsubscribe_terminals_request":
-        return ownership.releaseLegacySlot(
-          `terminal-directory:${terminalSubscriptionKey(msg.cwd, msg.workspaceId)}`,
-        );
       case "list_terminals_request":
         return this.handleListTerminalsRequest(msg);
       case "create_terminal_request":
         return this.handleCreateTerminalRequest(msg);
       case "subscribe_terminal_request":
         return this.handleSubscribeTerminalRequest(msg, ownership);
-      case "unsubscribe_terminal_request":
-        return ownership.releaseLegacySlot(`terminal-output:${msg.terminalId}`);
       case "terminal_input":
         if (!ownership.currentSource) throw new Error("Terminal input requires a source");
         this.handleTerminalInput(msg, ownership.currentSource);
@@ -342,19 +333,14 @@ export class TerminalSessionController {
   ): Promise<void> {
     if (!this.terminalManager) throw new Error("Terminal manager not available");
     let subscription: TerminalDirectorySubscription | undefined;
-    const owner = ownership.begin(
-      "terminal-directories",
-      undefined,
-      async (id) => {
-        this.subscribedDirectories.delete(id);
-        if (this.subscribedDirectories.size === 0) {
-          this.unsubscribeTerminalsChanged?.();
-          this.unsubscribeTerminalsChanged = null;
-        }
-        await subscription?.refresh?.catch(() => undefined);
-      },
-      `terminal-directory:${terminalSubscriptionKey(msg.cwd, msg.workspaceId)}`,
-    );
+    const owner = ownership.begin("terminal-directories", async (id) => {
+      this.subscribedDirectories.delete(id);
+      if (this.subscribedDirectories.size === 0) {
+        this.unsubscribeTerminalsChanged?.();
+        this.unsubscribeTerminalsChanged = null;
+      }
+      await subscription?.refresh?.catch(() => undefined);
+    });
     subscription = {
       cwd: msg.cwd,
       workspaceId: msg.workspaceId,
@@ -711,28 +697,12 @@ export class TerminalSessionController {
     }
 
     let stream: ActiveTerminalStream | undefined;
-    const owner = ownership.begin(
-      "terminal-output",
-      undefined,
-      async () => {
-        if (!stream) return;
-        this.detachRegistration(stream);
-        await stream.snapshotTask;
-      },
-      `terminal-output:${msg.terminalId}`,
-    );
-    // COMPAT(ownedSubscriptions): added in v0.8.0, remove after 2027-03-09 once client floor >= v0.8.0.
-    if (!ownership.isModern(owner.source) && msg.restore?.size) {
-      applyTerminalSize(session, owner.source, {
-        ...msg.restore.size,
-        intent: "claim",
-      });
-    }
-
-    const slot = this.bindActiveStream(session, owner, {
-      restore: msg.restore,
-      retrySnapshotErrors: !ownership.isModern(owner.source),
+    const owner = ownership.begin("terminal-output", async () => {
+      if (!stream) return;
+      this.detachRegistration(stream);
+      await stream.snapshotTask;
     });
+    const slot = this.bindActiveStream(session, owner, msg.restore);
     if (slot === null) {
       await owner.release();
       this.sessionLogger.warn(
@@ -758,7 +728,7 @@ export class TerminalSessionController {
       payload: {
         terminalId: msg.terminalId,
         slot,
-        subscriptionId: owner.responseId,
+        subscriptionId: owner.id,
         error: null,
         requestId: msg.requestId,
       },
@@ -878,7 +848,7 @@ export class TerminalSessionController {
   private bindActiveStream(
     terminal: TerminalSession,
     owner: OwnedSubscription,
-    options: { restore?: TerminalRestoreOptions; retrySnapshotErrors: boolean },
+    restore: TerminalRestoreOptions | undefined,
   ): number | null {
     if (!this.hasBinaryChannel()) {
       return null;
@@ -896,10 +866,9 @@ export class TerminalSessionController {
       unsubscribe: () => {},
       needsSnapshot: true,
       snapshotInFlight: false,
-      retrySnapshotErrors: options.retrySnapshotErrors,
       exiting: false,
       snapshotReady: false,
-      restore: options?.restore,
+      restore,
       bufferedOutputs: [],
       bufferedOutputBytes: 0,
       outputBytesSinceSnapshot: 0,
@@ -1052,14 +1021,6 @@ export class TerminalSessionController {
       );
       // Natural completion owns the buffered final bytes and waits for this read.
       if (activeStream.exiting) return;
-      // COMPAT(terminalSnapshotErrors): restored in v0.8.0; remove after 2027-03-11 once client floor >= v0.8.0.
-      // Old clients interpret every stream exit as PTY exit. Preserve their
-      // attached stream after failure. Another snapshot notification can retry;
-      // this does not schedule recovery. Source teardown still releases the stream.
-      if (activeStream.retrySnapshotErrors) {
-        activeStream.needsSnapshot = true;
-        return;
-      }
       activeStream.owner.emit({
         type: "terminal_stream_exit",
         payload: {
@@ -1084,15 +1045,13 @@ export class TerminalSessionController {
     terminalManager: TerminalManager,
     restore: TerminalRestoreOptions,
   ): Promise<SnapshotSendResult> {
-    const chunked = this.options.supportsChunkedReplay?.(activeStream.owner.source) === true;
-    const snapshotOptions = resolveTerminalRestoreSnapshotOptions({ restore, chunked });
+    const snapshotOptions = resolveTerminalRestoreSnapshotOptions(restore);
     if (snapshotOptions === null) {
       return { shouldContinue: true, replay: null };
     }
 
     const deliver = createTerminalRestoreDelivery({
       slot: activeStream.slot,
-      chunked,
       // Network delivery belongs to the bounded application transport, not the worker request.
       send: (frame) => activeStream.owner.emitBinary(frame),
     });

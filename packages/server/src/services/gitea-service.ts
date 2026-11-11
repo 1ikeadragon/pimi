@@ -25,7 +25,6 @@ import {
   computeChecksStatus,
   compareTimelineItems,
   createUnavailableSearchResult,
-  normalizeForgeSearchKinds,
   parseOptionalTime,
 } from "./forge-service.js";
 import type {
@@ -2251,7 +2250,7 @@ export function createGiteaService(options: CreateGiteaServiceOptions = {}): For
         throw new Error("ForgeService forced read requires a reason");
       }
 
-      const kinds = normalizeForgeSearchKinds(input.kinds);
+      const kinds = input.kinds ?? ["issue", "change_request"];
       const shouldFetchIssues = kinds.includes("issue");
       const shouldFetchMergeRequests = kinds.includes("change_request");
       const [issuesResult, mergeRequestsResult] = await Promise.allSettled([
@@ -2321,7 +2320,6 @@ export function createGiteaService(options: CreateGiteaServiceOptions = {}): For
         items,
         featuresEnabled: true,
         authState: "authenticated",
-        githubFeaturesEnabled: true,
       };
     },
 

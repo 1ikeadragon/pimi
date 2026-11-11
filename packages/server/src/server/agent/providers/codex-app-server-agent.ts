@@ -3928,15 +3928,13 @@ export class CodexAppServerAgentSession implements AgentSession {
 
   private reconcileServiceTier(): void {
     const tiers = this.currentServiceTiers();
-    // COMPAT(codexFastPreference): added in v0.10.0, remove after 2027-03-29 once saved Fast preferences have migrated.
-    if (this.serviceTier === "fast" && !tiers.some((tier) => tier.id === "fast")) {
-      this.serviceTier = tiers.find((tier) => tier.name.toLowerCase() === "fast")?.id ?? null;
-    }
     if (this.serviceTier !== "default" && !tiers.some((tier) => tier.id === this.serviceTier)) {
       this.serviceTier = null;
     }
-    const { fast_mode: _legacyFast, ...values } = this.config.featureValues ?? {};
-    this.config.featureValues = { ...values, service_tier: this.serviceTier ?? "default" };
+    this.config.featureValues = {
+      ...this.config.featureValues,
+      service_tier: this.serviceTier ?? "default",
+    };
   }
 
   private applyFeatureValue(featureId: "plan_mode", value: boolean): void {
@@ -4728,15 +4726,6 @@ export class CodexAppServerAgentSession implements AgentSession {
   }
 
   async setFeature(featureId: string, value: unknown): Promise<void> {
-    // COMPAT(codexFastPreference): added in v0.10.0, remove after 2027-03-29 once clients use service_tier.
-    if (featureId === "fast_mode") {
-      const fast = this.currentServiceTiers().find((tier) => tier.name.toLowerCase() === "fast");
-      if (value && !fast)
-        throw new Error(
-          `Codex fast mode is not available for model '${this.config.model ?? "default"}'`,
-        );
-      return this.setFeature("service_tier", value ? fast!.id : "default");
-    }
     if (featureId === "service_tier") {
       if (
         typeof value !== "string" ||

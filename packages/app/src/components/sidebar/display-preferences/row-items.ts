@@ -35,18 +35,6 @@ export const DEFAULT_SIDEBAR_ROW_ITEMS: SidebarRowItems = {
   labels: true,
 };
 
-/**
- * COMPAT(sidebarRowItemsChecks): CI was a boolean row item until v0.3.0, when it became a
- * display mode of its own. A stored `false` is someone who switched checks off, and they must
- * not come back as icon-and-text on upgrade. Remove after 2027-08-05.
- */
-export function isChecksHiddenByLegacyRowItem(value: unknown): boolean {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return false;
-  }
-  return (value as Record<string, unknown>).checks === false;
-}
-
 function isSidebarRowItem(value: string): value is SidebarRowItem {
   return (SIDEBAR_ROW_ITEMS as readonly string[]).includes(value);
 }
@@ -58,11 +46,6 @@ export function parseSidebarRowItems(value: unknown): SidebarRowItems {
 
   const stored = value as Record<string, unknown>;
   const result = { ...DEFAULT_SIDEBAR_ROW_ITEMS };
-  // COMPAT(sidebarRowItemsScripts): the item was called "scripts" until v0.3.0, when it narrowed
-  // to services only. A stored `false` is someone who switched it off. Remove after 2027-08-05.
-  if (stored.scripts === false) {
-    result.services = false;
-  }
   for (const [key, entry] of Object.entries(stored)) {
     if (isSidebarRowItem(key) && typeof entry === "boolean") {
       result[key] = entry;

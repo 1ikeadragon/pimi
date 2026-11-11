@@ -12,8 +12,8 @@ import { openScheduleForm, type ScheduleFormSnapshot } from "./schedule-form-mod
 type TestSchedule = ScheduleSummary & { serverId: string; serverName: string };
 
 const HOSTS = [
-  { serverId: "host-a", label: "Host A", supportsWorkspaceMultiplicity: true },
-  { serverId: "host-b", label: "Host B", supportsWorkspaceMultiplicity: true },
+  { serverId: "host-a", label: "Host A" },
+  { serverId: "host-b", label: "Host B" },
 ] as const;
 
 const MOCK_MODES: AgentMode[] = [{ id: "load-test", label: "Load test" }];

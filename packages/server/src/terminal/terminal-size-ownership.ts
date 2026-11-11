@@ -33,6 +33,5 @@ function resolveTerminalSizeIntent(intent: TerminalSizeRequest["intent"]): "clai
   if (intent) {
     return intent;
   }
-  // COMPAT(terminalSizeOwnership): added in v0.2.6, remove after 2027-02-02 once the client floor sends resize intent.
   return "claim";
 }

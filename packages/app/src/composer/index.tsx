@@ -161,7 +161,6 @@ import type {
   WorkspaceComposerAttachment,
 } from "@/attachments/types";
 import type { SelectedFile } from "@/attachments/selected-file";
-import { resolveComposerAttachmentSubmitFormat } from "@/composer/attachments/submit";
 import { composerWorkspaceAttachment } from "@/composer/attachments/workspace";
 import { useWorkspaceAttachmentsForScopes } from "@/attachments/workspace-attachments-store";
 import { droppedItemsToSelectedFiles } from "@/composer/attachments/drop";
@@ -1507,9 +1506,6 @@ function ComposerContentImpl({
   });
   const setSelectedAttachments = onChangeAttachments;
   const checkoutStatusQuery = useCheckoutStatusQuery({ serverId, cwd });
-  const supportsForgeSearch = useSessionStore(
-    (state) => state.sessions[serverId]?.serverInfo?.features?.forgeSearch === true,
-  );
   const forgeAutoAttachRef = useRef<ReturnType<typeof useComposerForgeAutoAttach>>(null);
   const [isForgeResolving, setIsForgeResolving] = useState(false);
   const forgeConfiguration = useMemo(
@@ -1520,7 +1516,6 @@ function ComposerContentImpl({
       isConnected,
       serverId,
       cwd,
-      supportsForgeSearch,
       setAttachments: setSelectedAttachments,
       onChangeRequestDetected: onForgeChangeRequestDetected,
       onChangeRequestAdded: onForgeChangeRequestAutoAttach,
@@ -1532,7 +1527,6 @@ function ComposerContentImpl({
       isConnected,
       serverId,
       cwd,
-      supportsForgeSearch,
       setSelectedAttachments,
       onForgeChangeRequestDetected,
       onForgeChangeRequestAutoAttach,
@@ -1547,9 +1541,7 @@ function ComposerContentImpl({
   const autocompleteRef = useRef<ComposerAutocompleteHandle>(null);
   // Only a timeline the daemon has served can be paged; a draft's id names no agent it knows.
   const canPageSentMessages = useSessionStore((state) => {
-    const session = state.sessions[serverId];
-    const supportsPromptPages = session?.serverInfo?.features?.agentTimelinePromptPages === true;
-    return supportsPromptPages && session.agentTimelineCursor.has(agentId);
+    return state.sessions[serverId]?.agentTimelineCursor.has(agentId) ?? false;
   });
   const sentMessageHistory = useMemo(
     () =>
@@ -1768,9 +1760,6 @@ function ComposerContentImpl({
         agentId: targetAgentId,
         text,
         attachments: sendAttachments,
-        attachmentSubmitFormat: resolveComposerAttachmentSubmitFormat({
-          supportsForgeAttachments: supportsForgeSearch,
-        }),
         encodeImages,
         submission: createMessageSubmissionWriter(serverId),
         activeTurnBehavior,
@@ -1784,7 +1773,7 @@ function ComposerContentImpl({
       });
       onAttentionPromptSend?.();
     };
-  }, [appSettings.sendBehavior, client, onAttentionPromptSend, serverId, supportsForgeSearch, t]);
+  }, [appSettings.sendBehavior, client, onAttentionPromptSend, serverId, t]);
 
   useEffect(() => {
     onSubmitMessageRef.current = onSubmitMessage;
@@ -2380,7 +2369,6 @@ function ComposerContentImpl({
     serverId,
     cwd,
     query: githubSearchQueryTrimmed,
-    supportsForgeSearch,
     enabled: resolveGithubSearchEnabled(isGithubPickerOpen, isConnected, cwd),
   });
 

@@ -267,7 +267,7 @@ class ClientSecureChannel implements SecureChannel {
       if (ready.protected !== undefined) {
         this.openProtected(ready.protected);
       } else {
-        this.openLegacy(ready);
+        this.openLegacy();
       }
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
@@ -295,14 +295,12 @@ class ClientSecureChannel implements SecureChannel {
     );
   }
 
-  private openLegacy(ready: ReadyEnvelope): void {
+  private openLegacy(): void {
     const handshake = this.handshake!;
     if (handshake.minimumMode === "protected") {
       throw new Error("daemon offered only legacy endpoint security");
     }
-    const legacy = new EncryptedChannel(this.transport, handshake.legacySharedKey, this.events, {
-      binaryCiphertext: ready.capabilities?.binaryCiphertext === true,
-    });
+    const legacy = new EncryptedChannel(this.transport, handshake.legacySharedKey, this.events);
     legacy.setState("open");
     this.becomeOpen(new LegacyInner(legacy));
   }
@@ -521,17 +519,8 @@ async function acceptLegacyHello(
   }
   const clientPublicKey = importPublicKey(hello.key);
   const sharedKey = deriveSharedKey(daemonKeyPair.secretKey, clientPublicKey);
-  const binaryCiphertext = hello.capabilities?.binaryCiphertext === true;
-  await transport.send(
-    JSON.stringify({
-      type: "e2ee_ready",
-      ...(binaryCiphertext ? { capabilities: { binaryCiphertext: true } } : {}),
-    } satisfies ReadyEnvelope),
-  );
-  const legacy = new EncryptedChannel(transport, sharedKey, events, {
-    daemonKeyPair,
-    binaryCiphertext,
-  });
+  await transport.send(JSON.stringify({ type: "e2ee_ready" } satisfies ReadyEnvelope));
+  const legacy = new EncryptedChannel(transport, sharedKey, events, { daemonKeyPair });
   legacy.setState("open");
   return new LegacyInner(legacy);
 }

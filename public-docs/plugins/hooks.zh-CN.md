@@ -163,7 +163,7 @@ server.addHook("worktree.create.before", async ({ request }) => ({
 
 | 请求字段                                  | 含义                                                                                                                   |
 | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `kind`                                    | `branch-off`、`checkout-branch`、`checkout-change-request` 或 `checkout-github-pr`                                     |
+| `kind`                                    | `branch-off`、`checkout-branch` 或 `checkout-change-request`                                                           |
 | `branch`                                  | 请求的本地分支名称                                                                                                     |
 | `baseRef`                                 | branch-off 的起始引用；变更请求的比较基准；`checkout-branch` 不含此字段。要从引用创建分支，返回 `kind: "branch-off"`。 |
 | `slug`                                    | 规范化的 worktree 名称                                                                                                 |
@@ -620,22 +620,3 @@ Creation request
 | [agent-tools](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/agent-tools)                 | 按标签选择 Agent，并在插件进程中执行文件操作的工具        |
 
 用 `pimi plugin logs lifecycle-logger` 或主机的 `daemon.log` 读取 logger 的输出。
-
-## 已重命名的钩子 {#renamed-hooks}
-
-旧注册方法已弃用，会在 2027-04-30 之后移除。现有插件继续按原来的方式运行。同一插件中混合使用新旧注册方法时，处理函数按注册顺序运行。`addHook` 只接受新名称。
-
-| 旧注册方式                                         | 新注册方式                                                |
-| -------------------------------------------------- | --------------------------------------------------------- |
-| `server.before("workspace.create", handler)`       | `server.addHook("workspace.create.before", asyncHandler)` |
-| `server.on("workspace.created", handler)`          | `server.addHook("workspace.create.after", asyncHandler)`  |
-| `server.on("workspace.archived", handler)`         | `server.addHook("workspace.archive.after", asyncHandler)` |
-| `server.before("agent.create", handler)`           | `server.addHook("agent.create.before", asyncHandler)`     |
-| `server.on("agent.created", handler)`              | `server.addHook("agent.create.after", asyncHandler)`      |
-| `server.before("agent.session_open", handler)`     | `server.addHook("agent.open.before", asyncHandler)`       |
-| `server.on("agent.closed", handler)`               | `server.addHook("agent.close.after", asyncHandler)`       |
-| `server.on("agent.archived", handler)`             | `server.addHook("agent.archive.after", asyncHandler)`     |
-| `server.on("agent.turn_started", handler)`         | `server.addHook("agent.turn.before", asyncHandler)`       |
-| `server.on("agent.turn_ended", handler)`           | `server.addHook("agent.turn.after", asyncHandler)`        |
-| `server.on("agent.permission_requested", handler)` | `server.addHook("agent.permission.before", asyncHandler)` |
-| `server.on("agent.permission_resolved", handler)`  | `server.addHook("agent.permission.after", asyncHandler)`  |

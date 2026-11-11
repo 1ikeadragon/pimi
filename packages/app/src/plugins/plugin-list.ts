@@ -1,20 +1,18 @@
 import type { PluginListItem } from "@pimi/protocol/messages";
 import { useFetchQuery } from "@/data/query";
-import { useHostFeature } from "@/runtime/host-features";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 
 /** A host's configured plugins, as listed on Settings → Plugins. One cache entry per host. */
 export function usePluginList(serverId: string, options: { enabled?: boolean } = {}) {
   const client = useHostRuntimeClient(serverId);
   const connected = useHostRuntimeIsConnected(serverId);
-  const supported = useHostFeature(serverId, "pluginManagement");
   return useFetchQuery({
     queryKey: ["plugins", serverId] as const,
     queryFn: async () => {
       if (!client) throw new Error("Plugin host is offline");
       return client.listPlugins();
     },
-    enabled: (options.enabled ?? true) && Boolean(client && connected && supported),
+    enabled: (options.enabled ?? true) && Boolean(client && connected),
     dataShape: "list",
     staleTimeMs: 1_000,
   });

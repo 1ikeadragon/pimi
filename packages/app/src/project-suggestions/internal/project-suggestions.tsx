@@ -33,7 +33,6 @@ export function ProjectSuggestionList({
 }) {
   const { t } = useTranslation();
   const { list } = suggestions;
-  if (list.status === "unsupported") return null;
   if (list.rows.length === 0 && !list.isReading) {
     return (
       <Text style={styles.statusText}>

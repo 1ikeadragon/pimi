@@ -29,7 +29,7 @@ interface EditTarget {
 export function AgentProfilesSection({ serverId }: { serverId: string }): ReactElement {
   const { t } = useTranslation();
   const isConnected = useHostRuntimeIsConnected(serverId);
-  const { profiles, isSupported, saveProfiles } = useAgentProfiles(serverId);
+  const { profiles, saveProfiles } = useAgentProfiles(serverId);
   const { entries } = useProvidersSnapshot(serverId, { cwd: null });
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
 
@@ -134,7 +134,7 @@ export function AgentProfilesSection({ serverId }: { serverId: string }): ReactE
     [handleAddOpen, profiles, t],
   );
 
-  if (!isConnected || !isSupported) {
+  if (!isConnected) {
     return (
       <SettingsSection
         title={t("settings.host.agentProfiles.sectionTitle")}
@@ -142,11 +142,7 @@ export function AgentProfilesSection({ serverId }: { serverId: string }): ReactE
       >
         <View style={settingsStyles.card} testID="agent-profiles-unavailable">
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>
-              {isConnected
-                ? t("settings.host.agentProfiles.unsupported")
-                : t("settings.host.agentProfiles.unavailable")}
-            </Text>
+            <Text style={styles.emptyText}>{t("settings.host.agentProfiles.unavailable")}</Text>
           </View>
         </View>
       </SettingsSection>

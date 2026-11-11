@@ -176,7 +176,6 @@ Commander.js CLI with Docker-style commands. Common agent operations are also ex
 - `pimi workspace create/ls/rename/archive`
 - `pimi permit allow/deny/ls`
 - `pimi provider ls/models`
-- hidden legacy `pimi worktree create/ls/archive` compatibility alias
 - `pimi speech …`
 
 Communicates with the daemon via the same WebSocket protocol as the app.
@@ -345,9 +344,7 @@ the app keeps its existing disk-ready navigation and observes the remaining crea
 Callbacks do not advance the workflow. Resource reservations in acknowledgement are
 identities, not ready workspace records.
 
-The creation journal (`server/creation/`) owns identity and execution for both legacy and
-modern creation RPCs. Requesting progress never selects a different journal. Existing
-agent receipts are imported at this boundary; message delivery receipts remain separate.
+The creation journal (`server/creation/`) owns identity and execution for creation RPCs. Requesting progress never selects a different journal. Message delivery receipts remain separate.
 It keeps cumulative milestones and permanent IDs under an operation kind and idempotency
 key. Reconnect subscribes to that key; retries
 join active work or reuse committed stages. A persisted resource alone cannot prove
@@ -358,12 +355,8 @@ Agent registration commits creation. Rejecting the first prompt is a turn error 
 agent; reporting creation failure leaves an orphaned agent and invites another Create.
 Receipt replay must not resend the prompt.
 
-`packages/client/src/creation/` owns capability selection and legacy orchestration.
-Callers always pass the initial prompt to agent creation. On an older host, the client
-adapts keyed creation to the legacy create/send sequence; it cannot continue that
-sequence after the client process disappears. Explicitly requested IDs or receipts
-that an old host cannot honor produce an unsupported error. Keep these adapters inside
-the client package, as an exception to the default no-fallback feature policy.
+`packages/client/src/creation/` owns keyed creation requests and their observation.
+Callers always pass the initial prompt to agent creation.
 
 Creation executes through the existing Session capabilities. Connection-owned delivery
 controls observation only: detaching a socket or cleaning up its Session does not cancel

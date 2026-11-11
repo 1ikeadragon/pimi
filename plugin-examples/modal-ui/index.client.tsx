@@ -21,7 +21,6 @@ export default function contribute(plugin: PluginClientContext) {
     id: "examples",
     title: "Modal examples",
     icon: "PanelsTopLeft",
-    context: "workspace",
     locations: ["workspace", "explorer"],
     Component: ModalExamples,
   });

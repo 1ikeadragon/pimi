@@ -51,16 +51,6 @@ export type PluginWorktreeCreateRequest = {
       pushRemoteUrl?: string;
       trackOriginHead?: boolean;
     }
-  | {
-      kind: "checkout-github-pr";
-      baseRef: string;
-      githubPrNumber: number;
-      headRef: string;
-      headRepositoryOwner?: string;
-      checkoutRefs?: { remoteName?: string; remoteRef: string }[];
-      pushRemoteUrl?: string;
-      trackOriginHead?: boolean;
-    }
 );
 
 export interface PluginHookAgent {
@@ -154,22 +144,6 @@ type HookHandlers = {
 
 export interface PluginLifecycleRegistration {
   addHook<Name extends keyof PluginHooks>(name: Name, handler: HookHandlers[Name]): () => void;
-  /** @deprecated Use addHook with the renamed hook. Removed after 2027-04-30. */
-  on<Name extends keyof PluginLifecycleEvents>(
-    name: Name,
-    handler: (
-      event: PluginLifecycleEvents[Name],
-      context: PluginHookContext,
-    ) => void | Promise<void>,
-  ): () => void;
-  /** @deprecated Use addHook with the renamed hook. Removed after 2027-04-30. */
-  before<Name extends keyof PluginBeforeRequests>(
-    name: Name,
-    handler: (
-      input: { request: PluginBeforeRequests[Name] },
-      context: PluginHookContext,
-    ) => PluginBeforeRequests[Name] | void | Promise<PluginBeforeRequests[Name] | void>,
-  ): () => void;
 }
 
 /** @internal Lifecycle policy shared by the daemon and plugin process. */
@@ -190,30 +164,6 @@ export const pluginHookRegistry = {
   "agent.permission.after": { waits: false },
 } as const satisfies Record<keyof PluginHooks, { waits: boolean }>;
 
-// COMPAT(pluginHookNames): added in v0.14, remove after 2027-04-30
-const legacyEvents = {
-  "workspace.created": "workspace.create.after",
-  "workspace.archived": "workspace.archive.after",
-  "agent.created": "agent.create.after",
-  "agent.closed": "agent.close.after",
-  "agent.archived": "agent.archive.after",
-  "agent.turn_started": "agent.turn.before",
-  "agent.turn_ended": "agent.turn.after",
-  "agent.permission_requested": "agent.permission.before",
-  "agent.permission_resolved": "agent.permission.after",
-} as const;
-const legacyRequests = {
-  "workspace.create": "workspace.create.before",
-  "agent.create": "agent.create.before",
-  "agent.session_open": "agent.open.before",
-} as const;
-export type PluginLifecycleEvents = {
-  [Name in keyof typeof legacyEvents]: PluginHookEvents[(typeof legacyEvents)[Name]];
-};
-export type PluginBeforeRequests = {
-  [Name in keyof typeof legacyRequests]: PluginHookRequests[(typeof legacyRequests)[Name]];
-};
-
 /** @internal SDK adapter for the daemon's hook registry. */
 export function createLifecycleRegistration(
   register: (
@@ -226,14 +176,6 @@ export function createLifecycleRegistration(
     addHook(name, handler) {
       if (!names.has(name)) throw new Error(`Unknown lifecycle hook: ${name}`);
       return register(name, handler);
-    },
-    on(name, handler) {
-      if (!Object.hasOwn(legacyEvents, name)) throw new Error(`Unknown lifecycle event: ${name}`);
-      return register(legacyEvents[name], handler);
-    },
-    before(name, handler) {
-      if (!Object.hasOwn(legacyRequests, name)) throw new Error(`Unknown before hook: ${name}`);
-      return register(legacyRequests[name], handler);
     },
   };
 }

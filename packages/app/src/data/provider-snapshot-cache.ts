@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Buffer } from "buffer";
-import { normalizeAgentModelCatalog, type ProviderSnapshotEntry } from "@pimi/protocol/agent-types";
+import type { ProviderSnapshotEntry } from "@pimi/protocol/agent-types";
 import {
   expandProviderSnapshot,
   type CompactProviderSnapshot,
@@ -12,7 +12,6 @@ type SnapshotPayload = GetProvidersSnapshotResponseMessage["payload"];
 
 const CACHE_VERSION = 2;
 const CACHE_KEY_PREFIX = "@paseo/provider-snapshot/v2";
-const CACHE_INDEX_KEY = "@paseo/provider-snapshot-index/v2";
 const DEFAULT_MAX_CACHE_BYTES = 4 * 1024 * 1024;
 
 interface ProviderSnapshotStorage {
@@ -77,17 +76,6 @@ export class ProviderSnapshotCacheMissError extends Error {
   }
 }
 
-// COMPAT(duplicateModelCatalog): added in v0.8.1, remove after 2027-03-14 once
-// the daemon floor is v0.8.1 and pre-fix cached catalogs are no longer supported.
-// Keep the original compact body/hash: normalization belongs to its decoded view.
-function normalizeCatalogs(entries: ProviderSnapshotEntry[]): ProviderSnapshotEntry[] {
-  return entries.map((entry) => {
-    if (!entry.models) return entry;
-    const models = normalizeAgentModelCatalog(entry.models);
-    return models === entry.models ? entry : { ...entry, models };
-  });
-}
-
 function cacheKey(serverId: string, cwd: string | null): string {
   return `${CACHE_KEY_PREFIX}:${JSON.stringify([serverId, "cwd", cwd])}`;
 }
@@ -137,14 +125,6 @@ export function createProviderSnapshotCache(
 
   async function reconcileCache(): Promise<void> {
     const allKeys = await storage.getAllKeys();
-    // COMPAT(providerSnapshotCache): added in v0.7.2, remove legacy cleanup after 2027-03-06.
-    const legacyKeys = allKeys.filter(
-      (key) =>
-        key.startsWith("@paseo/provider-snapshot/v1:") ||
-        key === "@paseo/provider-snapshot-index/v1" ||
-        key === CACHE_INDEX_KEY,
-    );
-    if (legacyKeys.length) await storage.multiRemove(legacyKeys);
     const keys = allKeys.filter((key) => key.startsWith(`${CACHE_KEY_PREFIX}:`));
     const values = await storage.multiGet(keys);
     const keysToRemove: string[] = [];
@@ -314,7 +294,7 @@ export function createProviderSnapshotCache(
       const body = {
         ...stored,
         compactSnapshot: stored.compactSnapshot,
-        entries: normalizeCatalogs(expandProviderSnapshot(stored.compactSnapshot)),
+        entries: expandProviderSnapshot(stored.compactSnapshot),
       };
       bodies.set(key, body);
       return body;
@@ -339,7 +319,7 @@ export function createProviderSnapshotCache(
   return {
     async materialize(serverId, snapshot) {
       const { snapshotHash: hash, compactSnapshot } = snapshot;
-      if (!hash) return { ...snapshot, entries: normalizeCatalogs(snapshot.entries) };
+      if (!hash) return snapshot;
       let body = await safely(async () => {
         const cached = await readBody(serverId, hash);
         if (cached) return cached;
@@ -359,7 +339,7 @@ export function createProviderSnapshotCache(
           hash,
           generatedAt: snapshot.generatedAt,
           compactSnapshot,
-          entries: normalizeCatalogs(expandProviderSnapshot(compactSnapshot)),
+          entries: expandProviderSnapshot(compactSnapshot),
         };
       }
       return {

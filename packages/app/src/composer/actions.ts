@@ -11,10 +11,7 @@ import {
   isWorkspaceAttachment,
   userAttachmentsOnly,
 } from "@/attachments/workspace-attachment-utils";
-import {
-  splitComposerAttachmentsForSubmit,
-  type ComposerAttachmentSubmitFormat,
-} from "@/composer/attachments/submit";
+import { splitComposerAttachmentsForSubmit } from "@/composer/attachments/submit";
 import { createUserMessage, generateMessageId, type UserMessageItem } from "@/types/stream";
 import type { MessageSubmissionRejectionOutcome } from "@/composer/submission/model";
 import type { PickedImageAttachmentInput } from "@/hooks/image-attachment-picker";
@@ -190,7 +187,6 @@ export interface DispatchComposerAgentMessageInput {
   agentId: string;
   text: string;
   attachments: ComposerAttachment[];
-  attachmentSubmitFormat?: ComposerAttachmentSubmitFormat;
   encodeImages: (
     images: AttachmentMetadata[],
   ) => Promise<Array<{ data: string; mimeType: string }> | undefined>;
@@ -202,9 +198,7 @@ export interface DispatchComposerAgentMessageInput {
 export async function dispatchComposerAgentMessage(
   input: DispatchComposerAgentMessageInput,
 ): Promise<void> {
-  const wirePayload = splitComposerAttachmentsForSubmit(input.attachments, {
-    format: input.attachmentSubmitFormat,
-  });
+  const wirePayload = splitComposerAttachmentsForSubmit(input.attachments);
   const clientMessageId = generateMessageId();
   const userMessage = createUserMessage({
     clientMessageId,

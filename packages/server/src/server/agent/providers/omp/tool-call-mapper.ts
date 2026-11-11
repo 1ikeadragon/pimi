@@ -199,8 +199,6 @@ function mapOmpTaskDetail(args: unknown, result: OmpToolResult): ToolCallDetail 
       argRecord.assignment,
     ),
     ...(childSessionId ? { childSessionId } : {}),
-    // COMPAT(subagent-log): remove after 2027-04-30.
-    log: "",
   };
 }
 

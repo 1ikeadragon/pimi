@@ -287,16 +287,8 @@ async function collectHostDiagnosticSections(
       ]),
     );
 
-    if (serverInfo?.features?.daemonDiagnostics === true) {
-      const result = await client.collectDiagnostics();
-      sections.push(result.diagnostic);
-    } else {
-      sections.push(
-        formatDiagnosticSection(`Daemon diagnostics: ${host.label}`, [
-          { label: "Status", value: "unsupported by this daemon" },
-        ]),
-      );
-    }
+    const result = await client.collectDiagnostics();
+    sections.push(result.diagnostic);
 
     return { sections, status: "done" };
   } catch (error) {

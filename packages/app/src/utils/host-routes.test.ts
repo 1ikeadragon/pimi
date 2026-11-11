@@ -64,13 +64,6 @@ describe("workspace route parsing", () => {
     });
   });
 
-  it("parses workspace route with legacy base64 path", () => {
-    expect(parseHostWorkspaceRouteFromPathname("/h/local/workspace/L3RtcC9yZXBv")).toEqual({
-      serverId: "local",
-      workspaceId: "/tmp/repo",
-    });
-  });
-
   it("does not treat /tab routes as valid workspace routes", () => {
     expect(
       parseHostWorkspaceRouteFromPathname("/h/local/workspace/L3RtcC9yZXBv/tab/draft_abc123"),

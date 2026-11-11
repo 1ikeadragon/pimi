@@ -12,7 +12,6 @@ import { createScheduleCommand } from "./commands/schedule/index.js";
 import { createSpeechCommand } from "./commands/speech/index.js";
 import { createScriptCommand } from "./commands/script/index.js";
 import { createTerminalCommand } from "./commands/terminal/index.js";
-import { createWorktreeCommand } from "./commands/worktree/index.js";
 import { createWorkspaceCommand } from "./commands/workspace/index.js";
 import { createHeartbeatCommand } from "./commands/heartbeat/index.js";
 import { createHubCommand } from "./commands/hub/index.js";
@@ -161,9 +160,6 @@ export function createCli(): Command {
   // Workspace commands
   program.addCommand(createProjectCommand());
   program.addCommand(createWorkspaceCommand());
-  // COMPAT(worktreeCli): legacy command alias added before workspace was the product unit.
-  // Added in v0.2.0; remove after 2027-01-17.
-  program.addCommand(createWorktreeCommand(), { hidden: true });
 
   // Stop root parsing at the command so `plugin update --version` belongs to update.
   // Keep global options available after a command, as they were before positional parsing.

@@ -50,7 +50,7 @@ export function useOrchestrationSetup(serverId: string): OrchestrationSetupContr
   const [isApplying, setIsApplying] = useState(false);
   const offered: Choices = {
     tools: true,
-    skills: skills.connected && skills.supported,
+    skills: skills.connected,
     cli: cli.available,
   };
 

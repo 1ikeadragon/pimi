@@ -166,14 +166,14 @@ For source `/home/me/src/paseo` and branch `feature/x`, this creates `/home/me/s
 
 | Request field                             | Meaning                                                                                                                                           |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `kind`                                    | `branch-off`, `checkout-branch`, `checkout-change-request`, or `checkout-github-pr`                                                               |
+| `kind`                                    | `branch-off`, `checkout-branch`, or `checkout-change-request`                                                                                     |
 | `branch`                                  | Requested local branch name                                                                                                                       |
 | `baseRef`                                 | Starting ref for branch-off; comparison base for change requests; absent for `checkout-branch`. To branch off a ref, return `kind: "branch-off"`. |
 | `slug`                                    | Normalized worktree name                                                                                                                          |
 | `path`                                    | Absolute destination; initially the default location with any existing-path suffix resolved                                                       |
 | `repoRoot`                                | Read-only main repository root                                                                                                                    |
 | `sourceCheckout`                          | Read-only source checkout root, including when creation starts from another worktree                                                              |
-| `forge`, `changeRequestNumber`, `headRef` | Change-request checkout identity; GitHub legacy checkouts use `githubPrNumber` instead of `forge` and `changeRequestNumber`                       |
+| `forge`, `changeRequestNumber`, `headRef` | Change-request checkout identity                                                                                                                  |
 | `headRepositoryOwner`, `headRepository`   | Optional source repository facts; `headRepository` is present only on change-request checkouts                                                    |
 | `checkoutRefs`                            | Optional fetch sources: `{ remoteName?: string, remoteRef: string }[]`                                                                            |
 | `pushRemoteUrl`, `trackOriginHead`        | Optional push destination and tracking policy                                                                                                     |
@@ -638,22 +638,3 @@ replaces that scope's prior value.
 | [agent-tools](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/agent-tools)                 | Label-targeted tools and file operations in the plugin process                   |
 
 Read logger output with `pimi plugin logs lifecycle-logger` or the host's `daemon.log`.
-
-## Renamed hooks
-
-The old registration methods are deprecated for removal after 2027-04-30. Existing plugins keep their behavior. Mixed old and new registrations within a plugin run in registration order. `addHook` accepts only the new names.
-
-| Old registration                                   | New registration                                          |
-| -------------------------------------------------- | --------------------------------------------------------- |
-| `server.before("workspace.create", handler)`       | `server.addHook("workspace.create.before", asyncHandler)` |
-| `server.on("workspace.created", handler)`          | `server.addHook("workspace.create.after", asyncHandler)`  |
-| `server.on("workspace.archived", handler)`         | `server.addHook("workspace.archive.after", asyncHandler)` |
-| `server.before("agent.create", handler)`           | `server.addHook("agent.create.before", asyncHandler)`     |
-| `server.on("agent.created", handler)`              | `server.addHook("agent.create.after", asyncHandler)`      |
-| `server.before("agent.session_open", handler)`     | `server.addHook("agent.open.before", asyncHandler)`       |
-| `server.on("agent.closed", handler)`               | `server.addHook("agent.close.after", asyncHandler)`       |
-| `server.on("agent.archived", handler)`             | `server.addHook("agent.archive.after", asyncHandler)`     |
-| `server.on("agent.turn_started", handler)`         | `server.addHook("agent.turn.before", asyncHandler)`       |
-| `server.on("agent.turn_ended", handler)`           | `server.addHook("agent.turn.after", asyncHandler)`        |
-| `server.on("agent.permission_requested", handler)` | `server.addHook("agent.permission.before", asyncHandler)` |
-| `server.on("agent.permission_resolved", handler)`  | `server.addHook("agent.permission.after", asyncHandler)`  |

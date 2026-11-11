@@ -27,7 +27,6 @@ export interface CreateWorktreeCoreInput {
   refName?: string;
   action?: "branch-off" | "checkout";
   checkoutSource?: ChangeRequestCheckoutSource;
-  githubPrNumber?: number;
   firstAgentContext?: FirstAgentContext;
   paseoHome?: string;
   worktreesRoot?: string;
@@ -73,13 +72,11 @@ async function createWorktreeCoreWithPriority(
       action: "checkout",
       refName: input.refName,
       checkoutSource: input.checkoutSource,
-      githubPrNumber: input.githubPrNumber,
       worktreeSlug: requestedWorktreeSlug,
     };
-  } else if (input.checkoutSource !== undefined || input.githubPrNumber !== undefined) {
+  } else if (input.checkoutSource !== undefined) {
     intentInput = {
       checkoutSource: input.checkoutSource,
-      githubPrNumber: input.githubPrNumber,
       refName: input.refName,
       worktreeSlug: requestedWorktreeSlug,
     };
@@ -110,8 +107,7 @@ async function createWorktreeCoreWithPriority(
       normalizedSlug = requestedWorktreeSlug ?? normalizeWorktreeSlug(intent.branchName);
       break;
     }
-    case "checkout-change-request":
-    case "checkout-github-pr": {
+    case "checkout-change-request": {
       normalizedSlug =
         requestedWorktreeSlug ?? normalizeWorktreeSlug(intent.localBranchName ?? intent.headRef);
       break;
@@ -201,8 +197,7 @@ function creationIntentFromRequest(
   } = request;
   const keepLocalBranchName =
     branch !== request.headRef ||
-    ((original.kind === "checkout-change-request" || original.kind === "checkout-github-pr") &&
-      original.localBranchName !== undefined);
+    (original.kind === "checkout-change-request" && original.localBranchName !== undefined);
   return {
     ...facts,
     ...(keepLocalBranchName ? { localBranchName: branch } : {}),

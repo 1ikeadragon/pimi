@@ -37,7 +37,6 @@ function installation(invoked: string[]): InstalledPlugin {
     settingsScreens: [],
     surfaces: [],
     sidebarItems: { header: [], footer: [] },
-    legacySidebarItems: [],
     filePanels: [],
     workspacePanels: [],
     commandCenterItems: [],

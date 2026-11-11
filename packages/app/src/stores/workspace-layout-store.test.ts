@@ -1352,28 +1352,6 @@ describe("workspace-layout-store actions", () => {
     await expect(AsyncStorage.getItem("workspace-layout-state")).resolves.not.toBeNull();
   });
 
-  it("restores a layout saved before the Side panel rename, PR bookkeeping and all", async () => {
-    const savedLayout = createWorkspaceLayoutWithExplorerSidebar();
-    await AsyncStorage.setItem(
-      "workspace-layout-state",
-      JSON.stringify({
-        state: {
-          layoutByWorkspace: { renamed: savedLayout },
-          explorerPaneIdByWorkspace: { renamed: "explorer" },
-          acknowledgedPullRequestByWorkspace: { renamed: "url:https://example.test/pulls/1" },
-        },
-        version: 1,
-      }),
-    );
-    const restored = createWorkspaceLayoutStore(createDeterministicWorkspaceLayoutIds());
-
-    await restored.persist.rehydrate();
-
-    const state = restored.getState();
-    expect(state.layoutByWorkspace.renamed).toBeTruthy();
-    expect(state.explorerSidebarPaneIdByWorkspace.renamed).toBe("explorer");
-  });
-
   it("persists first-class pane targets, visibility, and focus", async () => {
     await AsyncStorage.removeItem("workspace-layout-state");
     const workspaceKey = createWorkspaceKey();

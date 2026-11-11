@@ -7,7 +7,7 @@ import { SkillSelectionSheet } from "./selection-sheet";
 import { useAgentSkills } from "./use-agent-skills";
 
 export function PimiSkillsLibrary({ serverId }: { serverId: string }) {
-  const { connected, supported, status, isLoading, isWorking, refresh, reconcile, saveSelection } =
+  const { connected, status, isLoading, isWorking, refresh, reconcile, saveSelection } =
     useAgentSkills(serverId);
   const [chooserHost, setChooserHost] = useState<string | null>(null);
   const retry = useCallback(() => void refresh(), [refresh]);
@@ -25,15 +25,14 @@ export function PimiSkillsLibrary({ serverId }: { serverId: string }) {
   );
   useFocusEffect(
     useCallback(() => {
-      if (connected && supported) void refresh();
-    }, [connected, refresh, supported]),
+      if (connected) void refresh();
+    }, [connected, refresh]),
   );
 
-  if (!connected || !supported || !status) {
+  if (!connected || !status) {
     let message = "Connect to this host to manage its Pimi skills.";
     if (connected) {
-      if (!supported) message = "Update this host to manage its Pimi skills.";
-      else if (isLoading) message = "Checking installed skills…";
+      if (isLoading) message = "Checking installed skills…";
       else message = "Could not load installed skills.";
     }
 
@@ -41,7 +40,7 @@ export function PimiSkillsLibrary({ serverId }: { serverId: string }) {
       <SettingsSection title="Pimi skills">
         <SettingsCard>
           <SettingsRow label={message}>
-            {connected && supported && !isLoading ? (
+            {connected && !isLoading ? (
               <Button variant="outline" onPress={retry}>
                 Retry
               </Button>

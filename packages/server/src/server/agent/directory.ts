@@ -4,18 +4,6 @@ import type { WorkspaceRegistry } from "../workspace-registry.js";
 import type { AgentManager, ManagedAgent } from "./agent-manager.js";
 import type { AgentStorage, StoredAgentRecord } from "./agent-storage.js";
 
-/**
- * Which background agents a discovery read admits. An agent is effectively background when
- * it or its workspace is background.
- * - `false`: none, the default for lists.
- * - `true`: all of them.
- * - `"workspaces"`: only agents in background workspaces.
- *   COMPAT(backgroundAgents): added in v0.15.0, remove after 2027-05-03 once client floor
- *   >= v0.15.0. Inclusive reads from sources without `background_agents` use it: older apps
- *   replicate inclusively and auto-open a tab for every root agent.
- */
-export type BackgroundVisibility = boolean | "workspaces";
-
 interface DiscoverableAgent {
   workspaceId?: string;
   internal?: boolean;
@@ -60,10 +48,7 @@ export class AgentDirectory {
     return times;
   }
 
-  async includes(
-    agent: DiscoverableAgent,
-    visibility: BackgroundVisibility = false,
-  ): Promise<boolean> {
+  async includes(agent: DiscoverableAgent, visibility = false): Promise<boolean> {
     const workspace = agent.workspaceId ? await this.deps.workspaces.get(agent.workspaceId) : null;
     return admits(agent, workspace?.background === true, visibility);
   }
@@ -100,7 +85,7 @@ export class AgentDirectory {
     includeAncestors?: boolean;
     labels?: Record<string, string>;
     includeArchived?: boolean;
-    includeBackground?: BackgroundVisibility;
+    includeBackground?: boolean;
     includeUnavailablePersisted?: boolean;
   }): Promise<AgentSnapshotPayload[]> {
     const requested = filter?.workspaceIds ? new Set(filter.workspaceIds) : null;
@@ -158,9 +143,9 @@ export class AgentDirectory {
 function admits(
   agent: DiscoverableAgent,
   inBackgroundWorkspace: boolean,
-  visibility: BackgroundVisibility,
+  visibility: boolean,
 ): boolean {
   if (agent.internal) return false;
-  if (agent.background) return visibility === true;
-  return !inBackgroundWorkspace || visibility !== false;
+  if (agent.background) return visibility;
+  return !inBackgroundWorkspace || visibility;
 }

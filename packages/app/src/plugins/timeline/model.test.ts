@@ -25,7 +25,6 @@ function plugin(input: {
     settingsScreens: [],
     surfaces: [],
     sidebarItems: { header: [], footer: [] },
-    legacySidebarItems: [],
     filePanels: [],
     workspacePanels: [],
     commandCenterItems: [],

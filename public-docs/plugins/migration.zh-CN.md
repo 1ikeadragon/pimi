@@ -82,7 +82,22 @@ my-plugin/
 | shared 文件中的 `import { defineRpc, defineAttachmentSource } from "@pimi/plugin/server"` | `import { defineRpc, defineAttachmentSource } from "@pimi/plugin"`                                                     |
 | 处理函数参数类型 `ZodOutput<typeof contract.input>`                                       | 来自 `@pimi/plugin` 的 `RpcInput<typeof contract>`；返回类型使用 `RpcOutput`                                           |
 
-用原 `addSidebarItem` 项的 `id` 注册替代它的界面，这样已保存的链接仍然有效。`/plugin/<plugin>/sidebar/<id>` 链接以及更早的 `/plugin/<plugin>/<id>` 链接，会打开具有该 `id` 的 `addSidebarItem`，否则打开具有该 `id` 的界面。
+把服务端钩子注册改为 `addHook`。`server.on` 和 `server.before` 已不存在。
+
+| 旧注册方式                                         | 新注册方式                                                |
+| -------------------------------------------------- | --------------------------------------------------------- |
+| `server.before("workspace.create", handler)`       | `server.addHook("workspace.create.before", asyncHandler)` |
+| `server.on("workspace.created", handler)`          | `server.addHook("workspace.create.after", asyncHandler)`  |
+| `server.on("workspace.archived", handler)`         | `server.addHook("workspace.archive.after", asyncHandler)` |
+| `server.before("agent.create", handler)`           | `server.addHook("agent.create.before", asyncHandler)`     |
+| `server.on("agent.created", handler)`              | `server.addHook("agent.create.after", asyncHandler)`      |
+| `server.before("agent.session_open", handler)`     | `server.addHook("agent.open.before", asyncHandler)`       |
+| `server.on("agent.closed", handler)`               | `server.addHook("agent.close.after", asyncHandler)`       |
+| `server.on("agent.archived", handler)`             | `server.addHook("agent.archive.after", asyncHandler)`     |
+| `server.on("agent.turn_started", handler)`         | `server.addHook("agent.turn.before", asyncHandler)`       |
+| `server.on("agent.turn_ended", handler)`           | `server.addHook("agent.turn.after", asyncHandler)`        |
+| `server.on("agent.permission_requested", handler)` | `server.addHook("agent.permission.before", asyncHandler)` |
+| `server.on("agent.permission_resolved", handler)`  | `server.addHook("agent.permission.after", asyncHandler)`  |
 
 从 `@pimi/plugin/client` 导入 `PluginClientContext`，从 `@pimi/plugin/server` 导入 `PluginServerContext`。删除对旧 context 类型的导入。客户端注册返回幂等的移除函数，但标题栏按钮和 Composer 标签除外，它们返回 `{ update, remove }` 句柄。保留插件在销毁之前调用的所有移除函数；入口的清理函数运行后，Pimi 会移除尚未移除的注册。
 
@@ -99,7 +114,7 @@ my-plugin/
 | Beta 文件面板的 `location.lineStart`、`location.lineEnd`、`location.revision` | `params.lineStart`、`params.lineEnd`、`revision` |
 | Beta 的 `PluginFileTab`、`PluginFileLocation`                                 | `PluginTab`、`PluginFilePanelParams`             |
 
-0.12 的别名会保留到 2027-04-23 之后移除。Beta 文件 API 直接替换。采用新 API 时，将
+0.12 的别名已移除，Beta 文件 API 已直接替换。采用新 API 时，将
 `requirements.pimi` 声明为 `>=0.13.0`。
 
 ### Composer 标签 {#composer-pills}
@@ -148,9 +163,9 @@ pill.remove();
 
 ### v0.13 中的 UI 导入 {#ui-imports-in-v013}
 
-所有 Pimi UI 组件和 UI hook 都从 `/client/ui` 导入。之前的入口作为未写入文档的兼容别名保留到 2027-04-20。
+所有 Pimi UI 组件和 UI hook 都从 `/client/ui` 导入。`useRevealedText` 已移除。
 
-对于逐步显示的时间线文本，把 `useRevealedText(text, phase)` 及其外层的 `Text` 换成 `/client/ui` 中的 `<StreamedText text={text} phase={phase} style={style} />`。插件设置的标题使用 `SettingsSection`；`SettingsGroup` 已弃用。
+对于逐步显示的时间线文本，把 `useRevealedText(text, phase)` 及其外层的 `Text` 换成 `/client/ui` 中的 `<StreamedText text={text} phase={phase} style={style} />`。插件设置的标题使用 `SettingsSection`；`SettingsGroup` 已移除。
 
 ## 5. 识别只迁移了一半的错误 {#5-recognize-half-migration-errors}
 

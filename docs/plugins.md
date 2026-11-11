@@ -64,13 +64,13 @@ runtime modules, so consumers do not install these packages when adding the plug
 ```json
 {
   "id": "my-plugin",
-  "requirements": { "paseo": ">=0.8.0" }
+  "requirements": { "pimi": ">=0.8.0" }
 }
 ```
 
 Declare the supported Pimi range and keep it current when adopting newer APIs. See the
-[requirements contract](../public-docs/plugins/reference.md#requirements), including legacy
-manifests and prerelease matching.
+[requirements contract](../public-docs/plugins/reference.md#requirements), including
+prerelease matching.
 
 The config key is the runtime plugin ID. The manifest ID is the default selected during install;
 `--id` overrides it. Existing configuration is not renamed when the manifest changes, and the
@@ -200,7 +200,7 @@ step:
 ```json
 {
   "id": "review",
-  "requirements": { "paseo": ">=0.8.0" },
+  "requirements": { "pimi": ">=0.8.0" },
   "build": [
     ["npm", "ci"],
     ["npm", "run", "build"]
@@ -337,10 +337,7 @@ not interrupt host teardown. Client installation retention and disposal follow t
 Pimi owns the route, screen header, icon validation, close action, theme DTO, layout facts,
 and render error boundary. The contributed component owns the complete body below the header.
 The plugin owns the header's text through the screen's `title` (`resolvePluginScreenTitle` in
-`plugins/surface-contribution.ts`). A legacy `addSidebarItem` route (`/sidebar/<id>`) shows the
-item's title and icon instead, as before screens had titles; the `addSurface` alias titles its
-screen with the id. A `/sidebar/<id>` route with no legacy item of that id opens the screen with
-that id, so links saved before a plugin migrated keep working.
+`plugins/surface-contribution.ts`).
 
 Screen params ride in the screen route's query string (`plugins/routes.ts`), not in app state, so
 reload, history, links, and the host switcher keep them without a store. Expo Router merges the
@@ -587,15 +584,9 @@ one section's order from built-ins, plugin groups, and the section's preference
 - `SidebarRow.trailing` sits in a second `Pressable` beside the row's button, since web cannot nest
   buttons. Its `onPress` is the row's, so a press on non-interactive trailing content presses the
   row; a button inside it wins its own press because only the innermost pressable responds.
-- A new-API item renders from the current route's host, else the host remembered under
+- An item renders from the current route's host, else the host remembered under
   `pluginScreensHostKey(pluginId)`, which the screen's host switcher and the item's `openScreen`
   set. One key per plugin: switching host on any of its screens moves all its items.
-- `addSurface`, `openSurface`, and `addSidebarItem` are undocumented aliases, tagged
-  `COMPAT(pluginSidebarAliases)`. `addSidebarItem` is recorded only in `legacySidebarItems` and
-  groups as a `legacy` sidebar group, which the app draws as its own row: its registered icon, in
-  the sidebar and in Settings > Sidebar, opening `/plugin/<id>/sidebar/<item>` on the host it
-  remembers under its own key. It shares header ids and the `plugin:<pluginId>:<id>` settings key
-  with new-API items.
 
 ## Contribute file panels
 

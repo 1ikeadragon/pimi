@@ -151,32 +151,6 @@ describe("desktop-settings", () => {
     expect(settings.notifications.playSound).toBe(false);
   });
 
-  it("does not let stale legacy renderer settings override an explicit desktop patch", async () => {
-    const userDataPath = await createTempUserDataDir();
-    directories.add(userDataPath);
-    const store = createDesktopSettingsStore({ userDataPath });
-
-    const patched = await store.patch({
-      daemon: {
-        manageBuiltInDaemon: false,
-      },
-    });
-    const migrated = await store.migrateLegacyRendererSettings({
-      manageBuiltInDaemon: true,
-      releaseChannel: "beta",
-    });
-    const persisted = JSON.parse(await readFile(settingsFilePath(userDataPath), "utf8")) as {
-      migrations: { legacyRendererSettingsImported: boolean };
-      settings: DesktopSettings;
-    };
-
-    expect(patched.daemon.manageBuiltInDaemon).toBe(false);
-    expect(migrated.daemon.manageBuiltInDaemon).toBe(false);
-    expect(migrated.releaseChannel).toBe("stable");
-    expect(persisted.migrations.legacyRendererSettingsImported).toBe(true);
-    expect(persisted.settings.daemon.manageBuiltInDaemon).toBe(false);
-  });
-
   it("does not rewrite existing settings while reading them", async () => {
     const userDataPath = await createTempUserDataDir();
     directories.add(userDataPath);
@@ -247,38 +221,6 @@ describe("desktop-settings", () => {
     expect(settings.daemon.keepRunningAfterQuit).toBe(true);
   });
 
-  it("migrates desktop-owned values from legacy renderer settings once", async () => {
-    const userDataPath = await createTempUserDataDir();
-    directories.add(userDataPath);
-    const store = createDesktopSettingsStore({ userDataPath });
-
-    await store.patch({
-      daemon: {
-        keepRunningAfterQuit: false,
-      },
-    });
-
-    const migrated = await store.migrateLegacyRendererSettings({
-      releaseChannel: "beta",
-      manageBuiltInDaemon: false,
-      theme: "dark",
-    });
-    const ignoredSecondMigration = await store.migrateLegacyRendererSettings({
-      releaseChannel: "stable",
-      manageBuiltInDaemon: true,
-    });
-
-    expect(migrated).toEqual({
-      releaseChannel: "beta",
-      notifications: { playSound: true },
-      daemon: {
-        manageBuiltInDaemon: false,
-        keepRunningAfterQuit: false,
-      },
-    });
-    expect(ignoredSecondMigration).toEqual(migrated);
-  });
-
   it("keeps keys written by another build across a patch", async () => {
     const userDataPath = await createTempUserDataDir();
     directories.add(userDataPath);
@@ -318,28 +260,6 @@ describe("desktop-settings", () => {
       notifications: { playSound: false },
       daemon: { manageBuiltInDaemon: true, keepRunningAfterQuit: false },
     });
-  });
-
-  it("keeps keys written by another build across the legacy renderer migration", async () => {
-    const userDataPath = await createTempUserDataDir();
-    directories.add(userDataPath);
-    await writeFile(
-      settingsFilePath(userDataPath),
-      JSON.stringify({
-        version: 1,
-        settings: { tray: { enabled: true } },
-        migrations: { legacyRendererSettingsImported: false, daemonStopOnQuitDefaultApplied: true },
-      }),
-    );
-    const store = createDesktopSettingsStore({ userDataPath });
-
-    await store.migrateLegacyRendererSettings({ releaseChannel: "beta" });
-    const persisted = JSON.parse(await readFile(settingsFilePath(userDataPath), "utf8")) as {
-      settings: { releaseChannel: string; tray: unknown };
-    };
-
-    expect(persisted.settings.tray).toEqual({ enabled: true });
-    expect(persisted.settings.releaseChannel).toBe("beta");
   });
 
   it("replaces an unusable modelled value on the write path", async () => {

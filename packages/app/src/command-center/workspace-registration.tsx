@@ -34,7 +34,6 @@ import { useWorkspaceClipboardActions } from "@/hooks/use-workspace-clipboard-ac
 import { useToast } from "@/contexts/toast-context";
 import { type ShortcutOverrides } from "@/keyboard/keyboard-shortcuts";
 import { useKeyboardActionDispatcher } from "@/keyboard/keyboard-action-dispatcher-context";
-import { useHostFeature } from "@/runtime/host-features";
 import { useActiveWorkspaceSelection } from "@/stores/navigation-active-workspace-store";
 import { useWorkspaceDirectory, useWorkspaceFields } from "@/stores/session-store-hooks";
 import {
@@ -189,19 +188,14 @@ export function useWorkspaceCommandCenterActions(): void {
     workspaceDirectory: workspace.workspaceDirectory ?? null,
     currentBranch: workspace.gitRuntime?.currentBranch ?? null,
     pinnedAt: workspace.pinnedAt ?? null,
-    setupStatus: workspace.setupStatus ?? null,
+    setupStatus: workspace.setupStatus,
     labels: workspace.labels ?? [],
   }));
   const cwd = useWorkspaceDirectory(serverId, workspaceId);
   const currentBranch = fields?.currentBranch ?? null;
   const isPinned = fields?.pinnedAt != null;
   const isCompact = useIsCompactFormFactor();
-  const canPin = useHostFeature(serverId, "workspacePinning");
-  const supportsSetupObservation = useHostFeature(serverId, "workspaceSetupObservation");
-  const canShowSetup = shouldShowWorkspaceSetup(
-    fields?.setupStatus ?? null,
-    supportsSetupObservation,
-  );
+  const canShowSetup = shouldShowWorkspaceSetup(fields?.setupStatus ?? null);
   const { overrides } = useKeyboardShortcutOverrides();
   const { gitActions, isGit } = useGitActions({
     serverId: serverId ?? "",
@@ -287,7 +281,6 @@ export function useWorkspaceCommandCenterActions(): void {
           canSplitPanes: supportsDesktopPaneSplits() && !isCompact,
           canOpenBrowserTabs: getIsElectron(),
           isGit,
-          canPin,
           canShowSetup,
         },
         activeTabKind,
@@ -308,7 +301,6 @@ export function useWorkspaceCommandCenterActions(): void {
     [
       activeTabIndex,
       activeTabKind,
-      canPin,
       canShowSetup,
       copyBranchName,
       copyPath,

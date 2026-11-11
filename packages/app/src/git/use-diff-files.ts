@@ -22,7 +22,6 @@ export interface CommitDiffFilesResult {
   files: ParsedDiffFile[];
   isLoading: boolean;
   error: Error | null;
-  capabilityMissing: boolean;
 }
 
 export function resolveCommitDiffFile(
@@ -92,7 +91,6 @@ export function useCommitDiffFiles(ctx: CommitDiffFilesContext): CommitDiffFiles
   );
   const commitsLoading = commitsQuery.status === "connecting" || commitsQuery.status === "loading";
   const commitsError = commitsQuery.status === "error" ? commitsQuery.error : null;
-  const capabilityMissing = commitsQuery.status === "unsupported";
 
   return useMemo<CommitDiffFilesResult>(() => {
     const resolvedByPath = new Map<string, ParsedDiffFile | null | undefined>();
@@ -112,7 +110,6 @@ export function useCommitDiffFiles(ctx: CommitDiffFilesContext): CommitDiffFiles
       files,
       isLoading: commitsLoading || fileDiffResults.some((r) => r.isLoading),
       error: commitsError ?? firstFileError,
-      capabilityMissing,
     };
-  }, [capabilityMissing, commitFiles, commitsError, commitsLoading, fileDiffResults]);
+  }, [commitFiles, commitsError, commitsLoading, fileDiffResults]);
 }

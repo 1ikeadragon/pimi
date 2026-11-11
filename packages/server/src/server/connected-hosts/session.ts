@@ -150,7 +150,7 @@ export class ConnectedHostSession {
       return;
     }
     let stop = () => {};
-    const owner = this.delivery.begin("hosts", undefined, () => stop());
+    const owner = this.delivery.begin("hosts", () => stop());
     try {
       stop = this.hosts.observe(() => {
         void this.hosts
@@ -178,7 +178,7 @@ export class ConnectedHostSession {
     if (this.delivery.subscriptionIds(this.delivery.currentSource!, "host-route").length >= 32)
       throw new HostError("resource_limit", "Too many routed sessions for this caller");
     let close = () => {};
-    const owner = this.delivery.begin("host-route", undefined, () => {
+    const owner = this.delivery.begin("host-route", () => {
       this.routes.delete(owner.id);
       close();
     });

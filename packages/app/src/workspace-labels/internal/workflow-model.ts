@@ -105,7 +105,7 @@ export class WorkspaceLabelPickerModel extends ObservableModel {
 export interface WorkspaceLabelManagerHost {
   serverId: string;
   label: string;
-  status: "offline" | "online" | "unsupported";
+  status: "offline" | "online";
   labels: readonly WorkspaceLabelDefinition[];
   error?: string | null;
 }

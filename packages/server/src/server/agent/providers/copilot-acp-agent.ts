@@ -213,11 +213,7 @@ export function transformCopilotModeId(modeId: string): string | null {
 export async function writeCopilotProviderMode(
   context: ACPProviderModeWriterContext,
 ): Promise<ACPProviderModeWriteResult> {
-  // COMPAT(copilotAutopilotMode): added in v0.1.75, remove after 2026-11-12 once old clients no longer send Copilot's old ACP autopilot mode ID.
-  const requestsAllowAll =
-    context.requestedModeId === COPILOT_ALLOW_ALL_MODE_ID ||
-    context.requestedModeId === COPILOT_AUTOPILOT_MODE_ID;
-  if (!requestsAllowAll) {
+  if (context.requestedModeId !== COPILOT_ALLOW_ALL_MODE_ID) {
     return { handled: false };
   }
   await context.connection.setSessionMode({

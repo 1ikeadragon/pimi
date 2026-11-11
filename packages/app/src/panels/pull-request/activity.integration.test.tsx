@@ -126,6 +126,7 @@ beforeEach(async () => {
           status: "done",
           createdAt: null,
           lastUserMessageAt: null,
+          setupStatus: null,
           statusEnteredAt: null,
           archivingAt: null,
           diffStat: null,

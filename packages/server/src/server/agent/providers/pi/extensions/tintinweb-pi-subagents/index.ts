@@ -57,8 +57,6 @@ export const tintinwebPiSubagents: PiExtension = {
         type: "sub_agent" as const,
         subAgentType: title,
         description,
-        // COMPAT(subagent-log): remove after 2027-04-30.
-        log: "",
       };
       if (call.status === "running")
         return {
@@ -124,8 +122,6 @@ export const tintinwebPiSubagents: PiExtension = {
       const detail = {
         type: "sub_agent" as const,
         description: details.success ? details.data.description : undefined,
-        // COMPAT(subagent-log): remove after 2027-04-30.
-        log: "",
       };
       if (call.status === "running" || !details.success) return { detail };
       return {

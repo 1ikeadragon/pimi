@@ -16,7 +16,6 @@ import {
   type AddProjectHost,
 } from "./model";
 import {
-  addProjectMethodEmptyText,
   buildAddProjectMethods,
   buildCloneLocationOptions,
   buildManualGithubRepositoryChoices,
@@ -25,11 +24,7 @@ import {
 const HOST: AddProjectHost = {
   serverId: "host-1",
   label: "Local",
-  canAddProject: true,
   canBrowse: true,
-  canCloneGithubRepositories: true,
-  canSearchGithubRepositories: true,
-  canCreateDirectory: true,
 };
 
 describe("Add Project navigation", () => {
@@ -111,41 +106,10 @@ describe("Add Project navigation", () => {
 });
 
 describe("Add Project options", () => {
-  it("hides every mutating method when the host lacks stable project identity", () => {
-    const outdatedHost = { ...HOST, canAddProject: false };
-
-    expect(buildAddProjectMethods(outdatedHost)).toEqual([]);
-    expect(addProjectMethodEmptyText(outdatedHost)).toBe("Update the host to use Add Project.");
-  });
-
-  it("keeps host-upgrade methods discoverable while hiding local-only Browse", () => {
+  it("hides local-only Browse", () => {
     expect(
-      buildAddProjectMethods({
-        ...HOST,
-        canBrowse: false,
-        canCloneGithubRepositories: false,
-        canSearchGithubRepositories: false,
-        canCreateDirectory: false,
-      }),
-    ).toEqual([
-      {
-        id: "directory-search",
-        label: "Search for directory",
-        description: "Find a directory on Local",
-      },
-      {
-        id: "github",
-        label: "Clone from GitHub",
-        description: "Update this host to clone GitHub repositories",
-        disabled: true,
-      },
-      {
-        id: "new-directory",
-        label: "New directory",
-        description: "Update this host to create directories",
-        disabled: true,
-      },
-    ]);
+      buildAddProjectMethods({ ...HOST, canBrowse: false }).map((method) => method.id),
+    ).toEqual(["directory-search", "github", "new-directory"]);
   });
 
   it("offers manual URL and protocol-specific owner/repo clone choices", () => {

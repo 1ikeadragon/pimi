@@ -82,7 +82,6 @@ function source(gitActions: GitActions): {
         canSplitPanes: true,
         canOpenBrowserTabs: true,
         isGit: false,
-        canPin: false,
         canShowSetup: false,
       },
       activeTabKind: null,
@@ -184,7 +183,6 @@ describe("workspace command center contributions", () => {
       canSplitPanes: false,
       canOpenBrowserTabs: false,
       isGit: false,
-      canPin: false,
       canShowSetup: false,
     };
 
@@ -268,9 +266,8 @@ describe("workspace command center contributions", () => {
     expect(withBranch.copiedBranchNames).toBe(1);
   });
 
-  it("flips the pin label on pinned state and omits the entry when the host cannot pin", () => {
+  it("flips the pin label on pinned state", () => {
     const unpinned = source({ primary: null, secondary: [], menu: [] });
-    unpinned.value.capabilities.canPin = true;
     const pinContribution = buildWorkspaceCommandCenterContributions(unpinned.value).find(
       (item) => item.id === "workspace:pin",
     );
@@ -280,20 +277,12 @@ describe("workspace command center contributions", () => {
     expect(unpinned.dispatched).toEqual([{ id: "workspace.pin", scope: "sidebar" }]);
 
     const pinned = source({ primary: null, secondary: [], menu: [] });
-    pinned.value.capabilities.canPin = true;
     pinned.value.isPinned = true;
     expect(
       buildWorkspaceCommandCenterContributions(pinned.value).find(
         (item) => item.id === "workspace:pin",
       )?.presentation,
     ).toMatchObject({ title: "Unpin" });
-
-    const unsupported = source({ primary: null, secondary: [], menu: [] });
-    expect(
-      buildWorkspaceCommandCenterContributions(unsupported.value).some(
-        (item) => item.id === "workspace:pin",
-      ),
-    ).toBe(false);
   });
 
   it("lists Show setup only when the workspace has setup to show", () => {

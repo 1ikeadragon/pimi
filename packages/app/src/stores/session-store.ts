@@ -118,7 +118,7 @@ export interface WorkspaceDescriptor {
   projectRootPath: string;
   workspaceDirectory: string;
   worktreeSlug?: WorkspaceDescriptorPayload["worktreeSlug"];
-  setupStatus?: WorkspaceDescriptorPayload["setupStatus"];
+  setupStatus: WorkspaceDescriptorPayload["setupStatus"];
   projectKind: WorkspaceDescriptorPayload["projectKind"];
   workspaceKind: WorkspaceDescriptorPayload["workspaceKind"];
   background?: boolean;
@@ -146,7 +146,6 @@ export function normalizeWorkspaceDescriptor(
       ? new Date(statusEnteredAtRaw)
       : null;
   return {
-    // COMPAT(workspaceSortTimes): added in v0.13.0, remove after 2027-04-22.
     createdAt: payload.createdAt ? new Date(payload.createdAt) : null,
     lastUserMessageAt: payload.lastUserMessageAt ? new Date(payload.lastUserMessageAt) : null,
     id: normalizeWorkspaceOpaqueId(payload.id) ?? payload.id,
@@ -160,8 +159,7 @@ export function normalizeWorkspaceDescriptor(
     // usable directory" (older daemons may omit it; the wire field is optional).
     workspaceDirectory: normalizeWorkspacePath(payload.workspaceDirectory) ?? "",
     worktreeSlug: payload.worktreeSlug,
-    // COMPAT(workspaceSetupObservation): added in v0.12.0, old hosts omit metadata; remove after 2027-04-19.
-    setupStatus: payload.setupStatus ?? null,
+    setupStatus: payload.setupStatus,
     projectKind: payload.projectKind,
     workspaceKind: payload.workspaceKind,
     background: payload.background ?? false,
@@ -169,7 +167,7 @@ export function normalizeWorkspaceDescriptor(
     name: payload.name,
     title: payload.title ?? null,
     pinnedAt: payload.pinnedAt ?? null,
-    // COMPAT(workspaceLabels): old daemons omit assignments.
+    // The daemon omits `labels` when a workspace has none.
     labels: payload.labels ?? [],
     status: payload.status,
     statusEnteredAt,

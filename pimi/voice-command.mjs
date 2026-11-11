@@ -1,9 +1,4 @@
-import {
-  isExplicitVoiceChatRequest,
-  PimiAskResult,
-  PimiVoiceCommandResponse,
-  voicePlanOpensNewChat,
-} from "@pimi/protocol/pimi-task";
+import { isExplicitVoiceChatRequest, PimiAskResult } from "@pimi/protocol/pimi-task";
 import { RequestError } from "./git.mjs";
 
 function findTask(tasks, title) {
@@ -66,9 +61,6 @@ async function resolveSpace(open, input, paseo, chatProvider) {
       destination: { view: "spaces", action: { kind: open.intent, id } },
       message: open.intent === "remove" ? "Confirm removal in Spaces." : "Opening card",
     };
-  }
-  if (!reference || reference.id !== id) {
-    throw new RequestError("Update the local Pimi host to attach Spaces cards.");
   }
   const prompt = [
     open.prompt || "Start this chat with the attached Spaces card as context.",
@@ -198,63 +190,6 @@ async function runAskPimi(input, services, onStatus) {
   };
 }
 
-export async function runVoiceCommand(input, services, onStatus) {
-  if (input.agent) return runAskPimi(input, services, onStatus);
-  // COMPAT(askPimiAgent): added in v0.17.18. Hosts older than that return a routing plan
-  // that this app carries out. Remove the rest of this function, resolveSpace, and findTask
-  // after 2027-05-11.
-  const { paseo, tasks } = services;
-  const plan = PimiVoiceCommandResponse.parse(await paseo.resolveVoiceCommand(input));
-  if ("message" in plan) return plan;
-  const receipts = [];
-  let destination;
-  try {
-    if (plan.open?.action === "agent-command") {
-      throw new RequestError("Update the local Pimi host to run this command in the background.");
-    }
-    if (voicePlanOpensNewChat(plan.open) && !isExplicitVoiceChatRequest(input.transcript)) {
-      throw new RequestError("Ask Pimi to open a new chat if you want one.");
-    }
-    if (
-      plan.open?.action === "registered-commands" &&
-      plan.open.indexes.some((index) => !input.commands?.[index])
-    ) {
-      throw new RequestError("That action isn’t available in this view.");
-    }
-    for (const step of plan.steps) {
-      switch (step.action) {
-        case "create-task": {
-          const task = await tasks.create({ root: null, title: step.title, brief: step.brief });
-          destination = { view: "task", id: task.id };
-          receipts.push("Task created");
-          break;
-        }
-        case "move-task": {
-          const target = findTask(tasks, step.title);
-          const task = await tasks.setStage({ id: target.id, stage: step.stage });
-          destination = { view: "task", id: task.id };
-          receipts.push("Task moved");
-          break;
-        }
-        case "save-space": {
-          await paseo.spaces({ action: "add-note", text: step.text });
-          destination = { view: "spaces", action: { kind: "saved" } };
-          receipts.push("Saved to Spaces");
-          break;
-        }
-      }
-    }
-    if (plan.open) {
-      const result = await resolveNavigation(plan.open, input, services, plan.chatProvider);
-      return { ...result, message: [...receipts, result.message].filter(Boolean).join(" · ") };
-    }
-  } catch (error) {
-    receipts.push(error instanceof RequestError ? error.message : "Couldn’t finish that command.");
-    return { destination, message: receipts.join(" · "), failed: true };
-  }
-  return {
-    destination,
-    message: receipts.join(" · ") || "I couldn’t match that to a Pimi action.",
-    failed: receipts.length === 0,
-  };
+export function runVoiceCommand(input, services, onStatus) {
+  return runAskPimi(input, services, onStatus);
 }

@@ -37,8 +37,6 @@ export type { WorkspaceSetupDaemonClient };
 export async function connectWorkspaceSetupClient(): Promise<WorkspaceSetupDaemonClient> {
   const client = await connectDaemonClient<WorkspaceSetupDaemonClient>({
     clientIdPrefix: "workspace-setup",
-    // COMPAT(workspaceSetupObservation): legacy streaming coverage; remove after 2027-04-19.
-    capabilities: { workspace_setup_observation: false },
   });
   // Establish demand before a caller can launch setup. Client close releases it.
   try {

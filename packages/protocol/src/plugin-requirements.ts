@@ -21,9 +21,12 @@ interface PluginCompatibilityInput {
 
 export function assertPluginCompatibility(input: PluginCompatibilityInput): void {
   validatePluginRequirements(input.requirements);
-  // COMPAT(plugin-requirements): added in v0.8.0-beta.1; remove after 2027-03-07 once pre-0.8 plugins and catalogs are unsupported. The legacy range excludes 0.8 prereleases and their stable core.
-  const declaredRange = input.requirements?.pimi ?? input.requirements?.paseo;
-  const range = declaredRange ?? "<0.8.0";
+  const range = input.requirements?.pimi ?? input.requirements?.paseo;
+  if (range === undefined) {
+    throw new Error(
+      `Plugin "${input.id}" does not declare a Pimi version range. Ask the plugin author to add a requirements.pimi version range to its manifest.`,
+    );
+  }
   const version = input.version ? parse(input.version) : null;
   if (!version) {
     throw new Error(
@@ -32,11 +35,7 @@ export function assertPluginCompatibility(input: PluginCompatibilityInput): void
   }
   const stableCore = `${version.major}.${version.minor}.${version.patch}`;
   if (satisfies(version, range) || satisfies(stableCore, range)) return;
-  const action =
-    declaredRange === undefined
-      ? "Ask the plugin author to add a requirements.pimi version range to its manifest."
-      : `Use a compatible plugin version or update the ${input.runtime}.`;
   throw new Error(
-    `Plugin "${input.id}" requires Pimi ${range}. Your ${input.runtime} is ${input.version}. ${action}`,
+    `Plugin "${input.id}" requires Pimi ${range}. Your ${input.runtime} is ${input.version}. Use a compatible plugin version or update the ${input.runtime}.`,
   );
 }

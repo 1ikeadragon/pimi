@@ -32,15 +32,15 @@ export const UsagePreferencesSchema = z
   .object({
     displayAs: z.enum(["used", "remaining"]).catch("used"),
     pins: pinsSchema.nullable().optional().catch(null),
-    // COMPAT(usagePinSelection): added in v0.11, remove after 2027-04-02.
-    // Old [] meant defaults. Read it only when the new selection is absent.
-    pinned: pinsSchema.optional().catch([]),
     serverId: z.string().nullable().catch(null),
   })
-  .transform(({ displayAs, pins, pinned, serverId }): UsagePreferences => {
-    const legacyPins = pinned && pinned.length > 0 ? pinned : null;
-    return { displayAs, pins: pins === undefined ? legacyPins : pins, serverId };
-  })
+  .transform(
+    ({ displayAs, pins, serverId }): UsagePreferences => ({
+      displayAs,
+      pins: pins ?? null,
+      serverId,
+    }),
+  )
   .catch(DEFAULT_USAGE_PREFERENCES);
 
 function samePin(a: UsagePin, b: UsagePin): boolean {

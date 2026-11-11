@@ -466,7 +466,6 @@ test.describe("Sidebar workspace list", () => {
     try {
       await workspace.client.waitForFinish(workspace.agentId, 20_000);
       await workspace.client.clearWorkspaceAttention(workspace.workspaceId);
-      expect(workspace.client.getLastServerInfoMessage()?.features?.workspaceMarkUnread).toBe(true);
       await gotoAppShell(page);
 
       const row = await waitForSidebarWorkspace(page, workspace.workspaceId);

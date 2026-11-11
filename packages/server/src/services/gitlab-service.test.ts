@@ -812,7 +812,6 @@ describe("createGitLabService", () => {
     expect(details.pipeline).toMatchObject({
       id: 306,
       status: "failed",
-      rawStatus: "failed",
       ref: "feat/sample-change",
       stages: [
         {
@@ -903,12 +902,10 @@ describe("createGitLabService", () => {
       const details = await service.getCheckDetails({ cwd: "/repo", checkRunId: 306 });
       expect(details.pipeline).toMatchObject({
         status: expectedPipeline,
-        rawStatus: pipelineStatus,
         stages: [{ status: expectedStage }],
       });
       expect(details.pipeline?.stages[0]?.jobs[1]).toMatchObject({
         status: expectedJob,
-        rawStatus: jobStatus,
         allowFailure,
       });
     },
@@ -1468,7 +1465,6 @@ describe("createGitLabService", () => {
 
     expect(result.featuresEnabled).toBe(true);
     expect(result.authState).toBe("authenticated");
-    expect(result.githubFeaturesEnabled).toBe(true);
     expect(result.items).toEqual([
       {
         kind: "change_request",
@@ -1531,7 +1527,6 @@ describe("createGitLabService", () => {
     expect(result).toEqual({
       featuresEnabled: true,
       authState: "authenticated",
-      githubFeaturesEnabled: true,
       items: [
         {
           kind: "issue",
@@ -1560,7 +1555,7 @@ describe("createGitLabService", () => {
     const result = await service.searchIssuesAndPrs({
       cwd: "/repo",
       query: "release",
-      kinds: ["github-pr"],
+      kinds: ["change_request"],
     });
 
     expect(result.items).toHaveLength(1);
@@ -1574,7 +1569,6 @@ describe("createGitLabService", () => {
       items: [],
       featuresEnabled: false,
       authState: "cli_missing",
-      githubFeaturesEnabled: false,
     });
 
     const unauthenticated = makeService(() => {
@@ -1585,7 +1579,6 @@ describe("createGitLabService", () => {
         items: [],
         featuresEnabled: false,
         authState: "unauthenticated",
-        githubFeaturesEnabled: false,
       },
     );
   });

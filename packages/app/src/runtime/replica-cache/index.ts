@@ -22,7 +22,6 @@ import {
   type StreamItem,
 } from "@/types/stream";
 import { normalizeAgentSnapshot } from "@/utils/agent-snapshots";
-import { clearLegacyReplicaCache } from "./legacy-cleanup";
 import {
   REPLICA_SINGLETON_ROW_ID,
   type ReplicaRow,
@@ -92,7 +91,6 @@ const PluginTimelineDataSchema: z.ZodType<PluginTimelineData> = z.lazy(() =>
 const TimelineItemBaseShape = {
   id: z.string(),
   timelineCursor: TimelinePositionSchema.optional(),
-  // COMPAT(active-turn-membership): absent on caches written before turn membership.
   turnId: z.string().optional(),
   timestamp: IsoDateSchema,
 };
@@ -314,8 +312,9 @@ const StoredWorkspaceSchema = z.strictObject({
   projectRootPath: z.string(),
   workspaceDirectory: z.string(),
   worktreeSlug: z.string().optional(),
+  setupStatus: z.enum(["running", "completed", "failed", "blocked"]).nullable(),
   projectKind: z.enum(["git", "non_git", "directory"]),
-  workspaceKind: z.enum(["directory", "local_checkout", "checkout", "worktree"]),
+  workspaceKind: z.enum(["directory", "local_checkout", "worktree"]),
   // Require the flag so older rows that lost background visibility invalidate the workspace cursor.
   background: z.boolean(),
   name: z.string(),
@@ -369,7 +368,6 @@ type StoredProject = z.infer<typeof StoredProjectSchema>;
 
 interface ReplicaCacheOptions {
   maxBytes?: number;
-  clearLegacyCache?: () => Promise<void>;
 }
 
 type StructuredReplicaUpsert =
@@ -725,6 +723,7 @@ function serializeWorkspace(workspace: WorkspaceDescriptor): StoredWorkspace {
     projectRootPath: workspace.projectRootPath,
     workspaceDirectory: workspace.workspaceDirectory,
     worktreeSlug: workspace.worktreeSlug,
+    setupStatus: workspace.setupStatus,
     projectKind: workspace.projectKind,
     workspaceKind: workspace.workspaceKind,
     background: workspace.background ?? false,
@@ -954,10 +953,7 @@ export class ReplicaCache {
     options: ReplicaCacheOptions = {},
   ) {
     this.maxBytes = Math.max(options.maxBytes ?? MAX_CACHE_BYTES, 0);
-    this.clearLegacyCache = options.clearLegacyCache ?? clearLegacyReplicaCache;
   }
-
-  private readonly clearLegacyCache: () => Promise<void>;
 
   async readAgent(serverId: string, agentId: string): Promise<Agent | undefined> {
     const rows = await this.readRows(serverId, ["agent"], [agentId]);
@@ -1584,8 +1580,6 @@ export class ReplicaCache {
   private prepareStore(): Promise<void> {
     this.preparePromise ??= (async () => {
       await this.rowStore.open();
-      // COMPAT(replica-blob-cache): remove after 2026-11
-      await this.clearLegacyCache().catch(() => undefined);
     })();
     return this.preparePromise;
   }

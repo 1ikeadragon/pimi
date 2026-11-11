@@ -1,18 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildLegacyPluginSurfaceRedirectRoute,
   buildPluginSurfaceRoute,
   parsePluginSurfaceRoute,
   pluginScreenParamsFromRoute,
 } from "./routes";
 
 describe("buildPluginSurfaceRoute", () => {
-  it("keeps direct surfaces and sidebar contributions in separate route namespaces", () => {
+  it("builds the surface route", () => {
     expect(buildPluginSurfaceRoute("host/one", "review", { kind: "surface", id: "overview" })).toBe(
       "/h/host%2Fone/plugin/review/surface/overview",
-    );
-    expect(buildPluginSurfaceRoute("host/one", "review", { kind: "sidebar", id: "overview" })).toBe(
-      "/h/host%2Fone/plugin/review/sidebar/overview",
     );
   });
 
@@ -29,12 +25,6 @@ describe("buildPluginSurfaceRoute", () => {
       "/h/local/plugin/bots/surface/bot",
     );
   });
-
-  it("redirects legacy plugin surface URLs to their sidebar contribution identity", () => {
-    expect(buildLegacyPluginSurfaceRedirectRoute("host/one", "review", "overview/item")).toBe(
-      "/h/host%2Fone/plugin/review/sidebar/overview%2Fitem",
-    );
-  });
 });
 
 describe("parsePluginSurfaceRoute", () => {
@@ -48,11 +38,7 @@ describe("parsePluginSurfaceRoute", () => {
       pluginId: "review",
       identity: { kind: "surface", id: "overview" },
     });
-    expect(parsePluginSurfaceRoute("/h/local/plugin/review/sidebar/item")).toEqual({
-      serverId: "local",
-      pluginId: "review",
-      identity: { kind: "sidebar", id: "item" },
-    });
+    expect(parsePluginSurfaceRoute("/h/local/plugin/review/sidebar/item")).toBeNull();
   });
 
   it("ignores routes that are not plugin screens", () => {

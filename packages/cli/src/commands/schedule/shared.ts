@@ -121,19 +121,6 @@ function resolveScheduleTarget(args: {
     } satisfies CommandError;
   }
 
-  if (targetValue === "self") {
-    // COMPAT(scheduleSelfTarget): heartbeat creation moved to `pimi heartbeat create`.
-    // Added in v0.2.0; remove after 2027-01-17.
-    const currentAgentId = process.env.PASEO_AGENT_ID?.trim();
-    if (!currentAgentId) {
-      throw {
-        code: "INVALID_TARGET",
-        message: "--target self requires running inside a Pimi agent",
-      } satisfies CommandError;
-    }
-    return { type: "self", agentId: currentAgentId };
-  }
-
   return { type: "agent", agentId: targetValue };
 }
 

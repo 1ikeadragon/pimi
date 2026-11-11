@@ -56,12 +56,6 @@ describe("usage preferences", () => {
       serverId: "server",
     });
   });
-
-  it("reads preferences saved before hosts could be picked as no pick", () => {
-    expect(UsagePreferencesSchema.parse({ displayAs: "remaining", pinned: [codexWeekly] })).toEqual(
-      { displayAs: "remaining", pins: [codexWeekly], serverId: null },
-    );
-  });
 });
 
 it("default sidebar windows are pinned on cards and the first toggle removes only that row", () => {
@@ -113,18 +107,4 @@ it("default sidebar windows are pinned on cards and the first toggle removes onl
   });
   const restored = UsagePreferencesSchema.parse(JSON.parse(JSON.stringify(empty)));
   for (const pin of pins) expect(isUsagePinned(restored, pin, reports)).toBe(false);
-});
-
-it("reads old selections without losing display or host and preserves an explicit empty selection", () => {
-  for (const [input, pins] of [
-    [{ pinned: [] }, null],
-    [{ pinned: [codexWeekly] }, [codexWeekly]],
-    [{ pins: [], pinned: [codexWeekly] }, []],
-    [{ pins: null, pinned: [codexWeekly] }, null],
-    [{ pins: "bad", pinned: [codexWeekly] }, null],
-  ] as const) {
-    expect(
-      UsagePreferencesSchema.parse({ displayAs: "remaining", serverId: "host", ...input }),
-    ).toEqual({ displayAs: "remaining", serverId: "host", pins });
-  }
 });

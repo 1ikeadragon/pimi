@@ -6440,9 +6440,6 @@ function buildClaudeSubagentCardDetail(
     type: "sub_agent",
     ...(facts.title ? { subAgentType: facts.title } : {}),
     ...(facts.description ? { description: facts.description } : {}),
-    // COMPAT(subagent-log): remove after 2027-04-30.
-    log: "",
-    actions: [],
   };
 }
 

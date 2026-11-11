@@ -402,13 +402,8 @@ class AcpRuntime {
     let stream: Stream;
     let closeConnector = async () => {};
     if (options.options.command) {
-      // COMPAT(pluginProviderLaunch): added in v0.10.0, remove after 2027-03-29 once plugin host floor >= v0.10.0.
-      // Standalone callers and older hosts do not send a daemon-resolved launch.
-      const launch = options.launch ?? {
-        command: options.options.command[0],
-        args: options.options.command.slice(1),
-        env: process.env,
-      };
+      const launch = options.launch;
+      if (!launch) throw new Error("The host did not resolve a launch for this command provider");
       child = spawnProcess(launch.command, launch.args, {
         env: { ...launch.env, ...options.env },
         stdio: "pipe",

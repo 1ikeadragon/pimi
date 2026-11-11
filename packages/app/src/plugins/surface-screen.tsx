@@ -1,11 +1,10 @@
 import { router, useLocalSearchParams } from "expo-router";
-import type { PluginIcon, PluginScreenParams, PluginScreenProps } from "@pimi/plugin/client";
+import type { PluginScreenParams, PluginScreenProps } from "@pimi/plugin/client";
 import type { PluginTheme } from "@pimi/plugin";
 import { X } from "lucide-react-native";
 import { useCallback, useMemo, type ComponentType } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { HeaderIconBadge } from "@/components/headers/header-icon-badge";
 import { HeaderToggleButton } from "@/components/headers/header-toggle-button";
 import { CompactHeader } from "@/components/headers/compact-header";
 import { ScreenHeader } from "@/components/headers/screen-header";
@@ -22,15 +21,10 @@ import {
 import type { Theme } from "@/styles/theme";
 import type { ShortcutKey } from "@/utils/format-shortcut";
 import { usePluginHostNavigation } from "./host-navigation";
-import { PluginIconView } from "./icons";
 import { toPluginTheme } from "./theme";
 import { useInstalledPlugin, usePluginCatalogStatus, usePluginInstallations } from "./registry";
 import { buildPluginSurfaceRoute, pluginScreenParamsFromRoute } from "./routes";
-import {
-  legacySidebarItemHostKey,
-  pluginScreensHostKey,
-  rememberPluginContributionHost,
-} from "./contribution-host";
+import { pluginScreensHostKey, rememberPluginContributionHost } from "./contribution-host";
 import { SurfaceErrorBoundary } from "./surface-error-boundary";
 import { PluginInstallationProvider } from "./installation-provider";
 import {
@@ -76,12 +70,6 @@ function routeParam(value: string | string[] | undefined): string {
   return typeof value === "string" ? value : "";
 }
 
-function PluginHeaderIcon({ icon, color = "" }: { icon: PluginIcon; color?: string }) {
-  return <PluginIconView icon={icon} size={16} color={color} />;
-}
-
-const ThemedPluginHeaderIcon = withUnistyles(PluginHeaderIcon);
-
 function SurfaceRenderer({
   Surface,
   plugin,
@@ -122,13 +110,8 @@ function PluginHostFilter({
 }) {
   const selectHost = useCallback(
     (nextServerId: string) => {
-      // A legacy row remembers its own host; a screen's host carries to all the plugin's items.
-      rememberPluginContributionHost(
-        identity.kind === "sidebar"
-          ? legacySidebarItemHostKey(pluginId, identity.id)
-          : pluginScreensHostKey(pluginId),
-        nextServerId,
-      );
+      // A screen's host carries to all the plugin's items.
+      rememberPluginContributionHost(pluginScreensHostKey(pluginId), nextServerId);
       router.replace(buildPluginSurfaceRoute(nextServerId, pluginId, identity, params));
     },
     [identity, params, pluginId],
@@ -159,8 +142,8 @@ export function PluginSurfaceScreen() {
   // Keyed by content: the route hands back a new object on every render.
   const params = useMemo<PluginScreenParams>(() => JSON.parse(paramsKey), [paramsKey]);
   const identity = useMemo<PluginSurfaceContributionIdentity | null>(() => {
-    if (contributionKind !== "sidebar" && contributionKind !== "surface") return null;
-    return { kind: contributionKind, id: contributionId };
+    if (contributionKind !== "surface") return null;
+    return { kind: "surface", id: contributionId };
   }, [contributionId, contributionKind]);
   const plugin = useInstalledPlugin(serverId, pluginId);
   const installations = usePluginInstallations(pluginId);
@@ -170,7 +153,7 @@ export function PluginSurfaceScreen() {
   const catalogStatus = usePluginCatalogStatus(serverId);
   const placeholderStatus = resolvePluginSurfacePlaceholder({ connectionStatus, catalogStatus });
   const compact = useIsCompactFormFactor();
-  const { sidebarItem, surface } = useMemo(
+  const surface = useMemo(
     () => resolvePluginSurfaceContribution(plugin, identity),
     [identity, plugin],
   );
@@ -183,13 +166,11 @@ export function PluginSurfaceScreen() {
   }, [hosts, identity, installations, pluginId]);
   const title = useMemo(() => {
     if (surface && plugin)
-      return resolvePluginScreenTitle(surface, sidebarItem, params, (text) =>
+      return resolvePluginScreenTitle(surface, params, (text) =>
         plugin.i18n.resolve(text, plugin.locale),
       );
-    if (sidebarItem && plugin) return plugin.i18n.resolve(sidebarItem.title, plugin.locale);
     return pluginId || "Plugin";
-  }, [params, plugin, pluginId, sidebarItem, surface]);
-  const icon = sidebarItem?.icon ?? null;
+  }, [params, plugin, pluginId, surface]);
   const close = useCallback(() => {
     if (router.canGoBack()) router.back();
     else router.replace(`/h/${encodeURIComponent(serverId)}`);
@@ -197,17 +178,8 @@ export function PluginSurfaceScreen() {
   const layout = useMemo(() => ({ compact, platform: resolvePluginPlatform() }), [compact]);
   const host = useMemo(() => ({ id: serverId, label: hostLabel }), [hostLabel, serverId]);
   const headerLeft = useMemo(
-    () => (
-      <>
-        {icon ? (
-          <HeaderIconBadge>
-            <ThemedPluginHeaderIcon icon={icon} uniProps={mutedColorMapping} />
-          </HeaderIconBadge>
-        ) : null}
-        <ScreenTitle testID="plugin-surface-title">{title}</ScreenTitle>
-      </>
-    ),
-    [icon, title],
+    () => <ScreenTitle testID="plugin-surface-title">{title}</ScreenTitle>,
+    [title],
   );
   const hostFilter = useMemo(
     () =>

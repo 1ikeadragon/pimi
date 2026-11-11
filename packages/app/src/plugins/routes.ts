@@ -55,17 +55,6 @@ export function pluginScreenParamsFromRoute(
   return params;
 }
 
-export function buildLegacyPluginSurfaceRedirectRoute(
-  serverId: string,
-  pluginId: string,
-  sidebarContributionId: string,
-): `/h/${string}/plugin/${string}/sidebar/${string}` {
-  return buildPluginSurfaceRoute(serverId, pluginId, {
-    kind: "sidebar",
-    id: sidebarContributionId,
-  });
-}
-
 export function hostIdFromPathname(pathname: string): string | null {
   const encoded = /^\/h\/([^/]+)/.exec(pathname)?.[1];
   if (!encoded) return null;
@@ -81,13 +70,13 @@ export function parsePluginSurfaceRoute(pathname: string): {
   pluginId: string;
   identity: PluginSurfaceContributionIdentity;
 } | null {
-  const match = /^\/h\/([^/]+)\/plugin\/([^/]+)\/(sidebar|surface)\/([^/]+)\/?$/.exec(pathname);
+  const match = /^\/h\/([^/]+)\/plugin\/([^/]+)\/surface\/([^/]+)\/?$/.exec(pathname);
   if (!match) return null;
   try {
     return {
       serverId: decodeURIComponent(match[1]),
       pluginId: decodeURIComponent(match[2]),
-      identity: { kind: match[3] as "sidebar" | "surface", id: decodeURIComponent(match[4]) },
+      identity: { kind: "surface", id: decodeURIComponent(match[3]) },
     };
   } catch {
     return null;

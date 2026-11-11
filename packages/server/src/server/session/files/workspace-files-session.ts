@@ -84,23 +84,18 @@ export class WorkspaceFilesSession {
     ownership: SessionDelivery,
   ): Promise<void> {
     let bootstrap: ReturnType<FileObserver["subscribe"]> | undefined;
-    const owner = ownership.begin(
-      "files",
-      request.subscriptionId,
-      async () => {
-        await bootstrap?.then(
-          (subscription) => subscription.unsubscribe(),
-          () => undefined,
-        );
-      },
-      `file:${request.subscriptionId}`,
-    );
+    const owner = ownership.begin("files", async () => {
+      await bootstrap?.then(
+        (subscription) => subscription.unsubscribe(),
+        () => undefined,
+      );
+    });
     let ready = false;
     let pending: FileVersion | null = null;
     const emitVersion = (version: FileVersion) =>
       owner.emit({
         type: "fs.file.update",
-        payload: { subscriptionId: owner.responseId, version },
+        payload: { subscriptionId: owner.id, version },
       });
     try {
       bootstrap = this.fileObserver.subscribe(
@@ -119,7 +114,7 @@ export class WorkspaceFilesSession {
       this.host.emit({
         type: "fs.file.subscribe.response",
         payload: {
-          subscriptionId: owner.responseId,
+          subscriptionId: owner.id,
           initial: subscription.initial,
           requestId: request.requestId,
         },
@@ -131,7 +126,7 @@ export class WorkspaceFilesSession {
       this.host.emit({
         type: "fs.file.subscribe.response",
         payload: {
-          subscriptionId: owner.responseId,
+          subscriptionId: owner.id,
           initial: {
             status: "error",
             cwd: request.cwd,

@@ -48,12 +48,12 @@ export function hasSelectedSkills(status: AgentSkillsStatus | null): boolean {
 export function AgentSkillsSection({ serverId }: { serverId: string }) {
   const { t } = useTranslation();
   const skills = useAgentSkills(serverId);
-  const { refresh, connected, supported, reconcile, uninstall } = skills;
+  const { refresh, connected, reconcile, uninstall } = skills;
   useFocusEffect(
     useCallback(() => {
-      if (connected && supported) void refresh();
+      if (connected) void refresh();
       return undefined;
-    }, [refresh, connected, supported]),
+    }, [refresh, connected]),
   );
   const handleValueChange = useCallback(
     (next: boolean) => {
@@ -70,16 +70,12 @@ export function AgentSkillsSection({ serverId }: { serverId: string }) {
     [t],
   );
 
-  if (!connected || !supported) {
+  if (!connected) {
     return (
       <SettingsSection title={t("settings.host.skills.sectionTitle")} link={docsLink}>
         <View style={settingsStyles.card} testID="host-agent-skills-unavailable">
           <View style={styles.emptyCard}>
-            <Text style={styles.mutedText}>
-              {connected
-                ? t("settings.host.skills.unsupported")
-                : t("settings.host.skills.unavailable")}
-            </Text>
+            <Text style={styles.mutedText}>{t("settings.host.skills.unavailable")}</Text>
           </View>
         </View>
       </SettingsSection>

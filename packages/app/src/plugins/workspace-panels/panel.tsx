@@ -81,8 +81,6 @@ function PluginPanelBody({ theme }: { theme: PluginTheme }) {
   let Surface: unknown;
   if (contribution.context === "workspace") {
     const props: PluginWorkspacePanelProps = {
-      // COMPAT(pluginPanelFlatProps): added in v0.13.0, remove after 2027-04-23
-      context: "workspace",
       params: {},
       revision: panelRevision ?? 0,
       tab,
@@ -97,8 +95,6 @@ function PluginPanelBody({ theme }: { theme: PluginTheme }) {
     panel = <Component {...props} />;
   } else if (agentExists && target.context === "agent") {
     const props: PluginAgentPanelProps = {
-      // COMPAT(pluginPanelFlatProps): added in v0.13.0, remove after 2027-04-23
-      context: "agent",
       params: { agentId: target.agentId },
       revision: panelRevision ?? 0,
       tab,
@@ -107,8 +103,6 @@ function PluginPanelBody({ theme }: { theme: PluginTheme }) {
       layout,
       navigation,
       workspaceId,
-      // COMPAT(pluginPanelFlatProps): added in v0.13.0, remove after 2027-04-23
-      agentId: target.agentId,
     };
     const Component = contribution.Component;
     Surface = Component;

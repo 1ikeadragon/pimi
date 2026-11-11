@@ -55,7 +55,6 @@ function historyPayload(input: {
   entries: FetchAgentHistoryEntry[];
   hasMore?: boolean;
   nextCursor?: string | null;
-  searchTruncated?: boolean;
 }): FetchAgentHistoryResult {
   return {
     requestId: "req_history",
@@ -65,7 +64,6 @@ function historyPayload(input: {
       prevCursor: null,
       hasMore: input.hasMore ?? false,
     },
-    ...(input.searchTruncated === undefined ? {} : { searchTruncated: input.searchTruncated }),
   };
 }
 
@@ -348,39 +346,6 @@ describe("fetchAgentHistoryPage", () => {
     ]);
   });
 
-  it("reports truncation when a host had more matches than its page could hold", async () => {
-    const client = createClient([
-      historyPayload({
-        entries: [
-          historyEntry({
-            id: "top",
-            cwd: "/repo/a",
-            updatedAt: "2026-04-01T10:00:00.000Z",
-            title: "Top match",
-            searchScore: 1000,
-          }),
-        ],
-        searchTruncated: true,
-      }),
-    ]);
-
-    const page = await fetchAgentHistoryBatch({
-      hosts: [
-        { serverId: "server-a", serverLabel: "MacBook", client },
-      ] satisfies AgentHistoryHost[],
-      cursorByServerId: null,
-      search: "match",
-    });
-
-    expect(page.isSearchTruncated).toBe(true);
-    // A ranked response promises no next page, so nothing can ask for one.
-    expect(page.pageInfoByServerId["server-a"]).toEqual({
-      nextCursor: null,
-      prevCursor: null,
-      hasMore: false,
-    });
-  });
-
   it("preserves every matching row when merging complete host pages", async () => {
     // Each host owns its cursor; merging must not discard rows already consumed.
     const buildHost = (serverId: string, count: number) =>
@@ -407,7 +372,6 @@ describe("fetchAgentHistoryPage", () => {
       search: "match",
     });
 
-    expect(page.isSearchTruncated).toBe(false);
     expect(page.agents).toHaveLength(300);
   });
 

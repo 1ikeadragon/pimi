@@ -10,7 +10,6 @@ import {
   type PluginListItem,
   type PluginSource,
   type PluginSourceStatusItem,
-  type PluginSourceUpdateItem,
   type PluginUpdateSelection,
   type PluginUpdateProposal,
   type PluginUpdatePreview,
@@ -206,10 +205,6 @@ export class PluginService {
 
   listUsageReports(options?: ListUsageReportsOptions) {
     return this.usageSources.listReports(options);
-  }
-
-  listLegacyUsage() {
-    return this.usageSources.listLegacyUsage();
   }
 
   subscribeProviderRegistrations(listener: () => void): () => void {
@@ -409,11 +404,6 @@ export class PluginService {
       }
       return statuses.sort((left, right) => left.id.localeCompare(right.id));
     });
-  }
-
-  // COMPAT(plugin-immediate-update): added in v0.8.0; remove after 2027-03-16 when clients use reviewed targets.
-  async updateSources(_pluginId?: string): Promise<PluginSourceUpdateItem[]> {
-    throw new Error("Update the client to review plugin updates before applying them.");
   }
 
   async previewUpdates(input: {

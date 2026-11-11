@@ -21,7 +21,6 @@ export function createTestRegistries() {
 
   const projectRegistry: ProjectRegistry = {
     initialize: async () => {},
-    existsOnDisk: async () => true,
     list: async () => Array.from(projects.values()),
     get: async (id: string) => projects.get(id) ?? null,
     getOrCreateActiveByRoot: async (input) => {
@@ -63,7 +62,6 @@ export function createTestRegistries() {
 
   const workspaceRegistry: WorkspaceRegistry = {
     initialize: async () => {},
-    existsOnDisk: async () => true,
     listAll: async () => Array.from(workspaces.values()),
     listActive: async () => Array.from(workspaces.values()).filter((w) => !w.archivedAt),
     get: async (id: string) => workspaces.get(id) ?? null,

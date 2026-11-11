@@ -17,12 +17,6 @@ export interface ResolveWorktreeCreationIntentInput {
     number: number;
     projectPath?: string;
   };
-  /**
-   * COMPAT(githubPrNumber): legacy GitHub checkout input retained when
-   * checkoutSource shipped in v0.2.0-beta.1. Remove after 2027-01-17 once the
-   * supported client floor is >= v0.2.0.
-   */
-  githubPrNumber?: number;
 }
 
 export interface ResolveWorktreeCreationIntentDeps {
@@ -144,9 +138,6 @@ function resolveInputChangeRequest(
         ? { projectPath: input.checkoutSource.projectPath }
         : {}),
     };
-  }
-  if (input.githubPrNumber !== undefined) {
-    return { number: input.githubPrNumber };
   }
   return null;
 }

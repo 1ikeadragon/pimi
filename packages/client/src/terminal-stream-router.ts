@@ -64,16 +64,7 @@ export class TerminalStreamRouter {
       let event: TerminalStreamEvent;
       if (frame.opcode === TerminalStreamOpcode.Output)
         event = { ...identity, type: "output", data: frame.payload };
-      else if (frame.opcode === TerminalStreamOpcode.Restore) {
-        // COMPAT(terminalSingleRestore): added after v0.14.0; remove when ANSI host floor supports chunked replay after 2027-04-30.
-        for (const replay of [
-          { type: "begin" },
-          { type: "data", data: frame.payload },
-          { type: "end" },
-        ] as TerminalReplayEvent[])
-          this.deliver(registration.receive, { ...identity, type: "replay", replay });
-        continue;
-      } else if (frame.opcode === TerminalStreamOpcode.ReplayBegin) {
+      else if (frame.opcode === TerminalStreamOpcode.ReplayBegin) {
         let raw: unknown;
         try {
           raw = JSON.parse(new TextDecoder().decode(frame.payload));

@@ -312,7 +312,6 @@ export const fr: TranslationResources = {
     title: "Historique",
     empty: "Aucune session pour l’instant",
     noMatches: "Aucune session correspondante",
-    tooManyMatches: "Trop de résultats — affinez la recherche",
     hostLoadFailed: "{{host}} : impossible de charger l’historique",
     searchPlaceholder: "Rechercher dans l’historique",
     actions: {
@@ -377,7 +376,6 @@ export const fr: TranslationResources = {
       forkInNewWorkspace: "Forker dans un nouvel espace de travail",
       forkWithProvider: "Dupliquer avec un autre fournisseur",
       forkNoOtherProviders: "Aucun autre fournisseur n’est disponible sur cet hôte.",
-      forkUnavailable: "Mettez à jour l’hôte pour utiliser cette fonction.",
       forkMissingWorkspace: "Cet agent n’est dans aucun espace de travail.",
       forkFailed: "Impossible de forker la conversation",
       openFile: "Ouvrir le fichier",
@@ -473,7 +471,6 @@ export const fr: TranslationResources = {
     },
     status: {
       connectHost: "Connectez-vous à un hôte pour importer des sessions",
-      updateHost: "Mettez à jour l’hôte pour importer des sessions.",
       noProviders: "Aucun fournisseur importable n’est activé.",
       loading: "Chargement des sessions récentes…",
       failedProvider: "Impossible de charger les sessions {{provider}}",
@@ -505,7 +502,6 @@ export const fr: TranslationResources = {
       hostOffline: "{{hostName}} est hors ligne",
       cannotReachHost: "Impossible de joindre {{hostName}}",
       hostStatus: "Statut de l’hôte : {{status}}",
-      needsHostUpgrade: "Mettez à jour votre hôte pour restaurer cet espace de travail",
       manageHost: "Gérer l’hôte",
       recovery: {
         archivedTitle: "Espace de travail archivé",
@@ -600,8 +596,6 @@ export const fr: TranslationResources = {
       },
     },
     setup: {
-      updateHost:
-        "Mettez à jour l’hôte pour afficher les détails de configuration de l’espace de travail",
       descriptor: {
         label: "Configuration",
         completed: "Configuration terminée",
@@ -676,8 +670,6 @@ export const fr: TranslationResources = {
     },
     terminal: {
       hostDisconnected: "L’hôte n’est pas connecté",
-      updateHost: "Mettez à jour l’hôte pour utiliser le rendu natif du terminal.",
-      restoreRequiresUpdate: "Mettez à jour l’hôte pour afficher les terminaux.",
       unableToSubscribe: "Impossible de s’abonner au terminal",
       fileUploaded: "Fichier envoyé",
       pasteFileFailed: "Impossible de coller le fichier : {{reason}}",
@@ -1195,7 +1187,6 @@ export const fr: TranslationResources = {
     createConfirm: "Créer",
     creating: "Création…",
     name: "Nom de l’étiquette",
-    updateHostUse: "Mettez à jour cet hôte pour utiliser les étiquettes.",
     errors: {
       update: "Impossible de mettre à jour l’étiquette",
       load: "Impossible de charger les étiquettes",
@@ -1230,7 +1221,6 @@ export const fr: TranslationResources = {
       deleteMessage_one: "Cela retire l’étiquette de {{count}} espace de travail sur cet hôte.",
       deleteMessage_other: "Cela retire l’étiquette de {{count}} espaces de travail sur cet hôte.",
       offline: "Cet hôte est hors ligne.",
-      updateHost: "Mettez à jour cet hôte pour gérer les étiquettes.",
     },
   },
   changelog: {
@@ -1261,7 +1251,6 @@ export const fr: TranslationResources = {
         created: "Création",
         manual: "Manuel",
         lastPrompt: "Dernier prompt",
-        updateHost: "Mettez les hôtes à jour pour trier les espaces de travail",
       },
       grouping: {
         label: "Regroupement",
@@ -1369,7 +1358,6 @@ export const fr: TranslationResources = {
       toasts: {
         hostDisconnected: "L’hôte n’est pas connecté",
         removeFailed: "Impossible de retirer certains espaces de travail",
-        updateHostToRemove: "Mettez à jour l’hôte pour retirer des projets.",
       },
       empty: {
         title: "Aucun projet pour l’instant",
@@ -2051,7 +2039,6 @@ export const fr: TranslationResources = {
         "Sans relais, connectez-vous directement via TCP, Tailscale ou un autre VPN. Aucun code QR n’est créé.",
       tailscaleDocs: "Configurer Tailscale",
       tailscaleDocsAccessibility: "Lire comment se connecter via Tailscale",
-      updateRequired: "Mettez à jour l’hôte pour activer le relais depuis Pimi Desktop.",
       unavailable: "Offre d’association indisponible.",
       hint: "Scannez ce code QR avec Pimi sur votre téléphone, ou copiez le lien ci-dessous.",
       securityWarning:
@@ -2201,7 +2188,6 @@ export const fr: TranslationResources = {
       directoryMissing: "Répertoire de l’espace de travail introuvable.",
       empty: "Aucune modification",
       loadError: "Impossible de charger le diff",
-      capabilityMissing: "Mettez à jour l’hôte pour afficher le diff des commits.",
     },
   },
   toolCallDetails: {
@@ -2459,7 +2445,6 @@ export const fr: TranslationResources = {
     },
     voice: {
       offline: "Connectez-vous à cet hôte pour configurer la voix.",
-      updateHost: "Mettez à jour l'hôte pour configurer la voix.",
       saveError: "Impossible de mettre à jour les réglages vocaux",
       provider: "Fournisseur",
       providers: {
@@ -3020,7 +3005,6 @@ export const fr: TranslationResources = {
       agentProfiles: {
         sectionTitle: "Profils d’agent",
         unavailable: "Connectez-vous à cet hôte pour gérer les profils d’agent",
-        unsupported: "Le daemon de cet hôte ne prend pas encore en charge les profils d’agent",
         emptyState:
           "Aucun profil pour le moment. Ajoutez-en un pour démarrer des agents avec un fournisseur et un modèle enregistrés.",
         addProfileTitle: "Ajouter un profil d’agent",

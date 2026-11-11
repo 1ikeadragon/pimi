@@ -13,18 +13,12 @@ import type { CommandOptions, ListResult, OutputSchema, SingleResult } from "../
 import { withOutput } from "../../output/index.js";
 import { addJsonAndDaemonHostOptions, addJsonOption } from "../../utils/command-options.js";
 import { scaffoldPluginDirectory, type PluginScaffold } from "./scaffold.js";
-import {
-  withPluginLogsClient,
-  withPluginUpdateClient,
-  withPluginManagementClient,
-  withPluginSourceClient,
-} from "./shared.js";
+import { withPluginClient } from "./shared.js";
 
 interface PluginOptions extends CommandOptions {
   host?: string;
   id?: string;
   ref?: string;
-  path?: string;
   all?: boolean;
   version?: string;
   check?: boolean;
@@ -101,9 +95,7 @@ export async function runPluginListCommand(
   options: PluginOptions,
   _command: Command,
 ): Promise<ListResult<PluginListItem>> {
-  const plugins = await withPluginManagementClient(options.daemonTarget, (client) =>
-    client.listPlugins(),
-  );
+  const plugins = await withPluginClient(options.daemonTarget, (client) => client.listPlugins());
   const data = pluginId ? plugins.filter((plugin) => plugin.id === pluginId) : plugins;
   if (pluginId && data.length === 0) throw new Error(`Plugin is not configured: ${pluginId}`);
   return { type: "list", data, schema: pluginSchema };
@@ -114,7 +106,7 @@ export async function runPluginLogsCommand(
   options: PluginOptions,
   _command: Command,
 ): Promise<ListResult<PluginLogEntry>> {
-  const data = await withPluginLogsClient(options.daemonTarget, (client) =>
+  const data = await withPluginClient(options.daemonTarget, (client) =>
     client.getPluginLogs(pluginId),
   );
   return { type: "list", data, schema: pluginLogsSchema };
@@ -139,10 +131,9 @@ export async function runPluginInstallCommand(
         : path.resolve(directory);
     resolvedSource = formatPluginSourceReference(absoluteDirectory, reference.pluginPath);
   }
-  const sourceReference = formatPluginSourceReference(resolvedSource, options.path);
-  const data = await withPluginSourceClient(options.daemonTarget, (client) =>
+  const data = await withPluginClient(options.daemonTarget, (client) =>
     client.installPluginSource({
-      source: sourceReference,
+      source: resolvedSource,
       ...(options.id ? { id: options.id } : {}),
       ...(options.ref ? { ref: options.ref } : {}),
     }),
@@ -155,7 +146,7 @@ export async function runPluginUpdateCommand(
   options: PluginOptions,
   _command: Command,
 ): Promise<ListResult<UpdateOutcome>> {
-  const data = await withPluginUpdateClient(options.daemonTarget, (client) =>
+  const data = await withPluginClient(options.daemonTarget, (client) =>
     reviewPluginUpdates(
       client,
       { ...options, pluginId },
@@ -187,7 +178,7 @@ async function act(
   pluginId: string,
   options: PluginOptions,
 ): Promise<SingleResult<PluginListItem>> {
-  const data = await withPluginManagementClient(options.daemonTarget, (client) =>
+  const data = await withPluginClient(options.daemonTarget, (client) =>
     client[`${action}Plugin`](pluginId),
   );
   return { type: "single", data, schema: pluginSchema };
@@ -198,7 +189,7 @@ async function remove(
   options: PluginOptions,
   _command: Command,
 ): Promise<SingleResult<PluginListItem>> {
-  const data = await withPluginManagementClient(options.daemonTarget, async (client) => {
+  const data = await withPluginClient(options.daemonTarget, async (client) => {
     const current = (await client.listPlugins()).find((plugin) => plugin.id === pluginId);
     if (!current) throw new Error(`Plugin is not configured: ${pluginId}`);
     await client.removePlugin(pluginId);
@@ -237,8 +228,7 @@ export function createPluginCommand(): Command {
         "Registry owner/slug or host/owner/slug, host directory, explicit git:owner/repo or Git URL, or npm: source",
       )
       .option("--id <id>", "Runtime plugin ID (defaults to pimi-plugin.json id)")
-      .option("--ref <ref>", "Git branch, tag, or commit")
-      .option("--path <path>", "Legacy form of the :plugin/path source suffix"),
+      .option("--ref <ref>", "Git branch, tag, or commit"),
   ).action(withOutput(runPluginInstallCommand));
   addJsonAndDaemonHostOptions(
     plugin

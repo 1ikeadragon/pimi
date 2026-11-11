@@ -75,14 +75,7 @@ export function getAgentAttachmentPillContent(
         subtitle: `${presentation.changeRequestAbbrev} ${presentation.numberPrefix}${attachment.number}`,
       };
     }
-    case "github_pr":
-      return {
-        icon: attachmentGithubPrIcon,
-        title: attachment.title,
-        subtitle: `PR #${attachment.number}`,
-      };
     case "forge_issue":
-    case "github_issue":
       return {
         icon: attachmentGithubIssueIcon,
         title: attachment.title,

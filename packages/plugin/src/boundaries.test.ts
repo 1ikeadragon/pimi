@@ -19,11 +19,6 @@ const entries = {
   "./client/ui": "client",
 } as const;
 const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
-// Compatibility entrypoints inherit the boundary of their one re-export target.
-const compatibilityEntries = Object.keys(manifest.exports).filter((entry) => {
-  const file = path.resolve(sourceDirectory, "..", manifest.exports[entry].source);
-  return readFileSync(file, "utf8").startsWith("// COMPAT(");
-});
 const uiDependency = /^(react(?:-dom|-native)?|use-sync-external-store)(\/|$)/;
 const serverModule = /^server\//;
 const clientModule = /^client\//;
@@ -102,34 +97,7 @@ describe("plugin SDK import boundaries", () => {
   });
 
   it("classifies every published entry", () => {
-    expect(Object.keys(manifest.exports).sort()).toEqual(
-      [...Object.keys(entries), ...compatibilityEntries].sort(),
-    );
-  });
-
-  it.each(compatibilityEntries)("%s respects the client boundary", (entry) => {
-    expect(
-      boundaryViolations(
-        path.resolve(sourceDirectory, "..", manifest.exports[entry].source),
-        "client",
-      ),
-    ).toEqual([]);
-  });
-
-  it("typechecks a 0.12 reveal-hook consumer without exposing the hook on current UI", () => {
-    expect(
-      typeErrors(`
-      import { useRevealedText, Icon } from "@pimi/plugin/client/react-native";
-      import { StreamedText } from "@pimi/plugin/client/ui";
-      // @ts-expect-error the legacy hook is not part of the current UI API
-      import { useRevealedText as currentHook } from "@pimi/plugin/client/ui";
-      import { Text } from "react-native";
-      function LegacyRow({ text, phase }: { text: string; phase: "streaming" | "complete" }) {
-        const revealed: string = useRevealedText(text, phase);
-        return <Text>{revealed}</Text>;
-      }
-    `),
-    ).toEqual([]);
+    expect(Object.keys(manifest.exports).sort()).toEqual(Object.keys(entries).sort());
   });
 
   it.each(Object.entries(entries))(
@@ -184,7 +152,7 @@ describe("plugin example import boundaries", () => {
 });
 
 describe("plugin panel SDK boundary", () => {
-  it("accepts uniform params and persisted tab state alongside 0.12 panels", () => {
+  it("accepts uniform params and persisted tab state", () => {
     expect(
       typeErrors(`
       import { type PluginClientContext, type PluginFilePanelProps, type PluginWorkspacePanelProps, type PluginAgentPanelProps, type PluginTab, useTabState } from "@pimi/plugin/client";
@@ -199,13 +167,10 @@ describe("plugin panel SDK boundary", () => {
         params.path = "other";
         return null;
       }
-      function OldWorkspace({ context, workspaceId }: PluginWorkspacePanelProps) { return null; }
-      function OldAgent({ context, workspaceId, agentId }: PluginAgentPanelProps) { return null; }
+      function Workspace({ workspaceId }: PluginWorkspacePanelProps) { return null; }
       function Agent({ params }: PluginAgentPanelProps) { params.agentId.toUpperCase(); return null; }
       function contribute(client: PluginClientContext) {
-        client.addWorkspacePanel({ id: "old-workspace", title: "Old", icon: "File", context: "workspace", Component: OldWorkspace });
-        client.addWorkspacePanel({ id: "old-agent", title: "Old", icon: "File", context: "agent", Component: OldAgent });
-        client.addWorkspacePanel({ id: "workspace", title: "Workspace", icon: "File", Component: OldWorkspace });
+        client.addWorkspacePanel({ id: "workspace", title: "Workspace", icon: "File", Component: Workspace });
         client.addAgentPanel({ id: "agent", title: "Agent", icon: "File", Component: Agent });
       }
     `),
@@ -290,14 +255,12 @@ describe("lifecycle hook SDK types", () => {
         });
         // @ts-expect-error Async handlers are required even for notifications.
         server.addHook("agent.turn.before", () => {});
-        // @ts-expect-error Legacy names are only accepted by deprecated registration methods.
+        // @ts-expect-error Unknown names fail typechecking.
         server.addHook("agent.session_open", async () => {});
         // @ts-expect-error Unknown names fail typechecking.
         server.addHook("nonsense", async () => {});
         // @ts-expect-error A prepare handler must return the whole request or undefined.
         server.addHook("agent.create.before", async () => ({ invalid: true }));
-        server.before("agent.session_open", ({ request }) => request);
-        server.on("agent.turn_ended", () => {});
         return () => {};
       }
     `),

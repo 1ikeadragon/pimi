@@ -6,33 +6,19 @@ import {
 } from "@pimi/protocol/binary-frames/index";
 import {
   createTerminalRestoreDelivery,
-  encodeTerminalRestoreFrame,
   resolveRestoreAfterOutputOverflow,
   resolveTerminalRestoreSnapshotOptions,
 } from "./terminal-restore.js";
 
 describe("terminal restore policy", () => {
-  test("resolves bounded restore snapshot options", () => {
-    expect(
-      resolveTerminalRestoreSnapshotOptions({ restore: { mode: "live" }, chunked: false }),
-    ).toBeNull();
-    expect(
-      resolveTerminalRestoreSnapshotOptions({ restore: { mode: "full-snapshot" }, chunked: false }),
-    ).toBeUndefined();
-    expect(
-      resolveTerminalRestoreSnapshotOptions({
-        restore: { mode: "visible-snapshot" },
-        chunked: false,
-      }),
-    ).toEqual({
+  test("resolves restore snapshot options", () => {
+    expect(resolveTerminalRestoreSnapshotOptions({ mode: "live" })).toBeNull();
+    expect(resolveTerminalRestoreSnapshotOptions({ mode: "visible-snapshot" })).toEqual({
       scrollbackLines: 200,
     });
     expect(
-      resolveTerminalRestoreSnapshotOptions({
-        restore: { mode: "visible-snapshot", scrollbackLines: 999 },
-        chunked: false,
-      }),
-    ).toEqual({ scrollbackLines: 500 });
+      resolveTerminalRestoreSnapshotOptions({ mode: "visible-snapshot", scrollbackLines: 999 }),
+    ).toEqual({ scrollbackLines: 999 });
   });
 
   test("bounds pressure recovery for every restore mode", () => {
@@ -45,26 +31,12 @@ describe("terminal restore policy", () => {
       scrollbackLines: 500,
     });
   });
-
-  test("encodes restore snapshots as restore frames", () => {
-    const frame = decodeTerminalStreamFrame(
-      encodeTerminalRestoreFrame({
-        slot: 4,
-        data: new TextEncoder().encode("restored"),
-      }),
-    );
-
-    expect(frame?.opcode).toBe(TerminalStreamOpcode.Restore);
-    expect(frame?.slot).toBe(4);
-    expect(new TextDecoder().decode(frame?.payload ?? new Uint8Array())).toContain("restored");
-  });
 });
 
 test("projects chunked replay begin onto the declared wire metadata", () => {
   const frames: Uint8Array[] = [];
   const deliver = createTerminalRestoreDelivery({
     slot: 7,
-    chunked: true,
     send: (frame) => {
       frames.push(frame);
     },

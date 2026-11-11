@@ -8,7 +8,6 @@ interface CatalogSyncInput {
   client: DaemonClient;
   audio: Pick<AudioEngine, "play"> | null;
   connected: boolean;
-  supported: boolean;
   registry: Pick<
     PluginRegistry,
     "installCatalog" | "getSnapshot" | "removeHost" | "setCatalogStatus"
@@ -20,10 +19,9 @@ export function syncPluginCatalog({
   client,
   audio,
   connected,
-  supported,
   registry,
 }: CatalogSyncInput): () => void {
-  if (!supported || !audio) {
+  if (!audio) {
     registry.removeHost(serverId);
     registry.setCatalogStatus(serverId, "ready");
     return () => {};

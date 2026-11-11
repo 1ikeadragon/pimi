@@ -15,7 +15,6 @@ import {
   resolveDirectoryLabel,
   resolveImportTarget,
   resolveProvidersToFetch,
-  requiresImportSessionsHostUpgrade,
   type SessionsQueryResult,
   sumFilteredAlreadyImportedCount,
 } from "@/components/import-session-sheet-view-model";
@@ -50,16 +49,12 @@ function settled(
 }
 
 describe("resolveProvidersToFetch", () => {
-  it("returns null when the daemon does not support provider snapshots", () => {
-    expect(resolveProvidersToFetch(false, [{ provider: "claude" }])).toBeNull();
-  });
-
   it("returns null while snapshot entries have not loaded yet", () => {
-    expect(resolveProvidersToFetch(true, undefined)).toBeNull();
+    expect(resolveProvidersToFetch(undefined)).toBeNull();
   });
 
   it("returns enabled providers", () => {
-    const providers = resolveProvidersToFetch(true, [
+    const providers = resolveProvidersToFetch([
       { provider: "claude" },
       { provider: "codex" },
       { provider: "opencode", enabled: false },
@@ -69,40 +64,11 @@ describe("resolveProvidersToFetch", () => {
   });
 
   it("returns an empty array when snapshot has no enabled providers", () => {
-    const providers = resolveProvidersToFetch(true, [
+    const providers = resolveProvidersToFetch([
       { provider: "claude", enabled: false },
       { provider: "z-ai", enabled: false },
     ]);
     expect(providers).toEqual([]);
-  });
-});
-
-describe("requiresImportSessionsHostUpgrade", () => {
-  it("allows home imports on hosts without workspace targeting", () => {
-    expect(
-      requiresImportSessionsHostUpgrade({
-        supportsSnapshot: true,
-        workspaceId: null,
-        supportsWorkspaceTarget: false,
-      }),
-    ).toBe(false);
-  });
-
-  it("requires host support for imports opened from a workspace", () => {
-    expect(
-      requiresImportSessionsHostUpgrade({
-        supportsSnapshot: true,
-        workspaceId: "ws-current",
-        supportsWorkspaceTarget: false,
-      }),
-    ).toBe(true);
-    expect(
-      requiresImportSessionsHostUpgrade({
-        supportsSnapshot: true,
-        workspaceId: "ws-current",
-        supportsWorkspaceTarget: true,
-      }),
-    ).toBe(false);
   });
 });
 

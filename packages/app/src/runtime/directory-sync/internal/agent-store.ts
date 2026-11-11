@@ -101,16 +101,9 @@ export class AgentStoreProjection {
     const normalized = normalizeAgentSnapshot(delta.agent, this.serverId);
     const session = useSessionStore.getState().sessions[this.serverId];
     const previous = session?.agents.get(normalized.id) ?? session?.agentDetails.get(normalized.id);
-    const legacyWorkspaceId =
-      previous?.workspaceId ??
-      Array.from(session?.workspaces.values() ?? []).find(
-        (workspace) =>
-          session?.serverInfo?.features?.workspaceMultiplicity !== true &&
-          workspace.workspaceDirectory === normalized.cwd,
-      )?.id;
     const accepted = this.accept({
       ...normalized,
-      workspaceId: normalized.workspaceId ?? legacyWorkspaceId,
+      workspaceId: normalized.workspaceId ?? previous?.workspaceId,
       projectPlacement:
         resolveProjectPlacement({ projectPlacement: delta.project, cwd: normalized.cwd }) ??
         previous?.projectPlacement,

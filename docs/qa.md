@@ -64,7 +64,7 @@ Install what you reasonably can. An iOS simulator and an Android emulator cover 
 
 For the rules about which code runs where, read the platform gating section in [CLAUDE.md](../CLAUDE.md). The recurring traps have their own docs: [hover.md](hover.md), [unistyles.md](unistyles.md), [floating-panels.md](floating-panels.md), [mobile-panels.md](mobile-panels.md), [expo-router.md](expo-router.md).
 
-App and daemon versions also drift, in both directions. That has its own contract: [protocol-compatibility.md](protocol-compatibility.md).
+The app and daemon ship together, so test a change with both built from the same commit: [protocol-compatibility.md](protocol-compatibility.md).
 
 ## Automated coverage that means something
 

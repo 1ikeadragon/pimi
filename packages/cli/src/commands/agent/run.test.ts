@@ -23,11 +23,9 @@ function daemonWithAgents(...agentIds: string[]) {
 }
 
 describe("run wait policy", () => {
-  it("waits by default and stops waiting on --no-wait or a legacy alias", () => {
+  it("waits by default and stops waiting on --no-wait", () => {
     expect(waitsForFinish({})).toBe(true);
     expect(waitsForFinish({ wait: false })).toBe(false);
-    expect(waitsForFinish({ background: true })).toBe(false);
-    expect(waitsForFinish({ detach: true })).toBe(false);
   });
 });
 
@@ -153,13 +151,6 @@ describe("runRunCommand option validation", () => {
 
   it("rejects unknown new workspace kinds", async () => {
     await expectInvalidOptions({ newWorkspace: "container" }, /Unsupported new workspace kind/);
-  });
-
-  it("rejects two workspace creation flags", async () => {
-    await expectInvalidOptions(
-      { newWorkspace: "local", worktree: "legacy-slug" },
-      /--new-workspace and --worktree cannot be combined/,
-    );
   });
 
   it("rejects an unknown worktree creation mode before connecting", async () => {

@@ -262,8 +262,7 @@ export function createWorkspaceProvisioningService(deps: {
     const checkout = await workspaceGitService.getCheckout(normalizedCwd);
     const project = projectId
       ? await refreshProjectKind(await requireActiveProject(projectId), normalizedCwd, checkout)
-      : // COMPAT(workspaceCreateMissingProjectId): added in v0.1.107, remove after 2027-01-15.
-        await findOrCreateProjectForDirectory(normalizedCwd);
+      : await findOrCreateProjectForDirectory(normalizedCwd);
     const create = async () => {
       const baseMetadata =
         checkout.isGit && checkout.isPaseoOwnedWorktree

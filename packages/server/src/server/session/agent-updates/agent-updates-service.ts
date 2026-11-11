@@ -7,7 +7,6 @@ import type {
 } from "../../messages.js";
 import type { ManagedAgent } from "../../agent/agent-manager.js";
 import type { StoredAgentRecord } from "../../agent/agent-storage.js";
-import type { BackgroundVisibility } from "../../agent/directory.js";
 import { resolveEffectiveThinkingOptionId, toAgentPayload } from "../../agent/agent-projections.js";
 
 type AgentUpdatePayload = Extract<SessionOutboundMessage, { type: "agent_update" }>["payload"];
@@ -20,7 +19,7 @@ interface AgentUpdatesSubscriptionState {
   emit: (message: SessionOutboundMessage) => void;
   syncEnabled: boolean;
   filter?: AgentUpdatesFilter;
-  backgroundVisibility: BackgroundVisibility;
+  backgroundVisibility: boolean;
   isProviderVisible: (provider: string) => boolean;
   isBootstrapping: boolean;
   pendingUpdatesByAgentId: Map<string, AgentUpdatePayload>;
@@ -33,7 +32,7 @@ export interface AgentUpdatesService {
     isProviderVisible?: (provider: string) => boolean;
     emit?: (message: SessionOutboundMessage) => void;
     filter?: AgentUpdatesFilter;
-    backgroundVisibility?: BackgroundVisibility;
+    backgroundVisibility?: boolean;
     syncEnabled?: boolean;
   }): void;
   flushBootstrapped(
@@ -42,7 +41,6 @@ export interface AgentUpdatesService {
   ): void;
   clearSubscription(subscriptionId: string): void;
   hasSubscription(): boolean;
-  includesLiveAgent(agent: ManagedAgent, subscriptionIds?: ReadonlySet<string>): Promise<boolean>;
   forwardLiveAgent(agent: ManagedAgent): Promise<void>;
   emitStoredRecord(record: StoredAgentRecord): Promise<AgentSnapshotPayload>;
   removeAgent(agentId: string): Promise<void>;
@@ -50,10 +48,7 @@ export interface AgentUpdatesService {
 }
 
 export interface AgentUpdatesServiceDeps {
-  includesWorkspace?(
-    agent: AgentSnapshotPayload,
-    backgroundVisibility: BackgroundVisibility,
-  ): Promise<boolean>;
+  includesWorkspace?(agent: AgentSnapshotPayload, backgroundVisibility: boolean): Promise<boolean>;
   emit(message: SessionOutboundMessage): void;
   enrichAgentPayload(payload: AgentSnapshotPayload): Promise<AgentSnapshotPayload>;
   buildStoredAgentPayload(record: StoredAgentRecord): AgentSnapshotPayload;
@@ -66,7 +61,7 @@ export interface AgentUpdatesServiceDeps {
     project: ProjectPlacementPayload | null,
     agentId: string,
     includeSequence: boolean,
-    backgroundVisibility: BackgroundVisibility,
+    backgroundVisibility: boolean,
   ): T;
   logger: pino.Logger;
 }
@@ -200,7 +195,7 @@ export function createAgentUpdatesService(deps: AgentUpdatesServiceDeps): AgentU
     isProviderVisible?: (provider: string) => boolean;
     emit?: (message: SessionOutboundMessage) => void;
     filter?: AgentUpdatesFilter;
-    backgroundVisibility?: BackgroundVisibility;
+    backgroundVisibility?: boolean;
     syncEnabled?: boolean;
   }): void {
     subscriptions.set(input.subscriptionId, {
@@ -242,32 +237,6 @@ export function createAgentUpdatesService(deps: AgentUpdatesServiceDeps): AgentU
 
   function hasSubscription(): boolean {
     return subscriptions.size > 0;
-  }
-
-  async function includesLiveAgent(
-    agent: ManagedAgent,
-    subscriptionIds?: ReadonlySet<string>,
-  ): Promise<boolean> {
-    const observers = [...subscriptions.values()].filter(
-      (sub) => !subscriptionIds || subscriptionIds.has(sub.subscriptionId),
-    );
-    if (observers.length === 0) return false;
-    const payload = await deps.enrichAgentPayload(toAgentPayload(agent));
-    const project = payload.workspaceId
-      ? await deps.buildProjectPlacementForWorkspaceId(payload.workspaceId)
-      : null;
-    const backgroundVisible = await Promise.all(
-      observers.map((sub) => deps.includesWorkspace?.(payload, sub.backgroundVisibility) ?? true),
-    );
-    return (
-      project !== null &&
-      observers.some(
-        (sub, index) =>
-          backgroundVisible[index] &&
-          sub.isProviderVisible(payload.provider) &&
-          matchesAgentUpdatesFilter({ agent: payload, project, filter: sub.filter }),
-      )
-    );
   }
 
   async function publishPayload(payload: AgentSnapshotPayload): Promise<void> {
@@ -360,7 +329,6 @@ export function createAgentUpdatesService(deps: AgentUpdatesServiceDeps): AgentU
     flushBootstrapped,
     clearSubscription,
     hasSubscription,
-    includesLiveAgent,
     forwardLiveAgent,
     emitStoredRecord,
     removeAgent,

@@ -251,20 +251,8 @@ interface WorkspaceFocusRestorationState {
 // Preserve four user-created split levels beneath that bookkeeping node.
 const MAX_TREE_DEPTH = 5;
 
-const LEGACY_EXPLORER_SIDEBAR_REFERENCE_WIDTH = 1440;
 const WORKSPACE_LAYOUT_PERSIST_VERSION = 2;
 type WorkspaceLayoutPersistedState = z.infer<typeof WorkspaceLayoutPersistedStateSchema>;
-
-function convertLegacyExplorerSidebarRatios(
-  ratiosByWorkspace: Record<string, number>,
-): Record<string, number> {
-  return Object.fromEntries(
-    Object.entries(ratiosByWorkspace).map(([workspaceKey, ratio]) => [
-      workspaceKey,
-      ratio * LEGACY_EXPLORER_SIDEBAR_REFERENCE_WIDTH,
-    ]),
-  );
-}
 
 function replacePaneInNode(node: SplitNode, paneId: string, replacement: SplitPane): SplitNode {
   if (node.kind === "pane") {
@@ -2472,13 +2460,7 @@ export function createWorkspaceLayoutStore(
               ]),
             ),
             splitSizesByWorkspace: result.data.splitSizesByWorkspace ?? {},
-            explorerSidebarWidthByWorkspace:
-              result.data.explorerSidebarWidthByWorkspace ??
-              convertLegacyExplorerSidebarRatios(
-                result.data.explorerSidebarRatioByWorkspace ??
-                  result.data.sidePanelRatioByWorkspace ??
-                  {},
-              ),
+            explorerSidebarWidthByWorkspace: result.data.explorerSidebarWidthByWorkspace ?? {},
             explorerSidebarPaneIdByWorkspace,
             sidePaneIdByWorkspace: result.data.sidePaneIdByWorkspace ?? {},
             pullRequestTabAutoOpenedByWorkspace:

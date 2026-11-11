@@ -75,7 +75,7 @@ export function resolveTurnPresentation(
 }
 
 function closeTurn(current: TurnLiveness, turnId: string | null): TurnLiveness {
-  // COMPAT(agentTurnIdentity): added in v0.2.6, remove after 2027-01-31 once daemon floor >= v0.2.6.
+  // Terminal turn events carry no turnId when the daemon had no active turn to attribute them to.
   const targetsDifferentIdentifiedTurn =
     current.phase === "open" &&
     turnId !== null &&
@@ -85,11 +85,8 @@ function closeTurn(current: TurnLiveness, turnId: string | null): TurnLiveness {
 }
 
 function openTurn(current: TurnLiveness, activeTurn: ActiveTurnIdentity): TurnLiveness {
-  // COMPAT(agentTurnIdentity): added in v0.2.6, remove after 2027-01-31 once daemon floor >= v0.2.6.
   const sameTurn =
-    current.phase === "open" &&
-    ((activeTurn.turnId !== null && current.turnId === activeTurn.turnId) ||
-      (activeTurn.turnId === null && current.turnId === null));
+    current.phase === "open" && activeTurn.turnId !== null && current.turnId === activeTurn.turnId;
   return {
     phase: "open",
     turnId: activeTurn.turnId,

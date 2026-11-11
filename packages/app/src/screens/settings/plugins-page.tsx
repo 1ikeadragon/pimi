@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useFetchQuery } from "@/data/query";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
-import { useHostFeature } from "@/runtime/host-features";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
 import { resolvePluginPageState } from "@/screens/settings/plugins-page-state";
@@ -54,14 +53,12 @@ function PluginActionsMenu({
   pendingAction,
   onAction,
   onOpenLogs,
-  supportsLogs,
 }: {
   plugin: PluginListItem;
   pending: boolean;
   pendingAction?: PluginRowAction;
   onAction(action: PluginRowAction, plugin: PluginListItem): void;
   onOpenLogs(plugin: PluginListItem): void;
-  supportsLogs: boolean;
 }) {
   const { t } = useTranslation();
   const reload = useCallback(() => onAction("reload", plugin), [onAction, plugin]);
@@ -82,11 +79,9 @@ function PluginActionsMenu({
         <MoreHorizontal size={18} color={styles.menuIcon.color} />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" width={220} sheetTitle={menuLabel}>
-        {supportsLogs ? (
-          <DropdownMenuItem onSelect={openLogs} disabled={pending}>
-            {t("settings.plugins.logs.action")}
-          </DropdownMenuItem>
-        ) : null}
+        <DropdownMenuItem onSelect={openLogs} disabled={pending}>
+          {t("settings.plugins.logs.action")}
+        </DropdownMenuItem>
         <DropdownMenuItem
           onSelect={reload}
           disabled={pending || !plugin.enabled}
@@ -118,7 +113,6 @@ function PluginRow({
   pendingAction,
   onAction,
   onOpenLogs,
-  supportsLogs,
 }: {
   plugin: PluginListItem;
   serverId: string;
@@ -127,7 +121,6 @@ function PluginRow({
   pendingAction?: PluginRowAction;
   onAction(action: PluginRowAction, plugin: PluginListItem): void;
   onOpenLogs(plugin: PluginListItem): void;
-  supportsLogs: boolean;
 }) {
   const { t } = useTranslation();
   const toggle = useCallback(
@@ -186,7 +179,6 @@ function PluginRow({
           pendingAction={pendingAction}
           onAction={onAction}
           onOpenLogs={onOpenLogs}
-          supportsLogs={supportsLogs}
         />
       </View>
     </SettingsRow>
@@ -271,11 +263,6 @@ export function HostPluginsPage({ serverId }: { serverId: string }) {
   const { t } = useTranslation();
   const client = useHostRuntimeClient(serverId);
   const connected = useHostRuntimeIsConnected(serverId);
-  const supported = useHostFeature(serverId, "pluginManagement");
-  // COMPAT(pluginSourceInstallation): added in v0.8.0; remove gate after 2027-03-16 once daemon floor supports source identifiers.
-  const sourceInstallSupported = useHostFeature(serverId, "pluginSourceInstallation");
-  // COMPAT(pluginLogs): added in v0.4.0, remove gate after 2027-08-16.
-  const logsSupported = useHostFeature(serverId, "pluginLogs");
   const { config, patchConfig } = useDaemonConfig(serverId);
   const refreshQueue = useRef(Promise.resolve());
   useInstalledPlugins();
@@ -313,7 +300,7 @@ export function HostPluginsPage({ serverId }: { serverId: string }) {
     return () => installForm.close();
   }, [installForm]);
   useEffect(() => {
-    if (!client || !connected || !supported) return;
+    if (!client || !connected) return;
     const observation = client.observeEvents(["status.plugin_catalog_changed"]);
     observation.subscribe({
       snapshot: () => {},
@@ -327,7 +314,7 @@ export function HostPluginsPage({ serverId }: { serverId: string }) {
         .release()
         .catch((error) => console.warn("[Plugins] Failed to release settings feed", error));
     };
-  }, [client, connected, supported, refresh]);
+  }, [client, connected, refresh]);
   const mutation = useMutation({
     mutationFn: async (operation: {
       action: string;
@@ -341,7 +328,7 @@ export function HostPluginsPage({ serverId }: { serverId: string }) {
     onError: (error) => setFeedback({ kind: "error", message: errorMessage(error) }),
   });
   const install = useCallback(() => {
-    if (!client || !sourceInstallSupported || !installState.canSubmit) return;
+    if (!client || !installState.canSubmit) return;
     const input = installForm.getSubmission();
     setFeedback(null);
     mutation.mutate({
@@ -352,7 +339,7 @@ export function HostPluginsPage({ serverId }: { serverId: string }) {
         return t("settings.plugins.feedback.installed", { name: pluginDisplayName(installed) });
       },
     });
-  }, [client, installForm, installState.canSubmit, mutation, sourceInstallSupported, t]);
+  }, [client, installForm, installState.canSubmit, mutation, t]);
   const action = useCallback(
     (name: PluginRowAction, plugin: PluginListItem) => {
       if (!client) return;
@@ -394,7 +381,6 @@ export function HostPluginsPage({ serverId }: { serverId: string }) {
   );
   const pageState = resolvePluginPageState({
     connected,
-    supported,
     loading: plugins.isLoading,
     error: plugins.isError,
     pluginCount: plugins.data?.length ?? 0,
@@ -413,9 +399,6 @@ export function HostPluginsPage({ serverId }: { serverId: string }) {
         description={t("settings.plugins.states.offlineDescription")}
       />
     );
-  }
-  if (pageState === "unsupported") {
-    return <Alert size="md" variant="warning" title={t("settings.plugins.states.updateTitle")} />;
   }
 
   let catalogContent = <Alert size="sm" title={t("settings.plugins.states.loading")} />;
@@ -449,7 +432,6 @@ export function HostPluginsPage({ serverId }: { serverId: string }) {
                 pendingAction={pending ? pluginRowAction(mutation.variables?.action) : undefined}
                 onAction={action}
                 onOpenLogs={setLogsPlugin}
-                supportsLogs={logsSupported}
               />
             );
           })
@@ -485,33 +467,25 @@ export function HostPluginsPage({ serverId }: { serverId: string }) {
             />
           </View>
         </View>
-        {sourceInstallSupported ? (
-          <View style={[settingsStyles.card, styles.install]}>
-            <Field label={t("settings.plugins.sourceLabel")} trailing={sourceDocsLink}>
-              <FormTextInput
-                initialValue=""
-                resetKey={installState.resetKey}
-                onChangeText={installForm.setSource}
-                placeholder={t("settings.plugins.sourcePlaceholder")}
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!mutation.isPending}
-                accessibilityLabel={t("settings.plugins.sourceLabel")}
-              />
-            </Field>
-            <Button onPress={install} disabled={!installState.canSubmit || mutation.isPending}>
-              {mutation.isPending && mutation.variables?.action === "install"
-                ? t("settings.plugins.installing")
-                : t("settings.plugins.install")}
-            </Button>
-          </View>
-        ) : (
-          <Alert
-            size="sm"
-            variant="warning"
-            title={t("settings.plugins.states.sourceUpdateTitle")}
-          />
-        )}
+        <View style={[settingsStyles.card, styles.install]}>
+          <Field label={t("settings.plugins.sourceLabel")} trailing={sourceDocsLink}>
+            <FormTextInput
+              initialValue=""
+              resetKey={installState.resetKey}
+              onChangeText={installForm.setSource}
+              placeholder={t("settings.plugins.sourcePlaceholder")}
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!mutation.isPending}
+              accessibilityLabel={t("settings.plugins.sourceLabel")}
+            />
+          </Field>
+          <Button onPress={install} disabled={!installState.canSubmit || mutation.isPending}>
+            {mutation.isPending && mutation.variables?.action === "install"
+              ? t("settings.plugins.installing")
+              : t("settings.plugins.install")}
+          </Button>
+        </View>
         {feedback ? (
           <Alert
             size="sm"

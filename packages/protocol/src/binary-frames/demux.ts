@@ -29,8 +29,7 @@ export function decodeBinaryFrame(bytes: Uint8Array): BinaryFrame | null {
     case TerminalStreamOpcode.Snapshot:
     case TerminalStreamOpcode.ReplayBegin:
     case TerminalStreamOpcode.ReplayData:
-    case TerminalStreamOpcode.ReplayEnd:
-    case TerminalStreamOpcode.Restore: {
+    case TerminalStreamOpcode.ReplayEnd: {
       const frame = decodeTerminalStreamFrame(bytes);
       return frame ? { kind: "terminal", frame } : null;
     }

@@ -26,7 +26,6 @@ interface NewWorkspaceProjectPickerInput {
   routeProject: HostProjectListItem | null;
   routeProjectContextViewKey: string | null;
   lastActiveProject: HostProjectListItem | null;
-  allowAllProjects: boolean;
   chooseProject?: boolean;
 }
 
@@ -88,13 +87,11 @@ export function useNewWorkspaceProjectPicker({
   routeProject,
   routeProjectContextViewKey,
   lastActiveProject,
-  allowAllProjects,
   chooseProject,
 }: NewWorkspaceProjectPickerInput): NewWorkspaceProjectPickerState {
   const selectableProjects = useMemo(
-    () =>
-      filterWorkspaceProjectsForHost({ projects, serverId: selectedServerId, allowAllProjects }),
-    [allowAllProjects, projects, selectedServerId],
+    () => filterWorkspaceProjectsForHost({ projects, serverId: selectedServerId }),
+    [projects, selectedServerId],
   );
   const initialProject = useMemo(
     () =>
@@ -105,22 +102,13 @@ export function useNewWorkspaceProjectPicker({
             lastActiveProject,
             projects: selectableProjects,
             serverId: selectedServerId,
-            allowAllProjects,
           }),
-    [
-      allowAllProjects,
-      chooseProject,
-      lastActiveProject,
-      routeProject,
-      selectableProjects,
-      selectedServerId,
-    ],
+    [chooseProject, lastActiveProject, routeProject, selectableProjects, selectedServerId],
   );
 
   const selectionContextKey = createProjectSelectionContextKey({
     selectedServerId,
     routeProjectViewKey: routeProjectContextViewKey,
-    allowAllProjects,
   });
   const manualSelectionContextKey = createManualProjectSelectionContextKey({
     routeProjectViewKey: routeProjectContextViewKey,
@@ -178,11 +166,6 @@ export function useNewWorkspaceProjectPicker({
     (id: string) => {
       const project = projectByOptionId.get(id);
       if (!project) return;
-      if (
-        !allowAllProjects &&
-        !project.hosts.some((host) => host.worktreeSupport !== "unsupported")
-      )
-        return;
       setProjectSelection({
         contextKey: manualSelectionContextKey,
         project,
@@ -190,7 +173,7 @@ export function useNewWorkspaceProjectPicker({
         source: "manual",
       });
     },
-    [allowAllProjects, manualSelectionContextKey, projectByOptionId],
+    [manualSelectionContextKey, projectByOptionId],
   );
 
   return {

@@ -50,7 +50,6 @@ export const TurnFooter = memo(function TurnFooter({
   inFlightTurnStartedAt,
   host,
   strategy,
-  supportsTimelineCursor,
   onForkAssistantTurn,
   onForkInFlightTurn,
 }: {
@@ -58,7 +57,6 @@ export const TurnFooter = memo(function TurnFooter({
   inFlightTurnStartedAt: Date | null;
   host: TurnFooterHost | null;
   strategy: TurnContentStrategy;
-  supportsTimelineCursor: boolean;
   onForkAssistantTurn?: AssistantTurnForkHandler;
   onForkInFlightTurn?: InFlightTurnForkHandler;
 }) {
@@ -81,7 +79,6 @@ export const TurnFooter = memo(function TurnFooter({
       items={host.items}
       timing={host.timing}
       startIndex={host.startIndex}
-      supportsTimelineCursor={supportsTimelineCursor}
       onForkAssistantTurn={onForkAssistantTurn}
     />
   );
@@ -92,14 +89,12 @@ export const CompletedTurnFooterRow = memo(function CompletedTurnFooterRow({
   items,
   timing,
   startIndex,
-  supportsTimelineCursor,
   onForkAssistantTurn,
 }: {
   strategy: TurnContentStrategy;
   items: StreamItem[];
   timing?: TurnTiming;
   startIndex: number;
-  supportsTimelineCursor: boolean;
   onForkAssistantTurn?: AssistantTurnForkHandler;
 }) {
   return (
@@ -109,7 +104,6 @@ export const CompletedTurnFooterRow = memo(function CompletedTurnFooterRow({
         items={items}
         timing={timing}
         startIndex={startIndex}
-        supportsTimelineCursor={supportsTimelineCursor}
         onForkAssistantTurn={onForkAssistantTurn}
       />
     </TurnFooterRow>
@@ -165,14 +159,12 @@ function CompletedTurnFooter({
   items,
   timing,
   startIndex,
-  supportsTimelineCursor,
   onForkAssistantTurn,
 }: {
   strategy: TurnContentStrategy;
   items: StreamItem[];
   timing?: TurnTiming;
   startIndex: number;
-  supportsTimelineCursor: boolean;
   onForkAssistantTurn?: AssistantTurnForkHandler;
 }) {
   const getContent = useCallback(
@@ -187,7 +179,6 @@ function CompletedTurnFooter({
   const boundary = resolveAssistantTurnForkBoundary({
     items,
     startIndex,
-    supportsTimelineCursor,
   });
   const handleFork = useCallback(
     (target: AssistantForkTarget) => {

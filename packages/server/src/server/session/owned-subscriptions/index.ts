@@ -5,7 +5,6 @@ import type { SessionInboundMessage, SessionOutboundMessage } from "../../messag
 
 interface Source {
   socket: object;
-  modern: boolean;
   active: boolean;
   handshakePending: boolean;
   cancellation: AbortController;
@@ -33,8 +32,6 @@ interface RetainedOwner extends DeliveryOwner {
 interface SubscriptionOwner extends RetainedOwner {
   id: string;
   family: string;
-  legacySlot: string;
-  responseId: string;
 }
 
 export interface OwnedOperation {
@@ -46,7 +43,6 @@ export interface OwnedOperation {
 
 export interface OwnedSubscription {
   readonly id: string;
-  readonly responseId: string;
   readonly source: object;
   readonly signal: AbortSignal;
   emit(message: SessionOutboundMessage): void;
@@ -82,27 +78,17 @@ export class SessionDelivery {
       source: object,
       frame: Uint8Array,
     ) => void | Promise<void> = () => {},
-    private readonly project: (
-      source: object,
-      message: SessionOutboundMessage,
-    ) => SessionOutboundMessage = (_source, message) => message,
     private readonly unexpectedReply: (
       request: SessionInboundMessage,
       message: SessionOutboundMessage,
     ) => void = () => {},
   ) {}
 
-  attach(socket: object, modern: boolean): void {
+  attach(socket: object): void {
     if (this.closing) throw new Error("Session delivery is closed");
-    const existing = this.sources.get(socket);
-    if (existing) {
-      if (existing.modern !== modern)
-        throw new Error("Cannot renegotiate subscription ownership on an active source");
-      return;
-    }
+    if (this.sources.has(socket)) return;
     this.sources.set(socket, {
       socket,
-      modern,
       active: true,
       handshakePending: true,
       cancellation: new AbortController(),
@@ -131,10 +117,6 @@ export class SessionDelivery {
   forSource<T>(source: object, project: () => T): T {
     if (this.closing) throw new Error("Session delivery is closed");
     return projectionSource.run({ scope: this.scope, source }, project);
-  }
-
-  hasLegacySources(): boolean {
-    return [...this.sources.values()].some((source) => source.active && !source.modern);
   }
 
   hasDemand(family: string): boolean {
@@ -173,10 +155,6 @@ export class SessionDelivery {
     );
   }
 
-  isModern(socket: object | undefined): boolean {
-    return socket ? this.sources.get(socket)?.modern === true : false;
-  }
-
   async detach(socket: object): Promise<void> {
     const source = this.sources.get(socket);
     if (!source) return;
@@ -210,7 +188,7 @@ export class SessionDelivery {
   ): Promise<void> {
     if (this.closing) throw new Error("Session delivery is closed");
     socket ??= this.defaultSource;
-    if (!this.sources.has(socket)) this.attach(socket, false);
+    if (!this.sources.has(socket)) this.attach(socket);
     const source = this.sources.get(socket)!;
     const owner: RequestOwner = { scope: this.scope, source, request, active: true };
     try {
@@ -244,7 +222,6 @@ export class SessionDelivery {
   }
 
   authorizeReply(message: SessionOutboundMessage, socket: object): SessionOutboundMessage {
-    message = this.project(socket, message);
     const owner = this.currentRequest;
     if (
       owner?.active &&
@@ -271,41 +248,23 @@ export class SessionDelivery {
       return false;
     }
     if (owner.active && owner.source.active) {
-      const reply = owner.source.modern ? message : legacyMessage(message);
-      this.sendOwned(owner, reply);
+      this.sendOwned(owner, message);
     }
     return true;
   }
 
-  begin(
-    family: string,
-    requestedId: string | undefined,
-    stop: (id: string) => void | Promise<void>,
-    legacySlot = family,
-  ): OwnedSubscription {
+  begin(family: string, stop: (id: string) => void | Promise<void>): OwnedSubscription {
     const request = this.currentRequest;
     if (!request?.active || !request.source.active)
       throw new Error("Subscription source is closed");
     const source = request.source;
-    if (source.modern && (!("requestId" in request.request) || !request.request.requestId))
+    if (!("requestId" in request.request) || !request.request.requestId)
       throw new Error("Owned subscriptions require a requestId");
-    if (source.modern && requestedId !== undefined)
-      throw new Error("Subscription IDs are assigned by the host");
-    // COMPAT(ownedSubscriptions): added in v0.8.0, remove after 2027-03-09 once client floor >= v0.8.0.
-    if (!source.modern) {
-      for (const prior of source.subscriptions.values()) {
-        // Keep failed teardown registered so disconnect/close can report it.
-        if (prior.legacySlot === legacySlot) void this.releaseOwner(prior).catch(() => {});
-      }
-    }
     const id = randomUUID();
-    const responseId = source.modern ? id : requestedId?.trim() || id;
     const owner: SubscriptionOwner = {
       id,
-      responseId,
       source,
       family,
-      legacySlot,
       active: true,
       cancellation: new AbortController(),
       stop: () => stop(id),
@@ -316,18 +275,11 @@ export class SessionDelivery {
     source.subscriptions.set(id, owner);
     return {
       id,
-      responseId,
       source: source.socket,
       signal: owner.cancellation.signal,
       emit: (message) => {
         if (!owner.active || !source.active) return;
-        const tagged =
-          source.modern ||
-          message.type === "fs.file.update" ||
-          message.type === "checkout_diff_update"
-            ? withSubscriptionId(message, responseId)
-            : legacyMessage(message);
-        this.sendOwned(owner, tagged);
+        this.sendOwned(owner, withSubscriptionId(message, id));
       },
       emitBinary: (frame) => {
         if (!owner.active || !source.active) return;
@@ -336,9 +288,9 @@ export class SessionDelivery {
       },
       emitAndWait: async (message) => {
         if (!owner.active || !source.active) throw new Error("Subscription source is closed");
-        const projected = this.project(source.socket, withSubscriptionId(message, responseId));
-        this.proofs.set(projected, owner);
-        await this.send(source.socket, projected);
+        const tagged = withSubscriptionId(message, id);
+        this.proofs.set(tagged, owner);
+        await this.send(source.socket, tagged);
       },
       emitBinaryAndWait: async (frame) => {
         if (!owner.active || !source.active) throw new Error("Subscription source is closed");
@@ -380,22 +332,7 @@ export class SessionDelivery {
 
   async release(id: string): Promise<void> {
     const source = this.currentRequest?.source;
-    const owner =
-      source?.subscriptions.get(id) ??
-      (source && !source.modern
-        ? [...source.subscriptions.values()].find((candidate) => candidate.responseId === id)
-        : undefined);
-    if (owner) await this.releaseOwner(owner);
-  }
-
-  async releaseLegacySlot(slot: string): Promise<void> {
-    const source = this.currentRequest?.source;
-    if (!source) return;
-    if (source.modern)
-      throw new Error("Release subscriptions using the server-assigned subscription ID");
-    const owner = [...source.subscriptions.values()].find(
-      (candidate) => candidate.legacySlot === slot,
-    );
+    const owner = source?.subscriptions.get(id);
     if (owner) await this.releaseOwner(owner);
   }
 
@@ -413,8 +350,6 @@ export class SessionDelivery {
   permitsBinary(socket: object, frame: Uint8Array): boolean {
     const source = this.sources.get(socket);
     if (!source?.active) return false;
-    // COMPAT(ownedSubscriptions): added in v0.8.0, remove after 2027-03-09 once client floor >= v0.8.0.
-    if (!source.modern) return true;
     const owner = this.proofs.get(frame);
     return owner?.active === true && owner.source === source;
   }
@@ -422,8 +357,6 @@ export class SessionDelivery {
   permits(socket: object, message: SessionOutboundMessage): boolean {
     const source = this.sources.get(socket);
     if (!source?.active) return false;
-    // COMPAT(ownedSubscriptions): added in v0.8.0, remove after 2027-03-09 once client floor >= v0.8.0.
-    if (!source.modern) return true;
     if (
       message.type === "status" &&
       message.payload.status === "server_info" &&
@@ -437,9 +370,8 @@ export class SessionDelivery {
   }
 
   private sendOwned(owner: DeliveryOwner, message: SessionOutboundMessage): void {
-    const projected = this.project(owner.source.socket, message);
-    this.proofs.set(projected, owner);
-    void Promise.resolve(this.send(owner.source.socket, projected)).catch(() => {});
+    this.proofs.set(message, owner);
+    void Promise.resolve(this.send(owner.source.socket, message)).catch(() => {});
   }
 
   private releaseOwner(owner: RetainedOwner): Promise<void> {
@@ -472,22 +404,4 @@ function withSubscriptionId<T extends SessionOutboundMessage>(
   return "payload" in message
     ? { ...message, payload: { ...message.payload, subscriptionId } }
     : { ...message, subscriptionId };
-}
-
-// COMPAT(ownedSubscriptions): added in v0.8.0, remove after 2027-03-09 once client floor >= v0.8.0.
-function legacyMessage(message: SessionOutboundMessage): SessionOutboundMessage {
-  if (message.type === "terminals_changed") {
-    const { workspaceId: _workspaceId, ...payload } = message.payload;
-    return { ...message, payload };
-  }
-  if (
-    message.type !== "subscribe_terminal_response" &&
-    message.type !== "session.events.set_subscription.response" &&
-    message.type !== "agent.timeline.set_subscription.response" &&
-    message.type !== "workspace.label.list.response"
-  )
-    return message;
-  if (!("subscriptionId" in message.payload)) return message;
-  const { subscriptionId: _subscriptionId, ...payload } = message.payload;
-  return { ...message, payload } as SessionOutboundMessage;
 }

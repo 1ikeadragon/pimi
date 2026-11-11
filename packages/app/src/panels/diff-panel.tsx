@@ -154,7 +154,7 @@ function CommitDiffPanel() {
   const cwd = useWorkspaceDirectory(serverId, workspaceId);
   const panelPreferences = useDiffPanelPreferences();
   invariant(target.kind === "commit_diff", "CommitDiffPanel requires commit_diff target");
-  const { files, isLoading, error, capabilityMissing } = useCommitDiffFiles({
+  const { files, isLoading, error } = useCommitDiffFiles({
     serverId,
     cwd: cwd ?? "",
     sha: target.sha,
@@ -165,13 +165,6 @@ function CommitDiffPanel() {
   let body: ReactNode;
   if (!cwd) {
     body = <PanelState message={t("panels.diff.directoryMissing")} />;
-  } else if (capabilityMissing) {
-    body = (
-      <PanelState
-        message={t("panels.diff.capabilityMissing")}
-        testID="commit-diff-capability-missing"
-      />
-    );
   } else if (error) {
     body = (
       <PanelState message={t("panels.diff.loadError")} tone="error" testID="commit-diff-error" />

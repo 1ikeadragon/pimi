@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { filterWorkspaceProjectsForHost, type HostProjectListItem } from "@/projects/host-projects";
+import type { HostProjectListItem } from "@/projects/host-projects";
 import {
-  createManualProjectSelectionContextKey,
-  createProjectSelectionContextKey,
   createProjectSelection,
   reconcileProjectSelection,
   resolveInitialProjectSelectionSource,
@@ -457,40 +455,6 @@ describe("reconcileProjectSelection", () => {
     expect(resolveProjectSelection(preservedOrigin, archiveGap)).toBe(selected);
   });
 
-  it("falls back when the only equivalent project is not selectable", () => {
-    const selected = project("shared", "host-a");
-    const unselectableEquivalent = {
-      ...project("shared", "host-b"),
-      hosts: [
-        {
-          serverId: "host-b",
-          projectId: "shared",
-          iconWorkingDir: "/work/shared",
-          worktreeSupport: "unsupported" as const,
-        },
-      ],
-    };
-    const fallback = project("fallback", "host-b");
-    const current: ProjectSelection = {
-      contextKey: "",
-      project: selected,
-      originProject: selected,
-      source: "manual",
-    };
-    const selectableProjects = filterWorkspaceProjectsForHost({
-      projects: [unselectableEquivalent, fallback],
-      serverId: "host-b",
-      allowAllProjects: false,
-    });
-    const selectableContext = context({
-      selectedServerId: "host-b",
-      initialProject: fallback,
-      projects: selectableProjects,
-    });
-
-    expect(reconcileProjectSelection(current, selectableContext).project).toBe(fallback);
-  });
-
   it("does not equate projects without a persisted project key", () => {
     const selected = { ...project("selected", "host-a"), projectKey: null };
     const sameName = {
@@ -527,68 +491,6 @@ describe("reconcileProjectSelection", () => {
 
     expect(resolveProjectSelection(current, currentContext)).toEqual(selected);
     expect(reconcileProjectSelection(current, currentContext)).toEqual(current);
-  });
-
-  it("resets fallback selection when host project capability changes", () => {
-    const fallback = project("git-fallback");
-    const remembered = project("remembered-directory");
-    const current = createProjectSelection(
-      context({
-        contextKey: createProjectSelectionContextKey({
-          selectedServerId: "host",
-          routeProjectViewKey: null,
-          allowAllProjects: false,
-        }),
-        initialProject: fallback,
-        projects: [fallback, remembered],
-      }),
-    );
-    const afterCapabilityHydration = context({
-      contextKey: createProjectSelectionContextKey({
-        selectedServerId: "host",
-        routeProjectViewKey: null,
-        allowAllProjects: true,
-      }),
-      initialProject: remembered,
-      projects: [fallback, remembered],
-    });
-
-    expect(reconcileProjectSelection(current, afterCapabilityHydration)).toEqual({
-      contextKey: "host:all-projects:",
-      project: remembered,
-      source: "initial",
-    });
-  });
-
-  it("keeps a still-selectable manual selection when host project capability changes", () => {
-    const fallback = project("git-fallback");
-    const manual = project("manual-choice");
-    const remembered = project("remembered-directory");
-    const current: ProjectSelection = {
-      contextKey: createManualProjectSelectionContextKey({
-        routeProjectViewKey: null,
-      }),
-      project: manual,
-      originProject: manual,
-      source: "manual",
-    };
-    const afterCapabilityHydration = context({
-      contextKey: createProjectSelectionContextKey({
-        selectedServerId: "host",
-        routeProjectViewKey: null,
-        allowAllProjects: true,
-      }),
-      manualContextKey: createManualProjectSelectionContextKey({
-        routeProjectViewKey: null,
-      }),
-      initialProject: remembered,
-      projects: [fallback, manual, remembered],
-    });
-
-    const reconciled = reconcileProjectSelection(current, afterCapabilityHydration);
-
-    expect(reconciled).toEqual(current);
-    expect(resolveProjectSelection(reconciled, afterCapabilityHydration)).toEqual(manual);
   });
 
   it("keeps the selected project snapshot during a pending archive gap", () => {

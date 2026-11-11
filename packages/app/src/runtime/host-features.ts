@@ -1,5 +1,3 @@
-import { useMemo } from "react";
-import { useShallow } from "zustand/shallow";
 import type { DaemonServerInfo } from "@/stores/session-store";
 import { useSessionStore } from "@/stores/session-store";
 
@@ -36,37 +34,4 @@ export function useHostFeature(
 ): boolean {
   const normalizedServerId = serverId?.trim() ?? "";
   return useSessionStore((state) => selectHostFeature(state, normalizedServerId, feature));
-}
-
-export function useHostFeatureMap(
-  serverIds: readonly string[],
-  feature: HostFeatureName,
-): ReadonlyMap<string, boolean> {
-  const flags = useSessionStore(
-    useShallow((state) => serverIds.map((serverId) => selectHostFeature(state, serverId, feature))),
-  );
-
-  return useMemo(
-    () => new Map(serverIds.map((serverId, index) => [serverId, flags[index] === true] as const)),
-    [flags, serverIds],
-  );
-}
-
-export function useHostFeatureAvailabilityMap(
-  serverIds: readonly string[],
-  feature: HostFeatureName,
-): ReadonlyMap<string, boolean | null> {
-  const flags = useSessionStore(
-    useShallow((state) =>
-      serverIds.map((serverId) => {
-        const serverInfo = state.sessions[serverId]?.serverInfo;
-        return serverInfo ? hostSupportsFeature(serverInfo, feature) : null;
-      }),
-    ),
-  );
-
-  return useMemo(
-    () => new Map(serverIds.map((serverId, index) => [serverId, flags[index]] as const)),
-    [flags, serverIds],
-  );
 }

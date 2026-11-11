@@ -295,7 +295,6 @@ export type ToolCallDetail =
       type: "worktree_setup";
       worktreePath: string;
       branchName: string;
-      log: string;
       commands: Array<{
         index: number;
         command: string;
@@ -312,15 +311,6 @@ export type ToolCallDetail =
       subAgentType?: string;
       description?: string;
       childSessionId?: string;
-      // COMPAT(subagent-log): added in v0.14.1, remove after 2027-04-30. Apps before v0.14.1
-      // require `log`; every producer sends it empty and carries the same tag. Optional here because
-      // protocol timeline items, where `log` is optional, flow into this type.
-      log?: string;
-      actions?: Array<{
-        index: number;
-        toolName: string;
-        summary?: string;
-      }>;
     }
   | {
       type: "plain_text";

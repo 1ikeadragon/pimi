@@ -48,9 +48,7 @@ function readWindowChromeMode(): DesktopWindowChromeMode {
   if (value === "native-mac" || value === "custom-windows" || value === "custom-linux") {
     return value;
   }
-  // COMPAT(windowChromeMode): added in v0.5.3; remove after 2026-11-25.
-  if (process.platform === "darwin") return "native-mac";
-  return process.platform === "linux" ? "custom-linux" : "custom-windows";
+  throw new Error("The desktop main process did not pass a window chrome mode.");
 }
 
 interface AttachedBrowserRegistration {

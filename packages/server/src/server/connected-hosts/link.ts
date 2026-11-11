@@ -103,7 +103,7 @@ export class DaemonLinkEndpoint {
         return;
       }
       let socket: VirtualHostSocket;
-      const owner = this.parent.delivery.begin("host-link", undefined, () => {
+      const owner = this.parent.delivery.begin("host-link", () => {
         this.channels.delete(owner.id);
         socket?.close();
       });

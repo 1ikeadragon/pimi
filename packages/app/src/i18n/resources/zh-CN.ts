@@ -305,7 +305,6 @@ export const zhCN: TranslationResources = {
     title: "历史",
     empty: "还没有会话",
     noMatches: "没有匹配的会话",
-    tooManyMatches: "匹配过多 — 请缩小搜索范围",
     hostLoadFailed: "{{host}}：无法加载历史",
     searchPlaceholder: "搜索历史",
     actions: {
@@ -370,7 +369,6 @@ export const zhCN: TranslationResources = {
       forkInNewWorkspace: "分叉到新工作区",
       forkWithProvider: "使用其他提供方创建分支",
       forkNoOtherProviders: "此主机上没有其他可用的提供方。",
-      forkUnavailable: "请更新主机以使用此功能。",
       forkMissingWorkspace: "此 Agent 不在工作区中。",
       forkFailed: "分叉聊天失败",
       openFile: "打开文件",
@@ -466,7 +464,6 @@ export const zhCN: TranslationResources = {
     },
     status: {
       connectHost: "连接到 Host 以导入会话",
-      updateHost: "更新 Host 以导入会话。",
       noProviders: "没有已启用的可导入 Provider。",
       loading: "正在加载最近会话...",
       failedProvider: "无法加载 {{provider}} 的会话",
@@ -498,7 +495,6 @@ export const zhCN: TranslationResources = {
       hostOffline: "{{hostName}} 已离线",
       cannotReachHost: "无法连接 {{hostName}}",
       hostStatus: "Host 状态：{{status}}",
-      needsHostUpgrade: "更新你的 Host 以恢复此 workspace",
       manageHost: "管理 Host",
       recovery: {
         archivedTitle: "Workspace 已归档",
@@ -593,7 +589,6 @@ export const zhCN: TranslationResources = {
       },
     },
     setup: {
-      updateHost: "更新主机以查看工作区设置详情",
       descriptor: {
         label: "Setup",
         completed: "Setup 已完成",
@@ -668,8 +663,6 @@ export const zhCN: TranslationResources = {
     },
     terminal: {
       hostDisconnected: "Host 未连接",
-      updateHost: "请更新主机以使用原生终端渲染器。",
-      restoreRequiresUpdate: "更新主机以查看终端。",
       unableToSubscribe: "无法订阅 Terminal",
       fileUploaded: "文件已上传",
       pasteFileFailed: "无法粘贴文件：{{reason}}",
@@ -1159,7 +1152,6 @@ export const zhCN: TranslationResources = {
     createConfirm: "创建",
     creating: "创建中…",
     name: "标签名称",
-    updateHostUse: "请更新此主机以使用标签。",
     errors: { update: "无法更新标签", load: "无法加载标签" },
     colors: {
       violet: "紫色",
@@ -1191,7 +1183,6 @@ export const zhCN: TranslationResources = {
       deleteMessage_one: "这会从此主机的{{count}}个工作区中移除该标签。",
       deleteMessage_other: "这会从此主机的{{count}}个工作区中移除该标签。",
       offline: "此主机离线。",
-      updateHost: "请更新此主机以管理标签。",
     },
   },
   changelog: {
@@ -1222,7 +1213,6 @@ export const zhCN: TranslationResources = {
         created: "创建时间",
         manual: "手动",
         lastPrompt: "最近提示词",
-        updateHost: "请更新主机以排序工作区",
       },
       grouping: {
         label: "分组",
@@ -1327,7 +1317,6 @@ export const zhCN: TranslationResources = {
       toasts: {
         hostDisconnected: "Host 未连接",
         removeFailed: "部分 workspace 移除失败",
-        updateHostToRemove: "更新 host 以移除 projects。",
       },
       empty: {
         title: "还没有 projects",
@@ -1976,7 +1965,6 @@ export const zhCN: TranslationResources = {
         "不使用中继时，请通过 TCP、Tailscale 或其他 VPN 直接连接。不会生成二维码。",
       tailscaleDocs: "设置 Tailscale",
       tailscaleDocsAccessibility: "了解如何通过 Tailscale 连接",
-      updateRequired: "请更新主机，以便从 Pimi Desktop 启用中继。",
       unavailable: "配对 offer 不可用。",
       hint: "用手机上的 Pimi 扫描此二维码，或复制下方链接。",
       securityWarning: "请像保管密码一样保管此配对链接。任何获得此链接的人都可以访问此守护进程。",
@@ -2124,7 +2112,6 @@ export const zhCN: TranslationResources = {
       directoryMissing: "未找到 workspace 目录。",
       empty: "没有更改",
       loadError: "加载差异失败",
-      capabilityMissing: "请更新主机以查看提交差异。",
     },
   },
   toolCallDetails: {
@@ -2378,7 +2365,6 @@ export const zhCN: TranslationResources = {
     },
     voice: {
       offline: "连接到此主机以配置语音。",
-      updateHost: "请更新主机以配置语音。",
       saveError: "无法更新语音设置",
       provider: "提供方",
       providers: {
@@ -2918,7 +2904,6 @@ export const zhCN: TranslationResources = {
       agentProfiles: {
         sectionTitle: "Agent 配置",
         unavailable: "连接到这个 Host 以管理 Agent 配置",
-        unsupported: "此 Host 运行的 Daemon 尚不支持 Agent 配置",
         emptyState: "还没有配置。添加一个以便使用保存的 Provider 和 Model 启动 Agent。",
         addProfileTitle: "添加 Agent 配置",
         newProfile: "新建配置",

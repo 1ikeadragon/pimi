@@ -50,34 +50,19 @@ interface EncryptedChannelOptions {
    * the daemon should re-send `{type:"e2ee_ready"}` without changing keys.
    */
   daemonKeyPair?: KeyPair;
-  binaryCiphertext?: boolean;
 }
 
 interface E2EEHelloMessage {
   type: "e2ee_hello";
   key: string;
-  capabilities?: E2EECapabilities;
 }
 
 interface E2EEReadyMessage {
   type: "e2ee_ready";
-  capabilities?: E2EECapabilities;
-}
-
-interface E2EECapabilities {
-  binaryCiphertext?: boolean;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isE2EECapabilities(value: unknown): value is E2EECapabilities {
-  return (
-    value === undefined ||
-    (isRecord(value) &&
-      (value.binaryCiphertext === undefined || typeof value.binaryCiphertext === "boolean"))
-  );
 }
 
 function isE2EEHelloMessage(value: unknown): value is E2EEHelloMessage {
@@ -85,17 +70,12 @@ function isE2EEHelloMessage(value: unknown): value is E2EEHelloMessage {
     isRecord(value) &&
     value.type === "e2ee_hello" &&
     typeof value.key === "string" &&
-    value.key.trim().length > 0 &&
-    isE2EECapabilities(value.capabilities)
+    value.key.trim().length > 0
   );
 }
 
 function isE2EEReadyMessage(value: unknown): value is E2EEReadyMessage {
-  return isRecord(value) && value.type === "e2ee_ready" && isE2EECapabilities(value.capabilities);
-}
-
-function supportsBinaryCiphertext(message: E2EEHelloMessage | E2EEReadyMessage): boolean {
-  return message.capabilities?.binaryCiphertext === true;
+  return isRecord(value) && value.type === "e2ee_ready";
 }
 
 function buildInvalidHelloError(rawText: string, parsed?: unknown): Error {
@@ -167,7 +147,6 @@ export async function createClientChannel(
   const hello: E2EEHelloMessage = {
     type: "e2ee_hello",
     key: ourPublicKeyB64,
-    capabilities: { binaryCiphertext: true },
   };
   const helloText = JSON.stringify(hello);
 
@@ -274,19 +253,10 @@ export async function createDaemonChannel(
         const clientPublicKey = importPublicKey(msg.key);
         const sharedKey = deriveSharedKey(daemonKeyPair.secretKey, clientPublicKey);
 
-        const binaryCiphertext = supportsBinaryCiphertext(msg);
-        await transport.send(
-          JSON.stringify({
-            type: "e2ee_ready",
-            ...(binaryCiphertext
-              ? { capabilities: { binaryCiphertext: true } satisfies E2EECapabilities }
-              : {}),
-          } satisfies E2EEReadyMessage),
-        );
+        await transport.send(JSON.stringify({ type: "e2ee_ready" } satisfies E2EEReadyMessage));
 
         const channel = new EncryptedChannel(transport, sharedKey, events, {
           daemonKeyPair,
-          binaryCiphertext,
         });
         channel.setState("open");
         events.onopen?.();
@@ -362,7 +332,6 @@ export class EncryptedChannel {
         const text = decodeTransportText(message.data);
         const parsed: unknown = JSON.parse(text);
         if (isE2EEReadyMessage(parsed)) {
-          this.options.binaryCiphertext = supportsBinaryCiphertext(parsed);
           this.state = "open";
           this.events.onopen?.();
           for (const cb of this.onOpenCallbacks) cb();
@@ -416,28 +385,12 @@ export class EncryptedChannel {
           // decoding ciphertext below.
         }
 
-        if (this.options.binaryCiphertext) {
-          return message.isBinary
-            ? { data: requireArrayBuffer(message.data), isBinary: true as const }
-            : {
-                data: base64ToArrayBuffer(decodeTransportText(message.data)),
-                isBinary: false as const,
-              };
-        }
-
-        // COMPAT(binaryCiphertext): added in v0.2.3, remove legacy base64-only
-        // receive mode after 2027-01-27.
-        if (!message.isBinary) {
-          return { data: base64ToArrayBuffer(decodeTransportText(message.data)), isBinary: null };
-        }
-
-        // Older transport adapters could lose the opcode. Retain the former
-        // base64-first behavior only in the legacy path.
-        try {
-          return { data: base64ToArrayBuffer(decodeTransportText(message.data)), isBinary: null };
-        } catch {
-          return { data: requireArrayBuffer(message.data), isBinary: null };
-        }
+        return message.isBinary
+          ? { data: requireArrayBuffer(message.data), isBinary: true as const }
+          : {
+              data: base64ToArrayBuffer(decodeTransportText(message.data)),
+              isBinary: false as const,
+            };
       })();
 
       if (ciphertext) {
@@ -473,19 +426,17 @@ export class EncryptedChannel {
     }
 
     const ciphertext = encrypt(this.sharedKey, data);
-    if (this.options.binaryCiphertext && data instanceof ArrayBuffer) {
+    if (data instanceof ArrayBuffer) {
       await this.transport.send(ciphertext);
       return;
     }
-    // COMPAT(binaryCiphertext): added in v0.2.3, remove base64 binary sends
-    // after 2027-01-27 once the supported peer floor includes negotiation.
     await this.transport.send(arrayBufferToBase64(ciphertext));
   }
 
   outboundWireByteLength(data: string | ArrayBuffer): number {
     const plaintextBytes = utf8ByteLength(data);
     const encryptedBytes = plaintextBytes + ENCRYPTED_PAYLOAD_OVERHEAD_BYTES;
-    if (this.options.binaryCiphertext && data instanceof ArrayBuffer) {
+    if (data instanceof ArrayBuffer) {
       return encryptedBytes;
     }
     return base64EncryptedWireByteLength(plaintextBytes);
@@ -509,14 +460,7 @@ export class EncryptedChannel {
   }
 
   private async sendReadyForRetry(): Promise<void> {
-    await this.transport.send(
-      JSON.stringify({
-        type: "e2ee_ready",
-        ...(this.options.binaryCiphertext
-          ? { capabilities: { binaryCiphertext: true } satisfies E2EECapabilities }
-          : {}),
-      } satisfies E2EEReadyMessage),
-    );
+    await this.transport.send(JSON.stringify({ type: "e2ee_ready" } satisfies E2EEReadyMessage));
   }
 
   private rejectKeyRotation(): void {
@@ -551,18 +495,8 @@ function requireArrayBuffer(data: string | ArrayBuffer): ArrayBuffer {
   throw new Error("Binary WebSocket frame did not contain bytes");
 }
 
-function decodeLegacyPlaintext(data: ArrayBuffer): string | ArrayBuffer {
-  try {
-    return new TextDecoder("utf-8", { fatal: true }).decode(data);
-  } catch {
-    return data;
-  }
-}
-
-function decodePlaintext(data: ArrayBuffer, isBinary: boolean | null): string | ArrayBuffer {
-  if (isBinary === true) return data;
-  if (isBinary === false) return new TextDecoder("utf-8", { fatal: true }).decode(data);
-  return decodeLegacyPlaintext(data);
+function decodePlaintext(data: ArrayBuffer, isBinary: boolean): string | ArrayBuffer {
+  return isBinary ? data : new TextDecoder("utf-8", { fatal: true }).decode(data);
 }
 
 function utf8ByteLength(data: string | ArrayBuffer): number {

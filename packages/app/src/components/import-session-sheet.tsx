@@ -19,7 +19,6 @@ import { useTimeAgo } from "@/hooks/use-time-ago";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useProvidersSnapshot } from "@/hooks/use-providers-snapshot";
 import { useHostProjects } from "@/projects/host-projects";
-import { useHostFeature } from "@/runtime/host-features";
 import { useHosts } from "@/runtime/host-runtime";
 import { i18n } from "@/i18n/i18next";
 import {
@@ -39,7 +38,6 @@ import {
   type ProviderErrorRow,
   resolveImportTarget,
   resolveProvidersToFetch,
-  requiresImportSessionsHostUpgrade,
   sumFilteredAlreadyImportedCount,
 } from "@/components/import-session-sheet-view-model";
 
@@ -133,7 +131,6 @@ function buildSessionsQueriesConfig(args: {
 
 interface SheetStatusMessagesProps {
   isClientReady: boolean;
-  isSnapshotUnsupported: boolean;
   hasNoImportableProviders: boolean;
   isLoadingSessions: boolean;
   hasRows: boolean;
@@ -142,7 +139,6 @@ interface SheetStatusMessagesProps {
 
 function SheetStatusMessages({
   isClientReady,
-  isSnapshotUnsupported,
   hasNoImportableProviders,
   isLoadingSessions,
   hasRows,
@@ -152,9 +148,6 @@ function SheetStatusMessages({
   const { t } = useTranslation();
   if (!isClientReady) {
     return <Text style={styles.statusText}>{t("importSession.status.connectHost")}</Text>;
-  }
-  if (isSnapshotUnsupported) {
-    return <Text style={styles.statusText}>{t("importSession.status.updateHost")}</Text>;
   }
   return (
     <>
@@ -385,7 +378,6 @@ function hasListHeader(
   return (
     input.showFilter ||
     !input.isClientReady ||
-    input.isSnapshotUnsupported ||
     input.hasNoImportableProviders ||
     (input.isLoadingSessions && !input.hasRows) ||
     input.importErrored ||
@@ -507,8 +499,7 @@ export function ImportSessionSheet({
   const [selectedProvider, setSelectedProvider] = useState<string>(ALL_FILTER_VALUE);
 
   const scopeCwd = isShowingAllDirectories ? null : (cwd ?? null);
-  const supportsSearch = useHostFeature(serverId, "importSessionSearch");
-  const query = useDebouncedValue(supportsSearch ? searchInput : "", SEARCH_DEBOUNCE_MS).trim();
+  const query = useDebouncedValue(searchInput, SEARCH_DEBOUNCE_MS).trim();
 
   useEffect(() => {
     if (visible) return;
@@ -522,20 +513,14 @@ export function ImportSessionSheet({
     setPageLimit(PER_PROVIDER_LIMIT);
   }, [query, scopeCwd]);
 
-  const { entries: snapshotEntries, supportsSnapshot } = useProvidersSnapshot(serverId, {
+  const { entries: snapshotEntries } = useProvidersSnapshot(serverId, {
     cwd: scopeCwd,
     enabled: visible,
   });
-  const supportsWorkspaceTarget = useHostFeature(serverId, "importSessionWorkspaceTarget");
-  const requiresHostUpgrade = requiresImportSessionsHostUpgrade({
-    supportsSnapshot,
-    workspaceId,
-    supportsWorkspaceTarget,
-  });
 
   const providersToFetch = useMemo(
-    () => (requiresHostUpgrade ? null : resolveProvidersToFetch(supportsSnapshot, snapshotEntries)),
-    [requiresHostUpgrade, supportsSnapshot, snapshotEntries],
+    () => resolveProvidersToFetch(snapshotEntries),
+    [snapshotEntries],
   );
 
   const providerLabelById = useMemo(
@@ -763,25 +748,20 @@ export function ImportSessionSheet({
           onShowAll={handleShowAll}
         />
       ),
-      ...(supportsSearch
-        ? {
-            search: {
-              onChange: setSearchInput,
-              placeholder: t("importSession.searchPlaceholder"),
-              // The compact sheet keeps its content mounted while hidden, so the
-              // field has to be told to drop the text the state already dropped.
-              resetKey: visible ? "open" : "closed",
-              testID: "import-session-search",
-            },
-          }
-        : {}),
+      search: {
+        onChange: setSearchInput,
+        placeholder: t("importSession.searchPlaceholder"),
+        // The compact sheet keeps its content mounted while hidden, so the
+        // field has to be told to drop the text the state already dropped.
+        resetKey: visible ? "open" : "closed",
+        testID: "import-session-search",
+      },
       actions: <RefreshAction isRefreshing={isRefreshing} onPress={handleRefresh} />,
     }),
-    [handleRefresh, handleShowAll, hostLabel, isRefreshing, scopeCwd, supportsSearch, t, visible],
+    [handleRefresh, handleShowAll, hostLabel, isRefreshing, scopeCwd, t, visible],
   );
 
-  const isSnapshotUnsupported = requiresHostUpgrade;
-  const isWaitingForSnapshot = supportsSnapshot && snapshotEntries === undefined;
+  const isWaitingForSnapshot = snapshotEntries === undefined;
   const hasNoImportableProviders = providersToFetch !== null && providersToFetch.length === 0;
   const isQueryingProviders = queries.length > 0;
   const isLoadingSessions =
@@ -810,7 +790,6 @@ export function ImportSessionSheet({
   const showListHeader = hasListHeader({
     showFilter,
     isClientReady: Boolean(client),
-    isSnapshotUnsupported,
     hasNoImportableProviders,
     isLoadingSessions,
     hasRows: visibleEntries.length > 0,
@@ -857,7 +836,6 @@ export function ImportSessionSheet({
           ) : null}
           <SheetStatusMessages
             isClientReady={Boolean(client)}
-            isSnapshotUnsupported={isSnapshotUnsupported}
             hasNoImportableProviders={hasNoImportableProviders}
             isLoadingSessions={isLoadingSessions}
             hasRows={visibleEntries.length > 0}
@@ -882,7 +860,6 @@ export function ImportSessionSheet({
       renderFilterOption,
       isFilterOpen,
       client,
-      isSnapshotUnsupported,
       hasNoImportableProviders,
       isLoadingSessions,
       visibleEntries.length,

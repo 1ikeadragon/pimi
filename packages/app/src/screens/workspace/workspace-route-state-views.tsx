@@ -44,14 +44,6 @@ export function renderWorkspaceRouteGate(input: {
           onRecover={input.actions.onRecoverWorkspace}
         />
       );
-    case "needsHostUpgrade":
-      return (
-        <WorkspaceEmptyState
-          titleKey="workspace.route.needsHostUpgrade"
-          hostName={input.state.hostName}
-          onDismiss={input.actions.onDismissMissingWorkspace}
-        />
-      );
     case "unreachable":
       return (
         <WorkspaceUnreachable
@@ -262,7 +254,7 @@ function WorkspaceEmptyState({
   description,
   onDismiss,
 }: {
-  titleKey: "workspace.route.needsHostUpgrade" | "workspace.route.recovery.unavailableTitle";
+  titleKey: "workspace.route.recovery.unavailableTitle";
   hostName?: string;
   description?: string;
   onDismiss: () => void;

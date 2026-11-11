@@ -123,26 +123,16 @@ export function getHostProjectId(project: HostProjectListItem, serverId: string)
 export function canCreateWorkspaceForHostProject(input: {
   project: HostProjectListItem;
   serverId: string;
-  allowAllProjects: boolean;
 }): boolean {
-  const host = getHostProjectPlacement(input.project, input.serverId);
-  if (!host) {
-    return false;
-  }
-  return input.allowAllProjects || host.worktreeSupport !== "unsupported";
+  return getHostProjectPlacement(input.project, input.serverId) !== null;
 }
 
 export function filterWorkspaceProjectsForHost(input: {
   projects: readonly HostProjectListItem[];
   serverId: string;
-  allowAllProjects: boolean;
 }): HostProjectListItem[] {
   return input.projects.filter((project) =>
-    canCreateWorkspaceForHostProject({
-      project,
-      serverId: input.serverId,
-      allowAllProjects: input.allowAllProjects,
-    }),
+    canCreateWorkspaceForHostProject({ project, serverId: input.serverId }),
   );
 }
 
@@ -212,7 +202,6 @@ export function resolveInitialWorkspaceProject(input: {
   lastActiveProject: HostProjectListItem | null;
   projects: readonly HostProjectListItem[];
   serverId: string;
-  allowAllProjects: boolean;
 }): HostProjectListItem | null {
   const candidates = [input.routeProject, input.lastActiveProject];
   for (const candidate of candidates) {
@@ -225,13 +214,7 @@ export function resolveInitialWorkspaceProject(input: {
         projects: input.projects,
         serverId: input.serverId,
       }) ?? candidate;
-    if (
-      canCreateWorkspaceForHostProject({
-        project: hydratedProject,
-        serverId: input.serverId,
-        allowAllProjects: input.allowAllProjects,
-      })
-    ) {
+    if (canCreateWorkspaceForHostProject({ project: hydratedProject, serverId: input.serverId })) {
       return hydratedProject;
     }
   }

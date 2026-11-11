@@ -66,24 +66,4 @@ describe("daemon Git process config", () => {
       maxProcessConcurrency: 6,
     });
   });
-
-  test("accepts legacy PASEO_GIT_CONCURRENCY below the renamed variable", async () => {
-    const home = await createHome();
-
-    expect(
-      loadConfig(home, {
-        env: {
-          PASEO_GIT_CONCURRENCY: "3",
-        },
-      }).git?.maxProcessConcurrency,
-    ).toBe(3);
-    expect(
-      loadConfig(home, {
-        env: {
-          PASEO_GIT_CONCURRENCY: "3",
-          PASEO_GIT_MAX_PROCESS_CONCURRENCY: "7",
-        },
-      }).git?.maxProcessConcurrency,
-    ).toBe(7);
-  });
 });

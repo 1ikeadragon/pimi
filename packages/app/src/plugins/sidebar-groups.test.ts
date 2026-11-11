@@ -2,17 +2,12 @@ import { PluginTranslationRuntime } from "@pimi/plugin/client/host";
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 import type { InstalledPlugin } from "./types";
-import {
-  legacySidebarItemHostKey,
-  pluginScreensHostKey,
-  rememberPluginContributionHost,
-} from "./contribution-host";
+import { pluginScreensHostKey, rememberPluginContributionHost } from "./contribution-host";
 import { groupPluginSidebarItems, selectPluginSidebarTarget } from "./sidebar-groups";
 
 function installed(
   serverId: string,
   contributionId = "main",
-  legacySidebarItems: InstalledPlugin["legacySidebarItems"] = [],
   pluginId = "example",
 ): InstalledPlugin {
   return {
@@ -35,7 +30,6 @@ function installed(
       header: [{ id: contributionId, title: "Example", Component: () => null }],
       footer: [{ id: "status", title: "Status", Component: () => null }],
     },
-    legacySidebarItems,
     filePanels: [],
     workspacePanels: [],
     commandCenterItems: [],
@@ -70,20 +64,6 @@ describe("groupPluginSidebarItems", () => {
     ]);
   });
 
-  it("keeps a legacy addSidebarItem as its own kind, with its icon, in the header only", () => {
-    const legacy = [{ id: "entry", title: "Legacy", icon: "Blocks", surface: "surface" }];
-    const plugins = [installed("host-a", "main", legacy), installed("host-b", "main", legacy)];
-    const [legacyGroup, itemGroup] = groupPluginSidebarItems(plugins, "header");
-
-    expect(legacyGroup).toMatchObject({ kind: "legacy", title: "Legacy", icon: "Blocks" });
-    expect(legacyGroup?.targets.map((target) => target.plugin.serverId)).toEqual([
-      "host-a",
-      "host-b",
-    ]);
-    expect(itemGroup?.kind).toBe("item");
-    expect(groupPluginSidebarItems(plugins, "footer").map((group) => group.kind)).toEqual(["item"]);
-  });
-
   it("groups only the requested section", () => {
     const groups = groupPluginSidebarItems([installed("host-a")], "footer");
 
@@ -92,12 +72,8 @@ describe("groupPluginSidebarItems", () => {
 });
 
 describe("selectPluginSidebarTarget", () => {
-  const legacy = [{ id: "entry", title: "Legacy", icon: "Blocks", surface: "surface" }];
-
   function hostsOf(section: "header" | "footer", pluginId: string) {
-    const plugins = ["host-a", "host-b"].map((serverId) =>
-      installed(serverId, "main", legacy, pluginId),
-    );
+    const plugins = ["host-a", "host-b"].map((serverId) => installed(serverId, "main", pluginId));
     return groupPluginSidebarItems(plugins, section).map(
       (group) => selectPluginSidebarTarget(group, null).plugin.serverId,
     );
@@ -108,17 +84,11 @@ describe("selectPluginSidebarTarget", () => {
     expect(selectPluginSidebarTarget(group!, "host-b").plugin.serverId).toBe("host-b");
   });
 
-  it("carries the host picked on any of a plugin's screens to all its items, but not legacy rows", () => {
-    expect(hostsOf("header", "screens")).toEqual(["host-a", "host-a"]);
+  it("carries the host picked on any of a plugin's screens to all its items", () => {
+    expect(hostsOf("header", "screens")).toEqual(["host-a"]);
     rememberPluginContributionHost(pluginScreensHostKey("screens"), "host-b");
-    // Header: the legacy row keeps its own host; the item follows the screens' host.
-    expect(hostsOf("header", "screens")).toEqual(["host-a", "host-b"]);
+    expect(hostsOf("header", "screens")).toEqual(["host-b"]);
     expect(hostsOf("footer", "screens")).toEqual(["host-b"]);
     expect(hostsOf("footer", "other")).toEqual(["host-a"]);
-  });
-
-  it("keeps a legacy row's host under its own key", () => {
-    rememberPluginContributionHost(legacySidebarItemHostKey("legacy-row", "entry"), "host-b");
-    expect(hostsOf("header", "legacy-row")).toEqual(["host-b", "host-a"]);
   });
 });

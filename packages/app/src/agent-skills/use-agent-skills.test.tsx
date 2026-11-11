@@ -7,14 +7,9 @@ import { useAgentSkills } from "./use-agent-skills";
 
 const runtime = vi.hoisted(() => ({
   connected: true,
-  supported: true,
   clients: new Map<string, { getAgentSkillsStatus: ReturnType<typeof vi.fn> }>(),
 }));
 
-vi.mock("@/runtime/host-features", () => ({
-  useHostFeature: (_serverId: string, feature: string) =>
-    feature === "skillManagement" && runtime.supported,
-}));
 vi.mock("@/runtime/host-runtime", () => ({
   useHostRuntimeClient: (serverId: string) => runtime.clients.get(serverId) ?? null,
   useHostRuntimeIsConnected: () => runtime.connected,
@@ -36,7 +31,6 @@ function wrapper({ children }: { children: ReactNode }) {
 describe("host agent skills", () => {
   beforeEach(() => {
     runtime.connected = true;
-    runtime.supported = true;
     runtime.clients.clear();
   });
 
@@ -58,15 +52,5 @@ describe("host agent skills", () => {
     await waitFor(() => expect(result.current.status?.available).toEqual(["paseo"]));
     expect(remote.getAgentSkillsStatus).toHaveBeenCalledOnce();
     expect(local.getAgentSkillsStatus).not.toHaveBeenCalled();
-  });
-
-  it("does not call an old host without the capability", async () => {
-    runtime.supported = false;
-    const client = { getAgentSkillsStatus: vi.fn() };
-    runtime.clients.set("old-host", client);
-
-    const { result } = renderHook(() => useAgentSkills("old-host"), { wrapper });
-    expect(result.current.supported).toBe(false);
-    expect(client.getAgentSkillsStatus).not.toHaveBeenCalled();
   });
 });

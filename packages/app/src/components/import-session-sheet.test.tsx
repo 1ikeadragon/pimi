@@ -361,19 +361,6 @@ describe("ImportSessionSheet", () => {
     vi.clearAllMocks();
   });
 
-  it("shows an update-host message when the daemon does not support provider snapshots", async () => {
-    const fetchRecentProviderSessions = vi.fn();
-    const importAgent = vi.fn();
-
-    renderSheet({ fetchRecentProviderSessions, importAgent } as Pick<
-      DaemonClient,
-      "fetchRecentProviderSessions" | "importAgent"
-    >);
-
-    await screen.findByText("Update the host to import sessions.");
-    expect(fetchRecentProviderSessions).not.toHaveBeenCalled();
-  });
-
   it("shows a loading state while provider snapshot is loading", async () => {
     const fetchRecentProviderSessions = vi.fn(
       () => new Promise<Awaited<ReturnType<DaemonClient["fetchRecentProviderSessions"]>>>(() => {}),
@@ -1095,31 +1082,6 @@ describe("ImportSessionSheet", () => {
         query: "invoice",
       });
     });
-  });
-
-  it("hides the search field when the host cannot search sessions", async () => {
-    const fetchRecentProviderSessions = vi.fn(async () => ({
-      requestId: "recent-provider-sessions",
-      entries: [],
-    }));
-    const importAgent = vi.fn();
-
-    renderSheet(
-      { fetchRecentProviderSessions, importAgent } as Pick<
-        DaemonClient,
-        "fetchRecentProviderSessions" | "importAgent"
-      >,
-      {
-        cwd: null,
-        supportsSearch: false,
-        snapshot: { supportsSnapshot: true, entries: [createSnapshotEntry("claude")] },
-      },
-    );
-
-    await waitFor(() => {
-      expect(fetchRecentProviderSessions).toHaveBeenCalled();
-    });
-    expect(screen.queryByTestId("import-session-search")).toBeNull();
   });
 
   it("asks for a larger page when Load more is pressed, and stops offering it on a short page", async () => {

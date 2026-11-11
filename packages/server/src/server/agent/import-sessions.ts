@@ -21,7 +21,7 @@ import type {
 import { getParentAgentIdFromLabels, PARENT_AGENT_ID_LABEL } from "@pimi/protocol/agent-labels";
 import { createRealpathAwarePathMatcher } from "../../utils/path.js";
 
-type ImportAgentRequestMessage = z.infer<typeof ImportAgentRequestMessageSchema>;
+export type ImportAgentRequestMessage = z.infer<typeof ImportAgentRequestMessageSchema>;
 
 const METADATA_GENERATION_PROMPT_PREFIX =
   "Generate metadata for a coding agent based on the user prompt.";
@@ -41,15 +41,6 @@ const providerSessionImportMutations = new WeakMap<
   ImportSessionAgentManager,
   Map<string, Promise<unknown>>
 >();
-
-export interface NormalizedImportAgentRequest {
-  provider: AgentProvider;
-  providerHandleId: string;
-  cwd?: string;
-  workspaceId?: string;
-  labels?: Record<string, string>;
-  requestId: string;
-}
 
 export class ImportSessionsRequestError extends Error {
   constructor(
@@ -75,7 +66,7 @@ export interface ListImportableProviderSessionsResult {
 }
 
 export interface ImportProviderSessionInput {
-  request: NormalizedImportAgentRequest;
+  request: ImportAgentRequestMessage;
   workspaceProvisioning: Pick<WorkspaceProvisioningService, "runInImportWorkspace">;
   agentManager: ImportSessionAgentManager;
   agentStorage: AgentStorage;
@@ -91,29 +82,6 @@ export interface ImportProviderSessionResult {
 interface ImportedProviderSession {
   snapshot: ManagedAgent;
   timelineSize: number;
-}
-
-// COMPAT(import-agent-request-v1): accept legacy {provider, sessionId} shape
-// alongside the new {providerId, providerHandleId} shape. Old clients
-// (< target daemon floor) send the legacy fields. Drop the fallbacks and the
-// .optional() in messages.ts when the supported client floor is >= the daemon
-// version that ships the new shape (target: 2026-11-08).
-export function normalizeImportAgentRequest(
-  msg: ImportAgentRequestMessage,
-): NormalizedImportAgentRequest | { error: string } {
-  const provider = msg.providerId ?? msg.provider;
-  const providerHandleId = msg.providerHandleId ?? msg.sessionId;
-  if (!provider || !providerHandleId) {
-    return { error: "Import requires providerId and providerHandleId" };
-  }
-  return {
-    provider: provider as AgentProvider,
-    providerHandleId,
-    cwd: msg.cwd,
-    workspaceId: msg.workspaceId,
-    labels: msg.labels,
-    requestId: msg.requestId,
-  };
 }
 
 export async function listImportableProviderSessions(
@@ -204,7 +172,7 @@ async function importProviderSessionNow(
   cwd: string,
   workspaceId: string,
 ): Promise<ImportedProviderSession> {
-  const { provider, providerHandleId, labels } = input.request;
+  const { providerId: provider, providerHandleId, labels } = input.request;
 
   const matchingRecords = await input.agentStorage.listByProviderSession(
     provider,
@@ -290,14 +258,14 @@ async function resolveProviderSessionImportMutationKey(
 ): Promise<string> {
   const matchingRecord = (
     await input.agentStorage.listByProviderSession(
-      input.request.provider,
+      input.request.providerId,
       input.request.providerHandleId,
     )
   ).at(0);
   return matchingRecord
     ? `agent\0${matchingRecord.id}`
     : `handle\0${toProviderSessionHandleKey(
-        input.request.provider,
+        input.request.providerId,
         input.request.providerHandleId,
       )}`;
 }

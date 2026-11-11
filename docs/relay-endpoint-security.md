@@ -53,7 +53,7 @@ Frame kind is preserved on the wire the same way as legacy: text records are bas
 
 ## Negotiation and admission
 
-The daemon advertises `server_info.features.relayProtectedSecurity: true` on every session, whatever mode that session negotiated. A relay client that ended up in `legacy` with such a daemon closes with `4002` before the client marks itself connected, restores subscriptions, or flushes queued commands. The check lives in the relay E2EE transport, so it also covers the Node connector; direct connections never see it.
+Every daemon negotiates protected security, so a relay client that ends up in `legacy` was downgraded in transit. The client closes with `4002` when the channel opens, before it sends credentials, marks itself connected, restores subscriptions, or flushes queued commands. The check lives in the relay E2EE transport, so it also covers the Node connector; direct connections never see it.
 
 The app pins `minimumSecurityMode: "protected"` on every relay connection to a daemon public key after the first protected handshake with that key, or when the pairing offer carries `minimumSecurityMode`. A pinned client passes `minimumMode: "protected"` to the handshake and refuses a legacy ready before sending credentials. The pin belongs to the daemon identity, not to a relay address: re-importing the same key through any relay keeps it, a different key is a different connection, and connection failures never clear it.
 

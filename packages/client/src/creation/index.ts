@@ -18,7 +18,6 @@ export interface CreationResult {
   requestId?: string;
 }
 interface Dependencies {
-  supports: (feature: "creationLifecycle" | "agentRequestReceipts") => boolean;
   requestId: () => string;
   request: (kind: Kind, input: Record<string, unknown>) => Promise<CreationResult>;
   observe: (
@@ -27,10 +26,6 @@ interface Dependencies {
     next: (snapshot: CreationSnapshot | null) => void,
     error: (error: unknown) => void,
   ) => () => void;
-  legacyAgent: (input: CreateAgentRequestOptions) => Promise<AgentSnapshotPayload>;
-  legacyWorkspace: (
-    input: CreateWorkspaceRequestOptions,
-  ) => Promise<WorkspaceCreateResponse["payload"]>;
 }
 interface Operation {
   kind: Kind;
@@ -43,75 +38,28 @@ interface Operation {
   resolve: (result: CreationResult) => void;
   reject: (error: Error) => void;
   settled: boolean;
-  modern: boolean;
   recovering: boolean;
   stopObserving?: () => void;
 }
 
-/** Client-owned observation and compatibility. UI callbacks never advance creation. */
+/** Client-owned observation. UI callbacks never advance creation. */
 export class CreationClient {
   private readonly operations = new Map<string, Operation>();
   constructor(private readonly deps: Dependencies) {}
 
   createAgent(input: CreateAgentRequestOptions): Promise<CreationResult> {
     const { onEvent, ...request } = input;
-    return this.start("agent", request, onEvent, () => this.legacyAgent(request));
+    return this.start("agent", request, onEvent);
   }
   createWorkspace(input: CreateWorkspaceRequestOptions): Promise<CreationResult> {
     const { onEvent, ...request } = input;
-    return this.start("workspace", request, onEvent, async (operation) => {
-      if (request.workspaceId || request.agent?.agentId)
-        throw new Error("Update the host to use caller-selected creation IDs.");
-      const { agent, ...workspaceInput } = request;
-      const sourceCwd =
-        request.source.kind === "directory" ? request.source.path : request.source.cwd;
-      const relativeCwd =
-        agent && sourceCwd ? relativeDirectory(agent.config!.cwd, sourceCwd) : undefined;
-      const workspace = await this.deps.legacyWorkspace(workspaceInput);
-      if (workspace.error || !workspace.workspace) return workspace;
-      this.receive({
-        kind: "workspace",
-        idempotencyKey: operation.key,
-        revision: 1,
-        phase: "workspace_ready",
-        workspaceId: workspace.workspace.id,
-        agentId: null,
-        workspace: workspace.workspace,
-        setupSkippedReason: workspace.setupSkippedReason,
-        error: null,
-      });
-      if (!agent) return workspace;
-      const cwd = `${workspace.workspace.workspaceDirectory!.replace(/[\\/]+$/, "")}${
-        relativeCwd ?? relativeDirectory(agent.config!.cwd, workspace.workspace.projectRootPath)
-      }`;
-      const created = await this.legacyAgent({
-        ...agent,
-        config: { ...agent.config!, cwd },
-        workspaceId: workspace.workspace.id,
-        idempotencyKey: `${operation.key}:agent`,
-      });
-      return { ...workspace, agent: created.agent };
-    });
-  }
-
-  private async legacyAgent(input: CreateAgentRequestOptions): Promise<CreationResult> {
-    if (input.agentId) throw new Error("Update the host to use caller-selected creation IDs.");
-    const { idempotencyKey: _key, ...unkeyed } = input;
-    const hasPrompt = Boolean(
-      input.initialPrompt || input.images?.length || input.attachments?.length,
-    );
-    // COMPAT(creationLifecycle): added in v0.8.0, remove after 2027-03-11 once the daemon floor supports creationLifecycle.
-    // Preserve the original create-and-prompt RPC: old hosts use its prompt for
-    // titles, creation context and startup. Their keyed create cannot accept it.
-    const request = !hasPrompt && this.deps.supports("agentRequestReceipts") ? input : unkeyed;
-    return { agent: await this.deps.legacyAgent(request), error: null };
+    return this.start("workspace", request, onEvent);
   }
 
   private start(
     kind: Kind,
     input: Record<string, unknown>,
     observer: Observer | undefined,
-    legacy: (operation: Operation) => Promise<CreationResult>,
   ): Promise<CreationResult> {
     const key =
       typeof input.idempotencyKey === "string" ? input.idempotencyKey : this.deps.requestId();
@@ -148,16 +96,10 @@ export class CreationClient {
       resolve,
       reject,
       settled: false,
-      modern: this.deps.supports("creationLifecycle"),
       recovering: false,
     };
     this.operations.set(identity, operation);
-    if (operation.modern) void this.submit(operation);
-    else
-      void legacy(operation).then(
-        (value) => this.finish(operation, value),
-        (error) => this.fail(operation, error),
-      );
+    void this.submit(operation);
     return result;
   }
 
@@ -199,7 +141,7 @@ export class CreationClient {
   }
   reconnect(): void {
     for (const operation of this.operations.values()) {
-      if (operation.settled || !operation.modern || operation.recovering) continue;
+      if (operation.settled || operation.recovering) continue;
       operation.recovering = true;
       operation.stopObserving = this.deps.observe(
         operation.kind,
@@ -243,17 +185,4 @@ export class CreationClient {
       /* Observation does not control execution. */
     }
   }
-}
-
-function relativeDirectory(cwd: string, source: string): string {
-  const normalize = (value: string) => value.replace(/\\/g, "/").replace(/\/+$/, "");
-  const normalized = normalize(cwd),
-    root = normalize(source);
-  // Parent traversal must never survive mapping into the newly created checkout.
-  if ([normalized, root].some((path) => path.split("/").includes("..")))
-    throw new Error("Agent directory must be inside the workspace source");
-  if (normalized === root) return "";
-  if (!normalized.startsWith(`${root}/`))
-    throw new Error("Agent directory must be inside the workspace source");
-  return normalized.slice(root.length);
 }

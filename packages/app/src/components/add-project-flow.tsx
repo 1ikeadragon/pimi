@@ -55,7 +55,6 @@ import {
 } from "@/add-project-flow/model";
 import {
   buildAddProjectMethods,
-  addProjectMethodEmptyText,
   buildCloneLocationOptions,
   buildManualGithubRepositoryChoices,
   buildSuggestedParentDirectories,
@@ -84,7 +83,6 @@ import {
   useHostRuntimeClient,
   useHostRuntimeConnectionStatuses,
 } from "@/runtime/host-runtime";
-import { useHostFeatureMap } from "@/runtime/host-features";
 import { useSessionStore } from "@/stores/session-store";
 import { useRecommendedProjectPaths } from "@/stores/session-store-hooks";
 import type { AddProjectFlowRequest } from "@/stores/add-project-flow-store";
@@ -175,10 +173,9 @@ function progressText(page: AddProjectPage): string {
   return "Adding project...";
 }
 
-function emptyText(page: AddProjectPage, host: AddProjectHost | null): string {
+function emptyText(page: AddProjectPage): string {
   if (page.kind === "host") return "No connected hosts";
   if (page.kind === "github-search") return "Enter a GitHub URL or owner/repo";
-  if (page.kind === "method") return addProjectMethodEmptyText(host);
   return "No matching options";
 }
 
@@ -327,45 +324,20 @@ export function AddProjectFlow({ request, onClose }: AddProjectFlowProps) {
   const hosts = useHosts();
   const hostIds = useMemo(() => hosts.map((host) => host.serverId), [hosts]);
   const connectionStatuses = useHostRuntimeConnectionStatuses(hostIds);
-  const projectAddByHost = useHostFeatureMap(hostIds, "projectAdd");
-  // COMPAT(stableProjectIdentity): added in v0.1.109, remove gate after 2027-01-15.
-  const stableProjectIdentityByHost = useHostFeatureMap(hostIds, "stableProjectIdentity");
-  // COMPAT(projectGithubClone): added in v0.1.108, remove gate after 2027-01-15.
-  const githubCloneByHost = useHostFeatureMap(hostIds, "projectGithubClone");
-  // COMPAT(workspaceGithubRepositorySearch): added in v0.1.108, remove gate after 2027-01-15.
-  const githubSearchByHost = useHostFeatureMap(hostIds, "workspaceGithubRepositorySearch");
-  // COMPAT(projectCreateDirectory): added in v0.1.108, remove gate after 2027-01-15.
-  const createDirectoryByHost = useHostFeatureMap(hostIds, "projectCreateDirectory");
   const localServerId = useLocalDaemonServerId();
   const availableHosts = useMemo<AddProjectHost[]>(
     () =>
       hosts.flatMap((host) => {
         if (connectionStatuses.get(host.serverId) !== "online") return [];
-        const canAddProject =
-          projectAddByHost.get(host.serverId) === true &&
-          stableProjectIdentityByHost.get(host.serverId) === true;
         return [
           {
             serverId: host.serverId,
             label: host.label,
-            canAddProject,
-            canBrowse: canAddProject && getIsElectronRuntime() && localServerId === host.serverId,
-            canCloneGithubRepositories: githubCloneByHost.get(host.serverId) === true,
-            canSearchGithubRepositories: githubSearchByHost.get(host.serverId) === true,
-            canCreateDirectory: createDirectoryByHost.get(host.serverId) === true,
+            canBrowse: getIsElectronRuntime() && localServerId === host.serverId,
           },
         ];
       }),
-    [
-      connectionStatuses,
-      createDirectoryByHost,
-      githubCloneByHost,
-      githubSearchByHost,
-      hosts,
-      localServerId,
-      projectAddByHost,
-      stableProjectIdentityByHost,
-    ],
+    [connectionStatuses, hosts, localServerId],
   );
   const [state, setState] = useState(() =>
     openAddProjectFlow({
@@ -450,7 +422,7 @@ export function AddProjectFlow({ request, onClose }: AddProjectFlowProps) {
       const payload = await client.searchGithubRepositories({ query: debouncedQuery, limit: 30 });
       return { query: debouncedQuery, payload };
     },
-    enabled: Boolean(client && page.kind === "github-search" && host?.canSearchGithubRepositories),
+    enabled: Boolean(client && page.kind === "github-search"),
     dataShape: "value",
     retry: false,
     staleTimeMs: 15_000,
@@ -627,7 +599,6 @@ export function AddProjectFlow({ request, onClose }: AddProjectFlowProps) {
         title: method.label,
         subtitle: method.description,
         icon: methodIcon(method.id),
-        disabled: method.disabled,
         testID: `add-project-flow-method-${method.id}`,
         select: () => selectMethod(method.id),
       }));
@@ -839,9 +810,7 @@ export function AddProjectFlow({ request, onClose }: AddProjectFlowProps) {
       : null;
   const loading =
     (searchesDirectories && (query !== debouncedQuery || directoryQuery.isFetching)) ||
-    (page.kind === "github-search" &&
-      host?.canSearchGithubRepositories === true &&
-      (query !== debouncedQuery || githubQuery.isFetching));
+    (page.kind === "github-search" && (query !== debouncedQuery || githubQuery.isFetching));
   const queryError = queryErrorText({
     searchesDirectories,
     directoryFailed: directoryQuery.isError,
@@ -949,7 +918,7 @@ export function AddProjectFlow({ request, onClose }: AddProjectFlowProps) {
               rows.length === 0 &&
               page.kind !== "new-directory-name" ? (
                 <Text style={styles.stateText} testID="add-project-flow-empty">
-                  {emptyText(page, host ?? null)}
+                  {emptyText(page)}
                 </Text>
               ) : null}
             </View>

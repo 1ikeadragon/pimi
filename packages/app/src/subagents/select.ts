@@ -54,7 +54,6 @@ interface SelectSubagentsParams {
 }
 
 const EMPTY_SUBAGENT_ROWS: SubagentRow[] = [];
-const EMPTY_PROVIDER_SUBAGENT_ROWS: ProviderSubagentRow[] = [];
 
 function toSubagentRow(agent: Agent): SubagentRow {
   return {
@@ -139,19 +138,12 @@ export function createSubagentsForParentSelector(
 export function selectProviderSubagentsForParent(
   state: ProviderSubagentStoreSnapshot,
   params: SelectSubagentsParams,
-  supported: boolean,
-  nestingSupported = false,
 ): ProviderSubagentRow[] {
-  if (!supported) return EMPTY_PROVIDER_SUBAGENT_ROWS;
-  if (params.providerParentSubagentId && !nestingSupported) return EMPTY_PROVIDER_SUBAGENT_ROWS;
   const rows: ProviderSubagentRow[] = [];
   const prefix = `${params.serverId}\0${params.parentAgentId}\0`;
   for (const [key, subagent] of state.descriptors) {
     if (!key.startsWith(prefix) || state.hiddenFromTrack.has(key)) continue;
-    if (
-      nestingSupported &&
-      (subagent.parentSubagentId ?? null) !== (params.providerParentSubagentId ?? null)
-    ) {
+    if ((subagent.parentSubagentId ?? null) !== (params.providerParentSubagentId ?? null)) {
       continue;
     }
     rows.push({
@@ -179,26 +171,19 @@ export function useSubagentsForParent(params: SelectSubagentsParams): SubagentRo
     [serverId, parentAgentId, pendingArchiveIds],
   );
   const paseoRows = useStoreWithEqualityFn(useSessionStore, selectPaseoRows, equal);
-  const supported = useSessionStore(
-    (state) => state.sessions[params.serverId]?.serverInfo?.features?.providerSubagents === true,
-  );
-  const nestingSupported = useSessionStore(
-    (state) =>
-      state.sessions[params.serverId]?.serverInfo?.features?.providerSubagentNesting === true,
-  );
   const providerRows = useStoreWithEqualityFn(
     useProviderSubagentStore,
-    (state) => selectProviderSubagentsForParent(state, params, supported, nestingSupported),
+    (state) => selectProviderSubagentsForParent(state, params),
     equal,
   );
   const client = useSessionStore((state) => state.sessions[params.serverId]?.client ?? null);
 
   useEffect(() => {
-    if (!client || !supported) return;
+    if (!client) return;
     void refreshProviderSubagents(client, params.serverId, params.parentAgentId).catch(
       () => undefined,
     );
-  }, [client, params.parentAgentId, params.serverId, supported]);
+  }, [client, params.parentAgentId, params.serverId]);
 
   return useMemo(() => {
     if (params.providerParentSubagentId) return providerRows;

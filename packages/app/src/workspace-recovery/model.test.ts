@@ -8,8 +8,6 @@ describe("resolveWorkspaceRecoveryModel", () => {
         enabled: true,
         connected: true,
         hasClient: true,
-        hasServerInfo: true,
-        supportsRecovery: true,
         inspection: {
           pending: false,
           error: null,

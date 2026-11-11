@@ -5,9 +5,7 @@ import { z } from "zod";
 import type { Logger } from "pino";
 import {
   UsageReportSchema,
-  type ProviderUsage,
   type UsageReportEntry,
-  type UsageProblem,
   type UsageReport,
 } from "@pimi/protocol/messages";
 
@@ -212,7 +210,6 @@ export class UsageSourceRegistry {
           for (const account of accounts) {
             const id = `${source.id}:${account.key}`;
             const known = reports.get(id);
-            // COMPAT(usageLoginHarness): added in v0.11.0, remove after 2027-04-05 once plugin floor >= v0.11.0.
             const login = { input: account.input, harness: account.harness ?? source.label };
             if (known) {
               if (!known.logins.some((existing) => loginKey(existing) === loginKey(login)))
@@ -235,31 +232,6 @@ export class UsageSourceRegistry {
       for (const [id, report] of reports) merged.set(id, report);
     }
     return merged;
-  }
-
-  // COMPAT(providerUsageList): added in v0.1.98, remove after 2027-03-26.
-  async listLegacyUsage(): Promise<{ fetchedAt: string; providers: ProviderUsage[] }> {
-    const reports = await this.listReports();
-    return {
-      fetchedAt: reports.length
-        ? reports.reduce(
-            (oldest, entry) => (entry.fetchedAt < oldest ? entry.fetchedAt : oldest),
-            reports[0]!.fetchedAt,
-          )
-        : new Date(this.now()).toISOString(),
-      providers: reports.map((entry) => ({
-        providerId: entry.sourceId,
-        displayName: entry.account.label
-          ? `${entry.sourceLabel} (${entry.account.label})`
-          : entry.sourceLabel,
-        status: entry.report.status,
-        planLabel: entry.report.status === "available" ? (entry.report.planLabel ?? null) : null,
-        windows: entry.report.status === "available" ? entry.report.windows : [],
-        balances: entry.report.status === "available" ? (entry.report.balances ?? []) : [],
-        details: entry.report.status === "available" ? (entry.report.details ?? []) : [],
-        error: legacyError(entry.report, this.now()),
-      })),
-    };
   }
 
   private fetchId(id: string, known: KnownReport, forceRefresh = false): Promise<UsageReportEntry> {
@@ -346,8 +318,7 @@ export class UsageSourceRegistry {
       if (report.status === "available") return { report };
       loginErrors.push({ harness: login.harness, report });
     }
-    // COMPAT(usageLoginErrors): added in v0.11.0, remove after 2027-04-05 once app floor >= v0.11.0.
-    // Keep the final single report so older apps still parse and display failed accounts.
+    // The entry's report is the last failure; every login's failure is in loginErrors.
     return { report: loginErrors[loginErrors.length - 1]!.report, loginErrors };
   }
 
@@ -359,29 +330,6 @@ export class UsageSourceRegistry {
       return { status: "error", error: error instanceof Error ? error.message : String(error) };
     }
   }
-}
-
-// The legacy RPC has only an error string; the current app owns its own presentation.
-// COMPAT(providerUsageList): added in v0.1.98, remove after 2027-03-26.
-function legacyProblem(problem: UsageProblem, now: number): string {
-  if (problem.kind === "no_quota") return problem.detail;
-  const remedy = problem.refreshedBy
-    ? `Run ${problem.refreshedBy} to refresh it.`
-    : "Sign in again.";
-  if (problem.kind === "rejected") return `Login rejected (HTTP ${problem.status}). ${remedy}`;
-  const elapsed = Math.max(0, now - Date.parse(problem.expiresAt));
-  let ago = "just now";
-  if (elapsed >= 86_400_000) ago = `${Math.floor(elapsed / 86_400_000)}d ago`;
-  else if (elapsed >= 3_600_000) ago = `${Math.floor(elapsed / 3_600_000)}h ago`;
-  else if (elapsed >= 60_000) ago = `${Math.floor(elapsed / 60_000)}m ago`;
-  return `Login expired ${ago}. ${remedy}`;
-}
-
-// COMPAT(providerUsageList): added in v0.1.98, remove after 2027-03-26.
-function legacyError(report: UsageReport, now: number): string | null {
-  if (report.status === "error") return report.error;
-  if (report.status === "unavailable") return legacyProblem(report.problem, now);
-  return null;
 }
 
 // Inputs are opaque JSON locators. Canonical equality deduplicates discovery across scopes.

@@ -231,7 +231,6 @@ export class HubRelationshipController implements HubRelationshipManagement {
     this.retryPolicy = options.retryPolicy ?? new BoundedExponentialHubRetryPolicy();
     this.record = this.load();
     if (this.record?.state === "disconnecting") {
-      // COMPAT(hubUnilateralDisconnect): added in v0.4.0, remove after 2027-02-13 once legacy records have aged out.
       this.options.logger.warn(
         { daemonId: this.record.relationship.daemonId },
         "Removed legacy disconnecting Hub relationship during startup",

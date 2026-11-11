@@ -24,7 +24,6 @@ function installation(): InstalledPlugin {
     settingsScreens: [],
     surfaces: [],
     sidebarItems: { header: [], footer: [] },
-    legacySidebarItems: [],
     filePanels: [],
     workspacePanels: [],
     commandCenterItems: [],

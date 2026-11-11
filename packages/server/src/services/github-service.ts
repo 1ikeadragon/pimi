@@ -26,7 +26,6 @@ import {
   computeChecksStatus,
   compareTimelineItems,
   createUnavailableSearchResult,
-  normalizeForgeSearchKinds,
   parseOptionalTime,
 } from "./forge-service.js";
 import type {
@@ -2386,7 +2385,7 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
         throw new Error("ForgeService forced read requires a reason");
       }
 
-      const kinds = normalizeForgeSearchKinds(input.kinds);
+      const kinds = input.kinds ?? ["issue", "change_request"];
       const shouldFetchIssues = kinds.includes("issue");
       const shouldFetchPullRequests = kinds.includes("change_request");
       const readOptions: ForgeReadOptions = input.force
@@ -2478,7 +2477,6 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
         items,
         featuresEnabled: true,
         authState: "authenticated",
-        githubFeaturesEnabled: true,
       };
     },
 

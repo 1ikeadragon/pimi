@@ -1,4 +1,3 @@
-import { useHostFeatureMap } from "@/runtime/host-features";
 import { useCallback, useEffect, useMemo } from "react";
 import { useStoreWithEqualityFn } from "zustand/traditional";
 import { useCreateFlowStore } from "@/stores/create-flow-store";
@@ -86,7 +85,6 @@ const EMPTY_WORKSPACES: SidebarWorkspacePlacement[] = [];
 const EMPTY_PROJECT_NAMES = new Map<string, string>();
 
 export interface SidebarWorkspacesListResult {
-  workspaceSortSupported: boolean;
   workspacePlacements: SidebarWorkspacePlacement[];
   projects: SidebarProjectEntry[];
   projectNamesByViewKey: Map<string, string>;
@@ -142,12 +140,7 @@ export function useSidebarWorkspacesList(options?: {
 
   const workspaceSort = useSidebarViewStore((state) => state.workspaceSort);
   const groupMode = useSidebarViewStore((state) => state.groupMode);
-  const sortSupport = useHostFeatureMap(directoryServerIds, "workspaceSortTimes");
-  const workspaceSortSupported = [...sortSupport.values()].every(Boolean);
-  const sort =
-    groupMode === "project" && (workspaceSort === "manual" || workspaceSortSupported)
-      ? workspaceSort
-      : undefined;
+  const sort = groupMode === "project" ? workspaceSort : undefined;
   const { projects: hostProjects } = useWorkspaceStructure(directoryServerIds, sort);
 
   const selectPlacements = useMemo(createSidebarWorkspacePlacementSelector, []);
@@ -200,7 +193,6 @@ export function useSidebarWorkspacesList(options?: {
   });
 
   return {
-    workspaceSortSupported,
     workspacePlacements,
     projects,
     projectNamesByViewKey,

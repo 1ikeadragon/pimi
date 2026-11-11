@@ -3,7 +3,6 @@ import type {
   CheckoutStatusResponse,
   SessionOutboundMessage,
 } from "@pimi/protocol/messages";
-import { isGitHubPullRequestStatusFacts } from "../../services/github-facts.js";
 import type { WorkspaceGitRuntimeSnapshot } from "../workspace-git-service.js";
 
 type CheckoutPrStatusPayload = Extract<
@@ -155,14 +154,6 @@ export function normalizeCheckoutPrStatusPayload(
   }
   if (status.forgeSpecific) {
     payload.forgeSpecific = status.forgeSpecific;
-    // COMPAT(forgeSpecific): forgeSpecific shipped in v0.2.0-beta.1. Keep
-    // mirroring GitHub facts onto `github` for clients that predate it. Stop
-    // emitting the mirror after 2027-01-17 once the supported client floor
-    // is >= v0.2.0.
-    if (isGitHubPullRequestStatusFacts(status.forgeSpecific)) {
-      const { forge: _forge, ...githubFacts } = status.forgeSpecific;
-      payload.github = githubFacts;
-    }
   }
   return payload as CheckoutPrStatusPayloadStatus;
 }

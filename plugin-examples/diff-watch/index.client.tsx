@@ -6,7 +6,6 @@ export default function contribute(client: PluginClientContext) {
     id: "changes",
     title: "Live changes",
     icon: "GitCompare",
-    context: "workspace",
     Component: DiffPanel,
   });
   client.addCommandCenterItem({

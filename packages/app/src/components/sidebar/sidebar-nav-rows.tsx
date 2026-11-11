@@ -10,8 +10,6 @@ import { SidebarHeaderRow } from "@/components/sidebar/sidebar-header-row";
 import { getDesktopHost } from "@/desktop/host";
 import { useShortcutKeys } from "@/hooks/use-shortcut-keys";
 import { PluginSidebarItem } from "@/plugins/sidebar-items";
-import { canCreateWorktreeForProjectKind } from "@/projects/host-projects";
-import { useHostFeature } from "@/runtime/host-features";
 import {
   builtinSidebarNavLabelKey,
   builtinSidebarNavShortcutAction,
@@ -126,15 +124,6 @@ const SidebarNewWorkspaceRow = memo(function SidebarNewWorkspaceRow({
   const activeWorkspaceServerId = activeWorkspaceSelection?.serverId ?? null;
   const activeWorkspaceId = activeWorkspaceSelection?.workspaceId ?? null;
   const activeWorkspace = useWorkspace(activeWorkspaceServerId, activeWorkspaceId);
-  const supportsWorkspaceMultiplicity = useHostFeature(
-    activeWorkspaceServerId,
-    "workspaceMultiplicity",
-  );
-  const canUseActiveWorkspaceContext = Boolean(
-    activeWorkspace &&
-      (supportsWorkspaceMultiplicity ||
-        canCreateWorktreeForProjectKind(activeWorkspace.projectKind)),
-  );
 
   const handlePress = useCallback(() => {
     onBeforeNavigate?.();
@@ -145,7 +134,7 @@ const SidebarNewWorkspaceRow = memo(function SidebarNewWorkspaceRow({
     router.push(
       activeWorkspaceServerId
         ? buildNewWorkspaceRoute(
-            activeWorkspace && canUseActiveWorkspaceContext
+            activeWorkspace
               ? {
                   serverId: activeWorkspaceServerId,
                   sourceDirectory: activeWorkspace.projectRootPath,
@@ -155,13 +144,7 @@ const SidebarNewWorkspaceRow = memo(function SidebarNewWorkspaceRow({
           )
         : buildNewWorkspaceRoute(),
     );
-  }, [
-    activeWorkspace,
-    activeWorkspaceServerId,
-    canUseActiveWorkspaceContext,
-    onBeforeNavigate,
-    pimi,
-  ]);
+  }, [activeWorkspace, activeWorkspaceServerId, onBeforeNavigate, pimi]);
 
   if (iconOnly)
     return (
@@ -196,6 +179,8 @@ function SidebarHistoryRow({ onBeforeNavigate, iconOnly }: SidebarNavRowProps) {
     onBeforeNavigate?.();
     router.push(buildSessionsRoute());
   }, [onBeforeNavigate]);
+  const isActive = pathname.includes("/sessions");
+  const accessibilityState = useMemo(() => ({ selected: isActive }), [isActive]);
 
   if (iconOnly)
     return (
@@ -207,8 +192,8 @@ function SidebarHistoryRow({ onBeforeNavigate, iconOnly }: SidebarNavRowProps) {
         accessibilityRole="button"
         accessibilityLabel={t(builtinSidebarNavLabelKey("history"))}
         testID="sidebar-sessions"
-        accessibilityState={{ selected: pathname.includes("/sessions") }}
-        style={pathname.includes("/sessions") ? styles.pimiActionSelected : undefined}
+        accessibilityState={accessibilityState}
+        style={isActive ? styles.pimiActionSelected : undefined}
       >
         <DensityIcon icon={History} size="sm" color="foregroundMuted" />
       </HeaderToggleButton>
@@ -218,7 +203,7 @@ function SidebarHistoryRow({ onBeforeNavigate, iconOnly }: SidebarNavRowProps) {
       icon={History}
       label={t(builtinSidebarNavLabelKey("history"))}
       onPress={handlePress}
-      isActive={pathname.includes("/sessions")}
+      isActive={isActive}
       testID="sidebar-sessions"
       variant="compact"
     />

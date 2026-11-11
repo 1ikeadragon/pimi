@@ -365,8 +365,6 @@ export function ProvidersSection({ serverId }: ProvidersSectionProps) {
   const toast = useToast();
   const isConnected = useHostRuntimeIsConnected(serverId);
   const supportsHopliteProvider = useHostFeature(serverId, "hopliteProvider");
-  const supportsProviderRemoval = useHostFeature(serverId, "providerRemoval");
-  const supportsHarnessUpdates = useHostFeature(serverId, "providerHarnessUpdates");
   const { entries, isLoading, refresh } = useProvidersSnapshot(serverId);
   const { config, patchConfig } = useDaemonConfig(serverId);
   const openProviderSettings = useProviderSettingsStore((state) => state.open);
@@ -599,11 +597,7 @@ export function ProvidersSection({ serverId }: ProvidersSectionProps) {
                   enabled={entry.enabled ?? true}
                   isToggling={pendingProviderId === def.id}
                   isRemoving={removingProviderId === def.id}
-                  canRemove={
-                    supportsProviderRemoval &&
-                    entry.source === "custom" &&
-                    isConfigOwnedProvider(def.id)
-                  }
+                  canRemove={entry.source === "custom" && isConfigOwnedProvider(def.id)}
                   isFirst={index === 0}
                   onPress={handleOpenProviderSettings}
                   onToggleEnabled={handleToggleEnabled}
@@ -615,7 +609,7 @@ export function ProvidersSection({ serverId }: ProvidersSectionProps) {
         ) : null}
       </SettingsSection>
 
-      {supportsHarnessUpdates ? <HarnessUpdatesSection serverId={serverId} /> : null}
+      <HarnessUpdatesSection serverId={serverId} />
 
       {hasServer && isConnected ? (
         <SettingsSection

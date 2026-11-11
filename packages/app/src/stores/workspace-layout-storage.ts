@@ -38,10 +38,6 @@ const WorkspaceTabTargetStorageSchema = z.discriminatedUnion("kind", [
     kind: z.literal("working_diff"),
     focusPath: z.string().optional(),
     focusRequestId: z.number().optional(),
-    // COMPAT(workingDiffTarget): accepted from pre-canonical tab ids; normalization removes them.
-    mode: z.enum(["uncommitted", "base"]).optional(),
-    baseRef: z.string().nullable().optional(),
-    ignoreWhitespace: z.boolean().optional(),
   }),
   z.strictObject({ kind: z.literal("setup"), workspaceId: z.string() }),
   z.strictObject({ kind: z.literal("commit_diff"), sha: z.string() }),
@@ -114,17 +110,10 @@ export const WorkspaceLayoutPersistedStateSchema = z.strictObject({
     .optional(),
   splitSizesByWorkspace: z.record(z.string(), z.record(z.string(), z.array(z.number()))).optional(),
   explorerSidebarWidthByWorkspace: z.record(z.string(), z.number()).optional(),
-  // COMPAT(explorerSidebarWidth): added in v0.6, remove after 2027-08-25.
-  explorerSidebarRatioByWorkspace: z.record(z.string(), z.number()).optional(),
-  // COMPAT(explorerSidebarNaming): accepted from builds that called this dock the Side panel.
-  sidePanelRatioByWorkspace: z.record(z.string(), z.number()).optional(),
   // The persisted keys keep their pre-rename spelling: the schema is strict, so a
   // rename here would fail every existing blob and wipe the layout it describes.
   explorerPaneIdByWorkspace: z.record(z.string(), z.string().nullable()).optional(),
   explorerSidebarPaneIdByWorkspace: z.record(z.string(), z.string().nullable()).optional(),
   sidePaneIdByWorkspace: z.record(z.string(), z.string().nullable()).optional(),
   pullRequestTabAutoOpenedByWorkspace: z.record(z.string(), z.literal(true)).optional(),
-  // COMPAT(pullRequestAutoAdd): PR detection stopped opening a tab in v0.5; accepted
-  // and ignored so upgrading does not discard the layout. Remove after 2027-08-20.
-  acknowledgedPullRequestByWorkspace: z.record(z.string(), z.string()).optional(),
 });

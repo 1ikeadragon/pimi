@@ -15,12 +15,6 @@ export function useOpenProject(
   const normalizedServerId = serverId?.trim() ?? "";
   const client = useHostRuntimeClient(normalizedServerId);
   const isConnected = useHostRuntimeIsConnected(normalizedServerId);
-  const canAddProject = useSessionStore((state) =>
-    normalizedServerId
-      ? state.sessions[normalizedServerId]?.serverInfo?.features?.projectAdd === true &&
-        state.sessions[normalizedServerId]?.serverInfo?.features?.stableProjectIdentity === true
-      : false,
-  );
   const upsertProject = useCallback(
     (
       targetServerId: string,
@@ -38,21 +32,13 @@ export function useOpenProject(
         serverId: normalizedServerId,
         projectPath: path,
         isConnected,
-        canAddProject,
         client,
         upsertProject,
         setHasHydratedWorkspaces,
       });
       return result;
     },
-    [
-      upsertProject,
-      canAddProject,
-      client,
-      isConnected,
-      normalizedServerId,
-      setHasHydratedWorkspaces,
-    ],
+    [upsertProject, client, isConnected, normalizedServerId, setHasHydratedWorkspaces],
   );
 }
 

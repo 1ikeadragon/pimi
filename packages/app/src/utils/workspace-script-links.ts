@@ -22,16 +22,6 @@ function isLoopbackHost(host: string): boolean {
   );
 }
 
-function isLocalOnlyUrl(url: string | null | undefined): boolean {
-  if (!url) return true;
-  try {
-    const hostname = new URL(url).hostname.toLowerCase();
-    return isLoopbackHost(hostname) || hostname.endsWith(".localhost");
-  } catch {
-    return true;
-  }
-}
-
 function stripUrlProtocol(url: string): string {
   return url.replace(/^https?:\/\//, "");
 }
@@ -76,16 +66,9 @@ export function resolveWorkspaceScriptLink(input: {
     return { primary: null, targets: [] };
   }
 
-  // COMPAT(workspaceScriptSplitUrls): added in v0.2.0, remove after 2027-01-21.
-  // Old daemons only send proxyUrl, so classify it by reachability.
-  const localProxyUrl =
-    script.localProxyUrl ?? (isLocalOnlyUrl(script.proxyUrl) ? script.proxyUrl : null);
-  const publicProxyUrl =
-    script.publicProxyUrl ?? (!isLocalOnlyUrl(script.proxyUrl) ? script.proxyUrl : null);
-
   const targets: WorkspaceScriptLinkTarget[] = [];
-  addTarget(targets, "public", publicProxyUrl);
-  addTarget(targets, "paseo", localProxyUrl);
+  addTarget(targets, "public", script.publicProxyUrl);
+  addTarget(targets, "paseo", script.localProxyUrl);
   addTarget(targets, "direct", buildDirectServiceUrl(activeConnection, script.port));
 
   return { primary: targets[0] ?? null, targets };

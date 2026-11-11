@@ -12,7 +12,6 @@ import type {
 } from "../terminal/local-links/terminal-local-link-provider";
 import type { TerminalClipboardWriter } from "../terminal/native-renderer/terminal-selection";
 import type { TerminalFile } from "../terminal/file-paste";
-import type { TerminalCharacterWidths } from "../terminal/character-widths";
 import type { PendingTerminalModifiers } from "../utils/terminal-keys";
 import type { TerminalRendererReadyChange } from "../utils/terminal-renderer-readiness";
 
@@ -32,8 +31,6 @@ export interface TerminalEmulatorProps {
   dom?: unknown;
   ref: Ref<TerminalEmulatorHandle>;
   streamKey: string;
-  supportsTerminalInputModeReplay: boolean;
-  characterWidths: TerminalCharacterWidths;
   testId?: string;
   xtermTheme?: ITheme;
   scrollbackLines: number;

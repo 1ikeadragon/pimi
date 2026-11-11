@@ -751,9 +751,6 @@ export function createPaseoConnection(settingsSource = {}) {
 
   async function localData(route, feature, input, timeoutMs = 6000) {
     const response = await localRequest(route, feature, input, timeoutMs);
-    if (!response.headers.get("content-type")?.startsWith("application/json")) {
-      throw new RequestError(`Update the local agent host to open ${feature} in Pimi.`, 503);
-    }
     const payload = await response.json();
     if (!response.ok)
       throw new RequestError(payload.error || `${feature} is unavailable.`, response.status);
@@ -806,7 +803,6 @@ export function createPaseoConnection(settingsSource = {}) {
     memory: (input) => localData("/api/pimi/memory", "Memory", input),
     spaces: (input) => localData(PIMI_SPACES_ROUTE, "Spaces", input),
     // Allow for provider discovery and startup as well as the classification turn.
-    resolveVoiceCommand: (input) => localData(PIMI_VOICE_COMMAND_ROUTE, "Ask Pimi", input, 150_000),
     askPimi,
     startVoiceChat,
     subscribe(listener) {

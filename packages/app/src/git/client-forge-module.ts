@@ -70,8 +70,6 @@ export type ForgeSpecificEnvelope = { forge: string } & Record<string, unknown>;
 
 type CheckoutPrStatus = NonNullable<CheckoutPrStatusResponse["payload"]["status"]>;
 
-export type LegacyGithubMergeFacts = NonNullable<CheckoutPrStatus["github"]>;
-
 export interface MergeCapability {
   /** The change request can be merged directly right now. */
   directMergeReady: boolean;
@@ -96,14 +94,6 @@ export interface PaneChecksSlotContext {
   changeRequestNumber: number;
   open: boolean;
   onToggle: () => void;
-  /** Whether the daemon advertises pluggable forge support (gates rich sections). */
-  enabled: boolean;
-  /**
-   * Whether the daemon can serve forge check/pipeline details over the
-   * forge-routed RPC. Single source of truth for gating on-demand detail
-   * fetches so a section never reaches an RPC the daemon lacks.
-   */
-  canFetchCheckDetails: boolean;
 }
 
 export interface PaneNativeContribution {

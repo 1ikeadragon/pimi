@@ -57,19 +57,6 @@ export function renderPromptAttachmentAsText(attachment: AgentAttachment): strin
         headRefName: attachment.headRefName,
       });
     }
-    // COMPAT(githubAttachmentKinds): render legacy wire attachments until
-    // 2027-01-17, when supported client and daemon floors are >= v0.2.0.
-    case "github_pr": {
-      return renderChangeRequestAttachment({
-        forge: "github",
-        number: attachment.number,
-        title: attachment.title,
-        url: attachment.url,
-        body: attachment.body,
-        baseRefName: attachment.baseRefName,
-        headRefName: attachment.headRefName,
-      });
-    }
     case "forge_issue": {
       return renderIssueAttachment({
         forge: attachment.forge,
@@ -78,17 +65,6 @@ export function renderPromptAttachmentAsText(attachment: AgentAttachment): strin
         url: attachment.url,
         body: attachment.body,
         projectPath: attachment.projectPath,
-      });
-    }
-    // COMPAT(githubAttachmentKinds): render legacy wire attachments until
-    // 2027-01-17, when supported client and daemon floors are >= v0.2.0.
-    case "github_issue": {
-      return renderIssueAttachment({
-        forge: "github",
-        number: attachment.number,
-        title: attachment.title,
-        url: attachment.url,
-        body: attachment.body,
       });
     }
     case "text": {

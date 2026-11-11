@@ -2,7 +2,6 @@ import { useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import type { ProjectIcon } from "@pimi/protocol/messages";
-import { useHostFeatureAvailabilityMap } from "@/runtime/host-features";
 import { projectIconCache } from "@/projects/icon-cache";
 import type { ProjectIconTarget } from "@/projects/icon-target";
 import {
@@ -11,20 +10,6 @@ import {
   useHostRuntimeClient,
   useHostRuntimeIsConnected,
 } from "@/runtime/host-runtime";
-
-/**
- * Daemons without custom-icon support only answer the legacy cwd lookup, which
- * still serves their automatically discovered icons.
- */
-export function resolveProjectIconLookup(
-  target: Pick<ProjectIconTarget, "projectId" | "iconWorkingDir">,
-  supportsCustomIcons: boolean | null,
-): { kind: "project"; projectId: string } | { kind: "legacy"; cwd: string } | null {
-  if (supportsCustomIcons === null) return null;
-  return supportsCustomIcons
-    ? { kind: "project", projectId: target.projectId }
-    : { kind: "legacy", cwd: target.iconWorkingDir };
-}
 
 function legacyIconQueryKey(serverId: string, cwd: string) {
   return ["projectIcon", serverId, "legacy", cwd] as const;
@@ -75,11 +60,6 @@ export function useProjectIcon({ serverId, cwd }: { serverId: string; cwd: strin
 export function useProjectIcons(input: {
   projects: readonly ProjectIconTarget[];
 }): Map<string, string | null> {
-  const serverIds = useMemo(
-    () => [...new Set(input.projects.map((project) => project.serverId))],
-    [input.projects],
-  );
-  const supportsCustomIcons = useHostFeatureAvailabilityMap(serverIds, "projectCustomIcon");
   const requests = useMemo(() => {
     const unique = new Map<string, ProjectIconTarget>();
     for (const project of input.projects) {
@@ -94,7 +74,6 @@ export function useProjectIcons(input: {
       return {
         ...projectIconCache.query(
           request,
-          supportsCustomIcons.get(request.serverId) ?? null,
           () => getHostRuntimeStore().getClient(request.serverId),
           isHostRuntimeConnected(getHostRuntimeStore().getSnapshot(request.serverId)),
         ),

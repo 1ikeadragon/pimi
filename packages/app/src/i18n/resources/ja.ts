@@ -311,7 +311,6 @@ export const ja: TranslationResources = {
     title: "履歴",
     empty: "セッションがまだありません",
     noMatches: "一致するセッションはありません",
-    tooManyMatches: "一致が多すぎます — 検索条件を絞ってください",
     hostLoadFailed: "{{host}}: 履歴を読み込めませんでした",
     searchPlaceholder: "履歴を検索",
     actions: {
@@ -376,7 +375,6 @@ export const ja: TranslationResources = {
       forkInNewWorkspace: "新しいワークスペースにフォーク",
       forkWithProvider: "別のプロバイダーでフォーク",
       forkNoOtherProviders: "このホストでは他のプロバイダーを利用できません。",
-      forkUnavailable: "これを使用するにはホストを更新してください。",
       forkMissingWorkspace: "このエージェントはワークスペース内にありません。",
       forkFailed: "チャットのフォークに失敗しました",
       openFile: "ファイルを開く",
@@ -472,7 +470,6 @@ export const ja: TranslationResources = {
     },
     status: {
       connectHost: "セッションをインポートするにはホストに接続してください",
-      updateHost: "セッションをインポートするにはホストを更新してください。",
       noProviders: "インポート可能なプロバイダーが有効になっていません。",
       loading: "最近のセッションを読み込み中...",
       failedProvider: "{{provider}} のセッションを読み込めませんでした",
@@ -504,7 +501,6 @@ export const ja: TranslationResources = {
       hostOffline: "{{hostName}}はオフラインです",
       cannotReachHost: "{{hostName}}に到達できません",
       hostStatus: "ホストの状態: {{status}}",
-      needsHostUpgrade: "このワークスペースを復元するにはホストを更新してください",
       manageHost: "ホストを管理",
       recovery: {
         archivedTitle: "ワークスペースはアーカイブ済みです",
@@ -600,7 +596,6 @@ export const ja: TranslationResources = {
       },
     },
     setup: {
-      updateHost: "ワークスペースのセットアップ詳細を表示するにはホストを更新してください",
       descriptor: {
         label: "セットアップ",
         completed: "セットアップ完了",
@@ -675,8 +670,6 @@ export const ja: TranslationResources = {
     },
     terminal: {
       hostDisconnected: "ホストが接続されていません",
-      updateHost: "ネイティブターミナルを使用するにはホストを更新してください。",
-      restoreRequiresUpdate: "ターミナルを表示するにはホストを更新してください。",
       unableToSubscribe: "ターミナルに接続できません",
       fileUploaded: "ファイルをアップロードしました",
       pasteFileFailed: "ファイルを貼り付けられませんでした: {{reason}}",
@@ -1181,7 +1174,6 @@ export const ja: TranslationResources = {
     createConfirm: "作成",
     creating: "作成中…",
     name: "ラベル名",
-    updateHostUse: "ラベルを使用するにはホストを更新してください。",
     errors: { update: "ラベルを更新できません", load: "ラベルを読み込めません" },
     colors: {
       violet: "紫",
@@ -1213,7 +1205,6 @@ export const ja: TranslationResources = {
       deleteMessage_one: "このホストの{{count}}個のワークスペースからラベルを削除します。",
       deleteMessage_other: "このホストの{{count}}個のワークスペースからラベルを削除します。",
       offline: "このホストはオフラインです。",
-      updateHost: "ラベルを管理するにはホストを更新してください。",
     },
   },
   changelog: {
@@ -1244,7 +1235,6 @@ export const ja: TranslationResources = {
         created: "作成日時",
         manual: "手動",
         lastPrompt: "最後のプロンプト",
-        updateHost: "ワークスペースを並べ替えるにはホストを更新してください",
       },
       grouping: {
         label: "グループ化",
@@ -1352,7 +1342,6 @@ export const ja: TranslationResources = {
       toasts: {
         hostDisconnected: "ホストが接続されていません",
         removeFailed: "一部のワークスペースの削除に失敗しました",
-        updateHostToRemove: "プロジェクトを削除するにはホストを更新してください。",
       },
       empty: {
         title: "プロジェクトがまだありません",
@@ -2023,7 +2012,6 @@ export const ja: TranslationResources = {
         "リレーを使わない場合は、TCP、Tailscale、または別の VPN で直接接続してください。QR コードは作成されません。",
       tailscaleDocs: "Tailscale を設定",
       tailscaleDocsAccessibility: "Tailscale で接続する方法を読む",
-      updateRequired: "Pimi Desktop からリレーを有効にするにはホストを更新してください。",
       unavailable: "ペアリングオファーが利用できません。",
       hint: "スマートフォンのPaseoでこのQRコードをスキャンするか、以下のリンクをコピーしてください。",
       securityWarning:
@@ -2173,7 +2161,6 @@ export const ja: TranslationResources = {
       directoryMissing: "ワークスペースディレクトリが見つかりません。",
       empty: "変更はありません",
       loadError: "差分の読み込みに失敗しました",
-      capabilityMissing: "コミット差分を表示するにはホストを更新してください。",
     },
   },
   toolCallDetails: {
@@ -2431,7 +2418,6 @@ export const ja: TranslationResources = {
     },
     voice: {
       offline: "音声を設定するには、このホストに接続してください。",
-      updateHost: "音声を設定するには、ホストを更新してください。",
       saveError: "音声設定を更新できませんでした",
       provider: "プロバイダー",
       providers: {
@@ -2983,7 +2969,6 @@ export const ja: TranslationResources = {
       agentProfiles: {
         sectionTitle: "エージェントプロファイル",
         unavailable: "エージェントプロファイルを管理するにはこのホストに接続してください",
-        unsupported: "このホストで動作するデーモンはまだエージェントプロファイルに対応していません",
         emptyState:
           "プロファイルがまだありません。保存したプロバイダーとモデルでエージェントを起動するために追加してください。",
         addProfileTitle: "エージェントプロファイルを追加",

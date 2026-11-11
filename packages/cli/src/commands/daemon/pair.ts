@@ -113,18 +113,10 @@ async function resolveDaemonPairingOffer(
   });
 
   try {
-    const serverInfo = client.getLastServerInfoMessage();
-    if (serverInfo?.features?.daemonStatusRpc !== true) {
-      throw new Error("Update the Pimi daemon before pairing from this command.");
-    }
-
     let offer = await client.getDaemonPairingOffer({
       timeout: PAIRING_DAEMON_RPC_TIMEOUT_MS,
     });
     if (!offer.relayEnabled && offer.relayConfigured !== false && enableRelay) {
-      if (serverInfo.features.relayConfig !== true) {
-        throw new Error("Update the Pimi daemon before enabling relay from this command.");
-      }
       await client.patchDaemonConfig({ relay: { enabled: true } });
       try {
         offer = await client.getDaemonPairingOffer({ timeout: PAIRING_DAEMON_RPC_TIMEOUT_MS });

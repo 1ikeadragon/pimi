@@ -119,29 +119,6 @@ describe("loadAppSettingsFromStorage", () => {
     );
   });
 
-  it("keeps an explicit services choice over the legacy scripts fallback", async () => {
-    const deps = makeDeps({
-      storage: createInMemoryKeyValueStorage({
-        [APP_SETTINGS_KEY]: JSON.stringify({
-          contentFontSize: 16,
-          sidebarRowItems: { scripts: false, services: true },
-        }),
-      }),
-    });
-
-    expect((await loadAppSettingsFromStorage(deps)).sidebarRowItems.services).toBe(true);
-
-    await saveAppSettings({
-      queryClient: new QueryClient(),
-      updates: {
-        sidebarRowItems: { ...DEFAULT_SIDEBAR_ROW_ITEMS, services: true },
-      },
-      deps,
-    });
-
-    expect((await loadAppSettingsFromStorage(deps)).sidebarRowItems.services).toBe(true);
-  });
-
   it("keeps an interrupt the user picked after the migration ran", async () => {
     const deps = makeDeps({
       storage: createInMemoryKeyValueStorage({
@@ -392,37 +369,6 @@ describe("loadAppSettingsFromStorage", () => {
     });
   });
 
-  it("collapses legacy diff destinations into the former Explorer choice", async () => {
-    const deps = makeDeps({
-      storage: createInMemoryKeyValueStorage({
-        [APP_SETTINGS_KEY]: JSON.stringify({
-          openInSidePane: { explorerChanges: true, changesLinks: false },
-        }),
-      }),
-    });
-
-    const result = await loadAppSettingsFromStorage(deps);
-
-    expect(result.openInSidePane.diffs).toBe(true);
-    expect(result.openInSidePane).not.toHaveProperty("explorerChanges");
-    expect(result.openInSidePane).not.toHaveProperty("changesLinks");
-  });
-
-  it("defaults PRs to Explorer and preserves the legacy side choice", async () => {
-    const defaults = await loadAppSettingsFromStorage(makeDeps());
-    const legacySide = await loadAppSettingsFromStorage(
-      makeDeps({
-        storage: createInMemoryKeyValueStorage({
-          [APP_SETTINGS_KEY]: JSON.stringify({ openInSidePane: { pullRequests: true } }),
-        }),
-      }),
-    );
-
-    expect(defaults.pullRequestOpenLocation).toBe("explorer");
-    expect(legacySide.pullRequestOpenLocation).toBe("side");
-    expect(legacySide.openInSidePane).not.toHaveProperty("pullRequests");
-  });
-
   it("loads configured terminal scrollback lines from app settings", async () => {
     const deps = makeDeps({
       storage: createInMemoryKeyValueStorage({
@@ -476,8 +422,6 @@ describe("loadAppSettingsFromStorage", () => {
       storage: createInMemoryKeyValueStorage({
         [LEGACY_SETTINGS_KEY]: JSON.stringify({
           theme: "dark",
-          manageBuiltInDaemon: false,
-          releaseChannel: "beta",
         }),
       }),
     });
@@ -490,11 +434,7 @@ describe("loadAppSettingsFromStorage", () => {
       contentFontSize: DEFAULT_UI_BASE_FONT_SIZE,
       chatDisplay: "full",
     });
-    expect(JSON.parse(deps.storage.entries.get(APP_SETTINGS_KEY) ?? "null")).toEqual({
-      manageBuiltInDaemon: false,
-      releaseChannel: "beta",
-      ...result,
-    });
+    expect(JSON.parse(deps.storage.entries.get(APP_SETTINGS_KEY) ?? "null")).toEqual(result);
   });
 
   it("preserves the legacy key's explicit interface size as content size", async () => {
@@ -511,23 +451,6 @@ describe("loadAppSettingsFromStorage", () => {
     expect(JSON.parse(deps.storage.entries.get(APP_SETTINGS_KEY) ?? "null")).toMatchObject({
       uiBaseFontSize: 17,
       contentFontSize: 17,
-    });
-  });
-
-  it("preserves the legacy interface scale as content size", async () => {
-    const deps = makeDeps({
-      storage: createInMemoryKeyValueStorage({
-        [LEGACY_SETTINGS_KEY]: JSON.stringify({ uiFontSize: 17 }),
-      }),
-    });
-
-    const result = await loadAppSettingsFromStorage(deps);
-
-    expect(result.uiBaseFontSize).toBe(15);
-    expect(result.contentFontSize).toBe(15);
-    expect(JSON.parse(deps.storage.entries.get(APP_SETTINGS_KEY) ?? "null")).toMatchObject({
-      uiBaseFontSize: 15,
-      contentFontSize: 15,
     });
   });
 
@@ -610,93 +533,6 @@ describe("loadSettingsFromStorage", () => {
 
     expect(result.releaseChannel).toBe("stable");
   });
-
-  it("ignores renderer-owned daemon management state outside Electron", async () => {
-    const deps = makeDeps({
-      storage: createInMemoryKeyValueStorage({
-        [APP_SETTINGS_KEY]: JSON.stringify({
-          theme: "light",
-          manageBuiltInDaemon: false,
-        }),
-      }),
-    });
-
-    const result = await loadSettingsFromStorage(deps);
-
-    expect(result).toEqual({
-      ...DEFAULT_APP_SETTINGS,
-      theme: "light",
-      contentFontSize: DEFAULT_UI_BASE_FONT_SIZE,
-      chatDisplay: "full",
-    });
-  });
-
-  it("ignores renderer-owned release channel outside Electron", async () => {
-    const deps = makeDeps({
-      storage: createInMemoryKeyValueStorage({
-        [APP_SETTINGS_KEY]: JSON.stringify({ releaseChannel: "beta" }),
-      }),
-    });
-
-    const result = await loadSettingsFromStorage(deps);
-
-    expect(result.releaseChannel).toBe("stable");
-  });
-
-  it("migrates legacy desktop-owned settings through the bridge before reading effective settings", async () => {
-    const desktop = createFakeDesktopBridge({
-      isElectron: true,
-      settings: {
-        releaseChannel: "beta",
-        notifications: { playSound: true },
-        daemon: { manageBuiltInDaemon: false, keepRunningAfterQuit: true },
-      },
-    });
-    const deps = makeDeps({
-      storage: createInMemoryKeyValueStorage({
-        [APP_SETTINGS_KEY]: JSON.stringify({
-          theme: "light",
-          manageBuiltInDaemon: false,
-          releaseChannel: "beta",
-        }),
-      }),
-      desktop,
-    });
-
-    const result = await loadSettingsFromStorage(deps);
-
-    expect(desktop.migrationsApplied).toEqual([
-      { manageBuiltInDaemon: false, releaseChannel: "beta" },
-    ]);
-    expect(result).toEqual({
-      ...DEFAULT_APP_SETTINGS,
-      theme: "light",
-      contentFontSize: DEFAULT_UI_BASE_FONT_SIZE,
-      chatDisplay: "full",
-      manageBuiltInDaemon: false,
-      releaseChannel: "beta",
-    });
-  });
-
-  it("does not call the desktop bridge outside Electron", async () => {
-    const desktop = createFakeDesktopBridge({ isElectron: false });
-    const deps = makeDeps({
-      storage: createInMemoryKeyValueStorage({
-        [APP_SETTINGS_KEY]: JSON.stringify({ theme: "light" }),
-      }),
-      desktop,
-    });
-
-    const result = await loadSettingsFromStorage(deps);
-
-    expect(desktop.migrationsApplied).toEqual([]);
-    expect(result).toEqual({
-      ...DEFAULT_APP_SETTINGS,
-      theme: "light",
-      contentFontSize: DEFAULT_UI_BASE_FONT_SIZE,
-      chatDisplay: "full",
-    });
-  });
 });
 
 describe("saveAppSettings", () => {
@@ -757,7 +593,6 @@ describe("saveAppSettings", () => {
     const queryClient = new QueryClient();
     queryClient.setQueryData(APP_SETTINGS_QUERY_KEY, {
       theme: "dark",
-      compactToolCalls: true,
     });
 
     await saveAppSettings({
@@ -770,7 +605,7 @@ describe("saveAppSettings", () => {
       ...DEFAULT_CLIENT_SETTINGS,
       theme: "light",
       contentFontSize: DEFAULT_UI_BASE_FONT_SIZE,
-      chatDisplay: "collapseToolCalls",
+      chatDisplay: "full",
     });
   });
 
@@ -828,67 +663,6 @@ describe("appearance settings", () => {
     expect(result.chatDisplay).toBe("full");
   });
 
-  it("migrates the enabled compact tool call preference to collapsed tool calls", async () => {
-    const deps = makeDeps({
-      storage: createInMemoryKeyValueStorage({
-        [APP_SETTINGS_KEY]: JSON.stringify({ compactToolCalls: true }),
-      }),
-    });
-
-    expect((await loadAppSettingsFromStorage(deps)).chatDisplay).toBe("collapseToolCalls");
-  });
-
-  it.each([
-    ["overview", "collapseToolCalls"],
-    ["concise", "collapseToolCalls"],
-    ["detailed", "full"],
-    ["unknown", "full"],
-  ])("reads the %s tool call detail level as the %s chat display", async (legacy, display) => {
-    const deps = makeDeps({
-      storage: createInMemoryKeyValueStorage({
-        [APP_SETTINGS_KEY]: JSON.stringify({ toolCallDetailLevel: legacy }),
-      }),
-    });
-
-    expect((await loadAppSettingsFromStorage(deps)).chatDisplay).toBe(display);
-  });
-
-  it("keeps a stored chat display over the tool call detail level it replaced", async () => {
-    const deps = makeDeps({
-      storage: createInMemoryKeyValueStorage({
-        [APP_SETTINGS_KEY]: JSON.stringify({
-          chatDisplay: "collapseTurns",
-          toolCallDetailLevel: "detailed",
-        }),
-      }),
-    });
-
-    expect((await loadAppSettingsFromStorage(deps)).chatDisplay).toBe("collapseTurns");
-  });
-
-  it("migrates a switched-off checks row item to the hidden checks display", async () => {
-    const deps = makeDeps({
-      storage: createInMemoryKeyValueStorage({
-        [APP_SETTINGS_KEY]: JSON.stringify({ sidebarRowItems: { checks: false } }),
-      }),
-    });
-
-    expect((await loadAppSettingsFromStorage(deps)).sidebarChecksDisplay).toBe("none");
-  });
-
-  it("lets a stored checks display win over the row item it replaced", async () => {
-    const deps = makeDeps({
-      storage: createInMemoryKeyValueStorage({
-        [APP_SETTINGS_KEY]: JSON.stringify({
-          sidebarChecksDisplay: "icon",
-          sidebarRowItems: { checks: false },
-        }),
-      }),
-    });
-
-    expect((await loadAppSettingsFromStorage(deps)).sidebarChecksDisplay).toBe("icon");
-  });
-
   it("uses a 15px mobile base and a 14px web base", () => {
     expect(defaultUiBaseFontSize(true)).toBe(15);
     expect(defaultUiBaseFontSize(false)).toBe(14);
@@ -937,52 +711,6 @@ describe("appearance settings", () => {
     expect((await loadAppSettingsFromStorage(bogus)).contentFontSize).toBe(
       DEFAULT_CONTENT_FONT_SIZE,
     );
-  });
-
-  it.each([
-    { legacySize: 16, baseSize: 14 },
-    { legacySize: 17, baseSize: 15 },
-    { legacySize: 18, baseSize: 16 },
-  ])(
-    "migrates legacy interface size $legacySize to base size $baseSize",
-    async ({ legacySize, baseSize }) => {
-      const deps = makeDeps({
-        storage: createInMemoryKeyValueStorage({
-          [APP_SETTINGS_KEY]: JSON.stringify({ uiFontSize: legacySize }),
-        }),
-      });
-
-      const result = await loadAppSettingsFromStorage(deps);
-      const persisted = JSON.parse(deps.storage.entries.get(APP_SETTINGS_KEY) ?? "null");
-
-      expect(result.uiBaseFontSize).toBe(baseSize);
-      expect(persisted).toMatchObject({ uiBaseFontSize: baseSize });
-      expect(persisted.uiFontSize).toBe(legacySize);
-    },
-  );
-
-  it("lets an explicit base size win over the legacy interface scale", async () => {
-    const deps = makeDeps({
-      storage: createInMemoryKeyValueStorage({
-        [APP_SETTINGS_KEY]: JSON.stringify({ uiBaseFontSize: 16, uiFontSize: 17 }),
-      }),
-    });
-
-    expect((await loadAppSettingsFromStorage(deps)).uiBaseFontSize).toBe(16);
-  });
-
-  it("falls back to a valid legacy interface scale when the explicit base size is invalid", async () => {
-    const deps = makeDeps({
-      storage: createInMemoryKeyValueStorage({
-        [APP_SETTINGS_KEY]: JSON.stringify({ uiBaseFontSize: "abc", uiFontSize: 17 }),
-      }),
-    });
-
-    const result = await loadAppSettingsFromStorage(deps);
-    const persisted = JSON.parse(deps.storage.entries.get(APP_SETTINGS_KEY) ?? "null");
-
-    expect(result.uiBaseFontSize).toBe(15);
-    expect(persisted).toMatchObject({ uiBaseFontSize: 15, uiFontSize: 17 });
   });
 
   it("clamps the UI base font size into range and rejects non-numeric values", async () => {

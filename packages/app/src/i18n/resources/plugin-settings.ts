@@ -16,7 +16,6 @@ export const pluginSettings = {
     screens: {
       open: "فتح",
       offline: "اتصل بهذا المضيف لفتح إعدادات الإضافة.",
-      update: "حدّث هذا المضيف لاستخدام إعدادات الإضافة.",
       unavailable: "شاشة إعدادات الإضافة هذه غير متاحة.",
       backToPlugins: "العودة إلى الإضافات",
     },
@@ -59,8 +58,6 @@ export const pluginSettings = {
     states: {
       offlineTitle: "مضيف الإضافات غير متصل",
       offlineDescription: "أعد الاتصال بهذا المضيف لإدارة إضافاته.",
-      updateTitle: "حدّث هذا المضيف لإدارة الإضافات",
-      sourceUpdateTitle: "حدّث هذا المضيف لتثبيت الإضافات",
       loading: "جارٍ تحميل الإضافات…",
       errorTitle: "تعذّر تحميل الإضافات",
       retry: "إعادة المحاولة",
@@ -72,7 +69,6 @@ export const pluginSettings = {
     screens: {
       open: "Abrir",
       offline: "Conéctate a este host para abrir los ajustes del plugin.",
-      update: "Actualiza este host para usar los ajustes del plugin.",
       unavailable: "Esta pantalla de ajustes del plugin no está disponible.",
       backToPlugins: "Volver a plugins",
     },
@@ -115,8 +111,6 @@ export const pluginSettings = {
     states: {
       offlineTitle: "El host de plugins está sin conexión",
       offlineDescription: "Vuelve a conectar este host para gestionar sus plugins.",
-      updateTitle: "Actualiza este host para gestionar plugins",
-      sourceUpdateTitle: "Actualiza este host para instalar plugins",
       loading: "Cargando plugins…",
       errorTitle: "No se pudieron cargar los plugins",
       retry: "Reintentar",
@@ -128,7 +122,6 @@ export const pluginSettings = {
     screens: {
       open: "Ouvrir",
       offline: "Connectez-vous à cet hôte pour ouvrir les paramètres du plugin.",
-      update: "Mettez à jour cet hôte pour utiliser les paramètres du plugin.",
       unavailable: "Cet écran de paramètres du plugin est indisponible.",
       backToPlugins: "Retour aux plugins",
     },
@@ -171,8 +164,6 @@ export const pluginSettings = {
     states: {
       offlineTitle: "L’hôte des plugins est hors ligne",
       offlineDescription: "Reconnectez cet hôte pour gérer ses plugins.",
-      updateTitle: "Mettez cet hôte à jour pour gérer les plugins",
-      sourceUpdateTitle: "Mettez cet hôte à jour pour installer des plugins",
       loading: "Chargement des plugins…",
       errorTitle: "Impossible de charger les plugins",
       retry: "Réessayer",
@@ -184,7 +175,6 @@ export const pluginSettings = {
     screens: {
       open: "開く",
       offline: "このホストに接続してプラグイン設定を開いてください。",
-      update: "プラグイン設定を使用するには、このホストを更新してください。",
       unavailable: "このプラグイン設定画面は利用できません。",
       backToPlugins: "プラグインに戻る",
     },
@@ -227,8 +217,6 @@ export const pluginSettings = {
     states: {
       offlineTitle: "プラグインホストはオフラインです",
       offlineDescription: "プラグインを管理するにはホストに再接続してください。",
-      updateTitle: "プラグインを管理するにはホストを更新してください",
-      sourceUpdateTitle: "プラグインをインストールするにはこのホストを更新してください",
       loading: "プラグインを読み込み中…",
       errorTitle: "プラグインを読み込めません",
       retry: "再試行",
@@ -240,7 +228,6 @@ export const pluginSettings = {
     screens: {
       open: "열기",
       offline: "플러그인 설정을 열려면 이 호스트에 연결하세요.",
-      update: "플러그인 설정을 사용하려면 이 호스트를 업데이트하세요.",
       unavailable: "이 플러그인 설정 화면을 사용할 수 없습니다.",
       backToPlugins: "플러그인으로 돌아가기",
     },
@@ -282,8 +269,6 @@ export const pluginSettings = {
     states: {
       offlineTitle: "플러그인 호스트가 오프라인입니다",
       offlineDescription: "플러그인을 관리하려면 호스트에 다시 연결하세요.",
-      updateTitle: "플러그인을 관리하려면 호스트를 업데이트하세요",
-      sourceUpdateTitle: "플러그인을 설치하려면 이 호스트를 업데이트하세요",
       loading: "플러그인 로드 중…",
       errorTitle: "플러그인을 로드할 수 없습니다",
       retry: "다시 시도",
@@ -295,7 +280,6 @@ export const pluginSettings = {
     screens: {
       open: "Abrir",
       offline: "Conecte-se a este host para abrir as configurações do plugin.",
-      update: "Atualize este host para usar as configurações do plugin.",
       unavailable: "Esta tela de configurações do plugin está indisponível.",
       backToPlugins: "Voltar para plugins",
     },
@@ -338,8 +322,6 @@ export const pluginSettings = {
     states: {
       offlineTitle: "O host de plugins está offline",
       offlineDescription: "Reconecte este host para gerenciar seus plugins.",
-      updateTitle: "Atualize este host para gerenciar plugins",
-      sourceUpdateTitle: "Atualize este host para instalar plugins",
       loading: "Carregando plugins…",
       errorTitle: "Não foi possível carregar os plugins",
       retry: "Tentar novamente",
@@ -351,7 +333,6 @@ export const pluginSettings = {
     screens: {
       open: "Открыть",
       offline: "Подключитесь к этому хосту, чтобы открыть настройки плагина.",
-      update: "Обновите этот хост, чтобы использовать настройки плагина.",
       unavailable: "Этот экран настроек плагина недоступен.",
       backToPlugins: "Вернуться к плагинам",
     },
@@ -394,8 +375,6 @@ export const pluginSettings = {
     states: {
       offlineTitle: "Хост плагинов не в сети",
       offlineDescription: "Подключите хост снова, чтобы управлять плагинами.",
-      updateTitle: "Обновите хост для управления плагинами",
-      sourceUpdateTitle: "Обновите этот хост для установки плагинов",
       loading: "Загрузка плагинов…",
       errorTitle: "Не удалось загрузить плагины",
       retry: "Повторить",
@@ -407,7 +386,6 @@ export const pluginSettings = {
     screens: {
       open: "打开",
       offline: "连接到此主机以打开插件设置。",
-      update: "更新此主机以使用插件设置。",
       unavailable: "此插件设置页面不可用。",
       backToPlugins: "返回插件",
     },
@@ -449,8 +427,6 @@ export const pluginSettings = {
     states: {
       offlineTitle: "插件主机离线",
       offlineDescription: "重新连接此主机以管理其插件。",
-      updateTitle: "更新此主机以管理插件",
-      sourceUpdateTitle: "更新此主机以安装插件",
       loading: "正在加载插件…",
       errorTitle: "无法加载插件",
       retry: "重试",

@@ -302,7 +302,6 @@ export const en = {
     title: "History",
     empty: "No sessions yet",
     noMatches: "No sessions match",
-    tooManyMatches: "Too many matches — narrow your search",
     hostLoadFailed: "{{host}}: Could not load history",
     searchPlaceholder: "Search history",
     actions: {
@@ -367,7 +366,6 @@ export const en = {
       forkInNewWorkspace: "Fork in a new workspace",
       forkWithProvider: "Fork with another provider",
       forkNoOtherProviders: "No other providers are available on this host.",
-      forkUnavailable: "Update the host to use this.",
       forkMissingWorkspace: "This agent is not in a workspace.",
       forkFailed: "Failed to fork chat",
       openFile: "Open file",
@@ -463,7 +461,6 @@ export const en = {
     },
     status: {
       connectHost: "Connect to a host to import sessions",
-      updateHost: "Update the host to import sessions.",
       noProviders: "No importable providers are enabled.",
       loading: "Loading recent sessions...",
       failedProvider: "Could not load {{provider}} sessions",
@@ -495,7 +492,6 @@ export const en = {
       hostOffline: "{{hostName}} is offline",
       cannotReachHost: "Cannot reach {{hostName}}",
       hostStatus: "Host status: {{status}}",
-      needsHostUpgrade: "Update your host to restore this workspace",
       manageHost: "Manage host",
       recovery: {
         archivedTitle: "Workspace archived",
@@ -590,7 +586,6 @@ export const en = {
       },
     },
     setup: {
-      updateHost: "Update the host to view workspace setup details",
       descriptor: {
         label: "Setup",
         completed: "Setup completed",
@@ -665,8 +660,6 @@ export const en = {
     },
     terminal: {
       hostDisconnected: "Host is not connected",
-      updateHost: "Update the host to use the native terminal renderer.",
-      restoreRequiresUpdate: "Update the host to view terminals.",
       unableToSubscribe: "Unable to subscribe to terminal",
       fileUploaded: "File uploaded",
       pasteFileFailed: "Failed to paste file: {{reason}}",
@@ -1175,7 +1168,6 @@ export const en = {
     createConfirm: "Create",
     creating: "Creating…",
     name: "Label name",
-    updateHostUse: "Update this host to use labels.",
     errors: { update: "Unable to update label", load: "Unable to load labels" },
     colors: {
       violet: "Violet",
@@ -1207,7 +1199,6 @@ export const en = {
       deleteMessage_one: "This removes the label from {{count}} workspace on this host.",
       deleteMessage_other: "This removes the label from {{count}} workspaces on this host.",
       offline: "This host is offline.",
-      updateHost: "Update this host to manage labels.",
     },
   },
   changelog: {
@@ -1238,7 +1229,6 @@ export const en = {
         created: "Created",
         manual: "Manual",
         lastPrompt: "Last prompt",
-        updateHost: "Update hosts to sort workspaces",
       },
       grouping: {
         label: "Grouping",
@@ -1345,7 +1335,6 @@ export const en = {
       toasts: {
         hostDisconnected: "Host is not connected",
         removeFailed: "Failed to remove some workspaces",
-        updateHostToRemove: "Update the host to remove projects.",
       },
       empty: {
         title: "No projects yet",
@@ -2036,7 +2025,6 @@ export const en = {
         "Without relay, connect directly over TCP, Tailscale, or another VPN. No QR code is created.",
       tailscaleDocs: "Set up Tailscale",
       tailscaleDocsAccessibility: "Read how to connect over Tailscale",
-      updateRequired: "Update the host to enable relay from Pimi Desktop.",
       unavailable: "Pairing offer unavailable.",
       hint: "Scan this QR code with Pimi on your phone, or copy the link below.",
       securityWarning:
@@ -2185,7 +2173,6 @@ export const en = {
       directoryMissing: "Workspace directory not found.",
       empty: "No changes",
       loadError: "Failed to load diff",
-      capabilityMissing: "Update the host to view commit diffs.",
     },
   },
   toolCallDetails: {
@@ -2465,7 +2452,6 @@ export const en = {
       screens: {
         open: "Open",
         offline: "Connect to this host to open plugin settings.",
-        update: "Update this host to use plugin settings.",
         unavailable: "This plugin settings screen is unavailable.",
         backToPlugins: "Back to plugins",
       },
@@ -2516,8 +2502,6 @@ export const en = {
       states: {
         offlineTitle: "Plugin host is offline",
         offlineDescription: "Reconnect to this host to manage its plugins.",
-        updateTitle: "Update this host to manage plugins",
-        sourceUpdateTitle: "Update this host to install plugins",
         loading: "Loading plugins…",
         errorTitle: "Unable to load plugins",
         retry: "Retry",
@@ -2543,7 +2527,6 @@ export const en = {
     },
     voice: {
       offline: "Connect to this host to configure voice.",
-      updateHost: "Update the host to configure voice.",
       saveError: "Unable to update voice settings",
       provider: "Provider",
       providers: {
@@ -2991,7 +2974,6 @@ export const en = {
         docs: "Skills",
         openDocs: "Open skills documentation",
         unavailable: "Connect to this host to manage orchestration skills",
-        unsupported: "Update this host to manage orchestration skills",
         statusFailed: "Unable to check orchestration skills status.",
         updateFailed: "Unable to update orchestration skills.",
         uninstallFailed: "Unable to uninstall orchestration skills.",
@@ -3092,7 +3074,6 @@ export const en = {
       agentProfiles: {
         sectionTitle: "Agent profiles",
         unavailable: "Connect to this host to manage agent profiles",
-        unsupported: "This host runs a daemon that does not support agent profiles yet",
         emptyState: "No profiles yet. Add one to start agents from a saved provider and model.",
         addProfileTitle: "Add agent profile",
         newProfile: "New profile",

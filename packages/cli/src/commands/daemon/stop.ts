@@ -1,8 +1,5 @@
 import { Command } from "commander";
-import {
-  requireTerminalKeepCapability,
-  type DaemonClient,
-} from "@pimi/client/internal/daemon-client";
+import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import { stopDaemonInstance, type DaemonInstance } from "@pimi/server/daemon-control";
 import { connectToDaemon, type ConnectOptions } from "../../utils/client.js";
 import { withOutput, type CommandOptions } from "../../output/index.js";
@@ -23,10 +20,7 @@ export function daemonStopCommand(): Command {
 }
 
 // The daemon connection stop needs; stop.test.ts passes an in-memory adapter.
-export type StopDaemonConnection = Pick<
-  DaemonClient,
-  "getLastServerInfoMessage" | "shutdownServer" | "close"
->;
+export type StopDaemonConnection = Pick<DaemonClient, "shutdownServer" | "close">;
 
 export interface StopCommandDeps {
   connectToDaemon(options: ConnectOptions): Promise<StopDaemonConnection>;
@@ -47,9 +41,6 @@ async function runStop(options: CommandOptions, deps: StopCommandDeps) {
   const requestShutdown = async (instance?: DaemonInstance) => {
     const client = await deps.connectToDaemon({ target, timeout: remaining(), instance });
     try {
-      // Checked on the connection that carries the shutdown: a daemon without the capability
-      // would close the terminals it was asked to keep.
-      if (keepTerminals) requireTerminalKeepCapability(client, describeDaemonTarget(target));
       await client.shutdownServer({ timeout: remaining(), keepTerminals });
     } finally {
       await client.close();

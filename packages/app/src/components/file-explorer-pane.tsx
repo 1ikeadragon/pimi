@@ -127,11 +127,11 @@ interface TreeRowItemProps {
   onDownloadEntry: (entry: ExplorerEntry) => void;
   onAddToChat?: (path: string) => void;
   onOpenFileToSide?: (path: string) => void;
-  onNewEntry?: (parentPath: string, kind: "file" | "directory") => void;
+  onNewEntry: (parentPath: string, kind: "file" | "directory") => void;
   onCollapseDirectory?: (path: string) => void;
-  onRenameEntry?: (entry: ExplorerEntry) => void;
-  onDuplicateEntry?: (entry: ExplorerEntry) => void;
-  onDeleteEntry?: (entry: ExplorerEntry) => void;
+  onRenameEntry: (entry: ExplorerEntry) => void;
+  onDuplicateEntry: (entry: ExplorerEntry) => void;
+  onDeleteEntry: (entry: ExplorerEntry) => void;
   testID?: string;
 }
 
@@ -322,11 +322,11 @@ function TreeRowItem({
   }, [entry.path, onOpenFileToSide]);
 
   const handleNewFile = useCallback(() => {
-    onNewEntry?.(entry.path, "file");
+    onNewEntry(entry.path, "file");
   }, [onNewEntry, entry.path]);
 
   const handleNewFolder = useCallback(() => {
-    onNewEntry?.(entry.path, "directory");
+    onNewEntry(entry.path, "directory");
   }, [onNewEntry, entry.path]);
 
   const handleCollapseDirectory = useCallback(() => {
@@ -334,15 +334,15 @@ function TreeRowItem({
   }, [entry.path, onCollapseDirectory]);
 
   const handleRename = useCallback(() => {
-    onRenameEntry?.(entry);
+    onRenameEntry(entry);
   }, [onRenameEntry, entry]);
 
   const handleDuplicate = useCallback(() => {
-    onDuplicateEntry?.(entry);
+    onDuplicateEntry(entry);
   }, [entry, onDuplicateEntry]);
 
   const handleDelete = useCallback(() => {
-    onDeleteEntry?.(entry);
+    onDeleteEntry(entry);
   }, [onDeleteEntry, entry]);
 
   return (
@@ -390,12 +390,12 @@ function TreeRowItem({
         onDownload={handleDownload}
         onAddToChat={onAddToChat ? handleAddToChat : undefined}
         onOpenToSide={!isDirectory && onOpenFileToSide ? handleOpenToSide : undefined}
-        onNewFile={onNewEntry ? handleNewFile : undefined}
-        onNewFolder={onNewEntry ? handleNewFolder : undefined}
+        onNewFile={handleNewFile}
+        onNewFolder={handleNewFolder}
         onCollapseFolder={isDirectory && isExpanded ? handleCollapseDirectory : undefined}
-        onRename={onRenameEntry ? handleRename : undefined}
-        onDuplicate={onDuplicateEntry ? handleDuplicate : undefined}
-        onDelete={onDeleteEntry ? handleDelete : undefined}
+        onRename={handleRename}
+        onDuplicate={handleDuplicate}
+        onDelete={handleDelete}
         testIDPrefix={testID}
       />
     </ContextMenu>
@@ -467,14 +467,6 @@ export function FileExplorerPane({
     workspaceDirectory: normalizedWorkspaceRoot,
     projectId,
   });
-  // COMPAT(fsEntryOps): added in v0.3.0, remove gate after 2027-02-08.
-  const fsEntryOpsEnabled = useSessionStore(
-    (state) => state.sessions[serverId]?.serverInfo?.features?.fsEntryOps === true,
-  );
-  // COMPAT(fsEntryDuplicate): added in v0.3.0, remove gate after 2027-02-09.
-  const fsEntryDuplicateEnabled = useSessionStore(
-    (state) => state.sessions[serverId]?.serverInfo?.features?.fsEntryDuplicate === true,
-  );
   const [pendingEdit, setPendingEdit] = useState<ExplorerPendingEdit | null>(null);
   const downloadFile = useFileDownload({
     serverId,
@@ -1001,18 +993,16 @@ export function FileExplorerPane({
           onDownloadEntry={handleDownloadEntry}
           onAddToChat={onAddToChat}
           onOpenFileToSide={onOpenFileToSide}
-          onNewEntry={fsEntryOpsEnabled ? handleNewEntry : undefined}
+          onNewEntry={handleNewEntry}
           onCollapseDirectory={handleCollapseDirectory}
-          onRenameEntry={fsEntryOpsEnabled ? handleRenameEntry : undefined}
-          onDuplicateEntry={fsEntryDuplicateEnabled ? handleDuplicateEntry : undefined}
-          onDeleteEntry={fsEntryOpsEnabled ? handleDeleteEntry : undefined}
+          onRenameEntry={handleRenameEntry}
+          onDuplicateEntry={handleDuplicateEntry}
+          onDeleteEntry={handleDeleteEntry}
         />
       );
     },
     [
       expandedPaths,
-      fsEntryDuplicateEnabled,
-      fsEntryOpsEnabled,
       handleCollapseDirectory,
       handleCopyPath,
       handleCopyRelativePath,
@@ -1078,7 +1068,7 @@ export function FileExplorerPane({
         showInitialLoading={showInitialLoading}
         showBackFromError={showBackFromError}
         listRows={listRows}
-        onNewEntryAtRoot={fsEntryOpsEnabled ? handleNewEntry : undefined}
+        onNewEntryAtRoot={handleNewEntry}
         currentSortLabel={currentSortLabel}
         isRefreshFetching={isRefreshFetching}
         treeListRef={treeListRef}
@@ -1109,17 +1099,11 @@ function isFileExplorerRowTarget(target: unknown): boolean {
   return target.closest('[data-testid^="file-explorer-row-"]') !== null;
 }
 
-function RootCreationContextTarget({
-  children,
-  enabled,
-}: {
-  children: ReactNode;
-  enabled: boolean;
-}) {
+function RootCreationContextTarget({ children }: { children: ReactNode }) {
   const contextMenu = useContextMenu();
   const handleContextMenu = useCallback(
     (event: WebContextMenuEvent) => {
-      if (!enabled || isFileExplorerRowTarget(event.target)) {
+      if (isFileExplorerRowTarget(event.target)) {
         return;
       }
       event.preventDefault();
@@ -1132,7 +1116,7 @@ function RootCreationContextTarget({
       });
       contextMenu.setOpen(true);
     },
-    [contextMenu, enabled],
+    [contextMenu],
   );
 
   return (
@@ -1152,7 +1136,7 @@ interface FileExplorerPaneContentProps {
   showInitialLoading: boolean;
   showBackFromError: boolean;
   listRows: ExplorerListRow[];
-  onNewEntryAtRoot?: (parentPath: string, kind: "file" | "directory") => void;
+  onNewEntryAtRoot: (parentPath: string, kind: "file" | "directory") => void;
   currentSortLabel: string;
   isRefreshFetching: boolean;
   treeListRef: RefObject<FlatList<ExplorerListRow> | null>;
@@ -1192,10 +1176,10 @@ function FileExplorerPaneContent(props: FileExplorerPaneContentProps) {
   const showHiddenFiles = usePanelStore((state) => state.explorerShowHiddenFiles);
 
   const handleNewFileAtRoot = useCallback(() => {
-    onNewEntryAtRoot?.(".", "file");
+    onNewEntryAtRoot(".", "file");
   }, [onNewEntryAtRoot]);
   const handleNewFolderAtRoot = useCallback(() => {
-    onNewEntryAtRoot?.(".", "directory");
+    onNewEntryAtRoot(".", "directory");
   }, [onNewEntryAtRoot]);
 
   const hiddenFilesToggleAccessibilityLabel = showHiddenFiles
@@ -1252,34 +1236,30 @@ function FileExplorerPaneContent(props: FileExplorerPaneContentProps) {
           <ChevronDown size={12} color={theme.colors.foregroundMuted} />
         </Pressable>
         <ToolbarControls style={styles.headerActions}>
-          {onNewEntryAtRoot ? (
-            <>
-              <ToolbarButton
-                label={t("workspace.fileActions.newFile")}
-                compact={isCompact}
-                hitSlop={8}
-                testID="files-new-file"
-                onPress={handleNewFileAtRoot}
-              >
-                <FilePlus
-                  size={paneContentToolbarIconSize(isCompact)}
-                  color={theme.colors.foregroundExtraMuted}
-                />
-              </ToolbarButton>
-              <ToolbarButton
-                label={t("workspace.fileActions.newFolder")}
-                compact={isCompact}
-                hitSlop={8}
-                testID="files-new-folder"
-                onPress={handleNewFolderAtRoot}
-              >
-                <FolderPlus
-                  size={paneContentToolbarIconSize(isCompact)}
-                  color={theme.colors.foregroundExtraMuted}
-                />
-              </ToolbarButton>
-            </>
-          ) : null}
+          <ToolbarButton
+            label={t("workspace.fileActions.newFile")}
+            compact={isCompact}
+            hitSlop={8}
+            testID="files-new-file"
+            onPress={handleNewFileAtRoot}
+          >
+            <FilePlus
+              size={paneContentToolbarIconSize(isCompact)}
+              color={theme.colors.foregroundExtraMuted}
+            />
+          </ToolbarButton>
+          <ToolbarButton
+            label={t("workspace.fileActions.newFolder")}
+            compact={isCompact}
+            hitSlop={8}
+            testID="files-new-folder"
+            onPress={handleNewFolderAtRoot}
+          >
+            <FolderPlus
+              size={paneContentToolbarIconSize(isCompact)}
+              color={theme.colors.foregroundExtraMuted}
+            />
+          </ToolbarButton>
           <ToolbarButton
             label={hiddenFilesToggleAccessibilityLabel}
             selected={!showHiddenFiles}
@@ -1329,7 +1309,7 @@ function FileExplorerPaneContent(props: FileExplorerPaneContentProps) {
         </ToolbarControls>
       </PaneContentToolbar>
       <ContextMenu>
-        <RootCreationContextTarget enabled={Boolean(onNewEntryAtRoot)}>
+        <RootCreationContextTarget>
           {listRows.length === 0 ? (
             <View style={styles.centerState}>
               <Text style={styles.emptyText}>{emptyLabel}</Text>
@@ -1355,14 +1335,12 @@ function FileExplorerPaneContent(props: FileExplorerPaneContentProps) {
           )}
           {listRows.length > 0 ? scrollbar.overlay : null}
         </RootCreationContextTarget>
-        {onNewEntryAtRoot ? (
-          <FileActionsContextMenuContent
-            fileKind="directory"
-            onNewFile={handleNewFileAtRoot}
-            onNewFolder={handleNewFolderAtRoot}
-            testIDPrefix="files-empty-area"
-          />
-        ) : null}
+        <FileActionsContextMenuContent
+          fileKind="directory"
+          onNewFile={handleNewFileAtRoot}
+          onNewFolder={handleNewFolderAtRoot}
+          testIDPrefix="files-empty-area"
+        />
       </ContextMenu>
     </View>
   );
@@ -1497,11 +1475,11 @@ function TreeRowDispatcher({
   onDownloadEntry: (entry: ExplorerEntry) => void;
   onAddToChat?: (path: string) => void;
   onOpenFileToSide?: (path: string) => void;
-  onNewEntry?: (parentPath: string, kind: "file" | "directory") => void;
+  onNewEntry: (parentPath: string, kind: "file" | "directory") => void;
   onCollapseDirectory?: (path: string) => void;
-  onRenameEntry?: (entry: ExplorerEntry) => void;
-  onDuplicateEntry?: (entry: ExplorerEntry) => void;
-  onDeleteEntry?: (entry: ExplorerEntry) => void;
+  onRenameEntry: (entry: ExplorerEntry) => void;
+  onDuplicateEntry: (entry: ExplorerEntry) => void;
+  onDeleteEntry: (entry: ExplorerEntry) => void;
 }) {
   const entry = row.entry;
   const depth = row.depth;

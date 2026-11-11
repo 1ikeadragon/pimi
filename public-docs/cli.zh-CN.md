@@ -123,8 +123,6 @@ pimi run --output-schema '{"type":"object","properties":{"summary":{"type":"stri
 
 `pimi run` 默认等待完成。使用 `--no-wait` 可以立即返回，同时让 Agent 继续运行，`pimi send` 也使用同一个参数。
 
-旧的 `run --background` 和 `-d` 别名仍然表示 `--no-wait`。它们已被弃用，不会出现在帮助中，并会向 stderr 输出警告。请在脚本中使用 `--no-wait`。工作区的可见性通过 `workspace create --background` 单独选择；本版本不会改变 `run --background` 的含义。
-
 ## 项目 {#projects}
 
 把当前目录注册为项目，然后列出 daemon 知道的项目：

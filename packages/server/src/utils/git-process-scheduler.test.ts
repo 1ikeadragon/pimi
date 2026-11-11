@@ -156,13 +156,12 @@ describe("GitProcessScheduler", () => {
 });
 
 describe("resolveGitProcessPolicy", () => {
-  test("prefers renamed environment variables over legacy and persisted values", () => {
+  test("prefers environment variables over persisted values", () => {
     expect(
       resolveGitProcessPolicy({
         env: {
           PASEO_GIT_MAX_PROCESSES_PER_SECOND: "12",
           PASEO_GIT_MAX_PROCESS_CONCURRENCY: "7",
-          PASEO_GIT_CONCURRENCY: "3",
         },
         persisted: { maxProcessesPerSecond: 5, maxProcessConcurrency: 4 },
       }),

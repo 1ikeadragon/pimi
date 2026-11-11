@@ -36,8 +36,6 @@ import {
 import { filterSelectableModels } from "@/provider-selection/model-catalog";
 import { useSessionStore } from "@/stores/session-store";
 import { useProvidersSnapshot } from "@/hooks/use-providers-snapshot";
-import { useForkAgent } from "@/hooks/use-fork-agent";
-import { useHostFeature } from "@/runtime/host-features";
 import { resolveProviderDefinition } from "@/utils/provider-definitions";
 import { mergeProviderPreferences, useFormPreferences } from "@/hooks/use-form-preferences";
 import { Combobox, ComboboxItem, type ComboboxOption } from "@/components/ui/combobox";
@@ -1594,28 +1592,17 @@ function useAgentProviderSwitch({
   serverId,
   agentId,
   agent,
-  providerEntry,
   handleSelectModel,
 }: {
   serverId: string;
   agentId: string;
   agent: AgentControlsSlice;
-  providerEntry?: { label?: string | null } | null;
   handleSelectModel: (modelId: string) => Promise<void>;
 }) {
   const toast = useToast();
   const { updatePreferences } = useFormPreferences();
   const client = useSessionStore((state) => state.sessions[serverId]?.client ?? null);
-  const supportsProviderSwitch = useHostFeature(serverId, "agentProviderSwitch");
-  // COMPAT(agentProviderSwitch): added in v0.17.15, remove after 2027-05-10. A host
-  // without in-place switching continues the chat in a new draft seeded with its
-  // history; delete `forkToProvider` and everything that feeds it with this tag.
-  const supportsForkContext = useHostFeature(serverId, "agentForkContext");
-  const canForkToProvider = supportsForkContext && Boolean(agent?.workspaceId);
-  const canSwitchProvider = supportsProviderSwitch || canForkToProvider;
   const agentProvider = agent?.provider;
-  const providerLabel = providerEntry?.label;
-  const forkAgent = useForkAgent({ serverId, toast });
   const switchPending = useRef(false);
   const [isSwitchPending, setIsSwitchPending] = useState(false);
 
@@ -1638,56 +1625,25 @@ function useAgentProviderSwitch({
     [agentId, client, toast, updatePreferences],
   );
 
-  const forkToProvider = useCallback(
-    async (provider: AgentProvider, modelId: string) => {
-      const source = useSessionStore.getState().sessions[serverId]?.agents?.get(agentId);
-      if (!source?.workspaceId) return;
-      await forkAgent({
-        agentId,
-        agent: source,
-        workspaceId: source.workspaceId,
-        target: { provider, model: modelId },
-        handoffFromProvider: providerLabel ?? source.provider,
-      });
-    },
-    [agentId, forkAgent, providerLabel, serverId],
-  );
-
   const selectProviderModel = useCallback(
     async (provider: AgentProvider, modelId: string) => {
       if (provider === agentProvider) {
         await handleSelectModel(modelId);
         return;
       }
-      if (!canSwitchProvider || switchPending.current) return;
+      if (switchPending.current) return;
       switchPending.current = true;
       setIsSwitchPending(true);
       try {
-        if (supportsProviderSwitch) {
-          await switchInPlace(provider, modelId);
-        } else {
-          await forkToProvider(provider, modelId);
-        }
+        await switchInPlace(provider, modelId);
       } finally {
         switchPending.current = false;
         setIsSwitchPending(false);
       }
     },
-    [
-      agentProvider,
-      canSwitchProvider,
-      forkToProvider,
-      handleSelectModel,
-      supportsProviderSwitch,
-      switchInPlace,
-    ],
+    [agentProvider, handleSelectModel, switchInPlace],
   );
-  return {
-    canSwitchProvider,
-    isSwitchPending,
-    selectProviderModel,
-    selectInPicker: canSwitchProvider ? selectProviderModel : undefined,
-  };
+  return { isSwitchPending, selectProviderModel };
 }
 
 export const AgentControls = memo(function AgentControls({
@@ -1775,21 +1731,19 @@ export const AgentControls = memo(function AgentControls({
     },
     [agentId, agentProvider, client, toast, updatePreferences],
   );
-  const { canSwitchProvider, isSwitchPending, selectProviderModel, selectInPicker } =
-    useAgentProviderSwitch({
-      serverId,
-      agentId,
-      agent,
-      providerEntry: snapshotSelectedEntry,
-      handleSelectModel,
-    });
+  const { isSwitchPending, selectProviderModel } = useAgentProviderSwitch({
+    serverId,
+    agentId,
+    agent,
+    handleSelectModel,
+  });
   const isAgentModelLoading = [
     isSwitchPending,
     snapshotIsLoading,
     selectedProviderIsLoading,
   ].includes(true);
   const agentModelSelectorProviders = useMemo(() => {
-    if (canSwitchProvider && snapshotEntries?.length) {
+    if (snapshotEntries?.length) {
       return buildSelectableProviderSelectorProviders(
         snapshotEntries.filter(
           (entry) => entry === snapshotSelectedEntry || entry.status === "ready",
@@ -1803,13 +1757,7 @@ export const AgentControls = memo(function AgentControls({
       providerDefinitions: agentProviderDefinitions,
       modelsByProvider: agentProviderModels,
     });
-  }, [
-    agentProviderDefinitions,
-    agentProviderModels,
-    canSwitchProvider,
-    snapshotEntries,
-    snapshotSelectedEntry,
-  ]);
+  }, [agentProviderDefinitions, agentProviderModels, snapshotEntries, snapshotSelectedEntry]);
 
   // A running agent is one provider's process, so only that provider's profiles
   // can apply to it.
@@ -1938,8 +1886,8 @@ export const AgentControls = memo(function AgentControls({
   );
 
   const handleModelSelectorOpen = useCallback(() => {
-    refetchSnapshotIfStale(canSwitchProvider ? undefined : agentProvider);
-  }, [agentProvider, canSwitchProvider, refetchSnapshotIfStale]);
+    refetchSnapshotIfStale();
+  }, [refetchSnapshotIfStale]);
 
   const handleRetryModelProvider = useCallback(
     (provider: AgentProvider) => {
@@ -1962,7 +1910,7 @@ export const AgentControls = memo(function AgentControls({
         modelOptions={modelOptions}
         selectedModelId={modelSelection.activeModelId ?? undefined}
         onSelectModel={handleSelectModel}
-        onSelectProviderAndModel={selectInPicker}
+        onSelectProviderAndModel={selectProviderModel}
         agentProfiles={agentProfiles}
         onApplyAgentProfile={agentProfiles?.applyProfile}
         onEditAgentProfiles={handleEditAgentProfiles}

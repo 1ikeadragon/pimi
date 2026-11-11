@@ -42,7 +42,6 @@ export interface OpenProjectDirectlyInput {
   serverId: string;
   projectPath: string;
   isConnected: boolean;
-  canAddProject: boolean;
   client: Pick<DaemonClient, "addProject"> | null;
   upsertProject: (serverId: string, project: ProjectDescriptor) => void;
   setHasHydratedWorkspaces: (serverId: string, hydrated: boolean) => void;
@@ -84,14 +83,6 @@ export async function openProjectDirectly(
   const trimmedPath = input.projectPath.trim();
   if (!normalizedServerId || !trimmedPath || !input.client || !input.isConnected) {
     return { ok: false, errorCode: null, error: null };
-  }
-
-  if (!input.canAddProject) {
-    return {
-      ok: false,
-      errorCode: null,
-      error: "Update the host to add projects without creating a workspace.",
-    };
   }
 
   const payload = await input.client.addProject(trimmedPath);

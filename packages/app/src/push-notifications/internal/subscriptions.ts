@@ -89,11 +89,7 @@ export function startSubscription(input: StartPushNotificationsInput): () => voi
 export async function revokeSubscription(input: RevokePushNotificationsInput): Promise<void> {
   const key = storageKey(input.serverId);
   const token = await readValidatedString(AsyncStorage, key, ExpoPushTokenSchema);
-  if (
-    token &&
-    input.client?.isConnected &&
-    input.client.getLastServerInfoMessage()?.features?.pushTokenRevocation === true
-  ) {
+  if (token && input.client?.isConnected) {
     try {
       await input.client.unregisterPushToken(token);
     } catch (error) {

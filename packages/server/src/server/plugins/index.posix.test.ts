@@ -1720,7 +1720,6 @@ export default function contribute() {
         { outcome: "updated", plugin: { installation: { currentRevision: "1.0.0" } } },
       ]);
       expect((await service.previewUpdates({ pluginId: "exact" }))[0]?.outcome).toBe("update");
-      await expect(service.updateSources("exact")).rejects.toThrow("Update the client");
       const prepared = await service.installSource({
         source: "npm:paseo-prepared-plugin@1.0.0:nested",
       });

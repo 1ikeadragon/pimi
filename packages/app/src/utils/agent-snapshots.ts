@@ -1,35 +1,17 @@
 import type { AgentSnapshotPayload } from "@pimi/protocol/messages";
 import type { AgentPermissionRequest } from "@pimi/protocol/agent-types";
 import { getParentAddressFromLabels } from "@pimi/protocol/agent-labels";
-import {
-  TURN_LIVENESS_IDLE,
-  type ActiveTurnIdentity,
-  type TurnLiveness,
-} from "@/timeline/turn-liveness";
+import { TURN_LIVENESS_IDLE, type TurnLiveness } from "@/timeline/turn-liveness";
 import type { Agent } from "@/stores/session-store";
 
-function normalizeActiveTurn(
-  snapshot: AgentSnapshotPayload,
-  lastUserMessageAt: Date | null,
-): ActiveTurnIdentity | null {
-  if (snapshot.activeTurn === null) return null;
-  if (snapshot.activeTurn) {
-    return {
-      turnId: snapshot.activeTurn.turnId,
-      startedAt: snapshot.activeTurn.startedAt ? new Date(snapshot.activeTurn.startedAt) : null,
-    };
-  }
-  return snapshot.status === "running" ? { turnId: null, startedAt: lastUserMessageAt } : null;
-}
-
-function normalizeTurn(
-  snapshot: AgentSnapshotPayload,
-  lastUserMessageAt: Date | null,
-): TurnLiveness {
-  const activeTurn = normalizeActiveTurn(snapshot, lastUserMessageAt);
-  return activeTurn
-    ? { phase: "open", ...activeTurn, cancellationRequestId: null }
-    : TURN_LIVENESS_IDLE;
+function normalizeTurn(snapshot: AgentSnapshotPayload): TurnLiveness {
+  if (!snapshot.activeTurn) return TURN_LIVENESS_IDLE;
+  return {
+    phase: "open",
+    turnId: snapshot.activeTurn.turnId,
+    startedAt: snapshot.activeTurn.startedAt ? new Date(snapshot.activeTurn.startedAt) : null,
+    cancellationRequestId: null,
+  };
 }
 
 function projectActiveTurn(agent: Agent): Pick<AgentSnapshotPayload, "activeTurn"> {
@@ -102,10 +84,7 @@ export function normalizeAgentSnapshot(snapshot: AgentSnapshotPayload, serverId:
   const archivedAt = snapshot.archivedAt ? new Date(snapshot.archivedAt) : null;
   const parent = getParentAddressFromLabels(snapshot.labels, serverId);
   const parentAgentId = parent?.serverId === serverId ? parent.agentId : null;
-  // COMPAT(agentTurnIdentity): added in v0.2.6, remove after 2027-01-31 once daemon floor >= v0.2.6.
-  // Old daemons expose only status. Normalize that legacy signal once so the rest
-  // of the app consumes one activity shape.
-  const turn = normalizeTurn(snapshot, lastUserMessageAt);
+  const turn = normalizeTurn(snapshot);
 
   return {
     serverId,

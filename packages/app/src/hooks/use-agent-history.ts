@@ -8,7 +8,6 @@ import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import type { AggregatedAgent } from "@/hooks/use-aggregated-agents";
 import { getHostRuntimeStore, isHostRuntimeConnected, useHosts } from "@/runtime/host-runtime";
-import { useSessionStore } from "@/stores/session-store";
 import { buildAgentDirectoryState } from "@/utils/agent-directory-sync";
 import { agentHistoryQueryKey, allAgentHistoryQueryKey } from "./agent-history-query-key";
 
@@ -26,10 +25,6 @@ export interface AgentHistoryResult {
   isError: boolean;
   hasMore: boolean;
   isLoadingMore: boolean;
-  /** False when any target host predates search; the screen hides the field. */
-  isSearchSupported: boolean;
-  /** More sessions matched than the ranked page holds. Narrow the query. */
-  isSearchTruncated: boolean;
   /** Hosts that failed while others succeeded. The list still renders. */
   hostErrors: AgentHistoryHostError[];
   refreshAll: () => Promise<void>;
@@ -39,8 +34,6 @@ export interface AgentHistoryResult {
 export interface AgentHistoryPage {
   agents: AggregatedAgent[];
   pageInfo: FetchAgentHistoryPageInfo;
-  /** More matched this host's query than its page could hold. */
-  isSearchTruncated: boolean;
 }
 
 export type AgentHistoryClient = Pick<DaemonClient, "fetchAgentHistory">;
@@ -65,8 +58,6 @@ interface AgentHistoryBatchPage {
   agents: AggregatedAgent[];
   pageInfoByServerId: Record<string, FetchAgentHistoryPageInfo>;
   hostErrors: AgentHistoryHostError[];
-  /** Set only under a query: more sessions matched than this page can hold. */
-  isSearchTruncated?: boolean;
 }
 
 type AgentHistoryCursorByServerId = Record<string, string | null>;
@@ -90,7 +81,6 @@ export async function fetchAgentHistoryPage(input: {
     entries: payload.entries,
   });
   return {
-    isSearchTruncated: payload.searchTruncated === true,
     agents: Array.from(agents.values(), (agent) => ({
       id: agent.id,
       serverId: input.serverId,
@@ -208,9 +198,6 @@ export async function fetchAgentHistoryBatch(input: {
     agents: sortByLatestActivity(agents),
     pageInfoByServerId,
     hostErrors,
-    ...(input.search
-      ? { isSearchTruncated: pages.some(({ page }) => page.isSearchTruncated) }
-      : {}),
   };
 }
 
@@ -257,23 +244,7 @@ export function useAgentHistory(options: {
     return { targetHosts: hosts, unreachableHosts: unreachable };
   }, [daemons, runtime, runtimeVersion, serverId]);
   const targetServerIds = useMemo(() => targetHosts.map((host) => host.serverId), [targetHosts]);
-  // One gate, checked before the field is offered: a fleet where any host
-  // predates search has no search, rather than a list that silently omits that
-  // host's sessions.
-  const isSearchSupported = useSessionStore(
-    useCallback(
-      (state) =>
-        targetServerIds.length > 0 &&
-        targetServerIds.every(
-          (id) => state.sessions[id]?.serverInfo?.features?.agentHistorySearch === true,
-        ),
-      [targetServerIds],
-    ),
-  );
-  const search = useMemo(() => {
-    const trimmed = options.search?.trim() ?? "";
-    return isSearchSupported ? trimmed : "";
-  }, [isSearchSupported, options.search]);
+  const search = options.search?.trim() ?? "";
   const queryKey = useMemo(
     () => [
       ...(serverId ? agentHistoryQueryKey(serverId) : allAgentHistoryQueryKey(targetServerIds)),
@@ -346,7 +317,6 @@ export function useAgentHistory(options: {
   }, [data?.pages, serverLabelById]);
   const isInitialLoad = isLoading && agents.length === 0;
   const isRevalidating = isFetching && !isFetchingNextPage && agents.length > 0;
-  const isSearchTruncated = Boolean(search && data?.pages.some((page) => page.isSearchTruncated));
   const hostErrors = useMemo(
     () => collectAgentHistoryHostErrors({ pages: data?.pages ?? [], unreachableHosts }),
     [data?.pages, unreachableHosts],
@@ -360,8 +330,6 @@ export function useAgentHistory(options: {
     isError,
     hasMore: hasNextPage,
     isLoadingMore: isFetchingNextPage,
-    isSearchSupported,
-    isSearchTruncated,
     hostErrors,
     refreshAll,
     loadMore,

@@ -40,7 +40,7 @@ export function createRelayE2eeTransportFactory(
   return ({ url }) => createEncryptedTransport(baseFactory({ url }), options);
 }
 
-const DAEMON_REQUIRES_PROTECTED_REASON = "daemon requires protected endpoint security";
+const DOWNGRADE_REJECTED_REASON = "daemon requires protected endpoint security";
 
 /**
  * Returns a user-facing message when this client closed the session itself
@@ -57,30 +57,6 @@ export function describeEndpointSecurityClose(event: unknown): string | null {
     return `Endpoint security handshake failed: ${reason || "protected mode unavailable"}`;
   }
   return null;
-}
-
-/**
- * The first session message from the daemon is `server_info`. A daemon that can
- * negotiate protected security advertises it there, so a legacy session with such
- * a daemon was downgraded in transit and must not proceed to admission.
- */
-function readServerInfoProtectedSupport(text: string): boolean | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    return null;
-  }
-  if (!isRecord(parsed) || parsed.type !== "session" || !isRecord(parsed.message)) return null;
-  const message = parsed.message;
-  if (message.type !== "status" || !isRecord(message.payload)) return null;
-  if (message.payload.status !== "server_info") return null;
-  const features = message.payload.features;
-  return isRecord(features) && features.relayProtectedSecurity === true;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
 
 /**
@@ -102,7 +78,6 @@ export function createEncryptedTransport(
   let channel: SecureChannel | null = null;
   let opened = false;
   let closed = false;
-  let awaitingServerInfo = true;
 
   const openHandlers = new Set<OpenHandler>();
   const closeHandlers = new Set<CloseHandler>();
@@ -135,20 +110,6 @@ export function createEncryptedTransport(
   const emitMessage = (data: unknown) => {
     if (closed) {
       return;
-    }
-    if (awaitingServerInfo && typeof data === "string") {
-      const daemonSupportsProtected = readServerInfoProtectedSupport(data);
-      if (daemonSupportsProtected !== null) {
-        awaitingServerInfo = false;
-        if (daemonSupportsProtected && channel?.securityMode() === "legacy") {
-          logger.warn(
-            { reason: DAEMON_REQUIRES_PROTECTED_REASON },
-            "relay_e2ee_downgrade_rejected",
-          );
-          channel.close(PROTECTED_HANDSHAKE_FAILED_CLOSE_CODE, DAEMON_REQUIRES_PROTECTED_REASON);
-          return;
-        }
-      }
     }
     emitHandlers(messageHandlers, data, data instanceof ArrayBuffer);
   };
@@ -185,7 +146,14 @@ export function createEncryptedTransport(
         ...(minimumMode ? { minimumMode } : {}),
         events: {
           onopen: () => {
-            onSecurityMode?.(channel?.securityMode() ?? "legacy");
+            // Every daemon negotiates protected security. A legacy session means the
+            // handshake was downgraded in transit: close before credentials are sent.
+            if (channel?.securityMode() !== "protected") {
+              logger.warn({ reason: DOWNGRADE_REJECTED_REASON }, "relay_e2ee_downgrade_rejected");
+              channel?.close(PROTECTED_HANDSHAKE_FAILED_CLOSE_CODE, DOWNGRADE_REJECTED_REASON);
+              return;
+            }
+            onSecurityMode?.("protected");
             emitOpen();
           },
           onmessage: (data) => emitMessage(data),

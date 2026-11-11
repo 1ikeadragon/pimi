@@ -58,16 +58,16 @@ export interface UseAgentProfilePickerInput {
 
 /**
  * The agent-profiles section of the model picker: the rows to draw, and what
- * pressing one does. A supported host returns an empty row list when there is
- * nothing applicable so the picker can retain its settings shortcut without
- * pinning an empty section. Unsupported or still-loading hosts return `null`.
+ * pressing one does. It returns an empty row list when there is nothing
+ * applicable so the picker can retain its settings shortcut without pinning an
+ * empty section. A host whose config has not loaded yet returns `null`.
  */
 export function useAgentProfilePicker(
   input: UseAgentProfilePickerInput,
 ): AgentProfilePicker | null {
   const { serverId, availableProviders, target } = input;
   const { t } = useTranslation();
-  const { profiles, isSupported } = useAgentProfiles(serverId);
+  const { profiles } = useAgentProfiles(serverId);
   // Profiles are host config, so their labels read from the host-wide catalog
   // rather than a workspace's. That is also the key the settings section uses,
   // so every composer on a host shares one query instead of adding its own.
@@ -77,12 +77,12 @@ export function useAgentProfilePicker(
   const toast = useToast();
 
   const applicableProfiles = useMemo(() => {
-    if (!isSupported || !profiles) {
+    if (!profiles) {
       return [];
     }
     const available = new Set(availableProviders);
     return profiles.filter((profile) => available.has(profile.provider));
-  }, [availableProviders, isSupported, profiles]);
+  }, [availableProviders, profiles]);
 
   const formatFeatureCount = useCallback(
     (count: number) =>
@@ -161,7 +161,7 @@ export function useAgentProfilePicker(
   );
 
   return useMemo(
-    () => (isSupported && profiles !== null ? { rows, applyProfile } : null),
-    [applyProfile, isSupported, profiles, rows],
+    () => (profiles !== null ? { rows, applyProfile } : null),
+    [applyProfile, profiles, rows],
   );
 }

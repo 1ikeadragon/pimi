@@ -134,7 +134,6 @@ export interface ProjectMutation {
 
 export interface ProjectRegistry {
   initialize(): Promise<void>;
-  existsOnDisk(): Promise<boolean>;
   list(): Promise<PersistedProjectRecord[]>;
   get(projectId: string): Promise<PersistedProjectRecord | null>;
   getOrCreateActiveByRoot(input: {
@@ -157,7 +156,6 @@ export interface ProjectRegistry {
 
 export interface WorkspaceRegistry {
   initialize(): Promise<void>;
-  existsOnDisk(): Promise<boolean>;
   listAll(): Promise<PersistedWorkspaceRecord[]>;
   listActive(): Promise<PersistedWorkspaceRecord[]>;
   get(workspaceId: string): Promise<PersistedWorkspaceRecord | null>;
@@ -212,15 +210,6 @@ class FileBackedRegistry<TRecord extends RegistryRecord> {
 
   async initialize(): Promise<void> {
     await this.load();
-  }
-
-  async existsOnDisk(): Promise<boolean> {
-    try {
-      await fs.access(this.filePath);
-      return true;
-    } catch {
-      return false;
-    }
   }
 
   async listAll(): Promise<TRecord[]> {

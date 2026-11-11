@@ -27,12 +27,7 @@ it.each([
   expect(resolvePluginSurfacePlaceholder({ connectionStatus, catalogStatus })).toBe(expected);
 });
 
-function installation(
-  serverId: string,
-  surfaces: string[],
-  sidebarItems: Array<{ id: string; surface: string }> = [],
-  pluginId = "review",
-): InstalledPlugin {
+function installation(serverId: string, surfaces: string[], pluginId = "review"): InstalledPlugin {
   return {
     id: pluginId,
     serverId,
@@ -50,11 +45,6 @@ function installation(
     settingsScreens: [],
     surfaces: surfaces.map((id) => ({ id, title: id, Component: () => null })),
     sidebarItems: { header: [], footer: [] },
-    legacySidebarItems: sidebarItems.map((item) => ({
-      ...item,
-      title: item.id,
-      icon: "Blocks",
-    })),
     filePanels: [],
     workspacePanels: [],
     commandCenterItems: [],
@@ -68,45 +58,18 @@ function installation(
 
 describe("plugin surface contribution identity", () => {
   const installations = [
-    installation(
-      "host-v1",
-      ["overview", "surface-v1"],
-      [{ id: "overview", surface: "surface-v1" }],
-    ),
-    installation(
-      "host-v2",
-      ["overview", "surface-v2"],
-      [{ id: "overview", surface: "surface-v2" }],
-    ),
+    installation("host-v1", ["overview", "surface-v1"]),
+    installation("host-v2", ["overview", "surface-v2"]),
     installation("same-surface", ["overview"]),
-    installation("other-contribution", ["surface-v1"], [{ id: "other", surface: "surface-v1" }]),
-    installation(
-      "other-plugin",
-      ["overview", "surface-v1"],
-      [{ id: "overview", surface: "surface-v1" }],
-      "other",
-    ),
+    installation("other-contribution", ["surface-v1"]),
+    installation("other-plugin", ["overview", "surface-v1"], "other"),
   ];
 
-  it("resolves a sidebar contribution by its explicit identity across host version drift", () => {
-    const identity = { kind: "sidebar", id: "overview" } as const;
-    const resolved = resolvePluginSurfaceContribution(installations[0] ?? null, identity);
-
-    expect(resolved.sidebarItem?.id).toBe("overview");
-    expect(resolved.surface?.id).toBe("surface-v1");
-    expect(getPluginSurfaceContributionServerIds(installations, "review", identity)).toEqual([
-      "host-v1",
-      "host-v2",
-      "same-surface",
-    ]);
-  });
-
-  it("does not let a same-id sidebar contribution capture a direct surface", () => {
+  it("resolves a surface by its identity", () => {
     const identity = { kind: "surface", id: "overview" } as const;
     const resolved = resolvePluginSurfaceContribution(installations[0] ?? null, identity);
 
-    expect(resolved.sidebarItem).toBeNull();
-    expect(resolved.surface?.id).toBe("overview");
+    expect(resolved?.id).toBe("overview");
     expect(getPluginSurfaceContributionServerIds(installations, "review", identity)).toEqual([
       "host-v1",
       "host-v2",
@@ -114,39 +77,20 @@ describe("plugin surface contribution identity", () => {
     ]);
   });
 
-  it("opens a direct screen without borrowing a legacy item that points at it", () => {
-    const resolved = resolvePluginSurfaceContribution(installations[0] ?? null, {
-      kind: "surface",
-      id: "surface-v1",
-    });
-
-    expect(resolved.sidebarItem).toBeNull();
-    expect(resolved.surface?.id).toBe("surface-v1");
-  });
-
-  it("resolves an old sidebar link to the same-id screen once the plugin has migrated", () => {
-    const resolved = resolvePluginSurfaceContribution(installations[2] ?? null, {
-      kind: "sidebar",
-      id: "overview",
-    });
-
-    expect(resolved.sidebarItem).toBeNull();
-    expect(resolved.surface?.id).toBe("overview");
+  it("resolves null for a missing surface", () => {
     expect(
-      resolvePluginSurfaceContribution(installations[2] ?? null, { kind: "sidebar", id: "missing" })
-        .surface,
+      resolvePluginSurfaceContribution(installations[2] ?? null, {
+        kind: "surface",
+        id: "missing",
+      }),
     ).toBeNull();
   });
 });
 
 describe("currentPluginScreen", () => {
-  const plugin = installation(
-    "local",
-    ["overview", "details"],
-    [{ id: "legacy", surface: "details" }],
-  );
+  const plugin = installation("local", ["overview", "details"]);
 
-  it("reads the open screen and its params from direct and legacy routes on the installation's host", () => {
+  it("reads the open screen and its params from the route on the installation's host", () => {
     expect(
       currentPluginScreen(plugin, "/h/local/plugin/review/surface/overview", {
         serverId: "local",
@@ -156,10 +100,6 @@ describe("currentPluginScreen", () => {
         "param.botId": "bot-2",
       }),
     ).toEqual({ screenId: "overview", params: { botId: "bot-2" } });
-    expect(currentPluginScreen(plugin, "/h/local/plugin/review/sidebar/legacy", {})).toEqual({
-      screenId: "details",
-      params: {},
-    });
   });
 
   it("is null on another host, another plugin, or a missing screen", () => {
@@ -213,17 +153,17 @@ describe("resolvePluginScreenTitle", () => {
 
   it("uses a string title as is", () => {
     expect(
-      resolvePluginScreenTitle({ id: "deploys", title: "Deploys", Component }, null, {}, resolve),
+      resolvePluginScreenTitle({ id: "deploys", title: "Deploys", Component }, {}, resolve),
     ).toBe("Deploys");
   });
 
   it("derives a function title from the params it is given", () => {
-    expect(resolvePluginScreenTitle(bot, null, { botId: "bot-2" }, resolve)).toBe("Bot 2");
-    expect(resolvePluginScreenTitle(bot, null, { botId: "bot-1" }, resolve)).toBe("Bot 1");
+    expect(resolvePluginScreenTitle(bot, { botId: "bot-2" }, resolve)).toBe("Bot 2");
+    expect(resolvePluginScreenTitle(bot, { botId: "bot-1" }, resolve)).toBe("Bot 1");
   });
 
   it("falls back to the screen id when the function returns empty or throws", () => {
-    expect(resolvePluginScreenTitle(bot, null, { botId: "missing" }, resolve)).toBe("bot");
+    expect(resolvePluginScreenTitle(bot, { botId: "missing" }, resolve)).toBe("bot");
     const throwing = {
       id: "bot",
       title: () => {
@@ -231,13 +171,6 @@ describe("resolvePluginScreenTitle", () => {
       },
       Component,
     };
-    expect(resolvePluginScreenTitle(throwing, null, {}, resolve)).toBe("bot");
-  });
-
-  it("uses the title of a legacy item that points at the screen", () => {
-    const legacy = { id: "entry", title: "Legacy entry", icon: "Server", surface: "main" };
-    expect(
-      resolvePluginScreenTitle({ id: "main", title: "main", Component }, legacy, {}, resolve),
-    ).toBe("Legacy entry");
+    expect(resolvePluginScreenTitle(throwing, {}, resolve)).toBe("bot");
   });
 });

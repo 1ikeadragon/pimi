@@ -67,9 +67,6 @@ export const AgentTracks = memo(function AgentTracks({
   const isCompact = useIsCompactFormFactor();
   const openInSidePane = useSettings((settings) => settings.openInSidePane);
   const workspaceKey = buildWorkspaceTabPersistenceKey({ serverId, workspaceId });
-  const canDetachSubagents = useSessionStore(
-    (state) => state.sessions[serverId]?.serverInfo?.features?.agentDetach === true,
-  );
   const archiveSubagent = useArchiveSubagent();
   const detachSubagent = useDetachSubagent();
   const openSubagentTarget = useCallback(
@@ -145,7 +142,7 @@ export const AgentTracks = memo(function AgentTracks({
         onArchiveSubagent={archiveSubagent}
         onArchiveFinished={archiveFinishedSubagents.archiveFinished}
         archiveFinishedStatus={archiveFinishedSubagents.status}
-        onDetachSubagent={canDetachSubagents ? detachSubagent : undefined}
+        onDetachSubagent={detachSubagent}
       />
       <PluginComposerPills
         serverId={serverId}

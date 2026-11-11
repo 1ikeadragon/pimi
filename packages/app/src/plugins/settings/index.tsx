@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { ToolbarButton, paneContentToolbarIconSize } from "@/components/ui/pane-content-toolbar";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
 import { useIsCompactFormFactor } from "@/constants/layout";
-import { useHostFeature } from "@/runtime/host-features";
 import { useHostRuntimeClient, useHostRuntimeIsConnected, useHosts } from "@/runtime/host-runtime";
 import type { Theme } from "@/styles/theme";
 import { PluginIconView } from "../icons";
@@ -33,13 +32,12 @@ const mutedIconMapping = (theme: Theme) => ({ color: theme.colors.foregroundMute
 export function PluginSettingsButton({ serverId, pluginId }: Omit<SettingsIdentity, "screenId">) {
   const { t } = useTranslation();
   const plugin = useInstalledPlugin(serverId, pluginId);
-  const supported = useHostFeature(serverId, "pluginSettings");
   const firstScreenId = plugin?.settingsScreens[0]?.id;
   const open = useCallback(() => {
     if (firstScreenId) router.push(buildPluginSettingsRoute(serverId, pluginId, firstScreenId));
   }, [serverId, pluginId, firstScreenId]);
   const compact = useIsCompactFormFactor();
-  if (!supported || !firstScreenId) return null;
+  if (!firstScreenId) return null;
   return (
     <ToolbarButton
       label={t("settings.plugins.actions.settings")}
@@ -117,7 +115,6 @@ function SettingsContent({
   const plugin = useInstalledPlugin(serverId, pluginId);
   const client = useHostRuntimeClient(serverId);
   const connected = useHostRuntimeIsConnected(serverId);
-  const supported = useHostFeature(serverId, "pluginSettings");
   const compact = useIsCompactFormFactor();
   const hosts = useHosts();
   const [attempt, setAttempt] = useState(0);
@@ -148,8 +145,6 @@ function SettingsContent({
   );
   if (!connected)
     return <Text style={styles.message}>{t("settings.plugins.screens.offline")}</Text>;
-  // COMPAT(pluginSettings): added in v0.8, remove after 2027-03-05.
-  if (!supported) return <Text style={styles.message}>{t("settings.plugins.screens.update")}</Text>;
   if (!plugin || !screen || !client)
     return <Text style={styles.message}>{t("settings.plugins.screens.unavailable")}</Text>;
   const Component = screen.Component;

@@ -140,19 +140,8 @@ export interface PluginFilePanelParams {
   readonly lineStart?: number;
   readonly lineEnd?: number;
 }
-export interface PluginWorkspacePanelProps extends PluginPanelProps<PluginWorkspacePanelParams> {
-  // COMPAT(pluginPanelFlatProps): added in v0.13.0, remove after 2027-04-23
-  /** @deprecated Use the panel registration to select the context. */
-  context: "workspace";
-}
-export interface PluginAgentPanelProps extends PluginPanelProps<PluginAgentPanelParams> {
-  // COMPAT(pluginPanelFlatProps): added in v0.13.0, remove after 2027-04-23
-  /** @deprecated Use the panel registration to select the context. */
-  context: "agent";
-  // COMPAT(pluginPanelFlatProps): added in v0.13.0, remove after 2027-04-23
-  /** @deprecated Read `params.agentId`. */
-  agentId: string;
-}
+export type PluginWorkspacePanelProps = PluginPanelProps<PluginWorkspacePanelParams>;
+export type PluginAgentPanelProps = PluginPanelProps<PluginAgentPanelParams>;
 export interface PluginFilePanelProps extends PluginPanelProps<PluginFilePanelParams> {
   file: PluginFile;
 }
@@ -171,15 +160,7 @@ export interface PluginClientOpenPanelOptions extends PluginOpenPanelOptions {
   agentId?: string;
 }
 
-// COMPAT(pluginSidebarAliases): added in v0.11.0, remove after 2027-03-29
-interface PluginClientContextAliases {
-  /** @deprecated Use `addScreen`. */
-  addSurface(id: string, Component: ComponentType<PluginSurfaceProps>): PluginCleanup;
-  /** @deprecated Use `addSidebarHeaderItem`. */
-  addSidebarItem(contribution: PluginSidebarContribution<PluginText>): PluginCleanup;
-}
-
-export interface PluginClientContext extends PluginCommandCapabilities, PluginClientContextAliases {
+export interface PluginClientContext extends PluginCommandCapabilities {
   readonly i18n: import("./translations.js").PluginI18n;
   /** Play a base64-encoded audio file on this client; resolves when playback ends. */
   playAudio(source: { base64: string; mimeType: string }): Promise<void>;
@@ -224,18 +205,9 @@ export interface PluginClientContext extends PluginCommandCapabilities, PluginCl
 export type PluginClientContribution = (client: PluginClientContext) => PluginCleanup;
 
 export type PluginWorkspacePanelContribution<Text extends PluginText = string> =
-  | (PluginWorkspacePanelBase<Text> & {
-      // COMPAT(pluginPanelFlatProps): added in v0.13.0, remove after 2027-04-23
-      /** @deprecated Omit context. */
-      context?: "workspace";
-      Component: ComponentType<PluginWorkspacePanelProps>;
-    })
-  | (PluginWorkspacePanelBase<Text> & {
-      // COMPAT(pluginAgentPanelAlias): added in v0.13.0, remove after 2027-04-23
-      /** @deprecated Register with `addAgentPanel`. */
-      context: "agent";
-      Component: ComponentType<PluginAgentPanelProps>;
-    });
+  PluginWorkspacePanelBase<Text> & {
+    Component: ComponentType<PluginWorkspacePanelProps>;
+  };
 
 export interface PluginAgentPanelContribution<
   Text extends PluginText = string,
@@ -259,19 +231,6 @@ export interface PluginScreenContribution<Text extends PluginText = string> {
   id: string;
   title: PluginScreenTitle<Text>;
   Component: ComponentType<PluginScreenProps>;
-}
-
-export interface PluginSurfaceContribution {
-  id: string;
-  Component: ComponentType<PluginSurfaceProps>;
-}
-
-/** @deprecated Use `PluginSidebarItemContribution` with `addSidebarHeaderItem`. */
-export interface PluginSidebarContribution<Text extends PluginText = string> {
-  id: string;
-  title: Text;
-  icon: PluginIcon;
-  surface: string;
 }
 
 export type PluginTimelineTransformerContribution<
@@ -316,8 +275,6 @@ export interface PluginCommandCapabilities {
     input: PluginWireInput<ZodInput<InputSchema>>,
   ): Promise<ZodOutput<OutputSchema>>;
   openScreen(input: PluginOpenScreenInput): void;
-  /** @deprecated Use `openScreen`. */
-  openSurface(id: string): void;
   openSettings(id: string): void;
 }
 

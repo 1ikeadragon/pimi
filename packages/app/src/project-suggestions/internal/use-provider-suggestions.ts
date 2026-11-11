@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import { useFetchQueries } from "@/data/query";
 import { useProvidersSnapshot } from "@/hooks/use-providers-snapshot";
-import { useHostFeature } from "@/runtime/host-features";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import type { ProviderSuggestions } from "./suggestions";
 
@@ -12,10 +11,8 @@ type SuggestionsResponse = Awaited<ReturnType<DaemonClient["listProjectSuggestio
 const SUGGESTIONS_STALE_TIME_MS = 5 * 60 * 1000;
 
 export type ProjectSuggestionsState =
-  | { status: "unsupported" }
   /** The provider list itself has not arrived yet. */
-  | { status: "loading" }
-  | { status: "ready"; providers: ProviderSuggestions[] };
+  { status: "loading" } | { status: "ready"; providers: ProviderSuggestions[] };
 
 function suggestionsQueryKey(serverId: string, provider: string) {
   return ["project-suggestions", serverId, provider] as const;
@@ -26,17 +23,16 @@ function suggestionsQueryKey(serverId: string, provider: string) {
  * calling this early (when setup opens) means the Projects step usually finds them answered.
  */
 export function useProviderSuggestions(serverId: string): ProjectSuggestionsState {
-  const supported = useHostFeature(serverId, "projectSuggestions");
   const client = useHostRuntimeClient(serverId);
   const isConnected = useHostRuntimeIsConnected(serverId);
-  const { entries } = useProvidersSnapshot(serverId, { enabled: supported });
+  const { entries } = useProvidersSnapshot(serverId);
   const providers = useMemo(
     () => entries?.filter((entry) => entry.enabled !== false).map((entry) => entry.provider),
     [entries],
   );
 
   const results = useFetchQueries<SuggestionsResponse>(
-    (supported && providers ? providers : []).map((provider) => ({
+    (providers ?? []).map((provider) => ({
       queryKey: suggestionsQueryKey(serverId, provider),
       dataShape: "value",
       enabled: Boolean(client) && isConnected,
@@ -51,7 +47,6 @@ export function useProviderSuggestions(serverId: string): ProjectSuggestionsStat
   );
 
   return useMemo((): ProjectSuggestionsState => {
-    if (!supported) return { status: "unsupported" };
     if (!providers) return { status: "loading" };
     return {
       status: "ready",
@@ -59,7 +54,7 @@ export function useProviderSuggestions(serverId: string): ProjectSuggestionsStat
         toProviderSuggestions(provider, results[index]),
       ),
     };
-  }, [supported, providers, results]);
+  }, [providers, results]);
 }
 
 function toProviderSuggestions(

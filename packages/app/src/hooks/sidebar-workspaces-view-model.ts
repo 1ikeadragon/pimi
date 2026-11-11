@@ -298,7 +298,7 @@ function createStructuralWorkspaceEntry(input: {
     projectRootPath: input.project.iconWorkingDir,
     workspaceDirectory: undefined,
     projectKind: input.project.projectKind,
-    workspaceKind: "checkout",
+    workspaceKind: "local_checkout",
     name: identity.workspaceId,
   };
 }

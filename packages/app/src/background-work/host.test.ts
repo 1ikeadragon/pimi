@@ -17,7 +17,7 @@ test("retries a failed observation and receives subsequent updates", async () =>
     startedAt: "2026-01-01T00:00:00Z",
   };
   const client = {
-    getLastServerInfoMessage: () => ({ features: { agentBackgroundWork: true } }),
+    getLastServerInfoMessage: () => ({}),
     stopAgentBackgroundWork: async () => {},
     listAgentBackgroundWork: async () => [item],
     observeAgentBackgroundWork: () => ({
@@ -68,8 +68,7 @@ test("starts observing after the same client reconnects", async () => {
     startedAt: "2026-01-01T00:00:00Z",
   };
   const client = {
-    getLastServerInfoMessage: () =>
-      connected ? { features: { agentBackgroundWork: true } } : null,
+    getLastServerInfoMessage: () => (connected ? {} : null),
     stopAgentBackgroundWork: async () => {},
     listAgentBackgroundWork: async () => [item],
     observeAgentBackgroundWork: () => ({

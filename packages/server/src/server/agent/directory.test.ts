@@ -7,7 +7,7 @@ import { afterEach, beforeEach, expect, test } from "vitest";
 import { createTestLogger } from "../../test-utils/test-logger.js";
 import { buildStoredAgentPayload } from "./agent-projections.js";
 import { AgentStorage } from "./agent-storage.js";
-import { AgentDirectory, type BackgroundVisibility } from "./directory.js";
+import { AgentDirectory } from "./directory.js";
 import type { PersistedWorkspaceRecord } from "../workspace-registry.js";
 
 const NOW = "2026-03-01T12:00:00.000Z";
@@ -65,7 +65,7 @@ afterEach(async () => {
   await rm(home, { recursive: true, force: true });
 });
 
-async function listedIds(includeBackground: BackgroundVisibility): Promise<string[]> {
+async function listedIds(includeBackground: boolean): Promise<string[]> {
   return (await directory.list({ includeBackground })).map((agent) => agent.id).toSorted();
 }
 
@@ -77,18 +77,12 @@ test("inclusive lists show every background agent", async () => {
   expect(await listedIds(true)).toEqual(["background", "in-background-workspace", "visible"]);
 });
 
-test("workspace-only visibility hides agent-level background agents from older clients", async () => {
-  expect(await listedIds("workspaces")).toEqual(["in-background-workspace", "visible"]);
-});
-
 test("includes applies the same visibility to a single agent", async () => {
   const background = { workspaceId: "open", background: true };
   const inBackgroundWorkspace = { workspaceId: "hidden" };
   expect(await directory.includes(background)).toBe(false);
-  expect(await directory.includes(background, "workspaces")).toBe(false);
   expect(await directory.includes(background, true)).toBe(true);
   expect(await directory.includes(inBackgroundWorkspace)).toBe(false);
-  expect(await directory.includes(inBackgroundWorkspace, "workspaces")).toBe(true);
 });
 
 test("prompt recency ignores background agents", async () => {

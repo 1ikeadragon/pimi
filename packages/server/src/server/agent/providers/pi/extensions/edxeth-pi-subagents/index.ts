@@ -98,8 +98,6 @@ export const edxethPiSubagents: PiExtension = {
           detail: {
             type: "sub_agent",
             description,
-            // COMPAT(subagent-log): remove after 2027-04-30.
-            log: "",
           },
           subagents,
           childSessions,

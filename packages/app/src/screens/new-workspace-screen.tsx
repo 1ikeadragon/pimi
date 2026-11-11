@@ -18,10 +18,7 @@ import { Composer } from "@/composer";
 import { ComposerDock } from "@/composer/dock";
 import { useComposerEditingSession, useComposerFullscreen } from "@/composer/editing-session";
 import { FileDropZone } from "@/components/file-drop/file-drop-zone";
-import {
-  resolveComposerAttachmentSubmitFormat,
-  splitComposerAttachmentsForSubmit,
-} from "@/composer/attachments/submit";
+import { splitComposerAttachmentsForSubmit } from "@/composer/attachments/submit";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { MenuHeader } from "@/components/headers/menu-header";
 import { useIsCompactFormFactor } from "@/constants/layout";
@@ -47,7 +44,6 @@ import {
   useHosts,
   type HostRuntimeConnectionStatus,
 } from "@/runtime/host-runtime";
-import { useHostFeature, useHostFeatureMap } from "@/runtime/host-features";
 import type { HostProfile } from "@/types/host-connection";
 import {
   navigateToWorkspace,
@@ -198,17 +194,16 @@ interface WorkspaceIsolationState {
 // Preserve the user's worktree choice while route metadata is provisional. Once
 // the authoritative placement arrives, unsupported projects fall back to local.
 function useWorkspaceIsolation(input: {
-  supportsMultiplicity: boolean;
   worktreeSupport: "supported" | "unsupported" | "unknown";
 }): WorkspaceIsolationState {
-  const { supportsMultiplicity, worktreeSupport } = input;
+  const { worktreeSupport } = input;
   // The last isolation choice is remembered alongside the other New Workspace
   // form preferences (provider, model, mode). A manual in-screen pick overrides
   // the remembered default until the screen remounts.
   const { preferences, updatePreferences } = useFormPreferences();
   const [manualIsolation, setManualIsolation] = useState<"local" | "worktree" | null>(null);
   const isolation = manualIsolation ?? preferences.isolation ?? "local";
-  const canCreateWorktree = supportsMultiplicity && worktreeSupport !== "unsupported";
+  const canCreateWorktree = worktreeSupport !== "unsupported";
   const isWorktree = isolation === "worktree" && canCreateWorktree;
 
   const setIsolation = useCallback(
@@ -224,7 +219,7 @@ function useWorkspaceIsolation(input: {
     setIsolation,
     effectiveIsolation: isWorktree ? "worktree" : "local",
     canCreateWorktree,
-    showRefPicker: !supportsMultiplicity || isWorktree,
+    showRefPicker: isWorktree,
   };
 }
 
@@ -261,7 +256,6 @@ interface SubmitDraftInput {
   attachments: ComposerAttachment[];
   provider: AgentProvider;
   composerState: NewWorkspaceComposerState;
-  supportsForgeSearch: boolean;
   resolveClient: () => DaemonClient;
   isStillOnCreateScreen: () => boolean;
 }
@@ -359,7 +353,6 @@ interface CreateChatAgentInput {
   clearDraft: (lifecycle: "sent" | "abandoned") => void;
   draftId?: string;
   draftContextScopeKey: string | null;
-  supportsForgeSearch: boolean;
   resolveClient: () => DaemonClient;
   isStillOnCreateScreen: () => boolean;
   labels: {
@@ -439,16 +432,9 @@ async function createWorkspaceChatAgent(input: CreateChatAgentInput): Promise<Su
   if (!provider) {
     throw new Error(input.labels.selectModel);
   }
-  const attachmentSubmitFormat = resolveComposerAttachmentSubmitFormat({
-    supportsForgeAttachments: input.supportsForgeSearch,
-  });
-  const { attachments: reviewAttachments } = splitComposerAttachmentsForSubmit(attachments, {
-    format: attachmentSubmitFormat,
-  });
+  const { attachments: reviewAttachments } = splitComposerAttachmentsForSubmit(attachments);
   const workspaceNamingAttachments = getWorkspaceNamingAttachments(reviewAttachments);
-  const wirePayload = splitComposerAttachmentsForSubmit(attachments, {
-    format: attachmentSubmitFormat,
-  });
+  const wirePayload = splitComposerAttachmentsForSubmit(attachments);
   const images = await encodeImages(wirePayload.images);
   let navigated = false;
   let outcome: SubmitOutcome = "background";
@@ -503,7 +489,6 @@ async function createWorkspaceChatAgent(input: CreateChatAgentInput): Promise<Su
           attachments,
           provider,
           composerState,
-          supportsForgeSearch: input.supportsForgeSearch,
           agentCreation,
         });
       },
@@ -603,11 +588,7 @@ function submitWorkspaceDraft(input: SubmitDraftInput): SubmitOutcome {
   const draftId = draftIdInput?.trim() || generateDraftId();
   const clientMessageId = `${draftId}:initial-message`;
   const timestamp = Date.now();
-  const wirePayload = splitComposerAttachmentsForSubmit(attachments, {
-    format: resolveComposerAttachmentSubmitFormat({
-      supportsForgeAttachments: input.supportsForgeSearch,
-    }),
-  });
+  const wirePayload = splitComposerAttachmentsForSubmit(attachments);
   const submission = resolveWorkspaceDraftSubmissionConfig({
     draftId,
     workspaceDirectory,
@@ -659,7 +640,6 @@ function useNewWorkspaceHostSelector(input: {
   projects: HostProjectListItem[];
   lastActiveProject: HostProjectListItem | null;
   hostConnectionStatusByServerId: ReadonlyMap<string, HostRuntimeConnectionStatus>;
-  workspaceMultiplicityByServerId: ReadonlyMap<string, boolean>;
 }) {
   const routeServerId = input.initialServerId.trim();
   const defaultServerId = useMemo(
@@ -670,7 +650,6 @@ function useNewWorkspaceHostSelector(input: {
         lastActiveProject: input.lastActiveProject,
         projects: input.projects,
         hostConnectionStatusByServerId: input.hostConnectionStatusByServerId,
-        workspaceMultiplicityByServerId: input.workspaceMultiplicityByServerId,
       }),
     [
       input.allServerIds,
@@ -678,7 +657,6 @@ function useNewWorkspaceHostSelector(input: {
       input.initialServerId,
       input.lastActiveProject,
       input.projects,
-      input.workspaceMultiplicityByServerId,
     ],
   );
   const [automaticSelection, setAutomaticSelection] = useState(() => ({
@@ -701,7 +679,6 @@ function useNewWorkspaceHostSelector(input: {
               lastActiveProject: input.lastActiveProject,
               projects: input.projects,
               hostConnectionStatusByServerId: input.hostConnectionStatusByServerId,
-              workspaceMultiplicityByServerId: input.workspaceMultiplicityByServerId,
               currentServerId: current.serverId,
               nextServerId: defaultServerId,
             })
@@ -720,7 +697,6 @@ function useNewWorkspaceHostSelector(input: {
     input.initialServerId,
     input.lastActiveProject,
     input.projects,
-    input.workspaceMultiplicityByServerId,
     routeServerId,
   ]);
 
@@ -821,7 +797,6 @@ function useNewWorkspaceInitialContext({
     [lastWorkspace, lastWorkspaceServerId],
   );
   const hostConnectionStatusByServerId = useHostRuntimeConnectionStatuses(allServerIds);
-  const workspaceMultiplicityByServerId = useHostFeatureMap(allServerIds, "workspaceMultiplicity");
   const {
     selectedServerId,
     hostPickerOpen,
@@ -834,7 +809,6 @@ function useNewWorkspaceInitialContext({
     projects,
     lastActiveProject,
     hostConnectionStatusByServerId,
-    workspaceMultiplicityByServerId,
   });
 
   return {
@@ -889,9 +863,6 @@ export function NewWorkspaceScreen({
     projectId,
     displayName: displayNameProp,
   });
-  // COMPAT(workspaceMultiplicity): added in v0.1.97, drop the gate when floor >= v0.1.97
-  const supportsWorkspaceMultiplicity = useHostFeature(selectedServerId, "workspaceMultiplicity");
-  const supportsForgeSearch = useHostFeature(selectedServerId, "forgeSearch");
   const [creationIdentity] = useState(() => ({
     draftId: draftId ?? generateDraftId(),
     worktreeSlug: createNameId(),
@@ -981,7 +952,6 @@ export function NewWorkspaceScreen({
     routeProject,
     routeProjectContextViewKey,
     lastActiveProject,
-    allowAllProjects: supportsWorkspaceMultiplicity,
     chooseProject,
   });
   const projectIconTargets = useMemo(
@@ -1049,7 +1019,6 @@ export function NewWorkspaceScreen({
   const isPending = isNewWorkspacePending({ pendingAction, isDraftHandoffActive });
   const { effectiveIsolation, setIsolation, canCreateWorktree, showRefPicker } =
     useWorkspaceIsolation({
-      supportsMultiplicity: supportsWorkspaceMultiplicity,
       worktreeSupport,
     });
 
@@ -1081,7 +1050,6 @@ export function NewWorkspaceScreen({
     cwd: selectedSourceDirectory ?? "",
     query: debouncedPickerSearchQuery,
     kinds: ["change_request"],
-    supportsForgeSearch,
     enabled: pickerQueryEnabled,
   });
 
@@ -1152,9 +1120,8 @@ export function NewWorkspaceScreen({
 
   const handleSelectProjectOption = useCallback(
     (id: string) => {
-      // selectProjectOption enforces selectability (worktree-only when
-      // multiplicity is off, any project when it's on); don't re-gate here on
-      // canCreateWorktree or non-git projects become unselectable.
+      // Any project is selectable; don't gate here on canCreateWorktree or
+      // non-git projects become unselectable.
       selectProjectOption(id);
       setProjectPickerOpen(false);
       clearPickerSelectionForTargetChange(selectedProjectOptionId, id);
@@ -1243,7 +1210,7 @@ export function NewWorkspaceScreen({
         throw new Error("Choose a host for this project");
       }
       const connectedClient = withConnectedClient();
-      const createsWorktree = !supportsWorkspaceMultiplicity || effectiveIsolation === "worktree";
+      const createsWorktree = effectiveIsolation === "worktree";
       const checkoutStatusForCreate = createsWorktree
         ? await ensureCheckoutStatus({
             queryClient,
@@ -1287,7 +1254,6 @@ export function NewWorkspaceScreen({
       selectedProject,
       selectedServerId,
       selectedSourceDirectory,
-      supportsWorkspaceMultiplicity,
       t,
       withConnectedClient,
     ],
@@ -1364,7 +1330,6 @@ export function NewWorkspaceScreen({
           draftKey,
           draftId: creationIdentity.draftId,
           draftContextScopeKey,
-          supportsForgeSearch,
           resolveClient: withConnectedClient,
           isStillOnCreateScreen,
           labels: {
@@ -1397,7 +1362,6 @@ export function NewWorkspaceScreen({
       openProjectPicker,
       selectedProject,
       selectedServerId,
-      supportsForgeSearch,
       t,
       toast,
       updateFormPreferences,
@@ -1519,7 +1483,6 @@ export function NewWorkspaceScreen({
       selectedOptionId: selectedProjectOptionId,
       triggerLabel: projectTriggerLabel,
       selectedServerId,
-      supportsWorkspaceMultiplicity,
       onSelect: handleSelectProjectOption,
       onAddProject: handleAddProject,
     },

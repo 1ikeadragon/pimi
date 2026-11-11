@@ -33,35 +33,3 @@ export function buildForgeAttachmentFromSearchItem(
     ...(item.projectPath ? { projectPath: item.projectPath } : {}),
   };
 }
-
-export const buildGitHubAttachmentFromSearchItem = buildForgeAttachmentFromSearchItem;
-
-export function buildLegacyGitHubAttachmentFromSearchItem(
-  item: ForgeSearchItem | null,
-): AgentAttachment | null {
-  if (!item) {
-    return null;
-  }
-
-  if (item.kind === "change_request") {
-    return {
-      type: "github_pr",
-      mimeType: "application/github-pr",
-      number: item.number,
-      title: item.title,
-      url: item.url,
-      ...(item.body ? { body: item.body } : {}),
-      ...(item.baseRefName ? { baseRefName: item.baseRefName } : {}),
-      ...(item.headRefName ? { headRefName: item.headRefName } : {}),
-    };
-  }
-
-  return {
-    type: "github_issue",
-    mimeType: "application/github-issue",
-    number: item.number,
-    title: item.title,
-    url: item.url,
-    ...(item.body ? { body: item.body } : {}),
-  };
-}

@@ -1,4 +1,3 @@
-import equal from "fast-deep-equal";
 import {
   useCallback,
   useEffect,
@@ -14,7 +13,6 @@ import { Brain, Folder, GitBranch } from "lucide-react-native";
 import { StyleSheet } from "react-native-unistyles";
 import type { AgentProvider } from "@pimi/protocol/agent-types";
 import type { ScheduleCadence, ScheduleSummary } from "@pimi/protocol/schedule/types";
-import { useStoreWithEqualityFn } from "zustand/traditional";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
 import { ComboboxItem } from "@/components/ui/combobox";
 import { Button } from "@/components/ui/button";
@@ -42,7 +40,6 @@ import { useScheduleMutations } from "@/hooks/use-schedule-mutations";
 import { useAggregatedAgents } from "@/hooks/use-aggregated-agents";
 import { useProjects } from "@/hooks/use-projects";
 import { useHosts } from "@/runtime/host-runtime";
-import { useSessionStore } from "@/stores/session-store";
 import { buildScheduleProjectTargets } from "@/schedules/schedule-project-targets";
 import type { AutomationTemplate } from "@/schedules/automation-templates";
 import { useScheduleFormModel } from "@/schedules/use-schedule-form-model";
@@ -111,18 +108,6 @@ function openKey(props: ScheduleFormSheetProps): string {
     return `edit:${props.serverId ?? ""}:${props.schedule?.id ?? ""}`;
   }
   return `create:${props.serverId ?? ""}:${props.template?.id ?? ""}`;
-}
-
-function selectScheduleHosts(
-  hosts: readonly { serverId: string; label: string }[],
-): (state: ReturnType<typeof useSessionStore.getState>) => ScheduleFormHost[] {
-  return (state) =>
-    hosts.map((host) => ({
-      serverId: host.serverId,
-      label: host.label,
-      supportsWorkspaceMultiplicity:
-        state.sessions[host.serverId]?.serverInfo?.features?.workspaceMultiplicity === true,
-    }));
 }
 
 function buildSnapshot(input: {
@@ -246,10 +231,9 @@ function OpenScheduleFormSheet({
   const controlSize: ControlSize = "md";
   const { projects } = useProjects();
   const hostProfiles = useHosts();
-  const hosts = useStoreWithEqualityFn(
-    useSessionStore,
-    useMemo(() => selectScheduleHosts(hostProfiles), [hostProfiles]),
-    equal,
+  const hosts = useMemo<ScheduleFormHost[]>(
+    () => hostProfiles.map((host) => ({ serverId: host.serverId, label: host.label })),
+    [hostProfiles],
   );
   const { preferences, updatePreferences } = useFormPreferences();
   const projectTargets = useMemo(() => buildScheduleProjectTargets(projects), [projects]);

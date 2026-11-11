@@ -1,24 +1,9 @@
 import type { DaemonClient } from "@pimi/client/internal/daemon-client";
-import { useSessionStore } from "@/stores/session-store";
-import { selectHostFeature } from "@/runtime/host-features";
-
-interface ProjectRemoveHost {
-  serverId: string;
-  projectId: string;
-}
-
-export interface ProjectRemoveProject {
-  hosts: readonly ProjectRemoveHost[];
-}
 
 export interface ProjectRemoveTarget {
   serverId: string;
   projectId: string;
 }
-
-export type ProjectRemoveReadiness =
-  | { kind: "ready"; targets: ProjectRemoveTarget[] }
-  | { kind: "needs_host_update"; serverIds: string[] };
 
 export type ProjectRemoveOutcome =
   | { kind: "removed"; serverIds: string[] }
@@ -26,41 +11,6 @@ export type ProjectRemoveOutcome =
   | { kind: "failed"; serverIds: string[] };
 
 type ProjectRemoveClient = Pick<DaemonClient, "removeProject">;
-
-export function getProjectRemoveReadiness(input: {
-  project: ProjectRemoveProject;
-  supportsProjectRemove: (serverId: string) => boolean;
-}): ProjectRemoveReadiness {
-  const unsupportedServerIds: string[] = [];
-  const targets: ProjectRemoveTarget[] = [];
-
-  for (const host of input.project.hosts) {
-    if (!input.supportsProjectRemove(host.serverId)) {
-      unsupportedServerIds.push(host.serverId);
-      continue;
-    }
-    targets.push({
-      serverId: host.serverId,
-      projectId: host.projectId,
-    });
-  }
-
-  if (unsupportedServerIds.length > 0) {
-    return { kind: "needs_host_update", serverIds: unsupportedServerIds };
-  }
-
-  return { kind: "ready", targets };
-}
-
-export function getCurrentProjectRemoveReadiness(
-  project: ProjectRemoveProject,
-): ProjectRemoveReadiness {
-  const sessionState = useSessionStore.getState();
-  return getProjectRemoveReadiness({
-    project,
-    supportsProjectRemove: (serverId) => selectHostFeature(sessionState, serverId, "projectRemove"),
-  });
-}
 
 export async function removeProjectFromHosts(input: {
   targets: readonly ProjectRemoveTarget[];

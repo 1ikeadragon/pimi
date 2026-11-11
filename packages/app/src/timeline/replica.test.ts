@@ -766,7 +766,7 @@ function createSqliteCache() {
     },
   };
   const storage = createSqliteReplicaRowStore({ open: async () => connection }, 1);
-  const cache = new ReplicaCache(storage, { clearLegacyCache: async () => {} });
+  const cache = new ReplicaCache(storage);
   return {
     cache,
     database,

@@ -44,11 +44,7 @@ import {
   closeLocalTransportSession,
 } from "./local-transport.js";
 import { createNodeEntrypointInvocation, resolveDaemonRunnerEntrypoint } from "./runtime-paths.js";
-import {
-  ExternalCliCommandError,
-  runExternalCliJsonCommand,
-  runExternalCliTextCommand,
-} from "./cli/external.js";
+import { runExternalCliJsonCommand, runExternalCliTextCommand } from "./cli/external.js";
 import {
   createDesktopSettingsCommandHandlers,
   type DesktopCommandHandler,
@@ -503,49 +499,27 @@ export interface StopCapturedDaemonInput {
   keepTerminals: boolean;
   stopInstance?: typeof stopDaemonInstance;
   runCliJson?: typeof runExternalCliJsonCommand;
-  log?: typeof logDesktopDaemonLifecycle;
 }
 
-/** Stops the supervisor desktop captured, keeping its terminals when asked and supported. */
+/** Stops the supervisor desktop captured, keeping its terminals when asked. */
 export async function stopCapturedDaemon(input: StopCapturedDaemonInput): Promise<void> {
   const stopInstance = input.stopInstance ?? stopDaemonInstance;
   const runCliJson = input.runCliJson ?? runExternalCliJsonCommand;
-  const logLifecycle = input.log ?? logDesktopDaemonLifecycle;
-  const stop = (keep: boolean) =>
-    stopInstance(input.home, {
-      instance: input.instance,
-      timeoutMs: 15_000,
-      keepTerminals: keep,
-      requestShutdown: async (ready) => {
-        await runCliJson([
-          "daemon",
-          "stop",
-          "--host",
-          ready.listen,
-          ...(keep ? ["--keep-terminals"] : []),
-          "--json",
-        ]);
-      },
-    });
-  try {
-    await stop(input.keepTerminals);
-  } catch (error) {
-    // The CLI refuses a keep stop before sending anything when the daemon predates the feature;
-    // that daemon closes terminals on every stop, as every upgrade did before.
-    if (
-      !input.keepTerminals ||
-      !(error instanceof ExternalCliCommandError) ||
-      error.code !== "TERMINALS_KEEP_UNSUPPORTED"
-    ) {
-      throw error;
-    }
-    const version = typeof error.error?.version === "string" ? error.error.version : "unknown";
-    logLifecycle(`daemon v${version} cannot keep terminals; stopping it and closing them`, {
-      reason: input.reason,
-      pid: input.instance.pid,
-    });
-    await stop(false);
-  }
+  await stopInstance(input.home, {
+    instance: input.instance,
+    timeoutMs: 15_000,
+    keepTerminals: input.keepTerminals,
+    requestShutdown: async (ready) => {
+      await runCliJson([
+        "daemon",
+        "stop",
+        "--host",
+        ready.listen,
+        ...(input.keepTerminals ? ["--keep-terminals"] : []),
+        "--json",
+      ]);
+    },
+  });
 }
 
 /**

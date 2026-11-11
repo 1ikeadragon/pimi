@@ -5,7 +5,7 @@ const count = 4096;
 for (let index = 0; index <= cycles; index++) {
   const delivery = new SessionDelivery(() => {});
   const source = {};
-  delivery.attach(source, true);
+  delivery.attach(source);
   delivery.forSource(source, () => {});
   await delivery.request(source, { type: "ping", requestId: String(index) }, async () => {});
   await delivery.close();

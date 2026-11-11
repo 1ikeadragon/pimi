@@ -310,7 +310,6 @@ export const ru: TranslationResources = {
     title: "История",
     empty: "Сессий пока нет",
     noMatches: "Подходящих сессий не найдено",
-    tooManyMatches: "Слишком много совпадений — уточните запрос",
     hostLoadFailed: "{{host}}: не удалось загрузить историю",
     searchPlaceholder: "Поиск по истории",
     actions: {
@@ -375,7 +374,6 @@ export const ru: TranslationResources = {
       forkInNewWorkspace: "Создать форк в новом рабочем пространстве",
       forkWithProvider: "Создать ветку с другим провайдером",
       forkNoOtherProviders: "На этом хосте нет других доступных провайдеров.",
-      forkUnavailable: "Обновите хост, чтобы использовать эту функцию.",
       forkMissingWorkspace: "Этот агент не связан с рабочим пространством.",
       forkFailed: "Не удалось создать форк чата",
       openFile: "Открыть файл",
@@ -471,7 +469,6 @@ export const ru: TranslationResources = {
     },
     status: {
       connectHost: "Подключитесь к хосту, чтобы импортировать сессии",
-      updateHost: "Обновите хост, чтобы импортировать сессии.",
       noProviders: "Нет включённых провайдеров с поддержкой импорта.",
       loading: "Загрузка недавних сессий...",
       failedProvider: "Не удалось загрузить сессии провайдера {{provider}}",
@@ -503,7 +500,6 @@ export const ru: TranslationResources = {
       hostOffline: "{{hostName}} не в сети",
       cannotReachHost: "Не удаётся связаться с {{hostName}}",
       hostStatus: "Статус хоста: {{status}}",
-      needsHostUpgrade: "Обновите хост, чтобы восстановить это рабочее пространство",
       manageHost: "Управление хостом",
       recovery: {
         archivedTitle: "Рабочая область в архиве",
@@ -599,7 +595,6 @@ export const ru: TranslationResources = {
       },
     },
     setup: {
-      updateHost: "Обновите хост, чтобы просмотреть сведения о настройке рабочего пространства",
       descriptor: {
         label: "Настройка",
         completed: "Настройка завершена",
@@ -676,8 +671,6 @@ export const ru: TranslationResources = {
     },
     terminal: {
       hostDisconnected: "Хост не подключён",
-      updateHost: "Обновите хост, чтобы использовать нативный рендерер терминала.",
-      restoreRequiresUpdate: "Обновите хост, чтобы просматривать терминалы.",
       unableToSubscribe: "Не удалось подключиться к терминалу",
       fileUploaded: "Файл загружен",
       pasteFileFailed: "Не удалось вставить файл: {{reason}}",
@@ -1185,7 +1178,6 @@ export const ru: TranslationResources = {
     createConfirm: "Создать",
     creating: "Создание…",
     name: "Название метки",
-    updateHostUse: "Обновите этот хост, чтобы использовать метки.",
     errors: { update: "Не удалось обновить метку", load: "Не удалось загрузить метки" },
     colors: {
       violet: "Фиолетовый",
@@ -1217,7 +1209,6 @@ export const ru: TranslationResources = {
       deleteMessage_one: "Метка будет снята с {{count}} рабочего пространства на этом хосте.",
       deleteMessage_other: "Метка будет снята с {{count}} рабочих пространств на этом хосте.",
       offline: "Этот хост не в сети.",
-      updateHost: "Обновите этот хост для управления метками.",
     },
   },
   changelog: {
@@ -1248,7 +1239,6 @@ export const ru: TranslationResources = {
         created: "Дата создания",
         manual: "Вручную",
         lastPrompt: "Последний запрос",
-        updateHost: "Обновите хосты для сортировки рабочих пространств",
       },
       grouping: {
         label: "Группировка",
@@ -1356,7 +1346,6 @@ export const ru: TranslationResources = {
       toasts: {
         hostDisconnected: "Хост не подключён",
         removeFailed: "Не удалось удалить некоторые рабочие пространства.",
-        updateHostToRemove: "Обновите хост, чтобы удалять проекты.",
       },
       empty: {
         title: "Пока нет проектов",
@@ -2035,7 +2024,6 @@ export const ru: TranslationResources = {
         "Без ретранслятора подключайтесь напрямую через TCP, Tailscale или другую VPN. QR-код создаваться не будет.",
       tailscaleDocs: "Настроить Tailscale",
       tailscaleDocsAccessibility: "Узнать, как подключиться через Tailscale",
-      updateRequired: "Обновите хост, чтобы включить ретранслятор из Pimi Desktop.",
       unavailable: "Данные для сопряжения недоступны.",
       hint: "Отсканируйте этот QR-код с помощью Pimi на телефоне или скопируйте ссылку ниже.",
       securityWarning:
@@ -2185,7 +2173,6 @@ export const ru: TranslationResources = {
       directoryMissing: "Каталог рабочего пространства не найден.",
       empty: "Нет изменений",
       loadError: "Не удалось загрузить список изменений",
-      capabilityMissing: "Обновите хост, чтобы просматривать изменения в коммитах.",
     },
   },
   toolCallDetails: {
@@ -2443,7 +2430,6 @@ export const ru: TranslationResources = {
     },
     voice: {
       offline: "Подключитесь к этому хосту, чтобы настроить голос.",
-      updateHost: "Обновите хост, чтобы настроить голос.",
       saveError: "Не удалось обновить голосовые настройки",
       provider: "Провайдер",
       providers: {
@@ -2904,7 +2890,6 @@ export const ru: TranslationResources = {
         docs: "Навыки",
         openDocs: "Открыть документацию по навыкам",
         unavailable: "Подключитесь к этому хосту, чтобы управлять навыками оркестрации",
-        unsupported: "Обновите этот хост, чтобы управлять навыками оркестрации",
         updateAvailable: "Доступно обновление",
         updateTitle: "Обновить навыки Pimi?",
         uninstallTitle: "Удалить навыки Pimi?",
@@ -3006,7 +2991,6 @@ export const ru: TranslationResources = {
       agentProfiles: {
         sectionTitle: "Профили агентов",
         unavailable: "Подключитесь к этому хосту, чтобы управлять профилями агентов",
-        unsupported: "На этом хосте запущен демон, который пока не поддерживает профили агентов",
         emptyState:
           "Пока нет профилей. Добавьте один, чтобы запускать агентов с сохранённым провайдером и моделью.",
         addProfileTitle: "Добавить профиль агента",

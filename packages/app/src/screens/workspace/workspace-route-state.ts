@@ -19,7 +19,6 @@ export type WorkspaceRouteState =
     }
   | { kind: "loading"; hostName: string }
   | { kind: "missing"; hostName: string }
-  | { kind: "needsHostUpgrade"; hostName: string }
   | {
       kind: "archived";
       hostName: string;
@@ -71,8 +70,6 @@ export function resolveWorkspaceRouteState(input: {
   switch (input.recovery.kind) {
     case "checking":
       return { kind: "loading", hostName: input.hostName };
-    case "needsHostUpgrade":
-      return { kind: "needsHostUpgrade", hostName: input.hostName };
     case "recoverable":
       return { kind: "archived", hostName: input.hostName, recovery: input.recovery };
     case "unavailable":

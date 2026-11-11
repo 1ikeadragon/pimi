@@ -31,8 +31,6 @@ interface TestPaseoDaemonOptions {
   relayUseTls?: boolean;
   relayPublicUseTls?: boolean;
   relayRequireProtectedSecurity?: boolean;
-  daemonStatusRpcCapability?: boolean;
-  relayConfigCapability?: boolean;
   agentClients?: Partial<Record<AgentProvider, AgentClient>>;
   providerOverrides?: PaseoDaemonConfig["providerOverrides"];
   paseoHomeRoot?: string;
@@ -109,10 +107,6 @@ export async function createTestPaseoDaemon(
     const logger = options.logger ?? pino({ level: "silent" });
     const daemon = await createPaseoDaemon(config, logger, {
       builtinPlugins: options.builtinPlugins ?? new BuiltinPluginLoader(undefined, []),
-      serverFeatureOverrides: {
-        daemonStatusRpc: options.daemonStatusRpcCapability,
-        relayConfig: options.relayConfigCapability,
-      },
     });
     try {
       await startDaemonWithTimeout(daemon, TEST_DAEMON_START_TIMEOUT_MS);

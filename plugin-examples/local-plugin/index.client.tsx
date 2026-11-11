@@ -7,7 +7,6 @@ export default function contribute(client: PluginClientContext) {
     id: "counter",
     title: "Plugin counter",
     icon: { svg: counterIcon },
-    context: "workspace",
     locations: ["workspace", "explorer"],
     Component: ExamplePanel,
   });

@@ -28,7 +28,7 @@ const ACP_PROVIDER = {
 
 interface ProviderCatalogDaemonClient {
   getLastServerInfoMessage(): {
-    features?: { hopliteProvider?: boolean; plugins?: boolean };
+    features?: { hopliteProvider?: boolean };
   } | null;
   connect(): Promise<void>;
   close(): Promise<void>;
@@ -131,7 +131,6 @@ test("unsupported host asks for an update without writing Hoplite config", async
     port: Number(new URL(`http://${outdatedDaemon.endpoint}`).port),
   });
   try {
-    expect(client.getLastServerInfoMessage()?.features?.plugins).toBe(true);
     expect(client.getLastServerInfoMessage()?.features?.hopliteProvider).toBe(false);
     const before = await client.getDaemonConfig();
     await seedSavedSettingsHosts(page, [outdatedDaemon]);

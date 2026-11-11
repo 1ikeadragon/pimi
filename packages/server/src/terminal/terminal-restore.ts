@@ -33,55 +33,26 @@ export function resolveRestoreAfterOutputOverflow(
   };
 }
 
-export function resolveTerminalRestoreSnapshotOptions({
-  restore,
-  chunked,
-}: {
-  restore: TerminalRestoreOptions;
-  chunked: boolean;
-}): TerminalReplayOptions | null | undefined {
+export function resolveTerminalRestoreSnapshotOptions(
+  restore: TerminalRestoreOptions,
+): TerminalReplayOptions | null {
   if (restore.mode === "live") {
     return null;
   }
   if (restore.mode === "full-snapshot") {
-    return chunked ? { scrollbackLines: restore.scrollbackLines } : undefined;
+    return { scrollbackLines: restore.scrollbackLines };
   }
-  const scrollbackLines = restore.scrollbackLines ?? DEFAULT_VISIBLE_RESTORE_SCROLLBACK_LINES;
   return {
-    scrollbackLines: chunked
-      ? scrollbackLines
-      : Math.min(scrollbackLines, MAX_VISIBLE_RESTORE_SCROLLBACK_LINES),
+    scrollbackLines: restore.scrollbackLines ?? DEFAULT_VISIBLE_RESTORE_SCROLLBACK_LINES,
   };
 }
 
-export function encodeTerminalRestoreFrame(input: { slot: number; data: Uint8Array }): Uint8Array {
-  return encodeTerminalStreamFrame({
-    opcode: TerminalStreamOpcode.Restore,
-    slot: input.slot,
-    payload: input.data,
-  });
-}
-
-/** The daemon's only old-app adapter. Capable delivery never assembles the replay. */
+/** Delivery never assembles the replay: each event is framed and sent as it arrives. */
 export function createTerminalRestoreDelivery(input: {
   slot: number;
-  chunked: boolean;
   send(frame: Uint8Array): void;
 }): TerminalReplaySink {
-  // COMPAT(terminalSingleRestore): added after v0.14.0; remove after 2027-04-30 when client floor supports chunked replay.
-  const legacyChunks: Uint8Array[] = [];
   return (event) => {
-    if (!input.chunked) {
-      if (event.type === "data") legacyChunks.push(event.data);
-      if (event.type === "end")
-        input.send(
-          encodeTerminalRestoreFrame({
-            slot: input.slot,
-            data: Buffer.concat(legacyChunks),
-          }),
-        );
-      return;
-    }
     const opcodes = {
       begin: TerminalStreamOpcode.ReplayBegin,
       data: TerminalStreamOpcode.ReplayData,

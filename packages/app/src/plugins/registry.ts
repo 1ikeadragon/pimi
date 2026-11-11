@@ -124,7 +124,6 @@ export class PluginRegistry {
           surfaces: [],
           settingsScreens: [],
           sidebarItems: { header: [], footer: [] },
-          legacySidebarItems: [],
           filePanels: [],
           workspacePanels: [],
           commandCenterItems: [],

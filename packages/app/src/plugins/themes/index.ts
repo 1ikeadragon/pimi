@@ -3,7 +3,6 @@ import { isPluginMessage } from "@pimi/plugin/client/host";
 import { useMemo } from "react";
 import { z } from "zod";
 import type { PluginThemeContribution } from "../types";
-import { useHostFeatureMap } from "@/runtime/host-features";
 import {
   buildDarkSemanticColors,
   buildDarkTheme,
@@ -127,13 +126,9 @@ function selectTarget(id: string, targets: PluginThemeTarget[]): PluginThemeTarg
   return targets.find((target) => target.serverId === preferredHost) ?? targets[0];
 }
 
-export function collectPluginThemes(
-  plugins: InstalledPlugin[],
-  supportedHosts: ReadonlySet<string>,
-): PluginThemeOption[] {
+export function collectPluginThemes(plugins: InstalledPlugin[]): PluginThemeOption[] {
   const targetsById = new Map<string, PluginThemeTarget[]>();
   for (const plugin of plugins) {
-    if (!supportedHosts.has(plugin.serverId)) continue;
     for (const contribution of plugin.themes) {
       const id = `${plugin.id}/theme/${contribution.id}`;
       const target = { serverId: plugin.serverId, contribution, plugin };
@@ -159,24 +154,7 @@ export function rememberPluginThemeHost(option: PluginThemeOption): void {
   rememberPluginContributionHost(option.id, option.serverId);
 }
 
-function supportedThemeHosts(support: ReadonlyMap<string, boolean>): Set<string> {
-  const serverIds = new Set<string>();
-  for (const [serverId, supported] of support) {
-    if (supported) serverIds.add(serverId);
-  }
-  return serverIds;
-}
-
 export function usePluginThemeCatalog(): PluginThemeOption[] {
   const plugins = useInstalledPlugins();
-  const serverIds = useMemo(
-    () => [...new Set(plugins.map((plugin) => plugin.serverId))],
-    [plugins],
-  );
-  // COMPAT(pluginThemes): added in v0.5.0, remove gate after 2027-08-20.
-  const support = useHostFeatureMap(serverIds, "pluginThemes");
-  return useMemo(
-    () => collectPluginThemes(plugins, supportedThemeHosts(support)),
-    [plugins, support],
-  );
+  return useMemo(() => collectPluginThemes(plugins), [plugins]);
 }

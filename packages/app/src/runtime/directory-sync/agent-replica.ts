@@ -7,7 +7,6 @@ import { normalizeAgentSnapshot, projectAgentSnapshot } from "@/utils/agent-snap
 import { type AgentDirectoryDelta } from "@/utils/agent-directory-sync";
 import { reconcileAgentDirectory } from "@/utils/agent-directory-reconciliation";
 import { resolveProjectPlacement } from "@/utils/project-placement";
-import { applyLegacyDaemonWorkspaceOwnership } from "@/workspace/legacy-daemon-workspaces";
 import type { DirectoryReplicaMutation } from "@/runtime/replica-cache";
 import type { TurnLivenessTransition } from "@/timeline/turn-liveness";
 import { AgentStoreProjection } from "./internal/agent-store";
@@ -78,10 +77,7 @@ export class AgentDirectoryReplica {
       return false;
     }
     const existing = this.storeProjection.get(token.agentId);
-    const timelineAgent = applyLegacyDaemonWorkspaceOwnership({
-      serverId: this.serverId,
-      agent: normalizeAgentSnapshot(payload, this.serverId),
-    });
+    const timelineAgent: Agent = normalizeAgentSnapshot(payload, this.serverId);
     const normalized: Agent = {
       ...timelineAgent,
       projectPlacement: timelineAgent.projectPlacement ?? existing?.projectPlacement,

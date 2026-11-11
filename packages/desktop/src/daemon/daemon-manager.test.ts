@@ -69,7 +69,6 @@ vi.mock("../settings/desktop-settings-electron.js", () => ({
   getDesktopSettingsStore: () => ({
     get: async () => mocks.settings,
     patch: vi.fn(),
-    migrateLegacyRendererSettings: vi.fn(),
   }),
 }));
 
@@ -593,7 +592,6 @@ describe("desktop stops and terminals", () => {
 
   function stopHarness(runCliJson: (args: string[]) => Promise<unknown>) {
     const stops: Array<{ keepTerminals: boolean | undefined }> = [];
-    const logged: string[] = [];
     const instance = {
       pid: 4242,
       startedAt: "2026-10-21T00:00:00.000Z",
@@ -614,13 +612,11 @@ describe("desktop stops and terminals", () => {
     }) as unknown as NonNullable<Parameters<typeof stopCapturedDaemon>[0]["stopInstance"]>;
     return {
       stops,
-      logged,
       input: {
         home: "/tmp/paseo-home",
         instance,
         stopInstance,
         runCliJson,
-        log: (message: string) => logged.push(message),
       } as Omit<Parameters<typeof stopCapturedDaemon>[0], "reason" | "keepTerminals">,
     };
   }
@@ -638,28 +634,6 @@ describe("desktop stops and terminals", () => {
     expect(calls).toEqual([
       ["daemon", "stop", "--host", "127.0.0.1:6799", "--keep-terminals", "--json"],
     ]);
-  });
-
-  it("stops a daemon without the capability with its terminals closed, and says so", async () => {
-    const calls: string[][] = [];
-    const harness = stopHarness(async (args) => {
-      calls.push(args);
-      if (args.includes("--keep-terminals")) {
-        throw new ExternalCliCommandError("refused", {
-          code: "TERMINALS_KEEP_UNSUPPORTED",
-          version: "0.11.0",
-        });
-      }
-      return { action: "shutdown_requested" };
-    });
-
-    await stopCapturedDaemon({ ...harness.input, reason: "app_update", keepTerminals: true });
-
-    expect(harness.stops).toEqual([{ keepTerminals: true }, { keepTerminals: false }]);
-    expect(calls[1]).toEqual(["daemon", "stop", "--host", "127.0.0.1:6799", "--json"]);
-    expect(harness.logged).toContain(
-      "daemon v0.11.0 cannot keep terminals; stopping it and closing them",
-    );
   });
 
   it("does not retry a keep stop that failed for another reason", async () => {

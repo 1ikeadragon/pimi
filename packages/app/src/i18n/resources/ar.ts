@@ -306,7 +306,6 @@ export const ar: TranslationResources = {
     title: "السجل",
     empty: "لا توجد جلسات بعد",
     noMatches: "لا توجد جلسات مطابقة",
-    tooManyMatches: "نتائج كثيرة جدًا — ضيّق نطاق البحث",
     hostLoadFailed: "{{host}}: تعذر تحميل السجل",
     searchPlaceholder: "البحث في السجل",
     actions: {
@@ -371,7 +370,6 @@ export const ar: TranslationResources = {
       forkInNewWorkspace: "تفريع في مساحة عمل جديدة",
       forkWithProvider: "تفرّع باستخدام مزوّد آخر",
       forkNoOtherProviders: "لا توجد مزوّدات أخرى متاحة على هذا المضيف.",
-      forkUnavailable: "حدّث المضيف لاستخدام هذا.",
       forkMissingWorkspace: "هذا الوكيل ليس في مساحة عمل.",
       forkFailed: "فشل تفريع المحادثة",
       openFile: "افتح الملف",
@@ -467,7 +465,6 @@ export const ar: TranslationResources = {
     },
     status: {
       connectHost: "اتصل بمضيف لاستيراد الجلسات",
-      updateHost: "قم بتحديث المضيف لاستيراد الجلسات.",
       noProviders: "لم يتم تمكين أي موفري خدمات قابلين للاستيراد.",
       loading: "جارٍ تحميل الجلسات الأخيرة...",
       failedProvider: "تعذر تحميل جلسات {{provider}}",
@@ -499,7 +496,6 @@ export const ar: TranslationResources = {
       hostOffline: "{{hostName}}غير متواجد حالياً",
       cannotReachHost: "لا يمكن الوصول إلى{{hostName}}",
       hostStatus: "حالة Host:{{status}}",
-      needsHostUpgrade: "قم بتحديث مضيفك لاستعادة مساحة العمل هذه",
       manageHost: "إدارة المضيف",
       recovery: {
         archivedTitle: "مساحة العمل مؤرشفة",
@@ -594,7 +590,6 @@ export const ar: TranslationResources = {
       },
     },
     setup: {
-      updateHost: "حدّث المضيف لعرض تفاصيل إعداد مساحة العمل",
       descriptor: {
         label: "يثبت",
         completed: "اكتمل الإعداد",
@@ -669,8 +664,6 @@ export const ar: TranslationResources = {
     },
     terminal: {
       hostDisconnected: "Host غير متصل",
-      updateHost: "حدّث المضيف لاستخدام عارض الطرفية الأصلي.",
-      restoreRequiresUpdate: "حدّث المضيف لعرض الطرفيات.",
       unableToSubscribe: "غير قادر على الاشتراك في المحطة",
       fileUploaded: "تم رفع الملف",
       pasteFileFailed: "تعذر لصق الملف: {{reason}}",
@@ -1167,7 +1160,6 @@ export const ar: TranslationResources = {
     createConfirm: "إنشاء",
     creating: "جارٍ الإنشاء…",
     name: "اسم التسمية",
-    updateHostUse: "حدّث هذا المضيف لاستخدام التسميات.",
     errors: { update: "تعذّر تحديث التسمية", load: "تعذّر تحميل التسميات" },
     colors: {
       violet: "بنفسجي",
@@ -1199,7 +1191,6 @@ export const ar: TranslationResources = {
       deleteMessage_one: "سيؤدي هذا إلى إزالة التسمية من {{count}} مساحة عمل على هذا المضيف.",
       deleteMessage_other: "سيؤدي هذا إلى إزالة التسمية من {{count}} مساحات عمل على هذا المضيف.",
       offline: "هذا المضيف غير متصل.",
-      updateHost: "حدّث هذا المضيف لإدارة التسميات.",
     },
   },
   changelog: {
@@ -1230,7 +1221,6 @@ export const ar: TranslationResources = {
         created: "تاريخ الإنشاء",
         manual: "يدوي",
         lastPrompt: "آخر طلب",
-        updateHost: "حدّث المضيفين لترتيب مساحات العمل",
       },
       grouping: {
         label: "التجميع",
@@ -1337,7 +1327,6 @@ export const ar: TranslationResources = {
       toasts: {
         hostDisconnected: "Host غير متصل",
         removeFailed: "فشل في إزالة بعض مساحات العمل",
-        updateHostToRemove: "قم بتحديث Host لإزالة المشاريع.",
       },
       empty: {
         title: "لا توجد مشاريع حتى الآن",
@@ -1999,7 +1988,6 @@ export const ar: TranslationResources = {
         "بدون التتابع، اتصل مباشرة عبر TCP أو Tailscale أو شبكة VPN أخرى. لن يتم إنشاء رمز QR.",
       tailscaleDocs: "إعداد Tailscale",
       tailscaleDocsAccessibility: "اقرأ كيفية الاتصال عبر Tailscale",
-      updateRequired: "حدّث المضيف لتمكين التتابع من Pimi Desktop.",
       unavailable: "عرض الاقتران غير متاح.",
       hint: "قم بمسح رمز QR هذا باستخدام Pimi على هاتفك، أو انسخ الرابط أدناه.",
       securityWarning:
@@ -2148,7 +2136,6 @@ export const ar: TranslationResources = {
       directoryMissing: "لم يتم العثور على دليل Workspace.",
       empty: "لا توجد تغييرات",
       loadError: "فشل تحميل الفروقات",
-      capabilityMissing: "حدّث المضيف لعرض فروقات الالتزامات.",
     },
   },
   toolCallDetails: {
@@ -2440,7 +2427,6 @@ export const ar: TranslationResources = {
     },
     voice: {
       offline: "اتصل بهذا المضيف لضبط الصوت.",
-      updateHost: "حدّث المضيف لضبط الصوت.",
       saveError: "تعذّر تحديث إعدادات الصوت",
       provider: "المزوّد",
       providers: {
@@ -2986,7 +2972,6 @@ export const ar: TranslationResources = {
       agentProfiles: {
         sectionTitle: "ملفات تعريف الوكيل",
         unavailable: "اتصل بهذا المضيف لإدارة ملفات تعريف الوكيل",
-        unsupported: "يشغّل هذا المضيف نسخة Daemon لا تدعم ملفات تعريف الوكيل بعد",
         emptyState: "لا توجد ملفات تعريف بعد. أضف واحدًا لبدء الوكلاء من مزود ونموذج محفوظين.",
         addProfileTitle: "إضافة ملف تعريف وكيل",
         newProfile: "ملف تعريف جديد",

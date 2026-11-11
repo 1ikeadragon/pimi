@@ -9,17 +9,14 @@ import { SettingsInfoTip } from "@/components/settings/headings/settings-info-ti
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
-import { useHostFeature } from "@/runtime/host-features";
 import { useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { settingsStyles } from "@/styles/settings";
 
 const DEFAULT_RESUME_PROMPT = "Resume working.";
 
-// COMPAT(restartRecovery): added in v0.14.0, remove gate after 2027-04-28.
 export function RestartRecoveryCard({ serverId }: { serverId: string }) {
   const { t } = useTranslation();
   const isConnected = useHostRuntimeIsConnected(serverId);
-  const isSupported = useHostFeature(serverId, "resumeOnStartupSetting");
   const { config, patchConfig } = useDaemonConfig(serverId);
   const [isEditing, setIsEditing] = useState(false);
   const mutation = useMutation({
@@ -57,9 +54,9 @@ export function RestartRecoveryCard({ serverId }: { serverId: string }) {
     [mutation],
   );
 
-  if (!isConnected || !isSupported || !config) return null;
+  if (!isConnected || !config) return null;
 
-  const isEnabled = config.resumeOnStartup === true;
+  const isEnabled = config.resumeOnStartup;
 
   return (
     <>

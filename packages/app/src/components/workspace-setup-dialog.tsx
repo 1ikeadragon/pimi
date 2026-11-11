@@ -22,13 +22,9 @@ import {
 } from "@/stores/session-store";
 import { useWorkspaceSetupStore } from "@/stores/workspace-setup-store";
 import { normalizeAgentSnapshot } from "@/utils/agent-snapshots";
-import { applyLegacyDaemonWorkspaceOwnership } from "@/workspace/legacy-daemon-workspaces";
 import { encodeImages } from "@/utils/encode-images";
 import { toErrorMessage } from "@/utils/error-messages";
-import {
-  resolveComposerAttachmentSubmitFormat,
-  splitComposerAttachmentsForSubmit,
-} from "@/composer/attachments/submit";
+import { splitComposerAttachmentsForSubmit } from "@/composer/attachments/submit";
 import type { CreateAgentRequestOptions, DaemonClient } from "@pimi/client/internal/daemon-client";
 import { projectIconPlaceholderLabelFromDisplayName } from "@/utils/project-display-name";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
@@ -167,9 +163,6 @@ export function WorkspaceSetupDialog() {
   const [pendingAction, setPendingAction] = useState<"chat" | null>(null);
 
   const serverId = pendingWorkspaceSetup?.serverId ?? "";
-  const supportsForgeSearch = useSessionStore(
-    (state) => state.sessions[serverId]?.serverInfo?.features?.forgeSearch === true,
-  );
   const sourceDirectory = pendingWorkspaceSetup?.sourceDirectory ?? "";
   const displayName = pendingWorkspaceSetup?.displayName?.trim() ?? "";
   const workspace = createdWorkspace;
@@ -314,11 +307,7 @@ export function WorkspaceSetupDialog() {
           throw new Error(t("workspaceSetup.errors.selectModel"));
         }
 
-        const wirePayload = splitComposerAttachmentsForSubmit(attachments, {
-          format: resolveComposerAttachmentSubmitFormat({
-            supportsForgeAttachments: supportsForgeSearch,
-          }),
-        });
+        const wirePayload = splitComposerAttachmentsForSubmit(attachments);
         const encodedImages = await encodeImages(wirePayload.images);
         if (!pendingWorkspaceSetup) throw new Error(t("workspaceSetup.errors.pendingRequired"));
         let createdAgent: AgentSnapshotPayload | undefined;
@@ -351,10 +340,7 @@ export function WorkspaceSetupDialog() {
 
         getHostRuntimeStore().acceptAgentSnapshot(
           serverId,
-          applyLegacyDaemonWorkspaceOwnership({
-            serverId,
-            agent: normalizeAgentSnapshot(agent, serverId),
-          }),
+          normalizeAgentSnapshot(agent, serverId),
         );
         navigateAfterCreation(ensuredWorkspace.id, { kind: "agent", agentId: agent.id });
       } catch (error) {
@@ -376,7 +362,6 @@ export function WorkspaceSetupDialog() {
       ensureWorkspace,
       t,
       toast,
-      supportsForgeSearch,
     ],
   );
 

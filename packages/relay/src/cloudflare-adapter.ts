@@ -196,25 +196,6 @@ export class RelayDurableObject {
     }
   }
 
-  // COMPAT(relay-json-ping): Old daemons (< v0.1.76) send JSON {type:"ping"} on the control
-  // socket and rely on a JSON {type:"pong"} reply to keep controlLastSeenAt fresh. New daemons
-  // use WebSocket protocol pings (auto-answered at the edge, DO stays hibernated). Remove this
-  // handler once the supported-daemon floor is >= v0.1.76 (target: 2026-11-13).
-  private handleControlKeepalive(ws: WebSocket, message: string): void {
-    try {
-      const parsed: unknown = JSON.parse(message);
-      const parsedRecord = isRecord(parsed) ? parsed : null;
-      if (parsedRecord?.type !== "ping") return;
-      try {
-        ws.send(JSON.stringify({ type: "pong", ts: Date.now() }));
-      } catch {
-        // ignore
-      }
-    } catch {
-      // ignore non-JSON control payloads
-    }
-  }
-
   private nudgeOrResetControlForConnection(connectionId: string): void {
     // If the daemon's control WS becomes half-open, the DO can't reliably detect it via ws.send errors
     // (Cloudflare may accept writes even if the other side is no longer reading).
@@ -449,10 +430,6 @@ export class RelayDurableObject {
     const role = getString(attachment, "role");
     const connectionId = getString(attachment, "connectionId");
     if (!connectionId) {
-      // Control channel: support simple app-level keepalive.
-      if (typeof message === "string") {
-        this.handleControlKeepalive(ws, message);
-      }
       return;
     }
 

@@ -3,7 +3,6 @@ import {
   type WorkspaceCompactHeaderActions,
 } from "./adaptive-workspace-chrome";
 import { planTimelineTailFetch } from "@/timeline/timeline-sync-plan";
-import { useHostFeature } from "@/runtime/host-features";
 import {
   AssistantFileLinkResolverProvider,
   createInlinePathOpener,
@@ -1136,9 +1135,6 @@ function WorkspaceScreenContent({
 
   const client = useHostRuntimeClient(normalizedServerId);
   const isConnected = useHostRuntimeIsConnected(normalizedServerId);
-  const supportsProvidersSnapshot = useSessionStore(
-    (state) => state.sessions[normalizedServerId]?.serverInfo?.features?.providersSnapshot === true,
-  );
   const workspaceDirectory = workspaceDescriptor?.workspaceDirectory || null;
   const isMissingWorkspaceDirectory = Boolean(workspaceDescriptor) && !workspaceDirectory;
   const [isImportSheetVisible, setIsImportSheetVisible] = useState(false);
@@ -1151,24 +1147,11 @@ function WorkspaceScreenContent({
   }, []);
 
   useEffect(() => {
-    if (
-      !isRouteFocused ||
-      !isConnected ||
-      !client ||
-      !workspaceDirectory ||
-      !supportsProvidersSnapshot
-    ) {
+    if (!isRouteFocused || !isConnected || !client || !workspaceDirectory) {
       return;
     }
     prefetchProvidersSnapshot(normalizedServerId, client, { cwd: workspaceDirectory });
-  }, [
-    client,
-    isConnected,
-    isRouteFocused,
-    normalizedServerId,
-    supportsProvidersSnapshot,
-    workspaceDirectory,
-  ]);
+  }, [client, isConnected, isRouteFocused, normalizedServerId, workspaceDirectory]);
 
   const persistenceKey = useMemo(
     () =>
@@ -1393,11 +1376,7 @@ function WorkspaceScreenContent({
   const hasHydratedWorkspaceLayoutStore = useWorkspaceLayoutStoreHydrated();
   const workspaceSetupStatus = getWorkspaceSetupStatus(workspaceDescriptor);
   const claimFailedSetupSurface = useWorkspaceSetupStore((state) => state.claimFailedSetupSurface);
-  const supportsSetupObservation = useHostFeature(normalizedServerId, "workspaceSetupObservation");
-  const showWorkspaceSetup = shouldShowWorkspaceSetup(
-    workspaceSetupStatus,
-    supportsSetupObservation,
-  );
+  const showWorkspaceSetup = shouldShowWorkspaceSetup(workspaceSetupStatus);
   const uiTabs = useMemo(
     () => (workspaceLayout ? collectAllTabs(workspaceLayout.root) : EMPTY_UI_TABS),
     [workspaceLayout],

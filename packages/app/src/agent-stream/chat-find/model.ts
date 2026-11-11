@@ -157,8 +157,7 @@ export class ChatFindModel {
           ...result.locations.map((location) => ({
             seq: location.seq,
             role: location.role,
-            // COMPAT(timelineSearchCount): hosts before v0.9.0 send no count; remove after 2027-09-22.
-            count: location.count ?? 1,
+            count: location.count,
           })),
         );
         cursor = result.nextCursor ?? undefined;

@@ -2,8 +2,6 @@
 export const PLUGIN_CLIENT_ONLY_SDK_SPECIFIERS = [
   "@pimi/plugin/client",
   "@pimi/plugin/client/ui",
-  // COMPAT(pluginReactNativeEntrypoint): added in v0.13.0, remove after 2027-04-20
-  "@pimi/plugin/client/react-native",
 ] as const;
 
 const PLUGIN_SERVER_ONLY_SDK_SPECIFIERS = [

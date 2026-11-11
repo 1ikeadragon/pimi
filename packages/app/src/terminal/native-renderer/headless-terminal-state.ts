@@ -1,5 +1,4 @@
 import { UnicodeGraphemesAddon } from "@xterm/addon-unicode-graphemes";
-import type { TerminalCharacterWidths } from "../character-widths";
 import {
   Terminal as HeadlessTerminal,
   type IBufferCell,
@@ -20,7 +19,6 @@ export interface NativeHeadlessTerminalOptions {
   cols: number;
   scrollbackLines?: number;
   /** Defaults to `graphemes`, the table current daemons use. */
-  characterWidths?: TerminalCharacterWidths;
 }
 
 export interface NativeHeadlessTerminal {
@@ -302,11 +300,8 @@ export function createNativeHeadlessTerminal(
     allowProposedApi: true,
   });
   // Grapheme widths give each emoji cluster one two-column cell, the width the
-  // native renderer draws it at. Legacy hosts measure with xterm's default
-  // table, so their cursor reports and replay stay consistent with it.
-  if ((options.characterWidths ?? "graphemes") === "graphemes") {
-    terminal.loadAddon(new UnicodeGraphemesAddon());
-  }
+  // native renderer draws it at.
+  terminal.loadAddon(new UnicodeGraphemesAddon());
   const decoder = new TextDecoder();
   let coordinateEpoch = 0;
   const coordinateStorage = new Map<object, TerminalCoordinateStorage>();

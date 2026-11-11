@@ -1,9 +1,5 @@
 import type { ConnectionOffer } from "@pimi/protocol/connection-offer";
-import {
-  normalizeHostPort,
-  normalizeLoopbackToLocalhost,
-  shouldUseTlsForDefaultHostedRelay,
-} from "@pimi/protocol/daemon-endpoints";
+import { normalizeHostPort, normalizeLoopbackToLocalhost } from "@pimi/protocol/daemon-endpoints";
 import {
   DirectTcpHostConnectionSchema,
   type DirectTcpHostConnection as WireDirectTcpHostConnection,
@@ -439,8 +435,7 @@ export function connectionFromListen(listen: string): HostConnection | null {
 }
 
 export function relayConnectionFromOffer(offer: ConnectionOffer): RelayHostConnection {
-  // COMPAT(oldRelayOfferTls): added in v0.1.73, remove after 2026-11-10.
-  const useTls = offer.relay.useTls ?? shouldUseTlsForDefaultHostedRelay(offer.relay.endpoint);
+  const { useTls } = offer.relay;
   const relayEndpoint = normalizeHostPort(offer.relay.endpoint);
   return {
     id: useTls ? `relay:wss:${relayEndpoint}` : `relay:${relayEndpoint}`,

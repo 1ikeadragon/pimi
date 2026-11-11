@@ -4,9 +4,7 @@ import { getHostRuntimeStore } from "@/runtime/host-runtime";
 import { createBackgroundWorkModel } from "./model";
 
 interface BackgroundWorkClient {
-  getLastServerInfoMessage(): {
-    features?: { agentBackgroundWork?: boolean; agentBackgroundWorkStop?: boolean } | null;
-  } | null;
+  getLastServerInfoMessage(): object | null;
   stopAgentBackgroundWork(agentId: string, item: PaseoAgentBackgroundWorkItem): Promise<void>;
   listAgentBackgroundWork(agentId: string): Promise<PaseoAgentBackgroundWorkItem[]>;
   observeAgentBackgroundWork(): {
@@ -38,12 +36,6 @@ export function createHostBackgroundWorkModel(
   host: BackgroundWorkHost = hostFor(serverId),
 ) {
   let client: BackgroundWorkClient | null = null;
-  const controls = (items: PaseoAgentBackgroundWorkItem[]) => {
-    // COMPAT(agentBackgroundWorkStop): added after v0.15.0, remove after 2027-05-03.
-    if (client?.getLastServerInfoMessage()?.features?.agentBackgroundWorkStop === true)
-      return items;
-    return items.map(({ canStop: _canStop, stopToken: _stopToken, ...item }) => item);
-  };
   return createBackgroundWorkModel({
     stop: (item) => {
       if (!client) return Promise.reject(new Error("Host disconnected"));
@@ -51,7 +43,7 @@ export function createHostBackgroundWorkModel(
     },
     list: () => {
       if (!client) return Promise.reject(new Error("Host disconnected"));
-      return client.listAgentBackgroundWork(agentId).then(controls);
+      return client.listAgentBackgroundWork(agentId);
     },
     observe: ({ snapshot, update, disconnected, failed }) => {
       let release: (() => void) | undefined;
@@ -69,11 +61,6 @@ export function createHostBackgroundWorkModel(
         disconnected();
         previousRelease?.();
         if (!client) return;
-        // COMPAT(agentBackgroundWork): added after v0.11.0-beta.5, remove gate after 2027-04-06.
-        if (client.getLastServerInfoMessage()?.features?.agentBackgroundWork !== true) {
-          failed();
-          return;
-        }
         const observedClient = client;
         const observation = client.observeAgentBackgroundWork();
         currentObservation = observation;
@@ -88,7 +75,7 @@ export function createHostBackgroundWorkModel(
               message.type === "agent.background_work.update" &&
               message.payload.agentId === agentId
             )
-              update(controls(message.payload.items));
+              update(message.payload.items);
           },
           error: () => {
             if (client === observedClient && currentObservation === observation) failed();

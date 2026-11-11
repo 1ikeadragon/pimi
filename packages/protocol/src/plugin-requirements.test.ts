@@ -2,14 +2,7 @@ import { describe, expect, it } from "vitest";
 import { assertPluginCompatibility, validatePluginRequirements } from "./plugin-requirements.js";
 
 describe.each(["daemon", "app"] as const)("plugin requirements on %s", (runtime) => {
-  it("rejects legacy manifests on the first breaking release with migration instructions", () => {
-    expect(() => assertPluginCompatibility({ id: "legacy", version: "0.8.0", runtime })).toThrow(
-      /legacy.*<0\.8\.0.*0\.8\.0.*https:\/\/paseo.sh\/docs\/plugins\/migration/,
-    );
-  });
-
   it.each([
-    [undefined, "0.7.2"],
     [">=0.8.0", "0.8.0"],
     [">=0.8.0", "0.8.0-beta.1"],
     [">=0.8.0", "1.0.0"],
@@ -25,8 +18,6 @@ describe.each(["daemon", "app"] as const)("plugin requirements on %s", (runtime)
   });
 
   it.each([
-    [undefined, "0.8.0-beta.1"],
-    [undefined, "0.9.0"],
     [">=0.8.0", "0.7.2"],
     ["^0.8.0", "0.9.0"],
     ["<0.8.0", "0.8.0-beta.1"],

@@ -102,16 +102,6 @@ describe("checkout status projection", () => {
         mergeStateStatus: "BLOCKED",
         viewerCanEnableAutoMerge: true,
       },
-      // COMPAT(forgeSpecific): GitHub facts are still mirrored onto `github` for old clients.
-      github: {
-        mergeStateStatus: "BLOCKED",
-        viewerCanEnableAutoMerge: true,
-        repository: {
-          autoMergeAllowed: true,
-          squashMergeAllowed: true,
-          viewerDefaultMergeMethod: "SQUASH",
-        },
-      },
     });
     expect(CheckoutPrStatusSchema.parse(payload)).toEqual(payload);
   });

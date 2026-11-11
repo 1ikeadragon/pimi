@@ -33,7 +33,7 @@ export function createWorkspaceLabelManagerModel(
 export interface WorkspaceLabelHostSnapshot {
   serverId: string;
   labels: WorkspaceLabelDefinition[];
-  status: "offline" | "online" | "unsupported";
+  status: "offline" | "online";
   error: string | null;
 }
 
@@ -139,23 +139,15 @@ class WorkspaceLabelsController {
   private readonly replicas = new Map<string, HostWorkspaceLabelReplica>();
   private readonly connections = new Map<string, HostConnection>();
 
-  async connect(input: {
-    serverId: string;
-    client: DaemonClient;
-    supportsWorkspaceLabels: boolean;
-  }): Promise<void> {
+  async connect(input: { serverId: string; client: DaemonClient }): Promise<void> {
     const existing = this.connections.get(input.serverId);
-    if (existing?.client === input.client && input.supportsWorkspaceLabels) {
+    if (existing?.client === input.client) {
       await this.refresh(input.serverId);
       return;
     }
     this.disconnect(input.serverId);
     const replica = this.replicas.get(input.serverId) ?? new HostWorkspaceLabelReplica();
     this.replicas.set(input.serverId, replica);
-    if (!input.supportsWorkspaceLabels) {
-      this.publish(input.serverId, replica, "unsupported", null);
-      return;
-    }
 
     const subscription = input.client.observeWorkspaceLabels();
     const connection: HostConnection = {

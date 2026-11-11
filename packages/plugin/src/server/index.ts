@@ -26,8 +26,6 @@ export type {
   PluginHookAgent,
   PluginSessionOpenRequest,
   PluginTurnOutcome,
-  PluginLifecycleEvents,
-  PluginBeforeRequests,
   PluginLifecycleRegistration,
 } from "./lifecycle.js";
 

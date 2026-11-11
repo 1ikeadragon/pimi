@@ -6,7 +6,6 @@ export default function contribute(client: PluginClientContext) {
     id: "media",
     title: "Media stream",
     icon: "MonitorPlay",
-    context: "workspace",
     Component: MediaPanel,
   });
   client.addCommandCenterItem({

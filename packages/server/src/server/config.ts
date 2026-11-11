@@ -760,9 +760,7 @@ function resolveCoreDaemonOverridePaths(
   if (parsePositiveGitOverride(env.PASEO_GIT_MAX_PROCESSES_PER_SECOND)) {
     paths.push("daemon.git.maxProcessesPerSecond");
   }
-  if (
-    parsePositiveGitOverride(env.PASEO_GIT_MAX_PROCESS_CONCURRENCY ?? env.PASEO_GIT_CONCURRENCY)
-  ) {
+  if (parsePositiveGitOverride(env.PASEO_GIT_MAX_PROCESS_CONCURRENCY)) {
     paths.push("daemon.git.maxProcessConcurrency");
   }
   if (env.PASEO_APP_BASE_URL !== undefined) paths.push("app.baseUrl");

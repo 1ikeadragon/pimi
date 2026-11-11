@@ -16,7 +16,6 @@ import {
 } from "@/components/sidebar/display-preferences/checks-display";
 import {
   DEFAULT_SIDEBAR_ROW_ITEMS,
-  isChecksHiddenByLegacyRowItem,
   type SidebarRowItems,
 } from "@/components/sidebar/display-preferences/row-items";
 import { isNative } from "@/constants/platform";
@@ -197,19 +196,10 @@ const SidebarRowItemsSchema = z
     changeRequest: z.boolean().catch(DEFAULT_SIDEBAR_ROW_ITEMS.changeRequest),
     services: z.boolean().optional().catch(undefined),
     labels: z.boolean().catch(DEFAULT_SIDEBAR_ROW_ITEMS.labels),
-    // COMPAT(sidebarRowItemsChecks): migrated in v0.3.0, remove after 2027-08-05.
-    checks: z.boolean().optional().catch(undefined),
-    // COMPAT(sidebarRowItemsScripts): migrated in v0.3.0, remove after 2027-08-05.
-    scripts: z.boolean().optional().catch(undefined),
   })
   .catch(DEFAULT_SIDEBAR_ROW_ITEMS);
 
 type StoredAppSettingsFallback = AppSettings & {
-  uiFontSize?: number;
-  compactToolCalls?: boolean;
-  toolCallDetailLevel?: "overview" | "detailed";
-  manageBuiltInDaemon?: boolean;
-  releaseChannel?: ReleaseChannel;
   needsWrite: boolean;
 };
 
@@ -239,8 +229,6 @@ const StoredAppSettingsSchema = z
     contentFontSize: clampedNumber(MIN_CONTENT_FONT_SIZE, MAX_CONTENT_FONT_SIZE)
       .optional()
       .catch(DEFAULT_CONTENT_FONT_SIZE),
-    // COMPAT(uiFontSizeScale): replaced by the literal base size in v0.4, remove after 2027-08-17.
-    uiFontSize: clampedNumber(11, 24).optional().catch(undefined),
     codeFontSize: clampedNumber(MIN_CODE_FONT_SIZE, MAX_CODE_FONT_SIZE).catch(
       DEFAULT_CODE_FONT_SIZE,
     ),
@@ -260,15 +248,7 @@ const StoredAppSettingsSchema = z
     sidebarFooterItems: z.array(z.object({ key: z.string(), visible: z.boolean() })).catch([]),
     usage: UsagePreferencesSchema,
     autoExpandReasoning: z.boolean().catch(false),
-    chatDisplay: z.enum(["full", "collapseToolCalls", "collapseTurns"]).optional().catch("full"),
-    // COMPAT(toolCallDetailLevel): replaced by chatDisplay in v0.13, remove after 2027-04-24.
-    toolCallDetailLevel: z
-      .enum(["overview", "detailed"])
-      .or(z.literal("concise").transform(() => "overview" as const))
-      .optional()
-      .catch(undefined),
-    // COMPAT(compactToolCalls): migrated in v0.1.105, remove after 2027-01-12.
-    compactToolCalls: z.boolean().optional().catch(undefined),
+    chatDisplay: z.enum(["full", "collapseToolCalls", "collapseTurns"]).catch("full"),
     chatOutlineEnabled: z.boolean().catch(true),
     pimiVoiceButton: z.boolean().catch(true),
     vimKeybindings: z.boolean().catch(false),
@@ -277,66 +257,26 @@ const StoredAppSettingsSchema = z
     openInSidePane: z
       .object({
         explorerFiles: z.boolean().catch(false),
-        diffs: z.boolean().optional(),
-        // COMPAT(diffDestinationPreference): legacy split preferences, remove after 2027-02-26.
-        explorerChanges: z.boolean().optional(),
-        changesLinks: z.boolean().optional(),
+        diffs: z.boolean().catch(false),
         chatFiles: z.boolean().catch(false),
         diffFiles: z.boolean().catch(false),
         subagents: z.boolean().catch(false),
-        // COMPAT(pullRequestOpenLocation): legacy side-pane toggle, remove after 2027-02-26.
-        pullRequests: z.boolean().optional(),
       })
-      .transform(({ explorerChanges, changesLinks, pullRequests, ...preferences }) => ({
-        ...preferences,
-        diffs: preferences.diffs ?? explorerChanges ?? changesLinks ?? false,
-        legacyPullRequestsInSidePane: pullRequests,
-      }))
-      .catch({
-        ...DEFAULT_OPEN_IN_SIDE_PANE_PREFERENCES,
-        legacyPullRequestsInSidePane: undefined,
-      }),
-    pullRequestOpenLocation: z.enum(["main", "side", "explorer"]).optional(),
-    // COMPAT(explorerSidebarRouting): replaced by source-specific side-pane preferences in v0.6.
-    openSupportingTabsInSidePanel: z.boolean().optional().catch(undefined),
-    // COMPAT(rendererDesktopSettings): these fields used to share this renderer-owned key.
-    manageBuiltInDaemon: z.boolean().optional().catch(undefined),
-    releaseChannel: z.enum(["stable", "beta"]).optional().catch(undefined),
+      .catch(DEFAULT_OPEN_IN_SIDE_PANE_PREFERENCES),
+    pullRequestOpenLocation: z.enum(["main", "side", "explorer"]).catch("explorer"),
   })
   .transform((stored) => {
-    const { legacyPullRequestsInSidePane, ...openInSidePane } = stored.openInSidePane;
-    const needsWrite =
-      (stored.uiBaseFontSize === undefined && stored.uiFontSize !== undefined) ||
-      stored.contentFontSize === undefined;
-    const uiBaseFontSize =
-      stored.uiBaseFontSize ??
-      (stored.uiFontSize === undefined
-        ? DEFAULT_UI_BASE_FONT_SIZE
-        : Math.round((FONT_SIZE.base * stored.uiFontSize) / 16));
-    const sidebarChecksDisplay =
-      stored.sidebarChecksDisplay ??
-      (isChecksHiddenByLegacyRowItem(stored.sidebarRowItems)
-        ? "none"
-        : DEFAULT_SIDEBAR_CHECKS_DISPLAY);
-    const groupsToolCalls = stored.toolCallDetailLevel
-      ? stored.toolCallDetailLevel === "overview"
-      : stored.compactToolCalls === true;
-    const chatDisplay = stored.chatDisplay ?? (groupsToolCalls ? "collapseToolCalls" : "full");
+    const needsWrite = stored.contentFontSize === undefined;
+    const uiBaseFontSize = stored.uiBaseFontSize ?? DEFAULT_UI_BASE_FONT_SIZE;
     return {
       ...stored,
-      openInSidePane,
-      pullRequestOpenLocation:
-        stored.pullRequestOpenLocation ?? (legacyPullRequestsInSidePane ? "side" : "explorer"),
       uiBaseFontSize,
       contentFontSize: stored.contentFontSize ?? uiBaseFontSize,
-      sidebarChecksDisplay,
+      sidebarChecksDisplay: stored.sidebarChecksDisplay ?? DEFAULT_SIDEBAR_CHECKS_DISPLAY,
       sidebarRowItems: {
         ...stored.sidebarRowItems,
-        services:
-          stored.sidebarRowItems.services ??
-          (stored.sidebarRowItems.scripts === false ? false : DEFAULT_SIDEBAR_ROW_ITEMS.services),
+        services: stored.sidebarRowItems.services ?? DEFAULT_SIDEBAR_ROW_ITEMS.services,
       },
-      chatDisplay,
       needsWrite,
     };
   })
@@ -354,10 +294,6 @@ export interface KeyValueStorage {
 export interface DesktopSettingsBridge {
   isElectron(): boolean;
   loadDesktopSettings(): Promise<DesktopSettings>;
-  migrateLegacyDesktopSettings(input: {
-    manageBuiltInDaemon?: boolean;
-    releaseChannel?: ReleaseChannel;
-  }): Promise<void>;
 }
 
 export interface SettingsDeps {
@@ -410,7 +346,6 @@ async function readAppSettings(
   if (stored) {
     return {
       settings: normalizeAppSettings(stored),
-      // COMPAT(uiFontSizeScale): persist the converted base size, remove after 2027-08-17.
       needsWrite: stored.needsWrite,
       stored,
     };
@@ -433,9 +368,6 @@ async function readAppSettings(
 }
 
 export async function loadSettingsFromStorage(deps: SettingsDeps): Promise<Settings> {
-  const legacyDesktopSettings = deps.desktop.isElectron()
-    ? await loadLegacyDesktopSettingsFromStorage(deps.storage)
-    : null;
   const appSettings = await loadAppSettingsFromStorage(deps);
 
   if (!deps.desktop.isElectron()) {
@@ -443,10 +375,6 @@ export async function loadSettingsFromStorage(deps: SettingsDeps): Promise<Setti
       ...DEFAULT_APP_SETTINGS,
       ...appSettings,
     };
-  }
-
-  if (legacyDesktopSettings) {
-    await deps.desktop.migrateLegacyDesktopSettings(legacyDesktopSettings);
   }
 
   const desktopSettings = await deps.desktop.loadDesktopSettings();
@@ -459,15 +387,7 @@ export async function loadSettingsFromStorage(deps: SettingsDeps): Promise<Setti
 }
 
 export function normalizeAppSettings(value: unknown): AppSettings {
-  const {
-    needsWrite: _needsWrite,
-    manageBuiltInDaemon: _manageBuiltInDaemon,
-    releaseChannel: _releaseChannel,
-    compactToolCalls: _compactToolCalls,
-    toolCallDetailLevel: _toolCallDetailLevel,
-    uiFontSize: _uiFontSize,
-    ...settings
-  } = StoredAppSettingsSchema.parse(value);
+  const { needsWrite: _needsWrite, ...settings } = StoredAppSettingsSchema.parse(value);
   return settings;
 }
 
@@ -557,41 +477,6 @@ export function sanitizeFontFamily(value: unknown): string | null {
     }
   }
   return quote === null && !escaped ? trimmed : null;
-}
-
-async function loadLegacyDesktopSettingsFromStorage(storage: KeyValueStorage): Promise<{
-  manageBuiltInDaemon?: boolean;
-  releaseChannel?: ReleaseChannel;
-} | null> {
-  const stored = await loadRendererSettingsPayload(storage);
-  if (!stored) {
-    return null;
-  }
-
-  const result: {
-    manageBuiltInDaemon?: boolean;
-    releaseChannel?: ReleaseChannel;
-  } = {};
-
-  if (stored.manageBuiltInDaemon !== undefined) {
-    result.manageBuiltInDaemon = stored.manageBuiltInDaemon;
-  }
-  if (stored.releaseChannel !== undefined) {
-    result.releaseChannel = stored.releaseChannel;
-  }
-
-  return Object.keys(result).length > 0 ? result : null;
-}
-
-async function loadRendererSettingsPayload(
-  storage: KeyValueStorage,
-): Promise<StoredAppSettings | null> {
-  const current = await readSettingsObject(storage, APP_SETTINGS_KEY);
-  if (current) {
-    return current;
-  }
-
-  return readSettingsObject(storage, LEGACY_SETTINGS_KEY);
 }
 
 async function readSettingsObject(

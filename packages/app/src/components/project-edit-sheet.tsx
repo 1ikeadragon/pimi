@@ -30,8 +30,6 @@ export interface ProjectEditSheetProps {
   projectId: string;
   projectViewKey: string;
   client: DaemonClient;
-  /** False on hosts that predate custom project icons — the icon field is hidden. */
-  supportsCustomIcon: boolean;
   snapshot: ProjectEditFormSnapshot;
 }
 
@@ -42,7 +40,6 @@ export function ProjectEditSheet({
   projectId,
   projectViewKey,
   client,
-  supportsCustomIcon,
   snapshot,
 }: ProjectEditSheetProps) {
   const { t } = useTranslation();
@@ -142,58 +139,56 @@ export function ProjectEditSheet({
         />
       </Field>
 
-      {supportsCustomIcon ? (
-        <Field
-          label={t("settings.project.edit.icon")}
-          hint={state.pickedFileName ?? undefined}
-          error={state.error?.scope === "icon" ? state.error.message : null}
-        >
-          <View style={styles.iconField}>
-            <View style={styles.iconRow}>
-              <ProjectIconView
-                iconDataUri={state.previewDataUri}
-                initial={projectInitial(snapshot.projectName)}
-                projectViewKey={projectViewKey}
-                size={40}
-                textStyle={styles.previewText}
-              />
-              <Button
-                variant="outline"
-                size={size}
-                onPress={handleChooseImage}
-                disabled={isSaving}
-                testID="project-edit-choose-image"
-              >
-                {t("settings.project.edit.chooseImage")}
-              </Button>
-              {state.canUseAutomatic ? (
-                <Button
-                  variant="ghost"
-                  size={size}
-                  onPress={form.useAutomaticIcon}
-                  disabled={isSaving}
-                  testID="project-edit-use-automatic"
-                >
-                  {t("settings.project.edit.useAutomatic")}
-                </Button>
-              ) : null}
-            </View>
-            <FormTextInput
-              size={size}
-              testID="project-edit-image-url"
-              accessibilityLabel={t("settings.project.edit.imageUrl")}
-              initialValue=""
-              resetKey={state.urlResetKey}
-              onChangeText={form.setImageUrl}
-              placeholder={t("settings.project.edit.imageUrl")}
-              editable={!isSaving}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
+      <Field
+        label={t("settings.project.edit.icon")}
+        hint={state.pickedFileName ?? undefined}
+        error={state.error?.scope === "icon" ? state.error.message : null}
+      >
+        <View style={styles.iconField}>
+          <View style={styles.iconRow}>
+            <ProjectIconView
+              iconDataUri={state.previewDataUri}
+              initial={projectInitial(snapshot.projectName)}
+              projectViewKey={projectViewKey}
+              size={40}
+              textStyle={styles.previewText}
             />
+            <Button
+              variant="outline"
+              size={size}
+              onPress={handleChooseImage}
+              disabled={isSaving}
+              testID="project-edit-choose-image"
+            >
+              {t("settings.project.edit.chooseImage")}
+            </Button>
+            {state.canUseAutomatic ? (
+              <Button
+                variant="ghost"
+                size={size}
+                onPress={form.useAutomaticIcon}
+                disabled={isSaving}
+                testID="project-edit-use-automatic"
+              >
+                {t("settings.project.edit.useAutomatic")}
+              </Button>
+            ) : null}
           </View>
-        </Field>
-      ) : null}
+          <FormTextInput
+            size={size}
+            testID="project-edit-image-url"
+            accessibilityLabel={t("settings.project.edit.imageUrl")}
+            initialValue=""
+            resetKey={state.urlResetKey}
+            onChangeText={form.setImageUrl}
+            placeholder={t("settings.project.edit.imageUrl")}
+            editable={!isSaving}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+          />
+        </View>
+      </Field>
     </AdaptiveModalSheet>
   );
 }

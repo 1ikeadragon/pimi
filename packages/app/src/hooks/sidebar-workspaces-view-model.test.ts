@@ -23,6 +23,7 @@ function workspaceWithForge(forge: string | undefined, prUrl: string): Workspace
   return {
     createdAt: null,
     lastUserMessageAt: null,
+    setupStatus: null,
     id: "ws-1",
     projectId: "proj",
     projectDisplayName: "repo",
@@ -155,6 +156,7 @@ function workspace(input: {
   return {
     createdAt: null,
     lastUserMessageAt: null,
+    setupStatus: null,
     id: input.id,
     projectId: input.projectId,
     projectDisplayName: input.projectDisplayName,

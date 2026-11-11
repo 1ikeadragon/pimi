@@ -5,7 +5,6 @@ import type { AgentProvider, ProviderSnapshotEntry } from "@pimi/protocol/agent-
 import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import { useRetainedPanelActive } from "@/components/retained-panel";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
-import { useSessionStore } from "@/stores/session-store";
 import { useReplicaQuery } from "@/data/query";
 import { queryClient as singletonQueryClient } from "@/data/query-client";
 import {
@@ -50,7 +49,6 @@ interface UseProvidersSnapshotResult {
   isFetching: boolean;
   isRefreshing: boolean;
   error: string | null;
-  supportsSnapshot: boolean;
   refresh: (providers?: AgentProvider[]) => Promise<void>;
   refetchIfStale: (selectedProvider?: AgentProvider | null) => void;
 }
@@ -71,9 +69,6 @@ export function useProvidersSnapshot(
   const enabled = (options.enabled ?? true) && retainedPanelActive;
   const isConnected = useHostRuntimeIsConnected(serverId ?? "");
   const cwd = normalizeProvidersSnapshotCwd(options.cwd);
-  const supportsSnapshot = useSessionStore(
-    (state) => state.sessions[serverId ?? ""]?.serverInfo?.features?.providersSnapshot === true,
-  );
 
   const queryKey = useMemo(() => providersSnapshotQueryKey(serverId, cwd), [cwd, serverId]);
 
@@ -81,7 +76,7 @@ export function useProvidersSnapshot(
     queryKey,
     // The content-hash cache already owns catalog and model identity.
     structuralSharing: false,
-    enabled: Boolean(enabled && supportsSnapshot && serverId && client && isConnected),
+    enabled: Boolean(enabled && serverId && client && isConnected),
     pushEvent: "providers_snapshot_update",
     queryFn: async ({ signal }) => {
       if (!client || !serverId) {
@@ -135,7 +130,6 @@ export function useProvidersSnapshot(
     isFetching: snapshotQuery.isFetching,
     isRefreshing,
     error: snapshotQuery.error instanceof Error ? snapshotQuery.error.message : null,
-    supportsSnapshot,
     refresh,
     refetchIfStale,
   };

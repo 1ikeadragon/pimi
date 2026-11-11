@@ -18,7 +18,6 @@ export const TerminalStreamOpcode = {
   Input: 0x02,
   Resize: 0x03,
   Snapshot: 0x04,
-  Restore: 0x05,
   ReplayBegin: 0x06,
   ReplayData: 0x07,
   ReplayEnd: 0x08,
@@ -69,8 +68,7 @@ function isTerminalStreamOpcode(value: number): value is TerminalStreamOpcode {
     value === TerminalStreamOpcode.Snapshot ||
     value === TerminalStreamOpcode.ReplayBegin ||
     value === TerminalStreamOpcode.ReplayData ||
-    value === TerminalStreamOpcode.ReplayEnd ||
-    value === TerminalStreamOpcode.Restore
+    value === TerminalStreamOpcode.ReplayEnd
   );
 }
 

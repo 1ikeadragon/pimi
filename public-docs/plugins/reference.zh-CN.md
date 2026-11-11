@@ -66,7 +66,7 @@ my-plugin/
 {
   "id": "my-plugin",
   "description": "Reviews changes before merge",
-  "requirements": { "paseo": ">=0.8.0" }
+  "requirements": { "pimi": ">=0.8.0" }
 }
 ```
 
@@ -87,7 +87,7 @@ my-plugin/
 
 ### 版本要求 {#requirements}
 
-`requirements` 是一个可选对象。它目前支持的键 `paseo` 接受一个 npm semver 范围。省略 `requirements.pimi` 表示 `<0.8.0`：即该插件早于第一个破坏性的插件版本。Pimi 0.8 及更高版本会拒绝它，并附上[迁移指南](migration)的链接。空字符串、无效的范围以及未知的 manifest 要求键都会被拒绝。
+`requirements.pimi` 是必填项，接受一个 npm semver 范围。缺少它的插件无法加载，并会提示作者添加该范围。空字符串、无效的范围以及未知的 manifest 要求键都会被拒绝。
 
 | 范围             | 兼容的版本                                           |
 | ---------------- | ---------------------------------------------------- |
@@ -589,7 +589,7 @@ export default function contribute(client: PluginClientContext) {
 
 ### 侧边栏项 {#sidebar-items}
 
-`addSidebarHeaderItem` 在侧边栏顶部的列表中添加一行。`addSidebarFooterItem` 在底部添加一行，位于 **添加 project** 和底部图标行之间。图标行是固定的；插件不能向其中添加内容。两者都接受 `{ id, title, Component }`。`title` 是该项在 **设置 → 侧边栏** 中的标签（用户在那里重新排序和隐藏各项），也是 `SidebarRow` 的默认标签和无障碍标签。设置页面为这些项显示一个通用的插件图标；来自已弃用的 `addSidebarItem` 的行保留其注册时的图标。
+`addSidebarHeaderItem` 在侧边栏顶部的列表中添加一行。`addSidebarFooterItem` 在底部添加一行，位于 **添加 project** 和底部图标行之间。图标行是固定的；插件不能向其中添加内容。两者都接受 `{ id, title, Component }`。`title` 是该项在 **设置 → 侧边栏** 中的标签（用户在那里重新排序和隐藏各项），也是 `SidebarRow` 的默认标签和无障碍标签。设置页面为这些项显示一个通用的插件图标。
 
 当插件安装在多台主机上时，侧边栏项按应用当前显示的界面所属的主机渲染。不在任何主机的界面上时，它使用最近一次在该插件的某个界面中选择的主机，或最近一次从它的某个项打开的主机，否则使用第一台主机。
 
@@ -1297,9 +1297,8 @@ const [state, setState] = useTabState(tab, schema, { view: "preview" });
 
 统一属性、`addAgentPanel` 和 `useTabState` 需要 Pimi 0.13.0 或更高版本。
 
-**已弃用，将在 2027-04-23 之后移除**：0.12 面板的 `context` 和顶层 `agentId` 属性、
-`addWorkspacePanel({ context: "workspace" })` 以及 `addWorkspacePanel({ context: "agent" })`
-仍然有效。省略工作区的 `context`，用 `addAgentPanel` 注册 Agent 面板，并读取 `params.agentId`。
+0.12 面板的 `context` 和顶层 `agentId` 属性、`addWorkspacePanel({ context: "workspace" })` 以及
+`addWorkspacePanel({ context: "agent" })` 已移除。省略工作区的 `context`，用 `addAgentPanel` 注册 Agent 面板，并读取 `params.agentId`。
 
 用 `useWorkspace(workspaceId, selector)` 和 `useAgent(params.agentId, selector)` 读取缓存的状态。selector 是必填的。Pimi 对它的结果做浅比较，因此选择 `{ name, status }` 时，无关字段的变化不会触发重新渲染。在一次调用中选择组件渲染的所有字段；不要选择整个快照。
 
@@ -1471,7 +1470,7 @@ hook 的重新读取会采用磁盘上的版本，因此下一次写入会覆盖
 
 ### 版本要求与示例 {#version-requirement-and-examples}
 
-文件面板、`DocumentFrame` 和 `Loading` 需要 Pimi 0.13.0 或更高版本。请在 `pimi-plugin.json` 中声明 `"requirements": { "paseo": ">=0.13.0" }`。daemon 和应用都会检查[版本要求](#requirements)；更早的应用会在执行客户端包之前跳过它。用 `writeBytes` 写入需要 Pimi 0.13.0 或更高版本的 daemon。
+文件面板、`DocumentFrame` 和 `Loading` 需要 Pimi 0.13.0 或更高版本。请在 `pimi-plugin.json` 中声明 `"requirements": { "pimi": ">=0.13.0" }`。daemon 和应用都会检查[版本要求](#requirements)；更早的应用会在执行客户端包之前跳过它。用 `writeBytes` 写入需要 Pimi 0.13.0 或更高版本的 daemon。
 
 完整的目录示例：
 
@@ -2253,7 +2252,7 @@ pimi plugin install npm:@acme/plugins@^1.2.0:plugins/review
 ```
 
 `--ref` 只适用于 Git，接受用于这次安装的分支、标签或提交。没有它时，Pimi 安装远程的默认 HEAD。安装时的
-选择器不会约束之后的更新。旧版的 `--path relative/plugin/path` 选项等同于子目录后缀，对 npm 也是如此。
+选择器不会约束之后的更新。
 
 ### npm 安装与发布 {#npm-installation-and-publishing}
 
@@ -2326,7 +2325,7 @@ Git 和 npm 来源，它会删除托管文件。安装时的 `--id` 就是运行
 ```json
 {
   "id": "review",
-  "requirements": { "paseo": ">=0.8.0" },
+  "requirements": { "pimi": ">=0.8.0" },
   "build": [["npm", "ci", "--omit=dev"]]
 }
 ```

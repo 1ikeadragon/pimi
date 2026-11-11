@@ -67,7 +67,6 @@ function createInput(
     githubFeaturesEnabled: true,
     forgeBrandLabel: "GitHub",
     forgeChangeRequestNoun: "PR",
-    githubAutoMergeActionsEnabled: true,
     hasPullRequest: false,
     pullRequestUrl: null,
     pullRequestState: null,
@@ -1055,31 +1054,6 @@ describe("git-actions-policy", () => {
       expect(actions.primary).toMatchObject({ id, label });
     },
   );
-
-  it("does not offer auto-merge when the daemon feature gate is missing", () => {
-    const actions = buildGitActions(
-      createInput({
-        hasRemote: true,
-        isOnBaseBranch: false,
-        aheadCount: 2,
-        hasPullRequest: true,
-        pullRequestUrl: "https://example.com/pr/993",
-        pullRequestState: "open",
-        pullRequestMergeable: "MERGEABLE",
-        pullRequestGithub: githubStatus({
-          mergeStateStatus: "BLOCKED",
-          viewerCanEnableAutoMerge: true,
-        }),
-        githubAutoMergeActionsEnabled: false,
-        shipDefault: "pr",
-      }),
-    );
-
-    expect(actions.primary).toMatchObject({ id: "pr", label: "View PR" });
-    expect(actions.secondary.some((action) => action.id.startsWith("enable-pr-auto-merge"))).toBe(
-      false,
-    );
-  });
 
   it("shows existing auto-merge as state and disables it when the viewer can", () => {
     const actions = buildGitActions(

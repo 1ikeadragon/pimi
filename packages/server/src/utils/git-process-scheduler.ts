@@ -37,8 +37,6 @@ export function resolveGitProcessPolicy(input: {
       DEFAULT_GIT_PROCESS_POLICY.maxProcessesPerSecond,
     maxProcessConcurrency:
       parsePositiveInteger(input.env.PASEO_GIT_MAX_PROCESS_CONCURRENCY) ??
-      // COMPAT(gitConcurrencyEnv): renamed in v0.2.6; remove after 2027-02-02.
-      parsePositiveInteger(input.env.PASEO_GIT_CONCURRENCY) ??
       input.persisted?.maxProcessConcurrency ??
       DEFAULT_GIT_PROCESS_POLICY.maxProcessConcurrency,
   };

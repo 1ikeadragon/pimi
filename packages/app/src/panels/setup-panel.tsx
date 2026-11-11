@@ -20,7 +20,6 @@ import { useHostRuntimeClient } from "@/runtime/host-runtime";
 import { useWorkspaceFields } from "@/stores/session-store-hooks";
 import { useRetainedPanelActive } from "@/components/retained-panel";
 import { useAppActivelyVisible } from "@/hooks/use-app-visible";
-import { useHostFeature } from "@/runtime/host-features";
 
 function useSetupPanelDescriptor(
   target: { kind: "setup"; workspaceId: string },
@@ -126,7 +125,6 @@ function BlockedSetupNotice({
 }) {
   const { t } = useTranslation();
   const client = useHostRuntimeClient(serverId);
-  const supportsSetupRun = useHostFeature(serverId, "workspaceSetupRun");
   const [runError, setRunError] = useState<string | null>(null);
   const [isRunningSetup, setIsRunningSetup] = useState(false);
   const runSetup = useCallback(async () => {
@@ -154,11 +152,9 @@ function BlockedSetupNotice({
         })}
         testID="workspace-setup-blocked"
       >
-        {supportsSetupRun ? (
-          <Button accessibilityRole="button" onPress={runSetup} loading={isRunningSetup}>
-            {t("workspace.setup.blocked.run")}
-          </Button>
-        ) : null}
+        <Button accessibilityRole="button" onPress={runSetup} loading={isRunningSetup}>
+          {t("workspace.setup.blocked.run")}
+        </Button>
       </Alert>
       {runError ? <Alert size="sm" variant="error" description={runError} /> : null}
     </>
@@ -264,11 +260,10 @@ function SetupPanel() {
 
   const isActive = useRetainedPanelActive();
   const isVisible = useAppActivelyVisible();
-  const supportsObservation = useHostFeature(serverId, "workspaceSetupObservation");
   const { snapshot, error: observationError } = useWorkspaceSetupSnapshot(
     serverId,
     target.workspaceId,
-    isActive && isVisible && supportsObservation,
+    isActive && isVisible,
   );
 
   const commands = snapshot?.detail.commands ?? EMPTY_COMMANDS;
@@ -300,9 +295,8 @@ function SetupPanel() {
       <Text style={styles.hiddenStatus} testID="workspace-setup-status">
         {statusLabel}
       </Text>
-      {!supportsObservation && <Alert variant="warning" title={t("workspace.setup.updateHost")} />}
       {observationError && <Alert variant="error" title={observationError} />}
-      {supportsObservation && !observationError && (
+      {!observationError && (
         <SetupPanelBody
           serverId={serverId}
           workspaceId={target.workspaceId}

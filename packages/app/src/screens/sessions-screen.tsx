@@ -85,8 +85,6 @@ function SessionsScreenContent() {
     isInitialLoad,
     isLoadingMore,
     isError,
-    isSearchSupported,
-    isSearchTruncated,
     hostErrors,
     loadMore,
     refreshAll,
@@ -94,7 +92,7 @@ function SessionsScreenContent() {
     serverId: historyServerId,
     search,
   });
-  const isSearching = isSearchSupported && search.length > 0;
+  const isSearching = search.length > 0;
 
   useEffect(() => {
     if (
@@ -119,7 +117,6 @@ function SessionsScreenContent() {
     isAllHosts: selectedHost === ALL_HOSTS_OPTION_ID,
   });
   const showHostFilter = hosts.length > 1;
-  const showFilterRow = showHostFilter || isSearchSupported;
   const showLoadError = isError && agents.length === 0;
 
   const handleBack = useCallback(() => {
@@ -129,15 +126,6 @@ function SessionsScreenContent() {
   const handleClearSearch = useCallback(() => setSearchInput(""), []);
 
   const listFooterComponent = useMemo(() => {
-    // COMPAT(historyPagination): old daemons return a truncated relevance page.
-    // Added in v0.8.0; remove after 2027-03-16 once the daemon floor supports search pagination.
-    if (isSearchTruncated) {
-      return (
-        <View style={styles.footer}>
-          <Text style={styles.footerHint}>{t("sessions.tooManyMatches")}</Text>
-        </View>
-      );
-    }
     if (!hasMore) {
       return null;
     }
@@ -148,34 +136,30 @@ function SessionsScreenContent() {
         </Button>
       </View>
     );
-  }, [hasMore, isLoadingMore, isSearchTruncated, loadMore, t]);
+  }, [hasMore, isLoadingMore, loadMore, t]);
 
   return (
     <View style={styles.container}>
       <MenuHeader title={t("sessions.title")} />
-      {showFilterRow ? (
-        <View style={styles.filterContainer}>
-          {isSearchSupported ? (
-            <SearchField
-              value={searchInput}
-              onChangeText={setSearchInput}
-              placeholder={t("sessions.searchPlaceholder")}
-              clearAccessibilityLabel={t("sessions.actions.clearSearch")}
-              testID="sessions-search-input"
-              clearTestID="sessions-search-clear"
-            />
-          ) : null}
-          {showHostFilter ? (
-            <HostFilter
-              hosts={hosts}
-              selectedHost={selectedHost}
-              onSelectHost={setSelectedHost}
-              triggerTestID="sessions-host-filter-trigger"
-              hostOptionTestID={sessionsHostOptionTestID}
-            />
-          ) : null}
-        </View>
-      ) : null}
+      <View style={styles.filterContainer}>
+        <SearchField
+          value={searchInput}
+          onChangeText={setSearchInput}
+          placeholder={t("sessions.searchPlaceholder")}
+          clearAccessibilityLabel={t("sessions.actions.clearSearch")}
+          testID="sessions-search-input"
+          clearTestID="sessions-search-clear"
+        />
+        {showHostFilter ? (
+          <HostFilter
+            hosts={hosts}
+            selectedHost={selectedHost}
+            onSelectHost={setSelectedHost}
+            triggerTestID="sessions-host-filter-trigger"
+            hostOptionTestID={sessionsHostOptionTestID}
+          />
+        ) : null}
+      </View>
       {hostErrors.length > 0 ? <SessionHostErrorsBanner errors={hostErrors} t={t} /> : null}
       {isInitialLoad ? (
         <View style={styles.loadingContainer}>
@@ -258,10 +242,6 @@ const styles = StyleSheet.create((theme) => ({
   footer: {
     alignItems: "center",
     paddingVertical: theme.spacing[4],
-  },
-  footerHint: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.base,
   },
   errorsBannerWrap: {
     paddingHorizontal: {

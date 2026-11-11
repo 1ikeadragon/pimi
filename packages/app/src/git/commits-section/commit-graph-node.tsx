@@ -1,9 +1,9 @@
 import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import type { ClassifiedCheckoutCommit } from "@/git/use-commits-query";
+import type { CheckoutCommit } from "@pimi/protocol/messages";
 
 interface CommitGraphNodeProps {
-  commit: ClassifiedCheckoutCommit;
+  commit: CheckoutCommit;
   isFirst: boolean;
   isLast: boolean;
 }

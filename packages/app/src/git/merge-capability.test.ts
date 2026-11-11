@@ -190,31 +190,6 @@ describe("deriveMergeCapability", () => {
   });
 });
 
-describe("deriveMergeCapability (legacy github fallback)", () => {
-  it("synthesizes full GitHub capability from legacy status.github when forgeSpecific is absent", () => {
-    const { forge: _forge, ...legacy } = facts({
-      mergeStateStatus: "CLEAN",
-      repository: {
-        autoMergeAllowed: false,
-        mergeCommitAllowed: false,
-        squashMergeAllowed: true,
-        rebaseMergeAllowed: false,
-        viewerDefaultMergeMethod: "SQUASH",
-      },
-    });
-    const cap = deriveMergeCapability(undefined, legacy);
-    expect(cap).not.toBeNull();
-    expect(cap?.directMergeReady).toBe(true);
-    expect(cap?.allowedMethods).toEqual(["squash"]);
-    expect(cap?.preferredMethod).toBe("squash");
-  });
-
-  it("returns null when both forgeSpecific and legacy github facts are absent", () => {
-    expect(deriveMergeCapability(undefined, null)).toBeNull();
-    expect(deriveMergeCapability(undefined, undefined)).toBeNull();
-  });
-});
-
 describe("deriveMergeCapability (gitlab)", () => {
   it("produces a non-null capability for the gitlab arm", () => {
     expect(deriveMergeCapability(gitlabFacts())).not.toBeNull();

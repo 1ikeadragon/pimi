@@ -172,7 +172,6 @@ import {
 } from "./agent/tools/paseo-tools.js";
 import type { PaseoToolRuntimeContext } from "./agent/tools/types.js";
 import { createAgentProviderRuntime } from "./agent/provider-runtime.js";
-import { bootstrapWorkspaceRegistries } from "./workspace-registry-bootstrap.js";
 import { WorkspaceReconciliationService } from "./workspace-reconciliation-service.js";
 import {
   FileBackedProjectRegistry,
@@ -540,10 +539,6 @@ export interface PaseoDaemonDependencies {
   hubRelationshipClock?: HubRelationshipClock;
   hubRelationshipRetryPolicy?: HubRelationshipRetryPolicy;
   createHubDaemonId?: () => string;
-  serverFeatureOverrides?: {
-    daemonStatusRpc?: boolean;
-    relayConfig?: boolean;
-  };
 }
 
 function resolveBuiltinPluginLoader(dependencies: PaseoDaemonDependencies): BuiltinPluginLoader {
@@ -1217,15 +1212,7 @@ export async function createPaseoDaemon(
   });
   await restartRecovery.prepareStartup();
   logger.info({ elapsed: elapsed() }, "Agent storage initialized");
-  await bootstrapWorkspaceRegistries({
-    serverId,
-    paseoHome: config.paseoHome,
-    agentStorage,
-    projectRegistry,
-    workspaceRegistry,
-    workspaceGitService,
-    logger,
-  });
+  await Promise.all([projectRegistry.initialize(), workspaceRegistry.initialize()]);
   await workspaceLabelService.initialize();
   logger.info({ elapsed: elapsed() }, "Workspace registries bootstrapped");
   const teardownArchivedWorkspaceRuntime = (workspaceId: string): void => {
@@ -2020,8 +2007,6 @@ export async function createPaseoDaemon(
               {
                 getAllowedOrigins: () => allowedOrigins,
                 getHostnames: () => configuredHostnames,
-                daemonStatusRpc: dependencies.serverFeatureOverrides?.daemonStatusRpc,
-                relayConfig: dependencies.serverFeatureOverrides?.relayConfig,
                 startPaused: true,
               },
               workspaceAutoName,

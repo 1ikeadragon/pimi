@@ -100,7 +100,7 @@ it("keeps historical string descriptor helpers while accepting translated regist
       client.addSidebarHeaderItem({ id: "notes", title: messages.message("title"), Component });
       client.addFilePanel({ id: "notes", title: messages.message("title"), icon: "File", files: { extensions: ["notes"] }, Component });
       client.addSettingsScreen({ id: "notes", title: messages.message("title"), icon: "File", Component });
-      client.addWorkspacePanel({ id: "notes", title: messages.message("title"), icon: "File", context: "workspace", Component });
+      client.addWorkspacePanel({ id: "notes", title: messages.message("title"), icon: "File", Component });
       client.addCommandCenterItem({ id: "notes", title: messages.message("title"), icon: "File", context: "global", onSelect() {} });
       client.addSlashCommand({ name: "notes", description: messages.message("title"), argumentHint: "", context: "workspace", onSubmit() {} });
       const button = client.addHeaderButton({ id: "notes", workspaceId: "workspace", button: { title: messages.message("title"), icon: "File", behavior: { kind: "menu", items: [{ kind: "item", id: "open", title: messages.message("title"), behavior: { kind: "action", onPress() {} } }] } } });

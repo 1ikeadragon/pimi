@@ -12,7 +12,6 @@ export interface AddProjectMethodOption {
   id: AddProjectMethodId;
   label: string;
   description: string;
-  disabled?: boolean;
 }
 
 export interface AddProjectPathOption {
@@ -34,7 +33,6 @@ export function filterAddProjectHosts(hosts: AddProjectHost[], query: string): A
 }
 
 export function buildAddProjectMethods(host: AddProjectHost): AddProjectMethodOption[] {
-  if (!host.canAddProject) return [];
   const options: AddProjectMethodOption[] = [];
   options.push({
     id: "directory-search",
@@ -51,34 +49,14 @@ export function buildAddProjectMethods(host: AddProjectHost): AddProjectMethodOp
   options.push({
     id: "github",
     label: "Clone from GitHub",
-    description: githubMethodDescription(host),
-    disabled: !host.canCloneGithubRepositories,
+    description: "Search projects available to your GitHub account",
   });
   options.push({
     id: "new-directory",
     label: "New directory",
-    description: host.canCreateDirectory
-      ? `Create an empty directory on ${host.label}`
-      : "Update this host to create directories",
-    disabled: !host.canCreateDirectory,
+    description: `Create an empty directory on ${host.label}`,
   });
   return options;
-}
-
-export function addProjectMethodEmptyText(host: AddProjectHost | null): string {
-  return host?.canAddProject === false
-    ? "Update the host to use Add Project."
-    : "No matching options";
-}
-
-function githubMethodDescription(host: AddProjectHost): string {
-  if (!host.canCloneGithubRepositories) {
-    return "Update this host to clone GitHub repositories";
-  }
-  if (host.canSearchGithubRepositories) {
-    return "Search projects available to your GitHub account";
-  }
-  return "Enter a GitHub URL or owner/repo";
 }
 
 export function pathBaseName(path: string): string {

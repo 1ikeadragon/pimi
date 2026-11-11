@@ -43,7 +43,6 @@ export async function runRestartCommand(options: CommandOptions, _command: Comma
       await retryUnconfirmedTerminalCleanup(target.home);
       return;
     }
-    // Absent on daemons without terminalsSurviveRestart, which have no terminal cleanup.
     const unconfirmed = status.terminalCleanupUnconfirmed ?? [];
     if (unconfirmed.length > 0) throw new TerminalCleanupNotConfirmedError(unconfirmed);
   };

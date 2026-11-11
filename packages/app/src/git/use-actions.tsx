@@ -457,11 +457,6 @@ export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): Use
   const runDisablePrAutoMerge = useCheckoutGitActionsStore((s) => s.disablePrAutoMerge);
   const runMergeBranch = useCheckoutGitActionsStore((s) => s.mergeBranch);
   const runMergeFromBase = useCheckoutGitActionsStore((s) => s.mergeFromBase);
-  const githubAutoMergeActionsEnabled = useSessionStore(
-    (s) =>
-      s.sessions[serverId]?.serverInfo?.features?.checkoutForgeSetAutoMerge === true ||
-      s.sessions[serverId]?.serverInfo?.features?.checkoutGithubSetAutoMerge === true,
-  );
 
   const toastActionError = useCallback(
     (error: unknown, fallback: string) => {
@@ -689,14 +684,13 @@ export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): Use
       githubFeaturesEnabled,
       forgeBrandLabel: presentation.brandLabel,
       forgeChangeRequestNoun: presentation.changeRequestAbbrev,
-      githubAutoMergeActionsEnabled,
       hasPullRequest,
       pullRequestUrl: prStatus?.url ?? null,
       pullRequestState: narrowPullRequestState(prStatus?.state),
       pullRequestIsDraft: prStatus?.isDraft ?? false,
       pullRequestIsMerged: prStatus?.isMerged ?? false,
       pullRequestMergeable: prStatus?.mergeable ?? "UNKNOWN",
-      mergeCapability: deriveMergeCapability(prStatus?.forgeSpecific, prStatus?.github),
+      mergeCapability: deriveMergeCapability(prStatus?.forgeSpecific),
       hasRemote,
       isPaseoOwnedWorktree,
       isOnBaseBranch,
@@ -813,7 +807,6 @@ export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): Use
     prStatus?.isMerged,
     prStatus?.mergeable,
     prStatus?.forgeSpecific,
-    prStatus?.github,
     aheadCount,
     behindBaseCount,
     isPaseoOwnedWorktree,
@@ -821,7 +814,6 @@ export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): Use
     canMergeLocally,
     githubFeaturesEnabled,
     forge,
-    githubAutoMergeActionsEnabled,
     hasUncommittedChanges,
     aheadOfOrigin,
     behindOfOrigin,

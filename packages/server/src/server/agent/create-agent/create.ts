@@ -10,7 +10,11 @@ import type {
   CreatePaseoWorktreeWorkflowFn,
   CreatePaseoWorktreeWorkflowResult,
 } from "../../worktree-session.js";
-import type { AgentAttachment, FirstAgentContext } from "../../messages.js";
+import type {
+  AgentAttachment,
+  ChangeRequestCheckoutSource,
+  FirstAgentContext,
+} from "../../messages.js";
 import type { AgentManager, CreateAgentOptions, ManagedAgent } from "../agent-manager.js";
 import type { AgentPromptInput, AgentRunOptions, AgentSessionConfig } from "../agent-sdk-types.js";
 import type { AgentStorage } from "../agent-storage.js";
@@ -92,7 +96,6 @@ export interface CreateAgentFromMcpInput {
   internal?: boolean;
   /** Omitted with a caller, the caller agent's own background applies. */
   background?: boolean;
-  detached?: boolean;
   owner?: AgentOwner;
   env?: Record<string, string>;
   onCreated?: (created: {
@@ -113,7 +116,7 @@ export interface CreateAgentFromMcpInput {
     baseBranch?: string;
     refName?: string;
     action?: "branch-off" | "checkout";
-    githubPrNumber?: number;
+    checkoutSource?: ChangeRequestCheckoutSource;
   };
 }
 
@@ -200,7 +203,7 @@ export async function createAgentCommand(
           {
             childAgentId: snapshot.id,
             callerAgentId: notifyCaller,
-            requireParentOwnership: input.kind === "session" || !input.detached,
+            requireParentOwnership: true,
           },
           true,
         )
@@ -313,7 +316,6 @@ async function resolveMcpCreateAgent(
       : null,
     labels: input.labels,
     childAgentDefaultLabels: input.callerContext?.childAgentDefaultLabels,
-    legacyDetached: input.detached ?? false,
     resolveWorkspace: async (workspaceId) => ({ workspaceId, cwd: resolvedCwd }),
     createWorkspace: async () => ({
       workspaceId: requireResolvedWorkspaceId(
@@ -544,7 +546,7 @@ async function resolveMcpCwd(params: {
     return { resolvedCwd: params.cwd };
   }
   const shouldCreateWorktree = Boolean(
-    worktree.worktreeName || worktree.refName || worktree.action || worktree.githubPrNumber,
+    worktree.worktreeName || worktree.refName || worktree.action || worktree.checkoutSource,
   );
   if (!shouldCreateWorktree) {
     return { resolvedCwd: params.cwd };
@@ -554,7 +556,7 @@ async function resolveMcpCwd(params: {
     !worktree.baseBranch &&
     !worktree.refName &&
     !worktree.action &&
-    worktree.githubPrNumber === undefined
+    worktree.checkoutSource === undefined
   ) {
     throw new Error("baseBranch is required when creating a worktree");
   }
@@ -567,7 +569,7 @@ async function resolveMcpCwd(params: {
       branchName: worktree.branchName,
       refName: worktree.refName,
       action: worktree.action,
-      githubPrNumber: worktree.githubPrNumber,
+      checkoutSource: worktree.checkoutSource,
       firstAgentContext: { prompt: params.initialPrompt },
 
       paseoHome: dependencies.paseoHome,

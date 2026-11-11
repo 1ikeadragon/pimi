@@ -89,9 +89,22 @@ Use this table as the complete registration checklist.
 | `import { defineRpc, defineAttachmentSource } from "@pimi/plugin/server"` in shared files | `import { defineRpc, defineAttachmentSource } from "@pimi/plugin"`                                                          |
 | `ZodOutput<typeof contract.input>` handler parameter types                                | `RpcInput<typeof contract>` from `@pimi/plugin`; `RpcOutput` for return types                                               |
 
-Register the screen that replaces an `addSidebarItem` under that item's `id` to keep saved links
-working. A `/plugin/<plugin>/sidebar/<id>` link, and the older `/plugin/<plugin>/<id>`, opens the
-`addSidebarItem` with that `id`, or else the screen with that `id`.
+Replace server hook registrations with `addHook`. `server.on` and `server.before` no longer exist.
+
+| Old registration                                   | New registration                                          |
+| -------------------------------------------------- | --------------------------------------------------------- |
+| `server.before("workspace.create", handler)`       | `server.addHook("workspace.create.before", asyncHandler)` |
+| `server.on("workspace.created", handler)`          | `server.addHook("workspace.create.after", asyncHandler)`  |
+| `server.on("workspace.archived", handler)`         | `server.addHook("workspace.archive.after", asyncHandler)` |
+| `server.before("agent.create", handler)`           | `server.addHook("agent.create.before", asyncHandler)`     |
+| `server.on("agent.created", handler)`              | `server.addHook("agent.create.after", asyncHandler)`      |
+| `server.before("agent.session_open", handler)`     | `server.addHook("agent.open.before", asyncHandler)`       |
+| `server.on("agent.closed", handler)`               | `server.addHook("agent.close.after", asyncHandler)`       |
+| `server.on("agent.archived", handler)`             | `server.addHook("agent.archive.after", asyncHandler)`     |
+| `server.on("agent.turn_started", handler)`         | `server.addHook("agent.turn.before", asyncHandler)`       |
+| `server.on("agent.turn_ended", handler)`           | `server.addHook("agent.turn.after", asyncHandler)`        |
+| `server.on("agent.permission_requested", handler)` | `server.addHook("agent.permission.before", asyncHandler)` |
+| `server.on("agent.permission_resolved", handler)`  | `server.addHook("agent.permission.after", asyncHandler)`  |
 
 Import `PluginClientContext` from `@pimi/plugin/client` and `PluginServerContext` from
 `@pimi/plugin/server`. Remove imports of the old context type. Client registrations return idempotent removal functions, except header buttons and composer pills, which return `{ update, remove }` handles. Preserve any remover the plugin calls before teardown; Pimi removes outstanding
@@ -110,8 +123,7 @@ All panel kinds share [params, revision, and persisted tab state](./reference.md
 | Beta file `location.lineStart`, `location.lineEnd`, `location.revision` | `params.lineStart`, `params.lineEnd`, `revision` |
 | Beta `PluginFileTab`, `PluginFileLocation`                              | `PluginTab`, `PluginFilePanelParams`             |
 
-The 0.12 aliases remain available until removal after 2027-04-23. The beta file API changes
-outright. Declare `requirements.pimi` as `>=0.13.0` when adopting the new API.
+The 0.12 aliases are removed, and the beta file API changed outright. Declare `requirements.pimi` as `>=0.13.0` when adopting the new API.
 
 ### Composer pills
 
@@ -176,13 +188,11 @@ its registration; that registration belongs in the client entry.
 
 ### UI imports in v0.13
 
-Use `/client/ui` for all Pimi UI components and UI hooks. The deprecated
-`/client/react-native` entry retains `useRevealedText(text, phase): string` for 0.12 plugins
-until removal after 2027-04-20. The hook is deprecated and is not exported from `/client/ui`.
+Use `/client/ui` for all Pimi UI components and UI hooks. `useRevealedText` is removed.
 
 For paced timeline text, replace `useRevealedText(text, phase)` and the surrounding `Text` with
 `<StreamedText text={text} phase={phase} style={style} />` from `/client/ui`.
-Use `SettingsSection` for plugin settings headings; `SettingsGroup` is deprecated.
+Use `SettingsSection` for plugin settings headings; `SettingsGroup` is removed.
 
 ## 5. Recognize half-migration errors
 

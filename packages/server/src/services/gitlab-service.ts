@@ -15,7 +15,6 @@ import {
 import {
   compareTimelineItems,
   createUnavailableSearchResult,
-  normalizeForgeSearchKinds,
   parseOptionalTime,
 } from "./forge-service.js";
 import type {
@@ -661,7 +660,6 @@ function toPipelineDetails(pipeline: z.infer<typeof GitLabPipelineDetailsSchema>
       name: job.name,
       stage: job.stage,
       status: normalizePipelineJobStatus(job.status),
-      rawStatus: job.status,
       url: job.web_url ?? null,
       allowFailure: job.allow_failure ?? false,
       durationSeconds: job.duration ?? null,
@@ -685,7 +683,6 @@ function toPipelineDetails(pipeline: z.infer<typeof GitLabPipelineDetailsSchema>
   return {
     id: pipeline.id,
     status: normalizePipelineJobStatus(pipeline.status),
-    rawStatus: pipeline.status,
     url: pipeline.web_url ?? null,
     ref: pipeline.ref ?? null,
     sha: pipeline.sha ?? null,
@@ -1339,7 +1336,7 @@ export function createGitLabService(options: CreateGitLabServiceOptions = {}): F
         throw new Error("ForgeService forced read requires a reason");
       }
 
-      const kinds = normalizeForgeSearchKinds(input.kinds);
+      const kinds = input.kinds ?? ["issue", "change_request"];
       const shouldFetchIssues = kinds.includes("issue");
       const shouldFetchMergeRequests = kinds.includes("change_request");
       const [issuesResult, mergeRequestsResult] = await Promise.allSettled([
@@ -1411,7 +1408,6 @@ export function createGitLabService(options: CreateGitLabServiceOptions = {}): F
         items,
         featuresEnabled: true,
         authState: "authenticated",
-        githubFeaturesEnabled: true,
       };
     },
 

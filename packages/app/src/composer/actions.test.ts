@@ -594,34 +594,6 @@ describe("dispatchComposerAgentMessage", () => {
     expect(userMessage.messageId).toBeUndefined();
   });
 
-  it("can send legacy GitHub attachment payloads for old daemons", async () => {
-    const client = createFakeSendClient();
-    const stream = createFakeStream();
-
-    await dispatchComposerAgentMessage({
-      client,
-      agentId: "agent",
-      text: "send old attachment",
-      attachments: [{ kind: "forge_change_request", item: prItem }],
-      attachmentSubmitFormat: "legacy-github",
-      encodeImages: passthroughEncodeImages,
-      submission: stream,
-    });
-
-    expect(client.calls[0].options.attachments).toEqual([
-      {
-        type: "github_pr",
-        mimeType: "application/github-pr",
-        number: 202,
-        title: "Refactor composer attachments",
-        url: "https://github.com/acme/paseo/pull/202",
-        body: "PR body",
-        baseRefName: "main",
-        headRefName: "composer-attachments",
-      },
-    ]);
-  });
-
   it("appends to the existing head when one is present", async () => {
     const existingItem: StreamItem = {
       kind: "user_message",

@@ -55,16 +55,14 @@ export function UsageOptions({ serverId }: { serverId: string | null }) {
       >
         <View testID="usage-options-fields">
           {setting.error ? <Alert variant="error" description={setting.error.message} /> : null}
-          {setting.supported ? (
-            <SettingsSwitch
-              label={t("providerUsage.checkUsage")}
-              hint={t("providerUsage.checkUsageHint", { host: hostLabel })}
-              disabled={!setting.ready}
-              value={setting.enabled}
-              onValueChange={setting.setEnabled}
-            />
-          ) : null}
-          <View style={setting.supported ? settingsStyles.rowBorder : undefined}>
+          <SettingsSwitch
+            label={t("providerUsage.checkUsage")}
+            hint={t("providerUsage.checkUsageHint", { host: hostLabel })}
+            disabled={!setting.ready}
+            value={setting.enabled}
+            onValueChange={setting.setEnabled}
+          />
+          <View style={settingsStyles.rowBorder}>
             <SettingsSwitch
               label={t("providerUsage.showInSidebar")}
               hint={t("providerUsage.showInSidebarHint")}
