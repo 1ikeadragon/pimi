@@ -143,6 +143,122 @@ async function readOptionalFile(file: string): Promise<string | null> {
   }
 }
 
+const WINDOW_READ_BYTES = 1024 * 1024;
+/** A window that cannot find its turn boundary inside this much transcript falls back to a full replay. */
+const WINDOW_MAX_SCAN_BYTES = 64 * 1024 * 1024;
+/** Transcripts smaller than this replay in full; the window only pays for itself on big files. */
+export const CLAUDE_WINDOWED_REPLAY_MIN_BYTES = 1024 * 1024;
+// The Claude CLI writes every API request body as its own record. They are never replay input and
+// are the bulk of a large transcript, so they are skipped by prefix without parsing.
+const NOISE_RECORD_PREFIX = Buffer.from('{"type":"api-request');
+
+export interface ClaudeTranscriptWindow {
+  /** Parent-conversation records in chronological order, starting at a user prompt. */
+  entries: AsyncIterable<TranscriptEntry>;
+  /** Byte offset of the first record of this window; 0 means no older records exist. */
+  startOffset: number;
+}
+
+/** True when the session owns sidechain or workflow files. Their ownership is resolved across the
+ * whole parent transcript, so such sessions cannot be replayed one window at a time. */
+export async function claudeTranscriptHasSidechains(historyPath: string): Promise<boolean> {
+  const sessionDirectory = path.join(
+    path.dirname(historyPath),
+    path.basename(historyPath, ".jsonl"),
+  );
+  const subagents = await optionalDirectory(path.join(sessionDirectory, "subagents"));
+  if (subagents.length > 0) return true;
+  return (await optionalDirectory(path.join(sessionDirectory, "workflows"))).length > 0;
+}
+
+/** Lines of the file before `end`, last line first, with each line's byte offset. */
+async function* reverseLines(
+  fd: FileHandle,
+  end: number,
+  scanLimit: number,
+): AsyncGenerator<{ line: Buffer; offset: number }> {
+  let position = end;
+  let carry: Buffer = Buffer.alloc(0);
+  let scanned = 0;
+  while (position > 0) {
+    const length = Math.min(WINDOW_READ_BYTES, position);
+    position -= length;
+    scanned += length;
+    if (scanned > scanLimit) throw new WindowTooLargeError();
+    const block = Buffer.allocUnsafe(length);
+    let read = 0;
+    while (read < length) {
+      const { bytesRead } = await fd.read(block, read, length - read, position + read);
+      if (bytesRead === 0) throw new WindowTooLargeError();
+      read += bytesRead;
+    }
+    const data = carry.length > 0 ? Buffer.concat([block, carry]) : block;
+    let cursor = data.length;
+    if (data[cursor - 1] === 10) cursor -= 1;
+    let newline = cursor > 0 ? data.lastIndexOf(10, cursor - 1) : -1;
+    while (newline !== -1) {
+      yield { line: data.subarray(newline + 1, cursor), offset: position + newline + 1 };
+      cursor = newline;
+      newline = cursor > 0 ? data.lastIndexOf(10, cursor - 1) : -1;
+    }
+    // The first line of this block may continue into the previous one.
+    carry = Buffer.from(data.subarray(0, cursor));
+  }
+  if (carry.length > 0) yield { line: carry, offset: 0 };
+}
+
+class WindowTooLargeError extends Error {}
+
+function isNoiseRecord(line: Buffer): boolean {
+  return line.subarray(0, NOISE_RECORD_PREFIX.length).equals(NOISE_RECORD_PREFIX);
+}
+
+/**
+ * Read the newest `prompts` user turns that end before `endOffset` (default end of file) by
+ * scanning the file backwards, so the cost follows the window and not the transcript size.
+ * Returns null when the window would need more than WINDOW_MAX_SCAN_BYTES.
+ */
+export async function readClaudeTranscriptWindow(
+  historyPath: string,
+  options: { prompts: number; endOffset?: number },
+): Promise<ClaudeTranscriptWindow | null> {
+  const fd = await fs.open(historyPath, "r");
+  try {
+    const stat = await fd.stat();
+    if (stat.isDirectory()) return null;
+    const end = Math.min(options.endOffset ?? stat.size, stat.size);
+    const found: TranscriptEntry[] = [];
+    let prompts = 0;
+    let startOffset = 0;
+    for await (const { line, offset } of reverseLines(fd, end, WINDOW_MAX_SCAN_BYTES)) {
+      if (line.length === 0 || isNoiseRecord(line)) continue;
+      const entry = parseRecord(line.toString("utf8"));
+      if (!entry || entry.isSidechain === true) continue;
+      found.push(entry);
+      if (entry.type !== "user" || isToolResult(entry)) continue;
+      prompts += 1;
+      if (prompts >= options.prompts) {
+        startOffset = offset;
+        break;
+      }
+    }
+    found.reverse();
+    return {
+      entries: assignTaskNotificationReplayIds(
+        (async function* () {
+          yield* found;
+        })(),
+      ),
+      startOffset,
+    };
+  } catch (error) {
+    if (error instanceof WindowTooLargeError) return null;
+    throw error;
+  } finally {
+    await fd.close();
+  }
+}
+
 /** Discover sources without retaining transcript contents. Unrelated sidechains stay excluded
  * by the replay ownership resolver; workflow children retain their separate run ownership. */
 export interface ClaudeReplayHistory {

@@ -334,6 +334,37 @@ export class TimelineProjection {
     return { ...this.rows[rowIndex] };
   }
 
+  /** Place rows that all precede the current first row. The newest of them must stay strictly
+   * older than every existing sequence number; no merging happens across the seam. */
+  prepend(rows: readonly AgentTimelineRow[]): void {
+    if (rows.length === 0) return;
+    const older = new TimelineProjection(rows);
+    const shift = older.rows.length;
+    for (const [identity, index] of this.identities) this.identities.set(identity, index + shift);
+    for (const [identity, index] of older.identities) {
+      if (!this.identities.has(identity)) this.identities.set(identity, index);
+    }
+    for (const span of this.spans) span.start += shift;
+    for (const range of this.sourceRanges) range.rowIndex += shift;
+    this.rows.splice(0, 0, ...older.rows);
+    this.spans.splice(0, 0, ...older.spans);
+    this.sourceRanges.splice(0, 0, ...older.sourceRanges);
+    if (this.lastAssistantRowIndex !== null) this.lastAssistantRowIndex += shift;
+    else this.lastAssistantRowIndex = older.lastAssistantRowIndex;
+  }
+
+  /** Projected rows that start before `seq`. */
+  countRowsBefore(seq: number): number {
+    let low = 0;
+    let high = this.rows.length;
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      if (this.rows[middle].seqStart < seq) low = middle + 1;
+      else high = middle;
+    }
+    return low;
+  }
+
   private appendProjected(row: AgentTimelineRow): number {
     const entry = makeCanonicalEntries([row])[0];
     const identity = timelineItemIdentity(row.item);

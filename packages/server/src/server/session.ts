@@ -7741,6 +7741,23 @@ export class Session {
     });
   }
 
+  /**
+   * A large Claude transcript is replayed newest turns first. Reading backwards past what is
+   * loaded pulls older blocks in; a tail request needs enough rows to fill its page.
+   */
+  private async ensureWindowedTimelineRows(
+    msg: Extract<SessionInboundMessage, { type: "fetch_agent_timeline_request" }>,
+    direction: AgentTimelineFetchDirection,
+    cursor: AgentTimelineCursor | undefined,
+  ): Promise<void> {
+    if (direction === "after" || msg.compactionSummaryOnly) return;
+    await this.agentManager.ensureTimelineRowsBefore(msg.agentId, {
+      beforeSeq: direction === "before" && cursor ? cursor.seq : undefined,
+      rowsWanted: (msg.limit ?? 200) * 2,
+      all: msg.limit === 0,
+    });
+  }
+
   private async handleFetchAgentTimelineRequest(
     msg: Extract<SessionInboundMessage, { type: "fetch_agent_timeline_request" }>,
     source?: object,
@@ -7761,6 +7778,8 @@ export class Session {
         purpose: "history",
       });
       const agentPayload = await this.buildAgentPayload(snapshot);
+
+      await this.ensureWindowedTimelineRows(msg, direction, cursor);
 
       const fetchedControlTimeline = this.agentManager.fetchTimeline(msg.agentId, {
         direction,

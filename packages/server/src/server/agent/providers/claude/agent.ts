@@ -52,7 +52,13 @@ import {
 } from "./model-manifest.js";
 import { expandTilde } from "../../../../utils/path.js";
 import { parsePartialJsonObject } from "./partial-json.js";
-import { withClaudeReplayHistory, type ClaudeReplayHistory } from "./transcript-history.js";
+import {
+  CLAUDE_WINDOWED_REPLAY_MIN_BYTES,
+  claudeTranscriptHasSidechains,
+  readClaudeTranscriptWindow,
+  withClaudeReplayHistory,
+  type ClaudeReplayHistory,
+} from "./transcript-history.js";
 import { ClaudeSidechainTracker } from "./sidechain-tracker.js";
 import { readClaudeSubagentHandback } from "./subagent-handback.js";
 import { ClaudeTaskState } from "./task-state.js";
@@ -108,6 +114,7 @@ import {
   type AgentCreateSessionOptions,
   type AgentFeature,
   type AgentLaunchContext,
+  type AgentResumeSessionOptions,
   type AgentMetadata,
   type AgentMode,
   type AgentModelDefinition,
@@ -371,6 +378,10 @@ type ClaudeConversationRewindTarget =
   | { kind: "fresh-session" }
   | { kind: "fork"; messageId: string };
 
+/** User turns replayed when a large transcript is opened, and per older block read afterwards. */
+const CLAUDE_HISTORY_TAIL_PROMPTS = 20;
+const CLAUDE_HISTORY_OLDER_PROMPTS = 40;
+
 const CLAUDE_CAPABILITIES: AgentCapabilityFlags = {
   supportsStreaming: true,
   supportsSessionPersistence: true,
@@ -493,6 +504,8 @@ interface ClaudeAgentSessionOptions {
   queryFactory?: ClaudeQueryFactory;
   resolveBinary: () => Promise<string>;
   rewindSdk?: ClaudeRewindSdk;
+  /** Replay only the newest turns of a large transcript; see hasOlderHistory. */
+  windowedHistory?: boolean;
 }
 
 type ClaudeThinkingEffort = "low" | "medium" | "high" | "xhigh" | "max";
@@ -1665,6 +1678,7 @@ export class ClaudeAgentClient implements AgentClient {
     handle: AgentPersistenceHandle,
     overrides?: Partial<AgentSessionConfig>,
     launchContext?: AgentLaunchContext,
+    resumeOptions?: AgentResumeSessionOptions,
   ): Promise<AgentSession> {
     const metadata = coerceSessionMetadata(handle.metadata);
     const merged: Partial<AgentSessionConfig> = { ...metadata, ...overrides };
@@ -1687,6 +1701,7 @@ export class ClaudeAgentClient implements AgentClient {
       queryFactory: this.queryFactory,
       resolveBinary: this.resolveBinary,
       rewindSdk: this.rewindSdk,
+      windowedHistory: resumeOptions?.windowedHistory === true,
     });
     await session.ensureHistoryReady();
     return session;
@@ -2392,6 +2407,10 @@ class ClaudeAgentSession implements AgentSession {
   private historyReady: Promise<void> | null = null;
   private historySessionId: string | null = null;
   private replayingHistory = false;
+  private readonly windowedHistory: boolean;
+  /** Where the next older block of a windowed replay ends; null once nothing older is unread. */
+  private olderHistory: { path: string; endOffset: number } | null = null;
+  private olderHistoryLoad: Promise<unknown> | null = null;
   private turnState: TurnState = "idle";
   private nextTurnOrdinal = 1;
   private cancelCurrentTurn: (() => void) | null = null;
@@ -2435,6 +2454,7 @@ class ClaudeAgentSession implements AgentSession {
     this.runtimeSettings = options.runtimeSettings;
     this.harnessEnvironment = this.buildSdkEnv();
     this.persistSession = options.persistSession;
+    this.windowedHistory = options.windowedHistory === true;
     this.logger = options.logger.child({ agentId: this.agentId });
     this.queryFactory = options.queryFactory;
     this.resolveBinary = options.resolveBinary;
@@ -5538,6 +5558,7 @@ class ClaudeAgentSession implements AgentSession {
   private async loadPersistedHistory(sessionId: string): Promise<void> {
     let historyPath: string | null = null;
     this.replayingHistory = true;
+    this.olderHistory = null;
     try {
       this.taskState.reset();
       historyPath = await this.resolveHistoryPath(sessionId);
@@ -5548,9 +5569,38 @@ class ClaudeAgentSession implements AgentSession {
         );
         return;
       }
+      const replayStartedAt = performance.now();
+      if (this.windowedHistory && (await this.loadHistoryWindow(historyPath))) {
+        this.logger.info(
+          {
+            sessionId,
+            windowed: true,
+            ms: Math.round(performance.now() - replayStartedAt),
+            persistedItems: this.persistedHistory.length,
+            hasOlder: this.olderHistory !== null,
+          },
+          "claude.history_replay",
+        );
+        return;
+      }
+      let sidechainsMs = 0;
       await withClaudeReplayHistory(historyPath, async (history) => {
+        const indexedMs = performance.now() - replayStartedAt;
         const replay = await this.ingestPersistedSidechains(history);
+        sidechainsMs = performance.now() - replayStartedAt - indexedMs;
         await this.ingestPersistedHistory(history.parentEntries, replay);
+        this.logger.info(
+          {
+            sessionId,
+            windowed: false,
+            indexMs: Math.round(indexedMs),
+            sidechainsMs: Math.round(sidechainsMs),
+            ingestMs: Math.round(performance.now() - replayStartedAt - indexedMs - sidechainsMs),
+            subagents: history.subagents.length,
+            persistedItems: this.persistedHistory.length,
+          },
+          "claude.history_replay",
+        );
       });
     } catch (error) {
       this.logger.warn(
@@ -5560,6 +5610,105 @@ class ClaudeAgentSession implements AgentSession {
     } finally {
       this.replayingHistory = false;
     }
+  }
+
+  /**
+   * Replay only the newest turns of a big transcript. Sessions that own sidechains stay on the
+   * full replay, because which sidechain belongs to which Task call is resolved across the whole
+   * parent transcript. Returns false when the full replay must run instead.
+   */
+  private async loadHistoryWindow(historyPath: string): Promise<boolean> {
+    const stat = await fs.promises.stat(historyPath);
+    if (stat.size < CLAUDE_WINDOWED_REPLAY_MIN_BYTES) return false;
+    if (await claudeTranscriptHasSidechains(historyPath)) return false;
+    const window = await readClaudeTranscriptWindow(historyPath, {
+      prompts: CLAUDE_HISTORY_TAIL_PROMPTS,
+    });
+    if (!window) return false;
+    const timeline = await this.convertHistoryWindow(window.entries, { newest: true });
+    if (timeline.length > 0) {
+      this.persistedHistory = [...this.persistedHistory, ...timeline];
+      this.historyPending = true;
+    }
+    this.olderHistory =
+      window.startOffset > 0 ? { path: historyPath, endOffset: window.startOffset } : null;
+    return true;
+  }
+
+  private async convertHistoryWindow(
+    entries: AsyncIterable<ClaudeHistoryEntry>,
+    options: { newest: boolean },
+  ): Promise<PersistedTimelineEntry[]> {
+    const buffered: ClaudeHistoryEntry[] = [];
+    for await (const entry of entries) buffered.push(entry);
+    const facts = await readClaudeReplayParentFacts(buffered);
+    const replay: ClaudeReplayOwnership = {
+      restoredIds: new Set(),
+      toolOwners: new Map(),
+      subagentToolCalls: facts.toolCalls,
+    };
+    const timeline: PersistedTimelineEntry[] = [];
+    // Older blocks are read after newer ones; their anchors go in front, and their task
+    // snapshots would overwrite the newer state, so they are not observed.
+    const anchors = options.newest
+      ? undefined
+      : { userMessageIds: [] as string[], rewindAnchors: [] as ClaudeRewindTurnAnchor[] };
+    for (const entry of buffered) {
+      await this.ingestPersistedHistoryEntry(entry, timeline, replay, anchors);
+    }
+    if (anchors) {
+      this.userMessageIds = [...anchors.userMessageIds, ...this.userMessageIds];
+      this.rewindTurnAnchors.unshift(...anchors.rewindAnchors);
+    }
+    return timeline;
+  }
+
+  hasOlderHistory(): boolean {
+    return this.olderHistory !== null;
+  }
+
+  async loadOlderHistory(): Promise<Extract<AgentStreamEvent, { type: "timeline" }>[]> {
+    const previous = this.olderHistoryLoad;
+    const load = (async () => {
+      await previous?.catch(() => undefined);
+      const older = this.olderHistory;
+      if (!older) return [];
+      const startedAt = performance.now();
+      const window = await readClaudeTranscriptWindow(older.path, {
+        prompts: CLAUDE_HISTORY_OLDER_PROMPTS,
+        endOffset: older.endOffset,
+      });
+      if (!window) {
+        // Too much to scan in one block: stop offering older history rather than stall the daemon.
+        this.olderHistory = null;
+        return [];
+      }
+      this.replayingHistory = true;
+      let timeline: PersistedTimelineEntry[];
+      try {
+        timeline = await this.convertHistoryWindow(window.entries, { newest: false });
+      } finally {
+        this.replayingHistory = false;
+      }
+      this.olderHistory =
+        window.startOffset > 0 ? { path: older.path, endOffset: window.startOffset } : null;
+      this.logger.info(
+        {
+          ms: Math.round(performance.now() - startedAt),
+          items: timeline.length,
+          hasOlder: this.olderHistory !== null,
+        },
+        "claude.history_older_block",
+      );
+      return timeline.map((entry) => ({
+        type: "timeline" as const,
+        item: entry.item,
+        provider: "claude" as const,
+        timestamp: entry.timestamp,
+      }));
+    })();
+    this.olderHistoryLoad = load;
+    return load;
   }
 
   private async ingestPersistedHistory(
@@ -5633,6 +5782,7 @@ class ClaudeAgentSession implements AgentSession {
     entry: ClaudeHistoryEntry,
     timeline: PersistedTimelineEntry[],
     replay: ClaudeReplayOwnership,
+    olderAnchors?: { userMessageIds: string[]; rewindAnchors: ClaudeRewindTurnAnchor[] },
   ): Promise<void> {
     if (entry.isSidechain) {
       return;
@@ -5661,7 +5811,7 @@ class ClaudeAgentSession implements AgentSession {
       }
       return;
     }
-    const taskSnapshot = this.taskState.observe(entry);
+    const taskSnapshot = olderAnchors ? null : this.taskState.observe(entry);
     const items = [
       ...(taskSnapshot ? [taskSnapshot] : []),
       ...(await this.convertHistoryEntry(entry)).map((item) =>
@@ -5673,13 +5823,7 @@ class ClaudeAgentSession implements AgentSession {
       typeof entry.uuid === "string" &&
       !isSyntheticHistoryUserEntry(entry) &&
       !isToolResultUserEntry(entry);
-    if (isVisibleUserEntry && typeof entry.uuid === "string") {
-      this.rememberUserMessageId(entry.uuid);
-      this.rememberRewindUserAnchor(entry.uuid);
-    }
-    if (entry.type === "assistant" && typeof entry.uuid === "string") {
-      this.rememberRewindAssistantAnchor(entry.uuid);
-    }
+    this.rememberHistoryAnchors(entry, isVisibleUserEntry, olderAnchors);
 
     if (items.length > 0) {
       for (const item of items) {
@@ -5688,6 +5832,28 @@ class ClaudeAgentSession implements AgentSession {
           timestamp: historyTimestamp ?? undefined,
         });
       }
+    }
+  }
+
+  /** Anchors of an older block go to a side list, which the caller places before the newer ones. */
+  private rememberHistoryAnchors(
+    entry: ClaudeHistoryEntry,
+    isVisibleUserEntry: boolean,
+    older: { userMessageIds: string[]; rewindAnchors: ClaudeRewindTurnAnchor[] } | undefined,
+  ): void {
+    if (typeof entry.uuid !== "string") return;
+    if (isVisibleUserEntry) {
+      if (!older) {
+        this.rememberUserMessageId(entry.uuid);
+        this.rememberRewindUserAnchor(entry.uuid);
+        return;
+      }
+      older.userMessageIds.push(entry.uuid);
+      older.rewindAnchors.push({ userMessageId: entry.uuid, assistantMessageId: null });
+    } else if (entry.type === "assistant") {
+      const last = older?.rewindAnchors.at(-1);
+      if (!older) this.rememberRewindAssistantAnchor(entry.uuid);
+      else if (last) last.assistantMessageId = entry.uuid;
     }
   }
 
