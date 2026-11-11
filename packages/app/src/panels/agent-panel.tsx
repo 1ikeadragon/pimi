@@ -17,7 +17,7 @@ import React, {
 import { useTranslation } from "react-i18next";
 import { StyleSheet as RNStyleSheet, Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import invariant from "tiny-invariant";
+import { invariant } from "@/utils/invariant";
 import { shallow, useShallow } from "zustand/shallow";
 import { useStoreWithEqualityFn } from "zustand/traditional";
 import { useAgentStreamTail } from "@/agent-stream/use-agent-stream-tail";

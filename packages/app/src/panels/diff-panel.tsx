@@ -4,7 +4,7 @@ import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { FileDiff, GitCommitHorizontal } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import invariant from "tiny-invariant";
+import { invariant } from "@/utils/invariant";
 import { useRetainedPanelActive } from "@/components/retained-panel";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { PaneContentToolbar } from "@/components/ui/pane-content-toolbar";

@@ -1,4 +1,4 @@
-import invariant from "tiny-invariant";
+import { invariant } from "@/utils/invariant";
 import type { JsonValue } from "@pimi/protocol/agent-types";
 import type { WorkspaceTab, WorkspaceTabTarget } from "@/workspace-tabs/model";
 import { MIN_SPLIT_SIZE } from "@/stores/workspace-layout-constants";

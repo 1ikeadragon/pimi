@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Terminal } from "lucide-react-native";
 import { Text, View } from "react-native";
-import invariant from "tiny-invariant";
+import { invariant } from "@/utils/invariant";
 import type { ListTerminalsResponse } from "@pimi/protocol/messages";
 import { deriveTerminalActivityStatusBucket } from "@pimi/protocol/terminal-activity";
 import { TerminalPane } from "@/components/terminal-pane";

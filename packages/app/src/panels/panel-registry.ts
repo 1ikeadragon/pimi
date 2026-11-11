@@ -1,7 +1,7 @@
 import type { ComponentType } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import invariant from "tiny-invariant";
+import { invariant } from "@/utils/invariant";
 import { getPanelManifest, type PanelManifest } from "@/panels/panel-manifest";
 export type { PaneHost } from "@/panels/panel-manifest";
 import type { WorkspaceTabTarget } from "@/workspace-tabs/model";

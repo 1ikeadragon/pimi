@@ -1,5 +1,5 @@
 import React, { createContext, useContext, type ReactNode } from "react";
-import invariant from "tiny-invariant";
+import { invariant } from "@/utils/invariant";
 import type { JsonValue } from "@pimi/protocol/agent-types";
 import type { WorkspaceTabTarget } from "@/workspace-tabs/model";
 import type { WorkspaceFileOpenRequest } from "@/workspace/file-open";

@@ -10,7 +10,7 @@ import { CircleAlert } from "lucide-react-native";
 import { useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import invariant from "tiny-invariant";
+import { invariant } from "@/utils/invariant";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { usePaneContext } from "@/panels/pane-context";
 import { definePanel, type PanelDescriptor } from "@/panels/panel-registry";

@@ -1,5 +1,5 @@
 import { Text, View } from "react-native";
-import invariant from "tiny-invariant";
+import { invariant } from "@/utils/invariant";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { AppWindow } from "lucide-react-native";
 import { FileHtmlPreview } from "@/file-panels/html-preview";

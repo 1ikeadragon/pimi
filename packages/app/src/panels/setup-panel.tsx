@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, ChevronRight, CircleAlert, SquareTerminal } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { Pressable, type PressableStateCallbackType, ScrollView, Text, View } from "react-native";
-import invariant from "tiny-invariant";
+import { invariant } from "@/utils/invariant";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { usePaneContext } from "@/panels/pane-context";
 import { definePanel, type PanelDescriptor } from "@/panels/panel-registry";

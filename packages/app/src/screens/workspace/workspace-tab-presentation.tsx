@@ -5,7 +5,7 @@ import { Pressable, Text, View, type PressableStateCallbackType } from "react-na
 import { Check } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
-import invariant from "tiny-invariant";
+import { invariant } from "@/utils/invariant";
 import { getPanelRegistration, type PanelIconProps } from "@/panels/panel-registry";
 import type { WorkspaceTabDescriptor } from "@/screens/workspace/workspace-tabs-types";
 import type { SidebarStateBucket } from "@/utils/sidebar-agent-state";

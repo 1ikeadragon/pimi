@@ -1,6 +1,6 @@
 import { Text, View } from "react-native";
 import { useMemo } from "react";
-import invariant from "tiny-invariant";
+import { invariant } from "@/utils/invariant";
 import { useTranslation } from "react-i18next";
 import { FilePane } from "@/file-pane/pane";
 import { usePaneContext } from "@/panels/pane-context";

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import invariant from "tiny-invariant";
+import { invariant } from "@/utils/invariant";
 import { useShallow } from "zustand/react/shallow";
 import { AgentStreamView } from "@/agent-stream/view";
 import { useProviderIcon } from "@/components/provider-icons";

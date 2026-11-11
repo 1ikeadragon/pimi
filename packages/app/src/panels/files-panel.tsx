@@ -3,7 +3,7 @@ import { Files } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import invariant from "tiny-invariant";
+import { invariant } from "@/utils/invariant";
 import { FileExplorerPane } from "@/components/file-explorer-pane";
 import { usePaneContext } from "@/panels/pane-context";
 import { definePanel, type PanelPresentation } from "@/panels/panel-registry";

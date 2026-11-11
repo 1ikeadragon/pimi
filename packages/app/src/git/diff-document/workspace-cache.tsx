@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useState, type ReactNode } from "react";
-import invariant from "tiny-invariant";
+import { invariant } from "@/utils/invariant";
 import { buildDiffDocumentModel, retainReusableModels, reviewGeometryKey } from "./model";
 import type {
   BuildDiffDocumentModelInput,

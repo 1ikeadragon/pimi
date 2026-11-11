@@ -5,7 +5,7 @@ import {
 } from "./pull-request/descriptor";
 import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import invariant from "tiny-invariant";
+import { invariant } from "@/utils/invariant";
 import { usePaneContext } from "@/panels/pane-context";
 import { definePanel } from "@/panels/panel-registry";
 import { PullRequestContent } from "@/panels/pull-request";

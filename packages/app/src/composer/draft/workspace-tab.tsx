@@ -4,7 +4,7 @@ import { Keyboard, StyleSheet as RNStyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { StyleSheet } from "react-native-unistyles";
 import { useContainerWidthBelow } from "@/hooks/use-container-width";
-import invariant from "tiny-invariant";
+import { invariant } from "@/utils/invariant";
 import { Composer } from "@/composer";
 import { type ComposerEditingSession, useComposerFullscreen } from "@/composer/editing-session";
 import { ComposerImportPill } from "@/composer/draft/import-pill";

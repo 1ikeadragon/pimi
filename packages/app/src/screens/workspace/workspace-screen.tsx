@@ -50,7 +50,7 @@ import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import type { Theme } from "@/styles/theme";
-import invariant from "tiny-invariant";
+import { invariant } from "@/utils/invariant";
 import { SidebarMenuToggle } from "@/components/headers/sidebar-menu-toggle";
 import { ScreenHeader } from "@/components/headers/screen-header";
 import { PimiTitlebarSlot } from "@/components/headers/menu-header";
