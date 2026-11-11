@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { getIsElectron } from "@/constants/platform";
 import { useToast } from "@/contexts/toast-context";
 import {
+  announceableDraftKeys,
   useAutomationDraftActions,
   useAutomationDrafts,
   type AggregatedAutomationDraft,
@@ -35,7 +36,6 @@ export function AutomationDraftWatcher(): null {
   const toast = useToast();
   const drafts = useAutomationDrafts();
   const actions = useAutomationDraftActions();
-  const seenDrafting = useRef(new Set<string>());
 
   // Toast buttons reach their draft through these, so the toast content takes stable props.
   const shown = useRef(
@@ -61,10 +61,10 @@ export function AutomationDraftWatcher(): null {
     for (const draft of drafts) {
       const key = `${draft.serverId}:${draft.id}`;
       if (draft.state === "drafting") {
-        seenDrafting.current.add(key);
+        announceableDraftKeys.add(key);
         continue;
       }
-      if (!seenDrafting.current.delete(key)) continue;
+      if (!announceableDraftKeys.delete(key)) continue;
       actions.refresh();
       const ready = draft.state === "ready";
       const dismiss = toast.show(

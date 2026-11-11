@@ -75,18 +75,25 @@ function DraftRow({
           </Text>
         ) : null}
       </View>
-      {failed ? (
-        <View style={styles.actions}>
+      <View style={styles.actions}>
+        {failed ? (
           <StatusBadge label={t("automationDrafts.failed")} variant="error" />
-          <Button
-            size="sm"
-            variant="ghost"
-            onPress={handleDismiss}
-            disabled={busy}
-            testID="automation-draft-dismiss"
-          >
-            {t("automationDrafts.dismiss")}
-          </Button>
+        ) : (
+          <>
+            <LoadingSpinner size="small" color={styles.spinner.color} />
+            <Text style={styles.drafting}>{t("automationDrafts.drafting")}</Text>
+          </>
+        )}
+        <Button
+          size="sm"
+          variant="ghost"
+          onPress={handleDismiss}
+          disabled={busy}
+          testID="automation-draft-dismiss"
+        >
+          {t("automationDrafts.dismiss")}
+        </Button>
+        {failed ? (
           <Button
             size="sm"
             variant="outline"
@@ -96,13 +103,8 @@ function DraftRow({
           >
             {t("automationDrafts.retry")}
           </Button>
-        </View>
-      ) : (
-        <View style={styles.actions}>
-          <LoadingSpinner size="small" color={styles.spinner.color} />
-          <Text style={styles.drafting}>{t("automationDrafts.drafting")}</Text>
-        </View>
-      )}
+        ) : null}
+      </View>
     </View>
   );
 }

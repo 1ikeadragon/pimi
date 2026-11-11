@@ -12,6 +12,13 @@ export interface AggregatedAutomationDraft extends AutomationDraft {
 }
 
 const automationDraftsQueryBaseKey = ["automation-drafts"] as const;
+
+/**
+ * Drafts this client started or retried, as `serverId:draftId`. The draft watcher announces the
+ * ones in here when they settle, so a draft that fails before the first list fetch still gets its
+ * toast, while drafts that settled before this client loaded stay quiet.
+ */
+export const announceableDraftKeys = new Set<string>();
 const NO_DRAFTS: AggregatedAutomationDraft[] = [];
 // A compile is one LLM turn: poll quickly while one runs, slowly otherwise so a draft started on
 // another client still surfaces.
@@ -91,6 +98,7 @@ export function useAutomationDraftActions(): AutomationDraftActions {
   const start = useCallback<AutomationDraftActions["start"]>(
     async ({ serverId, description, cwd }) => {
       const { draft } = await requireClient(serverId).automationDraftStart({ description, cwd });
+      announceableDraftKeys.add(`${serverId}:${draft.id}`);
       refresh();
       return draft;
     },
@@ -99,6 +107,7 @@ export function useAutomationDraftActions(): AutomationDraftActions {
   const retry = useCallback<AutomationDraftActions["retry"]>(
     async (draft) => {
       await requireClient(draft.serverId).automationDraftRetry({ draftId: draft.id });
+      announceableDraftKeys.add(`${draft.serverId}:${draft.id}`);
       refresh();
     },
     [refresh, requireClient],

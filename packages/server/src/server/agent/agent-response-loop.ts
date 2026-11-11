@@ -96,6 +96,7 @@ export interface StructuredAgentGenerationWithFallbackOptions<T> {
   persistSession?: boolean;
   maxRetries?: number;
   schemaName?: string;
+  turnTimeoutMs?: number;
   logger?: StructuredGenerationLogger;
   runner?: <TResult>(options: StructuredAgentGenerationOptions<TResult>) => Promise<TResult>;
 }
@@ -425,6 +426,7 @@ export async function generateStructuredAgentResponseWithFallback<T>(
     persistSession,
     maxRetries,
     schemaName,
+    turnTimeoutMs,
     logger,
     runner,
   } = options;
@@ -463,6 +465,7 @@ export async function generateStructuredAgentResponseWithFallback<T>(
         maxRetries,
         schemaName,
         persistSession,
+        ...(turnTimeoutMs ? { turnTimeoutMs } : {}),
         agentConfig: {
           ...agentConfigOverrides,
           provider: candidate.provider,

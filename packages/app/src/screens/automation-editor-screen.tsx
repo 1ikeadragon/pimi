@@ -117,7 +117,7 @@ export function AutomationEditorScreen(props: AutomationEditorScreenProps): Reac
   const { loadState } = useAutomations();
   const needsStored = props.mode === "edit" || Boolean(props.duplicateId);
   const storedId = props.mode === "edit" ? props.automationId : props.duplicateId;
-  const stored = useMemo(() => {
+  const found = useMemo(() => {
     if (!needsStored || loadState.status !== "loaded") return null;
     return (
       loadState.data.find(
@@ -126,9 +126,14 @@ export function AutomationEditorScreen(props: AutomationEditorScreenProps): Reac
       ) ?? null
     );
   }, [loadState, needsStored, props.serverId, storedId]);
+  // The list refetches with the connection (a reconnect leaves "loaded"), and an editor that
+  // unmounts discards its unsaved edits. Once the automation has been found, keep it.
+  const latched = useRef<AggregatedAutomation | null>(null);
+  if (found) latched.current = found;
+  const stored = found ?? latched.current;
 
   let body: ReactElement;
-  if (needsStored && loadState.status !== "loaded") {
+  if (needsStored && !stored && loadState.status !== "loaded") {
     body = (
       <View style={styles.centered}>
         <LoadingSpinner size="large" color={styles.spinner.color} />
@@ -369,6 +374,7 @@ function AutomationEditor({
             <DescribePanel
               state={state}
               onClose={state.steps.length > 0 ? closeDescribe : null}
+              dirty={state.dirty}
               onStarted={leaveForList}
             />
           ) : null}
@@ -1148,10 +1154,12 @@ function Palette({ onAdd }: { onAdd: (kind: EditorStep["kind"]) => void }): Reac
 
 function DescribePanel({
   state,
+  dirty,
   onClose,
   onStarted,
 }: {
   state: AutomationEditorState;
+  dirty: boolean;
   onClose: (() => void) | null;
   onStarted: () => void;
 }): ReactElement {
@@ -1165,6 +1173,18 @@ function DescribePanel({
   const canStart = Boolean(cwd && serverId && description.trim()) && !starting;
   const handleStart = useCallback(async () => {
     if (!canStart || !serverId) return;
+    // Describing leaves the editor, and the graph with it.
+    if (
+      dirty &&
+      !(await confirmDialog({
+        title: t("automationEditor.confirm.discardTitle"),
+        message: t("automationEditor.confirm.discardMessage"),
+        confirmLabel: t("automationEditor.confirm.discard"),
+        destructive: true,
+      }))
+    ) {
+      return;
+    }
     setError(null);
     setStarting(true);
     try {
@@ -1174,7 +1194,7 @@ function DescribePanel({
       setError(toErrorMessage(startError));
       setStarting(false);
     }
-  }, [canStart, cwd, description, drafts, onStarted, serverId]);
+  }, [canStart, cwd, description, dirty, drafts, onStarted, serverId, t]);
   const handlePress = useCallback(() => void handleStart(), [handleStart]);
   return (
     <View style={styles.describe} testID="automation-describe-panel">

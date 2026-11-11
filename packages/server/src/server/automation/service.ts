@@ -40,6 +40,14 @@ const FAILURES_BEFORE_PAUSE = 3;
 const AUDIT_ENTRIES_RETURNED = 50;
 // A ready draft stays listed this long so every open client can announce it.
 const READY_DRAFT_RETENTION_MS = 60 * 60_000;
+// A failed draft waits for a retry or a dismissal this long before it is dropped.
+const FAILED_DRAFT_RETENTION_MS = 7 * 24 * 60 * 60_000;
+// A draft that is still compiling is never expired.
+const DRAFT_RETENTION_MS: Record<AutomationDraft["state"], number | null> = {
+  drafting: null,
+  ready: READY_DRAFT_RETENTION_MS,
+  failed: FAILED_DRAFT_RETENTION_MS,
+};
 const HOUR_MS = 60 * 60_000;
 // Cron cannot fire more often than once a minute; an interval gets the same floor, so a bad
 // definition cannot turn the tick loop into a stream of skipped runs.
@@ -347,10 +355,11 @@ export class AutomationService {
   }
 
   async listDrafts(): Promise<AutomationDraft[]> {
-    const cutoff = Date.now() - READY_DRAFT_RETENTION_MS;
+    const now = Date.now();
     const drafts: AutomationDraft[] = [];
     for (const draft of await this.store.drafts.list()) {
-      if (draft.state === "ready" && new Date(draft.updatedAt).getTime() < cutoff) {
+      const retentionMs = DRAFT_RETENTION_MS[draft.state];
+      if (retentionMs !== null && new Date(draft.updatedAt).getTime() < now - retentionMs) {
         await this.store.drafts.delete(draft.id);
         continue;
       }
@@ -360,17 +369,20 @@ export class AutomationService {
   }
 
   async retryDraft(id: string): Promise<AutomationDraft> {
-    const existing = requireFound(await this.store.drafts.get(id), id);
-    if (existing.state !== "failed") {
-      throw new AutomationStateError(`Draft ${id} is ${existing.state}, not failed`);
-    }
+    // The state check lives in the update, which the store serializes, so two retries cannot
+    // both see "failed" and start two compiles.
     const draft = requireFound(
-      await this.store.drafts.update(id, (current) => ({
-        ...current,
-        state: "drafting",
-        error: null,
-        updatedAt: new Date().toISOString(),
-      })),
+      await this.store.drafts.update(id, (current) => {
+        if (current.state !== "failed") {
+          throw new AutomationStateError(`Draft ${id} is ${current.state}, not failed`);
+        }
+        return {
+          ...current,
+          state: "drafting",
+          error: null,
+          updatedAt: new Date().toISOString(),
+        };
+      }),
       id,
     );
     this.compileDraft(draft);

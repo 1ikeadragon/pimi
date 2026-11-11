@@ -24,6 +24,8 @@ const MAX_DESCRIPTION_LENGTH = 8000;
 // Full compile attempts; each after the first is told what was wrong with the last graph.
 const COMPILE_ATTEMPTS = 2;
 const MODELS_LISTED_PER_PROVIDER = 8;
+// A model turn that has not replied by now is hung; the provider fails and the next one runs.
+const COMPILE_TURN_TIMEOUT_MS = 5 * 60_000;
 
 // What the compiler model writes. Smaller than a definition: cron instead of a cadence union,
 // a profile by name, no limits.
@@ -217,6 +219,7 @@ export async function compileAutomation(
       schemaName: "PimiAutomation",
       providers: generationProviders,
       maxRetries: 1,
+      turnTimeoutMs: COMPILE_TURN_TIMEOUT_MS,
       persistSession: false,
       logger: deps.logger,
       agentConfigOverrides: { title: "Automation compiler", internal: true },
