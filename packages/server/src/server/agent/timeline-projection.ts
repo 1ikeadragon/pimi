@@ -293,6 +293,9 @@ function mergeAssistantChunks(entries: readonly WorkingEntry[]): WorkingEntry[] 
   return output;
 }
 
+/** One page answers one WebSocket message, so its serialized items are capped as well as counted. */
+export const TIMELINE_PAGE_BYTE_BUDGET = 512 * 1024;
+
 /** A retained item. `seq` is its latest source event, not its display anchor. */
 export type ProjectedTimelineRow = AgentTimelineRow & TimelineProjectionEntry;
 
@@ -312,6 +315,8 @@ export class TimelineProjection {
   // Disjoint source-coverage spans in display order. A tail starting inside a
   // span must include its first anchor to cover interleaved lifecycle updates.
   private readonly spans: { start: number; endSeq: number }[] = [];
+
+  private readonly rowBytes = new WeakMap<ProjectedTimelineRow, number>();
 
   private readonly sourceRanges: { startSeq: number; endSeq: number; rowIndex: number }[] = [];
 
@@ -458,7 +463,8 @@ export class TimelineProjection {
     const limit = Math.max(0, Math.floor(input.limit ?? 0));
     const requestedStart = limit === 0 ? 0 : Math.max(0, this.rows.length - limit);
     const coveredStart = this.spans[this.spanIndex(requestedStart)].start;
-    const start = input.wholeTurns ? this.wholeTurnWindowStart(coveredStart) : coveredStart;
+    const wholeStart = input.wholeTurns ? this.wholeTurnWindowStart(coveredStart) : coveredStart;
+    const start = this.trimStartToByteBudget(wholeStart, this.rows.length);
     return {
       entries: this.rows.slice(start),
       startSeq: this.rows[start].seqStart,
@@ -466,6 +472,34 @@ export class TimelineProjection {
       hasOlder: start > 0,
       hasNewer: false,
     };
+  }
+
+  /**
+   * Move a page's first row forward until the page fits TIMELINE_PAGE_BYTE_BUDGET, keeping the
+   * newest rows. The newest row always stays, and the start stays on a coverage-span boundary so
+   * an interleaved lifecycle update is never split from its anchor. The older rows remain
+   * reachable through hasOlder.
+   */
+  private trimStartToByteBudget(start: number, end: number): number {
+    let total = 0;
+    let first = end;
+    while (first > start) {
+      const bytes = this.bytesOfRow(this.rows[first - 1]);
+      if (first < end && total + bytes > TIMELINE_PAGE_BYTE_BUDGET) break;
+      total += bytes;
+      first--;
+    }
+    if (first === start) return start;
+    return Math.max(start, this.spans[this.spanIndex(first)].start);
+  }
+
+  private bytesOfRow(row: ProjectedTimelineRow): number {
+    let bytes = this.rowBytes.get(row);
+    if (bytes === undefined) {
+      bytes = JSON.stringify(row.item).length;
+      this.rowBytes.set(row, bytes);
+    }
+    return bytes;
   }
 
   private wholeTurnWindowStart(requestedStart: number): number {
@@ -527,7 +561,10 @@ export class TimelineProjection {
       }
       const limit = Math.max(0, Math.floor(input.limit ?? 0));
       const requestedStart = limit === 0 ? 0 : Math.max(0, low - limit);
-      const start = input.wholeTurns ? this.wholeTurnWindowStart(requestedStart) : requestedStart;
+      const wholeStart = input.wholeTurns
+        ? this.wholeTurnWindowStart(requestedStart)
+        : requestedStart;
+      const start = this.trimStartToByteBudget(wholeStart, low);
       // Choose the window before extending the right edge, so a prompt jump
       // cannot lose its target when the next turn is arbitrarily large.
       if (input.wholeTurns) {
