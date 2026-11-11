@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type pino from "pino";
 import { getErrorMessage } from "@pimi/protocol/error-utils";
@@ -610,7 +610,7 @@ export class VoiceSession {
           this.emit({
             type: "activity_log",
             payload: {
-              id: uuidv4(),
+              id: randomUUID(),
               timestamp: new Date(),
               type: "system",
               content: "Transcribing audio...",
@@ -624,7 +624,7 @@ export class VoiceSession {
           avgLogprob,
           isLowConfidence,
         }) => {
-          const requestId = uuidv4();
+          const requestId = randomUUID();
           const transcriptText = isLowConfidence ? "" : transcript.trim();
           if (isLowConfidence) {
             this.sessionLogger.debug(
@@ -908,7 +908,7 @@ export class VoiceSession {
     this.emit({
       type: "activity_log",
       payload: {
-        id: uuidv4(),
+        id: randomUUID(),
         timestamp: new Date(),
         type: "system",
         content: "Transcribing audio...",
@@ -916,7 +916,7 @@ export class VoiceSession {
     });
 
     try {
-      const requestId = uuidv4();
+      const requestId = randomUUID();
       const result = await this.sttManager.transcribe(audio, format, {
         requestId,
         label: this.isVoiceMode ? "voice" : "buffered",
@@ -951,7 +951,7 @@ export class VoiceSession {
       this.emit({
         type: "activity_log",
         payload: {
-          id: uuidv4(),
+          id: randomUUID(),
           timestamp: new Date(),
           type: "error",
           content: `Transcription error: ${getErrorMessage(error)}`,
@@ -998,7 +998,7 @@ export class VoiceSession {
       this.emit({
         type: "activity_log",
         payload: {
-          id: uuidv4(),
+          id: randomUUID(),
           timestamp: new Date(),
           type: "system",
           content: `Saved input audio: ${result.debugRecordingPath}`,
@@ -1014,7 +1014,7 @@ export class VoiceSession {
     this.emit({
       type: "activity_log",
       payload: {
-        id: uuidv4(),
+        id: randomUUID(),
         timestamp: new Date(),
         type: "transcript",
         content: result.text,
@@ -1076,7 +1076,7 @@ export class VoiceSession {
       this.emit({
         type: "activity_log",
         payload: {
-          id: uuidv4(),
+          id: randomUUID(),
           timestamp: new Date(),
           type: "assistant",
           content: text,
@@ -1112,7 +1112,7 @@ export class VoiceSession {
         this.emit({
           type: "activity_log",
           payload: {
-            id: uuidv4(),
+            id: randomUUID(),
             timestamp: new Date(),
             type: "error",
             content: message,
@@ -1300,7 +1300,7 @@ export class VoiceSession {
               this.host.emit({
                 type: "activity_log",
                 payload: {
-                  id: uuidv4(),
+                  id: randomUUID(),
                   timestamp: new Date(),
                   type: "system",
                   content: `Saved TTS audio: ${recordingPath}`,

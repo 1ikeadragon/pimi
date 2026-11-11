@@ -1,5 +1,5 @@
 import type pino from "pino";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import { getErrorMessage, getErrorMessageOr } from "@pimi/protocol/error-utils";
 import type { AgentConfigApply } from "@pimi/protocol/messages";
 import type { AgentProviderNotice } from "../../agent/agent-sdk-types.js";
@@ -210,7 +210,7 @@ export class AgentConfigSession {
       this.host.emit({
         type: "activity_log",
         payload: {
-          id: uuidv4(),
+          id: randomUUID(),
           timestamp: new Date(),
           type: "error",
           content: `${failureText}: ${getErrorMessage(error)}`,
