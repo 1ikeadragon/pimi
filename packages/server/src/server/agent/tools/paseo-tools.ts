@@ -2722,17 +2722,20 @@ function createToolCatalog(
       }
 
       const expiresAt = buildScheduleExpiry(expiresIn);
-      const schedule = await scheduleService.createOrReplace({
-        prompt: prompt.trim(),
-        cadence: buildCronScheduleCadence({
-          cron,
-          ...(timezone !== undefined ? { timezone } : {}),
-        }),
-        target: resolveNewAgentScheduleTarget({ provider, cwd, isolation }),
-        ...(name?.trim() ? { name: name.trim() } : {}),
-        ...(maxRuns === undefined ? {} : { maxRuns }),
-        ...(expiresAt === undefined ? {} : { expiresAt }),
-      });
+      const schedule = await scheduleService.createOrReplace(
+        {
+          prompt: prompt.trim(),
+          cadence: buildCronScheduleCadence({
+            cron,
+            ...(timezone !== undefined ? { timezone } : {}),
+          }),
+          target: resolveNewAgentScheduleTarget({ provider, cwd, isolation }),
+          ...(name?.trim() ? { name: name.trim() } : {}),
+          ...(maxRuns === undefined ? {} : { maxRuns }),
+          ...(expiresAt === undefined ? {} : { expiresAt }),
+        },
+        "pending",
+      );
 
       return {
         content: [],
@@ -2773,17 +2776,20 @@ function createToolCatalog(
       resolveCallerAgent();
 
       const expiresAt = buildScheduleExpiry(expiresIn);
-      const schedule = await scheduleService.createOrReplace({
-        prompt: prompt.trim(),
-        cadence: buildCronScheduleCadence({
-          cron,
-          ...(timezone !== undefined ? { timezone } : {}),
-        }),
-        target: { type: "agent", agentId: callerAgentId },
-        ...(name?.trim() ? { name: name.trim() } : {}),
-        ...(maxRuns === undefined ? {} : { maxRuns }),
-        ...(expiresAt === undefined ? {} : { expiresAt }),
-      });
+      const schedule = await scheduleService.createOrReplace(
+        {
+          prompt: prompt.trim(),
+          cadence: buildCronScheduleCadence({
+            cron,
+            ...(timezone !== undefined ? { timezone } : {}),
+          }),
+          target: { type: "agent", agentId: callerAgentId },
+          ...(name?.trim() ? { name: name.trim() } : {}),
+          ...(maxRuns === undefined ? {} : { maxRuns }),
+          ...(expiresAt === undefined ? {} : { expiresAt }),
+        },
+        "active",
+      );
 
       return {
         content: [],
@@ -2904,7 +2910,11 @@ function createToolCatalog(
         throw new Error("Schedule service is not configured");
       }
 
-      await requireScheduleTarget(id, "new-agent");
+      const schedule = await requireScheduleTarget(id, "new-agent");
+      // Only the user approves a pending schedule, through the client RPC.
+      if (schedule.status === "pending") {
+        throw new PaseoToolInputError(`Schedule ${id} is waiting for approval`);
+      }
       await runScheduleAction(() => scheduleService.resume(id));
       return {
         content: [],

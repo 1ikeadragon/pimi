@@ -9,6 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useProviderIcon } from "@/components/provider-icons";
 import { isNative } from "@/constants/platform";
@@ -77,9 +78,11 @@ interface ScheduleRowProps extends ScheduleRowActions {
 
 function stateBadge(state: ScheduleDerivedState): {
   label: string;
-  variant: "success" | "error" | "muted";
+  variant: "success" | "warning" | "error" | "muted";
 } {
   switch (state) {
+    case "pending":
+      return { label: "Needs your approval", variant: "warning" };
     case "active":
       return { label: "Active", variant: "success" };
     case "paused":
@@ -240,6 +243,20 @@ export function ScheduleRow({
 
         <View style={styles.trailing}>
           <StatusBadge label={badge.label} variant={badge.variant} />
+          {state === "pending" ? (
+            <Button
+              variant="outline"
+              size="sm"
+              loading={pending?.resume}
+              onPress={onResume}
+              // The row is a web <button>; a nested one is invalid DOM. Same as the kebab.
+              accessibilityRole={isNative ? "button" : "none"}
+              accessibilityLabel={`Approve ${title}`}
+              testID={`schedule-approve-${schedule.id}`}
+            >
+              Approve
+            </Button>
+          ) : null}
           <ScheduleKebabMenu
             schedule={schedule}
             canRun={canRun}
@@ -272,7 +289,8 @@ function ScheduleExecutionMenuItems({
 }: Pick<ScheduleRowProps, "schedule" | "pending" | "onPause" | "onResume" | "onRunNow"> & {
   canRun: boolean;
 }): ReactElement | null {
-  if (schedule.target.type === "agent") {
+  // A pending schedule is approved from its row; it has nothing to pause or run.
+  if (schedule.target.type === "agent" || schedule.status === "pending") {
     return null;
   }
 

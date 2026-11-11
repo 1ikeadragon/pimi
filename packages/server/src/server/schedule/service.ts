@@ -45,6 +45,15 @@ export class ScheduleNotFoundError extends Error {
   }
 }
 
+export type CreatedScheduleStatus = Extract<StoredSchedule["status"], "active" | "pending">;
+
+interface ScheduleRecordFields {
+  name: string | null;
+  prompt: string;
+  target: ScheduleTarget;
+  status: CreatedScheduleStatus;
+}
+
 export class ScheduleStateConflictError extends Error {
   constructor(message: string) {
     super(message);
@@ -175,6 +184,14 @@ function requireSchedule(schedule: StoredSchedule | null, id: string): StoredSch
     throw new ScheduleNotFoundError(id);
   }
   return schedule;
+}
+
+// Schedules created by agents wait in `pending` until the user approves them
+// through the client `schedule/resume` RPC. Nothing runs a pending schedule.
+function rejectPendingSchedule(schedule: StoredSchedule): void {
+  if (schedule.status === "pending") {
+    throw new ScheduleStateConflictError(`Schedule ${schedule.id} is waiting for approval`);
+  }
 }
 
 function completeSchedule(schedule: StoredSchedule, now: Date): StoredSchedule {
@@ -329,19 +346,20 @@ export class ScheduleService {
       name: trimOptionalName(input.name),
       prompt,
       target: input.target,
+      status: "active",
     });
   }
 
   private async createScheduleRecord(
     input: CreateScheduleInput,
-    fields: { name: string | null; prompt: string; target: ScheduleTarget },
+    fields: ScheduleRecordFields,
   ): Promise<StoredSchedule> {
     return this.store.create(this.buildScheduleRecord(input, fields));
   }
 
   private buildScheduleRecord(
     input: CreateScheduleInput,
-    fields: { name: string | null; prompt: string; target: ScheduleTarget },
+    fields: ScheduleRecordFields,
   ): Omit<StoredSchedule, "id"> {
     const now = this.now();
     const runOnCreate = input.runOnCreate ?? input.cadence.type === "every";
@@ -351,10 +369,10 @@ export class ScheduleService {
       prompt: fields.prompt,
       cadence: input.cadence,
       target: fields.target,
-      status: "active",
+      status: fields.status,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
-      nextRunAt: nextRunAt.toISOString(),
+      nextRunAt: fields.status === "pending" ? null : nextRunAt.toISOString(),
       lastRunAt: null,
       pausedAt: null,
       expiresAt: input.expiresAt ?? null,
@@ -366,18 +384,23 @@ export class ScheduleService {
   // Idempotent create for the MCP write path: repeating a create with the same
   // name and target (e.g. babysit-pr re-registering its heartbeat) refreshes the
   // existing non-completed schedule in place instead of minting a duplicate.
-  async createOrReplace(input: CreateScheduleInput): Promise<StoredSchedule> {
+  // `status` is `pending` for schedules an agent creates: they wait for the
+  // user's approval. A replace returns an approved schedule to `pending` too.
+  async createOrReplace(
+    input: CreateScheduleInput,
+    status: CreatedScheduleStatus,
+  ): Promise<StoredSchedule> {
     const name = trimOptionalName(input.name);
     const prompt = normalizePrompt(input.prompt);
     validateScheduleCadence(input.cadence);
     if (name === null) {
-      return this.createScheduleRecord(input, { name, prompt, target: input.target });
+      return this.createScheduleRecord(input, { name, prompt, target: input.target, status });
     }
 
     const inputTarget = input.target;
     return this.store.upsertByNameAndTarget(name, inputTarget, {
       create: async () => {
-        return this.buildScheduleRecord(input, { name, prompt, target: inputTarget });
+        return this.buildScheduleRecord(input, { name, prompt, target: inputTarget, status });
       },
       update: async (current) => {
         const now = this.now();
@@ -390,9 +413,9 @@ export class ScheduleService {
           prompt,
           cadence,
           target: inputTarget,
-          status: "active",
+          status,
           pausedAt: null,
-          nextRunAt: nextRunAt.toISOString(),
+          nextRunAt: status === "pending" ? null : nextRunAt.toISOString(),
           expiresAt: input.expiresAt ?? null,
           maxRuns: normalizeMaxRuns(input.maxRuns),
           updatedAt: now.toISOString(),
@@ -423,6 +446,7 @@ export class ScheduleService {
       if (schedule.status === "paused") {
         return schedule;
       }
+      rejectPendingSchedule(schedule);
       const now = this.now();
       return {
         ...schedule,
@@ -435,6 +459,7 @@ export class ScheduleService {
     return requireSchedule(paused, id);
   }
 
+  // Resuming a pending schedule is the user's approval of it.
   async resume(id: string): Promise<StoredSchedule> {
     const resumed = await this.store.update(id, (schedule) => {
       if (schedule.status === "completed") {
@@ -560,6 +585,7 @@ export class ScheduleService {
     if (schedule.status === "completed") {
       throw new ScheduleStateConflictError(`Schedule ${id} is already completed`);
     }
+    rejectPendingSchedule(schedule);
     if (this.runningScheduleIds.has(id)) {
       throw new ScheduleStateConflictError(`Schedule ${id} is already running`);
     }

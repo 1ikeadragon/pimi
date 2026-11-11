@@ -1,4 +1,4 @@
-export type ScheduleStatus = "active" | "paused" | "completed";
+export type ScheduleStatus = "pending" | "active" | "paused" | "completed";
 
 export type ScheduleCadence =
   | {

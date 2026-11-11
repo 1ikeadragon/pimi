@@ -41,6 +41,8 @@ export interface FetchAggregatedSchedulesResult {
   status: "loaded";
   data: AggregatedSchedule[];
   hostErrors: ScheduleHostError[];
+  /** Saved hosts that have not connected yet; their schedules are not in `data`. */
+  connectingHosts: ScheduleHostInput[];
 }
 
 export type FetchAggregatedSchedulesState =
@@ -65,13 +67,20 @@ export interface FetchAggregatedSchedulesInput {
  * Offline hosts are skipped. A connected host that fails contributes to
  * `hostErrors` (surfaced as a banner) while the rest still render; only when
  * every connected host fails do we throw so the screen shows a full error.
+ *
+ * The list is `connecting` only while no host can be asked. Once one host has
+ * answered, the result is `loaded` (even when empty) and the hosts still
+ * connecting are listed in `connectingHosts`: a saved host that never comes up
+ * must not hold the screen on a spinner. The query key includes connection
+ * statuses, so a host that connects later triggers a refetch.
  */
 export async function fetchAggregatedSchedules(
   input: FetchAggregatedSchedulesInput,
 ): Promise<FetchAggregatedSchedulesState> {
-  const hasSettlingHost = input.hosts.some((host) =>
+  const connectingHosts = input.hosts.filter((host) =>
     isScheduleHostConnectionSettling(input.runtime.getSnapshot(host.serverId)),
   );
+  const hasSettlingHost = connectingHosts.length > 0;
   const hasAskableHost = input.hosts.some((host) => {
     const snapshot = input.runtime.getSnapshot(host.serverId);
     return snapshot?.connectionStatus === "online" && input.runtime.getClient(host.serverId);
@@ -116,11 +125,7 @@ export async function fetchAggregatedSchedules(
     throw new Error(ALL_SCHEDULE_HOSTS_FAILED_MESSAGE);
   }
 
-  if (schedules.length === 0 && hasSettlingHost) {
-    return { status: "connecting" };
-  }
-
-  return { status: "loaded", data: schedules, hostErrors };
+  return { status: "loaded", data: schedules, hostErrors, connectingHosts };
 }
 
 function isScheduleHostConnectionSettling(

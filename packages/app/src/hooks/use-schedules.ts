@@ -14,10 +14,14 @@ import {
   type ScheduleHostInput,
 } from "@/schedules/aggregated-schedules";
 
+const NO_HOSTS: ScheduleHostInput[] = [];
+const NO_HOST_ERRORS: ScheduleHostError[] = [];
+
 export type {
   AggregateLoadState,
   AggregatedSchedule,
   ScheduleHostError,
+  ScheduleHostInput,
 } from "@/schedules/aggregated-schedules";
 
 export function schedulesQueryKey(serverIds: readonly string[]) {
@@ -27,6 +31,8 @@ export function schedulesQueryKey(serverIds: readonly string[]) {
 export interface UseSchedulesResult {
   loadState: AggregateLoadState<AggregatedSchedule>;
   hostErrors: ScheduleHostError[];
+  /** Hosts still connecting after another host answered. */
+  connectingHosts: ScheduleHostInput[];
   isError: boolean;
   error: Error | null;
   refetch: () => void;
@@ -65,7 +71,8 @@ export function useSchedules(): UseSchedulesResult {
 
   return {
     loadState,
-    hostErrors: query.data?.status === "loaded" ? query.data.hostErrors : [],
+    hostErrors: query.data?.status === "loaded" ? query.data.hostErrors : NO_HOST_ERRORS,
+    connectingHosts: query.data?.status === "loaded" ? query.data.connectingHosts : NO_HOSTS,
     isError: query.isError,
     error: query.error,
     refetch: () => {

@@ -1,10 +1,16 @@
 import type { ScheduleSummary } from "@pimi/protocol/schedule/types";
 import { describeScheduleCwd } from "@/schedules/schedule-project-targets";
 
-// Derived from existing fields only — no new protocol state. "active"/"paused"
-// mirror the stored status; the rest are computed truths the daemon does not
-// spell out in a single field.
-export type ScheduleDerivedState = "active" | "paused" | "expired" | "finished" | "targetGone";
+// Derived from existing fields only — no new protocol state. "pending",
+// "active" and "paused" mirror the stored status; the rest are computed truths
+// the daemon does not spell out in a single field.
+export type ScheduleDerivedState =
+  | "pending"
+  | "active"
+  | "paused"
+  | "expired"
+  | "finished"
+  | "targetGone";
 
 export type ScheduleBucket = "runnable" | "ended";
 
@@ -89,6 +95,9 @@ function deriveState(input: ResolveScheduleInput): ScheduleDerivedState {
   if (schedule.status === "completed") {
     return "finished";
   }
+  if (schedule.status === "pending") {
+    return "pending";
+  }
   if (schedule.status === "paused") {
     return "paused";
   }
@@ -96,7 +105,7 @@ function deriveState(input: ResolveScheduleInput): ScheduleDerivedState {
 }
 
 export function scheduleBucket(state: ScheduleDerivedState): ScheduleBucket {
-  return state === "active" || state === "paused" ? "runnable" : "ended";
+  return state === "pending" || state === "active" || state === "paused" ? "runnable" : "ended";
 }
 
 export function resolveSchedule(input: ResolveScheduleInput): ResolvedSchedule {

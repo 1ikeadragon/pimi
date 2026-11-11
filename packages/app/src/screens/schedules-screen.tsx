@@ -10,7 +10,8 @@ import { ScrollView, Text, View } from "react-native";
 import { useIsFocused } from "expo-router/react-navigation";
 import { LayoutTemplate, Plus, Rocket } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import type { Theme } from "@/styles/theme";
 import { MenuHeader } from "@/components/headers/menu-header";
 import {
   DropdownMenu,
@@ -18,7 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
-import { ToolbarButton } from "@/components/ui/pane-content-toolbar";
+import { DropdownTrigger } from "@/components/ui/dropdown-trigger";
 import { HostFilter } from "@/components/hosts/host-filter";
 import { ALL_HOSTS_OPTION_ID } from "@/components/hosts/host-picker";
 import { ScheduleFormSheet } from "@/components/schedules/schedule-form-sheet";
@@ -33,6 +34,7 @@ import {
   type AggregateLoadState,
   type AggregatedSchedule,
   type ScheduleHostError,
+  type ScheduleHostInput,
 } from "@/hooks/use-schedules";
 import { getHostRuntimeStore, useHosts } from "@/runtime/host-runtime";
 import {
@@ -60,6 +62,14 @@ const STATUS_FILTER_OPTIONS: { value: ScheduleBucket; label: string; testID: str
 
 const EMPTY_SCHEDULES: AggregatedSchedule[] = [];
 
+// Module-scope themed icon so the trigger's `leading` is a stable element.
+const ThemedLayoutTemplate = withUnistyles(LayoutTemplate);
+const templatesLeading = (
+  <ThemedLayoutTemplate
+    uniProps={(theme: Theme) => ({ size: theme.iconSize.sm, color: theme.colors.foregroundMuted })}
+  />
+);
+
 export function SchedulesScreen(): ReactElement {
   const isFocused = useIsFocused();
 
@@ -72,7 +82,7 @@ export function SchedulesScreen(): ReactElement {
 
 function SchedulesScreenContent(): ReactElement {
   const { t } = useTranslation();
-  const { loadState, hostErrors, isError, refetch } = useSchedules();
+  const { loadState, hostErrors, connectingHosts, isError, refetch } = useSchedules();
   const schedules = loadState.status === "loaded" ? loadState.data : EMPTY_SCHEDULES;
   const { agents } = useAggregatedAgents({ includeArchived: true });
   const { projects } = useProjects();
@@ -182,6 +192,7 @@ function SchedulesScreenContent(): ReactElement {
         rows={visibleRows}
         loadState={loadState}
         hostErrors={hostErrors}
+        connectingHosts={connectingHosts}
         showLoadError={showLoadError}
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
@@ -209,6 +220,7 @@ function SchedulesScreenBody({
   rows,
   loadState,
   hostErrors,
+  connectingHosts,
   showLoadError,
   statusFilter,
   onStatusFilterChange,
@@ -223,6 +235,7 @@ function SchedulesScreenBody({
   rows: ScheduleRowView[];
   loadState: AggregateLoadState<AggregatedSchedule>;
   hostErrors: ScheduleHostError[];
+  connectingHosts: ScheduleHostInput[];
   showLoadError: boolean;
   statusFilter: ScheduleBucket;
   onStatusFilterChange: (value: ScheduleBucket) => void;
@@ -260,6 +273,7 @@ function SchedulesScreenBody({
       <View style={styles.centered}>
         {hostErrors.length > 0 ? <ScheduleHostErrorsBanner errors={hostErrors} /> : null}
         <SchedulesEmptyState onCreate={onCreate} testID="schedules-empty" />
+        <ConnectingHostsNote hosts={connectingHosts} />
       </View>
     );
   }
@@ -298,6 +312,11 @@ function SchedulesScreenBody({
         </View>
         <AutomationCreateActions onCreate={onCreate} testID="schedules-new" />
       </View>
+      {connectingHosts.length > 0 ? (
+        <View style={styles.connectingNoteRow}>
+          <ConnectingHostsNote hosts={connectingHosts} />
+        </View>
+      ) : null}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -342,9 +361,14 @@ function AutomationCreateActions({
   return (
     <View style={styles.createActions}>
       <DropdownMenu>
-        <ToolbarButton kind="menu" label="Automation templates" testID="automation-templates">
-          <LayoutTemplate size={styles.templateIcon.width} color={styles.emptyIcon.color} />
-        </ToolbarButton>
+        <DropdownTrigger
+          leading={templatesLeading}
+          accessibilityRole="button"
+          accessibilityLabel="Templates"
+          testID="automation-templates"
+        >
+          Templates
+        </DropdownTrigger>
         <DropdownMenuContent align="end" width={238}>
           <DropdownMenuLabel>Start from a template</DropdownMenuLabel>
           {AUTOMATION_TEMPLATES.map((template) => (
@@ -371,6 +395,25 @@ function AutomationTemplateItem({
     <DropdownMenuItem description={template.description} onSelect={select}>
       {template.name}
     </DropdownMenuItem>
+  );
+}
+
+// Saved hosts that never connect (a stale entry, a stopped daemon) would
+// otherwise hide behind the spinner; the list loads without them and says so.
+function ConnectingHostsNote({ hosts }: { hosts: ScheduleHostInput[] }): ReactElement | null {
+  if (hosts.length === 0) {
+    return null;
+  }
+  const label = `${hosts.length} ${hosts.length === 1 ? "host" : "hosts"} still connecting`;
+  const names = hosts.map((host) => host.serverName).join(", ");
+  return (
+    <Text
+      style={styles.connectingNote}
+      accessibilityLabel={`${label}: ${names}`}
+      testID="schedules-connecting-hosts"
+    >
+      {`${label} · ${names}`}
+    </Text>
   );
 }
 
@@ -429,9 +472,6 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     gap: theme.spacing[2],
   },
-  templateIcon: {
-    width: theme.iconSize.sm,
-  },
   filterRowControls: {
     flexDirection: "row",
     alignItems: "center",
@@ -448,6 +488,14 @@ const styles = StyleSheet.create((theme) => ({
     gap: theme.spacing[3],
     paddingTop: theme.spacing[4],
     paddingBottom: theme.spacing[6],
+  },
+  connectingNoteRow: {
+    paddingHorizontal: { xs: theme.spacing[3], md: theme.spacing[6] },
+    paddingTop: theme.spacing[2],
+  },
+  connectingNote: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
   },
   errorsBannerWrap: {
     paddingHorizontal: { xs: theme.spacing[3], md: theme.spacing[6] },
