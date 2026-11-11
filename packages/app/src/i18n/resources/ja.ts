@@ -2385,7 +2385,7 @@ export const ja: TranslationResources = {
       projects: "プロジェクト",
       connections: "接続",
       agents: "エージェント",
-      metadata: "メタデータ",
+      metadata: "Pimi モデル",
       voice: "音声",
       workspaces: "ワークスペース",
       providers: "プロバイダー",
@@ -2399,7 +2399,7 @@ export const ja: TranslationResources = {
       autoNaming: "チャットとワークスペースに自動で名前を付ける",
       autoNamingHint:
         "最初のメッセージからタイトルと新しいワークツリーのブランチ名を生成します。編集した名前は維持されます。",
-      title: "メタデータ生成",
+      title: "Pimi モデル",
       description:
         "ワークスペースのタイトル、ブランチ名、コミットメッセージ、プルリクエストの下書きに使用するモデルを選択します",
       selection: "モデル選択",
@@ -2411,6 +2411,25 @@ export const ja: TranslationResources = {
       modelHint: "このモデルのみを使用します。失敗しても、Pimi は別のモデルを試しません",
       docs: "ドキュメント",
       saveError: "メタデータ生成を更新できません",
+    },
+    pimiModels: {
+      perFeature: "機能別",
+      perFeatureInfo:
+        "タスクごとに別のモデルを選べます。「デフォルトと同じ」の行は上のモデルを使います。選んだモデルが使えない場合、Pimi はエラーを表示し、別のモデルは試しません",
+      sameAsDefault: "デフォルトと同じ",
+      selectModel: "モデルを選択",
+      thinking: "思考",
+      reset: "リセット",
+      unavailable:
+        "{{provider}} はオフ、または未インストールです。Pimi はこの機能で別のモデルを使いません",
+      features: {
+        title: "チャットのタイトル",
+        branchName: "ワークスペースのタイトルとブランチ",
+        commitMessage: "コミットメッセージ",
+        pullRequest: "プルリクエストの文面",
+        automation: "Describe it",
+        askPimi: "Ask Pimi",
+      },
     },
     voice: {
       offline: "音声を設定するには、このホストに接続してください。",

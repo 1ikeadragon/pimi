@@ -2435,7 +2435,7 @@ export const en = {
       projects: "Projects",
       connections: "Connections",
       agents: "Agents",
-      metadata: "Metadata",
+      metadata: "Pimi models",
       voice: "Voice",
       workspaces: "Workspaces",
       providers: "Providers",
@@ -2506,9 +2506,9 @@ export const en = {
       },
     },
     metadataGeneration: {
-      title: "Metadata generation",
+      title: "Pimi models",
       description:
-        "Choose the model Pimi uses for workspace titles, branch names, commit messages, and pull request drafts",
+        "Choose the models Pimi uses for chat and workspace titles, commit messages, pull requests, Describe it, and Ask Pimi",
       selection: "Model selection",
       autoNaming: "Automatically name chats and workspaces",
       autoNamingHint:
@@ -2521,6 +2521,25 @@ export const en = {
       modelHint: "Only this model is used. If it fails, Pimi does not try another model",
       docs: "Docs",
       saveError: "Unable to update metadata generation",
+    },
+    pimiModels: {
+      perFeature: "Per feature",
+      perFeatureInfo:
+        "Choose a different model for one task. Rows left on Same as default use the model above. If a chosen model isn't available, Pimi shows an error and does not try another",
+      sameAsDefault: "Same as default",
+      selectModel: "Select model",
+      thinking: "Thinking",
+      reset: "Reset",
+      unavailable:
+        "{{provider}} is turned off or not installed. Pimi won't use another model for this",
+      features: {
+        title: "Chat titles",
+        branchName: "Workspace titles and branches",
+        commitMessage: "Commit messages",
+        pullRequest: "Pull request text",
+        automation: "Describe it",
+        askPimi: "Ask Pimi",
+      },
     },
     voice: {
       offline: "Connect to this host to configure voice.",

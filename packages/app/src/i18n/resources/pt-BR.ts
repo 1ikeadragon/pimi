@@ -2396,7 +2396,7 @@ export const ptBR: TranslationResources = {
       projects: "Projetos",
       connections: "Conexões",
       agents: "Agentes",
-      metadata: "Metadados",
+      metadata: "Modelos do Pimi",
       voice: "Voz",
       workspaces: "Workspaces",
       providers: "Provedores",
@@ -2410,7 +2410,7 @@ export const ptBR: TranslationResources = {
       autoNaming: "Nomear conversas e espaços de trabalho automaticamente",
       autoNamingHint:
         "Gera títulos e nomes de branches de novas árvores de trabalho a partir da primeira mensagem. Os nomes que você editar são mantidos.",
-      title: "Geração de metadados",
+      title: "Modelos do Pimi",
       description:
         "Escolha o modelo usado pelo Pimi para títulos de espaços de trabalho, nomes de branches, mensagens de commit e rascunhos de pull request",
       selection: "Seleção de modelo",
@@ -2422,6 +2422,25 @@ export const ptBR: TranslationResources = {
       modelHint: "Somente este modelo é usado. Se ele falhar, o Pimi não tenta outro modelo",
       docs: "Documentação",
       saveError: "Não foi possível atualizar a geração de metadados",
+    },
+    pimiModels: {
+      perFeature: "Por recurso",
+      perFeatureInfo:
+        "Escolha outro modelo para uma tarefa. As linhas em Igual ao padrão usam o modelo acima. Se um modelo escolhido não estiver disponível, o Pimi mostra um erro e não tenta outro",
+      sameAsDefault: "Igual ao padrão",
+      selectModel: "Selecionar modelo",
+      thinking: "Raciocínio",
+      reset: "Redefinir",
+      unavailable:
+        "{{provider}} está desativado ou não instalado. O Pimi não usará outro modelo para isso",
+      features: {
+        title: "Títulos de conversas",
+        branchName: "Títulos de espaços de trabalho e branches",
+        commitMessage: "Mensagens de commit",
+        pullRequest: "Texto de pull requests",
+        automation: "Descreva",
+        askPimi: "Ask Pimi",
+      },
     },
     voice: {
       offline: "Conecte-se a este host para configurar a voz.",

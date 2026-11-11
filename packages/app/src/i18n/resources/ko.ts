@@ -2372,7 +2372,7 @@ export const ko: TranslationResources = {
       projects: "프로젝트",
       connections: "연결",
       agents: "에이전트",
-      metadata: "메타데이터",
+      metadata: "Pimi 모델",
       voice: "음성",
       workspaces: "워크스페이스",
       providers: "프로바이더",
@@ -2386,7 +2386,7 @@ export const ko: TranslationResources = {
       autoNaming: "채팅과 작업 공간 이름 자동 지정",
       autoNamingHint:
         "첫 메시지에서 제목과 새 작업 트리의 브랜치 이름을 생성합니다. 직접 편집한 이름은 유지됩니다.",
-      title: "메타데이터 생성",
+      title: "Pimi 모델",
       description:
         "워크스페이스 제목, 브랜치 이름, 커밋 메시지 및 풀 리퀘스트 초안에 사용할 모델을 선택하세요",
       selection: "모델 선택",
@@ -2398,6 +2398,25 @@ export const ko: TranslationResources = {
       modelHint: "이 모델만 사용합니다. 실패해도 Paseo는 다른 모델을 시도하지 않습니다",
       docs: "문서",
       saveError: "메타데이터 생성을 업데이트할 수 없습니다",
+    },
+    pimiModels: {
+      perFeature: "기능별",
+      perFeatureInfo:
+        "작업마다 다른 모델을 고를 수 있습니다. 기본값과 동일로 둔 행은 위의 모델을 사용합니다. 선택한 모델을 사용할 수 없으면 Pimi는 오류를 표시하고 다른 모델을 시도하지 않습니다",
+      sameAsDefault: "기본값과 동일",
+      selectModel: "모델 선택",
+      thinking: "사고",
+      reset: "재설정",
+      unavailable:
+        "{{provider}}이(가) 꺼져 있거나 설치되지 않았습니다. Pimi는 이 기능에 다른 모델을 사용하지 않습니다",
+      features: {
+        title: "채팅 제목",
+        branchName: "작업 공간 제목과 브랜치",
+        commitMessage: "커밋 메시지",
+        pullRequest: "풀 리퀘스트 텍스트",
+        automation: "Describe it",
+        askPimi: "Ask Pimi",
+      },
     },
     voice: {
       offline: "음성을 설정하려면 이 호스트에 연결하세요.",

@@ -2335,7 +2335,7 @@ export const zhCN: TranslationResources = {
       projects: "项目",
       connections: "连接",
       agents: "Agents",
-      metadata: "元数据",
+      metadata: "Pimi 模型",
       voice: "语音",
       workspaces: "Workspaces",
       providers: "Providers",
@@ -2348,7 +2348,7 @@ export const zhCN: TranslationResources = {
     metadataGeneration: {
       autoNaming: "自动为聊天和工作区命名",
       autoNamingHint: "根据首条消息生成标题和新工作树的分支名称。保留你手动修改的名称。",
-      title: "元数据生成",
+      title: "Pimi 模型",
       description: "选择 Pimi 用于工作区标题、分支名称、提交消息和拉取请求草稿的模型",
       selection: "模型选择",
       automatic: "自动",
@@ -2359,6 +2359,24 @@ export const zhCN: TranslationResources = {
       modelHint: "只使用此模型。如果失败，Pimi 不会尝试其他模型",
       docs: "文档",
       saveError: "无法更新元数据生成设置",
+    },
+    pimiModels: {
+      perFeature: "按功能",
+      perFeatureInfo:
+        "可为单项任务选择不同的模型。保持为“与默认相同”的行使用上方的模型。所选模型不可用时，Pimi 会显示错误，不会尝试其他模型",
+      sameAsDefault: "与默认相同",
+      selectModel: "选择模型",
+      thinking: "思考",
+      reset: "重置",
+      unavailable: "{{provider}} 已关闭或未安装。Pimi 不会为此使用其他模型",
+      features: {
+        title: "聊天标题",
+        branchName: "工作区标题和分支",
+        commitMessage: "提交信息",
+        pullRequest: "拉取请求文本",
+        automation: "Describe it",
+        askPimi: "Ask Pimi",
+      },
     },
     voice: {
       offline: "连接到此主机以配置语音。",

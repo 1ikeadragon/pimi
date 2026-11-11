@@ -2412,7 +2412,7 @@ export const fr: TranslationResources = {
       projects: "Projets",
       connections: "Connexions",
       agents: "Agents",
-      metadata: "Métadonnées",
+      metadata: "Modèles Pimi",
       voice: "Voix",
       workspaces: "Espaces de travail",
       providers: "Fournisseurs",
@@ -2426,7 +2426,7 @@ export const fr: TranslationResources = {
       autoNaming: "Nommer automatiquement les discussions et les espaces de travail",
       autoNamingHint:
         "Génère les titres et les noms des branches des nouveaux arbres de travail à partir du premier message. Les noms modifiés sont conservés.",
-      title: "Génération de métadonnées",
+      title: "Modèles Pimi",
       description:
         "Choisissez le modèle utilisé par Pimi pour les titres d’espaces de travail, les noms de branches, les messages de commit et les brouillons de pull request",
       selection: "Sélection du modèle",
@@ -2438,6 +2438,25 @@ export const fr: TranslationResources = {
       modelHint: "Seul ce modèle est utilisé. S’il échoue, Pimi n’essaie pas d’autre modèle",
       docs: "Documentation",
       saveError: "Impossible de mettre à jour la génération de métadonnées",
+    },
+    pimiModels: {
+      perFeature: "Par fonctionnalité",
+      perFeatureInfo:
+        "Choisissez un autre modèle pour une tâche. Les lignes sur Identique au défaut utilisent le modèle ci-dessus. Si un modèle choisi est indisponible, Pimi affiche une erreur et n'en essaie pas d'autre",
+      sameAsDefault: "Identique au défaut",
+      selectModel: "Choisir un modèle",
+      thinking: "Réflexion",
+      reset: "Réinitialiser",
+      unavailable:
+        "{{provider}} est désactivé ou non installé. Pimi n'utilisera pas un autre modèle pour cela",
+      features: {
+        title: "Titres des discussions",
+        branchName: "Titres des espaces de travail et branches",
+        commitMessage: "Messages de commit",
+        pullRequest: "Texte des pull requests",
+        automation: "Décrivez-le",
+        askPimi: "Ask Pimi",
+      },
     },
     voice: {
       offline: "Connectez-vous à cet hôte pour configurer la voix.",

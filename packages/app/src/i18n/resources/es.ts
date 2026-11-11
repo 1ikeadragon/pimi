@@ -2411,7 +2411,7 @@ export const es: TranslationResources = {
       projects: "Proyectos",
       connections: "Conexiones",
       agents: "Agents",
-      metadata: "Metadatos",
+      metadata: "Modelos de Pimi",
       voice: "Voz",
       workspaces: "Workspaces",
       providers: "Proveedores",
@@ -2425,7 +2425,7 @@ export const es: TranslationResources = {
       autoNaming: "Nombrar chats y espacios de trabajo automáticamente",
       autoNamingHint:
         "Genera títulos y nombres de ramas de nuevos árboles de trabajo a partir del primer mensaje. Se conservan los nombres que edites.",
-      title: "Generación de metadatos",
+      title: "Modelos de Pimi",
       description:
         "Elige el modelo que Pimi usa para títulos de espacios de trabajo, nombres de ramas, mensajes de commit y borradores de pull requests",
       selection: "Selección de modelo",
@@ -2437,6 +2437,25 @@ export const es: TranslationResources = {
       modelHint: "Solo se usa este modelo. Si falla, Pimi no prueba otro modelo",
       docs: "Documentación",
       saveError: "No se pudo actualizar la generación de metadatos",
+    },
+    pimiModels: {
+      perFeature: "Por función",
+      perFeatureInfo:
+        "Elige otro modelo para una tarea. Las filas con Igual que el predeterminado usan el modelo de arriba. Si un modelo elegido no está disponible, Pimi muestra un error y no prueba otro",
+      sameAsDefault: "Igual que el predeterminado",
+      selectModel: "Seleccionar modelo",
+      thinking: "Razonamiento",
+      reset: "Restablecer",
+      unavailable:
+        "{{provider}} está desactivado o no instalado. Pimi no usará otro modelo para esto",
+      features: {
+        title: "Títulos de chats",
+        branchName: "Títulos de espacios de trabajo y ramas",
+        commitMessage: "Mensajes de commit",
+        pullRequest: "Texto de pull requests",
+        automation: "Descríbelo",
+        askPimi: "Ask Pimi",
+      },
     },
     voice: {
       offline: "Conéctate a este host para configurar la voz.",

@@ -2395,7 +2395,7 @@ export const ar: TranslationResources = {
       projects: "المشاريع",
       connections: "اتصالات",
       agents: "Agents",
-      metadata: "البيانات الوصفية",
+      metadata: "نماذج Pimi",
       voice: "الصوت",
       workspaces: "Workspaces",
       providers: "مقدمي الخدمات",
@@ -2409,7 +2409,7 @@ export const ar: TranslationResources = {
       autoNaming: "تسمية المحادثات ومساحات العمل تلقائيًا",
       autoNamingHint:
         "إنشاء العناوين وأسماء فروع مساحات العمل الجديدة من الطلب الأول. تُحفظ الأسماء التي تعدّلها.",
-      title: "إنشاء البيانات الوصفية",
+      title: "نماذج Pimi",
       description:
         "اختر النموذج الذي يستخدمه Pimi لعناوين مساحات العمل وأسماء الفروع ورسائل الالتزام ومسودات طلبات السحب",
       selection: "اختيار النموذج",
@@ -2421,6 +2421,24 @@ export const ar: TranslationResources = {
       modelHint: "يُستخدم هذا النموذج فقط. إذا فشل، لا يجرّب Pimi نموذجًا آخر",
       docs: "الوثائق",
       saveError: "تعذر تحديث إنشاء البيانات الوصفية",
+    },
+    pimiModels: {
+      perFeature: "لكل ميزة",
+      perFeatureInfo:
+        "اختر نموذجًا مختلفًا لمهمة واحدة. الصفوف المضبوطة على «مثل الافتراضي» تستخدم النموذج أعلاه. إذا لم يكن النموذج المختار متاحًا يعرض Pimi خطأ ولا يجرّب نموذجًا آخر",
+      sameAsDefault: "مثل الافتراضي",
+      selectModel: "اختيار نموذج",
+      thinking: "التفكير",
+      reset: "إعادة ضبط",
+      unavailable: "{{provider}} متوقف أو غير مثبّت. لن يستخدم Pimi نموذجًا آخر لهذا",
+      features: {
+        title: "عناوين المحادثات",
+        branchName: "عناوين مساحات العمل والفروع",
+        commitMessage: "رسائل الـ commit",
+        pullRequest: "نص طلبات السحب",
+        automation: "Describe it",
+        askPimi: "Ask Pimi",
+      },
     },
     voice: {
       offline: "اتصل بهذا المضيف لضبط الصوت.",
