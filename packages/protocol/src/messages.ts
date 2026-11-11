@@ -5613,7 +5613,6 @@ const PimiCodebaseSearchResponseSchema = z.object({
   }),
 });
 
-const CheckoutGithubCheckAnnotationSchema = z.object({
 export const CodeNavigationResultSchema = z.object({
   // "name" is a text match on the identifier, with no scope awareness; "typescript" is exact.
   provider: z.enum(["name", "typescript"]),
@@ -5655,6 +5654,7 @@ const CodeNavigationQueryResponseSchema = z.object({
   }),
 });
 
+const CheckoutGithubCheckAnnotationSchema = z.object({
   path: z.string().optional(),
   startLine: z.number().optional(),
   endLine: z.number().optional(),

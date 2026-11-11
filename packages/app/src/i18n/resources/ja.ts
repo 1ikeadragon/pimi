@@ -263,6 +263,16 @@ export const ja: TranslationResources = {
     scrollToBottom: "下にスクロール",
     historyLoadFailed: "エージェントの履歴を読み込めませんでした",
     messageCapped: "このメッセージは上限で切り詰められました（{{bytes}}バイト）。",
+    working: {
+      stopping: "停止中",
+      waitingApproval: "承認待ち",
+      starting: "{{provider}} を起動中…",
+      sending: "送信中",
+      thinking: "考え中",
+      writing: "作成中",
+      compacting: "圧縮中",
+      working: "作業中",
+    },
     permission: {
       rejectedPlan: "却下されたプラン",
       approvedPlan: "承認されたプラン",

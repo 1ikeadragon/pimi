@@ -261,6 +261,16 @@ export const ko: TranslationResources = {
     scrollToBottom: "맨 아래로 스크롤",
     historyLoadFailed: "에이전트 기록을 로드할 수 없습니다.",
     messageCapped: "이 메시지는 길이 제한으로 잘렸습니다({{bytes}}바이트).",
+    working: {
+      stopping: "중지하는 중",
+      waitingApproval: "승인 대기 중",
+      starting: "{{provider}} 시작 중…",
+      sending: "전송 중",
+      thinking: "생각 중",
+      writing: "작성 중",
+      compacting: "압축 중",
+      working: "작업 중",
+    },
     permission: {
       rejectedPlan: "거부된 계획",
       approvedPlan: "승인된 계획",

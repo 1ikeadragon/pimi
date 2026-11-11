@@ -256,6 +256,16 @@ export const en = {
     scrollToBottom: "Scroll to bottom",
     historyLoadFailed: "Couldn't load agent history",
     messageCapped: "This message was capped ({{bytes}} bytes).",
+    working: {
+      stopping: "Stopping",
+      waitingApproval: "Waiting for your approval",
+      starting: "Starting {{provider}}…",
+      sending: "Sending",
+      thinking: "Thinking",
+      writing: "Writing",
+      compacting: "Compacting",
+      working: "Working",
+    },
     permission: {
       rejectedPlan: "Rejected plan",
       approvedPlan: "Approved plan",

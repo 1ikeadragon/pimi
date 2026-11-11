@@ -265,6 +265,16 @@ export const fr: TranslationResources = {
     scrollToBottom: "Faire défiler vers le bas",
     historyLoadFailed: "Impossible de charger l’historique de l’agent",
     messageCapped: "Ce message a été tronqué ({{bytes}} octets).",
+    working: {
+      stopping: "Arrêt en cours",
+      waitingApproval: "En attente de votre approbation",
+      starting: "Démarrage de {{provider}}…",
+      sending: "Envoi",
+      thinking: "Réflexion",
+      writing: "Rédaction",
+      compacting: "Compactage",
+      working: "En cours",
+    },
     permission: {
       rejectedPlan: "Plan refusé",
       approvedPlan: "Plan approuvé",
