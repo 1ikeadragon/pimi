@@ -123,9 +123,9 @@ import {
   type AgentProviderSwitchTarget,
 } from "./provider-switch.js";
 
-/** Providers tune agents to answer the literal request; this asks for the user's goal, primary sources and an outside check. */
-export const PIMI_APPROACH_INSTRUCTIONS =
-  "Work out what the user is trying to achieve, then do the part they clearly want. If a strong practitioner would clearly do more than was asked, name it in one line and leave it for the user to decide. Start from primary material (the code, the logs, the real data, the running system) instead of summaries or assumptions, and use the methods a specialist would use for this kind of work. Before you say it is done, check the result against something other than your own reasoning: run it, test it, or reconcile the numbers, then say what you verified and what you did not. Do not narrate these steps, lengthen your replies, or widen the task.";
+/** Scopes Pimi's tools and keeps agents from opening a browser to check their own visuals. */
+const PIMI_SCOPE_INSTRUCTIONS =
+  "Ordinary coding tasks need no Pimi tools. Show a visual by writing its block in the reply. Never open a browser, take a screenshot, or start a server to check or show your own chart or page, unless the user asked for browser work.";
 
 // Without its tools an agent asked to delegate or remember improvises: it runs `claude -p` or
 // `codex exec` in a shell, or writes Pimi's memory files by hand. Neither shows up in Pimi.
@@ -6495,7 +6495,7 @@ export class AgentManager {
       !storedConfig.internal && !options.background && options.purpose !== "history";
     const pimiInstructions = interactiveChat
       ? [
-          PIMI_APPROACH_INSTRUCTIONS,
+          PIMI_SCOPE_INSTRUCTIONS,
           ...pimiActionInstructions({
             policy: paseoToolPolicy,
             provider: storedConfig.provider,
