@@ -8,8 +8,6 @@ nav: 连接
 
 你的 Pimi 应用连接的是运行在你电脑或服务器上的 daemon。Pimi 桌面端和 CLI 可以通过 SSH 隧道连接。移动客户端可以通过 Pimi 中继连接，或者用 Tailscale 直接连接。
 
-这里说的是客户端到 daemon 的传输。如果你要找的是由 GitHub、Slack 和 Discord 事件启动 Agent 的服务，那是 [Hub](/docs/hub)。
-
 - [SSH](#ssh)
 - [Pimi 中继](#paseo-relay)
 - [Tailscale](#tailscale)

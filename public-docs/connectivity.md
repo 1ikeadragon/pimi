@@ -10,8 +10,6 @@ category: Getting started
 
 Your Pimi app connects to the daemon running on your computer or server. Pair a phone on the same Wi-Fi, connect through your own Pimi Relay, or use Tailscale. Pimi Desktop and the CLI can also tunnel through SSH.
 
-This is client-to-daemon transport. If you are looking for the service that starts agents from GitHub, Slack, and Discord events, that is [Hub](/docs/hub).
-
 - [Same Wi-Fi](#same-wi-fi)
 - [SSH](#ssh)
 - [Pimi relay](#pimi-relay)

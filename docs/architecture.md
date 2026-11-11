@@ -195,11 +195,6 @@ The production relay server lives in [1ikeadragon/pimi-relay](https://github.com
 
 See [SECURITY.md](../SECURITY.md) for the full threat model.
 
-### Pimi Hub
-
-The optional Hub relationship is daemon-outbound and does not use the relay. Its connection,
-authorization, ownership, persistence, and lifecycle contract is documented in [hub.md](hub.md).
-
 ### `packages/desktop` — Desktop app (Electron)
 
 Electron wrapper for macOS, Linux, and Windows.
@@ -346,8 +341,8 @@ Callers always pass the initial prompt to agent creation.
 Creation executes through the existing Session capabilities. Connection-owned delivery
 controls observation only: detaching a socket or cleaning up its Session does not cancel
 accepted creation. Updates require an explicit subscription and go only to that socket;
-reconnect uses the shared subscription owner. Legacy consumers, including Hub, keep their
-existing response contract.
+reconnect uses the shared subscription owner. Legacy consumers keep their existing response
+contract.
 
 ## Agent lifecycle
 
@@ -470,7 +465,7 @@ Worker restart retains supervisor arguments/environment and rereads the configur
 ## Outbound networking
 
 The daemon and its plugin processes honor `HTTPS_PROXY`, `HTTP_PROXY`, and `NO_PROXY`
-(including lowercase forms, which take precedence). Fetch and relay, Hub, and connected-host WebSockets
+(including lowercase forms, which take precedence). Fetch and relay and connected-host WebSockets
 share this policy. Loopback (`localhost`, `127.0.0.1`, `::1`) always goes direct.
 A proxy without a scheme uses HTTP. Invalid values and unsupported proxy schemes
 are treated as unset, with one warning naming the variable in `daemon.log`.

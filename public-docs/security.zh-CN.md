@@ -112,16 +112,6 @@ Pimi 封装了 Agent CLI（Claude Code、Codex、OpenCode、Muse Code），但�
 
 Pimi 从不保存或传输 Provider API 密钥。Agent 在你的用户上下文中运行，使用你现有的凭据。
 
-## Hub 身份与凭据 {#hub-identities-and-credentials}
-
-Hub CLI 登录和 daemon 注册是两个独立的身份。`pimi hub login [origin]` 会在 `PASEO_HOME` 下的一个私有文件中保存一个持久的、组织范围的个人凭据，以规范化后的 Hub 地址为键。保存的凭据从不会发送到其他地址。请把 `PASEO_HOME` 当作敏感的本地状态加以保护。
-
-Hub CLI 凭据是 bearer 密钥。远程 Hub 地址必须使用 HTTPS；只有回环地址的开发环境（`localhost`、`127.0.0.1` 和 `[::1]`）才接受明文 HTTP。
-
-`pimi hub connect [origin]` 只用这个凭据（或显式提供的 API 密钥）申请一个短期有效的一次性注册令牌。daemon 用这个令牌完成交换，并保留它自己独立生成的关系凭据。退出 CLI 登录不会悄悄移除 daemon 的权限。交互式退出会先完成已确认的同一地址 daemon 断开，再删除登录。在 JSON 和非交互使用中，`logout` 从不提示也不断开；只有当自动化打算同时移除两个身份时，才传入 `--disconnect-daemon`。
-
-`--api-key` 和 `PASEO_HUB_API_KEY` 会覆盖已保存的登录，但不会被持久化。用于自动化时，优先通过环境变量或密钥管理器注入；当本地进程列表或 shell 历史对其他用户可见时，避免使用命令行参数。
-
 ## 建议 {#recommendations}
 
 - **使用中继**进行移动端访问，这是最简单的选择，且所有流量都经过端到端加密
@@ -129,4 +119,3 @@ Hub CLI 凭据是 bearer 密钥。远程 Hub 地址必须使用 HTTPS；只有�
 - **设置密码**，如果你绑定到网络地址，它可以阻止未经授权的客户端控制你的 Agent
 - **不要在没有密码的情况下绑定到 0.0.0.0**，否则你网络中的任何设备都可以连接
 - **保持 daemon 为最新版本**，安全改进会定期发布
-- **保护 Hub 配置分支**，对 `.paseo` 文件包的推送权限决定了该项目能访问什么，见 [Hub 的工作原理](/docs/hub/concepts)

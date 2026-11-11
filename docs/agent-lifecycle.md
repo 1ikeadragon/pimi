@@ -21,7 +21,7 @@ the prompt with `agents.resumePrompt` or the same settings page.
 Disabling recovery consumes pending intent; enabling it later does not revive old work.
 
 Only agents recorded as running qualify. Idle and initializing agents stay inactive. Archived
-agents or workspaces, private helpers and Hub-owned executions retain their own lifecycle.
+agents or workspaces and private helpers retain their own lifecycle.
 Explicit creation environment overrides are saved with the agent and reapplied when reopening.
 
 Startup chooses candidates before anything else reads or repairs persisted running state, then

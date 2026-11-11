@@ -36,6 +36,6 @@ daemon 持有正在运行的 Agent 和工作区。桌面应用在本地连接它
 
 为 Agent 提供 [Pimi 工具](/docs/orchestration)，让它们创建 worktree、启动其他 Agent、发送提示词并收集结果。使用 [CLI](/docs/cli) 或 [TypeScript SDK](/docs/sdk) 自动化 Agent 和工作区操作。
 
-[插件](/docs/plugins)可以添加 Provider、工作区面板、命令和工作流。[Hub](/docs/hub) 把外部事件连接到在你机器上运行的 Agent。
+[插件](/docs/plugins)可以添加 Provider、工作区面板、命令和工作流。
 
 Pimi 基于 Apache-2.0 开源，没有遥测和跟踪，也不需要 Pimi 账号。

@@ -49,7 +49,7 @@ At the start of non-trivial work, list `docs/` and skim anything relevant to the
 | [docs/protocol-compatibility.md](docs/protocol-compatibility.md)     | Alpha rule: app and daemon ship together, no compat; schema purity; what COMPAT tags still mean                                |
 | [docs/protocol-validation.md](docs/protocol-validation.md)           | zod-aot generated inbound WebSocket validation, patched compiler regressions, schema-purity rules                              |
 | [docs/connected-hosts.md](docs/connected-hosts.md)                   | Daemon-owned host registrations, routed SDK scopes, identity and authority boundaries                                          |
-| [docs/permissions.md](docs/permissions.md)                           | Semantic daemon permissions, principals, credentials, pairing invitations, and Hub authority                                   |
+| [docs/permissions.md](docs/permissions.md)                           | Semantic daemon permissions, principals, credentials, and pairing invitations                                                  |
 | [docs/terminal-performance.md](docs/terminal-performance.md)         | Terminal latency pipeline, coalescing/backpressure invariants, benchmark + perf spec usage                                     |
 | [docs/terminal-rendering.md](docs/terminal-rendering.md)             | Native terminal view: xterm owns the grid, cluster placement, emoji widths, mixed-direction limits                             |
 | [docs/agent-stream-performance.md](docs/agent-stream-performance.md) | Assistant text pipeline — coalescing window, paced reveal, why arrival lumps are smoothed at render                            |
@@ -68,7 +68,6 @@ At the start of non-trivial work, list `docs/` and skim anything relevant to the
 | [docs/terminal-worker.md](docs/terminal-worker.md)                   | Terminal worker process model, socket/record/secret, protocol-bump rule and draining, the worker's file copy, Windows desktop  |
 | [docs/terminal-activity.md](docs/terminal-activity.md)               | Terminal activity indicators — source-agnostic tracker, agent hook reporting, adding a new hook provider                       |
 | [SECURITY.md](SECURITY.md)                                           | Relay threat model, E2E encryption, DNS rebinding, agent auth                                                                  |
-| [public-docs/hub/security.md](public-docs/hub/security.md)           | Public Hub guide — trust boundaries, untrusted triggers, provider controls, and output authority                               |
 
 ### Writing docs
 

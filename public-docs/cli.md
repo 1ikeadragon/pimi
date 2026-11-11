@@ -422,42 +422,6 @@ Every daemon-connected CLI command accepts global `--home` or `--host`, before o
 
 Local-only `start`, `daemon run`, `config`, `onboard`, and `set-password` reject explicit `--host` and ignore `PASEO_HOST`. Endpoint operations retain TCP, Unix socket, Windows pipe, SSH, and pairing-offer transports. A host-side CLI controlling a container needs `--host` or `PASEO_HOST`.
 
-## Hub
-
-```bash
-pimi hub login [url]          # Approve and store organization-scoped CLI access
-pimi hub init                 # Create and optionally deploy a starter trigger here
-pimi hub connect [url]        # Enroll this daemon using CLI access
-pimi hub projects             # List legacy projects in the authenticated organization
-pimi hub status               # Show the current Hub relationship
-pimi hub permissions list     # Show what this Hub may do on this daemon
-pimi hub permissions grant hub.execute    # Let Hub automations run agents here
-pimi hub permissions revoke hub.execute   # Take it back
-pimi hub disconnect           # End it
-pimi hub deploy               # Validate and install .paseo/triggers/*.yml
-pimi hub deploy --dry-run     # Validate without installing
-pimi hub deploy -p <project>   # Deploy an existing legacy project bundle
-pimi hub logout               # Remove the active stored CLI login
-```
-
-Run deploy from the repository root. By default it reads every direct `.paseo/triggers/*.yml` file in deterministic path order. It validates all triggers before installing them one at a time. If an installation fails after earlier ones succeeded, the error lists the installed files. `--dry-run` only validates; it does not create or activate revisions.
-
-Pass `-p, --project <slug>` for an existing legacy bundle: `.paseo/hub.yml`, direct `.paseo/workflows/*.yml` files, and referenced workflow partials. See [Deploy from the CLI](/docs/hub/configuration#deploy-from-the-cli).
-
-`login` opens the Hub approval page and stores a durable organization-scoped CLI credential under `PASEO_HOME`. In an interactive terminal it offers to connect this daemon, then separately asks whether to allow Hub automations to run agents. Connection defaults to yes; execution permission defaults to no. It then links to Hub's **Triggers** page and prints `pimi hub init` for setup as code. `--json` and non-TTY login remain login-only and never prompt. The stored login is separate from the daemon relationship created by `connect`.
-
-`init` requires a TTY. It signs in and connects the daemon as needed, then lists the organization's app connections that can back a starter trigger. One usable connection is selected automatically; with several, you choose a **Trigger connection**. If none is ready, setup sends you to **Hub → Apps** and stops before selecting an agent or writing files.
-
-Setup asks which agent provider, model, and mode to run. Providers must be enabled and expose both a selectable model and an execution mode. Suggested model and mode entries are the daemon's defaults; a mode is still selected explicitly when there is no default. Hub validates the choice against the daemon before deploying, and accepts only Claude, Codex, and OpenCode for its unattended runs. `deploy` applies the same checks, so it needs the named daemon connected. Setup then asks for the identity allowed to trigger the bot: a GitHub username, Slack member ID, or Discord user ID. It validates the trigger, writes `.paseo/triggers/<provider>-help.yml`, and asks whether to deploy. Replacing that file requires confirmation; existing legacy bundles and other trigger files are preserved. See the [generated starter trigger](/docs/hub/configuration#generated-starter-trigger).
-
-Interactive logout checks the same-origin daemon relationship and asks whether to disconnect before deleting the login. Declining removes only the login. JSON and noninteractive logout never prompt or disconnect implicitly; `--disconnect-daemon` is the explicit automation path, and `--force` applies to that daemon disconnection. If a requested disconnection fails, the login is preserved.
-
-Every command resolves and normalizes its destination before Hub or daemon work. Origin precedence is an explicit command origin or `--hub`, then `PIMI_HUB_URL`, then the active stored login origin. Credential precedence is `--api-key <secret>`, then `PIMI_HUB_API_KEY`, then a stored login for the exact resolved origin. A stored credential is never sent to a different origin. API keys passed through flags or the environment are not stored.
-
-Human output reports the resolved destination before each action. JSON output keeps stdout machine-readable and includes the normalized Hub origin. Bundle diagnostics identify paths without printing configuration contents or credentials.
-
-See [Daemons in Hub](/docs/hub/daemons), [Hub configuration](/docs/hub/configuration), and the [Hub public API](/docs/hub/api).
-
 ## Connecting to a remote daemon
 
 The global `--host` option accepts either a local target (`host:port`, a unix socket, or a Windows pipe) or a pairing offer URL, the same `pimi://pair/#offer=...` link the mobile app uses for QR pairing. With an offer URL the CLI connects through the Pimi relay with end-to-end encryption, so you can drive a daemon on another machine without exposing it to the network.

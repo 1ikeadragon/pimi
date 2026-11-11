@@ -406,42 +406,6 @@ PASEO_LISTEN=127.0.0.1:6799 PASEO_RELAY_ENABLED=false paseo daemon run --home ~/
 
 仅限本地的 `start`、`daemon run`、`config`、`onboard` 和 `set-password` 会拒绝显式的 `--host`，并忽略 `PASEO_HOST`。端点操作保留 TCP、Unix 套接字、Windows 管道、SSH 和配对信息等传输方式。在宿主机上控制容器的 CLI 需要 `--host` 或 `PASEO_HOST`。
 
-## Hub {#hub}
-
-```bash
-pimi hub login [url]          # Approve and store organization-scoped CLI access
-pimi hub init                 # Create and optionally deploy a starter trigger here
-pimi hub connect [url]        # Enroll this daemon using CLI access
-pimi hub projects             # List legacy projects in the authenticated organization
-pimi hub status               # Show the current Hub relationship
-pimi hub permissions list     # Show what this Hub may do on this daemon
-pimi hub permissions grant hub.execute    # Let Hub automations run agents here
-pimi hub permissions revoke hub.execute   # Take it back
-pimi hub disconnect           # End it
-pimi hub deploy               # Validate and install .paseo/triggers/*.yml
-pimi hub deploy --dry-run     # Validate without installing
-pimi hub deploy -p <project>   # Deploy an existing legacy project bundle
-pimi hub logout               # Remove the active stored CLI login
-```
-
-请在仓库根目录运行 deploy。它默认按确定的路径顺序读取所有直接位于 `.paseo/triggers/` 下的 `*.yml` 文件。它会先校验所有触发器，再逐个安装。如果在前面的安装成功之后某个安装失败，错误信息会列出已安装的文件。`--dry-run` 只做校验；它不会创建或激活修订。
-
-对于已有的旧版文件包，传入 `-p, --project <slug>`：包括 `.paseo/hub.yml`、直接位于 `.paseo/workflows/` 下的 `*.yml` 文件，以及被引用的 workflow 片段。见[从 CLI 部署](/docs/hub/configuration#deploy-from-the-cli)。
-
-`login` 会打开 Hub 的批准页面，并在 `PASEO_HOME` 下保存一个持久的、组织范围的 CLI 凭据。在交互式终端中，它会提议连接这个 daemon，然后单独询问是否允许 Hub 自动化在这里运行 Agent。连接默认为是；执行权限默认为否。随后它会链接到 Hub 的 **Triggers** 页面，并输出 `pimi hub init`，以便用代码完成设置。`--json` 和非 TTY 的登录只执行登录，从不提示。保存的登录与 `connect` 创建的 daemon 关系是分开的。
-
-`init` 需要 TTY。它会根据需要登录并连接 daemon，然后列出组织中可以支撑入门触发器的应用连接。只有一个可用连接时会自动选中；有多个时，由你选择一个 **Trigger connection**。如果没有任何连接就绪，设置会引导你前往 **Hub → Apps**，并在选择 Agent 或写入文件之前停止。
-
-设置会询问要运行哪个 Agent Provider、模型和模式。Provider 必须已启用，并且同时提供可选择的模型和执行模式。建议的模型和模式条目是 daemon 的默认值；没有默认值时仍需显式选择模式。Hub 在部署前会对照 daemon 校验这项选择，并且其无人值守的运行只接受 Claude、Codex 和 OpenCode。`deploy` 会执行相同的检查，因此需要指定的 daemon 已连接。随后设置会询问允许触发机器人的身份：GitHub 用户名、Slack 成员 ID 或 Discord 用户 ID。它会校验触发器，写入 `.paseo/triggers/<provider>-help.yml`，并询问是否部署。替换该文件需要确认；已有的旧版文件包和其他触发器文件会被保留。见[生成的入门触发器](/docs/hub/configuration#generated-starter-trigger)。
-
-交互式退出会检查同一地址的 daemon 关系，并在删除登录之前询问是否断开。选择否时只删除登录。JSON 和非交互式的退出从不提示，也不会隐式断开；`--disconnect-daemon` 是供自动化使用的显式方式，`--force` 作用于该 daemon 断开操作。如果请求的断开失败，登录会被保留。
-
-每个命令在执行 Hub 或 daemon 工作之前，都会解析并规范化它的目标。地址的优先级依次为：显式的命令地址或 `--hub`、`PIMI_HUB_URL`、当前保存的登录地址。凭据的优先级依次为：`--api-key <secret>`、`PIMI_HUB_API_KEY`，然后是与解析出的地址完全匹配的已保存登录。保存的凭据从不会发送到其他地址。通过参数或环境变量传入的 API 密钥不会被保存。
-
-人类可读的输出会在每个操作之前报告解析出的目标。JSON 输出让 stdout 保持机器可读，并包含规范化后的 Hub 地址。文件包诊断会指出路径，但不会输出配置内容或凭据。
-
-见 [Hub 中的 daemon](/docs/hub/daemons)、[Hub 配置](/docs/hub/configuration)和 [Hub 公开 API](/docs/hub/api)。
-
 ## 连接远程 daemon {#connecting-to-a-remote-daemon}
 
 全局的 `--host` 选项接受本地目标（`host:port`、Unix 套接字或 Windows 管道），也接受配对信息 URL，即移动应用在扫码配对时使用的同一个 `pimi://pair/#offer=...` 链接。使用配对信息 URL 时，CLI 会通过 Pimi 中继以端到端加密的方式连接，因此你可以驱动另一台机器上的 daemon，而不必把它暴露在网络上。
