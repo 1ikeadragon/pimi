@@ -4049,7 +4049,7 @@ export class CodexAppServerAgentSession implements AgentSession {
     try {
       await client.request("initialize", buildCodexAppServerInitializeParams());
       client.notify("initialized", {});
-      return await this.readThreadHistory(client);
+      return await this.readThreadHistory(client, { replacesTimeline: true });
     } finally {
       await client.dispose();
     }
@@ -4057,8 +4057,11 @@ export class CodexAppServerAgentSession implements AgentSession {
 
   // Reads the thread and its sub-agent threads, rebuilding the turn index and
   // sub-agent routes. The caller owns the returned history; nothing retains it.
+  // replacesTimeline: the result becomes the whole timeline (streamHistory, rewind), so the
+  // older-history cursor is dropped. The index-only read leaves the cursor for loadOlderHistory.
   private async readThreadHistory(
     client: CodexAppServerClientLike | null,
+    options: { replacesTimeline: boolean },
   ): Promise<CodexThreadHistory> {
     if (!client || !this.currentThreadId) {
       return { timeline: [], providerSubagentEvents: [] };
@@ -4067,8 +4070,10 @@ export class CodexAppServerAgentSession implements AgentSession {
       rows: readCodexThreadHistory(client, this.currentThreadId),
       cwd: this.config.cwd ?? null,
     });
-    this.olderHistoryCursor = null;
-    this.olderHistoryCarry = [];
+    if (options.replacesTimeline) {
+      this.olderHistoryCursor = null;
+      this.olderHistoryCarry = [];
+    }
     this.subAgentCallsByCallId.clear();
     this.subAgentCallIdByChildThreadId.clear();
     this.pendingSubAgentNotificationsByThreadId.clear();
@@ -4241,7 +4246,7 @@ export class CodexAppServerAgentSession implements AgentSession {
   // session whose projection Paseo already holds reads them here and drops the rest.
   private async ensureHistoryIndexed(): Promise<void> {
     if (this.historyIndexed) return;
-    await this.readThreadHistory(this.client);
+    await this.readThreadHistory(this.client, { replacesTimeline: false });
   }
 
   private async loadPersistedSubAgentHistories(
@@ -4811,7 +4816,7 @@ export class CodexAppServerAgentSession implements AgentSession {
       (this.windowedHistory && this.client
         ? await this.readHistoryWindow(this.client, CODEX_HISTORY_TAIL_PROMPTS)
         : null) ??
-      (await this.readThreadHistory(this.client));
+      (await this.readThreadHistory(this.client, { replacesTimeline: true }));
     this.stagedHistory = null;
     for (const event of history.providerSubagentEvents) {
       yield event;
@@ -5214,7 +5219,7 @@ export class CodexAppServerAgentSession implements AgentSession {
         // Codex writes a forked thread's rollout when it forks it, even before any turn.
         this.savedThreadId = threadId;
         this.cachedRuntimeInfo = null;
-        this.stagedHistory = await this.readThreadHistory(this.client);
+        this.stagedHistory = await this.readThreadHistory(this.client, { replacesTimeline: true });
         this.reconcileAsyncQuestionsAfterRewind(this.stagedHistory.timeline);
       },
     });
