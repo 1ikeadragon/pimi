@@ -18,7 +18,6 @@ import type {
 import type { AgentManager, CreateAgentOptions, ManagedAgent } from "../agent-manager.js";
 import type { AgentPromptInput, AgentRunOptions, AgentSessionConfig } from "../agent-sdk-types.js";
 import type { AgentStorage } from "../agent-storage.js";
-import type { AgentOwner } from "../agent-owner.js";
 import type { ProviderSnapshotManager } from "../provider-snapshot-manager.js";
 import { startCreatedAgentInitialPrompt } from "../agent-prompt.js";
 import { resolveCreateAgentTitles } from "../create-agent-title.js";
@@ -96,7 +95,6 @@ export interface CreateAgentFromMcpInput {
   internal?: boolean;
   /** Omitted with a caller, the caller agent's own background applies. */
   background?: boolean;
-  owner?: AgentOwner;
   env?: Record<string, string>;
   onCreated?: (created: {
     agentId: string;
@@ -351,7 +349,6 @@ async function resolveMcpCreateAgent(
     createOptions: {
       ...(Object.keys(intent.labels).length > 0 ? { labels: intent.labels } : {}),
       workspaceId: intent.workspaceId,
-      owner: input.owner,
       background: inheritAgentBackground(input.background, parentAgent),
       env: input.env,
     },

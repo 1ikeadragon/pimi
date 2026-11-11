@@ -62,7 +62,6 @@ import {
 import { buildArchivedAgentRecord, type ArchivedStoredAgentRecord } from "./agent-archive.js";
 import { toStoredAgentRecord } from "./agent-projections.js";
 import type { StoredAgentRecord, AgentStorage } from "./agent-storage.js";
-import type { AgentOwner } from "./agent-owner.js";
 import {
   InMemoryAgentTimelineStore,
   type SeedAgentTimelineOptions,
@@ -542,7 +541,6 @@ export interface CreateAgentOptions {
   initialTitleProvisional?: boolean;
   // undefined is an explicit decision: the agent never appears in the sidebar.
   workspaceId: string | undefined;
-  owner?: AgentOwner;
   /** Background agents stay out of discovery, tabs, tracks and attention. Fixed at creation. */
   background?: boolean;
   /**
@@ -665,7 +663,6 @@ interface ManagedAgentBase {
    * Null/undefined for legacy agents created before ownership stamping.
    */
   workspaceId?: string;
-  owner?: AgentOwner;
   capabilities: AgentCapabilityFlags;
   config: AgentSessionConfig;
   /** Explicit launch overrides, before per-opening hooks and daemon-owned variables. */
@@ -1767,7 +1764,6 @@ export class AgentManager {
       initialTitle: options.initialTitle,
       initialTitleProvisional: options.initialTitleProvisional && !storedConfig.title?.trim(),
       workspaceId: options.workspaceId,
-      owner: options.owner,
       background: options.background,
       launchEnv: options.env ? { ...options.env } : undefined,
       historyPrimed: true,
@@ -1800,7 +1796,6 @@ export class AgentManager {
       lastUserMessageAt?: Date | null;
       labels?: Record<string, string>;
       workspaceId?: string;
-      owner?: AgentOwner;
       background?: boolean;
       attention?: AttentionState;
     },
@@ -1833,7 +1828,6 @@ export class AgentManager {
       lastUserMessageAt?: Date | null;
       labels?: Record<string, string>;
       workspaceId?: string;
-      owner?: AgentOwner;
       background?: boolean;
       attention?: AttentionState;
     },
@@ -2013,7 +2007,7 @@ export class AgentManager {
 
   /**
    * Move a chat to another provider under the same agent id. The timeline,
-   * labels, workspace and owner stay; the provider session is new, so the
+   * labels and workspace stay; the provider session is new, so the
    * conversation so far rides with the next prompt.
    */
   switchAgentProvider(
@@ -2385,7 +2379,6 @@ export class AgentManager {
       return this.registerSession(session, storedConfig, agentId, {
         labels: agent.labels,
         workspaceId: agent.workspaceId,
-        owner: agent.owner,
         background: agent.background,
         launchEnv: agent.launchEnv,
         createdAt: agent.createdAt,
@@ -2818,7 +2811,6 @@ export class AgentManager {
         provider: record.provider,
         cwd: record.cwd,
         workspaceId: record.workspaceId,
-        owner: record.owner,
         session: null,
         capabilities: STORED_AGENT_CAPABILITIES,
         config: buildStoredAgentConfig(record),
@@ -4562,7 +4554,6 @@ export class AgentManager {
       initialTitleProvisional?: boolean;
       publishWhenReady?: boolean;
       workspaceId?: string;
-      owner?: AgentOwner;
       background?: boolean;
       launchEnv?: Record<string, string>;
       /** Omit to keep what the stored record owes the provider. */
@@ -4766,7 +4757,6 @@ export class AgentManager {
           attention?: AttentionState;
           persistence?: AgentPersistenceHandle;
           workspaceId?: string;
-          owner?: AgentOwner;
           launchEnv?: Record<string, string>;
         }
       | undefined;
@@ -4777,7 +4767,6 @@ export class AgentManager {
       provider: config.provider,
       cwd: config.cwd,
       workspaceId: options?.workspaceId,
-      owner: options?.owner,
       launchEnv: options?.launchEnv,
       session,
       capabilities: session.capabilities,

@@ -122,7 +122,6 @@ export function toStoredAgentRecord(
       : null,
     internal: options?.internal,
     ...(agent.background ? { background: true } : {}),
-    owner: agent.owner,
   } satisfies StoredAgentRecord;
 }
 

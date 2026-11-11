@@ -263,18 +263,6 @@ import {
   createAgentCommand,
   type CreateAgentCommandDependencies,
 } from "./agent/create-agent/create.js";
-import { archiveAgentCommand, cancelAgentRunCommand } from "./agent/lifecycle-command.js";
-import { CreateAgentLifecycleDispatch } from "./agent/create-agent-lifecycle-dispatch.js";
-import {
-  HubRelationshipController,
-  type HubRelationshipClock,
-  type HubRelationshipRetryPolicy,
-} from "./hub/relationship-controller.js";
-import {
-  DirectHubRelationshipRemote,
-  type HubRelationshipRemote,
-} from "./hub/relationship-remote.js";
-import { DaemonExecutions } from "./hub/daemon-executions.js";
 import { PluginService } from "./plugins/index.js";
 import { BuiltinPluginLoader } from "./plugins/builtin/index.js";
 import { ManagedPluginSources } from "./plugins/managed-source.js";
@@ -535,10 +523,6 @@ export interface PaseoDaemon {
 
 export interface PaseoDaemonDependencies {
   builtinPlugins?: BuiltinPluginLoader;
-  hubRelationshipRemote?: HubRelationshipRemote;
-  hubRelationshipClock?: HubRelationshipClock;
-  hubRelationshipRetryPolicy?: HubRelationshipRetryPolicy;
-  createHubDaemonId?: () => string;
 }
 
 function resolveBuiltinPluginLoader(dependencies: PaseoDaemonDependencies): BuiltinPluginLoader {
@@ -1435,92 +1419,6 @@ export async function createPaseoDaemon(
   };
   const createAgent = (input: Parameters<typeof createAgentCommand>[1]) =>
     createAgentCommand(createAgentCommandDependencies, input);
-  const archiveWorkspaceByIdExternal = (workspaceId: string, requestId: string) =>
-    archiveByScope(
-      {
-        paseoHome: config.paseoHome,
-        paseoWorktreesBaseRoot: config.worktreesRoot,
-        github,
-        workspaceGitService,
-        agentManager,
-        agentStorage,
-        findWorkspaceIdForCwd: findWorkspaceIdForCwdExternal,
-        listActiveWorkspaces: listActiveWorkspacesExternal,
-        getWorkspace: (workspaceIdToGet) => workspaceRegistry.get(workspaceIdToGet),
-        archiveWorkspaceRecord: archiveWorkspaceRecordExternal,
-        emitWorkspaceUpdatesForWorkspaceIds: emitWorkspaceUpdatesExternal,
-        markWorkspaceArchiving: markWorkspaceArchivingExternal,
-        clearWorkspaceArchiving: clearWorkspaceArchivingExternal,
-        killTerminalsForWorkspace: (workspaceIdToKill) =>
-          killTerminalsForWorkspace({ terminalManager, sessionLogger: logger }, workspaceIdToKill),
-        stopWorkspaceSetup: (workspaceIdToStop) => workspaceSetupRuntime.stop(workspaceIdToStop),
-        assertWorkspaceAutomationAllowed: (guardedWorkspaceId) =>
-          assertWorkspaceAutomationAllowedForWorkspace(workspaceRegistry, guardedWorkspaceId),
-        sessionLogger: logger,
-      },
-      { scope: { kind: "workspace", workspaceId }, requestId },
-    );
-  const hubAgentLifecycle = new CreateAgentLifecycleDispatch({
-    paseoHome: config.paseoHome,
-    worktreesRoot: config.worktreesRoot,
-    agentManager,
-    agentStorage,
-    github,
-    workspaceGitService,
-    createPaseoWorktreeWorkflow: createPaseoWorktreeForTools,
-    archiveAgentForClose: (agentId) =>
-      archiveAgentCommand({ agentManager, agentStorage, logger }, agentId),
-    findWorkspaceIdForCwd: findWorkspaceIdForCwdExternal,
-    listActiveWorkspaces: listActiveWorkspacesExternal,
-    archiveWorkspaceRecord: archiveWorkspaceRecordExternal,
-    emit: emitExternalSessionMessage,
-    emitAgentRemove: async () => undefined,
-    emitWorkspaceUpdatesForWorkspaceIds: emitWorkspaceUpdatesExternal,
-    markWorkspaceArchiving: markWorkspaceArchivingExternal,
-    clearWorkspaceArchiving: clearWorkspaceArchivingExternal,
-    killTerminalsForWorkspace: (workspaceId) =>
-      killTerminalsForWorkspace({ terminalManager, sessionLogger: logger }, workspaceId),
-    logger,
-  });
-  const hubRelationships = new HubRelationshipController({
-    paseoHome: config.paseoHome,
-    hostname: getHostName(),
-    serverId,
-    daemonPublicKey: daemonKeyPair.publicKeyB64,
-    logger,
-    remote: dependencies.hubRelationshipRemote ?? new DirectHubRelationshipRemote(),
-    clock: dependencies.hubRelationshipClock,
-    retryPolicy: dependencies.hubRelationshipRetryPolicy,
-    createDaemonId: dependencies.createHubDaemonId,
-    attachSocket: async (socket, options) => {
-      if (!wsServer) throw new Error("WebSocket server is not running");
-      await wsServer.attachExternalSocket(
-        socket,
-        { transport: "hub", hubDaemonId: options.daemonId },
-        {
-          principalId: options.principalId,
-          permissions: options.permissions,
-          hubExecutionAgents: options.agents,
-        },
-      );
-    },
-    updateAttachedPermissions: (principalId, permissions) => {
-      if (!wsServer) throw new Error("WebSocket server is not running");
-      wsServer.updatePrincipalPermissions(principalId, permissions);
-    },
-    createExecutionAgents: (daemonId) =>
-      new DaemonExecutions({
-        daemonId,
-        agentManager,
-        agentStorage,
-        createAgent,
-        interruptAgent: (agentId) => cancelAgentRunCommand({ agentManager, logger }, agentId),
-        archiveWorkspace: archiveWorkspaceByIdExternal,
-        cleanupFailedCreate: (input) =>
-          hubAgentLifecycle.cleanupCreatedWorktreeAfterFailedAgentCreate(input),
-      }),
-  });
-
   const createScheduleLocalWorkspaceExternal = async (input: {
     cwd: string;
     firstAgentContext: FirstAgentContext;
@@ -2051,7 +1949,6 @@ export async function createPaseoDaemon(
               },
               serviceProxyPublicBaseUrl,
               browserToolsBroker,
-              hubRelationships,
               workspaceSetupRuntime,
               pluginRuntime,
               orchestrationSkills,
@@ -2092,7 +1989,6 @@ export async function createPaseoDaemon(
             daemonConfigStore.onFieldChange("relay.enabled", (value) => {
               relayRuntime?.setEnabled(value === true);
             });
-            await hubRelationships.start();
           };
 
           logAndResolve().then(resolve, reject);
@@ -2142,7 +2038,6 @@ export async function createPaseoDaemon(
     // they serve has been closed, further down.
     unsubscribePluginProviders();
     unsubscribePluginSessionChanges();
-    await hubRelationships.stop();
     workspaceReconciliation.dispose();
     scriptHealthMonitor.stop();
     unsubscribeIdleRuntimeCleanup();

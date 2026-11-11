@@ -14,7 +14,6 @@ import { createScriptCommand } from "./commands/script/index.js";
 import { createTerminalCommand } from "./commands/terminal/index.js";
 import { createWorkspaceCommand } from "./commands/workspace/index.js";
 import { createHeartbeatCommand } from "./commands/heartbeat/index.js";
-import { createHubCommand } from "./commands/hub/index.js";
 import { createHooksCommand } from "./commands/hooks.js";
 import { startCommand as daemonStartCommand } from "./commands/daemon/start.js";
 import { daemonStatusCommand } from "./commands/daemon/status.js";
@@ -132,7 +131,6 @@ export function createCli(): Command {
 
   // Daemon commands
   program.addCommand(createDaemonCommand());
-  program.addCommand(createHubCommand());
 
   // Chat commands
 

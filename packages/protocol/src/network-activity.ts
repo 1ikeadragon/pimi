@@ -15,7 +15,6 @@ export const NETWORK_PURPOSE = {
   spaces: "Spaces previews",
   usage: "Provider usage",
   relay: "Relay",
-  hub: "Pimi Hub",
   plugins: "Plugins",
   speech: "Speech models",
   app: "App",

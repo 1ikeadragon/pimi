@@ -416,7 +416,7 @@ export interface DaemonClientConfig {
   clientId: string;
   /** Create one cache for the confirmed daemon identity, retained for this client lifetime. */
   createPluginClientBundleStore?: (serverId: string) => PluginClientBundleStore;
-  clientType?: "mobile" | "browser" | "cli" | "mcp" | "hub";
+  clientType?: "mobile" | "browser" | "cli" | "mcp";
   appVersion?: string;
   runtimeGeneration?: number | null;
   password?: string;
@@ -5453,50 +5453,6 @@ export class DaemonClient {
     return this.sendNamespacedCorrelatedSessionRequest({
       requestId,
       message: { type: "daemon.config.reload.request" },
-    });
-  }
-
-  async connectHub(
-    hubUrl: string,
-    token: string,
-    permissions: readonly string[] = [],
-    requestId?: string,
-  ) {
-    return this.sendCorrelatedSessionRequest({
-      requestId,
-      message: { type: "hub.management.daemon.connect.request", hubUrl, token, permissions },
-      responseType: "hub.management.daemon.connect.response",
-    });
-  }
-
-  async updateHubPermissions(
-    input: { grant?: readonly string[]; revoke?: readonly string[] },
-    requestId?: string,
-  ) {
-    return this.sendCorrelatedSessionRequest({
-      requestId,
-      message: {
-        type: "hub.management.daemon.permissions.update.request",
-        grant: input.grant ?? [],
-        revoke: input.revoke ?? [],
-      },
-      responseType: "hub.management.daemon.permissions.update.response",
-    });
-  }
-
-  async getHubStatus(requestId?: string) {
-    return this.sendCorrelatedSessionRequest({
-      requestId,
-      message: { type: "hub.management.daemon.get_status.request" },
-      responseType: "hub.management.daemon.get_status.response",
-    });
-  }
-
-  async disconnectHub(force = false, requestId?: string) {
-    return this.sendCorrelatedSessionRequest({
-      requestId,
-      message: { type: "hub.management.daemon.disconnect.request", force },
-      responseType: "hub.management.daemon.disconnect.response",
     });
   }
 

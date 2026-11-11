@@ -9,7 +9,6 @@ import { AgentUsageSchema } from "@pimi/protocol/messages";
 import { toStoredAgentRecord } from "./agent-projections.js";
 import type { ManagedAgent } from "./agent-manager.js";
 import type { AgentSessionConfig } from "./agent-sdk-types.js";
-import { AgentOwnerSchema, daemonExecutionKey, type DaemonAgentOwner } from "./agent-owner.js";
 
 const SERIALIZABLE_CONFIG_SCHEMA = z
   .object({
@@ -82,7 +81,6 @@ const STORED_AGENT_SCHEMA = z.object({
   internal: z.boolean().optional(),
   background: z.boolean().optional(),
   archivedAt: z.string().nullable().optional(),
-  owner: AgentOwnerSchema.optional(),
 });
 
 export type SerializableAgentConfig = Pick<
@@ -116,8 +114,6 @@ export class AgentStorage {
   private pathsById: Map<string, Set<string>> = new Map();
   private pendingWrites: Map<string, Promise<void>> = new Map();
   private deleting: Set<string> = new Set();
-  private daemonAgentIdsByExecution: Map<string, string> = new Map();
-  private daemonExecutionKeysByAgentId: Map<string, string> = new Map();
   private readonly idsByWorkspace = new Map<string, Set<string>>();
   private readonly workspaceById = new Map<string, string>();
   private readonly activeIds = new Set<string>();
@@ -272,12 +268,6 @@ export class AgentStorage {
     return this.listByWorkspaces([workspaceId], { includeArchived: true });
   }
 
-  async findByDaemonExecution(owner: DaemonAgentOwner): Promise<StoredAgentRecord | null> {
-    await this.load();
-    const agentId = this.daemonAgentIdsByExecution.get(daemonExecutionKey(owner));
-    return agentId ? (this.cache.get(agentId) ?? null) : null;
-  }
-
   async upsert(record: StoredAgentRecord): Promise<void> {
     await this.load();
     await this.queueRecordWrite(record);
@@ -330,7 +320,7 @@ export class AgentStorage {
     }
 
     this.cache.set(agentId, record);
-    this.indexOwner(record);
+    this.indexWorkspace(record);
     this.pathById.set(agentId, nextPath);
   }
 
@@ -368,7 +358,6 @@ export class AgentStorage {
       this.refreshPromptTime(workspaceId);
     }
     this.cache.delete(agentId);
-    this.removeOwnerIndex(agentId);
     this.pathById.delete(agentId);
     this.pathsById.delete(agentId);
   }
@@ -451,8 +440,6 @@ export class AgentStorage {
     this.cache.clear();
     this.pathById.clear();
     this.pathsById.clear();
-    this.daemonAgentIdsByExecution.clear();
-    this.daemonExecutionKeysByAgentId.clear();
 
     try {
       await this.scanDisk();
@@ -511,7 +498,7 @@ export class AgentStorage {
       if (!item) continue;
       const { record, filePath } = item;
       this.cache.set(record.id, record);
-      this.indexOwner(record);
+      this.indexWorkspace(record);
       this.pathById.set(record.id, filePath);
       this.addIndexedPath(record.id, filePath);
     }
@@ -548,29 +535,6 @@ export class AgentStorage {
     if (paths.size === 0) {
       this.pathsById.delete(agentId);
     }
-  }
-
-  private indexOwner(record: StoredAgentRecord): void {
-    this.indexWorkspace(record);
-    this.removeOwnerIndex(record.id);
-    if (record.owner?.kind === "daemon") {
-      const key = daemonExecutionKey(record.owner);
-      const previousAgentId = this.daemonAgentIdsByExecution.get(key);
-      if (previousAgentId && previousAgentId !== record.id) {
-        this.daemonExecutionKeysByAgentId.delete(previousAgentId);
-      }
-      this.daemonAgentIdsByExecution.set(key, record.id);
-      this.daemonExecutionKeysByAgentId.set(record.id, key);
-    }
-  }
-
-  private removeOwnerIndex(agentId: string): void {
-    const key = this.daemonExecutionKeysByAgentId.get(agentId);
-    if (!key) return;
-    if (this.daemonAgentIdsByExecution.get(key) === agentId) {
-      this.daemonAgentIdsByExecution.delete(key);
-    }
-    this.daemonExecutionKeysByAgentId.delete(agentId);
   }
 }
 
