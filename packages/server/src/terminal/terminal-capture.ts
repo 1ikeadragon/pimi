@@ -1,4 +1,4 @@
-import stripAnsi from "strip-ansi";
+import { stripAnsi } from "../utils/strip-ansi.js";
 import type { IBuffer } from "@xterm/headless";
 
 export interface CaptureTerminalLinesOptions {

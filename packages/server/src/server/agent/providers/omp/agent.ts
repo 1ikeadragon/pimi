@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { setImmediate as waitForImmediate, setTimeout as delay } from "node:timers/promises";
 import type { Logger } from "pino";
-import stripAnsi from "strip-ansi";
+import { stripAnsi } from "../../../../utils/strip-ansi.js";
 
 import {
   type AgentCapabilityFlags,

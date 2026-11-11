@@ -5,7 +5,7 @@ import { copyFile, mkdir, rm, stat } from "fs/promises";
 import { join, basename, dirname, isAbsolute, resolve, sep } from "path";
 import net from "node:net";
 import { createHash } from "node:crypto";
-import stripAnsi from "strip-ansi";
+import { stripAnsi } from "./strip-ansi.js";
 import pLimit from "p-limit";
 import {
   buildStringCommandShellInvocation,

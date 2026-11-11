@@ -5,7 +5,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { homedir, tmpdir } from "node:os";
 import { basename, join, resolve as resolvePath } from "node:path";
 import type { Logger } from "pino";
-import stripAnsi from "strip-ansi";
+import { stripAnsi } from "../../../../utils/strip-ansi.js";
 import { z } from "zod";
 
 import {
