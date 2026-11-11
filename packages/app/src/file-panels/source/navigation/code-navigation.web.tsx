@@ -10,11 +10,15 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { AdaptiveRenameModal } from "@/components/rename-modal";
 import { useToast } from "@/contexts/toast-api-context";
+import { confirmDialog } from "@/utils/confirm-dialog";
+import { useWorkspaceDirectory } from "@/stores/session-store-hooks";
 import { usePaneContext } from "@/panels/pane-context";
 import { useSessionStore } from "@/stores/session-store";
 import { useKeyboardShortcutsStore } from "@/stores/keyboard-shortcuts-store";
 import { openWorkspaceFileLocation } from "@/workspace/file-open/open-location";
+import { groupEditsByPath, replaceInEditor, writeOtherFiles } from "./rename-edits";
 import {
   NavigationResultsPanel,
   providerLabel,
@@ -66,6 +70,16 @@ function captureTarget(view: EditorView, event: unknown): ClickTarget {
   return { symbol, searchText: searchText.trim().replace(/\s+/g, " ").slice(0, 512) };
 }
 
+const TYPESCRIPT_EXTENSION = /\.(?:[cm]?[jt]s|[jt]sx)$/i;
+
+function isTypeScriptFileName(filename: string): boolean {
+  return TYPESCRIPT_EXTENSION.test(filename);
+}
+
+function validateIdentifier(value: string): string | null {
+  return /^[\p{L}_$][\p{L}\p{N}_$]*$/u.test(value) ? null : "Use a valid identifier.";
+}
+
 function shortened(text: string): string {
   return text.length > MAX_LABEL_LENGTH ? `${text.slice(0, MAX_LABEL_LENGTH)}…` : text;
 }
@@ -78,12 +92,15 @@ export function CodeNavigation({
   editor,
   filename,
   readOnly,
+  onSave,
   getUnsavedContent,
   children,
 }: {
   editor: RefObject<EditorView | null>;
   filename: string;
   readOnly: boolean;
+  /** Saves the edited file; a rename writes every other file, so this one is saved with them. */
+  onSave?: () => void;
   /** The buffer when it differs from disk; a semantic provider must see what the user sees. */
   getUnsavedContent?: () => string | null;
   children: ReactNode;
@@ -91,6 +108,8 @@ export function CodeNavigation({
   const { serverId, workspaceId } = usePaneContext();
   const client = useSessionStore((state) => state.sessions[serverId]?.client ?? null);
   const toast = useToast();
+  const cwd = useWorkspaceDirectory(serverId, workspaceId);
+  const [renaming, setRenaming] = useState<NonNullable<ClickTarget["symbol"]> | null>(null);
   const [target, setTarget] = useState<ClickTarget>({ symbol: null, searchText: "" });
   const [panel, setPanel] = useState<NavigationPanelState | null>(null);
   const sequence = useRef(0);
@@ -214,11 +233,63 @@ export function CodeNavigation({
     view.focus();
   }, [editor]);
 
+  const startRename = useCallback(() => setRenaming(target.symbol), [target.symbol]);
+  const closeRename = useCallback(() => setRenaming(null), []);
+
+  const submitRename = useCallback(
+    async (newName: string) => {
+      const view = editor.current;
+      const symbol = renaming;
+      if (!view || !client || !cwd || !symbol) throw new Error("The editor is not ready.");
+      const docAtQuery = view.state.doc;
+      const unsaved = getUnsavedContent?.() ?? undefined;
+      const result = await client.queryCodeNavigation({
+        workspaceId,
+        path: filename,
+        line: symbol.line,
+        column: symbol.column,
+        symbol: symbol.text,
+        kind: "rename",
+        newName,
+        ...(unsaved === undefined ? {} : { content: unsaved }),
+      });
+      const byPath = groupEditsByPath(result.edits);
+      if (byPath.size === 0) throw new Error("Nothing to rename.");
+      const summary = [...byPath.entries()]
+        .map(([path, edits]) => `${path}  (${edits.length})`)
+        .join("\n");
+      const confirmed = await confirmDialog({
+        title: `Rename “${symbol.text}” to “${newName}”?`,
+        message: `${result.edits.length} occurrences in ${byPath.size} ${
+          byPath.size === 1 ? "file" : "files"
+        }:\n${summary}`,
+        confirmLabel: "Rename",
+      });
+      if (!confirmed) return;
+
+      // Every other file is rewritten first, each over the version that was read: a file that
+      // changed on disk refuses the write, and the current file is left untouched.
+      await writeOtherFiles({ client, cwd, byPath, currentPath: filename, oldName: symbol.text });
+      const own = byPath.get(filename);
+      if (own) {
+        replaceInEditor(view, docAtQuery, own, symbol.text);
+        onSave?.();
+      }
+      toast.show(
+        `Renamed ${result.edits.length} occurrences in ${byPath.size} ${
+          byPath.size === 1 ? "file" : "files"
+        } · TypeScript`,
+      );
+    },
+    [client, cwd, editor, filename, getUnsavedContent, onSave, renaming, toast, workspaceId],
+  );
+
   const goToDefinition = useCallback(() => void runQuery("definition"), [runQuery]);
   const findReferences = useCallback(() => void runQuery("references"), [runQuery]);
   const handleCut = useCallback(() => void cut(), [cut]);
   const handleCopy = useCallback(() => void copy(), [copy]);
   const handlePaste = useCallback(() => void paste(), [paste]);
+  const canRename = !readOnly && isTypeScriptFileName(filename);
   const hasSelection = target.searchText.length > 0;
   const closePanel = useCallback(() => {
     sequence.current++;
@@ -246,6 +317,15 @@ export function CodeNavigation({
           >
             Find References
           </ContextMenuItem>
+          {canRename ? (
+            <ContextMenuItem
+              disabled={!target.symbol}
+              onSelect={startRename}
+              testID="editor-menu-rename"
+            >
+              Rename Symbol…
+            </ContextMenuItem>
+          ) : null}
           <ContextMenuItem
             disabled={!hasSelection}
             onSelect={searchCodebase}
@@ -274,6 +354,17 @@ export function CodeNavigation({
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
+      <AdaptiveRenameModal
+        visible={renaming !== null}
+        title={`Rename “${renaming?.text ?? ""}”`}
+        initialValue={renaming?.text ?? ""}
+        submitLabel="Rename"
+        onClose={closeRename}
+        onSubmit={submitRename}
+        validate={validateIdentifier}
+        maxLength={256}
+        testID="editor-rename"
+      />
       {panel ? (
         <NavigationResultsPanel state={panel} onSelect={jumpTo} onClose={closePanel} />
       ) : null}

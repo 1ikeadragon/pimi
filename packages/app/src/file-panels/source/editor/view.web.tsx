@@ -78,6 +78,7 @@ export function FileEditorView({
     () => ({ serverId, workspaceId, path: filename }),
     [serverId, workspaceId, filename],
   );
+  const saveModel = useCallback(() => void model.save(), [model]);
   const getUnsavedContent = useCallback(
     () => (model.getSnapshot().modified ? (viewRef.current?.state.doc.toString() ?? null) : null),
     [model],
@@ -230,6 +231,7 @@ export function FileEditorView({
         editor={viewRef}
         filename={filename}
         readOnly={false}
+        onSave={saveModel}
         getUnsavedContent={getUnsavedContent}
       >
         <div
