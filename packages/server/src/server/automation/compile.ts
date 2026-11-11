@@ -16,7 +16,7 @@ import type { AgentManager } from "../agent/agent-manager.js";
 import { generateStructuredAgentResponseWithFallback } from "../agent/agent-response-loop.js";
 import type { ProviderSnapshotManager } from "../agent/provider-snapshot-manager.js";
 import {
-  resolveStructuredGenerationProviders,
+  resolvePimiModel,
   type StructuredGenerationDaemonConfig,
 } from "../agent/structured-generation-providers.js";
 
@@ -198,7 +198,8 @@ export async function compileAutomation(
   const profileList = profiles
     .map((profile) => `- ${profile.name}${profile.notes ? `: ${profile.notes.slice(0, 160)}` : ""}`)
     .join("\n");
-  const generationProviders = await resolveStructuredGenerationProviders({
+  const { providers: generationProviders, pinned } = await resolvePimiModel({
+    feature: "automation",
     cwd,
     providerSnapshotManager: deps.providerSnapshotManager,
     daemonConfig: deps.getDaemonConfig(),
@@ -218,6 +219,8 @@ export async function compileAutomation(
       schema: CompiledAutomationSchema,
       schemaName: "PimiAutomation",
       providers: generationProviders,
+      pinned,
+      feature: "automation",
       maxRetries: 1,
       turnTimeoutMs: COMPILE_TURN_TIMEOUT_MS,
       persistSession: false,

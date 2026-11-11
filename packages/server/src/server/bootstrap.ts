@@ -490,14 +490,7 @@ export interface PaseoDaemonConfig {
   resumeOnStartup?: boolean;
   resumePrompt?: string;
   providerCatalogRefreshTimeoutMs?: number;
-  metadataGeneration?: {
-    autoNaming?: boolean;
-    providers?: Array<{
-      provider: string;
-      model?: string;
-      thinkingOptionId?: string;
-    }>;
-  };
+  metadataGeneration?: NonNullable<PersistedConfig["agents"]>["metadataGeneration"];
   providerOverrides?: Record<string, ProviderOverride>;
   log?: PersistedConfig["log"];
   onLifecycleIntent?: (intent: DaemonLifecycleIntent) => void;
@@ -587,7 +580,11 @@ function resolveReloadEnv(config: PaseoDaemonConfig): NodeJS.ProcessEnv {
 }
 
 function resolveMetadataGeneration(config: ResolvedDaemonSettings["metadataGeneration"]) {
-  return { providers: config?.providers ?? [], autoNaming: config?.autoNaming !== false };
+  return {
+    providers: config?.providers ?? [],
+    ...(config?.features ? { features: config.features } : {}),
+    autoNaming: config?.autoNaming !== false,
+  };
 }
 
 function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): MutableDaemonConfig {

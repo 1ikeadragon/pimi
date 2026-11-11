@@ -1,5 +1,6 @@
 import { searchPimiCodebase } from "./pimi-codebase-index.js";
-import type { PimiCodebaseSearchRequest } from "@pimi/protocol/messages";
+import type { MutableDaemonConfigPatch, PimiCodebaseSearchRequest } from "@pimi/protocol/messages";
+import { canRunAskPimi } from "./agent/pimi-voice-command.js";
 import { type WorkspaceRuntimeStore } from "./workspace-runtime-store/index.js";
 import type { AgentMessageDelivery } from "./agent/agent-messages/index.js";
 import { AgentDirectory } from "./agent/directory.js";
@@ -2767,7 +2768,8 @@ export class Session {
       case "daemon.update.request":
         return this.daemonSession.handleUpdateRequest(msg);
       case "set_daemon_config_request":
-        return this.daemonConfigStore.patch(msg.config).then((config) => {
+        return this.assertPimiModelFeaturesSelectable(msg.config).then(async () => {
+          const config = await this.daemonConfigStore.patch(msg.config);
           return this.emit({
             type: "set_daemon_config_response",
             payload: {
@@ -2782,6 +2784,25 @@ export class Session {
         return this.projectConfigSession.handleWriteProjectConfigRequest(msg);
       default:
         return undefined;
+    }
+  }
+
+  /** A per-feature Pimi model must name an enabled provider; Ask Pimi also needs a harness it can drive. */
+  private async assertPimiModelFeaturesSelectable(config: MutableDaemonConfigPatch): Promise<void> {
+    const features = config.metadataGeneration?.features;
+    const chosen = Object.entries(features ?? {}).filter(([, entry]) => entry);
+    if (chosen.length === 0) return;
+    const entries = await this.providerSnapshotManager.listProviders({ wait: true });
+    for (const [feature, entry] of chosen) {
+      if (!entry) continue;
+      if (
+        !entries.some((candidate) => candidate.enabled && candidate.provider === entry.provider)
+      ) {
+        throw new Error(`${entry.provider} is disabled or not installed.`);
+      }
+      if (feature === "askPimi" && !canRunAskPimi(entry.provider)) {
+        throw new Error("Ask Pimi runs on Claude Code, Codex, or OpenCode.");
+      }
     }
   }
 

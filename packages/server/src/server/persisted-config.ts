@@ -181,6 +181,17 @@ const StructuredGenerationProviderConfigSchema = z
 const AgentMetadataGenerationSchema = z
   .object({
     providers: z.array(StructuredGenerationProviderConfigSchema).optional(),
+    features: z
+      .object({
+        title: StructuredGenerationProviderConfigSchema.optional(),
+        branchName: StructuredGenerationProviderConfigSchema.optional(),
+        commitMessage: StructuredGenerationProviderConfigSchema.optional(),
+        pullRequest: StructuredGenerationProviderConfigSchema.optional(),
+        automation: StructuredGenerationProviderConfigSchema.optional(),
+        askPimi: StructuredGenerationProviderConfigSchema.optional(),
+      })
+      .strict()
+      .optional(),
     autoNaming: z.boolean().optional(),
   })
   .strict();

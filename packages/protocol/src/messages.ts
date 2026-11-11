@@ -180,9 +180,43 @@ const MutableStructuredGenerationProviderSchema = z
   })
   .passthrough();
 
+export const PIMI_MODEL_FEATURE_KEYS = [
+  "title",
+  "branchName",
+  "commitMessage",
+  "pullRequest",
+  "automation",
+  "askPimi",
+] as const;
+
+// One optional model per Pimi model call site. A missing key means "same as the default".
+const MutablePimiModelFeaturesSchema = z
+  .object({
+    title: MutableStructuredGenerationProviderSchema.optional(),
+    branchName: MutableStructuredGenerationProviderSchema.optional(),
+    commitMessage: MutableStructuredGenerationProviderSchema.optional(),
+    pullRequest: MutableStructuredGenerationProviderSchema.optional(),
+    automation: MutableStructuredGenerationProviderSchema.optional(),
+    askPimi: MutableStructuredGenerationProviderSchema.optional(),
+  })
+  .strict();
+
+// In a patch, `null` clears an override.
+const MutablePimiModelFeaturesPatchSchema = z
+  .object({
+    title: MutableStructuredGenerationProviderSchema.nullable().optional(),
+    branchName: MutableStructuredGenerationProviderSchema.nullable().optional(),
+    commitMessage: MutableStructuredGenerationProviderSchema.nullable().optional(),
+    pullRequest: MutableStructuredGenerationProviderSchema.nullable().optional(),
+    automation: MutableStructuredGenerationProviderSchema.nullable().optional(),
+    askPimi: MutableStructuredGenerationProviderSchema.nullable().optional(),
+  })
+  .strict();
+
 const MutableMetadataGenerationConfigSchema = z
   .object({
     providers: z.array(MutableStructuredGenerationProviderSchema).default([]),
+    features: MutablePimiModelFeaturesSchema.optional(),
     autoNaming: z.boolean(),
   })
   .passthrough();
@@ -265,6 +299,7 @@ export const MutableDaemonConfigPatchSchema = z
     metadataGeneration: z
       .object({
         providers: z.array(MutableStructuredGenerationProviderSchema).optional(),
+        features: MutablePimiModelFeaturesPatchSchema.optional(),
         autoNaming: z.boolean().optional(),
       })
       .passthrough()

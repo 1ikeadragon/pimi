@@ -112,7 +112,7 @@ function mergeConfigPatch(
   patch: Omit<SupportedMutableConfigPatch, "features" | "removeProviders">,
   removedProviders: readonly string[],
 ): MutableDaemonConfig {
-  const { replaceProviders, ...mergePatch } = patch;
+  const { replaceProviders, metadataGeneration, ...mergePatch } = patch;
   for (const [id, profile] of Object.entries(replaceProviders ?? {})) {
     if (
       !profile.extends ||
@@ -123,6 +123,12 @@ function mergeConfigPatch(
     }
   }
   const merged = deepMerge(current, mergePatch);
+  if (metadataGeneration) {
+    merged.metadataGeneration = applyMetadataGenerationPatch(
+      merged.metadataGeneration,
+      metadataGeneration,
+    ) as MutableDaemonConfig["metadataGeneration"];
+  }
   if (replaceProviders) merged.providers = { ...merged.providers, ...replaceProviders };
   return merged;
 }
@@ -148,25 +154,40 @@ function omitProvidersFromConfig<T extends { providers?: Record<string, unknown>
 }
 
 function omitMetadataGenerationProvidersFromConfig<
-  T extends { metadataGeneration?: { providers?: Array<{ provider?: unknown }> } },
+  T extends {
+    metadataGeneration?: {
+      providers?: Array<{ provider?: unknown }>;
+      features?: Record<string, { provider?: unknown } | undefined>;
+    };
+  },
 >(config: T, providers: readonly string[]): T {
-  if (providers.length === 0 || !config.metadataGeneration?.providers) {
+  const metadata = config.metadataGeneration;
+  if (providers.length === 0 || !metadata) {
     return config;
   }
 
   const removedProviderIds = new Set(providers);
-  const nextProviders = config.metadataGeneration.providers.filter((entry) => {
-    return typeof entry.provider !== "string" || !removedProviderIds.has(entry.provider);
-  });
-  if (nextProviders.length === config.metadataGeneration.providers.length) {
+  const isKept = (entry: { provider?: unknown } | undefined) =>
+    typeof entry?.provider !== "string" || !removedProviderIds.has(entry.provider);
+  const nextProviders = metadata.providers?.filter(isKept);
+  const nextFeatureEntries = Object.entries(metadata.features ?? {}).filter(([, entry]) =>
+    isKept(entry),
+  );
+  const providersChanged = nextProviders?.length !== metadata.providers?.length;
+  const featuresChanged = nextFeatureEntries.length !== Object.keys(metadata.features ?? {}).length;
+  if (!providersChanged && !featuresChanged) {
     return config;
   }
 
+  const { features: _features, ...rest } = metadata;
   return {
     ...config,
     metadataGeneration: {
-      ...config.metadataGeneration,
-      providers: nextProviders,
+      ...rest,
+      ...(nextProviders ? { providers: nextProviders } : {}),
+      ...(nextFeatureEntries.length > 0
+        ? { features: Object.fromEntries(nextFeatureEntries) }
+        : {}),
     },
   } as T;
 }
@@ -303,9 +324,9 @@ function pickRelayPatch(
 }
 
 function pickMetadataGenerationPatch(metadata: MutableDaemonConfigPatch["metadataGeneration"]) {
-  const { providers, autoNaming } = metadata ?? {};
-  return providers !== undefined || autoNaming !== undefined
-    ? { providers, autoNaming }
+  const { providers, features, autoNaming } = metadata ?? {};
+  return providers !== undefined || features !== undefined || autoNaming !== undefined
+    ? { providers, features, autoNaming }
     : undefined;
 }
 
@@ -799,10 +820,35 @@ function mergeMetadataGenerationPatch(
   removeProviders: readonly string[],
 ) {
   const metadata = agents?.metadataGeneration;
-  if (!patch && (!metadata?.providers || removeProviders.length === 0)) return undefined;
-  const next = deepMerge({ ...metadata }, patch ?? {});
+  if (!patch && ((!metadata?.providers && !metadata?.features) || removeProviders.length === 0)) {
+    return undefined;
+  }
+  const next = applyMetadataGenerationPatch(metadata, patch ?? {});
   return omitMetadataGenerationProvidersFromConfig({ metadataGeneration: next }, removeProviders)
     .metadataGeneration;
+}
+
+function applyMetadataGenerationPatch(
+  current: object | undefined,
+  patch: NonNullable<SupportedMutableConfigPatch["metadataGeneration"]>,
+): Record<string, unknown> {
+  const { features: featuresPatch, ...restPatch } = patch;
+  const currentRecord: Record<string, unknown> = { ...current };
+  const next: Record<string, unknown> = deepMerge(currentRecord, restPatch);
+  if (featuresPatch) {
+    // Each override is replaced whole, so a model without a thinking level drops the old one.
+    const features: Record<string, unknown> = isRecord(currentRecord["features"])
+      ? { ...currentRecord["features"] }
+      : {};
+    for (const [feature, entry] of Object.entries(featuresPatch)) {
+      if (entry === undefined) continue;
+      if (entry === null) delete features[feature];
+      else features[feature] = entry;
+    }
+    if (Object.keys(features).length > 0) next["features"] = features;
+    else delete next["features"];
+  }
+  return next;
 }
 
 function mergeMutableDaemonPatch(
