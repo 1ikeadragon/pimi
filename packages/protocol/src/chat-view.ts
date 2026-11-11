@@ -76,6 +76,20 @@ const titleSchema = text(VIEW_LIMITS.title);
 const labelSchema = text(VIEW_LIMITS.label);
 const unitSchema = text(VIEW_LIMITS.unit);
 const toneSchema = z.enum(["neutral", "positive", "negative", "warning"]);
+/** What a flow box is. It picks the box's icon and colour; a box without one is a plain step. */
+const flowKindSchema = z.enum([
+  "step",
+  "user",
+  "agent",
+  "service",
+  "data",
+  "file",
+  "queue",
+  "tool",
+  "code",
+  "external",
+  "secret",
+]);
 
 function hasDistinctNames(series: readonly { name: string }[]): boolean {
   return new Set(series.map(({ name }) => name)).size === series.length;
@@ -299,6 +313,7 @@ const flowSchema = z
           label: flowTextSchema,
           detail: text(VIEW_LIMITS.flowDetail).optional(),
           lane: flowTextSchema.optional(),
+          kind: flowKindSchema.optional(),
           tone: toneSchema.optional(),
         }),
       )
@@ -437,6 +452,7 @@ export type ViewTone = z.infer<typeof toneSchema>;
 export type ChartNode = z.infer<typeof chartSchema>;
 export type ChartKind = ChartNode["kind"];
 export type FlowNode = z.infer<typeof flowSchema>;
+export type FlowKind = z.infer<typeof flowKindSchema>;
 export type SequenceNode = z.infer<typeof sequenceSchema>;
 export type ChatView = z.infer<typeof viewSchema>;
 
@@ -463,10 +479,11 @@ export const VIEW_NODE_FIELDS: Record<ViewNodeType, string> = {
   progress: "label, value, max; optional tone",
   text: 'content; optional tone, emphasis "normal", "strong" or "subtle"',
   badge: "label; optional tone",
-  flow: `nodes [{id, label, optional detail, lane, tone}], edges [{from, to, optional label}] naming node ids; optional direction "right" (default) or "down", lanes [{id, label}]. Cycles are allowed; an edge from a node to itself is not`,
+  flow: `nodes [{id, label, optional detail, lane, kind, tone}], edges [{from, to, optional label}] naming node ids; optional direction "right" (default) or "down", lanes [{id, label}]. A kind is one of ${flowKindSchema.options.join(", ")}. Cycles are allowed; an edge from a node to itself is not`,
   sequence: `participants [{id, label}] in column order, steps in time order. A step is a message {from, to, label, optional reply (true draws a dashed return arrow), tone}, a note {note}, or a group {group, steps}: a labelled frame around a loop, an optional part, or one branch of an alternative. from and to name participant ids and may be the same participant`,
 };
 export const VIEW_TONES = toneSchema.options;
+export const FLOW_KINDS = flowKindSchema.options;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -493,8 +510,8 @@ function trimmedString(value: unknown): string | null {
 /**
  * Keeps a flow whose boxes are sound when some of its references are not. An edge that names a
  * missing box, loops on its own box, repeats an earlier edge, or is malformed is dropped, and a
- * lane that does not exist is cleared from its box. Boxes themselves are never dropped: a missing
- * box changes what the diagram says, so a bad box fails the flow.
+ * lane that does not exist or a kind Pimi does not draw is cleared from its box. Boxes themselves
+ * are never dropped: a missing box changes what the diagram says, so a bad box fails the flow.
  */
 function salvageFlow(node: Record<string, unknown>): unknown {
   if (!Array.isArray(node.nodes)) return node;
@@ -502,10 +519,15 @@ function salvageFlow(node: Record<string, unknown>): unknown {
   const lanes = Array.isArray(node.lanes) ? node.lanes : [];
   const laneIds = new Set(lanes.map((lane) => (isRecord(lane) ? trimmedString(lane.id) : null)));
   const nodes = node.nodes.map((box) => {
-    if (!isRecord(box) || box.lane === undefined || laneIds.has(trimmedString(box.lane))) {
-      return box;
-    }
-    return Object.fromEntries(Object.entries(box).filter(([key]) => key !== "lane"));
+    if (!isRecord(box)) return box;
+    const badLane = box.lane !== undefined && !laneIds.has(trimmedString(box.lane));
+    const badKind = box.kind !== undefined && !flowKindSchema.safeParse(box.kind).success;
+    if (!badLane && !badKind) return box;
+    return Object.fromEntries(
+      Object.entries(box).filter(
+        ([key]) => !(key === "lane" && badLane) && !(key === "kind" && badKind),
+      ),
+    );
   });
   if (!Array.isArray(node.edges)) return { ...node, nodes };
   const seen = new Set<string>();

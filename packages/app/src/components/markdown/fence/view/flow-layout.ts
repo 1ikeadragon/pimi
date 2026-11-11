@@ -1,4 +1,4 @@
-import type { FlowNode, ViewTone } from "@pimi/protocol/chat-view";
+import type { FlowKind, FlowNode, ViewTone } from "@pimi/protocol/chat-view";
 import type { Box, Point } from "./scene";
 
 /**
@@ -29,7 +29,7 @@ const WORD_OVERHANG = 3;
 const EDGE_LABEL_FONT_SIZE = 11;
 const EDGE_LABEL_CHARACTER_WIDTH = 6.2;
 const EDGE_LABEL_HEIGHT = 16;
-const EDGE_LABEL_PADDING = 6;
+const EDGE_LABEL_PADDING = 8;
 const RANK_GAP: Record<FlowDirection, number> = { right: 40, down: 32 };
 /** Between two stages: both bands' padding, the next band's header when it sits on this axis. */
 const STAGE_GAP: Record<FlowDirection, number> = { right: 44, down: 56 };
@@ -46,16 +46,31 @@ const PORT_STEP = 10;
 const ARROW_LENGTH = 7;
 const ARROW_HALF_WIDTH = 4;
 const SWEEPS = 4;
+/**
+ * Every box carries a tile in its kind's colour with the kind's icon. In a wide layout it is a
+ * square on the leading side, as wide as a one-line box is tall. A narrow layout is the phone's,
+ * where three boxes must fit side by side, so the tile becomes a strip across the top and the box
+ * grows taller instead of wider.
+ */
+const TILE_SIZE = LINE_HEIGHT + BOX_PADDING_CROSS * 2;
+const TILE_STRIP = 22;
 
 export { FONT_SIZE as FLOW_FONT_SIZE, LINE_HEIGHT as FLOW_LINE_HEIGHT };
 export { EDGE_LABEL_FONT_SIZE as FLOW_EDGE_LABEL_FONT_SIZE };
+export { BOX_PADDING_MAIN as FLOW_TEXT_INSET, TILE_SIZE as FLOW_TILE_SIZE };
+export { TILE_STRIP as FLOW_TILE_STRIP };
+
+/** Where a box's tile sits: a square on its leading side, or a strip across its top. */
+export type FlowTilePlacement = "side" | "top";
 
 export interface FlowBox {
   key: string;
   label: string;
   lines: string[];
   detail?: string;
+  kind: FlowKind;
   tone: ViewTone;
+  tile: FlowTilePlacement;
   box: Box;
 }
 
@@ -253,14 +268,16 @@ interface Measured {
   height: number;
 }
 
-function measureBox(label: string, maxTextWidth: number): Measured {
+function measureBox(label: string, maxTextWidth: number, tile: FlowTilePlacement): Measured {
   const capacity = Math.floor(maxTextWidth / CHARACTER_WIDTH);
   const lines = wrapFlowLabel(label, capacity);
   const longest = Math.max(...lines.map((line) => textWidth(line, CHARACTER_WIDTH)));
+  const body = Math.max(MIN_BOX_WIDTH, longest + BOX_PADDING_MAIN * 2);
+  const text = lines.length * LINE_HEIGHT + BOX_PADDING_CROSS * 2;
   return {
     lines,
-    width: round(Math.max(MIN_BOX_WIDTH, longest + BOX_PADDING_MAIN * 2)),
-    height: lines.length * LINE_HEIGHT + BOX_PADDING_CROSS * 2,
+    width: round(tile === "side" ? body + TILE_SIZE : body),
+    height: tile === "top" ? text + TILE_STRIP : text,
   };
 }
 
@@ -548,7 +565,10 @@ function layoutFlow(flow: FlowNode, direction: FlowDirection, textWidths: readon
   };
   const rank = rankNodes(flow.nodes.length, forward, staged ? laneOf : null);
   const rankCount = Math.max(...rank) + 1;
-  const measured = flow.nodes.map(({ label }, node) => measureBox(label, textWidths[node]));
+  const tile: FlowTilePlacement = textWidths.every((width) => width === TEXT_WIDTH)
+    ? "side"
+    : "top";
+  const measured = flow.nodes.map(({ label }, node) => measureBox(label, textWidths[node], tile));
   const vertices: Vertex[] = flow.nodes.map((_, node) => ({
     node,
     rank: rank[node],
@@ -586,6 +606,7 @@ function layoutFlow(flow: FlowNode, direction: FlowDirection, textWidths: readon
 
   return {
     horizontal,
+    tile,
     edges,
     measured,
     vertices,
@@ -743,7 +764,9 @@ function paintLayout(flow: FlowNode, layout: FlowLayout, available: number): Flo
       label: node.label,
       lines: layout.measured[index].lines,
       detail: node.detail,
+      kind: node.kind ?? "step",
       tone: node.tone ?? "neutral",
+      tile: layout.tile,
       box: {
         x: round(topLeft.x),
         y: round(topLeft.y),

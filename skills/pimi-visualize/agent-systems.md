@@ -26,6 +26,7 @@ A flow, `direction` "down", with one lane per role in the order control passes: 
 - One box for the orchestrator. One box per kind of worker, up to three; merge more into one box that lists them in `detail`. Do not draw one box per instance of the same worker.
 - One edge from the orchestrator to each worker, labelled with what is handed over ("task brief", "file list"). Say what comes back in the worker's `detail`. Add a return edge only when the result goes somewhere other than the caller.
 - A handoff, where control moves and does not come back, is an edge labelled "hands off" with the context that travels in the receiving box's `detail`.
+- Set `kind` "user" on the caller, "agent" on the orchestrator and workers, "tool" on tools, and "data" on shared state.
 - Set `tone` "warning" on the one box that is the bottleneck or the single point of failure, if the question is about that.
 
 ## Exchange
@@ -44,7 +45,7 @@ A flow with a cycle, five boxes:
 1. "Prompt and context" to "Model call".
 2. "Model call" to "Run tools", labelled "tool calls".
 3. "Run tools" to "Append results".
-4. "Append results" back to "Model call". The layout draws this edge dashed.
+4. "Append results" back to "Model call". The layout draws this edge dotted.
 5. "Model call" to "Final reply", labelled "no tool calls".
 
 Add a box only for a stop condition the question asks about, such as a turn limit or a permission prompt, as a branch off "Run tools" or "Model call". To show one real turn with its actual calls, use the Exchange layout instead.
@@ -77,5 +78,5 @@ A flow around the one step that can fail:
 
 - The step, then a check box ("Validate output", "Guardrail").
 - From the check: an edge labelled "pass" to the next step, and an edge labelled "fail" to a "Retry" box. Put the limit and the backoff in the Retry box's `detail`.
-- From "Retry": an edge back to the step, which the layout draws dashed, and an edge labelled "limit reached" to the fallback or the error, with `tone` "negative".
+- From "Retry": an edge back to the step, which the layout draws dotted, and an edge labelled "limit reached" to the fallback or the error, with `tone` "negative".
 - When the question is about timing, add a `pimi-vega` bar chart of the delay before each attempt, from the code's constants.
