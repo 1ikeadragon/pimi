@@ -88,6 +88,42 @@ function fitToColumn(spec: Record<string, unknown>, width: number): TopLevelSpec
   } as unknown as TopLevelSpec;
 }
 
+/**
+ * Repairs two slips Vega-Lite accepts without a word and then draws as a blank:
+ * - It stacks a bar or area from zero even on a log scale, where zero has no position, so every
+ *   mark loses its geometry. A log channel that does not ask for a stack gets none, and its bars
+ *   start at the bottom of the plot.
+ * - It ignores a "transform" written inside "data", so every field the transform derives is
+ *   missing. That transform is moved to the top, ahead of the spec's own.
+ */
+function repairPlot(plot: Record<string, unknown>): Record<string, unknown> {
+  let repaired = plot;
+  const { data, encoding } = plot;
+  if (isRecord(data) && Array.isArray(data.transform)) {
+    const { transform, ...rest } = data;
+    const own = Array.isArray(plot.transform) ? plot.transform : [];
+    repaired = { ...repaired, data: rest, transform: [...transform, ...own] };
+  }
+  if (isRecord(encoding)) {
+    const unstacked = { ...encoding };
+    for (const channel of ["x", "y"]) {
+      const definition = encoding[channel];
+      if (!isRecord(definition) || "stack" in definition) continue;
+      if (isRecord(definition.scale) && definition.scale.type === "log") {
+        unstacked[channel] = { ...definition, stack: null };
+      }
+    }
+    repaired = { ...repaired, encoding: unstacked };
+  }
+  if (Array.isArray(plot.layer)) {
+    repaired = {
+      ...repaired,
+      layer: plot.layer.map((layer) => (isRecord(layer) ? repairPlot(layer) : layer)),
+    };
+  }
+  return repaired;
+}
+
 /** The least room a slanted label needs along the axis before it runs into the next one. */
 const SLANTED_LABEL_PITCH = 14;
 /** What the y axis and its title take from a narrow chart, roughly. */
@@ -142,8 +178,9 @@ export function createVegaView(
   { spec, config, width }: VegaChartInput,
   target: { renderer: "svg"; container: Element } | { renderer: "none" },
 ): View {
-  const compiled = compile(fitToColumn(spec, width), {
-    config: fitConfigToColumn(config, width, discreteXCount(spec)),
+  const repaired = repairPlot(spec);
+  const compiled = compile(fitToColumn(repaired, width), {
+    config: fitConfigToColumn(config, width, discreteXCount(repaired)),
     logger: silent,
   });
   const runtime = parse(compiled.spec, undefined, { ast: true });
