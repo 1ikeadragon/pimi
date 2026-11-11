@@ -97,11 +97,9 @@ import type { PaseoToolCatalogFactory } from "./tools/types.js";
 import { memoryRecallInstructions } from "./tools/project-memory-tools.js";
 import { isPaseoToolEnabled, isPaseoToolPolicyEnabled } from "./paseo-tool-policy.js";
 import {
-  PIMI_REVIEW_SUGGESTION_TOOL,
   PIMI_TASK_PROPOSAL_TOOL,
   PIMI_TASK_WORKER_LABEL,
   PIMI_VOICE_TRACK_WORK_TOOLS,
-  PimiTaskAgentTool,
 } from "@pimi/protocol/pimi-task";
 import {
   ProviderSubagentStore,
@@ -156,15 +154,9 @@ function pimiActionInstructions(input: {
     return [pimiToolsOffInstructions(input.provider, input.hostToolsEnabled)];
   }
   const instructions = [];
-  if (isPaseoToolEnabled(policy, PimiTaskAgentTool.createLabel)) {
-    instructions.push(
-      "When the user asks to create a workspace label, call create_pimi_label and choose its workspace from list_pimi_labels.",
-    );
-  }
-  if (isPaseoToolEnabled(policy, PimiTaskAgentTool.create)) {
-    instructions.push(
-      "When the user asks to track work without separate workers, call create_pimi_task and continue in this chat. Use existing labels and link a clear repository.",
-    );
+  if (input.provider === "claude") {
+    // The SDK defers MCP tool schemas; without this the agent does not know the Pimi tools exist.
+    instructions.push("Pimi's tools are deferred: load one with ToolSearch before calling it.");
   }
   if (isPaseoToolEnabled(policy, PIMI_TASK_PROPOSAL_TOOL)) {
     instructions.push(
@@ -173,19 +165,9 @@ function pimiActionInstructions(input: {
         : "Use propose_pimi_task when the user asks to track delegated work in Tasks. Put each requested provider or provider/model in that work item's provider field. Wait for the user to start the workers.",
     );
   }
-  if (isPaseoToolEnabled(policy, PimiTaskAgentTool.update)) {
-    instructions.push(
-      "To change a saved task, find it with list_pimi_tasks and use update_pimi_task.",
-    );
-  }
-  if (isPaseoToolEnabled(policy, PIMI_REVIEW_SUGGESTION_TOOL)) {
-    instructions.push(
-      `When the user asks to see changes or the diff is ready for review, call ${PIMI_REVIEW_SUGGESTION_TOOL}.`,
-    );
-  }
   if (isPaseoToolEnabled(policy, "create_agent")) {
     instructions.push(
-      'When the user asks for other agents, workers, or providers to do, split, or answer something, such as "use codex and claude for this", "ask claude too", or "split this: one agent does X, another does Y", call create_agent once per requested worker, even one on your own provider, each with a focused initialPrompt and notifyOnFinish: true. Omit provider for a worker the user named no provider or model for; it then runs on yours. Leave background unset: a background worker is hidden from the user. Pimi shows create_agent workers as cards the user can open. Your built-in subagent tool (Task or Agent in Claude Code) and agent CLIs run from a shell (claude, codex, opencode, gemini) show the user nothing, so never use either for a worker the user asked for or to get another model\'s answer; keep the built-in tool for your own lookups. To follow up with a worker you created, call send_agent_prompt with its agentId, not a built-in messaging tool. When the user wants a visual of the workers\' findings, ask each worker for findings and draw the visual yourself following your visualization instructions; do not tell workers which diagram format to use. For work discussed in this chat on this host, set inheritContext: true, unless the user wants an independent view that should not see this chat\'s reasoning. Preserve the user\'s edit and launch constraints. Use separate worktrees for parallel edits. Report the result here when the completion notification arrives. Add the work to Pimi\'s Tasks board only when the user asks to track it.',
+      "When the user names another agent, provider, or model, or asks for parallel workers, call create_agent once per worker with a focused initialPrompt. Pimi shows each as a card the user can open; a built-in subagent tool or an agent CLI run from a shell (claude, codex, opencode, gemini) shows the user nothing. Use your built-in subagent tool for your own lookups. Follow up with send_agent_prompt, and report here when the completion notification arrives.",
     );
   }
   return instructions;
