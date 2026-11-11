@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import { buildSelfNodeCommand } from "../paseo-env.js";
 import type {
   CodeNavigationEdit,
@@ -51,7 +51,9 @@ interface TsResponse {
 
 /** Prefers the workspace's own TypeScript, then the copy that ships with the daemon. */
 export function resolveTsServerPath(cwd: string): string {
-  for (const base of [join(cwd, "package.json"), import.meta.url]) {
+  // Only the bundled TypeScript: a workspace copy is code from the repo, run on right-click.
+  void cwd;
+  for (const base of [import.meta.url]) {
     try {
       return createRequire(base).resolve("typescript/lib/tsserver.js");
     } catch {

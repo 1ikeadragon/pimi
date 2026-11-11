@@ -464,7 +464,9 @@ export class TimelineProjection {
     const requestedStart = limit === 0 ? 0 : Math.max(0, this.rows.length - limit);
     const coveredStart = this.spans[this.spanIndex(requestedStart)].start;
     const wholeStart = input.wholeTurns ? this.wholeTurnWindowStart(coveredStart) : coveredStart;
-    const start = this.trimStartToByteBudget(wholeStart, this.rows.length);
+    // limit 0 means the whole timeline (fork context, CLI logs): never byte-trim it.
+    const start =
+      limit === 0 ? wholeStart : this.trimStartToByteBudget(wholeStart, this.rows.length);
     return {
       entries: this.rows.slice(start),
       startSeq: this.rows[start].seqStart,

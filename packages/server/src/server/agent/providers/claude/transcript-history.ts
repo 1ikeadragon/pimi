@@ -366,7 +366,7 @@ export async function openClaudeSidechainSources(
   for (const [runId, files] of layout.workflowFiles) {
     workflowEntriesByRunId.set(
       runId,
-      lazyRecords(files, (entry) => entry.type !== "user" || !isToolResult(entry), true),
+      lazyRecords(files, (entry) => entry.type !== "user" || isToolResult(entry), true),
     );
   }
   const metaToolUseIds = new Set<string>();
