@@ -179,6 +179,8 @@ export interface AgentCapabilityFlags {
   supportsDynamicModes: boolean;
   supportsMcpServers: boolean;
   supportsNativePaseoTools?: boolean;
+  /** The provider loads skills synced to ~/.claude/skills or ~/.agents/skills, so Pimi's visual formats can live in a skill. */
+  readsBundledSkills?: boolean;
   supportsReasoningStream: boolean;
   supportsToolInvocations: boolean;
   supportsRewindConversation?: boolean;

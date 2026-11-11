@@ -3,7 +3,7 @@ name: pimi-visualize
 description: Choose and design a chart, dashboard, diagram, table, or interactive visual in Pimi chat. Use when the user asks to visualize, chart, graph, plot, diagram, compare, or "show me" a trend, breakdown, distribution, dashboard, system, or flow, wants something made easier to see, or when a reply is about to contain a table of numbers.
 ---
 
-The system prompt gives each block's format, one example, and its limits. This skill decides which block to use and what goes in it.
+Read `formats.md` beside this file before you write any block: it gives each block's format, an example, and its limits. This skill decides which block to use and what goes in it.
 
 To draw how an agent or LLM system works, read `agent-systems.md` beside this file first: it gives the block and the layout for each common case.
 

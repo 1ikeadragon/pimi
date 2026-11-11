@@ -111,7 +111,10 @@ import {
 import { AgentBackgroundWorkStore, type AgentBackgroundWorkItem } from "./background-work/index.js";
 import { withTimeout } from "../../utils/promise-timeout.js";
 import { extractAttention } from "../persistence-hooks.js";
-import { PIMI_VISUALIZATION_INSTRUCTIONS } from "@pimi/protocol/chat-visualization";
+import {
+  PIMI_VISUALIZATION_BRIEF,
+  PIMI_VISUALIZATION_INSTRUCTIONS,
+} from "@pimi/protocol/chat-visualization";
 import { buildAgentForkContextAttachment, MAX_FORK_CONTEXT_CHARS } from "./activity-curator.js";
 import { isChatHistoryAttachment } from "./prompt-attachments.js";
 import type { CarriedTimelineStore } from "./carried-timeline.js";
@@ -6502,7 +6505,9 @@ export class AgentManager {
             hostToolsEnabled: this.paseoToolsEnabled,
             isTaskWorker: Boolean(options.labels?.[PIMI_TASK_WORKER_LABEL]),
           }),
-          PIMI_VISUALIZATION_INSTRUCTIONS,
+          this.clients.get(storedConfig.provider)?.capabilities.readsBundledSkills === true
+            ? PIMI_VISUALIZATION_BRIEF
+            : PIMI_VISUALIZATION_INSTRUCTIONS,
         ]
       : [];
     const canRecallMemory =
