@@ -343,7 +343,7 @@ export function createAutomationCommand(): Command {
       .requiredOption("--provider <provider>", "Agent provider, or provider/model")
       .option(
         "--profile <name>",
-        "Agent profile id or name; each run's agent gets the profile's instructions",
+        "Agent profile id or name. Each run's agent starts with its instructions, and with its model and thinking where --provider names the profile's provider and gives none",
       )
       .option(
         "--mode <mode>",

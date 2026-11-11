@@ -145,8 +145,8 @@ export const AutomationRunStepSchema = z.object({
   agentId: z.string().nullable(),
   workspaceId: z.string().nullable(),
   // True only when the run made a new worktree for this step. Cleanup removes that worktree; a
-  // project directory or a worktree the run found is never torn down or removed.
-  // COMPAT(automation run files): runs recorded before this field have none and count as false.
+  // project directory or a worktree the run found is never torn down or removed. Absent counts
+  // as false, so cleanup removes nothing it cannot prove the run made.
   createdWorktree: z.boolean().optional(),
   modeId: z.string().nullable(),
   startedAt: z.string(),

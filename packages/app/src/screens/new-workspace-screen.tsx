@@ -501,10 +501,16 @@ async function createWorkspaceChatAgent(input: CreateChatAgentInput): Promise<Su
   };
   const agentCreation = {
     result: Promise.resolve().then(() => execute()),
+    // The workspace tab that retries rebuilds the config from its own composer, which does not
+    // know the profile this draft was sent with; carry it over.
     retry: (request: CreateAgentRequestOptions) =>
       execute({
         ...initialAgent,
-        config: { ...request.config!, cwd },
+        config: {
+          ...request.config!,
+          cwd,
+          ...(initialAgent.config?.profileId ? { profileId: initialAgent.config.profileId } : {}),
+        },
         initialPrompt: request.initialPrompt ?? "",
         clientMessageId: initialAgent.clientMessageId,
         images: request.images,

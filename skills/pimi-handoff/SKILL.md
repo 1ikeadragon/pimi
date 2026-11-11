@@ -10,7 +10,7 @@ Use the user's request and current conversation to identify the receiving agent,
 
 ## Choose the recipient
 
-Read the **pimi** skill. Call `list_profiles` and read the profile notes. Honor the user's requested profile or provider/model; otherwise choose the profile that fits the assignment. Copy its provider/model and runtime settings into `create_agent`. If no profile fits, discover available providers and models as described in **pimi**.
+Read the **pimi** skill. Call `list_profiles` and read the profile notes. Honor the user's requested profile or provider/model; otherwise choose the profile that fits the assignment. Pass it as `profile` to `create_agent`. If no profile fits, discover available providers and models as described in **pimi**.
 
 Use the current workspace unless the user requests another location. For a requested worktree, or parallel agents editing the same repository, call `create_workspace` with `isolation: "worktree"` first and pass the returned `workspaceId`.
 

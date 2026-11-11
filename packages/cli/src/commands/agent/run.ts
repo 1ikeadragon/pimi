@@ -40,7 +40,7 @@ export function addRunOptions(cmd: Command): Command {
     .option("--thinking <id>", "Thinking option ID to use for this run")
     .option(
       "--profile <name>",
-      "Agent profile id or name: adds its instructions; its provider, model, mode, and thinking fill flags you leave out",
+      "Agent profile id or name. The agent starts with its instructions; its provider and model apply without --provider, and its mode and thinking apply on its own provider where --mode and --thinking are not given",
     )
     .option("--mode <mode>", "Provider-specific mode (e.g., plan, default, bypass)")
     .option("--new-workspace <local|worktree>", "Create a separate local or worktree workspace")

@@ -82,7 +82,7 @@ pimi script stop <name> [--cwd <path> | --workspace <workspace-id>]
 
 ## Agents
 
-**`create_agent`** — required: `title`, `provider` (`claude/opus`, `codex/gpt-5.4`, …), `initialPrompt`. Optional: `workspaceId`, `notifyOnFinish`, `inheritContext`, `background`, `settings`, `labels`. Returns `{ agentId, workspaceId, … }`.
+**`create_agent`** — required: `title`, `initialPrompt`, and `provider` (`claude/opus`, `codex/gpt-5.4`, …) unless you pass a `profile` that sets one. Optional: `profile`, `workspaceId`, `notifyOnFinish`, `inheritContext`, `background`, `settings`, `labels`. Returns `{ agentId, workspaceId, … }`.
 
 `inheritContext: true` attaches this chat to the new agent as reference history. It works only for a subagent on your own host, and long history is shortened.
 
@@ -128,9 +128,13 @@ Allow only what the user's instructions for this work cover. Otherwise tell the 
 
 ## Agent profiles and provider discovery
 
-**`list_profiles`** — agent profiles: named setups for kinds of work, configured by the human. Before launching a delegated agent, call this tool and read every profile's `notes`. Pick the profile the user named, or the one whose notes best match the work.
+**`list_profiles`** — agent profiles the user keeps for kinds of work, such as reviewing or investigating. Call it before you delegate and read each profile's `notes`. Use the profile the user named, or the one whose notes match the work.
 
-Pass the profile's id or name as `profile` to `create_agent`. The agent starts with the profile's instructions as its system prompt, and the profile's provider, model, mode, thinking, and features fill anything you leave out; values you pass win. A profile without `provider` works with any provider, so pass `provider` with it. Put the assignment itself in `prompt`; the profile only sets up the agent.
+Pass the profile's id or name as `profile` to `create_agent`. The agent starts with the profile's `instructions` as its system prompt, so `initialPrompt` carries only the assignment; do not repeat the role there.
+
+- Omit `provider` to run on the profile's provider and model. A profile without `provider` runs on yours.
+- Pass `provider` to run the same instructions elsewhere, for example one reviewer profile on `claude` and again on `codex`. The profile's mode, thinking, and features then apply only if that is the profile's own provider.
+- `settings` you pass win over the profile's.
 
 If no profile fits, or no profiles are configured, use the provider discovery tools below. Tell the user when you fall back because no configured profile fits.
 
@@ -176,11 +180,11 @@ Pick by where the work runs:
 
 **`create_heartbeat`** — `prompt` and exactly one of `cron`, `every` (30s at least), `in`, or `at`. Optional: `timezone` (with `cron`), `name`, `maxRuns`, `expiresIn`. A one-time heartbeat (`in`, `at`) waits for your turn to end. A recurring one that comes due while you are mid-turn fails that fire, and the fire still counts toward `maxRuns`, so pick an interval longer than your turns. To change a heartbeat, create it again with the same `name`. `list_heartbeats` shows yours. Call `delete_heartbeat` with the `id` once the thing it watches is finished.
 
-**`create_automation`** — `name` and `prompt`. Optional: `cron`, `timezone`, `provider`, `profile`, `cwd`, `workspace`, `maxRuns`, `expiresIn`. Omit `cron` for an automation that runs only by hand. With `profile`, each run's agent starts with that profile's instructions.
+**`create_automation`** — `name` and `prompt`. Optional: `cron`, `timezone`, `provider`, `profile`, `cwd`, `workspace`, `maxRuns`, `expiresIn`. Omit `cron` for an automation that runs only by hand. With `profile`, each run's agent starts with that profile's instructions as they stand when the run starts, and `prompt` carries only the task.
 
 - It starts `pending` and does not run until the user approves it in the Automations screen. You cannot approve it. Tell the user it is waiting there; `run_automation_once` and `pause_automation` fail until they do.
 - Each run's agent starts with no memory of this conversation and nobody to ask. Write the prompt as a complete brief: the task, what a finished result looks like, and what to leave alone.
-- Runs use the provider's no-prompt mode when it has one, not the mode you are in. Without `provider` they use your provider and model; without `cwd`, your working directory. Set `workspace` to `worktree` when runs edit files.
+- Runs use the provider's no-prompt mode when it has one, not the mode you are in. Without `provider` they use the profile's provider and model, or yours when there is no profile or it sets none; without `cwd`, your working directory. Set `workspace` to `worktree` when runs edit files.
 - Creating one again with the same `name` replaces it and returns it to `pending`.
 
 Cron is read in the host's time zone unless you set `timezone`, for both tools; the stored cadence records the zone it used. Set `timezone` whenever the user names a time in another zone.

@@ -35,6 +35,7 @@ import {
   AgentProfileSchema,
   PimiCodebaseLimitSchema,
   PimiCodebaseQuerySchema,
+  type AgentProfile,
 } from "@pimi/protocol/messages";
 import type { DaemonConfigStore } from "../../daemon-config-store.js";
 import {
@@ -1017,22 +1018,22 @@ function createToolCatalog(
   // provider's unattended mode whatever mode the creating agent happens to be in.
   // A profile's provider and model stand in for a provider the caller left out.
   function resolveAutomationProfile(requestedProvider: string | undefined, profileName?: string) {
-    const profile = profileName
-      ? requireAgentProfile(daemonConfigStore?.get().agentProfiles ?? [], profileName)
-      : null;
+    const profile = profileName ? requireProfile(profileName) : null;
     const provider =
       requestedProvider?.trim() || !profile?.provider
         ? requestedProvider
         : formatProviderModel(profile.provider, profile.model);
-    return { profileFields: profile ? { profileId: profile.id } : {}, provider };
+    return { profile, provider };
   }
 
   function resolveAutomationAgentNode(requestedProvider: string | undefined, profileName?: string) {
-    const { profileFields, provider } = resolveAutomationProfile(requestedProvider, profileName);
+    const { profile, provider } = resolveAutomationProfile(requestedProvider, profileName);
     const callerAgent = resolveCallerAgent();
     if (!callerAgent && !provider?.trim()) {
       throw new PaseoToolInputError(
-        "provider is required outside an agent-scoped session unless the profile sets one",
+        profile
+          ? `Profile "${profile.name}" sets no provider. Pass provider.`
+          : "Pass provider: there is no calling agent to take one from.",
       );
     }
     const override = provider?.trim()
@@ -1040,7 +1041,12 @@ function createToolCatalog(
       : null;
     const resolvedProvider = override?.provider ?? callerAgent!.provider;
     const model = override ? override.model : (callerAgent?.config.model ?? undefined);
-    const inherited = callerAgent?.provider === resolvedProvider ? callerAgent : null;
+    // On the profile's own provider the step stores no thinking or features, so each run takes
+    // the profile's; the caller's would be stored on the step and win over them.
+    const profileSetsRunSettings = profile?.provider === resolvedProvider;
+    const inherited =
+      callerAgent?.provider === resolvedProvider && !profileSetsRunSettings ? callerAgent : null;
+    const profileFields = profile ? { profileId: profile.id } : {};
     return {
       id: "agent",
       kind: "agent" as const,
@@ -1165,7 +1171,7 @@ function createToolCatalog(
       .min(1)
       .optional()
       .describe(
-        "Agent profile id or exact name from list_profiles. The agent gets the profile's instructions, and its provider, model, mode, thinking, and features fill anything you leave out. Values you pass win.",
+        "Profile id or name from list_profiles. The agent starts with the profile's instructions as its system prompt. The profile's provider and model apply when you omit provider; its mode, thinking, and features apply only on the profile's own provider and only where settings leaves them out.",
       ),
     settings: CreateAgentSettingsInputSchema.optional().describe(
       "Initial runtime settings for the new agent.",
@@ -1225,13 +1231,13 @@ function createToolCatalog(
         ? {
             ...agentToAgentInputSchema,
             provider: ProviderOrProviderModelInputSchema.optional().describe(
-              "Provider/model pair, for example codex/gpt-5.4, or a provider alone for its default model. Omit to use your own provider and model.",
+              "Provider/model pair, for example codex/gpt-5.4, or a provider alone for its default model. Omit to use the profile's provider and model, or your own when there is no profile or it sets no provider.",
             ),
           }
         : {
             ...canonicalTopLevelInputSchema,
             provider: ProviderOrProviderModelInputSchema.optional().describe(
-              "Provider/model pair, for example codex/gpt-5.4, or a provider alone for its default model. Required unless the profile sets a provider.",
+              "Provider/model pair, for example codex/gpt-5.4, or a provider alone for its default model. Omit only with a profile that sets a provider.",
             ),
           },
     )
@@ -1683,7 +1689,7 @@ function createToolCatalog(
       description:
         scope === "agent"
           ? "Create an agent in your workspace as your subagent; the user sees it as a card in this chat. Requires an initial prompt. provider is a provider (codex) or provider/model (codex/gpt-5.4); omit it to use your own provider and model. For a different provider, omitting settings.modeId starts the agent in that provider's default mode. Do not guess ids; call list_providers and list_models first if uncertain."
-          : "Create an agent. Top-level creation without workspaceId creates a new local workspace. Requires a provider (codex, or codex/gpt-5.4 for a specific model) and an initial prompt. Omitting settings.modeId starts the agent in the provider's default mode. Do not guess; call list_providers and list_models first if uncertain.",
+          : "Create an agent. Top-level creation without workspaceId creates a new local workspace. Requires an initial prompt and either a provider (codex, or codex/gpt-5.4 for a specific model) or a profile that sets one. Omitting settings.modeId starts the agent in the provider's default mode. Do not guess; call list_providers and list_models first if uncertain.",
       inputSchema: createAgentInputSchema,
       outputSchema: {
         agentId: z.string(),
@@ -1818,15 +1824,30 @@ function createToolCatalog(
   // Agents asked to "use claude" name the provider alone; that means its default model.
   // An agent that names no provider gets its own provider and model.
   // A profile that names a provider stands in for an omitted provider argument.
+  // Naming the profile's own provider without a model keeps the profile's model too; without
+  // this, withDefaultModel would pin the provider's default model over it.
   function withProfileProvider(args: unknown): unknown {
     if (typeof args !== "object" || args === null) return args;
     const { profile: requested, provider } = args as { profile?: unknown; provider?: unknown };
-    if (typeof requested !== "string" || (provider !== undefined && provider !== null)) {
-      return args;
+    if (typeof requested !== "string" || !requested.trim()) return args;
+    const profile = requireProfile(requested);
+    const named = typeof provider === "string" ? provider.trim() : "";
+    if (named && named !== profile.provider) return args;
+    if (profile.provider) {
+      return { ...args, provider: formatProviderModel(profile.provider, profile.model) };
     }
-    const profile = requireAgentProfile(daemonConfigStore?.get().agentProfiles ?? [], requested);
-    if (!profile.provider) return args;
-    return { ...args, provider: formatProviderModel(profile.provider, profile.model) };
+    if (!resolveCallerAgent()) {
+      throw new PaseoToolInputError(`Profile "${profile.name}" sets no provider. Pass provider.`);
+    }
+    return args;
+  }
+
+  function requireProfile(idOrName: string): AgentProfile {
+    try {
+      return requireAgentProfile(daemonConfigStore?.get().agentProfiles ?? [], idOrName);
+    } catch (error) {
+      throw new PaseoToolInputError(error instanceof Error ? error.message : String(error));
+    }
   }
 
   async function withDefaultModel(args: unknown): Promise<unknown> {
@@ -2642,7 +2663,7 @@ function createToolCatalog(
               "IANA time zone for cron, for example America/New_York. Set it whenever the user names a local time.",
             ),
           provider: AgentProviderEnum.optional().describe(
-            "Provider, or provider/model (for example: codex or codex/gpt-5.4). Defaults to the profile's provider, then your own provider and model.",
+            "Provider, or provider/model (for example: codex or codex/gpt-5.4). Omit to use the profile's provider and model, or your own when there is no profile or it sets no provider.",
           ),
           profile: z
             .string()
@@ -2650,7 +2671,7 @@ function createToolCatalog(
             .min(1)
             .optional()
             .describe(
-              "Agent profile id or name from list_profiles. Each run's agent gets the profile's instructions and, unless you pass provider, its provider and model.",
+              "Profile id or name from list_profiles. Each run's agent starts with the profile's instructions as they are when that run starts.",
             ),
           cwd: z.string().optional().describe("Project directory. Defaults to your own."),
           workspace: z
@@ -3023,11 +3044,10 @@ function createToolCatalog(
     {
       title: "List agent profiles",
       description:
-        "List agent profiles: named launch setups for kinds of work, each with instructions " +
-        "the agent gets as its system prompt and optional provider, model, mode, and thinking. " +
-        "Read each profile's `notes` to pick the one that fits the task you're delegating, then " +
-        "pass its id or name as `profile` to create_agent. A profile without `provider` works " +
-        "with any provider. Returns an empty list if none are configured.",
+        "List agent profiles. A profile gives a new agent `instructions` as its system prompt " +
+        "and may set provider, model, mode, and thinking. `notes` says when to use it. Pass a " +
+        "profile's id or name as `profile` to create_agent or create_automation. A profile " +
+        "without `provider` runs on whatever provider the call uses.",
       inputSchema: {},
       outputSchema: {
         profiles: z.array(AgentProfileSchema),

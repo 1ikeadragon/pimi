@@ -123,6 +123,7 @@ import {
 import { renderPromptAttachmentAsText } from "../prompt-attachments.js";
 import { appendOrReplaceGrowingAssistantMessage, runProviderTurn } from "./provider-runner.js";
 import { resolveResumeProcessCwd } from "./resume-process-cwd.js";
+import { composeSystemPromptParts } from "../system-prompt.js";
 import {
   buildStringCommandShellInvocation,
   createStringCommandShellEnvOverlay,
@@ -2048,11 +2049,15 @@ export class ACPAgentSession implements AgentSession, ACPClient {
     return { turnId };
   }
 
-  // ACP has no system prompt channel, so the daemon's instructions ride ahead of one prompt per
-  // connection. A slash command has to lead its prompt to be recognized, so it goes out untouched
-  // and the instructions wait for the next prompt.
+  // ACP has no system prompt channel, so the agent's system prompt (a profile's instructions) and
+  // the daemon's instructions ride ahead of one prompt per connection. A slash command has to lead
+  // its prompt to be recognized, so it goes out untouched and the instructions wait for the next
+  // prompt.
   private takeDaemonInstructions(prompt: AgentPromptInput): ContentBlock[] {
-    const instructions = this.config.daemonAppendSystemPrompt?.trim();
+    const instructions = composeSystemPromptParts(
+      this.config.systemPrompt,
+      this.config.daemonAppendSystemPrompt,
+    );
     if (!instructions || this.daemonInstructionsDelivered) {
       return [];
     }
