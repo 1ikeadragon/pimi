@@ -16,7 +16,7 @@ $PreviousForceColor = $env:FORCE_COLOR
 try {
     $env:NO_COLOR = "1"
     $env:FORCE_COLOR = "0"
-    $env:EXPO_PORT = (npx get-port-cli 8081 8082 8083 8084 8085).Trim()
+    $env:EXPO_PORT = (node -e 'const net=require("node:net");const ports=[8081,8082,8083,8084,8085];(function t(i){if(i>=ports.length){console.error("No free port in 8081-8085");process.exit(1)}const s=net.createServer();s.once("error",()=>t(i+1));s.listen(ports[i],()=>s.close(()=>process.stdout.write(String(ports[i]))))})(0)').Trim()
 } finally {
     if ($null -eq $PreviousNoColor) {
         Remove-Item Env:\NO_COLOR -ErrorAction SilentlyContinue

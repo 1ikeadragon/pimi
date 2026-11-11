@@ -21,7 +21,17 @@ unset PASEO_DEV_RUNTIME_FALLBACK_ROOT
 mkdir -p "$PASEO_ELECTRON_USER_DATA_DIR"
 
 if [ -z "${EXPO_PORT:-}" ]; then
-  EXPO_PORT=$(NO_COLOR=1 FORCE_COLOR=0 "$ROOT_DIR/node_modules/.bin/get-port" 8082 8083 8084 8085 8086 8087 8088 8089)
+  # First free port in 8082-8089.
+  EXPO_PORT=$(node -e '
+const net = require("node:net");
+const ports = [8082, 8083, 8084, 8085, 8086, 8087, 8088, 8089];
+(function tryPort(i) {
+  if (i >= ports.length) { console.error("No free port in 8082-8089"); process.exit(1); }
+  const server = net.createServer();
+  server.once("error", () => tryPort(i + 1));
+  server.listen(ports[i], () => server.close(() => process.stdout.write(String(ports[i]))));
+})(0);
+')
 fi
 export EXPO_PORT
 export EXPO_DEV_URL="http://localhost:${EXPO_PORT}"
