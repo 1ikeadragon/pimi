@@ -189,7 +189,14 @@ function loadEntry(
   }
   const promise = runGitPriority(() =>
     buildEntry(root, gitPath, sha, AbortSignal.timeout(BLAME_TIMEOUT_MS)),
-  );
+  ).catch((error: unknown) => {
+    if (!isTimeout(error)) throw error;
+    // Blame of this blob at this commit is too slow; retrying on every cursor move would only
+    // restart it. The key holds the commit, so a new commit tries again.
+    const unavailable: CheckoutBlameResult = { status: "unavailable" };
+    timedOutResults.add(unavailable);
+    return unavailable;
+  });
   entries.set(key, promise);
   while (entries.size > MAX_ENTRIES) entries.delete(entries.keys().next().value!);
   const evict = () => {
@@ -197,10 +204,22 @@ function loadEntry(
   };
   // Failures are never cached, so Retry and later lines try again.
   promise.then(
-    (entry) => ("status" in entry && entry.status === "unavailable" ? evict() : null),
+    (entry) =>
+      "status" in entry && entry.status === "unavailable" && !timedOutResults.has(entry)
+        ? evict()
+        : null,
     evict,
   );
   return promise;
+}
+
+/** "unavailable" results that are cached because blame timed out, not because of a transient failure. */
+const timedOutResults = new WeakSet<object>();
+
+function isTimeout(error: unknown): boolean {
+  return (
+    error instanceof Error && (error.name === "TimeoutError" || /timed out/i.test(error.message))
+  );
 }
 
 function runGitPriority<T>(operation: () => Promise<T>): Promise<T> {

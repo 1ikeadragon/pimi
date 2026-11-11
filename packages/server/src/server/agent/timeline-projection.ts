@@ -430,6 +430,21 @@ export class TimelineProjection {
     return this.rows.map((row) => ({ ...row }));
   }
 
+  /** The newest row matching `predicate`, found without copying the rows. */
+  findLastRow(predicate: (row: ProjectedTimelineRow) => boolean): ProjectedTimelineRow | null {
+    for (let i = this.rows.length - 1; i >= 0; i -= 1) {
+      const row = this.rows[i];
+      if (row && predicate(row)) return { ...row };
+    }
+    return null;
+  }
+
+  /** The oldest row matching `predicate`, found without copying the rows. */
+  findFirstRow(predicate: (row: ProjectedTimelineRow) => boolean): ProjectedTimelineRow | null {
+    const row = this.rows.find(predicate);
+    return row ? { ...row } : null;
+  }
+
   selectPage(input: ProjectedTimelinePageOptions): ProjectedTimelinePageSelection {
     if (this.rows.length === 0) {
       const cursor =

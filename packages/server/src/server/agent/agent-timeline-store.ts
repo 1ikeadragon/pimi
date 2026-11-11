@@ -53,7 +53,7 @@ export class InMemoryAgentTimelineStore {
     this.states.set(agentId, {
       epoch: options?.epoch ?? randomUUID(),
       projection,
-      minSeq: projection.getRows()[0]?.seqStart ?? 0,
+      minSeq: rows.length > 0 ? projection.findFirstRow(() => true)!.seqStart : 0,
       nextSeq,
       completedCompactions: rows.reduce(
         (count, row) => count + Number(isCompletedCompaction(row.item)),
@@ -125,14 +125,13 @@ export class InMemoryAgentTimelineStore {
     callId: string,
     turnId?: string,
   ): Extract<AgentTimelineItem, { type: "tool_call" }> | null {
-    const rows = this.requireState(agentId).projection.getRows();
-    for (let i = rows.length - 1; i >= 0; i -= 1) {
-      const row = rows[i];
-      if (!row || row.item.type !== "tool_call" || row.item.callId !== callId) continue;
-      if (turnId !== undefined && row.turnId !== turnId) continue;
-      return row.item;
-    }
-    return null;
+    const row = this.requireState(agentId).projection.findLastRow(
+      (candidate) =>
+        candidate.item.type === "tool_call" &&
+        candidate.item.callId === callId &&
+        (turnId === undefined || candidate.turnId === turnId),
+    );
+    return row?.item.type === "tool_call" ? row.item : null;
   }
 
   getRows(agentId: string): ProjectedTimelineRow[] {
@@ -140,13 +139,11 @@ export class InMemoryAgentTimelineStore {
   }
 
   getSubmittedUserMessage(agentId: string, clientMessageId: string): AgentTimelineRow | null {
-    const row = this.requireState(agentId)
-      .projection.getRows()
-      .find(
-        (candidate) =>
-          candidate.item.type === "user_message" &&
-          candidate.item.clientMessageId === clientMessageId,
-      );
+    const row = this.requireState(agentId).projection.findFirstRow(
+      (candidate) =>
+        candidate.item.type === "user_message" &&
+        candidate.item.clientMessageId === clientMessageId,
+    );
     return row ? cloneRow(row) : null;
   }
 
