@@ -24,7 +24,8 @@ const BACK_EDGE_DASH = "4 3";
 function flowColors(theme: Theme) {
   const { colors } = theme;
   const tones: Record<ViewTone, string> = {
-    neutral: colors.border,
+    // border is a hairline divider (about 1.1-1.4:1 on the card); a box edge needs 3:1.
+    neutral: colors.foregroundMuted,
     positive: colors.statusSuccess,
     negative: colors.statusDanger,
     warning: colors.statusWarning,
