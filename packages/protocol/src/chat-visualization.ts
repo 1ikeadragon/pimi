@@ -96,6 +96,34 @@ export const FLOW_EXAMPLE = {
   },
 } satisfies ChatView;
 
+export const SEQUENCE_EXAMPLE = {
+  id: "login",
+  title: "Login retries a wrong password before it fails",
+  root: {
+    type: "sequence",
+    participants: [
+      { id: "app", label: "App" },
+      { id: "api", label: "API" },
+      { id: "db", label: "Database" },
+    ],
+    steps: [
+      { from: "app", to: "api", label: "POST /login" },
+      { from: "api", to: "db", label: "SELECT user" },
+      { from: "db", to: "api", label: "row", reply: true },
+      { from: "api", to: "api", label: "verify password hash" },
+      {
+        group: "Wrong password, up to 3 tries",
+        steps: [
+          { from: "api", to: "app", label: "401 retry", reply: true, tone: "warning" },
+          { from: "app", to: "api", label: "POST /login" },
+        ],
+      },
+      { note: "The password never reaches the database" },
+      { from: "api", to: "app", label: "200 session token", reply: true, tone: "positive" },
+    ],
+  },
+} satisfies ChatView;
+
 export const HTML_EXAMPLE = [
   "<title>Tip calculator</title>",
   "<style>input{background:var(--pimi-surface);color:var(--pimi-fg);border:1px solid var(--pimi-border);border-radius:6px;padding:4px 8px}</style>",
@@ -119,12 +147,13 @@ const TAUGHT_NODE_FIELDS = Object.entries(VIEW_NODE_FIELDS).filter(([type]) => t
 export const PIMI_VISUALIZATION_INSTRUCTIONS = [
   "Pimi chat draws four kinds of visual block. When a reply holds three or more numbers that compare, trend, break down into shares, or relate to each other, draw them, even when the user did not ask for a chart. The chart stands in for a table of the same values: add a table beside it only for columns the chart does not show. Chart the numbers that answer the question, and do not count files or lines only to have something to chart. Choose the block by what is shown, and use the first that fits:",
   `1. A chart of numbers (trend, comparison, ranking, distribution, share, or relationship): a ${PIMI_VEGA_FENCE} block.`,
-  `2. Headline metrics, a table of records, progress against a limit, or a flow, pipeline, architecture, call path, or dependency graph: a ${PIMI_VIEW_FENCE} block.`,
+  `2. Headline metrics, a table of records, progress against a limit, a flow, pipeline, architecture, call path, dependency graph, or state machine, or a sequence of messages between participants: a ${PIMI_VIEW_FENCE} block.`,
   `3. Something the user operates, such as a calculator, simulator, or explorer with sliders, inputs, or toggles: a ${PIMI_HTML_FENCE} block.`,
-  "4. A sequence diagram, state machine, or gantt chart: a mermaid block. Use Mermaid for nothing else: no flowchart, graph, pie, or xychart. Pimi shrinks the diagram to fit the chat column and a box 480 px tall, so a large one cannot be read. Keep it to 5 participants or 8 states and 15 arrows, counting each note as an arrow, and split a longer one into two diagrams.",
+  `4. A gantt chart of dated work: a mermaid block. Mermaid is the last resort, for a gantt chart or when the user asks for Mermaid by name. Draw a sequence diagram, state machine, flowchart, or graph as a ${PIMI_VIEW_FENCE} block: Pimi shrinks a Mermaid diagram to fit the chat column and a box 480 px tall, so its text cannot be read on a phone.`,
   "Write the block straight into the reply as a fenced code block with that name, holding only what the block takes: no comments, and no code fence inside it. Say one or two numbers in a sentence instead of drawing them.",
   "In any table, Markdown or block, the first column is the name and the second is the figure the user asked about: a phone shows four columns and hides the rest behind a sideways scroll.",
   'Take every figure in a block from the output of a command, not from arithmetic in your head, or put "sample" in the title. Make the title state the finding, with its unit and time range. For a dashboard, or when two forms could fit, read the pimi-visualize skill first.',
+  "Before you draw how an agent or LLM system works (agents talking to each other, subagents or handoffs, the agent loop, tool calls, context compaction, memory, a multi-step pipeline, retries or guardrails, a request lifecycle), read agent-systems.md in the pimi-visualize skill and use the layout it gives for that case.",
   "",
   `${PIMI_VEGA_FENCE} holds one Vega-Lite v6 spec as JSON:`,
   ...fenced(PIMI_VEGA_FENCE, JSON.stringify(VEGA_EXAMPLE)),
@@ -141,10 +170,13 @@ export const PIMI_VISUALIZATION_INSTRUCTIONS = [
   ...fenced(PIMI_VIEW_FENCE, JSON.stringify(VIEW_EXAMPLE)),
   "A flow node lays its boxes out for you. Give each box a short id and the name the code uses as its label, put the explanation in detail, and group boxes into lanes by layer or owner. A phone fits three boxes side by side: when more than three boxes feed or follow the same box, keep the two that matter and merge the rest into one box that lists them in its detail:",
   ...fenced(PIMI_VIEW_FENCE, JSON.stringify(FLOW_EXAMPLE)),
+  "For a state machine, make each state a box and each transition an edge labelled with its event.",
+  "A sequence node draws the messages between participants in time order, one column per participant. Use it when the order of the exchange is the point, such as a handshake or a request lifecycle, and a flow when the shape of the system is the point. Copy each participant name and message text as the source writes it, with no escaping; a long message wraps. A phone fits five participants:",
+  ...fenced(PIMI_VIEW_FENCE, JSON.stringify(SEQUENCE_EXAMPLE)),
   'Each node is an object with a "type" and these fields:',
   ...TAUGHT_NODE_FIELDS.map(([type, fields]) => `- ${type}: ${fields}`),
   `A tone is one of ${VIEW_TONES.join(", ")}. Every text field is plain text: no Markdown, HTML, links, images, or colors.`,
-  `Limits: ${VIEW_LIMITS.nodes} nodes, ${VIEW_LIMITS.depth} levels, ${VIEW_LIMITS.children} children per node, ${VIEW_LIMITS.tableColumns} table columns, ${VIEW_LIMITS.tableRows} table rows, ${VIEW_LIMITS.trendPoints} trend points, ${VIEW_LIMITS.title} characters per title, ${VIEW_LIMITS.label} per label, ${VIEW_LIMITS.value} per metric value, ${VIEW_LIMITS.cell} per table cell, ${VIEW_LIMITS.text} per text, ${VIEW_LIMITS.sourceLength} for the block. A flow holds up to ${VIEW_LIMITS.flowNodes} boxes, ${VIEW_LIMITS.flowEdges} edges, and ${VIEW_LIMITS.flowLanes} lanes, with ${VIEW_LIMITS.flowLabel} characters per box label, ${VIEW_LIMITS.flowEdgeLabel} per edge label, and ${VIEW_LIMITS.flowDetail} per detail. Every edge must name two different boxes by id.`,
+  `Limits: ${VIEW_LIMITS.nodes} nodes, ${VIEW_LIMITS.depth} levels, ${VIEW_LIMITS.children} children per node, ${VIEW_LIMITS.tableColumns} table columns, ${VIEW_LIMITS.tableRows} table rows, ${VIEW_LIMITS.trendPoints} trend points, ${VIEW_LIMITS.title} characters per title, ${VIEW_LIMITS.label} per label, ${VIEW_LIMITS.value} per metric value, ${VIEW_LIMITS.cell} per table cell, ${VIEW_LIMITS.text} per text, ${VIEW_LIMITS.sourceLength} for the block. A flow holds up to ${VIEW_LIMITS.flowNodes} boxes, ${VIEW_LIMITS.flowEdges} edges, and ${VIEW_LIMITS.flowLanes} lanes, with ${VIEW_LIMITS.flowLabel} characters per box label, ${VIEW_LIMITS.flowEdgeLabel} per edge label, and ${VIEW_LIMITS.flowDetail} per detail. Every edge must name two different boxes by id. A sequence holds up to ${VIEW_LIMITS.sequenceParticipants} participants and ${VIEW_LIMITS.sequenceSteps} steps counting every message, note, and group, with ${VIEW_LIMITS.sequenceLabel} characters per message and ${VIEW_LIMITS.sequenceNote} per note; a group can hold groups, one level deep.`,
   `To update a ${PIMI_VIEW_FENCE} block within the same reply, send another complete block with the same id.`,
   "",
   `${PIMI_HTML_FENCE} holds one HTML document or fragment, up to ${HTML_LIMITS.sourceLength} characters. Pimi runs it inline and shows its <title> above it:`,
