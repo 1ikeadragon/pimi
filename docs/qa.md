@@ -7,19 +7,18 @@ The bar is four questions:
 1. Does it work well?
 2. Does it regress anything else?
 3. Was it tested on every platform it affects?
-4. Is there automated coverage, and is that coverage real?
+4. Did you run the real flow, and does the evidence show it?
 
 Every pull request needs evidence for the questions its change touches. Pull requests without evidence get closed.
 
 For plugin changes, verify the [SDK import boundaries](plugins.md#sdk-import-boundaries) before
-exercising contributions. Include the boundary tests and both runtime loaders in the evidence.
+exercising contributions. Include both runtime loaders in the evidence.
 
 ## Evidence
 
 Evidence is something someone else can look at:
 
 - The commands you ran, pasted with their output
-- The tests you added and their results
 - Before and after screenshots
 - A video of the interaction
 - Logs, requests, responses
@@ -47,7 +46,7 @@ If your change touches a hot path such as the terminal, the message list, or git
 
 ## Every platform it affects
 
-Your code does not only run on the platform you tested it on. The same app ships to iOS, Android, browser web, and Electron on macOS, Windows, and Linux, and the daemon runs on all three desktop operating systems plus Docker.
+Your code does not only run on the platform you tested it on. The same app ships to iOS, Android, browser web, and Electron on macOS and Windows, and the daemon runs on both desktop operating systems.
 
 You aren't expected to own every device. You are expected to say what you covered:
 
@@ -58,7 +57,6 @@ You aren't expected to own every device. You are expected to say what you covere
 | Web             |        |       |
 | Desktop macOS   |        |       |
 | Desktop Windows |        |       |
-| Desktop Linux   |        |       |
 
 Install what you reasonably can. An iOS simulator and an Android emulator cover most of the gap on a single machine, see [development.md](development.md) and [android.md](android.md).
 
@@ -66,15 +64,13 @@ For the rules about which code runs where, read the platform gating section in [
 
 The app and daemon ship together, so test a change with both built from the same commit: [protocol-compatibility.md](protocol-compatibility.md).
 
-## Automated coverage that means something
+## Real-app evidence
 
-Tests are evidence only when they exercise the real thing.
+There is no automated test suite, so evidence comes from running the real flow. [testing.md](testing.md) says how: the dev daemon, the desktop and app dev servers, the CLI, and the packaged-app smoke.
 
-- A bug fix needs a regression test that fails on the old code for the reported reason.
-- A feature needs tests that go through the same interface a user or a caller uses.
-- Web flows need an actual Playwright run, not a mocked-out approximation of one.
-- Agent provider work needs manual verification against the real provider by someone who can tell that it worked. A fixture and a mock prove the fixture parses, nothing more.
+- Walk the flow with real inputs, not fixtures, and say which steps you ran.
+- A bug fix needs the original reproduction, run before and after your change.
+- Agent provider work needs a run against the real provider by someone who can tell that it worked.
+- Failure paths need a real failure: stop the daemon, send a bad input, drop the connection.
 
-Tests that mock away the behavior, assert on internals, or pass against the broken code claim coverage that isn't there.
-
-[testing.md](testing.md) is the standard, including how to run suites without freezing your machine. For driving a real daemon in a test, see [ad-hoc-daemon-testing.md](ad-hoc-daemon-testing.md). For mobile flows, [mobile-testing.md](mobile-testing.md). For Electron screenshots, [browser-capture-harness.md](browser-capture-harness.md).
+Show the result as commands with their output, screenshots, video, or logs. For Electron screenshots, see [browser-capture-harness.md](browser-capture-harness.md).

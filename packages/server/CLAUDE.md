@@ -8,7 +8,7 @@ Paseo is a mobile + CLI app for monitoring and controlling local AI coding agent
 
 ---
 
-## Build / Lint / Test Commands
+## Build / Lint Commands
 
 ### Root (monorepo)
 
@@ -16,7 +16,6 @@ Paseo is a mobile + CLI app for monitoring and controlling local AI coding agent
 npm run dev                          # Start daemon + Expo in Tmux
 npm run build:server                 # Build: highlight + relay + protocol + client + server + cli
 npm run typecheck                    # Typecheck all packages
-npm run test                         # Test all packages
 npm run format                       # Format with Biome (in-place)
 ```
 
@@ -27,23 +26,6 @@ npm run dev                          # Start dev daemon (tsx watch)
 npm run build                        # Build lib + scripts to dist/
 npm run start                        # Run production daemon from dist/
 npm run typecheck                    # Typecheck server source
-
-# Run a SINGLE test file
-npx vitest run src/server/agent/agent-manager.test.ts --reporter=verbose
-
-# Run a SINGLE test by name
-npx vitest run -t "returns timeout error when provider times out"
-
-# Test categories
-npm run test:unit                    # Unit tests only (excludes e2e)
-npm run test:integration             # Integration tests
-npm run test:integration:all         # All integration tests
-npm run test:integration:real       # Real API integration tests
-npm run test:integration:local       # Local integration tests
-npm run test:e2e                     # End-to-end tests (excludes real/local)
-npm run test:e2e:all                # All e2e tests
-npm run test:watch                  # Watch mode
-npm run test:ui                     # Vitest UI at localhost:51204
 ```
 
 ### Other useful commands
@@ -84,13 +66,12 @@ npm run cli -- daemon status                 # Check daemon status
 
 ### Imports
 
-- Use relative `.js` paths for imports within shipped server code, including type imports. TypeScript preserves `@server/*` aliases in JavaScript and declarations, and production Node has no alias resolver. Vitest tests support the alias.
+- Use relative `.js` paths for imports within shipped server code, including type imports. TypeScript preserves `@server/*` aliases in JavaScript and declarations, and production Node has no alias resolver.
 - No barrel `index.ts` re-exports — they create unnecessary indirection
 
 ### Naming
 
 - Files: `kebab-case.ts` named after the main export (`create-tool-call.ts`)
-- Tests: collocated with implementation (`thing.test.ts`)
 - No prefixes like `RpcX`, `DbX`, `UiX` — keep one canonical type per concept
 
 ### Error Handling
@@ -132,14 +113,9 @@ type FetchState =
 
 ---
 
-## Testing Philosophy
+## Verification
 
-Tests prove behavior, not structure. Every test should answer: "what user-visible or API-visible behavior does this verify?"
-
-- **TDD**: Work in vertical slices — one test, one implementation, repeat
-- **Determinism first**: No conditional assertions, no timing/randomness, no weak assertions
-- **Real deps over mocks**: Database, APIs, file system — real in tests
-- **Flaky tests are a bug**: Never remove a test because it's flaky; fix the variance source
+There is no automated test suite and you do not write unit tests. Verify in the real app: [../docs/testing.md](../docs/testing.md).
 
 ---
 
@@ -148,8 +124,7 @@ Tests prove behavior, not structure. Every test should answer: "what user-visibl
 1. **NEVER restart the daemon on port 6767** — it kills your own process
 2. **NEVER assume timeouts need a restart** — they can be transient
 3. **Always run `npm run typecheck` after changes**
-4. **NEVER add auth checks to tests** — agent providers handle their own auth
-5. **NEVER make breaking WebSocket/message schema changes** — always backward-compatible
+4. **NEVER make breaking WebSocket/message schema changes** — always backward-compatible
 
 ---
 
@@ -178,7 +153,6 @@ Daemon logs: `$PASEO_HOME/daemon.log`
 
 ```bash
 tail -f $PASEO_HOME/daemon.log      # Daemon logs
-npm run test:ui                     # Vitest browser UI at localhost:51204
 npm run cli -- inspect <agent-id>   # Detailed agent info
 npm run db:query -- "SELECT * FROM agent_timeline_rows..."
 ```
@@ -192,5 +166,5 @@ npm run db:query -- "SELECT * FROM agent_timeline_rows..."
 | [../CLAUDE.md](../CLAUDE.md)                               | Repository overview, critical rules, quick start |
 | [../docs/architecture.md](../docs/architecture.md)         | System design, WebSocket protocol, data flow     |
 | [../docs/coding-standards.md](../docs/coding-standards.md) | Type hygiene, error handling, React patterns     |
-| [../docs/testing.md](../docs/testing.md)                   | TDD workflow, determinism, real deps over mocks  |
+| [../docs/testing.md](../docs/testing.md)                   | Verifying in the real app, no unit tests         |
 | [../SECURITY.md](../SECURITY.md)                           | Relay threat model, E2E encryption               |

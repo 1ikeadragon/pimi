@@ -35,11 +35,6 @@
       "source": "./src/server/acp.ts",
       "default": "./dist/server/acp.js"
     },
-    "./client/react-native": {
-      "types": "./dist/client/react-native.d.ts",
-      "source": "./src/client/react-native.ts",
-      "default": "./dist/client/react-native.js"
-    },
     "./client/host": {
       "types": "./dist/client/host.d.ts",
       "source": "./src/client/host.ts",
@@ -67,7 +62,6 @@
     "build:clean": "npm run clean && npm run build",
     "prepack": "npm run build:clean",
     "typecheck": "tsgo --noEmit && npm run typecheck:examples",
-    "test": "vitest run",
     "typecheck:examples": "npm --prefix ../../plugin-examples/markdown-panel ci --ignore-scripts --no-audit --no-fund && tsgo -p tsconfig.examples.json --noEmit"
   },
   "dependencies": {

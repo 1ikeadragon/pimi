@@ -95,16 +95,9 @@ PASEO_HOME=~/.paseo-blue PASEO_LISTEN=127.0.0.1:7777 npm run dev
 - **Terminal**: tmux (via child_process)
 - **AI**: OpenAI (LLM + TTS), Deepgram (STT)
 
-## Testing
+## Verification
 
-Currently manual testing via:
-
-1. Start servers: `npm run dev`
-2. Open http://localhost:5173
-3. Test WebSocket connection (green status indicator)
-4. Click "Send Ping" button to test communication
-
-More testing guidance as features are implemented.
+There is no automated test suite. Run `npm run dev` from the repo root and exercise the change through the app or the CLI, as described in [docs/testing.md](../../docs/testing.md).
 
 ## License
 

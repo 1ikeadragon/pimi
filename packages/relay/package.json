@@ -29,9 +29,7 @@
     "build": "tsc -p tsconfig.json --incremental false",
     "build:clean": "npm run clean && npm run build",
     "prepack": "npm run build:clean",
-    "typecheck": "tsgo --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
     "@noble/ciphers": "2.4.0",

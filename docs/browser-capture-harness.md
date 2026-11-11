@@ -1,7 +1,7 @@
 # Browser Capture Harness
 
 The desktop capture harness is the real-Electron verification path for browser screenshots.
-It validates the compositor behavior that unit tests cannot see:
+It validates compositor behavior you can only see in a real Electron window:
 
 - the resident automation `<webview>` starts in the production parking state;
 - the parked guest remains paintable and has a copyable viewport frame;
@@ -89,10 +89,7 @@ including fresh, settled, 75-second soak, multi-tab, viewport, and full-page che
 PNG sizes may be device-pixel scaled; on a Retina display the 1280x800 logical viewport
 is usually saved as 2560x1600.
 
-The existing `npm run test:e2e:browser-tabs --workspace=@pimi/desktop` journey
-verifies that a hidden window stops guest animation, captures fresh viewport pixels,
-and resumes animation after restoring the window. Its artifacts include the screenshot
-and animation measurements. Full-page content correctness remains separately tracked in
+Full-page content correctness remains separately tracked in
 [the full-page repetition bug](https://github.com/1ikeadragon/pimi/issues/3196).
 
 ## Mechanism

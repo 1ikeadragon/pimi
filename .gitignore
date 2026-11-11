@@ -39,13 +39,6 @@ tsconfig.tsbuildinfo
 .idea/
 *.sublime-*
 
-# Testing
-coverage/
-
-# Playwright
-test-results/
-**/test-results/
-
 # Vercel
 .vercel/
 

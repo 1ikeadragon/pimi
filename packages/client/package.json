@@ -42,8 +42,7 @@
     "build:clean": "npm run clean && npm run build",
     "prepack": "npm run build:clean",
     "typecheck": "tsgo --noEmit",
-    "typecheck:examples": "tsgo -p tsconfig.examples.json --noEmit",
-    "test": "vitest run"
+    "typecheck:examples": "tsgo -p tsconfig.examples.json --noEmit"
   },
   "dependencies": {
     "@pimi/protocol": "0.17.17",

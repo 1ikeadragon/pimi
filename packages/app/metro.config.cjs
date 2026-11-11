@@ -25,12 +25,6 @@ const defaultResolveRequest = config.resolver.resolveRequest ?? resolve;
 // node crawler is the path used when Watchman is absent.
 config.resolver.useWatchman = false;
 
-const escapedAppSrcRoot = appSrcRoot
-  .split(path.sep)
-  .map((segment) => segment.replace(/[|\\{}()[\]^$+*?.]/g, "\\$&"))
-  .join("[\\\\/]");
-const pathSeparatorPattern = "[\\\\/]";
-
 config.resolver.extraNodeModules = {
   ...config.resolver.extraNodeModules,
   react: path.join(appNodeModulesRoot, "react"),
@@ -38,10 +32,6 @@ config.resolver.extraNodeModules = {
   "react/jsx-runtime": path.join(appNodeModulesRoot, "react/jsx-runtime"),
   "react/jsx-dev-runtime": path.join(appNodeModulesRoot, "react/jsx-dev-runtime"),
 };
-config.resolver.blockList = new RegExp(
-  `(^${escapedAppSrcRoot}${pathSeparatorPattern}.*\\.(test|spec)\\.(ts|tsx)$|${pathSeparatorPattern}__tests__${pathSeparatorPattern}.*)$`,
-);
-
 function isLocalModuleImport(moduleName) {
   return (
     moduleName.startsWith("./") ||

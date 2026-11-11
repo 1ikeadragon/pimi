@@ -28,16 +28,5 @@
     "src/terminal/**/*",
     "src/executable-resolution/which.d.ts"
   ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "src/server/**/test-utils/**",
-    "src/server/daemon-e2e/**",
-    "src/server/**/*.e2e.ts",
-    "src/server/**/*.e2e.tsx",
-    "src/**/*.test.ts",
-    "src/**/*.test.tsx",
-    "src/**/*.spec.ts",
-    "src/**/*.spec.tsx"
-  ]
+  "exclude": ["node_modules", "dist"]
 }

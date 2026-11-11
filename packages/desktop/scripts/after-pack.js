@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const { smokePackagedDesktopApp } = require("../e2e/packaged-app-smoke.js");
+const { smokePackagedDesktopApp } = require("./packaged-app-smoke.js");
 
 // electron-builder arch enum → Node.js arch string
 const ARCH_MAP = { 0: "ia32", 1: "x64", 2: "armv7l", 3: "arm64", 4: "universal" };

@@ -71,8 +71,7 @@
           "**/dotenv/config",
           "**/react-native",
           "**/@/styles/unistyles",
-          "**/src/styles/unistyles",
-          "**/@/test/window-local-storage"
+          "**/src/styles/unistyles"
         ]
       }
     ],
@@ -252,15 +251,6 @@
     },
     {
       "files": [
-        "packages/server/src/**/*.{test,spec,fixture}.{ts,tsx,mts,cts,js,jsx,mjs,cjs}",
-        "packages/server/src/**/test-utils/**",
-        "packages/server/src/server/daemon-e2e/**",
-        "packages/server/src/server/agent/providers/pi/extensions/*-test.ts"
-      ],
-      "rules": { "paseo/no-sync-io": "off" }
-    },
-    {
-      "files": [
         "plugins/*-provider/server/**/*.ts",
         "packages/plugin/src/server/acp-internal/**/*.ts"
       ],
@@ -329,11 +319,7 @@
       }
     },
     {
-      "files": [
-        "packages/app/src/data/**/*.{ts,tsx}",
-        "packages/app/src/**/*.test.{ts,tsx}",
-        "packages/app/src/**/*.spec.{ts,tsx}"
-      ],
+      "files": ["packages/app/src/data/**/*.{ts,tsx}"],
       "rules": {
         "no-restricted-imports": [
           "error",
@@ -538,7 +524,6 @@
     {
       "files": [
         "packages/app/src/components/ui/**/*.{ts,tsx}",
-        "packages/app/src/**/*.{test,spec}.{ts,tsx}",
         "packages/app/src/agent-profiles/settings/agent-profile-appearance-field.tsx",
         "packages/app/src/agent-skills/selection-sheet.tsx",
         "packages/app/src/agent-stream/chat-outline/rail.web.tsx",
@@ -632,12 +617,6 @@
       ],
       "rules": {
         "paseo/no-raw-pressable": "off"
-      }
-    },
-    {
-      "files": ["**/e2e/**/fixtures.ts"],
-      "rules": {
-        "no-empty-pattern": "off"
       }
     }
   ]
