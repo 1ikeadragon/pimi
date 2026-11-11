@@ -202,6 +202,8 @@ export interface MessageInputProps {
   voiceAgentId?: string;
   /** When true and there's sendable content, calls onQueue instead of onSubmit */
   isAgentRunning?: boolean;
+  /** Show Stop with an empty composer although no turn is running: subagents are working. */
+  canStopIdle?: boolean;
   /** Controls what the default send action (Enter, send button, dictation) does when the agent is
    *  running. "interrupt" and "steer" send immediately, "queue" queues. Required so the default
    *  lives only in DEFAULT_CLIENT_SETTINGS. */
@@ -1910,7 +1912,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
         hasExternalContent,
       }),
       allowEmptySubmit,
-      isAgentRunning,
+      isAgentRunning: isAgentRunning || props.canStopIdle === true,
       isSubmitLoading,
     });
     const { canPressLoadingButton, isSendButtonDisabled, defaultActionQueues } =

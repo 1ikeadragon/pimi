@@ -1,4 +1,5 @@
 import { AnnotationPill } from "@/annotations/pill";
+import { useHasWorkingSubagents } from "@/subagents/use-has-working-subagents";
 import {
   useComposerEditingSession,
   useComposerFullscreen,
@@ -1786,6 +1787,8 @@ function ComposerContentImpl({
     (state) => selectAgentTurnPresentation(state.sessions[serverId], agentId).isCancelling,
   );
   const isAgentRunning = hasActiveTurn;
+  // An idle chat can still stop: Stop reaches its working subagents.
+  const hasWorkingSubagents = useHasWorkingSubagents(serverId, agentId);
   const showPimiQueueControls = Boolean(getDesktopHost()?.showPimiWorkspace);
   // Queueing behind a permission prompt would strand the message: the turn is
   // parked until the request is answered.
@@ -2098,7 +2101,7 @@ function ComposerContentImpl({
     const cancellation = cancelComposerAgent({
       client,
       agentId: targetAgentId,
-      isAgentRunning,
+      isAgentRunning: isAgentRunning || hasWorkingSubagents,
       isCancellingAgent,
       isConnected,
     });
@@ -2115,7 +2118,7 @@ function ComposerContentImpl({
         getHostRuntimeStore().settleAgentCancellation(serverId, targetAgentId, requestId);
       });
     messageInputRef.current?.focus();
-  }, [client, isAgentRunning, isCancellingAgent, isConnected, serverId]);
+  }, [client, hasWorkingSubagents, isAgentRunning, isCancellingAgent, isConnected, serverId]);
 
   const focusMessageInputForKeyboardAction = useCallback(() => {
     focusMessageInputWithPlatformStrategy(messageInputRef);
@@ -2751,6 +2754,7 @@ function ComposerContentImpl({
                   voiceServerId={serverId}
                   voiceAgentId={agentId}
                   isAgentRunning={isAgentRunning}
+                  canStopIdle={hasWorkingSubagents}
                   defaultSendBehavior={activeSendBehavior}
                   sendShortcut={appSettings.sendShortcut}
                   onQueue={handleQueue}

@@ -81,10 +81,13 @@ export async function runStopCommand(
       agents = [fetchResult.agent];
     }
 
-    // Interrupt each running agent. Idle agents are a no-op.
+    // Interrupt each running agent. A named agent is always sent the stop: an idle one can still
+    // have working subagents, which the daemon stops with it.
     const stopResults = await Promise.all(
       agents.map(async (agent) => {
-        if (agent.status !== "running") return { ok: true as const, id: agent.id, stopped: false };
+        const named = Boolean(id) && !options.all && !options.cwd;
+        if (!named && agent.status !== "running")
+          return { ok: true as const, id: agent.id, stopped: false };
         try {
           await client.cancelAgent(agent.id);
           return { ok: true as const, id: agent.id, stopped: true };
