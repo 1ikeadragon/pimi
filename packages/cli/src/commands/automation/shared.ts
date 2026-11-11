@@ -1,5 +1,10 @@
 import type { DaemonClient } from "@pimi/client/internal/daemon-client";
-import type { Automation, AutomationRun } from "@pimi/protocol/automation/types";
+import type {
+  Automation,
+  AutomationActor,
+  AutomationRun,
+  AutomationRunCause,
+} from "@pimi/protocol/automation/types";
 import type { Heartbeat } from "@pimi/protocol/heartbeat/types";
 import { everyMsToFiveFieldCron } from "@pimi/protocol/schedule/cadence";
 import type { CommandError, CommandOptions, OutputSchema } from "../../output/index.js";
@@ -94,6 +99,9 @@ export function formatTrigger(automation: Automation): string {
   if (automation.trigger.kind === "manual") {
     return "manual";
   }
+  if (automation.trigger.kind === "pull_request") {
+    return `pr:${automation.trigger.repo} (${automation.trigger.events.join(",")})`;
+  }
   const cadence = automation.trigger.cadence;
   if (cadence.type === "every") {
     return `every:${formatDurationMs(cadence.everyMs)}`;
@@ -112,8 +120,31 @@ export function formatHeartbeatCadence(heartbeat: Heartbeat): string {
   return `cron:${cadence.expression}${cadence.timezone ? ` (${cadence.timezone})` : ""}`;
 }
 
-function agentNode(automation: Automation) {
-  return automation.flow.nodes.find((node) => node.kind === "agent") ?? null;
+export function formatActor(actor: AutomationActor): string {
+  return actor.kind === "agent" ? `agent:${actor.agentId.slice(0, 7)}` : actor.kind;
+}
+
+function formatProvider(automation: Automation): string {
+  const providers = new Set(
+    automation.flow.nodes.flatMap((node) =>
+      node.kind === "agent" ? [`${node.provider}${node.model ? `/${node.model}` : ""}`] : [],
+    ),
+  );
+  return providers.size > 0 ? [...providers].join(", ") : "-";
+}
+
+export function formatRunCause(cause: AutomationRunCause): string {
+  if (cause.kind === "manual") {
+    return "manual";
+  }
+  if (cause.kind === "retry") {
+    return `retry of ${cause.runId}`;
+  }
+  const event = cause.event;
+  if (event.kind === "schedule") {
+    return `schedule ${event.scheduledFor}`;
+  }
+  return `pr ${event.repo}#${event.number} ${event.action}`;
 }
 
 export interface AutomationRow {
@@ -128,7 +159,6 @@ export interface AutomationRow {
 }
 
 export function toAutomationRow(automation: Automation): AutomationRow {
-  const node = agentNode(automation);
   const status =
     automation.status === "paused" && automation.pausedReason === "failures"
       ? "paused (failures)"
@@ -137,12 +167,9 @@ export function toAutomationRow(automation: Automation): AutomationRow {
     id: automation.id,
     name: automation.name,
     trigger: formatTrigger(automation),
-    provider: node ? `${node.provider}${node.model ? `/${node.model}` : ""}` : "-",
+    provider: formatProvider(automation),
     status,
-    origin:
-      automation.origin.kind === "agent"
-        ? `agent:${automation.origin.agentId.slice(0, 7)}`
-        : "user",
+    origin: formatActor(automation.origin),
     nextRunAt: automation.nextRunAt,
     lastRun: automation.lastRun
       ? `${automation.lastRun.status} ${automation.lastRun.startedAt}`
@@ -177,7 +204,7 @@ export function toAutomationRunRow(run: AutomationRun): AutomationRunRow {
   return {
     id: run.id,
     status: run.status,
-    cause: run.cause.kind === "manual" ? "manual" : `schedule ${run.cause.event.scheduledFor}`,
+    cause: formatRunCause(run.cause),
     startedAt: run.startedAt,
     endedAt: run.endedAt,
     agentId: run.reportAgentId,
