@@ -85,7 +85,7 @@ To change an automation, edit it in the app, or delete it and create a new one.
 
 Use `--cron "<expr>"` for a 5-field cron expression. `--every <duration>` accepts intervals such as `15m` or `1h` and compiles them to cron; an interval cron cannot represent is rejected. It does not create a rolling interval anchored to creation time.
 
-Cadences default to UTC. Pass `--timezone <IANA>` to read them in a local wall-clock time zone, for example `--timezone America/New_York`, so the job stays at the same local time across daylight saving time changes.
+Cadences default to the host's time zone, and the stored cadence names it. Pass `--timezone <IANA>` to read them in a local wall-clock time zone, for example `--timezone America/New_York`, so the job stays at the same local time across daylight saving time changes.
 
 Start the command with `pimi --host <target> automation create ...` when targeting a remote daemon. `--cwd` is required with `--host`; your local working directory may not exist on the remote machine.
 
@@ -117,4 +117,4 @@ pimi heartbeat delete <id>
 pimi heartbeat ls
 ```
 
-`create`, `update`, and `delete` must run inside a Pimi agent, which sets `PASEO_AGENT_ID`. `update` changes only the cadence. `ls` lists this agent's heartbeats inside an agent and all heartbeats otherwise. Heartbeats of an archived agent are deleted.
+`create` must run inside a Pimi agent, which sets `PASEO_AGENT_ID`. Inside an agent, `update`, `delete`, and `ls` reach only that agent's heartbeats; outside one they reach every heartbeat on the host, so you can stop or reschedule any heartbeat by its id. `update` changes only the cadence. Heartbeats of an archived agent are deleted.

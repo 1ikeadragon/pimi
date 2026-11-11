@@ -336,7 +336,7 @@ export function createAutomationCommand(): Command {
         "--every <duration>",
         "Interval that divides an hour or a day evenly (for example: 15m, 2h)",
       )
-      .option("--timezone <iana>", "IANA time zone for the cadence (default: UTC)")
+      .option("--timezone <iana>", "IANA time zone for the cadence (default: the host's time zone)")
       .requiredOption("--provider <provider>", "Agent provider, or provider/model")
       .option(
         "--mode <mode>",

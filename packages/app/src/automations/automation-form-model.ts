@@ -141,6 +141,7 @@ export interface AutomationFormModel {
 
 const DEFAULT_CADENCE: Cadence = { type: "every", everyMs: 60 * 60 * 1000 };
 const DEFAULT_TIMEZONE = "UTC";
+export const UNATTENDED_MODE_LABEL = "Unattended (default)";
 
 type ThinkingOption = NonNullable<AgentModelDefinition["thinkingOptions"]>[number];
 
@@ -320,7 +321,7 @@ function resolveModeDisplay(input: {
 }): AutomationFormDisplay {
   const modeId = input.modeId.trim();
   if (!modeId) {
-    return { label: "Default mode" };
+    return { label: UNATTENDED_MODE_LABEL };
   }
   return { label: input.modeOptions.find((mode) => mode.id === modeId)?.label ?? modeId };
 }
@@ -429,7 +430,7 @@ function buildInitialModelDisplay(modelId: string): AutomationFormDisplay | null
 
 function buildInitialModeDisplay(modeId: string): AutomationFormDisplay {
   if (!modeId) {
-    return { label: "Default mode" };
+    return { label: UNATTENDED_MODE_LABEL };
   }
   return { label: modeId };
 }
@@ -734,7 +735,10 @@ function resolveSnapshotSelection(input: {
     toFormState(input.state),
     allowedProviderMap,
   );
-  return applyResolvedFormState(input.state, resolved);
+  // The shared resolver falls back to the provider's default chat mode. An automation leaves
+  // the mode empty instead so its runs use the unattended mode.
+  const modeId = input.userModified.modeId ? resolved.modeId : (input.initialValues?.modeId ?? "");
+  return applyResolvedFormState(input.state, { ...resolved, modeId });
 }
 
 function preferencesForSnapshotResolution(
@@ -744,8 +748,8 @@ function preferencesForSnapshotResolution(
   return snapshot.mode === "edit" ? null : preferences;
 }
 
+// An empty mode means the provider's unattended mode, which the daemon picks per run.
 function pickModeForProvider(input: {
-  entries: readonly ProviderSnapshotEntry[];
   provider: AgentProvider;
   currentProvider: AgentProvider | null;
   currentMode: string;
@@ -754,8 +758,7 @@ function pickModeForProvider(input: {
   if (input.currentProvider === input.provider && currentMode) {
     return currentMode;
   }
-  const entry = resolveSelectedEntry(input.entries, input.provider);
-  return entry?.defaultModeId ?? entry?.modes?.[0]?.id ?? "";
+  return "";
 }
 
 function pickModelForProvider(input: {
@@ -895,7 +898,7 @@ export function openAutomationForm(snapshot: AutomationFormSnapshot): Automation
       modeOptions: [],
       availableThinkingOptions: [],
       selectedModelDisplay: null,
-      selectedModeDisplay: { label: "Default mode" },
+      selectedModeDisplay: { label: UNATTENDED_MODE_LABEL },
       selectedThinkingDisplay: null,
       providerSnapshotRequest: null,
     };
@@ -1057,7 +1060,6 @@ export function openAutomationForm(snapshot: AutomationFormSnapshot): Automation
         selectedProvider: provider,
         selectedModel,
         selectedMode: pickModeForProvider({
-          entries: providerEntries,
           provider,
           currentProvider: state.selectedProvider,
           currentMode: state.selectedMode,

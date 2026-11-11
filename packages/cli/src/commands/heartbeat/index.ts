@@ -86,15 +86,20 @@ function parseCadence(options: HeartbeatCadenceOptions): HeartbeatCadence {
   return { type: "once", at: at.toISOString() };
 }
 
-async function requireOwnedHeartbeat(
+// Inside an agent, update and delete reach only that agent's heartbeats. Outside one, the
+// owner can change any heartbeat by id.
+async function requireReachableHeartbeat(
   client: Parameters<Parameters<typeof withAutomationClient>[3]>[0],
   id: string,
-  agentId: string,
 ): Promise<void> {
-  const { heartbeats } = await client.heartbeatList({ agentId });
-  if (!heartbeats.some((heartbeat) => heartbeat.id === id)) {
-    throw new Error(`Heartbeat ${id} does not belong to agent ${agentId}`);
+  const agentId = callerAgentId();
+  const { heartbeats } = await client.heartbeatList(agentId ? { agentId } : {});
+  if (heartbeats.some((heartbeat) => heartbeat.id === id)) {
+    return;
   }
+  throw new Error(
+    agentId ? `Heartbeat ${id} does not belong to agent ${agentId}` : `Heartbeat not found: ${id}`,
+  );
 }
 
 async function runCreateHeartbeat(
@@ -131,14 +136,13 @@ async function runUpdateHeartbeat(
   options: HeartbeatCadenceOptions,
   _command: Command,
 ): Promise<SingleResult<HeartbeatRow>> {
-  const agentId = requireCallerAgentId();
   const cadence = parseCadence(options);
   return withAutomationClient(
     options,
     "HEARTBEAT_UPDATE_FAILED",
     "update heartbeat",
     async (client) => {
-      await requireOwnedHeartbeat(client, id, agentId);
+      await requireReachableHeartbeat(client, id);
       const { heartbeat } = await client.heartbeatUpdate({ heartbeatId: id, cadence });
       return { type: "single", data: toHeartbeatRow(heartbeat), schema: heartbeatSchema };
     },
@@ -150,13 +154,12 @@ async function runDeleteHeartbeat(
   options: CommandOptions,
   _command: Command,
 ): Promise<SingleResult<HeartbeatDeleteRow>> {
-  const agentId = requireCallerAgentId();
   return withAutomationClient(
     options,
     "HEARTBEAT_DELETE_FAILED",
     "delete heartbeat",
     async (client) => {
-      await requireOwnedHeartbeat(client, id, agentId);
+      await requireReachableHeartbeat(client, id);
       const payload = await client.heartbeatDelete({ heartbeatId: id });
       return {
         type: "single",
@@ -185,7 +188,10 @@ async function runListHeartbeats(
 
 function addCadenceOptions(command: Command): Command {
   return command
-    .option("--cron <expr>", "Five-field cron cadence, read in UTC unless --timezone is set")
+    .option(
+      "--cron <expr>",
+      "Five-field cron cadence, read in the host's time zone unless --timezone is set",
+    )
     .option("--timezone <iana>", "IANA time zone for --cron")
     .option("--every <duration>", "Repeat at this interval, at least 30s (for example: 90s, 15m)")
     .option(
@@ -197,7 +203,7 @@ function addCadenceOptions(command: Command): Command {
 
 export function createHeartbeatCommand(): Command {
   const heartbeat = new Command("heartbeat").description(
-    "Prompts sent back to this agent later; create, update, and delete run inside an agent",
+    "Prompts sent back to an agent later; create runs inside an agent, update and delete also work outside one",
   );
   addJsonAndDaemonHostOptions(
     addCadenceOptions(
@@ -216,12 +222,17 @@ export function createHeartbeatCommand(): Command {
     addCadenceOptions(
       heartbeat
         .command("update")
-        .description("Change when a heartbeat fires")
+        .description(
+          "Change when a heartbeat fires (inside an agent, only that agent's heartbeats)",
+        )
         .argument("<id>", "Heartbeat ID"),
     ),
   ).action(withOutput(runUpdateHeartbeat));
   addJsonAndDaemonHostOptions(
-    heartbeat.command("delete").description("Delete a heartbeat").argument("<id>", "Heartbeat ID"),
+    heartbeat
+      .command("delete")
+      .description("Delete a heartbeat (inside an agent, only that agent's heartbeats)")
+      .argument("<id>", "Heartbeat ID"),
   ).action(withOutput(runDeleteHeartbeat));
   addJsonAndDaemonHostOptions(
     heartbeat

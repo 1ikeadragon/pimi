@@ -54,6 +54,7 @@ import type {
   AutomationFormState,
   AutomationFormTriggerKind,
 } from "@/automations/automation-form-model";
+import { UNATTENDED_MODE_LABEL } from "@/automations/automation-form-model";
 import { validateCron } from "@/utils/automation-format";
 import { toErrorMessage } from "@/utils/error-messages";
 import { getDeviceTimeZone } from "@/utils/device-timezone";
@@ -578,12 +579,19 @@ function AutomationTargetFields({
   }, [selectedHost, state.selectedServerId]);
   const projectOptions = state.projectOptions;
   const modeOptions = useMemo<SelectFieldOption<string>[]>(
-    () =>
-      state.modeOptions.map((option) => ({
+    () => [
+      {
+        id: "automation-mode-unattended",
+        value: "",
+        label: UNATTENDED_MODE_LABEL,
+        description: "Runs without asking for permission",
+      },
+      ...state.modeOptions.map((option) => ({
         id: option.id,
         value: option.id,
         label: option.label,
       })),
+    ],
     [state.modeOptions],
   );
   const thinkingOptions = useMemo<SelectFieldOption<string>[]>(
@@ -762,15 +770,13 @@ function AutomationTargetFields({
       {state.disclosure.showModeField ? (
         <SelectField
           label="Mode"
-          value={state.selectedMode || null}
+          value={state.selectedMode}
           selectedDisplay={state.selectedModeDisplay}
           options={modeOptions}
           onChange={handleSelectMode}
-          placeholder="Default mode"
+          placeholder={UNATTENDED_MODE_LABEL}
           emptyText="No modes found"
-          disabled={modeOptions.length === 0}
-          hint={modeOptions.length === 0 ? "No modes are available for this model." : undefined}
-          searchable={modeOptions.length > 6}
+          searchable={modeOptions.length > 7}
           title="Select mode"
           size={controlSize}
           triggerTestID="automation-mode-trigger"

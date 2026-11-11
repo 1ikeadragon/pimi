@@ -83,7 +83,7 @@ pimi automation rm <id>
 
 使用 `--cron "<expr>"` 指定 5 字段的 cron 表达式。`--every <duration>` 接受 `15m` 或 `1h` 这样的间隔，并把它们编译为 cron；cron 无法表示的间隔会被拒绝。它不会创建以创建时间为起点的滚动间隔。
 
-节奏默认使用 UTC。传入 `--timezone <IANA>` 可以按本地挂钟时区解释，例如 `--timezone America/New_York`，这样任务在夏令时变化前后都保持在相同的本地时间。
+节奏默认使用主机所在的时区，保存的节奏会记下这个时区。传入 `--timezone <IANA>` 可以按本地挂钟时区解释，例如 `--timezone America/New_York`，这样任务在夏令时变化前后都保持在相同的本地时间。
 
 以远程 daemon 为目标时，用 `pimi --host <target> automation create ...` 开始命令。使用 `--host` 时必须传入 `--cwd`；你本地的工作目录在远程机器上可能不存在。
 
@@ -115,4 +115,4 @@ pimi heartbeat delete <id>
 pimi heartbeat ls
 ```
 
-`create`、`update` 和 `delete` 必须在 Pimi Agent 内运行，Pimi 会在其中设置 `PASEO_AGENT_ID`。`update` 只改变节奏。`ls` 在 Agent 内列出该 Agent 的 heartbeat，否则列出全部。已归档 Agent 的 heartbeat 会被删除。
+`create` 必须在 Pimi Agent 内运行，Pimi 会在其中设置 `PASEO_AGENT_ID`。在 Agent 内，`update`、`delete` 和 `ls` 只作用于该 Agent 的 heartbeat；在 Agent 外，它们作用于主机上的全部 heartbeat，因此你可以按 id 停止或调整任何 heartbeat。`update` 只改变节奏。已归档 Agent 的 heartbeat 会被删除。

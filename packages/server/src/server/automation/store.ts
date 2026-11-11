@@ -53,7 +53,8 @@ export class AutomationStore {
   }
 
   // Keep the newest 50 runs and nothing older than 30 days. A running run is never dropped.
-  async pruneRuns(automationId: string, now: Date): Promise<void> {
+  // Returns the dropped runs so the caller can archive their workspaces.
+  async pruneRuns(automationId: string, now: Date): Promise<AutomationRun[]> {
     const runs = await this.listRuns(automationId);
     const cutoff = now.getTime() - RUN_RETENTION_MS;
     const doomed = runs.filter(
@@ -62,6 +63,7 @@ export class AutomationStore {
         (index >= RUN_RETENTION_COUNT || new Date(run.startedAt).getTime() < cutoff),
     );
     await Promise.all(doomed.map((run) => this.runs(automationId).delete(run.id)));
+    return doomed;
   }
 
   async deleteAutomation(automationId: string): Promise<void> {

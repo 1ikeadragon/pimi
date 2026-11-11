@@ -2575,7 +2575,7 @@ function createToolCatalog(
             .min(1)
             .optional()
             .describe(
-              "Five-field cron, read in UTC unless timezone is set. Omit for an automation that runs only by hand.",
+              "Five-field cron, read in the host's time zone unless timezone is set. Omit for an automation that runs only by hand.",
             ),
           timezone: z
             .string()
@@ -2773,7 +2773,7 @@ function createToolCatalog(
             .trim()
             .min(1)
             .optional()
-            .describe("Five-field cron, read in UTC unless timezone is set."),
+            .describe("Five-field cron, read in the host's time zone unless timezone is set."),
           timezone: z
             .string()
             .trim()

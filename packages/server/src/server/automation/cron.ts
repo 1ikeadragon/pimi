@@ -79,6 +79,20 @@ function createCronDatePartsReader(timeZone: string | undefined): (date: Date) =
   };
 }
 
+// The daemon's own time zone, used for a cron cadence that arrives without one (agent tools
+// and the CLI). The app always sends the device's zone.
+export function hostTimeZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+}
+
+// Fills in the host time zone on a cron cadence, so the stored record says which zone it uses.
+export function withHostTimeZone<T extends { type: string; timezone?: string }>(cadence: T): T {
+  if (cadence.type !== "cron" || cadence.timezone !== undefined) {
+    return cadence;
+  }
+  return { ...cadence, timezone: hostTimeZone() };
+}
+
 export function validateCadence(cadence: Cadence): void {
   if (cadence.type === "cron") {
     const error = validateCronExpression(cadence.expression);

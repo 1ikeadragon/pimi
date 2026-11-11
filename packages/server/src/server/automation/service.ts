@@ -18,7 +18,7 @@ import {
   validateAutomationDefinition,
 } from "@pimi/protocol/automation/validate";
 import { AutomationAuditLog } from "./audit.js";
-import { computeNextRunAt, validateCadence } from "./cron.js";
+import { computeNextRunAt, validateCadence, withHostTimeZone } from "./cron.js";
 import {
   type AutomationEngineDeps,
   type RunHandle,
@@ -108,8 +108,12 @@ function normalizeDefinition(definition: AutomationDefinition): NormalizedDefini
   if (issues.length > 0) {
     throw new Error(issues.map((issue) => issue.message).join("; "));
   }
-  if (definition.trigger.kind === "schedule") {
-    const cadence = definition.trigger.cadence;
+  const trigger =
+    definition.trigger.kind === "schedule"
+      ? { ...definition.trigger, cadence: withHostTimeZone(definition.trigger.cadence) }
+      : definition.trigger;
+  if (trigger.kind === "schedule") {
+    const cadence = trigger.cadence;
     if (cadence.type === "every" && cadence.everyMs < MIN_EVERY_MS) {
       throw new Error(`An automation cannot run more often than every ${MIN_EVERY_MS / 1000}s`);
     }
@@ -132,7 +136,7 @@ function normalizeDefinition(definition: AutomationDefinition): NormalizedDefini
     name: definition.name.trim(),
     description: description ? description : null,
     project: { cwd: resolve(definition.project.cwd.trim()) },
-    trigger: definition.trigger,
+    trigger,
     flow: definition.flow,
     limits,
   };
@@ -155,6 +159,7 @@ export class AutomationService {
   private readonly activeRuns = new Map<string, ActiveRun>();
   private readonly originLocks = new Map<string, Promise<unknown>>();
   private admission: Promise<unknown> = Promise.resolve();
+  private archiveQueue: Promise<void> = Promise.resolve();
   private tickTimer: ReturnType<typeof setInterval> | null = null;
   private ticking = false;
 
@@ -324,6 +329,7 @@ export class AutomationService {
     return automation;
   }
 
+  // Runs still going are cancelled here and archive their own workspaces when they stop.
   async delete(id: string, actor: AutomationActor): Promise<void> {
     await this.get(id);
     for (const [runId, active] of this.activeRuns) {
@@ -331,7 +337,9 @@ export class AutomationService {
         this.stopRun(runId, "cancelled");
       }
     }
+    const finished = (await this.store.listRuns(id)).filter((run) => run.status !== "running");
     await this.store.deleteAutomation(id);
+    this.archiveRunWorkspaces(finished);
     await this.audit.append({
       automationId: id,
       action: "deleted",
@@ -594,6 +602,7 @@ export class AutomationService {
     let status: AutomationRunStatus = "succeeded";
     let output: string | null = null;
     let error: string | null = null;
+    let workspaceIdSeen: string | null = null;
     try {
       const result = await runAgentStep(this.engine, {
         automation,
@@ -602,6 +611,7 @@ export class AutomationService {
         handle,
         callbacks: {
           onWorkspace: async (workspaceId) => {
+            workspaceIdSeen = workspaceId;
             await runs.update(run.id, (current) => ({
               ...current,
               reportWorkspaceId: workspaceId,
@@ -630,8 +640,10 @@ export class AutomationService {
     }
     try {
       // Deleting an automation cancels its runs and removes their records; nothing is left to
-      // finish, and touching the run store would recreate its directory.
+      // finish, and touching the run store would recreate its directory. The workspace the run
+      // opened goes with it.
       if ((await this.store.automations.get(automation.id)) === null) {
+        this.archiveRunWorkspaces([{ ...run, reportWorkspaceId: workspaceIdSeen, steps: [] }]);
         return;
       }
       await this.finishRun({ automationId: automation.id, runId: run.id, status, output, error });
@@ -718,8 +730,42 @@ export class AutomationService {
         detail: null,
       });
     }
-    await this.store.pruneRuns(input.automationId, new Date());
+    await this.pruneRuns(input.automationId, new Date());
     return run;
+  }
+
+  private async pruneRuns(automationId: string, now: Date): Promise<void> {
+    this.archiveRunWorkspaces(await this.store.pruneRuns(automationId, now));
+  }
+
+  // Archives the workspaces (and any worktree they own) of runs whose records are gone. Runs
+  // one at a time in the background: archiving touches git and should not hold up the caller.
+  private archiveRunWorkspaces(runs: readonly AutomationRun[]): void {
+    const workspaceIds = new Set<string>();
+    for (const run of runs) {
+      if (run.reportWorkspaceId) {
+        workspaceIds.add(run.reportWorkspaceId);
+      }
+      for (const step of run.steps) {
+        if (step.workspaceId) {
+          workspaceIds.add(step.workspaceId);
+        }
+      }
+    }
+    if (workspaceIds.size === 0) {
+      return;
+    }
+    this.archiveQueue = this.archiveQueue.then(() => this.archiveEach(workspaceIds));
+  }
+
+  private async archiveEach(workspaceIds: Iterable<string>): Promise<void> {
+    for (const workspaceId of workspaceIds) {
+      try {
+        await this.engine.archiveWorkspace(workspaceId);
+      } catch (error) {
+        this.logger.warn({ err: error, workspaceId }, "Failed to archive automation run workspace");
+      }
+    }
   }
 
   async tick(): Promise<void> {
@@ -873,7 +919,7 @@ export class AutomationService {
             : current,
         );
       }
-      await this.store.pruneRuns(automation.id, now);
+      await this.pruneRuns(automation.id, now);
     }
   }
 

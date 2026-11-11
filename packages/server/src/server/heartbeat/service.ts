@@ -11,7 +11,7 @@ import type { AgentManager } from "../agent/agent-manager.js";
 import type { AgentStorage } from "../agent/agent-storage.js";
 import { ensureAgentLoaded } from "../agent/agent-loading.js";
 import { startAgentRun, type AgentRunController } from "../agent/agent-prompt.js";
-import { computeNextRunAt, validateCadence } from "../automation/cron.js";
+import { computeNextRunAt, validateCadence, withHostTimeZone } from "../automation/cron.js";
 import { JsonRecordStore } from "../json-record-store.js";
 
 const HEARTBEAT_TICK_INTERVAL_MS = 1000;
@@ -178,7 +178,8 @@ export class HeartbeatService {
 
   // Creating a heartbeat with the name of one the agent already has replaces it, so an agent
   // can re-register its heartbeat without making duplicates.
-  async createOrReplace(input: CreateHeartbeatInput): Promise<Heartbeat> {
+  async createOrReplace(request: CreateHeartbeatInput): Promise<Heartbeat> {
+    const input = { ...request, cadence: withHostTimeZone(request.cadence) };
     const prompt = input.prompt.trim();
     if (!prompt) {
       throw new Error("Heartbeat prompt is required");
@@ -239,7 +240,8 @@ export class HeartbeatService {
     });
   }
 
-  async updateCadence(id: string, cadence: HeartbeatCadence): Promise<Heartbeat> {
+  async updateCadence(id: string, requested: HeartbeatCadence): Promise<Heartbeat> {
+    const cadence = withHostTimeZone(requested);
     validateHeartbeatCadence(cadence);
     const updated = await this.store.update(id, (current) => {
       const now = new Date();

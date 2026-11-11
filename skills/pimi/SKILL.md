@@ -190,7 +190,7 @@ Pick by where the work runs:
 - Runs use the provider's no-prompt mode when it has one, not the mode you are in. Without `provider` they use your provider and model; without `cwd`, your working directory. Set `workspace` to `worktree` when runs edit files.
 - Creating one again with the same `name` replaces it and returns it to `pending`.
 
-Cron is read in UTC unless you set `timezone`, for both tools. Set it whenever the user names a local time.
+Cron is read in the host's time zone unless you set `timezone`, for both tools; the stored cadence records the zone it used. Set `timezone` whenever the user names a time in another zone.
 
 After approval, `run_automation_once` starts a run without waiting for the cadence and returns while it is still running; read the result with `automation_runs`. A scheduled run is skipped, not queued, when the automation already has 2 runs going, has made 6 runs in the last hour, or the host has 4 automation runs going. `inspect_automation` shows each skip and its reason in the audit history. Three failed runs in a row pause the automation, and only the user can resume it. `pause_automation` stops one from firing. `delete_automation` removes only a pending one you created.
 
