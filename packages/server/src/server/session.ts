@@ -20,10 +20,10 @@ import { CreationService, type CreatedAgent } from "./creation/index.js";
 import type { CreationSnapshot, AgentCreateRequest } from "@pimi/protocol/messages";
 import type { MessageReceipts } from "./message-receipts/index.js";
 import type { AgentBackgroundWorkItem } from "./agent/background-work/index.js";
-import equal from "fast-deep-equal";
 import { WorkspaceSetupObservation } from "./workspace-setup-observation.js";
 import { SessionDelivery, type OwnedSubscription } from "./session/owned-subscriptions/index.js";
 import { randomUUID } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import { lstat, mkdir, mkdtemp, rename, rm, stat } from "node:fs/promises";
 import { basename, join, resolve, sep } from "path";
 import { homedir } from "node:os";
@@ -5974,7 +5974,7 @@ export class Session {
       if (
         lastEmitted &&
         lastEmitted.kind === "upsert" &&
-        equal(lastEmitted.workspace, nextWorkspace)
+        isDeepStrictEqual(lastEmitted.workspace, nextWorkspace)
       ) {
         continue;
       }

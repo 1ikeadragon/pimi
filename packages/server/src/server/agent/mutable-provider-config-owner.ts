@@ -1,4 +1,4 @@
-import equal from "fast-deep-equal";
+import { isDeepStrictEqual } from "node:util";
 
 import type { DaemonConfigStore } from "../daemon-config-store.js";
 import type {
@@ -14,7 +14,7 @@ export function attachMutableProviderConfigOwner(options: {
   let commitPendingProviderChange: (() => void) | null = null;
 
   const unsubscribeApply = options.store.onApply((config, previous, details) => {
-    if (equal(config.providers, previous.providers)) return () => undefined;
+    if (isDeepStrictEqual(config.providers, previous.providers)) return () => undefined;
 
     const previousAgentManagerState =
       options.providerSnapshotManager.getAgentManagerProviderState();
