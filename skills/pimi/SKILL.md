@@ -178,13 +178,15 @@ Use `browser_wait` for text or a URL to appear, `browser_screenshot` for visual 
 
 **`create_schedule`** — starts a new agent on a cron cadence. Required: `prompt`, `cron`. Optional: `provider`, `timezone`, `name`, `cwd`, `isolation` (`local` or `worktree`), `maxRuns`, `expiresIn`. Use when the recurring work should live in fresh agents.
 
+A schedule you create starts `pending` and does not run until the user clicks Approve on it in the Schedules screen. Tell the user it needs their approval there. Until they approve, `run_schedule_once`, `resume_schedule`, and `pause_schedule` fail with "waiting for approval"; do not call them. Calling `create_schedule` again with the same name and target puts the schedule back to `pending`, so change an approved schedule with `update_schedule`.
+
 Without `provider`, runs use your provider, model, and mode; without `cwd`, your working directory. Set `isolation` to `worktree` when each run should edit in its own worktree and not in that directory.
 
 **`create_heartbeat`** — sends you a prompt on a cron cadence. Required: `prompt`, `cron`. Optional: `timezone`, `name`, `maxRuns`, `expiresIn`. Use for reminders, PR/build babysitting, and status checks that should return to this conversation.
 
 **`delete_heartbeat`** — `{ id }`. Stops one of your heartbeats. No tool lists or updates heartbeats: keep the `id` that `create_heartbeat` returns, and delete and recreate to change the task or cadence.
 
-Manage a schedule by `id` with `list_schedules`, `inspect_schedule`, `update_schedule`, `pause_schedule`, `resume_schedule`, `run_schedule_once`, `schedule_logs`, and `delete_schedule`. `update_schedule` changes only the fields you pass. Call `run_schedule_once` to test a new schedule without waiting for its cadence.
+Manage a schedule by `id` with `list_schedules`, `inspect_schedule`, `update_schedule`, `pause_schedule`, `resume_schedule`, `run_schedule_once`, `schedule_logs`, and `delete_schedule`. `update_schedule` changes only the fields you pass. After the user approves a new schedule, call `run_schedule_once` to test it without waiting for its cadence.
 
 ## Waiting
 

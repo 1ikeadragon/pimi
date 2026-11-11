@@ -2710,7 +2710,8 @@ function createToolCatalog(
     "create_schedule",
     {
       title: "Create schedule",
-      description: "Create a recurring schedule that starts a new agent on a cron cadence.",
+      description:
+        "Create a recurring schedule that starts a new agent on a cron cadence. It starts pending and does not run until the user approves it in the Schedules screen.",
       inputSchema: z
         .object({
           prompt: z.string().trim().min(1, "prompt is required"),
