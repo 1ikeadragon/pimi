@@ -4,13 +4,13 @@
  * Selects the appropriate renderer based on output options.
  */
 
-import chalk from "chalk";
 import YAML from "yaml";
 import type { AnyCommandResult, CommandError, OutputOptions } from "./types.js";
 import { renderTable } from "./table.js";
 import { renderJson } from "./json.js";
 import { renderYaml } from "./yaml.js";
 import { renderQuiet } from "./quiet.js";
+import { style } from "./style.js";
 
 /** Default output options */
 export const defaultOutputOptions: OutputOptions = {
@@ -93,7 +93,7 @@ export function renderError(error: CommandError, options: Partial<OutputOptions>
   }
 
   // Table/default format: human-readable error
-  const prefix = opts.noColor ? "Error: " : chalk.red("Error: ");
+  const prefix = opts.noColor ? "Error: " : style("red", "Error: ");
   const message = error.message;
 
   if (error.details && typeof error.details === "string") {

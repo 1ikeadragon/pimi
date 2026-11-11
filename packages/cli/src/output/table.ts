@@ -4,7 +4,7 @@
  * Renders structured data as aligned ASCII tables with optional color support.
  */
 
-import chalk, { type ChalkInstance } from "chalk";
+import { style, type TextStyle } from "./style.js";
 import type { AnyCommandResult, ColumnDef, OutputOptions, OutputSchema } from "./types.js";
 
 // ANSI escape code regex for stripping colors when measuring width
@@ -41,25 +41,24 @@ function padCell(cell: string, width: number, align: "left" | "right" | "center"
   }
 }
 
-/** Apply a chalk color to a string */
+/** Apply a named color to a string */
 function applyColor(str: string, colorName: string): string {
-  // Map color names to chalk methods
-  const colorMap: Record<string, ChalkInstance> = {
-    red: chalk.red,
-    green: chalk.green,
-    blue: chalk.blue,
-    yellow: chalk.yellow,
-    cyan: chalk.cyan,
-    magenta: chalk.magenta,
-    white: chalk.white,
-    gray: chalk.gray,
-    grey: chalk.grey,
-    dim: chalk.dim,
-    bold: chalk.bold,
+  const styles: Record<string, TextStyle> = {
+    red: "red",
+    green: "green",
+    blue: "blue",
+    yellow: "yellow",
+    cyan: "cyan",
+    magenta: "magenta",
+    white: "white",
+    gray: "gray",
+    grey: "grey",
+    dim: "dim",
+    bold: "bold",
   };
 
-  const colorFn = colorMap[colorName];
-  return colorFn ? colorFn(str) : str;
+  const format = styles[colorName];
+  return format ? style(format, str) : str;
 }
 
 /** Extract value from item using field definition */
@@ -103,7 +102,7 @@ function renderHeader<T>(
     .map((col, i) => padCell(col.header, widths[i] ?? 0, col.align ?? "left"))
     .join("  ");
 
-  return options.noColor ? headerRow : chalk.bold(headerRow);
+  return options.noColor ? headerRow : style("bold", headerRow);
 }
 
 /** Calculate column widths based on content and hints */

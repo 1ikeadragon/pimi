@@ -30,7 +30,7 @@ export interface ColumnDef<T> {
   width?: number;
   /** Optional alignment */
   align?: "left" | "right" | "center";
-  /** Optional color function - returns chalk color name */
+  /** Optional color function - returns a color name */
   color?: (value: unknown, item: T) => string | undefined;
 }
 

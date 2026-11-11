@@ -1,6 +1,5 @@
 import { confirm, isCancel, log } from "@clack/prompts";
 import { Command } from "commander";
-import chalk from "chalk";
 import { generateLocalPairingOffer } from "@pimi/server/pairing";
 import { readDaemonInstance } from "@pimi/server/daemon-control";
 import {
@@ -12,6 +11,7 @@ import { connectToDaemon } from "../../utils/client.js";
 import type { DaemonTarget } from "../../utils/daemon-target.js";
 import { addJsonAndDaemonHostOptions, withGlobalOptions } from "../../utils/command-options.js";
 import { formatPairingInstructions } from "../../output/pairing.js";
+import { style } from "../../output/style.js";
 import { parseConnectionOfferFromUrl } from "@pimi/protocol/connection-offer";
 import { serializeRelayConnectionUri } from "@pimi/protocol/daemon-endpoints";
 
@@ -194,8 +194,8 @@ function outputPairingResult(
         })}\n`,
       );
     } else {
-      output.writeStderr(`${chalk.red(message)}\n`);
-      output.writeStderr(`${chalk.yellow(action)}\n`);
+      output.writeStderr(`${style("red", message)}\n`);
+      output.writeStderr(`${style("yellow", action)}\n`);
     }
     output.setExitCode(1);
     return;
