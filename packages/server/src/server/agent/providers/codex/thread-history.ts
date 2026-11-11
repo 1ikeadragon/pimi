@@ -151,6 +151,37 @@ async function* readPaginatedHistory(
   }
 }
 
+/**
+ * One page of a paginated thread, newest page first. Rows come back oldest first within the
+ * page; nextCursor continues toward the start of the thread and is null once it is reached.
+ */
+export async function readCodexThreadHistoryPageBefore(
+  client: CodexThreadHistoryClient,
+  threadId: string,
+  cursor: string | null,
+): Promise<{ rows: CodexHistoryRow[]; nextCursor: string | null }> {
+  const page = CodexItemsPageSchema.parse(
+    await requestHistory(
+      client,
+      "thread/items/list",
+      { threadId, limit: PAGE_SIZE, sortDirection: "desc", ...(cursor ? { cursor } : {}) },
+      "The rest of this Codex thread's history is too large to load.",
+    ),
+  );
+  const rows = page.data.toReversed().map((row) => ({
+    item: row.item,
+    turnId: row.turnId,
+    startedAt: row.startedAtMs,
+    completedAt: row.completedAtMs,
+  }));
+  const nextCursor = page.nextCursor ?? null;
+  // Codex's own client guards against a cursor that does not advance.
+  if (nextCursor !== null && nextCursor === cursor) {
+    throw new Error(`Codex repeated history cursor for thread ${threadId}`);
+  }
+  return { rows, nextCursor };
+}
+
 async function requestHistory(
   client: CodexThreadHistoryClient,
   method: string,

@@ -37,6 +37,7 @@ import {
   type ImportProviderSessionContext,
   type ImportProviderSessionInput,
   type ListImportableSessionsOptions,
+  type OlderHistoryEvent,
   type ProviderCatalog,
   type ProviderRefreshContext,
   type ResolveAgentDefaultModeInput,
@@ -100,6 +101,8 @@ import {
   type CodexHistoryRow,
   CodexThreadHistoryTooLargeError,
   readCodexThreadHistory,
+  readCodexThreadHistoryMode,
+  readCodexThreadHistoryPageBefore,
 } from "./codex/thread-history.js";
 import {
   materializeProviderImage,
@@ -164,6 +167,9 @@ const INTERRUPTED_TURN_CLEANUP_WAIT_MS =
 // Turns whose commands are remembered; older turns are forgotten first.
 const INTERRUPTED_TURN_TRACKED_TURNS = 16;
 const CODEX_PROVIDER = "codex" as const;
+// User messages a windowed history replay covers first, and per older block after that.
+const CODEX_HISTORY_TAIL_PROMPTS = 20;
+const CODEX_HISTORY_OLDER_PROMPTS = 40;
 // These native provider identities belong to Codex, not to an older custom
 // Paseo provider. Never include them in a custom provider's legacy import scan.
 const CODEX_BUILTIN_MODEL_PROVIDER_IDS = new Set([
@@ -2122,8 +2128,7 @@ async function threadItemToTimelineEntries(
 }
 
 async function loadCodexThreadHistoryTimeline(params: {
-  client: CodexAppServerClientLike;
-  threadId: string;
+  rows: AsyncIterable<CodexHistoryRow> | Iterable<CodexHistoryRow>;
   cwd: string | null;
 }): Promise<CodexThreadHistoryProjection> {
   const timeline: PersistedTimelineEntry[] = [];
@@ -2147,14 +2152,14 @@ async function loadCodexThreadHistoryTimeline(params: {
 }
 
 async function projectCodexThreadHistory(
-  params: { client: CodexAppServerClientLike; threadId: string; cwd: string | null },
+  params: { rows: AsyncIterable<CodexHistoryRow> | Iterable<CodexHistoryRow>; cwd: string | null },
   projection: {
     timeline: PersistedTimelineEntry[];
     subAgentTimelineIndexByThreadId: Map<string, number>;
   },
 ): Promise<void> {
   const { timeline, subAgentTimelineIndexByThreadId } = projection;
-  for await (const row of readCodexThreadHistory(params.client, params.threadId)) {
+  for await (const row of params.rows) {
     const { item } = row;
     const historicalSubAgentActivity = readCodexSubAgentActivity(item);
     if (historicalSubAgentActivity) {
@@ -3518,6 +3523,11 @@ export class CodexAppServerAgentSession implements AgentSession {
   private historySubagentEvents: AgentStreamEvent[] | null = null;
   // A resumed thread's earlier turns and sub-agents are known only after reading its history.
   private historyIndexed = true;
+  // Where loadOlderHistory continues, toward the start of the thread; null when nothing is unread.
+  private olderHistoryCursor: string | null = null;
+  // Rows of the turn cut by the last block's start; they open the next older block.
+  private olderHistoryCarry: CodexHistoryRow[] = [];
+  private olderHistoryLoad: Promise<unknown> | null = null;
   private pendingPermissions = new Map<string, AgentPermissionRequest>();
   private mcpElicitationPermissionIds = new Map<number, string>();
   private pendingPermissionHandlers = new Map<string, CodexPendingPermissionHandler>();
@@ -3611,6 +3621,7 @@ export class CodexAppServerAgentSession implements AgentSession {
     private readonly autoReviewEnabled: boolean = false,
     private readonly agentId?: string,
     private readonly initialResumePurpose: "interactive" | "history" = "interactive",
+    private readonly windowedHistory = false,
   ) {
     this.logger = logger.child({
       module: "agent",
@@ -4053,31 +4064,177 @@ export class CodexAppServerAgentSession implements AgentSession {
       return { timeline: [], providerSubagentEvents: [] };
     }
     const { timeline, subAgentRoutes } = await loadCodexThreadHistoryTimeline({
-      client,
-      threadId: this.currentThreadId,
+      rows: readCodexThreadHistory(client, this.currentThreadId),
       cwd: this.config.cwd ?? null,
     });
+    this.olderHistoryCursor = null;
+    this.olderHistoryCarry = [];
     this.subAgentCallsByCallId.clear();
     this.subAgentCallIdByChildThreadId.clear();
     this.pendingSubAgentNotificationsByThreadId.clear();
-    const providerSubagentEvents: AgentStreamEvent[] = [];
-    this.historySubagentEvents = providerSubagentEvents;
+    const providerSubagentEvents = await this.collectSubAgentHistory(client, subAgentRoutes);
+    this.resetCodexUserMessageTurns();
+    this.applyHistoryTimeline(timeline, { indexTurns: true });
+    this.historyIndexed = true;
+    return { timeline, providerSubagentEvents };
+  }
+
+  private async collectSubAgentHistory(
+    client: CodexAppServerClientLike,
+    routes: readonly PersistedSubAgentRoute[],
+  ): Promise<AgentStreamEvent[]> {
+    const events: AgentStreamEvent[] = [];
+    this.historySubagentEvents = events;
     try {
-      await this.loadPersistedSubAgentHistories(client, subAgentRoutes);
+      await this.loadPersistedSubAgentHistories(client, routes);
     } finally {
       this.historySubagentEvents = null;
     }
-    this.resetCodexUserMessageTurns();
+    return events;
+  }
+
+  private applyHistoryTimeline(
+    timeline: PersistedTimelineEntry[],
+    options: { indexTurns: boolean },
+  ): void {
     for (const entry of timeline) {
       if (entry.item.type === "tool_call" && entry.item.name === "request_user_input_async") {
         entry.item = this.asyncQuestions.timeline(entry.item.callId) ?? entry.item;
       }
-      if (entry.item.type === "user_message") {
+      if (options.indexTurns && entry.item.type === "user_message") {
         this.rememberCodexUserMessageTurn(entry.item.messageId, entry.providerTurnId);
       }
     }
-    this.historyIndexed = true;
-    return { timeline, providerSubagentEvents };
+  }
+
+  /**
+   * Reads pages from the end of a paginated thread until CODEX_HISTORY_TAIL_PROMPTS user
+   * messages are covered, and leaves the cursor for loadOlderHistory. Returns null for a legacy
+   * thread, which Codex offers no pages for. The rewind turn index is not built from a window;
+   * historyIndexed stays false so ensureHistoryIndexed does the full read before it is needed.
+   */
+  private async readHistoryWindow(
+    client: CodexAppServerClientLike,
+    prompts: number,
+  ): Promise<CodexThreadHistory | null> {
+    const threadId = this.currentThreadId;
+    if (!threadId) return null;
+    if ((await readCodexThreadHistoryMode(client, threadId)) !== "paginated") return null;
+    const startedAt = performance.now();
+    const block = await this.readHistoryBlock(
+      client,
+      threadId,
+      { cursor: null, carry: [] },
+      prompts,
+    );
+    this.olderHistoryCursor = block.nextCursor;
+    this.olderHistoryCarry = block.carry;
+    this.logger.info(
+      {
+        ms: Math.round(performance.now() - startedAt),
+        items: block.history.timeline.length,
+        hasOlder: block.nextCursor !== null,
+      },
+      "codex.history_window",
+    );
+    if (block.nextCursor === null) {
+      // The whole thread fit in the window, so it can be indexed from the same rows.
+      this.resetCodexUserMessageTurns();
+      this.applyHistoryTimeline(block.history.timeline, { indexTurns: true });
+      this.historyIndexed = true;
+    }
+    return block.history;
+  }
+
+  private async readHistoryBlock(
+    client: CodexAppServerClientLike,
+    threadId: string,
+    start: { cursor: string | null; carry: CodexHistoryRow[] },
+    prompts: number,
+  ): Promise<{ history: CodexThreadHistory; nextCursor: string | null; carry: CodexHistoryRow[] }> {
+    const pages: CodexHistoryRow[][] = [];
+    let cursor = start.cursor;
+    let covered = 0;
+    let firstUserRow = -1;
+    do {
+      const page = await readCodexThreadHistoryPageBefore(client, threadId, cursor);
+      pages.unshift(page.rows);
+      cursor = page.nextCursor;
+      for (const row of page.rows) {
+        const type = toObjectRecord(row.item)?.type;
+        if (typeof type === "string" && normalizeCodexThreadItemType(type) === "userMessage") {
+          covered++;
+        }
+      }
+    } while (cursor !== null && covered < prompts);
+    const rows = [...pages.flat(), ...start.carry];
+    // Cut the block at a turn start so the older block ends where its turn does; the rows
+    // before the first user message belong to an older turn and ride along with that block.
+    if (cursor !== null) {
+      firstUserRow = rows.findIndex((row) => {
+        const type = toObjectRecord(row.item)?.type;
+        return typeof type === "string" && normalizeCodexThreadItemType(type) === "userMessage";
+      });
+    }
+    const cut = Math.max(firstUserRow, 0);
+    const { timeline, subAgentRoutes } = await loadCodexThreadHistoryTimeline({
+      rows: rows.slice(cut),
+      cwd: this.config.cwd ?? null,
+    });
+    this.applyHistoryTimeline(timeline, { indexTurns: false });
+    const providerSubagentEvents = await this.collectSubAgentHistory(client, subAgentRoutes);
+    return {
+      history: { timeline, providerSubagentEvents },
+      nextCursor: cursor,
+      carry: rows.slice(0, cut),
+    };
+  }
+
+  hasOlderHistory(): boolean {
+    return this.olderHistoryCursor !== null;
+  }
+
+  async loadOlderHistory(): Promise<OlderHistoryEvent[]> {
+    const previous = this.olderHistoryLoad;
+    const load = (async () => {
+      await previous?.catch(() => undefined);
+      const cursor = this.olderHistoryCursor;
+      const threadId = this.currentThreadId;
+      if (cursor === null || !threadId || !this.client) return [];
+      const startedAt = performance.now();
+      const block = await this.readHistoryBlock(
+        this.client,
+        threadId,
+        { cursor, carry: this.olderHistoryCarry },
+        CODEX_HISTORY_OLDER_PROMPTS,
+      );
+      // A rewind or fork replaced the thread while this block was being read.
+      if (this.olderHistoryCursor !== cursor) return [];
+      this.olderHistoryCursor = block.nextCursor;
+      this.olderHistoryCarry = block.carry;
+      this.logger.info(
+        {
+          ms: Math.round(performance.now() - startedAt),
+          items: block.history.timeline.length,
+          hasOlder: block.nextCursor !== null,
+        },
+        "codex.history_older_block",
+      );
+      return [
+        ...block.history.providerSubagentEvents,
+        ...block.history.timeline.map((entry) => ({
+          type: "timeline" as const,
+          provider: CODEX_PROVIDER,
+          item: entry.item,
+          timestamp: entry.timestamp,
+        })),
+      ].filter(
+        (event): event is OlderHistoryEvent =>
+          event.type === "timeline" || event.type === "provider_subagent",
+      );
+    })();
+    this.olderHistoryLoad = load;
+    return load;
   }
 
   // Turns and rewind route by the thread's earlier turns and sub-agents. A resumed
@@ -4111,8 +4268,7 @@ export class CodexAppServerAgentSession implements AgentSession {
       });
       try {
         const childHistory = await loadCodexThreadHistoryTimeline({
-          client,
-          threadId: next.route.childThreadId,
+          rows: readCodexThreadHistory(client, next.route.childThreadId),
           cwd: this.config.cwd ?? null,
         });
         for (const entry of childHistory.timeline) {
@@ -4650,7 +4806,12 @@ export class CodexAppServerAgentSession implements AgentSession {
   }
 
   async *streamHistory(): AsyncGenerator<AgentStreamEvent> {
-    const history = this.stagedHistory ?? (await this.readThreadHistory(this.client));
+    const history =
+      this.stagedHistory ??
+      (this.windowedHistory && this.client
+        ? await this.readHistoryWindow(this.client, CODEX_HISTORY_TAIL_PROMPTS)
+        : null) ??
+      (await this.readThreadHistory(this.client));
     this.stagedHistory = null;
     for (const event of history.providerSubagentEvents) {
       yield event;
@@ -7627,6 +7788,7 @@ export class CodexAppServerAgentClient implements AgentClient {
       autoReviewEnabled,
       launchContext?.agentId,
       options?.purpose ?? "interactive",
+      options?.windowedHistory === true,
     );
     await session.connect();
     return session;
