@@ -1313,7 +1313,7 @@ export const ja: TranslationResources = {
     sections: {
       sessions: "履歴",
       search: "検索",
-      schedules: "自動化",
+      automations: "自動化",
     },
     worktreeSetup: {
       title: "ワークツリースクリプトを設定",

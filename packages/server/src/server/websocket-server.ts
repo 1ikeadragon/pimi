@@ -34,7 +34,13 @@ import type { TerminalManager } from "../terminal/terminal-manager.js";
 import type pino from "pino";
 import type { ProjectRegistry, WorkspaceRegistry } from "./workspace-registry.js";
 import type { ProjectUpdate } from "./workspace-reconciliation-service.js";
-import type { ScheduleService } from "./schedule/service.js";
+import type { AutomationService } from "./automation/service.js";
+import type { HeartbeatService } from "./heartbeat/service.js";
+
+export interface AutomationServices {
+  automationService: AutomationService;
+  heartbeatService: HeartbeatService;
+}
 import type { CheckoutDiffManager, CheckoutDiffMetrics } from "./checkout-diff-manager.js";
 import type { DaemonConfigStore, MutableDaemonConfig } from "./daemon-config-store.js";
 import {
@@ -502,22 +508,22 @@ export class MissingDaemonVersionError extends Error {
 }
 
 interface RequiredWebSocketServices {
-  scheduleService: ScheduleService;
+  automationServices: AutomationServices;
   checkoutDiffManager: CheckoutDiffManager;
 }
 
 function requireWebSocketServices(params: {
-  scheduleService?: ScheduleService;
+  automationServices?: AutomationServices;
   checkoutDiffManager?: CheckoutDiffManager;
 }): RequiredWebSocketServices {
-  const { scheduleService, checkoutDiffManager } = params;
-  if (!scheduleService) {
-    throw new Error("VoiceAssistantWebSocketServer requires a schedule service.");
+  const { automationServices, checkoutDiffManager } = params;
+  if (!automationServices) {
+    throw new Error("VoiceAssistantWebSocketServer requires the automation services.");
   }
   if (!checkoutDiffManager) {
     throw new Error("VoiceAssistantWebSocketServer requires a checkout diff manager.");
   }
-  return { scheduleService, checkoutDiffManager };
+  return { automationServices, checkoutDiffManager };
 }
 
 /**
@@ -546,7 +552,7 @@ export class VoiceAssistantWebSocketServer {
   private readonly workspaceRegistry: WorkspaceRegistry;
   private readonly workspaceBaseBranch: WorkspaceBaseBranchService;
   private readonly workspaceLabelService: WorkspaceLabelService | null;
-  private readonly scheduleService: ScheduleService;
+  private readonly automationServices: AutomationServices;
   private readonly checkoutDiffManager: CheckoutDiffManager;
   private readonly github: ForgeService;
   private readonly workspaceGitService: WorkspaceGitService;
@@ -645,7 +651,7 @@ export class VoiceAssistantWebSocketServer {
     onLifecycleIntent?: (intent: SessionLifecycleIntent) => void,
     projectRegistry?: ProjectRegistry,
     workspaceRegistry?: WorkspaceRegistry,
-    scheduleService?: ScheduleService,
+    automationServices?: AutomationServices,
     checkoutDiffManager?: CheckoutDiffManager,
     serviceProxy?: ServiceProxySubsystem | null,
     scriptRuntimeStore?: WorkspaceScriptRuntimeStore | null,
@@ -720,10 +726,10 @@ export class VoiceAssistantWebSocketServer {
     this.workspaceRegistry = workspaceRegistry ?? createNoopWorkspaceRegistry();
     this.workspaceLabelService = workspaceLabelService ?? null;
     const requiredServices = requireWebSocketServices({
-      scheduleService,
+      automationServices,
       checkoutDiffManager,
     });
-    this.scheduleService = requiredServices.scheduleService;
+    this.automationServices = requiredServices.automationServices;
     this.checkoutDiffManager = requiredServices.checkoutDiffManager;
     this.github = github ?? createGitHubService();
     this.workspaceGitService = workspaceGitService ?? createFallbackWorkspaceGitService();
@@ -1581,7 +1587,8 @@ export class VoiceAssistantWebSocketServer {
       workspaceBaseBranch: this.workspaceBaseBranch,
       workspaceLabelService: this.workspaceLabelService ?? undefined,
       directorySync: this.directorySync,
-      scheduleService: this.scheduleService,
+      automationService: this.automationServices.automationService,
+      heartbeatService: this.automationServices.heartbeatService,
       checkoutDiffManager: this.checkoutDiffManager,
       github: this.github,
       workspaceGitService: this.workspaceGitService,

@@ -1,3 +1,18 @@
+import { z } from "zod";
+
+export const CadenceSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("every"),
+    everyMs: z.number().int().positive(),
+  }),
+  z.object({
+    type: z.literal("cron"),
+    expression: z.string().trim().min(1),
+    timezone: z.string().trim().min(1).optional(),
+  }),
+]);
+export type Cadence = z.infer<typeof CadenceSchema>;
+
 /**
  * Convert an exact rolling interval to an equivalent five-field cron cadence.
  * Returns null when cron's calendar boundaries would change the interval.

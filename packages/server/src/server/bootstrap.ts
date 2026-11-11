@@ -179,7 +179,8 @@ import {
   type WorkspaceArchiveContext,
 } from "./workspace-registry.js";
 import { CheckoutDiffManager } from "./checkout-diff-manager.js";
-import { ScheduleService } from "./schedule/service.js";
+import { AutomationService } from "./automation/service.js";
+import { HeartbeatService } from "./heartbeat/service.js";
 import { DaemonConfigStore, type MutableDaemonConfig } from "./daemon-config-store.js";
 import { createOrchestrationSkills } from "./orchestration-skills/index.js";
 import {
@@ -1419,23 +1420,20 @@ export async function createPaseoDaemon(
   };
   const createAgent = (input: Parameters<typeof createAgentCommand>[1]) =>
     createAgentCommand(createAgentCommandDependencies, input);
-  const createScheduleLocalWorkspaceExternal = async (input: {
+  const createAutomationDirectoryWorkspaceExternal = async (input: {
     cwd: string;
-    firstAgentContext: FirstAgentContext;
+    title: string;
   }) => {
     const workspace = await workspaceProvisioning.createWorkspaceForDirectory(
       input.cwd,
-      resolveFirstAgentPromptTitle(input.firstAgentContext),
+      input.title,
+      undefined,
+      { expectsInitialAgent: true, titleManuallySet: true },
     );
-    workspaceAutoName.scheduleForDirectory({
-      workspaceId: workspace.workspaceId,
-      cwd: workspace.cwd,
-      firstAgentContext: input.firstAgentContext,
-    });
     await emitWorkspaceUpdatesExternal([workspace.workspaceId]);
     return workspace;
   };
-  const createSchedulePaseoWorktreeExternal = async (input: {
+  const createAutomationWorktreeExternal = async (input: {
     cwd: string;
     firstAgentContext: FirstAgentContext;
   }) => {
@@ -1446,7 +1444,7 @@ export async function createPaseoDaemon(
     await emitWorkspaceUpdatesExternal([result.workspace.workspaceId]);
     return result;
   };
-  const archiveScheduleWorkspaceExternal = async (workspaceId: string) => {
+  const archiveAutomationWorkspaceExternal = async (workspaceId: string) => {
     await archiveByScope(
       {
         paseoHome: config.paseoHome,
@@ -1477,30 +1475,36 @@ export async function createPaseoDaemon(
       },
       {
         scope: { kind: "workspace", workspaceId },
-        requestId: "schedule-run-finish",
+        requestId: "automation-run-workspace",
       },
     );
   };
-  const scheduleService = new ScheduleService({
+  const automationService = new AutomationService({
+    paseoHome: config.paseoHome,
+    logger,
+    agentManager,
+    createAgent,
+    createDirectoryWorkspace: createAutomationDirectoryWorkspaceExternal,
+    createWorktreeWorkspace: createAutomationWorktreeExternal,
+    archiveWorkspace: archiveAutomationWorkspaceExternal,
+  });
+  await automationService.start();
+  const heartbeatService = new HeartbeatService({
     paseoHome: config.paseoHome,
     logger,
     agentManager,
     agentStorage,
-    createAgent,
-    createDirectoryWorkspace: createScheduleLocalWorkspaceExternal,
-    createPaseoWorktreeWorkspace: createSchedulePaseoWorktreeExternal,
-    archiveWorkspace: archiveScheduleWorkspaceExternal,
   });
-  await scheduleService.start();
+  await heartbeatService.start();
 
   agentManager.setAgentArchivedCallback(async (agentId) => {
     try {
-      await scheduleService.completeForAgent(agentId);
+      await heartbeatService.deleteForAgent(agentId);
     } catch (error) {
-      logger.warn({ err: error, agentId }, "Failed to complete schedules for archived agent");
+      logger.warn({ err: error, agentId }, "Failed to delete heartbeats for archived agent");
     }
   });
-  logger.info({ elapsed: elapsed() }, "Schedule service initialized");
+  logger.info({ elapsed: elapsed() }, "Automation and heartbeat services initialized");
   logger.info({ elapsed: elapsed() }, "Loading persisted agent registry");
   // Startup loads persisted agent history once before restoring the registry.
   const persistedRecords = await agentStorage.listAll();
@@ -1581,7 +1585,8 @@ export async function createPaseoDaemon(
     agentStorage,
     terminalManager,
     getDaemonTcpPort: () => (boundListenTarget?.type === "tcp" ? boundListenTarget.port : null),
-    scheduleService,
+    automationService,
+    heartbeatService,
     providerSnapshotManager,
     daemonConfigStore,
     github,
@@ -1927,7 +1932,7 @@ export async function createPaseoDaemon(
               },
               projectRegistry,
               workspaceRegistry,
-              scheduleService,
+              { automationService, heartbeatService },
               checkoutDiffManager,
               serviceProxy,
               scriptRuntimeStore,
@@ -2083,7 +2088,8 @@ export async function createPaseoDaemon(
       logger.error({ err: error }, "Terminal shutdown failed");
     }
     await speechService.stop();
-    await scheduleService.stop().catch(() => undefined);
+    await automationService.stop().catch(() => undefined);
+    await heartbeatService.stop().catch(() => undefined);
     await relayRuntime?.stop().catch(() => undefined);
     if (wsServer) {
       await wsServer.close();

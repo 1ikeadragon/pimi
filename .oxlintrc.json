@@ -557,7 +557,7 @@
         "packages/app/src/components/provider-diagnostic-sheet.tsx",
         "packages/app/src/components/question-form-card.tsx",
         "packages/app/src/components/realtime-voice-overlay.tsx",
-        "packages/app/src/components/schedules/schedule-row.tsx",
+        "packages/app/src/components/automations/automation-row.tsx",
         "packages/app/src/components/settings/collapsible-row.tsx",
         "packages/app/src/components/settings/headings/settings-info-tip.tsx",
         "packages/app/src/components/sidebar-callout.tsx",

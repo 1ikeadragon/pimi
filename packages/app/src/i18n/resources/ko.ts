@@ -1306,7 +1306,7 @@ export const ko: TranslationResources = {
     sections: {
       sessions: "기록",
       search: "검색",
-      schedules: "자동화",
+      automations: "자동화",
     },
     worktreeSetup: {
       title: "워크트리 스크립트 설정",

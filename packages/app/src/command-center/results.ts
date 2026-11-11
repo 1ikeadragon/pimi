@@ -28,14 +28,14 @@ export interface CommandCenterScore {
  * label matches always outranks one that only matches through a hidden keyword, however good
  * the keyword match is.
  *
- * Scoring purely by tier is not enough: "aut" is a string-prefix of both "Auto mode" and
- * Schedules' hidden keyword "automation", so the tiers tie and the order falls back to group
- * rank, which puts Schedules first. It only came out right at the full word "auto". Order that
- * flips mid-word as you type is worse than order that is merely wrong.
+ * Scoring purely by tier is not enough: a query can be a string-prefix of one row's label and
+ * another row's hidden keyword, so the tiers tie and the order falls back to group rank, and
+ * can flip mid-word as you type. Order that flips mid-word is worse than order that is merely
+ * wrong.
  *
  * The cost is deliberate: an exact hidden-keyword match now loses to any visible match. No
  * query over the contributions registered today hits that case — hidden keywords here are
- * synonyms nothing else displays ("automation", "recurring", "repo", "shell", "hotkeys").
+ * synonyms nothing else displays ("schedule", "recurring", "repo", "shell", "hotkeys").
  */
 export function compareCommandCenterScores(
   left: CommandCenterScore,

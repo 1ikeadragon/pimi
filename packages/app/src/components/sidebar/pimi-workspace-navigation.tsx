@@ -32,7 +32,7 @@ import { HEADER_INNER_HEIGHT } from "@/constants/layout";
 import {
   buildNewWorkspaceRoute,
   buildOpenProjectRoute,
-  buildSchedulesRoute,
+  buildAutomationsRoute,
   buildSessionsRoute,
 } from "@/utils/host-routes";
 import { useSidebarNavItems } from "@/sidebar-nav/use-sidebar-nav-items";
@@ -194,14 +194,14 @@ function AutomationsRailButton({ active }: { active: boolean }) {
   const { items } = useSidebarNavItems("header");
   const open = useCallback(() => {
     getDesktopHost()?.dismissPimiWorkspace?.();
-    router.navigate(buildSchedulesRoute());
+    router.navigate(buildAutomationsRoute());
   }, []);
-  if (!items.some((item) => item.key === "schedules" && item.visible)) return null;
+  if (!items.some((item) => item.key === "automations" && item.visible)) return null;
 
   return (
     <SidebarIcon
       icon={Rocket}
-      label={t("sidebar.sections.schedules")}
+      label={t("sidebar.sections.automations")}
       onPress={open}
       active={active}
       testID="pimi-automations-rail"
@@ -232,7 +232,7 @@ export function PimiWorkspaceNavigation({
   const inAgentGrid = pathname === PIMI_AGENT_GRID_ROUTE;
   const inUsage = pathname === PIMI_USAGE_ROUTE;
   const inLibrary = pathname === PIMI_LIBRARY_ROUTE;
-  const inAutomations = pathname === buildSchedulesRoute();
+  const inAutomations = pathname === buildAutomationsRoute();
   const inHistory = pathname === buildSessionsRoute();
   const { t } = useTranslation();
   const newWorkspaceLabel = t("newWorkspace.title");

@@ -1306,7 +1306,7 @@ export const en = {
     sections: {
       sessions: "History",
       search: "Search",
-      schedules: "Automations",
+      automations: "Automations",
     },
     worktreeSetup: {
       title: "Set up worktree scripts",

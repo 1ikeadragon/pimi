@@ -69,19 +69,22 @@ import type { TerminalManager } from "../../../terminal/terminal-manager.js";
 import { encodeTerminalKeyInput } from "@pimi/protocol/terminal-key-input";
 import { TerminalInputModeTracker } from "@pimi/protocol/terminal-input-mode";
 import type { CreatePaseoWorktreeWorkflowFn } from "../../worktree-session.js";
-import { computeNextRunAt, validateScheduleCadence } from "../../schedule/cron.js";
+import { computeNextRunAt, validateCadence } from "../../automation/cron.js";
 import {
-  ScheduleNotFoundError,
-  ScheduleStateConflictError,
-  type ScheduleService,
-} from "../../schedule/service.js";
+  AutomationNotFoundError,
+  AutomationRunNotFoundError,
+  AutomationStateError,
+  type AutomationService,
+} from "../../automation/service.js";
+import { HeartbeatNotFoundError, type HeartbeatService } from "../../heartbeat/service.js";
 import {
-  ScheduleRunSchema,
-  ScheduleSummarySchema,
-  StoredScheduleSchema,
-  type ScheduleCadence,
-  type UpdateScheduleInput,
-} from "@pimi/protocol/schedule/types";
+  AutomationAuditEntrySchema,
+  AutomationRunSchema,
+  AutomationSchema,
+  type AutomationActor,
+} from "@pimi/protocol/automation/types";
+import { HeartbeatSchema, type HeartbeatCadence } from "@pimi/protocol/heartbeat/types";
+import type { Cadence } from "@pimi/protocol/schedule/cadence";
 import type { ProviderSnapshotManager } from "../provider-snapshot-manager.js";
 import {
   AgentModelSchema,
@@ -93,7 +96,6 @@ import {
   resolveRequiredProviderModel,
   sanitizePermissionRequest,
   serializeSnapshotWithMetadata,
-  toScheduleSummary,
 } from "../mcp-shared.js";
 import {
   type PromptDispatchDisposition,
@@ -148,7 +150,8 @@ export interface PaseoToolHostDependencies {
   agentStorage: AgentStorage;
   terminalManager?: TerminalManager | null;
   getDaemonTcpPort?: () => number | null;
-  scheduleService?: ScheduleService | null;
+  automationService?: AutomationService | null;
+  heartbeatService?: HeartbeatService | null;
   providerSnapshotManager: ProviderSnapshotManager;
   daemonConfigStore?: Pick<DaemonConfigStore, "get">;
   github?: ForgeService;
@@ -352,7 +355,7 @@ function toProviderSummary(entry: {
   };
 }
 
-function resolveScheduleProviderAndModel(params: {
+function resolveProviderAndModelArg(params: {
   provider?: string;
   defaultProvider: AgentProvider;
 }): { provider: AgentProvider; model?: string } {
@@ -374,63 +377,7 @@ function resolveScheduleProviderAndModel(params: {
   };
 }
 
-function resolveScheduleUpdateProviderAndModel(params: {
-  provider?: string;
-  model?: string | null;
-}): { provider?: string; model?: string | null } {
-  const providerInput = params.provider?.trim();
-  const modelInput = typeof params.model === "string" ? params.model.trim() : params.model;
-
-  if (params.model !== undefined && modelInput === "") {
-    throw new PaseoToolInputError("model cannot be empty");
-  }
-
-  if (!providerInput) {
-    return params.model !== undefined ? { model: modelInput } : {};
-  }
-
-  const slashIndex = providerInput.indexOf("/");
-  if (slashIndex === -1) {
-    return {
-      provider: providerInput,
-      ...(params.model !== undefined ? { model: modelInput } : {}),
-    };
-  }
-
-  const provider = providerInput.slice(0, slashIndex).trim();
-  const modelFromProvider = providerInput.slice(slashIndex + 1).trim();
-  if (!provider || !modelFromProvider) {
-    throw new PaseoToolInputError("provider must be <provider> or <provider>/<model>");
-  }
-  if (params.model === null) {
-    throw new PaseoToolInputError("provider specifies a model but model is null");
-  }
-  if (typeof modelInput === "string" && modelInput !== modelFromProvider) {
-    throw new PaseoToolInputError("Conflicting model values provided");
-  }
-
-  return {
-    provider,
-    model: modelInput ?? modelFromProvider,
-  };
-}
-
-interface ScheduleUpdateToolInput {
-  id: string;
-  cron?: string;
-  timezone?: string;
-  name?: string | null;
-  prompt?: string;
-  maxRuns?: number | null;
-  provider?: string;
-  model?: string | null;
-  mode?: string | null;
-  cwd?: string;
-  expiresIn?: string;
-  clearExpires?: boolean;
-}
-
-function normalizeScheduleCadenceArg(value: string | undefined): string | undefined {
+function normalizeOptionalArg(value: string | undefined): string | undefined {
   if (value === undefined) {
     return undefined;
   }
@@ -443,25 +390,18 @@ function normalizeScheduleCadenceArg(value: string | undefined): string | undefi
   return trimmed;
 }
 
-function normalizeScheduleTimeZoneArg(value: string | undefined): string | undefined {
-  return normalizeScheduleCadenceArg(value);
-}
-
-function addScheduleCadenceIssue(
-  input: { cron?: string; timezone?: string },
-  context: z.RefinementCtx,
-): void {
+function addCronIssue(input: { cron?: string; timezone?: string }, context: z.RefinementCtx): void {
   const expression = input.cron?.trim();
   if (!expression) {
     return;
   }
-  const cadence: ScheduleCadence = {
+  const cadence: Cadence = {
     type: "cron",
     expression,
     ...(input.timezone !== undefined ? { timezone: input.timezone.trim() } : {}),
   };
   try {
-    validateScheduleCadence(cadence);
+    validateCadence(cadence);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     context.addIssue({
@@ -490,7 +430,7 @@ function parseToolArguments<T>(schema: z.ZodType<T>, input: unknown): T {
   return result.data;
 }
 
-function addScheduleDurationIssue(value: string, context: z.RefinementCtx): void {
+function addDurationIssue(value: string, context: z.RefinementCtx): void {
   try {
     parseDurationString(value);
   } catch (error) {
@@ -501,62 +441,7 @@ function addScheduleDurationIssue(value: string, context: z.RefinementCtx): void
   }
 }
 
-const scheduleDurationInputSchema = z.string().superRefine(addScheduleDurationIssue);
-
-function resolveScheduleUpdateCadence(input: ScheduleUpdateToolInput): ScheduleCadence | undefined {
-  const cron = normalizeScheduleCadenceArg(input.cron);
-  const timeZone = normalizeScheduleTimeZoneArg(input.timezone);
-
-  if (timeZone !== undefined && cron === undefined) {
-    throw new PaseoToolInputError("timezone can only be used with cron");
-  }
-  if (cron !== undefined) {
-    return {
-      type: "cron",
-      expression: cron,
-      ...(timeZone !== undefined ? { timezone: timeZone } : {}),
-    };
-  }
-  return undefined;
-}
-
-function resolveScheduleUpdateExpiresAt(input: ScheduleUpdateToolInput): string | null | undefined {
-  if (input.expiresIn !== undefined && input.clearExpires) {
-    throw new PaseoToolInputError("Specify at most one of expiresIn or clearExpires");
-  }
-  if (input.expiresIn !== undefined) {
-    return new Date(Date.now() + parseDurationString(input.expiresIn)).toISOString();
-  }
-  if (input.clearExpires) {
-    return null;
-  }
-  return undefined;
-}
-
-function buildScheduleUpdateInput(input: ScheduleUpdateToolInput): UpdateScheduleInput {
-  const cadence = resolveScheduleUpdateCadence(input);
-  const expiresAt = resolveScheduleUpdateExpiresAt(input);
-  const providerModelPatch = resolveScheduleUpdateProviderAndModel({
-    provider: input.provider,
-    model: input.model,
-  });
-  const newAgentConfig = {
-    ...(providerModelPatch.provider !== undefined ? { provider: providerModelPatch.provider } : {}),
-    ...(providerModelPatch.model !== undefined ? { model: providerModelPatch.model } : {}),
-    ...(input.mode !== undefined ? { modeId: input.mode } : {}),
-    ...(input.cwd !== undefined ? { cwd: input.cwd } : {}),
-  };
-
-  return {
-    id: input.id,
-    ...(input.name !== undefined ? { name: input.name } : {}),
-    ...(input.prompt !== undefined ? { prompt: input.prompt } : {}),
-    ...(cadence !== undefined ? { cadence } : {}),
-    ...(input.maxRuns !== undefined ? { maxRuns: input.maxRuns } : {}),
-    ...(expiresAt !== undefined ? { expiresAt } : {}),
-    ...(Object.keys(newAgentConfig).length > 0 ? { newAgentConfig } : {}),
-  };
-}
+const durationInputSchema = z.string().superRefine(addDurationIssue);
 
 function resolveChildAgentCwd(params: {
   parentCwd: string;
@@ -779,7 +664,8 @@ function createToolCatalog(
     agentStorage,
     terminalManager,
     workspaceScripts,
-    scheduleService,
+    automationService,
+    heartbeatService,
     providerSnapshotManager,
     daemonConfigStore,
     callerAgentId,
@@ -980,23 +866,7 @@ function createToolCatalog(
     },
   });
 
-  const buildCronScheduleCadence = (input: {
-    cron: string | undefined;
-    timezone?: string;
-  }): ScheduleCadence => {
-    const expression = input.cron?.trim() ?? "";
-    if (!expression) {
-      throw new PaseoToolInputError("cron is required");
-    }
-    const timezone = normalizeScheduleTimeZoneArg(input.timezone);
-    return {
-      type: "cron",
-      expression,
-      ...(timezone !== undefined ? { timezone } : {}),
-    };
-  };
-
-  const buildScheduleExpiry = (expiresIn: string | undefined): string | undefined => {
+  const buildExpiry = (expiresIn: string | undefined): string | undefined => {
     return expiresIn === undefined
       ? undefined
       : new Date(Date.now() + parseDurationString(expiresIn)).toISOString();
@@ -1089,133 +959,116 @@ function createToolCatalog(
     throw new PaseoToolInputError("workspaceId is required outside an agent-scoped session");
   }
 
-  const buildCallerAgentScheduleConfigExtras = (
-    callerAgent: NonNullable<ReturnType<typeof resolveCallerAgent>>,
-    resolvedProvider: string,
-  ): Record<string, unknown> => {
-    return {
-      ...(callerAgent.config.thinkingOptionId
-        ? { thinkingOptionId: callerAgent.config.thinkingOptionId }
-        : {}),
-      ...(callerAgent.provider === resolvedProvider && callerAgent.config.providerOptions
-        ? { providerOptions: callerAgent.config.providerOptions }
-        : {}),
-      ...(callerAgent.config.featureValues
-        ? { featureValues: callerAgent.config.featureValues }
-        : {}),
-      ...(callerAgent.config.systemPrompt ? { systemPrompt: callerAgent.config.systemPrompt } : {}),
-      ...(callerAgent.config.mcpServers ? { mcpServers: callerAgent.config.mcpServers } : {}),
-    };
-  };
-
-  const buildCallerAgentScheduleConfig = (
-    callerAgent: NonNullable<ReturnType<typeof resolveCallerAgent>>,
-    params?: { provider?: string; cwd?: string },
-  ) => {
-    const hasProviderOverride = params?.provider !== undefined;
-    const resolvedProviderModel = hasProviderOverride
-      ? resolveScheduleProviderAndModel({
-          provider: params?.provider,
-          defaultProvider: callerAgent.provider,
-        })
-      : null;
-    const resolvedProvider = resolvedProviderModel?.provider ?? callerAgent.provider;
-    let resolvedModel: string | undefined;
-    if (resolvedProviderModel?.model) {
-      resolvedModel = resolvedProviderModel.model;
-    } else if (!hasProviderOverride && callerAgent.config.model) {
-      resolvedModel = callerAgent.config.model;
+  function requireAutomationService(): AutomationService {
+    if (!automationService) {
+      throw new Error("Automation service is not configured");
     }
-    return {
-      provider: resolvedProvider,
-      cwd: params?.cwd?.trim() ? expandUserPath(params.cwd) : callerAgent.cwd,
-      ...(callerAgent.currentModeId && callerAgent.provider === resolvedProvider
-        ? {
-            modeId: callerAgent.currentModeId,
-          }
-        : {}),
-      ...(resolvedModel ? { model: resolvedModel } : {}),
-      ...buildCallerAgentScheduleConfigExtras(callerAgent, resolvedProvider),
-    };
-  };
-
-  const resolveNewAgentScheduleTarget = (params?: {
-    provider?: string;
-    cwd?: string;
-    isolation?: "local" | "worktree";
-  }) => {
-    const callerAgent = resolveCallerAgent();
-    if (callerAgent) {
-      return {
-        type: "new-agent" as const,
-        config: {
-          ...buildCallerAgentScheduleConfig(callerAgent, params),
-          ...(params?.isolation ? { isolation: params.isolation } : {}),
-        },
-      };
-    }
-
-    if (!params?.provider?.trim()) {
-      throw new PaseoToolInputError("provider is required when target is new-agent");
-    }
-
-    const resolvedProviderModel = resolveScheduleProviderAndModel({
-      provider: params?.provider,
-      defaultProvider: params.provider,
-    });
-    return {
-      type: "new-agent" as const,
-      config: {
-        provider: resolvedProviderModel.provider,
-        cwd: params?.cwd?.trim() ? expandUserPath(params.cwd) : process.cwd(),
-        ...(resolvedProviderModel.model ? { model: resolvedProviderModel.model } : {}),
-        ...(params?.isolation ? { isolation: params.isolation } : {}),
-      },
-    };
-  };
-
-  async function requireScheduleTarget(id: string, type: "agent" | "new-agent") {
-    if (!scheduleService) {
-      throw new Error("Schedule service is not configured");
-    }
-    let schedule: Awaited<ReturnType<ScheduleService["inspect"]>>;
-    try {
-      schedule = await scheduleService.inspect(id);
-    } catch (error) {
-      if (error instanceof ScheduleNotFoundError) {
-        throw new PaseoToolInputError(error.message);
-      }
-      throw error;
-    }
-    if (schedule.target.type !== type) {
-      throw new PaseoToolInputError(
-        type === "agent" ? `Heartbeat not found: ${id}` : `Schedule not found: ${id}`,
-      );
-    }
-    return schedule;
+    return automationService;
   }
 
-  async function runScheduleAction<T>(action: () => Promise<T>): Promise<T> {
+  function requireCallerAgentIdForAutomation(): string {
+    if (!callerAgentId) {
+      throw new PaseoToolInputError("Automation tools require an agent-scoped session");
+    }
+    return callerAgentId;
+  }
+
+  function callerActor(): AutomationActor {
+    return { kind: "agent", agentId: requireCallerAgentIdForAutomation() };
+  }
+
+  async function runAutomationAction<T>(action: () => Promise<T>): Promise<T> {
     try {
       return await action();
     } catch (error) {
-      if (error instanceof ScheduleStateConflictError) {
+      if (
+        error instanceof AutomationStateError ||
+        error instanceof AutomationNotFoundError ||
+        error instanceof AutomationRunNotFoundError ||
+        error instanceof HeartbeatNotFoundError
+      ) {
         throw new PaseoToolInputError(error.message);
       }
       throw error;
     }
   }
 
-  async function requireCallerHeartbeat(id: string) {
-    if (!callerAgentId) {
-      throw new PaseoToolInputError("Heartbeat operations require an agent-scoped session");
+  function resolveAutomationCwd(cwd: string | undefined): string {
+    if (cwd?.trim()) {
+      return expandUserPath(cwd);
     }
-    const schedule = await requireScheduleTarget(id, "agent");
-    if (schedule.target.type !== "agent" || schedule.target.agentId !== callerAgentId) {
-      throw new PaseoToolInputError(`Heartbeat ${id} does not belong to caller ${callerAgentId}`);
-    }
-    return schedule;
+    return resolveCallerAgent()?.cwd ?? process.cwd();
   }
+
+  // The automation's agent takes the caller's provider, model, mode, thinking and features
+  // unless a provider is given.
+  function resolveAutomationAgentNode(provider: string | undefined) {
+    const callerAgent = resolveCallerAgent();
+    if (!callerAgent && !provider?.trim()) {
+      throw new PaseoToolInputError("provider is required outside an agent-scoped session");
+    }
+    const override = provider?.trim()
+      ? resolveProviderAndModelArg({ provider, defaultProvider: provider })
+      : null;
+    const resolvedProvider = override?.provider ?? callerAgent!.provider;
+    const model = override ? override.model : (callerAgent?.config.model ?? undefined);
+    const inherited = callerAgent?.provider === resolvedProvider ? callerAgent : null;
+    return {
+      id: "agent",
+      kind: "agent" as const,
+      title: "Agent",
+      provider: resolvedProvider,
+      ...(model ? { model } : {}),
+      ...inheritedAgentSettings(inherited),
+    };
+  }
+
+  function inheritedAgentSettings(agent: ReturnType<typeof resolveCallerAgent> | null) {
+    if (!agent) {
+      return {};
+    }
+    return {
+      ...(agent.currentModeId ? { modeId: agent.currentModeId } : {}),
+      ...(agent.config.thinkingOptionId ? { thinkingOptionId: agent.config.thinkingOptionId } : {}),
+      ...(agent.config.featureValues ? { featureValues: agent.config.featureValues } : {}),
+    };
+  }
+
+  function buildHeartbeatCadence(input: {
+    cron?: string;
+    timezone?: string;
+    every?: string;
+    in?: string;
+    at?: string;
+  }): HeartbeatCadence {
+    const cron = normalizeOptionalArg(input.cron);
+    const timezone = normalizeOptionalArg(input.timezone);
+    const given = [cron, input.every, input.in, input.at].filter((value) => value !== undefined);
+    if (given.length !== 1) {
+      throw new PaseoToolInputError("Give exactly one of cron, every, in, or at");
+    }
+    if (timezone !== undefined && cron === undefined) {
+      throw new PaseoToolInputError("timezone can only be used with cron");
+    }
+    if (cron !== undefined) {
+      return { type: "cron", expression: cron, ...(timezone !== undefined ? { timezone } : {}) };
+    }
+    if (input.every !== undefined) {
+      return { type: "every", everyMs: parseDurationString(input.every) };
+    }
+    if (input.in !== undefined) {
+      return {
+        type: "once",
+        at: new Date(Date.now() + parseDurationString(input.in)).toISOString(),
+      };
+    }
+    const at = new Date(input.at!);
+    if (Number.isNaN(at.getTime())) {
+      throw new PaseoToolInputError(`Invalid time: ${input.at}`);
+    }
+    return { type: "once", at: at.toISOString() };
+  }
+
   const ProviderOrProviderModelInputSchema = AgentProviderEnum.trim()
     .min(1, "provider is required")
     .refine(
@@ -2707,58 +2560,182 @@ function createToolCatalog(
   );
 
   registerTool(
-    "create_schedule",
+    "create_automation",
     {
-      title: "Create schedule",
+      title: "Create automation",
       description:
-        "Create a recurring schedule that starts a new agent on a cron cadence. It starts pending and does not run until the user approves it in the Schedules screen.",
+        "Create an automation that starts a new agent with this prompt on a cron cadence, or only when run by hand if cron is omitted. It stays pending and does not run until the user approves it in the Automations screen.",
       inputSchema: z
         .object({
+          name: z.string().trim().min(1, "name is required"),
           prompt: z.string().trim().min(1, "prompt is required"),
-          cron: z.string().trim().min(1, "cron is required"),
+          cron: z.string().trim().min(1).optional(),
           timezone: z
             .string()
             .trim()
             .min(1)
             .optional()
             .describe("IANA time zone for the cron cadence. For example: America/New_York."),
-          name: z.string().optional(),
           provider: (scope === "agent" ? AgentProviderEnum.optional() : AgentProviderEnum).describe(
             "Provider, or provider/model (for example: codex or codex/gpt-5.4). Defaults to the caller's provider in an agent-scoped session.",
           ),
           cwd: z.string().optional(),
-          isolation: z.enum(["local", "worktree"]).optional(),
+          workspace: z.enum(["project", "worktree"]).optional(),
           maxRuns: z.number().int().positive().optional(),
-          expiresIn: scheduleDurationInputSchema.optional(),
+          expiresIn: durationInputSchema.optional(),
         })
-        .superRefine(addScheduleCadenceIssue),
-      outputSchema: ScheduleSummarySchema.shape,
+        .superRefine(addCronIssue),
+      outputSchema: AutomationSchema.shape,
     },
-    async ({ prompt, cron, timezone, name, provider, cwd, isolation, maxRuns, expiresIn }) => {
-      if (!scheduleService) {
-        throw new Error("Schedule service is not configured");
+    async (input) => {
+      const service = requireAutomationService();
+      const cron = normalizeOptionalArg(input.cron);
+      const timezone = normalizeOptionalArg(input.timezone);
+      if (timezone !== undefined && cron === undefined) {
+        throw new PaseoToolInputError("timezone can only be used with cron");
       }
-
-      const expiresAt = buildScheduleExpiry(expiresIn);
-      const schedule = await scheduleService.createOrReplace(
-        {
-          prompt: prompt.trim(),
-          cadence: buildCronScheduleCadence({
-            cron,
-            ...(timezone !== undefined ? { timezone } : {}),
-          }),
-          target: resolveNewAgentScheduleTarget({ provider, cwd, isolation }),
-          ...(name?.trim() ? { name: name.trim() } : {}),
-          ...(maxRuns === undefined ? {} : { maxRuns }),
-          ...(expiresAt === undefined ? {} : { expiresAt }),
-        },
-        "pending",
+      const expiresAt = buildExpiry(input.expiresIn);
+      const automation = await runAutomationAction(() =>
+        service.create({
+          definition: {
+            name: input.name,
+            project: { cwd: resolveAutomationCwd(input.cwd) },
+            trigger:
+              cron === undefined
+                ? { kind: "manual" }
+                : {
+                    kind: "schedule",
+                    cadence: {
+                      type: "cron",
+                      expression: cron,
+                      ...(timezone !== undefined ? { timezone } : {}),
+                    },
+                  },
+            flow: {
+              nodes: [
+                {
+                  ...resolveAutomationAgentNode(input.provider),
+                  workspace: input.workspace ?? "project",
+                  prompt: input.prompt.trim(),
+                },
+                { id: "chat", kind: "output", output: { type: "chat" } },
+              ],
+              edges: [{ from: "agent", to: "chat" }],
+            },
+            limits: {
+              ...(input.maxRuns === undefined ? {} : { maxRuns: input.maxRuns }),
+              ...(expiresAt === undefined ? {} : { expiresAt }),
+            },
+          },
+          origin: { kind: "agent", agentId: requireCallerAgentIdForAutomation() },
+        }),
       );
+      return { content: [], structuredContent: ensureValidJson(automation) };
+    },
+  );
 
-      return {
-        content: [],
-        structuredContent: ensureValidJson(toScheduleSummary(schedule)),
-      };
+  registerTool(
+    "list_automations",
+    {
+      title: "List automations",
+      description: "List all automations on this host.",
+      inputSchema: {},
+      outputSchema: { automations: z.array(AutomationSchema) },
+    },
+    async () => {
+      const automations = await requireAutomationService().list();
+      return { content: [], structuredContent: ensureValidJson({ automations }) };
+    },
+  );
+
+  registerTool(
+    "inspect_automation",
+    {
+      title: "Inspect automation",
+      description: "Inspect an automation and its audit history.",
+      inputSchema: { id: z.string().min(1) },
+      outputSchema: {
+        automation: AutomationSchema,
+        audit: z.array(AutomationAuditEntrySchema),
+      },
+    },
+    async ({ id }) => {
+      const result = await runAutomationAction(() => requireAutomationService().getWithAudit(id));
+      return { content: [], structuredContent: ensureValidJson(result) };
+    },
+  );
+
+  registerTool(
+    "pause_automation",
+    {
+      title: "Pause automation",
+      description: "Pause an active automation.",
+      inputSchema: { id: z.string().min(1) },
+      outputSchema: AutomationSchema.shape,
+    },
+    async ({ id }) => {
+      const automation = await runAutomationAction(() =>
+        requireAutomationService().pause(id, callerActor()),
+      );
+      return { content: [], structuredContent: ensureValidJson(automation) };
+    },
+  );
+
+  registerTool(
+    "delete_automation",
+    {
+      title: "Delete automation",
+      description: "Delete an automation you created that is still waiting for approval.",
+      inputSchema: { id: z.string().min(1) },
+      outputSchema: { success: z.boolean() },
+    },
+    async ({ id }) => {
+      const service = requireAutomationService();
+      const automation = await runAutomationAction(() => service.get(id));
+      const callerId = requireCallerAgentIdForAutomation();
+      if (
+        automation.status !== "pending" ||
+        automation.origin.kind !== "agent" ||
+        automation.origin.agentId !== callerId
+      ) {
+        throw new PaseoToolInputError(
+          `Automation ${id} is not a pending automation created by this agent`,
+        );
+      }
+      await service.delete(id, callerActor());
+      return { content: [], structuredContent: ensureValidJson({ success: true }) };
+    },
+  );
+
+  registerTool(
+    "automation_runs",
+    {
+      title: "Automation runs",
+      description: "List an automation's recent runs, newest first.",
+      inputSchema: { id: z.string().min(1), limit: z.number().int().positive().optional() },
+      outputSchema: { runs: z.array(AutomationRunSchema) },
+    },
+    async ({ id, limit }) => {
+      const runs = await runAutomationAction(() =>
+        requireAutomationService().listRuns({ automationId: id, limit: limit ?? 20 }),
+      );
+      return { content: [], structuredContent: ensureValidJson({ runs }) };
+    },
+  );
+
+  registerTool(
+    "run_automation_once",
+    {
+      title: "Run automation once",
+      description: "Start a run of an active automation now. Returns the run while it is running.",
+      inputSchema: { id: z.string().min(1) },
+      outputSchema: AutomationRunSchema.shape,
+    },
+    async ({ id }) => {
+      const run = await runAutomationAction(() =>
+        requireAutomationService().startManualRun(id, callerActor()),
+      );
+      return { content: [], structuredContent: ensureValidJson(run) };
     },
   );
 
@@ -2766,53 +2743,50 @@ function createToolCatalog(
     "create_heartbeat",
     {
       title: "Create heartbeat",
-      description: "Create a recurring heartbeat that sends you a prompt on a cron cadence.",
+      description:
+        "Send yourself a prompt later. Give exactly one of: cron (a cron cadence), every (an interval of at least 30s), in (once, after a duration), or at (once, at an ISO time).",
       inputSchema: z
         .object({
           prompt: z.string().trim().min(1, "prompt is required"),
-          cron: z.string().trim().min(1, "cron is required"),
+          cron: z.string().trim().min(1).optional(),
           timezone: z
             .string()
             .trim()
             .min(1)
             .optional()
             .describe("IANA time zone for the cron cadence. For example: America/New_York."),
+          every: durationInputSchema.optional().describe("Interval, for example 90s or 15m."),
+          in: durationInputSchema
+            .optional()
+            .describe("Fire once after this long, for example 20m."),
+          at: z.string().trim().min(1).optional().describe("Fire once at this ISO 8601 time."),
           name: z.string().optional(),
           maxRuns: z.number().int().positive().optional(),
-          expiresIn: scheduleDurationInputSchema.optional(),
+          expiresIn: durationInputSchema.optional(),
         })
-        .superRefine(addScheduleCadenceIssue),
-      outputSchema: ScheduleSummarySchema.shape,
+        .superRefine(addCronIssue),
+      outputSchema: HeartbeatSchema.shape,
     },
-    async ({ prompt, cron, timezone, name, maxRuns, expiresIn }) => {
-      if (!scheduleService) {
-        throw new Error("Schedule service is not configured");
+    async (input) => {
+      if (!heartbeatService) {
+        throw new Error("Heartbeat service is not configured");
       }
       if (!callerAgentId) {
         throw new PaseoToolInputError("create_heartbeat requires an agent-scoped session");
       }
       resolveCallerAgent();
-
-      const expiresAt = buildScheduleExpiry(expiresIn);
-      const schedule = await scheduleService.createOrReplace(
-        {
-          prompt: prompt.trim(),
-          cadence: buildCronScheduleCadence({
-            cron,
-            ...(timezone !== undefined ? { timezone } : {}),
-          }),
-          target: { type: "agent", agentId: callerAgentId },
-          ...(name?.trim() ? { name: name.trim() } : {}),
-          ...(maxRuns === undefined ? {} : { maxRuns }),
+      const expiresAt = buildExpiry(input.expiresIn);
+      const heartbeat = await runAutomationAction(() =>
+        heartbeatService.createOrReplace({
+          agentId: callerAgentId,
+          prompt: input.prompt.trim(),
+          cadence: buildHeartbeatCadence(input),
+          name: input.name,
+          ...(input.maxRuns === undefined ? {} : { maxRuns: input.maxRuns }),
           ...(expiresAt === undefined ? {} : { expiresAt }),
-        },
-        "active",
+        }),
       );
-
-      return {
-        content: [],
-        structuredContent: ensureValidJson(toScheduleSummary(schedule)),
-      };
+      return { content: [], structuredContent: ensureValidJson(heartbeat) };
     },
   );
 
@@ -2825,264 +2799,38 @@ function createToolCatalog(
       outputSchema: { success: z.boolean() },
     },
     async ({ id }) => {
-      if (!scheduleService) {
-        throw new Error("Schedule service is not configured");
+      if (!heartbeatService) {
+        throw new Error("Heartbeat service is not configured");
       }
-      await requireCallerHeartbeat(id);
-      await scheduleService.delete(id);
-      return {
-        content: [],
-        structuredContent: ensureValidJson({ success: true }),
-      };
+      if (!callerAgentId) {
+        throw new PaseoToolInputError("Heartbeat operations require an agent-scoped session");
+      }
+      const heartbeat = await runAutomationAction(() => heartbeatService.get(id));
+      if (heartbeat.agentId !== callerAgentId) {
+        throw new PaseoToolInputError(`Heartbeat ${id} does not belong to caller ${callerAgentId}`);
+      }
+      await heartbeatService.delete(id);
+      return { content: [], structuredContent: ensureValidJson({ success: true }) };
     },
   );
 
   registerTool(
-    "list_schedules",
+    "list_heartbeats",
     {
-      title: "List schedules",
-      description: "List all schedules managed by the daemon.",
+      title: "List heartbeats",
+      description: "List your heartbeats with when each fires next.",
       inputSchema: {},
-      outputSchema: {
-        schedules: z.array(ScheduleSummarySchema),
-      },
+      outputSchema: { heartbeats: z.array(HeartbeatSchema) },
     },
     async () => {
-      if (!scheduleService) {
-        throw new Error("Schedule service is not configured");
+      if (!heartbeatService) {
+        throw new Error("Heartbeat service is not configured");
       }
-
-      const schedules = (await scheduleService.list())
-        .filter((schedule) => schedule.target.type === "new-agent")
-        .map((schedule) => toScheduleSummary(schedule));
-      return {
-        content: [],
-        structuredContent: ensureValidJson({ schedules }),
-      };
-    },
-  );
-
-  registerTool(
-    "inspect_schedule",
-    {
-      title: "Inspect schedule",
-      description: "Inspect a schedule and its run history.",
-      inputSchema: {
-        id: z.string(),
-      },
-      outputSchema: StoredScheduleSchema.shape,
-    },
-    async ({ id }) => {
-      if (!scheduleService) {
-        throw new Error("Schedule service is not configured");
+      if (!callerAgentId) {
+        throw new PaseoToolInputError("Heartbeat operations require an agent-scoped session");
       }
-
-      const schedule = await requireScheduleTarget(id, "new-agent");
-      return {
-        content: [],
-        structuredContent: ensureValidJson(schedule),
-      };
-    },
-  );
-
-  registerTool(
-    "pause_schedule",
-    {
-      title: "Pause schedule",
-      description: "Pause an active schedule.",
-      inputSchema: {
-        id: z.string(),
-      },
-      outputSchema: {
-        success: z.boolean(),
-      },
-    },
-    async ({ id }) => {
-      if (!scheduleService) {
-        throw new Error("Schedule service is not configured");
-      }
-
-      await requireScheduleTarget(id, "new-agent");
-      await runScheduleAction(() => scheduleService.pause(id));
-      return {
-        content: [],
-        structuredContent: ensureValidJson({ success: true }),
-      };
-    },
-  );
-
-  registerTool(
-    "resume_schedule",
-    {
-      title: "Resume schedule",
-      description: "Resume a paused schedule.",
-      inputSchema: {
-        id: z.string(),
-      },
-      outputSchema: {
-        success: z.boolean(),
-      },
-    },
-    async ({ id }) => {
-      if (!scheduleService) {
-        throw new Error("Schedule service is not configured");
-      }
-
-      const schedule = await requireScheduleTarget(id, "new-agent");
-      // Only the user approves a pending schedule, through the client RPC.
-      if (schedule.status === "pending") {
-        throw new PaseoToolInputError(`Schedule ${id} is waiting for approval`);
-      }
-      await runScheduleAction(() => scheduleService.resume(id));
-      return {
-        content: [],
-        structuredContent: ensureValidJson({ success: true }),
-      };
-    },
-  );
-
-  registerTool(
-    "delete_schedule",
-    {
-      title: "Delete schedule",
-      description: "Delete a schedule permanently.",
-      inputSchema: {
-        id: z.string(),
-      },
-      outputSchema: {
-        success: z.boolean(),
-      },
-    },
-    async ({ id }) => {
-      if (!scheduleService) {
-        throw new Error("Schedule service is not configured");
-      }
-
-      await requireScheduleTarget(id, "new-agent");
-      await scheduleService.delete(id);
-      return {
-        content: [],
-        structuredContent: ensureValidJson({ success: true }),
-      };
-    },
-  );
-
-  registerTool(
-    "update_schedule",
-    {
-      title: "Update schedule",
-      description:
-        "Update an existing schedule. Only provided fields are changed; omitted fields remain unchanged.",
-      inputSchema: z
-        .object({
-          id: z.string(),
-          cron: z.string().optional().describe("New cron expression."),
-          timezone: z
-            .string()
-            .trim()
-            .min(1)
-            .optional()
-            .describe(
-              "IANA time zone for cron cadence; requires cron. For example: America/New_York.",
-            ),
-          name: z.string().nullable().optional().describe("New name (null to clear)."),
-          prompt: z.string().trim().min(1).optional().describe("New prompt text."),
-          maxRuns: z
-            .number()
-            .int()
-            .positive()
-            .nullable()
-            .optional()
-            .describe("New max runs limit (null to clear)."),
-          provider: z
-            .string()
-            .trim()
-            .min(1)
-            .optional()
-            .describe("New provider for new-agent target."),
-          model: z
-            .string()
-            .trim()
-            .min(1)
-            .nullable()
-            .optional()
-            .describe("New model for new-agent target (null to clear)."),
-          mode: z
-            .string()
-            .trim()
-            .min(1)
-            .nullable()
-            .optional()
-            .describe("New mode for new-agent target (null to clear)."),
-          cwd: z.string().trim().min(1).optional().describe("New cwd for new-agent target."),
-          expiresIn: scheduleDurationInputSchema
-            .optional()
-            .describe("New relative expiry duration (for example: 1h, 2d)."),
-          clearExpires: z.boolean().optional().describe("Clear any schedule expiry."),
-        })
-        .passthrough()
-        .superRefine(addScheduleCadenceIssue),
-      outputSchema: StoredScheduleSchema.shape,
-    },
-    async (input) => {
-      if (!scheduleService) {
-        throw new Error("Schedule service is not configured");
-      }
-
-      await requireScheduleTarget(input.id, "new-agent");
-      const schedule = await scheduleService.update(buildScheduleUpdateInput(input));
-
-      return {
-        content: [],
-        structuredContent: ensureValidJson(schedule),
-      };
-    },
-  );
-
-  registerTool(
-    "schedule_logs",
-    {
-      title: "Schedule logs",
-      description: "Get the run history (logs) for a schedule.",
-      inputSchema: {
-        id: z.string(),
-      },
-      outputSchema: {
-        runs: z.array(ScheduleRunSchema),
-      },
-    },
-    async ({ id }) => {
-      if (!scheduleService) {
-        throw new Error("Schedule service is not configured");
-      }
-
-      await requireScheduleTarget(id, "new-agent");
-      const runs = await scheduleService.logs(id);
-      return {
-        content: [],
-        structuredContent: ensureValidJson({ runs }),
-      };
-    },
-  );
-
-  registerTool(
-    "run_schedule_once",
-    {
-      title: "Run schedule once",
-      description: "Run a schedule immediately without changing its cron cadence.",
-      inputSchema: { id: z.string().min(1) },
-      outputSchema: StoredScheduleSchema.shape,
-    },
-    async ({ id }) => {
-      if (!scheduleService) {
-        throw new Error("Schedule service is not configured");
-      }
-      await requireScheduleTarget(id, "new-agent");
-      const schedule = await runScheduleAction(() => scheduleService.runOnce(id));
-      return {
-        content: [],
-        structuredContent: ensureValidJson(schedule),
-      };
+      const heartbeats = await heartbeatService.list(callerAgentId);
+      return { content: [], structuredContent: ensureValidJson({ heartbeats }) };
     },
   );
 
@@ -3199,7 +2947,7 @@ function createToolCatalog(
       },
     },
     async ({ provider, cwd, settings }) => {
-      const resolvedProviderModel = resolveScheduleProviderAndModel({
+      const resolvedProviderModel = resolveProviderAndModelArg({
         provider,
         defaultProvider: provider,
       });

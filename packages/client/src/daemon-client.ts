@@ -20,6 +20,8 @@ import type { CreationSnapshot } from "@pimi/protocol/messages";
 import type { z } from "zod";
 import type { SessionEventSubscription } from "@pimi/protocol/messages";
 import type { LocalSpeechModel } from "@pimi/protocol/speech/rpc-schemas";
+import type { AutomationDefinition, AutomationOrigin } from "@pimi/protocol/automation/types";
+import type { HeartbeatCadence } from "@pimi/protocol/heartbeat/types";
 import type { AgentAttentionNotificationPayload } from "@pimi/protocol/agent-attention-notification";
 import { MAX_WEBSOCKET_MESSAGE_BYTES } from "@pimi/protocol/websocket-message-limit";
 import type { PimiMobileTaskOperation, PimiMobileTaskResult } from "@pimi/protocol/pimi-task";
@@ -640,41 +642,73 @@ type SubscribeTerminalPayload = SubscribeTerminalResponse["payload"];
 type CloseItemsPayload = CloseItemsResponse["payload"];
 type KillTerminalPayload = KillTerminalResponse["payload"];
 type CaptureTerminalPayload = CaptureTerminalResponse["payload"];
-type ScheduleCreatePayload = Extract<
+export type AutomationCreatePayload = Extract<
   SessionOutboundMessage,
-  { type: "schedule/create/response" }
+  { type: "automation.create.response" }
 >["payload"];
-type ScheduleListPayload = Extract<
+export type AutomationGetPayload = Extract<
   SessionOutboundMessage,
-  { type: "schedule/list/response" }
+  { type: "automation.get.response" }
 >["payload"];
-type ScheduleInspectPayload = Extract<
+export type AutomationListPayload = Extract<
   SessionOutboundMessage,
-  { type: "schedule/inspect/response" }
+  { type: "automation.list.response" }
 >["payload"];
-type ScheduleLogsPayload = Extract<
+export type AutomationUpdatePayload = Extract<
   SessionOutboundMessage,
-  { type: "schedule/logs/response" }
+  { type: "automation.update.response" }
 >["payload"];
-type SchedulePausePayload = Extract<
+export type AutomationDeletePayload = Extract<
   SessionOutboundMessage,
-  { type: "schedule/pause/response" }
+  { type: "automation.delete.response" }
 >["payload"];
-type ScheduleResumePayload = Extract<
+export type AutomationEnablePayload = Extract<
   SessionOutboundMessage,
-  { type: "schedule/resume/response" }
+  { type: "automation.enable.response" }
 >["payload"];
-type ScheduleDeletePayload = Extract<
+export type AutomationPausePayload = Extract<
   SessionOutboundMessage,
-  { type: "schedule/delete/response" }
+  { type: "automation.pause.response" }
 >["payload"];
-type ScheduleRunOncePayload = Extract<
+export type AutomationApprovePayload = Extract<
   SessionOutboundMessage,
-  { type: "schedule/run-once/response" }
+  { type: "automation.approve.response" }
 >["payload"];
-type ScheduleUpdatePayload = Extract<
+export type AutomationRunStartPayload = Extract<
   SessionOutboundMessage,
-  { type: "schedule/update/response" }
+  { type: "automation.run.start.response" }
+>["payload"];
+export type AutomationRunCancelPayload = Extract<
+  SessionOutboundMessage,
+  { type: "automation.run.cancel.response" }
+>["payload"];
+export type AutomationRunListPayload = Extract<
+  SessionOutboundMessage,
+  { type: "automation.run.list.response" }
+>["payload"];
+export type AutomationRunGetPayload = Extract<
+  SessionOutboundMessage,
+  { type: "automation.run.get.response" }
+>["payload"];
+export type AutomationRunMarkReadPayload = Extract<
+  SessionOutboundMessage,
+  { type: "automation.run.mark_read.response" }
+>["payload"];
+export type HeartbeatCreatePayload = Extract<
+  SessionOutboundMessage,
+  { type: "heartbeat.create.response" }
+>["payload"];
+export type HeartbeatUpdatePayload = Extract<
+  SessionOutboundMessage,
+  { type: "heartbeat.update.response" }
+>["payload"];
+export type HeartbeatDeletePayload = Extract<
+  SessionOutboundMessage,
+  { type: "heartbeat.delete.response" }
+>["payload"];
+export type HeartbeatListPayload = Extract<
+  SessionOutboundMessage,
+  { type: "heartbeat.list.response" }
 >["payload"];
 export type FetchAgentTimelinePayload = FetchAgentTimelineResponseMessage["payload"];
 export type AgentForkContextPayload = AgentForkContextResponseMessage["payload"];
@@ -845,69 +879,28 @@ type ProjectListRequest = Extract<SessionInboundMessage, { type: "project.list.r
 export type ProjectListOptions = Omit<ProjectListRequest, "type" | "requestId"> & {
   requestId?: string;
 };
-export interface CreateScheduleOptions {
+export interface AutomationCreateOptions {
+  definition: AutomationDefinition;
+  origin?: AutomationOrigin;
+  requestId?: string;
+}
+export interface AutomationIdOptions {
+  automationId: string;
+  requestId?: string;
+}
+export interface AutomationRunIdOptions {
+  automationId: string;
+  runId: string;
+  requestId?: string;
+}
+export interface HeartbeatCreateOptions {
+  agentId: string;
+  name?: string;
   prompt: string;
-  name?: string | null;
-  cadence: {
-    type: "cron";
-    expression: string;
-    timezone?: string;
-  };
-  target:
-    | {
-        type: "self";
-        agentId: string;
-      }
-    | {
-        type: "agent";
-        agentId: string;
-      }
-    | {
-        type: "new-agent";
-        config: {
-          provider: AgentProvider;
-          cwd: string;
-          modeId?: string;
-          model?: string;
-          thinkingOptionId?: string;
-          archiveOnFinish?: boolean;
-          isolation?: "local" | "worktree";
-          title?: string | null;
-          providerOptions?: AgentSessionConfig["providerOptions"];
-          systemPrompt?: string;
-          mcpServers?: AgentSessionConfig["mcpServers"];
-        };
-      };
+  cadence: HeartbeatCadence;
   maxRuns?: number;
   expiresAt?: string;
   runOnCreate?: boolean;
-  requestId?: string;
-}
-export interface InspectScheduleOptions {
-  id: string;
-  requestId?: string;
-}
-export interface UpdateScheduleNewAgentConfig {
-  provider?: string;
-  model?: string | null;
-  modeId?: string | null;
-  thinkingOptionId?: string | null;
-  archiveOnFinish?: boolean;
-  isolation?: "local" | "worktree";
-  cwd?: string;
-}
-export interface UpdateScheduleOptions {
-  id: string;
-  name?: string | null;
-  prompt?: string;
-  cadence?: {
-    type: "cron";
-    expression: string;
-    timezone?: string;
-  };
-  newAgentConfig?: UpdateScheduleNewAgentConfig;
-  maxRuns?: number | null;
-  expiresAt?: string | null;
   requestId?: string;
 }
 export interface RenameBranchInput {
@@ -6408,113 +6401,177 @@ export class DaemonClient {
     });
   }
 
-  async scheduleCreate(options: CreateScheduleOptions): Promise<ScheduleCreatePayload> {
-    return this.sendCorrelatedSessionRequest({
+  async automationCreate(options: AutomationCreateOptions): Promise<AutomationCreatePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
       requestId: options.requestId,
       message: {
-        type: "schedule/create",
+        type: "automation.create.request",
+        definition: options.definition,
+        ...(options.origin ? { origin: options.origin } : {}),
+      },
+    });
+  }
+
+  async automationList(options: { requestId?: string } = {}): Promise<AutomationListPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "automation.list.request" },
+    });
+  }
+
+  async automationGet(options: AutomationIdOptions): Promise<AutomationGetPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "automation.get.request", automationId: options.automationId },
+    });
+  }
+
+  async automationDelete(options: AutomationIdOptions): Promise<AutomationDeletePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "automation.delete.request", automationId: options.automationId },
+    });
+  }
+
+  async automationEnable(options: AutomationIdOptions): Promise<AutomationEnablePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "automation.enable.request", automationId: options.automationId },
+    });
+  }
+
+  async automationPause(options: AutomationIdOptions): Promise<AutomationPausePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "automation.pause.request", automationId: options.automationId },
+    });
+  }
+
+  async automationApprove(options: AutomationIdOptions): Promise<AutomationApprovePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "automation.approve.request", automationId: options.automationId },
+    });
+  }
+
+  async automationRunStart(options: AutomationIdOptions): Promise<AutomationRunStartPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "automation.run.start.request", automationId: options.automationId },
+    });
+  }
+
+  async automationUpdate(
+    options: AutomationIdOptions & { definition: AutomationDefinition },
+  ): Promise<AutomationUpdatePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "automation.update.request",
+        automationId: options.automationId,
+        definition: options.definition,
+      },
+    });
+  }
+
+  async automationRunCancel(options: AutomationRunIdOptions): Promise<AutomationRunCancelPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "automation.run.cancel.request",
+        automationId: options.automationId,
+        runId: options.runId,
+      },
+    });
+  }
+
+  async automationRunGet(options: AutomationRunIdOptions): Promise<AutomationRunGetPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "automation.run.get.request",
+        automationId: options.automationId,
+        runId: options.runId,
+      },
+    });
+  }
+
+  async automationRunMarkRead(
+    options: AutomationRunIdOptions,
+  ): Promise<AutomationRunMarkReadPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "automation.run.mark_read.request",
+        automationId: options.automationId,
+        runId: options.runId,
+      },
+    });
+  }
+
+  async automationRunList(
+    options: { automationId?: string; limit?: number; requestId?: string } = {},
+  ): Promise<AutomationRunListPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "automation.run.list.request",
+        ...(options.automationId ? { automationId: options.automationId } : {}),
+        ...(options.limit ? { limit: options.limit } : {}),
+      },
+    });
+  }
+
+  async heartbeatCreate(options: HeartbeatCreateOptions): Promise<HeartbeatCreatePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "heartbeat.create.request",
+        agentId: options.agentId,
         prompt: options.prompt,
         cadence: options.cadence,
-        target: options.target,
         ...(options.name ? { name: options.name } : {}),
-        ...(typeof options.maxRuns === "number" ? { maxRuns: options.maxRuns } : {}),
+        ...(options.maxRuns ? { maxRuns: options.maxRuns } : {}),
         ...(options.expiresAt ? { expiresAt: options.expiresAt } : {}),
-        ...(typeof options.runOnCreate === "boolean" ? { runOnCreate: options.runOnCreate } : {}),
+        ...(options.runOnCreate !== undefined ? { runOnCreate: options.runOnCreate } : {}),
       },
-      responseType: "schedule/create/response",
     });
   }
 
-  async scheduleList(requestId?: string): Promise<ScheduleListPayload> {
-    return this.sendCorrelatedSessionRequest({
-      requestId,
-      message: {
-        type: "schedule/list",
-      },
-      responseType: "schedule/list/response",
-    });
-  }
-
-  async scheduleInspect(options: InspectScheduleOptions): Promise<ScheduleInspectPayload> {
-    return this.sendCorrelatedSessionRequest({
+  async heartbeatUpdate(options: {
+    heartbeatId: string;
+    cadence: HeartbeatCadence;
+    requestId?: string;
+  }): Promise<HeartbeatUpdatePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
       requestId: options.requestId,
       message: {
-        type: "schedule/inspect",
-        scheduleId: options.id,
+        type: "heartbeat.update.request",
+        heartbeatId: options.heartbeatId,
+        cadence: options.cadence,
       },
-      responseType: "schedule/inspect/response",
     });
   }
 
-  async scheduleLogs(options: InspectScheduleOptions): Promise<ScheduleLogsPayload> {
-    return this.sendCorrelatedSessionRequest({
+  async heartbeatDelete(options: {
+    heartbeatId: string;
+    requestId?: string;
+  }): Promise<HeartbeatDeletePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
       requestId: options.requestId,
-      message: {
-        type: "schedule/logs",
-        scheduleId: options.id,
-      },
-      responseType: "schedule/logs/response",
+      message: { type: "heartbeat.delete.request", heartbeatId: options.heartbeatId },
     });
   }
 
-  async schedulePause(options: InspectScheduleOptions): Promise<SchedulePausePayload> {
-    return this.sendCorrelatedSessionRequest({
+  async heartbeatList(
+    options: { agentId?: string; requestId?: string } = {},
+  ): Promise<HeartbeatListPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
       requestId: options.requestId,
       message: {
-        type: "schedule/pause",
-        scheduleId: options.id,
+        type: "heartbeat.list.request",
+        ...(options.agentId ? { agentId: options.agentId } : {}),
       },
-      responseType: "schedule/pause/response",
-    });
-  }
-
-  async scheduleResume(options: InspectScheduleOptions): Promise<ScheduleResumePayload> {
-    return this.sendCorrelatedSessionRequest({
-      requestId: options.requestId,
-      message: {
-        type: "schedule/resume",
-        scheduleId: options.id,
-      },
-      responseType: "schedule/resume/response",
-    });
-  }
-
-  async scheduleDelete(options: InspectScheduleOptions): Promise<ScheduleDeletePayload> {
-    return this.sendCorrelatedSessionRequest({
-      requestId: options.requestId,
-      message: {
-        type: "schedule/delete",
-        scheduleId: options.id,
-      },
-      responseType: "schedule/delete/response",
-    });
-  }
-
-  async scheduleRunOnce(options: InspectScheduleOptions): Promise<ScheduleRunOncePayload> {
-    return this.sendCorrelatedSessionRequest({
-      requestId: options.requestId,
-      message: {
-        type: "schedule/run-once",
-        scheduleId: options.id,
-      },
-      responseType: "schedule/run-once/response",
-    });
-  }
-
-  async scheduleUpdate(options: UpdateScheduleOptions): Promise<ScheduleUpdatePayload> {
-    return this.sendCorrelatedSessionRequest({
-      requestId: options.requestId,
-      message: {
-        type: "schedule/update",
-        scheduleId: options.id,
-        ...(options.name !== undefined ? { name: options.name } : {}),
-        ...(options.prompt !== undefined ? { prompt: options.prompt } : {}),
-        ...(options.cadence !== undefined ? { cadence: options.cadence } : {}),
-        ...(options.newAgentConfig !== undefined ? { newAgentConfig: options.newAgentConfig } : {}),
-        ...(options.maxRuns !== undefined ? { maxRuns: options.maxRuns } : {}),
-        ...(options.expiresAt !== undefined ? { expiresAt: options.expiresAt } : {}),
-      },
-      responseType: "schedule/update/response",
     });
   }
 

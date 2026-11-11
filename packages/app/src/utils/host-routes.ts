@@ -396,8 +396,8 @@ export function buildSessionsRoute() {
   return "/sessions" as const;
 }
 
-export function buildSchedulesRoute() {
-  return "/schedules" as const;
+export function buildAutomationsRoute() {
+  return "/automations" as const;
 }
 
 export function buildOpenProjectRoute() {

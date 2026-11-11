@@ -49,25 +49,43 @@ import { ProviderOverridesSchema, ProviderPaseoToolsPolicySchema } from "./provi
 import { MAX_AGENT_USAGE_SAMPLES, TOOL_CALL_ICON_NAMES } from "./agent-types.js";
 import { WORKSPACE_LABEL_COLORS } from "./workspace-labels.js";
 import {
-  ScheduleCreateRequestSchema,
-  ScheduleListRequestSchema,
-  ScheduleInspectRequestSchema,
-  ScheduleLogsRequestSchema,
-  SchedulePauseRequestSchema,
-  ScheduleResumeRequestSchema,
-  ScheduleDeleteRequestSchema,
-  ScheduleRunOnceRequestSchema,
-  ScheduleUpdateRequestSchema,
-  ScheduleCreateResponseSchema,
-  ScheduleListResponseSchema,
-  ScheduleInspectResponseSchema,
-  ScheduleLogsResponseSchema,
-  SchedulePauseResponseSchema,
-  ScheduleResumeResponseSchema,
-  ScheduleDeleteResponseSchema,
-  ScheduleRunOnceResponseSchema,
-  ScheduleUpdateResponseSchema,
-} from "./schedule/rpc-schemas.js";
+  AutomationCreateRequestSchema,
+  AutomationCreateResponseSchema,
+  AutomationGetRequestSchema,
+  AutomationGetResponseSchema,
+  AutomationListRequestSchema,
+  AutomationListResponseSchema,
+  AutomationUpdateRequestSchema,
+  AutomationUpdateResponseSchema,
+  AutomationDeleteRequestSchema,
+  AutomationDeleteResponseSchema,
+  AutomationEnableRequestSchema,
+  AutomationEnableResponseSchema,
+  AutomationPauseRequestSchema,
+  AutomationPauseResponseSchema,
+  AutomationApproveRequestSchema,
+  AutomationApproveResponseSchema,
+  AutomationRunStartRequestSchema,
+  AutomationRunStartResponseSchema,
+  AutomationRunCancelRequestSchema,
+  AutomationRunCancelResponseSchema,
+  AutomationRunListRequestSchema,
+  AutomationRunListResponseSchema,
+  AutomationRunGetRequestSchema,
+  AutomationRunGetResponseSchema,
+  AutomationRunMarkReadRequestSchema,
+  AutomationRunMarkReadResponseSchema,
+} from "./automation/rpc-schemas.js";
+import {
+  HeartbeatCreateRequestSchema,
+  HeartbeatCreateResponseSchema,
+  HeartbeatUpdateRequestSchema,
+  HeartbeatUpdateResponseSchema,
+  HeartbeatDeleteRequestSchema,
+  HeartbeatDeleteResponseSchema,
+  HeartbeatListRequestSchema,
+  HeartbeatListResponseSchema,
+} from "./heartbeat/rpc-schemas.js";
 import {
   SpeechLocalModelsDeleteRequestSchema,
   SpeechLocalModelsDeleteResponseSchema,
@@ -3401,18 +3419,26 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   TerminalInputSchema,
   KillTerminalRequestSchema,
   CaptureTerminalRequestSchema,
-  ScheduleCreateRequestSchema,
-  ScheduleListRequestSchema,
+  AutomationCreateRequestSchema,
+  AutomationGetRequestSchema,
+  AutomationListRequestSchema,
+  AutomationUpdateRequestSchema,
+  AutomationDeleteRequestSchema,
+  AutomationEnableRequestSchema,
+  AutomationPauseRequestSchema,
+  AutomationApproveRequestSchema,
+  AutomationRunStartRequestSchema,
+  AutomationRunCancelRequestSchema,
+  AutomationRunListRequestSchema,
+  AutomationRunGetRequestSchema,
+  AutomationRunMarkReadRequestSchema,
+  HeartbeatCreateRequestSchema,
+  HeartbeatUpdateRequestSchema,
+  HeartbeatDeleteRequestSchema,
+  HeartbeatListRequestSchema,
   SpeechLocalModelsListRequestSchema,
   SpeechLocalModelsDownloadRequestSchema,
   SpeechLocalModelsDeleteRequestSchema,
-  ScheduleInspectRequestSchema,
-  ScheduleLogsRequestSchema,
-  SchedulePauseRequestSchema,
-  ScheduleResumeRequestSchema,
-  ScheduleDeleteRequestSchema,
-  ScheduleRunOnceRequestSchema,
-  ScheduleUpdateRequestSchema,
 ]);
 
 export type SessionInboundMessage = z.infer<typeof SessionInboundMessageSchema>;
@@ -6742,18 +6768,26 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   CaptureTerminalResponseSchema,
   TerminalStreamExitSchema,
   TerminalAttentionRequiredSchema,
-  ScheduleCreateResponseSchema,
-  ScheduleListResponseSchema,
+  AutomationCreateResponseSchema,
+  AutomationGetResponseSchema,
+  AutomationListResponseSchema,
+  AutomationUpdateResponseSchema,
+  AutomationDeleteResponseSchema,
+  AutomationEnableResponseSchema,
+  AutomationPauseResponseSchema,
+  AutomationApproveResponseSchema,
+  AutomationRunStartResponseSchema,
+  AutomationRunCancelResponseSchema,
+  AutomationRunListResponseSchema,
+  AutomationRunGetResponseSchema,
+  AutomationRunMarkReadResponseSchema,
+  HeartbeatCreateResponseSchema,
+  HeartbeatUpdateResponseSchema,
+  HeartbeatDeleteResponseSchema,
+  HeartbeatListResponseSchema,
   SpeechLocalModelsListResponseSchema,
   SpeechLocalModelsDownloadResponseSchema,
   SpeechLocalModelsDeleteResponseSchema,
-  ScheduleInspectResponseSchema,
-  ScheduleLogsResponseSchema,
-  SchedulePauseResponseSchema,
-  ScheduleResumeResponseSchema,
-  ScheduleDeleteResponseSchema,
-  ScheduleRunOnceResponseSchema,
-  ScheduleUpdateResponseSchema,
   DaemonUpdateProgressMessageSchema,
   DaemonUpdateResponseSchema,
 ]);
@@ -6904,15 +6938,23 @@ export type UsageListReportsResponseMessage = z.infer<typeof UsageListReportsRes
 export type ProviderUsageWindow = z.infer<typeof ProviderUsageWindowSchema>;
 export type ProviderUsageBalance = z.infer<typeof ProviderUsageBalanceSchema>;
 export type ProviderUsageDetail = z.infer<typeof ProviderUsageDetailSchema>;
-export type ScheduleCreateResponse = z.infer<typeof ScheduleCreateResponseSchema>;
-export type ScheduleListResponse = z.infer<typeof ScheduleListResponseSchema>;
-export type ScheduleInspectResponse = z.infer<typeof ScheduleInspectResponseSchema>;
-export type ScheduleLogsResponse = z.infer<typeof ScheduleLogsResponseSchema>;
-export type SchedulePauseResponse = z.infer<typeof SchedulePauseResponseSchema>;
-export type ScheduleResumeResponse = z.infer<typeof ScheduleResumeResponseSchema>;
-export type ScheduleDeleteResponse = z.infer<typeof ScheduleDeleteResponseSchema>;
-export type ScheduleRunOnceResponse = z.infer<typeof ScheduleRunOnceResponseSchema>;
-export type ScheduleUpdateResponse = z.infer<typeof ScheduleUpdateResponseSchema>;
+export type AutomationCreateResponse = z.infer<typeof AutomationCreateResponseSchema>;
+export type AutomationGetResponse = z.infer<typeof AutomationGetResponseSchema>;
+export type AutomationListResponse = z.infer<typeof AutomationListResponseSchema>;
+export type AutomationUpdateResponse = z.infer<typeof AutomationUpdateResponseSchema>;
+export type AutomationDeleteResponse = z.infer<typeof AutomationDeleteResponseSchema>;
+export type AutomationEnableResponse = z.infer<typeof AutomationEnableResponseSchema>;
+export type AutomationPauseResponse = z.infer<typeof AutomationPauseResponseSchema>;
+export type AutomationApproveResponse = z.infer<typeof AutomationApproveResponseSchema>;
+export type AutomationRunStartResponse = z.infer<typeof AutomationRunStartResponseSchema>;
+export type AutomationRunCancelResponse = z.infer<typeof AutomationRunCancelResponseSchema>;
+export type AutomationRunListResponse = z.infer<typeof AutomationRunListResponseSchema>;
+export type AutomationRunGetResponse = z.infer<typeof AutomationRunGetResponseSchema>;
+export type AutomationRunMarkReadResponse = z.infer<typeof AutomationRunMarkReadResponseSchema>;
+export type HeartbeatCreateResponse = z.infer<typeof HeartbeatCreateResponseSchema>;
+export type HeartbeatUpdateResponse = z.infer<typeof HeartbeatUpdateResponseSchema>;
+export type HeartbeatDeleteResponse = z.infer<typeof HeartbeatDeleteResponseSchema>;
+export type HeartbeatListResponse = z.infer<typeof HeartbeatListResponseSchema>;
 
 // Type exports for payload types
 export type ActivityLogPayload = z.infer<typeof ActivityLogPayloadSchema>;
@@ -6969,15 +7011,23 @@ export type RefreshProvidersSnapshotRequestMessage = z.infer<
 export type ProviderDiagnosticRequestMessage = z.infer<
   typeof ProviderDiagnosticRequestMessageSchema
 >;
-export type ScheduleCreateRequest = z.infer<typeof ScheduleCreateRequestSchema>;
-export type ScheduleListRequest = z.infer<typeof ScheduleListRequestSchema>;
-export type ScheduleInspectRequest = z.infer<typeof ScheduleInspectRequestSchema>;
-export type ScheduleLogsRequest = z.infer<typeof ScheduleLogsRequestSchema>;
-export type SchedulePauseRequest = z.infer<typeof SchedulePauseRequestSchema>;
-export type ScheduleResumeRequest = z.infer<typeof ScheduleResumeRequestSchema>;
-export type ScheduleDeleteRequest = z.infer<typeof ScheduleDeleteRequestSchema>;
-export type ScheduleRunOnceRequest = z.infer<typeof ScheduleRunOnceRequestSchema>;
-export type ScheduleUpdateRequest = z.infer<typeof ScheduleUpdateRequestSchema>;
+export type AutomationCreateRequest = z.infer<typeof AutomationCreateRequestSchema>;
+export type AutomationGetRequest = z.infer<typeof AutomationGetRequestSchema>;
+export type AutomationListRequest = z.infer<typeof AutomationListRequestSchema>;
+export type AutomationUpdateRequest = z.infer<typeof AutomationUpdateRequestSchema>;
+export type AutomationDeleteRequest = z.infer<typeof AutomationDeleteRequestSchema>;
+export type AutomationEnableRequest = z.infer<typeof AutomationEnableRequestSchema>;
+export type AutomationPauseRequest = z.infer<typeof AutomationPauseRequestSchema>;
+export type AutomationApproveRequest = z.infer<typeof AutomationApproveRequestSchema>;
+export type AutomationRunStartRequest = z.infer<typeof AutomationRunStartRequestSchema>;
+export type AutomationRunCancelRequest = z.infer<typeof AutomationRunCancelRequestSchema>;
+export type AutomationRunListRequest = z.infer<typeof AutomationRunListRequestSchema>;
+export type AutomationRunGetRequest = z.infer<typeof AutomationRunGetRequestSchema>;
+export type AutomationRunMarkReadRequest = z.infer<typeof AutomationRunMarkReadRequestSchema>;
+export type HeartbeatCreateRequest = z.infer<typeof HeartbeatCreateRequestSchema>;
+export type HeartbeatUpdateRequest = z.infer<typeof HeartbeatUpdateRequestSchema>;
+export type HeartbeatDeleteRequest = z.infer<typeof HeartbeatDeleteRequestSchema>;
+export type HeartbeatListRequest = z.infer<typeof HeartbeatListRequestSchema>;
 export type ResumeAgentRequestMessage = z.infer<typeof ResumeAgentRequestMessageSchema>;
 export type DeleteAgentRequestMessage = z.infer<typeof DeleteAgentRequestMessageSchema>;
 export type UpdateAgentRequestMessage = z.infer<typeof UpdateAgentRequestMessageSchema>;

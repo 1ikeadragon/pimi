@@ -21,7 +21,7 @@ import { useActiveWorkspaceSelection } from "@/stores/navigation-active-workspac
 import { useWorkspace } from "@/stores/session-store-hooks";
 import {
   buildNewWorkspaceRoute,
-  buildSchedulesRoute,
+  buildAutomationsRoute,
   buildSessionsRoute,
 } from "@/utils/host-routes";
 
@@ -244,21 +244,21 @@ function SidebarSearchRow({ iconOnly }: SidebarNavRowProps) {
   );
 }
 
-function SidebarSchedulesRow({ onBeforeNavigate }: SidebarNavRowProps) {
+function SidebarAutomationsRow({ onBeforeNavigate }: SidebarNavRowProps) {
   const { t } = useTranslation();
   const pathname = usePathname();
   const handlePress = useCallback(() => {
     onBeforeNavigate?.();
-    router.push(buildSchedulesRoute());
+    router.push(buildAutomationsRoute());
   }, [onBeforeNavigate]);
 
   return (
     <SidebarHeaderRow
       icon={Rocket}
-      label={t(builtinSidebarNavLabelKey("schedules"))}
+      label={t(builtinSidebarNavLabelKey("automations"))}
       onPress={handlePress}
-      isActive={pathname.includes("/schedules")}
-      testID="sidebar-schedules"
+      isActive={pathname.includes("/automations")}
+      testID="sidebar-automations"
       variant="compact"
     />
   );
@@ -268,7 +268,7 @@ const BUILTIN_ROWS: Record<BuiltinSidebarNavId, ComponentType<SidebarNavRowProps
   "new-workspace": SidebarNewWorkspaceRow,
   history: SidebarHistoryRow,
   search: SidebarSearchRow,
-  schedules: SidebarSchedulesRow,
+  automations: SidebarAutomationsRow,
 };
 
 const styles = StyleSheet.create((theme) => ({

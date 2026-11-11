@@ -29,7 +29,7 @@ import { useSidebarViewStore } from "@/stores/sidebar-view-store";
 import { clearCommandCenterFocusRestoreElement } from "@/utils/command-center-focus-restore";
 import {
   buildOpenProjectRoute,
-  buildSchedulesRoute,
+  buildAutomationsRoute,
   buildSessionsRoute,
   buildSettingsRoute,
 } from "@/utils/host-routes";
@@ -119,7 +119,7 @@ export function CommandCenterRootActions() {
   const settingsRoute = useMemo<Href>(() => buildSettingsRoute(), []);
   const homeRoute = useMemo<Href>(() => buildOpenProjectRoute(), []);
   const sessionsRoute = useMemo<Href>(() => buildSessionsRoute(), []);
-  const schedulesRoute = useMemo<Href>(() => buildSchedulesRoute(), []);
+  const automationsRoute = useMemo<Href>(() => buildAutomationsRoute(), []);
   const setShortcutsDialogOpen = useKeyboardShortcutsStore((state) => state.setShortcutsDialogOpen);
   // Narrow selector on purpose: a whole-store subscription would re-register every root action
   // each time host filters are reconciled.
@@ -230,20 +230,20 @@ export function CommandCenterRootActions() {
         },
       },
       {
-        id: "schedules",
+        id: "automations",
         group: "actions",
         groupRank: 0,
         rank: 5,
-        keywords: ["automation", "schedules", "scheduled", "recurring", "routine", "cron"],
+        keywords: ["schedule", "scheduled", "recurring", "routine", "cron"],
         visibility: "always",
         run: () => {
           clearCommandCenterFocusRestoreElement();
           getDesktopHost()?.dismissPimiWorkspace?.();
-          router.push(schedulesRoute);
+          router.push(automationsRoute);
         },
         presentation: {
           kind: "action",
-          title: t("sidebar.sections.schedules"),
+          title: t("sidebar.sections.automations"),
           sectionTitle: t("shell.commandCenter.actions"),
           icon: AutomationsIcon,
         },
@@ -340,7 +340,7 @@ export function CommandCenterRootActions() {
     openAddProject,
     openImportSession,
     overrides,
-    schedulesRoute,
+    automationsRoute,
     sessionsRoute,
     setGroupMode,
     setShortcutsDialogOpen,

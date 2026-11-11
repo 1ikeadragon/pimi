@@ -47,7 +47,7 @@ import { useSessionStore } from "@/stores/session-store";
 import {
   buildNewWorkspaceRoute,
   buildOpenProjectRoute,
-  buildSchedulesRoute,
+  buildAutomationsRoute,
   buildSessionsRoute,
   buildSettingsRoute,
 } from "@/utils/host-routes";
@@ -197,7 +197,7 @@ function openVoiceView(view: PimiVoiceView, host: DesktopHostBridge, pathname: s
       else if (pathname === PIMI_USAGE_ROUTE) closePimiUsage();
       else if (pathname === PIMI_LIBRARY_ROUTE) closePimiLibrary();
       else if (
-        pathname === buildSchedulesRoute() ||
+        pathname === buildAutomationsRoute() ||
         pathname === buildSessionsRoute() ||
         pathname.startsWith(buildSettingsRoute())
       ) {
@@ -216,7 +216,7 @@ function openVoiceView(view: PimiVoiceView, host: DesktopHostBridge, pathname: s
       openPimiLibrary(view, pathname === PIMI_LIBRARY_ROUTE);
       break;
     case "automations":
-      router.navigate(buildSchedulesRoute());
+      router.navigate(buildAutomationsRoute());
       break;
     case "history":
       router.navigate(buildSessionsRoute());

@@ -1298,7 +1298,7 @@ export const ar: TranslationResources = {
     sections: {
       sessions: "السجل",
       search: "بحث",
-      schedules: "الأتمتة",
+      automations: "الأتمتة",
     },
     worktreeSetup: {
       title: "إعداد البرامج النصية لشجرة العمل",

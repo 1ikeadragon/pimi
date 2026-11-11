@@ -1329,7 +1329,7 @@ export const fr: TranslationResources = {
     sections: {
       sessions: "Historique",
       search: "Recherche",
-      schedules: "Automatisations",
+      automations: "Automatisations",
     },
     worktreeSetup: {
       title: "Configurer les scripts de worktree",

@@ -59,10 +59,19 @@ const AUTOMATION_FIELDS = [
   "timezone",
   "provider",
   "cwd",
-  "isolation",
+  "workspace",
   "maxRuns",
   "expiresIn",
-  "clearExpires",
+] as const;
+const HEARTBEAT_FIELDS = [
+  "name",
+  "cron",
+  "timezone",
+  "every",
+  "in",
+  "at",
+  "maxRuns",
+  "expiresIn",
 ] as const;
 const BROWSER_FIELDS = [
   "browserId",
@@ -287,10 +296,10 @@ export const PASEO_TOOL_CATALOG = {
     detail: { inputOrder: ["terminalId"] },
   },
 
-  // Schedules and heartbeats
-  create_schedule: {
-    label: "Create schedule",
-    completedLabel: "Created schedule",
+  // Automations and heartbeats
+  create_automation: {
+    label: "Create automation",
+    completedLabel: "Created automation",
     context: field("name", "cron"),
     detail: {
       promptField: "prompt",
@@ -301,53 +310,41 @@ export const PASEO_TOOL_CATALOG = {
   create_heartbeat: {
     label: "Create heartbeat",
     completedLabel: "Created heartbeat",
-    context: field("name", "cron"),
+    context: field("name", "cron", "every", "in", "at"),
     detail: {
       promptField: "prompt",
-      inputOrder: AUTOMATION_FIELDS,
-      outputFields: AUTOMATION_OUTPUT,
+      inputOrder: HEARTBEAT_FIELDS,
+      outputFields: ["id", "nextRunAt", "expiresAt"],
     },
   },
-  update_schedule: {
-    label: "Update schedule",
-    completedLabel: "Updated schedule",
-    context: field("name", "id"),
-    detail: { promptField: "prompt", inputOrder: AUTOMATION_FIELDS },
-  },
-  list_schedules: { label: "List schedules", completedLabel: "Listed schedules" },
-  inspect_schedule: {
-    label: "Inspect schedule",
-    completedLabel: "Inspected schedule",
+  list_automations: { label: "List automations", completedLabel: "Listed automations" },
+  inspect_automation: {
+    label: "Inspect automation",
+    completedLabel: "Inspected automation",
     context: field("id"),
     detail: { inputOrder: ["id"] },
   },
-  schedule_logs: {
-    label: "Read schedule logs",
-    completedLabel: "Read schedule logs",
+  automation_runs: {
+    label: "Read automation runs",
+    completedLabel: "Read automation runs",
     context: field("id"),
     detail: { inputOrder: ["id"] },
   },
-  run_schedule_once: {
-    label: "Run schedule",
-    completedLabel: "Ran schedule",
+  run_automation_once: {
+    label: "Run automation",
+    completedLabel: "Started automation run",
     context: field("id"),
     detail: { inputOrder: ["id"] },
   },
-  pause_schedule: {
-    label: "Pause schedule",
-    completedLabel: "Paused schedule",
+  pause_automation: {
+    label: "Pause automation",
+    completedLabel: "Paused automation",
     context: field("id"),
     detail: { inputOrder: ["id"] },
   },
-  resume_schedule: {
-    label: "Resume schedule",
-    completedLabel: "Resumed schedule",
-    context: field("id"),
-    detail: { inputOrder: ["id"] },
-  },
-  delete_schedule: {
-    label: "Delete schedule",
-    completedLabel: "Deleted schedule",
+  delete_automation: {
+    label: "Delete automation",
+    completedLabel: "Deleted automation",
     context: field("id"),
     detail: { inputOrder: ["id"] },
   },
@@ -357,6 +354,7 @@ export const PASEO_TOOL_CATALOG = {
     context: field("id"),
     detail: { inputOrder: ["id"] },
   },
+  list_heartbeats: { label: "List heartbeats", completedLabel: "Listed heartbeats" },
 
   // Providers
   list_providers: { label: "List providers", completedLabel: "Listed providers" },

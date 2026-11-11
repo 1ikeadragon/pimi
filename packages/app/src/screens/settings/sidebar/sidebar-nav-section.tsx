@@ -42,7 +42,7 @@ const BUILTIN_ICONS: Record<BuiltinSidebarItemId, LucideIcon> = {
   "new-workspace": Plus,
   history: History,
   search: Search,
-  schedules: Rocket,
+  automations: Rocket,
   usage: Gauge,
 };
 
