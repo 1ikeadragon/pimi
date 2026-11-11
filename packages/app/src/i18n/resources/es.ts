@@ -2203,6 +2203,9 @@ export const es: TranslationResources = {
     empty: "No hay detalles adicionales disponibles",
     input: "Aporte",
     output: "Producción",
+    loadingBody: "Cargando la salida completa…",
+    bodyFailed: "No se pudo cargar la salida ·",
+    retryBody: "Reintentar",
   },
   turnSummary: {
     details: "Ver detalles del turno",

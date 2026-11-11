@@ -9,6 +9,7 @@ export interface ProjectedTimelineTailFetchPlan {
   direction: "tail";
   limit: number;
   wholeTurns: true;
+  stripToolBodies: true;
 }
 
 export interface ProjectedTimelineAfterFetchPlan {
@@ -16,6 +17,7 @@ export interface ProjectedTimelineAfterFetchPlan {
   cursor: TimelineSyncCursor;
   limit: number;
   wholeTurns: true;
+  stripToolBodies: true;
 }
 
 export interface ProjectedTimelineBeforeFetchPlan {
@@ -23,6 +25,7 @@ export interface ProjectedTimelineBeforeFetchPlan {
   cursor: TimelineSyncCursor;
   limit: number;
   wholeTurns: true;
+  stripToolBodies: true;
 }
 
 export type ProjectedTimelineFetchPlan =
@@ -40,6 +43,7 @@ export function planTimelineCatchUpAfter(cursor: TimelineSyncCursor) {
     cursor,
     limit: TIMELINE_FETCH_PAGE_SIZE,
     wholeTurns: true,
+    stripToolBodies: true,
   } as const;
 }
 
@@ -48,6 +52,7 @@ export function planTimelineTailFetch() {
     direction: "tail",
     limit: TIMELINE_FETCH_PAGE_SIZE,
     wholeTurns: true,
+    stripToolBodies: true,
   } as const;
 }
 
@@ -65,6 +70,7 @@ export function planTimelineOlderFetch(cursor: TimelineSyncCursor) {
     cursor,
     limit: TIMELINE_FETCH_PAGE_SIZE,
     wholeTurns: true,
+    stripToolBodies: true,
   } as const;
 }
 
@@ -75,6 +81,7 @@ export function planTimelinePromptJump(target: TimelineSyncCursor) {
     cursor: { epoch: target.epoch, seq: target.seq + newerRows + 1 },
     limit: TIMELINE_FETCH_PAGE_SIZE,
     wholeTurns: true,
+    stripToolBodies: true,
     mergeWindow: true,
   } as const;
 }

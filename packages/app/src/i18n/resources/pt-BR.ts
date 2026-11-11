@@ -2188,6 +2188,9 @@ export const ptBR: TranslationResources = {
     empty: "Nenhum detalhe adicional disponível",
     input: "Entrada",
     output: "Saída",
+    loadingBody: "Carregando a saída completa…",
+    bodyFailed: "Não foi possível carregar a saída ·",
+    retryBody: "Tentar novamente",
   },
   turnSummary: {
     details: "Ver detalhes do turno",

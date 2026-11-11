@@ -2177,6 +2177,9 @@ export const ja: TranslationResources = {
     empty: "追加の詳細はありません",
     input: "入力",
     output: "出力",
+    loadingBody: "完全な出力を読み込み中…",
+    bodyFailed: "出力を読み込めませんでした ·",
+    retryBody: "再試行",
   },
   turnSummary: {
     details: "ターンの詳細を表示",

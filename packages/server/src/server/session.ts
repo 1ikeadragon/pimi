@@ -147,6 +147,7 @@ import {
 import { resumeStoppedSubagents } from "./agent/stop-cascade.js";
 import { buildStoredAgentPayload, toAgentPayload } from "./agent/agent-projections.js";
 import { assertPluginTimelineDataSize } from "./agent/agent-timeline-content.js";
+import { stripToolCallBodies } from "@pimi/protocol/tool-call-body";
 import { parsePluginClientId } from "./plugins/plugin-session-identity.js";
 import { buildAgentPrompt } from "./agent/prompt-attachments.js";
 import type { StructuredGenerationDaemonConfig } from "./agent/structured-generation-providers.js";
@@ -156,6 +157,7 @@ import {
   type AgentPermissionResponse,
   type AgentRunOptions,
   type AgentSessionConfig,
+  type ToolCallDetail,
 } from "./agent/agent-sdk-types.js";
 import type { StoredAgentRecord } from "./agent/agent-storage.js";
 import type { AgentStorage } from "./agent/agent-storage.js";
@@ -2617,6 +2619,8 @@ export class Session {
         return this.handleAgentTimelineAppendRequest(msg);
       case "agent.timeline.search.request":
         return this.handleAgentTimelineSearchRequest(msg, source);
+      case "agent.timeline.get_tool_body.request":
+        return this.handleAgentTimelineGetToolBodyRequest(msg, source);
       case "agent.timeline.list_prompts.request":
         return this.handleAgentTimelineListPromptsRequest(msg, source);
       case "agent.provider_subagents.list.request":
@@ -7830,7 +7834,7 @@ export class Session {
             entries: entries.map((entry) => {
               const payloadEntry = {
                 provider: snapshot.provider,
-                item: entry.item,
+                item: msg.stripToolBodies ? stripToolCallBodies(entry.item) : entry.item,
                 timestamp: entry.timestamp,
                 seqStart: entry.seqStart,
                 seqEnd: entry.seqEnd,
@@ -7944,6 +7948,42 @@ export class Session {
         },
         source,
       );
+    }
+  }
+
+  private async handleAgentTimelineGetToolBodyRequest(
+    msg: Extract<SessionInboundMessage, { type: "agent.timeline.get_tool_body.request" }>,
+    source?: object,
+  ): Promise<void> {
+    const respond = (detail: ToolCallDetail | null, error: string | null) =>
+      this.emitForSource(
+        {
+          type: "agent.timeline.get_tool_body.response",
+          payload: {
+            requestId: msg.requestId,
+            agentId: msg.agentId,
+            callId: msg.callId,
+            detail,
+            error,
+          },
+        },
+        source,
+      );
+    try {
+      await ensureAgentLoaded(msg.agentId, {
+        agentManager: this.agentManager,
+        agentStorage: this.agentStorage,
+        logger: this.sessionLogger,
+        purpose: "history",
+      });
+      const item = this.agentManager.findTimelineToolCall(msg.agentId, msg.callId, msg.turnId);
+      respond(item?.detail ?? null, item ? null : `Tool call ${msg.callId} not found`);
+    } catch (error) {
+      this.sessionLogger.error(
+        { err: error, agentId: msg.agentId },
+        "Failed to handle agent.timeline.get_tool_body.request",
+      );
+      respond(null, error instanceof Error ? error.message : String(error));
     }
   }
 

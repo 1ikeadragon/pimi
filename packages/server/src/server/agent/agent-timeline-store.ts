@@ -119,6 +119,22 @@ export class InMemoryAgentTimelineStore {
       .map((row) => row.item);
   }
 
+  /** The newest stored tool-call item for a call, with its whole (non-preview) detail. */
+  findToolCall(
+    agentId: string,
+    callId: string,
+    turnId?: string,
+  ): Extract<AgentTimelineItem, { type: "tool_call" }> | null {
+    const rows = this.requireState(agentId).projection.getRows();
+    for (let i = rows.length - 1; i >= 0; i -= 1) {
+      const row = rows[i];
+      if (!row || row.item.type !== "tool_call" || row.item.callId !== callId) continue;
+      if (turnId !== undefined && row.turnId !== turnId) continue;
+      return row.item;
+    }
+    return null;
+  }
+
   getRows(agentId: string): ProjectedTimelineRow[] {
     return this.requireState(agentId).projection.getRows().map(cloneRow);
   }

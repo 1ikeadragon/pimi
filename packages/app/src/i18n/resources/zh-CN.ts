@@ -2128,6 +2128,9 @@ export const zhCN: TranslationResources = {
     empty: "没有可用的更多详情",
     input: "输入",
     output: "输出",
+    loadingBody: "正在加载完整输出…",
+    bodyFailed: "无法加载输出 ·",
+    retryBody: "重试",
   },
   turnSummary: {
     details: "查看轮次详情",

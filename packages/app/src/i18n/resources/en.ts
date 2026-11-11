@@ -2189,6 +2189,9 @@ export const en = {
     empty: "No additional details available",
     input: "Input",
     output: "Output",
+    loadingBody: "Loading full output…",
+    bodyFailed: "Couldn't load output ·",
+    retryBody: "Retry",
   },
   turnSummary: {
     details: "View turn details",

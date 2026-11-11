@@ -604,6 +604,13 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       resolvedServerId,
       settledDraft,
     ]);
+    const lastTurnId = useMemo(() => {
+      for (let i = effectiveStreamItems.length - 1; i >= 0; i -= 1) {
+        const turnId = effectiveStreamItems[i]?.turnId;
+        if (turnId) return turnId;
+      }
+      return undefined;
+    }, [effectiveStreamItems]);
     const presentStream = useMemo(() => createStreamPresentation(), []);
     const presentation = useMemo(
       () =>
@@ -919,6 +926,10 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
               detail={data.detail}
               cwd={context.cwd}
               serverId={resolvedServerId}
+              agentId={agentId}
+              callId={data.callId}
+              turnId={item.turnId}
+              prefetchBody={item.turnId !== undefined && item.turnId === lastTurnId}
               metadata={data.metadata}
               agentMessage={data.agentMessage}
               isLastInSequence={isLastInSequence}
@@ -955,7 +966,14 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
           />
         );
       },
-      [agentId, context.cwd, resolvedServerId, setInlineDetailsExpanded, handleToolCallOpenFile],
+      [
+        agentId,
+        context.cwd,
+        lastTurnId,
+        resolvedServerId,
+        setInlineDetailsExpanded,
+        handleToolCallOpenFile,
+      ],
     );
 
     // Read through a stable event so live group updates do not change the renderer identity

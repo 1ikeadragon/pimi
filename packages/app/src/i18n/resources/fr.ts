@@ -2204,6 +2204,9 @@ export const fr: TranslationResources = {
     empty: "Aucun détail supplémentaire disponible",
     input: "Entrée",
     output: "Sortie",
+    loadingBody: "Chargement de la sortie complète…",
+    bodyFailed: "Impossible de charger la sortie ·",
+    retryBody: "Réessayer",
   },
   turnSummary: {
     details: "Voir les détails du tour",

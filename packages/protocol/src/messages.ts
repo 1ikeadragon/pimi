@@ -1993,6 +1993,17 @@ export const FetchAgentTimelineRequestMessageSchema = z.object({
   // Allow the client to merge this bounded page outside its contiguous loaded range.
   mergeWindow: z.boolean().optional(),
   compactionSummaryOnly: z.literal(true).optional(),
+  // Replace long tool-call bodies with a preview; `agent.timeline.get_tool_body.request` returns
+  // the full detail. Absent means whole bodies (CLI, host operations).
+  stripToolBodies: z.boolean().optional(),
+});
+
+export const AgentTimelineGetToolBodyRequestMessageSchema = z.object({
+  type: z.literal("agent.timeline.get_tool_body.request"),
+  agentId: z.string(),
+  requestId: z.string(),
+  callId: z.string(),
+  turnId: z.string().optional(),
 });
 
 export const AgentTimelineSearchRequestMessageSchema = z.object({
@@ -3370,6 +3381,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   DaemonUpdateRequestMessageSchema,
   FetchAgentTimelineRequestMessageSchema,
   AgentTimelineSearchRequestMessageSchema,
+  AgentTimelineGetToolBodyRequestMessageSchema,
   AgentTimelineListPromptsRequestMessageSchema,
   ProviderSubagentListRequestMessageSchema,
   AgentBackgroundWorkListRequestMessageSchema,
@@ -4507,6 +4519,18 @@ export const AgentTimelineSearchResponseMessageSchema = z.object({
       }),
     ),
     nextCursor: z.number().int().nonnegative().nullable(),
+    error: z.string().nullable(),
+  }),
+});
+
+export const AgentTimelineGetToolBodyResponseMessageSchema = z.object({
+  type: z.literal("agent.timeline.get_tool_body.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    callId: z.string(),
+    // Null with an error when the call is not in the agent's timeline.
+    detail: ToolCallDetailPayloadSchema.nullable(),
     error: z.string().nullable(),
   }),
 });
@@ -6696,6 +6720,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   FetchAgentTimelineResponseMessageSchema,
   AgentTimelineReplacementMessageSchema,
   AgentTimelineSearchResponseMessageSchema,
+  AgentTimelineGetToolBodyResponseMessageSchema,
   AgentTimelineListPromptsResponseMessageSchema,
   ProviderSubagentListResponseMessageSchema,
   ProviderSubagentTimelineResponseMessageSchema,

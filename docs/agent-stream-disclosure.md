@@ -31,6 +31,12 @@ The trigger can only stay put when the list has scroll room for the change. When
 content fits the viewport, or a collapse at the end would need an offset past the end, the list
 ends at its end and the trigger moves by the difference.
 
+## Tool-call bodies
+
+History pages the app requests carry a preview of each long tool-call body (`stripToolBodies`, `packages/protocol/src/tool-call-body.ts`), not the body. The row's `metadata.pimiBodyOmitted` marks a cut row. Expanding it, hovering or pressing its header, or rendering it in the newest turn fetches the whole detail with `agent.timeline.get_tool_body.request`, cached for the session (`use-tool-call-body.ts`). Live rows and the CLI get whole bodies.
+
+The preview stays on screen while the body loads, so the disclosure hold sees the same row height; the loading label floats over it after 150 ms. `unknown` and `plain_text` details stay whole because the app reads structured results from them.
+
 ## Web
 
 `holdRow` pins the row in the reading anchor and runs `apply`; the next reading reconcile restores

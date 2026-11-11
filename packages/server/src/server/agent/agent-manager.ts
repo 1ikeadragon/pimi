@@ -1610,6 +1610,11 @@ export class AgentManager {
     return this.timelineStore.getRows(id);
   }
 
+  findTimelineToolCall(id: string, callId: string, turnId?: string) {
+    this.requireAgent(id);
+    return this.timelineStore.findToolCall(id, callId, turnId);
+  }
+
   fetchTimeline(id: string, options?: AgentTimelineFetchOptions): AgentTimelineFetchResult {
     this.requireAgent(id);
     return this.timelineStore.fetch(id, options);

@@ -2189,6 +2189,9 @@ export const ru: TranslationResources = {
     empty: "Дополнительные сведения отсутствуют",
     input: "Входные данные",
     output: "Выходные данные",
+    loadingBody: "Загрузка полного вывода…",
+    bodyFailed: "Не удалось загрузить вывод ·",
+    retryBody: "Повторить",
   },
   turnSummary: {
     details: "Показать подробности хода",

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/isolated-bottom-sheet-modal";
 import type { ToolCallIconComponent } from "@/utils/tool-call-icon";
 import { ToolCallDetailsContent } from "./tool-call-details";
+import { useToolCallBody, type ToolBodySource } from "@/tool-calls/use-tool-call-body";
 
 // ----- Types -----
 
@@ -24,6 +25,10 @@ export interface ToolCallSheetData {
   errorText?: string;
   icon: ToolCallIconComponent;
   showLoadingSkeleton?: boolean;
+  /** Set when `detail` is a preview of a longer body. */
+  bodySource?: ToolBodySource;
+  /** Length cut from the preview; see `readToolBodyOmitted`. */
+  bodyOmitted?: number;
 }
 
 interface ToolCallSheetContextValue {
@@ -156,7 +161,9 @@ function ToolCallSheetContent({ data, onClose }: ToolCallSheetContentProps) {
     errorText,
     icon: IconComponent,
     showLoadingSkeleton,
+    bodySource,
   } = data;
+  const body = useToolCallBody(bodySource ?? null, data.bodyOmitted ?? 0, detail);
 
   return (
     <View style={styles.container}>
@@ -183,10 +190,12 @@ function ToolCallSheetContent({ data, onClose }: ToolCallSheetContentProps) {
       <BottomSheetScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         <ToolCallDetailsContent
           toolName={toolName}
-          detail={detail}
+          detail={body.detail}
           errorText={errorText}
           fillAvailableHeight
           showLoadingSkeleton={showLoadingSkeleton}
+          bodyStatus={body.status}
+          onRetryBody={body.retry}
         />
       </BottomSheetScrollView>
     </View>

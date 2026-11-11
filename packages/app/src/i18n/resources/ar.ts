@@ -2152,6 +2152,9 @@ export const ar: TranslationResources = {
     empty: "لا توجد تفاصيل إضافية متاحة",
     input: "مدخل",
     output: "الإخراج",
+    loadingBody: "جارٍ تحميل المخرجات الكاملة…",
+    bodyFailed: "تعذّر تحميل المخرجات ·",
+    retryBody: "إعادة المحاولة",
   },
   turnSummary: {
     details: "عرض تفاصيل الجولة",

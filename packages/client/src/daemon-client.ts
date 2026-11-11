@@ -141,6 +141,7 @@ import type {
   AgentProviderNotice,
   AgentProvider,
   AgentSessionConfig,
+  ToolCallDetail,
 } from "@pimi/protocol/agent-types";
 import type {
   AgentConfigApply,
@@ -740,6 +741,8 @@ export interface FetchAgentTimelineOptions {
   limit?: number;
   mergeWindow?: boolean;
   compactionSummaryOnly?: boolean;
+  /** Preview long tool-call bodies; fetch one whole with `getAgentToolBody`. */
+  stripToolBodies?: boolean;
   requestId?: string;
   timeout?: number;
 }
@@ -3548,6 +3551,7 @@ export class DaemonClient {
       ...(options.cursor ? { cursor: options.cursor } : {}),
       ...(typeof options.limit === "number" ? { limit: options.limit } : {}),
       ...(options.mergeWindow === true ? { mergeWindow: true } : {}),
+      ...(options.stripToolBodies === true ? { stripToolBodies: true } : {}),
       ...(compactionSummaryOnly ? { compactionSummaryOnly: true, limit: 1 } : {}),
     });
 
@@ -3585,6 +3589,29 @@ export class DaemonClient {
       responseType: "agent.timeline.append.response",
     });
     return { seq: payload.seq, epoch: payload.epoch };
+  }
+
+  async getAgentToolBody(input: {
+    agentId: string;
+    callId: string;
+    turnId?: string;
+  }): Promise<ToolCallDetail> {
+    const requestId = this.createRequestId();
+    const payload = await this.sendCorrelatedSessionRequest({
+      requestId,
+      message: {
+        type: "agent.timeline.get_tool_body.request",
+        requestId,
+        agentId: input.agentId,
+        callId: input.callId,
+        ...(input.turnId ? { turnId: input.turnId } : {}),
+      },
+      responseType: "agent.timeline.get_tool_body.response",
+    });
+    if (payload.error || !payload.detail) {
+      throw new Error(payload.error ?? "Tool call body unavailable");
+    }
+    return payload.detail;
   }
 
   async searchAgentTimeline({

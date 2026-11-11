@@ -88,6 +88,12 @@ import { getCompactionMarkerLabel } from "./message-compaction-label";
 import { PlanCard } from "./plan-card";
 import { ToolCallDetailsContent } from "./tool-call-details";
 import { useToolCallSheet } from "./tool-call-sheet";
+import { readToolBodyOmitted } from "@pimi/protocol/tool-call-body";
+import {
+  prefetchToolCallBody,
+  useToolCallBody,
+  type ToolBodySource,
+} from "@/tool-calls/use-tool-call-body";
 export type { InlinePathTarget } from "@/assistant-file-links";
 export type { AssistantForkTarget };
 
@@ -1525,6 +1531,8 @@ interface ExpandableBadgeProps {
   onToggle?: () => void;
   onOpenFile?: () => void;
   onDetailHoverChange?: (hovered: boolean) => void;
+  /** Hover or press-in on the header: warm whatever opening the row will need. */
+  onPrefetch?: () => void;
   renderDetails?: () => ReactNode;
   isLoading?: boolean;
   isError?: boolean;
@@ -1888,6 +1896,7 @@ export const ExpandableBadge = memo(function ExpandableBadge({
   onToggle,
   onOpenFile,
   onDetailHoverChange,
+  onPrefetch,
   renderDetails,
   isLoading = false,
   isError = false,
@@ -1905,12 +1914,18 @@ export const ExpandableBadge = memo(function ExpandableBadge({
   const detailContent = hasDetailContent && isExpanded ? renderDetails?.() : null;
   const detailWrapperRef = useRef<View | null>(null);
 
-  const handleHoverIn = useCallback(() => setIsHovered(true), []);
+  const handleHoverIn = useCallback(() => {
+    setIsHovered(true);
+    onPrefetch?.();
+  }, [onPrefetch]);
   const handleHoverOut = useCallback(() => {
     setIsHovered(false);
     setIsPressed(false);
   }, []);
-  const handlePressIn = useCallback(() => setIsPressed(true), []);
+  const handlePressIn = useCallback(() => {
+    setIsPressed(true);
+    onPrefetch?.();
+  }, [onPrefetch]);
   const handlePressOut = useCallback(() => setIsPressed(false), []);
   const handleDetailHoverIn = useCallback(() => onDetailHoverChange?.(true), [onDetailHoverChange]);
   const handleDetailHoverOut = useCallback(
@@ -2222,6 +2237,7 @@ function areExpandableBadgePropsEqual(previous: ExpandableBadgeProps, next: Expa
   if (previous.onToggle !== next.onToggle) return false;
   if (previous.onOpenFile !== next.onOpenFile) return false;
   if (previous.onDetailHoverChange !== next.onDetailHoverChange) return false;
+  if (previous.onPrefetch !== next.onPrefetch) return false;
   if (previous.renderDetails !== next.renderDetails) return false;
   return true;
 }
@@ -2248,6 +2264,11 @@ interface ToolCallProps {
   itemId: string;
   /** Shown as its own row rather than inside a tool call group. */
   standalone?: boolean;
+  agentId?: string;
+  callId?: string;
+  turnId?: string;
+  /** The call belongs to the newest turn, so its body is likely to be opened. */
+  prefetchBody?: boolean;
 }
 
 export const ToolCall = memo(function ToolCall({
@@ -2271,6 +2292,10 @@ export const ToolCall = memo(function ToolCall({
   maxDetailHeight = 400,
   itemId,
   standalone = true,
+  agentId,
+  callId,
+  turnId,
+  prefetchBody = false,
 }: ToolCallProps) {
   const { openToolCall } = useToolCallSheet();
   const { expanded: isExpanded, toggle: toggleExpanded } = useToolCallExpanded({
@@ -2296,6 +2321,24 @@ export const ToolCall = memo(function ToolCall({
     }
     return undefined;
   }, [detail, args, result]);
+
+  const bodyOmitted = readToolBodyOmitted(metadata);
+  const bodySource = useMemo<ToolBodySource | undefined>(
+    () => (serverId && agentId && callId ? { serverId, agentId, callId, turnId } : undefined),
+    [serverId, agentId, callId, turnId],
+  );
+  const body = useToolCallBody(
+    shouldRenderInline && isExpanded && bodySource ? bodySource : null,
+    bodyOmitted,
+    effectiveDetail,
+  );
+
+  const handlePrefetch = useCallback(() => {
+    if (bodySource) prefetchToolCallBody(bodySource, bodyOmitted);
+  }, [bodySource, bodyOmitted]);
+  useEffect(() => {
+    if (prefetchBody) handlePrefetch();
+  }, [prefetchBody, handlePrefetch]);
 
   const targetAgentTitle = useTargetAgentTitle({ serverId, toolName, detail: effectiveDetail });
   const presentation = useMemo(
@@ -2331,6 +2374,7 @@ export const ToolCall = memo(function ToolCall({
         errorText: presentation.errorText,
         icon: presentation.icon,
         showLoadingSkeleton: presentation.isLoadingDetails,
+        ...(bodyOmitted > 0 && bodySource ? { bodySource, bodyOmitted } : {}),
       });
     } else {
       hold(toggleExpanded);
@@ -2347,6 +2391,8 @@ export const ToolCall = memo(function ToolCall({
     presentation.errorText,
     presentation.icon,
     presentation.isLoadingDetails,
+    bodyOmitted,
+    bodySource,
   ]);
 
   useEffect(() => {
@@ -2382,15 +2428,21 @@ export const ToolCall = memo(function ToolCall({
     return (
       <ToolCallDetailsContent
         toolName={toolName}
-        detail={presentation.detail}
+        detail={body.detail === effectiveDetail ? presentation.detail : body.detail}
         errorText={presentation.errorText}
         maxHeight={maxDetailHeight}
         showLoadingSkeleton={presentation.isLoadingDetails}
+        bodyStatus={body.status}
+        onRetryBody={body.retry}
       />
     );
   }, [
     shouldRenderInline,
     toolName,
+    body.detail,
+    body.status,
+    body.retry,
+    effectiveDetail,
     presentation.detail,
     presentation.errorText,
     presentation.isLoadingDetails,
@@ -2423,6 +2475,7 @@ export const ToolCall = memo(function ToolCall({
       isLastInSequence={isLastInSequence}
       disableOuterSpacing={disableOuterSpacing}
       onDetailHoverChange={onInlineDetailsHoverChange}
+      onPrefetch={bodyOmitted > 0 ? handlePrefetch : undefined}
     />
   );
 }, areToolCallPropsEqual);

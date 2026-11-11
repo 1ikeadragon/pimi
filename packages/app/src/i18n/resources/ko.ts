@@ -2165,6 +2165,9 @@ export const ko: TranslationResources = {
     empty: "추가 세부 정보가 없습니다",
     input: "입력",
     output: "출력",
+    loadingBody: "전체 출력을 불러오는 중…",
+    bodyFailed: "출력을 불러오지 못했습니다 ·",
+    retryBody: "다시 시도",
   },
   turnSummary: {
     details: "턴 세부 정보 보기",
