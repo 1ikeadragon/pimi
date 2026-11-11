@@ -2258,6 +2258,11 @@ export class AgentManager {
     plan: SessionReplacementPlan,
   ): Promise<ManagedAgent> {
     const progress: SessionReplacementProgress = {};
+    // The resumed session is opened without a windowed history, so it cannot serve the older
+    // rows the stored timeline is still missing. Read them from the session that holds the cursor.
+    if (!plan.rehydrateFromDisk) {
+      await this.ensureTimelineRowsBefore(agent.id, { all: true });
+    }
     try {
       return await this.openReplacementSession(agent, plan, progress);
     } catch (error) {
