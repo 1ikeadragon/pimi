@@ -103,7 +103,8 @@ export function useFaviconStatus() {
   const workspaceStatuses = useWorkspaceStatusesForBadges();
   const [colorScheme, setColorScheme] = useState<ColorScheme>(getSystemColorScheme);
   const lastDockBadgeCountRef = useRef<number | undefined>(undefined);
-  const lastAgentsRunningRef = useRef(false);
+  // undefined so the first value is always sent, clearing a stale report after a reload.
+  const lastAgentsRunningRef = useRef<boolean | undefined>(undefined);
 
   // Listen for system color scheme changes
   useEffect(() => {
