@@ -1705,6 +1705,7 @@ export async function createPaseoDaemon(
           },
           boundCaller && daemonConfigStore.get().mcp.injectIntoAgents !== false,
         ),
+        { lazyTools: callerAgentId ? agentManager.agentUsesPimiToolLoader(callerAgentId) : false },
       );
 
       // Stateless mode: each HTTP request builds a fresh server + transport that is

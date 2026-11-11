@@ -7,6 +7,7 @@ import type {
 } from "@modelcontextprotocol/sdk/types.js";
 
 import { addModelVisibleStructuredContent } from "./tools/paseo-tool-serialization.js";
+import { createLazyLoaderTools, splitToolsForLazyLoading } from "./tools/lazy-tool-groups.js";
 import { createPaseoToolCatalog, type PaseoToolHostDependencies } from "./tools/paseo-tools.js";
 import type { PaseoToolDefinition, PaseoToolResult } from "./tools/types.js";
 
@@ -53,9 +54,25 @@ export function createToolMcpServer(
   return server;
 }
 
-export async function createAgentMcpServer(options: AgentMcpServerOptions): Promise<McpServer> {
+export interface AgentMcpServerLoading {
+  /** List only the core tools plus a loader, for providers that send every tool schema each turn. */
+  lazyTools: boolean;
+}
+
+export async function createAgentMcpServer(
+  options: AgentMcpServerOptions,
+  loading: AgentMcpServerLoading = { lazyTools: false },
+): Promise<McpServer> {
   const catalog = await createPaseoToolCatalog(options);
-  return createToolMcpServer(catalog.tools.values(), (name, args, signal) =>
-    catalog.executeTool(name, args, { signal }),
+  const execute = (name: string, args: unknown, signal?: AbortSignal) =>
+    catalog.executeTool(name, args, { signal });
+  if (!loading.lazyTools) return createToolMcpServer(catalog.tools.values(), execute);
+  const { listed, groups } = splitToolsForLazyLoading(catalog.tools.values());
+  const loaderTools = new Map(
+    createLazyLoaderTools(groups, execute).map((tool) => [tool.name, tool]),
   );
+  return createToolMcpServer([...listed, ...loaderTools.values()], (name, args, signal) => {
+    const loaderTool = loaderTools.get(name);
+    return loaderTool ? loaderTool.handler(args, { signal }) : execute(name, args, signal);
+  });
 }

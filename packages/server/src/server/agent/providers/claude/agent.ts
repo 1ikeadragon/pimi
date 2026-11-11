@@ -380,6 +380,7 @@ const CLAUDE_CAPABILITIES: AgentCapabilityFlags = {
   supportsReasoningStream: true,
   supportsToolInvocations: true,
   readsBundledSkills: true,
+  defersMcpTools: true,
   supportsRewindConversation: true,
   supportsRewindFiles: true,
   supportsRewindBoth: true,

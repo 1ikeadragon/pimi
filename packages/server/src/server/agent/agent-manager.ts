@@ -148,15 +148,19 @@ function pimiActionInstructions(input: {
   provider: string;
   hostToolsEnabled: boolean;
   isTaskWorker: boolean;
+  toolLoading: "deferred" | "loader" | "full";
 }): string[] {
   const { policy, isTaskWorker } = input;
   if (!isPaseoToolPolicyEnabled(policy)) {
     return [pimiToolsOffInstructions(input.provider, input.hostToolsEnabled)];
   }
   const instructions = [];
-  if (input.provider === "claude") {
-    // The SDK defers MCP tool schemas; without this the agent does not know the Pimi tools exist.
+  if (input.toolLoading === "deferred") {
     instructions.push("Pimi's tools are deferred: load one with ToolSearch before calling it.");
+  } else if (input.toolLoading === "loader") {
+    instructions.push(
+      "Pimi lists only its core tools. For automations, heartbeats, terminals, workspaces, scripts, the task board, permissions, hosts, and profiles, call pimi_tools with a group, then run a tool with call_pimi_tool.",
+    );
   }
   if (isPaseoToolEnabled(policy, PIMI_TASK_PROPOSAL_TOOL)) {
     instructions.push(
@@ -1247,6 +1251,19 @@ export class AgentManager {
 
   getPaseoToolPolicy(agentId: string): ProviderPaseoToolsPolicy | undefined {
     return this.paseoToolPolicies.get(agentId);
+  }
+
+  /** How the provider receives Pimi's tools: deferred by itself, behind the loader, or all listed (native bridges). */
+  private pimiToolLoading(provider: string): "deferred" | "loader" | "full" {
+    const capabilities = this.clients.get(provider)?.capabilities;
+    if (capabilities?.defersMcpTools === true) return "deferred";
+    return capabilities?.supportsNativePaseoTools === true ? "full" : "loader";
+  }
+
+  /** Whether the agent's provider receives Pimi's tools through the lazy loader. */
+  agentUsesPimiToolLoader(agentId: string): boolean {
+    const provider = this.getAgent(agentId)?.provider;
+    return provider !== undefined && this.pimiToolLoading(provider) === "loader";
   }
 
   /**
@@ -6486,6 +6503,7 @@ export class AgentManager {
             provider: storedConfig.provider,
             hostToolsEnabled: this.paseoToolsEnabled,
             isTaskWorker: Boolean(options.labels?.[PIMI_TASK_WORKER_LABEL]),
+            toolLoading: this.pimiToolLoading(storedConfig.provider),
           }),
           this.clients.get(storedConfig.provider)?.capabilities.readsBundledSkills === true
             ? PIMI_VISUALIZATION_BRIEF

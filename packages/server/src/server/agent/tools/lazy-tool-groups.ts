@@ -1,0 +1,153 @@
+import { z } from "zod";
+
+import type { PaseoToolDefinition, PaseoToolResult } from "./types.js";
+
+/**
+ * Providers that send every MCP tool schema on every turn (Codex, OpenCode, ACP agents) get only
+ * these tools listed. Everything else sits behind `pimi_tools` and `call_pimi_tool`, so a chat that
+ * never touches automations does not pay for their schemas.
+ */
+const DEFAULT_TOOL_NAMES: ReadonlySet<string> = new Set([
+  "create_agent",
+  "send_agent_prompt",
+  "list_agents",
+  "get_agent_status",
+  "cancel_agent",
+  "list_providers",
+  "list_models",
+  "recall_project_memory",
+  "recall_global_memory",
+  "propose_pimi_task",
+  "suggest_pimi_review",
+]);
+
+const LOADER_TOOL_NAME = "pimi_tools";
+const CALL_TOOL_NAME = "call_pimi_tool";
+
+const GROUP_BY_TOOL: Readonly<Record<string, string>> = {
+  get_agent_activity: "agents",
+  update_agent: "agents",
+  set_agent_mode: "agents",
+  archive_agent: "agents",
+  kill_agent: "agents",
+  list_profiles: "profiles",
+  inspect_provider: "profiles",
+  list_hosts: "workspaces",
+  create_workspace: "workspaces",
+  list_workspaces: "workspaces",
+  archive_workspace: "workspaces",
+  rename_workspace: "workspaces",
+  list_workspace_scripts: "scripts",
+  start_workspace_script: "scripts",
+  stop_workspace_script: "scripts",
+  list_terminals: "terminals",
+  create_terminal: "terminals",
+  kill_terminal: "terminals",
+  capture_terminal: "terminals",
+  send_terminal_keys: "terminals",
+  list_pending_permissions: "permissions",
+  respond_to_permission: "permissions",
+  search_pimi_codebase: "search",
+  search_pimi_spaces: "search",
+  read_pimi_space_item: "search",
+};
+
+export function toolGroupOf(name: string): string {
+  const mapped = GROUP_BY_TOOL[name];
+  if (mapped) return mapped;
+  if (name.includes("automation")) return "automations";
+  if (name.includes("heartbeat")) return "heartbeats";
+  if (name.includes("pimi_")) return "tasks";
+  return "other";
+}
+
+export interface SplitTools {
+  listed: PaseoToolDefinition[];
+  groups: Map<string, PaseoToolDefinition[]>;
+}
+
+export function splitToolsForLazyLoading(tools: Iterable<PaseoToolDefinition>): SplitTools {
+  const listed: PaseoToolDefinition[] = [];
+  const groups = new Map<string, PaseoToolDefinition[]>();
+  for (const tool of tools) {
+    if (DEFAULT_TOOL_NAMES.has(tool.name)) {
+      listed.push(tool);
+      continue;
+    }
+    const group = toolGroupOf(tool.name);
+    const members = groups.get(group) ?? [];
+    members.push(tool);
+    groups.set(group, members);
+  }
+  return { listed, groups };
+}
+
+function jsonSchemaOf(tool: PaseoToolDefinition): unknown {
+  const schema = tool.inputSchema;
+  if (!schema) return { type: "object", properties: {} };
+  const zodSchema = schema instanceof z.ZodType ? schema : z.object(schema);
+  return z.toJSONSchema(zodSchema, { io: "input", unrepresentable: "any" });
+}
+
+function textResult(value: unknown): PaseoToolResult {
+  return { content: [{ type: "text", text: JSON.stringify(value) }] };
+}
+
+export function createLazyLoaderTools(
+  groups: Map<string, PaseoToolDefinition[]>,
+  execute: (name: string, args: unknown, signal?: AbortSignal) => Promise<PaseoToolResult>,
+): PaseoToolDefinition[] {
+  if (groups.size === 0) return [];
+  const groupNames = [...groups.keys()].sort();
+  const byName = new Map<string, PaseoToolDefinition>();
+  for (const members of groups.values()) {
+    for (const tool of members) byName.set(tool.name, tool);
+  }
+  return [
+    {
+      name: LOADER_TOOL_NAME,
+      title: "Load Pimi tools",
+      description: `More Pimi tools exist beyond the ones listed. Call this with a group to get each tool's description and input schema, then run one with ${CALL_TOOL_NAME}. Groups: ${groupNames.join(", ")}. Call with no group to list the tool names in every group.`,
+      inputSchema: { group: z.enum(groupNames as [string, ...string[]]).optional() },
+      handler: async (input) => {
+        const { group } = z.object({ group: z.string().optional() }).parse(input);
+        if (!group) {
+          return textResult(
+            Object.fromEntries(
+              groupNames.map((name) => [name, groups.get(name)!.map((tool) => tool.name)]),
+            ),
+          );
+        }
+        const members = groups.get(group);
+        if (!members) return { ...textResult(`Unknown group: ${group}`), isError: true };
+        return textResult(
+          members.map((tool) => ({
+            name: tool.name,
+            description: tool.description,
+            inputSchema: jsonSchemaOf(tool),
+          })),
+        );
+      },
+    },
+    {
+      name: CALL_TOOL_NAME,
+      title: "Call a Pimi tool",
+      description: `Run a Pimi tool loaded with ${LOADER_TOOL_NAME}. Pass its name and arguments exactly as its schema describes.`,
+      inputSchema: { name: z.string(), arguments: z.record(z.string(), z.unknown()).optional() },
+      handler: async (input, context) => {
+        const { name, arguments: args } = z
+          .object({ name: z.string(), arguments: z.record(z.string(), z.unknown()).optional() })
+          .parse(input);
+        if (!byName.has(name)) {
+          return {
+            ...textResult(
+              `${name} is not a loadable Pimi tool. Call ${LOADER_TOOL_NAME} to list them.`,
+            ),
+            isError: true,
+          };
+        }
+        return execute(name, args ?? {}, context.signal);
+      },
+    },
+  ];
+}
