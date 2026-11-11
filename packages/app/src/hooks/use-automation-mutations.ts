@@ -7,7 +7,12 @@ import {
 } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { DaemonClient } from "@pimi/client/internal/daemon-client";
-import type { Automation, AutomationDefinition } from "@pimi/protocol/automation/types";
+import type {
+  Automation,
+  AutomationDefinition,
+  AutomationOrigin,
+  AutomationRun,
+} from "@pimi/protocol/automation/types";
 import type {
   AggregatedAutomation,
   FetchAggregatedAutomationsState,
@@ -17,6 +22,18 @@ import { useSessionStore } from "@/stores/session-store";
 
 export interface CreateAutomationInput {
   definition: AutomationDefinition;
+  /** `compiled` when the owner saves a draft compiled from prose; it then waits for approval. */
+  origin?: AutomationOrigin;
+}
+
+export interface RetryAutomationRunInput {
+  automationId: string;
+  runId: string;
+}
+
+export interface CompileAutomationInput {
+  description: string;
+  cwd: string;
 }
 
 export interface UpdateAutomationInput {
@@ -32,6 +49,10 @@ export interface UseAutomationMutationsResult {
   approveAutomation: (id: string) => Promise<void>;
   deleteAutomation: (id: string) => Promise<void>;
   runAutomationNow: (id: string) => Promise<void>;
+  retryAutomationRun: (input: RetryAutomationRunInput) => Promise<AutomationRun>;
+  compileAutomation: (input: CompileAutomationInput) => Promise<AutomationDefinition>;
+  isRetrying: boolean;
+  isCompiling: boolean;
   isCreating: boolean;
   isUpdating: boolean;
   isPausing: boolean;
@@ -220,6 +241,31 @@ export function useAutomationMutations({
     onSettled: invalidate,
   });
 
+  const retryMutation = useMutation({
+    mutationFn: async (input: RetryAutomationRunInput): Promise<AutomationRun> => {
+      const client = requireClient(serverId, t("common.errors.daemonClientUnavailable"));
+      return (await client.automationRunRetry(input)).run;
+    },
+    onSettled: invalidate,
+  });
+
+  const compileMutation = useMutation({
+    mutationFn: async (input: CompileAutomationInput): Promise<AutomationDefinition> => {
+      const client = requireClient(serverId, t("common.errors.daemonClientUnavailable"));
+      return (await client.automationCompile(input)).definition;
+    },
+  });
+
+  const retryAutomationRun = useCallback(
+    (input: RetryAutomationRunInput) => retryMutation.mutateAsync(input),
+    [retryMutation],
+  );
+
+  const compileAutomation = useCallback(
+    (input: CompileAutomationInput) => compileMutation.mutateAsync(input),
+    [compileMutation],
+  );
+
   const createAutomation = useCallback(
     async (input: CreateAutomationInput): Promise<void> => {
       await createMutation.mutateAsync(input);
@@ -277,6 +323,10 @@ export function useAutomationMutations({
     approveAutomation,
     deleteAutomation,
     runAutomationNow,
+    retryAutomationRun,
+    compileAutomation,
+    isRetrying: retryMutation.isPending,
+    isCompiling: compileMutation.isPending,
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isPausing: pauseMutation.isPending,

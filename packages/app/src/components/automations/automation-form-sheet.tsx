@@ -12,12 +12,23 @@ import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Brain, Folder, GitBranch } from "lucide-react-native";
 import { StyleSheet } from "react-native-unistyles";
+import { useFetchQuery } from "@/data/query";
 import type { AgentProvider } from "@pimi/protocol/agent-types";
 import type {
   Automation,
+  AutomationConditionOperator,
   AutomationDefinition,
-  AutomationTrigger,
+  AutomationEdge,
+  AutomationEdgeBranch,
+  AutomationRun,
+  PullRequestEvent,
 } from "@pimi/protocol/automation/types";
+import { stepOutputReference, upstreamNodeIds } from "@pimi/protocol/automation/validate";
+import {
+  AutomationFlowCanvas,
+  type AutomationCanvasStep,
+} from "@/components/automations/automation-flow-canvas";
+import { useSessionStore } from "@/stores/session-store";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
 import { ComboboxItem } from "@/components/ui/combobox";
 import { Button } from "@/components/ui/button";
@@ -49,6 +60,7 @@ import type { AutomationTemplate } from "@/automations/automation-templates";
 import { useAutomationFormModel } from "@/automations/use-automation-form-model";
 import { useAutomationFormProviderSnapshot } from "@/automations/use-automation-form-provider-snapshot";
 import type {
+  AutomationFormConditionStep,
   AutomationFormDisplay,
   AutomationFormHost,
   AutomationFormModel,
@@ -56,7 +68,11 @@ import type {
   AutomationFormState,
   AutomationFormTriggerKind,
 } from "@/automations/automation-form-model";
-import { UNATTENDED_MODE_LABEL } from "@/automations/automation-form-model";
+import {
+  buildAutomationFormFlow,
+  buildAutomationFormTrigger,
+  UNATTENDED_MODE_LABEL,
+} from "@/automations/automation-form-model";
 import { validateCron } from "@/utils/automation-format";
 import { toErrorMessage } from "@/utils/error-messages";
 import { getDeviceTimeZone } from "@/utils/device-timezone";
@@ -68,6 +84,8 @@ export interface AutomationFormSheetProps {
   mode: "create" | "edit";
   automation?: Automation;
   template?: AutomationTemplate;
+  /** A definition compiled from prose. Saving it creates a pending automation. */
+  draft?: AutomationDefinition;
 }
 
 function parseMaxRuns(raw: string): number | null {
@@ -75,79 +93,49 @@ function parseMaxRuns(raw: string): number | null {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-function buildTrigger(
-  state: AutomationFormState,
-  automation: Automation | undefined,
-): AutomationTrigger {
-  if (state.triggerKind === "manual") {
-    return { kind: "manual" };
-  }
-  if (state.submitCadence) {
-    return { kind: "schedule", cadence: state.submitCadence };
-  }
-  // Editing without touching the cadence keeps the stored one.
-  if (automation?.trigger.kind === "schedule") {
-    return automation.trigger;
-  }
-  throw new Error("Choose a cadence before saving this automation");
-}
-
-// The form edits a single agent step that reports to chat. On edit, the stored node ids,
-// title, feature values and limits other than max runs are kept.
+// On edit, the stored description and limits other than max runs are kept.
 function buildDefinition(input: {
   state: AutomationFormState;
   automation: Automation | undefined;
-  provider: AgentProvider;
+  draft: AutomationDefinition | undefined;
   cwd: string;
-  profileId: string;
 }): AutomationDefinition {
   const { state, automation } = input;
-  const storedAgent = automation?.flow.nodes.find((node) => node.kind === "agent");
-  const storedOutput = automation?.flow.nodes.find((node) => node.kind === "output");
-  const agentId = storedAgent?.id ?? "agent";
-  const outputId = storedOutput?.id ?? "chat";
-  const model = state.selectedModel.trim();
-  const modeId = state.selectedMode.trim();
-  const thinkingOptionId = state.selectedThinkingOptionId.trim();
+  const stored = automation ?? input.draft;
   return {
     name: state.name.trim(),
-    description: automation?.description ?? null,
+    description: stored?.description ?? null,
     project: { cwd: input.cwd },
-    trigger: buildTrigger(state, automation),
-    flow: {
-      nodes: [
-        {
-          id: agentId,
-          kind: "agent",
-          title: storedAgent?.kind === "agent" ? storedAgent.title : "Agent",
-          ...(input.profileId ? { profileId: input.profileId } : {}),
-          provider: input.provider,
-          ...(model ? { model } : {}),
-          ...(modeId ? { modeId } : {}),
-          ...(thinkingOptionId ? { thinkingOptionId } : {}),
-          ...(storedAgent?.kind === "agent" && storedAgent.featureValues
-            ? { featureValues: storedAgent.featureValues }
-            : {}),
-          workspace: state.submitIsolation === "worktree" ? "worktree" : "project",
-          prompt: state.prompt.trim(),
-        },
-        { id: outputId, kind: "output", output: { type: "chat" } },
-      ],
-      edges: [{ from: agentId, to: outputId }],
-    },
+    trigger: buildAutomationFormTrigger(state, stored?.trigger),
+    flow: buildAutomationFormFlow(
+      state,
+      state.submitIsolation === "worktree" ? "worktree" : "project",
+    ),
     limits: { ...automation?.limits, maxRuns: parseMaxRuns(state.maxRuns) },
   };
 }
 
-const TRIGGER_OPTIONS: SelectFieldOption<AutomationFormTriggerKind>[] = [
-  {
-    id: "schedule",
-    value: "schedule",
-    label: "On a schedule",
-    testID: "automation-trigger-schedule",
-  },
-  { id: "manual", value: "manual", label: "Run by hand", testID: "automation-trigger-manual" },
-];
+const TRIGGER_LABELS: Record<AutomationFormTriggerKind, string> = {
+  schedule: "On a schedule",
+  pull_request: "On pull requests",
+  manual: "Run by hand",
+};
+
+const TRIGGER_OPTIONS: SelectFieldOption<AutomationFormTriggerKind>[] = (
+  ["schedule", "pull_request", "manual"] as const
+).map((kind) => ({
+  id: kind,
+  value: kind,
+  label: TRIGGER_LABELS[kind],
+  testID: `automation-trigger-${kind}`,
+}));
+
+function sheetTitle(mode: "create" | "edit", isDraft: boolean): string {
+  if (mode === "edit") {
+    return "Edit automation";
+  }
+  return isDraft ? "Review automation" : "New automation";
+}
 
 function resolveCreateServerId(input: {
   mode: "create" | "edit";
@@ -178,7 +166,7 @@ function openKey(props: AutomationFormSheetProps): string {
   if (props.mode === "edit") {
     return `edit:${props.serverId ?? ""}:${props.automation?.id ?? ""}`;
   }
-  return `create:${props.serverId ?? ""}:${props.template?.id ?? ""}`;
+  return `create:${props.serverId ?? ""}:${props.template?.id ?? ""}:${props.draft ? "draft" : ""}`;
 }
 
 function buildSnapshot(input: {
@@ -190,6 +178,7 @@ function buildSnapshot(input: {
   preferences: FormPreferences;
   timezone: string;
   template?: AutomationTemplate;
+  draft?: AutomationDefinition;
 }): AutomationFormSnapshot {
   const automation = input.automation
     ? { ...input.automation, serverId: input.serverId, serverName: undefined }
@@ -208,6 +197,7 @@ function buildSnapshot(input: {
       preferences: input.preferences,
       timezone: input.timezone,
       template: input.template,
+      draft: input.draft,
     },
   };
 }
@@ -298,6 +288,7 @@ function OpenAutomationFormSheet({
   mode,
   automation,
   template,
+  draft,
 }: AutomationFormSheetProps & { onDismiss: () => void }): ReactElement {
   const controlSize: ControlSize = "md";
   const { projects } = useProjects();
@@ -320,18 +311,12 @@ function OpenAutomationFormSheet({
         preferences,
         timezone,
         template,
+        draft,
       }),
-    [hosts, mode, preferences, projectTargets, automation, serverId, timezone, template],
+    [hosts, mode, preferences, projectTargets, automation, serverId, timezone, template, draft],
   );
   const model = useAutomationFormModel(snapshot);
   const state = useSyncExternalStore(model.subscribe, model.getState, model.getState);
-  const [profileId, setProfileId] = useState(() => {
-    const storedAgent = automation?.flow.nodes.find((node) => node.kind === "agent");
-    if (storedAgent?.kind === "agent") {
-      return storedAgent.profileId ?? "";
-    }
-    return template?.profileId ?? "";
-  });
   const providerSnapshot = useAutomationFormProviderSnapshot(model, state);
   const mutationServerId = state.selectedServerId ?? serverId ?? "";
   const { createAutomation, updateAutomation, isCreating, isUpdating } = useAutomationMutations({
@@ -369,20 +354,19 @@ function OpenAutomationFormSheet({
   ]);
 
   const submit = useCallback(async (): Promise<boolean> => {
-    const provider = state.selectedProvider;
     const cwd = state.workingDir.trim();
-    if (!provider || !cwd) {
+    if (!cwd) {
       return false;
     }
+    const definition = buildDefinition({ state, automation, draft, cwd });
     await persistPreferences();
-    const definition = buildDefinition({ state, automation, provider, cwd, profileId });
     if (mode === "edit" && automation) {
       await updateAutomation({ automationId: automation.id, definition });
       return true;
     }
-    await createAutomation({ definition });
+    await createAutomation({ definition, ...(draft ? { origin: { kind: "compiled" } } : {}) });
     return true;
-  }, [createAutomation, mode, persistPreferences, automation, profileId, state, updateAutomation]);
+  }, [createAutomation, draft, mode, persistPreferences, automation, state, updateAutomation]);
 
   const handleSubmit = useCallback(async () => {
     if (!canSubmit) {
@@ -403,8 +387,8 @@ function OpenAutomationFormSheet({
   }, [handleSubmit]);
 
   const header = useMemo<SheetHeader>(
-    () => ({ title: mode === "edit" ? "Edit automation" : "New automation" }),
-    [mode],
+    () => ({ title: sheetTitle(mode, Boolean(draft)) }),
+    [draft, mode],
   );
 
   const footer = useMemo(
@@ -442,6 +426,12 @@ function OpenAutomationFormSheet({
       footer={footer}
       testID="automation-form-sheet"
     >
+      {draft ? (
+        <Text style={styles.draftNotice}>
+          Compiled from your description. Check each step before saving; it waits for your approval
+          before it runs.
+        </Text>
+      ) : null}
       <AutomationFormFields
         model={model}
         state={state}
@@ -449,8 +439,7 @@ function OpenAutomationFormSheet({
         controlSize={controlSize}
         cadenceError={cadenceError}
         mutationServerId={mutationServerId}
-        profileId={profileId}
-        onChangeProfileId={setProfileId}
+        automation={mode === "edit" ? automation : undefined}
       />
     </AdaptiveModalSheet>
   );
@@ -463,8 +452,7 @@ interface AutomationFormFieldsProps {
   controlSize: ControlSize;
   cadenceError: string | null;
   mutationServerId: string;
-  profileId: string;
-  onChangeProfileId: (profileId: string) => void;
+  automation: Automation | undefined;
 }
 
 function AutomationFormFields({
@@ -474,13 +462,32 @@ function AutomationFormFields({
   controlSize,
   cadenceError,
   mutationServerId,
-  profileId,
-  onChangeProfileId,
+  automation,
 }: AutomationFormFieldsProps): ReactElement {
   const triggerDisplay = useMemo<SelectFieldDisplay>(
-    () => ({ label: state.triggerKind === "manual" ? "Run by hand" : "On a schedule" }),
+    () => ({ label: TRIGGER_LABELS[state.triggerKind] }),
     [state.triggerKind],
   );
+  const selectedStep = state.steps.find((step) => step.id === state.selectedStepId) ?? null;
+  const [link, setLink] = useState<StepLink | null>(null);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const handlePressStep = useCallback(
+    (stepId: string) => {
+      if (link && link.from !== stepId) {
+        setLinkError(model.connectSteps(link.from, stepId, link.branch));
+        setLink(null);
+        return;
+      }
+      setLink(null);
+      setLinkError(null);
+      model.selectStep(stepId);
+    },
+    [link, model],
+  );
+  const handleStartLink = useCallback((next: StepLink | null) => {
+    setLinkError(null);
+    setLink(next);
+  }, []);
   return (
     <>
       <Field label="Name">
@@ -495,28 +502,6 @@ function AutomationFormFields({
           autoCorrect={false}
         />
       </Field>
-
-      <Field label="Prompt">
-        <FormTextInput
-          size={controlSize}
-          testID="automation-prompt-input"
-          accessibilityLabel="Prompt"
-          initialValue={state.prompt}
-          onChangeText={model.setPrompt}
-          placeholder="What should the agent do each run?"
-          style={styles.multilineInput}
-          multiline
-          numberOfLines={4}
-          textAlignVertical="top"
-        />
-      </Field>
-
-      <AutomationProfileField
-        serverId={state.selectedServerId}
-        value={profileId}
-        onChange={onChangeProfileId}
-        size={controlSize}
-      />
 
       <SelectField
         label="Trigger"
@@ -541,13 +526,94 @@ function AutomationFormFields({
         />
       ) : null}
 
+      {state.triggerKind === "pull_request" ? (
+        <PullRequestTriggerFields model={model} state={state} size={controlSize} />
+      ) : null}
+
       <AutomationTargetFields
+        section="automation"
         model={model}
         state={state}
         providerSnapshot={providerSnapshot}
         controlSize={controlSize}
         mutationServerId={mutationServerId}
       />
+
+      <AutomationStepsSection
+        state={state}
+        automation={automation}
+        serverId={mutationServerId}
+        linkFromStepId={link?.from ?? null}
+        onPressStep={handlePressStep}
+      />
+
+      {state.steps.length > 1 ? (
+        <Field label="Step name">
+          <FormTextInput
+            key={state.selectedStepId}
+            size={controlSize}
+            testID="automation-step-title-input"
+            accessibilityLabel="Step name"
+            initialValue={selectedStep?.title ?? ""}
+            onChangeText={model.setStepTitle}
+            placeholder="Review"
+            autoCorrect={false}
+          />
+        </Field>
+      ) : null}
+
+      {selectedStep?.kind === "condition" ? (
+        <ConditionStepFields
+          key={selectedStep.id}
+          model={model}
+          step={selectedStep}
+          size={controlSize}
+        />
+      ) : (
+        <>
+          <Field label="Prompt" hint={promptHint(state)}>
+            <FormTextInput
+              key={state.agentStepId}
+              size={controlSize}
+              testID="automation-prompt-input"
+              accessibilityLabel="Prompt"
+              initialValue={state.prompt}
+              onChangeText={model.setPrompt}
+              placeholder="What should the agent do each run?"
+              style={styles.multilineInput}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+          </Field>
+
+          <AutomationProfileField
+            serverId={state.selectedServerId}
+            value={state.selectedProfileId}
+            onChange={model.setProfile}
+            size={controlSize}
+          />
+
+          <AutomationTargetFields
+            section="step"
+            model={model}
+            state={state}
+            providerSnapshot={providerSnapshot}
+            controlSize={controlSize}
+            mutationServerId={mutationServerId}
+          />
+        </>
+      )}
+
+      <StepActions model={model} state={state} link={link} onStartLink={handleStartLink} />
+
+      {linkError ? <Text style={styles.submitError}>{linkError}</Text> : null}
+
+      {state.flowError ? (
+        <Text style={styles.submitError} testID="automation-flow-error">
+          {state.flowError}
+        </Text>
+      ) : null}
 
       <Field label="Max runs">
         <FormTextInput
@@ -563,6 +629,432 @@ function AutomationFormFields({
 
       {state.submitError ? <Text style={styles.submitError}>{state.submitError}</Text> : null}
     </>
+  );
+}
+
+interface StepLink {
+  from: string;
+  branch?: AutomationEdgeBranch;
+}
+
+// The references the selected agent step's prompt can use.
+function promptHint(state: AutomationFormState): string | undefined {
+  const upstream = upstreamNodeIds({ nodes: [], edges: state.edges }, state.agentStepId);
+  const refs = state.steps
+    .filter((step) => step.kind === "agent" && upstream.has(step.id))
+    .map((step) => stepOutputReference(step.id));
+  if (state.triggerKind === "pull_request") {
+    refs.push("{{trigger.url}}", "{{trigger.number}}", "{{trigger.title}}", "{{trigger.headRef}}");
+  }
+  return refs.length > 0 ? `Can use ${refs.join(", ")}` : undefined;
+}
+
+const PULL_REQUEST_EVENTS: { value: PullRequestEvent; label: string }[] = [
+  { value: "opened", label: "Opened" },
+  { value: "synchronize", label: "New commits" },
+  { value: "review_requested", label: "Review requested from me" },
+];
+
+function PullRequestTriggerFields({
+  model,
+  state,
+  size,
+}: {
+  model: AutomationFormModel;
+  state: AutomationFormState;
+  size: ControlSize;
+}): ReactElement {
+  return (
+    <>
+      <Field
+        label="Repository"
+        hint="owner/name on GitHub. Checked every minute with the host's gh CLI; open pull requests fire only once they change."
+      >
+        <FormTextInput
+          size={size}
+          testID="automation-pr-repo-input"
+          accessibilityLabel="Repository"
+          initialValue={state.prRepo}
+          onChangeText={model.setPrRepo}
+          placeholder="owner/name"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+      </Field>
+      <Field label="Run when a pull request is">
+        <View style={styles.chipRow}>
+          {PULL_REQUEST_EVENTS.map((event) => (
+            <PullRequestEventChip
+              key={event.value}
+              event={event.value}
+              label={event.label}
+              selected={state.prEvents.includes(event.value)}
+              onToggle={model.togglePrEvent}
+            />
+          ))}
+        </View>
+      </Field>
+    </>
+  );
+}
+
+function PullRequestEventChip({
+  event,
+  label,
+  selected,
+  onToggle,
+}: {
+  event: PullRequestEvent;
+  label: string;
+  selected: boolean;
+  onToggle: (event: PullRequestEvent) => void;
+}): ReactElement {
+  const handlePress = useCallback(() => onToggle(event), [event, onToggle]);
+  return (
+    <Button
+      size="sm"
+      variant={selected ? "default" : "outline"}
+      onPress={handlePress}
+      testID={`automation-pr-event-${event}`}
+    >
+      {label}
+    </Button>
+  );
+}
+
+const STEP_STATUS_LABEL: Record<AutomationRun["status"], string> = {
+  running: "is running",
+  succeeded: "succeeded",
+  failed: "failed",
+  cancelled: "was cancelled",
+};
+
+function useShownRun(input: {
+  serverId: string;
+  automationId: string | undefined;
+  runId: string | undefined;
+}): AutomationRun | null {
+  const { serverId, automationId, runId } = input;
+  const query = useFetchQuery({
+    queryKey: ["automation-run", serverId, automationId, runId],
+    enabled: Boolean(serverId && automationId && runId),
+    dataShape: "value",
+    immutableWhen: (run: AutomationRun) => run.status !== "running",
+    queryFn: async (): Promise<AutomationRun> => {
+      const client = useSessionStore.getState().sessions[serverId]?.client;
+      if (!client || !automationId || !runId) {
+        throw new Error("Host is not connected");
+      }
+      return (await client.automationRunGet({ automationId, runId })).run;
+    },
+    refetchInterval: (current) => (current.state.data?.status === "running" ? 3000 : false),
+  });
+  return query.data ?? null;
+}
+
+// The graph, with the latest run's step results over it when editing.
+function AutomationStepsSection({
+  state,
+  automation,
+  serverId,
+  linkFromStepId,
+  onPressStep,
+}: {
+  state: AutomationFormState;
+  automation: Automation | undefined;
+  serverId: string;
+  linkFromStepId: string | null;
+  onPressStep: (stepId: string) => void;
+}): ReactElement | null {
+  const [shownRunId, setShownRunId] = useState(automation?.lastRun?.id);
+  const run = useShownRun({ serverId, automationId: automation?.id, runId: shownRunId });
+  const { retryAutomationRun, isRetrying } = useAutomationMutations({ serverId });
+  const [retryError, setRetryError] = useState<string | null>(null);
+  const handleRetry = useCallback(async () => {
+    if (!automation || !run) {
+      return;
+    }
+    setRetryError(null);
+    try {
+      const next = await retryAutomationRun({ automationId: automation.id, runId: run.id });
+      setShownRunId(next.id);
+    } catch (error) {
+      setRetryError(toErrorMessage(error));
+    }
+  }, [automation, retryAutomationRun, run]);
+  const handleRetryPress = useCallback(() => void handleRetry(), [handleRetry]);
+  const canvasSteps = useMemo<AutomationCanvasStep[]>(
+    () =>
+      state.steps.map((step) => ({
+        id: step.id,
+        kind: step.kind,
+        title: step.title || step.id,
+        subtitle:
+          step.kind === "agent"
+            ? step.model || step.provider || "Choose a model"
+            : `${step.operator.replace("_", " ")} ${step.value}`.trim(),
+      })),
+    [state.steps],
+  );
+  const stepStatuses = useMemo(
+    () => (run ? Object.fromEntries(run.steps.map((step) => [step.nodeId, step.status])) : {}),
+    [run],
+  );
+  const showCanvas = state.steps.length > 1 || (run?.steps.length ?? 0) > 1;
+  if (!showCanvas && !run) {
+    return null;
+  }
+  const canRetry =
+    run &&
+    (run.status === "failed" || run.status === "cancelled") &&
+    automation?.status === "active";
+  return (
+    <View style={styles.stepsSection}>
+      {run ? (
+        <View style={styles.runBar}>
+          <Text style={styles.runText} numberOfLines={2} testID="automation-run-status">
+            {run.cause.kind === "retry" ? "Retry" : "Last run"} {STEP_STATUS_LABEL[run.status]}
+            {run.error ? `: ${run.error}` : ""}
+          </Text>
+          {canRetry ? (
+            <Button
+              size="sm"
+              variant="outline"
+              loading={isRetrying}
+              onPress={handleRetryPress}
+              testID="automation-run-retry"
+            >
+              Retry
+            </Button>
+          ) : null}
+        </View>
+      ) : null}
+      {retryError ? <Text style={styles.submitError}>{retryError}</Text> : null}
+      {showCanvas ? (
+        <AutomationFlowCanvas
+          steps={canvasSteps}
+          edges={state.edges}
+          selectedStepId={state.selectedStepId}
+          stepStatuses={stepStatuses}
+          linkFromStepId={linkFromStepId}
+          onPressStep={onPressStep}
+        />
+      ) : null}
+    </View>
+  );
+}
+
+const CONDITION_OPERATORS: { value: AutomationConditionOperator; label: string }[] = [
+  { value: "contains", label: "contains" },
+  { value: "not_contains", label: "does not contain" },
+  { value: "equals", label: "equals" },
+  { value: "not_equals", label: "does not equal" },
+  { value: "matches", label: "matches regex" },
+  { value: "is_empty", label: "is empty" },
+  { value: "not_empty", label: "is not empty" },
+];
+
+const CONDITION_OPERATOR_OPTIONS: SelectFieldOption<AutomationConditionOperator>[] =
+  CONDITION_OPERATORS.map((operator) => ({
+    id: operator.value,
+    value: operator.value,
+    label: operator.label,
+    testID: `automation-condition-operator-${operator.value}`,
+  }));
+
+function ConditionStepFields({
+  model,
+  step,
+  size,
+}: {
+  model: AutomationFormModel;
+  step: AutomationFormConditionStep;
+  size: ControlSize;
+}): ReactElement {
+  const operatorDisplay = useMemo<SelectFieldDisplay>(
+    () => ({
+      label:
+        CONDITION_OPERATORS.find((operator) => operator.value === step.operator)?.label ??
+        step.operator,
+    }),
+    [step.operator],
+  );
+  const needsValue = step.operator !== "is_empty" && step.operator !== "not_empty";
+  const handleInput = useCallback((input: string) => model.setCondition({ input }), [model]);
+  const handleOperator = useCallback(
+    (operator: AutomationConditionOperator) => model.setCondition({ operator }),
+    [model],
+  );
+  const handleValue = useCallback((value: string) => model.setCondition({ value }), [model]);
+  return (
+    <>
+      <Field label="Check" hint="Usually {{steps.<id>.output}} of the step before it">
+        <FormTextInput
+          size={size}
+          testID="automation-condition-input"
+          accessibilityLabel="Check input"
+          initialValue={step.input}
+          onChangeText={handleInput}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+      </Field>
+      <SelectField
+        label="Test"
+        value={step.operator}
+        selectedDisplay={operatorDisplay}
+        options={CONDITION_OPERATOR_OPTIONS}
+        onChange={handleOperator}
+        placeholder="Select test"
+        emptyText="No tests"
+        searchable={false}
+        title="Test"
+        size={size}
+        triggerTestID="automation-condition-operator"
+      />
+      {needsValue ? (
+        <Field
+          label="Value"
+          hint="Text tests ignore case and surrounding spaces. Links marked yes run when the test passes, no when it fails."
+        >
+          <FormTextInput
+            size={size}
+            testID="automation-condition-value"
+            accessibilityLabel="Value"
+            initialValue={step.value}
+            onChangeText={handleValue}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </Field>
+      ) : null}
+    </>
+  );
+}
+
+function StepActions({
+  model,
+  state,
+  link,
+  onStartLink,
+}: {
+  model: AutomationFormModel;
+  state: AutomationFormState;
+  link: StepLink | null;
+  onStartLink: (link: StepLink | null) => void;
+}): ReactElement {
+  const selected = state.steps.find((step) => step.id === state.selectedStepId);
+  const agentCount = state.steps.filter((step) => step.kind === "agent").length;
+  const canRemove = state.steps.length > 1 && !(selected?.kind === "agent" && agentCount === 1);
+  const outgoing = state.edges.filter((edge) => edge.from === state.selectedStepId);
+  const selectedId = selected?.id ?? "";
+  const handleAddAgent = useCallback(() => model.addStep("agent"), [model]);
+  const handleAddCheck = useCallback(() => model.addStep("condition"), [model]);
+  const handleLinkYes = useCallback(
+    () => onStartLink({ from: selectedId, branch: "true" }),
+    [onStartLink, selectedId],
+  );
+  const handleLinkNo = useCallback(
+    () => onStartLink({ from: selectedId, branch: "false" }),
+    [onStartLink, selectedId],
+  );
+  const handleLink = useCallback(
+    () => onStartLink({ from: selectedId }),
+    [onStartLink, selectedId],
+  );
+  const handleCancelLink = useCallback(() => onStartLink(null), [onStartLink]);
+  const handleRemove = useCallback(() => model.removeStep(selectedId), [model, selectedId]);
+  if (link) {
+    return (
+      <View style={styles.chipRow}>
+        <Text style={styles.linkHint}>
+          Tap the step that runs {link.branch === "false" ? "when the check fails" : "next"}
+        </Text>
+        <Button size="sm" variant="ghost" onPress={handleCancelLink}>
+          Cancel
+        </Button>
+      </View>
+    );
+  }
+  const linkable = state.steps.length > 1;
+  return (
+    <View style={styles.stepActions}>
+      {outgoing.map((edge) => (
+        <OutgoingLink
+          key={`${edge.to}:${edge.branch ?? ""}`}
+          edge={edge}
+          targetTitle={state.steps.find((step) => step.id === edge.to)?.title || edge.to}
+          onUnlink={model.disconnectSteps}
+        />
+      ))}
+      <View style={styles.chipRow}>
+        <Button size="sm" variant="outline" onPress={handleAddAgent} testID="automation-add-step">
+          Add step
+        </Button>
+        <Button size="sm" variant="outline" onPress={handleAddCheck} testID="automation-add-check">
+          Add check
+        </Button>
+        {linkable && selected?.kind === "condition" ? (
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              onPress={handleLinkYes}
+              testID="automation-link-yes"
+            >
+              If yes, link to…
+            </Button>
+            <Button size="sm" variant="outline" onPress={handleLinkNo} testID="automation-link-no">
+              If no, link to…
+            </Button>
+          </>
+        ) : null}
+        {linkable && selected?.kind === "agent" ? (
+          <Button size="sm" variant="outline" onPress={handleLink} testID="automation-link">
+            Link to…
+          </Button>
+        ) : null}
+        {canRemove ? (
+          <Button size="sm" variant="ghost" onPress={handleRemove} testID="automation-remove-step">
+            Remove step
+          </Button>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+const BRANCH_PREFIX: Record<AutomationEdgeBranch | "always", string> = {
+  true: "If yes, then ",
+  false: "If no, then ",
+  always: "Then ",
+};
+
+function OutgoingLink({
+  edge,
+  targetTitle,
+  onUnlink,
+}: {
+  edge: AutomationEdge;
+  targetTitle: string;
+  onUnlink: (edge: AutomationEdge) => void;
+}): ReactElement {
+  const handleUnlink = useCallback(() => onUnlink(edge), [edge, onUnlink]);
+  return (
+    <View style={styles.outgoingRow}>
+      <Text style={styles.outgoingText} numberOfLines={1}>
+        {BRANCH_PREFIX[edge.branch ?? "always"]}
+        {targetTitle}
+      </Text>
+      <Button
+        size="sm"
+        variant="ghost"
+        onPress={handleUnlink}
+        testID={`automation-unlink-${edge.from}-${edge.to}`}
+      >
+        Unlink
+      </Button>
+    </View>
   );
 }
 
@@ -636,6 +1128,8 @@ function AutomationProfileField({
 }
 
 interface AutomationTargetFieldsProps {
+  /** `automation`: host, project and isolation. `step`: the selected agent step's model fields. */
+  section: "automation" | "step";
   model: AutomationFormModel;
   state: AutomationFormState;
   providerSnapshot: ReturnType<typeof useAutomationFormProviderSnapshot>;
@@ -644,6 +1138,7 @@ interface AutomationTargetFieldsProps {
 }
 
 function AutomationTargetFields({
+  section,
   model,
   state,
   providerSnapshot,
@@ -784,6 +1279,64 @@ function AutomationTargetFields({
     [controlSize, modelTriggerLeading, state.selectedModel, state.selectedModelDisplay],
   );
 
+  if (section === "step") {
+    return (
+      <>
+        {state.disclosure.showModelField ? (
+          <Field label="Model">
+            <CombinedModelSelector
+              providers={state.modelSelectorProviders}
+              selectedProvider={state.selectedProvider ?? ""}
+              selectedModel={state.selectedModel}
+              onSelect={handleSelectModel}
+              isLoading={providerSnapshot.isLoading || providerSnapshot.isFetching}
+              renderTrigger={renderModelTrigger}
+              triggerFill
+              serverId={mutationServerId}
+              disabled={!state.selectedServerId}
+              onOpen={handleModelOpen}
+              onRetryProvider={handleRetryProvider}
+              isRetryingProvider={providerSnapshot.isRefreshing}
+            />
+          </Field>
+        ) : null}
+
+        {state.disclosure.showThinkingField ? (
+          <SelectField
+            label="Thinking"
+            value={state.selectedThinkingOptionId || null}
+            selectedDisplay={state.selectedThinkingDisplay}
+            options={thinkingOptions}
+            onChange={handleSelectThinking}
+            placeholder="Select thinking"
+            emptyText="No thinking options found"
+            searchable={thinkingOptions.length > 6}
+            title="Select thinking"
+            size={controlSize}
+            triggerTestID="automation-thinking-trigger"
+            renderOption={renderThinkingOption}
+          />
+        ) : null}
+
+        {state.disclosure.showModeField ? (
+          <SelectField
+            label="Mode"
+            value={state.selectedMode}
+            selectedDisplay={state.selectedModeDisplay}
+            options={modeOptions}
+            onChange={handleSelectMode}
+            placeholder={UNATTENDED_MODE_LABEL}
+            emptyText="No modes found"
+            searchable={modeOptions.length > 7}
+            title="Select mode"
+            size={controlSize}
+            triggerTestID="automation-mode-trigger"
+          />
+        ) : null}
+      </>
+    );
+  }
+
   return (
     <>
       {state.mode === "edit" || state.hosts.length > 1 ? (
@@ -821,58 +1374,6 @@ function AutomationTargetFields({
           size={controlSize}
           triggerTestID="automation-project-trigger"
           renderOption={renderProjectOption}
-        />
-      ) : null}
-
-      {state.disclosure.showModelField ? (
-        <Field label="Model">
-          <CombinedModelSelector
-            providers={state.modelSelectorProviders}
-            selectedProvider={state.selectedProvider ?? ""}
-            selectedModel={state.selectedModel}
-            onSelect={handleSelectModel}
-            isLoading={providerSnapshot.isLoading || providerSnapshot.isFetching}
-            renderTrigger={renderModelTrigger}
-            triggerFill
-            serverId={mutationServerId}
-            disabled={!state.selectedServerId}
-            onOpen={handleModelOpen}
-            onRetryProvider={handleRetryProvider}
-            isRetryingProvider={providerSnapshot.isRefreshing}
-          />
-        </Field>
-      ) : null}
-
-      {state.disclosure.showThinkingField ? (
-        <SelectField
-          label="Thinking"
-          value={state.selectedThinkingOptionId || null}
-          selectedDisplay={state.selectedThinkingDisplay}
-          options={thinkingOptions}
-          onChange={handleSelectThinking}
-          placeholder="Select thinking"
-          emptyText="No thinking options found"
-          searchable={thinkingOptions.length > 6}
-          title="Select thinking"
-          size={controlSize}
-          triggerTestID="automation-thinking-trigger"
-          renderOption={renderThinkingOption}
-        />
-      ) : null}
-
-      {state.disclosure.showModeField ? (
-        <SelectField
-          label="Mode"
-          value={state.selectedMode}
-          selectedDisplay={state.selectedModeDisplay}
-          options={modeOptions}
-          onChange={handleSelectMode}
-          placeholder={UNATTENDED_MODE_LABEL}
-          emptyText="No modes found"
-          searchable={modeOptions.length > 7}
-          title="Select mode"
-          size={controlSize}
-          triggerTestID="automation-mode-trigger"
         />
       ) : null}
 
@@ -1098,6 +1599,46 @@ const styles = StyleSheet.create((theme) => {
     },
     submitError: {
       color: theme.colors.palette.red[300],
+      fontSize: theme.fontSize.sm,
+    },
+    draftNotice: {
+      color: theme.colors.foregroundMuted,
+      fontSize: theme.fontSize.sm,
+    },
+    chipRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      alignItems: "center",
+      gap: theme.spacing[2],
+    },
+    stepsSection: {
+      gap: theme.spacing[2],
+    },
+    runBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: theme.spacing[2],
+    },
+    runText: {
+      flex: 1,
+      color: theme.colors.foregroundMuted,
+      fontSize: theme.fontSize.sm,
+    },
+    stepActions: {
+      gap: theme.spacing[2],
+    },
+    outgoingRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: theme.spacing[2],
+    },
+    outgoingText: {
+      flex: 1,
+      color: theme.colors.foreground,
+      fontSize: theme.fontSize.sm,
+    },
+    linkHint: {
+      color: theme.colors.foreground,
       fontSize: theme.fontSize.sm,
     },
     providerIcon: {

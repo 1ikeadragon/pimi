@@ -252,7 +252,7 @@ export function AutomationRow({
             {pendingPrompt ? (
               <Text
                 style={styles.pendingPrompt}
-                numberOfLines={3}
+                numberOfLines={6}
                 testID={`automation-pending-prompt-${automation.id}`}
               >
                 {pendingPrompt}
@@ -299,9 +299,15 @@ export function AutomationRow({
   );
 }
 
+// Every agent step's prompt, titled when there is more than one, so a pending graph can be
+// judged from the row.
 function agentPrompt(automation: Automation): string | null {
-  const node = automation.flow.nodes.find((candidate) => candidate.kind === "agent");
-  return node?.kind === "agent" ? node.prompt.trim() || null : null;
+  const agents = automation.flow.nodes.flatMap((node) => (node.kind === "agent" ? [node] : []));
+  if (agents.length === 1) {
+    return agents[0]?.prompt.trim() || null;
+  }
+  const lines = agents.map((node) => `${node.title}: ${node.prompt.trim().replace(/\s+/g, " ")}`);
+  return lines.length > 0 ? lines.join("\n") : null;
 }
 
 const editLeading = <ThemedPencil size={MENU_ICON_SIZE} uniProps={mutedColorMapping} />;

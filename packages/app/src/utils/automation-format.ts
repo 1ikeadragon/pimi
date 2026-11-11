@@ -42,6 +42,9 @@ export function formatTrigger(automation: Automation): string {
   if (automation.trigger.kind === "manual") {
     return "Run by hand";
   }
+  if (automation.trigger.kind === "pull_request") {
+    return `Pull requests in ${automation.trigger.repo}`;
+  }
   return formatCadence(automation.trigger.cadence);
 }
 

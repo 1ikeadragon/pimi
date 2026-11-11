@@ -17,6 +17,10 @@ import { HostFilter } from "@/components/hosts/host-filter";
 import { ALL_HOSTS_OPTION_ID } from "@/components/hosts/host-picker";
 import { AutomationFormSheet } from "@/components/automations/automation-form-sheet";
 import {
+  AutomationCompileSheet,
+  type CompiledAutomationDraft,
+} from "@/components/automations/automation-compile-sheet";
+import {
   AutomationsTable,
   type AutomationRowView,
 } from "@/components/automations/automations-table";
@@ -48,8 +52,16 @@ import type { Automation } from "@pimi/protocol/automation/types";
 
 type FormState =
   | { mode: "closed" }
-  | { mode: "create"; template?: AutomationTemplate }
+  | { mode: "describe" }
+  | { mode: "create"; template?: AutomationTemplate; draft?: CompiledAutomationDraft }
   | { mode: "edit"; serverId: string; automation: Automation };
+
+function formServerId(form: FormState): string | undefined {
+  if (form.mode === "edit") {
+    return form.serverId;
+  }
+  return form.mode === "create" ? form.draft?.serverId : undefined;
+}
 
 const STATUS_FILTER_OPTIONS: { value: AutomationBucket; label: string; testID: string }[] = [
   { value: "runnable", label: "Active", testID: "automations-filter-active" },
@@ -104,6 +116,11 @@ function AutomationsScreenContent(): ReactElement {
     setForm({ mode: "edit", serverId: automation.serverId, automation });
   }, []);
   const closeForm = useCallback(() => setForm({ mode: "closed" }), []);
+  const openDescribe = useCallback(() => setForm({ mode: "describe" }), []);
+  const openCompiled = useCallback(
+    (draft: CompiledAutomationDraft) => setForm({ mode: "create", draft }),
+    [],
+  );
 
   const agentsByKey = useMemo(() => {
     const map = new Map<string, AutomationOriginAgent>();
@@ -182,15 +199,22 @@ function AutomationsScreenContent(): ReactElement {
         onSelectHost={setSelectedHost}
         onRetry={refetch}
         onCreate={openCreate}
+        onDescribe={openDescribe}
         onEdit={openEdit}
       />
+      <AutomationCompileSheet
+        visible={form.mode === "describe"}
+        onClose={closeForm}
+        onCompiled={openCompiled}
+      />
       <AutomationFormSheet
-        serverId={form.mode === "edit" ? form.serverId : undefined}
+        serverId={formServerId(form)}
         visible={form.mode === "create" || form.mode === "edit"}
         onClose={closeForm}
         mode={form.mode === "edit" ? "edit" : "create"}
         automation={form.mode === "edit" ? form.automation : undefined}
         template={form.mode === "create" ? form.template : undefined}
+        draft={form.mode === "create" ? form.draft?.definition : undefined}
       />
     </View>
   );
@@ -210,6 +234,7 @@ function AutomationsScreenBody({
   onSelectHost,
   onRetry,
   onCreate,
+  onDescribe,
   onEdit,
 }: {
   rows: AutomationRowView[];
@@ -225,6 +250,7 @@ function AutomationsScreenBody({
   onSelectHost: (serverId: string) => void;
   onRetry: () => void;
   onCreate: (template?: AutomationTemplate) => void;
+  onDescribe: () => void;
   onEdit: (automation: AggregatedAutomation) => void;
 }): ReactElement {
   const bodyState = resolveAutomationsScreenBodyState({ loadState, showLoadError });
@@ -252,7 +278,11 @@ function AutomationsScreenBody({
     return (
       <View style={styles.centered}>
         {hostErrors.length > 0 ? <AutomationHostErrorsBanner errors={hostErrors} /> : null}
-        <AutomationsEmptyState onCreate={onCreate} testID="automations-empty" />
+        <AutomationsEmptyState
+          onCreate={onCreate}
+          onDescribe={onDescribe}
+          testID="automations-empty"
+        />
         <ConnectingHostsNote hosts={connectingHosts} />
       </View>
     );
@@ -290,7 +320,11 @@ function AutomationsScreenBody({
             testID="automations-status-filter"
           />
         </View>
-        <AutomationCreateActions onCreate={onCreate} testID="automations-new" />
+        <AutomationCreateActions
+          onCreate={onCreate}
+          onDescribe={onDescribe}
+          testID="automations-new"
+        />
       </View>
       {connectingHosts.length > 0 ? (
         <View style={styles.connectingNoteRow}>
@@ -313,9 +347,11 @@ function AutomationsScreenBody({
 
 function AutomationsEmptyState({
   onCreate,
+  onDescribe,
   testID,
 }: {
   onCreate: (template?: AutomationTemplate) => void;
+  onDescribe: () => void;
   testID?: string;
 }): ReactElement {
   return (
@@ -324,24 +360,33 @@ function AutomationsEmptyState({
       <View style={styles.emptyTextStack}>
         <Text style={styles.emptyTitle}>No active automations</Text>
         <Text style={styles.emptyDescription}>
-          Give an agent a job to run on a schedule or by hand.
+          Give agents a job to run on a schedule, on pull requests, or by hand.
         </Text>
       </View>
-      <AutomationCreateActions onCreate={onCreate} testID="automations-empty-new" />
+      <AutomationCreateActions
+        onCreate={onCreate}
+        onDescribe={onDescribe}
+        testID="automations-empty-new"
+      />
     </View>
   );
 }
 
 function AutomationCreateActions({
   onCreate,
+  onDescribe,
   testID,
 }: {
   onCreate: (template?: AutomationTemplate) => void;
+  onDescribe: () => void;
   testID: string;
 }): ReactElement {
   const openBlank = useCallback(() => onCreate(), [onCreate]);
   return (
     <View style={styles.createActions}>
+      <Button variant="ghost" onPress={onDescribe} testID="automations-describe">
+        Describe it
+      </Button>
       <DropdownMenu>
         <DropdownTrigger
           leading={templatesLeading}

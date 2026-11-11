@@ -73,6 +73,9 @@ function deriveState(automation: Automation, now: number): AutomationDerivedStat
 
 function resolveOriginLabel(input: ResolveAutomationInput): string | null {
   const { origin } = input.automation;
+  if (origin.kind === "compiled") {
+    return "Compiled from a description";
+  }
   if (origin.kind !== "agent") {
     return null;
   }

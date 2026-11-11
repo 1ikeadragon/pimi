@@ -4,7 +4,24 @@ import type {
   AgentProvider,
   ProviderSnapshotEntry,
 } from "@pimi/protocol/agent-types";
-import type { Automation, AutomationAgentNode } from "@pimi/protocol/automation/types";
+import type {
+  Automation,
+  AutomationAgentNode,
+  AutomationConditionOperator,
+  AutomationDefinition,
+  AutomationEdge,
+  AutomationEdgeBranch,
+  AutomationFlow,
+  AutomationNode,
+  AutomationTrigger,
+  PullRequestEvent,
+} from "@pimi/protocol/automation/types";
+import {
+  MAX_AUTOMATION_NODES,
+  stepOutputReference,
+  upstreamNodeIds,
+  validateAutomationDefinition,
+} from "@pimi/protocol/automation/validate";
 import type { Cadence } from "@pimi/protocol/schedule/cadence";
 import type { FormPreferences } from "@/create-agent-preferences/preferences";
 import { formatThinkingOptionLabel } from "@/agent-controls/labels";
@@ -51,8 +68,34 @@ export interface AutomationFormSnapshot {
     preferences?: FormPreferences;
     timezone?: string;
     template?: AutomationTemplate;
+    /** A definition compiled from prose; the form opens on it in create mode. */
+    draft?: AutomationDefinition;
   };
 }
+
+export interface AutomationFormAgentStep {
+  id: string;
+  kind: "agent";
+  title: string;
+  prompt: string;
+  provider: AgentProvider | null;
+  model: string;
+  modeId: string;
+  thinkingOptionId: string;
+  profileId: string;
+  featureValues?: AutomationAgentNode["featureValues"];
+}
+
+export interface AutomationFormConditionStep {
+  id: string;
+  kind: "condition";
+  title: string;
+  input: string;
+  operator: AutomationConditionOperator;
+  value: string;
+}
+
+export type AutomationFormStep = AutomationFormAgentStep | AutomationFormConditionStep;
 
 export interface AutomationFormProviderSnapshot {
   entries: ProviderSnapshotEntry[];
@@ -78,15 +121,26 @@ export interface AutomationFormProjectOption {
   testID: string;
 }
 
-export type AutomationFormTriggerKind = "schedule" | "manual";
+export type AutomationFormTriggerKind = "schedule" | "manual" | "pull_request";
 type CronCadence = Extract<Cadence, { type: "cron" }>;
 type ProviderResolutionStatus = "idle" | "pending" | "complete";
 
+// The step graph. The prompt, model, mode, thinking and profile fields below belong to the agent
+// step `agentStepId`, and every publish copies them into `steps`. `selectedStepId` is the step the
+// editor shows, which may be a condition.
 export interface AutomationFormState {
   mode: "create" | "edit";
   triggerKind: AutomationFormTriggerKind;
   name: string;
+  steps: AutomationFormStep[];
+  edges: AutomationEdge[];
+  selectedStepId: string;
+  agentStepId: string;
+  flowError: string | null;
+  prRepo: string;
+  prEvents: PullRequestEvent[];
   prompt: string;
+  selectedProfileId: string;
   maxRuns: string;
   cadence: Cadence;
   submitCadence: CronCadence | undefined;
@@ -132,6 +186,19 @@ export interface AutomationFormModel {
   setSessionMode: (modeId: string) => void;
   setName: (value: string) => void;
   setPrompt: (value: string) => void;
+  setProfile: (profileId: string) => void;
+  selectStep: (stepId: string) => void;
+  addStep: (kind: "agent" | "condition") => void;
+  removeStep: (stepId: string) => void;
+  /** Returns why the link was refused, or null. */
+  connectSteps: (from: string, to: string, branch?: AutomationEdgeBranch) => string | null;
+  disconnectSteps: (edge: AutomationEdge) => void;
+  setStepTitle: (value: string) => void;
+  setCondition: (
+    patch: Partial<Pick<AutomationFormConditionStep, "input" | "operator" | "value">>,
+  ) => void;
+  setPrRepo: (value: string) => void;
+  togglePrEvent: (event: PullRequestEvent) => void;
   setMaxRuns: (value: string) => void;
   setCadence: (value: Cadence) => void;
   setTriggerKind: (value: AutomationFormTriggerKind) => void;
@@ -145,7 +212,16 @@ export const UNATTENDED_MODE_LABEL = "Unattended (default)";
 
 type ThinkingOption = NonNullable<AgentModelDefinition["thinkingOptions"]>[number];
 
-// The form edits the single agent step of an automation; this is what it reads back.
+// The stored automation being edited, or the compiled draft a new one starts from.
+type AutomationFormSource = Pick<AutomationDefinition, "name" | "project" | "trigger" | "flow"> & {
+  limits?: AutomationDefinition["limits"];
+};
+
+function formSource(snapshot: AutomationFormSnapshot): AutomationFormSource | undefined {
+  return snapshot.automation ?? snapshot.defaults.draft;
+}
+
+// The first agent step opens selected; this is what the form reads back from it.
 interface AgentStepConfig {
   cwd: string;
   provider: AutomationAgentNode["provider"];
@@ -155,13 +231,13 @@ interface AgentStepConfig {
   isolation: "local" | "worktree";
 }
 
-function newAgentConfig(automation: AutomationFormSnapshot["automation"]): AgentStepConfig | null {
-  const node = automation?.flow.nodes.find((candidate) => candidate.kind === "agent");
-  if (!automation || node?.kind !== "agent") {
+function newAgentConfig(source: AutomationFormSource | undefined): AgentStepConfig | null {
+  const node = source?.flow.nodes.find((candidate) => candidate.kind === "agent");
+  if (!source || node?.kind !== "agent") {
     return null;
   }
   return {
-    cwd: automation.project.cwd,
+    cwd: source.project.cwd,
     provider: node.provider,
     model: node.model,
     modeId: node.modeId,
@@ -170,9 +246,140 @@ function newAgentConfig(automation: AutomationFormSnapshot["automation"]): Agent
   };
 }
 
-export function automationAgentPrompt(automation: AutomationFormSnapshot["automation"]): string {
-  const node = automation?.flow.nodes.find((candidate) => candidate.kind === "agent");
-  return node?.kind === "agent" ? node.prompt : "";
+function toFormSteps(snapshot: AutomationFormSnapshot): AutomationFormStep[] {
+  const source = formSource(snapshot);
+  if (!source) {
+    const template = snapshot.mode === "create" ? snapshot.defaults.template : undefined;
+    return [
+      {
+        id: "agent",
+        kind: "agent",
+        title: "Agent",
+        prompt: template?.prompt ?? "",
+        provider: null,
+        model: "",
+        modeId: "",
+        thinkingOptionId: "",
+        profileId: template?.profileId ?? "",
+      },
+    ];
+  }
+  return source.flow.nodes.map(toFormStep);
+}
+
+function toFormStep(node: AutomationNode): AutomationFormStep {
+  if (node.kind === "condition") {
+    return node;
+  }
+  const step: AutomationFormAgentStep = {
+    id: node.id,
+    kind: "agent",
+    title: node.title,
+    prompt: node.prompt,
+    provider: node.provider,
+    model: node.model ?? "",
+    modeId: node.modeId ?? "",
+    thinkingOptionId: node.thinkingOptionId ?? "",
+    profileId: node.profileId ?? "",
+  };
+  if (node.featureValues) {
+    step.featureValues = node.featureValues;
+  }
+  return step;
+}
+
+function nextStepId(steps: readonly AutomationFormStep[], prefix: string): string {
+  const ids = new Set(steps.map((step) => step.id));
+  let index = steps.length + 1;
+  while (ids.has(`${prefix}${index}`)) {
+    index += 1;
+  }
+  return `${prefix}${index}`;
+}
+
+// Every agent step shares the automation's isolation; the editor has one isolation field.
+export function buildAutomationFormFlow(
+  state: Pick<AutomationFormState, "steps" | "edges">,
+  workspace: "project" | "worktree",
+): AutomationFlow {
+  return {
+    nodes: state.steps.map((step) => {
+      if (step.kind === "condition") {
+        return step;
+      }
+      if (!step.provider) {
+        throw new Error(`Choose a model for step ${step.title || step.id}`);
+      }
+      const model = step.model.trim();
+      const modeId = step.modeId.trim();
+      const thinkingOptionId = step.thinkingOptionId.trim();
+      return {
+        id: step.id,
+        kind: "agent",
+        title: step.title.trim() || step.id,
+        ...(step.profileId ? { profileId: step.profileId } : {}),
+        provider: step.provider,
+        ...(model ? { model } : {}),
+        ...(modeId ? { modeId } : {}),
+        ...(thinkingOptionId ? { thinkingOptionId } : {}),
+        ...(step.featureValues ? { featureValues: step.featureValues } : {}),
+        workspace,
+        prompt: step.prompt.trim(),
+      };
+    }),
+    edges: state.edges,
+  };
+}
+
+export function buildAutomationFormTrigger(
+  state: Pick<AutomationFormState, "triggerKind" | "submitCadence" | "prRepo" | "prEvents">,
+  stored: AutomationTrigger | undefined,
+): AutomationTrigger {
+  if (state.triggerKind === "manual") {
+    return { kind: "manual" };
+  }
+  if (state.triggerKind === "pull_request") {
+    return { kind: "pull_request", repo: state.prRepo.trim(), events: state.prEvents };
+  }
+  if (state.submitCadence) {
+    return { kind: "schedule", cadence: state.submitCadence };
+  }
+  // Editing without touching the cadence keeps the stored one.
+  if (stored?.kind === "schedule") {
+    return stored;
+  }
+  throw new Error("Choose a cadence before saving this automation");
+}
+
+// The graph and pull-request checks the daemon runs on save, shown while editing. Name, project
+// and cadence have their own fields and checks.
+function resolveFlowError(state: AutomationFormState): string | null {
+  const missingModel = state.steps.find((step) => step.kind === "agent" && !step.provider);
+  const flow = buildAutomationFormFlow(
+    {
+      steps: state.steps.map((step) =>
+        step.kind === "agent" && !step.provider ? { ...step, provider: "claude" } : step,
+      ),
+      edges: state.edges,
+    },
+    "project",
+  );
+  const issues = validateAutomationDefinition({
+    name: "draft",
+    project: { cwd: "/" },
+    trigger:
+      state.triggerKind === "pull_request"
+        ? { kind: "pull_request", repo: state.prRepo.trim(), events: state.prEvents }
+        : { kind: "manual" },
+    flow,
+  });
+  if (issues.length > 0) {
+    return issues[0]?.message ?? "This automation is not valid";
+  }
+  if (missingModel && state.steps.length > 1) {
+    return `Choose a model for step ${missingModel.title || missingModel.id}`;
+  }
+  return null;
 }
 
 function buildProjectOptionTestId(optionId: string): string {
@@ -362,7 +569,7 @@ function isSelectedModelValidForProviders(input: {
 function normalizeInitialValues(input: {
   snapshot: AutomationFormSnapshot;
 }): FormInitialValues | undefined {
-  const config = newAgentConfig(input.snapshot.automation);
+  const config = newAgentConfig(formSource(input.snapshot));
   if (!config) {
     return undefined;
   }
@@ -442,18 +649,11 @@ function buildInitialThinkingDisplay(thinkingOptionId: string): AutomationFormDi
   return { label: formatThinkingOptionLabel({ id: thinkingOptionId }) };
 }
 
-function formatInitialMaxRuns(automation: AutomationFormSnapshot["automation"]): string {
-  if (automation?.limits.maxRuns == null) {
+function formatInitialMaxRuns(source: AutomationFormSource | undefined): string {
+  if (source?.limits?.maxRuns == null) {
     return "";
   }
-  return String(automation.limits.maxRuns);
-}
-
-function resolveInitialSubmitCadence(
-  automation: AutomationFormSnapshot["automation"],
-  initialCadence: CronCadence,
-): CronCadence | undefined {
-  return automation ? undefined : initialCadence;
+  return String(source.limits.maxRuns);
 }
 
 function resolveInitialIsolation(input: {
@@ -532,6 +732,12 @@ function resolveCanSubmit(state: AutomationFormState): boolean {
   if (state.name.trim().length === 0 || state.prompt.trim().length === 0) {
     return false;
   }
+  if (state.flowError !== null) {
+    return false;
+  }
+  if (state.steps.some((step) => step.kind === "agent" && !step.provider)) {
+    return false;
+  }
   if (state.triggerKind === "schedule" && state.submitCadence === undefined) {
     return false;
   }
@@ -577,8 +783,22 @@ function updateDerivedState(input: {
     serverId: input.state.selectedServerId,
     cwd: input.state.workingDir,
   });
+  const steps = input.state.steps.map((step) =>
+    step.id === input.state.agentStepId && step.kind === "agent"
+      ? {
+          ...step,
+          prompt: input.state.prompt,
+          provider: input.state.selectedProvider,
+          model: input.state.selectedModel,
+          modeId: input.state.selectedMode,
+          thinkingOptionId: input.state.selectedThinkingOptionId,
+          profileId: input.state.selectedProfileId,
+        }
+      : step,
+  );
   const nextState: AutomationFormState = {
     ...input.state,
+    steps,
     hosts: [...input.hosts],
     projectOptions: buildProjectOptions(input.targets, input.state.selectedServerId),
     projectDisplay: resolveProjectDisplay({
@@ -604,36 +824,65 @@ function updateDerivedState(input: {
     submitIsolation: effectiveIsolation,
   };
   const disclosure = resolveDisclosure(nextState);
-  return { ...nextState, disclosure, canSubmit: resolveCanSubmit({ ...nextState, disclosure }) };
+  const flowError = resolveFlowError(nextState);
+  return {
+    ...nextState,
+    disclosure,
+    flowError,
+    canSubmit: resolveCanSubmit({ ...nextState, disclosure, flowError }),
+  };
 }
 
 function buildInitialDraft(snapshot: AutomationFormSnapshot) {
   const template = snapshot.mode === "create" ? snapshot.defaults.template : undefined;
-  const trigger = snapshot.automation?.trigger;
+  const source = formSource(snapshot);
+  const trigger = source?.trigger;
   const storedCadence = trigger?.kind === "schedule" ? trigger.cadence : undefined;
   const cadence = normalizeAutomationFormCadence(
     storedCadence ?? template?.cadence ?? DEFAULT_CADENCE,
     snapshot.defaults.timezone ?? DEFAULT_TIMEZONE,
   );
-  const triggerKind: AutomationFormTriggerKind = trigger?.kind === "manual" ? "manual" : "schedule";
+  // A stored cadence stays as stored until the cadence field changes; a compiled draft's cron
+  // and a template's cadence are submitted as shown.
+  const keepsStoredCadence = Boolean(storedCadence && snapshot.automation);
   return {
-    triggerKind,
-    name: snapshot.automation?.name ?? template?.name ?? "",
-    prompt: snapshot.automation
-      ? automationAgentPrompt(snapshot.automation)
-      : (template?.prompt ?? ""),
-    maxRuns: formatInitialMaxRuns(snapshot.automation),
+    triggerKind: trigger?.kind ?? "schedule",
+    name: source?.name ?? template?.name ?? "",
+    ...buildInitialSteps(snapshot),
+    ...buildInitialPullRequest(trigger),
+    maxRuns: formatInitialMaxRuns(source),
     cadence,
-    submitCadence: resolveInitialSubmitCadence(
-      storedCadence ? snapshot.automation : undefined,
-      cadence,
-    ),
+    submitCadence: keepsStoredCadence ? undefined : cadence,
   };
+}
+
+function buildInitialSteps(snapshot: AutomationFormSnapshot) {
+  const steps = toFormSteps(snapshot);
+  const firstAgent = steps.find((step): step is AutomationFormAgentStep => step.kind === "agent");
+  return {
+    steps,
+    edges: formSource(snapshot)?.flow.edges ?? [],
+    selectedStepId: firstAgent?.id ?? "",
+    agentStepId: firstAgent?.id ?? "",
+    flowError: null,
+    prompt: firstAgent?.prompt ?? "",
+    selectedProfileId: firstAgent?.profileId ?? "",
+  };
+}
+
+function buildInitialPullRequest(trigger: AutomationTrigger | undefined): {
+  prRepo: string;
+  prEvents: PullRequestEvent[];
+} {
+  if (trigger?.kind === "pull_request") {
+    return { prRepo: trigger.repo, prEvents: trigger.events };
+  }
+  return { prRepo: "", prEvents: ["opened", "synchronize"] };
 }
 
 function buildInitialState(snapshot: AutomationFormSnapshot): AutomationFormState {
   const selectedServerId = resolveInitialServerId(snapshot);
-  const config = newAgentConfig(snapshot.automation);
+  const config = newAgentConfig(formSource(snapshot));
   const workingDir = config?.cwd ?? "";
   const selectedProjectTarget = resolveProjectTarget({
     targets: snapshot.defaults.projectTargets,
@@ -836,7 +1085,7 @@ export function openAutomationForm(snapshot: AutomationFormSnapshot): Automation
   let preferences = snapshot.defaults.preferences ?? null;
   const thinkingDrafts = new Map<string, string>();
   seedThinkingDrafts(thinkingDrafts, preferences);
-  const initialAgentConfig = newAgentConfig(snapshot.automation);
+  const initialAgentConfig = newAgentConfig(formSource(snapshot));
   if (
     initialAgentConfig?.provider &&
     initialAgentConfig.model &&
@@ -1106,6 +1355,181 @@ export function openAutomationForm(snapshot: AutomationFormSnapshot): Automation
     setIsolation(value) {
       userModified = { ...userModified, isolation: true };
       publish({ ...state, isolation: value });
+    },
+    setProfile(profileId) {
+      publish({ ...state, selectedProfileId: profileId });
+    },
+    selectStep(stepId) {
+      const step = state.steps.find((candidate) => candidate.id === stepId);
+      if (closed || !step || stepId === state.selectedStepId) {
+        return;
+      }
+      if (step.kind === "condition" || stepId === state.agentStepId) {
+        publish({ ...state, selectedStepId: stepId });
+        return;
+      }
+      // The step's stored choices win over provider defaults from here on.
+      if (step.provider) {
+        userModified = {
+          ...userModified,
+          provider: true,
+          model: true,
+          modeId: true,
+          thinkingOptionId: true,
+        };
+      }
+      publish({
+        ...state,
+        selectedStepId: stepId,
+        agentStepId: stepId,
+        prompt: step.prompt,
+        selectedProvider: step.provider,
+        selectedModel: step.model,
+        selectedMode: step.modeId,
+        selectedThinkingOptionId: step.thinkingOptionId,
+        selectedProfileId: step.profileId,
+      });
+    },
+    addStep(kind) {
+      if (closed || state.steps.length >= MAX_AUTOMATION_NODES) {
+        return;
+      }
+      const from = state.steps.find((step) => step.id === state.selectedStepId);
+      const fromAgentOutput = from?.kind === "agent" ? stepOutputReference(from.id) : "";
+      const step: AutomationFormStep =
+        kind === "agent"
+          ? {
+              id: nextStepId(state.steps, "step"),
+              kind: "agent",
+              title: `Step ${state.steps.length + 1}`,
+              prompt: fromAgentOutput ? `Previous step's output:\n${fromAgentOutput}\n\n` : "",
+              provider: state.selectedProvider,
+              model: state.selectedModel,
+              modeId: "",
+              thinkingOptionId: state.selectedThinkingOptionId,
+              profileId: "",
+            }
+          : {
+              id: nextStepId(state.steps, "check"),
+              kind: "condition",
+              title: "Check",
+              input: fromAgentOutput,
+              operator: "contains",
+              value: "",
+            };
+      const edge: AutomationEdge | null = from
+        ? { from: from.id, to: step.id, ...(from.kind === "condition" ? { branch: "true" } : {}) }
+        : null;
+      const next: AutomationFormState = {
+        ...state,
+        steps: [...state.steps, step],
+        edges: edge ? [...state.edges, edge] : state.edges,
+        selectedStepId: step.id,
+      };
+      if (step.kind === "condition") {
+        publish(next);
+        return;
+      }
+      publish({
+        ...next,
+        agentStepId: step.id,
+        prompt: step.prompt,
+        selectedMode: "",
+        selectedProfileId: "",
+      });
+    },
+    removeStep(stepId) {
+      const remaining = state.steps.filter((step) => step.id !== stepId);
+      const firstAgent = remaining.find((step) => step.kind === "agent");
+      if (closed || remaining.length === state.steps.length || !firstAgent) {
+        return;
+      }
+      const edges = state.edges.filter((edge) => edge.from !== stepId && edge.to !== stepId);
+      // Drop the removed step's agent from the mirror before re-pointing it.
+      const base: AutomationFormState = { ...state, steps: remaining, edges };
+      if (stepId !== state.agentStepId) {
+        publish({
+          ...base,
+          selectedStepId:
+            stepId === state.selectedStepId ? state.agentStepId : state.selectedStepId,
+        });
+        return;
+      }
+      publish({
+        ...base,
+        selectedStepId: firstAgent.id,
+        agentStepId: firstAgent.id,
+        prompt: firstAgent.prompt,
+        selectedProvider: firstAgent.provider,
+        selectedModel: firstAgent.model,
+        selectedMode: firstAgent.modeId,
+        selectedThinkingOptionId: firstAgent.thinkingOptionId,
+        selectedProfileId: firstAgent.profileId,
+      });
+    },
+    connectSteps(from, to, branch) {
+      const source = state.steps.find((step) => step.id === from);
+      if (closed || !source || !state.steps.some((step) => step.id === to)) {
+        return "Step not found";
+      }
+      if (from === to) {
+        return "A step cannot follow itself";
+      }
+      if (source.kind === "condition" && !branch) {
+        return "Choose whether this path runs when the check is true or false";
+      }
+      const edgeBranch = source.kind === "condition" ? branch : undefined;
+      if (
+        state.edges.some(
+          (edge) => edge.from === from && edge.to === to && edge.branch === edgeBranch,
+        )
+      ) {
+        return "These steps are already linked";
+      }
+      if (upstreamNodeIds({ nodes: [], edges: state.edges }, from).has(to)) {
+        return "That link would make a loop";
+      }
+      publish({
+        ...state,
+        edges: [...state.edges, { from, to, ...(edgeBranch ? { branch: edgeBranch } : {}) }],
+      });
+      return null;
+    },
+    disconnectSteps(target) {
+      publish({
+        ...state,
+        edges: state.edges.filter(
+          (edge) =>
+            !(edge.from === target.from && edge.to === target.to && edge.branch === target.branch),
+        ),
+      });
+    },
+    setStepTitle(value) {
+      publish({
+        ...state,
+        steps: state.steps.map((step) =>
+          step.id === state.selectedStepId ? { ...step, title: value } : step,
+        ),
+      });
+    },
+    setCondition(patch) {
+      publish({
+        ...state,
+        steps: state.steps.map((step) =>
+          step.id === state.selectedStepId && step.kind === "condition"
+            ? { ...step, ...patch }
+            : step,
+        ),
+      });
+    },
+    setPrRepo(value) {
+      publish({ ...state, prRepo: value });
+    },
+    togglePrEvent(event) {
+      const prEvents = state.prEvents.includes(event)
+        ? state.prEvents.filter((candidate) => candidate !== event)
+        : [...state.prEvents, event];
+      publish({ ...state, prEvents });
     },
     setSubmitError(value) {
       publish({ ...state, submitError: value });
