@@ -1,5 +1,6 @@
 import type {
   AutomationConditionNode,
+  AutomationConditionOperator,
   AutomationDefinition,
   AutomationFlow,
   AutomationPullRequestEvent,
@@ -26,6 +27,7 @@ export type AutomationIssueCode =
   | "check_needs_before"
   | "check_needs_after"
   | "check_needs_input"
+  | "check_needs_value"
   | "invalid_pattern";
 
 // `code` and `nodeId` let an editor place and word the issue itself; `message` is the English
@@ -94,6 +96,11 @@ export function renderAutomationTemplate(text: string, context: AutomationTempla
   });
 }
 
+/** `is_empty` and `not_empty` test the input alone; every other operator compares with `value`. */
+export function conditionOperatorNeedsValue(operator: AutomationConditionOperator): boolean {
+  return operator !== "is_empty" && operator !== "not_empty";
+}
+
 export function evaluateAutomationCondition(node: AutomationConditionNode, input: string): boolean {
   const subject = input.trim();
   const expected = node.value.trim();
@@ -106,6 +113,10 @@ export function evaluateAutomationCondition(node: AutomationConditionNode, input
       return subject.toLowerCase() === expected.toLowerCase();
     case "not_equals":
       return subject.toLowerCase() !== expected.toLowerCase();
+    case "starts_with":
+      return subject.toLowerCase().startsWith(expected.toLowerCase());
+    case "ends_with":
+      return subject.toLowerCase().endsWith(expected.toLowerCase());
     case "matches":
       return new RegExp(node.value, "i").test(subject);
     case "is_empty":
@@ -412,6 +423,14 @@ export function validateAutomationDefinition(definition: AutomationDefinition): 
         path: `${path}.input`,
         message: `Condition ${node.id} needs an input`,
         code: "check_needs_input",
+        nodeId: node.id,
+      });
+    }
+    if (conditionOperatorNeedsValue(node.operator) && !node.value.trim()) {
+      issues.push({
+        path: `${path}.value`,
+        message: `Condition ${node.id} needs text to compare with`,
+        code: "check_needs_value",
         nodeId: node.id,
       });
     }

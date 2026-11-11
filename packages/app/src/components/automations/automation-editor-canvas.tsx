@@ -163,94 +163,89 @@ export function AutomationEditorCanvas(props: AutomationEditorCanvasProps): Reac
   const dragPath = dragLine ? linkPath(dragLine.from, dragLine.to, direction).path : null;
 
   return (
-    <View style={styles.center}>
-      <View ref={rootRef} style={sizeStyle} testID="automation-canvas">
-        <PressHighlight
-          style={StyleSheet.absoluteFill}
-          onPress={handleBackgroundPress}
-          accessible={false}
-          testID="automation-canvas-background"
-        />
-        <Svg width={layout.width} height={layout.height} style={styles.svg} pointerEvents="none">
-          {layout.edges.map((canvasEdge) => (
-            <EdgeShape
-              key={canvasEdge.key}
+    <View ref={rootRef} style={sizeStyle} testID="automation-canvas">
+      <PressHighlight
+        style={StyleSheet.absoluteFill}
+        onPress={handleBackgroundPress}
+        accessible={false}
+        testID="automation-canvas-background"
+      />
+      <Svg width={layout.width} height={layout.height} style={styles.svg} pointerEvents="none">
+        {layout.edges.map((canvasEdge) => (
+          <EdgeShape
+            key={canvasEdge.key}
+            canvasEdge={canvasEdge}
+            dimmed={lit !== null && !(lit.has(canvasEdge.edge.from) && lit.has(canvasEdge.edge.to))}
+            focused={
+              focused !== null &&
+              (canvasEdge.edge.from === focused || canvasEdge.edge.to === focused)
+            }
+            runStatus={runStatuses?.get(canvasEdge.edge.to) ?? null}
+            branch={
+              kindOf(canvasEdge.edge.from) === "condition"
+                ? (canvasEdge.edge.branch ?? "true")
+                : "always"
+            }
+          />
+        ))}
+        {dragPath ? (
+          <Path
+            d={dragPath}
+            stroke={styles.dragStroke.color}
+            strokeWidth={FOCUSED_EDGE_WIDTH}
+            strokeDasharray={EDGE_DASH}
+            fill="none"
+          />
+        ) : null}
+      </Svg>
+      {[...layout.nodes.values()].map((box) => {
+        const text = nodeText.get(box.id) ?? { title: box.id, subtitle: "" };
+        return (
+          <CanvasNode
+            key={box.id}
+            box={box}
+            kind={kindOf(box.id)}
+            title={text.title}
+            subtitle={text.subtitle}
+            selected={focused === box.id}
+            dimmed={lit !== null && !lit.has(box.id)}
+            problems={state.problemsByTarget.get(box.id) ?? null}
+            runStatus={runStatuses?.get(box.id) ?? null}
+            onSelect={props.onSelect}
+          />
+        );
+      })}
+      {editable
+        ? layout.edges.map((canvasEdge) => (
+            <EdgeButton
+              key={`button:${canvasEdge.key}`}
               canvasEdge={canvasEdge}
-              dimmed={
-                lit !== null && !(lit.has(canvasEdge.edge.from) && lit.has(canvasEdge.edge.to))
-              }
-              focused={
-                focused !== null &&
-                (canvasEdge.edge.from === focused || canvasEdge.edge.to === focused)
-              }
-              runStatus={runStatuses?.get(canvasEdge.edge.to) ?? null}
-              branch={
-                kindOf(canvasEdge.edge.from) === "condition"
-                  ? (canvasEdge.edge.branch ?? "true")
-                  : "always"
-              }
+              onInsert={props.onInsert}
+              onDisconnect={props.onDisconnect}
+              removable={!isTriggerNode(canvasEdge.edge.from)}
             />
-          ))}
-          {dragPath ? (
-            <Path
-              d={dragPath}
-              stroke={styles.dragStroke.color}
-              strokeWidth={FOCUSED_EDGE_WIDTH}
-              strokeDasharray={EDGE_DASH}
-              fill="none"
-            />
-          ) : null}
-        </Svg>
-        {[...layout.nodes.values()].map((box) => {
-          const text = nodeText.get(box.id) ?? { title: box.id, subtitle: "" };
-          return (
-            <CanvasNode
-              key={box.id}
-              box={box}
-              kind={kindOf(box.id)}
-              title={text.title}
-              subtitle={text.subtitle}
-              selected={focused === box.id}
-              dimmed={lit !== null && !lit.has(box.id)}
-              problems={state.problemsByTarget.get(box.id) ?? null}
-              runStatus={runStatuses?.get(box.id) ?? null}
-              onSelect={props.onSelect}
-            />
-          );
-        })}
-        {editable
-          ? layout.edges.map((canvasEdge) => (
-              <EdgeButton
-                key={`button:${canvasEdge.key}`}
-                canvasEdge={canvasEdge}
-                onInsert={props.onInsert}
-                onDisconnect={props.onDisconnect}
-                removable={!isTriggerNode(canvasEdge.edge.from)}
+          ))
+        : null}
+      {editable
+        ? [...layout.nodes.values()].flatMap((box) => {
+            const kind = kindOf(box.id);
+            const branches: HandleBranch[] = kind === "condition" ? ["true", "false"] : ["always"];
+            return branches.map((branch) => (
+              <NodeHandle
+                key={`handle:${box.id}:${branch}`}
+                box={box}
+                kind={kind}
+                branch={branch}
+                direction={layout.direction}
+                state={state}
+                yesLabel={t("automationEditor.nodes.yes")}
+                noLabel={t("automationEditor.nodes.no")}
+                onAddAfter={props.onAddAfter}
+                onConnect={props.onConnect}
               />
-            ))
-          : null}
-        {editable
-          ? [...layout.nodes.values()].flatMap((box) => {
-              const kind = kindOf(box.id);
-              const branches: HandleBranch[] =
-                kind === "condition" ? ["true", "false"] : ["always"];
-              return branches.map((branch) => (
-                <NodeHandle
-                  key={`handle:${box.id}:${branch}`}
-                  box={box}
-                  kind={kind}
-                  branch={branch}
-                  direction={layout.direction}
-                  state={state}
-                  yesLabel={t("automationEditor.nodes.yes")}
-                  noLabel={t("automationEditor.nodes.no")}
-                  onAddAfter={props.onAddAfter}
-                  onConnect={props.onConnect}
-                />
-              ));
-            })
-          : null}
-      </View>
+            ));
+          })
+        : null}
     </View>
   );
 }
@@ -654,9 +649,6 @@ export { NODE_HEIGHT, NODE_WIDTH };
 const styles = StyleSheet.create((theme) => {
   const hue = (name: "violet" | "amber" | "sky") => identityForeground(name, theme.colorScheme);
   return {
-    center: {
-      alignItems: "center",
-    },
     svg: {
       position: "absolute",
       left: 0,

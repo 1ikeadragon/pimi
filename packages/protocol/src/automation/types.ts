@@ -63,6 +63,8 @@ export const AutomationConditionOperatorSchema = z.enum([
   "not_contains",
   "equals",
   "not_equals",
+  "starts_with",
+  "ends_with",
   "matches",
   "is_empty",
   "not_empty",

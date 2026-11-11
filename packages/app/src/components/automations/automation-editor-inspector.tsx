@@ -30,6 +30,8 @@ import type {
   PullRequestEvent,
 } from "@pimi/protocol/automation/types";
 import {
+  conditionOperatorNeedsValue,
+  evaluateAutomationCondition,
   PULL_REQUEST_TEMPLATE_FIELDS,
   stepOutputReference,
 } from "@pimi/protocol/automation/validate";
@@ -79,6 +81,14 @@ import {
 } from "@/automations/automation-editor-model";
 import type { EditorProvidersSnapshot } from "@/automations/use-automation-editor-model";
 import { everyMsToParts, partsToEveryMs, type IntervalUnit } from "@/utils/automation-format";
+import {
+  CHECK_OPERATORS,
+  CHECK_PRESETS,
+  CUSTOM_SOURCE,
+  sourceStepId,
+  type CheckPreset,
+} from "@/automations/automation-check-presets";
+import { confirmDialog } from "@/utils/confirm-dialog";
 import { ConnectItem, problemKey, problemParams } from "./automation-editor-canvas";
 import type { Theme } from "@/styles/theme";
 
@@ -937,16 +947,6 @@ function AgentStepSection({
   );
 }
 
-const OPERATORS: AutomationConditionOperator[] = [
-  "contains",
-  "not_contains",
-  "equals",
-  "not_equals",
-  "matches",
-  "is_empty",
-  "not_empty",
-];
-
 function CheckStepSection({
   model,
   state,
@@ -959,11 +959,40 @@ function CheckStepSection({
   runView: InspectorRunView | null;
 }): ReactElement {
   const { t } = useTranslation();
-  const inputRef = useRef<EditingTextInputHandle>(null);
-  const references = useInsertableReferences(state, step.id);
+  // The uncontrolled value and custom-input fields restart when a preset rewrites them.
+  const [fieldsKey, setFieldsKey] = useState(0);
+  const sources = useCheckSources(state, step.id);
+  const sourceKnown = sources.some((source) => source.ref === step.input);
+  const [customOpen, setCustomOpen] = useState(!sourceKnown && step.input.trim() !== "");
+  const showCustom = customOpen || (!sourceKnown && step.input.trim() !== "");
+  const sourceOptions = useMemo<SelectFieldOption<string>[]>(
+    () => [
+      ...sources.map((source) => ({
+        id: source.ref,
+        value: source.ref,
+        label: source.label,
+        testID: `automation-condition-source-${source.ref}`,
+      })),
+      {
+        id: CUSTOM_SOURCE,
+        value: CUSTOM_SOURCE,
+        label: t("automationEditor.inspector.sourceCustom"),
+        testID: "automation-condition-source-custom",
+      },
+    ],
+    [sources, t],
+  );
+  const sourceDisplay = useMemo<SelectFieldDisplay>(
+    () => ({
+      label: showCustom
+        ? t("automationEditor.inspector.sourceCustom")
+        : (sources.find((source) => source.ref === step.input)?.label ?? ""),
+    }),
+    [showCustom, sources, step.input, t],
+  );
   const operatorOptions = useMemo<SelectFieldOption<AutomationConditionOperator>[]>(
     () =>
-      OPERATORS.map((operator) => ({
+      CHECK_OPERATORS.map((operator) => ({
         id: operator,
         value: operator,
         label: t(`automationEditor.operators.${operator}`),
@@ -983,16 +1012,16 @@ function CheckStepSection({
     (input: string) => model.updateCheckStep(step.id, { input }),
     [model, step.id],
   );
-  const handleInsert = useCallback(
+  const handleSource = useCallback(
     (ref: string) => {
-      inputRef.current?.replaceText(ref);
+      if (ref === CUSTOM_SOURCE) {
+        setCustomOpen(true);
+        return;
+      }
+      setCustomOpen(false);
       model.updateCheckStep(step.id, { input: ref });
     },
     [model, step.id],
-  );
-  const insertMenu = useMemo(
-    () => <InsertReferenceMenu references={references} onInsert={handleInsert} />,
-    [handleInsert, references],
   );
   const handleOperator = useCallback(
     (operator: AutomationConditionOperator) => model.updateCheckStep(step.id, { operator }),
@@ -1002,8 +1031,57 @@ function CheckStepSection({
     (value: string) => model.updateCheckStep(step.id, { value }),
     [model, step.id],
   );
+  const handlePreset = useCallback(
+    async (preset: CheckPreset) => {
+      const input = preset.input ?? (sourceKnown ? step.input : (sources[0]?.ref ?? step.input));
+      model.updateCheckStep(step.id, {
+        input,
+        operator: preset.operator,
+        value: preset.value,
+      });
+      setCustomOpen(false);
+      setFieldsKey((key) => key + 1);
+      const sourceStep = state.steps.find(
+        (candidate): candidate is EditorAgentStep =>
+          candidate.kind === "agent" && candidate.id === sourceStepId(input),
+      );
+      if (!preset.promptLine || !sourceStep) return;
+      const line = t(`automationEditor.inspector.${preset.promptLine}`);
+      if (sourceStep.prompt.includes(line)) return;
+      const confirmed = await confirmDialog({
+        title: t("automationEditor.inspector.appendTitle"),
+        message: t("automationEditor.inspector.appendMessage", {
+          line,
+          title: sourceStep.title || sourceStep.id,
+        }),
+        confirmLabel: t("automationEditor.inspector.appendConfirm"),
+        cancelLabel: t("automationEditor.inspector.appendSkip"),
+      });
+      if (confirmed) {
+        const prompt = sourceStep.prompt.trimEnd();
+        model.updateAgentStep(sourceStep.id, {
+          prompt: prompt ? `${prompt}\n\n${line}` : line,
+        });
+      }
+    },
+    [model, sourceKnown, sources, state.steps, step.id, step.input, t],
+  );
   const handleDelete = useCallback(() => model.removeStep(step.id), [model, step.id]);
-  const needsValue = step.operator !== "is_empty" && step.operator !== "not_empty";
+  const needsValue = conditionOperatorNeedsValue(step.operator);
+  const sourceText = useMemo(() => {
+    const known = sources.find((source) => source.ref === step.input);
+    return known?.phrase ?? step.input;
+  }, [sources, step.input]);
+  const summary = needsValue
+    ? t("automationEditor.inspector.summary", {
+        source: sourceText,
+        operator: t(`automationEditor.operators.${step.operator}`),
+        value: step.value.trim(),
+      })
+    : t("automationEditor.inspector.summaryNoValue", {
+        source: sourceText,
+        operator: t(`automationEditor.operators.${step.operator}`),
+      });
   return (
     <>
       <SectionTitle icon={Split}>{t("automationEditor.inspector.checkTitle")}</SectionTitle>
@@ -1019,22 +1097,38 @@ function CheckStepSection({
           autoCorrect={false}
         />
       </Field>
-      <Field
+      <PresetMenu pullRequest={state.triggerKind === "pull_request"} onPick={handlePreset} />
+      <Text style={styles.sentenceLabel}>{t("automationEditor.inspector.checkWhen")}</Text>
+      <SelectField
         label={t("automationEditor.inspector.checkInput")}
-        hint={t("automationEditor.inspector.checkInputHint")}
-        trailing={insertMenu}
-      >
-        <FormTextInput
-          ref={inputRef}
-          size={SIZE}
-          testID="automation-condition-input"
-          accessibilityLabel={t("automationEditor.inspector.checkInput")}
-          initialValue={step.input}
-          onChangeText={handleInput}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-      </Field>
+        value={showCustom ? CUSTOM_SOURCE : step.input}
+        selectedDisplay={sourceDisplay}
+        options={sourceOptions}
+        onChange={handleSource}
+        placeholder={t("automationEditor.inspector.checkInput")}
+        emptyText={t("automationEditor.inspector.checkInput")}
+        searchable={false}
+        title={t("automationEditor.inspector.checkInput")}
+        size={SIZE}
+        triggerTestID="automation-condition-source"
+      />
+      {showCustom ? (
+        <Field
+          label={t("automationEditor.inspector.sourceCustom")}
+          hint={t("automationEditor.inspector.checkInputHint")}
+        >
+          <FormTextInput
+            key={`input-${fieldsKey}`}
+            size={SIZE}
+            testID="automation-condition-input"
+            accessibilityLabel={t("automationEditor.inspector.checkInput")}
+            initialValue={step.input}
+            onChangeText={handleInput}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </Field>
+      ) : null}
       <SelectField
         label={t("automationEditor.inspector.operator")}
         value={step.operator}
@@ -1051,9 +1145,10 @@ function CheckStepSection({
       {needsValue ? (
         <Field
           label={t("automationEditor.inspector.value")}
-          hint={t("automationEditor.inspector.valueHint")}
+          hint={step.operator === "matches" ? undefined : t("automationEditor.inspector.valueHint")}
         >
           <FormTextInput
+            key={`value-${fieldsKey}`}
             size={SIZE}
             testID="automation-condition-value"
             accessibilityLabel={t("automationEditor.inspector.value")}
@@ -1064,6 +1159,10 @@ function CheckStepSection({
           />
         </Field>
       ) : null}
+      <Text style={styles.hint} testID="automation-condition-summary">
+        {summary}
+      </Text>
+      <TryCheck step={step} runView={runView} />
       <LinksSection model={model} state={state} step={step} />
       <Button
         variant="ghost"
@@ -1074,6 +1173,153 @@ function CheckStepSection({
         {t("automationEditor.inspector.deleteStep")}
       </Button>
     </>
+  );
+}
+
+interface CheckSource {
+  ref: string;
+  label: string;
+  /** How the summary sentence names the source. */
+  phrase: string;
+}
+
+/** What a check can read: the reply of each step before it, and a pull request's fields. */
+function useCheckSources(state: AutomationEditorState, stepId: string): CheckSource[] {
+  const { t } = useTranslation();
+  return useMemo(() => {
+    const sources = upstreamAgentSteps(state, stepId).map((step) => {
+      const title = step.title || step.id;
+      return {
+        ref: stepOutputReference(step.id),
+        label: t("automationEditor.inspector.sourceReply", { title }),
+        phrase: t("automationEditor.inspector.replyOf", { title }),
+      };
+    });
+    if (state.triggerKind === "pull_request") {
+      for (const field of PULL_REQUEST_TEMPLATE_FIELDS) {
+        const label = t("automationEditor.inspector.prField", { field });
+        sources.push({ ref: `{{trigger.${field}}}`, label, phrase: label });
+      }
+    }
+    return sources;
+  }, [state, stepId, t]);
+}
+
+function PresetMenu({
+  pullRequest,
+  onPick,
+}: {
+  pullRequest: boolean;
+  onPick: (preset: CheckPreset) => void;
+}): ReactElement {
+  const { t } = useTranslation();
+  return (
+    <View style={styles.presetRow}>
+      <DropdownMenu>
+        <DropdownTrigger
+          accessibilityRole="button"
+          accessibilityLabel={t("automationEditor.inspector.presetTitle")}
+          testID="automation-condition-presets"
+        >
+          {t("automationEditor.inspector.presetTitle")}
+        </DropdownTrigger>
+        <DropdownMenuContent
+          align="start"
+          width={280}
+          sheetTitle={t("automationEditor.inspector.presetTitle")}
+        >
+          {CHECK_PRESETS.filter((preset) => pullRequest || !preset.pullRequestOnly).map(
+            (preset) => (
+              <PresetItem key={preset.id} preset={preset} onPick={onPick} />
+            ),
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </View>
+  );
+}
+
+function PresetItem({
+  preset,
+  onPick,
+}: {
+  preset: CheckPreset;
+  onPick: (preset: CheckPreset) => void;
+}): ReactElement {
+  const { t } = useTranslation();
+  const handleSelect = useCallback(() => onPick(preset), [onPick, preset]);
+  return (
+    <DropdownMenuItem onSelect={handleSelect} testID={`automation-condition-preset-${preset.id}`}>
+      {t(`automationEditor.inspector.preset${preset.id[0].toUpperCase()}${preset.id.slice(1)}`)}
+    </DropdownMenuItem>
+  );
+}
+
+/** A sample reply and which way this check sends it, using the same test the daemon runs. */
+function TryCheck({
+  step,
+  runView,
+}: {
+  step: EditorCheckStep;
+  runView: InspectorRunView | null;
+}): ReactElement {
+  const { t } = useTranslation();
+  const sourceId = sourceStepId(step.input);
+  const runOutput =
+    runView?.run.steps.find((candidate) => candidate.nodeId === sourceId)?.output ?? "";
+  const [sample, setSample] = useState(runOutput);
+  const edited = useRef(false);
+  useEffect(() => {
+    if (!edited.current) setSample(runOutput);
+  }, [runOutput]);
+  const handleSample = useCallback((text: string) => {
+    edited.current = true;
+    setSample(text);
+  }, []);
+  const verdict = useMemo<boolean | null>(() => {
+    if (conditionOperatorNeedsValue(step.operator) && !step.value.trim()) return null;
+    try {
+      return evaluateAutomationCondition(
+        {
+          id: step.id,
+          kind: "condition",
+          title: step.title,
+          input: step.input,
+          operator: step.operator,
+          value: step.value,
+        },
+        sample,
+      );
+    } catch {
+      return null;
+    }
+  }, [sample, step]);
+  return (
+    <Field
+      label={t("automationEditor.inspector.tryTitle")}
+      hint={t("automationEditor.inspector.tryHint")}
+    >
+      <FormTextInput
+        key={`${sourceId ?? ""}:${runOutput}`}
+        size={SIZE}
+        testID="automation-condition-try-input"
+        accessibilityLabel={t("automationEditor.inspector.tryTitle")}
+        placeholder={t("automationEditor.inspector.tryPlaceholder")}
+        initialValue={sample}
+        onChangeText={handleSample}
+        multiline
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
+      {verdict === null ? null : (
+        <Text
+          style={verdict ? styles.verdictYes : styles.verdictNo}
+          testID="automation-condition-try-result"
+        >
+          {verdict ? t("automationEditor.nodes.yes") : t("automationEditor.nodes.no")}
+        </Text>
+      )}
+    </Field>
   );
 }
 
@@ -1411,6 +1657,23 @@ const styles = StyleSheet.create((theme) => ({
   },
   mutedIcon: {
     color: theme.colors.foregroundMuted,
+  },
+  sentenceLabel: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+  },
+  presetRow: {
+    flexDirection: "row",
+  },
+  verdictYes: {
+    color: theme.colors.success,
+    fontSize: theme.fontSize.sm,
+    fontWeight: "600",
+  },
+  verdictNo: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+    fontWeight: "600",
   },
   hint: {
     color: theme.colors.foregroundMuted,

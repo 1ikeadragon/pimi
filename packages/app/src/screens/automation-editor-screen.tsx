@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
-import { Text, View } from "react-native";
+import { Text, View, type LayoutChangeEvent } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -67,7 +67,7 @@ import {
   type FormPreferences,
 } from "@/hooks/use-form-preferences";
 import { useProjects } from "@/hooks/use-projects";
-import { ChatVisualViewport } from "@/panels/chat-visual-viewport";
+import { AutomationCanvasViewport } from "@/components/automations/automation-canvas-viewport";
 import { useHosts } from "@/runtime/host-runtime";
 import { useSessionStore } from "@/stores/session-store";
 import {
@@ -243,6 +243,8 @@ function AutomationEditor({
   const mutations = useAutomationMutations({ serverId: mutationServerId });
   const [describeOpen, setDescribeOpen] = useState(Boolean(describe));
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // The palette floats over the canvas; a fitted graph stays below it.
+  const [paletteInset, setPaletteInset] = useState(0);
 
   const runs = useEditorRuns({
     serverId: mutationServerId,
@@ -351,10 +353,12 @@ function AutomationEditor({
       <EditorNotices message={state.submitError ?? actionError ?? linkRefusal} />
       <View style={styles.body}>
         <View style={styles.canvasArea}>
-          <Palette onAdd={handlePalette} />
-          <ChatVisualViewport
-            naturalWidth={layout.width}
-            fitKey={`${state.steps.length}:${direction}`}
+          <Palette onAdd={handlePalette} onInset={setPaletteInset} />
+          <AutomationCanvasViewport
+            width={layout.width}
+            height={layout.height}
+            topInset={paletteInset}
+            fitKey={`${layout.width}x${layout.height}:${direction}`}
           >
             <AutomationEditorCanvas
               state={state}
@@ -369,7 +373,7 @@ function AutomationEditor({
               onDisconnect={model.disconnect}
               onConnect={handleConnect}
             />
-          </ChatVisualViewport>
+          </AutomationCanvasViewport>
           {showDescribe ? (
             <DescribePanel
               state={state}
@@ -788,7 +792,9 @@ const ThemedPause = withUnistyles(Pause);
 const ThemedCopy = withUnistyles(Copy);
 const ThemedTrash = withUnistyles(Trash2);
 const settingsMenuIcon = <ThemedSettings uniProps={menuIconProps} />;
-const describeMenuIcon = <ThemedSparkles uniProps={menuIconProps} />;
+const describeMenuIcon = (
+  <ThemedSparkles uniProps={(theme: Theme) => ({ size: 14, color: theme.colors.accent })} />
+);
 const resumeMenuIcon = <ThemedPlay uniProps={menuIconProps} />;
 const pauseMenuIcon = <ThemedPause uniProps={menuIconProps} />;
 const duplicateMenuIcon = <ThemedCopy uniProps={menuIconProps} />;
@@ -1123,12 +1129,24 @@ function OverflowMenu(props: {
 // Canvas overlays
 // ---------------------------------------------------------------------------
 
-function Palette({ onAdd }: { onAdd: (kind: EditorStep["kind"]) => void }): ReactElement {
+function Palette({
+  onAdd,
+  onInset,
+}: {
+  onAdd: (kind: EditorStep["kind"]) => void;
+  /** Reports how far down the palette's bottom edge reaches. */
+  onInset: (inset: number) => void;
+}): ReactElement {
   const { t } = useTranslation();
+  const handleLayout = useCallback(
+    ({ nativeEvent }: LayoutChangeEvent) =>
+      onInset(nativeEvent.layout.y + nativeEvent.layout.height),
+    [onInset],
+  );
   const addAgent = useCallback(() => onAdd("agent"), [onAdd]);
   const addCheck = useCallback(() => onAdd("condition"), [onAdd]);
   return (
-    <View style={styles.palette} testID="automation-palette">
+    <View style={styles.palette} onLayout={handleLayout} testID="automation-palette">
       <Text style={styles.paletteTitle}>{t("automationEditor.palette.title")}</Text>
       <Button
         size="sm"
@@ -1356,11 +1374,12 @@ const styles = StyleSheet.create((theme) => ({
     borderLeftColor: theme.colors.border,
     backgroundColor: theme.colors.surface1,
   },
-  // The palette sits above the canvas, so a fitted graph never runs under it.
+  // The palette floats over the canvas; the viewport fits the graph below it.
   palette: {
-    alignSelf: "flex-start",
-    margin: theme.spacing[3],
-    marginBottom: 0,
+    position: "absolute",
+    top: theme.spacing[3],
+    left: theme.spacing[3],
+    zIndex: 2,
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[1],

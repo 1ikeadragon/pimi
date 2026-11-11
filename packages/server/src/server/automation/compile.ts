@@ -133,7 +133,7 @@ function buildPrompt(input: {
     "",
     "Steps:",
     "- agent: a new coding agent runs `prompt` in the project. Nobody can answer its questions, so write each prompt as a complete brief: the task, what a finished result looks like, and what to leave alone. Pick provider and model from the list below; prefer the first provider and its default model unless the description names one. Set workspace to worktree only when the step edits files.",
-    "- condition: tests `input` with `operator` against `value` and continues on the edges whose branch matches (`true` or `false`). Operators: contains, not_contains, equals, not_equals, matches (case-insensitive regex), is_empty, not_empty. To branch on a judgement, have an agent step answer with one word (for example YES or NO) and test that output.",
+    "- condition: tests `input` with `operator` against `value` and continues on the edges whose branch matches (`true` or `false`). Operators: contains, not_contains, equals, not_equals, starts_with, ends_with, matches (case-insensitive regex), is_empty, not_empty. `value` is required for every operator except is_empty and not_empty. To branch on a judgement, have an agent step answer with one word (for example YES or NO) and test that output with starts_with or equals.",
     "",
     "Wiring:",
     '- edges {from, to} run `to` after `from`. Edges leaving a condition need branch "true" or "false"; no other edge has a branch. Steps with no path between them run at the same time.',

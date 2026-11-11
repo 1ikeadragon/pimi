@@ -60,15 +60,9 @@ function innerOverflow(node: HTMLElement | null): number {
  */
 export function ChatVisualViewport({
   children,
-  naturalWidth,
-  fitKey,
   toolbarLeading,
 }: {
   children: ReactNode;
-  /** Content with a size of its own (a canvas) is laid out at least this wide. */
-  naturalWidth?: number;
-  /** Fits the content again whenever this changes, such as when a canvas gains a node. */
-  fitKey?: string | number;
   /** Extra controls at the start of the zoom toolbar. */
   toolbarLeading?: ReactNode;
 }) {
@@ -81,9 +75,7 @@ export function ChatVisualViewport({
   const horizontal = useRef<RNScrollView>(null);
   const contentNode = useRef<View>(null);
   // Below 100% the content is laid out wider by the same factor, so it still fills the pane.
-  const layoutWidth = viewport
-    ? Math.max(1, Math.floor(viewport.width / Math.min(scale, 1)), naturalWidth ?? 0)
-    : 0;
+  const layoutWidth = viewport ? Math.max(1, Math.floor(viewport.width / Math.min(scale, 1))) : 0;
 
   const measureViewport = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
     const { width, height } = nativeEvent.layout;
@@ -141,13 +133,6 @@ export function ChatVisualViewport({
     fitPasses.current -= 1;
     fitOnce();
   }, [fitOnce]);
-
-  const fitRef = useRef(fit);
-  fitRef.current = fit;
-  const measured = viewport !== null && content !== null;
-  useEffect(() => {
-    if (fitKey !== undefined && measured) fitRef.current();
-  }, [fitKey, measured]);
 
   // Web: ctrl/⌘ + wheel (and a trackpad pinch, which the browser reports as one) zooms; a plain
   // wheel scrolls; a drag with the mouse pans.

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactElement } from "re
 import { ScrollView, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useIsFocused } from "expo-router/react-navigation";
-import { LayoutTemplate, Plus, Rocket } from "lucide-react-native";
+import { LayoutTemplate, Plus, Rocket, Sparkles } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { AutomationDraftRows } from "@/components/automations/automation-draft-rows";
@@ -61,6 +61,13 @@ const ThemedLayoutTemplate = withUnistyles(LayoutTemplate);
 const templatesLeading = (
   <ThemedLayoutTemplate
     uniProps={(theme: Theme) => ({ size: theme.iconSize.sm, color: theme.colors.foregroundMuted })}
+  />
+);
+
+const ThemedSparkles = withUnistyles(Sparkles);
+const describeLeading = (
+  <ThemedSparkles
+    uniProps={(theme: Theme) => ({ size: theme.iconSize.sm, color: theme.colors.accent })}
   />
 );
 
@@ -375,7 +382,12 @@ function AutomationCreateActions({
   const openBlank = useCallback(() => onCreate(), [onCreate]);
   return (
     <View style={styles.createActions}>
-      <Button variant="ghost" onPress={onDescribe} testID="automations-describe">
+      <Button
+        variant="outline"
+        leftIcon={describeLeading}
+        onPress={onDescribe}
+        testID="automations-describe"
+      >
         Describe it
       </Button>
       <DropdownMenu>
