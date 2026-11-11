@@ -81,9 +81,16 @@ import {
 import { HeartbeatNotFoundError, type HeartbeatService } from "../../heartbeat/service.js";
 import {
   AutomationAuditEntrySchema,
+  AutomationConditionOperatorSchema,
+  AutomationEdgeSchema,
   AutomationRunSchema,
   AutomationSchema,
+  PullRequestEventSchema,
   type AutomationActor,
+  type AutomationFlow,
+  type AutomationNode,
+  type AutomationTrigger,
+  type PullRequestEvent,
 } from "@pimi/protocol/automation/types";
 import { HeartbeatSchema, type HeartbeatCadence } from "@pimi/protocol/heartbeat/types";
 import type { Cadence } from "@pimi/protocol/schedule/cadence";
@@ -2637,91 +2644,214 @@ function createToolCatalog(
     },
   );
 
+  const automationStepSchema = z.discriminatedUnion("kind", [
+    z.object({
+      id: z.string().trim().min(1).describe("Step id: letters, digits, - and _."),
+      kind: z.literal("agent"),
+      title: z.string().optional(),
+      prompt: z
+        .string()
+        .trim()
+        .min(1)
+        .describe(
+          "Complete brief for this step's agent. May use {{steps.<id>.output}} of an earlier step and, with a pull request trigger, {{trigger.number}}, {{trigger.url}}, {{trigger.title}}, {{trigger.headSha}}, {{trigger.headRef}}, {{trigger.baseRef}}, {{trigger.author}}, {{trigger.repo}}, {{trigger.action}}.",
+        ),
+      provider: AgentProviderEnum.optional().describe("Provider or provider/model; see provider."),
+      profile: z.string().trim().min(1).optional().describe("Profile id or name."),
+      workspace: z.enum(["project", "worktree"]).optional(),
+    }),
+    z.object({
+      id: z.string().trim().min(1),
+      kind: z.literal("condition"),
+      title: z.string().optional(),
+      input: z.string().describe("Usually {{steps.<id>.output}} of the step before it."),
+      operator: AutomationConditionOperatorSchema,
+      value: z
+        .string()
+        .optional()
+        .describe("Text or regex to test against; ignored by is_empty and not_empty."),
+    }),
+  ]);
+  const automationFieldsSchema = {
+    cron: z
+      .string()
+      .trim()
+      .min(1)
+      .optional()
+      .describe(
+        "Five-field cron, read in the host's time zone unless timezone is set. Omit cron and pullRequest for an automation that runs only by hand.",
+      ),
+    timezone: z
+      .string()
+      .trim()
+      .min(1)
+      .optional()
+      .describe(
+        "IANA time zone for cron, for example America/New_York. Set it whenever the user names a local time.",
+      ),
+    pullRequest: z
+      .object({
+        repo: z.string().trim().min(1).describe("owner/name on github.com"),
+        events: z.array(PullRequestEventSchema).min(1),
+      })
+      .optional()
+      .describe(
+        "Run on GitHub pull requests instead of a cadence, polled every minute with the host's gh CLI: opened, synchronize (new commits), review_requested (from the gh user). Each PR head commit fires once. PRs open when the automation is approved do not fire until they change.",
+      ),
+    steps: z
+      .array(automationStepSchema)
+      .min(1)
+      .optional()
+      .describe(
+        "A graph of steps instead of a single prompt. Agent steps run a new agent; condition steps test text and follow edges whose branch matches.",
+      ),
+    edges: z
+      .array(AutomationEdgeSchema)
+      .optional()
+      .describe(
+        "With steps: {from, to} runs `to` after `from`; edges leaving a condition need branch true or false. Steps with no path between them run at the same time.",
+      ),
+    provider: AgentProviderEnum.optional().describe(
+      "Provider, or provider/model (for example: codex or codex/gpt-5.4). Omit to use the profile's provider and model, or your own when there is no profile or it sets no provider. With steps, the default for steps that set none.",
+    ),
+    profile: z
+      .string()
+      .trim()
+      .min(1)
+      .optional()
+      .describe(
+        "Profile id or name from list_profiles. Each run's agent starts with the profile's instructions as they are when that run starts.",
+      ),
+    cwd: z.string().optional().describe("Project directory. Defaults to your own."),
+    workspace: z
+      .enum(["project", "worktree"])
+      .optional()
+      .describe(
+        "project (default) runs in the project directory. worktree gives each run a new worktree that its steps share; use it when runs edit files.",
+      ),
+    maxRuns: z.number().int().positive().optional().describe("End after this many runs."),
+    expiresIn: durationInputSchema.optional().describe("End after this long, such as 7d."),
+  };
+  interface AutomationToolFields {
+    prompt?: string;
+    cron?: string;
+    timezone?: string;
+    pullRequest?: { repo: string; events: PullRequestEvent[] };
+    steps?: z.infer<typeof automationStepSchema>[];
+    edges?: z.infer<typeof AutomationEdgeSchema>[];
+    provider?: string;
+    profile?: string;
+    workspace?: "project" | "worktree";
+    manual?: boolean;
+  }
+
+  function buildAutomationTrigger(input: AutomationToolFields): AutomationTrigger {
+    const cron = normalizeOptionalArg(input.cron);
+    const timezone = normalizeOptionalArg(input.timezone);
+    if (input.manual) {
+      if (cron !== undefined || input.pullRequest) {
+        throw new PaseoToolInputError("manual cannot be combined with cron or pullRequest");
+      }
+      return { kind: "manual" };
+    }
+    if (timezone !== undefined && cron === undefined) {
+      throw new PaseoToolInputError("timezone can only be used with cron");
+    }
+    if (cron !== undefined && input.pullRequest) {
+      throw new PaseoToolInputError("Use cron or pullRequest, not both");
+    }
+    if (input.pullRequest) {
+      return { kind: "pull_request", ...input.pullRequest };
+    }
+    if (cron === undefined) {
+      return { kind: "manual" };
+    }
+    return {
+      kind: "schedule",
+      cadence: { type: "cron", expression: cron, ...(timezone !== undefined ? { timezone } : {}) },
+    };
+  }
+
+  function buildAutomationFlow(input: AutomationToolFields): AutomationFlow {
+    const prompt = input.prompt?.trim();
+    if (input.steps && prompt) {
+      throw new PaseoToolInputError("Pass prompt or steps, not both");
+    }
+    if (!input.steps) {
+      if (!prompt) {
+        throw new PaseoToolInputError("Pass prompt, or steps for a graph");
+      }
+      if (input.edges?.length) {
+        throw new PaseoToolInputError("edges needs steps");
+      }
+      return {
+        nodes: [
+          {
+            ...resolveAutomationAgentNode(input.provider, input.profile),
+            workspace: input.workspace ?? "project",
+            prompt,
+          },
+        ],
+        edges: [],
+      };
+    }
+    return {
+      nodes: input.steps.map((step): AutomationNode => {
+        if (step.kind === "condition") {
+          return {
+            id: step.id,
+            kind: "condition",
+            title: step.title?.trim() || step.id,
+            input: step.input,
+            operator: step.operator,
+            value: step.value ?? "",
+          };
+        }
+        return {
+          ...resolveAutomationAgentNode(
+            step.provider ?? input.provider,
+            step.profile ?? input.profile,
+          ),
+          id: step.id,
+          title: step.title?.trim() || step.id,
+          workspace: step.workspace ?? input.workspace ?? "project",
+          prompt: step.prompt.trim(),
+        };
+      }),
+      edges: input.edges ?? [],
+    };
+  }
+
   registerTool(
     "create_automation",
     {
       title: "Create automation",
       description:
-        "Set up work that a new agent does on each run, on a cron cadence or, with no cron, only when someone runs it. It starts pending and never runs until the user approves it in the Automations screen; you cannot approve it, so tell the user it is waiting there. To prompt yourself later in this conversation, use create_heartbeat instead, which needs no approval. Each run's agent knows nothing of this conversation and has nobody to answer questions, so write the prompt as a complete brief. Calling this again with the same name replaces your automation and returns it to pending.",
+        "Set up work that new agents do on each run: one prompt, or a graph of steps where later steps read earlier outputs. Runs on a cron cadence, on GitHub pull request events, or with neither only when someone runs it. It starts pending and never runs until the user approves it in the Automations screen; you cannot approve it, so tell the user it is waiting there. To prompt yourself later in this conversation, use create_heartbeat instead, which needs no approval. Each step's agent knows nothing of this conversation and has nobody to answer questions, so write each prompt as a complete brief. Calling this again with the same name replaces your automation and returns it to pending.",
       inputSchema: z
         .object({
           name: z.string().trim().min(1, "name is required"),
-          prompt: z.string().trim().min(1, "prompt is required"),
-          cron: z
+          prompt: z
             .string()
             .trim()
             .min(1)
             .optional()
-            .describe(
-              "Five-field cron, read in the host's time zone unless timezone is set. Omit for an automation that runs only by hand.",
-            ),
-          timezone: z
-            .string()
-            .trim()
-            .min(1)
-            .optional()
-            .describe(
-              "IANA time zone for cron, for example America/New_York. Set it whenever the user names a local time.",
-            ),
-          provider: AgentProviderEnum.optional().describe(
-            "Provider, or provider/model (for example: codex or codex/gpt-5.4). Omit to use the profile's provider and model, or your own when there is no profile or it sets no provider.",
-          ),
-          profile: z
-            .string()
-            .trim()
-            .min(1)
-            .optional()
-            .describe(
-              "Profile id or name from list_profiles. Each run's agent starts with the profile's instructions as they are when that run starts.",
-            ),
-          cwd: z.string().optional().describe("Project directory. Defaults to your own."),
-          workspace: z
-            .enum(["project", "worktree"])
-            .optional()
-            .describe(
-              "project (default) runs in the project directory. worktree gives each run a new worktree; use it when runs edit files.",
-            ),
-          maxRuns: z.number().int().positive().optional().describe("End after this many runs."),
-          expiresIn: durationInputSchema.optional().describe("End after this long, such as 7d."),
+            .describe("The single agent's brief. Omit when passing steps."),
+          ...automationFieldsSchema,
         })
         .superRefine(addCronIssue),
       outputSchema: AutomationSchema.shape,
     },
     async (input) => {
       const service = requireAutomationService();
-      const cron = normalizeOptionalArg(input.cron);
-      const timezone = normalizeOptionalArg(input.timezone);
-      if (timezone !== undefined && cron === undefined) {
-        throw new PaseoToolInputError("timezone can only be used with cron");
-      }
       const expiresAt = buildExpiry(input.expiresIn);
       const automation = await runAutomationAction(() =>
         service.create({
           definition: {
             name: input.name,
             project: { cwd: resolveAutomationCwd(input.cwd) },
-            trigger:
-              cron === undefined
-                ? { kind: "manual" }
-                : {
-                    kind: "schedule",
-                    cadence: {
-                      type: "cron",
-                      expression: cron,
-                      ...(timezone !== undefined ? { timezone } : {}),
-                    },
-                  },
-            flow: {
-              nodes: [
-                {
-                  ...resolveAutomationAgentNode(input.provider, input.profile),
-                  workspace: input.workspace ?? "project",
-                  prompt: input.prompt.trim(),
-                },
-                { id: "chat", kind: "output", output: { type: "chat" } },
-              ],
-              edges: [{ from: "agent", to: "chat" }],
-            },
+            trigger: buildAutomationTrigger(input),
+            flow: buildAutomationFlow(input),
             limits: {
               ...(input.maxRuns === undefined ? {} : { maxRuns: input.maxRuns }),
               ...(expiresAt === undefined ? {} : { expiresAt }),
@@ -2731,6 +2861,72 @@ function createToolCatalog(
         }),
       );
       return { content: [], structuredContent: ensureValidJson(automation) };
+    },
+  );
+
+  registerTool(
+    "update_automation",
+    {
+      title: "Update automation",
+      description:
+        "Change an automation by id. Fields you pass replace the stored ones: prompt or steps (with edges) replace the whole flow, cron or pullRequest the trigger. Anything you leave out stays. The automation goes back to pending until the user approves it again, so tell the user.",
+      inputSchema: z
+        .object({
+          id: z.string().min(1),
+          name: z.string().trim().min(1).optional(),
+          prompt: z.string().trim().min(1).optional(),
+          manual: z
+            .boolean()
+            .optional()
+            .describe("true makes it run only by hand, dropping its cron or pull request trigger."),
+          ...automationFieldsSchema,
+        })
+        .superRefine(addCronIssue),
+      outputSchema: AutomationSchema.shape,
+    },
+    async (input) => {
+      const service = requireAutomationService();
+      const current = await runAutomationAction(() => service.get(input.id));
+      const changesTrigger =
+        input.cron !== undefined || input.pullRequest !== undefined || input.manual === true;
+      const changesFlow = input.prompt !== undefined || input.steps !== undefined;
+      const expiresAt = buildExpiry(input.expiresIn);
+      const automation = await runAutomationAction(() =>
+        service.update({
+          id: input.id,
+          definition: {
+            name: input.name ?? current.name,
+            description: current.description,
+            project: input.cwd ? { cwd: resolveAutomationCwd(input.cwd) } : current.project,
+            trigger: changesTrigger ? buildAutomationTrigger(input) : current.trigger,
+            flow: changesFlow ? buildAutomationFlow(input) : current.flow,
+            limits: {
+              ...current.limits,
+              ...(input.maxRuns === undefined ? {} : { maxRuns: input.maxRuns }),
+              ...(expiresAt === undefined ? {} : { expiresAt }),
+            },
+          },
+          actor: callerActor(),
+        }),
+      );
+      return { content: [], structuredContent: ensureValidJson(automation) };
+    },
+  );
+
+  registerTool(
+    "retry_automation_run",
+    {
+      title: "Retry automation run",
+      description:
+        "Start a new run that reruns the steps of a failed or cancelled run that did not succeed, reusing the outputs of the steps that did. Uses the automation as it is now. Returns at once with the run still running; read it with automation_runs. Fails when the automation is pending or paused or a limit refuses the run.",
+      inputSchema: { id: z.string().min(1), runId: z.string().min(1) },
+      outputSchema: AutomationRunSchema.shape,
+    },
+    async ({ id, runId }) => {
+      const run = await runAutomationAction(() =>
+        requireAutomationService().retryRun(id, runId, callerActor()),
+      );
+      return { content: [], structuredContent: ensureValidJson(run) };
     },
   );
 

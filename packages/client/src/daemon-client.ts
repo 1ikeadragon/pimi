@@ -694,6 +694,18 @@ export type AutomationRunMarkReadPayload = Extract<
   SessionOutboundMessage,
   { type: "automation.run.mark_read.response" }
 >["payload"];
+export type AutomationRunRetryPayload = Extract<
+  SessionOutboundMessage,
+  { type: "automation.run.retry.response" }
+>["payload"];
+export type AutomationCompilePayload = Extract<
+  SessionOutboundMessage,
+  { type: "automation.compile.response" }
+>["payload"];
+export type AutomationTriggerCheckPayload = Extract<
+  SessionOutboundMessage,
+  { type: "automation.trigger.check.response" }
+>["payload"];
 export type HeartbeatCreatePayload = Extract<
   SessionOutboundMessage,
   { type: "heartbeat.create.response" }
@@ -6475,7 +6487,7 @@ export class DaemonClient {
   }
 
   async automationUpdate(
-    options: AutomationIdOptions & { definition: AutomationDefinition },
+    options: AutomationIdOptions & { definition: AutomationDefinition; origin?: AutomationOrigin },
   ): Promise<AutomationUpdatePayload> {
     return this.sendNamespacedCorrelatedSessionRequest({
       requestId: options.requestId,
@@ -6483,7 +6495,46 @@ export class DaemonClient {
         type: "automation.update.request",
         automationId: options.automationId,
         definition: options.definition,
+        ...(options.origin ? { origin: options.origin } : {}),
       },
+    });
+  }
+
+  async automationRunRetry(options: AutomationRunIdOptions): Promise<AutomationRunRetryPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "automation.run.retry.request",
+        automationId: options.automationId,
+        runId: options.runId,
+      },
+    });
+  }
+
+  // Compiling waits on an LLM turn, which can take a minute.
+  async automationCompile(options: {
+    description: string;
+    cwd: string;
+    requestId?: string;
+  }): Promise<AutomationCompilePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "automation.compile.request",
+        description: options.description,
+        cwd: options.cwd,
+      },
+      timeout: 240_000,
+    });
+  }
+
+  async automationTriggerCheck(
+    options: AutomationIdOptions,
+  ): Promise<AutomationTriggerCheckPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "automation.trigger.check.request", automationId: options.automationId },
+      timeout: 90_000,
     });
   }
 

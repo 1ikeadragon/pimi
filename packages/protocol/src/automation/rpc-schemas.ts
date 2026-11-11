@@ -41,6 +41,9 @@ export const AutomationUpdateRequestSchema = z.object({
   type: z.literal("automation.update.request"),
   ...AutomationIdRequestShape,
   definition: AutomationDefinitionSchema,
+  // An agent editing through a client (the CLI inside an agent) says so; the automation then
+  // goes back to waiting for the owner's approval.
+  origin: AutomationOriginSchema.optional(),
 });
 
 export const AutomationDeleteRequestSchema = z.object({
@@ -170,4 +173,42 @@ export const AutomationRunGetResponseSchema = z.object({
 export const AutomationRunMarkReadResponseSchema = z.object({
   type: z.literal("automation.run.mark_read.response"),
   payload: AutomationRunPayloadSchema,
+});
+
+export const AutomationRunRetryRequestSchema = z.object({
+  type: z.literal("automation.run.retry.request"),
+  ...AutomationRunIdRequestShape,
+});
+
+export const AutomationRunRetryResponseSchema = z.object({
+  type: z.literal("automation.run.retry.response"),
+  payload: AutomationRunPayloadSchema,
+});
+
+// An LLM turns a prose description into a draft definition. Nothing is saved.
+export const AutomationCompileRequestSchema = z.object({
+  type: z.literal("automation.compile.request"),
+  requestId: z.string(),
+  description: z.string(),
+  cwd: z.string(),
+});
+
+export const AutomationCompileResponseSchema = z.object({
+  type: z.literal("automation.compile.response"),
+  payload: z.object({ requestId: z.string(), definition: AutomationDefinitionSchema }),
+});
+
+// Polls a pull-request trigger now instead of waiting for its next poll.
+export const AutomationTriggerCheckRequestSchema = z.object({
+  type: z.literal("automation.trigger.check.request"),
+  ...AutomationIdRequestShape,
+});
+
+export const AutomationTriggerCheckResponseSchema = z.object({
+  type: z.literal("automation.trigger.check.response"),
+  payload: z.object({
+    requestId: z.string(),
+    automation: AutomationSchema,
+    started: z.array(AutomationRunSchema),
+  }),
 });

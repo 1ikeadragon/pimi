@@ -2846,6 +2846,11 @@ async function runGhCommand(
   return githubCliRunner.run(args, options);
 }
 
+/** Runs `gh` with the daemon's GitHub environment and returns stdout. */
+export async function runGitHubCli(args: string[], options: { cwd: string }): Promise<string> {
+  return (await runGhCommand(args, options)).stdout;
+}
+
 // Anchored to github.com so a pasted URL from an unrelated tracker (a GitLab
 // or Gitea link that happens to share the /owner/repo/(pull|issues)/N shape)
 // passes through as literal search text instead of being misread as a number.

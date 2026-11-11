@@ -64,9 +64,14 @@ const AUTOMATION_FIELDS = [
   "id",
   "cron",
   "timezone",
+  "pullRequest",
+  "manual",
   "provider",
+  "profile",
   "cwd",
   "workspace",
+  "steps",
+  "edges",
   "maxRuns",
   "expiresIn",
 ] as const;
@@ -334,6 +339,22 @@ export const PASEO_TOOL_CATALOG = {
       inputOrder: HEARTBEAT_FIELDS,
       outputFields: ["id", "nextRunAt", "expiresAt"],
     },
+  },
+  update_automation: {
+    label: "Update automation",
+    completedLabel: "Updated automation",
+    context: field("id", "name"),
+    detail: {
+      promptField: "prompt",
+      inputOrder: AUTOMATION_FIELDS,
+      outputFields: AUTOMATION_OUTPUT,
+    },
+  },
+  retry_automation_run: {
+    label: "Retry automation run",
+    completedLabel: "Retried automation run",
+    context: field("id", "runId"),
+    detail: { inputOrder: ["id", "runId"] },
   },
   list_automations: { label: "List automations", completedLabel: "Listed automations" },
   inspect_automation: {

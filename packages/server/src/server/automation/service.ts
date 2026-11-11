@@ -11,23 +11,26 @@ import {
   type AutomationAuditEntry,
   type AutomationDefinition,
   type AutomationOrigin,
+  type AutomationPullRequestEvent,
   type AutomationRun,
   type AutomationRunCause,
   type AutomationRunStatus,
+  type AutomationRunStep,
 } from "@pimi/protocol/automation/types";
 import {
-  readSingleAgentFlow,
+  topologicalOrder,
+  upstreamNodeIds,
   validateAutomationDefinition,
 } from "@pimi/protocol/automation/validate";
 import { AutomationAuditLog } from "./audit.js";
 import { computeNextRunAt, validateCadence, withHostTimeZone } from "./cron.js";
+import { type AutomationEngineDeps, type RunHandle, type RunWorkspace } from "./engine.js";
+import { runFlow, type StepPatch } from "./flow-runner.js";
 import {
-  type AutomationEngineDeps,
-  type RunHandle,
-  type RunWorkspace,
-  RunStoppedError,
-  runAgentStep,
-} from "./engine.js";
+  type GhRunner,
+  PULL_REQUEST_POLL_INTERVAL_MS,
+  pollPullRequests,
+} from "./pull-request-trigger.js";
 import { AutomationStore } from "./store.js";
 
 const TICK_INTERVAL_MS = 1000;
@@ -67,6 +70,10 @@ export interface AutomationServiceOptions extends Omit<AutomationEngineDeps, "lo
   logger: Logger;
   /** The host's agent profiles; an agent step may name one. */
   getAgentProfiles: () => readonly AgentProfile[];
+  /** Runs the host's `gh` CLI for pull-request triggers. */
+  gh: GhRunner;
+  /** Compiles prose into a draft definition with an LLM. */
+  compile: (input: { description: string; cwd: string }) => Promise<AutomationDefinition>;
 }
 
 interface ActiveRun {
@@ -127,6 +134,21 @@ function normalizeFlowProfiles(
   };
 }
 
+function normalizeTrigger(trigger: AutomationDefinition["trigger"]): Automation["trigger"] {
+  if (trigger.kind === "schedule") {
+    const cadence = withHostTimeZone(trigger.cadence);
+    if (cadence.type === "every" && cadence.everyMs < MIN_EVERY_MS) {
+      throw new Error(`An automation cannot run more often than every ${MIN_EVERY_MS / 1000}s`);
+    }
+    validateCadence(cadence);
+    return { ...trigger, cadence };
+  }
+  if (trigger.kind === "pull_request") {
+    return { ...trigger, repo: trigger.repo.trim(), events: [...new Set(trigger.events)] };
+  }
+  return trigger;
+}
+
 function normalizeDefinition(
   definition: AutomationDefinition,
   profiles: readonly AgentProfile[],
@@ -135,23 +157,13 @@ function normalizeDefinition(
   if (issues.length > 0) {
     throw new Error(issues.map((issue) => issue.message).join("; "));
   }
-  const trigger =
-    definition.trigger.kind === "schedule"
-      ? { ...definition.trigger, cadence: withHostTimeZone(definition.trigger.cadence) }
-      : definition.trigger;
-  if (trigger.kind === "schedule") {
-    const cadence = trigger.cadence;
-    if (cadence.type === "every" && cadence.everyMs < MIN_EVERY_MS) {
-      throw new Error(`An automation cannot run more often than every ${MIN_EVERY_MS / 1000}s`);
-    }
-    validateCadence(cadence);
-  }
   if (definition.name.trim().length > MAX_NAME_LENGTH) {
     throw new Error(`Name is longer than ${MAX_NAME_LENGTH} characters`);
   }
   for (const node of definition.flow.nodes) {
-    if (node.kind === "agent" && node.prompt.length > MAX_PROMPT_LENGTH) {
-      throw new Error(`Prompt is longer than ${MAX_PROMPT_LENGTH} characters`);
+    const text = node.kind === "agent" ? node.prompt : node.input;
+    if (text.length > MAX_PROMPT_LENGTH) {
+      throw new Error(`Step ${node.id} is longer than ${MAX_PROMPT_LENGTH} characters`);
     }
   }
   const limits = { ...DEFAULT_AUTOMATION_LIMITS, ...definition.limits };
@@ -163,10 +175,14 @@ function normalizeDefinition(
     name: definition.name.trim(),
     description: description ? description : null,
     project: { cwd: resolve(definition.project.cwd.trim()) },
-    trigger,
+    trigger: normalizeTrigger(definition.trigger),
     flow: normalizeFlowProfiles(definition.flow, profiles),
     limits,
   };
+}
+
+function sameTrigger(left: Automation["trigger"], right: Automation["trigger"]): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function requireFound<T>(value: T | null, id: string): T {
@@ -176,7 +192,70 @@ function requireFound<T>(value: T | null, id: string): T {
   return value;
 }
 
-// Owns automation definitions, admission, run records, limits, and the clock trigger.
+function pendingStep(nodeId: string): AutomationRunStep {
+  return {
+    nodeId,
+    status: "pending",
+    agentId: null,
+    workspaceId: null,
+    createdWorktree: false,
+    modeId: null,
+    startedAt: null,
+    endedAt: null,
+    output: null,
+    error: null,
+  };
+}
+
+// The steps a retry of `source` starts with. A step that succeeded is reused when every step it
+// depends on is reused too; everything else runs again. Steps the flow no longer has are dropped.
+function retrySteps(automation: Automation, source: AutomationRun): AutomationRunStep[] {
+  const order = topologicalOrder(automation.flow) ?? [];
+  const reused = new Set<string>();
+  const steps: AutomationRunStep[] = [];
+  for (const nodeId of order) {
+    const previous = source.steps.find((step) => step.nodeId === nodeId);
+    const upstream = upstreamNodeIds(automation.flow, nodeId);
+    const canReuse =
+      previous?.status === "succeeded" && [...upstream].every((id) => reused.has(id));
+    if (canReuse && previous) {
+      reused.add(nodeId);
+      steps.push({ ...previous, reusedFrom: previous.reusedFrom ?? source.id });
+    } else {
+      steps.push(pendingStep(nodeId));
+    }
+  }
+  return steps;
+}
+
+function describeCause(cause: AutomationRunCause): string {
+  if (cause.kind === "manual") {
+    return "manual";
+  }
+  if (cause.kind === "retry") {
+    return `retry of ${cause.runId}`;
+  }
+  if (cause.event.kind === "pull_request") {
+    return `pull request #${cause.event.number} ${cause.event.action}`;
+  }
+  return "schedule";
+}
+
+function dedupeKeyFor(cause: AutomationRunCause, runId: string): string {
+  if (cause.kind === "manual") {
+    return `manual:${runId}`;
+  }
+  if (cause.kind === "retry") {
+    return `retry:${cause.runId}:${runId}`;
+  }
+  if (cause.event.kind === "pull_request") {
+    return `pr:${cause.event.repo}#${cause.event.number}@${cause.event.headSha}`;
+  }
+  return `schedule:${cause.event.scheduledFor}`;
+}
+
+// Owns automation definitions, admission, run records, limits, and the clock and pull-request
+// triggers.
 export class AutomationService {
   private readonly logger: Logger;
   private readonly paseoHome: string;
@@ -184,8 +263,11 @@ export class AutomationService {
   private readonly audit: AutomationAuditLog;
   private readonly engine: AutomationEngineDeps;
   private readonly getAgentProfiles: () => readonly AgentProfile[];
+  private readonly gh: GhRunner;
+  private readonly compileDefinition: AutomationServiceOptions["compile"];
   private readonly activeRuns = new Map<string, ActiveRun>();
   private readonly originLocks = new Map<string, Promise<unknown>>();
+  private readonly polling = new Map<string, Promise<AutomationRun[]>>();
   private admission: Promise<unknown> = Promise.resolve();
   private archiveQueue: Promise<void> = Promise.resolve();
   private tickTimer: ReturnType<typeof setInterval> | null = null;
@@ -195,6 +277,8 @@ export class AutomationService {
     this.logger = options.logger.child({ module: "automation-service" });
     this.paseoHome = options.paseoHome;
     this.getAgentProfiles = options.getAgentProfiles;
+    this.gh = options.gh;
+    this.compileDefinition = options.compile;
     const dir = join(options.paseoHome, "automations");
     this.store = new AutomationStore({ dir, logger: this.logger });
     this.audit = new AutomationAuditLog({ dir, logger: this.logger });
@@ -211,6 +295,7 @@ export class AutomationService {
   async start(): Promise<void> {
     // Schedules from earlier builds are not migrated.
     await rm(join(this.paseoHome, "schedules"), { recursive: true, force: true });
+    await this.store.migrateOutputNodes();
     await this.recover();
     if (this.tickTimer) {
       return;
@@ -231,6 +316,10 @@ export class AutomationService {
     }
   }
 
+  compile(input: { description: string; cwd: string }): Promise<AutomationDefinition> {
+    return this.compileDefinition(input);
+  }
+
   async list(): Promise<Automation[]> {
     const automations = await this.store.automations.list();
     return automations.sort((left, right) => left.createdAt.localeCompare(right.createdAt));
@@ -248,9 +337,9 @@ export class AutomationService {
     return { automation, audit };
   }
 
-  // A user's automation is active at once. An agent's waits in `pending` for the owner;
-  // creating one with the name of one the same agent already made replaces it and puts it
-  // back in `pending`.
+  // A user's automation is active at once. An agent's, or one the owner saved from a compiled
+  // draft, waits in `pending` for the owner. Creating one with the name of one the same agent
+  // already made replaces it and puts it back in `pending`.
   async create(input: {
     definition: AutomationDefinition;
     origin: AutomationOrigin;
@@ -279,6 +368,7 @@ export class AutomationService {
             updatedAt: now.toISOString(),
           }));
           if (replaced) {
+            await this.resetTriggerState(replaced.id);
             await this.audit.append({
               automationId: replaced.id,
               action: "updated",
@@ -292,7 +382,7 @@ export class AutomationService {
         return this.insert(fields, origin, "pending", now);
       });
     }
-    return this.insert(fields, origin, "active", now);
+    return this.insert(fields, origin, origin.kind === "compiled" ? "pending" : "active", now);
   }
 
   private async insert(
@@ -314,6 +404,7 @@ export class AutomationService {
       lastRun: null,
       runCount: 0,
       consecutiveFailures: 0,
+      triggerCheck: null,
     };
     automation.nextRunAt = scheduledNextRunAt(automation, now);
     const created = await this.store.automations.put(automation);
@@ -327,6 +418,7 @@ export class AutomationService {
     return created;
   }
 
+  // An agent's edit sends the automation back to `pending` until the owner approves it again.
   async update(input: {
     id: string;
     definition: AutomationDefinition;
@@ -334,13 +426,18 @@ export class AutomationService {
   }): Promise<Automation> {
     const fields = normalizeDefinition(input.definition, this.getAgentProfiles());
     const now = new Date();
+    const needsApproval = input.actor.kind === "agent";
+    let triggerChanged = false;
     const updated = await this.store.automations.update(input.id, (current) => {
       if (current.status === "ended") {
         throw new AutomationStateError(`Automation ${input.id} has ended`);
       }
+      triggerChanged = !sameTrigger(current.trigger, fields.trigger);
       const next: Automation = {
         ...current,
         ...fields,
+        ...(needsApproval ? { status: "pending" as const, pausedReason: null } : {}),
+        triggerCheck: triggerChanged ? null : current.triggerCheck,
         revision: current.revision + 1,
         updatedAt: now.toISOString(),
       };
@@ -348,12 +445,17 @@ export class AutomationService {
       return next;
     });
     const automation = requireFound(updated, input.id);
+    if (triggerChanged || needsApproval) {
+      await this.resetTriggerState(automation.id);
+    }
     await this.audit.append({
       automationId: automation.id,
       action: "updated",
       actor: input.actor,
       runId: null,
-      detail: `revision ${automation.revision}`,
+      detail: needsApproval
+        ? `revision ${automation.revision}; waiting for approval`
+        : `revision ${automation.revision}`,
     });
     return automation;
   }
@@ -378,7 +480,10 @@ export class AutomationService {
     });
   }
 
+  // Becoming active starts the pull-request trigger from a fresh look at the open PRs, so what
+  // changed while it waited or was paused does not all fire at once.
   async approve(id: string, actor: AutomationActor): Promise<Automation> {
+    await this.resetTriggerState(id);
     return this.transition(id, actor, "approved", (current, now) => {
       if (current.status !== "pending") {
         throw new AutomationStateError(`Automation ${id} is not waiting for approval`);
@@ -392,7 +497,7 @@ export class AutomationService {
   }
 
   async enable(id: string, actor: AutomationActor): Promise<Automation> {
-    return this.transition(id, actor, "enabled", (current, now) => {
+    const automation = await this.transition(id, actor, "enabled", (current, now) => {
       if (current.status === "pending") {
         throw new AutomationStateError(`Automation ${id} is waiting for approval`);
       }
@@ -410,6 +515,8 @@ export class AutomationService {
         nextRunAt: scheduledNextRunAt({ ...current, status: "active" }, now),
       };
     });
+    await this.resetTriggerState(id);
+    return automation;
   }
 
   async pause(id: string, actor: AutomationActor): Promise<Automation> {
@@ -425,6 +532,10 @@ export class AutomationService {
       }
       return { ...current, status: "paused", pausedReason: "user", nextRunAt: null };
     });
+  }
+
+  private async resetTriggerState(id: string): Promise<void> {
+    await this.store.triggerStates.delete(id);
   }
 
   private async transition(
@@ -479,9 +590,8 @@ export class AutomationService {
     return run;
   }
 
-  // Starts a run now and returns it while it is still running.
-  async startManualRun(id: string, actor: AutomationActor): Promise<AutomationRun> {
-    const automation = await this.get(id);
+  private assertRunnable(automation: Automation, actor: AutomationActor): void {
+    const id = automation.id;
     if (automation.status === "pending") {
       throw new AutomationStateError(`Automation ${id} is waiting for approval`);
     }
@@ -491,12 +601,43 @@ export class AutomationService {
     if (actor.kind === "agent" && automation.status !== "active") {
       throw new AutomationStateError(`Automation ${id} is paused`);
     }
+  }
+
+  // Starts a run now and returns it while it is still running.
+  async startManualRun(id: string, actor: AutomationActor): Promise<AutomationRun> {
+    const automation = await this.get(id);
+    this.assertRunnable(automation, actor);
     return this.admit(async () => {
       const refusal = await this.admissionRefusal(automation, new Date());
       if (refusal) {
         throw new AutomationStateError(refusal);
       }
       return this.startRun(automation, { kind: "manual", actor }, actor);
+    });
+  }
+
+  // Starts a new run that reruns the steps of a finished run that did not succeed, with the
+  // automation as it is now. Steps that succeeded keep their output and are not run again.
+  async retryRun(
+    automationId: string,
+    runId: string,
+    actor: AutomationActor,
+  ): Promise<AutomationRun> {
+    const automation = await this.get(automationId);
+    this.assertRunnable(automation, actor);
+    const source = await this.getRun(automationId, runId);
+    if (source.status === "running") {
+      throw new AutomationStateError(`Run ${runId} is still running`);
+    }
+    if (source.status === "succeeded") {
+      throw new AutomationStateError(`Run ${runId} succeeded; there is nothing to retry`);
+    }
+    return this.admit(async () => {
+      const refusal = await this.admissionRefusal(automation, new Date());
+      if (refusal) {
+        throw new AutomationStateError(refusal);
+      }
+      return this.startRun(automation, { kind: "retry", actor, runId }, actor, source);
     });
   }
 
@@ -518,20 +659,29 @@ export class AutomationService {
       return run;
     }
     // A running record with no live run in this process: nothing is left to stop.
-    return this.finishRun({ automationId, runId, status: "cancelled", output: null, error: null });
+    return this.finishRun({
+      automationId,
+      runId,
+      status: "cancelled",
+      error: null,
+      reportAgentId: run.reportAgentId,
+    });
   }
 
-  private stopRun(runId: string, reason: RunHandle["stopReason"] & string): void {
+  private stopRun(runId: string, reason: "cancelled" | "timed_out"): void {
     const active = this.activeRuns.get(runId);
     if (!active || active.handle.stopReason) {
       return;
     }
     active.handle.stopReason = reason;
-    const agentId = active.handle.agentId;
-    if (agentId) {
-      void this.engine.agentManager.cancelAgentRun(agentId).catch((error: unknown) => {
-        this.logger.warn({ err: error, runId, agentId }, "Failed to cancel automation agent");
-      });
+    for (const step of active.handle.steps) {
+      step.stopReason ??= reason;
+      const agentId = step.agentId;
+      if (agentId) {
+        void this.engine.agentManager.cancelAgentRun(agentId).catch((error: unknown) => {
+          this.logger.warn({ err: error, runId, agentId }, "Failed to cancel automation agent");
+        });
+      }
     }
   }
 
@@ -558,9 +708,10 @@ export class AutomationService {
     automation: Automation,
     cause: AutomationRunCause,
     actor: AutomationActor,
+    retryOf?: AutomationRun,
   ): Promise<AutomationRun> {
-    const flow = readSingleAgentFlow(automation.flow);
-    if (!flow) {
+    const order = topologicalOrder(automation.flow);
+    if (!order) {
       throw new AutomationStateError(`Automation ${automation.id} has a flow this host cannot run`);
     }
     const now = new Date().toISOString();
@@ -570,31 +721,17 @@ export class AutomationService {
       automationId: automation.id,
       revision: automation.revision,
       cause,
-      dedupeKey:
-        cause.kind === "trigger" ? `schedule:${cause.event.scheduledFor}` : `manual:${runId}`,
+      dedupeKey: dedupeKeyFor(cause, runId),
       status: "running",
       unread: true,
       startedAt: now,
       endedAt: null,
       reportAgentId: null,
       reportWorkspaceId: null,
-      steps: [
-        {
-          nodeId: flow.agent.id,
-          status: "running",
-          agentId: null,
-          workspaceId: null,
-          createdWorktree: false,
-          modeId: null,
-          startedAt: now,
-          endedAt: null,
-          output: null,
-          error: null,
-        },
-      ],
+      steps: retryOf ? retrySteps(automation, retryOf) : order.map(pendingStep),
       error: null,
     };
-    const handle: RunHandle = { agentId: null, stopReason: null };
+    const handle: RunHandle = { stopReason: null, steps: new Set() };
     this.activeRuns.set(runId, { automationId: automation.id, handle });
     try {
       await this.store.runs(automation.id).put(run);
@@ -613,7 +750,7 @@ export class AutomationService {
       action: "run_started",
       actor,
       runId,
-      detail: cause.kind === "manual" ? "manual" : "schedule",
+      detail: describeCause(cause),
     });
     void this.execute(automation, run, handle).finally(() => {
       this.activeRuns.delete(runId);
@@ -622,69 +759,81 @@ export class AutomationService {
   }
 
   private async execute(automation: Automation, run: AutomationRun, handle: RunHandle) {
-    const flow = readSingleAgentFlow(automation.flow)!;
     const timer = setTimeout(
       () => this.stopRun(run.id, "timed_out"),
       automation.limits.maxRuntimeMs,
     );
     timer.unref?.();
     const runs = this.store.runs(automation.id);
-    let status: AutomationRunStatus = "succeeded";
-    let output: string | null = null;
-    let error: string | null = null;
-    let workspaceSeen: RunWorkspace | null = null;
+    const opened: RunWorkspace[] = [];
+    let deleted = false;
+    const updateRun = async (apply: (current: AutomationRun) => AutomationRun) => {
+      if (deleted) {
+        return;
+      }
+      // Deleting an automation removes its run records; writing would recreate the directory.
+      if ((await this.store.automations.get(automation.id)) === null) {
+        deleted = true;
+        return;
+      }
+      await runs.update(run.id, apply);
+    };
+    const updateStep = (nodeId: string, patch: StepPatch) =>
+      updateRun((current) => ({
+        ...current,
+        steps: current.steps.map((step) => (step.nodeId === nodeId ? { ...step, ...patch } : step)),
+      }));
+    let result: Awaited<ReturnType<typeof runFlow>>;
     try {
-      const result = await runAgentStep(this.engine, {
+      result = await runFlow(this.engine, {
         automation,
         run,
-        node: flow.agent,
         handle,
-        callbacks: {
-          onWorkspace: async (workspace) => {
-            workspaceSeen = workspace;
-            await runs.update(run.id, (current) => ({
-              ...current,
-              reportWorkspaceId: workspace.workspaceId,
-              steps: current.steps.map((step) => ({ ...step, ...workspace })),
-            }));
-          },
-          onAgent: async (agentId, modeId) => {
-            await runs.update(run.id, (current) => ({
-              ...current,
-              reportAgentId: agentId,
-              steps: current.steps.map((step) => ({ ...step, agentId, modeId })),
-            }));
-          },
+        pullRequest:
+          run.cause.kind === "trigger" && run.cause.event.kind === "pull_request"
+            ? run.cause.event
+            : await this.retriedPullRequest(automation.id, run),
+        updateStep,
+        onWorkspace: async (workspace) => {
+          opened.push(workspace);
+          await updateRun((current) => ({
+            ...current,
+            reportWorkspaceId: current.reportWorkspaceId ?? workspace.workspaceId,
+          }));
         },
       });
-      output = result.output;
     } catch (cause) {
-      if (cause instanceof RunStoppedError && cause.reason === "cancelled") {
-        status = "cancelled";
-      } else {
-        status = "failed";
-        error = cause instanceof Error ? cause.message : String(cause);
-      }
+      result = {
+        status: "failed",
+        error: cause instanceof Error ? cause.message : String(cause),
+        reportAgentId: null,
+      };
     } finally {
       clearTimeout(timer);
     }
     try {
-      // Deleting an automation cancels its runs and removes their records; nothing is left to
-      // finish, and touching the run store would recreate its directory. The workspace the run
-      // opened goes with it.
-      if ((await this.store.automations.get(automation.id)) === null) {
-        // Read through a typed local: TypeScript does not see the callback assign it.
-        const seen = workspaceSeen as RunWorkspace | null;
-        this.archiveRunWorkspaces([
-          {
-            ...run,
-            reportWorkspaceId: seen?.workspaceId ?? null,
-            steps: run.steps.map((step) => ({ ...step, ...seen })),
-          },
-        ]);
+      const record = deleted ? null : await runs.get(run.id);
+      // A workspace no step started an agent in has nothing to report.
+      const empty = opened.filter(
+        (workspace) =>
+          !record?.steps.some(
+            (step) =>
+              step.workspaceId === workspace.workspaceId && step.agentId && !step.reusedFrom,
+          ),
+      );
+      for (const workspace of deleted ? opened : empty) {
+        this.archiveWorkspace(workspace.workspaceId, !workspace.createdWorktree);
+      }
+      if (deleted || (await this.store.automations.get(automation.id)) === null) {
         return;
       }
-      await this.finishRun({ automationId: automation.id, runId: run.id, status, output, error });
+      await this.finishRun({
+        automationId: automation.id,
+        runId: run.id,
+        status: result.status,
+        error: result.error,
+        reportAgentId: result.reportAgentId,
+      });
     } catch (finishError) {
       this.logger.error(
         { err: finishError, automationId: automation.id, runId: run.id },
@@ -693,12 +842,30 @@ export class AutomationService {
     }
   }
 
+  // A retry of a pull-request run reads the same pull request as the run it retries.
+  private async retriedPullRequest(
+    automationId: string,
+    run: AutomationRun,
+  ): Promise<AutomationPullRequestEvent | null> {
+    let cause = run.cause;
+    const seen = new Set<string>();
+    while (cause.kind === "retry" && !seen.has(cause.runId)) {
+      seen.add(cause.runId);
+      const source = await this.store.runs(automationId).get(cause.runId);
+      if (!source) {
+        return null;
+      }
+      cause = source.cause;
+    }
+    return cause.kind === "trigger" && cause.event.kind === "pull_request" ? cause.event : null;
+  }
+
   private async finishRun(input: {
     automationId: string;
     runId: string;
     status: Exclude<AutomationRunStatus, "running">;
-    output: string | null;
     error: string | null;
+    reportAgentId: string | null;
   }): Promise<AutomationRun> {
     const endedAt = new Date().toISOString();
     const run = await this.store.runs(input.automationId).update(input.runId, (current) => ({
@@ -706,13 +873,13 @@ export class AutomationService {
       status: input.status,
       endedAt,
       error: input.error,
-      steps: current.steps.map((step) => ({
-        ...step,
-        status: input.status,
-        endedAt,
-        output: input.output,
-        error: input.error,
-      })),
+      reportAgentId: input.reportAgentId ?? current.reportAgentId,
+      // A step still open when the run ends (a run cancelled before it started) never ran.
+      steps: current.steps.map((step) =>
+        step.status === "pending" || step.status === "running"
+          ? { ...step, status: "cancelled", endedAt }
+          : step,
+      ),
     }));
     if (!run) {
       throw new AutomationRunNotFoundError(input.runId);
@@ -776,20 +943,34 @@ export class AutomationService {
     this.archiveRunWorkspaces(await this.store.pruneRuns(automationId, now));
   }
 
+  private archiveWorkspace(workspaceId: string, keepDirectory: boolean): void {
+    this.archiveQueue = this.archiveQueue.then(() =>
+      this.archiveEach(new Map([[workspaceId, keepDirectory]])),
+    );
+  }
+
   // Archives the workspaces of runs whose records are gone, with their agents. A worktree goes
   // too only when the run created it; a project directory or worktree the run opened in stays
-  // untouched. Runs one at a time in the background: archiving touches git and should not hold
-  // up the caller.
+  // untouched. A step a retry reused belongs to the run that ran it. Runs one at a time in the
+  // background: archiving touches git and should not hold up the caller.
   private archiveRunWorkspaces(runs: readonly AutomationRun[]): void {
     // workspaceId -> keepDirectory
     const workspaces = new Map<string, boolean>();
     for (const run of runs) {
       for (const step of run.steps) {
-        if (step.workspaceId) {
-          workspaces.set(step.workspaceId, step.createdWorktree !== true);
+        if (step.workspaceId && !step.reusedFrom) {
+          workspaces.set(
+            step.workspaceId,
+            (workspaces.get(step.workspaceId) ?? true) && step.createdWorktree !== true,
+          );
         }
       }
-      if (run.reportWorkspaceId && !workspaces.has(run.reportWorkspaceId)) {
+      const reused = new Set(run.steps.filter((step) => step.reusedFrom).map((s) => s.workspaceId));
+      if (
+        run.reportWorkspaceId &&
+        !workspaces.has(run.reportWorkspaceId) &&
+        !reused.has(run.reportWorkspaceId)
+      ) {
         workspaces.set(run.reportWorkspaceId, true);
       }
     }
@@ -824,6 +1005,23 @@ export class AutomationService {
           await this.endAutomation(automation.id, now);
           continue;
         }
+        if (automation.trigger.kind === "pull_request") {
+          const lastCheck = automation.triggerCheck?.at;
+          if (
+            !this.polling.has(automation.id) &&
+            (!lastCheck ||
+              now.getTime() - new Date(lastCheck).getTime() >= PULL_REQUEST_POLL_INTERVAL_MS)
+          ) {
+            // Polls run beside the tick so a slow gh call does not hold up schedules.
+            void this.pollTrigger(automation.id).catch((error: unknown) => {
+              this.logger.warn(
+                { err: error, automationId: automation.id },
+                "PR trigger poll failed",
+              );
+            });
+          }
+          continue;
+        }
         if (
           automation.trigger.kind !== "schedule" ||
           !automation.nextRunAt ||
@@ -836,6 +1034,71 @@ export class AutomationService {
     } finally {
       this.ticking = false;
     }
+  }
+
+  // Polls a pull-request trigger now. Returns the runs it started.
+  async checkTrigger(id: string): Promise<{ automation: Automation; started: AutomationRun[] }> {
+    const automation = await this.get(id);
+    if (automation.trigger.kind !== "pull_request") {
+      throw new AutomationStateError(`Automation ${id} has no pull request trigger`);
+    }
+    if (automation.status !== "active") {
+      throw new AutomationStateError(`Automation ${id} is ${automation.status}`);
+    }
+    const started = await this.pollTrigger(id);
+    return { automation: await this.get(id), started };
+  }
+
+  private pollTrigger(id: string): Promise<AutomationRun[]> {
+    const inFlight = this.polling.get(id);
+    if (inFlight) {
+      return inFlight;
+    }
+    const poll = this.pollTriggerOnce(id).finally(() => this.polling.delete(id));
+    this.polling.set(id, poll);
+    return poll;
+  }
+
+  private async pollTriggerOnce(id: string): Promise<AutomationRun[]> {
+    const automation = await this.get(id);
+    const trigger = automation.trigger;
+    if (trigger.kind !== "pull_request" || automation.status !== "active") {
+      return [];
+    }
+    const at = new Date().toISOString();
+    let events: AutomationPullRequestEvent[];
+    try {
+      const result = await pollPullRequests({
+        gh: this.gh,
+        automationId: id,
+        repo: trigger.repo,
+        events: trigger.events,
+        previous: await this.store.triggerStates.get(id),
+      });
+      // The state is saved before any run starts: a head is spent once seen, even when the run
+      // is then skipped for a limit, the same as a skipped schedule slot.
+      await this.store.triggerStates.put(result.state);
+      events = result.events;
+      await this.store.automations.update(id, (current) => ({
+        ...current,
+        triggerCheck: { at, error: null },
+      }));
+    } catch (error) {
+      const message = (error instanceof Error ? error.message : String(error)).slice(0, 500);
+      await this.store.automations.update(id, (current) => ({
+        ...current,
+        triggerCheck: { at, error: message },
+      }));
+      throw error;
+    }
+    const started: AutomationRun[] = [];
+    for (const event of events) {
+      const run = await this.fireEvent(id, { kind: "trigger", event }, new Date());
+      if (run) {
+        started.push(run);
+      }
+    }
+    return started;
   }
 
   private async fireSchedule(id: string, now: Date): Promise<void> {
@@ -860,29 +1123,42 @@ export class AutomationService {
     if (!claimed || scheduledFor === null) {
       return;
     }
-    const daemon: AutomationActor = { kind: "daemon" };
     const slot: string = scheduledFor;
-    await this.admit(async () => {
-      const refusal = await this.admissionRefusal(claimed, now);
+    await this.fireEvent(
+      id,
+      { kind: "trigger", event: { kind: "schedule", scheduledFor: slot } },
+      now,
+    );
+  }
+
+  // Starts a triggered run unless a limit refuses it; a refused trigger is skipped, not queued.
+  private async fireEvent(
+    id: string,
+    cause: Extract<AutomationRunCause, { kind: "trigger" }>,
+    now: Date,
+  ): Promise<AutomationRun | null> {
+    const daemon: AutomationActor = { kind: "daemon" };
+    return this.admit(async () => {
+      const automation = await this.store.automations.get(id);
+      if (!automation || automation.status !== "active") {
+        return null;
+      }
+      const refusal = await this.admissionRefusal(automation, now);
       if (refusal) {
         await this.audit.append({
           automationId: id,
           action: "run_skipped",
           actor: daemon,
           runId: null,
-          detail: refusal,
+          detail: `${describeCause(cause)}: ${refusal}`.slice(0, 300),
         });
-        return;
+        return null;
       }
       try {
-        await this.startRun(
-          claimed,
-          { kind: "trigger", event: { kind: "schedule", scheduledFor: slot } },
-          daemon,
-        );
+        return await this.startRun(automation, cause, daemon);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        this.logger.error({ err: error, automationId: id }, "Failed to start scheduled run");
+        this.logger.error({ err: error, automationId: id }, "Failed to start triggered run");
         await this.audit.append({
           automationId: id,
           action: "run_skipped",
@@ -890,6 +1166,7 @@ export class AutomationService {
           runId: null,
           detail: `could not start: ${message}`.slice(0, 300),
         });
+        return null;
       }
     });
   }
@@ -935,9 +1212,12 @@ export class AutomationService {
           status: "failed",
           endedAt,
           error,
-          steps: current.steps.map((step) =>
-            step.status === "running" ? { ...step, status: "failed", endedAt, error } : step,
-          ),
+          steps: current.steps.map((step) => {
+            if (step.status === "running") {
+              return { ...step, status: "failed", endedAt, error };
+            }
+            return step.status === "pending" ? { ...step, status: "cancelled", endedAt } : step;
+          }),
         }));
         if (failed && automation.lastRun?.id === run.id) {
           await this.store.automations.update(automation.id, (current) => ({

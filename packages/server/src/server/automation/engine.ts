@@ -40,10 +40,16 @@ export interface AutomationEngineDeps {
 
 export type RunStopReason = "cancelled" | "timed_out" | "permission";
 
-// Live state of one running run, shared between the step and whoever stops it.
-export interface RunHandle {
+// Live state of one running step, shared between the step and whoever stops it. A permission
+// prompt stops only its own step; cancelling or timing out the run stops every step.
+export interface StepHandle {
   agentId: string | null;
   stopReason: RunStopReason | null;
+}
+
+export interface RunHandle {
+  stopReason: Exclude<RunStopReason, "permission"> | null;
+  steps: Set<StepHandle>;
 }
 
 const STOP_MESSAGES: Record<RunStopReason, string> = {
@@ -59,20 +65,22 @@ export class RunStoppedError extends Error {
   }
 }
 
-/** The workspace a run step opened, and whether the run made its worktree. */
+/** The workspace a run opened, and whether the run made its worktree. */
 export interface RunWorkspace {
   workspaceId: string;
+  cwd: string;
   createdWorktree: boolean;
-}
-
-export interface AgentStepCallbacks {
-  onWorkspace: (workspace: RunWorkspace) => Promise<void>;
-  onAgent: (agentId: string, modeId: string | null) => Promise<void>;
 }
 
 export function summarizeRunCause(run: AutomationRun): string {
   if (run.cause.kind === "manual") {
     return "manual run";
+  }
+  if (run.cause.kind === "retry") {
+    return "retry";
+  }
+  if (run.cause.event.kind === "pull_request") {
+    return `PR #${run.cause.event.number}`;
   }
   return new Date(run.cause.event.scheduledFor).toLocaleString("en-US", {
     month: "short",
@@ -83,6 +91,10 @@ export function summarizeRunCause(run: AutomationRun): string {
   });
 }
 
+export function runTitle(automation: Automation, run: AutomationRun): string {
+  return `${automation.name} · ${summarizeRunCause(run)}`;
+}
+
 function capOutput(text: string | null | undefined): string | null {
   const trimmed = text?.trim();
   if (!trimmed) {
@@ -91,7 +103,7 @@ function capOutput(text: string | null | undefined): string | null {
   return trimmed.length > STEP_OUTPUT_LIMIT ? `${trimmed.slice(0, STEP_OUTPUT_LIMIT)}…` : trimmed;
 }
 
-async function assertProjectDirectory(cwd: string): Promise<void> {
+export async function assertProjectDirectory(cwd: string): Promise<void> {
   try {
     const info = await stat(cwd);
     if (!info.isDirectory()) {
@@ -103,6 +115,34 @@ async function assertProjectDirectory(cwd: string): Promise<void> {
     }
     throw error;
   }
+}
+
+// Opens the workspace a run's steps share. Project mode opens a new workspace record on the
+// project directory, which may be a checkout or worktree the user works in. Only a worktree made
+// here belongs to the run.
+export async function openRunWorkspace(
+  deps: AutomationEngineDeps,
+  input: {
+    automation: Automation;
+    title: string;
+    kind: AutomationAgentNode["workspace"];
+    prompt: string;
+  },
+): Promise<RunWorkspace> {
+  const { automation } = input;
+  await assertProjectDirectory(automation.project.cwd);
+  if (input.kind === "worktree") {
+    const { workspace } = await deps.createWorktreeWorkspace({
+      cwd: automation.project.cwd,
+      firstAgentContext: { prompt: input.prompt },
+    });
+    return { workspaceId: workspace.workspaceId, cwd: workspace.cwd, createdWorktree: true };
+  }
+  const workspace = await deps.createDirectoryWorkspace({
+    cwd: automation.project.cwd,
+    title: input.title,
+  });
+  return { workspaceId: workspace.workspaceId, cwd: workspace.cwd, createdWorktree: false };
 }
 
 // A turn that asks for permission stays open until someone answers, and nobody watches an
@@ -122,133 +162,105 @@ async function waitForPermissionPrompt(
   }
 }
 
-// Runs one agent node: opens its workspace, starts an unattended agent with the node's
-// prompt, and waits for the turn. The workspace is kept once the agent exists, because its
-// chat is the run's report.
+// Runs one agent node in the run's workspace: starts an unattended agent with the step's
+// rendered prompt and waits for the turn. Its chat stays in the workspace as the step's report.
 export async function runAgentStep(
   deps: AutomationEngineDeps,
   input: {
     automation: Automation;
     run: AutomationRun;
     node: AutomationAgentNode;
-    handle: RunHandle;
-    callbacks: AgentStepCallbacks;
+    prompt: string;
+    workspace: RunWorkspace;
+    handle: StepHandle;
+    onAgent: (agentId: string, modeId: string | null) => Promise<void>;
   },
 ): Promise<{ output: string | null }> {
-  const { automation, run, node, handle, callbacks } = input;
-  await assertProjectDirectory(automation.project.cwd);
-  const title = `${automation.name} · ${summarizeRunCause(run)}`;
-  // Project mode opens a new workspace record on the project directory, which may be a checkout
-  // or worktree the user works in. Only a worktree made here belongs to the run.
-  const createdWorktree = node.workspace === "worktree";
-  const workspace = createdWorktree
-    ? (
-        await deps.createWorktreeWorkspace({
-          cwd: automation.project.cwd,
-          firstAgentContext: { prompt: node.prompt },
-        })
-      ).workspace
-    : await deps.createDirectoryWorkspace({ cwd: automation.project.cwd, title });
-  await callbacks.onWorkspace({ workspaceId: workspace.workspaceId, createdWorktree });
-
-  let agentId: string | null = null;
-  try {
-    if (handle.stopReason) {
-      throw new RunStoppedError(handle.stopReason);
-    }
-    const created = await deps.createAgent({
-      kind: "mcp",
-      provider: formatProviderModel(node.provider, node.model),
-      // Read when the step starts, so a run uses the profile as it is now.
-      profile: node.profileId,
-      config: {
-        provider: node.provider,
-        cwd: workspace.cwd,
-        model: node.model,
-        modeId: node.modeId,
-        thinkingOptionId: node.thinkingOptionId,
-        featureValues: node.featureValues,
-        title,
-      },
-      cwd: workspace.cwd,
-      workspaceId: workspace.workspaceId,
-      title,
-      labels: {
-        "paseo.automation-id": automation.id,
-        "paseo.automation-run": run.id,
-        "paseo.automation-node": node.id,
-      },
-      mode: node.modeId,
-      thinking: node.thinkingOptionId,
-      features: node.featureValues,
-      unattended: true,
-      promptFailure: "return-error",
-      notifyOnFinish: false,
-    });
-    agentId = created.snapshot.id;
-    handle.agentId = agentId;
-    await callbacks.onAgent(agentId, created.snapshot.currentModeId ?? null);
-    if (created.initialPromptError) {
-      throw created.initialPromptError;
-    }
-    if (handle.stopReason) {
-      throw new RunStoppedError(handle.stopReason);
-    }
-    const turnAgentId = agentId;
-    const permissionWatch = new AbortController();
-    void waitForPermissionPrompt(deps.agentManager, turnAgentId, permissionWatch.signal)
-      .then(async () => {
-        if (!handle.stopReason) {
-          handle.stopReason = "permission";
-          await deps.agentManager.cancelAgentRun(turnAgentId);
-        }
-        return undefined;
-      })
-      .catch((error: unknown) => {
-        if (!permissionWatch.signal.aborted) {
-          deps.logger.warn(
-            { err: error, automationId: automation.id, runId: run.id },
-            "Failed to watch automation agent for permission prompts",
-          );
-        }
-      });
-    let result: Awaited<ReturnType<AutomationEngineAgentManager["runAgent"]>>;
-    try {
-      result = await deps.agentManager.runAgent(turnAgentId, node.prompt);
-    } catch (error) {
-      // A stopped turn can surface as a failed turn; report why it was stopped.
-      if (handle.stopReason) {
-        throw new RunStoppedError(handle.stopReason);
-      }
-      throw error;
-    } finally {
-      permissionWatch.abort();
-    }
-    if (result.canceled) {
-      throw new RunStoppedError(handle.stopReason ?? "cancelled");
-    }
-    const waitResult = await deps.agentManager.waitForAgentEvent(agentId, { waitForActive: true });
-    if (waitResult.permission) {
-      throw new Error(`The agent stopped at a permission prompt`);
-    }
-    if (waitResult.status === "error") {
-      throw new Error(waitResult.lastMessage ?? "The agent failed");
-    }
-    return {
-      output: capOutput(
-        waitResult.lastMessage || result.finalText || curateAgentActivity(result.timeline),
-      ),
-    };
-  } finally {
-    if (agentId === null) {
-      await deps
-        .archiveWorkspace(workspace.workspaceId, { keepDirectory: !createdWorktree })
-        .catch((error: unknown) => {
-          deps.logger.warn(
-            { err: error, automationId: automation.id, runId: run.id },
-            "Failed to archive automation workspace after the agent could not start",
-          );
-        });
-    }
+  const { automation, run, node, workspace, handle } = input;
+  const title = `${node.title || node.id} · ${runTitle(automation, run)}`;
+  if (handle.stopReason) {
+    throw new RunStoppedError(handle.stopReason);
   }
+  const created = await deps.createAgent({
+    kind: "mcp",
+    provider: formatProviderModel(node.provider, node.model),
+    // Read when the step starts, so a run uses the profile as it is now.
+    profile: node.profileId,
+    config: {
+      provider: node.provider,
+      cwd: workspace.cwd,
+      model: node.model,
+      modeId: node.modeId,
+      thinkingOptionId: node.thinkingOptionId,
+      featureValues: node.featureValues,
+      title,
+    },
+    cwd: workspace.cwd,
+    workspaceId: workspace.workspaceId,
+    title,
+    labels: {
+      "paseo.automation-id": automation.id,
+      "paseo.automation-run": run.id,
+      "paseo.automation-node": node.id,
+    },
+    mode: node.modeId,
+    thinking: node.thinkingOptionId,
+    features: node.featureValues,
+    unattended: true,
+    promptFailure: "return-error",
+    notifyOnFinish: false,
+  });
+  const agentId = created.snapshot.id;
+  handle.agentId = agentId;
+  await input.onAgent(agentId, created.snapshot.currentModeId ?? null);
+  if (created.initialPromptError) {
+    throw created.initialPromptError;
+  }
+  if (handle.stopReason) {
+    throw new RunStoppedError(handle.stopReason);
+  }
+  const permissionWatch = new AbortController();
+  void waitForPermissionPrompt(deps.agentManager, agentId, permissionWatch.signal)
+    .then(async () => {
+      if (!handle.stopReason) {
+        handle.stopReason = "permission";
+        await deps.agentManager.cancelAgentRun(agentId);
+      }
+      return undefined;
+    })
+    .catch((error: unknown) => {
+      if (!permissionWatch.signal.aborted) {
+        deps.logger.warn(
+          { err: error, automationId: automation.id, runId: run.id, nodeId: node.id },
+          "Failed to watch automation agent for permission prompts",
+        );
+      }
+    });
+  let result: Awaited<ReturnType<AutomationEngineAgentManager["runAgent"]>>;
+  try {
+    result = await deps.agentManager.runAgent(agentId, input.prompt);
+  } catch (error) {
+    // A stopped turn can surface as a failed turn; report why it was stopped.
+    if (handle.stopReason) {
+      throw new RunStoppedError(handle.stopReason);
+    }
+    throw error;
+  } finally {
+    permissionWatch.abort();
+  }
+  if (result.canceled) {
+    throw new RunStoppedError(handle.stopReason ?? "cancelled");
+  }
+  const waitResult = await deps.agentManager.waitForAgentEvent(agentId, { waitForActive: true });
+  if (waitResult.permission) {
+    throw new Error(`The agent stopped at a permission prompt`);
+  }
+  if (waitResult.status === "error") {
+    throw new Error(waitResult.lastMessage ?? "The agent failed");
+  }
+  return {
+    output: capOutput(
+      waitResult.lastMessage || result.finalText || curateAgentActivity(result.timeline),
+    ),
+  };
 }

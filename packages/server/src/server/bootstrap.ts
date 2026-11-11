@@ -139,7 +139,7 @@ export async function fanOutReconciledWorkspaceUpdates(input: {
 import { VoiceAssistantWebSocketServer } from "./websocket-server.js";
 import { WorkspaceSetupRuntime } from "./workspace-setup-runtime.js";
 import { createWorkspaceLabelService } from "./workspace-labels/index.js";
-import { createGitHubService } from "../services/github-service.js";
+import { createGitHubService, runGitHubCli } from "../services/github-service.js";
 import { createPaseoWorktree as createRegisteredPaseoWorktree } from "./paseo-worktree-service.js";
 import { createWorkspaceProvisioningService } from "./session/workspace-provisioning/workspace-provisioning-service.js";
 import { createPaseoWorktreeWorkflow } from "./worktree-session.js";
@@ -180,6 +180,8 @@ import {
 } from "./workspace-registry.js";
 import { CheckoutDiffManager } from "./checkout-diff-manager.js";
 import { AutomationService } from "./automation/service.js";
+import { compileAutomation } from "./automation/compile.js";
+import { homedir } from "node:os";
 import { HeartbeatService } from "./heartbeat/service.js";
 import { DaemonConfigStore, type MutableDaemonConfig } from "./daemon-config-store.js";
 import { createOrchestrationSkills } from "./orchestration-skills/index.js";
@@ -1500,6 +1502,18 @@ export async function createPaseoDaemon(
     createWorktreeWorkspace: createAutomationWorktreeExternal,
     archiveWorkspace: archiveAutomationWorkspaceExternal,
     getAgentProfiles: () => daemonConfigStore.get().agentProfiles ?? [],
+    gh: (args) => runGitHubCli(args, { cwd: homedir() }),
+    compile: (input) =>
+      compileAutomation(
+        {
+          agentManager,
+          providerSnapshotManager,
+          getDaemonConfig: () => daemonConfigStore.get(),
+          getAgentProfiles: () => daemonConfigStore.get().agentProfiles ?? [],
+          logger,
+        },
+        input,
+      ),
   });
   await automationService.start();
   const heartbeatService = new HeartbeatService({

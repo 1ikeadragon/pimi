@@ -12,21 +12,35 @@ export const AutomationActorSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("user") }),
   z.object({ kind: z.literal("daemon") }),
   z.object({ kind: z.literal("agent"), agentId: z.string() }),
+  z.object({ kind: z.literal("compiled") }),
 ]);
 export type AutomationActor = z.infer<typeof AutomationActorSchema>;
 
+// `compiled`: the owner saved a graph an LLM compiled from prose. Like an agent's automation, it
+// waits for the owner's approval.
 export const AutomationOriginSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("user") }),
   z.object({ kind: z.literal("agent"), agentId: z.string() }),
+  z.object({ kind: z.literal("compiled") }),
 ]);
 export type AutomationOrigin = z.infer<typeof AutomationOriginSchema>;
+
+export const PullRequestEventSchema = z.enum(["opened", "synchronize", "review_requested"]);
+export type PullRequestEvent = z.infer<typeof PullRequestEventSchema>;
 
 export const AutomationTriggerSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("schedule"), cadence: CadenceSchema }),
   z.object({ kind: z.literal("manual") }),
+  // Polled with the host's `gh` CLI. `repo` is owner/name on github.com.
+  z.object({
+    kind: z.literal("pull_request"),
+    repo: z.string(),
+    events: z.array(PullRequestEventSchema),
+  }),
 ]);
 export type AutomationTrigger = z.infer<typeof AutomationTriggerSchema>;
 
+// `prompt` may reference `{{steps.<nodeId>.output}}` of an upstream step and `{{trigger.<field>}}`.
 export const AutomationAgentNodeSchema = z.object({
   id: z.string().min(1),
   kind: z.literal("agent"),
@@ -44,25 +58,49 @@ export const AutomationAgentNodeSchema = z.object({
 });
 export type AutomationAgentNode = z.infer<typeof AutomationAgentNodeSchema>;
 
-export const AutomationOutputNodeSchema = z.object({
+export const AutomationConditionOperatorSchema = z.enum([
+  "contains",
+  "not_contains",
+  "equals",
+  "not_equals",
+  "matches",
+  "is_empty",
+  "not_empty",
+]);
+export type AutomationConditionOperator = z.infer<typeof AutomationConditionOperatorSchema>;
+
+// Tests `input` (a template, usually `{{steps.<nodeId>.output}}`) and follows the outgoing edges
+// whose `branch` matches the result. Text tests ignore case and surrounding whitespace; `matches`
+// takes a case-insensitive regular expression.
+export const AutomationConditionNodeSchema = z.object({
   id: z.string().min(1),
-  kind: z.literal("output"),
-  output: z.object({ type: z.literal("chat") }),
+  kind: z.literal("condition"),
+  title: z.string(),
+  input: z.string(),
+  operator: AutomationConditionOperatorSchema,
+  value: z.string(),
 });
-export type AutomationOutputNode = z.infer<typeof AutomationOutputNodeSchema>;
+export type AutomationConditionNode = z.infer<typeof AutomationConditionNodeSchema>;
 
 export const AutomationNodeSchema = z.discriminatedUnion("kind", [
   AutomationAgentNodeSchema,
-  AutomationOutputNodeSchema,
+  AutomationConditionNodeSchema,
 ]);
 export type AutomationNode = z.infer<typeof AutomationNodeSchema>;
 
+export const AutomationEdgeBranchSchema = z.enum(["true", "false"]);
+export type AutomationEdgeBranch = z.infer<typeof AutomationEdgeBranchSchema>;
+
+// `branch` is set exactly on edges leaving a condition node.
 export const AutomationEdgeSchema = z.object({
   from: z.string(),
   to: z.string(),
+  branch: AutomationEdgeBranchSchema.optional(),
 });
 export type AutomationEdge = z.infer<typeof AutomationEdgeSchema>;
 
+// A directed acyclic graph of steps. A step runs once every step it depends on has finished;
+// steps with nothing between them run at the same time. One agent node is a one-step automation.
 export const AutomationFlowSchema = z.object({
   nodes: z.array(AutomationNodeSchema),
   edges: z.array(AutomationEdgeSchema),
@@ -109,6 +147,13 @@ export const AutomationLastRunSchema = z.object({
 });
 export type AutomationLastRun = z.infer<typeof AutomationLastRunSchema>;
 
+// The last time the daemon polled a pull-request trigger, and why that poll failed.
+export const AutomationTriggerCheckSchema = z.object({
+  at: z.string(),
+  error: z.string().nullable(),
+});
+export type AutomationTriggerCheck = z.infer<typeof AutomationTriggerCheckSchema>;
+
 export const AutomationSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -127,21 +172,52 @@ export const AutomationSchema = z.object({
   lastRun: AutomationLastRunSchema.nullable(),
   runCount: z.number().int().nonnegative(),
   consecutiveFailures: z.number().int().nonnegative(),
+  triggerCheck: AutomationTriggerCheckSchema.nullable().optional(),
 });
 export type Automation = z.infer<typeof AutomationSchema>;
+
+export const AutomationPullRequestEventSchema = z.object({
+  kind: z.literal("pull_request"),
+  action: PullRequestEventSchema,
+  repo: z.string(),
+  number: z.number().int().positive(),
+  title: z.string(),
+  url: z.string(),
+  author: z.string(),
+  headSha: z.string(),
+  headRef: z.string(),
+  baseRef: z.string(),
+});
+export type AutomationPullRequestEvent = z.infer<typeof AutomationPullRequestEventSchema>;
 
 export const AutomationRunCauseSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("trigger"),
-    event: z.object({ kind: z.literal("schedule"), scheduledFor: z.string() }),
+    event: z.discriminatedUnion("kind", [
+      z.object({ kind: z.literal("schedule"), scheduledFor: z.string() }),
+      AutomationPullRequestEventSchema,
+    ]),
   }),
   z.object({ kind: z.literal("manual"), actor: AutomationActorSchema }),
+  // Re-runs the steps of `runId` that did not succeed, reusing the outputs of those that did.
+  z.object({ kind: z.literal("retry"), actor: AutomationActorSchema, runId: z.string() }),
 ]);
 export type AutomationRunCause = z.infer<typeof AutomationRunCauseSchema>;
 
+// `skipped`: a condition sent the run down another branch, or a step it depends on failed.
+export const AutomationRunStepStatusSchema = z.enum([
+  "pending",
+  "running",
+  "succeeded",
+  "failed",
+  "cancelled",
+  "skipped",
+]);
+export type AutomationRunStepStatus = z.infer<typeof AutomationRunStepStatusSchema>;
+
 export const AutomationRunStepSchema = z.object({
   nodeId: z.string(),
-  status: AutomationRunStatusSchema,
+  status: AutomationRunStepStatusSchema,
   agentId: z.string().nullable(),
   workspaceId: z.string().nullable(),
   // True only when the run made a new worktree for this step. Cleanup removes that worktree; a
@@ -149,10 +225,13 @@ export const AutomationRunStepSchema = z.object({
   // as false, so cleanup removes nothing it cannot prove the run made.
   createdWorktree: z.boolean().optional(),
   modeId: z.string().nullable(),
-  startedAt: z.string(),
+  startedAt: z.string().nullable(),
   endedAt: z.string().nullable(),
   output: z.string().nullable(),
   error: z.string().nullable(),
+  // Set when a retry copied this step's result from an earlier run instead of running it. That
+  // run owns the step's workspace.
+  reusedFrom: z.string().optional(),
 });
 export type AutomationRunStep = z.infer<typeof AutomationRunStepSchema>;
 

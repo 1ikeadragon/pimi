@@ -81,6 +81,12 @@ import {
   AutomationRunGetResponseSchema,
   AutomationRunMarkReadRequestSchema,
   AutomationRunMarkReadResponseSchema,
+  AutomationRunRetryRequestSchema,
+  AutomationRunRetryResponseSchema,
+  AutomationCompileRequestSchema,
+  AutomationCompileResponseSchema,
+  AutomationTriggerCheckRequestSchema,
+  AutomationTriggerCheckResponseSchema,
 } from "./automation/rpc-schemas.js";
 import {
   HeartbeatCreateRequestSchema,
@@ -3473,6 +3479,9 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   AutomationRunListRequestSchema,
   AutomationRunGetRequestSchema,
   AutomationRunMarkReadRequestSchema,
+  AutomationRunRetryRequestSchema,
+  AutomationCompileRequestSchema,
+  AutomationTriggerCheckRequestSchema,
   HeartbeatCreateRequestSchema,
   HeartbeatUpdateRequestSchema,
   HeartbeatDeleteRequestSchema,
@@ -6823,6 +6832,9 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   AutomationRunListResponseSchema,
   AutomationRunGetResponseSchema,
   AutomationRunMarkReadResponseSchema,
+  AutomationRunRetryResponseSchema,
+  AutomationCompileResponseSchema,
+  AutomationTriggerCheckResponseSchema,
   HeartbeatCreateResponseSchema,
   HeartbeatUpdateResponseSchema,
   HeartbeatDeleteResponseSchema,
@@ -6993,6 +7005,9 @@ export type AutomationRunCancelResponse = z.infer<typeof AutomationRunCancelResp
 export type AutomationRunListResponse = z.infer<typeof AutomationRunListResponseSchema>;
 export type AutomationRunGetResponse = z.infer<typeof AutomationRunGetResponseSchema>;
 export type AutomationRunMarkReadResponse = z.infer<typeof AutomationRunMarkReadResponseSchema>;
+export type AutomationRunRetryResponse = z.infer<typeof AutomationRunRetryResponseSchema>;
+export type AutomationCompileResponse = z.infer<typeof AutomationCompileResponseSchema>;
+export type AutomationTriggerCheckResponse = z.infer<typeof AutomationTriggerCheckResponseSchema>;
 export type HeartbeatCreateResponse = z.infer<typeof HeartbeatCreateResponseSchema>;
 export type HeartbeatUpdateResponse = z.infer<typeof HeartbeatUpdateResponseSchema>;
 export type HeartbeatDeleteResponse = z.infer<typeof HeartbeatDeleteResponseSchema>;

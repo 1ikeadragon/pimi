@@ -12,8 +12,9 @@ export interface AutomationSessionOptions {
 
 type Request<T extends SessionInboundMessage["type"]> = Extract<SessionInboundMessage, { type: T }>;
 
-// Requests over a client connection come from the owner. Only `automation.create` may say it
-// was made by an agent (the CLI inside an agent does), which leaves it waiting for approval.
+// Requests over a client connection come from the owner. Only `automation.create` and
+// `automation.update` may say they were made by an agent (the CLI inside an agent does), which
+// leaves the automation waiting for approval.
 const USER = { kind: "user" } as const;
 
 export class AutomationSession {
@@ -63,8 +64,35 @@ export class AutomationSession {
             automation: await this.automations.update({
               id: msg.automationId,
               definition: msg.definition,
-              actor: USER,
+              actor: msg.origin?.kind === "agent" ? msg.origin : USER,
             }),
+          },
+        }));
+      case "automation.run.retry.request":
+        return this.handle(msg, async () => ({
+          type: "automation.run.retry.response",
+          payload: {
+            requestId: msg.requestId,
+            run: await this.automations.retryRun(msg.automationId, msg.runId, USER),
+          },
+        }));
+      case "automation.compile.request":
+        return this.handle(msg, async () => ({
+          type: "automation.compile.response",
+          payload: {
+            requestId: msg.requestId,
+            definition: await this.automations.compile({
+              description: msg.description,
+              cwd: msg.cwd,
+            }),
+          },
+        }));
+      case "automation.trigger.check.request":
+        return this.handle(msg, async () => ({
+          type: "automation.trigger.check.response",
+          payload: {
+            requestId: msg.requestId,
+            ...(await this.automations.checkTrigger(msg.automationId)),
           },
         }));
       case "automation.delete.request":
@@ -142,6 +170,13 @@ export class AutomationSession {
             run: await this.automations.markRunRead(msg.automationId, msg.runId),
           },
         }));
+      default:
+        return this.dispatchHeartbeat(msg);
+    }
+  }
+
+  private dispatchHeartbeat(msg: SessionInboundMessage): Promise<void> | undefined {
+    switch (msg.type) {
       case "heartbeat.create.request":
         return this.handle(msg, async () => ({
           type: "heartbeat.create.response",

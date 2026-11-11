@@ -1,4 +1,4 @@
-import { rm } from "node:fs/promises";
+import { readFile, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import type { Logger } from "pino";
 import {
@@ -7,16 +7,28 @@ import {
   type Automation,
   type AutomationRun,
 } from "@pimi/protocol/automation/types";
+import { writeJsonFileAtomic } from "../atomic-file.js";
 import { JsonRecordStore } from "../json-record-store.js";
+import {
+  PullRequestTriggerStateSchema,
+  type PullRequestTriggerState,
+} from "./pull-request-trigger.js";
 
 const RUN_RETENTION_COUNT = 50;
 const RUN_RETENTION_MS = 30 * 24 * 60 * 60_000;
 
-// $PASEO_HOME/automations/<id>.json and $PASEO_HOME/automations/runs/<automationId>/<runId>.json
+interface LegacyFlow {
+  nodes?: Array<{ kind?: string; id?: string }>;
+  edges?: Array<{ from?: string; to?: string }>;
+}
+
+// $PASEO_HOME/automations/<id>.json, $PASEO_HOME/automations/runs/<automationId>/<runId>.json,
+// and $PASEO_HOME/automations/triggers/<automationId>.json for pull-request trigger state.
 export class AutomationStore {
   readonly dir: string;
   private readonly logger: Logger;
   readonly automations: JsonRecordStore<Automation>;
+  readonly triggerStates: JsonRecordStore<PullRequestTriggerState>;
   private readonly runStores = new Map<string, JsonRecordStore<AutomationRun>>();
 
   constructor(options: { dir: string; logger: Logger }) {
@@ -28,6 +40,56 @@ export class AutomationStore {
       logger: this.logger,
       label: "automation",
     });
+    this.triggerStates = new JsonRecordStore({
+      dir: join(this.dir, "triggers"),
+      schema: PullRequestTriggerStateSchema,
+      logger: this.logger,
+      label: "automation trigger state",
+    });
+  }
+
+  // COMPAT(automation-output-node): automations saved by 0.17.18 and earlier end their flow in a
+  // `{ kind: "output" }` chat node that no longer exists. Drop it and its edges in place so those
+  // files parse; a flow is now just its steps.
+  async migrateOutputNodes(): Promise<void> {
+    let entries: string[];
+    try {
+      entries = await readdir(this.dir);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        return;
+      }
+      throw error;
+    }
+    for (const name of entries) {
+      if (!name.endsWith(".json")) {
+        continue;
+      }
+      const path = join(this.dir, name);
+      try {
+        const record = JSON.parse(await readFile(path, "utf-8")) as { flow?: LegacyFlow };
+        const nodes = record.flow?.nodes;
+        if (
+          !record.flow ||
+          !Array.isArray(nodes) ||
+          !nodes.some((node) => node.kind === "output")
+        ) {
+          continue;
+        }
+        const dropped = new Set(
+          nodes.filter((node) => node.kind === "output").map((node) => node.id),
+        );
+        record.flow = {
+          nodes: nodes.filter((node) => node.kind !== "output"),
+          edges: (record.flow.edges ?? []).filter(
+            (edge) => !dropped.has(edge.from) && !dropped.has(edge.to),
+          ),
+        };
+        await writeJsonFileAtomic(path, record);
+      } catch (error) {
+        this.logger.warn({ err: error, path }, "Failed to migrate automation output node");
+      }
+    }
   }
 
   runs(automationId: string): JsonRecordStore<AutomationRun> {
@@ -68,6 +130,7 @@ export class AutomationStore {
 
   async deleteAutomation(automationId: string): Promise<void> {
     await this.automations.delete(automationId);
+    await this.triggerStates.delete(automationId);
     this.runStores.delete(automationId);
     await rm(join(this.dir, "runs", automationId), { recursive: true, force: true });
   }
