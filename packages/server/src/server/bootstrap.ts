@@ -1688,6 +1688,16 @@ export async function createPaseoDaemon(
       });
       Object.assign(transport, {
         onerror: (err: Error) => {
+          // COMPAT(claude-code >= 2.1.322): it sends MCP-Protocol-Version 2026-07-28, which
+          // @modelcontextprotocol/sdk 1.32.2 rejects with a 400 before Claude Code falls back
+          // to a supported version. Tools keep working, so this is not an error.
+          if (err.message.startsWith("Bad Request: Unsupported protocol version")) {
+            logger.warn(
+              { reason: err.message },
+              "Agent MCP client offered an unsupported protocol version",
+            );
+            return;
+          }
           logger.error({ err }, "Agent MCP transport error");
         },
       });
