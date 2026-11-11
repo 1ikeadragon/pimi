@@ -22,7 +22,8 @@ Remote pairing uses the configured relay, including a self-hosted
 reachable over the internet.
 
 The signed APK uses `io.github.ikeadragon.pimi` and supports Android 10 and
-newer. Build the arm64 APK with Java 21 and Android SDK 36 after `npm ci`.
+newer. Build the arm64 APK with Java 21 and Android SDK 36 after `npm ci` and
+`npm run setup`.
 Use `-- universal` after the command to build for all four supported ABIs.
 
 ```sh
@@ -112,7 +113,7 @@ ANDROID_SERIAL=emulator-5562 ./gradlew :react-native-svg:connectedDebugAndroidTe
   --no-daemon --max-workers=2 -Dorg.gradle.parallel=false
 ```
 
-The locked `expo-modules-core@57.0.25` needs the patch installed by `npm ci`.
+The locked `expo-modules-core@57.0.25` needs the patch applied by `npm run setup`.
 It backports
 [Expo's Activity-result launcher fix](https://github.com/expo/expo/pull/49634): changing
 font size or another unhandled configuration can otherwise disable image selection

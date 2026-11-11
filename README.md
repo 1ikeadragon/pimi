@@ -60,10 +60,11 @@ Use the Node version in [`.tool-versions`](.tool-versions).
 
 ```sh
 npm ci
+npm run setup
 npm run pimi:package:mac
 ```
 
-On Windows, run `npm run pimi:package:win` after `npm ci`. Builds land in `packages/desktop/release-pimi/`. The macOS app is ad-hoc signed. The Windows installer is unsigned.
+On Windows, run `npm run pimi:package:win` after `npm ci` and `npm run setup`. Builds land in `packages/desktop/release-pimi/`. The macOS app is ad-hoc signed. The Windows installer is unsigned.
 
 [Dev setup](pimi/README.md) · [Security and network activity](SECURITY.md)
 

@@ -41,7 +41,7 @@
     "dev:app": "cross-env PASEO_LISTEN=127.0.0.1:6768 EXPO_PORT=8081 ./scripts/dev-app.sh",
     "dev:android": "npm run dev:android --workspace=@pimi/app",
     "dev:ios": "npm run dev:ios --workspace=@pimi/app",
-    "postinstall": "node scripts/postinstall-patches.mjs && node scripts/prepare-native-markdown.mjs --if-installed",
+    "setup": "npm rebuild --ignore-scripts=false @shopify/react-native-skia && node scripts/apply-patches.mjs && node scripts/prepare-native-markdown.mjs --if-installed",
     "build": "npm run build --workspaces --if-present",
     "build:apk": "node scripts/build-apk.mjs",
     "build:apk:arm64": "node scripts/build-apk.mjs arm64",

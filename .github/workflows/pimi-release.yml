@@ -115,8 +115,8 @@ jobs:
           architecture: arm64
           package-manager-cache: false
       - run: npm ci --no-audit --no-fund
+      - run: npm run setup
         env:
-          EXPO_NO_TELEMETRY: "1"
           PIMI_SKIP_NATIVE_MARKDOWN_ASSETS: "1"
       - name: Build macOS app inputs
         if: vars.APPLE_TEAM_ID != ''
@@ -239,8 +239,8 @@ jobs:
           architecture: x64
           package-manager-cache: false
       - run: npm ci --no-audit --no-fund
+      - run: npm run setup
         env:
-          EXPO_NO_TELEMETRY: "1"
           PIMI_SKIP_NATIVE_MARKDOWN_ASSETS: "1"
       - name: Build Windows installer
         env:

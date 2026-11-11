@@ -8,6 +8,7 @@ nav: 快速开始
 
 ```bash
 npm ci
+npm run setup
 npm run build:client
 ```
 

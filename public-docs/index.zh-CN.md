@@ -20,6 +20,7 @@ Pimi 是一个 Agent 开发环境，用于运行编程 Agent、编辑文件、�
 
 ```bash
 npm ci
+npm run setup
 npm run build:server
 ./packages/cli/bin/pimi
 ```

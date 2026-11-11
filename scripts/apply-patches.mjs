@@ -136,8 +136,8 @@ for (const [index, { nodeModulesPath, patchPrefix, cwd = "." }] of installedPack
   // applied. Without the package, the next install fetches it clean and applies the patch.
   rmSync(nodeModulesPath, { recursive: true, force: true });
   console.error(
-    `postinstall-patches: removed ${nodeModulesPath} because its patch did not apply. ` +
-      "Run npm install again to reinstall it with the current patch. " +
+    `apply-patches: removed ${nodeModulesPath} because its patch did not apply. ` +
+      "Run npm ci (or npm install) and npm run setup again to reinstall it with the current patch. " +
       "If it fails again on the clean package, the patch is out of date and must be regenerated.",
   );
 }
@@ -145,7 +145,7 @@ for (const [index, { nodeModulesPath, patchPrefix, cwd = "." }] of installedPack
 process.exit(failed ? 1 : 0);
 
 function applyPatches(cwd, files, index) {
-  const tempPatchDir = join(".tmp", `postinstall-patches-${process.pid}-${index}`);
+  const tempPatchDir = join(".tmp", `apply-patches-${process.pid}-${index}`);
   mkdirSync(tempPatchDir, { recursive: true });
   for (const patchFile of files) {
     copyFileSync(join("patches", patchFile), join(tempPatchDir, patchFile));
@@ -164,7 +164,7 @@ function applyPatches(cwd, files, index) {
   }
 
   if (result.error) {
-    console.error("postinstall-patches: patch-package failed to spawn:", result.error.message);
+    console.error("apply-patches: patch-package failed to spawn:", result.error.message);
     return "unavailable";
   }
   return result.status === 0 ? "applied" : "rejected";

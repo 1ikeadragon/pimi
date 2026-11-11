@@ -4,6 +4,7 @@ TypeScript SDK for building integrations on top of a Pimi daemon.
 
 ```bash
 npm ci
+npm run setup
 npm run build:client
 ```
 

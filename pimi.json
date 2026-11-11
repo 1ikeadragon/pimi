@@ -2,6 +2,7 @@
   "worktree": {
     "setup": [
       "npm ci",
+      "npm run setup",
       "node ./scripts/seed-ios-native-cache.mjs",
       "node ./scripts/seed-worktree-dev-state.mjs",
       "npm run build:server",

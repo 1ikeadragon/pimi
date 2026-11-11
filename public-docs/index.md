@@ -22,6 +22,7 @@ For headless machines, dev boxes, or any setup where you want the daemon running
 
 ```bash
 npm ci
+npm run setup
 npm run build:server
 ./packages/cli/bin/pimi
 ```

@@ -10,6 +10,7 @@ category: TypeScript SDK
 
 ```bash
 npm ci
+npm run setup
 npm run build:client
 ```
 

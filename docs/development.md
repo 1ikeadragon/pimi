@@ -67,7 +67,7 @@ startup routing, remembered workspace restore, or active workspace selection.
 
 Pimi worktrees expose the native iOS dev app through the `ios-simulator` service in `pimi.json`. The service URL serves the simulator preview at `/.sim`, so the preview link is `${PASEO_URL}/.sim`.
 
-**Prerequisites (macOS only).** The service shells out to the Apple toolchain, so beyond the `npm ci` that worktree setup runs you must install:
+**Prerequisites (macOS only).** The service shells out to the Apple toolchain, so beyond the `npm ci` and `npm run setup` that worktree setup runs you must install:
 
 - **Xcode** (the full app, not just the Command Line Tools) — install it from the Mac App Store, or from `developer.apple.com/download` for a specific version. It provides `xcodebuild` and `xcrun simctl`; accept its license and let first-run component installation finish before starting the service.
 - **An iOS Simulator runtime with at least one iPhone device type**. Recent Xcode versions may not bundle a runtime — add one via Xcode → Settings → Components (older Xcode: "Platforms"). The service targets `iPhone 16 Pro` by default (override with `PASEO_IOS_DEVICE_TYPE`) and falls back to any iPhone; it fails with `No iPhone simulator device type is installed` when none exist.
@@ -513,12 +513,13 @@ For tighter loops, you can rebuild a single workspace:
 
 ## Dependency patches
 
-`patches/*.patch` are applied by `scripts/postinstall-patches.mjs` on every install. A patch only
+`npm run setup` applies `patches/*.patch` through `scripts/apply-patches.mjs`. Run it after
+every `npm ci` or `npm install`: reinstalling a package replaces its patched files. A patch only
 runs when its package is actually present, so add the package to that script's `patchedPackages`
 list when you introduce a new patch — otherwise the file sits in `patches/` and never applies.
 patch-package cannot apply a patch that changed after an earlier version was applied, so the
-script removes that package and fails the install; the next `npm install` reinstalls it clean
-with the current patch. Regenerate a patch with `npx patch-package <package>` after editing `node_modules/<package>`, and
+script removes that package and fails; the next `npm ci` or `npm install` reinstalls it clean, and
+`npm run setup` applies the current patch. Regenerate a patch with `npx patch-package <package>` after editing `node_modules/<package>`, and
 patch every build the consumers use: Metro resolves the `react-native` field of a package
 (`src/*.ts` for `react-native-svg`), while Node resolves `main`/`module`
 (`lib/commonjs`, `lib/module`). Patching only `lib/` leaves the app bundle unfixed.

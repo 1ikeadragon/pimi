@@ -31,4 +31,4 @@ Compare the downloads against `SHA256SUMS.txt` from the release. For the first s
 
 ## Build locally
 
-Run `npm ci` with the Node.js version in `.tool-versions`. Use `npm run pimi:package:mac` on Apple silicon or `npm run pimi:package:win` on Windows x64. The installers are written under `packages/desktop/release-pimi/`. The local Mac command produces an ad hoc build for development.
+Run `npm ci` and `npm run setup` with the Node.js version in `.tool-versions`. Use `npm run pimi:package:mac` on Apple silicon or `npm run pimi:package:win` on Windows x64. The installers are written under `packages/desktop/release-pimi/`. The local Mac command produces an ad hoc build for development.
