@@ -1,6 +1,6 @@
 {
   "name": "@pimi/expo-two-way-audio",
-  "version": "0.17.20",
+  "version": "0.17.21",
   "private": true,
   "description": "Native module for two way audio streaming",
   "keywords": [

@@ -1,6 +1,6 @@
 {
   "name": "@pimi/relay",
-  "version": "0.17.20",
+  "version": "0.17.21",
   "private": true,
   "description": "Pimi relay for bridging daemon and client connections",
   "license": "Apache-2.0",

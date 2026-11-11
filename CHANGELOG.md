@@ -2,6 +2,19 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.21 - 2026-11-12
+
+- Large chats open much faster. Claude and Codex chats load from the newest turns and fetch older history as you scroll. A 291 MB Claude chat now opens in about a quarter of a second. Older history no longer drops rows while paging.
+- Long tool output shows a short preview and loads in full when you expand it, hover it, or it is part of the newest turn. If loading fails, the row offers Retry.
+- The Git panel shows status without waiting for GitHub, and Spaces show a still preview of embeds until you click to play.
+- The editor has a right-click menu with Go to Definition, Find References, Rename and Search Codebase. TypeScript and JavaScript use the built-in TypeScript service. Rust, Python, PHP and Go use rust-analyzer, basedpyright or pyright or pylsp, Intelephense or phpactor, and gopls when they are installed. Pimi never downloads a language server. Without one, navigation matches by name and Rename is off.
+- A new Settings → Editor page shows which language server Pimi found for each language and lets you point it at your own. The first time you open a file whose language has no server, Pimi says so once and links to the setting.
+- Git blame for the current line appears almost instantly and no longer blanks while you move the cursor.
+- A new Pimi models settings page, after Providers, picks the provider, model and thinking level Pimi uses for its own work: chat titles, workspace and branch names, commit messages, pull request text, Describe it and Ask Pimi. Each feature can use the default or its own model. If a chosen model can't run, Pimi shows an error instead of quietly using another one.
+- While an agent works, the chat shows Pimi and a status line saying what is happening: the tool it is running, Thinking, Writing, or Waiting for your approval. Elapsed time appears after a few seconds.
+- The automation editor no longer asks to discard changes. Unsaved edits stay with each automation while you move around the app, with an Unsaved changes bar to save or discard them. Adding a step or check no longer resets the canvas view. On phones the create buttons wrap.
+- Review comments use a compact inline box (⌘↵ to submit), and the floating Send feedback button is gone. Sent annotation pills jump back to their source.
+
 ## 0.17.20 - 2026-11-12
 
 - Automations open in a full-screen editor built around the step graph, replacing the old dialog. Drag the canvas to pan, scroll or pinch to zoom, and use Fit to recenter. The graph opens centered at a readable size.
