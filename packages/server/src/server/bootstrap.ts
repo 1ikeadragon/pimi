@@ -153,6 +153,8 @@ import { createSpeechSettingsOwner } from "./speech/speech-settings.js";
 import { AgentManager } from "./agent/agent-manager.js";
 import { AgentStorage } from "./agent/agent-storage.js";
 import { FileCarriedTimelineStore } from "./agent/carried-timeline.js";
+import { FileAgentImageStore } from "./agent/agent-images.js";
+import { FileSentAttachmentStore } from "./agent/sent-attachments.js";
 import { attachAgentStoragePersistence } from "./persistence-hooks.js";
 import { createAgentMcpServer } from "./agent/mcp-server.js";
 import { ProjectMemory } from "./project-memory.js";
@@ -1092,6 +1094,11 @@ export async function createPaseoDaemon(
     registry: agentStorage,
     carriedTimelines: new FileCarriedTimelineStore(
       path.join(config.paseoHome, "agent-carried-timelines"),
+      logger,
+    ),
+    agentImages: new FileAgentImageStore(path.join(config.paseoHome, "agent-images"), logger),
+    sentAttachments: new FileSentAttachmentStore(
+      path.join(config.paseoHome, "agent-sent-attachments"),
       logger,
     ),
     appendSystemPrompt: config.appendSystemPrompt,

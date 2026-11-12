@@ -1,5 +1,6 @@
 import type { AgentMessage } from "@pimi/protocol/agent-message";
 import type {
+  AgentImageRef,
   AgentProvider,
   AgentPermissionResolutionMarker,
   AgentProviderSwitchMarker,
@@ -105,6 +106,8 @@ export interface UserMessageItem {
   timestamp: Date;
   images?: UserMessageImageAttachment[];
   attachments?: AgentAttachment[];
+  /** Images the daemon kept for this message; the bytes are fetched on demand. */
+  sentImages?: AgentImageRef[];
 }
 
 export interface UserMessageInput {
@@ -117,6 +120,7 @@ export interface UserMessageInput {
   timestamp: Date;
   images?: UserMessageImageAttachment[];
   attachments?: AgentAttachment[];
+  sentImages?: AgentImageRef[];
 }
 
 export function createUserMessage(input: UserMessageInput): UserMessageItem {
@@ -137,6 +141,7 @@ export function createUserMessage(input: UserMessageInput): UserMessageItem {
     ...(input.attachments && input.attachments.length > 0
       ? { attachments: input.attachments }
       : {}),
+    ...(input.sentImages && input.sentImages.length > 0 ? { sentImages: input.sentImages } : {}),
   };
 }
 
@@ -212,6 +217,22 @@ interface UserMessageProductionResult {
   matched: boolean;
 }
 
+/** Keeps what the presentation row shows and the ids and pills either row learned. */
+function mergeUserMessages(
+  existing: UserMessageItem,
+  incoming: UserMessageItem,
+  presentation: UserMessageItem,
+): UserMessageItem {
+  return createUserMessage({
+    ...presentation,
+    clientMessageId: incoming.clientMessageId ?? existing.clientMessageId,
+    messageId: incoming.messageId ?? existing.messageId,
+    timelineCursor: incoming.timelineCursor ?? existing.timelineCursor,
+    attachments: presentation.attachments ?? existing.attachments ?? incoming.attachments,
+    sentImages: presentation.sentImages ?? existing.sentImages ?? incoming.sentImages,
+  });
+}
+
 function produceUserMessage(
   items: StreamItem[],
   incoming: UserMessageItem,
@@ -237,13 +258,11 @@ function produceUserMessage(
   if (!existing || existing.kind !== "user_message") {
     throw new Error("User message upsert matched a non-user row");
   }
-  const presentation = presentationPolicy === "incoming" ? incoming : existing;
-  const merged = createUserMessage({
-    ...presentation,
-    clientMessageId: incoming.clientMessageId ?? existing.clientMessageId,
-    messageId: incoming.messageId ?? existing.messageId,
-    timelineCursor: incoming.timelineCursor ?? existing.timelineCursor,
-  });
+  const merged = mergeUserMessages(
+    existing,
+    incoming,
+    presentationPolicy === "incoming" ? incoming : existing,
+  );
   if (
     existing.id === merged.id &&
     existing.clientMessageId === merged.clientMessageId &&
@@ -252,7 +271,8 @@ function produceUserMessage(
     existing.text === merged.text &&
     existing.timestamp === merged.timestamp &&
     existing.images === merged.images &&
-    existing.attachments === merged.attachments
+    existing.attachments === merged.attachments &&
+    existing.sentImages === merged.sentImages
   ) {
     return { items, index, message: existing, matched: true };
   }
@@ -870,9 +890,11 @@ function appendUserMessage(
   clientMessageId?: string,
   timelineCursor?: TimelinePosition,
   turnId?: string,
+  sent?: { attachments?: AgentAttachment[]; images?: AgentImageRef[] },
 ): StreamItem[] {
   const { chunk, hasContent } = normalizeChunk(text);
-  if (!hasContent) {
+  // A message sent as attachments alone has no text and still shows its pills.
+  if (!hasContent && !sent?.attachments?.length && !sent?.images?.length) {
     return state;
   }
 
@@ -885,6 +907,8 @@ function appendUserMessage(
     turnId,
     text: chunk,
     timestamp,
+    attachments: sent?.attachments,
+    sentImages: sent?.images,
   });
   return upsertUserMessage(state, nextItem);
 }
@@ -1493,6 +1517,7 @@ function reduceTimelineEvent(
         item.clientMessageId,
         timelineCursor,
         event.turnId,
+        { attachments: item.attachments, images: item.images },
       );
     case "assistant_message":
       return appendAssistantMessage(

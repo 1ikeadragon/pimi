@@ -2633,6 +2633,8 @@ export class Session {
         return this.handleAgentTimelineAppendRequest(msg);
       case "agent.timeline.search.request":
         return this.handleAgentTimelineSearchRequest(msg, source);
+      case "agent.image.request":
+        return this.handleAgentImageRequest(msg, source);
       case "agent.timeline.get_tool_body.request":
         return this.handleAgentTimelineGetToolBodyRequest(msg, source);
       case "agent.timeline.list_prompts.request":
@@ -8053,6 +8055,37 @@ export class Session {
         },
         source,
       );
+    }
+  }
+
+  private async handleAgentImageRequest(
+    msg: Extract<SessionInboundMessage, { type: "agent.image.request" }>,
+    source?: object,
+  ): Promise<void> {
+    const respond = (image: { mimeType: string; data: string } | null, error: string | null) =>
+      this.emitForSource(
+        {
+          type: "agent.image.response",
+          payload: {
+            requestId: msg.requestId,
+            agentId: msg.agentId,
+            imageId: msg.imageId,
+            mimeType: image?.mimeType ?? null,
+            data: image?.data ?? null,
+            error,
+          },
+        },
+        source,
+      );
+    try {
+      const image = await this.agentManager.readAgentImage(msg.agentId, msg.imageId);
+      respond(image, image ? null : "Image not found");
+    } catch (error) {
+      this.sessionLogger.error(
+        { err: error, agentId: msg.agentId },
+        "Failed to handle agent.image.request",
+      );
+      respond(null, error instanceof Error ? error.message : String(error));
     }
   }
 

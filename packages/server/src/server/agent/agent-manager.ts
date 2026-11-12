@@ -116,7 +116,15 @@ import { extractAttention } from "../persistence-hooks.js";
 import { PIMI_VISUALIZATION_INSTRUCTIONS } from "@pimi/protocol/chat-visualization";
 import { buildAgentForkContextAttachment, MAX_FORK_CONTEXT_CHARS } from "./activity-curator.js";
 import { isChatHistoryAttachment } from "./prompt-attachments.js";
+import type { AgentAttachment } from "@pimi/protocol/messages";
+import type { AgentImageStore } from "./agent-images.js";
 import type { CarriedTimelineStore } from "./carried-timeline.js";
+import {
+  SentAttachmentJoiner,
+  prepareSentAttachments,
+  type SentAttachmentStore,
+  type SentImageInput,
+} from "./sent-attachments.js";
 import {
   AgentProviderSwitchError,
   buildProviderSwitchTimelineItem,
@@ -215,6 +223,21 @@ function submittedPromptText(prompt: AgentPromptInput): string {
     .flatMap((block) => (block.type === "text" && !("mimeType" in block) ? [block.text] : []))
     .join("\n")
     .trim();
+}
+
+/** What a prompt carried besides the typed text: structured attachments and screenshots. */
+function sentPromptParts(prompt: AgentPromptInput): {
+  attachments: AgentAttachment[];
+  images: SentImageInput[];
+} {
+  const attachments: AgentAttachment[] = [];
+  const images: SentImageInput[] = [];
+  if (typeof prompt === "string") return { attachments, images };
+  for (const block of prompt) {
+    if (block.type === "image") images.push({ data: block.data, mimeType: block.mimeType });
+    else if (block.type !== "text" || "mimeType" in block) attachments.push(block);
+  }
+  return { attachments, images };
 }
 
 function captureInitialChatContext(agent: ManagedAgent, prompt: AgentPromptInput): void {
@@ -574,6 +597,8 @@ export interface AgentManagerOptions {
   timelineStore?: InMemoryAgentTimelineStore;
   durableTimelineStore?: AgentTimelineStore;
   carriedTimelines?: CarriedTimelineStore;
+  sentAttachments?: SentAttachmentStore;
+  agentImages?: AgentImageStore;
   terminalManager?: TerminalManager | null;
   mcpBaseUrl?: string;
   mcpAuthToken?: string;
@@ -1061,6 +1086,9 @@ export class AgentManager {
   private readonly registry?: AgentStorage;
   private readonly durableTimelineStore?: AgentTimelineStore;
   private readonly carriedTimelines?: CarriedTimelineStore;
+  private readonly sentAttachments?: SentAttachmentStore;
+  private readonly agentImages?: AgentImageStore;
+  private readonly sentJoiners = new Map<string, SentAttachmentJoiner>();
   private readonly previousStatuses = new Map<string, AgentLifecycleStatus>();
   private readonly backgroundTasks = new Set<Promise<void>>();
   private readonly agentRegistrationTasks = new Set<Promise<void>>();
@@ -1103,6 +1131,8 @@ export class AgentManager {
     this.registry = options?.registry;
     this.durableTimelineStore = options?.durableTimelineStore;
     this.carriedTimelines = options.carriedTimelines;
+    this.sentAttachments = options.sentAttachments;
+    this.agentImages = options.agentImages;
     this.onAgentAttention = options?.onAgentAttention;
     this.onWorkspaceStateMayHaveChanged = options?.onWorkspaceStateMayHaveChanged;
     this.generateChatTitle = options.generateChatTitle;
@@ -4352,7 +4382,86 @@ export class AgentManager {
   ): Promise<void> {
     this.discardRetainedAgentState(agentId);
     await this.deleteCommittedTimeline(agentId);
-    if (!options?.keepCarriedTimeline) await this.carriedTimelines?.delete(agentId);
+    if (!options?.keepCarriedTimeline) {
+      await this.carriedTimelines?.delete(agentId);
+      await this.sentAttachments?.delete(agentId);
+      await this.agentImages?.delete(agentId);
+    }
+  }
+
+  async readAgentImage(
+    agentId: string,
+    imageId: string,
+  ): Promise<{ mimeType: string; data: string } | null> {
+    const image = await this.agentImages?.read(agentId, imageId);
+    return image ? { mimeType: image.mimeType, data: image.bytes.toString("base64") } : null;
+  }
+
+  /**
+   * Gives replayed user messages back the pills and screenshots they were sent with, and the
+   * text the user typed. Provider history keeps only the prompt text, attachment bodies included.
+   */
+  private async joinSentAttachments(
+    agentId: string,
+    events: Array<{ item: AgentTimelineItem }>,
+    options: { fresh: boolean },
+  ): Promise<void> {
+    if (!this.sentAttachments) return;
+    let joiner = options.fresh ? undefined : this.sentJoiners.get(agentId);
+    if (!joiner) {
+      try {
+        joiner = new SentAttachmentJoiner(await this.sentAttachments.load(agentId));
+      } catch (error) {
+        this.logger.error({ err: error, agentId }, "Failed to load sent attachments");
+        return;
+      }
+      this.sentJoiners.set(agentId, joiner);
+    }
+    for (const event of events) {
+      const { item } = event;
+      if (item.type !== "user_message") continue;
+      const record = joiner.match(item);
+      if (!record) continue;
+      event.item = {
+        ...item,
+        text: record.text,
+        ...(record.attachments.length > 0 ? { attachments: record.attachments } : {}),
+        ...(record.images.length > 0 ? { images: record.images } : {}),
+      };
+    }
+  }
+
+  private rememberSentAttachments(
+    agentId: string,
+    record: { clientMessageId: string; text: string },
+    prepared: ReturnType<typeof prepareSentAttachments>,
+  ): void {
+    const store = this.sentAttachments;
+    if (!store) return;
+    void (async () => {
+      for (const [, blob] of prepared.blobs) {
+        await this.agentImages?.put(agentId, { ...blob, origin: "user" });
+      }
+      await store.append(agentId, {
+        ...record,
+        attachments: prepared.attachments,
+        images: prepared.images,
+      });
+    })().catch((error) => {
+      this.logger.warn({ err: error, agentId }, "Failed to store sent attachments");
+    });
+  }
+
+  private rememberProviderMessageId(
+    agentId: string,
+    clientMessageId: string,
+    providerMessageId: string,
+  ): void {
+    void this.sentAttachments
+      ?.setProviderMessageId(agentId, clientMessageId, providerMessageId)
+      .catch((error) => {
+        this.logger.warn({ err: error, agentId }, "Failed to record sent message provider id");
+      });
   }
 
   private async replayCarriedTimeline(agentId: string): Promise<void> {
@@ -4934,6 +5043,7 @@ export class AgentManager {
 
   private discardRetainedAgentState(agentId: string): void {
     this.timelineStore.delete(agentId);
+    this.sentJoiners.delete(agentId);
     this.paseoToolPolicies.delete(agentId);
     this.detachPluginTools(agentId);
     for (const event of this.providerSubagents.deleteParent(agentId)) {
@@ -5279,6 +5389,7 @@ export class AgentManager {
       const loaded = this.timelineStore.countRowsBefore(agentId, options.beforeSeq ?? Infinity);
       if (!options.all && loaded >= (options.rowsWanted ?? 0)) return;
       const block = this.projectOlderHistoryEvents(await agent.session.loadOlderHistory!());
+      await this.joinSentAttachments(agentId, block.timeline, { fresh: false });
       if (this.timelineStore.getEpoch(agentId) !== epoch) return;
       this.timelineStore.prependItems(
         agentId,
@@ -5362,6 +5473,7 @@ export class AgentManager {
       historyEvents.unshift(...older.timeline);
       providerSubagentEvents.unshift(...older.subagents);
     }
+    await this.joinSentAttachments(agent.id, historyEvents, { fresh: true });
     this.agentStreamCoalescer.flushAndDiscard(agent.id);
     await this.deleteCommittedTimeline(agent.id);
     this.timelineStore.delete(agent.id);
@@ -5437,6 +5549,7 @@ export class AgentManager {
     // base so older blocks can be added below; a timeline that already holds carried rows needs
     // the whole history before it can be recorded.
     const windowed = await this.prepareWindowedHistory(agent, historyEvents, historySubagentEvents);
+    await this.joinSentAttachments(agent.id, historyEvents, { fresh: true });
     // The replay is the timeline, so drop the rows a previous hydration committed.
     // Keeping them would leave getTimelineRows reading one copy per hydration.
     await this.deleteCommittedTimeline(agent.id);
@@ -6060,11 +6173,26 @@ export class AgentManager {
     outcome: "accepted" | "rejected",
     options?: { messageId?: string; providerMessageId?: string; turnId?: string },
   ): void {
+    const text = submittedPromptText(prompt);
+    const prepared = this.sentAttachments
+      ? prepareSentAttachments(sentPromptParts(prompt))
+      : { attachments: [], images: [], blobs: new Map() };
+    if (
+      (prepared.attachments.length > 0 || prepared.images.length > 0) &&
+      !this.timelineStore.getSubmittedUserMessage(agent.id, clientMessageId)
+    ) {
+      this.rememberSentAttachments(agent.id, { clientMessageId, text }, prepared);
+    }
+    if (options?.providerMessageId) {
+      this.rememberProviderMessageId(agent.id, clientMessageId, options.providerMessageId);
+    }
     const items = projectAgentMessages({
       type: "user_message",
-      text: submittedPromptText(prompt),
+      text,
       clientMessageId,
       ...(options?.messageId ? { messageId: options.messageId } : {}),
+      ...(prepared.attachments.length > 0 ? { attachments: prepared.attachments } : {}),
+      ...(prepared.images.length > 0 ? { images: prepared.images } : {}),
     });
     for (const item of items) {
       // Human attempts stay in history on rejection; delivery notifications require acceptance.
@@ -6170,6 +6298,7 @@ export class AgentManager {
     }
     if (!existing || existing.item.type !== "user_message") return null;
     if (messageId) {
+      this.rememberProviderMessageId(agent.id, clientMessageId, messageId);
       const enriched = this.timelineStore.enrichSubmittedUserMessage(
         agent.id,
         clientMessageId,
