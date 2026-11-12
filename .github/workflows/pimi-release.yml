@@ -101,9 +101,10 @@ jobs:
         run: npm audit signatures --min-release-age=0
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: pimi-release-${{ github.run_attempt }}-notes
+          name: pimi-release-notes
           path: release-notes.md
           if-no-files-found: error
+          overwrite: true
           retention-days: 1
 
   mac:
@@ -223,9 +224,10 @@ jobs:
           cp "$dmg" Pimi-macOS-arm64.dmg
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: pimi-release-${{ github.run_attempt }}-mac
+          name: pimi-release-mac
           path: packages/desktop/release-pimi/Pimi-macOS-arm64.dmg
           if-no-files-found: error
+          overwrite: true
           compression-level: 0
           retention-days: 1
 
@@ -271,9 +273,10 @@ jobs:
           Copy-Item -LiteralPath $installer -Destination Pimi-Windows-x64.exe
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: pimi-release-${{ github.run_attempt }}-win
+          name: pimi-release-win
           path: packages/desktop/release-pimi/Pimi-Windows-x64.exe
           if-no-files-found: error
+          overwrite: true
           compression-level: 0
           retention-days: 1
 
@@ -289,7 +292,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: pimi-release-${{ github.run_attempt }}-*
+          pattern: pimi-release-*
           path: release
       - name: Publish installers and checksums
         working-directory: release
@@ -306,7 +309,7 @@ jobs:
           remote="$(git ls-remote "https://github.com/$GITHUB_REPOSITORY.git" "refs/tags/$RELEASE_TAG" "refs/tags/$RELEASE_TAG^{}" | tail -n 1 | cut -f 1)"
           test "$remote" = "$RELEASE_COMMIT"
 
-          prefix="pimi-release-$GITHUB_RUN_ATTEMPT"
+          prefix="pimi-release"
           mv "$prefix-mac/Pimi-macOS-arm64.dmg" .
           test -s Pimi-macOS-arm64.dmg
           assets=(Pimi-macOS-arm64.dmg)
@@ -315,6 +318,12 @@ jobs:
             test -s Pimi-Windows-x64.exe
             assets+=(Pimi-Windows-x64.exe)
           fi
+          # Published releases are immutable, so the signed APK from the earlier
+          # pimi-android-vX prerelease is attached here for releases/latest links.
+          gh release download "pimi-android-v$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" \
+            --pattern Pimi-Android-arm64.apk
+          test -s Pimi-Android-arm64.apk
+          assets+=(Pimi-Android-arm64.apk)
           if [[ "$MAC_AD_HOC" == true ]]; then
             printf '\n### macOS signing\n\nThe Apple silicon disk image is ad hoc signed and is not notarized. macOS may require approval when opening the new version.\n' >> "$prefix-notes/release-notes.md"
           fi
