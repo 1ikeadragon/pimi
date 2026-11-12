@@ -89,6 +89,7 @@ import {
   filterAndRankBuiltInResults,
   joinSubtitleParts,
   PINNED_SECTION_BAND,
+  type CommandCenterChatResult,
   type CommandCenterCodeResult,
   projectCommandCenterRows,
   type CommandCenterAgentResult,
@@ -102,6 +103,9 @@ import {
 import { createCommandCenterInteraction, type CommandCenterInteraction } from "./interaction";
 import { useWorkspaceFileSearch } from "./workspace-file-search";
 import { useWorkspaceCodeSearch } from "./workspace-code-search";
+import { useChatContentSearch } from "@/chat-search/use-chat-content-search";
+import { ChatHitSnippet } from "@/chat-search/chat-hit-snippet";
+import { useProviderIcon } from "@/components/provider-icons";
 
 const ThemedBottomSheetTextInput = withUnistyles(TextInput, (theme) => ({
   placeholderTextColor: theme.colors.foregroundMuted,
@@ -305,9 +309,37 @@ interface CommandCenterState {
   codeSearchError: string | null;
   codeSearchStatus: string | null;
   codeSearchAvailable: boolean;
+  chatSearchLoading: boolean;
+  chatSearchError: string | null;
+  chatSearchAvailable: boolean;
+  chatSearchStatus: string | null;
   close(): void;
   select(result: CommandCenterResult): void;
   key(key: string): boolean;
+}
+
+function modeSearchLoading(
+  mode: PaletteMode,
+  loading: { code: boolean; chats: boolean; files: boolean },
+): boolean {
+  if (mode === "code") return loading.code;
+  if (mode === "chats") return loading.chats;
+  return loading.files;
+}
+
+function searchingLabel(mode: PaletteMode, t: TFunction): string {
+  if (mode === "code") return "Searching code";
+  if (mode === "chats") return "Searching chats";
+  return t("shell.commandCenter.searchingFiles");
+}
+
+function formatChatSearchStatus(
+  mode: PaletteMode,
+  search: { unindexedChats: number; loading: boolean },
+): string | null {
+  if (mode !== "chats" || search.loading || search.unindexedChats === 0) return null;
+  const count = search.unindexedChats;
+  return `${count} ${count === 1 ? "chat is" : "chats are"} not indexed yet. Index older chats from the Sessions screen.`;
 }
 
 function formatCodeSearchStatus(
@@ -322,6 +354,8 @@ function formatCodeSearchStatus(
 
 function commandCenterPlaceholder(mode: PaletteMode, t: TFunction): string {
   switch (mode) {
+    case "chats":
+      return "Search what was said in your chats";
     case "code":
       return "Search code across this workspace";
     case "files":
@@ -337,6 +371,8 @@ function commandCenterPlaceholder(mode: PaletteMode, t: TFunction): string {
 
 function scopeChipLabel(scope: Exclude<CommandCenterScope, null>, t: TFunction): string {
   switch (scope) {
+    case "chats":
+      return "Chat search";
     case "code":
       return "Code search";
     case "files":
@@ -349,6 +385,11 @@ function scopeChipLabel(scope: Exclude<CommandCenterScope, null>, t: TFunction):
 function emptyMessage(state: CommandCenterState, noMatches: string, t: TFunction): string {
   if (state.mode === "slash" && !state.searchText.trim())
     return t("shell.commandCenter.slashEmpty");
+  if (state.mode === "chats" && !state.searchText.trim()) {
+    return state.chatSearchAvailable
+      ? "Search what was said in your chats"
+      : "Connect to a host to search chats";
+  }
   if (state.mode !== "code" || state.searchText.trim()) return noMatches;
   return state.codeSearchAvailable
     ? "Search code across this workspace"
@@ -367,13 +408,28 @@ function EmptyCommandCenterResults({
     state.fileSearchError ||
     state.fileSearchLoading ||
     state.codeSearchError ||
-    state.codeSearchLoading
+    state.codeSearchLoading ||
+    state.chatSearchError ||
+    state.chatSearchLoading
   )
     return null;
   return <Text style={styles.emptyText}>{emptyMessage(state, noMatches, t)}</Text>;
 }
 
 function CodeSearchStatus({ state }: { state: CommandCenterState }) {
+  if (state.mode === "chats") {
+    const message = state.chatSearchError ?? state.chatSearchStatus;
+    if (!message) return null;
+    return (
+      <Text
+        style={styles.emptyText}
+        accessibilityRole="alert"
+        testID="command-center-chat-search-status"
+      >
+        {message}
+      </Text>
+    );
+  }
   if (state.mode !== "code" || (!state.codeSearchError && !state.codeSearchStatus)) return null;
   const error = state.codeSearchError;
   return (
@@ -416,6 +472,57 @@ function useCommandCenterState(
     enabled: open && mode === "code",
     query: searchText,
   });
+  const hosts = useHosts();
+  const chatServerIds = useMemo(() => hosts.map((host) => host.serverId), [hosts]);
+  const chatServerId = chatServerIds[0] ?? null;
+  // Beside the other results a short query would only add noise, so `all` waits for 3 characters.
+  const chatSearch = useChatContentSearch({
+    enabled: open && (mode === "chats" || (mode === "all" && searchText.trim().length >= 3)),
+    query: searchText,
+    serverIds: chatServerIds,
+    limit: mode === "chats" ? 30 : 3,
+    minLength: mode === "chats" ? 2 : 3,
+  });
+  const chatHits = chatSearch.hits;
+  const openChatHit = useCallback(
+    (hit: (typeof chatHits)[number]) => {
+      clearCommandCenterFocusRestoreElement();
+      navigateToAgent({
+        serverId: hit.serverId,
+        agentId: hit.agentId,
+        workspaceId: hit.workspaceId,
+        reveal: {
+          epoch: hit.epoch,
+          seq: hit.seq,
+          query: searchText.trim(),
+          snippet: hit.snippet.text,
+        },
+      });
+    },
+    [searchText],
+  );
+  const chatSections = useMemo<CommandCenterResultSection[]>(
+    () => [
+      {
+        id: "chats",
+        band: PINNED_SECTION_BAND,
+        rank: mode === "chats" ? 4 : 5,
+        title: mode === "chats" ? "Chats" : "In chats",
+        results: chatHits
+          .slice(0, mode === "chats" ? undefined : 3)
+          .map<CommandCenterChatResult>((hit, index) => ({
+            kind: "chat",
+            id: `chat:${hit.agentId}:${hit.seq}:${index}`,
+            serverId: hit.serverId,
+            hit,
+            title: hit.title ?? "Untitled chat",
+            subtitle: hit.snippet.text,
+            run: () => openChatHit(hit),
+          })),
+      },
+    ],
+    [chatHits, mode, openChatHit],
+  );
   const codeSearchResults = codeSearch.results;
   const openCodeResult = codeSearch.openResult;
   const fileSections = useMemo<CommandCenterResultSection[]>(() => {
@@ -466,11 +573,41 @@ function useCommandCenterState(
                 },
               ]
             : []),
+          ...(mode === "all" && chatServerId
+            ? [
+                {
+                  id: "chat-search",
+                  group: "actions",
+                  groupRank: 0,
+                  rank: 7,
+                  keywords: ["chat", "chats", "message", "messages", "history", "conversation"],
+                  visibility: "query" as const,
+                  run: () => {
+                    interaction.setQuery("");
+                    setOpen(true, "chats");
+                  },
+                  presentation: {
+                    kind: "action" as const,
+                    title: "Search chat messages",
+                    sectionTitle: t("shell.commandCenter.actions"),
+                  },
+                },
+              ]
+            : []),
         ],
         searchText,
         (contribution) => showsWhenEmpty(mode, contribution),
       ),
-    [codeSearch.available, interaction, mode, searchText, setOpen, snapshot.contributions, t],
+    [
+      chatServerId,
+      codeSearch.available,
+      interaction,
+      mode,
+      searchText,
+      setOpen,
+      snapshot.contributions,
+      t,
+    ],
   );
   const codeSections = useMemo<CommandCenterResultSection[]>(
     () => [
@@ -496,20 +633,33 @@ function useCommandCenterState(
     let sections: CommandCenterResultSection[];
     if (mode === "files") sections = fileSections;
     else if (mode === "code") sections = codeSections;
+    else if (mode === "chats") sections = chatSections;
     else if (mode === "all") {
-      sections = [...contributionSections, ...fileSections, ...builtInSections];
+      sections = [...contributionSections, ...fileSections, ...chatSections, ...builtInSections];
     } else sections = contributionSections;
     return projectCommandCenterRows(sections, listMetrics);
-  }, [builtInSections, codeSections, contributionSections, fileSections, listMetrics, mode]);
+  }, [
+    builtInSections,
+    chatSections,
+    codeSections,
+    contributionSections,
+    fileSections,
+    listMetrics,
+    mode,
+  ]);
   // Only the searches that answer asynchronously make the list wait; the rest are instant.
-  const searchScope = mode === "files" || mode === "code" ? mode : null;
+  const searchScope = mode === "files" || mode === "code" || mode === "chats" ? mode : null;
   useLayoutEffect(() => {
     interaction.update({
       open,
       scope: searchScope,
       query,
       projection,
-      loading: mode === "code" ? codeSearch.loading : fileSearchLoading,
+      loading: modeSearchLoading(mode, {
+        code: codeSearch.loading,
+        chats: chatSearch.loading,
+        files: fileSearchLoading,
+      }),
     });
   }, [
     interaction,
@@ -520,6 +670,7 @@ function useCommandCenterState(
     projection,
     fileSearchLoading,
     codeSearch.loading,
+    chatSearch.loading,
   ]);
 
   const close = useCallback(() => setOpen(false), [setOpen]);
@@ -618,6 +769,10 @@ function useCommandCenterState(
     codeSearchError: codeSearch.error,
     codeSearchAvailable: codeSearch.available,
     codeSearchStatus: formatCodeSearchStatus(mode, codeSearch),
+    chatSearchLoading: chatSearch.loading,
+    chatSearchError: chatSearch.error,
+    chatSearchAvailable: chatServerId !== null,
+    chatSearchStatus: formatChatSearchStatus(mode, chatSearch),
     close,
     select,
     key,
@@ -635,6 +790,7 @@ interface ResultRowProps {
 function resultRowTestId(result: CommandCenterResult): string | undefined {
   if (result.kind === "file") return `command-center-file-row-${result.filePath}`;
   if (result.kind === "code") return `command-center-code-row-${result.id}`;
+  if (result.kind === "chat") return `command-center-chat-row-${result.id}`;
   if (result.kind === "contribution" && result.contribution.presentation.kind === "choice")
     return result.contribution.presentation.testId;
   return undefined;
@@ -658,7 +814,7 @@ const ResultRow = memo(function ResultRow({
       ? result.contribution.presentation
       : null;
   const accessibilityLabel =
-    result.kind === "file" || result.kind === "code"
+    result.kind === "file" || result.kind === "code" || result.kind === "chat"
       ? [result.title, result.subtitle].filter(Boolean).join(" ")
       : pathPresentation?.path.join(" › ");
   const accessibilityState = useMemo(
@@ -831,6 +987,31 @@ function WorkspaceProjectIcon({ project }: { project: CommandCenterWorkspaceResu
   );
 }
 
+function ChatResultContent({ result }: { result: CommandCenterChatResult }) {
+  const providerIcon = useProviderIcon(result.hit.provider, result.serverId);
+  const ProviderIcon = useMemo(
+    () => withUnistyles(providerIcon, providerIconMapping),
+    [providerIcon],
+  );
+  const when = useTimeAgo(new Date(result.hit.timestamp));
+  return (
+    <View style={styles.rowContent}>
+      <View style={styles.rowMain}>
+        <View style={styles.iconSlot}>
+          <ProviderIcon size={16} />
+        </View>
+        <View style={styles.textContent}>
+          <Text style={styles.title} numberOfLines={1}>
+            {result.title}
+            {when ? <Text style={styles.subtitle}>{`  ${when}`}</Text> : null}
+          </Text>
+          <ChatHitSnippet hit={result.hit} style={styles.subtitle} numberOfLines={1} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
 function ResultContent({
   result,
   query,
@@ -840,6 +1021,7 @@ function ResultContent({
   query: string;
   backdrop: SurfaceBackdrop;
 }) {
+  if (result.kind === "chat") return <ChatResultContent result={result} />;
   if (result.kind === "code") {
     return (
       <View style={styles.rowContent}>
@@ -1163,10 +1345,12 @@ export function CommandCenter() {
               autoFocus
             />
             <FileSearchLoadingIndicator
-              loading={state.mode === "code" ? state.codeSearchLoading : state.fileSearchLoading}
-              label={
-                state.mode === "code" ? "Searching code" : t("shell.commandCenter.searchingFiles")
-              }
+              loading={modeSearchLoading(state.mode, {
+                code: state.codeSearchLoading,
+                chats: state.chatSearchLoading,
+                files: state.fileSearchLoading,
+              })}
+              label={searchingLabel(state.mode, t)}
             />
           </View>
           {fileSearchError}
@@ -1204,10 +1388,12 @@ export function CommandCenter() {
                 autoFocus
               />
               <FileSearchLoadingIndicator
-                loading={state.mode === "code" ? state.codeSearchLoading : state.fileSearchLoading}
-                label={
-                  state.mode === "code" ? "Searching code" : t("shell.commandCenter.searchingFiles")
-                }
+                loading={modeSearchLoading(state.mode, {
+                  code: state.codeSearchLoading,
+                  chats: state.chatSearchLoading,
+                  files: state.fileSearchLoading,
+                })}
+                label={searchingLabel(state.mode, t)}
               />
             </View>
             {fileSearchError}

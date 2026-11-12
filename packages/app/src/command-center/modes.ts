@@ -10,7 +10,7 @@ import {
  * shortcut) or by the first character typed in the default palette (a prefix, as in VS Code).
  * Nothing else picks a mode: no guessing from what the text looks like.
  */
-export type PaletteMode = "all" | "files" | "code" | "commands" | "slash";
+export type PaletteMode = "all" | "files" | "code" | "chats" | "commands" | "slash";
 
 interface PaletteModeDefinition {
   /** Typed first in the default palette, it switches to this mode and is not part of the search. */
@@ -28,6 +28,7 @@ export const PALETTE_MODES: Record<PaletteMode, PaletteModeDefinition> = {
   all: { prefix: null, categories: ["command", "setting"], listsAllWhenEmpty: false },
   files: { prefix: null, categories: null, listsAllWhenEmpty: false },
   code: { prefix: "%", categories: null, listsAllWhenEmpty: false },
+  chats: { prefix: "#", categories: null, listsAllWhenEmpty: false },
   commands: { prefix: ">", categories: ["command", "setting"], listsAllWhenEmpty: true },
   slash: { prefix: "/", categories: ["slash"], listsAllWhenEmpty: true },
 };

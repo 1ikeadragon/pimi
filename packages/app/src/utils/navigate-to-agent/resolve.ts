@@ -1,3 +1,4 @@
+import type { ChatReveal } from "@/chat-search/chat-reveal-store";
 import { buildHostAgentDetailRoute } from "@/utils/host-routes";
 import { normalizeWorkspaceOpaqueId } from "@/utils/workspace-identity";
 import type { NavigateToWorkspaceInput } from "@/stores/navigation-active-workspace-store";
@@ -9,6 +10,8 @@ export interface NavigateToAgentInput {
   // (cold deep-links). Otherwise the workspace is read from the store.
   workspaceId?: string | null;
   pin?: boolean;
+  /** Scroll the chat to this entry once it is open (a search hit's address). */
+  reveal?: ChatReveal;
 }
 
 export interface AgentNavTarget {

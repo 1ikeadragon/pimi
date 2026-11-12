@@ -1,3 +1,4 @@
+import { useChatRevealJump, useChatRevealRequest } from "@/chat-search/use-chat-reveal";
 import { ChatFind, ChatFindExpansion } from "@/agent-stream/chat-find";
 import { AssistantForkProviderScope } from "@/components/assistant-fork-menu";
 import { AgentImageRefsGrid } from "@/components/agent-image-grid";
@@ -713,17 +714,28 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
           mountedHistoryMessageIds.has(messageId) || liveHeadMessageIds.has(messageId),
       };
     }, [baseRenderModel.segments.liveHead, mountedHistoryMessageIds]);
+    // A search hit opened this chat: the outline's jump machinery loads and scrolls to its entry,
+    // even when the user keeps the outline rail off.
+    const revealRequest = useChatRevealRequest(resolvedServerId, agentId);
     const chatOutline = useChatOutline({
       agentId,
       serverId: resolvedServerId,
       timelineEpoch,
       tail: effectiveStreamItems,
       head: effectiveStreamHead,
-      enabled: chatOutlineEnabled,
+      enabled: chatOutlineEnabled || revealRequest.tracking,
       viewportRef,
       onJumpError: handleTimelineHistoryLoadError,
       mountedHistoryMessageIds,
       revealLoadedMessage: revealLoadedHistory,
+    });
+
+    useChatRevealJump({
+      serverId: resolvedServerId,
+      agentId,
+      request: revealRequest,
+      timelineEpoch,
+      jumpToSeq: chatOutline.jumpToPrompt,
     });
 
     useImperativeHandle(

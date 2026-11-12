@@ -63,6 +63,18 @@ function findLoadedItem(
   return tail.find(predicate) ?? head.find(predicate);
 }
 
+function findPromptBefore(
+  tail: StreamItem[],
+  head: StreamItem[],
+  target: StreamItem,
+): StreamItem | undefined {
+  const items = [...tail, ...head];
+  for (let index = items.indexOf(target) - 1; index >= 0; index -= 1) {
+    if (items[index]?.kind === "user_message") return items[index];
+  }
+  return undefined;
+}
+
 export function useChatOutline({
   agentId,
   serverId,
@@ -167,7 +179,16 @@ export function useChatOutline({
         mountedHistoryMessageIds.has(target.id) ||
         loadedHead.includes(target);
       if (!isMounted) {
-        revealLoadedMessage?.(target.id);
+        if (revealLoadedMessage?.(target.id)) return;
+        // The entry has no row of its own (it sits inside a folded turn), so the jump lands on
+        // the prompt that started its turn instead.
+        const prompt = findPromptBefore(loadedTail, loadedHead, target);
+        const promptSeq = prompt?.timelineCursor?.seq;
+        if (promptSeq !== undefined && promptSeq !== pendingJump.seq) {
+          setPendingJump((current) =>
+            current?.requestId === pendingJump.requestId ? { ...current, seq: promptSeq } : current,
+          );
+        }
         return;
       }
       viewportRef.current?.scrollToMessage?.(target.id);
@@ -204,11 +225,13 @@ export function useChatOutline({
       viewportRef.current?.scrollToMessage?.(loaded.id);
       return;
     }
-    if (!index) return;
+    // The prompt index is not needed to fetch a window; any epoch the viewed timeline carries is.
+    const epoch = index?.epoch ?? timelineEpoch;
+    if (!epoch) return;
     const requestId = nextJumpRequestIdRef.current;
     setPendingJump({ requestId, seq, fetchSettled: false, hasScrolled: false });
     void getHostRuntimeStore()
-      .fetchAgentTimeline(serverId, agentId, planTimelinePromptJump({ epoch: index.epoch, seq }))
+      .fetchAgentTimeline(serverId, agentId, planTimelinePromptJump({ epoch, seq }))
       .catch((error: unknown) => {
         console.warn("Failed to load a Chat outline window", error);
         onJumpError();

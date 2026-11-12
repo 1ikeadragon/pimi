@@ -1,3 +1,4 @@
+import type { ChatSearchHit } from "@pimi/protocol/chat-search";
 import type { AggregatedAgent } from "@/hooks/use-aggregated-agents";
 import {
   compareMatchScores,
@@ -93,6 +94,17 @@ export interface CommandCenterCodeResult {
   run(): void;
 }
 
+export interface CommandCenterChatResult {
+  kind: "chat";
+  id: string;
+  serverId: string;
+  hit: ChatSearchHit;
+  title: string;
+  /** The matched snippet, plain, for the accessible name. */
+  subtitle: string;
+  run(): void;
+}
+
 export interface CommandCenterContributionResult {
   kind: "contribution";
   id: string;
@@ -107,6 +119,7 @@ export type CommandCenterResult =
   | CommandCenterAgentResult
   | CommandCenterFileResult
   | CommandCenterCodeResult
+  | CommandCenterChatResult
   | CommandCenterContributionResult;
 
 export interface CommandCenterResultSection {
@@ -207,7 +220,7 @@ function contributionSearchFields(
 function hasSubtitleLine(result: CommandCenterResult): boolean {
   if (result.kind === "workspace" || result.kind === "agent") return true;
   if (result.kind === "file") return false;
-  if (result.kind === "code") return true;
+  if (result.kind === "code" || result.kind === "chat") return true;
   const presentation = result.contribution.presentation;
   return presentation.kind === "action" && Boolean(presentation.subtitle);
 }

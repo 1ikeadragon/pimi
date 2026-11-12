@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback, useEffect, type ReactElement } from "react";
-import { View, Text } from "react-native";
+import { View, Text, ScrollView } from "react-native";
 import { useIsFocused } from "expo-router/react-navigation";
 import { router } from "expo-router";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
@@ -18,6 +18,7 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useImportSession } from "@/hooks/use-import-session";
 import { useHosts } from "@/runtime/host-runtime";
 import { buildOpenProjectRoute } from "@/utils/host-routes";
+import { ChatMessagesSection } from "@/chat-search/chat-messages-section";
 
 /** Long enough that a typed word is one request, short enough to feel live. */
 const SEARCH_DEBOUNCE_MS = 200;
@@ -125,18 +126,35 @@ function SessionsScreenContent() {
 
   const handleClearSearch = useCallback(() => setSearchInput(""), []);
 
+  // What was said in chats, searched on the selected host or on all of them.
+  const messageServerIds = useMemo(
+    () =>
+      selectedHost === ALL_HOSTS_OPTION_ID ? hosts.map((host) => host.serverId) : [selectedHost],
+    [hosts, selectedHost],
+  );
+  const messagesSection = useMemo(
+    () =>
+      isSearching ? <ChatMessagesSection query={search} serverIds={messageServerIds} /> : null,
+    [isSearching, messageServerIds, search],
+  );
+
   const listFooterComponent = useMemo(() => {
-    if (!hasMore) {
+    if (!hasMore && !messagesSection) {
       return null;
     }
     return (
-      <View style={styles.footer}>
-        <Button variant="ghost" onPress={loadMore} disabled={isLoadingMore}>
-          {isLoadingMore ? "Loading..." : t("sessions.actions.loadMore")}
-        </Button>
+      <View>
+        {hasMore ? (
+          <View style={styles.footer}>
+            <Button variant="ghost" onPress={loadMore} disabled={isLoadingMore}>
+              {isLoadingMore ? "Loading..." : t("sessions.actions.loadMore")}
+            </Button>
+          </View>
+        ) : null}
+        {messagesSection}
       </View>
     );
-  }, [hasMore, isLoadingMore, loadMore, t]);
+  }, [hasMore, isLoadingMore, loadMore, messagesSection, t]);
 
   return (
     <View style={styles.container}>
@@ -174,18 +192,23 @@ function SessionsScreenContent() {
           </Button>
         </View>
       ) : null}
-      {!isInitialLoad && !showLoadError && agents.length === 0 ? (
-        <View style={styles.emptyContainer} testID="sessions-empty">
-          <Text style={styles.emptyText}>{emptyText}</Text>
-          {isSearching ? (
+      {!isInitialLoad && !showLoadError && agents.length === 0 && isSearching ? (
+        <ScrollView contentContainerStyle={styles.searchScroll}>
+          <View style={styles.emptyCompact} testID="sessions-empty">
+            <Text style={styles.emptyText}>{emptyText}</Text>
             <Button variant="ghost" onPress={handleClearSearch}>
               {t("sessions.actions.clearSearch")}
             </Button>
-          ) : (
-            <Button variant="ghost" leftIcon={ChevronLeft} onPress={handleBack}>
-              Back
-            </Button>
-          )}
+          </View>
+          {messagesSection}
+        </ScrollView>
+      ) : null}
+      {!isInitialLoad && !showLoadError && agents.length === 0 && !isSearching ? (
+        <View style={styles.emptyContainer} testID="sessions-empty">
+          <Text style={styles.emptyText}>{emptyText}</Text>
+          <Button variant="ghost" leftIcon={ChevronLeft} onPress={handleBack}>
+            Back
+          </Button>
           <Button variant="ghost" leftIcon={Import} onPress={importSession.open}>
             {t("importSession.title")}
           </Button>
@@ -233,6 +256,14 @@ const styles = StyleSheet.create((theme) => ({
   emptyText: {
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.base,
+  },
+  emptyCompact: {
+    alignItems: "center",
+    gap: theme.spacing[2],
+    padding: theme.spacing[6],
+  },
+  searchScroll: {
+    flexGrow: 1,
   },
   loadingContainer: {
     flex: 1,
