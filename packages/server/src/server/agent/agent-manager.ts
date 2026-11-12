@@ -120,7 +120,7 @@ import { buildAgentForkContextAttachment, MAX_FORK_CONTEXT_CHARS } from "./activ
 import { isChatHistoryAttachment } from "./prompt-attachments.js";
 import type { AgentAttachment } from "@pimi/protocol/messages";
 import type { AgentImageRef } from "@pimi/protocol/agent-types";
-import { storeProviderImage, type AgentImageStore } from "./agent-images.js";
+import { remoteImageMarkdown, storeProviderImage, type AgentImageStore } from "./agent-images.js";
 import type { CarriedTimelineStore } from "./carried-timeline.js";
 import {
   SentAttachmentJoiner,
@@ -4432,6 +4432,11 @@ export class AgentManager {
     item: AgentTimelineItem,
   ): Promise<AgentTimelineItem | null> {
     if (item.type !== "provider_images") return item;
+    // Remote-only images stay markdown links: the daemon never fetches them for the store.
+    const remote = item.images.map(remoteImageMarkdown);
+    if (remote.length > 0 && remote.every((markdown) => markdown !== null)) {
+      return { type: "assistant_message", text: `\n\n${remote.join("\n\n")}\n\n` };
+    }
     const store = this.agentImages;
     const images: AgentImageRef[] = [];
     for (const source of item.images) {

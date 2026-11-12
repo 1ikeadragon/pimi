@@ -304,6 +304,23 @@ function filePathFromSource(source: string): string | null {
 }
 
 /**
+ * Markdown for an image a provider reported only as an http(s) URL, or null for anything else.
+ * The daemon never fetches remote URLs, so these render as plain markdown images instead of
+ * entering the image store.
+ */
+export function remoteImageMarkdown(image: ProviderImageOutput): string | null {
+  if (nonEmpty(image.data)) return null;
+  const source = nonEmpty(image.path) ?? nonEmpty(image.url);
+  if (!source || !/^https?:\/\//i.test(source)) return null;
+  const alt = (nonEmpty(image.altText) ?? "Image").replace(/\\/g, "\\\\").replace(/]/g, "\\]");
+  const url = source
+    .replace(/\\/g, "\\\\")
+    .replace(/\)/g, "\\)")
+    .replace(/\s/g, encodeURIComponent);
+  return `![${alt}](${url})`;
+}
+
+/**
  * Stores the image a provider reported and returns the ref a timeline row carries. A path is
  * read only when its extension, size and magic bytes pass; everything else comes back as an
  * `unavailable` ref so the row still says an image existed. This is the only writer of agent output.
