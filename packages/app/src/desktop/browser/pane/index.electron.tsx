@@ -630,7 +630,9 @@ export function BrowserPane({
   const [pendingSelection, setPendingSelection] = useState<BrowserElementSelection | null>(null);
   // Screenshot is captured at selection time (overlay already torn down, no
   // scroll drift) and reused when the annotation card is submitted.
-  const pendingScreenshotRef = useRef<AttachmentMetadata | undefined>(undefined);
+  const pendingScreenshotRef = useRef<Promise<AttachmentMetadata | undefined> | undefined>(
+    undefined,
+  );
   const [draftUrl, setDraftUrl] = useState(browser?.url ?? "https://example.com");
   const workspaceAttachmentScopeKey = useMemo(
     () => buildBrowserAttachmentScopeKey({ cwd, serverId, workspaceId }),
@@ -1063,10 +1065,14 @@ export function BrowserPane({
       if (!workspaceAttachmentScopeKey) {
         return;
       }
+      // Read the store now: submit awaits the screenshot, so the render-time list can be stale.
+      const current =
+        useWorkspaceAttachmentsStore.getState().attachmentsByScope[workspaceAttachmentScopeKey] ??
+        [];
       setWorkspaceAttachments({
         scopeKey: workspaceAttachmentScopeKey,
         attachments: [
-          ...workspaceAttachments,
+          ...current,
           {
             kind: "browser_element",
             attachment: buildBrowserElementAttachment(selection, annotation, screenshot),
@@ -1074,7 +1080,7 @@ export function BrowserPane({
         ],
       });
     },
-    [setWorkspaceAttachments, workspaceAttachmentScopeKey, workspaceAttachments],
+    [setWorkspaceAttachments, workspaceAttachmentScopeKey],
   );
 
   const captureElementScreenshot = useCallback(
@@ -1162,26 +1168,23 @@ export function BrowserPane({
         void screenshotElementToClipboard(selection);
         return;
       }
-      pendingScreenshotRef.current = undefined;
       setPendingSelection(selection);
-      void captureElementScreenshot(selection).then((screenshot) => {
-        pendingScreenshotRef.current = screenshot;
-        return undefined;
-      });
+      pendingScreenshotRef.current = captureElementScreenshot(selection);
     },
     [captureElementScreenshot, screenshotElementToClipboard],
   );
 
   const submitAnnotation = useCallback(
-    (annotation: BrowserElementAnnotation) => {
+    async (annotation: BrowserElementAnnotation) => {
       const selection = pendingSelection;
-      const screenshot = pendingScreenshotRef.current;
+      const screenshotPromise = pendingScreenshotRef.current;
       pendingScreenshotRef.current = undefined;
       setPendingSelection(null);
       if (!selection) {
         return;
       }
-      addElementAttachment(selection, annotation, screenshot);
+      // The capture runs while the note is typed; wait for it so a fast submit keeps the image.
+      addElementAttachment(selection, annotation, await screenshotPromise);
     },
     [addElementAttachment, pendingSelection],
   );
@@ -1565,7 +1568,7 @@ function BrowserElementAnnotationCard({
 }: {
   anchor: HTMLElement | null;
   selection: BrowserElementSelection;
-  onSubmit: (annotation: BrowserElementAnnotation) => void;
+  onSubmit: (annotation: BrowserElementAnnotation) => Promise<void>;
   onCancel: () => void;
 }) {
   const { t } = useTranslation();
@@ -1575,7 +1578,7 @@ function BrowserElementAnnotationCard({
   commentRef.current = comment;
 
   const handleSubmit = useCallback(() => {
-    onSubmit({ comment: commentRef.current });
+    void onSubmit({ comment: commentRef.current });
   }, [onSubmit]);
 
   useEffect(() => {

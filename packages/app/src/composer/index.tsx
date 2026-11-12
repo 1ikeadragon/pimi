@@ -1495,7 +1495,7 @@ function ComposerContentImpl({
     buildOutgoingAttachments,
     removeAttachment,
     openAttachment,
-    historyPreview,
+    preview: workspaceAttachmentPreview,
     beginSubmit,
     clearSentAttachments,
     completeSubmit,
@@ -2694,7 +2694,7 @@ function ComposerContentImpl({
         }
       >
         <AttachmentLightbox source={lightboxSource} onClose={handleLightboxClose} />
-        {historyPreview}
+        {workspaceAttachmentPreview}
         {/* Input area */}
         <View style={inputAreaContainerStyle}>
           <View style={inputAreaContentStyle}>

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
-import { Text } from "react-native";
+import { Image, ScrollView, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import type {
+  BrowserElementAttachment,
   ChatHistoryContextAttachment,
   ComposerAttachment,
   UserComposerAttachment,
@@ -23,6 +24,7 @@ import {
   removeWorkspaceAttachmentsMatching,
 } from "./workspace-cleanup";
 import { useClearReviewDraft } from "@/review/store";
+import { useAttachmentPreviewUrl } from "@/attachments/use-attachment-preview-url";
 
 interface WorkspaceAttachmentBindingInput {
   normalAttachments: UserComposerAttachment[];
@@ -49,7 +51,7 @@ interface ComposerWorkspaceAttachmentBinding {
   buildOutgoingAttachments: (normalAttachments: UserComposerAttachment[]) => ComposerAttachment[];
   removeAttachment: (input: RemoveWorkspaceAttachmentInput) => boolean;
   openAttachment: (input: OpenWorkspaceAttachmentInput) => boolean;
-  historyPreview: ReactElement | null;
+  preview: ReactElement | null;
   beginSubmit: (attachments: readonly ComposerAttachment[]) => void;
   clearSentAttachments: (attachments: readonly ComposerAttachment[]) => void;
   completeSubmit: (input: CompleteSubmitInput) => void;
@@ -110,8 +112,12 @@ function useWorkspaceAttachmentBinding({
   workspaceAttachments,
   onOpenWorkspaceAttachment,
 }: WorkspaceAttachmentBindingInput): ComposerWorkspaceAttachmentBinding {
-  const [history, setHistory] = useState<ChatHistoryContextAttachment | null>(null);
-  const closeHistory = useCallback(() => setHistory(null), []);
+  const [opened, setOpened] = useState<
+    | ChatHistoryContextAttachment
+    | { kind: "browser_element"; attachment: BrowserElementAttachment }
+    | null
+  >(null);
+  const closePreview = useCallback(() => setOpened(null), []);
   const clearReviewDraft = useClearReviewDraft();
   const [suppressedKeys, setSuppressedKeys] = useState<readonly string[]>([]);
   const workspaceAttachmentKeys = useMemo(
@@ -191,8 +197,8 @@ function useWorkspaceAttachmentBinding({
 
   const openAttachment = useCallback(
     ({ attachment }: OpenWorkspaceAttachmentInput) => {
-      if (attachment.kind === "chat_history") {
-        setHistory(attachment);
+      if (attachment.kind === "chat_history" || attachment.kind === "browser_element") {
+        setOpened(attachment);
         return true;
       }
       if (!isWorkspaceAttachment(attachment) || attachment.kind !== "review") {
@@ -235,14 +241,59 @@ function useWorkspaceAttachmentBinding({
     buildOutgoingAttachments,
     removeAttachment,
     openAttachment,
-    historyPreview: history ? (
-      <ChatHistoryPreview history={history} onClose={closeHistory} />
-    ) : null,
+    preview: previewFor(opened, closePreview),
     beginSubmit,
     clearSentAttachments,
     completeSubmit,
     resetSuppression,
   };
+}
+
+function previewFor(
+  opened:
+    | ChatHistoryContextAttachment
+    | { kind: "browser_element"; attachment: BrowserElementAttachment }
+    | null,
+  onClose: () => void,
+): ReactElement | null {
+  if (!opened) return null;
+  if (opened.kind === "browser_element") {
+    return <BrowserElementPreview element={opened.attachment} onClose={onClose} />;
+  }
+  return <ChatHistoryPreview history={opened} onClose={onClose} />;
+}
+
+function BrowserElementPreview({
+  element,
+  onClose,
+}: {
+  element: BrowserElementAttachment;
+  onClose: () => void;
+}) {
+  const header = useMemo(() => ({ title: `<${element.tag}> · ${element.url}` }), [element]);
+  const uri = useAttachmentPreviewUrl(element.screenshot);
+  const source = useMemo(() => ({ uri: uri ?? "" }), [uri]);
+  return (
+    <AdaptiveModalSheet
+      visible
+      header={header}
+      onClose={onClose}
+      testID="browser-element-preview"
+      desktopMaxWidth={680}
+    >
+      <ScrollView>
+        <View style={previewStyles.column}>
+          {uri ? (
+            <Image source={source} style={previewStyles.screenshot} resizeMode="contain" />
+          ) : null}
+          {element.comment ? <Text style={previewStyles.note}>{element.comment}</Text> : null}
+          <Text selectable style={previewStyles.text}>
+            {element.formatted}
+          </Text>
+        </View>
+      </ScrollView>
+    </AdaptiveModalSheet>
+  );
 }
 
 function ChatHistoryPreview({
@@ -277,6 +328,20 @@ function ChatHistoryPreview({
 }
 
 const previewStyles = StyleSheet.create((theme) => ({
+  column: {
+    gap: theme.spacing[3],
+  },
+  screenshot: {
+    width: "100%",
+    height: 200,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.surface2,
+  },
+  note: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.base,
+    lineHeight: 22,
+  },
   text: {
     color: theme.colors.foreground,
     fontSize: theme.fontSize.sm,
