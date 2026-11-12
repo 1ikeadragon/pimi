@@ -1,6 +1,7 @@
 // Pimi. Apache-2.0.
 // Data for the Changes tab: the file list of one change request, forge threads for the markers,
 // and the rule that picks continuous scroll or single-file mode from the list's totals.
+import { i18n } from "@/i18n/i18next";
 import { useMemo } from "react";
 import type { ChangeRequestFile, ParsedDiffFile } from "@pimi/protocol/messages";
 import { useFetchQuery } from "@/data/query";
@@ -55,10 +56,10 @@ export function useDeskFiles(source: ChangeRequestSource): DeskFilesState {
     staleTimeMs: 60_000,
     retry: false,
     queryFn: async (): Promise<DeskFileList> => {
-      if (!client) throw new Error("Host disconnected");
+      if (!client) throw new Error(i18n.t("reviewScreen.errors.hostNotConnected"));
       const payload = await client.forgeChangeRequestListFiles(refOf(source));
       if (payload.error) throw new Error(payload.error.message);
-      if (!payload.snapshot) throw new Error("The daemon returned no file list");
+      if (!payload.snapshot) throw new Error(i18n.t("reviewScreen.errors.noFileList"));
       return { ...payload.snapshot, files: payload.files };
     },
     enabled: Boolean(client) && isConnected,

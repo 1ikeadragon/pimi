@@ -2514,6 +2514,7 @@ function WorkspaceScreenContent({
         }
         if (action.target === "pull-request") {
           openWorkspacePullRequest({
+            serverId: normalizedServerId,
             isCompact: isMobile,
             workspaceKey: persistenceKey,
             destination: pullRequestOpenLocation,
@@ -2543,6 +2544,7 @@ function WorkspaceScreenContent({
       focusedPaneTabState.pane?.id,
       isMobile,
       openWorkspaceTabFocused,
+      normalizedServerId,
       persistenceKey,
       pullRequestOpenLocation,
       workspaceDescriptor,

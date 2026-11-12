@@ -1,5 +1,6 @@
 // Pimi. Apache-2.0.
 import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ export function FixSelectedBar({
   selection: ReviewSelection;
   onSelectionChange: (next: ReviewSelection) => void;
 }) {
+  const { t } = useTranslation();
   const count = selection.threads.size + selection.checks.size;
   const clear = useCallback(() => onSelectionChange(EMPTY_REVIEW_SELECTION), [onSelectionChange]);
   const fix = useCallback(
@@ -23,13 +25,13 @@ export function FixSelectedBar({
   if (count === 0) return null;
   return (
     <View style={styles.bar} testID="review-fix-selected">
-      <Text style={styles.text}>{count} selected</Text>
+      <Text style={styles.text}>{t("reviewScreen.inspector.selectedCount", { count })}</Text>
       <View style={styles.actions}>
         <Button size="sm" variant="ghost" onPress={clear}>
-          Clear
+          {t("reviewScreen.inspector.clear")}
         </Button>
         <Button size="sm" variant="default" onPress={fix} testID="review-fix-selected-button">
-          {`Fix ${count} selected`}
+          {t("reviewScreen.inspector.fixSelected", { count })}
         </Button>
       </View>
     </View>

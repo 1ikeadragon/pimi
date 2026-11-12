@@ -16,7 +16,7 @@ import { useHostRuntimeClient } from "@/runtime/host-runtime";
 import { Text } from "react-native";
 import type { ChangeRequestSource, ReviewDeskProps } from "./types";
 import { AskInChat } from "./desk/ask-in-chat";
-import { DESK_COPY } from "./desk/copy";
+import { useDeskCopy } from "./desk/copy";
 import { FileTree } from "./desk/file-tree";
 import { DeskToolbar } from "./desk/toolbar";
 import { Chip, DetachedThreads, Notice } from "./desk/ui";
@@ -37,8 +37,9 @@ import { useDeskPatches } from "./desk/use-patches";
 import { useReviewMarkers } from "./desk/use-review-markers";
 
 export function ReviewDesk({ source, focus }: ReviewDeskProps) {
+  const copy = useDeskCopy();
   if (source.kind !== "change_request") {
-    return <Notice text={DESK_COPY.checkoutUnsupported} />;
+    return <Notice text={copy.checkoutUnsupported} />;
   }
   return (
     <DiffDocumentWorkspaceCacheProvider>
@@ -54,14 +55,13 @@ function ChangeRequestDesk({
   source: ChangeRequestSource;
   focus: ReviewDeskProps["focus"];
 }) {
+  const copy = useDeskCopy();
   const filesState = useDeskFiles(source);
-  if (filesState.status === "loading") return <Notice text={DESK_COPY.loadingFiles} busy />;
+  if (filesState.status === "loading") return <Notice text={copy.loadingFiles} busy />;
   if (filesState.status === "error") {
-    return (
-      <Notice text={`${DESK_COPY.loadError} ${filesState.message}`} onRetry={filesState.retry} />
-    );
+    return <Notice text={`${copy.loadError} ${filesState.message}`} onRetry={filesState.retry} />;
   }
-  if (filesState.list.files.length === 0) return <Notice text={DESK_COPY.noFiles} />;
+  if (filesState.list.files.length === 0) return <Notice text={copy.noFiles} />;
   return <ReadyDesk source={source} list={filesState.list} focus={focus} />;
 }
 
@@ -103,6 +103,7 @@ function ReadyDesk({
   list: DeskFileList;
   focus: ReviewDeskProps["focus"];
 }) {
+  const copy = useDeskCopy();
   const client = useHostRuntimeClient(source.serverId);
   const display = useDeskDisplay();
   const { isCompact } = display;
@@ -194,18 +195,18 @@ function ReadyDesk({
         <SearchField
           value={filter.filter}
           onChangeText={filter.setFilter}
-          placeholder={DESK_COPY.filterPlaceholder}
-          clearAccessibilityLabel={DESK_COPY.filterClear}
+          placeholder={copy.filterPlaceholder}
+          clearAccessibilityLabel={copy.filterClear}
           testID="review-desk-filter"
         />
         <View style={styles.chips}>
           <Chip
-            label={DESK_COPY.unviewedOnly}
+            label={copy.unviewedOnly}
             active={filter.unviewedOnly}
             onToggle={filter.toggleUnviewed}
           />
           <Chip
-            label={DESK_COPY.withThreads}
+            label={copy.withThreads}
             active={filter.threadsOnly}
             onToggle={filter.toggleThreads}
           />
@@ -230,7 +231,7 @@ function ReadyDesk({
       <View style={styles.main}>
         <DeskToolbar
           activePath={activePath}
-          viewedLabel={DESK_COPY.viewed(viewedPaths.size, paths.length)}
+          viewedLabel={copy.viewed(viewedPaths.size, paths.length)}
           mode={mode}
           canToggleMode={eligibleMode === "continuous"}
           showFilesButton={isCompact}
@@ -243,9 +244,9 @@ function ReadyDesk({
           onToggleLayout={display.toggleLayout}
         />
         {eligibleMode === "single" ? (
-          <Text style={styles.note}>{DESK_COPY.singleFileNote(list.totalFiles)}</Text>
+          <Text style={styles.note}>{copy.singleFileNote(list.totalFiles)}</Text>
         ) : null}
-        {threads.error ? <Text style={styles.note}>{DESK_COPY.threadsFailed}</Text> : null}
+        {threads.error ? <Text style={styles.note}>{copy.threadsFailed}</Text> : null}
         <DetachedThreads detached={markers.detached} onOpen={openDetached} />
         <View style={styles.document} testID="review-desk-document">
           <DeskBody
@@ -290,14 +291,13 @@ function DeskBody({
   collapseState: { paths: readonly string[]; onChange: (paths: string[]) => void };
   activePath: string;
 }) {
+  const copy = useDeskCopy();
   const { loadedFiles, documentFiles, activeEntry, retryActive } = patches;
   if (mode === "single" && !loadedFiles.has(activePath)) {
     if (activeEntry?.state === "failed") {
-      return (
-        <Notice text={`${DESK_COPY.patchFailed} ${activeEntry.message}`} onRetry={retryActive} />
-      );
+      return <Notice text={`${copy.patchFailed} ${activeEntry.message}`} onRetry={retryActive} />;
     }
-    return <Notice text={DESK_COPY.loadingPatch} busy />;
+    return <Notice text={copy.loadingPatch} busy />;
   }
   return (
     <DiffDocument

@@ -5,7 +5,6 @@ import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { setImmediate } from "node:timers/promises";
 import MarkdownIt from "markdown-it";
 import { parseAgentDeepLink } from "@pimi/protocol/agent-deep-link";
 import {
@@ -20,31 +19,10 @@ import {
   PimiTaskAgentLinkWorkInput,
   PimiTaskAgentTool,
 } from "@pimi/protocol/pimi-task";
-import {
-  darkHighlightColors,
-  highlightCodeWithBudget,
-  isLanguageSupported,
-  lightHighlightColors,
-} from "@pimi/highlight";
-import {
-  command,
-  createReview,
-  discoverWorktrees,
-  filePatch,
-  fileSource,
-  openInEditor,
-  patchFingerprint,
-  repository,
-  reviewTargets,
-  RequestError,
-  worktreeFacts,
-} from "./git.mjs";
+import { discoverWorktrees, repository, RequestError, worktreeFacts } from "./git.mjs";
 import { labelRecord, labelsAt, projectLinkedLabels } from "./linked-labels.mjs";
 import { createPimiConnection } from "./pimi.mjs";
-import { createHostedReview } from "./hosted-review.mjs";
-import { createPullRequests } from "./pull-requests.mjs";
 import { createSpacePosters } from "./space-poster.mjs";
-import { listReviewPaths, readReviewSource } from "./review-files.mjs";
 import { createTasks } from "./tasks.mjs";
 import { runVoiceCommand } from "./voice-command.mjs";
 
@@ -98,15 +76,6 @@ function checkTaskPipeCredential(expected, header) {
     throw new RequestError("Invalid Pimi task credential.", 403);
 }
 
-async function standaloneEditors(workspacePath) {
-  try {
-    await command("which", ["zed"], workspacePath);
-    return [{ id: "zed", label: "Zed", kind: "editor" }];
-  } catch {
-    return [];
-  }
-}
-
 async function standaloneAppearance(file) {
   let mode = "system";
   let writes = Promise.resolve();
@@ -151,8 +120,6 @@ export async function startPimi({
   agentTaskHome,
   appearanceState,
   getAppearance,
-  listEditors = standaloneEditors,
-  launchEditor,
   openDictation,
   onTaskComplete = () => {},
   onActivity = () => {},
@@ -162,7 +129,6 @@ export async function startPimi({
   let address;
   let origin;
   const roots = [...new Set(await Promise.all(paths.map(repository)))];
-  const reviewWorktrees = new Map();
   if (watchState) {
     try {
       const stored = JSON.parse(await readFile(watchState, "utf8"));
@@ -225,11 +191,6 @@ export async function startPimi({
         ["/spaces.css", "spaces.css", "text/css; charset=utf-8"],
         ["/task-board.js", "task-board.js", "text/javascript; charset=utf-8"],
         ["/board-motion.js", "board-motion.js", "text/javascript; charset=utf-8"],
-        ["/worktree-comparison.js", "worktree-comparison.js", "text/javascript; charset=utf-8"],
-        ["/diff-find.js", "diff-find.js", "text/javascript; charset=utf-8"],
-        ["/review-files.js", "review-files.js", "text/javascript; charset=utf-8"],
-        ["/review-pull-requests.js", "review-pull-requests.js", "text/javascript; charset=utf-8"],
-        ["/review-pull-requests.css", "review-pull-requests.css", "text/css; charset=utf-8"],
         ["/live-updates.js", "live-updates.js", "text/javascript; charset=utf-8"],
         ["/style.css", "style.css", "text/css; charset=utf-8"],
         ["/pimi-mark.svg", "pimi-mark.svg", "image/svg+xml"],
@@ -262,18 +223,6 @@ export async function startPimi({
       });
     }),
   );
-  assets.set("/syntax.css", {
-    mime: "text/css; charset=utf-8",
-    data: Object.entries(lightHighlightColors)
-      .map(
-        ([role, color]) =>
-          `.syntax-${role} { color: light-dark(${color}, ${darkHighlightColors[role] ?? color}); }`,
-      )
-      .join("\n"),
-  });
-  const reviews = new Map();
-  const reviewLimit = 32;
-  let worktrees = new Map();
   let inventoryTask;
   let inventoryAt = 0;
   let inventory;
@@ -487,9 +436,6 @@ export async function startPimi({
         warnings.push(`${watchedRoots[index]}: ${result.reason.message}`);
       }
     });
-    for (const [path, worktree] of reviewWorktrees) {
-      if (!listed.has(path)) listed.set(path, worktree);
-    }
     const { taskLabels, workspaceLabels, checkoutLabels } = projectLinkedLabels(
       tasks.list().tasks,
       daemon.workspaces,
@@ -526,8 +472,7 @@ export async function startPimi({
           const agents = agentsByPath.get(canonical) ?? [];
           const registered = workspace || agents.length || linked.has(worktree.path);
           const discovered = registered || (watched.has(worktree.root) && !worktree.unavailable);
-          const reviewOnly = !discovered && reviewWorktrees.has(worktree.path);
-          if (!discovered && !reviewOnly) return null;
+          if (!discovered) return null;
           const facts = await factsFor(worktree, linked.get(worktree.path));
           const pr = workspace?.pullRequest;
           for (const agent of agents) trackedAgents.add(agent.id);
@@ -535,7 +480,6 @@ export async function startPimi({
             name: workspace?.name || worktree.branch,
             lane: cardLane(facts, workspace, agents),
             agents,
-            reviewOnly,
             workspaceId: workspace?.id,
             labels: workspace?.labels ?? [],
             linkedLabels: [
@@ -557,7 +501,6 @@ export async function startPimi({
       );
       cards.push(...batch.filter(Boolean));
     }
-    worktrees = new Map(cards.map((card) => [card.path, card]));
     for (const root of discoveryCache.keys())
       if (!watchedRoots.includes(root)) discoveryCache.delete(root);
     for (const path of factsCache.keys()) if (!listed.has(path)) factsCache.delete(path);
@@ -598,10 +541,7 @@ export async function startPimi({
         if (native && !closed) {
           // A Work dot signals a checkout joining, leaving, or moving lanes on the board.
           const next = JSON.stringify(
-            result.cards
-              .filter((card) => !card.reviewOnly)
-              .map(({ path, lane }) => JSON.stringify([path, lane]))
-              .sort(),
+            result.cards.map(({ path, lane }) => JSON.stringify([path, lane])).sort(),
           );
           const previous = workActivitySignature;
           workActivitySignature = next;
@@ -737,115 +677,6 @@ export async function startPimi({
       });
   }
 
-  function getReview(id) {
-    const review = reviews.get(id);
-    if (!review) throw new RequestError("The review expired. Reopen it from the board.", 404);
-    reviews.delete(id);
-    reviews.set(id, review);
-    return review;
-  }
-
-  function getFile(review, path) {
-    const file = review.byPath.get(path);
-    if (!file) throw new RequestError("This path is not in the selected review.", 404);
-    return file;
-  }
-
-  async function startReview({ path, baseRef, prUrl, mode }) {
-    if (
-      typeof path !== "string" ||
-      typeof baseRef !== "string" ||
-      typeof prUrl !== "string" ||
-      !["all", "working", "committed"].includes(mode)
-    ) {
-      throw new RequestError("Invalid review selection.");
-    }
-    const worktree = worktrees.get(path) ?? reviewWorktrees.get(path);
-    if (path && (!worktree || worktree.unavailable)) {
-      throw new RequestError("Select an available worktree from the board.", 404);
-    }
-    if (!path && !prUrl) throw new RequestError("Choose a local checkout or a GitHub PR URL.");
-    const review = path
-      ? await createReview(worktree, { baseRef, prUrl, mode })
-      : await createHostedReview(prUrl);
-    const id = randomUUID();
-    reviews.set(id, {
-      ...review,
-      byPath: new Map(review.files.map((file) => [file.path, file])),
-    });
-    if (reviews.size > reviewLimit) reviews.delete(reviews.keys().next().value);
-    return { id, ...review };
-  }
-
-  async function prepareChatReview(path, serverId) {
-    if (serverId) {
-      const local = await pimi.localServerId().catch(() => null);
-      if (local !== serverId)
-        return { path, reviewNotice: "This checkout is on another host or is offline." };
-    }
-    let targets;
-    try {
-      targets = await reviewTargets(path);
-    } catch (error) {
-      console.warn("Pimi could not find the review checkout:", error.message);
-      return { path, reviewNotice: "The chat’s checkout is unavailable." };
-    }
-    if (!targets.length)
-      return {
-        path,
-        reviewNotice: "No Git checkout was found in this workspace.",
-      };
-    for (const worktree of targets) {
-      reviewWorktrees.delete(worktree.path);
-      reviewWorktrees.set(worktree.path, { ...worktree, root: worktree.path });
-      if (reviewWorktrees.size > 64) reviewWorktrees.delete(reviewWorktrees.keys().next().value);
-    }
-    invalidateInventory();
-    if (targets.length > 1) {
-      return {
-        path,
-        reviewNotice: "This chat has several checkouts. Choose one to review.",
-      };
-    }
-    const target = targets[0];
-    return {
-      path: target.path,
-      reviewTarget: { ...target, name: target.branch },
-    };
-  }
-
-  async function editorsFor(review) {
-    if (review.hosted) return [];
-    review.editors ??= Promise.resolve(listEditors(review.worktree.path)).catch((error) => {
-      delete review.editors;
-      throw error;
-    });
-    return review.editors;
-  }
-
-  async function startEditor(body) {
-    const review = getReview(body.id);
-    if (!(await editorsFor(review)).some(({ id }) => id === body.editorId)) {
-      throw new RequestError("Choose an available editor.");
-    }
-    const file = body.path === null ? null : getFile(review, body.path);
-    if (file && (!Number.isSafeInteger(body.line) || body.line < 1)) {
-      throw new RequestError("Invalid line number.");
-    }
-    if (file && review.live) {
-      const fingerprint = patchFingerprint(await filePatch(review, file));
-      if (body.fingerprint !== fingerprint) {
-        throw new RequestError(
-          "The diff changed since you opened it. Reload changes before opening this line.",
-          409,
-        );
-      }
-    }
-    const launch = launchEditor && ((input) => launchEditor({ ...input, editorId: body.editorId }));
-    await openInEditor(review, file, body.line, launch);
-    return { opened: true };
-  }
-
   async function persistRepository(root) {
     const stored = [...new Set([...roots, root])];
     await mkdir(dirname(watchState), { recursive: true });
@@ -874,39 +705,8 @@ export async function startPimi({
     return getInventory();
   }
 
-  let pullRequestActivity;
-  const pullRequests = createPullRequests({
-    getInventory,
-    onChange(snapshot) {
-      broadcast("pull-requests");
-      if (!snapshot.updatedAt) return;
-      const next = JSON.stringify(
-        snapshot.items
-          .map((item) =>
-            JSON.stringify([
-              item.url,
-              item.title,
-              item.updatedAt,
-              item.state,
-              item.isDraft,
-              item.headSha,
-              item.reviewDecision,
-              item.checksStatus,
-              item.reviewRequested,
-              item.authoredByMe,
-            ]),
-          )
-          .sort(),
-      );
-      if (pullRequestActivity !== undefined && pullRequestActivity !== next) onActivity("review");
-      pullRequestActivity = next;
-    },
-  });
-
   const postRoutes = new Map([
     ["/api/repositories", watchRepository],
-    ["/api/review", startReview],
-    ["/api/editor", startEditor],
     ["/api/memory", pimi.memory],
     ["/api/spaces", pimi.spaces],
     ["/api/tasks/create", tasks.create],
@@ -974,32 +774,8 @@ export async function startPimi({
     response.end(data);
   }
 
-  async function sourceResponse(path, source) {
-    const tokens = isLanguageSupported(path)
-      ? await highlightCodeWithBudget(source, path, { yieldToEventLoop: setImmediate })
-      : null;
-    return { source, tokens };
-  }
-
   const getRoutes = new Map([
     ["/api/board", getInventory],
-    [
-      "/api/pull-requests",
-      (url) => pullRequests.queue({ force: url.searchParams.get("refresh") === "1" }),
-    ],
-    [
-      "/api/pull-request",
-      async (url) => {
-        const result = await pullRequests.detail(url.searchParams.get("url"), {
-          force: url.searchParams.get("refresh") === "1",
-        });
-        if (!result.item) return result;
-        return {
-          ...result,
-          item: { ...result.item, taskLinks: tasks.pullRequestTaskLinks(result.item.url) },
-        };
-      },
-    ],
     ["/api/tasks", tasks.list],
     [
       "/api/tasks/report-document",
@@ -1008,19 +784,6 @@ export async function startPimi({
           tasks.reportText(url.searchParams.get("id"), url.searchParams.get("experimentId")),
         ),
       }),
-    ],
-    ["/api/editors", (url) => editorsFor(getReview(url.searchParams.get("id")))],
-    [
-      "/api/review-files",
-      async (url) => ({ paths: await listReviewPaths(getReview(url.searchParams.get("id"))) }),
-    ],
-    [
-      "/api/review-source",
-      async (url) => {
-        const review = getReview(url.searchParams.get("id"));
-        const path = url.searchParams.get("path");
-        return sourceResponse(path, await readReviewSource(review, path));
-      },
     ],
   ]);
   const server = createServer(async (request, response) => {
@@ -1066,18 +829,6 @@ export async function startPimi({
         }
         const handler = getRoutes.get(url.pathname);
         if (handler) return json(response, await handler(url));
-        if (url.pathname === "/api/file" || url.pathname === "/api/source") {
-          const review = getReview(url.searchParams.get("id"));
-          const file = getFile(review, url.searchParams.get("path"));
-          if (url.pathname === "/api/source") {
-            return json(response, await sourceResponse(file.path, await fileSource(review, file)));
-          }
-          const patch = await filePatch(review, file);
-          return json(response, {
-            patch,
-            fingerprint: patchFingerprint(patch),
-          });
-        }
       }
 
       if (request.method === "POST") {
@@ -1112,7 +863,6 @@ export async function startPimi({
       await pimi.observeWorkspaces();
       await getInventory();
     },
-    prepareChatReview,
     getLinkedLabels,
     getRecap: tasks.recap,
     runVoiceCommand: (input, onStatus) =>
@@ -1143,7 +893,6 @@ export async function startPimi({
     },
     close: () => {
       closed = true;
-      pullRequests.close();
       unsubscribePimi();
       labelListeners.clear();
       clearInterval(reconcileTimer);

@@ -1,35 +1,42 @@
 // Pimi. Apache-2.0.
-// Desk strings. Review's i18n keys belong to stream S2; these move there as keys when it lands them.
-export const DESK_COPY = {
-  loadingFiles: "Loading changed files...",
-  loadingPatch: "Loading diff...",
-  loadError: "Could not load the changed files.",
-  retry: "Retry",
-  noFiles: "This change request has no changed files.",
-  checkoutUnsupported: "Local worktree diffs open from the workspace Changes pane.",
-  filterPlaceholder: "Filter files",
-  filterClear: "Clear filter",
-  unviewedOnly: "Unviewed",
-  withThreads: "Threads",
-  viewed: (done: number, total: number) => `${done}/${total} viewed`,
-  markViewed: "Mark as viewed",
-  markUnviewed: "Clear viewed mark",
-  singleFileNote: (files: number) => `${files} files: one at a time. Use j / k or the tree.`,
-  showAll: "All files",
-  showSingle: "Single file",
-  previous: "Previous file",
-  next: "Next file",
-  askInChat: "Ask in chat",
-  annotations: (count: number) => (count === 1 ? "1 annotation" : `${count} annotations`),
-  noWorkspace: (repo: string) => `No workspace for ${repo} on this host`,
-  askUnavailable: "Open the annotated files first; their patches are not loaded.",
-  detached: (count: number) =>
-    count === 1 ? "1 thread not on this diff" : `${count} threads not on this diff`,
-  detachedNoLine: "no line",
-  detachedOutside: "line not in diff",
-  detachedHidden: "hidden",
-  threadsFailed: "Review threads could not be loaded.",
-  unavailable: "This file's diff is not available here.",
-  patchFailed: "Could not load this file's diff.",
-  unresolved: (count: number) => `${count} unresolved`,
-} as const;
+import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
+
+/** The desk's strings, translated. Read through the hook so a language change re-renders. */
+export function useDeskCopy() {
+  const { t } = useTranslation();
+  return useMemo(
+    () => ({
+      loadingFiles: t("reviewScreen.desk.loadingFiles"),
+      loadingPatch: t("reviewScreen.desk.loadingPatch"),
+      loadError: t("reviewScreen.desk.loadError"),
+      retry: t("reviewScreen.desk.retry"),
+      files: t("reviewScreen.desk.files"),
+      noFiles: t("reviewScreen.desk.noFiles"),
+      checkoutUnsupported: t("reviewScreen.desk.checkoutUnsupported"),
+      filterPlaceholder: t("reviewScreen.desk.filterPlaceholder"),
+      filterClear: t("reviewScreen.desk.filterClear"),
+      unviewedOnly: t("reviewScreen.desk.unviewedOnly"),
+      withThreads: t("reviewScreen.desk.withThreads"),
+      viewed: (done: number, total: number) => t("reviewScreen.desk.viewed", { done, total }),
+      markViewed: t("reviewScreen.desk.markViewed"),
+      markUnviewed: t("reviewScreen.desk.markUnviewed"),
+      singleFileNote: (files: number) => t("reviewScreen.desk.singleFileNote", { count: files }),
+      showAll: t("reviewScreen.desk.showAll"),
+      showSingle: t("reviewScreen.desk.showSingle"),
+      previous: t("reviewScreen.desk.previous"),
+      next: t("reviewScreen.desk.next"),
+      askInChat: t("reviewScreen.desk.askInChat"),
+      annotations: (count: number) => t("reviewScreen.desk.annotations", { count }),
+      noWorkspace: (repo: string) => t("reviewScreen.desk.noWorkspace", { repo }),
+      askUnavailable: t("reviewScreen.desk.askUnavailable"),
+      detached: (count: number) => t("reviewScreen.desk.detached", { count }),
+      detachedNoLine: t("reviewScreen.desk.detachedNoLine"),
+      detachedOutside: t("reviewScreen.desk.detachedOutside"),
+      detachedHidden: t("reviewScreen.desk.detachedHidden"),
+      threadsFailed: t("reviewScreen.desk.threadsFailed"),
+      patchFailed: t("reviewScreen.desk.patchFailed"),
+    }),
+    [t],
+  );
+}

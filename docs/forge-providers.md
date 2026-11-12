@@ -101,6 +101,19 @@ host that is either a known cloud host or one the CLI is already authenticated
 to. Adapter probes must not make anonymous HTTP requests to remote-derived
 hosts, and adapters must not route credentials to an unauthenticated host.
 
+### Review reads
+
+The Review screen (`/pimi-review`) reads change requests that are not checked
+out through six optional `ForgeService` methods: `listChangeRequestInbox`,
+`getChangeRequestOverview`, `listChangeRequestFiles`, `getChangeRequestFileDiffs`,
+`getChangeRequestTimeline`, and `getChangeRequestCheckDetails`. They back the
+`forge.change_request.*` RPCs and take a `ChangeRequestRef` (host, owner, name,
+number). Only the GitHub adapter implements them. An adapter that omits them
+needs no other change: the RPCs answer "unsupported" and Review falls back to
+checkout-backed review for that forge. Implement them only when the forge can
+return a file list without patches and patches on demand per file; Review never
+asks for a whole-PR patch.
+
 ## App
 
 Each app forge splits into two modules so pure logic never imports the client

@@ -1451,13 +1451,14 @@ function useDiffTabNavigation({
     (url: string) => {
       if (!persistenceKey) return;
       openWorkspacePullRequest({
+        serverId,
         isCompact: isMobile,
         workspaceKey: persistenceKey,
         destination: pullRequestOpenLocation,
         url,
       });
     },
-    [isMobile, persistenceKey, pullRequestOpenLocation],
+    [isMobile, persistenceKey, pullRequestOpenLocation, serverId],
   );
   return {
     openDiff,

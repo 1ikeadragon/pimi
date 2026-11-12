@@ -1,8 +1,7 @@
 // Pimi. Apache-2.0.
 import { execFile } from "node:child_process";
-import { createHash } from "node:crypto";
-import { lstat, open, readdir, realpath } from "node:fs/promises";
-import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { lstat, readdir, realpath } from "node:fs/promises";
+import { basename, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 
 const exec = promisify(execFile);
@@ -331,103 +330,4 @@ export async function summarizeReviewDirectory(directory) {
     }
   }
   return { filesChanged: review.files.length, ...totals, incomplete };
-}
-
-export async function filePatch(review, file) {
-  if (review.hosted) return review.hosted.patch(file);
-  if (review.live && (await readHead(review.worktree.path)) !== review.head) {
-    throw new RequestError("The checkout moved. Refresh the review.", 409);
-  }
-  if (file.untracked) return untrackedDiff(review.worktree.path, file.path, ["--unified=4"]);
-  const paths = file.oldPath ? [file.oldPath, file.path] : [file.path];
-  return git(
-    review.worktree.path,
-    "diff",
-    ...diffArgs,
-    "--unified=4",
-    ...review.refs,
-    "--",
-    ...paths,
-  );
-}
-
-export const patchFingerprint = (patch) => createHash("sha256").update(patch).digest("hex");
-
-async function resolveFile(root, path) {
-  const candidate = resolve(root, path);
-  const fullPath = await realpath(candidate);
-  const fromRoot = relative(root, fullPath);
-  if (
-    !fromRoot ||
-    fromRoot === ".." ||
-    fromRoot.startsWith(".." + sep) ||
-    isAbsolute(fromRoot) ||
-    !(await lstat(candidate)).isFile()
-  ) {
-    throw new RequestError("The selected file is outside this worktree or is unavailable.");
-  }
-  return fullPath;
-}
-
-export async function fileSource(review, file) {
-  if (review.hosted) return review.hosted.source(file);
-  const cwd = review.worktree.path;
-  let source;
-  if (file.status === "D" || !review.live) {
-    const revision = file.status === "D" ? review.refs[0] : review.head;
-    const blob = `${revision}:${file.path}`;
-    if ((await git(cwd, "cat-file", "-t", blob)).trim() !== "blob") {
-      throw new RequestError("This Git entry has no text file to display.");
-    }
-    if (Number(await git(cwd, "cat-file", "-s", blob)) > displayLimit) {
-      throw new RequestError("This file exceeds the 400 KB display limit.", 422);
-    }
-    source = await git(cwd, "cat-file", "blob", blob);
-  } else {
-    if ((await readHead(cwd)) !== review.head) {
-      throw new RequestError("The checkout moved. Refresh the review.", 409);
-    }
-    const filePath = await resolveFile(await realpath(cwd), file.path);
-    const handle = await open(filePath, "r");
-    try {
-      const buffer = Buffer.alloc(displayLimit + 1);
-      let bytesRead = 0;
-      while (bytesRead < buffer.length) {
-        const chunk = await handle.read(buffer, bytesRead, buffer.length - bytesRead, bytesRead);
-        if (chunk.bytesRead === 0) break;
-        bytesRead += chunk.bytesRead;
-      }
-      if (bytesRead > displayLimit)
-        throw new RequestError("This file exceeds the 400 KB display limit.", 422);
-      source = buffer.toString("utf8", 0, bytesRead);
-    } finally {
-      await handle.close();
-    }
-  }
-  if (source.includes("\0")) throw new RequestError("This is a binary file.");
-  return source;
-}
-
-export async function openInEditor(review, file, line, launch = launchZed) {
-  const root = await realpath(review.worktree.path);
-  if (!file) return launch({ workspacePath: root });
-  if (!review.canOpenFiles || file.status === "D" || (await readHead(root)) !== review.head) {
-    throw new RequestError("This file is unavailable at the current checkout.");
-  }
-  if (
-    !review.live &&
-    (await git(root, "diff", ...diffArgs, "--name-only", review.head, "--", file.path))
-  ) {
-    throw new RequestError(
-      "The local file differs from the reviewed commit. Switch to a working comparison to open that version.",
-      409,
-    );
-  }
-  const fullPath = await resolveFile(root, file.path);
-  return launch({ workspacePath: root, filePath: fullPath, line, column: 1 });
-}
-
-async function launchZed({ workspacePath, filePath, line, column }) {
-  const args = filePath ? [workspacePath, `${filePath}:${line}:${column}`] : [workspacePath];
-  await command("zed", args, workspacePath, { timeout: 12000 });
 }

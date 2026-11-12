@@ -202,13 +202,7 @@ export const PimiNewTaskDestination = PimiTaskFields.pick({
   .partial()
   .extend({ view: z.literal("new-task") });
 export const PimiOpenTaskDestination = PimiTaskAgentGetInput.extend({ view: z.literal("task") });
-export const PimiSimpleDestinationView = z.enum(["tasks", "worktrees", "review-home"]);
-export const PimiPullRequestFilter = z.enum(["all", "mine", "requested"]);
-export type PimiPullRequestFilter = z.infer<typeof PimiPullRequestFilter>;
-export const PimiReviewListDestination = z.object({
-  view: z.literal("review-prs"),
-  filter: PimiPullRequestFilter.optional(),
-});
+export const PimiSimpleDestinationView = z.enum(["tasks", "worktrees"]);
 export const PimiSpacesDestination = z.object({
   view: z.literal("spaces"),
   action: z
@@ -220,25 +214,41 @@ export const PimiSpacesDestination = z.object({
     ])
     .optional(),
 });
-export const PimiReviewPrDestination = z.object({
-  view: z.literal("review-pr"),
-  url: z
-    .string()
-    .max(512)
-    .regex(/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/[1-9]\d*\/?$/),
-});
+/**
+ * A request from the Work window to open the Review screen. Review itself is an app route, so the
+ * Work window asks the host app to navigate instead of showing a destination of its own.
+ */
+export const PimiReviewRequest = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("checkout"),
+    path: z.string().min(1).max(4096),
+    baseRef: z.string().min(1).max(512).optional(),
+  }),
+  z.object({
+    kind: z.literal("pull-request"),
+    url: z
+      .string()
+      .max(512)
+      .regex(/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/[1-9]\d*\/?$/),
+  }),
+]);
+export type PimiReviewRequest = z.infer<typeof PimiReviewRequest>;
+
+/** Screens the Work window shows. */
 export type PimiDestination =
   | { view: z.infer<typeof PimiSimpleDestinationView> }
   | z.infer<typeof PimiMemoryDestination>
   | z.infer<typeof PimiNewTaskDestination>
   | z.infer<typeof PimiOpenTaskDestination>
-  | z.infer<typeof PimiReviewPrDestination>
-  | z.infer<typeof PimiReviewListDestination>
   | z.infer<typeof PimiSpacesDestination>
-  | { view: "review"; path: string; serverId?: string }
   | { view: "task-draft"; proposal: PimiTaskProposal };
 
-export type PimiWorkspaceSection = "tasks" | "board" | "review" | "memory" | "spaces";
+/** A destination a voice command can name: the Work window's screens, or a checkout's Review. */
+export type PimiVoiceDestination =
+  | PimiDestination
+  | { view: "review"; path: string; serverId?: string };
+
+export type PimiWorkspaceSection = "tasks" | "board" | "memory" | "spaces";
 export type PimiActivitySection = "tasks" | "board" | "review";
 
 export const PIMI_VOICE_COMMAND_ROUTE = "/api/pimi/voice-command";
@@ -285,7 +295,7 @@ export const PimiVoiceNavigation = z.discriminatedUnion("action", [
     query: voiceTarget,
   }),
   z.strictObject({ action: z.literal("review-worktree"), name: voiceTarget.optional() }),
-  z.strictObject({ action: z.literal("review-prs"), filter: PimiPullRequestFilter.optional() }),
+  z.strictObject({ action: z.literal("review-prs") }),
   z.strictObject({ action: z.literal("open-task"), title: voiceTarget }),
   z.strictObject({
     action: z.literal("usage"),
@@ -367,7 +377,7 @@ export function isExplicitVoiceChatRequest(transcript: string): boolean {
 }
 
 export interface PimiVoiceEffect {
-  destination?: PimiDestination;
+  destination?: PimiVoiceDestination;
   navigation?: PimiVoiceNavigation;
   chat?: { serverId: string; workspaceId: string; agentId: string };
 }

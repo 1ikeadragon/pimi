@@ -5,7 +5,8 @@
 // the shared selection and desk focus; every pane is a slot owned by one stream (see each file's
 // header). Add behaviour in the slot, not here.
 import { useCallback, useEffect, useState } from "react";
-import { View } from "react-native";
+import { useTranslation } from "react-i18next";
+import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { MenuHeader } from "@/components/headers/menu-header";
 import { useIsCompactFormFactor } from "@/constants/layout";
@@ -59,6 +60,7 @@ export function ReviewScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the serialized source
   }, [routeKey, push]);
 
+  const { t } = useTranslation();
   const onModeChange = useCallback((mode: ReviewMode) => push({ mode, source: null }), [push]);
   const onOpen = useCallback(
     (next: ReviewSource) => push({ source: next, tab: "overview", path: null }),
@@ -67,7 +69,7 @@ export function ReviewScreen({
 
   return (
     <View style={styles.screen} dataSet={PIMI_BACKGROUND} testID="pimi-review">
-      <MenuHeader title="Review" />
+      <MenuHeader title={t("reviewScreen.title")} />
       <ReviewHeader mode={current.mode} navigation={navigation} onModeChange={onModeChange} />
       <ReviewBody
         serverId={serverId}
@@ -113,6 +115,23 @@ function ReviewBody({
           navigation={navigation}
         />
       ) : null}
+      {source || isCompact ? null : <NothingSelected mode={mode} />}
+    </View>
+  );
+}
+
+/** The detail pane before anything is chosen: say what to do, so it never reads as blank. */
+function NothingSelected({ mode }: { mode: ReviewMode }) {
+  const { t } = useTranslation();
+  const worktrees = mode === "worktrees";
+  return (
+    <View style={styles.nothing} testID="review-nothing-selected">
+      <Text style={styles.nothingTitle}>
+        {t(worktrees ? "reviewScreen.selectWorktree" : "reviewScreen.selectPullRequest")}
+      </Text>
+      <Text style={styles.nothingHint}>
+        {t(worktrees ? "reviewScreen.selectWorktreeHint" : "reviewScreen.selectPullRequestHint")}
+      </Text>
     </View>
   );
 }
@@ -198,4 +217,22 @@ const styles = StyleSheet.create((theme) => ({
   changes: { flex: 1, minHeight: 0, flexDirection: "row" },
   desk: { flex: 1, minWidth: 0 },
   inspector: { width: 340, borderLeftWidth: 1, borderLeftColor: theme.colors.border },
+  nothing: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: theme.spacing[2],
+    padding: theme.spacing[6],
+  },
+  nothingTitle: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.lg,
+    fontWeight: theme.fontWeight.medium,
+  },
+  nothingHint: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.base,
+    textAlign: "center",
+  },
 }));

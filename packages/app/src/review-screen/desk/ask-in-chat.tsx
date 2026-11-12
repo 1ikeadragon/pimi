@@ -22,7 +22,7 @@ import { generateDraftId } from "@/stores/draft-keys";
 import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
 import type { ParsedDiffFile } from "@pimi/protocol/messages";
 import type { ChangeRequestSource } from "../types";
-import { DESK_COPY } from "./copy";
+import { useDeskCopy } from "./copy";
 
 const NO_WORKSPACES: ReadonlyMap<string, WorkspaceDescriptor> = new Map();
 
@@ -66,6 +66,7 @@ export function AskInChat({
   loadedFiles: ReadonlyMap<string, ParsedDiffFile>;
   baseRef: string | null;
 }) {
+  const copy = useDeskCopy();
   const workspaces = useSessionStore(
     (state) => state.sessions[source.serverId]?.workspaces ?? NO_WORKSPACES,
   );
@@ -83,7 +84,7 @@ export function AskInChat({
         diffFiles: [...loadedFiles.values()],
       });
       if (!snapshot) {
-        setError(DESK_COPY.askUnavailable);
+        setError(copy.askUnavailable);
         return;
       }
       setError(null);
@@ -100,27 +101,27 @@ export function AskInChat({
         target: { kind: "draft", draftId },
       });
     },
-    [baseRef, loadedFiles, reviewDraftKey, source.serverId],
+    [baseRef, copy.askUnavailable, loadedFiles, reviewDraftKey, source.serverId],
   );
 
   if (draftCount === 0) return null;
   return (
     <View style={styles.bar} testID="review-desk-ask-bar">
-      <Text style={styles.count}>{DESK_COPY.annotations(draftCount)}</Text>
+      <Text style={styles.count}>{copy.annotations(draftCount)}</Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <DropdownMenu>
         <DropdownMenuTrigger
           accessibilityRole="button"
-          accessibilityLabel={DESK_COPY.askInChat}
+          accessibilityLabel={copy.askInChat}
           style={styles.trigger}
           testID="review-desk-ask-trigger"
         >
-          <Text style={styles.triggerText}>{DESK_COPY.askInChat}</Text>
+          <Text style={styles.triggerText}>{copy.askInChat}</Text>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" minWidth={260} side="top" testID="review-desk-ask-menu">
           {candidates.length === 0 ? (
             <DropdownMenuLabel>
-              {DESK_COPY.noWorkspace(`${source.owner}/${source.name}`)}
+              {copy.noWorkspace(`${source.owner}/${source.name}`)}
             </DropdownMenuLabel>
           ) : (
             candidates.map((workspace) => (

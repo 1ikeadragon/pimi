@@ -1,6 +1,7 @@
 // Pimi. Apache-2.0.
 // Stream S4: review threads as rows inside a card. Shared by the Overview card and the inspector.
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { ChevronDown, ChevronRight } from "lucide-react-native";
@@ -66,6 +67,7 @@ function ThreadRow({
   onSelectionChange: (next: ReviewSelection) => void;
   onJumpTo: ReviewJumpTo;
 }) {
+  const { t } = useTranslation();
   const selected = selection.threads.has(thread.id);
   const onToggleSelected = useCallback(
     () => onSelectionChange({ ...selection, threads: toggleInSet(selection.threads, thread.id) }),
@@ -83,9 +85,9 @@ function ThreadRow({
   }, [onJumpTo, thread.line, thread.path]);
   const openOnForge = useCallback(() => void openExternalUrl(thread.url), [thread.url]);
   const location = useMemo(() => {
-    if (!thread.path) return "General discussion";
+    if (!thread.path) return t("reviewScreen.inspector.generalDiscussion");
     return `${thread.path}${thread.line ? `:${thread.line}` : ""}`;
-  }, [thread.line, thread.path]);
+  }, [t, thread.line, thread.path]);
   const Chevron = open ? ThemedChevronDown : ThemedChevronRight;
   const extra = thread.entry.comments.length - 1;
 
@@ -98,25 +100,33 @@ function ThreadRow({
         <SelectionBox
           checked={selected}
           onToggle={onToggleSelected}
-          label={`Select thread in ${location}`}
+          label={t("reviewScreen.inspector.selectThread", { location })}
         />
         <PressHighlight style={styles.headMain} onPress={toggle} accessibilityRole="button">
           <View style={styles.titleLine}>
             <Chevron size={14} uniProps={mutedColor} />
             <Text style={styles.summary} numberOfLines={open ? undefined : 2}>
-              {thread.summary || "(no text)"}
+              {thread.summary || t("reviewScreen.inspector.noText")}
             </Text>
           </View>
           <View style={styles.metaLine}>
             <Text style={styles.meta} numberOfLines={1}>
               {thread.author} · {location}
-              {extra > 0 ? ` · ${extra} ${extra === 1 ? "reply" : "replies"}` : ""}
+              {extra > 0 ? ` · ${t("reviewScreen.inspector.replies", { count: extra })}` : ""}
             </Text>
             {thread.isResolved ? (
-              <StatusBadge size="xs" variant="success" label="Resolved" />
+              <StatusBadge
+                size="xs"
+                variant="success"
+                label={t("reviewScreen.inspector.resolved")}
+              />
             ) : null}
             {thread.isOutdated ? (
-              <StatusBadge size="xs" variant="warning" label="Outdated" />
+              <StatusBadge
+                size="xs"
+                variant="warning"
+                label={t("reviewScreen.inspector.outdated")}
+              />
             ) : null}
           </View>
         </PressHighlight>
@@ -133,15 +143,19 @@ function ThreadRow({
           ))}
           <View style={styles.actions}>
             <Button size="sm" variant="outline" onPress={fix} testID={`review-fix-${thread.id}`}>
-              Fix this
+              {t("reviewScreen.inspector.fixThis")}
             </Button>
             {thread.path ? (
               <Button size="sm" variant="ghost" onPress={jump}>
-                {thread.isOutdated || !thread.line ? "Open file" : "Jump to line"}
+                {t(
+                  thread.isOutdated || !thread.line
+                    ? "reviewScreen.inspector.openFile"
+                    : "reviewScreen.inspector.jumpToLine",
+                )}
               </Button>
             ) : null}
             <Button size="sm" variant="ghost" onPress={openOnForge}>
-              Open on forge
+              {t("reviewScreen.overview.openOnForge")}
             </Button>
           </View>
         </View>

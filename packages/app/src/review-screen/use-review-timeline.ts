@@ -2,6 +2,7 @@
 // Stream S4 owns this file: the one read of a change request's overview, checks and review threads
 // for the Review screen. The Overview cards, the Changes-tab inspector, the file tree badges and the
 // Fix sheet all call it; react-query keys the requests by identity, so every caller shares one fetch.
+import { i18n } from "@/i18n/i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchQueryOptions, useFetchQueries, useFetchQuery } from "@/data/query";
 import { useCallback, useMemo, useRef } from "react";
@@ -199,11 +200,12 @@ export function useReviewTimeline(
     queryKey: overviewKey(ref),
     enabled,
     queryFn: async () => {
-      if (!client || !ref) throw new Error("No daemon connection");
+      if (!client || !ref) throw new Error(i18n.t("reviewScreen.errors.noConnection"));
       const payload = await client.forgeChangeRequestGetOverview(
         refInput(ref, refreshNext.current),
       );
-      if (!payload.overview) throw toError(payload.error, "Could not load the pull request");
+      if (!payload.overview)
+        throw toError(payload.error, i18n.t("reviewScreen.errors.loadPullRequest"));
       return payload.overview;
     },
   });
@@ -212,11 +214,11 @@ export function useReviewTimeline(
     queryKey: timelineKey(ref),
     enabled,
     queryFn: async () => {
-      if (!client || !ref) throw new Error("No daemon connection");
+      if (!client || !ref) throw new Error(i18n.t("reviewScreen.errors.noConnection"));
       const payload = await client.forgeChangeRequestGetTimeline(
         refInput(ref, refreshNext.current),
       );
-      if (payload.error) throw toError(payload.error, "Could not load review threads");
+      if (payload.error) throw toError(payload.error, i18n.t("reviewScreen.errors.loadThreads"));
       return { items: payload.items, truncated: payload.truncated };
     },
   });
@@ -298,7 +300,9 @@ export function useReviewTimeline(
     isRefreshing:
       (overviewQuery.isFetching && !overviewQuery.isPending) ||
       (timelineQuery.isFetching && !timelineQuery.isPending),
-    error: overviewQuery.error ?? (ref && !isConnected ? new Error("Host is offline") : null),
+    error:
+      overviewQuery.error ??
+      (ref && !isConnected ? new Error(i18n.t("reviewScreen.errors.hostOffline")) : null),
     threadsError: timelineQuery.error,
     threadsTruncated: timelineQuery.data?.truncated ?? false,
     noChangeRequest,
@@ -324,13 +328,13 @@ export async function fetchCheckDetails(
   ref: ChangeRequestSource | null,
   check: Pick<ReviewCheck, "checkRunId" | "workflowRunId">,
 ): Promise<CheckoutCheckDetails | null> {
-  if (!client || !ref) throw new Error("No daemon connection");
+  if (!client || !ref) throw new Error(i18n.t("reviewScreen.errors.noConnection"));
   const payload = await client.forgeChangeRequestGetCheckDetails({
     ...refInput(ref, false),
     ...(check.checkRunId !== null ? { checkRunId: check.checkRunId } : {}),
     ...(check.workflowRunId !== null ? { workflowRunId: check.workflowRunId } : {}),
   });
-  if (payload.error) throw toError(payload.error, "Could not load check details");
+  if (payload.error) throw toError(payload.error, i18n.t("reviewScreen.errors.loadCheckDetails"));
   return payload.details;
 }
 

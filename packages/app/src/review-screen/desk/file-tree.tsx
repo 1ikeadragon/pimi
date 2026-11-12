@@ -33,7 +33,7 @@ import { fileNameForPath } from "@/git/file-header-presentation";
 import type { ParsedDiffFile } from "@pimi/protocol/messages";
 import { inlineUnistylesStyle } from "@/styles/unistyles-inline-style";
 import type { Theme } from "@/styles/theme";
-import { DESK_COPY } from "./copy";
+import { useDeskCopy } from "./copy";
 
 const ThemedCheck = withUnistyles(Check);
 const viewedIconMapping = (theme: Theme) => ({ color: theme.colors.statusSuccess });
@@ -196,6 +196,7 @@ const FileRow = memo(function FileRow({
   );
   const accessibilityState = useMemo(() => ({ selected: isActive }), [isActive]);
   const checkState = useMemo(() => ({ checked: viewed }), [viewed]);
+  const copy = useDeskCopy();
   const name = fileNameForPath(file.path);
   return (
     <PressHighlight
@@ -224,7 +225,7 @@ const FileRow = memo(function FileRow({
         <DiffStat additions={file.additions} deletions={file.deletions} />
         <PressHighlight
           accessibilityRole="checkbox"
-          accessibilityLabel={viewed ? DESK_COPY.markUnviewed : DESK_COPY.markViewed}
+          accessibilityLabel={viewed ? copy.markUnviewed : copy.markViewed}
           accessibilityState={checkState}
           hitSlop={6}
           onPress={handleViewed}

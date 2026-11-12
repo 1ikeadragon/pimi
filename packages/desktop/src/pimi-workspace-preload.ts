@@ -1,7 +1,11 @@
 // Pimi. Apache-2.0.
 import { contextBridge, ipcRenderer } from "electron";
 import type { PimiAppearance, PimiDestination, WorkspaceLayout } from "./window/pimi-window.js";
-import type { PimiVoiceBubbleState, PimiWorkspaceSection } from "@pimi/protocol/pimi-task";
+import type {
+  PimiReviewRequest,
+  PimiVoiceBubbleState,
+  PimiWorkspaceSection,
+} from "@pimi/protocol/pimi-task";
 
 let appearance: PimiAppearance | undefined;
 let onAppearanceChange: ((mode: PimiAppearance) => void) | undefined;
@@ -57,9 +61,8 @@ contextBridge.exposeInMainWorld("pimiWorkspace", {
   chrome: process.platform === "darwin" ? "mac" : "standard",
   setSection: (section: PimiWorkspaceSection) =>
     ipcRenderer.send("pimi:workspace:section", section),
-  setReviewLocation: (
-    location: { view: "review-pr"; url: string } | { view: "review-prs" } | { view: "review-home" },
-  ) => ipcRenderer.send("pimi:workspace:review-location", location),
+  openReview: (request: PimiReviewRequest) =>
+    ipcRenderer.send("pimi:workspace:open-review", request),
   onLayoutChange: (apply: (mode: WorkspaceLayout) => void) => {
     onLayoutChange = apply;
     apply(layout);

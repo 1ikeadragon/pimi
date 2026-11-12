@@ -9,6 +9,8 @@ import { DensityIcon } from "@/components/ui/density-icon";
 import { PressHighlight } from "@/components/ui/press-highlight";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
 import { getDesktopHost } from "@/desktop/host";
+import { useLocalDaemonServerId } from "@/hooks/use-is-local-daemon";
+import { openPimiReview, pullRequestUrlToSource } from "@/navigation/pimi-review";
 import { UsageMessage } from "./usage-section";
 
 const periods: SegmentedControlOption<PimiRecapPeriod>[] = [
@@ -188,11 +190,15 @@ function RecapRow({
   kind: "task" | "review-pr";
   target: string;
 }) {
+  const localServerId = useLocalDaemonServerId();
   const open = useCallback(() => {
-    const show = getDesktopHost()?.showPimiWorkspace;
-    if (kind === "task") show?.({ view: kind, id: target });
-    else show?.({ view: kind, url: target });
-  }, [kind, target]);
+    if (kind === "task") {
+      getDesktopHost()?.showPimiWorkspace?.({ view: kind, id: target });
+      return;
+    }
+    const source = localServerId ? pullRequestUrlToSource(target, localServerId) : null;
+    if (source) openPimiReview(source);
+  }, [kind, localServerId, target]);
   return (
     <PressHighlight
       style={styles.row}

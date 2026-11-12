@@ -88,6 +88,39 @@ export function openPimiReview(source?: ReviewSource, serverId?: string): void {
   router.navigate({ pathname: PIMI_REVIEW_ROUTE, params } as unknown as Href);
 }
 
+const GITHUB_PULL_REQUEST_PATH =
+  /^\/([A-Za-z0-9_][\w.-]{0,99})\/([A-Za-z0-9_][\w.-]{0,99})\/pull\/([1-9]\d{0,15})\/?$/;
+
+/** A GitHub pull request URL as a review source on `serverId`, or null for any other URL. */
+export function pullRequestUrlToSource(url: string, serverId: string): ReviewSource | null {
+  const parsed = URL.parse(url);
+  if (!parsed || parsed.protocol !== "https:" || parsed.hostname !== "github.com") return null;
+  const match = GITHUB_PULL_REQUEST_PATH.exec(parsed.pathname);
+  if (!match) return null;
+  return {
+    kind: "change_request",
+    serverId,
+    forgeHost: "github.com",
+    owner: match[1],
+    name: match[2],
+    number: Number(match[3]),
+  };
+}
+
+/** A checkout's committed and working changes, the comparison the Work board and chat entry points open. */
+export function checkoutReviewSource(input: {
+  serverId: string;
+  cwd: string;
+  baseRef?: string;
+}): ReviewSource {
+  return {
+    kind: "checkout",
+    serverId: input.serverId,
+    cwd: input.cwd,
+    compare: { mode: "all", ...(input.baseRef ? { baseRef: input.baseRef } : {}) },
+  };
+}
+
 export function closePimiReview(): void {
   if (router.canGoBack()) router.back();
   else router.replace(buildOpenProjectRoute());

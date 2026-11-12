@@ -1013,14 +1013,6 @@ export async function createTasks({ file, pimi, getInventory, onChange = () => {
     resetWorkspaceObservation,
     worktreeTaskLinks,
     recap,
-    pullRequestTaskLinks: (url) =>
-      state
-        .filter((task) =>
-          task.experiments.some(
-            (item) => item.pullRequest?.url.toLowerCase() === url.toLowerCase(),
-          ),
-        )
-        .map(({ id, title }) => ({ id, title })),
     list: () => ({ tasks: state.map(publicTask), error: readError }),
     reportText(id, experimentId) {
       const item = getExperiment(getTask(state, id), experimentId);

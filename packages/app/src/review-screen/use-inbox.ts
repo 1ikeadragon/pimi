@@ -1,6 +1,7 @@
 // Pimi. Apache-2.0.
 // Stream S2: the Review rail's data. One `forge.change_request.list_inbox` read per host, plus the
 // change-request URL a user pastes into the search field.
+import { i18n } from "@/i18n/i18next";
 import { useCallback, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ForgeChangeRequestListInboxResponse } from "@pimi/protocol/messages";
@@ -31,7 +32,7 @@ export function useReviewInbox(serverId: string) {
     staleTimeMs: INBOX_STALE_MS,
     queryFn: async (): Promise<ChangeRequestInbox> => {
       const client = getHostRuntimeStore().getClient(serverId);
-      if (!client) throw new Error("Host is not connected");
+      if (!client) throw new Error(i18n.t("reviewScreen.errors.hostNotConnected"));
       const refresh = refreshNext.current;
       refreshNext.current = false;
       return client.forgeChangeRequestListInbox({

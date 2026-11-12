@@ -38,7 +38,7 @@ import { PimiAgentLabels, usePimiLabelNames } from "@/desktop/pimi-labels";
 import { useWorkspaceLabelDefinitions } from "@/workspace-labels";
 import { usePimiTaskBranches } from "./sidebar-model";
 import { getDesktopHost } from "@/desktop/host";
-import { PimiReviewPrDestination } from "@pimi/protocol/pimi-task";
+import { openPimiReview, pullRequestUrlToSource } from "@/navigation/pimi-review";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
 import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
 import { PressHighlight } from "@/components/ui/press-highlight";
@@ -302,13 +302,10 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
 function openPimiPullRequest(workspace: SidebarWorkspaceEntry): (() => void) | undefined {
   const host = getDesktopHost();
   if (!host?.showPimiWorkspace || !workspace.prHint) return undefined;
-  const destination = PimiReviewPrDestination.safeParse({
-    view: "review-pr",
-    url: workspace.prHint.url,
-  });
-  if (destination.success) return () => host.showPimiWorkspace?.(destination.data);
   const { serverId, workspaceId } = workspace;
   if (!serverId) return undefined;
+  const source = pullRequestUrlToSource(workspace.prHint.url, serverId);
+  if (source) return () => openPimiReview(source);
   return () => {
     host.dismissPimiWorkspace?.();
     navigateToWorkspace({ serverId, workspaceId, target: { kind: "pull_request" } });

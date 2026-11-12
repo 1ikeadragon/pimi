@@ -2,6 +2,7 @@
 // Client-side patch cache for the Changes tab: LRU capped at 64 files or 8 MB (whichever first),
 // fetched 8 paths per `get_file_diffs` call with at most 2 calls in flight (the daemon bounds `gh`
 // itself). Entries are keyed by head SHA, so a push never serves a stale patch.
+import { i18n } from "@/i18n/i18next";
 import { useSyncExternalStore } from "react";
 import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import type { ChangeRequestFileDiff } from "@pimi/protocol/messages";
@@ -154,7 +155,10 @@ async function run(
       } else {
         store(
           key,
-          { state: "failed", message: payload.error?.message ?? "The daemon returned no diff" },
+          {
+            state: "failed",
+            message: payload.error?.message ?? i18n.t("reviewScreen.errors.noDiff"),
+          },
           protectedKeys,
         );
       }

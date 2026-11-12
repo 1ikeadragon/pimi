@@ -4,6 +4,7 @@
 // opens that workspace's composer with both prefilled. It never sends, posts or pushes: the only
 // writes are a local draft, local attachments, and navigation.
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Text, View } from "react-native";
 import { router } from "expo-router";
 import { StyleSheet } from "react-native-unistyles";
@@ -84,6 +85,7 @@ function FixSheetBody({
   checkKeys: readonly string[];
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const timeline = useReviewTimeline(source);
   const fetchDetails = useFetchReviewCheckDetails(source);
   const [note, setNote] = useState("");
@@ -145,7 +147,10 @@ function FixSheetBody({
           details = await fetchDetails.mutateAsync(check);
         } catch (cause) {
           warnings.push(
-            `${check.name}: log unavailable (${cause instanceof Error ? cause.message : "error"})`,
+            t("reviewScreen.fix.logUnavailable", {
+              name: check.name,
+              reason: cause instanceof Error ? cause.message : t("reviewScreen.fix.unknownError"),
+            }),
           );
         }
       }
@@ -172,7 +177,7 @@ function FixSheetBody({
       note: [note, ...warnings].filter((line) => line.trim()).join("\n"),
     });
     return { draftId, draftKey: text };
-  }, [checks, fetchDetails, note, overview, ref, threads, timeline.forge]);
+  }, [checks, fetchDetails, note, overview, ref, t, threads, timeline.forge]);
 
   const run = useCallback(
     async (destination: "workspace" | "new") => {
@@ -199,22 +204,22 @@ function FixSheetBody({
         }
         onClose();
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "Could not prepare the chat");
+        setError(cause instanceof Error ? cause.message : t("reviewScreen.fix.prepareFailed"));
       } finally {
         setBusy(false);
       }
     },
-    [onClose, prepareDraft, source.serverId, targetId],
+    [onClose, prepareDraft, source.serverId, t, targetId],
   );
   const openInWorkspace = useCallback(() => void run("workspace"), [run]);
   const openInNew = useCallback(() => void run("new"), [run]);
 
   const header = useMemo<SheetHeader>(
     () => ({
-      title: "Fix with an agent",
-      subtitle: <Text style={styles.muted}>Prefills a chat. Nothing is sent or pushed.</Text>,
+      title: t("reviewScreen.fix.title"),
+      subtitle: <Text style={styles.muted}>{t("reviewScreen.fix.subtitle")}</Text>,
     }),
-    [],
+    [t],
   );
 
   return (
@@ -222,13 +227,15 @@ function FixSheetBody({
       <View style={styles.body}>
         {ready ? null : (
           <Text style={styles.muted}>
-            {timeline.isLoading ? "Loading…" : "Nothing selected to fix."}
+            {timeline.isLoading
+              ? t("reviewScreen.fix.loading")
+              : t("reviewScreen.fix.nothingSelected")}
           </Text>
         )}
         <View style={settingsStyles.card}>
           {checks.map((check, index) => (
             <View key={check.key} style={[styles.item, index > 0 && settingsStyles.rowBorder]}>
-              <StatusBadge size="xs" variant="error" label="Check" />
+              <StatusBadge size="xs" variant="error" label={t("reviewScreen.fix.badgeCheck")} />
               <Text style={styles.itemText} numberOfLines={2}>
                 {check.name}
               </Text>
@@ -239,7 +246,7 @@ function FixSheetBody({
               key={thread.id}
               style={[styles.item, (index > 0 || checks.length > 0) && settingsStyles.rowBorder]}
             >
-              <StatusBadge size="xs" label="Thread" />
+              <StatusBadge size="xs" label={t("reviewScreen.fix.badgeThread")} />
               <Text style={styles.itemText} numberOfLines={2}>
                 {describeThread(thread)}
               </Text>
@@ -250,18 +257,19 @@ function FixSheetBody({
         <AdaptiveTextInput
           initialValue={note}
           onChangeText={setNote}
-          placeholder="Optional note for the agent"
+          placeholder={t("reviewScreen.fix.notePlaceholder")}
           multiline
           style={styles.input}
           testID="review-fix-note"
         />
 
-        <Text style={styles.label}>Open the chat in</Text>
+        <Text style={styles.label}>{t("reviewScreen.fix.openIn")}</Text>
         <View style={settingsStyles.card}>
           {targets.length === 0 ? (
             <Text style={[styles.itemText, styles.pad]}>
-              No workspace for {ref ? `${ref.owner}/${ref.name}` : "this repository"} on this host.
-              Start a new workspace and pick the pull request there.
+              {t("reviewScreen.fix.noWorkspace", {
+                repo: ref ? `${ref.owner}/${ref.name}` : t("reviewScreen.fix.thisRepository"),
+              })}
             </Text>
           ) : (
             targets.map(({ workspace, onBranch }, index) => (
@@ -279,7 +287,7 @@ function FixSheetBody({
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <View style={styles.actions}>
           <Button variant="secondary" onPress={openInNew} disabled={!ready || busy}>
-            New workspace
+            {t("reviewScreen.fix.newWorkspace")}
           </Button>
           <Button
             variant="default"
@@ -287,7 +295,7 @@ function FixSheetBody({
             disabled={!ready || busy || !targetId}
             testID="review-fix-open-chat"
           >
-            {busy ? "Preparing…" : "Open in chat"}
+            {busy ? t("reviewScreen.fix.preparing") : t("reviewScreen.fix.openChat")}
           </Button>
         </View>
       </View>
@@ -308,6 +316,7 @@ function TargetRow({
   selected: boolean;
   onPick: (id: string) => void;
 }) {
+  const { t } = useTranslation();
   const press = useCallback(() => onPick(workspace.id), [onPick, workspace.id]);
   const state = useMemo(() => ({ selected }), [selected]);
   const rowStyle = useMemo(() => [styles.item, !first && settingsStyles.rowBorder], [first]);
@@ -329,7 +338,9 @@ function TargetRow({
           {workspace.gitRuntime?.currentBranch ?? workspace.workspaceDirectory}
         </Text>
       </View>
-      {onBranch ? <StatusBadge size="xs" variant="success" label="On this branch" /> : null}
+      {onBranch ? (
+        <StatusBadge size="xs" variant="success" label={t("reviewScreen.fix.onThisBranch")} />
+      ) : null}
     </PressHighlight>
   );
 }

@@ -28,6 +28,12 @@ import {
 } from "@/navigation/pimi-agent-grid";
 import { closePimiLibrary, openPimiLibrary, PIMI_LIBRARY_ROUTE } from "@/navigation/pimi-library";
 import {
+  checkoutReviewSource,
+  closePimiReview,
+  openPimiReview,
+  PIMI_REVIEW_ROUTE,
+} from "@/navigation/pimi-review";
+import {
   closePimiUsage,
   openPimiUsage,
   openPimiUsageDetail,
@@ -59,6 +65,7 @@ import {
   type PimiVoiceBubbleState,
   PimiVoiceNavigation,
   type PimiDestination,
+  type PimiVoiceDestination,
   type PimiVoiceEffect,
   type PimiVoiceView,
 } from "@pimi/protocol/pimi-task";
@@ -141,12 +148,16 @@ const TYPING_DOTS = ["first", "second", "third"].map((id, index) => ({
   } as unknown as ViewStyle,
 }));
 
-const WORKSPACE_VIEWS: Partial<Record<PimiVoiceView, PimiDestination>> = {
-  tasks: { view: "tasks" },
-  work: { view: "worktrees" },
-  review: { view: "review-home" },
-  memory: { view: "memory" },
-  spaces: { view: "spaces" },
+const showWorkView = (destination: PimiDestination) => (host: DesktopHostBridge) =>
+  host.showPimiWorkspace?.(destination);
+// Screens opened without the agent chat behind them. Review is an app route; the rest are
+// sections of the Work window.
+const VOICE_SCREEN_OPENERS: Partial<Record<PimiVoiceView, (host: DesktopHostBridge) => void>> = {
+  tasks: showWorkView({ view: "tasks" }),
+  work: showWorkView({ view: "worktrees" }),
+  memory: showWorkView({ view: "memory" }),
+  spaces: showWorkView({ view: "spaces" }),
+  review: () => openPimiReview(),
 };
 
 function commandTitle(command: CommandCenterContribution): string {
@@ -184,10 +195,27 @@ async function runRegisteredCommands(
   return completed.join(" · ");
 }
 
-function openVoiceView(view: PimiVoiceView, host: DesktopHostBridge, pathname: string) {
-  const destination = WORKSPACE_VIEWS[view];
-  if (destination) {
+function showVoiceDestination(
+  host: DesktopHostBridge,
+  destination: PimiVoiceDestination,
+  localServerId: string,
+) {
+  if (destination.view !== "review") {
     host.showPimiWorkspace?.(destination);
+    return;
+  }
+  openPimiReview(
+    checkoutReviewSource({
+      serverId: destination.serverId ?? localServerId,
+      cwd: destination.path,
+    }),
+  );
+}
+
+function openVoiceView(view: PimiVoiceView, host: DesktopHostBridge, pathname: string) {
+  const openScreen = VOICE_SCREEN_OPENERS[view];
+  if (openScreen) {
+    openScreen(host);
     return;
   }
   host.dismissPimiWorkspace?.();
@@ -196,6 +224,7 @@ function openVoiceView(view: PimiVoiceView, host: DesktopHostBridge, pathname: s
       if (pathname === PIMI_AGENT_GRID_ROUTE) closePimiAgentGrid();
       else if (pathname === PIMI_USAGE_ROUTE) closePimiUsage();
       else if (pathname === PIMI_LIBRARY_ROUTE) closePimiLibrary();
+      else if (pathname === PIMI_REVIEW_ROUTE) closePimiReview();
       else if (
         pathname === buildAutomationsRoute() ||
         pathname === buildSessionsRoute() ||
@@ -260,7 +289,7 @@ function applyVoiceCommand(
       });
       return "Searching Spaces";
     case "review-prs":
-      host.showPimiWorkspace?.({ view: "review-prs", filter: command.filter });
+      openPimiReview();
       return "Opening pull requests";
     case "usage":
       openPimiUsageDetail(
@@ -521,7 +550,7 @@ function DesktopVoiceBubble({
             return;
           }
           const applyEffect = async (effect: PimiVoiceEffect) => {
-            if (effect.destination) host.showPimiWorkspace?.(effect.destination);
+            if (effect.destination) showVoiceDestination(host, effect.destination, localServerId);
             if (effect.chat && wantsChat) {
               host.dismissPimiWorkspace?.();
               const { serverId, workspaceId, agentId: id } = effect.chat;

@@ -17,7 +17,6 @@ export function createTasksView({
   agentChatLinks,
   openReview,
   pullRequestActions,
-  compareReview,
   refreshBoard,
 }) {
   let tasks = [];
@@ -434,10 +433,7 @@ export function createTasksView({
     );
     if (card && !card.unavailable) {
       const base = repositoryFor(task, item)?.base || "";
-      actions.append(
-        button("button secondary", "Review changes", () => openReview(card, base)),
-        button("button quiet", "Compare alongside", () => compareReview(card, base)),
-      );
+      actions.append(button("button secondary", "Review changes", () => openReview(card, base)));
     }
     if (!task.done && !item.launch && !item.path && !item.report) {
       actions.append(workItemModelPicker(task, item));

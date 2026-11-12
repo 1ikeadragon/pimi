@@ -11,9 +11,9 @@ import {
   isPimiSpaceEmbed,
   parsePimiSpaceUrl,
   PimiLinkedLabels,
-  PimiReviewPrDestination,
   PimiReportLinkRequest,
   PimiReportLinkTarget,
+  PimiReviewRequest,
   type PimiReportLinkError,
 } from "@pimi/protocol/pimi-task";
 import type {
@@ -29,16 +29,6 @@ import type {
 } from "@pimi/protocol/pimi-task";
 import { resolveDesktopDaemonStatus } from "../daemon/daemon-manager.js";
 import { createPimiWorkspaceSession } from "./pimi-workspace-session.js";
-import {
-  listAvailableEditorTargets,
-  openEditorTarget,
-  PIMI_EDITOR_TARGETS,
-} from "../features/editor-targets/registry.js";
-import { createEditorTargetRuntime } from "../features/editor-targets/runtime.js";
-import type {
-  EditorTargetDescriptor,
-  EditorTargetLaunchInput,
-} from "../features/editor-targets/target.js";
 
 const AGENT_CONSOLE_URL = "pimi-agents://open";
 const APPEARANCE_FILE = "pimi-appearance.json";
@@ -48,10 +38,6 @@ const DESTINATION_SECTIONS: Record<PimiDestination["view"], PimiWorkspaceSection
   "task-draft": "tasks",
   "new-task": "tasks",
   worktrees: "board",
-  review: "review",
-  "review-home": "review",
-  "review-prs": "review",
-  "review-pr": "review",
   memory: "memory",
   spaces: "spaces",
 };
@@ -105,11 +91,6 @@ interface WorkspaceSurface {
   options: PimiWindowOptions;
   layout: WorkspaceLayout;
   section: PimiWorkspaceSection;
-  reviewLocation?:
-    | { view: "review-pr"; url: string }
-    | { view: "review-prs" }
-    | { view: "review-home" };
-  prepareChatReview: PimiRuntimeResult["prepareChatReview"];
 }
 let workspace: WorkspaceSurface | undefined;
 let workspaceRuntime: Promise<PimiRuntimeResult> | undefined;
@@ -191,14 +172,6 @@ interface PimiRuntimeResult {
   ): Promise<PimiVoiceResult>;
   subscribeToLabels(listener: () => void): () => void;
   resolveReportLink(request: PimiReportLinkRequest): Promise<PimiReportLinkTarget>;
-  prepareChatReview(
-    path: string,
-    serverId?: string,
-  ): Promise<{
-    path: string;
-    reviewNotice?: string;
-    reviewTarget?: { path: string; repo: string; name: string; branch: string };
-  }>;
   close(): Promise<void>;
 }
 
@@ -222,10 +195,6 @@ interface PimiRuntime {
     agentTaskHome?: string;
     getAppearance: () => PimiAppearance;
     openDictation: (signal: AbortSignal, anchor?: DictationAnchor) => Promise<string | null>;
-    listEditors: (
-      workspacePath: string,
-    ) => Promise<Pick<EditorTargetDescriptor, "id" | "label" | "kind">[]>;
-    launchEditor: (input: EditorTargetLaunchInput & { editorId: string }) => Promise<void>;
     connection: () => Promise<DesktopDaemonConnection>;
     onTaskComplete: (task: { id: string; title: string }) => void | Promise<void>;
     onActivity: (section: PimiActivitySection) => void;
@@ -274,18 +243,11 @@ export async function showPimiWindow(
     });
     workspace = await opening;
   }
-  const navigation =
-    destination?.view === "review"
-      ? {
-          ...destination,
-          ...(await workspace.prepareChatReview(destination.path, destination.serverId)),
-        }
-      : destination;
   if (request !== navigationRequest || requestedOwner !== owner || owner.isDestroyed()) return;
   workspace.owner = owner;
-  attach(workspace, owner, navigation && DESTINATION_SECTIONS[navigation.view]);
+  attach(workspace, owner, destination && DESTINATION_SECTIONS[destination.view]);
   reveal(owner, workspace.view);
-  if (navigation) workspace.view.webContents.send("pimi:workspace:navigate", navigation);
+  if (destination) workspace.view.webContents.send("pimi:workspace:navigate", destination);
 }
 
 export function hidePimiWorkspace(win?: BrowserWindow): void {
@@ -328,16 +290,12 @@ function attach(
   win.contentView.addChildView(surface.view);
   surface.view.webContents.send("pimi:voice:state", voiceBubbleStates.get(win) ?? VOICE_OFF);
   const sendSection = () => {
-    if (surface.reviewLocation)
-      win.webContents.send("pimi:workspace:review-location", surface.reviewLocation);
     win.webContents.send("pimi:workspace:section", surface.section);
   };
   const notifyWorkspaceClick = () => {
     if (!win.isDestroyed()) win.webContents.send("pimi:workspace:click");
   };
   if (destinationSection) {
-    // The retained view may still be showing its last route. Don't put that route in host history.
-    win.webContents.send("pimi:workspace:review-location", null);
     win.webContents.send("pimi:workspace:section", destinationSection);
   } else {
     sendSection();
@@ -391,7 +349,6 @@ function attach(
 async function createWorkspaceRuntime(runtimeDir: string): Promise<PimiRuntimeResult> {
   const entry = pathToFileURL(path.join(runtimeDir, "pimi", "server.mjs")).href;
   const { startPimi } = (await import(entry)) as PimiRuntime;
-  const editors = createEditorTargetRuntime();
   const runtime = await startPimi({
     native: true,
     watchState: path.join(app.getPath("userData"), "pimi-worktrees.json"),
@@ -402,13 +359,6 @@ async function createWorkspaceRuntime(runtimeDir: string): Promise<PimiRuntimeRe
       if (!workspace?.host) return Promise.reject(new Error("Open the workspace to dictate."));
       return dictateBrief(workspace, workspace.host, signal, anchor);
     },
-    listEditors: async (workspacePath) =>
-      (
-        await listAvailableEditorTargets(editors, PIMI_EDITOR_TARGETS, {
-          workspacePath,
-        })
-      ).map(({ id, label, kind }) => ({ id, label, kind })),
-    launchEditor: (input) => openEditorTarget(input, editors, PIMI_EDITOR_TARGETS),
     paths: process.env.PIMI_REPOS?.split(path.delimiter).filter(Boolean) ?? [],
     connection: connectToDesktopDaemon,
     onTaskComplete: (task) => onTaskComplete?.(task),
@@ -464,7 +414,6 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
     options,
     layout: "hidden",
     section: "tasks",
-    prepareChatReview: runtime.prepareChatReview,
   };
   const contents = view.webContents;
   const cleanupUnhosted = () => {
@@ -481,7 +430,6 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
     if (
       section !== "tasks" &&
       section !== "board" &&
-      section !== "review" &&
       section !== "memory" &&
       section !== "spaces"
     ) {
@@ -491,24 +439,17 @@ async function createWorkspaceSurface(options: PimiWindowOptions): Promise<Works
     surface.section = section;
     surface.host?.webContents.send("pimi:workspace:section", section);
   });
-  contents.ipc.on("pimi:workspace:review-location", (event, value: unknown) => {
+  contents.ipc.on("pimi:workspace:open-review", (event, value: unknown) => {
     if (
       event.senderFrame !== contents.mainFrame ||
-      new URL(event.senderFrame.url).origin !== runtime.origin
+      URL.parse(event.senderFrame.url)?.origin !== runtime.origin
     )
       return;
-    let location: WorkspaceSurface["reviewLocation"];
-    if (value && typeof value === "object" && "view" in value) {
-      if (value.view === "review-prs" || value.view === "review-home")
-        location = { view: value.view };
-      else {
-        const parsed = PimiReviewPrDestination.safeParse(value);
-        if (parsed.success) location = parsed.data;
-      }
-    }
-    if (!location) return;
-    surface.reviewLocation = location;
-    surface.host?.webContents.send("pimi:workspace:review-location", location);
+    const request = PimiReviewRequest.safeParse(value);
+    const host = surface.host;
+    if (!request.success || !host || host.isDestroyed()) return;
+    if (request.data.kind === "checkout" && !path.isAbsolute(request.data.path)) return;
+    host.webContents.send("pimi:workspace:open-review", request.data);
   });
   contents.ipc.on("pimi:voice:toggle", (event) => {
     if (

@@ -1,6 +1,6 @@
 import { supportsDesktopPaneSplits } from "@/constants/layout";
 import { getDesktopHost } from "@/desktop/host";
-import { PimiReviewPrDestination } from "@pimi/protocol/pimi-task";
+import { openPimiReview, pullRequestUrlToSource } from "@/navigation/pimi-review";
 import { revealWorkspaceTab } from "./navigation";
 import {
   collectAllPanes,
@@ -33,6 +33,7 @@ interface OpenWorkspaceChangesInput extends WorkspaceViewInput {
 }
 
 interface OpenWorkspacePullRequestInput extends WorkspaceViewInput {
+  serverId: string;
   destination: PullRequestOpenLocation;
   url?: string | null;
   workspace?: { githubRuntime?: { pullRequest?: { url: string } | null } | null } | null;
@@ -75,9 +76,9 @@ export function openWorkspacePullRequest(input: OpenWorkspacePullRequestInput): 
   const desktop = getDesktopHost();
   const url = input.url ?? input.workspace?.githubRuntime?.pullRequest?.url;
   if (desktop?.showPimiWorkspace && url) {
-    const destination = PimiReviewPrDestination.safeParse({ view: "review-pr", url });
-    if (destination.success) {
-      desktop.showPimiWorkspace(destination.data);
+    const source = pullRequestUrlToSource(url, input.serverId);
+    if (source) {
+      openPimiReview(source);
       return null;
     }
   }

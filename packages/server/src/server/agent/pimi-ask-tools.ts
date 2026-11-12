@@ -4,7 +4,6 @@ import {
   isExplicitVoiceChatRequest,
   PIMI_ASK_ACTION_LIMIT,
   PimiAskAction,
-  PimiPullRequestFilter,
   PimiTaskAgentTool,
   PimiTaskFields,
   PimiVoiceUsageTab,
@@ -278,16 +277,16 @@ export function createAskPimiToolset(options: {
     "Opening Review",
     {
       description:
-        "Show a diff or pull requests. Pass worktree with a worktree or branch name for its diff, or omit both fields for the current worktree. Pass pullRequests for the pull request list: mine for the user's own, requested for ones awaiting their review, all otherwise.",
+        "Show a diff or pull requests. Pass worktree with a worktree or branch name for its diff, or omit both fields for the current worktree. Pass pullRequests true for the pull request inbox.",
       inputSchema: z.strictObject({
         worktree: z.string().trim().min(1).max(160).optional(),
-        pullRequests: PimiPullRequestFilter.optional(),
+        pullRequests: z.boolean().optional(),
       }),
     },
-    async (input: { worktree?: string; pullRequests?: PimiPullRequestFilter }) =>
+    async (input: { worktree?: string; pullRequests?: boolean }) =>
       queue(
         input.pullRequests
-          ? { action: "review-prs", filter: input.pullRequests }
+          ? { action: "review-prs" }
           : { action: "review-worktree", name: input.worktree },
         OPENS,
       ),

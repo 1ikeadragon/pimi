@@ -106,14 +106,17 @@ function SidebarIcon({
 function usePimiSidebarActivity(section: ReturnType<typeof usePimiWorkspaceSection>) {
   const host = getDesktopHost();
   const activity = useWorkspaceActivity();
+  // Review is an app route, not a Work window section, so being on it is what reads its activity.
+  const inReview = usePathname() === PIMI_REVIEW_ROUTE;
   useEffect(() => {
-    if (section === "tasks" || section === "board" || section === "review") {
+    if (section === "tasks" || section === "board")
       useWorkspaceActivity.setState({ [section]: false });
-    }
+    if (inReview) useWorkspaceActivity.setState({ review: false });
     return host?.onPimiWorkspaceActivity?.((target) => {
-      if (section !== target) useWorkspaceActivity.setState({ [target]: true });
+      const viewing = target === "review" ? inReview : section === target;
+      if (!viewing) useWorkspaceActivity.setState({ [target]: true });
     });
-  }, [host, section]);
+  }, [host, inReview, section]);
   return activity;
 }
 
@@ -133,7 +136,7 @@ function IdeSidebarNavigation({ close }: { close: () => void }) {
         label="Review"
         onPress={openReview}
         active={!section && inReview}
-        unread={activity.review && section !== "review"}
+        unread={activity.review}
       />
     </>
   );

@@ -5,7 +5,7 @@ import { ActivityIndicator, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { Button } from "@/components/ui/button";
 import { PressHighlight } from "@/components/ui/press-highlight";
-import { DESK_COPY } from "./copy";
+import { useDeskCopy } from "./copy";
 import type { ReviewMarkers } from "./use-review-markers";
 
 export function Notice({
@@ -17,13 +17,14 @@ export function Notice({
   busy?: boolean;
   onRetry?: () => void;
 }) {
+  const copy = useDeskCopy();
   return (
     <View style={styles.notice} testID="review-desk-notice">
       {busy ? <ActivityIndicator /> : null}
       <Text style={styles.noticeText}>{text}</Text>
       {onRetry ? (
         <Button size="sm" variant="outline" onPress={onRetry}>
-          {DESK_COPY.retry}
+          {copy.retry}
         </Button>
       ) : null}
     </View>
@@ -52,10 +53,13 @@ export function Chip({
   );
 }
 
-function reasonLabel(reason: ReviewMarkers["detached"][number]["reason"]): string {
-  if (reason === "no_line") return DESK_COPY.detachedNoLine;
-  if (reason === "outside_diff") return DESK_COPY.detachedOutside;
-  return DESK_COPY.detachedHidden;
+function reasonLabel(
+  reason: ReviewMarkers["detached"][number]["reason"],
+  copy: ReturnType<typeof useDeskCopy>,
+): string {
+  if (reason === "no_line") return copy.detachedNoLine;
+  if (reason === "outside_diff") return copy.detachedOutside;
+  return copy.detachedHidden;
 }
 
 /** Threads the document cannot draw under a line, listed under the toolbar. */
@@ -66,13 +70,14 @@ export function DetachedThreads({
   detached: ReviewMarkers["detached"];
   onOpen: (path: string, threadId: string) => void;
 }) {
+  const copy = useDeskCopy();
   const [open, setOpen] = useState(false);
   const toggle = useCallback(() => setOpen((current) => !current), []);
   if (detached.length === 0) return null;
   return (
     <View style={styles.detached} testID="review-desk-detached">
       <PressHighlight onPress={toggle} accessibilityRole="button" style={styles.detachedHeader}>
-        <Text style={styles.detachedTitle}>{DESK_COPY.detached(detached.length)}</Text>
+        <Text style={styles.detachedTitle}>{copy.detached(detached.length)}</Text>
       </PressHighlight>
       {open
         ? detached.map(({ thread, reason }) => (
@@ -92,6 +97,7 @@ function DetachedRow({
   reason: ReviewMarkers["detached"][number]["reason"];
   onOpen: (path: string, threadId: string) => void;
 }) {
+  const copy = useDeskCopy();
   const handlePress = useCallback(() => onOpen(thread.path, thread.id), [onOpen, thread]);
   return (
     <PressHighlight
@@ -100,7 +106,7 @@ function DetachedRow({
       testID={`review-desk-detached-${thread.id}`}
     >
       <Text style={styles.detachedText} numberOfLines={1}>
-        {`${thread.path} · ${reasonLabel(reason)} · ${thread.author}: ${thread.body}`}
+        {`${thread.path} · ${reasonLabel(reason, copy)} · ${thread.author}: ${thread.body}`}
       </Text>
     </PressHighlight>
   );

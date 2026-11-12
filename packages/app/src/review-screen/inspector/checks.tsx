@@ -3,6 +3,7 @@
 // collapsed; shards of one job fold into one group; a failing check expands to its log tail and
 // annotations (`get_check_details`). Shared by the Overview Checks card and the inspector.
 import { useCallback, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ScrollView, Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react-native";
@@ -28,10 +29,10 @@ const ThemedChevronRight = withUnistyles(ChevronRight);
 const mutedColor = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
 const SECTION_TITLE: Record<ReviewCheckSection["id"], string> = {
-  attention: "Failed",
-  running: "Running",
-  passed: "Passed",
-  skipped: "Skipped",
+  attention: "reviewScreen.inspector.sectionFailed",
+  running: "reviewScreen.inspector.sectionRunning",
+  passed: "reviewScreen.inspector.sectionPassed",
+  skipped: "reviewScreen.inspector.sectionSkipped",
 };
 
 export function CheckSections({
@@ -79,6 +80,7 @@ function SectionBlock({
   onSelectionChange: (next: ReviewSelection) => void;
   onJumpTo: ReviewJumpTo;
 }) {
+  const { t } = useTranslation();
   // Failed and running stay open; what needs no attention is one tap away.
   const [open, setOpen] = useState(section.id === "attention" || section.id === "running");
   const toggle = useCallback(() => setOpen((value) => !value), []);
@@ -91,7 +93,7 @@ function SectionBlock({
       <PressHighlight style={styles.sectionHead} onPress={toggle} accessibilityRole="button">
         <Chevron size={14} uniProps={mutedColor} />
         <Text style={styles.sectionTitle}>
-          {SECTION_TITLE[section.id]} <Text style={styles.count}>{section.count}</Text>
+          {t(SECTION_TITLE[section.id])} <Text style={styles.count}>{section.count}</Text>
         </Text>
       </PressHighlight>
       {open
@@ -123,6 +125,7 @@ function GroupRow({
   onSelectionChange: (next: ReviewSelection) => void;
   onJumpTo: ReviewJumpTo;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(isAttention(group.presentation));
   const toggle = useCallback(() => setOpen((value) => !value), []);
   const only = group.checks[0];
@@ -148,7 +151,9 @@ function GroupRow({
             {group.label}
           </Text>
           <Text style={styles.meta} numberOfLines={1}>
-            {[group.workflow, `${group.checks.length} jobs`].filter(Boolean).join(" · ")}
+            {[group.workflow, t("reviewScreen.inspector.jobs", { count: group.checks.length })]
+              .filter(Boolean)
+              .join(" · ")}
           </Text>
         </View>
       </PressHighlight>
@@ -183,6 +188,7 @@ function CheckRow({
   onSelectionChange: (next: ReviewSelection) => void;
   onJumpTo: ReviewJumpTo;
 }) {
+  const { t } = useTranslation();
   const failing = isAttention(check.presentation);
   const [open, setOpen] = useState(false);
   const toggle = useCallback(() => setOpen((value) => !value), []);
@@ -204,7 +210,7 @@ function CheckRow({
           <SelectionBox
             checked={selection.checks.has(check.key)}
             onToggle={toggleSelected}
-            label={`Select ${check.name}`}
+            label={t("reviewScreen.inspector.selectCheck", { name: check.name })}
           />
         ) : null}
         <PressHighlight
@@ -229,7 +235,7 @@ function CheckRow({
         </PressHighlight>
         {failing ? (
           <Button size="sm" variant="outline" onPress={fix} testID={`review-fix-${check.key}`}>
-            Fix this
+            {t("reviewScreen.inspector.fixThis")}
           </Button>
         ) : null}
         <Button
@@ -237,7 +243,7 @@ function CheckRow({
           variant="ghost"
           leftIcon={ExternalLink}
           onPress={openOnForge}
-          accessibilityLabel={`Open ${check.name}`}
+          accessibilityLabel={t("reviewScreen.inspector.openCheck", { name: check.name })}
         />
       </View>
       {open ? <CheckDetails source={source} check={check} onJumpTo={onJumpTo} /> : null}
@@ -298,21 +304,24 @@ function CheckDetails({
   check: ReviewCheck;
   onJumpTo: ReviewJumpTo;
 }) {
+  const { t } = useTranslation();
   const query = useReviewCheckDetails(source, check, true);
   // The cause of a failure is at the end of the log, so the tail opens scrolled to its last line.
   const logRef = useRef<ScrollView>(null);
   const scrollLogToEnd = useCallback(() => logRef.current?.scrollToEnd({ animated: false }), []);
   const details = query.data;
-  if (query.isPending) return <Text style={styles.detailNote}>Loading log…</Text>;
+  if (query.isPending)
+    return <Text style={styles.detailNote}>{t("reviewScreen.inspector.loadingLog")}</Text>;
   if (query.error) return <Text style={styles.detailError}>{query.error.message}</Text>;
-  if (!details) return <Text style={styles.detailNote}>No details for this check.</Text>;
+  if (!details)
+    return <Text style={styles.detailNote}>{t("reviewScreen.inspector.noDetails")}</Text>;
   const outputTitle = details.output?.title?.trim();
   return (
     <View style={styles.details} testID={`review-check-details-${check.key}`}>
       {outputTitle ? <Text style={styles.detailTitle}>{outputTitle}</Text> : null}
       {details.annotations.length > 0 ? (
         <View style={styles.annotations}>
-          <Text style={styles.meta}>Annotations</Text>
+          <Text style={styles.meta}>{t("reviewScreen.inspector.annotations")}</Text>
           {annotationRows(details.annotations).map((row) => (
             <AnnotationRow key={row.key} row={row} onJumpTo={onJumpTo} />
           ))}
@@ -321,8 +330,8 @@ function CheckDetails({
       {details.failedJobs.map((job) => (
         <View key={job.jobId} style={styles.job}>
           <Text style={styles.meta}>
-            {job.name} · {job.conclusion ?? job.status ?? "unknown"}
-            {job.logTruncated ? " · log tail" : ""}
+            {job.name} · {job.conclusion ?? job.status ?? t("reviewScreen.inspector.unknown")}
+            {job.logTruncated ? ` · ${t("reviewScreen.inspector.logTail")}` : ""}
           </Text>
           {job.logTail ? (
             <ScrollView
@@ -338,12 +347,12 @@ function CheckDetails({
               </ScrollView>
             </ScrollView>
           ) : (
-            <Text style={styles.detailNote}>No log available.</Text>
+            <Text style={styles.detailNote}>{t("reviewScreen.inspector.noLog")}</Text>
           )}
         </View>
       ))}
       {details.annotations.length === 0 && details.failedJobs.length === 0 && !outputTitle ? (
-        <Text style={styles.detailNote}>The forge reported no log or annotations.</Text>
+        <Text style={styles.detailNote}>{t("reviewScreen.inspector.noLogOrAnnotations")}</Text>
       ) : null}
     </View>
   );

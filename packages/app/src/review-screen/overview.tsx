@@ -2,7 +2,9 @@
 // Stream S4 owns this file: the Overview tab. Stacked cards built with SettingsSection, after the
 // website's Review mockup: Description, a separate Checks card (failed first, passed and skipped
 // collapsed, shards folded), Threads, Commits. The same rows feed the Changes tab's inspector.
+import type { TFunction } from "i18next";
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ScrollView, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { Button } from "@/components/ui/button";
@@ -25,17 +27,18 @@ type CardProps = Pick<
 >;
 
 export function ReviewOverview(props: ReviewOverviewProps) {
+  const { t } = useTranslation();
   const timeline = useReviewTimeline(props.source);
   const { overview } = timeline;
 
   if (timeline.noChangeRequest) {
-    return <Notice text="This branch has no pull request yet." />;
+    return <Notice text={t("reviewScreen.overview.noPullRequest")} />;
   }
   if (timeline.error && !overview) {
     return <Notice text={timeline.error.message} onRetry={timeline.refresh} />;
   }
   if (!overview) {
-    return <Notice text="Loading pull request…" />;
+    return <Notice text={t("reviewScreen.overview.loadingPullRequest")} />;
   }
   return (
     <View style={styles.screen} testID="review-overview">
@@ -53,6 +56,7 @@ export function ReviewOverview(props: ReviewOverviewProps) {
 }
 
 function DescriptionCard({ overview }: { overview: Overview }) {
+  const { t } = useTranslation();
   const onLinkPress = useCallback((url: string) => void openExternalUrl(url), []);
   // PR descriptions run long; the card shows the opening and expands on request.
   const [expanded, setExpanded] = useState(false);
@@ -60,13 +64,16 @@ function DescriptionCard({ overview }: { overview: Overview }) {
   const bodyStyle = useMemo(() => [styles.pad, expanded ? null : styles.clamped], [expanded]);
   const long = overview.body.length > 600;
   return (
-    <SettingsSection title="Description" testID="review-card-description">
+    <SettingsSection
+      title={t("reviewScreen.overview.description")}
+      testID="review-card-description"
+    >
       <View style={settingsStyles.card}>
         <View style={bodyStyle}>
           {overview.body.trim() ? (
             <MarkdownRenderer text={overview.body} onLinkPress={onLinkPress} />
           ) : (
-            <Text style={styles.muted}>No description.</Text>
+            <Text style={styles.muted}>{t("reviewScreen.overview.noDescription")}</Text>
           )}
         </View>
         {long ? (
@@ -77,16 +84,28 @@ function DescriptionCard({ overview }: { overview: Overview }) {
               onPress={toggleExpanded}
               testID="review-description-toggle"
             >
-              {expanded ? "Show less" : "Show more"}
+              {t(expanded ? "reviewScreen.overview.showLess" : "reviewScreen.overview.showMore")}
             </Button>
           </View>
         ) : null}
         <View style={[settingsStyles.rowBorder, styles.facts]}>
-          <Fact label="Branch" value={`${overview.headRefName} → ${overview.baseRefName}`} />
-          <Fact label="Merge" value={mergeLabel(overview.mergeable)} />
-          <Fact label="Review" value={reviewLabel(overview.reviewDecision)} />
+          <Fact
+            label={t("reviewScreen.overview.factBranch")}
+            value={`${overview.headRefName} → ${overview.baseRefName}`}
+          />
+          <Fact
+            label={t("reviewScreen.overview.factMerge")}
+            value={t(mergeKey(overview.mergeable))}
+          />
+          <Fact
+            label={t("reviewScreen.overview.factReview")}
+            value={t(reviewKey(overview.reviewDecision))}
+          />
           {overview.labels.length > 0 ? (
-            <Fact label="Labels" value={overview.labels.join(", ")} />
+            <Fact
+              label={t("reviewScreen.overview.factLabels")}
+              value={overview.labels.join(", ")}
+            />
           ) : null}
         </View>
       </View>
@@ -102,15 +121,20 @@ function ChecksCard({
   timeline,
   overview,
 }: CardProps & { timeline: ReviewTimeline; overview: Overview }) {
+  const { t } = useTranslation();
   const trailing = useMemo(
     () => <ChecksBadges sections={timeline.checkSections} />,
     [timeline.checkSections],
   );
   let message: string | null = null;
   if (overview.checksError) message = overview.checksError;
-  else if (timeline.checks.length === 0) message = "No checks ran on this pull request.";
+  else if (timeline.checks.length === 0) message = t("reviewScreen.overview.noChecks");
   return (
-    <SettingsSection title="Checks" testID="review-card-checks" trailing={trailing}>
+    <SettingsSection
+      title={t("reviewScreen.overview.checks")}
+      testID="review-card-checks"
+      trailing={trailing}
+    >
       <View style={settingsStyles.card}>
         {message ? (
           <Text style={[styles.pad, overview.checksError ? styles.error : styles.muted]}>
@@ -130,11 +154,15 @@ function ChecksCard({
   );
 }
 
-function threadsMessage(timeline: ReviewTimeline, shownCount: number): string | null {
+function threadsMessage(timeline: ReviewTimeline, shownCount: number, t: TFunction): string | null {
   if (timeline.threadsError) return timeline.threadsError.message;
-  if (timeline.threadsLoading) return "Loading threads…";
+  if (timeline.threadsLoading) return t("reviewScreen.overview.loadingThreads");
   if (shownCount > 0) return null;
-  return timeline.threads.length === 0 ? "No review threads." : "No unresolved threads.";
+  return t(
+    timeline.threads.length === 0
+      ? "reviewScreen.overview.noThreads"
+      : "reviewScreen.overview.noUnresolved",
+  );
 }
 
 function ThreadsCard({
@@ -143,9 +171,10 @@ function ThreadsCard({
   onSelectionChange,
   timeline,
 }: CardProps & { timeline: ReviewTimeline }) {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState<ThreadFilter>("unresolved");
   const shown = filterThreads(timeline.threads, filter);
-  const message = threadsMessage(timeline, shown.length);
+  const message = threadsMessage(timeline, shown.length, t);
   const trailing = useMemo(
     () => (
       <SegmentedControl
@@ -153,15 +182,25 @@ function ThreadsCard({
         value={filter}
         onValueChange={setFilter}
         options={[
-          { value: "unresolved", label: `Unresolved ${timeline.unresolvedCount}` },
-          { value: "all", label: `All ${timeline.threads.length}` },
+          {
+            value: "unresolved",
+            label: t("reviewScreen.overview.filterUnresolved", { count: timeline.unresolvedCount }),
+          },
+          {
+            value: "all",
+            label: t("reviewScreen.overview.filterAll", { count: timeline.threads.length }),
+          },
         ]}
       />
     ),
-    [filter, timeline.threads.length, timeline.unresolvedCount],
+    [filter, t, timeline.threads.length, timeline.unresolvedCount],
   );
   return (
-    <SettingsSection title="Threads" testID="review-card-threads" trailing={trailing}>
+    <SettingsSection
+      title={t("reviewScreen.overview.threads")}
+      testID="review-card-threads"
+      trailing={trailing}
+    >
       <View style={settingsStyles.card}>
         {message ? (
           <Text style={[styles.pad, timeline.threadsError ? styles.error : styles.muted]}>
@@ -177,7 +216,7 @@ function ThreadsCard({
         )}
         {timeline.threadsTruncated ? (
           <Text style={[styles.pad, styles.muted]}>
-            Only the first threads are shown. Open on the forge for the rest.
+            {t("reviewScreen.overview.threadsTruncated")}
           </Text>
         ) : null}
       </View>
@@ -186,6 +225,7 @@ function ThreadsCard({
 }
 
 function CommitsCard({ overview }: { overview: Overview }) {
+  const { t } = useTranslation();
   const openCommits = useCallback(
     () => void openExternalUrl(`${overview.url}/commits`),
     [overview.url],
@@ -195,19 +235,24 @@ function CommitsCard({ overview }: { overview: Overview }) {
       ? `${overview.baseSha.slice(0, 7)}..${overview.headSha.slice(0, 7)} · `
       : "";
   return (
-    <SettingsSection title="Commits" testID="review-card-commits">
+    <SettingsSection title={t("reviewScreen.overview.commits")} testID="review-card-commits">
       <View style={settingsStyles.card}>
         <View style={settingsStyles.row}>
           <View style={settingsStyles.rowContent}>
             <Text style={settingsStyles.rowTitle}>
-              {overview.commitCount} {overview.commitCount === 1 ? "commit" : "commits"}
+              {t("reviewScreen.overview.commitCount", { count: overview.commitCount })}
             </Text>
             <Text style={settingsStyles.rowHint}>
-              {range}+{overview.additions} −{overview.deletions} in {overview.changedFiles} files
+              {range}
+              {t("reviewScreen.overview.commitStats", {
+                additions: overview.additions,
+                deletions: overview.deletions,
+                files: t("reviewScreen.filesCount", { count: overview.changedFiles }),
+              })}
             </Text>
           </View>
           <Button size="sm" variant="outline" onPress={openCommits}>
-            Open on forge
+            {t("reviewScreen.overview.openOnForge")}
           </Button>
         </View>
       </View>
@@ -226,25 +271,26 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
-function mergeLabel(value: "MERGEABLE" | "CONFLICTING" | "UNKNOWN") {
-  if (value === "MERGEABLE") return "No conflicts";
-  if (value === "CONFLICTING") return "Has conflicts";
-  return "Unknown";
+function mergeKey(value: "MERGEABLE" | "CONFLICTING" | "UNKNOWN") {
+  if (value === "MERGEABLE") return "reviewScreen.overview.mergeClean";
+  if (value === "CONFLICTING") return "reviewScreen.conflicts";
+  return "reviewScreen.overview.mergeUnknown";
 }
 
-function reviewLabel(value: "approved" | "changes_requested" | "pending" | null) {
-  if (value === "approved") return "Approved";
-  if (value === "changes_requested") return "Changes requested";
-  return "No decision";
+function reviewKey(value: "approved" | "changes_requested" | "pending" | null) {
+  if (value === "approved") return "reviewScreen.decisionApproved";
+  if (value === "changes_requested") return "reviewScreen.decisionChanges";
+  return "reviewScreen.overview.noDecision";
 }
 
 function Notice({ text, onRetry }: { text: string; onRetry?: () => void }) {
+  const { t } = useTranslation();
   return (
     <View style={styles.notice} testID="review-overview">
       <Text style={styles.muted}>{text}</Text>
       {onRetry ? (
         <Button size="sm" variant="outline" onPress={onRetry}>
-          Retry
+          {t("common.actions.retry")}
         </Button>
       ) : null}
     </View>

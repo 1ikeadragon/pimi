@@ -84,7 +84,7 @@ async function resolveNavigation(open, input, { pimi, tasks, getInventory }, cha
       );
       if (matches.length !== 1) {
         return {
-          destination: { view: "review-home" },
+          navigation: { action: "show", view: "review" },
           message: matches.length
             ? "More than one worktree matches."
             : "Choose a worktree in Review.",
@@ -96,10 +96,7 @@ async function resolveNavigation(open, input, { pimi, tasks, getInventory }, cha
       };
     }
     case "review-prs":
-      return {
-        destination: { view: "review-prs", filter: open.filter },
-        message: "Opening pull requests",
-      };
+      return { navigation: open, message: "Opening pull requests" };
     case "open-task":
       return {
         destination: { view: "task", id: findTask(tasks, open.title).id },

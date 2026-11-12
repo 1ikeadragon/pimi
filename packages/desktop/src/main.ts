@@ -23,8 +23,6 @@ import {
   PimiOpenTaskDestination,
   PimiRecapPeriod,
   PimiReportLinkError,
-  PimiReviewListDestination,
-  PimiReviewPrDestination,
   PimiVoiceBubbleState,
   PimiVoiceCommandInput,
 } from "@pimi/protocol/pimi-task";
@@ -957,17 +955,7 @@ function registerPimiWorkspaceNavigation(): void {
   });
   ipcMain.on("pimi:workspace:show", (event, destination: unknown) => {
     if (!isConsoleFrame(event) || !destination || typeof destination !== "object") return;
-    const {
-      view,
-      path: checkout,
-      proposal,
-      serverId,
-    } = destination as {
-      view?: unknown;
-      path?: unknown;
-      proposal?: unknown;
-      serverId?: unknown;
-    };
+    const { view, proposal } = destination as { view?: unknown; proposal?: unknown };
     const owner = BrowserWindow.fromWebContents(event.sender) ?? undefined;
     const simple = PimiSimpleDestinationView.safeParse(view);
     if (simple.success) return openPimi({ view: simple.data }, owner);
@@ -976,18 +964,12 @@ function registerPimiWorkspaceNavigation(): void {
       spaces: PimiSpacesDestination,
       task: PimiOpenTaskDestination,
       "new-task": PimiNewTaskDestination,
-      "review-pr": PimiReviewPrDestination,
-      "review-prs": PimiReviewListDestination,
     };
     for (const [name, schema] of Object.entries(destinationSchema)) {
       if (view !== name) continue;
       const result = schema.safeParse(destination);
       if (result.success) openPimi(result.data, owner);
       return;
-    }
-    if (view === "review" && typeof checkout === "string" && path.isAbsolute(checkout)) {
-      if (serverId !== undefined && (typeof serverId !== "string" || !serverId.trim())) return;
-      openPimi({ view, path: checkout, serverId }, owner);
     }
     if (view === "task-draft") {
       const result = PimiTaskProposal.safeParse(proposal);

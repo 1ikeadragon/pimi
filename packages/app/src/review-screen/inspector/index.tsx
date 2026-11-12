@@ -1,7 +1,9 @@
 // Pimi. Apache-2.0.
 // Stream S4 owns this directory: the Threads / Checks inspector beside the Changes tab. Same rows
 // as the Overview cards, so a thread or failing check reads the same in both places.
+import type { TFunction } from "i18next";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ScrollView, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { Button } from "@/components/ui/button";
@@ -14,8 +16,6 @@ import { ChecksBadges } from "./checks-badges";
 import { FixSelectedBar } from "./fix-selected-bar";
 import { ThreadRows, filterThreads, type ThreadFilter } from "./threads";
 
-const TAB_OPTIONS_BASE = [{ value: "checks" as const, label: "Checks" }];
-
 export function ReviewInspector({
   source,
   tab,
@@ -24,12 +24,16 @@ export function ReviewInspector({
   selection,
   onSelectionChange,
 }: ReviewInspectorProps) {
+  const { t } = useTranslation();
   const timeline = useReviewTimeline(source, { annotations: true });
   const tabOptions = [
-    { value: "threads" as const, label: `Threads ${timeline.unresolvedCount}` },
-    ...TAB_OPTIONS_BASE,
+    {
+      value: "threads" as const,
+      label: t("reviewScreen.inspector.tabThreads", { count: timeline.unresolvedCount }),
+    },
+    { value: "checks" as const, label: t("reviewScreen.inspector.tabChecks") },
   ];
-  const blocked = blockedMessage(timeline);
+  const blocked = blockedMessage(timeline, t);
 
   return (
     <View style={styles.root} testID="review-inspector">
@@ -41,7 +45,7 @@ export function ReviewInspector({
           <Text style={blocked.isError ? styles.error : styles.noteText}>{blocked.text}</Text>
           {blocked.retry ? (
             <Button size="sm" variant="outline" onPress={timeline.refresh}>
-              Retry
+              {t("common.actions.retry")}
             </Button>
           ) : null}
         </View>
@@ -70,9 +74,9 @@ export function ReviewInspector({
   );
 }
 
-function blockedMessage(timeline: ReviewTimeline) {
+function blockedMessage(timeline: ReviewTimeline, t: TFunction) {
   if (timeline.noChangeRequest) {
-    return { text: "This branch has no pull request yet.", isError: false, retry: false };
+    return { text: t("reviewScreen.overview.noPullRequest"), isError: false, retry: false };
   }
   if (timeline.error && !timeline.overview) {
     return { text: timeline.error.message, isError: true, retry: true };
@@ -80,13 +84,15 @@ function blockedMessage(timeline: ReviewTimeline) {
   return null;
 }
 
-const FILTER_OPTIONS_BASE = [{ value: "unresolved" as const, label: "Unresolved" }];
-
-function threadsMessage(timeline: ReviewTimeline, shownCount: number): string | null {
-  if (timeline.threadsLoading) return "Loading threads…";
+function threadsMessage(timeline: ReviewTimeline, shownCount: number, t: TFunction): string | null {
+  if (timeline.threadsLoading) return t("reviewScreen.overview.loadingThreads");
   if (timeline.threadsError) return timeline.threadsError.message;
   if (shownCount > 0) return null;
-  return timeline.threads.length === 0 ? "No review threads." : "No unresolved threads.";
+  return t(
+    timeline.threads.length === 0
+      ? "reviewScreen.overview.noThreads"
+      : "reviewScreen.overview.noUnresolved",
+  );
 }
 
 function ThreadsPane({
@@ -100,12 +106,16 @@ function ThreadsPane({
   onSelectionChange: (next: ReviewSelection) => void;
   onJumpTo: ReviewInspectorProps["onJumpTo"];
 }) {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState<ThreadFilter>("unresolved");
   const shown = filterThreads(timeline.threads, filter);
-  const message = threadsMessage(timeline, shown.length);
+  const message = threadsMessage(timeline, shown.length, t);
   const options = [
-    ...FILTER_OPTIONS_BASE,
-    { value: "all" as const, label: `All ${timeline.threads.length}` },
+    { value: "unresolved" as const, label: t("reviewScreen.inspector.filterUnresolved") },
+    {
+      value: "all" as const,
+      label: t("reviewScreen.overview.filterAll", { count: timeline.threads.length }),
+    },
   ];
   return (
     <>
@@ -139,9 +149,10 @@ function ChecksPane({
   onSelectionChange: (next: ReviewSelection) => void;
   onJumpTo: ReviewInspectorProps["onJumpTo"];
 }) {
+  const { t } = useTranslation();
   let message: string | null = null;
-  if (timeline.checksLoading) message = "Loading checks…";
-  else if (timeline.checks.length === 0) message = "No checks ran on this pull request.";
+  if (timeline.checksLoading) message = t("reviewScreen.inspector.loadingChecks");
+  else if (timeline.checks.length === 0) message = t("reviewScreen.overview.noChecks");
   return (
     <>
       <ChecksBadges sections={timeline.checkSections} />

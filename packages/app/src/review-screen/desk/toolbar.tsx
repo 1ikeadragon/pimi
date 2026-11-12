@@ -4,7 +4,7 @@ import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { Button } from "@/components/ui/button";
 import { DiffLayoutToggle } from "@/git/diff-pane";
-import { DESK_COPY } from "./copy";
+import { useDeskCopy } from "./copy";
 import type { DeskMode } from "./use-patches";
 
 export interface DeskToolbarProps {
@@ -23,11 +23,12 @@ export interface DeskToolbarProps {
 }
 
 export function DeskToolbar(props: DeskToolbarProps) {
+  const copy = useDeskCopy();
   return (
     <View style={styles.toolbar} testID="review-desk-toolbar">
       {props.showFilesButton ? (
         <Button size="sm" variant="outline" onPress={props.onShowFiles}>
-          Files
+          {copy.files}
         </Button>
       ) : null}
       <Text style={styles.path} numberOfLines={1} testID="review-desk-active-path">
@@ -41,7 +42,7 @@ export function DeskToolbar(props: DeskToolbarProps) {
           <Button
             size="sm"
             variant="outline"
-            accessibilityLabel={DESK_COPY.previous}
+            accessibilityLabel={copy.previous}
             onPress={props.onPrevious}
             testID="review-desk-previous"
           >
@@ -50,7 +51,7 @@ export function DeskToolbar(props: DeskToolbarProps) {
           <Button
             size="sm"
             variant="outline"
-            accessibilityLabel={DESK_COPY.next}
+            accessibilityLabel={copy.next}
             onPress={props.onNext}
             testID="review-desk-next"
           >
@@ -60,7 +61,7 @@ export function DeskToolbar(props: DeskToolbarProps) {
       ) : null}
       {props.canToggleMode ? (
         <Button size="sm" variant="outline" onPress={props.onToggleMode}>
-          {props.mode === "single" ? DESK_COPY.showAll : DESK_COPY.showSingle}
+          {props.mode === "single" ? copy.showAll : copy.showSingle}
         </Button>
       ) : null}
       {props.canSplit ? (

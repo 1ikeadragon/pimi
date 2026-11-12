@@ -1,6 +1,6 @@
 import { router, useUnstableGlobalHref, type Href } from "expo-router";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import type { PimiDestination, PimiWorkspaceSection } from "@pimi/protocol/pimi-task";
@@ -16,29 +16,16 @@ import {
   useWorkspaceLayoutStore,
 } from "@/stores/workspace-layout-store";
 import { parseHostWorkspaceRouteFromPathname } from "@/utils/host-routes";
-import { getDesktopHost, type DesktopHostBridge } from "./host";
-
-type ReviewLocation = NonNullable<
-  ReturnType<NonNullable<DesktopHostBridge["pimiReviewLocation"]>["get"]>
->;
-const subscribeReviewLocation = (listener: () => void) =>
-  getDesktopHost()?.pimiReviewLocation?.subscribe(listener) ?? (() => {});
-const getReviewLocationKey = () => {
-  // Electron clones objects across the preload bridge. React needs a stable snapshot.
-  const location = getDesktopHost()?.pimiReviewLocation?.get();
-  return location?.view === "review-pr" ? location.url : (location?.view ?? null);
-};
+import { getDesktopHost } from "./host";
 
 type Visit =
   | { kind: "section"; section: PimiWorkspaceSection }
-  | { kind: "review"; location: ReviewLocation }
   | { kind: "workspace"; workspace: ActiveWorkspaceSelection; agentId: string | null }
   | { kind: "route"; href: string };
 
 const SECTION_DESTINATIONS: Record<PimiWorkspaceSection, PimiDestination> = {
   tasks: { view: "tasks" },
   board: { view: "worktrees" },
-  review: { view: "review-home" },
   memory: { view: "memory" },
   spaces: { view: "spaces" },
 };
@@ -50,10 +37,6 @@ function restoreVisit(visit: Visit) {
   const host = getDesktopHost();
   if (visit.kind === "section") {
     host?.showPimiWorkspace?.(SECTION_DESTINATIONS[visit.section]);
-    return;
-  }
-  if (visit.kind === "review") {
-    host?.showPimiWorkspace?.(visit.location);
     return;
   }
   host?.dismissPimiWorkspace?.();
@@ -68,11 +51,6 @@ function restoreVisit(visit: Visit) {
 }
 
 function useVisit(pathname: string, section: PimiWorkspaceSection | null) {
-  const reviewLocation = useSyncExternalStore(
-    subscribeReviewLocation,
-    getReviewLocationKey,
-    () => null,
-  );
   const href = useUnstableGlobalHref();
   const workspace = useMemo(() => parseHostWorkspaceRouteFromPathname(pathname), [pathname]);
   const workspaceKey = workspace && `${workspace.serverId}:${workspace.workspaceId}`;
@@ -86,19 +64,11 @@ function useVisit(pathname: string, section: PimiWorkspaceSection | null) {
     return target?.kind === "agent" ? target.agentId : null;
   });
   return useMemo<Visit | null>(() => {
-    if (section === "review") {
-      if (!reviewLocation) return null;
-      const location: ReviewLocation =
-        reviewLocation === "review-prs" || reviewLocation === "review-home"
-          ? { view: reviewLocation }
-          : { view: "review-pr", url: reviewLocation };
-      return { kind: "review", location };
-    }
     if (section) return { kind: "section", section };
     if (workspace) return { kind: "workspace", workspace, agentId };
     if (pathname === "/" || /^\/h\/[^/]+\/?$/.test(pathname)) return null;
     return { kind: "route", href };
-  }, [agentId, href, pathname, reviewLocation, section, workspace]);
+  }, [agentId, href, pathname, section, workspace]);
 }
 
 export function PimiNavigationHistory({

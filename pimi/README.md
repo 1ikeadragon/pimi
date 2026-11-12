@@ -23,13 +23,12 @@ Push the version commit to `main`, then push its `pimi-vX.Y.Z` tag. The release 
 - Workers from a chat proposal appear as branches under the originating chat. Pimi delivers their completion and final responses to that chat, while Tasks keeps a copy of each report. Open a branch to continue directly with that worker.
 - The desktop saves task records in its local app data. With Agent tools enabled, interactive chats on the local daemon can find and update saved tasks, attach repositories from Work, link existing worktrees, and assign existing Pimi labels while the desktop app runs. These tools use the same task store as the board. For the standalone server, set `PIMI_TASK_STATE` to an absolute JSON file path to persist records across restarts.
 
-## Review behavior
+## Work behavior
 
-- Work shows checkouts associated with active workspaces and tasks. **Watch repository** includes its other available checkouts. Tasks and Work update from daemon events and periodic local Git checks while open. Live updates leave any loaded diff in place. Use **Refresh diff** to load it again. Use Agent Console to import a supported session started elsewhere.
-- Working comparisons include new files and tracked changes. GitHub PR reviews pin the base and head returned by GitHub and may fetch their commit objects. Sign in to `gh` to review private PRs.
-- **Compare worktrees** loads a second checkout with its own comparison settings. **Find in open diffs** searches the currently displayed patches and source panes. The main review’s editor selector uses the same target discovery and launcher as Agent Console.
-- Local previews use running workspace services. Pimi’s review surface listens on loopback. The agent console uses the daemon’s host and provider settings.
+- Work shows checkouts associated with active workspaces and tasks. **Watch repository** includes its other available checkouts. Tasks and Work update from daemon events and periodic local Git checks while open. Use Agent Console to import a supported session started elsewhere.
+- **Review changes** and **View PR** in Work ask the app to open the Review screen (`/pimi-review`) for that checkout or pull request. Review is part of the app, not this page: it reads diffs and pull requests through the daemon's `forge.change_request.*` and checkout diff RPCs. Sign in to `gh` to review private PRs.
+- Local previews use running workspace services. Pimi’s Work surface listens on loopback. The agent console uses the daemon’s host and provider settings.
 
 ## Source audit
 
-A read-only audit at upstream commit `9f68af0274ca06c5decd6269d870d442b8e04500` sampled daemon and relay startup, desktop IPC, plugin and updater paths, and the npm lockfile, patches, and CI configuration. A follow-up sampled Pimi's review server, Git and editor handling, and walkthrough provider requests. The inspected paths showed no apparent backdoor. Older daemon homes can enable relay through compatibility behavior, the desktop renderer has access to privileged IPC, and enabled third-party plugins run with daemon-user access. Dependency internals and released binaries were outside the audit scope.
+A read-only audit at upstream commit `9f68af0274ca06c5decd6269d870d442b8e04500` sampled daemon and relay startup, desktop IPC, plugin and updater paths, and the npm lockfile, patches, and CI configuration. A follow-up sampled Pimi's former review server, Git and editor handling, and walkthrough provider requests. The inspected paths showed no apparent backdoor. Older daemon homes can enable relay through compatibility behavior, the desktop renderer has access to privileged IPC, and enabled third-party plugins run with daemon-user access. Dependency internals and released binaries were outside the audit scope.

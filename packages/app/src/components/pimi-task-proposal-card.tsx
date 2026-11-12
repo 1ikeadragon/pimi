@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { ModelProviderGlyph } from "@/components/model-browser";
 import { getDesktopHost } from "@/desktop/host";
+import { checkoutReviewSource, openPimiReview } from "@/navigation/pimi-review";
 import { useProvidersSnapshot } from "@/hooks/use-providers-snapshot";
 import { openPimiTasks } from "@/navigation/pimi-tasks";
 import { isPimiAndroid } from "@/utils/pimi-mobile";
@@ -148,11 +149,9 @@ function ProposedWorker({
 export function PimiReviewSuggestionCard({ suggestion }: { suggestion: PimiReviewSuggestion }) {
   const openReview = useCallback(
     () =>
-      getDesktopHost()?.showPimiWorkspace?.({
-        view: "review",
-        path: suggestion.path,
-        serverId: suggestion.source.serverId,
-      }),
+      openPimiReview(
+        checkoutReviewSource({ serverId: suggestion.source.serverId, cwd: suggestion.path }),
+      ),
     [suggestion],
   );
   return (

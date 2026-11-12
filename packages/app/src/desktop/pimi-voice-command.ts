@@ -21,8 +21,8 @@ export function parsePimiVoiceCommand(transcript: string): PimiVoiceCommand | nu
   if (/^(?:create|open|start) (?:a )?(?:new )?space(?: note| card)?$/i.test(instruction))
     return { action: "new-space" };
 
-  const prs = instruction.match(/^(?:open|show(?: me)?) (my )?(?:open )?(?:prs|pull requests)$/i);
-  if (prs) return { action: "review-prs", filter: prs[1] ? "mine" : "all" };
+  if (/^(?:open|show(?: me)?) (?:my )?(?:open )?(?:prs|pull requests)$/i.test(instruction))
+    return { action: "review-prs" };
 
   if (/^(?:open|show(?: me)?) (?:my )?(?:session usage|context(?: window)?)$/i.test(instruction))
     return { action: "usage", tab: "sessions" };

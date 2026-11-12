@@ -1,6 +1,7 @@
 // Pimi. Apache-2.0.
 // Stream S2 owns this file: the top bar (back/forward, Pull requests / Worktrees) and the detail
 // header (repo and number, title, state/branch/counter chips, Overview / Changes tabs).
+import { i18n } from "@/i18n/i18next";
 import { useCallback, useMemo } from "react";
 import { Text, View } from "react-native";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
@@ -99,7 +100,7 @@ function useOverview(source: ChangeRequestSource | null) {
     staleTimeMs: 30_000,
     queryFn: async () => {
       const client = source ? getHostRuntimeStore().getClient(source.serverId) : null;
-      if (!source || !client) throw new Error("Host is not connected");
+      if (!source || !client) throw new Error(i18n.t("reviewScreen.errors.hostNotConnected"));
       return client.forgeChangeRequestGetOverview({
         forgeHost: source.forgeHost,
         owner: source.owner,
