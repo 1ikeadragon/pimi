@@ -53,6 +53,7 @@ import {
   BrowserWindow,
   ClipboardItem,
   clipboard,
+  dialog,
   Menu,
   ipcMain,
   nativeImage,
@@ -81,6 +82,7 @@ import {
 import { setupDarwinCompositorWatchdog } from "./window/compositor-watchdog/index.js";
 import { showWindowWhenReady } from "./window/show-when-ready.js";
 import { resolveDesktopWindowChromeMode, windowChromeModeArgument } from "./window/chrome.js";
+import { migrateLegacyHome } from "@pimi/server/daemon-control";
 import { registerDialogHandlers } from "./features/dialogs.js";
 import {
   registerNotificationHandlers,
@@ -1282,6 +1284,16 @@ async function bootstrap(): Promise<void> {
   }
 
   await app.whenReady();
+  try {
+    await migrateLegacyHome(process.env, (message) => console.info(message));
+  } catch (error) {
+    dialog.showErrorBox(
+      "Pimi cannot start",
+      error instanceof Error ? error.message : String(error),
+    );
+    app.exit(1);
+    return;
+  }
   startDesktopNetworkLog();
   setupPimiSessionPermissions();
 

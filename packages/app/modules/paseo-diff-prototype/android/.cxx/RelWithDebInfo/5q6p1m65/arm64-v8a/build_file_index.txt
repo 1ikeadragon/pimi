@@ -1,1 +1,0 @@
-/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android/CMakeLists.txt

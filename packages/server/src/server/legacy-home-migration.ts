@@ -1,4 +1,4 @@
-// COMPAT(pimi-home): earlier builds kept the daemon home at ~/.pimi. This one-time
+// COMPAT(paseo-home): earlier builds kept the daemon home at ~/.paseo. This one-time
 // migration moves it to ~/.pimi at supervisor startup and is the only place that still
 // knows the old name. Delete it once no earlier-build home can exist.
 import { execFile } from "node:child_process";
@@ -10,8 +10,8 @@ import { isPidLockOwnerRunning, pidLockInfoSchema } from "./pid-lock.js";
 
 const execFileAsync = promisify(execFile);
 
-const LEGACY_HOME_DIRNAME = ".pimi";
-const LEGACY_PID_FILE = "pimi.pid";
+const LEGACY_HOME_DIRNAME = ".paseo";
+const LEGACY_PID_FILE = "paseo.pid";
 const REWRITABLE_EXTENSION = ".json";
 // Registries and config live in the home root and a few shallow folders. Never descend into
 // bulky or foreign trees.
@@ -46,14 +46,14 @@ async function legacyDaemonRunning(legacyHome: string): Promise<boolean> {
   }
 }
 
-// Absolute paths into the old home, agent label keys ("pimi.parent-agent-id" and friends),
-// and the "<pimi-system>" message envelope tag all moved with the rename.
+// Absolute paths into the old home, agent label keys ("paseo.parent-agent-id" and friends),
+// and the "<paseo-system>" message envelope tag all moved with the rename.
 function rewriteLegacyText(text: string, from: string, to: string): string {
   return text
     .split(from)
     .join(to)
-    .replace(/"pimi\.(?=[a-z])/g, '"pimi.')
-    .replace(/(<\/?)pimi-system\b/g, "$1pimi-system");
+    .replace(/"paseo\.(?=[a-z])/g, '"pimi.')
+    .replace(/(<\/?)paseo-system\b/g, "$1pimi-system");
 }
 
 async function rewriteJsonFiles(root: string, from: string, to: string): Promise<number> {
@@ -88,7 +88,7 @@ async function moveWorktreeMetadata(worktreePath: string, from: string, to: stri
     timeout: 30_000,
   });
   const gitDir = stdout.trim();
-  const legacyDir = path.join(gitDir, "pimi");
+  const legacyDir = path.join(gitDir, "paseo");
   if (!(await exists(legacyDir))) return;
   await rename(legacyDir, path.join(gitDir, "pimi"));
   const metadataPath = path.join(gitDir, "pimi", "worktree.json");
@@ -123,7 +123,7 @@ async function repairWorktrees(home: string, from: string): Promise<number> {
 }
 
 /**
- * Moves ~/.pimi to ~/.pimi when only the old one exists, fixes absolute paths stored in
+ * Moves ~/.paseo to ~/.pimi when only the old one exists, fixes absolute paths stored in
  * the home's JSON files, and repairs worktree links. Does nothing for a custom
  * PIMI_HOME. Throws if the old daemon is still running, because renaming a home under a
  * live daemon corrupts its state.

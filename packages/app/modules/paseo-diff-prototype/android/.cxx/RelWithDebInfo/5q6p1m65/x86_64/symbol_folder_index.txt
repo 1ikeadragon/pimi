@@ -1,1 +1,0 @@
-/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android/build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/x86_64
