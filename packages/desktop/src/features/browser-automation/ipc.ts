@@ -3,6 +3,7 @@ import { BrowserAutomationExecuteRequestSchema } from "@pimi/protocol/browser-au
 import type {
   BrowserAutomationConsoleLogEntry,
   BrowserAutomationDialogEvent,
+  BrowserAutomationExecuteRequest,
 } from "@pimi/protocol/browser-automation/rpc-schemas";
 import type { TabContents, BrowserRegistry, TabImage } from "./service.js";
 import type { IsolatedKeyboardInputEvent } from "./trusted-input.js";
@@ -23,6 +24,9 @@ import {
   getPaseoBrowserWebContentsForHostWindow,
   getWorkspaceActivePaseoBrowserIdForHostWindow,
   getPaseoBrowserWorkspaceId,
+  isAttackNavigationRefused,
+  reportAttackNavigationRefused,
+  setAttackNavigationPolicy,
 } from "../browser-webviews/index.js";
 
 const MAX_CONSOLE_MESSAGES_PER_TAB = 200;
@@ -38,6 +42,8 @@ interface IpcHandlerRegistry {
 interface HostWebContents {
   readonly id: number;
   once(event: "destroyed", listener: () => void): void;
+  isDestroyed(): boolean;
+  send(channel: string, payload: unknown): void;
 }
 
 export class HostSnapshotEngineRegistry {
@@ -448,6 +454,31 @@ function createRegistry(hostWebContentsId: number): BrowserRegistry {
   };
 }
 
+// Commands from an Attack run's agent carry the run's host list. Remember it for the tab so the
+// webview guard confines links, redirects and scripts too, and refuse a navigate that is off it.
+function applyAttackGuard(request: BrowserAutomationExecuteRequest, hostContents: HostWebContents) {
+  const guard = request.attackGuard;
+  const args = request.command.args as { browserId?: string; url?: string };
+  if (!guard || !args.browserId) return null;
+  setAttackNavigationPolicy(args.browserId, guard);
+  if (request.command.command !== "navigate" || !args.url) return null;
+  if (!isAttackNavigationRefused(args.browserId, args.url)) return null;
+  reportAttackNavigationRefused(hostContents, {
+    runId: guard.runId,
+    browserId: args.browserId,
+    url: args.url,
+  });
+  return {
+    requestId: request.requestId,
+    ok: false as const,
+    error: {
+      code: "browser_denied" as const,
+      message: "This Attack run may not open that host. The attempt was refused and recorded.",
+      retryable: false,
+    },
+  };
+}
+
 export function registerBrowserAutomationIpc(options?: { ipc?: IpcHandlerRegistry }): void {
   const ipc = options?.ipc ?? ipcMain;
 
@@ -477,6 +508,8 @@ export function registerBrowserAutomationIpc(options?: { ipc?: IpcHandlerRegistr
         },
       };
     }
+    const refusal = applyAttackGuard(parsed.data, hostContents);
+    if (refusal) return refusal;
     return executeAutomationCommand(parsed.data, registry, {
       snapshotEngine: hostSnapshotEngines.get(hostContents),
     });

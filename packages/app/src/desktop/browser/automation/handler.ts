@@ -349,6 +349,10 @@ async function openBrowserTabForRequest(params: {
 
   const url = command.args.url ?? "https://example.com";
   const { browserId, url: normalizedUrl } = createWorkspaceBrowser({ initialUrl: url });
+  // A tab an Attack run's agent opens is confined to the run's hosts from the start.
+  if (request.attackGuard) {
+    await browserHost?.setAttackPolicy?.({ browserId, ...request.attackGuard });
+  }
   const workspaceKey = buildWorkspaceTabPersistenceKey({ serverId, workspaceId });
   if (!workspaceKey) {
     return browserAutomationFailure({

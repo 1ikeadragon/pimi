@@ -349,6 +349,8 @@ contextBridge.exposeInMainWorld("paseoDesktop", {
       ipcRenderer.invoke("paseo:browser:unregister-workspace-browser", browserId),
     setWorkspaceActiveBrowser: (input: { workspaceId: string; browserId: string | null }) =>
       ipcRenderer.invoke("paseo:browser:set-workspace-active-browser", input),
+    setAttackPolicy: (input: { browserId: string; runId: string; allowedHosts: string[] }) =>
+      ipcRenderer.invoke("paseo:browser:set-attack-policy", input),
     focus: (browserId: string) => ipcRenderer.invoke("paseo:browser:focus", browserId),
     openDevTools: (browserId: string) =>
       ipcRenderer.invoke("paseo:browser:open-devtools", browserId),
