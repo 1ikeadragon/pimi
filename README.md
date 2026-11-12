@@ -8,6 +8,8 @@ Chat with your agents, track their work, and review the changes in one app.
 
 [Downloads](https://1ikeadragon.github.io/pimi/) · [Android APK](https://github.com/1ikeadragon/pimi-releases/releases/latest/download/Pimi-Android-arm64.apk) · [Release notes](https://github.com/1ikeadragon/pimi-releases/releases/latest)
 
+Work on a Linux dev machine? [Connect it over SSH](docs/remote-ssh.md) and Pimi installs its daemon there.
+
 Replacing Paseo? [Keep your sessions and plugins](docs/paseo-migration.md).
 
 ## Use Pimi from your phone

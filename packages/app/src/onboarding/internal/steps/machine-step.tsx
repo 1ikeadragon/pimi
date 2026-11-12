@@ -4,7 +4,7 @@ import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { SettingsCard, SettingsDetailRow } from "@/components/settings";
 import { useAddHost } from "@/hosts/add-host";
-import { buildHostOpenProjectRoute } from "@/utils/host-routes";
+import { buildHostRootRoute } from "@/utils/host-routes";
 import { getOnboardingModel } from "../onboarding-instance";
 
 /**
@@ -16,7 +16,7 @@ export function MachineStep({ onUseThisComputer }: { onUseThisComputer: () => vo
   const handleRemoteAdded = useCallback(
     (serverId: string) => {
       void getOnboardingModel().complete();
-      router.replace(buildHostOpenProjectRoute(serverId));
+      router.replace(buildHostRootRoute(serverId));
     },
     [router],
   );
