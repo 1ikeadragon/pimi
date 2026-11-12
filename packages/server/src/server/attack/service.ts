@@ -10,6 +10,7 @@ import {
   isLocalAttackHost,
 } from "@pimi/protocol/attack/allowlist";
 import {
+  ATTACK_ROLE_REQUIREMENTS,
   AttackRoleIdSchema,
   FindingCategorySchema,
   type AttackAuditAction,
@@ -45,7 +46,7 @@ import {
 } from "./annotations.js";
 import { AttackCoverageTracker } from "./coverage.js";
 import { leadPrompt, resumePrompt, stallPrompt } from "./prompts.js";
-import { ATTACK_COORDINATOR_PROFILE_ID } from "./roster.js";
+import { ATTACK_COORDINATOR_PROFILE_ID, ATTACK_ROLE_PROFILES } from "./roster.js";
 import { findingSignature } from "./signature.js";
 import { AttackStore } from "./store.js";
 
@@ -169,6 +170,8 @@ export class AttackService {
   private readonly createAgent: BoundCreateAgentCommand;
   private readonly emit: AttackServiceOptions["emit"];
   private readonly runIdByAgentId = new Map<string, string>();
+  // Test credentials by run id: memory only, dropped when the run ends.
+  private readonly credentialsByRunId = new Map<string, string>();
   // Session-scoped usage reports are cumulative; remember the last total per agent.
   private readonly sessionTokensByAgentId = new Map<string, number>();
   private tickTimer: ReturnType<typeof setInterval> | null = null;
@@ -255,6 +258,19 @@ export class AttackService {
     if (!definition.repoScope && roster.includes("secrets-audit")) {
       throw new AttackStateError("The secrets and config auditor reads the repository.");
     }
+    for (const role of roster) {
+      const needs = ATTACK_ROLE_REQUIREMENTS[role];
+      if (needs.disposableTarget && !definition.disposableTarget) {
+        throw new AttackStateError(
+          `${ATTACK_ROLE_PROFILES[role].label} sends writes or load: mark the target disposable.`,
+        );
+      }
+      if (needs.testCredentials && !definition.testCredentials.trim()) {
+        throw new AttackStateError(
+          `${ATTACK_ROLE_PROFILES[role].label} needs test account credentials.`,
+        );
+      }
+    }
     const live = (await this.store.listRuns()).find(
       (existing) =>
         existing.workspaceId === definition.workspaceId &&
@@ -299,6 +315,10 @@ export class AttackService {
       endedAt: null,
     };
     await this.store.putRun(run);
+    // Memory only: never in run.json, the audit log or a log line.
+    if (definition.testCredentials.trim()) {
+      this.credentialsByRunId.set(run.id, definition.testCredentials.trim());
+    }
     await this.audit(run.id, "run_started", null, `roster=${roster.join(",")}`);
     this.publishRun(run);
     try {
@@ -307,7 +327,7 @@ export class AttackService {
         provider: definition.provider,
         profile: ATTACK_COORDINATOR_PROFILE_ID,
         title: `Attack · ${target.host}`,
-        initialPrompt: leadPrompt(run),
+        initialPrompt: leadPrompt(run, this.credentialsByRunId.get(run.id)),
         cwd: run.cwd,
         workspaceId: run.workspaceId,
         labels: { [ATTACK_RUN_LABEL]: run.id },
@@ -411,7 +431,11 @@ export class AttackService {
         await sendPromptToAgent({
           ...deps,
           agentId: resumed.leadAgentId,
-          prompt: resumePrompt(resumed, await this.openFindings(runId)),
+          prompt: resumePrompt(
+            resumed,
+            await this.openFindings(runId),
+            this.credentialsByRunId.get(runId),
+          ),
           unarchive: false,
         });
       } catch (error) {
@@ -958,6 +982,7 @@ export class AttackService {
     return this.updateAndPublish(runId, (current) => {
       const settled = this.liveSpent(current, stretchEnd ?? now);
       const ended = change.status === "stopped" || change.status === "completed";
+      if (ended) this.credentialsByRunId.delete(runId);
       return {
         ...current,
         status: change.status,

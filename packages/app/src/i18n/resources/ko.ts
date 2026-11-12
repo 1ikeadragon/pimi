@@ -2359,7 +2359,17 @@ export const ko: TranslationResources = {
       roster: "에이전트",
       rosterEmpty: "에이전트를 하나 이상 선택하세요",
       disposable: "일회용 대상",
-      disposableHint: "에이전트가 쓰기와 부하 전송을 할 수 있게 합니다. 현재 구성은 읽기만 합니다.",
+      disposableHint:
+        "이 앱의 데이터를 잃어도 될 때만 선택하세요. 양식 제출, 삭제, 제한된 부하 테스트를 허용합니다. 에이전트의 셸은 샌드박스로 격리되지 않아 curl이 다른 호스트에 접근하거나 쓰기를 보낼 수 있습니다. 브라우저 허용 목록만 실제 차단벽입니다.",
+      credentials: "테스트 계정 자격 증명",
+      credentialsHint:
+        "일회용 테스트 계정만 사용하고 실제 계정은 쓰지 마세요. 리드 에이전트에게 전달되고 데몬 메모리에만 보관되며 실행 기록에는 저장되지 않습니다. 데몬을 재시작하면 다시 입력해야 합니다.",
+      credentialsMissing: "인증 에이전트용 테스트 자격 증명을 입력하세요",
+      disposableRequired: "Perf-lite에는 일회용 대상이 필요합니다",
+      disposableConfirm: "확인하려면 {{host}} 입력",
+      disposableMismatch: "일치하지 않습니다",
+      modelHint:
+        "도구 제한(웹·편집 도구 없음)은 Claude 에이전트에만 적용됩니다. 다른 제공자는 프롬프트 규칙만 따릅니다.",
       confinement:
         "브라우저 탭은 localhost와 대상 호스트만 열 수 있습니다. 에이전트는 읽기만 하고 이 호스트를 벗어나지 않도록 지시받지만, 셸은 샌드박스로 격리되어 있지 않습니다. 명령으로 파일을 쓰거나 다른 호스트에 접속할 수 있습니다. Claude 에이전트는 웹 도구, 파일 편집 도구, 사용자의 MCP 서버 없이 실행되며, 다른 제공자는 그대로 유지합니다.",
       desktopWindow: "데스크톱 창",
@@ -2376,6 +2386,15 @@ export const ko: TranslationResources = {
     roster: {
       uiQa: "UI QA 및 카오스",
       secrets: "시크릿 및 설정 감사",
+      recon: "정찰 및 매핑",
+      api: "백엔드 및 API",
+      auth: "인증 및 접근",
+      input: "입력 견고성",
+      perfLite: "Perf-lite(제한된 부하)",
+      readOnly: "읽기 전용",
+      needsCredentials: "테스트 자격 증명 필요",
+      needsRepository: "저장소 필요",
+      needsDisposable: "일회용 대상 필요",
     },
     run: {
       status: {

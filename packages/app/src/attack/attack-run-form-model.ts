@@ -1,6 +1,7 @@
 import { attackUrlHost, isLocalAttackHost } from "@pimi/protocol/attack/allowlist";
 import {
   ATTACK_ROLE_IDS,
+  ATTACK_ROLE_REQUIREMENTS,
   DEFAULT_ATTACK_LIMITS,
   type AttackDesktopTarget,
   type AttackRoleId,
@@ -29,7 +30,10 @@ export type AttackFormProblem =
   | "rosterEmpty"
   | "minutesInvalid"
   | "tokensInvalid"
-  | "modelMissing";
+  | "modelMissing"
+  | "credentialsMissing"
+  | "disposableUnconfirmed"
+  | "disposableRequired";
 
 export interface AttackRunFormState {
   target: string;
@@ -39,6 +43,12 @@ export interface AttackRunFormState {
   kiloTokens: string;
   roster: Record<AttackRoleId, boolean>;
   disposableTarget: boolean;
+  /** What the owner typed to confirm the disposable target. */
+  disposableConfirm: string;
+  /** What must be typed: the target host, or the desktop app's name for a window-only run. */
+  disposableConfirmWord: string | null;
+  /** Test-account credentials for the auth role. */
+  testCredentials: string;
   model: AttackModelOption | null;
   modelOptions: AttackModelOption[];
   /** The one app window the run may drive besides (or instead of) the URL. */
@@ -68,6 +78,47 @@ function preferredModel(options: readonly AttackModelOption[]): AttackModelOptio
   return options.find((option) => /haiku|mini|flash/i.test(option.value)) ?? options[0] ?? null;
 }
 
+function budgetProblems(
+  minutes: string,
+  kiloTokens: string,
+): Partial<Record<AttackFormProblem, true>> {
+  const found: Partial<Record<AttackFormProblem, true>> = {};
+  const parsedMinutes = parseWhole(minutes);
+  const parsedTokens = parseWhole(kiloTokens);
+  if (parsedMinutes === null || parsedMinutes < MIN_MINUTES || parsedMinutes > MAX_MINUTES) {
+    found.minutesInvalid = true;
+  }
+  if (parsedTokens === null || parsedTokens < MIN_KILO_TOKENS || parsedTokens > MAX_KILO_TOKENS) {
+    found.tokensInvalid = true;
+  }
+  return found;
+}
+
+function rosterProblems(
+  base: Pick<
+    AttackRunFormState,
+    "roster" | "testCredentials" | "disposableTarget" | "disposableConfirm"
+  >,
+  confirmWord: string | null,
+): Partial<Record<AttackFormProblem, true>> {
+  const found: Partial<Record<AttackFormProblem, true>> = {};
+  const picked = ATTACK_ROLE_IDS.filter((role) => base.roster[role]);
+  if (picked.some((role) => ATTACK_ROLE_REQUIREMENTS[role].testCredentials)) {
+    if (base.testCredentials.trim() === "") found.credentialsMissing = true;
+  }
+  if (picked.some((role) => ATTACK_ROLE_REQUIREMENTS[role].disposableTarget)) {
+    if (!base.disposableTarget) found.disposableRequired = true;
+  }
+  if (
+    base.disposableTarget &&
+    (confirmWord === null ||
+      base.disposableConfirm.trim().toLowerCase() !== confirmWord.toLowerCase())
+  ) {
+    found.disposableUnconfirmed = true;
+  }
+  return found;
+}
+
 export class AttackRunFormModel {
   private state: AttackRunFormState;
   private readonly listeners = new Set<() => void>();
@@ -83,8 +134,18 @@ export class AttackRunFormModel {
       repoScope: true,
       minutes: String(DEFAULT_ATTACK_LIMITS.maxRuntimeMs / 60_000),
       kiloTokens: String(DEFAULT_ATTACK_LIMITS.maxTokens / 1000),
-      roster: { "ui-qa": true, "secrets-audit": true },
+      roster: {
+        recon: true,
+        "ui-qa": true,
+        api: true,
+        auth: false,
+        input: true,
+        "secrets-audit": true,
+        "perf-lite": false,
+      },
       disposableTarget: false,
+      disposableConfirm: "",
+      testCredentials: "",
       model: null,
       modelOptions: [],
       desktopTarget: null,
@@ -130,7 +191,7 @@ export class AttackRunFormModel {
   };
 
   toggleRole(role: AttackRoleId): void {
-    if (role === "secrets-audit" && !this.state.repoScope) return;
+    if (ATTACK_ROLE_REQUIREMENTS[role].repository && !this.state.repoScope) return;
     this.patch({ roster: { ...this.state.roster, [role]: !this.state.roster[role] } });
   }
 
@@ -163,7 +224,15 @@ export class AttackRunFormModel {
   }
 
   setDisposableTarget = (value: boolean): void => {
-    this.patch({ disposableTarget: value });
+    this.patch({ disposableTarget: value, disposableConfirm: "" });
+  };
+
+  setDisposableConfirm = (value: string): void => {
+    this.patch({ disposableConfirm: value });
+  };
+
+  setTestCredentials = (value: string): void => {
+    this.patch({ testCredentials: value });
   };
 
   setModel = (option: AttackModelOption): void => {
@@ -205,6 +274,7 @@ export class AttackRunFormModel {
       provider: this.state.model.value,
       roster: ATTACK_ROLE_IDS.filter((role) => this.state.roster[role]),
       disposableTarget: this.state.disposableTarget,
+      testCredentials: this.state.roster.auth ? this.state.testCredentials.trim() : "",
       limits: {
         maxRuntimeMs: (parseWhole(this.state.minutes) ?? 0) * 60_000,
         maxTokens: (parseWhole(this.state.kiloTokens) ?? 0) * 1000,
@@ -217,7 +287,9 @@ export class AttackRunFormModel {
   }
 
   private patch(
-    change: Partial<Omit<AttackRunFormState, "problems" | "canSubmit" | "remoteHost">>,
+    change: Partial<
+      Omit<AttackRunFormState, "problems" | "canSubmit" | "remoteHost" | "disposableConfirmWord">
+    >,
   ) {
     if (this.closed) return;
     this.state = this.derive({ ...this.state, ...change });
@@ -225,23 +297,21 @@ export class AttackRunFormModel {
   }
 
   private derive(
-    base: Omit<AttackRunFormState, "problems" | "canSubmit" | "remoteHost">,
+    base: Omit<
+      AttackRunFormState,
+      "problems" | "canSubmit" | "remoteHost" | "disposableConfirmWord"
+    >,
   ): AttackRunFormState {
     const host = attackUrlHost(base.target.trim());
-    const minutes = parseWhole(base.minutes);
-    const kiloTokens = parseWhole(base.kiloTokens);
     const found: Partial<Record<AttackFormProblem, true>> = {};
     // The URL may stay empty when the run drives a desktop window instead; a typed URL must be valid.
     const targetBlank = base.target.trim() === "";
     if (!host && !(targetBlank && base.desktopTarget)) found.targetInvalid = true;
     if (!ATTACK_ROLE_IDS.some((role) => base.roster[role])) found.rosterEmpty = true;
-    if (minutes === null || minutes < MIN_MINUTES || minutes > MAX_MINUTES) {
-      found.minutesInvalid = true;
-    }
-    if (kiloTokens === null || kiloTokens < MIN_KILO_TOKENS || kiloTokens > MAX_KILO_TOKENS) {
-      found.tokensInvalid = true;
-    }
+    Object.assign(found, budgetProblems(base.minutes, base.kiloTokens));
     if (!base.model) found.modelMissing = true;
+    const confirmWord = host ?? base.desktopTarget?.appName ?? null;
+    Object.assign(found, rosterProblems(base, confirmWord));
     const canSubmit = Object.keys(found).length === 0;
     // An untouched form shows no errors; the target's error waits until it has been edited.
     const shown: Partial<Record<AttackFormProblem, true>> = {};
@@ -253,6 +323,7 @@ export class AttackRunFormModel {
     return {
       ...base,
       remoteHost: host && !isLocalAttackHost(host) ? host : null,
+      disposableConfirmWord: confirmWord,
       problems: shown,
       canSubmit,
     };

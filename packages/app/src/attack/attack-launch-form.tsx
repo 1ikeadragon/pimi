@@ -4,7 +4,11 @@ import { useTranslation } from "react-i18next";
 import { Check, Crosshair, RefreshCw, Swords } from "lucide-react-native";
 import type { AttackAnnotation, AttackDesktopTarget } from "@pimi/protocol/attack/types";
 import { StyleSheet } from "react-native-unistyles";
-import { ATTACK_ROLE_IDS, type AttackRoleId } from "@pimi/protocol/attack/types";
+import {
+  ATTACK_ROLE_IDS,
+  ATTACK_ROLE_REQUIREMENTS,
+  type AttackRoleId,
+} from "@pimi/protocol/attack/types";
 import { Button } from "@/components/ui/button";
 import { PressHighlight } from "@/components/ui/press-highlight";
 import { Field, FormTextInput } from "@/components/ui/form-field";
@@ -26,9 +30,22 @@ import { hasDesktopTargetBridge, listDesktopWindows } from "./use-desktop-target
 
 const SIZE = "md" as const;
 const ROLE_LABEL_KEYS: Record<AttackRoleId, string> = {
+  recon: "attack.roster.recon",
   "ui-qa": "attack.roster.uiQa",
+  api: "attack.roster.api",
+  auth: "attack.roster.auth",
+  input: "attack.roster.input",
   "secrets-audit": "attack.roster.secrets",
+  "perf-lite": "attack.roster.perfLite",
 };
+
+function roleHintKey(role: AttackRoleId): string {
+  const needs = ATTACK_ROLE_REQUIREMENTS[role];
+  if (needs.testCredentials) return "attack.roster.needsCredentials";
+  if (needs.repository) return "attack.roster.needsRepository";
+  if (needs.disposableTarget) return "attack.roster.needsDisposable";
+  return "attack.roster.readOnly";
+}
 
 function useModelOptions(serverId: string, cwd: string): AttackModelOption[] {
   const { entries } = useProvidersSnapshot(serverId, { cwd });
@@ -199,6 +216,7 @@ export function LaunchForm({
         options={modelOptions}
         onChange={model.setModel}
         placeholder={t("attack.form.modelPlaceholder")}
+        hint={state.model?.value.startsWith("claude/") ? undefined : t("attack.form.modelHint")}
         emptyText={t("attack.form.modelPlaceholder")}
         error={state.problems.modelMissing ? t("attack.form.modelMissing") : null}
         getValueKey={getModelKey}
@@ -215,21 +233,15 @@ export function LaunchForm({
               key={role}
               role={role}
               checked={state.roster[role]}
-              disabled={role === "secrets-audit" && !state.repoScope}
+              disabled={ATTACK_ROLE_REQUIREMENTS[role].repository && !state.repoScope}
               label={t(ROLE_LABEL_KEYS[role])}
+              hint={t(roleHintKey(role))}
               model={model}
             />
           ))}
         </View>
       </Field>
-      <Field label={t("attack.form.disposable")} hint={t("attack.form.disposableHint")}>
-        <Switch
-          value={state.disposableTarget}
-          onValueChange={model.setDisposableTarget}
-          accessibilityLabel={t("attack.form.disposable")}
-          testID="attack-disposable"
-        />
-      </Field>
+      <WriteOptIn model={model} state={state} />
       <Text style={styles.noteText} testID="attack-confinement-note">
         {t("attack.form.confinement")}
       </Text>
@@ -370,17 +382,79 @@ function DesktopTargetSection({
   );
 }
 
+function WriteOptIn({ model, state }: { model: AttackRunFormModel; state: AttackRunFormState }) {
+  const { t } = useTranslation();
+  const confirmLabel = t("attack.form.disposableConfirm", {
+    host: state.disposableConfirmWord ?? "",
+  });
+  return (
+    <>
+      {state.roster.auth ? (
+        <Field
+          label={t("attack.form.credentials")}
+          hint={t("attack.form.credentialsHint")}
+          error={state.problems.credentialsMissing ? t("attack.form.credentialsMissing") : null}
+        >
+          <FormTextInput
+            size={SIZE}
+            testID="attack-credentials-input"
+            accessibilityLabel={t("attack.form.credentials")}
+            initialValue={state.testCredentials}
+            onChangeText={model.setTestCredentials}
+            style={styles.multiline}
+            multiline
+            numberOfLines={2}
+            textAlignVertical="top"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </Field>
+      ) : null}
+      <Field
+        label={t("attack.form.disposable")}
+        hint={t("attack.form.disposableHint")}
+        error={state.problems.disposableRequired ? t("attack.form.disposableRequired") : null}
+      >
+        <Switch
+          value={state.disposableTarget}
+          onValueChange={model.setDisposableTarget}
+          accessibilityLabel={t("attack.form.disposable")}
+          testID="attack-disposable"
+        />
+      </Field>
+      {state.disposableTarget ? (
+        <Field
+          label={confirmLabel}
+          error={state.problems.disposableUnconfirmed ? t("attack.form.disposableMismatch") : null}
+        >
+          <FormTextInput
+            size={SIZE}
+            testID="attack-disposable-confirm"
+            accessibilityLabel={confirmLabel}
+            initialValue={state.disposableConfirm}
+            onChangeText={model.setDisposableConfirm}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </Field>
+      ) : null}
+    </>
+  );
+}
+
 function RosterRow({
   role,
   checked,
   disabled,
   label,
+  hint,
   model,
 }: {
   role: AttackRoleId;
   checked: boolean;
   disabled: boolean;
   label: string;
+  hint: string;
   model: AttackRunFormModel;
 }) {
   const onPress = useCallback(() => model.toggleRole(role), [model, role]);
@@ -399,6 +473,7 @@ function RosterRow({
         {checked ? <Check size={12} color="white" /> : null}
       </View>
       <Text style={styles.rosterLabel}>{label}</Text>
+      <Text style={styles.rosterHint}>{hint}</Text>
     </PressHighlight>
   );
 }
@@ -456,6 +531,10 @@ const styles = StyleSheet.create((theme) => ({
   rosterLabel: {
     color: theme.colors.foreground,
     fontSize: theme.fontSize.base,
+  },
+  rosterHint: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
   },
   checkbox: {
     width: 16,

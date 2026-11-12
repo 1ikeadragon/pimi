@@ -2382,7 +2382,17 @@ export const ptBR: TranslationResources = {
       roster: "Agentes",
       rosterEmpty: "Escolha pelo menos um agente",
       disposable: "Alvo descartável",
-      disposableHint: "Permite que os agentes escrevam e enviem carga. A lista atual só lê.",
+      disposableHint:
+        "Marque apenas se puder perder os dados deste app. Permite envio de formulários, exclusões e um teste de carga limitado. O shell dos agentes não é isolado, então o curl ainda pode alcançar outros hosts ou enviar gravações; só a lista de hosts do navegador é uma barreira real.",
+      credentials: "Credenciais de contas de teste",
+      credentialsHint:
+        "Somente contas de teste descartáveis, nunca reais. Enviadas ao agente líder e mantidas na memória do daemon, não salvas na execução; após reiniciar o daemon, você as informa de novo.",
+      credentialsMissing: "Informe credenciais de teste para o agente de autenticação",
+      disposableRequired: "O Perf-lite exige um alvo descartável",
+      disposableConfirm: "Digite {{host}} para confirmar",
+      disposableMismatch: "Não corresponde",
+      modelHint:
+        "Só os agentes do Claude têm restrições de ferramentas (sem ferramentas web nem de edição). Os outros provedores seguem apenas as regras do prompt.",
       confinement:
         "As abas do navegador só podem abrir localhost e o host de destino. Os agentes são instruídos a apenas ler e a permanecer nesses hosts, mas o shell deles não é isolado: um comando ainda pode gravar arquivos ou alcançar outros hosts. Os agentes do Claude rodam sem ferramentas web, sem ferramentas de edição de arquivos e sem os seus servidores MCP; os outros provedores mantêm os deles.",
       desktopWindow: "Janela da área de trabalho",
@@ -2399,6 +2409,15 @@ export const ptBR: TranslationResources = {
     roster: {
       uiQa: "QA de UI e caos",
       secrets: "Auditor de segredos e configuração",
+      recon: "Reconhecimento e mapeamento",
+      api: "Backend e API",
+      auth: "Autenticação e acesso",
+      input: "Robustez de entradas",
+      perfLite: "Perf-lite (carga limitada)",
+      readOnly: "somente leitura",
+      needsCredentials: "exige credenciais de teste",
+      needsRepository: "exige repositório",
+      needsDisposable: "exige alvo descartável",
     },
     run: {
       status: {

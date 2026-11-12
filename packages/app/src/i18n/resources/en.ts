@@ -2381,7 +2381,17 @@ export const en = {
       roster: "Agents",
       rosterEmpty: "Pick at least one agent",
       disposable: "Disposable target",
-      disposableHint: "Lets agents write and send load. The current roster only reads.",
+      disposableHint:
+        "Tick only if you can lose this app's data. Allows form submits, deletes and a bounded load test. The agents' shell is not sandboxed, so curl can still reach other hosts or send writes; only the browser allowlist is a hard wall.",
+      credentials: "Test account credentials",
+      credentialsHint:
+        "Throwaway test accounts only, never real ones. Sent to the lead agent and kept in daemon memory, not saved in the run; after a daemon restart you enter them again.",
+      credentialsMissing: "Enter test credentials for the auth agent",
+      disposableRequired: "Perf-lite needs a disposable target",
+      disposableConfirm: "Type {{host}} to confirm",
+      disposableMismatch: "That does not match",
+      modelHint:
+        "Only Claude agents get tool restrictions (no web or edit tools). Other providers follow prompt rules only.",
       confinement:
         "Browser tabs can only open localhost and the target host. Agents are told to read only and to stay on those hosts, but their shell is not sandboxed: a command can still write files or reach other hosts. Claude agents run without web tools, file-editing tools and your own MCP servers; other providers keep theirs.",
       desktopWindow: "Desktop window",
@@ -2398,6 +2408,15 @@ export const en = {
     roster: {
       uiQa: "UI QA and chaos",
       secrets: "Secrets and config auditor",
+      recon: "Recon and mapper",
+      api: "Backend and API",
+      auth: "Auth and access",
+      input: "Input robustness",
+      perfLite: "Perf-lite (bounded load)",
+      readOnly: "read-only",
+      needsCredentials: "needs test credentials",
+      needsRepository: "needs repository",
+      needsDisposable: "needs disposable target",
     },
     run: {
       status: {

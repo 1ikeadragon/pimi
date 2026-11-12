@@ -2372,7 +2372,16 @@ export const ja: TranslationResources = {
       rosterEmpty: "エージェントを1つ以上選んでください",
       disposable: "使い捨てターゲット",
       disposableHint:
-        "エージェントによる書き込みと負荷送信を許可します。現在の構成は読み取りのみです。",
+        "このアプリのデータを失ってもよい場合のみオンにしてください。フォーム送信、削除、上限付きの負荷テストを許可します。エージェントのシェルはサンドボックス化されていないため、curl は他のホストに到達したり書き込みを送ったりできます。確実な制限はブラウザの許可リストだけです。",
+      credentials: "テストアカウントの認証情報",
+      credentialsHint:
+        "使い捨てのテストアカウントのみ。本物は使わないでください。リードエージェントに渡され、デーモンのメモリにのみ保持され、実行には保存されません。デーモン再起動後は再入力が必要です。",
+      credentialsMissing: "認証エージェント用のテスト認証情報を入力してください",
+      disposableRequired: "Perf-lite には使い捨てターゲットが必要です",
+      disposableConfirm: "確認のため {{host}} を入力",
+      disposableMismatch: "一致しません",
+      modelHint:
+        "ツール制限（Web・編集ツールなし）があるのは Claude エージェントのみです。他のプロバイダーはプロンプトのルールのみに従います。",
       confinement:
         "ブラウザタブが開けるのは localhost と対象ホストだけです。エージェントには読み取り専用でこれらのホストから出ないよう指示していますが、シェルはサンドボックス化されていません。コマンドでファイルを書き込んだり、他のホストに接続したりできます。Claude のエージェントは、ウェブツール、ファイル編集ツール、あなたの MCP サーバーなしで動作します。他のプロバイダーではそれらが残ります。",
       desktopWindow: "デスクトップのウィンドウ",
@@ -2389,6 +2398,15 @@ export const ja: TranslationResources = {
     roster: {
       uiQa: "UI QAとカオス",
       secrets: "シークレットと設定の監査",
+      recon: "偵察とマッピング",
+      api: "バックエンドとAPI",
+      auth: "認証とアクセス",
+      input: "入力の堅牢性",
+      perfLite: "Perf-lite（上限付き負荷）",
+      readOnly: "読み取り専用",
+      needsCredentials: "テスト認証情報が必要",
+      needsRepository: "リポジトリが必要",
+      needsDisposable: "使い捨てターゲットが必要",
     },
     run: {
       status: {

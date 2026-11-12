@@ -2398,7 +2398,16 @@ export const fr: TranslationResources = {
       rosterEmpty: "Choisissez au moins un agent",
       disposable: "Cible jetable",
       disposableHint:
-        "Permet aux agents d’écrire et d’envoyer de la charge. La liste actuelle ne fait que lire.",
+        "À cocher seulement si vous pouvez perdre les données de cette app. Autorise les envois de formulaires, les suppressions et un test de charge borné. Le shell des agents n’est pas isolé : curl peut encore joindre d’autres hôtes ou envoyer des écritures ; seule la liste d’hôtes du navigateur est un vrai mur.",
+      credentials: "Identifiants de comptes de test",
+      credentialsHint:
+        "Comptes de test jetables uniquement, jamais de vrais. Envoyés à l’agent principal et gardés en mémoire du daemon, pas enregistrés dans l’exécution ; après un redémarrage du daemon, il faut les saisir à nouveau.",
+      credentialsMissing: "Saisissez des identifiants de test pour l’agent d’authentification",
+      disposableRequired: "Perf-lite exige une cible jetable",
+      disposableConfirm: "Saisissez {{host}} pour confirmer",
+      disposableMismatch: "Ne correspond pas",
+      modelHint:
+        "Seuls les agents Claude ont des restrictions d’outils (ni outils web ni d’édition). Les autres fournisseurs suivent uniquement les règles du prompt.",
       confinement:
         "Les onglets du navigateur ne peuvent ouvrir que localhost et l’hôte cible. Les agents ont pour consigne de lire seulement et de rester sur ces hôtes, mais leur shell n’est pas isolé : une commande peut encore écrire des fichiers ou atteindre d’autres hôtes. Les agents Claude s’exécutent sans outils web, sans outils de modification de fichiers et sans vos propres serveurs MCP ; les autres fournisseurs gardent les leurs.",
       desktopWindow: "Fenêtre du bureau",
@@ -2415,6 +2424,15 @@ export const fr: TranslationResources = {
     roster: {
       uiQa: "QA UI et chaos",
       secrets: "Auditeur de secrets et de configuration",
+      recon: "Reconnaissance et cartographie",
+      api: "Backend et API",
+      auth: "Authentification et accès",
+      input: "Robustesse des entrées",
+      perfLite: "Perf-lite (charge bornée)",
+      readOnly: "lecture seule",
+      needsCredentials: "exige des identifiants de test",
+      needsRepository: "exige le dépôt",
+      needsDisposable: "exige une cible jetable",
     },
     run: {
       status: {

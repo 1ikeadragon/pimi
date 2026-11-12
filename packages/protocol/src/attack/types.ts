@@ -1,8 +1,35 @@
 import { z } from "zod";
 
-export const ATTACK_ROLE_IDS = ["ui-qa", "secrets-audit"] as const;
+export const ATTACK_ROLE_IDS = [
+  "recon",
+  "ui-qa",
+  "api",
+  "auth",
+  "input",
+  "secrets-audit",
+  "perf-lite",
+] as const;
 export const AttackRoleIdSchema = z.enum(ATTACK_ROLE_IDS);
 export type AttackRoleId = z.infer<typeof AttackRoleIdSchema>;
+
+// What a role needs before a run may include it. The daemon refuses a run that lacks it and the
+// launch form mirrors the same table.
+export const ATTACK_ROLE_REQUIREMENTS: Record<
+  AttackRoleId,
+  { repository: boolean; testCredentials: boolean; disposableTarget: boolean }
+> = {
+  recon: { repository: false, testCredentials: false, disposableTarget: false },
+  "ui-qa": { repository: false, testCredentials: false, disposableTarget: false },
+  api: { repository: false, testCredentials: false, disposableTarget: false },
+  auth: { repository: false, testCredentials: true, disposableTarget: false },
+  input: { repository: false, testCredentials: false, disposableTarget: false },
+  "secrets-audit": { repository: true, testCredentials: false, disposableTarget: false },
+  "perf-lite": { repository: false, testCredentials: false, disposableTarget: true },
+};
+
+// perf-lite's hard bounds, stated to the agent and in the form.
+export const ATTACK_PERF_LITE_LIMITS = { maxRequests: 200, maxConcurrent: 10, maxSeconds: 60 };
+export const MAX_ATTACK_TEST_CREDENTIALS_CHARS = 1000;
 
 export const AttackRunStatusSchema = z.enum(["running", "paused", "stopped", "completed"]);
 export type AttackRunStatus = z.infer<typeof AttackRunStatusSchema>;
@@ -81,8 +108,12 @@ export const AttackRunDefinitionSchema = z.object({
   // The lead agent's "provider/model"; its subagents inherit it.
   provider: z.string().min(1),
   roster: z.array(AttackRoleIdSchema).min(1),
-  // Writes, deletes and load bursts need this. The MVP roster only reads, so nothing consults it yet.
+  // The owner's "I can lose this data": allows form submits, deletes and the bounded load test.
+  // perf-lite is refused without it.
   disposableTarget: z.boolean(),
+  // Test-account credentials for the auth role (never real ones). Sent in the lead prompt only: the
+  // daemon keeps them in memory, not in run.json or the audit log.
+  testCredentials: z.string().max(MAX_ATTACK_TEST_CREDENTIALS_CHARS).default(""),
   limits: AttackLimitsSchema,
   // Pre-flight notes: they join the general pass, or replace it when `onlyAnnotated` is set.
   annotations: z.array(AttackAnnotationInputSchema).max(MAX_ATTACK_ANNOTATIONS).default([]),
