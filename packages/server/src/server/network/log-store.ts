@@ -6,7 +6,9 @@ import { ensurePrivateDirectory } from "../private-files.js";
 // Persists finished network records as JSONL under <home>/logs/network. Each process writes
 // its own files (daemon-YYYY-MM-DD.jsonl, app-YYYY-MM-DD.jsonl). Appends are buffered and
 // asynchronous, files roll over at a size limit, and a sweep removes files past the retention
-// window and then the oldest files while the folder exceeds its cap. Files are mode 0600.
+// window and then the oldest files while the folder exceeds its cap; a write that would cross
+// the cap sweeps first, so the cap holds between sweeps too. Files are mode 0600. Process
+// launches that repeat identically within COALESCE_WINDOW_MS become one line with a count.
 
 export const NETWORK_LOG_MAX_FILE_BYTES = 20 * 1024 * 1024;
 export const NETWORK_LOG_MAX_DIRECTORY_BYTES = 200 * 1024 * 1024;
@@ -15,6 +17,12 @@ const FLUSH_THRESHOLD_BYTES = 256 * 1024;
 // Lines waiting for the disk. Past this, the oldest are dropped and counted.
 const MAX_BUFFERED_BYTES = 4 * 1024 * 1024;
 const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
+// Identical launches (same program, arguments, purpose and outcome) inside this window from the
+// first one are written once, with a count. Nothing is dropped; a burst keeps its size and span.
+const COALESCE_WINDOW_MS = 5_000;
+const MAX_COALESCING_KEYS = 512;
+// A write over the cap sweeps first; a sweep that removes nothing is not repeated sooner.
+const CAP_SWEEP_MIN_GAP_MS = 10_000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const FILE_NAME = /^(daemon|app)-(\d{4})-(\d{2})-(\d{2})(?:\.(\d+))?\.jsonl$/;
 
@@ -67,7 +75,35 @@ function parseFileName(name: string): { dayStartMs: number; index: number } | nu
   return { dayStartMs, index: match[5] ? Number(match[5]) : 0 };
 }
 
-function recordLine(record: NetworkActivityRequest, source: string, ts: number): string {
+interface CoalescedLaunch {
+  record: NetworkActivityRequest;
+  ts: number;
+  count: number;
+  totalDurationMs: number;
+  lastStartedAtMs: number;
+  timer: NodeJS.Timeout;
+}
+
+function coalesceKey(record: NetworkActivityRequest): string | null {
+  if (record.protocol !== "process" || record.counters) return null;
+  return JSON.stringify([
+    record.source,
+    record.method,
+    record.host,
+    record.port,
+    record.path,
+    record.status,
+    record.errorCode,
+    record.purpose,
+  ]);
+}
+
+function recordLine(
+  record: NetworkActivityRequest,
+  source: string,
+  ts: number,
+  repeat?: { count: number; totalDurationMs: number; lastStartedAtMs: number },
+): string {
   // Explicit fields, so a field added to a record later is never logged by accident.
   return `${JSON.stringify({
     ts: new Date(ts).toISOString(),
@@ -87,6 +123,13 @@ function recordLine(record: NetworkActivityRequest, source: string, ts: number):
     known: record.known,
     local: record.local,
     ...(record.counters ? { counters: record.counters } : {}),
+    ...(repeat && repeat.count > 1
+      ? {
+          count: repeat.count,
+          totalDurationMs: repeat.totalDurationMs,
+          lastStartedAtMs: repeat.lastStartedAtMs,
+        }
+      : {}),
   })}\n`;
 }
 
@@ -106,6 +149,8 @@ export class NetworkLogStore {
   private pending: Promise<void> = Promise.resolve();
   private current: { name: string; size: number } | null = null;
   private closed = false;
+  private readonly coalescing = new Map<string, CoalescedLaunch>();
+  private lastFutileCapSweepAtMs = 0;
   private knownBytes = 0;
   private knownFiles = 0;
 
@@ -138,7 +183,47 @@ export class NetworkLogStore {
 
   append(record: NetworkActivityRequest): void {
     if (this.closed || !this.getSettings().enabled) return;
-    const line = recordLine(record, this.source, this.now());
+    const key = coalesceKey(record);
+    if (key !== null && this.coalesce(key, record)) return;
+    this.enqueue(recordLine(record, this.source, this.now()));
+  }
+
+  /** Folds a repeat into its open entry, or opens one. False when the table is full. */
+  private coalesce(key: string, record: NetworkActivityRequest): boolean {
+    const open = this.coalescing.get(key);
+    if (open) {
+      open.count += 1;
+      open.totalDurationMs += record.durationMs ?? 0;
+      open.lastStartedAtMs = record.startedAtMs;
+      return true;
+    }
+    if (this.coalescing.size >= MAX_COALESCING_KEYS) return false;
+    const timer = setTimeout(() => this.closeCoalesced(key), COALESCE_WINDOW_MS);
+    timer.unref();
+    this.coalescing.set(key, {
+      record,
+      ts: this.now(),
+      count: 1,
+      totalDurationMs: record.durationMs ?? 0,
+      lastStartedAtMs: record.startedAtMs,
+      timer,
+    });
+    return true;
+  }
+
+  private closeCoalesced(key: string): void {
+    const entry = this.coalescing.get(key);
+    if (!entry) return;
+    clearTimeout(entry.timer);
+    this.coalescing.delete(key);
+    this.enqueue(recordLine(entry.record, this.source, entry.ts, entry));
+  }
+
+  private closeAllCoalesced(): void {
+    for (const key of this.coalescing.keys()) this.closeCoalesced(key);
+  }
+
+  private enqueue(line: string): void {
     const bytes = Buffer.byteLength(line);
     this.buffer.push(line);
     this.bufferedBytes += bytes;
@@ -170,6 +255,7 @@ export class NetworkLogStore {
   }
 
   async close(): Promise<void> {
+    this.closeAllCoalesced();
     await this.flush();
     this.closed = true;
     if (this.sweepTimer) clearInterval(this.sweepTimer);
@@ -181,8 +267,11 @@ export class NetworkLogStore {
     return { directory: this.directory, bytes: this.knownBytes, files: this.knownFiles };
   }
 
-  /** Removes files older than the retention window, then the oldest while over the cap. */
-  async sweep(): Promise<void> {
+  /**
+   * Removes files older than the retention window, then the oldest while over the cap.
+   * `reserveBytes` leaves room under the cap for a write that is about to land.
+   */
+  async sweep(reserveBytes = 0): Promise<void> {
     try {
       const { retentionDays } = this.getSettings();
       const now = this.now();
@@ -199,7 +288,7 @@ export class NetworkLogStore {
         (a, b) => a.dayStartMs - b.dayStartMs || a.index - b.index || a.name.localeCompare(b.name),
       );
       for (const file of oldestFirst) {
-        if (total <= this.maxDirectoryBytes) break;
+        if (total + reserveBytes <= this.maxDirectoryBytes) break;
         if (file.name === this.current?.name) continue;
         await this.remove(file);
         total -= file.size;
@@ -284,6 +373,15 @@ export class NetworkLogStore {
       let batchBytes = 0;
       const emit = async () => {
         if (batch === "") return;
+        if (
+          this.knownBytes + batchBytes > this.maxDirectoryBytes &&
+          this.now() - this.lastFutileCapSweepAtMs >= CAP_SWEEP_MIN_GAP_MS
+        ) {
+          const before = this.knownFiles;
+          await this.sweep(batchBytes);
+          // Nothing but the live file was left to remove: do not re-scan the folder on every write.
+          this.lastFutileCapSweepAtMs = this.knownFiles >= before ? this.now() : 0;
+        }
         const name = await this.resolveFile(day, batchBytes);
         const target = path.join(this.directory, name);
         const created = this.current!.size === 0;

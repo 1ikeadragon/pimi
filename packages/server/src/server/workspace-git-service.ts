@@ -74,6 +74,11 @@ import { checkoutLiteFromGitSnapshot } from "./workspace-registry-model.js";
 import { createWatcherLivenessCanary } from "./watcher-liveness-canary.js";
 
 const WORKSPACE_GIT_WATCH_DEBOUNCE_MS = 1_000;
+// A workspace target that loses its last listener stays observed this long. Session observers
+// drop and re-add every workspace whenever their subscription set is reconciled (a client
+// connecting, a subscription seeding), and a dropped target loses its snapshot, so the next
+// register ran the whole cold refresh again, about a dozen git launches per workspace each time.
+const WORKSPACE_GIT_TARGET_RETENTION_MS = 30_000;
 export const BACKGROUND_GIT_FETCH_INTERVAL_MS = 180_000;
 const FETCH_METADATA_ECHO_TTL_MS = 5_000;
 export const WORKSPACE_GIT_OBSERVATION_REENSURE_INTERVAL_MS = 60_000;
@@ -432,6 +437,8 @@ interface WorkspaceGitTarget {
   debounceTimer: NodeJS.Timeout | null;
   pendingDebounceRequest: WorkspaceGitRefreshRequest | null;
   observationReensureTimer: NodeJS.Timeout | null;
+  /** Set while the target is retained after its last real listener left. */
+  retention: { listener: WorkspaceGitListener; timer: NodeJS.Timeout } | null;
   forgePrStatusPollSubscription: { unsubscribe: () => void } | null;
   forgePrStatusPollKey: string | null;
   refreshState: WorkspaceGitRefreshState;
@@ -688,6 +695,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
     this.assertNotDisposed();
     const cwd = resolve(params.cwd);
     const target = this.ensureWorkspaceTarget(cwd);
+    this.releaseWorkspaceRetention(target);
     target.listeners.add(listener);
     if (target.folderMissing) {
       void this.resumeWorkspaceIfFolderRestored(target);
@@ -697,6 +705,12 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
     }
     if (!target.latestSnapshot) {
       this.scheduleInitialWorkspaceRefresh(target);
+    } else {
+      // A warm target runs no initial refresh, so a late listener is handed what is known.
+      queueMicrotask(() => {
+        const snapshot = target.latestSnapshot;
+        if (snapshot && !target.closed && target.listeners.has(listener)) listener(snapshot);
+      });
     }
     this.scheduleWorkspaceObservationSetup(target);
 
@@ -1292,6 +1306,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
       debounceTimer: null,
       pendingDebounceRequest: null,
       observationReensureTimer: null,
+      retention: null,
       forgePrStatusPollSubscription: null,
       forgePrStatusPollKey: null,
       refreshState: { status: "idle" },
@@ -3927,7 +3942,26 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
       return;
     }
 
-    this.removeWorkspaceTarget(target);
+    // Observation stays exactly as it was with a live listener; only the removal is deferred.
+    const retentionListener: WorkspaceGitListener = () => {};
+    const timer = setTimeout(() => {
+      if (target.retention?.timer !== timer) return;
+      target.retention = null;
+      target.listeners.delete(retentionListener);
+      if (target.listeners.size === 0 && this.workspaceTargets.get(target.cwd) === target) {
+        this.removeWorkspaceTarget(target);
+      }
+    }, WORKSPACE_GIT_TARGET_RETENTION_MS);
+    timer.unref();
+    target.retention = { listener: retentionListener, timer };
+    target.listeners.add(retentionListener);
+  }
+
+  private releaseWorkspaceRetention(target: WorkspaceGitTarget): void {
+    if (!target.retention) return;
+    clearTimeout(target.retention.timer);
+    target.listeners.delete(target.retention.listener);
+    target.retention = null;
   }
 
   private removeWorkspaceTarget(target: WorkspaceGitTarget): void {
@@ -3994,6 +4028,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
 
   private closeWorkspaceTarget(target: WorkspaceGitTarget): void {
     target.closed = true;
+    this.releaseWorkspaceRetention(target);
     this.stopWorkspaceObservation(target);
     target.listeners.clear();
   }
