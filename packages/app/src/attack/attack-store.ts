@@ -19,6 +19,15 @@ interface AttackStore {
   focusByWorkspace: Record<string, (AttackFocus & { runId: string }) | null>;
   /** Set by "New run" so the board shows the launch form over a finished run's grid. */
   composingByWorkspace: Record<string, string | null>;
+  /** The pre-flight target tab (a plain browser the owner annotates), by workspace key. */
+  preflightByWorkspace: Record<string, { browserId: string; target: string } | null>;
+  /** Narrow windows show findings as an overlay; whether it is open, by workspace key. */
+  findingsOverlayByWorkspace: Record<string, boolean>;
+  setPreflight: (
+    workspaceKey: string,
+    preflight: { browserId: string; target: string } | null,
+  ) => void;
+  setFindingsOverlay: (workspaceKey: string, open: boolean) => void;
   setFocus: (workspaceKey: string, runId: string, focus: AttackFocus | null) => void;
   setComposing: (workspaceKey: string, afterRunId: string | null) => void;
   byServer: Record<string, HostAttackState>;
@@ -44,6 +53,16 @@ function hostOf(state: AttackStore, serverId: string): HostAttackState {
 export const useAttackStore = create<AttackStore>((set) => ({
   focusByWorkspace: {},
   composingByWorkspace: {},
+  preflightByWorkspace: {},
+  findingsOverlayByWorkspace: {},
+  setPreflight: (workspaceKey, preflight) =>
+    set((state) => ({
+      preflightByWorkspace: { ...state.preflightByWorkspace, [workspaceKey]: preflight },
+    })),
+  setFindingsOverlay: (workspaceKey, open) =>
+    set((state) => ({
+      findingsOverlayByWorkspace: { ...state.findingsOverlayByWorkspace, [workspaceKey]: open },
+    })),
   setFocus: (workspaceKey, runId, focus) =>
     set((state) => ({
       focusByWorkspace: {

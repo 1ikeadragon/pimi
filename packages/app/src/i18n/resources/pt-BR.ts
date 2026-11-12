@@ -2155,6 +2155,7 @@ export const ptBR: TranslationResources = {
       confinement:
         "As abas do navegador só podem abrir localhost e o host de destino. Os agentes são instruídos a apenas ler e a permanecer nesses hosts, mas o shell deles não é isolado: um comando ainda pode gravar arquivos ou alcançar outros hosts. Os agentes do Claude rodam sem ferramentas web, sem ferramentas de edição de arquivos e sem os seus servidores MCP; os outros provedores mantêm os deles.",
       start: "Iniciar ataque",
+      preflight: "Abrir o alvo e anotar antes",
     },
     roster: {
       uiQa: "QA de UI e caos",
@@ -2171,6 +2172,7 @@ export const ptBR: TranslationResources = {
         user: "Pausada por você",
         time_budget: "Pausada: orçamento de tempo atingido",
         token_budget: "Pausada: orçamento de tokens atingido",
+        stalled: "Pausada: os agentes ficaram ociosos",
       },
       timeSpent: "{{spent}} de {{limit}} min",
       tokensSpent: "{{spent}} de {{limit}} tokens",
@@ -2178,6 +2180,7 @@ export const ptBR: TranslationResources = {
       resume: "Retomar",
       stop: "Parar",
       newRun: "Nova execução",
+      findingsBadge: "Achados ({{count}})",
     },
     tile: {
       focus: "Focar em {{role}}",
@@ -2196,6 +2199,17 @@ export const ptBR: TranslationResources = {
       browser: "Navegador",
       back: "Grade",
     },
+    preflight: {
+      title: "Pré-voo",
+      hint: "Use Anotar na barra do navegador, clique em um elemento e adicione uma nota. As notas entram na varredura geral.",
+      empty: "Ainda não há notas.",
+      skip: "Pular o pré-voo",
+      remove: "Remover nota",
+      noNote: "(sem nota)",
+      badge: "Notas ({{count}})",
+      onlyAnnotated: "Testar só o que anotei",
+      close: "Fechar notas",
+    },
     board: {
       title: "Ataque",
       starting: "Iniciando o agente líder…",
@@ -2205,6 +2219,7 @@ export const ptBR: TranslationResources = {
       runningMeta: "{{count}} agentes · {{elapsed}}",
       lastRun: "Última execução · {{target}}",
       noRun: "Inicie uma execução para ver os achados aqui.",
+      close: "Fechar achados",
       empty: "Nenhum achado ainda.",
       nothingFound: "Nada encontrado. A execução terminou sem achados.",
       severity: {

@@ -6,6 +6,25 @@ function minutes(ms: number): number {
   return Math.round(ms / 60_000);
 }
 
+function annotationsBlock(run: AttackRun): string | null {
+  if (run.annotations.length === 0) return null;
+  const items = run.annotations
+    .map((item) => {
+      const parts = [
+        `${item.label}: ${item.note.trim() || "(no note)"}`,
+        `  page: ${item.url}`,
+        `  element: <${item.tag}> ${item.selector}`,
+        item.text.trim() ? `  text: ${JSON.stringify(item.text.trim())}` : null,
+      ];
+      return parts.filter((line): line is string => line !== null).join("\n");
+    })
+    .join("\n");
+  const rule = run.onlyAnnotated
+    ? "The owner wants ONLY these items tested: do not run a general pass over the rest of the app, and give every subagent the labels it must cover."
+    : "These are in addition to the general pass: cover them first, then the rest of the app. Give every subagent the labels it must cover.";
+  return `Owner annotations (elements the owner marked in the live target, with their notes). ${rule} Say which label a finding relates to in its description.\n${items}`;
+}
+
 function runContext(run: AttackRun): string {
   const hosts = attackAllowedHosts(run.remoteHost);
   return [
@@ -18,6 +37,7 @@ function runContext(run: AttackRun): string {
     `Disposable target: ${run.disposableTarget ? "yes" : "no"}. This run is read-only either way: do not submit state-changing requests, delete anything or send load bursts.`,
     `Budget: ${minutes(run.limits.maxRuntimeMs)} minutes and ${run.limits.maxTokens.toLocaleString("en-US")} tokens across all agents. The run pauses when either runs out.`,
     run.scopeNotes.trim() ? `Scope notes from the owner:\n${run.scopeNotes.trim()}` : null,
+    annotationsBlock(run),
   ]
     .filter((line): line is string => line !== null)
     .join("\n");
@@ -51,6 +71,7 @@ How to run it
 5. Call finish_attack_run with a short summary when the roster is done and the findings stand. It first shows you every finding; call it again with the pairs that are one defect under two names in merges, or an empty merges list. "Nothing found" is a valid result if the roster attacked the target and it held.
 
 Rules
+- Never end a turn with nothing running. Each turn must start the missing roster subagents, wait on subagents that are working, or call finish_attack_run. If every subagent is idle or finished, finish the run now.
 - Report only. Never edit files, fix a finding or change the target.
 - Every finding needs steps that reproduce it and evidence: a screenshot (pass the browserId to submit_finding), a terminal excerpt or the quoted file line.
 - Do not log in as anyone, and do not use real credentials or real personal data.
@@ -68,4 +89,17 @@ Findings already recorded (pass one of these ids as duplicateOf when a report re
 ${known}
 
 Continue the run: check what each subagent still owes, cover what is not covered yet, and call finish_attack_run when the roster is done.`;
+}
+
+export function stallPrompt(run: AttackRun, findings: readonly Finding[]): string {
+  const known = findings.length ? findings.map(findingLine).join("\n") : "- none yet";
+  return `Attack run ${run.id}: no agent is working right now (you and every subagent are idle) and the run is not finished. Do not wait for anyone: nobody is going to wake you.
+
+Findings recorded so far:
+${known}
+
+Do one of these now, in this turn:
+- If you have not started every roster subagent yet, start the missing ones with create_agent (profile and run context as in your first instructions).
+- If every subagent has finished, review the findings and call finish_attack_run.
+Never end a turn without one of those two.`;
 }

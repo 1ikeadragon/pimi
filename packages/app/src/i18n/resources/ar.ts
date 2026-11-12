@@ -2119,6 +2119,7 @@ export const ar: TranslationResources = {
       confinement:
         "علامات تبويب المتصفح لا تفتح إلا localhost والمضيف المستهدف. الوكلاء مأمورون بالقراءة فقط وبالبقاء ضمن هذين المضيفين، لكن الصدفة (shell) لديهم غير معزولة: يمكن لأمر أن يكتب ملفات أو يصل إلى مضيفين آخرين. وكلاء Claude يعملون بلا أدوات الويب وبلا أدوات تعديل الملفات وبلا خوادم MCP الخاصة بك، أما المزوّدون الآخرون فيحتفظون بها.",
       start: "ابدأ الهجوم",
+      preflight: "افتح الهدف وضع ملاحظات أولًا",
     },
     roster: {
       uiQa: "اختبار جودة الواجهة والفوضى",
@@ -2135,6 +2136,7 @@ export const ar: TranslationResources = {
         user: "أوقفته مؤقتًا",
         time_budget: "متوقف مؤقتًا: تم بلوغ ميزانية الوقت",
         token_budget: "متوقف مؤقتًا: تم بلوغ ميزانية الرموز",
+        stalled: "متوقف مؤقتًا: توقف الوكلاء عن العمل",
       },
       timeSpent: "{{spent}} من {{limit}} دقيقة",
       tokensSpent: "{{spent}} من {{limit}} رمز",
@@ -2142,6 +2144,7 @@ export const ar: TranslationResources = {
       resume: "استئناف",
       stop: "إيقاف",
       newRun: "تشغيل جديد",
+      findingsBadge: "النتائج ({{count}})",
     },
     tile: {
       focus: "التركيز على {{role}}",
@@ -2160,6 +2163,17 @@ export const ar: TranslationResources = {
       browser: "المتصفح",
       back: "الشبكة",
     },
+    preflight: {
+      title: "الفحص المسبق",
+      hint: "استخدم «التعليق» في شريط أدوات المتصفح، وانقر على عنصر وأضف ملاحظة. تنضم الملاحظات إلى الفحص العام.",
+      empty: "لا ملاحظات بعد.",
+      skip: "تخطي الفحص المسبق",
+      remove: "إزالة الملاحظة",
+      noNote: "(بلا ملاحظة)",
+      badge: "الملاحظات ({{count}})",
+      onlyAnnotated: "اختبر ما علّقت عليه فقط",
+      close: "إغلاق الملاحظات",
+    },
     board: {
       title: "الهجوم",
       starting: "جارٍ تشغيل الوكيل القائد…",
@@ -2169,6 +2183,7 @@ export const ar: TranslationResources = {
       runningMeta: "{{count}} وكلاء · {{elapsed}}",
       lastRun: "آخر تشغيل · {{target}}",
       noRun: "ابدأ تشغيلًا لرؤية النتائج هنا.",
+      close: "إغلاق النتائج",
       empty: "لا توجد نتائج بعد.",
       nothingFound: "لم يُعثر على شيء. انتهى التشغيل دون نتائج.",
       severity: {

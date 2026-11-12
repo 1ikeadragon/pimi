@@ -32,7 +32,7 @@ import type { BoundCreateAgentCommand } from "../agent/create-agent/create.js";
 import { cancelAgentRunCommand } from "../agent/lifecycle-command.js";
 import { resumeStoppedSubagents } from "../agent/stop-cascade.js";
 import { ATTACK_RUN_LABEL, STOPPED_WITH_SUBAGENTS_LABEL } from "@pimi/protocol/agent-labels";
-import { leadPrompt, resumePrompt } from "./prompts.js";
+import { leadPrompt, resumePrompt, stallPrompt } from "./prompts.js";
 import { ATTACK_COORDINATOR_PROFILE_ID } from "./roster.js";
 import { findingSignature } from "./signature.js";
 import { AttackStore } from "./store.js";
@@ -43,6 +43,10 @@ const MAX_FINDINGS_PER_RUN = 200;
 const MAX_EVIDENCE_PER_FINDING = 6;
 const MAX_SCREENSHOT_BASE64_CHARS = 900_000;
 const MAX_TEXT = 4000;
+// A running run whose agents are all idle is nudged after this long, and paused as "stalled"
+// once it has been nudged this many times without an agent starting work.
+const STALL_GRACE_MS = 30_000;
+const MAX_STALL_NUDGES = 2;
 
 export class AttackRunNotFoundError extends Error {
   constructor(id: string) {
@@ -151,6 +155,8 @@ export class AttackService {
   private tickTimer: ReturnType<typeof setInterval> | null = null;
   private unsubscribeAgents: (() => void) | null = null;
   private ticking = false;
+  // When a running run's agents all went idle, and how often its lead has been nudged since.
+  private readonly stalls = new Map<string, { since: number; nudges: number }>();
   private readonly tokenWrites = new Map<string, Promise<unknown>>();
   private readonly submitChains = new Map<string, Promise<unknown>>();
   // The findings each agent has been shown by submit_finding. A new finding is recorded only once
@@ -235,6 +241,16 @@ export class AttackService {
       roster,
       disposableTarget: definition.disposableTarget,
       limits: definition.limits,
+      annotations: definition.annotations.map((item) => ({
+        label: clip(item.label, 16),
+        url: clip(item.url, 2000),
+        selector: clip(item.selector, 1000),
+        tag: clip(item.tag, 100),
+        text: clip(item.text, 400),
+        html: clip(item.html, 800),
+        note: clip(item.note, 2000),
+      })),
+      onlyAnnotated: definition.onlyAnnotated && definition.annotations.length > 0,
       status: "running",
       pausedReason: null,
       leadAgentId: null,
@@ -292,7 +308,12 @@ export class AttackService {
     }
     const paused = await this.settleSpent(runId, { status: "paused", pausedReason: reason });
     await this.stopAgents(paused);
-    await this.audit(runId, reason === "user" ? "run_paused" : "budget_reached", null, reason);
+    await this.audit(
+      runId,
+      reason === "user" || reason === "stalled" ? "run_paused" : "budget_reached",
+      null,
+      reason,
+    );
     return paused;
   }
 
@@ -799,10 +820,59 @@ export class AttackService {
         // would be counted twice.
         if (live.spent.runtimeMs >= run.limits.maxRuntimeMs) {
           await this.pauseRun(run.id, "time_budget");
+          continue;
         }
+        await this.watchForStall(run);
       }
     } finally {
       this.ticking = false;
+    }
+  }
+
+  /** Whether the lead or any agent below it has a turn in flight. */
+  private async runHasWork(run: AttackRun): Promise<boolean> {
+    for (const agent of this.agentManager.listAgents({ includeInternal: true })) {
+      if (!this.agentManager.hasInFlightRun(agent.id)) continue;
+      if (agent.id === run.leadAgentId || (await this.runIdForAgent(agent.id)) === run.id) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // A run is "running" only while somebody works. When the lead ends its turn without starting
+  // subagents or finishing, nothing would ever wake it: nudge it, and pause the run for the
+  // owner when the nudges do not start any work.
+  private async watchForStall(run: AttackRun): Promise<void> {
+    if (!run.leadAgentId) return;
+    if (await this.runHasWork(run)) {
+      this.stalls.delete(run.id);
+      return;
+    }
+    const now = Date.now();
+    const stall = this.stalls.get(run.id) ?? { since: now, nudges: 0 };
+    this.stalls.set(run.id, stall);
+    if (now - stall.since < STALL_GRACE_MS) return;
+    if (stall.nudges >= MAX_STALL_NUDGES) {
+      this.stalls.delete(run.id);
+      await this.pauseRun(run.id, "stalled");
+      return;
+    }
+    stall.since = now;
+    stall.nudges += 1;
+    this.logger.warn({ runId: run.id, nudges: stall.nudges }, "Attack run stalled; nudging lead");
+    try {
+      await sendPromptToAgent({
+        agentManager: this.agentManager,
+        agentStorage: this.agentStorage,
+        logger: this.logger,
+        agentId: run.leadAgentId,
+        prompt: stallPrompt(run, await this.openFindings(run.id)),
+        unarchive: false,
+      });
+    } catch (error) {
+      this.logger.warn({ err: error, runId: run.id }, "Could not nudge the stalled attack lead");
+      stall.nudges = MAX_STALL_NUDGES;
     }
   }
 

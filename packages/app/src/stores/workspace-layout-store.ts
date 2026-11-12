@@ -5,6 +5,7 @@ import { persist, type StateStorage } from "zustand/middleware";
 import type { z } from "zod";
 import { WorkspaceLayoutPersistedStateSchema } from "./workspace-layout-storage";
 import {
+  ATTACK_FINDINGS_PANE_ID,
   ATTACK_HOLDING_PANE_ID,
   attackPaneIdForTarget,
   createAttackWorkbench,
@@ -165,6 +166,8 @@ interface WorkspaceLayoutStore {
   workbenchByWorkspace: Record<string, WorkspaceWorkbench>;
   switchWorkbench: (workspaceKey: string, mode: WorkbenchMode) => "ok" | "unsaved" | "unavailable";
   toggleWorkbenchChat: (workspaceKey: string) => "ok" | "unsaved" | "unavailable";
+  /** Attack mode: collapses the findings pane (narrow windows show findings as an overlay) or restores it. */
+  setAttackFindingsPaneHidden: (workspaceKey: string, hidden: boolean) => void;
   splitSizesByWorkspace: Record<string, Record<string, number[]>>;
   explorerSidebarWidthByWorkspace: Record<string, number>;
   pinnedAgentIdsByWorkspace: Record<string, Set<string>>;
@@ -1224,6 +1227,17 @@ export function createWorkspaceLayoutStore(
             },
           });
           return "ok";
+        },
+        setAttackFindingsPaneHidden: (workspaceKey, hidden) => {
+          set((state) => {
+            const layout = state.layoutByWorkspace[workspaceKey];
+            const pane = layout ? findPaneById(layout.root, ATTACK_FINDINGS_PANE_ID) : null;
+            if (!layout || !pane || (pane.hidden === true) === hidden) return state;
+            const next = setPaneHiddenInLayout({ layout, paneId: pane.id, hidden });
+            return next
+              ? { layoutByWorkspace: { ...state.layoutByWorkspace, [workspaceKey]: next } }
+              : state;
+          });
         },
         toggleWorkbenchChat: (workspaceKey) => {
           if (get().workbenchByWorkspace[workspaceKey]?.mode !== "editor") return "unavailable";

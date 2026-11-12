@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Check, Swords } from "lucide-react-native";
+import { Check, Crosshair, Swords } from "lucide-react-native";
+import type { AttackAnnotation } from "@pimi/protocol/attack/types";
 import { StyleSheet } from "react-native-unistyles";
 import { ATTACK_ROLE_IDS, type AttackRoleId } from "@pimi/protocol/attack/types";
 import { Button } from "@/components/ui/button";
@@ -42,7 +43,23 @@ function useModelOptions(serverId: string, cwd: string): AttackModelOption[] {
   return options;
 }
 
-export function LaunchForm({ serverId, workspaceId }: { serverId: string; workspaceId: string }) {
+export function LaunchForm({
+  serverId,
+  workspaceId,
+  annotations,
+  onlyAnnotated,
+  preflightOpen,
+  onOpenPreflight,
+  onStarted,
+}: {
+  serverId: string;
+  workspaceId: string;
+  annotations: AttackAnnotation[];
+  onlyAnnotated: boolean;
+  preflightOpen: boolean;
+  onOpenPreflight: (target: string) => void;
+  onStarted: () => void;
+}) {
   const { t } = useTranslation();
   const cwd = useWorkspaceDirectory(serverId, workspaceId) ?? "";
   const client = useHostRuntimeClient(serverId);
@@ -60,20 +77,24 @@ export function LaunchForm({ serverId, workspaceId }: { serverId: string; worksp
   const [error, setError] = useState<string | null>(null);
 
   const onStart = useCallback(async () => {
-    const definition = model.submit();
+    const definition = model.submit({ annotations, onlyAnnotated });
     if (!definition || !client) return;
     setStarting(true);
     setError(null);
     try {
       const started = await client.attackRunStart({ definition });
       useAttackStore.getState().putRun(serverId, started.run);
+      onStarted();
     } catch (caught) {
       setError(toErrorMessage(caught));
     } finally {
       setStarting(false);
     }
-  }, [client, model, serverId]);
+  }, [annotations, client, model, onStarted, onlyAnnotated, serverId]);
   const onStartPress = useCallback(() => void onStart(), [onStart]);
+  const onPreflightPress = useCallback(() => {
+    if (model.checkTarget()) onOpenPreflight(model.getState().target.trim());
+  }, [model, onOpenPreflight]);
 
   const modelOptions = useMemo<SelectFieldOption<AttackModelOption>[]>(
     () =>
@@ -208,6 +229,16 @@ export function LaunchForm({ serverId, workspaceId }: { serverId: string; worksp
       <Text style={styles.noteText} testID="attack-confinement-note">
         {t("attack.form.confinement")}
       </Text>
+      {preflightOpen ? null : (
+        <Button
+          variant="outline"
+          leftIcon={Crosshair}
+          onPress={onPreflightPress}
+          testID="attack-preflight-open"
+        >
+          {t("attack.form.preflight")}
+        </Button>
+      )}
       <Button
         variant="default"
         leftIcon={Swords}

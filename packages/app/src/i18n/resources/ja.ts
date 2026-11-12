@@ -2144,6 +2144,7 @@ export const ja: TranslationResources = {
       confinement:
         "ブラウザタブが開けるのは localhost と対象ホストだけです。エージェントには読み取り専用でこれらのホストから出ないよう指示していますが、シェルはサンドボックス化されていません。コマンドでファイルを書き込んだり、他のホストに接続したりできます。Claude のエージェントは、ウェブツール、ファイル編集ツール、あなたの MCP サーバーなしで動作します。他のプロバイダーではそれらが残ります。",
       start: "アタックを開始",
+      preflight: "先に対象を開いて注釈する",
     },
     roster: {
       uiQa: "UI QAとカオス",
@@ -2160,6 +2161,7 @@ export const ja: TranslationResources = {
         user: "ユーザーが一時停止",
         time_budget: "一時停止: 時間予算に達しました",
         token_budget: "一時停止: トークン予算に達しました",
+        stalled: "一時停止: エージェントがアイドル状態です",
       },
       timeSpent: "{{spent}} / {{limit}} 分",
       tokensSpent: "{{spent}} / {{limit}} トークン",
@@ -2167,6 +2169,7 @@ export const ja: TranslationResources = {
       resume: "再開",
       stop: "停止",
       newRun: "新しい実行",
+      findingsBadge: "検出 ({{count}})",
     },
     tile: {
       focus: "{{role}} を表示",
@@ -2185,6 +2188,17 @@ export const ja: TranslationResources = {
       browser: "ブラウザ",
       back: "グリッド",
     },
+    preflight: {
+      title: "事前チェック",
+      hint: "ブラウザのツールバーで注釈を選び、要素をクリックしてメモを追加します。メモは通常の検査に加わります。",
+      empty: "メモはまだありません。",
+      skip: "事前チェックをスキップ",
+      remove: "メモを削除",
+      noNote: "(メモなし)",
+      badge: "メモ ({{count}})",
+      onlyAnnotated: "注釈した項目だけをテスト",
+      close: "メモを閉じる",
+    },
     board: {
       title: "アタック",
       starting: "リードエージェントを起動中…",
@@ -2194,6 +2208,7 @@ export const ja: TranslationResources = {
       runningMeta: "{{count}} エージェント · {{elapsed}}",
       lastRun: "前回の実行 · {{target}}",
       noRun: "実行を開始すると、ここに検出事項が表示されます。",
+      close: "検出を閉じる",
       empty: "検出事項はまだありません。",
       nothingFound: "何も見つかりませんでした。実行は検出事項なしで終了しました。",
       severity: {

@@ -2171,6 +2171,7 @@ export const fr: TranslationResources = {
       confinement:
         "Les onglets du navigateur ne peuvent ouvrir que localhost et l’hôte cible. Les agents ont pour consigne de lire seulement et de rester sur ces hôtes, mais leur shell n’est pas isolé : une commande peut encore écrire des fichiers ou atteindre d’autres hôtes. Les agents Claude s’exécutent sans outils web, sans outils de modification de fichiers et sans vos propres serveurs MCP ; les autres fournisseurs gardent les leurs.",
       start: "Lancer l’attaque",
+      preflight: "Ouvrir la cible et annoter d'abord",
     },
     roster: {
       uiQa: "QA UI et chaos",
@@ -2187,6 +2188,7 @@ export const fr: TranslationResources = {
         user: "Mise en pause par vous",
         time_budget: "En pause : budget de temps atteint",
         token_budget: "En pause : budget de tokens atteint",
+        stalled: "En pause : les agents sont inactifs",
       },
       timeSpent: "{{spent}} sur {{limit}} min",
       tokensSpent: "{{spent}} sur {{limit}} tokens",
@@ -2194,6 +2196,7 @@ export const fr: TranslationResources = {
       resume: "Reprendre",
       stop: "Arrêter",
       newRun: "Nouvelle exécution",
+      findingsBadge: "Constats ({{count}})",
     },
     tile: {
       focus: "Afficher {{role}}",
@@ -2212,6 +2215,17 @@ export const fr: TranslationResources = {
       browser: "Navigateur",
       back: "Grille",
     },
+    preflight: {
+      title: "Pré-vol",
+      hint: "Utilisez Annoter dans la barre du navigateur, cliquez sur un élément et ajoutez une note. Les notes s'ajoutent à la passe générale.",
+      empty: "Aucune note pour l'instant.",
+      skip: "Ignorer le pré-vol",
+      remove: "Supprimer la note",
+      noNote: "(sans note)",
+      badge: "Notes ({{count}})",
+      onlyAnnotated: "Tester uniquement ce que j'ai annoté",
+      close: "Fermer les notes",
+    },
     board: {
       title: "Attaque",
       starting: "Démarrage de l'agent principal…",
@@ -2221,6 +2235,7 @@ export const fr: TranslationResources = {
       runningMeta: "{{count}} agents · {{elapsed}}",
       lastRun: "Dernière exécution · {{target}}",
       noRun: "Lancez une exécution pour voir les constats ici.",
+      close: "Fermer les constats",
       empty: "Aucun constat pour l’instant.",
       nothingFound: "Rien trouvé. L’exécution s’est terminée sans constat.",
       severity: {

@@ -2132,6 +2132,7 @@ export const ko: TranslationResources = {
       confinement:
         "브라우저 탭은 localhost와 대상 호스트만 열 수 있습니다. 에이전트는 읽기만 하고 이 호스트를 벗어나지 않도록 지시받지만, 셸은 샌드박스로 격리되어 있지 않습니다. 명령으로 파일을 쓰거나 다른 호스트에 접속할 수 있습니다. Claude 에이전트는 웹 도구, 파일 편집 도구, 사용자의 MCP 서버 없이 실행되며, 다른 제공자는 그대로 유지합니다.",
       start: "어택 시작",
+      preflight: "먼저 대상을 열고 주석 달기",
     },
     roster: {
       uiQa: "UI QA 및 카오스",
@@ -2148,6 +2149,7 @@ export const ko: TranslationResources = {
         user: "사용자가 일시 중지함",
         time_budget: "일시 중지: 시간 예산에 도달했습니다",
         token_budget: "일시 중지: 토큰 예산에 도달했습니다",
+        stalled: "일시 중지: 에이전트가 유휴 상태입니다",
       },
       timeSpent: "{{spent}} / {{limit}}분",
       tokensSpent: "{{spent}} / {{limit}} 토큰",
@@ -2155,6 +2157,7 @@ export const ko: TranslationResources = {
       resume: "재개",
       stop: "중지",
       newRun: "새 실행",
+      findingsBadge: "발견 사항 ({{count}})",
     },
     tile: {
       focus: "{{role}} 보기",
@@ -2173,6 +2176,17 @@ export const ko: TranslationResources = {
       browser: "브라우저",
       back: "그리드",
     },
+    preflight: {
+      title: "사전 점검",
+      hint: "브라우저 도구 모음의 주석 기능으로 요소를 클릭하고 메모를 추가하세요. 메모는 일반 점검에 포함됩니다.",
+      empty: "아직 메모가 없습니다.",
+      skip: "사전 점검 건너뛰기",
+      remove: "메모 삭제",
+      noNote: "(메모 없음)",
+      badge: "메모 ({{count}})",
+      onlyAnnotated: "주석 단 항목만 테스트",
+      close: "메모 닫기",
+    },
     board: {
       title: "공격",
       starting: "리드 에이전트를 시작하는 중…",
@@ -2182,6 +2196,7 @@ export const ko: TranslationResources = {
       runningMeta: "에이전트 {{count}}개 · {{elapsed}}",
       lastRun: "마지막 실행 · {{target}}",
       noRun: "실행을 시작하면 여기에 발견 사항이 표시됩니다.",
+      close: "발견 사항 닫기",
       empty: "아직 발견 사항이 없습니다.",
       nothingFound: "발견된 것이 없습니다. 실행이 발견 사항 없이 끝났습니다.",
       severity: {

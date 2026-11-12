@@ -2156,6 +2156,7 @@ export const en = {
       confinement:
         "Browser tabs can only open localhost and the target host. Agents are told to read only and to stay on those hosts, but their shell is not sandboxed: a command can still write files or reach other hosts. Claude agents run without web tools, file-editing tools and your own MCP servers; other providers keep theirs.",
       start: "Start attack",
+      preflight: "Open target and annotate first",
     },
     roster: {
       uiQa: "UI QA and chaos",
@@ -2172,6 +2173,7 @@ export const en = {
         user: "Paused by you",
         time_budget: "Paused: time budget reached",
         token_budget: "Paused: token budget reached",
+        stalled: "Paused: agents went idle",
       },
       timeSpent: "{{spent}} of {{limit}} min",
       tokensSpent: "{{spent}} of {{limit}} tokens",
@@ -2179,6 +2181,7 @@ export const en = {
       resume: "Resume",
       stop: "Stop",
       newRun: "New run",
+      findingsBadge: "Findings ({{count}})",
     },
     tile: {
       focus: "Focus {{role}}",
@@ -2197,6 +2200,17 @@ export const en = {
       browser: "Browser",
       back: "Grid",
     },
+    preflight: {
+      title: "Pre-flight",
+      hint: "Use Annotate in the browser toolbar, click an element and add a note. Notes join the general pass.",
+      empty: "No notes yet.",
+      skip: "Skip pre-flight",
+      remove: "Remove note",
+      noNote: "(no note)",
+      badge: "Notes ({{count}})",
+      onlyAnnotated: "Test only what I annotated",
+      close: "Close notes",
+    },
     board: {
       title: "Attack",
       starting: "Starting the lead agent…",
@@ -2206,6 +2220,7 @@ export const en = {
       runningMeta: "{{count}} agents · {{elapsed}}",
       lastRun: "Last run · {{target}}",
       noRun: "Start a run to see findings here.",
+      close: "Close findings",
       empty: "No findings yet.",
       nothingFound: "Nothing found. The run finished without findings.",
       severity: {

@@ -7,8 +7,9 @@ export type AttackRoleId = z.infer<typeof AttackRoleIdSchema>;
 export const AttackRunStatusSchema = z.enum(["running", "paused", "stopped", "completed"]);
 export type AttackRunStatus = z.infer<typeof AttackRunStatusSchema>;
 
-// Why a run is paused: the owner pressed Pause, or a budget ran out.
-export const AttackPauseReasonSchema = z.enum(["user", "time_budget", "token_budget"]);
+// Why a run is paused: the owner pressed Pause, a budget ran out, or no agent was working and the
+// lead did not answer a nudge to finish.
+export const AttackPauseReasonSchema = z.enum(["user", "time_budget", "token_budget", "stalled"]);
 export type AttackPauseReason = z.infer<typeof AttackPauseReasonSchema>;
 
 export const AttackLimitsSchema = z.object({
@@ -28,6 +29,20 @@ export const AttackSpentSchema = z.object({
 });
 export type AttackSpent = z.infer<typeof AttackSpentSchema>;
 
+// An element the owner marked in the live target before the run, with their note. `label` is "A1",
+// "A2", ... in the order they were added.
+export const AttackAnnotationSchema = z.object({
+  label: z.string().min(1).max(16),
+  url: z.string().max(2000),
+  selector: z.string().max(1000),
+  tag: z.string().max(100),
+  text: z.string().max(400),
+  html: z.string().max(800),
+  note: z.string().max(2000),
+});
+export type AttackAnnotation = z.infer<typeof AttackAnnotationSchema>;
+export const MAX_ATTACK_ANNOTATIONS = 40;
+
 // What the owner fills in. `remoteHost` is derived from the target when the target is not local.
 export const AttackRunDefinitionSchema = z.object({
   workspaceId: z.string().min(1),
@@ -42,6 +57,9 @@ export const AttackRunDefinitionSchema = z.object({
   // Writes, deletes and load bursts need this. The MVP roster only reads, so nothing consults it yet.
   disposableTarget: z.boolean(),
   limits: AttackLimitsSchema,
+  // Pre-flight notes: they join the general pass, or replace it when `onlyAnnotated` is set.
+  annotations: z.array(AttackAnnotationSchema).max(MAX_ATTACK_ANNOTATIONS).default([]),
+  onlyAnnotated: z.boolean().default(false),
 });
 export type AttackRunDefinition = z.infer<typeof AttackRunDefinitionSchema>;
 
@@ -59,6 +77,8 @@ export const AttackRunSchema = z.object({
   roster: z.array(AttackRoleIdSchema),
   disposableTarget: z.boolean(),
   limits: AttackLimitsSchema,
+  annotations: z.array(AttackAnnotationSchema).default([]),
+  onlyAnnotated: z.boolean().default(false),
   status: AttackRunStatusSchema,
   pausedReason: AttackPauseReasonSchema.nullable(),
   leadAgentId: z.string().nullable(),

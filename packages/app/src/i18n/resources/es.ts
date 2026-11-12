@@ -2170,6 +2170,7 @@ export const es: TranslationResources = {
       confinement:
         "Las pestañas del navegador solo pueden abrir localhost y el host de destino. Los agentes tienen instrucciones de solo leer y de no salir de esos hosts, pero su shell no está aislado: un comando aún puede escribir archivos o llegar a otros hosts. Los agentes de Claude se ejecutan sin herramientas web, sin herramientas de edición de archivos y sin tus propios servidores MCP; los demás proveedores conservan los suyos.",
       start: "Iniciar ataque",
+      preflight: "Abrir el objetivo y anotar primero",
     },
     roster: {
       uiQa: "QA de UI y caos",
@@ -2186,6 +2187,7 @@ export const es: TranslationResources = {
         user: "Pausada por ti",
         time_budget: "En pausa: se alcanzó el presupuesto de tiempo",
         token_budget: "En pausa: se alcanzó el presupuesto de tokens",
+        stalled: "En pausa: los agentes quedaron inactivos",
       },
       timeSpent: "{{spent}} de {{limit}} min",
       tokensSpent: "{{spent}} de {{limit}} tokens",
@@ -2193,6 +2195,7 @@ export const es: TranslationResources = {
       resume: "Reanudar",
       stop: "Detener",
       newRun: "Nueva ejecución",
+      findingsBadge: "Hallazgos ({{count}})",
     },
     tile: {
       focus: "Enfocar {{role}}",
@@ -2211,6 +2214,17 @@ export const es: TranslationResources = {
       browser: "Navegador",
       back: "Cuadrícula",
     },
+    preflight: {
+      title: "Revisión previa",
+      hint: "Usa Anotar en la barra del navegador, haz clic en un elemento y añade una nota. Las notas se suman a la pasada general.",
+      empty: "Aún no hay notas.",
+      skip: "Omitir revisión previa",
+      remove: "Quitar nota",
+      noNote: "(sin nota)",
+      badge: "Notas ({{count}})",
+      onlyAnnotated: "Probar solo lo que anoté",
+      close: "Cerrar notas",
+    },
     board: {
       title: "Ataque",
       starting: "Iniciando el agente líder…",
@@ -2220,6 +2234,7 @@ export const es: TranslationResources = {
       runningMeta: "{{count}} agentes · {{elapsed}}",
       lastRun: "Última ejecución · {{target}}",
       noRun: "Inicia una ejecución para ver hallazgos aquí.",
+      close: "Cerrar hallazgos",
       empty: "Aún no hay hallazgos.",
       nothingFound: "No se encontró nada. La ejecución terminó sin hallazgos.",
       severity: {
