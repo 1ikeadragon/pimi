@@ -70,6 +70,16 @@ import type {
   CheckoutPrMergeMethod,
   CheckoutForgeSetAutoMergeResponse,
   CheckoutForgeGetCheckDetailsResponse,
+  ForgeChangeRequestListInboxRequest,
+  ForgeChangeRequestListInboxResponse,
+  ForgeChangeRequestGetOverviewRequest,
+  ForgeChangeRequestGetOverviewResponse,
+  ForgeChangeRequestListFilesResponse,
+  ForgeChangeRequestGetFileDiffsRequest,
+  ForgeChangeRequestGetFileDiffsResponse,
+  ForgeChangeRequestGetTimelineResponse,
+  ForgeChangeRequestGetCheckDetailsRequest,
+  ForgeChangeRequestGetCheckDetailsResponse,
   CheckoutPrStatusResponse,
   PullRequestTimelineResponse,
   CheckoutSwitchBranchResponse,
@@ -538,6 +548,17 @@ type CheckoutPrCreatePayload = CheckoutPrCreateResponse["payload"];
 type CheckoutPrMergePayload = CheckoutPrMergeResponse["payload"];
 type CheckoutForgeSetAutoMergePayload = CheckoutForgeSetAutoMergeResponse["payload"];
 type CheckoutForgeGetCheckDetailsPayload = CheckoutForgeGetCheckDetailsResponse["payload"];
+export type ChangeRequestRefInput = Pick<
+  ForgeChangeRequestGetOverviewRequest,
+  "forgeHost" | "owner" | "name" | "number" | "cwd"
+>;
+type ForgeChangeRequestListInboxPayload = ForgeChangeRequestListInboxResponse["payload"];
+type ForgeChangeRequestGetOverviewPayload = ForgeChangeRequestGetOverviewResponse["payload"];
+type ForgeChangeRequestListFilesPayload = ForgeChangeRequestListFilesResponse["payload"];
+type ForgeChangeRequestGetFileDiffsPayload = ForgeChangeRequestGetFileDiffsResponse["payload"];
+type ForgeChangeRequestGetTimelinePayload = ForgeChangeRequestGetTimelineResponse["payload"];
+type ForgeChangeRequestGetCheckDetailsPayload =
+  ForgeChangeRequestGetCheckDetailsResponse["payload"];
 type CheckoutPrStatusPayload = CheckoutPrStatusResponse["payload"];
 type PullRequestTimelinePayload = PullRequestTimelineResponse["payload"];
 type CheckoutSwitchBranchPayload = CheckoutSwitchBranchResponse["payload"];
@@ -4891,6 +4912,84 @@ export class DaemonClient {
           workflowRunId: input.workflowRunId,
           changeRequestNumber: input.changeRequestNumber,
         },
+        timeout: 60000,
+      },
+    );
+  }
+
+  async forgeChangeRequestListInbox(
+    input: Pick<
+      ForgeChangeRequestListInboxRequest,
+      "forgeHost" | "scopes" | "repositories" | "limit" | "cwd"
+    >,
+    requestId?: string,
+  ): Promise<ForgeChangeRequestListInboxPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest<"forge.change_request.list_inbox.response">({
+      requestId,
+      message: { type: "forge.change_request.list_inbox.request", ...input },
+      timeout: 60000,
+    });
+  }
+
+  async forgeChangeRequestGetOverview(
+    input: ChangeRequestRefInput,
+    requestId?: string,
+  ): Promise<ForgeChangeRequestGetOverviewPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest<"forge.change_request.get_overview.response">(
+      {
+        requestId,
+        message: { type: "forge.change_request.get_overview.request", ...input },
+        timeout: 60000,
+      },
+    );
+  }
+
+  async forgeChangeRequestListFiles(
+    input: ChangeRequestRefInput,
+    requestId?: string,
+  ): Promise<ForgeChangeRequestListFilesPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest<"forge.change_request.list_files.response">({
+      requestId,
+      message: { type: "forge.change_request.list_files.request", ...input },
+      timeout: 60000,
+    });
+  }
+
+  async forgeChangeRequestGetFileDiffs(
+    input: ChangeRequestRefInput & Pick<ForgeChangeRequestGetFileDiffsRequest, "headSha" | "paths">,
+    requestId?: string,
+  ): Promise<ForgeChangeRequestGetFileDiffsPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest<"forge.change_request.get_file_diffs.response">(
+      {
+        requestId,
+        message: { type: "forge.change_request.get_file_diffs.request", ...input },
+        timeout: 60000,
+      },
+    );
+  }
+
+  async forgeChangeRequestGetTimeline(
+    input: ChangeRequestRefInput,
+    requestId?: string,
+  ): Promise<ForgeChangeRequestGetTimelinePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest<"forge.change_request.get_timeline.response">(
+      {
+        requestId,
+        message: { type: "forge.change_request.get_timeline.request", ...input },
+        timeout: 60000,
+      },
+    );
+  }
+
+  async forgeChangeRequestGetCheckDetails(
+    input: ChangeRequestRefInput &
+      Pick<ForgeChangeRequestGetCheckDetailsRequest, "checkRunId" | "workflowRunId">,
+    requestId?: string,
+  ): Promise<ForgeChangeRequestGetCheckDetailsPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest<"forge.change_request.get_check_details.response">(
+      {
+        requestId,
+        message: { type: "forge.change_request.get_check_details.request", ...input },
         timeout: 60000,
       },
     );

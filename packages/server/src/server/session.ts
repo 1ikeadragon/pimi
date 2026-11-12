@@ -211,6 +211,7 @@ import {
 } from "../utils/project-custom-icon.js";
 import { VoiceSessions } from "./session/voice/index.js";
 import { CheckoutSession } from "./session/checkout/checkout-session.js";
+import { ChangeRequestSession } from "./session/forge/change-request-session.js";
 import {
   createWorkspaceGitObserverService,
   type WorkspaceGitObserverService,
@@ -807,6 +808,7 @@ export class Session {
   private readonly workspaceDirectory: WorkspaceDirectory;
   private readonly voiceSessions: VoiceSessions;
   private readonly checkoutSession: CheckoutSession;
+  private readonly changeRequestSession: ChangeRequestSession;
   private readonly automationSession: AutomationSession;
   private readonly attackSession: AttackSession;
   private readonly providerCatalogSession: ProviderCatalogSession;
@@ -992,6 +994,10 @@ export class Session {
       }),
       pimiHome: this.pimiHome,
       worktreesRoot: this.worktreesRoot,
+      logger: this.sessionLogger,
+    });
+    this.changeRequestSession = new ChangeRequestSession({
+      host: { emit: (msg) => this.emit(msg) },
       logger: this.sessionLogger,
     });
     this.workspaceGitObserver = createWorkspaceGitObserverService({
@@ -2901,6 +2907,18 @@ export class Session {
         return this.checkoutSession.handleCheckoutForgeSetAutoMergeRequest(msg);
       case "checkout.forge.get_check_details.request":
         return this.checkoutSession.handleCheckoutForgeGetCheckDetailsRequest(msg);
+      case "forge.change_request.list_inbox.request":
+        return this.changeRequestSession.handleListInboxRequest(msg);
+      case "forge.change_request.get_overview.request":
+        return this.changeRequestSession.handleGetOverviewRequest(msg);
+      case "forge.change_request.list_files.request":
+        return this.changeRequestSession.handleListFilesRequest(msg);
+      case "forge.change_request.get_file_diffs.request":
+        return this.changeRequestSession.handleGetFileDiffsRequest(msg);
+      case "forge.change_request.get_timeline.request":
+        return this.changeRequestSession.handleGetTimelineRequest(msg);
+      case "forge.change_request.get_check_details.request":
+        return this.changeRequestSession.handleGetCheckDetailsRequest(msg);
       case "checkout_pr_status_request":
         return this.checkoutSession.handleCheckoutPrStatusRequest(msg);
       case "pull_request_timeline_request":

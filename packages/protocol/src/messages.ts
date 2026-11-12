@@ -2795,6 +2795,78 @@ export const CheckoutForgeGetCheckDetailsRequestSchema =
     type: z.literal("checkout.forge.get_check_details.request"),
   });
 
+// Change-request review RPCs (`forge.change_request.*`). Unlike `checkout.forge.*` they address a
+// change request by forge identity (`forgeHost`/`owner`/`name`/`number`), so a request with no local
+// checkout can be read. `cwd` is optional: when it names a checkout, the daemon may reuse it for CLI
+// auth context; it never selects the repository. The daemon validates identity again and never
+// builds shell strings from it. Read-only toward the forge.
+const ChangeRequestForgeHostSchema = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$/);
+const ChangeRequestRepoSegmentSchema = z.string().regex(/^[A-Za-z0-9_][A-Za-z0-9._-]{0,99}$/);
+const ChangeRequestNumberSchema = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
+const ChangeRequestHeadShaSchema = z.string().regex(/^[a-f0-9]{40}$/);
+
+const ChangeRequestRefFields = {
+  forgeHost: ChangeRequestForgeHostSchema,
+  owner: ChangeRequestRepoSegmentSchema,
+  name: ChangeRequestRepoSegmentSchema,
+  number: ChangeRequestNumberSchema,
+  cwd: z.string().optional(),
+  requestId: z.string(),
+};
+
+export const ChangeRequestInboxScopeSchema = z.enum(["review_requested", "authored", "repository"]);
+
+export const ForgeChangeRequestListInboxRequestSchema = z.object({
+  type: z.literal("forge.change_request.list_inbox.request"),
+  forgeHost: ChangeRequestForgeHostSchema,
+  scopes: z.array(ChangeRequestInboxScopeSchema).min(1).max(3),
+  // Tracked repositories read for the "repository" scope, at most 24 per request.
+  repositories: z
+    .array(
+      z.object({
+        owner: ChangeRequestRepoSegmentSchema,
+        name: ChangeRequestRepoSegmentSchema,
+      }),
+    )
+    .max(24)
+    .optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+  cwd: z.string().optional(),
+  requestId: z.string(),
+});
+
+export const ForgeChangeRequestGetOverviewRequestSchema = z.object({
+  type: z.literal("forge.change_request.get_overview.request"),
+  ...ChangeRequestRefFields,
+});
+
+export const ForgeChangeRequestListFilesRequestSchema = z.object({
+  type: z.literal("forge.change_request.list_files.request"),
+  ...ChangeRequestRefFields,
+});
+
+export const ForgeChangeRequestGetFileDiffsRequestSchema = z.object({
+  type: z.literal("forge.change_request.get_file_diffs.request"),
+  ...ChangeRequestRefFields,
+  // The snapshot `list_files` returned; the daemon answers from that revision or fails with
+  // `stale_snapshot`, never from a newer push.
+  headSha: ChangeRequestHeadShaSchema,
+  paths: z.array(z.string().min(1).max(4096)).min(1).max(8),
+});
+
+export const ForgeChangeRequestGetTimelineRequestSchema = z.object({
+  type: z.literal("forge.change_request.get_timeline.request"),
+  ...ChangeRequestRefFields,
+});
+
+export const ForgeChangeRequestGetCheckDetailsRequestSchema = z.object({
+  type: z.literal("forge.change_request.get_check_details.request"),
+  ...ChangeRequestRefFields,
+  // At least one of checkRunId/workflowRunId; the daemon rejects a request with neither.
+  checkRunId: z.number().int().positive().optional(),
+  workflowRunId: z.number().int().positive().optional(),
+});
+
 export const CheckoutPrStatusRequestSchema = z.object({
   type: z.literal("checkout_pr_status_request"),
   cwd: z.string(),
@@ -3652,6 +3724,12 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   CodeNavigationServersListRequestSchema,
   CodeNavigationServerTestRequestSchema,
   CheckoutForgeGetCheckDetailsRequestSchema,
+  ForgeChangeRequestListInboxRequestSchema,
+  ForgeChangeRequestGetOverviewRequestSchema,
+  ForgeChangeRequestListFilesRequestSchema,
+  ForgeChangeRequestGetFileDiffsRequestSchema,
+  ForgeChangeRequestGetTimelineRequestSchema,
+  ForgeChangeRequestGetCheckDetailsRequestSchema,
   CheckoutPrStatusRequestSchema,
   PullRequestTimelineRequestSchema,
   CheckoutSwitchBranchRequestSchema,
@@ -5959,6 +6037,223 @@ export const CheckoutForgeGetCheckDetailsResponseSchema = z.object({
   }),
 });
 
+const ChangeRequestErrorSchema = z.object({
+  code: z.enum([
+    "invalid_request",
+    "not_found",
+    "forbidden",
+    "unauthenticated",
+    "cli_missing",
+    // The host resolves to a forge (or no forge) that has no change-request read adapter.
+    "unsupported",
+    "stale_snapshot",
+    "too_large",
+    "unavailable",
+  ]),
+  message: z.string(),
+});
+
+const ChangeRequestStateSchema = z.enum(["open", "closed", "merged"]);
+const ChangeRequestReviewDecisionSchema = z.enum(["approved", "changes_requested", "pending"]);
+const ChangeRequestChecksStatusSchema = z.enum(["none", "pending", "success", "failure"]);
+const ChangeRequestMergeableSchema = z.enum(["MERGEABLE", "CONFLICTING", "UNKNOWN"]);
+
+const ChangeRequestIdentityFields = {
+  forgeHost: z.string(),
+  owner: z.string(),
+  name: z.string(),
+  number: z.number(),
+};
+
+const ChangeRequestInboxItemSchema = z.object({
+  ...ChangeRequestIdentityFields,
+  url: z.string(),
+  title: z.string(),
+  state: ChangeRequestStateSchema,
+  isDraft: z.boolean(),
+  author: z.string().nullable(),
+  updatedAt: z.string().nullable(),
+  baseRefName: z.string().nullable(),
+  headRefName: z.string().nullable(),
+  headSha: z.string().nullable(),
+  reviewDecision: ChangeRequestReviewDecisionSchema.nullable(),
+  // Null where the listing source carries no check rollup (account search).
+  checksStatus: ChangeRequestChecksStatusSchema.nullable(),
+  reviewRequested: z.boolean(),
+  authoredByMe: z.boolean(),
+});
+
+export const ForgeChangeRequestListInboxResponseSchema = z.object({
+  type: z.literal("forge.change_request.list_inbox.response"),
+  payload: z.object({
+    items: z.array(ChangeRequestInboxItemSchema),
+    // One row per requested scope (and per repository for "repository"), so a partial failure
+    // never hides the sources that loaded.
+    sources: z.array(
+      z.object({
+        scope: ChangeRequestInboxScopeSchema,
+        repository: z.string().nullable(),
+        status: z.enum(["ready", "error"]),
+        truncated: z.boolean(),
+        error: ChangeRequestErrorSchema.nullable(),
+      }),
+    ),
+    error: ChangeRequestErrorSchema.nullable(),
+    requestId: z.string(),
+  }),
+});
+
+const ChangeRequestOverviewSchema = z.object({
+  ...ChangeRequestIdentityFields,
+  forge: z.string(),
+  url: z.string(),
+  title: z.string(),
+  body: z.string(),
+  state: ChangeRequestStateSchema,
+  isDraft: z.boolean(),
+  isMerged: z.boolean(),
+  author: z.string().nullable(),
+  authorUrl: z.string().nullable(),
+  createdAt: z.string().nullable(),
+  updatedAt: z.string().nullable(),
+  baseRefName: z.string(),
+  headRefName: z.string(),
+  baseSha: z.string().nullable(),
+  headSha: z.string().nullable(),
+  mergeable: ChangeRequestMergeableSchema,
+  reviewDecision: ChangeRequestReviewDecisionSchema.nullable(),
+  checks: z.array(
+    z.object({
+      name: z.string(),
+      status: z.string(),
+      url: z.string().nullable(),
+      workflow: z.string().optional(),
+      duration: z.string().optional(),
+      checkRunId: z.number().optional(),
+      workflowRunId: z.number().optional(),
+      traits: z.array(z.string()).optional(),
+    }),
+  ),
+  checksStatus: ChangeRequestChecksStatusSchema,
+  // Set when the token can read the change request but not its checks.
+  checksError: z.string().nullable(),
+  additions: z.number(),
+  deletions: z.number(),
+  changedFiles: z.number(),
+  commitCount: z.number(),
+  labels: z.array(z.string()),
+});
+
+export const ForgeChangeRequestGetOverviewResponseSchema = z.object({
+  type: z.literal("forge.change_request.get_overview.response"),
+  payload: z.object({
+    overview: ChangeRequestOverviewSchema.nullable(),
+    error: ChangeRequestErrorSchema.nullable(),
+    requestId: z.string(),
+  }),
+});
+
+const ChangeRequestFileSchema = z.object({
+  path: z.string(),
+  oldPath: z.string().nullable(),
+  status: z.enum(["added", "modified", "deleted", "renamed", "copied", "type_changed"]),
+  additions: z.number(),
+  deletions: z.number(),
+  // Blob SHA of the returned side; viewed marks key on it so a push clears only changed files.
+  blobSha: z.string(),
+  // Byte length of the text patch; null when the forge returned none (binary, too large).
+  patchBytes: z.number().nullable(),
+});
+
+export const ForgeChangeRequestListFilesResponseSchema = z.object({
+  type: z.literal("forge.change_request.list_files.response"),
+  payload: z.object({
+    snapshot: z
+      .object({
+        baseSha: z.string(),
+        headSha: z.string(),
+        totalFiles: z.number(),
+        patchBytesTotal: z.number(),
+      })
+      .nullable(),
+    files: z.array(ChangeRequestFileSchema),
+    error: ChangeRequestErrorSchema.nullable(),
+    requestId: z.string(),
+  }),
+});
+
+const ChangeRequestFileDiffSchema = z.object({
+  path: z.string(),
+  file: ParsedDiffFileSchema.nullable(),
+  // Why `file` is null; never a partial patch.
+  unavailable: z.enum(["binary", "too_large", "incomplete", "missing"]).nullable(),
+  message: z.string().nullable(),
+});
+
+export const ForgeChangeRequestGetFileDiffsResponseSchema = z.object({
+  type: z.literal("forge.change_request.get_file_diffs.response"),
+  payload: z.object({
+    headSha: z.string(),
+    diffs: z.array(ChangeRequestFileDiffSchema),
+    error: ChangeRequestErrorSchema.nullable(),
+    requestId: z.string(),
+  }),
+});
+
+const ChangeRequestTimelineItemBaseFields = {
+  id: z.string(),
+  author: z.string(),
+  authorUrl: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+  body: z.string(),
+  createdAt: z.number(),
+  url: z.string(),
+};
+
+const ChangeRequestTimelineItemSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("review"),
+    ...ChangeRequestTimelineItemBaseFields,
+    reviewState: z.enum(["approved", "changes_requested", "commented"]),
+  }),
+  z.object({
+    kind: z.literal("comment"),
+    ...ChangeRequestTimelineItemBaseFields,
+    reviewId: z.string().optional(),
+    threadId: z.string().optional(),
+    threadIsResolved: z.boolean().optional(),
+    location: z
+      .object({
+        path: z.string(),
+        line: z.number().optional(),
+        startLine: z.number().optional(),
+        threadId: z.string().optional(),
+        isResolved: z.boolean().optional(),
+        isOutdated: z.boolean().optional(),
+      })
+      .optional(),
+  }),
+]);
+
+export const ForgeChangeRequestGetTimelineResponseSchema = z.object({
+  type: z.literal("forge.change_request.get_timeline.response"),
+  payload: z.object({
+    items: z.array(ChangeRequestTimelineItemSchema),
+    truncated: z.boolean(),
+    error: ChangeRequestErrorSchema.nullable(),
+    requestId: z.string(),
+  }),
+});
+
+export const ForgeChangeRequestGetCheckDetailsResponseSchema = z.object({
+  type: z.literal("forge.change_request.get_check_details.response"),
+  payload: z.object({
+    details: CheckoutCheckDetailsSchema.nullable(),
+    error: ChangeRequestErrorSchema.nullable(),
+    requestId: z.string(),
+  }),
+});
+
 export const CheckoutPrStatusResponseSchema = z.object({
   type: z.literal("checkout_pr_status_response"),
   payload: CheckoutPrStatusPayloadSchema,
@@ -7167,6 +7462,12 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   CodeNavigationServersListResponseSchema,
   CodeNavigationServerTestResponseSchema,
   CheckoutForgeGetCheckDetailsResponseSchema,
+  ForgeChangeRequestListInboxResponseSchema,
+  ForgeChangeRequestGetOverviewResponseSchema,
+  ForgeChangeRequestListFilesResponseSchema,
+  ForgeChangeRequestGetFileDiffsResponseSchema,
+  ForgeChangeRequestGetTimelineResponseSchema,
+  ForgeChangeRequestGetCheckDetailsResponseSchema,
   CheckoutPrStatusResponseSchema,
   PullRequestTimelineResponseSchema,
   CheckoutSwitchBranchResponseSchema,
@@ -7607,6 +7908,49 @@ export type CheckoutPipelineStage = z.infer<typeof CheckoutPipelineStageSchema>;
 export type CheckoutPipelineJob = z.infer<typeof CheckoutPipelineJobSchema>;
 export type CheckoutForgeGetCheckDetailsResponse = z.infer<
   typeof CheckoutForgeGetCheckDetailsResponseSchema
+>;
+export type ChangeRequestError = z.infer<typeof ChangeRequestErrorSchema>;
+export type ChangeRequestInboxScope = z.infer<typeof ChangeRequestInboxScopeSchema>;
+export type ChangeRequestInboxItem = z.infer<typeof ChangeRequestInboxItemSchema>;
+export type ChangeRequestOverview = z.infer<typeof ChangeRequestOverviewSchema>;
+export type ChangeRequestFile = z.infer<typeof ChangeRequestFileSchema>;
+export type ChangeRequestFileDiff = z.infer<typeof ChangeRequestFileDiffSchema>;
+export type ChangeRequestTimelineItem = z.infer<typeof ChangeRequestTimelineItemSchema>;
+export type ForgeChangeRequestListInboxRequest = z.infer<
+  typeof ForgeChangeRequestListInboxRequestSchema
+>;
+export type ForgeChangeRequestListInboxResponse = z.infer<
+  typeof ForgeChangeRequestListInboxResponseSchema
+>;
+export type ForgeChangeRequestGetOverviewRequest = z.infer<
+  typeof ForgeChangeRequestGetOverviewRequestSchema
+>;
+export type ForgeChangeRequestGetOverviewResponse = z.infer<
+  typeof ForgeChangeRequestGetOverviewResponseSchema
+>;
+export type ForgeChangeRequestListFilesRequest = z.infer<
+  typeof ForgeChangeRequestListFilesRequestSchema
+>;
+export type ForgeChangeRequestListFilesResponse = z.infer<
+  typeof ForgeChangeRequestListFilesResponseSchema
+>;
+export type ForgeChangeRequestGetFileDiffsRequest = z.infer<
+  typeof ForgeChangeRequestGetFileDiffsRequestSchema
+>;
+export type ForgeChangeRequestGetFileDiffsResponse = z.infer<
+  typeof ForgeChangeRequestGetFileDiffsResponseSchema
+>;
+export type ForgeChangeRequestGetTimelineRequest = z.infer<
+  typeof ForgeChangeRequestGetTimelineRequestSchema
+>;
+export type ForgeChangeRequestGetTimelineResponse = z.infer<
+  typeof ForgeChangeRequestGetTimelineResponseSchema
+>;
+export type ForgeChangeRequestGetCheckDetailsRequest = z.infer<
+  typeof ForgeChangeRequestGetCheckDetailsRequestSchema
+>;
+export type ForgeChangeRequestGetCheckDetailsResponse = z.infer<
+  typeof ForgeChangeRequestGetCheckDetailsResponseSchema
 >;
 export type PullRequestMergeable = z.infer<typeof CheckoutPrStatusSchema>["mergeable"];
 export type CheckoutPrStatusRequest = z.infer<typeof CheckoutPrStatusRequestSchema>;

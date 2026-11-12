@@ -108,6 +108,7 @@ import { PIMI_AGENT_GRID_ROUTE } from "@/navigation/pimi-agent-grid";
 import { PIMI_USAGE_ROUTE } from "@/navigation/pimi-usage";
 import { PIMI_LIBRARY_ROUTE } from "@/navigation/pimi-library";
 import { PIMI_TASKS_ROUTE } from "@/navigation/pimi-tasks";
+import { PIMI_REVIEW_ROUTE } from "@/navigation/pimi-review";
 import { PIMI_WORK_ROUTE } from "@/navigation/pimi-work";
 import { PimiVoiceBubble } from "@/desktop/pimi-voice-bubble";
 import { loadDesktopSettings } from "@/desktop/settings/desktop-settings";
@@ -1015,6 +1016,7 @@ function AppWithSidebar({ children }: { children: ReactNode }) {
       pathname === PIMI_USAGE_ROUTE ||
       pathname === PIMI_TASKS_ROUTE ||
       pathname === PIMI_WORK_ROUTE ||
+      pathname === PIMI_REVIEW_ROUTE ||
       pathname === PIMI_LIBRARY_ROUTE ||
       pathname === "/new" ||
       pathname === "/sessions" ||
@@ -1058,6 +1060,7 @@ function RootStack() {
         <Stack.Screen name="pimi-usage" />
         <Stack.Screen name="pimi-tasks" />
         <Stack.Screen name="pimi-work" />
+        <Stack.Screen name="pimi-review" />
         <Stack.Screen name="pimi-library" />
         <Stack.Screen name="sessions" />
         <Stack.Screen name="automations/index" />
