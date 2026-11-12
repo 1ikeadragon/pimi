@@ -57,7 +57,7 @@ function launchDesktop(args: string[]): void {
   const desktopApp = findDesktopApp();
   if (!desktopApp) {
     throw new Error(
-      "Pimi desktop app not found. Install it from https://github.com/1ikeadragon/pimi/releases",
+      "Pimi desktop app not found. Install it from https://github.com/1ikeadragon/pimi-releases/releases",
     );
   }
 

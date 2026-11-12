@@ -32,10 +32,10 @@ interface StartupSplashScreenProps {
   };
 }
 
-const GITHUB_ISSUE_URL = "https://github.com/1ikeadragon/pimi/issues/new";
-const DOCS_URL = "https://github.com/1ikeadragon/pimi/blob/main/README.md";
-const PIMI_GITHUB_ISSUE_URL = "https://github.com/1ikeadragon/pimi/issues/new";
-const PIMI_DOCS_URL = "https://github.com/1ikeadragon/pimi#readme";
+const GITHUB_ISSUE_URL = "https://github.com/1ikeadragon/pimi-releases/issues/new";
+const DOCS_URL = "https://github.com/1ikeadragon/pimi-releases/blob/main/README.md";
+const PIMI_GITHUB_ISSUE_URL = "https://github.com/1ikeadragon/pimi-releases/issues/new";
+const PIMI_DOCS_URL = "https://github.com/1ikeadragon/pimi-releases#readme";
 
 const LOGO_SIZE = 96;
 const SHIMMER_PEAK_WIDTH = 120;

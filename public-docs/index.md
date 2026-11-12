@@ -12,7 +12,7 @@ Pimi is an agentic development environment for running coding agents, editing fi
 
 ## Desktop app (recommended)
 
-Download from [Pimi downloads](https://1ikeadragon.github.io/pimi/) or the [GitHub releases page](https://github.com/1ikeadragon/pimi/releases). Open it and you're done.
+Download from [Pimi downloads](https://1ikeadragon.github.io/pimi/) or the [GitHub releases page](https://github.com/1ikeadragon/pimi-releases/releases). Open it and you're done.
 
 The desktop app bundles its own daemon and starts it automatically, no separate install required. On first launch you'll see a brief startup screen, then connect from your phone using **Settings → your host → Pair Device**.
 
@@ -40,8 +40,8 @@ Configuration and local state live under `PIMI_HOME` (defaults to `~/.pimi`).
 - [Orchestration](/docs/orchestration), let one agent delegate work to other providers and models.
 - [Plugins](/docs/plugins), add trusted local surfaces, sidebar actions, daemon behavior, and composer attachments.
 - [CLI reference](/docs/cli), every command.
-- [GitHub repo](https://github.com/1ikeadragon/pimi)
-- [Report an issue](https://github.com/1ikeadragon/pimi/issues)
+- [GitHub repo](https://github.com/1ikeadragon/pimi-releases)
+- [Report an issue](https://github.com/1ikeadragon/pimi-releases/issues)
 
 ## Prerequisites
 

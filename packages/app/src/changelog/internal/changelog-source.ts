@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { parseChangelog, type ChangelogRelease } from "./parse-changelog";
 
-const PIMI_CHANGELOG_URL = "https://raw.githubusercontent.com/1ikeadragon/pimi/main/CHANGELOG.md";
+const PIMI_CHANGELOG_URL =
+  "https://raw.githubusercontent.com/1ikeadragon/pimi-releases/main/CHANGELOG.md";
 
 export type ChangelogState =
   | { status: "loading" }

@@ -26,8 +26,8 @@ import {
   type ChangelogSection,
 } from "./parse-changelog";
 
-const WEBSITE_CHANGELOG_URL = "https://github.com/1ikeadragon/pimi/releases";
-const PIMI_RELEASES_URL = "https://github.com/1ikeadragon/pimi/releases";
+const WEBSITE_CHANGELOG_URL = "https://github.com/1ikeadragon/pimi-releases/releases";
+const PIMI_RELEASES_URL = "https://github.com/1ikeadragon/pimi-releases/releases";
 
 const ThemedGift = withUnistyles(Gift);
 const ThemedExternalLink = withUnistyles(ExternalLink);

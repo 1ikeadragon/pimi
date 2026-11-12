@@ -13,10 +13,10 @@ Use the user's request and current conversation as input, including any argument
 
 Use the Pimi checkout when available. Check the plugin API at the installed version before relying on new registration methods.
 
-- [Plugin guide](https://github.com/1ikeadragon/pimi/blob/main/docs/plugins.md)
-- [Plugin API reference](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/reference.md)
-- [Plugin hooks](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/hooks.md)
-- [SDK reference](https://github.com/1ikeadragon/pimi/blob/main/public-docs/sdk/reference.md)
+- [Plugin guide](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins.md)
+- [Plugin API reference](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/reference.md)
+- [Plugin hooks](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/hooks.md)
+- [SDK reference](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/sdk/reference.md)
 - [Plugin examples](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples)
 
 ## What a plugin can contribute
@@ -37,8 +37,8 @@ Pick the contribution that matches the request. Each row names the registration,
 | Theme                   | `addTheme`                                                  | A light or dark palette under Settings → Appearance                                                                                                                                                                             | reference.md → Contribute a theme; `plugin-examples/catppuccin`                                            |
 | Plugin RPC              | `defineRpc` + `server.handle` + `useRpc`                    | Daemon-side work that is not a normal Pimi operation: vendor APIs, credentials, local files                                                                                                                                     | reference.md → Add plugin-specific backend behavior                                                        |
 | Plugin subscription     | `defineSubscription` + `server.handle` + `useSubscription`  | A daemon handler that pushes events while a surface listens: watchers, tails, live media; a top-level `Uint8Array` rides as binary                                                                                              | reference.md → Stream events from the daemon; `plugin-examples/diff-watch`, `plugin-examples/media-stream` |
-| Notification hooks      | `server.addHook`                                            | Observe agent and workspace lifecycle, inspect ended turns, and answer permission requests: `agent.turn.after`, `agent.permission.before`, `workspace.create.after`, …                                                          | [Hooks](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/hooks.md#hooks)                  |
-| Request-changing hooks  | `server.addHook`                                            | `agent.create.before` edits saved config; `agent.open.before` contributes launch-only `env`, `tools`, `mcpServers` on every open; `workspace.create.before` chooses isolation; `worktree.create.before` chooses branch and path | [Hooks](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/hooks.md#hooks)                  |
+| Notification hooks      | `server.addHook`                                            | Observe agent and workspace lifecycle, inspect ended turns, and answer permission requests: `agent.turn.after`, `agent.permission.before`, `workspace.create.after`, …                                                          | [Hooks](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/hooks.md#hooks)                |
+| Request-changing hooks  | `server.addHook`                                            | `agent.create.before` edits saved config; `agent.open.before` contributes launch-only `env`, `tools`, `mcpServers` on every open; `workspace.create.before` chooses isolation; `worktree.create.before` chooses branch and path | [Hooks](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/hooks.md#hooks)                |
 | Pimi SDK                | `usePimi()` / handler `{ pimi }`                            | Normal Pimi operations: workspaces, agents, providers, config                                                                                                                                                                   | reference.md → Use the Pimi SDK                                                                            |
 
 | Lifecycle task                                                         | Example                                                                                                  |
@@ -76,7 +76,7 @@ my-plugin/
 
 The manifest supplies the default install ID and the `requirements.pimi` version range. The scaffold
 uses the current CLI version as the minimum. Raise that minimum when adopting a newer API and
-verify the plugin with both the daemon and the app. [Requirements](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/reference.md#requirements).
+verify the plugin with both the daemon and the app. [Requirements](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/reference.md#requirements).
 
 Each runtime has its own optional entry. A plugin must have at least one. Both entries accept
 `.ts` or `.tsx`; use `.tsx` when an entry imports components.
@@ -246,10 +246,10 @@ export default function contribute(client: PluginClientContext) {
 }
 ```
 
-Icons are Lucide icon names, inline SVG (`{ svg }`), or components; see [Icons](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/reference.md#icons). `theme` is a typed `PluginTheme` on every screen and panel. Primary text uses `theme.colors.foreground`; labels use `theme.colors.foregroundMuted`; the root view uses `theme.colors.surface0`. `layout.compact` is true on mobile and narrow windows. Pimi owns the route, header, host picker, close action, error boundary, and per-installation query client.
+Icons are Lucide icon names, inline SVG (`{ svg }`), or components; see [Icons](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/reference.md#icons). `theme` is a typed `PluginTheme` on every screen and panel. Primary text uses `theme.colors.foreground`; labels use `theme.colors.foregroundMuted`; the root view uses `theme.colors.surface0`. `layout.compact` is true on mobile and narrow windows. Pimi owns the route, header, host picker, close action, error boundary, and per-installation query client.
 
 Before writing imports, classify each module as shared, client, or server. Follow the
-[SDK import boundaries](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/reference.md#runtime-modules), including
+[SDK import boundaries](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/reference.md#runtime-modules), including
 transitive and type dependencies. The root is shared-only; hooks and client contexts belong to
 `@pimi/plugin/client`, server contexts to `/server`, and host UI to `/client/ui`.
 Install dependencies locally for typechecking; Pimi supplies host runtime modules. JSX uses the
@@ -310,7 +310,7 @@ function PullRequestAction() {
 }
 ```
 
-The API covers workspaces, agents, providers, and daemon config. It omits connection lifecycle because Pimi owns the connection. Consult the current [SDK reference](https://github.com/1ikeadragon/pimi/blob/main/public-docs/sdk/reference.md) for method details.
+The API covers workspaces, agents, providers, and daemon config. It omits connection lifecycle because Pimi owns the connection. Consult the current [SDK reference](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/sdk/reference.md) for method details.
 
 ### Add daemon-side behavior
 
@@ -363,7 +363,7 @@ function Greeting() {
 }
 ```
 
-Inputs and outputs are validated on both sides. A top-level `Uint8Array` input or output (declared `z.instanceof(Uint8Array)`) crosses as binary; a nested one fails validation. For a stream of events, use `defineSubscription` and `useSubscription`; see [subscriptions](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/reference.md#subscriptions). Backend handlers receive the same `PimiApi` as `{ pimi }`; their IPC-backed daemon session lives exactly as long as the subprocess. Backend code can use Node APIs and installed dependencies. Keep credentials, filesystem access, shell commands, and vendor API calls in the handler rather than the client surface.
+Inputs and outputs are validated on both sides. A top-level `Uint8Array` input or output (declared `z.instanceof(Uint8Array)`) crosses as binary; a nested one fails validation. For a stream of events, use `defineSubscription` and `useSubscription`; see [subscriptions](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/reference.md#subscriptions). Backend handlers receive the same `PimiApi` as `{ pimi }`; their IPC-backed daemon session lives exactly as long as the subprocess. Backend code can use Node APIs and installed dependencies. Keep credentials, filesystem access, shell commands, and vendor API calls in the handler rather than the client surface.
 
 Use TanStack Query for async request state, caching, and mutations.
 
@@ -377,7 +377,7 @@ Call `server.addHook(name, handler)` inside `contribute(server)`. Every handler 
 | Worktree  | `worktree.create.before`                                                            | `worktree.create.after` (Pimi waits for it; throw to abort creation)                                                                                           |
 | Agent     | `agent.create.before` (saved config), `agent.open.before` (launch-only, every open) | `agent.create.after`, `agent.close.after`, `agent.archive.after`, `agent.turn.before`, `agent.turn.after`, `agent.permission.before`, `agent.permission.after` |
 
-A request-changing hook that throws, returns invalid data, or runs past 30 seconds fails the operation. Pimi does not wait for any other notification, including `agent.turn.before` and `agent.permission.before`. To answer a permission, call `context.pimi.agents.ref(agent.id).respondToPermission({ requestId, response })` from `agent.permission.before`. `server.on` and `server.before` are deprecated; convert them with the [renamed hooks table](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/hooks.md#renamed-hooks).
+A request-changing hook that throws, returns invalid data, or runs past 30 seconds fails the operation. Pimi does not wait for any other notification, including `agent.turn.before` and `agent.permission.before`. To answer a permission, call `context.pimi.agents.ref(agent.id).respondToPermission({ requestId, response })` from `agent.permission.before`. `server.on` and `server.before` are deprecated; convert them with the [renamed hooks table](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/hooks.md#renamed-hooks).
 
 ### Contribute tools and MCP servers at session open
 
@@ -398,9 +398,9 @@ server.addHook("agent.open.before", async ({ request }) => {
 
 `tools` and `mcpServers` start empty for each plugin and accumulate across its own callbacks.
 They are launch-only. Use `agent.create.before` to edit configuration that should be saved with the agent.
-See [Attach tools to agents](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/hooks.md#attach-tools-to-agents)
+See [Attach tools to agents](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/hooks.md#attach-tools-to-agents)
 for `defineAgentTool` and targeting, and
-[Inject MCP servers](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/hooks.md#inject-mcp-servers) for server configuration and collisions.
+[Inject MCP servers](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/hooks.md#inject-mcp-servers) for server configuration and collisions.
 
 Starting, stopping, or reloading a plugin with an `agent.open.before` hook marks open agent sessions stale.
 Each reopens before its next idle prompt without interrupting a running turn.
@@ -706,14 +706,14 @@ pimi plugin remove my-plugin
 
 For npm, ensure npm is on the daemon's `PATH`; use that host's registry configuration and credentials. Install selectors choose
 content once; they do not pin updates. `install` and `add` are aliases. Follow the
-[publishing guide](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/publishing.md) for Pimi's package contents and
+[publishing guide](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/publishing.md) for Pimi's package contents and
 preparation requirements; standard npm publishing commands apply.
 
 Use `--host <url>` when managing a daemon other than the CLI default. A Git source that must install or generate something declares `build` in `pimi-plugin.json` as a list of argv arrays; Pimi runs them without a shell on install and update and keeps the old version if one fails. Plugin source edits require `pimi plugin reload`; config changes to the global switch require `pimi reload`. A failed plugin reload stays failed; inspect `pimi plugin ls` for the load error and `pimi plugin logs <id>` for subprocess output, fix the source, typecheck, and reload again. `remove` keeps local source directories and deletes managed Git/npm installations.
 
 Do not restart the daemon to load source changes. Restarting it can kill the agent performing the work.
 
-For an old mixed entry, follow the standalone [runtime-entry migration guide](https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/migration.md) mechanically.
+For an old mixed entry, follow the standalone [runtime-entry migration guide](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/migration.md) mechanically.
 
 ## Verify the outcome
 

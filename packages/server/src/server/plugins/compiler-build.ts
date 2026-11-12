@@ -424,7 +424,7 @@ async function resolveEntryPaths(directory: string): Promise<{
   const legacyEntry = await findEntry(directory, ["index.ts", "index.tsx"]);
   if (legacyEntry) {
     throw new Error(
-      "This plugin uses an older API and needs to be updated for Pimi. Ask its author to update it. Plugin authors can follow https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/migration.md",
+      "This plugin uses an older API and needs to be updated for Pimi. Ask its author to update it. Plugin authors can follow https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/migration.md",
     );
   }
   throw new Error(

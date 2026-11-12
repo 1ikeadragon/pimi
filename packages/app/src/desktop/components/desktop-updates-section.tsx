@@ -483,7 +483,7 @@ export function LocalDaemonSection() {
 }
 
 const ADVANCED_DAEMON_SETTINGS_URL =
-  "https://github.com/1ikeadragon/pimi/blob/main/public-docs/configuration.md";
+  "https://github.com/1ikeadragon/pimi-releases/blob/main/docs/configuration.md";
 
 const styles = StyleSheet.create((theme) => ({
   actionGroup: {

@@ -22,9 +22,9 @@ import {
 } from "@/components/ui/text-input";
 
 const RELAY_DOCS_URL =
-  "https://github.com/1ikeadragon/pimi/blob/main/docs/self-hosted-relay.md#pair-a-device";
+  "https://github.com/1ikeadragon/pimi-releases/blob/main/docs/self-hosted-relay.md#pair-a-device";
 export const CONNECTIVITY_DOCS_URL =
-  "https://github.com/1ikeadragon/pimi/blob/main/public-docs/connectivity.md";
+  "https://github.com/1ikeadragon/pimi-releases/blob/main/docs/connectivity.md";
 export const TAILSCALE_DOCS_URL = `${CONNECTIVITY_DOCS_URL}#tailscale`;
 const FLEX_ONE_STYLE = { flex: 1 } as const;
 const ThemedLoadingSpinner = withUnistyles(LoadingSpinner);

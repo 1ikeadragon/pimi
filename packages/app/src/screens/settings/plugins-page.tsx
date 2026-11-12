@@ -33,7 +33,7 @@ import { settingsStyles } from "@/styles/settings";
 import { confirmDialog } from "@/utils/confirm-dialog";
 
 const PLUGIN_SOURCE_DOCS_URL =
-  "https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/reference.md#plugin-sources";
+  "https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/reference.md#plugin-sources";
 type PluginRowAction = "reload" | "enable" | "disable" | "remove";
 
 function errorMessage(error: unknown): string {

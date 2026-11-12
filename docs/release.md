@@ -1,6 +1,6 @@
 # Pimi desktop releases
 
-[GitHub Actions](../.github/workflows/pimi-release.yml) builds Apple silicon by default from a `pimi-vX.Y.Z` tag on `main`. Use `pimi-all-vX.Y.Z` to build Apple silicon first, then Windows x64. Pick one tag for each version. The release includes installers, release notes, and SHA-256 checksums.
+[GitHub Actions](../.github/workflows/pimi-release.yml) builds Apple silicon by default from a `pimi-vX.Y.Z` tag on `main`. Use `pimi-all-vX.Y.Z` to build Apple silicon first, then Windows x64. Pick one tag for each version. The source repo is private. The workflow publishes the release (installers, release notes, SHA-256 checksums) to the public [1ikeadragon/pimi-releases](https://github.com/1ikeadragon/pimi-releases) repo, which must have immutable releases enabled, and syncs `CHANGELOG.md` and `docs/` there. Add a `PIMI_RELEASES_TOKEN` Actions secret: a fine-grained PAT scoped to pimi-releases with Contents read/write.
 
 Without an `APPLE_TEAM_ID` repository variable, the Mac installer is ad hoc signed. Pimi can install it in-app, and macOS may require approval when opening the new version. The release notes flag the signing status.
 
@@ -26,7 +26,7 @@ Set `APPLE_TEAM_ID` as a repository Actions variable using the 10-character Team
 2. Add a dated `## X.Y.Z - YYYY-MM-DD` entry to `CHANGELOG.md`. Describe changes users will notice.
 3. Run `npm run typecheck` and the [dependency checks](development.md#dependency-checks), and smoke-test the changed behavior. Commit and push to `main`. The release workflow runs the same checks before it builds and stops on the first failure.
 4. Publish the signed Android APK first: build it locally and create the `pimi-android-vX.Y.Z` prerelease with `Pimi-Android-arm64.apk` before pushing the release tag. The release workflow copies that APK into the `pimi-vX.Y.Z` release (it fails if the prerelease is missing), so the website's `releases/latest/download/Pimi-Android-arm64.apk` link always resolves. Published releases are immutable, so assets cannot be added afterwards.
-5. Create and push the tag at the tested commit. Watch the selected build jobs and verify the [published release](https://github.com/1ikeadragon/pimi/releases/latest). When shipping Windows, update its website button to the new Windows installer.
+5. Create and push the tag at the tested commit. Watch the selected build jobs and verify the [published release](https://github.com/1ikeadragon/pimi-releases/releases/latest). When shipping Windows, update its website button to the new Windows installer.
 
 Compare the downloads against `SHA256SUMS.txt` from the release. For the first signed build, check both a fresh macOS install and an in-app update from the previous release on a separate Mac.
 

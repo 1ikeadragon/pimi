@@ -307,7 +307,7 @@ import { ExternalLink } from "@pimi/plugin/client/ui";
 
 export function DocumentationLink() {
   return (
-    <ExternalLink href="https://github.com/1ikeadragon/pimi/blob/main/README.md">
+    <ExternalLink href="https://github.com/1ikeadragon/pimi-releases/blob/main/README.md">
       Open documentation
     </ExternalLink>
   );
@@ -321,7 +321,7 @@ The component has accessible link semantics and uses the same opener as
 import { openExternalUrl } from "@pimi/plugin/client";
 
 export async function openDocumentation() {
-  await openExternalUrl("https://github.com/1ikeadragon/pimi/blob/main/README.md");
+  await openExternalUrl("https://github.com/1ikeadragon/pimi-releases/blob/main/README.md");
 }
 ```
 
@@ -355,7 +355,7 @@ import { Pressable, Text } from "react-native";
 
 export function DocumentationPanel({ navigation, workspaceId, theme }: PluginWorkspacePanelProps) {
   const openBrowser = navigation?.openBrowser;
-  const url = "https://github.com/1ikeadragon/pimi/blob/main/README.md";
+  const url = "https://github.com/1ikeadragon/pimi-releases/blob/main/README.md";
 
   if (!openBrowser) {
     return <ExternalLink href={url}>Open documentation</ExternalLink>;

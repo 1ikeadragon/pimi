@@ -118,8 +118,8 @@ function printNextSteps(pairingUrl: string | null, pimiHome: string, richUi: boo
       ? "1. Open Pimi and scan the QR code above, or paste the pairing link."
       : "1. Open Pimi and connect to your daemon.",
     "2. Web app: https://1ikeadragon.github.io/pimi/",
-    "3. Desktop app: https://github.com/1ikeadragon/pimi/releases/latest",
-    "4. Docs: https://github.com/1ikeadragon/pimi/blob/main/README.md",
+    "3. Desktop app: https://github.com/1ikeadragon/pimi-releases/releases/latest",
+    "4. Docs: https://github.com/1ikeadragon/pimi-releases/blob/main/README.md",
     `5. Example: pimi run --home ${JSON.stringify(pimiHome)} --output-schema schema.json "extract fields"`,
   ];
   const quickReferenceLines = [

@@ -6,8 +6,8 @@ import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { z } from "zod";
 
-const RELEASE_ENDPOINT = "https://api.github.com/repos/1ikeadragon/pimi/releases";
-const RELEASE_ASSET_BASE = "https://github.com/1ikeadragon/pimi/releases/download";
+const RELEASE_ENDPOINT = "https://api.github.com/repos/1ikeadragon/pimi-releases/releases";
+const RELEASE_ASSET_BASE = "https://github.com/1ikeadragon/pimi-releases/releases/download";
 const DOWNLOAD_HOSTS = new Set([
   "github.com",
   "release-assets.githubusercontent.com",
