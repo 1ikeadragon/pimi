@@ -72,10 +72,8 @@ function normalizeSimpleWorkspaceTabTarget(value: WorkspaceTabTarget): Workspace
       const workspaceId = trimNonEmpty(value.workspaceId);
       return workspaceId ? { kind: "setup", workspaceId } : null;
     }
-    case "commit_diff": {
-      const sha = trimNonEmpty(value.sha);
-      return sha ? { kind: "commit_diff", sha } : null;
-    }
+    case "commit_diff":
+      return normalizeCommitDiffTabTarget(value);
     case "chat_visual": {
       const visualId = trimNonEmpty(value.visualId);
       return visualId ? { kind: "chat_visual", visualId, title: value.title } : null;
@@ -177,7 +175,12 @@ function secondaryWorkspaceTabTargetsEqual(
     return left.workspaceId === right.workspaceId;
   }
   if (left.kind === "commit_diff" && right.kind === "commit_diff") {
-    return left.sha === right.sha;
+    return (
+      left.sha === right.sha &&
+      left.path === right.path &&
+      left.focusLine === right.focusLine &&
+      left.focusRequestId === right.focusRequestId
+    );
   }
   if (left.kind === "chat_visual" && right.kind === "chat_visual") {
     return left.visualId === right.visualId;
@@ -294,6 +297,23 @@ function normalizeFileTabTarget(
 ): WorkspaceTabTarget | null {
   const location = normalizeWorkspaceFileLocation(value);
   return location ? { kind: "file", ...location } : null;
+}
+
+function normalizeCommitDiffTabTarget(
+  value: Extract<WorkspaceTabTarget, { kind: "commit_diff" }>,
+): WorkspaceTabTarget | null {
+  const sha = trimNonEmpty(value.sha);
+  if (!sha) return null;
+  const path = trimNonEmpty(value.path)?.replace(/\\/g, "/") ?? null;
+  const focusLine = normalizePositiveInteger(value.focusLine);
+  const focusRequestId = normalizePositiveInteger(value.focusRequestId);
+  return {
+    kind: "commit_diff",
+    sha,
+    ...(path ? { path } : {}),
+    ...(path && focusLine ? { focusLine } : {}),
+    ...(focusRequestId ? { focusRequestId } : {}),
+  };
 }
 
 function normalizeWorkingDiffTabTarget(

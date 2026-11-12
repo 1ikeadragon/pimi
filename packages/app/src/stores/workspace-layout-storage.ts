@@ -42,7 +42,13 @@ const WorkspaceTabTargetStorageSchema = z.discriminatedUnion("kind", [
     focusRequestId: z.number().optional(),
   }),
   z.strictObject({ kind: z.literal("setup"), workspaceId: z.string() }),
-  z.strictObject({ kind: z.literal("commit_diff"), sha: z.string() }),
+  z.strictObject({
+    kind: z.literal("commit_diff"),
+    sha: z.string(),
+    path: z.string().optional(),
+    focusLine: z.number().optional(),
+    focusRequestId: z.number().optional(),
+  }),
   z.strictObject({ kind: z.literal("chat_visual"), visualId: z.string(), title: z.string() }),
   z.discriminatedUnion("context", [
     z.strictObject({

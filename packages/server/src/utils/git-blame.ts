@@ -23,6 +23,8 @@ interface CommitInfo {
   author: string;
   authoredAt: string;
   summary: string;
+  /** The file's path in that commit, which differs from the current path after a rename. */
+  path: string;
 }
 
 /** Whole-file blame of one committed blob, shared by every line lookup. */
@@ -32,7 +34,11 @@ interface BlameEntry {
   lineCount: number;
   /** Per committed line (1-based): index into `commits`, or -1 when unattributed. */
   lineCommit: Int32Array;
+  /** Per committed line (1-based): the line number in the blamed commit's version of the file. */
+  lineOrig: Int32Array;
   commits: CommitInfo[];
+  /** Full commit messages, read on first use per commit. */
+  messages: Map<number, Promise<string>>;
   /** saved content hash -> saved-line map; at most MAX_LINE_MAPS per entry. */
   lineMaps: Map<string, Promise<LineMap>>;
 }
@@ -122,7 +128,29 @@ export async function getLineBlame(input: {
   if (!original) return { status: "uncommitted" };
   const index = entry.lineCommit[original];
   const commit = index >= 0 ? entry.commits[index] : undefined;
-  return commit ? { status: "committed", ...commit } : { status: "unavailable" };
+  if (!commit) return { status: "unavailable" };
+  let message = entry.messages.get(index);
+  if (!message) {
+    message = loadCommitMessage(root, commit.sha, commit.summary);
+    entry.messages.set(index, message);
+  }
+  return {
+    status: "committed",
+    ...commit,
+    originalLine: entry.lineOrig[original],
+    message: await untilAborted(message, signal),
+  };
+}
+
+/** The full message; a failed read falls back to the summary. */
+async function loadCommitMessage(root: string, sha: string, summary: string): Promise<string> {
+  const result = await runGit(["show", "--no-patch", "--format=%B", sha], {
+    ...gitOptions(root, AbortSignal.timeout(5_000)),
+    maxOutputBytes: 64 * 1024,
+    acceptExitCodes: [0, 128],
+  }).catch(() => null);
+  if (!result || result.exitCode !== 0) return summary;
+  return result.stdout.replace(/\s+$/, "") || summary;
 }
 
 function resolveCached(path: string): Promise<Resolved> {
@@ -258,7 +286,7 @@ async function buildEntry(
   const lineCount = committed ? committed.split("\n").length - Number(committed.endsWith("\n")) : 0;
   const parsed = parseBlame(result.stdout, lineCount);
   if (!parsed) return { status: "unavailable" };
-  return { committed, lineCount, ...parsed, lineMaps: new Map() };
+  return { committed, lineCount, ...parsed, messages: new Map(), lineMaps: new Map() };
 }
 
 function loadLineMap(
@@ -387,16 +415,17 @@ async function buildLineMap(before: string, after: string, root: string): Promis
 function parseBlame(
   stdout: string,
   lineCount: number,
-): { lineCommit: Int32Array; commits: CommitInfo[] } | null {
+): { lineCommit: Int32Array; lineOrig: Int32Array; commits: CommitInfo[] } | null {
   const output = stdout.split("\n");
   const lineCommit = new Int32Array(lineCount + 1).fill(-1);
+  const lineOrig = new Int32Array(lineCount + 1);
   const commits: CommitInfo[] = [];
   const indexBySha = new Map<string, number>();
   let seen = 0;
   for (let i = 0; i < output.length; i++) {
-    const header = /^([a-f0-9]{40,64}) \d+ (\d+)(?: \d+)?$/.exec(output[i]);
+    const header = /^([a-f0-9]{40,64}) (\d+) (\d+)(?: \d+)?$/.exec(output[i]);
     if (!header) continue;
-    const finalLine = Number(header[2]);
+    const finalLine = Number(header[3]);
     if (finalLine < 1 || finalLine > lineCount) return null;
     seen++;
     let index = indexBySha.get(header[1]);
@@ -411,8 +440,13 @@ function parseBlame(
       const author = metadata.get("author");
       const summary = metadata.get("summary");
       const seconds = Number(metadata.get("author-time"));
+      const path = metadata.get("filename");
       const valid =
-        author && summary !== undefined && Number.isFinite(seconds) && Math.abs(seconds) <= 8.64e12;
+        author &&
+        summary !== undefined &&
+        path !== undefined &&
+        Number.isFinite(seconds) &&
+        Math.abs(seconds) <= 8.64e12;
       // Uncommitted (all-zero) or malformed commits stay unattributed.
       if (valid && !/^0+$/.test(header[1])) {
         index = commits.length;
@@ -421,11 +455,13 @@ function parseBlame(
           author,
           authoredAt: new Date(seconds * 1000).toISOString(),
           summary,
+          path,
         });
       }
       indexBySha.set(header[1], index);
     }
     lineCommit[finalLine] = index;
+    lineOrig[finalLine] = Number(header[2]);
   }
-  return seen === lineCount ? { lineCommit, commits } : null;
+  return seen === lineCount ? { lineCommit, lineOrig, commits } : null;
 }

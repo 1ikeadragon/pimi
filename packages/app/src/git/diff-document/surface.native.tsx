@@ -42,6 +42,7 @@ import {
   resolveRelayoutScrollTop,
   retainReusableModels,
   shouldApplyRelayoutScroll,
+  resolveDiffFocusTop,
 } from "./model";
 import {
   buildNativeCanvasSlabs,
@@ -248,19 +249,20 @@ export function DiffSurface(props: DiffSurfaceProps) {
   const collapsedFilePaths = props.collapsedFilePaths;
   const onToggleFile = props.onToggleFile;
   useEffect(() => {
-    if (mode.kind !== "working") return;
     const focusPath = mode.focusPath;
     if (!focusPath) return;
-    const requestKey = `${mode.focusRequestId ?? "initial"}:${focusPath}`;
+    const focusLine = mode.kind === "commit" ? mode.focusLine : undefined;
+    if (focusLine !== undefined && viewport.height === 0) return;
+    const requestKey = `${mode.focusRequestId ?? "initial"}:${focusPath}:${focusLine ?? ""}`;
     if (consumedFocusRef.current === requestKey) return;
     if (collapsedFilePaths.has(focusPath)) onToggleFile(focusPath);
-    const file = model.files.find((entry) => entry.path === focusPath);
-    if (file) {
-      scrollTop.value = file.top;
-      scrollRef.current?.scrollTo({ y: file.top, animated: false });
+    const top = resolveDiffFocusTop(model, focusPath, focusLine, viewport.height);
+    if (top !== null) {
+      scrollTop.value = top;
+      scrollRef.current?.scrollTo({ y: top, animated: false });
       consumedFocusRef.current = requestKey;
     }
-  }, [collapsedFilePaths, mode, model.files, onToggleFile, scrollTop]);
+  }, [collapsedFilePaths, mode, model, onToggleFile, scrollTop, viewport.height]);
   const contentInsetBottom = props.contentInsetBottom ?? 0;
   const contentStyle = useMemo(
     () => ({

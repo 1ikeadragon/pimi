@@ -33,6 +33,14 @@ export interface WorkingDiffMode {
   onRevert?: (path: string, oldPath?: string) => void;
 }
 
+export interface CommitDiffMode {
+  kind: "commit";
+  focusPath?: string;
+  /** A line of the new side of `focusPath`; the file's top when it is absent from the diff. */
+  focusLine?: number;
+  focusRequestId?: number;
+}
+
 export type DiffDocumentProps = DiffDocumentBaseProps &
   (
     | {
@@ -42,7 +50,7 @@ export type DiffDocumentProps = DiffDocumentBaseProps &
           onChange: (paths: string[]) => void;
         };
       }
-    | { mode: { kind: "commit" }; collapseState?: never }
+    | { mode: CommitDiffMode; collapseState?: never }
   );
 
 export interface DiffTypography {

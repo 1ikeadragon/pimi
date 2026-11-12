@@ -52,7 +52,14 @@ export type WorkspaceTabTarget =
   | WorkspaceWorkingDiffTabTarget
   | PluginWorkspaceTabTarget
   | { kind: "setup"; workspaceId: string }
-  | { kind: "commit_diff"; sha: string }
+  | {
+      kind: "commit_diff";
+      sha: string;
+      /** Shows only this file of the commit, scrolled to `focusLine` of its new side. */
+      path?: string;
+      focusLine?: number;
+      focusRequestId?: number;
+    }
   // A visual written inline in a chat. It stays in memory, so the tab is not restored.
   | { kind: "chat_visual"; visualId: string; title: string };
 

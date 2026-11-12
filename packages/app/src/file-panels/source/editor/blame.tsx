@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import type { CheckoutBlameResult } from "@pimi/protocol/messages";
@@ -10,12 +10,13 @@ import { usePaneContext, usePaneFocus } from "@/panels/pane-context";
 import { useSessionStore } from "@/stores/session-store";
 import { useWorkspaceDirectory, useWorkspaceFields } from "@/stores/session-store-hooks";
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
+import { BlameLabel, useBlameActions } from "./blame-card";
 import type { FileEditorStatus } from "./model";
 
 const DEBOUNCE_MS = 150;
 
 const labels = {
-  uncommitted: "Uncommitted line",
+  uncommitted: "Not committed yet",
   untracked: "Untracked file",
   not_git: "Not a Git repository",
   stale: "File changed · waiting for reload",
@@ -51,14 +52,13 @@ export function FileLineBlame({
   const [retry, setRetry] = useState(0);
   const enabled = mode === "editor" && visible && isWorkspaceFocused && status === "clean";
   const result = useLineBlame({ enabled, client, cwd, path, content, line, head, retry });
+  const actions = useBlameActions(path, result);
   const handleRetry = useCallback(() => setRetry((value) => value + 1), []);
   if (mode !== "editor") return null;
   const label = blameLabel(status, Boolean(client && cwd), result);
   return (
     <View style={[styles.row, !inline && styles.footer]} testID="file-editor-blame">
-      <Text style={styles.text} numberOfLines={1} accessibilityLabel={label}>
-        {label}
-      </Text>
+      <BlameLabel label={label} result={result} actions={actions} />
       {status === "clean" && (result?.status === "unavailable" || result?.status === "stale") ? (
         <Button
           variant="ghost"
@@ -150,11 +150,6 @@ const styles = StyleSheet.create((theme) => ({
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
     backgroundColor: theme.colors.surface0,
-  },
-  text: {
-    flexShrink: 1,
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.sm,
   },
 }));
 

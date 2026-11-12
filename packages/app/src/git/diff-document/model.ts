@@ -861,6 +861,28 @@ export function fileAtDocumentOffset(
   return files[low] ?? null;
 }
 
+/** Where to scroll so `line` (new side) of `path` sits a third of the way down the viewport. */
+export function resolveDiffFocusTop(
+  model: DiffDocumentModel,
+  path: string,
+  line: number | undefined,
+  viewportHeight: number,
+): number | null {
+  const file = model.files.find((entry) => entry.path === path);
+  if (!file) return null;
+  if (line === undefined) return file.top;
+  for (let index = file.rowStart; index < file.rowEnd; index++) {
+    const row = model.rows[index];
+    if (row?.kind !== "line") continue;
+    const cell = row.cells[row.cells.length - 1];
+    if (!cell || cell.lineNumber !== line || cell.type === "remove" || cell.type === "empty") {
+      continue;
+    }
+    return Math.max(file.top, row.top - viewportHeight / 3);
+  }
+  return file.top;
+}
+
 export function captureScrollAnchor(
   model: DiffDocumentModel,
   scrollTop: number,

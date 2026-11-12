@@ -154,13 +154,25 @@ function CommitDiffPanel() {
   const cwd = useWorkspaceDirectory(serverId, workspaceId);
   const panelPreferences = useDiffPanelPreferences();
   invariant(target.kind === "commit_diff", "CommitDiffPanel requires commit_diff target");
-  const { files, isLoading, error } = useCommitDiffFiles({
+  const {
+    files: commitFiles,
+    isLoading,
+    error,
+  } = useCommitDiffFiles({
     serverId,
     cwd: cwd ?? "",
     sha: target.sha,
     enabled: Boolean(cwd),
   });
-  const mode = useMemo(() => ({ kind: "commit" as const }), []);
+  const { path, focusLine, focusRequestId } = target;
+  const mode = useMemo(
+    () => ({ kind: "commit" as const, focusPath: path, focusLine, focusRequestId }),
+    [focusLine, focusRequestId, path],
+  );
+  const files = useMemo(
+    () => (path ? commitFiles.filter((file) => file.path === path) : commitFiles),
+    [commitFiles, path],
+  );
 
   let body: ReactNode;
   if (!cwd) {
