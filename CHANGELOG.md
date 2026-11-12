@@ -2,6 +2,11 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.32 - 2026-11-13
+
+- Windows: installing an update when you quit stops the daemon cleanly first, instead of the installer killing it.
+- "Keep running after quit" is respected after a restart: when it is off, quitting stops a daemon that Pimi started in an earlier session. Daemons started from the CLI are never stopped.
+
 ## 0.17.31 - 2026-11-13
 
 - Plugins can work with the message box: read and edit the draft text and selection, react to changes and key presses, list, add, update and remove annotations, and replace the annotation pill and hover card with their own renderer (`client.addAttachmentRenderer`). See `plugin-examples/annotation-chips`.
