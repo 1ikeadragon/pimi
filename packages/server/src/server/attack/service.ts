@@ -24,6 +24,7 @@ import {
   type FindingStatus,
 } from "@pimi/protocol/attack/types";
 import type { SessionOutboundMessage } from "@pimi/protocol/messages";
+import type { AgentSessionConfig } from "../agent/agent-sdk-types.js";
 import type { AgentManager } from "../agent/agent-manager.js";
 import type { AgentStorage } from "../agent/agent-storage.js";
 import { sendPromptToAgent } from "../agent/agent-prompt.js";
@@ -75,6 +76,18 @@ export interface SubmitFindingInput {
   description: string;
   repro: string;
   evidence: FindingEvidence[];
+}
+
+/**
+ * Claude loads MCP servers from the user's settings, plugins and claude.ai connectors. A global
+ * browser server (such as a Playwright plugin) would give an attack agent a browser path that skips
+ * the host allowlist, so an attack agent keeps only the MCP servers Pimi passes it. Subagents the
+ * lead creates inherit these provider options from it (create_agent, same provider).
+ */
+function attackProviderConfig(provider: string): Partial<AgentSessionConfig> {
+  // `provider` is "provider" or "provider/model".
+  if (provider.split("/")[0] !== "claude") return {};
+  return { providerOptions: { extraArgs: { "strict-mcp-config": null } } };
 }
 
 function clip(text: string, max = MAX_TEXT): string {
@@ -204,6 +217,7 @@ export class AttackService {
         cwd: run.cwd,
         workspaceId: run.workspaceId,
         labels: { [ATTACK_RUN_LABEL]: run.id },
+        config: attackProviderConfig(definition.provider),
         // The provider's own unattended mode, as for an automation step. Nobody answers permission
         // prompts during a run; subagents the lead creates inherit it from their unattended parent.
         // The run is read-only by its host allowlist, instructions, budget and audit log.
@@ -306,8 +320,9 @@ export class AttackService {
     return completed;
   }
 
+  /** The stored run. `spent.runtimeMs` is settled time only; a client adds the stretch since `resumedAt`. */
   async getRun(runId: string): Promise<AttackRun> {
-    return this.liveSpent(await this.requireRun(runId));
+    return this.requireRun(runId);
   }
 
   async getRunWithAudit(runId: string): Promise<{ run: AttackRun; audit: AttackAuditEntry[] }> {
@@ -317,9 +332,7 @@ export class AttackService {
 
   async listRuns(input: { workspaceId?: string } = {}): Promise<AttackRun[]> {
     const runs = await this.store.listRuns();
-    return runs
-      .filter((run) => !input.workspaceId || run.workspaceId === input.workspaceId)
-      .map((run) => this.liveSpent(run));
+    return runs.filter((run) => !input.workspaceId || run.workspaceId === input.workspaceId);
   }
 
   // ---- findings ----
@@ -612,7 +625,7 @@ export class AttackService {
       updatedAt: new Date().toISOString(),
     }));
     if (!updated) return;
-    this.publishRun(this.liveSpent(updated));
+    this.publishRun(updated);
     if (updated.status === "running" && updated.spent.tokens >= updated.limits.maxTokens) {
       await this.pauseRun(runId, "token_budget");
     }
@@ -625,10 +638,10 @@ export class AttackService {
       for (const run of await this.store.listRuns()) {
         if (run.status !== "running") continue;
         const live = this.liveSpent(run);
+        // Clients count the open stretch themselves from `resumedAt`; publishing live time here
+        // would be counted twice.
         if (live.spent.runtimeMs >= run.limits.maxRuntimeMs) {
           await this.pauseRun(run.id, "time_budget");
-        } else {
-          this.publishRun(live);
         }
       }
     } finally {
