@@ -1,6 +1,6 @@
 // COMPAT(paseo-home): earlier builds served the renderer from paseo://app, so their
-// localStorage (saved remote hosts, UI preferences under "@paseo:*" keys) sits under that
-// origin and the pimi://app renderer starts empty. This copies it across once. Delete it with
+// localStorage (saved remote hosts, drafts, layout and panel state, UI preferences) sits under
+// that origin and the pimi://app renderer starts empty. This copies every key across once. Delete it with
 // the home migration in packages/server/src/server/legacy-home-migration.ts.
 import { existsSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -10,8 +10,6 @@ import log from "electron-log/main";
 export const LEGACY_APP_SCHEME = "paseo";
 /** A blank page the pimi scheme serves so the migration can run in the pimi origin. */
 export const STORAGE_MIGRATION_PATH = "/__legacy-storage-migration";
-const LEGACY_KEY_PREFIX = "@paseo:";
-const CURRENT_KEY_PREFIX = "@pimi:";
 const BLANK_PAGE = "<!doctype html><title></title>";
 
 async function withHiddenPage<T>(url: string, run: (win: BrowserWindow) => Promise<T>): Promise<T> {
@@ -27,7 +25,12 @@ async function withHiddenPage<T>(url: string, run: (win: BrowserWindow) => Promi
   }
 }
 
-/** Copies "@paseo:*" localStorage entries to "@pimi:*" once per userData directory. */
+/**
+ * Copies every localStorage entry of the old origin once per userData directory, never over a
+ * key the pimi origin already has. The rename changed key names ("@paseo:x" -> "@pimi:x",
+ * "paseo:x" -> "pimi:x", "paseo-drafts" -> "pimi-drafts") and the attachment mime type inside
+ * stored drafts; any other key kept its name.
+ */
 export async function migrateLegacyRendererStorage(appScheme: string): Promise<void> {
   const markerPath = path.join(app.getPath("userData"), "legacy-renderer-storage.migrated");
   if (existsSync(markerPath)) return;
@@ -40,7 +43,7 @@ export async function migrateLegacyRendererStorage(appScheme: string): Promise<v
     );
     const entries = await withHiddenPage(`${LEGACY_APP_SCHEME}://app/`, async (win) => {
       const json: unknown = await win.webContents.executeJavaScript(
-        `JSON.stringify(Object.keys(localStorage).filter((key) => key.startsWith(${JSON.stringify(LEGACY_KEY_PREFIX)})).map((key) => [key, localStorage.getItem(key)]))`,
+        `JSON.stringify(Object.keys(localStorage).map((key) => [key, localStorage.getItem(key)]))`,
       );
       return typeof json === "string" ? (JSON.parse(json) as Array<[string, string | null]>) : [];
     });
@@ -49,7 +52,7 @@ export async function migrateLegacyRendererStorage(appScheme: string): Promise<v
         `${appScheme}://app${STORAGE_MIGRATION_PATH}`,
         async (win) =>
           win.webContents.executeJavaScript(
-            `(() => { let copied = 0; for (const [key, value] of ${JSON.stringify(entries)}) { const next = ${JSON.stringify(CURRENT_KEY_PREFIX)} + key.slice(${LEGACY_KEY_PREFIX.length}); if (value !== null && localStorage.getItem(next) === null) { localStorage.setItem(next, value); copied += 1; } } return copied; })()`,
+            `(() => { let copied = 0; for (const [key, value] of ${JSON.stringify(entries)}) { const next = key.replace(/^(@?)paseo([:-])/, "$1pimi$2"); if (value !== null && localStorage.getItem(next) === null) { localStorage.setItem(next, value.split('"application/paseo-').join('"application/pimi-')); copied += 1; } } return copied; })()`,
           ) as Promise<number>,
       );
       log.info(

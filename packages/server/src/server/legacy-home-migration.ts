@@ -14,6 +14,19 @@ const execFileAsync = promisify(execFile);
 
 const LEGACY_HOME_DIRNAME = ".paseo";
 const LEGACY_PID_FILE = "paseo.pid";
+const LEGACY_SUPERVISOR_TITLE = "Paseo Supervisor";
+// Written into the old home before it is renamed, so it exists in the new home from the moment
+// the rename lands. It stays until the rewrite and repair finished, and the next start finishes
+// what a crash left undone (both steps are idempotent).
+const PENDING_MARKER = ".legacy-migration-pending";
+const MAX_FINISH_ATTEMPTS = 3;
+// Object keys persisted in the home's JSON (workspace registry, user config, terminal worker
+// records) that the rename changed. Only exact keys are mapped; values are never touched.
+const RENAMED_KEYS = {
+  isPaseoOwnedWorktree: "isPimiOwnedWorktree",
+  paseoTools: "pimiTools",
+  paseoVersion: "pimiVersion",
+} as const;
 const REWRITABLE_EXTENSION = ".json";
 // Registries and config live in the home root and a few shallow folders. Never descend into
 // bulky or foreign trees.
@@ -26,9 +39,9 @@ const POLL_INTERVAL_MS = 100;
 
 /** The old daemon still owns ~/.paseo, so the home cannot move yet. */
 export class LegacyDaemonRunningError extends Error {
-  constructor(home: string, to: string) {
+  constructor(home: string, to: string, pid: number) {
     super(
-      `The old daemon home ${home} is still in use by a running daemon. Quit the old Paseo app and run "paseo daemon stop" (or quit its "Paseo Supervisor" process), then start Pimi again to move it to ${to}.`,
+      `The old daemon home ${home} is still in use by a running daemon. Open the Pimi desktop app (it stops the old daemon), or kill PID ${pid} (process "Paseo Supervisor"), then run this command again to move it to ${to}.`,
     );
     this.name = "LegacyDaemonRunningError";
   }
@@ -105,6 +118,37 @@ async function listLegacyWorkerPids(legacyHome: string): Promise<number[]> {
   return pids;
 }
 
+async function readProcessCommand(pid: number): Promise<string | null> {
+  try {
+    if (process.platform === "win32") {
+      const { stdout } = await execFileAsync(
+        "powershell.exe",
+        [
+          "-NoProfile",
+          "-NonInteractive",
+          "-Command",
+          `(Get-CimInstance Win32_Process -Filter 'ProcessId=${pid}').CommandLine`,
+        ],
+        { timeout: 15_000 },
+      );
+      return stdout.trim() || null;
+    }
+    const { stdout } = await execFileAsync("ps", ["-o", "command=", "-p", String(pid)]);
+    return stdout.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+// A lock file outlives its daemon, and the OS reuses PIDs. Only a process that still presents
+// itself as the old supervisor (its title, or its entry script on Windows where titles are
+// not part of the command line) is the daemon the lock names.
+async function isLegacySupervisor(pid: number): Promise<boolean> {
+  const command = await readProcessCommand(pid);
+  if (!command) return false;
+  return command.includes(LEGACY_SUPERVISOR_TITLE) || command.includes("supervisor-entrypoint");
+}
+
 function isAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
@@ -122,6 +166,11 @@ function isAlive(pid: number): boolean {
 async function stopLegacyDaemon(legacyHome: string, lock: PidLockInfo): Promise<void> {
   if (lock.pid <= 1 || lock.pid === process.pid) {
     throw new Error(`Refusing to stop invalid daemon PID ${lock.pid} for ${legacyHome}`);
+  }
+  if (!(await isLegacySupervisor(lock.pid))) {
+    throw new Error(
+      `PID ${lock.pid} in ${legacyHome} is not a "${LEGACY_SUPERVISOR_TITLE}" process, so it was not stopped. Stop the old daemon yourself, then start Pimi again.`,
+    );
   }
   await killTree(lock.pid, "SIGTERM");
   let exited = await waitUntil(() => !isPidLockOwnerRunning(lock), LEGACY_STOP_TIMEOUT_MS);
@@ -141,20 +190,46 @@ async function stopLegacyDaemon(legacyHome: string, lock: PidLockInfo): Promise<
   }
 }
 
-// Absolute paths into the old home, agent label keys ("paseo.parent-agent-id" and friends),
-// and the "<paseo-system>" message envelope tag all moved with the rename.
+// Absolute paths into the old home (plain and JSON-escaped, which differs on Windows), agent
+// label keys ("paseo.parent-agent-id" and friends), the "<paseo-system>" message envelope tag,
+// attachment mime types, and the persisted object keys that carried the old name all moved
+// with the rename.
 function rewriteLegacyText(text: string, from: string, to: string): string {
-  return text
-    .split(from)
-    .join(to)
+  const jsonEscape = (value: string): string => JSON.stringify(value).slice(1, -1);
+  let next = text.split(from).join(to);
+  if (jsonEscape(from) !== from) next = next.split(jsonEscape(from)).join(jsonEscape(to));
+  return next
     .replace(/"paseo\.(?=[a-z])/g, '"pimi.')
-    .replace(/(<\/?)paseo-system\b/g, "$1pimi-system");
+    .replace(/(<\/?)paseo-system\b/g, "$1pimi-system")
+    .replace(/"application\/paseo-(?=[a-z])/g, '"application/pimi-')
+    .replace(
+      /"(isPaseoOwnedWorktree|paseoTools|paseoVersion)"(?=\s*:)/g,
+      (_match, key: keyof typeof RENAMED_KEYS) => `"${RENAMED_KEYS[key]}"`,
+    );
 }
 
-async function rewriteJsonFiles(root: string, from: string, to: string): Promise<number> {
-  let rewritten = 0;
+interface RewriteResult {
+  rewritten: number;
+  failed: number;
+}
+
+async function rewriteJsonFiles(
+  root: string,
+  from: string,
+  to: string,
+  log: (message: string) => void,
+): Promise<RewriteResult> {
+  const result: RewriteResult = { rewritten: 0, failed: 0 };
   const visit = async (directory: string, depth: number): Promise<void> => {
-    for (const entry of await readdir(directory, { withFileTypes: true })) {
+    let entries;
+    try {
+      entries = await readdir(directory, { withFileTypes: true });
+    } catch (error) {
+      result.failed += 1;
+      log(`Skipped unreadable directory ${directory}: ${describe(error)}`);
+      return;
+    }
+    for (const entry of entries) {
       const entryPath = path.join(directory, entry.name);
       if (entry.isDirectory()) {
         if (depth < MAX_REWRITE_DEPTH && !SKIPPED_DIRECTORIES.has(entry.name)) {
@@ -163,16 +238,25 @@ async function rewriteJsonFiles(root: string, from: string, to: string): Promise
         continue;
       }
       if (!entry.isFile() || !entry.name.endsWith(REWRITABLE_EXTENSION)) continue;
-      if ((await stat(entryPath)).size > MAX_REWRITE_BYTES) continue;
-      const text = await readFile(entryPath, "utf8");
-      const next = rewriteLegacyText(text, from, to);
-      if (next === text) continue;
-      await writeFile(entryPath, next);
-      rewritten += 1;
+      try {
+        if ((await stat(entryPath)).size > MAX_REWRITE_BYTES) continue;
+        const text = await readFile(entryPath, "utf8");
+        const next = rewriteLegacyText(text, from, to);
+        if (next === text) continue;
+        await writeFile(entryPath, next);
+        result.rewritten += 1;
+      } catch (error) {
+        result.failed += 1;
+        log(`Skipped ${entryPath}: ${describe(error)}`);
+      }
     }
   };
   await visit(root, 0);
-  return rewritten;
+  return result;
+}
+
+function describe(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 // Moving a linked worktree breaks the two-way link git keeps with its main checkout. Pimi's
@@ -184,37 +268,103 @@ async function moveWorktreeMetadata(worktreePath: string, from: string, to: stri
   });
   const gitDir = stdout.trim();
   const legacyDir = path.join(gitDir, "paseo");
-  if (!(await exists(legacyDir))) return;
-  await rename(legacyDir, path.join(gitDir, "pimi"));
-  const metadataPath = path.join(gitDir, "pimi", "worktree.json");
+  const currentDir = path.join(gitDir, "pimi");
+  if ((await exists(legacyDir)) && !(await exists(currentDir))) {
+    await rename(legacyDir, currentDir);
+  }
+  // Rewritten even when the directory was already moved: a crash between the two steps must
+  // not leave the old paths behind.
+  const metadataPath = path.join(currentDir, "worktree.json");
   if (!(await exists(metadataPath))) return;
   const text = await readFile(metadataPath, "utf8");
-  await writeFile(metadataPath, rewriteLegacyText(text, from, to));
+  const next = rewriteLegacyText(text, from, to);
+  if (next !== text) await writeFile(metadataPath, next);
 }
 
-async function repairWorktrees(home: string, from: string): Promise<number> {
+async function repairWorktrees(
+  home: string,
+  from: string,
+  log: (message: string) => void,
+): Promise<{ repaired: number; failed: number }> {
   const worktreesRoot = path.join(home, "worktrees");
-  if (!(await exists(worktreesRoot))) return 0;
-  let repaired = 0;
-  for (const project of await readdir(worktreesRoot, { withFileTypes: true })) {
-    if (!project.isDirectory()) continue;
-    const projectRoot = path.join(worktreesRoot, project.name);
-    for (const worktree of await readdir(projectRoot, { withFileTypes: true })) {
-      const worktreePath = path.join(projectRoot, worktree.name);
-      if (!worktree.isDirectory() || !(await exists(path.join(worktreePath, ".git")))) continue;
-      try {
-        await execFileAsync("git", ["worktree", "repair", worktreePath], {
-          cwd: worktreePath,
-          timeout: 30_000,
-        });
-        await moveWorktreeMetadata(worktreePath, from, home);
-        repaired += 1;
-      } catch {
-        // A worktree whose main checkout is gone stays as it was.
+  const result = { repaired: 0, failed: 0 };
+  if (!(await exists(worktreesRoot))) return result;
+  try {
+    for (const project of await readdir(worktreesRoot, { withFileTypes: true })) {
+      if (!project.isDirectory()) continue;
+      const projectRoot = path.join(worktreesRoot, project.name);
+      for (const worktree of await readdir(projectRoot, { withFileTypes: true })) {
+        const worktreePath = path.join(projectRoot, worktree.name);
+        if (!worktree.isDirectory() || !(await exists(path.join(worktreePath, ".git")))) continue;
+        try {
+          await execFileAsync("git", ["worktree", "repair", worktreePath], {
+            cwd: worktreePath,
+            timeout: 30_000,
+          });
+          await moveWorktreeMetadata(worktreePath, from, home);
+          result.repaired += 1;
+        } catch (error) {
+          // A worktree whose main checkout is gone stays as it was; the next start retries.
+          result.failed += 1;
+          log(`Could not repair worktree ${worktreePath}: ${describe(error)}`);
+        }
       }
     }
+  } catch (error) {
+    result.failed += 1;
+    log(`Could not scan worktrees under ${worktreesRoot}: ${describe(error)}`);
   }
-  return repaired;
+  return result;
+}
+
+interface PendingMarker {
+  from: string;
+  attempts: number;
+}
+
+async function readPendingMarker(home: string): Promise<PendingMarker | null> {
+  let raw: string;
+  try {
+    raw = await readFile(path.join(home, PENDING_MARKER), "utf8");
+  } catch {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw) as Partial<PendingMarker>;
+    if (typeof parsed.from === "string") {
+      return { from: parsed.from, attempts: Number(parsed.attempts) || 0 };
+    }
+  } catch {
+    // An unreadable marker still means a move happened and was not finished.
+  }
+  return { from: "", attempts: 0 };
+}
+
+/**
+ * Rewrites and repairs a home that was just renamed (or whose rename was interrupted before
+ * this ran to the end). Idempotent: the marker goes only once every file was rewritten, or
+ * after MAX_FINISH_ATTEMPTS starts that each skipped a file, so a file that can never be read
+ * does not rescan the home forever.
+ */
+async function finishMigration(
+  to: string,
+  from: string,
+  attempts: number,
+  log: (message: string) => void,
+): Promise<{ rewrittenFiles: number; repairedWorktrees: number }> {
+  await rm(path.join(to, LEGACY_PID_FILE), { force: true });
+  const rewrite = await rewriteJsonFiles(to, from, to, log);
+  const repair = await repairWorktrees(to, from, log);
+  const failed = rewrite.failed + repair.failed;
+  if (failed === 0 || attempts + 1 >= MAX_FINISH_ATTEMPTS) {
+    await rm(path.join(to, PENDING_MARKER), { force: true });
+  } else {
+    await writeFile(
+      path.join(to, PENDING_MARKER),
+      JSON.stringify({ from, attempts: attempts + 1 } satisfies PendingMarker),
+    );
+  }
+  return { rewrittenFiles: rewrite.rewritten, repairedWorktrees: repair.repaired };
 }
 
 /**
@@ -222,7 +372,9 @@ async function repairWorktrees(home: string, from: string): Promise<number> {
  * the home's JSON files, and repairs worktree links. Does nothing for a custom
  * PIMI_HOME. Renaming a home under a live daemon corrupts its state, so a running old daemon
  * is stopped first when `stopRunningDaemon` is set (the desktop app, whose upgrade replaced the
- * build that launched it) and otherwise throws LegacyDaemonRunningError.
+ * build that launched it) and otherwise throws LegacyDaemonRunningError. A pending marker
+ * travels with the renamed home: while it exists, the next call finishes the rewrite and repair
+ * that an interrupted run left undone.
  */
 export async function migrateLegacyHome(
   env: NodeJS.ProcessEnv = process.env,
@@ -234,20 +386,30 @@ export async function migrateLegacyHome(
   const to = path.join(userHome, ".pimi");
   const none = { migrated: false, from, to, rewrittenFiles: 0, repairedWorktrees: 0 };
   if (env.PIMI_HOME) return none;
+  const pending = await readPendingMarker(to);
+  if (pending) {
+    log(`Finishing the interrupted move of ${pending.from || from} to ${to}`);
+    const done = await finishMigration(to, pending.from || from, pending.attempts, log);
+    return { migrated: true, from, to, ...done };
+  }
   if (!(await exists(from)) || !(await isUnusedHome(to))) return none;
   const running = await readLegacyDaemonLock(from);
   if (running) {
-    if (!options.stopRunningDaemon) throw new LegacyDaemonRunningError(from, to);
+    if (!options.stopRunningDaemon) throw new LegacyDaemonRunningError(from, to, running.pid);
     log(`Stopping the old daemon (PID ${running.pid}) that still runs from ${from}`);
     await stopLegacyDaemon(from, running);
   }
+  // The marker is written inside the old home so the rename carries it: there is no moment
+  // where the new home exists without it.
+  await writeFile(
+    path.join(from, PENDING_MARKER),
+    JSON.stringify({ from, attempts: 0 } satisfies PendingMarker),
+  );
   await rm(to, { recursive: true, force: true });
   await rename(from, to);
-  await rm(path.join(to, LEGACY_PID_FILE), { force: true });
-  const rewrittenFiles = await rewriteJsonFiles(to, from, to);
-  const repairedWorktrees = await repairWorktrees(to, from);
+  const done = await finishMigration(to, from, 0, log);
   log(
-    `Migrated daemon home ${from} -> ${to} (rewrote paths in ${rewrittenFiles} files, repaired ${repairedWorktrees} worktrees)`,
+    `Migrated daemon home ${from} -> ${to} (rewrote paths in ${done.rewrittenFiles} files, repaired ${done.repairedWorktrees} worktrees)`,
   );
-  return { migrated: true, from, to, rewrittenFiles, repairedWorktrees };
+  return { migrated: true, from, to, ...done };
 }
