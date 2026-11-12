@@ -152,6 +152,7 @@ import { createSpeechService } from "./speech/speech-runtime.js";
 import { createSpeechSettingsOwner } from "./speech/speech-settings.js";
 import { AgentManager } from "./agent/agent-manager.js";
 import { AgentStorage } from "./agent/agent-storage.js";
+import { openPimiDatabase } from "./db/pimi-db.js";
 import { FileCarriedTimelineStore } from "./agent/carried-timeline.js";
 import { FileAgentImageStore } from "./agent/agent-images.js";
 import { FileSentAttachmentStore } from "./agent/sent-attachments.js";
@@ -1037,7 +1038,8 @@ export async function createPimiDaemon(
     serviceProxyListenTarget = parseListenString(config.serviceProxy.standaloneListen);
   }
 
-  const agentStorage = new AgentStorage(config.agentStoragePath, logger);
+  const pimiDatabase = await openPimiDatabase({ pimiHome: config.pimiHome, logger });
+  const agentStorage = new AgentStorage(pimiDatabase, config.agentStoragePath, logger);
   const projectRegistry = new FileBackedProjectRegistry(
     path.join(config.pimiHome, "projects", "projects.json"),
     logger,
@@ -2156,6 +2158,7 @@ export async function createPimiDaemon(
     }
     await serviceProxy.stopStandalone();
     await networkLog.close();
+    pimiDatabase.close();
     // Force-drop remaining sockets so httpServer.close() resolves promptly.
     // We've already closed wsServer (which sent ws-layer close frames) and
     // stopped every other service, so anything still attached is a TCP

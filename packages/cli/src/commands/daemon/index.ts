@@ -7,6 +7,7 @@ import { runSetPasswordCommand } from "./set-password.js";
 import { pairCommand } from "./pair.js";
 import { daemonReloadCommand } from "./reload.js";
 import { daemonConfigCommand } from "./config.js";
+import { daemonDbCommand } from "./db.js";
 import { withOutput } from "../../output/index.js";
 import { addJsonOption, addLocalDaemonOptions } from "../../utils/command-options.js";
 
@@ -21,6 +22,7 @@ export function createDaemonCommand(): Command {
     daemonReloadCommand(),
     pairCommand(),
     daemonConfigCommand(),
+    daemonDbCommand(),
   ])
     daemon.addCommand(command);
   addJsonOption(
