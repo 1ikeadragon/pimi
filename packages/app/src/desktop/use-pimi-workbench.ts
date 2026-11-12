@@ -9,6 +9,7 @@ import {
 import { router, usePathname } from "expo-router";
 import { useIsFocused } from "expo-router/react-navigation";
 import { useToast } from "@/contexts/toast-context";
+import { i18n } from "@/i18n/i18next";
 import { getDesktopHost } from "@/desktop/host";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import { resolveWorkspaceSelectionStatus } from "@/navigation/host-runtime-bootstrap";
@@ -52,7 +53,7 @@ export function navigateToNewWorkspaceInEditor(selection: ActiveWorkspaceSelecti
   navigateToWorkspace(selection);
 }
 
-/** Agent and IDE Mode exist only in the desktop window's split-pane layout. */
+/** Agent, IDE and Attack Mode exist only in the desktop window's split-pane layout. */
 export function canSwitchWorkbench(layoutMode = useWorkspaceLayoutStore.getState().layoutMode) {
   return Boolean(getDesktopHost()?.showPimiWorkspace) && layoutMode === "split-panes";
 }
@@ -115,7 +116,9 @@ export function usePimiWorkbench() {
         requestedModeForNextWorkspace = { mode: next };
         getDesktopHost()?.dismissPimiWorkspace?.();
         router.navigate(buildOpenProjectRoute());
-        toast.show("Open a project to use IDE Mode.");
+        toast.show(
+          next === "attack" ? i18n.t("attack.mode.openProject") : "Open a project to use IDE Mode.",
+        );
         return;
       }
       const key = buildWorkspaceTabPersistenceKey(selection);

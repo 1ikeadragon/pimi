@@ -166,6 +166,9 @@ export class AttackService {
     const target = this.validateTarget(definition.target);
     const roster = [...new Set(definition.roster.map((role) => AttackRoleIdSchema.parse(role)))];
     if (roster.length === 0) throw new AttackStateError("Pick at least one agent for the roster.");
+    if (!definition.repoScope && roster.includes("secrets-audit")) {
+      throw new AttackStateError("The secrets and config auditor reads the repository.");
+    }
     const now = new Date().toISOString();
     const run: AttackRun = {
       id: randomUUID().replaceAll("-", ""),
@@ -173,7 +176,9 @@ export class AttackService {
       cwd: definition.cwd,
       target: target.url,
       remoteHost: target.remoteHost,
+      repoScope: definition.repoScope,
       scopeNotes: clip(definition.scopeNotes),
+      provider: definition.provider,
       roster,
       disposableTarget: definition.disposableTarget,
       limits: definition.limits,

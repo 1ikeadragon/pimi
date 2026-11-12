@@ -14,7 +14,7 @@ import type { WorkspaceLayoutIdSource } from "@/stores/workspace-layout-ids";
 import type { WorkspaceTab } from "@/workspace-tabs/model";
 import { createNewWorkspaceTab } from "@/workspace-tabs/new-tab";
 
-export type WorkbenchMode = "agent" | "editor";
+export type WorkbenchMode = "agent" | "editor" | "attack";
 export interface WorkbenchPreset {
   layout: WorkspaceLayout;
   explorerPaneId: string | null;
@@ -22,8 +22,16 @@ export interface WorkbenchPreset {
 }
 export interface WorkspaceWorkbench {
   mode: WorkbenchMode;
-  alternate: WorkbenchPreset;
+  /** The layouts of the modes that are not showing. Only the showing layout owns open tabs. */
+  alternates: Partial<Record<WorkbenchMode, WorkbenchPreset>>;
 }
+
+// Attack mode places tabs by kind into four fixed panes: the control pane on the left (with the
+// lead agent's chat), browsers and terminals in the centre, findings on the right.
+export const ATTACK_CONTROL_PANE_ID = "attack-control";
+export const ATTACK_BROWSER_PANE_ID = "attack-browsers";
+export const ATTACK_TERMINAL_PANE_ID = "attack-terminals";
+export const ATTACK_FINDINGS_PANE_ID = "attack-findings";
 
 function paneWithTabs(pane: SplitPane, tabs: WorkspaceTab[], focusedTabId = pane.focusedTabId) {
   const tabIds = tabs.map((tab) => tab.tabId);
@@ -63,6 +71,91 @@ export function isWorkbenchDocument(target: WorkspaceTab["target"]) {
 
 function isChat(tab: WorkspaceTab) {
   return isWorkbenchChatTarget(tab.target);
+}
+
+export function attackPaneIdForTarget(target: WorkspaceTab["target"]): string {
+  if (target.kind === "attack_findings") return ATTACK_FINDINGS_PANE_ID;
+  if (target.kind === "terminal") return ATTACK_TERMINAL_PANE_ID;
+  if (target.kind === "browser") return ATTACK_BROWSER_PANE_ID;
+  if (target.kind === "attack_control" || isWorkbenchChatTarget(target)) {
+    return ATTACK_CONTROL_PANE_ID;
+  }
+  return ATTACK_BROWSER_PANE_ID;
+}
+
+function attackTab(target: "attack_control" | "attack_findings"): WorkspaceTab {
+  return { ...createNewWorkspaceTab(), target: { kind: target } };
+}
+
+export function createAttackWorkbench(current: WorkbenchPreset): WorkbenchPreset {
+  const fallback = createWorkspaceLayoutWithExplorerSidebar();
+  const explorerPaneId = current.explorerPaneId ?? EXPLORER_SIDEBAR_PANE_ID;
+  const explorer =
+    findPaneById(current.layout.root, explorerPaneId) ??
+    findPaneById(fallback.root, EXPLORER_SIDEBAR_PANE_ID);
+  if (!explorer) throw new Error("Workspace Explorer is unavailable.");
+  const explorerTabs = collectAllTabs(current.layout.root).filter((tab) =>
+    explorer.tabIds.includes(tab.tabId),
+  );
+  const sidebarTabs = explorerTabs.length
+    ? explorerTabs
+    : collectAllTabs(fallback.root).filter(
+        (tab) => tab.target.kind === "files" || tab.target.kind === "changes_tree",
+      );
+  const existing = collectAllTabs(current.layout.root).filter(
+    (tab) => !explorer.tabIds.includes(tab.tabId),
+  );
+  const focused = findPaneById(current.layout.root, current.layout.focusedPaneId)?.focusedTabId;
+  const withTarget = (paneId: string) =>
+    existing.filter((tab) => attackPaneIdForTarget(tab.target) === paneId);
+  const chats = withTarget(ATTACK_CONTROL_PANE_ID);
+  const control = attackTab("attack_control");
+  const hiddenExplorer: SplitNode = {
+    kind: "pane",
+    pane: paneWithTabs({ ...explorer, hidden: true }, sidebarTabs),
+  };
+  const center: SplitNode = {
+    kind: "group",
+    group: {
+      id: "attack-center",
+      direction: "vertical",
+      children: [
+        paneNode(ATTACK_BROWSER_PANE_ID, withTarget(ATTACK_BROWSER_PANE_ID), focused),
+        paneNode(ATTACK_TERMINAL_PANE_ID, withTarget(ATTACK_TERMINAL_PANE_ID), focused),
+      ],
+      sizes: [0.62, 0.38],
+    },
+  };
+  const workbench: SplitNode = {
+    kind: "group",
+    group: {
+      id: "attack-workbench",
+      direction: "horizontal",
+      children: [
+        paneNode(ATTACK_CONTROL_PANE_ID, [control, ...chats], control.tabId),
+        center,
+        paneNode(ATTACK_FINDINGS_PANE_ID, [attackTab("attack_findings")]),
+      ],
+      sizes: [0.24, 0.5, 0.26],
+    },
+  };
+  return {
+    explorerPaneId: explorer.id,
+    sidePaneId: null,
+    layout: normalizeLayout({
+      root: {
+        kind: "group",
+        group: {
+          id: "attack-root",
+          direction: "horizontal",
+          children: [hiddenExplorer, workbench],
+          sizes: [0.01, 0.99],
+        },
+      },
+      focusedPaneId: ATTACK_CONTROL_PANE_ID,
+      parentTabIdByTabId: current.layout.parentTabIdByTabId,
+    }),
+  };
 }
 
 export function createEditorWorkbench(
@@ -171,6 +264,10 @@ export function restoreWorkbench(
     if (tab.target.kind === "files" || tab.target.kind === "changes_tree")
       return explorerPaneId ?? main?.id;
     if (mode === "editor" && isChat(tab) && sidePaneId) return sidePaneId;
+    if (mode === "attack") {
+      const paneId = attackPaneIdForTarget(tab.target);
+      if (panes.some((pane) => pane.id === paneId)) return paneId;
+    }
     return main?.id;
   };
   const additions = new Map<string, WorkspaceTab[]>();

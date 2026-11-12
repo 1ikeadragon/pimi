@@ -11,7 +11,9 @@ function runContext(run: AttackRun): string {
   return [
     `Run id: ${run.id}`,
     `Target: ${run.target}`,
-    `Repository (your working directory): ${run.cwd}`,
+    run.repoScope
+      ? `Repository (your working directory): ${run.cwd}`
+      : `Repository: out of scope. Do not read ${run.cwd} or search its files; work from the running app only.`,
     `Hosts any agent may open or navigate to: ${hosts.join(", ")} (localhost on any port). Browser tabs refuse every other host, and each refusal is audited. Do not try to reach other hosts.`,
     `Disposable target: ${run.disposableTarget ? "yes" : "no"}. This run is read-only either way: do not submit state-changing requests, delete anything or send load bursts.`,
     `Budget: ${minutes(run.limits.maxRuntimeMs)} minutes and ${run.limits.maxTokens.toLocaleString("en-US")} tokens across all agents. The run pauses when either runs out.`,

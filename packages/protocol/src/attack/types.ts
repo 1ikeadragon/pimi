@@ -33,6 +33,8 @@ export const AttackRunDefinitionSchema = z.object({
   workspaceId: z.string().min(1),
   cwd: z.string().min(1),
   target: z.string().min(1),
+  // False keeps the agents out of the repository: no repo scan, no reading its source.
+  repoScope: z.boolean(),
   scopeNotes: z.string().max(4000),
   // The lead agent's "provider/model"; its subagents inherit it.
   provider: z.string().min(1),
@@ -50,7 +52,10 @@ export const AttackRunSchema = z.object({
   target: z.string(),
   // The one non-local host the run may visit, or null when the target is local.
   remoteHost: z.string().nullable(),
+  repoScope: z.boolean(),
   scopeNotes: z.string(),
+  // The lead's "provider/model"; "Fix it" starts its agent on the same one.
+  provider: z.string(),
   roster: z.array(AttackRoleIdSchema),
   disposableTarget: z.boolean(),
   limits: AttackLimitsSchema,

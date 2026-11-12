@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -10,7 +11,8 @@ import {
 } from "react";
 import type { PimiWorkspaceSection } from "@pimi/protocol/pimi-task";
 import { Text, View } from "react-native";
-import { CodeXml, FolderOpen, MessageSquare } from "lucide-react-native";
+import { CodeXml, FolderOpen, MessageSquare, Swords } from "lucide-react-native";
+import { useTranslation } from "react-i18next";
 import type { PimiSidebarControls } from "@/components/sidebar/pimi-workspace-navigation";
 import { DensityIcon } from "@/components/ui/density-icon";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
@@ -108,7 +110,21 @@ function WorkbenchChatButton({ workspaceKey }: { workspaceKey: string }) {
 }
 
 function PimiWorkbenchToggle({ covered }: { covered: boolean }) {
+  const { t } = useTranslation();
   const { mode, select, activeWorkspaceKey, available } = usePimiWorkbench();
+  const options = useMemo<SegmentedControlOption<WorkbenchMode>[]>(
+    () => [
+      ...WORKBENCH_OPTIONS,
+      {
+        value: "attack",
+        label: t("attack.mode.label"),
+        accessibilityLabel: t("attack.mode.accessibilityLabel"),
+        icon: (props) => <Swords {...props} />,
+        testID: "pimi-attack-mode",
+      },
+    ],
+    [t],
+  );
   if (!available) return null;
   return (
     <WindowChromeRegion corners="top-right">
@@ -117,7 +133,7 @@ function PimiWorkbenchToggle({ covered }: { covered: boolean }) {
           <WorkbenchChatButton workspaceKey={activeWorkspaceKey} />
         ) : null}
         <SegmentedControl
-          options={WORKBENCH_OPTIONS}
+          options={options}
           value={mode}
           onValueChange={select}
           size="sm"

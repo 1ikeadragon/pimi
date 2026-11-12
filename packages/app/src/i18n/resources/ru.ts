@@ -2116,6 +2116,93 @@ export const ru: TranslationResources = {
     archiveFinishedAction: "Архивировать завершенные субагенты",
     archiveFinishedRetry: "Повторить ({{failed}}/{{total}})",
   },
+  attack: {
+    mode: {
+      label: "Атака",
+      accessibilityLabel: "Режим атаки",
+      openProject: "Откройте проект, чтобы использовать режим атаки.",
+    },
+    panels: {
+      control: {
+        label: "Запуск атаки",
+        subtitle: "Управление запуском",
+      },
+      findings: {
+        label: "Находки",
+        subtitle: "Находки атаки",
+      },
+    },
+    form: {
+      target: "Целевой URL",
+      targetInvalid: "Введите URL с http или https",
+      remoteHost: "Разрешён удалённый хост: {{host}}",
+      repoScope: "Включить этот репозиторий",
+      scopeNotes: "Заметки об области",
+      minutes: "Лимит времени (минуты)",
+      kiloTokens: "Лимит токенов (тысячи)",
+      numberInvalid: "Введите целое число в допустимом диапазоне",
+      model: "Модель агента",
+      modelPlaceholder: "Выберите модель",
+      modelMissing: "Выберите модель",
+      roster: "Агенты",
+      rosterEmpty: "Выберите хотя бы одного агента",
+      disposable: "Одноразовая цель",
+      disposableHint:
+        "Позволяет агентам записывать данные и создавать нагрузку. Текущий состав только читает.",
+      start: "Начать атаку",
+    },
+    roster: {
+      uiQa: "UI QA и хаос",
+      secrets: "Аудитор секретов и конфигурации",
+    },
+    run: {
+      status: {
+        running: "Выполняется",
+        paused: "На паузе",
+        stopped: "Остановлен",
+        completed: "Завершён",
+      },
+      pausedReason: {
+        user: "Приостановлено вами",
+        time_budget: "Пауза: исчерпан лимит времени",
+        token_budget: "Пауза: исчерпан лимит токенов",
+      },
+      timeSpent: "{{spent}} из {{limit}} мин",
+      tokensSpent: "{{spent}} из {{limit}} токенов",
+      pause: "Пауза",
+      resume: "Продолжить",
+      stop: "Остановить",
+      openLead: "Открыть чат ведущего",
+    },
+    findings: {
+      noRun: "Начните запуск, чтобы увидеть находки здесь.",
+      empty: "Находок пока нет.",
+      nothingFound: "Ничего не найдено. Запуск завершился без находок.",
+      severity: {
+        blocker: "Блокирующая",
+        major: "Серьёзная",
+        minor: "Незначительная",
+      },
+      status: {
+        new: "Новая",
+        triaged: "В работе",
+        dismissed: "Отклонена",
+        fixed: "Исправлена",
+      },
+      reported: "Сообщено {{count}} раз",
+      repro: "Воспроизведение",
+      evidence: "Доказательства",
+      fixIt: "Исправить",
+      screenshotLoading: "Загрузка снимка…",
+      screenshotMissing: "Снимок слишком большой, чтобы его сохранить.",
+      action: {
+        triage: "Отметить как разобранную",
+        dismiss: "Отклонить",
+        fixed: "Отметить как исправленную",
+        reopen: "Открыть снова",
+      },
+    },
+  },
   panels: {
     draft: {
       newAgent: "Новый агент",

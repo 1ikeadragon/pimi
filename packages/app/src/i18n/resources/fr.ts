@@ -2131,6 +2131,93 @@ export const fr: TranslationResources = {
     archiveFinishedAction: "Archiver les sous-agents terminés",
     archiveFinishedRetry: "Réessayer ({{failed}}/{{total}})",
   },
+  attack: {
+    mode: {
+      label: "Attaque",
+      accessibilityLabel: "Mode Attaque",
+      openProject: "Ouvrez un projet pour utiliser le mode Attaque.",
+    },
+    panels: {
+      control: {
+        label: "Exécution d’attaque",
+        subtitle: "Contrôles de l’exécution",
+      },
+      findings: {
+        label: "Constats",
+        subtitle: "Constats de l’attaque",
+      },
+    },
+    form: {
+      target: "URL cible",
+      targetInvalid: "Saisissez une URL http ou https",
+      remoteHost: "Hôte distant autorisé : {{host}}",
+      repoScope: "Inclure ce dépôt",
+      scopeNotes: "Notes de périmètre",
+      minutes: "Budget de temps (minutes)",
+      kiloTokens: "Budget de tokens (milliers)",
+      numberInvalid: "Saisissez un nombre entier valide",
+      model: "Modèle de l’agent",
+      modelPlaceholder: "Choisir un modèle",
+      modelMissing: "Choisissez un modèle",
+      roster: "Agents",
+      rosterEmpty: "Choisissez au moins un agent",
+      disposable: "Cible jetable",
+      disposableHint:
+        "Permet aux agents d’écrire et d’envoyer de la charge. La liste actuelle ne fait que lire.",
+      start: "Lancer l’attaque",
+    },
+    roster: {
+      uiQa: "QA UI et chaos",
+      secrets: "Auditeur de secrets et de configuration",
+    },
+    run: {
+      status: {
+        running: "En cours",
+        paused: "En pause",
+        stopped: "Arrêtée",
+        completed: "Terminée",
+      },
+      pausedReason: {
+        user: "Mise en pause par vous",
+        time_budget: "En pause : budget de temps atteint",
+        token_budget: "En pause : budget de tokens atteint",
+      },
+      timeSpent: "{{spent}} sur {{limit}} min",
+      tokensSpent: "{{spent}} sur {{limit}} tokens",
+      pause: "Pause",
+      resume: "Reprendre",
+      stop: "Arrêter",
+      openLead: "Ouvrir le chat du chef",
+    },
+    findings: {
+      noRun: "Lancez une exécution pour voir les constats ici.",
+      empty: "Aucun constat pour l’instant.",
+      nothingFound: "Rien trouvé. L’exécution s’est terminée sans constat.",
+      severity: {
+        blocker: "Bloquant",
+        major: "Majeur",
+        minor: "Mineur",
+      },
+      status: {
+        new: "Nouveau",
+        triaged: "Trié",
+        dismissed: "Écarté",
+        fixed: "Corrigé",
+      },
+      reported: "Signalé {{count}} fois",
+      repro: "Reproduction",
+      evidence: "Preuve",
+      fixIt: "Corriger",
+      screenshotLoading: "Chargement de la capture…",
+      screenshotMissing: "La capture était trop volumineuse pour être conservée.",
+      action: {
+        triage: "Marquer comme trié",
+        dismiss: "Écarter",
+        fixed: "Marquer comme corrigé",
+        reopen: "Rouvrir",
+      },
+    },
+  },
   panels: {
     draft: {
       newAgent: "Nouvel agent",
