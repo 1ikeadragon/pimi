@@ -883,6 +883,42 @@ export async function createTasks({ file, pimi, getInventory, onChange = () => {
       const [checkout, repo] = await Promise.all([checkoutGitDir, repositories.get(item.root)]);
       return Boolean(checkout && checkout === repo);
     }
+    // Returns true when the stored item changed.
+    function syncItem(item, task) {
+      let changed = false;
+      const previous = item.pullRequest;
+      const current = workspace.pullRequest;
+      if (!item.workspaceId && current) {
+        item.workspaceId = workspace.id;
+        changed = true;
+      }
+      // Persist the link for Review, but never trust persisted checkout freshness.
+      if (current) {
+        const next = storedPullRequest(current, previous);
+        const changedLink = previous?.url !== next.url || previous?.state !== next.state;
+        if (changedLink || previous?.title !== next.title || previous?.mergedAt !== next.mergedAt) {
+          item.pullRequest = next;
+          if (changedLink) liveMerges.delete(item.id);
+          changed = true;
+        }
+      }
+      if (current?.state === "merged" && current.matchesCheckout) {
+        verifiedMerges.add(item.id);
+        if (observedMerge && !task.done && task.stage == null) liveMerges.add(item.id);
+      } else {
+        verifiedMerges.delete(item.id);
+      }
+      return changed;
+    }
+    function readyToComplete(task) {
+      return (
+        !task.done &&
+        task.stage == null &&
+        !running.has(task.id) &&
+        task.experiments.every((item) => verifiedMerges.has(item.id)) &&
+        task.experiments.some((item) => liveMerges.has(item.id))
+      );
+    }
     return update(
       async (draft) => {
         const completed = [];
@@ -893,41 +929,9 @@ export async function createTasks({ file, pimi, getInventory, onChange = () => {
             if (!candidate(item) || !(await matchesCheckout(item))) continue;
             if (observation !== workspaceObservation) return;
             relevant = true;
-            const previous = item.pullRequest;
-            const current = workspace.pullRequest;
-            if (!item.workspaceId && current) {
-              item.workspaceId = workspace.id;
-              changed = true;
-            }
-            // Persist the link for Review, but never trust persisted checkout freshness.
-            if (current) {
-              const next = storedPullRequest(current, previous);
-              const changedLink = previous?.url !== next.url || previous?.state !== next.state;
-              if (
-                changedLink ||
-                previous?.title !== next.title ||
-                previous?.mergedAt !== next.mergedAt
-              ) {
-                item.pullRequest = next;
-                if (changedLink) liveMerges.delete(item.id);
-                changed = true;
-              }
-            }
-            if (current?.state === "merged" && current.matchesCheckout) {
-              verifiedMerges.add(item.id);
-              if (observedMerge && !task.done && task.stage == null) liveMerges.add(item.id);
-            } else {
-              verifiedMerges.delete(item.id);
-            }
+            if (syncItem(item, task)) changed = true;
           }
-          if (
-            relevant &&
-            !task.done &&
-            task.stage == null &&
-            !running.has(task.id) &&
-            task.experiments.every((item) => verifiedMerges.has(item.id)) &&
-            task.experiments.some((item) => liveMerges.has(item.id))
-          ) {
+          if (relevant && readyToComplete(task)) {
             applyStage(task, "done");
             task.completedByPullRequest = true;
             completed.push({ id: task.id, title: task.title });

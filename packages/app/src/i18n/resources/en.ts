@@ -380,6 +380,18 @@ export const en = {
       slashPlaceholder: "Search slash commands...",
       slashEmpty: "Focus an agent chat to use its slash commands",
       searchingFiles: "Searching files...",
+      searchingChats: "Searching chats...",
+      chatsPlaceholder: "Search what was said in your chats",
+      chatsConnectHost: "Connect to a host to search chats",
+      chatSearchChip: "Chat search",
+      chatsSection: "Chats",
+      chatsInSection: "In chats",
+      untitledChat: "Untitled chat",
+      searchChatMessages: "Search chat messages",
+      chatsUnindexed_one:
+        "{{count}} chat is not indexed yet. Index older chats from the Sessions screen.",
+      chatsUnindexed_other:
+        "{{count}} chats are not indexed yet. Index older chats from the Sessions screen.",
       noMatches: "No matches",
       actions: "Actions",
       files: "Files",
@@ -599,6 +611,18 @@ export const en = {
     actions: {
       loadMore: "Load more",
       clearSearch: "Clear search",
+    },
+    messages: {
+      header: "Messages",
+      searching: "Searching messages…",
+      empty: "No messages match",
+      loadMore: "Load more messages",
+      indexing: "Indexing older chats: {{done}} of {{total}}",
+      unindexed_one: "{{count}} chat is not searchable yet.",
+      unindexed_other: "{{count}} chats are not searchable yet.",
+      indexOlder: "Index older chats ({{count}})",
+      untitledChat: "Untitled chat",
+      hostNotConnected: "Host is not connected",
     },
   },
   agentList: {

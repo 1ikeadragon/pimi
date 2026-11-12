@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
+import { i18n } from "@/i18n/i18next";
 
 export interface IndexRun {
   running: boolean;
@@ -24,7 +25,7 @@ async function readIndexRun(
   const states = await Promise.all(
     serverIds.map(async (serverId) => {
       const client = getHostRuntimeStore().getClient(serverId);
-      if (!client) throw new Error("Host is not connected");
+      if (!client) throw new Error(i18n.t("sessions.messages.hostNotConnected"));
       return await client.indexOlderChats(action);
     }),
   );

@@ -329,17 +329,17 @@ function modeSearchLoading(
 
 function searchingLabel(mode: PaletteMode, t: TFunction): string {
   if (mode === "code") return "Searching code";
-  if (mode === "chats") return "Searching chats";
+  if (mode === "chats") return t("shell.commandCenter.searchingChats");
   return t("shell.commandCenter.searchingFiles");
 }
 
 function formatChatSearchStatus(
   mode: PaletteMode,
   search: { unindexedChats: number; loading: boolean },
+  t: TFunction,
 ): string | null {
   if (mode !== "chats" || search.loading || search.unindexedChats === 0) return null;
-  const count = search.unindexedChats;
-  return `${count} ${count === 1 ? "chat is" : "chats are"} not indexed yet. Index older chats from the Sessions screen.`;
+  return t("shell.commandCenter.chatsUnindexed", { count: search.unindexedChats });
 }
 
 function formatCodeSearchStatus(
@@ -355,7 +355,7 @@ function formatCodeSearchStatus(
 function commandCenterPlaceholder(mode: PaletteMode, t: TFunction): string {
   switch (mode) {
     case "chats":
-      return "Search what was said in your chats";
+      return t("shell.commandCenter.chatsPlaceholder");
     case "code":
       return "Search code across this workspace";
     case "files":
@@ -372,7 +372,7 @@ function commandCenterPlaceholder(mode: PaletteMode, t: TFunction): string {
 function scopeChipLabel(scope: Exclude<CommandCenterScope, null>, t: TFunction): string {
   switch (scope) {
     case "chats":
-      return "Chat search";
+      return t("shell.commandCenter.chatSearchChip");
     case "code":
       return "Code search";
     case "files":
@@ -387,8 +387,8 @@ function emptyMessage(state: CommandCenterState, noMatches: string, t: TFunction
     return t("shell.commandCenter.slashEmpty");
   if (state.mode === "chats" && !state.searchText.trim()) {
     return state.chatSearchAvailable
-      ? "Search what was said in your chats"
-      : "Connect to a host to search chats";
+      ? t("shell.commandCenter.chatsPlaceholder")
+      : t("shell.commandCenter.chatsConnectHost");
   }
   if (state.mode !== "code" || state.searchText.trim()) return noMatches;
   return state.codeSearchAvailable
@@ -507,7 +507,10 @@ function useCommandCenterState(
         id: "chats",
         band: PINNED_SECTION_BAND,
         rank: mode === "chats" ? 4 : 5,
-        title: mode === "chats" ? "Chats" : "In chats",
+        title:
+          mode === "chats"
+            ? t("shell.commandCenter.chatsSection")
+            : t("shell.commandCenter.chatsInSection"),
         results: chatHits
           .slice(0, mode === "chats" ? undefined : 3)
           .map<CommandCenterChatResult>((hit, index) => ({
@@ -515,13 +518,13 @@ function useCommandCenterState(
             id: `chat:${hit.agentId}:${hit.seq}:${index}`,
             serverId: hit.serverId,
             hit,
-            title: hit.title ?? "Untitled chat",
+            title: hit.title ?? t("shell.commandCenter.untitledChat"),
             subtitle: hit.snippet.text,
             run: () => openChatHit(hit),
           })),
       },
     ],
-    [chatHits, mode, openChatHit],
+    [chatHits, mode, openChatHit, t],
   );
   const codeSearchResults = codeSearch.results;
   const openCodeResult = codeSearch.openResult;
@@ -588,7 +591,7 @@ function useCommandCenterState(
                   },
                   presentation: {
                     kind: "action" as const,
-                    title: "Search chat messages",
+                    title: t("shell.commandCenter.searchChatMessages"),
                     sectionTitle: t("shell.commandCenter.actions"),
                   },
                 },
@@ -772,7 +775,7 @@ function useCommandCenterState(
     chatSearchLoading: chatSearch.loading,
     chatSearchError: chatSearch.error,
     chatSearchAvailable: chatServerId !== null,
-    chatSearchStatus: formatChatSearchStatus(mode, chatSearch),
+    chatSearchStatus: formatChatSearchStatus(mode, chatSearch, t),
     close,
     select,
     key,

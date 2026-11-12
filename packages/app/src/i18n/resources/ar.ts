@@ -384,6 +384,18 @@ export const ar: TranslationResources = {
       slashPlaceholder: "Search slash commands...",
       slashEmpty: "Focus an agent chat to use its slash commands",
       searchingFiles: "جارٍ البحث في الملفات...",
+      searchingChats: "جارٍ البحث في الدردشات...",
+      chatsPlaceholder: "ابحث فيما قيل في دردشاتك",
+      chatsConnectHost: "اتصل بمضيف للبحث في الدردشات",
+      chatSearchChip: "البحث في الدردشات",
+      chatsSection: "الدردشات",
+      chatsInSection: "في الدردشات",
+      untitledChat: "دردشة بلا عنوان",
+      searchChatMessages: "البحث في رسائل الدردشة",
+      chatsUnindexed_one:
+        "عدد الدردشات التي لم تُفهرس بعد: {{count}}. افهرس الدردشات الأقدم من شاشة الجلسات.",
+      chatsUnindexed_other:
+        "عدد الدردشات التي لم تُفهرس بعد: {{count}}. افهرس الدردشات الأقدم من شاشة الجلسات.",
       noMatches: "لا توجد مباريات",
       actions: "الإجراءات",
       files: "الملفات",
@@ -603,6 +615,18 @@ export const ar: TranslationResources = {
     actions: {
       loadMore: "تحميل المزيد",
       clearSearch: "مسح البحث",
+    },
+    messages: {
+      header: "الرسائل",
+      searching: "جارٍ البحث في الرسائل…",
+      empty: "لا توجد رسائل مطابقة",
+      loadMore: "تحميل المزيد من الرسائل",
+      indexing: "فهرسة الدردشات الأقدم: {{done}} من {{total}}",
+      unindexed_one: "عدد الدردشات التي لا يمكن البحث فيها بعد: {{count}}.",
+      unindexed_other: "عدد الدردشات التي لا يمكن البحث فيها بعد: {{count}}.",
+      indexOlder: "فهرسة الدردشات الأقدم ({{count}})",
+      untitledChat: "دردشة بلا عنوان",
+      hostNotConnected: "المضيف غير متصل",
     },
   },
   agentList: {

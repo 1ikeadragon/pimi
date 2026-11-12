@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChatSearchHit, ChatSearchResponse } from "@pimi/protocol/chat-search";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
+import { i18n } from "@/i18n/i18next";
 
 const DEBOUNCE_MS = 200;
 const MIN_QUERY_LENGTH = 2;
@@ -40,7 +41,7 @@ async function searchHost(input: {
   cursor?: string;
 }): Promise<{ serverId: string; response: ChatSearchResponse }> {
   const client = getHostRuntimeStore().getClient(input.serverId);
-  if (!client) throw new Error("Host is not connected");
+  if (!client) throw new Error(i18n.t("sessions.messages.hostNotConnected"));
   const response = await client.searchChats({
     query: input.query,
     limit: input.limit,

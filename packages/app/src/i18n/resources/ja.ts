@@ -388,6 +388,18 @@ export const ja: TranslationResources = {
       slashPlaceholder: "Search slash commands...",
       slashEmpty: "Focus an agent chat to use its slash commands",
       searchingFiles: "ファイルを検索中...",
+      searchingChats: "チャットを検索中...",
+      chatsPlaceholder: "チャットでの発言を検索",
+      chatsConnectHost: "チャットを検索するにはホストに接続してください",
+      chatSearchChip: "チャット検索",
+      chatsSection: "チャット",
+      chatsInSection: "チャット内",
+      untitledChat: "無題のチャット",
+      searchChatMessages: "チャットメッセージを検索",
+      chatsUnindexed_one:
+        "{{count}}件のチャットがまだインデックスされていません。セッション画面で過去のチャットをインデックスしてください。",
+      chatsUnindexed_other:
+        "{{count}}件のチャットがまだインデックスされていません。セッション画面で過去のチャットをインデックスしてください。",
       noMatches: "一致なし",
       actions: "アクション",
       files: "ファイル",
@@ -611,6 +623,18 @@ export const ja: TranslationResources = {
     actions: {
       loadMore: "さらに読み込む",
       clearSearch: "検索をクリア",
+    },
+    messages: {
+      header: "メッセージ",
+      searching: "メッセージを検索中…",
+      empty: "一致するメッセージはありません",
+      loadMore: "さらにメッセージを読み込む",
+      indexing: "過去のチャットをインデックス中: {{done}} / {{total}}",
+      unindexed_one: "{{count}}件のチャットはまだ検索できません。",
+      unindexed_other: "{{count}}件のチャットはまだ検索できません。",
+      indexOlder: "過去のチャットをインデックス ({{count}})",
+      untitledChat: "無題のチャット",
+      hostNotConnected: "ホストに接続されていません",
     },
   },
   agentList: {

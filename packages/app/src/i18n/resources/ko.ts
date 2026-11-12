@@ -386,6 +386,18 @@ export const ko: TranslationResources = {
       slashPlaceholder: "Search slash commands...",
       slashEmpty: "Focus an agent chat to use its slash commands",
       searchingFiles: "파일 검색 중...",
+      searchingChats: "채팅 검색 중...",
+      chatsPlaceholder: "채팅에서 나눈 내용 검색",
+      chatsConnectHost: "채팅을 검색하려면 호스트에 연결하세요",
+      chatSearchChip: "채팅 검색",
+      chatsSection: "채팅",
+      chatsInSection: "채팅 내",
+      untitledChat: "제목 없는 채팅",
+      searchChatMessages: "채팅 메시지 검색",
+      chatsUnindexed_one:
+        "채팅 {{count}}개가 아직 색인되지 않았습니다. 세션 화면에서 이전 채팅을 색인하세요.",
+      chatsUnindexed_other:
+        "채팅 {{count}}개가 아직 색인되지 않았습니다. 세션 화면에서 이전 채팅을 색인하세요.",
       noMatches: "일치 항목 없음",
       actions: "작업",
       files: "파일",
@@ -606,6 +618,18 @@ export const ko: TranslationResources = {
     actions: {
       loadMore: "더 불러오기",
       clearSearch: "검색 지우기",
+    },
+    messages: {
+      header: "메시지",
+      searching: "메시지 검색 중…",
+      empty: "일치하는 메시지가 없습니다",
+      loadMore: "메시지 더 불러오기",
+      indexing: "이전 채팅 색인 중: {{done}} / {{total}}",
+      unindexed_one: "채팅 {{count}}개는 아직 검색할 수 없습니다.",
+      unindexed_other: "채팅 {{count}}개는 아직 검색할 수 없습니다.",
+      indexOlder: "이전 채팅 색인 ({{count}})",
+      untitledChat: "제목 없는 채팅",
+      hostNotConnected: "호스트가 연결되어 있지 않습니다",
     },
   },
   agentList: {

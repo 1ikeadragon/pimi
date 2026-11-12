@@ -109,6 +109,38 @@ async function standaloneAppearance(file) {
   };
 }
 
+async function loadWatchedRoots(watchState, roots) {
+  try {
+    const stored = JSON.parse(await readFile(watchState, "utf8"));
+    if (
+      !Array.isArray(stored) ||
+      !stored.every((path) => typeof path === "string" && isAbsolute(path))
+    ) {
+      throw new Error("Invalid watched repository list.");
+    }
+    for (const path of stored) if (!roots.includes(path)) roots.push(path);
+  } catch (error) {
+    if (error.code !== "ENOENT")
+      console.error("Could not load watched repositories:", error.message);
+  }
+}
+
+function cardPullRequest(pr) {
+  return {
+    prUrl: pr?.state === "open" ? pr.url : undefined,
+    pullRequest: pr && { url: pr.url, state: pr.state },
+  };
+}
+
+function cardTaskLinks(links, worktree, workspace) {
+  return links
+    .filter(
+      ({ root, workspaceId }) =>
+        root === worktree.root && (!workspaceId || !workspace || workspaceId === workspace.id),
+    )
+    .map(({ id, title }) => ({ id, title }));
+}
+
 export async function startPimi({
   paths = [],
   port = 0,
@@ -129,21 +161,7 @@ export async function startPimi({
   let address;
   let origin;
   const roots = [...new Set(await Promise.all(paths.map(repository)))];
-  if (watchState) {
-    try {
-      const stored = JSON.parse(await readFile(watchState, "utf8"));
-      if (
-        !Array.isArray(stored) ||
-        !stored.every((path) => typeof path === "string" && isAbsolute(path))
-      ) {
-        throw new Error("Invalid watched repository list.");
-      }
-      for (const path of stored) if (!roots.includes(path)) roots.push(path);
-    } catch (error) {
-      if (error.code !== "ENOENT")
-        console.error("Could not load watched repositories:", error.message);
-    }
-  }
+  if (watchState) await loadWatchedRoots(watchState, roots);
   let saveTask = Promise.resolve();
   const eventClients = new Set();
   const labelListeners = new Set();
@@ -474,7 +492,6 @@ export async function startPimi({
           const discovered = registered || (watched.has(worktree.root) && !worktree.unavailable);
           if (!discovered) return null;
           const facts = await factsFor(worktree, linked.get(worktree.path));
-          const pr = workspace?.pullRequest;
           for (const agent of agents) trackedAgents.add(agent.id);
           return Object.assign(facts, {
             name: workspace?.name || worktree.branch,
@@ -486,15 +503,8 @@ export async function startPimi({
               ...labelsAt(workspaceLabels, workspace?.id),
               ...labelsAt(checkoutLabels, worktree.path),
             ],
-            prUrl: workspace?.pullRequest?.state === "open" ? workspace.pullRequest.url : undefined,
-            pullRequest: pr && { url: pr.url, state: pr.state },
-            taskLinks: (taskLinks.get(worktree.path) ?? [])
-              .filter(
-                ({ root, workspaceId }) =>
-                  root === worktree.root &&
-                  (!workspaceId || !workspace || workspaceId === workspace.id),
-              )
-              .map(({ id, title }) => ({ id, title })),
+            ...cardPullRequest(workspace?.pullRequest),
+            taskLinks: cardTaskLinks(taskLinks.get(worktree.path) ?? [], worktree, workspace),
             previews: workspace?.previews,
           });
         }),

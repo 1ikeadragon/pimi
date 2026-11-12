@@ -116,7 +116,7 @@ export function createPimiConnection(settingsSource = {}) {
     return {
       url: pr.url,
       title: pr.title,
-      state: pr.isMerged ? "merged" : pr.state.toLowerCase() === "open" ? "open" : "closed",
+      state: pullRequestState(pr),
       mergedAt: pr.mergedAt,
       matchesCheckout: Boolean(
         pr.headSha &&
@@ -127,6 +127,11 @@ export function createPimiConnection(settingsSource = {}) {
         (git.behindOfOrigin === 0 || git.behindOfOrigin == null),
       ),
     };
+  }
+
+  function pullRequestState(pr) {
+    if (pr.isMerged) return "merged";
+    return pr.state.toLowerCase() === "open" ? "open" : "closed";
   }
 
   const workspaceView = (workspace) => ({
@@ -171,22 +176,13 @@ export function createPimiConnection(settingsSource = {}) {
     const pullRequestTransitions = new Map();
     const initialWorkspaceChanges = new Set();
     let initialized = false;
-    function observeReview(id, workspace, live = false) {
-      const previous = reviewStates.get(id);
-      if (!workspace) {
-        reviewStates.delete(id);
-        if (live && previous?.reviewable) changed({ activity: "review" });
-        return;
-      }
-      const git = workspace.gitRuntime;
-      if (workspace.projectKind !== "git" || typeof git?.isDirty !== "boolean") return;
-      const pr = workspacePullRequest(workspace);
-      const prStatus = pr && workspace.githubRuntime.pullRequest;
-      const stats = workspace.diffStat;
-      const reviewable = Boolean(
+    function isReviewable(git, stats, pr) {
+      return Boolean(
         git.isDirty || git.aheadBehind?.ahead || stats?.additions || stats?.deletions || pr,
       );
-      const fingerprint = JSON.stringify([
+    }
+    function reviewFingerprint(git, stats, prStatus) {
+      return JSON.stringify([
         git.currentBranch,
         git.headSha,
         git.isDirty,
@@ -199,6 +195,21 @@ export function createPimiConnection(settingsSource = {}) {
         prStatus?.checksStatus,
         prStatus?.reviewDecision,
       ]);
+    }
+    function observeReview(id, workspace, live = false) {
+      const previous = reviewStates.get(id);
+      if (!workspace) {
+        reviewStates.delete(id);
+        if (live && previous?.reviewable) changed({ activity: "review" });
+        return;
+      }
+      const git = workspace.gitRuntime;
+      if (workspace.projectKind !== "git" || typeof git?.isDirty !== "boolean") return;
+      const pr = workspacePullRequest(workspace);
+      const prStatus = pr && workspace.githubRuntime.pullRequest;
+      const stats = workspace.diffStat;
+      const reviewable = isReviewable(git, stats, pr);
+      const fingerprint = reviewFingerprint(git, stats, prStatus);
       reviewStates.set(id, { fingerprint, reviewable });
       if (live && (reviewable || previous?.reviewable) && previous?.fingerprint !== fingerprint) {
         // A checkout with no baseline may have just finished loading its first Git status.
@@ -293,44 +304,49 @@ export function createPimiConnection(settingsSource = {}) {
         if (message.type === "checkout_status_update") changed({ path: message.payload.cwd });
       },
     });
+    const loadActiveAgents = async () => {
+      const { entries } = await client.agents.list({
+        scope: "active",
+        page: { limit: 200 },
+        subscribe: {},
+      });
+      for (const { agent } of entries) {
+        if (!agents.has(agent.id))
+          agents.set(agent.id, directoryObservation(agentView(agent), agentWork));
+      }
+    };
+    const observeInitialWorkspace = (entry) => {
+      if (initialWorkspaceChanges.has(entry.id)) return;
+      const workspace = workspaceView(entry);
+      observeReview(entry.id, entry);
+      observe(
+        workspaces,
+        entry.id,
+        workspace,
+        observePullRequest(entry.id, workspace, false),
+        workspaceWork,
+      );
+    };
+    // Stops paging as soon as a reconnect replaces this client: the check sits
+    // after each awaited page because cachedClient changes while we wait.
+    const loadWorkspacePages = async () => {
+      let page = await client.workspaces.list({ page: { limit: 200 }, subscribe: {} });
+      const cursors = new Set();
+      for (;;) {
+        if (client !== cachedClient) return;
+        page.entries.forEach(observeInitialWorkspace);
+        const cursor = page.pageInfo.nextCursor;
+        if (!cursor || cursors.has(cursor)) return;
+        cursors.add(cursor);
+        page = await client.workspaces.list({ page: { limit: 200, cursor } });
+      }
+    };
     const subscriptions = await Promise.allSettled([
-      client.agents
-        .list({ scope: "active", page: { limit: 200 }, subscribe: {} })
-        .then(({ entries }) => {
-          for (const { agent } of entries) {
-            if (!agents.has(agent.id))
-              agents.set(agent.id, directoryObservation(agentView(agent), agentWork));
-          }
-        }),
-      client.workspaces
-        .list({ page: { limit: 200 }, subscribe: {} })
-        .then(async (first) => {
-          let page = first;
-          const cursors = new Set();
-          while (client === cachedClient) {
-            for (const entry of page.entries) {
-              if (!initialWorkspaceChanges.has(entry.id)) {
-                const workspace = workspaceView(entry);
-                observeReview(entry.id, entry);
-                observe(
-                  workspaces,
-                  entry.id,
-                  workspace,
-                  observePullRequest(entry.id, workspace, false),
-                  workspaceWork,
-                );
-              }
-            }
-            const cursor = page.pageInfo.nextCursor;
-            if (!cursor || cursors.has(cursor)) break;
-            cursors.add(cursor);
-            page = await client.workspaces.list({ page: { limit: 200, cursor } });
-          }
-        })
-        .finally(() => {
-          initialized = true;
-          initialWorkspaceChanges.clear();
-        }),
+      loadActiveAgents(),
+      loadWorkspacePages().finally(() => {
+        initialized = true;
+        initialWorkspaceChanges.clear();
+      }),
       gitEvents.ready,
       labelEvents,
     ]);
@@ -494,11 +510,11 @@ export function createPimiConnection(settingsSource = {}) {
     let workspace = workspaceId ? client.workspaces.ref(workspaceId) : null;
     if (workspace) await workspace.refresh();
     if (!workspace?.directory) {
-      const directory = join(workspaceRoot, "pimi-voice-chats");
-      await mkdir(directory, { recursive: true, mode: 0o700 });
+      const voiceDirectory = join(workspaceRoot, "pimi-voice-chats");
+      await mkdir(voiceDirectory, { recursive: true, mode: 0o700 });
       workspace = await client.workspaces.create({
         title: "Ask Pimi chats",
-        source: { kind: "directory", path: directory },
+        source: { kind: "directory", path: voiceDirectory },
       });
     }
     const activeAgent = agentId ? (await client.agents.ref(agentId).refresh())?.agent : null;

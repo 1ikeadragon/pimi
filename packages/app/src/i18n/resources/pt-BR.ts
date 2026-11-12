@@ -387,6 +387,18 @@ export const ptBR: TranslationResources = {
       slashPlaceholder: "Search slash commands...",
       slashEmpty: "Focus an agent chat to use its slash commands",
       searchingFiles: "Pesquisando arquivos...",
+      searchingChats: "Pesquisando chats...",
+      chatsPlaceholder: "Pesquise o que foi dito nos seus chats",
+      chatsConnectHost: "Conecte-se a um host para pesquisar chats",
+      chatSearchChip: "Pesquisa de chats",
+      chatsSection: "Chats",
+      chatsInSection: "Nos chats",
+      untitledChat: "Chat sem título",
+      searchChatMessages: "Pesquisar mensagens de chat",
+      chatsUnindexed_one:
+        "{{count}} chat ainda não foi indexado. Indexe os chats antigos na tela Sessões.",
+      chatsUnindexed_other:
+        "{{count}} chats ainda não foram indexados. Indexe os chats antigos na tela Sessões.",
       noMatches: "Nenhuma correspondência",
       actions: "Ações",
       files: "Arquivos",
@@ -609,6 +621,18 @@ export const ptBR: TranslationResources = {
     actions: {
       loadMore: "Carregar mais",
       clearSearch: "Limpar busca",
+    },
+    messages: {
+      header: "Mensagens",
+      searching: "Pesquisando mensagens…",
+      empty: "Nenhuma mensagem encontrada",
+      loadMore: "Carregar mais mensagens",
+      indexing: "Indexando chats antigos: {{done}} de {{total}}",
+      unindexed_one: "{{count}} chat ainda não pode ser pesquisado.",
+      unindexed_other: "{{count}} chats ainda não podem ser pesquisados.",
+      indexOlder: "Indexar chats antigos ({{count}})",
+      untitledChat: "Chat sem título",
+      hostNotConnected: "O host não está conectado",
     },
   },
   agentList: {

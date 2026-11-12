@@ -1,4 +1,5 @@
 import { useCallback, useMemo, type ReactElement } from "react";
+import { useTranslation } from "react-i18next";
 import { Text, View, type PressableStateCallbackType } from "react-native";
 import { StyleSheet, withUnistyles, type UnistylesThemes } from "react-native-unistyles";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ function ChatHitRow({ hit, query }: { hit: ChatContentHit; query: string }): Rea
     () => withUnistyles(providerIcon, providerIconMapping),
     [providerIcon],
   );
+  const { t } = useTranslation();
   const when = useTimeAgo(new Date(hit.timestamp));
   const open = useCallback(() => {
     navigateToAgent({
@@ -47,7 +49,7 @@ function ChatHitRow({ hit, query }: { hit: ChatContentHit; query: string }): Rea
       <View style={styles.rowTitle}>
         <ProviderIcon size={14} />
         <Text style={styles.title} numberOfLines={1}>
-          {hit.title ?? "Untitled chat"}
+          {hit.title ?? t("sessions.messages.untitledChat")}
         </Text>
         <Text style={styles.meta}>{when}</Text>
       </View>
@@ -67,6 +69,7 @@ export function ChatMessagesSection({
   query: string;
   serverIds: readonly string[];
 }): ReactElement | null {
+  const { t } = useTranslation();
   // A finished index run changes what a query finds; searching again picks that up.
   const finishedRuns = useIndexRunStore((state) => state.finished);
   const run = useIndexRunStore((state) => state.run);
@@ -82,36 +85,34 @@ export function ChatMessagesSection({
   const unindexed = search.unindexedChats;
   return (
     <View style={styles.section} testID="sessions-messages-section">
-      <Text style={styles.header}>Messages</Text>
+      <Text style={styles.header}>{t("sessions.messages.header")}</Text>
       {search.hits.map((hit) => (
         <ChatHitRow key={`${hit.serverId}:${hit.agentId}:${hit.seq}`} hit={hit} query={query} />
       ))}
-      {search.loading ? <Text style={styles.note}>Searching messages…</Text> : null}
+      {search.loading ? <Text style={styles.note}>{t("sessions.messages.searching")}</Text> : null}
       {!search.loading && search.hits.length === 0 ? (
         <Text style={styles.note} testID="sessions-messages-empty">
-          {search.error ?? "No messages match"}
+          {search.error ?? t("sessions.messages.empty")}
         </Text>
       ) : null}
       {search.hasMore ? (
         <View style={styles.footer}>
           <Button variant="ghost" onPress={search.loadMore} disabled={search.loading}>
-            Load more messages
+            {t("sessions.messages.loadMore")}
           </Button>
         </View>
       ) : null}
       {indexRun.run?.running ? (
         <Text style={styles.note} testID="sessions-index-progress">
-          {`Indexing older chats: ${indexRun.run.done} of ${indexRun.run.total}`}
+          {t("sessions.messages.indexing", { done: indexRun.run.done, total: indexRun.run.total })}
         </Text>
       ) : null}
       {indexRun.run?.error ? <Text style={styles.note}>{indexRun.run.error}</Text> : null}
       {unindexed > 0 && !indexRun.run?.running ? (
         <View style={styles.footer}>
-          <Text style={styles.note}>
-            {`${unindexed} ${unindexed === 1 ? "chat is" : "chats are"} not searchable yet.`}
-          </Text>
+          <Text style={styles.note}>{t("sessions.messages.unindexed", { count: unindexed })}</Text>
           <Button variant="ghost" onPress={indexRun.start} testID="sessions-index-older-chats">
-            {`Index older chats (${unindexed})`}
+            {t("sessions.messages.indexOlder", { count: unindexed })}
           </Button>
         </View>
       ) : null}

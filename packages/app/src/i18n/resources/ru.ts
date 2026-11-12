@@ -386,6 +386,18 @@ export const ru: TranslationResources = {
       slashPlaceholder: "Search slash commands...",
       slashEmpty: "Focus an agent chat to use its slash commands",
       searchingFiles: "Поиск файлов...",
+      searchingChats: "Поиск по чатам...",
+      chatsPlaceholder: "Искать по содержимому ваших чатов",
+      chatsConnectHost: "Подключитесь к хосту, чтобы искать по чатам",
+      chatSearchChip: "Поиск по чатам",
+      chatsSection: "Чаты",
+      chatsInSection: "В чатах",
+      untitledChat: "Чат без названия",
+      searchChatMessages: "Искать по сообщениям чатов",
+      chatsUnindexed_one:
+        "Ещё не проиндексировано чатов: {{count}}. Проиндексируйте старые чаты на экране «Сессии».",
+      chatsUnindexed_other:
+        "Ещё не проиндексировано чатов: {{count}}. Проиндексируйте старые чаты на экране «Сессии».",
       noMatches: "Нет совпадений",
       actions: "Действия",
       files: "Файлы",
@@ -608,6 +620,18 @@ export const ru: TranslationResources = {
     actions: {
       loadMore: "Загрузить ещё",
       clearSearch: "Очистить поиск",
+    },
+    messages: {
+      header: "Сообщения",
+      searching: "Поиск сообщений…",
+      empty: "Нет подходящих сообщений",
+      loadMore: "Загрузить ещё сообщения",
+      indexing: "Индексация старых чатов: {{done}} из {{total}}",
+      unindexed_one: "Чатов, недоступных для поиска: {{count}}.",
+      unindexed_other: "Чатов, недоступных для поиска: {{count}}.",
+      indexOlder: "Проиндексировать старые чаты ({{count}})",
+      untitledChat: "Чат без названия",
+      hostNotConnected: "Хост не подключён",
     },
   },
   agentList: {
