@@ -43,6 +43,7 @@ import {
   openPimiAgentGrid,
   PIMI_AGENT_GRID_ROUTE,
 } from "@/navigation/pimi-agent-grid";
+import { closePimiReview, openPimiReview, PIMI_REVIEW_ROUTE } from "@/navigation/pimi-review";
 import { closePimiUsage, openPimiUsage, PIMI_USAGE_ROUTE } from "@/navigation/pimi-usage";
 import { closePimiLibrary, PIMI_LIBRARY_ROUTE } from "@/navigation/pimi-library";
 import { SidebarHeaderRow, type SidebarRowIcon } from "./sidebar-header-row";
@@ -119,9 +120,10 @@ function usePimiSidebarActivity(section: ReturnType<typeof usePimiWorkspaceSecti
 function IdeSidebarNavigation({ close }: { close: () => void }) {
   const section = usePimiWorkspaceSection();
   const activity = usePimiSidebarActivity(section);
+  const inReview = usePathname() === PIMI_REVIEW_ROUTE;
   const openReview = useCallback(() => {
     close();
-    getDesktopHost()?.showPimiWorkspace?.({ view: "review-home" });
+    openPimiReview();
   }, [close]);
   return (
     <>
@@ -130,7 +132,7 @@ function IdeSidebarNavigation({ close }: { close: () => void }) {
         icon={FileDiff}
         label="Review"
         onPress={openReview}
-        active={section === "review"}
+        active={!section && inReview}
         unread={activity.review && section !== "review"}
       />
     </>
@@ -233,6 +235,7 @@ export function PimiWorkspaceNavigation({
   const pathname = usePathname();
   const inAgentGrid = pathname === PIMI_AGENT_GRID_ROUTE;
   const inUsage = pathname === PIMI_USAGE_ROUTE;
+  const inReview = pathname === PIMI_REVIEW_ROUTE;
   const inLibrary = pathname === PIMI_LIBRARY_ROUTE;
   const inAutomations = pathname === buildAutomationsRoute();
   const inHistory = pathname === buildSessionsRoute();
@@ -249,6 +252,7 @@ export function PimiWorkspaceNavigation({
     host?.dismissPimiWorkspace?.();
     if (inAgentGrid) closePimiAgentGrid();
     else if (inUsage) closePimiUsage();
+    else if (inReview) closePimiReview();
     else if (inLibrary) closePimiLibrary();
     else if ((inAutomations || inHistory || inProfiles) && !section) {
       if (router.canGoBack()) router.back();
@@ -261,6 +265,7 @@ export function PimiWorkspaceNavigation({
     inHistory,
     inLibrary,
     inProfiles,
+    inReview,
     inUsage,
     onNavigate,
     section,
@@ -284,8 +289,8 @@ export function PimiWorkspaceNavigation({
   }, [onNavigate, show]);
   const showReview = useCallback(() => {
     onNavigate?.();
-    show?.({ view: "review-home" });
-  }, [onNavigate, show]);
+    openPimiReview();
+  }, [onNavigate]);
   const showMemory = useCallback(() => {
     onNavigate?.();
     show?.({ view: "memory" });
@@ -304,6 +309,7 @@ export function PimiWorkspaceNavigation({
       !section &&
       !inAgentGrid &&
       !inUsage &&
+      !inReview &&
       !inAutomations &&
       !inHistory &&
       !inLibrary &&
@@ -334,7 +340,7 @@ export function PimiWorkspaceNavigation({
       label: "Review",
       icon: FileDiff,
       onPress: showReview,
-      active: section === "review",
+      active: !section && inReview,
       unread: unreadFor("review"),
     },
   ];
