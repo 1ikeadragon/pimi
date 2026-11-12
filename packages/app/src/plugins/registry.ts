@@ -128,6 +128,7 @@ export class PluginRegistry {
           commandCenterItems: [],
           clientSlashCommands: [],
           attachmentSources: [],
+          attachmentRenderers: [],
           themes: [],
           timelineTransformers: [],
           timelineRenderers: [],

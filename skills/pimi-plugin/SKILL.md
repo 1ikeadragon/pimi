@@ -1,6 +1,6 @@
 ---
 name: pimi-plugin
-description: Build and manage trusted local Pimi plugins. Use when the user asks to create, edit, install, reload, enable, disable, remove, or troubleshoot a Pimi plugin; add lifecycle hooks; transform agent configuration, environment, MCP servers, or workspace creation; automate permissions or turn follow-ups; add a screen, sidebar header or footer item, workspace panel, or file panel; add Command Center items or slash commands; add composer pills or attachment sources; transform, render, or append agent timeline items; contribute a theme; use Pimi from plugin code; or add plugin RPCs.
+description: Build and manage trusted local Pimi plugins. Use when the user asks to create, edit, install, reload, enable, disable, remove, or troubleshoot a Pimi plugin; add lifecycle hooks; transform agent configuration, environment, MCP servers, or workspace creation; automate permissions or turn follow-ups; add a screen, sidebar header or footer item, workspace panel, or file panel; add Command Center items or slash commands; add composer pills or attachment sources; read or edit the composer draft or its annotations; render composer attachments; transform, render, or append agent timeline items; contribute a theme; use Pimi from plugin code; or add plugin RPCs.
 ---
 
 # Pimi plugins
@@ -34,6 +34,8 @@ Pick the contribution that matches the request. Each row names the registration,
 | Timeline transformer    | `addTimelineTransformer` + `addTimelineRenderer`            | Replace, explode, or hide a built-in timeline item, including while it streams                                                                                                                                                  | reference.md → Timeline items; `plugin-examples/timeline-items`, `plugin-examples/inline-thinking`         |
 | Timeline row            | `pimi.agents.ref(id).timeline.append(...)`                  | Push a plugin-owned row into an agent timeline from a server handler and update it later                                                                                                                                        | reference.md → Append a timeline row from the daemon                                                       |
 | Attachment source       | `client.addAttachmentSource` + `server.handle`              | Let the user attach a searchable external resource, such as an issue, to a prompt                                                                                                                                               | reference.md → Add a composer attachment source; `plugin-examples/linear`                                  |
+| Composer draft access   | `client.composer`                                           | Read or edit the draft text, selection, and annotation attachments of the chat composer the user last used; `onKeyDown` for web and desktop key shortcuts                                                                       | reference.md → Composer draft access; `plugin-examples/annotation-chips`                                   |
+| Attachment renderer     | `client.addAttachmentRenderer`                              | Replace how a draft annotation draws in the composer (`kind: "annotation"` only); Pimi falls back to the default pill when it throws or the plugin is off                                                                       | reference.md → Attachment renderers; `plugin-examples/annotation-chips`                                    |
 | Theme                   | `addTheme`                                                  | A light or dark palette under Settings → Appearance                                                                                                                                                                             | reference.md → Contribute a theme; `plugin-examples/catppuccin`                                            |
 | Plugin RPC              | `defineRpc` + `server.handle` + `useRpc`                    | Daemon-side work that is not a normal Pimi operation: vendor APIs, credentials, local files                                                                                                                                     | reference.md → Add plugin-specific backend behavior                                                        |
 | Plugin subscription     | `defineSubscription` + `server.handle` + `useSubscription`  | A daemon handler that pushes events while a surface listens: watchers, tails, live media; a top-level `Uint8Array` rides as binary                                                                                              | reference.md → Stream events from the daemon; `plugin-examples/diff-watch`, `plugin-examples/media-stream` |
@@ -486,6 +488,21 @@ export default function contribute(client: PluginClientContext) {
 ```
 
 Return complete text snapshots. Pimi owns the composer menu, picker, pills, drafts, and submission. Credentials and vendor calls stay in the daemon handler.
+
+## Read the composer and render annotations
+
+Requires Pimi 0.17.31 or later; set `"requirements": { "pimi": ">=0.17.31" }`. `client.composer.active()` returns the chat composer the user last used on the plugin's host, or `null`. It has `getText`, `getSelection`, `replaceText`, `insertText`, `setSelection`, `focus`, `subscribe`, `onKeyDown`, and `attachments` (`list`, `add`, `remove`, `update`, `subscribe`). Only annotations are visible through `attachments`. `onKeyDown` fires on web and desktop only.
+
+`client.addAttachmentRenderer({ kind: "annotation", Component })` replaces the default pill. The component gets `attachment`, `composer`, `openSource()`, `disabled`, and the usual `theme`, `host`, `layout`, and owns remove and editing itself. Pimi falls back to the default pill when it throws or the plugin is disabled. Start from `plugin-examples/annotation-chips`.
+
+```ts
+const composer = client.composer.active();
+composer?.insertText("See the quoted lines. ");
+const last = composer?.attachments.list().at(-1);
+if (last) composer?.attachments.remove(last.id);
+```
+
+Inline chips inside the text field are not part of this API: the composer is a plain text field with an attachment tray above it.
 
 ## Add a client slash command
 

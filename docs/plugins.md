@@ -1,7 +1,7 @@
 # Plugins
 
 Local plugins contribute daemon RPCs, native app surfaces, workspace panels, Command Center items,
-client slash commands, timeline items, header buttons, composer pills, app themes, composer attachment sources, and settings screens.
+client slash commands, timeline items, header buttons, composer pills, app themes, composer attachment sources, composer draft access, attachment renderers, and settings screens.
 Pimi executes `index.server.ts` in a subprocess and `index.client.tsx` in every connected app.
 
 > **Trust every plugin you add.** `pimi plugin add` and `pimi plugin install` mean “I trust this codebase.” Plugins are unsandboxed: server code and preparation commands run with the daemon user's access on the daemon host, and client contributions run inside Pimi. The repository's dependencies and future updates are part of that trust decision. With `--host`, preparation runs on that remote daemon host.
@@ -732,6 +732,46 @@ Attachment sources stay scoped to the composer's host. Unlike sidebar contributi
 on several hosts are not coalesced. The selected snapshot submits as a text attachment with neutral
 external-resource presentation, so it remains readable if the plugin is removed.
 
+## Read the composer and render its attachments
+
+`client.composer` reaches the draft of the chat composer the user last used on the plugin's host.
+`client.addAttachmentRenderer({ kind: "annotation", Component })` replaces how a draft annotation
+draws. The author contract lives in the
+[public reference](../public-docs/plugins/reference.md#composer-draft-access); the example is
+`plugin-examples/annotation-chips`. Source: `packages/app/src/plugins/composer/` and
+`packages/app/src/plugins/attachments/renderer.tsx`.
+
+- **The composer owns the draft.** `usePluginComposerBinding` in `Composer` lends the mounted
+  composer to a module-level `composerRegistry` as a `ComposerController`. The controller's
+  `surface` is reassigned on every render, so plugin calls act on current props. It holds no draft
+  state, and text and attachment edits go through the same `onChangeText` and `onChangeAttachments`
+  the UI uses. That keeps drafts, the forge auto-attach, and persistence identical for plugin and
+  user edits.
+- **"Active" is the last composer the user used that is still mounted.** The agent chat and the
+  new-agent draft register; terminal-mode composers do not. A plugin sees composers of its own host
+  only, because its `pimi` client and RPCs are bound to that host. A plugin button elsewhere in the
+  window therefore still finds the chat it was used from.
+- **Annotations are the only attachment kind exposed.** Image bytes, uploaded files, forge items,
+  and workspace context have no stable ID or are not plain data. Add a kind by extending
+  `PluginComposerAttachment`, `toPluginAttachment`, and the `ATTACHMENT_RENDERER_KINDS` set in
+  `evaluate.ts`; do not widen it to `unknown`.
+- **Removal and updates go through functional updaters by ID.** Never splice by index: two plugin
+  calls in one tick would hit stale indices. `list()` reads the last render's `attachments`, so an
+  `add` followed by `remove` of its ID in the same tick returns `false`.
+- **Renderers fall back, they do not stack.** The first installed plugin on the host (stable catalog
+  order) with an `annotation` renderer draws every annotation. A throwing renderer or a disabled
+  plugin shows the default pill and hover card; the error boundary resets when the attachment or
+  installation changes. Renderers mount like timeline renderers: installation, state, and theme
+  providers, `SurfaceErrorBoundary`, and `host`, `layout`, `theme` props.
+- **Key handlers run after an open autocomplete and before sent-message recall.** They use the
+  composer's existing `onKeyPress` path, which only exists on web and desktop. Native has no
+  hardware key events there, so `onKeyDown` never fires.
+- **Out of scope: inline chips.** The composer is a plain text field with an attachment tray above
+  it. Chips inside the text would need a rich editor model: a document tree where an annotation is
+  an inline node, a mapping between that tree and the plain text the agent receives, caret and
+  selection that skip atomic nodes, IME and paste handling, and a draft format that stores the
+  tree. The text API's offsets would then name positions in that model.
+
 ## Contribute settings
 
 Register ordinary components with `client.addSettingsScreen` and open them with `openSettings`.
@@ -771,5 +811,5 @@ preference instead of painting the reserved slot's placeholder colors.
 Existing plugin authors should follow the standalone [v0.8 runtime-entry migration guide](../public-docs/plugins/migration.md).
 
 See `plugin-examples/local-plugin` for a native surface, `plugin-examples/linear` for a complete
-attachment-source example, `plugin-examples/timeline-items` for timeline projection, and
+attachment-source example, `plugin-examples/annotation-chips` for composer access and an attachment renderer, `plugin-examples/timeline-items` for timeline projection, and
 `plugin-examples/catppuccin` for a theme.

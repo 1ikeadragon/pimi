@@ -15,6 +15,7 @@ import type {
   PluginSidebarItemContribution as SDKPluginSidebarItemContribution,
   PluginScreenContribution as SDKPluginScreenContribution,
   PluginSettingsScreenContribution as SDKPluginSettingsScreenContribution,
+  PluginAttachmentRendererContribution,
   PluginTimelineRendererContribution,
   PluginTimelineTransformerContribution,
   PluginPanelLocation,
@@ -52,6 +53,7 @@ export interface EvaluatedPlugin {
   commandCenterItems: PluginCommandCenterItemContribution[];
   clientSlashCommands: PluginClientSlashCommandContribution[];
   attachmentSources: PluginAttachmentSourceContribution[];
+  attachmentRenderers: PluginAttachmentRendererContribution[];
   themes: PluginThemeContribution[];
   timelineTransformers: PluginTimelineTransformerContribution[];
   timelineRenderers: PluginTimelineRendererContribution[];
@@ -77,6 +79,7 @@ export interface InstalledPlugin extends EvaluatedPlugin {
 export type {
   PluginFilePanelContribution,
   PluginAttachmentSourceContribution,
+  PluginAttachmentRendererContribution,
   PluginCommandCenterItemContribution,
   PluginClientSlashCommandContribution,
   PluginComposerPillContribution,

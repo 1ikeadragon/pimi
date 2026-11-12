@@ -1925,6 +1925,120 @@ For pills that follow the agent directory, use an explicit [owned list subscript
 The [local plugin example](https://github.com/1ikeadragon/pimi/blob/main/plugin-examples/local-plugin/client/main.tsx)
 replaces registrations on each snapshot and aborts the observation during entry cleanup, including pending bootstrap.
 
+## Composer draft access
+
+Requires Pimi 0.17.31 or later. `client.composer` reads and edits the draft of the chat composer the
+user last used on the plugin's host: an agent's chat or a new-agent draft. Terminal composers are
+not included.
+
+```ts
+const composer = client.composer.active(); // PluginComposer | null
+const stop = client.composer.subscribe(() => {
+  /* active() now returns a different composer */
+});
+```
+
+`active()` returns `null` when no chat composer is mounted on this host. Pimi keeps returning the last
+composer the user used while it stays mounted, so a plugin button elsewhere in the window still finds it.
+
+| Member                                    | Behavior                                                                                  |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `kind`, `workspaceId`, `agentId`          | `"agent"` or `"draft"`. `agentId` is `null` for a new-agent draft.                        |
+| `getText()`, `getSelection()`             | The live text and the `{ start, end }` UTF-16 offsets of the caret or selection.          |
+| `replaceText(text, selection?)`           | Replaces the whole draft. The caret goes to the end unless `selection` is given.          |
+| `insertText(text)`                        | Replaces the selection, or inserts at the caret, and leaves the caret after the new text. |
+| `setSelection({ start, end })`, `focus()` | Offsets are clamped to the text.                                                          |
+| `subscribe(listener)`                     | Runs after the text or selection changes. Read the new values from the handle.            |
+| `onKeyDown(handler)`                      | See [Keys](#composer-keys).                                                               |
+| `attachments`                             | See [Draft attachments](#draft-attachments).                                              |
+
+Every subscription returns a function that stops it, and Pimi stops what is left when the plugin
+unloads. Calls that change the draft throw once the plugin has stopped.
+
+### Draft attachments
+
+`composer.attachments` exposes the draft's annotations. Images, files, forge items, and workspace
+context stay private to Pimi. Switch on `kind` so a future kind does not break your code.
+
+```ts
+const { attachments } = composer;
+attachments.list(); // readonly PluginComposerAttachment[]
+attachments.add({
+  kind: "annotation",
+  quote: "return a + b;",
+  note: "check the sum",
+  source: {
+    kind: "file",
+    workspaceId,
+    path: "src/math.ts",
+    startLine: 2,
+    startColumn: 3,
+    endLine: 2,
+    endColumn: 16,
+  },
+});
+attachments.update(id, { note: "check the sum" }); // false when the ID is unknown
+attachments.remove(id); // false when the ID is unknown
+attachments.subscribe(() => render(attachments.list()));
+```
+
+An annotation has `id`, `quote`, `note`, and a `source`: a file range (`workspaceId`, `path`, 1-based
+lines and columns, `endColumn` one past the last character) or a chat message (`agentId`, `messageId`,
+`role`). `list()` returns the same array until the contents change, so it works as a
+`useSyncExternalStore` snapshot. `add` throws when the quote or note is longer than Pimi's annotation
+limit. `update` changes `quote` and `note` only. Reads reflect the last render, so an `add` and a
+`remove` of the new ID in the same tick returns `false`.
+
+### Composer keys {#composer-keys}
+
+`composer.onKeyDown(handler)` calls `handler(event)` for each key pressed in the text field, after an open
+autocomplete has claimed its own keys. `event` has `key` (the DOM `KeyboardEvent.key`), `hasModifier`,
+`text`, `selection`, and `preventDefault()`. Calling `preventDefault()` consumes the key. Key events exist
+on web and desktop only; on native the handler never runs.
+
+## Attachment renderers
+
+Requires Pimi 0.17.31 or later. `client.addAttachmentRenderer({ kind, Component })` replaces how the
+composer draws a draft attachment of one kind. Only `"annotation"` is available. One plugin
+draws a kind: when several plugins register it, the first in stable catalog order wins.
+
+```tsx
+import type {
+  PluginAnnotationAttachment,
+  PluginAttachmentRendererProps,
+} from "@pimi/plugin/client";
+import { Pressable, Text } from "react-native";
+
+function Chip({
+  attachment,
+  composer,
+  openSource,
+}: PluginAttachmentRendererProps<PluginAnnotationAttachment>) {
+  return (
+    <Pressable onPress={openSource} onLongPress={() => composer.attachments.remove(attachment.id)}>
+      <Text>{attachment.quote.slice(0, 24)}</Text>
+    </Pressable>
+  );
+}
+
+export default function contribute(client: PluginClientContext) {
+  return client.addAttachmentRenderer({ kind: "annotation", Component: Chip });
+}
+```
+
+The component replaces the default pill and its hover card, so it owns remove and any editing.
+Props are `attachment`, `index`, `composer` (the handle for the composer holding it), `disabled` (the
+composer is submitting), `openSource()` (goes to the annotated file or chat text, and does nothing on
+compact layouts and native), plus `theme`, `host`, and `layout`. Pimi mounts it like a timeline
+renderer, under the plugin's runtime providers and an error boundary. When the component throws, or
+the plugin is disabled or removed, Pimi shows the default pill. The renderer applies to attachments in
+the composer only; a sent message keeps its own annotation pill.
+
+The renderer works on every platform because it is React Native UI in the composer tray; the
+`onKeyDown` shortcut is the only web and desktop limit. See
+[`plugin-examples/annotation-chips`](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/annotation-chips),
+which pairs a chip renderer with Backspace-removes-the-newest-annotation.
+
 ## Button descriptor
 
 These contracts are exported from `@pimi/plugin/client`.

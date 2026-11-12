@@ -27,6 +27,7 @@ import type {
   EvaluatedPlugin,
   PluginSidebarSection,
   PluginAttachmentSourceContribution,
+  PluginAttachmentRendererContribution,
   PluginThemeContribution,
   PluginCommandCenterItemContribution,
   PluginClientSlashCommandContribution,
@@ -39,6 +40,7 @@ import { parsePluginThemeContribution } from "./themes";
 
 const CONTRIBUTION_ID = /^[a-z][a-z0-9-]*$/;
 const PANEL_LOCATIONS = ["workspace", "explorer"] as const;
+const ATTACHMENT_RENDERER_KINDS = new Set<string>(["annotation"]);
 const TIMELINE_ITEM_TYPES = new Set([
   "user_message",
   "assistant_message",
@@ -99,6 +101,7 @@ function requireScreenTitle(screenId: string, title: unknown): PluginScreenTitle
 export type PluginClientRuntime = Pick<
   PluginClientContext,
   | "i18n"
+  | "composer"
   | "playAudio"
   | "pimi"
   | "rpc"
@@ -125,6 +128,7 @@ export function runPluginClientBundle(
     commandCenterItems: [],
     clientSlashCommands: [],
     attachmentSources: [],
+    attachmentRenderers: [],
     themes: [],
     timelineTransformers: [],
     timelineRenderers: [],
@@ -140,6 +144,7 @@ export function runPluginClientBundle(
   const commandCenterItemIds = new Set<string>();
   const clientSlashCommandNames = new Set<string>();
   const attachmentSourceIds = new Set<string>();
+  const attachmentRendererKinds = new Set<string>();
   const themeIds = new Set<string>();
   const timelineTransformerIds = new Set<string>();
   const timelineRendererIds = new Set<string>();
@@ -404,6 +409,22 @@ export function runPluginClientBundle(
         () => attachmentSourceIds.delete(normalizedId),
       );
     },
+    addAttachmentRenderer(contribution: PluginAttachmentRendererContribution) {
+      const kind = contribution.kind;
+      if (!ATTACHMENT_RENDERER_KINDS.has(kind)) {
+        throw new Error(`Attachment renderer has invalid kind: ${String(kind)}`);
+      }
+      if (attachmentRendererKinds.has(kind)) {
+        throw new Error(`Duplicate attachment renderer: ${kind}`);
+      }
+      if (!isComponentType(contribution.Component)) {
+        throw new Error(`Attachment renderer ${kind} is not a component`);
+      }
+      attachmentRendererKinds.add(kind);
+      return register(collector.attachmentRenderers, { ...contribution }, () =>
+        attachmentRendererKinds.delete(kind),
+      );
+    },
     addTheme(contribution: PluginThemeContribution) {
       const normalizedId = requireId(contribution.id, "theme id");
       if (themeIds.has(normalizedId)) throw new Error(`Duplicate theme: ${normalizedId}`);
@@ -539,6 +560,7 @@ export function runPluginClientBundle(
     commandCenterItems: collector.commandCenterItems,
     clientSlashCommands: collector.clientSlashCommands,
     attachmentSources: collector.attachmentSources,
+    attachmentRenderers: collector.attachmentRenderers,
     themes: collector.themes,
     timelineTransformers: collector.timelineTransformers,
     timelineRenderers: collector.timelineRenderers,

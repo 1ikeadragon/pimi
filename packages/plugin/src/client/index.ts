@@ -101,3 +101,19 @@ export type { PluginI18n } from "./translations.js";
 export type { PluginText, PluginMessage, PluginTranslations } from "../text.js";
 
 export { useTabState } from "./tab.js";
+export type {
+  PluginAnnotationAttachment,
+  PluginAnnotationAttachmentInput,
+  PluginAnnotationAttachmentPatch,
+  PluginAnnotationSource,
+  PluginAttachmentRendererContribution,
+  PluginAttachmentRendererProps,
+  PluginComposer,
+  PluginComposerApi,
+  PluginComposerAttachment,
+  PluginComposerAttachmentInput,
+  PluginComposerAttachmentKind,
+  PluginComposerAttachments,
+  PluginComposerKeyEvent,
+  PluginComposerSelection,
+} from "./composer.js";

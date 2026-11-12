@@ -26,6 +26,7 @@ import type {
   PluginCleanup,
 } from "../contracts.js";
 import type { PluginIconProps, PluginSerializableIcon } from "../icons.js";
+import type { PluginAttachmentRendererContribution, PluginComposerApi } from "./composer.js";
 
 export interface PluginHostProps {
   theme: PluginTheme;
@@ -165,6 +166,8 @@ export interface PluginClientOpenPanelOptions extends PluginOpenPanelOptions {
 
 export interface PluginClientContext extends PluginCommandCapabilities {
   readonly i18n: import("./translations.js").PluginI18n;
+  /** Read and edit the draft of the composer the user is working in. */
+  readonly composer: PluginComposerApi;
   /** Play a base64-encoded audio file on this client; resolves when playback ends. */
   playAudio(source: { base64: string; mimeType: string }): Promise<void>;
   addSettingsScreen(contribution: PluginSettingsScreenContribution<PluginText>): PluginCleanup;
@@ -184,6 +187,7 @@ export interface PluginClientContext extends PluginCommandCapabilities {
     contribution: PluginComposerPillContribution<PluginText>,
   ): PluginButtonRegistration<PluginText>;
   addAttachmentSource(contribution: PluginAttachmentSourceContribution<PluginText>): PluginCleanup;
+  addAttachmentRenderer(contribution: PluginAttachmentRendererContribution): PluginCleanup;
   addTheme(contribution: PluginThemeContribution<PluginText>): PluginCleanup;
   addFilePanel(contribution: PluginFilePanelContribution<PluginText>): PluginCleanup;
   addTimelineTransformer<ItemType extends AgentTimelineItem["type"]>(

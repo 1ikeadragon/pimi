@@ -1,4 +1,3 @@
-import { AnnotationPill } from "@/annotations/pill";
 import { useHasWorkingSubagents } from "@/subagents/use-has-working-subagents";
 import {
   useComposerEditingSession,
@@ -184,7 +183,13 @@ import { ForgeBrandIcon } from "@/git/forge-icon";
 import { useComposerForgeAutoAttach } from "./forge-auto-attach";
 import { readClipboardImage } from "./clipboard-image";
 import { normalizeNativePastedImages, type NativePastedFile } from "./native-pasted-image";
-import { PluginResourceAttachmentPill, usePluginAttachmentPicker } from "@/plugins";
+import {
+  PluginAnnotationAttachment,
+  PluginResourceAttachmentPill,
+  usePluginAttachmentPicker,
+  usePluginComposerBinding,
+  type ComposerController,
+} from "@/plugins";
 import { SlashCommandCenterActions } from "@/command-center/slash-registration";
 import { resolveClientSlashCommand, type ClientSlashCommand } from "@/client-slash-commands";
 import {
@@ -371,6 +376,7 @@ interface PendingFileAttachment {
 
 interface RenderAttachmentTrayArgs {
   serverId: string;
+  pluginComposer: ComposerController;
   selectedAttachments: ComposerAttachment[];
   pendingFiles: PendingFileAttachment[];
   isComposerLocked: boolean;
@@ -390,6 +396,7 @@ interface RenderAttachmentTrayArgs {
 function renderAttachmentTray(args: RenderAttachmentTrayArgs): ReactElement | null {
   const {
     serverId,
+    pluginComposer,
     selectedAttachments,
     pendingFiles,
     isComposerLocked,
@@ -405,6 +412,7 @@ function renderAttachmentTray(args: RenderAttachmentTrayArgs): ReactElement | nu
       {selectedAttachments.map((attachment, index) =>
         renderComposerAttachmentPill({
           serverId,
+          pluginComposer,
           attachment,
           index,
           disabled: isComposerLocked,
@@ -479,6 +487,7 @@ function renderQueueTrack(args: RenderQueueTrackArgs): ReactElement | null {
 
 interface RenderComposerAttachmentPillArgs {
   serverId: string;
+  pluginComposer: ComposerController;
   attachment: ComposerAttachment;
   index: number;
   disabled: boolean;
@@ -493,8 +502,10 @@ function renderComposerAttachmentPill(args: RenderComposerAttachmentPillArgs): R
   const { attachment, index, disabled, onOpen, onRemove, labels } = args;
   if (attachment.kind === "annotation") {
     return (
-      <AnnotationPill
+      <PluginAnnotationAttachment
         key={attachment.id}
+        serverId={args.serverId}
+        controller={args.pluginComposer}
         attachment={attachment}
         disabled={disabled}
         index={index}
@@ -1602,6 +1613,34 @@ function ComposerContentImpl({
     [onChangeText],
   );
 
+  const { isActiveComposer } = useComposerKeyboardScope();
+  const pluginComposer = usePluginComposerBinding({
+    enabled: inputMode === "chat",
+    isActive: isActiveComposer,
+    identity: {
+      serverId,
+      workspaceId: workspaceId ?? null,
+      agentId: commandDraft ? null : agentId,
+      kind: commandDraft ? "draft" : "agent",
+    },
+    surface: {
+      getText: () => messageInputRef.current?.getText() ?? textSource.getSnapshot(),
+      getSelection: () => {
+        const snapshot = messageInputRef.current?.getInputSnapshot();
+        if (snapshot) return snapshot.selection;
+        const end = textSource.getSnapshot().length;
+        return { start: end, end };
+      },
+      replaceText: replaceUserInput,
+      setSelection: (selection) => messageInputRef.current?.setSelection(selection),
+      focus: () => messageInputRef.current?.focus(),
+      getAttachments: () => attachments,
+      updateAttachments: setSelectedAttachments,
+    },
+    textSource,
+    attachments,
+  });
+
   const runClientSlashCommand = useCallback(
     (command: ClientSlashCommand): boolean => {
       if (command.execution !== "immediate" || !onClientSlashCommand) {
@@ -2227,13 +2266,23 @@ function ComposerContentImpl({
   const handleCommandKeyPress = useCallback(
     (event: ComposerKeyPressEvent) => {
       if (autocompleteRef.current?.onKeyPress(event)) return true;
+      const pluginConsumed = pluginComposer.handleKey({
+        key: event.key,
+        hasModifier: event.hasModifier,
+        text: event.input.text,
+        selection: event.input.selection,
+      });
+      if (pluginConsumed) {
+        event.preventDefault();
+        return true;
+      }
       const recalled = recall.handleKeyPress(event, readLoadedSentMessages);
       if (recalled === null) return false;
       event.preventDefault();
       if (recalled.kind === "show") replaceUserInput(recalled.text);
       return true;
     },
-    [readLoadedSentMessages, recall, replaceUserInput],
+    [pluginComposer, readLoadedSentMessages, recall, replaceUserInput],
   );
 
   // An Up pressed ahead of an older page shows its message once the page arrives.
@@ -2486,8 +2535,9 @@ function ComposerContentImpl({
       } else {
         cursor.setState(selection.start);
       }
+      pluginComposer.notifyInput();
     },
-    [cursorPublication, cursor],
+    [cursorPublication, cursor, pluginComposer],
   );
 
   const handleFocusChange = useCallback(
@@ -2563,6 +2613,7 @@ function ComposerContentImpl({
     () =>
       renderAttachmentTray({
         serverId,
+        pluginComposer,
         selectedAttachments,
         pendingFiles,
         isComposerLocked,
@@ -2587,6 +2638,7 @@ function ComposerContentImpl({
       focusInput,
       isComposerLocked,
       serverId,
+      pluginComposer,
       selectedAttachments,
       pendingFiles,
       t,

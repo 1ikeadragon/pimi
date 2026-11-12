@@ -12,6 +12,7 @@ import { createPluginClientStateSource } from "./client-state/source";
 import type { PluginClientRuntime } from "./evaluate";
 import { createPluginNavigation } from "./navigation";
 import { pluginButtonStore } from "./buttons";
+import { getPluginComposerBridge } from "./composer/api";
 import type { InstalledPlugin } from "./types";
 
 export function createPluginClientRuntime(
@@ -26,6 +27,7 @@ export function createPluginClientRuntime(
   return {
     ...capabilities,
     i18n: installation.i18n,
+    composer: getPluginComposerBridge(installation).api,
     playAudio: createPlayAudio(audio, installation.lifetime.signal),
     hosts: createPluginHosts(getHostRuntimeStore(), installation.lifetime.signal),
     addComposerPill(contribution) {

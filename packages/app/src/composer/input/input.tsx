@@ -239,6 +239,7 @@ export interface MessageInputRef {
   getText: () => string;
   getInputSnapshot: () => ComposerInputSnapshot;
   replaceText: (text: string, selection?: { start: number; end: number }) => void;
+  setSelection: (selection: { start: number; end: number }) => void;
   runKeyboardAction: (action: MessageInputKeyboardActionKind) => boolean;
   /**
    * Web-only: return the underlying DOM element for focus assertions/retries.
@@ -1505,6 +1506,10 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
       getInputSnapshot: () =>
         getComposerInputSnapshot(textInputRef.current, valueRef.current, selectionRef.current),
       replaceText,
+      setSelection: (selection) => {
+        selectionRef.current = selection;
+        textInputRef.current?.setSelection(selection);
+      },
       runKeyboardAction: (action) =>
         runMessageInputKeyboardAction(action, {
           focusInput: () => textInputRef.current?.focus(),
