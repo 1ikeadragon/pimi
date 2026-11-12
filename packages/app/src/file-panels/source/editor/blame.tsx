@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
+import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import type { CheckoutBlameResult } from "@pimi/protocol/messages";
 import { Button } from "@/components/ui/button";
 import { useRetainedPanelActive } from "@/components/retained-panel";
@@ -11,7 +12,7 @@ import { useWorkspaceDirectory, useWorkspaceFields } from "@/stores/session-stor
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
 import type { FileEditorStatus } from "./model";
 
-const DEBOUNCE_MS = 80;
+const DEBOUNCE_MS = 150;
 
 const labels = {
   uncommitted: "Uncommitted line",
@@ -48,66 +49,14 @@ export function FileLineBlame({
     (workspace) => workspace.gitRuntime?.headSha,
   );
   const [retry, setRetry] = useState(0);
-  const query = useMemo(
-    () => ({ client, cwd, path, content, line, head, retry, status }),
-    [client, cwd, path, content, line, head, retry, status],
-  );
-  const [answer, setAnswer] = useState<{
-    query: object;
-    file: string;
-    result: CheckoutBlameResult;
-  } | null>(null);
-  const hash = useRef<{ content: string; value: Promise<string> } | null>(null);
   const enabled = mode === "editor" && visible && isWorkspaceFocused && status === "clean";
-
-  useEffect(() => {
-    if (!enabled || !client || !cwd) return;
-    const abort = new AbortController();
-    const file = `${cwd}\0${path}`;
-    const timer = setTimeout(() => {
-      // The server shares one whole-file blame per file, so concurrent requests are cheap.
-      void (async () => {
-        if (hash.current?.content !== content) {
-          hash.current = {
-            content,
-            value: hashContent(content),
-          };
-        }
-        const contentHash = await hash.current.value;
-        if (abort.signal.aborted) return;
-        const result = await client.getLineBlame({
-          cwd,
-          path,
-          line,
-          contentHash,
-          signal: abort.signal,
-        });
-        if (!abort.signal.aborted) setAnswer({ query, file, result });
-      })().catch(() => {
-        if (!abort.signal.aborted) {
-          setAnswer({ query, file, result: { status: "unavailable" } });
-        }
-      });
-    }, DEBOUNCE_MS);
-    return () => {
-      clearTimeout(timer);
-      abort.abort();
-    };
-  }, [enabled, client, cwd, path, content, line, query]);
-
+  const result = useLineBlame({ enabled, client, cwd, path, content, line, head, retry });
   const handleRetry = useCallback(() => setRetry((value) => value + 1), []);
   if (mode !== "editor") return null;
-  const result = answer?.query === query ? answer.result : null;
-  // Keep the previous line's label (dimmed) while the next one loads; never across files.
-  const shown = result ?? (answer?.file === `${cwd}\0${path}` ? answer.result : null);
-  const label = blameLabel(status, Boolean(client && cwd), shown);
+  const label = blameLabel(status, Boolean(client && cwd), result);
   return (
     <View style={[styles.row, !inline && styles.footer]} testID="file-editor-blame">
-      <Text
-        style={[styles.text, shown && !result && styles.stale]}
-        numberOfLines={1}
-        accessibilityLabel={label}
-      >
+      <Text style={styles.text} numberOfLines={1} accessibilityLabel={label}>
         {label}
       </Text>
       {status === "clean" && (result?.status === "unavailable" || result?.status === "stale") ? (
@@ -122,6 +71,69 @@ export function FileLineBlame({
       ) : null}
     </View>
   );
+}
+
+interface LineBlameInput {
+  enabled: boolean;
+  client: DaemonClient | null;
+  cwd: string | null;
+  path: string;
+  content: string;
+  line: number;
+  head: string | null | undefined;
+  retry: number;
+}
+
+/**
+ * Per-line results for the current file content and HEAD. Cursor moves read the cache
+ * synchronously, so a revisited line renders instantly and nothing refetches until the content
+ * or HEAD changes. An uncached line has no result until its fetch lands.
+ */
+function useLineBlame(input: LineBlameInput): CheckoutBlameResult | null {
+  const { enabled, client, cwd, path, content, line, head, retry } = input;
+  const cache = useRef<{
+    scope: string;
+    content: string;
+    lines: Map<number, CheckoutBlameResult>;
+  } | null>(null);
+  const hash = useRef<{ content: string; value: Promise<string> } | null>(null);
+  const [tick, setTick] = useState(0);
+  const refresh = useCallback(() => setTick((value) => value + 1), []);
+  const scope = `${cwd}\0${path}\0${head ?? ""}\0${retry}`;
+  if (cache.current?.scope !== scope || cache.current.content !== content) {
+    cache.current = { scope, content, lines: new Map() };
+  }
+  const cached = cache.current.lines.get(line) ?? null;
+  const needsFetch = enabled && Boolean(client && cwd) && cached === null;
+
+  useEffect(() => {
+    if (!needsFetch || !client || !cwd) return;
+    const abort = new AbortController();
+    const target = cache.current;
+    const store = (result: CheckoutBlameResult) => {
+      if (abort.signal.aborted || !target) return;
+      target.lines.set(line, result);
+      refresh();
+    };
+    const timer = setTimeout(() => {
+      // The server shares one whole-file blame per file, so concurrent requests are cheap.
+      void (async () => {
+        if (hash.current?.content !== content) {
+          hash.current = { content, value: hashContent(content) };
+        }
+        const contentHash = await hash.current.value;
+        if (abort.signal.aborted) return;
+        store(await client.getLineBlame({ cwd, path, line, contentHash, signal: abort.signal }));
+      })().catch(() => store({ status: "unavailable" }));
+    }, DEBOUNCE_MS);
+    return () => {
+      clearTimeout(timer);
+      abort.abort();
+    };
+  }, [needsFetch, client, cwd, path, content, line, scope, refresh]);
+
+  void tick;
+  return cached;
 }
 
 const styles = StyleSheet.create((theme) => ({
@@ -139,8 +151,11 @@ const styles = StyleSheet.create((theme) => ({
     borderTopColor: theme.colors.border,
     backgroundColor: theme.colors.surface0,
   },
-  stale: { opacity: 0.55 },
-  text: { flexShrink: 1, color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm },
+  text: {
+    flexShrink: 1,
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+  },
 }));
 
 async function hashContent(content: string): Promise<string> {
@@ -156,7 +171,10 @@ function blameLabel(
   if (status === "saving") return "Saving… · blame paused";
   if (status !== "clean") return "Unsaved changes · blame paused";
   if (!connected) return "Git blame unavailable";
-  if (!result) return "Loading Git blame…";
+  // Nothing (but a line-height placeholder) until this line is ready; no loading flash.
+  if (!result) return "\u00A0";
   if (result.status !== "committed") return labels[result.status];
-  return `${result.author} · ${new Date(result.authoredAt).toLocaleDateString()} · ${result.sha.slice(0, 8)} · ${result.summary}`;
+  return `${result.author} · ${new Date(
+    result.authoredAt,
+  ).toLocaleDateString()} · ${result.sha.slice(0, 8)} · ${result.summary}`;
 }
