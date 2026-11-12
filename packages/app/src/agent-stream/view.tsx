@@ -277,6 +277,11 @@ export interface AgentStreamViewProps {
   toast?: ToastApi | null;
   onOpenWorkspaceFile?: (request: WorkspaceFileOpenRequest) => void;
   readOnly?: boolean;
+  /**
+   * The agent whose image store holds this stream's images. Defaults to `agentId`; a provider
+   * subagent's stream id is not an agent, and its images live in the parent agent's store.
+   */
+  imageAgentId?: string;
   annotationsEnabled?: boolean;
   historyPagination?: {
     hasOlder: boolean;
@@ -393,6 +398,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       toast,
       onOpenWorkspaceFile,
       readOnly = false,
+      imageAgentId = agentId,
       annotationsEnabled = false,
       historyPagination,
     },
@@ -1052,7 +1058,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
             return renderAssistantMessageItem(layoutItem, item);
 
           case "assistant_images":
-            return <AgentImageRefsGrid client={client} agentId={agentId} refs={item.images} />;
+            return <AgentImageRefsGrid client={client} agentId={imageAgentId} refs={item.images} />;
 
           case "thought":
             return renderToolCallItem(layoutItem, item);
@@ -1109,6 +1115,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       },
       [
         agentId,
+        imageAgentId,
         client,
         renderUserMessageItem,
         renderAssistantMessageItem,
@@ -1517,6 +1524,7 @@ function agentStreamViewPropsEqual(
   const reasons: string[] = [];
   if (left.agentId !== right.agentId) reasons.push("agentId");
   if (left.serverId !== right.serverId) reasons.push("serverId");
+  if (left.imageAgentId !== right.imageAgentId) reasons.push("imageAgentId");
   reasons.push(...collectAgentScreenAgentDiffs(left.context, right.context));
   if (left.streamItems !== right.streamItems) reasons.push("streamItems");
   if (left.streamHead !== right.streamHead) reasons.push("streamHead");

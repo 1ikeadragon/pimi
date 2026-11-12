@@ -2052,7 +2052,7 @@ export class AgentManager {
         publishWhenReady: true,
       });
       for (const event of imported.providerSubagentEvents ?? []) {
-        const update = this.applyProviderSubagentEvent(agent.id, event);
+        const update = await this.applyProviderSubagentEvent(agent.id, event);
         if (update) this.dispatch({ type: "provider_subagent", event: update });
       }
       return agent;
@@ -4453,21 +4453,21 @@ export class AgentManager {
   }
 
   /**
-   * Applies a provider subagent event. A subagent's images are dropped: its panel has no image
-   * store to fetch them from, and `provider_images` is not an item a client accepts.
+   * Applies a provider subagent event. A subagent's images go into the PARENT agent's image
+   * store, so the panel fetches them with the parent agent id; `provider_images` itself is not an
+   * item a client accepts.
    */
-  private applyProviderSubagentEvent(
+  private async applyProviderSubagentEvent(
     agentId: string,
     event: Extract<AgentStreamEvent, { type: "provider_subagent" }>,
-  ): ReturnType<ProviderSubagentStore["apply"]> | null {
-    if (event.event.type === "timeline" && event.event.item.type === "provider_images") {
-      this.logger.warn(
-        { agentId, subagentId: event.event.id, images: event.event.item.images.length },
-        "Dropped images reported by a provider subagent",
-      );
-      return null;
+  ): Promise<ReturnType<ProviderSubagentStore["apply"]> | null> {
+    let input = event.event;
+    if (input.type === "timeline" && input.item.type === "provider_images") {
+      const item = await this.storeProviderImages(agentId, input.item);
+      if (!item) return null;
+      input = { ...input, item };
     }
-    return this.providerSubagents.apply(agentId, event.provider, event.event);
+    return this.providerSubagents.apply(agentId, event.provider, input);
   }
 
   /**
@@ -5237,7 +5237,7 @@ export class AgentManager {
     event: AgentStreamEvent,
   ): Promise<void> {
     if (event.type === "provider_subagent") {
-      const update = this.applyProviderSubagentEvent(agent.id, event);
+      const update = await this.applyProviderSubagentEvent(agent.id, event);
       if (update) this.dispatch({ type: "provider_subagent", event: update });
       return;
     }
@@ -5478,7 +5478,7 @@ export class AgentManager {
         block.timeline.map((event) => ({ item: event.item, timestamp: event.timestamp })),
       );
       for (const event of block.subagents) {
-        const update = this.applyProviderSubagentEvent(agentId, event);
+        const update = await this.applyProviderSubagentEvent(agentId, event);
         if (update) this.dispatch({ type: "provider_subagent", event: update });
       }
       if (!agent.session.hasOlderHistory?.()) this.timelineStore.setOlderAvailable(agentId, false);
@@ -5569,7 +5569,7 @@ export class AgentManager {
       }
     }
     for (const event of providerSubagentEvents) {
-      const update = this.applyProviderSubagentEvent(agent.id, event);
+      const update = await this.applyProviderSubagentEvent(agent.id, event);
       if (update && broadcast) {
         this.dispatch({ type: "provider_subagent", event: update });
       }
@@ -5642,7 +5642,7 @@ export class AgentManager {
     }> = [];
     const providerSubagentEvents: AgentManagerEvent[] = [];
     for (const event of historySubagentEvents) {
-      const update = this.applyProviderSubagentEvent(agent.id, event);
+      const update = await this.applyProviderSubagentEvent(agent.id, event);
       if (!update) continue;
       const managerEvent: AgentManagerEvent = { type: "provider_subagent", event: update };
       if (deferredBroadcast) {
