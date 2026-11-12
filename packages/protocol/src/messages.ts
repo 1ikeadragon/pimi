@@ -97,6 +97,30 @@ import {
   AutomationTriggerCheckResponseSchema,
 } from "./automation/rpc-schemas.js";
 import {
+  AttackRunStartRequestSchema,
+  AttackRunPauseRequestSchema,
+  AttackRunResumeRequestSchema,
+  AttackRunCancelRequestSchema,
+  AttackRunGetRequestSchema,
+  AttackRunListRequestSchema,
+  AttackFindingListRequestSchema,
+  AttackFindingGetRequestSchema,
+  AttackFindingUpdateRequestSchema,
+  AttackAuditRecordRequestSchema,
+  AttackRunStartResponseSchema,
+  AttackRunPauseResponseSchema,
+  AttackRunResumeResponseSchema,
+  AttackRunCancelResponseSchema,
+  AttackRunGetResponseSchema,
+  AttackRunListResponseSchema,
+  AttackFindingListResponseSchema,
+  AttackFindingGetResponseSchema,
+  AttackFindingUpdateResponseSchema,
+  AttackAuditRecordResponseSchema,
+  AttackRunChangedSchema,
+  AttackFindingChangedSchema,
+} from "./attack/rpc-schemas.js";
+import {
   HeartbeatCreateRequestSchema,
   HeartbeatCreateResponseSchema,
   HeartbeatUpdateRequestSchema,
@@ -3625,6 +3649,16 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   AutomationDraftRetryRequestSchema,
   AutomationDraftDismissRequestSchema,
   AutomationTriggerCheckRequestSchema,
+  AttackRunStartRequestSchema,
+  AttackRunPauseRequestSchema,
+  AttackRunResumeRequestSchema,
+  AttackRunCancelRequestSchema,
+  AttackRunGetRequestSchema,
+  AttackRunListRequestSchema,
+  AttackFindingListRequestSchema,
+  AttackFindingGetRequestSchema,
+  AttackFindingUpdateRequestSchema,
+  AttackAuditRecordRequestSchema,
   HeartbeatCreateRequestSchema,
   HeartbeatUpdateRequestSchema,
   HeartbeatDeleteRequestSchema,
@@ -7085,6 +7119,18 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   AutomationDraftRetryResponseSchema,
   AutomationDraftDismissResponseSchema,
   AutomationTriggerCheckResponseSchema,
+  AttackRunStartResponseSchema,
+  AttackRunPauseResponseSchema,
+  AttackRunResumeResponseSchema,
+  AttackRunCancelResponseSchema,
+  AttackRunGetResponseSchema,
+  AttackRunListResponseSchema,
+  AttackFindingListResponseSchema,
+  AttackFindingGetResponseSchema,
+  AttackFindingUpdateResponseSchema,
+  AttackAuditRecordResponseSchema,
+  AttackRunChangedSchema,
+  AttackFindingChangedSchema,
   HeartbeatCreateResponseSchema,
   HeartbeatUpdateResponseSchema,
   HeartbeatDeleteResponseSchema,
@@ -7338,6 +7384,28 @@ export type AutomationRunCancelRequest = z.infer<typeof AutomationRunCancelReque
 export type AutomationRunListRequest = z.infer<typeof AutomationRunListRequestSchema>;
 export type AutomationRunGetRequest = z.infer<typeof AutomationRunGetRequestSchema>;
 export type AutomationRunMarkReadRequest = z.infer<typeof AutomationRunMarkReadRequestSchema>;
+export type AttackRunStartResponse = z.infer<typeof AttackRunStartResponseSchema>;
+export type AttackRunPauseResponse = z.infer<typeof AttackRunPauseResponseSchema>;
+export type AttackRunResumeResponse = z.infer<typeof AttackRunResumeResponseSchema>;
+export type AttackRunCancelResponse = z.infer<typeof AttackRunCancelResponseSchema>;
+export type AttackRunGetResponse = z.infer<typeof AttackRunGetResponseSchema>;
+export type AttackRunListResponse = z.infer<typeof AttackRunListResponseSchema>;
+export type AttackFindingListResponse = z.infer<typeof AttackFindingListResponseSchema>;
+export type AttackFindingGetResponse = z.infer<typeof AttackFindingGetResponseSchema>;
+export type AttackFindingUpdateResponse = z.infer<typeof AttackFindingUpdateResponseSchema>;
+export type AttackAuditRecordResponse = z.infer<typeof AttackAuditRecordResponseSchema>;
+export type AttackRunChanged = z.infer<typeof AttackRunChangedSchema>;
+export type AttackFindingChanged = z.infer<typeof AttackFindingChangedSchema>;
+export type AttackRunStartRequest = z.infer<typeof AttackRunStartRequestSchema>;
+export type AttackRunPauseRequest = z.infer<typeof AttackRunPauseRequestSchema>;
+export type AttackRunResumeRequest = z.infer<typeof AttackRunResumeRequestSchema>;
+export type AttackRunCancelRequest = z.infer<typeof AttackRunCancelRequestSchema>;
+export type AttackRunGetRequest = z.infer<typeof AttackRunGetRequestSchema>;
+export type AttackRunListRequest = z.infer<typeof AttackRunListRequestSchema>;
+export type AttackFindingListRequest = z.infer<typeof AttackFindingListRequestSchema>;
+export type AttackFindingGetRequest = z.infer<typeof AttackFindingGetRequestSchema>;
+export type AttackFindingUpdateRequest = z.infer<typeof AttackFindingUpdateRequestSchema>;
+export type AttackAuditRecordRequest = z.infer<typeof AttackAuditRecordRequestSchema>;
 export type HeartbeatCreateRequest = z.infer<typeof HeartbeatCreateRequestSchema>;
 export type HeartbeatUpdateRequest = z.infer<typeof HeartbeatUpdateRequestSchema>;
 export type HeartbeatDeleteRequest = z.infer<typeof HeartbeatDeleteRequestSchema>;

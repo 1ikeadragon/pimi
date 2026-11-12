@@ -135,6 +135,8 @@ import {
 } from "../../worktree/commands.js";
 import { registerBrowserTools } from "../../browser-tools/tools.js";
 import type { BrowserToolsBroker } from "../../browser-tools/broker.js";
+import type { AttackService } from "../../attack/service.js";
+import { registerAttackTools } from "./attack-tools.js";
 import {
   PaseoToolInputError,
   type PaseoToolCatalog,
@@ -161,6 +163,7 @@ export interface PaseoToolHostDependencies {
   getDaemonTcpPort?: () => number | null;
   automationService?: AutomationService | null;
   heartbeatService?: HeartbeatService | null;
+  attackService?: AttackService | null;
   providerSnapshotManager: ProviderSnapshotManager;
   daemonConfigStore?: Pick<DaemonConfigStore, "get">;
   github?: ForgeService;
@@ -1465,8 +1468,19 @@ function createToolCatalog(
       broker: options.browserToolsBroker,
       callerAgentId,
       resolveCallerAgent,
+      attack: options.attackService,
     });
   }
+
+  registerAttackTools({
+    registerTool,
+    scope,
+    service: options.attackService,
+    callerAgentId,
+    browserToolsEnabled: options.browserToolsEnabled,
+    broker: options.browserToolsBroker,
+    resolveCallerAgent,
+  });
 
   registerTool(
     "list_hosts",

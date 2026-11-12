@@ -36,10 +36,12 @@ import type { ProjectRegistry, WorkspaceRegistry } from "./workspace-registry.js
 import type { ProjectUpdate } from "./workspace-reconciliation-service.js";
 import type { AutomationService } from "./automation/service.js";
 import type { HeartbeatService } from "./heartbeat/service.js";
+import type { AttackService } from "./attack/service.js";
 
 export interface AutomationServices {
   automationService: AutomationService;
   heartbeatService: HeartbeatService;
+  attackService: AttackService;
 }
 import type { CheckoutDiffManager, CheckoutDiffMetrics } from "./checkout-diff-manager.js";
 import type { DaemonConfigStore, MutableDaemonConfig } from "./daemon-config-store.js";
@@ -1590,6 +1592,7 @@ export class VoiceAssistantWebSocketServer {
       directorySync: this.directorySync,
       automationService: this.automationServices.automationService,
       heartbeatService: this.automationServices.heartbeatService,
+      attackService: this.automationServices.attackService,
       checkoutDiffManager: this.checkoutDiffManager,
       github: this.github,
       workspaceGitService: this.workspaceGitService,
