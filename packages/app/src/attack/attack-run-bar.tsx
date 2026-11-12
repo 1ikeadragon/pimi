@@ -1,7 +1,16 @@
 import { useCallback, useState } from "react";
 import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Pause, Play, Plus, ShieldAlert, Square, Swords, Wallet } from "lucide-react-native";
+import {
+  History,
+  Pause,
+  Play,
+  Plus,
+  ShieldAlert,
+  Square,
+  Swords,
+  Wallet,
+} from "lucide-react-native";
 import { StyleSheet } from "react-native-unistyles";
 import type { AttackRun } from "@pimi/protocol/attack/types";
 import { Button } from "@/components/ui/button";
@@ -34,11 +43,13 @@ export function AttackRunBar({
   run,
   serverId,
   onNewRun,
+  onHistory,
   findingsBadge,
 }: {
   run: AttackRun;
   serverId: string;
   onNewRun: () => void;
+  onHistory: () => void;
   /** Narrow windows: the findings count, which opens the findings overlay when pressed. */
   findingsBadge?: { count: number; open: boolean; onPress: () => void };
 }) {
@@ -123,6 +134,15 @@ export function AttackRunBar({
             {t("attack.run.findingsBadge", { count: findingsBadge.count })}
           </Button>
         ) : null}
+        <Button
+          size="sm"
+          variant="outline"
+          leftIcon={History}
+          onPress={onHistory}
+          testID="attack-history-button"
+        >
+          {t("attack.history.open")}
+        </Button>
         {run.status === "running" ? (
           <Button
             size="sm"

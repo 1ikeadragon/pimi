@@ -2371,6 +2371,41 @@ export const fr: TranslationResources = {
     archiveFinishedRetry: "Réessayer ({{failed}}/{{total}})",
   },
   attack: {
+    batchFix: {
+      selectOpen: "Sélectionner les ouverts",
+      fixSelected: "Corriger la sélection ({{count}})",
+      select: "Sélectionner",
+      selected: "Sélectionné",
+      openAgent: "Ouvrir l'agent de correction",
+      linked: "Agent de correction lancé",
+      state: {
+        queued: "Correction en file : attente d'une place libre (3 à la fois)",
+        starting: "Correction en démarrage : création d'un worktree",
+        working: "L'agent corrige dans son propre worktree",
+        finished: "L'agent a terminé : relisez, puis marquez le constat comme corrigé",
+        failed: "Échec de la correction",
+      },
+    },
+    history: {
+      open: "Historique",
+      back: "Retour",
+      title: "Exécutions ({{count}})",
+      compare: "Comparer",
+      pick: "Choisir",
+      picked: "Choisie",
+      pickHint:
+        "Ouvrez une exécution pour lire ses constats, ou choisissez-en deux et comparez-les.",
+      comparing: "{{older}} contre {{newer}}",
+      loading: "Chargement des constats...",
+      added: "Nouveaux dans l'exécution récente ({{count}})",
+      gone: "Seulement dans l'exécution ancienne ({{count}})",
+      still: "Dans les deux exécutions ({{count}})",
+      compareNote:
+        "Correspondance par route, catégorie et titre. Un constat reformulé par les agents apparaît comme un nouveau et un disparu. Ces comptes ne valent pas verdict de régression.",
+      viewing: "Exécution passée : {{target}}, {{started}}",
+      roles: "{{count}} rôles",
+      backToLatest: "Retour à la dernière exécution",
+    },
     mode: {
       label: "Attaque",
       accessibilityLabel: "Mode Attaque",

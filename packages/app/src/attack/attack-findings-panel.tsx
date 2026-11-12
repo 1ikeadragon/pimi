@@ -21,11 +21,12 @@ import {
   useAttackFindings,
   useAttackStore,
   useAttackSync,
-  useLatestAttackRun,
+  useViewedAttackRun,
 } from "./attack-store";
 import { formatClock, useAttackRuntimeMs } from "./use-attack-run-clock";
 import { useAttackRunAgents } from "./use-attack-run-agents";
-import { buildFixPrompt } from "./fix-prompt";
+import { buildFixPrompt, parseRunProvider } from "./fix-prompt";
+import { FixJobLine, queueBatchFix } from "./attack-batch-fix";
 import { AttackAuditPanel, useAttackAudit } from "./attack-audit-panel";
 import { FindingMergeMenu } from "./attack-finding-merge";
 import { AttackAnnotationResults } from "./attack-annotation-results";
@@ -73,7 +74,7 @@ export function AttackFindingsPanel() {
   const { t } = useTranslation();
   const { serverId, workspaceId } = usePaneContext();
   useAttackSync(serverId, workspaceId);
-  const run = useLatestAttackRun(serverId, workspaceId);
+  const run = useViewedAttackRun(serverId, workspaceId);
   const findings = useAttackFindings(serverId, run?.id ?? null);
   const active = run !== null && (run.status === "running" || run.status === "paused");
   const runAgents = useAttackRunAgents(serverId, run);
@@ -133,6 +134,75 @@ export function AttackFindingsPanel() {
   );
 }
 
+function useBatchSelection(run: AttackRun | null, findings: readonly Finding[]) {
+  const { serverId, workspaceId } = usePaneContext();
+  const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
+  const onToggleSelect = useCallback((findingId: string) => {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (!next.delete(findingId)) next.add(findingId);
+      return next;
+    });
+  }, []);
+  const onSelectOpen = useCallback(() => {
+    setSelected(new Set(findings.filter((item) => item.status === "new").map((item) => item.id)));
+  }, [findings]);
+  const onFixSelected = useCallback(() => {
+    if (!run) return;
+    queueBatchFix({
+      serverId,
+      workspaceId,
+      run,
+      findings: findings.filter((item) => selected.has(item.id)),
+    });
+    setSelected(new Set());
+  }, [findings, run, selected, serverId, workspaceId]);
+  return { selected, onToggleSelect, onSelectOpen, onFixSelected };
+}
+
+function findingsEmptyText(
+  t: (key: string) => string,
+  run: AttackRun | null,
+  count: number,
+  active: boolean,
+): string | null {
+  if (!run) return t("attack.findings.noRun");
+  if (count > 0) return null;
+  if (active) return t("attack.findings.running");
+  return run.status === "completed"
+    ? t("attack.findings.nothingFound")
+    : t("attack.findings.empty");
+}
+
+function BatchBar({
+  selectedCount,
+  onSelectOpen,
+  onFixSelected,
+}: {
+  selectedCount: number;
+  onSelectOpen: () => void;
+  onFixSelected: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <View style={styles.actions} testID="attack-batch-bar">
+      <Button size="sm" variant="outline" onPress={onSelectOpen} testID="attack-select-open">
+        {t("attack.batchFix.selectOpen")}
+      </Button>
+      <Button
+        size="sm"
+        variant="default"
+        leftIcon={Wrench}
+        onPress={onFixSelected}
+        disabled={selectedCount === 0}
+        testID="attack-fix-selected"
+      >
+        {t("attack.batchFix.fixSelected", { count: selectedCount })}
+      </Button>
+    </View>
+  );
+}
+
 function FindingsList({
   run,
   findings,
@@ -143,6 +213,10 @@ function FindingsList({
   agentCount: number;
 }) {
   const { t } = useTranslation();
+  const { selected, onToggleSelect, onSelectOpen, onFixSelected } = useBatchSelection(
+    run,
+    findings,
+  );
   const grouped = useMemo(() => {
     const bySeverity = new Map<FindingSeverity, Finding[]>();
     for (const finding of findings) {
@@ -157,14 +231,7 @@ function FindingsList({
   }, [findings]);
   const active = run !== null && (run.status === "running" || run.status === "paused");
   const runtimeMs = useAttackRuntimeMs(run ?? IDLE_RUN);
-  let empty: string | null = null;
-  if (!run) empty = t("attack.findings.noRun");
-  else if (findings.length === 0) {
-    if (active) empty = t("attack.findings.running");
-    else
-      empty =
-        run.status === "completed" ? t("attack.findings.nothingFound") : t("attack.findings.empty");
-  }
+  const empty = findingsEmptyText(t, run, findings.length, active);
   return (
     <ScrollView contentContainerStyle={styles.content} testID="attack-findings-panel">
       {run && !active ? (
@@ -175,6 +242,13 @@ function FindingsList({
         </Text>
       ) : null}
       {empty ? <Text style={styles.emptyText}>{empty}</Text> : null}
+      {run && findings.length > 0 ? (
+        <BatchBar
+          selectedCount={selected.size}
+          onSelectOpen={onSelectOpen}
+          onFixSelected={onFixSelected}
+        />
+      ) : null}
       {run && active && findings.length === 0 ? (
         <Text style={styles.metaText}>
           {t("attack.findings.runningMeta", { count: agentCount, elapsed: formatClock(runtimeMs) })}
@@ -190,7 +264,13 @@ function FindingsList({
                   {t(`attack.findings.severity.${severity}`)} · {list.length}
                 </Text>
                 {list.map((finding) => (
-                  <FindingCard key={finding.id} finding={finding} mergeTargets={findings} />
+                  <FindingCard
+                    key={finding.id}
+                    finding={finding}
+                    mergeTargets={findings}
+                    selected={selected.has(finding.id)}
+                    onToggleSelect={onToggleSelect}
+                  />
                 ))}
               </View>
             );
@@ -204,19 +284,24 @@ function FindingsList({
 function FindingCard({
   finding,
   mergeTargets,
+  selected,
+  onToggleSelect,
 }: {
   finding: Finding;
   mergeTargets: readonly Finding[];
+  selected: boolean;
+  onToggleSelect: (findingId: string) => void;
 }) {
   const { t } = useTranslation();
   const { serverId, workspaceId } = usePaneContext();
   const client = useHostRuntimeClient(serverId);
-  const run = useLatestAttackRun(serverId, workspaceId);
+  const run = useViewedAttackRun(serverId, workspaceId);
   const [open, setOpen] = useState(false);
   const [detail, setDetail] = useState<Finding | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const onSelect = useCallback(() => onToggleSelect(finding.id), [finding.id, onToggleSelect]);
   const onToggle = useCallback(() => {
     setOpen((value) => !value);
     if (open || detail || !client) return;
@@ -280,9 +365,7 @@ function FindingCard({
     setBusy(true);
     setError(null);
     try {
-      const slash = run.provider.indexOf("/");
-      const provider = slash === -1 ? run.provider : run.provider.slice(0, slash);
-      const model = slash === -1 ? undefined : run.provider.slice(slash + 1);
+      const { provider, model } = parseRunProvider(run.provider);
       const agent = await client.createAgent({
         provider,
         ...(model ? { model } : {}),
@@ -327,6 +410,17 @@ function FindingCard({
           </Text>
         </View>
       </PressHighlight>
+      <View style={styles.selectRow}>
+        <Button
+          size="sm"
+          variant={selected ? "default" : "ghost"}
+          onPress={onSelect}
+          testID="attack-select-finding"
+        >
+          {selected ? t("attack.batchFix.selected") : t("attack.batchFix.select")}
+        </Button>
+      </View>
+      <FixJobLine finding={finding} serverId={serverId} />
       {finding.annotationLabels.length > 0 ? (
         <View style={styles.chips} testID="attack-finding-annotations">
           {finding.annotationLabels.map((label) => (
@@ -579,6 +673,11 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: theme.spacing[2],
+  },
+  selectRow: {
+    flexDirection: "row",
+    paddingHorizontal: theme.spacing[3],
+    paddingBottom: theme.spacing[1],
   },
   errorText: {
     color: theme.colors.palette.red[300],

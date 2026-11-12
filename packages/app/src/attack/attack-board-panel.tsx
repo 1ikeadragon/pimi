@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { X } from "lucide-react-native";
-import { Text, useWindowDimensions, View } from "react-native";
+import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { StyleSheet } from "react-native-unistyles";
 import type { AttackRun } from "@pimi/protocol/attack/types";
@@ -13,7 +13,7 @@ import { useWorkspaceLayoutStore } from "@/stores/workspace-layout-store";
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
 import { AttackAgentFocus } from "./attack-agent-focus";
 import { AttackAgentGrid } from "./attack-agent-grid";
-import { AttackCompose, ATTACK_NARROW_WIDTH } from "./attack-compose";
+import { AttackCompose } from "./attack-compose";
 import { AttackRunBar } from "./attack-run-bar";
 import { AttackSubviewBar } from "./attack-subview-bar";
 import { useAttackDesktopLogForRun } from "./use-attack-desktop-log";
@@ -23,17 +23,16 @@ import { TerminalSubview } from "./subviews/terminal-subview";
 import { VisualizeSubview } from "./subviews/visualize-subview";
 import type { AttackSubviewProps } from "./subviews/types";
 import { AttackFindingsPanel } from "./attack-findings-panel";
+import { selectSubview, type AttackSubview, useAttackStore, useAttackSync } from "./attack-store";
 import {
-  selectSubview,
-  type AttackSubview,
-  useAttackFindings,
-  useAttackStore,
-  useAttackSync,
-  useLatestAttackRun,
-} from "./attack-store";
+  useAttackFocusActions,
+  useAttackHistoryView,
+  useFindingsOverlay,
+} from "./use-attack-board-state";
+import { useAttackBatchFixPump } from "./attack-batch-fix";
+import { AttackHistoricRun, AttackHistory } from "./attack-history";
 import { Button } from "@/components/ui/button";
 import { PressHighlight } from "@/components/ui/press-highlight";
-import { isWeb } from "@/constants/platform";
 import { useAttackRunAgents } from "./use-attack-run-agents";
 
 function isActive(run: AttackRun | null): boolean {
@@ -79,12 +78,78 @@ function useReleaseFinishedRunBrowsers(
   }, [activeRunId, browsersById, runs, serverId, workspaceId]);
 }
 
+// Only the chosen subview is mounted, so a hidden one runs no timers or polling.
+function renderSubview(subview: AttackSubview, props: AttackSubviewProps) {
+  if (subview === "terminal") return <TerminalSubview {...props} />;
+  if (subview === "browser") return <BrowserSubview {...props} />;
+  if (subview === "desktop") return <DesktopSubview {...props} />;
+  return <VisualizeSubview {...props} />;
+}
+
+function FindingsOverlay({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <>
+      <PressHighlight
+        onPress={onClose}
+        style={styles.backdrop}
+        accessibilityLabel={t("attack.findings.close")}
+        testID="attack-findings-backdrop"
+      >
+        <View />
+      </PressHighlight>
+      <View style={styles.drawer} testID="attack-findings-overlay">
+        <View style={styles.drawerHeader}>
+          <Text style={styles.drawerTitle}>{t("attack.panels.findings.label")}</Text>
+          <Button
+            size="sm"
+            variant="ghost"
+            leftIcon={X}
+            onPress={onClose}
+            accessibilityLabel={t("attack.findings.close")}
+            testID="attack-findings-close"
+          />
+        </View>
+        <View style={styles.drawerBody}>
+          <AttackFindingsPanel />
+        </View>
+      </View>
+    </>
+  );
+}
+
+function renderReadOnlyBody(
+  history: ReturnType<typeof useAttackHistoryView>,
+  serverId: string,
+  workspaceId: string,
+) {
+  if (history.historyOpen) {
+    return (
+      <AttackHistory
+        serverId={serverId}
+        workspaceId={workspaceId}
+        onClose={history.onCloseHistory}
+      />
+    );
+  }
+  if (!history.historicRun) return null;
+  return (
+    <AttackHistoricRun
+      run={history.historicRun}
+      onBackToLatest={history.onBackToLatest}
+      onHistory={history.onHistory}
+    />
+  );
+}
+
 export function AttackBoardPanel() {
   const { t } = useTranslation();
   const { serverId, workspaceId } = usePaneContext();
   useAttackSync(serverId, workspaceId);
-  const run = useLatestAttackRun(serverId, workspaceId);
+  useAttackBatchFixPump(serverId);
   const key = `${serverId}:${workspaceId}`;
+  const history = useAttackHistoryView(serverId, workspaceId);
+  const { run, viewed, historicRun, historyOpen } = history;
   const composingAfter = useAttackStore((state) => state.composingByWorkspace[key] ?? null);
   const rawFocus = useAttackStore((state) => state.focusByWorkspace[key] ?? null);
   const agents = useAttackRunAgents(serverId, run);
@@ -98,39 +163,10 @@ export function AttackBoardPanel() {
   useReleaseFinishedRunBrowsers(serverId, workspaceId, run);
   useAttackDesktopLogForRun(serverId, run);
 
-  const { width } = useWindowDimensions();
-  const narrow = width < ATTACK_NARROW_WIDTH;
-  const workspaceKey = buildWorkspaceTabPersistenceKey({ serverId, workspaceId });
-  // The findings pane gives its width back to the board in a narrow window; the run bar's count
-  // badge opens the same findings as an overlay.
-  useEffect(() => {
-    if (workspaceKey) {
-      useWorkspaceLayoutStore.getState().setAttackFindingsPaneHidden(workspaceKey, narrow);
-    }
-    if (!narrow) useAttackStore.getState().setFindingsOverlay(key, false);
-  }, [key, narrow, workspaceKey]);
-  const overlayOpen = useAttackStore(
-    (state) => narrow && state.findingsOverlayByWorkspace[key] === true,
-  );
-  const findingCount = useAttackFindings(serverId, run?.id ?? null).length;
-  const toggleOverlay = useCallback(() => {
-    const open = useAttackStore.getState().findingsOverlayByWorkspace[key] ?? false;
-    useAttackStore.getState().setFindingsOverlay(key, !open);
-  }, [key]);
-  const closeOverlay = useCallback(() => {
-    useAttackStore.getState().setFindingsOverlay(key, false);
-  }, [key]);
-  useEffect(() => {
-    if (!isWeb || !overlayOpen) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeOverlay();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [closeOverlay, overlayOpen]);
-  const findingsBadge = useMemo(
-    () => (narrow ? { count: findingCount, open: overlayOpen, onPress: toggleOverlay } : undefined),
-    [findingCount, narrow, overlayOpen, toggleOverlay],
+  const { narrow, overlayOpen, closeOverlay, findingsBadge } = useFindingsOverlay(
+    serverId,
+    workspaceId,
+    viewed?.id ?? null,
   );
   const active = isActive(run);
   const composing = run === null || (!active && composingAfter === run.id);
@@ -140,28 +176,7 @@ export function AttackBoardPanel() {
     () => agents.filter((item) => item.state === "working").length,
     [agents],
   );
-  const onFocus = useCallback(
-    (agentId: string) => {
-      if (run) useAttackStore.getState().setFocus(key, run.id, { agentId, view: "chat" });
-    },
-    [key, run],
-  );
-  const onView = useCallback(
-    (view: "chat" | "browser") => {
-      if (run && rawFocus) {
-        useAttackStore.getState().setFocus(key, run.id, { agentId: rawFocus.agentId, view });
-      }
-    },
-    [key, rawFocus, run],
-  );
-  const onBack = useCallback(() => {
-    if (run) useAttackStore.getState().setFocus(key, run.id, null);
-  }, [key, run]);
-  const onNewRun = useCallback(() => {
-    if (!run) return;
-    useAttackStore.getState().setFocus(key, run.id, null);
-    useAttackStore.getState().setComposing(key, run.id);
-  }, [key, run]);
+  const { onFocus, onView, onBack, onNewRun } = useAttackFocusActions(key, run, rawFocus);
 
   if (composing) {
     return (
@@ -175,13 +190,11 @@ export function AttackBoardPanel() {
   }
   if (!run) return null;
   let body;
-  if (subview !== "overview") {
-    const props: AttackSubviewProps = { serverId, workspaceId, run, agents, live: active };
-    // Only the chosen subview is mounted, so a hidden one runs no timers or polling.
-    if (subview === "terminal") body = <TerminalSubview {...props} />;
-    else if (subview === "browser") body = <BrowserSubview {...props} />;
-    else if (subview === "desktop") body = <DesktopSubview {...props} />;
-    else body = <VisualizeSubview {...props} />;
+  const readOnly = renderReadOnlyBody(history, serverId, workspaceId);
+  if (readOnly) {
+    body = readOnly;
+  } else if (subview !== "overview") {
+    body = renderSubview(subview, { serverId, workspaceId, run, agents, live: active });
   } else if (focus) {
     body = (
       <AttackAgentFocus
@@ -217,44 +230,20 @@ export function AttackBoardPanel() {
         run={run}
         serverId={serverId}
         onNewRun={onNewRun}
+        onHistory={history.onHistory}
         findingsBadge={findingsBadge}
       />
-      <AttackSubviewBar
-        run={run}
-        value={subview}
-        onChange={onSubview}
-        agentCount={agents.length}
-        workingCount={workingCount}
-      />
+      {historyOpen || historicRun ? null : (
+        <AttackSubviewBar
+          run={run}
+          value={subview}
+          onChange={onSubview}
+          agentCount={agents.length}
+          workingCount={workingCount}
+        />
+      )}
       {body}
-      {overlayOpen ? (
-        <>
-          <PressHighlight
-            onPress={closeOverlay}
-            style={styles.backdrop}
-            accessibilityLabel={t("attack.findings.close")}
-            testID="attack-findings-backdrop"
-          >
-            <View />
-          </PressHighlight>
-          <View style={styles.drawer} testID="attack-findings-overlay">
-            <View style={styles.drawerHeader}>
-              <Text style={styles.drawerTitle}>{t("attack.panels.findings.label")}</Text>
-              <Button
-                size="sm"
-                variant="ghost"
-                leftIcon={X}
-                onPress={closeOverlay}
-                accessibilityLabel={t("attack.findings.close")}
-                testID="attack-findings-close"
-              />
-            </View>
-            <View style={styles.drawerBody}>
-              <AttackFindingsPanel />
-            </View>
-          </View>
-        </>
-      ) : null}
+      {overlayOpen ? <FindingsOverlay onClose={closeOverlay} /> : null}
     </View>
   );
 }

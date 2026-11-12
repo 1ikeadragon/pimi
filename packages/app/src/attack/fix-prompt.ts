@@ -1,5 +1,12 @@
 import type { AttackRun, Finding } from "@pimi/protocol/attack/types";
 
+/** A run's provider is "provider" or "provider/model". */
+export function parseRunProvider(runProvider: string): { provider: string; model?: string } {
+  const slash = runProvider.indexOf("/");
+  if (slash === -1) return { provider: runProvider };
+  return { provider: runProvider.slice(0, slash), model: runProvider.slice(slash + 1) };
+}
+
 // The prompt "Fix it" seeds a normal agent with. Agent-facing text, so it is not translated.
 export function buildFixPrompt(run: AttackRun, finding: Finding): string {
   const evidence = finding.evidence

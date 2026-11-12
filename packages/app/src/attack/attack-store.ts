@@ -34,6 +34,18 @@ interface AttackStore {
   /** The board's body, by workspace key. Persisted; a different run resets it to overview. */
   subviewByWorkspace: Record<string, { runId: string; view: AttackSubview }>;
   setSubview: (workspaceKey: string, runId: string, view: AttackSubview) => void;
+  /**
+   * An older run the owner opened from History, by workspace key. `latestRunId` is the newest run
+   * at that moment: a newer run starting later takes the board back.
+   */
+  viewedRunByWorkspace: Record<string, { runId: string; latestRunId: string } | null>;
+  setViewedRun: (
+    workspaceKey: string,
+    viewed: { runId: string; latestRunId: string } | null,
+  ) => void;
+  /** Whether the board shows the run history list, by workspace key. */
+  historyOpenByWorkspace: Record<string, boolean>;
+  setHistoryOpen: (workspaceKey: string, open: boolean) => void;
   /** Set by "New run" so the board shows the launch form over a finished run's grid. */
   composingByWorkspace: Record<string, string | null>;
   /** The pre-flight target tab (a plain browser the owner annotates), by workspace key. */
@@ -74,6 +86,16 @@ export const useAttackStore = create<AttackStore>()(
       setSubview: (workspaceKey, runId, view) =>
         set((state) => ({
           subviewByWorkspace: { ...state.subviewByWorkspace, [workspaceKey]: { runId, view } },
+        })),
+      viewedRunByWorkspace: {},
+      setViewedRun: (workspaceKey, viewed) =>
+        set((state) => ({
+          viewedRunByWorkspace: { ...state.viewedRunByWorkspace, [workspaceKey]: viewed },
+        })),
+      historyOpenByWorkspace: {},
+      setHistoryOpen: (workspaceKey, open) =>
+        set((state) => ({
+          historyOpenByWorkspace: { ...state.historyOpenByWorkspace, [workspaceKey]: open },
         })),
       focusByWorkspace: {},
       composingByWorkspace: {},
@@ -184,7 +206,46 @@ export function useLatestAttackRun(serverId: string, workspaceId: string): Attac
   return useAttackStore((state) => selectLatestRun(state, serverId, workspaceId));
 }
 
+/** The run the panels show: the one opened from History, otherwise the newest. */
+export function selectViewedRun(
+  state: AttackStore,
+  serverId: string,
+  workspaceId: string,
+): AttackRun | null {
+  const latest = selectLatestRun(state, serverId, workspaceId);
+  const viewed = state.viewedRunByWorkspace[`${serverId}:${workspaceId}`];
+  if (latest && viewed && viewed.latestRunId === latest.id) {
+    const run = hostOf(state, serverId).runs[viewed.runId];
+    if (run && run.workspaceId === workspaceId) return run;
+  }
+  return latest;
+}
+
+export function useViewedAttackRun(serverId: string, workspaceId: string): AttackRun | null {
+  return useAttackStore((state) => selectViewedRun(state, serverId, workspaceId));
+}
+
 export function useAttackFindings(serverId: string, runId: string | null): Finding[] {
+  const client = useHostRuntimeClient(serverId);
+  const loaded = useAttackStore((state) =>
+    runId ? hostOf(state, serverId).findings[runId] !== undefined : true,
+  );
+  // An older run opened from History has no findings in the store until this first fetch.
+  useEffect(() => {
+    if (!client || !runId || loaded) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { findings } = await client.attackFindingList({ runId });
+        if (!cancelled) useAttackStore.getState().putFindings(serverId, runId, findings);
+      } catch {
+        // The panel shows what pushes bring; the next mount retries.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [client, loaded, runId, serverId]);
   const byId = useAttackStore((state) =>
     runId ? hostOf(state, serverId).findings[runId] : undefined,
   );
