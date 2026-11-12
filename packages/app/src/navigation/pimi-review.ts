@@ -1,5 +1,6 @@
 // Pimi. Apache-2.0.
 import { router, type Href } from "expo-router";
+import { getDesktopHost } from "@/desktop/host";
 import { buildOpenProjectRoute } from "@/utils/host-routes";
 import type { ReviewSource } from "@/review-screen/types";
 
@@ -80,6 +81,7 @@ export function parseReviewSource(params: ReviewRouteParams): ReviewSource | nul
 
 /** Open the inbox (no source) or a review. Pushing a source on top of the inbox lets Back return to it. */
 export function openPimiReview(source?: ReviewSource, serverId?: string): void {
+  getDesktopHost()?.dismissPimiWorkspace?.();
   let params: Record<string, string> = {};
   if (source) params = reviewSourceToParams(source);
   else if (serverId) params = { serverId };
