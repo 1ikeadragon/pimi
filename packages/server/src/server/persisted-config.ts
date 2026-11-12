@@ -164,13 +164,6 @@ const FeatureVoiceModeSchema = z
   })
   .strict();
 
-const FeatureWebUiSchema = z
-  .object({
-    enabled: z.boolean().optional(),
-    distDir: z.string().min(1).optional(),
-  })
-  .strict();
-
 const StructuredGenerationProviderConfigSchema = z
   .object({
     provider: z.string().min(1),
@@ -377,7 +370,6 @@ export const PersistedConfigSchema = z
       .object({
         dictation: FeatureDictationSchema.optional(),
         voiceMode: FeatureVoiceModeSchema.optional(),
-        webUi: FeatureWebUiSchema.optional(),
       })
       .strict()
       .optional(),

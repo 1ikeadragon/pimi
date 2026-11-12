@@ -257,7 +257,6 @@ import {
 } from "./local-credential.js";
 import { createLocalNetworkPairing } from "./local-network-pairing.js";
 import { PIMI_LOCAL_PAIRING_ROUTE, PimiLocalPairingRequest } from "@pimi/protocol/connection-offer";
-import { createWebUiMiddleware } from "./web-ui.js";
 import { WorkspaceAutoName } from "./workspace-auto-name.js";
 import { createGitMutationService } from "./session/git-mutation/git-mutation-service.js";
 import { workspaceIdsOnCheckout } from "./workspace-directory.js";
@@ -475,10 +474,6 @@ export interface PaseoDaemonConfig {
     publicBaseUrl: string | null;
     standaloneListen: string | null;
   };
-  webUi?: {
-    enabled: boolean;
-    distDir: string | null;
-  };
   appBaseUrl?: string;
   auth?: DaemonAuthConfig;
   openai?: PaseoOpenAIConfig;
@@ -554,17 +549,6 @@ async function reconcileManagedProcessLedger(
   if (reapResult.checked > 0 || reapResult.errors.length > 0) {
     logger.info(reapResult, "Managed helper process ledger reconciled");
   }
-}
-
-function mountWebUi(app: express.Application, config: PaseoDaemonConfig, logger: Logger): void {
-  app.use(
-    createWebUiMiddleware({
-      enabled: config.webUi?.enabled ?? false,
-      distDir: config.webUi?.distDir ?? null,
-      label: getHostName(),
-      logger,
-    }),
-  );
 }
 
 function resolveExpressTrustProxySetting(config: PaseoDaemonConfig): true | string[] {
@@ -862,12 +846,6 @@ export async function createPaseoDaemon(
     express.json(),
     createTerminalActivityRouteHandler(terminalManager),
   );
-
-  // Serve the bundled browser web UI when enabled. Mounted after service-proxy
-  // classification and host/CORS handling, but before daemon bearer auth, so
-  // static app files load without the daemon password while API/WebSocket calls
-  // remain protected.
-  mountWebUi(app, config, logger);
 
   let localCredential: string | null = null;
   const daemonAuth = { ...config.auth, localCredential: () => localCredential };
