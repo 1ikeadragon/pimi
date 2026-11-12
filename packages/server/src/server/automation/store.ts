@@ -100,6 +100,7 @@ export class AutomationStore {
         this.logger.warn({ err: error, path }, "Failed to migrate automation output node");
       }
     }
+    this.automations.invalidate();
   }
 
   runs(automationId: string): JsonRecordStore<AutomationRun> {

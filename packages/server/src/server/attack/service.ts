@@ -142,6 +142,8 @@ function withoutScreenshotBytes(finding: Finding): Finding {
   };
 }
 
+const PRUNE_INTERVAL_MS = 24 * 60 * 60_000;
+
 export class AttackService {
   private readonly store: AttackStore;
   private readonly logger: Logger;
@@ -155,6 +157,7 @@ export class AttackService {
   private tickTimer: ReturnType<typeof setInterval> | null = null;
   private unsubscribeAgents: (() => void) | null = null;
   private ticking = false;
+  private lastPruneAt = 0;
   // When a running run's agents all went idle, and how often its lead has been nudged since.
   private readonly stalls = new Map<string, { since: number; nudges: number }>();
   private readonly tokenWrites = new Map<string, Promise<unknown>>();
@@ -176,6 +179,7 @@ export class AttackService {
   }
 
   async start(): Promise<void> {
+    await this.pruneFinishedRuns();
     // The agents of a run that was live when the daemon went down are gone: show it as paused.
     // Its running stretch ends at the last write, so the time the daemon was down is not spent.
     for (const run of await this.store.listRuns()) {
@@ -809,10 +813,22 @@ export class AttackService {
     }
   }
 
+  // Once at start, then at most daily from the tick; a daemon can run for weeks.
+  private async pruneFinishedRuns(): Promise<void> {
+    this.lastPruneAt = Date.now();
+    try {
+      const removed = await this.store.pruneFinishedRuns(new Date());
+      if (removed.length > 0) this.logger.info({ removed }, "Pruned finished attack runs");
+    } catch (error) {
+      this.logger.warn({ err: error }, "Failed to prune finished attack runs");
+    }
+  }
+
   private async tick(): Promise<void> {
     if (this.ticking) return;
     this.ticking = true;
     try {
+      if (Date.now() - this.lastPruneAt > PRUNE_INTERVAL_MS) await this.pruneFinishedRuns();
       for (const run of await this.store.listRuns()) {
         if (run.status !== "running") continue;
         const live = this.liveSpent(run);

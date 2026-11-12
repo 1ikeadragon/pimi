@@ -84,7 +84,11 @@ $PIMI_HOME/
 └── push-tokens.json                     # Expo push notification tokens
 ```
 
-The `agents/{sanitized-cwd}/` directory name is derived from the agent's `cwd` by stripping the filesystem root and replacing path separators with `-` (Windows drive letters become a `C-` style prefix). Persistent server stores write atomically by writing a temp file in the target directory and then renaming it into place.
+The `agents/{sanitized-cwd}/` directory name is derived from the agent's `cwd` by stripping the filesystem root and replacing path separators with `-` (Windows drive letters become a `C-` style prefix). Persistent server stores write atomically by writing a temp file in the target directory and then renaming it into place. The temp file is fsynced before the rename and the directory after it (POSIX only), so a power loss leaves the old or the new file, never a partial one; this costs about 8 ms per write on an SSD against 0.6 ms without.
+
+`JsonRecordStore.list()` (automations, drafts, trigger state, runs, findings, heartbeats) and `AttackStore.listRuns()` read the directory once, then serve from memory. Writes through the store update the cache; code that edits those files any other way calls `invalidate()`. A cached listing is re-read after 60 seconds, so an outside edit shows up within a minute.
+
+Unbounded receipt directories are pruned lazily, at most once a day, on the first use after the daemon starts: `creations/` and `agent-requests/` drop receipts (and the `.claim` files whose receipt is gone) untouched for 30 days, plus orphaned `.tmp` files older than a day. Finished attack runs go once they are older than 90 days and outside the newest 25 finished runs; a running or paused run is never removed.
 
 Project memory follows the registered workspace's project ID. Worktrees and providers in the same project share it. Hosts and separately registered projects have their own notes, even when they point to the same Git remote. With agent tools enabled, ask an agent to remember or forget a named note. Agents can recall notes when they need prior project context. Recalled notes can be sent to the current provider as tool results, so keep secrets out of project memory.
 

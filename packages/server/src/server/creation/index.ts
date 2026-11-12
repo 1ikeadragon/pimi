@@ -1,6 +1,6 @@
 import type { Logger } from "pino";
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import {
@@ -10,6 +10,7 @@ import {
   type WorkspaceDescriptorPayload,
 } from "@pimi/protocol/messages";
 import { writeFileAtomic } from "../atomic-file.js";
+import { listStaleFiles } from "../stale-files.js";
 import { generateWorkspaceId } from "../workspace-registry-model.js";
 
 type Observer = (snapshot: CreationSnapshot) => void;
@@ -46,12 +47,19 @@ const RecordSchema = z.object({
 });
 type Record = z.infer<typeof RecordSchema>;
 
+// A creation receipt (and the id claims it owns) only has to outlive client retries of the same
+// idempotency key: reconnects and offline queues, hours to days. 30 days leaves a wide margin.
+// Without it the directory gains about 2.4 files per agent forever.
+const CREATION_RETENTION_MS = 30 * 24 * 60 * 60_000;
+const PRUNE_INTERVAL_MS = 24 * 60 * 60_000;
+
 /** Owns creation across socket lifetimes. Resource owners perform work; this module commits its milestones. */
 export class CreationService {
   private admission: Promise<unknown> = Promise.resolve();
   private readonly active = new Map<string, Promise<CreationSnapshot>>();
   private readonly receiptOperations = new Map<string, Promise<void>>();
   private readonly observers = new Map<string, Set<Observer>>();
+  private lastPruneAt = 0;
   constructor(
     private readonly directory: string,
     private readonly logger: Logger,
@@ -64,6 +72,7 @@ export class CreationService {
     const identity = identityFor(input.kind, input.key);
     const admitted = this.admission.then(async () => {
       await mkdir(this.directory, { recursive: true });
+      await this.pruneIfDue();
       const fingerprint = digest(input.request);
       let record = await this.read(identity);
       if (record && record.fingerprint !== fingerprint)
@@ -118,6 +127,46 @@ export class CreationService {
     } finally {
       unsubscribe();
     }
+  }
+
+  // Lazy and inside admission, so it never races a claim; a daemon that creates nothing has
+  // nothing growing. A failed prune is logged and does not block the creation.
+  private async pruneIfDue(): Promise<void> {
+    if (Date.now() - this.lastPruneAt <= PRUNE_INTERVAL_MS) return;
+    this.lastPruneAt = Date.now();
+    try {
+      const removed = await this.prune(Date.now());
+      if (removed > 0) this.logger.info({ removed }, "Pruned old creation receipts");
+    } catch (err) {
+      this.logger.warn({ err }, "Failed to prune creation receipts");
+    }
+  }
+
+  // Deletes receipts untouched for CREATION_RETENTION_MS, except one that is running, then the
+  // claims whose receipt is gone. A claim whose receipt still exists stays however old it is.
+  async prune(now: number): Promise<number> {
+    let removed = 0;
+    const stale = await listStaleFiles(this.directory, CREATION_RETENTION_MS, now);
+    for (const file of stale) {
+      if (file.temp) {
+        await rm(file.path, { force: true });
+        removed += 1;
+      } else if (file.name.endsWith(".json")) {
+        const identity = file.name.slice(0, -".json".length);
+        if (this.active.has(identity)) continue;
+        await this.accessReceipt(identity, () => rm(file.path, { force: true }));
+        removed += 1;
+      }
+    }
+    for (const file of stale) {
+      if (!file.name.endsWith(".claim")) continue;
+      const owner = await readOptional(file.path);
+      if (owner === null) continue;
+      if ((await readOptional(join(this.directory, `${owner}.json`))) !== null) continue;
+      await rm(file.path, { force: true });
+      removed += 1;
+    }
+    return removed;
   }
 
   async subscribe(

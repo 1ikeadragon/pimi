@@ -11,8 +11,14 @@ interface JsonRecordStoreOptions<T extends { id: string }> {
   label: string;
 }
 
+// A cached listing is re-read from disk at most this often, so a hand edit or a copy made outside
+// this process shows up within a minute. Writes from this process update the cache immediately.
+const LIST_REVALIDATE_MS = 60_000;
+
 // One JSON file per record in a private (0700) directory. Updates to one record are
-// serialized; a file that does not parse is reported once and skipped.
+// serialized; a file that does not parse is reported once and skipped. list() serves a cache
+// filled by one directory scan and kept current by this store's own writes; callers that change
+// files behind the store's back call invalidate().
 export class JsonRecordStore<T extends { id: string }> {
   private readonly dir: string;
   private readonly schema: z.ZodType<T>;
@@ -21,6 +27,11 @@ export class JsonRecordStore<T extends { id: string }> {
   private readonly mutations = new Map<string, Promise<unknown>>();
   private reportedInvalidFiles = new Set<string>();
   private dirReady: Promise<void> | null = null;
+  private cache: Map<string, T> | null = null;
+  private cachedAt = 0;
+  private loading: Promise<Map<string, T>> | null = null;
+  // Bumped by every write; a scan that overlapped a write is not installed as the cache.
+  private writeVersion = 0;
 
   constructor(options: JsonRecordStoreOptions<T>) {
     this.dir = options.dir;
@@ -44,10 +55,29 @@ export class JsonRecordStore<T extends { id: string }> {
     return this.dirReady;
   }
 
+  // Drops the cached listing; the next list() scans the directory again.
+  invalidate(): void {
+    this.cache = null;
+    this.writeVersion += 1;
+  }
+
   async list(): Promise<T[]> {
+    if (!this.cache || Date.now() - this.cachedAt > LIST_REVALIDATE_MS) {
+      this.loading ??= this.scan().finally(() => {
+        this.loading = null;
+      });
+      const scanned = await this.loading;
+      return [...scanned.values()].map((record) => structuredClone(record));
+    }
+    // Callers own what they get back; a clone keeps them from editing the cache.
+    return [...this.cache.values()].map((record) => structuredClone(record));
+  }
+
+  private async scan(): Promise<Map<string, T>> {
+    const version = this.writeVersion;
     await this.ensureDir();
     const entries = await readdir(this.dir, { withFileTypes: true });
-    const records: T[] = [];
+    const records = new Map<string, T>();
     const invalidFiles = new Set<string>();
     for (const entry of entries) {
       if (!entry.isFile() || !entry.name.endsWith(".json")) {
@@ -65,7 +95,7 @@ export class JsonRecordStore<T extends { id: string }> {
       }
       const parsed = this.parse(content);
       if (parsed.success) {
-        records.push(parsed.data);
+        records.set(entry.name.slice(0, -".json".length), parsed.data);
         continue;
       }
       invalidFiles.add(filePath);
@@ -74,6 +104,10 @@ export class JsonRecordStore<T extends { id: string }> {
       }
     }
     this.reportedInvalidFiles = invalidFiles;
+    if (version === this.writeVersion) {
+      this.cache = records;
+      this.cachedAt = Date.now();
+    }
     return records;
   }
 
@@ -116,6 +150,8 @@ export class JsonRecordStore<T extends { id: string }> {
     await this.serialize(id, async () => {
       await this.ensureDir();
       await rm(this.filePath(id), { force: true });
+      this.writeVersion += 1;
+      this.cache?.delete(id);
     });
   }
 
@@ -123,6 +159,8 @@ export class JsonRecordStore<T extends { id: string }> {
     const parsed = this.schema.parse(record);
     await this.ensureDir();
     await writeJsonFileAtomic(this.filePath(parsed.id), parsed);
+    this.writeVersion += 1;
+    this.cache?.set(parsed.id, structuredClone(parsed));
     return parsed;
   }
 

@@ -1,4 +1,4 @@
-import { chmod, mkdir, readFile, readdir } from "node:fs/promises";
+import { chmod, mkdir, readFile, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import type { Logger } from "pino";
 import {
@@ -13,6 +13,15 @@ import { AttackAuditLog } from "./audit.js";
 
 const ID_PATTERN = /^[A-Za-z0-9_-]+$/;
 
+// Same trade as JsonRecordStore: scan once, then serve from memory; a minute-old cache at most.
+const RUNS_REVALIDATE_MS = 60_000;
+// A finished run (stopped or completed) is dropped only once it is both older than this and
+// outside the newest FINISHED_RUNS_KEPT finished runs. 90 days is a quarter: long enough to
+// re-open a past report or fix its findings; the count keeps a quiet user's last reports even
+// after months away.
+const FINISHED_RUN_RETENTION_MS = 90 * 24 * 60 * 60_000;
+const FINISHED_RUNS_KEPT = 25;
+
 function assertId(id: string): void {
   if (!ID_PATTERN.test(id)) throw new Error(`Invalid attack run id: ${id}`);
 }
@@ -24,6 +33,10 @@ export class AttackStore {
   private readonly findingStores = new Map<string, JsonRecordStore<Finding>>();
   private readonly auditLogs = new Map<string, AttackAuditLog>();
   private readonly mutations = new Map<string, Promise<unknown>>();
+  private runsCache: Map<string, AttackRun> | null = null;
+  private runsCachedAt = 0;
+  private runsLoading: Promise<Map<string, AttackRun>> | null = null;
+  private runsWriteVersion = 0;
 
   constructor(options: { dir: string; logger: Logger }) {
     this.dir = options.dir;
@@ -72,24 +85,71 @@ export class AttackStore {
   }
 
   async listRuns(): Promise<AttackRun[]> {
+    let runs = this.runsCache;
+    if (!runs || Date.now() - this.runsCachedAt > RUNS_REVALIDATE_MS) {
+      this.runsLoading ??= this.scanRuns().finally(() => {
+        this.runsLoading = null;
+      });
+      runs = await this.runsLoading;
+    }
+    // Callers own what they get back; a clone keeps them from editing the cache.
+    return [...runs.values()]
+      .map((run) => structuredClone(run))
+      .sort((left, right) => right.startedAt.localeCompare(left.startedAt));
+  }
+
+  private async scanRuns(): Promise<Map<string, AttackRun>> {
+    const version = this.runsWriteVersion;
+    const runs = new Map<string, AttackRun>();
     let entries: string[];
     try {
       entries = await readdir(this.dir);
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return runs;
       throw error;
     }
-    const runs: AttackRun[] = [];
     for (const name of entries) {
       if (!ID_PATTERN.test(name)) continue;
       try {
         const run = await this.getRun(name);
-        if (run) runs.push(run);
+        if (run) runs.set(name, run);
       } catch (error) {
         this.logger.error({ err: error, runId: name }, "Skipping invalid attack run file");
       }
     }
-    return runs.sort((left, right) => right.startedAt.localeCompare(left.startedAt));
+    // A write that landed during the scan may not be in `runs`; leave the cache empty then.
+    if (version === this.runsWriteVersion) {
+      this.runsCache = runs;
+      this.runsCachedAt = Date.now();
+    }
+    return runs;
+  }
+
+  // Removes finished runs that are past retention (see FINISHED_RUN_RETENTION_MS). A running or
+  // paused run is never removed. Returns the ids removed.
+  async pruneFinishedRuns(now: Date): Promise<string[]> {
+    const finished = (await this.listRuns()).filter(
+      (run) => run.status === "stopped" || run.status === "completed",
+    );
+    const cutoff = now.getTime() - FINISHED_RUN_RETENTION_MS;
+    // listRuns is newest-started first, so the first FINISHED_RUNS_KEPT are protected.
+    const doomed = finished.slice(FINISHED_RUNS_KEPT).filter((run) => {
+      const finishedAt = Date.parse(run.endedAt ?? run.updatedAt);
+      return Number.isFinite(finishedAt) && finishedAt < cutoff;
+    });
+    for (const run of doomed) {
+      await this.serialize(run.id, async () => {
+        // Re-read under the lock: a run resumed since the listing must survive.
+        const current = await this.getRun(run.id);
+        if (!current || (current.status !== "stopped" && current.status !== "completed")) return;
+        await rm(this.runDir(run.id), { recursive: true, force: true });
+        this.runsWriteVersion += 1;
+        this.runsCache?.delete(run.id);
+        this.findingStores.delete(run.id);
+        this.auditLogs.delete(run.id);
+      });
+    }
+    return doomed.map((run) => run.id);
   }
 
   putRun(run: AttackRun): Promise<AttackRun> {
@@ -117,6 +177,8 @@ export class AttackStore {
     await mkdir(dir, { recursive: true, mode: 0o700 });
     await chmod(dir, 0o700);
     await writeJsonFileAtomic(this.runPath(parsed.id), parsed);
+    this.runsWriteVersion += 1;
+    this.runsCache?.set(parsed.id, structuredClone(parsed));
     return parsed;
   }
 

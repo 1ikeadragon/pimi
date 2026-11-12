@@ -1,8 +1,15 @@
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
 import { writeJsonFileAtomic } from "../atomic-file.js";
+import { listStaleFiles } from "../stale-files.js";
+
+// A receipt only has to outlive client retries of the same message id. Reconnect replays and
+// offline-queued sends happen within hours to days; 30 days leaves a wide margin and keeps the
+// directory to roughly a month of sends.
+const RECEIPT_RETENTION_MS = 30 * 24 * 60 * 60_000;
+const PRUNE_INTERVAL_MS = 24 * 60 * 60_000;
 
 const ReceiptSchema = z.object({
   fingerprint: z.string(),
@@ -20,9 +27,27 @@ interface SendMessageInput {
 /** Owns message delivery receipts; creation is owned by CreationService. */
 export class MessageReceipts {
   private readonly pending = new Map<string, Promise<void>>();
+  private lastPruneAt = 0;
   constructor(private readonly directory: string) {}
 
+  // Deletes receipts untouched for RECEIPT_RETENTION_MS, except a send still in flight.
+  async prune(now = Date.now()): Promise<number> {
+    this.lastPruneAt = now;
+    let removed = 0;
+    for (const file of await listStaleFiles(this.directory, RECEIPT_RETENTION_MS, now)) {
+      if (!file.temp && this.pending.has(file.name.slice(0, -".json".length))) continue;
+      await rm(file.path, { force: true });
+      removed += 1;
+    }
+    return removed;
+  }
+
   send(input: SendMessageInput): Promise<void> {
+    if (Date.now() - this.lastPruneAt > PRUNE_INTERVAL_MS) {
+      // Lazy: a daemon that sends nothing has nothing growing. Failure must not block a send.
+      this.lastPruneAt = Date.now();
+      void this.prune().catch(() => undefined);
+    }
     // Preserve the existing on-disk identity and shape across daemon upgrades.
     const key = digest(["send", input.agentId, input.messageId]);
     const previous = this.pending.get(key);
