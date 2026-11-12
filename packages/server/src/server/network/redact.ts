@@ -67,7 +67,9 @@ function scrubArgument(argument: string, keepGitObjectIds: boolean): string {
   if (assignment && SENSITIVE_ASSIGNMENT_KEY.test(assignment[1]!)) {
     return `${assignment[1]}=${REDACTED}`;
   }
+  // Before the split: the scheme and the credentials sit in different path segments.
   const scrubbed = bare
+    .replace(USERINFO, `$1${REDACTED}@`)
     .split("/")
     .map((segment) => scrubSegment(segment, keepGitObjectIds))
     .join("/");
@@ -130,14 +132,20 @@ const OUTLINE_SUBCOMMAND = /^[A-Za-z][\w-]{0,23}$/;
  */
 export function outlineArgv(args: readonly string[]): string {
   const parts: string[] = [];
+  // A bare word right after a flag may be that flag's value (`--api-key abc`), so it is dropped.
+  let afterFlag = false;
   for (const argument of args) {
     if (argument.startsWith("-")) {
       const equals = argument.indexOf("=");
       const name = equals === -1 ? argument : argument.slice(0, equals);
       if (/^-{1,2}[A-Za-z][\w-]*$/.test(name)) parts.push(equals === -1 ? name : `${name}=…`);
-    } else if (OUTLINE_SUBCOMMAND.test(argument) && !/^\d+$/.test(argument)) {
+      afterFlag = equals === -1;
+      continue;
+    }
+    if (!afterFlag && OUTLINE_SUBCOMMAND.test(argument) && !/^\d+$/.test(argument)) {
       parts.push(argument);
     }
+    afterFlag = false;
   }
   return parts.join(" ");
 }

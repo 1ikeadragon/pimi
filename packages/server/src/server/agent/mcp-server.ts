@@ -1,12 +1,14 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
-import type {
-  CallToolResult,
-  ServerNotification,
-  ServerRequest,
+import {
+  CallToolRequestSchema,
+  type CallToolResult,
+  type ServerNotification,
+  type ServerRequest,
 } from "@modelcontextprotocol/sdk/types.js";
 
 import { addModelVisibleStructuredContent } from "./tools/paseo-tool-serialization.js";
+import { createLazyLoaderTools, splitToolsForLazyLoading } from "./tools/lazy-tool-groups.js";
 import { createPaseoToolCatalog, type PaseoToolHostDependencies } from "./tools/paseo-tools.js";
 import type { PaseoToolDefinition, PaseoToolResult } from "./tools/types.js";
 
@@ -53,9 +55,44 @@ export function createToolMcpServer(
   return server;
 }
 
-export async function createAgentMcpServer(options: AgentMcpServerOptions): Promise<McpServer> {
+export interface AgentMcpServerLoading {
+  /** List only the core tools plus a loader, for providers that send every tool schema each turn. */
+  lazyTools: boolean;
+}
+
+export async function createAgentMcpServer(
+  options: AgentMcpServerOptions,
+  loading: AgentMcpServerLoading = { lazyTools: false },
+): Promise<McpServer> {
   const catalog = await createPaseoToolCatalog(options);
-  return createToolMcpServer(catalog.tools.values(), (name, args, signal) =>
-    catalog.executeTool(name, args, { signal }),
+  const execute = (name: string, args: unknown, signal?: AbortSignal) =>
+    catalog.executeTool(name, args, { signal });
+  if (!loading.lazyTools) return createToolMcpServer(catalog.tools.values(), execute);
+  const { listed, groups } = splitToolsForLazyLoading(catalog.tools.values());
+  const loaderTools = new Map(
+    createLazyLoaderTools(groups, new Set(listed.map((tool) => tool.name)), execute).map((tool) => [
+      tool.name,
+      tool,
+    ]),
   );
+  const route = (name: string, args: unknown, signal?: AbortSignal) => {
+    const loaderTool = loaderTools.get(name);
+    return loaderTool ? loaderTool.handler(args, { signal }) : execute(name, args, signal);
+  };
+  const server = createToolMcpServer([...listed, ...loaderTools.values()], route);
+  // The tool list is short on purpose, but an agent that already knows a tool's name (resumed
+  // history, a stale schema) can still call it directly instead of hitting "Tool X not found".
+  server.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
+    try {
+      return toMcpToolResult(
+        await route(request.params.name, request.params.arguments ?? {}, extra.signal),
+      );
+    } catch (error) {
+      return {
+        content: [{ type: "text", text: error instanceof Error ? error.message : String(error) }],
+        isError: true,
+      };
+    }
+  });
+  return server;
 }

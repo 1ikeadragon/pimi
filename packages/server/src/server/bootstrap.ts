@@ -1144,6 +1144,7 @@ export async function createPaseoDaemon(
     mcpCallerAuthToken: agentMcpTokenForCaller,
     resolvePaseoToolPolicy: (provider) =>
       resolvePaseoToolPolicy(provider, daemonConfigStore.get().providers),
+    isSkillAvailable: (name) => orchestrationSkills.isSkillAvailable(name),
     logger,
   });
   const askPimiSessions = new AskPimiToolSessions();
@@ -1719,6 +1720,7 @@ export async function createPaseoDaemon(
           },
           boundCaller && daemonConfigStore.get().mcp.injectIntoAgents !== false,
         ),
+        { lazyTools: callerAgentId ? agentManager.agentUsesPimiToolLoader(callerAgentId) : false },
       );
 
       // Stateless mode: each HTTP request builds a fresh server + transport that is

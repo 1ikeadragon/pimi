@@ -49,6 +49,9 @@ export const LEGACY_SKILL_NAMES = [
   "paseo-epic",
   "paseo-orchestrate",
   "paseo-orchestrator",
+  "pimi-artifacts",
+  "pimi-shape-work",
+  "pimi-walk-the-flow",
 ] as const;
 
 type SkillFiles = Map<string, string>;
@@ -262,6 +265,10 @@ export async function autoUpdateInstalledSkills(
   }
   if (status.state === "not-installed" && !installByDefault && renamed.length === 0) return status;
   const updated = await applySkills(targets, selection, nonDestructivePlan(status));
+  // Edited copies are kept: retireManagedSkill only removes files Pimi wrote and nobody changed.
+  for (const name of LEGACY_SKILL_NAMES) {
+    for (const home of homes) await retireManagedSkill(path.join(home, name));
+  }
   for (const { directory, successor } of renamed) {
     if (updated.installed.includes(successor) && !updated.ops.some((op) => op.name === successor))
       await retireManagedSkill(directory);
