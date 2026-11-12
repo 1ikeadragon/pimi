@@ -59,6 +59,7 @@ import { WorkspaceRenameHost } from "@/components/workspace-rename-host";
 import { WorkspaceArchiveUndoShortcutHost } from "@/workspace/archive-undo";
 import { WorkspaceExplorerOpenGesture } from "@/mobile-panels/explorer-open-gesture";
 import { useFollowWorkbenchMode, usePimiWorkbenchMode } from "@/desktop/use-pimi-workbench";
+import { useAttackCoverageReport } from "@/attack/use-attack-coverage-report";
 import { useAttackNavigationAudit } from "@/attack/use-attack-navigation-audit";
 import { PimiLabelsProvider } from "@/desktop/pimi-labels";
 import { HarnessUpdateNotice } from "@/components/harness-update-notice";
@@ -641,6 +642,7 @@ function useAppSidebarLayout({
     Boolean(getDesktopHost()?.showPimiWorkspace);
   useFollowWorkbenchMode(activeWorkspaceKey, Boolean(getDesktopHost()?.showPimiWorkspace));
   useAttackNavigationAudit();
+  useAttackCoverageReport();
   const desktopSidebarVisible = resolveDesktopSidebarVisibility({
     chromeEnabled,
     isCompactLayout,

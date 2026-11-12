@@ -14,6 +14,8 @@ import {
   FindingCategorySchema,
   type AttackAuditAction,
   type AttackAuditEntry,
+  type AttackCoverage,
+  type AttackCoverageRoute,
   type AttackLimits,
   type AttackPauseReason,
   type AttackRun,
@@ -33,6 +35,7 @@ import type { BoundCreateAgentCommand } from "../agent/create-agent/create.js";
 import { cancelAgentRunCommand } from "../agent/lifecycle-command.js";
 import { resumeStoppedSubagents } from "../agent/stop-cascade.js";
 import { ATTACK_RUN_LABEL, STOPPED_WITH_SUBAGENTS_LABEL } from "@pimi/protocol/agent-labels";
+import { AttackCoverageTracker } from "./coverage.js";
 import { leadPrompt, resumePrompt, stallPrompt } from "./prompts.js";
 import { ATTACK_COORDINATOR_PROFILE_ID } from "./roster.js";
 import { findingSignature } from "./signature.js";
@@ -51,6 +54,9 @@ const MAX_STALL_NUDGES = 2;
 
 export class AttackRunNotFoundError extends Error {
   constructor(id: string) {
+const MAX_SPEND_AGENTS = 16;
+// A usage report arrives after every turn; clients hear about the run at most this often.
+const RUN_PUSH_INTERVAL_MS = 1000;
     super(`Attack run not found: ${id}`);
     this.name = "AttackRunNotFoundError";
   }
@@ -172,6 +178,12 @@ export class AttackService {
     });
     this.agentManager = options.agentManager;
     this.agentStorage = options.agentStorage;
+  private readonly coverage: AttackCoverageTracker;
+  // Token reports coalesce: the newest run waits here for the next push slot.
+  private readonly runPushes = new Map<
+    string,
+    { lastAt: number; timer: ReturnType<typeof setTimeout> | null; run: AttackRun | null }
+  >();
     this.createAgent = options.createAgent;
     this.emit = options.emit;
   }
@@ -183,6 +195,11 @@ export class AttackService {
       if (run.status === "running") {
         await this.settleSpent(
           run.id,
+    this.coverage = new AttackCoverageTracker({
+      dir: join(options.pimiHome, "attack-runs"),
+      logger: this.logger,
+      emit: options.emit,
+    });
           { status: "paused", pausedReason: "user" },
           new Date(run.updatedAt),
         );
@@ -219,6 +236,9 @@ export class AttackService {
     const roster = [...new Set(definition.roster.map((role) => AttackRoleIdSchema.parse(role)))];
     if (roster.length === 0) throw new AttackStateError("Pick at least one agent for the roster.");
     if (!definition.repoScope && roster.includes("secrets-audit")) {
+    for (const push of this.runPushes.values()) if (push.timer) clearTimeout(push.timer);
+    this.runPushes.clear();
+    await this.coverage.stop();
       throw new AttackStateError("The secrets and config auditor reads the repository.");
     }
     const live = (await this.store.listRuns()).find(
@@ -616,7 +636,7 @@ export class AttackService {
   // The lead's duplicate review: each `duplicate` is folded into `into` and hidden behind it.
   private async applyMerges(
     runId: string,
-    callerAgentId: string,
+    callerAgentId: string | null,
     merges: readonly FindingMerge[],
   ): Promise<void> {
     const findings = this.store.findings(runId);
@@ -785,6 +805,42 @@ export class AttackService {
         },
         run.leadAgentId,
       );
+  // ---- coverage ----
+
+  /** A route an agent's browser tab reached; only agents of this run count. */
+  async recordCoverage(input: {
+    runId: string;
+    agentId: string;
+    route: string;
+  }): Promise<AttackCoverageRoute> {
+    await this.requireRun(input.runId);
+    if ((await this.runIdForAgent(input.agentId)) !== input.runId) {
+      throw new AttackStateError("That agent is not part of this Attack run.");
+    }
+    return this.coverage.record(input.runId, input.agentId, input.route);
+  }
+
+  async getCoverage(runId: string): Promise<AttackCoverage> {
+    await this.requireRun(runId);
+    return this.coverage.get(runId);
+  }
+
+  /** The owner folds one finding into another; the duplicate is hidden behind it. Works on finished runs. */
+  async mergeFindings(input: {
+    runId: string;
+    duplicateId: string;
+    intoId: string;
+  }): Promise<Finding> {
+    await this.requireRun(input.runId);
+    return this.inSubmitChain(input.runId, async () => {
+      await this.applyMerges(input.runId, null, [
+        { duplicate: input.duplicateId, into: input.intoId },
+      ]);
+      const all = await this.store.findings(input.runId).list();
+      return withoutScreenshotBytes(this.mergeTarget(all, input.intoId));
+    });
+  }
+
     } catch (error) {
       this.logger.warn({ err: error, runId: run.id }, "Stopping the attack lead failed");
     }
@@ -814,7 +870,9 @@ export class AttackService {
       }
       if (added === 0) return;
       const previousWrite = this.tokenWrites.get(runId) ?? Promise.resolve();
-      const write = previousWrite.catch(() => undefined).then(() => this.addTokens(runId, added));
+      const write = previousWrite
+        .catch(() => undefined)
+        .then(() => this.addTokens(runId, agentId, added));
       this.tokenWrites.set(runId, write);
       await write;
     })().catch((error: unknown) => {
@@ -822,14 +880,14 @@ export class AttackService {
     });
   }
 
-  private async addTokens(runId: string, added: number): Promise<void> {
+  private async addTokens(runId: string, agentId: string, added: number): Promise<void> {
     const updated = await this.store.updateRun(runId, (current) => ({
       ...current,
       spent: { ...current.spent, tokens: current.spent.tokens + added },
       updatedAt: new Date().toISOString(),
     }));
     if (!updated) return;
-    this.publishRun(updated);
+    this.publishRunCoalesced(updated);
     if (updated.status === "running" && updated.spent.tokens >= updated.limits.maxTokens) {
       await this.pauseRun(runId, "token_budget");
     }
@@ -895,6 +953,12 @@ export class AttackService {
     this.logger.warn({ runId: run.id, nudges: stall.nudges }, "Attack run stalled; nudging lead");
     try {
       await sendPromptToAgent({
+      // At most 16 agents are broken out; the rest only count toward the total.
+      spentByAgent:
+        agentId in current.spentByAgent ||
+        Object.keys(current.spentByAgent).length < MAX_SPEND_AGENTS
+          ? { ...current.spentByAgent, [agentId]: (current.spentByAgent[agentId] ?? 0) + added }
+          : current.spentByAgent,
         agentManager: this.agentManager,
         agentStorage: this.agentStorage,
         logger: this.logger,
@@ -928,3 +992,31 @@ export class AttackService {
     });
   }
 }
+    const push = this.runPushes.get(run.id);
+    if (push?.timer) clearTimeout(push.timer);
+    this.runPushes.set(run.id, { lastAt: Date.now(), timer: null, run: null });
+  // Token reports: the first goes out at once, later ones within a second ride one trailing push.
+  private publishRunCoalesced(run: AttackRun): void {
+    const push = this.runPushes.get(run.id);
+    const wait = push ? push.lastAt + RUN_PUSH_INTERVAL_MS - Date.now() : 0;
+    if (wait <= 0 && !push?.timer) {
+      this.publishRun(run);
+      return;
+    }
+    if (push?.timer) {
+      push.run = run;
+      return;
+    }
+    const entry = {
+      lastAt: push?.lastAt ?? 0,
+      timer: null as ReturnType<typeof setTimeout> | null,
+      run,
+    };
+    entry.timer = setTimeout(() => {
+      const latest = entry.run;
+      if (latest) this.publishRun(latest);
+    }, wait);
+    entry.timer.unref?.();
+    this.runPushes.set(run.id, entry);
+  }
+
