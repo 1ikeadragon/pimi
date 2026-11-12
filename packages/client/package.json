@@ -1,6 +1,6 @@
 {
   "name": "@pimi/client",
-  "version": "0.17.22",
+  "version": "0.17.23",
   "private": true,
   "description": "Pimi client SDK package",
   "license": "Apache-2.0",
@@ -45,8 +45,8 @@
     "typecheck:examples": "tsgo -p tsconfig.examples.json --noEmit"
   },
   "dependencies": {
-    "@pimi/protocol": "0.17.22",
-    "@pimi/relay": "0.17.22",
+    "@pimi/protocol": "0.17.23",
+    "@pimi/relay": "0.17.23",
     "ws": "8.22.2",
     "zod": "4.6.7"
   },
