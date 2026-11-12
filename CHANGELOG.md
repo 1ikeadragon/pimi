@@ -2,6 +2,11 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.28 - 2026-11-12
+
+- Windows x64 build is back alongside macOS and Android.
+- Attack mode has seven roles: recon, UI QA, API, auth, input, secrets audit and a light performance check. Auth testing needs test credentials, which stay out of run records. Performance checks and writes are allowed only on a target you mark as disposable by typing its host to confirm; every other run stays read-only.
+
 ## 0.17.27 - 2026-11-12
 
 - Search across the workspace like VS Code: Cmd/Ctrl+Shift+F opens the Search view with case, whole-word and regex toggles, include and exclude globs, and replace with a preview. Replace all skips files with unsaved edits and says so.
