@@ -1,6 +1,6 @@
 # Move from Paseo to Pimi
 
-Use the same OS account and machine so Pimi can find your repositories, provider history, and plugin paths. Paseo keeps its daemon home at `~/.paseo`. Pimi uses `~/.pimi`. When Pimi’s daemon starts, no `~/.pimi` exists, and `~/.paseo` does, it renames `~/.paseo` to `~/.pimi` and rewrites absolute paths inside the home’s JSON files. It refuses to do this while a Paseo daemon is still running from that home. A custom Paseo home (`PASEO_HOME`) is not moved: point `PIMI_HOME` at the same directory in Pimi’s launch environment. Verify the desktop and CLI both use that home before continuing.
+Use the same OS account and machine so Pimi can find your repositories, provider history, and plugin paths. Paseo keeps its daemon home at `~/.paseo`. Pimi uses `~/.pimi`. When Pimi’s daemon starts, no `~/.pimi` exists, and `~/.paseo` does, it renames `~/.paseo` to `~/.pimi` and rewrites absolute paths inside the home’s JSON files. The desktop app stops a Paseo daemon still running from that home before the move. The CLI and a daemon started by hand refuse until you stop it. A custom Paseo home (`PASEO_HOME`) is not moved: point `PIMI_HOME` at the same directory in Pimi’s launch environment. Verify the desktop and CLI both use that home before continuing.
 
 ## 1. Find and back up your data
 
@@ -9,7 +9,7 @@ Use the same OS account and machine so Pimi can find your repositories, provider
 3. Make a private backup of the entire daemon home, including hidden files. Keep the original paths and permissions recorded. The home holds chat records, project and workspace registries, config, daemon identity, and installed plugin data. Keep the backup encrypted or accessible only to your OS account. It can contain chats, credentials, and the relay private key.
 4. Back up the old desktop profile if present, such as `~/Library/Application Support/Paseo` on macOS or `%APPDATA%\Paseo` on Windows. Back up custom plugin source directories referenced by the config, including any outside the daemon home, and preserve their lockfiles and uncommitted changes. Keep provider-managed history and credentials in place. Back up any worktrees with local changes, including untracked files.
 
-Keep repositories and plugin sources at their original absolute paths. Worktrees under `~/.paseo/worktrees` move with the home and are repaired on migration. If `~/.pimi` already exists, Pimi leaves `~/.paseo` alone: back up both and choose the home you want to use before continuing. Pimi’s desktop profile is separate. Re-add remote hosts and reapply UI preferences as needed.
+Keep repositories and plugin sources at their original absolute paths. Worktrees under `~/.paseo/worktrees` move with the home and are repaired on migration. If `~/.pimi` already exists, Pimi leaves `~/.paseo` alone: back up both and choose the home you want to use before continuing. Pimi’s desktop profile reuses the old one, and the desktop app copies the saved remote hosts and UI preferences across on first launch.
 
 ## 2. Start Pimi and check what carried over
 

@@ -3,10 +3,12 @@
 // knows the old name. Delete it once no earlier-build home can exist.
 import { execFile } from "node:child_process";
 import { readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
+import treeKill from "tree-kill";
 import os from "node:os";
 import path from "node:path";
-import { isPidLockOwnerRunning, pidLockInfoSchema } from "./pid-lock.js";
+import { isPidLockOwnerRunning, pidLockInfoSchema, type PidLockInfo } from "./pid-lock.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -18,6 +20,19 @@ const REWRITABLE_EXTENSION = ".json";
 const SKIPPED_DIRECTORIES = new Set(["node_modules", ".git", "models", "worktrees", "plugins"]);
 const MAX_REWRITE_DEPTH = 4;
 const MAX_REWRITE_BYTES = 8 * 1024 * 1024;
+const LEGACY_STOP_TIMEOUT_MS = 15_000;
+const LEGACY_WORKER_GRACE_MS = 3_000;
+const POLL_INTERVAL_MS = 100;
+
+/** The old daemon still owns ~/.paseo, so the home cannot move yet. */
+export class LegacyDaemonRunningError extends Error {
+  constructor(home: string, to: string) {
+    super(
+      `The old daemon home ${home} is still in use by a running daemon. Quit the old Paseo app and run "paseo daemon stop" (or quit its "Paseo Supervisor" process), then start Pimi again to move it to ${to}.`,
+    );
+    this.name = "LegacyDaemonRunningError";
+  }
+}
 
 export interface LegacyHomeMigrationResult {
   migrated: boolean;
@@ -36,13 +51,93 @@ async function exists(target: string): Promise<boolean> {
   }
 }
 
-async function legacyDaemonRunning(legacyHome: string): Promise<boolean> {
+// A CLI command aimed at another daemon (--host) writes its client id here before any daemon
+// has used the home. That file alone does not make the home worth keeping over the old one.
+async function isUnusedHome(home: string): Promise<boolean> {
+  try {
+    const entries = await readdir(home);
+    return entries.every((name) => name === "cli-client-id");
+  } catch {
+    return true;
+  }
+}
+
+async function readLegacyDaemonLock(legacyHome: string): Promise<PidLockInfo | null> {
   try {
     const raw: unknown = JSON.parse(await readFile(path.join(legacyHome, LEGACY_PID_FILE), "utf8"));
     const lock = pidLockInfoSchema.safeParse(raw);
-    return lock.success && isPidLockOwnerRunning(lock.data);
+    return lock.success && isPidLockOwnerRunning(lock.data) ? lock.data : null;
   } catch {
-    return false;
+    return null;
+  }
+}
+
+function killTree(pid: number, signal: "SIGTERM" | "SIGKILL"): Promise<void> {
+  return new Promise((resolve) => treeKill(pid, signal, () => resolve()));
+}
+
+async function waitUntil(done: () => boolean, timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (!done()) {
+    if (Date.now() >= deadline) return false;
+    await delay(POLL_INTERVAL_MS);
+  }
+  return true;
+}
+
+// Earlier builds ran each terminal worker as a detached process marked with `--paseo-home`.
+// Their record format is not the current one, so the process table is the only index.
+async function listLegacyWorkerPids(legacyHome: string): Promise<number[]> {
+  if (process.platform === "win32") return []; // Terminals end with the supervisor's process tree.
+  const { stdout } = await execFileAsync("ps", ["-axo", "pid=,command="], {
+    maxBuffer: 32 * 1024 * 1024,
+  });
+  const marker = `--paseo-home ${legacyHome}`;
+  const pids: number[] = [];
+  for (const line of stdout.split("\n")) {
+    const match = /^\s*(\d+)\s+(.*)$/.exec(line);
+    if (!match?.[2]?.includes("--paseo-terminal-worker")) continue;
+    const command = match[2];
+    const at = command.indexOf(marker);
+    if (at === -1 || (command[at + marker.length] ?? " ") !== " ") continue;
+    pids.push(Number(match[1]));
+  }
+  return pids;
+}
+
+function isAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
+/**
+ * Stops the old daemon the way a quit does: SIGTERM asks the supervisor to close its terminals
+ * and exit (taskkill on Windows), SIGKILL follows only if it does not. Terminal workers it
+ * leaves behind are closed too. Returns once the supervisor has exited.
+ */
+async function stopLegacyDaemon(legacyHome: string, lock: PidLockInfo): Promise<void> {
+  if (lock.pid <= 1 || lock.pid === process.pid) {
+    throw new Error(`Refusing to stop invalid daemon PID ${lock.pid} for ${legacyHome}`);
+  }
+  await killTree(lock.pid, "SIGTERM");
+  let exited = await waitUntil(() => !isPidLockOwnerRunning(lock), LEGACY_STOP_TIMEOUT_MS);
+  if (!exited) {
+    await killTree(lock.pid, "SIGKILL");
+    exited = await waitUntil(() => !isPidLockOwnerRunning(lock), LEGACY_WORKER_GRACE_MS);
+  }
+  if (!exited) {
+    throw new Error(`The old daemon (PID ${lock.pid}) for ${legacyHome} did not exit.`);
+  }
+  const workers = await listLegacyWorkerPids(legacyHome);
+  if (workers.length === 0) return;
+  await Promise.all(workers.map((pid) => killTree(pid, "SIGTERM")));
+  const closed = await waitUntil(() => !workers.some(isAlive), LEGACY_WORKER_GRACE_MS);
+  if (!closed) {
+    await Promise.all(workers.filter(isAlive).map((pid) => killTree(pid, "SIGKILL")));
   }
 }
 
@@ -125,24 +220,28 @@ async function repairWorktrees(home: string, from: string): Promise<number> {
 /**
  * Moves ~/.paseo to ~/.pimi when only the old one exists, fixes absolute paths stored in
  * the home's JSON files, and repairs worktree links. Does nothing for a custom
- * PIMI_HOME. Throws if the old daemon is still running, because renaming a home under a
- * live daemon corrupts its state.
+ * PIMI_HOME. Renaming a home under a live daemon corrupts its state, so a running old daemon
+ * is stopped first when `stopRunningDaemon` is set (the desktop app, whose upgrade replaced the
+ * build that launched it) and otherwise throws LegacyDaemonRunningError.
  */
 export async function migrateLegacyHome(
   env: NodeJS.ProcessEnv = process.env,
   log: (message: string) => void = () => {},
+  options: { stopRunningDaemon?: boolean } = {},
 ): Promise<LegacyHomeMigrationResult> {
   const userHome = os.homedir();
   const from = path.join(userHome, LEGACY_HOME_DIRNAME);
   const to = path.join(userHome, ".pimi");
   const none = { migrated: false, from, to, rewrittenFiles: 0, repairedWorktrees: 0 };
   if (env.PIMI_HOME) return none;
-  if ((await exists(to)) || !(await exists(from))) return none;
-  if (await legacyDaemonRunning(from)) {
-    throw new Error(
-      `The daemon home ${from} is still in use by a running daemon. Stop that daemon, then start Pimi again to move it to ${to}.`,
-    );
+  if (!(await exists(from)) || !(await isUnusedHome(to))) return none;
+  const running = await readLegacyDaemonLock(from);
+  if (running) {
+    if (!options.stopRunningDaemon) throw new LegacyDaemonRunningError(from, to);
+    log(`Stopping the old daemon (PID ${running.pid}) that still runs from ${from}`);
+    await stopLegacyDaemon(from, running);
   }
+  await rm(to, { recursive: true, force: true });
   await rename(from, to);
   await rm(path.join(to, LEGACY_PID_FILE), { force: true });
   const rewrittenFiles = await rewriteJsonFiles(to, from, to);

@@ -83,6 +83,11 @@ import { setupDarwinCompositorWatchdog } from "./window/compositor-watchdog/inde
 import { showWindowWhenReady } from "./window/show-when-ready.js";
 import { resolveDesktopWindowChromeMode, windowChromeModeArgument } from "./window/chrome.js";
 import { migrateLegacyHome } from "@pimi/server/daemon-control";
+import {
+  LEGACY_APP_SCHEME,
+  STORAGE_MIGRATION_PATH,
+  migrateLegacyRendererStorage,
+} from "./settings/legacy-renderer-storage.js";
 import { registerDialogHandlers } from "./features/dialogs.js";
 import {
   registerNotificationHandlers,
@@ -694,6 +699,10 @@ protocol.registerSchemesAsPrivileged([
     scheme: APP_SCHEME,
     privileges: { standard: true, secure: true, supportFetchAPI: true, codeCache: true },
   },
+  {
+    scheme: LEGACY_APP_SCHEME,
+    privileges: { standard: true, secure: true, supportFetchAPI: true },
+  },
 ]);
 
 // ---------------------------------------------------------------------------
@@ -1285,7 +1294,10 @@ async function bootstrap(): Promise<void> {
 
   await app.whenReady();
   try {
-    await migrateLegacyHome(process.env, (message) => console.info(message));
+    // The upgrade replaced the build that launched the old daemon but did not stop it.
+    await migrateLegacyHome(process.env, (message) => console.info(message), {
+      stopRunningDaemon: true,
+    });
   } catch (error) {
     dialog.showErrorBox(
       "Pimi cannot start",
@@ -1302,6 +1314,11 @@ async function bootstrap(): Promise<void> {
     const { host, username, password, pathname, search, hash } = new URL(request.url);
     if (host !== "app" || username || password) return new Response("Not found", { status: 404 });
     const decodedPath = decodeURIComponent(pathname);
+    if (decodedPath === STORAGE_MIGRATION_PATH) {
+      return new Response("<!doctype html><title></title>", {
+        headers: { "content-type": "text/html" },
+      });
+    }
 
     // Chromium can occasionally request the exported entrypoint directly.
     // Canonicalize it back to the route URL so Expo Router sees `/`, not `/index.html`.
@@ -1324,6 +1341,8 @@ async function bootstrap(): Promise<void> {
 
     return net.fetch(pathToFileURL(filePath).toString());
   });
+
+  await migrateLegacyRendererStorage(APP_SCHEME);
 
   await applyAppIcon();
   setupApplicationMenu({
