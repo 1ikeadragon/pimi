@@ -94,3 +94,6 @@ app.json
 
 # Local Pimi desktop bundles
 /packages/desktop/release-pimi/
+
+# Self-hosted relay bundle (npm run build:node-relay)
+packages/relay/dist-node/

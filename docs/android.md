@@ -18,7 +18,7 @@ ZXing. After restarting the desktop daemon or changing its network address,
 enable local pairing again and use the new link.
 
 Remote pairing uses the configured relay, including a self-hosted
-[Pimi Relay](https://github.com/1ikeadragon/pimi-relay). Use WSS for a relay
+[Pimi Relay](self-hosted-relay.md). Use WSS for a relay
 reachable over the internet.
 
 The signed APK uses `io.github.ikeadragon.pimi` and supports Android 10 and

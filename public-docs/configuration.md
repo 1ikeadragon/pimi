@@ -204,7 +204,7 @@ In the mobile app, enter the password in the direct connection setup screen.
 
 ## Relay
 
-Relay pairing requires a configured endpoint. Run [Pimi Relay](https://github.com/1ikeadragon/pimi-relay) and add its address to `config.json`. Set `enabled` to `true` to turn it on at startup.
+Relay pairing requires a configured endpoint. Run [Pimi Relay](https://github.com/1ikeadragon/pimi/blob/main/docs/self-hosted-relay.md) and add its address to `config.json`. Set `enabled` to `true` to turn it on at startup.
 
 ```json
 {

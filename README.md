@@ -14,9 +14,9 @@ Replacing Paseo? [Keep your sessions and plugins](docs/paseo-migration.md).
 
 Install Pimi Desktop and the [Android APK](docs/android.md#pimi-apk). Run Pimi Relay on a server you control, point your desktop at it, and scan the desktop’s **Pair a device** QR code in the Android app. Keep the desktop awake, set a daemon password, and keep the QR code private.
 
-One relay can serve all your computers or a group of friends. Pair each computer separately and share the relay address with friends who want to pair their own computers. [Personal and team setups](https://github.com/1ikeadragon/pimi-relay#who-can-share-one-relay)
+One relay can serve all your computers or a group of friends. Pair each computer separately and share the relay address with friends who want to pair their own computers. [Personal and team setups](https://github.com/1ikeadragon/pimi/blob/main/docs/self-hosted-relay.md#who-can-share-one-relay)
 
-[Set up your own relay and pair Android](https://github.com/1ikeadragon/pimi-relay#pair-a-device) · [Connect over a private VPN](public-docs/connectivity.md#tailscale)
+[Set up your own relay and pair Android](https://github.com/1ikeadragon/pimi/blob/main/docs/self-hosted-relay.md#pair-a-device) · [Connect over a private VPN](public-docs/connectivity.md#tailscale)
 
 ## Build from source
 

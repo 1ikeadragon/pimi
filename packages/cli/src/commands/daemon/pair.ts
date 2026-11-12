@@ -38,7 +38,8 @@ export interface PairingOffer {
 }
 
 const PAIRING_DAEMON_RPC_TIMEOUT_MS = 1500;
-const RELAY_DOCS_URL = "https://github.com/1ikeadragon/pimi-relay#pair-a-device";
+const RELAY_DOCS_URL =
+  "https://github.com/1ikeadragon/pimi/blob/main/docs/self-hosted-relay.md#pair-a-device";
 const CONNECTIVITY_DOCS_URL =
   "https://github.com/1ikeadragon/pimi/blob/main/public-docs/connectivity.md";
 const RELAY_SETUP =

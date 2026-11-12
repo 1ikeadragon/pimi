@@ -21,7 +21,8 @@ import {
   type EditingTextInputHandle,
 } from "@/components/ui/text-input";
 
-const RELAY_DOCS_URL = "https://github.com/1ikeadragon/pimi-relay#pair-a-device";
+const RELAY_DOCS_URL =
+  "https://github.com/1ikeadragon/pimi/blob/main/docs/self-hosted-relay.md#pair-a-device";
 export const CONNECTIVITY_DOCS_URL =
   "https://github.com/1ikeadragon/pimi/blob/main/public-docs/connectivity.md";
 export const TAILSCALE_DOCS_URL = `${CONNECTIVITY_DOCS_URL}#tailscale`;

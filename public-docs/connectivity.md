@@ -58,7 +58,7 @@ If the remote daemon has a password, enter it in **Daemon password**; it is stor
 
 ## Pimi relay
 
-[Set up a self-hosted relay and pair your phone](https://github.com/1ikeadragon/pimi-relay#pair-a-device). The guide covers HTTPS, the daemon password, and Android pairing.
+[Set up a self-hosted relay and pair your phone](https://github.com/1ikeadragon/pimi/blob/main/docs/self-hosted-relay.md#pair-a-device). The guide covers HTTPS, the daemon password, and Android pairing.
 
 ## Tailscale
 

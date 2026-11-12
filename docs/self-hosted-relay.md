@@ -106,7 +106,7 @@ WantedBy=multi-user.target
 `/etc/caddy/Caddyfile` (Caddy gets and renews the Let's Encrypt certificate; ports 80 and 443 must be open):
 
 ```
-relay.stateless.computer {
+relay.example.com {
 	handle /ws {
 		reverse_proxy 127.0.0.1:8787
 	}
@@ -120,6 +120,55 @@ relay.stateless.computer {
 ```
 
 Firewall: allow 22, 80, and 443 only. The relay's own port stays on loopback, and the unit denies every non-loopback address.
+
+Update the relay by rebuilding the bundle, copying it to `/opt/pimi-relay/node-relay.mjs` with the same `install` line, and running `systemctl restart pimi-relay`. Daemons and clients reconnect within about 30 seconds.
+
+## Behind Cloudflare
+
+The relay works with the Cloudflare proxy (orange cloud) on. Cloudflare passes WebSocket upgrades, and the daemon's 10-second pings keep sockets under Cloudflare's 100-second idle cutoff.
+
+- Set SSL/TLS to **Full (strict)**. Caddy keeps its Let's Encrypt certificate; renewal goes over port 80 through Cloudflare.
+- Cloudflare does not proxy SSH. Connect to the origin IP, not the hostname.
+- Every request now arrives from a Cloudflare address, so the per-IP limits need the real client IP. Take it from `CF-Connecting-IP`, and only for peers in Cloudflare's ranges, since a client can put anything in `X-Forwarded-For`:
+
+```
+(relay_proxy) {
+	@cf remote_ip <ranges from https://www.cloudflare.com/ips-v4 and /ips-v6>
+	handle @cf {
+		reverse_proxy 127.0.0.1:8787 {
+			header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+		}
+	}
+	handle {
+		reverse_proxy 127.0.0.1:8787
+	}
+}
+
+relay.example.com {
+	handle /ws {
+		import relay_proxy
+	}
+	handle /health {
+		import relay_proxy
+	}
+	handle {
+		respond "Not found" 404
+	}
+}
+```
+
+Use `handle`, not `route`, for `/ws` and `/health`: Caddy runs `handle` blocks before `route`, so the catch-all 404 would win.
+
+- Allow 80 and 443 only from Cloudflare's ranges, once DNS everywhere returns Cloudflare addresses (a daemon still resolving the origin IP drops until its cache expires):
+
+```bash
+for r in $(curl -fsS https://www.cloudflare.com/ips-v4) $(curl -fsS https://www.cloudflare.com/ips-v6); do
+  ufw allow proto tcp from "$r" to any port 80,443 comment cloudflare
+done
+ufw delete allow 80/tcp && ufw delete allow 443/tcp
+```
+
+Cloudflare's ranges change rarely; rerun the loop when they do. The origin IP stays in DNS history, so move the box to a new IP if you want it hidden.
 
 ## Point a daemon at it
 
@@ -139,6 +188,18 @@ In the daemon's `config.json`:
 }
 ```
 
-Or use `PIMI_RELAY_ENDPOINT`, `PIMI_RELAY_USE_TLS`, `PIMI_RELAY_PUBLIC_ENDPOINT`, and `PIMI_RELAY_PUBLIC_USE_TLS`. Restart the daemon, then run `pimi daemon pair` for a new link: the pairing offer embeds the relay endpoint, so links made for the old relay stop working.
+Or use `PIMI_RELAY_ENDPOINT`, `PIMI_RELAY_USE_TLS`, `PIMI_RELAY_PUBLIC_ENDPOINT`, and `PIMI_RELAY_PUBLIC_USE_TLS`. Restart the daemon, then pair again: the pairing offer embeds the relay endpoint, so links made for the old relay stop working.
+
+## Pair a device
+
+1. On the desktop, open **Settings → Pair a device** and show the QR code, or run `pimi daemon pair` for a link.
+2. In the Android app, scan the code or open the `pimi://pair/#offer=…` link.
+3. Keep the code private. It carries the daemon's public key and the session id.
+
+Keep the desktop awake. While it sleeps the phone cannot reach it; the daemon reconnects to the relay within about 30 seconds of waking.
+
+## Who can share one relay
+
+One relay serves any number of computers. Each daemon gets its own session id, and each computer is paired separately. Friends can point their own daemons at your relay; the relay only sees encrypted frames, never their contents. Raise `PIMI_RELAY_MAX_SOCKETS_PER_IP` if several people share one network address.
 
 Anyone who knows a session id can open a socket in it and replace the daemon's control socket, so the relay is only as available as that id is secret. The id is not a credential for the session contents, which stay behind the Noise handshake and the daemon key.
