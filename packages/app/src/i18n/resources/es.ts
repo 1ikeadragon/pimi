@@ -2234,6 +2234,51 @@ export const es: TranslationResources = {
       title: "Ataque",
       starting: "Iniciando el agente líder…",
     },
+    subviews: {
+      label: "Vista del tablero",
+      agentCount: "{{count}} agentes · {{working}} trabajando",
+      overview: {
+        label: "Resumen",
+      },
+      terminal: {
+        label: "Terminal",
+        empty:
+          "Aún no hay terminales. Aquí aparecen los comandos y terminales que usan los agentes.",
+        filterAll: "Todos",
+        feed: "Registro",
+        live: "En vivo",
+        noShell: "Sin actividad de shell",
+        openLive: "Abrir en vivo",
+      },
+      browser: {
+        label: "Navegador",
+        empty: "Aún no hay pestañas. Aquí aparecen las pestañas que abren los agentes.",
+        live: "{{count}} en vivo",
+        noPreview: "Sin vista previa",
+        refused: "Navegación rechazada",
+      },
+      desktop: {
+        label: "Escritorio",
+        empty: "Aún no hay ventana de escritorio.",
+        disabledHint:
+          "Añade un destino de escritorio al iniciar una ejecución para usar Escritorio.",
+        grantAccess: "Conceder acceso de Accesibilidad",
+        actionLog: "Registro de acciones",
+        readOnlyNote: "Los agentes controlan esta ventana; no puedes hacer clic en ella.",
+      },
+      visualize: {
+        label: "Visualizar",
+        empty:
+          "Aún no hay nada que dibujar. Los agentes, rutas y hallazgos aparecen durante la ejecución.",
+        graph: "Grafo",
+        coverage: "Cobertura",
+        untested: "Sin probar",
+        visited: "Visitado",
+        coverageNote:
+          "La cobertura solo cuenta visitas del navegador. No incluye comandos ni lecturas de archivos.",
+        more: "+{{count}} más",
+      },
+    },
     findings: {
       running: "Los agentes están sondeando el objetivo. Aún no hay hallazgos.",
       runningMeta: "{{count}} agentes · {{elapsed}}",

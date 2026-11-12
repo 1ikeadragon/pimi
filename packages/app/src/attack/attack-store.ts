@@ -1,5 +1,9 @@
 import { useEffect, useMemo } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import { z } from "zod";
+import { createValidatedPersistStorage } from "@/storage/validated-persist-storage";
 import type { AttackRun, Finding } from "@pimi/protocol/attack/types";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 
@@ -7,6 +11,16 @@ interface HostAttackState {
   runs: Record<string, AttackRun>;
   findings: Record<string, Record<string, Finding>>;
 }
+
+export const ATTACK_SUBVIEWS = ["overview", "terminal", "browser", "desktop", "visualize"] as const;
+export type AttackSubview = (typeof ATTACK_SUBVIEWS)[number];
+
+const SubviewPersistedStateSchema = z.object({
+  subviewByWorkspace: z.record(
+    z.string(),
+    z.object({ runId: z.string(), view: z.enum(ATTACK_SUBVIEWS) }),
+  ),
+});
 
 export type AttackFocusView = "chat" | "browser";
 export interface AttackFocus {
@@ -17,6 +31,9 @@ export interface AttackFocus {
 interface AttackStore {
   /** The board's focused agent, by workspace key. Cleared when a different run takes over. */
   focusByWorkspace: Record<string, (AttackFocus & { runId: string }) | null>;
+  /** The board's body, by workspace key. Persisted; a different run resets it to overview. */
+  subviewByWorkspace: Record<string, { runId: string; view: AttackSubview }>;
+  setSubview: (workspaceKey: string, runId: string, view: AttackSubview) => void;
   /** Set by "New run" so the board shows the launch form over a finished run's grid. */
   composingByWorkspace: Record<string, string | null>;
   /** The pre-flight target tab (a plain browser the owner annotates), by workspace key. */
@@ -50,82 +67,104 @@ function hostOf(state: AttackStore, serverId: string): HostAttackState {
 
 // Runs and findings live on the daemon; this mirrors them for the panels and keeps them fresh
 // from `attack.run.changed` and `attack.finding.changed` pushes.
-export const useAttackStore = create<AttackStore>((set) => ({
-  focusByWorkspace: {},
-  composingByWorkspace: {},
-  preflightByWorkspace: {},
-  findingsOverlayByWorkspace: {},
-  setPreflight: (workspaceKey, preflight) =>
-    set((state) => ({
-      preflightByWorkspace: { ...state.preflightByWorkspace, [workspaceKey]: preflight },
-    })),
-  setFindingsOverlay: (workspaceKey, open) =>
-    set((state) => ({
-      findingsOverlayByWorkspace: { ...state.findingsOverlayByWorkspace, [workspaceKey]: open },
-    })),
-  setFocus: (workspaceKey, runId, focus) =>
-    set((state) => ({
-      focusByWorkspace: {
-        ...state.focusByWorkspace,
-        [workspaceKey]: focus ? { ...focus, runId } : null,
-      },
-    })),
-  setComposing: (workspaceKey, afterRunId) =>
-    set((state) => ({
-      composingByWorkspace: { ...state.composingByWorkspace, [workspaceKey]: afterRunId },
-    })),
-  byServer: {},
-  putRun: (serverId, run) =>
-    set((state) => {
-      const host = hostOf(state, serverId);
-      return {
-        byServer: {
-          ...state.byServer,
-          [serverId]: { ...host, runs: { ...host.runs, [run.id]: newer(host.runs[run.id], run) } },
-        },
-      };
-    }),
-  putRuns: (serverId, runs) =>
-    set((state) => {
-      const host = hostOf(state, serverId);
-      const next = { ...host.runs };
-      for (const run of runs) next[run.id] = newer(next[run.id], run);
-      return { byServer: { ...state.byServer, [serverId]: { ...host, runs: next } } };
-    }),
-  putFinding: (serverId, finding) =>
-    set((state) => {
-      const host = hostOf(state, serverId);
-      const forRun = host.findings[finding.runId] ?? {};
-      // A push carries no screenshot bytes; keep the ones a detail fetch already brought.
-      const previous = forRun[finding.id];
-      const merged = previous && previous.updatedAt >= finding.updatedAt ? previous : finding;
-      return {
-        byServer: {
-          ...state.byServer,
-          [serverId]: {
-            ...host,
-            findings: { ...host.findings, [finding.runId]: { ...forRun, [finding.id]: merged } },
+export const useAttackStore = create<AttackStore>()(
+  persist(
+    (set) => ({
+      subviewByWorkspace: {},
+      setSubview: (workspaceKey, runId, view) =>
+        set((state) => ({
+          subviewByWorkspace: { ...state.subviewByWorkspace, [workspaceKey]: { runId, view } },
+        })),
+      focusByWorkspace: {},
+      composingByWorkspace: {},
+      preflightByWorkspace: {},
+      findingsOverlayByWorkspace: {},
+      setPreflight: (workspaceKey, preflight) =>
+        set((state) => ({
+          preflightByWorkspace: { ...state.preflightByWorkspace, [workspaceKey]: preflight },
+        })),
+      setFindingsOverlay: (workspaceKey, open) =>
+        set((state) => ({
+          findingsOverlayByWorkspace: { ...state.findingsOverlayByWorkspace, [workspaceKey]: open },
+        })),
+      setFocus: (workspaceKey, runId, focus) =>
+        set((state) => ({
+          focusByWorkspace: {
+            ...state.focusByWorkspace,
+            [workspaceKey]: focus ? { ...focus, runId } : null,
           },
-        },
-      };
+        })),
+      setComposing: (workspaceKey, afterRunId) =>
+        set((state) => ({
+          composingByWorkspace: { ...state.composingByWorkspace, [workspaceKey]: afterRunId },
+        })),
+      byServer: {},
+      putRun: (serverId, run) =>
+        set((state) => {
+          const host = hostOf(state, serverId);
+          return {
+            byServer: {
+              ...state.byServer,
+              [serverId]: {
+                ...host,
+                runs: { ...host.runs, [run.id]: newer(host.runs[run.id], run) },
+              },
+            },
+          };
+        }),
+      putRuns: (serverId, runs) =>
+        set((state) => {
+          const host = hostOf(state, serverId);
+          const next = { ...host.runs };
+          for (const run of runs) next[run.id] = newer(next[run.id], run);
+          return { byServer: { ...state.byServer, [serverId]: { ...host, runs: next } } };
+        }),
+      putFinding: (serverId, finding) =>
+        set((state) => {
+          const host = hostOf(state, serverId);
+          const forRun = host.findings[finding.runId] ?? {};
+          // A push carries no screenshot bytes; keep the ones a detail fetch already brought.
+          const previous = forRun[finding.id];
+          const merged = previous && previous.updatedAt >= finding.updatedAt ? previous : finding;
+          return {
+            byServer: {
+              ...state.byServer,
+              [serverId]: {
+                ...host,
+                findings: {
+                  ...host.findings,
+                  [finding.runId]: { ...forRun, [finding.id]: merged },
+                },
+              },
+            },
+          };
+        }),
+      putFindings: (serverId, runId, findings) =>
+        set((state) => {
+          const host = hostOf(state, serverId);
+          // Findings are never deleted, so one a push brought while the list was in flight stays.
+          const next: Record<string, Finding> = { ...host.findings[runId] };
+          for (const finding of findings) {
+            const previous = next[finding.id];
+            next[finding.id] =
+              previous && previous.updatedAt >= finding.updatedAt ? previous : finding;
+          }
+          return {
+            byServer: {
+              ...state.byServer,
+              [serverId]: { ...host, findings: { ...host.findings, [runId]: next } },
+            },
+          };
+        }),
     }),
-  putFindings: (serverId, runId, findings) =>
-    set((state) => {
-      const host = hostOf(state, serverId);
-      // Findings are never deleted, so one a push brought while the list was in flight stays.
-      const next: Record<string, Finding> = { ...host.findings[runId] };
-      for (const finding of findings) {
-        const previous = next[finding.id];
-        next[finding.id] = previous && previous.updatedAt >= finding.updatedAt ? previous : finding;
-      }
-      return {
-        byServer: {
-          ...state.byServer,
-          [serverId]: { ...host, findings: { ...host.findings, [runId]: next } },
-        },
-      };
-    }),
-}));
+    {
+      name: "attack-subview",
+      version: 1,
+      storage: createValidatedPersistStorage(AsyncStorage, SubviewPersistedStateSchema),
+      partialize: (state) => ({ subviewByWorkspace: state.subviewByWorkspace }),
+    },
+  ),
+);
 
 /** The newest run of the workspace, running or not. */
 export function selectLatestRun(
@@ -213,4 +252,14 @@ export function useAttackSync(serverId: string, workspaceId: string): void {
       void feeds.release().catch(() => undefined);
     };
   }, [client, connected, serverId, workspaceId]);
+}
+
+/** The subview for the run on screen; any other run's choice is ignored, so a new run starts on overview. */
+export function selectSubview(
+  state: AttackStore,
+  workspaceKey: string,
+  runId: string | null,
+): AttackSubview {
+  const entry = state.subviewByWorkspace[workspaceKey];
+  return entry && entry.runId === runId ? entry.view : "overview";
 }

@@ -2235,6 +2235,51 @@ export const fr: TranslationResources = {
       title: "Attaque",
       starting: "Démarrage de l'agent principal…",
     },
+    subviews: {
+      label: "Vue du tableau",
+      agentCount: "{{count}} agents · {{working}} au travail",
+      overview: {
+        label: "Aperçu",
+      },
+      terminal: {
+        label: "Terminal",
+        empty:
+          "Aucun terminal pour l'instant. Les commandes shell et les terminaux des agents apparaissent ici.",
+        filterAll: "Tous",
+        feed: "Flux",
+        live: "En direct",
+        noShell: "Aucune activité shell",
+        openLive: "Ouvrir en direct",
+      },
+      browser: {
+        label: "Navigateur",
+        empty: "Aucun onglet pour l'instant. Les onglets ouverts par les agents apparaissent ici.",
+        live: "{{count}} en direct",
+        noPreview: "Pas d'aperçu",
+        refused: "Navigation refusée",
+      },
+      desktop: {
+        label: "Bureau",
+        empty: "Aucune fenêtre de bureau pour l'instant.",
+        disabledHint:
+          "Ajoutez une cible de bureau au lancement d'une exécution pour utiliser Bureau.",
+        grantAccess: "Accorder l'accès Accessibilité",
+        actionLog: "Journal des actions",
+        readOnlyNote: "Les agents pilotent cette fenêtre ; vous ne pouvez pas y cliquer.",
+      },
+      visualize: {
+        label: "Visualiser",
+        empty:
+          "Rien à dessiner pour l'instant. Agents, routes et résultats apparaissent au fil de l'exécution.",
+        graph: "Graphe",
+        coverage: "Couverture",
+        untested: "Non testé",
+        visited: "Visité",
+        coverageNote:
+          "La couverture ne compte que les visites du navigateur. Les commandes et lectures de fichiers n'y figurent pas.",
+        more: "+{{count}} de plus",
+      },
+    },
     findings: {
       running: "Les agents sondent la cible. Aucun résultat pour l'instant.",
       runningMeta: "{{count}} agents · {{elapsed}}",

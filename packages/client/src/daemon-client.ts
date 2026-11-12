@@ -6643,6 +6643,43 @@ export class DaemonClient {
     });
   }
 
+  async attackCoverageRecord(
+    options: AttackRunIdOptions & { agentId: string; route: string },
+  ): Promise<AttackResponsePayload<"attack.coverage.record.response">> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "attack.coverage.record.request",
+        runId: options.runId,
+        agentId: options.agentId,
+        route: options.route,
+      },
+    });
+  }
+
+  async attackCoverageGet(
+    options: AttackRunIdOptions,
+  ): Promise<AttackResponsePayload<"attack.coverage.get.response">> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "attack.coverage.get.request", runId: options.runId },
+    });
+  }
+
+  async attackFindingMerge(
+    options: AttackRunIdOptions & { duplicateId: string; intoId: string },
+  ): Promise<AttackResponsePayload<"attack.finding.merge.response">> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "attack.finding.merge.request",
+        runId: options.runId,
+        duplicateId: options.duplicateId,
+        intoId: options.intoId,
+      },
+    });
+  }
+
   async attackAuditRecord(
     options: AttackRunIdOptions & { agentId?: string; detail: string },
   ): Promise<AttackResponsePayload<"attack.audit.record.response">> {

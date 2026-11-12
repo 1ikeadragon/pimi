@@ -2220,6 +2220,48 @@ export const en = {
       title: "Attack",
       starting: "Starting the lead agent…",
     },
+    subviews: {
+      label: "Board view",
+      agentCount: "Agents: {{count}} · {{working}} working",
+      overview: {
+        label: "Overview",
+      },
+      terminal: {
+        label: "Terminal",
+        empty: "No terminals yet. Shell commands and terminals the agents use appear here.",
+        filterAll: "All",
+        feed: "Feed",
+        live: "Live",
+        noShell: "No shell activity",
+        openLive: "Open live",
+      },
+      browser: {
+        label: "Browser",
+        empty: "No browser tabs yet. Tabs the agents open appear here.",
+        live: "{{count}} live",
+        noPreview: "No preview",
+        refused: "Navigation refused",
+      },
+      desktop: {
+        label: "Desktop",
+        empty: "No desktop window yet.",
+        disabledHint: "Add a desktop target when you start a run to use Desktop.",
+        grantAccess: "Grant Accessibility access",
+        actionLog: "Action log",
+        readOnlyNote: "The agents drive this window; you cannot click in it.",
+      },
+      visualize: {
+        label: "Visualize",
+        empty: "Nothing to draw yet. Agents, routes and findings appear as the run goes.",
+        graph: "Graph",
+        coverage: "Coverage",
+        untested: "Untested",
+        visited: "Visited",
+        coverageNote:
+          "Coverage counts browser visits only. Commands and file reads are not included.",
+        more: "+{{count}} more",
+      },
+    },
     findings: {
       running: "Agents are probing the target. No findings yet.",
       runningMeta: "{{count}} agents · {{elapsed}}",

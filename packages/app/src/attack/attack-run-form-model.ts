@@ -171,6 +171,8 @@ export class AttackRunFormModel {
       },
       annotations: preflight.annotations,
       onlyAnnotated: preflight.onlyAnnotated,
+      desktopTarget: null,
+      allowDesktopInput: false,
     };
   }
 

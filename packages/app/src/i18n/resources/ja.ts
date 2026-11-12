@@ -2208,6 +2208,51 @@ export const ja: TranslationResources = {
       title: "アタック",
       starting: "リードエージェントを起動中…",
     },
+    subviews: {
+      label: "ボード表示",
+      agentCount: "{{count}} 件のエージェント · {{working}} 件が作業中",
+      overview: {
+        label: "概要",
+      },
+      terminal: {
+        label: "ターミナル",
+        empty:
+          "ターミナルはまだありません。エージェントのシェルコマンドとターミナルがここに表示されます。",
+        filterAll: "すべて",
+        feed: "フィード",
+        live: "ライブ",
+        noShell: "シェルの動きはありません",
+        openLive: "ライブで開く",
+      },
+      browser: {
+        label: "ブラウザ",
+        empty: "タブはまだありません。エージェントが開いたタブがここに表示されます。",
+        live: "ライブ {{count}} 件",
+        noPreview: "プレビューなし",
+        refused: "ナビゲーションを拒否しました",
+      },
+      desktop: {
+        label: "デスクトップ",
+        empty: "デスクトップのウィンドウはまだありません。",
+        disabledHint: "デスクトップを使うには、実行の開始時にデスクトップ対象を追加してください。",
+        grantAccess: "アクセシビリティの許可",
+        actionLog: "操作ログ",
+        readOnlyNote:
+          "エージェントがこのウィンドウを操作します。ここをクリックすることはできません。",
+      },
+      visualize: {
+        label: "可視化",
+        empty:
+          "描画するものはまだありません。実行が進むとエージェント、ルート、指摘が表示されます。",
+        graph: "グラフ",
+        coverage: "カバレッジ",
+        untested: "未テスト",
+        visited: "訪問済み",
+        coverageNote:
+          "カバレッジはブラウザの訪問のみを数えます。コマンドやファイルの読み取りは含みません。",
+        more: "ほか {{count}} 件",
+      },
+    },
     findings: {
       running: "エージェントが対象を調査中です。まだ検出はありません。",
       runningMeta: "{{count}} エージェント · {{elapsed}}",

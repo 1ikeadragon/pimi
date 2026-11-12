@@ -2196,6 +2196,48 @@ export const ko: TranslationResources = {
       title: "공격",
       starting: "리드 에이전트를 시작하는 중…",
     },
+    subviews: {
+      label: "보드 보기",
+      agentCount: "에이전트 {{count}}개 · 작업 중 {{working}}개",
+      overview: {
+        label: "개요",
+      },
+      terminal: {
+        label: "터미널",
+        empty: "아직 터미널이 없습니다. 에이전트의 셸 명령과 터미널이 여기에 표시됩니다.",
+        filterAll: "전체",
+        feed: "피드",
+        live: "실시간",
+        noShell: "셸 활동 없음",
+        openLive: "실시간으로 열기",
+      },
+      browser: {
+        label: "브라우저",
+        empty: "아직 탭이 없습니다. 에이전트가 연 탭이 여기에 표시됩니다.",
+        live: "실시간 {{count}}개",
+        noPreview: "미리보기 없음",
+        refused: "이동이 거부됨",
+      },
+      desktop: {
+        label: "데스크톱",
+        empty: "아직 데스크톱 창이 없습니다.",
+        disabledHint: "데스크톱을 사용하려면 실행을 시작할 때 데스크톱 대상을 추가하세요.",
+        grantAccess: "손쉬운 사용 권한 허용",
+        actionLog: "작업 로그",
+        readOnlyNote: "에이전트가 이 창을 조작합니다. 여기서는 클릭할 수 없습니다.",
+      },
+      visualize: {
+        label: "시각화",
+        empty: "아직 그릴 내용이 없습니다. 실행 중에 에이전트, 경로, 발견 사항이 표시됩니다.",
+        graph: "그래프",
+        coverage: "커버리지",
+        untested: "미테스트",
+        visited: "방문함",
+        coverageNote:
+          "커버리지는 브라우저 방문만 집계합니다. 명령과 파일 읽기는 포함되지 않습니다.",
+        more: "{{count}}개 더",
+      },
+    },
     findings: {
       running: "에이전트가 대상을 조사하고 있습니다. 아직 발견된 항목이 없습니다.",
       runningMeta: "에이전트 {{count}}개 · {{elapsed}}",

@@ -9002,6 +9002,18 @@ function isValidGitHubRepoSegment(value: string): boolean {
   return /^[A-Za-z0-9._-]+$/u.test(value);
 }
 
+function attackEventCategory(message: SessionOutboundMessage): SessionEventSubscription | null {
+  switch (message.type) {
+    case "attack.run.changed":
+    case "attack.finding.changed":
+    case "attack.coverage.changed":
+    case "attack.desktop.action":
+      return message.type;
+    default:
+      return null;
+  }
+}
+
 function sessionEventCategory(message: SessionOutboundMessage): SessionEventSubscription | null {
   switch (message.type) {
     case "project.update":
@@ -9016,8 +9028,6 @@ function sessionEventCategory(message: SessionOutboundMessage): SessionEventSubs
     case "agent.background_work.update":
     case "terminal_attention_required":
     case "activity_log":
-    case "attack.run.changed":
-    case "attack.finding.changed":
       return message.type;
     case "status":
       switch (message.payload.status) {
@@ -9033,7 +9043,7 @@ function sessionEventCategory(message: SessionOutboundMessage): SessionEventSubs
           return null;
       }
     default:
-      return null;
+      return attackEventCategory(message);
   }
 }
 

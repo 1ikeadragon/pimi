@@ -2219,6 +2219,49 @@ export const ptBR: TranslationResources = {
       title: "Ataque",
       starting: "Iniciando o agente líder…",
     },
+    subviews: {
+      label: "Visão do quadro",
+      agentCount: "{{count}} agentes · {{working}} trabalhando",
+      overview: {
+        label: "Visão geral",
+      },
+      terminal: {
+        label: "Terminal",
+        empty:
+          "Ainda não há terminais. Os comandos de shell e terminais dos agentes aparecem aqui.",
+        filterAll: "Todos",
+        feed: "Registro",
+        live: "Ao vivo",
+        noShell: "Sem atividade de shell",
+        openLive: "Abrir ao vivo",
+      },
+      browser: {
+        label: "Navegador",
+        empty: "Ainda não há abas. As abas abertas pelos agentes aparecem aqui.",
+        live: "{{count}} ao vivo",
+        noPreview: "Sem pré-visualização",
+        refused: "Navegação recusada",
+      },
+      desktop: {
+        label: "Desktop",
+        empty: "Ainda não há janela de desktop.",
+        disabledHint: "Adicione um alvo de desktop ao iniciar uma execução para usar Desktop.",
+        grantAccess: "Conceder acesso de Acessibilidade",
+        actionLog: "Registro de ações",
+        readOnlyNote: "Os agentes controlam esta janela; você não pode clicar nela.",
+      },
+      visualize: {
+        label: "Visualizar",
+        empty: "Nada para desenhar ainda. Agentes, rotas e achados aparecem durante a execução.",
+        graph: "Grafo",
+        coverage: "Cobertura",
+        untested: "Não testado",
+        visited: "Visitado",
+        coverageNote:
+          "A cobertura conta apenas visitas do navegador. Comandos e leituras de arquivos não entram.",
+        more: "+{{count}} mais",
+      },
+    },
     findings: {
       running: "Os agentes estão sondando o alvo. Ainda sem achados.",
       runningMeta: "{{count}} agentes · {{elapsed}}",
