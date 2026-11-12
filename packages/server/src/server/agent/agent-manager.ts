@@ -109,6 +109,7 @@ import {
   type ProviderSubagentStoreEvent,
 } from "./provider-subagents/store.js";
 import { AgentBackgroundWorkStore, type AgentBackgroundWorkItem } from "./background-work/index.js";
+import { LAZY_TOOL_GROUP_NAMES } from "./tools/lazy-tool-groups.js";
 import { withTimeout } from "../../utils/promise-timeout.js";
 import { extractAttention } from "../persistence-hooks.js";
 import {
@@ -128,7 +129,7 @@ import {
 
 /** Scopes Pimi's tools and keeps agents from opening a browser to check their own visuals. */
 const PIMI_SCOPE_INSTRUCTIONS =
-  "Ordinary coding tasks need no Pimi tools. Show a visual by writing its block in the reply: Pimi draws it, so it needs no check. Never open a browser, take a screenshot, load browser tools, or start a server to check or show your own chart or page, unless the user asked for browser work. If you could not check something, say so in one line.";
+  "Ordinary coding tasks need no Pimi tools. Show a visual by writing its block in the reply: Pimi draws it, so it needs no check. Never open a browser, take a screenshot, load browser tools, or start a server to check or show your own chart or page, unless the user asked for browser work.";
 
 // Without its tools an agent asked to delegate or remember improvises: it runs `claude -p` or
 // `codex exec` in a shell, or writes Pimi's memory files by hand. Neither shows up in Pimi.
@@ -161,7 +162,7 @@ function pimiActionInstructions(input: {
     instructions.push("Pimi's tools are deferred: load one with ToolSearch before calling it.");
   } else if (input.toolLoading === "loader") {
     instructions.push(
-      "Pimi lists only its core tools. For automations, heartbeats, terminals, workspaces, scripts, the task board, permissions, hosts, and profiles, call pimi_tools with a group, then run a tool with call_pimi_tool.",
+      `Pimi lists only its core tools. For ${LAZY_TOOL_GROUP_NAMES.join(", ")}, call pimi_tools with a group, then run a tool with call_pimi_tool.`,
     );
   }
   if (isPaseoToolEnabled(policy, PIMI_TASK_PROPOSAL_TOOL)) {
@@ -173,7 +174,7 @@ function pimiActionInstructions(input: {
   }
   if (isPaseoToolEnabled(policy, "create_agent")) {
     instructions.push(
-      "When the user names another agent, provider, or model, or asks for parallel workers, call create_agent once per worker with a focused initialPrompt. Pimi shows each as a card the user can open; a built-in subagent tool or an agent CLI run from a shell (claude, codex, opencode, gemini) shows the user nothing. Use your built-in subagent tool for your own lookups. Follow up with send_agent_prompt, and report here when the completion notification arrives.",
+      'When the user asks for another agent, a worker, a second opinion, or another provider or model to do or answer something ("ask another agent", "use opencode to", "split this between two agents"), or for parallel workers, call create_agent once per worker, even one on your own provider, with a focused initialPrompt. Pimi shows each as a card the user can open; your built-in subagent tool (Task or Agent) and an agent CLI run from a shell (claude, codex, opencode, gemini) show the user nothing, so never use either for a worker the user asked for or to get another model\'s answer. Keep the built-in subagent tool for your own lookups. Follow up with send_agent_prompt, and report here when the completion notification arrives.',
     );
   }
   return instructions;
@@ -571,6 +572,8 @@ export interface AgentManagerOptions {
   paseoToolsEnabled?: boolean;
   paseoToolCatalogFactory?: PaseoToolCatalogFactory;
   resolvePaseoToolPolicy?: (provider: AgentProvider) => ProviderPaseoToolsPolicy | undefined;
+  /** Whether a bundled skill is selected and installed, so agents that read skills can load it. */
+  isSkillAvailable?: (name: string) => Promise<boolean>;
   appendSystemPrompt?: string;
   agentStreamCoalesceWindowMs?: number;
   rescueTimeouts?: AgentManagerRescueTimeouts;
@@ -1070,6 +1073,9 @@ export class AgentManager {
   private paseoToolsEnabled = true;
   private paseoToolCatalogFactory: PaseoToolCatalogFactory | null = null;
   private readonly paseoToolPolicies = new Map<string, ProviderPaseoToolsPolicy | undefined>();
+  /** Agents whose provider gets Pimi's tools through the lazy loader; set before the session exists so a resume-time tools/list sees it. */
+  private readonly pimiLoaderAgents = new Set<string>();
+  private isSkillAvailable: (name: string) => Promise<boolean> = async () => false;
   private readonly resolvePaseoToolPolicy: (
     provider: AgentProvider,
   ) => ProviderPaseoToolsPolicy | undefined;
@@ -1127,6 +1133,7 @@ export class AgentManager {
   private configurePaseoTools(options: AgentManagerOptions): void {
     this.paseoToolsEnabled = options.paseoToolsEnabled ?? true;
     this.paseoToolCatalogFactory = options.paseoToolCatalogFactory ?? null;
+    if (options.isSkillAvailable) this.isSkillAvailable = options.isSkillAvailable;
   }
 
   registerClient(provider: AgentProvider, client: AgentClient): void {
@@ -1264,8 +1271,17 @@ export class AgentManager {
 
   /** Whether the agent's provider receives Pimi's tools through the lazy loader. */
   agentUsesPimiToolLoader(agentId: string): boolean {
-    const provider = this.getAgent(agentId)?.provider;
-    return provider !== undefined && this.pimiToolLoading(provider) === "loader";
+    return this.pimiLoaderAgents.has(agentId);
+  }
+
+  private recordPaseoToolPolicy(
+    agentId: string,
+    provider: string,
+    policy: ProviderPaseoToolsPolicy | undefined,
+  ): void {
+    this.paseoToolPolicies.set(agentId, policy);
+    if (this.pimiToolLoading(provider) === "loader") this.pimiLoaderAgents.add(agentId);
+    else this.pimiLoaderAgents.delete(agentId);
   }
 
   /**
@@ -1759,7 +1775,7 @@ export class AgentManager {
     const client = await this.requireAvailableClient({
       provider: storedConfig.provider,
     });
-    this.paseoToolPolicies.set(resolvedAgentId, paseoToolPolicy);
+    this.recordPaseoToolPolicy(resolvedAgentId, storedConfig.provider, paseoToolPolicy);
     const launchContext = withoutAppTools
       ? { agentId: resolvedAgentId, env: options.env }
       : await this.buildLaunchContext(
@@ -1890,7 +1906,7 @@ export class AgentManager {
         `Provider '${handle.provider}' is not available. Please ensure the CLI is installed.`,
       );
     }
-    this.paseoToolPolicies.set(resolvedAgentId, paseoToolPolicy);
+    this.recordPaseoToolPolicy(resolvedAgentId, handle.provider, paseoToolPolicy);
     const launchContext = await this.buildLaunchContext(
       resolvedAgentId,
       client,
@@ -1957,7 +1973,7 @@ export class AgentManager {
       },
       resolvedAgentId,
     );
-    this.paseoToolPolicies.set(resolvedAgentId, paseoToolPolicy);
+    this.recordPaseoToolPolicy(resolvedAgentId, input.provider, paseoToolPolicy);
     const launchContext = await this.buildLaunchContext(
       resolvedAgentId,
       client,
@@ -2382,6 +2398,7 @@ export class AgentManager {
     const { client } = plan;
     const hadPreviousPaseoToolPolicy = this.paseoToolPolicies.has(agentId);
     const previousPaseoToolPolicy = this.paseoToolPolicies.get(agentId);
+    const hadPreviousLoader = this.pimiLoaderAgents.has(agentId);
     const { storedConfig, providerLaunchConfig, launchContext, paseoToolPolicy } =
       await this.prepareReplacementLaunch(agent, plan);
 
@@ -2398,7 +2415,7 @@ export class AgentManager {
       }
       this.assertAcceptingAgentRegistrations();
 
-      this.paseoToolPolicies.set(agentId, paseoToolPolicy);
+      this.recordPaseoToolPolicy(agentId, storedConfig.provider, paseoToolPolicy);
       session = plan.handle
         ? await client.resumeSession(plan.handle, providerLaunchConfig, launchContext)
         : await client.createSession(providerLaunchConfig, launchContext);
@@ -2447,6 +2464,8 @@ export class AgentManager {
         } else {
           this.paseoToolPolicies.delete(agentId);
         }
+        if (hadPreviousLoader) this.pimiLoaderAgents.add(agentId);
+        else this.pimiLoaderAgents.delete(agentId);
         if (session) {
           await this.closeUnregisteredSession(session);
         }
@@ -6646,6 +6665,10 @@ export class AgentManager {
       : { enabled: false };
     const interactiveChat =
       !storedConfig.internal && !options.background && options.purpose !== "history";
+    const visualizeSkillReady =
+      interactiveChat &&
+      this.clients.get(storedConfig.provider)?.capabilities.readsBundledSkills === true &&
+      (await this.isSkillAvailable("pimi-visualize"));
     const pimiInstructions = interactiveChat
       ? [
           PIMI_SCOPE_INSTRUCTIONS,
@@ -6656,9 +6679,7 @@ export class AgentManager {
             isTaskWorker: Boolean(options.labels?.[PIMI_TASK_WORKER_LABEL]),
             toolLoading: this.pimiToolLoading(storedConfig.provider),
           }),
-          this.clients.get(storedConfig.provider)?.capabilities.readsBundledSkills === true
-            ? PIMI_VISUALIZATION_BRIEF
-            : PIMI_VISUALIZATION_INSTRUCTIONS,
+          visualizeSkillReady ? PIMI_VISUALIZATION_BRIEF : PIMI_VISUALIZATION_INSTRUCTIONS,
         ]
       : [];
     const canRecallMemory =

@@ -52,12 +52,16 @@ const GROUP_BY_TOOL: Readonly<Record<string, string>> = {
   read_pimi_space_item: "search",
 };
 
+/** Group names a loader-fed agent can ask for, for the prompt. Tools outside the map fall under "other", so tools not named here still show up in the loader's own listing. */
+export const LAZY_TOOL_GROUP_NAMES: readonly string[] = [
+  ...new Set([...Object.values(GROUP_BY_TOOL), "automations", "heartbeats"]),
+].sort();
+
 export function toolGroupOf(name: string): string {
   const mapped = GROUP_BY_TOOL[name];
   if (mapped) return mapped;
   if (name.includes("automation")) return "automations";
   if (name.includes("heartbeat")) return "heartbeats";
-  if (name.includes("pimi_")) return "tasks";
   return "other";
 }
 
@@ -95,6 +99,7 @@ function textResult(value: unknown): PaseoToolResult {
 
 export function createLazyLoaderTools(
   groups: Map<string, PaseoToolDefinition[]>,
+  listedNames: ReadonlySet<string>,
   execute: (name: string, args: unknown, signal?: AbortSignal) => Promise<PaseoToolResult>,
 ): PaseoToolDefinition[] {
   if (groups.size === 0) return [];
@@ -138,7 +143,7 @@ export function createLazyLoaderTools(
         const { name, arguments: args } = z
           .object({ name: z.string(), arguments: z.record(z.string(), z.unknown()).optional() })
           .parse(input);
-        if (!byName.has(name)) {
+        if (!byName.has(name) && !listedNames.has(name)) {
           return {
             ...textResult(
               `${name} is not a loadable Pimi tool. Call ${LOADER_TOOL_NAME} to list them.`,

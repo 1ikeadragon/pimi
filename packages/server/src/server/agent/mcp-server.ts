@@ -1,9 +1,10 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
-import type {
-  CallToolResult,
-  ServerNotification,
-  ServerRequest,
+import {
+  CallToolRequestSchema,
+  type CallToolResult,
+  type ServerNotification,
+  type ServerRequest,
 } from "@modelcontextprotocol/sdk/types.js";
 
 import { addModelVisibleStructuredContent } from "./tools/paseo-tool-serialization.js";
@@ -69,10 +70,29 @@ export async function createAgentMcpServer(
   if (!loading.lazyTools) return createToolMcpServer(catalog.tools.values(), execute);
   const { listed, groups } = splitToolsForLazyLoading(catalog.tools.values());
   const loaderTools = new Map(
-    createLazyLoaderTools(groups, execute).map((tool) => [tool.name, tool]),
+    createLazyLoaderTools(groups, new Set(listed.map((tool) => tool.name)), execute).map((tool) => [
+      tool.name,
+      tool,
+    ]),
   );
-  return createToolMcpServer([...listed, ...loaderTools.values()], (name, args, signal) => {
+  const route = (name: string, args: unknown, signal?: AbortSignal) => {
     const loaderTool = loaderTools.get(name);
     return loaderTool ? loaderTool.handler(args, { signal }) : execute(name, args, signal);
+  };
+  const server = createToolMcpServer([...listed, ...loaderTools.values()], route);
+  // The tool list is short on purpose, but an agent that already knows a tool's name (resumed
+  // history, a stale schema) can still call it directly instead of hitting "Tool X not found".
+  server.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
+    try {
+      return toMcpToolResult(
+        await route(request.params.name, request.params.arguments ?? {}, extra.signal),
+      );
+    } catch (error) {
+      return {
+        content: [{ type: "text", text: error instanceof Error ? error.message : String(error) }],
+        isError: true,
+      };
+    }
   });
+  return server;
 }

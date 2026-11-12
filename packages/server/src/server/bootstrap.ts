@@ -1135,6 +1135,7 @@ export async function createPaseoDaemon(
     mcpCallerAuthToken: agentMcpTokenForCaller,
     resolvePaseoToolPolicy: (provider) =>
       resolvePaseoToolPolicy(provider, daemonConfigStore.get().providers),
+    isSkillAvailable: (name) => orchestrationSkills.isSkillAvailable(name),
     logger,
   });
   const askPimiSessions = new AskPimiToolSessions();

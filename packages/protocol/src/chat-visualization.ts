@@ -144,16 +144,16 @@ function fenced(fence: string, body: string): string[] {
 /** Agents are not taught the chart node: a chart is a pimi-vega block. Stored chats still draw it. */
 const TAUGHT_NODE_FIELDS = Object.entries(VIEW_NODE_FIELDS).filter(([type]) => type !== "chart");
 
-/** For providers that read the bundled pimi-visualize skill: routing only, the formats live in its formats.md. */
+/** For providers that read the bundled pimi-visualize skill: routing only, the formats live in its SKILL.md. */
 export const PIMI_VISUALIZATION_BRIEF = [
   `Pimi chat draws visuals from fenced blocks: ${PIMI_VEGA_FENCE} for a chart of numbers, ${PIMI_VIEW_FENCE} for metrics, tables, flows, state machines and message sequences, ${PIMI_HTML_FENCE} for something the user operates with sliders or inputs, and mermaid only for a gantt chart.`,
   "Draw when the user asked for a visual or you are about to send a table of numbers. Say one or two numbers in a sentence.",
-  "For any visual, load the pimi-visualize skill first, not a general charting skill: it holds each block's format and limits in formats.md. A request to visualize, chart, plot, or explore data means a block in the reply, even a large or interactive one: aggregate or sample big data. Never save HTML to the workspace for it, unless the user asks for a file to keep.",
+  "For any visual, load the pimi-visualize skill first, not a general charting skill: it holds each block's format and limits. A request to visualize, chart, plot, or explore data, or to build an interactive explorer, calculator, or simulator, means a block in the reply, even a large or interactive one: aggregate or sample big data. Never save HTML to the workspace for it, unless the user asks for a file to keep.",
   `A ${PIMI_VEGA_FENCE} block holds one Vega-Lite v6 spec as JSON, with the rows inline:`,
   ...fenced(PIMI_VEGA_FENCE, JSON.stringify(VEGA_EXAMPLE)),
 ].join("\n");
 
-/** Written from the parsers' own constants, so the prompt and the parsers cannot disagree. Providers without skills get this in the prompt; the pimi-visualize skill ships it as formats.md. */
+/** Written from the parsers' own constants, so the prompt and the parsers cannot disagree. Providers without skills get this in the prompt; the pimi-visualize skill ships it inside SKILL.md. */
 export const PIMI_VISUALIZATION_INSTRUCTIONS = [
   "Pimi chat draws four kinds of visual block. When a reply holds three or more numbers that compare, trend, break down into shares, or relate to each other, draw them when the user asked for a chart or you are about to send a table of them. The chart stands in for a table of the same values: add a table beside it only for columns the chart does not show. Chart the numbers that answer the question, and do not count files or lines only to have something to chart. Choose the block by what is shown, and use the first that fits:",
   `1. A chart of numbers (trend, comparison, ranking, distribution, share, or relationship): a ${PIMI_VEGA_FENCE} block.`,

@@ -15,7 +15,7 @@
     "*.lock",
     "**/*.gen.ts",
     "**/*.gen.tsx",
-    "skills/pimi-visualize/formats.md",
+    "skills/pimi-visualize/SKILL.md",
     "packages/server/src/server/pimi-spaces-embedding-assets/tokenizer.json"
   ]
 }
