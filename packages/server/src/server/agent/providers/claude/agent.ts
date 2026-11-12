@@ -5631,6 +5631,7 @@ class ClaudeAgentSession implements AgentSession {
     if (stat.size < CLAUDE_WINDOWED_REPLAY_MIN_BYTES) return false;
     const window = await readClaudeTranscriptWindow(historyPath, {
       prompts: CLAUDE_HISTORY_TAIL_PROMPTS,
+      partial: true,
     });
     if (!window) return false;
     this.sidechainSources = await openClaudeSidechainSources(historyPath);
