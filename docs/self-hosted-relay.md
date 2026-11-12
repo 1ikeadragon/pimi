@@ -1,10 +1,10 @@
 # Self-hosted relay
 
-`packages/relay/src/node-relay.ts` is a Node server that speaks the same relay protocol as the Cloudflare Durable Object in `cloudflare-adapter.ts`. Run it when you want remote access through a box you control. The relay stays untrusted: it pipes opaque frames by session id, and the daemon and client secure the session end to end ([relay-endpoint-security.md](relay-endpoint-security.md)).
+`packages/relay/src/node-relay.ts` is a Node server that speaks the Pimi relay protocol (v2). Run it when you want remote access through a box you control. The relay stays untrusted: it pipes opaque frames by session id, and the daemon and client secure the session end to end ([relay-endpoint-security.md](relay-endpoint-security.md)).
 
-## Differences from the Cloudflare adapter
+## Behavior
 
-- Protocol version 2 only. A missing or `v=1` request gets HTTP 400. Cloudflare still serves `v=1`.
+- Protocol version 2 only. A missing or `v=1` request gets HTTP 400.
 - A plain `GET /ws` without an upgrade returns 426 before the query is validated.
 - A daemon data socket that was replaced no longer closes the client sockets when the old one finishes closing.
 - Nothing is persisted. Sessions, buffered frames, and counters live in memory and vanish on restart; daemons and clients reconnect on their own.
@@ -139,6 +139,6 @@ In the daemon's `config.json`:
 }
 ```
 
-Or use `PASEO_RELAY_ENDPOINT`, `PASEO_RELAY_USE_TLS`, `PASEO_RELAY_PUBLIC_ENDPOINT`, and `PASEO_RELAY_PUBLIC_USE_TLS`. Restart the daemon, then run `pimi daemon pair` for a new link: the pairing offer embeds the relay endpoint, so links made for the old relay stop working.
+Or use `PIMI_RELAY_ENDPOINT`, `PIMI_RELAY_USE_TLS`, `PIMI_RELAY_PUBLIC_ENDPOINT`, and `PIMI_RELAY_PUBLIC_USE_TLS`. Restart the daemon, then run `pimi daemon pair` for a new link: the pairing offer embeds the relay endpoint, so links made for the old relay stop working.
 
 Anyone who knows a session id can open a socket in it and replace the daemon's control socket, so the relay is only as available as that id is secret. The id is not a credential for the session contents, which stay behind the Noise handshake and the daemon key.

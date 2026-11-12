@@ -11,7 +11,7 @@ Fixes [#359](https://github.com/1ikeadragon/pimi/issues/359): the legacy constru
 | `legacy`    | X25519 + NaCl `box`, random nonces               | none                             |
 | `protected` | `Noise_NK_25519_ChaChaPoly_SHA256` (revision 34) | counters, fresh daemon ephemeral |
 
-Pimi's daemon and clients always negotiate `protected`, and the client refuses `legacy`. The relay library keeps `legacy` for third-party callers; everything in `packages/relay/src/encrypted-channel.ts` is that construction.
+Pimi's daemon and clients always negotiate `protected`, and the client refuses `legacy`. The relay library keeps `legacy` in the handshake for wire compatibility; everything in `packages/relay/src/encrypted-channel.ts` is that construction.
 
 The shared entry points are `openClientSecureChannel` and `openDaemonSecureChannel`. Callers get a `SecureChannel` and ask it `securityMode()`; nothing outside the module branches on the construction.
 

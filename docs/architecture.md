@@ -189,9 +189,9 @@ Enables remote access when the daemon is behind a firewall.
 - Pairing via QR code transfers the daemon's public key to the client
 - New homes keep relay disabled until pairing consent. `DaemonConfigStore` persists the desired state, while the relay runtime starts or stops the outbound transport live; pairing reads that current state instead of a startup snapshot.
 - Optional E2EE capability negotiation preserves application frame kind: text plaintext uses base64 ciphertext text frames, while binary plaintext uses raw ciphertext binary frames
-- Self-hosted relays opt into TLS with `daemon.relay.useTls` or `PASEO_RELAY_USE_TLS=true`; the public (client-facing) TLS setting can be overridden independently via `daemon.relay.publicUseTls` or `PASEO_RELAY_PUBLIC_USE_TLS`
+- Self-hosted relays opt into TLS with `daemon.relay.useTls` or `PIMI_RELAY_USE_TLS=true`; the public (client-facing) TLS setting can be overridden independently via `daemon.relay.publicUseTls` or `PIMI_RELAY_PUBLIC_USE_TLS`
 
-The production relay server lives in [1ikeadragon/pimi-relay](https://github.com/1ikeadragon/pimi-relay). It is a distributed Elixir service. The Cloudflare relay implementation in this monorepo is retained as legacy code and is not deployed.
+The relay server is `packages/relay/src/node-relay.ts`, a self-hosted Node process behind a TLS reverse proxy; see [docs/self-hosted-relay.md](self-hosted-relay.md).
 
 See [SECURITY.md](../SECURITY.md) for the full threat model.
 

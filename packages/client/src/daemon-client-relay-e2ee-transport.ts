@@ -46,8 +46,8 @@ const DOWNGRADE_REJECTED_REASON = "daemon requires protected endpoint security";
  * Returns a user-facing message when this client closed the session itself
  * because endpoint security could not be established, so reconnecting cannot help.
  *
- * The daemon's own policy close never reaches the client: both relays replace a
- * daemon-side close with their own code (1012 on the wrangler relay).
+ * The daemon's own policy close never reaches the client: the relay replaces a
+ * daemon-side close with its own code.
  */
 export function describeEndpointSecurityClose(event: unknown): string | null {
   if (!event || typeof event !== "object") return null;

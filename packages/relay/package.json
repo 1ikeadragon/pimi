@@ -18,10 +18,6 @@
     "./e2ee": {
       "types": "./dist/e2ee.d.ts",
       "default": "./dist/e2ee.js"
-    },
-    "./cloudflare": {
-      "types": "./dist/cloudflare-adapter.d.ts",
-      "default": "./dist/cloudflare-adapter.js"
     }
   },
   "scripts": {

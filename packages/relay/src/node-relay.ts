@@ -1,8 +1,7 @@
 /**
  * Self-hosted Node relay.
  *
- * Implements the same wire protocol (v2) as the Cloudflare Durable Object adapter in
- * `cloudflare-adapter.ts`: `GET /ws?serverId=...&role=server|client&v=2[&connectionId=...]`.
+ * Implements relay wire protocol v2: `GET /ws?serverId=...&role=server|client&v=2[&connectionId=...]`.
  *
  * - role=server, no connectionId: daemon control socket (one per serverId)
  * - role=server, connectionId:    daemon per-connection data socket (one per connectionId)

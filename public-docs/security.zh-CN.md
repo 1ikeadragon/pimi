@@ -21,7 +21,7 @@ Pimi daemon 可以运行在任何你想运行 Agent 的地方：你的笔记本�
 
 ## 中继连接（推荐） {#relay-connections-recommended}
 
-中继是从手机连接最简单的方式。它不需要设置 VPN、端口转发或防火墙。daemon 可以保持绑定在 localhost 或套接字文件上，它向中继发起*出站*连接，你的手机在那里与它会合。官方中继服务器是开源的 Elixir 服务 [1ikeadragon/pimi-relay](https://github.com/1ikeadragon/pimi-relay)。
+中继是从手机连接最简单的方式。它不需要设置 VPN、端口转发或防火墙。daemon 可以保持绑定在 localhost 或套接字文件上，它向中继发起*出站*连接，你的手机在那里与它会合。中继服务器是 `packages/relay` 中可自行托管的 Node 进程，运行在 TLS 反向代理之后。
 
 新安装默认关闭中继。当你通过 `paseo`、`pimi daemon pair` 或 Pimi 桌面应用配对设备时，Pimi 会先询问再启用它。选择不启用中继时，daemon 仍可通过直接 TCP、Tailscale 或其他 VPN 连接访问，并且不会生成配对二维码。在 CLI 的配对或启动命令中使用 `--relay`，可以不经交互提示直接启用。
 

@@ -2,13 +2,11 @@
 /**
  * Encrypted channel that wraps a WebSocket-like transport.
  *
- * Handles ECDH handshake and encrypts/decrypts all messages.
- * Works identically for daemon and client sides.
+ * The legacy (NaCl box) construction. The handshake lives in secure-channel.ts; this class
+ * only encrypts/decrypts once a shared key is derived.
  */
 
 import {
-  generateKeyPair,
-  exportPublicKey,
   importPublicKey,
   deriveSharedKey,
   encrypt,
@@ -78,24 +76,6 @@ function isE2EEReadyMessage(value: unknown): value is E2EEReadyMessage {
   return isRecord(value) && value.type === "e2ee_ready";
 }
 
-function buildInvalidHelloError(rawText: string, parsed?: unknown): Error {
-  const parsedRecord = isRecord(parsed) ? parsed : null;
-  const rawType = parsedRecord?.type;
-  function describeType(value: unknown): string {
-    if (typeof value === "string") return value;
-    if (value === undefined) return "undefined";
-    return typeof value;
-  }
-  const receivedType = describeType(rawType);
-  const hasKey = typeof parsedRecord?.key === "string" && parsedRecord.key.trim().length > 0;
-  const compact = rawText.replace(/\s+/g, " ").trim();
-  const preview = compact.length > 160 ? `${compact.slice(0, 157)}...` : compact;
-  return new Error(
-    `Invalid hello message (receivedType=${receivedType}, hasKey=${hasKey}, preview=${JSON.stringify(preview)})`,
-  );
-}
-
-const HANDSHAKE_RETRY_MS = 1000;
 const MAX_PENDING_SENDS = 200;
 const REHANDSHAKE_REJECTION_CODE = 1008;
 const ENCRYPTED_PAYLOAD_OVERHEAD_BYTES = 40;
@@ -108,181 +88,6 @@ export function maxBase64EncryptedPlaintextByteLength(wireBytes: number): number
   return Math.floor(wireBytes / 4) * 3 - ENCRYPTED_PAYLOAD_OVERHEAD_BYTES;
 }
 const REHANDSHAKE_KEY_MISMATCH_CLOSE_REASON = "E2EE re-handshake key mismatch";
-
-interface TimeoutWithUnref {
-  unref(): void;
-}
-
-function hasUnref(timeout: unknown): timeout is TimeoutWithUnref {
-  return (
-    typeof timeout === "object" &&
-    timeout !== null &&
-    "unref" in timeout &&
-    typeof (timeout as Record<string, unknown>).unref === "function"
-  );
-}
-
-/**
- * Creates an encrypted channel as the initiator (client).
- *
- * The client:
- * 1. Receives daemon's public key via QR code
- * 2. Generates own keypair
- * 3. Sends e2ee_hello with own public key
- * 4. Derives shared key and starts encrypted communication
- */
-export async function createClientChannel(
-  transport: Transport,
-  daemonPublicKeyB64: string,
-  events: EncryptedChannelEvents = {},
-): Promise<EncryptedChannel> {
-  const keyPair = generateKeyPair();
-  const daemonPublicKey = importPublicKey(daemonPublicKeyB64);
-  const sharedKey = deriveSharedKey(keyPair.secretKey, daemonPublicKey);
-
-  const channel = new EncryptedChannel(transport, sharedKey, events);
-
-  // Send e2ee_hello with our public key
-  const ourPublicKeyB64 = exportPublicKey(keyPair.publicKey);
-  const hello: E2EEHelloMessage = {
-    type: "e2ee_hello",
-    key: ourPublicKeyB64,
-  };
-  const helloText = JSON.stringify(hello);
-
-  let retry: ReturnType<typeof setInterval> | null = null;
-  const emitSendError = (error: unknown) => {
-    const err = error instanceof Error ? error : new Error(String(error));
-    events.onerror?.(err);
-  };
-  const sendHello = () => {
-    try {
-      const result = transport.send(helloText);
-      if (result) {
-        void result.catch(emitSendError);
-      }
-      return true;
-    } catch (error) {
-      // This can happen during daemon restarts while the socket transitions
-      // through CLOSING/CLOSED states. Report it but do not throw from timers.
-      emitSendError(error);
-      return false;
-    }
-  };
-  const clearRetry = () => {
-    if (retry) {
-      clearInterval(retry);
-      retry = null;
-    }
-  };
-
-  channel.onTransitionToOpen(() => clearRetry());
-  channel.onClose(() => clearRetry());
-
-  sendHello();
-  retry = setInterval(() => {
-    if (channel.isOpen()) {
-      clearRetry();
-      return;
-    }
-    sendHello();
-  }, HANDSHAKE_RETRY_MS);
-  // Avoid keeping Node processes alive (e.g. tests) if the handshake is stuck.
-  if (hasUnref(retry)) {
-    retry.unref();
-  }
-
-  return channel;
-}
-
-/**
- * Creates an encrypted channel as the responder (daemon).
- *
- * The daemon:
- * 1. Has pre-generated keypair (public key was in QR)
- * 2. Waits for client's e2ee_hello with their public key
- * 3. Derives shared key and starts encrypted communication
- */
-export async function createDaemonChannel(
-  transport: Transport,
-  daemonKeyPair: KeyPair,
-  events: EncryptedChannelEvents = {},
-): Promise<EncryptedChannel> {
-  return new Promise((resolve, reject) => {
-    const bufferedMessages: TransportMessage[] = [];
-    const shouldIgnorePostHelloPlaintext = (message: TransportMessage): boolean => {
-      try {
-        if (message.isBinary) return false;
-        const text = decodeTransportText(message.data);
-        const parsed: unknown = JSON.parse(text);
-        return isE2EEHelloMessage(parsed) || isE2EEReadyMessage(parsed);
-      } catch {
-        return false;
-      }
-    };
-
-    const handleHello = async (message: TransportMessage): Promise<void> => {
-      try {
-        if (message.isBinary) {
-          throw buildInvalidHelloError("<binary frame>");
-        }
-        const helloText = decodeTransportText(message.data);
-
-        let parsed: unknown;
-        try {
-          parsed = JSON.parse(helloText);
-        } catch {
-          throw buildInvalidHelloError(helloText);
-        }
-
-        if (!isE2EEHelloMessage(parsed)) {
-          throw buildInvalidHelloError(helloText, parsed);
-        }
-
-        const msg = parsed;
-
-        // Buffer any subsequent messages that arrive while we're doing async
-        // WebCrypto work to derive the shared key. Without this, it's possible
-        // for the next message (already encrypted) to be misinterpreted as a
-        // second hello, causing the handshake to fail.
-        const bufferNext = (next: TransportMessage): void => {
-          bufferedMessages.push(next);
-        };
-        Object.assign(transport, { onmessage: bufferNext });
-
-        const clientPublicKey = importPublicKey(msg.key);
-        const sharedKey = deriveSharedKey(daemonKeyPair.secretKey, clientPublicKey);
-
-        await transport.send(JSON.stringify({ type: "e2ee_ready" } satisfies E2EEReadyMessage));
-
-        const channel = new EncryptedChannel(transport, sharedKey, events, {
-          daemonKeyPair,
-        });
-        channel.setState("open");
-        events.onopen?.();
-
-        for (const buffered of bufferedMessages) {
-          if (shouldIgnorePostHelloPlaintext(buffered)) continue;
-          transport.onmessage?.(buffered);
-        }
-
-        resolve(channel);
-      } catch (error) {
-        reject(error);
-      }
-    };
-
-    Object.assign(transport, {
-      onmessage: handleHello,
-      onerror: (error: Error) => {
-        reject(error);
-      },
-      onclose: (code: number, reason: string) => {
-        reject(new Error(`Connection closed during handshake: ${code} ${reason}`));
-      },
-    });
-  });
-}
 
 /**
  * Encrypted channel that wraps a transport with E2EE.
