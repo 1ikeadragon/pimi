@@ -2634,6 +2634,7 @@ export const es: TranslationResources = {
       running: "Los agentes están sondeando el objetivo. Aún no hay hallazgos.",
       runningMeta: "{{count}} agentes · {{elapsed}}",
       lastRun: "Última ejecución · {{target}}",
+      pastRun: "Ejecución anterior · {{target}}",
       noRun: "Inicia una ejecución para ver hallazgos aquí.",
       close: "Cerrar hallazgos",
       empty: "Aún no hay hallazgos.",

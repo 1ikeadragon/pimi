@@ -2594,6 +2594,7 @@ export const ko: TranslationResources = {
       running: "에이전트가 대상을 조사하고 있습니다. 아직 발견된 항목이 없습니다.",
       runningMeta: "에이전트 {{count}}개 · {{elapsed}}",
       lastRun: "마지막 실행 · {{target}}",
+      pastRun: "지난 실행 · {{target}}",
       noRun: "실행을 시작하면 여기에 발견 사항이 표시됩니다.",
       close: "발견 사항 닫기",
       empty: "아직 발견 사항이 없습니다.",

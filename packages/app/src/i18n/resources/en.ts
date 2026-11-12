@@ -2616,6 +2616,7 @@ export const en = {
       running: "Agents are probing the target. No findings yet.",
       runningMeta: "{{count}} agents · {{elapsed}}",
       lastRun: "Last run · {{target}}",
+      pastRun: "Past run · {{target}}",
       noRun: "Start a run to see findings here.",
       close: "Close findings",
       empty: "No findings yet.",

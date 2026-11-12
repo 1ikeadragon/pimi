@@ -21,6 +21,7 @@ import {
   useAttackFindings,
   useAttackStore,
   useAttackSync,
+  useLatestAttackRun,
   useViewedAttackRun,
 } from "./attack-store";
 import { formatClock, useAttackRuntimeMs } from "./use-attack-run-clock";
@@ -75,6 +76,7 @@ export function AttackFindingsPanel() {
   const { serverId, workspaceId } = usePaneContext();
   useAttackSync(serverId, workspaceId);
   const run = useViewedAttackRun(serverId, workspaceId);
+  const latestRun = useLatestAttackRun(serverId, workspaceId);
   const findings = useAttackFindings(serverId, run?.id ?? null);
   const active = run !== null && (run.status === "running" || run.status === "paused");
   const runAgents = useAttackRunAgents(serverId, run);
@@ -108,7 +110,7 @@ export function AttackFindingsPanel() {
     ],
     [audit.entries.length, findings.length, t],
   );
-  if (!run) return <FindingsList run={null} findings={findings} agentCount={0} />;
+  if (!run) return <FindingsList run={null} findings={findings} agentCount={0} past={false} />;
   return (
     <View style={styles.panel}>
       <View style={styles.tabs}>
@@ -128,7 +130,12 @@ export function AttackFindingsPanel() {
           agents={runAgents}
         />
       ) : (
-        <FindingsList run={run} findings={findings} agentCount={runAgents.length} />
+        <FindingsList
+          run={run}
+          findings={findings}
+          agentCount={runAgents.length}
+          past={latestRun !== null && latestRun.id !== run.id}
+        />
       )}
     </View>
   );
@@ -207,10 +214,13 @@ function FindingsList({
   run,
   findings,
   agentCount,
+  past,
 }: {
   run: AttackRun | null;
   findings: Finding[];
   agentCount: number;
+  /** The run is an older one opened from History, not the newest. */
+  past: boolean;
 }) {
   const { t } = useTranslation();
   const { selected, onToggleSelect, onSelectOpen, onFixSelected } = useBatchSelection(
@@ -236,7 +246,7 @@ function FindingsList({
     <ScrollView contentContainerStyle={styles.content} testID="attack-findings-panel">
       {run && !active ? (
         <Text style={styles.metaText} numberOfLines={1}>
-          {t("attack.findings.lastRun", {
+          {t(past ? "attack.findings.pastRun" : "attack.findings.lastRun", {
             target: run.target ? runHost(run.target) : (run.desktopTarget?.appName ?? ""),
           })}
         </Text>

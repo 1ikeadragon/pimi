@@ -2618,6 +2618,7 @@ export const ptBR: TranslationResources = {
       running: "Os agentes estão sondando o alvo. Ainda sem achados.",
       runningMeta: "{{count}} agentes · {{elapsed}}",
       lastRun: "Última execução · {{target}}",
+      pastRun: "Execução anterior · {{target}}",
       noRun: "Inicie uma execução para ver os achados aqui.",
       close: "Fechar achados",
       empty: "Nenhum achado ainda.",

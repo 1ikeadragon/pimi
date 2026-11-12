@@ -2578,6 +2578,7 @@ export const ar: TranslationResources = {
       running: "الوكلاء يفحصون الهدف. لا توجد نتائج بعد.",
       runningMeta: "{{count}} وكلاء · {{elapsed}}",
       lastRun: "آخر تشغيل · {{target}}",
+      pastRun: "تشغيل سابق · {{target}}",
       noRun: "ابدأ تشغيلًا لرؤية النتائج هنا.",
       close: "إغلاق النتائج",
       empty: "لا توجد نتائج بعد.",

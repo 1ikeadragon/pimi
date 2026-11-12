@@ -2609,6 +2609,7 @@ export const ja: TranslationResources = {
       running: "エージェントが対象を調査中です。まだ検出はありません。",
       runningMeta: "{{count}} エージェント · {{elapsed}}",
       lastRun: "前回の実行 · {{target}}",
+      pastRun: "過去の実行 · {{target}}",
       noRun: "実行を開始すると、ここに検出事項が表示されます。",
       close: "検出を閉じる",
       empty: "検出事項はまだありません。",

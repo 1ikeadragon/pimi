@@ -2551,6 +2551,7 @@ export const zhCN: TranslationResources = {
       running: "智能体正在探测目标，暂无发现。",
       runningMeta: "{{count}} 个智能体 · {{elapsed}}",
       lastRun: "上次运行 · {{target}}",
+      pastRun: "过去的运行 · {{target}}",
       noRun: "开始运行后，发现会显示在这里。",
       close: "关闭发现",
       empty: "暂无发现。",

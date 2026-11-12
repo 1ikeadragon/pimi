@@ -2636,6 +2636,7 @@ export const fr: TranslationResources = {
       running: "Les agents sondent la cible. Aucun résultat pour l'instant.",
       runningMeta: "{{count}} agents · {{elapsed}}",
       lastRun: "Dernière exécution · {{target}}",
+      pastRun: "Exécution passée · {{target}}",
       noRun: "Lancez une exécution pour voir les constats ici.",
       close: "Fermer les constats",
       empty: "Aucun constat pour l’instant.",

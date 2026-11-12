@@ -2617,6 +2617,7 @@ export const ru: TranslationResources = {
       running: "Агенты проверяют цель. Находок пока нет.",
       runningMeta: "Агентов: {{count}} · {{elapsed}}",
       lastRun: "Последний запуск · {{target}}",
+      pastRun: "Прошлый запуск · {{target}}",
       noRun: "Начните запуск, чтобы увидеть находки здесь.",
       close: "Закрыть находки",
       empty: "Находок пока нет.",
