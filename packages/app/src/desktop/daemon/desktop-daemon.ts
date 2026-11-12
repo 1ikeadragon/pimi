@@ -299,6 +299,7 @@ export interface RemoteSshSetupTarget {
   sshPort?: number;
   daemonPort?: number;
   service?: "nohup" | "systemd";
+  upgrade?: "now";
 }
 
 export type RemoteSshSetupResult =
@@ -319,6 +320,30 @@ export async function prepareRemoteSsh(input: {
   target: RemoteSshSetupTarget;
 }): Promise<RemoteSshSetupResult> {
   return (await invokeDesktopCommand("remote_ssh_prepare", input)) as RemoteSshSetupResult;
+}
+
+export interface RemoteSshUpgradePending {
+  host: string;
+  sshPort?: number;
+  daemonPort?: number;
+  runningVersion: string;
+  desktopVersion: string;
+  busyAgents: number;
+  terminals: number;
+  unknown: boolean;
+}
+
+/** A saved remote machine runs another daemon version and has work the upgrade would stop. */
+export async function listenToRemoteSshUpgradePending(
+  handler: (pending: RemoteSshUpgradePending) => void,
+): Promise<() => void> {
+  const listen = getDesktopHost()?.events?.on;
+  if (typeof listen !== "function") return () => {};
+  const unlisten = await listen("remote-ssh-upgrade-pending", (payload: unknown) => {
+    if (!isRecord(payload) || typeof payload.host !== "string") return;
+    handler(payload as unknown as RemoteSshUpgradePending);
+  });
+  return typeof unlisten === "function" ? unlisten : () => {};
 }
 
 export async function cancelRemoteSshSetup(requestId: string): Promise<void> {

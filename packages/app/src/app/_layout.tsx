@@ -48,6 +48,7 @@ import { QuittingOverlay } from "@/components/quitting-overlay";
 import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog";
 import { ChangelogHost } from "@/changelog";
 import { OnboardingHost, useIsSetupDecisionPending } from "@/onboarding";
+import { RemoteSshUpgradeHost } from "@/hosts/remote-ssh-upgrade-host";
 import { AppDiagnosticHost } from "@/components/app-diagnostic-host";
 import { AppearanceStyleBoundary } from "@/components/appearance-style-boundary";
 import { LeftSidebar } from "@/components/left-sidebar";
@@ -585,6 +586,7 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
           colors are CSS variables and themed props, which update in place, and setup changes no
           font size. */}
       <OnboardingHost />
+      <RemoteSshUpgradeHost />
     </View>
   );
 

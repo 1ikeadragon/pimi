@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from "react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Text, View, type PressableStateCallbackType } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
@@ -48,12 +49,6 @@ const pimiSteps = {
     title: "Connect a Git provider",
     description: "Use your existing credentials to work with pull requests and merge requests.",
   },
-  machine: {
-    label: "Where to work",
-    title: "Where should your agents run?",
-    description:
-      "Use this computer, or connect a remote dev machine over SSH. Pimi installs and starts its daemon on the remote for you.",
-  },
   firstChat: {
     label: "First workspace",
     title: "Open your first workspace",
@@ -65,6 +60,15 @@ const pimiSteps = {
 
 function getPimiStepCopy(step: OnboardingStepId) {
   return step in pimiSteps ? pimiSteps[step as keyof typeof pimiSteps] : undefined;
+}
+
+function getMachineStepCopy(step: OnboardingStepId, t: TFunction) {
+  if (step !== "machine") return undefined;
+  return {
+    label: t("remoteDev.onboarding.label"),
+    title: t("remoteDev.onboarding.title"),
+    description: t("remoteDev.onboarding.description"),
+  };
 }
 
 function SetupMark({ pimi }: { pimi: boolean }) {
@@ -224,7 +228,7 @@ function SetupStepPane({
   onAdvance: () => void;
 }) {
   const { t } = useTranslation();
-  const stepCopy = getPimiStepCopy(step);
+  const stepCopy = getMachineStepCopy(step, t) ?? getPimiStepCopy(step);
   if (step === "welcome") {
     return (
       <View style={styles.welcome}>
@@ -373,7 +377,8 @@ function StepRailItem({
   const Icon =
     pimi && step in pimiStepIcons ? pimiStepIcons[step as keyof typeof pimiStepIcons] : null;
   const label =
-    getPimiStepCopy(step)?.label ?? t(`onboarding.setup.steps.${step}.label`, { defaultValue: "" });
+    (getMachineStepCopy(step, t) ?? getPimiStepCopy(step))?.label ??
+    t(`onboarding.setup.steps.${step}.label`, { defaultValue: "" });
   const handlePress = useCallback(() => onSelect(step), [onSelect, step]);
   const accessibilityState = useMemo(() => ({ selected: current }), [current]);
   const itemStyle = useCallback(

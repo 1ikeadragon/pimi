@@ -270,6 +270,7 @@ export function HostConnectionsPage({ serverId }: { serverId: string }) {
 
 /** The SSH dev-machine flow, first on the page: Pimi installs and starts its daemon over ssh. */
 function RemoteDevMachineSection() {
+  const { t } = useTranslation();
   const { theme } = useUnistyles();
   const router = useRouter();
   const handleAdded = useCallback(
@@ -279,7 +280,7 @@ function RemoteDevMachineSection() {
   const openRemoteSsh = useAddHost({ method: "ssh", onAdded: handleAdded });
   if (!isElectronRuntime()) return null;
   return (
-    <SettingsSection title="Remote dev machine (SSH)">
+    <SettingsSection title={t("remoteDev.title")}>
       <View style={settingsStyles.card}>
         <SettingAnchor id="connections.remoteSsh">
           <Pressable
@@ -289,11 +290,8 @@ function RemoteDevMachineSection() {
             testID="host-page-remote-ssh-row"
           >
             <View style={settingsStyles.rowContent}>
-              <Text style={settingsStyles.rowTitle}>Connect a remote dev machine</Text>
-              <Text style={settingsStyles.rowHint}>
-                Enter user@devbox. Pimi installs and starts its daemon over ssh, then runs agents,
-                terminals and git on that machine.
-              </Text>
+              <Text style={settingsStyles.rowTitle}>{t("remoteDev.settingsRowTitle")}</Text>
+              <Text style={settingsStyles.rowHint}>{t("remoteDev.settingsRowHint")}</Text>
             </View>
             <ChevronRight size={theme.iconSize.sm} color={theme.colors.foregroundMuted} />
           </Pressable>

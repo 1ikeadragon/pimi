@@ -321,7 +321,7 @@ export function CommandCenterRootActions() {
         },
         presentation: {
           kind: "action",
-          title: "Connect a remote dev machine (SSH)",
+          title: t("remoteDev.commandTitle"),
           sectionTitle: t("shell.commandCenter.actions"),
           icon: RemoteSshIcon,
         },

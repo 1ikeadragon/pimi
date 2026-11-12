@@ -2,6 +2,56 @@ import { en, type TranslationResources } from "./en";
 import { pluginSettings } from "./plugin-settings";
 
 export const fr: TranslationResources = {
+  remoteDev: {
+    title: "Remote dev machine (SSH)",
+    optionHint: "Pimi installs and starts its daemon over ssh.",
+    helper:
+      "Enter the machine as user@host. Pimi connects with your system ssh (your ~/.ssh/config, keys and agent), installs its daemon there when needed, and starts it. No passwords or keys are stored.",
+    hostLabel: "SSH host",
+    hostPlaceholder: "user@devbox",
+    invalidTarget:
+      "Enter the machine as user@host, a name from your ~/.ssh/config, or ssh://user@host.",
+    systemdTitle: "Keep the daemon running with systemd",
+    systemdHint:
+      "Uses a systemd --user service when the machine has one. Otherwise Pimi starts the daemon with nohup.",
+    docsLink: "How remote SSH works",
+    setupStopped: "Setup stopped",
+    steps: {
+      connecting: "Connecting",
+      checking: "Checking the machine",
+      installing: "Installing",
+      installingVersion: "Installing v{{version}}",
+      alreadyInstalled: "(already installed)",
+      starting: "Starting the daemon",
+      connected: "Connected",
+    },
+    settingsRowTitle: "Connect a remote dev machine",
+    settingsRowHint:
+      "Enter user@devbox. Pimi installs and starts its daemon over ssh, then runs agents, terminals and git on that machine.",
+    commandTitle: "Connect a remote dev machine (SSH)",
+    onboarding: {
+      label: "Where to work",
+      title: "Where should your agents run?",
+      description:
+        "Use this computer, or connect a remote dev machine over SSH. Pimi installs and starts its daemon on the remote for you.",
+      localTitle: "Use this computer",
+      localHint: "Agents run here, on your own files. Nothing to install.",
+      remoteTitle: "Connect a remote dev machine over SSH",
+      remoteHint:
+        "Enter user@devbox. Pimi installs its daemon there over ssh and runs agents, terminals and git on that machine.",
+    },
+    upgrade: {
+      title: "Upgrade Pimi on {{host}}?",
+      message:
+        "{{host}} runs Pimi {{running}}, this app is {{desktop}}. Upgrading restarts the daemon there. {{work}}",
+      workBusy:
+        "It has {{agents}} running agents and {{terminals}} open terminals that would stop.",
+      workUnknown: "Pimi could not tell whether agents or terminals are running.",
+      later: "Later",
+      now: "Upgrade now",
+      failed: "The upgrade failed.",
+    },
+  },
   harnessUpdates: {
     stableChannel: "{{label}} · Canal stable",
     title: "Mises à jour des outils",

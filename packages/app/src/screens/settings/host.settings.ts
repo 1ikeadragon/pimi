@@ -69,11 +69,11 @@ export const hostTerminalsSettings = defineSettingsPage(
 
 export const hostConnectionsSettings = defineSettingsPage(
   { kind: "host", section: "connections" },
-  ({ isDesktopApp }) => [
+  ({ t, isDesktopApp }) => [
     isDesktopApp
       ? {
           id: "connections.remoteSsh",
-          title: "Remote dev machine (SSH)",
+          title: t("remoteDev.title"),
           keywords: [
             "ssh",
             "remote",

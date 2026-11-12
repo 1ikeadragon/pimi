@@ -1,4 +1,5 @@
 import { Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { Check, Circle } from "lucide-react-native";
 import { ActivityIndicator } from "react-native";
@@ -26,23 +27,20 @@ const styles = StyleSheet.create((theme) => ({
   barFill: { height: 4, backgroundColor: theme.colors.accent },
 }));
 
-function stepLabel(step: RemoteSshStep, state: RemoteSshSetupState): string {
-  switch (step) {
-    case "connecting":
-      return "Connecting";
-    case "checking":
-      return "Checking the machine";
-    case "installing":
-      return state.version ? `Installing v${state.version}` : "Installing";
-    case "starting":
-      return "Starting the daemon";
-    case "connected":
-      return "Connected";
+function stepLabel(
+  step: RemoteSshStep,
+  state: RemoteSshSetupState,
+  t: ReturnType<typeof useTranslation>["t"],
+): string {
+  if (step === "installing" && state.version) {
+    return t("remoteDev.steps.installingVersion", { version: state.version });
   }
+  return t(`remoteDev.steps.${step}`);
 }
 
 /** The five setup steps with a check, spinner or dot each, and the live detail of the current one. */
 export function RemoteSshProgressList({ state }: { state: RemoteSshSetupState }) {
+  const { t } = useTranslation();
   const visited = state.visited ?? [];
   const currentIndex = state.current ? REMOTE_SSH_STEPS.indexOf(state.current) : -1;
   return (
@@ -62,8 +60,8 @@ export function RemoteSshProgressList({ state }: { state: RemoteSshSetupState })
                 {!isDone && !isCurrent ? <MutedDot size={10} /> : null}
               </View>
               <Text style={isDone || isCurrent ? styles.label : styles.labelPending}>
-                {stepLabel(step, state)}
-                {skipped ? " (already installed)" : ""}
+                {stepLabel(step, state, t)}
+                {skipped ? ` ${t("remoteDev.steps.alreadyInstalled")}` : ""}
               </Text>
             </View>
             {isCurrent ? (

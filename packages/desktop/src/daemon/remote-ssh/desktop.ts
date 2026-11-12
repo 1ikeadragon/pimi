@@ -8,9 +8,13 @@ import {
   type RemoteSshEnsureInput,
   type RemoteSshEnsureResult,
   type RemoteSshProgress,
+  type RemoteSshUpgradePending,
 } from "./installer.js";
 
 const PROGRESS_EVENT = "pimi:event:remote-ssh-progress";
+const UPGRADE_PENDING_EVENT = "pimi:event:remote-ssh-upgrade-pending";
+// One prompt per machine and running version until the app restarts or the user upgrades.
+const announcedUpgrades = new Set<string>();
 
 export interface RemoteSshPrepareRequest {
   requestId: string;
@@ -44,6 +48,15 @@ function targetVersion(): string {
   return resolveDesktopAppVersion();
 }
 
+function announceUpgradePending(pending: RemoteSshUpgradePending): void {
+  const key = `${pending.host}|${pending.sshPort ?? ""}|${pending.daemonPort ?? ""}|${pending.runningVersion}`;
+  if (announcedUpgrades.has(key)) return;
+  announcedUpgrades.add(key);
+  for (const win of BrowserWindow.getAllWindows()) {
+    win.webContents.send(UPGRADE_PENDING_EVENT, pending);
+  }
+}
+
 export function ensureRemoteDaemonForDesktop(
   input: RemoteSshEnsureInput,
   options: { requestId?: string; signal?: AbortSignal } = {},
@@ -55,6 +68,7 @@ export function ensureRemoteDaemonForDesktop(
     devBundleDir: devBundleDir(),
     signal: options.signal,
     onProgress: requestId ? (progress) => broadcastProgress(requestId, progress) : undefined,
+    onUpgradePending: announceUpgradePending,
   });
 }
 
@@ -64,6 +78,7 @@ function parseEnsureInput(value: unknown): RemoteSshEnsureInput {
   const record = value as Record<string, unknown>;
   const service =
     record.service === "systemd" || record.service === "nohup" ? record.service : undefined;
+  const upgrade = record.upgrade === "now" ? "now" : undefined;
   return {
     host: validateSshHost(typeof record.host === "string" ? record.host : ""),
     ...(typeof record.sshPort === "number"
@@ -73,6 +88,7 @@ function parseEnsureInput(value: unknown): RemoteSshEnsureInput {
       ? { daemonPort: validatePort(record.daemonPort, "Daemon port") }
       : {}),
     ...(service ? { service } : {}),
+    ...(upgrade ? { upgrade } : {}),
   };
 }
 

@@ -31,6 +31,24 @@ export interface RemoteSshEnsureInput extends SshTarget {
   daemonPort?: number;
   /** "systemd" asks for a systemd --user unit when the machine has one; otherwise nohup + setsid. */
   service?: "nohup" | "systemd";
+  /**
+   * "ask" (the default) leaves a running daemon of another version alone when it has agents or
+   * terminals, and reports it through `onUpgradePending`; "now" replaces it regardless. A machine
+   * the user is adding for the first time passes "now".
+   */
+  upgrade?: "ask" | "now";
+}
+
+export interface RemoteSshUpgradePending {
+  host: string;
+  sshPort?: number;
+  daemonPort?: number;
+  runningVersion: string;
+  desktopVersion: string;
+  busyAgents: number;
+  terminals: number;
+  /** True when the work could not be counted; treated like work. */
+  unknown: boolean;
 }
 
 export interface RemoteSshEnsureDeps {
@@ -39,6 +57,7 @@ export interface RemoteSshEnsureDeps {
   /** PIMI_REMOTE_DAEMON_BUNDLE_DIR, honored only by unpackaged builds. */
   devBundleDir: string | null;
   onProgress?: (progress: RemoteSshProgress) => void;
+  onUpgradePending?: (pending: RemoteSshUpgradePending) => void;
   signal?: AbortSignal;
 }
 
@@ -46,7 +65,7 @@ export interface RemoteSshEnsureResult {
   version: string;
   daemonPort: number;
   /** What was done: nothing, started a stopped daemon, installed it, or upgraded it. */
-  action: "ready" | "started" | "installed" | "upgraded";
+  action: "ready" | "started" | "installed" | "upgraded" | "deferred";
   service: "nohup" | "systemd";
   systemdAvailable: boolean;
 }
@@ -63,6 +82,9 @@ interface Probe {
   runtimes: string[];
   status: { version: string | null } | null;
   hasLock: boolean;
+  wsReady: boolean;
+  /** Null when no daemon answered or it could not be asked. */
+  activity: { busyAgents: number; terminals: number } | "unknown" | null;
 }
 
 function parseProbe(stdout: string): Probe {
@@ -93,7 +115,22 @@ function parseProbe(stdout: string): Probe {
     runtimes: facts.get("runtime") ?? [],
     status,
     hasLock: facts.has("lock"),
+    wsReady: facts.has("wsReady"),
+    activity: parseActivity(facts),
   };
+}
+
+function parseActivity(facts: Map<string, string[]>): Probe["activity"] {
+  if (facts.has("activity")) return "unknown";
+  const agents = Number.parseInt(facts.get("busyAgents")?.[0] ?? "", 10);
+  const terminals = Number.parseInt(facts.get("terminals")?.[0] ?? "", 10);
+  if (Number.isNaN(agents) || Number.isNaN(terminals)) return null;
+  return { busyAgents: agents, terminals };
+}
+
+function chooseService(input: RemoteSshEnsureInput, probe: Probe): "nohup" | "systemd" {
+  if (input.service === "systemd" && probe.systemd) return "systemd";
+  return probe.unit && input.service !== "nohup" ? "systemd" : "nohup";
 }
 
 function archOf(machine: string): RemoteBundleArch | null {
@@ -226,6 +263,40 @@ async function uploadRuntime(ctx: InstallContext): Promise<void> {
   });
 }
 
+/**
+ * A running daemon of another version that has agents or terminals (or whose work cannot be
+ * counted) is left alone, and the app is told so it can ask the user. Null means go ahead.
+ */
+function deferUpgradeWithWork(
+  input: RemoteSshEnsureInput,
+  deps: RemoteSshEnsureDeps,
+  probe: Probe,
+  runningVersion: string | null,
+  port: number,
+): RemoteSshEnsureResult | null {
+  if (!runningVersion || runningVersion === deps.appVersion) return null;
+  if (input.upgrade === "now" || !probe.activity) return null;
+  const work = probe.activity === "unknown" ? null : probe.activity;
+  if (work && !work.busyAgents && !work.terminals) return null;
+  deps.onUpgradePending?.({
+    host: input.host,
+    ...(input.sshPort !== undefined ? { sshPort: input.sshPort } : {}),
+    ...(input.daemonPort !== undefined ? { daemonPort: input.daemonPort } : {}),
+    runningVersion,
+    desktopVersion: deps.appVersion,
+    busyAgents: work?.busyAgents ?? 0,
+    terminals: work?.terminals ?? 0,
+    unknown: work === null,
+  });
+  return {
+    version: runningVersion,
+    daemonPort: port,
+    action: "deferred",
+    service: probe.unit ? "systemd" : "nohup",
+    systemdAvailable: probe.systemd,
+  };
+}
+
 async function ensureRemoteDaemonOnce(
   input: RemoteSshEnsureInput,
   deps: RemoteSshEnsureDeps,
@@ -248,12 +319,10 @@ async function ensureRemoteDaemonOnce(
   report("checking", `Checking ${input.host}`);
   const probe = parseProbe(probeOut);
   const arch = assertSupported(input.host, probe);
-  const systemdWanted = input.service === "systemd" && probe.systemd;
-  const service: "nohup" | "systemd" =
-    systemdWanted || (probe.unit && input.service !== "nohup") ? "systemd" : "nohup";
+  const service = chooseService(input, probe);
 
   const runningVersion = probe.status?.version ?? null;
-  const healthy = runningVersion === appVersion;
+  const healthy = runningVersion === appVersion && probe.wsReady;
   const serviceMatches =
     input.service === undefined || (input.service === "systemd") === probe.unit;
   if (healthy && serviceMatches) {
@@ -265,6 +334,12 @@ async function ensureRemoteDaemonOnce(
       service: probe.unit ? "systemd" : "nohup",
       systemdAvailable: probe.systemd,
     };
+  }
+
+  const deferred = deferUpgradeWithWork(input, deps, probe, runningVersion, port);
+  if (deferred) {
+    report("connected", `Pimi ${deferred.version} is running on ${input.host}; upgrade postponed`);
+    return deferred;
   }
 
   const installed = probe.runtimes.includes(appVersion);

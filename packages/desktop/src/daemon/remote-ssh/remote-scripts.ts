@@ -19,6 +19,12 @@ http_get() {
   elif [ -n "$PIMI_NODE" ]; then "$PIMI_NODE" -e 'fetch(process.argv[1],{signal:AbortSignal.timeout(3000)}).then(async r=>{if(!r.ok)process.exit(1);process.stdout.write(await r.text())}).catch(()=>process.exit(1))' "$1"
   else return 1; fi
 }
+# The status endpoint answers before the websocket server accepts clients (it answers 503
+# until then), so health means a websocket upgrade succeeds.
+ws_ready() {
+  [ -n "$PIMI_NODE" ] || return 1
+  "$PIMI_NODE" -e 'const h=require("http");const r=h.request({host:"127.0.0.1",port:Number(process.argv[1]),path:"/ws",timeout:3000,headers:{Connection:"Upgrade",Upgrade:"websocket","Sec-WebSocket-Version":"13","Sec-WebSocket-Key":"dGhlIHNhbXBsZSBub25jZQ=="}});r.on("upgrade",(res,sock)=>{sock.destroy();process.exit(0)});r.on("response",()=>process.exit(1));r.on("error",()=>process.exit(1));r.on("timeout",()=>process.exit(1));r.end()' "$1" >/dev/null 2>&1
+}
 `;
 
 // $1 = daemon port. Prints one fact per line.
@@ -46,7 +52,26 @@ for f in "$RUNTIME_DIR"/*/bundle.json; do
 done
 st="$(http_get "http://127.0.0.1:$PORT/api/status" | tr -d '\\n')"
 echo "status=$st"
+[ -n "$st" ] && ws_ready "$PORT" && echo "wsReady=1"
 [ -f "$PIMI_DIR/pimi.pid" ] && echo "lock=$(tr -d '\\n' < "$PIMI_DIR/pimi.pid")"
+# Work a running daemon has, so an upgrade never stops it silently.
+if [ -n "$st" ] && [ -f "$PIMI_DIR/pimi.pid" ] && [ -n "$PIMI_NODE" ]; then
+  CLI="$RUNTIME_DIR/current/node_modules/@pimi/cli/bin/pimi"
+  if [ -f "$CLI" ]; then
+    agents="$("$PIMI_NODE" "$CLI" agent ls --global --background --home "$PIMI_DIR" --json 2>/dev/null)"
+    agents_rc=$?
+    terms="$("$PIMI_NODE" "$CLI" terminal ls --all --home "$PIMI_DIR" --json 2>/dev/null)"
+    terms_rc=$?
+    if [ "$agents_rc" = 0 ] && [ "$terms_rc" = 0 ]; then
+      echo "busyAgents=$(printf %s "$agents" | grep -Eo '"status": ?"(running|initializing)"' | wc -l | tr -d ' ')"
+      echo "terminals=$(printf %s "$terms" | grep -Eo '"id": ?"' | wc -l | tr -d ' ')"
+    else
+      echo "activity=unknown"
+    fi
+  else
+    echo "activity=unknown"
+  fi
+fi
 exit 0
 `;
 
@@ -202,14 +227,14 @@ UNITEOF
       nohup $LAUNCH "$PIMI_NODE" "$ENTRY" >> "$LOG" 2>&1 < /dev/null &
     )
   fi
-  i=0
-  while [ "$i" -lt 80 ]; do
-    now="$(http_get "http://127.0.0.1:$PORT/api/status" | sed -n 's/.*"version": *"\\([^"]*\\)".*/\\1/p')"
-    [ "$now" = "$V" ] && break
-    sleep 0.5; i=$((i+1))
-  done
-  [ "$now" = "$V" ] || fail DAEMON_START "the daemon did not report version $V on port $PORT. $(tail -n 8 "$LOG" 2>/dev/null | tr '\\n' ' ')"
 fi
+i=0
+while [ "$i" -lt 80 ]; do
+  now="$(http_get "http://127.0.0.1:$PORT/api/status" | sed -n 's/.*"version": *"\\([^"]*\\)".*/\\1/p')"
+  [ "$now" = "$V" ] && ws_ready "$PORT" && break
+  sleep 0.5; i=$((i+1))
+done
+[ "$now" = "$V" ] && ws_ready "$PORT" || fail DAEMON_START "the daemon did not accept connections as version $V on port $PORT. $(tail -n 8 "$LOG" 2>/dev/null | tr '\\n' ' ')"
 ln -sfn "$RT" "$RUNTIME_DIR/current"
 # Keep the running version and the one before it; drop the rest.
 for d in "$RUNTIME_DIR"/*/; do

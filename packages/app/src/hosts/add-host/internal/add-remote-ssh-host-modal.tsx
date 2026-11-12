@@ -58,7 +58,6 @@ export interface AddRemoteSshHostModalProps {
 }
 
 const DOCS_URL = "https://github.com/1ikeadragon/pimi-releases/blob/main/docs/remote-ssh.md";
-const TITLE = "Remote dev machine (SSH)";
 
 /** Accepts `user@host`, `host`, or a full ssh:// URI. */
 function parseTargetInput(raw: string): ReturnType<typeof parseSshTransportUri> {
@@ -82,7 +81,7 @@ export function AddRemoteSshHostModal({
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [errorDetail, setErrorDetail] = useState("");
-  const header = useMemo<SheetHeader>(() => ({ title: TITLE }), []);
+  const header = useMemo<SheetHeader>(() => ({ title: t("remoteDev.title") }), [t]);
 
   const clear = useCallback(() => {
     targetRef.current = "";
@@ -119,9 +118,7 @@ export function AddRemoteSshHostModal({
     try {
       target = parseTargetInput(rawTarget);
     } catch {
-      setErrorMessage(
-        "Enter the machine as user@host, a name from your ~/.ssh/config, or ssh://user@host.",
-      );
+      setErrorMessage(t("remoteDev.invalidTarget"));
       return;
     }
 
@@ -134,6 +131,7 @@ export function AddRemoteSshHostModal({
         ...(target.sshPort !== undefined ? { sshPort: target.sshPort } : {}),
         ...(target.daemonPort !== DEFAULT_DAEMON_PORT ? { daemonPort: target.daemonPort } : {}),
         service: useSystemd ? "systemd" : "nohup",
+        upgrade: "now",
       });
       if (!outcome.ok) {
         setErrorMessage(outcome.message);
@@ -183,23 +181,19 @@ export function AddRemoteSshHostModal({
       onClose={handleClose}
       testID="add-remote-ssh-host-modal"
     >
-      <Text style={styles.helper}>
-        Enter the machine as user@host. Pimi connects with your system ssh (your ~/.ssh/config, keys
-        and agent), installs its daemon there when needed, and starts it. No passwords or keys are
-        stored.
-      </Text>
+      <Text style={styles.helper}>{t("remoteDev.helper")}</Text>
       <Field
-        label="SSH host"
+        label={t("remoteDev.hostLabel")}
         error={setup.state.visited ? undefined : errorMessage}
         testID="remote-ssh-target"
       >
         <FormTextInput
           ref={inputRef}
           testID="remote-ssh-target-input"
-          accessibilityLabel="SSH host"
+          accessibilityLabel={t("remoteDev.hostLabel")}
           initialValue=""
           onChangeText={handleTargetChange}
-          placeholder="user@devbox"
+          placeholder={t("remoteDev.hostPlaceholder")}
           autoCapitalize="none"
           autoCorrect={false}
           editable={!isSaving}
@@ -214,26 +208,23 @@ export function AddRemoteSshHostModal({
       ) : null}
       <View style={styles.optionRow}>
         <View style={styles.optionText}>
-          <Text style={styles.optionTitle}>Keep the daemon running with systemd</Text>
-          <Text style={styles.helper}>
-            Uses a systemd --user service when the machine has one. Otherwise Pimi starts the daemon
-            with nohup.
-          </Text>
+          <Text style={styles.optionTitle}>{t("remoteDev.systemdTitle")}</Text>
+          <Text style={styles.helper}>{t("remoteDev.systemdHint")}</Text>
         </View>
         <Switch
           value={useSystemd}
           onValueChange={setUseSystemd}
           disabled={isSaving}
-          accessibilityLabel="Keep the daemon running with systemd"
+          accessibilityLabel={t("remoteDev.systemdTitle")}
           testID="remote-ssh-systemd-switch"
         />
       </View>
       {setup.state.visited ? <RemoteSshProgressList state={setup.state} /> : null}
       {errorMessage && setup.state.visited ? (
-        <Alert variant="error" title="Setup stopped" description={errorMessage} />
+        <Alert variant="error" title={t("remoteDev.setupStopped")} description={errorMessage} />
       ) : null}
       <Text style={styles.link} onPress={handleOpenDocs} accessibilityRole="link">
-        How remote SSH works
+        {t("remoteDev.docsLink")}
       </Text>
       <View style={styles.actions}>
         <Button style={FLEX_ONE_STYLE} variant="secondary" onPress={handleCancel}>

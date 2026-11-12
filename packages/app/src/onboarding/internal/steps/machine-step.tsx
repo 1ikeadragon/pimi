@@ -1,10 +1,11 @@
 import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { SettingsCard, SettingsDetailRow } from "@/components/settings";
 import { useAddHost } from "@/hosts/add-host";
-import { buildHostRootRoute } from "@/utils/host-routes";
+import { buildNewWorkspaceRoute } from "@/utils/host-routes";
 import { getOnboardingModel } from "../onboarding-instance";
 
 /**
@@ -12,11 +13,12 @@ import { getOnboardingModel } from "../onboarding-instance";
  * Pimi installs and starts. A connected remote becomes the host you work in, so setup ends there.
  */
 export function MachineStep({ onUseThisComputer }: { onUseThisComputer: () => void }) {
+  const { t } = useTranslation();
   const router = useRouter();
   const handleRemoteAdded = useCallback(
     (serverId: string) => {
       void getOnboardingModel().complete();
-      router.replace(buildHostRootRoute(serverId));
+      router.replace(buildNewWorkspaceRoute({ serverId, chooseProject: true }));
     },
     [router],
   );
@@ -25,14 +27,14 @@ export function MachineStep({ onUseThisComputer }: { onUseThisComputer: () => vo
     <View style={styles.container}>
       <SettingsCard>
         <SettingsDetailRow
-          label="Use this computer"
-          hint="Agents run here, on your own files. Nothing to install."
+          label={t("remoteDev.onboarding.localTitle")}
+          hint={t("remoteDev.onboarding.localHint")}
           onPress={onUseThisComputer}
           testID="onboarding-machine-local"
         />
         <SettingsDetailRow
-          label="Connect a remote dev machine over SSH"
-          hint="Enter user@devbox. Pimi installs its daemon there over ssh and runs agents, terminals and git on that machine."
+          label={t("remoteDev.onboarding.remoteTitle")}
+          hint={t("remoteDev.onboarding.remoteHint")}
           onPress={openRemoteSsh}
           testID="onboarding-machine-remote-ssh"
         />
