@@ -2,6 +2,14 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.22 - 2026-11-12
+
+- Browser Annotate: each pill in the composer shows your note, and clicking it previews the screenshot, the note and the exact text the agent receives. Attaching right after picking an element keeps the screenshot, and the captured parent chain no longer includes Pimi's own selection class.
+- Toasts have a close button.
+- Go to Definition and Find References see edits to every open file, not only the one you query. Rename checks every file before writing any of them.
+- Git blame on very large files stops retrying after a timeout, so moving the cursor no longer restarts it.
+- Switching a chat's voice works even when its older history can't be loaded. Very large Claude chats keep loading from the newest turns instead of replaying the whole history.
+
 ## 0.17.21 - 2026-11-12
 
 - Large chats open much faster. Claude and Codex chats load from the newest turns and fetch older history as you scroll. A 291 MB Claude chat now opens in about a quarter of a second. Older history no longer drops rows while paging.
