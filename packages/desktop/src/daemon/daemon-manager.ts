@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import path from "node:path";
 import { app, ipcMain, powerMonitor } from "electron";
 import { resolveDesktopAppVersion } from "./app-version.js";
@@ -140,32 +139,13 @@ function logFilePath(): string {
   return path.join(getPimiHome(), DAEMON_LOG_FILENAME);
 }
 
-export function isDesktopManagedDaemonRunningSync(): boolean {
-  if (!ownedLaunch) return false;
-  try {
-    const lock = JSON.parse(readFileSync(path.join(ownedLaunch.home, "pimi.pid"), "utf8"));
-    return isSameDaemonInstance(lock, ownedLaunch.instance) && isProcessRunning(lock.pid);
-  } catch {
-    return false;
-  }
-}
-
-export async function stopDesktopDaemonViaCli(
-  reason: DesktopDaemonStopReason = DEFAULT_DESKTOP_DAEMON_STOP_REASON,
-): Promise<void> {
-  await stopDesktopDaemon(reason);
-}
-
-function isProcessRunning(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (err) {
-    if (typeof err === "object" && err !== null && "code" in err && err.code === "EPERM") {
-      return true;
-    }
-    return false;
-  }
+/**
+ * Whether the daemon in this home was launched by the desktop, in this session or an earlier one.
+ * The daemon records `desktopManaged` in its pid lock at launch, and the lock goes away with the
+ * daemon, so a daemon the user started themselves never matches.
+ */
+export async function isDesktopManagedDaemonRunning(): Promise<boolean> {
+  return (await readDaemonInstance(getPimiHome()))?.desktopManaged === true;
 }
 
 function logDesktopDaemonLifecycle(message: string, details?: Record<string, unknown>): void {
@@ -433,12 +413,10 @@ export async function stopDesktopDaemon(
 }
 
 /**
- * Stops the desktop-managed daemon before an app update replaces the install folder, whether this
- * session launched it or an earlier one left it running (keep running after quit). The Windows
- * installer force-kills anything running from that folder, so the daemon is stopped cleanly first.
- * A daemon the user started themselves is left alone.
+ * Stops the desktop-managed daemon, whether this session launched it or an earlier one left it
+ * running (keep running after quit). A daemon the user started themselves is left alone.
  */
-export async function stopDesktopManagedDaemonForUpdate(): Promise<void> {
+async function stopDesktopManagedDaemon(reason: "quit" | "app_update"): Promise<void> {
   const home = getPimiHome();
   const instance = await readDaemonInstance(home);
   if (!instance?.desktopManaged) return;
@@ -447,8 +425,17 @@ export async function stopDesktopManagedDaemonForUpdate(): Promise<void> {
     ownedLaunch.home === home &&
     isSameDaemonInstance(instance, ownedLaunch.instance),
   );
-  await stopSupervisor({ home, instance, reason: "app_update", owned });
+  await stopSupervisor({ home, instance, reason, owned });
   if (owned) ownedLaunch = null;
+}
+
+export function stopDesktopManagedDaemonOnQuit(): Promise<void> {
+  return stopDesktopManagedDaemon("quit");
+}
+
+/** The Windows installer force-kills anything running from the install folder, so stop it first. */
+export function stopDesktopManagedDaemonForUpdate(): Promise<void> {
+  return stopDesktopManagedDaemon("app_update");
 }
 
 /**
