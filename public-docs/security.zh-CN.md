@@ -29,7 +29,7 @@ Pimi daemon 可以运行在任何你想运行 Agent 的地方：你的笔记本�
 
 ### 工作原理 {#how-it-works}
 
-1. daemon 生成一个持久的 ECDH 密钥对，并保存在 `$PASEO_HOME/daemon-keypair.json` 中
+1. daemon 生成一个持久的 ECDH 密钥对，并保存在 `$PIMI_HOME/daemon-keypair.json` 中
 2. 当你扫描二维码或点击配对链接时，你的手机会收到 daemon 的公钥
 3. 你的手机发送一条包含其自身公钥的握手消息。在握手完成之前，daemon 不会接受任何命令。
 4. 双方各自把自己的 Curve25519 密钥与对方的公钥结合，然后使用由此得到的 NaCl `box` 通道传输受 XSalsa20-Poly1305 保护的负载。

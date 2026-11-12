@@ -156,7 +156,7 @@ export const WORKSPACE_SEARCH_HIDDEN_DIRECTORIES = [
   ".cursor",
   ".github",
   ".opencode",
-  ".paseo",
+  ".pimi",
   ".vscode",
 ] as const;
 const IGNORED_DIRECTORY_NAMES = new Set([

@@ -148,7 +148,7 @@ async function createPaseoWorktreeWithPriority(
         cwd: createdWorktree.repoRoot,
         worktreePath: createdWorktree.worktree.worktreePath,
         teardownCwds: [],
-        paseoHome: input.paseoHome,
+        pimiHome: input.pimiHome,
         worktreesBaseRoot: input.worktreesRoot,
       },
       error,

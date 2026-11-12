@@ -3359,7 +3359,7 @@ export const zhCN: TranslationResources = {
         newScript: "新建 script",
         editScript: "编辑 {{name}}",
         runAsService: "作为服务运行",
-        serviceHint: "Pimi 会监管该进程，并通过 $PASEO_PORT 分配端口",
+        serviceHint: "Pimi 会监管该进程，并通过 $PIMI_PORT 分配端口",
         actions: {
           add: "添加 script",
           edit: "编辑",

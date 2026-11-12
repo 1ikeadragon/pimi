@@ -12,13 +12,13 @@ Managed instances load their configuration from the home’s `config.json` and d
 
 ## Where config lives
 
-By default, Pimi uses `~/.paseo` as its home directory. The configuration file is:
+By default, Pimi uses `~/.pimi` as its home directory. The configuration file is:
 
 ```bash
-~/.paseo/config.json
+~/.pimi/config.json
 ```
 
-You can change the home directory by setting `PASEO_HOME` or selecting `--home` on a CLI command.
+You can change the home directory by setting `PIMI_HOME` or selecting `--home` on a CLI command.
 
 ## Precedence
 
@@ -102,7 +102,7 @@ prevent cleanup. This check does not inspect processes launched internally by th
 
 ## Worktrees
 
-New worktrees are created under `$PASEO_HOME/worktrees` by default. To place new worktrees somewhere else, set `worktrees.root`:
+New worktrees are created under `$PIMI_HOME/worktrees` by default. To place new worktrees somewhere else, set `worktrees.root`:
 
 ```json
 {
@@ -112,7 +112,7 @@ New worktrees are created under `$PASEO_HOME/worktrees` by default. To place new
 }
 ```
 
-Relative paths are resolved against `PASEO_HOME`. Existing worktrees remain where they are; changing this setting only changes where Pimi creates and discovers Pimi-managed worktrees going forward.
+Relative paths are resolved against `PIMI_HOME`. Existing worktrees remain where they are; changing this setting only changes where Pimi creates and discovers Pimi-managed worktrees going forward.
 
 ## Voice
 
@@ -125,7 +125,7 @@ For voice philosophy, architecture, and complete local/OpenAI setup examples, se
 Daemon logging uses separate console and file sinks by default:
 
 - Console: `info` and above
-- File (`$PASEO_HOME/daemon.log`): `trace` and above
+- File (`$PIMI_HOME/daemon.log`): `trace` and above
 - File rotation: `10m` max file size, `3` rotated files kept alongside the active file
 
 ```json
@@ -161,10 +161,10 @@ pimi daemon set-password
 
 This prompts for a password, writes the bcrypt hash to `config.json`, and tells you to restart the daemon. Authentication is a startup setting, so `pimi reload` will also report it as restart-required.
 
-Alternatively, set the `PASEO_PASSWORD` environment variable (plaintext, hashed automatically at startup):
+Alternatively, set the `PIMI_PASSWORD` environment variable (plaintext, hashed automatically at startup):
 
 ```bash
-PASEO_PASSWORD=my-secret paseo daemon start
+PIMI_PASSWORD=my-secret paseo daemon start
 ```
 
 Or write the hash directly in `config.json`:
@@ -191,14 +191,14 @@ The CLI picks up a password from, in order:
    paseo --host "tcp://192.168.1.10:6767?password=my-secret" ls
    ```
 
-2. The `PASEO_PASSWORD` environment variable, used as a fallback when the host carries no embedded password (works for `localhost:6767`, bare `host:port`, or `tcp://` hosts without a `password=` query):
+2. The `PIMI_PASSWORD` environment variable, used as a fallback when the host carries no embedded password (works for `localhost:6767`, bare `host:port`, or `tcp://` hosts without a `password=` query):
 
    ```bash
-   PASEO_PASSWORD=my-secret paseo ls
-   PASEO_PASSWORD=my-secret paseo --host 192.168.1.10:6767 ls
+   PIMI_PASSWORD=my-secret paseo ls
+   PIMI_PASSWORD=my-secret paseo --host 192.168.1.10:6767 ls
    ```
 
-A `password=` in the URI always wins over the env var, so you can keep `PASEO_PASSWORD` set globally and still target a different daemon by spelling its password into the URI.
+A `password=` in the URI always wins over the env var, so you can keep `PIMI_PASSWORD` set globally and still target a different daemon by spelling its password into the URI.
 
 In the mobile app, enter the password in the direct connection setup screen.
 
@@ -222,30 +222,30 @@ Restart the daemon after changing the endpoint. See [Connectivity](./connectivit
 
 ## Common env vars
 
-- `PASEO_HOME`, set Pimi home directory
-- `PASEO_HOST`, set the daemon target for CLI commands
-- `PASEO_PASSWORD`, on the daemon, the password to require (plaintext, hashed at startup); on the CLI, the password used to connect when the host URI doesn't include one
-- `PASEO_LISTEN`, override `daemon.listen`
+- `PIMI_HOME`, set Pimi home directory
+- `PIMI_HOST`, set the daemon target for CLI commands
+- `PIMI_PASSWORD`, on the daemon, the password to require (plaintext, hashed at startup); on the CLI, the password used to connect when the host URI doesn't include one
+- `PIMI_LISTEN`, override `daemon.listen`
 - `PIMI_RELAY_ENABLED`, enable or disable the outbound relay for this daemon launch
-- `PASEO_HOSTNAMES`, override/extend `daemon.hostnames`
-- `PASEO_ALLOWED_HOSTS`, deprecated alias for `PASEO_HOSTNAMES`
-- `PASEO_TRUSTED_PROXIES`, configure trusted reverse proxy ranges for `X-Forwarded-*` headers
-- `PASEO_LOG_CONSOLE_LEVEL`, override `log.console.level`
-- `PASEO_LOG_FILE_LEVEL`, override `log.file.level`
-- `PASEO_LOG_FILE_PATH`, override `log.file.path`
-- `PASEO_LOG_FILE_ROTATE_SIZE`, override `log.file.rotate.maxSize`
-- `PASEO_LOG_FILE_ROTATE_COUNT`, override `log.file.rotate.maxFiles`
-- `PASEO_LOG`, `PASEO_LOG_FORMAT`, legacy log overrides (still supported)
+- `PIMI_HOSTNAMES`, override/extend `daemon.hostnames`
+- `PIMI_ALLOWED_HOSTS`, deprecated alias for `PIMI_HOSTNAMES`
+- `PIMI_TRUSTED_PROXIES`, configure trusted reverse proxy ranges for `X-Forwarded-*` headers
+- `PIMI_LOG_CONSOLE_LEVEL`, override `log.console.level`
+- `PIMI_LOG_FILE_LEVEL`, override `log.file.level`
+- `PIMI_LOG_FILE_PATH`, override `log.file.path`
+- `PIMI_LOG_FILE_ROTATE_SIZE`, override `log.file.rotate.maxSize`
+- `PIMI_LOG_FILE_ROTATE_COUNT`, override `log.file.rotate.maxFiles`
+- `PIMI_LOG`, `PIMI_LOG_FORMAT`, legacy log overrides (still supported)
 - `OPENAI_API_KEY`, `OPENAI_BASE_URL`, fallback speech credentials and base URL when neither a site value nor an endpoint env value is set
 - `OPENAI_STT_API_KEY`, `OPENAI_STT_BASE_URL`, speech-to-text key and base URL fallbacks when no value is saved at the dictation or voice-mode STT site
 - `OPENAI_TTS_API_KEY`, `OPENAI_TTS_BASE_URL`, text-to-speech key and base URL fallbacks when no value is saved at the voice-mode TTS site
-- `PASEO_VOICE_LLM_PROVIDER`, override voice LLM provider (`claude`, `codex`, `opencode`)
-- `PASEO_DICTATION_STT_PROVIDER`, `PASEO_VOICE_STT_PROVIDER`, `PASEO_VOICE_TTS_PROVIDER`, override voice provider selection (`local` or `openai`)
-- `PASEO_LOCAL_MODELS_DIR`, control local model directory
-- `PASEO_DICTATION_LOCAL_STT_MODEL`, override local dictation STT model
-- `PASEO_VOICE_LOCAL_STT_MODEL`, `PASEO_VOICE_LOCAL_TTS_MODEL`, override local voice STT/TTS models
-- `PASEO_DICTATION_LANGUAGE`, `PASEO_VOICE_LANGUAGE`, override dictation and voice STT language
-- `PASEO_VOICE_LOCAL_TTS_SPEAKER_ID`, `PASEO_VOICE_LOCAL_TTS_SPEED`, optional local voice TTS tuning
+- `PIMI_VOICE_LLM_PROVIDER`, override voice LLM provider (`claude`, `codex`, `opencode`)
+- `PIMI_DICTATION_STT_PROVIDER`, `PIMI_VOICE_STT_PROVIDER`, `PIMI_VOICE_TTS_PROVIDER`, override voice provider selection (`local` or `openai`)
+- `PIMI_LOCAL_MODELS_DIR`, control local model directory
+- `PIMI_DICTATION_LOCAL_STT_MODEL`, override local dictation STT model
+- `PIMI_VOICE_LOCAL_STT_MODEL`, `PIMI_VOICE_LOCAL_TTS_MODEL`, override local voice STT/TTS models
+- `PIMI_DICTATION_LANGUAGE`, `PIMI_VOICE_LANGUAGE`, override dictation and voice STT language
+- `PIMI_VOICE_LOCAL_TTS_SPEAKER_ID`, `PIMI_VOICE_LOCAL_TTS_SPEED`, optional local voice TTS tuning
 
 ## Schema
 

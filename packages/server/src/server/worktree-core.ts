@@ -28,7 +28,7 @@ export interface CreateWorktreeCoreInput {
   action?: "branch-off" | "checkout";
   checkoutSource?: ChangeRequestCheckoutSource;
   firstAgentContext?: FirstAgentContext;
-  paseoHome?: string;
+  pimiHome?: string;
   worktreesRoot?: string;
 }
 
@@ -116,7 +116,7 @@ async function createWorktreeCoreWithPriority(
 
   const defaultPath = await resolveDefaultWorktreePath({
     cwd: repoRoot,
-    paseoHome: input.paseoHome,
+    pimiHome: input.pimiHome,
     worktreesRoot: input.worktreesRoot,
     worktreeSlug: normalizedSlug,
   });
@@ -142,7 +142,7 @@ async function createWorktreeCoreWithPriority(
       worktreeSlug: normalizedSlug,
       worktreePath: transformed.path,
       source: intent,
-      paseoHome: input.paseoHome,
+      pimiHome: input.pimiHome,
       worktreesRoot: input.worktreesRoot,
     }),
     intent,
@@ -235,7 +235,7 @@ async function resolveDefaultBranch(
 }
 
 export async function resolveWorktreeRepoRoot(
-  input: Pick<CreateWorktreeCoreInput, "cwd" | "paseoHome">,
+  input: Pick<CreateWorktreeCoreInput, "cwd" | "pimiHome">,
   workspaceGitService?: Pick<WorkspaceGitService, "resolveRepoRoot">,
 ): Promise<string> {
   if (!workspaceGitService) {

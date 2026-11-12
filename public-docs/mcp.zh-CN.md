@@ -56,7 +56,7 @@ nav: MCP 参考
 }
 ```
 
-编辑 `~/.paseo/config.json` 后运行 `pimi reload`，然后启动新的 Agent 或重新加载已有的 Agent。正在运行的会话保留它启动时得到的工具目录。
+编辑 `~/.pimi/config.json` 后运行 `pimi reload`，然后启动新的 Agent 或重新加载已有的 Agent。正在运行的会话保留它启动时得到的工具目录。
 
 省略 `paseoTools` 会启用完整的工具目录。把 `enabled` 设为 `false` 会移除整个目录，在 `disabledTools` 中列出确切的工具 ID 则只移除所选的工具。自定义配置不会从 `extends` 继承这一策略；请为每个自定义 Provider ID 分别配置。
 

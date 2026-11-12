@@ -1727,7 +1727,7 @@ const behavior: PluginButtonBehavior = {
 
 在界面中执行普通的 Pimi 操作请使用 `usePimi()`。它借用所选主机现有的连接；不要再创建一个客户端。
 
-`usePimi()` 是你的插件唯一的 Pimi 客户端，在每个界面中都与 setup 收到的 `client.paseo` 相同。
+`usePimi()` 是你的插件唯一的 Pimi 客户端，在每个界面中都与 setup 收到的 `client.pimi` 相同。
 请在清理函数中释放你订阅的内容；当插件被停用、重新加载或移除，或者它的主机消失时，Pimi 会销毁该客户端，
 并结束所有仍然打开的订阅。
 
@@ -2084,7 +2084,7 @@ pimi --host <url> plugin logs my-plugin
 
 Pimi 在内存中为每个插件最多保留 500 个条目和 256 KiB。单行最多 16 KiB。重新加载、停用、编译失败、
 初始化失败和进程失败都会保留日志尾部。移除插件会清空它，daemon 重启则会开始新的日志尾部。结构化的副本
-也会写入位于 `$PASEO_HOME/daemon.log` 的 daemon 日志。
+也会写入位于 `$PIMI_HOME/daemon.log` 的 daemon 日志。
 
 只有 daemon 端的输出会被捕获。客户端界面的日志留在应用运行时中。不要记录凭据、访问令牌或其他机密：已连接
 的用户可以读取保留的日志尾部，而 daemon 日志会把它持久保存。

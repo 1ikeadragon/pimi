@@ -220,9 +220,9 @@ Server contributions can write to stdout and stderr with normal Node logging. Pi
 entries for loading, ready, stopping, and stopped transitions. Compilation and load failures are
 recorded as stderr entries before a subprocess exists. Inspect the recent in-memory
 tail from the host plugin settings or with `pimi plugin logs <id>`. Git preparation commands are
-recorded in `$PASEO_HOME/daemon.log` before a plugin exists, rather than the plugin log tail. Reload, disable, and process
+recorded in `$PIMI_HOME/daemon.log` before a plugin exists, rather than the plugin log tail. Reload, disable, and process
 failure retain the tail; removing the plugin clears it. Daemon restarts do not retain the tail, but
-structured copies remain in `$PASEO_HOME/daemon.log`. Plugin output can contain secrets, so do not
+structured copies remain in `$PIMI_HOME/daemon.log`. Plugin output can contain secrets, so do not
 log credentials or tokens.
 
 ## Contribute behavior and UI
@@ -368,9 +368,9 @@ limit, is in [stream events from the daemon](../public-docs/plugins/reference.md
 `usePimi()` and the handler's `{ paseo }` context expose the same `PaseoApi`: projects,
 workspaces, agents, terminals, providers, and daemon config. They do not expose connection lifecycle.
 
-`usePimi()` is the plugin's one client: `InstalledPlugin.paseo`, created with the installation in
+`usePimi()` is the plugin's one client: `InstalledPlugin.pimi`, created with the installation in
 `packages/app/src/plugins/registry.ts` over the host's existing connection and passed to setup as
-`client.paseo`. Authors release their subscriptions in their own cleanup, and teardown (disable,
+`client.pimi`. Authors release their subscriptions in their own cleanup, and teardown (disable,
 reload, removal, host removal) disposes the client, which ends the rest; nothing is created or
 disposed per mounted surface. See the
 [public example](../public-docs/plugins/reference.md#use-the-paseo-sdk). Switching the screen's host

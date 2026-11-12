@@ -4,7 +4,7 @@ import { initializeEnvironmentProxy } from "./network/index.js";
 import { getDaemonNetworkActivity } from "./network/activity.js";
 import { createPaseoDaemon, formatListenTarget } from "./bootstrap.js";
 import { loadConfig } from "./config.js";
-import { resolvePaseoHome } from "./paseo-home.js";
+import { resolvePimiHome } from "./pimi-home.js";
 import { createRootLogger } from "./logger.js";
 import type { DaemonLifecycleIntent } from "./bootstrap.js";
 import { getProcessDiagnostics } from "./process-diagnostics.js";
@@ -29,7 +29,7 @@ type SupervisorLifecycleMessage =
     };
 
 interface BootstrapResult {
-  paseoHome: string;
+  pimiHome: string;
   logger: ReturnType<typeof createRootLogger>;
   config: ReturnType<typeof loadConfig>;
 }
@@ -47,12 +47,12 @@ function isPidAlive(pid: number): boolean {
 }
 
 function writeWorkerLifecycleLog(
-  paseoHome: string,
+  pimiHome: string,
   message: string,
   fields: Record<string, unknown> = {},
 ): void {
   try {
-    const logPath = path.join(paseoHome, "daemon.log");
+    const logPath = path.join(pimiHome, "daemon.log");
     mkdirSync(path.dirname(logPath), { recursive: true });
     appendFileSync(
       logPath,
@@ -73,10 +73,10 @@ function writeWorkerLifecycleLog(
 
 function bootstrapFromEnvironment(): BootstrapResult {
   try {
-    const paseoHome = resolvePaseoHome();
-    const config = loadConfig(paseoHome);
-    const logger = createRootLogger({ log: config.log }, { paseoHome, file: false });
-    return { paseoHome, logger, config };
+    const pimiHome = resolvePimiHome();
+    const config = loadConfig(pimiHome);
+    const logger = createRootLogger({ log: config.log }, { pimiHome, file: false });
+    return { pimiHome, logger, config };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     process.stderr.write(`${message}\n`);
@@ -123,11 +123,11 @@ function applyCliFlagOverrides(config: ReturnType<typeof loadConfig>): void {
 }
 
 async function main() {
-  const { paseoHome, logger, config } = bootstrapFromEnvironment();
+  const { pimiHome, logger, config } = bootstrapFromEnvironment();
   // Subscribe before anything can make a request, so the Network diagnostics view sees it all.
   getDaemonNetworkActivity();
   for (const variable of initializeEnvironmentProxy()) {
-    writeWorkerLifecycleLog(paseoHome, "Ignoring invalid or unsupported HTTP proxy variable", {
+    writeWorkerLifecycleLog(pimiHome, "Ignoring invalid or unsupported HTTP proxy variable", {
       variable,
     });
   }
@@ -257,7 +257,7 @@ async function main() {
   // Written straight to daemon.log: the pino stream goes through the supervisor's pipe, which
   // a paused or busy supervisor does not drain. Tests synchronize on this line.
   const recordLifecycleIntentDispatched = (type: string, fields: Record<string, unknown>) => {
-    writeWorkerLifecycleLog(paseoHome, "Lifecycle intent dispatched", { type, ...fields });
+    writeWorkerLifecycleLog(pimiHome, "Lifecycle intent dispatched", { type, ...fields });
   };
 
   const installSupervisorLivenessGuard = () => {
@@ -274,7 +274,7 @@ async function main() {
       }
       supervisorExitRequested = true;
 
-      writeWorkerLifecycleLog(paseoHome, "Supervisor liveness lost; worker exiting", {
+      writeWorkerLifecycleLog(pimiHome, "Supervisor liveness lost; worker exiting", {
         reason,
         ...getProcessDiagnostics(),
         supervisorPid,

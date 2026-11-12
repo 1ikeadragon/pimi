@@ -16,10 +16,10 @@ This page covers the git-specific details: where worktrees live, how branches ar
 
 ## Layout and workflow
 
-Worktrees live under `$PASEO_HOME/worktrees/` by default, grouped by a hash of the source checkout path. You can change the base directory with `worktrees.root` in `config.json`. Each worktree gets a slug and a branch when its workspace is created.
+Worktrees live under `$PIMI_HOME/worktrees/` by default, grouped by a hash of the source checkout path. You can change the base directory with `worktrees.root` in `config.json`. Each worktree gets a slug and a branch when its workspace is created.
 
 ```
-~/.paseo/worktrees/
+~/.pimi/worktrees/
 └── 1vnnm9k3/               # hash of source checkout path
     ├── tidy-fox/           # worktree slug
     └── bold-owl/
@@ -114,7 +114,7 @@ Plugins can use [`worktree.create.after`](/docs/plugins/hooks#worktreecreateafte
 
 Both fields accept a multiline shell script or an array of commands; commands run sequentially either way.
 
-Commands run with the worktree as `cwd`. Use `$PASEO_SOURCE_CHECKOUT_PATH` to reach files in the original checkout (untracked config, local caches, etc).
+Commands run with the worktree as `cwd`. Use `$PIMI_SOURCE_CHECKOUT_PATH` to reach files in the original checkout (untracked config, local caches, etc).
 
 ## Scripts and services
 
@@ -141,26 +141,26 @@ Run them from the app, or manage them from automation with [`pimi script`](/docs
   "scripts": {
     "web": {
       "type": "service",
-      "command": "npm run dev -- --port $PASEO_PORT",
+      "command": "npm run dev -- --port $PIMI_PORT",
       "port": 3000
     },
     "api": {
       "type": "service",
-      "command": "npm run api -- --port $PASEO_PORT"
+      "command": "npm run api -- --port $PIMI_PORT"
     }
   }
 }
 ```
 
-Omit `port` to let Pimi auto-assign one. Bind your process to `$PASEO_PORT` rather than hard-coding, each worktree gets a distinct port so multiple copies of the same service coexist.
+Omit `port` to let Pimi auto-assign one. Bind your process to `$PIMI_PORT` rather than hard-coding, each worktree gets a distinct port so multiple copies of the same service coexist.
 
 ### Dynamic port allocation
 
 By default, Pimi asks the OS for an available ephemeral port. Configure a range globally in
-`~/.paseo/config.json` or per project in `pimi.json`:
+`~/.pimi/config.json` or per project in `pimi.json`:
 
 ```json
-// ~/.paseo/config.json
+// ~/.pimi/config.json
 {
   "worktrees": {
     "servicePorts": { "range": "3000-4000" }
@@ -192,8 +192,8 @@ For an external allocator, configure `portScript` instead:
 
 Pimi runs the executable in the workspace directory with four arguments: service name, workspace
 ID, branch name, and worktree path. Since the script is executed directly without a shell, `portScript` must point to a real executable (such as a compiled binary or a script with a proper shebang line like `#!/bin/bash`) rather than an inline shell command or pipeline. If you need shell evaluation or pipelines, wrap them in a small executable script. A missing branch is passed as an empty string. The same values
-are available as `PASEO_SCRIPTNAME`, `PASEO_WORKSPACE_ID`, `PASEO_BRANCH_NAME`, and
-`PASEO_WORKTREE_PATH`. It must print one valid TCP port to stdout. `portScript` wins over `range` in
+are available as `PIMI_SCRIPTNAME`, `PIMI_WORKSPACE_ID`, `PIMI_BRANCH_NAME`, and
+`PIMI_WORKTREE_PATH`. It must print one valid TCP port to stdout. `portScript` wins over `range` in
 the same block. Pimi trusts the external allocator, so the returned port may already be in use, for
 example by a service Pimi will attach to.
 
@@ -215,15 +215,15 @@ http://<script>--<project>.localhost:<daemon-port>
 Services launched from the same workspace see each other's ports and proxy URLs. Given `web` and `api` above, each process gets:
 
 ```
-PASEO_PORT=3000                         # this service's port
-PASEO_URL=http://web--my-app.localhost:6767  # this service's proxy URL
-PASEO_SERVICE_API_PORT=51732
-PASEO_SERVICE_API_URL=http://api--my-app.localhost:6767
-PASEO_SERVICE_WEB_PORT=3000
-PASEO_SERVICE_WEB_URL=http://web--my-app.localhost:6767
+PIMI_PORT=3000                         # this service's port
+PIMI_URL=http://web--my-app.localhost:6767  # this service's proxy URL
+PIMI_SERVICE_API_PORT=51732
+PIMI_SERVICE_API_URL=http://api--my-app.localhost:6767
+PIMI_SERVICE_WEB_PORT=3000
+PIMI_SERVICE_WEB_URL=http://web--my-app.localhost:6767
 ```
 
-Script names are upper-cased and non-alphanumerics become `_`. Point your frontend at `$PASEO_SERVICE_API_URL` instead of hard-coding a port.
+Script names are upper-cased and non-alphanumerics become `_`. Point your frontend at `$PIMI_SERVICE_API_URL` instead of hard-coding a port.
 
 ## Terminals
 
@@ -244,16 +244,16 @@ Open terminals automatically when a worktree is created. Useful for tailing logs
 
 Setup, teardown, scripts, and services all see:
 
-- `$PASEO_SOURCE_CHECKOUT_PATH`, the original repo root
-- `$PASEO_WORKTREE_PATH`, the worktree directory
-- `$PASEO_BRANCH_NAME`, the worktree's branch
-- `$PASEO_WORKTREE_PORT`, legacy per-worktree port (prefer `$PASEO_PORT` inside services)
+- `$PIMI_SOURCE_CHECKOUT_PATH`, the original repo root
+- `$PIMI_WORKTREE_PATH`, the worktree directory
+- `$PIMI_BRANCH_NAME`, the worktree's branch
+- `$PIMI_WORKTREE_PORT`, legacy per-worktree port (prefer `$PIMI_PORT` inside services)
 
 Services additionally get:
 
-- `$PASEO_PORT`, this service's assigned port
-- `$PASEO_URL`, this service's proxy URL
-- `$PASEO_SERVICE_<NAME>_PORT` / `_URL`, peer service ports and URLs
+- `$PIMI_PORT`, this service's assigned port
+- `$PIMI_URL`, this service's proxy URL
+- `$PIMI_SERVICE_<NAME>_PORT` / `_URL`, peer service ports and URLs
 - `$HOST`, `127.0.0.1` for local-only daemons, `0.0.0.0` when the daemon binds all interfaces
 
 ## Manage the workspace

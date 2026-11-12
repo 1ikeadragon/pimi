@@ -423,8 +423,8 @@ interface LoggerLike {
   warn?(...args: unknown[]): void;
 }
 
-function getConfigPath(paseoHome: string): string {
-  return path.join(paseoHome, CONFIG_FILENAME);
+function getConfigPath(pimiHome: string): string {
+  return path.join(pimiHome, CONFIG_FILENAME);
 }
 
 function getLogger(logger: LoggerLike | undefined): LoggerLike | undefined {
@@ -521,9 +521,9 @@ function warnDiscardedSpeechKeys(
   }
 }
 
-export function loadPersistedConfig(paseoHome: string, logger?: LoggerLike): PersistedConfig {
+export function loadPersistedConfig(pimiHome: string, logger?: LoggerLike): PersistedConfig {
   const log = getLogger(logger);
-  const configPath = getConfigPath(paseoHome);
+  const configPath = getConfigPath(pimiHome);
 
   if (!existsSync(configPath)) {
     try {
@@ -556,11 +556,11 @@ export function loadPersistedConfig(paseoHome: string, logger?: LoggerLike): Per
 
 /** Runtime config IO. Startup and offline CLI consumers retain their synchronous entry points. */
 export async function loadPersistedConfigAsync(
-  paseoHome: string,
+  pimiHome: string,
   logger?: LoggerLike,
 ): Promise<PersistedConfig> {
   const log = getLogger(logger);
-  const configPath = getConfigPath(paseoHome);
+  const configPath = getConfigPath(pimiHome);
   let raw: string;
   await ensurePrivateFileAsync(configPath);
   try {
@@ -590,10 +590,10 @@ export async function loadPersistedConfigAsync(
 
 /** Observe the file without initializing a home, identity, or default configuration. */
 export function readPersistedConfig(
-  paseoHome: string,
+  pimiHome: string,
   options: { defaultsIfMissing?: boolean } = {},
 ): PersistedConfig {
-  const configPath = getConfigPath(paseoHome);
+  const configPath = getConfigPath(pimiHome);
   let raw: string;
   try {
     raw = readFileSync(configPath, "utf8");
@@ -683,7 +683,7 @@ export function getPersistedConfigValue(config: PersistedConfig, field: string):
 }
 
 export function editPersistedConfig(
-  paseoHome: string,
+  pimiHome: string,
   field: string,
   edit: { value: unknown } | { unset: true },
 ): PersistedConfig {
@@ -691,7 +691,7 @@ export function editPersistedConfig(
   if (field === "daemon.auth" || field.startsWith("daemon.auth.")) {
     throw new Error("Use daemon set-password to change the daemon password.");
   }
-  const config = readPersistedConfig(paseoHome, { defaultsIfMissing: true });
+  const config = readPersistedConfig(pimiHome, { defaultsIfMissing: true });
   let object = config as Record<string, unknown>;
   for (const part of parts.slice(0, -1)) {
     object[part] ??= {};
@@ -709,17 +709,17 @@ export function editPersistedConfig(
   }
   if ("unset" in edit) delete object[key];
   else object[key] = edit.value;
-  savePersistedConfig(paseoHome, config);
+  savePersistedConfig(pimiHome, config);
   return config;
 }
 
 export function savePersistedConfig(
-  paseoHome: string,
+  pimiHome: string,
   config: PersistedConfig,
   logger?: LoggerLike,
 ): void {
   const log = getLogger(logger);
-  const configPath = getConfigPath(paseoHome);
+  const configPath = getConfigPath(pimiHome);
 
   const data = serializePersistedConfig(config);
 
@@ -747,11 +747,11 @@ function serializePersistedConfig(config: PersistedConfig): string {
 }
 
 export async function savePersistedConfigAsync(
-  paseoHome: string,
+  pimiHome: string,
   config: PersistedConfig,
   logger?: LoggerLike,
 ): Promise<void> {
-  const configPath = getConfigPath(paseoHome);
+  const configPath = getConfigPath(pimiHome);
   const data = serializePersistedConfig(config);
   try {
     await writePrivateFileAtomic(configPath, data);

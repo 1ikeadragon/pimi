@@ -1,7 +1,7 @@
 import { createHostClient, parseHostTarget } from "@pimi/client/node";
 import {
   waitForDaemonReady,
-  resolvePaseoHome,
+  resolvePimiHome,
   type DaemonInstance,
   readLocalCredentialForTarget,
 } from "@pimi/server/daemon-control";
@@ -21,11 +21,11 @@ export interface ConnectOptions {
   timeout?: number;
   instance?: DaemonInstance;
 }
-export function resolveClientPaseoHome(
+export function resolveClientPimiHome(
   target: DaemonTarget,
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): string {
-  return target.kind === "instance" ? target.home : resolvePaseoHome(env);
+  return target.kind === "instance" ? target.home : resolvePimiHome(env);
 }
 const DEFAULT_TIMEOUT = 15000;
 type TransportTarget =
@@ -57,9 +57,9 @@ export function buildDaemonConnectionCommandError(options: ConnectOptions & { er
 
 function describeConnectionRemedy(code: string, target: DaemonTarget): string {
   if (code === "AUTH_REQUIRED")
-    return "The daemon requires a password. Set PASEO_PASSWORD and retry.";
+    return "The daemon requires a password. Set PIMI_PASSWORD and retry.";
   if (code === "AUTH_FAILED")
-    return "The daemon rejected the password. Check PASEO_PASSWORD and retry.";
+    return "The daemon rejected the password. Check PIMI_PASSWORD and retry.";
   if (target.kind === "instance")
     return `Start with: pimi daemon start --home ${JSON.stringify(target.home)}`;
   return "Check the selected endpoint and credentials. SSH transport does not install or start the daemon.";
@@ -164,7 +164,7 @@ export function resolveDaemonTarget(host: string): TransportTarget {
 export function resolveDaemonPassword(host: string): string | undefined {
   const fromUri = parseHostTarget(host).password;
   if (fromUri) return fromUri;
-  const fromEnv = process.env.PASEO_PASSWORD;
+  const fromEnv = process.env.PIMI_PASSWORD;
   return fromEnv && fromEnv.length > 0 ? fromEnv : undefined;
 }
 
@@ -189,7 +189,7 @@ async function connectSelectedDaemon(options: ConnectOptions): Promise<DaemonCli
             instance: options.instance,
           })
         ).listen;
-  const home = resolveClientPaseoHome(options.target);
+  const home = resolveClientPimiHome(options.target);
   const credential = resolveDaemonCredential(host, home);
   const client = createHostClient(host, {
     clientId: await getOrCreateCliClientId(home),

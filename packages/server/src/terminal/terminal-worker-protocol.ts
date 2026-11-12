@@ -47,7 +47,7 @@ export const TERMINAL_WORKER_PROTOCOL_VERSION = 5;
 
 // Test-only: the protocol version a worker reports, so tests can stand up older and newer
 // workers from one build.
-export const TERMINAL_WORKER_PROTOCOL_OVERRIDE_ENV = "PASEO_TERMINAL_WORKER_PROTOCOL_OVERRIDE";
+export const TERMINAL_WORKER_PROTOCOL_OVERRIDE_ENV = "PIMI_TERMINAL_WORKER_PROTOCOL_OVERRIDE";
 
 /** How a daemon at `current` treats a worker reporting `reported`. */
 export type TerminalWorkerProtocolFit = "current" | "previous" | "obsolete" | "newer";

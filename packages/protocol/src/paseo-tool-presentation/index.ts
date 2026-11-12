@@ -1,6 +1,6 @@
 import type { ToolCallDetail } from "../agent-types.js";
 import { getPaseoToolLeafName, isPaseoToolName } from "../tool-name-normalization.js";
-import { getPaseoToolEntry, PASEO_TOOL_CATALOG, type PaseoToolName } from "./catalog.js";
+import { getPaseoToolEntry, PIMI_TOOL_CATALOG, type PaseoToolName } from "./catalog.js";
 import { unwrapMcpResult } from "./detail-sections.js";
 import { toSummaryText } from "./summary-text.js";
 
@@ -25,7 +25,7 @@ export interface PaseoToolDisplay {
   summary?: string;
 }
 
-export const PASEO_TOOL_NAMES = Object.keys(PASEO_TOOL_CATALOG) as readonly PaseoToolName[];
+export const PIMI_TOOL_NAMES = Object.keys(PIMI_TOOL_CATALOG) as readonly PaseoToolName[];
 
 /** Returns null for tools outside the Paseo namespace. */
 export function buildPaseoToolDisplay(input: PaseoToolDisplayInput): PaseoToolDisplay | null {

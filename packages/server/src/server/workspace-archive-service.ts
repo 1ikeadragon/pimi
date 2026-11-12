@@ -28,7 +28,7 @@ export type ActiveWorkspaceRef = Pick<
 >;
 
 export interface ArchiveDependencies {
-  paseoHome?: string;
+  pimiHome?: string;
   // Base directory that may hold worktrees across repositories.
   paseoWorktreesBaseRoot?: string;
   github: ForgeService;
@@ -332,7 +332,7 @@ async function stopWorkspaceSetups(
 
 async function resolveWorkspaceBackingDirectory(
   workspace: ActiveWorkspaceRef,
-  dependencies: Pick<ArchiveDependencies, "paseoHome" | "paseoWorktreesBaseRoot">,
+  dependencies: Pick<ArchiveDependencies, "pimiHome" | "paseoWorktreesBaseRoot">,
 ): Promise<BackingDirectory> {
   if (workspace.isPaseoOwnedWorktree === false) {
     return {
@@ -376,10 +376,10 @@ async function resolveWorkspaceBackingDirectory(
 
 async function resolveBackingDirectory(
   cwd: string,
-  dependencies: Pick<ArchiveDependencies, "paseoHome" | "paseoWorktreesBaseRoot">,
+  dependencies: Pick<ArchiveDependencies, "pimiHome" | "paseoWorktreesBaseRoot">,
 ): Promise<BackingDirectory> {
   const options = {
-    paseoHome: dependencies.paseoHome,
+    pimiHome: dependencies.pimiHome,
     worktreesRoot: dependencies.paseoWorktreesBaseRoot,
   };
   const ownership = await isPaseoOwnedWorktreeCwd(cwd, options);
@@ -518,7 +518,7 @@ async function maybeRemoveDirectory(
       worktreePath: backing.path,
       teardownCwds: [],
       worktreesRoot: backing.paseoWorktreesRoot ?? undefined,
-      paseoHome: dependencies.paseoHome,
+      pimiHome: dependencies.pimiHome,
       worktreesBaseRoot: dependencies.paseoWorktreesBaseRoot,
       registryProven: backing.registryProven,
     });
@@ -664,7 +664,7 @@ async function isDirectoryUnreferenced(
   activeWorkspaces: ActiveWorkspaceRef[],
   targetDir: string,
   archivedWorkspaceIds: ReadonlySet<string>,
-  dependencies: Pick<ArchiveDependencies, "paseoHome" | "paseoWorktreesBaseRoot">,
+  dependencies: Pick<ArchiveDependencies, "pimiHome" | "paseoWorktreesBaseRoot">,
 ): Promise<boolean> {
   const target = resolve(targetDir);
   const matchesTarget = createRealpathAwarePathMatcher(target);

@@ -1,5 +1,5 @@
 import { parseHostTarget } from "@pimi/protocol/host-target";
-import { resolvePaseoHome } from "@pimi/server/daemon-control";
+import { resolvePimiHome } from "@pimi/server/daemon-control";
 
 export type DaemonTarget = { kind: "instance"; home: string } | { kind: "endpoint"; host: string };
 
@@ -14,8 +14,8 @@ export function selectDaemonTarget(
   }
   if (options.home !== undefined && options.host !== undefined)
     throw { code: "TARGET_AMBIGUOUS", message: "Choose either --home or --host, not both." };
-  const configuredHome = env.PIMI_HOME ?? env.PASEO_HOME;
-  const configuredHost = env.PIMI_HOST ?? env.PASEO_HOST;
+  const configuredHome = env.PIMI_HOME;
+  const configuredHost = env.PIMI_HOST;
   if (localOnly) {
     if (options.host !== undefined)
       throw {
@@ -24,11 +24,11 @@ export function selectDaemonTarget(
       };
     return {
       kind: "instance",
-      home: resolvePaseoHome({ PIMI_HOME: options.home ?? configuredHome }),
+      home: resolvePimiHome({ PIMI_HOME: options.home ?? configuredHome }),
     };
   }
   if (options.home !== undefined)
-    return { kind: "instance", home: resolvePaseoHome({ PIMI_HOME: options.home }) };
+    return { kind: "instance", home: resolvePimiHome({ PIMI_HOME: options.home }) };
   if (options.host !== undefined) return { kind: "endpoint", host: options.host };
   if (configuredHome && configuredHost)
     throw {
@@ -36,7 +36,7 @@ export function selectDaemonTarget(
       message: "Both a daemon home and host are set. Choose --home or --host explicitly.",
     };
   if (configuredHost) return { kind: "endpoint", host: configuredHost };
-  return { kind: "instance", home: resolvePaseoHome({ PIMI_HOME: configuredHome }) };
+  return { kind: "instance", home: resolvePimiHome({ PIMI_HOME: configuredHome }) };
 }
 
 export function describeDaemonTarget(target: DaemonTarget): string {

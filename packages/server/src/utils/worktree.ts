@@ -37,7 +37,7 @@ import {
 import { runGitCommand } from "./run-git-command.js";
 import { getCurrentBranch, resolveRepositoryDefaultBranch } from "./checkout-git.js";
 import { spawnProcess } from "./spawn.js";
-import { resolvePaseoHome } from "../server/paseo-home.js";
+import { resolvePimiHome } from "../server/pimi-home.js";
 import { createExternalProcessEnv } from "../server/paseo-env.js";
 import { parseGitRevParsePath, resolveGitRevParsePath } from "./git-rev-parse-path.js";
 import {
@@ -66,11 +66,11 @@ export interface CreatedWorktree extends WorktreeConfig {
 
 export interface WorktreeRuntimeEnv {
   [key: string]: string;
-  PASEO_SOURCE_CHECKOUT_PATH: string;
-  PASEO_ROOT_PATH: string;
-  PASEO_WORKTREE_PATH: string;
-  PASEO_BRANCH_NAME: string;
-  PASEO_WORKTREE_PORT: string;
+  PIMI_SOURCE_CHECKOUT_PATH: string;
+  PIMI_ROOT_PATH: string;
+  PIMI_WORKTREE_PATH: string;
+  PIMI_BRANCH_NAME: string;
+  PIMI_WORKTREE_PORT: string;
 }
 
 export interface WorktreeSetupCommandResult {
@@ -175,7 +175,7 @@ export interface PaseoWorktreeOwnershipOptions extends WorktreeRootOptions {
 }
 
 export interface WorktreeRootOptions {
-  paseoHome?: string;
+  pimiHome?: string;
   worktreesRoot?: string;
 }
 
@@ -207,7 +207,7 @@ export interface CreateWorktreeOptions {
   cwd: string;
   worktreeSlug: string;
   source: WorktreeSource;
-  paseoHome?: string;
+  pimiHome?: string;
   worktreesRoot?: string;
   worktreePath?: string;
 }
@@ -712,12 +712,12 @@ export async function resolveWorktreeRuntimeEnv(options: {
     // Source checkout path is the original git repo root (shared across worktrees), not the
     // worktree itself. This allows setup scripts to copy local files (e.g. .env) from the
     // source checkout.
-    PASEO_SOURCE_CHECKOUT_PATH: repoRootPath,
+    PIMI_SOURCE_CHECKOUT_PATH: repoRootPath,
     // Backward-compatible alias.
-    PASEO_ROOT_PATH: repoRootPath,
-    PASEO_WORKTREE_PATH: options.worktreePath,
-    PASEO_BRANCH_NAME: branchName,
-    PASEO_WORKTREE_PORT: String(worktreePort),
+    PIMI_ROOT_PATH: repoRootPath,
+    PIMI_WORKTREE_PATH: options.worktreePath,
+    PIMI_BRANCH_NAME: branchName,
+    PIMI_WORKTREE_PORT: String(worktreePort),
   };
 }
 
@@ -747,12 +747,12 @@ export async function runWorktreeTeardownCommands(options: {
       // Source checkout path is the original git repo root (shared across worktrees), not the
       // worktree itself. This allows lifecycle scripts to copy or clean resources using paths
       // from the source checkout.
-      PASEO_SOURCE_CHECKOUT_PATH: repoRootPath,
+      PIMI_SOURCE_CHECKOUT_PATH: repoRootPath,
       // Backward-compatible alias.
-      PASEO_ROOT_PATH: repoRootPath,
-      PASEO_WORKTREE_PATH: options.worktreePath,
-      PASEO_BRANCH_NAME: branchName,
-      ...(worktreePort !== null ? { PASEO_WORKTREE_PORT: String(worktreePort) } : {}),
+      PIMI_ROOT_PATH: repoRootPath,
+      PIMI_WORKTREE_PATH: options.worktreePath,
+      PIMI_BRANCH_NAME: branchName,
+      ...(worktreePort !== null ? { PIMI_WORKTREE_PORT: String(worktreePort) } : {}),
     }),
   );
 
@@ -833,20 +833,20 @@ export function resolvePaseoWorktreesBaseRoot(options?: WorktreeRootOptions): st
     if (isAbsolute(expandedRoot)) {
       return resolve(expandedRoot);
     }
-    const home = options.paseoHome ? resolve(options.paseoHome) : resolvePaseoHome();
+    const home = options.pimiHome ? resolve(options.pimiHome) : resolvePimiHome();
     return resolve(home, expandedRoot);
   }
 
-  const home = options?.paseoHome ? resolve(options.paseoHome) : resolvePaseoHome();
+  const home = options?.pimiHome ? resolve(options.pimiHome) : resolvePimiHome();
   return join(home, "worktrees");
 }
 
 export async function getPaseoWorktreesRoot(
   cwd: string,
-  paseoHome?: string,
+  pimiHome?: string,
   worktreesRoot?: string,
 ): Promise<string> {
-  const baseRoot = resolvePaseoWorktreesBaseRoot({ paseoHome, worktreesRoot });
+  const baseRoot = resolvePaseoWorktreesBaseRoot({ pimiHome, worktreesRoot });
   const projectHash = await deriveWorktreeProjectHash(cwd);
   return join(baseRoot, projectHash);
 }
@@ -854,10 +854,10 @@ export async function getPaseoWorktreesRoot(
 export async function computeWorktreePath(
   cwd: string,
   slug: string,
-  paseoHome?: string,
+  pimiHome?: string,
   worktreesRoot?: string,
 ): Promise<string> {
-  const projectWorktreesRoot = await getPaseoWorktreesRoot(cwd, paseoHome, worktreesRoot);
+  const projectWorktreesRoot = await getPaseoWorktreesRoot(cwd, pimiHome, worktreesRoot);
   return join(projectWorktreesRoot, slug);
 }
 
@@ -1080,14 +1080,14 @@ async function resolveWorktreeCreatedAtIso(worktreePath: string): Promise<string
 
 export async function listPaseoWorktrees({
   cwd,
-  paseoHome,
+  pimiHome,
   worktreesRoot,
 }: {
   cwd: string;
-  paseoHome?: string;
+  pimiHome?: string;
   worktreesRoot?: string;
 }): Promise<PaseoWorktreeInfo[]> {
-  const projectWorktreesRoot = await getPaseoWorktreesRoot(cwd, paseoHome, worktreesRoot);
+  const projectWorktreesRoot = await getPaseoWorktreesRoot(cwd, pimiHome, worktreesRoot);
   const { stdout } = await runGitCommand(["worktree", "list", "--porcelain"], {
     cwd,
     envOverlay: READ_ONLY_GIT_ENV,
@@ -1115,7 +1115,7 @@ export interface DeletePaseoWorktreeOptions {
   teardownCwds?: string[];
   worktreeSlug?: string;
   worktreesRoot?: string;
-  paseoHome?: string;
+  pimiHome?: string;
   worktreesBaseRoot?: string;
   // The caller has a workspace registry record backing worktreePath (the
   // record's cwd is this path). Registry membership is an ownership proof
@@ -1149,7 +1149,7 @@ export async function deletePaseoWorktree({
   teardownCwds,
   worktreeSlug,
   worktreesRoot,
-  paseoHome,
+  pimiHome,
   worktreesBaseRoot,
   registryProven,
 }: DeletePaseoWorktreeOptions): Promise<void> {
@@ -1164,14 +1164,14 @@ export async function deletePaseoWorktree({
   if (worktreesRoot) {
     resolvedWorktreesRoot = worktreesRoot;
   } else if (cwd) {
-    resolvedWorktreesRoot = await getPaseoWorktreesRoot(cwd, paseoHome, worktreesBaseRoot);
+    resolvedWorktreesRoot = await getPaseoWorktreesRoot(cwd, pimiHome, worktreesBaseRoot);
   } else {
     throw new Error("cwd or worktreesRoot is required to delete a Paseo worktree");
   }
 
   const requestedPath = worktreePath ?? join(resolvedWorktreesRoot, worktreeSlug!);
   const ownership = await isPaseoOwnedWorktreeCwd(requestedPath, {
-    paseoHome,
+    pimiHome,
     worktreesRoot: worktreesBaseRoot,
   });
   // Deletion is gated on the ownership proof set (legacy shape, the
@@ -1335,10 +1335,10 @@ async function readLocalBranchTip(cwd: string, branchName: string): Promise<stri
 
 /** Resolve the default placement once, before presenting it to creation hooks. */
 export async function resolveDefaultWorktreePath(
-  options: Pick<CreateWorktreeOptions, "cwd" | "paseoHome" | "worktreesRoot" | "worktreeSlug">,
+  options: Pick<CreateWorktreeOptions, "cwd" | "pimiHome" | "worktreesRoot" | "worktreeSlug">,
 ): Promise<string> {
   const original = join(
-    await getPaseoWorktreesRoot(options.cwd, options.paseoHome, options.worktreesRoot),
+    await getPaseoWorktreesRoot(options.cwd, options.pimiHome, options.worktreesRoot),
     options.worktreeSlug,
   );
   let candidate = original;
@@ -1354,7 +1354,7 @@ export const createWorktree = async ({
   cwd,
   source,
   worktreeSlug,
-  paseoHome,
+  pimiHome,
   worktreesRoot,
   worktreePath: explicitWorktreePath,
 }: CreateWorktreeOptions): Promise<CreatedWorktree> => {
@@ -1371,7 +1371,7 @@ export const createWorktree = async ({
   try {
     let worktreePath =
       explicitWorktreePath ??
-      (await resolveDefaultWorktreePath({ cwd, paseoHome, worktreesRoot, worktreeSlug }));
+      (await resolveDefaultWorktreePath({ cwd, pimiHome, worktreesRoot, worktreeSlug }));
     await mkdir(dirname(worktreePath), { recursive: true });
 
     // Primitive owner for `git worktree add`; callers route through createWorktreeCore.

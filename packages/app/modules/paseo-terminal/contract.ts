@@ -50,7 +50,7 @@ export interface PaseoTerminalCellMetrics {
   cellHeight: number;
 }
 
-export const PASEO_TERMINAL_STYLE_FLAGS = {
+export const PIMI_TERMINAL_STYLE_FLAGS = {
   bold: 1,
   italic: 2,
   underline: 4,

@@ -18,7 +18,7 @@ import { isPaseoOwnedWorktreeCwd } from "../../utils/worktree.js";
 import type { WorkspaceArchiveContext } from "../workspace-registry.js";
 
 export interface AutoArchiveArchiveOptions {
-  paseoHome: string;
+  pimiHome: string;
   paseoWorktreesBaseRoot?: string;
   daemonConfigStore: DaemonConfigStore;
   workspaceGitService: WorkspaceGitServiceImpl;
@@ -78,7 +78,7 @@ export async function archiveIfSafe(input: {
   }
 
   const ownership = await deps.isPaseoOwnedWorktreeCwd(cwd, {
-    paseoHome: options.paseoHome,
+    pimiHome: options.pimiHome,
     worktreesRoot: options.paseoWorktreesBaseRoot,
   });
   if (!ownership.allowed) {
@@ -93,7 +93,7 @@ export async function archiveIfSafe(input: {
 
     await deps.archiveByScope(
       {
-        paseoHome: options.paseoHome,
+        pimiHome: options.pimiHome,
         paseoWorktreesBaseRoot: options.paseoWorktreesBaseRoot,
         github: options.github,
         workspaceGitService: options.workspaceGitService,

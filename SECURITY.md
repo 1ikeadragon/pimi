@@ -17,7 +17,7 @@ The relay is designed to be untrusted. All traffic between your phone and daemon
 
 ### How it works
 
-1. The daemon generates a persistent Curve25519 keypair on first run and stores it at `$PASEO_HOME/daemon-keypair.json` with mode `0600`
+1. The daemon generates a persistent Curve25519 keypair on first run and stores it at `$PIMI_HOME/daemon-keypair.json` with mode `0600`
 2. The pairing URL carries the daemon's public key in its `#offer=` fragment. Pimi uses `pimi://pair/#offer=...` by default. You can scan it in the app or paste it into Add Host without visiting a website.
 3. When the phone connects via the relay, it generates fresh ephemeral keys and sends an `e2ee_hello` message. The daemon will not process any application messages until this handshake completes.
 4. Updated peers run a Noise `NK` handshake (`Noise_NK_25519_ChaChaPoly_SHA256`) keyed to the daemon's static key: the `e2ee_hello` carries the first Noise message and the daemon's `e2ee_ready` carries the second. Every later frame is a counter-nonced ChaCha20-Poly1305 record. When either side predates this, the session falls back to the legacy construction: a Curve25519 ECDH shared key with XSalsa20-Poly1305 (NaCl `box`) and a random `[24-byte nonce][ciphertext]` bundle. Both modes negotiate `binaryCiphertext`: negotiated application text is carried as a base64 WebSocket text frame, while application binary is carried as a raw WebSocket binary frame. A peer that does not negotiate the capability uses base64 text frames for both kinds. [docs/relay-endpoint-security.md](docs/relay-endpoint-security.md) has the exact mapping.
@@ -56,9 +56,9 @@ Pimi disables Claude Code metrics, error reports, quality surveys, and automatic
 
 By default, the daemon binds to `127.0.0.1`. With no password configured, anything that can reach the daemon socket can control the daemon. Loopback is reachable by other users on the machine and by some forwarding tools.
 
-The daemon supports an optional shared-secret password (set via `auth.password` in `config.json` or the `PASEO_PASSWORD` env var; stored bcrypt-hashed). WebSocket clients send the password in `hello`; the daemon sends no session data before admission. Direct connections still accept bearer headers and WebSocket bearer subprotocols for older clients. HTTP stays bearer-header based. Health (`GET /api/health`) and CORS preflight (`OPTIONS`) are exempt; `/api/files/download` and `/mcp/agents` use their own capability tokens.
+The daemon supports an optional shared-secret password (set via `auth.password` in `config.json` or the `PIMI_PASSWORD` env var; stored bcrypt-hashed). WebSocket clients send the password in `hello`; the daemon sends no session data before admission. Direct connections still accept bearer headers and WebSocket bearer subprotocols for older clients. HTTP stays bearer-header based. Health (`GET /api/health`) and CORS preflight (`OPTIONS`) are exempt; `/api/files/download` and `/mcp/agents` use their own capability tokens.
 
-The daemon writes a new `$PASEO_HOME/local-credential` on every run with mode `0600` and removes it on shutdown. The CLI and desktop main process read it only for the daemon whose PID lock `listen` matches their connection target. A same-user process can read this credential, so the password protects against network clients and other OS users, not processes running as the daemon user. Protect `$PASEO_HOME` accordingly. Relay traffic remains end-to-end encrypted independently of password admission.
+The daemon writes a new `$PIMI_HOME/local-credential` on every run with mode `0600` and removes it on shutdown. The CLI and desktop main process read it only for the daemon whose PID lock `listen` matches their connection target. A same-user process can read this credential, so the password protects against network clients and other OS users, not processes running as the daemon user. Protect `$PIMI_HOME` accordingly. Relay traffic remains end-to-end encrypted independently of password admission.
 
 Connected clients are trusted operators of the daemon user. File previews follow that authority: a preview request may read any regular file the daemon process can read, while keeping path normalization and symlink checks in the daemon file service. Workspace-relative paths remain a UI convenience, not a security boundary.
 
@@ -74,7 +74,7 @@ Host header validation and CORS origin checks are defense-in-depth controls for 
 
 CORS is not a complete security boundary. It controls which browser origins can make requests, but does not prevent a malicious website from resolving its domain to your local machine (DNS rebinding).
 
-Paseo validates the `Host` header on every HTTP request and every WebSocket upgrade against an allowlist (Vite-style semantics). By default, only `localhost`, `*.localhost`, and any literal IP address (IPv4 or IPv6) are accepted. Additional hostnames can be configured via `hostnames` in `config.json` or the `PASEO_HOSTNAMES` env var (comma-separated; entries beginning with `.` match a domain and its subdomains; the value `true` disables the allowlist entirely). Requests with unrecognized hosts are rejected with `403 Host not allowed`.
+Paseo validates the `Host` header on every HTTP request and every WebSocket upgrade against an allowlist (Vite-style semantics). By default, only `localhost`, `*.localhost`, and any literal IP address (IPv4 or IPv6) are accepted. Additional hostnames can be configured via `hostnames` in `config.json` or the `PIMI_HOSTNAMES` env var (comma-separated; entries beginning with `.` match a domain and its subdomains; the value `true` disables the allowlist entirely). Requests with unrecognized hosts are rejected with `403 Host not allowed`.
 
 ## HTML file preview
 

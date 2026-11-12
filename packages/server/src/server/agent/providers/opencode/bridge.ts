@@ -28,7 +28,7 @@ class OpenCodeBridgeClientError extends Error {
 }
 
 interface OpenCodeBridgeOptions {
-  paseoHome: string;
+  pimiHome: string;
   logger: Logger;
   port?: number;
 }
@@ -53,7 +53,7 @@ interface OpenCodeConfig {
 }
 
 export class OpenCodeBridge {
-  private readonly paseoHome: string;
+  private readonly pimiHome: string;
   private readonly logger: Logger;
   private readonly port: number;
   private readonly token = randomBytes(32).toString("hex");
@@ -65,7 +65,7 @@ export class OpenCodeBridge {
   private manifestCatalog: Pick<PaseoToolCatalog, "tools"> | null = null;
 
   constructor(options: OpenCodeBridgeOptions) {
-    this.paseoHome = options.paseoHome;
+    this.pimiHome = options.pimiHome;
     this.logger = options.logger.child({ module: "agent", component: "opencode-bridge" });
     this.port = options.port ?? 0;
   }
@@ -150,10 +150,10 @@ export class OpenCodeBridge {
   }
 
   private async materializePlugin(version: 1 | 2 = 1): Promise<string> {
-    if (version === 2) return materializeOpenCodeV2Plugin(this.paseoHome);
+    if (version === 2) return materializeOpenCodeV2Plugin(this.pimiHome);
     const artifact = await loadOpenCodeBridgePluginArtifact(import.meta.url);
     const digest = createHash("sha256").update(artifact).digest("hex");
-    const destination = path.join(this.paseoHome, "runtime", "opencode", `paseo-${digest}.mjs`);
+    const destination = path.join(this.pimiHome, "runtime", "opencode", `paseo-${digest}.mjs`);
     await writeFileAtomic(destination, artifact);
     return pathToFileURL(destination).href;
   }
@@ -282,11 +282,11 @@ export class OpenCodeBridge {
   }
 }
 
-export async function materializeOpenCodeV2Plugin(paseoHome: string): Promise<string> {
+export async function materializeOpenCodeV2Plugin(pimiHome: string): Promise<string> {
   const artifact = await loadOpenCodeBridgePluginArtifact(import.meta.url, undefined, 2);
   const digest = createHash("sha256").update(artifact).digest("hex");
   // V2 ignores configured file paths; it loads a package directory's server entry point.
-  const directory = path.join(paseoHome, "runtime", "opencode", `paseo-v2-${digest}`);
+  const directory = path.join(pimiHome, "runtime", "opencode", `paseo-v2-${digest}`);
   await writeFileAtomic(path.join(directory, "server.js"), artifact);
   const state = await readFile(new URL("./v2/state.mjs", import.meta.url));
   await writeFileAtomic(path.join(directory, "state.mjs"), state);

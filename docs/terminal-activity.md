@@ -38,12 +38,12 @@ Terminal list visibility and status routing are `workspaceId`-scoped: a terminal
 
 Terminals receive four environment variables when the daemon creates the shell:
 
-- `PASEO_TERMINAL_ID`
-- `PASEO_ACTIVITY_TOKEN`
-- `PASEO_TERMINAL_ACTIVITY_URL`
-- `PASEO_HOOK_CLI` — absolute path to the current `paseo` CLI executable.
+- `PIMI_TERMINAL_ID`
+- `PIMI_ACTIVITY_TOKEN`
+- `PIMI_TERMINAL_ACTIVITY_URL`
+- `PIMI_HOOK_CLI` — absolute path to the current `paseo` CLI executable.
 
-The generated shell command uses `PASEO_HOOK_CLI` to run the current CLI. `pimi hooks <agent> <event>` then reads the terminal id, token, and activity URL, asks the agent hook provider registry to resolve the event to a coarse activity state, and silently posts `{ terminalId, token, state }` to the activity URL. Missing env, unsupported agents/events, malformed hook input, and daemon/network failures are no-ops so agent hooks never break the user's terminal session.
+The generated shell command uses `PIMI_HOOK_CLI` to run the current CLI. `pimi hooks <agent> <event>` then reads the terminal id, token, and activity URL, asks the agent hook provider registry to resolve the event to a coarse activity state, and silently posts `{ terminalId, token, state }` to the activity URL. Missing env, unsupported agents/events, malformed hook input, and daemon/network failures are no-ops so agent hooks never break the user's terminal session.
 
 Claude hook mapping:
 
@@ -100,22 +100,22 @@ When enabled, Pimi installs provider hooks globally:
 - Codex hooks are written to `~/.codex/hooks.json` (or `CODEX_HOME/hooks.json` when that override is set). Codex supports a native `commandWindows`, so each Pimi hook includes both POSIX and Windows commands. Non-managed Codex hooks are trust-gated by Codex; users may see Codex's hook review prompt before the hook runs.
 - OpenCode gets a self-contained plugin at `$XDG_CONFIG_HOME/opencode/plugins/paseo-terminal-activity.js` (or `~/.config/opencode/plugins/paseo-terminal-activity.js` when XDG is unset; `OPENCODE_CONFIG_DIR` still wins when set).
 
-Installation is marker-based/idempotent for config hooks and exact-file/idempotent for the OpenCode plugin. Pimi preserves user hooks, removes only its own marker-matched command hooks, and leaves hooks installed across daemon shutdown. Outside a Pimi terminal they are inert because the command or plugin is gated on `PASEO_TERMINAL_ID`.
+Installation is marker-based/idempotent for config hooks and exact-file/idempotent for the OpenCode plugin. Pimi preserves user hooks, removes only its own marker-matched command hooks, and leaves hooks installed across daemon shutdown. Outside a Pimi terminal they are inert because the command or plugin is gated on `PIMI_TERMINAL_ID`.
 
 Provider variation lives in `AGENT_HOOK_PROVIDERS`: provider id, installed events, config install metadata, and runtime event-to-activity resolution. The daemon calls `installRegisteredAgentHooks()` once; the CLI calls `resolveHookActivity(provider, event, input)`. Adding a provider should add one provider entry and register it in `AGENT_HOOK_PROVIDERS`, without editing the generic CLI command or daemon bootstrap.
 
 The installed hook command keeps the config portable and resolves the CLI at runtime:
 
 ```sh
-[ -n "$PASEO_TERMINAL_ID" ] && "${PASEO_HOOK_CLI:-paseo}" hooks claude <event>
+[ -n "$PIMI_TERMINAL_ID" ] && "${PIMI_HOOK_CLI:-paseo}" hooks claude <event>
 ```
 
 Codex also receives the Windows equivalent:
 
 ```bat
-if defined PASEO_TERMINAL_ID (if defined PASEO_HOOK_CLI ("%PASEO_HOOK_CLI%" hooks codex <event>) else (paseo hooks codex <event>))
+if defined PIMI_TERMINAL_ID (if defined PIMI_HOOK_CLI ("%PIMI_HOOK_CLI%" hooks codex <event>) else (paseo hooks codex <event>))
 ```
 
-The daemon resolves the current CLI through `PASEO_CLI` when its launcher supplies one, or through the npm package shim for standalone installs. Terminal setup exposes that resolved executable to hooks as `PASEO_HOOK_CLI`; desktop and other daemon launchers do not know about the hook-specific variable. The generated command falls back to bare `paseo` if the hook env is missing and no-ops outside Pimi terminals because the `PASEO_TERMINAL_ID` gate remains first. Pimi also prepends the resolved CLI directory to each terminal `PATH` as a secondary fallback. All other behavior lives in `pimi hooks`: read the env, map the event, POST activity, and no-op/fail-open when anything is missing or unavailable.
+The daemon resolves the current CLI through `PIMI_CLI` when its launcher supplies one, or through the npm package shim for standalone installs. Terminal setup exposes that resolved executable to hooks as `PIMI_HOOK_CLI`; desktop and other daemon launchers do not know about the hook-specific variable. The generated command falls back to bare `paseo` if the hook env is missing and no-ops outside Pimi terminals because the `PIMI_TERMINAL_ID` gate remains first. Pimi also prepends the resolved CLI directory to each terminal `PATH` as a secondary fallback. All other behavior lives in `pimi hooks`: read the env, map the event, POST activity, and no-op/fail-open when anything is missing or unavailable.
 
 If config installation fails, daemon startup and terminal spawn continue without terminal activity hooks.

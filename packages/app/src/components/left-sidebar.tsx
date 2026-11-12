@@ -116,7 +116,7 @@ const FOOTER_ROW_PADDING = SPACING[2];
 
 const PIMI_SIDEBAR_CONTENT = { pimiSidebarContent: "" };
 
-const DEV_BUILD_LABEL = process.env.EXPO_PUBLIC_PASEO_DEV_BUILD_LABEL?.trim() || null;
+const DEV_BUILD_LABEL = process.env.EXPO_PUBLIC_PIMI_DEV_BUILD_LABEL?.trim() || null;
 
 interface SidebarSharedProps {
   theme: SidebarTheme;

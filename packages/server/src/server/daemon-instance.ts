@@ -26,7 +26,7 @@ const killTree = (pid: number, signal: string): Promise<void> =>
 
 // Process ownership only: desktop and CLI load this entry in their own processes.
 // Keep daemon bootstrap and WebSocket schemas out of its dependency tree.
-export { resolvePaseoHome } from "./paseo-home.js";
+export { resolvePimiHome } from "./pimi-home.js";
 export { ensurePrivateDirectory } from "./private-files.js";
 export { daemonLaunchEnvironment } from "./config-environment.js";
 export { readLocalCredentialForTarget } from "./local-credential.js";
@@ -243,7 +243,7 @@ async function closeLeftoverTerminals(
   options: { keepTerminals?: boolean; forced: boolean },
 ): Promise<void> {
   if (options.keepTerminals) return;
-  await reapTerminalWorkers({ paseoHome: home, gracefulMs: options.forced ? 0 : undefined });
+  await reapTerminalWorkers({ pimiHome: home, gracefulMs: options.forced ? 0 : undefined });
 }
 
 export async function startDaemonInstance(input: {

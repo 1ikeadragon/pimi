@@ -58,7 +58,7 @@ CLAUDE.local.md
 .debug.conversations/
 .debug/
 .dev/
-.paseo/
+.pimi/
 .wrangler/
 **/.wrangler/
 **/.tanstack/

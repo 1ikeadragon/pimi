@@ -32,11 +32,11 @@ export function resolveGitProcessPolicy(input: {
 }): GitProcessPolicy {
   return {
     maxProcessesPerSecond:
-      parsePositiveInteger(input.env.PASEO_GIT_MAX_PROCESSES_PER_SECOND) ??
+      parsePositiveInteger(input.env.PIMI_GIT_MAX_PROCESSES_PER_SECOND) ??
       input.persisted?.maxProcessesPerSecond ??
       DEFAULT_GIT_PROCESS_POLICY.maxProcessesPerSecond,
     maxProcessConcurrency:
-      parsePositiveInteger(input.env.PASEO_GIT_MAX_PROCESS_CONCURRENCY) ??
+      parsePositiveInteger(input.env.PIMI_GIT_MAX_PROCESS_CONCURRENCY) ??
       input.persisted?.maxProcessConcurrency ??
       DEFAULT_GIT_PROCESS_POLICY.maxProcessConcurrency,
   };

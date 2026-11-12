@@ -4,7 +4,7 @@ See the [main README](../README.md) for the demo, features, and macOS build.
 
 ## Development
 
-Run `npm run build:server` and then `npm run pimi:desktop`. Use the sidebar or **File → Show Pimi Workspace** to switch layouts in the current window. The packaged app uses the normal Paseo daemon home and settings. Set `PASEO_HOME` and `PASEO_LISTEN` before launching the executable to use a separate daemon and state directory.
+Run `npm run build:server` and then `npm run pimi:desktop`. Use the sidebar or **File → Show Pimi Workspace** to switch layouts in the current window. The packaged app uses the normal Paseo daemon home and settings. Set `PIMI_HOME` and `PIMI_LISTEN` before launching the executable to use a separate daemon and state directory.
 
 ## Desktop releases
 

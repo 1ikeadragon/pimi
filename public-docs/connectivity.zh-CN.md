@@ -83,7 +83,7 @@ tailscale ip -4
 
 ### 2. 配置 daemon {#2-configure-the-daemon}
 
-打开 `~/.paseo/config.json`，把 `daemon.listen` 设置为 Tailscale IP：
+打开 `~/.pimi/config.json`，把 `daemon.listen` 设置为 Tailscale IP：
 
 ```json
 {

@@ -900,8 +900,8 @@ function createAbortError(signal: AbortSignal | undefined, fallbackMessage: stri
   return Object.assign(new Error(message), { name: "AbortError" });
 }
 
-// PASEO_WORKSPACE_ID lets an agent rename or archive its own workspace; several workspaces can
-// share one cwd, so the agent can't work it out from PASEO_AGENT_CWD.
+// PIMI_WORKSPACE_ID lets an agent rename or archive its own workspace; several workspaces can
+// share one cwd, so the agent can't work it out from PIMI_AGENT_CWD.
 function agentIdentityEnv({
   agentId,
   cwd,
@@ -913,9 +913,9 @@ function agentIdentityEnv({
 }): Record<string, string> {
   const workspaceId = opening?.workspaceId;
   return {
-    PASEO_AGENT_ID: agentId,
-    PASEO_AGENT_CWD: cwd,
-    ...(workspaceId ? { PASEO_WORKSPACE_ID: workspaceId } : {}),
+    PIMI_AGENT_ID: agentId,
+    PIMI_AGENT_CWD: cwd,
+    ...(workspaceId ? { PIMI_WORKSPACE_ID: workspaceId } : {}),
   };
 }
 

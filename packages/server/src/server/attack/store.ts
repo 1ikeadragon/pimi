@@ -17,7 +17,7 @@ function assertId(id: string): void {
   if (!ID_PATTERN.test(id)) throw new Error(`Invalid attack run id: ${id}`);
 }
 
-// $PASEO_HOME/attack-runs/<runId>/run.json, findings/<findingId>.json and audit.jsonl.
+// $PIMI_HOME/attack-runs/<runId>/run.json, findings/<findingId>.json and audit.jsonl.
 export class AttackStore {
   readonly dir: string;
   private readonly logger: Logger;

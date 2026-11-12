@@ -5,10 +5,10 @@ const path = require("path");
 const projectRoot = __dirname;
 const appNodeModulesRoot = path.resolve(projectRoot, "node_modules");
 const appSrcRoot = path.resolve(projectRoot, "src");
-const isWatchdogBuild = process.env.PASEO_WATCHDOG_BUILD === "1";
+const isWatchdogBuild = process.env.PIMI_WATCHDOG_BUILD === "1";
 const isPimiAndroid = process.env.APP_VARIANT === "pimi-android";
 const pimiAndroidNotificationsStub = path.resolve(appSrcRoot, "fdroid/expo-notifications.ts");
-const customWebPlatform = (process.env.PASEO_WEB_PLATFORM ?? "")
+const customWebPlatform = (process.env.PIMI_WEB_PLATFORM ?? "")
   .trim()
   .replace(/^\./, "")
   .toLowerCase();
@@ -82,7 +82,7 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   return resolveWithCustomWebOverlay(context, moduleName, platform);
 };
 
-if (process.env.PASEO_SERVE_SIM_PREVIEW === "1") {
+if (process.env.PIMI_SERVE_SIM_PREVIEW === "1") {
   const { simMiddleware } = require("serve-sim/middleware");
   const originalEnhanceMiddleware = config.server?.enhanceMiddleware;
   config.server = config.server ?? {};
@@ -92,7 +92,7 @@ if (process.env.PASEO_SERVE_SIM_PREVIEW === "1") {
       : metroMiddleware;
     const serveSimulator = simMiddleware({
       basePath: "/.sim",
-      device: process.env.PASEO_SERVE_SIM_DEVICE_UDID,
+      device: process.env.PIMI_SERVE_SIM_DEVICE_UDID,
     });
     return (req, res, next) => {
       serveSimulator(req, res, (error) => {

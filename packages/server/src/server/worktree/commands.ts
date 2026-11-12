@@ -40,13 +40,13 @@ type CreatePaseoWorktreeWorkflow<Result extends CreatePaseoWorktreeResult> = (
 export interface CreatePaseoWorktreeCommandDependencies<
   Result extends CreatePaseoWorktreeResult = CreatePaseoWorktreeResult,
 > {
-  paseoHome?: string;
+  pimiHome?: string;
   worktreesRoot?: string;
   createPaseoWorktreeWorkflow?: CreatePaseoWorktreeWorkflow<Result>;
 }
 
-export type CreatePaseoWorktreeCommandInput = Omit<CreatePaseoWorktreeInput, "paseoHome"> & {
-  paseoHome?: string;
+export type CreatePaseoWorktreeCommandInput = Omit<CreatePaseoWorktreeInput, "pimiHome"> & {
+  pimiHome?: string;
   worktreesRoot?: string;
 };
 
@@ -73,7 +73,7 @@ export async function createPaseoWorktreeCommand<Result extends CreatePaseoWorkt
     const createdWorktree = await dependencies.createPaseoWorktreeWorkflow({
       ...input,
 
-      paseoHome: input.paseoHome ?? dependencies.paseoHome,
+      pimiHome: input.pimiHome ?? dependencies.pimiHome,
       worktreesRoot: input.worktreesRoot ?? dependencies.worktreesRoot,
     });
     return { ok: true, createdWorktree };
@@ -125,7 +125,7 @@ export async function archiveCommand(
   const targetPath = await resolveArchiveTarget(dependencies, input);
   const scope = input.scope ?? "workspace";
   const ownership = await isPaseoOwnedWorktreeCwd(targetPath, {
-    paseoHome: dependencies.paseoHome,
+    pimiHome: dependencies.pimiHome,
     worktreesRoot: dependencies.paseoWorktreesBaseRoot,
   });
 

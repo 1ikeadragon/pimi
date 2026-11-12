@@ -407,7 +407,7 @@ interface WorkspaceGitServiceDependencies {
 
 interface WorkspaceGitServiceOptions {
   logger: pino.Logger;
-  paseoHome: string;
+  pimiHome: string;
   worktreesRoot?: string;
   fileObserver?: FileObserver;
   deps?: Partial<WorkspaceGitServiceDependencies>;
@@ -619,7 +619,7 @@ function resolveWorkspaceGitServiceDeps(
 
 export class WorkspaceGitServiceImpl implements WorkspaceGitService {
   private readonly logger: pino.Logger;
-  private readonly paseoHome: string;
+  private readonly pimiHome: string;
   private readonly worktreesRoot: string | undefined;
   private readonly fileObserver: FileObserver;
   private readonly deps: WorkspaceGitServiceDependencies;
@@ -671,7 +671,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
   private watcherErrorCallbackCount = 0;
   constructor(options: WorkspaceGitServiceOptions) {
     this.logger = options.logger.child({ module: "workspace-git-service" });
-    this.paseoHome = options.paseoHome;
+    this.pimiHome = options.pimiHome;
     this.worktreesRoot = options.worktreesRoot;
     this.fileObserver = options.fileObserver ?? createFileObserver();
     this.deps = resolveWorkspaceGitServiceDeps(
@@ -831,7 +831,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
     this.assertNotDisposed();
     const normalizedCwd = resolve(cwd);
     const status = await this.deps.getCheckoutStatus(normalizedCwd, {
-      paseoHome: this.paseoHome,
+      pimiHome: this.pimiHome,
       worktreesRoot: this.worktreesRoot,
       logger: this.logger,
     });
@@ -891,7 +891,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
           normalizedCwd,
           normalizedOptions,
           {
-            paseoHome: this.paseoHome,
+            pimiHome: this.pimiHome,
             worktreesRoot: this.worktreesRoot,
           },
           signal,
@@ -993,7 +993,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
     return this.readAuxiliaryCache(this.worktreeListCache, key, options, () =>
       this.deps.listPaseoWorktrees({
         cwd: repoRoot,
-        paseoHome: this.paseoHome,
+        pimiHome: this.pimiHome,
         worktreesRoot: this.worktreesRoot,
       }),
     );
@@ -1426,7 +1426,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
       return target.latestFacts;
     }
     return this.loadCheckoutFacts(target, {
-      paseoHome: this.paseoHome,
+      pimiHome: this.pimiHome,
       logger: this.logger,
     });
   }
@@ -3576,7 +3576,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
       { aheadBehind: latestGit.aheadBehind, diffStat: latestGit.diffStat },
       movedRemoteRefs,
       {
-        paseoHome: this.paseoHome,
+        pimiHome: this.pimiHome,
         worktreesRoot: this.worktreesRoot,
         logger: this.logger,
         facts,
@@ -3608,7 +3608,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
 
     target.lastShellOutAtMs = this.deps.now().getTime();
     const context: CheckoutContext = {
-      paseoHome: this.paseoHome,
+      pimiHome: this.pimiHome,
       worktreesRoot: this.worktreesRoot,
       logger: this.logger,
       facts,
@@ -3636,7 +3636,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
     const previousForgePrStatusPollKey = this.getForgePrStatusPollKey(target);
     const previousBaseRef = target.latestFacts?.isGit ? target.latestFacts.resolvedBaseRef : null;
     const baseContext: CheckoutContext = {
-      paseoHome: this.paseoHome,
+      pimiHome: this.pimiHome,
       worktreesRoot: this.worktreesRoot,
       logger: this.logger,
       runGitCommand: runRefreshGitCommand,

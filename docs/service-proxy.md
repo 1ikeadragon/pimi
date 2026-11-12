@@ -40,7 +40,7 @@ The commands return the same script metadata shown by the workspace: lifecycle, 
 
 ## Configuration
 
-Add a `serviceProxy` block under `daemon` in `~/.paseo/config.json`:
+Add a `serviceProxy` block under `daemon` in `~/.pimi/config.json`:
 
 ```json
 {
@@ -90,7 +90,7 @@ The daemon trusts forwarded headers from loopback proxies by default. If your pr
 }
 ```
 
-`PASEO_TRUSTED_PROXIES` accepts the same comma-separated values, for example `loopback,172.16.0.0/12`. Use `true` only when the final trusted proxy overwrites client-supplied `X-Forwarded-*` headers.
+`PIMI_TRUSTED_PROXIES` accepts the same comma-separated values, for example `loopback,172.16.0.0/12`. Use `true` only when the final trusted proxy overwrites client-supplied `X-Forwarded-*` headers.
 
 Nginx example:
 
@@ -134,8 +134,8 @@ Treat the forwarded authority as client-influenced input. A service that builds 
 
 The listen address and public base URL can also be set via environment variables, which take precedence over `config.json`:
 
-| Variable                              | Description                                                               |
-| ------------------------------------- | ------------------------------------------------------------------------- |
-| `PASEO_SERVICE_PROXY_ENABLED`         | Compatibility shim; `false` suppresses optional public/listen layers only |
-| `PASEO_SERVICE_PROXY_LISTEN`          | Starts the optional service-only listener, e.g. `0.0.0.0:8080`            |
-| `PASEO_SERVICE_PROXY_PUBLIC_BASE_URL` | Adds public service aliases and links                                     |
+| Variable                             | Description                                                               |
+| ------------------------------------ | ------------------------------------------------------------------------- |
+| `PIMI_SERVICE_PROXY_ENABLED`         | Compatibility shim; `false` suppresses optional public/listen layers only |
+| `PIMI_SERVICE_PROXY_LISTEN`          | Starts the optional service-only listener, e.g. `0.0.0.0:8080`            |
+| `PIMI_SERVICE_PROXY_PUBLIC_BASE_URL` | Adds public service aliases and links                                     |

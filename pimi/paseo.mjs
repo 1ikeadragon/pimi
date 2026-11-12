@@ -55,7 +55,7 @@ function readableProviderError(error) {
 }
 
 function localAgentUrl(settings) {
-  const url = new URL(settings?.url || process.env.PIMI_PASEO_URL || "ws://127.0.0.1:6767/ws");
+  const url = new URL(settings?.url || process.env.PIMI_DAEMON_URL || "ws://127.0.0.1:6767/ws");
   if (
     url.protocol !== "ws:" ||
     !["127.0.0.1", "localhost", "[::1]"].includes(url.hostname) ||
@@ -353,7 +353,7 @@ export function createPaseoConnection(settingsSource = {}) {
       const url = localAgentUrl(settings);
       cachedClient = createPaseoClient({
         url: url.href,
-        authHeader: process.env.PIMI_PASEO_AUTH_HEADER,
+        authHeader: process.env.PIMI_DAEMON_AUTH_HEADER,
         localCredential: settings?.credential ? () => settings.credential : undefined,
         connectTimeoutMs: 2500,
         reconnect: { enabled: false },

@@ -121,7 +121,7 @@ From a human shell, a bare `pimi run` creates a new local workspace for the curr
 
 Worktree creation accepts `--worktree-mode branch-off|checkout-branch|checkout-pr` plus the matching `--new-branch`/`--base`, `--branch`, or `--pr-number`/`--forge` options. Use `--worktree-slug` to choose the managed directory slug.
 
-When an existing Pimi agent runs the same command, Pimi recognizes it through `PASEO_AGENT_ID`. Without explicit placement, the new agent becomes its subagent in the same workspace. `--workspace` can place that subagent elsewhere without changing its parent.
+When an existing Pimi agent runs the same command, Pimi recognizes it through `PIMI_AGENT_ID`. Without explicit placement, the new agent becomes its subagent in the same workspace. `--workspace` can place that subagent elsewhere without changing its parent.
 
 Use `--output-schema` to return only matching JSON output. You can pass a schema file path or an inline JSON schema object. This mode cannot be used with `--no-wait`.
 
@@ -147,7 +147,7 @@ pimi project delete <project-id>
 
 `--reset` restores the name derived from the project directory. Deleting a project archives its active workspaces and removes the project from Pimi. It does not delete the project directory.
 
-For a local daemon, `pimi project create [path]` defaults to the current directory and resolves relative paths on the CLI machine. When you use the global `--host` option or `PASEO_HOST`, provide a path that the target daemon can access:
+For a local daemon, `pimi project create [path]` defaults to the current directory and resolves relative paths on the CLI machine. When you use the global `--host` option or `PIMI_HOST`, provide a path that the target daemon can access:
 
 ```bash
 pimi --host devbox:6767 project create /srv/repos/api
@@ -207,7 +207,7 @@ pimi workspace rename <workspace-id> --reset   # back to the branch or directory
 pimi workspace archive <workspace-id>
 ```
 
-Inside an agent session, `PASEO_WORKSPACE_ID` holds the agent's own workspace ID, so an agent can run `pimi workspace rename "$PASEO_WORKSPACE_ID" "Auth rework"` or `pimi workspace archive "$PASEO_WORKSPACE_ID"` even when other workspaces share its directory.
+Inside an agent session, `PIMI_WORKSPACE_ID` holds the agent's own workspace ID, so an agent can run `pimi workspace rename "$PIMI_WORKSPACE_ID" "Auth rework"` or `pimi workspace archive "$PIMI_WORKSPACE_ID"` even when other workspaces share its directory.
 
 Add `--forge <name>` to PR checkout when Pimi cannot infer the forge from the source checkout. See [Git worktrees](/docs/worktrees) for setup hooks and services.
 
@@ -316,7 +316,7 @@ pimi send <id> --no-wait "run this task"
 pimi send <id> --behavior interrupt "stop and do this instead"
 ```
 
-Agent-originated sends (`PASEO_AGENT_ID` set) default to steering the running turn. Other sends default to interrupting it. Use `--behavior steer` or `--behavior interrupt` to override the default. Steering uses the same fallback as the client: if steering is unavailable, the running turn is interrupted and replaced.
+Agent-originated sends (`PIMI_AGENT_ID` set) default to steering the running turn. Other sends default to interrupting it. Use `--behavior steer` or `--behavior interrupt` to override the default. Steering uses the same fallback as the client: if steering is unavailable, the running turn is interrupted and replaced.
 
 ## Viewing logs
 
@@ -401,12 +401,12 @@ The root aliases `start`, `status`, `restart`, `reload`, and `pair` use the same
 Use environment overrides with the foreground deployment command:
 
 ```bash
-PASEO_LISTEN=127.0.0.1:6799 PASEO_RELAY_ENABLED=false paseo daemon run --home ~/paseo-test
+PIMI_LISTEN=127.0.0.1:6799 PIMI_RELAY_ENABLED=false paseo daemon run --home ~/paseo-test
 ```
 
 It stays attached until the supervisor exits or you cancel, without a readiness timeout. Worker restart retains these launch inputs. Stop and relaunch the deployment to change them. If the home already has a live supervisor, `run` returns `already_running` without owning or launching a foreground process.
 
-Managed `start` ignores inherited daemon-setting overrides, including `PORT`, `PASEO_LISTEN`, relay, and voice settings. It preserves provider credentials and executable/runtime controls. `start --foreground` is removed; use `daemon run`. Former start/restart configuration flags such as `--port`, and `--no-relay` fail before side effects, with the corresponding `config set` migration. See [configuration edits](/docs/configuration#apply-changes).
+Managed `start` ignores inherited daemon-setting overrides, including `PORT`, `PIMI_LISTEN`, relay, and voice settings. It preserves provider credentials and executable/runtime controls. `start --foreground` is removed; use `daemon run`. Former start/restart configuration flags such as `--port`, and `--no-relay` fail before side effects, with the corresponding `config set` migration. See [configuration edits](/docs/configuration#apply-changes).
 
 ### Select one daemon
 
@@ -417,11 +417,11 @@ Every daemon-connected CLI command accepts global `--home` or `--host`, before o
 | `--home`                                   | That local home, overriding both environment selectors |
 | `--host`                                   | That endpoint, overriding both environment selectors   |
 | Both flags, or conflicting duplicate flags | `TARGET_AMBIGUOUS`                                     |
-| Only `PASEO_HOME` or only `PASEO_HOST`     | The corresponding target                               |
+| Only `PIMI_HOME` or only `PIMI_HOST`       | The corresponding target                               |
 | Both environment selectors, without a flag | `TARGET_AMBIGUOUS`                                     |
-| Neither                                    | Default local home, `~/.paseo`                         |
+| Neither                                    | Default local home, `~/.pimi`                          |
 
-Local-only `start`, `daemon run`, `config`, `onboard`, and `set-password` reject explicit `--host` and ignore `PASEO_HOST`. Endpoint operations retain TCP, Unix socket, Windows pipe, SSH, and pairing-offer transports. A host-side CLI controlling a container needs `--host` or `PASEO_HOST`.
+Local-only `start`, `daemon run`, `config`, `onboard`, and `set-password` reject explicit `--host` and ignore `PIMI_HOST`. Endpoint operations retain TCP, Unix socket, Windows pipe, SSH, and pairing-offer transports. A host-side CLI controlling a container needs `--host` or `PIMI_HOST`.
 
 ## Connecting to a remote daemon
 
@@ -444,7 +444,7 @@ pimi --host 'pimi://pair/#offer=eyJ2IjoyLC...' ls
 pimi --host "$OFFER_URL" run "fix the failing tests"
 ```
 
-You can also set it once via `PASEO_HOST` instead of passing `--host` on every command. An explicit flag overrides the environment variable.
+You can also set it once via `PIMI_HOST` instead of passing `--host` on every command. An explicit flag overrides the environment variable.
 
 ## Multi-agent workflows
 

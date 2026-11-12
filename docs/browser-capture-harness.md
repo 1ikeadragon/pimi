@@ -34,19 +34,19 @@ preload is available:
 
 ```bash
 npm run build:main --workspace=@pimi/desktop
-PASEO_CAPTURE_HARNESS_GROUP=automation npm run capture-harness --workspace=@pimi/desktop
+PIMI_CAPTURE_HARNESS_GROUP=automation npm run capture-harness --workspace=@pimi/desktop
 ```
 
 Run the shared browser profile fixture with:
 
 ```bash
-PASEO_CAPTURE_HARNESS_GROUP=browser-profile npm run capture-harness --workspace=@pimi/desktop
+PIMI_CAPTURE_HARNESS_GROUP=browser-profile npm run capture-harness --workspace=@pimi/desktop
 ```
 
 On macOS, test native titlebar dragging after scrolling with:
 
 ```bash
-PASEO_CAPTURE_HARNESS_GROUP=titlebar-drag npm run capture-harness --workspace=@pimi/desktop
+PIMI_CAPTURE_HARNESS_GROUP=titlebar-drag npm run capture-harness --workspace=@pimi/desktop
 ```
 
 This group needs Xcode Command Line Tools and Accessibility permission for the

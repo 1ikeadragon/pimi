@@ -62,7 +62,7 @@ old runtime, install the new session. The differences:
   stores it on the agent record as `pendingProviderContext`, sends it with the next prompt, and clears
   it once the provider accepts that turn. Switching again before prompting rebuilds it.
 - A provider's history now starts at the switch, so the rows before it are written to
-  `$PASEO_HOME/agent-carried-timelines/{agentId}.json` and replayed ahead of provider history whenever
+  `$PIMI_HOME/agent-carried-timelines/{agentId}.json` and replayed ahead of provider history whenever
   the timeline is rebuilt: resume after a restart, reload from disk, rewind. Rewind cannot cross a
   switch.
 
@@ -182,7 +182,7 @@ admission within their original timeout and cancellation scope.
 
 Finish notification intent has a separate daemon-owned lifetime. The finish-subscriptions module
 persists caller, child, host, and ownership policy through an injectable store; its JSON adapter uses
-`$PASEO_HOME/finish-subscriptions.json`. Registration must commit before creation or queued-prompt
+`$PIMI_HOME/finish-subscriptions.json`. Registration must commit before creation or queued-prompt
 acknowledgment promises a notification. A pending replacement retains its predecessor until dispatch
 accepts; rejected dispatch removes only the candidate. Recovery coalesces registrations for the same
 caller, child, and host into one watch.
@@ -460,7 +460,7 @@ Closing a subagent's tab on one client doesn't affect other clients' layouts. Th
 ## Storage
 
 ```
-$PASEO_HOME/agents/{cwd-with-dashes}/{agent-id}.json
+$PIMI_HOME/agents/{cwd-with-dashes}/{agent-id}.json
 ```
 
 `{cwd-with-dashes}` is derived from the agent's filesystem `cwd`. It is not the workspace id; agent storage stays cwd-keyed while workspace identity is the opaque workspace id.

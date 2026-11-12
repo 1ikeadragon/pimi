@@ -78,8 +78,7 @@ export class PluginRegistry {
           plugin.id !== options.replacePluginId &&
           plugin.id === entry.id &&
           plugin.clientBundle === entry.clientBundle &&
-          (plugin.requirements?.pimi ?? plugin.requirements?.paseo) ===
-            (entry.requirements?.pimi ?? entry.requirements?.paseo),
+          plugin.requirements?.pimi === entry.requirements?.pimi,
       );
       return existing ? [existing] : [];
     });

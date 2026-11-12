@@ -110,13 +110,13 @@ export class TerminalCleanupNotConfirmedError extends Error {
  * live worker a daemon controls alone. Throws TerminalCleanupNotConfirmedError when processes
  * still survive, or when a record cannot be read, so a kill restart can report them.
  */
-export async function retryUnconfirmedTerminalCleanup(paseoHome: string): Promise<void> {
-  const files = await listTerminalWorkerRecords(paseoHome);
+export async function retryUnconfirmedTerminalCleanup(pimiHome: string): Promise<void> {
+  const files = await listTerminalWorkerRecords(pimiHome);
   const recordPaths = files.flatMap((file) =>
     ("record" in file && file.record.closing) || "error" in file ? [file.path] : [],
   );
   if (recordPaths.length === 0) return;
-  await reapTerminalWorkers({ paseoHome, gracefulMs: 0, recordPaths });
+  await reapTerminalWorkers({ pimiHome, gracefulMs: 0, recordPaths });
 }
 
 /**
@@ -127,9 +127,9 @@ export async function retryUnconfirmedTerminalCleanup(paseoHome: string): Promis
  * failed cleanup leaves nothing else behind, so the cleanup cannot be reported finished.
  */
 export async function readUnconfirmedTerminalCleanup(
-  paseoHome: string,
+  pimiHome: string,
 ): Promise<UnresolvedTerminalProcess[]> {
-  const files = await listTerminalWorkerRecords(paseoHome);
+  const files = await listTerminalWorkerRecords(pimiHome);
   const unresolved = files.flatMap((file) =>
     "record" in file && file.record.closing
       ? file.record.closing.unresolved.map((entry) => ({ ...entry, recordPath: file.path }))
@@ -151,7 +151,7 @@ export interface TerminalWorkerReapResult {
 }
 
 export interface ReapTerminalWorkersOptions {
-  paseoHome: string;
+  pimiHome: string;
   /** Time the worker gets to close its terminals before SIGKILL. 0 skips the shutdown request. */
   gracefulMs?: number;
   confirmMs?: number;
@@ -190,7 +190,7 @@ export async function reapTerminalWorkers(
   const unresolved: UnresolvedTerminalProcess[] = [];
   const unreadable: UnreadableTerminalWorkerRecord[] = [];
 
-  for (const file of await listTerminalWorkerRecords(options.paseoHome)) {
+  for (const file of await listTerminalWorkerRecords(options.pimiHome)) {
     if (wanted && !wanted.has(file.path)) continue;
     result.records += 1;
     if ("error" in file) {
@@ -204,7 +204,7 @@ export async function reapTerminalWorkers(
       continue;
     }
     const outcome = await reapRecord({
-      paseoHome: options.paseoHome,
+      pimiHome: options.pimiHome,
       file,
       inspector,
       gracefulMs,
@@ -220,7 +220,7 @@ export async function reapTerminalWorkers(
   }
 
   // Copies of worker files no remaining record names belong to no worker now.
-  const pruned = await pruneTerminalWorkerRuntimes(options.paseoHome);
+  const pruned = await pruneTerminalWorkerRuntimes(options.pimiHome);
   for (const failure of pruned.failed) {
     log("Cannot remove a terminal worker copy; the next cleanup retries", failure);
   }
@@ -234,7 +234,7 @@ export async function reapTerminalWorkers(
 type ReadableRecordFile = Extract<TerminalWorkerRecordFile, { record: TerminalWorkerRecord }>;
 
 interface ReapRecordInput {
-  paseoHome: string;
+  pimiHome: string;
   file: ReadableRecordFile;
   inspector: TerminalWorkerProcessInspector;
   gracefulMs: number;
@@ -294,21 +294,21 @@ function shutdownWindow(worker: ProcessOwnership, gracefulMs: number): number {
 // own record, so the closing state never goes there. `notSignaled` explains open processes that
 // were deliberately left alone.
 async function keepUnresolved(
-  input: Pick<ReapRecordInput, "paseoHome" | "file" | "log">,
+  input: Pick<ReapRecordInput, "pimiHome" | "file" | "log">,
   tracked: TrackedProcesses,
   signaled: number[],
   notSignaled: string | null,
 ): Promise<{ signaled: number[]; unresolved: UnresolvedTerminalProcess[] }> {
   const { record } = tracked;
   const { file, log } = input;
-  const recordPath = terminalCleanupRecordPath(input.paseoHome, record.recordId);
+  const recordPath = terminalCleanupRecordPath(input.pimiHome, record.recordId);
   const { unresolved, remaining } = collectUnresolved(tracked, recordPath, notSignaled);
   if (unresolved.length === 0) {
     await retireTerminalWorkerRecord(file);
     log("Terminal worker record cleaned up", { recordPath: file.path, signaled });
     return { signaled, unresolved };
   }
-  await writeTerminalCleanupRecord(input.paseoHome, {
+  await writeTerminalCleanupRecord(input.pimiHome, {
     ...record,
     terminals: remaining,
     closing: {
@@ -534,7 +534,7 @@ async function collectCandidates(
   return { candidates: Array.from(candidates.values()), tableError: null };
 }
 
-// A terminal's programs inherit PASEO_TERMINAL_ID (terminal-manager.ts) from its PTY program.
+// A terminal's programs inherit PIMI_TERMINAL_ID (terminal-manager.ts) from its PTY program.
 // A process in a later session that happens to reuse the session id does not carry it.
 async function proveTerminalMember(
   inspector: TerminalWorkerProcessInspector,
@@ -551,10 +551,10 @@ async function proveTerminalMember(
     };
   }
   if (environment === null) return { status: "gone" };
-  if (environment.includes(`PASEO_TERMINAL_ID=${terminalId}`)) return { status: "owned" };
+  if (environment.includes(`PIMI_TERMINAL_ID=${terminalId}`)) return { status: "owned" };
   // Another terminal's id proves the process belongs elsewhere. No id at all proves nothing: a
   // job started with a scrubbed environment (`env -i`) can still be this terminal's.
-  return environment.some((entry) => entry.startsWith("PASEO_TERMINAL_ID="))
+  return environment.some((entry) => entry.startsWith("PIMI_TERMINAL_ID="))
     ? { status: "unrelated", reason: "environment carries another terminal's id" }
     : { status: "unknown", reason: "its environment carries no terminal id" };
 }

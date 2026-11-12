@@ -1,9 +1,9 @@
-export const PASEO_BROWSER_PROFILE_PARTITION = "persist:paseo-browser";
+export const PIMI_BROWSER_PROFILE_PARTITION = "persist:paseo-browser";
 const LEGACY_BROWSER_ID_PATTERN =
   /^(?:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|\d{13,}-[0-9a-f]+)$/i;
 const MAX_LEGACY_BROWSER_PROFILES = 1000;
 
-const PASEO_BROWSER_STORAGE_TYPES = [
+const PIMI_BROWSER_STORAGE_TYPES = [
   "cookies",
   "filesystem",
   "indexdb",
@@ -15,7 +15,7 @@ const PASEO_BROWSER_STORAGE_TYPES = [
 
 interface BrowserProfileSession {
   clearStorageData(options: {
-    storages: Array<(typeof PASEO_BROWSER_STORAGE_TYPES)[number]>;
+    storages: Array<(typeof PIMI_BROWSER_STORAGE_TYPES)[number]>;
   }): Promise<void>;
   clearCache(): Promise<void>;
   clearAuthCache(): Promise<void>;
@@ -48,7 +48,7 @@ interface ElectronSessions {
 }
 
 export function getPaseoBrowserProfileSession(sessions: ElectronSessions): BrowserProfileSession {
-  return sessions.fromPartition(PASEO_BROWSER_PROFILE_PARTITION);
+  return sessions.fromPartition(PIMI_BROWSER_PROFILE_PARTITION);
 }
 
 export function readLegacyPaseoBrowserIds(input: unknown): string[] {
@@ -75,7 +75,7 @@ export function getPaseoBrowserProfileSessions(
     getPaseoBrowserProfileSession(sessions),
     // COMPAT(browserProfile): added in v0.1.108; remove after 2027-01-15.
     ...legacyBrowserIds.map((browserId) =>
-      sessions.fromPartition(`${PASEO_BROWSER_PROFILE_PARTITION}-${browserId}`),
+      sessions.fromPartition(`${PIMI_BROWSER_PROFILE_PARTITION}-${browserId}`),
     ),
   ];
 }
@@ -86,7 +86,7 @@ export function getLegacyPaseoBrowserProfileSession(
 ): BrowserProfileSession | null {
   const [legacyBrowserId] = readLegacyPaseoBrowserIds([browserId]);
   return legacyBrowserId
-    ? sessions.fromPartition(`${PASEO_BROWSER_PROFILE_PARTITION}-${legacyBrowserId}`)
+    ? sessions.fromPartition(`${PIMI_BROWSER_PROFILE_PARTITION}-${legacyBrowserId}`)
     : null;
 }
 
@@ -104,7 +104,7 @@ export function listPaseoBrowserProfileGuests(
 export async function clearPaseoBrowserProfile(input: ClearBrowserProfileInput): Promise<void> {
   await Promise.all(
     input.profileSessions.flatMap((profileSession) => [
-      profileSession.clearStorageData({ storages: [...PASEO_BROWSER_STORAGE_TYPES] }),
+      profileSession.clearStorageData({ storages: [...PIMI_BROWSER_STORAGE_TYPES] }),
       profileSession.clearCache(),
       profileSession.clearAuthCache(),
     ]),

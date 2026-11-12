@@ -10,7 +10,7 @@ declare global {
     ReactNativeWebView?: {
       postMessage?: (data: string) => void;
     };
-    __PASEO_MERMAID_RUNTIME_RECEIVE__?: (message: unknown) => void;
+    __PIMI_MERMAID_RUNTIME_RECEIVE__?: (message: unknown) => void;
   }
 }
 
@@ -160,7 +160,7 @@ function receiveRender(value: unknown): void {
   }, 0);
 }
 
-window.__PASEO_MERMAID_RUNTIME_RECEIVE__ = receiveRender;
+window.__PIMI_MERMAID_RUNTIME_RECEIVE__ = receiveRender;
 window.addEventListener("message", (event) => {
   if (event.source === window.parent) {
     receiveRender(event.data);

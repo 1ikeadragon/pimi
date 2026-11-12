@@ -116,7 +116,7 @@ import {
 import {
   clearPaseoBrowserProfile,
   getLegacyPaseoBrowserProfileSession,
-  PASEO_BROWSER_PROFILE_PARTITION,
+  PIMI_BROWSER_PROFILE_PARTITION,
   getPaseoBrowserProfileSession,
   getPaseoBrowserProfileSessions,
   listPaseoBrowserProfileGuests,
@@ -200,7 +200,7 @@ function setupPimiSessionPermissions(): void {
             details.mediaTypes[0] === "audio")),
     );
   });
-  const browserSession = session.fromPartition(PASEO_BROWSER_PROFILE_PARTITION);
+  const browserSession = session.fromPartition(PIMI_BROWSER_PROFILE_PARTITION);
   observeSessionNetwork(consoleSession, { source: "app" });
   observeSessionNetwork(browserSession, { source: "browser", purpose: NETWORK_PURPOSE.browser });
   browserSession.setPermissionCheckHandler(() => false);
@@ -208,12 +208,12 @@ function setupPimiSessionPermissions(): void {
   browserSession.setDevicePermissionHandler(() => false);
   consoleSession.setDevicePermissionHandler(() => false);
 }
-const PASEO_DEBUG = process.env.PASEO_DEBUG === "1";
-const DISABLE_SINGLE_INSTANCE_LOCK = process.env.PASEO_DISABLE_SINGLE_INSTANCE_LOCK === "1";
-const APP_NAME = process.env.PASEO_TEST_APP_NAME?.trim() || "Pimi";
+const PIMI_DEBUG = process.env.PIMI_DEBUG === "1";
+const DISABLE_SINGLE_INSTANCE_LOCK = process.env.PIMI_DISABLE_SINGLE_INSTANCE_LOCK === "1";
+const APP_NAME = process.env.PIMI_TEST_APP_NAME?.trim() || "Pimi";
 const DESKTOP_WINDOW_CHROME_MODE = resolveDesktopWindowChromeMode({
   platform: process.platform,
-  override: process.env.PASEO_DESKTOP_WINDOW_CONTROLS,
+  override: process.env.PIMI_DESKTOP_WINDOW_CONTROLS,
   isPackaged: app.isPackaged,
 });
 const UPDATE_QUIT_DEADLINE_MS = 5_000;
@@ -330,7 +330,7 @@ function getBrowserPopupWindowOptions(
     show: true,
     autoHideMenuBar: true,
     webPreferences: {
-      partition: PASEO_BROWSER_PROFILE_PARTITION,
+      partition: PIMI_BROWSER_PROFILE_PARTITION,
       nodeIntegration: false,
       nodeIntegrationInSubFrames: false,
       nodeIntegrationInWorker: false,
@@ -412,7 +412,7 @@ function installBrowserWindowOpenHandler(input: {
 // In dev mode, detect git worktrees and isolate each instance so multiple
 // Electron windows can run side-by-side (separate userData = separate lock).
 let devWorktreeName: string | null = null;
-const forcedUserDataDir = process.env.PASEO_ELECTRON_USER_DATA_DIR?.trim();
+const forcedUserDataDir = process.env.PIMI_ELECTRON_USER_DATA_DIR?.trim();
 if (forcedUserDataDir) {
   app.setPath("userData", forcedUserDataDir);
   log.info("[dev-user-data] forced userData dir:", forcedUserDataDir);
@@ -446,10 +446,10 @@ if (forcedUserDataDir) {
   }
 }
 
-// Allow users to pass Chromium flags via PASEO_ELECTRON_FLAGS for debugging
+// Allow users to pass Chromium flags via PIMI_ELECTRON_FLAGS for debugging
 // rendering issues (e.g. "--disable-gpu --ozone-platform=x11").
 // Must run before app.whenReady().
-const electronFlags = process.env.PASEO_ELECTRON_FLAGS?.trim();
+const electronFlags = process.env.PIMI_ELECTRON_FLAGS?.trim();
 if (electronFlags) {
   for (const token of electronFlags.split(/\s+/)) {
     const [key, ...rest] = token.replace(/^--/, "").split("=");
@@ -470,7 +470,7 @@ let pendingAgentNavigation = parseAgentDeepLinkFromArgv(process.argv);
 // racing a global.
 let desktopWindowOwner: DesktopWindowOwner<AgentDeepLinkTarget>;
 
-if (PASEO_DEBUG) {
+if (PIMI_DEBUG) {
   log.info("[open-project] argv:", process.argv);
   log.info("[open-project] isDefaultApp:", process.defaultApp);
   log.info("[open-project] pendingOpenProjectPath:", pendingOpenProjectPath);
@@ -731,7 +731,7 @@ function getDevBuildLabel(): string | null {
   if (app.isPackaged) {
     return null;
   }
-  return process.env.EXPO_PUBLIC_PASEO_DEV_BUILD_LABEL?.trim() || null;
+  return process.env.EXPO_PUBLIC_PIMI_DEV_BUILD_LABEL?.trim() || null;
 }
 
 let cachedEffectiveIconPath: string | null = null;
@@ -1216,7 +1216,7 @@ app.on("open-url", (event, url) => {
 
 function setupSingleInstanceLock(): boolean {
   if (DISABLE_SINGLE_INSTANCE_LOCK) {
-    log.info("[single-instance] disabled by PASEO_DISABLE_SINGLE_INSTANCE_LOCK");
+    log.info("[single-instance] disabled by PIMI_DISABLE_SINGLE_INSTANCE_LOCK");
     return true;
   }
 

@@ -100,8 +100,8 @@ export async function connectSharedService(
     });
   }
   const advertised =
-    options.settings?.env?.PASEO_OPENCODE_BRIDGE_URL ??
-    globalThis.process.env.PASEO_OPENCODE_BRIDGE_URL;
+    options.settings?.env?.PIMI_OPENCODE_BRIDGE_URL ??
+    globalThis.process.env.PIMI_OPENCODE_BRIDGE_URL;
   validateBridgeAddress(selection, bridge, advertised);
   const generation: SharedService = {
     client,
@@ -127,15 +127,15 @@ function validateBridgeAddress(
     try {
       bridgeUrl = new URL(advertised);
     } catch {
-      throw new Error("PASEO_OPENCODE_BRIDGE_URL must be an absolute HTTP or HTTPS URL");
+      throw new Error("PIMI_OPENCODE_BRIDGE_URL must be an absolute HTTP or HTTPS URL");
     }
     if (bridgeUrl.protocol !== "http:" && bridgeUrl.protocol !== "https:")
-      throw new Error("PASEO_OPENCODE_BRIDGE_URL must be an absolute HTTP or HTTPS URL");
+      throw new Error("PIMI_OPENCODE_BRIDGE_URL must be an absolute HTTP or HTTPS URL");
   }
   const hostname = new URL(selection.server.url).hostname;
   if (bridge && selection.kind === "explicit" && !advertised && !isLocalOpenCodeHost(hostname))
     throw new Error(
-      "Remote OpenCode requires PASEO_OPENCODE_BRIDGE_URL pointing to a reachable Pimi bridge tunnel and the Pimi plugin installed on the server",
+      "Remote OpenCode requires PIMI_OPENCODE_BRIDGE_URL pointing to a reachable Pimi bridge tunnel and the Pimi plugin installed on the server",
     );
 }
 

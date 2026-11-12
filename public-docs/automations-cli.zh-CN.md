@@ -115,4 +115,4 @@ pimi heartbeat delete <id>
 pimi heartbeat ls
 ```
 
-`create` 必须在 Pimi Agent 内运行，Pimi 会在其中设置 `PASEO_AGENT_ID`。在 Agent 内，`update`、`delete` 和 `ls` 只作用于该 Agent 的 heartbeat；在 Agent 外，它们作用于主机上的全部 heartbeat，因此你可以按 id 停止或调整任何 heartbeat。`update` 只改变节奏。已归档 Agent 的 heartbeat 会被删除。
+`create` 必须在 Pimi Agent 内运行，Pimi 会在其中设置 `PIMI_AGENT_ID`。在 Agent 内，`update`、`delete` 和 `ls` 只作用于该 Agent 的 heartbeat；在 Agent 外，它们作用于主机上的全部 heartbeat，因此你可以按 id 停止或调整任何 heartbeat。`update` 只改变节奏。已归档 Agent 的 heartbeat 会被删除。

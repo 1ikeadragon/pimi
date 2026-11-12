@@ -1,12 +1,12 @@
 ---
 title: 自定义 Provider
-description: 在 ~/.paseo/config.json 中配置自定义 Provider、替代端点、多个配置、自定义二进制和 ACP Agent。
+description: 在 ~/.pimi/config.json 中配置自定义 Provider、替代端点、多个配置、自定义二进制和 ACP Agent。
 nav: 自定义 Provider
 ---
 
 # 自定义 Provider {#custom-providers}
 
-[支持的 Provider](/docs/supported-providers) 之外的一切都配置在 `~/.paseo/config.json` 的 `agents.providers` 下。你可以：
+[支持的 Provider](/docs/supported-providers) 之外的一切都配置在 `~/.pimi/config.json` 的 `agents.providers` 下。你可以：
 
 - **扩展**一个一等 Provider，让它指向不同的 API（Z.AI、阿里巴巴/通义千问、代理或自托管端点）。
 - **添加多个配置**：针对同一个底层 Provider 创建多个条目，使用不同的凭据或精选的模型列表。

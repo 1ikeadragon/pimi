@@ -45,13 +45,13 @@ const HELLO_TIMEOUT_MS = 5_000;
 // A freshly launched worker waits this long for its first controller before giving up.
 const FIRST_CONTROLLER_TIMEOUT_MS = 30_000;
 // While nobody controls it, the worker checks that its record still exists. A deleted record
-// (a removed $PASEO_HOME) means no daemon can ever find these terminals again.
+// (a removed $PIMI_HOME) means no daemon can ever find these terminals again.
 const ORPHAN_CHECK_INTERVAL_MS = 10_000;
 const READY_FD = 3;
 
 interface WorkerArgs {
   recordId: string;
-  paseoHome: string;
+  pimiHome: string;
   paseoVersion: string;
   // The copy under terminal-worker/ this worker runs from; absent when it runs from source.
   runtime: string | null;
@@ -69,7 +69,7 @@ function readArg(argv: string[], name: string): string {
 function parseWorkerArgs(argv: string[], recordIdArg: string): WorkerArgs {
   return {
     recordId: readArg(argv, recordIdArg),
-    paseoHome: readArg(argv, "--paseo-home"),
+    pimiHome: readArg(argv, "--pimi-home"),
     paseoVersion: readArg(argv, "--paseo-version"),
     runtime: argv.includes("--runtime") ? readArg(argv, "--runtime") : null,
   };
@@ -97,7 +97,7 @@ function errorMessage(error: unknown): string {
 
 function runLauncher(argv: string[]): void {
   const args = parseWorkerArgs(argv, "--record-id");
-  const logFd = openSync(terminalWorkerLogPath(args.paseoHome), "a", PRIVATE_FILE_MODE);
+  const logFd = openSync(terminalWorkerLogPath(args.pimiHome), "a", PRIVATE_FILE_MODE);
   const child = spawn(
     process.execPath,
     [
@@ -105,8 +105,8 @@ function runLauncher(argv: string[]): void {
       fileURLToPath(import.meta.url),
       TERMINAL_WORKER_MARKER_ARG,
       args.recordId,
-      "--paseo-home",
-      args.paseoHome,
+      "--pimi-home",
+      args.pimiHome,
       "--paseo-version",
       args.paseoVersion,
       ...(args.runtime ? ["--runtime", args.runtime] : []),
@@ -216,7 +216,7 @@ function runWorker(argv: string[]): void {
   }
 
   const recordPublisher = createTerminalWorkerRecordPublisher((state) => {
-    writeTerminalWorkerRecord(args.paseoHome, state);
+    writeTerminalWorkerRecord(args.pimiHome, state);
   });
 
   async function persistRecord(): Promise<void> {
@@ -229,7 +229,7 @@ function runWorker(argv: string[]): void {
   }
 
   function removeOwnFiles(): void {
-    rmSync(terminalWorkerRecordPath(args.paseoHome, process.pid), { force: true });
+    rmSync(terminalWorkerRecordPath(args.pimiHome, process.pid), { force: true });
     if (record && process.platform !== "win32") {
       rmSync(record.socketPath, { force: true });
     }
@@ -696,7 +696,7 @@ function runWorker(argv: string[]): void {
 
   async function start(): Promise<void> {
     const socketPath = resolveTerminalWorkerSocketPath({
-      paseoHome: args.paseoHome,
+      pimiHome: args.pimiHome,
       workerPid: process.pid,
       recordId: args.recordId,
     });
@@ -728,14 +728,14 @@ function runWorker(argv: string[]): void {
       runtime: args.runtime,
       terminals: [],
     };
-    writeTerminalWorkerRecord(args.paseoHome, record);
+    writeTerminalWorkerRecord(args.pimiHome, record);
     reportReady(`ready ${socketPath}`);
 
     setTimeout(() => {
       if (!everControlled && sessionsById.size === 0) exitWorker(0);
     }, FIRST_CONTROLLER_TIMEOUT_MS).unref();
     setInterval(() => {
-      if (!controller && !existsSync(terminalWorkerRecordPath(args.paseoHome, process.pid))) {
+      if (!controller && !existsSync(terminalWorkerRecordPath(args.pimiHome, process.pid))) {
         void killEveryTerminalAndExit();
       }
     }, ORPHAN_CHECK_INTERVAL_MS);

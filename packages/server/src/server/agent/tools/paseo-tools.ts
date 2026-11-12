@@ -203,7 +203,7 @@ export interface PaseoToolHostDependencies {
   browserToolsEnabled?: boolean;
   browserToolsBroker?: BrowserToolsBroker | null;
   paseoToolPolicy?: ProviderPaseoToolsPolicy;
-  paseoHome?: string;
+  pimiHome?: string;
   worktreesRoot?: string;
   /**
    * ID of the agent that is using this tool catalog.
@@ -1611,7 +1611,7 @@ function createToolCatalog(
         });
         const result = await createPaseoWorktreeCommand(
           {
-            paseoHome: options.paseoHome,
+            pimiHome: options.pimiHome,
             worktreesRoot: options.worktreesRoot,
             createPaseoWorktreeWorkflow: options.createPaseoWorktree,
           },
@@ -1744,7 +1744,7 @@ function createToolCatalog(
           agentStorage,
           finishSubscriptions: options.finishSubscriptions?.(),
           logger: childLogger,
-          paseoHome: options.paseoHome,
+          pimiHome: options.pimiHome,
           worktreesRoot: options.worktreesRoot,
           terminalManager,
           providerSnapshotManager,
@@ -3525,7 +3525,7 @@ function archiveWorktreeDependencies(
     throw new Error("Workspace archiving clearer is required to archive worktrees");
   }
   return {
-    paseoHome: options.paseoHome,
+    pimiHome: options.pimiHome,
     paseoWorktreesBaseRoot: options.worktreesRoot,
     github: options.github,
     workspaceGitService: options.workspaceGitService,

@@ -29,7 +29,7 @@ npm run build:server
 
 Pimi starts the daemon locally, then asks whether to enable the end-to-end encrypted relay and print a pairing QR code. If you decline, enter the daemon address manually over TCP, Tailscale, or another VPN.
 
-Configuration and local state live under `PASEO_HOME` (defaults to `~/.paseo`).
+Configuration and local state live under `PIMI_HOME` (defaults to `~/.pimi`).
 
 ## Where next
 

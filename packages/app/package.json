@@ -15,7 +15,7 @@
     "ios": "npm run dev:ios",
     "ios:release": "npm --prefix ../.. run build:client && expo run:ios --configuration Release",
     "typecheck": "tsgo --noEmit",
-    "build:renderer": "npm --prefix ../.. run build:app-deps && cross-env PASEO_WEB_PLATFORM=electron expo export --platform web",
+    "build:renderer": "npm --prefix ../.. run build:app-deps && cross-env PIMI_WEB_PLATFORM=electron expo export --platform web",
     "profile:composer-typing": "node ./scripts/profile-composer-typing.mjs",
     "profile:explorer-toggle": "node ./scripts/profile-explorer-toggle.mjs",
     "profile:workspace-switching": "node ./scripts/profile-workspace-switching.mjs",

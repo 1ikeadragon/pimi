@@ -63,7 +63,7 @@ export class AttackStateError extends Error {
 }
 
 export interface AttackServiceOptions {
-  paseoHome: string;
+  pimiHome: string;
   logger: Logger;
   agentManager: AgentManager;
   agentStorage: AgentStorage;
@@ -166,7 +166,7 @@ export class AttackService {
   constructor(options: AttackServiceOptions) {
     this.logger = options.logger.child({ module: "attack" });
     this.store = new AttackStore({
-      dir: join(options.paseoHome, "attack-runs"),
+      dir: join(options.pimiHome, "attack-runs"),
       logger: this.logger,
     });
     this.agentManager = options.agentManager;

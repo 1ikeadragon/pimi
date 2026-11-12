@@ -24,9 +24,9 @@ interface LegacyFlow {
   edges?: Array<{ from?: string; to?: string }>;
 }
 
-// $PASEO_HOME/automations/<id>.json, $PASEO_HOME/automations/runs/<automationId>/<runId>.json,
-// $PASEO_HOME/automations/triggers/<automationId>.json for pull-request trigger state, and
-// $PASEO_HOME/automations/drafts/<draftId>.json for descriptions compiling in the background.
+// $PIMI_HOME/automations/<id>.json, $PIMI_HOME/automations/runs/<automationId>/<runId>.json,
+// $PIMI_HOME/automations/triggers/<automationId>.json for pull-request trigger state, and
+// $PIMI_HOME/automations/drafts/<draftId>.json for descriptions compiling in the background.
 export class AutomationStore {
   readonly dir: string;
   private readonly logger: Logger;

@@ -9,7 +9,7 @@ import {
 } from "@pimi/protocol/connection-offer";
 import { parseHostPort } from "@pimi/protocol/daemon-endpoints";
 import {
-  resolvePaseoHome,
+  resolvePimiHome,
   startDaemonInstance,
   DaemonInstanceError,
   stopDaemonInstance,
@@ -130,12 +130,12 @@ function parseDesktopDaemonStopReason(
 // Utilities
 // ---------------------------------------------------------------------------
 
-function getPaseoHome(): string {
-  return resolvePaseoHome(process.env);
+function getPimiHome(): string {
+  return resolvePimiHome(process.env);
 }
 
 function logFilePath(): string {
-  return path.join(getPaseoHome(), DAEMON_LOG_FILENAME);
+  return path.join(getPimiHome(), DAEMON_LOG_FILENAME);
 }
 
 export function isDesktopManagedDaemonRunningSync(): boolean {
@@ -228,7 +228,7 @@ function resolveDesktopAppVersion(): string {
 // ---------------------------------------------------------------------------
 
 export async function resolveDesktopDaemonStatus(): Promise<DesktopDaemonStatus> {
-  const home = getPaseoHome();
+  const home = getPimiHome();
 
   try {
     // The app polls this while no local daemon runs. Answer that case in-process,
@@ -396,7 +396,7 @@ async function startDaemon(): Promise<DesktopDaemonStatus> {
     }
   }
 
-  const home = getPaseoHome();
+  const home = getPimiHome();
   const invocation = createNodeEntrypointInvocation({
     entrypoint: resolveDaemonRunnerEntrypoint(),
     argvMode: "node-script",
@@ -408,7 +408,7 @@ async function startDaemon(): Promise<DesktopDaemonStatus> {
       home,
       timeoutMs: 30_000,
       ...invocation,
-      env: { ...invocation.env, PASEO_CLI: getBundledCliShimPath() },
+      env: { ...invocation.env, PIMI_CLI: getBundledCliShimPath() },
       mode: "managed",
       desktopManaged: true,
       onAcquired: (instance) => {
@@ -425,7 +425,7 @@ export async function stopDesktopDaemon(
   reason: DesktopDaemonStopReason = DEFAULT_DESKTOP_DAEMON_STOP_REASON,
   confirmedInstance?: { pid: number; startedAt: string },
 ): Promise<DesktopDaemonStatus> {
-  const home = getPaseoHome();
+  const home = getPimiHome();
   const instance = await readDaemonInstance(home);
   const owned = Boolean(
     instance &&
@@ -456,7 +456,7 @@ export async function stopDesktopDaemon(
  * since then is attached to as it is.
  */
 async function stopDaemonFromEarlierSession(probed: DesktopDaemonStatus): Promise<void> {
-  const home = getPaseoHome();
+  const home = getPimiHome();
   const instance = await readDaemonInstance(home);
   if (!instance?.desktopManaged || !isInstance(instance, probed)) {
     logDesktopDaemonLifecycle("daemon changed since version check, attaching", {
@@ -537,7 +537,7 @@ export function keepsTerminalsOnStop(
 }
 
 async function restartDaemon(): Promise<DesktopDaemonStatus> {
-  await runExternalCliJsonCommand(["daemon", "restart", "--home", getPaseoHome(), "--json"]);
+  await runExternalCliJsonCommand(["daemon", "restart", "--home", getPimiHome(), "--json"]);
   return resolveDesktopDaemonStatus();
 }
 
@@ -550,7 +550,7 @@ function getDaemonLogs(): DesktopDaemonLogs {
 }
 
 async function getCliDaemonStatus(): Promise<string> {
-  return await runExternalCliTextCommand(["daemon", "status", "--home", getPaseoHome()]);
+  return await runExternalCliTextCommand(["daemon", "status", "--home", getPimiHome()]);
 }
 
 async function getLocalDaemonVersion(): Promise<{ version: string | null; error: string | null }> {
@@ -614,9 +614,9 @@ export function createDaemonCommandHandlers(): Record<string, DesktopCommandHand
       return PimiLocalPairingStatus.parse(payload);
     },
     desktop_local_credential: async (args) => {
-      const instance = await readDaemonInstance(getPaseoHome());
+      const instance = await readDaemonInstance(getPimiHome());
       if (!instance?.desktopManaged || typeof args?.listen !== "string") return null;
-      return readLocalCredentialForTarget(getPaseoHome(), args.listen);
+      return readLocalCredentialForTarget(getPimiHome(), args.listen);
     },
     start_desktop_daemon: () => startDaemon(),
     stop_desktop_daemon: (args) =>

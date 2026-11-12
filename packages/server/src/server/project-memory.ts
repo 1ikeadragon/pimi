@@ -27,7 +27,7 @@ export class ProjectMemory {
   // The daemon owns one store. Serialize read-modify-write operations even across tool sessions.
   private readonly mutate = pLimit(1);
 
-  constructor(private readonly paseoHome: string) {}
+  constructor(private readonly pimiHome: string) {}
 
   async list(projectId: string | null): Promise<Array<Omit<ProjectNote, "text">>> {
     const notes = await this.read(projectId);
@@ -94,7 +94,7 @@ export class ProjectMemory {
     // Legacy project IDs can contain paths or remote URLs.
     const filename =
       projectId === null ? "global" : createHash("sha256").update(projectId).digest("hex");
-    return path.join(this.paseoHome, "projects", "memory", `${filename}.json`);
+    return path.join(this.pimiHome, "projects", "memory", `${filename}.json`);
   }
 
   private async read(projectId: string | null): Promise<ProjectNote[]> {

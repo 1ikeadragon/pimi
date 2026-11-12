@@ -9,7 +9,7 @@ export { WorkspaceLabelError, WorkspaceLabelService } from "./internal/service.j
 export { WorkspaceLabelStorageUncertainError } from "./internal/catalog-store.js";
 
 export function createWorkspaceLabelService(input: {
-  paseoHome: string;
+  pimiHome: string;
   workspaceRegistry: FileBackedWorkspaceRegistry;
   writeCatalog?: (filePath: string, labels: readonly WorkspaceLabelDefinition[]) => Promise<void>;
   writeTransaction?: (filePath: string, transaction: unknown) => Promise<void>;
@@ -18,8 +18,8 @@ export function createWorkspaceLabelService(input: {
 }): WorkspaceLabelService {
   return new WorkspaceLabelService(
     new WorkspaceLabelCatalogStore(
-      join(input.paseoHome, "projects", "workspace-labels.json"),
-      join(input.paseoHome, "projects", "workspace-labels.transaction.json"),
+      join(input.pimiHome, "projects", "workspace-labels.json"),
+      join(input.pimiHome, "projects", "workspace-labels.transaction.json"),
       input.workspaceRegistry,
       input.writeCatalog,
       input.writeTransaction,

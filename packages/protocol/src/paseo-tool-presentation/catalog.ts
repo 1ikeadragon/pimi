@@ -169,7 +169,7 @@ function browser(
   };
 }
 
-export const PASEO_TOOL_CATALOG = {
+export const PIMI_TOOL_CATALOG = {
   // Agents
   create_agent: {
     label: "Create agent",
@@ -453,10 +453,10 @@ export const PASEO_TOOL_CATALOG = {
   browser_evaluate: browser("Run JavaScript", "Ran JavaScript", field("function")),
 } satisfies Record<string, PaseoToolEntry>;
 
-export type PaseoToolName = keyof typeof PASEO_TOOL_CATALOG;
+export type PaseoToolName = keyof typeof PIMI_TOOL_CATALOG;
 
 export function getPaseoToolEntry(leafName: string): PaseoToolEntry | undefined {
-  return Object.prototype.hasOwnProperty.call(PASEO_TOOL_CATALOG, leafName)
-    ? PASEO_TOOL_CATALOG[leafName as PaseoToolName]
+  return Object.prototype.hasOwnProperty.call(PIMI_TOOL_CATALOG, leafName)
+    ? PIMI_TOOL_CATALOG[leafName as PaseoToolName]
     : undefined;
 }

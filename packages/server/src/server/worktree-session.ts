@@ -50,7 +50,7 @@ const SAFE_GIT_REF_PATTERN = /^[A-Za-z0-9._/-]+$/;
 type EmitSessionMessage = (message: SessionOutboundMessage) => void;
 
 interface CreatePaseoWorktreeInBackgroundDependencies {
-  paseoHome?: string;
+  pimiHome?: string;
   worktreesRoot?: string;
   emitWorkspaceUpdateForWorkspaceId: (workspaceId: string) => Promise<void>;
   cacheWorkspaceSetupSnapshot: (workspaceId: string, snapshot: WorkspaceSetupSnapshot) => void;
@@ -103,7 +103,7 @@ interface HandleWorkspaceSetupRunRequestDependencies extends CreatePaseoWorktree
 }
 
 interface HandleCreatePaseoWorktreeRequestDependencies {
-  paseoHome?: string;
+  pimiHome?: string;
   worktreesRoot?: string;
   describeWorkspaceRecord: (
     result: CreatePaseoWorktreeResult,
@@ -141,7 +141,7 @@ export function assertSafeGitRef(ref: string, label: string): void {
 export async function handlePaseoWorktreeListRequest(
   dependencies: {
     emit: EmitSessionMessage;
-    paseoHome?: string;
+    pimiHome?: string;
     workspaceGitService: WorkspaceGitService;
   },
   msg: Extract<SessionInboundMessage, { type: "paseo_worktree_list_request" }>,
@@ -260,7 +260,7 @@ export async function handleCreatePaseoWorktreeRequest(
   try {
     const commandResult = await createPaseoWorktreeCommand(
       {
-        paseoHome: dependencies.paseoHome,
+        pimiHome: dependencies.pimiHome,
         worktreesRoot: dependencies.worktreesRoot,
         createPaseoWorktreeWorkflow: dependencies.createPaseoWorktreeWorkflow,
       },
@@ -348,7 +348,7 @@ export async function createPaseoWorktreeWorkflow(
     {
       ...input,
 
-      paseoHome: input.paseoHome ?? dependencies.paseoHome,
+      pimiHome: input.pimiHome ?? dependencies.pimiHome,
       worktreesRoot: input.worktreesRoot ?? dependencies.worktreesRoot,
     },
     options?.resolveDefaultBranch

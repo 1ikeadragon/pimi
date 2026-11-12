@@ -29,11 +29,11 @@ export interface DaemonKeyPairBundle {
 }
 
 export async function loadOrCreateDaemonKeyPair(
-  paseoHome: string,
+  pimiHome: string,
   logger?: pino.Logger,
 ): Promise<DaemonKeyPairBundle> {
   const log = logger?.child({ module: "daemon-keypair" });
-  const filePath = path.join(paseoHome, KEYPAIR_FILENAME);
+  const filePath = path.join(pimiHome, KEYPAIR_FILENAME);
 
   if (existsSync(filePath)) {
     try {

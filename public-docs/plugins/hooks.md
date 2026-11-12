@@ -598,7 +598,7 @@ Creation request
   → resolve defaults and validate provider configuration
   → derive launch configuration with Pimi runtime tools and daemon prompt
   → agent.open.before hooks (same ordering; env and plugin-local tools and MCP servers)
-  → set PASEO_AGENT_ID, PASEO_AGENT_CWD, and PASEO_WORKSPACE_ID when the agent has a workspace
+  → set PIMI_AGENT_ID, PIMI_AGENT_CWD, and PIMI_WORKSPACE_ID when the agent has a workspace
   → open provider session and save agent configuration
 ```
 
@@ -617,7 +617,7 @@ replaces that scope's prior value.
 
 | Contract                           | Behavior                                                                                                         |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `context.paseo`                    | Existing SDK connected to this daemon                                                                            |
+| `context.pimi`                     | Existing SDK connected to this daemon                                                                            |
 | `context.signal`                   | Aborted on invocation timeout or plugin stop; pass to external requests                                          |
 | Input data                         | Detached snapshot; change state through returned requests or SDK commands                                        |
 | Registration result                | Idempotent remover, e.g. `const remove = server.addHook(...); remove();`                                         |

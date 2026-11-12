@@ -1163,7 +1163,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const paths = process.argv.slice(2);
   const pimi = await startPimi({
     paths: paths.length ? paths : [process.cwd()],
-    port: Number(process.env.PIMI_PORT || 4781),
+    port: Number(process.env.PIMI_BOARD_PORT || 4781),
     followPaseo: process.env.PIMI_FOLLOW_PASEO === "1",
     taskState: process.env.PIMI_TASK_STATE,
     appearanceState: process.env.PIMI_APPEARANCE_STATE,

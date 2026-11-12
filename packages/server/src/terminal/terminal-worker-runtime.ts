@@ -21,7 +21,7 @@ import { listTerminalWorkerRecords, terminalWorkerDirectory } from "./terminal-w
 // replaces that installation's files, so a worker launched from them would fail its next
 // terminal create (node-pty's spawn-helper, the zsh integration). A built daemon therefore
 // copies the worker bundle, its shell integration and node-pty into
-// $PASEO_HOME/terminal-worker/<paseoVersion>-<content hash>/ and launches the worker from there.
+// $PIMI_HOME/terminal-worker/<paseoVersion>-<content hash>/ and launches the worker from there.
 // The hash keeps two builds of one version (a local rebuild) from sharing a copy. A copy is
 // removed once no worker record names it: after a worker drains, after a kill cleanup, and at
 // daemon start. Dev runs (.ts source) launch from source and copy nothing.
@@ -65,7 +65,7 @@ function sourceExecArgv(): string[] {
  * built bundle in this home, prepared on demand.
  */
 export function resolveTerminalWorkerEntry(input: {
-  paseoHome: string;
+  pimiHome: string;
   paseoVersion: string;
 }): TerminalWorkerEntry {
   if (import.meta.url.endsWith(".ts")) {
@@ -84,7 +84,7 @@ export function resolveTerminalWorkerEntry(input: {
   const require = createRequire(import.meta.url);
   const nodePtyDirectory = path.dirname(require.resolve("node-pty/package.json"));
   return prepareTerminalWorkerRuntime({
-    paseoHome: input.paseoHome,
+    pimiHome: input.pimiHome,
     paseoVersion: input.paseoVersion,
     bundleDirectory,
     nodePtyDirectory,
@@ -147,12 +147,12 @@ function isCompleteRuntime(directory: string): boolean {
  * copy of the same content is already there. Returns the entry to launch from the copy.
  */
 export function prepareTerminalWorkerRuntime(input: {
-  paseoHome: string;
+  pimiHome: string;
   paseoVersion: string;
   bundleDirectory: string;
   nodePtyDirectory: string;
 }): TerminalWorkerEntry {
-  const root = terminalWorkerDirectory(input.paseoHome);
+  const root = terminalWorkerDirectory(input.pimiHome);
   ensurePrivateDirectory(root);
   const name = runtimeName(input);
   const directory = path.join(root, name);
@@ -204,11 +204,11 @@ export interface PruneTerminalWorkerRuntimesResult {
  * record could name a copy a live worker runs from.
  */
 export async function pruneTerminalWorkerRuntimes(
-  paseoHome: string,
+  pimiHome: string,
 ): Promise<PruneTerminalWorkerRuntimesResult> {
   const result: PruneTerminalWorkerRuntimesResult = { removed: [], failed: [] };
-  const root = terminalWorkerDirectory(paseoHome);
-  const files = await listTerminalWorkerRecords(paseoHome);
+  const root = terminalWorkerDirectory(pimiHome);
+  const files = await listTerminalWorkerRecords(pimiHome);
   const inUse = new Set<string>();
   for (const file of files) {
     if ("error" in file) return result;

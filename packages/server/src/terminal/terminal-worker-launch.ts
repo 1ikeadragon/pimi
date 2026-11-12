@@ -25,14 +25,14 @@ export class TerminalWorkerLaunchError extends Error {
  * Resolves with the record the worker wrote; a failed start leaves no worker behind.
  */
 export async function launchTerminalWorker(input: {
-  paseoHome: string;
+  pimiHome: string;
   paseoVersion: string;
   timeoutMs?: number;
   /** Defaults to the copy of this installation's bundle (source in dev). */
   entry?: TerminalWorkerEntry;
 }): Promise<{ record: TerminalWorkerRecord; recordPath: string }> {
   const recordId = randomUUID();
-  ensurePrivateDirectory(terminalWorkerDirectory(input.paseoHome));
+  ensurePrivateDirectory(terminalWorkerDirectory(input.pimiHome));
   const entry = input.entry ?? resolveTerminalWorkerEntry(input);
   const launch = buildSelfNodeCommand([
     ...entry.execArgv,
@@ -40,8 +40,8 @@ export async function launchTerminalWorker(input: {
     "--launch",
     "--record-id",
     recordId,
-    "--paseo-home",
-    input.paseoHome,
+    "--pimi-home",
+    input.pimiHome,
     "--paseo-version",
     input.paseoVersion,
     ...(entry.runtime ? ["--runtime", entry.runtime] : []),
@@ -82,7 +82,7 @@ export async function launchTerminalWorker(input: {
       { cause: error },
     );
   }
-  const recordPath = terminalWorkerRecordPath(input.paseoHome, pid);
+  const recordPath = terminalWorkerRecordPath(input.pimiHome, pid);
   const record = await readTerminalWorkerRecord(recordPath);
   if (record.recordId !== recordId) {
     throw new TerminalWorkerLaunchError(

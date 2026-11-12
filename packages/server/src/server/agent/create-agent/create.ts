@@ -44,7 +44,7 @@ export interface CreateAgentCommandDependencies {
   agentManager: AgentManager;
   agentStorage: AgentStorage;
   logger: Logger;
-  paseoHome?: string;
+  pimiHome?: string;
   worktreesRoot?: string;
   terminalManager?: TerminalManager | null;
   providerSnapshotManager: Pick<ProviderSnapshotManager, "resolveCreateConfig">;
@@ -627,7 +627,7 @@ async function resolveMcpCwd(params: {
       checkoutSource: worktree.checkoutSource,
       firstAgentContext: { prompt: params.initialPrompt },
 
-      paseoHome: dependencies.paseoHome,
+      pimiHome: dependencies.pimiHome,
       worktreesRoot: dependencies.worktreesRoot,
     },
     createPaseoWorktree: dependencies.createPaseoWorktree,

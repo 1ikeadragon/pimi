@@ -62,7 +62,7 @@ type RecoveryPlan =
 type UnavailableRecoveryState = Extract<WorkspaceRecoveryState, { kind: "unavailable" }>;
 
 export function createWorkspaceRecoveryService(deps: {
-  paseoHome: string;
+  pimiHome: string;
   worktreesRoot?: string;
   getWorkspace: (workspaceId: string) => Promise<PersistedWorkspaceRecord | null>;
   getProject: (projectId: string) => Promise<PersistedProjectRecord | null>;
@@ -171,7 +171,7 @@ export function createWorkspaceRecoveryService(deps: {
       // COMPAT(worktreeRestoreMissingWorktreeRoot): records created before v0.1.110
       // lack durable backing placement; remove filesystem discovery after 2027-01-17.
       const ownership = await isPaseoOwnedWorktreeCwd(workspace.cwd, {
-        paseoHome: deps.paseoHome,
+        pimiHome: deps.pimiHome,
         worktreesRoot: deps.worktreesRoot,
       });
       previousWorktreePath = ownership.allowed
@@ -187,7 +187,7 @@ export function createWorkspaceRecoveryService(deps: {
         worktreeSlug: basename(previousWorktreePath),
         source,
 
-        paseoHome: deps.paseoHome,
+        pimiHome: deps.pimiHome,
         worktreesRoot: deps.worktreesRoot,
         ...(hasRecordedWorktreePath ? { worktreePath: previousWorktreePath } : {}),
       });
@@ -220,7 +220,7 @@ export function createWorkspaceRecoveryService(deps: {
           cwd: sourceRepoRoot,
           worktreePath: recreatedWorktreePath,
           teardownCwds: [],
-          paseoHome: deps.paseoHome,
+          pimiHome: deps.pimiHome,
           worktreesBaseRoot: deps.worktreesRoot,
         },
         error,

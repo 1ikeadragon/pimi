@@ -60,10 +60,10 @@ async function allocatePortFromScript(options: {
       {
         cwd: options.cwd,
         envOverlay: {
-          PASEO_SCRIPTNAME: options.scriptName,
-          PASEO_WORKSPACE_ID: options.workspaceId,
-          PASEO_BRANCH_NAME: options.branchName ?? "",
-          PASEO_WORKTREE_PATH: options.cwd,
+          PIMI_SCRIPTNAME: options.scriptName,
+          PIMI_WORKSPACE_ID: options.workspaceId,
+          PIMI_BRANCH_NAME: options.branchName ?? "",
+          PIMI_WORKTREE_PATH: options.cwd,
         },
         timeout: PORT_SCRIPT_TIMEOUT_MS,
         maxBuffer: PORT_SCRIPT_MAX_OUTPUT_BYTES,

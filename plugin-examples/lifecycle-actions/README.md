@@ -4,7 +4,7 @@ Small callbacks using the existing SDK:
 
 - Send `Try again.` when the latest output contains `out of credits`.
 - Decline a shell request matching `rm -rf`; approve exactly `git status`; leave other requests alone.
-- Inject `PASEO_HOOK_CREATE_EXAMPLE=created` on creation and `PASEO_HOOK_OPEN_EXAMPLE=opened` on each session opening.
+- Inject `PIMI_HOOK_CREATE_EXAMPLE=created` on creation and `PIMI_HOOK_OPEN_EXAMPLE=opened` on each session opening.
 - Change requested Codex agents to Claude Haiku before creation.
 - Create a worktree when a directory creation request is titled `Isolated lifecycle example`.
 

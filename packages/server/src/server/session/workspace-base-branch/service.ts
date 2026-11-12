@@ -8,7 +8,7 @@ import type { WorkspaceRegistry } from "../../workspace-registry.js";
 import type { WorkspaceGitService } from "../../workspace-git-service.js";
 
 interface Dependencies {
-  paseoHome: string;
+  pimiHome: string;
   worktreesRoot?: string;
   workspaceRegistry: WorkspaceRegistry;
   workspaceGitService: WorkspaceGitService;
@@ -39,7 +39,7 @@ export function createWorkspaceBaseBranchService(deps: Dependencies) {
     const workspace = await deps.workspaceRegistry.get(input.workspaceId);
     if (!workspace || workspace.archivedAt) throw new Error("Workspace is unavailable");
     const facts = await getCheckoutSnapshotFacts(workspace.cwd, {
-      paseoHome: deps.paseoHome,
+      pimiHome: deps.pimiHome,
       worktreesRoot: deps.worktreesRoot,
     });
     if (!facts.isGit) throw new Error("Workspace is not a Git checkout");
@@ -60,7 +60,7 @@ export function createWorkspaceBaseBranchService(deps: Dependencies) {
       const baseRef = await setCheckoutBaseBranch({
         cwd: root,
         baseRef: input.baseRef,
-        context: { paseoHome: deps.paseoHome, worktreesRoot: deps.worktreesRoot },
+        context: { pimiHome: deps.pimiHome, worktreesRoot: deps.worktreesRoot },
       });
       const updatedAt = new Date().toISOString();
       try {

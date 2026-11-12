@@ -436,7 +436,7 @@ export type DaemonLifecycleIntent =
 
 export interface PaseoDaemonConfig {
   listen: string;
-  paseoHome: string;
+  pimiHome: string;
   daemonVersion?: string;
   desktopManaged?: boolean;
   worktreesRoot?: string;
@@ -534,7 +534,7 @@ function resolveBuiltinPluginLoader(dependencies: PaseoDaemonDependencies): Buil
 }
 
 function createBootstrapManagedProcessRegistry(
-  config: Pick<PaseoDaemonConfig, "paseoHome" | "managedProcesses">,
+  config: Pick<PaseoDaemonConfig, "pimiHome" | "managedProcesses">,
   logger: Logger,
 ): ManagedProcessRegistry {
   if (config.managedProcesses) {
@@ -542,7 +542,7 @@ function createBootstrapManagedProcessRegistry(
   }
 
   return createManagedProcessRegistry({
-    paseoHome: config.paseoHome,
+    pimiHome: config.pimiHome,
     processTable: createSystemManagedProcessTable(),
     terminateProcess: terminateWithTreeKill,
     logger,
@@ -650,10 +650,10 @@ export async function createPaseoDaemon(
 ): Promise<PaseoDaemon> {
   configureGitProcessPolicy(config.git ?? resolveGitProcessPolicy({ env: process.env }));
   const logger = rootLogger.child({ module: "bootstrap" });
-  await rm(path.join(config.paseoHome, "push-tokens.json"), { force: true }).catch((error) => {
+  await rm(path.join(config.pimiHome, "push-tokens.json"), { force: true }).catch((error) => {
     logger.warn({ err: error }, "Failed to remove the retired push token cache");
   });
-  const obsoleteTimelineDirectory = path.join(config.paseoHome, "agent-timelines");
+  const obsoleteTimelineDirectory = path.join(config.pimiHome, "agent-timelines");
   await rm(obsoleteTimelineDirectory, { recursive: true, force: true }).catch((error) => {
     logger.warn(
       { err: error, path: obsoleteTimelineDirectory },
@@ -674,12 +674,12 @@ export async function createPaseoDaemon(
     speechConfig: config.speech,
   });
   logger.info({ elapsed: elapsed() }, "Speech service created");
-  const daemonConfigStore = new DaemonConfigStore(config.paseoHome, initialMutableConfig, logger, {
+  const daemonConfigStore = new DaemonConfigStore(config.pimiHome, initialMutableConfig, logger, {
     relayEnabledMutable: config.relayEnabledMutable ?? true,
     relayConfigured: Boolean(relayEndpoint),
     startupPersisted: config.configReload?.startupPersisted,
     speech: createSpeechSettingsOwner({
-      paseoHome: config.paseoHome,
+      pimiHome: config.pimiHome,
       env: resolveReloadEnv(config),
       speechService,
     }),
@@ -701,7 +701,7 @@ export async function createPaseoDaemon(
   });
   keepBuiltinProfilesSeeded(daemonConfigStore, logger);
   const networkLog = startDaemonNetworkLog({
-    home: config.paseoHome,
+    home: config.pimiHome,
     getSettings: () => daemonConfigStore.get().log.network,
     onError: (error, message) => logger.warn({ err: error }, message),
   });
@@ -717,16 +717,16 @@ export async function createPaseoDaemon(
       hasAgent: (id) => agentManager.getAgent(id) !== null,
       usageSession: (id) => agentManager.usageSession(id),
     },
-    managedSources: new ManagedPluginSources(config.paseoHome, {
+    managedSources: new ManagedPluginSources(config.pimiHome, {
       registries: config.pluginRegistries,
       defaultUrl: config.pluginRegistryUrl,
     }),
     builtinPlugins: resolveBuiltinPluginLoader(dependencies),
-    settingsDirectory: path.join(config.paseoHome, "plugin-settings"),
+    settingsDirectory: path.join(config.pimiHome, "plugin-settings"),
   });
 
-  const serverId = getOrCreateServerId(config.paseoHome, { logger });
-  const daemonKeyPair = await loadOrCreateDaemonKeyPair(config.paseoHome, logger);
+  const serverId = getOrCreateServerId(config.pimiHome, { logger });
+  const daemonKeyPair = await loadOrCreateDaemonKeyPair(config.pimiHome, logger);
   const managedProcesses = createBootstrapManagedProcessRegistry(config, logger);
   // Reconcile the helper-process ledger in the background so it never blocks the
   // daemon from coming up; terminating a live leftover can take a few seconds.
@@ -760,7 +760,7 @@ export async function createPaseoDaemon(
   let boundListenTarget: ListenTarget | null = null;
   let workspaceRegistry: FileBackedWorkspaceRegistry | null = null;
   const terminalManager = await startWorkerTerminalManager({
-    paseoHome: config.paseoHome,
+    pimiHome: config.pimiHome,
     paseoVersion: daemonVersion,
     logger,
     getTerminalActivityUrl: () => createTerminalActivityUrl(boundListenTarget),
@@ -929,7 +929,7 @@ export async function createPaseoDaemon(
       );
     },
   );
-  const pimiSpaces = new PimiSpaces(config.paseoHome);
+  const pimiSpaces = new PimiSpaces(config.pimiHome);
   const parseSpacesRequest = express.json({ limit: PIMI_SPACE_REQUEST_BYTES, inflate: false });
   app.post(
     PIMI_SPACES_ROUTE,
@@ -1039,21 +1039,21 @@ export async function createPaseoDaemon(
 
   const agentStorage = new AgentStorage(config.agentStoragePath, logger);
   const projectRegistry = new FileBackedProjectRegistry(
-    path.join(config.paseoHome, "projects", "projects.json"),
+    path.join(config.pimiHome, "projects", "projects.json"),
     logger,
   );
   workspaceRegistry = new FileBackedWorkspaceRegistry(
-    path.join(config.paseoHome, "projects", "workspaces.json"),
+    path.join(config.pimiHome, "projects", "workspaces.json"),
     logger,
   );
   const workspaceLabelService = createWorkspaceLabelService({
-    paseoHome: config.paseoHome,
+    pimiHome: config.pimiHome,
     workspaceRegistry,
   });
   const github = createGitHubService();
   const workspaceGitService = new WorkspaceGitServiceImpl({
     logger,
-    paseoHome: config.paseoHome,
+    pimiHome: config.pimiHome,
     worktreesRoot: config.worktreesRoot,
     deps: {
       forgeOverrides: { github },
@@ -1086,7 +1086,7 @@ export async function createPaseoDaemon(
     logger,
   });
   const agentProviderRuntime = await createAgentProviderRuntime({
-    paseoHome: config.paseoHome,
+    pimiHome: config.pimiHome,
     logger,
     snapshotManager: {
       refreshTimeoutMs: config.providerCatalogRefreshTimeoutMs,
@@ -1118,12 +1118,12 @@ export async function createPaseoDaemon(
     providerDefinitions: initialAgentManagerState.providerDefinitions,
     registry: agentStorage,
     carriedTimelines: new FileCarriedTimelineStore(
-      path.join(config.paseoHome, "agent-carried-timelines"),
+      path.join(config.pimiHome, "agent-carried-timelines"),
       logger,
     ),
-    agentImages: new FileAgentImageStore(path.join(config.paseoHome, "agent-images"), logger),
+    agentImages: new FileAgentImageStore(path.join(config.pimiHome, "agent-images"), logger),
     sentAttachments: new FileSentAttachmentStore(
-      path.join(config.paseoHome, "agent-sent-attachments"),
+      path.join(config.pimiHome, "agent-sent-attachments"),
       logger,
     ),
     appendSystemPrompt: config.appendSystemPrompt,
@@ -1251,7 +1251,7 @@ export async function createPaseoDaemon(
   });
   const checkoutDiffManager = new CheckoutDiffManager({
     logger,
-    paseoHome: config.paseoHome,
+    pimiHome: config.pimiHome,
     workspaceGitService,
     workspaceRuntimeStore,
   });
@@ -1360,7 +1360,7 @@ export async function createPaseoDaemon(
   });
 
   setupAutoArchiveOnMerge({
-    paseoHome: config.paseoHome,
+    pimiHome: config.pimiHome,
     paseoWorktreesBaseRoot: config.worktreesRoot,
     daemonConfigStore,
     workspaceGitService,
@@ -1385,7 +1385,7 @@ export async function createPaseoDaemon(
   ) => {
     return createPaseoWorktreeWorkflow(
       {
-        paseoHome: config.paseoHome,
+        pimiHome: config.pimiHome,
         worktreesRoot: config.worktreesRoot,
         createPaseoWorktree: async (workflowInput, workflowOptions) => {
           return createRegisteredPaseoWorktree(workflowInput, {
@@ -1436,7 +1436,7 @@ export async function createPaseoDaemon(
     agentManager,
     agentStorage,
     logger,
-    paseoHome: config.paseoHome,
+    pimiHome: config.pimiHome,
     worktreesRoot: config.worktreesRoot,
     terminalManager,
     providerSnapshotManager,
@@ -1476,7 +1476,7 @@ export async function createPaseoDaemon(
   ) => {
     await archiveByScope(
       {
-        paseoHome: config.paseoHome,
+        pimiHome: config.pimiHome,
         paseoWorktreesBaseRoot: config.worktreesRoot,
         github,
         workspaceGitService,
@@ -1510,7 +1510,7 @@ export async function createPaseoDaemon(
     );
   };
   const automationService = new AutomationService({
-    paseoHome: config.paseoHome,
+    pimiHome: config.pimiHome,
     logger,
     agentManager,
     createAgent,
@@ -1533,7 +1533,7 @@ export async function createPaseoDaemon(
   });
   await automationService.start();
   const attackService = new AttackService({
-    paseoHome: config.paseoHome,
+    pimiHome: config.pimiHome,
     logger,
     agentManager,
     agentStorage,
@@ -1546,7 +1546,7 @@ export async function createPaseoDaemon(
   });
   await attackService.start();
   const heartbeatService = new HeartbeatService({
-    paseoHome: config.paseoHome,
+    pimiHome: config.pimiHome,
     logger,
     agentManager,
     agentStorage,
@@ -1574,7 +1574,7 @@ export async function createPaseoDaemon(
   logger.info({ elapsed: elapsed() }, "Preparing voice and MCP runtime");
 
   const finishSubscriptions = createFinishSubscriptions({
-    store: createJsonFinishSubscriptionStore(config.paseoHome),
+    store: createJsonFinishSubscriptionStore(config.pimiHome),
     serverId,
     logger,
     messages: () => {
@@ -1616,7 +1616,7 @@ export async function createPaseoDaemon(
     idleRuntimeCleanup,
   );
 
-  const projectMemory = new ProjectMemory(config.paseoHome);
+  const projectMemory = new ProjectMemory(config.pimiHome);
   const handlePimiMemory = createPimiMemoryHandler({
     memory: projectMemory,
     projects: projectRegistry,
@@ -1657,7 +1657,7 @@ export async function createPaseoDaemon(
     projectMemory: canUseCallerScopedTools ? projectMemory : undefined,
     pimiSpaces: canUseCallerScopedTools ? pimiSpaces : undefined,
     searchCodebase: canUseCallerScopedTools ? searchPimiCodebase : undefined,
-    pimiTaskHome: canUseCallerScopedTools ? config.paseoHome : undefined,
+    pimiTaskHome: canUseCallerScopedTools ? config.pimiHome : undefined,
     createDirectoryWorkspace: async (cwd, title, projectId, context) => {
       const workspace = await workspaceProvisioning.createWorkspaceForDirectory(
         cwd,
@@ -1696,7 +1696,7 @@ export async function createPaseoDaemon(
     paseoToolPolicy:
       runtime.paseoToolPolicy ??
       (runtime.callerAgentId ? agentManager.getPaseoToolPolicy(runtime.callerAgentId) : undefined),
-    paseoHome: config.paseoHome,
+    pimiHome: config.pimiHome,
     worktreesRoot: config.worktreesRoot,
     callerAgentId: runtime.callerAgentId,
     enableVoiceTools: runtime.enableVoiceTools,
@@ -1874,7 +1874,7 @@ export async function createPaseoDaemon(
   const start = async () => {
     let mainStarted = false;
     try {
-      localCredential = await writeLocalCredential(config.paseoHome);
+      localCredential = await writeLocalCredential(config.pimiHome);
       if (serviceProxyListenTarget) {
         const boundServiceProxyTarget = await serviceProxy.startStandalone({
           listenTarget: serviceProxyListenTarget,
@@ -1964,7 +1964,7 @@ export async function createPaseoDaemon(
               agentManager,
               agentStorage,
               downloadTokenStore,
-              config.paseoHome,
+              config.pimiHome,
               daemonConfigStore,
               mcpBaseUrl,
               {
@@ -2085,7 +2085,7 @@ export async function createPaseoDaemon(
       scriptHealthMonitor.start();
     } catch (error) {
       localCredential = null;
-      await deleteLocalCredential(config.paseoHome);
+      await deleteLocalCredential(config.pimiHome);
       unsubscribePluginProviders();
       unsubscribePluginSessionChanges();
       await pluginRuntime.stopAllPlugins().catch(() => undefined);
@@ -2104,7 +2104,7 @@ export async function createPaseoDaemon(
     let terminalShutdownError: unknown = null;
     localCredential = null;
     await localNetworkPairing.close();
-    await deleteLocalCredential(config.paseoHome);
+    await deleteLocalCredential(config.pimiHome);
     // Stop tracking plugin provider registrations before anything tears plugins
     // down, so plugin shutdown cannot withdraw a provider from under an agent
     // that is still open. Plugins themselves are stopped once every session

@@ -569,7 +569,7 @@ export class VoiceAssistantWebSocketServer {
   private readonly workspaceGitService: WorkspaceGitService;
   private readonly workspaceAutoName: WorkspaceAutoName;
   private readonly downloadTokenStore: DownloadTokenStore;
-  private readonly paseoHome: string;
+  private readonly pimiHome: string;
   private readonly connectedHosts: ConnectedHosts;
 
   toolHosts() {
@@ -646,7 +646,7 @@ export class VoiceAssistantWebSocketServer {
     agentManager: AgentManager,
     agentStorage: AgentStorage,
     downloadTokenStore: DownloadTokenStore,
-    paseoHome: string,
+    pimiHome: string,
     daemonConfigStore: DaemonConfigStore,
     mcpBaseUrl: string | null,
     wsConfig: WebSocketServerConfig,
@@ -727,9 +727,9 @@ export class VoiceAssistantWebSocketServer {
           "Agent message batch dispatch failed",
         ),
     });
-    this.messageReceipts = new MessageReceipts(join(paseoHome, "agent-requests"));
+    this.messageReceipts = new MessageReceipts(join(pimiHome, "agent-requests"));
     this.creationService = new CreationService(
-      join(paseoHome, "creations"),
+      join(pimiHome, "creations"),
       this.logger.child({ module: "creation" }),
       (snapshot) => this.validateCompletedCreation(snapshot),
     );
@@ -746,15 +746,15 @@ export class VoiceAssistantWebSocketServer {
     this.workspaceGitService = workspaceGitService ?? createFallbackWorkspaceGitService();
     this.worktreesRoot = daemonRuntimeConfig?.worktreesRoot;
     this.workspaceBaseBranch = createWorkspaceBaseBranchService({
-      paseoHome,
+      pimiHome,
       worktreesRoot: this.worktreesRoot,
       workspaceRegistry: this.workspaceRegistry,
       workspaceGitService: this.workspaceGitService,
     });
     this.workspaceAutoName = workspaceAutoName;
     this.downloadTokenStore = downloadTokenStore;
-    this.paseoHome = paseoHome;
-    this.connectedHosts = new ConnectedHosts(paseoHome, { serverId, label: getHostName() });
+    this.pimiHome = pimiHome;
+    this.connectedHosts = new ConnectedHosts(pimiHome, { serverId, label: getHostName() });
     this.passwordHash = auth?.password;
     this.daemonConfigStore = daemonConfigStore;
     this.mcpBaseUrl = mcpBaseUrl;
@@ -1597,7 +1597,7 @@ export class VoiceAssistantWebSocketServer {
       },
       publishScriptStatusUpdate: (message) => this.publishScriptStatusUpdate(message),
       downloadTokenStore: this.downloadTokenStore,
-      paseoHome: this.paseoHome,
+      pimiHome: this.pimiHome,
       worktreesRoot: this.worktreesRoot,
       agentManager: this.agentManager,
       agentStorage: this.agentStorage,
@@ -2407,7 +2407,7 @@ export class VoiceAssistantWebSocketServer {
         const authorized = this.isPimiMobileAuthorized(ws, activeConnection);
         if (!authorized) activeConnection.connectionLogger.warn("Denied mobile Pimi Tasks request");
         const result = authorized
-          ? await requestMobileTask(this.paseoHome, request.operation).catch(() => {
+          ? await requestMobileTask(this.pimiHome, request.operation).catch(() => {
               activeConnection.connectionLogger.warn("Could not reach the Pimi Desktop task store");
               return {
                 status: "error" as const,

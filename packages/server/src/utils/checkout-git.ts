@@ -919,7 +919,7 @@ export interface MergeFromBaseOptions {
 }
 
 export interface CheckoutContext {
-  paseoHome?: string;
+  pimiHome?: string;
   worktreesRoot?: string;
   logger?: Pick<Logger, "trace" | "warn">;
   facts?: CheckoutSnapshotFacts | null;
@@ -1120,7 +1120,7 @@ async function getMainRepoRootFromCommonDir(
       !wt.isBare &&
       !paseoPaths.has(wt.path) &&
       !isPaseoWorktreePath(wt.path, {
-        paseoHome: context?.paseoHome,
+        pimiHome: context?.pimiHome,
         worktreesRoot: context?.worktreesRoot,
       }),
   );
@@ -1138,9 +1138,9 @@ export interface GitWorktreeEntry {
 /** Check whether a path is under Paseo's worktree root. */
 export function isPaseoWorktreePath(
   p: string,
-  options?: { paseoHome?: string; worktreesRoot?: string },
+  options?: { pimiHome?: string; worktreesRoot?: string },
 ): boolean {
-  if (options?.worktreesRoot || options?.paseoHome) {
+  if (options?.worktreesRoot || options?.pimiHome) {
     return isDescendantPath(p, resolvePaseoWorktreesBaseRoot(options));
   }
   return /[/\\]\.paseo[/\\]worktrees[/\\]/.test(p);
@@ -1252,7 +1252,7 @@ async function getPaseoWorktreeForCwd(
   }
 
   const ownership = await isPaseoOwnedWorktreeCwd(cwd, {
-    paseoHome: options.context?.paseoHome,
+    pimiHome: options.context?.pimiHome,
     worktreesRoot: options.context?.worktreesRoot,
     knownGitCommonDir: options.knownGitCommonDir,
   });

@@ -72,7 +72,7 @@ export async function applyResumeOverrides(
 // it must not force a dedicated server. Custom MCP is location-scoped, and any
 // other env key belongs to the process, so both need isolation. Mirrors the v1
 // adapter's `requiresDedicatedOpenCodeServer`.
-const V2_SESSION_ENV_KEYS = new Set(["PASEO_AGENT_ID", "PASEO_AGENT_CWD", "PASEO_WORKSPACE_ID"]);
+const V2_SESSION_ENV_KEYS = new Set(["PIMI_AGENT_ID", "PIMI_AGENT_CWD", "PIMI_WORKSPACE_ID"]);
 
 export function requiresDedicatedV2Server(
   config: AgentSessionConfig,

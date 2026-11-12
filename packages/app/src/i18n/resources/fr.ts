@@ -3480,7 +3480,7 @@ export const fr: TranslationResources = {
         newScript: "Nouveau script",
         editScript: "Modifier {{name}}",
         runAsService: "Exécuter comme service",
-        serviceHint: "Pimi supervise le processus et lui attribue un port via $PASEO_PORT",
+        serviceHint: "Pimi supervise le processus et lui attribue un port via $PIMI_PORT",
         actions: {
           add: "Ajouter un script",
           edit: "Modifier",

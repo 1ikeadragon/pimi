@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { readLocalCredentialForTarget, resolvePaseoHome } from "@pimi/server/daemon-control";
+import { readLocalCredentialForTarget, resolvePimiHome } from "@pimi/server/daemon-control";
 import { parseAgentDeepLink, type AgentDeepLinkTarget } from "@pimi/protocol/agent-deep-link";
 import {
   isPimiArxivEmbed,
@@ -248,9 +248,9 @@ interface DesktopDaemonConnection {
 }
 
 async function connectToDesktopDaemon(): Promise<DesktopDaemonConnection> {
-  if (process.env.PIMI_PASEO_URL) return { url: process.env.PIMI_PASEO_URL };
+  if (process.env.PIMI_DESKTOP_DAEMON_URL) return { url: process.env.PIMI_DESKTOP_DAEMON_URL };
   const status = await resolveDesktopDaemonStatus();
-  const endpoint = status.listen ?? process.env.PASEO_LISTEN ?? "127.0.0.1:6767";
+  const endpoint = status.listen ?? process.env.PIMI_LISTEN ?? "127.0.0.1:6767";
   const local = readLocalCredentialForTarget(status.home, endpoint) ?? undefined;
   return {
     url: `ws://${endpoint}/ws`,
@@ -396,7 +396,7 @@ async function createWorkspaceRuntime(runtimeDir: string): Promise<PimiRuntimeRe
     native: true,
     watchState: path.join(app.getPath("userData"), "pimi-worktrees.json"),
     taskState: path.join(app.getPath("userData"), "pimi-tasks.json"),
-    agentTaskHome: resolvePaseoHome(),
+    agentTaskHome: resolvePimiHome(),
     getAppearance: getPimiAppearance,
     openDictation: (signal, anchor) => {
       if (!workspace?.host) return Promise.reject(new Error("Open the workspace to dictate."));

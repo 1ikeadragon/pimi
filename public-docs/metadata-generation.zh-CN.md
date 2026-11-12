@@ -34,7 +34,7 @@ Pimi 有两种模式。**自动** 是默认模式，无需任何配置。**手�
 
 在手动模式下，Pimi 只按你的顺序尝试你配置的模型。它不会加入内置默认值或当前选中的模型，因此你的提示词和 diff 只会发送给你选择的 Provider。如果所有配置的模型都失败，生成就会失败：不会生成工作区标题和分支名，提交和拉取请求会使用占位文本。请选择适合这些任务的模型。
 
-每次失败都会写入 `$PASEO_HOME/daemon.log`（默认是 `~/.paseo/daemon.log`），包含 Provider、模型和错误。如果手动模型没有生成标题、分支名、提交信息或拉取请求文本，请查看这里。
+每次失败都会写入 `$PIMI_HOME/daemon.log`（默认是 `~/.pimi/daemon.log`），包含 Provider、模型和错误。如果手动模型没有生成标题、分支名、提交信息或拉取请求文本，请查看这里。
 
 ## 选择模型 {#choose-a-model}
 
@@ -42,7 +42,7 @@ Pimi 有两种模式。**自动** 是默认模式，无需任何配置。**手�
 
 ## 配置自定义的回退顺序 {#configure-a-custom-fallback-order}
 
-如果要在手动模式下使用多个模型，请在 `~/.paseo/config.json` 的 `agents.metadataGeneration.providers` 中列出它们。Pimi 按顺序尝试你的条目，不会尝试其他模型。空列表表示自动。
+如果要在手动模式下使用多个模型，请在 `~/.pimi/config.json` 的 `agents.metadataGeneration.providers` 中列出它们。Pimi 按顺序尝试你的条目，不会尝试其他模型。空列表表示自动。
 
 ```json
 {

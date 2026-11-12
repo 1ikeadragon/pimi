@@ -50,7 +50,7 @@ type HeartbeatAgentManager = AgentRunController &
   >;
 
 export interface HeartbeatServiceOptions {
-  paseoHome: string;
+  pimiHome: string;
   logger: Logger;
   agentManager: HeartbeatAgentManager;
   agentStorage: AgentStorage;
@@ -131,7 +131,7 @@ export class HeartbeatService {
   constructor(options: HeartbeatServiceOptions) {
     this.logger = options.logger.child({ module: "heartbeat-service" });
     this.store = new JsonRecordStore({
-      dir: join(options.paseoHome, "heartbeats"),
+      dir: join(options.pimiHome, "heartbeats"),
       schema: HeartbeatSchema,
       logger: this.logger,
       label: "heartbeat",

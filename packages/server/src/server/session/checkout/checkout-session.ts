@@ -114,7 +114,7 @@ export interface CheckoutSessionOptions {
   workspaceGitService: WorkspaceGitService;
   checkoutDiffManager: CheckoutDiffSubscriber;
   gitMetadataGenerator: GitMetadataGenerator;
-  paseoHome: string;
+  pimiHome: string;
   worktreesRoot: string | undefined;
   logger: pino.Logger;
 }
@@ -130,7 +130,7 @@ export interface CheckoutSessionOptions {
  * workspace git observer streams branch changes through emitStatusUpdate().
  */
 export class CheckoutSession {
-  private static readonly PASEO_STASH_PREFIX = "paseo-auto-stash:";
+  private static readonly PIMI_STASH_PREFIX = "paseo-auto-stash:";
 
   private readonly host: CheckoutSessionHost;
   private readonly gitMutation: Pick<
@@ -140,7 +140,7 @@ export class CheckoutSession {
   private readonly workspaceGitService: WorkspaceGitService;
   private readonly checkoutDiffManager: CheckoutDiffSubscriber;
   private readonly gitMetadataGenerator: GitMetadataGenerator;
-  private readonly paseoHome: string;
+  private readonly pimiHome: string;
   private readonly worktreesRoot: string | undefined;
   private readonly logger: pino.Logger;
   private readonly statusUpdateFingerprints = new Map<string, string>();
@@ -151,7 +151,7 @@ export class CheckoutSession {
     this.workspaceGitService = options.workspaceGitService;
     this.checkoutDiffManager = options.checkoutDiffManager;
     this.gitMetadataGenerator = options.gitMetadataGenerator;
-    this.paseoHome = options.paseoHome;
+    this.pimiHome = options.pimiHome;
     this.worktreesRoot = options.worktreesRoot;
     this.logger = options.logger;
   }
@@ -263,7 +263,7 @@ export class CheckoutSession {
     try {
       const { baseRef, commits } = await listCheckoutCommits({
         cwd: expandTilde(cwd),
-        context: { paseoHome: this.paseoHome, worktreesRoot: this.worktreesRoot },
+        context: { pimiHome: this.pimiHome, worktreesRoot: this.worktreesRoot },
       });
       this.host.emit({
         type: "checkout.commits.list.response",
@@ -677,8 +677,8 @@ export class CheckoutSession {
     try {
       const branchLabel = msg.branch?.trim() ?? "";
       const message = branchLabel
-        ? `${CheckoutSession.PASEO_STASH_PREFIX} ${branchLabel}`
-        : `${CheckoutSession.PASEO_STASH_PREFIX} unnamed`;
+        ? `${CheckoutSession.PIMI_STASH_PREFIX} ${branchLabel}`
+        : `${CheckoutSession.PIMI_STASH_PREFIX} unnamed`;
       await runGitCommand(["stash", "push", "--include-untracked", "-m", message], {
         cwd,
         timeout: 120_000,
@@ -814,7 +814,7 @@ export class CheckoutSession {
           baseRef,
           mode: msg.strategy === "squash" ? "squash" : "merge",
         },
-        { paseoHome: this.paseoHome, worktreesRoot: this.worktreesRoot },
+        { pimiHome: this.pimiHome, worktreesRoot: this.worktreesRoot },
       );
       await Promise.all([
         this.gitMutation.notifyGitMutation(mutatedCwd, "merge-to-base", { invalidateForge: true }),
@@ -863,7 +863,7 @@ export class CheckoutSession {
           baseRef: msg.baseRef,
           requireCleanTarget: msg.requireCleanTarget ?? true,
         },
-        { paseoHome: this.paseoHome, worktreesRoot: this.worktreesRoot },
+        { pimiHome: this.pimiHome, worktreesRoot: this.worktreesRoot },
       );
       await this.gitMutation.notifyGitMutation(cwd, "merge-from-base", { invalidateForge: true });
       this.scheduleDiffRefresh(cwd);
@@ -976,7 +976,7 @@ export class CheckoutSession {
           base: msg.baseRef,
         },
         service,
-        { paseoHome: this.paseoHome, worktreesRoot: this.worktreesRoot },
+        { pimiHome: this.pimiHome, worktreesRoot: this.worktreesRoot },
       );
       await this.gitMutation.notifyGitMutation(cwd, "create-pr", { invalidateForge: true });
 

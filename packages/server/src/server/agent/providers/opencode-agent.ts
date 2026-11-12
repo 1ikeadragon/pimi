@@ -349,11 +349,7 @@ type OpenCodeAgentConfig = Omit<AgentSessionConfig, "providerOptions"> & {
   providerOptions: OpenCodeProviderOptions;
 };
 
-const OPENCODE_SESSION_ENV_KEYS = new Set([
-  "PASEO_AGENT_ID",
-  "PASEO_AGENT_CWD",
-  "PASEO_WORKSPACE_ID",
-]);
+const OPENCODE_SESSION_ENV_KEYS = new Set(["PIMI_AGENT_ID", "PIMI_AGENT_CWD", "PIMI_WORKSPACE_ID"]);
 
 function requiresDedicatedOpenCodeServer(
   config: OpenCodeAgentConfig,

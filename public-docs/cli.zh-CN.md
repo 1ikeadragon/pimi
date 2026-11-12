@@ -117,7 +117,7 @@ pimi run --output-schema '{"type":"object","properties":{"summary":{"type":"stri
 
 创建 worktree 时接受 `--worktree-mode branch-off|checkout-branch|checkout-pr`，以及相应的 `--new-branch`/`--base`、`--branch` 或 `--pr-number`/`--forge` 选项。使用 `--worktree-slug` 选择托管目录的 slug。
 
-当一个已有的 Pimi Agent 运行同样的命令时，Pimi 会通过 `PASEO_AGENT_ID` 识别它。如果没有显式指定位置，新的 Agent 会成为它在同一工作区中的子 Agent。`--workspace` 可以把这个子 Agent 放到其他地方，而不改变它的父 Agent。
+当一个已有的 Pimi Agent 运行同样的命令时，Pimi 会通过 `PIMI_AGENT_ID` 识别它。如果没有显式指定位置，新的 Agent 会成为它在同一工作区中的子 Agent。`--workspace` 可以把这个子 Agent 放到其他地方，而不改变它的父 Agent。
 
 使用 `--output-schema` 只返回符合 schema 的 JSON 输出。你可以传入 schema 文件路径，或内联的 JSON schema 对象。此模式不能与 `--no-wait` 一起使用。
 
@@ -143,7 +143,7 @@ pimi project delete <project-id>
 
 `--reset` 恢复由项目目录推导出的名称。删除项目会归档它的活动工作区，并把项目从 Pimi 中移除。它不会删除项目目录。
 
-对于本地 daemon，`pimi project create [path]` 默认使用当前目录，并在 CLI 所在机器上解析相对路径。当你使用全局的 `--host` 选项或 `PASEO_HOST` 时，请提供目标 daemon 能访问的路径：
+对于本地 daemon，`pimi project create [path]` 默认使用当前目录，并在 CLI 所在机器上解析相对路径。当你使用全局的 `--host` 选项或 `PIMI_HOST` 时，请提供目标 daemon 能访问的路径：
 
 ```bash
 pimi --host devbox:6767 project create /srv/repos/api
@@ -200,7 +200,7 @@ pimi workspace rename <workspace-id> --reset   # back to the branch or directory
 pimi workspace archive <workspace-id>
 ```
 
-在 Agent 会话中，`PASEO_WORKSPACE_ID` 保存该 Agent 自己的工作区 ID。即使其他工作区共享同一个目录，Agent 也可以运行 `pimi workspace rename "$PASEO_WORKSPACE_ID" "Auth rework"` 或 `pimi workspace archive "$PASEO_WORKSPACE_ID"`。
+在 Agent 会话中，`PIMI_WORKSPACE_ID` 保存该 Agent 自己的工作区 ID。即使其他工作区共享同一个目录，Agent 也可以运行 `pimi workspace rename "$PIMI_WORKSPACE_ID" "Auth rework"` 或 `pimi workspace archive "$PIMI_WORKSPACE_ID"`。
 
 当 Pimi 无法从源检出推断代码托管平台时，为 PR 检出添加 `--forge <name>`。setup 钩子和服务见 [Git worktree](/docs/worktrees)。
 
@@ -299,7 +299,7 @@ pimi send <id> --no-wait "run this task"
 pimi send <id> --behavior interrupt "stop and do this instead"
 ```
 
-由 Agent 发起的发送（设置了 `PASEO_AGENT_ID`）默认引导正在进行的轮次。其他发送默认中断它。使用 `--behavior steer` 或 `--behavior interrupt` 覆盖默认行为。引导使用与客户端相同的后备方式：如果无法引导，正在进行的轮次会被中断并替换。
+由 Agent 发起的发送（设置了 `PIMI_AGENT_ID`）默认引导正在进行的轮次。其他发送默认中断它。使用 `--behavior steer` 或 `--behavior interrupt` 覆盖默认行为。引导使用与客户端相同的后备方式：如果无法引导，正在进行的轮次会被中断并替换。
 
 ## 查看日志 {#viewing-logs}
 
@@ -384,12 +384,12 @@ pimi daemon stop --home ~/paseo-test
 在前台部署命令中使用环境变量覆盖：
 
 ```bash
-PASEO_LISTEN=127.0.0.1:6799 PASEO_RELAY_ENABLED=false paseo daemon run --home ~/paseo-test
+PIMI_LISTEN=127.0.0.1:6799 PIMI_RELAY_ENABLED=false paseo daemon run --home ~/paseo-test
 ```
 
 它会一直保持附着，直到进程管理器退出或你取消，没有就绪超时。worker 重启会保留这些启动输入。要修改它们，请停止并重新启动部署。如果主目录中已经有一个运行中的进程管理器，`run` 会返回 `already_running`，而不会接管或启动前台进程。
 
-托管的 `start` 会忽略继承来的 daemon 设置覆盖项，包括 `PORT`、`PASEO_LISTEN`、中继和语音设置。它会保留 Provider 凭据以及可执行文件/运行时控制项。`start --foreground` 已被移除；请使用 `daemon run`。以前的 start/restart 配置参数，例如 `--port`和 `--no-relay`，会在产生任何副作用之前失败，并给出相应的 `config set` 迁移方式。见[配置编辑](/docs/configuration#apply-changes)。
+托管的 `start` 会忽略继承来的 daemon 设置覆盖项，包括 `PORT`、`PIMI_LISTEN`、中继和语音设置。它会保留 Provider 凭据以及可执行文件/运行时控制项。`start --foreground` 已被移除；请使用 `daemon run`。以前的 start/restart 配置参数，例如 `--port`和 `--no-relay`，会在产生任何副作用之前失败，并给出相应的 `config set` 迁移方式。见[配置编辑](/docs/configuration#apply-changes)。
 
 ### 选择一个 daemon {#select-one-daemon}
 
@@ -400,11 +400,11 @@ PASEO_LISTEN=127.0.0.1:6799 PASEO_RELAY_ENABLED=false paseo daemon run --home ~/
 | `--home`                                 | 该本地主目录，覆盖两个环境变量选择器 |
 | `--host`                                 | 该端点，覆盖两个环境变量选择器       |
 | 同时提供两个参数，或重复且相互冲突的参数 | `TARGET_AMBIGUOUS`                   |
-| 只有 `PASEO_HOME` 或只有 `PASEO_HOST`    | 对应的目标                           |
+| 只有 `PIMI_HOME` 或只有 `PIMI_HOST`      | 对应的目标                           |
 | 两个环境变量选择器都存在，且没有参数     | `TARGET_AMBIGUOUS`                   |
-| 都没有                                   | 默认的本地主目录 `~/.paseo`          |
+| 都没有                                   | 默认的本地主目录 `~/.pimi`           |
 
-仅限本地的 `start`、`daemon run`、`config`、`onboard` 和 `set-password` 会拒绝显式的 `--host`，并忽略 `PASEO_HOST`。端点操作保留 TCP、Unix 套接字、Windows 管道、SSH 和配对信息等传输方式。在宿主机上控制容器的 CLI 需要 `--host` 或 `PASEO_HOST`。
+仅限本地的 `start`、`daemon run`、`config`、`onboard` 和 `set-password` 会拒绝显式的 `--host`，并忽略 `PIMI_HOST`。端点操作保留 TCP、Unix 套接字、Windows 管道、SSH 和配对信息等传输方式。在宿主机上控制容器的 CLI 需要 `--host` 或 `PIMI_HOST`。
 
 ## 连接远程 daemon {#connecting-to-a-remote-daemon}
 
@@ -427,7 +427,7 @@ pimi --host 'pimi://pair/#offer=eyJ2IjoyLC...' ls
 pimi --host "$OFFER_URL" run "fix the failing tests"
 ```
 
-你也可以通过 `PASEO_HOST` 设置一次，而不必在每条命令中传入 `--host`。显式的参数会覆盖环境变量。
+你也可以通过 `PIMI_HOST` 设置一次，而不必在每条命令中传入 `--host`。显式的参数会覆盖环境变量。
 
 ## 多 Agent 工作流 {#multi-agent-workflows}
 

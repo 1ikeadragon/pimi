@@ -77,7 +77,7 @@ export class AutomationStateError extends Error {
 }
 
 export interface AutomationServiceOptions extends Omit<AutomationEngineDeps, "logger"> {
-  paseoHome: string;
+  pimiHome: string;
   logger: Logger;
   /** The host's agent profiles; an agent step may name one. */
   getAgentProfiles: () => readonly AgentProfile[];
@@ -269,7 +269,7 @@ function dedupeKeyFor(cause: AutomationRunCause, runId: string): string {
 // triggers.
 export class AutomationService {
   private readonly logger: Logger;
-  private readonly paseoHome: string;
+  private readonly pimiHome: string;
   private readonly store: AutomationStore;
   private readonly audit: AutomationAuditLog;
   private readonly engine: AutomationEngineDeps;
@@ -286,11 +286,11 @@ export class AutomationService {
 
   constructor(options: AutomationServiceOptions) {
     this.logger = options.logger.child({ module: "automation-service" });
-    this.paseoHome = options.paseoHome;
+    this.pimiHome = options.pimiHome;
     this.getAgentProfiles = options.getAgentProfiles;
     this.gh = options.gh;
     this.compileDefinition = options.compile;
-    const dir = join(options.paseoHome, "automations");
+    const dir = join(options.pimiHome, "automations");
     this.store = new AutomationStore({ dir, logger: this.logger });
     this.audit = new AutomationAuditLog({ dir, logger: this.logger });
     this.engine = {
@@ -305,7 +305,7 @@ export class AutomationService {
 
   async start(): Promise<void> {
     // Schedules from earlier builds are not migrated.
-    await rm(join(this.paseoHome, "schedules"), { recursive: true, force: true });
+    await rm(join(this.pimiHome, "schedules"), { recursive: true, force: true });
     await this.store.migrateOutputNodes();
     await this.recover();
     if (this.tickTimer) {

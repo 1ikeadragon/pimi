@@ -29,7 +29,7 @@ Local speech defaults to model IDs `parakeet-tdt-0.6b-v2-int8` (STT) and `kokoro
 
 Dictation is on by default. Voice mode is off until you turn it on in **Settings > Voice** or set `features.voiceMode.enabled: true`.
 
-Missing models for enabled features are downloaded at daemon startup into `$PASEO_HOME/models/local-speech`. Downloads happen only for missing files. **Settings > Voice** lists every local model with its size and languages, and lets you download or delete each one.
+Missing models for enabled features are downloaded at daemon startup into `$PIMI_HOME/models/local-speech`. Downloads happen only for missing files. **Settings > Voice** lists every local model with its size and languages, and lets you download or delete each one.
 
 ### Local STT models and language support
 
@@ -50,7 +50,7 @@ Missing models for enabled features are downloaded at daemon startup into `$PASE
   },
   "providers": {
     "local": {
-      "modelsDir": "~/.paseo/models/local-speech"
+      "modelsDir": "~/.pimi/models/local-speech"
     }
   }
 }
@@ -128,21 +128,21 @@ Pimi uses these paths under the configured OpenAI base URL:
 Provider, enablement, model, language, voice and tuning env vars override config.
 Keys and base URLs follow the fallback rule above.
 
-- `PASEO_DICTATION_ENABLED`, `PASEO_VOICE_MODE_ENABLED`, feature enablement
+- `PIMI_DICTATION_ENABLED`, `PIMI_VOICE_MODE_ENABLED`, feature enablement
 - `STT_MODEL`, model override for both OpenAI STT sites
 - `STT_CONFIDENCE_THRESHOLD`, confidence threshold for both OpenAI STT sites
 - `TTS_MODEL`, `TTS_VOICE`, OpenAI speaking model and voice
 
-- `PASEO_VOICE_LLM_PROVIDER`, voice agent provider override
-- `PASEO_DICTATION_STT_PROVIDER`, `PASEO_VOICE_STT_PROVIDER`, `PASEO_VOICE_TTS_PROVIDER`, speech provider selection (`local` or `openai`)
+- `PIMI_VOICE_LLM_PROVIDER`, voice agent provider override
+- `PIMI_DICTATION_STT_PROVIDER`, `PIMI_VOICE_STT_PROVIDER`, `PIMI_VOICE_TTS_PROVIDER`, speech provider selection (`local` or `openai`)
 - `OPENAI_STT_API_KEY`, `OPENAI_STT_BASE_URL`, OpenAI speech-to-text endpoint (dictation + voice mode STT)
 - `OPENAI_TTS_API_KEY`, `OPENAI_TTS_BASE_URL`, OpenAI text-to-speech endpoint (voice mode TTS)
-- `PASEO_LOCAL_MODELS_DIR`, local model storage directory
-- `PASEO_DICTATION_LOCAL_STT_MODEL`, local dictation STT model ID
-- `PASEO_VOICE_LOCAL_STT_MODEL`, `PASEO_VOICE_LOCAL_TTS_MODEL`, local voice STT/TTS model IDs
-- `PASEO_DICTATION_LANGUAGE`, dictation STT language
-- `PASEO_VOICE_LANGUAGE`, voice mode STT language; falls back to `PASEO_DICTATION_LANGUAGE` when unset
-- `PASEO_VOICE_LOCAL_TTS_SPEAKER_ID`, `PASEO_VOICE_LOCAL_TTS_SPEED`, optional local voice TTS tuning
+- `PIMI_LOCAL_MODELS_DIR`, local model storage directory
+- `PIMI_DICTATION_LOCAL_STT_MODEL`, local dictation STT model ID
+- `PIMI_VOICE_LOCAL_STT_MODEL`, `PIMI_VOICE_LOCAL_TTS_MODEL`, local voice STT/TTS model IDs
+- `PIMI_DICTATION_LANGUAGE`, dictation STT language
+- `PIMI_VOICE_LANGUAGE`, voice mode STT language; falls back to `PIMI_DICTATION_LANGUAGE` when unset
+- `PIMI_VOICE_LOCAL_TTS_SPEAKER_ID`, `PIMI_VOICE_LOCAL_TTS_SPEED`, optional local voice TTS tuning
 
 ## Operational Notes
 

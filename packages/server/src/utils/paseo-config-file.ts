@@ -23,7 +23,7 @@ export {
 export const PIMI_CONFIG_FILE_NAME = "pimi.json";
 const LEGACY_CONFIG_FILE_NAME = "paseo.json";
 // Configuration is deliberately small. Bound both IO and main-thread JSON/schema work.
-export const MAX_PASEO_CONFIG_BYTES = 256 * 1024;
+export const MAX_PIMI_CONFIG_BYTES = 256 * 1024;
 
 export type ReadPaseoConfigForEditResult =
   | { ok: true; config: PaseoConfigRaw | null; revision: PaseoConfigRevision | null }
@@ -72,9 +72,9 @@ export async function statPaseoConfigPath(repoRoot: string): Promise<PaseoConfig
 }
 
 function admit(stats: Stats): void {
-  if (!stats.isFile() || stats.size > MAX_PASEO_CONFIG_BYTES) {
+  if (!stats.isFile() || stats.size > MAX_PIMI_CONFIG_BYTES) {
     throw new Error(
-      `Project config must be a regular file of at most ${MAX_PASEO_CONFIG_BYTES} bytes`,
+      `Project config must be a regular file of at most ${MAX_PIMI_CONFIG_BYTES} bytes`,
     );
   }
 }
@@ -206,14 +206,14 @@ class ProjectConfigOwner {
       try {
         const openedStats = await handle.stat();
         admit(openedStats);
-        const bytes = Buffer.alloc(MAX_PASEO_CONFIG_BYTES + 1);
+        const bytes = Buffer.alloc(MAX_PIMI_CONFIG_BYTES + 1);
         let length = 0;
         while (length < bytes.length) {
           const { bytesRead } = await handle.read(bytes, length, bytes.length - length, null);
           if (bytesRead === 0) break;
           length += bytesRead;
         }
-        if (length > MAX_PASEO_CONFIG_BYTES) throw new Error("Project config exceeds byte limit");
+        if (length > MAX_PIMI_CONFIG_BYTES) throw new Error("Project config exceeds byte limit");
         // Never publish bytes under a revision that did not describe the opened file.
         if (fingerprint(await handle.stat()) !== fingerprint(openedStats)) {
           throw new Error("Project config changed while reading; retry the operation");
@@ -255,7 +255,7 @@ class ProjectConfigOwner {
       const { edit: parsed } = await validateConfig(input.config);
       if (!parsed.success) return { ok: false, error: { code: "invalid_project_config" } };
       const content = `${JSON.stringify(parsed.data, null, 2)}\n`;
-      if (Buffer.byteLength(content) > MAX_PASEO_CONFIG_BYTES) {
+      if (Buffer.byteLength(content) > MAX_PIMI_CONFIG_BYTES) {
         return { ok: false, error: { code: "invalid_project_config" } };
       }
       const tempPath = join(root, `.${PIMI_CONFIG_FILE_NAME}.${process.pid}.${randomUUID()}.tmp`);

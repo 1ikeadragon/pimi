@@ -35,7 +35,7 @@ pimi --host <host:port> provider diagnostic <provider> --json
 
 持久的修复方法是确保该命令在普通登录 shell 的 `PATH` 中，然后重启 Pimi。为什么要以此为准，请参见 [Pimi 的环境为何可能与终端不同](#why-paseos-environment-can-differ-from-your-terminal)。
 
-如果你更想直接固定路径，请在 `~/.paseo/config.json` 中设置二进制文件路径：
+如果你更想直接固定路径，请在 `~/.pimi/config.json` 中设置二进制文件路径：
 
 ```json
 {
@@ -68,7 +68,7 @@ pimi --host <host:port> provider diagnostic <provider> --json
 ## 查看日志 {#reading-the-logs}
 
 - **桌面应用**：登录 shell 的解析过程记录在这里。查找 `[login-shell-env]`：`applied` 表示成功（会记录前后的 `PATH`）；`failed; keeping inherited env` 表示它退回到了精简环境，并附带 `reason`（超时、shell 配置以非零状态退出、没有输出等）。最常见的原因是 `.zshrc`/`.zprofile` 运行缓慢或出错。
-- **daemon**：`~/.paseo/daemon.log`（如果你设置了自定义 home，则是 `$PASEO_HOME/daemon.log`）。
+- **daemon**：`~/.pimi/daemon.log`（如果你设置了自定义 home，则是 `$PIMI_HOME/daemon.log`）。
 
 桌面应用日志位置：
 

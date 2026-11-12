@@ -581,7 +581,7 @@ Creation request
   → resolve defaults and validate provider configuration
   → derive launch configuration with Pimi runtime tools and daemon prompt
   → agent.open.before hooks (same ordering; env and plugin-local tools and MCP servers)
-  → set PASEO_AGENT_ID, PASEO_AGENT_CWD, and PASEO_WORKSPACE_ID when the agent has a workspace
+  → set PIMI_AGENT_ID, PIMI_AGENT_CWD, and PIMI_WORKSPACE_ID when the agent has a workspace
   → open provider session and save agent configuration
 ```
 
@@ -599,7 +599,7 @@ Creation request
 
 | 契约                       | 行为                                                                               |
 | -------------------------- | ---------------------------------------------------------------------------------- |
-| `context.paseo`            | 已连接到此 daemon 的现有 SDK                                                       |
+| `context.pimi`             | 已连接到此 daemon 的现有 SDK                                                       |
 | `context.signal`           | 在调用超时或插件停止时中止；请把它传给外部请求                                     |
 | 输入数据                   | 分离的快照；通过返回的请求或 SDK 命令改变状态                                      |
 | 注册结果                   | 幂等的移除函数，例如 `const remove = server.addHook(...); remove();`               |

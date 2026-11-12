@@ -23,15 +23,15 @@ export interface SpeechSettingsOwner {
 }
 
 export function createSpeechSettingsOwner(params: {
-  paseoHome: string;
+  pimiHome: string;
   env: NodeJS.ProcessEnv;
   speechService: Pick<SpeechService, "reconfigure">;
 }): SpeechSettingsOwner {
-  const { paseoHome, env, speechService } = params;
+  const { pimiHome, env, speechService } = params;
   return {
     read: (persisted) => readSpeechSettings(persisted, env),
     apply: (persisted) => {
-      const resolved = resolveSpeechConfig({ paseoHome, env, persisted });
+      const resolved = resolveSpeechConfig({ pimiHome, env, persisted });
       speechService.reconfigure({ openaiConfig: resolved.openai, speechConfig: resolved.speech });
     },
   };
@@ -47,10 +47,10 @@ export function readSpeechSettings(persisted: PersistedConfig, env: NodeJS.Proce
     const name = names.find((candidate) => env[candidate]?.trim());
     if (name) envOverrides[path] = name;
   };
-  recordOverride("features.dictation.enabled", ["PASEO_DICTATION_ENABLED"]);
-  recordOverride("features.voiceMode.enabled", ["PASEO_VOICE_MODE_ENABLED"]);
+  recordOverride("features.dictation.enabled", ["PIMI_DICTATION_ENABLED"]);
+  recordOverride("features.voiceMode.enabled", ["PIMI_VOICE_MODE_ENABLED"]);
   recordOverride("features.voiceMode.turnDetection.provider", [
-    "PASEO_VOICE_TURN_DETECTION_PROVIDER",
+    "PIMI_VOICE_TURN_DETECTION_PROVIDER",
   ]);
 
   function readSite(
@@ -69,8 +69,8 @@ export function readSpeechSettings(persisted: PersistedConfig, env: NodeJS.Proce
     if (kind === "stt") {
       const languageVars =
         path === "features.dictation.stt"
-          ? ["PASEO_DICTATION_LANGUAGE"]
-          : ["PASEO_VOICE_LANGUAGE", "PASEO_DICTATION_LANGUAGE"];
+          ? ["PIMI_DICTATION_LANGUAGE"]
+          : ["PIMI_VOICE_LANGUAGE", "PIMI_DICTATION_LANGUAGE"];
       recordOverride(`${path}.language`, languageVars);
     }
     if (provider === "openai") {
@@ -88,8 +88,8 @@ export function readSpeechSettings(persisted: PersistedConfig, env: NodeJS.Proce
         recordOverride(`${path}.confidenceThreshold`, ["STT_CONFIDENCE_THRESHOLD"]);
       } else recordOverride(`${path}.voice`, ["TTS_VOICE"]);
     } else if (kind === "tts") {
-      recordOverride(`${path}.speakerId`, ["PASEO_VOICE_LOCAL_TTS_SPEAKER_ID"]);
-      recordOverride(`${path}.speed`, ["PASEO_VOICE_LOCAL_TTS_SPEED"]);
+      recordOverride(`${path}.speakerId`, ["PIMI_VOICE_LOCAL_TTS_SPEAKER_ID"]);
+      recordOverride(`${path}.speed`, ["PIMI_VOICE_LOCAL_TTS_SPEED"]);
     }
     return {
       ...fields,
@@ -109,8 +109,8 @@ export function readSpeechSettings(persisted: PersistedConfig, env: NodeJS.Proce
           providers.dictationStt.provider,
           "features.dictation.stt",
           "stt",
-          "PASEO_DICTATION_STT_PROVIDER",
-          "PASEO_DICTATION_LOCAL_STT_MODEL",
+          "PIMI_DICTATION_STT_PROVIDER",
+          "PIMI_DICTATION_LOCAL_STT_MODEL",
         ),
       },
       voiceMode: {
@@ -129,16 +129,16 @@ export function readSpeechSettings(persisted: PersistedConfig, env: NodeJS.Proce
           providers.voiceStt.provider,
           "features.voiceMode.stt",
           "stt",
-          "PASEO_VOICE_STT_PROVIDER",
-          "PASEO_VOICE_LOCAL_STT_MODEL",
+          "PIMI_VOICE_STT_PROVIDER",
+          "PIMI_VOICE_LOCAL_STT_MODEL",
         ),
         tts: readSite(
           voiceMode?.tts,
           providers.voiceTts.provider,
           "features.voiceMode.tts",
           "tts",
-          "PASEO_VOICE_TTS_PROVIDER",
-          "PASEO_VOICE_LOCAL_TTS_MODEL",
+          "PIMI_VOICE_TTS_PROVIDER",
+          "PIMI_VOICE_LOCAL_TTS_MODEL",
         ),
       },
     },

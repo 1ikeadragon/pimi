@@ -14,10 +14,10 @@ Git worktree 是工作区的一种。
 
 ## 目录结构与工作流程 {#layout-and-workflow}
 
-worktree 默认存放在 `$PASEO_HOME/worktrees/` 下，按源检出路径的哈希分组。你可以用 `config.json` 中的 `worktrees.root` 修改基础目录。每个 worktree 在其工作区创建时获得一个 slug 和一个分支。
+worktree 默认存放在 `$PIMI_HOME/worktrees/` 下，按源检出路径的哈希分组。你可以用 `config.json` 中的 `worktrees.root` 修改基础目录。每个 worktree 在其工作区创建时获得一个 slug 和一个分支。
 
 ```
-~/.paseo/worktrees/
+~/.pimi/worktrees/
 └── 1vnnm9k3/               # hash of source checkout path
     ├── tidy-fox/           # worktree slug
     └── bold-owl/
@@ -112,7 +112,7 @@ pimi workspace create \
 
 两个字段都接受多行 shell 脚本或命令数组；无论哪种形式，命令都按顺序运行。
 
-命令以 worktree 作为 `cwd` 运行。使用 `$PASEO_SOURCE_CHECKOUT_PATH` 访问原始检出中的文件（未跟踪的配置、本地缓存等）。
+命令以 worktree 作为 `cwd` 运行。使用 `$PIMI_SOURCE_CHECKOUT_PATH` 访问原始检出中的文件（未跟踪的配置、本地缓存等）。
 
 ## 脚本与服务 {#scripts-and-services}
 
@@ -139,25 +139,25 @@ pimi workspace create \
   "scripts": {
     "web": {
       "type": "service",
-      "command": "npm run dev -- --port $PASEO_PORT",
+      "command": "npm run dev -- --port $PIMI_PORT",
       "port": 3000
     },
     "api": {
       "type": "service",
-      "command": "npm run api -- --port $PASEO_PORT"
+      "command": "npm run api -- --port $PIMI_PORT"
     }
   }
 }
 ```
 
-省略 `port` 可以让 Pimi 自动分配端口。让你的进程绑定 `$PASEO_PORT`，而不是写死端口；每个 worktree 获得不同的端口，因此同一服务的多个副本可以共存。
+省略 `port` 可以让 Pimi 自动分配端口。让你的进程绑定 `$PIMI_PORT`，而不是写死端口；每个 worktree 获得不同的端口，因此同一服务的多个副本可以共存。
 
 ### 动态端口分配 {#dynamic-port-allocation}
 
-默认情况下，Pimi 向操作系统请求一个可用的临时端口。可以在 `~/.paseo/config.json` 中全局配置端口范围，也可以在 `pimi.json` 中按项目配置：
+默认情况下，Pimi 向操作系统请求一个可用的临时端口。可以在 `~/.pimi/config.json` 中全局配置端口范围，也可以在 `pimi.json` 中按项目配置：
 
 ```json
-// ~/.paseo/config.json
+// ~/.pimi/config.json
 {
   "worktrees": {
     "servicePorts": { "range": "3000-4000" }
@@ -186,7 +186,7 @@ pimi workspace create \
 }
 ```
 
-Pimi 在工作区目录中运行该可执行文件，并传入四个参数：服务名、工作区 ID、分支名和 worktree 路径。由于脚本是直接执行的、不经过 shell，`portScript` 必须指向一个真正的可执行文件（例如编译后的二进制文件，或带有正确 shebang 行如 `#!/bin/bash` 的脚本），而不是内联的 shell 命令或管道。如果需要 shell 求值或管道，请把它们包装在一个小的可执行脚本中。没有分支时会传入空字符串。相同的值也可以通过 `PASEO_SCRIPTNAME`、`PASEO_WORKSPACE_ID`、`PASEO_BRANCH_NAME` 和 `PASEO_WORKTREE_PATH` 获取。它必须向 stdout 输出一个有效的 TCP 端口。同一块中 `portScript` 优先于 `range`。Pimi 信任外部分配器，因此返回的端口可能已经被占用，例如被 Pimi 将要连接的某个服务占用。
+Pimi 在工作区目录中运行该可执行文件，并传入四个参数：服务名、工作区 ID、分支名和 worktree 路径。由于脚本是直接执行的、不经过 shell，`portScript` 必须指向一个真正的可执行文件（例如编译后的二进制文件，或带有正确 shebang 行如 `#!/bin/bash` 的脚本），而不是内联的 shell 命令或管道。如果需要 shell 求值或管道，请把它们包装在一个小的可执行脚本中。没有分支时会传入空字符串。相同的值也可以通过 `PIMI_SCRIPTNAME`、`PIMI_WORKSPACE_ID`、`PIMI_BRANCH_NAME` 和 `PIMI_WORKTREE_PATH` 获取。它必须向 stdout 输出一个有效的 TCP 端口。同一块中 `portScript` 优先于 `range`。Pimi 信任外部分配器，因此返回的端口可能已经被占用，例如被 Pimi 将要连接的某个服务占用。
 
 ### 反向代理 {#reverse-proxy}
 
@@ -206,15 +206,15 @@ http://<script>--<project>.localhost:<daemon-port>
 从同一工作区启动的服务可以看到彼此的端口和代理 URL。以上面的 `web` 和 `api` 为例，每个进程都会得到：
 
 ```
-PASEO_PORT=3000                         # this service's port
-PASEO_URL=http://web--my-app.localhost:6767  # this service's proxy URL
-PASEO_SERVICE_API_PORT=51732
-PASEO_SERVICE_API_URL=http://api--my-app.localhost:6767
-PASEO_SERVICE_WEB_PORT=3000
-PASEO_SERVICE_WEB_URL=http://web--my-app.localhost:6767
+PIMI_PORT=3000                         # this service's port
+PIMI_URL=http://web--my-app.localhost:6767  # this service's proxy URL
+PIMI_SERVICE_API_PORT=51732
+PIMI_SERVICE_API_URL=http://api--my-app.localhost:6767
+PIMI_SERVICE_WEB_PORT=3000
+PIMI_SERVICE_WEB_URL=http://web--my-app.localhost:6767
 ```
 
-脚本名会转为大写，非字母数字字符变为 `_`。让你的前端指向 `$PASEO_SERVICE_API_URL`，而不是写死端口。
+脚本名会转为大写，非字母数字字符变为 `_`。让你的前端指向 `$PIMI_SERVICE_API_URL`，而不是写死端口。
 
 ## 终端 {#terminals}
 
@@ -235,16 +235,16 @@ PASEO_SERVICE_WEB_URL=http://web--my-app.localhost:6767
 
 Setup、teardown、脚本和服务都能看到：
 
-- `$PASEO_SOURCE_CHECKOUT_PATH`，原始仓库根目录
-- `$PASEO_WORKTREE_PATH`，worktree 目录
-- `$PASEO_BRANCH_NAME`，worktree 的分支
-- `$PASEO_WORKTREE_PORT`，旧版的每个 worktree 一个的端口（在服务中优先使用 `$PASEO_PORT`）
+- `$PIMI_SOURCE_CHECKOUT_PATH`，原始仓库根目录
+- `$PIMI_WORKTREE_PATH`，worktree 目录
+- `$PIMI_BRANCH_NAME`，worktree 的分支
+- `$PIMI_WORKTREE_PORT`，旧版的每个 worktree 一个的端口（在服务中优先使用 `$PIMI_PORT`）
 
 服务还会额外得到：
 
-- `$PASEO_PORT`，该服务分配到的端口
-- `$PASEO_URL`，该服务的代理 URL
-- `$PASEO_SERVICE_<NAME>_PORT` / `_URL`，其他服务的端口和 URL
+- `$PIMI_PORT`，该服务分配到的端口
+- `$PIMI_URL`，该服务的代理 URL
+- `$PIMI_SERVICE_<NAME>_PORT` / `_URL`，其他服务的端口和 URL
 - `$HOST`，仅本地访问的 daemon 为 `127.0.0.1`，daemon 绑定所有网络接口时为 `0.0.0.0`
 
 ## 管理工作区 {#manage-the-workspace}

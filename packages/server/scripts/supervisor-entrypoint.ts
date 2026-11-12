@@ -8,7 +8,8 @@ import {
   startPidLockHeartbeat,
   updatePidLock,
 } from "../src/server/pid-lock.js";
-import { resolvePaseoHome } from "../src/server/paseo-home.js";
+import { resolvePimiHome } from "../src/server/pimi-home.js";
+import { migrateLegacyHome } from "../src/server/legacy-home-migration.js";
 import { daemonLogPath } from "../src/server/daemon-instance.js";
 import { PRIVATE_FILE_MODE } from "../src/server/private-files.js";
 import { loadPersistedConfig } from "../src/server/persisted-config.js";
@@ -79,7 +80,7 @@ function resolveWorkerExecArgv(workerEntry: string, devMode: boolean): string[] 
     "--report-on-fatalerror",
     "--report-directory=/tmp/paseo-reports",
   ];
-  const inspectArg = process.env.PASEO_NODE_INSPECT ?? "--inspect";
+  const inspectArg = process.env.PIMI_NODE_INSPECT ?? "--inspect";
   if (inspectArg !== "0" && inspectArg !== "false" && inspectArg !== "off") {
     devArgs.push(inspectArg);
   }
@@ -108,12 +109,24 @@ async function main(): Promise<void> {
       ? resolvePackagedNodeEntrypointRunnerPath(fileURLToPath(import.meta.url))
       : null;
 
-  const paseoHome = resolvePaseoHome(workerEnv);
-  const persistedConfig = loadPersistedConfig(paseoHome);
-  const supervisorLogFile = resolveSupervisorLogFile(paseoHome, persistedConfig, workerEnv);
+  let migrationNotice: string | null = null;
+  try {
+    await migrateLegacyHome(workerEnv, (message) => {
+      migrationNotice = message;
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    failStartup(message, message);
+  }
+  const pimiHome = resolvePimiHome(workerEnv);
+  if (migrationNotice) {
+    appendFileSync(daemonLogPath(pimiHome), `${migrationNotice}\n`);
+  }
+  const persistedConfig = loadPersistedConfig(pimiHome);
+  const supervisorLogFile = resolveSupervisorLogFile(pimiHome, persistedConfig, workerEnv);
 
   try {
-    await acquirePidLock(paseoHome, null, {
+    await acquirePidLock(pimiHome, null, {
       ownerPid: process.pid,
     });
   } catch (error) {
@@ -125,7 +138,7 @@ async function main(): Promise<void> {
 
   let lockReleased = false;
   let requestSupervisorShutdown: ((reason: string) => void) | null = null;
-  const stopLockHeartbeat = startPidLockHeartbeat(paseoHome, {
+  const stopLockHeartbeat = startPidLockHeartbeat(pimiHome, {
     ownerPid: process.pid,
     onError: (error) => {
       const message = error instanceof Error ? error.message : String(error);
@@ -141,7 +154,7 @@ async function main(): Promise<void> {
     }
     lockReleased = true;
     stopLockHeartbeat();
-    await releasePidLock(paseoHome, {
+    await releasePidLock(pimiHome, {
       ownerPid: process.pid,
     });
   };
@@ -171,13 +184,13 @@ async function main(): Promise<void> {
     restartOnCrash: true,
     logFile: supervisorLogFile,
     onWorkerReady: async ({ listen, serverId }) => {
-      await updatePidLock(paseoHome, { listen, serverId }, { ownerPid: process.pid });
+      await updatePidLock(pimiHome, { listen, serverId }, { ownerPid: process.pid });
     },
     onWorkerExit: () =>
-      updatePidLock(paseoHome, { listen: null, serverId: null }, { ownerPid: process.pid }),
+      updatePidLock(pimiHome, { listen: null, serverId: null }, { ownerPid: process.pid }),
     onSupervisorExit: releaseLock,
     cleanupTerminals: async (log) => {
-      const result = await reapTerminalWorkers({ paseoHome, log });
+      const result = await reapTerminalWorkers({ pimiHome, log });
       log("Terminal worker cleanup result", { ...result });
     },
   });
@@ -189,7 +202,7 @@ async function main(): Promise<void> {
 function failStartup(detail: string, summary: string): never {
   process.stderr.write(`${detail}\n`);
   try {
-    const logPath = daemonLogPath(resolvePaseoHome(process.env));
+    const logPath = daemonLogPath(resolvePimiHome(process.env));
     mkdirSync(path.dirname(logPath), { recursive: true });
     appendFileSync(
       logPath,

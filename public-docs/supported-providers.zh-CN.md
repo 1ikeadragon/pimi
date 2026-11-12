@@ -31,7 +31,7 @@ daemon 重启后，Antigravity 会记得对话，但 Pimi 的对话记录会重�
 
 Pimi MCP 工具和引导功能不可用。你自己为 `agy` 配置的 MCP 服务器仍然可用。附加的图片会以文件引用的形式传给 Agent 读取。
 
-如果 `agy` 不在 daemon 的 PATH 中，请在 `~/.paseo/config.json` 中覆盖它的命令。使用 `env` 设置 Provider 专用的环境变量：
+如果 `agy` 不在 daemon 的 PATH 中，请在 `~/.pimi/config.json` 中覆盖它的命令。使用 `env` 设置 Provider 专用的环境变量：
 
 ```json
 {

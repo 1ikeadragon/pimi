@@ -10,13 +10,13 @@ nav: 配置
 
 ## 配置存放在哪里 {#where-config-lives}
 
-Pimi 默认使用 `~/.paseo` 作为主目录。配置文件是：
+Pimi 默认使用 `~/.pimi` 作为主目录。配置文件是：
 
 ```bash
-~/.paseo/config.json
+~/.pimi/config.json
 ```
 
-你可以通过设置 `PASEO_HOME` 或在 CLI 命令上使用 `--home` 来更改主目录。
+你可以通过设置 `PIMI_HOME` 或在 CLI 命令上使用 `--home` 来更改主目录。
 
 ## 优先级 {#precedence}
 
@@ -94,7 +94,7 @@ Agent Provider，包括 Pimi 自带的一等 Provider 和你在 `agents.provider
 
 ## worktree {#worktrees}
 
-新的 worktree 默认创建在 `$PASEO_HOME/worktrees` 下。要把新的 worktree 放到其他位置，请设置 `worktrees.root`：
+新的 worktree 默认创建在 `$PIMI_HOME/worktrees` 下。要把新的 worktree 放到其他位置，请设置 `worktrees.root`：
 
 ```json
 {
@@ -104,7 +104,7 @@ Agent Provider，包括 Pimi 自带的一等 Provider 和你在 `agents.provider
 }
 ```
 
-相对路径基于 `PASEO_HOME` 解析。已有的 worktree 保持原位；修改此设置只会改变 Pimi 之后创建和发现由 Pimi 管理的 worktree 的位置。
+相对路径基于 `PIMI_HOME` 解析。已有的 worktree 保持原位；修改此设置只会改变 Pimi 之后创建和发现由 Pimi 管理的 worktree 的位置。
 
 ## 语音 {#voice}
 
@@ -117,7 +117,7 @@ Agent Provider，包括 Pimi 自带的一等 Provider 和你在 `agents.provider
 daemon 日志默认使用独立的控制台输出和文件输出：
 
 - 控制台：`info` 及以上
-- 文件（`$PASEO_HOME/daemon.log`）：`trace` 及以上
+- 文件（`$PIMI_HOME/daemon.log`）：`trace` 及以上
 - 文件轮转：单个文件最大 `10m`，除当前文件外保留 `3` 个轮转文件
 
 ```json
@@ -153,10 +153,10 @@ pimi daemon set-password
 
 它会提示你输入密码，把 bcrypt 哈希写入 `config.json`，并提示你重启 daemon。身份验证属于启动设置，因此 `pimi reload` 也会把它报告为需要重启。
 
-或者设置 `PASEO_PASSWORD` 环境变量（明文，启动时自动哈希）：
+或者设置 `PIMI_PASSWORD` 环境变量（明文，启动时自动哈希）：
 
 ```bash
-PASEO_PASSWORD=my-secret paseo daemon start
+PIMI_PASSWORD=my-secret paseo daemon start
 ```
 
 或者直接把哈希写入 `config.json`：
@@ -183,14 +183,14 @@ CLI 按以下顺序获取密码：
    paseo --host "tcp://192.168.1.10:6767?password=my-secret" ls
    ```
 
-2. `PASEO_PASSWORD` 环境变量，在主机未携带内嵌密码时作为后备使用（适用于 `localhost:6767`、裸的 `host:port`，或不带 `password=` 查询参数的 `tcp://` 主机）：
+2. `PIMI_PASSWORD` 环境变量，在主机未携带内嵌密码时作为后备使用（适用于 `localhost:6767`、裸的 `host:port`，或不带 `password=` 查询参数的 `tcp://` 主机）：
 
    ```bash
-   PASEO_PASSWORD=my-secret paseo ls
-   PASEO_PASSWORD=my-secret paseo --host 192.168.1.10:6767 ls
+   PIMI_PASSWORD=my-secret paseo ls
+   PIMI_PASSWORD=my-secret paseo --host 192.168.1.10:6767 ls
    ```
 
-URI 中的 `password=` 总是优先于环境变量，因此你可以全局设置 `PASEO_PASSWORD`，同时通过在 URI 中写明密码来连接另一个 daemon。
+URI 中的 `password=` 总是优先于环境变量，因此你可以全局设置 `PIMI_PASSWORD`，同时通过在 URI 中写明密码来连接另一个 daemon。
 
 在移动应用中，在直接连接的设置界面输入密码。
 
@@ -210,34 +210,34 @@ URI 中的 `password=` 总是优先于环境变量，因此你可以全局设置
 }
 ```
 
-`PASEO_RELAY_ENABLED=true|false` 会为前台部署覆盖文件中的值。托管的 `start` 使用文件中的值。在通过应用或 `pimi daemon pair --relay` 修改中继之前，请结束并重新启动部署以移除它的覆盖项。
+`PIMI_RELAY_ENABLED=true|false` 会为前台部署覆盖文件中的值。托管的 `start` 使用文件中的值。在通过应用或 `pimi daemon pair --relay` 修改中继之前，请结束并重新启动部署以移除它的覆盖项。
 
 ## 常用环境变量 {#common-env-vars}
 
-- `PASEO_HOME`，设置 Pimi 主目录
-- `PASEO_HOST`，设置 CLI 命令的 daemon 目标
-- `PASEO_PASSWORD`，在 daemon 上表示要求的密码（明文，启动时哈希）；在 CLI 上表示主机 URI 未包含密码时用于连接的密码
-- `PASEO_LISTEN`，覆盖 `daemon.listen`
-- `PASEO_RELAY_ENABLED`，为本次 daemon 启动启用或关闭出站中继
-- `PASEO_HOSTNAMES`，覆盖或扩展 `daemon.hostnames`
-- `PASEO_ALLOWED_HOSTS`，`PASEO_HOSTNAMES` 的已弃用别名
-- `PASEO_TRUSTED_PROXIES`，为 `X-Forwarded-*` 请求头配置受信任的反向代理范围
-- `PASEO_LOG_CONSOLE_LEVEL`，覆盖 `log.console.level`
-- `PASEO_LOG_FILE_LEVEL`，覆盖 `log.file.level`
-- `PASEO_LOG_FILE_PATH`，覆盖 `log.file.path`
-- `PASEO_LOG_FILE_ROTATE_SIZE`，覆盖 `log.file.rotate.maxSize`
-- `PASEO_LOG_FILE_ROTATE_COUNT`，覆盖 `log.file.rotate.maxFiles`
-- `PASEO_LOG`、`PASEO_LOG_FORMAT`，旧版日志覆盖项（仍受支持）
+- `PIMI_HOME`，设置 Pimi 主目录
+- `PIMI_HOST`，设置 CLI 命令的 daemon 目标
+- `PIMI_PASSWORD`，在 daemon 上表示要求的密码（明文，启动时哈希）；在 CLI 上表示主机 URI 未包含密码时用于连接的密码
+- `PIMI_LISTEN`，覆盖 `daemon.listen`
+- `PIMI_RELAY_ENABLED`，为本次 daemon 启动启用或关闭出站中继
+- `PIMI_HOSTNAMES`，覆盖或扩展 `daemon.hostnames`
+- `PIMI_ALLOWED_HOSTS`，`PIMI_HOSTNAMES` 的已弃用别名
+- `PIMI_TRUSTED_PROXIES`，为 `X-Forwarded-*` 请求头配置受信任的反向代理范围
+- `PIMI_LOG_CONSOLE_LEVEL`，覆盖 `log.console.level`
+- `PIMI_LOG_FILE_LEVEL`，覆盖 `log.file.level`
+- `PIMI_LOG_FILE_PATH`，覆盖 `log.file.path`
+- `PIMI_LOG_FILE_ROTATE_SIZE`，覆盖 `log.file.rotate.maxSize`
+- `PIMI_LOG_FILE_ROTATE_COUNT`，覆盖 `log.file.rotate.maxFiles`
+- `PIMI_LOG`、`PIMI_LOG_FORMAT`，旧版日志覆盖项（仍受支持）
 - `OPENAI_API_KEY`，覆盖 OpenAI Provider 密钥
 - `OPENAI_STT_API_KEY`、`OPENAI_STT_BASE_URL`，OpenAI 语音转文字端点（听写和语音模式 STT）
 - `OPENAI_TTS_API_KEY`、`OPENAI_TTS_BASE_URL`，OpenAI 文字转语音端点（语音模式 TTS）
-- `PASEO_VOICE_LLM_PROVIDER`，覆盖语音 LLM Provider（`claude`、`codex`、`opencode`）
-- `PASEO_DICTATION_STT_PROVIDER`、`PASEO_VOICE_STT_PROVIDER`、`PASEO_VOICE_TTS_PROVIDER`，覆盖语音 Provider 的选择（`local` 或 `openai`）
-- `PASEO_LOCAL_MODELS_DIR`，控制本地模型目录
-- `PASEO_DICTATION_LOCAL_STT_MODEL`，覆盖本地听写 STT 模型
-- `PASEO_VOICE_LOCAL_STT_MODEL`、`PASEO_VOICE_LOCAL_TTS_MODEL`，覆盖本地语音 STT/TTS 模型
-- `PASEO_DICTATION_LANGUAGE`、`PASEO_VOICE_LANGUAGE`，覆盖听写和语音 STT 的语言
-- `PASEO_VOICE_LOCAL_TTS_SPEAKER_ID`、`PASEO_VOICE_LOCAL_TTS_SPEED`，可选的本地语音 TTS 调优
+- `PIMI_VOICE_LLM_PROVIDER`，覆盖语音 LLM Provider（`claude`、`codex`、`opencode`）
+- `PIMI_DICTATION_STT_PROVIDER`、`PIMI_VOICE_STT_PROVIDER`、`PIMI_VOICE_TTS_PROVIDER`，覆盖语音 Provider 的选择（`local` 或 `openai`）
+- `PIMI_LOCAL_MODELS_DIR`，控制本地模型目录
+- `PIMI_DICTATION_LOCAL_STT_MODEL`，覆盖本地听写 STT 模型
+- `PIMI_VOICE_LOCAL_STT_MODEL`、`PIMI_VOICE_LOCAL_TTS_MODEL`，覆盖本地语音 STT/TTS 模型
+- `PIMI_DICTATION_LANGUAGE`、`PIMI_VOICE_LANGUAGE`，覆盖听写和语音 STT 的语言
+- `PIMI_VOICE_LOCAL_TTS_SPEAKER_ID`、`PIMI_VOICE_LOCAL_TTS_SPEED`，可选的本地语音 TTS 调优
 
 ## Schema {#schema}
 

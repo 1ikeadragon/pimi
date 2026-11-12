@@ -361,9 +361,9 @@ export function createTerminalManager(
           ? (managerOptions.getTerminalActivityUrl?.() ?? null)
           : options.activityUrl;
       const activityEnv = {
-        PASEO_TERMINAL_ID: terminalId,
-        PASEO_ACTIVITY_TOKEN: activityToken,
-        ...(terminalActivityUrl ? { PASEO_TERMINAL_ACTIVITY_URL: terminalActivityUrl } : {}),
+        PIMI_TERMINAL_ID: terminalId,
+        PIMI_ACTIVITY_TOKEN: activityToken,
+        ...(terminalActivityUrl ? { PIMI_TERMINAL_ACTIVITY_URL: terminalActivityUrl } : {}),
       };
       terminalActivityTokenById.set(terminalId, activityToken);
       let session: LocalTerminalSession;

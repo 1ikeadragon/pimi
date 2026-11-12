@@ -3,7 +3,7 @@ import { getErrorMessage } from "@pimi/protocol/error-utils";
 import { z } from "zod";
 import { execCommand } from "../../../utils/spawn.js";
 
-export const PASEO_CLI_PACKAGE = "@pimi/cli";
+export const PIMI_CLI_PACKAGE = "@pimi/cli";
 
 const NPM_PROBE_TIMEOUT_MS = 10_000;
 const NPM_MAX_BUFFER_BYTES = 10 * 1024 * 1024;
@@ -101,7 +101,7 @@ function parseNpmGlobalPaseoInstall(stdout: string): NpmGlobalPaseoInstall | nul
     return null;
   }
 
-  const rawCliPackage = list.data.dependencies?.[PASEO_CLI_PACKAGE];
+  const rawCliPackage = list.data.dependencies?.[PIMI_CLI_PACKAGE];
   const cliPackage = NpmGlobalCliPackageSchema.safeParse(rawCliPackage);
   if (!cliPackage.success) {
     return null;
@@ -124,7 +124,7 @@ export class DefaultNpmGlobalPaseoCli implements NpmGlobalPaseoCli {
     const prefixArgs = options.prefix ? ["--prefix", options.prefix] : [];
     const result = await this.runCommand(
       "npm",
-      ["-g", "ls", PASEO_CLI_PACKAGE, "--json", "--depth=0", "--long", ...prefixArgs],
+      ["-g", "ls", PIMI_CLI_PACKAGE, "--json", "--depth=0", "--long", ...prefixArgs],
       {
         timeout: NPM_PROBE_TIMEOUT_MS,
         maxBuffer: NPM_MAX_BUFFER_BYTES,
@@ -137,7 +137,7 @@ export class DefaultNpmGlobalPaseoCli implements NpmGlobalPaseoCli {
 
     const install = parseNpmGlobalPaseoInstall(result.stdout);
     if (!install) {
-      throw new Error(`${PASEO_CLI_PACKAGE} is not installed with npm -g on this host`);
+      throw new Error(`${PIMI_CLI_PACKAGE} is not installed with npm -g on this host`);
     }
     return install;
   }

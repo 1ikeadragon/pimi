@@ -1,6 +1,6 @@
 # Custom Provider Configuration
 
-Pimi supports configuring custom agent providers through `config.json` (located at `$PASEO_HOME/config.json`, typically `~/.paseo/config.json`). You can extend built-in providers with different API backends, add ACP-compatible agents, set custom binaries, disable providers, and create multiple profiles for the same underlying provider.
+Pimi supports configuring custom agent providers through `config.json` (located at `$PIMI_HOME/config.json`, typically `~/.pimi/config.json`). You can extend built-in providers with different API backends, add ACP-compatible agents, set custom binaries, disable providers, and create multiple profiles for the same underlying provider.
 
 Provider definitions live under `agents.providers` in config.json:
 
@@ -29,7 +29,7 @@ agent catalog during startup, raise the limit in milliseconds:
 ```
 
 The limit applies independently to every provider refresh and covers availability plus the entire
-catalog probe. `PASEO_PROVIDER_REFRESH_TIMEOUT_MS` sets it when the config field is absent.
+catalog probe. `PIMI_PROVIDER_REFRESH_TIMEOUT_MS` sets it when the config field is absent.
 
 ## Provider options
 
@@ -118,8 +118,8 @@ Pimi first uses an explicitly configured server, then a healthy locally register
     "providers": {
       "opencode": {
         "env": {
-          "PASEO_OPENCODE_SERVER_URL": "http://127.0.0.1:4096",
-          "PASEO_OPENCODE_SERVER_PASSWORD": "<server password>"
+          "PIMI_OPENCODE_SERVER_URL": "http://127.0.0.1:4096",
+          "PIMI_OPENCODE_SERVER_PASSWORD": "<server password>"
         }
       }
     }
@@ -127,11 +127,11 @@ Pimi first uses an explicitly configured server, then a healthy locally register
 }
 ```
 
-`PASEO_OPENCODE_SERVER_URL` must be an absolute `http` or `https` URL. Omit `PASEO_OPENCODE_SERVER_PASSWORD` when the server has no authentication; when set, Pimi authenticates with HTTP Basic auth as `opencode`.
+`PIMI_OPENCODE_SERVER_URL` must be an absolute `http` or `https` URL. Omit `PIMI_OPENCODE_SERVER_PASSWORD` when the server has no authentication; when set, Pimi authenticates with HTTP Basic auth as `opencode`.
 
 A configured URL takes precedence even when unreachable; Pimi reports the connection error. The local service registration supplies its own authentication. For a discovered local service, Pimi installs its bridge package in OpenCode's watched global plugin directory without changing the existing configuration. Refresh reads the existing service's catalogs without starting another server.
 
-An explicitly configured server needs the bridge installed separately. Connect once and start a session: the setup error gives the local package directory. Copy that directory to the server's OpenCode global `plugins` directory, then retry. For a server on another machine, set `PASEO_OPENCODE_BRIDGE_PORT` in the Pimi OpenCode provider environment before starting Pimi, and set `PASEO_OPENCODE_BRIDGE_URL` to the URL the OpenCode server can use to reach that port. For example, an SSH reverse tunnel can expose the Pimi loopback port on the OpenCode host. The bridge token is exchanged through the OpenCode connection and is not written into the plugin package.
+An explicitly configured server needs the bridge installed separately. Connect once and start a session: the setup error gives the local package directory. Copy that directory to the server's OpenCode global `plugins` directory, then retry. For a server on another machine, set `PIMI_OPENCODE_BRIDGE_PORT` in the Pimi OpenCode provider environment before starting Pimi, and set `PIMI_OPENCODE_BRIDGE_URL` to the URL the OpenCode server can use to reach that port. For example, an SSH reverse tunnel can expose the Pimi loopback port on the OpenCode host. The bridge token is exchanged through the OpenCode connection and is not written into the plugin package.
 
 OpenCode's custom MCP registrations are shared by all sessions in a location. Pimi rejects custom MCP servers and per-agent process environment overrides on a reused server rather than applying them to other sessions or ignoring them. Session identity is applied to each session's shell environment. A Pimi-owned helper supports custom process and MCP settings; it is selected when there is no explicit URL or healthy registered service.
 

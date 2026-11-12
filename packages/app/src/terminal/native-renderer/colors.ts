@@ -1,6 +1,6 @@
 import type { ITheme } from "@xterm/xterm";
 import type { TerminalCell } from "@pimi/protocol/messages";
-import { PASEO_TERMINAL_STYLE_FLAGS } from "../../../modules/paseo-terminal/contract";
+import { PIMI_TERMINAL_STYLE_FLAGS } from "../../../modules/paseo-terminal/contract";
 
 import { darkTheme } from "@/styles/theme";
 import { toXtermTheme } from "@/utils/to-xterm-theme";
@@ -151,11 +151,11 @@ function resolveColor(input: {
 
 function cellFlags(cell: TerminalCell): number {
   let flags = 0;
-  if (cell.bold) flags |= PASEO_TERMINAL_STYLE_FLAGS.bold;
-  if (cell.italic) flags |= PASEO_TERMINAL_STYLE_FLAGS.italic;
-  if (cell.underline) flags |= PASEO_TERMINAL_STYLE_FLAGS.underline;
-  if (cell.strikethrough) flags |= PASEO_TERMINAL_STYLE_FLAGS.strikethrough;
-  if (cell.dim) flags |= PASEO_TERMINAL_STYLE_FLAGS.dim;
+  if (cell.bold) flags |= PIMI_TERMINAL_STYLE_FLAGS.bold;
+  if (cell.italic) flags |= PIMI_TERMINAL_STYLE_FLAGS.italic;
+  if (cell.underline) flags |= PIMI_TERMINAL_STYLE_FLAGS.underline;
+  if (cell.strikethrough) flags |= PIMI_TERMINAL_STYLE_FLAGS.strikethrough;
+  if (cell.dim) flags |= PIMI_TERMINAL_STYLE_FLAGS.dim;
   return flags;
 }
 

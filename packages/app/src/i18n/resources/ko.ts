@@ -3419,7 +3419,7 @@ export const ko: TranslationResources = {
         newScript: "새 스크립트",
         editScript: "{{name}} 편집",
         runAsService: "서비스로 실행",
-        serviceHint: "Paseo가 프로세스를 감독하고 $PASEO_PORT를 통해 포트를 할당합니다",
+        serviceHint: "Paseo가 프로세스를 감독하고 $PIMI_PORT를 통해 포트를 할당합니다",
         actions: {
           add: "스크립트 추가",
           edit: "편집",

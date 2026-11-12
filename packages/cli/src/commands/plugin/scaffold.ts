@@ -12,7 +12,7 @@ const SDK_ENTRYPOINTS = {
 };
 
 async function copySdkTypes(directory: string): Promise<void> {
-  const bundledCli = process.env.PASEO_CLI;
+  const bundledCli = process.env.PIMI_CLI;
   const bundledSdk = bundledCli && path.resolve(path.dirname(bundledCli), "../plugin-sdk");
   const packaged = bundledSdk && (await stat(bundledSdk).catch(() => null))?.isDirectory();
   await mkdir(path.join(directory, ".pimi-sdk"));

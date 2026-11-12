@@ -117,4 +117,4 @@ pimi heartbeat delete <id>
 pimi heartbeat ls
 ```
 
-`create` must run inside a Pimi agent, which sets `PASEO_AGENT_ID`. Inside an agent, `update`, `delete`, and `ls` reach only that agent's heartbeats; outside one they reach every heartbeat on the host, so you can stop or reschedule any heartbeat by its id. `update` changes only the cadence. Heartbeats of an archived agent are deleted.
+`create` must run inside a Pimi agent, which sets `PIMI_AGENT_ID`. Inside an agent, `update`, `delete`, and `ls` reach only that agent's heartbeats; outside one they reach every heartbeat on the host, so you can stop or reschedule any heartbeat by its id. `update` changes only the cadence. Heartbeats of an archived agent are deleted.

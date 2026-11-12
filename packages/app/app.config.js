@@ -8,8 +8,8 @@ const withAndroidScroll = require("./modules/paseo-scroll/app.plugin");
 const { getNativeReleaseVersion } = require("./native-release-version");
 const appVariant = process.env.APP_VARIANT ?? "production";
 const isPimiAndroid = appVariant === "pimi-android";
-const isWatchdogBuild = process.env.PASEO_WATCHDOG_BUILD === "1";
-const isProfileBuild = process.env.PASEO_PROFILE_BUILD === "1";
+const isWatchdogBuild = process.env.PIMI_WATCHDOG_BUILD === "1";
+const isProfileBuild = process.env.PIMI_PROFILE_BUILD === "1";
 
 const androidPermissions = [
   "RECORD_AUDIO",
@@ -142,8 +142,8 @@ export default {
       ...(isPimiAndroid ? { pimiAndroid: true } : {}),
       profileBuild: isProfileBuild,
       watchdogBuild: isWatchdogBuild,
-      diagnosticRevision: process.env.PASEO_DIAGNOSTIC_REVISION,
-      diagnosticBuildTime: process.env.PASEO_DIAGNOSTIC_BUILD_TIME,
+      diagnosticRevision: process.env.PIMI_DIAGNOSTIC_REVISION,
+      diagnosticBuildTime: process.env.PIMI_DIAGNOSTIC_BUILD_TIME,
       router: {},
     },
   },

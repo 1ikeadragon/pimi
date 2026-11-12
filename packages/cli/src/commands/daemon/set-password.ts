@@ -7,7 +7,7 @@ import {
   savePersistedConfig,
   type PersistedConfig,
 } from "@pimi/server/configuration";
-import { resolvePaseoHome } from "@pimi/server/daemon-control";
+import { resolvePimiHome } from "@pimi/server/daemon-control";
 import type {
   CommandError,
   CommandOptions,
@@ -62,7 +62,7 @@ function terminalPasswordPrompt(): PromptPassword {
     throw createCommandError(
       "PASSWORD_TTY_REQUIRED",
       "pimi daemon set-password needs a terminal to read the password",
-      "Run it in an interactive terminal, or set PASEO_PASSWORD in the daemon's environment instead.",
+      "Run it in an interactive terminal, or set PIMI_PASSWORD in the daemon's environment instead.",
     );
   }
   return (message) => passwordPrompt({ message });
@@ -92,9 +92,9 @@ export async function setDaemonPasswordInConfig(
   newPassword: string,
   options: SetPasswordOptions = {},
 ): Promise<SetPasswordResult> {
-  const paseoHome = resolvePaseoHome({ PASEO_HOME: options.home });
-  const configPath = path.join(paseoHome, CONFIG_FILENAME);
-  const persisted = readPersistedConfig(paseoHome);
+  const pimiHome = resolvePimiHome({ PIMI_HOME: options.home });
+  const configPath = path.join(pimiHome, CONFIG_FILENAME);
+  const persisted = readPersistedConfig(pimiHome);
   const nextConfig: PersistedConfig = {
     ...persisted,
     daemon: {
@@ -106,13 +106,13 @@ export async function setDaemonPasswordInConfig(
     },
   };
 
-  savePersistedConfig(paseoHome, nextConfig);
+  savePersistedConfig(pimiHome, nextConfig);
 
   return {
     action: "password_set",
     configPath,
-    restartCommand: `pimi daemon restart --home ${JSON.stringify(paseoHome)}`,
-    message: `Password written to ${configPath}\nRestart the daemon for the change to take effect.\nRun: paseo daemon restart --home ${JSON.stringify(paseoHome)}`,
+    restartCommand: `pimi daemon restart --home ${JSON.stringify(pimiHome)}`,
+    message: `Password written to ${configPath}\nRestart the daemon for the change to take effect.\nRun: paseo daemon restart --home ${JSON.stringify(pimiHome)}`,
   };
 }
 

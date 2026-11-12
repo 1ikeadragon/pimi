@@ -19,7 +19,7 @@ import type { AgentManager, AgentSubscriber, SubscribeOptions } from "./agent-ma
 import type { AgentStorage } from "./agent-storage.js";
 
 interface CreateAgentLifecycleDispatchDependencies {
-  paseoHome: string;
+  pimiHome: string;
   worktreesRoot?: string;
   agentManager: AgentManager;
   agentStorage: AgentStorage;
@@ -89,7 +89,7 @@ export class CreateAgentLifecycleDispatch {
         background: input.background,
         callerWorkspaceId: input.callerWorkspaceId,
         firstAgentContext: input.firstAgentContext,
-        paseoHome: this.dependencies.paseoHome,
+        pimiHome: this.dependencies.pimiHome,
         worktreesRoot: this.dependencies.worktreesRoot,
       },
       base ? { resolveDefaultBranch: async () => base } : undefined,
@@ -173,7 +173,7 @@ export class CreateAgentLifecycleDispatch {
     const { createdWorktree } = options;
     const worktreePath = createdWorktree.worktree.worktreePath;
     const ownership = await isPaseoOwnedWorktreeCwd(worktreePath, {
-      paseoHome: this.dependencies.paseoHome,
+      pimiHome: this.dependencies.pimiHome,
       worktreesRoot: this.dependencies.worktreesRoot,
     });
     if (!ownership.allowed) {
@@ -182,7 +182,7 @@ export class CreateAgentLifecycleDispatch {
 
     await archiveByScope(
       {
-        paseoHome: this.dependencies.paseoHome,
+        pimiHome: this.dependencies.pimiHome,
         paseoWorktreesBaseRoot: this.dependencies.worktreesRoot,
         github: this.dependencies.github,
         workspaceGitService: this.dependencies.workspaceGitService,

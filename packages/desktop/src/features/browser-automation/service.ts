@@ -1575,7 +1575,7 @@ function buildEvaluateScript(
   elementExpression: string | undefined,
 ): string {
   return String.raw`(async () => {
-    const __PASEO_BROWSER_EVALUATE__ = true;
+    const __PIMI_BROWSER_EVALUATE__ = true;
     try {
       const userFunction = (0, eval)(${JSON.stringify(`(${functionSource})`)});
       if (typeof userFunction !== 'function') {

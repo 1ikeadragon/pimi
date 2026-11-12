@@ -25,7 +25,7 @@ Pimi 对语音提供一流的支持，可用于口述输入，以及与编程环
 
 本地语音默认使用模型 ID `parakeet-tdt-0.6b-v2-int8`（STT）和 `kokoro-en-v0_19`（TTS，speaker 0 / voice 00）。
 
-缺失的模型会在 daemon 启动时下载到 `$PASEO_HOME/models/local-speech`。只会下载缺失的文件。
+缺失的模型会在 daemon 启动时下载到 `$PIMI_HOME/models/local-speech`。只会下载缺失的文件。
 
 ### 本地 STT 模型与语言支持 {#local-stt-models-and-language-support}
 
@@ -51,7 +51,7 @@ Pimi 对语音提供一流的支持，可用于口述输入，以及与编程环
   },
   "providers": {
     "local": {
-      "modelsDir": "~/.paseo/models/local-speech"
+      "modelsDir": "~/.pimi/models/local-speech"
     }
   }
 }
@@ -111,16 +111,16 @@ Pimi 在配置的 OpenAI base URL 下使用以下路径：
 
 ## 环境变量 {#environment-variables}
 
-- `PASEO_VOICE_LLM_PROVIDER`：覆盖语音 Agent 的 Provider
-- `PASEO_DICTATION_STT_PROVIDER`、`PASEO_VOICE_STT_PROVIDER`、`PASEO_VOICE_TTS_PROVIDER`：选择语音 Provider（`local` 或 `openai`）
+- `PIMI_VOICE_LLM_PROVIDER`：覆盖语音 Agent 的 Provider
+- `PIMI_DICTATION_STT_PROVIDER`、`PIMI_VOICE_STT_PROVIDER`、`PIMI_VOICE_TTS_PROVIDER`：选择语音 Provider（`local` 或 `openai`）
 - `OPENAI_STT_API_KEY`、`OPENAI_STT_BASE_URL`：OpenAI 语音转文字端点（口述 + 语音模式 STT）
 - `OPENAI_TTS_API_KEY`、`OPENAI_TTS_BASE_URL`：OpenAI 文字转语音端点（语音模式 TTS）
-- `PASEO_LOCAL_MODELS_DIR`：本地模型存储目录
-- `PASEO_DICTATION_LOCAL_STT_MODEL`：本地口述 STT 模型 ID
-- `PASEO_VOICE_LOCAL_STT_MODEL`、`PASEO_VOICE_LOCAL_TTS_MODEL`：本地语音 STT/TTS 模型 ID
-- `PASEO_DICTATION_LANGUAGE`：口述 STT 语言（仅限 OpenAI STT；本地 Parakeet 会忽略）
-- `PASEO_VOICE_LANGUAGE`：语音模式 STT 语言；未设置时退回到 `PASEO_DICTATION_LANGUAGE`（仅限 OpenAI STT；本地 Parakeet 会忽略）
-- `PASEO_VOICE_LOCAL_TTS_SPEAKER_ID`、`PASEO_VOICE_LOCAL_TTS_SPEED`：可选的本地语音 TTS 调优
+- `PIMI_LOCAL_MODELS_DIR`：本地模型存储目录
+- `PIMI_DICTATION_LOCAL_STT_MODEL`：本地口述 STT 模型 ID
+- `PIMI_VOICE_LOCAL_STT_MODEL`、`PIMI_VOICE_LOCAL_TTS_MODEL`：本地语音 STT/TTS 模型 ID
+- `PIMI_DICTATION_LANGUAGE`：口述 STT 语言（仅限 OpenAI STT；本地 Parakeet 会忽略）
+- `PIMI_VOICE_LANGUAGE`：语音模式 STT 语言；未设置时退回到 `PIMI_DICTATION_LANGUAGE`（仅限 OpenAI STT；本地 Parakeet 会忽略）
+- `PIMI_VOICE_LOCAL_TTS_SPEAKER_ID`、`PIMI_VOICE_LOCAL_TTS_SPEED`：可选的本地语音 TTS 调优
 
 ## 使用须知 {#operational-notes}
 

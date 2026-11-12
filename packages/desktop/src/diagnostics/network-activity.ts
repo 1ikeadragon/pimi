@@ -10,7 +10,7 @@ import {
   networkLogDirectory,
   type NetworkLogSettings,
 } from "@pimi/server/network-log";
-import { resolvePaseoHome } from "@pimi/server/daemon-control";
+import { resolvePimiHome } from "@pimi/server/daemon-control";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import log from "electron-log/main";
@@ -39,7 +39,7 @@ function readLogSettings(): NetworkLogSettings {
   settingsReadAt = now;
   try {
     const raw = JSON.parse(
-      readFileSync(path.join(resolvePaseoHome(process.env), "config.json"), "utf8"),
+      readFileSync(path.join(resolvePimiHome(process.env), "config.json"), "utf8"),
     );
     const network = raw?.log?.network;
     cachedSettings = {
@@ -61,7 +61,7 @@ function readLogSettings(): NetworkLogSettings {
 export function startDesktopNetworkLog(): void {
   if (appLog) return;
   appLog = new NetworkLogStore({
-    home: resolvePaseoHome(process.env),
+    home: resolvePimiHome(process.env),
     source: "app",
     getSettings: readLogSettings,
     onError: (error, message) => log.warn(`[network-log] ${message}`, error),
@@ -75,7 +75,7 @@ export function flushDesktopNetworkLog(): Promise<void> {
 
 /** The one folder the "Open logs folder" action may open. */
 export function getDesktopNetworkLogDirectory(): string {
-  return networkLogDirectory(resolvePaseoHome(process.env));
+  return networkLogDirectory(resolvePimiHome(process.env));
 }
 
 /** Call once, as early as possible in main, so update checks at startup are recorded. */

@@ -17,7 +17,7 @@ The shared entry points are `openClientSecureChannel` and `openDaemonSecureChann
 
 ## Noise mapping
 
-- **Pattern:** NK. The daemon's static key is the existing `$PASEO_HOME/daemon-keypair.json` X25519 key that pairing already distributes. There is no second daemon identity.
+- **Pattern:** NK. The daemon's static key is the existing `$PIMI_HOME/daemon-keypair.json` X25519 key that pairing already distributes. There is no second daemon identity.
 - **Prologue:** the ASCII bytes `paseo-relay-e2ee/1`.
 - **Primitives:** `@noble/curves` x25519, `@noble/ciphers` ChaCha20-Poly1305, `@noble/hashes` SHA-256 and HMAC. The state machine in `packages/relay/src/noise/` is our own implementation of the spec and is checked against vendored third-party vectors in `noise/fixtures/`.
 - **Message 1** (`-> e, es`) travels inside the legacy hello: `{ type: "e2ee_hello", key, capabilities, protected: { v: 1, message: <base64> } }`. `key` is a separate legacy ephemeral that the library's `legacy` mode uses. The Noise payload is the offered parameters.

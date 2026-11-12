@@ -1,7 +1,7 @@
 /**
  * Reproducible terminal latency benchmark (Node-only, isolated daemon).
  *
- * Boots its OWN isolated daemon subprocess (fresh mkdtemp PASEO_HOME, random
+ * Boots its OWN isolated daemon subprocess (fresh mkdtemp PIMI_HOME, random
  * port) — it NEVER touches the developer daemon on port 6767 — and measures:
  *   A) terminal echo latency  (single-byte input -> first echoed output frame)
  *   B) terminal output jitter (inter-frame gaps while a command drains ~2MB)
@@ -170,7 +170,7 @@ async function waitForPort(port: number, child: ChildProcess, timeoutMs: number)
 interface BootedDaemon {
   child: ChildProcess;
   port: number;
-  paseoHome: string;
+  pimiHome: string;
   pid: number;
 }
 
@@ -179,17 +179,17 @@ async function bootDaemon(): Promise<BootedDaemon> {
   if (port === 6767) {
     throw new Error("Refusing to use port 6767 (the developer daemon)");
   }
-  const paseoHome = await mkdtemp(path.join(os.tmpdir(), "paseo-bench-home-"));
+  const pimiHome = await mkdtemp(path.join(os.tmpdir(), "paseo-bench-home-"));
   const tsxBin = execSync("which tsx").toString().trim();
 
   const child = spawn(tsxBin, ["scripts/supervisor-entrypoint.ts", "--dev"], {
     cwd: SERVER_DIR,
     env: {
       ...process.env,
-      PASEO_HOME: paseoHome,
-      PASEO_SERVER_ID: "srv_terminal_bench",
-      PASEO_LISTEN: `127.0.0.1:${port}`,
-      PASEO_NODE_ENV: "development",
+      PIMI_HOME: pimiHome,
+      PIMI_SERVER_ID: "srv_terminal_bench",
+      PIMI_LISTEN: `127.0.0.1:${port}`,
+      PIMI_NODE_ENV: "development",
       NODE_ENV: "development",
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -210,7 +210,7 @@ async function bootDaemon(): Promise<BootedDaemon> {
   });
 
   await waitForPort(port, child, 30_000);
-  return { child, port, paseoHome, pid: child.pid ?? -1 };
+  return { child, port, pimiHome, pid: child.pid ?? -1 };
 }
 
 async function loadDaemonClientCtor(): Promise<DaemonClientCtor> {
@@ -667,7 +667,7 @@ function getCommitHash(): string {
 async function main(): Promise<void> {
   const commit = getCommitHash();
   console.log(`Terminal latency benchmark — commit ${commit}`);
-  console.log("Booting isolated daemon (random port, fresh PASEO_HOME)...");
+  console.log("Booting isolated daemon (random port, fresh PIMI_HOME)...");
 
   let daemon: BootedDaemon | null = null;
   let client: DaemonClientLike | null = null;
@@ -676,7 +676,7 @@ async function main(): Promise<void> {
 
   try {
     daemon = await bootDaemon();
-    console.log(`Daemon ready: pid=${daemon.pid} port=${daemon.port} home=${daemon.paseoHome}`);
+    console.log(`Daemon ready: pid=${daemon.pid} port=${daemon.port} home=${daemon.pimiHome}`);
 
     const ctor = await loadDaemonClientCtor();
     client = await connectClient(ctor, daemon.port);
@@ -722,7 +722,7 @@ async function main(): Promise<void> {
           commit,
           daemonPid: daemon.pid,
           port: daemon.port,
-          paseoHome: daemon.paseoHome,
+          pimiHome: daemon.pimiHome,
           node: process.version,
           platform: `${os.platform()} ${os.arch()}`,
           createdAt: new Date().toISOString(),
@@ -749,7 +749,7 @@ async function main(): Promise<void> {
       if (daemon.child.exitCode === null && daemon.child.signalCode === null) {
         daemon.child.kill("SIGKILL");
       }
-      await rm(daemon.paseoHome, { recursive: true, force: true }).catch(() => undefined);
+      await rm(daemon.pimiHome, { recursive: true, force: true }).catch(() => undefined);
     }
     if (workspaceDir) {
       await rm(workspaceDir, { recursive: true, force: true }).catch(() => undefined);

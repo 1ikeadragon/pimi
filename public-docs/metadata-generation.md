@@ -39,7 +39,7 @@ Each default is a match on the model id or name, so the first enabled provider t
 
 In Manual mode, Pimi tries only your configured models, in your order. It never adds the built-in defaults or the selected model, so your prompts and diffs only go to providers you chose. If every configured model is unavailable, generation fails with an error naming the model: workspace titles and branch names are not generated, and commit and pull request generation report the error. If a configured model is available but its run fails, commits and pull requests get placeholder text. Pick a model that works for these tasks.
 
-Every failure is written to `$PASEO_HOME/daemon.log` (`~/.paseo/daemon.log` by default) with the provider, the model and the error. Look there when a manual model doesn't produce titles, branch names, commit messages or pull request text.
+Every failure is written to `$PIMI_HOME/daemon.log` (`~/.pimi/daemon.log` by default) with the provider, the model and the error. Look there when a manual model doesn't produce titles, branch names, commit messages or pull request text.
 
 ## Choose a model
 
@@ -57,7 +57,7 @@ Every call logs `Pimi model call` with the feature, provider, model, and thinkin
 
 ## Configure a custom fallback order
 
-To use more than one model in Manual mode, list them in `agents.metadataGeneration.providers` in `~/.paseo/config.json`. Pimi tries your entries in order and nothing else. An empty list means Automatic.
+To use more than one model in Manual mode, list them in `agents.metadataGeneration.providers` in `~/.pimi/config.json`. Pimi tries your entries in order and nothing else. An empty list means Automatic.
 
 ```json
 {

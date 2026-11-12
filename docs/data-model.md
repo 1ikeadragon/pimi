@@ -36,7 +36,7 @@ checkout from `mainRepoRoot`, then restores the relative path from `worktreeRoot
 
 Pimi uses **file-based JSON persistence** instead of a traditional database. All data is validated at runtime with Zod schemas. Most stores write atomically (write to temp file, then rename); a few still use plain `writeFile` — see each section. There is no schema-versioning/migration framework — schemas rely on optional fields with defaults for forward compatibility, with a small amount of inline normalization in `persisted-config.ts` for legacy provider/speech entries.
 
-All server-side stores live under `$PASEO_HOME` (defaults to `~/.paseo`).
+All server-side stores live under `$PIMI_HOME` (defaults to `~/.pimi`).
 
 ## Store Surface Rules
 
@@ -47,7 +47,7 @@ Store APIs own persistence atomicity and should not make services coordinate raw
 ## Directory layout
 
 ```
-$PASEO_HOME/
+$PIMI_HOME/
 ├── config.json                          # Daemon configuration
 ├── server-id                            # Stable daemon identifier (plain text, "srv_<base64url>")
 ├── daemon-keypair.json                  # E2EE keypair for relay (mode 0600)
@@ -90,7 +90,7 @@ Project memory follows the registered workspace's project ID. Worktrees and prov
 
 ## 1. Agent Record
 
-**Path:** `$PASEO_HOME/agents/{project-dir}/{agentId}.json`
+**Path:** `$PIMI_HOME/agents/{project-dir}/{agentId}.json`
 
 Each agent is stored as a separate JSON file, grouped by project directory.
 
@@ -192,7 +192,7 @@ Terminal activity contributes to the workspace status bucket **per `workspaceId`
 
 ## 2. Daemon Configuration
 
-**Path:** `$PASEO_HOME/config.json`
+**Path:** `$PIMI_HOME/config.json`
 
 Single file, validated with `PersistedConfigSchema`.
 
@@ -229,7 +229,7 @@ snapshot so a mixed edit can apply its live subset and still name the paths that
     baseUrl: string
   },
   worktrees?: {
-    root?: string            // optional root for new worktrees; defaults to $PASEO_HOME/worktrees
+    root?: string            // optional root for new worktrees; defaults to $PIMI_HOME/worktrees
     servicePorts?: {         // optional dynamic service port allocation policy
       range?: string         // inclusive range, e.g. "3000-4000"
       portScript?: string    // executable that receives service/workspace context and prints one TCP port
@@ -347,10 +347,10 @@ requests.
 
 Environment variables override `config.json`:
 
-| Environment variable                 | Setting                 |
-| ------------------------------------ | ----------------------- |
-| `PASEO_GIT_MAX_PROCESSES_PER_SECOND` | `maxProcessesPerSecond` |
-| `PASEO_GIT_MAX_PROCESS_CONCURRENCY`  | `maxProcessConcurrency` |
+| Environment variable                | Setting                 |
+| ----------------------------------- | ----------------------- |
+| `PIMI_GIT_MAX_PROCESSES_PER_SECOND` | `maxProcessesPerSecond` |
+| `PIMI_GIT_MAX_PROCESS_CONCURRENCY`  | `maxProcessConcurrency` |
 
 Run `pimi reload` after changing `config.json`. Environment changes require a daemon restart; the launch environment
 remains authoritative during reload.
@@ -383,19 +383,19 @@ options from the previous variant.
 
 Schemas: `packages/protocol/src/automation/types.ts` and `packages/protocol/src/heartbeat/types.ts`. IDs are 8 hex characters; run IDs are UUIDs.
 
-- **Automation** — `$PASEO_HOME/automations/{id}.json`. A definition (name, project, trigger, flow of nodes and edges, limits) plus state (`status`, `pausedReason`, `origin`, `nextRunAt`, `consecutiveFailures`, `revision`). `status` is `pending` until the owner approves an agent-created automation; agents cannot approve. Edits bump `revision`, and each run records the revision it ran. The flow is a DAG of agent and condition nodes; node ids are what `{{steps.<id>.output}}` refers to, so renaming one breaks templates that use it. Nodes carry no canvas position: the app lays the graph out each time.
-- **Run** — `$PASEO_HOME/automations/runs/{automationId}/{runId}.json`, written while the run is in flight so a crash leaves a record. It holds one `steps` entry per node with status, agent, and output. A retry is a new run whose `cause` (`kind: "retry"`) names the old one; it copies the old run's succeeded steps and runs the rest against the current flow. The store keeps the newest 50 runs per automation and none older than 30 days; a running run is never pruned.
-- **Audit** — `$PASEO_HOME/automations/audit.jsonl`, one line per create, edit, approve, pause, run, and delete, with the actor. Append-only; the file is created with mode 0600.
-- **Trigger state** — `$PASEO_HOME/automations/triggers/{automationId}.json`, the head commit last seen for each open pull request and the heads that already fired. The first poll, and the first after the repository changes, only records heads, so pull requests already open do not fire. Deleted with the automation.
-- **Heartbeat** — `$PASEO_HOME/heartbeats/{id}.json`. A prompt the daemon sends back into one agent, on a `cron`, `every` (at least 30s), or `once` cadence. The file is deleted when the heartbeat ends (one-time fire, `maxRuns`, expiry, or its agent is gone).
+- **Automation** — `$PIMI_HOME/automations/{id}.json`. A definition (name, project, trigger, flow of nodes and edges, limits) plus state (`status`, `pausedReason`, `origin`, `nextRunAt`, `consecutiveFailures`, `revision`). `status` is `pending` until the owner approves an agent-created automation; agents cannot approve. Edits bump `revision`, and each run records the revision it ran. The flow is a DAG of agent and condition nodes; node ids are what `{{steps.<id>.output}}` refers to, so renaming one breaks templates that use it. Nodes carry no canvas position: the app lays the graph out each time.
+- **Run** — `$PIMI_HOME/automations/runs/{automationId}/{runId}.json`, written while the run is in flight so a crash leaves a record. It holds one `steps` entry per node with status, agent, and output. A retry is a new run whose `cause` (`kind: "retry"`) names the old one; it copies the old run's succeeded steps and runs the rest against the current flow. The store keeps the newest 50 runs per automation and none older than 30 days; a running run is never pruned.
+- **Audit** — `$PIMI_HOME/automations/audit.jsonl`, one line per create, edit, approve, pause, run, and delete, with the actor. Append-only; the file is created with mode 0600.
+- **Trigger state** — `$PIMI_HOME/automations/triggers/{automationId}.json`, the head commit last seen for each open pull request and the heads that already fired. The first poll, and the first after the repository changes, only records heads, so pull requests already open do not fire. Deleted with the automation.
+- **Heartbeat** — `$PIMI_HOME/heartbeats/{id}.json`. A prompt the daemon sends back into one agent, on a `cron`, `every` (at least 30s), or `once` cadence. The file is deleted when the heartbeat ends (one-time fire, `maxRuns`, expiry, or its agent is gone).
 
-A daemon from before automations stored `$PASEO_HOME/schedules/`. The daemon deletes that directory at startup without migrating it.
+A daemon from before automations stored `$PIMI_HOME/schedules/`. The daemon deletes that directory at startup without migrating it.
 
 ---
 
 ## 4. Project Registry
 
-**Path:** `$PASEO_HOME/projects/projects.json`
+**Path:** `$PIMI_HOME/projects/projects.json`
 
 Array of project records.
 
@@ -430,7 +430,7 @@ workspace together with its owning project.
 
 ## 5. Workspace Registry
 
-**Path:** `$PASEO_HOME/projects/workspaces.json`
+**Path:** `$PIMI_HOME/projects/workspaces.json`
 
 Array of workspace records. A workspace is a specific working directory within a project.
 
@@ -459,7 +459,7 @@ Array of workspace records. A workspace is a specific working directory within a
 
 ### Workspace label catalog
 
-**Path:** `$PASEO_HOME/projects/workspace-labels.json`
+**Path:** `$PIMI_HOME/projects/workspace-labels.json`
 
 The catalog is shared by every workspace on one host. A definition contains a display name and one
 of the ten identity colour names (`WORKSPACE_LABEL_COLORS` in
@@ -490,7 +490,7 @@ than treating it as valid.
 
 ## 6. Push Token Store
 
-**Path:** `$PASEO_HOME/push-tokens.json`
+**Path:** `$PIMI_HOME/push-tokens.json`
 
 ```json
 {
@@ -504,13 +504,13 @@ Simple set of Expo push notification tokens. Loaded with permissive parsing (fil
 
 ## 7. Daemon meta files
 
-These small files are not validated as full Zod schemas but are persisted under `$PASEO_HOME` for daemon identity and runtime coordination.
+These small files are not validated as full Zod schemas but are persisted under `$PIMI_HOME` for daemon identity and runtime coordination.
 
 | Path                  | Format                                                         | Notes                                                                             |
 | --------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `server-id`           | Plain text, e.g. `srv_<base64url>`                             | Stable per-`$PASEO_HOME` daemon ID. Overridable via `PASEO_SERVER_ID` env.        |
+| `server-id`           | Plain text, e.g. `srv_<base64url>`                             | Stable per-`$PIMI_HOME` daemon ID. Overridable via `PIMI_SERVER_ID` env.          |
 | `daemon-keypair.json` | `{ v: 2, publicKeyB64, secretKeyB64 }` (libsodium box keypair) | E2EE relay identity. Written with mode `0600`. Regenerated if file is unreadable. |
-| `paseo.pid`           | JSON `{ pid, startedAt, ... }`                                 | PID lock; prevents two daemons sharing one `$PASEO_HOME`.                         |
+| `paseo.pid`           | JSON `{ pid, startedAt, ... }`                                 | PID lock; prevents two daemons sharing one `$PIMI_HOME`.                          |
 | `local-credential`    | 32 random bytes encoded as base64url text                      | Rotated before each listen and deleted on shutdown; mode `0600`.                  |
 | `daemon.log`          | Pino log output                                                | Default location; path/rotation configurable via `log.file` in `config.json`.     |
 

@@ -985,7 +985,7 @@ export function createWorkerTerminalManager(
 }
 
 export interface StartWorkerTerminalManagerOptions {
-  paseoHome: string;
+  pimiHome: string;
   paseoVersion: string;
   logger: Logger;
   getTerminalActivityUrl?: () => string | null;
@@ -1022,7 +1022,7 @@ export async function startWorkerTerminalManager(
   const log = (message: string, fields?: Record<string, unknown>) => logger.info(fields, message);
   const live: LiveWorkerRecord[] = [];
   const toReap: string[] = [];
-  for (const file of await listTerminalWorkerRecords(options.paseoHome)) {
+  for (const file of await listTerminalWorkerRecords(options.pimiHome)) {
     if ("error" in file) {
       logger.warn({ recordPath: file.path, err: file.error }, "Unreadable terminal worker record");
       continue;
@@ -1058,7 +1058,7 @@ export async function startWorkerTerminalManager(
 
   if (toReap.length > 0) {
     await reapTerminalWorkers({
-      paseoHome: options.paseoHome,
+      pimiHome: options.pimiHome,
       gracefulMs: 0,
       recordPaths: toReap,
       inspector,
@@ -1082,7 +1082,7 @@ export async function startWorkerTerminalManager(
       );
     }
     await reapTerminalWorkers({
-      paseoHome: options.paseoHome,
+      pimiHome: options.pimiHome,
       recordPaths: obsolete.map((entry) => entry.path),
       inspector,
       log,
@@ -1092,11 +1092,11 @@ export async function startWorkerTerminalManager(
   }
 
   const closeAll = async () => {
-    const result = await reapTerminalWorkers({ paseoHome: options.paseoHome, inspector, log });
+    const result = await reapTerminalWorkers({ pimiHome: options.pimiHome, inspector, log });
     logger.info(result, "Terminals closed");
   };
   const prune = async () => {
-    const result = await pruneTerminalWorkerRuntimes(options.paseoHome);
+    const result = await pruneTerminalWorkerRuntimes(options.pimiHome);
     if (result.removed.length > 0)
       log("Removed terminal worker copies", { removed: result.removed });
     for (const failure of result.failed) {
@@ -1105,7 +1105,7 @@ export async function startWorkerTerminalManager(
   };
 
   const pruneAfterExit = async (workerPid: number) => {
-    if (await waitForWorkerRecordRemoval(options.paseoHome, workerPid)) {
+    if (await waitForWorkerRecordRemoval(options.pimiHome, workerPid)) {
       await prune();
       return;
     }
@@ -1145,8 +1145,8 @@ export async function startWorkerTerminalManager(
           const ownership = await identifyTerminalWorker(record);
           if (ownership.status === "gone" || ownership.status === "unrelated") {
             await reapTerminalWorkers({
-              paseoHome: options.paseoHome,
-              recordPaths: [terminalWorkerRecordPath(options.paseoHome, record.pid)],
+              pimiHome: options.pimiHome,
+              recordPaths: [terminalWorkerRecordPath(options.pimiHome, record.pid)],
               inspector,
               log,
               gracefulMs: 0,
@@ -1240,14 +1240,14 @@ export async function startWorkerTerminalManager(
   // Counted from the records rather than from what startup drove: a worker a cleanup could not
   // confirm gone keeps running, and a draining one exits on its own.
   const startCurrent = async (): Promise<TerminalWorkerPoolMember> => {
-    const running = await countRunningTerminalWorkers(options.paseoHome);
+    const running = await countRunningTerminalWorkers(options.pimiHome);
     if (running >= MAX_TERMINAL_WORKERS) {
       throw new NoTerminalWorkerAvailableError(
-        `${running} terminal workers are already running in ${options.paseoHome}; new terminals can open once one of them exits`,
+        `${running} terminal workers are already running in ${options.pimiHome}; new terminals can open once one of them exits`,
       );
     }
     const launched = await launchTerminalWorker({
-      paseoHome: options.paseoHome,
+      pimiHome: options.pimiHome,
       paseoVersion: options.paseoVersion,
     });
     const connection = await connectTerminalWorker({
@@ -1297,9 +1297,9 @@ export async function startWorkerTerminalManager(
 // are listed as one. Unreadable records and workers that cannot be identified count; a worker
 // confirmed gone, or a pid now running something else (another birth time, or nothing listening
 // on the worker's socket), does not.
-async function countRunningTerminalWorkers(paseoHome: string): Promise<number> {
+async function countRunningTerminalWorkers(pimiHome: string): Promise<number> {
   let running = 0;
-  for (const file of await listTerminalWorkerRecords(paseoHome)) {
+  for (const file of await listTerminalWorkerRecords(pimiHome)) {
     if ("error" in file) {
       running += 1;
       continue;
@@ -1313,8 +1313,8 @@ async function countRunningTerminalWorkers(paseoHome: string): Promise<number> {
 }
 
 // A worker deletes its own record as it exits.
-async function waitForWorkerRecordRemoval(paseoHome: string, workerPid: number): Promise<boolean> {
-  const recordPath = terminalWorkerRecordPath(paseoHome, workerPid);
+async function waitForWorkerRecordRemoval(pimiHome: string, workerPid: number): Promise<boolean> {
+  const recordPath = terminalWorkerRecordPath(pimiHome, workerPid);
   const deadline = Date.now() + DRAINED_WORKER_EXIT_TIMEOUT_MS;
   while (
     await access(recordPath).then(

@@ -199,7 +199,7 @@ export async function runSendCommand(
     const images =
       options.image && options.image.length > 0 ? await readImageFiles(options.image) : undefined;
 
-    const sourceAgentId = process.env.PASEO_AGENT_ID?.trim() || undefined;
+    const sourceAgentId = process.env.PIMI_AGENT_ID?.trim() || undefined;
     // Send the message
     const receipt = await client.sendAgentMessage(agentIdArg, promptInput, {
       images,

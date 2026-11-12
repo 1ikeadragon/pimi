@@ -16,7 +16,7 @@ const DEFAULT_SOCKET_PATH_BYTE_BUDGET = 103;
 const OWNER_ONLY_MODE = 0o700;
 
 export interface TerminalWorkerSocketPathInput {
-  paseoHome: string;
+  pimiHome: string;
   workerPid: number;
   recordId: string;
   platform?: NodeJS.Platform;
@@ -48,20 +48,20 @@ export class TerminalWorkerSocketPathError extends Error {
 }
 
 /** First 16 hex chars of sha256(home) plus the worker pid: unique per home and worker. */
-export function terminalWorkerSocketId(paseoHome: string, workerPid: number): string {
-  const digest = createHash("sha256").update(path.resolve(paseoHome)).digest("hex");
+export function terminalWorkerSocketId(pimiHome: string, workerPid: number): string {
+  const digest = createHash("sha256").update(path.resolve(pimiHome)).digest("hex");
   return `${digest.slice(0, 16)}-${workerPid}`;
 }
 
 /**
  * Picks (and creates) the socket path a worker listens on. Windows uses a named pipe; POSIX
- * tries $PASEO_HOME/terminal-worker/sock, then <tmpdir>/paseo-<uid>, then /tmp/paseo-<uid>.
+ * tries $PIMI_HOME/terminal-worker/sock, then <tmpdir>/paseo-<uid>, then /tmp/paseo-<uid>.
  * A shared root is never chmodded: an existing directory there is used only when it is a real
  * directory owned by this user with mode 0700.
  */
 export function resolveTerminalWorkerSocketPath(input: TerminalWorkerSocketPathInput): string {
   const platform = input.platform ?? process.platform;
-  const id = terminalWorkerSocketId(input.paseoHome, input.workerPid) + "-" + input.recordId;
+  const id = terminalWorkerSocketId(input.pimiHome, input.workerPid) + "-" + input.recordId;
   if (platform === "win32") {
     return `\\\\.\\pipe\\paseo-tw-${id}`;
   }
@@ -69,7 +69,7 @@ export function resolveTerminalWorkerSocketPath(input: TerminalWorkerSocketPathI
   const uid = input.uid ?? process.getuid?.() ?? 0;
   const budget = SOCKET_PATH_BYTE_BUDGET[platform] ?? DEFAULT_SOCKET_PATH_BYTE_BUDGET;
   const fileName = `tw-${id}.sock`;
-  const homeSocketDirectory = path.join(terminalWorkerDirectory(input.paseoHome), "sock");
+  const homeSocketDirectory = path.join(terminalWorkerDirectory(input.pimiHome), "sock");
   const candidates: Array<{ directory: string; prepare: () => string | null }> = [
     {
       directory: homeSocketDirectory,

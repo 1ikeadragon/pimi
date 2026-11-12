@@ -3463,7 +3463,7 @@ export const ru: TranslationResources = {
         newScript: "Новый скрипт",
         editScript: "Изменить {{name}}",
         runAsService: "Запускать как сервис",
-        serviceHint: "Pimi управляет процессом и назначает порт через переменную $PASEO_PORT.",
+        serviceHint: "Pimi управляет процессом и назначает порт через переменную $PIMI_PORT.",
         actions: {
           add: "Добавить скрипт",
           edit: "Редактировать",

@@ -2,11 +2,11 @@ import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join, resolve as resolvePath } from "node:path";
 
-// Where the Paseo CLI lives, for the PATH entry and PASEO_HOOK_CLI every terminal gets. Kept
+// Where the Paseo CLI lives, for the PATH entry and PIMI_HOOK_CLI every terminal gets. Kept
 // apart from terminal.ts so the daemon can resolve it without loading node-pty.
 
 const require = createRequire(import.meta.url);
-const PASEO_CLI_BIN_ENTRY = "@pimi/cli/bin/pimi";
+const PIMI_CLI_BIN_ENTRY = "@pimi/cli/bin/pimi";
 
 export function resolveExternalProcessPath(filePath: string): string {
   return filePath.replace(/\.asar(?=[/\\]|$)/, ".asar.unpacked");
@@ -18,7 +18,7 @@ export function resolvePaseoCliBinDir(): string | null {
 }
 
 export function resolvePaseoCliExecutablePath(): string | null {
-  const configuredCli = process.env.PASEO_CLI?.trim();
+  const configuredCli = process.env.PIMI_CLI?.trim();
   if (configuredCli) {
     return resolvePath(configuredCli);
   }
@@ -42,7 +42,7 @@ export function resolvePaseoCliExecutablePath(): string | null {
 
 function resolvePaseoCliBinEntrypoint(): string | null {
   try {
-    return require.resolve(PASEO_CLI_BIN_ENTRY);
+    return require.resolve(PIMI_CLI_BIN_ENTRY);
   } catch {
     return null;
   }

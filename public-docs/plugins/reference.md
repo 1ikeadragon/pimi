@@ -2027,7 +2027,7 @@ your subscriptions, timers, and other resources.
 
 Use `usePimi()` for ordinary Pimi operations from a surface. It borrows the selected host's existing connection; do not create another client.
 
-`usePimi()` is your plugin's one Pimi client, the same `client.paseo` your setup receives, in
+`usePimi()` is your plugin's one Pimi client, the same `client.pimi` your setup receives, in
 every surface. Release what you subscribe to in your cleanup; when the plugin is disabled, reloaded,
 or removed, or its host goes away, Pimi disposes the client and ends every subscription still open.
 
@@ -2413,7 +2413,7 @@ sequence, and message.
 Pimi retains up to 500 entries and 256 KiB per plugin in memory. Individual lines are capped at
 16 KiB. Reload, disable, compilation failure, initialization failure, and process failure retain the
 tail. Removing the plugin clears it, and a daemon restart starts a new tail. Structured copies are
-also written to the daemon log at `$PASEO_HOME/daemon.log`.
+also written to the daemon log at `$PIMI_HOME/daemon.log`.
 
 Only daemon-side output is captured. Logs from client surfaces remain in the app runtime. Do not log
 credentials, access tokens, or other secrets: connected users can read the retained tail, and the

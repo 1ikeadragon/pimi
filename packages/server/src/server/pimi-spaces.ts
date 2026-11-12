@@ -58,8 +58,8 @@ export class PimiSpaces {
   private readonly previewRetries = new Map<string, number>();
   private readonly searchIndex = new SpacesSearch();
 
-  constructor(paseoHome: string) {
-    this.root = path.join(paseoHome, "spaces");
+  constructor(pimiHome: string) {
+    this.root = path.join(pimiHome, "spaces");
   }
 
   private async files(): Promise<ItemFile[]> {

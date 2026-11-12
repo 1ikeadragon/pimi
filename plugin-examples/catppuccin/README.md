@@ -6,7 +6,7 @@ syntax-highlight theme; this contributes it as an app theme.
 A theme is client data, so the whole plugin is one `addTheme` call in `index.client.ts` and has no
 server entry or subprocess.
 
-Register it in `$PASEO_HOME/config.json`:
+Register it in `$PIMI_HOME/config.json`:
 
 ```json
 {

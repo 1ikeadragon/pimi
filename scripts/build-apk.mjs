@@ -33,17 +33,17 @@ const env = {
 if (pimi) {
   env.EXPO_NO_TELEMETRY = "1";
   delete env.EXPO_USE_COMMUNITY_AUTOLINKING;
-  delete env.PASEO_FDROID_BUILD;
-  delete env.PASEO_WATCHDOG_BUILD;
-  delete env.PASEO_PROFILE_BUILD;
-  delete env.PASEO_DIAGNOSTIC_REVISION;
-  delete env.PASEO_DIAGNOSTIC_BUILD_TIME;
+  delete env.PIMI_FDROID_BUILD;
+  delete env.PIMI_WATCHDOG_BUILD;
+  delete env.PIMI_PROFILE_BUILD;
+  delete env.PIMI_DIAGNOSTIC_REVISION;
+  delete env.PIMI_DIAGNOSTIC_BUILD_TIME;
   delete env.PIMI_ANDROID_KEYSTORE;
   delete env.PIMI_ANDROID_PASSWORD_FILE;
 } else {
-  env.PASEO_WATCHDOG_BUILD = "1";
-  env.PASEO_DIAGNOSTIC_BUILD_TIME = new Date().toISOString();
-  env.PASEO_DIAGNOSTIC_REVISION =
+  env.PIMI_WATCHDOG_BUILD = "1";
+  env.PIMI_DIAGNOSTIC_BUILD_TIME = new Date().toISOString();
+  env.PIMI_DIAGNOSTIC_REVISION =
     execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: root, encoding: "utf8" }).trim() +
     (execFileSync("git", ["status", "--porcelain"], { cwd: root, encoding: "utf8" }).trim()
       ? "-dirty"

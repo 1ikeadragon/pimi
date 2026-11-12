@@ -12,8 +12,8 @@ supervisor (paseo.pid) ──► daemon worker ──► launcher ──► term
 - The daemon starts the worker through a launcher (`terminal-worker-process.ts --launch`). The launcher spawns the worker `detached`, waits for `ready` on fd 3, prints the pid and exits, so the worker is re-parented and leaves the daemon's process tree. The supervisor's forced kill uses `tree-kill`, which walks parent pids: a worker that stayed a child, even detached, would die with a hung daemon.
 - The worker talks to one daemon at a time over a local socket (named pipe on Windows). Losing the daemon means "no controller", not exit: PTYs keep running, events are dropped, and the headless terminal keeps the screen for the next daemon's `listTerminals`.
 - A socket disconnect triggers reconnection to the same worker and a screen replay. Only confirmed process death retires its sessions; the next terminal creation shares one replacement launch. Dead-worker cleanup stays scoped to that worker, so a healthy draining peer keeps running. Shutdown and detach suppress recovery.
-- The worker exits on its own when it has no controller and no terminals, on `shutdown`, on SIGTERM (killing its terminals), and when its record disappears (a deleted `$PASEO_HOME`: nobody can ever reach it again).
-- Its stderr goes to `$PASEO_HOME/terminal-worker.log`. No pipe to the daemon survives the daemon.
+- The worker exits on its own when it has no controller and no terminals, on `shutdown`, on SIGTERM (killing its terminals), and when its record disappears (a deleted `$PIMI_HOME`: nobody can ever reach it again).
+- Its stderr goes to `$PIMI_HOME/terminal-worker.log`. No pipe to the daemon survives the daemon.
 
 The worker retains a fixed 10,000 history rows plus the screen in its existing xterm. Replay uses `@xterm/addon-serialize` 0.14 against headless xterm 6; no second cell grid or lifetime byte log is retained. The serializer boundary owns cursor position, visibility and explicit program-selected presentation; the addon alone does not preserve all three. An unset program style leaves each client’s configured cursor defaults intact. Standard modes come from the serializer; the existing input-mode tracker retains protocol modes such as Kitty and Win32 input. Commit that tracker with parsed output so replay bytes and metadata describe the same cut.
 
@@ -21,7 +21,7 @@ Which triggers keep terminals and which close them is owned by the stop reason (
 
 ## Record, socket and secret
 
-The worker writes `$PASEO_HOME/terminal-worker/<pid>.json` (owner-only) with its pid, protocol version, socket path, random secret, runtime copy and terminal programs. One daemon holds the home's pid lock. Its records and sockets belong to that home.
+The worker writes `$PIMI_HOME/terminal-worker/<pid>.json` (owner-only) with its pid, protocol version, socket path, random secret, runtime copy and terminal programs. One daemon holds the home's pid lock. Its records and sockets belong to that home.
 
 - The first frame must be `hello` with the secret; anything else closes the connection. Anyone authenticated can type into every shell, so the record and Unix socket are `0600` inside a `0700` directory.
 - New socket names include the record id. A stale record whose pid belongs to a newer worker cannot reach that newer worker. Existing records keep their recorded paths. Legacy paths use only the home and pid, so force-killing through one also requires successful authentication. A legacy socket that cannot authenticate stays unconfirmed.
@@ -47,7 +47,7 @@ Never more than two workers run. A new worker launches only when none is current
 
 **The frozen envelope never changes across versions:** the frame format (4-byte length + `v8.serialize`), `hello`/`helloAck`, the `listTerminals` info fields and `shutdown`. That is what lets any daemon close any worker: a kill stop sends `shutdown` to a newer worker it cannot otherwise drive. Protocol 5 hard cuts unreleased protocols 1 through 4, including the acknowledgement-based replay contract: those workers are obsolete and close. For future versions, keep a previous-version adapter so the draining worker can still be driven, and drop the adapter for the version before that.
 
-`PASEO_TERMINAL_WORKER_PROTOCOL_OVERRIDE`, read by the worker, stands up another protocol version for version-skew checks. It is for development only.
+`PIMI_TERMINAL_WORKER_PROTOCOL_OVERRIDE`, read by the worker, stands up another protocol version for version-skew checks. It is for development only.
 
 ## Display replay
 
@@ -66,11 +66,11 @@ Clients decode begin/data/end events directly; replay is always chunked. Capture
 A worker outlives the installation that started it. An npm or desktop update replaces that installation's files, and the next terminal the old worker creates would load node-pty's `spawn-helper` and the zsh integration from paths that no longer exist. So a built daemon does not launch the worker from its install:
 
 - `npm run build` bundles the worker with esbuild (`packages/server/scripts/build-terminal-worker.mjs`) into `dist/server/terminal-worker/` with its `shell-integration/` beside it. Only node-pty stays external. A package loaded through a module-local `createRequire` is invisible to esbuild and would be missing at run time; the bundle must load nothing but built-ins and node-pty.
-- Before launching, the daemon copies the bundle, the shell integration and node-pty (this platform's native build only) into `$PASEO_HOME/terminal-worker/<paseoVersion>-<hash>/` and launches from there. The hash covers the bundle and node-pty, so a local rebuild of the same version gets its own copy.
+- Before launching, the daemon copies the bundle, the shell integration and node-pty (this platform's native build only) into `$PIMI_HOME/terminal-worker/<paseoVersion>-<hash>/` and launches from there. The hash covers the bundle and node-pty, so a local rebuild of the same version gets its own copy.
 - A copy is deleted once no record names it: after a draining worker exits, after a kill cleanup, and at daemon start. The daemon and the reaper delete copies, never the worker itself, so a worker exiting cannot remove a copy a new worker is about to launch from.
 - Dev (`.ts` source) launches from source and copies nothing.
 
-Each create carries the controlling daemon's environment and Pimi CLI path (`baseEnv`, `paseoCliPath`), so a terminal opened after an upgrade gets the new installation's `PASEO_CLI` while older terminals keep theirs.
+Each create carries the controlling daemon's environment and Pimi CLI path (`baseEnv`, `paseoCliPath`), so a terminal opened after an upgrade gets the new installation's `PIMI_CLI` while older terminals keep theirs.
 
 ## Desktop
 
@@ -81,6 +81,6 @@ On Windows every desktop stop closes terminals. In the desktop app the worker ru
 ## Known limits
 
 - On macOS `ps` has no session id, so a HUP-ignoring child of a shell that had already exited before cleanup started (re-parented to launchd) is not found. Linux reaches it through the session; a program that `exec`s keeps its entry on every OS.
-- On Linux, a member of a gone shell's session is signaled only if its environment carries that terminal's `PASEO_TERMINAL_ID`. A job that scrubbed its environment (`env -i`) is reported as unconfirmed, with its pid, and never signaled.
+- On Linux, a member of a gone shell's session is signaled only if its environment carries that terminal's `PIMI_TERMINAL_ID`. A job that scrubbed its environment (`env -i`) is reported as unconfirmed, with its pid, and never signaled.
 - The agent-hook activity URL is baked into each shell when it starts. If the daemon's listen address changes across a restart, older shells report to the old address.
 - Restoring terminals after a reboot is out of scope: records from an earlier boot are retired without signaling anything.

@@ -478,7 +478,7 @@ export interface SessionOptions {
   logger: pino.Logger;
   downloadTokenStore: DownloadTokenStore;
   pushNotifications?: PushNotifications;
-  paseoHome: string;
+  pimiHome: string;
   worktreesRoot?: string;
   agentManager: AgentManager;
   agentStorage: AgentStorage;
@@ -733,7 +733,7 @@ export class Session {
     | ((workspace: PersistedWorkspaceRecord) => Promise<void>)
     | null;
   private readonly sessionLogger: pino.Logger;
-  private readonly paseoHome: string;
+  private readonly pimiHome: string;
   private readonly projectIcons: ProjectIconReader;
   private readonly worktreesRoot: string | undefined;
 
@@ -836,7 +836,7 @@ export class Session {
       logger,
       downloadTokenStore,
       pushNotifications,
-      paseoHome,
+      pimiHome,
       worktreesRoot,
       agentManager,
       agentStorage,
@@ -899,11 +899,11 @@ export class Session {
     this.onLifecycleIntent = onLifecycleIntent ?? null;
     this.onWorkspaceRecovered = onWorkspaceRecovered ?? null;
     this.pushNotifications = pushNotifications;
-    this.paseoHome = paseoHome;
+    this.pimiHome = pimiHome;
     this.messageReceipts = options.messageReceipts;
     this.agentMessages = options.agentMessages;
     this.creationService = options.creationService;
-    this.projectIcons = new ProjectIconReader(paseoHome);
+    this.projectIcons = new ProjectIconReader(pimiHome);
     this.worktreesRoot = worktreesRoot;
     this.pluginRuntime = pluginRuntime;
     this.orchestrationSkills = orchestrationSkills;
@@ -919,7 +919,7 @@ export class Session {
         hasBinaryChannel: () => this.onBinaryMessage !== null,
       },
       downloadTokenStore,
-      paseoHome,
+      pimiHome,
       logger: this.sessionLogger,
     });
     this.agentManager = agentManager;
@@ -937,7 +937,7 @@ export class Session {
     this.workspaceBaseBranch =
       options.workspaceBaseBranch ??
       createWorkspaceBaseBranchService({
-        paseoHome: this.paseoHome,
+        pimiHome: this.pimiHome,
         worktreesRoot: this.worktreesRoot,
         workspaceRegistry: this.workspaceRegistry,
         workspaceGitService: this.workspaceGitService,
@@ -959,7 +959,7 @@ export class Session {
       logger: this.sessionLogger,
     });
     this.workspaceRecovery = createWorkspaceRecoveryService({
-      paseoHome: this.paseoHome,
+      pimiHome: this.pimiHome,
       worktreesRoot: this.worktreesRoot,
       getWorkspace: (workspaceId) => this.workspaceRegistry.get(workspaceId),
       getProject: (projectId) => this.projectRegistry.get(projectId),
@@ -990,7 +990,7 @@ export class Session {
         }),
         logger: this.sessionLogger,
       }),
-      paseoHome: this.paseoHome,
+      pimiHome: this.pimiHome,
       worktreesRoot: this.worktreesRoot,
       logger: this.sessionLogger,
     });
@@ -1073,7 +1073,7 @@ export class Session {
         emitLifecycleIntent: (intent) => this.emitLifecycleIntent(intent),
       },
       clientId: this.clientId,
-      paseoHome: this.paseoHome,
+      pimiHome: this.pimiHome,
       serverId,
       daemonVersion,
       daemonRuntimeConfig,
@@ -1146,7 +1146,7 @@ export class Session {
       logger: this.sessionLogger,
     });
     this.createAgentLifecycleDispatch = new CreateAgentLifecycleDispatch({
-      paseoHome: this.paseoHome,
+      pimiHome: this.pimiHome,
       worktreesRoot: this.worktreesRoot,
       agentManager: this.agentManager,
       agentStorage: this.agentStorage,
@@ -3615,7 +3615,7 @@ export class Session {
     const { projectId, requestId } = request;
     try {
       const updated = await setProjectCustomIcon({
-        paseoHome: this.paseoHome,
+        pimiHome: this.pimiHome,
         projectId,
         source: request.source,
         projects: this.projectRegistry,
@@ -3704,7 +3704,7 @@ export class Session {
 
         await this.projectRegistry.remove(resolvedProjectId);
         await removeProjectCustomIcon({
-          paseoHome: this.paseoHome,
+          pimiHome: this.pimiHome,
           projectId: resolvedProjectId,
         }).catch((error) => {
           this.sessionLogger.warn(
@@ -3841,7 +3841,7 @@ export class Session {
   ): Promise<void> {
     try {
       this.workspaceBaseBranch ??= createWorkspaceBaseBranchService({
-        paseoHome: this.paseoHome,
+        pimiHome: this.pimiHome,
         worktreesRoot: this.worktreesRoot,
         workspaceRegistry: this.workspaceRegistry,
         workspaceGitService: this.workspaceGitService,
@@ -4401,7 +4401,7 @@ export class Session {
           agentStorage: this.agentStorage,
           finishSubscriptions: this.finishSubscriptions,
           logger: this.sessionLogger,
-          paseoHome: this.paseoHome,
+          pimiHome: this.pimiHome,
           worktreesRoot: this.worktreesRoot,
           providerSnapshotManager: this.providerSnapshotManager,
           getAgentProfiles: () => this.daemonConfigStore.get().agentProfiles ?? [],
@@ -5205,7 +5205,7 @@ export class Session {
     return handleWorktreeListRequest(
       {
         emit: (message) => this.emit(message),
-        paseoHome: this.paseoHome,
+        pimiHome: this.pimiHome,
         workspaceGitService: this.workspaceGitService,
       },
       msg,
@@ -5217,7 +5217,7 @@ export class Session {
   ): Promise<void> {
     return handleWorktreeArchiveRequest(
       {
-        paseoHome: this.paseoHome,
+        pimiHome: this.pimiHome,
         paseoWorktreesBaseRoot: this.worktreesRoot,
         github: this.github,
         workspaceGitService: this.workspaceGitService,
@@ -7382,7 +7382,7 @@ export class Session {
   ): Promise<void> {
     return handleCreateWorktreeRequest(
       {
-        paseoHome: this.paseoHome,
+        pimiHome: this.pimiHome,
         worktreesRoot: this.worktreesRoot,
         describeWorkspaceRecord: (result) => this.describeCreatedWorktreeWorkspace(result),
         emit: (message) => this.emit(message),
@@ -7401,7 +7401,7 @@ export class Session {
   ): Promise<CreatePaseoWorktreeWorkflowResult> {
     return createWorktreeWorkflow(
       {
-        paseoHome: this.paseoHome,
+        pimiHome: this.pimiHome,
         worktreesRoot: this.worktreesRoot,
         createPaseoWorktree: (workflowInput, serviceOptions) =>
           this.createPaseoWorktree(workflowInput, serviceOptions),
@@ -7459,7 +7459,7 @@ export class Session {
           clearWorkspaceAutomationBlock(this.workspaceRegistry, workspaceId),
         startWorkspaceSetup: (workspaceId, operation) =>
           this.workspaceSetupRuntime.start(workspaceId, operation),
-        paseoHome: this.paseoHome,
+        pimiHome: this.pimiHome,
         worktreesRoot: this.worktreesRoot,
         emitWorkspaceUpdateForWorkspaceId: (workspaceId) =>
           this.emitWorkspaceUpdateForWorkspaceId(workspaceId),
@@ -7495,7 +7495,7 @@ export class Session {
           }
           return archiveByScope(
             {
-              paseoHome: this.paseoHome,
+              pimiHome: this.pimiHome,
               paseoWorktreesBaseRoot: this.worktreesRoot,
               github: this.github,
               workspaceGitService: this.workspaceGitService,

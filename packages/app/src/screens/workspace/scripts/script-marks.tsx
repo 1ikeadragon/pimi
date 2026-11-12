@@ -44,13 +44,13 @@ export function routeLabelKey(
   kind: WorkspaceScriptLinkKind,
 ):
   | "workspace.scripts.routes.public"
-  | "workspace.scripts.routes.paseo"
+  | "workspace.scripts.routes.pimi"
   | "workspace.scripts.routes.direct" {
   switch (kind) {
     case "public":
       return "workspace.scripts.routes.public";
     case "paseo":
-      return "workspace.scripts.routes.paseo";
+      return "workspace.scripts.routes.pimi";
     case "direct":
       return "workspace.scripts.routes.direct";
   }

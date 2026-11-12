@@ -67,10 +67,10 @@ export class ManagedPluginSources {
   private readonly metadataPath: string;
   private readonly records: Record<string, ManagedPluginRecord>;
   constructor(
-    paseoHome: string,
+    pimiHome: string,
     private readonly registryOptions: RegistryOptions = {},
   ) {
-    this.root = path.resolve(paseoHome, "plugins");
+    this.root = path.resolve(pimiHome, "plugins");
     this.metadataPath = path.join(this.root, "sources.json");
     this.records = existsSync(this.metadataPath)
       ? z

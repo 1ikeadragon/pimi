@@ -423,7 +423,7 @@ export function applyMutableProviderConfigToOverrides(
 export class DaemonConfigStore {
   private mutations: Promise<unknown> = Promise.resolve();
   private current: MutableDaemonConfig;
-  private readonly paseoHome: string;
+  private readonly pimiHome: string;
   private readonly logger: LoggerLike | undefined;
   private readonly changeListeners = new Set<ConfigListener>();
   private readonly applyListeners = new Set<ConfigApplyListener>();
@@ -436,7 +436,7 @@ export class DaemonConfigStore {
   private lastKnownPersisted: PersistedConfig;
 
   constructor(
-    paseoHome: string,
+    pimiHome: string,
     initial: MutableDaemonConfig,
     logger?: LoggerLike,
     options: {
@@ -447,13 +447,13 @@ export class DaemonConfigStore {
       speech?: SpeechSettingsOwner;
     } = {},
   ) {
-    this.paseoHome = paseoHome;
+    this.pimiHome = pimiHome;
     this.logger = getLogger(logger);
     this.relayEnabledMutable = options.relayEnabledMutable ?? true;
     this.relayConfigured = options.relayConfigured ?? true;
     this.reloadSource = options.reloadSource;
     this.speechOwner = options.speech;
-    this.startupPersisted = options.startupPersisted ?? loadPersistedConfig(paseoHome, this.logger);
+    this.startupPersisted = options.startupPersisted ?? loadPersistedConfig(pimiHome, this.logger);
     this.lastKnownPersisted = this.startupPersisted;
     this.current = MutableDaemonConfigSchema.parse({
       ...initial,
@@ -531,7 +531,7 @@ export class DaemonConfigStore {
       try {
         this.applyReplacement(next, { removedProviders });
       } catch (error) {
-        await savePersistedConfigAsync(this.paseoHome, persistedBeforePatch, this.logger);
+        await savePersistedConfigAsync(this.pimiHome, persistedBeforePatch, this.logger);
         throw error;
       }
     }
@@ -571,7 +571,7 @@ export class DaemonConfigStore {
       throw new Error("Daemon config reload is unavailable for this daemon instance");
     }
 
-    const persisted = await loadPersistedConfigAsync(this.paseoHome, this.logger);
+    const persisted = await loadPersistedConfigAsync(this.pimiHome, this.logger);
     const resolved = this.reloadSource.resolve(persisted);
     // Plugin source changes require the plugin lifecycle operation or a daemon
     // restart. The global switch is independently reloadable.
@@ -742,7 +742,7 @@ export class DaemonConfigStore {
   public readServicePorts(): Promise<NonNullable<PersistedConfig["worktrees"]>["servicePorts"]> {
     return this.enqueue(
       async () =>
-        (await loadPersistedConfigAsync(this.paseoHome, this.logger)).worktrees?.servicePorts,
+        (await loadPersistedConfigAsync(this.pimiHome, this.logger)).worktrees?.servicePorts,
     );
   }
 
@@ -750,7 +750,7 @@ export class DaemonConfigStore {
     patch: Omit<SupportedMutableConfigPatch, "removeProviders">,
     removeProviders: readonly string[],
   ): Promise<{ previous: PersistedConfig; knownNext: PersistedConfig }> {
-    const persisted = await loadPersistedConfigAsync(this.paseoHome, this.logger);
+    const persisted = await loadPersistedConfigAsync(this.pimiHome, this.logger);
     const merge = (source: PersistedConfig) =>
       mergeMutablePatchIntoPersistedConfig({
         persisted: source,
@@ -760,7 +760,7 @@ export class DaemonConfigStore {
       });
     const nextPersisted = merge(persisted);
     const knownNext = merge(this.lastKnownPersisted);
-    await savePersistedConfigAsync(this.paseoHome, nextPersisted, this.logger);
+    await savePersistedConfigAsync(this.pimiHome, nextPersisted, this.logger);
     return { previous: persisted, knownNext };
   }
 }

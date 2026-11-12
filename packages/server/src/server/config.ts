@@ -88,8 +88,8 @@ function resolveLogConfigFromEnv(
   env: NodeJS.ProcessEnv,
   persisted: PersistedConfig,
 ): PersistedConfig["log"] {
-  const level = parseLogLevelEnv(env.PASEO_LOG_LEVEL ?? env.PASEO_LOG);
-  const format = parseLogFormatEnv(env.PASEO_LOG_FORMAT);
+  const level = parseLogLevelEnv(env.PIMI_LOG_LEVEL ?? env.PIMI_LOG);
+  const format = parseLogFormatEnv(env.PIMI_LOG_FORMAT);
   const console = resolveConsoleLogConfigFromEnv(env, persisted.log?.console);
   const file = resolveFileLogConfigFromEnv(env, persisted.log?.file);
 
@@ -110,8 +110,8 @@ function resolveConsoleLogConfigFromEnv(
   env: NodeJS.ProcessEnv,
   persisted: NonNullable<PersistedConfig["log"]>["console"],
 ): NonNullable<PersistedConfig["log"]>["console"] {
-  const level = parseLogLevelEnv(env.PASEO_LOG_CONSOLE_LEVEL);
-  const format = parseLogFormatEnv(env.PASEO_LOG_CONSOLE_FORMAT);
+  const level = parseLogLevelEnv(env.PIMI_LOG_CONSOLE_LEVEL);
+  const format = parseLogFormatEnv(env.PIMI_LOG_CONSOLE_FORMAT);
   if (level === undefined && format === undefined) return undefined;
   return {
     ...persisted,
@@ -124,10 +124,10 @@ function resolveFileLogConfigFromEnv(
   env: NodeJS.ProcessEnv,
   persisted: NonNullable<PersistedConfig["log"]>["file"],
 ): NonNullable<PersistedConfig["log"]>["file"] {
-  const level = parseLogLevelEnv(env.PASEO_LOG_FILE_LEVEL);
-  const filePath = nonEmptyEnv(env.PASEO_LOG_FILE_PATH);
-  const maxSize = nonEmptyEnv(env.PASEO_LOG_FILE_ROTATE_SIZE);
-  const maxFiles = parsePositiveIntegerEnv(env.PASEO_LOG_FILE_ROTATE_COUNT);
+  const level = parseLogLevelEnv(env.PIMI_LOG_FILE_LEVEL);
+  const filePath = nonEmptyEnv(env.PIMI_LOG_FILE_PATH);
+  const maxSize = nonEmptyEnv(env.PIMI_LOG_FILE_ROTATE_SIZE);
+  const maxFiles = parsePositiveIntegerEnv(env.PIMI_LOG_FILE_ROTATE_COUNT);
   const hasRotateOverride = maxSize !== undefined || maxFiles !== undefined;
   if (level === undefined && filePath === undefined && !hasRotateOverride) return undefined;
   return {
@@ -268,17 +268,17 @@ function resolveRelayEndpoints(input: ResolveRelayInput): {
   publicEndpoint: string | undefined;
 } {
   const endpoint =
-    (input.env.PASEO_RELAY_ENDPOINT ?? input.persisted.daemon?.relay?.endpoint)?.trim() ||
+    (input.env.PIMI_RELAY_ENDPOINT ?? input.persisted.daemon?.relay?.endpoint)?.trim() ||
     DEFAULT_RELAY_ENDPOINT;
   const publicEndpoint =
     (
-      input.env.PASEO_RELAY_PUBLIC_ENDPOINT ?? input.persisted.daemon?.relay?.publicEndpoint
+      input.env.PIMI_RELAY_PUBLIC_ENDPOINT ?? input.persisted.daemon?.relay?.publicEndpoint
     )?.trim() || endpoint;
   return { endpoint, publicEndpoint };
 }
 
 function resolveRelayConfig(input: ResolveRelayInput): ResolvedRelay {
-  const environmentEnabled = parseBooleanEnv(input.env.PASEO_RELAY_ENABLED);
+  const environmentEnabled = parseBooleanEnv(input.env.PIMI_RELAY_ENABLED);
   const { endpoint, publicEndpoint } = resolveRelayEndpoints(input);
   const enabled =
     endpoint !== undefined &&
@@ -289,12 +289,12 @@ function resolveRelayConfig(input: ResolveRelayInput): ResolvedRelay {
   const useTls =
     input.cliRelayUseTls ??
     resolveTlsFromEnv(
-      input.env.PASEO_RELAY_USE_TLS,
+      input.env.PIMI_RELAY_USE_TLS,
       input.persisted.daemon?.relay?.useTls,
       endpoint !== undefined && shouldUseTlsForDefaultHostedRelay(endpoint),
     );
   const publicUseTls = resolveTlsFromEnv(
-    input.env.PASEO_RELAY_PUBLIC_USE_TLS,
+    input.env.PIMI_RELAY_PUBLIC_USE_TLS,
     input.persisted.daemon?.relay?.publicUseTls,
     useTls,
   );
@@ -322,7 +322,7 @@ function resolveServiceProxyPublicBaseUrl(value: string | null): string | null {
   try {
     return new URL(value).toString().replace(/\/$/, "");
   } catch {
-    throw new Error(`Invalid PASEO_SERVICE_PROXY_PUBLIC_BASE_URL: ${value}`);
+    throw new Error(`Invalid PIMI_SERVICE_PROXY_PUBLIC_BASE_URL: ${value}`);
   }
 }
 
@@ -331,20 +331,20 @@ function resolveServiceProxyConfig(
   persisted: ReturnType<typeof loadPersistedConfig>,
 ): ResolvedServiceProxy {
   const enabledShim =
-    parseBooleanEnv(env.PASEO_SERVICE_PROXY_ENABLED) ?? persisted.daemon?.serviceProxy?.enabled;
+    parseBooleanEnv(env.PIMI_SERVICE_PROXY_ENABLED) ?? persisted.daemon?.serviceProxy?.enabled;
   // COMPAT(serviceProxyEnabled): added 2026-06-02, remove after 2026-12-02.
   // `enabled=false` used to disable the separate service proxy listener. Localhost
   // service proxying is now always enabled; this only suppresses optional layers.
   const optionalLayersEnabled = enabledShim !== false;
   const publicBaseUrl = optionalLayersEnabled
     ? resolveServiceProxyPublicBaseUrl(
-        env.PASEO_SERVICE_PROXY_PUBLIC_BASE_URL ??
+        env.PIMI_SERVICE_PROXY_PUBLIC_BASE_URL ??
           persisted.daemon?.serviceProxy?.publicBaseUrl ??
           null,
       )
     : null;
   const standaloneListen = optionalLayersEnabled
-    ? (env.PASEO_SERVICE_PROXY_LISTEN ?? persisted.daemon?.serviceProxy?.listen ?? null)
+    ? (env.PIMI_SERVICE_PROXY_LISTEN ?? persisted.daemon?.serviceProxy?.listen ?? null)
     : null;
 
   return { publicBaseUrl, standaloneListen };
@@ -354,7 +354,7 @@ function resolveVoiceLlmConfig(
   env: NodeJS.ProcessEnv,
   persisted: ReturnType<typeof loadPersistedConfig>,
 ): ResolvedVoiceLlm {
-  const envVoiceLlmProvider = parseOptionalVoiceLlmProvider(env.PASEO_VOICE_LLM_PROVIDER);
+  const envVoiceLlmProvider = parseOptionalVoiceLlmProvider(env.PIMI_VOICE_LLM_PROVIDER);
   const persistedVoiceLlmProvider = parseOptionalVoiceLlmProvider(
     persisted.features?.voiceMode?.llm?.provider,
   );
@@ -369,8 +369,8 @@ function resolveCorsAllowedOrigins(
   env: NodeJS.ProcessEnv,
   persisted: ReturnType<typeof loadPersistedConfig>,
 ): string[] {
-  const envCorsOrigins = env.PASEO_CORS_ORIGINS
-    ? env.PASEO_CORS_ORIGINS.split(",").map((s) => s.trim())
+  const envCorsOrigins = env.PIMI_CORS_ORIGINS
+    ? env.PIMI_CORS_ORIGINS.split(",").map((s) => s.trim())
     : [];
   const persistedCorsOrigins = persisted.daemon?.cors?.allowedOrigins ?? [];
   return Array.from(
@@ -403,13 +403,13 @@ function resolveTrustedProxiesConfig(
   persisted: ReturnType<typeof loadPersistedConfig>,
 ): TrustedProxiesConfig {
   return (
-    parseTrustedProxiesEnv(env.PASEO_TRUSTED_PROXIES) ??
+    parseTrustedProxiesEnv(env.PIMI_TRUSTED_PROXIES) ??
     persisted.daemon?.trustedProxies ??
     DEFAULT_TRUSTED_PROXIES
   );
 }
 
-// PASEO_LISTEN can be:
+// PIMI_LISTEN can be:
 // - host:port (TCP)
 // - /path/to/socket (Unix socket)
 // - unix:///path/to/socket (Unix socket)
@@ -421,7 +421,7 @@ function resolveListenAddress(
 ): string {
   return (
     cli?.listen ??
-    env.PASEO_LISTEN ??
+    env.PIMI_LISTEN ??
     persisted.daemon?.listen ??
     `127.0.0.1:${env.PORT ?? DEFAULT_PORT}`
   );
@@ -431,7 +431,7 @@ function resolveAuthConfig(
   env: NodeJS.ProcessEnv,
   persisted: ReturnType<typeof loadPersistedConfig>,
 ): PaseoDaemonConfig["auth"] {
-  const envPassword = env.PASEO_PASSWORD?.trim();
+  const envPassword = env.PIMI_PASSWORD?.trim();
   if (envPassword) {
     return { password: hashDaemonPassword(envPassword) };
   }
@@ -441,7 +441,7 @@ function resolveAuthConfig(
 }
 
 function resolveWorktreesRoot(
-  paseoHome: string,
+  pimiHome: string,
   persisted: ReturnType<typeof loadPersistedConfig>,
 ): string | undefined {
   const configuredRoot = persisted.worktrees?.root?.trim();
@@ -452,7 +452,7 @@ function resolveWorktreesRoot(
   const expandedRoot = expandTilde(configuredRoot);
   return path.isAbsolute(expandedRoot)
     ? path.resolve(expandedRoot)
-    : path.resolve(paseoHome, expandedRoot);
+    : path.resolve(pimiHome, expandedRoot);
 }
 
 function resolveAppendSystemPrompt(persisted: ReturnType<typeof loadPersistedConfig>): string {
@@ -475,7 +475,7 @@ function resolvePairingAppBaseUrl(
   env: NodeJS.ProcessEnv,
   persisted: ReturnType<typeof loadPersistedConfig>,
 ): string {
-  if (env.PASEO_APP_BASE_URL !== undefined) return env.PASEO_APP_BASE_URL;
+  if (env.PIMI_APP_BASE_URL !== undefined) return env.PIMI_APP_BASE_URL;
   const persistedUrl = persisted.app?.baseUrl;
   return persistedUrl ?? DEFAULT_PAIRING_APP_BASE_URL;
 }
@@ -517,7 +517,7 @@ function resolveStaticLoadConfigSettings(
     ...resolveProfileLists(persisted),
     hostnames: mergeHostnames([
       persisted.daemon?.hostnames,
-      parseHostnamesEnv(env.PASEO_HOSTNAMES ?? env.PASEO_ALLOWED_HOSTS),
+      parseHostnamesEnv(env.PIMI_HOSTNAMES ?? env.PIMI_ALLOWED_HOSTS),
       cli?.hostnames,
     ]),
     trustedProxies: resolveTrustedProxiesConfig(env, persisted),
@@ -565,7 +565,7 @@ export type ResolvedDaemonSettings = Pick<
 >;
 
 export function resolveConfigFromPersisted(
-  paseoHome: string,
+  pimiHome: string,
   persisted: PersistedConfig,
   options?: ResolveConfigFromPersistedOptions,
 ): PaseoDaemonConfig {
@@ -578,19 +578,19 @@ export function resolveConfigFromPersisted(
     cliRelayEnabled: cli?.relayEnabled,
     cliRelayUseTls: cli?.relayUseTls,
   });
-  const { openai, speech } = resolveSpeechConfig({ paseoHome, env, persisted });
+  const { openai, speech } = resolveSpeechConfig({ pimiHome, env, persisted });
   const voiceLlm = resolveVoiceLlmConfig(env, persisted);
   return {
     ...settings,
     listen: resolveListenAddress(env, cli, persisted),
-    paseoHome,
-    desktopManaged: env.PASEO_DESKTOP_MANAGED === "1",
-    worktreesRoot: resolveWorktreesRoot(paseoHome, persisted),
+    pimiHome,
+    desktopManaged: env.PIMI_DESKTOP_MANAGED === "1",
+    worktreesRoot: resolveWorktreesRoot(pimiHome, persisted),
     pluginRegistries: persisted.pluginRegistries,
-    pluginRegistryUrl: env.PASEO_PLUGIN_REGISTRY,
+    pluginRegistryUrl: env.PIMI_PLUGIN_REGISTRY,
     mcpDebug: env.MCP_DEBUG === "1",
     isDev: resolvePaseoNodeEnv(env) === "development",
-    agentStoragePath: path.join(paseoHome, "agents"),
+    agentStoragePath: path.join(pimiHome, "agents"),
     staticDir: "public",
     agentClients: {},
     relayEnabledMutable: relay.enabledMutable,
@@ -650,11 +650,11 @@ export function resolveReloadableConfig(
 }
 
 export function loadConfig(
-  paseoHome: string,
+  pimiHome: string,
   options?: ResolveConfigFromPersistedOptions,
 ): PaseoDaemonConfig {
-  const persisted = loadPersistedConfig(paseoHome);
-  return resolveConfigFromPersisted(paseoHome, persisted, options);
+  const persisted = loadPersistedConfig(pimiHome);
+  return resolveConfigFromPersisted(pimiHome, persisted, options);
 }
 
 function parsePositiveGitOverride(value: string | undefined): boolean {
@@ -693,24 +693,24 @@ function resolveCoreDaemonOverridePaths(
   cli: CliConfigOverrides | undefined,
 ): string[] {
   const paths: string[] = [];
-  if (cli?.listen !== undefined || env.PASEO_LISTEN !== undefined) {
+  if (cli?.listen !== undefined || env.PIMI_LISTEN !== undefined) {
     paths.push("daemon.listen");
   }
   if (cli?.mcpEnabled !== undefined) paths.push("daemon.mcp.enabled");
   if (cli?.mcpInjectIntoAgents !== undefined) paths.push("daemon.mcp.injectIntoAgents");
   // Hostname sources append instead of replacing one another, so a launch value
   // does not prevent a persisted hostname edit from taking effect.
-  if (parseTrustedProxiesEnv(env.PASEO_TRUSTED_PROXIES) !== undefined) {
+  if (parseTrustedProxiesEnv(env.PIMI_TRUSTED_PROXIES) !== undefined) {
     paths.push("daemon.trustedProxies");
   }
-  if (parsePositiveGitOverride(env.PASEO_GIT_MAX_PROCESSES_PER_SECOND)) {
+  if (parsePositiveGitOverride(env.PIMI_GIT_MAX_PROCESSES_PER_SECOND)) {
     paths.push("daemon.git.maxProcessesPerSecond");
   }
-  if (parsePositiveGitOverride(env.PASEO_GIT_MAX_PROCESS_CONCURRENCY)) {
+  if (parsePositiveGitOverride(env.PIMI_GIT_MAX_PROCESS_CONCURRENCY)) {
     paths.push("daemon.git.maxProcessConcurrency");
   }
-  if (env.PASEO_APP_BASE_URL !== undefined) paths.push("app.baseUrl");
-  if (env.PASEO_PASSWORD?.trim()) paths.push("daemon.auth.password");
+  if (env.PIMI_APP_BASE_URL !== undefined) paths.push("app.baseUrl");
+  if (env.PIMI_PASSWORD?.trim()) paths.push("daemon.auth.password");
   return paths;
 }
 
@@ -719,17 +719,17 @@ function resolveRelayOverridePaths(
   cli: CliConfigOverrides | undefined,
 ): string[] {
   const paths: string[] = [];
-  if (cli?.relayEnabled !== undefined || parseBooleanEnv(env.PASEO_RELAY_ENABLED) !== undefined) {
+  if (cli?.relayEnabled !== undefined || parseBooleanEnv(env.PIMI_RELAY_ENABLED) !== undefined) {
     paths.push("daemon.relay.enabled");
   }
-  if (env.PASEO_RELAY_ENDPOINT !== undefined) paths.push("daemon.relay.endpoint");
-  if (env.PASEO_RELAY_PUBLIC_ENDPOINT !== undefined) {
+  if (env.PIMI_RELAY_ENDPOINT !== undefined) paths.push("daemon.relay.endpoint");
+  if (env.PIMI_RELAY_PUBLIC_ENDPOINT !== undefined) {
     paths.push("daemon.relay.publicEndpoint");
   }
-  if (cli?.relayUseTls !== undefined || env.PASEO_RELAY_USE_TLS !== undefined) {
+  if (cli?.relayUseTls !== undefined || env.PIMI_RELAY_USE_TLS !== undefined) {
     paths.push("daemon.relay.useTls");
   }
-  if (env.PASEO_RELAY_PUBLIC_USE_TLS !== undefined) {
+  if (env.PIMI_RELAY_PUBLIC_USE_TLS !== undefined) {
     paths.push("daemon.relay.publicUseTls");
   }
   return paths;
@@ -737,12 +737,12 @@ function resolveRelayOverridePaths(
 
 function resolveServiceOverridePaths(env: NodeJS.ProcessEnv): string[] {
   const paths: string[] = [];
-  const serviceProxyEnabled = parseBooleanEnv(env.PASEO_SERVICE_PROXY_ENABLED);
+  const serviceProxyEnabled = parseBooleanEnv(env.PIMI_SERVICE_PROXY_ENABLED);
   if (serviceProxyEnabled !== undefined) paths.push("daemon.serviceProxy.enabled");
-  if (env.PASEO_SERVICE_PROXY_LISTEN !== undefined || serviceProxyEnabled === false) {
+  if (env.PIMI_SERVICE_PROXY_LISTEN !== undefined || serviceProxyEnabled === false) {
     paths.push("daemon.serviceProxy.listen");
   }
-  if (env.PASEO_SERVICE_PROXY_PUBLIC_BASE_URL !== undefined || serviceProxyEnabled === false) {
+  if (env.PIMI_SERVICE_PROXY_PUBLIC_BASE_URL !== undefined || serviceProxyEnabled === false) {
     paths.push("daemon.serviceProxy.publicBaseUrl");
   }
   return paths;
@@ -750,22 +750,22 @@ function resolveServiceOverridePaths(env: NodeJS.ProcessEnv): string[] {
 
 function resolveLogOverrideControlledPaths(env: NodeJS.ProcessEnv): string[] {
   const paths: string[] = [];
-  if (parseLogLevelEnv(env.PASEO_LOG_LEVEL ?? env.PASEO_LOG) !== undefined) {
+  if (parseLogLevelEnv(env.PIMI_LOG_LEVEL ?? env.PIMI_LOG) !== undefined) {
     paths.push("log.level");
   }
-  if (parseLogFormatEnv(env.PASEO_LOG_FORMAT) !== undefined) paths.push("log.format");
-  if (parseLogLevelEnv(env.PASEO_LOG_CONSOLE_LEVEL) !== undefined) {
+  if (parseLogFormatEnv(env.PIMI_LOG_FORMAT) !== undefined) paths.push("log.format");
+  if (parseLogLevelEnv(env.PIMI_LOG_CONSOLE_LEVEL) !== undefined) {
     paths.push("log.console.level");
   }
-  if (parseLogFormatEnv(env.PASEO_LOG_CONSOLE_FORMAT) !== undefined) {
+  if (parseLogFormatEnv(env.PIMI_LOG_CONSOLE_FORMAT) !== undefined) {
     paths.push("log.console.format");
   }
-  if (parseLogLevelEnv(env.PASEO_LOG_FILE_LEVEL) !== undefined) paths.push("log.file.level");
-  if (nonEmptyEnv(env.PASEO_LOG_FILE_PATH) !== undefined) paths.push("log.file.path");
-  if (nonEmptyEnv(env.PASEO_LOG_FILE_ROTATE_SIZE) !== undefined) {
+  if (parseLogLevelEnv(env.PIMI_LOG_FILE_LEVEL) !== undefined) paths.push("log.file.level");
+  if (nonEmptyEnv(env.PIMI_LOG_FILE_PATH) !== undefined) paths.push("log.file.path");
+  if (nonEmptyEnv(env.PIMI_LOG_FILE_ROTATE_SIZE) !== undefined) {
     paths.push("log.file.rotate.maxSize");
   }
-  if (parsePositiveIntegerEnv(env.PASEO_LOG_FILE_ROTATE_COUNT) !== undefined) {
+  if (parsePositiveIntegerEnv(env.PIMI_LOG_FILE_ROTATE_COUNT) !== undefined) {
     paths.push("log.file.rotate.maxFiles");
   }
   return paths;
@@ -776,8 +776,8 @@ function resolveSpeechOverrideControlledPaths(
   persisted: PersistedConfig,
 ): string[] {
   const paths = Object.keys(readSpeechSettings(persisted, env).envOverrides);
-  if (env.PASEO_VOICE_LLM_PROVIDER !== undefined) paths.push("features.voiceMode.llm.provider");
-  if (env.PASEO_LOCAL_MODELS_DIR !== undefined) paths.push("providers.local.modelsDir");
+  if (env.PIMI_VOICE_LLM_PROVIDER !== undefined) paths.push("features.voiceMode.llm.provider");
+  if (env.PIMI_LOCAL_MODELS_DIR !== undefined) paths.push("providers.local.modelsDir");
   return paths;
 }
 

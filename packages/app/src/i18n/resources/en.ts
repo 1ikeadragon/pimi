@@ -3540,7 +3540,7 @@ export const en = {
         newScript: "New script",
         editScript: "Edit {{name}}",
         runAsService: "Run as a service",
-        serviceHint: "Pimi supervises the process and assigns a port via $PASEO_PORT",
+        serviceHint: "Pimi supervises the process and assigns a port via $PIMI_PORT",
         actions: {
           add: "Add script",
           edit: "Edit",

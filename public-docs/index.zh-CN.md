@@ -27,7 +27,7 @@ npm run build:server
 
 Pimi 会在本地启动 daemon，然后询问是否启用端到端加密中继并打印配对二维码。如果你拒绝，可以通过 TCP、Tailscale 或其他 VPN 手动输入 daemon 地址。
 
-配置和本地状态位于 `PASEO_HOME` 下（默认为 `~/.paseo`）。
+配置和本地状态位于 `PIMI_HOME` 下（默认为 `~/.pimi`）。
 
 ## 接下来 {#where-next}
 

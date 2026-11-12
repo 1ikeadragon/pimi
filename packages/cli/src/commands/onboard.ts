@@ -111,8 +111,8 @@ async function resolveVoiceSelection(mode: OnboardOptions["voice"]): Promise<boo
   return answer;
 }
 
-function printNextSteps(pairingUrl: string | null, paseoHome: string, richUi: boolean): void {
-  const daemonLogPath = path.join(paseoHome, "daemon.log");
+function printNextSteps(pairingUrl: string | null, pimiHome: string, richUi: boolean): void {
+  const daemonLogPath = path.join(pimiHome, "daemon.log");
   const nextStepsLines = [
     pairingUrl
       ? "1. Open Pimi and scan the QR code above, or paste the pairing link."
@@ -120,13 +120,13 @@ function printNextSteps(pairingUrl: string | null, paseoHome: string, richUi: bo
     "2. Web app: https://1ikeadragon.github.io/pimi/",
     "3. Desktop app: https://github.com/1ikeadragon/pimi/releases/latest",
     "4. Docs: https://github.com/1ikeadragon/pimi/blob/main/README.md",
-    `5. Example: pimi run --home ${JSON.stringify(paseoHome)} --output-schema schema.json "extract fields"`,
+    `5. Example: pimi run --home ${JSON.stringify(pimiHome)} --output-schema schema.json "extract fields"`,
   ];
   const quickReferenceLines = [
     "1. paseo --help",
-    `2. paseo ls --home ${JSON.stringify(paseoHome)}`,
-    `3. paseo run --home ${JSON.stringify(paseoHome)} "your prompt"`,
-    `4. paseo status --home ${JSON.stringify(paseoHome)}`,
+    `2. paseo ls --home ${JSON.stringify(pimiHome)}`,
+    `3. paseo run --home ${JSON.stringify(pimiHome)} "your prompt"`,
+    `4. paseo status --home ${JSON.stringify(pimiHome)}`,
     `5. Daemon logs: ${daemonLogPath}`,
   ];
 
@@ -174,11 +174,8 @@ export function onboardCommand(): Command {
     );
 }
 
-async function resolveAndPersistVoice(
-  paseoHome: string,
-  options: OnboardOptions,
-): Promise<boolean> {
-  let persisted = loadPersistedConfig(paseoHome) as OnboardPersistedConfig;
+async function resolveAndPersistVoice(pimiHome: string, options: OnboardOptions): Promise<boolean> {
+  let persisted = loadPersistedConfig(pimiHome) as OnboardPersistedConfig;
   const persistedVoiceSelection = resolvePersistedVoiceSelection(persisted);
   const shouldPrompt = options.voice === "ask" || options.voice === undefined;
   let voiceEnabled: boolean;
@@ -200,12 +197,12 @@ async function resolveAndPersistVoice(
   }
 
   persisted = applyVoiceSelection(persisted, voiceEnabled);
-  savePersistedConfig(paseoHome, persisted);
+  savePersistedConfig(pimiHome, persisted);
   return voiceEnabled;
 }
 
-function persistSetupChoices(paseoHome: string, options: OnboardOptions): void {
-  const persisted = loadPersistedConfig(paseoHome, { defaultsIfMissing: true });
+function persistSetupChoices(pimiHome: string, options: OnboardOptions): void {
+  const persisted = loadPersistedConfig(pimiHome, { defaultsIfMissing: true });
   if (options.listen || options.port) {
     persisted.daemon = {
       ...persisted.daemon,
@@ -227,7 +224,7 @@ function persistSetupChoices(paseoHome: string, options: OnboardOptions): void {
       ...persisted.daemon,
       hostnames: options.hostnames === "true" ? true : options.hostnames.split(","),
     };
-  savePersistedConfig(paseoHome, persisted);
+  savePersistedConfig(pimiHome, persisted);
 }
 
 export async function runOnboard(options: OnboardOptions): Promise<void> {
@@ -244,14 +241,14 @@ export async function runOnboard(options: OnboardOptions): Promise<void> {
   const timeoutMs = parseTimeoutMs(options.timeout);
 
   if (options.daemonTarget.kind !== "instance") throw new Error("Onboarding requires a local home");
-  const paseoHome = options.daemonTarget.home;
-  const alreadyRunning = await readDaemonInstance(paseoHome);
-  persistSetupChoices(paseoHome, options);
+  const pimiHome = options.daemonTarget.home;
+  const alreadyRunning = await readDaemonInstance(pimiHome);
+  persistSetupChoices(pimiHome, options);
   if (richUi) {
-    renderNote(paseoHome, "Pimi home");
+    renderNote(pimiHome, "Pimi home");
   }
 
-  const voiceEnabled = await resolveAndPersistVoice(paseoHome, options);
+  const voiceEnabled = await resolveAndPersistVoice(pimiHome, options);
   log.message(
     voiceEnabled
       ? "Voice features enabled. Local speech models will be downloaded automatically if missing."
@@ -267,20 +264,20 @@ export async function runOnboard(options: OnboardOptions): Promise<void> {
       await client.close();
     }
   } else {
-    await launchLocalDaemon({ home: paseoHome, timeoutMs });
+    await launchLocalDaemon({ home: pimiHome, timeoutMs });
   }
-  const ready = await waitForDaemonReady(paseoHome, { timeoutMs });
+  const ready = await waitForDaemonReady(pimiHome, { timeoutMs });
   log.message(`Daemon ready on ${ready.listen}`);
 
   if (options.relay === false) {
     log.message("Relay pairing skipped because --no-relay was provided.");
-    printNextSteps(null, paseoHome, richUi);
+    printNextSteps(null, pimiHome, richUi);
     if (richUi) outro("Pimi daemon is running.");
     return;
   }
 
   let pairing = await resolveLocalPairingOffer({
-    paseoHome,
+    pimiHome,
     enableRelay: options.relay === true,
   });
 
@@ -288,17 +285,17 @@ export async function runOnboard(options: OnboardOptions): Promise<void> {
     const shouldEnable = richUi ? await confirmRelayPairing() : false;
     if (!shouldEnable) {
       printDirectConnectionGuidance();
-      printNextSteps(null, paseoHome, richUi);
+      printNextSteps(null, pimiHome, richUi);
       if (richUi) outro("Pimi daemon is running.");
       return;
     }
-    pairing = await resolveLocalPairingOffer({ paseoHome, enableRelay: true });
+    pairing = await resolveLocalPairingOffer({ pimiHome, enableRelay: true });
     log.success("Relay enabled");
   }
 
   if (!pairing.url) {
     log.warn("Relay pairing URL is unavailable for this daemon configuration.");
-    printNextSteps(null, paseoHome, richUi);
+    printNextSteps(null, pimiHome, richUi);
     if (richUi) {
       outro("Pimi daemon is running.");
     }
@@ -312,7 +309,7 @@ export async function runOnboard(options: OnboardOptions): Promise<void> {
       columns: process.stdout.columns,
     }),
   );
-  printNextSteps(pairing.url, paseoHome, richUi);
+  printNextSteps(pairing.url, pimiHome, richUi);
   if (richUi) {
     outro("Pimi is ready!");
   }

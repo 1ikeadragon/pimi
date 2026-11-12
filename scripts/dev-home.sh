@@ -30,8 +30,8 @@ has_files() {
   [ -d "$1" ] && [ -n "$(find "$1" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]
 }
 
-seed_worktree_paseo_home() {
-  local source_home="${PASEO_DEV_SEED_HOME:-$HOME/.paseo}"
+seed_worktree_pimi_home() {
+  local source_home="${PIMI_DEV_SEED_HOME:-$HOME/.paseo}"
   local target_home="$1"
 
   if [ ! -d "$source_home" ]; then
@@ -44,7 +44,7 @@ seed_worktree_paseo_home() {
     return
   fi
 
-  if [ "${PASEO_DEV_RESET_HOME:-0}" = "1" ]; then
+  if [ "${PIMI_DEV_RESET_HOME:-0}" = "1" ]; then
     rm -rf "$target_home"
   elif has_files "$target_home"; then
     echo "  Seed:    skipped (${target_home} already has data)"
@@ -63,11 +63,11 @@ seed_worktree_paseo_home() {
 }
 
 configure_dev_daemon_config() {
-  if [ -z "${PASEO_LISTEN:-}" ]; then
+  if [ -z "${PIMI_LISTEN:-}" ]; then
     return
   fi
 
-  mkdir -p "$PASEO_HOME"
+  mkdir -p "$PIMI_HOME"
   node -e '
 const fs = require("fs");
 const [path, listen] = [process.argv[1], process.argv[2]];
@@ -79,59 +79,78 @@ cfg.daemon.listen = listen;
 cfg.daemon.cors = cfg.daemon.cors || {};
 cfg.daemon.cors.allowedOrigins = ["*"];
 fs.writeFileSync(path, JSON.stringify(cfg, null, 2));
-' "$PASEO_HOME/config.json" "$PASEO_LISTEN"
+' "$PIMI_HOME/config.json" "$PIMI_LISTEN"
 }
 
 resolve_dev_daemon_endpoint() {
-  if [ -n "${PASEO_DEV_DAEMON_ENDPOINT:-}" ]; then
-    echo "$PASEO_DEV_DAEMON_ENDPOINT"
+  if [ -n "${PIMI_DEV_DAEMON_ENDPOINT:-}" ]; then
+    echo "$PIMI_DEV_DAEMON_ENDPOINT"
     return
   fi
 
-  case "${PASEO_LISTEN:-127.0.0.1:6768}" in
-    0.0.0.0:*) echo "localhost:${PASEO_LISTEN#0.0.0.0:}" ;;
-    127.0.0.1:*) echo "localhost:${PASEO_LISTEN#127.0.0.1:}" ;;
-    *) echo "$PASEO_LISTEN" ;;
+  case "${PIMI_LISTEN:-127.0.0.1:6768}" in
+    0.0.0.0:*) echo "localhost:${PIMI_LISTEN#0.0.0.0:}" ;;
+    127.0.0.1:*) echo "localhost:${PIMI_LISTEN#127.0.0.1:}" ;;
+    *) echo "$PIMI_LISTEN" ;;
   esac
 }
 
-configure_dev_paseo_home() {
-  if [ -n "${PASEO_HOME:-}" ]; then
-    export PASEO_HOME
-    if [ -n "${PASEO_DEV_SEED_HOME:-}" ]; then
-      seed_worktree_paseo_home "$PASEO_HOME"
+# COMPAT(paseo-home): checkouts used .dev/paseo-home before the rename. Move it once and
+# rewrite the absolute paths JSON files inside it store.
+migrate_legacy_dev_home() {
+  local dev_root="$1"
+  local legacy="$dev_root/.dev/paseo-home"
+  local target="$dev_root/.dev/pimi-home"
+  if [ ! -d "$legacy" ] || [ -e "$target" ]; then
+    return
+  fi
+  mv "$legacy" "$target"
+  rm -f "$target/paseo.pid"
+  find "$target" -maxdepth 4 -name '*.json' -not -path '*/node_modules/*' -exec \
+    grep -l -F "$legacy" {} + 2>/dev/null | while IFS= read -r file; do
+    LEGACY="$legacy" TARGET="$target" perl -0pi -e 's/\Q$ENV{LEGACY}\E/$ENV{TARGET}/g' "$file"
+  done
+  echo "Migrated dev home $legacy -> $target" >&2
+}
+
+configure_dev_pimi_home() {
+  if [ -n "${PIMI_HOME:-}" ]; then
+    export PIMI_HOME
+    if [ -n "${PIMI_DEV_SEED_HOME:-}" ]; then
+      seed_worktree_pimi_home "$PIMI_HOME"
     fi
-    mkdir -p "$PASEO_HOME"
-    if [ "${PASEO_DEV_MANAGED_HOME:-0}" = "1" ] || [ -n "${PASEO_DEV_SEED_HOME:-}" ]; then
+    mkdir -p "$PIMI_HOME"
+    if [ "${PIMI_DEV_MANAGED_HOME:-0}" = "1" ] || [ -n "${PIMI_DEV_SEED_HOME:-}" ]; then
       configure_dev_daemon_config
     fi
     return
   fi
 
-  export PASEO_HOME
+  export PIMI_HOME
   local dev_root
-  dev_root="${PASEO_DEV_ROOT:-$(default_dev_paseo_root)}"
-  PASEO_HOME="$dev_root/.dev/paseo-home"
-  export PASEO_DEV_MANAGED_HOME=1
+  dev_root="${PIMI_DEV_ROOT:-$(default_dev_paseo_root)}"
+  migrate_legacy_dev_home "$dev_root"
+  PIMI_HOME="$dev_root/.dev/pimi-home"
+  export PIMI_DEV_MANAGED_HOME=1
 
-  if [ -n "${PASEO_DEV_SEED_HOME:-}" ]; then
-    seed_worktree_paseo_home "$PASEO_HOME"
+  if [ -n "${PIMI_DEV_SEED_HOME:-}" ]; then
+    seed_worktree_pimi_home "$PIMI_HOME"
   fi
 
-  mkdir -p "$PASEO_HOME"
+  mkdir -p "$PIMI_HOME"
   configure_dev_daemon_config
 }
 
 configure_dev_command_env() {
-  if [ -z "${PASEO_LISTEN:-}" ]; then
-    if [ -n "${PASEO_SERVICE_DAEMON_PORT:-}" ]; then
-      export PASEO_LISTEN="0.0.0.0:${PASEO_SERVICE_DAEMON_PORT}"
+  if [ -z "${PIMI_LISTEN:-}" ]; then
+    if [ -n "${PIMI_SERVICE_DAEMON_PORT:-}" ]; then
+      export PIMI_LISTEN="0.0.0.0:${PIMI_SERVICE_DAEMON_PORT}"
     else
-      export PASEO_LISTEN="127.0.0.1:6768"
+      export PIMI_LISTEN="127.0.0.1:6768"
     fi
   fi
 
-  configure_dev_paseo_home
+  configure_dev_pimi_home
 }
 
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
@@ -140,5 +159,5 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     exec "$@"
   fi
 
-  configure_dev_paseo_home
+  configure_dev_pimi_home
 fi

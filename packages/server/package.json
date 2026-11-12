@@ -77,8 +77,8 @@
     }
   },
   "scripts": {
-    "dev": "cross-env PASEO_NODE_ENV=development node --import tsx scripts/dev-runner.ts",
-    "dev:tsx": "cross-env PASEO_NODE_ENV=development tsx watch --ignore '**/*.timestamp-*' scripts/dev-runner.ts",
+    "dev": "cross-env PIMI_NODE_ENV=development node --import tsx scripts/dev-runner.ts",
+    "dev:tsx": "cross-env PIMI_NODE_ENV=development tsx watch --ignore '**/*.timestamp-*' scripts/dev-runner.ts",
     "clean": "node ../../scripts/clean-package-dist.mjs",
     "build": "npm run build:lib && npm run build:scripts",
     "build:clean": "npm run clean && npm run build",

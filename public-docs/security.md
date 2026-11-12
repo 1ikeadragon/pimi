@@ -31,7 +31,7 @@ Relay is off on new installations. When you pair a device from `paseo`, `pimi da
 
 ### How it works
 
-1. The daemon generates a persistent ECDH keypair and stores it in `$PASEO_HOME/daemon-keypair.json`
+1. The daemon generates a persistent ECDH keypair and stores it in `$PIMI_HOME/daemon-keypair.json`
 2. When you scan the QR code or click the pairing link, your phone receives the daemon's public key
 3. Your phone sends a handshake message with its own public key. The daemon will not accept any commands until this handshake completes.
 4. Each side combines its Curve25519 key with the peer public key, then uses the resulting NaCl

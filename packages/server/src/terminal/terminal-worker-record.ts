@@ -74,37 +74,37 @@ export type TerminalWorkerRecordFile =
 // running some other process (even another worker) never matches the record.
 export const TERMINAL_WORKER_MARKER_ARG = "--paseo-terminal-worker";
 
-export function terminalWorkerDirectory(paseoHome: string): string {
-  return path.join(paseoHome, "terminal-worker");
+export function terminalWorkerDirectory(pimiHome: string): string {
+  return path.join(pimiHome, "terminal-worker");
 }
 
-export function terminalWorkerRecordPath(paseoHome: string, workerPid: number): string {
-  return path.join(terminalWorkerDirectory(paseoHome), `${workerPid}.json`);
+export function terminalWorkerRecordPath(pimiHome: string, workerPid: number): string {
+  return path.join(terminalWorkerDirectory(pimiHome), `${workerPid}.json`);
 }
 
-export function terminalCleanupRecordPath(paseoHome: string, recordId: string): string {
-  return path.join(terminalWorkerDirectory(paseoHome), `closing-${recordId}.json`);
+export function terminalCleanupRecordPath(pimiHome: string, recordId: string): string {
+  return path.join(terminalWorkerDirectory(pimiHome), `closing-${recordId}.json`);
 }
 
-export function terminalWorkerLogPath(paseoHome: string): string {
-  return path.join(paseoHome, "terminal-worker.log");
+export function terminalWorkerLogPath(pimiHome: string): string {
+  return path.join(pimiHome, "terminal-worker.log");
 }
 
-export function writeTerminalWorkerRecord(paseoHome: string, record: TerminalWorkerRecord): string {
-  const recordPath = terminalWorkerRecordPath(paseoHome, record.pid);
+export function writeTerminalWorkerRecord(pimiHome: string, record: TerminalWorkerRecord): string {
+  const recordPath = terminalWorkerRecordPath(pimiHome, record.pid);
   writePrivateFileAtomicSync(recordPath, `${JSON.stringify(record, null, 2)}\n`);
   return recordPath;
 }
 
 /** Writes the state of a cleanup that could not confirm every process gone. */
 export async function writeTerminalCleanupRecord(
-  paseoHome: string,
+  pimiHome: string,
   record: TerminalWorkerRecord & { closing: NonNullable<TerminalWorkerRecord["closing"]> },
 ): Promise<string> {
   if (!RECORD_ID_PATTERN.test(record.recordId)) {
     throw new Error(`Terminal worker record id is not a file name: ${record.recordId}`);
   }
-  const recordPath = terminalCleanupRecordPath(paseoHome, record.recordId);
+  const recordPath = terminalCleanupRecordPath(pimiHome, record.recordId);
   await writePrivateFileAtomic(recordPath, `${JSON.stringify(record, null, 2)}\n`);
   return recordPath;
 }
@@ -150,9 +150,9 @@ function recordKindOf(fileName: string): TerminalWorkerRecordKind | null {
  * retry covers everything the worker still runs.
  */
 export async function listTerminalWorkerRecords(
-  paseoHome: string,
+  pimiHome: string,
 ): Promise<TerminalWorkerRecordFile[]> {
-  const directory = terminalWorkerDirectory(paseoHome);
+  const directory = terminalWorkerDirectory(pimiHome);
   let names: string[];
   try {
     names = await readdir(directory);

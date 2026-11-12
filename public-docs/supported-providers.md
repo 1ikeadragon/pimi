@@ -40,7 +40,7 @@ This integration uses your installed CLI and sign-in. It is not endorsed by Goog
 Pimi MCP tools and steering are unavailable. Your own `agy` MCP servers still work. Attached
 images are passed as file references for the agent to read.
 
-If `agy` is outside your daemon's PATH, override its command in `~/.paseo/config.json`. Use `env`
+If `agy` is outside your daemon's PATH, override its command in `~/.pimi/config.json`. Use `env`
 for provider-specific environment variables:
 
 ```json

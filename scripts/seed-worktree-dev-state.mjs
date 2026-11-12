@@ -7,19 +7,19 @@ import { dirname, join } from "node:path";
 // `./scripts/*.sh`) cannot express this step portably, so the seeding lives in Node — the
 // one interpreter every Paseo checkout already depends on.
 
-const sourceRoot = process.env.PASEO_SOURCE_CHECKOUT_PATH;
-const targetRoot = process.env.PASEO_WORKTREE_PATH || process.cwd();
+const sourceRoot = process.env.PIMI_SOURCE_CHECKOUT_PATH;
+const targetRoot = process.env.PIMI_WORKTREE_PATH || process.cwd();
 
 if (!sourceRoot || sourceRoot === targetRoot) {
   process.exit(0);
 }
 
-seedPaseoHome();
+seedPimiHome();
 copyServerEnv();
 
-function seedPaseoHome() {
-  const source = process.env.PASEO_DEV_SEED_HOME || join(sourceRoot, ".dev/paseo-home");
-  const target = join(targetRoot, ".dev/paseo-home");
+function seedPimiHome() {
+  const source = process.env.PIMI_DEV_SEED_HOME || join(sourceRoot, ".dev/pimi-home");
+  const target = join(targetRoot, ".dev/pimi-home");
 
   if (!existsSync(source)) {
     console.log(`  Seed:    skipped (${source} missing)`);
@@ -31,7 +31,7 @@ function seedPaseoHome() {
     return;
   }
 
-  if (process.env.PASEO_DEV_RESET_HOME === "1") {
+  if (process.env.PIMI_DEV_RESET_HOME === "1") {
     rmSync(target, { recursive: true, force: true });
   } else if (hasEntries(target)) {
     console.log(`  Seed:    skipped (${target} already has data)`);

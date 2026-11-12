@@ -158,9 +158,9 @@ npm run dev:ios         # Build/install the iOS development app
 
 `build:apk` writes `artifacts/paseo-dogfood-universal.apk`; `build:apk:arm64` writes
 `artifacts/paseo-dogfood-arm64.apk`. Neither command launches or installs on a device. Both enable
-`PASEO_WATCHDOG_BUILD=1`, the production React profiling renderer, and Android's shell-profileable
+`PIMI_WATCHDOG_BUILD=1`, the production React profiling renderer, and Android's shell-profileable
 flag. These builds keep the production package ID (`io.github.ikeadragon.pimi`) and release optimizations. Use this APK for
-personal dogfooding. Android system-trace spans require the separate `PASEO_PROFILE_BUILD=1` flag;
+personal dogfooding. Android system-trace spans require the separate `PIMI_PROFILE_BUILD=1` flag;
 watchdog recording does not send duplicate spans to that sink by default. Normal store/release
 workflows leave diagnostics disabled.
 
@@ -199,10 +199,10 @@ of activity. Storage failure stops recording rather than blocking the app.
 For an ordinary release APK with system trace markers only:
 
 ```bash
-PASEO_PROFILE_BUILD=1 npm run android:production
+PIMI_PROFILE_BUILD=1 npm run android:production
 ```
 
-Those markers emit only while a system trace records `io.github.ikeadragon.pimi` (`perfetto -a sh.paseo ...`);
+Those markers emit only while a system trace records `io.github.ikeadragon.pimi` (`perfetto -a sh.pimi ...`);
 they do not produce Downloads files.
 
 ## Running on an emulator against a worktree daemon
@@ -211,20 +211,20 @@ they do not produce Downloads files.
 
 ```bash
 REACT_NATIVE_PACKAGER_HOSTNAME=10.0.2.2 \
-  EXPO_PUBLIC_LOCAL_DAEMON=10.0.2.2:$PASEO_SERVICE_DAEMON_PORT \
+  EXPO_PUBLIC_LOCAL_DAEMON=10.0.2.2:$PIMI_SERVICE_DAEMON_PORT \
   npm run android
 ```
 
 - **`REACT_NATIVE_PACKAGER_HOSTNAME=10.0.2.2`** — without it, Expo bakes your Mac's LAN IP into the dev client's Metro URL, which the emulator can't route to, and the app dies with `Failed to connect to /<lan-ip>:8081` before any JS loads.
-- **`EXPO_PUBLIC_LOCAL_DAEMON=10.0.2.2:<port>`** — the client's daemon endpoint (`packages/app/src/runtime/host-runtime.ts`); when unset it defaults to `localhost:6767`, the production daemon. Use `$PASEO_SERVICE_DAEMON_PORT` for a worktree daemon running as a Pimi service, or `6768` for a standalone `npm run dev:server`. It is inlined into the JS bundle at Metro bundle time, so set it on the build command and clear the Metro cache (`npx expo start -c`) if a change doesn't take.
+- **`EXPO_PUBLIC_LOCAL_DAEMON=10.0.2.2:<port>`** — the client's daemon endpoint (`packages/app/src/runtime/host-runtime.ts`); when unset it defaults to `localhost:6767`, the production daemon. Use `$PIMI_SERVICE_DAEMON_PORT` for a worktree daemon running as a Pimi service, or `6768` for a standalone `npm run dev:server`. It is inlined into the JS bundle at Metro bundle time, so set it on the build command and clear the Metro cache (`npx expo start -c`) if a change doesn't take.
 
 **Alternative — `adb reverse` + `localhost`** (if `10.0.2.2` misbehaves):
 
 ```bash
 adb reverse tcp:8081 tcp:8081
-adb reverse tcp:$PASEO_SERVICE_DAEMON_PORT tcp:$PASEO_SERVICE_DAEMON_PORT
+adb reverse tcp:$PIMI_SERVICE_DAEMON_PORT tcp:$PIMI_SERVICE_DAEMON_PORT
 REACT_NATIVE_PACKAGER_HOSTNAME=localhost \
-  EXPO_PUBLIC_LOCAL_DAEMON=localhost:$PASEO_SERVICE_DAEMON_PORT \
+  EXPO_PUBLIC_LOCAL_DAEMON=localhost:$PIMI_SERVICE_DAEMON_PORT \
   npm run android
 ```
 

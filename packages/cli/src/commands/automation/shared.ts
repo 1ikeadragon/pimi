@@ -52,7 +52,7 @@ export async function withAutomationClient<T>(
 // The agent this command runs inside, if any. Automations made from inside an agent wait for
 // the owner's approval, and an agent cannot approve one.
 export function callerAgentId(): string | null {
-  return process.env.PASEO_AGENT_ID?.trim() || null;
+  return process.env.PIMI_AGENT_ID?.trim() || null;
 }
 
 export function compileEveryPresetToCron(value: string): string {

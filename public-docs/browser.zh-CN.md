@@ -24,7 +24,7 @@ Pimi 中的 Agent 可以操作真实的浏览器标签页，也就是你在 Pimi
 浏览器工具默认关闭。按主机开启：
 
 - **在应用中**：打开 **设置 → 你的主机 → Agents**，开启 **Browser tools**。
-- **在 `config.json` 中**（`~/.paseo/config.json`）：
+- **在 `config.json` 中**（`~/.pimi/config.json`）：
 
 ```json
 {

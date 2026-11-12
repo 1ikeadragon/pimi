@@ -20,7 +20,7 @@ const inFlightSaves = new Map<string, Promise<unknown>>();
  * this boundary accepts bytes, validates them, and replaces whatever was stored.
  */
 export async function setProjectCustomIcon(input: {
-  paseoHome: string;
+  pimiHome: string;
   projectId: string;
   source: ProjectIconSource;
   projects: ProjectRegistry;
@@ -34,7 +34,7 @@ export async function setProjectCustomIcon(input: {
     } else {
       const bytes = Buffer.from(input.source.data, "base64");
       validateIcon(bytes);
-      await writeFileAtomic(cachePath(input.paseoHome, input.projectId), bytes);
+      await writeFileAtomic(cachePath(input.pimiHome, input.projectId), bytes);
       customIconRevision = randomUUID();
     }
 
@@ -54,7 +54,7 @@ export async function setProjectCustomIcon(input: {
 
 /** Resolves the icon a project renders with, whichever mode it is in. */
 export async function readProjectIcon(input: {
-  paseoHome: string;
+  pimiHome: string;
   project: PersistedProjectRecord;
 }): Promise<ProjectIcon | null> {
   return (await readProjectIconSnapshot(input)).icon;
@@ -69,10 +69,10 @@ export interface ProjectIconSnapshot {
 export class ProjectIconReader {
   private readonly snapshots = new Map<string, ProjectIconSnapshot>();
 
-  constructor(private readonly paseoHome: string) {}
+  constructor(private readonly pimiHome: string) {}
 
   async snapshot(project: PersistedProjectRecord): Promise<ProjectIconSnapshot> {
-    const snapshot = await readProjectIconSnapshot({ paseoHome: this.paseoHome, project });
+    const snapshot = await readProjectIconSnapshot({ pimiHome: this.pimiHome, project });
     this.snapshots.set(project.projectId, snapshot);
     return snapshot;
   }
@@ -84,13 +84,13 @@ export class ProjectIconReader {
 
 /** Reads the effective icon and gives that exact result a stable identity. */
 export async function readProjectIconSnapshot(input: {
-  paseoHome: string;
+  pimiHome: string;
   project: PersistedProjectRecord;
 }): Promise<ProjectIconSnapshot> {
   if (input.project.customIconRevision) {
     let icon: ProjectIcon | null = null;
     try {
-      icon = validateIcon(await readFile(cachePath(input.paseoHome, input.project.projectId)));
+      icon = validateIcon(await readFile(cachePath(input.pimiHome, input.project.projectId)));
     } catch {
       // A missing/corrupt custom icon is itself a cacheable result until the
       // registry revision changes.
@@ -117,10 +117,10 @@ function iconRevision(source: "automatic" | "custom", icon: ProjectIcon): string
 }
 
 export async function removeProjectCustomIcon(input: {
-  paseoHome: string;
+  pimiHome: string;
   projectId: string;
 }): Promise<void> {
-  await rm(cachePath(input.paseoHome, input.projectId), { force: true });
+  await rm(cachePath(input.pimiHome, input.projectId), { force: true });
 }
 
 async function serialize<T>(projectId: string, save: () => Promise<T>): Promise<T> {
@@ -134,9 +134,9 @@ async function serialize<T>(projectId: string, save: () => Promise<T>): Promise<
   }
 }
 
-function cachePath(paseoHome: string, projectId: string): string {
+function cachePath(pimiHome: string, projectId: string): string {
   const key = createHash("sha256").update(projectId).digest("hex");
-  return join(paseoHome, "projects", "icons", `${key}.bin`);
+  return join(pimiHome, "projects", "icons", `${key}.bin`);
 }
 
 function detectMimeType(buffer: Buffer): string | null {

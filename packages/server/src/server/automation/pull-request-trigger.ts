@@ -24,7 +24,7 @@ const GhPullRequestSchema = z.object({
 const GhPullRequestNumberSchema = z.object({ number: z.number().int().positive() });
 
 // What the daemon remembers between polls of one automation's trigger. Stored at
-// $PASEO_HOME/automations/triggers/<automationId>.json.
+// $PIMI_HOME/automations/triggers/<automationId>.json.
 export const PullRequestTriggerStateSchema = z.object({
   id: z.string(),
   repo: z.string(),

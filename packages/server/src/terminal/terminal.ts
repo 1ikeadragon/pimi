@@ -473,7 +473,7 @@ export function buildTerminalEnvironment(
   const originalZdotdir = envWithHookCli.ZDOTDIR ?? "";
   return {
     ...envWithHookCli,
-    PASEO_ZSH_ZDOTDIR: originalZdotdir,
+    PIMI_ZSH_ZDOTDIR: originalZdotdir,
     ZDOTDIR: prepareZshShellIntegrationRuntimeDir(input.zshShellIntegrationDir),
   };
 }
@@ -488,7 +488,7 @@ function injectPaseoHookCli(
 
   return {
     ...env,
-    PASEO_HOOK_CLI: resolvePath(resolveExternalProcessPath(cliPath)),
+    PIMI_HOOK_CLI: resolvePath(resolveExternalProcessPath(cliPath)),
   };
 }
 
@@ -811,7 +811,7 @@ export async function createTerminal(
     env: {
       ...env,
       ...activityEnv,
-      PASEO_WORKSPACE_ID: workspaceId,
+      PIMI_WORKSPACE_ID: workspaceId,
     },
     ...resolveTerminalEnvironmentSource({ baseEnv, paseoCliPath }),
   });

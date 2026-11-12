@@ -6,26 +6,26 @@ export PATH="$SCRIPT_DIR/../node_modules/.bin:$PATH"
 
 source "$SCRIPT_DIR/dev-home.sh"
 
-export PASEO_LISTEN="${PASEO_LISTEN:-127.0.0.1:6768}"
-configure_dev_paseo_home
+export PIMI_LISTEN="${PIMI_LISTEN:-127.0.0.1:6768}"
+configure_dev_pimi_home
 
-if [ -z "${PASEO_LOCAL_MODELS_DIR}" ]; then
-  export PASEO_LOCAL_MODELS_DIR="$HOME/.paseo/models/local-speech"
-  mkdir -p "$PASEO_LOCAL_MODELS_DIR"
+if [ -z "${PIMI_LOCAL_MODELS_DIR}" ]; then
+  export PIMI_LOCAL_MODELS_DIR="$HOME/.pimi/models/local-speech"
+  mkdir -p "$PIMI_LOCAL_MODELS_DIR"
 fi
 
 echo "══════════════════════════════════════════════════════"
 echo "  Paseo Dev Daemon"
 echo "══════════════════════════════════════════════════════"
-echo "  Home:    ${PASEO_HOME}"
-echo "  Models:  ${PASEO_LOCAL_MODELS_DIR}"
-echo "  Listen:  ${PASEO_LISTEN}"
+echo "  Home:    ${PIMI_HOME}"
+echo "  Models:  ${PIMI_LOCAL_MODELS_DIR}"
+echo "  Listen:  ${PIMI_LISTEN}"
 echo "══════════════════════════════════════════════════════"
 
-export PASEO_CORS_ORIGINS="${PASEO_CORS_ORIGINS:-*}"
-export PASEO_NODE_INSPECT="${PASEO_NODE_INSPECT:---inspect=0}"
+export PIMI_CORS_ORIGINS="${PIMI_CORS_ORIGINS:-*}"
+export PIMI_NODE_INSPECT="${PIMI_NODE_INSPECT:---inspect=0}"
 
-if [ "${PASEO_SKIP_DEV_SERVER_BUILD:-0}" = "1" ]; then
+if [ "${PIMI_SKIP_DEV_SERVER_BUILD:-0}" = "1" ]; then
   exec npm run dev:server:watch
 fi
 
