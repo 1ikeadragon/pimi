@@ -187,16 +187,18 @@ function loadEntry(
     entries.set(key, cached); // LRU touch
     return cached;
   }
-  const promise = runGitPriority(() =>
-    buildEntry(root, gitPath, sha, AbortSignal.timeout(BLAME_TIMEOUT_MS)),
-  ).catch((error: unknown) => {
-    if (!isTimeout(error)) throw error;
-    // Blame of this blob at this commit is too slow; retrying on every cursor move would only
-    // restart it. The key holds the commit, so a new commit tries again.
-    const unavailable: CheckoutBlameResult = { status: "unavailable" };
-    timedOutResults.add(unavailable);
-    return unavailable;
-  });
+  // Only this signal aborts the blame; a caller's abort never reaches it, so it is never cached.
+  const blameSignal = AbortSignal.timeout(BLAME_TIMEOUT_MS);
+  const promise = runGitPriority(() => buildEntry(root, gitPath, sha, blameSignal)).catch(
+    (error: unknown) => {
+      if (!blameSignal.aborted && !isTimeout(error)) throw error;
+      // Blame of this blob at this commit is too slow; retrying on every cursor move would only
+      // restart it. The key holds the commit, so a new commit tries again.
+      const unavailable: CheckoutBlameResult = { status: "unavailable" };
+      timedOutResults.add(unavailable);
+      return unavailable;
+    },
+  );
   entries.set(key, promise);
   while (entries.size > MAX_ENTRIES) entries.delete(entries.keys().next().value!);
   const evict = () => {
