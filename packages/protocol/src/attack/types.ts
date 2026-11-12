@@ -150,6 +150,7 @@ export const AttackAuditActionSchema = z.enum([
   "run_started",
   "run_paused",
   "run_resumed",
+  "budget_extended",
   "run_stopped",
   "run_completed",
   "budget_reached",

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   AttackAuditEntrySchema,
+  AttackLimitsSchema,
   AttackRunDefinitionSchema,
   AttackRunSchema,
   FindingSchema,
@@ -26,6 +27,8 @@ export const AttackRunPauseRequestSchema = z.object({
 export const AttackRunResumeRequestSchema = z.object({
   type: z.literal("attack.run.resume.request"),
   ...RunIdRequestShape,
+  // New limits for a run whose budget is spent; both must exceed what the run has spent.
+  limits: AttackLimitsSchema.optional(),
 });
 
 export const AttackRunCancelRequestSchema = z.object({

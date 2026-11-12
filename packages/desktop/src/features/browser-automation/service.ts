@@ -69,13 +69,19 @@ const defaultSnapshotEngine = new BrowserSnapshotEngine();
 const DEFAULT_WAIT_TIMEOUT_MS = 5_000;
 const WAIT_POLL_INTERVAL_MS = 25;
 const PIXEL_CAPTURE_TIMEOUT_MS = 5_000;
+const BACKGROUND_PIXEL_CAPTURE_TIMEOUT_MS = 1_500;
 const PIXEL_CAPTURE_RETRY_INTERVAL_MS = 200;
 const SCREENSHOT_NO_FRAME_MESSAGE = "The tab has not painted yet. Retry the screenshot.";
 const ALLOWED_PAGE_URL_PROTOCOLS = new Set(["http:", "https:"]);
 const MAX_EVALUATE_RESULT_JSON_LENGTH = 80_000;
 const MAX_EVALUATE_RESULT_PREVIEW_LENGTH = 79_000;
 const MAX_EVALUATE_ERROR_MESSAGE_LENGTH = 2_000;
-let pixelCaptureQueue: Promise<void> = Promise.resolve();
+// One capture at a time. Agent captures (finding evidence) run before background ones (board
+// thumbnails), and a background capture is refused outright while an agent capture is pending.
+let pixelCaptureBusy = false;
+let pendingAgentCaptures = 0;
+const agentCaptureWaiters: Array<() => void> = [];
+const backgroundCaptureWaiters: Array<() => void> = [];
 
 function fail(
   requestId: string,
@@ -145,23 +151,31 @@ async function withPixelCaptureTimeout<T>(
   }
 }
 
-async function runSerializedPixelCapture<T>(capture: () => Promise<T>): Promise<T> {
-  const previous = pixelCaptureQueue;
-  let releaseCurrent = () => {};
-  const current = new Promise<void>((resolve) => {
-    releaseCurrent = resolve;
-  });
-  const tail = previous.catch(() => {}).then(() => current);
-  pixelCaptureQueue = tail;
-
-  await previous.catch(() => {});
+async function runSerializedPixelCapture<T>(
+  capture: () => Promise<T>,
+  background: boolean,
+): Promise<T> {
+  if (background && pendingAgentCaptures > 0) {
+    throw new ScreenshotNoFrameError("Skipped: an agent screenshot is waiting.");
+  }
+  if (!background) pendingAgentCaptures += 1;
   try {
-    return await capture();
-  } finally {
-    releaseCurrent();
-    if (pixelCaptureQueue === tail) {
-      pixelCaptureQueue = Promise.resolve();
+    if (pixelCaptureBusy) {
+      await new Promise<void>((resolve) => {
+        (background ? backgroundCaptureWaiters : agentCaptureWaiters).push(resolve);
+      });
+    } else {
+      pixelCaptureBusy = true;
     }
+    try {
+      return await capture();
+    } finally {
+      const next = agentCaptureWaiters.shift() ?? backgroundCaptureWaiters.shift();
+      if (next) next();
+      else pixelCaptureBusy = false;
+    }
+  } finally {
+    if (!background) pendingAgentCaptures -= 1;
   }
 }
 
@@ -211,32 +225,70 @@ async function runPaintedPixelCapture<T>(
   contents: TabContents,
   capture: () => Promise<T>,
 ): Promise<T> {
-  return runSerializedPixelCapture(() =>
-    contents.withFrameProduction(async () => {
-      const deadline = Date.now() + PIXEL_CAPTURE_TIMEOUT_MS;
-      await waitForPaint(contents, deadline);
-      return capturePixelFrameWithRetry(contents, capture, deadline);
-    }),
+  return runSerializedPixelCapture(
+    () =>
+      contents.withFrameProduction(async () => {
+        const deadline = Date.now() + PIXEL_CAPTURE_TIMEOUT_MS;
+        await waitForPaint(contents, deadline);
+        return capturePixelFrameWithRetry(contents, capture, deadline);
+      }),
+    false,
   );
 }
 
-async function capturePaintedViewport(contents: TabContents): Promise<TabImage> {
-  return runSerializedPixelCapture(() =>
-    contents.withFrameProduction(async () => {
-      const deadline = Date.now() + PIXEL_CAPTURE_TIMEOUT_MS;
-      const controller = new AbortController();
-      try {
-        await waitForPaint(contents, deadline);
-        contents.invalidate();
-        return await withPixelCaptureTimeout(
-          contents.captureFrame(controller.signal),
-          deadline - Date.now(),
-        );
-      } finally {
-        controller.abort();
-      }
-    }),
+async function capturePaintedViewport(
+  contents: TabContents,
+  background: boolean,
+): Promise<TabImage> {
+  return runSerializedPixelCapture(
+    () =>
+      contents.withFrameProduction(async () => {
+        const deadline =
+          Date.now() +
+          (background ? BACKGROUND_PIXEL_CAPTURE_TIMEOUT_MS : PIXEL_CAPTURE_TIMEOUT_MS);
+        const controller = new AbortController();
+        try {
+          await waitForPaint(contents, deadline);
+          contents.invalidate();
+          return await withPixelCaptureTimeout(
+            contents.captureFrame(controller.signal),
+            deadline - Date.now(),
+          );
+        } finally {
+          controller.abort();
+        }
+      }),
+    background,
   );
+}
+
+// The compositor gave no frame (a parked or occluded guest): ask the renderer for the viewport
+// over CDP instead. `scale` shrinks the output to `targetWidth` CSS pixels at most.
+async function captureViewportViaCdp(
+  contents: TabContents,
+  targetWidth: number | undefined,
+): Promise<{ data: string; width: number; height: number } | null> {
+  if (!contents.sendDebugCommand) return null;
+  const sendDebugCommand = contents.sendDebugCommand.bind(contents);
+  return runSerializedPixelCapture(async () => {
+    const metrics = await getCdpLayoutMetrics(contents);
+    const width = metrics.viewportWidth;
+    const height = metrics.viewportHeight;
+    if (width <= 0 || height <= 0) return null;
+    const scale = targetWidth && width > targetWidth ? targetWidth / width : 1;
+    const shot = (await withPixelCaptureTimeout(
+      sendDebugCommand("Page.captureScreenshot", {
+        format: "png",
+        clip: { x: 0, y: 0, width, height, scale },
+      }) as Promise<CdpCaptureScreenshotResult>,
+    )) as CdpCaptureScreenshotResult;
+    if (!shot.data) return null;
+    return {
+      data: shot.data,
+      width: Math.round(width * scale),
+      height: Math.round(height * scale),
+    };
+  }, false);
 }
 
 function tabInfoFromContents(
@@ -420,6 +472,7 @@ const commandHandlers: Record<BrowserAutomationCommand["command"], CommandHandle
       screenshotCommand.args.fullPage,
       registry,
       screenshotCommand.args.thumbnailWidth,
+      screenshotCommand.args.background ?? false,
     );
   },
   upload: ({ request, command, requestId, workspaceId, registry, snapshotEngine }) => {
@@ -1226,6 +1279,7 @@ async function executeScreenshot(
   fullPage: boolean,
   registry: BrowserRegistry,
   thumbnailWidth?: number,
+  background = false,
 ): Promise<AutomationCommandPayload> {
   if (fullPage) {
     return executeFullPageScreenshot(requestId, workspaceId, browserId, registry);
@@ -1238,13 +1292,29 @@ async function executeScreenshot(
   return withDialogCapture(target.contents, async () => {
     let image: TabImage;
     try {
-      image = await capturePaintedViewport(target.contents);
+      image = await capturePaintedViewport(target.contents, background);
     } catch (error) {
       if (error instanceof BrowserTabClosedError) {
         return fail(requestId, "browser_tab_closed", `Browser tab ${browserId} has been closed`);
       }
       if (isScreenshotNoFrameError(error)) {
-        return screenshotNoFrameFailure(requestId, error);
+        if (background) return screenshotNoFrameFailure(requestId, error);
+        const fallback = await captureViewportViaCdp(target.contents, thumbnailWidth).catch(
+          () => null,
+        );
+        if (!fallback) return screenshotNoFrameFailure(requestId, error);
+        return {
+          requestId,
+          ok: true,
+          result: {
+            command: "screenshot",
+            browserId: target.browserId,
+            mimeType: "image/png",
+            dataBase64: fallback.data,
+            width: fallback.width,
+            height: fallback.height,
+          },
+        };
       }
       throw error;
     }

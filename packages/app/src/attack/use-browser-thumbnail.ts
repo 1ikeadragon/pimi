@@ -39,7 +39,7 @@ async function capture(browserId: string, workspaceId: string) {
     workspaceId,
     command: {
       command: "screenshot",
-      args: { browserId, fullPage: false, thumbnailWidth: THUMBNAIL_WIDTH },
+      args: { browserId, fullPage: false, thumbnailWidth: THUMBNAIL_WIDTH, background: true },
     },
   });
   if (payload.ok && payload.result.command === "screenshot") {

@@ -34,7 +34,10 @@ export class AttackSession {
       case "attack.run.resume.request":
         return this.handle(msg, async () => ({
           type: "attack.run.resume.response",
-          payload: { requestId: msg.requestId, run: await this.attack.resumeRun(msg.runId) },
+          payload: {
+            requestId: msg.requestId,
+            run: await this.attack.resumeRun(msg.runId, msg.limits),
+          },
         }));
       case "attack.run.cancel.request":
         return this.handle(msg, async () => ({

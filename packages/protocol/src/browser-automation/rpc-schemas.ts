@@ -160,8 +160,12 @@ export const BrowserAutomationScreenshotCommandSchema = z.object({
   command: z.literal("screenshot"),
   args: BrowserAutomationTabTargetSchema.extend({
     fullPage: z.boolean().default(false),
-    // The desktop app's attack board asks for a small still of the tab; agents never set it.
+    // Downscales the capture to at most this many pixels wide. The attack board asks for a small
+    // still of the tab; Attack agents ask for 1280 so finding evidence stays small.
     thumbnailWidth: z.number().int().min(64).max(1280).optional(),
+    // Board thumbnails set this: they queue behind agent captures, give up after 1.5 s and are
+    // skipped while an agent capture is waiting. Agent captures never set it.
+    background: z.boolean().optional(),
   }),
 });
 

@@ -20,7 +20,7 @@ import type { CodeNavigationQueryRequest, CreationSnapshot } from "@pimi/protoco
 import type { z } from "zod";
 import type { SessionEventSubscription } from "@pimi/protocol/messages";
 import type { LocalSpeechModel } from "@pimi/protocol/speech/rpc-schemas";
-import type { AttackRunDefinition, FindingStatus } from "@pimi/protocol/attack/types";
+import type { AttackLimits, AttackRunDefinition, FindingStatus } from "@pimi/protocol/attack/types";
 import type { AutomationDefinition, AutomationOrigin } from "@pimi/protocol/automation/types";
 import type { HeartbeatCadence } from "@pimi/protocol/heartbeat/types";
 import type { AgentAttentionNotificationPayload } from "@pimi/protocol/agent-attention-notification";
@@ -6563,10 +6563,14 @@ export class DaemonClient {
     });
   }
 
-  async attackRunResume(options: AttackRunIdOptions) {
+  async attackRunResume(options: AttackRunIdOptions & { limits?: AttackLimits }) {
     return this.sendNamespacedCorrelatedSessionRequest<"attack.run.resume.response">({
       requestId: options.requestId,
-      message: { type: "attack.run.resume.request", runId: options.runId },
+      message: {
+        type: "attack.run.resume.request",
+        runId: options.runId,
+        ...(options.limits ? { limits: options.limits } : {}),
+      },
       timeout: 60_000,
     });
   }

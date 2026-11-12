@@ -14,6 +14,7 @@ import {
   FindingCategorySchema,
   type AttackAuditAction,
   type AttackAuditEntry,
+  type AttackLimits,
   type AttackPauseReason,
   type AttackRun,
   type AttackRunDefinition,
@@ -317,25 +318,44 @@ export class AttackService {
     return paused;
   }
 
-  async resumeRun(runId: string): Promise<AttackRun> {
+  async resumeRun(runId: string, newLimits?: AttackLimits): Promise<AttackRun> {
     const run = await this.requireRun(runId);
     if (run.status !== "paused") {
       throw new AttackStateError(`Only a paused run can be resumed; this one is ${run.status}.`);
     }
-    if (
-      run.spent.runtimeMs >= run.limits.maxRuntimeMs ||
-      run.spent.tokens >= run.limits.maxTokens
-    ) {
-      throw new AttackStateError("The budget is spent. Start a new run with a larger budget.");
+    const limits = newLimits ?? run.limits;
+    if (newLimits) {
+      if (
+        newLimits.maxRuntimeMs < run.limits.maxRuntimeMs ||
+        newLimits.maxTokens < run.limits.maxTokens
+      ) {
+        throw new AttackStateError("New limits can only raise the budget, not lower it.");
+      }
+    }
+    if (run.spent.runtimeMs >= limits.maxRuntimeMs || run.spent.tokens >= limits.maxTokens) {
+      throw new AttackStateError(
+        newLimits
+          ? "Both new limits must be above what the run has already spent."
+          : "The budget is spent. Add budget to resume, or start a new run.",
+      );
     }
     const now = new Date().toISOString();
     const resumed = await this.updateAndPublish(runId, (current) => ({
       ...current,
+      limits,
       status: "running",
       pausedReason: null,
       resumedAt: now,
       updatedAt: now,
     }));
+    if (newLimits) {
+      await this.audit(
+        runId,
+        "budget_extended",
+        null,
+        `${Math.round(limits.maxRuntimeMs / 60_000)}min,${limits.maxTokens}tok`,
+      );
+    }
     await this.audit(runId, "run_resumed", null, null);
     if (resumed.leadAgentId) {
       const deps = {
@@ -612,19 +632,20 @@ export class AttackService {
     }
   }
 
+  /** Null when the image is over the size cap; the caller retries narrower or records a note. */
   screenshotEvidence(input: {
     caption: string;
     dataBase64: string;
     width: number;
     height: number;
-  }): FindingEvidence {
+  }): FindingEvidence | null {
+    if (input.dataBase64.length > MAX_SCREENSHOT_BASE64_CHARS) return null;
     return {
       kind: "screenshot",
       caption: clip(input.caption, 300),
       width: input.width,
       height: input.height,
-      // An oversized capture keeps its caption and size but not its bytes.
-      dataBase64: input.dataBase64.length <= MAX_SCREENSHOT_BASE64_CHARS ? input.dataBase64 : null,
+      dataBase64: input.dataBase64,
     };
   }
 
@@ -829,10 +850,16 @@ export class AttackService {
     }
   }
 
-  /** Whether the lead or any agent below it has a turn in flight. */
+  /**
+   * Whether the lead or any agent below it has a turn in flight or is waiting for the owner to
+   * answer a permission prompt. A pending prompt is the owner's move, not a stall: nudging the
+   * agent or pausing the run as "stalled" would be wrong.
+   */
   private async runHasWork(run: AttackRun): Promise<boolean> {
     for (const agent of this.agentManager.listAgents({ includeInternal: true })) {
-      if (!this.agentManager.hasInFlightRun(agent.id)) continue;
+      if (!this.agentManager.hasInFlightRun(agent.id) && agent.pendingPermissions.size === 0) {
+        continue;
+      }
       if (agent.id === run.leadAgentId || (await this.runIdForAgent(agent.id)) === run.id) {
         return true;
       }
