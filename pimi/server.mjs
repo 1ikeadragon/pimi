@@ -252,7 +252,7 @@ export async function startPimi({
       "blush.svg",
       "paper.svg",
       "graphite.svg",
-      "voice-dog.svg",
+      "voice-pimi.svg",
       "sakura.svg",
       "cel-night.svg",
     ].map(async (file) => {
