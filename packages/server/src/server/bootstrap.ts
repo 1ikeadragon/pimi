@@ -153,6 +153,8 @@ import { createSpeechSettingsOwner } from "./speech/speech-settings.js";
 import { AgentManager } from "./agent/agent-manager.js";
 import { AgentStorage } from "./agent/agent-storage.js";
 import { FileCarriedTimelineStore } from "./agent/carried-timeline.js";
+import { FileAgentImageStore } from "./agent/agent-images.js";
+import { FileSentAttachmentStore } from "./agent/sent-attachments.js";
 import { attachAgentStoragePersistence } from "./persistence-hooks.js";
 import { createAgentMcpServer } from "./agent/mcp-server.js";
 import { ProjectMemory } from "./project-memory.js";
@@ -223,6 +225,7 @@ import type {
   PluginSource,
   TerminalProfile,
 } from "@pimi/protocol/messages";
+import { NETWORK_LOG_RETENTION_DAYS_DEFAULT } from "@pimi/protocol/messages";
 import type {
   AgentProviderRuntimeSettingsMap,
   ProviderOverride,
@@ -257,8 +260,9 @@ import {
   writeLocalCredential,
 } from "./local-credential.js";
 import { createLocalNetworkPairing } from "./local-network-pairing.js";
+import { getDaemonNetworkActivity, startDaemonNetworkLog } from "./network/activity.js";
+import { createInboundHttpActivityMiddleware } from "./network/inbound.js";
 import { PIMI_LOCAL_PAIRING_ROUTE, PimiLocalPairingRequest } from "@pimi/protocol/connection-offer";
-import { createWebUiMiddleware } from "./web-ui.js";
 import { WorkspaceAutoName } from "./workspace-auto-name.js";
 import { createGitMutationService } from "./session/git-mutation/git-mutation-service.js";
 import { workspaceIdsOnCheckout } from "./workspace-directory.js";
@@ -476,10 +480,6 @@ export interface PaseoDaemonConfig {
     publicBaseUrl: string | null;
     standaloneListen: string | null;
   };
-  webUi?: {
-    enabled: boolean;
-    distDir: string | null;
-  };
   appBaseUrl?: string;
   auth?: DaemonAuthConfig;
   openai?: PaseoOpenAIConfig;
@@ -490,6 +490,8 @@ export interface PaseoDaemonConfig {
   dictationFinalTimeoutMs?: number;
   downloadTokenTtlMs?: number;
   agentProviderSettings?: AgentProviderRuntimeSettingsMap;
+  logNetworkEnabled?: boolean;
+  logNetworkRetentionDays?: number;
   idleRuntimeCleanup?: boolean;
   resumeOnStartup?: boolean;
   resumePrompt?: string;
@@ -557,17 +559,6 @@ async function reconcileManagedProcessLedger(
   }
 }
 
-function mountWebUi(app: express.Application, config: PaseoDaemonConfig, logger: Logger): void {
-  app.use(
-    createWebUiMiddleware({
-      enabled: config.webUi?.enabled ?? false,
-      distDir: config.webUi?.distDir ?? null,
-      label: getHostName(),
-      logger,
-    }),
-  );
-}
-
 function resolveExpressTrustProxySetting(config: PaseoDaemonConfig): true | string[] {
   return config.trustedProxies ?? ["loopback"];
 }
@@ -588,6 +579,15 @@ function resolveMetadataGeneration(config: ResolvedDaemonSettings["metadataGener
     providers: config?.providers ?? [],
     ...(config?.features ? { features: config.features } : {}),
     autoNaming: config?.autoNaming !== false,
+  };
+}
+
+function createInitialLogConfig(config: ResolvedDaemonSettings): MutableDaemonConfig["log"] {
+  return {
+    network: {
+      enabled: config.logNetworkEnabled ?? true,
+      retentionDays: config.logNetworkRetentionDays ?? NETWORK_LOG_RETENTION_DAYS_DEFAULT,
+    },
   };
 }
 
@@ -614,6 +614,7 @@ function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): Mutab
     metadataGeneration: resolveMetadataGeneration(config.metadataGeneration),
     autoArchiveAfterMerge: config.autoArchiveAfterMerge ?? false,
     enableTerminalAgentHooks: config.enableTerminalAgentHooks ?? false,
+    log: createInitialLogConfig(config),
     idleRuntimeCleanup: config.idleRuntimeCleanup !== false,
     resumeOnStartup: config.resumeOnStartup === true,
     resumePrompt: config.resumePrompt ?? "Resume working.",
@@ -699,6 +700,12 @@ export async function createPaseoDaemon(
     },
   });
   keepBuiltinProfilesSeeded(daemonConfigStore, logger);
+  const networkLog = startDaemonNetworkLog({
+    home: config.paseoHome,
+    getSettings: () => daemonConfigStore.get().log.network,
+    onError: (error, message) => logger.warn({ err: error }, message),
+  });
+  daemonConfigStore.onFieldChange("log.network", () => void networkLog.sweep());
   const orchestrationSkills = createOrchestrationSkills(daemonConfigStore);
   void orchestrationSkills.autoUpdate().catch((error) => {
     logger.error({ err: error }, "Failed to maintain orchestration skills at startup");
@@ -803,6 +810,9 @@ export async function createPaseoDaemon(
     logger,
   });
 
+  // First, so every request is recorded, including ones the host check or auth turns away.
+  app.use(createInboundHttpActivityMiddleware(getDaemonNetworkActivity));
+
   // Service proxy classifies service hosts before daemon auth/route fallthrough.
   // Registered service hosts proxy directly; known service namespaces without a
   // route return 404 and never reach daemon APIs.
@@ -863,12 +873,6 @@ export async function createPaseoDaemon(
     express.json(),
     createTerminalActivityRouteHandler(terminalManager),
   );
-
-  // Serve the bundled browser web UI when enabled. Mounted after service-proxy
-  // classification and host/CORS handling, but before daemon bearer auth, so
-  // static app files load without the daemon password while API/WebSocket calls
-  // remain protected.
-  mountWebUi(app, config, logger);
 
   let localCredential: string | null = null;
   const daemonAuth = { ...config.auth, localCredential: () => localCredential };
@@ -1117,6 +1121,11 @@ export async function createPaseoDaemon(
       path.join(config.paseoHome, "agent-carried-timelines"),
       logger,
     ),
+    agentImages: new FileAgentImageStore(path.join(config.paseoHome, "agent-images"), logger),
+    sentAttachments: new FileSentAttachmentStore(
+      path.join(config.paseoHome, "agent-sent-attachments"),
+      logger,
+    ),
     appendSystemPrompt: config.appendSystemPrompt,
     onWorkspaceStateMayHaveChanged: ({ cwd }) => {
       workspaceGitService.onWorkspaceStateMayHaveChanged(cwd);
@@ -1136,6 +1145,7 @@ export async function createPaseoDaemon(
     mcpCallerAuthToken: agentMcpTokenForCaller,
     resolvePaseoToolPolicy: (provider) =>
       resolvePaseoToolPolicy(provider, daemonConfigStore.get().providers),
+    isSkillAvailable: (name) => orchestrationSkills.isSkillAvailable(name),
     logger,
   });
   const askPimiSessions = new AskPimiToolSessions();
@@ -1725,6 +1735,7 @@ export async function createPaseoDaemon(
           },
           boundCaller && daemonConfigStore.get().mcp.injectIntoAgents !== false,
         ),
+        { lazyTools: callerAgentId ? agentManager.agentUsesPimiToolLoader(callerAgentId) : false },
       );
 
       // Stateless mode: each HTTP request builds a fresh server + transport that is
@@ -2144,6 +2155,7 @@ export async function createPaseoDaemon(
       await wsServer.close();
     }
     await serviceProxy.stopStandalone();
+    await networkLog.close();
     // Force-drop remaining sockets so httpServer.close() resolves promptly.
     // We've already closed wsServer (which sent ws-layer close frames) and
     // stopped every other service, so anything still attached is a TCP

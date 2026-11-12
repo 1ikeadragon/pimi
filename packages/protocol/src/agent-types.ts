@@ -3,6 +3,37 @@ import type { AgentAttachment } from "./messages.js";
 
 export type AgentProvider = string;
 
+/** An image a message refers to; fetched on demand by id. */
+export interface AgentImageRef {
+  imageId: string;
+  mimeType: string;
+  byteSize: number;
+  width?: number;
+  height?: number;
+  alt?: string;
+  unavailable?: "too_large" | "unsupported";
+}
+
+/** An image as a provider reported it: inline bytes, a file path, or a URL. */
+export interface ProviderImageSource {
+  path?: string | null;
+  url?: string | null;
+  /** Base64, or a data URI. */
+  data?: string | null;
+  mimeType?: string | null;
+  altText?: string | null;
+}
+
+/**
+ * Server-internal. A provider reports images this way; the agent manager stores them and swaps
+ * the item for `assistant_images` before it is recorded or sent, so it never reaches a client.
+ */
+export interface ProviderImagesTimelineItem {
+  type: "provider_images";
+  images: ProviderImageSource[];
+  callId?: string;
+}
+
 export interface AgentMetadata {
   [key: string]: unknown;
 }
@@ -408,8 +439,18 @@ export interface AgentTaskItem {
 }
 
 export type AgentTimelineItem =
-  | { type: "user_message"; text: string; messageId?: string; clientMessageId?: string }
+  | {
+      type: "user_message";
+      text: string;
+      messageId?: string;
+      clientMessageId?: string;
+      attachments?: AgentAttachment[];
+      images?: AgentImageRef[];
+    }
   | { type: "assistant_message"; text: string; messageId?: string }
+  /** Images one tool result produced, fetched on demand by id. */
+  | { type: "assistant_images"; images: AgentImageRef[]; callId?: string }
+  | ProviderImagesTimelineItem
   | { type: "reasoning"; text: string }
   | ToolCallTimelineItem
   | { type: "todo"; items: AgentTaskItem[] }

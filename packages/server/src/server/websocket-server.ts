@@ -125,6 +125,8 @@ import type { SecurityMode } from "@pimi/relay/e2ee";
 import type { BrowserToolsBroker } from "./browser-tools/broker.js";
 import type { DaemonRuntimeConfig } from "./session/daemon/daemon-session.js";
 import { DirectorySyncService } from "./directory-sync/index.js";
+import { getDaemonNetworkActivity } from "./network/activity.js";
+import { InboundSocketActivity } from "./network/inbound.js";
 import type { WorkspaceLabelService } from "./workspace-labels/index.js";
 import {
   APPLICATION_SOCKET_LEASE_CHECK_INTERVAL_MS,
@@ -427,6 +429,12 @@ function areServerCapabilitiesEqual(
   next: ServerCapabilities | undefined,
 ): boolean {
   return JSON.stringify(current ?? null) === JSON.stringify(next ?? null);
+}
+
+function wsDataByteLength(data: Buffer | ArrayBuffer | Buffer[] | string): number {
+  if (typeof data === "string") return Buffer.byteLength(data);
+  if (Array.isArray(data)) return data.reduce((sum, item) => sum + item.length, 0);
+  return data.byteLength;
 }
 
 function bufferFromWsData(data: Buffer | ArrayBuffer | Buffer[] | string): Buffer {
@@ -1232,6 +1240,7 @@ export class VoiceAssistantWebSocketServer {
   }
 
   private readonly chunkedSockets = new WeakMap<WebSocketLike, ChunkedTransport>();
+  private readonly socketActivity = new WeakMap<WebSocketLike, InboundSocketActivity>();
 
   private chunkedSocket(ws: WebSocketLike): ChunkedTransport {
     let transport = this.chunkedSockets.get(ws);
@@ -1278,6 +1287,7 @@ export class VoiceAssistantWebSocketServer {
     waitForDrain = false,
   ): Promise<void> {
     const transport = this.chunkedSocket(ws);
+    this.socketActivity.get(ws)?.sent(bytes);
     const admittedBytes = transport.isWriting
       ? bytes
       : Math.min(bytes, ws.maxFrameBytes ?? 32 * 1024 * 1024);
@@ -1430,6 +1440,16 @@ export class VoiceAssistantWebSocketServer {
     const requestMetadata = extractSocketRequestMetadata(request);
     const identity = createWebSocketConnectionIdentity(requestMetadata, metadata);
     this.socketIdentities.set(ws, identity);
+    // In-process plugin sockets carry no peer; everything else is a client the owner should see.
+    if (request !== undefined || metadata !== undefined) {
+      this.socketActivity.set(
+        ws,
+        new InboundSocketActivity(getDaemonNetworkActivity(), {
+          transport: metadata?.transport,
+          remoteAddress: requestMetadata.remoteAddress,
+        }),
+      );
+    }
     const connectionLogger = this.logger.child(toConnectionLogFields(identity));
 
     const pending: PendingConnection = {
@@ -1955,6 +1975,7 @@ export class VoiceAssistantWebSocketServer {
   private bindSocketHandlers(ws: WebSocketLike): void {
     ws.on("message", (...args: unknown[]) => {
       const data = args[0] as Buffer | ArrayBuffer | Buffer[] | string;
+      this.socketActivity.get(ws)?.received(wsDataByteLength(data));
       try {
         this.chunkedSocket(ws).receive(typeof data === "string" ? data : bufferFromWsData(data));
       } catch (error) {
@@ -1966,6 +1987,7 @@ export class VoiceAssistantWebSocketServer {
     ws.on("close", async (...args: unknown[]) => {
       this.chunkedSockets.get(ws)?.close();
       const code = args[0];
+      this.socketActivity.get(ws)?.close({ code: typeof code === "number" ? code : undefined });
       const reason = args[1];
       await this.detachSocket(ws, {
         code: typeof code === "number" ? code : undefined,
@@ -1976,6 +1998,7 @@ export class VoiceAssistantWebSocketServer {
     ws.on("error", async (...args: unknown[]) => {
       const error = args[0];
       const err = error instanceof Error ? error : new Error(String(error));
+      this.socketActivity.get(ws)?.close({ error: err });
       const active = this.sessions.get(ws);
       const pending = this.pendingConnections.get(ws);
       const log = active?.connectionLogger ?? pending?.connectionLogger ?? this.logger;

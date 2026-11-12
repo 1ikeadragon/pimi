@@ -400,6 +400,10 @@ export const fr: TranslationResources = {
       dismissImage: "Ignorer l’image",
       closeImage: "Fermer l’image",
       imageLoadFailed: "Impossible de charger l’image",
+      imageTooLarge: "Image trop volumineuse",
+      imageUnsupported: "Image non prise en charge",
+      previousImage: "Image précédente",
+      nextImage: "Image suivante",
       imageUnavailable: "Image indisponible",
       imagePreviewUnavailable: "Aperçu de l’image indisponible.",
       imagePreviewLoadFailed: "Impossible de charger l’aperçu de l’image.",
@@ -2545,6 +2549,28 @@ export const fr: TranslationResources = {
       editor: "Éditeur",
       plugins: "Plugins",
       host: "Aperçu",
+    },
+    networkLogs: {
+      overviewInfo:
+        "Requêtes que Pimi émet lui-même, connexions qui atteignent cet hôte et programmes que Pimi lance. Seuls la méthode, l'hôte, le port et le chemin sont conservés, jamais les chaînes de requête, les en-têtes, les corps ni les variables d'environnement, et les identifiants présents dans les arguments de lancement sont masqués. Les enregistrements récents sont gardés en mémoire et les enregistrements terminés sont aussi sauvegardés dans des fichiers journaux sur l'hôte (voir Journaux).",
+      notCapturedTitle: "Non capturé",
+      notCapturedBody:
+        "Pour les programmes que Pimi lance (git, GitHub CLI, serveurs de langage, serveurs MCP, fournisseurs d'agents), le lancement est enregistré : le programme, ses arguments masqués, son code de sortie et sa durée. Ce que ces programmes envoient sur le réseau est chiffré et n'est pas capturé, par exemple les appels d'API d'un agent ou un git fetch. Les terminaux et les processus de plugins ne sont pas enregistrés.",
+      title: "Journaux",
+      saveTitle: "Enregistrer le journal réseau",
+      saveHint:
+        "Conserve les enregistrements affichés ici dans des fichiers sur cet hôte afin qu'ils survivent aux redémarrages. Les fichiers ne sont lisibles que par votre utilisateur.",
+      retentionTitle: "Jours de conservation des journaux",
+      retentionHint:
+        "Les fichiers plus anciens sont supprimés automatiquement. Le dossier est aussi limité à 200 Mo.",
+      decrease: "Conserver les journaux moins de jours",
+      increase: "Conserver les journaux plus de jours",
+      locationTitle: "Emplacement",
+      sizeHint: "{{size}} sur le disque",
+      notSaving: "Pas d'enregistrement",
+      openFolder: "Ouvrir le dossier des journaux",
+      openFolderFailed: "Impossible d'ouvrir le dossier des journaux : {{error}}",
+      saveFailed: "Impossible de mettre à jour les réglages des journaux : {{error}}",
     },
     languageServers: {
       title: "Serveurs de langage",

@@ -204,6 +204,8 @@ export type PimiGitAuthStatus = "connected" | "cli-missing" | "unverified";
 
 export interface DesktopNetworkActivityBridge {
   list: (input: { includeLocal?: boolean; limit?: number }) => Promise<NetworkActivitySnapshot>;
+  /** Opens the folder holding the saved network logs in the system file manager. */
+  openLogsFolder: () => Promise<void>;
 }
 
 export interface DesktopHostBridge {

@@ -13,7 +13,7 @@ npm run dev:app              # Expo app against the dev daemon
 npm run cli -- ls -a -g      # CLI against the dev daemon
 ```
 
-Then walk the flow the way a person would. [pimi-walk-the-flow](../skills/pimi-walk-the-flow/SKILL.md) is the checklist: ship-path input, check the thing that should actually change, try the likeliest interruption, and say which steps used fixture data.
+Then walk the flow the way a person would. The checklist: ship-path input, check the thing that should actually change, try the likeliest interruption, and say which steps used fixture data.
 
 - Use real inputs: a real repository, a real provider, a real file. A fixture proves the fixture parses.
 - Cover every platform the change affects. [qa.md](qa.md) has the platform table.

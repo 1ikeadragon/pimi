@@ -8,6 +8,9 @@ import type { Logger } from "pino";
 import type { McpServerConfig } from "../../agent-sdk-types.js";
 import type { PaseoToolResult } from "../../tools/types.js";
 import type { OmpRpcHostToolDefinition } from "./rpc-types.js";
+import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
+import { beginProcessLaunch } from "../../../../utils/process-launch.js";
+import { withNetworkInitiator } from "../../../network/activity.js";
 
 interface BridgedTool {
   client: Client;
@@ -26,6 +29,7 @@ export class OmpMcpBridge {
   readonly definitions: OmpRpcHostToolDefinition[] = [];
   private readonly tools = new Map<string, BridgedTool>();
   private readonly clients: Client[] = [];
+  private readonly launchEnds: Array<NonNullable<ReturnType<typeof beginProcessLaunch>>> = [];
   private closed = false;
 
   static async connect(
@@ -38,12 +42,26 @@ export class OmpMcpBridge {
     const connections = await Promise.all(
       Object.entries(servers ?? {}).map(async ([serverName, config]) => {
         const client = new Client({ name: "paseo-omp-mcp", version: "1.0.0" });
+        let ended: ReturnType<typeof beginProcessLaunch> = null;
         try {
           const transport = makeTransport(config, cwd, env);
-          await client.connect(transport, { timeout: SERVER_TIMEOUT_MS });
-          const listed = await client.listTools(undefined, { timeout: SERVER_TIMEOUT_MS });
-          return { serverName, client, tools: listed.tools };
+          if (config.type === "stdio") {
+            ended = beginProcessLaunch({
+              command: config.command,
+              args: config.args ?? [],
+              purpose: NETWORK_PURPOSE.mcp,
+            });
+          }
+          // Remote servers: every request this client makes is attributed to MCP.
+          await withNetworkInitiator(NETWORK_PURPOSE.mcp, async () => {
+            await client.connect(transport, { timeout: SERVER_TIMEOUT_MS });
+          });
+          const listed = await withNetworkInitiator(NETWORK_PURPOSE.mcp, () =>
+            client.listTools(undefined, { timeout: SERVER_TIMEOUT_MS }),
+          );
+          return { serverName, client, tools: listed.tools, ended };
         } catch (error) {
+          ended?.({ errorCode: "UNAVAILABLE" });
           logger.warn({ err: error, server: serverName }, "OMP MCP server unavailable");
           await client.close().catch(() => undefined);
           return null;
@@ -52,8 +70,9 @@ export class OmpMcpBridge {
     );
     for (const connection of connections) {
       if (!connection) continue;
-      const { serverName, client, tools } = connection;
+      const { serverName, client, tools, ended } = connection;
       bridge.clients.push(client);
+      if (ended) bridge.launchEnds.push(ended);
       for (const tool of tools) {
         const name = bridgeName(serverName, tool.name);
         bridge.tools.set(name, { client, server: serverName, tool: tool.name });
@@ -87,9 +106,9 @@ export class OmpMcpBridge {
   ): Promise<PaseoToolResult> {
     const entry = this.tools.get(name);
     if (!entry || this.closed) throw new Error(`MCP tool ${name} is unavailable`);
-    const raw = await entry.client.callTool({ name: entry.tool, arguments: args }, undefined, {
-      signal,
-    });
+    const raw = await withNetworkInitiator(NETWORK_PURPOSE.mcp, () =>
+      entry.client.callTool({ name: entry.tool, arguments: args }, undefined, { signal }),
+    );
     const result = CallToolResultSchema.parse(raw);
     return {
       content: result.content.map((item) => ({ ...item })),
@@ -105,6 +124,7 @@ export class OmpMcpBridge {
     this.closed = true;
     await Promise.all(this.clients.map((client) => client.close().catch(() => undefined)));
     this.clients.length = 0;
+    for (const end of this.launchEnds.splice(0)) end({});
   }
 }
 

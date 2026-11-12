@@ -398,6 +398,10 @@ export const ptBR: TranslationResources = {
       dismissImage: "Dispensar imagem",
       closeImage: "Fechar imagem",
       imageLoadFailed: "Não foi possível carregar a imagem",
+      imageTooLarge: "Imagem muito grande",
+      imageUnsupported: "Imagem não compatível",
+      previousImage: "Imagem anterior",
+      nextImage: "Próxima imagem",
       imageUnavailable: "Imagem indisponível",
       imagePreviewUnavailable: "Prévia da imagem indisponível.",
       imagePreviewLoadFailed: "Não foi possível carregar a prévia da imagem.",
@@ -2528,6 +2532,28 @@ export const ptBR: TranslationResources = {
       editor: "Editor",
       plugins: "Plugins",
       host: "Visão geral",
+    },
+    networkLogs: {
+      overviewInfo:
+        "Requisições que o próprio Pimi faz, conexões que chegam a este host e programas que o Pimi inicia. Somente o método, o host, a porta e o caminho são mantidos, nunca query strings, cabeçalhos, corpos ou variáveis de ambiente, e credenciais nos argumentos de inicialização são ocultadas. Os registros recentes ficam na memória e os registros concluídos também são salvos em arquivos de log no host (veja Logs).",
+      notCapturedTitle: "Não capturado",
+      notCapturedBody:
+        "Para os programas que o Pimi inicia (git, GitHub CLI, servidores de linguagem, servidores MCP, provedores de agentes), é registrada a inicialização: o programa, seus argumentos com dados ocultados, o código de saída e a duração. O que esses programas enviam pela rede é criptografado e não é capturado, como as chamadas de API de um agente ou um git fetch. Terminais e processos de plugins não são registrados.",
+      title: "Logs",
+      saveTitle: "Salvar o log de rede",
+      saveHint:
+        "Mantém os registros mostrados aqui em arquivos neste host para que sobrevivam a reinicializações. Os arquivos só podem ser lidos pelo seu usuário.",
+      retentionTitle: "Dias para manter os logs",
+      retentionHint:
+        "Arquivos mais antigos são excluídos automaticamente. A pasta também tem limite de 200 MB.",
+      decrease: "Manter os logs por menos dias",
+      increase: "Manter os logs por mais dias",
+      locationTitle: "Local",
+      sizeHint: "{{size}} em disco",
+      notSaving: "Não está salvando",
+      openFolder: "Abrir pasta de logs",
+      openFolderFailed: "Não foi possível abrir a pasta de logs: {{error}}",
+      saveFailed: "Não foi possível atualizar as configurações de logs: {{error}}",
     },
     languageServers: {
       title: "Servidores de linguagem",

@@ -6,7 +6,7 @@ nav: 安全
 
 # 安全 {#security}
 
-Pimi 采用客户端-服务器架构，与 Docker 类似。daemon 运行在你的机器上，管理你的编程 Agent。客户端（移动应用、CLI 或 Web 界面）连接到 daemon，用来监控和控制这些 Agent。
+Pimi 采用客户端-服务器架构，与 Docker 类似。daemon 运行在你的机器上，管理你的编程 Agent。客户端（移动应用、桌面应用或 CLI）连接到 daemon，用来监控和控制这些 Agent。
 
 你的代码从不离开你的机器。Pimi 是一个本地优先的工具，直接连接到你的开发环境。
 
@@ -57,7 +57,7 @@ daemon 默认监听 `127.0.0.1:6767`（仅限 localhost）。这对本地 CLI �
 
 ### 套接字文件（仅限 CLI） {#socket-file-cli-only}
 
-为了获得最大程度的隔离，你可以把 daemon 配置为监听 Unix 套接字文件而不是 TCP 端口。这会完全阻止任何网络访问，只有同一台机器上的进程才能连接。CLI 支持这种模式，但移动应用和 Web 界面需要网络连接。
+为了获得最大程度的隔离，你可以把 daemon 配置为监听 Unix 套接字文件而不是 TCP 端口。这会完全阻止任何网络访问，只有同一台机器上的进程才能连接。CLI 支持这种模式，但移动应用需要网络连接。
 
 ### 通过 VPN 访问 {#vpn-access}
 
@@ -84,8 +84,6 @@ Pimi 使用主机白名单校验传入请求的 `Host` 请求头。主机无法�
 默认情况下，任何能访问 daemon 监听地址的人都可以连接。在 localhost 上这没有问题，只有本地进程能访问。但如果你绑定到某个网络接口（例如你的局域网 IP 或 `0.0.0.0`），或者你不完全信任本地网络，可以要求提供密码。
 
 配置密码后，所有 HTTP 请求都必须包含 `Authorization: Bearer <password>` 请求头，所有 WebSocket 客户端（包括中继客户端）都必须在连接时发送密码。中继客户端在端到端加密通道内发送密码，中继无法看到它。未经验证的 HTTP 请求会收到 `401 Unauthorized` 响应。只有 `/api/health` 存活检查端点例外，以便进程管理器和负载均衡器无需凭据即可探测。
-
-如果你启用了[内置的 Web UI](/docs/web-ui)，它的静态文件同样无需密码即可提供，以便显示登录界面。这是有意设计的：API 和 WebSocket 在返回任何 Agent 数据或执行任何命令之前仍然需要验证。在把 daemon 绑定到网络之前请设置密码，让页面背后的数据受到保护。
 
 密码以 bcrypt 哈希的形式保存在 `config.json` 中，daemon 从不以明文保存它。设置说明见[配置](/docs/configuration#password-authentication)。
 

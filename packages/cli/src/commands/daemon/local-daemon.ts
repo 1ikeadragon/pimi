@@ -87,8 +87,6 @@ const REMOVED_LAUNCH_FLAGS: Record<string, string> = {
   "--relay-use-tls": "daemon.relay.useTls",
   "--no-mcp": "daemon.mcp.enabled",
   "--no-inject-mcp": "daemon.mcp.injectIntoAgents",
-  "--web-ui": "features.webUi.enabled",
-  "--no-web-ui": "features.webUi.enabled",
   "--hostnames <hosts>": "daemon.hostnames",
   "--allowed-hosts <hosts>": "daemon.hostnames",
   "--foreground": "",

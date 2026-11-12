@@ -9,6 +9,8 @@ import type {
   CodeNavigationQuery,
   ProviderResult,
 } from "./types.js";
+import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
+import { trackChildProcess } from "../../utils/process-launch.js";
 
 // tsserver's stdio protocol, spoken directly: a JSON request per line in, `Content-Length` framed
 // JSON out. Responses carry `request_seq`; everything else (events) is ignored.
@@ -94,6 +96,11 @@ class TsServerProcess {
       stdio: ["pipe", "pipe", "ignore"],
       shell: false,
       windowsHide: true,
+    });
+    trackChildProcess(this.child, {
+      command: "tsserver",
+      args: ["--disableAutomaticTypingAcquisition", "--suppressDiagnosticEvents"],
+      purpose: NETWORK_PURPOSE.languageServer,
     });
     this.child.stdout?.on("data", (chunk: Buffer) => this.receive(chunk));
     this.child.stdin?.on("error", () => undefined);

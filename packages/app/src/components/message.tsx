@@ -3,13 +3,14 @@ import { MessagePreview, MessageSender } from "@/components/user-message";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import { getAgentAttachmentPillContent } from "@/attachments/attachment-pill-content";
 import { SentAnnotationPill } from "@/annotations/sent-pill";
-import { AssistantForkMenu, type AssistantForkTarget } from "@/components/assistant-fork-menu";
-import { AttachmentLightbox, type ImageLightboxSource } from "@/components/attachment-lightbox";
 import {
-  AttachmentFrame,
-  AttachmentLabel,
-  AttachmentThumbnail,
-} from "@/components/attachment-pill";
+  isBrowserElementAttachment,
+  SentBrowserElementPill,
+} from "@/components/sent-browser-element-pill";
+import { AgentImageGrid, type AgentImageGridItem } from "@/components/agent-image-grid";
+import { useAgentImages, type AgentImageSlot } from "@/hooks/use-agent-images";
+import { AssistantForkMenu, type AssistantForkTarget } from "@/components/assistant-fork-menu";
+import { AttachmentFrame, AttachmentLabel } from "@/components/attachment-pill";
 import { MarkdownRenderer } from "@/components/markdown/renderer";
 import { useRetainedPanelActive } from "@/components/retained-panel";
 import { RewindMenu, type RewindMode } from "@/components/rewind/rewind-menu";
@@ -33,7 +34,11 @@ import { useToolCallExpanded } from "@/tool-calls/expansion-context";
 import { useTargetAgentTitle } from "@/tool-calls/use-target-agent-title";
 import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import type { AgentMessage } from "@pimi/protocol/agent-message";
-import type { AgentCapabilityFlags, ToolCallDetail } from "@pimi/protocol/agent-types";
+import type {
+  AgentCapabilityFlags,
+  AgentImageRef,
+  ToolCallDetail,
+} from "@pimi/protocol/agent-types";
 import type { AgentAttachment } from "@pimi/protocol/messages";
 import MaskedView from "@react-native-masked-view/masked-view";
 import {
@@ -106,6 +111,8 @@ interface UserMessageProps {
   message: string;
   images?: UserMessageImageAttachment[];
   attachments?: AgentAttachment[];
+  /** Images the daemon kept for this message, shown when there are no local copies. */
+  sentImages?: AgentImageRef[];
   timestamp: number;
   capabilities?: AgentCapabilityFlags;
   client?: DaemonClient | null;
@@ -378,23 +385,6 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
   },
 }));
 
-interface UserMessageImagePillProps {
-  image: UserMessageImageAttachment;
-  onOpen: (image: UserMessageImageAttachment) => void;
-  accessibilityLabel: string;
-}
-
-function UserMessageImagePill({ image, onOpen, accessibilityLabel }: UserMessageImagePillProps) {
-  const handlePress = useCallback(() => {
-    onOpen(image);
-  }, [onOpen, image]);
-  return (
-    <AttachmentFrame onPress={handlePress} accessibilityLabel={accessibilityLabel}>
-      <AttachmentThumbnail metadata={image} />
-    </AttachmentFrame>
-  );
-}
-
 const MESSAGE_TEXT_DATASET = { messageText: "true" };
 
 export const UserMessage = memo(function UserMessage({
@@ -405,6 +395,7 @@ export const UserMessage = memo(function UserMessage({
   message,
   images = [],
   attachments = [],
+  sentImages,
   timestamp,
   capabilities,
   client,
@@ -416,15 +407,35 @@ export const UserMessage = memo(function UserMessage({
   const isCompact = useIsCompactFormFactor();
   const { t } = useTranslation();
   const [isHovered, setIsHovered] = useState(false);
-  const [lightboxMetadata, setLightboxMetadata] = useState<UserMessageImageAttachment | null>(null);
-  const handleLightboxClose = useCallback(() => setLightboxMetadata(null), []);
-  const lightboxSource = useMemo<ImageLightboxSource | null>(
-    () => (lightboxMetadata ? { type: "attachment", metadata: lightboxMetadata } : null),
-    [lightboxMetadata],
-  );
   const resolvedDisableOuterSpacing = useDisableOuterSpacing(disableOuterSpacing);
   const hasText = message.trim().length > 0;
-  const hasImages = images.length > 0;
+  // A message this client sent keeps its local images; any other copy fetches the daemon's.
+  const fetchedImages = useAgentImages(images.length > 0 ? null : client, agentId, sentImages);
+  const resolvedSlots = useMemo<AgentImageSlot[]>(
+    () =>
+      images.length > 0 ? images.map((metadata) => ({ state: "ready", metadata })) : fetchedImages,
+    [images, fetchedImages],
+  );
+  const resolvedImages = useMemo<Array<UserMessageImageAttachment | null>>(
+    () => resolvedSlots.map((slot) => (slot.state === "ready" ? slot.metadata : null)),
+    [resolvedSlots],
+  );
+  // A browser element pill shows its own screenshot, so the bubble does not repeat it.
+  const standaloneItems = useMemo<AgentImageGridItem[]>(() => {
+    const pillShots = new Set<number>();
+    for (const attachment of attachments) {
+      if (isBrowserElementAttachment(attachment)) {
+        const index = attachment.browserElement.screenshotIndex;
+        if (index !== undefined) pillShots.add(index);
+      }
+    }
+    return resolvedSlots.flatMap((slot, index) =>
+      pillShots.has(index)
+        ? []
+        : [{ slot, width: sentImages?.[index]?.width, height: sentImages?.[index]?.height }],
+    );
+  }, [attachments, resolvedSlots, sentImages]);
+  const hasImages = standaloneItems.length > 0;
   const hasAttachments = attachments.length > 0;
   const showTrailingRow = !isPending && hasText && (isCompact || isNative || isHovered);
   const formattedTimestamp = useMemo(
@@ -490,19 +501,22 @@ export const UserMessage = memo(function UserMessage({
           <MessagePreview>
             {hasImages ? (
               <View style={imagePreviewContainerStyle}>
-                {images.map((image) => (
-                  <UserMessageImagePill
-                    key={image.id}
-                    image={image}
-                    onOpen={setLightboxMetadata}
-                    accessibilityLabel={t("composer.attachments.openImage")}
-                  />
-                ))}
+                <AgentImageGrid items={standaloneItems} />
               </View>
             ) : null}
             {hasAttachments ? (
               <View style={attachmentPreviewContainerStyle}>
                 {attachments.map((attachment, index) => {
+                  if (isBrowserElementAttachment(attachment)) {
+                    const shot = attachment.browserElement.screenshotIndex;
+                    return (
+                      <SentBrowserElementPill
+                        key={`browser:${attachment.browserElement.url}:${attachment.browserElement.selector}:${attachment.browserElement.comment ?? ""}`}
+                        attachment={attachment}
+                        screenshot={shot === undefined ? null : (resolvedImages[shot] ?? null)}
+                      />
+                    );
+                  }
                   if (attachment.type === "text" && attachment.annotation) {
                     return (
                       <SentAnnotationPill
@@ -558,7 +572,6 @@ export const UserMessage = memo(function UserMessage({
           </View>
         ) : null}
       </View>
-      <AttachmentLightbox source={lightboxSource} onClose={handleLightboxClose} />
     </View>
   );
 });

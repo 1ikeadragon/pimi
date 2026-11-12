@@ -130,6 +130,16 @@ export function requestStatus(request: NetworkActivityRequest): {
   tone: RequestTone;
 } {
   if (request.errorCode) return { label: request.errorCode, tone: "error" };
+  if (request.protocol === "process") {
+    // The status of a launched program is its exit code. Zero is success; anything else is
+    // the program's own report, not necessarily a failure of Pimi.
+    if (request.status === null) {
+      return { label: request.state === "pending" ? "Running" : "No exit code", tone: "muted" };
+    }
+    return request.status === 0
+      ? { label: "Exit 0", tone: "success" }
+      : { label: `Exit ${request.status}`, tone: "warning" };
+  }
   if (request.status === null) {
     return { label: request.state === "pending" ? "Pending" : "No status", tone: "muted" };
   }
@@ -151,6 +161,9 @@ export function formatDuration(ms: number | null): string | null {
 }
 
 export function formatRequestTarget(request: NetworkActivityRequest): string {
+  if (request.protocol === "process") {
+    return request.path === "/" ? request.host : `${request.host} ${request.path}`;
+  }
   const port = request.port ? `:${request.port}` : "";
   const host = request.protocol === "unix" ? "unix socket" : `${request.host}${port}`;
   return `${host}${request.path}`;

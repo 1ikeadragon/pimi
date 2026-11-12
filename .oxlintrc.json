@@ -127,8 +127,6 @@
               "server/agent/providers/pi/extensions/pi-subagents/index.ts": ["readFileSync"],
               // Startup/shutdown only: remove stale Unix listening sockets before bind and during disposal.
               "server/bootstrap.ts": ["existsSync", "unlinkSync"],
-              // Startup configuration resolution: detect the bundled app distribution before the daemon listens.
-              "server/config.ts": ["existsSync"],
               // Startup identity: load or create the daemon keypair before accepting connections.
               "server/daemon-keypair.ts": ["existsSync", "readFileSync"],
               // Fatal exit diagnostics: synchronously flush the exit reason when the worker is about to terminate.
@@ -185,8 +183,6 @@
               ],
               // Speech child process: model-file validation runs in the worker-backed local speech provider.
               "server/speech/providers/local/sherpa/sherpa-tts.ts": ["existsSync"],
-              // TODO: static request selection and index injection need bounded async serving with response/error ownership; keep this as a separate request-path conversion.
-              "server/web-ui.ts": ["readFileSync", "statSync"],
               // Startup registry hydration: check persisted workspace directories before the runtime reconciliation service starts.
               "server/workspace-registry-bootstrap.ts": ["statSync"],
               // Hook config changes run inside a synchronous daemon config transaction. Only bounded

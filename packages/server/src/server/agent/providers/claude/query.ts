@@ -7,6 +7,7 @@ import {
 } from "../../provider-launch-config.js";
 import { buildSelfNodeCommand, createExternalProcessEnv } from "../../../paseo-env.js";
 import { spawnProcess } from "../../../../utils/spawn.js";
+import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
 
 // Keep the raw SDK query import in this module only. Claude process launch behavior
 // must stay shared between production and tests so Windows .cmd/.bat handling cannot
@@ -96,6 +97,7 @@ function applyRuntimeSettingsToClaudeOptions(
           ? { env: selfNodeCommand.env, envMode: "internal" as const }
           : providerEnvSpec),
         signal: spawnOptions.signal,
+        networkPurpose: NETWORK_PURPOSE.agentProvider,
         stdio: ["pipe", "pipe", "pipe"],
         // Bypass cmd.exe on Windows: the SDK passes --mcp-config with inline JSON
         // containing double quotes, which cmd.exe mangles (strips quotes, breaks parsing).

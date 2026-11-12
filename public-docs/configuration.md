@@ -51,7 +51,7 @@ Edit the selected file through the CLI:
 ```bash
 pimi daemon config get daemon.listen --home ~/paseo-test
 pimi daemon config set daemon.listen 127.0.0.1:6800 --home ~/paseo-test
-pimi daemon config unset features.webUi.enabled --home ~/paseo-test
+pimi daemon config unset daemon.relay.enabled --home ~/paseo-test
 ```
 
 `get [path]` reports configured values and labels missing fields unset. It does not create a home. `set` parses JSON, otherwise treats the input as a string; `--string` forces a literal string. `--json` selects output format. Use whole-object JSON for dynamic keys containing dots. Unknown paths, invalid values, and invalid existing files are rejected without writing. Passwords use `set-password`.
@@ -74,9 +74,9 @@ Runtime-safe settings include relay enablement, MCP settings, browser tools, hos
 
 Relay stays off when you remove `daemon.relay.enabled`. Set `daemon.relay.endpoint` and restart to configure the relay address.
 
-Idle runtime cleanup, listen addresses, authentication, relay endpoints and TLS, worktree allocation, service-proxy addresses, the bundled web UI, logging, speech, voice, credentials, and local model settings require a restart. Reload applies other valid edits in the same file before reporting those paths.
+Idle runtime cleanup, listen addresses, authentication, relay endpoints and TLS, worktree allocation, service-proxy addresses, logging, speech, voice, credentials, and local model settings require a restart. Reload applies other valid edits in the same file before reporting those paths.
 
-Deployment environment variables and legacy supervisor flags remain authoritative. Reload reports a changed file setting under `overrideControlledPaths` when a launch override prevents it from taking effect. This includes startup settings such as listen addresses, passwords, relay endpoints and TLS, service-proxy and web UI settings, logging, speech, and voice configuration. List settings such as hostnames and CORS origins still append across sources, so values from `config.json` continue to apply. Stop and relaunch the deployment without the override to make the file value authoritative.
+Deployment environment variables and legacy supervisor flags remain authoritative. Reload reports a changed file setting under `overrideControlledPaths` when a launch override prevents it from taking effect. This includes startup settings such as listen addresses, passwords, relay endpoints and TLS, service-proxy settings, logging, speech, and voice configuration. List settings such as hostnames and CORS origins still append across sources, so values from `config.json` continue to apply. Stop and relaunch the deployment without the override to make the file value authoritative.
 
 ## Agent providers
 
@@ -119,37 +119,6 @@ Relative paths are resolved against `PASEO_HOME`. Existing worktrees remain wher
 Voice is configured through `features.dictation` and `features.voiceMode`. Provider credentials and options live inline at `features.dictation.stt`, `features.voiceMode.stt`, and `features.voiceMode.tts`.
 
 For voice philosophy, architecture, and complete local/OpenAI setup examples, see [Voice docs](/docs/voice).
-
-## Bundled web UI
-
-The daemon can serve the browser web client from the same HTTP server. This is disabled by default for normal CLI and desktop-managed daemons.
-
-Enable it from the CLI:
-
-```bash
-pimi daemon config set features.webUi.enabled true
-pimi daemon start
-```
-
-Or set the environment variable:
-
-```bash
-PASEO_WEB_UI_ENABLED=true paseo daemon run
-```
-
-Or persist it in `config.json`:
-
-```json
-{
-  "features": {
-    "webUi": {
-      "enabled": true
-    }
-  }
-}
-```
-
-When enabled, open the daemon HTTP origin, for example `http://localhost:6767/`, to load the web app. Static UI files load without daemon auth; API and WebSocket requests still require the configured password.
 
 ## Logging
 
@@ -260,8 +229,6 @@ Restart the daemon after changing the endpoint. See [Connectivity](./connectivit
 - `PIMI_RELAY_ENABLED`, enable or disable the outbound relay for this daemon launch
 - `PASEO_HOSTNAMES`, override/extend `daemon.hostnames`
 - `PASEO_ALLOWED_HOSTS`, deprecated alias for `PASEO_HOSTNAMES`
-- `PASEO_WEB_UI_ENABLED`, enable or disable the daemon-served web UI
-- `PASEO_WEB_UI_DIST_DIR`, override the daemon web UI build directory
 - `PASEO_TRUSTED_PROXIES`, configure trusted reverse proxy ranges for `X-Forwarded-*` headers
 - `PASEO_LOG_CONSOLE_LEVEL`, override `log.console.level`
 - `PASEO_LOG_FILE_LEVEL`, override `log.file.level`

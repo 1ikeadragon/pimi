@@ -2,6 +2,7 @@ import { z } from "zod";
 import { findExecutable } from "../executable-resolution/executable-resolution.js";
 import { runGitCommand } from "../utils/run-git-command.js";
 import { execCommand } from "../utils/spawn.js";
+import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
 
 /**
  * Timeout for the per-host CLI auth probe (`gh`/`glab`/`tea` auth status) used
@@ -101,6 +102,11 @@ export interface ForgeCliRunnerFactory {
  * timeout) plus error normalization through the binary's own error-class
  * trio. The three adapters differ only in the params passed here.
  */
+/** The Network tab purpose for a forge CLI launch. */
+export function forgeCliPurpose(binary: string): string {
+  return binary === "gh" ? NETWORK_PURPOSE.githubCli : NETWORK_PURPOSE.gitHostCli;
+}
+
 export function createForgeCliRunner(options: CreateForgeCliRunnerOptions): ForgeCliRunnerFactory {
   const run: ForgeCliRunner = (args, runOptions) =>
     execCommand(options.binary, args, {
@@ -108,6 +114,7 @@ export function createForgeCliRunner(options: CreateForgeCliRunnerOptions): Forg
       envOverlay: { ...options.envOverlay, ...runOptions.envOverlay },
       maxBuffer: 10 * 1024 * 1024,
       timeout: options.timeoutMs,
+      networkPurpose: forgeCliPurpose(options.binary),
     });
 
   function normalizeError(
@@ -307,6 +314,7 @@ export async function probeHostViaCliAuthStatus(
     await execCommand(options.cli, ["auth", "status", "--hostname", options.host], {
       envOverlay: options.envOverlay,
       timeout: CLI_AUTH_PROBE_TIMEOUT_MS,
+      networkPurpose: forgeCliPurpose(options.cli),
     });
     return true;
   } catch {

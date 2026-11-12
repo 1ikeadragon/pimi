@@ -104,11 +104,8 @@ import {
   readCodexThreadHistoryMode,
   readCodexThreadHistoryPageBefore,
 } from "./codex/thread-history.js";
-import {
-  materializeProviderImage,
-  renderProviderImageOutputAsAssistantMarkdown,
-  type ProviderImageOutput,
-} from "./provider-image-output.js";
+import { materializeProviderImage } from "./prompt-image-file.js";
+import type { ProviderImageOutput } from "../agent-images.js";
 import { normalizeProviderReplayTimestamp } from "../provider-history-timestamps.js";
 import { limitAgentTimelineItemContent } from "../agent-timeline-content.js";
 import {
@@ -129,6 +126,7 @@ import {
   CodexProviderOptionsSchema,
   type CodexProviderOptions,
 } from "./codex/options.js";
+import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
 
 function assertChildWithPipes(
   child: ChildProcess,
@@ -271,6 +269,7 @@ const CODEX_APP_SERVER_CAPABILITIES: AgentCapabilityFlags = {
   supportsMcpServers: true,
   supportsReasoningStream: true,
   supportsToolInvocations: true,
+  readsBundledSkills: true,
   supportsRewindConversation: true,
   supportsRewindFiles: false,
   supportsRewindBoth: false,
@@ -2012,10 +2011,15 @@ async function mapCodexThreadImageItem(
   normalizedType: string,
   normalizedItem: Record<string, unknown>,
 ): Promise<AgentTimelineItem | null> {
+  const callId = firstStringField(normalizedItem, ["id"]);
+  const imagesItem = (images: ProviderImageOutput[]): AgentTimelineItem => ({
+    type: "provider_images",
+    images,
+    ...(callId ? { callId } : {}),
+  });
   if (normalizedType === "imageView") {
-    return await renderProviderImageOutputAsAssistantMarkdown({
-      path: firstStringField(normalizedItem, ["path"]),
-    });
+    const imagePath = firstStringField(normalizedItem, ["path"]);
+    return imagePath ? imagesItem([{ path: imagePath }]) : null;
   }
 
   if (normalizedItem.status === "failed") {
@@ -2029,15 +2033,13 @@ async function mapCodexThreadImageItem(
 
   const savedPath = firstStringField(normalizedItem, ["savedPath", "saved_path"]);
   const result = codexImageOutputFromResult(normalizedItem.result);
-  return await renderProviderImageOutputAsAssistantMarkdown(
-    {
-      path: savedPath ?? result?.path ?? null,
-      url: result?.url ?? null,
-      data: result?.data ?? null,
-      mimeType: result?.mimeType ?? null,
-    },
-    { materialize: materializeProviderImage },
-  );
+  const image = {
+    path: savedPath ?? result?.path ?? null,
+    url: result?.url ?? null,
+    data: result?.data ?? null,
+    mimeType: result?.mimeType ?? null,
+  };
+  return image.path || image.url || image.data ? imagesItem([image]) : null;
 }
 
 function mapCodexAgentMessage(item: Record<string, unknown>): AgentTimelineItem {
@@ -2106,14 +2108,10 @@ async function mcpToolResultImagesToTimeline(item: unknown): Promise<AgentTimeli
   }
 
   const { images } = splitCodexMcpToolResultImages(itemRecord.result);
-  const items: AgentTimelineItem[] = [];
-  for (const image of images) {
-    const imageItem = await renderProviderImageOutputAsAssistantMarkdown(image, {
-      materialize: materializeProviderImage,
-    });
-    if (imageItem) items.push(imageItem);
-  }
-  return items;
+  const callId = nonEmptyString(itemRecord.id);
+  return images.length > 0
+    ? [{ type: "provider_images", images, ...(callId ? { callId } : {}) }]
+    : [];
 }
 
 async function threadItemToTimelineEntries(
@@ -3636,6 +3634,13 @@ export class CodexAppServerAgentSession implements AgentSession {
     this.providerOptions =
       validateProviderOptions("codex", CodexProviderOptionsSchema, config.providerOptions) ?? {};
     this.config = config;
+    const instructions = this.composeDeveloperInstructions();
+    if (instructions) {
+      this.logger.info(
+        { developerInstructionsBytes: Buffer.byteLength(instructions, "utf8") },
+        "Codex developer instructions composed",
+      );
+    }
     this.harnessEnvironment = deps.environment ?? buildCodexAppServerEnv();
     this.asyncQuestions = new CodexAsyncQuestions(resumeHandle?.metadata?.asyncQuestions);
     this.codexHome = deps.codexHome ?? resolveCodexHomeDir(process.env);
@@ -3901,6 +3906,15 @@ export class CodexAppServerAgentSession implements AgentSession {
     return this.findCollaborationMode("plan") !== null;
   }
 
+  /** The one place the system prompt and Pimi's appended instructions are joined for Codex. */
+  private composeDeveloperInstructions(collaborationModeInstructions?: string | null) {
+    return composeSystemPromptParts(
+      collaborationModeInstructions,
+      this.config.systemPrompt,
+      this.config.daemonAppendSystemPrompt,
+    );
+  }
+
   private resolveCollaborationMode(): {
     mode: string;
     settings: Record<string, unknown>;
@@ -3912,11 +3926,7 @@ export class CodexAppServerAgentSession implements AgentSession {
     const settings: Record<string, unknown> = {};
     if (match.model) settings.model = match.model;
     if (match.reasoning_effort) settings.reasoning_effort = match.reasoning_effort;
-    const developerInstructions = composeSystemPromptParts(
-      match.developer_instructions,
-      this.config.systemPrompt,
-      this.config.daemonAppendSystemPrompt,
-    );
+    const developerInstructions = this.composeDeveloperInstructions(match.developer_instructions);
     if (developerInstructions) settings.developer_instructions = developerInstructions;
     if (this.config.model) settings.model = this.config.model;
     const thinkingOptionId = normalizeCodexThinkingOptionId(this.config.thinkingOptionId);
@@ -4304,10 +4314,7 @@ export class CodexAppServerAgentSession implements AgentSession {
       // the unnamespaced key emitted by earlier Paseo versions.
       params.modelProvider = this.deps.customCodexConfig.model_provider;
     }
-    const developerInstructions = composeSystemPromptParts(
-      this.config.systemPrompt,
-      this.config.daemonAppendSystemPrompt,
-    );
+    const developerInstructions = this.composeDeveloperInstructions();
     if (developerInstructions) {
       params.developerInstructions = developerInstructions;
     }
@@ -4457,10 +4464,7 @@ export class CodexAppServerAgentSession implements AgentSession {
     if (options?.outputSchema) {
       params.outputSchema = normalizeCodexOutputSchema(options.outputSchema);
     }
-    const developerInstructions = composeSystemPromptParts(
-      this.config.systemPrompt,
-      this.config.daemonAppendSystemPrompt,
-    );
+    const developerInstructions = this.composeDeveloperInstructions();
     if (developerInstructions) {
       params.developerInstructions = developerInstructions;
     }
@@ -5757,10 +5761,7 @@ export class CodexAppServerAgentSession implements AgentSession {
     const approvalPolicy = this.hasWorkflowModeOverride ? preset.approvalPolicy : undefined;
     const sandbox = this.hasWorkflowModeOverride ? preset.sandbox : undefined;
     const innerConfig = this.buildCodexInnerConfig();
-    const developerInstructions = composeSystemPromptParts(
-      this.config.systemPrompt,
-      this.config.daemonAppendSystemPrompt,
-    );
+    const developerInstructions = this.composeDeveloperInstructions();
     const params: Record<string, unknown> = {
       model,
       cwd: this.config.cwd ?? null,
@@ -7717,6 +7718,7 @@ export class CodexAppServerAgentClient implements AgentClient {
     );
     const child = spawnProcess(launchPrefix.command, args, {
       detached: process.platform !== "win32",
+      networkPurpose: NETWORK_PURPOSE.agentProvider,
       stdio: ["pipe", "pipe", "pipe"],
       baseEnv: options?.environment ?? buildCodexAppServerEnv(this.runtimeSettings, launchEnv),
     });

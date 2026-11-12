@@ -399,6 +399,10 @@ export const ja: TranslationResources = {
       dismissImage: "画像を閉じる",
       closeImage: "画像を閉じる",
       imageLoadFailed: "画像を読み込めませんでした",
+      imageTooLarge: "画像が大きすぎます",
+      imageUnsupported: "非対応の画像",
+      previousImage: "前の画像",
+      nextImage: "次の画像",
       imageUnavailable: "画像が利用できません",
       imagePreviewUnavailable: "画像プレビューは利用できません。",
       imagePreviewLoadFailed: "画像プレビューを読み込めません。",
@@ -2518,6 +2522,28 @@ export const ja: TranslationResources = {
       editor: "エディター",
       plugins: "プラグイン",
       host: "概要",
+    },
+    networkLogs: {
+      overviewInfo:
+        "Pimi 自身が行うリクエスト、このホストに届く接続、Pimi が起動するプログラムを記録します。保存するのはメソッド、ホスト、ポート、パスのみで、クエリ文字列、ヘッダー、本文、環境変数は保存しません。起動引数に含まれる認証情報は伏せ字になります。最近の記録はメモリに保持され、完了した記録はホスト上のログファイルにも保存されます（「ログ」を参照）。",
+      notCapturedTitle: "記録されないもの",
+      notCapturedBody:
+        "Pimi が起動するプログラム（git、GitHub CLI、言語サーバー、MCP サーバー、エージェントプロバイダー）については、起動の事実として、プログラム名、伏せ字にした引数、終了コード、所要時間を記録します。これらのプログラムがネットワークに送る内容は暗号化されており、エージェントの API 呼び出しや git fetch のように記録されません。ターミナルとプラグインのプロセスも記録されません。",
+      title: "ログ",
+      saveTitle: "ネットワークログを保存",
+      saveHint:
+        "ここに表示される記録をこのホスト上のファイルに保存し、再起動後も残します。ファイルはあなたのユーザーだけが読み取れます。",
+      retentionTitle: "ログの保存日数",
+      retentionHint:
+        "古いファイルは自動的に削除されます。フォルダーの合計サイズも 200 MB に制限されます。",
+      decrease: "ログの保存日数を減らす",
+      increase: "ログの保存日数を増やす",
+      locationTitle: "場所",
+      sizeHint: "ディスク使用量 {{size}}",
+      notSaving: "保存していません",
+      openFolder: "ログフォルダーを開く",
+      openFolderFailed: "ログフォルダーを開けませんでした: {{error}}",
+      saveFailed: "ログ設定を更新できませんでした: {{error}}",
     },
     languageServers: {
       title: "言語サーバー",

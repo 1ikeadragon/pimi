@@ -2,6 +2,8 @@ import type {
   AgentFeature,
   AgentFeatureSelect,
   AgentFeatureToggle,
+  AgentImageRef,
+  ProviderImagesTimelineItem,
   AgentPermissionResolutionMarker,
   AgentProviderNotice,
   AgentProviderSwitchMarker,
@@ -179,6 +181,10 @@ export interface AgentCapabilityFlags {
   supportsDynamicModes: boolean;
   supportsMcpServers: boolean;
   supportsNativePaseoTools?: boolean;
+  /** The provider loads skills synced to ~/.claude/skills or ~/.agents/skills, so Pimi's visual formats can live in a skill. */
+  readsBundledSkills?: boolean;
+  /** The provider loads MCP tool schemas on demand, so listing every Pimi tool costs it little. */
+  defersMcpTools?: boolean;
   supportsReasoningStream: boolean;
   supportsToolInvocations: boolean;
   supportsRewindConversation?: boolean;
@@ -384,8 +390,17 @@ export interface PluginTimelineItem {
 }
 
 export type AgentTimelineItem =
-  | { type: "user_message"; text: string; messageId?: string; clientMessageId?: string }
+  | {
+      type: "user_message";
+      text: string;
+      messageId?: string;
+      clientMessageId?: string;
+      attachments?: AgentAttachment[];
+      images?: AgentImageRef[];
+    }
   | { type: "assistant_message"; text: string; messageId?: string }
+  | { type: "assistant_images"; images: AgentImageRef[]; callId?: string }
+  | ProviderImagesTimelineItem
   | { type: "reasoning"; text: string }
   | ToolCallTimelineItem
   | { type: "todo"; items: AgentTaskItem[] }

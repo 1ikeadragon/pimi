@@ -67,7 +67,11 @@ import { TerminalSessionController } from "../terminal/terminal-session-controll
 import { getRegisteredAgentHookStatus } from "../terminal/agent-hooks/provider-registry.js";
 import { reconcileTerminalAgentHooks } from "../terminal/agent-hooks/terminal-agent-hook-setting.js";
 import type { TerminalActivity } from "@pimi/protocol/terminal-activity";
-import type { BinaryFrame } from "@pimi/protocol/binary-frames/index";
+import {
+  encodeFileTransferFrame,
+  FileTransferOpcode,
+  type BinaryFrame,
+} from "@pimi/protocol/binary-frames/index";
 import {
   encodePluginEventFrame,
   encodePluginOutputFrame,
@@ -672,6 +676,8 @@ interface ClientActivity {
   appVisible: boolean;
   appVisibilityChangedAt: Date;
 }
+
+const IMAGE_FRAME_CHUNK_BYTES = 256 * 1024;
 
 export class Session {
   private readonly connectedHostSession: ConnectedHostSession | null;
@@ -2644,6 +2650,8 @@ export class Session {
         return this.handleAgentTimelineAppendRequest(msg);
       case "agent.timeline.search.request":
         return this.handleAgentTimelineSearchRequest(msg, source);
+      case "agent.image.request":
+        return this.handleAgentImageRequest(msg, source);
       case "agent.timeline.get_tool_body.request":
         return this.handleAgentTimelineGetToolBodyRequest(msg, source);
       case "agent.timeline.list_prompts.request":
@@ -8065,6 +8073,83 @@ export class Session {
         source,
       );
     }
+  }
+
+  private async handleAgentImageRequest(
+    msg: Extract<SessionInboundMessage, { type: "agent.image.request" }>,
+    source?: object,
+  ): Promise<void> {
+    const respond = (
+      image: { mimeType: string; data: string | null; byteSize?: number } | null,
+      error: string | null,
+    ) =>
+      this.emitForSource(
+        {
+          type: "agent.image.response",
+          payload: {
+            requestId: msg.requestId,
+            agentId: msg.agentId,
+            imageId: msg.imageId,
+            mimeType: image?.mimeType ?? null,
+            data: image?.data ?? null,
+            ...(image?.byteSize !== undefined ? { byteSize: image.byteSize } : {}),
+            error,
+          },
+        },
+        source,
+      );
+    try {
+      const image = await this.agentManager.readAgentImage(msg.agentId, msg.imageId);
+      if (!image) {
+        respond(null, "Image not found");
+      } else if (msg.acceptBinary && this.onBinaryMessage !== null) {
+        await this.emitImageFrames(msg.requestId, image, source);
+        respond({ mimeType: image.mimeType, data: null, byteSize: image.bytes.length }, null);
+      } else {
+        respond({ mimeType: image.mimeType, data: image.bytes.toString("base64") }, null);
+      }
+    } catch (error) {
+      this.sessionLogger.error(
+        { err: error, agentId: msg.agentId },
+        "Failed to handle agent.image.request",
+      );
+      respond(null, error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  /** Sends image bytes as the file-transfer frames the file explorer uses. */
+  private async emitImageFrames(
+    requestId: string,
+    image: { mimeType: string; bytes: Buffer },
+    source?: object,
+  ): Promise<void> {
+    await this.emitBinaryReply(
+      encodeFileTransferFrame({
+        opcode: FileTransferOpcode.FileBegin,
+        requestId,
+        metadata: {
+          mime: image.mimeType,
+          size: image.bytes.length,
+          encoding: "binary",
+          modifiedAt: new Date().toISOString(),
+        },
+      }),
+      source,
+    );
+    for (let offset = 0; offset < image.bytes.length; offset += IMAGE_FRAME_CHUNK_BYTES) {
+      await this.emitBinaryReply(
+        encodeFileTransferFrame({
+          opcode: FileTransferOpcode.FileChunk,
+          requestId,
+          payload: image.bytes.subarray(offset, offset + IMAGE_FRAME_CHUNK_BYTES),
+        }),
+        source,
+      );
+    }
+    await this.emitBinaryReply(
+      encodeFileTransferFrame({ opcode: FileTransferOpcode.FileEnd, requestId }),
+      source,
+    );
   }
 
   private async handleAgentTimelineGetToolBodyRequest(

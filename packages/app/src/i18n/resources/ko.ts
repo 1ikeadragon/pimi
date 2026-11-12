@@ -395,6 +395,10 @@ export const ko: TranslationResources = {
       dismissImage: "이미지 닫기",
       closeImage: "이미지 닫기",
       imageLoadFailed: "이미지를 불러올 수 없습니다",
+      imageTooLarge: "이미지가 너무 큽니다",
+      imageUnsupported: "지원되지 않는 이미지",
+      previousImage: "이전 이미지",
+      nextImage: "다음 이미지",
       imageUnavailable: "이미지를 사용할 수 없습니다",
       imagePreviewUnavailable: "이미지 미리보기를 사용할 수 없습니다.",
       imagePreviewLoadFailed: "이미지 미리보기를 불러올 수 없습니다.",
@@ -2504,6 +2508,27 @@ export const ko: TranslationResources = {
       editor: "편집기",
       plugins: "플러그인",
       host: "개요",
+    },
+    networkLogs: {
+      overviewInfo:
+        "Pimi가 직접 보내는 요청, 이 호스트로 들어오는 연결, Pimi가 실행하는 프로그램을 기록합니다. 메서드, 호스트, 포트, 경로만 저장하며 쿼리 문자열, 헤더, 본문, 환경 변수는 저장하지 않습니다. 실행 인수에 들어 있는 자격 증명은 가려집니다. 최근 기록은 메모리에 보관되고, 완료된 기록은 호스트의 로그 파일에도 저장됩니다(로그 참조).",
+      notCapturedTitle: "기록되지 않는 항목",
+      notCapturedBody:
+        "Pimi가 실행하는 프로그램(git, GitHub CLI, 언어 서버, MCP 서버, 에이전트 제공자)은 실행 사실만 기록합니다. 프로그램, 가려진 인수, 종료 코드, 소요 시간이 해당합니다. 이런 프로그램이 네트워크로 보내는 내용은 암호화되어 있어 에이전트의 API 호출이나 git fetch처럼 기록되지 않습니다. 터미널과 플러그인 프로세스도 기록되지 않습니다.",
+      title: "로그",
+      saveTitle: "네트워크 로그 저장",
+      saveHint:
+        "여기에 표시되는 기록을 이 호스트의 파일에 저장해 재시작 후에도 남깁니다. 파일은 사용자 본인만 읽을 수 있습니다.",
+      retentionTitle: "로그 보관 일수",
+      retentionHint: "오래된 파일은 자동으로 삭제됩니다. 폴더 크기도 200MB로 제한됩니다.",
+      decrease: "로그 보관 일수 줄이기",
+      increase: "로그 보관 일수 늘리기",
+      locationTitle: "위치",
+      sizeHint: "디스크 사용량 {{size}}",
+      notSaving: "저장하지 않음",
+      openFolder: "로그 폴더 열기",
+      openFolderFailed: "로그 폴더를 열 수 없습니다: {{error}}",
+      saveFailed: "로그 설정을 업데이트할 수 없습니다: {{error}}",
     },
     languageServers: {
       title: "언어 서버",

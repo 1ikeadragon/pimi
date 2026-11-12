@@ -1,5 +1,6 @@
 import type { AgentMessage } from "@pimi/protocol/agent-message";
 import type {
+  AgentImageRef,
   AgentProvider,
   AgentPermissionResolutionMarker,
   AgentProviderSwitchMarker,
@@ -83,6 +84,7 @@ function createAssistantItemId(
 export type StreamItem =
   | UserMessageItem
   | AssistantMessageItem
+  | AssistantImagesItem
   | ThoughtItem
   | ToolCallItem
   | TodoListItem
@@ -105,6 +107,8 @@ export interface UserMessageItem {
   timestamp: Date;
   images?: UserMessageImageAttachment[];
   attachments?: AgentAttachment[];
+  /** Images the daemon kept for this message; the bytes are fetched on demand. */
+  sentImages?: AgentImageRef[];
 }
 
 export interface UserMessageInput {
@@ -117,6 +121,7 @@ export interface UserMessageInput {
   timestamp: Date;
   images?: UserMessageImageAttachment[];
   attachments?: AgentAttachment[];
+  sentImages?: AgentImageRef[];
 }
 
 export function createUserMessage(input: UserMessageInput): UserMessageItem {
@@ -137,6 +142,7 @@ export function createUserMessage(input: UserMessageInput): UserMessageItem {
     ...(input.attachments && input.attachments.length > 0
       ? { attachments: input.attachments }
       : {}),
+    ...(input.sentImages && input.sentImages.length > 0 ? { sentImages: input.sentImages } : {}),
   };
 }
 
@@ -212,6 +218,22 @@ interface UserMessageProductionResult {
   matched: boolean;
 }
 
+/** Keeps what the presentation row shows and the ids and pills either row learned. */
+function mergeUserMessages(
+  existing: UserMessageItem,
+  incoming: UserMessageItem,
+  presentation: UserMessageItem,
+): UserMessageItem {
+  return createUserMessage({
+    ...presentation,
+    clientMessageId: incoming.clientMessageId ?? existing.clientMessageId,
+    messageId: incoming.messageId ?? existing.messageId,
+    timelineCursor: incoming.timelineCursor ?? existing.timelineCursor,
+    attachments: presentation.attachments ?? existing.attachments ?? incoming.attachments,
+    sentImages: presentation.sentImages ?? existing.sentImages ?? incoming.sentImages,
+  });
+}
+
 function produceUserMessage(
   items: StreamItem[],
   incoming: UserMessageItem,
@@ -237,13 +259,11 @@ function produceUserMessage(
   if (!existing || existing.kind !== "user_message") {
     throw new Error("User message upsert matched a non-user row");
   }
-  const presentation = presentationPolicy === "incoming" ? incoming : existing;
-  const merged = createUserMessage({
-    ...presentation,
-    clientMessageId: incoming.clientMessageId ?? existing.clientMessageId,
-    messageId: incoming.messageId ?? existing.messageId,
-    timelineCursor: incoming.timelineCursor ?? existing.timelineCursor,
-  });
+  const merged = mergeUserMessages(
+    existing,
+    incoming,
+    presentationPolicy === "incoming" ? incoming : existing,
+  );
   if (
     existing.id === merged.id &&
     existing.clientMessageId === merged.clientMessageId &&
@@ -252,7 +272,8 @@ function produceUserMessage(
     existing.text === merged.text &&
     existing.timestamp === merged.timestamp &&
     existing.images === merged.images &&
-    existing.attachments === merged.attachments
+    existing.attachments === merged.attachments &&
+    existing.sentImages === merged.sentImages
   ) {
     return { items, index, message: existing, matched: true };
   }
@@ -681,6 +702,17 @@ export interface AssistantMessageItem {
   /** Display-only fields, assigned after source-item plugin transforms. */
 }
 
+/** Images one tool result produced; the bytes are fetched on demand by id. */
+export interface AssistantImagesItem {
+  kind: "assistant_images";
+  id: string;
+  turnId?: string;
+  timelineCursor?: TimelinePosition;
+  callId?: string;
+  images: AgentImageRef[];
+  timestamp: Date;
+}
+
 export interface TimelinePosition {
   epoch: string;
   seq: number;
@@ -870,9 +902,11 @@ function appendUserMessage(
   clientMessageId?: string,
   timelineCursor?: TimelinePosition,
   turnId?: string,
+  sent?: { attachments?: AgentAttachment[]; images?: AgentImageRef[] },
 ): StreamItem[] {
   const { chunk, hasContent } = normalizeChunk(text);
-  if (!hasContent) {
+  // A message sent as attachments alone has no text and still shows its pills.
+  if (!hasContent && !sent?.attachments?.length && !sent?.images?.length) {
     return state;
   }
 
@@ -885,6 +919,8 @@ function appendUserMessage(
     turnId,
     text: chunk,
     timestamp,
+    attachments: sent?.attachments,
+    sentImages: sent?.images,
   });
   return upsertUserMessage(state, nextItem);
 }
@@ -1473,6 +1509,34 @@ function reduceTimelineCompaction(
   return [...state, compaction];
 }
 
+function appendAssistantImages(
+  state: StreamItem[],
+  item: Extract<AgentTimelineItem, { type: "assistant_images" }>,
+  timestamp: Date,
+  timelineCursor: TimelinePosition | undefined,
+  turnId: string | undefined,
+): StreamItem[] {
+  if (item.images.length === 0) return state;
+  const id = createUniqueTimelineId(
+    state,
+    "images",
+    item.images.map((image) => image.imageId).join(","),
+    timestamp,
+  );
+  return [
+    ...state,
+    {
+      kind: "assistant_images",
+      id,
+      ...(timelineCursor ? { timelineCursor } : {}),
+      ...(turnId ? { turnId } : {}),
+      ...(item.callId ? { callId: item.callId } : {}),
+      images: item.images,
+      timestamp,
+    },
+  ];
+}
+
 function reduceTimelineEvent(
   state: StreamItem[],
   event: Extract<AgentStreamEventPayload, { type: "timeline" }>,
@@ -1493,6 +1557,7 @@ function reduceTimelineEvent(
         item.clientMessageId,
         timelineCursor,
         event.turnId,
+        { attachments: item.attachments, images: item.images },
       );
     case "assistant_message":
       return appendAssistantMessage(
@@ -1504,6 +1569,8 @@ function reduceTimelineEvent(
         reservedItemIds,
         timelineCursor,
       );
+    case "assistant_images":
+      return appendAssistantImages(state, item, timestamp, timelineCursor, event.turnId);
     case "reasoning":
       return appendThought(state, item.text, timestamp, timelineCursor, event.turnId);
     case "tool_call":
@@ -1696,6 +1763,8 @@ function getEventItemKind(event: AgentStreamEventPayload): StreamItem["kind"] | 
       return "user_message";
     case "assistant_message":
       return "assistant_message";
+    case "assistant_images":
+      return "assistant_images";
     case "reasoning":
       return "thought";
     case "tool_call":

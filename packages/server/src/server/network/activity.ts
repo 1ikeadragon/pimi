@@ -3,14 +3,19 @@ import diagnosticsChannel from "node:diagnostics_channel";
 import type { ClientRequest, IncomingMessage } from "node:http";
 import {
   NetworkActivityRecorder,
+  type NetworkActivitySnapshotOptions,
   type NetworkActivityStartInput,
 } from "@pimi/protocol/network-activity";
-import type { NetworkActivityRequest } from "@pimi/protocol/messages";
+import type { NetworkActivityRequest, NetworkActivitySnapshot } from "@pimi/protocol/messages";
+import { setProcessLaunchObserver } from "../../utils/process-launch.js";
+import { NetworkLogStore, type NetworkLogSettings, type NetworkLogStats } from "./log-store.js";
+import { createProcessLaunchObserver } from "./process-launch-recorder.js";
 
 // Outbound request observation through Node's built-in diagnostics channels. It sees global
 // fetch (undici, including requests through the proxy dispatcher) and node:http/https, which
-// also carries ws WebSocket handshakes. It does not see child processes (agent providers,
-// plugin processes, terminals) or raw net/tls sockets.
+// also carries ws WebSocket handshakes. It does not see inside child processes (agent
+// providers, git, gh, language servers, plugins, terminals) or raw net/tls sockets; launches of
+// the ones that matter are recorded separately through the process launch observer.
 
 const initiator = new AsyncLocalStorage<string>();
 
@@ -196,12 +201,65 @@ export function installNodeNetworkMonitor(input: {
 }
 
 let daemonRecorder: NetworkActivityRecorder | null = null;
+let processRecorder: NetworkActivityRecorder | null = null;
+let daemonLog: NetworkLogStore | null = null;
 
-/** The daemon's process-wide recorder. Installed once by the daemon worker at startup. */
+/**
+ * The daemon's process-wide recorder for network requests, created on first use. Records go
+ * to disk once `startDaemonNetworkLog` has run. Launched programs have a recorder of their
+ * own: a startup scan can launch hundreds of git processes, and sharing one buffer would push
+ * every real request out of it.
+ */
 export function getDaemonNetworkActivity(): NetworkActivityRecorder {
   if (!daemonRecorder) {
-    daemonRecorder = new NetworkActivityRecorder({ idPrefix: "d", capacity: 1000 });
+    daemonRecorder = new NetworkActivityRecorder({
+      idPrefix: "d",
+      capacity: 1000,
+      onFinish: (record) => daemonLog?.append(record),
+    });
     installNodeNetworkMonitor({ recorder: daemonRecorder, source: "daemon" });
+    processRecorder = new NetworkActivityRecorder({
+      idPrefix: "p",
+      capacity: 1000,
+      onFinish: (record) => daemonLog?.append(record),
+    });
+    setProcessLaunchObserver(createProcessLaunchObserver(processRecorder, "daemon"));
   }
   return daemonRecorder;
+}
+
+/** Requests and launched programs together, newest first, as the Network tab shows them. */
+export function snapshotDaemonNetworkActivity(
+  options: NetworkActivitySnapshotOptions,
+): NetworkActivitySnapshot {
+  const requests = getDaemonNetworkActivity().snapshot(options);
+  const launches = processRecorder?.snapshot(options);
+  if (!launches) return requests;
+  const limit = options.limit ?? requests.requests.length + launches.requests.length;
+  return {
+    capturedSinceMs: Math.min(requests.capturedSinceMs, launches.capturedSinceMs),
+    requests: [...requests.requests, ...launches.requests]
+      .sort((a, b) => b.startedAtMs - a.startedAtMs)
+      .slice(0, limit),
+    hosts: [...requests.hosts, ...launches.hosts],
+    droppedHosts: requests.droppedHosts + launches.droppedHosts,
+  };
+}
+
+/** Starts persisting the daemon's network records under `<home>/logs/network`. */
+export function startDaemonNetworkLog(input: {
+  home: string;
+  getSettings: () => NetworkLogSettings;
+  onError: (error: unknown, message: string) => void;
+}): NetworkLogStore {
+  const store = new NetworkLogStore({ ...input, source: "daemon" });
+  daemonLog = store;
+  getDaemonNetworkActivity();
+  store.start();
+  return store;
+}
+
+/** Folder, size, and file count of the daemon's saved records, or null when none are saved. */
+export function getDaemonNetworkLogStats(): NetworkLogStats | null {
+  return daemonLog?.stats() ?? null;
 }

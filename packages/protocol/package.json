@@ -1,6 +1,6 @@
 {
   "name": "@pimi/protocol",
-  "version": "0.17.22",
+  "version": "0.17.23",
   "private": true,
   "description": "Pimi shared protocol schemas and wire types",
   "license": "Apache-2.0",
@@ -22,7 +22,7 @@
   },
   "scripts": {
     "clean": "node ../../scripts/clean-package-dist.mjs",
-    "build": "npm run generate:validators && tsc -p tsconfig.json --incremental false",
+    "build": "npm run generate:validators && tsc -p tsconfig.json --incremental false && node scripts/generate-visualize-formats.mjs",
     "build:clean": "npm run clean && npm run build",
     "prepack": "npm run build:clean",
     "typecheck": "npm run generate:validators && tsgo --noEmit",

@@ -120,16 +120,6 @@ function applyCliFlagOverrides(config: ReturnType<typeof loadConfig>): void {
     cli.mcpInjectIntoAgents = false;
     override("daemon.mcp.injectIntoAgents");
   }
-  if (process.argv.includes("--web-ui")) {
-    config.webUi = { ...(config.webUi ?? { distDir: null }), enabled: true };
-    cli.webUiEnabled = true;
-    override("features.webUi.enabled");
-  }
-  if (process.argv.includes("--no-web-ui")) {
-    config.webUi = { ...(config.webUi ?? { distDir: null }), enabled: false };
-    cli.webUiEnabled = false;
-    override("features.webUi.enabled");
-  }
 }
 
 async function main() {

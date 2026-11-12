@@ -1,6 +1,7 @@
 import type { ChildProcess } from "node:child_process";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { spawnProcess } from "../../utils/spawn.js";
+import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
 
 // A hand-written Language Server Protocol client over stdio: `Content-Length` framed JSON-RPC,
 // `initialize`/`initialized`, full-text `didOpen`/`didChange`, and the requests the editor needs.
@@ -91,6 +92,7 @@ export class LspProcess {
   ) {
     this.child = spawnProcess(launch.executable, launch.args, {
       cwd: root,
+      networkPurpose: NETWORK_PURPOSE.languageServer,
       stdio: ["pipe", "pipe", "ignore"],
       shell: false,
       windowsHide: true,

@@ -18,7 +18,11 @@ import {
 } from "./private-files.js";
 import { AgentProfileSchema, AgentSkillSelectionSchema } from "@pimi/protocol/agent-profile";
 import { PluginIdSchema, PluginSourceSchema } from "@pimi/protocol/plugin-config";
-import { EditorLanguageServerSchema } from "@pimi/protocol/messages";
+import {
+  EditorLanguageServerSchema,
+  NETWORK_LOG_RETENTION_DAYS_MAX,
+  NETWORK_LOG_RETENTION_DAYS_MIN,
+} from "@pimi/protocol/messages";
 import { TerminalProfileSchema } from "@pimi/protocol/terminal-profile";
 import { PaseoServicePortAllocationSchema } from "@pimi/protocol/paseo-config-schema";
 import { DEFAULT_PAIRING_APP_BASE_URL } from "./connection-offer.js";
@@ -36,6 +40,19 @@ const LogConfigSchema = z
       .object({
         level: LogLevelSchema.optional(),
         format: LogFormatSchema.optional(),
+      })
+      .strict()
+      .optional(),
+
+    network: z
+      .object({
+        enabled: z.boolean().optional(),
+        retentionDays: z
+          .number()
+          .int()
+          .min(NETWORK_LOG_RETENTION_DAYS_MIN)
+          .max(NETWORK_LOG_RETENTION_DAYS_MAX)
+          .optional(),
       })
       .strict()
       .optional(),
@@ -161,13 +178,6 @@ const FeatureVoiceModeSchema = z
       .strict()
       .optional(),
     tts: SpeechTtsConfigSchema.optional(),
-  })
-  .strict();
-
-const FeatureWebUiSchema = z
-  .object({
-    enabled: z.boolean().optional(),
-    distDir: z.string().min(1).optional(),
   })
   .strict();
 
@@ -377,7 +387,6 @@ export const PersistedConfigSchema = z
       .object({
         dictation: FeatureDictationSchema.optional(),
         voiceMode: FeatureVoiceModeSchema.optional(),
-        webUi: FeatureWebUiSchema.optional(),
       })
       .strict()
       .optional(),
@@ -607,7 +616,9 @@ function parseConfigFile(configPath: string, raw: string, logger?: LoggerLike): 
     });
   }
 
-  const result = PersistedConfigSchema.safeParse(normalizeSpeechProviderConfig(parsed, logger));
+  const result = PersistedConfigSchema.safeParse(
+    normalizeSpeechProviderConfig(dropRemovedWebUiConfig(parsed, logger), logger),
+  );
   if (!result.success) {
     const issues = result.error.issues
       .map((i) => `  - ${i.path.join(".")}: ${i.message}`)
@@ -615,6 +626,18 @@ function parseConfigFile(configPath: string, raw: string, logger?: LoggerLike): 
     throw new Error(`[Config] Invalid config in ${configPath}:\n${issues}`);
   }
   return result.data as PersistedConfig;
+}
+
+// features.webUi configured the daemon-served browser app, which no longer exists. A config
+// file that still carries it must not stop the daemon from starting, so this one key is
+// ignored on read and disappears from the file the next time the config is saved.
+function dropRemovedWebUiConfig(parsed: unknown, logger?: LoggerLike): unknown {
+  if (!isConfigRecord(parsed) || !isConfigRecord(parsed.features)) return parsed;
+  if (!Object.hasOwn(parsed.features, "webUi")) return parsed;
+  const features = { ...parsed.features };
+  delete features.webUi;
+  logger?.warn?.("Ignoring features.webUi: the browser web app was removed");
+  return { ...parsed, features };
 }
 
 /** Editors such as Windows Notepad save UTF-8 with a byte order mark, which JSON.parse rejects. */

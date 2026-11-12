@@ -1,6 +1,7 @@
 import { findMountedWindowStart } from "@/agent-stream/history-window";
 import { z } from "zod";
 import {
+  AgentImageRefSchema,
   AgentPermissionResolutionMarkerSchema,
   AgentProviderSwitchMarkerSchema,
   AgentStatusSchema,
@@ -126,6 +127,12 @@ const StoredTimelineItemSchema = z.discriminatedUnion("kind", [
     messageId: z.string().optional(),
     text: z.string(),
     // Reject old caches containing display fragments; refetch the complete source text.
+  }),
+  z.strictObject({
+    ...TimelineItemBaseShape,
+    kind: z.literal("assistant_images"),
+    callId: z.string().optional(),
+    images: z.array(AgentImageRefSchema),
   }),
   z.strictObject({
     ...TimelineItemBaseShape,
@@ -463,6 +470,13 @@ function serializeTimelineItem(item: StreamItem): StoredTimelineItem | null {
         ...(item.messageId ? { messageId: item.messageId } : {}),
         text: item.text,
       };
+    case "assistant_images":
+      return {
+        ...base,
+        kind: item.kind,
+        ...(item.callId ? { callId: item.callId } : {}),
+        images: item.images,
+      };
     case "thought":
       return { ...base, kind: item.kind, text: item.text, status: item.status };
     case "todo_list":
@@ -527,11 +541,22 @@ function deserializeTimelineItem(item: StoredTimelineItem): StreamItem {
       data: item.data,
     };
   }
+  if (item.kind === "assistant_images") {
+    return {
+      id: item.id,
+      ...(item.timelineCursor ? { timelineCursor: item.timelineCursor } : {}),
+      ...(item.turnId ? { turnId: item.turnId } : {}),
+      timestamp: new Date(item.timestamp),
+      kind: item.kind,
+      ...(item.callId ? { callId: item.callId } : {}),
+      images: item.images,
+    };
+  }
   return deserializeBuiltinTimelineItem(item);
 }
 
 function deserializeBuiltinTimelineItem(
-  item: Exclude<StoredTimelineItem, { kind: "plugin" }>,
+  item: Exclude<StoredTimelineItem, { kind: "plugin" | "assistant_images" }>,
 ): StreamItem {
   const base = {
     id: item.id,

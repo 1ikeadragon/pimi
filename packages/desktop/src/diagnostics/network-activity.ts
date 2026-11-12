@@ -5,13 +5,78 @@ import {
 } from "@pimi/protocol/network-activity";
 import type { NetworkActivityRequest, NetworkActivitySnapshot } from "@pimi/protocol/messages";
 import { installNodeNetworkMonitor } from "@pimi/server/network-activity";
+import {
+  NetworkLogStore,
+  networkLogDirectory,
+  type NetworkLogSettings,
+} from "@pimi/server/network-log";
+import { resolvePaseoHome } from "@pimi/server/daemon-control";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import log from "electron-log/main";
 
 // The desktop app's outbound requests: the main process's own Node traffic (update checks,
 // daemon health probes) through diagnostics channels, and every Chromium session the app
 // creates through webRequest. Same record shape and privacy rules as the daemon's recorder.
 
-const recorder = new NetworkActivityRecorder({ idPrefix: "a", capacity: 1000 });
+let appLog: NetworkLogStore | null = null;
+const recorder = new NetworkActivityRecorder({
+  idPrefix: "a",
+  capacity: 1000,
+  onFinish: (record) => appLog?.append(record),
+});
 let nodeMonitorInstalled = false;
+
+const SETTINGS_REFRESH_MS = 5_000;
+let cachedSettings: NetworkLogSettings = { enabled: true, retentionDays: 3 };
+let settingsReadAt = 0;
+
+// The daemon owns these settings in config.json. The app reads the file directly, since it
+// must not create or rewrite it, and re-reads at most every few seconds.
+function readLogSettings(): NetworkLogSettings {
+  const now = Date.now();
+  if (now - settingsReadAt < SETTINGS_REFRESH_MS) return cachedSettings;
+  settingsReadAt = now;
+  try {
+    const raw = JSON.parse(
+      readFileSync(path.join(resolvePaseoHome(process.env), "config.json"), "utf8"),
+    );
+    const network = raw?.log?.network;
+    cachedSettings = {
+      enabled: network?.enabled !== false,
+      retentionDays:
+        Number.isInteger(network?.retentionDays) &&
+        network.retentionDays >= 1 &&
+        network.retentionDays <= 90
+          ? network.retentionDays
+          : 3,
+    };
+  } catch {
+    // No config file yet, or it is mid-write: keep the last known settings.
+  }
+  return cachedSettings;
+}
+
+/** Starts saving the app's records next to the daemon's, under `<home>/logs/network`. */
+export function startDesktopNetworkLog(): void {
+  if (appLog) return;
+  appLog = new NetworkLogStore({
+    home: resolvePaseoHome(process.env),
+    source: "app",
+    getSettings: readLogSettings,
+    onError: (error, message) => log.warn(`[network-log] ${message}`, error),
+  });
+  appLog.start();
+}
+
+export function flushDesktopNetworkLog(): Promise<void> {
+  return appLog ? appLog.flush() : Promise.resolve();
+}
+
+/** The one folder the "Open logs folder" action may open. */
+export function getDesktopNetworkLogDirectory(): string {
+  return networkLogDirectory(resolvePaseoHome(process.env));
+}
 
 /** Call once, as early as possible in main, so update checks at startup are recorded. */
 export function installDesktopNodeNetworkMonitor(): void {

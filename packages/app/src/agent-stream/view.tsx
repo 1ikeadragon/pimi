@@ -1,5 +1,6 @@
 import { ChatFind, ChatFindExpansion } from "@/agent-stream/chat-find";
 import { AssistantForkProviderScope } from "@/components/assistant-fork-menu";
+import { AgentImageRefsGrid } from "@/components/agent-image-grid";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import React, {
   forwardRef,
@@ -815,6 +816,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
             sender={item.sender}
             images={item.images}
             attachments={item.attachments}
+            sentImages={item.sentImages}
             timestamp={item.timestamp.getTime()}
             capabilities={context.capabilities}
             client={client}
@@ -1049,6 +1051,9 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
           case "assistant_message":
             return renderAssistantMessageItem(layoutItem, item);
 
+          case "assistant_images":
+            return <AgentImageRefsGrid client={client} agentId={agentId} refs={item.images} />;
+
           case "thought":
             return renderToolCallItem(layoutItem, item);
 
@@ -1104,6 +1109,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       },
       [
         agentId,
+        client,
         renderUserMessageItem,
         renderAssistantMessageItem,
         renderToolCallItem,

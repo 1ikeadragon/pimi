@@ -51,6 +51,14 @@ export function workspaceAttachmentToSubmitAttachment(
       mimeType: "text/plain",
       title: `Browser element · ${attachment.attachment.tag}`,
       text: attachment.attachment.formatted,
+      browserElement: {
+        url: attachment.attachment.url.slice(0, 2048),
+        selector: attachment.attachment.selector.slice(0, 2048),
+        tag: attachment.attachment.tag.slice(0, 64),
+        ...(attachment.attachment.comment
+          ? { comment: attachment.attachment.comment.slice(0, 8000) }
+          : {}),
+      },
     };
   }
   if (isPullRequestContextAttachment(attachment)) {

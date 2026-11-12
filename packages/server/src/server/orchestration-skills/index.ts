@@ -1,3 +1,6 @@
+import { access } from "node:fs/promises";
+import path from "node:path";
+
 import type { AgentSkillSelection } from "@pimi/protocol/messages";
 
 import type { DaemonConfigStore } from "../daemon-config-store.js";
@@ -8,7 +11,7 @@ import {
   type SkillsSnapshot,
 } from "./internal/controller.js";
 import { resolveSkillTargets } from "./internal/paths.js";
-import { createSkillSelectionStore } from "./internal/selection-store.js";
+import { coerceSkillSelection, createSkillSelectionStore } from "./internal/selection-store.js";
 
 export interface OrchestrationSkills {
   getStatus(): Promise<SkillsSnapshot>;
@@ -23,6 +26,8 @@ export interface OrchestrationSkills {
     selection: AgentSkillSelection;
   }>;
   autoUpdate(): Promise<SkillsSnapshot>;
+  /** Selected in settings and present on disk, so an agent that reads skills can load it. */
+  isSkillAvailable(name: string): Promise<boolean>;
 }
 
 export function createOrchestrationSkills(
@@ -41,6 +46,19 @@ export function createOrchestrationSkills(
       controller.save({ ...selection, confirmedRemovals }),
     importLegacySelectionIfUnset: (selection) => controller.importLegacySelectionIfUnset(selection),
     autoUpdate: () => controller.autoUpdate(),
+    isSkillAvailable: async (name) => {
+      const selection = coerceSkillSelection(configStore.get().skills?.selection);
+      if (selection.mode === "custom" && !selection.skills.includes(name)) return false;
+      const targets = resolveTargets();
+      for (const dir of [targets.claudeDir, targets.agentsDir]) {
+        const present = await access(path.join(dir, name, "SKILL.md")).then(
+          () => true,
+          () => false,
+        );
+        if (present) return true;
+      }
+      return false;
+    },
   };
 }
 

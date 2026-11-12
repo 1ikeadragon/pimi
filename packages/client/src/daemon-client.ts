@@ -1010,6 +1010,8 @@ interface CorrelatedResponseIdentity {
 interface PendingBinaryFileRead {
   cwd: string;
   path: string;
+  /** The reader waits on its own response type, so a finished transfer sends no explorer reply. */
+  silent?: boolean;
 }
 
 interface BinaryFileTransferState extends PendingBinaryFileRead {
@@ -3646,6 +3648,42 @@ export class DaemonClient {
       throw new Error(payload.error ?? "Tool call body unavailable");
     }
     return payload.detail;
+  }
+
+  async requestAgentImage(input: {
+    agentId: string;
+    imageId: string;
+  }): Promise<{ mimeType: string; bytes: Uint8Array }> {
+    const requestId = this.createRequestId();
+    this.pendingBinaryFileReads.set(requestId, { cwd: "", path: input.imageId, silent: true });
+    try {
+      const payload = await this.sendCorrelatedSessionRequest({
+        requestId,
+        message: {
+          type: "agent.image.request",
+          requestId,
+          agentId: input.agentId,
+          imageId: input.imageId,
+          acceptBinary: true,
+        },
+        responseType: "agent.image.response",
+      });
+      if (payload.error) {
+        throw new Error(payload.error);
+      }
+      const binary = this.completedBinaryFileReads.get(requestId);
+      if (binary) {
+        return { mimeType: binary.mime, bytes: binary.bytes };
+      }
+      if (!payload.data || !payload.mimeType) {
+        throw new Error("Image unavailable");
+      }
+      return { mimeType: payload.mimeType, bytes: decodeBase64ToBytes(payload.data) };
+    } finally {
+      this.pendingBinaryFileReads.delete(requestId);
+      this.activeBinaryFileTransfers.delete(requestId);
+      this.completedBinaryFileReads.delete(requestId);
+    }
   }
 
   async searchAgentTimeline({
@@ -7248,6 +7286,7 @@ export class DaemonClient {
       modifiedAt: transfer.modifiedAt,
       revision: transfer.revision,
     });
+    if (transfer.silent) return;
     this.handleSessionMessage({
       type: "file_explorer_response",
       payload: {

@@ -2,6 +2,15 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.23 - 2026-11-12
+
+- Images from agents appear right in the chat: screenshots they read, images from MCP tools, and generated images. Several images from one tool call form a grid. Clicking one opens a lightbox with previous and next. Images stay after a restart and a reload, and a missing file shows as unavailable.
+- Sent messages keep their attachment pills after a reload, a reconnect, and on your other devices.
+- The Network tab logs inbound HTTP and WebSocket connections and process launches. Logs are saved to rotating files in the logs folder, kept for 3 days by default. Passwords in URLs and flag values are masked. An Open logs folder action opens them.
+- Leaner agent setup: providers that receive every tool schema each turn now get only the core Pimi tools, and the rest load on demand. Shorter delegation and visualization instructions. The visual formats live in the pimi-visualize skill.
+- The daemon no longer serves the browser web app and PWA. Use the desktop or Android app.
+- The daemon starts even if your config still has the old `features.webUi` key.
+
 ## 0.17.22 - 2026-11-12
 
 - Browser Annotate: each pill in the composer shows your note, and clicking it previews the screenshot, the note and the exact text the agent receives. Attaching right after picking an element keeps the screenshot, and the captured parent chain no longer includes Pimi's own selection class.

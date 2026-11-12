@@ -389,7 +389,7 @@ PASEO_LISTEN=127.0.0.1:6799 PASEO_RELAY_ENABLED=false paseo daemon run --home ~/
 
 它会一直保持附着，直到进程管理器退出或你取消，没有就绪超时。worker 重启会保留这些启动输入。要修改它们，请停止并重新启动部署。如果主目录中已经有一个运行中的进程管理器，`run` 会返回 `already_running`，而不会接管或启动前台进程。
 
-托管的 `start` 会忽略继承来的 daemon 设置覆盖项，包括 `PORT`、`PASEO_LISTEN`、中继、语音和 Web UI 设置。它会保留 Provider 凭据以及可执行文件/运行时控制项。`start --foreground` 已被移除；请使用 `daemon run`。以前的 start/restart 配置参数，例如 `--port`、`--no-relay` 和 `--web-ui`，会在产生任何副作用之前失败，并给出相应的 `config set` 迁移方式。见[配置编辑](/docs/configuration#apply-changes)。
+托管的 `start` 会忽略继承来的 daemon 设置覆盖项，包括 `PORT`、`PASEO_LISTEN`、中继和语音设置。它会保留 Provider 凭据以及可执行文件/运行时控制项。`start --foreground` 已被移除；请使用 `daemon run`。以前的 start/restart 配置参数，例如 `--port`和 `--no-relay`，会在产生任何副作用之前失败，并给出相应的 `config set` 迁移方式。见[配置编辑](/docs/configuration#apply-changes)。
 
 ### 选择一个 daemon {#select-one-daemon}
 
