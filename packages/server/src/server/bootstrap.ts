@@ -1528,7 +1528,8 @@ export async function createPaseoDaemon(
     agentManager,
     agentStorage,
     createAgent,
-    // `broadcast` reaches only direct sockets; the desktop app's session is an external one.
+    // Session delivery only reaches sockets that subscribed to the event category (see
+    // sessionEventCategory), so the desktop app subscribes with observeEvents.
     emit: (message) => {
       for (const session of wsServer?.listSessions() ?? []) session.emitServerMessage(message);
     },

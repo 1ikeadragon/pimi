@@ -3394,6 +3394,8 @@ export const SessionEventSubscriptionSchema = z.enum([
   "status.plugin_catalog_changed",
   "status.plugin_settings_changed",
   "activity_log",
+  "attack.run.changed",
+  "attack.finding.changed",
 ]);
 export type SessionEventSubscription = z.infer<typeof SessionEventSubscriptionSchema>;
 export const SessionEventsSetSubscriptionRequestSchema = z.object({

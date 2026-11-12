@@ -8931,6 +8931,8 @@ function sessionEventCategory(message: SessionOutboundMessage): SessionEventSubs
     case "agent.background_work.update":
     case "terminal_attention_required":
     case "activity_log":
+    case "attack.run.changed":
+    case "attack.finding.changed":
       return message.type;
     case "status":
       switch (message.payload.status) {

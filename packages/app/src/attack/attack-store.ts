@@ -109,17 +109,31 @@ export function useAttackSync(serverId: string, workspaceId: string): void {
   useEffect(() => {
     if (!client || !connected) return;
     const { putRun, putRuns, putFinding, putFindings } = useAttackStore.getState();
-    const offRun = client.on("attack.run.changed", (message) => {
-      putRun(serverId, message.payload.run);
-    });
-    const offFinding = client.on("attack.finding.changed", (message) => {
-      putFinding(serverId, message.payload.finding);
+    // Delivery is gated by event subscriptions: unsubscribed sockets never see these pushes.
+    const feeds = client.observeEvents(["attack.run.changed", "attack.finding.changed"]);
+    const offFeed = feeds.subscribe({
+      snapshot: () => {},
+      update: (message) => {
+        if (message.type === "attack.run.changed") putRun(serverId, message.payload.run);
+        else if (message.type === "attack.finding.changed") {
+          putFinding(serverId, message.payload.finding);
+        }
+      },
     });
     let cancelled = false;
     // Pushes are the fast path; this refresh keeps the meters and status right if one is missed.
     const refresh = async () => {
       const { runs } = await client.attackRunList({ workspaceId });
-      if (!cancelled) putRuns(serverId, runs);
+      if (cancelled) return;
+      putRuns(serverId, runs);
+      const latest = [...runs].sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
+      const loaded = latest
+        ? useAttackStore.getState().byServer[serverId]?.findings[latest.id]
+        : null;
+      if (!latest || loaded) return;
+      // A run started elsewhere has no loaded findings until this first fetch; pushes keep it fresh.
+      const { findings } = await client.attackFindingList({ runId: latest.id });
+      if (!cancelled) putFindings(serverId, latest.id, findings);
     };
     const poll = setInterval(() => void refresh().catch(() => undefined), 3000);
     void (async () => {
@@ -138,8 +152,8 @@ export function useAttackSync(serverId: string, workspaceId: string): void {
     return () => {
       cancelled = true;
       clearInterval(poll);
-      offRun();
-      offFinding();
+      offFeed();
+      void feeds.release().catch(() => undefined);
     };
   }, [client, connected, serverId, workspaceId]);
 }
