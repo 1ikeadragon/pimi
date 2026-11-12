@@ -7,6 +7,8 @@ import {
   validateSshHost,
 } from "@pimi/protocol/ssh-transport";
 import { BrowserWindow } from "electron";
+import { ensureRemoteDaemonForDesktop } from "./remote-ssh/desktop.js";
+import { sshConfigArgs } from "./remote-ssh/ssh-exec.js";
 import { WebSocket, type RawData } from "ws";
 
 export interface LocalTransportTarget {
@@ -81,6 +83,8 @@ export interface LocalTransportManager {
 const WS_ENDPOINT_PATH = "/ws";
 const SSH_STDERR_LIMIT = 8192;
 export const LOCAL_TRANSPORT_SETUP_TIMEOUT_MS = 30_000;
+// A Remote SSH connect may install or upgrade the daemon first.
+export const REMOTE_SSH_SETUP_TIMEOUT_MS = 10 * 60_000;
 
 function emitTransportEvent(payload: TransportEventPayload): void {
   for (const win of BrowserWindow.getAllWindows()) {
@@ -171,11 +175,14 @@ function parseOpenTransportSessionInput(value: unknown): OpenTransportSessionInp
 }
 
 export function buildSshArgs(target: SshTransportTarget): string[] {
-  return buildSshTunnelArgs({
-    host: target.host,
-    ...(target.sshPort !== undefined ? { sshPort: target.sshPort } : {}),
-    daemonPort: target.daemonPort ?? DEFAULT_SSH_DAEMON_PORT,
-  });
+  return [
+    ...sshConfigArgs(),
+    ...buildSshTunnelArgs({
+      host: target.host,
+      ...(target.sshPort !== undefined ? { sshPort: target.sshPort } : {}),
+      daemonPort: target.daemonPort ?? DEFAULT_SSH_DAEMON_PORT,
+    }),
+  ];
 }
 
 function formatSshFailure(
@@ -266,6 +273,13 @@ function createSshProxy(target: SshTransportTarget): Promise<TransportEndpoint> 
 
 async function resolveTransportEndpoint(target: TransportTarget): Promise<TransportEndpoint> {
   if (target.transportType === "ssh") {
+    // Every connect, including a reconnect, makes sure the daemon is installed at this desktop's
+    // version and running; a healthy one costs a single ssh round trip.
+    await ensureRemoteDaemonForDesktop({
+      host: target.host,
+      ...(target.sshPort !== undefined ? { sshPort: target.sshPort } : {}),
+      ...(target.daemonPort !== undefined ? { daemonPort: target.daemonPort } : {}),
+    });
     return createSshProxy(target);
   }
   return {
@@ -484,12 +498,17 @@ export function createLocalTransportManager(
       cancelSetupDeadline: () => undefined,
     };
     sessions.set(sessionId, session);
-    session.cancelSetupDeadline = deps.scheduleTimeout(() => {
-      failOpeningSession(
-        session,
-        `Connection to ${describeTransportTarget(target)} timed out during setup.`,
-      );
-    }, LOCAL_TRANSPORT_SETUP_TIMEOUT_MS);
+    session.cancelSetupDeadline = deps.scheduleTimeout(
+      () => {
+        failOpeningSession(
+          session,
+          `Connection to ${describeTransportTarget(target)} timed out during setup.`,
+        );
+      },
+      target.transportType === "ssh"
+        ? REMOTE_SSH_SETUP_TIMEOUT_MS
+        : LOCAL_TRANSPORT_SETUP_TIMEOUT_MS,
+    );
     void connectSession(session);
   }
 

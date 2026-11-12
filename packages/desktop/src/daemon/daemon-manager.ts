@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { app, ipcMain, powerMonitor } from "electron";
+import { resolveDesktopAppVersion } from "./app-version.js";
+import { cancelRemoteSsh, prepareRemoteSsh } from "./remote-ssh/desktop.js";
 import log from "electron-log/main";
 import {
   PIMI_LOCAL_PAIRING_ROUTE,
@@ -201,26 +203,6 @@ function statusFromDaemonProbe(
     ),
     error: null,
   };
-}
-
-function resolveDesktopAppVersion(): string {
-  if (app.isPackaged) {
-    return app.getVersion();
-  }
-
-  try {
-    const packageJsonPath = path.join(__dirname, "..", "..", "package.json");
-    const pkg = JSON.parse(readFileSync(packageJsonPath, "utf-8")) as {
-      version?: unknown;
-    };
-    if (typeof pkg.version === "string" && pkg.version.trim().length > 0) {
-      return pkg.version.trim();
-    }
-  } catch {
-    // Fall back to Electron's default version if the package metadata is unavailable.
-  }
-
-  return app.getVersion();
 }
 
 // ---------------------------------------------------------------------------
@@ -642,6 +624,10 @@ export function createDaemonCommandHandlers(): Record<string, DesktopCommandHand
     read_file_base64: (args) => readManagedFileBase64(args ?? {}),
     delete_attachment_file: (args) => deleteManagedAttachmentFile(args ?? {}),
     garbage_collect_attachment_files: (args) => garbageCollectManagedAttachmentFiles(args ?? {}),
+    remote_ssh_prepare: (args) => prepareRemoteSsh(args),
+    remote_ssh_cancel: (args) => {
+      cancelRemoteSsh(args);
+    },
     open_local_daemon_transport: async (args) => await openLocalTransportSession(args),
     send_local_daemon_transport_message: async (args) => {
       await sendLocalTransportMessage(
