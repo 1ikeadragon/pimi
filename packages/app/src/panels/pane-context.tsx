@@ -79,6 +79,11 @@ export function useOptionalPaneContext(): PaneContextValue | null {
   return useContext(PaneContext);
 }
 
+/** For content that also renders outside a pane, such as the Review screen's diff. */
+export function useOptionalPaneFocus(): PaneFocusContextValue | null {
+  return useContext(PaneFocusContext);
+}
+
 export function usePaneFocus(): PaneFocusContextValue {
   const value = useContext(PaneFocusContext);
   invariant(value, "PaneFocusContext is required");

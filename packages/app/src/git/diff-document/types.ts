@@ -73,6 +73,9 @@ export interface DiffPalette {
   deletionBackground: string;
   emptyBackground: string;
   selection: string;
+  /** Background behind a Find match, and behind the one Find is on. */
+  findMatch: string;
+  findActiveMatch: string;
   headerActiveSurface: string;
   headerBorder: string;
   statusSuccess: string;

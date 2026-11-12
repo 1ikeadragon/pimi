@@ -368,6 +368,20 @@ export function retainReusableModels(
   return fullest === next ? [next] : [fullest, next];
 }
 
+/**
+ * The text of every cell of every display row of a file, in row order. Find searches this rather
+ * than the materialized model, because rows outside the scroll window have no measured text yet.
+ * It shares `lineSources` with the model build, so entry N is the file's Nth row.
+ */
+export function diffRowContents(
+  file: BuildDiffDocumentModelInput["files"][number],
+  layout: "unified" | "split",
+): Array<Array<string | null>> {
+  return lineSources(file, layout, false).map((cells) =>
+    cells.map((cell) => (cell ? cell.content : null)),
+  );
+}
+
 function lineSources(
   file: BuildDiffDocumentModelInput["files"][number],
   layout: "unified" | "split",

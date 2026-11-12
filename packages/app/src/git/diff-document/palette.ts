@@ -15,6 +15,8 @@ export function createDiffPalette(theme: Theme): DiffPalette {
     deletionBackground: hexColorWithAlpha(theme.colors.statusDanger, 0.1),
     emptyBackground: theme.colors.surface0,
     selection: theme.colors.terminal.blue,
+    findMatch: hexColorWithAlpha(theme.colors.statusWarning, 0.25),
+    findActiveMatch: hexColorWithAlpha(theme.colors.statusWarning, 0.5),
     headerActiveSurface: theme.colors.surface1,
     headerBorder: theme.colors.borderAccent,
     statusSuccess: theme.colors.statusSuccess,
@@ -37,6 +39,8 @@ export function retainDiffPalette(previous: DiffPalette, next: DiffPalette): Dif
     previous.deletionBackground !== next.deletionBackground ||
     previous.emptyBackground !== next.emptyBackground ||
     previous.selection !== next.selection ||
+    previous.findMatch !== next.findMatch ||
+    previous.findActiveMatch !== next.findActiveMatch ||
     previous.headerActiveSurface !== next.headerActiveSurface ||
     previous.headerBorder !== next.headerBorder ||
     previous.statusSuccess !== next.statusSuccess ||

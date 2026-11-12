@@ -15,6 +15,7 @@ import { InlineReviewAddButton, InlineReviewThread } from "@/review";
 import { copyToClipboard } from "@/utils/copy-to-clipboard";
 import type { ReviewableDiffTarget } from "@/utils/diff-layout";
 import { DocumentFileHeader } from "./document-file-header";
+import type { DiffFindHighlights } from "./find";
 import {
   diffInteractionWindowTop,
   diffMaterializationWindow,
@@ -52,6 +53,7 @@ import type {
   DiffTypography,
   TextMeasurer,
 } from "./types";
+import { useDiffFind } from "./use-diff-find.web";
 import { useDiffDocumentWorkspaceCache } from "./workspace-cache";
 
 const DEFAULT_MONO_STACK = "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
@@ -99,6 +101,7 @@ export function DiffSurface(props: DiffSurfaceProps) {
   const scrollTopRef = useRef(0);
   const horizontalOffsetsRef = useRef(new Map<string, number>());
   const selectionRef = useRef<DiffSelection | null>(null);
+  const findHighlightsRef = useRef<DiffFindHighlights | null>(null);
   const dragRef = useRef<{
     anchor: DiffSelection["anchor"];
     startX: number;
@@ -352,6 +355,7 @@ export function DiffSurface(props: DiffSurfaceProps) {
       viewportHeight: canvasHeight,
       horizontalOffsets: horizontalOffsetsRef.current,
       selection: selectionRef.current,
+      findHighlights: findHighlightsRef.current,
       activeHeaderPath: activeHeaderPathRef.current,
       devicePixelRatio: ratio,
       paintTop,
@@ -762,6 +766,29 @@ export function DiffSurface(props: DiffSurfaceProps) {
       );
     }
   }, [contextHit?.position, setSelection]);
+  const readFindSeed = useCallback(() => {
+    const currentModel = modelRef.current;
+    const selection = selectionRef.current;
+    if (!currentModel || !selection) return null;
+    const text = selectedSourceText(currentModel, selection);
+    return text !== "" && !/[\r\n]/.test(text) ? text : null;
+  }, []);
+  const find = useDiffFind({
+    files: props.files,
+    layout: props.displayPreferences.layout,
+    collapsedFilePaths: props.collapsedFilePaths,
+    model,
+    modelRef,
+    scrollRef,
+    rootRef,
+    scrollTopRef,
+    horizontalOffsetsRef,
+    viewportHeight: viewport.height,
+    highlightsRef: findHighlightsRef,
+    readSeed: readFindSeed,
+    schedulePaint,
+  });
+  const closeFind = find.closeFind;
   const keyDown = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
       const target = event.target;
@@ -776,12 +803,16 @@ export function DiffSurface(props: DiffSurfaceProps) {
         selectAll();
         return;
       }
+      if (event.key === "Escape" && closeFind()) {
+        event.preventDefault();
+        return;
+      }
       if (event.key === "Escape" && selectionRef.current) {
         event.preventDefault();
         setSelection(null);
       }
     },
-    [selectAll, setSelection],
+    [closeFind, selectAll, setSelection],
   );
   const rootStyle = useMemo<React.CSSProperties>(
     () => ({ ...ROOT_STYLE, background: props.palette.surface }),
@@ -890,6 +921,7 @@ export function DiffSurface(props: DiffSurfaceProps) {
         </div>
       </div>
       <DomOverlayScrollbar scrollContainerRef={scrollRef} onUserScrollUp={noop} />
+      {find.widget}
       {hoveredAffordance?.hit.target && reviewActions ? (
         <InlineReviewAddButton onPress={addHoveredComment} style={affordanceStyle} />
       ) : null}

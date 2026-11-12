@@ -1,3 +1,4 @@
+import { diffFindCellKey, type DiffFindHighlights, type DiffFindRange } from "./find";
 import { selectionRectangles } from "./hit-testing";
 import {
   DIFF_BODY_BORDER_HEIGHT,
@@ -46,6 +47,7 @@ export interface PaintWebViewportInput {
   viewportHeight: number;
   horizontalOffsets: ReadonlyMap<string, number>;
   selection: DiffSelection | null;
+  findHighlights?: DiffFindHighlights | null;
   activeHeaderPath: string | null;
   devicePixelRatio: number;
   paintTop?: number;
@@ -304,9 +306,40 @@ function paintLine(
       input.row.height - input.row.reviewHeight,
     );
     input.context.clip();
-    paintCellText({ ...input, cell, x: x + file.gutterWidth + CODE_LEFT_PADDING });
+    const codeX = x + file.gutterWidth + CODE_LEFT_PADDING;
+    const findRanges = input.findHighlights?.get(diffFindCellKey(input.row.index, cellIndex));
+    if (findRanges) paintFindRanges({ ...input, cell, x: codeX, ranges: findRanges });
+    paintCellText({ ...input, cell, x: codeX });
     input.context.restore();
   });
+}
+
+function paintFindRanges(
+  input: PaintWebViewportInput & {
+    cell: DiffCell;
+    x: number;
+    y: number;
+    horizontalOffset: number;
+    ranges: readonly DiffFindRange[];
+  },
+): void {
+  const textX = input.x - (input.model.wrapLines ? 0 : input.horizontalOffset);
+  for (const range of input.ranges) {
+    input.context.fillStyle = range.active
+      ? input.palette.findActiveMatch
+      : input.palette.findMatch;
+    for (const fragment of input.cell.fragments) {
+      const start = Math.max(fragment.start, range.start);
+      const end = Math.min(fragment.end, range.end);
+      if (end <= start) continue;
+      input.context.fillRect(
+        textX + fragmentWidthForRange(fragment, fragment.start, start),
+        input.y + fragment.top,
+        fragmentWidthForRange(fragment, start, end),
+        input.model.lineHeight,
+      );
+    }
+  }
 }
 
 function paintCellText(
