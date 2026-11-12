@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs";
 import type { Logger } from "pino";
 import { z } from "zod";
 
-import { writeJsonFileAtomic } from "./atomic-file.js";
+import { runJsonImportOnce, type PimiDatabase } from "./db/pimi-db.js";
 import { areEquivalentPaths } from "../utils/path.js";
 import {
   generateProjectId,
@@ -178,8 +178,14 @@ export interface WorkspaceRegistry {
 
 type RegistryRecord = PersistedProjectRecord | PersistedWorkspaceRecord;
 
-class FileBackedRegistry<TRecord extends RegistryRecord> {
-  private readonly filePath: string;
+// Projects and workspaces are rows of the `records` table (kinds project and workspace). The whole
+// set stays in memory; a mutation stages a copy, and only the records that changed are written, in
+// one transaction. The old projects/projects.json and projects/workspaces.json are imported once
+// and renamed with a .migrated suffix.
+class SqlBackedRegistry<TRecord extends RegistryRecord> {
+  private readonly database: PimiDatabase;
+  private readonly kind: string;
+  private readonly legacyFilePath: string;
   protected readonly logger: Logger;
   private readonly schema: z.ZodType<TRecord, unknown>;
   private readonly getId: (record: TRecord) => string;
@@ -188,24 +194,25 @@ class FileBackedRegistry<TRecord extends RegistryRecord> {
   private readonly cache = new Map<string, TRecord>();
   private mutationQueue: Promise<void> = Promise.resolve();
   private mutationsBlockedUntilRestart = false;
-  private readonly writeRecords: (filePath: string, records: readonly TRecord[]) => Promise<void>;
 
   constructor(options: {
-    filePath: string;
+    database: PimiDatabase;
+    kind: string;
+    legacyFilePath: string;
     logger: Logger;
     schema: z.ZodType<TRecord, unknown>;
     getId: (record: TRecord) => string;
     component: string;
-    writeRecords?: (filePath: string, records: readonly TRecord[]) => Promise<void>;
   }) {
-    this.filePath = options.filePath;
+    this.database = options.database;
+    this.kind = options.kind;
+    this.legacyFilePath = options.legacyFilePath;
     this.schema = options.schema;
     this.getId = options.getId;
     this.logger = options.logger.child({
       module: "workspace-registry",
       component: options.component,
     });
-    this.writeRecords = options.writeRecords ?? writeJsonFileAtomic;
   }
 
   async initialize(): Promise<void> {
@@ -274,20 +281,52 @@ class FileBackedRegistry<TRecord extends RegistryRecord> {
     }
 
     this.cache.clear();
-    try {
-      const raw = await fs.readFile(this.filePath, "utf8");
-      const parsed = z.array(this.schema).parse(JSON.parse(raw));
-      for (const record of parsed) {
-        this.cache.set(this.getId(record), record);
-      }
-    } catch (error) {
-      const code = (error as NodeJS.ErrnoException).code;
-      if (code !== "ENOENT") {
-        this.logger.error({ err: error, filePath: this.filePath }, "Failed to load registry file");
-      }
+    await this.importLegacy();
+    for (const row of this.database.db
+      .prepare("SELECT id, json FROM records WHERE kind = ? ORDER BY rowid")
+      .all(this.kind)) {
+      const parsed = this.schema.safeParse(JSON.parse(String(row.json)));
+      if (parsed.success) this.cache.set(this.getId(parsed.data), parsed.data);
+      else this.logger.error({ err: parsed.error, id: row.id }, "Skipping invalid registry record");
     }
     this.rebuildActiveIndex();
     this.loaded = true;
+  }
+
+  private async importLegacy(): Promise<void> {
+    let legacy: TRecord[] = [];
+    try {
+      legacy = z
+        .array(this.schema)
+        .parse(JSON.parse(await fs.readFile(this.legacyFilePath, "utf8")));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        this.logger.error(
+          { err: error, filePath: this.legacyFilePath },
+          "Skipping invalid legacy registry file",
+        );
+      }
+    }
+    await runJsonImportOnce(
+      this.database,
+      { name: `registry-${this.kind}`, legacyPaths: [this.legacyFilePath], logger: this.logger },
+      () => {
+        for (const record of legacy) this.persist(this.getId(record), record);
+      },
+    );
+  }
+
+  private persist(id: string, record: TRecord | null): void {
+    if (record === null) {
+      this.database.db.prepare("DELETE FROM records WHERE kind = ? AND id = ?").run(this.kind, id);
+      return;
+    }
+    this.database.db
+      .prepare(
+        `INSERT INTO records (kind, id, parent_id, json) VALUES (?, ?, NULL, ?)
+         ON CONFLICT(kind, id) DO UPDATE SET json = excluded.json`,
+      )
+      .run(this.kind, id, JSON.stringify(record));
   }
 
   protected async mutateMany(
@@ -328,7 +367,13 @@ class FileBackedRegistry<TRecord extends RegistryRecord> {
       if (!recordsChanged && !hooks?.forcePersist?.(result)) return result;
       const records = Array.from(staged.values());
       await hooks?.beforeWrite?.(records);
-      if (recordsChanged) await this.writeRecords(this.filePath, records);
+      if (recordsChanged) {
+        this.database.transaction(() => {
+          for (const [id, record] of staged)
+            if (this.cache.get(id) !== record) this.persist(id, record);
+          for (const id of this.cache.keys()) if (!staged.has(id)) this.persist(id, null);
+        });
+      }
       await hooks?.afterWrite?.();
       if (recordsChanged) {
         this.cache.clear();
@@ -360,8 +405,8 @@ function mapsEqual<TKey, TValue>(left: Map<TKey, TValue>, right: Map<TKey, TValu
   return true;
 }
 
-export class FileBackedProjectRegistry
-  extends FileBackedRegistry<PersistedProjectRecord>
+export class SqlBackedProjectRegistry
+  extends SqlBackedRegistry<PersistedProjectRecord>
   implements ProjectRegistry
 {
   async list(): Promise<PersistedProjectRecord[]> {
@@ -379,23 +424,19 @@ export class FileBackedProjectRegistry
   >();
 
   constructor(
-    filePath: string,
+    database: PimiDatabase,
+    legacyFilePath: string,
     logger: Logger,
-    options?: {
-      projectIdFactory?: () => string;
-      writeRecords?: (
-        filePath: string,
-        records: readonly PersistedProjectRecord[],
-      ) => Promise<void>;
-    },
+    options?: { projectIdFactory?: () => string },
   ) {
     super({
-      filePath,
+      database,
+      kind: "project",
+      legacyFilePath,
       logger,
       schema: PersistedProjectRecordSchema,
       getId: (record) => record.projectId,
       component: "projects",
-      writeRecords: options?.writeRecords,
     });
     this.projectIdFactory = options?.projectIdFactory ?? generateProjectId;
   }
@@ -501,31 +542,23 @@ export class FileBackedProjectRegistry
   }
 }
 
-export class FileBackedWorkspaceRegistry
-  extends FileBackedRegistry<PersistedWorkspaceRecord>
+export class SqlBackedWorkspaceRegistry
+  extends SqlBackedRegistry<PersistedWorkspaceRecord>
   implements WorkspaceRegistry
 {
   private readonly mutationListeners = new Set<
     (mutation: WorkspaceMutation) => void | Promise<void>
   >();
 
-  constructor(
-    filePath: string,
-    logger: Logger,
-    options?: {
-      writeRecords?: (
-        filePath: string,
-        records: readonly PersistedWorkspaceRecord[],
-      ) => Promise<void>;
-    },
-  ) {
+  constructor(database: PimiDatabase, legacyFilePath: string, logger: Logger) {
     super({
-      filePath,
+      database,
+      kind: "workspace",
+      legacyFilePath,
       logger,
       schema: PersistedWorkspaceRecordSchema,
       getId: (record) => record.workspaceId,
       component: "workspaces",
-      writeRecords: options?.writeRecords,
     });
   }
 

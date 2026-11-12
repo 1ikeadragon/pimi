@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import type { FileBackedWorkspaceRegistry } from "../workspace-registry.js";
+import type { SqlBackedWorkspaceRegistry } from "../workspace-registry.js";
 import { WorkspaceLabelCatalogStore } from "./internal/catalog-store.js";
 import { WorkspaceLabelService } from "./internal/service.js";
 import type { WorkspaceLabelDefinition } from "@pimi/protocol/workspace-labels";
@@ -10,7 +10,7 @@ export { WorkspaceLabelStorageUncertainError } from "./internal/catalog-store.js
 
 export function createWorkspaceLabelService(input: {
   pimiHome: string;
-  workspaceRegistry: FileBackedWorkspaceRegistry;
+  workspaceRegistry: SqlBackedWorkspaceRegistry;
   writeCatalog?: (filePath: string, labels: readonly WorkspaceLabelDefinition[]) => Promise<void>;
   writeTransaction?: (filePath: string, transaction: unknown) => Promise<void>;
   removeTransaction?: (filePath: string) => Promise<void>;

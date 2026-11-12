@@ -156,7 +156,7 @@ import { AgentStorage } from "./agent/agent-storage.js";
 import { MessageReceipts } from "./message-receipts/index.js";
 import { CreationService } from "./creation/index.js";
 import { openPimiDatabase } from "./db/pimi-db.js";
-import { FileCarriedTimelineStore } from "./agent/carried-timeline.js";
+import { SqlCarriedTimelineStore } from "./agent/carried-timeline.js";
 import { FileAgentImageStore } from "./agent/agent-images.js";
 import { SqlSentAttachmentStore } from "./agent/sent-attachments.js";
 import { attachAgentStoragePersistence } from "./persistence-hooks.js";
@@ -180,8 +180,8 @@ import type { PimiToolRuntimeContext } from "./agent/tools/types.js";
 import { createAgentProviderRuntime } from "./agent/provider-runtime.js";
 import { WorkspaceReconciliationService } from "./workspace-reconciliation-service.js";
 import {
-  FileBackedProjectRegistry,
-  FileBackedWorkspaceRegistry,
+  SqlBackedProjectRegistry,
+  SqlBackedWorkspaceRegistry,
   type WorkspaceArchiveContext,
 } from "./workspace-registry.js";
 import { CheckoutDiffManager } from "./checkout-diff-manager.js";
@@ -762,7 +762,7 @@ export async function createPimiDaemon(
     app.set("trust proxy", value ?? ["loopback"]);
   });
   let boundListenTarget: ListenTarget | null = null;
-  let workspaceRegistry: FileBackedWorkspaceRegistry | null = null;
+  let workspaceRegistry: SqlBackedWorkspaceRegistry | null = null;
   const terminalManager = await startWorkerTerminalManager({
     pimiHome: config.pimiHome,
     pimiVersion: daemonVersion,
@@ -1056,6 +1056,12 @@ export async function createPimiDaemon(
   // One-time imports of the old JSON files; each is gated by a meta row in pimi.db.
   await agentImages.importLegacy();
   await sentAttachments.importLegacy();
+  const carriedTimelines = new SqlCarriedTimelineStore(
+    pimiDatabase,
+    path.join(config.pimiHome, "agent-carried-timelines"),
+    logger,
+  );
+  await carriedTimelines.importLegacy();
   await importLegacyFinishSubscriptions(pimiDatabase, config.pimiHome, logger);
   await new MessageReceipts(
     pimiDatabase,
@@ -1067,11 +1073,13 @@ export async function createPimiDaemon(
     path.join(config.pimiHome, "creations"),
     logger,
   ).importLegacy();
-  const projectRegistry = new FileBackedProjectRegistry(
+  const projectRegistry = new SqlBackedProjectRegistry(
+    pimiDatabase,
     path.join(config.pimiHome, "projects", "projects.json"),
     logger,
   );
-  workspaceRegistry = new FileBackedWorkspaceRegistry(
+  workspaceRegistry = new SqlBackedWorkspaceRegistry(
+    pimiDatabase,
     path.join(config.pimiHome, "projects", "workspaces.json"),
     logger,
   );
@@ -1146,10 +1154,7 @@ export async function createPimiDaemon(
     clients: initialAgentManagerState.clients,
     providerDefinitions: initialAgentManagerState.providerDefinitions,
     registry: agentStorage,
-    carriedTimelines: new FileCarriedTimelineStore(
-      path.join(config.pimiHome, "agent-carried-timelines"),
-      logger,
-    ),
+    carriedTimelines,
     agentImages,
     sentAttachments,
     appendSystemPrompt: config.appendSystemPrompt,
