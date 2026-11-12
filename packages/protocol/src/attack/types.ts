@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AutomationTriggerSchema } from "../automation/types.js";
 
 export const ATTACK_ROLE_IDS = [
   "recon",
@@ -265,3 +266,71 @@ export const AttackDesktopActionSchema = z.object({
   at: z.string(),
 });
 export type AttackDesktopAction = z.infer<typeof AttackDesktopActionSchema>;
+
+// ---- scheduled and pull-request runs ----
+
+// What a saved run launches with. Everything an unattended run cannot supply is left out: no test
+// credentials (they live in memory for one run only), no pre-flight annotations, no desktop target.
+export const AttackScheduleDefinitionSchema = z.object({
+  cwd: z.string().min(1),
+  target: z.string().min(1),
+  repoScope: z.boolean(),
+  scopeNotes: z.string().max(4000),
+  provider: z.string().min(1),
+  roster: z.array(AttackRoleIdSchema).min(1),
+  // Honoured for schedule triggers only: a pull-request run is always read-only.
+  disposableTarget: z.boolean(),
+  limits: AttackLimitsSchema,
+});
+export type AttackScheduleDefinition = z.infer<typeof AttackScheduleDefinitionSchema>;
+
+// A saved run fired by a trigger. The target must already be up when it fires: `healthUrl` is
+// polled, and `startCommand` (when set) is run in `definition.cwd` first if the URL is down. The
+// run is skipped, and the skip audited, when the URL is not healthy within 60 s.
+export const AttackScheduleSchema = z.object({
+  id: z.string(),
+  workspaceId: z.string().min(1),
+  name: z.string().min(1).max(120),
+  enabled: z.boolean(),
+  // `schedule` and `pull_request` fire on their own; `manual` only fires from "Run now".
+  trigger: AutomationTriggerSchema,
+  definition: AttackScheduleDefinitionSchema,
+  startCommand: z.string().max(500).nullable(),
+  healthUrl: z.string().min(1).max(2000),
+  nextFireAt: z.string().nullable(),
+  lastFiredAt: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type AttackSchedule = z.infer<typeof AttackScheduleSchema>;
+
+export const AttackScheduleInputSchema = AttackScheduleSchema.pick({
+  workspaceId: true,
+  name: true,
+  enabled: true,
+  trigger: true,
+  definition: true,
+  startCommand: true,
+  healthUrl: true,
+}).extend({ id: z.string().optional() });
+export type AttackScheduleInput = z.infer<typeof AttackScheduleInputSchema>;
+
+export const AttackScheduleOutcomeSchema = z.enum([
+  "started",
+  "skipped_unhealthy",
+  "skipped_busy",
+  "failed",
+  "blockers",
+]);
+export type AttackScheduleOutcome = z.infer<typeof AttackScheduleOutcomeSchema>;
+
+// One line of a schedule's fire log. `blockers` is written when a run the schedule started ends
+// with open blocker findings; the owner is notified then.
+export const AttackScheduleAuditEntrySchema = z.object({
+  at: z.string(),
+  scheduleId: z.string(),
+  outcome: AttackScheduleOutcomeSchema,
+  runId: z.string().nullable(),
+  detail: z.string(),
+});
+export type AttackScheduleAuditEntry = z.infer<typeof AttackScheduleAuditEntrySchema>;

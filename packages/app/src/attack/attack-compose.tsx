@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Crosshair, StickyNote, Swords, Trash2, X } from "lucide-react-native";
+import { CalendarClock, Crosshair, StickyNote, Swords, Trash2, X } from "lucide-react-native";
 import { StyleSheet } from "react-native-unistyles";
 import {
   MAX_ATTACK_ANNOTATIONS,
@@ -164,6 +164,10 @@ export function AttackCompose({
     },
     [scopeKey],
   );
+  const onSchedules = useCallback(
+    () => useAttackStore.getState().setSchedulesOpen(key, true),
+    [key],
+  );
   const onTogglePanel = useCallback(() => setPanelOpen((open) => !open), []);
   const onClosePanel = useCallback(() => setPanelOpen(false), []);
 
@@ -247,6 +251,17 @@ export function AttackCompose({
               <Text style={styles.heading}>
                 {preflight ? t("attack.preflight.title") : t("attack.board.title")}
               </Text>
+              {preflight ? null : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  leftIcon={CalendarClock}
+                  onPress={onSchedules}
+                  testID="attack-schedules-button"
+                >
+                  {t("attack.schedules.title")}
+                </Button>
+              )}
             </View>
           )}
           {preflight ? (

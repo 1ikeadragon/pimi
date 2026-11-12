@@ -74,7 +74,7 @@ function parseWhole(value: string): number | null {
 }
 
 // Cheap models first: an attack run fans out into several agents.
-function preferredModel(options: readonly AttackModelOption[]): AttackModelOption | null {
+export function preferredModel(options: readonly AttackModelOption[]): AttackModelOption | null {
   return options.find((option) => /haiku|mini|flash/i.test(option.value)) ?? options[0] ?? null;
 }
 

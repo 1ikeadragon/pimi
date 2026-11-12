@@ -1,21 +1,25 @@
 import type pino from "pino";
 import type { SessionInboundMessage, SessionOutboundMessage } from "../../messages.js";
 import type { AttackService } from "../../attack/service.js";
+import type { AttackScheduler } from "../../attack/schedules.js";
 
 export interface AttackSessionOptions {
   host: { emit(msg: SessionOutboundMessage): void };
   attackService: AttackService;
+  attackScheduler: AttackScheduler;
   logger: pino.Logger;
 }
 
 export class AttackSession {
   private readonly host: AttackSessionOptions["host"];
   private readonly attack: AttackService;
+  private readonly schedules: AttackScheduler;
   private readonly logger: pino.Logger;
 
   constructor(options: AttackSessionOptions) {
     this.host = options.host;
     this.attack = options.attackService;
+    this.schedules = options.attackScheduler;
     this.logger = options.logger;
   }
 
@@ -126,6 +130,26 @@ export class AttackSession {
               intoId: msg.intoId,
             }),
           },
+        }));
+      case "attack.schedule.list.request":
+        return this.handle(msg, async () => ({
+          type: "attack.schedule.list.response",
+          payload: { requestId: msg.requestId, ...(await this.schedules.list(msg.workspaceId)) },
+        }));
+      case "attack.schedule.save.request":
+        return this.handle(msg, async () => ({
+          type: "attack.schedule.save.response",
+          payload: { requestId: msg.requestId, schedule: await this.schedules.save(msg.schedule) },
+        }));
+      case "attack.schedule.delete.request":
+        return this.handle(msg, async () => {
+          await this.schedules.remove(msg.scheduleId);
+          return { type: "attack.schedule.delete.response", payload: { requestId: msg.requestId } };
+        });
+      case "attack.schedule.run_now.request":
+        return this.handle(msg, async () => ({
+          type: "attack.schedule.run_now.response",
+          payload: { requestId: msg.requestId, entry: await this.schedules.runNow(msg.scheduleId) },
         }));
       default:
         return undefined;

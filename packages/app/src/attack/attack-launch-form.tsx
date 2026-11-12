@@ -47,7 +47,7 @@ function roleHintKey(role: AttackRoleId): string {
   return "attack.roster.readOnly";
 }
 
-function useModelOptions(serverId: string, cwd: string): AttackModelOption[] {
+export function useModelOptions(serverId: string, cwd: string): AttackModelOption[] {
   const { entries } = useProvidersSnapshot(serverId, { cwd });
   const options: AttackModelOption[] = [];
   for (const entry of entries ?? []) {

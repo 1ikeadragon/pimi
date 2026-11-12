@@ -7,6 +7,9 @@ import {
   AttackLimitsSchema,
   AttackRunDefinitionSchema,
   AttackRunSchema,
+  AttackScheduleAuditEntrySchema,
+  AttackScheduleInputSchema,
+  AttackScheduleSchema,
   FindingSchema,
   FindingStatusSchema,
 } from "./types.js";
@@ -193,4 +196,54 @@ export const AttackCoverageChangedSchema = z.object({
 export const AttackDesktopActionPushSchema = z.object({
   type: z.literal("attack.desktop.action"),
   payload: z.object({ action: AttackDesktopActionSchema }),
+});
+
+export const AttackScheduleListRequestSchema = z.object({
+  type: z.literal("attack.schedule.list.request"),
+  requestId: z.string(),
+  workspaceId: z.string().optional(),
+});
+
+export const AttackScheduleSaveRequestSchema = z.object({
+  type: z.literal("attack.schedule.save.request"),
+  requestId: z.string(),
+  schedule: AttackScheduleInputSchema,
+});
+
+export const AttackScheduleDeleteRequestSchema = z.object({
+  type: z.literal("attack.schedule.delete.request"),
+  requestId: z.string(),
+  scheduleId: z.string(),
+});
+
+export const AttackScheduleRunNowRequestSchema = z.object({
+  type: z.literal("attack.schedule.run_now.request"),
+  requestId: z.string(),
+  scheduleId: z.string(),
+});
+
+// `audit` is each listed schedule's newest fire-log entries, oldest first.
+export const AttackScheduleListResponseSchema = z.object({
+  type: z.literal("attack.schedule.list.response"),
+  payload: z.object({
+    requestId: z.string(),
+    schedules: z.array(AttackScheduleSchema),
+    audit: z.array(AttackScheduleAuditEntrySchema),
+  }),
+});
+
+export const AttackScheduleSaveResponseSchema = z.object({
+  type: z.literal("attack.schedule.save.response"),
+  payload: z.object({ requestId: z.string(), schedule: AttackScheduleSchema }),
+});
+
+export const AttackScheduleDeleteResponseSchema = z.object({
+  type: z.literal("attack.schedule.delete.response"),
+  payload: z.object({ requestId: z.string() }),
+});
+
+// The fire attempt's audit entry: a started run carries its id, a skipped one says why.
+export const AttackScheduleRunNowResponseSchema = z.object({
+  type: z.literal("attack.schedule.run_now.response"),
+  payload: z.object({ requestId: z.string(), entry: AttackScheduleAuditEntrySchema }),
 });

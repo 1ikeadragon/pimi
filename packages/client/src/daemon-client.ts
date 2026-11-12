@@ -28,7 +28,12 @@ import type {
 import type { z } from "zod";
 import type { SessionEventSubscription } from "@pimi/protocol/messages";
 import type { LocalSpeechModel } from "@pimi/protocol/speech/rpc-schemas";
-import type { AttackLimits, AttackRunDefinition, FindingStatus } from "@pimi/protocol/attack/types";
+import type {
+  AttackLimits,
+  AttackRunDefinition,
+  AttackScheduleInput,
+  FindingStatus,
+} from "@pimi/protocol/attack/types";
 import type { AutomationDefinition, AutomationOrigin } from "@pimi/protocol/automation/types";
 import type { HeartbeatCadence } from "@pimi/protocol/heartbeat/types";
 import type { AgentAttentionNotificationPayload } from "@pimi/protocol/agent-attention-notification";
@@ -6868,6 +6873,50 @@ export class DaemonClient {
         duplicateId: options.duplicateId,
         intoId: options.intoId,
       },
+    });
+  }
+
+  async attackScheduleList(
+    options: { workspaceId?: string; requestId?: string } = {},
+  ): Promise<AttackResponsePayload<"attack.schedule.list.response">> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "attack.schedule.list.request",
+        ...(options.workspaceId ? { workspaceId: options.workspaceId } : {}),
+      },
+    });
+  }
+
+  async attackScheduleSave(options: {
+    schedule: AttackScheduleInput;
+    requestId?: string;
+  }): Promise<AttackResponsePayload<"attack.schedule.save.response">> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "attack.schedule.save.request", schedule: options.schedule },
+    });
+  }
+
+  async attackScheduleDelete(options: {
+    scheduleId: string;
+    requestId?: string;
+  }): Promise<AttackResponsePayload<"attack.schedule.delete.response">> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "attack.schedule.delete.request", scheduleId: options.scheduleId },
+    });
+  }
+
+  async attackScheduleRunNow(options: {
+    scheduleId: string;
+    requestId?: string;
+  }): Promise<AttackResponsePayload<"attack.schedule.run_now.response">> {
+    // A fire waits up to a minute for the target's health URL.
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "attack.schedule.run_now.request", scheduleId: options.scheduleId },
+      timeout: 120_000,
     });
   }
 

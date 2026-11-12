@@ -223,6 +223,7 @@ import {
 import { AutomationSession } from "./session/automation/automation-session.js";
 import { AttackSession } from "./session/attack/attack-session.js";
 import type { AttackService } from "./attack/service.js";
+import type { AttackScheduler } from "./attack/schedules.js";
 import { ProviderCatalogSession } from "./session/provider/provider-catalog-session.js";
 import { UsageSession } from "./session/usage/usage-session.js";
 import { WorkspaceSearchSession } from "./workspace-search/session.js";
@@ -497,6 +498,7 @@ export interface SessionOptions {
   automationService: AutomationService;
   heartbeatService: HeartbeatService;
   attackService: AttackService;
+  attackScheduler: AttackScheduler;
   checkoutDiffManager: CheckoutDiffManager;
   github?: ForgeService;
   createAgentMcpTransport?: AgentMcpTransportFactory;
@@ -852,6 +854,7 @@ export class Session {
       automationService,
       heartbeatService,
       attackService,
+      attackScheduler,
       checkoutDiffManager,
       github,
       renameCurrentBranch,
@@ -1019,6 +1022,7 @@ export class Session {
     this.attackSession = new AttackSession({
       host: { emit: (msg) => this.emit(msg) },
       attackService,
+      attackScheduler,
       logger: this.sessionLogger,
     });
     this.providerCatalogSession = new ProviderCatalogSession({

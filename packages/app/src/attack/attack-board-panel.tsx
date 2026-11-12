@@ -31,9 +31,21 @@ import {
 } from "./use-attack-board-state";
 import { useAttackBatchFixPump } from "./attack-batch-fix";
 import { AttackHistoricRun, AttackHistory } from "./attack-history";
+import { AttackScheduleSheet } from "./attack-schedule-sheet";
 import { Button } from "@/components/ui/button";
 import { PressHighlight } from "@/components/ui/press-highlight";
 import { useAttackRunAgents } from "./use-attack-run-agents";
+
+function resolveBoardMode(
+  run: AttackRun | null,
+  composingAfter: string | null,
+  rawFocus: { runId: string; agentId: string; view: "chat" | "browser" } | null,
+) {
+  const active = isActive(run);
+  const composing = run === null || (!active && composingAfter === run.id);
+  const focus = run && rawFocus?.runId === run.id && !composing ? rawFocus : null;
+  return { active, composing, focus };
+}
 
 function isActive(run: AttackRun | null): boolean {
   return run !== null && (run.status === "running" || run.status === "paused");
@@ -168,16 +180,32 @@ export function AttackBoardPanel() {
     workspaceId,
     viewed?.id ?? null,
   );
-  const active = isActive(run);
-  const composing = run === null || (!active && composingAfter === run.id);
-  const focus = run && rawFocus?.runId === run.id && !composing ? rawFocus : null;
+  const { active, composing, focus } = resolveBoardMode(run, composingAfter, rawFocus);
 
   const workingCount = useMemo(
     () => agents.filter((item) => item.state === "working").length,
     [agents],
   );
   const { onFocus, onView, onBack, onNewRun } = useAttackFocusActions(key, run, rawFocus);
+  const schedulesOpen = useAttackStore((state) => state.schedulesOpenByWorkspace[key] === true);
+  const onSchedules = useCallback(
+    () => useAttackStore.getState().setSchedulesOpen(key, true),
+    [key],
+  );
+  const onCloseSchedules = useCallback(
+    () => useAttackStore.getState().setSchedulesOpen(key, false),
+    [key],
+  );
 
+  if (schedulesOpen) {
+    return (
+      <AttackScheduleSheet
+        serverId={serverId}
+        workspaceId={workspaceId}
+        onClose={onCloseSchedules}
+      />
+    );
+  }
   if (composing) {
     return (
       <AttackCompose
@@ -231,6 +259,7 @@ export function AttackBoardPanel() {
         serverId={serverId}
         onNewRun={onNewRun}
         onHistory={history.onHistory}
+        onSchedules={onSchedules}
         findingsBadge={findingsBadge}
       />
       {historyOpen || historicRun ? null : (

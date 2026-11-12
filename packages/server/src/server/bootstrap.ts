@@ -190,6 +190,7 @@ import { compileAutomation } from "./automation/compile.js";
 import { homedir } from "node:os";
 import { HeartbeatService } from "./heartbeat/service.js";
 import { AttackService } from "./attack/service.js";
+import { AttackScheduler } from "./attack/schedules.js";
 import { DaemonConfigStore, type MutableDaemonConfig } from "./daemon-config-store.js";
 import { createOrchestrationSkills } from "./orchestration-skills/index.js";
 import {
@@ -1578,6 +1579,14 @@ export async function createPimiDaemon(
     },
   });
   await attackService.start();
+  const attackScheduler = new AttackScheduler({
+    database: pimiDatabase,
+    logger,
+    attackService,
+    gh: (args) => runGitHubCli(args, { cwd: homedir() }),
+    notify: config.pushNotificationSender,
+  });
+  await attackScheduler.start();
   const heartbeatService = new HeartbeatService({
     pimiHome: config.pimiHome,
     database: pimiDatabase,
@@ -2025,7 +2034,7 @@ export async function createPimiDaemon(
               },
               projectRegistry,
               workspaceRegistry,
-              { automationService, heartbeatService, attackService },
+              { automationService, heartbeatService, attackService, attackScheduler },
               checkoutDiffManager,
               serviceProxy,
               scriptRuntimeStore,
@@ -2184,6 +2193,7 @@ export async function createPimiDaemon(
     await speechService.stop();
     await automationService.stop().catch(() => undefined);
     await heartbeatService.stop().catch(() => undefined);
+    await attackScheduler.stop().catch(() => undefined);
     await attackService.stop().catch(() => undefined);
     await relayRuntime?.stop().catch(() => undefined);
     if (wsServer) {

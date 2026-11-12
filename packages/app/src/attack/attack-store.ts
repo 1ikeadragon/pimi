@@ -43,6 +43,9 @@ interface AttackStore {
     workspaceKey: string,
     viewed: { runId: string; latestRunId: string } | null,
   ) => void;
+  /** Whether the board shows the saved-run schedules, by workspace key. */
+  schedulesOpenByWorkspace: Record<string, boolean>;
+  setSchedulesOpen: (workspaceKey: string, open: boolean) => void;
   /** Whether the board shows the run history list, by workspace key. */
   historyOpenByWorkspace: Record<string, boolean>;
   setHistoryOpen: (workspaceKey: string, open: boolean) => void;
@@ -91,6 +94,11 @@ export const useAttackStore = create<AttackStore>()(
       setViewedRun: (workspaceKey, viewed) =>
         set((state) => ({
           viewedRunByWorkspace: { ...state.viewedRunByWorkspace, [workspaceKey]: viewed },
+        })),
+      schedulesOpenByWorkspace: {},
+      setSchedulesOpen: (workspaceKey, open) =>
+        set((state) => ({
+          schedulesOpenByWorkspace: { ...state.schedulesOpenByWorkspace, [workspaceKey]: open },
         })),
       historyOpenByWorkspace: {},
       setHistoryOpen: (workspaceKey, open) =>

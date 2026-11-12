@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import {
+  CalendarClock,
   History,
   Pause,
   Play,
@@ -44,6 +45,7 @@ export function AttackRunBar({
   serverId,
   onNewRun,
   onHistory,
+  onSchedules,
   findingsBadge,
 }: {
   run: AttackRun;
@@ -52,6 +54,8 @@ export function AttackRunBar({
   onNewRun?: () => void;
   /** Left out where the history list is not offered, such as the phone view. */
   onHistory?: () => void;
+  /** Opens the saved-run schedules; left out on the phone. */
+  onSchedules?: () => void;
   /** Narrow windows: the findings count, which opens the findings overlay when pressed. */
   findingsBadge?: { count: number; open: boolean; onPress: () => void };
 }) {
@@ -137,6 +141,7 @@ export function AttackRunBar({
           </Button>
         ) : null}
         <HistoryButton onHistory={onHistory} />
+        <SchedulesButton onSchedules={onSchedules} />
         {run.status === "running" ? (
           <Button
             size="sm"
@@ -207,6 +212,22 @@ function HistoryButton({ onHistory }: { onHistory?: () => void }) {
       testID="attack-history-button"
     >
       {t("attack.history.open")}
+    </Button>
+  );
+}
+
+function SchedulesButton({ onSchedules }: { onSchedules?: () => void }) {
+  const { t } = useTranslation();
+  if (!onSchedules) return null;
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      leftIcon={CalendarClock}
+      onPress={onSchedules}
+      testID="attack-schedules-button"
+    >
+      {t("attack.schedules.title")}
     </Button>
   );
 }
