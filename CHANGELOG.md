@@ -2,6 +2,20 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.24 - 2026-11-12
+
+- New Attack mode, next to Agent and IDE. Point a lead agent and its helpers at an app you built, and they test it for bugs and security issues without asking for approval and without changing anything.
+  - Every agent in the run appears as a tile with a live preview. Click a tile to read it at full width.
+  - A run bar shows the target, time and token budgets, Pause and Stop.
+  - Findings arrive live, sorted by severity, with repro steps and evidence. Triage them, or send one to a Fix it agent.
+  - Agents check new findings against existing ones and merge duplicates.
+  - Browser tabs are limited to localhost and one host you name. The agents' shell is not sandboxed, and the launch form says so.
+- Images from subagents (opencode, Codex, Pi) show in the subagent panel again.
+- The working indicator uses the Ask Pimi mascot.
+- Self-hosted relay: Pimi's relay can run on your own server (docs/self-hosted-relay.md). The default relay endpoint is relay.stateless.computer:443, and relay stays off until you turn it on.
+- Opening a `pimi://pair` link goes straight to the Connect sheet.
+- Reconnecting the app no longer reruns every git command for each workspace: about 650 git launches in 5 minutes of reloads drop to about 70. Repeated launches in the network log collapse into one line with a count, and the log size cap is enforced as it is written.
+
 ## 0.17.23 - 2026-11-12
 
 - Images from agents appear right in the chat: screenshots they read, images from MCP tools, and generated images. Several images from one tool call form a grid. Clicking one opens a lightbox with previous and next. Images stay after a restart and a reload, and a missing file shows as unavailable.
