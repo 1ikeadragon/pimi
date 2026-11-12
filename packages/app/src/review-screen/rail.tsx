@@ -251,7 +251,7 @@ function PullRequestListHeader({
       {!error && failed.length > 0 ? (
         <Text style={styles.error}>
           {t("reviewScreen.partial")}:{" "}
-          {failed.map((source) => errorCopy(source.error, t)).join(" · ")}
+          {[...new Set(failed.map((source) => errorCopy(source.error, t)))].join(" · ")}
         </Text>
       ) : null}
     </View>
