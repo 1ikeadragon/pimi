@@ -2216,6 +2216,13 @@ export const en = {
       onlyAnnotated: "Test only what I annotated",
       close: "Close notes",
     },
+    annotations: {
+      title: "Owner annotations",
+      untested: "Not tested yet",
+      clean: "Tested, held",
+      notTestable: "Could not be tested",
+      findings: "{{count}} finding(s)",
+    },
     board: {
       title: "Attack",
       starting: "Starting the lead agent…",

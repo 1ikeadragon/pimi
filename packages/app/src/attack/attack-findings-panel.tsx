@@ -28,6 +28,7 @@ import { useAttackRunAgents } from "./use-attack-run-agents";
 import { buildFixPrompt } from "./fix-prompt";
 import { AttackAuditPanel, useAttackAudit } from "./attack-audit-panel";
 import { FindingMergeMenu } from "./attack-finding-merge";
+import { AttackAnnotationResults } from "./attack-annotation-results";
 
 // useAttackRuntimeMs needs a run; with none it only reads a stopped placeholder.
 const IDLE_RUN: AttackRun = {
@@ -193,6 +194,7 @@ function FindingsList({
             );
           })
         : null}
+      {run ? <AttackAnnotationResults run={run} findings={findings} /> : null}
     </ScrollView>
   );
 }
@@ -323,6 +325,15 @@ function FindingCard({
           </Text>
         </View>
       </PressHighlight>
+      {finding.annotationLabels.length > 0 ? (
+        <View style={styles.chips} testID="attack-finding-annotations">
+          {finding.annotationLabels.map((label) => (
+            <View key={label} style={styles.chip} testID={`attack-finding-chip-${label}`}>
+              <Text style={styles.chipText}>{label}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
       {open ? (
         <View style={styles.cardBody}>
           <Text style={styles.bodyText}>{view.description}</Text>
@@ -515,6 +526,26 @@ const styles = StyleSheet.create((theme) => ({
   cardMeta: {
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
+  },
+  chips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: theme.spacing[1],
+    paddingHorizontal: theme.spacing[3],
+    paddingBottom: theme.spacing[2],
+  },
+  chip: {
+    paddingHorizontal: theme.spacing[2],
+    paddingVertical: 2,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface1,
+  },
+  chipText: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.sm,
+    fontWeight: "500",
   },
   cardBody: {
     gap: theme.spacing[2],

@@ -14,6 +14,7 @@ function annotationsBlock(run: AttackRun): string | null {
         `${item.label}: ${item.note.trim() || "(no note)"}`,
         `  page: ${item.url}`,
         `  element: <${item.tag}> ${item.selector}`,
+        item.hasImage ? "  screenshot: yes (get_annotation returns it)" : null,
         item.text.trim() ? `  text: ${JSON.stringify(item.text.trim())}` : null,
       ];
       return parts.filter((line): line is string => line !== null).join("\n");
@@ -22,7 +23,13 @@ function annotationsBlock(run: AttackRun): string | null {
   const rule = run.onlyAnnotated
     ? "The owner wants ONLY these items tested: do not run a general pass over the rest of the app, and give every subagent the labels it must cover."
     : "These are in addition to the general pass: cover them first, then the rest of the app. Give every subagent the labels it must cover.";
-  return `Owner annotations (elements the owner marked in the live target, with their notes). ${rule} Say which label a finding relates to in its description.\n${items}`;
+  const labels = run.annotations.map((item) => item.label).join(", ");
+  return `Owner annotations (elements the owner marked in the live target, with their notes). ${rule}
+Annotation handling (${labels}):
+- Each agent reads an annotation with get_annotation(label): the owner's note, the element and, when there is one, its screenshot. Tell every subagent which labels to read and test; they see only what you write.
+- A finding about an annotation passes annotationLabels: ["A1"] to submit_finding, so the owner sees which note it answers.
+- Before finish_attack_run, call report_annotation_result(label, result, note) once for every annotation that has no finding: clean when it was tested and held, not_testable when it could not be tested. Never mark an annotation clean that nobody tested.
+${items}`;
 }
 
 function runContext(run: AttackRun): string {

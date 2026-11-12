@@ -2204,6 +2204,13 @@ export const ja: TranslationResources = {
       onlyAnnotated: "注釈した項目だけをテスト",
       close: "メモを閉じる",
     },
+    annotations: {
+      title: "オーナーの注釈",
+      untested: "未テスト",
+      clean: "テスト済み・問題なし",
+      notTestable: "テスト不可",
+      findings: "検出 {{count}} 件",
+    },
     board: {
       title: "アタック",
       starting: "リードエージェントを起動中…",

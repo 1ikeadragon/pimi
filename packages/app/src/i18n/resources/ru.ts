@@ -2216,6 +2216,13 @@ export const ru: TranslationResources = {
       onlyAnnotated: "Проверять только то, что я отметил",
       close: "Закрыть заметки",
     },
+    annotations: {
+      title: "Заметки владельца",
+      untested: "Ещё не проверено",
+      clean: "Проверено, выдержало",
+      notTestable: "Невозможно проверить",
+      findings: "Находок: {{count}}",
+    },
     board: {
       title: "Атака",
       starting: "Запуск ведущего агента…",

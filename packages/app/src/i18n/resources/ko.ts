@@ -2192,6 +2192,13 @@ export const ko: TranslationResources = {
       onlyAnnotated: "주석 단 항목만 테스트",
       close: "메모 닫기",
     },
+    annotations: {
+      title: "소유자 주석",
+      untested: "아직 테스트 안 함",
+      clean: "테스트함, 이상 없음",
+      notTestable: "테스트할 수 없음",
+      findings: "발견 {{count}}건",
+    },
     board: {
       title: "공격",
       starting: "리드 에이전트를 시작하는 중…",

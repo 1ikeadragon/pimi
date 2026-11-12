@@ -2179,6 +2179,13 @@ export const ar: TranslationResources = {
       onlyAnnotated: "اختبر ما علّقت عليه فقط",
       close: "إغلاق الملاحظات",
     },
+    annotations: {
+      title: "ملاحظات المالك",
+      untested: "لم يُختبر بعد",
+      clean: "تم الاختبار، صمد",
+      notTestable: "تعذّر الاختبار",
+      findings: "{{count}} نتيجة",
+    },
     board: {
       title: "الهجوم",
       starting: "جارٍ تشغيل الوكيل القائد…",

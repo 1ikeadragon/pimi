@@ -2230,6 +2230,13 @@ export const es: TranslationResources = {
       onlyAnnotated: "Probar solo lo que anoté",
       close: "Cerrar notas",
     },
+    annotations: {
+      title: "Anotaciones del propietario",
+      untested: "Sin probar aún",
+      clean: "Probado, resistió",
+      notTestable: "No se pudo probar",
+      findings: "{{count}} hallazgo(s)",
+    },
     board: {
       title: "Ataque",
       starting: "Iniciando el agente líder…",

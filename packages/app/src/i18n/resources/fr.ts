@@ -2231,6 +2231,13 @@ export const fr: TranslationResources = {
       onlyAnnotated: "Tester uniquement ce que j'ai annoté",
       close: "Fermer les notes",
     },
+    annotations: {
+      title: "Annotations du propriétaire",
+      untested: "Pas encore testé",
+      clean: "Testé, a tenu",
+      notTestable: "Impossible à tester",
+      findings: "{{count}} constat(s)",
+    },
     board: {
       title: "Attaque",
       starting: "Démarrage de l'agent principal…",

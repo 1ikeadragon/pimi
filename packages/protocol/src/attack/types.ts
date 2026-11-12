@@ -39,9 +39,20 @@ export const AttackAnnotationSchema = z.object({
   text: z.string().max(400),
   html: z.string().max(800),
   note: z.string().max(2000),
+  // Whether the daemon holds the element's screenshot for agents (get_annotation returns it).
+  hasImage: z.boolean().default(false),
 });
 export type AttackAnnotation = z.infer<typeof AttackAnnotationSchema>;
 export const MAX_ATTACK_ANNOTATIONS = 40;
+
+// An annotation as the owner submits it: the element's screenshot rides along once, as a JPEG at
+// most 640 px wide, and the daemon keeps it as a file instead of in run.json. The daemon sets
+// `hasImage` itself from whether an image arrived.
+export const MAX_ATTACK_ANNOTATION_IMAGE_BASE64_CHARS = 250_000;
+export const AttackAnnotationInputSchema = AttackAnnotationSchema.extend({
+  imageBase64: z.string().max(MAX_ATTACK_ANNOTATION_IMAGE_BASE64_CHARS).optional(),
+});
+export type AttackAnnotationInput = z.infer<typeof AttackAnnotationInputSchema>;
 
 // The app window a run drives instead of (or beside) a URL. Resolved by bundle id at every action.
 export const AttackDesktopTargetSchema = z.object({
@@ -73,7 +84,7 @@ export const AttackRunDefinitionSchema = z.object({
   disposableTarget: z.boolean(),
   limits: AttackLimitsSchema,
   // Pre-flight notes: they join the general pass, or replace it when `onlyAnnotated` is set.
-  annotations: z.array(AttackAnnotationSchema).max(MAX_ATTACK_ANNOTATIONS).default([]),
+  annotations: z.array(AttackAnnotationInputSchema).max(MAX_ATTACK_ANNOTATIONS).default([]),
   onlyAnnotated: z.boolean().default(false),
   // A run needs a URL target or a desktop target. Desktop clicks and typing need `allowDesktopInput`
   // (the owner's per-run consent) or `disposableTarget`.

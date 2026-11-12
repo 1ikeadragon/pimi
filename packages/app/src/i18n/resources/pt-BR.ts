@@ -2215,6 +2215,13 @@ export const ptBR: TranslationResources = {
       onlyAnnotated: "Testar só o que anotei",
       close: "Fechar notas",
     },
+    annotations: {
+      title: "Anotações do proprietário",
+      untested: "Ainda não testado",
+      clean: "Testado, resistiu",
+      notTestable: "Não foi possível testar",
+      findings: "{{count}} achado(s)",
+    },
     board: {
       title: "Ataque",
       starting: "Iniciando o agente líder…",

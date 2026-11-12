@@ -2155,6 +2155,13 @@ export const zhCN: TranslationResources = {
       onlyAnnotated: "只测试我标注的内容",
       close: "关闭备注",
     },
+    annotations: {
+      title: "所有者批注",
+      untested: "尚未测试",
+      clean: "已测试，未发现问题",
+      notTestable: "无法测试",
+      findings: "{{count}} 个发现",
+    },
     board: {
       title: "攻击",
       starting: "正在启动主导智能体…",

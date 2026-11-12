@@ -4,6 +4,7 @@ import type { FindingEvidence } from "@pimi/protocol/attack/types";
 import { BrowserAutomationBrowserIdSchema } from "@pimi/protocol/browser-automation/rpc-schemas";
 import type { BrowserToolsBroker } from "../../browser-tools/broker.js";
 import { findingLine } from "../../attack/prompts.js";
+import { registerAttackAnnotationTools } from "./attack-annotation-tools.js";
 import type { AttackService } from "../../attack/service.js";
 import {
   PimiToolInputError,
@@ -51,6 +52,13 @@ const SubmitFindingInput = z.object({
     .default([])
     .describe(
       "Browser tabs to capture as screenshot evidence right now. Show the defect on screen first.",
+    ),
+  annotationLabels: z
+    .array(z.string().trim().min(1).max(16))
+    .max(40)
+    .default([])
+    .describe(
+      'Labels such as "A1" of the owner annotations this finding is about. Required when you found it by testing an annotation.',
     ),
   duplicateOf: z
     .string()
@@ -224,6 +232,7 @@ export function registerAttackTools(base: RegisterAttackToolsOptions): void {
         description: parsed.description,
         repro: parsed.repro,
         evidence: [...parsed.evidence, ...screenshots],
+        annotationLabels: parsed.annotationLabels,
         duplicateOf: parsed.duplicateOf,
         distinct: parsed.distinct,
       });
@@ -263,6 +272,12 @@ export function registerAttackTools(base: RegisterAttackToolsOptions): void {
       };
     },
   );
+
+  registerAttackAnnotationTools({
+    registerTool: options.registerTool,
+    service: options.service,
+    callerAgentId: options.callerAgentId,
+  });
 
   options.registerTool(
     "finish_attack_run",

@@ -36,6 +36,13 @@ import { cancelAgentRunCommand } from "../agent/lifecycle-command.js";
 import { resumeStoppedSubagents } from "../agent/stop-cascade.js";
 import { ATTACK_RUN_LABEL, STOPPED_WITH_SUBAGENTS_LABEL } from "@pimi/protocol/agent-labels";
 import { AttackCoverageTracker } from "./coverage.js";
+import {
+  clipResultNote,
+  findAnnotation,
+  persistAnnotations,
+  readAnnotationImage,
+  resolveAnnotationLabels,
+} from "./annotations.js";
 import { leadPrompt, resumePrompt, stallPrompt } from "./prompts.js";
 import { ATTACK_COORDINATOR_PROFILE_ID } from "./roster.js";
 import { findingSignature } from "./signature.js";
@@ -91,6 +98,8 @@ export interface SubmitFindingInput {
   duplicateOf?: string;
   /** The caller read the run's existing findings and says this is none of them. */
   distinct?: boolean;
+  /** Labels ("A1") of the owner's pre-flight annotations this finding tests. */
+  annotationLabels?: string[];
 }
 
 /**
@@ -250,8 +259,15 @@ export class AttackService {
       throw new AttackStateError(`This workspace already has a ${live.status} run. Stop it first.`);
     }
     const now = new Date().toISOString();
+    const runId = randomUUID().replaceAll("-", "");
+    const annotations = await persistAnnotations(
+      this.store.dir,
+      runId,
+      definition.annotations,
+      clip,
+    );
     const run: AttackRun = {
-      id: randomUUID().replaceAll("-", ""),
+      id: runId,
       workspaceId: definition.workspaceId,
       cwd: definition.cwd,
       target: target.url,
@@ -262,16 +278,8 @@ export class AttackService {
       roster,
       disposableTarget: definition.disposableTarget,
       limits: definition.limits,
-      annotations: definition.annotations.map((item) => ({
-        label: clip(item.label, 16),
-        url: clip(item.url, 2000),
-        selector: clip(item.selector, 1000),
-        tag: clip(item.tag, 100),
-        text: clip(item.text, 400),
-        html: clip(item.html, 800),
-        note: clip(item.note, 2000),
-      })),
-      onlyAnnotated: definition.onlyAnnotated && definition.annotations.length > 0,
+      annotations,
+      onlyAnnotated: definition.onlyAnnotated && annotations.length > 0,
       desktopTarget: definition.desktopTarget,
       allowDesktopInput: definition.allowDesktopInput,
       annotationResults: {},
@@ -545,6 +553,12 @@ export class AttackService {
     const all = await findings.list();
     const open = await this.openFindings(run.id);
     const evidence = input.evidence.slice(0, MAX_EVIDENCE_PER_FINDING);
+    let annotationLabels: string[];
+    try {
+      annotationLabels = resolveAnnotationLabels(run.annotations, input.annotationLabels ?? []);
+    } catch (error) {
+      throw new AttackStateError(error instanceof Error ? error.message : String(error));
+    }
 
     const named = input.duplicateOf ? this.mergeTarget(all, input.duplicateOf) : null;
     const repeated = named ?? open.find((finding) => finding.signature === signature);
@@ -553,6 +567,7 @@ export class AttackService {
         severity: input.severity,
         evidence,
         reportCount: 1,
+        annotationLabels,
       });
       await this.audit(run.id, "finding_deduped", callerAgentId, merged.id);
       return { outcome: "merged", finding: withoutScreenshotBytes(merged) };
@@ -581,7 +596,7 @@ export class AttackService {
       description: clip(input.description),
       repro: clip(input.repro),
       evidence,
-      annotationLabels: [],
+      annotationLabels,
       signature,
       status: "new",
       reportCount: 1,
@@ -616,7 +631,12 @@ export class AttackService {
   private async foldReport(
     runId: string,
     findingId: string,
-    report: { severity: FindingSeverity; evidence: FindingEvidence[]; reportCount: number },
+    report: {
+      severity: FindingSeverity;
+      evidence: FindingEvidence[];
+      reportCount: number;
+      annotationLabels: readonly string[];
+    },
   ): Promise<Finding> {
     const merged = await this.store.findings(runId).update(findingId, (current) => ({
       ...current,
@@ -626,6 +646,7 @@ export class AttackService {
           : current.severity,
       evidence: [...current.evidence, ...report.evidence].slice(0, MAX_EVIDENCE_PER_FINDING),
       reportCount: current.reportCount + report.reportCount,
+      annotationLabels: [...new Set([...current.annotationLabels, ...report.annotationLabels])],
       updatedAt: new Date().toISOString(),
     }));
     if (!merged) throw new AttackStateError("The finding disappeared while merging.");
@@ -672,6 +693,54 @@ export class AttackService {
       height: input.height,
       dataBase64: input.dataBase64,
     };
+  }
+
+  // ---- annotations ----
+
+  /** An annotation's text for an agent of the run, with its screenshot when the owner's element had one. */
+  async annotationForAgent(
+    callerAgentId: string,
+    label: string,
+  ): Promise<{ annotation: AttackRun["annotations"][number]; imageBase64: string | null }> {
+    const run = await this.runForAgent(callerAgentId);
+    if (!run) throw new AttackStateError("This agent is not part of an Attack run.");
+    const annotation = findAnnotation(run.annotations, label);
+    if (!annotation) {
+      const known = run.annotations.map((item) => item.label).join(", ") || "none";
+      throw new AttackStateError(`This run has no annotation ${label}. Its annotations: ${known}.`);
+    }
+    return {
+      annotation,
+      imageBase64: await readAnnotationImage(this.store.dir, run.id, annotation),
+    };
+  }
+
+  /** The lead's verdict on an annotation no finding covers: it held, or it could not be tested. */
+  async reportAnnotationResult(
+    callerAgentId: string,
+    input: { label: string; result: "clean" | "not_testable"; note: string },
+  ): Promise<AttackRun> {
+    const run = await this.runForAgent(callerAgentId);
+    if (!run) throw new AttackStateError("This agent is not part of an Attack run.");
+    if (run.status !== "running") {
+      throw new AttackStateError(`The run is ${run.status}; results are not accepted now.`);
+    }
+    const annotation = findAnnotation(run.annotations, input.label);
+    if (!annotation) {
+      const known = run.annotations.map((item) => item.label).join(", ") || "none";
+      throw new AttackStateError(
+        `This run has no annotation ${input.label}. Its annotations: ${known}.`,
+      );
+    }
+    const updated = await this.updateAndPublish(run.id, (current) => ({
+      ...current,
+      annotationResults: {
+        ...current.annotationResults,
+        [annotation.label]: clipResultNote({ result: input.result, note: input.note }),
+      },
+      updatedAt: new Date().toISOString(),
+    }));
+    return updated;
   }
 
   // ---- agents and navigation ----
