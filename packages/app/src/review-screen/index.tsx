@@ -6,8 +6,11 @@
 // header). Add behaviour in the slot, not here.
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Text, View } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
+import { PanelRight } from "lucide-react-native";
+import { ToolbarButton } from "@/components/ui/pane-content-toolbar";
+import { Text, View, type LayoutChangeEvent } from "react-native";
+import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import type { Theme } from "@/styles/theme";
 import { MenuHeader } from "@/components/headers/menu-header";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { ReviewFixSheet } from "./agent-actions/fix-sheet";
@@ -152,7 +155,17 @@ function ReviewDetail({
     null,
   );
   const [fixOpen, setFixOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [changesWidth, setChangesWidth] = useState(0);
   const { push } = navigation;
+  // Tree (280) + a usable diff + inspector (340) need room; below that the inspector is a toggle.
+  const narrow = changesWidth > 0 && changesWidth < INSPECTOR_MIN_CHANGES_WIDTH;
+  const showInspector = !isCompact && (!narrow || inspectorOpen);
+  const onChangesLayout = useCallback(
+    (event: LayoutChangeEvent) => setChangesWidth(event.nativeEvent.layout.width),
+    [],
+  );
+  const toggleInspector = useCallback(() => setInspectorOpen((open) => !open), []);
 
   const closeFixSheet = useCallback(() => setFixOpen(false), []);
   const onTabChange = useCallback((next: ReviewDetailTab) => push({ tab: next }), [push]);
@@ -175,7 +188,7 @@ function ReviewDetail({
           onSelectionChange={setSelection}
         />
       ) : (
-        <View style={styles.changes}>
+        <View style={styles.changes} onLayout={onChangesLayout}>
           <View style={styles.desk}>
             <ReviewDesk
               source={source}
@@ -184,7 +197,22 @@ function ReviewDetail({
               onSelectionChange={setSelection}
             />
           </View>
-          {isCompact ? null : (
+          {!isCompact && narrow ? (
+            <View style={styles.inspectorToggle}>
+              <ToolbarButton
+                label="Toggle threads panel"
+                selected={inspectorOpen}
+                onPress={toggleInspector}
+                testID="review-inspector-toggle"
+              >
+                <ThemedPanelRight
+                  size={16}
+                  uniProps={inspectorOpen ? foregroundMapping : mutedMapping}
+                />
+              </ToolbarButton>
+            </View>
+          ) : null}
+          {showInspector ? (
             <View style={styles.inspector}>
               <ReviewInspector
                 source={source}
@@ -195,7 +223,7 @@ function ReviewDetail({
                 onSelectionChange={setSelection}
               />
             </View>
-          )}
+          ) : null}
         </View>
       )}
       <ReviewFixSheet
@@ -208,6 +236,11 @@ function ReviewDetail({
   );
 }
 
+const ThemedPanelRight = withUnistyles(PanelRight);
+const foregroundMapping = (theme: Theme) => ({ color: theme.colors.foreground });
+const mutedMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
+const INSPECTOR_MIN_CHANGES_WIDTH = 960;
+
 const styles = StyleSheet.create((theme) => ({
   screen: { flex: 1, minWidth: 0, backgroundColor: theme.colors.surface0 },
   body: { flex: 1, minHeight: 0, flexDirection: "row" },
@@ -215,7 +248,14 @@ const styles = StyleSheet.create((theme) => ({
   railCompact: { flex: 1 },
   detail: { flex: 1, minWidth: 0 },
   changes: { flex: 1, minHeight: 0, flexDirection: "row" },
-  desk: { flex: 1, minWidth: 0 },
+  desk: { flex: 1, minWidth: 0, overflow: "hidden" },
+  inspectorToggle: {
+    width: 36,
+    alignItems: "center",
+    paddingTop: theme.spacing[3],
+    borderLeftWidth: 1,
+    borderLeftColor: theme.colors.border,
+  },
   inspector: { width: 340, borderLeftWidth: 1, borderLeftColor: theme.colors.border },
   nothing: {
     flex: 1,

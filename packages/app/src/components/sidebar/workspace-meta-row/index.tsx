@@ -216,7 +216,7 @@ function PullRequestItem({
 
   return (
     <Pressable
-      accessibilityRole={openPullRequest ? "button" : "link"}
+      accessibilityRole="link"
       accessibilityLabel={t("workspace.git.pr.accessibility.pullRequest", {
         number: hint.number,
         context: presentation.changeRequestContext,
