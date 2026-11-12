@@ -851,6 +851,7 @@ function OfferLinkListener() {
     let cancelled = false;
     const handleUrl = async (url: string | null) => {
       if (!url) return;
+      if (url.startsWith("pimi://pair")) return; // handled by the /pair route
       if (!url.includes("#offer=") && !url.includes("#connect=") && !url.startsWith("relay://"))
         return;
       try {
@@ -1042,6 +1043,7 @@ function RootStack() {
     >
       <Stack.Screen name="index" />
       <Stack.Screen name="pimi-dictation" />
+      <Stack.Screen name="pair" />
       <Stack.Protected guard={storeReady}>
         <Stack.Screen name="welcome" />
         <Stack.Screen name="settings/index" />

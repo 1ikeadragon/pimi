@@ -57,7 +57,7 @@ const HOST_RULES: ReadonlyArray<readonly [suffix: string, purpose: string]> = [
   ["githubcopilot.com", NETWORK_PURPOSE.usage],
   ["generativelanguage.googleapis.com", NETWORK_PURPOSE.usage],
   ["cloudcode-pa.googleapis.com", NETWORK_PURPOSE.usage],
-  ["paseo.sh", NETWORK_PURPOSE.relay],
+  ["stateless.computer", NETWORK_PURPOSE.relay],
 ];
 
 export interface NetworkHostClassification {
