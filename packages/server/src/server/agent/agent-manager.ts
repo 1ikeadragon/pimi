@@ -117,7 +117,8 @@ import { PIMI_VISUALIZATION_INSTRUCTIONS } from "@pimi/protocol/chat-visualizati
 import { buildAgentForkContextAttachment, MAX_FORK_CONTEXT_CHARS } from "./activity-curator.js";
 import { isChatHistoryAttachment } from "./prompt-attachments.js";
 import type { AgentAttachment } from "@pimi/protocol/messages";
-import type { AgentImageStore } from "./agent-images.js";
+import type { AgentImageRef } from "@pimi/protocol/agent-types";
+import { storeProviderImage, type AgentImageStore } from "./agent-images.js";
 import type { CarriedTimelineStore } from "./carried-timeline.js";
 import {
   SentAttachmentJoiner,
@@ -4392,20 +4393,51 @@ export class AgentManager {
   async readAgentImage(
     agentId: string,
     imageId: string,
-  ): Promise<{ mimeType: string; data: string } | null> {
-    const image = await this.agentImages?.read(agentId, imageId);
-    return image ? { mimeType: image.mimeType, data: image.bytes.toString("base64") } : null;
+  ): Promise<{ mimeType: string; bytes: Buffer } | null> {
+    return (await this.agentImages?.read(agentId, imageId)) ?? null;
   }
 
   /**
-   * Gives replayed user messages back the pills and screenshots they were sent with, and the
-   * text the user typed. Provider history keeps only the prompt text, attachment bodies included.
+   * Swaps the images a provider reported for refs into the agent's image store. An item whose
+   * images all fail to store is dropped, and each failure is logged.
    */
-  private async joinSentAttachments(
+  private async storeProviderImages(
+    agentId: string,
+    item: AgentTimelineItem,
+  ): Promise<AgentTimelineItem | null> {
+    if (item.type !== "provider_images") return item;
+    const store = this.agentImages;
+    const images: AgentImageRef[] = [];
+    for (const source of item.images) {
+      try {
+        const ref = store ? await storeProviderImage(store, agentId, source) : null;
+        if (ref) images.push(ref);
+      } catch (error) {
+        this.logger.warn({ err: error, agentId }, "Failed to store agent image");
+      }
+    }
+    return images.length > 0
+      ? { type: "assistant_images", images, ...(item.callId ? { callId: item.callId } : {}) }
+      : null;
+  }
+
+  /**
+   * Finishes replayed provider history: stores the images it reported, and gives user messages
+   * back the pills and screenshots they were sent with and the text the user typed. Provider
+   * history keeps only the prompt text, attachment bodies included.
+   */
+  private async completeHistoryEvents(
     agentId: string,
     events: Array<{ item: AgentTimelineItem }>,
     options: { fresh: boolean },
   ): Promise<void> {
+    for (let index = 0; index < events.length; index += 1) {
+      const event = events[index]!;
+      if (event.item.type !== "provider_images") continue;
+      const stored = await this.storeProviderImages(agentId, event.item);
+      if (stored) event.item = stored;
+      else events.splice(index--, 1);
+    }
     if (!this.sentAttachments) return;
     let joiner = options.fresh ? undefined : this.sentJoiners.get(agentId);
     if (!joiner) {
@@ -5389,7 +5421,7 @@ export class AgentManager {
       const loaded = this.timelineStore.countRowsBefore(agentId, options.beforeSeq ?? Infinity);
       if (!options.all && loaded >= (options.rowsWanted ?? 0)) return;
       const block = this.projectOlderHistoryEvents(await agent.session.loadOlderHistory!());
-      await this.joinSentAttachments(agentId, block.timeline, { fresh: false });
+      await this.completeHistoryEvents(agentId, block.timeline, { fresh: false });
       if (this.timelineStore.getEpoch(agentId) !== epoch) return;
       this.timelineStore.prependItems(
         agentId,
@@ -5473,7 +5505,7 @@ export class AgentManager {
       historyEvents.unshift(...older.timeline);
       providerSubagentEvents.unshift(...older.subagents);
     }
-    await this.joinSentAttachments(agent.id, historyEvents, { fresh: true });
+    await this.completeHistoryEvents(agent.id, historyEvents, { fresh: true });
     this.agentStreamCoalescer.flushAndDiscard(agent.id);
     await this.deleteCommittedTimeline(agent.id);
     this.timelineStore.delete(agent.id);
@@ -5549,7 +5581,7 @@ export class AgentManager {
     // base so older blocks can be added below; a timeline that already holds carried rows needs
     // the whole history before it can be recorded.
     const windowed = await this.prepareWindowedHistory(agent, historyEvents, historySubagentEvents);
-    await this.joinSentAttachments(agent.id, historyEvents, { fresh: true });
+    await this.completeHistoryEvents(agent.id, historyEvents, { fresh: true });
     // The replay is the timeline, so drop the rows a previous hydration committed.
     // Keeping them would leave getTimelineRows reading one copy per hydration.
     await this.deleteCommittedTimeline(agent.id);
@@ -5641,6 +5673,11 @@ export class AgentManager {
     event: AgentStreamEvent,
     options?: HandleStreamEventOptions,
   ): Promise<boolean> {
+    if (event.type === "timeline" && event.item.type === "provider_images") {
+      const item = await this.storeProviderImages(agent.id, event.item);
+      if (!item) return false;
+      event = { ...event, item };
+    }
     event = limitAgentStreamEventContent(event);
     const identified = attachManagedTurnIdentity(agent, event, options?.fromHistory === true);
     event = identified.event;

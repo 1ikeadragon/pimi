@@ -5,7 +5,7 @@ import { Pressable, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StyleSheet } from "react-native-unistyles";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
-import { X } from "lucide-react-native";
+import { ChevronLeft, ChevronRight, X } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import type { AttachmentMetadata } from "@/attachments/types";
 import { useAttachmentPreviewUrl } from "@/attachments/use-attachment-preview-url";
@@ -23,12 +23,20 @@ export type ImageLightboxSource =
 interface AttachmentLightboxProps {
   source: ImageLightboxSource | null;
   onClose: () => void;
+  /** Present when the image belongs to a set; the arrow keys and buttons step through it. */
+  onPrevious?: () => void;
+  onNext?: () => void;
 }
 
 const ModalRoot = isNative ? GestureHandlerRootView : View;
 const LIGHTBOX_FIT = { padding: SPACING[4], maxWidth: 960, maxHeight: 640 };
 
-export function AttachmentLightbox({ source, onClose }: AttachmentLightboxProps) {
+export function AttachmentLightbox({
+  source,
+  onClose,
+  onPrevious,
+  onNext,
+}: AttachmentLightboxProps) {
   const { t } = useTranslation();
   const metadata = source?.type === "attachment" ? source.metadata : null;
   const attachmentUrl = useAttachmentPreviewUrl(metadata);
@@ -43,16 +51,22 @@ export function AttachmentLightbox({ source, onClose }: AttachmentLightboxProps)
 
   const handleOverlayKeyDown = useCallback(
     (event: KeyboardInputEvent) => {
-      if (event.key !== "Escape") return false;
+      const handlers: Record<string, (() => void) | undefined> = {
+        Escape: onClose,
+        ArrowLeft: onPrevious,
+        ArrowRight: onNext,
+      };
+      const handler = handlers[event.key];
+      if (!handler) return false;
       event.preventDefault();
       event.stopPropagation();
-      onClose();
+      handler();
       return true;
     },
-    [onClose],
+    [onClose, onNext, onPrevious],
   );
   const setOverlayScope = useOverlayRegistration({
-    keys: ["Escape"],
+    keys: ["Escape", "ArrowLeft", "ArrowRight"],
     active: source !== null,
     layer: modalLayer,
     onKeyDown: handleOverlayKeyDown,
@@ -60,6 +74,26 @@ export function AttachmentLightbox({ source, onClose }: AttachmentLightboxProps)
 
   const actions = useMemo(
     () => [
+      ...(onPrevious
+        ? [
+            {
+              icon: ChevronLeft,
+              label: t("message.attachments.previousImage"),
+              onPress: onPrevious,
+              testID: "attachment-lightbox-previous",
+            },
+          ]
+        : []),
+      ...(onNext
+        ? [
+            {
+              icon: ChevronRight,
+              label: t("message.attachments.nextImage"),
+              onPress: onNext,
+              testID: "attachment-lightbox-next",
+            },
+          ]
+        : []),
       {
         icon: X,
         label: t("message.attachments.closeImage"),
@@ -67,7 +101,7 @@ export function AttachmentLightbox({ source, onClose }: AttachmentLightboxProps)
         testID: "attachment-lightbox-close",
       },
     ],
-    [onClose, t],
+    [onClose, onNext, onPrevious, t],
   );
 
   const handleImageError = useCallback(() => setErrored(true), []);

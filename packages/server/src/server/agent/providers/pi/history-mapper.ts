@@ -1,10 +1,6 @@
 import { mapCustomMessageToToolCall } from "../custom-message.js";
 import type { AgentStreamEvent, AgentTimelineItem, ToolCallDetail } from "../../agent-sdk-types.js";
 import {
-  materializeProviderImage,
-  renderProviderImageOutputAsAssistantMarkdown,
-} from "../provider-image-output.js";
-import {
   createPiExtensionHost,
   type PiExtensionEventOutput,
   type PiExtensionHost,
@@ -219,9 +215,8 @@ export class PiHistoryMapper {
       this.pendingToolCalls.get(message.toolCallId) ?? parseToolArgs(message.toolName, null);
     this.pendingToolCalls.delete(message.toolCallId);
     const result = parseToolResult({ content: message.content, details: message.details });
-    // Pull image blocks out of the result so base64 never reaches the tool output, then render
-    // each one as an assistant_message markdown image after the tool_call (mirroring the live
-    // path and the Claude provider, upstream #1717).
+    // Pull image blocks out of the result so base64 never reaches the tool output; they follow
+    // the tool_call as one provider_images item, as in the live path.
     const { images, result: splitResult } = splitPiToolResultImages(result);
     const mapping = this.extensionHost.mapToolCall({
       callId: message.toolCallId,
@@ -234,13 +229,20 @@ export class PiHistoryMapper {
     if (!detail) {
       return [];
     }
-    const imageEvents: AgentStreamEvent[] = [];
-    for (const image of images) {
-      const item = await renderProviderImageOutputAsAssistantMarkdown(image, {
-        materialize: materializeProviderImage,
-      });
-      if (item) imageEvents.push({ type: "timeline", provider: this.provider, item });
-    }
+    const imageEvents: AgentStreamEvent[] =
+      images.length > 0
+        ? [
+            {
+              type: "timeline",
+              provider: this.provider,
+              item: {
+                type: "provider_images",
+                images,
+                callId: this.resolveToolCallId(message.toolCallId, tracked),
+              },
+            },
+          ]
+        : [];
     return [
       {
         type: "timeline",

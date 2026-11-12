@@ -100,12 +100,7 @@ import {
 import { normalizeProviderReplayTimestamp } from "../../provider-history-timestamps.js";
 import { claudeConfigDir, claudeProjectDirSync, claudeTranscriptPath } from "./project-dir.js";
 import { THINKING_APPLIES_NEXT_TURN_NOTICE } from "../../provider-notices.js";
-import {
-  isProviderImageMarkdown,
-  materializeProviderImage,
-  renderProviderImageOutputAsAssistantMarkdown,
-  type ProviderImageOutput,
-} from "../provider-image-output.js";
+import type { ProviderImageOutput } from "../../agent-images.js";
 
 import {
   getAgentStreamEventTurnId,
@@ -6177,13 +6172,8 @@ class ClaudeAgentSession implements AgentSession {
     this.pushToolCall(settledToolCall, items);
     this.rememberSettledSubagentToolCall(settledToolCall, entry);
 
-    for (const image of images) {
-      const imageItem = await renderProviderImageOutputAsAssistantMarkdown(image, {
-        materialize: materializeProviderImage,
-      });
-      if (imageItem) {
-        items.push(imageItem);
-      }
+    if (images.length > 0) {
+      items.push({ type: "provider_images", images, ...(callId ? { callId } : {}) });
     }
 
     if (typeof block.tool_use_id === "string") {
@@ -6892,10 +6882,6 @@ function convertClaudeHistoryEntryPreamble(
   return { proceed: { content } };
 }
 
-function isProviderImageMessage(item: AgentTimelineItem): boolean {
-  return item.type === "assistant_message" && isProviderImageMarkdown(item.text);
-}
-
 /**
  * A message steered into a running turn. Claude Code gives it no user entry: it records a
  * queued_command attachment in prompt mode, under the uuid Paseo minted for the message, which is
@@ -6957,11 +6943,11 @@ export async function convertClaudeHistoryEntry(
   if (hasToolBlock && normalizedBlocks) {
     const mapped = await mapBlocks(normalizedBlocks);
     if (entry.type === "user") {
-      // tool_result handling (handleToolResult) emits image markdown as an assistant_message
-      // alongside the tool_call. User-entry text blocks also map to assistant_message in this path
-      // and must stay suppressed, so keep tool_calls plus only the image assistant_messages.
+      // tool_result handling (handleToolResult) emits provider_images alongside the tool_call.
+      // User-entry text blocks map to assistant_message in this path and must stay suppressed,
+      // so keep only tool_calls and the images.
       const toolItems = mapped.filter(
-        (item) => item.type === "tool_call" || isProviderImageMessage(item),
+        (item) => item.type === "tool_call" || item.type === "provider_images",
       );
       return timeline.length ? [...timeline, ...toolItems] : toolItems;
     }

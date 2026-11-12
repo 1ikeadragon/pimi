@@ -3,6 +3,7 @@ import type {
   AgentFeatureSelect,
   AgentFeatureToggle,
   AgentImageRef,
+  ProviderImagesTimelineItem,
   AgentPermissionResolutionMarker,
   AgentProviderNotice,
   AgentProviderSwitchMarker,
@@ -394,6 +395,8 @@ export type AgentTimelineItem =
       images?: AgentImageRef[];
     }
   | { type: "assistant_message"; text: string; messageId?: string }
+  | { type: "assistant_images"; images: AgentImageRef[]; callId?: string }
+  | ProviderImagesTimelineItem
   | { type: "reasoning"; text: string }
   | ToolCallTimelineItem
   | { type: "todo"; items: AgentTaskItem[] }

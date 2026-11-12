@@ -104,11 +104,8 @@ import {
   readCodexThreadHistoryMode,
   readCodexThreadHistoryPageBefore,
 } from "./codex/thread-history.js";
-import {
-  materializeProviderImage,
-  renderProviderImageOutputAsAssistantMarkdown,
-  type ProviderImageOutput,
-} from "./provider-image-output.js";
+import { materializeProviderImage } from "./prompt-image-file.js";
+import type { ProviderImageOutput } from "../agent-images.js";
 import { normalizeProviderReplayTimestamp } from "../provider-history-timestamps.js";
 import { limitAgentTimelineItemContent } from "../agent-timeline-content.js";
 import {
@@ -2013,10 +2010,15 @@ async function mapCodexThreadImageItem(
   normalizedType: string,
   normalizedItem: Record<string, unknown>,
 ): Promise<AgentTimelineItem | null> {
+  const callId = firstStringField(normalizedItem, ["id"]);
+  const imagesItem = (images: ProviderImageOutput[]): AgentTimelineItem => ({
+    type: "provider_images",
+    images,
+    ...(callId ? { callId } : {}),
+  });
   if (normalizedType === "imageView") {
-    return await renderProviderImageOutputAsAssistantMarkdown({
-      path: firstStringField(normalizedItem, ["path"]),
-    });
+    const imagePath = firstStringField(normalizedItem, ["path"]);
+    return imagePath ? imagesItem([{ path: imagePath }]) : null;
   }
 
   if (normalizedItem.status === "failed") {
@@ -2030,15 +2032,13 @@ async function mapCodexThreadImageItem(
 
   const savedPath = firstStringField(normalizedItem, ["savedPath", "saved_path"]);
   const result = codexImageOutputFromResult(normalizedItem.result);
-  return await renderProviderImageOutputAsAssistantMarkdown(
-    {
-      path: savedPath ?? result?.path ?? null,
-      url: result?.url ?? null,
-      data: result?.data ?? null,
-      mimeType: result?.mimeType ?? null,
-    },
-    { materialize: materializeProviderImage },
-  );
+  const image = {
+    path: savedPath ?? result?.path ?? null,
+    url: result?.url ?? null,
+    data: result?.data ?? null,
+    mimeType: result?.mimeType ?? null,
+  };
+  return image.path || image.url || image.data ? imagesItem([image]) : null;
 }
 
 function mapCodexAgentMessage(item: Record<string, unknown>): AgentTimelineItem {
@@ -2107,14 +2107,10 @@ async function mcpToolResultImagesToTimeline(item: unknown): Promise<AgentTimeli
   }
 
   const { images } = splitCodexMcpToolResultImages(itemRecord.result);
-  const items: AgentTimelineItem[] = [];
-  for (const image of images) {
-    const imageItem = await renderProviderImageOutputAsAssistantMarkdown(image, {
-      materialize: materializeProviderImage,
-    });
-    if (imageItem) items.push(imageItem);
-  }
-  return items;
+  const callId = nonEmptyString(itemRecord.id);
+  return images.length > 0
+    ? [{ type: "provider_images", images, ...(callId ? { callId } : {}) }]
+    : [];
 }
 
 async function threadItemToTimelineEntries(

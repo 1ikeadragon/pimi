@@ -102,6 +102,8 @@ function staysVisibleWhenCollapsed(item: StreamItem): boolean {
   return (
     isTurnTrigger(item) ||
     item.kind === "compaction" ||
+    // The pictures are the result; the calls that made them fold, they do not.
+    item.kind === "assistant_images" ||
     // Another agent decided for this one; that must not fold away with the turn's own work.
     (item.kind === "notification" && item.permissionResolution !== undefined) ||
     (item.kind === "tool_call" &&

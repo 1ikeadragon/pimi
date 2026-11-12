@@ -84,6 +84,7 @@ function createAssistantItemId(
 export type StreamItem =
   | UserMessageItem
   | AssistantMessageItem
+  | AssistantImagesItem
   | ThoughtItem
   | ToolCallItem
   | TodoListItem
@@ -699,6 +700,17 @@ export interface AssistantMessageItem {
   text: string;
   timestamp: Date;
   /** Display-only fields, assigned after source-item plugin transforms. */
+}
+
+/** Images one tool result produced; the bytes are fetched on demand by id. */
+export interface AssistantImagesItem {
+  kind: "assistant_images";
+  id: string;
+  turnId?: string;
+  timelineCursor?: TimelinePosition;
+  callId?: string;
+  images: AgentImageRef[];
+  timestamp: Date;
 }
 
 export interface TimelinePosition {
@@ -1497,6 +1509,34 @@ function reduceTimelineCompaction(
   return [...state, compaction];
 }
 
+function appendAssistantImages(
+  state: StreamItem[],
+  item: Extract<AgentTimelineItem, { type: "assistant_images" }>,
+  timestamp: Date,
+  timelineCursor: TimelinePosition | undefined,
+  turnId: string | undefined,
+): StreamItem[] {
+  if (item.images.length === 0) return state;
+  const id = createUniqueTimelineId(
+    state,
+    "images",
+    item.images.map((image) => image.imageId).join(","),
+    timestamp,
+  );
+  return [
+    ...state,
+    {
+      kind: "assistant_images",
+      id,
+      ...(timelineCursor ? { timelineCursor } : {}),
+      ...(turnId ? { turnId } : {}),
+      ...(item.callId ? { callId: item.callId } : {}),
+      images: item.images,
+      timestamp,
+    },
+  ];
+}
+
 function reduceTimelineEvent(
   state: StreamItem[],
   event: Extract<AgentStreamEventPayload, { type: "timeline" }>,
@@ -1529,6 +1569,8 @@ function reduceTimelineEvent(
         reservedItemIds,
         timelineCursor,
       );
+    case "assistant_images":
+      return appendAssistantImages(state, item, timestamp, timelineCursor, event.turnId);
     case "reasoning":
       return appendThought(state, item.text, timestamp, timelineCursor, event.turnId);
     case "tool_call":
@@ -1721,6 +1763,8 @@ function getEventItemKind(event: AgentStreamEventPayload): StreamItem["kind"] | 
       return "user_message";
     case "assistant_message":
       return "assistant_message";
+    case "assistant_images":
+      return "assistant_images";
     case "reasoning":
       return "thought";
     case "tool_call":

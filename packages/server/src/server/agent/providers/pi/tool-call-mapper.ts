@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { ToolCallDetail } from "../../agent-sdk-types.js";
-import type { ProviderImageOutput } from "../provider-image-output.js";
+import type { ProviderImageOutput } from "../../agent-images.js";
 
 interface BashToolInput {
   command: string;

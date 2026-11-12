@@ -1765,6 +1765,7 @@ export class ACPAgentSession implements AgentSession, ACPClient {
   private pendingUserMessage: PendingUserMessage | null = null;
   private submittedUserMessageTurnId: string | null = null;
   private readonly toolCalls = new Map<string, ACPToolSnapshot>();
+  private readonly imagedToolCalls = new Set<string>();
   private readonly terminalEntries = new Map<string, TerminalEntry>();
   private readonly persistedHistory: AgentTimelineItem[] = [];
   private readonly initialHandle?: AgentPersistenceHandle;
@@ -3157,6 +3158,14 @@ export class ACPAgentSession implements AgentSession, ACPClient {
     const pendingUserEvents = this.flushPendingUserMessage();
     switch (update.sessionUpdate) {
       case "agent_message_chunk": {
+        const image = acpImageOutput(update.content);
+        if (image) {
+          this.fallbackAssistantMessageId = null;
+          return [
+            ...pendingUserEvents,
+            this.wrapTimeline({ type: "provider_images", images: [image] }),
+          ];
+        }
         const item = this.createMessageTimelineItem("assistant_message", update);
         return item ? [...pendingUserEvents, this.wrapTimeline(item)] : pendingUserEvents;
       }
@@ -3287,7 +3296,21 @@ export class ACPAgentSession implements AgentSession, ACPClient {
     if (update.status === "completed" || update.status === "failed") {
       this.cancelPendingPermissions((pending) => pending.toolCallId === toolCallId);
     }
-    return [this.wrapTimeline(mapToolSnapshotToTimeline(snapshot, this.terminalEntries))];
+    const events = [this.wrapTimeline(mapToolSnapshotToTimeline(snapshot, this.terminalEntries))];
+    if (
+      (update.status === "completed" || update.status === "failed") &&
+      !this.imagedToolCalls.has(toolCallId)
+    ) {
+      const images = (snapshot.content ?? []).flatMap((item) => {
+        const image = item.type === "content" ? acpImageOutput(item.content) : null;
+        return image ? [image] : [];
+      });
+      if (images.length > 0) {
+        this.imagedToolCalls.add(toolCallId);
+        events.push(this.wrapTimeline({ type: "provider_images", images, callId: toolCallId }));
+      }
+    }
+    return events;
   }
 
   private createMessageTimelineItem(
@@ -3823,6 +3846,12 @@ function extractPromptText(prompt: AgentPromptInput): string {
     .join("");
 }
 
+function acpImageOutput(content: ContentBlock): ProviderImageOutput | null {
+  if (content.type !== "image") return null;
+  if (content.data) return { data: content.data, mimeType: content.mimeType };
+  return content.uri ? { url: content.uri, mimeType: content.mimeType } : null;
+}
+
 function contentBlockToText(content: ContentBlock): string {
   switch (content.type) {
     case "text":
@@ -3834,7 +3863,7 @@ function contentBlockToText(content: ContentBlock): string {
         ? content.resource.text
         : `[resource:${content.resource.mimeType ?? "binary"}]`;
     case "image":
-      return "[image]";
+      return "";
     case "audio":
       return "[audio]";
     default:

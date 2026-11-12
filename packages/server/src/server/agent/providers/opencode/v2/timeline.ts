@@ -1,8 +1,4 @@
 import { mapOpencodeToolCall } from "../tool-call-mapper.js";
-import {
-  materializeProviderImage,
-  renderProviderImageOutputAsAssistantMarkdown,
-} from "../../provider-image-output.js";
 import type { SessionMessageAssistantTool } from "@opencode/client";
 import { isStructuredOutputTool } from "./structured-output.js";
 import type { SessionMessageInfo } from "@opencode/client";
@@ -186,17 +182,15 @@ export class V2Timeline {
     const { output, images } = splitToolContent(part.state);
     const item = toolFromV2(part, output);
     if (item) push(item);
-    // Images follow their tool call as markdown, as Claude and Codex emit them,
-    // so base64 never reaches the tool output.
-    for (const [index, image] of images.entries()) {
-      const imageKey = `${key}:image:${index}`;
-      if (this.content.has(imageKey)) continue;
+    // Images follow their tool call as one item, so base64 never reaches the tool output.
+    const imageKey = `${key}:images`;
+    if (images.length > 0 && !this.content.has(imageKey)) {
       this.content.set(imageKey, "");
-      const imageItem = await renderProviderImageOutputAsAssistantMarkdown(
-        { url: image.uri, mimeType: image.mime },
-        { materialize: materializeProviderImage },
-      );
-      if (imageItem) push(imageItem);
+      push({
+        type: "provider_images",
+        images: images.map((image) => ({ url: image.uri, mimeType: image.mime })),
+        callId: part.id,
+      });
     }
   }
 

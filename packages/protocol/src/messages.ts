@@ -1018,6 +1018,11 @@ export const AgentTimelineItemPayloadSchema: z.ZodType<AgentTimelineItem, unknow
     messageId: z.string().optional(),
   }),
   z.object({
+    type: z.literal("assistant_images"),
+    images: z.array(AgentImageRefSchema),
+    callId: z.string().optional(),
+  }),
+  z.object({
     type: z.literal("reasoning"),
     text: z.string(),
   }),
@@ -2165,6 +2170,8 @@ export const AgentImageRequestMessageSchema = z.object({
   agentId: z.string(),
   requestId: z.string(),
   imageId: z.string(),
+  // The client reassembles binary file-transfer frames; otherwise the bytes come back as base64.
+  acceptBinary: z.boolean().optional(),
 });
 
 export const AgentTimelineSearchRequestMessageSchema = z.object({
@@ -4742,8 +4749,11 @@ export const AgentImageResponseMessageSchema = z.object({
     agentId: z.string(),
     imageId: z.string(),
     mimeType: z.string().nullable(),
-    // Base64 over the wire only; the stored file is raw bytes.
+    // Base64 only when the client cannot take binary frames; otherwise the bytes arrive as
+    // file-transfer frames for this requestId ahead of this response and `data` is null.
     data: z.string().nullable(),
+    // Set when the bytes arrived as binary frames.
+    byteSize: z.number().int().nonnegative().optional(),
     error: z.string().nullable(),
   }),
 });

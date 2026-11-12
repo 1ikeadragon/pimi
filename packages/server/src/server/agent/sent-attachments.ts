@@ -8,7 +8,8 @@ import {
   AgentImageRefSchema,
   type AgentAttachment,
 } from "@pimi/protocol/messages";
-import { agentImageId, isSupportedImageMimeType, type AgentImageRef } from "./agent-images.js";
+import type { AgentImageRef } from "@pimi/protocol/agent-types";
+import { agentImageId, isSupportedImageMimeType } from "./agent-images.js";
 
 /**
  * Timeline rows are rebuilt from provider history, which keeps only a message's text. What a
