@@ -66,3 +66,27 @@ export const hostTerminalsSettings = defineSettingsPage(
     },
   ],
 );
+
+export const hostConnectionsSettings = defineSettingsPage(
+  { kind: "host", section: "connections" },
+  ({ isDesktopApp }) => [
+    isDesktopApp
+      ? {
+          id: "connections.remoteSsh",
+          title: "Remote dev machine (SSH)",
+          keywords: [
+            "ssh",
+            "remote",
+            "dev machine",
+            "devbox",
+            "vps",
+            "server",
+            "linux",
+            "vscode remote",
+            "install daemon",
+            "connect",
+          ],
+        }
+      : null,
+  ],
+);

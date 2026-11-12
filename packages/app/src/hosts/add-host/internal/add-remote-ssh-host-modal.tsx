@@ -1,74 +1,42 @@
-import { PressHighlight } from "@/components/ui/press-highlight";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Text,
-  View,
-  type PressableStateCallbackType,
-  type StyleProp,
-  type ViewStyle,
-} from "react-native";
+import { Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { Eye, EyeOff, Terminal } from "lucide-react-native";
+import { Terminal } from "lucide-react-native";
 import { parseSshTransportUri } from "@pimi/protocol/ssh-transport";
 import type { HostProfile } from "@/types/host-connection";
 import { useHostMutations, useHosts } from "@/runtime/host-runtime";
 import { Button } from "@/components/ui/button";
 import { Field, FormTextInput } from "@/components/ui/form-field";
-import {
-  CONTROL_HEIGHTS,
-  createControlGeometry,
-  resolveControlInteractionStyles,
-} from "@/components/ui/control-geometry";
 import type { EditingTextInputHandle } from "@/components/ui/text-input";
 import { DaemonConnectionTestError } from "@/utils/test-daemon-connection";
+import { Alert } from "@/components/ui/alert";
+import { Switch } from "@/components/ui/switch";
+import { openExternalUrl } from "@/utils/open-external-url";
+import { RemoteSshProgressList } from "./remote-ssh-progress";
+import { useRemoteSshSetup } from "./remote-ssh-setup";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
 
+const DEFAULT_DAEMON_PORT = 6767;
 const FLEX_ONE_STYLE = { flex: 1 } as const;
 const ThemedTerminal = withUnistyles(Terminal);
-const ThemedEye = withUnistyles(Eye, (theme) => ({ color: theme.colors.foregroundMuted }));
-const ThemedEyeOff = withUnistyles(EyeOff, (theme) => ({ color: theme.colors.foregroundMuted }));
 
 const styles = StyleSheet.create((theme) => {
-  const geometry = createControlGeometry(theme);
   return {
     helper: {
       color: theme.colors.foregroundMuted,
       fontSize: theme.fontSize.sm,
     },
-    passwordRow: {
+    optionRow: {
       flexDirection: "row",
       alignItems: "center",
-      alignSelf: "stretch",
-      width: "100%",
-      gap: theme.spacing[2],
+      justifyContent: "space-between",
+      gap: theme.spacing[3],
     },
-    passwordInputWrap: {
-      flex: 1,
-      minWidth: 0,
-    },
-    // Boxed adornment next to the field: same height and radius as the field
-    // chrome, and the shared interaction phases.
-    iconButton: {
-      minHeight: CONTROL_HEIGHTS.md,
-      width: CONTROL_HEIGHTS.md,
-      alignItems: "center",
-      justifyContent: "center",
-      borderRadius: theme.borderRadius.lg,
-      backgroundColor: theme.colors.surface2,
-    },
-    controlRest: {
-      ...geometry.controlRest,
-    },
-    controlHover: {
-      ...geometry.controlHover,
-    },
-    controlActive: {
-      ...geometry.controlActive,
-    },
-    controlDisabled: {
-      ...geometry.controlDisabled,
-    },
+    optionText: { flex: 1, gap: theme.spacing[1] },
+    optionTitle: { color: theme.colors.foreground, fontSize: theme.fontSize.base },
+    link: { color: theme.colors.accent, fontSize: theme.fontSize.sm },
+    errorDetail: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm },
     actions: {
       flexDirection: "row",
       gap: theme.spacing[3],
@@ -89,6 +57,15 @@ export interface AddRemoteSshHostModalProps {
   }) => void;
 }
 
+const DOCS_URL = "https://github.com/1ikeadragon/pimi-releases/blob/main/docs/remote-ssh.md";
+const TITLE = "Remote dev machine (SSH)";
+
+/** Accepts `user@host`, `host`, or a full ssh:// URI. */
+function parseTargetInput(raw: string): ReturnType<typeof parseSshTransportUri> {
+  const value = raw.trim();
+  return parseSshTransportUri(value.includes("://") ? value : `ssh://${value}`);
+}
+
 export function AddRemoteSshHostModal({
   visible,
   onClose,
@@ -98,23 +75,22 @@ export function AddRemoteSshHostModal({
   const { t } = useTranslation();
   const hosts = useHosts();
   const { probeAndUpsertRemoteSshConnection } = useHostMutations();
+  const setup = useRemoteSshSetup();
   const targetRef = useRef("");
-  const passwordRef = useRef("");
   const inputRef = useRef<EditingTextInputHandle>(null);
-  const passwordInputRef = useRef<EditingTextInputHandle>(null);
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [useSystemd, setUseSystemd] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const header = useMemo<SheetHeader>(() => ({ title: t("pairing.remoteSsh.title") }), [t]);
+  const [errorDetail, setErrorDetail] = useState("");
+  const header = useMemo<SheetHeader>(() => ({ title: TITLE }), []);
 
   const clear = useCallback(() => {
     targetRef.current = "";
-    passwordRef.current = "";
     inputRef.current?.replaceText("");
-    passwordInputRef.current?.replaceText("");
-    setIsPasswordVisible(false);
     setErrorMessage("");
-  }, []);
+    setErrorDetail("");
+    setup.reset();
+  }, [setup]);
 
   const handleClose = useCallback(() => {
     if (isSaving) return;
@@ -123,10 +99,13 @@ export function AddRemoteSshHostModal({
   }, [clear, isSaving, onClose]);
 
   const handleCancel = useCallback(() => {
-    if (isSaving) return;
+    if (isSaving) {
+      setup.cancel();
+      return;
+    }
     clear();
     (onCancel ?? onClose)();
-  }, [clear, isSaving, onCancel, onClose]);
+  }, [clear, isSaving, onCancel, onClose, setup]);
 
   const handleSave = useCallback(async () => {
     if (isSaving) return;
@@ -138,70 +117,64 @@ export function AddRemoteSshHostModal({
 
     let target: ReturnType<typeof parseSshTransportUri>;
     try {
-      target = parseSshTransportUri(rawTarget);
+      target = parseTargetInput(rawTarget);
     } catch {
-      setErrorMessage(t("pairing.remoteSsh.errors.invalidTarget"));
+      setErrorMessage(
+        "Enter the machine as user@host, a name from your ~/.ssh/config, or ssh://user@host.",
+      );
       return;
     }
 
-    let result: Awaited<ReturnType<typeof probeAndUpsertRemoteSshConnection>>;
+    setIsSaving(true);
+    setErrorMessage("");
+    setErrorDetail("");
     try {
-      setIsSaving(true);
-      setErrorMessage("");
-      result = await probeAndUpsertRemoteSshConnection({
-        ...target,
-        password: passwordRef.current === "" ? undefined : passwordRef.current,
+      const outcome = await setup.run({
+        host: target.host,
+        ...(target.sshPort !== undefined ? { sshPort: target.sshPort } : {}),
+        ...(target.daemonPort !== DEFAULT_DAEMON_PORT ? { daemonPort: target.daemonPort } : {}),
+        service: useSystemd ? "systemd" : "nohup",
       });
+      if (!outcome.ok) {
+        setErrorMessage(outcome.message);
+        setErrorDetail(outcome.detail ?? "");
+        return;
+      }
+      const result = await probeAndUpsertRemoteSshConnection({
+        ...target,
+        label: undefined,
+      });
+      clear();
+      onSaved?.({
+        ...result,
+        isNewHost: !hosts.some((profile) => profile.serverId === result.serverId),
+      });
+      onClose();
     } catch (error) {
-      const message =
+      setErrorMessage(
         error instanceof DaemonConnectionTestError
           ? t("pairing.remoteSsh.errors.failedToConnect", { detail: error.message })
-          : t("common.errors.unableToSave");
-      setErrorMessage(message);
-      return;
+          : t("common.errors.unableToSave"),
+      );
     } finally {
       setIsSaving(false);
     }
-
-    clear();
-    onSaved?.({
-      ...result,
-      isNewHost: !hosts.some((profile) => profile.serverId === result.serverId),
-    });
-    onClose();
-  }, [clear, hosts, isSaving, onClose, onSaved, probeAndUpsertRemoteSshConnection, t]);
+  }, [
+    clear,
+    hosts,
+    isSaving,
+    onClose,
+    onSaved,
+    probeAndUpsertRemoteSshConnection,
+    setup,
+    t,
+    useSystemd,
+  ]);
   const handleTargetChange = useCallback((value: string) => {
     targetRef.current = value;
   }, []);
-  const handlePasswordChange = useCallback((value: string) => {
-    passwordRef.current = value;
-  }, []);
-  const handleTogglePasswordVisibility = useCallback(() => {
-    setIsPasswordVisible((currentlyVisible) => !currentlyVisible);
-  }, []);
-  const iconButtonStyle = useCallback(
-    (
-      state: PressableStateCallbackType & { hovered?: boolean; focused?: boolean },
-    ): StyleProp<ViewStyle> => [
-      styles.iconButton,
-      resolveControlInteractionStyles(
-        {
-          controlRest: styles.controlRest,
-          controlHover: styles.controlHover,
-          controlActive: styles.controlActive,
-          controlDisabled: styles.controlDisabled,
-        },
-        {
-          hovered: state.hovered,
-          pressed: state.pressed,
-          focused: state.focused,
-          disabled: isSaving,
-        },
-      ),
-    ],
-    [isSaving],
-  );
   const handleSubmit = useCallback(() => void handleSave(), [handleSave]);
+  const handleOpenDocs = useCallback(() => void openExternalUrl(DOCS_URL), []);
 
   return (
     <AdaptiveModalSheet
@@ -210,19 +183,23 @@ export function AddRemoteSshHostModal({
       onClose={handleClose}
       testID="add-remote-ssh-host-modal"
     >
-      <Text style={styles.helper}>{t("pairing.remoteSsh.helper")}</Text>
+      <Text style={styles.helper}>
+        Enter the machine as user@host. Pimi connects with your system ssh (your ~/.ssh/config, keys
+        and agent), installs its daemon there when needed, and starts it. No passwords or keys are
+        stored.
+      </Text>
       <Field
-        label={t("pairing.remoteSsh.fields.target")}
-        error={errorMessage}
+        label="SSH host"
+        error={setup.state.visited ? undefined : errorMessage}
         testID="remote-ssh-target"
       >
         <FormTextInput
           ref={inputRef}
           testID="remote-ssh-target-input"
-          accessibilityLabel={t("pairing.remoteSsh.fields.target")}
+          accessibilityLabel="SSH host"
           initialValue=""
           onChangeText={handleTargetChange}
-          placeholder="ssh://user@host"
+          placeholder="user@devbox"
           autoCapitalize="none"
           autoCorrect={false}
           editable={!isSaving}
@@ -230,47 +207,36 @@ export function AddRemoteSshHostModal({
           onSubmitEditing={handleSubmit}
         />
       </Field>
-      <Field label={t("pairing.remoteSsh.fields.password")} testID="remote-ssh-password">
-        <View style={styles.passwordRow}>
-          <View style={styles.passwordInputWrap}>
-            <FormTextInput
-              ref={passwordInputRef}
-              testID="remote-ssh-password-input"
-              accessibilityLabel={t("pairing.remoteSsh.fields.password")}
-              initialValue=""
-              onChangeText={handlePasswordChange}
-              placeholder={t("pairing.remoteSsh.fields.optional")}
-              autoCapitalize="none"
-              autoCorrect={false}
-              secureTextEntry={!isPasswordVisible}
-              editable={!isSaving}
-              returnKeyType="done"
-              onSubmitEditing={handleSubmit}
-            />
-          </View>
-          <PressHighlight
-            style={iconButtonStyle}
-            onPress={handleTogglePasswordVisibility}
-            disabled={isSaving}
-            accessibilityRole="button"
-            accessibilityLabel={
-              isPasswordVisible
-                ? t("pairing.remoteSsh.passwordVisibility.hide")
-                : t("pairing.remoteSsh.passwordVisibility.show")
-            }
-            testID="remote-ssh-password-visibility-toggle"
-          >
-            {isPasswordVisible ? <ThemedEyeOff size={18} /> : <ThemedEye size={18} />}
-          </PressHighlight>
+      {errorDetail ? (
+        <Text style={styles.errorDetail} selectable testID="remote-ssh-error-detail">
+          {errorDetail}
+        </Text>
+      ) : null}
+      <View style={styles.optionRow}>
+        <View style={styles.optionText}>
+          <Text style={styles.optionTitle}>Keep the daemon running with systemd</Text>
+          <Text style={styles.helper}>
+            Uses a systemd --user service when the machine has one. Otherwise Pimi starts the daemon
+            with nohup.
+          </Text>
         </View>
-      </Field>
-      <View style={styles.actions}>
-        <Button
-          style={FLEX_ONE_STYLE}
-          variant="secondary"
-          onPress={handleCancel}
+        <Switch
+          value={useSystemd}
+          onValueChange={setUseSystemd}
           disabled={isSaving}
-        >
+          accessibilityLabel="Keep the daemon running with systemd"
+          testID="remote-ssh-systemd-switch"
+        />
+      </View>
+      {setup.state.visited ? <RemoteSshProgressList state={setup.state} /> : null}
+      {errorMessage && setup.state.visited ? (
+        <Alert variant="error" title="Setup stopped" description={errorMessage} />
+      ) : null}
+      <Text style={styles.link} onPress={handleOpenDocs} accessibilityRole="link">
+        How remote SSH works
+      </Text>
+      <View style={styles.actions}>
+        <Button style={FLEX_ONE_STYLE} variant="secondary" onPress={handleCancel}>
           {t("pairing.remoteSsh.actions.cancel")}
         </Button>
         <Button

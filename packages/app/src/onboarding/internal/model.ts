@@ -6,9 +6,11 @@ export type OnboardingStepId =
   | "orchestration"
   | "phone"
   | "welcome"
+  | "machine"
   | "firstChat";
 
 const STEPS_WITHOUT_PHONE: readonly OnboardingStepId[] = [
+  "machine",
   "appearance",
   "providers",
   "projects",
@@ -17,6 +19,7 @@ const STEPS_WITHOUT_PHONE: readonly OnboardingStepId[] = [
 const STEPS_WITH_PHONE: readonly OnboardingStepId[] = [...STEPS_WITHOUT_PHONE, "phone"];
 const PIMI_STEPS: readonly OnboardingStepId[] = [
   "welcome",
+  "machine",
   "providers",
   "gitProviders",
   "projects",
@@ -39,6 +42,8 @@ export interface OnboardingSetupHost {
 export interface OnboardingStepOptions {
   /** False when the client is itself a phone, where pairing a phone makes no sense. */
   includePhoneStep: boolean;
+  /** True on the desktop app, the only client that can open an SSH connection. */
+  includeMachineStep: boolean;
 }
 
 export type OnboardingState =
@@ -105,8 +110,9 @@ export function createOnboardingModel(input: {
   }
 
   function stepsFor(options: OnboardingStepOptions) {
-    if (input.pimi) return PIMI_STEPS;
-    return options.includePhoneStep ? STEPS_WITH_PHONE : STEPS_WITHOUT_PHONE;
+    let steps = options.includePhoneStep ? STEPS_WITH_PHONE : STEPS_WITHOUT_PHONE;
+    if (input.pimi) steps = PIMI_STEPS;
+    return options.includeMachineStep ? steps : steps.filter((step) => step !== "machine");
   }
 
   function setState(next: OnboardingState) {

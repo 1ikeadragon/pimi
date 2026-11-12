@@ -9,6 +9,7 @@ import {
   FolderGit2,
   GitPullRequest,
   MessageCircle,
+  Server,
 } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import {
@@ -46,6 +47,12 @@ const pimiSteps = {
     label: "Git providers",
     title: "Connect a Git provider",
     description: "Use your existing credentials to work with pull requests and merge requests.",
+  },
+  machine: {
+    label: "Where to work",
+    title: "Where should your agents run?",
+    description:
+      "Use this computer, or connect a remote dev machine over SSH. Pimi installs and starts its daemon on the remote for you.",
   },
   firstChat: {
     label: "First workspace",
@@ -197,6 +204,7 @@ export function OnboardingModal({ model, state }: { model: OnboardingModel; stat
             serverId={state.serverId}
             projectSuggestions={projectSuggestions}
             orchestration={orchestration}
+            onAdvance={handleAdvance}
           />
           {isCompact ? null : <SheetFooter>{actions}</SheetFooter>}
         </View>
@@ -213,6 +221,7 @@ function SetupStepPane({
   serverId: string;
   projectSuggestions: ProjectSuggestionsController;
   orchestration: OrchestrationSetupController;
+  onAdvance: () => void;
 }) {
   const { t } = useTranslation();
   const stepCopy = getPimiStepCopy(step);
@@ -338,6 +347,7 @@ function StepRail({
 const pimiStepIcons = {
   welcome: withUnistyles(PimiMark),
   providers: withUnistyles(Bot),
+  machine: withUnistyles(Server),
   gitProviders: withUnistyles(GitPullRequest),
   projects: withUnistyles(FolderGit2),
   firstChat: withUnistyles(MessageCircle),

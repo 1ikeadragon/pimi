@@ -13,6 +13,8 @@ import {
 } from "lucide-react-native";
 import type { TFunction } from "i18next";
 import { useRouter } from "expo-router";
+import { useAddHost } from "@/hosts/add-host";
+import { isElectronRuntime } from "@/desktop/host";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Pressable, Text, View } from "react-native";
@@ -59,7 +61,7 @@ import { settingsStyles } from "@/styles/settings";
 import type { HostConnection, HostProfile } from "@/types/host-connection";
 import { confirmDialog } from "@/utils/confirm-dialog";
 import { isVersionMismatch } from "@/desktop/updates/desktop-updates";
-import { buildProfilesRoute } from "@/utils/host-routes";
+import { buildProfilesRoute, buildSettingsHostSectionRoute } from "@/utils/host-routes";
 import { resolveAppVersion } from "@/utils/app-version";
 import { formatConnectionStatus, getConnectionStatusTone } from "@/utils/daemons";
 import { formatLatency } from "@/utils/latency";
@@ -260,8 +262,44 @@ export function HostConnectionsPage({ serverId }: { serverId: string }) {
   return (
     <View>
       <HostConnectionError serverId={serverId} />
+      <RemoteDevMachineSection />
       <ConnectionsSection host={host} />
     </View>
+  );
+}
+
+/** The SSH dev-machine flow, first on the page: Pimi installs and starts its daemon over ssh. */
+function RemoteDevMachineSection() {
+  const { theme } = useUnistyles();
+  const router = useRouter();
+  const handleAdded = useCallback(
+    (serverId: string) => router.push(buildSettingsHostSectionRoute(serverId, "connections")),
+    [router],
+  );
+  const openRemoteSsh = useAddHost({ method: "ssh", onAdded: handleAdded });
+  if (!isElectronRuntime()) return null;
+  return (
+    <SettingsSection title="Remote dev machine (SSH)">
+      <View style={settingsStyles.card}>
+        <SettingAnchor id="connections.remoteSsh">
+          <Pressable
+            style={settingsStyles.row}
+            onPress={openRemoteSsh}
+            accessibilityRole="button"
+            testID="host-page-remote-ssh-row"
+          >
+            <View style={settingsStyles.rowContent}>
+              <Text style={settingsStyles.rowTitle}>Connect a remote dev machine</Text>
+              <Text style={settingsStyles.rowHint}>
+                Enter user@devbox. Pimi installs and starts its daemon over ssh, then runs agents,
+                terminals and git on that machine.
+              </Text>
+            </View>
+            <ChevronRight size={theme.iconSize.sm} color={theme.colors.foregroundMuted} />
+          </Pressable>
+        </SettingAnchor>
+      </View>
+    </SettingsSection>
   );
 }
 

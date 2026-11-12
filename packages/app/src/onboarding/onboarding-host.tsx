@@ -1,6 +1,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { isNative } from "@/constants/platform";
+import { isElectronRuntime } from "@/desktop/host";
 import { useDirectoryDemand } from "@/hooks/use-directory-demand";
 import { useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { useHasHydratedWorkspaces, useProjectRootPaths } from "@/stores/session-store-hooks";
@@ -31,7 +32,7 @@ function OnboardingGate() {
   useEffect(() => {
     model.applySetupHost(
       serverId ? { serverId, isConnected, hasHydratedWorkspaces, hasProjects } : null,
-      { includePhoneStep: !isCompact },
+      { includePhoneStep: !isCompact, includeMachineStep: isElectronRuntime() },
     );
   }, [model, serverId, isConnected, hasHydratedWorkspaces, hasProjects, isCompact]);
 

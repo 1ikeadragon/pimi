@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { useIsCompactFormFactor } from "@/constants/layout";
+import { isElectronRuntime } from "@/desktop/host";
 import { getOnboardingModel } from "./internal/onboarding-instance";
 import { useSetupHostServerId } from "./internal/use-setup-host";
 
@@ -9,7 +10,10 @@ export function useOpenOnboarding(): (() => void) | null {
   const isCompact = useIsCompactFormFactor();
   const open = useCallback(() => {
     if (!serverId) return;
-    getOnboardingModel().reopen(serverId, { includePhoneStep: !isCompact });
+    getOnboardingModel().reopen(serverId, {
+      includePhoneStep: !isCompact,
+      includeMachineStep: isElectronRuntime(),
+    });
   }, [isCompact, serverId]);
   return serverId ? open : null;
 }

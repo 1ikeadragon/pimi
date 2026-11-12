@@ -8,6 +8,7 @@ import type { OnboardingStepId } from "../model";
 import type { OrchestrationSetupController } from "../orchestration-setup";
 import { AppearanceStep } from "./appearance-step";
 import { GitProvidersStep } from "./git-providers-step";
+import { MachineStep } from "./machine-step";
 import { OrchestrationStep } from "./orchestration-step";
 import { PhoneStep } from "./phone-step";
 import { ProjectsStep } from "./projects-step";
@@ -18,11 +19,13 @@ export function OnboardingStepContent({
   serverId,
   projectSuggestions,
   orchestration,
+  onAdvance,
 }: {
   step: OnboardingStepId;
   serverId: string;
   projectSuggestions: ProjectSuggestionsController;
   orchestration: OrchestrationSetupController;
+  onAdvance: () => void;
 }) {
   switch (step) {
     case "appearance":
@@ -37,6 +40,8 @@ export function OnboardingStepContent({
       return <OrchestrationStep setup={orchestration} />;
     case "phone":
       return <PhoneStep serverId={serverId} />;
+    case "machine":
+      return <MachineStep onUseThisComputer={onAdvance} />;
     case "welcome":
       return null;
     case "firstChat":

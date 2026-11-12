@@ -13,11 +13,14 @@ import {
   PanelLeft,
   Plus,
   Rocket,
+  Server,
   Settings,
 } from "lucide-react-native";
 import { withUnistyles } from "react-native-unistyles";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { useKeyboardShortcutOverrides } from "@/hooks/use-keyboard-shortcut-overrides";
+import { useAddHost } from "@/hosts/add-host";
+import { isElectronRuntime } from "@/desktop/host";
 import { useOpenAddProject } from "@/hooks/use-open-add-project";
 import { useImportSession } from "@/hooks/use-import-session";
 import { useKeyboardActionDispatcher } from "@/keyboard/keyboard-action-dispatcher-context";
@@ -55,6 +58,7 @@ const ThemedKeyboard = withUnistyles(Keyboard, (theme) => ({
 const ThemedSettings = withUnistyles(Settings, (theme) => ({
   color: theme.colors.foregroundMuted,
 }));
+const ThemedServer = withUnistyles(Server, (theme) => ({ color: theme.colors.foregroundMuted }));
 const ThemedHome = withUnistyles(Home, (theme) => ({ color: theme.colors.foregroundMuted }));
 const ThemedImport = withUnistyles(Import, (theme) => ({ color: theme.colors.foregroundMuted }));
 const ThemedFolder = withUnistyles(Folder, (theme) => ({ color: theme.colors.foregroundMuted }));
@@ -89,6 +93,10 @@ function KeyboardIcon({ size }: CommandCenterIconProps) {
   return <ThemedKeyboard size={size} strokeWidth={2.2} />;
 }
 
+function RemoteSshIcon({ size }: CommandCenterIconProps) {
+  return <ThemedServer size={size} strokeWidth={2.2} />;
+}
+
 function HomeIcon({ size }: CommandCenterIconProps) {
   return <ThemedHome size={size} strokeWidth={2.2} />;
 }
@@ -115,6 +123,7 @@ export function CommandCenterRootActions() {
   const { overrides } = useKeyboardShortcutOverrides();
   const shortcutsAvailable = useHardwareKeyboardPresent();
   const openAddProject = useOpenAddProject();
+  const openRemoteSsh = useAddHost({ method: "ssh" });
   const { open: openImportSession, sheet: importSessionSheet } = useImportSession();
   const settingsRoute = useMemo<Href>(() => buildSettingsRoute(), []);
   const homeRoute = useMemo<Href>(() => buildOpenProjectRoute(), []);
@@ -298,6 +307,27 @@ export function CommandCenterRootActions() {
       },
     ];
 
+    if (isElectronRuntime()) {
+      availableActions.push({
+        id: "remote-ssh",
+        group: "actions",
+        groupRank: 0,
+        rank: 2.5,
+        keywords: ["ssh", "remote", "dev machine", "devbox", "server", "vps", "host", "connect"],
+        visibility: "query",
+        run: () => {
+          clearCommandCenterFocusRestoreElement();
+          openRemoteSsh();
+        },
+        presentation: {
+          kind: "action",
+          title: "Connect a remote dev machine (SSH)",
+          sectionTitle: t("shell.commandCenter.actions"),
+          icon: RemoteSshIcon,
+        },
+      });
+    }
+
     if (shortcutsAvailable) {
       availableActions.push({
         id: "keyboard-shortcuts",
@@ -338,6 +368,7 @@ export function CommandCenterRootActions() {
     homeRoute,
     keyboardActionDispatcher,
     openAddProject,
+    openRemoteSsh,
     openImportSession,
     overrides,
     automationsRoute,

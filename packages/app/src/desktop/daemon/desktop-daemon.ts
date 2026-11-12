@@ -284,6 +284,64 @@ export async function getCliDaemonStatus(): Promise<string> {
   return raw;
 }
 
+export type RemoteSshStep = "connecting" | "checking" | "installing" | "starting" | "connected";
+
+export interface RemoteSshProgress {
+  requestId: string;
+  step: RemoteSshStep;
+  message: string;
+  fraction?: number;
+}
+
+export interface RemoteSshSetupTarget {
+  [key: string]: unknown;
+  host: string;
+  sshPort?: number;
+  daemonPort?: number;
+  service?: "nohup" | "systemd";
+}
+
+export type RemoteSshSetupResult =
+  | {
+      ok: true;
+      result: {
+        version: string;
+        action: "ready" | "started" | "installed" | "upgraded";
+        service: "nohup" | "systemd";
+        systemdAvailable: boolean;
+      };
+    }
+  | { ok: false; code: string; message: string; detail: string | null };
+
+/** Installs or upgrades the daemon on a remote dev machine over ssh and starts it. */
+export async function prepareRemoteSsh(input: {
+  requestId: string;
+  target: RemoteSshSetupTarget;
+}): Promise<RemoteSshSetupResult> {
+  return (await invokeDesktopCommand("remote_ssh_prepare", input)) as RemoteSshSetupResult;
+}
+
+export async function cancelRemoteSshSetup(requestId: string): Promise<void> {
+  await invokeDesktopCommand("remote_ssh_cancel", { requestId });
+}
+
+export async function listenToRemoteSshProgress(
+  handler: (progress: RemoteSshProgress) => void,
+): Promise<() => void> {
+  const listen = getDesktopHost()?.events?.on;
+  if (typeof listen !== "function") return () => {};
+  const unlisten = await listen("remote-ssh-progress", (payload: unknown) => {
+    if (!isRecord(payload) || typeof payload.requestId !== "string") return;
+    handler({
+      requestId: payload.requestId,
+      step: payload.step as RemoteSshStep,
+      message: typeof payload.message === "string" ? payload.message : "",
+      ...(typeof payload.fraction === "number" ? { fraction: payload.fraction } : {}),
+    });
+  });
+  return typeof unlisten === "function" ? unlisten : () => {};
+}
+
 export type LocalTransportEventUnlisten = () => void;
 export type LocalTransportEventHandler = (payload: LocalTransportEventPayload) => void;
 

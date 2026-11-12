@@ -8,6 +8,7 @@ import { openLocationSettings } from "@/screens/settings/open-location/open-loca
 import { appearanceSettings } from "@/screens/settings/appearance/appearance.settings";
 import {
   hostAgentsSettings,
+  hostConnectionsSettings,
   hostPairDeviceSettings,
   hostSettings,
   hostTerminalsSettings,
@@ -50,6 +51,7 @@ const SETTINGS_PAGES: readonly SettingsPage[] = [
   aboutSettings,
   hostSettings,
   hostPairDeviceSettings,
+  hostConnectionsSettings,
   hostAgentsSettings,
   hostWorkspacesSettings,
   hostTerminalsSettings,
