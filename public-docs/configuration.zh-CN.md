@@ -30,7 +30,7 @@ Pimi 默认使用 `~/.pimi` 作为主目录。配置文件是：
 
 ```json
 {
-  "$schema": "https://github.com/1ikeadragon/pimi/blob/main/README.md.config.v1.json",
+  "$schema": "https://raw.githubusercontent.com/1ikeadragon/pimi-releases/main/schemas/pimi.config.v1.json",
   "version": 1,
   "daemon": {
     "listen": "127.0.0.1:6767",
@@ -244,5 +244,5 @@ URI 中的 `password=` 总是优先于环境变量，因此你可以全局设置
 要在编辑器中获得自动补全和校验，请把 `$schema` 设为：
 
 ```
-https://github.com/1ikeadragon/pimi/blob/main/README.md.config.v1.json
+https://raw.githubusercontent.com/1ikeadragon/pimi-releases/main/schemas/pimi.config.v1.json
 ```

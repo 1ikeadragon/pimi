@@ -128,7 +128,7 @@ daemon 会在安装、运行准备命令或加载插件之前检查自己的版�
 
 ## 运行时翻译 {#runtime-translations}
 
-**尚未发布的 API。** 发布插件前，请将 `requirements.pimi` 设置为首次包含这些 API 的版本。[翻译示例](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/translations) 暂用 `>=0.12.1`，实际引入版本尚未确定。
+**尚未发布的 API。** 发布插件前，请将 `requirements.pimi` 设置为首次包含这些 API 的版本。[翻译示例](https://github.com/1ikeadragon/pimi-releases/tree/main/plugin-examples/translations) 暂用 `>=0.12.1`，实际引入版本尚未确定。
 
 将 JSON 资源随客户端代码一起打包。必须提供英语（`en`）；其他语言使用规范语言标签，例如 `zh-CN`。资源由嵌套对象和字符串叶节点组成。其他语言可省略键，缺失时回退到英语。定义翻译时会拒绝未知键、无效资源、非规范语言标签，以及与英语不一致的插值占位符。
 
@@ -849,7 +849,7 @@ async function copyResult() {
 
 以编程方式复制和原生文本选择是两种不同的交互。使用 `<Text selectable>` 支持长按选择和系统的复制。弹窗表单请从 `@pimi/plugin/client/ui` 导入 `TextInput`。它接受 React Native 的输入属性和 ref，支持系统粘贴，并向原生底部面板注册焦点，以便键盘能把表单顶上来。在底部面板之外，它使用普通的输入框。普通的 React Native 输入框也支持粘贴，但不会向底部面板注册焦点；键盘可能会遮住它。系统粘贴不需要任何读取剪贴板的 API。不要在原生插件中使用 DOM 剪贴板代码，也不要使用 `react-native` 中已弃用的 `Clipboard` 导出。
 
-可运行的[弹窗 UI 示例](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/modal-ui)包含一个带内边距的表单、全宽的行、一个虚拟化列表、水平标签页和一个支持复制/粘贴的输入框。
+可运行的[弹窗 UI 示例](https://github.com/1ikeadragon/pimi-releases/tree/main/plugin-examples/modal-ui)包含一个带内边距的表单、全宽的行、一个虚拟化列表、水平标签页和一个支持复制/粘贴的输入框。
 
 ### Toast {#toasts}
 
@@ -1208,7 +1208,7 @@ if (current.status === "ready") {
 缺失的文档使用 schema 默认值。无效的数据、失败的迁移以及不受支持的更新版本会产生 `invalid`，而不会
 悄悄重置文件。成功的迁移只会持久化一次新版本。这些文档是普通的主机端 JSON，而不是凭据保险库。
 
-完整的[设置示例](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/settings)
+完整的[设置示例](https://github.com/1ikeadragon/pimi-releases/tree/main/plugin-examples/settings)
 包含即时生效的控件、带校验的草稿编辑器、自定义内容以及 Command Center 导航。
 
 ## 工作区面板 {#workspace-panels}
@@ -1442,7 +1442,7 @@ hook 的重新读取会采用磁盘上的版本，因此下一次写入会覆盖
 5. 遇到 `PluginFileConflictError` 时，显示同样的冲突。
 6. 收到 `{ type: "deleted" }` 或遇到 `PluginFileDeletedError` 时，告诉用户文件已不存在。
 
-请在组件卸载之前写入待保存的编辑：用其他面板打开标签页或关闭标签页都会卸载它。如果面板报告有未保存的更改，Pimi 会在关闭标签页之前询问。[Markdown 面板](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/markdown-panel)示例实现了这些步骤。
+请在组件卸载之前写入待保存的编辑：用其他面板打开标签页或关闭标签页都会卸载它。如果面板报告有未保存的更改，Pimi 会在关闭标签页之前询问。[Markdown 面板](https://github.com/1ikeadragon/pimi-releases/tree/main/plugin-examples/markdown-panel)示例实现了这些步骤。
 
 ### 选择与打开方式 {#selection-and-open-with}
 
@@ -1473,8 +1473,8 @@ hook 的重新读取会采用磁盘上的版本，因此下一次写入会覆盖
 
 完整的目录示例：
 
-- [PDF 面板](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/pdf-panel)：`useFileUrl` 搭配 `Loading` 和 `DocumentFrame`。
-- [Markdown 面板](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/markdown-panel)：打包的 CodeMirror 编辑器，只读取一次、用 `writeText` 保存并处理冲突，在原生平台上显示只读文本。
+- [PDF 面板](https://github.com/1ikeadragon/pimi-releases/tree/main/plugin-examples/pdf-panel)：`useFileUrl` 搭配 `Loading` 和 `DocumentFrame`。
+- [Markdown 面板](https://github.com/1ikeadragon/pimi-releases/tree/main/plugin-examples/markdown-panel)：打包的 CodeMirror 编辑器，只读取一次、用 `writeText` 保存并处理冲突，在原生平台上显示只读文本。
 
 ## Command Center 条目 {#command-center-items}
 
@@ -1568,7 +1568,7 @@ Pimi 负责。它不会等待 `onSubmit`，也不会显示进行中的状态；�
 
 ## 标题栏按钮 {#header-buttons}
 
-试试[按钮示例](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/buttons)，它在标题栏和
+试试[按钮示例](https://github.com/1ikeadragon/pimi-releases/tree/main/plugin-examples/buttons)，它在标题栏和
 Composer 中演示了操作、菜单、自定义图标和内容以及可见性更新。它会在几种模式之间切换一个标题栏按钮；
 其他操作放在一个名为 Tools 的菜单中。
 
@@ -1628,7 +1628,7 @@ const pill = client.addComposerPill({
 ```
 
 对于随 Agent 目录变化的胶囊，请使用显式的[自有列表订阅](/docs/sdk/events#follow-one-agents-status)。
-[本地插件示例](https://github.com/1ikeadragon/pimi/blob/main/plugin-examples/local-plugin/client/main.tsx)
+[本地插件示例](https://github.com/1ikeadragon/pimi-releases/blob/main/plugin-examples/local-plugin/client/main.tsx)
 会在每次快照时替换注册，并在入口清理时中止观察，包括尚未完成的引导过程。
 
 ## 按钮描述符 {#button-descriptor}
@@ -1854,7 +1854,7 @@ export function HostAgents({ theme }: Pick<PluginSurfaceProps, "theme">): ReactE
 你也可以通过普通的 SDK API 释放单个订阅。
 
 插件是受信任的应用代码；跨主机访问是有意设计的。摘要中不包含连接 URL 或凭据，借用的 API 也不提供连接
-生命周期控制。请参阅[主机 Agent 示例](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/hosts)。
+生命周期控制。请参阅[主机 Agent 示例](https://github.com/1ikeadragon/pimi-releases/tree/main/plugin-examples/hosts)。
 
 ## 添加插件特有的后端行为 {#add-plugin-specific-backend-behavior}
 

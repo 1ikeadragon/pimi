@@ -25,8 +25,8 @@ The example contributes one header button at a time. Additional actions live und
 
 The client entry owns the active example. [client/examples.tsx](client/examples.tsx) contains the
 descriptors, updates, and React content. Return `.remove()` cleanup when the example moves or stops.
-See the [button reference](../../public-docs/plugins/reference.md#button-descriptor) and
-[composer migration](../../public-docs/plugins/migration.md#composer-pills).
+See the [button reference](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/reference.md#button-descriptor) and
+[composer migration](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/migration.md#composer-pills).
 
 From the repository root, `npm run typecheck --workspace=@pimi/plugin` checks this example
 against the SDK. Existing plugin projects must update `@pimi/plugin` before running their own

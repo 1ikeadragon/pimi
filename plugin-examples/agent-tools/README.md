@@ -29,5 +29,5 @@ From the repository root, `npm run typecheck` includes this example. Outside thi
 use `pimi plugin init` to create the package and TypeScript setup, then copy `index.server.ts`
 and the manifest into that project.
 
-See [Attach tools to agents](../../public-docs/plugins/hooks.md#attach-tools-to-agents)
+See [Attach tools to agents](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/hooks.md#attach-tools-to-agents)
 for targeting, execution, provider gates, collisions, and plugin reload behavior.

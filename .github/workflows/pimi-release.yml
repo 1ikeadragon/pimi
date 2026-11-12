@@ -412,13 +412,21 @@ jobs:
           RELEASES_REPO: 1ikeadragon/pimi-releases
           RELEASE_VERSION: ${{ needs.validate.outputs.version }}
         run: |
-          # The app reads CHANGELOG.md and its docs links from the public releases repo.
+          # The app reads CHANGELOG.md and its docs links from the public releases repo,
+          # and `npx skills add 1ikeadragon/pimi-releases` installs from skills/.
           git clone --depth 1 "https://x-access-token:${PIMI_RELEASES_TOKEN}@github.com/$RELEASES_REPO.git" releases
           cp source/CHANGELOG.md releases/CHANGELOG.md
-          rm -rf releases/docs
-          mkdir releases/docs
+          rm -rf releases/docs releases/skills releases/plugin-examples releases/schemas
+          mkdir releases/docs releases/schemas
           cp -R source/public-docs/. releases/docs/
-          cp source/docs/self-hosted-relay.md source/docs/plugins.md source/docs/remote-ssh.md releases/docs/
+          cp source/docs/self-hosted-relay.md source/docs/plugins.md releases/docs/
+          cp source/packages/server/schemas/pimi.config.v1.json releases/schemas/
+          cp -R source/skills releases/skills
+          cp -R source/plugin-examples releases/plugin-examples
+          # These two internal docs link to source paths that are not published. Flatten the
+          # public-docs links and drop links to unpublished files, keeping the link text.
+          perl -pi -e 's{\.\./public-docs/}{}g; s{public-docs/}{}g; s{\[([^\]]+)\]\((?:\.\./packages/[^)]*|protocol-compatibility\.md[^)]*|unistyles\.md|relay-endpoint-security\.md|providers\.md#provider-snapshot[^)]*)\)}{$1}g' \
+            releases/docs/plugins.md releases/docs/self-hosted-relay.md
           cd releases
           git add -A
           if git diff --cached --quiet; then exit 0; fi

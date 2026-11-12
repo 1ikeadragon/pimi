@@ -12,7 +12,7 @@ Choose **Open Form**, type into **Paste here**, and watch the **Input:** text up
 The installed plugin ID is `modal-ui-example`.
 
 Pimi compiles the TypeScript sources through its directory plugin loader and supplies React,
-React Native, and `@pimi/plugin`. See the [plugin reference](../../public-docs/plugins/reference.md)
+React Native, and `@pimi/plugin`. See the [plugin reference](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/reference.md)
 for supported sources and preparation rules.
 
 The examples demonstrate default and custom padding, a full-width body, author-owned ScrollView and
@@ -31,7 +31,7 @@ list, drag down on a row to dismiss the sheet. In Form,
 press **Copy text**, long-press the input, and choose **Paste**. The input should contain
 “Copied from Pimi”. With the system keyboard enabled, focusing the input should keep it visible.
 
-Run the [native sheet regression](https://github.com/1ikeadragon/pimi/blob/main/packages/app/e2e/mobile/modal-sheet/README.md) to check body
+Run the native sheet regression to check body
 dismissal, list scrolling and horizontal tabs together.
 
 These captures show Android copy/paste and custom padding on browser and wide native layouts.

@@ -32,7 +32,7 @@ Minimal example that configures listening address, hostnames, and MCP:
 
 ```json
 {
-  "$schema": "https://github.com/1ikeadragon/pimi/blob/main/README.md.config.v1.json",
+  "$schema": "https://raw.githubusercontent.com/1ikeadragon/pimi-releases/main/schemas/pimi.config.v1.json",
   "version": 1,
   "daemon": {
     "listen": "127.0.0.1:6767",
@@ -218,7 +218,7 @@ Relay pairing requires a configured endpoint. Run [Pimi Relay](https://github.co
 }
 ```
 
-Restart the daemon after changing the endpoint. See [Connectivity](./connectivity.md) for direct connections over a VPN and [Security](../SECURITY.md) for the relay encryption model.
+Restart the daemon after changing the endpoint. See [Connectivity](./connectivity.md) for direct connections over a VPN and Security for the relay encryption model.
 
 ## Common env vars
 
@@ -252,5 +252,5 @@ Restart the daemon after changing the endpoint. See [Connectivity](./connectivit
 For editor autocomplete/validation, set `$schema` to:
 
 ```
-https://github.com/1ikeadragon/pimi/blob/main/README.md.config.v1.json
+https://raw.githubusercontent.com/1ikeadragon/pimi-releases/main/schemas/pimi.config.v1.json
 ```

@@ -33,7 +33,7 @@ worktree 默认存放在 `$PIMI_HOME/worktrees/` 下，按源检出路径的哈�
 }
 ```
 
-插件可以通过 [`worktree.create.before`](/docs/plugins/hooks#worktreecreatebefore) 将 worktree 放到磁盘上的自选位置。[worktree-placement 示例](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/worktree-placement) 将其放在源检出目录旁边。Pimi 验证路径并拒绝已存在的目标，同时支持在该位置列出、归档和删除 worktree。恢复时使用记录的原路径，不运行创建钩子。
+插件可以通过 [`worktree.create.before`](/docs/plugins/hooks#worktreecreatebefore) 将 worktree 放到磁盘上的自选位置。[worktree-placement 示例](https://github.com/1ikeadragon/pimi-releases/tree/main/plugin-examples/worktree-placement) 将其放在源检出目录旁边。Pimi 验证路径并拒绝已存在的目标，同时支持在该位置列出、归档和删除 worktree。恢复时使用记录的原路径，不运行创建钩子。
 
 1. 创建一个使用 worktree 隔离的工作区，Pimi 会创建 worktree 并运行你的 setup 钩子
 2. 在该工作区中启动一个或多个 Agent

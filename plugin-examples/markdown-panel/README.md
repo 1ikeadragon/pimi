@@ -22,4 +22,4 @@ switches the tab back to Pimi's Markdown panel. Native shows selectable, read-on
 Pimi bundles the editor dependencies into this plugin. They are loaded only on web; the native
 path uses React Native primitives. DOM integration lives in `client/web.ts`.
 
-See the [file panel reference](https://github.com/1ikeadragon/pimi/blob/main/README.md).
+See the [file panel reference](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/reference.md).

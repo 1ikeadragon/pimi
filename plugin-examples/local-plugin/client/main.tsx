@@ -12,7 +12,7 @@ import { ExternalLink, Markdown } from "@pimi/plugin/client/ui";
 import { incrementRpc } from "../shared/increment";
 
 const pluginDocsUrl =
-  "https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/reference.md";
+  "https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/reference.md";
 
 export function contributeClient(client: PluginClientContext) {
   const pills = new Map<string, PluginButtonRegistration>();

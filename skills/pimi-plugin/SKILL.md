@@ -17,7 +17,7 @@ Use the Pimi checkout when available. Check the plugin API at the installed vers
 - [Plugin API reference](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/reference.md)
 - [Plugin hooks](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/hooks.md)
 - [SDK reference](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/sdk/reference.md)
-- [Plugin examples](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples)
+- [Plugin examples](https://github.com/1ikeadragon/pimi-releases/tree/main/plugin-examples)
 
 ## What a plugin can contribute
 
@@ -41,13 +41,13 @@ Pick the contribution that matches the request. Each row names the registration,
 | Request-changing hooks  | `server.addHook`                                            | `agent.create.before` edits saved config; `agent.open.before` contributes launch-only `env`, `tools`, `mcpServers` on every open; `workspace.create.before` chooses isolation; `worktree.create.before` chooses branch and path | [Hooks](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/hooks.md#hooks)                |
 | Pimi SDK                | `usePimi()` / handler `{ pimi }`                            | Normal Pimi operations: workspaces, agents, providers, config                                                                                                                                                                   | reference.md → Use the Pimi SDK                                                                            |
 
-| Lifecycle task                                                         | Example                                                                                                  |
-| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Log every hook except `worktree.create.before`                         | [lifecycle-logger](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/lifecycle-logger)       |
-| Follow-ups, permissions, environment, provider switching, worktrees    | [lifecycle-actions](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/lifecycle-actions)     |
-| Inject launch-only MCP servers and save Codex sandbox/approval options | [agent-configuration](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/agent-configuration) |
-| Attach a tool to selected agents                                       | [agent-tools](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/agent-tools)                 |
-| Choose where a worktree is created                                     | [worktree-placement](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/worktree-placement)   |
+| Lifecycle task                                                         | Example                                                                                                           |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Log every hook except `worktree.create.before`                         | [lifecycle-logger](https://github.com/1ikeadragon/pimi-releases/tree/main/plugin-examples/lifecycle-logger)       |
+| Follow-ups, permissions, environment, provider switching, worktrees    | [lifecycle-actions](https://github.com/1ikeadragon/pimi-releases/tree/main/plugin-examples/lifecycle-actions)     |
+| Inject launch-only MCP servers and save Codex sandbox/approval options | [agent-configuration](https://github.com/1ikeadragon/pimi-releases/tree/main/plugin-examples/agent-configuration) |
+| Attach a tool to selected agents                                       | [agent-tools](https://github.com/1ikeadragon/pimi-releases/tree/main/plugin-examples/agent-tools)                 |
+| Choose where a worktree is created                                     | [worktree-placement](https://github.com/1ikeadragon/pimi-releases/tree/main/plugin-examples/worktree-placement)   |
 
 ## Create the project
 
@@ -377,7 +377,7 @@ Call `server.addHook(name, handler)` inside `contribute(server)`. Every handler 
 | Worktree  | `worktree.create.before`                                                            | `worktree.create.after` (Pimi waits for it; throw to abort creation)                                                                                           |
 | Agent     | `agent.create.before` (saved config), `agent.open.before` (launch-only, every open) | `agent.create.after`, `agent.close.after`, `agent.archive.after`, `agent.turn.before`, `agent.turn.after`, `agent.permission.before`, `agent.permission.after` |
 
-A request-changing hook that throws, returns invalid data, or runs past 30 seconds fails the operation. Pimi does not wait for any other notification, including `agent.turn.before` and `agent.permission.before`. To answer a permission, call `context.pimi.agents.ref(agent.id).respondToPermission({ requestId, response })` from `agent.permission.before`. `server.on` and `server.before` are deprecated; convert them with the [renamed hooks table](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/hooks.md#renamed-hooks).
+A request-changing hook that throws, returns invalid data, or runs past 30 seconds fails the operation. Pimi does not wait for any other notification, including `agent.turn.before` and `agent.permission.before`. To answer a permission, call `context.pimi.agents.ref(agent.id).respondToPermission({ requestId, response })` from `agent.permission.before`. `server.on` and `server.before` are deprecated; convert them with the [renamed hooks table](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/hooks.md#naming-and-timing).
 
 ### Contribute tools and MCP servers at session open
 

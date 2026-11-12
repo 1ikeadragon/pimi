@@ -32,5 +32,5 @@ and removes the worktree through the normal workspace workflow. Restoring uses t
 path without running the hook. Git can choose a unique branch name after this hook runs;
 the path retains the branch name received by the hook.
 
-See [worktree.create.before](../../public-docs/plugins/hooks.md#worktreecreatebefore)
+See [worktree.create.before](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/hooks.md#worktreecreatebefore)
 for the request fields and validation rules.
