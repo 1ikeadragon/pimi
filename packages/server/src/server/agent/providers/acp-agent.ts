@@ -61,6 +61,7 @@ import {
   type Stream as ACPStream,
 } from "@agentclientprotocol/sdk";
 import type { Logger } from "pino";
+import type { ProviderImageOutput } from "../agent-images.js";
 
 import {
   getAgentStreamEventTurnId,
