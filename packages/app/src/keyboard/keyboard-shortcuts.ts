@@ -50,7 +50,13 @@ export interface KeyboardShortcutHelpRow {
   noteKey?: string;
 }
 
-export type ShortcutSectionId = "general" | "workspaces" | "tabs-panes" | "layout" | "agent-input";
+export type ShortcutSectionId =
+  | "general"
+  | "workspaces"
+  | "tabs-panes"
+  | "layout"
+  | "editor"
+  | "agent-input";
 
 export interface KeyboardShortcutHelpSection {
   id: ShortcutSectionId;
@@ -75,6 +81,8 @@ interface ShortcutWhen {
   editable?: false;
   /** false = disabled when terminal is focused */
   terminal?: false;
+  /** false = disabled in the code editor and its find widget, which own these keys */
+  editor?: false;
   /** false = disabled when command center is open */
   commandCenter?: false;
   /** Allowed focus scope or scopes */
@@ -131,6 +139,7 @@ const SHORTCUT_HELP_SECTION_ORDER: readonly ShortcutSectionId[] = [
   "workspaces",
   "tabs-panes",
   "layout",
+  "editor",
   "agent-input",
 ];
 
@@ -139,6 +148,7 @@ const SHORTCUT_HELP_SECTION_TITLES: Record<ShortcutSectionId, string> = {
   workspaces: "Projects & Workspaces",
   "tabs-panes": "Tabs & Panes",
   layout: "Layout",
+  editor: "Editor",
   "agent-input": "Agent Input",
 };
 
@@ -147,6 +157,7 @@ const SHORTCUT_HELP_SECTION_LABEL_KEYS: Record<ShortcutSectionId, string> = {
   workspaces: "settings.shortcuts.sections.workspaces",
   "tabs-panes": "settings.shortcuts.sections.tabsPanes",
   layout: "settings.shortcuts.sections.layout",
+  editor: "settings.shortcuts.sections.editor",
   "agent-input": "settings.shortcuts.sections.agentInput",
 };
 
@@ -156,7 +167,14 @@ const SHORTCUT_HELP_SECTION_LABEL_KEYS: Record<ShortcutSectionId, string> = {
 export const SHORTCUT_HELP_ROW_ORDER: Record<ShortcutSectionId, readonly string[]> = {
   general: [
     "toggle-command-center",
+    "command-palette",
     "search-files",
+    "search-workspace",
+    "replace-in-files",
+    "find-in-pane",
+    "find-next",
+    "find-previous",
+    "replace-in-pane",
     "show-shortcuts",
     "toggle-settings",
     "cycle-theme",
@@ -195,6 +213,14 @@ export const SHORTCUT_HELP_ROW_ORDER: Record<ShortcutSectionId, readonly string[
     "workspace-pane-close",
   ],
   layout: ["toggle-left-sidebar", "toggle-right-sidebar", "toggle-both-sidebars", "toggle-focus"],
+  editor: [
+    "editor-add-next-occurrence",
+    "editor-select-all-occurrences",
+    "editor-go-to-line",
+    "find-toggle-case",
+    "find-toggle-word",
+    "find-toggle-regex",
+  ],
   "agent-input": [
     "focus-message-input",
     "cycle-agent-mode",
@@ -389,9 +415,11 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
 
   // --- Pin workspace ---
   {
+    // Pin chat moved from Cmd+Shift+P, which is now the command palette. The ids keep their
+    // original names so saved overrides survive.
     id: "workspace-pin-cmd-shift-p-mac",
     action: "workspace.pin",
-    combo: "Cmd+Shift+P",
+    combo: "Cmd+Alt+P",
     when: { mac: true, commandCenter: false },
     help: {
       id: "pin-workspace",
@@ -402,7 +430,7 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
   {
     id: "workspace-pin-ctrl-shift-p-non-mac",
     action: "workspace.pin",
-    combo: "Ctrl+Shift+P",
+    combo: "Ctrl+Alt+P",
     when: { mac: false, commandCenter: false, terminal: false },
     help: {
       id: "pin-workspace",
@@ -483,7 +511,7 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
     id: "workspace-tab-target-changes-cmd-shift-c-mac",
     action: "workspace.tab.target.changes",
     combo: "Cmd+Shift+G",
-    when: { mac: true, commandCenter: false },
+    when: { mac: true, commandCenter: false, editor: false },
     help: {
       id: "workspace-tab-target-changes",
       section: "tabs-panes",
@@ -495,7 +523,7 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
     id: "workspace-tab-target-changes-ctrl-shift-c-non-mac",
     action: "workspace.tab.target.changes",
     combo: "Ctrl+Shift+G",
-    when: { mac: false, commandCenter: false, terminal: false },
+    when: { mac: false, commandCenter: false, terminal: false, editor: false },
     help: {
       id: "workspace-tab-target-changes",
       section: "tabs-panes",
@@ -910,6 +938,318 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
     },
   },
 
+  // --- Command palette, search and find (VS Code / Cursor parity) ---
+  {
+    id: "command-palette-mac",
+    action: "command-center.commands",
+    combo: "Cmd+Shift+P",
+    when: { mac: true },
+    help: {
+      id: "command-palette",
+      section: "general",
+      label: "Command palette",
+    },
+  },
+  {
+    id: "command-palette-non-mac",
+    action: "command-center.commands",
+    combo: "Ctrl+Shift+P",
+    when: { mac: false },
+    help: {
+      id: "command-palette",
+      section: "general",
+      label: "Command palette",
+    },
+  },
+  {
+    id: "command-palette-f1",
+    action: "command-center.commands",
+    combo: "F1",
+    when: {},
+    help: {
+      id: "command-palette",
+      section: "general",
+      label: "Command palette",
+    },
+  },
+  {
+    id: "search-workspace-mac",
+    action: "search.workspace",
+    combo: "Cmd+Shift+F",
+    when: { mac: true, commandCenter: false },
+    help: {
+      id: "search-workspace",
+      section: "general",
+      label: "Search in files",
+    },
+  },
+  {
+    id: "search-workspace-non-mac",
+    action: "search.workspace",
+    combo: "Ctrl+Shift+F",
+    when: { mac: false, commandCenter: false, terminal: false },
+    help: {
+      id: "search-workspace",
+      section: "general",
+      label: "Search in files",
+    },
+  },
+  {
+    id: "search-replace-mac",
+    action: "search.replace",
+    combo: "Cmd+Shift+H",
+    when: { mac: true, commandCenter: false },
+    help: {
+      id: "replace-in-files",
+      section: "general",
+      label: "Replace in files",
+    },
+  },
+  {
+    id: "search-replace-non-mac",
+    action: "search.replace",
+    combo: "Ctrl+Shift+H",
+    when: { mac: false, commandCenter: false, terminal: false },
+    help: {
+      id: "replace-in-files",
+      section: "general",
+      label: "Replace in files",
+    },
+  },
+  {
+    id: "pane-find-mac",
+    action: "pane.find",
+    combo: "Cmd+F",
+    when: { mac: true, commandCenter: false },
+    help: {
+      id: "find-in-pane",
+      section: "general",
+      label: "Find",
+    },
+  },
+  {
+    id: "pane-find-non-mac",
+    action: "pane.find",
+    combo: "Ctrl+F",
+    when: { mac: false, commandCenter: false },
+    help: {
+      id: "find-in-pane",
+      section: "general",
+      label: "Find",
+    },
+  },
+  {
+    id: "pane-find-next-mac",
+    action: "pane.find.next",
+    combo: "Cmd+G",
+    when: { mac: true, commandCenter: false },
+    help: {
+      id: "find-next",
+      section: "general",
+      label: "Find next",
+    },
+  },
+  {
+    id: "pane-find-next-non-mac",
+    action: "pane.find.next",
+    combo: "F3",
+    when: { mac: false, commandCenter: false },
+    help: {
+      id: "find-next",
+      section: "general",
+      label: "Find next",
+    },
+  },
+  {
+    id: "pane-find-next-f3-mac",
+    action: "pane.find.next",
+    combo: "F3",
+    when: { mac: true, commandCenter: false },
+  },
+  {
+    id: "pane-find-previous-mac",
+    action: "pane.find.previous",
+    combo: "Cmd+Shift+G",
+    when: { mac: true, commandCenter: false, focusScope: "editor" },
+    help: {
+      id: "find-previous",
+      section: "general",
+      label: "Find previous",
+    },
+  },
+  {
+    id: "pane-find-previous-non-mac",
+    action: "pane.find.previous",
+    combo: "Shift+F3",
+    when: { mac: false, commandCenter: false },
+    help: {
+      id: "find-previous",
+      section: "general",
+      label: "Find previous",
+    },
+  },
+  {
+    id: "pane-find-previous-f3-mac",
+    action: "pane.find.previous",
+    combo: "Shift+F3",
+    when: { mac: true, commandCenter: false },
+  },
+  {
+    id: "pane-replace-mac",
+    action: "pane.replace",
+    combo: "Cmd+Alt+F",
+    when: { mac: true, commandCenter: false },
+    help: {
+      id: "replace-in-pane",
+      section: "general",
+      label: "Replace in file",
+    },
+  },
+  {
+    id: "pane-replace-non-mac",
+    action: "pane.replace",
+    combo: "Ctrl+H",
+    when: { mac: false, commandCenter: false, terminal: false },
+    help: {
+      id: "replace-in-pane",
+      section: "general",
+      label: "Replace in file",
+    },
+  },
+  {
+    id: "pane-find-toggle-case-mac",
+    action: "pane.find.toggle-case",
+    combo: "Cmd+Alt+C",
+    when: { mac: true, commandCenter: false, focusScope: "editor" },
+    help: {
+      id: "find-toggle-case",
+      section: "editor",
+      label: "Toggle case matching",
+    },
+  },
+  {
+    id: "pane-find-toggle-case-non-mac",
+    action: "pane.find.toggle-case",
+    combo: "Alt+C",
+    when: { mac: false, commandCenter: false, focusScope: "editor" },
+    help: {
+      id: "find-toggle-case",
+      section: "editor",
+      label: "Toggle case matching",
+    },
+  },
+  {
+    id: "pane-find-toggle-word-mac",
+    action: "pane.find.toggle-word",
+    combo: "Cmd+Alt+W",
+    when: { mac: true, commandCenter: false, focusScope: "editor" },
+    help: {
+      id: "find-toggle-word",
+      section: "editor",
+      label: "Toggle whole word matching",
+    },
+  },
+  {
+    id: "pane-find-toggle-word-non-mac",
+    action: "pane.find.toggle-word",
+    combo: "Alt+W",
+    when: { mac: false, commandCenter: false, focusScope: "editor" },
+    help: {
+      id: "find-toggle-word",
+      section: "editor",
+      label: "Toggle whole word matching",
+    },
+  },
+  {
+    id: "pane-find-toggle-regex-mac",
+    action: "pane.find.toggle-regex",
+    combo: "Cmd+Alt+R",
+    when: { mac: true, commandCenter: false, focusScope: "editor" },
+    help: {
+      id: "find-toggle-regex",
+      section: "editor",
+      label: "Toggle regular expression matching",
+    },
+  },
+  {
+    id: "pane-find-toggle-regex-non-mac",
+    action: "pane.find.toggle-regex",
+    combo: "Alt+R",
+    when: { mac: false, commandCenter: false, focusScope: "editor" },
+    help: {
+      id: "find-toggle-regex",
+      section: "editor",
+      label: "Toggle regular expression matching",
+    },
+  },
+  {
+    id: "editor-add-next-occurrence-mac",
+    action: "editor.add-next-occurrence",
+    combo: "Cmd+D",
+    when: { mac: true, commandCenter: false, focusScope: "editor" },
+    help: {
+      id: "editor-add-next-occurrence",
+      section: "editor",
+      label: "Add next occurrence",
+    },
+  },
+  {
+    id: "editor-add-next-occurrence-non-mac",
+    action: "editor.add-next-occurrence",
+    combo: "Ctrl+D",
+    when: { mac: false, commandCenter: false, focusScope: "editor" },
+    help: {
+      id: "editor-add-next-occurrence",
+      section: "editor",
+      label: "Add next occurrence",
+    },
+  },
+  {
+    id: "editor-select-all-occurrences-mac",
+    action: "editor.select-all-occurrences",
+    combo: "Cmd+Shift+L",
+    when: { mac: true, commandCenter: false, focusScope: "editor" },
+    help: {
+      id: "editor-select-all-occurrences",
+      section: "editor",
+      label: "Select all occurrences",
+    },
+  },
+  {
+    id: "editor-select-all-occurrences-non-mac",
+    action: "editor.select-all-occurrences",
+    combo: "Ctrl+Shift+L",
+    when: { mac: false, commandCenter: false, focusScope: "editor" },
+    help: {
+      id: "editor-select-all-occurrences",
+      section: "editor",
+      label: "Select all occurrences",
+    },
+  },
+  {
+    id: "editor-go-to-line",
+    action: "editor.go-to-line",
+    combo: "Ctrl+G",
+    when: { commandCenter: false, focusScope: "editor" },
+    help: {
+      id: "editor-go-to-line",
+      section: "editor",
+      label: "Go to line",
+    },
+  },
+  {
+    id: "editor-go-to-symbol-mac",
+    action: "editor.go-to-symbol",
+    combo: "Cmd+Shift+O",
+    when: { mac: true, commandCenter: false, focusScope: "editor" },
+  },
+  {
+    id: "editor-go-to-symbol-non-mac",
+    action: "editor.go-to-symbol",
+    combo: "Ctrl+Shift+O",
+    when: { mac: false, commandCenter: false, focusScope: "editor" },
+  },
+
   // --- Keyboard shortcuts dialog ---
   {
     id: "shortcuts-dialog-toggle-question-mark",
@@ -1028,9 +1368,11 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
 
   // --- Focus mode ---
   {
+    // Focus mode moved from Cmd+Shift+F, which is now search in files. The ids keep their original
+    // names so saved overrides survive.
     id: "view-toggle-focus-cmd-shift-f-mac",
     action: "view.toggle.focus",
-    combo: "Cmd+Shift+F",
+    combo: "Cmd+Shift+M",
     when: { mac: true, commandCenter: false },
     help: {
       id: "toggle-focus",
@@ -1041,7 +1383,7 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
   {
     id: "view-toggle-focus-ctrl-shift-f-non-mac",
     action: "view.toggle.focus",
-    combo: "Ctrl+Shift+F",
+    combo: "Ctrl+Shift+M",
     when: { mac: false, commandCenter: false, terminal: false },
     help: {
       id: "toggle-focus",
@@ -1142,7 +1484,7 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
     id: "message-input-dictation-toggle-cmd-d-mac",
     action: "message-input.action",
     combo: "Cmd+D",
-    when: { mac: true, commandCenter: false, terminal: false },
+    when: { mac: true, commandCenter: false, terminal: false, editor: false },
     payload: { type: "message-input", kind: "dictation-toggle" },
     help: {
       id: "dictation-toggle",
@@ -1154,7 +1496,7 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
     id: "message-input-dictation-toggle-ctrl-d-non-mac",
     action: "message-input.action",
     combo: "Ctrl+D",
-    when: { mac: false, commandCenter: false, terminal: false },
+    when: { mac: false, commandCenter: false, terminal: false, editor: false },
     payload: { type: "message-input", kind: "dictation-toggle" },
     help: {
       id: "dictation-toggle",
@@ -1374,10 +1716,13 @@ export function matchesKeyboardShortcutContext(
     return false;
   if (
     when.editable === false &&
-    (context.focusScope === "message-input" || context.focusScope === "editable")
+    (context.focusScope === "message-input" ||
+      context.focusScope === "editable" ||
+      context.focusScope === "editor")
   ) {
     return false;
   }
+  if (when.editor === false && context.focusScope === "editor") return false;
   if (when.terminal === false && context.focusScope === "terminal") return false;
   if (when.commandCenter === false && context.commandCenterOpen) return false;
   if (

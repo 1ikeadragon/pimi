@@ -2950,6 +2950,7 @@ export const ja: TranslationResources = {
         workspaces: "プロジェクト＆ワークスペース",
         tabsPanes: "タブ＆ペイン",
         layout: "レイアウト",
+        editor: "エディター",
         agentInput: "エージェント入力",
       },
       help: {

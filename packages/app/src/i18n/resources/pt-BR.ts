@@ -2963,6 +2963,7 @@ export const ptBR: TranslationResources = {
         workspaces: "Projetos e workspaces",
         tabsPanes: "Abas e painéis",
         layout: "Layout",
+        editor: "Editor",
         agentInput: "Entrada do agente",
       },
       help: {

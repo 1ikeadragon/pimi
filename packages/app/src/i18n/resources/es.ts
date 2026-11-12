@@ -2983,6 +2983,7 @@ export const es: TranslationResources = {
         workspaces: "Proyectos y espacios de trabajo",
         tabsPanes: "Pestañas y paneles",
         layout: "Diseño",
+        editor: "Editor",
         agentInput: "EntradaAgent",
       },
       help: {

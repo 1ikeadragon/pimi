@@ -2956,6 +2956,7 @@ export const ar: TranslationResources = {
         workspaces: "المشاريع ومساحات العمل",
         tabsPanes: "علامات التبويب والأجزاء",
         layout: "التخطيط",
+        editor: "المحرر",
         agentInput: "إدخال Agent",
       },
       help: {

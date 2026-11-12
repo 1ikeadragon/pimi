@@ -66,6 +66,19 @@ const PASSTHROUGH_DISPATCH: Record<string, KeyboardActionDefinition> = {
   "workspace.pane.move-tab.down": { id: "workspace.pane.move-tab.down", scope: "workspace" },
   "workspace.pane.close": { id: "workspace.pane.close", scope: "workspace" },
   "view.toggle.focus": { id: "workspace.focus.toggle", scope: "workspace" },
+  "pane.find": { id: "pane.find", scope: "workspace" },
+  "pane.find.next": { id: "pane.find.next", scope: "workspace" },
+  "pane.find.previous": { id: "pane.find.previous", scope: "workspace" },
+  "pane.find.toggle-case": { id: "pane.find.toggle-case", scope: "workspace" },
+  "pane.find.toggle-word": { id: "pane.find.toggle-word", scope: "workspace" },
+  "pane.find.toggle-regex": { id: "pane.find.toggle-regex", scope: "workspace" },
+  "pane.replace": { id: "pane.replace", scope: "workspace" },
+  "search.workspace": { id: "search.workspace", scope: "workspace" },
+  "search.replace": { id: "search.replace", scope: "workspace" },
+  "editor.add-next-occurrence": { id: "editor.add-next-occurrence", scope: "workspace" },
+  "editor.select-all-occurrences": { id: "editor.select-all-occurrences", scope: "workspace" },
+  "editor.go-to-line": { id: "editor.go-to-line", scope: "workspace" },
+  "editor.go-to-symbol": { id: "editor.go-to-symbol", scope: "workspace" },
 };
 
 const SIMPLE_CALLBACKS: Record<string, ShortcutCallbackName> = {
@@ -215,6 +228,9 @@ export function routeKeyboardShortcut(
         return { kind: "command-center-toggle", nextOpen: true, scope: "files" };
       }
       return dispatch({ id: "workspace.project.pick", scope: "workspace" });
+    // Opens the palette in its "commands" scope once the command center owns that scope.
+    case "command-center.commands":
+      return NONE;
     case "shortcuts.dialog.toggle":
       return { kind: "shortcuts-dialog-toggle", nextOpen: !ctx.shortcutsDialogOpen };
     default:

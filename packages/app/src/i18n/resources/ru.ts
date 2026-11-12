@@ -2972,6 +2972,7 @@ export const ru: TranslationResources = {
         workspaces: "Проекты и рабочие пространства",
         tabsPanes: "Вкладки и панели",
         layout: "Макет",
+        editor: "Редактор",
         agentInput: "Ввод для агента",
       },
       help: {

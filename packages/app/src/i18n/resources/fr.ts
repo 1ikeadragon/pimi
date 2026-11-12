@@ -2986,6 +2986,7 @@ export const fr: TranslationResources = {
         workspaces: "Projets et espaces de travail",
         tabsPanes: "Onglets et panneaux",
         layout: "Disposition",
+        editor: "Éditeur",
         agentInput: "Zone de saisie",
       },
       help: {

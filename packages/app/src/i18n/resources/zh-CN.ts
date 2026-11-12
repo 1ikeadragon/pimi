@@ -2886,6 +2886,7 @@ export const zhCN: TranslationResources = {
         workspaces: "项目和工作区",
         tabsPanes: "标签和窗格",
         layout: "布局",
+        editor: "编辑器",
         agentInput: "Agent 输入",
       },
       help: {

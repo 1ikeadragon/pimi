@@ -64,6 +64,17 @@ export function resolveKeyboardFocusScope(input: {
     return "message-input";
   }
 
+  // The code editor and the find widgets that belong to it. Keys the editor owns (Cmd+D, Cmd+Shift+G)
+  // resolve here instead of in the global table. A surface outside `.cm-editor` joins by carrying the
+  // attribute.
+  if (
+    candidates.some((element) =>
+      Boolean(element.closest(".cm-editor") || element.closest("[data-keyboard-scope='editor']")),
+    )
+  ) {
+    return commandCenterOpen ? "command-center" : "editor";
+  }
+
   if (
     candidates.some((element) => {
       const editable = element as HTMLElement;

@@ -3056,6 +3056,7 @@ export const en = {
         workspaces: "Projects & Workspaces",
         tabsPanes: "Tabs & Panes",
         layout: "Layout",
+        editor: "Editor",
         agentInput: "Agent Input",
       },
       help: {

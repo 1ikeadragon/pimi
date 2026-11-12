@@ -2936,6 +2936,7 @@ export const ko: TranslationResources = {
         workspaces: "프로젝트 및 워크스페이스",
         tabsPanes: "탭 및 창",
         layout: "레이아웃",
+        editor: "편집기",
         agentInput: "에이전트 입력",
       },
       help: {

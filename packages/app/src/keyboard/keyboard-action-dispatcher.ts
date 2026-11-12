@@ -53,6 +53,19 @@ export type KeyboardActionId =
   | "workspace.archive"
   | "workspace.archive.undo"
   | "workspace.pin"
+  | "pane.find"
+  | "pane.find.next"
+  | "pane.find.previous"
+  | "pane.find.toggle-case"
+  | "pane.find.toggle-word"
+  | "pane.find.toggle-regex"
+  | "pane.replace"
+  | "search.workspace"
+  | "search.replace"
+  | "editor.add-next-occurrence"
+  | "editor.select-all-occurrences"
+  | "editor.go-to-line"
+  | "editor.go-to-symbol"
   // Command-center only: no keybind, so these are absent from route-shortcut.ts.
   | "workspace.rename"
   | "workspace.setup.show";
@@ -112,6 +125,19 @@ export type KeyboardActionDefinition =
   | { id: "workspace.archive"; scope: KeyboardActionScope }
   | { id: "workspace.archive.undo"; scope: KeyboardActionScope }
   | { id: "workspace.pin"; scope: KeyboardActionScope }
+  | { id: "pane.find"; scope: KeyboardActionScope }
+  | { id: "pane.find.next"; scope: KeyboardActionScope }
+  | { id: "pane.find.previous"; scope: KeyboardActionScope }
+  | { id: "pane.find.toggle-case"; scope: KeyboardActionScope }
+  | { id: "pane.find.toggle-word"; scope: KeyboardActionScope }
+  | { id: "pane.find.toggle-regex"; scope: KeyboardActionScope }
+  | { id: "pane.replace"; scope: KeyboardActionScope }
+  | { id: "search.workspace"; scope: KeyboardActionScope }
+  | { id: "search.replace"; scope: KeyboardActionScope }
+  | { id: "editor.add-next-occurrence"; scope: KeyboardActionScope }
+  | { id: "editor.select-all-occurrences"; scope: KeyboardActionScope }
+  | { id: "editor.go-to-line"; scope: KeyboardActionScope }
+  | { id: "editor.go-to-symbol"; scope: KeyboardActionScope }
   | { id: "workspace.rename"; scope: KeyboardActionScope }
   | { id: "workspace.setup.show"; scope: KeyboardActionScope };
 
