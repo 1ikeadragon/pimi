@@ -1002,6 +1002,7 @@ export class Session {
       host: { emit: (msg) => this.emit(msg) },
       logger: this.sessionLogger,
     });
+      workspaceGitService: this.workspaceGitService,
     this.workspaceGitObserver = createWorkspaceGitObserverService({
       workspaceGitService: this.workspaceGitService,
       emitWorkspaceUpdateForCwd: (cwd) => this.emitWorkspaceUpdateForCwd(cwd),
@@ -1042,7 +1043,6 @@ export class Session {
       runtime: pluginRuntime,
       logger: this.sessionLogger,
     });
-    this.speechModelsSession = new SpeechModelsSession({
     this.workspaceSearchSession = new WorkspaceSearchSession({
       emit: (msg) => this.emit(msg),
       resolveWorkspaceRoot: async (workspaceId) => {
@@ -1050,6 +1050,7 @@ export class Session {
         return workspace && !workspace.archivedAt ? workspace.cwd : null;
       },
     });
+    this.speechModelsSession = new SpeechModelsSession({
       emit: (msg) => this.emit(msg),
       runtime: speechModels,
     });
@@ -3026,7 +3027,6 @@ export class Session {
         return this.workspaceFilesSession.handleFileUnsubscribeRequest(msg, this.delivery);
       case "fs.file.write.request":
         return this.workspaceFilesSession.handleFileWriteRequest(msg);
-      case "fs.entry.create.request":
       case "workspace.search.run.request":
         return this.workspaceSearchSession.handleRun(msg, this.delivery.requestSignal);
       case "workspace.search.cancel.request":
@@ -3034,6 +3034,7 @@ export class Session {
         return Promise.resolve();
       case "workspace.search.replace.request":
         return this.workspaceSearchSession.handleReplace(msg, this.delivery.requestSignal);
+      case "fs.entry.create.request":
         return this.workspaceFilesSession.handleFileEntryCreateRequest(msg);
       case "fs.entry.rename.request":
         return this.workspaceFilesSession.handleFileEntryRenameRequest(msg);

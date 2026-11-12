@@ -558,7 +558,7 @@ type CheckoutForgeSetAutoMergePayload = CheckoutForgeSetAutoMergeResponse["paylo
 type CheckoutForgeGetCheckDetailsPayload = CheckoutForgeGetCheckDetailsResponse["payload"];
 export type ChangeRequestRefInput = Pick<
   ForgeChangeRequestGetOverviewRequest,
-  "forgeHost" | "owner" | "name" | "number" | "cwd"
+  "forgeHost" | "owner" | "name" | "number" | "refresh"
 >;
 type ForgeChangeRequestListInboxPayload = ForgeChangeRequestListInboxResponse["payload"];
 type ForgeChangeRequestGetOverviewPayload = ForgeChangeRequestGetOverviewResponse["payload"];
@@ -4992,7 +4992,7 @@ export class DaemonClient {
   async forgeChangeRequestListInbox(
     input: Pick<
       ForgeChangeRequestListInboxRequest,
-      "forgeHost" | "scopes" | "repositories" | "limit" | "cwd"
+      "forgeHost" | "scopes" | "repositories" | "limit" | "refresh"
     >,
     requestId?: string,
   ): Promise<ForgeChangeRequestListInboxPayload> {

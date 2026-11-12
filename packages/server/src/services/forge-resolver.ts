@@ -32,6 +32,11 @@ export interface CreateForgeResolverOptions {
 export interface ForgeResolver {
   /** Resolve the forge for a working directory, or null when none applies. */
   resolve(cwd: string): Promise<ForgeResolution | null>;
+  /**
+   * Resolve a host a client named (no checkout). Only cloud hosts and hosts a forge CLI is already
+   * authenticated to resolve; anything else is null.
+   */
+  resolveHost(host: string): Promise<ForgeResolution | null>;
   /** Resolve from a known origin remote URL using only the name heuristic + probe cache. */
   resolveFromRemoteUrl(remoteUrl: string | null): ForgeResolution | null;
   /** Resolve from a known origin remote URL, running the per-host probe when needed. */
@@ -249,6 +254,10 @@ export function createForgeResolver(options: CreateForgeResolverOptions = {}): F
   return {
     resolveFromRemoteUrl,
     resolveFromRemoteUrlAsync,
+    async resolveHost(host: string): Promise<ForgeResolution | null> {
+      const forge = forgeForHost(host) ?? (await probeHostForge(host));
+      return forge ? buildResolution(forge, host) : null;
+    },
     invalidate,
     async resolve(cwd: string): Promise<ForgeResolution | null> {
       return resolveFromRemoteUrlAsync(await resolveRemoteUrlCached(cwd));

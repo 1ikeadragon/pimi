@@ -1,3 +1,4 @@
+import { tmpdir } from "node:os";
 import { z } from "zod";
 import {
   isGitHubHost,
@@ -24,6 +25,7 @@ import {
   type ForgeCommandFailureParams,
 } from "./forge-cli-command.js";
 import {
+  ChangeRequestReadError,
   computeChecksStatus,
   compareTimelineItems,
   createUnavailableSearchResult,
@@ -54,6 +56,7 @@ import type {
   PullRequestTimelineReviewState,
   SearchResult,
 } from "./forge-service.js";
+import { createGitHubChangeRequestReader } from "./github-change-requests.js";
 import {
   isGitHubPullRequestStatusFacts,
   type GitHubPullRequestStatusFacts,
@@ -134,6 +137,9 @@ const GITHUB_ENV = {
 // (e.g. a stalled network call) fails the same way across every forge.
 const GITHUB_COMMAND_TIMEOUT_MS = 30_000;
 const REPO_HOST_NULL_TTL_MS = 60_000;
+// Ref-addressed reads run `gh` here: `gh api` and `--repo` need no repository, and the host is pinned
+// through GH_HOST, so no client-supplied path is ever used as a process cwd.
+const HOSTED_CWD = tmpdir();
 const GIT_ORIGIN_URL_READ_TIMEOUT_MS = 5_000;
 
 const LabelSchema = z.object({
@@ -966,6 +972,11 @@ export interface GitHubCommandRunnerOptions {
   envOverlay?: Record<string, string>;
 }
 
+/** Internal: `forgeHost` pins GH_HOST for a ref-addressed read instead of resolving it from `cwd`. */
+interface GitHubRunOptions extends GitHubCommandRunnerOptions {
+  forgeHost?: string;
+}
+
 export interface GitHubCommandResult {
   stdout: string;
   stderr: string;
@@ -1318,10 +1329,23 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
       : { settled: false, value: null };
   }
 
-  async function run(args: string[], runOptions: GitHubCommandRunnerOptions): Promise<string> {
+  async function run(args: string[], runOptions: GitHubRunOptions): Promise<string> {
     const ghPath = await deps.resolveGhPath();
     if (!ghPath) {
       throw new GitHubCliMissingError();
+    }
+    const { forgeHost, ...runnerOptions } = runOptions;
+    if (forgeHost) {
+      // A ref-addressed read names its host; it never consults a checkout remote.
+      try {
+        const result = await deps.runner(args, {
+          ...runnerOptions,
+          envOverlay: { ...runnerOptions.envOverlay, GH_HOST: forgeHost },
+        });
+        return result.stdout.trim();
+      } catch (error) {
+        throw githubCliRunner.normalizeError(error, { args, cwd: runnerOptions.cwd });
+      }
     }
     // Route every gh invocation to the workspace's host. `gh api`/`graphql`
     // otherwise default to github.com regardless of the resolved repository,
@@ -1344,7 +1368,7 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
 
   async function runGhJson<T>(
     args: string[],
-    runOptions: GitHubCommandRunnerOptions,
+    runOptions: GitHubRunOptions,
     schema: z.ZodType<T>,
     emptyFallback: string,
   ): Promise<T> {
@@ -2025,6 +2049,192 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
     target.errorCallbacks.clear();
   }
 
+  // Both loaders serve checkout reads (cwd resolves the host) and ref-addressed reads (forgeHost
+  // pins it and `cwd` is a neutral directory).
+  function loadPullRequestTimeline(input: {
+    cwd: string;
+    forgeHost?: string;
+    prNumber: number;
+    repoOwner: string;
+    repoName: string;
+    readOptions?: ForgeReadOptions;
+  }): Promise<PullRequestTimeline> {
+    return cached({
+      cwd: input.cwd,
+      method: "getPullRequestTimeline",
+      args: {
+        prNumber: input.prNumber,
+        forgeHost: input.forgeHost,
+        repoOwner: input.forgeHost ? input.repoOwner : undefined,
+        repoName: input.forgeHost ? input.repoName : undefined,
+      },
+      readOptions: input.readOptions,
+      load: async () => {
+        try {
+          const parsed = await runGhJson(
+            [
+              "api",
+              "graphql",
+              "-f",
+              `query=${PULL_REQUEST_TIMELINE_QUERY}`,
+              "-f",
+              `owner=${input.repoOwner}`,
+              "-f",
+              `name=${input.repoName}`,
+              "-F",
+              `number=${input.prNumber}`,
+            ],
+            { cwd: input.cwd, forgeHost: input.forgeHost },
+            PullRequestTimelineGraphqlSchema,
+            "{}",
+          );
+          return toPullRequestTimeline(parsed, {
+            prNumber: input.prNumber,
+            repoOwner: input.repoOwner,
+            repoName: input.repoName,
+          });
+        } catch (error) {
+          return {
+            prNumber: input.prNumber,
+            repoOwner: input.repoOwner,
+            repoName: input.repoName,
+            items: [],
+            truncated: false,
+            error: mapPullRequestTimelineError(error),
+          };
+        }
+      },
+    });
+  }
+
+  function loadCheckDetails(input: {
+    cwd: string;
+    forgeHost?: string;
+    repoOwner: string;
+    repoName: string;
+    checkRunId: number;
+    workflowRunId?: number;
+    readOptions?: ForgeReadOptions;
+  }): Promise<CheckDetails> {
+    const { repoOwner, repoName, checkRunId } = input;
+    return cached({
+      cwd: input.cwd,
+      method: "getCheckDetails",
+      args: {
+        repoOwner,
+        repoName,
+        checkRunId,
+        workflowRunId: input.workflowRunId,
+        forgeHost: input.forgeHost,
+      },
+      readOptions: input.readOptions,
+      load: async () => {
+        const repoPath = `repos/${repoOwner}/${repoName}`;
+        const checkRun = toGitHubCheckRunDetails(
+          await runGhJson(
+            ["api", `${repoPath}/check-runs/${checkRunId}`],
+            { cwd: input.cwd, forgeHost: input.forgeHost },
+            GitHubCheckRunDetailsSchema,
+            "{}",
+          ),
+        );
+        const annotations = toGitHubCheckAnnotations(
+          await runGhJson(
+            [
+              "api",
+              "--method",
+              "GET",
+              `${repoPath}/check-runs/${checkRunId}/annotations`,
+              "-f",
+              `per_page=${CHECK_ANNOTATION_PAGE_MAX}`,
+            ],
+            {
+              cwd: input.cwd,
+              forgeHost: input.forgeHost,
+            },
+            GitHubCheckAnnotationsSchema,
+            "[]",
+          ),
+        );
+        const workflowRunId = input.workflowRunId ?? checkRun.workflowRunId ?? null;
+        const failedJobs: CheckFailedJob[] = [];
+        let truncated = annotations.length >= CHECK_ANNOTATION_PAGE_MAX;
+
+        if (typeof workflowRunId === "number") {
+          const jobs = toGitHubActionsJobs(
+            await runGhJson(
+              [
+                "api",
+                "--method",
+                "GET",
+                `${repoPath}/actions/runs/${workflowRunId}/jobs`,
+                "-f",
+                `per_page=${ACTIONS_JOB_PAGE_MAX}`,
+              ],
+              {
+                cwd: input.cwd,
+                forgeHost: input.forgeHost,
+              },
+              GitHubActionsJobsSchema,
+              "{}",
+            ),
+          );
+          const failed = jobs.filter(isFailedActionsJob);
+          truncated ||= jobs.length >= ACTIONS_JOB_PAGE_MAX;
+          truncated ||= failed.length > FAILED_CHECK_JOB_LIMIT;
+          for (const job of failed.slice(0, FAILED_CHECK_JOB_LIMIT)) {
+            const log = await getCachedCheckLogTail({
+              cwd: input.cwd,
+              repoPath,
+              job,
+              run: (logArgs, logOptions) =>
+                run(logArgs, { ...logOptions, forgeHost: input.forgeHost }),
+              cache: checkLogTailCache,
+            });
+            truncated ||= log.logTruncated;
+            failedJobs.push({
+              jobId: job.jobId,
+              name: job.name,
+              status: job.status,
+              conclusion: job.conclusion,
+              url: job.url,
+              logTail: log.logTail,
+              logTruncated: log.logTruncated,
+            });
+          }
+        }
+
+        return {
+          checkRunId: checkRun.checkRunId,
+          workflowRunId,
+          name: checkRun.name,
+          status: checkRun.status,
+          conclusion: checkRun.conclusion,
+          url: checkRun.url,
+          detailsUrl: checkRun.detailsUrl,
+          output: checkRun.output,
+          annotations,
+          failedJobs,
+          truncated,
+        };
+      },
+    });
+  }
+
+  const changeRequestReader = createGitHubChangeRequestReader({
+    run: async (args, forgeHost) => {
+      try {
+        return await run(args, { cwd: HOSTED_CWD, forgeHost });
+      } catch (error) {
+        throw toChangeRequestReadError(error, forgeHost);
+      }
+    },
+    parseChecks: parseStatusCheckRollup,
+    mapReviewDecision,
+    toRollupNode: toBatchStatusCheckRollupNode,
+    now: deps.now,
+  });
+
   api = {
     authProbeCanThrow: true,
 
@@ -2191,47 +2401,7 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
     },
 
     getPullRequestTimeline(input) {
-      return cached({
-        cwd: input.cwd,
-        method: "getPullRequestTimeline",
-        args: { prNumber: input.prNumber },
-        readOptions: input,
-        load: async () => {
-          try {
-            const parsed = await runGhJson(
-              [
-                "api",
-                "graphql",
-                "-f",
-                `query=${PULL_REQUEST_TIMELINE_QUERY}`,
-                "-F",
-                `owner=${input.repoOwner}`,
-                "-F",
-                `name=${input.repoName}`,
-                "-F",
-                `number=${input.prNumber}`,
-              ],
-              { cwd: input.cwd },
-              PullRequestTimelineGraphqlSchema,
-              "{}",
-            );
-            return toPullRequestTimeline(parsed, {
-              prNumber: input.prNumber,
-              repoOwner: input.repoOwner,
-              repoName: input.repoName,
-            });
-          } catch (error) {
-            return {
-              prNumber: input.prNumber,
-              repoOwner: input.repoOwner,
-              repoName: input.repoName,
-              items: [],
-              truncated: false,
-              error: mapPullRequestTimelineError(error),
-            };
-          }
-        },
-      });
+      return loadPullRequestTimeline({ ...input, readOptions: input });
     },
 
     getCheckDetails(input) {
@@ -2242,99 +2412,34 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
       if (checkRunId === undefined) {
         throw new Error("GitHub getCheckDetails requires checkRunId");
       }
-      return cached({
-        cwd: input.cwd,
-        method: "getCheckDetails",
-        args: {
-          repoOwner,
-          repoName,
-          checkRunId,
-          workflowRunId: input.workflowRunId,
-        },
-        readOptions: input,
-        load: async () => {
-          const repoPath = `repos/${repoOwner}/${repoName}`;
-          const checkRun = toGitHubCheckRunDetails(
-            await runGhJson(
-              ["api", `${repoPath}/check-runs/${checkRunId}`],
-              { cwd: input.cwd },
-              GitHubCheckRunDetailsSchema,
-              "{}",
-            ),
-          );
-          const annotations = toGitHubCheckAnnotations(
-            await runGhJson(
-              [
-                "api",
-                `${repoPath}/check-runs/${checkRunId}/annotations`,
-                "-f",
-                `per_page=${CHECK_ANNOTATION_PAGE_MAX}`,
-              ],
-              {
-                cwd: input.cwd,
-              },
-              GitHubCheckAnnotationsSchema,
-              "[]",
-            ),
-          );
-          const workflowRunId = input.workflowRunId ?? checkRun.workflowRunId ?? null;
-          const failedJobs: CheckFailedJob[] = [];
-          let truncated = annotations.length >= CHECK_ANNOTATION_PAGE_MAX;
+      return loadCheckDetails({ ...input, repoOwner, repoName, checkRunId, readOptions: input });
+    },
 
-          if (typeof workflowRunId === "number") {
-            const jobs = toGitHubActionsJobs(
-              await runGhJson(
-                [
-                  "api",
-                  `${repoPath}/actions/runs/${workflowRunId}/jobs`,
-                  "-f",
-                  `per_page=${ACTIONS_JOB_PAGE_MAX}`,
-                ],
-                {
-                  cwd: input.cwd,
-                },
-                GitHubActionsJobsSchema,
-                "{}",
-              ),
-            );
-            const failed = jobs.filter(isFailedActionsJob);
-            truncated ||= jobs.length >= ACTIONS_JOB_PAGE_MAX;
-            truncated ||= failed.length > FAILED_CHECK_JOB_LIMIT;
-            for (const job of failed.slice(0, FAILED_CHECK_JOB_LIMIT)) {
-              const log = await getCachedCheckLogTail({
-                cwd: input.cwd,
-                repoPath,
-                job,
-                run,
-                cache: checkLogTailCache,
-              });
-              truncated ||= log.logTruncated;
-              failedJobs.push({
-                jobId: job.jobId,
-                name: job.name,
-                status: job.status,
-                conclusion: job.conclusion,
-                url: job.url,
-                logTail: log.logTail,
-                logTruncated: log.logTruncated,
-              });
-            }
-          }
+    ...changeRequestReader,
 
-          return {
-            checkRunId: checkRun.checkRunId,
-            workflowRunId,
-            name: checkRun.name,
-            status: checkRun.status,
-            conclusion: checkRun.conclusion,
-            url: checkRun.url,
-            detailsUrl: checkRun.detailsUrl,
-            output: checkRun.output,
-            annotations,
-            failedJobs,
-            truncated,
-          };
-        },
+    getChangeRequestTimeline(input) {
+      return loadPullRequestTimeline({
+        cwd: HOSTED_CWD,
+        forgeHost: input.forgeHost,
+        repoOwner: input.owner,
+        repoName: input.name,
+        prNumber: input.number,
+        readOptions: input.force ? { force: true, reason: "change-request refresh" } : undefined,
+      });
+    },
+
+    getChangeRequestCheckDetails(input) {
+      if (input.checkRunId === undefined) {
+        throw new ChangeRequestReadError("invalid_request", "A check run id is required.");
+      }
+      return loadCheckDetails({
+        cwd: HOSTED_CWD,
+        forgeHost: input.forgeHost,
+        repoOwner: input.owner,
+        repoName: input.name,
+        checkRunId: input.checkRunId,
+        workflowRunId: input.workflowRunId,
+        readOptions: input.force ? { force: true, reason: "change-request refresh" } : undefined,
       });
     },
 
@@ -4204,4 +4309,43 @@ function mapReviewDecision(value: unknown): PullRequestReviewDecision {
     return "pending";
   }
   return null;
+}
+
+/** Maps a `gh` failure to a client-safe error. CLI stderr is classified, never forwarded. */
+function toChangeRequestReadError(error: unknown, forgeHost: string): ChangeRequestReadError {
+  if (error instanceof ChangeRequestReadError) {
+    return error;
+  }
+  if (error instanceof GitHubCliMissingError) {
+    return new ChangeRequestReadError("cli_missing", "GitHub CLI (gh) is not installed.");
+  }
+  if (error instanceof GitHubAuthenticationError) {
+    return new ChangeRequestReadError(
+      "unauthenticated",
+      `GitHub authentication is unavailable for ${forgeHost}. Run gh auth login --hostname ${forgeHost}.`,
+    );
+  }
+  const stderr = error instanceof GitHubCommandError ? error.stderr : "";
+  if (/HTTP 404|Could not resolve to a|Not Found/i.test(stderr)) {
+    return new ChangeRequestReadError(
+      "not_found",
+      "This repository or pull request is unavailable to your GitHub account.",
+    );
+  }
+  if (/HTTP 403|HTTP 429|rate limit|Resource not accessible|insufficient.*scope/i.test(stderr)) {
+    return new ChangeRequestReadError(
+      "forbidden",
+      "GitHub denied this request or its rate limit was reached. Check access and try again later.",
+    );
+  }
+  if (/exceeded the output limit|timed out/i.test(stderr + String(error))) {
+    return new ChangeRequestReadError(
+      "unavailable",
+      "GitHub took too long or returned too much data. Try again later.",
+    );
+  }
+  return new ChangeRequestReadError(
+    "unavailable",
+    "GitHub could not be read. Check your connection and GitHub access, then refresh.",
+  );
 }

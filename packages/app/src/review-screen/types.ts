@@ -12,8 +12,6 @@ export type ReviewSource =
       owner: string;
       name: string;
       number: number;
-      /** A checkout of the same repository on `serverId`, used for CLI auth context only. */
-      cwd?: string;
     }
   | {
       kind: "checkout";
@@ -47,7 +45,34 @@ export const EMPTY_REVIEW_SELECTION: ReviewSelection = {
   drafts: new Set(),
 };
 
-export type ReviewInspectorTab = "threads" | "checks" | "about";
+export type ReviewInspectorTab = "threads" | "checks";
+
+/** The detail pane's two tabs, as in the website's Review mockup: cards first, diff second. */
+export type ReviewDetailTab = "overview" | "changes";
+
+/** Rail source: pull requests (inbox) or local worktrees. */
+export type ReviewMode = "pull_requests" | "worktrees";
+
+/**
+ * One entry of the screen's own back/forward history. The shell owns the stack; slots use the
+ * `ReviewNavigation` it hands them and never touch history themselves.
+ */
+export interface ReviewViewState {
+  mode: ReviewMode;
+  source: ReviewSource | null;
+  tab: ReviewDetailTab;
+  /** File open on the Changes tab. */
+  path: string | null;
+}
+
+export interface ReviewNavigation {
+  canGoBack: boolean;
+  canGoForward: boolean;
+  goBack: () => void;
+  goForward: () => void;
+  /** Push a new history entry built from the current one. */
+  push: (next: Partial<ReviewViewState>) => void;
+}
 
 /** One revision of the file list, as `forge.change_request.list_files` returned it. */
 export interface ReviewFileSnapshot {
@@ -56,27 +81,49 @@ export interface ReviewFileSnapshot {
   files: ChangeRequestFile[];
 }
 
-// ---- Slot props (S2 header/inbox, S3 desk, S4 inspector, S5 fix sheet) ----
+// ---- Slot props: S2 header + rail + detail header, S3 desk, S4 overview + inspector, S5 fix sheet ----
 
-export interface ReviewInboxProps {
-  /** Daemon whose forge CLI auth the inbox reads through. */
+/** Left rail: title, search, All / To review filter, one row per change request. */
+export interface ReviewRailProps {
+  /** Daemon whose forge CLI auth the rail reads through. */
   serverId: string;
+  mode: ReviewMode;
+  selected: ReviewSource | null;
   onOpen: (source: ReviewSource) => void;
 }
 
+/** Top bar: Review title, back/forward, Pull requests / Worktrees switch. */
 export interface ReviewHeaderProps {
-  source: ReviewSource;
-  onBack: () => void;
+  mode: ReviewMode;
+  navigation: ReviewNavigation;
+  onModeChange: (mode: ReviewMode) => void;
 }
 
+/** Above the tabs: repo and number, title, state/branch/counter chips, Overview / Changes tabs. */
+export interface ReviewDetailHeaderProps {
+  source: ReviewSource;
+  tab: ReviewDetailTab;
+  onTabChange: (tab: ReviewDetailTab) => void;
+}
+
+/** Overview tab: stacked cards (Description, a separate Checks card, Threads, Commits). */
+export interface ReviewOverviewProps {
+  source: ReviewSource;
+  onJumpTo: ReviewJumpTo;
+  selection: ReviewSelection;
+  onSelectionChange: (next: ReviewSelection) => void;
+}
+
+/** Changes tab: file tree beside the diff. */
 export interface ReviewDeskProps {
   source: ReviewSource;
-  /** Set by the shell when the inspector (or a deep link) asks the desk to move. `nonce` changes on every request so repeating the same target still fires. */
+  /** Set by the shell when a card or the inspector asks the desk to move. `nonce` changes on every request so repeating a target still fires. */
   focus: { path: string; line: number | null; nonce: number } | null;
   selection: ReviewSelection;
   onSelectionChange: (next: ReviewSelection) => void;
 }
 
+/** Changes tab, right column: Threads / Checks beside the diff. Collapsible. */
 export interface ReviewInspectorProps {
   source: ReviewSource;
   tab: ReviewInspectorTab;

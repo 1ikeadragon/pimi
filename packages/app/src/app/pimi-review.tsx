@@ -10,5 +10,5 @@ export default function PimiReviewRoute() {
   const source = useMemo(() => parseReviewSource(params), [params]);
   const defaultServerId = useUsageHostId();
   const requestedServerId = typeof params.serverId === "string" ? params.serverId : null;
-  return <ReviewScreen source={source} inboxServerId={requestedServerId ?? defaultServerId} />;
+  return <ReviewScreen source={source} serverId={requestedServerId ?? defaultServerId} />;
 }

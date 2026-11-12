@@ -24,7 +24,6 @@ export function reviewSourceToParams(source: ReviewSource): Record<string, strin
       owner: source.owner,
       name: source.name,
       number: String(source.number),
-      ...(source.cwd ? { cwd: source.cwd } : {}),
     };
   }
   return {
@@ -66,7 +65,6 @@ export function parseReviewSource(params: ReviewRouteParams): ReviewSource | nul
       owner,
       name,
       number,
-      cwd: single(params.cwd),
     };
   }
   const cwd = single(params.cwd);

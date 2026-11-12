@@ -2806,21 +2806,24 @@ export const CheckoutForgeGetCheckDetailsRequestSchema =
   });
 
 // Change-request review RPCs (`forge.change_request.*`). Unlike `checkout.forge.*` they address a
-// change request by forge identity (`forgeHost`/`owner`/`name`/`number`), so a request with no local
-// checkout can be read. `cwd` is optional: when it names a checkout, the daemon may reuse it for CLI
-// auth context; it never selects the repository. The daemon validates identity again and never
-// builds shell strings from it. Read-only toward the forge.
-const ChangeRequestForgeHostSchema = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$/);
-const ChangeRequestRepoSegmentSchema = z.string().regex(/^[A-Za-z0-9_][A-Za-z0-9._-]{0,99}$/);
-const ChangeRequestNumberSchema = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
-const ChangeRequestHeadShaSchema = z.string().regex(/^[a-f0-9]{40}$/);
+// change request by forge identity (`forgeHost`/`owner`/`name`/`number`), never by a checkout, so a
+// change request with no local clone can be read. The daemon validates the identity again with
+// these same schemas, resolves the host only to a CLI-authenticated or cloud forge, and spawns the
+// forge CLI with argument arrays, never shell strings. Read-only toward the forge.
+// `refresh` skips the daemon's short read cache (the UI refresh button).
+export const ChangeRequestForgeHostSchema = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$/);
+export const ChangeRequestRepoSegmentSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9_][A-Za-z0-9._-]{0,99}$/);
+export const ChangeRequestNumberSchema = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
+export const ChangeRequestHeadShaSchema = z.string().regex(/^[a-f0-9]{40}$/);
 
 const ChangeRequestRefFields = {
   forgeHost: ChangeRequestForgeHostSchema,
   owner: ChangeRequestRepoSegmentSchema,
   name: ChangeRequestRepoSegmentSchema,
   number: ChangeRequestNumberSchema,
-  cwd: z.string().optional(),
+  refresh: z.boolean().optional(),
   requestId: z.string(),
 };
 
@@ -2841,7 +2844,7 @@ export const ForgeChangeRequestListInboxRequestSchema = z.object({
     .max(24)
     .optional(),
   limit: z.number().int().min(1).max(100).optional(),
-  cwd: z.string().optional(),
+  refresh: z.boolean().optional(),
   requestId: z.string(),
 });
 
@@ -3684,12 +3687,12 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   ProviderDiagnosticRequestMessageSchema,
   ProviderHarnessUpdatesRequestMessageSchema,
   UsageListReportsRequestMessageSchema,
-  ResumeAgentRequestMessageSchema,
-  ImportAgentRequestMessageSchema,
-  RefreshAgentRequestMessageSchema,
   WorkspaceSearchRunRequestSchema,
   WorkspaceSearchCancelRequestSchema,
   WorkspaceSearchReplaceRequestSchema,
+  ResumeAgentRequestMessageSchema,
+  ImportAgentRequestMessageSchema,
+  RefreshAgentRequestMessageSchema,
   CancelAgentRequestMessageSchema,
   ShutdownServerRequestMessageSchema,
   RestartServerRequestMessageSchema,
@@ -7519,14 +7522,14 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   ProviderHarnessUpdatesResponseMessageSchema,
   UsageListReportsUpdateMessageSchema,
   UsageListReportsResponseMessageSchema,
-  ListCommandsResponseSchema,
-  ListTerminalsResponseSchema,
-  TerminalsChangedSchema,
   WorkspaceSearchRunUpdateMessageSchema,
   WorkspaceSearchRunResponseMessageSchema,
   WorkspaceSearchCancelResponseMessageSchema,
   WorkspaceSearchReplaceUpdateMessageSchema,
   WorkspaceSearchReplaceResponseMessageSchema,
+  ListCommandsResponseSchema,
+  ListTerminalsResponseSchema,
+  TerminalsChangedSchema,
   CreateTerminalResponseSchema,
   RenameTerminalResponseSchema,
   SubscribeTerminalResponseSchema,

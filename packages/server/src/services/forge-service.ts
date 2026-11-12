@@ -1,4 +1,11 @@
-import type { ForgeSearchKind } from "@pimi/protocol/messages";
+import type {
+  ChangeRequestFile,
+  ChangeRequestFileDiff,
+  ChangeRequestInboxItem,
+  ChangeRequestInboxScope,
+  ChangeRequestOverview,
+  ForgeSearchKind,
+} from "@pimi/protocol/messages";
 
 export interface PullRequestSummary {
   number: number;
@@ -396,6 +403,83 @@ export type SearchIssuesAndPrsOptions = {
   kinds?: ForgeSearchKind[];
 } & ForgeReadOptions;
 
+/**
+ * A change request addressed by forge identity rather than a checkout. Values are validated at the
+ * session boundary (`ChangeRequest*Schema` in the protocol); adapters pass them to the forge CLI as
+ * argument-array entries and never interpolate them into a shell string.
+ */
+export interface ChangeRequestRef {
+  forgeHost: string;
+  owner: string;
+  name: string;
+  number: number;
+}
+
+export type ChangeRequestReadErrorCode =
+  | "invalid_request"
+  | "not_found"
+  | "forbidden"
+  | "unauthenticated"
+  | "cli_missing"
+  | "unsupported"
+  | "stale_snapshot"
+  | "too_large"
+  | "unavailable";
+
+/** A change-request read failed in a way the client can act on; `message` is safe to show. */
+export class ChangeRequestReadError extends Error {
+  readonly code: ChangeRequestReadErrorCode;
+
+  constructor(code: ChangeRequestReadErrorCode, message: string) {
+    super(message);
+    this.name = "ChangeRequestReadError";
+    this.code = code;
+  }
+}
+
+export interface ListChangeRequestInboxOptions {
+  forgeHost: string;
+  scopes: ChangeRequestInboxScope[];
+  repositories: Array<{ owner: string; name: string }>;
+  limit: number;
+  force?: boolean;
+}
+
+export interface ChangeRequestInboxSource {
+  scope: ChangeRequestInboxScope;
+  repository: string | null;
+  status: "ready" | "error";
+  truncated: boolean;
+  error: { code: ChangeRequestReadErrorCode; message: string } | null;
+}
+
+export interface ChangeRequestInbox {
+  items: ChangeRequestInboxItem[];
+  sources: ChangeRequestInboxSource[];
+}
+
+export type ChangeRequestReadOptions = ChangeRequestRef & { force?: boolean };
+
+export interface ChangeRequestFileList {
+  snapshot: { baseSha: string; headSha: string; totalFiles: number; patchBytesTotal: number };
+  files: ChangeRequestFile[];
+}
+
+export type GetChangeRequestFileDiffsOptions = ChangeRequestReadOptions & {
+  headSha: string;
+  paths: string[];
+};
+
+export interface ChangeRequestFileDiffs {
+  headSha: string;
+  diffs: ChangeRequestFileDiff[];
+}
+
+export type GetChangeRequestCheckDetailsOptions = ChangeRequestReadOptions & {
+  checkRunId?: number;
+  workflowRunId?: number;
+};
+
 export interface CreatePullRequestOptions {
   cwd: string;
   title: string;
@@ -445,6 +529,21 @@ export interface ForgeService {
   ): Promise<CurrentPullRequestStatus | null>;
   getPullRequestTimeline(options: GetPullRequestTimelineOptions): Promise<PullRequestTimeline>;
   getCheckDetails(options: GetCheckDetailsOptions): Promise<CheckDetails>;
+  /**
+   * Ref-addressed change-request reads for the Review screen. Optional: an adapter without them
+   * answers `unsupported` and review falls back to a checkout. They never touch a working tree,
+   * and none writes to the forge.
+   */
+  listChangeRequestInbox?(options: ListChangeRequestInboxOptions): Promise<ChangeRequestInbox>;
+  getChangeRequestOverview?(options: ChangeRequestReadOptions): Promise<ChangeRequestOverview>;
+  listChangeRequestFiles?(options: ChangeRequestReadOptions): Promise<ChangeRequestFileList>;
+  getChangeRequestFileDiffs?(
+    options: GetChangeRequestFileDiffsOptions,
+  ): Promise<ChangeRequestFileDiffs>;
+  getChangeRequestTimeline?(options: ChangeRequestReadOptions): Promise<PullRequestTimeline>;
+  getChangeRequestCheckDetails?(
+    options: GetChangeRequestCheckDetailsOptions,
+  ): Promise<CheckDetails>;
   searchIssuesAndPrs(options: SearchIssuesAndPrsOptions): Promise<SearchResult>;
   createPullRequest(options: CreatePullRequestOptions): Promise<PullRequestCreateResult>;
   mergePullRequest(options: MergePullRequestOptions): Promise<PullRequestMergeResult>;

@@ -226,6 +226,8 @@ export interface WorkspaceGitService {
    */
   getLocalSnapshot(cwd: string): Promise<WorkspaceGitRuntimeSnapshot>;
   resolveForge(cwd: string): Promise<ForgeResolution | null>;
+  /** The forge adapter for a host named by a client, with no checkout involved. */
+  resolveForgeForHost(host: string): Promise<ForgeResolution | null>;
   getCheckoutDiff(
     cwd: string,
     options: CheckoutDiffCompare,
@@ -686,6 +688,11 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
   resolveForge(cwd: string): Promise<ForgeResolution | null> {
     this.assertNotDisposed();
     return this.forgeResolver.resolve(resolve(cwd));
+  }
+
+  resolveForgeForHost(host: string): Promise<ForgeResolution | null> {
+    this.assertNotDisposed();
+    return this.forgeResolver.resolveHost(host);
   }
 
   registerWorkspace(
