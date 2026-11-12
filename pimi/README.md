@@ -28,7 +28,6 @@ Push the version commit to `main`, then push its `pimi-vX.Y.Z` tag. The release 
 - Work shows checkouts associated with active workspaces and tasks. **Watch repository** includes its other available checkouts. Tasks and Work update from daemon events and periodic local Git checks while open. Live updates leave any loaded diff in place. Use **Refresh diff** to load it again. Use Agent Console to import a supported session started elsewhere.
 - Working comparisons include new files and tracked changes. GitHub PR reviews pin the base and head returned by GitHub and may fetch their commit objects. Sign in to `gh` to review private PRs.
 - **Compare worktrees** loads a second checkout with its own comparison settings. **Find in open diffs** searches the currently displayed patches and source panes. The main review’s editor selector uses the same target discovery and launcher as Agent Console.
-- Explain Changes sends tracked diff text to the selected provider when you click it. It uses the first model configured in metadata generation settings, then the latest available agent on the worktree, then a ready provider and its default model. Explanations accept up to 24 KB of diff context. Files without added lines are available in File Tour. File Tour and comparisons work independently of provider availability.
 - Local previews use running workspace services. Pimi’s review surface listens on loopback. The agent console uses the daemon’s host and provider settings.
 
 ## Source audit

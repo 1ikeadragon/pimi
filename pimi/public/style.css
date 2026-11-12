@@ -939,18 +939,6 @@ h2 {
   width: 21px;
   height: 21px;
 }
-.review-tool-menu {
-  display: grid;
-  min-width: 152px;
-  padding: 5px;
-}
-.review-tool-menu > button {
-  text-align: left;
-}
-.review-tool-menu .tour-status:empty {
-  display: none;
-}
-
 .previews,
 .review-actions {
   display: flex;
@@ -1019,8 +1007,7 @@ h2 {
   }
 
   #task-detail:not([hidden]),
-  #comparison-review:not([hidden]),
-  .tour-card:not([hidden]) {
+  #comparison-review:not([hidden]) {
     animation: pane-arrive 150ms ease-out;
   }
   @keyframes pane-arrive {
@@ -1407,7 +1394,6 @@ h2 {
   min-height: 0;
 }
 
-.tourbar,
 .pane-head {
   display: flex;
   align-items: center;
@@ -1415,26 +1401,6 @@ h2 {
   gap: 8px;
   border-bottom: 1px solid var(--line);
   background: var(--surface);
-}
-
-.tourbar {
-  min-height: 40px;
-  padding: 5px 9px;
-}
-
-.tour-status {
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
-.tour-status:not(:empty) {
-  margin-left: 5px;
-}
-
-.tour-actions,
-.pane-actions {
-  display: flex;
-  gap: 5px;
 }
 
 .panes {
@@ -1524,11 +1490,6 @@ h2 {
   border-top: 1px solid var(--line);
 }
 
-.patch-line.focus {
-  outline: 1px solid var(--focus);
-  outline-offset: -1px;
-}
-
 .gutter {
   display: inline-block;
   width: 39px;
@@ -1537,40 +1498,6 @@ h2 {
   color: var(--muted);
   text-align: right;
   user-select: none;
-}
-
-.tour-card {
-  flex: none;
-  max-height: 48%;
-  overflow: auto;
-  padding: 8px 11px 10px;
-  border-top: 1px solid var(--line);
-  background: var(--surface);
-}
-
-.note-top,
-.note-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-}
-
-.note-top {
-  margin-bottom: 3px;
-}
-.note-actions {
-  justify-content: flex-end;
-}
-
-#note-text {
-  margin: 4px 0 9px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-#note-title {
-  overflow-wrap: anywhere;
 }
 
 @media (max-width: 870px) {

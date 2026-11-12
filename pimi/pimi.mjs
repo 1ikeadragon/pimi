@@ -809,7 +809,6 @@ export function createPimiConnection(settingsSource = {}) {
       changeListeners.add(listener);
       return () => changeListeners.delete(listener);
     },
-    explain,
     taskModels,
     checkTaskModel,
     suggestExperiments,

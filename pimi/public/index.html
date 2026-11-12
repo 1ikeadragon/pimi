@@ -634,24 +634,6 @@
                   </form>
                 </div>
               </details>
-              <details id="review-tools" class="watch comparison-settings">
-                <summary
-                  class="button quiet glyph-button"
-                  aria-label="Review tools"
-                  title="Review tools"
-                >
-                  <svg class="glyph" aria-hidden="true"><use href="#glyph-more" /></svg>
-                </summary>
-                <div class="watch-panel review-tool-menu">
-                  <button id="file-tour" class="button quiet" type="button" disabled>
-                    File tour
-                  </button>
-                  <button id="ai-tour" class="button quiet" type="button" disabled>
-                    Explain changes
-                  </button>
-                  <span id="tour-status" class="tour-status" role="status"></span>
-                </div>
-              </details>
               <select
                 id="review-editor"
                 class="editor-picker"
@@ -793,30 +775,6 @@
               <section id="review-pr-details" aria-label="Pull request details" hidden></section>
               <div id="review-code" class="review-code" hidden>
                 <div id="panes" class="panes"></div>
-                <div
-                  id="tour-card"
-                  class="tour-card"
-                  role="region"
-                  aria-label="Walkthrough note"
-                  hidden
-                >
-                  <div class="note-top">
-                    <span id="tour-position" class="context-label"></span>
-                    <button id="close-tour" class="icon-button" aria-label="Close walkthrough note">
-                      ×
-                    </button>
-                  </div>
-                  <h2 id="note-title"></h2>
-                  <p id="note-text"></p>
-                  <div class="note-actions">
-                    <button id="prev-step" class="button secondary" aria-keyshortcuts="[">
-                      ← Previous
-                    </button>
-                    <button id="next-step" class="button primary" aria-keyshortcuts="]">
-                      Next →
-                    </button>
-                  </div>
-                </div>
               </div>
             </div>
           </div>

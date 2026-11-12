@@ -353,19 +353,6 @@ export async function filePatch(review, file) {
 
 export const patchFingerprint = (patch) => createHash("sha256").update(patch).digest("hex");
 
-export function changedLines(patch) {
-  const lines = new Set();
-  let line = null;
-  for (const text of patch.split("\n")) {
-    const hunk = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(text);
-    if (hunk) line = Number(hunk[1]);
-    else if (text.startsWith("diff --git ")) line = null;
-    else if (line !== null && text.startsWith("+")) lines.add(line++);
-    else if (line !== null && text.startsWith(" ")) line++;
-  }
-  return lines;
-}
-
 async function resolveFile(root, path) {
   const candidate = resolve(root, path);
   const fullPath = await realpath(candidate);

@@ -74,10 +74,6 @@ const laneDefinitions = [
 let activeWorktree;
 let review;
 let selected = [];
-let daemonConnected = false;
-let tour;
-let stepIndex = 0;
-let generatingFor;
 let generation = 0;
 let loading = false;
 let reviewEditors = [];
@@ -344,7 +340,6 @@ function renderBoard(data) {
   tasksView.setBoard(data);
   worktreeComparison.setBoard(data.cards);
   renderReviewWorktrees(data.cards);
-  daemonConnected = !data.daemonError;
   $("show-agents").hidden = !data.native;
   message(
     "board-warning",
@@ -454,7 +449,6 @@ function renderBoard(data) {
       return row;
     }),
   );
-  updateTourControls();
 }
 
 async function refreshBoard() {
@@ -466,9 +460,7 @@ async function refreshBoard() {
     })
     .catch((error) => {
       boardSignature = undefined;
-      daemonConnected = false;
       message("board-warning", error.message);
-      updateTourControls();
       return false;
     })
     .finally(() => {
@@ -547,7 +539,6 @@ function clearReviewComparison() {
   sourceSelections.clear();
   scrollRestores.clear();
   reviewFiles.reset();
-  closeTour();
   renderFiles();
   renderPanes();
 }
@@ -804,7 +795,6 @@ async function loadReview({ keepSelection = false } = {}) {
       $("refresh-comparison").disabled = false;
       renderFiles();
       renderPanes();
-      updateTourControls();
     }
   }
 }
@@ -833,7 +823,6 @@ function installComparison(result, previousFiles, restoring) {
   patchCache.clear();
   renderedPanes.clear();
   $("panes").replaceChildren();
-  closeTour();
   const paths = new Set(result.files.map((file) => file.path));
   selected = previousFiles.filter((path) => paths.has(path) || sourceSelections.has(path));
   if (!selected.length && result.files.length) selected = [result.files[0].path];
@@ -989,32 +978,6 @@ function showSource(source, tokens, parent) {
   parent.replaceChildren(fragment);
 }
 
-function focusStep() {
-  for (const pane of renderedPanes.values()) {
-    pane.querySelector(".focus")?.classList.remove("focus");
-  }
-  const step = tour?.steps[stepIndex];
-  if (!step) return;
-  const pane = renderedPanes.get(step.path);
-  if (step.fingerprint) {
-    const fingerprint = pane?.dataset.fingerprint;
-    if (fingerprint !== step.fingerprint) {
-      $("note-text").textContent = fingerprint
-        ? "This diff has changed. Reload changes before using this note."
-        : "Waiting for the changed line…";
-      return;
-    }
-    $("note-text").textContent = step.note;
-  }
-  const line = Number.isSafeInteger(step.line)
-    ? pane?.querySelector(`[data-line="${step.line}"]`)
-    : (pane?.querySelector(".add") ?? pane?.querySelector(".remove"));
-  if (line) {
-    line.classList.add("focus");
-    line.scrollIntoView({ block: "center", inline: "nearest" });
-  }
-}
-
 function createPane(path) {
   const current = review;
   const file = current.files.find((item) => item.path === path);
@@ -1034,18 +997,7 @@ function createPane(path) {
     const editorId = editor.value;
     editor.value = "";
     if (!editorId) return;
-    const step = tour?.steps[stepIndex];
-    if (step?.path === path && step.fingerprint && step.fingerprint !== pane.dataset.fingerprint) {
-      message("review-warning", "Reload changes before opening this walkthrough line.");
-      return;
-    }
-    void launchEditor(
-      current,
-      editorId,
-      path,
-      step?.path === path && step.line ? step.line : firstLine,
-      pane.dataset.fingerprint,
-    );
+    void launchEditor(current, editorId, path, firstLine, pane.dataset.fingerprint);
   });
   editor.setAttribute("aria-label", `Open ${path} in`);
   if (file && current.canOpenFiles && file.status !== "D") editor.dataset.editorOpenable = "false";
@@ -1121,7 +1073,6 @@ function createPane(path) {
         content.scrollLeft = position.left;
         scrollRestores.delete(path);
       }
-      focusStep();
     } catch (error) {
       if (attempt === request)
         content.replaceChildren(
@@ -1171,7 +1122,6 @@ function renderPanes() {
     const current = $("panes").children[index];
     if (pane !== current) $("panes").insertBefore(pane, current ?? null);
   }
-  focusStep();
 }
 
 async function launchEditor(result, editorId, path, line = 1, fingerprint) {
@@ -1183,93 +1133,7 @@ async function launchEditor(result, editorId, path, line = 1, fingerprint) {
   }
 }
 
-function updateTourControls() {
-  $("file-tour").disabled = !review?.files.length;
-  $("ai-tour").disabled = !review?.files.length || !daemonConnected || Boolean(generatingFor);
-  $("ai-tour").title = daemonConnected
-    ? "Use your configured agent provider"
-    : "Explanations are currently unavailable";
-  let status = "";
-  if (generatingFor) status = "Generating notes…";
-  else if (!review?.files.length) status = "Load changes to start";
-  $("tour-status").textContent = status;
-}
-
-function showStep(index) {
-  if (!tour || index < 0 || index >= tour.steps.length) return;
-  stepIndex = index;
-  const step = tour.steps[index];
-  $("tour-card").hidden = false;
-  $("tour-position").textContent = `${index + 1} / ${tour.steps.length} · ${tour.label}`;
-  $("note-title").textContent = step.title;
-  $("note-text").textContent = step.note;
-  $("prev-step").disabled = index === 0;
-  $("next-step").textContent = index === tour.steps.length - 1 ? "Finish" : "Next →";
-  selectFile(step.path);
-  focusStep();
-}
-
-function closeTour() {
-  tour = undefined;
-  $("tour-card").hidden = true;
-  focusStep();
-}
-
-function startFileTour() {
-  const statusLabels = {
-    A: "Added",
-    D: "Deleted",
-    M: "Modified",
-    R: "Renamed",
-    C: "Copied",
-    T: "Type changed",
-  };
-  tour = {
-    label: "File tour",
-    steps: review.files.map((file) => ({
-      path: file.path,
-      title: file.path,
-      note: `${statusLabels[file.status[0]] || file.status} in this comparison.${file.oldPath ? ` Previous path: ${file.oldPath}.` : ""}`,
-    })),
-  };
-  showStep(0);
-}
-
-async function startAiTour() {
-  const id = review.id;
-  generatingFor = id;
-  updateTourControls();
-  try {
-    const result = await api("tour", { id });
-    if (review?.id !== id) return;
-    tour = { label: result.provider || "AI notes", steps: result.steps };
-    if (result.omittedFiles) {
-      message(
-        "review-warning",
-        `${result.omittedFiles} file(s) without added lines were outside the explanation. They remain in the file list.`,
-      );
-    }
-    showStep(0);
-  } catch (error) {
-    if (review?.id === id) message("review-warning", error.message);
-  } finally {
-    generatingFor = undefined;
-    updateTourControls();
-  }
-}
-
-function nextStep() {
-  if (!tour) return;
-  if (stepIndex + 1 === tour.steps.length) closeTour();
-  else showStep(stepIndex + 1);
-}
-
 function navigateReview(direction) {
-  if (tour) {
-    if (direction < 0) showStep(stepIndex - 1);
-    else nextStep();
-    return;
-  }
   const files = matchingFiles();
   const current = files.findIndex((file) => file.path === selected[0]);
   const boundary = direction > 0 ? 0 : files.length - 1;
@@ -1472,17 +1336,6 @@ $("review-editor").addEventListener("change", () => {
   picker.value = "";
   if (review && editorId) void launchEditor(review, editorId, null);
 });
-$("file-tour").addEventListener("click", () => {
-  $("review-tools").open = false;
-  startFileTour();
-});
-$("ai-tour").addEventListener("click", () => {
-  $("review-tools").open = false;
-  void startAiTour();
-});
-$("prev-step").addEventListener("click", () => showStep(stepIndex - 1));
-$("next-step").addEventListener("click", nextStep);
-$("close-tour").addEventListener("click", closeTour);
 function focusViewSearch(event, reviewing) {
   const listSearch = $("tasks").hidden ? "board-search" : "task-search";
   const reviewSearch = {
@@ -1510,8 +1363,6 @@ document.addEventListener("keydown", (event) => {
   const reviewing = !$("review").hidden;
   if (event.key === "/") {
     focusViewSearch(event, reviewing);
-  } else if (reviewing && event.key === "Escape" && tour) {
-    closeTour();
   } else if (reviewing && reviewScreen === "code" && (event.key === "[" || event.key === "]")) {
     event.preventDefault();
     navigateReview(event.key === "[" ? -1 : 1);

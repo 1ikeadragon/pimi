@@ -46,7 +46,6 @@ import { createPullRequests } from "./pull-requests.mjs";
 import { createSpacePosters } from "./space-poster.mjs";
 import { listReviewPaths, readReviewSource } from "./review-files.mjs";
 import { createTasks } from "./tasks.mjs";
-import { generateTour } from "./walkthrough.mjs";
 import { runVoiceCommand } from "./voice-command.mjs";
 
 const appearances = new Set([
@@ -910,7 +909,6 @@ export async function startPimi({
     ["/api/editor", startEditor],
     ["/api/memory", pimi.memory],
     ["/api/spaces", pimi.spaces],
-    ["/api/tour", (body) => generateTour(getReview(body.id), pimi.explain)],
     ["/api/tasks/create", tasks.create],
     ["/api/tasks/repository", tasks.attachRepository],
     ["/api/tasks/assign-repository", tasks.assignRepository],
