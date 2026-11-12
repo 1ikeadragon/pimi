@@ -3,6 +3,8 @@ import type {
   NetworkActivityRequest,
   NetworkActivitySnapshot,
 } from "@pimi/protocol/messages";
+import { REPEAT_COUNTER, REPEAT_LAST_COUNTER } from "@pimi/protocol/network-activity";
+import { formatTimeOfDay } from "@/utils/time";
 
 export type NetworkSource = "daemon" | "app" | "browser";
 
@@ -172,4 +174,12 @@ export function formatRequestTarget(request: NetworkActivityRequest): string {
   const port = request.port ? `:${request.port}` : "";
   const host = request.protocol === "unix" ? "unix socket" : `${request.host}${port}`;
   return `${host}${request.path}`;
+}
+
+/** "12 times, last 01:19:44" for a launch the daemon folded repeats into, otherwise null. */
+export function repeatLabel(request: NetworkActivityRequest): string | null {
+  const count = request.counters?.[REPEAT_COUNTER];
+  if (!count || count < 2) return null;
+  const last = request.counters?.[REPEAT_LAST_COUNTER] ?? request.startedAtMs;
+  return `${count} times, last ${formatTimeOfDay(new Date(last))}`;
 }

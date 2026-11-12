@@ -164,6 +164,16 @@ export interface NetworkActivitySnapshotOptions {
   limit?: number;
 }
 
+// Launches that repeat identically (same program, arguments, purpose, destination, outcome)
+// within this window of the first one share one row with a count, so a poller cannot push every
+// other record out of the ring buffer. Nothing is dropped: the row keeps the count and the time
+// of the latest launch, and every launch is still passed to onFinish.
+export const REPEAT_WINDOW_MS = 5_000;
+const MAX_REPEAT_KEYS = 256;
+/** Counter names on a repeated launch's row. */
+export const REPEAT_COUNTER = "repeat";
+export const REPEAT_LAST_COUNTER = "lastStartedAtMs";
+
 export interface NetworkActivityRecorderOptions {
   idPrefix: string;
   /** Recent requests kept in memory. */
@@ -195,6 +205,7 @@ export class NetworkActivityRecorder {
   private sequence = 0;
   private droppedHosts = 0;
   private readonly hosts = new Map<string, NetworkActivityHost>();
+  private readonly repeats = new Map<string, NetworkActivityRequest>();
   private readonly extraRules = new Map<string, string>();
   readonly capturedSinceMs: number;
 
@@ -263,11 +274,59 @@ export class NetworkActivityRecorder {
       if (isFailure(record)) aggregate.errors += 1;
       aggregate.bytes += record.responseBytes ?? 0;
     }
+    const folded = this.foldRepeatedLaunch(record);
     try {
       this.onFinish?.(record);
     } catch {
       // A failing sink must never disturb request observation.
     }
+    if (folded) this.removeFromRing(record);
+  }
+
+  /** Folds a finished launch into an identical recent one. True when `record` was folded. */
+  private foldRepeatedLaunch(record: NetworkActivityRequest): boolean {
+    if (record.protocol !== "process" || record.counters) return false;
+    const key = JSON.stringify([
+      record.source,
+      record.host,
+      record.path,
+      record.purpose,
+      record.destination ?? null,
+      record.status,
+      record.errorCode,
+    ]);
+    const first = this.repeats.get(key);
+    if (
+      first &&
+      first !== record &&
+      this.ring.includes(first) &&
+      record.startedAtMs - first.startedAtMs < REPEAT_WINDOW_MS
+    ) {
+      const count = (first.counters?.[REPEAT_COUNTER] ?? 1) + 1;
+      first.counters = {
+        ...first.counters,
+        [REPEAT_COUNTER]: count,
+        [REPEAT_LAST_COUNTER]: record.startedAtMs,
+      };
+      return true;
+    }
+    this.repeats.delete(key);
+    this.repeats.set(key, record);
+    if (this.repeats.size > MAX_REPEAT_KEYS) {
+      const oldest = this.repeats.keys().next().value;
+      if (oldest !== undefined) this.repeats.delete(oldest);
+    }
+    return false;
+  }
+
+  private removeFromRing(record: NetworkActivityRequest): void {
+    const index = this.ring.indexOf(record);
+    if (index === -1) return;
+    const ordered = [...this.ring.slice(this.next), ...this.ring.slice(0, this.next)].filter(
+      (entry) => entry !== record,
+    );
+    this.ring.splice(0, this.ring.length, ...ordered);
+    this.next = ordered.length % this.capacity;
   }
 
   /**

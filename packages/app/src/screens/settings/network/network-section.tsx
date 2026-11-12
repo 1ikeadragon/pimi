@@ -31,6 +31,7 @@ import {
   formatDuration,
   formatRequestTarget,
   networkSourceLabel,
+  repeatLabel,
   requestStatus,
   type NetworkFilter,
   type NetworkSource,
@@ -514,6 +515,7 @@ function RequestRow({ request, first }: { request: NetworkActivityRequest; first
     formatTimeOfDay(new Date(request.startedAtMs)),
     duration,
     request.responseBytes ? formatBytes(request.responseBytes) : null,
+    repeatLabel(request),
     networkSourceLabel(request.source),
     request.known ? request.purpose : null,
   ].filter((part): part is string => part !== null);
