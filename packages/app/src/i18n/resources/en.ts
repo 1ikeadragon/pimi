@@ -2268,6 +2268,10 @@ export const en = {
       relayDocsAccessibility: "Read how Pimi Relay works",
       enableRelay: "Enable relay",
       enablingRelay: "Enabling...",
+      relayOn: "Relay is on",
+      relayOff: "Relay is off",
+      disableRelay: "Turn off relay",
+      disablingRelay: "Turning off...",
       notNow: "Not now",
       directConnectionHint:
         "Without relay, connect directly over TCP, Tailscale, or another VPN. No QR code is created.",

@@ -2258,6 +2258,10 @@ export const ja: TranslationResources = {
       relayDocsAccessibility: "Pimi リレーの仕組みを読む",
       enableRelay: "リレーを有効にする",
       enablingRelay: "有効化中...",
+      relayOn: "リレーはオンです",
+      relayOff: "リレーはオフです",
+      disableRelay: "リレーをオフにする",
+      disablingRelay: "オフにしています...",
       notNow: "今はしない",
       directConnectionHint:
         "リレーを使わない場合は、TCP、Tailscale、または別の VPN で直接接続してください。QR コードは作成されません。",

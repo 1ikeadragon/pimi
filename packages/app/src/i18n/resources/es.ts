@@ -2283,6 +2283,10 @@ export const es: TranslationResources = {
       relayDocsAccessibility: "Leer cómo funciona el relé de Pimi",
       enableRelay: "Habilitar relé",
       enablingRelay: "Habilitando...",
+      relayOn: "El relay está activado",
+      relayOff: "El relay está desactivado",
+      disableRelay: "Desactivar relay",
+      disablingRelay: "Desactivando...",
       notNow: "Ahora no",
       directConnectionHint:
         "Sin relé, conéctese directamente por TCP, Tailscale u otra VPN. No se crea ningún código QR.",

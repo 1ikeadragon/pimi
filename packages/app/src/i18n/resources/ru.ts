@@ -2268,6 +2268,10 @@ export const ru: TranslationResources = {
       relayDocsAccessibility: "Узнать, как работает ретранслятор Pimi",
       enableRelay: "Включить ретранслятор",
       enablingRelay: "Включение ретранслятора...",
+      relayOn: "Ретранслятор включён",
+      relayOff: "Ретранслятор выключен",
+      disableRelay: "Выключить ретранслятор",
+      disablingRelay: "Выключение...",
       notNow: "Не сейчас",
       directConnectionHint:
         "Без ретранслятора подключайтесь напрямую через TCP, Tailscale или другую VPN. QR-код создаваться не будет.",

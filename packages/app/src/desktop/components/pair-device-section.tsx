@@ -71,6 +71,14 @@ export function PairDeviceSection({ serverId, onClose }: PairDeviceSectionProps)
     },
   });
 
+  const disableRelay = useMutation({
+    mutationFn: async () => {
+      const config = await patchConfig({ relay: { enabled: false } });
+      if (!config) throw new Error(t("workspace.terminal.hostDisconnected"));
+      return pairingQuery.refetch();
+    },
+  });
+
   const qrQuery = useFetchQuery({
     queryKey: ["daemon-pairing-offer-qr", pairingQuery.data?.url],
     queryFn: () =>
@@ -100,6 +108,10 @@ export function PairDeviceSection({ serverId, onClose }: PairDeviceSectionProps)
     enableRelay.mutate();
   }, [enableRelay]);
 
+  const handleDisableRelay = useCallback(() => {
+    disableRelay.mutate();
+  }, [disableRelay]);
+
   const qrSvg = useMemo(() => qrQuery.data ?? null, [qrQuery.data]);
 
   return (
@@ -111,6 +123,9 @@ export function PairDeviceSection({ serverId, onClose }: PairDeviceSectionProps)
         offer={pairingQuery.data}
         enablePending={enableRelay.isPending}
         enableError={enableRelay.error}
+        disablePending={disableRelay.isPending}
+        disableError={disableRelay.error}
+        onDisableRelay={handleDisableRelay}
         qrSvg={qrSvg}
         qrError={qrQuery.isError}
         copied={copied}
@@ -130,6 +145,9 @@ interface PairDeviceBodyProps {
   offer: { relayEnabled: boolean; relayConfigured?: boolean; url: string } | undefined;
   enablePending: boolean;
   enableError: Error | null;
+  disablePending: boolean;
+  disableError: Error | null;
+  onDisableRelay: () => void;
   qrSvg: string | null;
   qrError: boolean;
   copied: boolean;
@@ -158,7 +176,28 @@ function PairDeviceBody(props: PairDeviceBodyProps) {
   if (!props.offer.url) {
     return <Text style={styles.stateLine}>{t("pairing.device.unavailable")}</Text>;
   }
-  return <PairingOffer {...props} url={props.offer.url} />;
+  return (
+    <View style={styles.offer}>
+      <View style={styles.statusRow}>
+        <View style={styles.statusDot} />
+        <Text style={styles.statusText}>{t("pairing.device.relayOn")}</Text>
+        <Button
+          variant="outline"
+          size="sm"
+          loading={props.disablePending}
+          onPress={props.onDisableRelay}
+        >
+          {props.disablePending
+            ? t("pairing.device.disablingRelay")
+            : t("pairing.device.disableRelay")}
+        </Button>
+      </View>
+      {props.disableError ? (
+        <Alert size="sm" variant="error" description={props.disableError.message} />
+      ) : null}
+      <PairingOffer {...props} url={props.offer.url} />
+    </View>
+  );
 }
 
 function OfferLoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
@@ -185,6 +224,7 @@ function RelayConsent(props: PairDeviceBodyProps) {
     <View style={styles.consent}>
       <View style={styles.hero}>
         <RelayHeroBadge />
+        <Text style={styles.statusText}>{t("pairing.device.relayOff")}</Text>
         <Text style={styles.consentTitle}>
           {t(needsRelay ? "pairing.device.setupTitle" : "pairing.device.enableTitle")}
         </Text>
@@ -325,6 +365,23 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.base,
     lineHeight: theme.fontSize.base * 1.5,
+  },
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.accentBright,
+  },
+  statusText: {
+    flex: 1,
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.sm,
+    fontWeight: theme.fontWeight.medium,
   },
   actions: {
     flexDirection: "row",

@@ -2208,6 +2208,10 @@ export const zhCN: TranslationResources = {
       relayDocsAccessibility: "阅读 Pimi 中继的工作原理",
       enableRelay: "启用中继",
       enablingRelay: "正在启用...",
+      relayOn: "中继已开启",
+      relayOff: "中继已关闭",
+      disableRelay: "关闭中继",
+      disablingRelay: "正在关闭...",
       notNow: "暂不",
       directConnectionHint:
         "不使用中继时，请通过 TCP、Tailscale 或其他 VPN 直接连接。不会生成二维码。",

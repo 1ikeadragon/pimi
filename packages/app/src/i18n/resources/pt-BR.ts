@@ -2269,6 +2269,10 @@ export const ptBR: TranslationResources = {
       relayDocsAccessibility: "Leia como o relay do Pimi funciona",
       enableRelay: "Ativar relay",
       enablingRelay: "Ativando...",
+      relayOn: "O relay está ativado",
+      relayOff: "O relay está desativado",
+      disableRelay: "Desativar relay",
+      disablingRelay: "Desativando...",
       notNow: "Agora não",
       directConnectionHint:
         "Sem relay, conecte diretamente por TCP, Tailscale ou outra VPN. Nenhum código QR é criado.",

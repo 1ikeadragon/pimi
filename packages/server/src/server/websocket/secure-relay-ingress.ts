@@ -123,16 +123,23 @@ function createRelayTransportAdapter(
   socket: RelayIngressSocket,
   logger: pino.Logger,
 ): RelayTransport {
+  let closed = false;
   const relayTransport: RelayTransport = {
     send: (data) =>
       new Promise<void>((resolve, reject) => {
+        // Sends racing a close (e.g. relay turned off) are expected; reject without a warning.
+        if (closed || socket.readyState !== 1) {
+          reject(new Error("Relay socket is closed"));
+          return;
+        }
         try {
           socket.send(data, (error) => {
             if (!error) {
               resolve();
               return;
             }
-            logger.warn({ err: error }, "relay_socket_send_failed");
+            if (closed) logger.debug({ err: error }, "relay_socket_send_after_close");
+            else logger.warn({ err: error }, "relay_socket_send_failed");
             reject(error);
           });
         } catch (error) {
@@ -152,6 +159,7 @@ function createRelayTransportAdapter(
     relayTransport.onmessage?.({ data: normalizeMessageData(data, binary), isBinary: binary });
   });
   socket.on("close", (code, reason) => {
+    closed = true;
     const closeCode = typeof code === "number" ? code : 1006;
     relayTransport.onclose?.(closeCode, String(reason ?? ""));
   });

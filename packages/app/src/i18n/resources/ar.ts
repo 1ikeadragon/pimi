@@ -2231,6 +2231,10 @@ export const ar: TranslationResources = {
       relayDocsAccessibility: "اقرأ كيفية عمل تتابع Pimi",
       enableRelay: "تمكين التتابع",
       enablingRelay: "جارٍ التمكين...",
+      relayOn: "المرحل مفعّل",
+      relayOff: "المرحل متوقف",
+      disableRelay: "إيقاف المرحل",
+      disablingRelay: "جارٍ الإيقاف...",
       notNow: "ليس الآن",
       directConnectionHint:
         "بدون التتابع، اتصل مباشرة عبر TCP أو Tailscale أو شبكة VPN أخرى. لن يتم إنشاء رمز QR.",

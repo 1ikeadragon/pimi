@@ -2246,6 +2246,10 @@ export const ko: TranslationResources = {
       relayDocsAccessibility: "Pimi 릴레이 작동 방식 읽기",
       enableRelay: "릴레이 활성화",
       enablingRelay: "활성화 중...",
+      relayOn: "릴레이 켜짐",
+      relayOff: "릴레이 꺼짐",
+      disableRelay: "릴레이 끄기",
+      disablingRelay: "끄는 중...",
       notNow: "지금은 아님",
       directConnectionHint:
         "릴레이 없이 TCP, Tailscale 또는 다른 VPN을 통해 직접 연결하세요. QR 코드가 생성되지 않습니다.",

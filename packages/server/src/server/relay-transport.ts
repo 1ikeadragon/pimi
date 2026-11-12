@@ -387,7 +387,7 @@ export function startRelayTransport({
 
     socket.on("close", (code, reason) => {
       clearTimeout(openTimeout);
-      relayLogger.warn(
+      relayLogger[stopped ? "debug" : "warn"](
         { code, reason: reason?.toString?.(), url, connectionId },
         "relay_data_disconnected",
       );
@@ -397,7 +397,7 @@ export function startRelayTransport({
     });
 
     socket.on("error", (err) => {
-      relayLogger.warn({ err, connectionId }, "relay_data_error");
+      relayLogger[stopped ? "debug" : "warn"]({ err, connectionId }, "relay_data_error");
     });
   };
 
