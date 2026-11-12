@@ -26,11 +26,10 @@ export interface WorkspaceWorkbench {
   alternates: Partial<Record<WorkbenchMode, WorkbenchPreset>>;
 }
 
-// Attack mode places tabs by kind into four fixed panes: the control pane on the left, the
-// browsers, terminals and agent chats in the centre, findings on the right.
-export const ATTACK_CONTROL_PANE_ID = "attack-control";
-export const ATTACK_BROWSER_PANE_ID = "attack-browsers";
-export const ATTACK_TERMINAL_PANE_ID = "attack-terminals";
+// Attack mode shows two panes: the board in the centre and the findings on the right. Agent,
+// browser and terminal tabs stay alive in a hidden holding pane; the board reads them from there.
+export const ATTACK_BOARD_PANE_ID = "attack-board";
+export const ATTACK_HOLDING_PANE_ID = "attack-holding";
 export const ATTACK_FINDINGS_PANE_ID = "attack-findings";
 
 function paneWithTabs(pane: SplitPane, tabs: WorkspaceTab[], focusedTabId = pane.focusedTabId) {
@@ -75,14 +74,11 @@ function isChat(tab: WorkspaceTab) {
 
 export function attackPaneIdForTarget(target: WorkspaceTab["target"]): string {
   if (target.kind === "attack_findings") return ATTACK_FINDINGS_PANE_ID;
-  if (target.kind === "terminal") return ATTACK_TERMINAL_PANE_ID;
-  if (target.kind === "browser") return ATTACK_BROWSER_PANE_ID;
-  if (target.kind === "attack_control") return ATTACK_CONTROL_PANE_ID;
-  // Chats open beside the browsers, so the narrow control pane always shows the controls.
-  return ATTACK_BROWSER_PANE_ID;
+  if (target.kind === "attack_board") return ATTACK_BOARD_PANE_ID;
+  return ATTACK_HOLDING_PANE_ID;
 }
 
-function attackTab(target: "attack_control" | "attack_findings"): WorkspaceTab {
+function attackTab(target: "attack_board" | "attack_findings"): WorkspaceTab {
   return { ...createNewWorkspaceTab(), target: { kind: target } };
 }
 
@@ -104,25 +100,16 @@ export function createAttackWorkbench(current: WorkbenchPreset): WorkbenchPreset
   const existing = collectAllTabs(current.layout.root).filter(
     (tab) => !explorer.tabIds.includes(tab.tabId),
   );
-  const focused = findPaneById(current.layout.root, current.layout.focusedPaneId)?.focusedTabId;
-  const withTarget = (paneId: string) =>
-    existing.filter((tab) => attackPaneIdForTarget(tab.target) === paneId);
-  const control = attackTab("attack_control");
+  const board = attackTab("attack_board");
+  // The launcher keeps the holding pane alive after its last real tab closes (an empty pane is
+  // removed, and the next browser tab would land in the board). It also stays the focused tab, so no
+  // chat or browser panel mounts in the zero-size pane: a mounted browser panel there would hold its
+  // webview unpainted and break screenshots, while a parked one stays paintable.
+  const launcher = existing.find((tab) => tab.target.kind === "new_tab") ?? createNewWorkspaceTab();
+  const holding = existing.includes(launcher) ? existing : [...existing, launcher];
   const hiddenExplorer: SplitNode = {
     kind: "pane",
     pane: paneWithTabs({ ...explorer, hidden: true }, sidebarTabs),
-  };
-  const center: SplitNode = {
-    kind: "group",
-    group: {
-      id: "attack-center",
-      direction: "vertical",
-      children: [
-        paneNode(ATTACK_BROWSER_PANE_ID, withTarget(ATTACK_BROWSER_PANE_ID), focused),
-        paneNode(ATTACK_TERMINAL_PANE_ID, withTarget(ATTACK_TERMINAL_PANE_ID), focused),
-      ],
-      sizes: [0.62, 0.38],
-    },
   };
   const workbench: SplitNode = {
     kind: "group",
@@ -130,11 +117,10 @@ export function createAttackWorkbench(current: WorkbenchPreset): WorkbenchPreset
       id: "attack-workbench",
       direction: "horizontal",
       children: [
-        paneNode(ATTACK_CONTROL_PANE_ID, [control], control.tabId),
-        center,
+        paneNode(ATTACK_BOARD_PANE_ID, [board], board.tabId),
         paneNode(ATTACK_FINDINGS_PANE_ID, [attackTab("attack_findings")]),
       ],
-      sizes: [0.24, 0.5, 0.26],
+      sizes: [0.74, 0.26],
     },
   };
   return {
@@ -146,11 +132,15 @@ export function createAttackWorkbench(current: WorkbenchPreset): WorkbenchPreset
         group: {
           id: "attack-root",
           direction: "horizontal",
-          children: [hiddenExplorer, workbench],
-          sizes: [0.01, 0.99],
+          children: [
+            hiddenExplorer,
+            paneNode(ATTACK_HOLDING_PANE_ID, holding, launcher.tabId, true),
+            workbench,
+          ],
+          sizes: [0.005, 0.005, 0.99],
         },
       },
-      focusedPaneId: ATTACK_CONTROL_PANE_ID,
+      focusedPaneId: ATTACK_BOARD_PANE_ID,
       parentTabIdByTabId: current.layout.parentTabIdByTabId,
     }),
   };

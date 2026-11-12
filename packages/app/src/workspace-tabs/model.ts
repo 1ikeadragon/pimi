@@ -46,7 +46,7 @@ export type WorkspaceTabTarget =
   | { kind: "files" }
   | { kind: "pull_request" }
   // Attack mode: the run's control pane and its findings list.
-  | { kind: "attack_control" }
+  | { kind: "attack_board" }
   | { kind: "attack_findings" }
   | WorkspaceFileTabTarget
   | WorkspaceWorkingDiffTabTarget

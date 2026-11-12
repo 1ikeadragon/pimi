@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Check, MessageSquare, Pause, Play, Square, Swords } from "lucide-react-native";
+import { Check, Swords } from "lucide-react-native";
 import { StyleSheet } from "react-native-unistyles";
-import { ATTACK_ROLE_IDS, type AttackRoleId, type AttackRun } from "@pimi/protocol/attack/types";
+import { ATTACK_ROLE_IDS, type AttackRoleId } from "@pimi/protocol/attack/types";
 import { Button } from "@/components/ui/button";
 import { PressHighlight } from "@/components/ui/press-highlight";
 import { Field, FormTextInput } from "@/components/ui/form-field";
 import { SelectField, type SelectFieldOption } from "@/components/ui/select-field";
 import { Switch } from "@/components/ui/switch";
 import { useProvidersSnapshot } from "@/hooks/use-providers-snapshot";
-import { usePaneContext } from "@/panels/pane-context";
 import { useHostRuntimeClient } from "@/runtime/host-runtime";
 import { useWorkspaceDirectory } from "@/stores/session-store-hooks";
 import { toErrorMessage } from "@/utils/error-messages";
@@ -19,162 +18,13 @@ import {
   type AttackModelOption,
   type AttackRunFormModel,
 } from "./attack-run-form-model";
-import { useAttackStore, useAttackSync, useLatestAttackRun } from "./attack-store";
+import { useAttackStore } from "./attack-store";
 
 const SIZE = "md" as const;
 const ROLE_LABEL_KEYS: Record<AttackRoleId, string> = {
   "ui-qa": "attack.roster.uiQa",
   "secrets-audit": "attack.roster.secrets",
 };
-
-function formatMinutes(ms: number): string {
-  return String(Math.floor(ms / 60_000));
-}
-
-function formatKiloTokens(tokens: number): string {
-  return tokens >= 1_000_000
-    ? `${(tokens / 1_000_000).toFixed(1)}M`
-    : `${Math.round(tokens / 1000)}k`;
-}
-
-export function AttackControlPanel() {
-  const { serverId, workspaceId } = usePaneContext();
-  useAttackSync(serverId, workspaceId);
-  const run = useLatestAttackRun(serverId, workspaceId);
-  const active = run !== null && (run.status === "running" || run.status === "paused");
-  return (
-    <ScrollView contentContainerStyle={styles.content} testID="attack-control-panel">
-      {run ? <RunStatus run={run} serverId={serverId} /> : null}
-      {active ? null : <LaunchForm key={run?.id ?? "first"} />}
-    </ScrollView>
-  );
-}
-
-function RunStatus({ run, serverId }: { run: AttackRun; serverId: string }) {
-  const { t } = useTranslation();
-  const client = useHostRuntimeClient(serverId);
-  const { openTab } = usePaneContext();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const act = useCallback(
-    async (action: "pause" | "resume" | "cancel") => {
-      if (!client) return;
-      setBusy(true);
-      setError(null);
-      try {
-        let result;
-        if (action === "pause") result = await client.attackRunPause({ runId: run.id });
-        else if (action === "resume") result = await client.attackRunResume({ runId: run.id });
-        else result = await client.attackRunCancel({ runId: run.id });
-        useAttackStore.getState().putRun(serverId, result.run);
-      } catch (caught) {
-        setError(toErrorMessage(caught));
-      } finally {
-        setBusy(false);
-      }
-    },
-    [client, run.id, serverId],
-  );
-  const onPause = useCallback(() => void act("pause"), [act]);
-  const onResume = useCallback(() => void act("resume"), [act]);
-  const onStop = useCallback(() => void act("cancel"), [act]);
-  const onOpenLead = useCallback(() => {
-    if (run.leadAgentId) openTab({ kind: "agent", agentId: run.leadAgentId });
-  }, [openTab, run.leadAgentId]);
-  const timeFraction = Math.min(1, run.spent.runtimeMs / run.limits.maxRuntimeMs);
-  const tokenFraction = Math.min(1, run.spent.tokens / run.limits.maxTokens);
-  const statusText =
-    run.status === "paused" && run.pausedReason
-      ? t(`attack.run.pausedReason.${run.pausedReason}`)
-      : t(`attack.run.status.${run.status}`);
-  return (
-    <View style={styles.section} testID="attack-run-status">
-      <View style={styles.statusRow}>
-        <Swords size={14} color="currentColor" />
-        <Text style={styles.statusText} testID="attack-run-status-text">
-          {statusText}
-        </Text>
-      </View>
-      <Meter
-        label={t("attack.run.timeSpent", {
-          spent: formatMinutes(run.spent.runtimeMs),
-          limit: formatMinutes(run.limits.maxRuntimeMs),
-        })}
-        fraction={timeFraction}
-        testID="attack-meter-time"
-      />
-      <Meter
-        label={t("attack.run.tokensSpent", {
-          spent: formatKiloTokens(run.spent.tokens),
-          limit: formatKiloTokens(run.limits.maxTokens),
-        })}
-        fraction={tokenFraction}
-        testID="attack-meter-tokens"
-      />
-      <View style={styles.buttonRow}>
-        {run.status === "running" ? (
-          <Button
-            size="sm"
-            variant="outline"
-            leftIcon={Pause}
-            onPress={onPause}
-            disabled={busy}
-            testID="attack-pause"
-          >
-            {t("attack.run.pause")}
-          </Button>
-        ) : null}
-        {run.status === "paused" ? (
-          <Button
-            size="sm"
-            variant="outline"
-            leftIcon={Play}
-            onPress={onResume}
-            disabled={busy}
-            testID="attack-resume"
-          >
-            {t("attack.run.resume")}
-          </Button>
-        ) : null}
-        {run.status === "running" || run.status === "paused" ? (
-          <Button
-            size="sm"
-            variant="destructive"
-            leftIcon={Square}
-            onPress={onStop}
-            disabled={busy}
-            testID="attack-stop"
-          >
-            {t("attack.run.stop")}
-          </Button>
-        ) : null}
-        {run.leadAgentId ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            leftIcon={MessageSquare}
-            onPress={onOpenLead}
-            testID="attack-open-lead"
-          >
-            {t("attack.run.openLead")}
-          </Button>
-        ) : null}
-      </View>
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-    </View>
-  );
-}
-
-function Meter({ label, fraction, testID }: { label: string; fraction: number; testID: string }) {
-  return (
-    <View style={styles.meter} testID={testID}>
-      <Text style={styles.meterLabel}>{label}</Text>
-      <View style={styles.meterTrack}>
-        <View style={[styles.meterFill, { width: `${Math.round(fraction * 100)}%` }]} />
-      </View>
-    </View>
-  );
-}
 
 function useModelOptions(serverId: string, cwd: string): AttackModelOption[] {
   const { entries } = useProvidersSnapshot(serverId, { cwd });
@@ -192,9 +42,8 @@ function useModelOptions(serverId: string, cwd: string): AttackModelOption[] {
   return options;
 }
 
-function LaunchForm() {
+export function LaunchForm({ serverId, workspaceId }: { serverId: string; workspaceId: string }) {
   const { t } = useTranslation();
-  const { serverId, workspaceId } = usePaneContext();
   const cwd = useWorkspaceDirectory(serverId, workspaceId) ?? "";
   const client = useHostRuntimeClient(serverId);
   const [model] = useState<AttackRunFormModel>(() => openAttackRunForm({ workspaceId, cwd }));
@@ -409,44 +258,10 @@ function RosterRow({
 }
 
 const styles = StyleSheet.create((theme) => ({
-  content: {
-    padding: theme.spacing[4],
-    gap: theme.spacing[4],
-  },
   section: {
+    width: "100%",
+    maxWidth: 560,
     gap: theme.spacing[3],
-  },
-  statusRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[2],
-  },
-  statusText: {
-    color: theme.colors.foreground,
-    fontSize: theme.fontSize.base,
-    fontWeight: "500",
-  },
-  buttonRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: theme.spacing[2],
-  },
-  meter: {
-    gap: theme.spacing[1],
-  },
-  meterLabel: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.sm,
-  },
-  meterTrack: {
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: theme.colors.surface2,
-    overflow: "hidden",
-  },
-  meterFill: {
-    height: 4,
-    backgroundColor: theme.colors.palette.red[500],
   },
   errorText: {
     color: theme.colors.palette.red[300],

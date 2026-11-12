@@ -114,13 +114,13 @@ const manifests = {
     compactSheet: null,
     resourceKey: () => "pull_request",
   },
-  attack_control: {
-    kind: "attack_control",
+  attack_board: {
+    kind: "attack_board",
     supportedHosts: ["main"],
     showCloseButton: false,
     singleton: true,
     compactSheet: null,
-    resourceKey: () => "attack_control",
+    resourceKey: () => "attack_board",
   },
   attack_findings: {
     kind: "attack_findings",

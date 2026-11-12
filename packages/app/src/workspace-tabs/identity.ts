@@ -65,7 +65,7 @@ function normalizeSimpleWorkspaceTabTarget(value: WorkspaceTabTarget): Workspace
     case "changes_tree":
     case "files":
     case "pull_request":
-    case "attack_control":
+    case "attack_board":
     case "attack_findings":
       return { kind: value.kind };
     case "setup": {
@@ -153,7 +153,7 @@ const PARAMETERLESS_TAB_KINDS: ReadonlySet<WorkspaceTabTarget["kind"]> = new Set
   "files",
   "changes_tree",
   "pull_request",
-  "attack_control",
+  "attack_board",
   "attack_findings",
 ]);
 
@@ -254,7 +254,7 @@ export function buildDeterministicWorkspaceTabId(target: WorkspaceTabTarget): st
     target.kind === "changes_tree" ||
     target.kind === "files" ||
     target.kind === "pull_request" ||
-    target.kind === "attack_control" ||
+    target.kind === "attack_board" ||
     target.kind === "attack_findings"
   ) {
     return target.kind;

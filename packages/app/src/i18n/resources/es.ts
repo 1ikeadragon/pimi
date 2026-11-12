@@ -2138,7 +2138,7 @@ export const es: TranslationResources = {
       openProject: "Abre un proyecto para usar el modo Ataque.",
     },
     panels: {
-      control: {
+      board: {
         label: "Ejecución de ataque",
         subtitle: "Controles de ejecución",
       },
@@ -2186,9 +2186,33 @@ export const es: TranslationResources = {
       pause: "Pausar",
       resume: "Reanudar",
       stop: "Detener",
-      openLead: "Abrir chat del líder",
+      newRun: "Nueva ejecución",
+    },
+    tile: {
+      focus: "Enfocar {{role}}",
+      state: {
+        idle: "Esperando trabajo",
+        done: "Terminado",
+        failed: "Falló",
+      },
+    },
+    grid: {
+      previous: "Agentes anteriores",
+      next: "Agentes siguientes",
+    },
+    focus: {
+      chat: "Chat",
+      browser: "Navegador",
+      back: "Cuadrícula",
+    },
+    board: {
+      title: "Ataque",
+      starting: "Iniciando el agente líder…",
     },
     findings: {
+      running: "Los agentes están sondeando el objetivo. Aún no hay hallazgos.",
+      runningMeta: "{{count}} agentes · {{elapsed}}",
+      lastRun: "Última ejecución · {{target}}",
       noRun: "Inicia una ejecución para ver hallazgos aquí.",
       empty: "Aún no hay hallazgos.",
       nothingFound: "No se encontró nada. La ejecución terminó sin hallazgos.",

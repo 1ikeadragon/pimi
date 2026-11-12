@@ -2124,7 +2124,7 @@ export const en = {
       openProject: "Open a project to use Attack Mode.",
     },
     panels: {
-      control: {
+      board: {
         label: "Attack run",
         subtitle: "Run controls",
       },
@@ -2172,9 +2172,33 @@ export const en = {
       pause: "Pause",
       resume: "Resume",
       stop: "Stop",
-      openLead: "Open lead chat",
+      newRun: "New run",
+    },
+    tile: {
+      focus: "Focus {{role}}",
+      state: {
+        idle: "Waiting for work",
+        done: "Finished",
+        failed: "Failed",
+      },
+    },
+    grid: {
+      previous: "Previous agents",
+      next: "Next agents",
+    },
+    focus: {
+      chat: "Chat",
+      browser: "Browser",
+      back: "Grid",
+    },
+    board: {
+      title: "Attack",
+      starting: "Starting the lead agent…",
     },
     findings: {
+      running: "Agents are probing the target. No findings yet.",
+      runningMeta: "{{count}} agents · {{elapsed}}",
+      lastRun: "Last run · {{target}}",
       noRun: "Start a run to see findings here.",
       empty: "No findings yet.",
       nothingFound: "Nothing found. The run finished without findings.",

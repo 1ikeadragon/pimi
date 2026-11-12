@@ -2138,7 +2138,7 @@ export const fr: TranslationResources = {
       openProject: "Ouvrez un projet pour utiliser le mode Attaque.",
     },
     panels: {
-      control: {
+      board: {
         label: "Exécution d’attaque",
         subtitle: "Contrôles de l’exécution",
       },
@@ -2187,9 +2187,33 @@ export const fr: TranslationResources = {
       pause: "Pause",
       resume: "Reprendre",
       stop: "Arrêter",
-      openLead: "Ouvrir le chat du chef",
+      newRun: "Nouvelle exécution",
+    },
+    tile: {
+      focus: "Afficher {{role}}",
+      state: {
+        idle: "En attente de travail",
+        done: "Terminé",
+        failed: "Échec",
+      },
+    },
+    grid: {
+      previous: "Agents précédents",
+      next: "Agents suivants",
+    },
+    focus: {
+      chat: "Chat",
+      browser: "Navigateur",
+      back: "Grille",
+    },
+    board: {
+      title: "Attaque",
+      starting: "Démarrage de l'agent principal…",
     },
     findings: {
+      running: "Les agents sondent la cible. Aucun résultat pour l'instant.",
+      runningMeta: "{{count}} agents · {{elapsed}}",
+      lastRun: "Dernière exécution · {{target}}",
       noRun: "Lancez une exécution pour voir les constats ici.",
       empty: "Aucun constat pour l’instant.",
       nothingFound: "Rien trouvé. L’exécution s’est terminée sans constat.",

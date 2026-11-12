@@ -2100,7 +2100,7 @@ export const ko: TranslationResources = {
       openProject: "어택 모드를 사용하려면 프로젝트를 여세요.",
     },
     panels: {
-      control: {
+      board: {
         label: "어택 실행",
         subtitle: "실행 제어",
       },
@@ -2148,9 +2148,33 @@ export const ko: TranslationResources = {
       pause: "일시 중지",
       resume: "재개",
       stop: "중지",
-      openLead: "리드 채팅 열기",
+      newRun: "새 실행",
+    },
+    tile: {
+      focus: "{{role}} 보기",
+      state: {
+        idle: "작업 대기 중",
+        done: "완료",
+        failed: "실패",
+      },
+    },
+    grid: {
+      previous: "이전 에이전트",
+      next: "다음 에이전트",
+    },
+    focus: {
+      chat: "채팅",
+      browser: "브라우저",
+      back: "그리드",
+    },
+    board: {
+      title: "공격",
+      starting: "리드 에이전트를 시작하는 중…",
     },
     findings: {
+      running: "에이전트가 대상을 조사하고 있습니다. 아직 발견된 항목이 없습니다.",
+      runningMeta: "에이전트 {{count}}개 · {{elapsed}}",
+      lastRun: "마지막 실행 · {{target}}",
       noRun: "실행을 시작하면 여기에 발견 사항이 표시됩니다.",
       empty: "아직 발견 사항이 없습니다.",
       nothingFound: "발견된 것이 없습니다. 실행이 발견 사항 없이 끝났습니다.",

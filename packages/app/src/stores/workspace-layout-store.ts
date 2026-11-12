@@ -5,6 +5,7 @@ import { persist, type StateStorage } from "zustand/middleware";
 import type { z } from "zod";
 import { WorkspaceLayoutPersistedStateSchema } from "./workspace-layout-storage";
 import {
+  ATTACK_HOLDING_PANE_ID,
   attackPaneIdForTarget,
   createAttackWorkbench,
   createEditorWorkbench,
@@ -254,7 +255,7 @@ interface WorkspaceFocusRestorationState {
 // Preserve four user-created split levels beneath that bookkeeping node.
 const MAX_TREE_DEPTH = 5;
 
-const WORKSPACE_LAYOUT_PERSIST_VERSION = 3;
+const WORKSPACE_LAYOUT_PERSIST_VERSION = 4;
 type WorkspaceLayoutPersistedState = z.infer<typeof WorkspaceLayoutPersistedStateSchema>;
 
 function replacePaneInNode(node: SplitNode, paneId: string, replacement: SplitPane): SplitNode {
@@ -416,12 +417,42 @@ function migrateWorkbenchAlternates(persistedState: unknown, version: number): u
   return { ...state, workbenchByWorkspace };
 }
 
+// COMPAT(attack-board): Attack mode layouts saved before version 4 hold the removed attack_control
+// tab and the old pane ids. Version 4 drops them so the board layout is rebuilt on next entry.
+function dropLegacyAttackWorkbenches(persistedState: unknown, version: number): unknown {
+  if (version >= 4 || typeof persistedState !== "object" || persistedState === null) {
+    return persistedState;
+  }
+  const state = persistedState as {
+    layoutByWorkspace?: Record<string, unknown>;
+    workbenchByWorkspace?: Record<
+      string,
+      { mode?: WorkbenchMode; alternates?: Partial<Record<WorkbenchMode, unknown>> }
+    >;
+  };
+  if (!state.workbenchByWorkspace) return persistedState;
+  const layoutByWorkspace = { ...state.layoutByWorkspace };
+  const workbenchByWorkspace: NonNullable<typeof state.workbenchByWorkspace> = {};
+  for (const [key, entry] of Object.entries(state.workbenchByWorkspace)) {
+    if (entry.mode === "attack") {
+      delete layoutByWorkspace[key];
+      continue;
+    }
+    const { attack: _attack, ...alternates } = entry.alternates ?? {};
+    workbenchByWorkspace[key] = { ...entry, alternates };
+  }
+  return { ...state, layoutByWorkspace, workbenchByWorkspace };
+}
+
 function migrateWorkspaceLayoutPersistedState(
   rawPersistedState: unknown,
   version: number,
   ids: WorkspaceLayoutIdSource,
 ): z.infer<typeof WorkspaceLayoutPersistedStateSchema> {
-  const persistedState = migrateWorkbenchAlternates(rawPersistedState, version);
+  const persistedState = dropLegacyAttackWorkbenches(
+    migrateWorkbenchAlternates(rawPersistedState, version),
+    version,
+  );
   const result = WorkspaceLayoutPersistedStateSchema.safeParse(persistedState);
   if (!result.success || version >= 2) {
     return result.success ? result.data : { layoutByWorkspace: {} };
@@ -686,7 +717,12 @@ function getOpenTabPlacement(
     layout,
     state.explorerSidebarPaneIdByWorkspace[workspaceKey],
   );
-  const requestedPlacement = placement ?? getWorkbenchPlacement(state, workspaceKey, target);
+  // Attack mode owns placement: callers that name the focused pane would otherwise put agent and
+  // browser tabs into the board.
+  const requestedPlacement =
+    state.workbenchByWorkspace[workspaceKey]?.mode === "attack"
+      ? getWorkbenchPlacement(state, workspaceKey, target)
+      : (placement ?? getWorkbenchPlacement(state, workspaceKey, target));
   const supportsPane = (pane: SplitPane) =>
     panelTargetSupportsHostForWorkspaceKey(
       workspaceKey,
@@ -1843,6 +1879,10 @@ export function createWorkspaceLayoutStore(
                 pinnedAgentIds: state.pinnedAgentIdsByWorkspace[normalizedWorkspaceKey] ?? null,
                 hiddenAgentIds: state.hiddenAgentIdsByWorkspace[normalizedWorkspaceKey] ?? null,
                 explorerSidebarPaneId,
+                entityTabPaneId:
+                  state.workbenchByWorkspace[normalizedWorkspaceKey]?.mode === "attack"
+                    ? ATTACK_HOLDING_PANE_ID
+                    : null,
               },
               snapshot,
             );

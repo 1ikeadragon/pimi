@@ -17,7 +17,7 @@ import { pluginPanelRegistration } from "@/plugins/workspace-panels/panel";
 import { newTabPanelRegistration } from "@/panels/new-tab-panel";
 import { chatVisualPanelRegistration } from "@/panels/chat-visual-panel";
 import {
-  attackControlPanelRegistration,
+  attackBoardPanelRegistration,
   attackFindingsPanelRegistration,
 } from "@/panels/attack-panels";
 
@@ -42,7 +42,7 @@ export function ensurePanelsRegistered(): void {
   registerPanel(changesTreePanelRegistration);
   registerPanel(pluginPanelRegistration);
   registerPanel(chatVisualPanelRegistration);
-  registerPanel(attackControlPanelRegistration);
+  registerPanel(attackBoardPanelRegistration);
   registerPanel(attackFindingsPanelRegistration);
   panelsRegistered = true;
 }

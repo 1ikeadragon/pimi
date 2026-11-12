@@ -2123,7 +2123,7 @@ export const ptBR: TranslationResources = {
       openProject: "Abra um projeto para usar o modo Ataque.",
     },
     panels: {
-      control: {
+      board: {
         label: "Execução de ataque",
         subtitle: "Controles da execução",
       },
@@ -2171,9 +2171,33 @@ export const ptBR: TranslationResources = {
       pause: "Pausar",
       resume: "Retomar",
       stop: "Parar",
-      openLead: "Abrir chat do líder",
+      newRun: "Nova execução",
+    },
+    tile: {
+      focus: "Focar em {{role}}",
+      state: {
+        idle: "Aguardando trabalho",
+        done: "Concluído",
+        failed: "Falhou",
+      },
+    },
+    grid: {
+      previous: "Agentes anteriores",
+      next: "Próximos agentes",
+    },
+    focus: {
+      chat: "Chat",
+      browser: "Navegador",
+      back: "Grade",
+    },
+    board: {
+      title: "Ataque",
+      starting: "Iniciando o agente líder…",
     },
     findings: {
+      running: "Os agentes estão sondando o alvo. Ainda sem achados.",
+      runningMeta: "{{count}} agentes · {{elapsed}}",
+      lastRun: "Última execução · {{target}}",
       noRun: "Inicie uma execução para ver os achados aqui.",
       empty: "Nenhum achado ainda.",
       nothingFound: "Nada encontrado. A execução terminou sem achados.",

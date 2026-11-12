@@ -2063,7 +2063,7 @@ export const zhCN: TranslationResources = {
       openProject: "请先打开项目以使用攻击模式。",
     },
     panels: {
-      control: {
+      board: {
         label: "攻击运行",
         subtitle: "运行控制",
       },
@@ -2111,9 +2111,33 @@ export const zhCN: TranslationResources = {
       pause: "暂停",
       resume: "继续",
       stop: "停止",
-      openLead: "打开负责人聊天",
+      newRun: "新建运行",
+    },
+    tile: {
+      focus: "聚焦 {{role}}",
+      state: {
+        idle: "等待任务",
+        done: "已完成",
+        failed: "失败",
+      },
+    },
+    grid: {
+      previous: "上一页智能体",
+      next: "下一页智能体",
+    },
+    focus: {
+      chat: "聊天",
+      browser: "浏览器",
+      back: "网格",
+    },
+    board: {
+      title: "攻击",
+      starting: "正在启动主导智能体…",
     },
     findings: {
+      running: "智能体正在探测目标，暂无发现。",
+      runningMeta: "{{count}} 个智能体 · {{elapsed}}",
+      lastRun: "上次运行 · {{target}}",
       noRun: "开始运行后，发现会显示在这里。",
       empty: "暂无发现。",
       nothingFound: "没有发现问题。运行结束时没有任何发现。",

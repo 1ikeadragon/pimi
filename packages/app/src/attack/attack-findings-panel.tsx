@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight, Wrench } from "lucide-react-native";
 import { StyleSheet } from "react-native-unistyles";
 import {
+  type AttackRun,
   type Finding,
   type FindingEvidence,
   type FindingSeverity,
@@ -14,8 +15,46 @@ import { PressHighlight } from "@/components/ui/press-highlight";
 import { usePaneContext } from "@/panels/pane-context";
 import { useHostRuntimeClient } from "@/runtime/host-runtime";
 import { toErrorMessage } from "@/utils/error-messages";
-import { useAttackFindings, useAttackSync, useLatestAttackRun } from "./attack-store";
+import {
+  useAttackFindings,
+  useAttackStore,
+  useAttackSync,
+  useLatestAttackRun,
+} from "./attack-store";
+import { formatClock, useAttackRuntimeMs } from "./use-attack-run-clock";
+import { useAttackRunAgents } from "./use-attack-run-agents";
 import { buildFixPrompt } from "./fix-prompt";
+
+// useAttackRuntimeMs needs a run; with none it only reads a stopped placeholder.
+const IDLE_RUN: AttackRun = {
+  id: "",
+  workspaceId: "",
+  cwd: "",
+  target: "",
+  remoteHost: null,
+  repoScope: false,
+  scopeNotes: "",
+  provider: "",
+  roster: [],
+  disposableTarget: false,
+  limits: { maxRuntimeMs: 1, maxTokens: 1 },
+  status: "stopped",
+  pausedReason: null,
+  leadAgentId: null,
+  spent: { runtimeMs: 0, tokens: 0 },
+  resumedAt: null,
+  startedAt: "",
+  updatedAt: "",
+  endedAt: null,
+};
+
+function runHost(target: string): string {
+  try {
+    return new URL(target).host;
+  } catch {
+    return target;
+  }
+}
 
 const SEVERITIES: readonly FindingSeverity[] = ["blocker", "major", "minor"];
 
@@ -38,16 +77,31 @@ export function AttackFindingsPanel() {
     return bySeverity;
   }, [findings]);
 
+  const active = run !== null && (run.status === "running" || run.status === "paused");
+  const agentCount = useAttackRunAgents(serverId, run).length;
+  const runtimeMs = useAttackRuntimeMs(run ?? IDLE_RUN);
   let empty: string | null = null;
   if (!run) empty = t("attack.findings.noRun");
   else if (findings.length === 0) {
-    empty =
-      run.status === "completed" ? t("attack.findings.nothingFound") : t("attack.findings.empty");
+    if (active) empty = t("attack.findings.running");
+    else
+      empty =
+        run.status === "completed" ? t("attack.findings.nothingFound") : t("attack.findings.empty");
   }
 
   return (
     <ScrollView contentContainerStyle={styles.content} testID="attack-findings-panel">
+      {run && !active ? (
+        <Text style={styles.metaText} numberOfLines={1}>
+          {t("attack.findings.lastRun", { target: runHost(run.target) })}
+        </Text>
+      ) : null}
       {empty ? <Text style={styles.emptyText}>{empty}</Text> : null}
+      {run && active && findings.length === 0 ? (
+        <Text style={styles.metaText}>
+          {t("attack.findings.runningMeta", { count: agentCount, elapsed: formatClock(runtimeMs) })}
+        </Text>
+      ) : null}
       {run
         ? SEVERITIES.map((severity) => {
             const list = grouped.get(severity);
@@ -70,7 +124,7 @@ export function AttackFindingsPanel() {
 
 function FindingCard({ finding }: { finding: Finding }) {
   const { t } = useTranslation();
-  const { serverId, workspaceId, openTab } = usePaneContext();
+  const { serverId, workspaceId } = usePaneContext();
   const client = useHostRuntimeClient(serverId);
   const run = useLatestAttackRun(serverId, workspaceId);
   const [open, setOpen] = useState(false);
@@ -126,19 +180,23 @@ function FindingCard({ finding }: { finding: Finding }) {
         title: `Fix: ${finding.title}`.slice(0, 120),
         initialPrompt: buildFixPrompt(run, finding),
       });
+      // The board shows the fix agent; no tab is opened for it.
+      useAttackStore.getState().setComposing(`${serverId}:${workspaceId}`, null);
+      useAttackStore
+        .getState()
+        .setFocus(`${serverId}:${workspaceId}`, run.id, { agentId: agent.id, view: "chat" });
       await client.attackFindingUpdate({
         runId: finding.runId,
         findingId: finding.id,
         fixAgentId: agent.id,
         status: "triaged",
       });
-      openTab({ kind: "agent", agentId: agent.id });
     } catch (caught) {
       setError(toErrorMessage(caught));
     } finally {
       setBusy(false);
     }
-  }, [client, finding, openTab, run, workspaceId]);
+  }, [client, finding, run, serverId, workspaceId]);
 
   const view = detail ?? finding;
   const Chevron = open ? ChevronDown : ChevronRight;
@@ -297,6 +355,10 @@ const styles = StyleSheet.create((theme) => ({
   content: {
     padding: theme.spacing[3],
     gap: theme.spacing[4],
+  },
+  metaText: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
   },
   emptyText: {
     color: theme.colors.foregroundMuted,

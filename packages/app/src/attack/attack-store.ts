@@ -8,7 +8,19 @@ interface HostAttackState {
   findings: Record<string, Record<string, Finding>>;
 }
 
+export type AttackFocusView = "chat" | "browser";
+export interface AttackFocus {
+  agentId: string;
+  view: AttackFocusView;
+}
+
 interface AttackStore {
+  /** The board's focused agent, by workspace key. Cleared when a different run takes over. */
+  focusByWorkspace: Record<string, (AttackFocus & { runId: string }) | null>;
+  /** Set by "New run" so the board shows the launch form over a finished run's grid. */
+  composingByWorkspace: Record<string, string | null>;
+  setFocus: (workspaceKey: string, runId: string, focus: AttackFocus | null) => void;
+  setComposing: (workspaceKey: string, afterRunId: string | null) => void;
   byServer: Record<string, HostAttackState>;
   putRun: (serverId: string, run: AttackRun) => void;
   putRuns: (serverId: string, runs: AttackRun[]) => void;
@@ -25,6 +37,19 @@ function hostOf(state: AttackStore, serverId: string): HostAttackState {
 // Runs and findings live on the daemon; this mirrors them for the panels and keeps them fresh
 // from `attack.run.changed` and `attack.finding.changed` pushes.
 export const useAttackStore = create<AttackStore>((set) => ({
+  focusByWorkspace: {},
+  composingByWorkspace: {},
+  setFocus: (workspaceKey, runId, focus) =>
+    set((state) => ({
+      focusByWorkspace: {
+        ...state.focusByWorkspace,
+        [workspaceKey]: focus ? { ...focus, runId } : null,
+      },
+    })),
+  setComposing: (workspaceKey, afterRunId) =>
+    set((state) => ({
+      composingByWorkspace: { ...state.composingByWorkspace, [workspaceKey]: afterRunId },
+    })),
   byServer: {},
   putRun: (serverId, run) =>
     set((state) => {

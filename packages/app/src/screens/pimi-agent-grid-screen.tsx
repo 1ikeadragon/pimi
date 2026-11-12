@@ -1,15 +1,7 @@
 // Pimi addition to the Paseo fork. Apache-2.0.
 import { useIsFocused } from "expo-router/react-navigation";
 import { ArrowUpRight, ChevronLeft, ChevronRight, X } from "lucide-react-native";
-import {
-  memo,
-  useCallback,
-  useId,
-  useLayoutEffect,
-  useMemo,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import { Text, View, type LayoutChangeEvent } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { AgentStreamView } from "@/agent-stream/view";
@@ -27,19 +19,16 @@ import { useAggregatedAgents, type AggregatedAgent } from "@/hooks/use-aggregate
 import { closePimiAgentGrid } from "@/navigation/pimi-agent-grid";
 import { createPaneFocusContextValue, PaneFocusProvider } from "@/panels/pane-context";
 import { useHostRuntimeConnectionStatus } from "@/runtime/host-runtime";
-import { selectAgentTurnPresentation, useSessionStore } from "@/stores/session-store";
+import { useAgentTileStream } from "@/hooks/use-agent-tile-stream";
 import type { PendingPermission } from "@/types/shared";
-import type { StreamItem } from "@/types/stream";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
 import { deriveSidebarStateBucket } from "@/utils/sidebar-agent-state";
-import { useShallow } from "zustand/shallow";
 
 type Filter = "active" | "all";
 const filters: SegmentedControlOption<Filter>[] = [
   { value: "active", label: "Active" },
   { value: "all", label: "All" },
 ];
-const EMPTY_STREAM: StreamItem[] = [];
 const EMPTY_PERMISSIONS = new Map<string, PendingPermission>();
 const GRID_PANE_FOCUS = createPaneFocusContextValue({
   isWorkspaceFocused: true,
@@ -175,33 +164,12 @@ function AgentGrid() {
 
 const AgentTile = memo(function AgentTile({ agent }: { agent: AggregatedAgent }) {
   const { serverId, id } = agent;
-  const sourceId = useId();
   const connection = useHostRuntimeConnectionStatus(serverId);
   const providerIcon = useProviderIcon(agent.provider, serverId);
-  const { sync, items, ready } = useSessionStore(
-    useShallow((state) => {
-      const session = state.sessions[serverId];
-      return {
-        sync: session?.viewedTimelineSync,
-        items: session?.agentStreamTail.get(id) ?? EMPTY_STREAM,
-        ready: session?.agentAuthoritativeHistoryApplied.get(id) === true,
-      };
-    }),
+  const { items, ready, turnPresentation, timelineStatus, anchor } = useAgentTileStream(
+    serverId,
+    id,
   );
-  const turnPresentation = useSessionStore(
-    useShallow((state) => selectAgentTurnPresentation(state.sessions[serverId], id)),
-  );
-  useLayoutEffect(() => {
-    // The viewed timeline owner prepares the replica and releases stream demand when this pane leaves.
-    sync?.replaceVisibleAgentIds(sourceId, [id]);
-    return () => sync?.replaceVisibleAgentIds(sourceId, []);
-  }, [id, sourceId, sync]);
-  const subscribe = useCallback(
-    (listener: () => void) => sync?.subscribe(listener) ?? (() => {}),
-    [sync],
-  );
-  const readStatus = useCallback(() => sync?.getAgentTimelineStatus(id) ?? "pending", [id, sync]);
-  const timelineStatus = useSyncExternalStore(subscribe, readStatus, readStatus);
   const context = useMemo(
     () => ({
       serverId,
@@ -221,10 +189,6 @@ const AgentTile = memo(function AgentTile({ agent }: { agent: AggregatedAgent })
       agent.workspaceId,
       agent.projectPlacement,
     ],
-  );
-  const anchor = useMemo(
-    () => ({ reason: "initial-entry" as const, agentId: id, requestKey: sourceId }),
-    [id, sourceId],
   );
   const openChat = useCallback(() => {
     navigateToAgent({ serverId, agentId: id, workspaceId: agent.workspaceId });

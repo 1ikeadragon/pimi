@@ -2123,7 +2123,7 @@ export const ru: TranslationResources = {
       openProject: "Откройте проект, чтобы использовать режим атаки.",
     },
     panels: {
-      control: {
+      board: {
         label: "Запуск атаки",
         subtitle: "Управление запуском",
       },
@@ -2172,9 +2172,33 @@ export const ru: TranslationResources = {
       pause: "Пауза",
       resume: "Продолжить",
       stop: "Остановить",
-      openLead: "Открыть чат ведущего",
+      newRun: "Новый запуск",
+    },
+    tile: {
+      focus: "Открыть {{role}}",
+      state: {
+        idle: "Ожидает задачу",
+        done: "Завершён",
+        failed: "Ошибка",
+      },
+    },
+    grid: {
+      previous: "Предыдущие агенты",
+      next: "Следующие агенты",
+    },
+    focus: {
+      chat: "Чат",
+      browser: "Браузер",
+      back: "Сетка",
+    },
+    board: {
+      title: "Атака",
+      starting: "Запуск ведущего агента…",
     },
     findings: {
+      running: "Агенты проверяют цель. Находок пока нет.",
+      runningMeta: "Агентов: {{count}} · {{elapsed}}",
+      lastRun: "Последний запуск · {{target}}",
       noRun: "Начните запуск, чтобы увидеть находки здесь.",
       empty: "Находок пока нет.",
       nothingFound: "Ничего не найдено. Запуск завершился без находок.",

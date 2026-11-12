@@ -127,7 +127,7 @@ function getFallbackTabOptionDescription(
     return "Visual";
   }
   // Attack mode is desktop only; its tabs never reach the compact switcher.
-  if (tab.target.kind === "attack_control" || tab.target.kind === "attack_findings") {
+  if (tab.target.kind === "attack_board" || tab.target.kind === "attack_findings") {
     return tab.target.kind;
   }
   return tab.target.path;

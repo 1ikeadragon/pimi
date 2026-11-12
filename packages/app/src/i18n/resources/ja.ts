@@ -2111,7 +2111,7 @@ export const ja: TranslationResources = {
       openProject: "アタックモードを使うにはプロジェクトを開いてください。",
     },
     panels: {
-      control: {
+      board: {
         label: "アタック実行",
         subtitle: "実行コントロール",
       },
@@ -2160,9 +2160,33 @@ export const ja: TranslationResources = {
       pause: "一時停止",
       resume: "再開",
       stop: "停止",
-      openLead: "リードのチャットを開く",
+      newRun: "新しい実行",
+    },
+    tile: {
+      focus: "{{role}} を表示",
+      state: {
+        idle: "作業待ち",
+        done: "完了",
+        failed: "失敗",
+      },
+    },
+    grid: {
+      previous: "前のエージェント",
+      next: "次のエージェント",
+    },
+    focus: {
+      chat: "チャット",
+      browser: "ブラウザ",
+      back: "グリッド",
+    },
+    board: {
+      title: "アタック",
+      starting: "リードエージェントを起動中…",
     },
     findings: {
+      running: "エージェントが対象を調査中です。まだ検出はありません。",
+      runningMeta: "{{count}} エージェント · {{elapsed}}",
+      lastRun: "前回の実行 · {{target}}",
       noRun: "実行を開始すると、ここに検出事項が表示されます。",
       empty: "検出事項はまだありません。",
       nothingFound: "何も見つかりませんでした。実行は検出事項なしで終了しました。",

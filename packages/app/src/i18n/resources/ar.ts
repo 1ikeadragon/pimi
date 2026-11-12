@@ -2087,7 +2087,7 @@ export const ar: TranslationResources = {
       openProject: "افتح مشروعًا لاستخدام وضع الهجوم.",
     },
     panels: {
-      control: {
+      board: {
         label: "تشغيل الهجوم",
         subtitle: "عناصر التحكم في التشغيل",
       },
@@ -2135,9 +2135,33 @@ export const ar: TranslationResources = {
       pause: "إيقاف مؤقت",
       resume: "استئناف",
       stop: "إيقاف",
-      openLead: "افتح محادثة القائد",
+      newRun: "تشغيل جديد",
+    },
+    tile: {
+      focus: "التركيز على {{role}}",
+      state: {
+        idle: "بانتظار المهام",
+        done: "اكتمل",
+        failed: "فشل",
+      },
+    },
+    grid: {
+      previous: "الوكلاء السابقون",
+      next: "الوكلاء التالون",
+    },
+    focus: {
+      chat: "الدردشة",
+      browser: "المتصفح",
+      back: "الشبكة",
+    },
+    board: {
+      title: "الهجوم",
+      starting: "جارٍ تشغيل الوكيل القائد…",
     },
     findings: {
+      running: "الوكلاء يفحصون الهدف. لا توجد نتائج بعد.",
+      runningMeta: "{{count}} وكلاء · {{elapsed}}",
+      lastRun: "آخر تشغيل · {{target}}",
       noRun: "ابدأ تشغيلًا لرؤية النتائج هنا.",
       empty: "لا توجد نتائج بعد.",
       nothingFound: "لم يُعثر على شيء. انتهى التشغيل دون نتائج.",
