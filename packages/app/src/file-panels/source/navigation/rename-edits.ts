@@ -55,11 +55,21 @@ export async function writeOtherFiles(input: {
   currentPath: string;
   oldName: string;
 }): Promise<void> {
-  const written: string[] = [];
+  // Read and apply every file before writing any, so a file that no longer matches the edits
+  // fails the rename before anything has changed.
+  const planned: Array<{
+    path: string;
+    content: string;
+    read: Awaited<ReturnType<DaemonClient["readFile"]>>;
+  }> = [];
   for (const [path, edits] of input.byPath) {
     if (path === input.currentPath) continue;
     const read = await input.client.readFile(input.cwd, path);
     const content = applyRenameEdits(decodeUtf8(read.bytes), edits, input.oldName);
+    planned.push({ path, content, read });
+  }
+  const written: string[] = [];
+  for (const { path, content, read } of planned) {
     const outcome = await input.client.writeFile({
       cwd: input.cwd,
       path,
