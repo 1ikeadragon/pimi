@@ -164,6 +164,44 @@ export interface DesktopAttachedBrowserRegistration {
   webContentsId: number;
 }
 
+type DesktopTargetExecuteRequest = Extract<
+  SessionOutboundMessage,
+  { type: "desktop.target.execute.request" }
+>;
+type DesktopTargetExecuteResponse = Extract<
+  SessionInboundMessage,
+  { type: "desktop.target.execute.response" }
+>;
+
+export type DesktopTargetPermissions =
+  | { supported: false }
+  | {
+      supported: true;
+      accessibility: boolean;
+      screen: "granted" | "denied" | "not-determined" | "restricted" | "unknown";
+      /** Only known after a prompt-time probe; macOS has no query for it. */
+      automation: "unknown" | "granted" | "denied" | "failed";
+    };
+
+export interface DesktopTargetWindow {
+  bundleId: string;
+  appName: string;
+  windowTitle: string;
+}
+
+/** Attack's desktop target: the main process names windows and drives the one the guard allows. */
+export interface DesktopTargetBridge {
+  permissions: (input?: { prompt?: boolean }) => Promise<DesktopTargetPermissions>;
+  listWindows: () => Promise<
+    | { ok: true; windows: DesktopTargetWindow[] }
+    | { ok: false; error: string | { code: string; message: string } }
+  >;
+  execute: (
+    request: DesktopTargetExecuteRequest,
+  ) => Promise<DesktopTargetExecuteResponse["payload"]>;
+  openSettings: (pane: "accessibility" | "screen" | "automation") => Promise<void>;
+}
+
 export interface DesktopBrowserBridge {
   setShortcutPolicy?: (input: BrowserKeyboardPolicy) => Promise<void>;
   readonly profilePartition?: string;
@@ -274,6 +312,7 @@ export interface DesktopHostBridge {
   webUtils?: DesktopWebUtilsBridge;
   menu?: DesktopMenuBridge;
   browser?: DesktopBrowserBridge;
+  desktopTarget?: DesktopTargetBridge;
 }
 
 declare global {

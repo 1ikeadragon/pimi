@@ -2169,6 +2169,14 @@ export const es: TranslationResources = {
       disposableHint: "Permite a los agentes escribir y enviar carga. La lista actual solo lee.",
       confinement:
         "Las pestañas del navegador solo pueden abrir localhost y el host de destino. Los agentes tienen instrucciones de solo leer y de no salir de esos hosts, pero su shell no está aislado: un comando aún puede escribir archivos o llegar a otros hosts. Los agentes de Claude se ejecutan sin herramientas web, sin herramientas de edición de archivos y sin tus propios servidores MCP; los demás proveedores conservan los suyos.",
+      desktopWindow: "Ventana de escritorio",
+      desktopNone: "Ninguna (solo URL)",
+      desktopHint:
+        "La única ventana de aplicación que los agentes pueden leer y controlar. No se listan ventanas con el mismo título.",
+      desktopRefresh: "Actualizar ventanas",
+      desktopInput: "Permitir clics y escritura",
+      desktopInputHint:
+        "Desactivado: los agentes solo leen la ventana. Activado: pueden hacer clic, escribir y pulsar teclas solo en ella.",
       start: "Iniciar ataque",
       preflight: "Abrir el objetivo y anotar primero",
     },
@@ -2272,6 +2280,21 @@ export const es: TranslationResources = {
         grantAccess: "Conceder acceso de Accesibilidad",
         actionLog: "Registro de acciones",
         readOnlyNote: "Los agentes controlan esta ventana; no puedes hacer clic en ella.",
+        macOnly: "Los destinos de escritorio requieren la app de escritorio para macOS.",
+        accessibility: "Accesibilidad",
+        screen: "Grabación de pantalla",
+        input: "Entrada",
+        inputOn: "permitida",
+        inputOff: "solo lectura",
+        granted: "concedido",
+        missing: "sin conceder",
+        grantBody:
+          "Pimi necesita acceso de Accesibilidad y Grabación de pantalla para leer y controlar esta ventana. Hasta concederlos, no se ejecuta ninguna herramienta de escritorio.",
+        openAccessibility: "Abrir ajustes de Accesibilidad",
+        openScreen: "Abrir ajustes de Grabación de pantalla",
+        openAutomation: "Abrir ajustes de Automatización",
+        noActions: "Aún no hay acciones.",
+        noPreview: "Esperando la ventana...",
       },
       visualize: {
         label: "Visualizar",

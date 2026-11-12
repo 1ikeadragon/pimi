@@ -25,6 +25,11 @@ function hostLabel(target: string): string {
   }
 }
 
+// A URL run shows its host; a desktop-only run shows the app.
+function runTargetLabel(run: AttackRun): string {
+  return run.target ? hostLabel(run.target) : (run.desktopTarget?.appName ?? "");
+}
+
 export function AttackRunBar({
   run,
   serverId,
@@ -80,7 +85,7 @@ export function AttackRunBar({
       <View style={styles.identity}>
         <Swords size={14} color="currentColor" />
         <Text style={styles.target} numberOfLines={1}>
-          {hostLabel(run.target)}
+          {runTargetLabel(run)}
         </Text>
         <View style={[styles.statusChip, active ? styles.statusActive : styles.statusEnded]}>
           <Text style={styles.statusText} testID="attack-run-status-text">

@@ -2155,6 +2155,14 @@ export const en = {
       disposableHint: "Lets agents write and send load. The current roster only reads.",
       confinement:
         "Browser tabs can only open localhost and the target host. Agents are told to read only and to stay on those hosts, but their shell is not sandboxed: a command can still write files or reach other hosts. Claude agents run without web tools, file-editing tools and your own MCP servers; other providers keep theirs.",
+      desktopWindow: "Desktop window",
+      desktopNone: "None (URL only)",
+      desktopHint:
+        "The one app window the agents may read and drive. Windows with the same title are not listed.",
+      desktopRefresh: "Refresh windows",
+      desktopInput: "Allow clicking and typing",
+      desktopInputHint:
+        "Off keeps agents to reading the window. On lets them click, type and press keys in it only.",
       start: "Start attack",
       preflight: "Open target and annotate first",
     },
@@ -2256,6 +2264,21 @@ export const en = {
         grantAccess: "Grant Accessibility access",
         actionLog: "Action log",
         readOnlyNote: "The agents drive this window; you cannot click in it.",
+        macOnly: "Desktop targets need the macOS desktop app.",
+        accessibility: "Accessibility",
+        screen: "Screen Recording",
+        input: "Input",
+        inputOn: "allowed",
+        inputOff: "read-only",
+        granted: "granted",
+        missing: "not granted",
+        grantBody:
+          "Pimi needs Accessibility and Screen Recording access to read and drive this window. Until both are granted, no desktop tool runs.",
+        openAccessibility: "Open Accessibility settings",
+        openScreen: "Open Screen Recording settings",
+        openAutomation: "Open Automation settings",
+        noActions: "No actions yet.",
+        noPreview: "Waiting for the window...",
       },
       visualize: {
         label: "Visualize",

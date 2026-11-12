@@ -7,6 +7,7 @@ import {
   type BrowserAutomationExecuteRequest,
   type BrowserAutomationExecuteResponse,
 } from "@pimi/protocol/browser-automation/rpc-schemas";
+import { DesktopToolsBroker } from "../desktop-tools/broker.js";
 import { browserToolsFailure, type BrowserToolsResponsePayload } from "./errors.js";
 
 export interface BrowserHostClient {
@@ -55,6 +56,12 @@ export class BrowserToolsBroker {
   private readonly browserHostByBrowserId = new Map<string, string>();
   private readonly strandedBrowserHostByBrowserId = new Map<string, string>();
   private registrationSequence = 0;
+  /**
+   * The desktop app also hosts `desktop_*` tools for Attack runs that drive an app window. They
+   * travel the same session transport, so the broker rides along instead of widening every
+   * constructor that already receives this one.
+   */
+  public readonly desktop = new DesktopToolsBroker();
 
   public constructor(options: BrowserToolsBrokerOptions) {
     this.defaultTimeoutMs = options.defaultTimeoutMs ?? DEFAULT_BROWSER_TOOLS_TIMEOUT_MS;

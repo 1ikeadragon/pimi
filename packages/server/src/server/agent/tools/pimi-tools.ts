@@ -137,6 +137,7 @@ import {
 } from "../../worktree/commands.js";
 import { registerBrowserTools } from "../../browser-tools/tools.js";
 import type { BrowserToolsBroker } from "../../browser-tools/broker.js";
+import { registerDesktopToolsWhenWired } from "../../desktop-tools/tools.js";
 import type { AttackService } from "../../attack/service.js";
 import { registerAttackTools } from "./attack-tools.js";
 import {
@@ -1473,6 +1474,13 @@ function createToolCatalog(
       attack: options.attackService,
     });
   }
+
+  registerDesktopToolsWhenWired({
+    registerTool,
+    broker: options.browserToolsBroker?.desktop,
+    attack: options.attackService,
+    callerAgentId,
+  });
 
   registerAttackTools({
     registerTool,

@@ -15,6 +15,7 @@ import {
   type AttackAuditAction,
   type AttackAuditEntry,
   type AttackCoverage,
+  type AttackDesktopAction,
   type AttackCoverageRoute,
   type AttackLimits,
   type AttackPauseReason,
@@ -241,7 +242,7 @@ export class AttackService {
   // ---- runs ----
 
   async startRun(definition: AttackRunDefinition): Promise<AttackRun> {
-    const target = this.validateTarget(definition.target);
+    const target = this.validateTarget(definition.target, definition.desktopTarget);
     const roster = [...new Set(definition.roster.map((role) => AttackRoleIdSchema.parse(role)))];
     if (roster.length === 0) throw new AttackStateError("Pick at least one agent for the roster.");
     if (!definition.repoScope && roster.includes("secrets-audit")) {
@@ -805,9 +806,87 @@ export class AttackService {
     await this.audit(input.runId, "navigation_refused", input.agentId ?? null, input.host);
   }
 
+  // ---- desktop target ----
+
+  /**
+   * What `desktop_*` tools hand the desktop app for an agent of a run with a desktop target; null
+   * for any other agent. The guard is the only thing that names the window, and it comes from the
+   * run record, never from tool input.
+   */
+  async desktopGuardForAgent(agentId: string | undefined): Promise<{
+    runId: string;
+    status: AttackRun["status"];
+    guard: { runId: string; bundleId: string; windowTitle: string; allowInput: boolean };
+  } | null> {
+    if (!agentId) return null;
+    const run = await this.runForAgent(agentId);
+    if (!run?.desktopTarget) return null;
+    return {
+      runId: run.id,
+      status: run.status,
+      guard: {
+        runId: run.id,
+        bundleId: run.desktopTarget.bundleId,
+        windowTitle: run.desktopTarget.windowTitle,
+        allowInput: run.allowDesktopInput || run.disposableTarget,
+      },
+    };
+  }
+
+  /** Audits a desktop action (verb and element role, never typed text) and tells the owner's log. */
+  async recordDesktopAction(input: {
+    runId: string;
+    agentId: string;
+    verb: AttackDesktopAction["verb"];
+    outcome:
+      | {
+          ok: { role: string | null; label: string | null; point: { x: number; y: number } | null };
+        }
+      | { refused: string };
+  }): Promise<void> {
+    if ("refused" in input.outcome) {
+      await this.audit(
+        input.runId,
+        "desktop_action",
+        input.agentId,
+        clip(input.outcome.refused, 200),
+      );
+      return;
+    }
+    const { role, label, point } = input.outcome.ok;
+    await this.audit(
+      input.runId,
+      "desktop_action",
+      input.agentId,
+      role ? `${input.verb} ${role}` : input.verb,
+    );
+    this.emit({
+      type: "attack.desktop.action",
+      payload: {
+        action: {
+          runId: input.runId,
+          agentId: input.agentId,
+          verb: input.verb,
+          role,
+          label: label ? clip(label, 200) : null,
+          point,
+          at: new Date().toISOString(),
+        },
+      },
+    });
+  }
+
   // ---- internals ----
 
-  private validateTarget(raw: string): { url: string; host: string; remoteHost: string | null } {
+  private validateTarget(
+    raw: string,
+    desktopTarget: AttackRunDefinition["desktopTarget"],
+  ): { url: string; host: string; remoteHost: string | null } {
+    // A run drives a URL, a desktop window, or both. Without a URL, the browser allowlist is
+    // localhost only and the run is labelled with the app.
+    if (!raw.trim() && desktopTarget) {
+      return { url: "", host: desktopTarget.appName, remoteHost: null };
+    }
     const host = attackUrlHost(raw.trim());
     if (!host) throw new AttackStateError("The target must be an http or https URL.");
     return {

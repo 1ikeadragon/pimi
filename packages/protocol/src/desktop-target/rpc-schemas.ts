@@ -58,7 +58,13 @@ export const DesktopTargetResultSchema = z.discriminatedUnion("command", [
   z.object({ command: z.literal("list_windows"), windows: z.array(DesktopWindowInfoSchema) }),
   // An indented text tree, at most depth 12 and 400 nodes.
   z.object({ command: z.literal("snapshot"), tree: z.string(), truncated: z.boolean() }),
-  z.object({ command: z.literal("click") }),
+  // What the click hit, for the audit line and the owner's action log. Never typed text.
+  z.object({
+    command: z.literal("click"),
+    role: z.string().nullable(),
+    label: z.string().max(200).nullable(),
+    point: z.object({ x: z.number(), y: z.number() }).nullable(),
+  }),
   z.object({ command: z.literal("type") }),
   z.object({ command: z.literal("key") }),
   z.object({
@@ -67,12 +73,17 @@ export const DesktopTargetResultSchema = z.discriminatedUnion("command", [
     dataBase64: z.string().min(1),
     width: z.number().int().nonnegative(),
     height: z.number().int().nonnegative(),
+    // The window's size in screen points, so a click point maps onto the image at any scale.
+    windowWidth: z.number().nonnegative(),
+    windowHeight: z.number().nonnegative(),
   }),
 ]);
 
 export const DesktopTargetExecuteRequestSchema = z
   .object({
     type: z.literal("desktop.target.execute.request"),
+    // Set by the session when it delivers the request to the registered host.
+    subscriptionId: z.string().optional(),
     requestId: z.string().min(1),
     agentId: z.string().min(1),
     // Set by the daemon from the run: the only window the call may touch.

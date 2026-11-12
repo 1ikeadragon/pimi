@@ -70,6 +70,7 @@ import {
   mountServerDataPushRouter,
 } from "@/data/push-router";
 import { mountBrowserAutomationDaemonClientHandler } from "@/desktop/browser/automation/handler";
+import { mountDesktopTargetDaemonClientHandler } from "@/desktop/desktop-target/handler";
 import { automationsQueryBaseKey } from "@/automations/aggregated-automations";
 import { dispatchComposerAgentMessage, sendQueuedComposerMessageNow } from "@/composer/actions";
 import { createMessageSubmissionWriter } from "@/composer/submission/writer";
@@ -562,6 +563,7 @@ function createDefaultDeps(
 ): HostRuntimeControllerDeps {
   const browserHostAvailable =
     typeof getDesktopHost()?.browser?.executeAutomationCommand === "function";
+  const desktopTargetHostAvailable = typeof getDesktopHost()?.desktopTarget?.execute === "function";
 
   return {
     createClient: ({ host, connection, clientId, runtimeGeneration }) => {
@@ -681,14 +683,21 @@ function createDefaultDeps(
         queryClient,
         serverId: host.serverId,
       });
+      const unmountDesktopTarget = desktopTargetHostAvailable
+        ? mountDesktopTargetDaemonClientHandler(client)
+        : null;
       if (!browserHostAvailable) {
-        return unmountServerData;
+        return () => {
+          unmountDesktopTarget?.();
+          unmountServerData();
+        };
       }
       const unmountBrowserAutomation = mountBrowserAutomationDaemonClientHandler(client, {
         serverId: host.serverId,
       });
       return () => {
         unmountBrowserAutomation();
+        unmountDesktopTarget?.();
         unmountServerData();
       };
     },

@@ -2143,6 +2143,14 @@ export const ja: TranslationResources = {
         "エージェントによる書き込みと負荷送信を許可します。現在の構成は読み取りのみです。",
       confinement:
         "ブラウザタブが開けるのは localhost と対象ホストだけです。エージェントには読み取り専用でこれらのホストから出ないよう指示していますが、シェルはサンドボックス化されていません。コマンドでファイルを書き込んだり、他のホストに接続したりできます。Claude のエージェントは、ウェブツール、ファイル編集ツール、あなたの MCP サーバーなしで動作します。他のプロバイダーではそれらが残ります。",
+      desktopWindow: "デスクトップのウィンドウ",
+      desktopNone: "なし(URLのみ)",
+      desktopHint:
+        "エージェントが読み取りと操作を行える1つのアプリウィンドウです。同じタイトルのウィンドウは表示されません。",
+      desktopRefresh: "ウィンドウを更新",
+      desktopInput: "クリックと入力を許可",
+      desktopInputHint:
+        "オフ:エージェントはウィンドウを読むだけです。オン:そのウィンドウ内でのみクリック、入力、キー操作ができます。",
       start: "アタックを開始",
       preflight: "先に対象を開いて注釈する",
     },
@@ -2246,6 +2254,21 @@ export const ja: TranslationResources = {
         actionLog: "操作ログ",
         readOnlyNote:
           "エージェントがこのウィンドウを操作します。ここをクリックすることはできません。",
+        macOnly: "デスクトップのターゲットにはmacOSデスクトップアプリが必要です。",
+        accessibility: "アクセシビリティ",
+        screen: "画面収録",
+        input: "入力",
+        inputOn: "許可",
+        inputOff: "読み取り専用",
+        granted: "許可済み",
+        missing: "未許可",
+        grantBody:
+          "このウィンドウを読み取り操作するには、Pimiにアクセシビリティと画面収録の権限が必要です。両方が許可されるまで、デスクトップツールは動作しません。",
+        openAccessibility: "アクセシビリティ設定を開く",
+        openScreen: "画面収録設定を開く",
+        openAutomation: "オートメーション設定を開く",
+        noActions: "操作はまだありません。",
+        noPreview: "ウィンドウを待っています...",
       },
       visualize: {
         label: "可視化",

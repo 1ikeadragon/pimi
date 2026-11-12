@@ -73,7 +73,8 @@ export type AttackAnnotationResult = z.infer<typeof AttackAnnotationResultSchema
 export const AttackRunDefinitionSchema = z.object({
   workspaceId: z.string().min(1),
   cwd: z.string().min(1),
-  target: z.string().min(1),
+  // An http(s) URL, or empty for a run that only drives `desktopTarget`.
+  target: z.string(),
   // False keeps the agents out of the repository: no repo scan, no reading its source.
   repoScope: z.boolean(),
   scopeNotes: z.string().max(4000),

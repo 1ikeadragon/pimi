@@ -16,6 +16,7 @@ import { AttackAgentGrid } from "./attack-agent-grid";
 import { AttackCompose, ATTACK_NARROW_WIDTH } from "./attack-compose";
 import { AttackRunBar } from "./attack-run-bar";
 import { AttackSubviewBar } from "./attack-subview-bar";
+import { useAttackDesktopLogForRun } from "./use-attack-desktop-log";
 import { BrowserSubview } from "./subviews/browser-subview";
 import { DesktopSubview } from "./subviews/desktop-subview";
 import { TerminalSubview } from "./subviews/terminal-subview";
@@ -95,6 +96,7 @@ export function AttackBoardPanel() {
     [key, run],
   );
   useReleaseFinishedRunBrowsers(serverId, workspaceId, run);
+  useAttackDesktopLogForRun(serverId, run);
 
   const { width } = useWindowDimensions();
   const narrow = width < ATTACK_NARROW_WIDTH;

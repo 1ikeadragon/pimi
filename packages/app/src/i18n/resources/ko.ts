@@ -2131,6 +2131,14 @@ export const ko: TranslationResources = {
       disposableHint: "에이전트가 쓰기와 부하 전송을 할 수 있게 합니다. 현재 구성은 읽기만 합니다.",
       confinement:
         "브라우저 탭은 localhost와 대상 호스트만 열 수 있습니다. 에이전트는 읽기만 하고 이 호스트를 벗어나지 않도록 지시받지만, 셸은 샌드박스로 격리되어 있지 않습니다. 명령으로 파일을 쓰거나 다른 호스트에 접속할 수 있습니다. Claude 에이전트는 웹 도구, 파일 편집 도구, 사용자의 MCP 서버 없이 실행되며, 다른 제공자는 그대로 유지합니다.",
+      desktopWindow: "데스크톱 창",
+      desktopNone: "없음(URL만)",
+      desktopHint:
+        "에이전트가 읽고 조작할 수 있는 앱 창 하나입니다. 제목이 같은 창은 표시되지 않습니다.",
+      desktopRefresh: "창 새로고침",
+      desktopInput: "클릭과 입력 허용",
+      desktopInputHint:
+        "끄면 에이전트는 창을 읽기만 합니다. 켜면 그 창 안에서만 클릭, 입력, 키 누르기를 할 수 있습니다.",
       start: "어택 시작",
       preflight: "먼저 대상을 열고 주석 달기",
     },
@@ -2232,6 +2240,21 @@ export const ko: TranslationResources = {
         grantAccess: "손쉬운 사용 권한 허용",
         actionLog: "작업 로그",
         readOnlyNote: "에이전트가 이 창을 조작합니다. 여기서는 클릭할 수 없습니다.",
+        macOnly: "데스크톱 대상은 macOS 데스크톱 앱이 필요합니다.",
+        accessibility: "손쉬운 사용",
+        screen: "화면 기록",
+        input: "입력",
+        inputOn: "허용",
+        inputOff: "읽기 전용",
+        granted: "허용됨",
+        missing: "허용 안 됨",
+        grantBody:
+          "이 창을 읽고 조작하려면 Pimi에 손쉬운 사용과 화면 기록 권한이 필요합니다. 둘 다 허용되기 전에는 데스크톱 도구가 실행되지 않습니다.",
+        openAccessibility: "손쉬운 사용 설정 열기",
+        openScreen: "화면 기록 설정 열기",
+        openAutomation: "자동화 설정 열기",
+        noActions: "아직 동작이 없습니다.",
+        noPreview: "창을 기다리는 중...",
       },
       visualize: {
         label: "시각화",

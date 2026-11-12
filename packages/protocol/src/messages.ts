@@ -3514,6 +3514,17 @@ export const BrowserHostRegisterResponseSchema = z.object({
   payload: z.object({ requestId: z.string(), subscriptionId: z.string() }),
 });
 
+// The desktop app offers itself as the host of `desktop_*` agent tools (Attack desktop targets).
+export const DesktopHostRegisterRequestSchema = z.object({
+  type: z.literal("desktop.host.register.request"),
+  requestId: z.string(),
+  hostKind: z.string().min(1),
+});
+export const DesktopHostRegisterResponseSchema = z.object({
+  type: z.literal("desktop.host.register.response"),
+  payload: z.object({ requestId: z.string(), subscriptionId: z.string() }),
+});
+
 export const SubscriptionReleaseRequestSchema = z.object({
   type: z.literal("subscription.release.request"),
   requestId: z.string(),
@@ -3535,6 +3546,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   HostsRouteCloseRequestSchema,
 
   BrowserHostRegisterRequestSchema,
+  DesktopHostRegisterRequestSchema,
   SubscriptionReleaseRequestSchema,
   SessionEventsSetSubscriptionRequestSchema,
   BrowserAutomationExecuteResponseSchema,
@@ -7027,6 +7039,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   HostsRouteClosedSchema,
 
   BrowserHostRegisterResponseSchema,
+  DesktopHostRegisterResponseSchema,
   SubscriptionReleaseResponseSchema,
   SessionEventsSetSubscriptionResponseSchema,
   BrowserAutomationExecuteRequestSchema,

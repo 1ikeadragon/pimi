@@ -169,7 +169,9 @@ function FindingsList({
     <ScrollView contentContainerStyle={styles.content} testID="attack-findings-panel">
       {run && !active ? (
         <Text style={styles.metaText} numberOfLines={1}>
-          {t("attack.findings.lastRun", { target: runHost(run.target) })}
+          {t("attack.findings.lastRun", {
+            target: run.target ? runHost(run.target) : (run.desktopTarget?.appName ?? ""),
+          })}
         </Text>
       ) : null}
       {empty ? <Text style={styles.emptyText}>{empty}</Text> : null}

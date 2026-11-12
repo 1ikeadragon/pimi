@@ -2170,6 +2170,14 @@ export const fr: TranslationResources = {
         "Permet aux agents d’écrire et d’envoyer de la charge. La liste actuelle ne fait que lire.",
       confinement:
         "Les onglets du navigateur ne peuvent ouvrir que localhost et l’hôte cible. Les agents ont pour consigne de lire seulement et de rester sur ces hôtes, mais leur shell n’est pas isolé : une commande peut encore écrire des fichiers ou atteindre d’autres hôtes. Les agents Claude s’exécutent sans outils web, sans outils de modification de fichiers et sans vos propres serveurs MCP ; les autres fournisseurs gardent les leurs.",
+      desktopWindow: "Fenêtre du bureau",
+      desktopNone: "Aucune (URL seulement)",
+      desktopHint:
+        "La seule fenêtre d’application que les agents peuvent lire et piloter. Les fenêtres au titre identique ne sont pas listées.",
+      desktopRefresh: "Actualiser les fenêtres",
+      desktopInput: "Autoriser clics et saisie",
+      desktopInputHint:
+        "Désactivé : les agents ne font que lire la fenêtre. Activé : ils peuvent cliquer, saisir et appuyer sur des touches dans celle-ci uniquement.",
       start: "Lancer l’attaque",
       preflight: "Ouvrir la cible et annoter d'abord",
     },
@@ -2273,6 +2281,21 @@ export const fr: TranslationResources = {
         grantAccess: "Accorder l'accès Accessibilité",
         actionLog: "Journal des actions",
         readOnlyNote: "Les agents pilotent cette fenêtre ; vous ne pouvez pas y cliquer.",
+        macOnly: "Les cibles de bureau nécessitent l’app de bureau macOS.",
+        accessibility: "Accessibilité",
+        screen: "Enregistrement de l’écran",
+        input: "Saisie",
+        inputOn: "autorisée",
+        inputOff: "lecture seule",
+        granted: "accordé",
+        missing: "non accordé",
+        grantBody:
+          "Pimi a besoin des accès Accessibilité et Enregistrement de l’écran pour lire et piloter cette fenêtre. Tant qu’ils ne sont pas accordés, aucun outil de bureau ne s’exécute.",
+        openAccessibility: "Ouvrir les réglages d’Accessibilité",
+        openScreen: "Ouvrir les réglages d’Enregistrement de l’écran",
+        openAutomation: "Ouvrir les réglages d’Automatisation",
+        noActions: "Aucune action pour l’instant.",
+        noPreview: "En attente de la fenêtre...",
       },
       visualize: {
         label: "Visualiser",

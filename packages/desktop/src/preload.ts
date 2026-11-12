@@ -341,6 +341,15 @@ contextBridge.exposeInMainWorld("pimiDesktop", {
     setCapturingShortcut: (capturing: boolean) =>
       ipcRenderer.invoke("pimi:menu:set-capturing-shortcut", capturing),
   },
+  desktopTarget: {
+    permissions: (input?: { prompt?: boolean }) =>
+      ipcRenderer.invoke("pimi:desktop-target:permissions", input),
+    listWindows: () => ipcRenderer.invoke("pimi:desktop-target:list-windows"),
+    execute: (request: Record<string, unknown>) =>
+      ipcRenderer.invoke("pimi:desktop-target:execute", request),
+    openSettings: (pane: "accessibility" | "screen" | "automation") =>
+      ipcRenderer.invoke("pimi:desktop-target:open-settings", pane),
+  },
   browser: {
     setShortcutPolicy: (input: BrowserKeyboardPolicy) =>
       ipcRenderer.invoke("pimi:browser:set-shortcut-policy", input),

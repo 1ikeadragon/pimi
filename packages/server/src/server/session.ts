@@ -2151,6 +2151,28 @@ export class Session {
     }
   }
 
+  private async registerDesktopHost(
+    request: Extract<SessionInboundMessage, { type: "desktop.host.register.request" }>,
+  ): Promise<void> {
+    if (!this.browserToolsBroker) throw new Error("Desktop hosting is unavailable");
+    let unregister: (() => void) | undefined;
+    const owner = this.delivery.begin("desktop-host", () => unregister?.());
+    try {
+      unregister = this.browserToolsBroker.desktop.registerClient({
+        id: owner.id,
+        hostKind: request.hostKind,
+        sendDesktopTargetRequest: (message) => owner.emit(message),
+      });
+      this.emit({
+        type: "desktop.host.register.response",
+        payload: { requestId: request.requestId, subscriptionId: owner.id },
+      });
+    } catch (error) {
+      await owner.release();
+      throw error;
+    }
+  }
+
   private async subscribeWorkspaceSetup(
     request: Extract<SessionInboundMessage, { type: "workspace.setup.subscribe.request" }>,
   ): Promise<void> {
@@ -2191,6 +2213,15 @@ export class Session {
   ): Promise<void> | undefined {
     if (msg.type === "workspace.setup.subscribe.request") return this.subscribeWorkspaceSetup(msg);
     if (msg.type === "browser.host.register.request") return this.registerBrowserHost(msg);
+    if (msg.type === "desktop.host.register.request") return this.registerDesktopHost(msg);
+    if (msg.type === "desktop.target.execute.response") {
+      if (source)
+        this.browserToolsBroker?.desktop.receiveResponse(
+          msg,
+          this.delivery.subscriptionIds(source, "desktop-host"),
+        );
+      return Promise.resolve();
+    }
     if (msg.type === "browser.automation.execute.response") {
       if (source)
         this.browserToolsBroker?.receiveResponse(

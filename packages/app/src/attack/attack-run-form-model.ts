@@ -2,6 +2,7 @@ import { attackUrlHost, isLocalAttackHost } from "@pimi/protocol/attack/allowlis
 import {
   ATTACK_ROLE_IDS,
   DEFAULT_ATTACK_LIMITS,
+  type AttackDesktopTarget,
   type AttackRoleId,
   type AttackRunDefinition,
 } from "@pimi/protocol/attack/types";
@@ -20,6 +21,9 @@ export interface AttackRunFormInput {
   cwd: string;
 }
 
+/** A window the owner may pick as the run's desktop target. */
+export type AttackDesktopWindow = AttackDesktopTarget;
+
 export type AttackFormProblem =
   | "targetInvalid"
   | "rosterEmpty"
@@ -37,6 +41,11 @@ export interface AttackRunFormState {
   disposableTarget: boolean;
   model: AttackModelOption | null;
   modelOptions: AttackModelOption[];
+  /** The one app window the run may drive besides (or instead of) the URL. */
+  desktopTarget: AttackDesktopTarget | null;
+  /** The owner's consent to click and type in that window. */
+  allowDesktopInput: boolean;
+  desktopWindows: AttackDesktopWindow[];
   /** The one remote host the target names, when it is not local. */
   remoteHost: string | null;
   /** Problems to show; hidden until the owner has touched the field or pressed Start. */
@@ -78,6 +87,9 @@ export class AttackRunFormModel {
       disposableTarget: false,
       model: null,
       modelOptions: [],
+      desktopTarget: null,
+      allowDesktopInput: false,
+      desktopWindows: [],
     });
   }
 
@@ -120,6 +132,34 @@ export class AttackRunFormModel {
   toggleRole(role: AttackRoleId): void {
     if (role === "secrets-audit" && !this.state.repoScope) return;
     this.patch({ roster: { ...this.state.roster, [role]: !this.state.roster[role] } });
+  }
+
+  setDesktopTarget = (value: AttackDesktopTarget | null): void => {
+    // Without a window there is nothing to consent to.
+    this.patch({
+      desktopTarget: value,
+      allowDesktopInput: value ? this.state.allowDesktopInput : false,
+    });
+  };
+
+  setAllowDesktopInput = (value: boolean): void => {
+    this.patch({ allowDesktopInput: value });
+  };
+
+  /** Late data: the app lists windows after the form opens. A window that vanished is dropped. */
+  applyDesktopWindows(windows: AttackDesktopWindow[]): void {
+    const current = this.state.desktopTarget;
+    const stillThere =
+      current !== null &&
+      windows.some(
+        (window) =>
+          window.bundleId === current.bundleId && window.windowTitle === current.windowTitle,
+      );
+    this.patch({
+      desktopWindows: windows,
+      desktopTarget: stillThere ? current : null,
+      allowDesktopInput: stillThere ? this.state.allowDesktopInput : false,
+    });
   }
 
   setDisposableTarget = (value: boolean): void => {
@@ -171,8 +211,8 @@ export class AttackRunFormModel {
       },
       annotations: preflight.annotations,
       onlyAnnotated: preflight.onlyAnnotated,
-      desktopTarget: null,
-      allowDesktopInput: false,
+      desktopTarget: this.state.desktopTarget,
+      allowDesktopInput: this.state.desktopTarget !== null && this.state.allowDesktopInput,
     };
   }
 
@@ -191,7 +231,9 @@ export class AttackRunFormModel {
     const minutes = parseWhole(base.minutes);
     const kiloTokens = parseWhole(base.kiloTokens);
     const found: Partial<Record<AttackFormProblem, true>> = {};
-    if (!host) found.targetInvalid = true;
+    // The URL may stay empty when the run drives a desktop window instead; a typed URL must be valid.
+    const targetBlank = base.target.trim() === "";
+    if (!host && !(targetBlank && base.desktopTarget)) found.targetInvalid = true;
     if (!ATTACK_ROLE_IDS.some((role) => base.roster[role])) found.rosterEmpty = true;
     if (minutes === null || minutes < MIN_MINUTES || minutes > MAX_MINUTES) {
       found.minutesInvalid = true;

@@ -2154,6 +2154,14 @@ export const ptBR: TranslationResources = {
       disposableHint: "Permite que os agentes escrevam e enviem carga. A lista atual só lê.",
       confinement:
         "As abas do navegador só podem abrir localhost e o host de destino. Os agentes são instruídos a apenas ler e a permanecer nesses hosts, mas o shell deles não é isolado: um comando ainda pode gravar arquivos ou alcançar outros hosts. Os agentes do Claude rodam sem ferramentas web, sem ferramentas de edição de arquivos e sem os seus servidores MCP; os outros provedores mantêm os deles.",
+      desktopWindow: "Janela da área de trabalho",
+      desktopNone: "Nenhuma (somente URL)",
+      desktopHint:
+        "A única janela de app que os agentes podem ler e controlar. Janelas com o mesmo título não aparecem.",
+      desktopRefresh: "Atualizar janelas",
+      desktopInput: "Permitir cliques e digitação",
+      desktopInputHint:
+        "Desligado: os agentes só leem a janela. Ligado: podem clicar, digitar e pressionar teclas somente nela.",
       start: "Iniciar ataque",
       preflight: "Abrir o alvo e anotar antes",
     },
@@ -2256,6 +2264,21 @@ export const ptBR: TranslationResources = {
         grantAccess: "Conceder acesso de Acessibilidade",
         actionLog: "Registro de ações",
         readOnlyNote: "Os agentes controlam esta janela; você não pode clicar nela.",
+        macOnly: "Alvos de desktop exigem o app de desktop para macOS.",
+        accessibility: "Acessibilidade",
+        screen: "Gravação de Tela",
+        input: "Entrada",
+        inputOn: "permitida",
+        inputOff: "somente leitura",
+        granted: "concedido",
+        missing: "não concedido",
+        grantBody:
+          "O Pimi precisa de acesso a Acessibilidade e Gravação de Tela para ler e controlar esta janela. Sem os dois, nenhuma ferramenta de desktop é executada.",
+        openAccessibility: "Abrir ajustes de Acessibilidade",
+        openScreen: "Abrir ajustes de Gravação de Tela",
+        openAutomation: "Abrir ajustes de Automação",
+        noActions: "Nenhuma ação ainda.",
+        noPreview: "Aguardando a janela...",
       },
       visualize: {
         label: "Visualizar",

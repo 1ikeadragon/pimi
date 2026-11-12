@@ -2645,6 +2645,20 @@ export class DaemonClient {
     );
   }
 
+  registerDesktopHost(
+    registration: Omit<
+      Extract<SessionInboundMessage, { type: "desktop.host.register.request" }>,
+      "type" | "requestId"
+    >,
+    options?: { signal?: AbortSignal },
+  ): OwnedSubscription<CorrelatedResponsePayload<"desktop.host.register.response">> {
+    return this.observe(
+      "desktop.host.register.response",
+      { type: "desktop.host.register.request", ...registration },
+      options,
+    );
+  }
+
   observeEvents(
     events: SessionEventSubscription[],
     options?: { signal?: AbortSignal; notifications?: boolean },
@@ -5671,6 +5685,12 @@ export class DaemonClient {
   }
 
   sendBrowserAutomationExecuteResponse(response: BrowserAutomationExecuteResponse): void {
+    this.sendSessionMessageStrict(response);
+  }
+
+  sendDesktopTargetExecuteResponse(
+    response: Extract<SessionInboundMessage, { type: "desktop.target.execute.response" }>,
+  ): void {
     this.sendSessionMessageStrict(response);
   }
 
