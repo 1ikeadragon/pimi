@@ -36,7 +36,6 @@ import type { BoundCreateAgentCommand } from "../agent/create-agent/create.js";
 import { cancelAgentRunCommand } from "../agent/lifecycle-command.js";
 import { resumeStoppedSubagents } from "../agent/stop-cascade.js";
 import { ATTACK_RUN_LABEL, STOPPED_WITH_SUBAGENTS_LABEL } from "@pimi/protocol/agent-labels";
-import { AttackCoverageTracker } from "./coverage.js";
 import {
   clipResultNote,
   findAnnotation,
@@ -44,6 +43,7 @@ import {
   readAnnotationImage,
   resolveAnnotationLabels,
 } from "./annotations.js";
+import { AttackCoverageTracker } from "./coverage.js";
 import { leadPrompt, resumePrompt, stallPrompt } from "./prompts.js";
 import { ATTACK_COORDINATOR_PROFILE_ID } from "./roster.js";
 import { findingSignature } from "./signature.js";
@@ -55,6 +55,9 @@ const MAX_FINDINGS_PER_RUN = 200;
 const MAX_EVIDENCE_PER_FINDING = 6;
 const MAX_SCREENSHOT_BASE64_CHARS = 900_000;
 const MAX_TEXT = 4000;
+const MAX_SPEND_AGENTS = 16;
+// A usage report arrives after every turn; clients hear about the run at most this often.
+const RUN_PUSH_INTERVAL_MS = 1000;
 // A running run whose agents are all idle is nudged after this long, and paused as "stalled"
 // once it has been nudged this many times without an agent starting work.
 const STALL_GRACE_MS = 30_000;
@@ -62,9 +65,6 @@ const MAX_STALL_NUDGES = 2;
 
 export class AttackRunNotFoundError extends Error {
   constructor(id: string) {
-const MAX_SPEND_AGENTS = 16;
-// A usage report arrives after every turn; clients hear about the run at most this often.
-const RUN_PUSH_INTERVAL_MS = 1000;
     super(`Attack run not found: ${id}`);
     this.name = "AttackRunNotFoundError";
   }
@@ -179,6 +179,12 @@ export class AttackService {
   // The findings each agent has been shown by submit_finding. A new finding is recorded only once
   // its reporter has seen every finding the run already holds. Lost on restart: agents look again.
   private readonly shownFindingIdsByAgentId = new Map<string, Set<string>>();
+  private readonly coverage: AttackCoverageTracker;
+  // Token reports coalesce: the newest run waits here for the next push slot.
+  private readonly runPushes = new Map<
+    string,
+    { lastAt: number; timer: ReturnType<typeof setTimeout> | null; run: AttackRun | null }
+  >();
 
   constructor(options: AttackServiceOptions) {
     this.logger = options.logger.child({ module: "attack" });
@@ -188,14 +194,13 @@ export class AttackService {
     });
     this.agentManager = options.agentManager;
     this.agentStorage = options.agentStorage;
-  private readonly coverage: AttackCoverageTracker;
-  // Token reports coalesce: the newest run waits here for the next push slot.
-  private readonly runPushes = new Map<
-    string,
-    { lastAt: number; timer: ReturnType<typeof setTimeout> | null; run: AttackRun | null }
-  >();
     this.createAgent = options.createAgent;
     this.emit = options.emit;
+    this.coverage = new AttackCoverageTracker({
+      dir: join(options.pimiHome, "attack-runs"),
+      logger: this.logger,
+      emit: options.emit,
+    });
   }
 
   async start(): Promise<void> {
@@ -205,11 +210,6 @@ export class AttackService {
       if (run.status === "running") {
         await this.settleSpent(
           run.id,
-    this.coverage = new AttackCoverageTracker({
-      dir: join(options.pimiHome, "attack-runs"),
-      logger: this.logger,
-      emit: options.emit,
-    });
           { status: "paused", pausedReason: "user" },
           new Date(run.updatedAt),
         );
@@ -237,6 +237,9 @@ export class AttackService {
     this.tickTimer = null;
     this.unsubscribeAgents?.();
     this.unsubscribeAgents = null;
+    for (const push of this.runPushes.values()) if (push.timer) clearTimeout(push.timer);
+    this.runPushes.clear();
+    await this.coverage.stop();
   }
 
   // ---- runs ----
@@ -246,9 +249,6 @@ export class AttackService {
     const roster = [...new Set(definition.roster.map((role) => AttackRoleIdSchema.parse(role)))];
     if (roster.length === 0) throw new AttackStateError("Pick at least one agent for the roster.");
     if (!definition.repoScope && roster.includes("secrets-audit")) {
-    for (const push of this.runPushes.values()) if (push.timer) clearTimeout(push.timer);
-    this.runPushes.clear();
-    await this.coverage.stop();
       throw new AttackStateError("The secrets and config auditor reads the repository.");
     }
     const live = (await this.store.listRuns()).find(
@@ -876,6 +876,42 @@ export class AttackService {
     });
   }
 
+  // ---- coverage ----
+
+  /** A route an agent's browser tab reached; only agents of this run count. */
+  async recordCoverage(input: {
+    runId: string;
+    agentId: string;
+    route: string;
+  }): Promise<AttackCoverageRoute> {
+    await this.requireRun(input.runId);
+    if ((await this.runIdForAgent(input.agentId)) !== input.runId) {
+      throw new AttackStateError("That agent is not part of this Attack run.");
+    }
+    return this.coverage.record(input.runId, input.agentId, input.route);
+  }
+
+  async getCoverage(runId: string): Promise<AttackCoverage> {
+    await this.requireRun(runId);
+    return this.coverage.get(runId);
+  }
+
+  /** The owner folds one finding into another; the duplicate is hidden behind it. Works on finished runs. */
+  async mergeFindings(input: {
+    runId: string;
+    duplicateId: string;
+    intoId: string;
+  }): Promise<Finding> {
+    await this.requireRun(input.runId);
+    return this.inSubmitChain(input.runId, async () => {
+      await this.applyMerges(input.runId, null, [
+        { duplicate: input.duplicateId, into: input.intoId },
+      ]);
+      const all = await this.store.findings(input.runId).list();
+      return withoutScreenshotBytes(this.mergeTarget(all, input.intoId));
+    });
+  }
+
   // ---- internals ----
 
   private validateTarget(
@@ -953,42 +989,6 @@ export class AttackService {
         },
         run.leadAgentId,
       );
-  // ---- coverage ----
-
-  /** A route an agent's browser tab reached; only agents of this run count. */
-  async recordCoverage(input: {
-    runId: string;
-    agentId: string;
-    route: string;
-  }): Promise<AttackCoverageRoute> {
-    await this.requireRun(input.runId);
-    if ((await this.runIdForAgent(input.agentId)) !== input.runId) {
-      throw new AttackStateError("That agent is not part of this Attack run.");
-    }
-    return this.coverage.record(input.runId, input.agentId, input.route);
-  }
-
-  async getCoverage(runId: string): Promise<AttackCoverage> {
-    await this.requireRun(runId);
-    return this.coverage.get(runId);
-  }
-
-  /** The owner folds one finding into another; the duplicate is hidden behind it. Works on finished runs. */
-  async mergeFindings(input: {
-    runId: string;
-    duplicateId: string;
-    intoId: string;
-  }): Promise<Finding> {
-    await this.requireRun(input.runId);
-    return this.inSubmitChain(input.runId, async () => {
-      await this.applyMerges(input.runId, null, [
-        { duplicate: input.duplicateId, into: input.intoId },
-      ]);
-      const all = await this.store.findings(input.runId).list();
-      return withoutScreenshotBytes(this.mergeTarget(all, input.intoId));
-    });
-  }
-
     } catch (error) {
       this.logger.warn({ err: error, runId: run.id }, "Stopping the attack lead failed");
     }
@@ -1032,6 +1032,12 @@ export class AttackService {
     const updated = await this.store.updateRun(runId, (current) => ({
       ...current,
       spent: { ...current.spent, tokens: current.spent.tokens + added },
+      // At most 16 agents are broken out; the rest only count toward the total.
+      spentByAgent:
+        agentId in current.spentByAgent ||
+        Object.keys(current.spentByAgent).length < MAX_SPEND_AGENTS
+          ? { ...current.spentByAgent, [agentId]: (current.spentByAgent[agentId] ?? 0) + added }
+          : current.spentByAgent,
       updatedAt: new Date().toISOString(),
     }));
     if (!updated) return;
@@ -1101,12 +1107,6 @@ export class AttackService {
     this.logger.warn({ runId: run.id, nudges: stall.nudges }, "Attack run stalled; nudging lead");
     try {
       await sendPromptToAgent({
-      // At most 16 agents are broken out; the rest only count toward the total.
-      spentByAgent:
-        agentId in current.spentByAgent ||
-        Object.keys(current.spentByAgent).length < MAX_SPEND_AGENTS
-          ? { ...current.spentByAgent, [agentId]: (current.spentByAgent[agentId] ?? 0) + added }
-          : current.spentByAgent,
         agentManager: this.agentManager,
         agentStorage: this.agentStorage,
         logger: this.logger,
@@ -1129,20 +1129,15 @@ export class AttackService {
     return this.store.audit(runId).append({ runId, action, agentId, detail });
   }
 
+  // Every other change reaches clients at once and cancels a waiting token push, which the newer
+  // run supersedes.
   private publishRun(run: AttackRun): void {
-    this.emit({ type: "attack.run.changed", payload: { run } });
-  }
-
-  private publishFinding(finding: Finding): void {
-    this.emit({
-      type: "attack.finding.changed",
-      payload: { finding: withoutScreenshotBytes(finding) },
-    });
-  }
-}
     const push = this.runPushes.get(run.id);
     if (push?.timer) clearTimeout(push.timer);
     this.runPushes.set(run.id, { lastAt: Date.now(), timer: null, run: null });
+    this.emit({ type: "attack.run.changed", payload: { run } });
+  }
+
   // Token reports: the first goes out at once, later ones within a second ride one trailing push.
   private publishRunCoalesced(run: AttackRun): void {
     const push = this.runPushes.get(run.id);
@@ -1168,3 +1163,10 @@ export class AttackService {
     this.runPushes.set(run.id, entry);
   }
 
+  private publishFinding(finding: Finding): void {
+    this.emit({
+      type: "attack.finding.changed",
+      payload: { finding: withoutScreenshotBytes(finding) },
+    });
+  }
+}
