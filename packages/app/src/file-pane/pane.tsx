@@ -10,7 +10,7 @@ import { useFileHandle, useFileHandleSnapshot } from "@/file-panels/file";
 import { FilePanelLoading } from "@/file-panels/loading";
 import { FilePanelPicker, FilePanelView, useFilePanelChoice, type FilePanel } from "@/file-panels";
 import { resolveFilePreviewReadTarget } from "@/file-explorer/preview-target";
-import { useAppActivelyVisible } from "@/hooks/use-app-visible";
+import { useAppVisible } from "@/hooks/use-app-visible";
 import { usePublishPanelInstanceAttributes } from "@/panels/panel-instance-attributes";
 import { useSessionStore } from "@/stores/session-store";
 import { buildAbsoluteExplorerPath } from "@/utils/explorer-paths";
@@ -45,9 +45,11 @@ export function FilePane({
     () => buildAbsoluteExplorerPath({ workspaceRoot: root, entryPath: path }),
     [path, root],
   );
-  // A hidden tab or a backgrounded app stops observing; observing again reports what changed.
+  // A hidden tab or a hidden app stops observing; observing again reports what changed. An app that
+  // is visible but not focused (another window in front, a screen recorder) still shows the tab, so
+  // it must still load and follow the file.
   const isActive = useRetainedPanelActive();
-  const isAppVisible = useAppActivelyVisible();
+  const isAppVisible = useAppVisible();
   const handle = useFileHandle({
     serverId,
     target,
