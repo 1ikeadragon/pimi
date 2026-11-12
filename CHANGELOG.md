@@ -2,6 +2,15 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.31 - 2026-11-13
+
+- Plugins can work with the message box: read and edit the draft text and selection, react to changes and key presses, list, add, update and remove annotations, and replace the annotation pill and hover card with their own renderer (`client.addAttachmentRenderer`). See `plugin-examples/annotation-chips`.
+- Remote dev machines over SSH:
+  - Node.js is pinned to a version whose checksums ship inside Pimi.
+  - The daemon bundle is only taken from an immutable GitHub release and checked against GitHub's digest for each file.
+  - Agent CLIs installed through your shell profile (for example opencode) are found on the remote.
+- Review shows its error message once instead of repeating it.
+
 ## 0.17.30 - 2026-11-13
 
 - Remote dev machines over SSH: enter `user@host` and Pimi installs a daemon matching your desktop version on the Linux machine (x64 or arm64), starts it bound to that machine only, and connects through an SSH tunnel. Uploads and the Node download are checksum-verified. It reinstalls or restarts the daemon when needed, upgrades it when the desktop updates, and asks first if agents or terminals are running. Find it in onboarding, Settings, settings search and the command palette. See `docs/remote-ssh.md`.

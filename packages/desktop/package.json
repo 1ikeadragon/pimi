@@ -1,6 +1,6 @@
 {
   "name": "@pimi/desktop",
-  "version": "0.17.30",
+  "version": "0.17.31",
   "private": true,
   "description": "Pimi desktop app (Electron)",
   "homepage": "https://1ikeadragon.github.io/pimi/",
