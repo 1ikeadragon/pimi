@@ -30,7 +30,7 @@ With a custom root, Pimi keeps the same hashed layout under that directory:
 ```json
 {
   "worktrees": {
-    "root": "/mnt/fast/paseo-worktrees"
+    "root": "/mnt/fast/pimi-worktrees"
   }
 }
 ```

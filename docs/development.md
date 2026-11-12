@@ -43,7 +43,7 @@ the titlebar row. Production builds leave the variable unset and show no label.
 Override knobs:
 
 ```bash
-PIMI_HOME=~/.paseo-blue npm run dev          # explicit home
+PIMI_HOME=~/.pimi-blue npm run dev          # explicit home
 PIMI_DEV_SEED_HOME=/path/to/home npm run dev # seed from a different source home
 PIMI_DEV_RESET_HOME=1 npm run dev            # clear and reseed the derived worktree home
 ```
@@ -80,7 +80,7 @@ The service is designed for concurrent worktrees: it derives a deterministic sim
 
 Worktree setup best-effort seeds the generated iOS project and newest native build cache from the source checkout before the service runs. The service still validates the native project by running Expo prebuild and Xcode; the seed only avoids paying all setup/build cost from a cold worktree every time.
 
-Starting the service must not create, focus, reveal, or leave behind macOS Simulator.app windows — a guard hides Simulator.app every 250ms, so the native window vanishes if you focus it. The user-visible surface is the interactive `/.sim` preview: a `serve-sim` stream (60 FPS MJPEG + a WebSocket control channel) that Metro mounts at `basePath: "/.sim"` (`packages/app/metro.config.cjs`) and that forwards taps and gestures, so first-launch prompts like "Open in PaseoDebug?" are answered there, not in the native window. Open the `${PIMI_URL}/.sim` link the service prints — not `serve-sim`'s raw stream port (`:3100`), which is view-only. Because the stream sits behind the daemon proxy it is convenient for remote viewing but laggy up close; for fast local dev at the Mac, use the native simulator path below.
+Starting the service must not create, focus, reveal, or leave behind macOS Simulator.app windows — a guard hides Simulator.app every 250ms, so the native window vanishes if you focus it. The user-visible surface is the interactive `/.sim` preview: a `serve-sim` stream (60 FPS MJPEG + a WebSocket control channel) that Metro mounts at `basePath: "/.sim"` (`packages/app/metro.config.cjs`) and that forwards taps and gestures, so first-launch prompts like "Open in PimiDebug?" are answered there, not in the native window. Open the `${PIMI_URL}/.sim` link the service prints — not `serve-sim`'s raw stream port (`:3100`), which is view-only. Because the stream sits behind the daemon proxy it is convenient for remote viewing but laggy up close; for fast local dev at the Mac, use the native simulator path below.
 
 **Troubleshooting.** If `xcrun simctl` fails with `unable to find utility "simctl"`, the active developer directory is still the Command Line Tools even though Xcode is installed. Point it at Xcode: `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`, then confirm with `xcrun --find simctl`.
 
@@ -596,7 +596,7 @@ install.
 
 ## CLI reference
 
-Use `npm run cli` to run the in-repo CLI from source (`npx tsx packages/cli/src/index.ts`). The script wraps the CLI with `scripts/dev-home.sh`, so it automatically uses this checkout's `.dev/pimi-home` and dev daemon endpoint unless you pass an explicit override. The globally installed `paseo` binary on macOS is a symlink into the installed Pimi desktop app, not this checkout — use it to drive the desktop's built-in daemon, but use `npm run cli` when you want to talk to the CLI you are editing.
+Use `npm run cli` to run the in-repo CLI from source (`npx tsx packages/cli/src/index.ts`). The script wraps the CLI with `scripts/dev-home.sh`, so it automatically uses this checkout's `.dev/pimi-home` and dev daemon endpoint unless you pass an explicit override. The globally installed `pimi` binary on macOS is a symlink into the installed Pimi desktop app, not this checkout — use it to drive the desktop's built-in daemon, but use `npm run cli` when you want to talk to the CLI you are editing.
 
 Canonical automation uses `pimi project create/ls/rename/delete`, `pimi workspace create/ls/rename/archive`, `pimi heartbeat create/update/delete/ls`, and the `pimi automation` group. Agent heartbeat tools are smaller: create, list, and delete. Detach remains an explicit user lifecycle action rather than an agent tool. `pimi run --new-workspace local|worktree` composes workspace creation with agent creation.
 

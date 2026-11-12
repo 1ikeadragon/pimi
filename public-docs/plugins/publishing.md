@@ -95,7 +95,7 @@ Declare local images in `pimi-plugin.json` before publishing:
   "description": "Reviews changes before merge",
   "icon": "assets/icon.png",
   "media": ["assets/screenshot.png"],
-  "requirements": { "paseo": ">=0.11.0" }
+  "requirements": { "pimi": ">=0.11.0" }
 }
 ```
 
@@ -124,9 +124,9 @@ Use an npm scope you can publish to and authenticate with `npm login`. From your
 replace `@acme` and the repository below with your own values:
 
 ```bash
-npm pkg set name=@acme/paseo-review version=1.0.0
+npm pkg set name=@acme/pimi-review version=1.0.0
 npm pkg delete private
-npm pkg set repository.type=git repository.url=git+https://github.com/acme/paseo-review.git
+npm pkg set repository.type=git repository.url=git+https://github.com/acme/pimi-review.git
 ```
 
 The current registry tooling requires a GitHub repository for npm listing ownership, supplied
@@ -183,7 +183,7 @@ npm publish --access public
 On a test daemon, install that exact published version and exercise its contributions:
 
 ```bash
-pimi plugin install npm:@acme/paseo-review@1.0.0
+pimi plugin install npm:@acme/pimi-review@1.0.0
 pimi plugin ls
 ```
 
@@ -212,7 +212,7 @@ command. See [preparation](#plugins-with-a-build-step) for generated files or ex
 Users can install directly from Git without a registry listing:
 
 ```bash
-pimi plugin add git:acme/paseo-review
+pimi plugin add git:acme/pimi-review
 pimi plugin add git:acme/monorepo:plugins/review
 ```
 
@@ -279,7 +279,7 @@ To install the plugin, configure npm **on the daemon host, as the user running P
 3. Install the plugin:
 
    ```bash
-   paseo plugin install npm:@acme/paseo-review
+   pimi plugin install npm:@acme/pimi-review
    ```
 
 Pimi uses the host's npm registry settings and credentials for installation and updates.

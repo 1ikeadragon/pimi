@@ -1,3 +1,3 @@
-/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86_64/CMakeFiles/paseo_diff_prototype.dir
-/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86_64/CMakeFiles/edit_cache.dir
-/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86_64/CMakeFiles/rebuild_cache.dir
+/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86_64/CMakeFiles/pimi_diff_prototype.dir
+/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86_64/CMakeFiles/edit_cache.dir
+/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86_64/CMakeFiles/rebuild_cache.dir

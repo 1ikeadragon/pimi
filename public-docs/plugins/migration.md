@@ -161,7 +161,7 @@ popovers add a chevron. See [buttons](./reference.md#button-descriptor) for menu
 
 ## 4. Separate imports
 
-Move hooks (`usePaseo`, `useRpc`, `useSettings`, `useAgent`, `useWorkspace`) and client contribution
+Move hooks (`usePimi`, `useRpc`, `useSettings`, `useAgent`, `useWorkspace`) and client contribution
 types from `@pimi/plugin` to `@pimi/plugin/client`. Move `Icon` to
 `@pimi/plugin/client/ui`. Import server contexts and lifecycle contracts from
 `@pimi/plugin/server`. Shared helpers (`defineRpc`, `defineSettings`, `defineAttachmentSource`),
@@ -178,7 +178,7 @@ Move the remaining SDK subpaths under their runtime owner:
 | `@pimi/plugin/provider`            | `@pimi/plugin/server/provider` |
 | `@pimi/plugin/acp`                 | `@pimi/plugin/server/acp`      |
 
-The pre-0.8 entries and the old `@paseo/plugin` scope are removed. `/client/host` is private to
+The pre-0.8 entries and the old `@pimi/plugin` scope are removed. `/client/host` is private to
 Pimi's app integration and is never a plugin-author import.
 
 The client entry imports only `client/`, `shared/`, and client-safe packages. The server entry imports
@@ -325,7 +325,7 @@ After migrating the entries and imports, add the minimum runtime version to `pim
 ```json
 {
   "id": "my-plugin",
-  "requirements": { "paseo": ">=0.8.0" }
+  "requirements": { "pimi": ">=0.8.0" }
 }
 ```
 

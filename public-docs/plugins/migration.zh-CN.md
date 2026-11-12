@@ -145,7 +145,7 @@ pill.remove();
 
 ## 4. 拆分导入 {#4-separate-imports}
 
-把 hook（`usePaseo`、`useRpc`、`useSettings`、`useAgent`、`useWorkspace`）和客户端贡献类型从 `@pimi/plugin` 移到 `@pimi/plugin/client`。把 `Icon` 移到 `@pimi/plugin/client/ui`。从 `@pimi/plugin/server` 导入服务端 context 和生命周期契约。共享的辅助函数（`defineRpc`、`defineSettings`、`defineAttachmentSource`）、schema 和普通数据类型保留在根入口。这些规则同样适用于类型导入。完整的契约见[运行时模块](reference#runtime-modules)。
+把 hook（`usePimi`、`useRpc`、`useSettings`、`useAgent`、`useWorkspace`）和客户端贡献类型从 `@pimi/plugin` 移到 `@pimi/plugin/client`。把 `Icon` 移到 `@pimi/plugin/client/ui`。从 `@pimi/plugin/server` 导入服务端 context 和生命周期契约。共享的辅助函数（`defineRpc`、`defineSettings`、`defineAttachmentSource`）、schema 和普通数据类型保留在根入口。这些规则同样适用于类型导入。完整的契约见[运行时模块](reference#runtime-modules)。
 
 把其余的 SDK 子路径移到它们所属的运行时下：
 
@@ -157,7 +157,7 @@ pill.remove();
 | `@pimi/plugin/provider`            | `@pimi/plugin/server/provider` |
 | `@pimi/plugin/acp`                 | `@pimi/plugin/server/acp`      |
 
-0.8 之前的入口和旧的 `@paseo/plugin` scope 已被移除。`/client/host` 是 Pimi 应用集成的私有模块，插件作者从不导入它。
+0.8 之前的入口和旧的 `@pimi/plugin` scope 已被移除。`/client/host` 是 Pimi 应用集成的私有模块，插件作者从不导入它。
 
 客户端入口只导入 `client/`、`shared/` 和可在客户端安全使用的包。服务端入口只导入 `server/`、`shared/` 和可在服务端安全使用的包。在客户端入口或从它可达的任何代码中导入 `node:` 模块都会导致编译错误。不要仅仅为了接线注册而把组件导入服务端入口；那项注册属于客户端入口。
 
@@ -289,14 +289,14 @@ export default function contribute(server: PluginServerContext) {
 
 `contributeClient` 原本就接收 `PluginClientContext` 并返回清理函数，因此客户端入口直接调用它并返回它的清理函数。如果插件的 `addClientSide` 回调还注册了标签或订阅，请保留那些代码；只去掉外层包装。
 
-## 7. 声明 Pimi 版本要求 {#7-declare-the-paseo-requirement}
+## 7. 声明 Pimi 版本要求 {#7-declare-the-pimi-requirement}
 
 迁移完入口和导入后，在 `pimi-plugin.json` 中添加最低运行时版本：
 
 ```json
 {
   "id": "my-plugin",
-  "requirements": { "paseo": ">=0.8.0" }
+  "requirements": { "pimi": ">=0.8.0" }
 }
 ```
 

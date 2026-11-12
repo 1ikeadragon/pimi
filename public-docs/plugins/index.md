@@ -246,7 +246,7 @@ workspace overview**. The panel opens as a workspace tab.
 Install a trusted npm plugin using npm on the daemon host:
 
 ```bash
-pimi plugin install npm:@acme/paseo-review@1.2.0
+pimi plugin install npm:@acme/pimi-review@1.2.0
 ```
 
 Or paste the same identifier into **Settings → Plugins → Plugin source** and select **Install
@@ -298,7 +298,7 @@ pimi plugin logs workspace-plugin
 pimi plugin logs workspace-plugin --json
 ```
 
-The tail includes `[paseo]` loading, ready, stopping, and stopped entries, plus compilation and load
+The tail includes `[pimi]` loading, ready, stopping, and stopped entries, plus compilation and load
 failures, and it survives reloads and crashes. Client-side output stays in the app. See
 [Debug backend output](/docs/plugins/reference#debug-backend-output) for retention and what not to
 log.
@@ -312,5 +312,5 @@ log.
   modules, hosts, and the CLI.
 - [Migrate a plugin to runtime entries](/docs/plugins/migration): move a plugin written against the
   single `index.ts` entry, step by step.
-- [TypeScript SDK](/docs/sdk): the workspace, agent, provider, and config API available as `paseo`
+- [TypeScript SDK](/docs/sdk): the workspace, agent, provider, and config API available as `pimi`
   in client and server code.

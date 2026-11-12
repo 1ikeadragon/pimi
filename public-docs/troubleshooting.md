@@ -35,7 +35,7 @@ Use the global `--host` option when the affected daemon is not the CLI's default
 
 ### Fix it
 
-The durable fix is to make sure the command is on `PATH` for a normal login shell, then restart Pimi, see [why Pimi's environment can differ](#why-paseos-environment-can-differ-from-your-terminal) for why that's the test that matters.
+The durable fix is to make sure the command is on `PATH` for a normal login shell, then restart Pimi, see [why Pimi's environment can differ](#why-pimis-environment-can-differ-from-your-terminal) for why that's the test that matters.
 
 If you'd rather pin it directly, set the binary path in `~/.pimi/config.json`:
 
@@ -61,7 +61,7 @@ The same mismatch shows up anywhere Pimi runs your tools, an agent, or a termina
 
 When you open the **desktop app** from the Dock or Finder, the OS hands it a stripped-down environment, not your terminal's `PATH`. To compensate, Pimi runs your login shell once at startup (`$SHELL -i -l -c`), captures its environment, and hands that to the daemon and everything it spawns. The rule of thumb: **if a brand-new terminal can run the command, Pimi should too.** That's also the test, open a fresh terminal and try it there.
 
-When you start the daemon yourself from a terminal (`paseo`), there's no login-shell step, it simply inherits that terminal's environment.
+When you start the daemon yourself from a terminal (`pimi`), there's no login-shell step, it simply inherits that terminal's environment.
 
 Either way, the fix for a missing tool lives in your shell config (`.zshrc`, `.zprofile`, …), not in Pimi. Tools installed through version managers (asdf, mise, nvm, …) are the usual offenders, make sure they initialize for a clean login shell, not only inside one you've already opened.
 

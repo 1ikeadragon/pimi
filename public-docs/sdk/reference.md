@@ -10,7 +10,7 @@ category: TypeScript SDK
 
 Import every supported runtime value and TypeScript type from `@pimi/client`.
 
-## `createPaseoClient(config)`
+## `createPimiClient(config)`
 
 Creates a client without opening the connection.
 
@@ -22,16 +22,16 @@ Required configuration:
 
 Common optional configuration:
 
-| Field                   | Type          | Default        | Meaning                                          |
-| ----------------------- | ------------- | -------------- | ------------------------------------------------ |
-| `clientId`              | `string`      | Generated      | Stable identifier for logs and subscriptions.    |
-| `password`              | `string`      | Unset          | Daemon password.                                 |
-| `authHeader`            | `string`      | Unset          | Complete authorization-header value for a proxy. |
-| `connectTimeoutMs`      | `number`      | Client default | Connection deadline.                             |
-| `reconnect.enabled`     | `boolean`     | Client default | Reconnect after an unexpected disconnect.        |
-| `reconnect.baseDelayMs` | `number`      | Client default | Initial reconnect delay.                         |
-| `reconnect.maxDelayMs`  | `number`      | Client default | Maximum reconnect delay.                         |
-| `logger`                | `PaseoLogger` | Unset          | Debug, info, warning, and error sink.            |
+| Field                   | Type         | Default        | Meaning                                          |
+| ----------------------- | ------------ | -------------- | ------------------------------------------------ |
+| `clientId`              | `string`     | Generated      | Stable identifier for logs and subscriptions.    |
+| `password`              | `string`     | Unset          | Daemon password.                                 |
+| `authHeader`            | `string`     | Unset          | Complete authorization-header value for a proxy. |
+| `connectTimeoutMs`      | `number`     | Client default | Connection deadline.                             |
+| `reconnect.enabled`     | `boolean`    | Client default | Reconnect after an unexpected disconnect.        |
+| `reconnect.baseDelayMs` | `number`     | Client default | Initial reconnect delay.                         |
+| `reconnect.maxDelayMs`  | `number`     | Client default | Maximum reconnect delay.                         |
+| `logger`                | `PimiLogger` | Unset          | Debug, info, warning, and error sink.            |
 
 Relay E2EE clients can also pass `e2ee.enabled` and `e2ee.daemonPublicKeyB64`. `appVersion`, `runtimeGeneration`, and runtime-metrics options exist for Pimi client surfaces; ordinary integrations can omit them.
 
@@ -48,12 +48,12 @@ Create a new client after `close()`.
 
 ## `client.agents`
 
-| Method               | Result                 | Behavior                                                                                                     |
-| -------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `list(options?)`     | `PaseoAgentListResult` | Lists a page of agents. `scope`, `filter`, `sort`, `page`, and `subscribe` match the daemon directory query. |
-| `create(options)`    | `PaseoAgentHandle`     | Creates an agent and a fresh workspace for `cwd`. Requires `config`.                                         |
-| `ref(agentOrId)`     | `PaseoAgentHandle`     | Creates a local handle without fetching.                                                                     |
-| `subscribe(handler)` | Unsubscribe function   | Local listener for this API instance. Requires an owned `list({ subscribe: {} })` observation.               |
+| Method               | Result                | Behavior                                                                                                     |
+| -------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `list(options?)`     | `PimiAgentListResult` | Lists a page of agents. `scope`, `filter`, `sort`, `page`, and `subscribe` match the daemon directory query. |
+| `create(options)`    | `PimiAgentHandle`     | Creates an agent and a fresh workspace for `cwd`. Requires `config`.                                         |
+| `ref(agentOrId)`     | `PimiAgentHandle`     | Creates a local handle without fetching.                                                                     |
+| `subscribe(handler)` | Unsubscribe function  | Local listener for this API instance. Requires an owned `list({ subscribe: {} })` observation.               |
 
 `list({ subscribe: {} })` also returns a `subscriptionId` and an owned `subscription`. Its `subscribe({ snapshot, update, error? })` callbacks receive the snapshot before scoped wire updates; `release()` ends that observation. Plain lists create no observation. The same contract applies to workspace lists. See [events](./events.md).
 
@@ -80,41 +80,41 @@ workspace the call creates is background too. With a `parent` and no value, the 
 
 ### Agent handle
 
-| Member                                         | Result                                    | Behavior                                                                                                                                                                              |
-| ---------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                                           | `string`                                  | Stable daemon agent ID.                                                                                                                                                               |
-| `address`                                      | `AgentAddress`                            | Complete `{ serverId, agentId }` identity; requires a connected host to establish it.                                                                                                 |
-| `workspaceId`                                  | `string \| null`                          | Current workspace placement.                                                                                                                                                          |
-| `cwd`                                          | `string \| null`                          | Current working directory.                                                                                                                                                            |
-| `status`                                       | Agent status or `null`                    | Current lifecycle status.                                                                                                                                                             |
-| `capabilities`                                 | Capability flags or `null`                | What the provider session supports.                                                                                                                                                   |
-| `availableModes`                               | Agent modes or `null`                     | Modes the session can switch to.                                                                                                                                                      |
-| `pendingPermissions`                           | Permission requests or `null`             | Requests waiting on an answer.                                                                                                                                                        |
-| `activeTurn`                                   | Active turn or `null`                     | The turn in flight, with `turnId` and `startedAt`.                                                                                                                                    |
-| `lastUsage`                                    | Usage or `null`                           | Token counts, cost, and context-window use from the last turn.                                                                                                                        |
-| `lastError`                                    | `string \| null`                          | Last error the daemon recorded for the agent.                                                                                                                                         |
-| `features`                                     | Agent features or `null`                  | Provider feature toggles and selects with their current values.                                                                                                                       |
-| `runtimeInfo`                                  | Runtime info or `null`                    | Live provider, session ID, model, thinking option, and mode.                                                                                                                          |
-| `archivedAt`                                   | `string \| null`                          | Archive timestamp; `null` while the agent is active.                                                                                                                                  |
-| `current()`                                    | `PaseoAgent \| null`                      | Current detailed value observed by this handle; never fetches.                                                                                                                        |
-| `refresh(requestId?)`                          | `PaseoAgentRefetchResult \| null`         | Fetches the current agent and project placement.                                                                                                                                      |
-| `send(text, options?)`                         | `Promise<void>`                           | Resolves when the daemon accepts the prompt.                                                                                                                                          |
-| `respondToPermission(options)`                 | `Promise<void>`                           | Answers a pending permission by `requestId` with an allow or deny `response`.                                                                                                         |
-| `run(text, options?)`                          | `PaseoAgentRunResult`                     | Sends a prompt and waits for that turn. `timeoutMs` controls the wait; it defaults to 10 minutes.                                                                                     |
-| `waitForFinish(timeoutMs?)`                    | `PaseoAgentRunResult`                     | Waits for the active turn, including an initial prompt. Default timeout: 10 minutes.                                                                                                  |
-| `commands(options?)`                           | `PaseoAgentCommandsResult`                | Asks the live session for its slash commands and skills, including built-in ones. Options: `requestId`.                                                                               |
-| `subscribe(handler)`                           | Unsubscribe function                      | Filters agent-directory updates to this ID and refreshes the handle properties.                                                                                                       |
-| `archive()`                                    | `{ archivedAt }`                          | Soft-deletes the agent and closes its runtime.                                                                                                                                        |
-| `detach()`                                     | `Promise<void>`                           | Removes the parent relationship without stopping the agent.                                                                                                                           |
-| `backgroundWork.list(options?)`                | `Promise<PaseoAgentBackgroundWorkItem[]>` | Reads the agent's current background work once. Options: `requestId`, `timeout`.                                                                                                      |
-| `backgroundWork.stop(item, options?)`          | `Promise<void>`                           | Stops a stoppable item and waits for provider confirmation. Pass the item returned by `list` or `subscribe`.                                                                          |
-| `backgroundWork.subscribe(listener, options?)` | `() => void`                              | Calls `listener` with the current list, again after each reconnect, then with the full list on every change. `onError` receives a failed list read. Returns the unsubscribe function. |
+| Member                                         | Result                                   | Behavior                                                                                                                                                                              |
+| ---------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                                           | `string`                                 | Stable daemon agent ID.                                                                                                                                                               |
+| `address`                                      | `AgentAddress`                           | Complete `{ serverId, agentId }` identity; requires a connected host to establish it.                                                                                                 |
+| `workspaceId`                                  | `string \| null`                         | Current workspace placement.                                                                                                                                                          |
+| `cwd`                                          | `string \| null`                         | Current working directory.                                                                                                                                                            |
+| `status`                                       | Agent status or `null`                   | Current lifecycle status.                                                                                                                                                             |
+| `capabilities`                                 | Capability flags or `null`               | What the provider session supports.                                                                                                                                                   |
+| `availableModes`                               | Agent modes or `null`                    | Modes the session can switch to.                                                                                                                                                      |
+| `pendingPermissions`                           | Permission requests or `null`            | Requests waiting on an answer.                                                                                                                                                        |
+| `activeTurn`                                   | Active turn or `null`                    | The turn in flight, with `turnId` and `startedAt`.                                                                                                                                    |
+| `lastUsage`                                    | Usage or `null`                          | Token counts, cost, and context-window use from the last turn.                                                                                                                        |
+| `lastError`                                    | `string \| null`                         | Last error the daemon recorded for the agent.                                                                                                                                         |
+| `features`                                     | Agent features or `null`                 | Provider feature toggles and selects with their current values.                                                                                                                       |
+| `runtimeInfo`                                  | Runtime info or `null`                   | Live provider, session ID, model, thinking option, and mode.                                                                                                                          |
+| `archivedAt`                                   | `string \| null`                         | Archive timestamp; `null` while the agent is active.                                                                                                                                  |
+| `current()`                                    | `PimiAgent \| null`                      | Current detailed value observed by this handle; never fetches.                                                                                                                        |
+| `refresh(requestId?)`                          | `PimiAgentRefetchResult \| null`         | Fetches the current agent and project placement.                                                                                                                                      |
+| `send(text, options?)`                         | `Promise<void>`                          | Resolves when the daemon accepts the prompt.                                                                                                                                          |
+| `respondToPermission(options)`                 | `Promise<void>`                          | Answers a pending permission by `requestId` with an allow or deny `response`.                                                                                                         |
+| `run(text, options?)`                          | `PimiAgentRunResult`                     | Sends a prompt and waits for that turn. `timeoutMs` controls the wait; it defaults to 10 minutes.                                                                                     |
+| `waitForFinish(timeoutMs?)`                    | `PimiAgentRunResult`                     | Waits for the active turn, including an initial prompt. Default timeout: 10 minutes.                                                                                                  |
+| `commands(options?)`                           | `PimiAgentCommandsResult`                | Asks the live session for its slash commands and skills, including built-in ones. Options: `requestId`.                                                                               |
+| `subscribe(handler)`                           | Unsubscribe function                     | Filters agent-directory updates to this ID and refreshes the handle properties.                                                                                                       |
+| `archive()`                                    | `{ archivedAt }`                         | Soft-deletes the agent and closes its runtime.                                                                                                                                        |
+| `detach()`                                     | `Promise<void>`                          | Removes the parent relationship without stopping the agent.                                                                                                                           |
+| `backgroundWork.list(options?)`                | `Promise<PimiAgentBackgroundWorkItem[]>` | Reads the agent's current background work once. Options: `requestId`, `timeout`.                                                                                                      |
+| `backgroundWork.stop(item, options?)`          | `Promise<void>`                          | Stops a stoppable item and waits for provider confirmation. Pass the item returned by `list` or `subscribe`.                                                                          |
+| `backgroundWork.subscribe(listener, options?)` | `() => void`                             | Calls `listener` with the current list, again after each reconnect, then with the full list on every change. `onError` receives a failed list read. Returns the unsubscribe function. |
 
 `workspaceId` through `archivedAt` mirror the last snapshot the handle observed. A handle from `ref()` reads `null` for all of them until `refresh()`, `run()`, `waitForFinish()`, a timeline refetch, or `subscribe()` delivers a snapshot. Optional values in an observed snapshot also read as `null`. Call `current()` when you need the whole snapshot or need to distinguish those states.
 
-`PaseoAgentRunResult` contains `status`, `final`, `error`, and `lastMessage`. `final` refreshes the handle when present.
+`PimiAgentRunResult` contains `status`, `final`, `error`, and `lastMessage`. `final` refreshes the handle when present.
 
-`PaseoAgentCommandsResult` contains `agentId`, `commands`, and `error`. Each command has `name`, `description`, `argumentHint`, and an optional `kind` of `"command"` or `"skill"`. A provider that cannot answer reports it in `error` rather than rejecting; providers that expose no command list at all return an empty array.
+`PimiAgentCommandsResult` contains `agentId`, `commands`, and `error`. Each command has `name`, `description`, `argumentHint`, and an optional `kind` of `"command"` or `"skill"`. A provider that cannot answer reports it in `error` rather than rejecting; providers that expose no command list at all return an empty array.
 
 ### Timeline handle
 
@@ -124,23 +124,23 @@ workspace the call creates is background too. With a `parent` and no value, the 
 
 ## `client.projects`
 
-| Method               | Result                   | Behavior                                                                                       |
-| -------------------- | ------------------------ | ---------------------------------------------------------------------------------------------- |
-| `list(options?)`     | `PaseoProjectListResult` | Lists every registered project, including projects with no active workspaces.                  |
-| `subscribe(handler)` | Unsubscribe function     | Requests future project updates; unsubscribe releases demand. `list()` supplies initial state. |
+| Method               | Result                  | Behavior                                                                                       |
+| -------------------- | ----------------------- | ---------------------------------------------------------------------------------------------- |
+| `list(options?)`     | `PimiProjectListResult` | Lists every registered project, including projects with no active workspaces.                  |
+| `subscribe(handler)` | Unsubscribe function    | Requests future project updates; unsubscribe releases demand. `list()` supplies initial state. |
 
 See [events](./events.md#follow-provider-catalog-changes) for explicit event observation and cleanup.
 
 ## `client.workspaces`
 
-| Method                   | Result                        | Behavior                                                                                                                |
-| ------------------------ | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `list(options?)`         | `PaseoWorkspaceListResult`    | Lists, filters, pages, or subscribes to the workspace directory.                                                        |
-| `open(cwd)`              | `PaseoWorkspaceHandle`        | Reuses the active workspace for a directory or creates one.                                                             |
-| `create(options)`        | `PaseoWorkspaceHandle`        | Always creates a fresh directory-backed or Pimi-worktree workspace. `background: true` hides it from default discovery. |
-| `ref(workspaceOrId)`     | `PaseoWorkspaceHandle`        | Creates a local handle.                                                                                                 |
-| `archive(workspaceOrId)` | `PaseoWorkspaceArchiveResult` | Archives without first creating a handle.                                                                               |
-| `subscribe(handler)`     | Unsubscribe function          | Local listener for this API instance. Requires an owned `list({ subscribe: {} })` observation.                          |
+| Method                   | Result                       | Behavior                                                                                                                |
+| ------------------------ | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `list(options?)`         | `PimiWorkspaceListResult`    | Lists, filters, pages, or subscribes to the workspace directory.                                                        |
+| `open(cwd)`              | `PimiWorkspaceHandle`        | Reuses the active workspace for a directory or creates one.                                                             |
+| `create(options)`        | `PimiWorkspaceHandle`        | Always creates a fresh directory-backed or Pimi-worktree workspace. `background: true` hides it from default discovery. |
+| `ref(workspaceOrId)`     | `PimiWorkspaceHandle`        | Creates a local handle.                                                                                                 |
+| `archive(workspaceOrId)` | `PimiWorkspaceArchiveResult` | Archives without first creating a handle.                                                                               |
+| `subscribe(handler)`     | Unsubscribe function         | Local listener for this API instance. Requires an owned `list({ subscribe: {} })` observation.                          |
 
 `create({ source, agent, background })` creates a workspace and its initial agent together.
 `agent` accepts agent creation options except `worktree`, `git`, `onEvent`, `idempotencyKey`,
@@ -151,11 +151,11 @@ A workspace handle exposes `id`, `projectId`, `directory`, `name`, `status`, `cu
 
 ## `client.terminals`
 
-| Method              | Result                             | Behavior                                                                           |
-| ------------------- | ---------------------------------- | ---------------------------------------------------------------------------------- |
-| `create(options)`   | `Promise<PaseoTerminalHandle>`     | Creates a terminal owned by the required `workspaceId`.                            |
-| `list(options?)`    | `Promise<PaseoTerminalListResult>` | Returns `{ entries, requestId }`. Omit filters to list all terminals on this host. |
-| `ref(terminalOrId)` | `PaseoTerminalHandle`              | Creates a local handle without fetching or attaching a terminal stream.            |
+| Method              | Result                            | Behavior                                                                           |
+| ------------------- | --------------------------------- | ---------------------------------------------------------------------------------- |
+| `create(options)`   | `Promise<PimiTerminalHandle>`     | Creates a terminal owned by the required `workspaceId`.                            |
+| `list(options?)`    | `Promise<PimiTerminalListResult>` | Returns `{ entries, requestId }`. Omit filters to list all terminals on this host. |
+| `ref(terminalOrId)` | `PimiTerminalHandle`              | Creates a local handle without fetching or attaching a terminal stream.            |
 
 Creation options:
 
@@ -172,34 +172,34 @@ List options are `workspaceId`, `cwd`, and `requestId`. `workspaceId` selects ow
 
 Terminal handles expose:
 
-| Method              | Result                                | Behavior                                                                                         |
-| ------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `current()`         | `PaseoTerminal \| null`               | Last snapshot from creation, `ref(snapshot)`, or refresh. A handle made from an ID starts empty. |
-| `refresh(options?)` | `Promise<PaseoTerminal \| null>`      | Fetches the terminal snapshot, or `null` when it no longer exists. Accepts `requestId`.          |
-| `write(data)`       | `number`                              | Sends literal text without interpreting key names. Returns the input's UTF-16 length.            |
-| `sendKeys(keys)`    | `number`                              | Expands key tokens and sends the combined input. Returns its UTF-16 length.                      |
-| `capture(options?)` | `Promise<PaseoTerminalCaptureResult>` | Returns `{ terminalId, lines, totalLines, requestId }`.                                          |
-| `kill(requestId?)`  | `Promise<void>`                       | Waits for terminal teardown. Killing an already-removed terminal succeeds.                       |
+| Method              | Result                               | Behavior                                                                                         |
+| ------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `current()`         | `PimiTerminal \| null`               | Last snapshot from creation, `ref(snapshot)`, or refresh. A handle made from an ID starts empty. |
+| `refresh(options?)` | `Promise<PimiTerminal \| null>`      | Fetches the terminal snapshot, or `null` when it no longer exists. Accepts `requestId`.          |
+| `write(data)`       | `number`                             | Sends literal text without interpreting key names. Returns the input's UTF-16 length.            |
+| `sendKeys(keys)`    | `number`                             | Expands key tokens and sends the combined input. Returns its UTF-16 length.                      |
+| `capture(options?)` | `Promise<PimiTerminalCaptureResult>` | Returns `{ terminalId, lines, totalLines, requestId }`.                                          |
+| `kill(requestId?)`  | `Promise<void>`                      | Waits for terminal teardown. Killing an already-removed terminal succeeds.                       |
 
 `sendKeys()` recognizes `Enter`, `Tab`, `Escape`, `Space`, `BSpace`, `C-c`, `C-d`, `C-z`, `C-l`, `C-a`, and `C-e`. Other strings pass through literally. Input methods send without waiting for command execution or acknowledging that the terminal consumed the input.
 
 Capture accepts optional `start`, `end`, `stripAnsi`, and `requestId`. Line bounds are zero-based and inclusive across scrollback and the viewport. Negative bounds count from the end; omitted bounds capture all lines. `stripAnsi` defaults to `true`. A missing terminal returns empty lines.
 
-Use `workspace.terminals.create(options?)` and `workspace.terminals.list(options?)` to supply the workspace ID from a handle. Creation accepts the same options except `workspaceId`; listing accepts only `requestId`. Plugins get these methods through `usePimi()` and the handler's `paseo` context.
+Use `workspace.terminals.create(options?)` and `workspace.terminals.list(options?)` to supply the workspace ID from a handle. Creation accepts the same options except `workspaceId`; listing accepts only `requestId`. Plugins get these methods through `usePimi()` and the handler's `pimi` context.
 
 ## `client.providers`
 
-| Method                           | Result                        | Behavior                                                         |
-| -------------------------------- | ----------------------------- | ---------------------------------------------------------------- |
-| `waitForReady(options?)`         | `PaseoProviderSnapshotResult` | Waits until no provider is loading. Default timeout: 60 seconds. |
-| `snapshot(options?)`             | `PaseoProviderSnapshotResult` | Returns the current catalog immediately.                         |
-| `refresh(options?)`              | Acknowledgement               | Forces catalog refresh for all or selected providers.            |
-| `listAvailable()`                | Availability result           | Reports installed provider availability.                         |
-| `listModels(provider, options?)` | Models result                 | Discovers models for one provider and directory.                 |
-| `listModes(provider, options?)`  | Modes result                  | Discovers permission or operating modes.                         |
-| `listFeatures(draftConfig)`      | Features result               | Discovers features for the current draft provider configuration. |
-| `diagnostic(provider)`           | Diagnostic result             | Returns human-readable setup diagnostics.                        |
-| `subscribe(handler)`             | Unsubscribe function          | Requests future catalog updates; unsubscribe releases demand.    |
+| Method                           | Result                       | Behavior                                                         |
+| -------------------------------- | ---------------------------- | ---------------------------------------------------------------- |
+| `waitForReady(options?)`         | `PimiProviderSnapshotResult` | Waits until no provider is loading. Default timeout: 60 seconds. |
+| `snapshot(options?)`             | `PimiProviderSnapshotResult` | Returns the current catalog immediately.                         |
+| `refresh(options?)`              | Acknowledgement              | Forces catalog refresh for all or selected providers.            |
+| `listAvailable()`                | Availability result          | Reports installed provider availability.                         |
+| `listModels(provider, options?)` | Models result                | Discovers models for one provider and directory.                 |
+| `listModes(provider, options?)`  | Modes result                 | Discovers permission or operating modes.                         |
+| `listFeatures(draftConfig)`      | Features result              | Discovers features for the current draft provider configuration. |
+| `diagnostic(provider)`           | Diagnostic result            | Returns human-readable setup diagnostics.                        |
+| `subscribe(handler)`             | Unsubscribe function         | Requests future catalog updates; unsubscribe releases demand.    |
 
 ## `client.config`
 
@@ -246,7 +246,7 @@ try {
 }
 ```
 
-`client(serverId)` returns a caller-owned `PaseoApi` bound to that destination through the selected
+`client(serverId)` returns a caller-owned `PimiApi` bound to that destination through the selected
 daemon. The ordinary APIs keep their signatures. Paths and IDs belong to the destination. Selecting
 the local server ID returns a local scope. Routing supports one hop.
 
@@ -266,6 +266,6 @@ Discovery does not grant execution authority.
 
 ## Errors and cleanup
 
-Connection, validation, rejection, and timeout failures reject their promise. Turn outcomes are returned through `PaseoAgentRunResult.status` because permission and provider errors are expected agent states.
+Connection, validation, rejection, and timeout failures reject their promise. Turn outcomes are returned through `PimiAgentRunResult.status` because permission and provider errors are expected agent states.
 
 Always close the client in `finally`. Closing a client removes its local listeners and network connection; it does not stop agents or archive workspaces.

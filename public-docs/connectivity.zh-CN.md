@@ -9,7 +9,7 @@ nav: 连接
 你的 Pimi 应用连接的是运行在你电脑或服务器上的 daemon。Pimi 桌面端和 CLI 可以通过 SSH 隧道连接。移动客户端可以通过 Pimi 中继连接，或者用 Tailscale 直接连接。
 
 - [SSH](#ssh)
-- [Pimi 中继](#paseo-relay)
+- [Pimi 中继](#pimi-relay)
 - [Tailscale](#tailscale)
 
 ## SSH {#ssh}
@@ -45,13 +45,13 @@ pimi --host 'ssh://user@host?daemonPort=7777' ls -a
 
 如果远程 daemon 设置了密码，请在 **守护进程密码** 中输入；它会随主机一起保存，并在每次连接时发送，与直连的密码一样。SSH 登录本身仍然基于密钥，Pimi 从不提示输入 SSH 密码。
 
-## Pimi 中继 {#paseo-relay}
+## Pimi 中继 {#pimi-relay}
 
 中继无需 Tailscale、端口转发或网络配置即可工作。流量是端到端加密的。
 
 在你启用之前，中继是关闭的。
 
-### 在 Pimi 桌面端启用中继 {#enable-relay-from-paseo-desktop}
+### 在 Pimi 桌面端启用中继 {#enable-relay-from-pimi-desktop}
 
 1. 打开 **设置 → 你的主机 → 配对设备**。
 2. 选择 **启用中继**。

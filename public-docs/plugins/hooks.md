@@ -162,7 +162,7 @@ server.addHook("worktree.create.before", async ({ request }) => ({
 }));
 ```
 
-For source `/home/me/src/paseo` and branch `feature/x`, this creates `/home/me/src/paseo.feature-x`. See the complete [worktree-placement example](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/worktree-placement).
+For source `/home/me/src/pimi` and branch `feature/x`, this creates `/home/me/src/pimi.feature-x`. See the complete [worktree-placement example](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/worktree-placement).
 
 | Request field                             | Meaning                                                                                                                                           |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -333,7 +333,7 @@ contains the agent's saved servers or another plugin's servers. Replace the map 
 or remove this plugin's entries; returning `undefined` preserves it. Pimi merges the plugins'
 final maps in plugin-ID order.
 
-A name colliding with a saved server, Pimi's internal `paseo` server, or another plugin's server
+A name colliding with a saved server, Pimi's internal `pimi` server, or another plugin's server
 fails the session open and names the server and both sources. A provider without MCP support fails
 with `does not support MCP servers`, naming the plugin. Opens with `purpose: "history"` ignore
 these servers. Install, disable, and reload changes reach existing agents through the
@@ -376,7 +376,7 @@ export default function contribute(server: PluginServerContext) {
 Set the label when creating an agent with the SDK:
 
 ```ts
-const agent = await paseo.agents.create({
+const agent = await pimi.agents.create({
   config: { provider: "codex/gpt-5.4" },
   cwd: "/projects/shop",
   labels: { "notes/enabled": "true" },
@@ -421,7 +421,7 @@ interface AgentToolResult {
 | Execution context | Value                                                                                               |
 | ----------------- | --------------------------------------------------------------------------------------------------- |
 | `agent`           | Calling agent as a `PluginHookAgent`, including `id`, `workspaceId`, `provider`, `cwd`, and `title` |
-| `paseo`           | SDK connected to this daemon                                                                        |
+| `pimi`            | SDK connected to this daemon                                                                        |
 | `signal`          | Abort signal for this tool call; pass it to file operations or external requests                    |
 
 `execute` runs in the plugin process. Closures and the original Zod schema stay there; only tool
@@ -436,19 +436,19 @@ omitted, Pimi formats that value as text for the model. Set `isError: true` to r
 
 Pimi delivers attached tools through its agent tool transport, using MCP or native registration
 as the provider supports. The same definition and callback work with either. Attached tools obey
-the [same gates as Pimi tools](/docs/mcp#limit-paseo-tools-by-provider). Only that agent sees them.
+the [same gates as Pimi tools](/docs/mcp#limit-pimi-tools-by-provider). Only that agent sees them.
 
 Names must match `/^[a-z][a-z0-9_]*$/` and be at most 64 characters. A name colliding with a Pimi
 tool or another plugin's tool on the same agent fails the session open and names both owners.
 A duplicate name within one plugin also fails the session open. Agents the callback does not
 target are unaffected.
 
-| Change                                                        | When the agent receives it                                                                                                                                                                                 |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Start, stop, or reload a plugin declaring `agent.open.before` | Open sessions become stale. Each reopens before its next idle prompt; a running turn continues without interruption. The next prompt after that reopen reuses the session.                                 |
-| Change which agents the callback targets                      | Run `pimi plugin reload agent-tools` after editing this example, then send the agent a prompt when it is idle.                                                                                             |
-| Apply immediately                                             | Call `await paseo.agents.ref(id).reload({ requestId: "reload-notes" })`. `requestId` is optional. This reopens the provider session, reruns hooks with `reason: "refresh"`, and interrupts a running turn. |
-| Read the current snapshot                                     | Call `await paseo.agents.ref(id).refresh()`. This reads state without reopening the session.                                                                                                               |
+| Change                                                        | When the agent receives it                                                                                                                                                                                |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Start, stop, or reload a plugin declaring `agent.open.before` | Open sessions become stale. Each reopens before its next idle prompt; a running turn continues without interruption. The next prompt after that reopen reuses the session.                                |
+| Change which agents the callback targets                      | Run `pimi plugin reload agent-tools` after editing this example, then send the agent a prompt when it is idle.                                                                                            |
+| Apply immediately                                             | Call `await pimi.agents.ref(id).reload({ requestId: "reload-notes" })`. `requestId` is optional. This reopens the provider session, reruns hooks with `reason: "refresh"`, and interrupts a running turn. |
+| Read the current snapshot                                     | Call `await pimi.agents.ref(id).refresh()`. This reads state without reopening the session.                                                                                                               |
 
 If an automatic reopen fails, the triggering prompt fails with that error. See the
 [complete agent-tools example](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/agent-tools).
@@ -504,7 +504,7 @@ export default function contribute(server: PluginServerContext) {
       return;
     }
 
-    const agent = context.paseo.agents.ref(event.agent.id);
+    const agent = context.pimi.agents.ref(event.agent.id);
     const page = await agent.timeline.refetch({ direction: "tail", limit: 20 });
     const text = latestOutputText(page.entries.map(({ item }) => item));
     if (/out of credits/i.test(text)) {
@@ -547,7 +547,7 @@ export default function contribute(server: PluginServerContext) {
       return;
     }
 
-    const agent = context.paseo.agents.ref(event.agent.id);
+    const agent = context.pimi.agents.ref(event.agent.id);
     if (/\brm\s+-rf\b/.test(command)) {
       await agent.respondToPermission({
         requestId: event.request.id,

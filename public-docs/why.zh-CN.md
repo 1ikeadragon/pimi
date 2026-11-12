@@ -4,7 +4,7 @@ description: 一个完整的 Agent 开发环境，用于运行编程 Agent、编
 nav: 为什么选择 Pimi？
 ---
 
-# 为什么选择 Pimi？ {#why-paseo}
+# 为什么选择 Pimi？ {#why-pimi}
 
 Pimi 是一个完整的 Agent 开发环境。你可以运行编程 Agent、编辑文件、审查 diff 和 PR，并用终端和内置的桌面浏览器测试你的应用。对于由 Agent 驱动的开发，Pimi 可以替代你的 IDE：在一个应用里把任务从第一条提示词一路推进到审查和测试。
 

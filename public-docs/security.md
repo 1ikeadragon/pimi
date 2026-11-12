@@ -25,7 +25,7 @@ Clients connect to the daemon over WebSocket. There are two ways to establish th
 
 The relay is the simplest way to connect from your phone. It requires no VPN setup, no port forwarding, and no firewall configuration. The daemon can stay bound to localhost or a socket file, it connects _outbound_ to the relay, and your phone meets it there. The relay server is the self-hosted Node process in `packages/relay`, run behind a TLS reverse proxy.
 
-Relay is off on new installations. When you pair a device from `paseo`, `pimi daemon pair`, or Pimi Desktop, Pimi asks before enabling it. Choosing not to enable relay leaves the daemon available for direct TCP, Tailscale, or other VPN connections and does not create a pairing QR code. Use `--relay` with the CLI pairing or startup command to opt in without an interactive prompt.
+Relay is off on new installations. When you pair a device from `pimi`, `pimi daemon pair`, or Pimi Desktop, Pimi asks before enabling it. Choosing not to enable relay leaves the daemon available for direct TCP, Tailscale, or other VPN connections and does not create a pairing QR code. Use `--relay` with the CLI pairing or startup command to opt in without an interactive prompt.
 
 > **The relay is designed to be untrusted.** All traffic between your phone and daemon is end-to-end encrypted. The relay server cannot read your messages, see your code, or modify traffic without detection. Even if the relay is compromised, your data remains protected.
 

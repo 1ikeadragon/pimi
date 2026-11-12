@@ -48,7 +48,7 @@ Add a `serviceProxy` block under `daemon` in `~/.pimi/config.json`:
   "daemon": {
     "serviceProxy": {
       "listen": "0.0.0.0:8080",
-      "publicBaseUrl": "https://paseoapps.my.domain.com"
+      "publicBaseUrl": "https://pimiapps.my.domain.com"
     }
   }
 }
@@ -65,15 +65,15 @@ Add a `serviceProxy` block under `daemon` in `~/.pimi/config.json`:
 
 For generated URLs to be reachable, you need wildcard DNS pointing to the machine running the Pimi daemon.
 
-**Example:** to expose services at `https://dev--miniweb.paseoapps.my.domain.com` where the daemon host is `10.1.1.1`:
+**Example:** to expose services at `https://dev--miniweb.pimiapps.my.domain.com` where the daemon host is `10.1.1.1`:
 
 1. Configure a wildcard DNS record:
 
    ```
-   *.paseoapps.my.domain.com  →  10.1.1.1
+   *.pimiapps.my.domain.com  →  10.1.1.1
    ```
 
-2. Set `publicBaseUrl` to `https://paseoapps.my.domain.com` in your config.
+2. Set `publicBaseUrl` to `https://pimiapps.my.domain.com` in your config.
 
 3. If you put a reverse proxy (nginx, Caddy, Traefik, etc.) in front of Pimi, point it at either the daemon listener or the optional service-only listener and ensure it forwards the `Host` header unchanged. The proxy uses the `Host` header to route requests to the correct service — rewriting it will break routing.
 
@@ -97,7 +97,7 @@ Nginx example:
 ```nginx
 server {
     listen 443 ssl;
-    server_name *.paseoapps.my.domain.com;
+    server_name *.pimiapps.my.domain.com;
 
     location / {
         proxy_pass http://10.1.1.1:8080;

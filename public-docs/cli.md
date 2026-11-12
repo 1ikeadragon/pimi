@@ -376,12 +376,12 @@ Detaching is an explicit lifecycle action, not a creation flag. The agent keeps 
 Define an instance once, then start its saved configuration:
 
 ```bash
-pimi daemon config set daemon.listen 127.0.0.1:6799 --home ~/paseo-test
-pimi daemon config set daemon.relay.enabled false --home ~/paseo-test
-pimi daemon start --home ~/paseo-test
-pimi project ls --home ~/paseo-test
-pimi daemon restart --home ~/paseo-test
-pimi daemon stop --home ~/paseo-test
+pimi daemon config set daemon.listen 127.0.0.1:6799 --home ~/pimi-test
+pimi daemon config set daemon.relay.enabled false --home ~/pimi-test
+pimi daemon start --home ~/pimi-test
+pimi project ls --home ~/pimi-test
+pimi daemon restart --home ~/pimi-test
+pimi daemon stop --home ~/pimi-test
 ```
 
 `start` runs in the background and reports the actual listening address and supervisor PID. It accepts only home selection and `--timeout <seconds>` (default 600). If waiting times out, the supervisor remains running: use the printed status, log, and stop instructions. A worker that exits before becoming ready makes startup fail.
@@ -401,7 +401,7 @@ The root aliases `start`, `status`, `restart`, `reload`, and `pair` use the same
 Use environment overrides with the foreground deployment command:
 
 ```bash
-PIMI_LISTEN=127.0.0.1:6799 PIMI_RELAY_ENABLED=false paseo daemon run --home ~/paseo-test
+PIMI_LISTEN=127.0.0.1:6799 PIMI_RELAY_ENABLED=false pimi daemon run --home ~/pimi-test
 ```
 
 It stays attached until the supervisor exits or you cancel, without a readiness timeout. Worker restart retains these launch inputs. Stop and relaunch the deployment to change them. If the home already has a live supervisor, `run` returns `already_running` without owning or launching a foreground process.
@@ -452,7 +452,7 @@ The CLI is designed to be used by agents themselves. You can instruct an agent t
 
 ```bash
 # Agent A spawns Agent B and waits for it
-agent_id=$(paseo run --no-wait --quiet --title api-agent "implement the API")
+agent_id=$(pimi run --no-wait --quiet --title api-agent "implement the API")
 pimi wait "$agent_id"
 pimi logs "$agent_id" --tail 5
 ```
@@ -464,9 +464,9 @@ Simple implement + verify loop:
 ```bash
 # Requires jq
 while true; do
-  paseo run --provider codex "make the tests pass" >/dev/null
+  pimi run --provider codex "make the tests pass" >/dev/null
 
-  verdict=$(paseo run --provider claude --output-schema '{"type":"object","properties":{"criteria_met":{"type":"boolean"}},"required":["criteria_met"],"additionalProperties":false}' "ensure tests all pass")
+  verdict=$(pimi run --provider claude --output-schema '{"type":"object","properties":{"criteria_met":{"type":"boolean"}},"required":["criteria_met"],"additionalProperties":false}' "ensure tests all pass")
   if echo "$verdict" | jq -e '.criteria_met == true' >/dev/null; then
     echo "criteria met"
     break

@@ -22,7 +22,7 @@ Depending on the provider, Pimi delivers tools through its native tool interface
 ## Limit Pimi tools by provider
 
 Use provider policies when different agent profiles should receive different Pimi tools. Enable
-tool injection globally, then add `paseoTools` to the exact provider IDs you launch:
+tool injection globally, then add `pimiTools` to the exact provider IDs you launch:
 
 ```json
 {
@@ -43,14 +43,14 @@ tool injection globally, then add `paseoTools` to the exact provider IDs you lau
       "codex-worker": {
         "extends": "codex",
         "label": "Codex Worker",
-        "paseoTools": {
+        "pimiTools": {
           "disabledTools": ["create_agent", "send_agent_prompt", "kill_agent"]
         }
       },
       "codex-isolated": {
         "extends": "codex",
         "label": "Codex Isolated",
-        "paseoTools": {
+        "pimiTools": {
           "enabled": false
         }
       }
@@ -62,7 +62,7 @@ tool injection globally, then add `paseoTools` to the exact provider IDs you lau
 Run `pimi reload` after editing `~/.pimi/config.json`, then start a new agent or reload an
 existing one. A running session keeps the catalog it received at launch.
 
-Omitting `paseoTools` enables the complete catalog. Set `enabled` to `false` to remove the catalog,
+Omitting `pimiTools` enables the complete catalog. Set `enabled` to `false` to remove the catalog,
 or list exact tool IDs in `disabledTools` to remove selected tools. Custom profiles do not inherit
 this policy from `extends`; configure each custom provider ID separately.
 

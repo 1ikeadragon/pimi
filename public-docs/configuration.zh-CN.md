@@ -47,9 +47,9 @@ Pimi 默认使用 `~/.pimi` 作为主目录。配置文件是：
 通过 CLI 编辑所选的文件：
 
 ```bash
-pimi daemon config get daemon.listen --home ~/paseo-test
-pimi daemon config set daemon.listen 127.0.0.1:6800 --home ~/paseo-test
-pimi daemon config unset daemon.relay.enabled --home ~/paseo-test
+pimi daemon config get daemon.listen --home ~/pimi-test
+pimi daemon config set daemon.listen 127.0.0.1:6800 --home ~/pimi-test
+pimi daemon config unset daemon.relay.enabled --home ~/pimi-test
 ```
 
 `get [path]` 报告已配置的值，并把缺失的字段标记为 unset。它不会创建主目录。`set` 会把输入解析为 JSON，否则当作字符串；`--string` 强制作为字面字符串。`--json` 选择输出格式。对于包含点号的动态键，请使用整个对象的 JSON。未知路径、无效值和无效的现有文件都会被拒绝，不会写入。密码使用 `set-password`。
@@ -99,7 +99,7 @@ Agent Provider，包括 Pimi 自带的一等 Provider 和你在 `agents.provider
 ```json
 {
   "worktrees": {
-    "root": "/mnt/fast/paseo-worktrees"
+    "root": "/mnt/fast/pimi-worktrees"
   }
 }
 ```
@@ -156,7 +156,7 @@ pimi daemon set-password
 或者设置 `PIMI_PASSWORD` 环境变量（明文，启动时自动哈希）：
 
 ```bash
-PIMI_PASSWORD=my-secret paseo daemon start
+PIMI_PASSWORD=my-secret pimi daemon start
 ```
 
 或者直接把哈希写入 `config.json`：
@@ -180,14 +180,14 @@ CLI 按以下顺序获取密码：
 1. `tcp://` 主机 URI 上的 `password` 查询参数：
 
    ```bash
-   paseo --host "tcp://192.168.1.10:6767?password=my-secret" ls
+   pimi --host "tcp://192.168.1.10:6767?password=my-secret" ls
    ```
 
 2. `PIMI_PASSWORD` 环境变量，在主机未携带内嵌密码时作为后备使用（适用于 `localhost:6767`、裸的 `host:port`，或不带 `password=` 查询参数的 `tcp://` 主机）：
 
    ```bash
-   PIMI_PASSWORD=my-secret paseo ls
-   PIMI_PASSWORD=my-secret paseo --host 192.168.1.10:6767 ls
+   PIMI_PASSWORD=my-secret pimi ls
+   PIMI_PASSWORD=my-secret pimi --host 192.168.1.10:6767 ls
    ```
 
 URI 中的 `password=` 总是优先于环境变量，因此你可以全局设置 `PIMI_PASSWORD`，同时通过在 URI 中写明密码来连接另一个 daemon。

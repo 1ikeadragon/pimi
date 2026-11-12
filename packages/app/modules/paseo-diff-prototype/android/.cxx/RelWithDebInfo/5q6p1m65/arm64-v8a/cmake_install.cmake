@@ -1,4 +1,4 @@
-# Install script for directory: /Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android
+# Install script for directory: /Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -50,5 +50,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/arm64-v8a/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/arm64-v8a/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

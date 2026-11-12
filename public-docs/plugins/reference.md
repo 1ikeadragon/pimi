@@ -29,12 +29,12 @@ Plugin code is trusted and unsandboxed. Client surfaces run in the Pimi app. Bac
 
 ## Connected hosts
 
-`usePimi().hosts` in a client surface and `context.paseo.hosts` in a server handler or lifecycle hook
+`usePimi().hosts` in a client surface and `context.pimi.hosts` in a server handler or lifecycle hook
 use the same [SDK host API](/sdk/reference#clienthosts). They describe the selected daemon's saved
-connections. Existing `useHosts()` and `getPaseoClient(serverId)` keep describing app-known hosts.
+connections. Existing `useHosts()` and `getPimiClient(serverId)` keep describing app-known hosts.
 
 ```ts
-const remote = await context.paseo.hosts.client("srv_build_box");
+const remote = await context.pimi.hosts.client("srv_build_box");
 try {
   return await remote.workspaces.list();
 } finally {
@@ -244,7 +244,7 @@ Pimi provides these modules to client code:
 | ------------------------ | ------------------------------------------------------------------------------------------------- |
 | `@pimi/plugin`           | Shared data, `defineRpc`, `defineSettings`, `defineAttachmentSource`, `RpcInput`, and `RpcOutput` |
 | `@pimi/plugin/client/ui` | Pimi UI components and UI hooks                                                                   |
-| `@pimi/plugin/client`    | Client contribution contexts, `usePaseo`, `useRpc`, `useSettings`, and data hooks                 |
+| `@pimi/plugin/client`    | Client contribution contexts, `usePimi`, `useRpc`, `useSettings`, and data hooks                  |
 | `@tanstack/react-query`  | Request state and caching                                                                         |
 | `react`                  | Components and hooks                                                                              |
 | `react/jsx-runtime`      | Compiled JSX                                                                                      |
@@ -946,7 +946,7 @@ and wide tablets.
 The close button, backdrop, platform back action, web Escape key, and compact sheet gesture dismiss
 the modal. Dismissal calls `onOpenChange(false)`; the plugin must update `open` to close it.
 
-Modal children keep the plugin runtime context. `usePaseo`, `useRpc`, `useWorkspace`, and
+Modal children keep the plugin runtime context. `usePimi`, `useRpc`, `useWorkspace`, and
 `useAgent` work inside them.
 
 ### Scrolling
@@ -1195,8 +1195,8 @@ A server handler can add a plugin-owned row to canonical history:
 ```ts
 import type { PluginHandlerContext } from "@pimi/plugin/server";
 
-async function publishReview(agentId: string, { paseo }: PluginHandlerContext) {
-  await paseo.agents.ref(agentId).timeline.append({
+async function publishReview(agentId: string, { pimi }: PluginHandlerContext) {
+  await pimi.agents.ref(agentId).timeline.append({
     type: "plugin",
     id: "review",
     kind: "review-result",
@@ -1784,8 +1784,8 @@ client.addCommandCenterItem({
   icon: "Scan",
   keywords: ["inspect"],
   context: "agent",
-  async onSelect({ paseo, rpc, workspace, agent, openPanel }) {
-    await paseo.workspaces.ref(workspace.id).setTitle(`Review ${agent.id}`);
+  async onSelect({ pimi, rpc, workspace, agent, openPanel }) {
+    await pimi.workspaces.ref(workspace.id).setTitle(`Review ${agent.id}`);
     await rpc(refreshReview, { agentId: agent.id });
     openPanel("review");
   },
@@ -1810,14 +1810,14 @@ Every callback receives:
 | Field                     | Context             | Meaning                                                                                                         |
 | ------------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `context`                 | All                 | Matching discriminator.                                                                                         |
-| `paseo`                   | All                 | Selected host's existing `PaseoApi`.                                                                            |
+| `pimi`                    | All                 | Selected host's existing `PimiApi`.                                                                             |
 | `rpc(contract, input)`    | All                 | Typed call to this installation's daemon-side plugin handler.                                                   |
 | `openScreen(input)`       | All                 | Opens one of this plugin's registered screens: `{ screenId, params? }`.                                         |
 | `workspace`               | Workspace and agent | Synchronous workspace snapshot.                                                                                 |
 | `agent`                   | Agent               | Synchronous matching agent snapshot.                                                                            |
 | `openPanel(id, options?)` | Workspace and agent | Opens a registered panel in the callback's current context. Pass `{ location: "explorer" }` to target Explorer. |
 
-An agent callback may open either an agent panel or a workspace panel. A workspace callback may open only a workspace panel. Unknown screen and panel IDs fail visibly. Use `paseo` for normal workspace, agent, provider, and daemon-config operations. Use `rpc` for plugin-specific filesystem, credential, vendor, or daemon-local work.
+An agent callback may open either an agent panel or a workspace panel. A workspace callback may open only a workspace panel. Unknown screen and panel IDs fail visibly. Use `pimi` for normal workspace, agent, provider, and daemon-config operations. Use `rpc` for plugin-specific filesystem, credential, vendor, or daemon-local work.
 
 ## Slash commands
 
@@ -1946,7 +1946,7 @@ type PluginButtonBehavior =
 ```
 
 An action runs on the client. Pimi marks the button busy until its promise settles, blocks repeated
-presses, and shows failures in a toast. A failed action can be retried. Use the client's `paseo` for
+presses, and shows failures in a toast. A failed action can be retried. Use the client's `pimi` for
 ordinary operations and `rpc` for plugin-specific backend work.
 
 Menus and popovers open anchored surfaces on wide layouts and bottom sheets on compact layouts.
@@ -1995,7 +1995,7 @@ owns all pointer interaction. The icon component can use plugin hooks.
 
 `PluginButtonContentProps` contains `theme`, `host`, `layout`, the target context, and `close()`.
 Render the body only; Pimi owns anchoring, scrolling, padding, and sheet presentation. Content can
-use `usePaseo`, `useRpc`, `useWorkspace`, `useAgent`, and the installation's React Query cache.
+use `usePimi`, `useRpc`, `useWorkspace`, `useAgent`, and the installation's React Query cache.
 
 The target context is one of:
 
@@ -2032,31 +2032,31 @@ every surface. Release what you subscribe to in your cleanup; when the plugin is
 or removed, or its host goes away, Pimi disposes the client and ends every subscription still open.
 
 ```tsx
-import { usePaseo } from "@pimi/plugin/client";
+import { usePimi } from "@pimi/plugin/client";
 import { useEffect, useState } from "react";
 import { Text } from "react-native";
 
 function ProjectChanges() {
-  const paseo = usePimi();
+  const pimi = usePimi();
   const [changes, setChanges] = useState(0);
   useEffect(() => {
-    const observation = paseo.observeEvents(["project.update"]);
+    const observation = pimi.observeEvents(["project.update"]);
     observation.subscribe({ snapshot() {}, update: () => setChanges((count) => count + 1) });
     return () => void observation.release();
-  }, [paseo]);
+  }, [pimi]);
   return <Text>{changes} project changes</Text>;
 }
 ```
 
 ```tsx
-import { type PluginSurfaceProps, usePaseo } from "@pimi/plugin/client";
+import { type PluginSurfaceProps, usePimi } from "@pimi/plugin/client";
 import { Pressable, Text } from "react-native";
 
 function PullRequestAction({ theme }: PluginSurfaceProps) {
-  const paseo = usePimi();
+  const pimi = usePimi();
 
   async function createReviewWorkspace() {
-    const workspace = await paseo.workspaces.create({
+    const workspace = await pimi.workspaces.create({
       title: "Review PR 42",
       source: {
         kind: "worktree",
@@ -2085,11 +2085,11 @@ To run a helper the user shouldn't see, such as a classifier or summarizer, crea
 
 ### Discover hosts and target another host
 
-Use `useHosts()` to display configured hosts and `getPaseoClient(serverId)` in an action callback
+Use `useHosts()` to display configured hosts and `getPimiClient(serverId)` in an action callback
 to run SDK operations on one of them:
 
 ```tsx
-import { getPaseoClient, useHosts, type PluginSurfaceProps } from "@pimi/plugin/client";
+import { getPimiClient, useHosts, type PluginSurfaceProps } from "@pimi/plugin/client";
 import { useMemo, useState, type ReactElement } from "react";
 import { Pressable, Text, View } from "react-native";
 
@@ -2100,7 +2100,7 @@ export function HostAgents({ theme }: Pick<PluginSurfaceProps, "theme">): ReactE
 
   async function listAgents(serverId: string): Promise<void> {
     try {
-      const { entries } = await getPaseoClient(serverId).agents.list();
+      const { entries } = await getPimiClient(serverId).agents.list();
       setResult(`${entries.length} agents`);
     } catch (error) {
       setResult(error instanceof Error ? error.message : String(error));
@@ -2134,11 +2134,11 @@ labels, or statuses change.
 
 | Summary field | Type or values                                               | Meaning                                                      |
 | ------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `serverId`    | `string`                                                     | ID to pass to `getPaseoClient`.                              |
+| `serverId`    | `string`                                                     | ID to pass to `getPimiClient`.                               |
 | `label`       | `string`                                                     | Host's display name.                                         |
 | `status`      | `"idle"`, `"connecting"`, `"online"`, `"offline"`, `"error"` | Current app connection status. SDK calls require `"online"`. |
 
-`getPaseoClient(serverId: string): PaseoApi` borrows the host's authenticated app connection.
+`getPimiClient(serverId: string): PimiApi` borrows the host's authenticated app connection.
 Call it in client entry code or callbacks; it opens no socket and does not require the plugin
 on the target daemon. Acquire the API when performing an action to use the current connection.
 
@@ -2147,7 +2147,7 @@ on the target daemon. Acquire the API when performing an action to use the curre
 | Unknown host ID                                                                          | Throws `Unknown Pimi host: <id>`; never falls through to another host.                                                                                          |
 | Host is not online                                                                       | Throws `Pimi host is disconnected: <id>`, including calls through a retained API. Retry when online.                                                            |
 | Same connection reconnects                                                               | Retained APIs remain usable after reconnection; observations resume automatically.                                                                              |
-| Connection settings change or the app switches connections, including automatic failover | The old API is released. Call `getPaseoClient(serverId)` again and recreate subscriptions.                                                                      |
+| Connection settings change or the app switches connections, including automatic failover | The old API is released. Call `getPimiClient(serverId)` again and recreate subscriptions.                                                                       |
 | Host is removed                                                                          | Its API is released; the removed ID is unknown.                                                                                                                 |
 | `client.dispose()`                                                                       | Releases that API and its observations. A later getter call returns a fresh API over the app connection. Disposing the old API again leaves the new API usable. |
 | Originating plugin unloads                                                               | All its borrowed APIs and observations are released, including those targeting other hosts. Retained handles cannot outlive the installation.                   |
@@ -2229,7 +2229,7 @@ export default function contribute(server: PluginServerContext) {
 
 Inputs are parsed once in the plugin process; outputs are parsed once on the client. Send schema inputs from the client and return output-schema inputs from the handler; schema transforms run at the receiving side. RPC names start with a lowercase letter and contain lowercase letters, numbers, dots, hyphens, or underscores. `useRpc()` returns a typed async function. Use TanStack Query for request state, caching, and mutations.
 
-Backend handlers receive the same `PaseoApi` as `{ paseo }`. Their connection belongs to the subprocess and closes when the plugin stops. It does not subscribe to timelines or catalog events until plugin code subscribes. Follow the [SDK event contract](/docs/sdk/events) for cleanup and timeline replacements. Backend code can use Node APIs and dependencies installed in the plugin directory.
+Backend handlers receive the same `PimiApi` as `{ pimi }`. Their connection belongs to the subprocess and closes when the plugin stops. It does not subscribe to timelines or catalog events until plugin code subscribes. Follow the [SDK event contract](/docs/sdk/events) for cleanup and timeline replacements. Backend code can use Node APIs and dependencies installed in the plugin directory.
 
 ## Stream events from the daemon {#subscriptions}
 
@@ -2250,7 +2250,7 @@ export const diffWatch = defineSubscription({
 });
 ```
 
-Handle it in `index.server.ts`. The handler receives `push` and an abort `signal` next to `paseo`:
+Handle it in `index.server.ts`. The handler receives `push` and an abort `signal` next to `pimi`:
 
 ```ts
 server.handle(diffWatch, ({ cwd, from }, { push, signal }) => {
@@ -2391,7 +2391,7 @@ console.log("Refreshing issues");
 console.error("Issue refresh failed", error);
 ```
 
-Pimi adds `[paseo]` entries when the plugin starts loading, becomes ready, starts stopping, and has
+Pimi adds `[pimi]` entries when the plugin starts loading, becomes ready, starts stopping, and has
 stopped. It records compilation and load failures as stderr entries, including failures that happen
 before the plugin subprocess starts. Pimi also captures output emitted during initialization, RPC
 handlers, cleanup, and process failure. Protocol traffic uses a separate channel, so `console.log()`
@@ -2528,10 +2528,10 @@ the daemon's home directory.
 | Source                     | Accepted form                                                              | Example                                       |
 | -------------------------- | -------------------------------------------------------------------------- | --------------------------------------------- |
 | Plugin registry            | `owner/slug` or `host/owner/slug`                                          | `acme/review`                                 |
-| Host directory             | Absolute or relative path on the daemon host                               | `/srv/paseo/plugins/review`                   |
-| GitHub repository          | `git:owner/repository` or `github:owner/repository`                        | `github:acme/paseo-review`                    |
+| Host directory             | Absolute or relative path on the daemon host                               | `/srv/pimi/plugins/review`                    |
+| GitHub repository          | `git:owner/repository` or `github:owner/repository`                        | `github:acme/pimi-review`                     |
 | Git repository             | `git:<URL or SCP source>`; the prefix is optional for URLs and SCP sources | `git:https://git.example.com/acme/review.git` |
-| npm package                | `npm:<name>[@<version, tag, or range>]`; `npm:` is optional                | `npm:@acme/paseo-review@^1.2.0`               |
+| npm package                | `npm:<name>[@<version, tag, or range>]`; `npm:` is optional                | `npm:@acme/pimi-review@^1.2.0`                |
 | Plugin below a source root | Append `:relative/plugin/path` to a directory, Git, or npm source          | `github:acme/monorepo:plugins/review`         |
 
 Git URLs use `https://`, `http://`, `ssh://`, `git://`, or `file://`. SCP sources use
@@ -2574,14 +2574,14 @@ accepts `--id <runtime-id>` to override it. An existing installation ID is rejec
 its enabled state or files.
 
 ```bash
-pimi plugin install /srv/paseo/plugins/review
-pimi plugin install github:acme/paseo-review
+pimi plugin install /srv/pimi/plugins/review
+pimi plugin install github:acme/pimi-review
 pimi plugin install git:https://git.example.com:8443/acme/monorepo.git:plugins/review --ref main
 pimi plugin install git@git.example.com:acme/review.git
 pimi plugin install file:///srv/repos/monorepo:plugins/review
-pimi plugin install npm:paseo-review@1.2.0
-pimi plugin install npm:@acme/paseo-review@next
-pimi plugin install 'npm:@acme/paseo-review@>=1.2.0 <2.0.0' --id review-staging
+pimi plugin install npm:pimi-review@1.2.0
+pimi plugin install npm:@acme/pimi-review@next
+pimi plugin install 'npm:@acme/pimi-review@>=1.2.0 <2.0.0' --id review-staging
 pimi plugin install npm:@acme/plugins@^1.2.0:plugins/review
 ```
 

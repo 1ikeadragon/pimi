@@ -11,7 +11,7 @@ An iOS binding, renderer integration, and shipping library ownership are unfinis
 
 ## Diagnostic interface
 
-Access the module through `expo.modules.PaseoDiffPrototype` in a development build:
+Access the module through `expo.modules.PimiDiffPrototype` in a development build:
 
 - `create()` returns a numeric handle.
 - `prepare(handle, texts, widths, family, fontSize)` asynchronously builds geometry

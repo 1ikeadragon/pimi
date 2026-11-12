@@ -8,7 +8,7 @@ nav: API 参考
 
 所有受支持的运行时值和 TypeScript 类型都从 `@pimi/client` 导入。
 
-## `createPaseoClient(config)` {#createpaseoclientconfig}
+## `createPimiClient(config)` {#createpimiclientconfig}
 
 创建一个客户端，但不打开连接。
 
@@ -20,16 +20,16 @@ nav: API 参考
 
 常用的可选配置：
 
-| 字段                    | 类型          | 默认值       | 含义                                      |
-| ----------------------- | ------------- | ------------ | ----------------------------------------- |
-| `clientId`              | `string`      | 自动生成     | 用于日志和订阅的稳定标识符。              |
-| `password`              | `string`      | 未设置       | daemon 密码。                             |
-| `authHeader`            | `string`      | 未设置       | 用于代理的完整 Authorization 请求头的值。 |
-| `connectTimeoutMs`      | `number`      | 客户端默认值 | 连接截止时间。                            |
-| `reconnect.enabled`     | `boolean`     | 客户端默认值 | 意外断开后重新连接。                      |
-| `reconnect.baseDelayMs` | `number`      | 客户端默认值 | 首次重连的延迟。                          |
-| `reconnect.maxDelayMs`  | `number`      | 客户端默认值 | 重连的最大延迟。                          |
-| `logger`                | `PaseoLogger` | 未设置       | 接收 debug、info、warning 和 error 日志。 |
+| 字段                    | 类型         | 默认值       | 含义                                      |
+| ----------------------- | ------------ | ------------ | ----------------------------------------- |
+| `clientId`              | `string`     | 自动生成     | 用于日志和订阅的稳定标识符。              |
+| `password`              | `string`     | 未设置       | daemon 密码。                             |
+| `authHeader`            | `string`     | 未设置       | 用于代理的完整 Authorization 请求头的值。 |
+| `connectTimeoutMs`      | `number`     | 客户端默认值 | 连接截止时间。                            |
+| `reconnect.enabled`     | `boolean`    | 客户端默认值 | 意外断开后重新连接。                      |
+| `reconnect.baseDelayMs` | `number`     | 客户端默认值 | 首次重连的延迟。                          |
+| `reconnect.maxDelayMs`  | `number`     | 客户端默认值 | 重连的最大延迟。                          |
+| `logger`                | `PimiLogger` | 未设置       | 接收 debug、info、warning 和 error 日志。 |
 
 使用中继端到端加密的客户端还可以传入 `e2ee.enabled` 和 `e2ee.daemonPublicKeyB64`。`appVersion`、`runtimeGeneration` 和运行时指标选项供 Pimi 自己的客户端界面使用；普通集成可以省略它们。
 
@@ -46,12 +46,12 @@ nav: API 参考
 
 ## `client.agents` {#clientagents}
 
-| 方法                 | 结果                   | 行为                                                                                      |
-| -------------------- | ---------------------- | ----------------------------------------------------------------------------------------- |
-| `list(options?)`     | `PaseoAgentListResult` | 列出一页 Agent。`scope`、`filter`、`sort`、`page` 和 `subscribe` 与 daemon 目录查询一致。 |
-| `create(options)`    | `PaseoAgentHandle`     | 为 `cwd` 创建一个 Agent 和一个新的工作区。需要 `config`。                                 |
-| `ref(agentOrId)`     | `PaseoAgentHandle`     | 创建一个本地句柄，不发起请求。                                                            |
-| `subscribe(handler)` | 取消订阅函数           | 此 API 实例的本地监听器。需要一个由你持有的 `list({ subscribe: {} })` 观察。              |
+| 方法                 | 结果                  | 行为                                                                                      |
+| -------------------- | --------------------- | ----------------------------------------------------------------------------------------- |
+| `list(options?)`     | `PimiAgentListResult` | 列出一页 Agent。`scope`、`filter`、`sort`、`page` 和 `subscribe` 与 daemon 目录查询一致。 |
+| `create(options)`    | `PimiAgentHandle`     | 为 `cwd` 创建一个 Agent 和一个新的工作区。需要 `config`。                                 |
+| `ref(agentOrId)`     | `PimiAgentHandle`     | 创建一个本地句柄，不发起请求。                                                            |
+| `subscribe(handler)` | 取消订阅函数          | 此 API 实例的本地监听器。需要一个由你持有的 `list({ subscribe: {} })` 观察。              |
 
 `list({ subscribe: {} })` 还会返回一个 `subscriptionId` 和一个由你持有的 `subscription`。它的 `subscribe({ snapshot, update, error? })` 回调会先收到快照，再收到限定范围的线上更新；`release()` 结束这次观察。普通的列表调用不会创建观察。工作区列表遵循同样的契约。见[事件](./events.md)。
 
@@ -76,41 +76,41 @@ nav: API 参考
 
 ### Agent 句柄 {#agent-handle}
 
-| 成员                                           | 结果                                      | 行为                                                                                                     |
-| ---------------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `id`                                           | `string`                                  | 稳定的 daemon Agent ID。                                                                                 |
-| `address`                                      | `AgentAddress`                            | 完整的 `{ serverId, agentId }` 身份；需要连接到主机才能确定。                                            |
-| `workspaceId`                                  | `string \| null`                          | 当前所在的工作区。                                                                                       |
-| `cwd`                                          | `string \| null`                          | 当前工作目录。                                                                                           |
-| `status`                                       | Agent 状态或 `null`                       | 当前的生命周期状态。                                                                                     |
-| `capabilities`                                 | 能力标志或 `null`                         | Provider 会话支持的能力。                                                                                |
-| `availableModes`                               | Agent 模式或 `null`                       | 会话可以切换到的模式。                                                                                   |
-| `pendingPermissions`                           | 权限请求或 `null`                         | 等待回应的请求。                                                                                         |
-| `activeTurn`                                   | 当前轮次或 `null`                         | 正在进行的轮次，包含 `turnId` 和 `startedAt`。                                                           |
-| `lastUsage`                                    | 用量或 `null`                             | 上一轮的 token 数、费用和上下文窗口用量。                                                                |
-| `lastError`                                    | `string \| null`                          | daemon 为该 Agent 记录的最后一个错误。                                                                   |
-| `features`                                     | Agent 功能或 `null`                       | Provider 的功能开关和选择项及其当前值。                                                                  |
-| `runtimeInfo`                                  | 运行时信息或 `null`                       | 实时的 Provider、会话 ID、模型、思考选项和模式。                                                         |
-| `archivedAt`                                   | `string \| null`                          | 归档时间戳；Agent 处于活动状态时为 `null`。                                                              |
-| `current()`                                    | `PaseoAgent \| null`                      | 此句柄观察到的当前详细值；从不发起请求。                                                                 |
-| `refresh(requestId?)`                          | `PaseoAgentRefetchResult \| null`         | 获取当前的 Agent 及其所在项目。                                                                          |
-| `send(text, options?)`                         | `Promise<void>`                           | 在 daemon 接受提示词后 resolve。                                                                         |
-| `respondToPermission(options)`                 | `Promise<void>`                           | 按 `requestId` 以允许或拒绝的 `response` 回应一个待处理的权限请求。                                      |
-| `run(text, options?)`                          | `PaseoAgentRunResult`                     | 发送提示词并等待该轮结束。`timeoutMs` 控制等待时间，默认 10 分钟。                                       |
-| `waitForFinish(timeoutMs?)`                    | `PaseoAgentRunResult`                     | 等待当前轮次结束，包括初始提示词。默认超时：10 分钟。                                                    |
-| `commands(options?)`                           | `PaseoAgentCommandsResult`                | 向正在运行的会话查询它的斜杠命令和技能，包括内置的。选项：`requestId`。                                  |
-| `subscribe(handler)`                           | 取消订阅函数                              | 把 Agent 目录更新过滤到此 ID，并刷新句柄的属性。                                                         |
-| `archive()`                                    | `{ archivedAt }`                          | 软删除 Agent 并关闭它的运行时。                                                                          |
-| `detach()`                                     | `Promise<void>`                           | 解除父子关系，但不停止 Agent。                                                                           |
-| `backgroundWork.list(options?)`                | `Promise<PaseoAgentBackgroundWorkItem[]>` | 单次读取 Agent 当前的后台工作。选项为 `requestId` 和 `timeout`。                                         |
-| `backgroundWork.stop(item, options?)`          | `Promise<void>`                           | 停止可停止的项目并等待提供方确认。传入 `list` 或 `subscribe` 返回的项目。                                |
-| `backgroundWork.subscribe(listener, options?)` | `() => void`                              | 向监听器投递当前列表，并在每次重连和变化时投递完整列表。`onError` 接收读取失败的错误。返回取消订阅函数。 |
+| 成员                                           | 结果                                     | 行为                                                                                                     |
+| ---------------------------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `id`                                           | `string`                                 | 稳定的 daemon Agent ID。                                                                                 |
+| `address`                                      | `AgentAddress`                           | 完整的 `{ serverId, agentId }` 身份；需要连接到主机才能确定。                                            |
+| `workspaceId`                                  | `string \| null`                         | 当前所在的工作区。                                                                                       |
+| `cwd`                                          | `string \| null`                         | 当前工作目录。                                                                                           |
+| `status`                                       | Agent 状态或 `null`                      | 当前的生命周期状态。                                                                                     |
+| `capabilities`                                 | 能力标志或 `null`                        | Provider 会话支持的能力。                                                                                |
+| `availableModes`                               | Agent 模式或 `null`                      | 会话可以切换到的模式。                                                                                   |
+| `pendingPermissions`                           | 权限请求或 `null`                        | 等待回应的请求。                                                                                         |
+| `activeTurn`                                   | 当前轮次或 `null`                        | 正在进行的轮次，包含 `turnId` 和 `startedAt`。                                                           |
+| `lastUsage`                                    | 用量或 `null`                            | 上一轮的 token 数、费用和上下文窗口用量。                                                                |
+| `lastError`                                    | `string \| null`                         | daemon 为该 Agent 记录的最后一个错误。                                                                   |
+| `features`                                     | Agent 功能或 `null`                      | Provider 的功能开关和选择项及其当前值。                                                                  |
+| `runtimeInfo`                                  | 运行时信息或 `null`                      | 实时的 Provider、会话 ID、模型、思考选项和模式。                                                         |
+| `archivedAt`                                   | `string \| null`                         | 归档时间戳；Agent 处于活动状态时为 `null`。                                                              |
+| `current()`                                    | `PimiAgent \| null`                      | 此句柄观察到的当前详细值；从不发起请求。                                                                 |
+| `refresh(requestId?)`                          | `PimiAgentRefetchResult \| null`         | 获取当前的 Agent 及其所在项目。                                                                          |
+| `send(text, options?)`                         | `Promise<void>`                          | 在 daemon 接受提示词后 resolve。                                                                         |
+| `respondToPermission(options)`                 | `Promise<void>`                          | 按 `requestId` 以允许或拒绝的 `response` 回应一个待处理的权限请求。                                      |
+| `run(text, options?)`                          | `PimiAgentRunResult`                     | 发送提示词并等待该轮结束。`timeoutMs` 控制等待时间，默认 10 分钟。                                       |
+| `waitForFinish(timeoutMs?)`                    | `PimiAgentRunResult`                     | 等待当前轮次结束，包括初始提示词。默认超时：10 分钟。                                                    |
+| `commands(options?)`                           | `PimiAgentCommandsResult`                | 向正在运行的会话查询它的斜杠命令和技能，包括内置的。选项：`requestId`。                                  |
+| `subscribe(handler)`                           | 取消订阅函数                             | 把 Agent 目录更新过滤到此 ID，并刷新句柄的属性。                                                         |
+| `archive()`                                    | `{ archivedAt }`                         | 软删除 Agent 并关闭它的运行时。                                                                          |
+| `detach()`                                     | `Promise<void>`                          | 解除父子关系，但不停止 Agent。                                                                           |
+| `backgroundWork.list(options?)`                | `Promise<PimiAgentBackgroundWorkItem[]>` | 单次读取 Agent 当前的后台工作。选项为 `requestId` 和 `timeout`。                                         |
+| `backgroundWork.stop(item, options?)`          | `Promise<void>`                          | 停止可停止的项目并等待提供方确认。传入 `list` 或 `subscribe` 返回的项目。                                |
+| `backgroundWork.subscribe(listener, options?)` | `() => void`                             | 向监听器投递当前列表，并在每次重连和变化时投递完整列表。`onError` 接收读取失败的错误。返回取消订阅函数。 |
 
 从 `workspaceId` 到 `archivedAt` 的属性反映句柄最近观察到的快照。由 `ref()` 得到的句柄在 `refresh()`、`run()`、`waitForFinish()`、时间线重新获取或 `subscribe()` 投递快照之前，这些属性都读作 `null`。已观察到的快照中的可选值也读作 `null`。当你需要整个快照，或需要区分这些状态时，请调用 `current()`。
 
-`PaseoAgentRunResult` 包含 `status`、`final`、`error` 和 `lastMessage`。存在 `final` 时会刷新句柄。
+`PimiAgentRunResult` 包含 `status`、`final`、`error` 和 `lastMessage`。存在 `final` 时会刷新句柄。
 
-`PaseoAgentCommandsResult` 包含 `agentId`、`commands` 和 `error`。每条命令都有 `name`、`description`、`argumentHint`，以及取值为 `"command"` 或 `"skill"` 的可选 `kind`。无法回答的 Provider 会在 `error` 中报告，而不是 reject；完全不提供命令列表的 Provider 返回空数组。
+`PimiAgentCommandsResult` 包含 `agentId`、`commands` 和 `error`。每条命令都有 `name`、`description`、`argumentHint`，以及取值为 `"command"` 或 `"skill"` 的可选 `kind`。无法回答的 Provider 会在 `error` 中报告，而不是 reject；完全不提供命令列表的 Provider 返回空数组。
 
 ### 时间线句柄 {#timeline-handle}
 
@@ -120,23 +120,23 @@ nav: API 参考
 
 ## `client.projects` {#clientprojects}
 
-| 方法                 | 结果                     | 行为                                                                   |
-| -------------------- | ------------------------ | ---------------------------------------------------------------------- |
-| `list(options?)`     | `PaseoProjectListResult` | 列出每个已注册的项目，包括没有活动工作区的项目。                       |
-| `subscribe(handler)` | 取消订阅函数             | 请求之后的项目更新；取消订阅会释放这项需求。初始状态由 `list()` 提供。 |
+| 方法                 | 结果                    | 行为                                                                   |
+| -------------------- | ----------------------- | ---------------------------------------------------------------------- |
+| `list(options?)`     | `PimiProjectListResult` | 列出每个已注册的项目，包括没有活动工作区的项目。                       |
+| `subscribe(handler)` | 取消订阅函数            | 请求之后的项目更新；取消订阅会释放这项需求。初始状态由 `list()` 提供。 |
 
 显式的事件观察和清理见[事件](./events.md#follow-provider-catalog-changes)。
 
 ## `client.workspaces` {#clientworkspaces}
 
-| 方法                     | 结果                          | 行为                                                                                                     |
-| ------------------------ | ----------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `list(options?)`         | `PaseoWorkspaceListResult`    | 列出、过滤、分页或订阅工作区目录。                                                                       |
-| `open(cwd)`              | `PaseoWorkspaceHandle`        | 复用某个目录的活动工作区，或创建一个。                                                                   |
-| `create(options)`        | `PaseoWorkspaceHandle`        | 总是创建一个新的、由目录或 Pimi worktree 支撑的工作区。`background: true` 会把它从默认的发现结果中隐藏。 |
-| `ref(workspaceOrId)`     | `PaseoWorkspaceHandle`        | 创建一个本地句柄。                                                                                       |
-| `archive(workspaceOrId)` | `PaseoWorkspaceArchiveResult` | 无需先创建句柄即可归档。                                                                                 |
-| `subscribe(handler)`     | 取消订阅函数                  | 此 API 实例的本地监听器。需要一个由你持有的 `list({ subscribe: {} })` 观察。                             |
+| 方法                     | 结果                         | 行为                                                                                                     |
+| ------------------------ | ---------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `list(options?)`         | `PimiWorkspaceListResult`    | 列出、过滤、分页或订阅工作区目录。                                                                       |
+| `open(cwd)`              | `PimiWorkspaceHandle`        | 复用某个目录的活动工作区，或创建一个。                                                                   |
+| `create(options)`        | `PimiWorkspaceHandle`        | 总是创建一个新的、由目录或 Pimi worktree 支撑的工作区。`background: true` 会把它从默认的发现结果中隐藏。 |
+| `ref(workspaceOrId)`     | `PimiWorkspaceHandle`        | 创建一个本地句柄。                                                                                       |
+| `archive(workspaceOrId)` | `PimiWorkspaceArchiveResult` | 无需先创建句柄即可归档。                                                                                 |
+| `subscribe(handler)`     | 取消订阅函数                 | 此 API 实例的本地监听器。需要一个由你持有的 `list({ subscribe: {} })` 观察。                             |
 
 `create({ source, agent, background })` 会同时创建一个工作区及其初始 Agent。`agent` 接受除 `worktree`、`git`、`onEvent`、`idempotencyKey` 和 `requestId` 之外的 Agent 创建选项。请在工作区选项上设置 `background`；`agent.background` 会被拒绝。见[一次性创建的示例](./agents.md#run-work-in-a-background-workspace)。
 
@@ -144,11 +144,11 @@ nav: API 参考
 
 ## `client.terminals` {#clientterminals}
 
-| 方法                | 结果                               | 行为                                                                  |
-| ------------------- | ---------------------------------- | --------------------------------------------------------------------- |
-| `create(options)`   | `Promise<PaseoTerminalHandle>`     | 创建一个归必填的 `workspaceId` 所有的终端。                           |
-| `list(options?)`    | `Promise<PaseoTerminalListResult>` | 返回 `{ entries, requestId }`。省略过滤条件时列出此主机上的所有终端。 |
-| `ref(terminalOrId)` | `PaseoTerminalHandle`              | 创建一个本地句柄，不发起请求，也不附加终端流。                        |
+| 方法                | 结果                              | 行为                                                                  |
+| ------------------- | --------------------------------- | --------------------------------------------------------------------- |
+| `create(options)`   | `Promise<PimiTerminalHandle>`     | 创建一个归必填的 `workspaceId` 所有的终端。                           |
+| `list(options?)`    | `Promise<PimiTerminalListResult>` | 返回 `{ entries, requestId }`。省略过滤条件时列出此主机上的所有终端。 |
+| `ref(terminalOrId)` | `PimiTerminalHandle`              | 创建一个本地句柄，不发起请求，也不附加终端流。                        |
 
 创建选项：
 
@@ -165,34 +165,34 @@ nav: API 参考
 
 终端句柄提供：
 
-| 方法                | 结果                                  | 行为                                                                   |
-| ------------------- | ------------------------------------- | ---------------------------------------------------------------------- |
-| `current()`         | `PaseoTerminal \| null`               | 来自创建、`ref(snapshot)` 或刷新的最近快照。由 ID 创建的句柄起初为空。 |
-| `refresh(options?)` | `Promise<PaseoTerminal \| null>`      | 获取终端快照；终端已不存在时返回 `null`。接受 `requestId`。            |
-| `write(data)`       | `number`                              | 发送字面文本，不解释按键名称。返回输入的 UTF-16 长度。                 |
-| `sendKeys(keys)`    | `number`                              | 展开按键标记并发送组合后的输入。返回其 UTF-16 长度。                   |
-| `capture(options?)` | `Promise<PaseoTerminalCaptureResult>` | 返回 `{ terminalId, lines, totalLines, requestId }`。                  |
-| `kill(requestId?)`  | `Promise<void>`                       | 等待终端销毁完成。结束一个已被移除的终端也会成功。                     |
+| 方法                | 结果                                 | 行为                                                                   |
+| ------------------- | ------------------------------------ | ---------------------------------------------------------------------- |
+| `current()`         | `PimiTerminal \| null`               | 来自创建、`ref(snapshot)` 或刷新的最近快照。由 ID 创建的句柄起初为空。 |
+| `refresh(options?)` | `Promise<PimiTerminal \| null>`      | 获取终端快照；终端已不存在时返回 `null`。接受 `requestId`。            |
+| `write(data)`       | `number`                             | 发送字面文本，不解释按键名称。返回输入的 UTF-16 长度。                 |
+| `sendKeys(keys)`    | `number`                             | 展开按键标记并发送组合后的输入。返回其 UTF-16 长度。                   |
+| `capture(options?)` | `Promise<PimiTerminalCaptureResult>` | 返回 `{ terminalId, lines, totalLines, requestId }`。                  |
+| `kill(requestId?)`  | `Promise<void>`                      | 等待终端销毁完成。结束一个已被移除的终端也会成功。                     |
 
 `sendKeys()` 识别 `Enter`、`Tab`、`Escape`、`Space`、`BSpace`、`C-c`、`C-d`、`C-z`、`C-l`、`C-a` 和 `C-e`。其他字符串按字面传递。输入方法发送后不会等待命令执行，也不会确认终端已消费输入。
 
 capture 接受可选的 `start`、`end`、`stripAnsi` 和 `requestId`。行范围从零开始、包含两端，跨越回滚缓冲区和视口。负数范围从末尾开始计数；省略范围时捕获所有行。`stripAnsi` 默认为 `true`。终端不存在时返回空行。
 
-使用 `workspace.terminals.create(options?)` 和 `workspace.terminals.list(options?)` 可以从句柄提供工作区 ID。创建接受除 `workspaceId` 之外的相同选项；列表只接受 `requestId`。插件通过 `usePimi()` 和处理函数的 `paseo` context 获得这些方法。
+使用 `workspace.terminals.create(options?)` 和 `workspace.terminals.list(options?)` 可以从句柄提供工作区 ID。创建接受除 `workspaceId` 之外的相同选项；列表只接受 `requestId`。插件通过 `usePimi()` 和处理函数的 `pimi` context 获得这些方法。
 
 ## `client.providers` {#clientproviders}
 
-| 方法                             | 结果                          | 行为                                                |
-| -------------------------------- | ----------------------------- | --------------------------------------------------- |
-| `waitForReady(options?)`         | `PaseoProviderSnapshotResult` | 等待直到没有 Provider 处于加载中。默认超时：60 秒。 |
-| `snapshot(options?)`             | `PaseoProviderSnapshotResult` | 立即返回当前目录。                                  |
-| `refresh(options?)`              | 确认                          | 强制刷新所有或所选 Provider 的目录。                |
-| `listAvailable()`                | 可用性结果                    | 报告已安装 Provider 的可用性。                      |
-| `listModels(provider, options?)` | 模型结果                      | 为某个 Provider 和目录发现模型。                    |
-| `listModes(provider, options?)`  | 模式结果                      | 发现权限模式或运行模式。                            |
-| `listFeatures(draftConfig)`      | 功能结果                      | 为当前草稿 Provider 配置发现功能。                  |
-| `diagnostic(provider)`           | 诊断结果                      | 返回人类可读的设置诊断信息。                        |
-| `subscribe(handler)`             | 取消订阅函数                  | 请求之后的目录更新；取消订阅会释放这项需求。        |
+| 方法                             | 结果                         | 行为                                                |
+| -------------------------------- | ---------------------------- | --------------------------------------------------- |
+| `waitForReady(options?)`         | `PimiProviderSnapshotResult` | 等待直到没有 Provider 处于加载中。默认超时：60 秒。 |
+| `snapshot(options?)`             | `PimiProviderSnapshotResult` | 立即返回当前目录。                                  |
+| `refresh(options?)`              | 确认                         | 强制刷新所有或所选 Provider 的目录。                |
+| `listAvailable()`                | 可用性结果                   | 报告已安装 Provider 的可用性。                      |
+| `listModels(provider, options?)` | 模型结果                     | 为某个 Provider 和目录发现模型。                    |
+| `listModes(provider, options?)`  | 模式结果                     | 发现权限模式或运行模式。                            |
+| `listFeatures(draftConfig)`      | 功能结果                     | 为当前草稿 Provider 配置发现功能。                  |
+| `diagnostic(provider)`           | 诊断结果                     | 返回人类可读的设置诊断信息。                        |
+| `subscribe(handler)`             | 取消订阅函数                 | 请求之后的目录更新；取消订阅会释放这项需求。        |
 
 ## `client.config` {#clientconfig}
 
@@ -236,7 +236,7 @@ try {
 }
 ```
 
-`client(serverId)` 返回一个由调用方持有的 `PaseoApi`，通过所选 daemon 绑定到该目标。
+`client(serverId)` 返回一个由调用方持有的 `PimiApi`，通过所选 daemon 绑定到该目标。
 普通 API 的签名不变。路径和 ID 属于目标主机。选择本地服务器 ID 会返回本地作用域。路由支持一跳。
 
 释放一个作用域会释放它的观察，不会关闭同级作用域或删除已保存的主机。
@@ -253,6 +253,6 @@ try {
 
 ## 错误与清理 {#errors-and-cleanup}
 
-连接、校验、拒绝和超时失败都会让对应的 promise reject。轮次的结果通过 `PaseoAgentRunResult.status` 返回，因为权限和 Provider 错误是 Agent 预期内的状态。
+连接、校验、拒绝和超时失败都会让对应的 promise reject。轮次的结果通过 `PimiAgentRunResult.status` 返回，因为权限和 Provider 错误是 Agent 预期内的状态。
 
 请始终在 `finally` 中关闭客户端。关闭客户端会移除它的本地监听器和网络连接；它不会停止 Agent，也不会归档工作区。

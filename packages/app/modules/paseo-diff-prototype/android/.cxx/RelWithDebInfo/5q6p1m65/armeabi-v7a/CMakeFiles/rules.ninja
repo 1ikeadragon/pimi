@@ -6,7 +6,7 @@
 # It is included in the main 'build.ninja'.
 
 # =============================================================================
-# Project: paseo_diff_prototype
+# Project: pimi_diff_prototype
 # Configurations: RelWithDebInfo
 # =============================================================================
 # =============================================================================
@@ -14,7 +14,7 @@
 #############################################
 # Rule for compiling CXX files.
 
-rule CXX_COMPILER__paseo_diff_prototype_RelWithDebInfo
+rule CXX_COMPILER__pimi_diff_prototype_RelWithDebInfo
   depfile = $DEP_FILE
   deps = gcc
   command = /Users/debxrshi/Library/Android/sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang++ --target=armv7-none-linux-androideabi29 --sysroot=/Users/debxrshi/Library/Android/sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/darwin-x86_64/sysroot $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
@@ -24,7 +24,7 @@ rule CXX_COMPILER__paseo_diff_prototype_RelWithDebInfo
 #############################################
 # Rule for linking CXX shared library.
 
-rule CXX_SHARED_LIBRARY_LINKER__paseo_diff_prototype_RelWithDebInfo
+rule CXX_SHARED_LIBRARY_LINKER__pimi_diff_prototype_RelWithDebInfo
   command = $PRE_LINK && /Users/debxrshi/Library/Android/sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang++ --target=armv7-none-linux-androideabi29 --sysroot=/Users/debxrshi/Library/Android/sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/darwin-x86_64/sysroot -fPIC $LANGUAGE_COMPILE_FLAGS $ARCH_FLAGS $LINK_FLAGS -shared $SONAME_FLAG$SONAME -o $TARGET_FILE $in $LINK_PATH $LINK_LIBRARIES && $POST_BUILD
   description = Linking CXX shared library $TARGET_FILE
   restat = $RESTAT
@@ -42,7 +42,7 @@ rule CUSTOM_COMMAND
 # Rule for re-running cmake.
 
 rule RERUN_CMAKE
-  command = /Users/debxrshi/Library/Android/sdk/cmake/3.22.1/bin/cmake --regenerate-during-build -S/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android -B/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/armeabi-v7a
+  command = /Users/debxrshi/Library/Android/sdk/cmake/3.22.1/bin/cmake --regenerate-during-build -S/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android -B/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/armeabi-v7a
   description = Re-running CMake...
   generator = 1
 

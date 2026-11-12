@@ -36,6 +36,8 @@ checkout from `mainRepoRoot`, then restores the relative path from `worktreeRoot
 
 Pimi uses **file-based JSON persistence** instead of a traditional database. All data is validated at runtime with Zod schemas. Most stores write atomically (write to temp file, then rename); a few still use plain `writeFile` — see each section. There is no schema-versioning/migration framework — schemas rely on optional fields with defaults for forward compatibility, with a small amount of inline normalization in `persisted-config.ts` for legacy provider/speech entries.
 
+The one exception is the daemon home itself. `migrateLegacyHome` (`packages/server/src/server/legacy-home-migration.ts`, tagged `COMPAT(paseo-home)`) runs at supervisor startup. With no `PIMI_HOME` set, no `~/.pimi`, and an existing `~/.paseo`, it renames the directory, rewrites absolute paths, agent label keys, and the message envelope tag in the home's JSON files, and repairs git worktree links and Pimi's worktree metadata. It throws while a daemon still runs from the old home. Checkout dev homes get the same move from `scripts/dev-home.sh`. Delete both when no earlier-build home can exist.
+
 All server-side stores live under `$PIMI_HOME` (defaults to `~/.pimi`).
 
 ## Store Surface Rules
@@ -51,7 +53,7 @@ $PIMI_HOME/
 ├── config.json                          # Daemon configuration
 ├── server-id                            # Stable daemon identifier (plain text, "srv_<base64url>")
 ├── daemon-keypair.json                  # E2EE keypair for relay (mode 0600)
-├── paseo.pid                            # Daemon PID lock file
+├── pimi.pid                            # Daemon PID lock file
 ├── local-credential                     # Per-run local client credential (mode 0600)
 ├── daemon.log                           # Default log file (path configurable)
 ├── agents/
@@ -299,7 +301,7 @@ Each entry may include a Pimi-tool policy:
       "my-claude": {
         "extends": "claude",
         "label": "My Claude",
-        "paseoTools": {
+        "pimiTools": {
           "enabled": true,
           "disabledTools": ["browser_evaluate"]
         }
@@ -309,7 +311,7 @@ Each entry may include a Pimi-tool policy:
 }
 ```
 
-Absent `paseoTools`, or absent fields within it, means Pimi tools are enabled and all tools are
+Absent `pimiTools`, or absent fields within it, means Pimi tools are enabled and all tools are
 allowed. `enabled: false` disables the provider's Pimi catalog; `disabledTools` lists exact tool
 IDs to omit. The policy covers the core and browser catalog, not the voice-only `speak` tool.
 Browser tools also require `daemon.browserTools.enabled` and a connected browser host.
@@ -445,7 +447,7 @@ Array of workspace records. A workspace is a specific working directory within a
 | `branch`                       | `string \| null`                                             | The current Git branch for git-backed workspaces. Separate from `displayName`/`title`; a background branch refresh never rewrites the name.                                                   |
 | `worktreeRoot`                 | `string \| null`                                             | Backing checkout/worktree root. May differ from `cwd` for exact subprojects and remains persisted after the worktree is deleted so restore can reproduce the placement.                       |
 | `baseBranch`                   | `string \| null`                                             | Current base retained across archive and restore. Explicit selections and branch-off creation store exact refs; older records may store branch names. Null means no recorded base.            |
-| `isPaseoOwnedWorktree`         | `boolean`                                                    | Whether Pimi owns and may remove/recreate the backing `worktreeRoot`                                                                                                                          |
+| `isPimiOwnedWorktree`          | `boolean`                                                    | Whether Pimi owns and may remove/recreate the backing `worktreeRoot`                                                                                                                          |
 | `mainRepoRoot`                 | `string \| null`                                             | Main repository root for worktree checkouts, independent of both exact `cwd` and backing `worktreeRoot`                                                                                       |
 | `createdAt`                    | `string` (ISO 8601)                                          |                                                                                                                                                                                               |
 | `updatedAt`                    | `string` (ISO 8601)                                          |                                                                                                                                                                                               |
@@ -510,7 +512,7 @@ These small files are not validated as full Zod schemas but are persisted under 
 | --------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | `server-id`           | Plain text, e.g. `srv_<base64url>`                             | Stable per-`$PIMI_HOME` daemon ID. Overridable via `PIMI_SERVER_ID` env.          |
 | `daemon-keypair.json` | `{ v: 2, publicKeyB64, secretKeyB64 }` (libsodium box keypair) | E2EE relay identity. Written with mode `0600`. Regenerated if file is unreadable. |
-| `paseo.pid`           | JSON `{ pid, startedAt, ... }`                                 | PID lock; prevents two daemons sharing one `$PIMI_HOME`.                          |
+| `pimi.pid`            | JSON `{ pid, startedAt, ... }`                                 | PID lock; prevents two daemons sharing one `$PIMI_HOME`.                          |
 | `local-credential`    | 32 random bytes encoded as base64url text                      | Rotated before each listen and deleted on shutdown; mode `0600`.                  |
 | `daemon.log`          | Pino log output                                                | Default location; path/rotation configurable via `log.file` in `config.json`.     |
 
@@ -552,7 +554,7 @@ source code, prompts, and tool output; encrypted-at-rest storage is a separate s
 
 ### Draft Store
 
-**AsyncStorage key:** `paseo-drafts` (version 2)
+**AsyncStorage key:** `pimi-drafts` (version 2)
 
 ```typescript
 {
@@ -568,7 +570,7 @@ source code, prompts, and tool output; encrypted-at-rest storage is a separate s
 
 ### Attachment Store (Web)
 
-**IndexedDB database:** `paseo-attachment-bytes`, object store: `attachments`
+**IndexedDB database:** `pimi-attachment-bytes`, object store: `attachments`
 
 Stores binary attachment blobs keyed by attachment ID.
 

@@ -1,8 +1,8 @@
 # Worktree placement
 
 Place worktrees next to their source checkout, using the repository directory name and branch.
-For `/home/me/src/paseo` on branch `feature/x`, the new worktree is
-`/home/me/src/paseo.feature-x`. Slashes in branch names become hyphens.
+For `/home/me/src/pimi` on branch `feature/x`, the new worktree is
+`/home/me/src/pimi.feature-x`. Slashes in branch names become hyphens.
 
 Install on Pimi 0.14.0-beta.1 or newer with plugins enabled:
 

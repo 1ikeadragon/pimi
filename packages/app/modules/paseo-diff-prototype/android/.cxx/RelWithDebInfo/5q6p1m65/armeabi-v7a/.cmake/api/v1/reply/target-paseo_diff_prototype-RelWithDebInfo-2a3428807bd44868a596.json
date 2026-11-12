@@ -1,7 +1,7 @@
 {
   "artifacts": [
     {
-      "path": "/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android/build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/armeabi-v7a/libpaseo_diff_prototype.so"
+      "path": "/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android/build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/armeabi-v7a/libpimi_diff_prototype.so"
     }
   ],
   "backtrace": 1,
@@ -82,7 +82,7 @@
           "define": "SK_BUILD_FOR_ANDROID"
         },
         {
-          "define": "paseo_diff_prototype_EXPORTS"
+          "define": "pimi_diff_prototype_EXPORTS"
         }
       ],
       "includes": [
@@ -92,7 +92,7 @@
         },
         {
           "backtrace": 6,
-          "path": "/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/armeabi-v7a"
+          "path": "/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/armeabi-v7a"
         }
       ],
       "language": "CXX",
@@ -106,7 +106,7 @@
       }
     }
   ],
-  "id": "paseo_diff_prototype::@6890427a1f51a3e7e1df",
+  "id": "pimi_diff_prototype::@6890427a1f51a3e7e1df",
   "link": {
     "commandFragments": [
       {
@@ -173,8 +173,8 @@
       "path": "/Users/debxrshi/Library/Android/sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/darwin-x86_64/sysroot"
     }
   },
-  "name": "paseo_diff_prototype",
-  "nameOnDisk": "libpaseo_diff_prototype.so",
+  "name": "pimi_diff_prototype",
+  "nameOnDisk": "libpimi_diff_prototype.so",
   "paths": {
     "build": ".",
     "source": "."
@@ -189,13 +189,13 @@
     {
       "backtrace": 1,
       "compileGroupIndex": 0,
-      "path": "/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/cpp/layout.cpp",
+      "path": "/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/cpp/layout.cpp",
       "sourceGroupIndex": 0
     },
     {
       "backtrace": 1,
       "compileGroupIndex": 0,
-      "path": "/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/cpp/jni.cpp",
+      "path": "/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/cpp/jni.cpp",
       "sourceGroupIndex": 0
     }
   ],

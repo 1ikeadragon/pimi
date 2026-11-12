@@ -65,7 +65,7 @@ nav: 发布
   "description": "Reviews changes before merge",
   "icon": "assets/icon.png",
   "media": ["assets/screenshot.png"],
-  "requirements": { "paseo": ">=0.11.0" }
+  "requirements": { "pimi": ">=0.11.0" }
 }
 ```
 
@@ -88,9 +88,9 @@ nav: 发布
 使用一个你有发布权限的 npm scope，并通过 `npm login` 登录。在插件目录中，把下面的 `@acme` 和仓库替换为你自己的值：
 
 ```bash
-npm pkg set name=@acme/paseo-review version=1.0.0
+npm pkg set name=@acme/pimi-review version=1.0.0
 npm pkg delete private
-npm pkg set repository.type=git repository.url=git+https://github.com/acme/paseo-review.git
+npm pkg set repository.type=git repository.url=git+https://github.com/acme/pimi-review.git
 ```
 
 当前的注册表工具要求通过 `package.json` 或 npm provenance 提供一个 GitHub 仓库，用来确定 npm 展示页的归属。请把 `repository` 设置为你公开的源码仓库，以便固定版本时可以确定展示页的所有者。provenance 本身是可选的；如果存在，它的仓库必须与包的仓库一致。审查制品时不需要匹配的源码检出。
@@ -132,7 +132,7 @@ npm publish --access public
 在测试用的 daemon 上，安装这个确切的已发布版本，并试用它的各项贡献：
 
 ```bash
-pimi plugin install npm:@acme/paseo-review@1.0.0
+pimi plugin install npm:@acme/pimi-review@1.0.0
 pimi plugin ls
 ```
 
@@ -155,7 +155,7 @@ pimi plugin ls
 用户可以不经注册表展示页，直接从 Git 安装：
 
 ```bash
-pimi plugin add git:acme/paseo-review
+pimi plugin add git:acme/pimi-review
 pimi plugin add git:acme/monorepo:plugins/review
 ```
 
@@ -208,7 +208,7 @@ npm publish --registry=https://npm.pkg.github.com
 3. 安装插件：
 
    ```bash
-   paseo plugin install npm:@acme/paseo-review
+   pimi plugin install npm:@acme/pimi-review
    ```
 
 Pimi 在安装和更新时使用主机的 npm 注册表设置和凭据。在应用中，只需输入来源标识符。

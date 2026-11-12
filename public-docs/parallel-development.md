@@ -33,7 +33,7 @@ Send corrections to that workspace's agent. To get another opinion, use **New ag
 
 In the selected workspace, use **New terminal** from the Command Center. Install dependencies and run your project's test or development command there.
 
-Each worktree has its own files, but processes still share the machine's network ports. Assign a different dev-server port to each running copy. For repeatable setup and service ports, configure [worktree setup and scripts](/docs/worktrees#paseojson).
+Each worktree has its own files, but processes still share the machine's network ports. Assign a different dev-server port to each running copy. For repeatable setup and service ports, configure [worktree setup and scripts](/docs/worktrees#pimijson).
 
 For a web app, use **New browser** and enter that workspace's dev-server URL. Exercise the changed flow, then switch workspaces to test the other implementation. Browser tabs run inside the desktop app.
 

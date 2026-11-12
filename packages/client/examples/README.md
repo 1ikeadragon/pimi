@@ -1,9 +1,9 @@
-# Paseo Client SDK Examples
+# Pimi Client SDK Examples
 
 These examples use only the public SDK root:
 
 ```ts
-import { createPaseoClient, type PaseoClient } from "@pimi/client";
+import { createPimiClient, type PimiClient } from "@pimi/client";
 ```
 
 Each example takes the daemon WebSocket URL as an argument. In worktree dev, read it
@@ -14,7 +14,7 @@ use the URL for that daemon.
 - `workspaces.ts` covers creating a fresh workspace, opening by directory, refreshing, and archiving.
 - `agents-and-providers.ts` covers provider discovery, creating agents, and waiting for turns.
 - `events-and-timeline.ts` covers subscribing to workspace, agent, and timeline events, plus refetching a timeline page.
-- `issue-to-agent.ts` turns an issue record into a visible Paseo workspace and agent.
+- `issue-to-agent.ts` turns an issue record into a visible Pimi workspace and agent.
 - `parallel-review.ts` launches several reviewers concurrently and cleans them up.
 - `provider-settings.ts` covers provider settings that are currently daemon config-backed.
 

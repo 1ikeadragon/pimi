@@ -109,8 +109,8 @@ mise install        # java 21 + android-sdk 21.0 command-line tools
 sdkmanager --licenses
 sdkmanager "platform-tools" "emulator" "platforms;android-35" "build-tools;35.0.0" \
            "system-images;android-35;google_apis;arm64-v8a"
-avdmanager create avd -n paseo -k "system-images;android-35;google_apis;arm64-v8a" -d pixel_7
-emulator @paseo     # start it; leave running
+avdmanager create avd -n pimi -k "system-images;android-35;google_apis;arm64-v8a" -d pixel_7
+emulator @pimi     # start it; leave running
 ```
 
 On an Intel Mac, use the `x86_64` system image:
@@ -119,8 +119,8 @@ On an Intel Mac, use the `x86_64` system image:
 sdkmanager --licenses
 sdkmanager "platform-tools" "emulator" "platforms;android-35" "build-tools;35.0.0" \
            "system-images;android-35;google_apis;x86_64"
-avdmanager create avd -n paseo -k "system-images;android-35;google_apis;x86_64" -d pixel_7
-emulator @paseo     # start it; leave running
+avdmanager create avd -n pimi -k "system-images;android-35;google_apis;x86_64" -d pixel_7
+emulator @pimi     # start it; leave running
 ```
 
 Gradle auto-fetches the platform/build-tools it needs once licenses are accepted, so adjust `android-35` only if it asks for a different level.
@@ -156,8 +156,8 @@ npm run dev:android     # Build/install the debug app and start development
 npm run dev:ios         # Build/install the iOS development app
 ```
 
-`build:apk` writes `artifacts/paseo-dogfood-universal.apk`; `build:apk:arm64` writes
-`artifacts/paseo-dogfood-arm64.apk`. Neither command launches or installs on a device. Both enable
+`build:apk` writes `artifacts/pimi-dogfood-universal.apk`; `build:apk:arm64` writes
+`artifacts/pimi-dogfood-arm64.apk`. Neither command launches or installs on a device. Both enable
 `PIMI_WATCHDOG_BUILD=1`, the production React profiling renderer, and Android's shell-profileable
 flag. These builds keep the production package ID (`io.github.ikeadragon.pimi`) and release optimizations. Use this APK for
 personal dogfooding. Android system-trace spans require the separate `PIMI_PROFILE_BUILD=1` flag;
@@ -232,7 +232,7 @@ This is the Android counterpart of the iOS local-simulator flow in [development.
 
 ## Scroll view corrections
 
-`modules/paseo-scroll` replaces React Native's vertical scroll view with `PaseoScrollView`, which
+`modules/pimi-scroll` replaces React Native's vertical scroll view with `PimiScrollView`, which
 keeps React Native's scroll manager interface and corrects `maintainVisibleContentPosition` for the
 chat timeline. [agent-stream-disclosure.md](agent-stream-disclosure.md#scroll-view-corrections)
 lists the corrections and the React Native issues they work around.

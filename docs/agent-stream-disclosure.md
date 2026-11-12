@@ -143,8 +143,8 @@ Drop a hunk when the installed LegendList ships its fix.
 
 ### Scroll view corrections
 
-`modules/paseo-scroll` replaces React Native's scroll view on both platforms with a subclass:
-Android's `PaseoScrollView` and iOS's `PaseoScrollViewComponentView`.
+`modules/pimi-scroll` replaces React Native's scroll view on both platforms with a subclass:
+Android's `PimiScrollView` and iOS's `PimiScrollViewComponentView`.
 
 **Content clamp.** A mount that shrinks the content while `maintainVisibleContentPosition` is set
 applies the shrink twice on both platforms: the scroll view clamps its offset to the new end during
@@ -160,7 +160,7 @@ subclass keeps the offset. Android keeps a removed view's last frame, so it keep
 React Native 0.88 skips the adjustment for a removed anchor
 ([PR #57294](https://github.com/react/react-native/pull/57294)).
 
-**End pin during a drag.** Both subclasses recognize the pin by its native ID, `paseo-end-pin`,
+**End pin during a drag.** Both subclasses recognize the pin by its native ID, `pimi-end-pin`,
 and skip its correction while the user drags ([user scroll](#user-scroll)). This one has no React
 Native counterpart; it stays while the timeline uses the pin.
 

@@ -49,9 +49,9 @@ Minimal example that configures listening address, hostnames, and MCP:
 Edit the selected file through the CLI:
 
 ```bash
-pimi daemon config get daemon.listen --home ~/paseo-test
-pimi daemon config set daemon.listen 127.0.0.1:6800 --home ~/paseo-test
-pimi daemon config unset daemon.relay.enabled --home ~/paseo-test
+pimi daemon config get daemon.listen --home ~/pimi-test
+pimi daemon config set daemon.listen 127.0.0.1:6800 --home ~/pimi-test
+pimi daemon config unset daemon.relay.enabled --home ~/pimi-test
 ```
 
 `get [path]` reports configured values and labels missing fields unset. It does not create a home. `set` parses JSON, otherwise treats the input as a string; `--string` forces a literal string. `--json` selects output format. Use whole-object JSON for dynamic keys containing dots. Unknown paths, invalid values, and invalid existing files are rejected without writing. Passwords use `set-password`.
@@ -107,7 +107,7 @@ New worktrees are created under `$PIMI_HOME/worktrees` by default. To place new 
 ```json
 {
   "worktrees": {
-    "root": "/mnt/fast/paseo-worktrees"
+    "root": "/mnt/fast/pimi-worktrees"
   }
 }
 ```
@@ -164,7 +164,7 @@ This prompts for a password, writes the bcrypt hash to `config.json`, and tells 
 Alternatively, set the `PIMI_PASSWORD` environment variable (plaintext, hashed automatically at startup):
 
 ```bash
-PIMI_PASSWORD=my-secret paseo daemon start
+PIMI_PASSWORD=my-secret pimi daemon start
 ```
 
 Or write the hash directly in `config.json`:
@@ -188,14 +188,14 @@ The CLI picks up a password from, in order:
 1. The `password` query parameter on a `tcp://` host URI:
 
    ```bash
-   paseo --host "tcp://192.168.1.10:6767?password=my-secret" ls
+   pimi --host "tcp://192.168.1.10:6767?password=my-secret" ls
    ```
 
 2. The `PIMI_PASSWORD` environment variable, used as a fallback when the host carries no embedded password (works for `localhost:6767`, bare `host:port`, or `tcp://` hosts without a `password=` query):
 
    ```bash
-   PIMI_PASSWORD=my-secret paseo ls
-   PIMI_PASSWORD=my-secret paseo --host 192.168.1.10:6767 ls
+   PIMI_PASSWORD=my-secret pimi ls
+   PIMI_PASSWORD=my-secret pimi --host 192.168.1.10:6767 ls
    ```
 
 A `password=` in the URI always wins over the env var, so you can keep `PIMI_PASSWORD` set globally and still target a different daemon by spelling its password into the URI.

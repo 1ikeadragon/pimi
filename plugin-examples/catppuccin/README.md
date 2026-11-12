@@ -14,7 +14,7 @@ Register it in `$PIMI_HOME/config.json`:
   "plugins": {
     "catppuccin": {
       "source": "directory",
-      "path": "/absolute/path/to/paseo/plugin-examples/catppuccin"
+      "path": "/absolute/path/to/pimi/plugin-examples/catppuccin"
     }
   }
 }

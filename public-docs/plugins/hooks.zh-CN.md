@@ -159,7 +159,7 @@ server.addHook("worktree.create.before", async ({ request }) => ({
 }));
 ```
 
-源检出目录为 `/home/me/src/paseo`、分支为 `feature/x` 时，目标为 `/home/me/src/paseo.feature-x`。完整插件见 [worktree-placement 示例](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/worktree-placement)。
+源检出目录为 `/home/me/src/pimi`、分支为 `feature/x` 时，目标为 `/home/me/src/pimi.feature-x`。完整插件见 [worktree-placement 示例](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/worktree-placement)。
 
 | 请求字段                                  | 含义                                                                                                                   |
 | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
@@ -326,7 +326,7 @@ server.addHook("agent.open.before", async ({ request }) => {
 替换映射即可添加、替换或移除本插件的条目；返回 `undefined` 会保持不变。
 Pimi 按插件 ID 顺序合并各插件的最终映射。
 
-名称与已保存的服务器、Pimi 内部的 `paseo` 服务器或其他插件的服务器冲突时，会话打开失败，错误会指出服务器名称及双方来源。
+名称与已保存的服务器、Pimi 内部的 `pimi` 服务器或其他插件的服务器冲突时，会话打开失败，错误会指出服务器名称及双方来源。
 不支持 MCP 的 Provider 会报 `does not support MCP servers` 错误，并指出插件名称。
 `purpose: "history"` 的会话打开会忽略这些服务器。安装、停用和重新加载插件后，现有 Agent
 通过[会话重新打开行为](#attach-tools-to-agents)获取变化。
@@ -368,7 +368,7 @@ export default function contribute(server: PluginServerContext) {
 通过 SDK 创建 Agent 时设置标签：
 
 ```ts
-const agent = await paseo.agents.create({
+const agent = await pimi.agents.create({
   config: { provider: "codex/gpt-5.4" },
   cwd: "/projects/shop",
   labels: { "notes/enabled": "true" },
@@ -412,7 +412,7 @@ interface AgentToolResult {
 | 执行 context | 值                                                                                                  |
 | ------------ | --------------------------------------------------------------------------------------------------- |
 | `agent`      | 发起调用的 Agent，以 `PluginHookAgent` 表示，包括 `id`、`workspaceId`、`provider`、`cwd` 和 `title` |
-| `paseo`      | 已连接到此 daemon 的 SDK                                                                            |
+| `pimi`       | 已连接到此 daemon 的 SDK                                                                            |
 | `signal`     | 此次工具调用的中止信号；请把它传给文件操作或外部请求                                                |
 
 `execute` 在插件进程中运行。闭包和原始 Zod schema 保留在该进程中；只有工具元数据和调用的
@@ -425,19 +425,19 @@ Agent。抛出的错误会转换为 `{ isError: true, text: message }`，插件�
 Pimi 会将该值格式化为供模型读取的文本。设置 `isError: true` 可报告工具错误。
 
 Pimi 通过 Agent 工具传输提供附加的工具，按 Provider 的支持情况使用 MCP 或原生注册。
-同一份定义和回调适用于这两种方式。附加的工具遵循[与 Pimi 工具相同的限制](/docs/mcp#limit-paseo-tools-by-provider)。
+同一份定义和回调适用于这两种方式。附加的工具遵循[与 Pimi 工具相同的限制](/docs/mcp#limit-pimi-tools-by-provider)。
 只有该 Agent 能看到这些工具。
 
 名称必须匹配 `/^[a-z][a-z0-9_]*$/`，且不超过 64 个字符。如果名称与同一 Agent 的 Pimi
 工具或另一插件的工具冲突，会话打开会失败，并指出双方。一个插件内的重复名称也会导致
 会话打开失败。回调未选中的 Agent 不受影响。
 
-| 变更                                                  | Agent 何时收到变更                                                                                                                                                                 |
-| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 启动、停止或重新加载声明了 `agent.open.before` 的插件 | 已打开的会话会标记为过期。每个会话在下一次空闲提示词前重新打开；正在运行的轮次会继续，不会被中断。重新打开后的下一条提示词复用该会话。                                             |
-| 修改回调选择的 Agent                                  | 编辑此示例后运行 `pimi plugin reload agent-tools`，然后在 Agent 空闲时发送提示词。                                                                                                 |
-| 立即应用                                              | 调用 `await paseo.agents.ref(id).reload({ requestId: "reload-notes" })`。`requestId` 可选。这会重新打开 Provider 会话，以 `reason: "refresh"` 再次运行钩子，并中断正在运行的轮次。 |
-| 读取当前快照                                          | 调用 `await paseo.agents.ref(id).refresh()`。这只读取状态，不会重新打开会话。                                                                                                      |
+| 变更                                                  | Agent 何时收到变更                                                                                                                                                                |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 启动、停止或重新加载声明了 `agent.open.before` 的插件 | 已打开的会话会标记为过期。每个会话在下一次空闲提示词前重新打开；正在运行的轮次会继续，不会被中断。重新打开后的下一条提示词复用该会话。                                            |
+| 修改回调选择的 Agent                                  | 编辑此示例后运行 `pimi plugin reload agent-tools`，然后在 Agent 空闲时发送提示词。                                                                                                |
+| 立即应用                                              | 调用 `await pimi.agents.ref(id).reload({ requestId: "reload-notes" })`。`requestId` 可选。这会重新打开 Provider 会话，以 `reason: "refresh"` 再次运行钩子，并中断正在运行的轮次。 |
+| 读取当前快照                                          | 调用 `await pimi.agents.ref(id).refresh()`。这只读取状态，不会重新打开会话。                                                                                                      |
 
 如果自动重新打开失败，触发它的提示词会返回该错误。参阅
 [完整 agent-tools 示例](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/agent-tools)。
@@ -490,7 +490,7 @@ export default function contribute(server: PluginServerContext) {
       return;
     }
 
-    const agent = context.paseo.agents.ref(event.agent.id);
+    const agent = context.pimi.agents.ref(event.agent.id);
     const page = await agent.timeline.refetch({ direction: "tail", limit: 20 });
     const text = latestOutputText(page.entries.map(({ item }) => item));
     if (/out of credits/i.test(text)) {
@@ -531,7 +531,7 @@ export default function contribute(server: PluginServerContext) {
       return;
     }
 
-    const agent = context.paseo.agents.ref(event.agent.id);
+    const agent = context.pimi.agents.ref(event.agent.id);
     if (/\brm\s+-rf\b/.test(command)) {
       await agent.respondToPermission({
         requestId: event.request.id,

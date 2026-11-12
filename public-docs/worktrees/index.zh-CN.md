@@ -28,7 +28,7 @@ worktree 默认存放在 `$PIMI_HOME/worktrees/` 下，按源检出路径的哈�
 ```json
 {
   "worktrees": {
-    "root": "/mnt/fast/paseo-worktrees"
+    "root": "/mnt/fast/pimi-worktrees"
   }
 }
 ```
@@ -78,7 +78,7 @@ pimi workspace create \
 
 当 Pimi 无法从源检出推断代码托管平台时，添加 `--forge <name>`。
 
-## pimi.json {#paseojson}
+## pimi.json {#pimijson}
 
 在仓库根目录放一个 `pimi.json`。Pimi 从你所选基础分支的已提交版本中读取它，因此其他分支中未提交的改动不会生效。
 

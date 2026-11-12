@@ -14,7 +14,7 @@ pimi plugin install /absolute/path/to/plugin-examples/agent-tools
 Create a labeled agent through the SDK:
 
 ```ts
-const agent = await paseo.agents.create({
+const agent = await pimi.agents.create({
   config: { provider: "codex/gpt-5.4" },
   cwd: "/projects/shop",
   labels: { "notes/enabled": "true" },
@@ -22,7 +22,7 @@ const agent = await paseo.agents.create({
 ```
 
 The session-open callback also runs when an agent resumes or reloads. After changing an existing
-agent's labels, call `paseo.agents.ref(id).reload()` to apply the selection immediately. This
+agent's labels, call `pimi.agents.ref(id).reload()` to apply the selection immediately. This
 interrupts a running turn. `refresh()` reads the agent snapshot without reopening its session.
 
 From the repository root, `npm run typecheck` includes this example. Outside this repository,

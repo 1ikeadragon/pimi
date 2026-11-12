@@ -5,7 +5,7 @@ Every terminal's PTY lives in the terminal worker, a process separate from the d
 ## Process model
 
 ```
-supervisor (paseo.pid) ──► daemon worker ──► launcher ──► terminal worker ──► PTY programs
+supervisor (pimi.pid) ──► daemon worker ──► launcher ──► terminal worker ──► PTY programs
                                                 exits      (re-parented to init)
 ```
 
@@ -28,7 +28,7 @@ The worker writes `$PIMI_HOME/terminal-worker/<pid>.json` (owner-only) with its 
 - A missing pid or refused socket retires the record without signaling the worker. An accepting socket identifies the live worker. Cleanup asks it to shut down, then probes again before force-killing it after the grace period (`taskkill /T` on Windows). An inconclusive probe counts toward the worker limit and is retried on the next start or stop without signaling it.
 - Workers never query their own birth time or command line. Readers accept legacy identity fields but ignore them. Daemons through 0.15.1 report new records unreadable and cannot adopt them.
 - Windows terminal programs have no recorded birth time and terminal lifecycle operations never launch PowerShell. Linux and macOS retain program birth-time checks through `ps` with `LC_ALL=C`; Linux also walks sessions to find surviving jobs.
-- Unix socket paths have a byte budget (103 on macOS, 107 on Linux). Long dev homes use an owner-only fallback under `$TMPDIR/paseo-<uid>/` or `/tmp/paseo-<uid>/`. An existing directory must be a real `0700` directory owned by you; a shared root is never chmodded.
+- Unix socket paths have a byte budget (103 on macOS, 107 on Linux). Long dev homes use an owner-only fallback under `$TMPDIR/pimi-<uid>/` or `/tmp/pimi-<uid>/`. An existing directory must be a real `0700` directory owned by you; a shared root is never chmodded.
 - A kill cleanup that cannot confirm every process gone writes `closing-<recordId>.json` beside the worker record. The worker rewrites its own record whenever a terminal starts or exits, so the kill intent has to live in a file it never writes. A closing record is never adopted; the next stop or start retries it.
 - An unreadable record of either kind makes `daemon status` and a kill restart fail with its path: a kill cleanup that met it could not check what it names, and leaves nothing else behind. A read that fails with `EPERM`, `EBUSY` or `EACCES` is retried for 250ms first: on Windows, opening a record while the worker renames its new copy over it fails that way for a moment.
 
@@ -66,11 +66,11 @@ Clients decode begin/data/end events directly; replay is always chunked. Capture
 A worker outlives the installation that started it. An npm or desktop update replaces that installation's files, and the next terminal the old worker creates would load node-pty's `spawn-helper` and the zsh integration from paths that no longer exist. So a built daemon does not launch the worker from its install:
 
 - `npm run build` bundles the worker with esbuild (`packages/server/scripts/build-terminal-worker.mjs`) into `dist/server/terminal-worker/` with its `shell-integration/` beside it. Only node-pty stays external. A package loaded through a module-local `createRequire` is invisible to esbuild and would be missing at run time; the bundle must load nothing but built-ins and node-pty.
-- Before launching, the daemon copies the bundle, the shell integration and node-pty (this platform's native build only) into `$PIMI_HOME/terminal-worker/<paseoVersion>-<hash>/` and launches from there. The hash covers the bundle and node-pty, so a local rebuild of the same version gets its own copy.
+- Before launching, the daemon copies the bundle, the shell integration and node-pty (this platform's native build only) into `$PIMI_HOME/terminal-worker/<pimiVersion>-<hash>/` and launches from there. The hash covers the bundle and node-pty, so a local rebuild of the same version gets its own copy.
 - A copy is deleted once no record names it: after a draining worker exits, after a kill cleanup, and at daemon start. The daemon and the reaper delete copies, never the worker itself, so a worker exiting cannot remove a copy a new worker is about to launch from.
 - Dev (`.ts` source) launches from source and copies nothing.
 
-Each create carries the controlling daemon's environment and Pimi CLI path (`baseEnv`, `paseoCliPath`), so a terminal opened after an upgrade gets the new installation's `PIMI_CLI` while older terminals keep theirs.
+Each create carries the controlling daemon's environment and Pimi CLI path (`baseEnv`, `pimiCliPath`), so a terminal opened after an upgrade gets the new installation's `PIMI_CLI` while older terminals keep theirs.
 
 ## Desktop
 

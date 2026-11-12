@@ -1,26 +1,26 @@
 {
   "buildFiles": [
-    "/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android/CMakeLists.txt"
+    "/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android/CMakeLists.txt"
   ],
   "cleanCommandsComponents": [
     [
       "/Users/debxrshi/Library/Android/sdk/cmake/3.22.1/bin/ninja",
       "-C",
-      "/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86",
+      "/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86",
       "clean"
     ]
   ],
   "buildTargetsCommandComponents": [
     "/Users/debxrshi/Library/Android/sdk/cmake/3.22.1/bin/ninja",
     "-C",
-    "/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86",
+    "/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86",
     "{LIST_OF_TARGETS_TO_BUILD}"
   ],
   "libraries": {
-    "paseo_diff_prototype::@6890427a1f51a3e7e1df": {
-      "artifactName": "paseo_diff_prototype",
+    "pimi_diff_prototype::@6890427a1f51a3e7e1df": {
+      "artifactName": "pimi_diff_prototype",
       "abi": "x86",
-      "output": "/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android/build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/x86/libpaseo_diff_prototype.so",
+      "output": "/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android/build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/x86/libpimi_diff_prototype.so",
       "runtimeFiles": []
     }
   }

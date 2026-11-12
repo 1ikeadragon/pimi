@@ -85,7 +85,7 @@ PIMI_LISTEN=127.0.0.1:6767  # Listen address (host:port or /path/to/socket)
 `PIMI_HOME` defaults to `~/.pimi` and isolates runtime artifacts like `agents/`. `PIMI_LISTEN` controls the daemon listen address. For blue/green testing you can run a parallel server without touching production state:
 
 ```bash
-PIMI_HOME=~/.paseo-blue PIMI_LISTEN=127.0.0.1:7777 npm run dev
+PIMI_HOME=~/.pimi-blue PIMI_LISTEN=127.0.0.1:7777 npm run dev
 ```
 
 ## Tech Stack

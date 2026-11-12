@@ -200,7 +200,7 @@ pimi plugin reload workspace-plugin
 在 daemon 主机上用 npm 安装一个受信任的 npm 插件：
 
 ```bash
-pimi plugin install npm:@acme/paseo-review@1.2.0
+pimi plugin install npm:@acme/pimi-review@1.2.0
 ```
 
 或者把同样的标识符粘贴到 **设置 → 插件 → 插件来源**，然后选择 **安装插件**。安装后的行使用 manifest 中的 ID，并提供与目录插件相同的启用开关以及 Logs、Reload 和 Remove 操作。获取插件时需要 npm；之后的加载和重新加载都使用已安装的文件。
@@ -242,7 +242,7 @@ pimi plugin logs workspace-plugin
 pimi plugin logs workspace-plugin --json
 ```
 
-日志尾部包含 `[paseo]` 的加载、就绪、停止中和已停止条目，以及编译和加载失败信息，并且在重新加载和崩溃后依然保留。客户端的输出留在应用中。保留策略以及哪些内容不应记录，见[调试后端输出](/docs/plugins/reference#debug-backend-output)。
+日志尾部包含 `[pimi]` 的加载、就绪、停止中和已停止条目，以及编译和加载失败信息，并且在重新加载和崩溃后依然保留。客户端的输出留在应用中。保留策略以及哪些内容不应记录，见[调试后端输出](/docs/plugins/reference#debug-backend-output)。
 
 ## 下一步 {#next}
 
@@ -250,4 +250,4 @@ pimi plugin logs workspace-plugin --json
 - [构建 Provider 插件](/docs/plugins/providers)：直接或通过 ACP 接入 Agent，渲染由 Provider 拥有的时间线条目，测试并发布它。
 - [插件参考](/docs/plugins/reference)：每种贡献类型及其字段、运行时模块、宿主环境和 CLI。
 - [把插件迁移到运行时入口](/docs/plugins/migration)：逐步迁移基于单一 `index.ts` 入口编写的插件。
-- [TypeScript SDK](/docs/sdk)：在客户端和服务端代码中以 `paseo` 提供的工作区、Agent、Provider 和配置 API。
+- [TypeScript SDK](/docs/sdk)：在客户端和服务端代码中以 `pimi` 提供的工作区、Agent、Provider 和配置 API。

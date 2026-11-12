@@ -27,12 +27,12 @@ nav: 参考
 
 ## 已连接的主机 {#connected-hosts}
 
-客户端界面中的 `usePimi().hosts` 与服务端处理函数或生命周期钩子中的 `context.paseo.hosts`
+客户端界面中的 `usePimi().hosts` 与服务端处理函数或生命周期钩子中的 `context.pimi.hosts`
 使用相同的 [SDK 主机 API](/sdk/reference#clienthosts)。它们描述所选 daemon 保存的连接。
-现有的 `useHosts()` 和 `getPaseoClient(serverId)` 仍描述应用已知的主机。
+现有的 `useHosts()` 和 `getPimiClient(serverId)` 仍描述应用已知的主机。
 
 ```ts
-const remote = await context.paseo.hosts.client("srv_build_box");
+const remote = await context.pimi.hosts.client("srv_build_box");
 try {
   return await remote.workspaces.list();
 } finally {
@@ -213,7 +213,7 @@ Pimi 为客户端代码提供以下模块：
 | ------------------------ | -------------------------------------------------------------------------------------------- |
 | `@pimi/plugin`           | 共享数据、`defineRpc`、`defineSettings`、`defineAttachmentSource`、`RpcInput` 和 `RpcOutput` |
 | `@pimi/plugin/client/ui` | Pimi UI 组件和 UI hook                                                                       |
-| `@pimi/plugin/client`    | 客户端贡献 context、`usePaseo`、`useRpc`、`useSettings` 和数据 hook                          |
+| `@pimi/plugin/client`    | 客户端贡献 context、`usePimi`、`useRpc`、`useSettings` 和数据 hook                           |
 | `@tanstack/react-query`  | 请求状态和缓存                                                                               |
 | `react`                  | 组件和 hook                                                                                  |
 | `react/jsx-runtime`      | 编译后的 JSX                                                                                 |
@@ -795,7 +795,7 @@ import { Markdown } from "@pimi/plugin/client/ui";
 
 关闭按钮、背景遮罩、平台的返回操作、Web 上的 Escape 键以及紧凑布局下底部面板的手势都会关闭弹窗。关闭时会调用 `onOpenChange(false)`；插件必须更新 `open` 才能关闭它。
 
-弹窗的子元素保留插件的运行时 context。`usePaseo`、`useRpc`、`useWorkspace` 和 `useAgent` 在其中都可以使用。
+弹窗的子元素保留插件的运行时 context。`usePimi`、`useRpc`、`useWorkspace` 和 `useAgent` 在其中都可以使用。
 
 ### 滚动 {#scrolling}
 
@@ -996,8 +996,8 @@ export default function contribute(client: PluginClientContext) {
 ```ts
 import type { PluginHandlerContext } from "@pimi/plugin/server";
 
-async function publishReview(agentId: string, { paseo }: PluginHandlerContext) {
-  await paseo.agents.ref(agentId).timeline.append({
+async function publishReview(agentId: string, { pimi }: PluginHandlerContext) {
+  await pimi.agents.ref(agentId).timeline.append({
     type: "plugin",
     id: "review",
     kind: "review-result",
@@ -1498,8 +1498,8 @@ client.addCommandCenterItem({
   icon: "Scan",
   keywords: ["inspect"],
   context: "agent",
-  async onSelect({ paseo, rpc, workspace, agent, openPanel }) {
-    await paseo.workspaces.ref(workspace.id).setTitle(`Review ${agent.id}`);
+  async onSelect({ pimi, rpc, workspace, agent, openPanel }) {
+    await pimi.workspaces.ref(workspace.id).setTitle(`Review ${agent.id}`);
     await rpc(refreshReview, { agentId: agent.id });
     openPanel("review");
   },
@@ -1524,14 +1524,14 @@ client.addCommandCenterItem({
 | 字段                      | 上下文         | 含义                                                                                            |
 | ------------------------- | -------------- | ----------------------------------------------------------------------------------------------- |
 | `context`                 | 全部           | 对应的判别字段。                                                                                |
-| `paseo`                   | 全部           | 所选主机现有的 `PaseoApi`。                                                                     |
+| `pimi`                    | 全部           | 所选主机现有的 `PimiApi`。                                                                      |
 | `rpc(contract, input)`    | 全部           | 对此安装的 daemon 端插件处理函数的带类型调用。                                                  |
 | `openScreen(input)`       | 全部           | 打开此插件注册的某个界面：`{ screenId, params? }`。                                             |
 | `workspace`               | 工作区和 Agent | 同步的工作区快照。                                                                              |
 | `agent`                   | Agent          | 同步的、与之匹配的 Agent 快照。                                                                 |
 | `openPanel(id, options?)` | 工作区和 Agent | 在回调当前的上下文中打开一个已注册的面板。传入 `{ location: "explorer" }` 可以打开到 Explorer。 |
 
-Agent 回调可以打开 Agent 面板或工作区面板。工作区回调只能打开工作区面板。未知的界面和面板 ID 会明确报错。普通的工作区、Agent、Provider 和 daemon 配置操作请使用 `paseo`。插件特有的文件系统、凭据、厂商或 daemon 本地工作请使用 `rpc`。
+Agent 回调可以打开 Agent 面板或工作区面板。工作区回调只能打开工作区面板。未知的界面和面板 ID 会明确报错。普通的工作区、Agent、Provider 和 daemon 配置操作请使用 `pimi`。插件特有的文件系统、凭据、厂商或 daemon 本地工作请使用 `rpc`。
 
 ## 斜杠命令 {#slash-commands}
 
@@ -1652,7 +1652,7 @@ type PluginButtonBehavior =
 ```
 
 操作在客户端运行。在 promise 完成之前，Pimi 会把按钮标记为忙碌，阻止重复按下，并用 toast 显示失败。
-失败的操作可以重试。普通操作请使用客户端的 `paseo`，插件特有的后端工作请使用 `rpc`。
+失败的操作可以重试。普通操作请使用客户端的 `pimi`，插件特有的后端工作请使用 `rpc`。
 
 菜单和弹出框在宽布局中以锚定的浮层打开，在紧凑布局中以底部面板打开。按下整个触发器都会打开浮层；没有
 分体按钮的行为。
@@ -1698,7 +1698,7 @@ const behavior: PluginButtonBehavior = {
 插件 hook。
 
 `PluginButtonContentProps` 包含 `theme`、`host`、`layout`、目标上下文以及 `close()`。只渲染主体；锚定、
-滚动、内边距和底部面板的呈现由 Pimi 负责。内容可以使用 `usePaseo`、`useRpc`、`useWorkspace`、
+滚动、内边距和底部面板的呈现由 Pimi 负责。内容可以使用 `usePimi`、`useRpc`、`useWorkspace`、
 `useAgent` 以及该安装的 React Query 缓存。
 
 目标上下文是以下之一：
@@ -1723,7 +1723,7 @@ const behavior: PluginButtonBehavior = {
 `remove()` 是幂等的。移除之后的更新不起作用。当插件安装被销毁时，Pimi 会移除尚存的按钮（参见[主机与生命周期](#hosts-and-lifecycle)）。
 请从客户端入口返回清理函数，用来释放你的订阅、定时器和其他资源。
 
-## 使用 Pimi SDK {#use-the-paseo-sdk}
+## 使用 Pimi SDK {#use-the-pimi-sdk}
 
 在界面中执行普通的 Pimi 操作请使用 `usePimi()`。它借用所选主机现有的连接；不要再创建一个客户端。
 
@@ -1732,31 +1732,31 @@ const behavior: PluginButtonBehavior = {
 并结束所有仍然打开的订阅。
 
 ```tsx
-import { usePaseo } from "@pimi/plugin/client";
+import { usePimi } from "@pimi/plugin/client";
 import { useEffect, useState } from "react";
 import { Text } from "react-native";
 
 function ProjectChanges() {
-  const paseo = usePimi();
+  const pimi = usePimi();
   const [changes, setChanges] = useState(0);
   useEffect(() => {
-    const observation = paseo.observeEvents(["project.update"]);
+    const observation = pimi.observeEvents(["project.update"]);
     observation.subscribe({ snapshot() {}, update: () => setChanges((count) => count + 1) });
     return () => void observation.release();
-  }, [paseo]);
+  }, [pimi]);
   return <Text>{changes} project changes</Text>;
 }
 ```
 
 ```tsx
-import { type PluginSurfaceProps, usePaseo } from "@pimi/plugin/client";
+import { type PluginSurfaceProps, usePimi } from "@pimi/plugin/client";
 import { Pressable, Text } from "react-native";
 
 function PullRequestAction({ theme }: PluginSurfaceProps) {
-  const paseo = usePimi();
+  const pimi = usePimi();
 
   async function createReviewWorkspace() {
-    const workspace = await paseo.workspaces.create({
+    const workspace = await pimi.workspaces.create({
       title: "Review PR 42",
       source: {
         kind: "worktree",
@@ -1785,11 +1785,11 @@ function PullRequestAction({ theme }: PluginSurfaceProps) {
 
 ### 发现主机并指定另一台主机 {#discover-hosts-and-target-another-host}
 
-使用 `useHosts()` 显示已配置的主机，并在操作回调中使用 `getPaseoClient(serverId)` 对其中一台主机
+使用 `useHosts()` 显示已配置的主机，并在操作回调中使用 `getPimiClient(serverId)` 对其中一台主机
 执行 SDK 操作：
 
 ```tsx
-import { getPaseoClient, useHosts, type PluginSurfaceProps } from "@pimi/plugin/client";
+import { getPimiClient, useHosts, type PluginSurfaceProps } from "@pimi/plugin/client";
 import { useMemo, useState, type ReactElement } from "react";
 import { Pressable, Text, View } from "react-native";
 
@@ -1800,7 +1800,7 @@ export function HostAgents({ theme }: Pick<PluginSurfaceProps, "theme">): ReactE
 
   async function listAgents(serverId: string): Promise<void> {
     try {
-      const { entries } = await getPaseoClient(serverId).agents.list();
+      const { entries } = await getPimiClient(serverId).agents.list();
       setResult(`${entries.length} agents`);
     } catch (error) {
       setResult(error instanceof Error ? error.message : String(error));
@@ -1833,11 +1833,11 @@ export function HostAgents({ theme }: Pick<PluginSurfaceProps, "theme">): ReactE
 
 | 摘要字段   | 类型或取值                                                   | 含义                                          |
 | ---------- | ------------------------------------------------------------ | --------------------------------------------- |
-| `serverId` | `string`                                                     | 传给 `getPaseoClient` 的 ID。                 |
+| `serverId` | `string`                                                     | 传给 `getPimiClient` 的 ID。                  |
 | `label`    | `string`                                                     | 主机的显示名称。                              |
 | `status`   | `"idle"`、`"connecting"`、`"online"`、`"offline"`、`"error"` | 当前应用的连接状态。SDK 调用需要 `"online"`。 |
 
-`getPaseoClient(serverId: string): PaseoApi` 借用该主机已认证的应用连接。请在客户端入口代码或回调中
+`getPimiClient(serverId: string): PimiApi` 借用该主机已认证的应用连接。请在客户端入口代码或回调中
 调用它；它不会打开 socket，也不要求目标 daemon 上安装了该插件。在执行操作时再获取 API，以便使用当前的
 连接。
 | 事件或条件 | 结果与调用方的处理 |
@@ -1845,7 +1845,7 @@ export function HostAgents({ theme }: Pick<PluginSurfaceProps, "theme">): ReactE
 | 未知的主机 ID | 抛出 `Unknown Pimi host: <id>`；永远不会转到另一台主机。 |
 | 主机不在线 | 抛出 `Pimi host is disconnected: <id>`，通过保留的 API 发起的调用也是如此。请在主机上线后重试。 |
 | 同一连接重新连接 | 保留的 API 在重新连接后仍然可用；观察会自动恢复。 |
-| 连接设置变化，或应用切换了连接（包括自动故障转移） | 旧的 API 被释放。请再次调用 `getPaseoClient(serverId)` 并重新创建订阅。 |
+| 连接设置变化，或应用切换了连接（包括自动故障转移） | 旧的 API 被释放。请再次调用 `getPimiClient(serverId)` 并重新创建订阅。 |
 | 主机被移除 | 它的 API 被释放；被移除的 ID 变为未知。 |
 | `client.dispose()` | 释放该 API 及其观察。之后再调用获取函数会返回一个基于应用连接的新 API。再次销毁旧的 API 不会影响新 API 的使用。 |
 | 发起调用的插件被卸载 | 它借用的所有 API 和观察都会被释放，包括指向其他主机的那些。保留的句柄不能比该安装存活得更久。 |
@@ -1926,7 +1926,7 @@ export default function contribute(server: PluginServerContext) {
 
 输入和输出在两端都会校验。RPC 名称以小写字母开头，由小写字母、数字、点、连字符或下划线组成。`useRpc()` 返回一个带类型的异步函数。请求状态、缓存和变更请使用 TanStack Query。
 
-后端处理函数以 `{ paseo }` 的形式收到同样的 `PaseoApi`。它们的连接属于子进程，并在插件停止时关闭。在插件代码订阅之前，它不会订阅时间线或目录事件。清理和时间线替换请遵循 [SDK 事件契约](/docs/sdk/events)。后端代码可以使用 Node API 以及安装在插件目录中的依赖。
+后端处理函数以 `{ pimi }` 的形式收到同样的 `PimiApi`。它们的连接属于子进程，并在插件停止时关闭。在插件代码订阅之前，它不会订阅时间线或目录事件。清理和时间线替换请遵循 [SDK 事件契约](/docs/sdk/events)。后端代码可以使用 Node API 以及安装在插件目录中的依赖。
 
 ## 从 daemon 推送事件 {#subscriptions}
 
@@ -1946,7 +1946,7 @@ export const diffWatch = defineSubscription({
 });
 ```
 
-在 `index.server.ts` 中处理它。处理函数除了 `paseo`，还会收到 `push` 和一个中止 `signal`：
+在 `index.server.ts` 中处理它。处理函数除了 `pimi`，还会收到 `push` 和一个中止 `signal`：
 
 ```ts
 server.handle(diffWatch, ({ cwd, from }, { push, signal }) => {
@@ -2067,7 +2067,7 @@ console.log("Refreshing issues");
 console.error("Issue refresh failed", error);
 ```
 
-当插件开始加载、就绪、开始停止以及已经停止时，Pimi 会添加 `[paseo]` 条目。它把编译和加载失败记录为
+当插件开始加载、就绪、开始停止以及已经停止时，Pimi 会添加 `[pimi]` 条目。它把编译和加载失败记录为
 stderr 条目，包括在插件子进程启动之前发生的失败。Pimi 还会捕获初始化、RPC 处理函数、清理以及进程失败
 期间产生的输出。协议通信使用单独的通道，因此 `console.log()` 不会破坏插件 RPC。
 
@@ -2195,10 +2195,10 @@ daemon 的工作目录解析，`~` 会展开为 daemon 的主目录。
 | 来源               | 接受的形式                                                  | 示例                                          |
 | ------------------ | ----------------------------------------------------------- | --------------------------------------------- |
 | 插件注册表         | `owner/slug` 或 `host/owner/slug`                           | `acme/review`                                 |
-| 主机目录           | daemon 主机上的绝对或相对路径                               | `/srv/paseo/plugins/review`                   |
-| GitHub 仓库        | `git:owner/repository` 或 `github:owner/repository`         | `github:acme/paseo-review`                    |
+| 主机目录           | daemon 主机上的绝对或相对路径                               | `/srv/pimi/plugins/review`                    |
+| GitHub 仓库        | `git:owner/repository` 或 `github:owner/repository`         | `github:acme/pimi-review`                     |
 | Git 仓库           | `git:<URL 或 SCP 来源>`；对于 URL 和 SCP 来源，前缀可以省略 | `git:https://git.example.com/acme/review.git` |
-| npm 包             | `npm:<name>[@<版本、标签或范围>]`；`npm:` 可以省略          | `npm:@acme/paseo-review@^1.2.0`               |
+| npm 包             | `npm:<name>[@<版本、标签或范围>]`；`npm:` 可以省略          | `npm:@acme/pimi-review@^1.2.0`                |
 | 来源根目录下的插件 | 在目录、Git 或 npm 来源后追加 `:relative/plugin/path`       | `github:acme/monorepo:plugins/review`         |
 
 Git URL 使用 `https://`、`http://`、`ssh://`、`git://` 或 `file://`。SCP 来源使用 `user@host:path`。
@@ -2235,14 +2235,14 @@ Pimi 按以下顺序解析标识：
 已存在的安装 ID 会被拒绝，并且不会改变它的启用状态或文件。
 
 ```bash
-pimi plugin install /srv/paseo/plugins/review
-pimi plugin install github:acme/paseo-review
+pimi plugin install /srv/pimi/plugins/review
+pimi plugin install github:acme/pimi-review
 pimi plugin install git:https://git.example.com:8443/acme/monorepo.git:plugins/review --ref main
 pimi plugin install git@git.example.com:acme/review.git
 pimi plugin install file:///srv/repos/monorepo:plugins/review
-pimi plugin install npm:paseo-review@1.2.0
-pimi plugin install npm:@acme/paseo-review@next
-pimi plugin install 'npm:@acme/paseo-review@>=1.2.0 <2.0.0' --id review-staging
+pimi plugin install npm:pimi-review@1.2.0
+pimi plugin install npm:@acme/pimi-review@next
+pimi plugin install 'npm:@acme/pimi-review@>=1.2.0 <2.0.0' --id review-staging
 pimi plugin install npm:@acme/plugins@^1.2.0:plugins/review
 ```
 

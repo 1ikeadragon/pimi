@@ -4,7 +4,7 @@ A workspace panel subscribes to a daemon-side watcher and lists the files that d
 updating as files change.
 
 ```bash
-pimi plugin add /absolute/path/to/paseo/plugin-examples/diff-watch
+pimi plugin add /absolute/path/to/pimi/plugin-examples/diff-watch
 ```
 
 - `shared/diff.ts` defines the `diff.watch` subscription contract.

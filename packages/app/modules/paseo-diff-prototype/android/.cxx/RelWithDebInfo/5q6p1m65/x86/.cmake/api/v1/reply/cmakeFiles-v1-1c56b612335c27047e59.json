@@ -790,8 +790,8 @@
   ],
   "kind": "cmakeFiles",
   "paths": {
-    "build": "/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86",
-    "source": "/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android"
+    "build": "/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86",
+    "source": "/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android"
   },
   "version": {
     "major": 1,

@@ -359,12 +359,12 @@ pimi agent detach <id>        # Make a subagent top-level
 定义一次实例，然后启动它保存的配置：
 
 ```bash
-pimi daemon config set daemon.listen 127.0.0.1:6799 --home ~/paseo-test
-pimi daemon config set daemon.relay.enabled false --home ~/paseo-test
-pimi daemon start --home ~/paseo-test
-pimi project ls --home ~/paseo-test
-pimi daemon restart --home ~/paseo-test
-pimi daemon stop --home ~/paseo-test
+pimi daemon config set daemon.listen 127.0.0.1:6799 --home ~/pimi-test
+pimi daemon config set daemon.relay.enabled false --home ~/pimi-test
+pimi daemon start --home ~/pimi-test
+pimi project ls --home ~/pimi-test
+pimi daemon restart --home ~/pimi-test
+pimi daemon stop --home ~/pimi-test
 ```
 
 `start` 在后台运行，并报告实际的监听地址和进程管理器的 PID。它只接受主目录选择和 `--timeout <seconds>`（默认 600）。如果等待超时，进程管理器仍会继续运行：请使用输出的状态、日志和停止说明。worker 在就绪之前退出会导致启动失败。
@@ -384,7 +384,7 @@ pimi daemon stop --home ~/paseo-test
 在前台部署命令中使用环境变量覆盖：
 
 ```bash
-PIMI_LISTEN=127.0.0.1:6799 PIMI_RELAY_ENABLED=false paseo daemon run --home ~/paseo-test
+PIMI_LISTEN=127.0.0.1:6799 PIMI_RELAY_ENABLED=false pimi daemon run --home ~/pimi-test
 ```
 
 它会一直保持附着，直到进程管理器退出或你取消，没有就绪超时。worker 重启会保留这些启动输入。要修改它们，请停止并重新启动部署。如果主目录中已经有一个运行中的进程管理器，`run` 会返回 `already_running`，而不会接管或启动前台进程。
@@ -435,7 +435,7 @@ CLI 的设计初衷之一就是供 Agent 自己使用。你可以让一个 Agent
 
 ```bash
 # Agent A spawns Agent B and waits for it
-agent_id=$(paseo run --no-wait --quiet --title api-agent "implement the API")
+agent_id=$(pimi run --no-wait --quiet --title api-agent "implement the API")
 pimi wait "$agent_id"
 pimi logs "$agent_id" --tail 5
 ```
@@ -447,9 +447,9 @@ pimi logs "$agent_id" --tail 5
 ```bash
 # Requires jq
 while true; do
-  paseo run --provider codex "make the tests pass" >/dev/null
+  pimi run --provider codex "make the tests pass" >/dev/null
 
-  verdict=$(paseo run --provider claude --output-schema '{"type":"object","properties":{"criteria_met":{"type":"boolean"}},"required":["criteria_met"],"additionalProperties":false}' "ensure tests all pass")
+  verdict=$(pimi run --provider claude --output-schema '{"type":"object","properties":{"criteria_met":{"type":"boolean"}},"required":["criteria_met"],"additionalProperties":false}' "ensure tests all pass")
   if echo "$verdict" | jq -e '.criteria_met == true' >/dev/null; then
     echo "criteria met"
     break

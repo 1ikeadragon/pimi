@@ -11,7 +11,7 @@
 # =============================================================================
 
 # =============================================================================
-# Project: paseo_diff_prototype
+# Project: pimi_diff_prototype
 # Configurations: RelWithDebInfo
 # =============================================================================
 
@@ -39,63 +39,63 @@ include CMakeFiles/rules.ninja
 #############################################
 # Logical path to working directory; prefix for absolute paths.
 
-cmake_ninja_workdir = /Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86/
+cmake_ninja_workdir = /Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86/
 # =============================================================================
-# Object build statements for SHARED_LIBRARY target paseo_diff_prototype
+# Object build statements for SHARED_LIBRARY target pimi_diff_prototype
 
 
 #############################################
-# Order-only phony target for paseo_diff_prototype
+# Order-only phony target for pimi_diff_prototype
 
-build cmake_object_order_depends_target_paseo_diff_prototype: phony || CMakeFiles/paseo_diff_prototype.dir
+build cmake_object_order_depends_target_pimi_diff_prototype: phony || CMakeFiles/pimi_diff_prototype.dir
 
-build CMakeFiles/paseo_diff_prototype.dir/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/cpp/layout.cpp.o: CXX_COMPILER__paseo_diff_prototype_RelWithDebInfo /Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/cpp/layout.cpp || cmake_object_order_depends_target_paseo_diff_prototype
-  DEFINES = -DSK_BUILD_FOR_ANDROID -Dpaseo_diff_prototype_EXPORTS
-  DEP_FILE = CMakeFiles/paseo_diff_prototype.dir/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/cpp/layout.cpp.o.d
+build CMakeFiles/pimi_diff_prototype.dir/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/cpp/layout.cpp.o: CXX_COMPILER__pimi_diff_prototype_RelWithDebInfo /Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/cpp/layout.cpp || cmake_object_order_depends_target_pimi_diff_prototype
+  DEFINES = -DSK_BUILD_FOR_ANDROID -Dpimi_diff_prototype_EXPORTS
+  DEP_FILE = CMakeFiles/pimi_diff_prototype.dir/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/cpp/layout.cpp.o.d
   FLAGS = -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++20 -O2 -fexceptions -frtti -O2 -g -DNDEBUG -fPIC -O2 -Wall -Wextra
-  INCLUDES = -I/Users/debxrshi/Research/Pimi/packages/app/node_modules/@shopify/react-native-skia/cpp/skia -I/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86
-  OBJECT_DIR = CMakeFiles/paseo_diff_prototype.dir
-  OBJECT_FILE_DIR = CMakeFiles/paseo_diff_prototype.dir/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/cpp
-  TARGET_COMPILE_PDB = CMakeFiles/paseo_diff_prototype.dir/
-  TARGET_PDB = ../../../../build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/x86/libpaseo_diff_prototype.pdb
+  INCLUDES = -I/Users/debxrshi/Research/Pimi/packages/app/node_modules/@shopify/react-native-skia/cpp/skia -I/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86
+  OBJECT_DIR = CMakeFiles/pimi_diff_prototype.dir
+  OBJECT_FILE_DIR = CMakeFiles/pimi_diff_prototype.dir/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/cpp
+  TARGET_COMPILE_PDB = CMakeFiles/pimi_diff_prototype.dir/
+  TARGET_PDB = ../../../../build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/x86/libpimi_diff_prototype.pdb
 
-build CMakeFiles/paseo_diff_prototype.dir/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/cpp/jni.cpp.o: CXX_COMPILER__paseo_diff_prototype_RelWithDebInfo /Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/cpp/jni.cpp || cmake_object_order_depends_target_paseo_diff_prototype
-  DEFINES = -DSK_BUILD_FOR_ANDROID -Dpaseo_diff_prototype_EXPORTS
-  DEP_FILE = CMakeFiles/paseo_diff_prototype.dir/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/cpp/jni.cpp.o.d
+build CMakeFiles/pimi_diff_prototype.dir/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/cpp/jni.cpp.o: CXX_COMPILER__pimi_diff_prototype_RelWithDebInfo /Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/cpp/jni.cpp || cmake_object_order_depends_target_pimi_diff_prototype
+  DEFINES = -DSK_BUILD_FOR_ANDROID -Dpimi_diff_prototype_EXPORTS
+  DEP_FILE = CMakeFiles/pimi_diff_prototype.dir/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/cpp/jni.cpp.o.d
   FLAGS = -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++20 -O2 -fexceptions -frtti -O2 -g -DNDEBUG -fPIC -O2 -Wall -Wextra
-  INCLUDES = -I/Users/debxrshi/Research/Pimi/packages/app/node_modules/@shopify/react-native-skia/cpp/skia -I/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86
-  OBJECT_DIR = CMakeFiles/paseo_diff_prototype.dir
-  OBJECT_FILE_DIR = CMakeFiles/paseo_diff_prototype.dir/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/cpp
-  TARGET_COMPILE_PDB = CMakeFiles/paseo_diff_prototype.dir/
-  TARGET_PDB = ../../../../build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/x86/libpaseo_diff_prototype.pdb
+  INCLUDES = -I/Users/debxrshi/Research/Pimi/packages/app/node_modules/@shopify/react-native-skia/cpp/skia -I/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86
+  OBJECT_DIR = CMakeFiles/pimi_diff_prototype.dir
+  OBJECT_FILE_DIR = CMakeFiles/pimi_diff_prototype.dir/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/cpp
+  TARGET_COMPILE_PDB = CMakeFiles/pimi_diff_prototype.dir/
+  TARGET_PDB = ../../../../build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/x86/libpimi_diff_prototype.pdb
 
 
 # =============================================================================
-# Link build statements for SHARED_LIBRARY target paseo_diff_prototype
+# Link build statements for SHARED_LIBRARY target pimi_diff_prototype
 
 
 #############################################
-# Link the shared library ../../../../build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/x86/libpaseo_diff_prototype.so
+# Link the shared library ../../../../build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/x86/libpimi_diff_prototype.so
 
-build ../../../../build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/x86/libpaseo_diff_prototype.so: CXX_SHARED_LIBRARY_LINKER__paseo_diff_prototype_RelWithDebInfo CMakeFiles/paseo_diff_prototype.dir/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/cpp/layout.cpp.o CMakeFiles/paseo_diff_prototype.dir/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/cpp/jni.cpp.o | /Users/debxrshi/Research/Pimi/packages/app/node_modules/@shopify/react-native-skia/libs/android/x86/libskparagraph.a /Users/debxrshi/Research/Pimi/packages/app/node_modules/@shopify/react-native-skia/libs/android/x86/libskshaper.a /Users/debxrshi/Research/Pimi/packages/app/node_modules/@shopify/react-native-skia/libs/android/x86/libskunicode_core.a /Users/debxrshi/Research/Pimi/packages/app/node_modules/@shopify/react-native-skia/libs/android/x86/libskunicode_icu.a /Users/debxrshi/Research/Pimi/packages/app/node_modules/@shopify/react-native-skia/libs/android/x86/libskia.a
+build ../../../../build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/x86/libpimi_diff_prototype.so: CXX_SHARED_LIBRARY_LINKER__pimi_diff_prototype_RelWithDebInfo CMakeFiles/pimi_diff_prototype.dir/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/cpp/layout.cpp.o CMakeFiles/pimi_diff_prototype.dir/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/cpp/jni.cpp.o | /Users/debxrshi/Research/Pimi/packages/app/node_modules/@shopify/react-native-skia/libs/android/x86/libskparagraph.a /Users/debxrshi/Research/Pimi/packages/app/node_modules/@shopify/react-native-skia/libs/android/x86/libskshaper.a /Users/debxrshi/Research/Pimi/packages/app/node_modules/@shopify/react-native-skia/libs/android/x86/libskunicode_core.a /Users/debxrshi/Research/Pimi/packages/app/node_modules/@shopify/react-native-skia/libs/android/x86/libskunicode_icu.a /Users/debxrshi/Research/Pimi/packages/app/node_modules/@shopify/react-native-skia/libs/android/x86/libskia.a
   LANGUAGE_COMPILE_FLAGS = -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++20 -O2 -fexceptions -frtti -O2 -g -DNDEBUG
   LINK_FLAGS = -static-libstdc++ -Wl,--build-id=sha1 -Wl,--no-rosegment -Wl,--no-undefined-version -Wl,--fatal-warnings -Wl,--no-undefined -Qunused-arguments  -Wl,--gc-sections   -Wl,-z,max-page-size=16384
   LINK_LIBRARIES = /Users/debxrshi/Research/Pimi/packages/app/node_modules/@shopify/react-native-skia/libs/android/x86/libskparagraph.a  /Users/debxrshi/Research/Pimi/packages/app/node_modules/@shopify/react-native-skia/libs/android/x86/libskshaper.a  /Users/debxrshi/Research/Pimi/packages/app/node_modules/@shopify/react-native-skia/libs/android/x86/libskunicode_core.a  /Users/debxrshi/Research/Pimi/packages/app/node_modules/@shopify/react-native-skia/libs/android/x86/libskunicode_icu.a  /Users/debxrshi/Research/Pimi/packages/app/node_modules/@shopify/react-native-skia/libs/android/x86/libskia.a  -landroid  -llog  -lEGL  -lGLESv2  -latomic -lm
-  OBJECT_DIR = CMakeFiles/paseo_diff_prototype.dir
+  OBJECT_DIR = CMakeFiles/pimi_diff_prototype.dir
   POST_BUILD = :
   PRE_LINK = :
-  SONAME = libpaseo_diff_prototype.so
+  SONAME = libpimi_diff_prototype.so
   SONAME_FLAG = -Wl,-soname,
-  TARGET_COMPILE_PDB = CMakeFiles/paseo_diff_prototype.dir/
-  TARGET_FILE = ../../../../build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/x86/libpaseo_diff_prototype.so
-  TARGET_PDB = ../../../../build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/x86/libpaseo_diff_prototype.pdb
+  TARGET_COMPILE_PDB = CMakeFiles/pimi_diff_prototype.dir/
+  TARGET_FILE = ../../../../build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/x86/libpimi_diff_prototype.so
+  TARGET_PDB = ../../../../build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/x86/libpimi_diff_prototype.pdb
 
 
 #############################################
 # Utility command for edit_cache
 
 build CMakeFiles/edit_cache.util: CUSTOM_COMMAND
-  COMMAND = cd /Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86 && /Users/debxrshi/Library/Android/sdk/cmake/3.22.1/bin/ccmake -S/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android -B/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86
+  COMMAND = cd /Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86 && /Users/debxrshi/Library/Android/sdk/cmake/3.22.1/bin/ccmake -S/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android -B/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86
   DESC = Running CMake cache editor...
   pool = console
   restat = 1
@@ -107,7 +107,7 @@ build edit_cache: phony CMakeFiles/edit_cache.util
 # Utility command for rebuild_cache
 
 build CMakeFiles/rebuild_cache.util: CUSTOM_COMMAND
-  COMMAND = cd /Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86 && /Users/debxrshi/Library/Android/sdk/cmake/3.22.1/bin/cmake --regenerate-during-build -S/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android -B/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86
+  COMMAND = cd /Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86 && /Users/debxrshi/Library/Android/sdk/cmake/3.22.1/bin/cmake --regenerate-during-build -S/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android -B/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86
   DESC = Running CMake to regenerate build system...
   pool = console
   restat = 1
@@ -117,9 +117,9 @@ build rebuild_cache: phony CMakeFiles/rebuild_cache.util
 # =============================================================================
 # Target aliases.
 
-build libpaseo_diff_prototype.so: phony ../../../../build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/x86/libpaseo_diff_prototype.so
+build libpimi_diff_prototype.so: phony ../../../../build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/x86/libpimi_diff_prototype.so
 
-build paseo_diff_prototype: phony ../../../../build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/x86/libpaseo_diff_prototype.so
+build pimi_diff_prototype: phony ../../../../build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/x86/libpimi_diff_prototype.so
 
 # =============================================================================
 # Folder targets.
@@ -127,9 +127,9 @@ build paseo_diff_prototype: phony ../../../../build/intermediates/cxx/RelWithDeb
 # =============================================================================
 
 #############################################
-# Folder: /Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86
+# Folder: /Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/x86
 
-build all: phony ../../../../build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/x86/libpaseo_diff_prototype.so
+build all: phony ../../../../build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/x86/libpimi_diff_prototype.so
 
 # =============================================================================
 # Built-in targets

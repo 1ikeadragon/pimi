@@ -42,9 +42,9 @@ Provider 选项不是主机边界。它们约束的是 Agent CLI，而 Agent CLI
 把写入限制在一个目录内，切断网络访问，并停止审批提示，让运行可以无人值守：
 
 ```ts
-import { createPaseoClient } from "@pimi/client";
+import { createPimiClient } from "@pimi/client";
 
-const client = createPaseoClient({ url: "ws://127.0.0.1:6767/ws" });
+const client = createPimiClient({ url: "ws://127.0.0.1:6767/ws" });
 await client.connect();
 
 const agent = await client.agents.create({
@@ -86,9 +86,9 @@ await client.close();
 开启 Claude 自己的沙箱，把写入限制在项目内，禁止读取凭据目录，并只允许两个域名：
 
 ```ts
-import { createPaseoClient } from "@pimi/client";
+import { createPimiClient } from "@pimi/client";
 
-const client = createPaseoClient({ url: "ws://127.0.0.1:6767/ws" });
+const client = createPimiClient({ url: "ws://127.0.0.1:6767/ws" });
 await client.connect();
 
 const agent = await client.agents.create({
@@ -138,9 +138,9 @@ await client.close();
 允许读取和编辑，禁止任何超出项目范围的访问，并按模式控制 shell 命令：
 
 ```ts
-import { createPaseoClient } from "@pimi/client";
+import { createPimiClient } from "@pimi/client";
 
-const client = createPaseoClient({ url: "ws://127.0.0.1:6767/ws" });
+const client = createPimiClient({ url: "ws://127.0.0.1:6767/ws" });
 await client.connect();
 
 const agent = await client.agents.create({

@@ -261,7 +261,7 @@ do not imply local ownership or authorization. Capture the sender title at deliv
 removed senders must remain understandable without a live directory lookup.
 
 The optional `agentMessage` payload carries event, sender, and delivered text. Shared client
-presentation (`protocol/paseo-tool-presentation`) owns its heading and expanded details, next to the
+presentation (`protocol/pimi-tool-presentation`) owns its heading and expanded details, next to the
 labels for every Pimi MCP tool. The daemon
 must not construct UI labels or prepend sender labels to the semantic message body. The existing
 `tool_call` / `plain_text` envelope carries it. Clients use the typed payload, never infer the event

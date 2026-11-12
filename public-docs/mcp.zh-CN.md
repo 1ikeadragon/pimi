@@ -17,9 +17,9 @@ nav: MCP 参考
 
 根据 Provider 的不同，Pimi 通过其原生工具接口或 MCP 提供工具，能力是相同的。修改注入设置后，请启动新的 Agent 或重新加载已有的 Agent。
 
-## 按 Provider 限制 Pimi 工具 {#limit-paseo-tools-by-provider}
+## 按 Provider 限制 Pimi 工具 {#limit-pimi-tools-by-provider}
 
-当不同的 Agent 配置应获得不同的 Pimi 工具时，请使用 Provider 策略。先全局启用工具注入，然后在你启动所用的确切 Provider ID 上添加 `paseoTools`：
+当不同的 Agent 配置应获得不同的 Pimi 工具时，请使用 Provider 策略。先全局启用工具注入，然后在你启动所用的确切 Provider ID 上添加 `pimiTools`：
 
 ```json
 {
@@ -40,14 +40,14 @@ nav: MCP 参考
       "codex-worker": {
         "extends": "codex",
         "label": "Codex Worker",
-        "paseoTools": {
+        "pimiTools": {
           "disabledTools": ["create_agent", "send_agent_prompt", "kill_agent"]
         }
       },
       "codex-isolated": {
         "extends": "codex",
         "label": "Codex Isolated",
-        "paseoTools": {
+        "pimiTools": {
           "enabled": false
         }
       }
@@ -58,7 +58,7 @@ nav: MCP 参考
 
 编辑 `~/.pimi/config.json` 后运行 `pimi reload`，然后启动新的 Agent 或重新加载已有的 Agent。正在运行的会话保留它启动时得到的工具目录。
 
-省略 `paseoTools` 会启用完整的工具目录。把 `enabled` 设为 `false` 会移除整个目录，在 `disabledTools` 中列出确切的工具 ID 则只移除所选的工具。自定义配置不会从 `extends` 继承这一策略；请为每个自定义 Provider ID 分别配置。
+省略 `pimiTools` 会启用完整的工具目录。把 `enabled` 设为 `false` 会移除整个目录，在 `disabledTools` 中列出确切的工具 ID 则只移除所选的工具。自定义配置不会从 `extends` 继承这一策略；请为每个自定义 Provider ID 分别配置。
 
 浏览器工具仍然需要启用浏览器工具并连接一个浏览器主机。仅用于语音的 `speak` 工具不受此策略控制。
 

@@ -4,7 +4,7 @@ See the [main README](../README.md) for the demo, features, and macOS build.
 
 ## Development
 
-Run `npm run build:server` and then `npm run pimi:desktop`. Use the sidebar or **File → Show Pimi Workspace** to switch layouts in the current window. The packaged app uses the normal Paseo daemon home and settings. Set `PIMI_HOME` and `PIMI_LISTEN` before launching the executable to use a separate daemon and state directory.
+Run `npm run build:server` and then `npm run pimi:desktop`. Use the sidebar or **File → Show Pimi Workspace** to switch layouts in the current window. The packaged app uses the normal Pimi daemon home and settings. Set `PIMI_HOME` and `PIMI_LISTEN` before launching the executable to use a separate daemon and state directory.
 
 ## Desktop releases
 
@@ -20,8 +20,8 @@ Push the version commit to `main`, then push its `pimi-vX.Y.Z` tag. The release 
 - **Suggest 2 drafts** sends the brief to the selected provider and saves the suggestions for review. **Start agents** makes a short model check without the brief, then starts up to four drafts in parallel. Each draft keeps its launch identity for retries.
 - **Dictate brief** opens a small control at the bottom of Tasks and uses Agent Console’s existing dictation flow and configured speech provider. Insert puts editable text in the brief; closing the draft or leaving Tasks cancels the recording.
 - A managed work item’s report comes from its finished agent. Pimi collects it automatically as agent status changes. If retrieval fails, **Retry report** fetches the agent’s result again. Closing a task leaves its worktrees available for review.
-- Workers from a chat proposal appear as branches under the originating chat. Paseo delivers their completion and final responses to that chat, while Tasks keeps a copy of each report. Open a branch to continue directly with that worker.
-- The desktop saves task records in its local app data. With Agent tools enabled, interactive chats on the local daemon can find and update saved tasks, attach repositories from Work, link existing worktrees, and assign existing Paseo labels while the desktop app runs. These tools use the same task store as the board. For the standalone server, set `PIMI_TASK_STATE` to an absolute JSON file path to persist records across restarts.
+- Workers from a chat proposal appear as branches under the originating chat. Pimi delivers their completion and final responses to that chat, while Tasks keeps a copy of each report. Open a branch to continue directly with that worker.
+- The desktop saves task records in its local app data. With Agent tools enabled, interactive chats on the local daemon can find and update saved tasks, attach repositories from Work, link existing worktrees, and assign existing Pimi labels while the desktop app runs. These tools use the same task store as the board. For the standalone server, set `PIMI_TASK_STATE` to an absolute JSON file path to persist records across restarts.
 
 ## Review behavior
 

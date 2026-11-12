@@ -13,7 +13,7 @@ Start your daemon with that environment variable set. Then turn on **Enable plug
 **Settings → Plugins** and install the example:
 
 ```bash
-pimi plugin add /absolute/path/to/paseo/plugin-examples/linear
+pimi plugin add /absolute/path/to/pimi/plugin-examples/linear
 pimi plugin ls linear
 ```
 

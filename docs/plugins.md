@@ -216,7 +216,7 @@ output in the daemon log. If a command fails, the error includes its output, Pim
 candidate, and the existing installed and running version stays untouched. On a remote daemon, all
 of this happens on the remote daemon host.
 
-Server contributions can write to stdout and stderr with normal Node logging. Pimi adds `[paseo]`
+Server contributions can write to stdout and stderr with normal Node logging. Pimi adds `[pimi]`
 entries for loading, ready, stopping, and stopped transitions. Compilation and load failures are
 recorded as stderr entries before a subprocess exists. Inspect the recent in-memory
 tail from the host plugin settings or with `pimi plugin logs <id>`. Git preparation commands are
@@ -365,7 +365,7 @@ frame (`0x22`) becomes a synthetic `plugin.rpc.invoke.request` and runs through 
 path, so it is authorized like any other invoke. The author contract, including the native upload
 limit, is in [stream events from the daemon](../public-docs/plugins/reference.md#subscriptions).
 
-`usePimi()` and the handler's `{ paseo }` context expose the same `PaseoApi`: projects,
+`usePimi()` and the handler's `{ pimi }` context expose the same `PimiApi`: projects,
 workspaces, agents, terminals, providers, and daemon config. They do not expose connection lifecycle.
 
 `usePimi()` is the plugin's one client: `InstalledPlugin.pimi`, created with the installation in
@@ -373,7 +373,7 @@ workspaces, agents, terminals, providers, and daemon config. They do not expose 
 `client.pimi`. Authors release their subscriptions in their own cleanup, and teardown (disable,
 reload, removal, host removal) disposes the client, which ends the rest; nothing is created or
 disposed per mounted surface. See the
-[public example](../public-docs/plugins/reference.md#use-the-paseo-sdk). Switching the screen's host
+[public example](../public-docs/plugins/reference.md#use-the-pimi-sdk). Switching the screen's host
 changes both `usePimi()` and `useRpc()` to that host's installation. An offline selected host fails there and never falls through to another
 installation. A server handler owns an IPC-backed daemon session for the life of its subprocess.
 Use plugin RPC for plugin-specific backend behavior that is not a normal Pimi operation.
@@ -416,7 +416,7 @@ workspace only. Location controls hosting, not context. An agent panel target ke
 when moved between hosts. Explorer configuration can create workspace-context panels and remove
 existing agent-context instances, but it cannot create an agent panel without an agent-aware command.
 
-Command Center callbacks use the selected host's existing `PaseoApi` for normal Pimi operations.
+Command Center callbacks use the selected host's existing `PimiApi` for normal Pimi operations.
 They use typed plugin RPC only for plugin-specific backend work. Surface and panel navigation
 belongs to the app; plugins do not receive Expo Router or workspace-layout store access.
 See the public [navigation fields](../public-docs/plugins/reference.md#screens-and-sidebar-items)
@@ -619,7 +619,7 @@ query, and toast providers inside the surface content. A host menu can hold butt
 installations, so each of its rows and pages resolves its own installation's runtime. Providers
 only around the trigger do not reach those bodies.
 
-Request observation with `client.paseo.agents.list({ subscribe: {} })` and consume the returned
+Request observation with `client.pimi.agents.list({ subscribe: {} })` and consume the returned
 `subscription` handle. Plain `list()` and agent/workspace directory `.subscribe(handler)` listeners create no daemon
 demand. Provider and project `subscribe()` calls establish their own demand. Each
 list-and-subscribe call has its own server ID, even for the same query; see
@@ -659,7 +659,7 @@ See `plugin-examples/timeline-items` for the complete contract.
 A plugin subprocess can also append a canonical plugin row from a server handler:
 
 ```ts
-await paseo.agents.ref(agentId).timeline.append({
+await pimi.agents.ref(agentId).timeline.append({
   type: "plugin",
   id: "review",
   kind: "review-result",
@@ -679,7 +679,7 @@ be rendered intact.
 
 `addSlashCommand` registers an agent- or workspace-context command in the composer. The
 callback runs in the app, receives the trimmed text after the command name as `args`, and receives
-the same `paseo`, `rpc`, `openScreen`, workspace, agent, and `openPanel` capabilities as the matching
+the same `pimi`, `rpc`, `openScreen`, workspace, agent, and `openPanel` capabilities as the matching
 Command Center callback.
 
 ```ts

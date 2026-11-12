@@ -138,7 +138,7 @@
         }
       ],
       "type": "INTERNAL",
-      "value": "/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/arm64-v8a"
+      "value": "/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/arm64-v8a"
     },
     {
       "name": "CMAKE_CACHE_MAJOR_VERSION",
@@ -633,7 +633,7 @@
         }
       ],
       "type": "INTERNAL",
-      "value": "/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android"
+      "value": "/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android"
     },
     {
       "name": "CMAKE_INSTALL_PREFIX",
@@ -666,7 +666,7 @@
         }
       ],
       "type": "UNINITIALIZED",
-      "value": "/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android/build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/arm64-v8a"
+      "value": "/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android/build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/arm64-v8a"
     },
     {
       "name": "CMAKE_LINKER",
@@ -867,7 +867,7 @@
         }
       ],
       "type": "STATIC",
-      "value": "paseo_diff_prototype"
+      "value": "pimi_diff_prototype"
     },
     {
       "name": "CMAKE_RANLIB",
@@ -919,7 +919,7 @@
         }
       ],
       "type": "UNINITIALIZED",
-      "value": "/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android/build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/arm64-v8a"
+      "value": "/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android/build/intermediates/cxx/RelWithDebInfo/5q6p1m65/obj/arm64-v8a"
     },
     {
       "name": "CMAKE_SHARED_LINKER_FLAGS",
@@ -1187,7 +1187,7 @@
       "value": "/Users/debxrshi/Research/Pimi/packages/app/node_modules/@shopify/react-native-skia"
     },
     {
-      "name": "paseo_diff_prototype_BINARY_DIR",
+      "name": "pimi_diff_prototype_BINARY_DIR",
       "properties": [
         {
           "name": "HELPSTRING",
@@ -1195,10 +1195,10 @@
         }
       ],
       "type": "STATIC",
-      "value": "/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/arm64-v8a"
+      "value": "/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android/.cxx/RelWithDebInfo/5q6p1m65/arm64-v8a"
     },
     {
-      "name": "paseo_diff_prototype_IS_TOP_LEVEL",
+      "name": "pimi_diff_prototype_IS_TOP_LEVEL",
       "properties": [
         {
           "name": "HELPSTRING",
@@ -1209,7 +1209,7 @@
       "value": "ON"
     },
     {
-      "name": "paseo_diff_prototype_SOURCE_DIR",
+      "name": "pimi_diff_prototype_SOURCE_DIR",
       "properties": [
         {
           "name": "HELPSTRING",
@@ -1217,7 +1217,7 @@
         }
       ],
       "type": "STATIC",
-      "value": "/Users/debxrshi/Research/Pimi/packages/app/modules/paseo-diff-prototype/android"
+      "value": "/Users/debxrshi/Research/Pimi/packages/app/modules/pimi-diff-prototype/android"
     }
   ],
   "kind": "cache",
