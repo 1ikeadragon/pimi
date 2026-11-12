@@ -139,8 +139,20 @@ export class AttackRunFormModel {
     });
   }
 
+  /** Whether the target is a valid URL to open for pre-flight; shows the error when it is not. */
+  checkTarget(): boolean {
+    this.touchedTarget = true;
+    this.patch({});
+    return !this.state.problems.targetInvalid && attackUrlHost(this.state.target.trim()) !== null;
+  }
+
   /** Returns the definition to send, or null while a problem remains (which then show). */
-  submit(): AttackRunDefinition | null {
+  submit(
+    preflight: Pick<AttackRunDefinition, "annotations" | "onlyAnnotated"> = {
+      annotations: [],
+      onlyAnnotated: false,
+    },
+  ): AttackRunDefinition | null {
     this.submitted = true;
     this.patch({});
     if (!this.state.canSubmit || !this.state.model) return null;
@@ -157,6 +169,8 @@ export class AttackRunFormModel {
         maxRuntimeMs: (parseWhole(this.state.minutes) ?? 0) * 60_000,
         maxTokens: (parseWhole(this.state.kiloTokens) ?? 0) * 1000,
       },
+      annotations: preflight.annotations,
+      onlyAnnotated: preflight.onlyAnnotated,
     };
   }
 

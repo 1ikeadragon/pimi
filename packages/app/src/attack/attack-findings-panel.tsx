@@ -38,6 +38,8 @@ const IDLE_RUN: AttackRun = {
   roster: [],
   disposableTarget: false,
   limits: { maxRuntimeMs: 1, maxTokens: 1 },
+  annotations: [],
+  onlyAnnotated: false,
   status: "stopped",
   pausedReason: null,
   leadAgentId: null,

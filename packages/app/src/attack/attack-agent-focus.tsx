@@ -21,7 +21,7 @@ import type { AttackRunAgent } from "./use-attack-run-agents";
 const FOCUS_PANE = createPaneFocusContextValue({ isWorkspaceFocused: true, isPaneFocused: true });
 
 /** One of the existing agent or browser panels, mounted inside the board for the focused agent. */
-function FocusPanel({ target }: { target: WorkspaceTabTarget }) {
+export function FocusPanel({ target }: { target: WorkspaceTabTarget }) {
   const board = usePaneContext();
   const Component = getPanelRegistration(target.kind)?.component;
   const value = useMemo(
@@ -45,6 +45,7 @@ export function AttackAgentFocus({
   onView,
   onSelect,
   onBack,
+  escapeEnabled,
 }: {
   agents: AttackRunAgent[];
   focusedAgentId: string;
@@ -52,13 +53,15 @@ export function AttackAgentFocus({
   onView: (view: AttackFocusView) => void;
   onSelect: (agentId: string) => void;
   onBack: () => void;
+  /** False while an overlay is open above the focus view: Esc then closes the overlay only. */
+  escapeEnabled: boolean;
 }) {
   const { t } = useTranslation();
   const row = agents.find((item) => item.agent.id === focusedAgentId) ?? null;
   const browser = row?.browsers.at(-1) ?? null;
   const effectiveView: AttackFocusView = view === "browser" && browser ? "browser" : "chat";
   useEffect(() => {
-    if (!isWeb) return;
+    if (!isWeb || !escapeEnabled) return;
     const onKey = (event: KeyboardEvent) => {
       // Esc inside the chat composer belongs to the composer, not the grid.
       const el = event.target instanceof HTMLElement ? event.target : null;
@@ -67,7 +70,7 @@ export function AttackAgentFocus({
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onBack]);
+  }, [escapeEnabled, onBack]);
   const options = useMemo<SegmentedControlOption<AttackFocusView>[]>(
     () => [
       { value: "chat", label: t("attack.focus.chat") },

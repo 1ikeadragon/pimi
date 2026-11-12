@@ -2095,6 +2095,7 @@ export const zhCN: TranslationResources = {
       confinement:
         "浏览器标签页只能打开 localhost 和目标主机。智能体被要求只读并留在这些主机内，但它们的 shell 没有沙箱隔离：命令仍然可以写入文件或访问其他主机。Claude 智能体运行时不带网页工具、文件编辑工具和你自己的 MCP 服务器；其他提供方会保留这些。",
       start: "开始攻击",
+      preflight: "先打开目标并标注",
     },
     roster: {
       uiQa: "UI QA 与混沌测试",
@@ -2111,6 +2112,7 @@ export const zhCN: TranslationResources = {
         user: "由你暂停",
         time_budget: "已暂停：达到时间预算",
         token_budget: "已暂停：达到令牌预算",
+        stalled: "已暂停：智能体已空闲",
       },
       timeSpent: "{{spent}} / {{limit}} 分钟",
       tokensSpent: "{{spent}} / {{limit}} 令牌",
@@ -2118,6 +2120,7 @@ export const zhCN: TranslationResources = {
       resume: "继续",
       stop: "停止",
       newRun: "新建运行",
+      findingsBadge: "发现（{{count}}）",
     },
     tile: {
       focus: "聚焦 {{role}}",
@@ -2136,6 +2139,17 @@ export const zhCN: TranslationResources = {
       browser: "浏览器",
       back: "网格",
     },
+    preflight: {
+      title: "预检",
+      hint: "使用浏览器工具栏中的“标注”，点击元素并添加备注。备注会并入常规检测。",
+      empty: "还没有备注。",
+      skip: "跳过预检",
+      remove: "删除备注",
+      noNote: "（无备注）",
+      badge: "备注（{{count}}）",
+      onlyAnnotated: "只测试我标注的内容",
+      close: "关闭备注",
+    },
     board: {
       title: "攻击",
       starting: "正在启动主导智能体…",
@@ -2145,6 +2159,7 @@ export const zhCN: TranslationResources = {
       runningMeta: "{{count}} 个智能体 · {{elapsed}}",
       lastRun: "上次运行 · {{target}}",
       noRun: "开始运行后，发现会显示在这里。",
+      close: "关闭发现",
       empty: "暂无发现。",
       nothingFound: "没有发现问题。运行结束时没有任何发现。",
       severity: {

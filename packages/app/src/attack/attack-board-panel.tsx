@@ -1,7 +1,7 @@
-import { useCallback, useEffect } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo } from "react";
+import { X } from "lucide-react-native";
+import { Text, useWindowDimensions, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Swords } from "lucide-react-native";
 import { StyleSheet } from "react-native-unistyles";
 import type { AttackRun } from "@pimi/protocol/attack/types";
 import { getDesktopHost } from "@/desktop/host";
@@ -13,9 +13,18 @@ import { useWorkspaceLayoutStore } from "@/stores/workspace-layout-store";
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
 import { AttackAgentFocus } from "./attack-agent-focus";
 import { AttackAgentGrid } from "./attack-agent-grid";
-import { LaunchForm } from "./attack-launch-form";
+import { AttackCompose, ATTACK_NARROW_WIDTH } from "./attack-compose";
 import { AttackRunBar } from "./attack-run-bar";
-import { useAttackStore, useAttackSync, useLatestAttackRun } from "./attack-store";
+import { AttackFindingsPanel } from "./attack-findings-panel";
+import {
+  useAttackFindings,
+  useAttackStore,
+  useAttackSync,
+  useLatestAttackRun,
+} from "./attack-store";
+import { Button } from "@/components/ui/button";
+import { PressHighlight } from "@/components/ui/press-highlight";
+import { isWeb } from "@/constants/platform";
 import { useAttackRunAgents } from "./use-attack-run-agents";
 
 function isActive(run: AttackRun | null): boolean {
@@ -72,6 +81,40 @@ export function AttackBoardPanel() {
   const agents = useAttackRunAgents(serverId, run);
   useReleaseFinishedRunBrowsers(serverId, workspaceId, run);
 
+  const { width } = useWindowDimensions();
+  const narrow = width < ATTACK_NARROW_WIDTH;
+  const workspaceKey = buildWorkspaceTabPersistenceKey({ serverId, workspaceId });
+  // The findings pane gives its width back to the board in a narrow window; the run bar's count
+  // badge opens the same findings as an overlay.
+  useEffect(() => {
+    if (workspaceKey) {
+      useWorkspaceLayoutStore.getState().setAttackFindingsPaneHidden(workspaceKey, narrow);
+    }
+    if (!narrow) useAttackStore.getState().setFindingsOverlay(key, false);
+  }, [key, narrow, workspaceKey]);
+  const overlayOpen = useAttackStore(
+    (state) => narrow && state.findingsOverlayByWorkspace[key] === true,
+  );
+  const findingCount = useAttackFindings(serverId, run?.id ?? null).length;
+  const toggleOverlay = useCallback(() => {
+    const open = useAttackStore.getState().findingsOverlayByWorkspace[key] ?? false;
+    useAttackStore.getState().setFindingsOverlay(key, !open);
+  }, [key]);
+  const closeOverlay = useCallback(() => {
+    useAttackStore.getState().setFindingsOverlay(key, false);
+  }, [key]);
+  useEffect(() => {
+    if (!isWeb || !overlayOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeOverlay();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [closeOverlay, overlayOpen]);
+  const findingsBadge = useMemo(
+    () => (narrow ? { count: findingCount, open: overlayOpen, onPress: toggleOverlay } : undefined),
+    [findingCount, narrow, overlayOpen, toggleOverlay],
+  );
   const active = isActive(run);
   const composing = run === null || (!active && composingAfter === run.id);
   const focus = run && rawFocus?.runId === run.id && !composing ? rawFocus : null;
@@ -101,13 +144,12 @@ export function AttackBoardPanel() {
 
   if (composing) {
     return (
-      <ScrollView contentContainerStyle={styles.idle} testID="attack-board-idle">
-        <View style={styles.hero}>
-          <Swords size={18} color="currentColor" />
-          <Text style={styles.heroTitle}>{t("attack.board.title")}</Text>
-        </View>
-        <LaunchForm key={run?.id ?? "first"} serverId={serverId} workspaceId={workspaceId} />
-      </ScrollView>
+      <AttackCompose
+        serverId={serverId}
+        workspaceId={workspaceId}
+        formKey={run?.id ?? "first"}
+        narrow={narrow}
+      />
     );
   }
   if (!run) return null;
@@ -121,6 +163,7 @@ export function AttackBoardPanel() {
         onView={onView}
         onSelect={onFocus}
         onBack={onBack}
+        escapeEnabled={!overlayOpen}
       />
     );
   } else if (agents.length > 0) {
@@ -142,31 +185,79 @@ export function AttackBoardPanel() {
   }
   return (
     <View style={styles.root} testID="attack-board">
-      <AttackRunBar run={run} serverId={serverId} onNewRun={onNewRun} />
+      <AttackRunBar
+        run={run}
+        serverId={serverId}
+        onNewRun={onNewRun}
+        findingsBadge={findingsBadge}
+      />
       {body}
+      {overlayOpen ? (
+        <>
+          <PressHighlight
+            onPress={closeOverlay}
+            style={styles.backdrop}
+            accessibilityLabel={t("attack.findings.close")}
+            testID="attack-findings-backdrop"
+          >
+            <View />
+          </PressHighlight>
+          <View style={styles.drawer} testID="attack-findings-overlay">
+            <View style={styles.drawerHeader}>
+              <Text style={styles.drawerTitle}>{t("attack.panels.findings.label")}</Text>
+              <Button
+                size="sm"
+                variant="ghost"
+                leftIcon={X}
+                onPress={closeOverlay}
+                accessibilityLabel={t("attack.findings.close")}
+                testID="attack-findings-close"
+              />
+            </View>
+            <View style={styles.drawerBody}>
+              <AttackFindingsPanel />
+            </View>
+          </View>
+        </>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
   root: { flex: 1, minHeight: 0 },
-  idle: {
-    flexGrow: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: theme.spacing[6],
-    gap: theme.spacing[4],
+  backdrop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 10,
+    backgroundColor: "rgba(0,0,0,0.35)",
   },
-  hero: {
+  drawer: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: "92%",
+    maxWidth: 420,
+    zIndex: 11,
+    borderLeftWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface0,
+  },
+  drawerHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: theme.spacing[2],
+    justifyContent: "space-between",
+    paddingHorizontal: theme.spacing[4],
+    paddingVertical: theme.spacing[2],
+    borderBottomWidth: 1,
+    borderColor: theme.colors.border,
   },
-  heroTitle: {
-    color: theme.colors.foreground,
-    fontSize: theme.fontSize.lg,
-    fontWeight: "500",
-  },
+  drawerBody: { flex: 1, minHeight: 0 },
+  drawerTitle: { color: theme.colors.foreground, fontSize: theme.fontSize.base, fontWeight: "500" },
   starting: { flex: 1, alignItems: "center", justifyContent: "center" },
   startingText: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.base },
 }));
