@@ -82,6 +82,29 @@ function attackTab(target: "attack_board" | "attack_findings"): WorkspaceTab {
   return { ...createNewWorkspaceTab(), target: { kind: target } };
 }
 
+// The tab each attack pane must always hold: its panel, or the holding pane's launcher.
+const ATTACK_PANE_FIXTURES: Record<string, "attack_board" | "attack_findings" | "new_tab"> = {
+  [ATTACK_BOARD_PANE_ID]: "attack_board",
+  [ATTACK_FINDINGS_PANE_ID]: "attack_findings",
+  [ATTACK_HOLDING_PANE_ID]: "new_tab",
+};
+
+// The board, the findings list and the holding pane's launcher exist only in Attack mode. They are
+// left behind when another mode takes the tabs, and made again on the way back.
+function attackOnlyTabIds(layout: WorkspaceLayout): Set<string> {
+  const holding = findPaneById(layout.root, ATTACK_HOLDING_PANE_ID);
+  return new Set(
+    collectAllTabs(layout.root)
+      .filter(
+        (tab) =>
+          tab.target.kind === "attack_board" ||
+          tab.target.kind === "attack_findings" ||
+          (tab.target.kind === "new_tab" && holding?.tabIds.includes(tab.tabId)),
+      )
+      .map((tab) => tab.tabId),
+  );
+}
+
 export function createAttackWorkbench(current: WorkbenchPreset): WorkbenchPreset {
   const fallback = createWorkspaceLayoutWithExplorerSidebar();
   const explorerPaneId = current.explorerPaneId ?? EXPLORER_SIDEBAR_PANE_ID;
@@ -169,8 +192,9 @@ export function createEditorWorkbench(
     kind: "pane",
     pane: paneWithTabs({ ...explorer, hidden: false }, sidebarTabs, filesTab),
   };
+  const attackOnly = attackOnlyTabIds(current.layout);
   const all = collectAllTabs(current.layout.root).filter(
-    (tab) => !explorer.tabIds.includes(tab.tabId),
+    (tab) => !explorer.tabIds.includes(tab.tabId) && !attackOnly.has(tab.tabId),
   );
   const focused = findPaneById(current.layout.root, current.layout.focusedPaneId)?.focusedTabId;
   const chats = all.filter(isChat);
@@ -247,7 +271,8 @@ export function restoreWorkbench(
   const sidePaneId = panes.find((pane) => pane.id === template.sidePaneId)?.id ?? null;
   const ordinary = panes.filter((pane) => pane.id !== template.explorerPaneId && !pane.hidden);
   const main = ordinary.find((pane) => pane.id === DEFAULT_PANE_ID) ?? ordinary[0] ?? panes[0];
-  const newTabs = tabs.filter((tab) => !placed.has(tab.tabId));
+  const leftBehind = mode === "attack" ? new Set<string>() : attackOnlyTabIds(live);
+  const newTabs = tabs.filter((tab) => !placed.has(tab.tabId) && !leftBehind.has(tab.tabId));
   const destination = (tab: WorkspaceTab) => {
     if (tab.target.kind === "files" || tab.target.kind === "changes_tree")
       return explorerPaneId ?? main?.id;
@@ -275,12 +300,25 @@ export function restoreWorkbench(
     });
     const added = additions.get(node.pane.id) ?? [];
     const revealChat = mode === "editor" && node.pane.id === sidePaneId && added.some(isChat);
+    const paneTabs = [...previous, ...added];
+    const fixture = mode === "attack" ? ATTACK_PANE_FIXTURES[node.pane.id] : undefined;
+    let focusedTabId = node.pane.focusedTabId;
+    if (fixture) {
+      let fixed = paneTabs.find((tab) => tab.target.kind === fixture);
+      if (!fixed) {
+        fixed = fixture === "new_tab" ? createNewWorkspaceTab() : attackTab(fixture);
+        paneTabs.push(fixed);
+      }
+      // The launcher stays focused so no chat or browser panel mounts in the zero-size pane.
+      focusedTabId = fixed.tabId;
+    }
     return {
       kind: "pane",
-      pane: paneWithTabs(revealChat ? { ...node.pane, hidden: undefined } : node.pane, [
-        ...previous,
-        ...added,
-      ]),
+      pane: paneWithTabs(
+        revealChat ? { ...node.pane, hidden: undefined } : node.pane,
+        paneTabs,
+        focusedTabId,
+      ),
     };
   };
   return {
