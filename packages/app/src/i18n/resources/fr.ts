@@ -995,6 +995,7 @@ export const fr: TranslationResources = {
     terminal: {
       hostDisconnected: "L’hôte n’est pas connecté",
       unableToSubscribe: "Impossible de s’abonner au terminal",
+      endedOnHostRestart: "Le terminal s’est arrêté au redémarrage de l’hôte",
       fileUploaded: "Fichier envoyé",
       pasteFileFailed: "Impossible de coller le fichier : {{reason}}",
       uploadingFile: "Envoi du fichier…",

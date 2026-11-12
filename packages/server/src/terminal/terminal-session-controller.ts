@@ -657,6 +657,7 @@ export class TerminalSessionController {
         payload: {
           terminalId: msg.terminalId,
           error: "Terminal not found",
+          code: "terminal_not_found",
           requestId: msg.requestId,
         },
       });

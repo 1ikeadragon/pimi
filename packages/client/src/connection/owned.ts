@@ -48,6 +48,8 @@ export class OwnedSubscriptions {
     request: (accept: (snapshot: T) => void) => Promise<T>,
     signal?: AbortSignal,
     requestFailed?: () => void,
+    // Failures the caller handles itself; they still reject `ready` but are not reported as host failures.
+    expectedFailure?: (error: unknown) => boolean,
   ): OwnedSubscription<T> {
     let id: string | null = null;
     let snapshot: SubscriptionSnapshot<T> | undefined;
@@ -121,7 +123,7 @@ export class OwnedSubscriptions {
               }
             }
             void handle.release().catch(this.host.failed);
-            this.host.failed(error);
+            if (!expectedFailure?.(error)) this.host.failed(error);
             requestFailed?.();
             return undefined;
           })

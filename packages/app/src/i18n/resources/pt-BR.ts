@@ -994,6 +994,7 @@ export const ptBR: TranslationResources = {
     terminal: {
       hostDisconnected: "Host não está conectado",
       unableToSubscribe: "Não foi possível assinar o terminal",
+      endedOnHostRestart: "O terminal foi encerrado quando o host reiniciou",
       fileUploaded: "Arquivo enviado",
       pasteFileFailed: "Falha ao colar o arquivo: {{reason}}",
       uploadingFile: "Enviando arquivo…",

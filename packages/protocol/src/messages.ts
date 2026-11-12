@@ -7064,6 +7064,7 @@ export const SubscribeTerminalResponseSchema = z.object({
     z.object({
       terminalId: z.string(),
       error: z.string(),
+      code: z.literal("terminal_not_found").optional(),
       requestId: z.string(),
     }),
   ]),

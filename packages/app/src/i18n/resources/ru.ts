@@ -995,6 +995,7 @@ export const ru: TranslationResources = {
     terminal: {
       hostDisconnected: "Хост не подключён",
       unableToSubscribe: "Не удалось подключиться к терминалу",
+      endedOnHostRestart: "Терминал завершился при перезапуске хоста",
       fileUploaded: "Файл загружен",
       pasteFileFailed: "Не удалось вставить файл: {{reason}}",
       uploadingFile: "Загрузка файла…",

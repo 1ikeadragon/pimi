@@ -121,6 +121,10 @@ export class TerminalStreamController {
         if (this.disposed || this.subscription !== subscription) {
           return;
         }
+        if ((error as { code?: unknown } | null)?.code === "terminal_not_found") {
+          this.handleTerminalGone({ terminalId: nextTerminalId });
+          return;
+        }
         this.failAttach(nextTerminalId, error);
       });
   }
@@ -138,6 +142,16 @@ export class TerminalStreamController {
   }
 
   handleTerminalExit(input: { terminalId: string }): void {
+    this.endTerminal(input.terminalId, TERMINAL_EXITED_ERROR);
+  }
+
+  // The host no longer knows this terminal (it restarted without keeping terminals).
+  private handleTerminalGone(input: { terminalId: string }): void {
+    this.endTerminal(input.terminalId, i18n.t("workspace.terminal.endedOnHostRestart"));
+  }
+
+  private endTerminal(terminalId: string, message: string): void {
+    const input = { terminalId };
     if (this.disposed || input.terminalId !== this.terminalId) {
       return;
     }
@@ -148,7 +162,7 @@ export class TerminalStreamController {
     this.options.onStatusChange?.({
       terminalId: input.terminalId,
       isAttaching: false,
-      error: TERMINAL_EXITED_ERROR,
+      error: message,
     });
   }
 

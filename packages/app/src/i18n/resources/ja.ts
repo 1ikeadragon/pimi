@@ -996,6 +996,7 @@ export const ja: TranslationResources = {
     terminal: {
       hostDisconnected: "ホストが接続されていません",
       unableToSubscribe: "ターミナルに接続できません",
+      endedOnHostRestart: "ホストの再起動によりターミナルが終了しました",
       fileUploaded: "ファイルをアップロードしました",
       pasteFileFailed: "ファイルを貼り付けられませんでした: {{reason}}",
       uploadingFile: "ファイルをアップロード中…",

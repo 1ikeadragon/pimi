@@ -983,6 +983,7 @@ export const en = {
     terminal: {
       hostDisconnected: "Host is not connected",
       unableToSubscribe: "Unable to subscribe to terminal",
+      endedOnHostRestart: "Terminal ended when the host restarted",
       fileUploaded: "File uploaded",
       pasteFileFailed: "Failed to paste file: {{reason}}",
       uploadingFile: "Uploading file…",

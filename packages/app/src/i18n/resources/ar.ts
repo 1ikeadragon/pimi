@@ -987,6 +987,7 @@ export const ar: TranslationResources = {
     terminal: {
       hostDisconnected: "Host غير متصل",
       unableToSubscribe: "غير قادر على الاشتراك في المحطة",
+      endedOnHostRestart: "انتهت المحطة الطرفية عند إعادة تشغيل المضيف",
       fileUploaded: "تم رفع الملف",
       pasteFileFailed: "تعذر لصق الملف: {{reason}}",
       uploadingFile: "جارٍ رفع الملف…",

@@ -990,6 +990,7 @@ export const ko: TranslationResources = {
     terminal: {
       hostDisconnected: "호스트가 연결되어 있지 않습니다",
       unableToSubscribe: "터미널을 구독할 수 없습니다",
+      endedOnHostRestart: "호스트가 다시 시작되면서 터미널이 종료되었습니다",
       fileUploaded: "파일을 업로드했습니다",
       pasteFileFailed: "파일을 붙여넣지 못했습니다: {{reason}}",
       uploadingFile: "파일 업로드 중…",

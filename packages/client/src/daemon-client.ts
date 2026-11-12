@@ -2627,7 +2627,12 @@ export class DaemonClient {
   private observe<T extends CorrelatedResponseType>(
     responseType: T,
     message: { type: SessionInboundMessage["type"] } & Record<string, unknown>,
-    options?: { requestId?: string; timeout?: number; signal?: AbortSignal },
+    options?: {
+      requestId?: string;
+      timeout?: number;
+      signal?: AbortSignal;
+      expectedFailure?: (error: unknown) => boolean;
+    },
   ): OwnedSubscription<CorrelatedResponsePayload<T>> {
     let resetSource = false;
     return this.owned.observe<CorrelatedResponsePayload<T>>(
@@ -2648,6 +2653,10 @@ export class DaemonClient {
                   requestId: payload.requestId,
                   requestType: message.type,
                   error: payload.error,
+                  code:
+                    "code" in payload && typeof payload.code === "string"
+                      ? payload.code
+                      : undefined,
                 });
               accept(payload);
               return payload;
@@ -2667,6 +2676,7 @@ export class DaemonClient {
           this.scheduleReconnect({ reason: "Subscription request failed" });
         }
       },
+      options?.expectedFailure,
     );
   }
 
@@ -6642,7 +6652,12 @@ export class DaemonClient {
         terminalId,
         restore: options?.restore ?? { mode: "full-snapshot" },
       },
-      options,
+      {
+        ...options,
+        // A terminal the host no longer has is an ended terminal, not a failure to report.
+        expectedFailure: (error) =>
+          error instanceof DaemonRpcError && error.code === "terminal_not_found",
+      },
     );
     let detach = () => {};
     let released = false;
