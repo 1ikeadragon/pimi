@@ -1,5 +1,5 @@
-import { access, mkdir, rename, rm, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { access, chmod, mkdir, open, rename, rm, stat } from "node:fs/promises";
+import { basename, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { Logger } from "pino";
 
@@ -46,6 +46,57 @@ const SCHEMA_STEPS: readonly string[] = [
      PRIMARY KEY (agent_id, image_id)) STRICT;`,
 ];
 
+// pimi-timeline.db: chat timelines and their search index. Large and rebuildable from provider
+// transcripts, so it is checked cheaply and never backed up (see openPimiTimelineDatabase).
+const TIMELINE_SCHEMA_STEPS: readonly string[] = [
+  `CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT;
+   CREATE TABLE timeline_agents (
+     key INTEGER PRIMARY KEY,
+     agent_id TEXT NOT NULL UNIQUE,
+     epoch TEXT NOT NULL,
+     row_format INTEGER NOT NULL,
+     complete INTEGER NOT NULL DEFAULT 0,
+     open_turn INTEGER NOT NULL DEFAULT 0,
+     provider_subagents INTEGER NOT NULL DEFAULT 0,
+     session_key TEXT,
+     fingerprint TEXT,
+     indexed_lo INTEGER NOT NULL DEFAULT 0,
+     indexed_hi INTEGER NOT NULL DEFAULT 0,
+     updated_at TEXT NOT NULL) STRICT;
+   CREATE TABLE timeline_rows (
+     agent_key INTEGER NOT NULL REFERENCES timeline_agents(key) ON DELETE CASCADE,
+     seq INTEGER NOT NULL,
+     ts TEXT NOT NULL,
+     turn_id TEXT,
+     provider_message_id TEXT,
+     carried INTEGER NOT NULL DEFAULT 0,
+     type TEXT NOT NULL,
+     json TEXT NOT NULL,
+     PRIMARY KEY (agent_key, seq)) STRICT;
+   CREATE TABLE timeline_docs (
+     id INTEGER PRIMARY KEY,
+     agent_key INTEGER NOT NULL REFERENCES timeline_agents(key) ON DELETE CASCADE,
+     seq_start INTEGER NOT NULL,
+     seq_end INTEGER NOT NULL,
+     kind TEXT NOT NULL,
+     ts TEXT NOT NULL,
+     text TEXT NOT NULL,
+     UNIQUE (agent_key, seq_start)) STRICT;
+   CREATE VIRTUAL TABLE timeline_fts USING fts5(
+     text, content='timeline_docs', content_rowid='id',
+     tokenize='unicode61 remove_diacritics 2');
+   CREATE TRIGGER timeline_docs_ai AFTER INSERT ON timeline_docs BEGIN
+     INSERT INTO timeline_fts(rowid, text) VALUES (new.id, new.text);
+   END;
+   CREATE TRIGGER timeline_docs_ad AFTER DELETE ON timeline_docs BEGIN
+     INSERT INTO timeline_fts(timeline_fts, rowid, text) VALUES ('delete', old.id, old.text);
+   END;
+   CREATE TRIGGER timeline_docs_au AFTER UPDATE ON timeline_docs BEGIN
+     INSERT INTO timeline_fts(timeline_fts, rowid, text) VALUES ('delete', old.id, old.text);
+     INSERT INTO timeline_fts(rowid, text) VALUES (new.id, new.text);
+   END;`,
+];
+
 const BACKUP_INTERVAL_MS = 24 * 60 * 60_000;
 
 export interface PimiDatabase {
@@ -60,6 +111,10 @@ export function pimiDatabasePath(pimiHome: string): string {
   return join(pimiHome, "pimi.db");
 }
 
+export function pimiTimelineDatabasePath(pimiHome: string): string {
+  return join(pimiHome, "pimi-timeline.db");
+}
+
 async function exists(path: string): Promise<boolean> {
   return access(path).then(
     () => true,
@@ -67,13 +122,14 @@ async function exists(path: string): Promise<boolean> {
   );
 }
 
-function openChecked(path: string): DatabaseSync {
+function openChecked(path: string, check: "integrity" | "quick"): DatabaseSync {
   const db = new DatabaseSync(path);
   try {
     db.exec("PRAGMA busy_timeout = 5000");
-    const row = db.prepare("PRAGMA integrity_check").get();
-    if (row?.integrity_check !== "ok") {
-      throw new Error(`integrity_check: ${String(row?.integrity_check)}`);
+    const pragma = check === "quick" ? "quick_check" : "integrity_check";
+    const row = db.prepare(`PRAGMA ${pragma}`).get();
+    if (row?.[pragma] !== "ok") {
+      throw new Error(`${pragma}: ${String(row?.[pragma])}`);
     }
     return db;
   } catch (error) {
@@ -86,7 +142,12 @@ function openChecked(path: string): DatabaseSync {
   }
 }
 
-async function moveAside(path: string, logger: Logger, reason: unknown): Promise<void> {
+async function moveAside(
+  path: string,
+  logger: Logger,
+  reason: unknown,
+  consequence: string,
+): Promise<void> {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   for (const suffix of ["", "-wal", "-shm"]) {
     if (await exists(path + suffix)) {
@@ -95,7 +156,7 @@ async function moveAside(path: string, logger: Logger, reason: unknown): Promise
   }
   logger.error(
     { err: reason, path },
-    "pimi.db failed its integrity check; moved aside, starting empty",
+    `${basename(path)} failed its check; moved aside. ${consequence}`,
   );
 }
 
@@ -113,22 +174,37 @@ async function backupIfDue(db: DatabaseSync, path: string, logger: Logger): Prom
   }
 }
 
-// Opens $PIMI_HOME/pimi.db, applies pending schema steps, and backs it up at most once a day. A
-// database that fails integrity_check is moved aside (never deleted) and replaced by an empty one.
-export async function openPimiDatabase(options: {
+// chat text and agent records are private to the user: the files, and the WAL files SQLite creates
+// beside them, are readable by the owner only. Best effort (a no-op on Windows).
+async function restrictToOwner(path: string): Promise<void> {
+  for (const suffix of ["", "-wal", "-shm", ".bak"]) {
+    await chmod(path + suffix, 0o600).catch(() => undefined);
+  }
+}
+
+interface OpenDatabaseOptions {
   pimiHome: string;
   logger: Logger;
-}): Promise<PimiDatabase> {
+  path: string;
+  schemaSteps: readonly string[];
+  check: "integrity" | "quick";
+  backup: boolean;
+  consequence: string;
+}
+
+async function openDatabase(options: OpenDatabaseOptions): Promise<PimiDatabase> {
   const logger = options.logger.child({ module: "db" });
   await mkdir(options.pimiHome, { recursive: true });
-  const path = pimiDatabasePath(options.pimiHome);
+  const { path, schemaSteps } = options;
+  // Create the file owner-only up front, so there is no window where it is world-readable.
+  await (await open(path, "a", 0o600)).close();
   let db: DatabaseSync;
   try {
-    db = openChecked(path);
+    db = openChecked(path, options.check);
   } catch (error) {
     if (!(await exists(path))) throw error;
-    await moveAside(path, logger, error);
-    db = openChecked(path);
+    await moveAside(path, logger, error, options.consequence);
+    db = openChecked(path, options.check);
   }
   db.exec("PRAGMA journal_mode = WAL");
   db.exec("PRAGMA synchronous = FULL");
@@ -147,21 +223,59 @@ export async function openPimiDatabase(options: {
   };
 
   const version = Number(db.prepare("PRAGMA user_version").get()?.user_version ?? 0);
-  if (version > SCHEMA_STEPS.length) {
+  if (version > schemaSteps.length) {
     db.close();
     throw new Error(
-      `pimi.db is schema v${version} but this daemon only knows v${SCHEMA_STEPS.length}; refusing to open it`,
+      `${basename(path)} is schema v${version} but this daemon only knows v${
+        schemaSteps.length
+      }; refusing to open it`,
     );
   }
-  for (let next = version; next < SCHEMA_STEPS.length; next += 1) {
+  for (let next = version; next < schemaSteps.length; next += 1) {
     transaction(() => {
-      db.exec(SCHEMA_STEPS[next]);
+      db.exec(schemaSteps[next]);
       db.exec(`PRAGMA user_version = ${next + 1}`);
     });
   }
-  await backupIfDue(db, path, logger);
+  if (options.backup) await backupIfDue(db, path, logger);
+  await restrictToOwner(path);
 
   return { db, path, transaction, close: () => db.close() };
+}
+
+// Opens $PIMI_HOME/pimi.db, applies pending schema steps, and backs it up at most once a day. A
+// database that fails integrity_check is moved aside (never deleted) and replaced by an empty one.
+export function openPimiDatabase(options: {
+  pimiHome: string;
+  logger: Logger;
+}): Promise<PimiDatabase> {
+  return openDatabase({
+    ...options,
+    path: pimiDatabasePath(options.pimiHome),
+    schemaSteps: SCHEMA_STEPS,
+    check: "integrity",
+    backup: true,
+    consequence: "Starting empty.",
+  });
+}
+
+// Opens $PIMI_HOME/pimi-timeline.db (chat timelines and the search index). It is rebuildable from
+// provider transcripts, so it gets the cheap quick_check and no daily backup; a corrupt file is
+// moved aside and every chat rebuilds from its provider. Rows carried over a provider switch exist
+// nowhere else and are re-imported from pimi.db only if that copy is still there.
+export function openPimiTimelineDatabase(options: {
+  pimiHome: string;
+  logger: Logger;
+}): Promise<PimiDatabase> {
+  return openDatabase({
+    ...options,
+    path: pimiTimelineDatabasePath(options.pimiHome),
+    schemaSteps: TIMELINE_SCHEMA_STEPS,
+    check: "quick",
+    backup: false,
+    consequence:
+      "Chats rebuild from their providers; rows carried over a provider switch are re-imported from pimi.db when present.",
+  });
 }
 
 // Runs a one-time import of legacy JSON files. `name` gates it through a meta row, so a second

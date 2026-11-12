@@ -83,13 +83,21 @@ export class InMemoryAgentTimelineStore {
     return this.requireState(agentId).projection.countRowsBefore(seq);
   }
 
-  /** Add older history in front of the first row, numbering it downwards from there. */
+  /** Lowest seq of the loaded rows, or 0 when there are none. */
+  getMinSeq(agentId: string): number {
+    return this.requireState(agentId).minSeq;
+  }
+
+  /**
+   * Add older history in front of the first row, numbering it downwards from there. Returns the
+   * rows it created so a durable copy can store them under the same seqs.
+   */
   prependItems(
     agentId: string,
     entries: readonly { item: AgentTimelineItem; timestamp?: string }[],
-  ): void {
+  ): AgentTimelineRow[] {
     const state = this.requireState(agentId);
-    if (entries.length === 0) return;
+    if (entries.length === 0) return [];
     const firstSeq = state.minSeq === 0 ? state.nextSeq : state.minSeq;
     const startSeq = firstSeq - entries.length;
     if (startSeq < 1) throw new Error(`Timeline for '${agentId}' has no room for older history`);
@@ -101,8 +109,20 @@ export class InMemoryAgentTimelineStore {
         item: entry.item,
       }),
     );
-    state.projection.prepend(rows);
-    state.minSeq = startSeq;
+    this.prependRows(agentId, rows);
+    return rows;
+  }
+
+  /** Add stored rows (ascending, ending below the first loaded row) in front of the timeline. */
+  prependRows(agentId: string, rows: readonly AgentTimelineRow[]): void {
+    const state = this.requireState(agentId);
+    if (rows.length === 0) return;
+    const last = rows[rows.length - 1]!;
+    if (state.minSeq !== 0 && last.seq >= state.minSeq) {
+      throw new Error(`Older rows for '${agentId}' overlap the loaded timeline`);
+    }
+    state.projection.prepend(rows.map(cloneRow));
+    state.minSeq = rows[0]!.seq;
     state.completedCompactions += rows.reduce(
       (count, row) => count + Number(isCompletedCompaction(row.item)),
       0,

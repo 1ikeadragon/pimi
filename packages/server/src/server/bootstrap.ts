@@ -155,8 +155,9 @@ import { AgentManager } from "./agent/agent-manager.js";
 import { AgentStorage } from "./agent/agent-storage.js";
 import { MessageReceipts } from "./message-receipts/index.js";
 import { CreationService } from "./creation/index.js";
-import { openPimiDatabase } from "./db/pimi-db.js";
-import { SqlCarriedTimelineStore } from "./agent/carried-timeline.js";
+import { openPimiDatabase, openPimiTimelineDatabase } from "./db/pimi-db.js";
+import { importCarriedTimelines } from "./agent/carried-timeline.js";
+import { SqliteTimelineStore } from "./agent/sqlite-timeline-store.js";
 import { FileAgentImageStore } from "./agent/agent-images.js";
 import { SqlSentAttachmentStore } from "./agent/sent-attachments.js";
 import { attachAgentStoragePersistence } from "./persistence-hooks.js";
@@ -1057,12 +1058,30 @@ export async function createPimiDaemon(
   // One-time imports of the old JSON files; each is gated by a meta row in pimi.db.
   await agentImages.importLegacy();
   await sentAttachments.importLegacy();
-  const carriedTimelines = new SqlCarriedTimelineStore(
-    pimiDatabase,
-    path.join(config.pimiHome, "agent-carried-timelines"),
-    logger,
-  );
-  await carriedTimelines.importLegacy();
+  const timelineDatabase = await openPimiTimelineDatabase({ pimiHome: config.pimiHome, logger });
+  const timelineArchive = new SqliteTimelineStore(timelineDatabase, logger);
+  {
+    // Timelines of agents deleted while the daemon was down (the two files are not one transaction).
+    const knownAgentIds = new Set(
+      pimiDatabase.db
+        .prepare("SELECT id FROM agents")
+        .all()
+        .map((row) => String(row.id)),
+    );
+    const removed = timelineArchive.sweepOrphans(knownAgentIds);
+    await importCarriedTimelines({
+      pimiDatabase,
+      timelineStore: timelineArchive,
+      legacyDirectory: path.join(config.pimiHome, "agent-carried-timelines"),
+      knownAgentIds,
+      logger,
+    });
+    const size = timelineArchive.describe();
+    logger.info({ ...size, removedOrphans: removed }, "Opened pimi-timeline.db");
+    if (size.bytes > 2 * 1024 ** 3) {
+      logger.warn({ bytes: size.bytes }, "pimi-timeline.db is over 2 GB");
+    }
+  }
   await importLegacyFinishSubscriptions(pimiDatabase, config.pimiHome, logger);
   await new MessageReceipts(
     pimiDatabase,
@@ -1155,7 +1174,7 @@ export async function createPimiDaemon(
     clients: initialAgentManagerState.clients,
     providerDefinitions: initialAgentManagerState.providerDefinitions,
     registry: agentStorage,
-    carriedTimelines,
+    timelineArchive,
     agentImages,
     sentAttachments,
     appendSystemPrompt: config.appendSystemPrompt,
@@ -2173,6 +2192,7 @@ export async function createPimiDaemon(
       label: "drain plugin lifecycle events",
     }).catch((error) => logger.warn({ err: error }, "Plugin lifecycle events did not finish"));
     await agentManager.flushForShutdown().catch(() => undefined);
+    timelineArchive.close();
     detachAgentStoragePersistence();
     await agentStorage.flush().catch(() => undefined);
     await agentProviderRuntime.shutdown();
@@ -2202,6 +2222,7 @@ export async function createPimiDaemon(
     await serviceProxy.stopStandalone();
     await networkLog.close();
     pimiDatabase.close();
+    timelineDatabase.close();
     // Force-drop remaining sockets so httpServer.close() resolves promptly.
     // We've already closed wsServer (which sent ws-layer close frames) and
     // stopped every other service, so anything still attached is a TCP

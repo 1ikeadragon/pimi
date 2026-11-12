@@ -71,9 +71,57 @@ export interface WebSocketRuntimeDiagnosticSnapshot<
   runtime: TRuntime;
   agents: TAgents;
   git: TGit;
+  timelineFlush: TimelineFlushSnapshot;
 }
 
 type Clock = () => number;
+
+export interface TimelineFlushSnapshot {
+  flushes: number;
+  failures: number;
+  rows: number;
+  p50Ms: number;
+  p99Ms: number;
+  maxMs: number;
+}
+
+/** Commit cost of the buffered timeline writes (rows, ms per transaction) since the last snapshot. */
+class TimelineFlushMetrics {
+  private durations: number[] = [];
+  private rows = 0;
+  private failures = 0;
+
+  recordFlush(rows: number, ms: number): void {
+    this.rows += rows;
+    this.durations.push(ms);
+  }
+
+  recordFailure(): void {
+    this.failures += 1;
+  }
+
+  snapshotAndReset(): TimelineFlushSnapshot {
+    const sorted = [...this.durations].sort((a, b) => a - b);
+    const at = (fraction: number) =>
+      sorted.length === 0
+        ? 0
+        : (sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * fraction))] ?? 0);
+    const snapshot: TimelineFlushSnapshot = {
+      flushes: sorted.length,
+      failures: this.failures,
+      rows: this.rows,
+      p50Ms: Math.round(at(0.5) * 100) / 100,
+      p99Ms: Math.round(at(0.99) * 100) / 100,
+      maxMs: Math.round((sorted[sorted.length - 1] ?? 0) * 100) / 100,
+    };
+    this.durations = [];
+    this.rows = 0;
+    this.failures = 0;
+    return snapshot;
+  }
+}
+
+export const timelineFlushMetrics = new TimelineFlushMetrics();
 
 export class WebSocketRuntimeMetricsWindow {
   private windowStartedAt: number;

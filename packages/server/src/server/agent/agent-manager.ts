@@ -2,7 +2,6 @@ import type { AttachedAgentTool, PluginAgentToolsRuntime } from "../plugins/agen
 import type { AgentToolResult } from "@pimi/plugin/server";
 import type { RuntimeCleanupCandidate } from "./idle-runtime-cleanup/index.js";
 import { ensureAgentLoaded } from "./agent-loading.js";
-import { projectTimelineRows } from "./timeline-projection.js";
 import { withRecordedUsage } from "./usage-samples.js";
 import type { PluginLifecycle } from "../plugins/lifecycle/index.js";
 import { describeHookAgent, publishAgentStream } from "../plugins/lifecycle/index.js";
@@ -74,7 +73,6 @@ import type {
   AgentTimelineFetchOptions,
   AgentTimelineFetchResult,
   AgentTimelineRow,
-  AgentTimelineStore,
 } from "./agent-timeline-store-types.js";
 import {
   AGENT_STREAM_COALESCE_DEFAULT_WINDOW_MS,
@@ -121,7 +119,7 @@ import { isChatHistoryAttachment } from "./prompt-attachments.js";
 import type { AgentAttachment } from "@pimi/protocol/messages";
 import type { AgentImageRef } from "@pimi/protocol/agent-types";
 import { storeProviderImage, type AgentImageStore } from "./agent-images.js";
-import type { CarriedTimelineStore } from "./carried-timeline.js";
+import { SqliteTimelineStore, timelineSessionKey } from "./sqlite-timeline-store.js";
 import {
   SentAttachmentJoiner,
   prepareSentAttachments,
@@ -586,8 +584,8 @@ export interface AgentManagerOptions {
   ) => Promise<string>;
   isAutoNamingEnabled?: () => boolean;
   timelineStore?: InMemoryAgentTimelineStore;
-  durableTimelineStore?: AgentTimelineStore;
-  carriedTimelines?: CarriedTimelineStore;
+  /** Where chat timelines are kept across daemon restarts; without it they live in memory only. */
+  timelineArchive?: SqliteTimelineStore;
   sentAttachments?: SentAttachmentStore;
   agentImages?: AgentImageStore;
   terminalManager?: TerminalManager | null;
@@ -953,6 +951,15 @@ function applyLabelPatch(
   return nextLabels;
 }
 
+function sleepUnref(ms: number): Promise<void> {
+  return new Promise((done) => {
+    setTimeout(done, ms).unref();
+  });
+}
+
+/** Rows read from the stored copy per step when scrolling back through a long chat. */
+const OLDER_TIMELINE_BLOCK_ROWS = 500;
+
 function buildExplicitTimelineSeedForRegister(
   now: Date,
   options:
@@ -1077,8 +1084,7 @@ export class AgentManager {
   private readonly subscribers = new Set<SubscriptionRecord>();
   private readonly idFactory: () => string;
   private readonly registry?: AgentStorage;
-  private readonly durableTimelineStore?: AgentTimelineStore;
-  private readonly carriedTimelines?: CarriedTimelineStore;
+  private readonly timelineArchive?: SqliteTimelineStore;
   private readonly sentAttachments?: SentAttachmentStore;
   private readonly agentImages?: AgentImageStore;
   private readonly sentJoiners = new Map<string, SentAttachmentJoiner>();
@@ -1125,8 +1131,7 @@ export class AgentManager {
     this.timelineStore = options.timelineStore ?? new InMemoryAgentTimelineStore();
     this.idFactory = options.idFactory ?? (() => randomUUID());
     this.registry = options?.registry;
-    this.durableTimelineStore = options?.durableTimelineStore;
-    this.carriedTimelines = options.carriedTimelines;
+    this.timelineArchive = options.timelineArchive;
     this.sentAttachments = options.sentAttachments;
     this.agentImages = options.agentImages;
     this.onAgentAttention = options?.onAgentAttention;
@@ -1650,12 +1655,6 @@ export class AgentManager {
   async getTimelineRows(id: string): Promise<AgentTimelineRow[]> {
     this.requireAgent(id);
     await this.ensureTimelineRowsBefore(id, { all: true });
-    if (this.durableTimelineStore) {
-      return projectTimelineRows({
-        rows: await this.durableTimelineStore.getCommittedRows(id),
-        mode: "projected",
-      }).map((entry) => Object.assign({ seq: entry.seqEnd }, entry));
-    }
     return this.timelineStore.getRows(id);
   }
 
@@ -2169,7 +2168,7 @@ export class AgentManager {
       agentId,
       buildProviderSwitchTimelineItem({ from, to: describeSwitchTarget(switched, target) }),
     );
-    await this.saveCarriedTimeline(agentId);
+    this.markTimelineCarried(agentId);
     this.logger.info(
       {
         agentId,
@@ -2287,18 +2286,20 @@ export class AgentManager {
   }
 
   /**
-   * Rows from before a switch exist nowhere in the new provider's history, so
-   * they are written down for the next time the timeline is rebuilt.
+   * Rows from before a switch exist nowhere in the new provider's history, so they are flagged
+   * as carried: a rebuild from the provider keeps them and replaces only what comes after.
    */
-  private async saveCarriedTimeline(agentId: string): Promise<void> {
-    if (!this.carriedTimelines) return;
+  private markTimelineCarried(agentId: string): void {
     try {
-      await this.carriedTimelines.save(agentId, this.timelineStore.getRows(agentId));
+      this.timelineArchive?.markCarried(
+        agentId,
+        timelineSessionKey(this.agents.get(agentId)?.persistence),
+      );
     } catch (error) {
       // The switch already happened. The chat stays whole until its runtime is released.
       this.logger.error(
         { err: error, agentId },
-        "Failed to save carried timeline; earlier messages will be missing after a restart",
+        "Failed to mark carried timeline; earlier messages will be missing after a restart",
       );
     }
   }
@@ -2462,6 +2463,7 @@ export class AgentManager {
         // Wipe the in-memory timeline so registerSession mints a new epoch and
         // hydrateTimelineFromProvider re-streams the freshly read provider history.
         this.timelineStore.delete(agentId);
+        this.timelineArchive?.unbind(agentId);
         for (const event of this.providerSubagents.deleteParent(agentId)) {
           this.dispatch({ type: "provider_subagent", event });
         }
@@ -4408,9 +4410,8 @@ export class AgentManager {
     options?: { keepCarriedTimeline?: boolean },
   ): Promise<void> {
     this.discardRetainedAgentState(agentId);
-    await this.deleteCommittedTimeline(agentId);
+    this.timelineArchive?.deleteAgent(agentId, { keepCarried: options?.keepCarriedTimeline });
     if (!options?.keepCarriedTimeline) {
-      await this.carriedTimelines?.delete(agentId);
       await this.sentAttachments?.delete(agentId);
       await this.agentImages?.delete(agentId);
     }
@@ -4456,6 +4457,9 @@ export class AgentManager {
     agentId: string,
     event: Extract<AgentStreamEvent, { type: "provider_subagent" }>,
   ): Promise<ReturnType<ProviderSubagentStore["apply"]> | null> {
+    // Provider subagent state is rebuilt from the provider's history, so a chat that has any
+    // does not open from its stored timeline.
+    this.timelineArchive?.markProviderSubagents(agentId);
     let input = event.event;
     if (input.type === "timeline" && input.item.type === "provider_images") {
       const item = await this.storeProviderImages(agentId, input.item);
@@ -4540,20 +4544,6 @@ export class AgentManager {
       });
   }
 
-  private async replayCarriedTimeline(agentId: string): Promise<void> {
-    if (!this.carriedTimelines) return;
-    let rows: Awaited<ReturnType<CarriedTimelineStore["load"]>>;
-    try {
-      rows = await this.carriedTimelines.load(agentId);
-    } catch (error) {
-      this.logger.error({ err: error, agentId }, "Failed to load carried timeline");
-      return;
-    }
-    for (const row of rows ?? []) {
-      this.recordTimeline(agentId, row.item, { timestamp: row.timestamp, turnId: row.turnId });
-    }
-  }
-
   notifyAgentRemoved(agent: Pick<StoredAgentRecord, "id" | "workspaceId" | "internal">): void {
     this.dispatch({
       type: "agent_removed",
@@ -4563,74 +4553,25 @@ export class AgentManager {
     });
   }
 
-  async deleteCommittedTimeline(agentId: string): Promise<void> {
-    await this.durableTimelineStore?.deleteAgent(agentId);
-  }
-
   async getLastAssistantMessage(agentId: string): Promise<string | null> {
-    if (!this.timelineStore.has(agentId)) {
-      return (await this.durableTimelineStore?.getLastAssistantMessage(agentId)) ?? null;
-    }
-    return await this.getLastAssistantMessageFromStores(agentId);
+    if (!this.timelineStore.has(agentId)) return null;
+    return this.getLastAssistantMessageFromTimeline(this.timelineStore.getItems(agentId));
   }
 
   private getLastAssistantMessageFromTimeline(
     timeline: readonly AgentTimelineItem[],
   ): string | null {
-    return this.getLastAssistantMessageSegmentFromTimeline(timeline)?.text ?? null;
-  }
-
-  private getLastAssistantMessageSegmentFromTimeline(
-    timeline: readonly AgentTimelineItem[],
-  ): { text: string; startsAtBeginning: boolean } | null {
     // Collect the last contiguous assistant messages (Claude streams chunks)
     const chunks: string[] = [];
-    let startsAtBeginning = false;
     for (let i = timeline.length - 1; i >= 0; i--) {
       const item = timeline[i];
       if (item.type !== "assistant_message") {
-        if (chunks.length) {
-          break;
-        }
+        if (chunks.length) break;
         continue;
       }
       chunks.push(item.text);
-      startsAtBeginning = i === 0;
     }
-
-    if (!chunks.length) {
-      return null;
-    }
-
-    return {
-      text: chunks.toReversed().join(""),
-      startsAtBeginning,
-    };
-  }
-
-  private async getLastAssistantMessageFromStores(agentId: string): Promise<string | null> {
-    const liveTimeline = this.timelineStore.getItems(agentId);
-    const liveSegment = this.getLastAssistantMessageSegmentFromTimeline(liveTimeline);
-    if (!this.durableTimelineStore) {
-      return liveSegment?.text ?? null;
-    }
-    if (!liveSegment) {
-      return await this.durableTimelineStore.getLastAssistantMessage(agentId);
-    }
-    if (!liveSegment.startsAtBeginning) {
-      return liveSegment.text;
-    }
-    const lastDurableItem = await this.durableTimelineStore.getLastItem(agentId);
-    if (lastDurableItem?.type !== "assistant_message") {
-      return liveSegment.text;
-    }
-    const durableMessage = await this.durableTimelineStore.getLastAssistantMessage(agentId);
-    return durableMessage ? `${durableMessage}${liveSegment.text}` : liveSegment.text;
-  }
-
-  private async getLastItemFromStores(agentId: string): Promise<AgentTimelineItem | null> {
-    const lastLiveItem = this.timelineStore.getLastItem(agentId);
-    return lastLiveItem ?? (await this.durableTimelineStore?.getLastItem(agentId)) ?? null;
+    return chunks.length ? chunks.toReversed().join("") : null;
   }
 
   async waitForAgentEvent(
@@ -4839,9 +4780,10 @@ export class AgentManager {
         resolvedAgentId,
         options?.pendingProviderContext,
       );
-      const { durableTimelineHasRows } = await this.initializeAgentTimelineForRegister({
+      const { timelineHasRows } = this.initializeAgentTimelineForRegister({
         agentId: resolvedAgentId,
         now,
+        internal: config.internal === true,
         options,
       });
 
@@ -4850,7 +4792,7 @@ export class AgentManager {
         session,
         config,
         now,
-        durableTimelineHasRows,
+        timelineHasRows,
         background: options?.background === true,
         options,
       });
@@ -4967,42 +4909,62 @@ export class AgentManager {
     return new Error(`Provider '${config.provider}' does not support MCP servers${source}`);
   }
 
-  private async initializeAgentTimelineForRegister(params: {
+  private initializeAgentTimelineForRegister(params: {
     agentId: string;
     now: Date;
+    internal: boolean;
     options:
       | {
           timeline?: AgentTimelineItem[];
           timelineRows?: AgentTimelineRow[];
           timelineNextSeq?: number;
           persistence?: AgentPersistenceHandle;
+          historyPrimed?: boolean;
           createdAt?: Date;
           updatedAt?: Date;
         }
       | undefined;
-  }): Promise<{ durableTimelineHasRows: boolean }> {
+  }): { timelineHasRows: boolean } {
     const { agentId, now, options } = params;
     const timelineAlreadyPrimed = this.timelineStore.has(agentId);
     const explicitTimelineSeed = buildExplicitTimelineSeedForRegister(now, options);
-    const shouldSeedFromDurable =
-      !explicitTimelineSeed && !this.timelineStore.has(agentId) && this.durableTimelineStore;
-    const durableTimelineSeed = shouldSeedFromDurable
-      ? await this.loadCommittedTimelineSeed(agentId, now)
-      : null;
-    const durableTimelineHasRows =
-      timelineAlreadyPrimed ||
-      (durableTimelineSeed != null && (durableTimelineSeed.nextSeq ?? 1) > 1);
-    const timelineSeed = explicitTimelineSeed ?? durableTimelineSeed;
-    if (timelineSeed || !this.timelineStore.has(agentId)) {
-      this.timelineStore.initialize(agentId, timelineSeed ?? { timestamp: now.toISOString() });
+    if (explicitTimelineSeed || !timelineAlreadyPrimed) {
+      this.timelineStore.initialize(
+        agentId,
+        explicitTimelineSeed ?? { timestamp: now.toISOString() },
+      );
     }
-    if (!timelineAlreadyPrimed && !explicitTimelineSeed && !durableTimelineHasRows) {
-      await this.replayCarriedTimeline(agentId);
+    const archive = params.internal ? undefined : this.timelineArchive;
+    if (archive && !timelineAlreadyPrimed) {
+      // A fresh in-memory timeline gets a stored copy only once it has a known origin: a chat
+      // born here (complete from its first row), an import (a prime replaces it on the next open)
+      // or, for a resumed chat, the open or prime that follows registration.
+      archive.unbind(agentId);
+      const epoch = this.timelineStore.getEpoch(agentId);
+      const sessionKey = timelineSessionKey(options?.persistence);
+      if (explicitTimelineSeed) {
+        archive.replace(agentId, { epoch, sessionKey, complete: false });
+        for (const row of options?.timelineRows ?? this.timelineStore.getRows(agentId)) {
+          archive.put(agentId, row);
+        }
+      } else if (options?.historyPrimed) {
+        archive.replace(agentId, { epoch, sessionKey, complete: true });
+        this.seedCarriedRows(agentId);
+      } else {
+        this.seedCarriedRows(agentId);
+      }
     }
-    if (options?.timelineRows?.length) {
-      this.enqueueDurableTimelineBulkInsert(agentId, options.timelineRows);
-    }
-    return { durableTimelineHasRows };
+    return { timelineHasRows: timelineAlreadyPrimed };
+  }
+
+  /** Rows a chat kept from providers it switched away from come back before any provider rows. */
+  private seedCarriedRows(agentId: string): void {
+    const rows = this.timelineArchive?.readCarriedRows(agentId) ?? [];
+    if (rows.length === 0) return;
+    this.timelineStore.initialize(agentId, {
+      rows,
+      epoch: this.timelineStore.getEpoch(agentId),
+    });
   }
 
   private buildManagedAgentForRegister(params: {
@@ -5010,7 +4972,7 @@ export class AgentManager {
     session: AgentSession;
     config: AgentSessionConfig;
     now: Date;
-    durableTimelineHasRows: boolean;
+    timelineHasRows: boolean;
     background: boolean;
     options:
       | {
@@ -5028,7 +4990,7 @@ export class AgentManager {
         }
       | undefined;
   }): ActiveManagedAgent {
-    const { resolvedAgentId, session, config, now, durableTimelineHasRows, options } = params;
+    const { resolvedAgentId, session, config, now, timelineHasRows, options } = params;
     return {
       id: resolvedAgentId,
       provider: config.provider,
@@ -5058,7 +5020,7 @@ export class AgentManager {
         options?.persistence ?? session.describePersistence(),
         config,
       ),
-      historyPrimed: options?.historyPrimed ?? durableTimelineHasRows,
+      historyPrimed: options?.historyPrimed ?? timelineHasRows,
       lastUserMessageAt: options?.lastUserMessageAt ?? null,
       lastUsage: options?.lastUsage,
       lastError: options?.lastError,
@@ -5067,19 +5029,6 @@ export class AgentManager {
       background: params.background,
       labels: options?.labels ?? {},
     } as ActiveManagedAgent;
-  }
-
-  private async loadCommittedTimelineSeed(
-    agentId: string,
-    now: Date,
-  ): Promise<SeedAgentTimelineOptions> {
-    if (!this.durableTimelineStore) {
-      return { timestamp: now.toISOString() };
-    }
-    return {
-      nextSeq: (await this.durableTimelineStore.getLatestCommittedSeq(agentId)) + 1,
-      timestamp: now.toISOString(),
-    };
   }
 
   private prepareAgentForClosure(
@@ -5455,6 +5404,63 @@ export class AgentManager {
 
   private readonly olderTimelineLoads = new Map<string, Promise<void>>();
 
+  /** Run one older-history task after the ones already queued for this agent. */
+  private async runOlderTimelineTask(agentId: string, task: () => Promise<void>): Promise<void> {
+    const previous = this.olderTimelineLoads.get(agentId);
+    const run = (async () => {
+      await previous?.catch(() => undefined);
+      await task();
+    })();
+    this.olderTimelineLoads.set(agentId, run);
+    try {
+      await run;
+    } finally {
+      if (this.olderTimelineLoads.get(agentId) === run) this.olderTimelineLoads.delete(agentId);
+    }
+  }
+
+  /**
+   * Read one block of older history from the provider and store it under seqs numbered downwards
+   * from the lowest stored row. Returns the rows (empty when the provider has none, or when the
+   * timeline was replaced while the block was being read).
+   */
+  private async pullOlderBlockFromProvider(
+    agent: ActiveManagedAgent,
+    epoch: string,
+    options: { intoMemory: boolean },
+  ): Promise<AgentTimelineRow[]> {
+    const agentId = agent.id;
+    const block = this.projectOlderHistoryEvents(await agent.session.loadOlderHistory!());
+    await this.completeHistoryEvents(agentId, block.timeline, { fresh: false });
+    if (this.timelineStore.getEpoch(agentId) !== epoch) return [];
+    const entries = block.timeline.map((event) => ({
+      item: event.item,
+      timestamp: event.timestamp,
+    }));
+    let rows: AgentTimelineRow[];
+    if (options.intoMemory) {
+      rows = this.timelineStore.prependItems(agentId, entries);
+    } else {
+      const lowest = this.timelineArchive?.minSeq(agentId) ?? this.timelineStore.getMinSeq(agentId);
+      const first = (lowest || this.timelineStore.getMinSeq(agentId)) - entries.length;
+      if (first < 1) throw new Error(`Timeline for '${agentId}' has no room for older history`);
+      const stamp = new Date().toISOString();
+      rows = entries.map((entry, index) => ({
+        seq: first + index,
+        timestamp: entry.timestamp ?? stamp,
+        item: entry.item,
+      }));
+    }
+    if (this.timelineArchive && rows.length > 0) {
+      await this.timelineArchive.insertRows(agentId, epoch, rows);
+    }
+    for (const event of block.subagents) {
+      const update = await this.applyProviderSubagentEvent(agentId, event);
+      if (update) this.dispatch({ type: "provider_subagent", event: update });
+    }
+    return rows;
+  }
+
   private async loadOlderTimelineRows(
     agentId: string,
     options: { beforeSeq?: number; rowsWanted?: number; all?: boolean },
@@ -5465,24 +5471,72 @@ export class AgentManager {
     while (this.timelineStore.hasOlderAvailable(agentId)) {
       const loaded = this.timelineStore.countRowsBefore(agentId, options.beforeSeq ?? Infinity);
       if (!options.all && loaded >= (options.rowsWanted ?? 0)) return;
-      const block = this.projectOlderHistoryEvents(await agent.session.loadOlderHistory!());
-      await this.completeHistoryEvents(agentId, block.timeline, { fresh: false });
       if (this.timelineStore.getEpoch(agentId) !== epoch) return;
-      this.timelineStore.prependItems(
-        agentId,
-        block.timeline.map((event) => ({ item: event.item, timestamp: event.timestamp })),
-      );
-      for (const event of block.subagents) {
-        const update = await this.applyProviderSubagentEvent(agentId, event);
-        if (update) this.dispatch({ type: "provider_subagent", event: update });
+      // Rows the stored copy already holds below the loaded ones come first.
+      if (this.timelineArchive?.getBoundEpoch(agentId) === epoch) {
+        const stored = this.timelineArchive.readBefore(
+          agentId,
+          this.timelineStore.getMinSeq(agentId),
+          OLDER_TIMELINE_BLOCK_ROWS,
+        );
+        if (stored.rows.length > 0) {
+          this.timelineStore.prependRows(agentId, stored.rows);
+          continue;
+        }
       }
-      if (!agent.session.hasOlderHistory?.()) this.timelineStore.setOlderAvailable(agentId, false);
+      if (!agent.session.hasOlderHistory?.()) {
+        this.timelineStore.setOlderAvailable(agentId, false);
+        return;
+      }
+      await this.pullOlderBlockFromProvider(agent, epoch, { intoMemory: true });
+      if (this.timelineStore.getEpoch(agentId) !== epoch) return;
+      if (!agent.session.hasOlderHistory?.()) {
+        this.timelineArchive?.markComplete(agentId, epoch);
+        // Rows below the loaded ones may still sit only in the stored copy; the loop reads them.
+        if (this.timelineArchive?.minSeq(agentId) === this.timelineStore.getMinSeq(agentId)) {
+          this.timelineStore.setOlderAvailable(agentId, false);
+        }
+      }
+    }
+  }
+
+  /**
+   * Move the rest of a windowed history from the provider into the stored copy while the chat is
+   * idle, one block at a time, so the chat can later open from storage and be searched whole.
+   * Blocks go to storage only; memory keeps its window and reads them back when scrolled to.
+   */
+  private async completeArchivedTimeline(agent: ActiveManagedAgent, epoch: string): Promise<void> {
+    const agentId = agent.id;
+    const session = agent.session;
+    const live = () =>
+      this.agents.get(agentId)?.session === session &&
+      this.timelineStore.has(agentId) &&
+      this.timelineStore.getEpoch(agentId) === epoch;
+    try {
+      while (live() && session.hasOlderHistory?.()) {
+        if (this.agents.get(agentId)?.lifecycle !== "idle") {
+          await sleepUnref(2000);
+          continue;
+        }
+        await this.runOlderTimelineTask(agentId, async () => {
+          if (!live() || !session.hasOlderHistory?.()) return;
+          await this.pullOlderBlockFromProvider(agent, epoch, { intoMemory: false });
+        });
+        await sleepUnref(20);
+      }
+      if (live() && !session.hasOlderHistory?.())
+        this.timelineArchive?.markComplete(agentId, epoch);
+    } catch (error) {
+      this.logger.warn(
+        { err: error, agentId },
+        "Stopped storing older history; the chat reads it from its provider when opened",
+      );
     }
   }
 
   /**
    * Make sure at least `rowsWanted` rows start before `beforeSeq` (the whole timeline when
-   * omitted), reading older blocks of a windowed history as needed. Callers that read
+   * omitted), reading older blocks from storage or the provider as needed. Callers that read
    * more than a page of rows ask for everything with `all`.
    */
   async ensureTimelineRowsBefore(
@@ -5490,17 +5544,7 @@ export class AgentManager {
     options: { beforeSeq?: number; rowsWanted?: number; all?: boolean },
   ): Promise<void> {
     if (!this.timelineStore.has(agentId) || !this.timelineStore.hasOlderAvailable(agentId)) return;
-    const previous = this.olderTimelineLoads.get(agentId);
-    const run = (async () => {
-      await previous?.catch(() => undefined);
-      await this.loadOlderTimelineRows(agentId, options);
-    })();
-    this.olderTimelineLoads.set(agentId, run);
-    try {
-      await run;
-    } finally {
-      if (this.olderTimelineLoads.get(agentId) === run) this.olderTimelineLoads.delete(agentId);
-    }
+    await this.runOlderTimelineTask(agentId, () => this.loadOlderTimelineRows(agentId, options));
   }
 
   private async hydrateTimelineFromLegacyProviderHistory(
@@ -5523,7 +5567,79 @@ export class AgentManager {
       return;
     }
 
+    if (await this.tryOpenTimelineFromArchive(agent, broadcast)) return;
     await this.primeTimelineFromLegacyProviderHistory(agent, broadcast);
+  }
+
+  /**
+   * Open a chat from its stored timeline instead of replaying the provider transcript, when the
+   * stored copy is complete and still matches the provider session (see SqliteTimelineStore).
+   * Every refusal falls back to the replay.
+   */
+  private async tryOpenTimelineFromArchive(
+    agent: ActiveManagedAgent,
+    broadcast: boolean | (() => boolean),
+  ): Promise<boolean> {
+    const archive = this.timelineArchive;
+    if (!archive || agent.internal) return false;
+    const startedAt = performance.now();
+    const opened = archive.openFromStore(agent.id, {
+      sessionKey: timelineSessionKey(agent.persistence),
+    });
+    if ("refusal" in opened) {
+      this.logger.debug(
+        { agentId: agent.id, refusal: opened.refusal },
+        "agent.history_open_refused",
+      );
+      return false;
+    }
+    let rows: AgentTimelineRow[];
+    let hasOlder: boolean;
+    try {
+      const tail = archive.readTail(agent.id);
+      rows = tail.rows;
+      hasOlder = tail.hasOlder;
+    } catch (error) {
+      archive.unbind(agent.id);
+      this.logger.warn({ err: error, agentId: agent.id }, "Failed to read stored timeline");
+      return false;
+    }
+    this.timelineStore.initialize(agent.id, {
+      ...(rows.length > 0 ? { rows } : { nextSeq: 1 }),
+      epoch: opened.agent.epoch,
+    });
+    this.timelineStore.setOlderAvailable(agent.id, hasOlder);
+    agent.historyPrimed = true;
+    this.logger.info(
+      {
+        agentId: agent.id,
+        rows: rows.length,
+        hasOlder,
+        openMs: Math.round(performance.now() - startedAt),
+      },
+      "agent.history_open_from_store",
+    );
+    if (typeof broadcast === "function" ? broadcast() : broadcast) {
+      const epoch = this.timelineStore.getEpoch(agent.id);
+      for (const row of rows) {
+        this.dispatchStream(
+          agent.id,
+          { type: "timeline", item: row.item, provider: agent.provider },
+          { seq: row.seq, epoch, timestamp: row.timestamp },
+        );
+      }
+    }
+    return true;
+  }
+
+  /** Start the stored copy of a timeline that was just rebuilt from the provider. */
+  private beginArchivedTimeline(agent: ActiveManagedAgent, complete: boolean): void {
+    if (!this.timelineArchive || agent.internal) return;
+    this.timelineArchive.replace(agent.id, {
+      epoch: this.timelineStore.getEpoch(agent.id),
+      sessionKey: timelineSessionKey(agent.persistence),
+      complete,
+    });
   }
 
   private async forceHydrateTimelineFromLegacyProviderHistory(
@@ -5552,10 +5668,10 @@ export class AgentManager {
     }
     await this.completeHistoryEvents(agent.id, historyEvents, { fresh: true });
     this.agentStreamCoalescer.flushAndDiscard(agent.id);
-    await this.deleteCommittedTimeline(agent.id);
     this.timelineStore.delete(agent.id);
     this.timelineStore.initialize(agent.id, { timestamp: new Date().toISOString() });
-    await this.replayCarriedTimeline(agent.id);
+    this.beginArchivedTimeline(agent, true);
+    this.seedCarriedRows(agent.id);
     agent.historyPrimed = true;
 
     for (const event of this.providerSubagents.deleteParent(agent.id)) {
@@ -5583,8 +5699,20 @@ export class AgentManager {
         });
       }
     }
+    this.settleArchivedTimeline(agent);
     this.touchUpdatedAt(agent);
     this.emitState(agent);
+  }
+
+  /** The rebuilt timeline is recorded: commit it and start indexing it. */
+  private settleArchivedTimeline(
+    agent: ActiveManagedAgent,
+    options?: { windowed?: boolean },
+  ): void {
+    this.timelineArchive?.markTurnClosed(agent.id, timelineSessionKey(agent.persistence));
+    if (options?.windowed && this.timelineArchive && !agent.internal) {
+      void this.completeArchivedTimeline(agent, this.timelineStore.getEpoch(agent.id));
+    }
   }
 
   private async primeTimelineFromLegacyProviderHistory(
@@ -5627,9 +5755,9 @@ export class AgentManager {
     // the whole history before it can be recorded.
     const windowed = await this.prepareWindowedHistory(agent, historyEvents, historySubagentEvents);
     await this.completeHistoryEvents(agent.id, historyEvents, { fresh: true });
-    // The replay is the timeline, so drop the rows a previous hydration committed.
-    // Keeping them would leave getTimelineRows reading one copy per hydration.
-    await this.deleteCommittedTimeline(agent.id);
+    // The replay is the timeline, so the stored copy of an earlier one is replaced. A windowed
+    // replay is incomplete until its older blocks have been read.
+    this.beginArchivedTimeline(agent, !windowed);
 
     const timelineEvents: Array<{
       event: Extract<AgentStreamEvent, { type: "timeline" }>;
@@ -5664,6 +5792,7 @@ export class AgentManager {
     }
     agent.historyPrimed = true;
     if (windowed) this.timelineStore.setOlderAvailable(agent.id, true);
+    this.settleArchivedTimeline(agent, { windowed });
     this.logger.info(
       {
         agentId: agent.id,
@@ -6387,7 +6516,7 @@ export class AgentManager {
         clientMessageId,
         messageId,
       );
-      if (enriched) this.enqueueDurableTimelineUpdate(agent.id, enriched);
+      if (enriched) this.timelineArchive?.put(agent.id, enriched);
     }
     return existing;
   }
@@ -6408,7 +6537,7 @@ export class AgentManager {
     }
 
     const text = `${SYSTEM_ERROR_PREFIX} ${normalized}`;
-    const lastItem = await this.getLastItemFromStores(agent.id);
+    const lastItem = this.timelineStore.getLastItem(agent.id);
     if (lastItem?.type === "assistant_message" && lastItem.text === text) {
       return;
     }
@@ -6457,11 +6586,14 @@ export class AgentManager {
   ): AgentTimelineRow {
     item = limitAgentTimelineItemContent(item);
     const row = this.timelineStore.append(agentId, item, options);
-    this.enqueueDurableTimelineAppend(agentId, row);
+    this.timelineArchive?.put(agentId, row);
     return row;
   }
 
   private emitState(agent: ManagedAgent, options?: { persist?: boolean }): void {
+    if (agent.lifecycle !== "running" && agent.lifecycle !== "initializing") {
+      this.timelineArchive?.markTurnClosed(agent.id, timelineSessionKey(agent.persistence));
+    }
     // Keep attention as an edge-triggered unread signal, not a level signal.
     this.checkAndSetAttention(agent);
     if (options?.persist !== false) {
@@ -6551,46 +6683,6 @@ export class AgentManager {
     this.trackBackgroundTask(task);
   }
 
-  private enqueueDurableTimelineAppend(agentId: string, row: AgentTimelineRow): void {
-    if (!this.durableTimelineStore) {
-      return;
-    }
-    const task = this.durableTimelineStore.bulkInsert(agentId, [row]).catch((err) => {
-      this.logger.error(
-        { err, agentId, seq: row.seq, itemType: row.item.type },
-        "Failed to append timeline row to durable store",
-      );
-    });
-    this.trackBackgroundTask(task);
-  }
-
-  private enqueueDurableTimelineBulkInsert(
-    agentId: string,
-    rows: readonly AgentTimelineRow[],
-  ): void {
-    if (!this.durableTimelineStore || rows.length === 0) {
-      return;
-    }
-    const task = this.durableTimelineStore.bulkInsert(agentId, rows).catch((err) => {
-      this.logger.error(
-        { err, agentId, rowCount: rows.length },
-        "Failed to seed durable timeline store",
-      );
-    });
-    this.trackBackgroundTask(task);
-  }
-
-  private enqueueDurableTimelineUpdate(agentId: string, row: AgentTimelineRow): void {
-    if (!this.durableTimelineStore) return;
-    const task = this.durableTimelineStore.updateCommittedRow(agentId, row).catch((err) => {
-      this.logger.error(
-        { err, agentId, seq: row.seq, itemType: row.item.type },
-        "Failed to enrich durable timeline row",
-      );
-    });
-    this.trackBackgroundTask(task);
-  }
-
   private trackBackgroundTask(task: Promise<void>): void {
     this.backgroundTasks.add(task);
     void task.finally(() => {
@@ -6629,6 +6721,7 @@ export class AgentManager {
 
   private async flushTasks(options: { includeAgentRegistrations: boolean }): Promise<void> {
     this.agentStreamCoalescer.flushAll();
+    this.timelineArchive?.flush();
     // Drain tasks, including tasks spawned while awaiting.
     while (
       this.backgroundTasks.size > 0 ||

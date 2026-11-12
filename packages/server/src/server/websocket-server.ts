@@ -114,6 +114,7 @@ import {
 import { resolveSessionAdmission } from "./session-admission-auth.js";
 import {
   WebSocketRuntimeMetricsWindow,
+  timelineFlushMetrics,
   type WebSocketRuntimeCounters,
   type WebSocketRuntimeDiagnosticSnapshot,
 } from "./websocket/runtime-metrics.js";
@@ -2617,6 +2618,7 @@ export class VoiceAssistantWebSocketServer {
         commands: gitCommandMetrics,
         workspaceService: this.workspaceGitService.getMetrics(),
       },
+      timelineFlush: timelineFlushMetrics.snapshotAndReset(),
     } satisfies WebSocketRuntimeMetricsLogPayload;
 
     this.lastRuntimeMetricsSnapshot = {

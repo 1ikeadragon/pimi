@@ -3,22 +3,9 @@ import path from "node:path";
 import type { Logger } from "pino";
 import { z } from "zod";
 import { AgentTimelineItemPayloadSchema } from "@pimi/protocol/messages";
-import { runJsonImportOnce, type PimiDatabase } from "../db/pimi-db.js";
+import type { PimiDatabase } from "../db/pimi-db.js";
 import type { AgentTimelineRow } from "./agent-timeline-store-types.js";
-
-/** One timeline row a chat keeps from provider sessions it has since left. */
-export type CarriedTimelineRow = Pick<AgentTimelineRow, "timestamp" | "item" | "turnId">;
-
-/**
- * Timeline rows are runtime memory and a resumed agent rebuilds them from its
- * provider's history. After a provider switch that history starts at the
- * switch, so the rows from before it are kept here and replayed first.
- */
-export interface CarriedTimelineStore {
-  load(agentId: string): Promise<CarriedTimelineRow[] | null>;
-  save(agentId: string, rows: readonly CarriedTimelineRow[]): Promise<void>;
-  delete(agentId: string): Promise<void>;
-}
+import type { SqliteTimelineStore } from "./sqlite-timeline-store.js";
 
 const CARRIED_TIMELINE_SCHEMA = z.object({
   version: z.literal(1),
@@ -31,87 +18,81 @@ const CARRIED_TIMELINE_SCHEMA = z.object({
   ),
 });
 
+const IMPORT_KEY = "imported_carried_timelines";
+
 function isMissingFile(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
-const KIND = "carried_timeline";
+/**
+ * One-time import of rows that earlier builds kept for chats that switched providers: one JSON
+ * document per agent in pimi.db `records` (kind carried_timeline) and, for homes older still, the
+ * agent-carried-timelines/<agentId>.json files. They become `carried` rows of the timeline file.
+ * Gated by a meta row in pimi-timeline.db; the source rows and files are left where they are.
+ */
+export async function importCarriedTimelines(input: {
+  pimiDatabase: PimiDatabase;
+  timelineStore: SqliteTimelineStore;
+  legacyDirectory: string;
+  knownAgentIds: ReadonlySet<string>;
+  logger: Logger;
+}): Promise<void> {
+  const { pimiDatabase, timelineStore, logger } = input;
+  const timelineDb = timelineStore.database;
+  if (timelineDb.db.prepare("SELECT 1 AS present FROM meta WHERE key = ?").get(IMPORT_KEY)) return;
 
-// Rows of kind carried_timeline in the `records` table, one document per agent. The old
-// agent-carried-timelines/<agentId>.json files are imported once and the directory is renamed to
-// agent-carried-timelines.migrated.
-export class SqlCarriedTimelineStore implements CarriedTimelineStore {
-  private readonly logger: Logger;
-
-  constructor(
-    private readonly database: PimiDatabase,
-    private readonly legacyDirectory: string,
-    logger: Logger,
-  ) {
-    this.logger = logger.child({ module: "agent", component: "carried-timeline" });
-  }
-
-  async importLegacy(): Promise<void> {
-    const items: Array<{ agentId: string; document: unknown }> = [];
-    let names: string[] = [];
+  const documents = new Map<string, z.infer<typeof CARRIED_TIMELINE_SCHEMA>>();
+  const recordRows = pimiDatabase.db
+    .prepare("SELECT id, json FROM records WHERE kind = 'carried_timeline'")
+    .all();
+  for (const record of recordRows) {
+    const agentId = String(record.id);
     try {
-      names = await fs.readdir(this.legacyDirectory);
+      documents.set(agentId, CARRIED_TIMELINE_SCHEMA.parse(JSON.parse(String(record.json))));
     } catch (error) {
-      if (!isMissingFile(error)) throw error;
+      logger.error({ err: error, agentId }, "Skipping invalid carried timeline record");
     }
-    for (const name of names.filter((candidate) => candidate.endsWith(".json"))) {
-      try {
-        const document = CARRIED_TIMELINE_SCHEMA.parse(
-          JSON.parse(await fs.readFile(path.join(this.legacyDirectory, name), "utf8")),
-        );
-        items.push({ agentId: name.slice(0, -".json".length), document });
-      } catch (error) {
-        this.logger.error({ err: error, name }, "Skipping invalid carried timeline file");
-      }
+  }
+  let names: string[] = [];
+  try {
+    names = await fs.readdir(input.legacyDirectory);
+  } catch (error) {
+    if (!isMissingFile(error)) throw error;
+  }
+  for (const name of names.filter((candidate) => candidate.endsWith(".json"))) {
+    const agentId = name.slice(0, -".json".length);
+    if (documents.has(agentId)) continue;
+    try {
+      documents.set(
+        agentId,
+        CARRIED_TIMELINE_SCHEMA.parse(
+          JSON.parse(await fs.readFile(path.join(input.legacyDirectory, name), "utf8")),
+        ),
+      );
+    } catch (error) {
+      logger.error({ err: error, name }, "Skipping invalid carried timeline file");
     }
-    await runJsonImportOnce(
-      this.database,
-      { name: "carried-timelines", legacyPaths: [this.legacyDirectory], logger: this.logger },
-      () => {
-        for (const item of items) this.write(item.agentId, item.document);
-      },
-    );
   }
 
-  async load(agentId: string): Promise<CarriedTimelineRow[] | null> {
-    const row = this.database.db
-      .prepare("SELECT json FROM records WHERE kind = ? AND id = ?")
-      .get(KIND, agentId);
-    if (!row) return null;
-    const parsed = CARRIED_TIMELINE_SCHEMA.safeParse(JSON.parse(String(row.json)));
-    if (!parsed.success) {
-      this.logger.error({ agentId, issues: parsed.error.issues }, "Invalid carried timeline");
-      return null;
+  let imported = 0;
+  for (const [agentId, document] of documents) {
+    if (!input.knownAgentIds.has(agentId)) continue;
+    const rows: AgentTimelineRow[] = [];
+    for (const [index, row] of document.rows.entries()) {
+      rows.push({
+        seq: index + 1,
+        timestamp: row.timestamp,
+        item: row.item as AgentTimelineRow["item"],
+        ...(row.turnId ? { turnId: row.turnId } : {}),
+      });
     }
-    return parsed.data.rows;
+    timelineStore.importCarried(agentId, rows);
+    imported += 1;
   }
-
-  async save(agentId: string, rows: readonly CarriedTimelineRow[]): Promise<void> {
-    this.write(agentId, {
-      version: 1,
-      rows: rows.map(({ timestamp, item, turnId }) => ({
-        timestamp,
-        item,
-        ...(turnId ? { turnId } : {}),
-      })),
-    });
-  }
-
-  async delete(agentId: string): Promise<void> {
-    this.database.db.prepare("DELETE FROM records WHERE kind = ? AND id = ?").run(KIND, agentId);
-  }
-
-  private write(agentId: string, document: unknown): void {
-    this.database.db
-      .prepare(
-        `INSERT INTO records (kind, id, parent_id, json) VALUES (?, ?, NULL, ?)
-         ON CONFLICT(kind, id) DO UPDATE SET json = excluded.json`,
-      )
-      .run(KIND, agentId, JSON.stringify(document));
-  }
+  timelineDb.transaction(() => {
+    timelineDb.db
+      .prepare("INSERT INTO meta (key, value) VALUES (?, ?)")
+      .run(IMPORT_KEY, new Date().toISOString());
+  });
+  logger.info({ imported }, "Imported carried timelines into pimi-timeline.db");
 }
