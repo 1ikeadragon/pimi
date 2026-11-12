@@ -2167,6 +2167,28 @@ export class Session {
     }
   }
 
+  private async registerDesktopHost(
+    request: Extract<SessionInboundMessage, { type: "desktop.host.register.request" }>,
+  ): Promise<void> {
+    if (!this.browserToolsBroker) throw new Error("Desktop hosting is unavailable");
+    let unregister: (() => void) | undefined;
+    const owner = this.delivery.begin("desktop-host", () => unregister?.());
+    try {
+      unregister = this.browserToolsBroker.desktop.registerClient({
+        id: owner.id,
+        hostKind: request.hostKind,
+        sendDesktopTargetRequest: (message) => owner.emit(message),
+      });
+      this.emit({
+        type: "desktop.host.register.response",
+        payload: { requestId: request.requestId, subscriptionId: owner.id },
+      });
+    } catch (error) {
+      await owner.release();
+      throw error;
+    }
+  }
+
   private async subscribeWorkspaceSetup(
     request: Extract<SessionInboundMessage, { type: "workspace.setup.subscribe.request" }>,
   ): Promise<void> {
@@ -2207,6 +2229,15 @@ export class Session {
   ): Promise<void> | undefined {
     if (msg.type === "workspace.setup.subscribe.request") return this.subscribeWorkspaceSetup(msg);
     if (msg.type === "browser.host.register.request") return this.registerBrowserHost(msg);
+    if (msg.type === "desktop.host.register.request") return this.registerDesktopHost(msg);
+    if (msg.type === "desktop.target.execute.response") {
+      if (source)
+        this.browserToolsBroker?.desktop.receiveResponse(
+          msg,
+          this.delivery.subscriptionIds(source, "desktop-host"),
+        );
+      return Promise.resolve();
+    }
     if (msg.type === "browser.automation.execute.response") {
       if (source)
         this.browserToolsBroker?.receiveResponse(
@@ -9037,6 +9068,18 @@ function isValidGitHubRepoSegment(value: string): boolean {
   return /^[A-Za-z0-9._-]+$/u.test(value);
 }
 
+function attackEventCategory(message: SessionOutboundMessage): SessionEventSubscription | null {
+  switch (message.type) {
+    case "attack.run.changed":
+    case "attack.finding.changed":
+    case "attack.coverage.changed":
+    case "attack.desktop.action":
+      return message.type;
+    default:
+      return null;
+  }
+}
+
 function sessionEventCategory(message: SessionOutboundMessage): SessionEventSubscription | null {
   switch (message.type) {
     case "project.update":
@@ -9051,8 +9094,6 @@ function sessionEventCategory(message: SessionOutboundMessage): SessionEventSubs
     case "agent.background_work.update":
     case "terminal_attention_required":
     case "activity_log":
-    case "attack.run.changed":
-    case "attack.finding.changed":
       return message.type;
     case "status":
       switch (message.payload.status) {
@@ -9068,7 +9109,7 @@ function sessionEventCategory(message: SessionOutboundMessage): SessionEventSubs
           return null;
       }
     default:
-      return null;
+      return attackEventCategory(message);
   }
 }
 

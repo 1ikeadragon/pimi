@@ -3,7 +3,11 @@ import { ScrollView, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Crosshair, StickyNote, Swords, Trash2, X } from "lucide-react-native";
 import { StyleSheet } from "react-native-unistyles";
-import { MAX_ATTACK_ANNOTATIONS, type AttackAnnotation } from "@pimi/protocol/attack/types";
+import {
+  MAX_ATTACK_ANNOTATIONS,
+  type AttackAnnotation,
+  type AttackAnnotationInput,
+} from "@pimi/protocol/attack/types";
 import {
   buildWorkspaceAttachmentScopeKey,
   useWorkspaceAttachments,
@@ -20,6 +24,7 @@ import { useWorkspaceDirectory } from "@/stores/session-store-hooks";
 import { isWeb } from "@/constants/platform";
 import { FocusPanel } from "./attack-agent-focus";
 import { LaunchForm } from "./attack-launch-form";
+import { useAnnotationImages } from "./annotation-image";
 import { useAttackStore } from "./attack-store";
 
 /** Below this window width the notes column becomes an overlay over the target. */
@@ -31,14 +36,25 @@ function isElement(attachment: WorkspaceComposerAttachment): attachment is Brows
   return attachment.kind === "browser_element";
 }
 
-/** The owner's marked elements as the run definition carries them: A1, A2, ... in the order added. */
+/** The element attachments that become annotations, in the order they were added. */
+function annotationElements(
+  attachments: readonly WorkspaceComposerAttachment[],
+): BrowserElementItem[] {
+  return attachments.filter(isElement).slice(0, MAX_ATTACK_ANNOTATIONS);
+}
+
+/**
+ * The owner's marked elements as the run definition carries them: A1, A2, ... in the order added,
+ * each with its element screenshot (by attachment id) once that has been read and shrunk.
+ */
 export function toAttackAnnotations(
   attachments: readonly WorkspaceComposerAttachment[],
-): AttackAnnotation[] {
-  return attachments
-    .filter(isElement)
-    .slice(0, MAX_ATTACK_ANNOTATIONS)
-    .map((item, index) => ({
+  images: ReadonlyMap<string, string>,
+): AttackAnnotationInput[] {
+  return annotationElements(attachments).map((item, index) => {
+    const screenshot = item.attachment.screenshot;
+    const imageBase64 = screenshot ? images.get(screenshot.id) : undefined;
+    const annotation: AttackAnnotationInput = {
       label: `A${index + 1}`,
       url: item.attachment.url.slice(0, 2000),
       selector: item.attachment.selector.slice(0, 1000),
@@ -46,7 +62,11 @@ export function toAttackAnnotations(
       text: item.attachment.text.trim().slice(0, 400),
       html: item.attachment.outerHTML.trim().slice(0, 800),
       note: (item.attachment.comment ?? "").trim().slice(0, 2000),
-    }));
+      hasImage: imageBase64 !== undefined,
+    };
+    if (imageBase64) annotation.imageBase64 = imageBase64;
+    return annotation;
+  });
 }
 
 function releaseBrowser(browserId: string): void {
@@ -80,7 +100,15 @@ export function AttackCompose({
     [cwd, serverId, workspaceId],
   );
   const attachments = useWorkspaceAttachments(scopeKey);
-  const annotations = useMemo(() => toAttackAnnotations(attachments), [attachments]);
+  const screenshots = useMemo(
+    () => annotationElements(attachments).map((item) => item.attachment.screenshot),
+    [attachments],
+  );
+  const images = useAnnotationImages(screenshots);
+  const annotations = useMemo(
+    () => toAttackAnnotations(attachments, images),
+    [attachments, images],
+  );
   const [onlyAnnotated, setOnlyAnnotated] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const showPanel = !preflight || !narrow || panelOpen;

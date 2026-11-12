@@ -14,6 +14,10 @@ import {
   FindingCategorySchema,
   type AttackAuditAction,
   type AttackAuditEntry,
+  type AttackCoverage,
+  type AttackDesktopAction,
+  type AttackCoverageRoute,
+  type AttackLimits,
   type AttackPauseReason,
   type AttackRun,
   type AttackRunDefinition,
@@ -32,6 +36,14 @@ import type { BoundCreateAgentCommand } from "../agent/create-agent/create.js";
 import { cancelAgentRunCommand } from "../agent/lifecycle-command.js";
 import { resumeStoppedSubagents } from "../agent/stop-cascade.js";
 import { ATTACK_RUN_LABEL, STOPPED_WITH_SUBAGENTS_LABEL } from "@pimi/protocol/agent-labels";
+import {
+  clipResultNote,
+  findAnnotation,
+  persistAnnotations,
+  readAnnotationImage,
+  resolveAnnotationLabels,
+} from "./annotations.js";
+import { AttackCoverageTracker } from "./coverage.js";
 import { leadPrompt, resumePrompt, stallPrompt } from "./prompts.js";
 import { ATTACK_COORDINATOR_PROFILE_ID } from "./roster.js";
 import { findingSignature } from "./signature.js";
@@ -43,6 +55,9 @@ const MAX_FINDINGS_PER_RUN = 200;
 const MAX_EVIDENCE_PER_FINDING = 6;
 const MAX_SCREENSHOT_BASE64_CHARS = 900_000;
 const MAX_TEXT = 4000;
+const MAX_SPEND_AGENTS = 16;
+// A usage report arrives after every turn; clients hear about the run at most this often.
+const RUN_PUSH_INTERVAL_MS = 1000;
 // A running run whose agents are all idle is nudged after this long, and paused as "stalled"
 // once it has been nudged this many times without an agent starting work.
 const STALL_GRACE_MS = 30_000;
@@ -84,6 +99,8 @@ export interface SubmitFindingInput {
   duplicateOf?: string;
   /** The caller read the run's existing findings and says this is none of them. */
   distinct?: boolean;
+  /** Labels ("A1") of the owner's pre-flight annotations this finding tests. */
+  annotationLabels?: string[];
 }
 
 /**
@@ -165,6 +182,12 @@ export class AttackService {
   // The findings each agent has been shown by submit_finding. A new finding is recorded only once
   // its reporter has seen every finding the run already holds. Lost on restart: agents look again.
   private readonly shownFindingIdsByAgentId = new Map<string, Set<string>>();
+  private readonly coverage: AttackCoverageTracker;
+  // Token reports coalesce: the newest run waits here for the next push slot.
+  private readonly runPushes = new Map<
+    string,
+    { lastAt: number; timer: ReturnType<typeof setTimeout> | null; run: AttackRun | null }
+  >();
 
   constructor(options: AttackServiceOptions) {
     this.logger = options.logger.child({ module: "attack" });
@@ -176,6 +199,11 @@ export class AttackService {
     this.agentStorage = options.agentStorage;
     this.createAgent = options.createAgent;
     this.emit = options.emit;
+    this.coverage = new AttackCoverageTracker({
+      dir: join(options.pimiHome, "attack-runs"),
+      logger: this.logger,
+      emit: options.emit,
+    });
   }
 
   async start(): Promise<void> {
@@ -213,12 +241,15 @@ export class AttackService {
     this.tickTimer = null;
     this.unsubscribeAgents?.();
     this.unsubscribeAgents = null;
+    for (const push of this.runPushes.values()) if (push.timer) clearTimeout(push.timer);
+    this.runPushes.clear();
+    await this.coverage.stop();
   }
 
   // ---- runs ----
 
   async startRun(definition: AttackRunDefinition): Promise<AttackRun> {
-    const target = this.validateTarget(definition.target);
+    const target = this.validateTarget(definition.target, definition.desktopTarget);
     const roster = [...new Set(definition.roster.map((role) => AttackRoleIdSchema.parse(role)))];
     if (roster.length === 0) throw new AttackStateError("Pick at least one agent for the roster.");
     if (!definition.repoScope && roster.includes("secrets-audit")) {
@@ -233,8 +264,15 @@ export class AttackService {
       throw new AttackStateError(`This workspace already has a ${live.status} run. Stop it first.`);
     }
     const now = new Date().toISOString();
+    const runId = randomUUID().replaceAll("-", "");
+    const annotations = await persistAnnotations(
+      this.store.dir,
+      runId,
+      definition.annotations,
+      clip,
+    );
     const run: AttackRun = {
-      id: randomUUID().replaceAll("-", ""),
+      id: runId,
       workspaceId: definition.workspaceId,
       cwd: definition.cwd,
       target: target.url,
@@ -245,16 +283,12 @@ export class AttackService {
       roster,
       disposableTarget: definition.disposableTarget,
       limits: definition.limits,
-      annotations: definition.annotations.map((item) => ({
-        label: clip(item.label, 16),
-        url: clip(item.url, 2000),
-        selector: clip(item.selector, 1000),
-        tag: clip(item.tag, 100),
-        text: clip(item.text, 400),
-        html: clip(item.html, 800),
-        note: clip(item.note, 2000),
-      })),
-      onlyAnnotated: definition.onlyAnnotated && definition.annotations.length > 0,
+      annotations,
+      onlyAnnotated: definition.onlyAnnotated && annotations.length > 0,
+      desktopTarget: definition.desktopTarget,
+      allowDesktopInput: definition.allowDesktopInput,
+      annotationResults: {},
+      spentByAgent: {},
       status: "running",
       pausedReason: null,
       leadAgentId: null,
@@ -321,25 +355,44 @@ export class AttackService {
     return paused;
   }
 
-  async resumeRun(runId: string): Promise<AttackRun> {
+  async resumeRun(runId: string, newLimits?: AttackLimits): Promise<AttackRun> {
     const run = await this.requireRun(runId);
     if (run.status !== "paused") {
       throw new AttackStateError(`Only a paused run can be resumed; this one is ${run.status}.`);
     }
-    if (
-      run.spent.runtimeMs >= run.limits.maxRuntimeMs ||
-      run.spent.tokens >= run.limits.maxTokens
-    ) {
-      throw new AttackStateError("The budget is spent. Start a new run with a larger budget.");
+    const limits = newLimits ?? run.limits;
+    if (newLimits) {
+      if (
+        newLimits.maxRuntimeMs < run.limits.maxRuntimeMs ||
+        newLimits.maxTokens < run.limits.maxTokens
+      ) {
+        throw new AttackStateError("New limits can only raise the budget, not lower it.");
+      }
+    }
+    if (run.spent.runtimeMs >= limits.maxRuntimeMs || run.spent.tokens >= limits.maxTokens) {
+      throw new AttackStateError(
+        newLimits
+          ? "Both new limits must be above what the run has already spent."
+          : "The budget is spent. Add budget to resume, or start a new run.",
+      );
     }
     const now = new Date().toISOString();
     const resumed = await this.updateAndPublish(runId, (current) => ({
       ...current,
+      limits,
       status: "running",
       pausedReason: null,
       resumedAt: now,
       updatedAt: now,
     }));
+    if (newLimits) {
+      await this.audit(
+        runId,
+        "budget_extended",
+        null,
+        `${Math.round(limits.maxRuntimeMs / 60_000)}min,${limits.maxTokens}tok`,
+      );
+    }
     await this.audit(runId, "run_resumed", null, null);
     if (resumed.leadAgentId) {
       const deps = {
@@ -505,6 +558,12 @@ export class AttackService {
     const all = await findings.list();
     const open = await this.openFindings(run.id);
     const evidence = input.evidence.slice(0, MAX_EVIDENCE_PER_FINDING);
+    let annotationLabels: string[];
+    try {
+      annotationLabels = resolveAnnotationLabels(run.annotations, input.annotationLabels ?? []);
+    } catch (error) {
+      throw new AttackStateError(error instanceof Error ? error.message : String(error));
+    }
 
     const named = input.duplicateOf ? this.mergeTarget(all, input.duplicateOf) : null;
     const repeated = named ?? open.find((finding) => finding.signature === signature);
@@ -513,6 +572,7 @@ export class AttackService {
         severity: input.severity,
         evidence,
         reportCount: 1,
+        annotationLabels,
       });
       await this.audit(run.id, "finding_deduped", callerAgentId, merged.id);
       return { outcome: "merged", finding: withoutScreenshotBytes(merged) };
@@ -541,6 +601,7 @@ export class AttackService {
       description: clip(input.description),
       repro: clip(input.repro),
       evidence,
+      annotationLabels,
       signature,
       status: "new",
       reportCount: 1,
@@ -575,7 +636,12 @@ export class AttackService {
   private async foldReport(
     runId: string,
     findingId: string,
-    report: { severity: FindingSeverity; evidence: FindingEvidence[]; reportCount: number },
+    report: {
+      severity: FindingSeverity;
+      evidence: FindingEvidence[];
+      reportCount: number;
+      annotationLabels: readonly string[];
+    },
   ): Promise<Finding> {
     const merged = await this.store.findings(runId).update(findingId, (current) => ({
       ...current,
@@ -585,6 +651,7 @@ export class AttackService {
           : current.severity,
       evidence: [...current.evidence, ...report.evidence].slice(0, MAX_EVIDENCE_PER_FINDING),
       reportCount: current.reportCount + report.reportCount,
+      annotationLabels: [...new Set([...current.annotationLabels, ...report.annotationLabels])],
       updatedAt: new Date().toISOString(),
     }));
     if (!merged) throw new AttackStateError("The finding disappeared while merging.");
@@ -595,7 +662,7 @@ export class AttackService {
   // The lead's duplicate review: each `duplicate` is folded into `into` and hidden behind it.
   private async applyMerges(
     runId: string,
-    callerAgentId: string,
+    callerAgentId: string | null,
     merges: readonly FindingMerge[],
   ): Promise<void> {
     const findings = this.store.findings(runId);
@@ -616,20 +683,69 @@ export class AttackService {
     }
   }
 
+  /** Null when the image is over the size cap; the caller retries narrower or records a note. */
   screenshotEvidence(input: {
     caption: string;
     dataBase64: string;
     width: number;
     height: number;
-  }): FindingEvidence {
+  }): FindingEvidence | null {
+    if (input.dataBase64.length > MAX_SCREENSHOT_BASE64_CHARS) return null;
     return {
       kind: "screenshot",
       caption: clip(input.caption, 300),
       width: input.width,
       height: input.height,
-      // An oversized capture keeps its caption and size but not its bytes.
-      dataBase64: input.dataBase64.length <= MAX_SCREENSHOT_BASE64_CHARS ? input.dataBase64 : null,
+      dataBase64: input.dataBase64,
     };
+  }
+
+  // ---- annotations ----
+
+  /** An annotation's text for an agent of the run, with its screenshot when the owner's element had one. */
+  async annotationForAgent(
+    callerAgentId: string,
+    label: string,
+  ): Promise<{ annotation: AttackRun["annotations"][number]; imageBase64: string | null }> {
+    const run = await this.runForAgent(callerAgentId);
+    if (!run) throw new AttackStateError("This agent is not part of an Attack run.");
+    const annotation = findAnnotation(run.annotations, label);
+    if (!annotation) {
+      const known = run.annotations.map((item) => item.label).join(", ") || "none";
+      throw new AttackStateError(`This run has no annotation ${label}. Its annotations: ${known}.`);
+    }
+    return {
+      annotation,
+      imageBase64: await readAnnotationImage(this.store.dir, run.id, annotation),
+    };
+  }
+
+  /** The lead's verdict on an annotation no finding covers: it held, or it could not be tested. */
+  async reportAnnotationResult(
+    callerAgentId: string,
+    input: { label: string; result: "clean" | "not_testable"; note: string },
+  ): Promise<AttackRun> {
+    const run = await this.runForAgent(callerAgentId);
+    if (!run) throw new AttackStateError("This agent is not part of an Attack run.");
+    if (run.status !== "running") {
+      throw new AttackStateError(`The run is ${run.status}; results are not accepted now.`);
+    }
+    const annotation = findAnnotation(run.annotations, input.label);
+    if (!annotation) {
+      const known = run.annotations.map((item) => item.label).join(", ") || "none";
+      throw new AttackStateError(
+        `This run has no annotation ${input.label}. Its annotations: ${known}.`,
+      );
+    }
+    const updated = await this.updateAndPublish(run.id, (current) => ({
+      ...current,
+      annotationResults: {
+        ...current.annotationResults,
+        [annotation.label]: clipResultNote({ result: input.result, note: input.note }),
+      },
+      updatedAt: new Date().toISOString(),
+    }));
+    return updated;
   }
 
   // ---- agents and navigation ----
@@ -694,9 +810,123 @@ export class AttackService {
     await this.audit(input.runId, "navigation_refused", input.agentId ?? null, input.host);
   }
 
+  // ---- desktop target ----
+
+  /**
+   * What `desktop_*` tools hand the desktop app for an agent of a run with a desktop target; null
+   * for any other agent. The guard is the only thing that names the window, and it comes from the
+   * run record, never from tool input.
+   */
+  async desktopGuardForAgent(agentId: string | undefined): Promise<{
+    runId: string;
+    status: AttackRun["status"];
+    guard: { runId: string; bundleId: string; windowTitle: string; allowInput: boolean };
+  } | null> {
+    if (!agentId) return null;
+    const run = await this.runForAgent(agentId);
+    if (!run?.desktopTarget) return null;
+    return {
+      runId: run.id,
+      status: run.status,
+      guard: {
+        runId: run.id,
+        bundleId: run.desktopTarget.bundleId,
+        windowTitle: run.desktopTarget.windowTitle,
+        allowInput: run.allowDesktopInput || run.disposableTarget,
+      },
+    };
+  }
+
+  /** Audits a desktop action (verb and element role, never typed text) and tells the owner's log. */
+  async recordDesktopAction(input: {
+    runId: string;
+    agentId: string;
+    verb: AttackDesktopAction["verb"];
+    outcome:
+      | {
+          ok: { role: string | null; label: string | null; point: { x: number; y: number } | null };
+        }
+      | { refused: string };
+  }): Promise<void> {
+    if ("refused" in input.outcome) {
+      await this.audit(
+        input.runId,
+        "desktop_action",
+        input.agentId,
+        clip(input.outcome.refused, 200),
+      );
+      return;
+    }
+    const { role, label, point } = input.outcome.ok;
+    await this.audit(
+      input.runId,
+      "desktop_action",
+      input.agentId,
+      role ? `${input.verb} ${role}` : input.verb,
+    );
+    this.emit({
+      type: "attack.desktop.action",
+      payload: {
+        action: {
+          runId: input.runId,
+          agentId: input.agentId,
+          verb: input.verb,
+          role,
+          label: label ? clip(label, 200) : null,
+          point,
+          at: new Date().toISOString(),
+        },
+      },
+    });
+  }
+
+  // ---- coverage ----
+
+  /** A route an agent's browser tab reached; only agents of this run count. */
+  async recordCoverage(input: {
+    runId: string;
+    agentId: string;
+    route: string;
+  }): Promise<AttackCoverageRoute> {
+    await this.requireRun(input.runId);
+    if ((await this.runIdForAgent(input.agentId)) !== input.runId) {
+      throw new AttackStateError("That agent is not part of this Attack run.");
+    }
+    return this.coverage.record(input.runId, input.agentId, input.route);
+  }
+
+  async getCoverage(runId: string): Promise<AttackCoverage> {
+    await this.requireRun(runId);
+    return this.coverage.get(runId);
+  }
+
+  /** The owner folds one finding into another; the duplicate is hidden behind it. Works on finished runs. */
+  async mergeFindings(input: {
+    runId: string;
+    duplicateId: string;
+    intoId: string;
+  }): Promise<Finding> {
+    await this.requireRun(input.runId);
+    return this.inSubmitChain(input.runId, async () => {
+      await this.applyMerges(input.runId, null, [
+        { duplicate: input.duplicateId, into: input.intoId },
+      ]);
+      const all = await this.store.findings(input.runId).list();
+      return withoutScreenshotBytes(this.mergeTarget(all, input.intoId));
+    });
+  }
+
   // ---- internals ----
 
-  private validateTarget(raw: string): { url: string; host: string; remoteHost: string | null } {
+  private validateTarget(
+    raw: string,
+    desktopTarget: AttackRunDefinition["desktopTarget"],
+  ): { url: string; host: string; remoteHost: string | null } {
+    // A run drives a URL, a desktop window, or both. Without a URL, the browser allowlist is
+    // localhost only and the run is labelled with the app.
+    if (!raw.trim() && desktopTarget) {
+      return { url: "", host: desktopTarget.appName, remoteHost: null };
+    }
     const host = attackUrlHost(raw.trim());
     if (!host) throw new AttackStateError("The target must be an http or https URL.");
     return {
@@ -792,7 +1022,9 @@ export class AttackService {
       }
       if (added === 0) return;
       const previousWrite = this.tokenWrites.get(runId) ?? Promise.resolve();
-      const write = previousWrite.catch(() => undefined).then(() => this.addTokens(runId, added));
+      const write = previousWrite
+        .catch(() => undefined)
+        .then(() => this.addTokens(runId, agentId, added));
       this.tokenWrites.set(runId, write);
       await write;
     })().catch((error: unknown) => {
@@ -800,14 +1032,20 @@ export class AttackService {
     });
   }
 
-  private async addTokens(runId: string, added: number): Promise<void> {
+  private async addTokens(runId: string, agentId: string, added: number): Promise<void> {
     const updated = await this.store.updateRun(runId, (current) => ({
       ...current,
       spent: { ...current.spent, tokens: current.spent.tokens + added },
+      // At most 16 agents are broken out; the rest only count toward the total.
+      spentByAgent:
+        agentId in current.spentByAgent ||
+        Object.keys(current.spentByAgent).length < MAX_SPEND_AGENTS
+          ? { ...current.spentByAgent, [agentId]: (current.spentByAgent[agentId] ?? 0) + added }
+          : current.spentByAgent,
       updatedAt: new Date().toISOString(),
     }));
     if (!updated) return;
-    this.publishRun(updated);
+    this.publishRunCoalesced(updated);
     if (updated.status === "running" && updated.spent.tokens >= updated.limits.maxTokens) {
       await this.pauseRun(runId, "token_budget");
     }
@@ -845,10 +1083,16 @@ export class AttackService {
     }
   }
 
-  /** Whether the lead or any agent below it has a turn in flight. */
+  /**
+   * Whether the lead or any agent below it has a turn in flight or is waiting for the owner to
+   * answer a permission prompt. A pending prompt is the owner's move, not a stall: nudging the
+   * agent or pausing the run as "stalled" would be wrong.
+   */
   private async runHasWork(run: AttackRun): Promise<boolean> {
     for (const agent of this.agentManager.listAgents({ includeInternal: true })) {
-      if (!this.agentManager.hasInFlightRun(agent.id)) continue;
+      if (!this.agentManager.hasInFlightRun(agent.id) && agent.pendingPermissions.size === 0) {
+        continue;
+      }
       if (agent.id === run.leadAgentId || (await this.runIdForAgent(agent.id)) === run.id) {
         return true;
       }
@@ -901,8 +1145,38 @@ export class AttackService {
     return this.store.audit(runId).append({ runId, action, agentId, detail });
   }
 
+  // Every other change reaches clients at once and cancels a waiting token push, which the newer
+  // run supersedes.
   private publishRun(run: AttackRun): void {
+    const push = this.runPushes.get(run.id);
+    if (push?.timer) clearTimeout(push.timer);
+    this.runPushes.set(run.id, { lastAt: Date.now(), timer: null, run: null });
     this.emit({ type: "attack.run.changed", payload: { run } });
+  }
+
+  // Token reports: the first goes out at once, later ones within a second ride one trailing push.
+  private publishRunCoalesced(run: AttackRun): void {
+    const push = this.runPushes.get(run.id);
+    const wait = push ? push.lastAt + RUN_PUSH_INTERVAL_MS - Date.now() : 0;
+    if (wait <= 0 && !push?.timer) {
+      this.publishRun(run);
+      return;
+    }
+    if (push?.timer) {
+      push.run = run;
+      return;
+    }
+    const entry = {
+      lastAt: push?.lastAt ?? 0,
+      timer: null as ReturnType<typeof setTimeout> | null,
+      run,
+    };
+    entry.timer = setTimeout(() => {
+      const latest = entry.run;
+      if (latest) this.publishRun(latest);
+    }, wait);
+    entry.timer.unref?.();
+    this.runPushes.set(run.id, entry);
   }
 
   private publishFinding(finding: Finding): void {

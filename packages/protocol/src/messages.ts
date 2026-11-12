@@ -117,6 +117,9 @@ import {
   AttackFindingGetRequestSchema,
   AttackFindingUpdateRequestSchema,
   AttackAuditRecordRequestSchema,
+  AttackCoverageRecordRequestSchema,
+  AttackCoverageGetRequestSchema,
+  AttackFindingMergeRequestSchema,
   AttackRunStartResponseSchema,
   AttackRunPauseResponseSchema,
   AttackRunResumeResponseSchema,
@@ -129,6 +132,11 @@ import {
   AttackAuditRecordResponseSchema,
   AttackRunChangedSchema,
   AttackFindingChangedSchema,
+  AttackCoverageRecordResponseSchema,
+  AttackCoverageGetResponseSchema,
+  AttackFindingMergeResponseSchema,
+  AttackCoverageChangedSchema,
+  AttackDesktopActionPushSchema,
 } from "./attack/rpc-schemas.js";
 import {
   HeartbeatCreateRequestSchema,
@@ -155,6 +163,10 @@ import {
   BrowserAutomationExecuteRequestSchema,
   BrowserAutomationExecuteResponseSchema,
 } from "./browser-automation/rpc-schemas.js";
+import {
+  DesktopTargetExecuteRequestSchema,
+  DesktopTargetExecuteResponseSchema,
+} from "./desktop-target/rpc-schemas.js";
 import {
   PimiConfigRawSchema,
   PimiLifecycleCommandRawSchema,
@@ -3561,6 +3573,8 @@ export const SessionEventSubscriptionSchema = z.enum([
   "activity_log",
   "attack.run.changed",
   "attack.finding.changed",
+  "attack.coverage.changed",
+  "attack.desktop.action",
 ]);
 export type SessionEventSubscription = z.infer<typeof SessionEventSubscriptionSchema>;
 export const SessionEventsSetSubscriptionRequestSchema = z.object({
@@ -3585,6 +3599,17 @@ export const BrowserHostRegisterResponseSchema = z.object({
   payload: z.object({ requestId: z.string(), subscriptionId: z.string() }),
 });
 
+// The desktop app offers itself as the host of `desktop_*` agent tools (Attack desktop targets).
+export const DesktopHostRegisterRequestSchema = z.object({
+  type: z.literal("desktop.host.register.request"),
+  requestId: z.string(),
+  hostKind: z.string().min(1),
+});
+export const DesktopHostRegisterResponseSchema = z.object({
+  type: z.literal("desktop.host.register.response"),
+  payload: z.object({ requestId: z.string(), subscriptionId: z.string() }),
+});
+
 export const SubscriptionReleaseRequestSchema = z.object({
   type: z.literal("subscription.release.request"),
   requestId: z.string(),
@@ -3606,9 +3631,11 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   HostsRouteCloseRequestSchema,
 
   BrowserHostRegisterRequestSchema,
+  DesktopHostRegisterRequestSchema,
   SubscriptionReleaseRequestSchema,
   SessionEventsSetSubscriptionRequestSchema,
   BrowserAutomationExecuteResponseSchema,
+  DesktopTargetExecuteResponseSchema,
   VoiceAudioChunkMessageSchema,
   AbortRequestMessageSchema,
   AudioPlayedMessageSchema,
@@ -3836,6 +3863,9 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   AttackFindingGetRequestSchema,
   AttackFindingUpdateRequestSchema,
   AttackAuditRecordRequestSchema,
+  AttackCoverageRecordRequestSchema,
+  AttackCoverageGetRequestSchema,
+  AttackFindingMergeRequestSchema,
   HeartbeatCreateRequestSchema,
   HeartbeatUpdateRequestSchema,
   HeartbeatDeleteRequestSchema,
@@ -6918,6 +6948,8 @@ const TerminalInfoSchema = z.object({
   workspaceId: z.string().optional(),
   title: z.string().optional(),
   activity: TerminalActivitySchema.nullable().optional(),
+  // The agent that created the terminal through the create_terminal tool, when one did.
+  ownerAgentId: z.string().optional(),
 });
 
 export const TerminalCellSchema = z.object({
@@ -7318,9 +7350,11 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   HostsRouteClosedSchema,
 
   BrowserHostRegisterResponseSchema,
+  DesktopHostRegisterResponseSchema,
   SubscriptionReleaseResponseSchema,
   SessionEventsSetSubscriptionResponseSchema,
   BrowserAutomationExecuteRequestSchema,
+  DesktopTargetExecuteRequestSchema,
   PluginCatalogGetResponseSchema,
   PluginListResponseSchema,
   PluginLogsGetResponseSchema,
@@ -7569,6 +7603,11 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   AttackAuditRecordResponseSchema,
   AttackRunChangedSchema,
   AttackFindingChangedSchema,
+  AttackCoverageRecordResponseSchema,
+  AttackCoverageGetResponseSchema,
+  AttackFindingMergeResponseSchema,
+  AttackCoverageChangedSchema,
+  AttackDesktopActionPushSchema,
   HeartbeatCreateResponseSchema,
   HeartbeatUpdateResponseSchema,
   HeartbeatDeleteResponseSchema,
@@ -7834,6 +7873,8 @@ export type AttackFindingUpdateResponse = z.infer<typeof AttackFindingUpdateResp
 export type AttackAuditRecordResponse = z.infer<typeof AttackAuditRecordResponseSchema>;
 export type AttackRunChanged = z.infer<typeof AttackRunChangedSchema>;
 export type AttackFindingChanged = z.infer<typeof AttackFindingChangedSchema>;
+export type AttackCoverageChanged = z.infer<typeof AttackCoverageChangedSchema>;
+export type AttackDesktopActionPush = z.infer<typeof AttackDesktopActionPushSchema>;
 export type AttackRunStartRequest = z.infer<typeof AttackRunStartRequestSchema>;
 export type AttackRunPauseRequest = z.infer<typeof AttackRunPauseRequestSchema>;
 export type AttackRunResumeRequest = z.infer<typeof AttackRunResumeRequestSchema>;

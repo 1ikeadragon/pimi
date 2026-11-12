@@ -28,7 +28,7 @@ import type {
 import type { z } from "zod";
 import type { SessionEventSubscription } from "@pimi/protocol/messages";
 import type { LocalSpeechModel } from "@pimi/protocol/speech/rpc-schemas";
-import type { AttackRunDefinition, FindingStatus } from "@pimi/protocol/attack/types";
+import type { AttackLimits, AttackRunDefinition, FindingStatus } from "@pimi/protocol/attack/types";
 import type { AutomationDefinition, AutomationOrigin } from "@pimi/protocol/automation/types";
 import type { HeartbeatCadence } from "@pimi/protocol/heartbeat/types";
 import type { AgentAttentionNotificationPayload } from "@pimi/protocol/agent-attention-notification";
@@ -2670,6 +2670,20 @@ export class DaemonClient {
     return this.observe(
       "browser.host.register.response",
       { type: "browser.host.register.request", ...registration },
+      options,
+    );
+  }
+
+  registerDesktopHost(
+    registration: Omit<
+      Extract<SessionInboundMessage, { type: "desktop.host.register.request" }>,
+      "type" | "requestId"
+    >,
+    options?: { signal?: AbortSignal },
+  ): OwnedSubscription<CorrelatedResponsePayload<"desktop.host.register.response">> {
+    return this.observe(
+      "desktop.host.register.response",
+      { type: "desktop.host.register.request", ...registration },
       options,
     );
   }
@@ -5845,6 +5859,12 @@ export class DaemonClient {
     this.sendSessionMessageStrict(response);
   }
 
+  sendDesktopTargetExecuteResponse(
+    response: Extract<SessionInboundMessage, { type: "desktop.target.execute.response" }>,
+  ): void {
+    this.sendSessionMessageStrict(response);
+  }
+
   async readProjectConfig(repoRoot: string, requestId?: string): Promise<ReadProjectConfigPayload> {
     return this.sendCorrelatedSessionRequest({
       requestId,
@@ -6734,10 +6754,14 @@ export class DaemonClient {
     });
   }
 
-  async attackRunResume(options: AttackRunIdOptions) {
+  async attackRunResume(options: AttackRunIdOptions & { limits?: AttackLimits }) {
     return this.sendNamespacedCorrelatedSessionRequest<"attack.run.resume.response">({
       requestId: options.requestId,
-      message: { type: "attack.run.resume.request", runId: options.runId },
+      message: {
+        type: "attack.run.resume.request",
+        runId: options.runId,
+        ...(options.limits ? { limits: options.limits } : {}),
+      },
       timeout: 60_000,
     });
   }
@@ -6806,6 +6830,43 @@ export class DaemonClient {
         findingId: options.findingId,
         ...(options.status ? { status: options.status } : {}),
         ...(options.fixAgentId ? { fixAgentId: options.fixAgentId } : {}),
+      },
+    });
+  }
+
+  async attackCoverageRecord(
+    options: AttackRunIdOptions & { agentId: string; route: string },
+  ): Promise<AttackResponsePayload<"attack.coverage.record.response">> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "attack.coverage.record.request",
+        runId: options.runId,
+        agentId: options.agentId,
+        route: options.route,
+      },
+    });
+  }
+
+  async attackCoverageGet(
+    options: AttackRunIdOptions,
+  ): Promise<AttackResponsePayload<"attack.coverage.get.response">> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "attack.coverage.get.request", runId: options.runId },
+    });
+  }
+
+  async attackFindingMerge(
+    options: AttackRunIdOptions & { duplicateId: string; intoId: string },
+  ): Promise<AttackResponsePayload<"attack.finding.merge.response">> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "attack.finding.merge.request",
+        runId: options.runId,
+        duplicateId: options.duplicateId,
+        intoId: options.intoId,
       },
     });
   }

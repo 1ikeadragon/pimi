@@ -4,6 +4,7 @@ import type { FindingEvidence } from "@pimi/protocol/attack/types";
 import { BrowserAutomationBrowserIdSchema } from "@pimi/protocol/browser-automation/rpc-schemas";
 import type { BrowserToolsBroker } from "../../browser-tools/broker.js";
 import { findingLine } from "../../attack/prompts.js";
+import { registerAttackAnnotationTools } from "./attack-annotation-tools.js";
 import type { AttackService } from "../../attack/service.js";
 import {
   PimiToolInputError,
@@ -51,6 +52,13 @@ const SubmitFindingInput = z.object({
     .default([])
     .describe(
       "Browser tabs to capture as screenshot evidence right now. Show the defect on screen first.",
+    ),
+  annotationLabels: z
+    .array(z.string().trim().min(1).max(16))
+    .max(40)
+    .default([])
+    .describe(
+      'Labels such as "A1" of the owner annotations this finding is about. Required when you found it by testing an annotation.',
     ),
   duplicateOf: z
     .string()
@@ -107,37 +115,87 @@ function requireCaller(options: ActiveOptions): string {
   return options.callerAgentId;
 }
 
+// Evidence is shot at 1280 px wide (a retina viewport is 2560); a page whose PNG is still over the
+// size cap is shot again at 640. A failed capture is tried once more, then the finding is recorded
+// with a note saying why there is no image, and the tool result tells the agent.
+const EVIDENCE_WIDTHS = [1280, 640] as const;
+const CAPTURE_RETRY_DELAY_MS = 400;
+
+type CaptureOutcome = { evidence: FindingEvidence } | { failure: string };
+
+async function captureOne(
+  options: ActiveOptions,
+  agentId: string,
+  caller: { cwd: string; workspaceId?: string },
+  browserId: string,
+  title: string,
+): Promise<CaptureOutcome> {
+  let failure = "unknown";
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, CAPTURE_RETRY_DELAY_MS));
+    for (const width of EVIDENCE_WIDTHS) {
+      let payload: Awaited<ReturnType<NonNullable<ActiveOptions["broker"]>["execute"]>>;
+      try {
+        payload = await options.broker!.execute({
+          agentId,
+          cwd: caller.cwd,
+          ...(caller.workspaceId ? { workspaceId: caller.workspaceId } : {}),
+          command: {
+            command: "screenshot",
+            args: { browserId, fullPage: false, thumbnailWidth: width },
+          },
+        });
+      } catch (error) {
+        failure = error instanceof Error ? error.message : String(error);
+        break;
+      }
+      if (!payload.ok) {
+        failure = payload.error.code;
+        break;
+      }
+      if (payload.result.command !== "screenshot") {
+        failure = "unexpected_result";
+        break;
+      }
+      const evidence = options.service.screenshotEvidence({
+        caption: `Screenshot: ${title}`,
+        dataBase64: payload.result.dataBase64,
+        width: payload.result.width,
+        height: payload.result.height,
+      });
+      if (evidence) return { evidence };
+      failure = "too_large";
+    }
+    // A page too large even at the narrowest width will not shrink on a retry.
+    if (failure === "too_large") break;
+  }
+  return { failure };
+}
+
 async function captureScreenshots(
   options: ActiveOptions,
   agentId: string,
   browserIds: readonly string[],
   title: string,
-): Promise<FindingEvidence[]> {
+): Promise<{ evidence: FindingEvidence[]; failures: string[] }> {
   const evidence: FindingEvidence[] = [];
+  const failures: string[] = [];
   const caller = options.resolveCallerAgent();
-  if (!options.broker || !caller) return evidence;
+  if (!options.broker || !caller) return { evidence, failures };
   for (const browserId of browserIds) {
-    const payload = await options.broker.execute({
-      agentId,
-      cwd: caller.cwd,
-      ...(caller.workspaceId ? { workspaceId: caller.workspaceId } : {}),
-      command: { command: "screenshot", args: { browserId, fullPage: false } },
-    });
-    if (!payload.ok || payload.result.command !== "screenshot") {
-      throw new PimiToolInputError(
-        `Could not capture a screenshot of ${browserId}: ${payload.ok ? "unexpected result" : payload.error.message}`,
-      );
+    const outcome = await captureOne(options, agentId, caller, browserId, title);
+    if ("evidence" in outcome) {
+      evidence.push(outcome.evidence);
+      continue;
     }
-    evidence.push(
-      options.service.screenshotEvidence({
-        caption: `Screenshot: ${title}`,
-        dataBase64: payload.result.dataBase64,
-        width: payload.result.width,
-        height: payload.result.height,
-      }),
-    );
+    failures.push(`${browserId}: ${outcome.failure}`);
+    evidence.push({
+      kind: "note",
+      caption: "Screenshot failed",
+      excerpt: `Screenshot of ${browserId} failed: ${outcome.failure}`,
+    });
   }
-  return evidence;
+  return { evidence, failures };
 }
 
 // Only agents can use these tools, and only where the daemon runs Attack mode.
@@ -160,7 +218,7 @@ export function registerAttackTools(base: RegisterAttackToolsOptions): void {
     async (input) => {
       const agentId = requireCaller(options);
       const parsed = SubmitFindingInput.parse(input);
-      const screenshots = await captureScreenshots(
+      const { evidence: screenshots, failures: screenshotFailures } = await captureScreenshots(
         options,
         agentId,
         parsed.screenshotBrowserIds,
@@ -174,6 +232,7 @@ export function registerAttackTools(base: RegisterAttackToolsOptions): void {
         description: parsed.description,
         repro: parsed.repro,
         evidence: [...parsed.evidence, ...screenshots],
+        annotationLabels: parsed.annotationLabels,
         duplicateOf: parsed.duplicateOf,
         distinct: parsed.distinct,
       });
@@ -194,10 +253,14 @@ export function registerAttackTools(base: RegisterAttackToolsOptions): void {
         };
       }
       const { finding } = result;
-      const text =
+      const recorded =
         result.outcome === "merged"
           ? `Merged into finding ${finding.id} ("${finding.title}"); it now stands for ${finding.reportCount} reports.`
           : `Recorded finding ${finding.id}.`;
+      const text =
+        screenshotFailures.length > 0
+          ? `${recorded} The finding has no screenshot (${screenshotFailures.join("; ")}); a note says so.`
+          : recorded;
       return {
         content: [{ type: "text", text }],
         structuredContent: {
@@ -209,6 +272,12 @@ export function registerAttackTools(base: RegisterAttackToolsOptions): void {
       };
     },
   );
+
+  registerAttackAnnotationTools({
+    registerTool: options.registerTool,
+    service: options.service,
+    callerAgentId: options.callerAgentId,
+  });
 
   options.registerTool(
     "finish_attack_run",

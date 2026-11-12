@@ -1,6 +1,10 @@
 import { z } from "zod";
 import {
   AttackAuditEntrySchema,
+  AttackCoverageRouteSchema,
+  AttackCoverageSchema,
+  AttackDesktopActionSchema,
+  AttackLimitsSchema,
   AttackRunDefinitionSchema,
   AttackRunSchema,
   FindingSchema,
@@ -26,6 +30,8 @@ export const AttackRunPauseRequestSchema = z.object({
 export const AttackRunResumeRequestSchema = z.object({
   type: z.literal("attack.run.resume.request"),
   ...RunIdRequestShape,
+  // New limits for a run whose budget is spent; both must exceed what the run has spent.
+  limits: AttackLimitsSchema.optional(),
 });
 
 export const AttackRunCancelRequestSchema = z.object({
@@ -73,6 +79,27 @@ export const AttackAuditRecordRequestSchema = z.object({
   agentId: z.string().optional(),
   // The refused host only, never the path or query.
   detail: z.string().max(253),
+});
+
+// The app reports a route an agent's browser tab reached.
+export const AttackCoverageRecordRequestSchema = z.object({
+  type: z.literal("attack.coverage.record.request"),
+  ...RunIdRequestShape,
+  agentId: z.string(),
+  route: z.string().min(1).max(500),
+});
+
+export const AttackCoverageGetRequestSchema = z.object({
+  type: z.literal("attack.coverage.get.request"),
+  ...RunIdRequestShape,
+});
+
+// The owner folds a finding into another one; the merged finding is hidden.
+export const AttackFindingMergeRequestSchema = z.object({
+  type: z.literal("attack.finding.merge.request"),
+  ...RunIdRequestShape,
+  duplicateId: z.string(),
+  intoId: z.string(),
 });
 
 const RunPayloadSchema = z.object({ requestId: z.string(), run: AttackRunSchema });
@@ -140,4 +167,30 @@ export const AttackRunChangedSchema = z.object({
 export const AttackFindingChangedSchema = z.object({
   type: z.literal("attack.finding.changed"),
   payload: z.object({ finding: FindingSchema }),
+});
+
+export const AttackCoverageRecordResponseSchema = z.object({
+  type: z.literal("attack.coverage.record.response"),
+  payload: z.object({ requestId: z.string(), route: AttackCoverageRouteSchema }),
+});
+
+export const AttackCoverageGetResponseSchema = z.object({
+  type: z.literal("attack.coverage.get.response"),
+  payload: z.object({ requestId: z.string(), coverage: AttackCoverageSchema }),
+});
+
+export const AttackFindingMergeResponseSchema = z.object({
+  type: z.literal("attack.finding.merge.response"),
+  payload: z.object({ requestId: z.string(), finding: FindingSchema }),
+});
+
+// Pushed at most once a second per run.
+export const AttackCoverageChangedSchema = z.object({
+  type: z.literal("attack.coverage.changed"),
+  payload: z.object({ runId: z.string(), coverage: AttackCoverageSchema }),
+});
+
+export const AttackDesktopActionPushSchema = z.object({
+  type: z.literal("attack.desktop.action"),
+  payload: z.object({ action: AttackDesktopActionSchema }),
 });

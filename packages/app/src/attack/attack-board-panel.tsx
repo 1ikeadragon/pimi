@@ -15,8 +15,17 @@ import { AttackAgentFocus } from "./attack-agent-focus";
 import { AttackAgentGrid } from "./attack-agent-grid";
 import { AttackCompose, ATTACK_NARROW_WIDTH } from "./attack-compose";
 import { AttackRunBar } from "./attack-run-bar";
+import { AttackSubviewBar } from "./attack-subview-bar";
+import { useAttackDesktopLogForRun } from "./use-attack-desktop-log";
+import { BrowserSubview } from "./subviews/browser-subview";
+import { DesktopSubview } from "./subviews/desktop-subview";
+import { TerminalSubview } from "./subviews/terminal-subview";
+import { VisualizeSubview } from "./subviews/visualize-subview";
+import type { AttackSubviewProps } from "./subviews/types";
 import { AttackFindingsPanel } from "./attack-findings-panel";
 import {
+  selectSubview,
+  type AttackSubview,
   useAttackFindings,
   useAttackStore,
   useAttackSync,
@@ -79,7 +88,15 @@ export function AttackBoardPanel() {
   const composingAfter = useAttackStore((state) => state.composingByWorkspace[key] ?? null);
   const rawFocus = useAttackStore((state) => state.focusByWorkspace[key] ?? null);
   const agents = useAttackRunAgents(serverId, run);
+  const subview = useAttackStore((state) => selectSubview(state, key, run?.id ?? null));
+  const onSubview = useCallback(
+    (view: AttackSubview) => {
+      if (run) useAttackStore.getState().setSubview(key, run.id, view);
+    },
+    [key, run],
+  );
   useReleaseFinishedRunBrowsers(serverId, workspaceId, run);
+  useAttackDesktopLogForRun(serverId, run);
 
   const { width } = useWindowDimensions();
   const narrow = width < ATTACK_NARROW_WIDTH;
@@ -119,6 +136,10 @@ export function AttackBoardPanel() {
   const composing = run === null || (!active && composingAfter === run.id);
   const focus = run && rawFocus?.runId === run.id && !composing ? rawFocus : null;
 
+  const workingCount = useMemo(
+    () => agents.filter((item) => item.state === "working").length,
+    [agents],
+  );
   const onFocus = useCallback(
     (agentId: string) => {
       if (run) useAttackStore.getState().setFocus(key, run.id, { agentId, view: "chat" });
@@ -154,7 +175,14 @@ export function AttackBoardPanel() {
   }
   if (!run) return null;
   let body;
-  if (focus) {
+  if (subview !== "overview") {
+    const props: AttackSubviewProps = { serverId, workspaceId, run, agents, live: active };
+    // Only the chosen subview is mounted, so a hidden one runs no timers or polling.
+    if (subview === "terminal") body = <TerminalSubview {...props} />;
+    else if (subview === "browser") body = <BrowserSubview {...props} />;
+    else if (subview === "desktop") body = <DesktopSubview {...props} />;
+    else body = <VisualizeSubview {...props} />;
+  } else if (focus) {
     body = (
       <AttackAgentFocus
         agents={agents}
@@ -190,6 +218,13 @@ export function AttackBoardPanel() {
         serverId={serverId}
         onNewRun={onNewRun}
         findingsBadge={findingsBadge}
+      />
+      <AttackSubviewBar
+        run={run}
+        value={subview}
+        onChange={onSubview}
+        agentCount={agents.length}
+        workingCount={workingCount}
       />
       {body}
       {overlayOpen ? (

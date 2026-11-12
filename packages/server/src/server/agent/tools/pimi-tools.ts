@@ -69,6 +69,7 @@ import type { VoiceCallerContext, VoiceSpeakHandler } from "../../voice-types.js
 import type { FirstAgentContext } from "../../messages.js";
 import { expandUserPath, isSameOrDescendantPath, resolvePathFromBase } from "../../path-utils.js";
 import type { TerminalManager } from "../../../terminal/terminal-manager.js";
+import { recordTerminalOwner } from "../../../terminal/terminal-owners.js";
 import { encodeTerminalKeyInput } from "@pimi/protocol/terminal-key-input";
 import { TerminalInputModeTracker } from "@pimi/protocol/terminal-input-mode";
 import type { CreatePimiWorktreeWorkflowFn } from "../../worktree-session.js";
@@ -136,6 +137,7 @@ import {
 } from "../../worktree/commands.js";
 import { registerBrowserTools } from "../../browser-tools/tools.js";
 import type { BrowserToolsBroker } from "../../browser-tools/broker.js";
+import { registerDesktopToolsWhenWired } from "../../desktop-tools/tools.js";
 import type { AttackService } from "../../attack/service.js";
 import { registerAttackTools } from "./attack-tools.js";
 import {
@@ -1473,6 +1475,13 @@ function createToolCatalog(
     });
   }
 
+  registerDesktopToolsWhenWired({
+    registerTool,
+    broker: options.browserToolsBroker?.desktop,
+    attack: options.attackService,
+    callerAgentId,
+  });
+
   registerAttackTools({
     registerTool,
     scope,
@@ -2536,6 +2545,7 @@ function createToolCatalog(
         workspaceId,
         ...(name?.trim() ? { name: name.trim() } : {}),
       });
+      if (callerAgentId) recordTerminalOwner(terminal.id, callerAgentId);
 
       return {
         content: [],

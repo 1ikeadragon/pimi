@@ -34,7 +34,10 @@ export class AttackSession {
       case "attack.run.resume.request":
         return this.handle(msg, async () => ({
           type: "attack.run.resume.response",
-          payload: { requestId: msg.requestId, run: await this.attack.resumeRun(msg.runId) },
+          payload: {
+            requestId: msg.requestId,
+            run: await this.attack.resumeRun(msg.runId, msg.limits),
+          },
         }));
       case "attack.run.cancel.request":
         return this.handle(msg, async () => ({
@@ -95,6 +98,35 @@ export class AttackSession {
           });
           return { type: "attack.audit.record.response", payload: { requestId: msg.requestId } };
         });
+      case "attack.coverage.record.request":
+        return this.handle(msg, async () => ({
+          type: "attack.coverage.record.response",
+          payload: {
+            requestId: msg.requestId,
+            route: await this.attack.recordCoverage({
+              runId: msg.runId,
+              agentId: msg.agentId,
+              route: msg.route,
+            }),
+          },
+        }));
+      case "attack.coverage.get.request":
+        return this.handle(msg, async () => ({
+          type: "attack.coverage.get.response",
+          payload: { requestId: msg.requestId, coverage: await this.attack.getCoverage(msg.runId) },
+        }));
+      case "attack.finding.merge.request":
+        return this.handle(msg, async () => ({
+          type: "attack.finding.merge.response",
+          payload: {
+            requestId: msg.requestId,
+            finding: await this.attack.mergeFindings({
+              runId: msg.runId,
+              duplicateId: msg.duplicateId,
+              intoId: msg.intoId,
+            }),
+          },
+        }));
       default:
         return undefined;
     }

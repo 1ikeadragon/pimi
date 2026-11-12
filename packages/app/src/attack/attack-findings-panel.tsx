@@ -11,6 +11,8 @@ import {
   type FindingStatus,
 } from "@pimi/protocol/attack/types";
 import { Button } from "@/components/ui/button";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { confirmDialog } from "@/utils/confirm-dialog";
 import { PressHighlight } from "@/components/ui/press-highlight";
 import { usePaneContext } from "@/panels/pane-context";
 import { useHostRuntimeClient } from "@/runtime/host-runtime";
@@ -24,6 +26,9 @@ import {
 import { formatClock, useAttackRuntimeMs } from "./use-attack-run-clock";
 import { useAttackRunAgents } from "./use-attack-run-agents";
 import { buildFixPrompt } from "./fix-prompt";
+import { AttackAuditPanel, useAttackAudit } from "./attack-audit-panel";
+import { FindingMergeMenu } from "./attack-finding-merge";
+import { AttackAnnotationResults } from "./attack-annotation-results";
 
 // useAttackRuntimeMs needs a run; with none it only reads a stopped placeholder.
 const IDLE_RUN: AttackRun = {
@@ -40,6 +45,10 @@ const IDLE_RUN: AttackRun = {
   limits: { maxRuntimeMs: 1, maxTokens: 1 },
   annotations: [],
   onlyAnnotated: false,
+  desktopTarget: null,
+  allowDesktopInput: false,
+  annotationResults: {},
+  spentByAgent: {},
   status: "stopped",
   pausedReason: null,
   leadAgentId: null,
@@ -66,6 +75,74 @@ export function AttackFindingsPanel() {
   useAttackSync(serverId, workspaceId);
   const run = useLatestAttackRun(serverId, workspaceId);
   const findings = useAttackFindings(serverId, run?.id ?? null);
+  const active = run !== null && (run.status === "running" || run.status === "paused");
+  const runAgents = useAttackRunAgents(serverId, run);
+  const [tab, setTab] = useState<"findings" | "audit">("findings");
+  // The audit log is refetched when the run's status or its findings change.
+  const auditKey = useMemo(() => {
+    const latest = findings.reduce(
+      (at, finding) => (finding.updatedAt > at ? finding.updatedAt : at),
+      "",
+    );
+    return `${run?.status ?? ""}:${findings.length}:${latest}`;
+  }, [findings, run?.status]);
+  const audit = useAttackAudit({
+    serverId,
+    runId: run?.id ?? null,
+    changeKey: auditKey,
+    watch: tab === "audit" && active,
+  });
+  const tabOptions = useMemo(
+    () => [
+      {
+        value: "findings" as const,
+        label: `${t("attack.findings.tabs.findings")} ${findings.length}`,
+        testID: "attack-findings-tab-findings",
+      },
+      {
+        value: "audit" as const,
+        label: `${t("attack.findings.tabs.audit")} ${audit.entries.length}`,
+        testID: "attack-findings-tab-audit",
+      },
+    ],
+    [audit.entries.length, findings.length, t],
+  );
+  if (!run) return <FindingsList run={null} findings={findings} agentCount={0} />;
+  return (
+    <View style={styles.panel}>
+      <View style={styles.tabs}>
+        <SegmentedControl
+          options={tabOptions}
+          value={tab}
+          onValueChange={setTab}
+          size="sm"
+          accessibilityLabel={t("attack.findings.tabs.label")}
+        />
+      </View>
+      {tab === "audit" ? (
+        <AttackAuditPanel
+          run={run}
+          entries={audit.entries}
+          error={audit.error}
+          agents={runAgents}
+        />
+      ) : (
+        <FindingsList run={run} findings={findings} agentCount={runAgents.length} />
+      )}
+    </View>
+  );
+}
+
+function FindingsList({
+  run,
+  findings,
+  agentCount,
+}: {
+  run: AttackRun | null;
+  findings: Finding[];
+  agentCount: number;
+}) {
+  const { t } = useTranslation();
   const grouped = useMemo(() => {
     const bySeverity = new Map<FindingSeverity, Finding[]>();
     for (const finding of findings) {
@@ -78,9 +155,7 @@ export function AttackFindingsPanel() {
     }
     return bySeverity;
   }, [findings]);
-
   const active = run !== null && (run.status === "running" || run.status === "paused");
-  const agentCount = useAttackRunAgents(serverId, run).length;
   const runtimeMs = useAttackRuntimeMs(run ?? IDLE_RUN);
   let empty: string | null = null;
   if (!run) empty = t("attack.findings.noRun");
@@ -90,12 +165,13 @@ export function AttackFindingsPanel() {
       empty =
         run.status === "completed" ? t("attack.findings.nothingFound") : t("attack.findings.empty");
   }
-
   return (
     <ScrollView contentContainerStyle={styles.content} testID="attack-findings-panel">
       {run && !active ? (
         <Text style={styles.metaText} numberOfLines={1}>
-          {t("attack.findings.lastRun", { target: runHost(run.target) })}
+          {t("attack.findings.lastRun", {
+            target: run.target ? runHost(run.target) : (run.desktopTarget?.appName ?? ""),
+          })}
         </Text>
       ) : null}
       {empty ? <Text style={styles.emptyText}>{empty}</Text> : null}
@@ -114,17 +190,24 @@ export function AttackFindingsPanel() {
                   {t(`attack.findings.severity.${severity}`)} · {list.length}
                 </Text>
                 {list.map((finding) => (
-                  <FindingCard key={finding.id} finding={finding} />
+                  <FindingCard key={finding.id} finding={finding} mergeTargets={findings} />
                 ))}
               </View>
             );
           })
         : null}
+      {run ? <AttackAnnotationResults run={run} findings={findings} /> : null}
     </ScrollView>
   );
 }
 
-function FindingCard({ finding }: { finding: Finding }) {
+function FindingCard({
+  finding,
+  mergeTargets,
+}: {
+  finding: Finding;
+  mergeTargets: readonly Finding[];
+}) {
   const { t } = useTranslation();
   const { serverId, workspaceId } = usePaneContext();
   const client = useHostRuntimeClient(serverId);
@@ -164,6 +247,32 @@ function FindingCard({ finding }: { finding: Finding }) {
       }
     },
     [client, finding.id, finding.runId],
+  );
+
+  const onMerge = useCallback(
+    async (target: Finding) => {
+      if (!client) return;
+      const confirmed = await confirmDialog({
+        title: t("attack.findings.merge.action"),
+        message: `${finding.title}\n→ ${target.title}`,
+        confirmLabel: t("attack.findings.merge.action"),
+      });
+      if (!confirmed) return;
+      setBusy(true);
+      setError(null);
+      try {
+        await client.attackFindingMerge({
+          runId: finding.runId,
+          duplicateId: finding.id,
+          intoId: target.id,
+        });
+      } catch (caught) {
+        setError(toErrorMessage(caught));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [client, finding.id, finding.runId, finding.title, t],
   );
 
   const onFix = useCallback(async () => {
@@ -218,6 +327,15 @@ function FindingCard({ finding }: { finding: Finding }) {
           </Text>
         </View>
       </PressHighlight>
+      {finding.annotationLabels.length > 0 ? (
+        <View style={styles.chips} testID="attack-finding-annotations">
+          {finding.annotationLabels.map((label) => (
+            <View key={label} style={styles.chip} testID={`attack-finding-chip-${label}`}>
+              <Text style={styles.chipText}>{label}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
       {open ? (
         <View style={styles.cardBody}>
           <Text style={styles.bodyText}>{view.description}</Text>
@@ -274,6 +392,12 @@ function FindingCard({ finding }: { finding: Finding }) {
                 onSet={setStatus}
               />
             ) : null}
+            <FindingMergeMenu
+              finding={finding}
+              candidates={mergeTargets}
+              disabled={busy}
+              onMerge={onMerge as (target: Finding) => void}
+            />
           </View>
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
         </View>
@@ -354,6 +478,11 @@ function EvidenceBlock({ item, loaded }: { item: FindingEvidence; loaded: boolea
 }
 
 const styles = StyleSheet.create((theme) => ({
+  panel: { flex: 1, minHeight: 0 },
+  tabs: {
+    paddingHorizontal: theme.spacing[3],
+    paddingTop: theme.spacing[2],
+  },
   content: {
     padding: theme.spacing[3],
     gap: theme.spacing[4],
@@ -399,6 +528,26 @@ const styles = StyleSheet.create((theme) => ({
   cardMeta: {
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
+  },
+  chips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: theme.spacing[1],
+    paddingHorizontal: theme.spacing[3],
+    paddingBottom: theme.spacing[2],
+  },
+  chip: {
+    paddingHorizontal: theme.spacing[2],
+    paddingVertical: 2,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface1,
+  },
+  chipText: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.sm,
+    fontWeight: "500",
   },
   cardBody: {
     gap: theme.spacing[2],

@@ -146,6 +146,7 @@ import {
 } from "./daemon/quit-lifecycle.js";
 import { runDesktopStartup } from "./desktop-startup.js";
 import { registerBrowserAutomationIpc } from "./features/browser-automation/ipc.js";
+import { registerDesktopTargetIpc } from "./features/desktop-target/index.js";
 import { BrowserKeyboard } from "./features/browser-keyboard/index.js";
 import { installAppUpdateOnQuit } from "./features/auto-updater.js";
 import {
@@ -1360,6 +1361,7 @@ async function bootstrap(): Promise<void> {
     targets: PIMI_EDITOR_TARGETS,
   });
   registerBrowserAutomationIpc();
+  registerDesktopTargetIpc();
 
   // In-app "Open in new window": opens a window that lands on the given project
   // via the same open-project flow as a CLI launch (no move, no ownership).

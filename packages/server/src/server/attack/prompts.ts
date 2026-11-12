@@ -14,6 +14,7 @@ function annotationsBlock(run: AttackRun): string | null {
         `${item.label}: ${item.note.trim() || "(no note)"}`,
         `  page: ${item.url}`,
         `  element: <${item.tag}> ${item.selector}`,
+        item.hasImage ? "  screenshot: yes (get_annotation returns it)" : null,
         item.text.trim() ? `  text: ${JSON.stringify(item.text.trim())}` : null,
       ];
       return parts.filter((line): line is string => line !== null).join("\n");
@@ -22,14 +23,33 @@ function annotationsBlock(run: AttackRun): string | null {
   const rule = run.onlyAnnotated
     ? "The owner wants ONLY these items tested: do not run a general pass over the rest of the app, and give every subagent the labels it must cover."
     : "These are in addition to the general pass: cover them first, then the rest of the app. Give every subagent the labels it must cover.";
-  return `Owner annotations (elements the owner marked in the live target, with their notes). ${rule} Say which label a finding relates to in its description.\n${items}`;
+  const labels = run.annotations.map((item) => item.label).join(", ");
+  return `Owner annotations (elements the owner marked in the live target, with their notes). ${rule}
+Annotation handling (${labels}):
+- Each agent reads an annotation with get_annotation(label): the owner's note, the element and, when there is one, its screenshot. Tell every subagent which labels to read and test; they see only what you write.
+- A finding about an annotation passes annotationLabels: ["A1"] to submit_finding, so the owner sees which note it answers.
+- Before finish_attack_run, call report_annotation_result(label, result, note) once for every annotation that has no finding: clean when it was tested and held, not_testable when it could not be tested. Never mark an annotation clean that nobody tested.
+${items}`;
+}
+
+function desktopBlock(run: AttackRun): string | null {
+  const target = run.desktopTarget;
+  if (!target) return null;
+  const title = target.windowTitle ? ` titled ${JSON.stringify(target.windowTitle)}` : "";
+  return [
+    `Desktop window: ${target.appName}'s window${title}. This is the only window you may read or drive. Use desktop_snapshot (accessibility tree with element paths), desktop_screenshot, desktop_click, desktop_type and desktop_key; every action is recorded for the owner and the desktop app refuses any other window or app, system chords such as cmd+q or cmd+tab, and points outside the window.`,
+    run.allowDesktopInput || run.disposableTarget
+      ? "Desktop input: allowed. Only click, type and press keys to reach and exercise features; never delete the owner's data, save over files, quit the app or change settings outside the window."
+      : "Desktop input: NOT allowed. desktop_click, desktop_type and desktop_key are refused; read the window with desktop_snapshot and desktop_screenshot only.",
+  ].join("\n");
 }
 
 function runContext(run: AttackRun): string {
   const hosts = attackAllowedHosts(run.remoteHost);
   return [
     `Run id: ${run.id}`,
-    `Target: ${run.target}`,
+    run.target ? `Target: ${run.target}` : "Target: a desktop window (no URL), described below.",
+    desktopBlock(run),
     run.repoScope
       ? `Repository (your working directory): ${run.cwd}`
       : `Repository: out of scope. Do not read ${run.cwd} or search its files; work from the running app only.`,
@@ -64,7 +84,7 @@ Roster. Start each of these as a subagent with create_agent, passing the profile
 ${roster}
 
 How to run it
-1. Map the target first: open it in a browser tab (browser_new_tab), snapshot it, and list the routes, forms and inputs you can see. Read the repository's entry points and routes to match them against what the browser shows.
+1. Map the target first: ${run.target ? "open it in a browser tab (browser_new_tab), snapshot it, and list the routes, forms and inputs you can see." : ""}${run.desktopTarget ? " Take a desktop_snapshot of the desktop window and list the controls, fields and flows you can see." : ""} Read the repository's entry points and routes to match them against what you see.
 2. Start the roster subagents with that map in their prompts. Work in parallel; do not wait idly. You are notified when a subagent finishes.
 3. Subagents report findings with submit_finding. You may also submit findings you confirmed yourself. One defect is one finding, however many agents hit it and whatever words they use: when the run already has findings, submit_finding shows them and records nothing until you answer with duplicateOf (the same underlying defect; your evidence is added to it) or distinct.
 4. When subagents finish, read the findings you were told about, drop anything unverified, and make sure each remaining finding has a repro and evidence.

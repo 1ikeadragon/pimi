@@ -1,4 +1,5 @@
 import type pino from "pino";
+import { getTerminalOwner } from "./terminal-owners.js";
 import type {
   OwnedSubscription,
   SessionDelivery,
@@ -301,15 +302,18 @@ export class TerminalSessionController {
     workspaceId: string;
     title?: string;
     activity: TerminalActivity | null;
+    ownerAgentId?: string;
   } {
     const title = terminal.getTitle();
     const activity = terminal.getActivity();
+    const ownerAgentId = getTerminalOwner(terminal.id);
     return {
       id: terminal.id,
       name: terminal.name,
       workspaceId: terminal.workspaceId,
       ...(title ? { title } : {}),
       activity,
+      ...(ownerAgentId ? { ownerAgentId } : {}),
     };
   }
 

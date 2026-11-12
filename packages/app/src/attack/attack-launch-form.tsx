@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Check, Crosshair, Swords } from "lucide-react-native";
-import type { AttackAnnotation } from "@pimi/protocol/attack/types";
+import { Check, Crosshair, RefreshCw, Swords } from "lucide-react-native";
+import type { AttackAnnotation, AttackDesktopTarget } from "@pimi/protocol/attack/types";
 import { StyleSheet } from "react-native-unistyles";
 import { ATTACK_ROLE_IDS, type AttackRoleId } from "@pimi/protocol/attack/types";
 import { Button } from "@/components/ui/button";
@@ -18,8 +18,11 @@ import {
   openAttackRunForm,
   type AttackModelOption,
   type AttackRunFormModel,
+  type AttackRunFormState,
 } from "./attack-run-form-model";
 import { useAttackStore } from "./attack-store";
+import { getDesktopHost } from "@/desktop/host";
+import { hasDesktopTargetBridge, listDesktopWindows } from "./use-desktop-target";
 
 const SIZE = "md" as const;
 const ROLE_LABEL_KEYS: Record<AttackRoleId, string> = {
@@ -130,6 +133,7 @@ export function LaunchForm({
           autoCorrect={false}
         />
       </Field>
+      {hasDesktopTargetBridge() ? <DesktopTargetSection model={model} state={state} /> : null}
       <Field label={t("attack.form.repoScope")}>
         <View style={styles.switchRow}>
           <Text style={styles.switchText} numberOfLines={1}>
@@ -258,6 +262,114 @@ function getModelKey(option: AttackModelOption): string {
   return option.value;
 }
 
+const NO_WINDOW: AttackDesktopTarget = { bundleId: "", appName: "", windowTitle: "" };
+
+function getWindowKey(window: AttackDesktopTarget): string {
+  return `${window.bundleId}\u0000${window.windowTitle}`;
+}
+
+// The owner picks the one window the agents may drive; the desktop app enforces it on every call.
+function DesktopTargetSection({
+  model,
+  state,
+}: {
+  model: AttackRunFormModel;
+  state: AttackRunFormState;
+}) {
+  const { t } = useTranslation();
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      const listed = await listDesktopWindows();
+      setError(listed.error);
+      model.applyDesktopWindows(listed.windows);
+    } catch (caught) {
+      setError(toErrorMessage(caught));
+    } finally {
+      setLoading(false);
+    }
+  }, [model]);
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+  const onRefresh = useCallback(() => void refresh(), [refresh]);
+  const onGrant = useCallback(() => {
+    const bridge = getDesktopHost()?.desktopTarget;
+    if (!bridge) return;
+    void bridge
+      .permissions({ prompt: true })
+      .catch(() => undefined)
+      .then(() => refresh());
+  }, [refresh]);
+  const options = useMemo<SelectFieldOption<AttackDesktopTarget>[]>(
+    () => [
+      { id: "none", value: NO_WINDOW, label: t("attack.form.desktopNone") },
+      ...state.desktopWindows.map((window) => ({
+        id: getWindowKey(window),
+        value: window,
+        label: `${window.appName} · ${window.windowTitle}`,
+      })),
+    ],
+    [state.desktopWindows, t],
+  );
+  const picked = state.desktopTarget;
+  const onChange = useCallback(
+    (value: AttackDesktopTarget) => model.setDesktopTarget(value.bundleId === "" ? null : value),
+    [model],
+  );
+  const selectedDisplay = useMemo(
+    () => ({
+      label: picked ? `${picked.appName} · ${picked.windowTitle}` : t("attack.form.desktopNone"),
+    }),
+    [picked, t],
+  );
+  return (
+    <View style={styles.desktopSection} testID="attack-desktop-section">
+      <SelectField
+        label={t("attack.form.desktopWindow")}
+        value={picked ?? NO_WINDOW}
+        selectedDisplay={selectedDisplay}
+        options={options}
+        onChange={onChange}
+        placeholder={t("attack.form.desktopNone")}
+        emptyText={t("attack.form.desktopNone")}
+        hint={t("attack.form.desktopHint")}
+        getValueKey={getWindowKey}
+        loading={loading}
+        size={SIZE}
+        testID="attack-desktop-select"
+      />
+      <View style={styles.desktopActions}>
+        <Button variant="outline" size="sm" leftIcon={RefreshCw} onPress={onRefresh}>
+          {t("attack.form.desktopRefresh")}
+        </Button>
+        {error ? (
+          <Button variant="outline" size="sm" onPress={onGrant}>
+            {t("attack.subviews.desktop.grantAccess")}
+          </Button>
+        ) : null}
+      </View>
+      {error ? (
+        <Text style={styles.errorText} testID="attack-desktop-list-error">
+          {error}
+        </Text>
+      ) : null}
+      {picked ? (
+        <Field label={t("attack.form.desktopInput")} hint={t("attack.form.desktopInputHint")}>
+          <Switch
+            value={state.allowDesktopInput}
+            onValueChange={model.setAllowDesktopInput}
+            accessibilityLabel={t("attack.form.desktopInput")}
+            testID="attack-desktop-input-switch"
+          />
+        </Field>
+      ) : null}
+    </View>
+  );
+}
+
 function RosterRow({
   role,
   checked,
@@ -292,6 +404,8 @@ function RosterRow({
 }
 
 const styles = StyleSheet.create((theme) => ({
+  desktopSection: { gap: theme.spacing[2] },
+  desktopActions: { flexDirection: "row", gap: theme.spacing[2], flexWrap: "wrap" },
   section: {
     width: "100%",
     maxWidth: 560,
