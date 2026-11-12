@@ -12,12 +12,10 @@ import {
 import { View, Text } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
-import { PaneFind, findShortcutPlatform, isFindShortcut, type PaneFindHandle } from "@/pane-find";
+import { PaneFind, usePaneFindTarget, type PaneFindHandle } from "@/pane-find";
 import { Button } from "@/components/ui/button";
 import { usePaneFocus } from "@/panels/pane-context";
 import { useRetainedPanelActive } from "@/components/retained-panel";
-import { hasActiveOverlay } from "@/keyboard";
-import { isImeComposingKeyboardEvent } from "@/utils/keyboard-ime";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
 import { planTimelinePromptJump } from "@/timeline/timeline-sync-plan";
 import { ChatFindModel, type ChatFindFailure } from "./model";
@@ -121,21 +119,24 @@ export function ChatFind({
   useEffect(() => {
     if (!active) model.close();
   }, [active, model]);
-  useEffect(() => {
-    if (!active || !isInteractive) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || hasActiveOverlay() || isImeComposingKeyboardEvent(event))
-        return;
-      if (isFindShortcut(event, findShortcutPlatform())) {
-        event.preventDefault();
+  usePaneFindTarget(
+    {
+      open: () => {
         model.open();
         widget.current?.focus();
-      }
-    };
-    // React Native TextInput stops bubbling key events, including from the composer.
-    document.addEventListener("keydown", onKeyDown, true);
-    return () => document.removeEventListener("keydown", onKeyDown, true);
-  }, [active, isInteractive, model]);
+      },
+      // Next and previous act only while Find is open.
+      next: () => {
+        if (!model.getSnapshot().open) return false;
+        model.next();
+      },
+      previous: () => {
+        if (!model.getSnapshot().open) return false;
+        model.previous();
+      },
+    },
+    active && isInteractive,
+  );
   const close = useCallback(() => {
     model.close();
     viewportRef.current?.focus?.();

@@ -13,7 +13,7 @@ import {
   lineNumbers,
 } from "@codemirror/view";
 import { createCodeMirrorHighlightStyle, type HighlightStyle } from "@pimi/highlight";
-import { Compartment } from "@codemirror/state";
+import { Compartment, EditorState } from "@codemirror/state";
 
 export const editorHistory = new Compartment();
 
@@ -35,6 +35,8 @@ export function editorBaseExtensions(onSave: () => void) {
     lineNumbers(),
     editorHistory.of(history()),
     drawSelection(),
+    // Cmd/Ctrl+D and Cmd/Ctrl+Shift+L need more than one selection range.
+    EditorState.allowMultipleSelections.of(true),
     indentOnInput(),
     bracketMatching(),
     highlightActiveLine(),

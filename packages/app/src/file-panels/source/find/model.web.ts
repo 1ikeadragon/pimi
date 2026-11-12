@@ -31,6 +31,11 @@ export class FileFindModel {
     placement: "top" as FindPlacement,
     query: "",
     replacement: "",
+    caseSensitive: false,
+    wholeWord: false,
+    regex: false,
+    /** The query is non-empty but cannot be matched, e.g. a regular expression that fails to parse. */
+    invalid: false,
     current: 0,
     total: 0,
     limited: false,
@@ -65,7 +70,9 @@ export class FileFindModel {
       if (!multilineSeed) return null;
       return { effects: setSearchQuery.of(getSearchQuery(transaction.startState)) };
     }),
-    keymap.of(searchKeymap.filter((binding) => binding.key !== "Mod-f")),
+    // Find, next/previous, replace, the option toggles and the multi-cursor commands arrive through
+    // the shortcut table so they can be rebound; only Escape is left to the editor.
+    keymap.of(searchKeymap.filter((binding) => binding.key === "Escape")),
   ];
 
   readonly open = (view = this.view) => {
@@ -89,22 +96,50 @@ export class FileFindModel {
   readonly replaceAll = () => {
     if (this.view) replaceAll(this.view);
   };
-  readonly setReplacement = (replacement: string) =>
-    this.setQuery(this.snapshot.query, replacement);
-  readonly setSearch = (query: string) => {
-    this.setQuery(query, this.snapshot.replacement);
-    if (this.view && this.matches.length > 0) {
-      this.view.dispatch({ selection: { anchor: this.view.state.selection.main.from } });
-      findNext(this.view);
-    }
+  readonly setReplacement = (replacement: string) => this.applyQuery({ replace: replacement });
+  readonly setSearch = (query: string) => this.applyQuery({ search: query }, true);
+  /** Flips one match option and re-selects the nearest match under the new rules. */
+  readonly toggleOption = (option: "case" | "word" | "regex") => {
+    if (!this.view) return;
+    const current = getSearchQuery(this.view.state);
+    if (option === "case") this.applyQuery({ caseSensitive: !current.caseSensitive }, true);
+    else if (option === "word") this.applyQuery({ wholeWord: !current.wholeWord }, true);
+    else this.applyQuery({ regexp: !current.regexp }, true);
   };
 
-  private setQuery(query: string, replacement: string) {
-    this.view?.dispatch({
+  /** Applies a change to the live query, keeping every option the change does not name. */
+  private applyQuery(
+    change: Partial<{
+      search: string;
+      replace: string;
+      caseSensitive: boolean;
+      wholeWord: boolean;
+      regexp: boolean;
+    }>,
+    selectNearest = false,
+  ) {
+    const view = this.view;
+    if (!view) return;
+    const current = getSearchQuery(view.state);
+    const regexp = change.regexp ?? current.regexp;
+    view.dispatch({
       effects: setSearchQuery.of(
-        new SearchQuery({ search: query, replace: replacement, literal: true }),
+        new SearchQuery({
+          search: change.search ?? current.search,
+          replace: change.replace ?? current.replace,
+          caseSensitive: change.caseSensitive ?? current.caseSensitive,
+          wholeWord: change.wholeWord ?? current.wholeWord,
+          regexp,
+          // Literal mode makes \n and \t in the field mean newline and tab, which a regular
+          // expression already does for itself.
+          literal: !regexp,
+        }),
       ),
     });
+    if (selectNearest && this.matches.length > 0) {
+      view.dispatch({ selection: { anchor: view.state.selection.main.from } });
+      findNext(view);
+    }
   }
 
   /**
@@ -240,6 +275,10 @@ export class FileFindModel {
       ...this.snapshot,
       query: query.search,
       replacement: query.replace,
+      caseSensitive: query.caseSensitive,
+      wholeWord: query.wholeWord,
+      regex: query.regexp,
+      invalid: query.search !== "" && !query.valid,
       current,
       total: this.matches.length,
       limited,

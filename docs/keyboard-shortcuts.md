@@ -85,6 +85,39 @@ Escape interrupts an agent only in the message input or an unclaimed surface.
 A focused terminal excludes that binding. The source leaves terminal Escape alone;
 terminal Escape/Ctrl forwarding is a separate feature.
 
+The `editor` scope is the code editor (`.cm-editor`) and any surface carrying
+`data-keyboard-scope="editor"`, which every Find widget does. It exists because
+CodeMirror is a contenteditable and used to resolve as `editable`, so Cmd+D
+(dictation) and Cmd+Shift+G (Changes) swallowed keys the editor owns. Those two
+bindings now declare `editor: false`, and the editor's own bindings
+(`editor.add-next-occurrence`, `editor.select-all-occurrences`, `editor.go-to-line`,
+`pane.find.previous` on Cmd+Shift+G, the option toggles) declare
+`focusScope: "editor"`. `editable: false` also excludes `editor`.
+
+## Find and editor keys
+
+The bindings follow VS Code and Cursor: Cmd on macOS, Ctrl elsewhere. Cmd/Ctrl+Shift+F
+is search in files, Cmd/Ctrl+Shift+P and F1 the command palette, Cmd/Ctrl+K the same
+palette. Focus mode moved to Cmd/Ctrl+Shift+M and Pin chat to Cmd+Alt+P / Ctrl+Alt+P to
+free those keys; the binding ids kept their old names so saved overrides survive.
+
+Find keys are table actions (`pane.find`, `pane.find.next`, `pane.find.previous`,
+`pane.replace`, `pane.find.toggle-*`). A pane's content registers one handler with
+`usePaneFindTarget` in `pane-find`, enabled only while the pane is focused and visible. A
+method that returns `false` (Cmd+G with Find closed) leaves the key to the platform, and a
+pane with no registered target never swallows Cmd/Ctrl+F. Enter, Shift+Enter and Escape act
+on the field itself and stay in `PaneFind`. The terminal WebView runtime is bundled alone
+and keeps its own `find-shortcut.ts` check; the browser guest forwards its keys through
+`packages/desktop/src/features/browser-keyboard`.
+
+Editor-only commands (`useEditorCommands`) run only while `.cm-content` holds focus, not the
+Find field, and multi-cursor commands need `EditorState.allowMultipleSelections`, so the
+read-only viewer leaves Cmd+D unhandled. Vim mode is not special-cased: Ctrl+D and Ctrl+G
+resolve to the editor commands there.
+
+To exercise Windows and Linux keys in a browser, override `navigator.platform` as well as
+the user agent: `isMacUserAgent` also reads the platform string.
+
 ## Keys shared with text editing
 
 A binding on a key the platform already uses for editing, such as Cmd/Ctrl+Z for

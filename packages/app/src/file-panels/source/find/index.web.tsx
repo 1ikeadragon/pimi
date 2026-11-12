@@ -10,11 +10,15 @@ import { EditorView } from "@codemirror/view";
 import { View, type View as ViewInstance } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
-import { PaneFind, findShortcutPlatform, isFindShortcut, type PaneFindHandle } from "@/pane-find";
+import {
+  PaneFind,
+  usePaneFindTarget,
+  type PaneFindHandle,
+  type PaneFindOptions,
+} from "@/pane-find";
 import { usePaneFocus } from "@/panels/pane-context";
-import { hasActiveOverlay } from "@/keyboard";
 import { useRetainedPanelActive } from "@/components/retained-panel";
-import { isImeComposingKeyboardEvent } from "@/utils/keyboard-ime";
+import { useEditorCommands } from "../editor/use-editor-commands.web";
 import { FileFindModel } from "./model.web";
 
 export { FileFindModel } from "./model.web";
@@ -36,21 +40,58 @@ export function FileFind({
     (node: ViewInstance | null) => model.setWidgetNode(node as unknown as HTMLElement | null),
     [model],
   );
+  const enabled = isInteractive && active;
+  // Replace opened from a closed Find: the widget mounts after the model reports open, so the
+  // request waits for it.
+  const pendingReplace = useRef(false);
   useEffect(() => {
-    if (!isInteractive || !active) return;
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.defaultPrevented || hasActiveOverlay() || isImeComposingKeyboardEvent(event))
-        return;
-      if (isFindShortcut(event, findShortcutPlatform())) {
-        event.preventDefault();
+    if (!state.open || !pendingReplace.current || !widget.current) return;
+    pendingReplace.current = false;
+    widget.current.openReplace();
+  }, [state.open]);
+  const toggle = (option: "case" | "word" | "regex") => {
+    if (!model.getSnapshot().open) return false;
+    model.toggleOption(option);
+  };
+  usePaneFindTarget(
+    {
+      open: () => {
         model.open(editor.current);
         widget.current?.focus();
-      }
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [active, editor, isInteractive, model]);
+      },
+      // Next and previous act only while Find is open, so Cmd+G with Find closed stays unhandled.
+      next: () => {
+        if (!model.getSnapshot().open) return false;
+        model.next();
+      },
+      previous: () => {
+        if (!model.getSnapshot().open) return false;
+        model.previous();
+      },
+      openReplace: () => {
+        const view = editor.current;
+        if (!view || view.state.readOnly) return false;
+        model.open(view);
+        if (widget.current) widget.current.openReplace();
+        else pendingReplace.current = true;
+      },
+      toggleCase: () => toggle("case"),
+      toggleWord: () => toggle("word"),
+      toggleRegex: () => toggle("regex"),
+    },
+    enabled,
+  );
+  useEditorCommands(editor, enabled);
 
+  const options = useMemo<PaneFindOptions>(
+    () => ({
+      caseSensitive: state.caseSensitive,
+      wholeWord: state.wholeWord,
+      regex: state.regex,
+      onToggle: model.toggleOption,
+    }),
+    [model, state.caseSensitive, state.regex, state.wholeWord],
+  );
   const replace = useMemo(
     () =>
       state.readOnly
@@ -67,7 +108,8 @@ export function FileFind({
   const total = `${state.total}${state.limited ? "+" : ""}`;
   let status = "";
   if (state.query) {
-    if (state.total === 0) status = t("paneFind.noMatches");
+    if (state.invalid) status = t("paneFind.invalidRegex");
+    else if (state.total === 0) status = t("paneFind.noMatches");
     else if (state.current) status = t("paneFind.position", { current: state.current, total });
     else status = t("paneFind.total", { total });
   }
@@ -86,6 +128,7 @@ export function FileFind({
           onNext={model.next}
           onPrevious={model.previous}
           onClose={model.close}
+          options={options}
           replace={replace}
         />
       </View>

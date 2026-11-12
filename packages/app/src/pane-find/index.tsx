@@ -16,7 +16,16 @@ import {
   type TextInputKeyPressEventData,
   type TextInputProps,
 } from "react-native";
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, X } from "lucide-react-native";
+import {
+  ArrowDown,
+  ArrowUp,
+  CaseSensitive,
+  ChevronDown,
+  ChevronRight,
+  Regex,
+  WholeWord,
+  X,
+} from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -33,10 +42,15 @@ import { paneContentToolbarIconSize, ToolbarButton } from "@/components/ui/pane-
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { isWeb } from "@/constants/platform";
 import { isImeComposingKeyboardEvent } from "@/utils/keyboard-ime";
+import { usesDesktopBindings } from "@/keyboard";
+import { resolveShortcutKeysForAction } from "@/keyboard/keyboard-shortcuts";
+import { useKeyboardShortcutOverrides } from "@/hooks/use-keyboard-shortcut-overrides";
 import { getShortcutOs } from "@/utils/shortcut-platform";
+import type { ShortcutKey } from "@/utils/format-shortcut";
 import { isFindShortcut, type FindShortcutPlatform } from "./find-shortcut";
 
 export { isFindShortcut, type FindShortcutPlatform } from "./find-shortcut";
+export { usePaneFindTarget, type PaneFindTarget } from "./use-pane-find-target";
 
 /** The platform every Find surface judges the shortcut against. */
 export function findShortcutPlatform(): FindShortcutPlatform {
@@ -51,10 +65,31 @@ const ArrowDownIcon = withUnistyles(ArrowDown, mutedIconColorMapping);
 const CloseIcon = withUnistyles(X, mutedIconColorMapping);
 const ChevronDownIcon = withUnistyles(ChevronDown, mutedIconColorMapping);
 const ChevronRightIcon = withUnistyles(ChevronRight, mutedIconColorMapping);
+const CaseIcon = withUnistyles(CaseSensitive, mutedIconColorMapping);
+const WordIcon = withUnistyles(WholeWord, mutedIconColorMapping);
+const RegexIcon = withUnistyles(Regex, mutedIconColorMapping);
 
 export interface PaneFindHandle {
   focus(): void;
+  /** Expands the replacement row and focuses its field. */
+  openReplace(): void;
 }
+
+export type PaneFindOption = "case" | "word" | "regex";
+
+/** Match options a surface supports. A surface that cannot honor one omits the whole group. */
+export interface PaneFindOptions {
+  caseSensitive: boolean;
+  wholeWord: boolean;
+  regex: boolean;
+  onToggle(option: PaneFindOption): void;
+}
+
+const OPTION_SHORTCUT_IDS: Record<PaneFindOption, string> = {
+  case: "find-toggle-case",
+  word: "find-toggle-word",
+  regex: "find-toggle-regex",
+};
 
 export interface PaneFindProps {
   query: string;
@@ -64,12 +99,44 @@ export interface PaneFindProps {
   onNext(): void;
   onPrevious(): void;
   onClose(): void;
+  options?: PaneFindOptions;
   replace?: {
     value: string;
     onChange(value: string): void;
     onReplace(): void;
     onReplaceAll(): void;
   };
+}
+
+function OptionToggle({
+  option,
+  label,
+  compact,
+  selected,
+  shortcut,
+  onToggle,
+  children,
+}: {
+  option: PaneFindOption;
+  label: string;
+  compact: boolean;
+  selected: boolean;
+  shortcut: ShortcutKey[][] | undefined;
+  onToggle(option: PaneFindOption): void;
+  children: ReactNode;
+}) {
+  const onPress = useCallback(() => onToggle(option), [onToggle, option]);
+  return (
+    <ToolbarButton
+      label={label}
+      compact={compact}
+      selected={selected}
+      shortcut={shortcut}
+      onPress={onPress}
+    >
+      {children}
+    </ToolbarButton>
+  );
 }
 
 /**
@@ -137,7 +204,7 @@ const FindField = forwardRef<
 
 /** Pane-local chrome. The content owner supplies search state and commands. */
 export const PaneFind = forwardRef<PaneFindHandle, PaneFindProps>(function PaneFind(
-  { query, status, canNavigate, onQueryChange, onNext, onPrevious, onClose, replace },
+  { query, status, canNavigate, onQueryChange, onNext, onPrevious, onClose, options, replace },
   ref,
 ) {
   const { t } = useTranslation();
@@ -155,15 +222,34 @@ export const PaneFind = forwardRef<PaneFindHandle, PaneFindProps>(function PaneF
       replacementInput.current?.replaceText(replace.value);
   }, [replace]);
   const [replaceExpanded, setReplaceExpanded] = useState(false);
+  const [replaceFocusRequest, setReplaceFocusRequest] = useState(0);
   const focus = useCallback(() => {
     input.current?.focus();
     const text = input.current?.getText() ?? "";
     input.current?.replaceText(text, { start: 0, end: text.length });
   }, []);
-  useImperativeHandle(ref, () => ({ focus }), [focus]);
+  const openReplace = useCallback(() => {
+    setReplaceExpanded(true);
+    setReplaceFocusRequest((request) => request + 1);
+  }, []);
+  // The replacement field mounts only once the row is expanded, so focus waits for it.
+  useLayoutEffect(() => {
+    if (replaceFocusRequest === 0 || !replaceExpanded) return;
+    const field = replacementInput.current;
+    if (!field) return;
+    field.focus();
+    const text = field.getText();
+    field.replaceText(text, { start: 0, end: text.length });
+  }, [replaceExpanded, replaceFocusRequest]);
+  useImperativeHandle(ref, () => ({ focus, openReplace }), [focus, openReplace]);
 
-  const onKeyPress = useCallback(
-    (event: NativeSyntheticEvent<TextInputKeyPressEventData>) => {
+  // Enter in the query field walks matches; in the replacement field it replaces the current one,
+  // and Cmd/Ctrl+Alt+Enter replaces every match.
+  const handleKey = useCallback(
+    (
+      event: NativeSyntheticEvent<TextInputKeyPressEventData>,
+      onEnter: (key: { shiftKey: boolean; modAlt: boolean }) => void,
+    ) => {
       const key = event.nativeEvent as TextInputKeyPressEventData & {
         shiftKey?: boolean;
         ctrlKey?: boolean;
@@ -173,50 +259,88 @@ export const PaneFind = forwardRef<PaneFindHandle, PaneFindProps>(function PaneF
         keyCode?: number;
       };
       if (isImeComposingKeyboardEvent(key)) return;
-      const shortcut = {
-        key: key.key,
-        metaKey: key.metaKey === true,
-        ctrlKey: key.ctrlKey === true,
-        shiftKey: key.shiftKey === true,
-        altKey: key.altKey === true,
-      };
-      if (isFindShortcut(shortcut, findShortcutPlatform())) {
-        // RN Web inputs stop keydown before the pane's document listener.
-        event.preventDefault();
-        event.stopPropagation();
-        focus();
-      } else if (key.key === "Escape" || key.key === "Enter") {
-        event.preventDefault();
-        event.stopPropagation();
-        if (key.key === "Escape") onClose();
-        else if (key.shiftKey) onPrevious();
-        else onNext();
-      }
+      // Cmd/Ctrl+F, Cmd+G and the other Find keys arrive through the shortcut table, which sees
+      // them before this input does. Only the keys that act on the field itself live here.
+      if (key.key !== "Escape" && key.key !== "Enter") return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (key.key === "Escape") onClose();
+      else
+        onEnter({
+          shiftKey: key.shiftKey === true,
+          modAlt: key.altKey === true && (key.metaKey === true || key.ctrlKey === true),
+        });
     },
-    [focus, onClose, onNext, onPrevious],
+    [onClose],
+  );
+  const onKeyPress = useCallback(
+    (event: NativeSyntheticEvent<TextInputKeyPressEventData>) =>
+      handleKey(event, ({ shiftKey }) => (shiftKey ? onPrevious() : onNext())),
+    [handleKey, onNext, onPrevious],
+  );
+  const onReplaceKeyPress = useCallback(
+    (event: NativeSyntheticEvent<TextInputKeyPressEventData>) =>
+      handleKey(event, ({ modAlt }) => {
+        if (modAlt) replace?.onReplaceAll();
+        else replace?.onReplace();
+      }),
+    [handleKey, replace],
   );
   const toggleReplace = useCallback(() => setReplaceExpanded((expanded) => !expanded), []);
   const gutterStyle = useMemo(
     () => [styles.gutter, { width: controlSize, height: rowHeight }],
     [controlSize, rowHeight],
   );
-  const matchCount = useMemo(
+  const { overrides } = useKeyboardShortcutOverrides();
+  const shortcutPlatform = useMemo(
+    () => ({ isMac: getShortcutOs() === "mac", usesDesktopBindings }),
+    [],
+  );
+  const fieldTrailing = useMemo(
     () => (
-      <Text
-        style={styles.status}
-        role="status"
-        accessibilityLabel={t("paneFind.matches")}
-        accessibilityLiveRegion="polite"
-      >
-        {status}
-      </Text>
+      <>
+        <Text
+          style={styles.status}
+          role="status"
+          accessibilityLabel={t("paneFind.matches")}
+          accessibilityLiveRegion="polite"
+        >
+          {status}
+        </Text>
+        {options ? (
+          <View style={styles.options}>
+            {OPTION_CONTROLS.map(({ option, Icon, labelKey, selected }) => (
+              <OptionToggle
+                key={option}
+                option={option}
+                label={t(labelKey)}
+                compact={isCompact}
+                selected={options[selected]}
+                shortcut={
+                  resolveShortcutKeysForAction(
+                    OPTION_SHORTCUT_IDS[option],
+                    overrides,
+                    shortcutPlatform,
+                  ) ?? undefined
+                }
+                onToggle={options.onToggle}
+              >
+                <Icon size={glyphSize} />
+              </OptionToggle>
+            ))}
+          </View>
+        ) : null}
+      </>
     ),
-    [status, t],
+    [glyphSize, isCompact, options, overrides, shortcutPlatform, status, t],
   );
 
   return (
     <View
-      style={styles.widget}
+      style={[styles.widget, options ? styles.widgetWithOptions : null]}
+      // Marks the widget as part of the editor for the shortcut table: Cmd+G, Cmd+Shift+G and the
+      // option toggles act on it, where the global Cmd+Shift+G would otherwise open Changes.
+      dataSet={FIND_SCOPE_DATASET}
       accessibilityLabel={t("paneFind.title")}
       {...(isWeb
         ? {
@@ -255,7 +379,7 @@ export const PaneFind = forwardRef<PaneFindHandle, PaneFindProps>(function PaneF
             initialValue={query}
             height={rowHeight}
             returnKeyType="search"
-            trailing={matchCount}
+            trailing={fieldTrailing}
             onChangeText={onQueryChange}
             onKeyPress={onKeyPress}
           />
@@ -287,7 +411,7 @@ export const PaneFind = forwardRef<PaneFindHandle, PaneFindProps>(function PaneF
               initialValue={replace.value}
               height={rowHeight}
               onChangeText={replace.onChange}
-              onKeyPress={onKeyPress}
+              onKeyPress={onReplaceKeyPress}
             />
             <Button
               variant="ghost"
@@ -317,6 +441,14 @@ export const PaneFind = forwardRef<PaneFindHandle, PaneFindProps>(function PaneF
 /** Desktop find rows run one step tighter than a form field — this is pane chrome. */
 const COLLAPSED_FIELD_HEIGHT = 28;
 const FIND_WIDGET_WIDTH = 340;
+const FIND_WIDGET_WIDTH_WITH_OPTIONS = 440;
+const FIND_SCOPE_DATASET = { keyboardScope: "editor" };
+
+const OPTION_CONTROLS = [
+  { option: "case", Icon: CaseIcon, labelKey: "paneFind.matchCase", selected: "caseSensitive" },
+  { option: "word", Icon: WordIcon, labelKey: "paneFind.wholeWord", selected: "wholeWord" },
+  { option: "regex", Icon: RegexIcon, labelKey: "paneFind.regex", selected: "regex" },
+] as const;
 
 const styles = StyleSheet.create((theme) => {
   const geometry = createControlGeometry(theme);
@@ -334,6 +466,8 @@ const styles = StyleSheet.create((theme) => {
       borderRadius: theme.borderRadius.lg,
       ...theme.shadow.md,
     },
+    widgetWithOptions: { width: FIND_WIDGET_WIDTH_WITH_OPTIONS },
+    options: { flexDirection: "row", alignItems: "center", flexShrink: 0 },
     // The disclosure column spans both rows so the two fields share a leading rail.
     gutter: { alignItems: "center", justifyContent: "center", flexShrink: 0 },
     rows: { flex: 1, minWidth: 0, gap: theme.spacing[1] },

@@ -1,7 +1,6 @@
 import {
   forwardRef,
   useCallback,
-  useEffect,
   useImperativeHandle,
   useRef,
   useState,
@@ -10,10 +9,7 @@ import {
 import { View, type LayoutChangeEvent } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
-import { PaneFind, findShortcutPlatform, isFindShortcut, type PaneFindHandle } from "@/pane-find";
-import { isWeb } from "@/constants/platform";
-import { hasActiveOverlay } from "@/keyboard";
-import { isImeComposingKeyboardEvent } from "@/utils/keyboard-ime";
+import { PaneFind, usePaneFindTarget, type PaneFindHandle } from "@/pane-find";
 import type { TerminalEmulatorHandle } from "@/components/terminal-emulator-contract";
 import type { TerminalFindResult } from "../runtime/terminal-emulator-runtime";
 
@@ -59,19 +55,6 @@ export const TerminalFind = forwardRef<
     }),
     [show],
   );
-  useEffect(() => {
-    if (!isWeb || !active) return;
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.defaultPrevented || hasActiveOverlay() || isImeComposingKeyboardEvent(event))
-        return;
-      if (isFindShortcut(event, findShortcutPlatform()) && terminal.current?.find) {
-        event.preventDefault();
-        show();
-      }
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [active, show, terminal]);
   const search = useCallback(
     (text: string) => {
       setQuery(text);
@@ -83,6 +66,24 @@ export const TerminalFind = forwardRef<
   const previous = useCallback(
     () => terminal.current?.find?.search(query, "previous"),
     [query, terminal],
+  );
+  usePaneFindTarget(
+    {
+      open: () => {
+        if (!terminal.current?.find) return false;
+        show();
+      },
+      // Next and previous act only while Find is open.
+      next: () => {
+        if (!open) return false;
+        next();
+      },
+      previous: () => {
+        if (!open) return false;
+        previous();
+      },
+    },
+    active,
   );
   const measureWidget = useCallback(
     (event: LayoutChangeEvent) => {
