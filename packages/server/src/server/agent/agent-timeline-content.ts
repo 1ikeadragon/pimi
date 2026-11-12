@@ -127,6 +127,9 @@ function cut(value: unknown, depth: number, state: CutState): unknown {
 
 /** Returns the item itself when it fits its budget; otherwise a copy with its largest strings cut. */
 export function limitAgentTimelineItemContent(item: AgentTimelineItem): AgentTimelineItem {
+  // Cutting base64 corrupts the image. The agent manager swaps this item for small refs before
+  // anything is recorded or sent, so until then a replay holds its images' base64 in memory.
+  if (item.type === "provider_images") return item;
   const budget = item.type === "tool_call" ? TOOL_CALL_BUDGET : ITEM_BUDGET;
   const size: ItemSize = { nodeCost: 0, stringLengths: [], tooDeep: false };
   measure(item, 0, size);
