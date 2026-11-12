@@ -12,8 +12,8 @@
   gap: 8px;
 }
 
-.spaces-controls input {
-  width: clamp(125px, 24vw, 240px);
+.spaces-controls .button {
+  gap: 5px;
 }
 
 .spaces-copy-feedback {

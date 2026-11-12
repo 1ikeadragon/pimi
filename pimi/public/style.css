@@ -2543,11 +2543,6 @@ body:has(.voice-command-dock:not([hidden])) #memory {
   gap: 5px;
 }
 
-.memory-header-actions .glyph-button:not(:hover) {
-  background: var(--canvas);
-  border-color: var(--line);
-}
-
 .memory-synapses {
   position: absolute;
   z-index: -1;
@@ -2714,7 +2709,13 @@ body:has(.voice-command-dock:not([hidden])) #memory {
   width: 27px;
   height: 27px;
   margin-bottom: 5px;
-  color: var(--focus);
+  color: var(--muted);
+}
+
+/* Until the first list arrives the panels render without copy, so the empty state is never shown
+   before it is known to be empty and nothing shifts when it fills in. */
+#memory-content[data-loading] :is(.memory-placeholder > :not(.glyph), .memory-note-count) {
+  visibility: hidden;
 }
 
 .memory-editor-heading {

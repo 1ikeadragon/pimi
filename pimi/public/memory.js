@@ -5,6 +5,7 @@ export function createMemoryView({ $, api, button, element, message }) {
   const dialog = $("memory-forget-dialog");
   const placeholder = $("memory-placeholder");
   const noteCount = $("memory-note-count");
+  const content = $("memory-content");
   const keyInput = form.elements.key;
   const textInput = form.elements.text;
   const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
@@ -12,8 +13,9 @@ export function createMemoryView({ $, api, button, element, message }) {
   let notes = [];
   let projectId = null;
   let current;
+  let loadedScope = null;
   let busy = false;
-  let ready = false;
+  let mutating = false;
 
   function projectName() {
     return projects.find(({ id }) => id === projectId)?.name || "This project";
@@ -36,25 +38,20 @@ export function createMemoryView({ $, api, button, element, message }) {
     return false;
   }
 
-  function setBusy(value) {
+  // A background run only fetches. It disables what depends on the data being fetched and leaves
+  // the header, New note and the editor usable, so the chrome does not wait for the host.
+  function setBusy(value, background) {
     busy = value;
-    for (const control of [
-      picker,
-      $("memory-new"),
-      $("memory-reload"),
-      $("memory-forget"),
-      $("memory-save"),
-      $("memory-cancel"),
-      textInput,
-    ])
-      control.disabled = busy;
-    keyInput.disabled = busy || Boolean(current);
-    $("memory-new").disabled ||= !ready;
+    mutating = value && !background;
+    for (const control of [picker, $("memory-forget"), $("memory-save")]) control.disabled = busy;
+    for (const control of [$("memory-new"), $("memory-reload"), $("memory-cancel"), textInput])
+      control.disabled = mutating;
+    keyInput.disabled = mutating || Boolean(current);
   }
 
-  async function run(action) {
+  async function run(action, { background = false } = {}) {
     if (busy) return;
-    setBusy(true);
+    setBusy(true, background);
     message("memory-warning", "");
     message("memory-status", "");
     try {
@@ -76,7 +73,7 @@ export function createMemoryView({ $, api, button, element, message }) {
       : scopeLabel();
     $("memory-key-field").hidden = Boolean(current);
     keyInput.value = current?.key ?? "";
-    keyInput.disabled = busy || Boolean(current);
+    keyInput.disabled = mutating || Boolean(current);
     textInput.value = current?.text ?? "";
     $("memory-forget").hidden = !current;
     for (const row of $("memory-notes").children) {
@@ -108,19 +105,25 @@ export function createMemoryView({ $, api, button, element, message }) {
     );
     noteCount.textContent = String(rows.length);
     message("memory-empty", rows.length ? "" : "No notes saved in this scope.");
+    content.removeAttribute("data-loading");
     placeholder.querySelector("h2").textContent = rows.length ? "Choose a note" : "No notes yet";
     placeholder.querySelector("p").textContent = rows.length
       ? "Open a saved note to read or edit it."
       : "Add a note you want your agents to remember.";
   }
 
-  async function loadScope() {
-    ready = false;
+  // The scope changed (or this is the first load): the old list no longer applies, so clear it
+  // and let the empty state wait until the new list says whether it is empty.
+  function resetScope() {
     notes = [];
     showEditor(null);
     $("memory-notes").replaceChildren();
     noteCount.textContent = "";
     message("memory-empty", "");
+    content.dataset.loading = "";
+  }
+
+  async function loadScope() {
     const selected = projects.find(({ id }) => id === projectId);
     let caption = "Shared across projects on this host.";
     if (selected) {
@@ -130,7 +133,6 @@ export function createMemoryView({ $, api, button, element, message }) {
     }
     $("memory-scope-caption").textContent = caption;
     ({ notes } = await api("memory", { action: "list", projectId }));
-    ready = true;
     renderNotes();
   }
 
@@ -139,34 +141,39 @@ export function createMemoryView({ $, api, button, element, message }) {
       if (preferredProjectId !== undefined) canChangeView();
       return;
     }
-    await run(async () => {
-      ({ projects } = await api("memory", { action: "catalog" }));
-      projects.sort((a, b) => a.name.localeCompare(b.name) || a.root.localeCompare(b.root));
-      if (preferredProjectId !== undefined) {
-        if (!projects.some(({ id }) => id === preferredProjectId)) {
-          throw new Error("This project is no longer registered on this host.");
+    await run(
+      async () => {
+        const previousScope = loadedScope;
+        ({ projects } = await api("memory", { action: "catalog" }));
+        projects.sort((a, b) => a.name.localeCompare(b.name) || a.root.localeCompare(b.root));
+        if (preferredProjectId !== undefined) {
+          if (!projects.some(({ id }) => id === preferredProjectId)) {
+            throw new Error("This project is no longer registered on this host.");
+          }
+          projectId = preferredProjectId;
         }
-        projectId = preferredProjectId;
-      }
-      if (!projects.some(({ id }) => id === projectId)) projectId = null;
-      const nameCounts = new Map();
-      for (const { name } of projects) nameCounts.set(name, (nameCounts.get(name) ?? 0) + 1);
-      picker.replaceChildren(
-        new Option("Across projects", ""),
-        ...projects.map(({ id, name, root, archived }) => {
-          const duplicate = nameCounts.get(name) > 1;
-          const option = new Option(
-            name + (duplicate ? " — " + root : "") + (archived ? " (archived)" : ""),
-            id,
-          );
-          option.title = root;
-          return option;
-        }),
-      );
-      picker.value = projectId ?? "";
-      $("memory-content").hidden = false;
-      await loadScope();
-    });
+        if (!projects.some(({ id }) => id === projectId)) projectId = null;
+        const nameCounts = new Map();
+        for (const { name } of projects) nameCounts.set(name, (nameCounts.get(name) ?? 0) + 1);
+        picker.replaceChildren(
+          new Option("Across projects", ""),
+          ...projects.map(({ id, name, root, archived }) => {
+            const duplicate = nameCounts.get(name) > 1;
+            const option = new Option(
+              name + (duplicate ? " — " + root : "") + (archived ? " (archived)" : ""),
+              id,
+            );
+            option.title = root;
+            return option;
+          }),
+        );
+        picker.value = projectId ?? "";
+        if (previousScope !== projectId) resetScope();
+        loadedScope = projectId;
+        await loadScope();
+      },
+      { background: true },
+    );
   }
 
   picker.addEventListener("change", () => {
@@ -175,7 +182,11 @@ export function createMemoryView({ $, api, button, element, message }) {
       return;
     }
     projectId = picker.value || null;
-    void run(loadScope);
+    void run(async () => {
+      resetScope();
+      loadedScope = projectId;
+      await loadScope();
+    });
   });
   $("memory-reload").addEventListener("click", () => {
     if (canChangeView()) void load();

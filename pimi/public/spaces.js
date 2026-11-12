@@ -64,6 +64,7 @@ export function createSpacesView({ $, api, button, element, message }) {
   let active = false;
   let suspended = false;
   let busy = false;
+  let mutating = false;
   let ready = false;
   let searchTimer;
   let searchGeneration = 0;
@@ -167,16 +168,20 @@ export function createSpacesView({ $, api, button, element, message }) {
       : "Your cards will appear here.";
   }
 
-  function setBusy(value) {
+  // A background run only fetches cards. The header, New note and the open editor stay usable
+  // while it runs; only Save waits, so a save never races the list that is still arriving.
+  function setBusy(value, background) {
     busy = value;
-    $("spaces-new").disabled = value || !ready;
-    for (const id of ["spaces-save", "spaces-close", "spaces-remove"]) $(id).disabled = value;
-    text.readOnly = value;
+    mutating = value && !background;
+    $("spaces-new").disabled = mutating;
+    $("spaces-save").disabled = busy;
+    for (const id of ["spaces-close", "spaces-remove"]) $(id).disabled = mutating;
+    text.readOnly = mutating;
   }
 
-  async function run(action, errorId = "spaces-error") {
+  async function run(action, errorId = "spaces-error", background = false) {
     if (busy) return;
-    setBusy(true);
+    setBusy(true, background);
     message("spaces-error", "");
     message("spaces-card-error", "");
     message("spaces-status", "");
@@ -367,10 +372,14 @@ export function createSpacesView({ $, api, button, element, message }) {
     if (action?.kind === "search") searchInput.value = action.query;
     if (action && ["saved", "open", "remove"].includes(action.kind)) searchInput.value = "";
     let cards;
-    await run(async () => {
-      unavailablePapers.clear();
-      cards = await loadCards();
-    });
+    await run(
+      async () => {
+        unavailablePapers.clear();
+        cards = await loadCards();
+      },
+      "spaces-error",
+      true,
+    );
     if (active && cards && action) applyLoadedAction(action, cards);
   }
 
@@ -561,7 +570,7 @@ export function createSpacesView({ $, api, button, element, message }) {
     }, "spaces-card-error");
   });
   editor.addEventListener("cancel", (event) => {
-    if (busy) event.preventDefault();
+    if (mutating) event.preventDefault();
   });
   editor.addEventListener("close", updatePaperReader);
 

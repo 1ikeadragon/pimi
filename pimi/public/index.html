@@ -872,13 +872,13 @@
             >
               <svg class="glyph" aria-hidden="true"><use href="#glyph-reload" /></svg>
             </button>
-            <button id="memory-new" class="button secondary" type="button" disabled>
+            <button id="memory-new" class="button primary" type="button">
               <svg class="glyph" aria-hidden="true"><use href="#glyph-compose" /></svg> New note
             </button>
           </div>
         </header>
         <p id="memory-warning" class="warning" role="alert" hidden></p>
-        <div id="memory-content" class="memory-layout" hidden>
+        <div id="memory-content" class="memory-layout" data-loading>
           <aside class="memory-browser" aria-label="Memory scopes and notes">
             <div class="memory-scope">
               <label class="memory-scope-field">
@@ -887,7 +887,7 @@
                   <option value="">Across projects</option>
                 </select>
               </label>
-              <p id="memory-scope-caption" class="subtitle"></p>
+              <p id="memory-scope-caption" class="subtitle">Shared across projects on this host.</p>
             </div>
             <div class="memory-list-heading">
               <h2>Notes</h2>
@@ -958,14 +958,17 @@
             <p class="subtitle">Paste a note, image, or link into your scratchbook.</p>
           </div>
           <div class="spaces-controls">
-            <input
-              id="spaces-search"
-              type="search"
-              maxlength="160"
-              aria-label="Search Spaces"
-              placeholder="Search Spaces"
-            />
-            <button id="spaces-new" class="button primary" type="button" disabled>
+            <label class="task-search-box">
+              <svg class="glyph" aria-hidden="true"><use href="#glyph-search" /></svg>
+              <input
+                id="spaces-search"
+                type="search"
+                maxlength="160"
+                aria-label="Search Spaces"
+                placeholder="Search Spaces"
+              />
+            </label>
+            <button id="spaces-new" class="button primary" type="button">
               <svg class="glyph" aria-hidden="true"><use href="#glyph-compose" /></svg> New note
             </button>
           </div>
