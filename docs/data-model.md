@@ -46,6 +46,14 @@ Store APIs own persistence atomicity and should not make services coordinate raw
 
 ---
 
+## Storage medium
+
+Daemon records marked below as files in the directory layout moved to `$PIMI_HOME/pimi.db`: agent
+records, automations, heartbeats, attack runs, receipts, carried timelines, projects and workspaces.
+Their JSON shapes are unchanged and live in the `json` column; see
+[architecture.md](architecture.md#daemon-storage). The old files are renamed `*.migrated` after the
+one-time import and are never read again.
+
 ## Directory layout
 
 ```

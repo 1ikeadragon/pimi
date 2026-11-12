@@ -59,3 +59,11 @@ and unused profile paths you found. Ask me before removing them. Keep
 ~/.pimi, provider data, plugin sources, repos, and backups. Report
 what you verified, what I checked, and where the rollback copy is.
 ```
+
+## Daemon database import
+
+`pimi.db` imports the JSON stores (agents, automations, heartbeats, attack runs, receipts, carried
+timelines, projects, workspaces, finish subscriptions) once, after the `~/.paseo` home migration has
+rewritten paths inside the files, so imported rows point at the new home. Imported sources are renamed
+with a `.migrated` suffix and kept. COMPAT(json-stores): the import code and the `.migrated` files can
+be removed in a later release.

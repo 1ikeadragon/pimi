@@ -92,7 +92,7 @@ workspace for a directory clears it. The store lives in memory and resets on dae
 | `server/directory-sync/`        | Daemon-global latest-state sequences for projects, workspaces, and agents      |
 | `server/workspace-labels/`      | Host-local label catalog, assignment mutations, and explicit subscriptions     |
 | `server/agent/agent-manager.ts` | Agent lifecycle state machine, timeline tracking, subscriber management        |
-| `server/agent/agent-storage.ts` | File-backed JSON persistence at `$PIMI_HOME/agents/`                           |
+| `server/agent/agent-storage.ts` | Agent records in `$PIMI_HOME/pimi.db` (`node:sqlite`)                          |
 | `server/agent/tools/`           | Transport-neutral catalog for workspaces, agents, permissions, and automation  |
 | `server/agent/mcp-server.ts`    | Thin MCP adapter that registers the Pimi tool catalog with the MCP SDK         |
 | `server/agent/providers/`       | Provider adapters (see "Agent providers" below)                                |
@@ -487,3 +487,25 @@ host, port, and path are recorded, never query strings, headers, or bodies.
 1. **Local daemon** (default): `pimi daemon start` on `127.0.0.1:6767`
 2. **Managed desktop**: Electron uses the server package’s local-instance lifecycle capability for sanitized launch, published readiness, and captured-PID stop. Only a matching `{pid, startedAt}` from a spawn in the current Desktop session authorizes automatic stop. Preexisting instances are attach-only, with one exception at app start: a `desktopManaged` instance on a different version than the app is replaced by the bundled daemon while none of its agents is `initializing` or `running`, so a keep-running survivor does not stay on an old version across app updates. When an agent is working, or the agent list cannot be read, the instance stays attached and the sidebar offers a restart the user confirms. An instance the user started is never replaced. Explicit attached Stop requires a confirmation naming the captured home/PID. Ordinary Restart uses the worker RPC on every app platform.
 3. **Remote + relay**: Daemon behind firewall, relay bridges with E2E encryption
+
+## Daemon storage
+
+The daemon owns one SQLite database, `$PIMI_HOME/pimi.db`, opened through built-in `node:sqlite`
+(no native package; Electron 44 bundles Node 24). `server/db/pimi-db.ts` opens it with WAL and
+`synchronous=FULL`, runs `PRAGMA integrity_check` (a failing file is moved aside, never deleted, and
+the daemon starts empty), applies append-only schema steps tracked in `PRAGMA user_version`, and
+copies it to `pimi.db.bak` with `VACUUM INTO` at most once a day. Only the daemon worker opens it for
+writing; `pimi daemon db dump <table>` reads it read-only. Zod stays the schema authority: records
+are parsed on read and before write, and each row keeps the record as JSON next to indexed columns.
+
+In the database: agents (`agents`, `agent_persistence`), automations, runs, triggers, drafts,
+heartbeats, attack runs and findings, carried timelines, projects and workspaces (`records`, by
+kind), both audit logs (`audit`), creation and message receipts (`receipts`), sent-attachment
+metadata and the image index. Still files: `config.json` and the small identity, secret and lock
+files, image and attachment bytes, annotation images, network logs, Spaces, project memory, and the
+workspace label catalog with its two-file commit journal.
+
+Each migrated store imports its old JSON once, gated by a `meta` row (`imported_<name>`), and renames
+what it read with a `.migrated` suffix. There is no dual write and no fallback reader; to go back,
+restore the renamed files. The import runs after the `~/.paseo` home migration. Not done: a durable
+timeline (rows still replay from the provider transcript) and cross-chat search.
