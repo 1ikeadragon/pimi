@@ -520,6 +520,14 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
     },
   },
   {
+    // First match wins, so this sits ahead of Changes: from a focused browser page, Cmd+Shift+G is
+    // Find previous. The key only acts while that pane's Find is open.
+    id: "pane-find-previous-browser-mac",
+    action: "pane.find.previous",
+    combo: "Cmd+Shift+G",
+    when: { mac: true, commandCenter: false, focusScope: "browser" },
+  },
+  {
     // Keep the binding id stable so saved overrides from the former Cmd+Shift+C default survive.
     id: "workspace-tab-target-changes-cmd-shift-c-mac",
     action: "workspace.tab.target.changes",

@@ -78,6 +78,7 @@ import {
   type BrowserElementSelection,
   type ElementSelectorOutcome,
 } from "./element-selector.electron";
+import { useBrowserFind } from "./find.electron";
 
 type ElectronWebview = HTMLElement & {
   canGoBack?: () => boolean;
@@ -91,6 +92,8 @@ type ElectronWebview = HTMLElement & {
   isLoading?: () => boolean;
   executeJavaScript?: (code: string) => Promise<unknown>;
   focus?: () => void;
+  findInPage?: (text: string, options?: { forward?: boolean; findNext?: boolean }) => number;
+  stopFindInPage?: (action: "clearSelection" | "keepSelection" | "activateSelection") => void;
   addEventListener: (type: string, listener: EventListenerOrEventListenerObject) => void;
   removeEventListener: (type: string, listener: EventListenerOrEventListenerObject) => void;
 };
@@ -426,7 +429,7 @@ function isDesktopBrowserShortcutEvent(payload: unknown): payload is DesktopBrow
     return false;
   }
   const event = payload as Partial<DesktopBrowserShortcutEvent>;
-  return event.action === "focus-url";
+  return event.action === "focus-url" || event.action === "find-close";
 }
 
 function ToolbarButton({
@@ -609,6 +612,10 @@ export function BrowserPane({
   const webviewHostRef = useRef<HTMLDivElement | null>(null);
   const webviewClipRef = useRef<HTMLElement | null>(null);
   const urlInputRef = useRef<EditingTextInputHandle | null>(null);
+  const { widget: findWidget, closeFind } = useBrowserFind({
+    webviewRef,
+    enabled: isElectronRuntime() && isPresented && Boolean(isInteractive),
+  });
   const initialUrlRef = useRef(browser?.url ?? "https://example.com");
   const browserIdRef = useRef(browserId);
   browserIdRef.current = browserId;
@@ -1031,6 +1038,10 @@ export function BrowserPane({
       if (!isDesktopBrowserShortcutEvent(payload)) {
         return;
       }
+      if (payload.action === "find-close") {
+        if (payload.browserId === browserIdRef.current) closeFind();
+        return;
+      }
       if (payload.browserId) {
         if (payload.browserId !== browserIdRef.current) {
           return;
@@ -1050,7 +1061,7 @@ export function BrowserPane({
     return () => {
       void unsubscribe?.then((dispose) => dispose());
     };
-  }, [focusUrlBar, isInteractive]);
+  }, [closeFind, focusUrlBar, isInteractive]);
 
   const handleNavigateDraftUrl = useCallback(() => {
     navigate(draftUrl);
@@ -1547,6 +1558,7 @@ export function BrowserPane({
           ref: setWebviewHostNode,
           style: webviewHostStyle,
         })}
+        {findWidget}
         {pendingSelection ? (
           <BrowserElementAnnotationCard
             anchor={webviewClipRef.current}

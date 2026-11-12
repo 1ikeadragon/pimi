@@ -151,6 +151,8 @@ export interface DesktopAgentNavigationBridge {
 
 export type DesktopBrowserShortcutEvent =
   | { browserId?: string; action: "focus-url" }
+  /** Escape pressed in the page; the pane closes its Find if one is open. */
+  | { browserId: string; action: "find-close" }
   | { browserId: string; action: "new-tab" };
 
 export interface DesktopBrowserNewTabRequestEvent {

@@ -3,6 +3,7 @@ import { PimiBrowserWebviewRegistry } from "../browser-webviews/registry.js";
 import {
   type BrowserKeyboardPolicy,
   classifyBrowserReservedShortcut,
+  isBrowserFindCloseInput,
   matchesBrowserShortcutPrefixes,
   matchesBrowserShortcutPolicy,
   parseBrowserKeyboardPolicy,
@@ -186,6 +187,16 @@ export class BrowserKeyboard {
     guest.contents.setIgnoreMenuShortcuts(
       (!input.control && !input.meta) || belongsToBrowserPolicy || belongsToMenuPolicy,
     );
+    if (isBrowserFindCloseInput(input)) {
+      // Not prevented: the page still gets its Escape.
+      if (!guest.hostContents.isDestroyed()) {
+        guest.hostContents.send(RESERVED_SHORTCUT_OUTPUT_CHANNEL, {
+          action: "find-close",
+          browserId: registration.browserId,
+        });
+      }
+      return;
+    }
     const reservedShortcut = classifyBrowserReservedShortcut(input, {
       isMac: process.platform === "darwin",
     });

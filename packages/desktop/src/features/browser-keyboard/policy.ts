@@ -38,6 +38,28 @@ export interface BrowserShortcutMatchInput {
   shift: boolean;
 }
 
+/**
+ * Escape with no modifiers. The main process reports it to the host so an open browser Find can
+ * close, and lets it reach the page as well; no other unmodified key leaves the guest this way.
+ */
+export function isBrowserFindCloseInput(input: {
+  alt: boolean;
+  control: boolean;
+  key: string;
+  meta: boolean;
+  shift: boolean;
+  type: string;
+}): boolean {
+  return (
+    input.type === "keyDown" &&
+    input.key === "Escape" &&
+    !input.alt &&
+    !input.control &&
+    !input.meta &&
+    !input.shift
+  );
+}
+
 export type BrowserReservedShortcut = "focus-url" | "reload" | "force-reload";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
