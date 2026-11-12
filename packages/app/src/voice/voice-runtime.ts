@@ -9,7 +9,7 @@ import {
 } from "@/utils/thinking-tone.native-pcm";
 
 const PCM_MIME_TYPE = "audio/pcm;rate=16000;bits=16";
-const KEEP_AWAKE_TAG = "paseo:voice";
+const KEEP_AWAKE_TAG = "pimi:voice";
 const THINKING_TONE_REPEAT_GAP_MS = 350;
 /**
  * A reply is spoken as one TTS segment per sentence, and the daemon starts the next segment

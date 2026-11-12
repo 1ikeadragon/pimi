@@ -185,7 +185,7 @@ stack owns its own screens. See [unistyles.md](unistyles.md).
 The failure mode here is native route-tree state, so verify by launching native
 with seeded persisted state:
 
-1. Seed `paseo:last-workspace-route-selection` with a valid
+1. Seed `pimi:last-workspace-route-selection` with a valid
    `{ serverId, workspaceId }`.
 2. Launch the native app cold.
 3. Confirm a real screen is visible, not the blank tree.

@@ -36,7 +36,7 @@ export function parseAgentDeepLink(input: string): AgentDeepLinkTarget | null {
   }
 
   if (
-    (url.protocol !== "pimi:" && url.protocol !== "paseo:") ||
+    url.protocol !== "pimi:" ||
     url.hostname !== "h" ||
     url.username ||
     url.password ||

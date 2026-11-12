@@ -19,27 +19,27 @@ interface SupervisorLogFileOptions {
 
 type WorkerLifecycleMessage =
   | {
-      type: "paseo:shutdown";
+      type: "pimi:shutdown";
       reason?: string;
       keepTerminals: boolean;
     }
   | {
-      type: "paseo:ready";
+      type: "pimi:ready";
       listen: string;
       serverId: string;
     }
   | {
-      type: "paseo:restart";
+      type: "pimi:restart";
       reason?: string;
       keepTerminals: boolean;
     };
 
 interface SupervisorHeartbeatMessage {
-  type: "paseo:supervisor-heartbeat";
+  type: "pimi:supervisor-heartbeat";
 }
 
 interface SupervisorGracefulShutdownMessage {
-  type: "paseo:graceful-shutdown";
+  type: "pimi:graceful-shutdown";
   reason: string;
   keepTerminals: boolean;
 }
@@ -82,15 +82,15 @@ function parseLifecycleMessage(msg: unknown): WorkerLifecycleMessage | null {
     return null;
   }
   const type = (msg as { type?: unknown }).type;
-  if (type === "paseo:shutdown") {
+  if (type === "pimi:shutdown") {
     const { reason, keepTerminals } = msg as { reason?: unknown; keepTerminals?: unknown };
     return {
-      type: "paseo:shutdown",
+      type: "pimi:shutdown",
       ...(typeof reason === "string" && reason.trim().length > 0 ? { reason } : {}),
       keepTerminals: keepTerminals === true,
     };
   }
-  if (type === "paseo:ready") {
+  if (type === "pimi:ready") {
     const { listen, serverId } = msg as { listen?: unknown; serverId?: unknown };
     if (typeof listen !== "string" || listen.trim().length === 0) {
       return null;
@@ -98,12 +98,12 @@ function parseLifecycleMessage(msg: unknown): WorkerLifecycleMessage | null {
     if (typeof serverId !== "string" || serverId.trim().length === 0) {
       return null;
     }
-    return { type: "paseo:ready", listen, serverId };
+    return { type: "pimi:ready", listen, serverId };
   }
-  if (type === "paseo:restart") {
+  if (type === "pimi:restart") {
     const { reason, keepTerminals } = msg as { reason?: unknown; keepTerminals?: unknown };
     return {
-      type: "paseo:restart",
+      type: "pimi:restart",
       ...(typeof reason === "string" && reason.trim().length > 0 ? { reason } : {}),
       keepTerminals: keepTerminals === true,
     };
@@ -334,7 +334,7 @@ export function runSupervisor(options: SupervisorOptions): SupervisorController 
     let reachedReady = false;
     // Serialize endpoint writes with exit/clear before allowing another worker to spawn.
     const heartbeat = setInterval(() => {
-      const message: SupervisorHeartbeatMessage = { type: "paseo:supervisor-heartbeat" };
+      const message: SupervisorHeartbeatMessage = { type: "pimi:supervisor-heartbeat" };
       if (currentChild.connected) {
         currentChild.send?.(message, (error) => {
           if (error) {
@@ -369,7 +369,7 @@ export function runSupervisor(options: SupervisorOptions): SupervisorController 
         return;
       }
 
-      if (lifecycleMessage.type === "paseo:ready") {
+      if (lifecycleMessage.type === "pimi:ready") {
         reachedReady = true;
         writeLifecycleLog("Worker ready", { listen: lifecycleMessage.listen });
         publication = publication
@@ -388,7 +388,7 @@ export function runSupervisor(options: SupervisorOptions): SupervisorController 
         return;
       }
 
-      if (lifecycleMessage.type === "paseo:shutdown") {
+      if (lifecycleMessage.type === "pimi:shutdown") {
         const reason = lifecycleMessage.reason ?? "worker_requested_shutdown";
         writeLifecycleLog("Worker requested shutdown", {
           reason,
@@ -478,7 +478,7 @@ export function runSupervisor(options: SupervisorOptions): SupervisorController 
     }
     const currentChild = child;
     const message: SupervisorGracefulShutdownMessage = {
-      type: "paseo:graceful-shutdown",
+      type: "pimi:graceful-shutdown",
       reason,
       keepTerminals: pendingKeepTerminals,
     };

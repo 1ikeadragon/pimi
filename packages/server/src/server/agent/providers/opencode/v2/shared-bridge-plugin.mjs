@@ -92,7 +92,7 @@ export async function registerSharedBridge(context) {
   const object = { type: "object", additionalProperties: true };
   const rpc = await context.rpc.register(
     {
-      id: "paseo.bridge",
+      id: "pimi.bridge",
       methods: {
         bind: { input: object, output: object },
         unbind: { input: object, output: object },

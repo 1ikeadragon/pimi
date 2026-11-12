@@ -13,17 +13,17 @@ process.title = "Paseo Daemon";
 
 type SupervisorLifecycleMessage =
   | {
-      type: "paseo:shutdown";
+      type: "pimi:shutdown";
       reason: string;
       keepTerminals: boolean;
     }
   | {
-      type: "paseo:ready";
+      type: "pimi:ready";
       listen: string;
       serverId: string;
     }
   | {
-      type: "paseo:restart";
+      type: "pimi:restart";
       reason?: string;
       keepTerminals: boolean;
     };
@@ -222,7 +222,7 @@ async function main() {
     if (intent.type === "shutdown") {
       logger.warn(fields, "Shutdown requested via websocket");
       const sent = sendSupervisorLifecycleMessage({
-        type: "paseo:shutdown",
+        type: "pimi:shutdown",
         reason: intent.reason,
         keepTerminals: intent.keepTerminals,
       });
@@ -239,7 +239,7 @@ async function main() {
 
     logger.warn(fields, "Restart requested via websocket");
     const sent = sendSupervisorLifecycleMessage({
-      type: "paseo:restart",
+      type: "pimi:restart",
       ...(intent.reason ? { reason: intent.reason } : {}),
       keepTerminals: intent.keepTerminals,
     });
@@ -294,11 +294,11 @@ async function main() {
         return;
       }
       const type = (message as { type?: unknown }).type;
-      if (type === "paseo:supervisor-heartbeat") {
+      if (type === "pimi:supervisor-heartbeat") {
         lastSupervisorHeartbeatAt = Date.now();
         return;
       }
-      if (type === "paseo:graceful-shutdown") {
+      if (type === "pimi:graceful-shutdown") {
         const { reason, keepTerminals } = message as { reason?: unknown; keepTerminals?: unknown };
         beginShutdown("Supervisor shutdown request", {
           reason: typeof reason === "string" ? reason : "supervisor_requested_shutdown",
@@ -351,7 +351,7 @@ async function main() {
       throw new Error("Daemon did not expose a listen target after startup");
     }
     sendSupervisorLifecycleMessage({
-      type: "paseo:ready",
+      type: "pimi:ready",
       listen,
       serverId: daemon.getServerId(),
     });

@@ -10,7 +10,7 @@ export function stripInternalPimiMcpServer(config: AgentSessionConfig): AgentSes
   }
 
   const nextMcpServers = { ...mcpServers };
-  for (const name of ["paseo", PIMI_MCP_SERVER_NAME]) {
+  for (const name of [PIMI_MCP_SERVER_NAME]) {
     const server = nextMcpServers[name];
     if (server && isInternalPimiMcpServer(server)) delete nextMcpServers[name];
   }

@@ -24,7 +24,7 @@ interface AttackNavigationPolicy {
   readonly allowedHosts: readonly string[];
 }
 
-export const ATTACK_NAVIGATION_REFUSED_EVENT = "paseo:event:attack-navigation-refused";
+export const ATTACK_NAVIGATION_REFUSED_EVENT = "pimi:event:attack-navigation-refused";
 
 const attackPolicies = new Map<string, AttackNavigationPolicy>();
 

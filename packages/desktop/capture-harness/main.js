@@ -28,7 +28,7 @@ const PRODUCTION_BROWSER_WEBVIEW_REGISTRY_PATH = path.join(
   "browser-webviews",
   "registry.js",
 );
-const BROWSER_SHORTCUT_INPUT_CHANNEL = "paseo:browser-shortcut-input";
+const BROWSER_SHORTCUT_INPUT_CHANNEL = "pimi:browser-shortcut-input";
 const VIEWPORT_WIDTH = 1280;
 const VIEWPORT_HEIGHT = 800;
 const FULL_PAGE_HEIGHT = 1600;

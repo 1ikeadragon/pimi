@@ -64,7 +64,7 @@ function eligibleSignature(rows: readonly SubagentRow[]): string {
 }
 
 function managedRowIdentity(address: AgentAddress): string {
-  return `paseo:${address.serverId}:${address.agentId}`;
+  return `pimi:${address.serverId}:${address.agentId}`;
 }
 
 function rowIdentity(row: SubagentRow): string {

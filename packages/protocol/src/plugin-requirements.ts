@@ -4,7 +4,7 @@ import validRange from "semver/ranges/valid.js";
 import satisfies from "semver/functions/satisfies.js";
 
 export function validatePluginRequirements(requirements: PluginRequirements | undefined): void {
-  const range = requirements?.pimi ?? requirements?.paseo;
+  const range = requirements?.pimi;
   if (range !== undefined && (!range.trim() || validRange(range) === null)) {
     throw new Error(
       `Invalid plugin version requirement: ${JSON.stringify(range)}. Use a semver range such as ">=0.8.0".`,
@@ -21,7 +21,7 @@ interface PluginCompatibilityInput {
 
 export function assertPluginCompatibility(input: PluginCompatibilityInput): void {
   validatePluginRequirements(input.requirements);
-  const range = input.requirements?.pimi ?? input.requirements?.paseo;
+  const range = input.requirements?.pimi;
   if (range === undefined) {
     throw new Error(
       `Plugin "${input.id}" does not declare a Pimi version range. Ask the plugin author to add a requirements.pimi version range to its manifest.`,

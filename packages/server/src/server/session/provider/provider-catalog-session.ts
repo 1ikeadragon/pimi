@@ -91,7 +91,7 @@ export class ProviderCatalogSession {
     const snapshotHash = createHash("sha256")
       .update(
         JSON.stringify([
-          "paseo.providers-snapshot/1",
+          "pimi.providers-snapshot/1",
           records.map(({ entry, contentHash }) => [entry.provider, contentHash]),
         ]),
       )

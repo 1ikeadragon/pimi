@@ -139,8 +139,8 @@ async function installMeasurementProbe(page) {
     const onKeyDown = (event) => {
       if (!event.metaKey || event.code !== "KeyE") return;
       const sequence = state.events.length;
-      performance.mark(`paseo:explorer-toggle:keydown:${sequence}`);
-      console.timeStamp(`paseo:explorer-toggle:keydown:${sequence}`);
+      performance.mark(`pimi:explorer-toggle:keydown:${sequence}`);
+      console.timeStamp(`pimi:explorer-toggle:keydown:${sequence}`);
       state.events.push({
         sequence,
         inputTime: event.timeStamp,

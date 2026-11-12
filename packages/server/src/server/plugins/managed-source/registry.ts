@@ -36,7 +36,7 @@ export async function resolveRegistryPlugin(
     throw new Error("Registry credentials require HTTPS");
   const headers: Record<string, string> = {};
   if (authorization) headers.Authorization = authorization;
-  if (install) headers["X-Paseo-Install"] = "1";
+  if (install) headers["X-Pimi-Install"] = "1";
   const url = `${identity.url.replace(/\/+$/, "")}/plugins/${identity.id}.json`;
   let response: Response;
   try {

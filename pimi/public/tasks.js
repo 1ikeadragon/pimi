@@ -90,7 +90,7 @@ export function createTasksView({
   }
 
   function sourceChat({ serverId, agentId }) {
-    return `paseo://h/${encodeURIComponent(serverId)}/agent/${encodeURIComponent(agentId)}`;
+    return `pimi://h/${encodeURIComponent(serverId)}/agent/${encodeURIComponent(agentId)}`;
   }
 
   function cardFor(experiment) {

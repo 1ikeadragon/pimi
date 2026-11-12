@@ -78,11 +78,11 @@ export function ensureNotificationCenterRegistration(): void {
 }
 
 export function registerNotificationHandlers(): void {
-  ipcMain.handle("paseo:notification:isSupported", () => {
+  ipcMain.handle("pimi:notification:isSupported", () => {
     return Notification.isSupported();
   });
 
-  ipcMain.handle("paseo:notification:send", async (event, rawInput?: NotificationInput) => {
+  ipcMain.handle("pimi:notification:send", async (event, rawInput?: NotificationInput) => {
     const title = toTrimmedString(rawInput?.title);
     if (!title) {
       return false;
@@ -97,7 +97,7 @@ export function registerNotificationHandlers(): void {
         const win = focusSenderWindow(event.sender);
         if (win && data && Object.keys(data).length > 0) {
           const payload: NotificationClickPayload = { data };
-          win.webContents.send("paseo:event:notification-click", payload);
+          win.webContents.send("pimi:event:notification-click", payload);
         }
       },
     });

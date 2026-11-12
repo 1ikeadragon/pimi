@@ -44,9 +44,7 @@ export function isPaseoToolName(name: string): boolean {
 }
 
 function isPimiNamespace(name: string): boolean {
-  return (
-    name === "pimi" || name.startsWith("pimi_") || name === "paseo" || name.startsWith("paseo_")
-  );
+  return name === "pimi" || name.startsWith("pimi_");
 }
 
 export function getPaseoToolLeafName(name: string): string | null {

@@ -199,9 +199,9 @@ export async function runAgentStep(
     workspaceId: workspace.workspaceId,
     title,
     labels: {
-      "paseo.automation-id": automation.id,
-      "paseo.automation-run": run.id,
-      "paseo.automation-node": node.id,
+      "pimi.automation-id": automation.id,
+      "pimi.automation-run": run.id,
+      "pimi.automation-node": node.id,
     },
     mode: node.modeId,
     thinking: node.thinkingOptionId,

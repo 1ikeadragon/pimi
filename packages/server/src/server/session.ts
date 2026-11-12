@@ -2928,11 +2928,11 @@ export class Session {
         return this.handleProjectListRequest(msg);
       case "project.suggestions.request":
         return this.handleProjectSuggestionsRequest(msg);
-      case "paseo_worktree_list_request":
+      case "pimi_worktree_list_request":
         return this.handlePaseoWorktreeListRequest(msg);
-      case "paseo_worktree_archive_request":
+      case "pimi_worktree_archive_request":
         return this.handlePaseoWorktreeArchiveRequest(msg);
-      case "create_paseo_worktree_request":
+      case "create_pimi_worktree_request":
         return this.handleCreatePaseoWorktreeRequest(msg);
       case "open_project_request":
         return this.handleOpenProjectRequest(msg);
@@ -5200,7 +5200,7 @@ export class Session {
   }
 
   private async handlePaseoWorktreeListRequest(
-    msg: Extract<SessionInboundMessage, { type: "paseo_worktree_list_request" }>,
+    msg: Extract<SessionInboundMessage, { type: "pimi_worktree_list_request" }>,
   ): Promise<void> {
     return handleWorktreeListRequest(
       {
@@ -5213,7 +5213,7 @@ export class Session {
   }
 
   private async handlePaseoWorktreeArchiveRequest(
-    msg: Extract<SessionInboundMessage, { type: "paseo_worktree_archive_request" }>,
+    msg: Extract<SessionInboundMessage, { type: "pimi_worktree_archive_request" }>,
   ): Promise<void> {
     return handleWorktreeArchiveRequest(
       {
@@ -7378,7 +7378,7 @@ export class Session {
   }
 
   private async handleCreatePaseoWorktreeRequest(
-    request: Extract<SessionInboundMessage, { type: "create_paseo_worktree_request" }>,
+    request: Extract<SessionInboundMessage, { type: "create_pimi_worktree_request" }>,
   ): Promise<void> {
     return handleCreateWorktreeRequest(
       {

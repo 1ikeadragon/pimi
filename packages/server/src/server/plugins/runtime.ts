@@ -903,7 +903,7 @@ export class PluginRuntime {
               return;
             }
             const message = parsed.data;
-            if (message.type === "paseo_frame") {
+            if (message.type === "pimi_frame") {
               this.routePluginFrame({
                 session,
                 pluginId,
@@ -912,7 +912,7 @@ export class PluginRuntime {
                 frame: message.data,
                 isBinary: message.isBinary,
               });
-            } else if (message.type === "paseo_close") {
+            } else if (message.type === "pimi_close") {
               session.socket.peerClosed();
             } else if (message.type === "ready") {
               if (settled) return;

@@ -1,16 +1,16 @@
 import type { AgentAddress } from "./addresses.js";
-export const PARENT_SERVER_ID_LABEL = "paseo.parent-server-id";
-export const PARENT_AGENT_ID_LABEL = "paseo.parent-agent-id";
+export const PARENT_SERVER_ID_LABEL = "pimi.parent-server-id";
+export const PARENT_AGENT_ID_LABEL = "pimi.parent-agent-id";
 /** On an Attack run's lead and every agent it creates: the run id. */
 export const ATTACK_RUN_LABEL = "pimi.attack-run";
-const OPEN_AGENT_TAB_LABEL_PREFIX = "paseo.open-agent-tab.";
+const OPEN_AGENT_TAB_LABEL_PREFIX = "pimi.open-agent-tab.";
 /** On a subagent stopped with an ancestor: the ID of the agent whose Stop reached it. */
-export const STOPPED_BY_AGENT_ID_LABEL = "paseo.stopped-by-agent-id";
+export const STOPPED_BY_AGENT_ID_LABEL = "pimi.stopped-by-agent-id";
 /**
  * On an agent whose Stop also stopped subagents: `"mid-turn"` when its own turn was interrupted,
  * `"idle"` when only its subagents were working.
  */
-export const STOPPED_WITH_SUBAGENTS_LABEL = "paseo.stopped-with-subagents";
+export const STOPPED_WITH_SUBAGENTS_LABEL = "pimi.stopped-with-subagents";
 export type StoppedWithSubagents = "mid-turn" | "idle";
 
 export function getStoppedByAgentIdFromLabels(

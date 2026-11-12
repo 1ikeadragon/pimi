@@ -99,7 +99,7 @@ function measuredInputKind(sequence) {
 async function installAppBootstrap(page) {
   await page.addInitScript(() => {
     localStorage.setItem(
-      "@paseo:keyboard-shortcut-overrides",
+      "@pimi:keyboard-shortcut-overrides",
       JSON.stringify({ "workspace-navigate-index-alt-digit-web": "Cmd+Digit" }),
     );
 

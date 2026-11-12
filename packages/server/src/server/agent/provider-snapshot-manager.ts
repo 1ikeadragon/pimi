@@ -53,7 +53,7 @@ const DEFAULT_REFRESH_TIMEOUT_MS = 120_000;
 const MAX_REFRESH_TIMEOUT_MS = 2_147_483_647;
 const DEFAULT_DIAGNOSTIC_TIMEOUT_MS = 120_000;
 const PROVIDER_REFRESH_DEADLINE_ENV = "PIMI_PROVIDER_REFRESH_TIMEOUT_MS";
-export const GLOBAL_PROVIDER_SNAPSHOT_KEY = "paseo:global";
+export const GLOBAL_PROVIDER_SNAPSHOT_KEY = "pimi:global";
 
 function validRefreshDeadline(value: unknown): number | undefined {
   return typeof value === "number" &&
@@ -1202,7 +1202,7 @@ export function isGlobalProviderSnapshotKey(cwd: string): boolean {
 function identifyEntry(entry: ProviderSnapshotEntry): ProviderSnapshotRecord {
   const { fetchedAt: _fetchedAt, ...content } = entry;
   const contentHash = createHash("sha256")
-    .update(JSON.stringify(["paseo.provider-result/1", content]))
+    .update(JSON.stringify(["pimi.provider-result/1", content]))
     .digest("base64url");
   return { entry, contentHash };
 }

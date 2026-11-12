@@ -1769,7 +1769,7 @@ function createToolCatalog(
           labels: {
             ...parsedArgs.labels,
             ...(callerAgentId && options.serverId
-              ? { "paseo.parent-server-id": options.serverId }
+              ? { "pimi.parent-server-id": options.serverId }
               : {}),
             ...(attackRunId ? { [ATTACK_RUN_LABEL]: attackRunId } : {}),
           },

@@ -3435,7 +3435,7 @@ function buildCodexCustomProviderConfig(
   // Namespace Paseo ids so they cannot override Codex's built-ins. A colon is
   // forbidden in Paseo ids, keeping these keys distinct from every legacy id
   // when both generations are listed together.
-  const providerKey = `paseo:${customProvider.id}`;
+  const providerKey = `pimi:${customProvider.id}`;
   return {
     model_provider: providerKey,
     model_providers: {

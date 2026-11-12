@@ -154,7 +154,7 @@ export function bridgeBindings(
         await awaitPaseoPlugin({ client, location });
         result = await client.rpc.call({
           location,
-          rpcID: "paseo.bridge",
+          rpcID: "pimi.bridge",
           method: "bind",
           input: { sessionID: sessionId, ...bridge.sharedV2Connection(advertised) },
         });
@@ -172,7 +172,7 @@ export function bridgeBindings(
         await client.rpc.call(
           {
             location: { directory: cwd },
-            rpcID: "paseo.bridge",
+            rpcID: "pimi.bridge",
             method: "unbind",
             input: { sessionID: sessionId, ...bridge.sharedV2Connection(advertised) },
           },
@@ -184,7 +184,7 @@ export function bridgeBindings(
       const location = { directory: cwd };
       await awaitPaseoPlugin({ client, location, signal });
       await client.rpc.call(
-        { location, rpcID: "paseo.bridge", method: "refresh", input: {} },
+        { location, rpcID: "pimi.bridge", method: "refresh", input: {} },
         { signal },
       );
     },

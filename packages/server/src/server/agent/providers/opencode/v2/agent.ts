@@ -88,7 +88,7 @@ export class OpenCodeV2AgentClient implements AgentClient {
         waitForLocationReady({ client: connection.client, location, signal: request.signal }),
       );
       if (options.force)
-        await activity("paseo.bridge.refresh", () =>
+        await activity("pimi.bridge.refresh", () =>
           connection.refreshLocation(location.directory, request.signal),
         );
       const [models, agents, providers] = await Promise.all([

@@ -375,7 +375,7 @@ export function createPluginWorker(options: {
     await Promise.all([...providerConnections.keys()].map(closeProviderConnection));
     await releaseApi;
     await daemonClient?.close().catch(() => undefined);
-    await sendAndWait({ type: "paseo_close" });
+    await sendAndWait({ type: "pimi_close" });
     daemonClient = null;
     paseo = null;
     channel.disconnect();
@@ -566,7 +566,7 @@ export function createPluginWorker(options: {
       void closeProviderConnection(message.connectionId);
       return;
     }
-    if (message.type === "paseo_frame" || message.type === "paseo_close") return;
+    if (message.type === "pimi_frame" || message.type === "pimi_close") return;
     if (isHookMessage(message)) {
       handleHookMessage(message);
       return;

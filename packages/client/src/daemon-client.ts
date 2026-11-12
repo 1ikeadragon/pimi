@@ -271,7 +271,7 @@ function chooseConnectionAuth(
   return {
     helloAuth,
     headers,
-    ...(compatibleBearer ? { protocols: [`paseo.bearer.${compatibleBearer}`] } : {}),
+    ...(compatibleBearer ? { protocols: [`pimi.bearer.${compatibleBearer}`] } : {}),
   };
 }
 
@@ -553,7 +553,7 @@ type PaseoWorktreeListPayload = PaseoWorktreeListResponse["payload"];
 type PaseoWorktreeArchivePayload = PaseoWorktreeArchiveResponse["payload"];
 type CreatePaseoWorktreePayload = Extract<
   SessionOutboundMessage,
-  { type: "create_paseo_worktree_response" }
+  { type: "create_pimi_worktree_response" }
 >["payload"];
 type WorkspaceCreatePayload = Extract<
   SessionOutboundMessage,
@@ -1571,7 +1571,7 @@ export class DaemonClient {
 
       this.transportCleanup = [
         transport.onOpen(() => {
-          this.traceInstant("paseo.connection.open");
+          this.traceInstant("pimi.connection.open");
           if (this.pendingGenericTransportErrorTimeout) {
             clearTimeout(this.pendingGenericTransportErrorTimeout);
             this.pendingGenericTransportErrorTimeout = null;
@@ -1580,7 +1580,7 @@ export class DaemonClient {
           void this.sendHelloMessage();
         }),
         transport.onClose((event) => {
-          this.traceInstant("paseo.connection.close", {
+          this.traceInstant("pimi.connection.close", {
             code: String(
               event && typeof event === "object" && "code" in event ? event.code : "unknown",
             ),
@@ -1608,7 +1608,7 @@ export class DaemonClient {
           });
         }),
         transport.onError((event) => {
-          this.traceInstant("paseo.connection.error");
+          this.traceInstant("pimi.connection.error");
           this.resetConnectTimeout();
           const reason = describeTransportError(event);
           const isGeneric = reason === "Transport error";
@@ -1990,8 +1990,8 @@ export class DaemonClient {
   private beginSessionDispatchTrace(message: SessionOutboundMessage): boolean {
     if (!this.config.trace?.isEnabled()) return false;
     const fields = { messageType: message.type, ...describeRequestIdentity(message) };
-    this.traceInstant("paseo.ws.message.inbound", { envelopeType: "session", ...fields });
-    return this.beginTraceSection("paseo.ws.dispatch", fields);
+    this.traceInstant("pimi.ws.message.inbound", { envelopeType: "session", ...fields });
+    return this.beginTraceSection("pimi.ws.dispatch", fields);
   }
 
   private sendJsonMessage(
@@ -2002,7 +2002,7 @@ export class DaemonClient {
   ): Promise<void> {
     const isOpen =
       this.config.trace?.isEnabled() === true &&
-      this.beginTraceSection("paseo.ws.message.outbound", {
+      this.beginTraceSection("pimi.ws.message.outbound", {
         envelopeType,
         messageType,
         ...describeRequestIdentity(message),
@@ -2037,7 +2037,7 @@ export class DaemonClient {
     }
     // The daemon closes the connection on an oversized message, and creations resubmit on reconnect.
     assertTransportFrameFits(frame);
-    const isOpen = this.beginTraceSection("paseo.ws.frame.outbound", {
+    const isOpen = this.beginTraceSection("pimi.ws.frame.outbound", {
       kind: typeof frame === "string" ? "text" : "binary",
       size: String(getTransportFrameSize(frame)),
       sizeUnit: typeof frame === "string" ? "utf16-code-units" : "bytes",
@@ -2082,7 +2082,7 @@ export class DaemonClient {
       throw new Error(`Transport not connected (status: ${this.connectionState.status})`);
     }
     try {
-      this.traceInstant("paseo.ws.message.outbound", {
+      this.traceInstant("pimi.ws.message.outbound", {
         envelopeType: "binary",
         messageType: "binary",
       });
@@ -5003,11 +5003,11 @@ export class DaemonClient {
     return this.sendCorrelatedSessionRequest({
       requestId,
       message: {
-        type: "paseo_worktree_list_request",
+        type: "pimi_worktree_list_request",
         cwd: input.cwd,
         repoRoot: input.repoRoot,
       },
-      responseType: "paseo_worktree_list_response",
+      responseType: "pimi_worktree_list_response",
     });
   }
 
@@ -5024,14 +5024,14 @@ export class DaemonClient {
     return this.sendCorrelatedSessionRequest({
       requestId,
       message: {
-        type: "paseo_worktree_archive_request",
+        type: "pimi_worktree_archive_request",
         worktreePath: input.worktreePath,
         repoRoot: input.repoRoot,
         branchName: input.branchName,
         ...(input.workspaceId !== undefined ? { workspaceId: input.workspaceId } : {}),
         ...(input.scope !== undefined ? { scope: input.scope } : {}),
       },
-      responseType: "paseo_worktree_archive_response",
+      responseType: "pimi_worktree_archive_response",
     });
   }
 
@@ -5042,7 +5042,7 @@ export class DaemonClient {
     return this.sendCorrelatedSessionRequest({
       requestId,
       message: {
-        type: "create_paseo_worktree_request",
+        type: "create_pimi_worktree_request",
         cwd: input.cwd,
         ...(input.projectId !== undefined ? { projectId: input.projectId } : {}),
         worktreeSlug: input.worktreeSlug,
@@ -5053,7 +5053,7 @@ export class DaemonClient {
         ...(input.action !== undefined ? { action: input.action } : {}),
         ...(input.checkoutSource !== undefined ? { checkoutSource: input.checkoutSource } : {}),
       },
-      responseType: "create_paseo_worktree_response",
+      responseType: "create_pimi_worktree_response",
     });
   }
 
@@ -7051,7 +7051,7 @@ export class DaemonClient {
     }
 
     const isOpen = this.beginTraceSection(
-      "paseo.ws.frame.inbound",
+      "pimi.ws.frame.inbound",
       describeInboundTransportFrame(rawData),
     );
     try {
@@ -7074,20 +7074,20 @@ export class DaemonClient {
     const bytes = rawBytesLength ?? payload.length;
     const startMs = perfNow();
     let parsedJson: unknown;
-    const parseTraceOpen = this.beginTraceSection("paseo.ws.json.parse", {
+    const parseTraceOpen = this.beginTraceSection("pimi.ws.json.parse", {
       size: String(bytes),
       sizeUnit: rawBytesLength === undefined ? "utf16-code-units" : "bytes",
     });
     try {
       parsedJson = JSON.parse(payload);
     } catch {
-      this.traceInstant("paseo.ws.json.invalid");
+      this.traceInstant("pimi.ws.json.invalid");
       return;
     } finally {
       this.endTraceSection(parseTraceOpen);
     }
 
-    const validationTrace = this.beginTraceSection("paseo.ws.validate");
+    const validationTrace = this.beginTraceSection("pimi.ws.validate");
     let parsed: ReturnType<typeof validateWSOutboundMessage>;
     try {
       parsed = validateWSOutboundMessage(parsedJson);
@@ -7095,7 +7095,7 @@ export class DaemonClient {
       this.endTraceSection(validationTrace);
     }
     if (!parsed.success) {
-      this.traceInstant("paseo.ws.validation.failed");
+      this.traceInstant("pimi.ws.validation.failed");
       const responseIdentity = extractCorrelatedResponseIdentity(parsedJson);
       const envelopeType =
         parsedJson != null &&
@@ -7118,7 +7118,7 @@ export class DaemonClient {
     this.consecutiveLivenessFailures = 0;
 
     if (parsed.data.type === "pong") {
-      this.traceInstant("paseo.ws.message.inbound", {
+      this.traceInstant("pimi.ws.message.inbound", {
         envelopeType: "pong",
         messageType: "pong",
       });
@@ -7128,7 +7128,7 @@ export class DaemonClient {
     }
 
     if (parsed.data.type === "hello.rejected") {
-      this.traceInstant("paseo.connection.rejected", { reason: parsed.data.reason });
+      this.traceInstant("pimi.connection.rejected", { reason: parsed.data.reason });
       const reasonMessage = {
         password_required: "Password required",
         incorrect_password: "Incorrect password",
@@ -7187,7 +7187,7 @@ export class DaemonClient {
     }
     const fileFrame = decodeFileTransferFrame(rawBytes);
     if (fileFrame) {
-      this.traceInstant("paseo.ws.message.inbound", {
+      this.traceInstant("pimi.ws.message.inbound", {
         envelopeType: "binary",
         messageType: "file",
         opcode: String(fileFrame.opcode),
@@ -7203,7 +7203,7 @@ export class DaemonClient {
     if (!frame) {
       return false;
     }
-    this.traceInstant("paseo.ws.message.inbound", {
+    this.traceInstant("pimi.ws.message.inbound", {
       envelopeType: "binary",
       messageType: "terminal",
       opcode: String(frame.opcode),
@@ -7302,7 +7302,7 @@ export class DaemonClient {
       next.status === "disconnected" && typeof next.reason === "string" ? next.reason : null;
     const reason = metadata?.reason ?? reasonFromNext;
     const reasonCode = metadata?.reasonCode ?? toReasonCode(reason);
-    this.traceInstant("paseo.connection.state", {
+    this.traceInstant("pimi.connection.state", {
       from: previous.status,
       to: next.status,
       event: metadata?.event ?? "STATE_UPDATE",
@@ -7432,7 +7432,7 @@ export class DaemonClient {
     const baseDelay = this.config.reconnect?.baseDelayMs ?? DEFAULT_RECONNECT_BASE_DELAY_MS;
     const maxDelay = this.config.reconnect?.maxDelayMs ?? DEFAULT_RECONNECT_MAX_DELAY_MS;
     const delay = Math.min(baseDelay * 2 ** attempt, maxDelay);
-    this.traceInstant("paseo.connection.reconnect", {
+    this.traceInstant("pimi.connection.reconnect", {
       attempt: String(attempt),
       delayMs: String(delay),
     });

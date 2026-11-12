@@ -3,7 +3,7 @@ import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import { projectIconCacheStorage } from "./icon-cache-storage";
 import type { ProjectIconTarget } from "./icon-target";
 
-const STORAGE_KEY = "@paseo:project-icon-cache";
+const STORAGE_KEY = "@pimi:project-icon-cache";
 const CACHE_VERSION = 1;
 const PERSIST_DELAY_MS = 250;
 const MAX_ENTRIES = 512;

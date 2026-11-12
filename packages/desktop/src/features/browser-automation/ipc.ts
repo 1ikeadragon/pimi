@@ -482,7 +482,7 @@ function applyAttackGuard(request: BrowserAutomationExecuteRequest, hostContents
 export function registerBrowserAutomationIpc(options?: { ipc?: IpcHandlerRegistry }): void {
   const ipc = options?.ipc ?? ipcMain;
 
-  ipc.handle("paseo:browser:execute-automation-command", async (event, rawRequest: unknown) => {
+  ipc.handle("pimi:browser:execute-automation-command", async (event, rawRequest: unknown) => {
     const hostContents = (event as { sender?: HostWebContents }).sender;
     const hostWebContentsId = hostContents?.id;
     if (!hostContents || typeof hostWebContentsId !== "number") {

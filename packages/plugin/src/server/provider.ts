@@ -141,7 +141,7 @@ export interface ProviderPrompt {
 
 interface ProviderForgeChangeRequestAttachment {
   type: "forge_change_request";
-  mimeType: "application/paseo-forge-change-request";
+  mimeType: "application/pimi-forge-change-request";
   forge?: string;
   number: number;
   title: string;
@@ -154,7 +154,7 @@ interface ProviderForgeChangeRequestAttachment {
 
 interface ProviderForgeIssueAttachment {
   type: "forge_issue";
-  mimeType: "application/paseo-forge-issue";
+  mimeType: "application/pimi-forge-issue";
   forge?: string;
   number: number;
   title: string;
@@ -202,7 +202,7 @@ interface ProviderTextAttachment {
 
 interface ProviderReviewAttachment {
   type: "review";
-  mimeType: "application/paseo-review";
+  mimeType: "application/pimi-review";
   cwd: string;
   mode: "uncommitted" | "base";
   baseRef?: string | null;
@@ -779,7 +779,7 @@ const providerContentSchema: z.ZodType<ProviderContent> = z.union([
   z
     .object({
       type: z.literal("forge_change_request"),
-      mimeType: z.literal("application/paseo-forge-change-request"),
+      mimeType: z.literal("application/pimi-forge-change-request"),
       forge: z.string().optional(),
       number: z.number().int().positive(),
       title: z.string(),
@@ -793,7 +793,7 @@ const providerContentSchema: z.ZodType<ProviderContent> = z.union([
   z
     .object({
       type: z.literal("forge_issue"),
-      mimeType: z.literal("application/paseo-forge-issue"),
+      mimeType: z.literal("application/pimi-forge-issue"),
       forge: z.string().optional(),
       number: z.number().int().positive(),
       title: z.string(),
@@ -837,7 +837,7 @@ const providerContentSchema: z.ZodType<ProviderContent> = z.union([
   z
     .object({
       type: z.literal("review"),
-      mimeType: z.literal("application/paseo-review"),
+      mimeType: z.literal("application/pimi-review"),
       cwd: z.string(),
       mode: z.enum(["uncommitted", "base"]),
       baseRef: z.string().nullable().optional(),

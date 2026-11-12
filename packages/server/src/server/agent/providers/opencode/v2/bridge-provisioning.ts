@@ -5,7 +5,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { writeFileAtomic } from "../../../../atomic-file.js";
 
 const PACKAGE = JSON.stringify({
-  name: "paseo-managed-bridge",
+  name: "pimi-managed-bridge",
   private: true,
   type: "module",
   exports: { "./server": "./server.js" },
@@ -19,7 +19,7 @@ export function openCodeConfigDirectory(env: NodeJS.ProcessEnv): string {
 }
 
 export async function hasManagedBridge(configDirectory: string): Promise<boolean> {
-  const directory = path.join(configDirectory, "plugins", "paseo-managed-bridge");
+  const directory = path.join(configDirectory, "plugins", "pimi-managed-bridge");
   const [manifest, artifact] = await Promise.all([
     readFile(path.join(directory, "package.json"), "utf8").catch(() => ""),
     readFile(path.join(directory, "server.js")).catch(() => undefined),
@@ -31,7 +31,7 @@ export async function provisionLocalBridge(input: {
   configDirectory: string;
   artifact: string;
 }): Promise<void> {
-  const directory = path.join(input.configDirectory, "plugins", "paseo-managed-bridge");
+  const directory = path.join(input.configDirectory, "plugins", "pimi-managed-bridge");
   await mkdir(path.dirname(directory), { recursive: true });
   let created = false;
   try {
@@ -69,7 +69,7 @@ function isManagedPackage(content: string): boolean {
     return false;
   const exports = manifest.exports as Record<string, unknown>;
   return (
-    manifest.name === "paseo-managed-bridge" &&
+    manifest.name === "pimi-managed-bridge" &&
     manifest.private === true &&
     manifest.type === "module" &&
     exports["./server"] === "./server.js"

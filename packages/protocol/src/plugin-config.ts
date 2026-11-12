@@ -4,7 +4,6 @@ export const PluginIdSchema = z.string().regex(/^[a-z][a-z0-9-]*$/);
 // Semver validation belongs at the manifest/runtime boundary, not on the wire.
 export const PluginRequirementsSchema = z.object({
   pimi: z.string().optional(),
-  paseo: z.string().optional(),
 });
 export type PluginRequirements = z.infer<typeof PluginRequirementsSchema>;
 

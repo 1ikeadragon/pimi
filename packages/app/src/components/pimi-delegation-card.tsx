@@ -25,8 +25,8 @@ function matchesWorker(agent: Agent | undefined, { source, worker }: PimiDelegat
     (agent.serverId !== source.serverId ||
       agent.parentAgentId !== source.agentId ||
       agent.provider !== worker.provider ||
-      (agent.labels["paseo.parent-server-id"] !== undefined &&
-        agent.labels["paseo.parent-server-id"] !== source.serverId))
+      (agent.labels["pimi.parent-server-id"] !== undefined &&
+        agent.labels["pimi.parent-server-id"] !== source.serverId))
   ) {
     return false;
   }

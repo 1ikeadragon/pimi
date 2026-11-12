@@ -11,12 +11,12 @@ import {
 
 export type { BrowserKeyboardPolicy } from "./policy.js";
 
-const POLICY_INPUT_CHANNEL = "paseo:browser:set-shortcut-policy";
-const POLICY_OUTPUT_CHANNEL = "paseo:browser-keyboard-policy";
-const POLICY_REQUEST_CHANNEL = "paseo:browser-keyboard-policy-request";
-const SHORTCUT_INPUT_CHANNEL = "paseo:browser-shortcut-input";
-const SHORTCUT_OUTPUT_CHANNEL = "paseo:event:browser-shortcut-input";
-const RESERVED_SHORTCUT_OUTPUT_CHANNEL = "paseo:event:browser-shortcut";
+const POLICY_INPUT_CHANNEL = "pimi:browser:set-shortcut-policy";
+const POLICY_OUTPUT_CHANNEL = "pimi:browser-keyboard-policy";
+const POLICY_REQUEST_CHANNEL = "pimi:browser-keyboard-policy-request";
+const SHORTCUT_INPUT_CHANNEL = "pimi:browser-shortcut-input";
+const SHORTCUT_OUTPUT_CHANNEL = "pimi:event:browser-shortcut-input";
+const RESERVED_SHORTCUT_OUTPUT_CHANNEL = "pimi:event:browser-shortcut";
 
 interface BrowserKeyboardContentsIdentity {
   readonly id: number;

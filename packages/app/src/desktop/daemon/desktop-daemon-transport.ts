@@ -7,7 +7,7 @@ import {
   type LocalDaemonTransportRpc,
 } from "./local-daemon-transport-rpc";
 
-const DESKTOP_TRANSPORT_SCHEME = "paseo+desktop:";
+const DESKTOP_TRANSPORT_SCHEME = "pimi+desktop:";
 
 function encodeBinaryToBase64(data: Uint8Array | ArrayBuffer): string {
   const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data;

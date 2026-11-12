@@ -545,12 +545,7 @@ export const PimiReviewSuggestionResult = z.object({
 });
 
 function matchesToolName(name: string, tool: string): boolean {
-  return (
-    name === tool ||
-    getPaseoToolLeafName(name) === tool ||
-    name === `pimi_${tool}` ||
-    name === `paseo_${tool}`
-  );
+  return name === tool || getPaseoToolLeafName(name) === tool || name === `pimi_${tool}`;
 }
 
 export function isPimiTaskProposalTool(name: string): boolean {

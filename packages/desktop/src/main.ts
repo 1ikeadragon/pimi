@@ -161,7 +161,7 @@ import { getForgeDefinition } from "@pimi/protocol/forge-manifest";
 const DEV_SERVER_URL = process.env.EXPO_DEV_URL ?? "http://localhost:8081";
 // Private Chromium origin retained for existing localStorage and IndexedDB.
 // External agent links use the pimi protocol registered by the installer.
-const APP_SCHEME = "paseo";
+const APP_SCHEME = "pimi";
 const CONSOLE_URL = app.isPackaged ? `${APP_SCHEME}://app/` : new URL(DEV_SERVER_URL).href;
 
 function isConsoleUrl(value: string): boolean {
@@ -478,7 +478,7 @@ if (PIMI_DEBUG) {
 
 // The renderer pulls the pending path on mount via IPC — this avoids
 // a race where the push event arrives before React registers its listener.
-ipcMain.handle("paseo:get-pending-open-project", (event) => {
+ipcMain.handle("pimi:get-pending-open-project", (event) => {
   const webContentsId = event.sender.id;
   const result = desktopWindowOwner.takePendingProject(webContentsId);
   log.info("[open-project] renderer requested pending path:", {
@@ -488,11 +488,11 @@ ipcMain.handle("paseo:get-pending-open-project", (event) => {
   return result;
 });
 
-ipcMain.handle("paseo:agent-navigation:ready", (event) => {
+ipcMain.handle("pimi:agent-navigation:ready", (event) => {
   return agentNavigationInbox.windowReady(event.sender.id);
 });
 
-ipcMain.handle("paseo:browser:register-attached", (event, rawInput: unknown) => {
+ipcMain.handle("pimi:browser:register-attached", (event, rawInput: unknown) => {
   const input = readAttachedBrowserInput(rawInput);
   if (!input) {
     throw new Error("Invalid attached browser registration");
@@ -524,7 +524,7 @@ ipcMain.handle("paseo:browser:register-attached", (event, rawInput: unknown) => 
   }
 });
 
-ipcMain.handle("paseo:browser:unregister-workspace-browser", async (event, browserId: unknown) => {
+ipcMain.handle("pimi:browser:unregister-workspace-browser", async (event, browserId: unknown) => {
   if (typeof browserId === "string" && browserId.trim().length > 0) {
     const normalizedBrowserId = browserId.trim();
     const hasOtherHost = getPaseoBrowserWebviewRegistry().hasBrowserInOtherHostWindow(
@@ -553,7 +553,7 @@ ipcMain.handle("paseo:browser:unregister-workspace-browser", async (event, brows
   }
 });
 
-ipcMain.handle("paseo:browser:set-attack-policy", (_event, rawInput: unknown) => {
+ipcMain.handle("pimi:browser:set-attack-policy", (_event, rawInput: unknown) => {
   if (typeof rawInput !== "object" || rawInput === null || Array.isArray(rawInput)) return;
   const input = rawInput as Record<string, unknown>;
   const hosts = Array.isArray(input.allowedHosts)
@@ -571,7 +571,7 @@ ipcMain.handle("paseo:browser:set-attack-policy", (_event, rawInput: unknown) =>
   setAttackNavigationPolicy(input.browserId.trim(), { runId: input.runId, allowedHosts: hosts });
 });
 
-ipcMain.handle("paseo:browser:set-workspace-active-browser", (event, rawInput: unknown) => {
+ipcMain.handle("pimi:browser:set-workspace-active-browser", (event, rawInput: unknown) => {
   const input = readActiveBrowserInput(rawInput);
   if (input) {
     setWorkspaceActivePaseoBrowserId({
@@ -581,7 +581,7 @@ ipcMain.handle("paseo:browser:set-workspace-active-browser", (event, rawInput: u
   }
 });
 
-ipcMain.handle("paseo:browser:focus", (event, browserId: unknown): boolean => {
+ipcMain.handle("pimi:browser:focus", (event, browserId: unknown): boolean => {
   if (typeof browserId !== "string" || browserId.trim().length === 0) {
     return false;
   }
@@ -593,7 +593,7 @@ ipcMain.handle("paseo:browser:focus", (event, browserId: unknown): boolean => {
   return true;
 });
 
-ipcMain.handle("paseo:browser:open-devtools", (event, browserId: unknown) => {
+ipcMain.handle("pimi:browser:open-devtools", (event, browserId: unknown) => {
   if (typeof browserId !== "string" || browserId.trim().length === 0) {
     const result = {
       ok: false,
@@ -634,7 +634,7 @@ ipcMain.handle("paseo:browser:open-devtools", (event, browserId: unknown) => {
   return result;
 });
 
-ipcMain.handle("paseo:browser:clear-profile", async (_event, rawLegacyBrowserIds: unknown) => {
+ipcMain.handle("pimi:browser:clear-profile", async (_event, rawLegacyBrowserIds: unknown) => {
   const profileSessions = getPaseoBrowserProfileSessions(
     session,
     readLegacyPaseoBrowserIds(rawLegacyBrowserIds),
@@ -675,7 +675,7 @@ const browserCapture = createBrowserCaptureService<Electron.NativeImage>({
   warn: (event, details) => log.warn(`[browser-capture] ${event}`, details),
 });
 
-ipcMain.handle("paseo:browser:capture-element", (event, browserId: unknown, rect: unknown) =>
+ipcMain.handle("pimi:browser:capture-element", (event, browserId: unknown, rect: unknown) =>
   browserCapture.capture({
     browserId,
     hostWebContentsId: event.sender.id,
@@ -683,7 +683,7 @@ ipcMain.handle("paseo:browser:capture-element", (event, browserId: unknown, rect
   }),
 );
 
-ipcMain.handle("paseo:browser:copy-element", (_event, payload: unknown) =>
+ipcMain.handle("pimi:browser:copy-element", (_event, payload: unknown) =>
   browserCapture.copy(payload),
 );
 
@@ -1154,7 +1154,7 @@ function ownedDesktopWindow(win: BrowserWindow): OwnedDesktopWindow<AgentDeepLin
     focus: () => win.focus(),
     sendAgent: (target) => {
       hidePimiWorkspace(win);
-      win.webContents.send("paseo:event:open-agent", target);
+      win.webContents.send("pimi:event:open-agent", target);
     },
   };
 }
@@ -1342,7 +1342,7 @@ async function bootstrap(): Promise<void> {
   registerDialogHandlers();
   registerNotificationHandlers();
   const openExternalUrl = createExternalUrlOpener({ open: shell.openExternal });
-  ipcMain.handle("paseo:opener:openUrl", (_event, value: unknown) => openExternalUrl(value));
+  ipcMain.handle("pimi:opener:openUrl", (_event, value: unknown) => openExternalUrl(value));
   registerEditorTargetHandlers({
     targets: PIMI_EDITOR_TARGETS,
   });
@@ -1350,7 +1350,7 @@ async function bootstrap(): Promise<void> {
 
   // In-app "Open in new window": opens a window that lands on the given project
   // via the same open-project flow as a CLI launch (no move, no ownership).
-  ipcMain.handle("paseo:window:openNew", async (_event, options?: unknown) => {
+  ipcMain.handle("pimi:window:openNew", async (_event, options?: unknown) => {
     const pendingPath =
       options && typeof options === "object" && "pendingOpenProjectPath" in options
         ? (options as { pendingOpenProjectPath?: unknown }).pendingOpenProjectPath
@@ -1400,7 +1400,7 @@ void runDesktopStartup({
 
 function showDaemonShutdownDialog(): void {
   for (const win of BrowserWindow.getAllWindows()) {
-    win.webContents.send("paseo:event:quitting", {});
+    win.webContents.send("pimi:event:quitting", {});
   }
 }
 

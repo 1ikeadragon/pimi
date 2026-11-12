@@ -7,7 +7,7 @@ import { readValidatedString } from "@/storage/validated-storage";
 import { isPimiAndroid } from "@/utils/pimi-mobile";
 import type { RevokePushNotificationsInput, StartPushNotificationsInput } from "./types";
 
-const STORAGE_PREFIX = "@paseo:expo-push-token:";
+const STORAGE_PREFIX = "@pimi:expo-push-token:";
 const ExpoPushTokenSchema = z.string().trim().min(1);
 
 function storageKey(serverId: string): string {

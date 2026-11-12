@@ -82,8 +82,8 @@ export type PluginProcessRequest =
     }
   | { type: "provider.close"; connectionId: string }
   | { type: "shutdown" }
-  | { type: "paseo_frame"; data: string | Uint8Array; isBinary: boolean }
-  | { type: "paseo_close" };
+  | { type: "pimi_frame"; data: string | Uint8Array; isBinary: boolean }
+  | { type: "pimi_close" };
 
 export type PluginProcessMessage =
   | { type: "settings.changed"; settingsId: string }
@@ -117,8 +117,8 @@ export type PluginProcessMessage =
     }
   | { type: "provider.event"; connectionId: string; event: ProviderEvent }
   | { type: "provider.closed"; connectionId: string; error?: string }
-  | { type: "paseo_frame"; data: string | Uint8Array; isBinary: boolean }
-  | { type: "paseo_close" };
+  | { type: "pimi_frame"; data: string | Uint8Array; isBinary: boolean }
+  | { type: "pimi_close" };
 
 const hooksSchema = z.array(z.string());
 
@@ -279,8 +279,8 @@ export const PluginProcessRequestSchema: z.ZodType<PluginProcessRequest> = z.dis
       .strict(),
     z.object({ type: z.literal("provider.close"), connectionId: z.string().min(1) }).strict(),
     z.object({ type: z.literal("shutdown") }).strict(),
-    z.object({ type: z.literal("paseo_frame"), ...frameFields }).strict(),
-    z.object({ type: z.literal("paseo_close") }).strict(),
+    z.object({ type: z.literal("pimi_frame"), ...frameFields }).strict(),
+    z.object({ type: z.literal("pimi_close") }).strict(),
   ],
 );
 
@@ -364,7 +364,7 @@ export const PluginProcessMessageSchema: z.ZodType<PluginProcessMessage> = z.dis
         error: z.string().optional(),
       })
       .strict(),
-    z.object({ type: z.literal("paseo_frame"), ...frameFields }).strict(),
-    z.object({ type: z.literal("paseo_close") }).strict(),
+    z.object({ type: z.literal("pimi_frame"), ...frameFields }).strict(),
+    z.object({ type: z.literal("pimi_close") }).strict(),
   ],
 );

@@ -10,7 +10,7 @@ export function buildForgeAttachmentFromSearchItem(
   if (item.kind === "change_request") {
     return {
       type: "forge_change_request",
-      mimeType: "application/paseo-forge-change-request",
+      mimeType: "application/pimi-forge-change-request",
       forge: item.forge ?? "github",
       number: item.number,
       title: item.title,
@@ -24,7 +24,7 @@ export function buildForgeAttachmentFromSearchItem(
 
   return {
     type: "forge_issue",
-    mimeType: "application/paseo-forge-issue",
+    mimeType: "application/pimi-forge-issue",
     forge: item.forge ?? "github",
     number: item.number,
     title: item.title,
