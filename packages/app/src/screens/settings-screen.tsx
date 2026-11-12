@@ -95,6 +95,13 @@ import { formatVersionWithPrefix } from "@/desktop/updates/desktop-updates";
 import { resolveAppVersion } from "@/utils/app-version";
 import { openChangelog } from "@/changelog";
 import { useAppDiagnosticStore } from "@/diagnostics/store";
+import {
+  SettingsSearchField,
+  SettingsSearchResults,
+  useSettingsSearch,
+} from "@/screens/settings/settings-search";
+import { useDevSettingsIndexCheck } from "@/settings-index/check";
+import type { SettingsLocation } from "@/settings-index/types";
 import { SettingAnchor } from "@/settings-index/anchor";
 import {
   APP_SETTINGS_PAGES,
@@ -1047,7 +1054,8 @@ function SettingsSidebar({
     />
   );
 
-  const sidebarBody = (
+  const search = useSettingsSearch();
+  const sidebarGroups = (
     <>
       <SidebarGroup label={isPimi ? "Pimi" : t("settings.groups.app")}>
         {(isPimi ? items.filter((item) => PIMI_PREFERENCES.has(item.id)) : items).map(
@@ -1120,6 +1128,17 @@ function SettingsSidebar({
     </>
   );
 
+  const sidebarBody = (
+    <>
+      <SettingsSearchField onChangeText={search.setQuery} />
+      {search.query.trim() ? (
+        <SettingsSearchResults rows={search.rows} query={search.query} />
+      ) : (
+        sidebarGroups
+      )}
+    </>
+  );
+
   return (
     <View
       accessibilityLabel={t("settings.title")}
@@ -1159,6 +1178,12 @@ function SettingsSidebar({
 // Main screen
 // ---------------------------------------------------------------------------
 
+function settingsViewLocation(view: SettingsView): SettingsLocation | null {
+  if (view.kind === "section") return { kind: "section", section: view.section };
+  if (view.kind === "host") return { kind: "host", section: view.section };
+  return null;
+}
+
 export interface SettingsScreenProps {
   view: SettingsView;
 }
@@ -1181,6 +1206,7 @@ export default function SettingsScreen({ view }: SettingsScreenProps) {
   const localServerId = useLocalDaemonServerId();
   const sortedHosts = useSortedHosts(hosts, localServerId);
   const selectedSettingsHostServerId = useSettingsHostSelection();
+  useDevSettingsIndexCheck(settingsViewLocation(view));
 
   // The host the four sections scope to: the host on the active view, otherwise
   // the picker choice, otherwise the connected local daemon, otherwise the first host.

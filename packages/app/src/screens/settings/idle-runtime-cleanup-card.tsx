@@ -7,6 +7,7 @@ import { SettingsInfoTip } from "@/components/settings/headings/settings-info-ti
 import { Switch } from "@/components/ui/switch";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { useHostRuntimeIsConnected } from "@/runtime/host-runtime";
+import { SettingAnchor } from "@/settings-index/anchor";
 import { settingsStyles } from "@/styles/settings";
 
 // Host-wide, persisted, and applied live by the daemon.
@@ -35,7 +36,7 @@ export function IdleRuntimeCleanupCard({ serverId }: { serverId: string }) {
 
   return (
     <View style={settingsStyles.card} testID="host-page-idle-runtime-cleanup-card">
-      <View style={settingsStyles.row}>
+      <SettingAnchor id="agents.idleCleanup" style={settingsStyles.row}>
         <View style={settingsStyles.rowContent}>
           <View style={styles.titleRow}>
             <Text style={settingsStyles.rowTitle}>
@@ -62,7 +63,7 @@ export function IdleRuntimeCleanupCard({ serverId }: { serverId: string }) {
           accessibilityLabel={t("settings.host.agents.idleRuntimeCleanup.title")}
           testID="host-page-idle-runtime-cleanup-switch"
         />
-      </View>
+      </SettingAnchor>
     </View>
   );
 }

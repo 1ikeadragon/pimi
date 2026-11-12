@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { useHostRuntimeIsConnected } from "@/runtime/host-runtime";
+import { SettingAnchor } from "@/settings-index/anchor";
 import { settingsStyles } from "@/styles/settings";
 
 const DEFAULT_RESUME_PROMPT = "Resume working.";
@@ -61,7 +62,7 @@ export function RestartRecoveryCard({ serverId }: { serverId: string }) {
   return (
     <>
       <View style={settingsStyles.card} testID="host-page-restart-recovery-card">
-        <View style={settingsStyles.row}>
+        <SettingAnchor id="agents.resumeOnStartup" style={settingsStyles.row}>
           <View style={settingsStyles.rowContent}>
             <View style={styles.titleRow}>
               <Text style={settingsStyles.rowTitle}>
@@ -99,7 +100,7 @@ export function RestartRecoveryCard({ serverId }: { serverId: string }) {
               testID="host-page-restart-recovery-switch"
             />
           </View>
-        </View>
+        </SettingAnchor>
       </View>
 
       {isEditing ? (

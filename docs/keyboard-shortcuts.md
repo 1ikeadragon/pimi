@@ -91,3 +91,11 @@ A binding on a key the platform already uses for editing, such as Cmd/Ctrl+Z for
 workspace archive undo, declares `editable: false` and registers its handler with
 `isActive` true only while it has work. An inactive handler leaves the key
 unhandled, so the pipeline skips `preventDefault` and the platform's own undo runs.
+
+## Command palette
+
+One palette, mounted at the app root, opens from every view. Cmd/Ctrl+Shift+P and F1 open it in the `commands` scope; Cmd/Ctrl+K opens the same palette unscoped. Views, settings and plugins feed it through the one registry (`useCommandCenterActions`); a contribution declares its `category` (`command` by default, `setting`, `slash`) and the palette modes in `command-center/modes.ts` pick rows by that category.
+
+The first character typed in the unscoped palette picks a mode: `>` commands and settings, `/` slash commands of the focused composer, `%` code search. The prefix stays in the input and is not part of the search. A mode is chosen by a scope or a prefix and nothing else; the palette never guesses from what the text looks like. Ranking is the shared deterministic scorer in `command-center/results.ts`.
+
+Settings rows come from the settings index (see the Settings note in [design.md](design.md)). Anything that lists commands for another agent, such as the voice bubble, filters on `category === "command"` so settings and slash rows never crowd the list.

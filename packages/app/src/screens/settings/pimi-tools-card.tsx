@@ -42,6 +42,7 @@ export function PimiToolsRow({
   const { t } = useTranslation();
   return (
     <SettingsRow
+      settingId="agents.pimiTools"
       label={t("settings.host.orchestration.enableTools.title")}
       hint={t("settings.host.orchestration.enableTools.hint")}
     >

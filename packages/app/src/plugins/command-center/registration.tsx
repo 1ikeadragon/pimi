@@ -1,6 +1,7 @@
 import { usePathname } from "expo-router";
 import { useMemo } from "react";
 import { useCommandCenterActions } from "@/command-center/provider";
+import { useDefaultHostServerId } from "@/hooks/use-default-host-server-id";
 import { useToast } from "@/contexts/toast-context";
 import { useHostRuntimeClient } from "@/runtime/host-runtime";
 import { useActiveWorkspaceSelection } from "@/stores/navigation-active-workspace-store";
@@ -18,7 +19,8 @@ import { createPluginNavigation } from "../navigation";
 export function PluginCommandCenterActions() {
   const pathname = usePathname();
   const selection = useActiveWorkspaceSelection();
-  const serverId = selection?.serverId ?? hostIdFromPathname(pathname);
+  const defaultServerId = useDefaultHostServerId();
+  const serverId = selection?.serverId ?? hostIdFromPathname(pathname) ?? defaultServerId;
   const workspaceId = selection?.workspaceId ?? null;
   const workspaceExists = useWorkspaceExists(serverId, workspaceId);
   const workspaceKey = serverId && workspaceId ? `${serverId}:${workspaceId}` : null;

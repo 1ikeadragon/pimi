@@ -24,6 +24,8 @@ A pressable styled to look like a button is wrong; the button is `<Button>` (`pa
 
 Before adding a new component, read `components/ui/`. The primitive usually exists.
 
+A settings field that people look for by name is declared where it is rendered. The page's `*.settings.ts` (`defineSettingsPage`, in `packages/app/src/settings-index/`) lists the field's `id`, label and search keywords, and the row passes the same `id` as `settingId` (`SettingsRow` and its Switch, Select, Input and Action variants) or wraps itself in `SettingAnchor`. The command palette and the Settings sidebar search both read that index, so search, scrolling and the highlight need no other registration. A page's title, availability and keywords live in `settings-index/sections.ts`. In dev, a settled page logs any declared field without a row and any row without a declaration.
+
 ---
 
 ## 3. Hierarchy

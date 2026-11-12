@@ -6,6 +6,13 @@ import { generalSettings } from "@/screens/settings/general/general.settings";
 import { sendingSettings } from "@/screens/settings/general/sending.settings";
 import { openLocationSettings } from "@/screens/settings/open-location/open-location.settings";
 import { appearanceSettings } from "@/screens/settings/appearance/appearance.settings";
+import {
+  hostAgentsSettings,
+  hostPairDeviceSettings,
+  hostSettings,
+  hostTerminalsSettings,
+  hostWorkspacesSettings,
+} from "@/screens/settings/host.settings";
 import { sidebarSettings } from "@/screens/settings/sidebar/sidebar.settings";
 import { terminalSettings } from "@/screens/settings/terminal/terminal.settings";
 import { browserSettings } from "@/desktop/browser/settings/browser.settings";
@@ -41,6 +48,11 @@ const SETTINGS_PAGES: readonly SettingsPage[] = [
   permissionsSettings,
   diagnosticsSettings,
   aboutSettings,
+  hostSettings,
+  hostPairDeviceSettings,
+  hostAgentsSettings,
+  hostWorkspacesSettings,
+  hostTerminalsSettings,
 ];
 
 function sameLocation(left: SettingsLocation, right: SettingsLocation): boolean {

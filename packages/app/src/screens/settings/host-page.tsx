@@ -54,6 +54,7 @@ import { HostUsageSection } from "@/usage";
 import { HostAppearanceSection } from "@/screens/settings/host-appearance-section";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
 import { useSessionStore } from "@/stores/session-store";
+import { SettingAnchor } from "@/settings-index/anchor";
 import { settingsStyles } from "@/styles/settings";
 import type { HostConnection, HostProfile } from "@/types/host-connection";
 import { confirmDialog } from "@/utils/confirm-dialog";
@@ -673,7 +674,7 @@ function RestartDaemonCard({ host }: { host: HostProfile }) {
 
   return (
     <View style={settingsStyles.card} testID="host-page-restart-card">
-      <View style={settingsStyles.row}>
+      <SettingAnchor id="host.restart" style={settingsStyles.row}>
         <View style={settingsStyles.rowContent}>
           <Text style={settingsStyles.rowTitle}>{t("settings.host.daemon.restart.title")}</Text>
           <Text style={settingsStyles.rowHint}>{t("settings.host.daemon.restart.hint")}</Text>
@@ -689,7 +690,7 @@ function RestartDaemonCard({ host }: { host: HostProfile }) {
             ? t("settings.host.daemon.restart.restarting")
             : t("settings.host.daemon.restart.confirm")}
         </Button>
-      </View>
+      </SettingAnchor>
       <View style={settingsStyles.row}>
         <View style={settingsStyles.rowContent}>
           <Text style={settingsStyles.rowHint}>
@@ -930,7 +931,7 @@ function AutoArchiveMergedWorkspacesCard({ serverId }: { serverId: string }) {
 
   return (
     <View style={settingsStyles.card} testID="host-page-auto-archive-merged-workspaces-card">
-      <View style={settingsStyles.row}>
+      <SettingAnchor id="workspaces.autoArchive" style={settingsStyles.row}>
         <View style={settingsStyles.rowContent}>
           <Text style={settingsStyles.rowTitle}>Archive merged PR workspaces</Text>
           <Text style={settingsStyles.rowHint}>
@@ -943,7 +944,7 @@ function AutoArchiveMergedWorkspacesCard({ serverId }: { serverId: string }) {
           accessibilityLabel="Archive merged PR workspaces"
           testID="host-page-auto-archive-merged-workspaces-switch"
         />
-      </View>
+      </SettingAnchor>
     </View>
   );
 }
@@ -969,7 +970,7 @@ function EnableTerminalAgentHooksCard({ serverId }: { serverId: string }) {
 
   return (
     <View style={settingsStyles.card} testID="host-page-terminal-agent-hooks-card">
-      <View style={settingsStyles.row}>
+      <SettingAnchor id="terminals.agentHooks" style={settingsStyles.row}>
         <View style={settingsStyles.rowContent}>
           <Text style={settingsStyles.rowTitle}>Enable terminal agent hooks</Text>
           <Text style={settingsStyles.rowHint}>
@@ -983,7 +984,7 @@ function EnableTerminalAgentHooksCard({ serverId }: { serverId: string }) {
           accessibilityLabel="Enable terminal agent hooks"
           testID="host-page-terminal-agent-hooks-switch"
         />
-      </View>
+      </SettingAnchor>
     </View>
   );
 }
@@ -1040,7 +1041,7 @@ function AppendSystemPromptCard({ serverId }: { serverId: string }) {
   return (
     <>
       <View style={settingsStyles.card} testID="host-page-append-system-prompt-card">
-        <View style={settingsStyles.row}>
+        <SettingAnchor id="agents.systemPrompt" style={settingsStyles.row}>
           <View style={settingsStyles.rowContent}>
             <Text style={settingsStyles.rowTitle}>
               {t("settings.host.orchestration.systemPrompt.title")}
@@ -1056,7 +1057,7 @@ function AppendSystemPromptCard({ serverId }: { serverId: string }) {
           >
             {t("settings.host.orchestration.systemPrompt.edit")}
           </Button>
-        </View>
+        </SettingAnchor>
       </View>
 
       {isEditing ? (
@@ -1110,18 +1111,20 @@ function PairDeviceRow({ serverId }: { serverId: string }) {
 
   return (
     <View style={settingsStyles.card}>
-      <Pressable
-        style={settingsStyles.row}
-        onPress={handleOpen}
-        accessibilityRole="button"
-        testID="host-page-pair-device-row"
-      >
-        <View style={settingsStyles.rowContent}>
-          <Text style={settingsStyles.rowTitle}>{t("settings.host.pairDevices.rowTitle")}</Text>
-          <Text style={settingsStyles.rowHint}>{t("settings.host.pairDevices.rowHint")}</Text>
-        </View>
-        <ChevronRight size={theme.iconSize.sm} color={theme.colors.foregroundMuted} />
-      </Pressable>
+      <SettingAnchor id="pair-device.pair">
+        <Pressable
+          style={settingsStyles.row}
+          onPress={handleOpen}
+          accessibilityRole="button"
+          testID="host-page-pair-device-row"
+        >
+          <View style={settingsStyles.rowContent}>
+            <Text style={settingsStyles.rowTitle}>{t("settings.host.pairDevices.rowTitle")}</Text>
+            <Text style={settingsStyles.rowHint}>{t("settings.host.pairDevices.rowHint")}</Text>
+          </View>
+          <ChevronRight size={theme.iconSize.sm} color={theme.colors.foregroundMuted} />
+        </Pressable>
+      </SettingAnchor>
 
       <PairDeviceModal
         serverId={serverId}
