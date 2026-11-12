@@ -82,6 +82,16 @@ export function getAgentAttachmentPillContent(
         subtitle: `Issue #${attachment.number}`,
       };
     case "text":
+      if (attachment.browserElement) {
+        const note = attachment.browserElement.comment?.trim();
+        return {
+          icon: attachmentBrowserIcon,
+          title: note || attachment.browserElement.tag,
+          subtitle: note
+            ? `${attachment.browserElement.tag} · ${t("composer.attachments.element")}`
+            : t("composer.attachments.element"),
+        };
+      }
       if (attachment.externalResource) {
         return {
           icon: attachmentGithubIssueIcon,

@@ -2,6 +2,7 @@ import type {
   AgentFeature,
   AgentFeatureSelect,
   AgentFeatureToggle,
+  AgentImageRef,
   AgentPermissionResolutionMarker,
   AgentProviderNotice,
   AgentProviderSwitchMarker,
@@ -388,7 +389,14 @@ export interface PluginTimelineItem {
 }
 
 export type AgentTimelineItem =
-  | { type: "user_message"; text: string; messageId?: string; clientMessageId?: string }
+  | {
+      type: "user_message";
+      text: string;
+      messageId?: string;
+      clientMessageId?: string;
+      attachments?: AgentAttachment[];
+      images?: AgentImageRef[];
+    }
   | { type: "assistant_message"; text: string; messageId?: string }
   | { type: "reasoning"; text: string }
   | ToolCallTimelineItem

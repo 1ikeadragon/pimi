@@ -436,57 +436,6 @@ values are available as `PASEO_SCRIPTNAME`, `PASEO_WORKSPACE_ID`, `PASEO_BRANCH_
 `PASEO_WORKTREE_PATH`. The script must print one valid TCP port. Pimi trusts the external allocator,
 so the port may already be bound. `portScript` takes precedence when both values are present.
 
-## Bundled daemon web UI
-
-> The user-facing guide for this feature (enabling it, reverse proxy, TLS, tunnels, security) lives at [public-docs/web-ui.md](../public-docs/web-ui.md). This section is the contributor/build reference: how the artifact is produced, bundled, and excluded from desktop packaging.
-
-The daemon can optionally serve the browser web client from the same HTTP server. This is disabled by default.
-
-Enable it in persistent configuration:
-
-```bash
-pimi daemon config set features.webUi.enabled true
-pimi daemon start
-```
-
-Or set the environment variable:
-
-```bash
-PASEO_WEB_UI_ENABLED=true paseo daemon run
-```
-
-Or persist it in `config.json`:
-
-```json
-{
-  "features": {
-    "webUi": {
-      "enabled": true
-    }
-  }
-}
-```
-
-When enabled, opening the daemon HTTP origin (for example `http://localhost:6767/`) serves the web app. The same HTTP server continues to serve `/api/*`, `/mcp/*`, `/public/*`, the WebSocket upgrade, and service-proxy routes. Static files load without daemon bearer auth; API and WebSocket calls still enforce auth.
-
-The served app auto-bootstraps a connection to the same origin, so opening `http://localhost:6767/` directly usually skips the Add Host step.
-
-Build the artifact for packaging or measurement with:
-
-```bash
-npm run build:daemon-web-ui
-```
-
-This exports the normal browser web app (not the Electron-flavored desktop renderer) and copies it into `packages/server/dist/server/web-ui`, precompressing `.html`, `.js`, `.css`, and JSON assets as `.br` and `.gz`.
-
-Measured bundle size for a standard Expo web export:
-
-- raw: 10.77 MiB
-- gzip: 2.55 MiB
-- brotli: 1.93 MiB
-
-The desktop-managed daemon disables the bundled web UI by default (`PASEO_WEB_UI_ENABLED=false`) because the desktop app already ships the renderer as `app-dist`. Shipping the same assets again inside `@pimi/server` would duplicate the ~10.8 MiB install. Desktop packaging also excludes `node_modules/@pimi/server/dist/server/web-ui/**` from the packaged app.
-
 ## Built workspace packages
 
 Package imports resolve through package exports to compiled `dist/` output, not sibling `src/` files. This is true in local dev and in published packages: the app, daemon, CLI, and SDK consumers should all exercise the same runtime paths.
@@ -720,19 +669,14 @@ Point Playwright MCP at the running Expo web target. For root checkout dev, `npm
 
 Do NOT use browser history (back/forward). Always navigate by clicking UI elements or using `browser_navigate` with the full URL — the app uses client-side routing and browser history breaks state.
 
-## App web export
+## Desktop renderer export
 
-Run `npm run build:web --workspace=@pimi/app` to export the Expo web app to
-`packages/app/dist/`.
-
-PWA install metadata lives in `packages/app/public/manifest.json` and is linked
-from `packages/app/public/index.html`. Keep the install icons in `public/` so
-they have stable root URLs after `expo export`.
+Run `npm run build:renderer --workspace=@pimi/app` to export the Electron renderer (the Expo web build with `PASEO_WEB_PLATFORM=electron`) to
+`packages/app/dist/`. Desktop packaging bundles that directory as `app-dist`; the daemon does not serve it.
 
 Do not add service-worker caching casually. Pimi is a live control surface for
-agents, and an aggressive service worker can strand installed users on stale web
-code. If offline behavior becomes a product requirement, add it deliberately
-with an update strategy and test the installed-app upgrade path.
+agents, and an aggressive service worker can strand users on stale renderer
+code.
 
 ## Expo troubleshooting
 

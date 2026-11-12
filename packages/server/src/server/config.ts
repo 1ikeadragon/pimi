@@ -1,7 +1,5 @@
 import { configurationEnvironment } from "./config-environment.js";
-import { existsSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { resolvePaseoNodeEnv } from "./paseo-env.js";
 import { z } from "zod";
 import { expandTilde } from "../utils/path.js";
@@ -26,7 +24,8 @@ import { resolveSpeechConfig } from "./speech/speech-config-resolver.js";
 import { readSpeechSettings } from "./speech/speech-settings.js";
 import { mergeHostnames, parseHostnamesEnv, type HostnamesConfig } from "./hostnames.js";
 import { resolveGitProcessPolicy } from "../utils/git-process-scheduler.js";
-import { DEFAULT_PAIRING_APP_BASE_URL, LEGACY_PAIRING_APP_BASE_URL } from "./connection-offer.js";
+import { DEFAULT_PAIRING_APP_BASE_URL } from "./connection-offer.js";
+import { NETWORK_LOG_RETENTION_DAYS_DEFAULT } from "@pimi/protocol/messages";
 
 export {
   loadPersistedConfig,
@@ -39,41 +38,6 @@ export {
 
 const DEFAULT_PORT = 6767;
 const DEFAULT_TRUSTED_PROXIES = ["loopback"];
-
-interface ResolveBundledWebUiDistDirInput {
-  moduleUrl?: string | URL;
-  resourcesPath?: string;
-}
-
-export function resolveBundledWebUiDistDir(input: ResolveBundledWebUiDistDirInput = {}): string {
-  const moduleUrl = input.moduleUrl ?? import.meta.url;
-  const moduleDir = path.dirname(fileURLToPath(moduleUrl));
-
-  if (path.basename(moduleDir) === "server" && path.basename(path.dirname(moduleDir)) === "src") {
-    return path.resolve(moduleDir, "..", "..", "dist", "server", "web-ui");
-  }
-
-  if (
-    path.basename(moduleDir) === "server" &&
-    path.basename(path.dirname(moduleDir)) === "server" &&
-    path.basename(path.dirname(path.dirname(moduleDir))) === "dist"
-  ) {
-    const appDistDir = input.resourcesPath ? path.join(input.resourcesPath, "app-dist") : null;
-
-    if (appDistDir && existsSync(appDistDir)) {
-      return appDistDir;
-    }
-
-    return path.resolve(moduleDir, "..", "web-ui");
-  }
-
-  return path.resolve(moduleDir, "web-ui");
-}
-
-const processResourcesPath = "resourcesPath" in process ? process.resourcesPath : undefined;
-const BUNDLED_WEB_UI_DIST_DIR = resolveBundledWebUiDistDir({
-  resourcesPath: typeof processResourcesPath === "string" ? processResourcesPath : undefined,
-});
 
 function parseBooleanEnv(value: string | undefined): boolean | undefined {
   if (value === undefined) {
@@ -115,7 +79,6 @@ export type CliConfigOverrides = Partial<{
   relayUseTls: boolean;
   mcpEnabled: boolean;
   mcpInjectIntoAgents: boolean;
-  webUiEnabled: boolean;
   hostnames: HostnamesConfig;
 }>;
 
@@ -384,33 +347,6 @@ function resolveServiceProxyConfig(
   return { publicBaseUrl, standaloneListen };
 }
 
-interface ResolvedWebUi {
-  enabled: boolean;
-  distDir: string | null;
-}
-
-function resolveWebUiConfig(
-  paseoHome: string,
-  env: NodeJS.ProcessEnv,
-  cli: CliConfigOverrides | undefined,
-  persisted: ReturnType<typeof loadPersistedConfig>,
-): ResolvedWebUi {
-  const enabled =
-    cli?.webUiEnabled ??
-    parseBooleanEnv(env.PASEO_WEB_UI_ENABLED) ??
-    persisted.features?.webUi?.enabled ??
-    false;
-  const rawDistDir = env.PASEO_WEB_UI_DIST_DIR ?? persisted.features?.webUi?.distDir;
-  const trimmedDistDir = rawDistDir?.trim();
-  const distDir = trimmedDistDir
-    ? path.resolve(path.isAbsolute(trimmedDistDir) ? trimmedDistDir : paseoHome, trimmedDistDir)
-    : BUNDLED_WEB_UI_DIST_DIR;
-  return {
-    enabled,
-    distDir,
-  };
-}
-
 function resolveVoiceLlmConfig(
   env: NodeJS.ProcessEnv,
   persisted: ReturnType<typeof loadPersistedConfig>,
@@ -433,11 +369,7 @@ function resolveCorsAllowedOrigins(
   const envCorsOrigins = env.PASEO_CORS_ORIGINS
     ? env.PASEO_CORS_ORIGINS.split(",").map((s) => s.trim())
     : [];
-  // Existing installs may have this origin from the old defaults. A browser
-  // client can still be explicitly trusted through the environment override.
-  const persistedCorsOrigins = (persisted.daemon?.cors?.allowedOrigins ?? []).filter(
-    (origin) => origin !== LEGACY_PAIRING_APP_BASE_URL,
-  );
+  const persistedCorsOrigins = persisted.daemon?.cors?.allowedOrigins ?? [];
   return Array.from(
     new Set([...persistedCorsOrigins, ...envCorsOrigins].filter((s) => s.length > 0)),
   );
@@ -524,6 +456,14 @@ function resolveAppendSystemPrompt(persisted: ReturnType<typeof loadPersistedCon
   return persisted.daemon?.appendSystemPrompt ?? "";
 }
 
+function resolveNetworkLogConfig(persisted: ReturnType<typeof loadPersistedConfig>) {
+  return {
+    logNetworkEnabled: persisted.log?.network?.enabled ?? true,
+    logNetworkRetentionDays:
+      persisted.log?.network?.retentionDays ?? NETWORK_LOG_RETENTION_DAYS_DEFAULT,
+  };
+}
+
 function resolveUsageEnabled(persisted: ReturnType<typeof loadPersistedConfig>): boolean {
   return persisted.daemon?.usage?.enabled === true;
 }
@@ -534,9 +474,6 @@ function resolvePairingAppBaseUrl(
 ): string {
   if (env.PASEO_APP_BASE_URL !== undefined) return env.PASEO_APP_BASE_URL;
   const persistedUrl = persisted.app?.baseUrl;
-  if (persistedUrl?.replace(/\/$/, "") === LEGACY_PAIRING_APP_BASE_URL) {
-    return DEFAULT_PAIRING_APP_BASE_URL;
-  }
   return persistedUrl ?? DEFAULT_PAIRING_APP_BASE_URL;
 }
 
@@ -572,6 +509,7 @@ function resolveStaticLoadConfigSettings(
     usageEnabled: resolveUsageEnabled(persisted),
     browserToolsEnabled: resolveBrowserToolsEnabled(persisted),
     autoArchiveAfterMerge: persisted.daemon?.autoArchiveAfterMerge ?? false,
+    ...resolveNetworkLogConfig(persisted),
     appendSystemPrompt: resolveAppendSystemPrompt(persisted),
     ...resolveProfileLists(persisted),
     hostnames: mergeHostnames([
@@ -601,6 +539,8 @@ export type ResolvedDaemonSettings = Pick<
   | "browserToolsEnabled"
   | "git"
   | "autoArchiveAfterMerge"
+  | "logNetworkEnabled"
+  | "logNetworkRetentionDays"
   | "enableTerminalAgentHooks"
   | "appendSystemPrompt"
   | "terminalProfiles"
@@ -656,7 +596,6 @@ export function resolveConfigFromPersisted(
     relayUseTls: relay.useTls,
     relayPublicUseTls: relay.publicUseTls,
     serviceProxy: resolveServiceProxyConfig(env, persisted),
-    webUi: resolveWebUiConfig(paseoHome, env, cli, persisted),
     auth: resolveAuthConfig(env, persisted),
     openai,
     speech,
@@ -742,7 +681,7 @@ function resolveDaemonOverrideControlledPaths(
   return [
     ...resolveCoreDaemonOverridePaths(env, cli),
     ...resolveRelayOverridePaths(env, cli),
-    ...resolveServiceAndWebUiOverridePaths(env, cli),
+    ...resolveServiceOverridePaths(env),
   ];
 }
 
@@ -793,10 +732,7 @@ function resolveRelayOverridePaths(
   return paths;
 }
 
-function resolveServiceAndWebUiOverridePaths(
-  env: NodeJS.ProcessEnv,
-  cli: CliConfigOverrides | undefined,
-): string[] {
+function resolveServiceOverridePaths(env: NodeJS.ProcessEnv): string[] {
   const paths: string[] = [];
   const serviceProxyEnabled = parseBooleanEnv(env.PASEO_SERVICE_PROXY_ENABLED);
   if (serviceProxyEnabled !== undefined) paths.push("daemon.serviceProxy.enabled");
@@ -806,11 +742,6 @@ function resolveServiceAndWebUiOverridePaths(
   if (env.PASEO_SERVICE_PROXY_PUBLIC_BASE_URL !== undefined || serviceProxyEnabled === false) {
     paths.push("daemon.serviceProxy.publicBaseUrl");
   }
-
-  if (cli?.webUiEnabled !== undefined || parseBooleanEnv(env.PASEO_WEB_UI_ENABLED) !== undefined) {
-    paths.push("features.webUi.enabled");
-  }
-  if (env.PASEO_WEB_UI_DIST_DIR !== undefined) paths.push("features.webUi.distDir");
   return paths;
 }
 

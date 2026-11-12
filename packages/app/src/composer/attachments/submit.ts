@@ -44,12 +44,23 @@ export function splitComposerAttachmentsForSubmit(attachments: ComposerAttachmen
     }
 
     if (isWorkspaceAttachment(attachment)) {
+      let screenshotIndex: number | undefined;
       if (attachment.kind === "browser_element" && attachment.attachment.screenshot) {
+        screenshotIndex = images.length;
         images.push(attachment.attachment.screenshot);
       }
       const workspaceAttachment = workspaceAttachmentToSubmitAttachment(attachment);
       if (workspaceAttachment) {
-        agentAttachments.push(workspaceAttachment);
+        agentAttachments.push(
+          screenshotIndex !== undefined &&
+            workspaceAttachment.type === "text" &&
+            workspaceAttachment.browserElement
+            ? {
+                ...workspaceAttachment,
+                browserElement: { ...workspaceAttachment.browserElement, screenshotIndex },
+              }
+            : workspaceAttachment,
+        );
       }
       continue;
     }

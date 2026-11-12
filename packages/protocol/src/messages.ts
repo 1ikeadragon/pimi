@@ -242,6 +242,10 @@ export const EditorLanguageServerSchema = z.object({
   args: z.array(z.string().max(4096)).max(32),
 });
 
+export const NETWORK_LOG_RETENTION_DAYS_MIN = 1;
+export const NETWORK_LOG_RETENTION_DAYS_MAX = 90;
+export const NETWORK_LOG_RETENTION_DAYS_DEFAULT = 3;
+
 export const MutableDaemonConfigSchema = z
   .object({
     relay: MutableRelayConfigSchema,
@@ -291,6 +295,23 @@ export const MutableDaemonConfigSchema = z
     plugins: z.record(PluginIdSchema, PluginSourceSchema).optional(),
     features: SpeechSettingsSchema.optional(),
     envOverrides: z.record(z.string(), z.string()).optional(),
+    log: z
+      .object({
+        network: z.object({
+          enabled: z.boolean(),
+          retentionDays: z
+            .number()
+            .int()
+            .min(NETWORK_LOG_RETENTION_DAYS_MIN)
+            .max(NETWORK_LOG_RETENTION_DAYS_MAX),
+        }),
+      })
+      .default({
+        network: {
+          enabled: true,
+          retentionDays: NETWORK_LOG_RETENTION_DAYS_DEFAULT,
+        },
+      }),
   })
   .passthrough();
 
@@ -326,6 +347,21 @@ export const MutableDaemonConfigPatchSchema = z
     pluginsEnabled: z.boolean().optional(),
     plugins: z.record(PluginIdSchema, PluginSourceSchema).optional(),
     features: SpeechSettingsPatchSchema.optional(),
+    log: z
+      .object({
+        network: z
+          .object({
+            enabled: z.boolean().optional(),
+            retentionDays: z
+              .number()
+              .int()
+              .min(NETWORK_LOG_RETENTION_DAYS_MIN)
+              .max(NETWORK_LOG_RETENTION_DAYS_MAX)
+              .optional(),
+          })
+          .optional(),
+      })
+      .optional(),
   })
   .partial()
   .passthrough();
@@ -781,6 +817,160 @@ const ToolCallTimelineItemPayloadSchema: z.ZodType<ToolCallTimelineItem, unknown
     ToolCallCanceledPayloadSchema,
   ]);
 
+export const ForgeChangeRequestAttachmentSchema = z.object({
+  type: z.literal("forge_change_request"),
+  mimeType: z.literal("application/paseo-forge-change-request"),
+  forge: z.string(),
+  number: z.number().int().positive(),
+  title: z.string(),
+  url: z.string(),
+  body: z.string().nullable().optional(),
+  projectPath: z.string().optional(),
+  baseRefName: z.string().nullable().optional(),
+  headRefName: z.string().nullable().optional(),
+});
+
+export const ForgeIssueAttachmentSchema = z.object({
+  type: z.literal("forge_issue"),
+  mimeType: z.literal("application/paseo-forge-issue"),
+  forge: z.string(),
+  number: z.number().int().positive(),
+  title: z.string(),
+  url: z.string(),
+  body: z.string().nullable().optional(),
+  projectPath: z.string().optional(),
+});
+
+export const ExternalResourceAttachmentMetadataSchema = z.object({
+  provider: z.string(),
+  providerLabel: z.string(),
+  resourceType: z.string(),
+  id: z.string(),
+  identifier: z.string(),
+  title: z.string(),
+  url: z.string(),
+});
+
+const annotationPositionSchema = z.number().int().positive();
+
+/** Where an annotated quote came from: a range in a workspace file, or a message in a chat. */
+export const AnnotationSourceSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("file"),
+    serverId: z.string(),
+    workspaceId: z.string(),
+    path: z.string(),
+    startLine: annotationPositionSchema,
+    startColumn: annotationPositionSchema,
+    endLine: annotationPositionSchema,
+    endColumn: annotationPositionSchema,
+  }),
+  z.object({
+    kind: z.literal("chat"),
+    serverId: z.string(),
+    agentId: z.string(),
+    messageId: z.string(),
+    role: z.enum(["user", "assistant"]),
+  }),
+]);
+
+/** Finds a chat quote again in the rendered message after it reflows. */
+export const AnnotationTextSelectorSchema = z.object({
+  text: z.string(),
+  prefix: z.string(),
+  suffix: z.string(),
+});
+
+/** What a sent message keeps of an annotation so its pill can go back to the source. */
+export const AnnotationAttachmentMetadataSchema = z.object({
+  source: AnnotationSourceSchema,
+  quote: z.string(),
+  note: z.string(),
+  selector: AnnotationTextSelectorSchema.optional(),
+});
+
+/** A browser element the user annotated: what its pill shows and the preview opens. */
+export const BrowserElementAttachmentMetadataSchema = z.object({
+  url: z.string().max(2048),
+  selector: z.string().max(2048),
+  tag: z.string().max(64),
+  comment: z.string().max(8000).optional(),
+  /** Index of the element's screenshot among the message's images. */
+  screenshotIndex: z.number().int().nonnegative().max(64).optional(),
+});
+
+export const TextAttachmentSchema = z
+  .object({
+    type: z.literal("text"),
+    mimeType: z.literal("text/plain"),
+    contextKind: z.string().optional(),
+    title: z.string().nullable().optional(),
+    text: z.string(),
+    externalResource: ExternalResourceAttachmentMetadataSchema.optional(),
+    annotation: AnnotationAttachmentMetadataSchema.optional(),
+    browserElement: BrowserElementAttachmentMetadataSchema.optional(),
+  })
+  .transform(({ contextKind, ...attachment }) => ({
+    ...attachment,
+    ...(contextKind === "chat_history" ? { contextKind } : {}),
+  }));
+
+export const ReviewAttachmentContextLineSchema = z.object({
+  oldLineNumber: z.number().int().positive().nullable(),
+  newLineNumber: z.number().int().positive().nullable(),
+  type: z.enum(["add", "remove", "context"]),
+  content: z.string(),
+});
+
+export const ReviewAttachmentCommentSchema = z.object({
+  filePath: z.string(),
+  side: z.enum(["old", "new"]),
+  lineNumber: z.number().int().positive(),
+  body: z.string(),
+  context: z.object({
+    hunkHeader: z.string(),
+    targetLine: ReviewAttachmentContextLineSchema,
+    lines: z.array(ReviewAttachmentContextLineSchema),
+  }),
+});
+
+export const ReviewAttachmentSchema = z.object({
+  type: z.literal("review"),
+  mimeType: z.literal("application/paseo-review"),
+  cwd: z.string(),
+  mode: z.enum(["uncommitted", "base", "all"]),
+  baseRef: z.string().nullable().optional(),
+  comments: z.array(ReviewAttachmentCommentSchema),
+});
+
+export const UploadedFileAttachmentSchema = z.object({
+  type: z.literal("uploaded_file"),
+  id: z.string(),
+  fileName: z.string(),
+  mimeType: z.string(),
+  size: z.number().int().nonnegative(),
+  path: z.string(),
+});
+
+export const AgentAttachmentSchema = z.discriminatedUnion("type", [
+  ForgeChangeRequestAttachmentSchema,
+  ForgeIssueAttachmentSchema,
+  TextAttachmentSchema,
+  ReviewAttachmentSchema,
+  UploadedFileAttachmentSchema,
+]);
+
+/** An image a message refers to; its bytes come from `agent.image.request`. */
+export const AgentImageRefSchema = z.object({
+  imageId: z.string(),
+  mimeType: z.string(),
+  byteSize: z.number().int().nonnegative(),
+  width: z.number().int().positive().optional(),
+  height: z.number().int().positive().optional(),
+  alt: z.string().max(1000).optional(),
+  unavailable: z.enum(["too_large", "unsupported"]).optional(),
+});
+
 const AgentProviderSwitchEndpointSchema = z.object({
   provider: AgentProviderSchema,
   providerLabel: z.string().optional(),
@@ -818,6 +1008,9 @@ export const AgentTimelineItemPayloadSchema: z.ZodType<AgentTimelineItem, unknow
     text: z.string(),
     messageId: z.string().optional(),
     clientMessageId: z.string().optional(),
+    // Normalized rather than parsed in the union: zod-aot cannot compile the text attachment's transform here.
+    attachments: z.unknown().transform(normalizeAgentAttachments).optional(),
+    images: z.array(AgentImageRefSchema).optional(),
   }),
   z.object({
     type: z.literal("assistant_message"),
@@ -1223,138 +1416,6 @@ export const SetVoiceModeMessageSchema = z.object({
   agentId: z.string().optional(),
   requestId: z.string().optional(),
 });
-
-export const ForgeChangeRequestAttachmentSchema = z.object({
-  type: z.literal("forge_change_request"),
-  mimeType: z.literal("application/paseo-forge-change-request"),
-  forge: z.string(),
-  number: z.number().int().positive(),
-  title: z.string(),
-  url: z.string(),
-  body: z.string().nullable().optional(),
-  projectPath: z.string().optional(),
-  baseRefName: z.string().nullable().optional(),
-  headRefName: z.string().nullable().optional(),
-});
-
-export const ForgeIssueAttachmentSchema = z.object({
-  type: z.literal("forge_issue"),
-  mimeType: z.literal("application/paseo-forge-issue"),
-  forge: z.string(),
-  number: z.number().int().positive(),
-  title: z.string(),
-  url: z.string(),
-  body: z.string().nullable().optional(),
-  projectPath: z.string().optional(),
-});
-
-export const ExternalResourceAttachmentMetadataSchema = z.object({
-  provider: z.string(),
-  providerLabel: z.string(),
-  resourceType: z.string(),
-  id: z.string(),
-  identifier: z.string(),
-  title: z.string(),
-  url: z.string(),
-});
-
-const annotationPositionSchema = z.number().int().positive();
-
-/** Where an annotated quote came from: a range in a workspace file, or a message in a chat. */
-export const AnnotationSourceSchema = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("file"),
-    serverId: z.string(),
-    workspaceId: z.string(),
-    path: z.string(),
-    startLine: annotationPositionSchema,
-    startColumn: annotationPositionSchema,
-    endLine: annotationPositionSchema,
-    endColumn: annotationPositionSchema,
-  }),
-  z.object({
-    kind: z.literal("chat"),
-    serverId: z.string(),
-    agentId: z.string(),
-    messageId: z.string(),
-    role: z.enum(["user", "assistant"]),
-  }),
-]);
-
-/** Finds a chat quote again in the rendered message after it reflows. */
-export const AnnotationTextSelectorSchema = z.object({
-  text: z.string(),
-  prefix: z.string(),
-  suffix: z.string(),
-});
-
-/** What a sent message keeps of an annotation so its pill can go back to the source. */
-export const AnnotationAttachmentMetadataSchema = z.object({
-  source: AnnotationSourceSchema,
-  quote: z.string(),
-  note: z.string(),
-  selector: AnnotationTextSelectorSchema.optional(),
-});
-
-export const TextAttachmentSchema = z
-  .object({
-    type: z.literal("text"),
-    mimeType: z.literal("text/plain"),
-    contextKind: z.string().optional(),
-    title: z.string().nullable().optional(),
-    text: z.string(),
-    externalResource: ExternalResourceAttachmentMetadataSchema.optional(),
-    annotation: AnnotationAttachmentMetadataSchema.optional(),
-  })
-  .transform(({ contextKind, ...attachment }) => ({
-    ...attachment,
-    ...(contextKind === "chat_history" ? { contextKind } : {}),
-  }));
-
-export const ReviewAttachmentContextLineSchema = z.object({
-  oldLineNumber: z.number().int().positive().nullable(),
-  newLineNumber: z.number().int().positive().nullable(),
-  type: z.enum(["add", "remove", "context"]),
-  content: z.string(),
-});
-
-export const ReviewAttachmentCommentSchema = z.object({
-  filePath: z.string(),
-  side: z.enum(["old", "new"]),
-  lineNumber: z.number().int().positive(),
-  body: z.string(),
-  context: z.object({
-    hunkHeader: z.string(),
-    targetLine: ReviewAttachmentContextLineSchema,
-    lines: z.array(ReviewAttachmentContextLineSchema),
-  }),
-});
-
-export const ReviewAttachmentSchema = z.object({
-  type: z.literal("review"),
-  mimeType: z.literal("application/paseo-review"),
-  cwd: z.string(),
-  mode: z.enum(["uncommitted", "base", "all"]),
-  baseRef: z.string().nullable().optional(),
-  comments: z.array(ReviewAttachmentCommentSchema),
-});
-
-export const UploadedFileAttachmentSchema = z.object({
-  type: z.literal("uploaded_file"),
-  id: z.string(),
-  fileName: z.string(),
-  mimeType: z.string(),
-  size: z.number().int().nonnegative(),
-  path: z.string(),
-});
-
-export const AgentAttachmentSchema = z.discriminatedUnion("type", [
-  ForgeChangeRequestAttachmentSchema,
-  ForgeIssueAttachmentSchema,
-  TextAttachmentSchema,
-  ReviewAttachmentSchema,
-  UploadedFileAttachmentSchema,
-]);
 
 function normalizeAgentAttachments(input: unknown): AgentAttachment[] {
   if (!Array.isArray(input)) {
@@ -2097,6 +2158,13 @@ export const AgentTimelineGetToolBodyRequestMessageSchema = z.object({
   requestId: z.string(),
   callId: z.string(),
   turnId: z.string().optional(),
+});
+
+export const AgentImageRequestMessageSchema = z.object({
+  type: z.literal("agent.image.request"),
+  agentId: z.string(),
+  requestId: z.string(),
+  imageId: z.string(),
 });
 
 export const AgentTimelineSearchRequestMessageSchema = z.object({
@@ -3506,6 +3574,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   FetchAgentTimelineRequestMessageSchema,
   AgentTimelineSearchRequestMessageSchema,
   AgentTimelineGetToolBodyRequestMessageSchema,
+  AgentImageRequestMessageSchema,
   AgentTimelineListPromptsRequestMessageSchema,
   ProviderSubagentListRequestMessageSchema,
   AgentBackgroundWorkListRequestMessageSchema,
@@ -4666,6 +4735,19 @@ export const AgentTimelineGetToolBodyResponseMessageSchema = z.object({
   }),
 });
 
+export const AgentImageResponseMessageSchema = z.object({
+  type: z.literal("agent.image.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    imageId: z.string(),
+    mimeType: z.string().nullable(),
+    // Base64 over the wire only; the stored file is raw bytes.
+    data: z.string().nullable(),
+    error: z.string().nullable(),
+  }),
+});
+
 export const AgentTimelineListPromptsResponseMessageSchema = z.object({
   type: z.literal("agent.timeline.list_prompts.response"),
   payload: z.object({
@@ -5115,7 +5197,7 @@ export const NetworkActivityRequestSchema = z.object({
   source: z.string(),
   startedAtMs: z.number(),
   method: z.string(),
-  /** "http", "https", "ws", "wss", or "unix". */
+  /** "http", "https", "ws", "wss", "unix", or "process" for a launched program. */
   protocol: z.string(),
   host: z.string(),
   port: z.number().int().nullable(),
@@ -5132,6 +5214,8 @@ export const NetworkActivityRequestSchema = z.object({
   local: z.boolean(),
   /** "pending", "complete", or "error". */
   state: z.string(),
+  /** Named totals, such as WebSocket message counts. */
+  counters: z.record(z.string(), z.number()).optional(),
 });
 export type NetworkActivityRequest = z.infer<typeof NetworkActivityRequestSchema>;
 
@@ -5154,6 +5238,15 @@ export const NetworkActivitySnapshotSchema = z.object({
   hosts: z.array(NetworkActivityHostSchema),
   /** Hosts evicted from the aggregate table after it reached its cap. */
   droppedHosts: z.number().int(),
+  /** Where this process's records are saved and how much space they use. Absent when not saving. */
+  log: z
+    .object({
+      directory: z.string(),
+      bytes: z.number(),
+      files: z.number().int(),
+    })
+    .nullable()
+    .optional(),
 });
 export type NetworkActivitySnapshot = z.infer<typeof NetworkActivitySnapshotSchema>;
 
@@ -6939,6 +7032,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   AgentTimelineReplacementMessageSchema,
   AgentTimelineSearchResponseMessageSchema,
   AgentTimelineGetToolBodyResponseMessageSchema,
+  AgentImageResponseMessageSchema,
   AgentTimelineListPromptsResponseMessageSchema,
   ProviderSubagentListResponseMessageSchema,
   ProviderSubagentTimelineResponseMessageSchema,

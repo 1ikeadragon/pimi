@@ -3,6 +3,17 @@ import type { AgentAttachment } from "./messages.js";
 
 export type AgentProvider = string;
 
+/** An image a message refers to; fetched on demand by id. */
+export interface AgentImageRef {
+  imageId: string;
+  mimeType: string;
+  byteSize: number;
+  width?: number;
+  height?: number;
+  alt?: string;
+  unavailable?: "too_large" | "unsupported";
+}
+
 export interface AgentMetadata {
   [key: string]: unknown;
 }
@@ -408,7 +419,14 @@ export interface AgentTaskItem {
 }
 
 export type AgentTimelineItem =
-  | { type: "user_message"; text: string; messageId?: string; clientMessageId?: string }
+  | {
+      type: "user_message";
+      text: string;
+      messageId?: string;
+      clientMessageId?: string;
+      attachments?: AgentAttachment[];
+      images?: AgentImageRef[];
+    }
   | { type: "assistant_message"; text: string; messageId?: string }
   | { type: "reasoning"; text: string }
   | ToolCallTimelineItem

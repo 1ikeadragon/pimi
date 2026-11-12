@@ -129,6 +129,7 @@ import {
   CodexProviderOptionsSchema,
   type CodexProviderOptions,
 } from "./codex/options.js";
+import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
 
 function assertChildWithPipes(
   child: ChildProcess,
@@ -7721,6 +7722,7 @@ export class CodexAppServerAgentClient implements AgentClient {
     );
     const child = spawnProcess(launchPrefix.command, args, {
       detached: process.platform !== "win32",
+      networkPurpose: NETWORK_PURPOSE.agentProvider,
       stdio: ["pipe", "pipe", "pipe"],
       baseEnv: options?.environment ?? buildCodexAppServerEnv(this.runtimeSettings, launchEnv),
     });

@@ -27,6 +27,7 @@ interface SupportedMutableConfigPatch {
   metadataGeneration?: MutableDaemonConfigPatch["metadataGeneration"];
   autoArchiveAfterMerge?: boolean;
   enableTerminalAgentHooks?: boolean;
+  log?: MutableDaemonConfigPatch["log"];
   idleRuntimeCleanup?: boolean;
   resumeOnStartup?: boolean;
   resumePrompt?: string;
@@ -233,6 +234,8 @@ const RELOADABLE_PATHS = [
   "daemon.git.maxProcessConcurrency",
   "daemon.autoArchiveAfterMerge",
   "daemon.enableTerminalAgentHooks",
+  "log.network.enabled",
+  "log.network.retentionDays",
   "daemon.appendSystemPrompt",
   "daemon.terminalProfiles",
   "daemon.editorLanguageServers",
@@ -263,6 +266,8 @@ const PERSISTED_TO_MUTABLE_PATH = new Map<string, string>([
   ["daemon.git.maxProcessConcurrency", "git.maxProcessConcurrency"],
   ["daemon.autoArchiveAfterMerge", "autoArchiveAfterMerge"],
   ["daemon.enableTerminalAgentHooks", "enableTerminalAgentHooks"],
+  ["log.network.enabled", "log.network.enabled"],
+  ["log.network.retentionDays", "log.network.retentionDays"],
   ["daemon.appendSystemPrompt", "appendSystemPrompt"],
   ["daemon.terminalProfiles", "terminalProfiles"],
   ["daemon.editorLanguageServers", "editorLanguageServers"],
@@ -341,6 +346,10 @@ function pickEditorPatch(
     : { editorLanguageServers: patch.editorLanguageServers };
 }
 
+function pickLogPatch(patch: MutableDaemonConfigPatch): Pick<SupportedMutableConfigPatch, "log"> {
+  return patch.log?.network === undefined ? {} : { log: { network: patch.log.network } };
+}
+
 function pickSupportedPatchFields(patch: MutableDaemonConfigPatch): SupportedMutableConfigPatch {
   return {
     ...pickRelayPatch(patch.relay),
@@ -361,6 +370,7 @@ function pickSupportedPatchFields(patch: MutableDaemonConfigPatch): SupportedMut
     ...(patch.enableTerminalAgentHooks !== undefined
       ? { enableTerminalAgentHooks: patch.enableTerminalAgentHooks }
       : {}),
+    ...pickLogPatch(patch),
     ...(patch.resumeOnStartup !== undefined ? { resumeOnStartup: patch.resumeOnStartup } : {}),
     ...(patch.resumePrompt !== undefined ? { resumePrompt: patch.resumePrompt } : {}),
     ...(patch.idleRuntimeCleanup !== undefined
@@ -771,6 +781,9 @@ function mergeMutablePatchIntoPersistedConfig(params: {
     ...withSpeech,
     ...(patch.pluginsEnabled !== undefined ? { pluginsEnabled: patch.pluginsEnabled } : {}),
     ...(patch.plugins !== undefined ? { plugins: patch.plugins } : {}),
+    ...(patch.log?.network !== undefined
+      ? { log: { ...persisted.log, network: { ...persisted.log?.network, ...patch.log.network } } }
+      : {}),
     ...(daemon ? { daemon } : { daemon: undefined }),
     ...(agents ? { agents } : { agents: undefined }),
   } as PersistedConfig;

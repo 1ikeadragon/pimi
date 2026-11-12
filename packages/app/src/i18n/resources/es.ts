@@ -399,6 +399,10 @@ export const es: TranslationResources = {
       dismissImage: "Descartar imagen",
       closeImage: "Cerrar imagen",
       imageLoadFailed: "No se pudo cargar la imagen",
+      imageTooLarge: "Imagen demasiado grande",
+      imageUnsupported: "Imagen no compatible",
+      previousImage: "Imagen anterior",
+      nextImage: "Imagen siguiente",
       imageUnavailable: "Imagen no disponible",
       imagePreviewUnavailable: "Vista previa de la imagen no disponible.",
       imagePreviewLoadFailed: "No se puede cargar la vista previa de la imagen.",
@@ -2433,6 +2437,28 @@ export const es: TranslationResources = {
       editor: "Editor",
       plugins: "Plugins",
       host: "Resumen",
+    },
+    networkLogs: {
+      overviewInfo:
+        "Solicitudes que hace el propio Pimi, conexiones que llegan a este host y programas que Pimi lanza. Solo se guardan el método, el host, el puerto y la ruta, nunca cadenas de consulta, encabezados, cuerpos ni variables de entorno, y las credenciales en los argumentos de lanzamiento se ocultan. Los registros recientes se mantienen en memoria y los registros terminados también se guardan en archivos de registro en el host (consulta Registros).",
+      notCapturedTitle: "No se captura",
+      notCapturedBody:
+        "De los programas que Pimi lanza (git, GitHub CLI, servidores de lenguaje, servidores MCP, proveedores de agentes) se registra el lanzamiento: el programa, sus argumentos con datos ocultos, el código de salida y la duración. Lo que esos programas envían por la red va cifrado y no se captura, por ejemplo las llamadas a la API de un agente o un git fetch. Los terminales y los procesos de plugins no se registran.",
+      title: "Registros",
+      saveTitle: "Guardar el registro de red",
+      saveHint:
+        "Guarda los registros que se muestran aquí en archivos de este host para que sobrevivan a los reinicios. Solo tu usuario puede leer los archivos.",
+      retentionTitle: "Días que se conservan los registros",
+      retentionHint:
+        "Los archivos más antiguos se eliminan automáticamente. La carpeta también tiene un límite de 200 MB.",
+      decrease: "Conservar los registros menos días",
+      increase: "Conservar los registros más días",
+      locationTitle: "Ubicación",
+      sizeHint: "{{size}} en disco",
+      notSaving: "No se guarda",
+      openFolder: "Abrir carpeta de registros",
+      openFolderFailed: "No se pudo abrir la carpeta de registros: {{error}}",
+      saveFailed: "No se pudo actualizar la configuración de registros: {{error}}",
     },
     languageServers: {
       title: "Servidores de lenguaje",

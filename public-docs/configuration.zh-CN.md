@@ -49,7 +49,7 @@ Pimi 默认使用 `~/.paseo` 作为主目录。配置文件是：
 ```bash
 pimi daemon config get daemon.listen --home ~/paseo-test
 pimi daemon config set daemon.listen 127.0.0.1:6800 --home ~/paseo-test
-pimi daemon config unset features.webUi.enabled --home ~/paseo-test
+pimi daemon config unset daemon.relay.enabled --home ~/paseo-test
 ```
 
 `get [path]` 报告已配置的值，并把缺失的字段标记为 unset。它不会创建主目录。`set` 会把输入解析为 JSON，否则当作字符串；`--string` 强制作为字面字符串。`--json` 选择输出格式。对于包含点号的动态键，请使用整个对象的 JSON。未知路径、无效值和无效的现有文件都会被拒绝，不会写入。密码使用 `set-password`。
@@ -72,9 +72,9 @@ pimi daemon restart
 
 当你删除 `daemon.relay.enabled` 时，新的主目录会保持中继关闭。如果 daemon 启动时其配置就已经省略了这个字段，它会为了兼容而保持旧版的中继开启行为。编辑较旧的配置时，请显式设置 `daemon.relay.enabled`。
 
-空闲运行时清理、监听地址、身份验证、中继端点和 TLS、worktree 分配、服务代理地址、内置的 Web UI、日志、语音合成与识别、语音、凭据以及本地模型设置都需要重启。重新加载会先应用同一文件中的其他有效编辑，再报告这些路径。
+空闲运行时清理、监听地址、身份验证、中继端点和 TLS、worktree 分配、服务代理地址、日志、语音合成与识别、语音、凭据以及本地模型设置都需要重启。重新加载会先应用同一文件中的其他有效编辑，再报告这些路径。
 
-部署环境变量和旧版进程管理器参数仍然具有最终决定权。当某个启动覆盖项阻止了文件中已更改的设置生效时，重新加载会在 `overrideControlledPaths` 下报告它。这包括启动设置，例如监听地址、密码、中继端点和 TLS、服务代理和 Web UI 设置、日志、语音合成与识别以及语音配置。主机名和 CORS 来源等列表设置仍然在各个来源之间追加，因此 `config.json` 中的值继续生效。要让文件中的值具有决定权，请停止该部署并在不带覆盖项的情况下重新启动。
+部署环境变量和旧版进程管理器参数仍然具有最终决定权。当某个启动覆盖项阻止了文件中已更改的设置生效时，重新加载会在 `overrideControlledPaths` 下报告它。这包括启动设置，例如监听地址、密码、中继端点和 TLS、服务代理设置、日志、语音合成与识别以及语音配置。主机名和 CORS 来源等列表设置仍然在各个来源之间追加，因此 `config.json` 中的值继续生效。要让文件中的值具有决定权，请停止该部署并在不带覆盖项的情况下重新启动。
 
 ## Agent Provider {#agent-providers}
 
@@ -111,37 +111,6 @@ Agent Provider，包括 Pimi 自带的一等 Provider 和你在 `agents.provider
 语音通过 `features.dictation` 和 `features.voiceMode` 配置，Provider 凭据放在 `providers` 下。
 
 语音的设计理念、架构以及完整的本地和 OpenAI 设置示例，见[语音文档](/docs/voice)。
-
-## 内置的 Web UI {#bundled-web-ui}
-
-daemon 可以在同一个 HTTP 服务器上提供浏览器 Web 客户端。普通 CLI 和由桌面应用管理的 daemon 默认关闭此功能。
-
-从 CLI 启用它：
-
-```bash
-pimi daemon config set features.webUi.enabled true
-pimi daemon start
-```
-
-或者设置环境变量：
-
-```bash
-PASEO_WEB_UI_ENABLED=true paseo daemon run
-```
-
-或者把它持久化到 `config.json` 中：
-
-```json
-{
-  "features": {
-    "webUi": {
-      "enabled": true
-    }
-  }
-}
-```
-
-启用后，打开 daemon 的 HTTP 地址（例如 `http://localhost:6767/`）即可加载 Web 应用。静态 UI 文件无需 daemon 身份验证即可加载；API 和 WebSocket 请求仍然需要配置的密码。
 
 ## 日志 {#logging}
 
@@ -252,8 +221,6 @@ URI 中的 `password=` 总是优先于环境变量，因此你可以全局设置
 - `PASEO_RELAY_ENABLED`，为本次 daemon 启动启用或关闭出站中继
 - `PASEO_HOSTNAMES`，覆盖或扩展 `daemon.hostnames`
 - `PASEO_ALLOWED_HOSTS`，`PASEO_HOSTNAMES` 的已弃用别名
-- `PASEO_WEB_UI_ENABLED`，启用或关闭由 daemon 提供的 Web UI
-- `PASEO_WEB_UI_DIST_DIR`，覆盖 daemon Web UI 的构建目录
 - `PASEO_TRUSTED_PROXIES`，为 `X-Forwarded-*` 请求头配置受信任的反向代理范围
 - `PASEO_LOG_CONSOLE_LEVEL`，覆盖 `log.console.level`
 - `PASEO_LOG_FILE_LEVEL`，覆盖 `log.file.level`

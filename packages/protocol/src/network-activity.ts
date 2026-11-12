@@ -6,7 +6,10 @@ import type {
 
 // Shared by the daemon and the desktop main process so both produce the same records.
 // Records carry method, host, port and path only: query strings, fragments, headers and
-// bodies can hold credentials and are never stored.
+// bodies can hold credentials and are never stored. Process launches (git, gh, language
+// servers, agent providers) are recorded the same way with protocol "process": the host is
+// the program's basename and the path is its redacted arguments. What those programs send
+// over the network themselves is not visible to Pimi.
 
 export const NETWORK_PURPOSE = {
   local: "Local",
@@ -15,6 +18,14 @@ export const NETWORK_PURPOSE = {
   spaces: "Spaces previews",
   usage: "Provider usage",
   relay: "Relay",
+  relayData: "Relay data",
+  inbound: "Inbound",
+  git: "Git",
+  githubCli: "GitHub CLI",
+  gitHostCli: "Git host CLI",
+  languageServer: "Language server",
+  mcp: "MCP",
+  agentProvider: "Agent provider",
   plugins: "Plugins",
   speech: "Speech models",
   app: "App",
@@ -136,6 +147,8 @@ export interface NetworkActivityFinishInput {
   status?: number | null;
   errorCode?: string | null;
   responseBytes?: number | null;
+  /** Named totals kept with the record, such as WebSocket message counts. */
+  counters?: Record<string, number>;
 }
 
 export interface NetworkActivitySnapshotOptions {
@@ -150,6 +163,8 @@ export interface NetworkActivityRecorderOptions {
   /** Distinct (source, host) aggregates kept; the least recently seen is evicted past this. */
   maxHosts?: number;
   now?: () => number;
+  /** Called once per record when it leaves "pending", with the record's final state. */
+  onFinish?: (record: NetworkActivityRequest) => void;
 }
 
 function isFailure(record: NetworkActivityRequest): boolean {
@@ -166,6 +181,7 @@ export class NetworkActivityRecorder {
   private readonly maxHosts: number;
   private readonly idPrefix: string;
   private readonly now: () => number;
+  private readonly onFinish: ((record: NetworkActivityRequest) => void) | undefined;
   private readonly ring: NetworkActivityRequest[] = [];
   private next = 0;
   private sequence = 0;
@@ -179,6 +195,7 @@ export class NetworkActivityRecorder {
     this.capacity = Math.max(1, options.capacity ?? 1000);
     this.maxHosts = Math.max(1, options.maxHosts ?? 500);
     this.now = options.now ?? Date.now;
+    this.onFinish = options.onFinish;
     this.capturedSinceMs = this.now();
   }
 
@@ -229,12 +246,19 @@ export class NetworkActivityRecorder {
     if (input.responseBytes !== undefined && input.responseBytes !== null) {
       record.responseBytes = input.responseBytes;
     }
+    if (input.counters) record.counters = { ...record.counters, ...input.counters };
     record.durationMs = Math.max(0, this.now() - record.startedAtMs);
     record.state = record.errorCode ? "error" : "complete";
     const aggregate = this.hosts.get(hostKey(record));
-    if (!aggregate) return;
-    if (isFailure(record)) aggregate.errors += 1;
-    aggregate.bytes += record.responseBytes ?? 0;
+    if (aggregate) {
+      if (isFailure(record)) aggregate.errors += 1;
+      aggregate.bytes += record.responseBytes ?? 0;
+    }
+    try {
+      this.onFinish?.(record);
+    } catch {
+      // A failing sink must never disturb request observation.
+    }
   }
 
   /** Removes a pending record that turned out not to be a request, and its host count. */

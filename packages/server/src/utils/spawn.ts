@@ -1,12 +1,15 @@
 import type { ChildProcess, SpawnOptions } from "node:child_process";
 import { spawnProcess as spawnCli, execCommand as execCli } from "@pimi/plugin/server";
 import { createExternalCommandProcessEnv, type ProcessEnvRecord } from "../server/paseo-env.js";
+import { trackChildProcess, trackExecution } from "./process-launch.js";
 
 interface ExternalEnvOptions {
   baseEnv?: ProcessEnvRecord;
   envMode?: "external" | "internal";
   env?: ProcessEnvRecord;
   envOverlay?: ProcessEnvRecord;
+  /** When set, the launch appears in the Network tab under this purpose (a NETWORK_PURPOSE). */
+  networkPurpose?: string;
 }
 
 export type SpawnProcessOptions = Omit<SpawnOptions, "env"> & ExternalEnvOptions;
@@ -31,7 +34,7 @@ export function spawnProcess(
   args: string[],
   options?: SpawnProcessOptions,
 ): ChildProcess {
-  const { baseEnv, env, envOverlay, ...spawnOptions } = options ?? {};
+  const { baseEnv, env, envOverlay, networkPurpose, ...spawnOptions } = options ?? {};
   const resolvedBaseEnv = env ?? baseEnv ?? process.env;
   const childEnv =
     options?.envMode === "internal"
@@ -42,11 +45,13 @@ export function spawnProcess(
           ...(envOverlay ? [envOverlay] : []),
         );
 
-  return spawnCli(command, args, {
+  const child = spawnCli(command, args, {
     ...spawnOptions,
     env: childEnv,
     signal: options?.signal,
   });
+  if (networkPurpose) trackChildProcess(child, { command, args, purpose: networkPurpose });
+  return child;
 }
 
 export async function execCommand(
@@ -65,14 +70,18 @@ export async function execCommand(
           ...(envOverlay ? [envOverlay] : []),
         );
 
-  return execCli(command, args, {
-    cwd: options?.cwd,
-    env: childEnv,
-    shell: options?.shell,
-    encoding: options?.encoding ?? "utf8",
-    signal: options?.signal,
-    killSignal: options?.killSignal,
-    timeout: options?.timeout,
-    maxBuffer: options?.maxBuffer,
-  }) as Promise<ExecCommandResult>;
+  const run = () =>
+    execCli(command, args, {
+      cwd: options?.cwd,
+      env: childEnv,
+      shell: options?.shell,
+      encoding: options?.encoding ?? "utf8",
+      signal: options?.signal,
+      killSignal: options?.killSignal,
+      timeout: options?.timeout,
+      maxBuffer: options?.maxBuffer,
+    }) as Promise<ExecCommandResult>;
+  return options?.networkPurpose
+    ? trackExecution({ command, args, purpose: options.networkPurpose }, run)
+    : run();
 }

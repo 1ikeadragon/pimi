@@ -4,6 +4,7 @@ import type { Logger } from "pino";
 import { spawnProcess } from "../../../utils/spawn.js";
 import { terminateWithTreeKill } from "../../../utils/tree-kill.js";
 import { JsonlFrameDecoder, ProviderStreamLimitError } from "./jsonl-frame-decoder.js";
+import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
 export { supportsJsonlRpcProtocolV2 } from "./jsonl-frame-decoder.js";
 
 /** Default wall-clock timeout for control-plane / short RPC calls. */
@@ -66,6 +67,7 @@ function spawnJsonlRpcProcess(launch: JsonlRpcLaunch): ChildProcessWithoutNullSt
   const child = spawnProcess(launch.command, launch.args, {
     cwd: launch.cwd,
     envOverlay: launch.env,
+    networkPurpose: NETWORK_PURPOSE.agentProvider,
     stdio: ["pipe", "pipe", "pipe"],
   });
   assertChildWithPipes(child);

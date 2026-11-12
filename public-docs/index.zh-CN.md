@@ -27,8 +27,6 @@ npm run build:server
 
 Pimi 会在本地启动 daemon，然后询问是否启用端到端加密中继并打印配对二维码。如果你拒绝，可以通过 TCP、Tailscale 或其他 VPN 手动输入 daemon 地址。
 
-daemon 还可以自己提供浏览器网页应用，这样你无需托管版应用也能使用完整界面。参见[自托管网页界面](/docs/web-ui)。
-
 配置和本地状态位于 `PASEO_HOME` 下（默认为 `~/.paseo`）。
 
 ## 接下来 {#where-next}
@@ -40,7 +38,6 @@ daemon 还可以自己提供浏览器网页应用，这样你无需托管版应�
 - [编排](/docs/orchestration)：让一个 Agent 把工作委派给其他 Provider 和模型。
 - [插件](/docs/plugins)：添加受信任的本地界面、侧边栏操作、daemon 行为和 Composer 附件。
 - [CLI 参考](/docs/cli)：所有命令。
-- [自托管网页界面](/docs/web-ui)：从你自己的 daemon 提供浏览器应用。
 - [GitHub 仓库](https://github.com/1ikeadragon/pimi)
 - [报告问题](https://github.com/1ikeadragon/pimi/issues)
 

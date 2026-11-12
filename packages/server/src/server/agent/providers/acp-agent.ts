@@ -135,6 +135,7 @@ import {
   truncateForDiagnostic,
 } from "./diagnostic-utils.js";
 import { withTimeout } from "../../../utils/promise-timeout.js";
+import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
 
 const ACP_AUTO_ACCEPT_FEATURE_ID = "auto_accept";
 
@@ -1446,6 +1447,7 @@ export class ACPAgentClient implements AgentClient {
         runtimeSettings: this.runtimeSettings,
         overlays: [launchEnv],
       }),
+      networkPurpose: NETWORK_PURPOSE.agentProvider,
       stdio: ["pipe", "pipe", "pipe"],
     });
     assertChildWithPipes(child);
@@ -2966,6 +2968,7 @@ export class ACPAgentSession implements AgentSession, ACPClient {
         runtimeSettings: this.runtimeSettings,
         overlays: [this.launchEnv],
       }),
+      networkPurpose: NETWORK_PURPOSE.agentProvider,
       stdio: ["pipe", "pipe", "pipe"],
     });
     assertChildWithPipes(child);

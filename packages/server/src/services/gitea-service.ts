@@ -59,6 +59,7 @@ import type {
   SearchResult,
 } from "./forge-service.js";
 import { isGiteaStatusFacts, type GiteaStatusFacts } from "./gitea-facts.js";
+import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
 
 const TEA_ENV = {
   GIT_TERMINAL_PROMPT: "0",
@@ -1200,6 +1201,7 @@ export async function probeGiteaHost(host: string): Promise<boolean> {
     const { stdout } = await execCommand("tea", ["login", "list", "-o", "json"], {
       envOverlay: TEA_ENV,
       timeout: CLI_AUTH_PROBE_TIMEOUT_MS,
+      networkPurpose: NETWORK_PURPOSE.gitHostCli,
     });
     return hostHasLogin(stdout, host);
   } catch {
@@ -1258,6 +1260,7 @@ async function defaultRunTea(args: string[]): Promise<{ stdout: string; stderr: 
   const { stdout, stderr } = await execCommand("tea", args, {
     envOverlay: TEA_ENV,
     timeout: GITEA_SOFTWARE_PROBE_TIMEOUT_MS,
+    networkPurpose: NETWORK_PURPOSE.gitHostCli,
   });
   return { stdout, stderr };
 }

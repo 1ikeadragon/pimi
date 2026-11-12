@@ -3630,6 +3630,27 @@ export class DaemonClient {
     return payload.detail;
   }
 
+  async requestAgentImage(input: {
+    agentId: string;
+    imageId: string;
+  }): Promise<{ mimeType: string; data: string }> {
+    const requestId = this.createRequestId();
+    const payload = await this.sendCorrelatedSessionRequest({
+      requestId,
+      message: {
+        type: "agent.image.request",
+        requestId,
+        agentId: input.agentId,
+        imageId: input.imageId,
+      },
+      responseType: "agent.image.response",
+    });
+    if (payload.error || !payload.data || !payload.mimeType) {
+      throw new Error(payload.error ?? "Image unavailable");
+    }
+    return { mimeType: payload.mimeType, data: payload.data };
+  }
+
   async searchAgentTimeline({
     agentId,
     query,

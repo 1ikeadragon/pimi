@@ -803,19 +803,6 @@
             }
           },
           "additionalProperties": false
-        },
-        "webUi": {
-          "type": "object",
-          "properties": {
-            "enabled": {
-              "type": "boolean"
-            },
-            "distDir": {
-              "type": "string",
-              "minLength": 1
-            }
-          },
-          "additionalProperties": false
         }
       },
       "additionalProperties": false

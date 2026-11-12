@@ -406,7 +406,7 @@ PASEO_LISTEN=127.0.0.1:6799 PASEO_RELAY_ENABLED=false paseo daemon run --home ~/
 
 It stays attached until the supervisor exits or you cancel, without a readiness timeout. Worker restart retains these launch inputs. Stop and relaunch the deployment to change them. If the home already has a live supervisor, `run` returns `already_running` without owning or launching a foreground process.
 
-Managed `start` ignores inherited daemon-setting overrides, including `PORT`, `PASEO_LISTEN`, relay, voice, and web UI settings. It preserves provider credentials and executable/runtime controls. `start --foreground` is removed; use `daemon run`. Former start/restart configuration flags such as `--port`, `--no-relay`, and `--web-ui` fail before side effects, with the corresponding `config set` migration. See [configuration edits](/docs/configuration#apply-changes).
+Managed `start` ignores inherited daemon-setting overrides, including `PORT`, `PASEO_LISTEN`, relay, and voice settings. It preserves provider credentials and executable/runtime controls. `start --foreground` is removed; use `daemon run`. Former start/restart configuration flags such as `--port`, and `--no-relay` fail before side effects, with the corresponding `config set` migration. See [configuration edits](/docs/configuration#apply-changes).
 
 ### Select one daemon
 
