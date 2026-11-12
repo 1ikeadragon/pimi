@@ -116,6 +116,12 @@ export function useAttackSync(serverId: string, workspaceId: string): void {
       putFinding(serverId, message.payload.finding);
     });
     let cancelled = false;
+    // Pushes are the fast path; this refresh keeps the meters and status right if one is missed.
+    const refresh = async () => {
+      const { runs } = await client.attackRunList({ workspaceId });
+      if (!cancelled) putRuns(serverId, runs);
+    };
+    const poll = setInterval(() => void refresh().catch(() => undefined), 3000);
     void (async () => {
       try {
         const { runs } = await client.attackRunList({ workspaceId });
@@ -131,6 +137,7 @@ export function useAttackSync(serverId: string, workspaceId: string): void {
     })();
     return () => {
       cancelled = true;
+      clearInterval(poll);
       offRun();
       offFinding();
     };

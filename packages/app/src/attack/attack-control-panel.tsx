@@ -19,7 +19,7 @@ import {
   type AttackModelOption,
   type AttackRunFormModel,
 } from "./attack-run-form-model";
-import { useAttackSync, useLatestAttackRun } from "./attack-store";
+import { useAttackStore, useAttackSync, useLatestAttackRun } from "./attack-store";
 
 const SIZE = "md" as const;
 const ROLE_LABEL_KEYS: Record<AttackRoleId, string> = {
@@ -62,16 +62,18 @@ function RunStatus({ run, serverId }: { run: AttackRun; serverId: string }) {
       setBusy(true);
       setError(null);
       try {
-        if (action === "pause") await client.attackRunPause({ runId: run.id });
-        else if (action === "resume") await client.attackRunResume({ runId: run.id });
-        else await client.attackRunCancel({ runId: run.id });
+        let result;
+        if (action === "pause") result = await client.attackRunPause({ runId: run.id });
+        else if (action === "resume") result = await client.attackRunResume({ runId: run.id });
+        else result = await client.attackRunCancel({ runId: run.id });
+        useAttackStore.getState().putRun(serverId, result.run);
       } catch (caught) {
         setError(toErrorMessage(caught));
       } finally {
         setBusy(false);
       }
     },
-    [client, run.id],
+    [client, run.id, serverId],
   );
   const onPause = useCallback(() => void act("pause"), [act]);
   const onResume = useCallback(() => void act("resume"), [act]);
@@ -214,13 +216,14 @@ function LaunchForm() {
     setStarting(true);
     setError(null);
     try {
-      await client.attackRunStart({ definition });
+      const started = await client.attackRunStart({ definition });
+      useAttackStore.getState().putRun(serverId, started.run);
     } catch (caught) {
       setError(toErrorMessage(caught));
     } finally {
       setStarting(false);
     }
-  }, [client, model]);
+  }, [client, model, serverId]);
   const onStartPress = useCallback(() => void onStart(), [onStart]);
 
   const modelOptions = useMemo<SelectFieldOption<AttackModelOption>[]>(

@@ -622,7 +622,9 @@ function useAppSidebarLayout({
   const activeWorkspaceKey = activeWorkspace
     ? `${activeWorkspace.serverId}:${activeWorkspace.workspaceId}`
     : null;
-  const ide = usePimiWorkbenchMode(activeWorkspaceKey) === "editor";
+  // Editor and Attack Mode both collapse the projects sidebar to its rail.
+  const workbenchMode = usePimiWorkbenchMode(activeWorkspaceKey);
+  const ide = workbenchMode === "editor" || workbenchMode === "attack";
   const explorerVisible = useIsExplorerSidebarOpen({
     isCompact: isCompactLayout,
     workspaceKey: activeWorkspaceKey,

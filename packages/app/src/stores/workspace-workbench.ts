@@ -26,8 +26,8 @@ export interface WorkspaceWorkbench {
   alternates: Partial<Record<WorkbenchMode, WorkbenchPreset>>;
 }
 
-// Attack mode places tabs by kind into four fixed panes: the control pane on the left (with the
-// lead agent's chat), browsers and terminals in the centre, findings on the right.
+// Attack mode places tabs by kind into four fixed panes: the control pane on the left, the
+// browsers, terminals and agent chats in the centre, findings on the right.
 export const ATTACK_CONTROL_PANE_ID = "attack-control";
 export const ATTACK_BROWSER_PANE_ID = "attack-browsers";
 export const ATTACK_TERMINAL_PANE_ID = "attack-terminals";
@@ -77,9 +77,8 @@ export function attackPaneIdForTarget(target: WorkspaceTab["target"]): string {
   if (target.kind === "attack_findings") return ATTACK_FINDINGS_PANE_ID;
   if (target.kind === "terminal") return ATTACK_TERMINAL_PANE_ID;
   if (target.kind === "browser") return ATTACK_BROWSER_PANE_ID;
-  if (target.kind === "attack_control" || isWorkbenchChatTarget(target)) {
-    return ATTACK_CONTROL_PANE_ID;
-  }
+  if (target.kind === "attack_control") return ATTACK_CONTROL_PANE_ID;
+  // Chats open beside the browsers, so the narrow control pane always shows the controls.
   return ATTACK_BROWSER_PANE_ID;
 }
 
@@ -108,7 +107,6 @@ export function createAttackWorkbench(current: WorkbenchPreset): WorkbenchPreset
   const focused = findPaneById(current.layout.root, current.layout.focusedPaneId)?.focusedTabId;
   const withTarget = (paneId: string) =>
     existing.filter((tab) => attackPaneIdForTarget(tab.target) === paneId);
-  const chats = withTarget(ATTACK_CONTROL_PANE_ID);
   const control = attackTab("attack_control");
   const hiddenExplorer: SplitNode = {
     kind: "pane",
@@ -132,7 +130,7 @@ export function createAttackWorkbench(current: WorkbenchPreset): WorkbenchPreset
       id: "attack-workbench",
       direction: "horizontal",
       children: [
-        paneNode(ATTACK_CONTROL_PANE_ID, [control, ...chats], control.tabId),
+        paneNode(ATTACK_CONTROL_PANE_ID, [control], control.tabId),
         center,
         paneNode(ATTACK_FINDINGS_PANE_ID, [attackTab("attack_findings")]),
       ],
