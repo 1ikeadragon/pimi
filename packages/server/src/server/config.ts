@@ -260,13 +260,16 @@ function resolveTlsFromEnv(
   return persistedValue ?? fallback;
 }
 
+// The project's self-hosted relay (docs/self-hosted-relay.md). Relay stays off until enabled.
+const DEFAULT_RELAY_ENDPOINT = "relay.stateless.computer:443";
+
 function resolveRelayEndpoints(input: ResolveRelayInput): {
   endpoint: string | undefined;
   publicEndpoint: string | undefined;
 } {
   const endpoint =
     (input.env.PASEO_RELAY_ENDPOINT ?? input.persisted.daemon?.relay?.endpoint)?.trim() ||
-    undefined;
+    DEFAULT_RELAY_ENDPOINT;
   const publicEndpoint =
     (
       input.env.PASEO_RELAY_PUBLIC_ENDPOINT ?? input.persisted.daemon?.relay?.publicEndpoint
