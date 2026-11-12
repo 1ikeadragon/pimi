@@ -2,6 +2,23 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.27 - 2026-11-12
+
+- Search across the workspace like VS Code: Cmd/Ctrl+Shift+F opens the Search view with case, whole-word and regex toggles, include and exclude globs, and replace with a preview. Replace all skips files with unsaved edits and says so.
+- Find works in every pane: editor (with replace, Cmd+G, Cmd+D, Cmd+Shift+L, Ctrl+G go to line), terminal, chat, git diffs and the in-app browser.
+- New Review screen, opened from the sidebar, chat cards and PR links:
+  - A pull request inbox with search and an All / To review filter. Paste a PR URL to open it.
+  - Overview: description, a separate Checks card (failed first, with logs), threads and commits.
+  - Changes: file tree with thread counts and viewed marks, and the diff with threads inline.
+  - Fix this, on a check or thread, prefills a chat in a matching workspace. Nothing is sent or pushed.
+  - The old Review page is gone.
+- Attack mode:
+  - New views: Terminal (each agent's commands, plus live terminals), Browser (live stage and stills), Desktop, Visualize (agent graph and route coverage), and an Audit tab with spend per agent.
+  - Desktop target (macOS): pick one app window. Agents see it, and click or type in it only if you allow input. Needs Screen Recording, and Accessibility for input.
+  - Findings link to your pre-flight annotations, and agents see the annotation screenshots.
+  - Merge duplicate findings yourself, and add budget to resume a spent run.
+  - Finding screenshots are more reliable, and an agent waiting for permission no longer counts as stalled.
+
 ## 0.17.26 - 2026-11-12
 
 Update every device together: desktop, Android and any other computer running Pimi. A 0.17.25 app cannot talk to a 0.17.26 computer, because the relay handshake was renamed. You do not need to pair again.
