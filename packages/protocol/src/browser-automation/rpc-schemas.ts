@@ -160,6 +160,8 @@ export const BrowserAutomationScreenshotCommandSchema = z.object({
   command: z.literal("screenshot"),
   args: BrowserAutomationTabTargetSchema.extend({
     fullPage: z.boolean().default(false),
+    // The desktop app's attack board asks for a small still of the tab; agents never set it.
+    thumbnailWidth: z.number().int().min(64).max(1280).optional(),
   }),
 });
 
