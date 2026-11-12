@@ -390,6 +390,10 @@ export const en = {
       dismissImage: "Dismiss image",
       closeImage: "Close image",
       imageLoadFailed: "Couldn't load image",
+      imageTooLarge: "Image too large",
+      imageUnsupported: "Unsupported image",
+      previousImage: "Previous image",
+      nextImage: "Next image",
       imageUnavailable: "Image unavailable",
       imagePreviewUnavailable: "Image preview unavailable.",
       imagePreviewLoadFailed: "Unable to load image preview.",
@@ -2457,6 +2461,27 @@ export const en = {
       editor: "Editor",
       plugins: "Plugins",
       host: "Overview",
+    },
+    networkLogs: {
+      overviewInfo:
+        "Requests Pimi makes itself, connections that reach this host, and programs Pimi launches. Only the method, host, port, and path are kept, never query strings, headers, bodies, or environment variables, and credentials in launch arguments are masked. Recent records are held in memory and finished records are also saved to log files on the host (see Logs).",
+      notCapturedTitle: "Not captured",
+      notCapturedBody:
+        "For programs Pimi launches (git, GitHub CLI, language servers, MCP servers, agent providers) it records the launch: the program, its redacted arguments, exit code, and duration. What those programs send over the network is encrypted and is not captured, such as an agent's API calls or a git fetch. Terminals and plugin processes are not recorded.",
+      title: "Logs",
+      saveTitle: "Save network log",
+      saveHint:
+        "Keeps the records shown here in files on this host so they survive restarts. Files are readable only by your user.",
+      retentionTitle: "Days to keep logs",
+      retentionHint: "Older files are deleted automatically. The folder is also capped at 200 MB.",
+      decrease: "Keep logs for fewer days",
+      increase: "Keep logs for more days",
+      locationTitle: "Location",
+      sizeHint: "{{size}} on disk",
+      notSaving: "Not saving",
+      openFolder: "Open logs folder",
+      openFolderFailed: "Could not open the logs folder: {{error}}",
+      saveFailed: "Could not update log settings: {{error}}",
     },
     languageServers: {
       title: "Language servers",

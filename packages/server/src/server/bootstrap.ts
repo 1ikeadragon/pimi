@@ -224,6 +224,7 @@ import type {
   PluginSource,
   TerminalProfile,
 } from "@pimi/protocol/messages";
+import { NETWORK_LOG_RETENTION_DAYS_DEFAULT } from "@pimi/protocol/messages";
 import type {
   AgentProviderRuntimeSettingsMap,
   ProviderOverride,
@@ -258,6 +259,8 @@ import {
   writeLocalCredential,
 } from "./local-credential.js";
 import { createLocalNetworkPairing } from "./local-network-pairing.js";
+import { getDaemonNetworkActivity, startDaemonNetworkLog } from "./network/activity.js";
+import { createInboundHttpActivityMiddleware } from "./network/inbound.js";
 import { PIMI_LOCAL_PAIRING_ROUTE, PimiLocalPairingRequest } from "@pimi/protocol/connection-offer";
 import { WorkspaceAutoName } from "./workspace-auto-name.js";
 import { createGitMutationService } from "./session/git-mutation/git-mutation-service.js";
@@ -486,6 +489,8 @@ export interface PaseoDaemonConfig {
   dictationFinalTimeoutMs?: number;
   downloadTokenTtlMs?: number;
   agentProviderSettings?: AgentProviderRuntimeSettingsMap;
+  logNetworkEnabled?: boolean;
+  logNetworkRetentionDays?: number;
   idleRuntimeCleanup?: boolean;
   resumeOnStartup?: boolean;
   resumePrompt?: string;
@@ -576,6 +581,15 @@ function resolveMetadataGeneration(config: ResolvedDaemonSettings["metadataGener
   };
 }
 
+function createInitialLogConfig(config: ResolvedDaemonSettings): MutableDaemonConfig["log"] {
+  return {
+    network: {
+      enabled: config.logNetworkEnabled ?? true,
+      retentionDays: config.logNetworkRetentionDays ?? NETWORK_LOG_RETENTION_DAYS_DEFAULT,
+    },
+  };
+}
+
 function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): MutableDaemonConfig {
   const providers = config.providerOverrides ?? {};
 
@@ -599,6 +613,7 @@ function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): Mutab
     metadataGeneration: resolveMetadataGeneration(config.metadataGeneration),
     autoArchiveAfterMerge: config.autoArchiveAfterMerge ?? false,
     enableTerminalAgentHooks: config.enableTerminalAgentHooks ?? false,
+    log: createInitialLogConfig(config),
     idleRuntimeCleanup: config.idleRuntimeCleanup !== false,
     resumeOnStartup: config.resumeOnStartup === true,
     resumePrompt: config.resumePrompt ?? "Resume working.",
@@ -684,6 +699,12 @@ export async function createPaseoDaemon(
     },
   });
   keepBuiltinProfilesSeeded(daemonConfigStore, logger);
+  const networkLog = startDaemonNetworkLog({
+    home: config.paseoHome,
+    getSettings: () => daemonConfigStore.get().log.network,
+    onError: (error, message) => logger.warn({ err: error }, message),
+  });
+  daemonConfigStore.onFieldChange("log.network", () => void networkLog.sweep());
   const orchestrationSkills = createOrchestrationSkills(daemonConfigStore);
   void orchestrationSkills.autoUpdate().catch((error) => {
     logger.error({ err: error }, "Failed to maintain orchestration skills at startup");
@@ -787,6 +808,9 @@ export async function createPaseoDaemon(
     },
     logger,
   });
+
+  // First, so every request is recorded, including ones the host check or auth turns away.
+  app.use(createInboundHttpActivityMiddleware(getDaemonNetworkActivity));
 
   // Service proxy classifies service hosts before daemon auth/route fallthrough.
   // Registered service hosts proxy directly; known service namespaces without a
@@ -2113,6 +2137,7 @@ export async function createPaseoDaemon(
       await wsServer.close();
     }
     await serviceProxy.stopStandalone();
+    await networkLog.close();
     // Force-drop remaining sockets so httpServer.close() resolves promptly.
     // We've already closed wsServer (which sent ws-layer close frames) and
     // stopped every other service, so anything still attached is a TCP

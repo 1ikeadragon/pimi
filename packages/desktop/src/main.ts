@@ -9,9 +9,12 @@ log.initialize({ spyRendererConsole: true });
 
 import { inheritLoginShellEnv } from "./login-shell-env.js";
 import {
+  flushDesktopNetworkLog,
   getDesktopNetworkActivity,
+  getDesktopNetworkLogDirectory,
   installDesktopNodeNetworkMonitor,
   observeSessionNetwork,
+  startDesktopNetworkLog,
 } from "./diagnostics/network-activity.js";
 import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
 installDesktopNodeNetworkMonitor();
@@ -41,6 +44,7 @@ import {
   type PimiDestination,
 } from "./window/pimi-window.js";
 import { existsSync } from "node:fs";
+import { mkdir } from "node:fs/promises";
 import { execFile, execFileSync } from "node:child_process";
 import { homedir } from "node:os";
 import {
@@ -815,6 +819,13 @@ function registerPimiWorkspaceNavigation(): void {
           : 300,
     });
   });
+  ipcMain.handle("pimi:network-activity:open-logs-folder", async (event) => {
+    if (!isConsoleFrame(event)) throw new Error("Open Pimi Settings to open the logs folder.");
+    const directory = getDesktopNetworkLogDirectory();
+    await mkdir(directory, { recursive: true, mode: 0o700 });
+    const failure = await shell.openPath(directory);
+    if (failure) throw new Error(failure);
+  });
   ipcMain.handle("pimi:labels:get", async (event) => {
     if (!isConsoleFrame(event)) throw new Error("Open Pimi to read linked labels.");
     const runtime = await initializePimiWorkspace(path.join(app.getAppPath(), "dist"));
@@ -1235,6 +1246,7 @@ async function bootstrap(): Promise<void> {
   }
 
   await app.whenReady();
+  startDesktopNetworkLog();
   setupPimiSessionPermissions();
 
   const appDistDir = getAppDistDir();
@@ -1391,6 +1403,7 @@ electronAutoUpdater.on("before-quit-for-update", () => {
   quitLifecycle.handleBeforeQuitForUpdate();
 });
 app.on("before-quit", quitLifecycle.handleBeforeQuit);
+app.on("before-quit", () => void flushDesktopNetworkLog());
 registerExternalQuitSignals({ signals: process, quit: () => app.quit() });
 
 app.on("window-all-closed", () => {

@@ -242,6 +242,10 @@ export const EditorLanguageServerSchema = z.object({
   args: z.array(z.string().max(4096)).max(32),
 });
 
+export const NETWORK_LOG_RETENTION_DAYS_MIN = 1;
+export const NETWORK_LOG_RETENTION_DAYS_MAX = 90;
+export const NETWORK_LOG_RETENTION_DAYS_DEFAULT = 3;
+
 export const MutableDaemonConfigSchema = z
   .object({
     relay: MutableRelayConfigSchema,
@@ -291,6 +295,23 @@ export const MutableDaemonConfigSchema = z
     plugins: z.record(PluginIdSchema, PluginSourceSchema).optional(),
     features: SpeechSettingsSchema.optional(),
     envOverrides: z.record(z.string(), z.string()).optional(),
+    log: z
+      .object({
+        network: z.object({
+          enabled: z.boolean(),
+          retentionDays: z
+            .number()
+            .int()
+            .min(NETWORK_LOG_RETENTION_DAYS_MIN)
+            .max(NETWORK_LOG_RETENTION_DAYS_MAX),
+        }),
+      })
+      .default({
+        network: {
+          enabled: true,
+          retentionDays: NETWORK_LOG_RETENTION_DAYS_DEFAULT,
+        },
+      }),
   })
   .passthrough();
 
@@ -326,6 +347,21 @@ export const MutableDaemonConfigPatchSchema = z
     pluginsEnabled: z.boolean().optional(),
     plugins: z.record(PluginIdSchema, PluginSourceSchema).optional(),
     features: SpeechSettingsPatchSchema.optional(),
+    log: z
+      .object({
+        network: z
+          .object({
+            enabled: z.boolean().optional(),
+            retentionDays: z
+              .number()
+              .int()
+              .min(NETWORK_LOG_RETENTION_DAYS_MIN)
+              .max(NETWORK_LOG_RETENTION_DAYS_MAX)
+              .optional(),
+          })
+          .optional(),
+      })
+      .optional(),
   })
   .partial()
   .passthrough();
@@ -5161,7 +5197,7 @@ export const NetworkActivityRequestSchema = z.object({
   source: z.string(),
   startedAtMs: z.number(),
   method: z.string(),
-  /** "http", "https", "ws", "wss", or "unix". */
+  /** "http", "https", "ws", "wss", "unix", or "process" for a launched program. */
   protocol: z.string(),
   host: z.string(),
   port: z.number().int().nullable(),
@@ -5178,6 +5214,8 @@ export const NetworkActivityRequestSchema = z.object({
   local: z.boolean(),
   /** "pending", "complete", or "error". */
   state: z.string(),
+  /** Named totals, such as WebSocket message counts. */
+  counters: z.record(z.string(), z.number()).optional(),
 });
 export type NetworkActivityRequest = z.infer<typeof NetworkActivityRequestSchema>;
 
@@ -5200,6 +5238,15 @@ export const NetworkActivitySnapshotSchema = z.object({
   hosts: z.array(NetworkActivityHostSchema),
   /** Hosts evicted from the aggregate table after it reached its cap. */
   droppedHosts: z.number().int(),
+  /** Where this process's records are saved and how much space they use. Absent when not saving. */
+  log: z
+    .object({
+      directory: z.string(),
+      bytes: z.number(),
+      files: z.number().int(),
+    })
+    .nullable()
+    .optional(),
 });
 export type NetworkActivitySnapshot = z.infer<typeof NetworkActivitySnapshotSchema>;
 

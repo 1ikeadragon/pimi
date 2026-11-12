@@ -25,6 +25,7 @@ import { readSpeechSettings } from "./speech/speech-settings.js";
 import { mergeHostnames, parseHostnamesEnv, type HostnamesConfig } from "./hostnames.js";
 import { resolveGitProcessPolicy } from "../utils/git-process-scheduler.js";
 import { DEFAULT_PAIRING_APP_BASE_URL } from "./connection-offer.js";
+import { NETWORK_LOG_RETENTION_DAYS_DEFAULT } from "@pimi/protocol/messages";
 
 export {
   loadPersistedConfig,
@@ -455,6 +456,14 @@ function resolveAppendSystemPrompt(persisted: ReturnType<typeof loadPersistedCon
   return persisted.daemon?.appendSystemPrompt ?? "";
 }
 
+function resolveNetworkLogConfig(persisted: ReturnType<typeof loadPersistedConfig>) {
+  return {
+    logNetworkEnabled: persisted.log?.network?.enabled ?? true,
+    logNetworkRetentionDays:
+      persisted.log?.network?.retentionDays ?? NETWORK_LOG_RETENTION_DAYS_DEFAULT,
+  };
+}
+
 function resolveUsageEnabled(persisted: ReturnType<typeof loadPersistedConfig>): boolean {
   return persisted.daemon?.usage?.enabled === true;
 }
@@ -500,6 +509,7 @@ function resolveStaticLoadConfigSettings(
     usageEnabled: resolveUsageEnabled(persisted),
     browserToolsEnabled: resolveBrowserToolsEnabled(persisted),
     autoArchiveAfterMerge: persisted.daemon?.autoArchiveAfterMerge ?? false,
+    ...resolveNetworkLogConfig(persisted),
     appendSystemPrompt: resolveAppendSystemPrompt(persisted),
     ...resolveProfileLists(persisted),
     hostnames: mergeHostnames([
@@ -529,6 +539,8 @@ export type ResolvedDaemonSettings = Pick<
   | "browserToolsEnabled"
   | "git"
   | "autoArchiveAfterMerge"
+  | "logNetworkEnabled"
+  | "logNetworkRetentionDays"
   | "enableTerminalAgentHooks"
   | "appendSystemPrompt"
   | "terminalProfiles"

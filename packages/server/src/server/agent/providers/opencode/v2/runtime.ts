@@ -27,6 +27,7 @@ import {
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { OpenCodeBridge } from "../bridge.js";
+import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
 
 export interface V2Connection {
   client: V2Api;
@@ -262,6 +263,7 @@ export class V2Runtime {
     const process = spawnProcess(launch.command, args, {
       cwd,
       detached: globalThis.process.platform !== "win32",
+      networkPurpose: NETWORK_PURPOSE.agentProvider,
       stdio: ["ignore", "pipe", "pipe"],
       ...createProviderEnvSpec({
         runtimeSettings: settings,

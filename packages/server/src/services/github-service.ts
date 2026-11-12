@@ -11,6 +11,7 @@ import {
   buildPullHeadCheckoutRefs,
 } from "../utils/change-request-checkout.js";
 import { execCommand } from "../utils/spawn.js";
+import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
 import { resolveSshHostname } from "../utils/ssh-hostname.js";
 import {
   CLI_AUTH_PROBE_TIMEOUT_MS,
@@ -2809,6 +2810,7 @@ async function probeGitHubAuthStatusForRouting(host: string): Promise<boolean> {
     await execCommand(ghPath, args, {
       envOverlay: { ...GITHUB_ENV, GH_PROMPT_DISABLED: "1" },
       timeout: CLI_AUTH_PROBE_TIMEOUT_MS,
+      networkPurpose: NETWORK_PURPOSE.githubCli,
     });
     return true;
   } catch (error) {

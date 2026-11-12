@@ -1,10 +1,14 @@
 import { useCallback, useMemo, useState } from "react";
 import { Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { StyleSheet } from "react-native-unistyles";
-import type {
-  NetworkActivityHost,
-  NetworkActivityRequest,
-  NetworkActivitySnapshot,
+import {
+  NETWORK_LOG_RETENTION_DAYS_DEFAULT,
+  NETWORK_LOG_RETENTION_DAYS_MAX,
+  NETWORK_LOG_RETENTION_DAYS_MIN,
+  type NetworkActivityHost,
+  type NetworkActivityRequest,
+  type NetworkActivitySnapshot,
 } from "@pimi/protocol/messages";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
 import { SettingsGroup } from "@/components/settings/headings/settings-group";
@@ -16,6 +20,8 @@ import { Switch } from "@/components/ui/switch";
 import { getIsElectron } from "@/constants/platform";
 import { useFetchQuery } from "@/data/query";
 import { getDesktopHost } from "@/desktop/host";
+import { useDaemonConfig } from "@/hooks/use-daemon-config";
+import { useLocalDaemonServerId } from "@/hooks/use-is-local-daemon";
 import { useHostRuntimeClient, useHostRuntimeIsConnected, useHosts } from "@/runtime/host-runtime";
 import { settingsStyles } from "@/styles/settings";
 import { formatTimeAgo, formatTimeOfDay } from "@/utils/time";
@@ -117,6 +123,7 @@ export function NetworkSection({ serverId }: { serverId: string | null }) {
 }
 
 function NetworkActivityView({ serverId }: { serverId: string }) {
+  const { t } = useTranslation();
   const isElectron = getIsElectron();
   const hosts = useHosts();
   const hostLabel = hosts.find((host) => host.serverId === serverId)?.label ?? serverId;
@@ -161,10 +168,7 @@ function NetworkActivityView({ serverId }: { serverId: string }) {
 
   return (
     <View testID="network-activity">
-      <SettingsSection
-        title="Overview"
-        info="Outbound HTTP, HTTPS, and WebSocket requests made by Pimi itself. Only the method, host, port, and path are kept, never query strings, headers, or bodies. Records live in memory and reset when the daemon or app restarts."
-      >
+      <SettingsSection title="Overview" info={t("settings.networkLogs.overviewInfo")}>
         <View style={settingsStyles.card}>
           <View style={styles.summary} testID="network-summary">
             <SummaryStat label="Requests" value={view.totals.requests} />
@@ -190,15 +194,18 @@ function NetworkActivityView({ serverId }: { serverId: string }) {
             testID="network-not-captured"
           >
             <View style={settingsStyles.rowContent}>
-              <Text style={settingsStyles.rowTitle}>Not captured</Text>
+              <Text style={settingsStyles.rowTitle}>
+                {t("settings.networkLogs.notCapturedTitle")}
+              </Text>
               <Text style={settingsStyles.rowHint}>
-                Agent providers such as Claude Code, Codex, and OpenCode run as separate processes,
-                as do plugins and terminals. Their network traffic does not appear here.
+                {t("settings.networkLogs.notCapturedBody")}
               </Text>
             </View>
           </View>
         </View>
       </SettingsSection>
+
+      <NetworkLogsSection serverId={serverId} log={daemon.snapshot?.log ?? null} />
 
       <SettingsSection title="Filters">
         <View style={settingsStyles.card}>
@@ -300,6 +307,124 @@ function NetworkActivityView({ serverId }: { serverId: string }) {
         ) : null}
       </SettingsSection>
     </View>
+  );
+}
+
+function NetworkLogsSection({
+  serverId,
+  log,
+}: {
+  serverId: string;
+  log: NetworkActivitySnapshot["log"];
+}) {
+  const { t } = useTranslation();
+  const connected = useHostRuntimeIsConnected(serverId);
+  const { config, patchConfig } = useDaemonConfig(serverId);
+  const localServerId = useLocalDaemonServerId();
+  const openLogsFolder = getIsElectron()
+    ? getDesktopHost()?.networkActivity?.openLogsFolder
+    : undefined;
+  const canOpenFolder = Boolean(openLogsFolder) && localServerId === serverId;
+  const [error, setError] = useState<string | null>(null);
+
+  const settings = config?.log?.network;
+  const enabled = settings?.enabled !== false;
+  const retentionDays = settings?.retentionDays ?? NETWORK_LOG_RETENTION_DAYS_DEFAULT;
+
+  const update = useCallback(
+    (network: { enabled?: boolean; retentionDays?: number }) => {
+      setError(null);
+      patchConfig({ log: { network } }).catch((failure: unknown) => {
+        setError(
+          t("settings.networkLogs.saveFailed", {
+            error: failure instanceof Error ? failure.message : String(failure),
+          }),
+        );
+      });
+    },
+    [patchConfig, t],
+  );
+  const toggleEnabled = useCallback((value: boolean) => update({ enabled: value }), [update]);
+  const decrease = useCallback(
+    () => update({ retentionDays: Math.max(NETWORK_LOG_RETENTION_DAYS_MIN, retentionDays - 1) }),
+    [update, retentionDays],
+  );
+  const increase = useCallback(
+    () => update({ retentionDays: Math.min(NETWORK_LOG_RETENTION_DAYS_MAX, retentionDays + 1) }),
+    [update, retentionDays],
+  );
+  const openFolder = useCallback(() => {
+    setError(null);
+    openLogsFolder?.().catch((failure: unknown) => {
+      setError(
+        t("settings.networkLogs.openFolderFailed", {
+          error: failure instanceof Error ? failure.message : String(failure),
+        }),
+      );
+    });
+  }, [openLogsFolder, t]);
+
+  if (!connected || !config) return null;
+
+  return (
+    <SettingsSection title={t("settings.networkLogs.title")} testID="network-logs">
+      <View style={settingsStyles.card}>
+        <ToggleRow
+          label={t("settings.networkLogs.saveTitle")}
+          hint={t("settings.networkLogs.saveHint")}
+          value={enabled}
+          onValueChange={toggleEnabled}
+        />
+        <View style={[settingsStyles.row, settingsStyles.rowBorder]}>
+          <View style={settingsStyles.rowContent}>
+            <Text style={settingsStyles.rowTitle}>{t("settings.networkLogs.retentionTitle")}</Text>
+            <Text style={settingsStyles.rowHint}>{t("settings.networkLogs.retentionHint")}</Text>
+          </View>
+          <View style={styles.stepper}>
+            <Button
+              variant="outline"
+              onPress={decrease}
+              disabled={retentionDays <= NETWORK_LOG_RETENTION_DAYS_MIN}
+              accessibilityLabel={t("settings.networkLogs.decrease")}
+              testID="network-log-retention-decrease"
+            >
+              -
+            </Button>
+            <Text style={styles.stepperValue} testID="network-log-retention-value">
+              {retentionDays}
+            </Text>
+            <Button
+              variant="outline"
+              onPress={increase}
+              disabled={retentionDays >= NETWORK_LOG_RETENTION_DAYS_MAX}
+              accessibilityLabel={t("settings.networkLogs.increase")}
+              testID="network-log-retention-increase"
+            >
+              +
+            </Button>
+          </View>
+        </View>
+        <View style={[settingsStyles.row, settingsStyles.rowBorder]}>
+          <View style={settingsStyles.rowContent}>
+            <Text style={settingsStyles.rowTitle}>{t("settings.networkLogs.locationTitle")}</Text>
+            <Text style={settingsStyles.rowHint} selectable testID="network-log-path">
+              {log ? log.directory : t("settings.networkLogs.notSaving")}
+            </Text>
+            {log ? (
+              <Text style={settingsStyles.rowHint} testID="network-log-size">
+                {t("settings.networkLogs.sizeHint", { size: formatBytes(log.bytes) })}
+              </Text>
+            ) : null}
+          </View>
+          {canOpenFolder ? (
+            <Button variant="outline" onPress={openFolder} testID="network-log-open-folder">
+              {t("settings.networkLogs.openFolder")}
+            </Button>
+          ) : null}
+        </View>
+      </View>
+      {error ? <Text style={settingsStyles.rowError}>{error}</Text> : null}
+    </SettingsSection>
   );
 }
 
@@ -444,6 +569,17 @@ const styles = StyleSheet.create((theme) => ({
   },
   searchSlot: {
     flex: 1,
+  },
+  stepper: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+  },
+  stepperValue: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.base,
+    minWidth: 28,
+    textAlign: "center",
   },
   method: {
     color: theme.colors.foregroundMuted,

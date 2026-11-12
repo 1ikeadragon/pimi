@@ -38,7 +38,8 @@ interface RelayWebSocketLike extends RelaySocketLike {
   ) => void;
 }
 
-type RelayWebSocketFactory = (url: string) => RelayWebSocketLike;
+/** "control" is the daemon's standing registration; "data" carries one client's session. */
+type RelayWebSocketFactory = (url: string, channel: "control" | "data") => RelayWebSocketLike;
 
 type ControlMessage =
   | { type: "sync"; connectionIds: string[] }
@@ -58,9 +59,9 @@ const RELAY_WEBSOCKET_OPTIONS = {
   autoSelectFamilyAttemptTimeout: 5_000,
 } as const;
 
-function createDefaultRelayWebSocket(url: string): RelayWebSocketLike {
+function createDefaultRelayWebSocket(url: string, channel: "control" | "data"): RelayWebSocketLike {
   return withNetworkInitiator(
-    NETWORK_PURPOSE.relay,
+    channel === "data" ? NETWORK_PURPOSE.relayData : NETWORK_PURPOSE.relay,
     () => new WebSocket(url, { ...RELAY_WEBSOCKET_OPTIONS, agent: webSocketProxyAgent(url) }),
   );
 }
@@ -171,7 +172,7 @@ export function startRelayTransport({
       serverId,
       role: "server",
     });
-    const socket = createWebSocket(url);
+    const socket = createWebSocket(url, "control");
     controlWs = socket;
     let controlConnected = false;
 
@@ -356,7 +357,7 @@ export function startRelayTransport({
       role: "server",
       connectionId,
     });
-    const socket = createWebSocket(url);
+    const socket = createWebSocket(url, "data");
     dataSockets.set(connectionId, socket);
 
     let attached = false;

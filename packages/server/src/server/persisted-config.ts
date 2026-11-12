@@ -18,7 +18,11 @@ import {
 } from "./private-files.js";
 import { AgentProfileSchema, AgentSkillSelectionSchema } from "@pimi/protocol/agent-profile";
 import { PluginIdSchema, PluginSourceSchema } from "@pimi/protocol/plugin-config";
-import { EditorLanguageServerSchema } from "@pimi/protocol/messages";
+import {
+  EditorLanguageServerSchema,
+  NETWORK_LOG_RETENTION_DAYS_MAX,
+  NETWORK_LOG_RETENTION_DAYS_MIN,
+} from "@pimi/protocol/messages";
 import { TerminalProfileSchema } from "@pimi/protocol/terminal-profile";
 import { PaseoServicePortAllocationSchema } from "@pimi/protocol/paseo-config-schema";
 import { DEFAULT_PAIRING_APP_BASE_URL } from "./connection-offer.js";
@@ -36,6 +40,19 @@ const LogConfigSchema = z
       .object({
         level: LogLevelSchema.optional(),
         format: LogFormatSchema.optional(),
+      })
+      .strict()
+      .optional(),
+
+    network: z
+      .object({
+        enabled: z.boolean().optional(),
+        retentionDays: z
+          .number()
+          .int()
+          .min(NETWORK_LOG_RETENTION_DAYS_MIN)
+          .max(NETWORK_LOG_RETENTION_DAYS_MAX)
+          .optional(),
       })
       .strict()
       .optional(),

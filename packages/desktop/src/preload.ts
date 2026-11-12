@@ -254,6 +254,8 @@ contextBridge.exposeInMainWorld("paseoDesktop", {
   networkActivity: {
     list: (input: { includeLocal?: boolean; limit?: number }): Promise<NetworkActivitySnapshot> =>
       ipcRenderer.invoke("pimi:network-activity:list", input),
+    openLogsFolder: (): Promise<void> =>
+      ipcRenderer.invoke("pimi:network-activity:open-logs-folder"),
   },
   invoke: (command: string, args?: Record<string, unknown>) =>
     ipcRenderer.invoke("paseo:invoke", command, args),

@@ -18,6 +18,7 @@ import {
   resolveGitProcessPolicy,
   type GitProcessPolicy,
 } from "./git-process-scheduler.js";
+import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_OUTPUT_BYTES = 20 * 1024 * 1024; // 20MB
@@ -404,6 +405,7 @@ function executeGitCommand<Output>(
             envOverlay,
             shell: false,
             signal: options.signal,
+            networkPurpose: NETWORK_PURPOSE.git,
             stdio: [options.input === undefined ? "ignore" : "pipe", "pipe", "pipe"],
           },
         );

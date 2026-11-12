@@ -55,6 +55,11 @@
       "source": "./src/server/network/activity.ts",
       "default": "./dist/server/server/network/activity.js"
     },
+    "./network-log": {
+      "types": "./dist/server/server/network/log-store.d.ts",
+      "source": "./src/server/network/log-store.ts",
+      "default": "./dist/server/server/network/log-store.js"
+    },
     "./pairing": {
       "types": "./dist/server/server/pairing-offer.d.ts",
       "source": "./src/server/pairing-offer.ts",
