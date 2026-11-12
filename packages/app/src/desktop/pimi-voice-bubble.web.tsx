@@ -2,7 +2,8 @@
 import { router, usePathname } from "expo-router";
 import { CircleAlert, Mic, Square, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Image, ScrollView, Text, View, type ViewStyle } from "react-native";
+import { ScrollView, Text, View, type ViewStyle } from "react-native";
+import { PimiMascot } from "@/components/icons/pimi-mascot";
 import { StyleSheet } from "react-native-unistyles";
 import type { CommandCenterContribution } from "@/command-center/contributions";
 import { useCommandCenterContributions } from "@/command-center/provider";
@@ -84,7 +85,6 @@ const PHASE_STATUS = {
 const BUSY = "Still working on your last command. Say this again when it finishes.";
 const VOICE_OFF = { selected: false };
 const VOICE_ON = { selected: true };
-const VOICE_DOG = { uri: "/pimi-textures/voice-dog.svg" };
 const WORKING = "Working…";
 const BUBBLE_POP_ANIMATION = "pimi-voice-bubble-pop";
 const TYPING_DOT_ANIMATION = "pimi-voice-typing-dot";
@@ -611,7 +611,9 @@ function DesktopVoiceBubble({
           onPress={toggle}
           style={styles.button}
         >
-          <Image source={VOICE_DOG} style={styles.dog} accessible={false} />
+          <View style={styles.dog} accessible={false}>
+            <PimiMascot size={30} />
+          </View>
           <View style={badgeStyle}>
             <DensityIcon
               icon={active ? Square : Mic}
