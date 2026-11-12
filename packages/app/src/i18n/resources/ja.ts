@@ -2108,6 +2108,119 @@ export const ja: TranslationResources = {
     archiveFinishedAction: "完了したサブエージェントをアーカイブ",
     archiveFinishedRetry: "再試行 ({{failed}}/{{total}})",
   },
+  attack: {
+    mode: {
+      label: "アタック",
+      accessibilityLabel: "アタックモード",
+      openProject: "アタックモードを使うにはプロジェクトを開いてください。",
+    },
+    panels: {
+      board: {
+        label: "アタック実行",
+        subtitle: "実行コントロール",
+      },
+      findings: {
+        label: "検出事項",
+        subtitle: "アタックの検出事項",
+      },
+    },
+    form: {
+      target: "対象URL",
+      targetInvalid: "httpまたはhttpsのURLを入力してください",
+      remoteHost: "許可されたリモートホスト: {{host}}",
+      repoScope: "このリポジトリを含める",
+      scopeNotes: "スコープメモ",
+      minutes: "時間予算（分）",
+      kiloTokens: "トークン予算（千）",
+      numberInvalid: "有効な整数を入力してください",
+      model: "エージェントのモデル",
+      modelPlaceholder: "モデルを選択",
+      modelMissing: "モデルを選択してください",
+      roster: "エージェント",
+      rosterEmpty: "エージェントを1つ以上選んでください",
+      disposable: "使い捨てターゲット",
+      disposableHint:
+        "エージェントによる書き込みと負荷送信を許可します。現在の構成は読み取りのみです。",
+      confinement:
+        "ブラウザタブが開けるのは localhost と対象ホストだけです。エージェントには読み取り専用でこれらのホストから出ないよう指示していますが、シェルはサンドボックス化されていません。コマンドでファイルを書き込んだり、他のホストに接続したりできます。Claude のエージェントは、ウェブツール、ファイル編集ツール、あなたの MCP サーバーなしで動作します。他のプロバイダーではそれらが残ります。",
+      start: "アタックを開始",
+    },
+    roster: {
+      uiQa: "UI QAとカオス",
+      secrets: "シークレットと設定の監査",
+    },
+    run: {
+      status: {
+        running: "実行中",
+        paused: "一時停止中",
+        stopped: "停止済み",
+        completed: "完了",
+      },
+      pausedReason: {
+        user: "ユーザーが一時停止",
+        time_budget: "一時停止: 時間予算に達しました",
+        token_budget: "一時停止: トークン予算に達しました",
+      },
+      timeSpent: "{{spent}} / {{limit}} 分",
+      tokensSpent: "{{spent}} / {{limit}} トークン",
+      pause: "一時停止",
+      resume: "再開",
+      stop: "停止",
+      newRun: "新しい実行",
+    },
+    tile: {
+      focus: "{{role}} を表示",
+      state: {
+        idle: "作業待ち",
+        done: "完了",
+        failed: "失敗",
+      },
+    },
+    grid: {
+      previous: "前のエージェント",
+      next: "次のエージェント",
+    },
+    focus: {
+      chat: "チャット",
+      browser: "ブラウザ",
+      back: "グリッド",
+    },
+    board: {
+      title: "アタック",
+      starting: "リードエージェントを起動中…",
+    },
+    findings: {
+      running: "エージェントが対象を調査中です。まだ検出はありません。",
+      runningMeta: "{{count}} エージェント · {{elapsed}}",
+      lastRun: "前回の実行 · {{target}}",
+      noRun: "実行を開始すると、ここに検出事項が表示されます。",
+      empty: "検出事項はまだありません。",
+      nothingFound: "何も見つかりませんでした。実行は検出事項なしで終了しました。",
+      severity: {
+        blocker: "ブロッカー",
+        major: "重大",
+        minor: "軽微",
+      },
+      status: {
+        new: "新規",
+        triaged: "確認済み",
+        dismissed: "却下",
+        fixed: "修正済み",
+      },
+      reported: "{{count}}回報告",
+      repro: "再現手順",
+      evidence: "証拠",
+      fixIt: "修正する",
+      screenshotLoading: "スクリーンショットを読み込み中…",
+      screenshotMissing: "スクリーンショットが大きすぎて保存されませんでした。",
+      action: {
+        triage: "確認済みにする",
+        dismiss: "却下",
+        fixed: "修正済みにする",
+        reopen: "再オープン",
+      },
+    },
+  },
   panels: {
     draft: {
       newAgent: "新しいエージェント",

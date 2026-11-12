@@ -50,6 +50,7 @@ export interface TabContents {
 
 export interface TabImage {
   toPNG(): Uint8Array;
+  resize(options: { width: number; quality?: "good" | "better" | "best" }): TabImage;
   getSize(): { width: number; height: number };
 }
 
@@ -418,6 +419,7 @@ const commandHandlers: Record<BrowserAutomationCommand["command"], CommandHandle
       screenshotCommand.args.browserId,
       screenshotCommand.args.fullPage,
       registry,
+      screenshotCommand.args.thumbnailWidth,
     );
   },
   upload: ({ request, command, requestId, workspaceId, registry, snapshotEngine }) => {
@@ -1223,6 +1225,7 @@ async function executeScreenshot(
   browserId: string,
   fullPage: boolean,
   registry: BrowserRegistry,
+  thumbnailWidth?: number,
 ): Promise<AutomationCommandPayload> {
   if (fullPage) {
     return executeFullPageScreenshot(requestId, workspaceId, browserId, registry);
@@ -1244,6 +1247,23 @@ async function executeScreenshot(
         return screenshotNoFrameFailure(requestId, error);
       }
       throw error;
+    }
+    if (thumbnailWidth && image.getSize().width > thumbnailWidth) {
+      const small = image.resize({ width: thumbnailWidth, quality: "good" });
+      const smallSize = small.getSize();
+      return {
+        requestId,
+        ok: true,
+        result: {
+          command: "screenshot",
+          browserId: target.browserId,
+          // PNG keeps the alpha a guest's unpainted page background has; a JPEG renders it black.
+          mimeType: "image/png",
+          dataBase64: Buffer.from(small.toPNG()).toString("base64"),
+          width: smallSize.width,
+          height: smallSize.height,
+        },
+      };
     }
     const size = image.getSize();
     return {

@@ -2120,6 +2120,118 @@ export const ptBR: TranslationResources = {
     archiveFinishedAction: "Arquivar subagentes concluídos",
     archiveFinishedRetry: "Tentar novamente ({{failed}}/{{total}})",
   },
+  attack: {
+    mode: {
+      label: "Ataque",
+      accessibilityLabel: "Modo Ataque",
+      openProject: "Abra um projeto para usar o modo Ataque.",
+    },
+    panels: {
+      board: {
+        label: "Execução de ataque",
+        subtitle: "Controles da execução",
+      },
+      findings: {
+        label: "Achados",
+        subtitle: "Achados do ataque",
+      },
+    },
+    form: {
+      target: "URL de destino",
+      targetInvalid: "Informe uma URL http ou https",
+      remoteHost: "Host remoto permitido: {{host}}",
+      repoScope: "Incluir este repositório",
+      scopeNotes: "Notas de escopo",
+      minutes: "Orçamento de tempo (minutos)",
+      kiloTokens: "Orçamento de tokens (milhares)",
+      numberInvalid: "Informe um número inteiro válido",
+      model: "Modelo do agente",
+      modelPlaceholder: "Escolha um modelo",
+      modelMissing: "Escolha um modelo",
+      roster: "Agentes",
+      rosterEmpty: "Escolha pelo menos um agente",
+      disposable: "Alvo descartável",
+      disposableHint: "Permite que os agentes escrevam e enviem carga. A lista atual só lê.",
+      confinement:
+        "As abas do navegador só podem abrir localhost e o host de destino. Os agentes são instruídos a apenas ler e a permanecer nesses hosts, mas o shell deles não é isolado: um comando ainda pode gravar arquivos ou alcançar outros hosts. Os agentes do Claude rodam sem ferramentas web, sem ferramentas de edição de arquivos e sem os seus servidores MCP; os outros provedores mantêm os deles.",
+      start: "Iniciar ataque",
+    },
+    roster: {
+      uiQa: "QA de UI e caos",
+      secrets: "Auditor de segredos e configuração",
+    },
+    run: {
+      status: {
+        running: "Em execução",
+        paused: "Pausada",
+        stopped: "Parada",
+        completed: "Concluída",
+      },
+      pausedReason: {
+        user: "Pausada por você",
+        time_budget: "Pausada: orçamento de tempo atingido",
+        token_budget: "Pausada: orçamento de tokens atingido",
+      },
+      timeSpent: "{{spent}} de {{limit}} min",
+      tokensSpent: "{{spent}} de {{limit}} tokens",
+      pause: "Pausar",
+      resume: "Retomar",
+      stop: "Parar",
+      newRun: "Nova execução",
+    },
+    tile: {
+      focus: "Focar em {{role}}",
+      state: {
+        idle: "Aguardando trabalho",
+        done: "Concluído",
+        failed: "Falhou",
+      },
+    },
+    grid: {
+      previous: "Agentes anteriores",
+      next: "Próximos agentes",
+    },
+    focus: {
+      chat: "Chat",
+      browser: "Navegador",
+      back: "Grade",
+    },
+    board: {
+      title: "Ataque",
+      starting: "Iniciando o agente líder…",
+    },
+    findings: {
+      running: "Os agentes estão sondando o alvo. Ainda sem achados.",
+      runningMeta: "{{count}} agentes · {{elapsed}}",
+      lastRun: "Última execução · {{target}}",
+      noRun: "Inicie uma execução para ver os achados aqui.",
+      empty: "Nenhum achado ainda.",
+      nothingFound: "Nada encontrado. A execução terminou sem achados.",
+      severity: {
+        blocker: "Bloqueante",
+        major: "Maior",
+        minor: "Menor",
+      },
+      status: {
+        new: "Novo",
+        triaged: "Triado",
+        dismissed: "Descartado",
+        fixed: "Corrigido",
+      },
+      reported: "Relatado {{count}} vezes",
+      repro: "Reprodução",
+      evidence: "Evidência",
+      fixIt: "Corrigir",
+      screenshotLoading: "Carregando captura…",
+      screenshotMissing: "A captura era grande demais para guardar.",
+      action: {
+        triage: "Marcar como triado",
+        dismiss: "Descartar",
+        fixed: "Marcar como corrigido",
+        reopen: "Reabrir",
+      },
+    },
+  },
   panels: {
     draft: {
       newAgent: "Novo Agente",

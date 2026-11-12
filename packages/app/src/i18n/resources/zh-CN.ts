@@ -2060,6 +2060,118 @@ export const zhCN: TranslationResources = {
     archiveFinishedAction: "归档已完成的 subagent",
     archiveFinishedRetry: "重试 ({{failed}}/{{total}})",
   },
+  attack: {
+    mode: {
+      label: "攻击",
+      accessibilityLabel: "攻击模式",
+      openProject: "请先打开项目以使用攻击模式。",
+    },
+    panels: {
+      board: {
+        label: "攻击运行",
+        subtitle: "运行控制",
+      },
+      findings: {
+        label: "发现",
+        subtitle: "攻击发现",
+      },
+    },
+    form: {
+      target: "目标 URL",
+      targetInvalid: "请输入 http 或 https URL",
+      remoteHost: "允许的远程主机：{{host}}",
+      repoScope: "包含此仓库",
+      scopeNotes: "范围备注",
+      minutes: "时间预算（分钟）",
+      kiloTokens: "令牌预算（千）",
+      numberInvalid: "请输入有效的整数",
+      model: "代理模型",
+      modelPlaceholder: "选择模型",
+      modelMissing: "请选择模型",
+      roster: "代理",
+      rosterEmpty: "至少选择一个代理",
+      disposable: "一次性目标",
+      disposableHint: "允许代理写入并发送负载。当前阵容只读取。",
+      confinement:
+        "浏览器标签页只能打开 localhost 和目标主机。智能体被要求只读并留在这些主机内，但它们的 shell 没有沙箱隔离：命令仍然可以写入文件或访问其他主机。Claude 智能体运行时不带网页工具、文件编辑工具和你自己的 MCP 服务器；其他提供方会保留这些。",
+      start: "开始攻击",
+    },
+    roster: {
+      uiQa: "UI QA 与混沌测试",
+      secrets: "密钥与配置审计",
+    },
+    run: {
+      status: {
+        running: "运行中",
+        paused: "已暂停",
+        stopped: "已停止",
+        completed: "已完成",
+      },
+      pausedReason: {
+        user: "由你暂停",
+        time_budget: "已暂停：达到时间预算",
+        token_budget: "已暂停：达到令牌预算",
+      },
+      timeSpent: "{{spent}} / {{limit}} 分钟",
+      tokensSpent: "{{spent}} / {{limit}} 令牌",
+      pause: "暂停",
+      resume: "继续",
+      stop: "停止",
+      newRun: "新建运行",
+    },
+    tile: {
+      focus: "聚焦 {{role}}",
+      state: {
+        idle: "等待任务",
+        done: "已完成",
+        failed: "失败",
+      },
+    },
+    grid: {
+      previous: "上一页智能体",
+      next: "下一页智能体",
+    },
+    focus: {
+      chat: "聊天",
+      browser: "浏览器",
+      back: "网格",
+    },
+    board: {
+      title: "攻击",
+      starting: "正在启动主导智能体…",
+    },
+    findings: {
+      running: "智能体正在探测目标，暂无发现。",
+      runningMeta: "{{count}} 个智能体 · {{elapsed}}",
+      lastRun: "上次运行 · {{target}}",
+      noRun: "开始运行后，发现会显示在这里。",
+      empty: "暂无发现。",
+      nothingFound: "没有发现问题。运行结束时没有任何发现。",
+      severity: {
+        blocker: "阻断",
+        major: "重要",
+        minor: "次要",
+      },
+      status: {
+        new: "新建",
+        triaged: "已分类",
+        dismissed: "已忽略",
+        fixed: "已修复",
+      },
+      reported: "已报告 {{count}} 次",
+      repro: "复现步骤",
+      evidence: "证据",
+      fixIt: "修复",
+      screenshotLoading: "正在加载截图…",
+      screenshotMissing: "截图太大，未保存。",
+      action: {
+        triage: "标记为已分类",
+        dismiss: "忽略",
+        fixed: "标记为已修复",
+        reopen: "重新打开",
+      },
+    },
+  },
   panels: {
     draft: {
       newAgent: "新建 Agent",

@@ -1,7 +1,7 @@
 import React, { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Text, View } from "react-native";
-import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { SPACING, type Theme } from "@/styles/theme";
+import { StyleSheet } from "react-native-unistyles";
+import { SPACING } from "@/styles/theme";
 import type { TurnTiming } from "@/timeline/turn-time";
 import type { StreamItem } from "@/types/stream";
 import {
@@ -18,16 +18,9 @@ import {
 import type { TurnFooterHost } from "./layout";
 import { AssistantForkMenu } from "@/components/assistant-fork-menu";
 import { WorkingPimi } from "@/components/working-pimi";
-import { getStatusDotColor } from "@/utils/status-dot-color";
 import type { WorkingStatusKind } from "./working-status";
 import { useRetainedPanelActive } from "@/components/retained-panel";
 
-const ThemedWorkingPimi = withUnistyles(WorkingPimi);
-const workingPimiColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
-// Waiting for the user is the needs-input state, so it takes the same amber as the sidebar dot.
-const waitingPimiColorMapping = (theme: Theme) => ({
-  color: getStatusDotColor({ theme, bucket: "needs_input" }) ?? theme.colors.foreground,
-});
 // A short turn should not flash a timer; show elapsed time only once it is worth reading.
 const ELAPSED_VISIBLE_AFTER_MS = 5000;
 export const TURN_FOOTER_BOTTOM_SPACING = SPACING[8];
@@ -167,11 +160,7 @@ const WorkingIndicator = memo(function WorkingIndicator({
   return (
     <View style={stylesheet.turnFooterContent}>
       <View style={stylesheet.workingLoader}>
-        <ThemedWorkingPimi
-          size={18}
-          waiting={workingKind === "waiting"}
-          uniProps={workingKind === "waiting" ? waitingPimiColorMapping : workingPimiColorMapping}
-        />
+        <WorkingPimi size={18} waiting={workingKind === "waiting"} />
       </View>
       <Text style={stylesheet.workingLabel} numberOfLines={1} testID="turn-working-label">
         {workingLabel}

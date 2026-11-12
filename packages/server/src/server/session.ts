@@ -220,6 +220,8 @@ import {
   createGitMetadataGenerator,
 } from "./session/checkout/git-metadata-generator.js";
 import { AutomationSession } from "./session/automation/automation-session.js";
+import { AttackSession } from "./session/attack/attack-session.js";
+import type { AttackService } from "./attack/service.js";
 import { ProviderCatalogSession } from "./session/provider/provider-catalog-session.js";
 import { UsageSession } from "./session/usage/usage-session.js";
 import {
@@ -492,6 +494,7 @@ export interface SessionOptions {
   filesystem?: SessionFileSystem;
   automationService: AutomationService;
   heartbeatService: HeartbeatService;
+  attackService: AttackService;
   checkoutDiffManager: CheckoutDiffManager;
   github?: ForgeService;
   createAgentMcpTransport?: AgentMcpTransportFactory;
@@ -805,6 +808,7 @@ export class Session {
   private readonly voiceSessions: VoiceSessions;
   private readonly checkoutSession: CheckoutSession;
   private readonly automationSession: AutomationSession;
+  private readonly attackSession: AttackSession;
   private readonly providerCatalogSession: ProviderCatalogSession;
   private readonly usageSession: UsageSession;
   private readonly speechModelsSession: SpeechModelsSession;
@@ -843,6 +847,7 @@ export class Session {
       filesystem,
       automationService,
       heartbeatService,
+      attackService,
       checkoutDiffManager,
       github,
       renameCurrentBranch,
@@ -1000,6 +1005,11 @@ export class Session {
       host: { emit: (msg) => this.emit(msg) },
       automationService,
       heartbeatService,
+      logger: this.sessionLogger,
+    });
+    this.attackSession = new AttackSession({
+      host: { emit: (msg) => this.emit(msg) },
+      attackService,
       logger: this.sessionLogger,
     });
     this.providerCatalogSession = new ProviderCatalogSession({
@@ -2238,6 +2248,7 @@ export class Session {
     return (
       this.dispatchTerminalMessage(msg) ??
       this.automationSession.dispatch(msg) ??
+      this.attackSession.dispatch(msg) ??
       this.speechModelsSession.dispatch(msg)
     );
   }
@@ -9005,6 +9016,8 @@ function sessionEventCategory(message: SessionOutboundMessage): SessionEventSubs
     case "agent.background_work.update":
     case "terminal_attention_required":
     case "activity_log":
+    case "attack.run.changed":
+    case "attack.finding.changed":
       return message.type;
     case "status":
       switch (message.payload.status) {

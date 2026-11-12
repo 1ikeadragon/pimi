@@ -5,11 +5,15 @@ import { persist, type StateStorage } from "zustand/middleware";
 import type { z } from "zod";
 import { WorkspaceLayoutPersistedStateSchema } from "./workspace-layout-storage";
 import {
+  ATTACK_HOLDING_PANE_ID,
+  attackPaneIdForTarget,
+  createAttackWorkbench,
   createEditorWorkbench,
   isWorkbenchChatTarget,
   isWorkbenchDocument,
   restoreWorkbench,
   type WorkbenchMode,
+  type WorkbenchPreset,
   type WorkspaceWorkbench,
 } from "./workspace-workbench";
 import { getWorkspacePanelAttributes } from "@/panels/panel-instance-attributes";
@@ -251,7 +255,7 @@ interface WorkspaceFocusRestorationState {
 // Preserve four user-created split levels beneath that bookkeeping node.
 const MAX_TREE_DEPTH = 5;
 
-const WORKSPACE_LAYOUT_PERSIST_VERSION = 2;
+const WORKSPACE_LAYOUT_PERSIST_VERSION = 4;
 type WorkspaceLayoutPersistedState = z.infer<typeof WorkspaceLayoutPersistedStateSchema>;
 
 function replacePaneInNode(node: SplitNode, paneId: string, replacement: SplitPane): SplitNode {
@@ -393,13 +397,64 @@ function migrateVersionOneWorkspaceLayout(input: {
   };
 }
 
+// COMPAT(workbench-alternates): layouts saved before version 3 keep one `alternate` layout for the
+// other of Agent and IDE Mode. Version 3 keeps a layout per mode that is not showing.
+function migrateWorkbenchAlternates(persistedState: unknown, version: number): unknown {
+  if (version >= 3 || typeof persistedState !== "object" || persistedState === null) {
+    return persistedState;
+  }
+  const state = persistedState as { workbenchByWorkspace?: Record<string, unknown> };
+  if (!state.workbenchByWorkspace) return persistedState;
+  const workbenchByWorkspace: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(state.workbenchByWorkspace)) {
+    const old = entry as { mode?: WorkbenchMode; alternate?: unknown };
+    if (!old.alternate || (old.mode !== "agent" && old.mode !== "editor")) continue;
+    workbenchByWorkspace[key] = {
+      mode: old.mode,
+      alternates: { [old.mode === "agent" ? "editor" : "agent"]: old.alternate },
+    };
+  }
+  return { ...state, workbenchByWorkspace };
+}
+
+// COMPAT(attack-board): Attack mode layouts saved before version 4 hold the removed attack_control
+// tab and the old pane ids. Version 4 drops them so the board layout is rebuilt on next entry.
+function dropLegacyAttackWorkbenches(persistedState: unknown, version: number): unknown {
+  if (version >= 4 || typeof persistedState !== "object" || persistedState === null) {
+    return persistedState;
+  }
+  const state = persistedState as {
+    layoutByWorkspace?: Record<string, unknown>;
+    workbenchByWorkspace?: Record<
+      string,
+      { mode?: WorkbenchMode; alternates?: Partial<Record<WorkbenchMode, unknown>> }
+    >;
+  };
+  if (!state.workbenchByWorkspace) return persistedState;
+  const layoutByWorkspace = { ...state.layoutByWorkspace };
+  const workbenchByWorkspace: NonNullable<typeof state.workbenchByWorkspace> = {};
+  for (const [key, entry] of Object.entries(state.workbenchByWorkspace)) {
+    if (entry.mode === "attack") {
+      delete layoutByWorkspace[key];
+      continue;
+    }
+    const { attack: _attack, ...alternates } = entry.alternates ?? {};
+    workbenchByWorkspace[key] = { ...entry, alternates };
+  }
+  return { ...state, layoutByWorkspace, workbenchByWorkspace };
+}
+
 function migrateWorkspaceLayoutPersistedState(
-  persistedState: unknown,
+  rawPersistedState: unknown,
   version: number,
   ids: WorkspaceLayoutIdSource,
 ): z.infer<typeof WorkspaceLayoutPersistedStateSchema> {
+  const persistedState = dropLegacyAttackWorkbenches(
+    migrateWorkbenchAlternates(rawPersistedState, version),
+    version,
+  );
   const result = WorkspaceLayoutPersistedStateSchema.safeParse(persistedState);
-  if (!result.success || version >= WORKSPACE_LAYOUT_PERSIST_VERSION) {
+  if (!result.success || version >= 2) {
     return result.success ? result.data : { layoutByWorkspace: {} };
   }
 
@@ -637,7 +692,9 @@ function getWorkbenchPlacement(
   workspaceKey: string,
   target: WorkspaceTabTarget,
 ): WorkspaceTabPlacement {
-  if (state.workbenchByWorkspace[workspaceKey]?.mode !== "editor") return AMBIENT_PLACEMENT;
+  const mode = state.workbenchByWorkspace[workspaceKey]?.mode;
+  if (mode === "attack") return { mode: "prefer", paneId: attackPaneIdForTarget(target) };
+  if (mode !== "editor") return AMBIENT_PLACEMENT;
   if (isWorkbenchDocument(target)) return { mode: "prefer", paneId: DEFAULT_PANE_ID };
   const sidePaneId = state.sidePaneIdByWorkspace[workspaceKey];
   if (sidePaneId && isWorkbenchChatTarget(target)) return { mode: "prefer", paneId: sidePaneId };
@@ -660,7 +717,12 @@ function getOpenTabPlacement(
     layout,
     state.explorerSidebarPaneIdByWorkspace[workspaceKey],
   );
-  const requestedPlacement = placement ?? getWorkbenchPlacement(state, workspaceKey, target);
+  // Attack mode owns placement: callers that name the focused pane would otherwise put agent and
+  // browser tabs into the board.
+  const requestedPlacement =
+    state.workbenchByWorkspace[workspaceKey]?.mode === "attack"
+      ? getWorkbenchPlacement(state, workspaceKey, target)
+      : (placement ?? getWorkbenchPlacement(state, workspaceKey, target));
   const supportsPane = (pane: SplitPane) =>
     panelTargetSupportsHostForWorkspaceKey(
       workspaceKey,
@@ -1136,15 +1198,21 @@ export function createWorkspaceLayoutStore(
             ),
             sidePaneId: state.sidePaneIdByWorkspace[workspaceKey] ?? null,
           };
-          const next = prior
-            ? restoreWorkbench(prior.alternate, layout, mode)
-            : createEditorWorkbench(current, ids);
+          const template = prior?.alternates[mode];
+          let next: WorkbenchPreset;
+          if (template) next = restoreWorkbench(template, layout, mode);
+          else if (mode === "attack") next = createAttackWorkbench(current);
+          else next = createEditorWorkbench(current, ids);
+          const { [mode]: _showing, ...alternates } = prior?.alternates ?? {};
           set({
             ...withoutFocusRestoration(state, workspaceKey),
             layoutByWorkspace: { ...state.layoutByWorkspace, [workspaceKey]: next.layout },
             workbenchByWorkspace: {
               ...state.workbenchByWorkspace,
-              [workspaceKey]: { mode, alternate: current },
+              [workspaceKey]: {
+                mode,
+                alternates: { ...alternates, [prior?.mode ?? "agent"]: current },
+              },
             },
             explorerSidebarPaneIdByWorkspace: {
               ...state.explorerSidebarPaneIdByWorkspace,
@@ -1811,6 +1879,10 @@ export function createWorkspaceLayoutStore(
                 pinnedAgentIds: state.pinnedAgentIdsByWorkspace[normalizedWorkspaceKey] ?? null,
                 hiddenAgentIds: state.hiddenAgentIdsByWorkspace[normalizedWorkspaceKey] ?? null,
                 explorerSidebarPaneId,
+                entityTabPaneId:
+                  state.workbenchByWorkspace[normalizedWorkspaceKey]?.mode === "attack"
+                    ? ATTACK_HOLDING_PANE_ID
+                    : null,
               },
               snapshot,
             );

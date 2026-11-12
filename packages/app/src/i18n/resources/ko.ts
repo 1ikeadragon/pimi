@@ -2097,6 +2097,118 @@ export const ko: TranslationResources = {
     archiveFinishedAction: "완료된 하위 에이전트 보관",
     archiveFinishedRetry: "다시 시도 ({{failed}}/{{total}})",
   },
+  attack: {
+    mode: {
+      label: "어택",
+      accessibilityLabel: "어택 모드",
+      openProject: "어택 모드를 사용하려면 프로젝트를 여세요.",
+    },
+    panels: {
+      board: {
+        label: "어택 실행",
+        subtitle: "실행 제어",
+      },
+      findings: {
+        label: "발견 사항",
+        subtitle: "어택 발견 사항",
+      },
+    },
+    form: {
+      target: "대상 URL",
+      targetInvalid: "http 또는 https URL을 입력하세요",
+      remoteHost: "허용된 원격 호스트: {{host}}",
+      repoScope: "이 저장소 포함",
+      scopeNotes: "범위 메모",
+      minutes: "시간 예산(분)",
+      kiloTokens: "토큰 예산(천 단위)",
+      numberInvalid: "올바른 정수를 입력하세요",
+      model: "에이전트 모델",
+      modelPlaceholder: "모델 선택",
+      modelMissing: "모델을 선택하세요",
+      roster: "에이전트",
+      rosterEmpty: "에이전트를 하나 이상 선택하세요",
+      disposable: "일회용 대상",
+      disposableHint: "에이전트가 쓰기와 부하 전송을 할 수 있게 합니다. 현재 구성은 읽기만 합니다.",
+      confinement:
+        "브라우저 탭은 localhost와 대상 호스트만 열 수 있습니다. 에이전트는 읽기만 하고 이 호스트를 벗어나지 않도록 지시받지만, 셸은 샌드박스로 격리되어 있지 않습니다. 명령으로 파일을 쓰거나 다른 호스트에 접속할 수 있습니다. Claude 에이전트는 웹 도구, 파일 편집 도구, 사용자의 MCP 서버 없이 실행되며, 다른 제공자는 그대로 유지합니다.",
+      start: "어택 시작",
+    },
+    roster: {
+      uiQa: "UI QA 및 카오스",
+      secrets: "시크릿 및 설정 감사",
+    },
+    run: {
+      status: {
+        running: "실행 중",
+        paused: "일시 중지됨",
+        stopped: "중지됨",
+        completed: "완료됨",
+      },
+      pausedReason: {
+        user: "사용자가 일시 중지함",
+        time_budget: "일시 중지: 시간 예산에 도달했습니다",
+        token_budget: "일시 중지: 토큰 예산에 도달했습니다",
+      },
+      timeSpent: "{{spent}} / {{limit}}분",
+      tokensSpent: "{{spent}} / {{limit}} 토큰",
+      pause: "일시 중지",
+      resume: "재개",
+      stop: "중지",
+      newRun: "새 실행",
+    },
+    tile: {
+      focus: "{{role}} 보기",
+      state: {
+        idle: "작업 대기 중",
+        done: "완료",
+        failed: "실패",
+      },
+    },
+    grid: {
+      previous: "이전 에이전트",
+      next: "다음 에이전트",
+    },
+    focus: {
+      chat: "채팅",
+      browser: "브라우저",
+      back: "그리드",
+    },
+    board: {
+      title: "공격",
+      starting: "리드 에이전트를 시작하는 중…",
+    },
+    findings: {
+      running: "에이전트가 대상을 조사하고 있습니다. 아직 발견된 항목이 없습니다.",
+      runningMeta: "에이전트 {{count}}개 · {{elapsed}}",
+      lastRun: "마지막 실행 · {{target}}",
+      noRun: "실행을 시작하면 여기에 발견 사항이 표시됩니다.",
+      empty: "아직 발견 사항이 없습니다.",
+      nothingFound: "발견된 것이 없습니다. 실행이 발견 사항 없이 끝났습니다.",
+      severity: {
+        blocker: "차단",
+        major: "주요",
+        minor: "경미",
+      },
+      status: {
+        new: "새 항목",
+        triaged: "분류됨",
+        dismissed: "무시됨",
+        fixed: "수정됨",
+      },
+      reported: "{{count}}번 보고됨",
+      repro: "재현 방법",
+      evidence: "증거",
+      fixIt: "수정하기",
+      screenshotLoading: "스크린샷 불러오는 중…",
+      screenshotMissing: "스크린샷이 너무 커서 저장되지 않았습니다.",
+      action: {
+        triage: "분류됨으로 표시",
+        dismiss: "무시",
+        fixed: "수정됨으로 표시",
+        reopen: "다시 열기",
+      },
+    },
+  },
   panels: {
     draft: {
       newAgent: "새 에이전트",

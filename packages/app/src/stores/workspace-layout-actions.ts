@@ -264,6 +264,8 @@ export interface WorkspaceTabReconcileState {
   pinnedAgentIds?: ReadonlySet<string> | null;
   hiddenAgentIds?: ReadonlySet<string> | null;
   explorerSidebarPaneId: string | null;
+  /** Attack mode parks auto-opened agent and terminal tabs in its holding pane. */
+  entityTabPaneId?: string | null;
 }
 
 export interface WorkspaceTabSnapshot {
@@ -2288,13 +2290,18 @@ function openEntityTabWithoutFocusing(input: {
   layout: WorkspaceLayout;
   target: WorkspaceTabTarget;
   explorerSidebarPaneId: string | null;
+  /** A pane that takes auto-opened tabs instead of the focused one; ignored when absent. */
+  entityTabPaneId?: string | null;
 }): WorkspaceLayout {
   return (
     insertNewTabIntoPane({
       layout: input.layout,
       target: input.target,
       now: Date.now(),
-      placement: AMBIENT_PLACEMENT,
+      placement:
+        input.entityTabPaneId && findPaneById(input.layout.root, input.entityTabPaneId)
+          ? { mode: "prefer", paneId: input.entityTabPaneId }
+          : AMBIENT_PLACEMENT,
       explorerSidebarPaneId: input.explorerSidebarPaneId,
       createTabId: () => buildDeterministicWorkspaceTabId(input.target),
       focus: false,
@@ -2386,6 +2393,7 @@ function addMissingEntityTabs(input: {
   hasActivePendingTerminalCreate: boolean;
   hasActivePendingDraftCreate: boolean;
   explorerSidebarPaneId: string | null;
+  entityTabPaneId?: string | null;
 }): WorkspaceLayout {
   const {
     autoOpenAgentIds,
@@ -2416,6 +2424,7 @@ function addMissingEntityTabs(input: {
       layout: nextLayout,
       target: { kind: "agent", agentId },
       explorerSidebarPaneId,
+      entityTabPaneId: input.entityTabPaneId,
     });
     currentAgentIds.add(agentId);
   }
@@ -2430,6 +2439,7 @@ function addMissingEntityTabs(input: {
         layout: nextLayout,
         target: { kind: "terminal", terminalId },
         explorerSidebarPaneId,
+        entityTabPaneId: input.entityTabPaneId,
       });
       currentTerminalIds.add(terminalId);
     }
@@ -2529,6 +2539,7 @@ export function reconcileWorkspaceTabs(
     hasActivePendingTerminalCreate: snapshot.hasActivePendingTerminalCreate ?? false,
     hasActivePendingDraftCreate: snapshot.hasActivePendingDraftCreate ?? false,
     explorerSidebarPaneId: state.explorerSidebarPaneId,
+    entityTabPaneId: state.entityTabPaneId,
   });
 
   if (reconciledFocusedTabId) {

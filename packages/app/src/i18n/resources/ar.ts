@@ -2084,6 +2084,118 @@ export const ar: TranslationResources = {
     archiveFinishedAction: "أرشفة الوكلاء الفرعيين المكتملين",
     archiveFinishedRetry: "إعادة المحاولة ({{failed}}/{{total}})",
   },
+  attack: {
+    mode: {
+      label: "الهجوم",
+      accessibilityLabel: "وضع الهجوم",
+      openProject: "افتح مشروعًا لاستخدام وضع الهجوم.",
+    },
+    panels: {
+      board: {
+        label: "تشغيل الهجوم",
+        subtitle: "عناصر التحكم في التشغيل",
+      },
+      findings: {
+        label: "النتائج",
+        subtitle: "نتائج الهجوم",
+      },
+    },
+    form: {
+      target: "عنوان URL الهدف",
+      targetInvalid: "أدخل عنوان URL يبدأ بـ http أو https",
+      remoteHost: "المضيف البعيد المسموح: {{host}}",
+      repoScope: "تضمين هذا المستودع",
+      scopeNotes: "ملاحظات النطاق",
+      minutes: "ميزانية الوقت (دقائق)",
+      kiloTokens: "ميزانية الرموز (بالآلاف)",
+      numberInvalid: "أدخل عددًا صحيحًا صالحًا",
+      model: "نموذج الوكيل",
+      modelPlaceholder: "اختر نموذجًا",
+      modelMissing: "اختر نموذجًا",
+      roster: "الوكلاء",
+      rosterEmpty: "اختر وكيلًا واحدًا على الأقل",
+      disposable: "هدف قابل للتخلص",
+      disposableHint: "يسمح للوكلاء بالكتابة وإرسال الحمل. التشكيلة الحالية تقرأ فقط.",
+      confinement:
+        "علامات تبويب المتصفح لا تفتح إلا localhost والمضيف المستهدف. الوكلاء مأمورون بالقراءة فقط وبالبقاء ضمن هذين المضيفين، لكن الصدفة (shell) لديهم غير معزولة: يمكن لأمر أن يكتب ملفات أو يصل إلى مضيفين آخرين. وكلاء Claude يعملون بلا أدوات الويب وبلا أدوات تعديل الملفات وبلا خوادم MCP الخاصة بك، أما المزوّدون الآخرون فيحتفظون بها.",
+      start: "ابدأ الهجوم",
+    },
+    roster: {
+      uiQa: "اختبار جودة الواجهة والفوضى",
+      secrets: "مدقق الأسرار والإعدادات",
+    },
+    run: {
+      status: {
+        running: "قيد التشغيل",
+        paused: "متوقف مؤقتًا",
+        stopped: "متوقف",
+        completed: "مكتمل",
+      },
+      pausedReason: {
+        user: "أوقفته مؤقتًا",
+        time_budget: "متوقف مؤقتًا: تم بلوغ ميزانية الوقت",
+        token_budget: "متوقف مؤقتًا: تم بلوغ ميزانية الرموز",
+      },
+      timeSpent: "{{spent}} من {{limit}} دقيقة",
+      tokensSpent: "{{spent}} من {{limit}} رمز",
+      pause: "إيقاف مؤقت",
+      resume: "استئناف",
+      stop: "إيقاف",
+      newRun: "تشغيل جديد",
+    },
+    tile: {
+      focus: "التركيز على {{role}}",
+      state: {
+        idle: "بانتظار المهام",
+        done: "اكتمل",
+        failed: "فشل",
+      },
+    },
+    grid: {
+      previous: "الوكلاء السابقون",
+      next: "الوكلاء التالون",
+    },
+    focus: {
+      chat: "الدردشة",
+      browser: "المتصفح",
+      back: "الشبكة",
+    },
+    board: {
+      title: "الهجوم",
+      starting: "جارٍ تشغيل الوكيل القائد…",
+    },
+    findings: {
+      running: "الوكلاء يفحصون الهدف. لا توجد نتائج بعد.",
+      runningMeta: "{{count}} وكلاء · {{elapsed}}",
+      lastRun: "آخر تشغيل · {{target}}",
+      noRun: "ابدأ تشغيلًا لرؤية النتائج هنا.",
+      empty: "لا توجد نتائج بعد.",
+      nothingFound: "لم يُعثر على شيء. انتهى التشغيل دون نتائج.",
+      severity: {
+        blocker: "حرج",
+        major: "كبير",
+        minor: "بسيط",
+      },
+      status: {
+        new: "جديد",
+        triaged: "تم فرزه",
+        dismissed: "مرفوض",
+        fixed: "تم إصلاحه",
+      },
+      reported: "تم الإبلاغ {{count}} مرات",
+      repro: "خطوات إعادة الإنتاج",
+      evidence: "الأدلة",
+      fixIt: "أصلحه",
+      screenshotLoading: "جارٍ تحميل لقطة الشاشة…",
+      screenshotMissing: "لقطة الشاشة كبيرة جدًا ولم تُحفظ.",
+      action: {
+        triage: "وضع علامة كمفروز",
+        dismiss: "تجاهل",
+        fixed: "وضع علامة كمُصلح",
+        reopen: "إعادة فتح",
+      },
+    },
+  },
   panels: {
     draft: {
       newAgent: "وكيل جديد",

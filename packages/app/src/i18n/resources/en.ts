@@ -2121,6 +2121,118 @@ export const en = {
     archiveFinishedAction: "Archive finished subagents",
     archiveFinishedRetry: "Retry ({{failed}}/{{total}})",
   },
+  attack: {
+    mode: {
+      label: "Attack",
+      accessibilityLabel: "Attack Mode",
+      openProject: "Open a project to use Attack Mode.",
+    },
+    panels: {
+      board: {
+        label: "Attack run",
+        subtitle: "Run controls",
+      },
+      findings: {
+        label: "Findings",
+        subtitle: "Attack findings",
+      },
+    },
+    form: {
+      target: "Target URL",
+      targetInvalid: "Enter an http or https URL",
+      remoteHost: "Remote host allowed: {{host}}",
+      repoScope: "Include this repository",
+      scopeNotes: "Scope notes",
+      minutes: "Time budget (minutes)",
+      kiloTokens: "Token budget (thousands)",
+      numberInvalid: "Enter a whole number in range",
+      model: "Agent model",
+      modelPlaceholder: "Choose a model",
+      modelMissing: "Choose a model",
+      roster: "Agents",
+      rosterEmpty: "Pick at least one agent",
+      disposable: "Disposable target",
+      disposableHint: "Lets agents write and send load. The current roster only reads.",
+      confinement:
+        "Browser tabs can only open localhost and the target host. Agents are told to read only and to stay on those hosts, but their shell is not sandboxed: a command can still write files or reach other hosts. Claude agents run without web tools, file-editing tools and your own MCP servers; other providers keep theirs.",
+      start: "Start attack",
+    },
+    roster: {
+      uiQa: "UI QA and chaos",
+      secrets: "Secrets and config auditor",
+    },
+    run: {
+      status: {
+        running: "Running",
+        paused: "Paused",
+        stopped: "Stopped",
+        completed: "Completed",
+      },
+      pausedReason: {
+        user: "Paused by you",
+        time_budget: "Paused: time budget reached",
+        token_budget: "Paused: token budget reached",
+      },
+      timeSpent: "{{spent}} of {{limit}} min",
+      tokensSpent: "{{spent}} of {{limit}} tokens",
+      pause: "Pause",
+      resume: "Resume",
+      stop: "Stop",
+      newRun: "New run",
+    },
+    tile: {
+      focus: "Focus {{role}}",
+      state: {
+        idle: "Waiting for work",
+        done: "Finished",
+        failed: "Failed",
+      },
+    },
+    grid: {
+      previous: "Previous agents",
+      next: "Next agents",
+    },
+    focus: {
+      chat: "Chat",
+      browser: "Browser",
+      back: "Grid",
+    },
+    board: {
+      title: "Attack",
+      starting: "Starting the lead agent…",
+    },
+    findings: {
+      running: "Agents are probing the target. No findings yet.",
+      runningMeta: "{{count}} agents · {{elapsed}}",
+      lastRun: "Last run · {{target}}",
+      noRun: "Start a run to see findings here.",
+      empty: "No findings yet.",
+      nothingFound: "Nothing found. The run finished without findings.",
+      severity: {
+        blocker: "Blocker",
+        major: "Major",
+        minor: "Minor",
+      },
+      status: {
+        new: "New",
+        triaged: "Triaged",
+        dismissed: "Dismissed",
+        fixed: "Fixed",
+      },
+      reported: "Reported {{count}} times",
+      repro: "Repro",
+      evidence: "Evidence",
+      fixIt: "Fix it",
+      screenshotLoading: "Loading screenshot…",
+      screenshotMissing: "Screenshot was too large to keep.",
+      action: {
+        triage: "Mark triaged",
+        dismiss: "Dismiss",
+        fixed: "Mark fixed",
+        reopen: "Reopen",
+      },
+    },
+  },
   panels: {
     draft: {
       newAgent: "New Agent",

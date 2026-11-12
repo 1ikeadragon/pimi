@@ -59,6 +59,7 @@ import { WorkspaceRenameHost } from "@/components/workspace-rename-host";
 import { WorkspaceArchiveUndoShortcutHost } from "@/workspace/archive-undo";
 import { WorkspaceExplorerOpenGesture } from "@/mobile-panels/explorer-open-gesture";
 import { useFollowWorkbenchMode, usePimiWorkbenchMode } from "@/desktop/use-pimi-workbench";
+import { useAttackNavigationAudit } from "@/attack/use-attack-navigation-audit";
 import { PimiLabelsProvider } from "@/desktop/pimi-labels";
 import { HarnessUpdateNotice } from "@/components/harness-update-notice";
 import { ProviderSettingsHost } from "@/components/provider-settings-host";
@@ -621,7 +622,9 @@ function useAppSidebarLayout({
   const activeWorkspaceKey = activeWorkspace
     ? `${activeWorkspace.serverId}:${activeWorkspace.workspaceId}`
     : null;
-  const ide = usePimiWorkbenchMode(activeWorkspaceKey) === "editor";
+  // Editor and Attack Mode both collapse the projects sidebar to its rail.
+  const workbenchMode = usePimiWorkbenchMode(activeWorkspaceKey);
+  const ide = workbenchMode === "editor" || workbenchMode === "attack";
   const explorerVisible = useIsExplorerSidebarOpen({
     isCompact: isCompactLayout,
     workspaceKey: activeWorkspaceKey,
@@ -637,6 +640,7 @@ function useAppSidebarLayout({
     !isWorkspaceFocusModeEnabled &&
     Boolean(getDesktopHost()?.showPimiWorkspace);
   useFollowWorkbenchMode(activeWorkspaceKey, Boolean(getDesktopHost()?.showPimiWorkspace));
+  useAttackNavigationAudit();
   const desktopSidebarVisible = resolveDesktopSidebarVisibility({
     chromeEnabled,
     isCompactLayout,

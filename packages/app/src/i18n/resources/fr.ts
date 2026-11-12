@@ -2135,6 +2135,119 @@ export const fr: TranslationResources = {
     archiveFinishedAction: "Archiver les sous-agents terminés",
     archiveFinishedRetry: "Réessayer ({{failed}}/{{total}})",
   },
+  attack: {
+    mode: {
+      label: "Attaque",
+      accessibilityLabel: "Mode Attaque",
+      openProject: "Ouvrez un projet pour utiliser le mode Attaque.",
+    },
+    panels: {
+      board: {
+        label: "Exécution d’attaque",
+        subtitle: "Contrôles de l’exécution",
+      },
+      findings: {
+        label: "Constats",
+        subtitle: "Constats de l’attaque",
+      },
+    },
+    form: {
+      target: "URL cible",
+      targetInvalid: "Saisissez une URL http ou https",
+      remoteHost: "Hôte distant autorisé : {{host}}",
+      repoScope: "Inclure ce dépôt",
+      scopeNotes: "Notes de périmètre",
+      minutes: "Budget de temps (minutes)",
+      kiloTokens: "Budget de tokens (milliers)",
+      numberInvalid: "Saisissez un nombre entier valide",
+      model: "Modèle de l’agent",
+      modelPlaceholder: "Choisir un modèle",
+      modelMissing: "Choisissez un modèle",
+      roster: "Agents",
+      rosterEmpty: "Choisissez au moins un agent",
+      disposable: "Cible jetable",
+      disposableHint:
+        "Permet aux agents d’écrire et d’envoyer de la charge. La liste actuelle ne fait que lire.",
+      confinement:
+        "Les onglets du navigateur ne peuvent ouvrir que localhost et l’hôte cible. Les agents ont pour consigne de lire seulement et de rester sur ces hôtes, mais leur shell n’est pas isolé : une commande peut encore écrire des fichiers ou atteindre d’autres hôtes. Les agents Claude s’exécutent sans outils web, sans outils de modification de fichiers et sans vos propres serveurs MCP ; les autres fournisseurs gardent les leurs.",
+      start: "Lancer l’attaque",
+    },
+    roster: {
+      uiQa: "QA UI et chaos",
+      secrets: "Auditeur de secrets et de configuration",
+    },
+    run: {
+      status: {
+        running: "En cours",
+        paused: "En pause",
+        stopped: "Arrêtée",
+        completed: "Terminée",
+      },
+      pausedReason: {
+        user: "Mise en pause par vous",
+        time_budget: "En pause : budget de temps atteint",
+        token_budget: "En pause : budget de tokens atteint",
+      },
+      timeSpent: "{{spent}} sur {{limit}} min",
+      tokensSpent: "{{spent}} sur {{limit}} tokens",
+      pause: "Pause",
+      resume: "Reprendre",
+      stop: "Arrêter",
+      newRun: "Nouvelle exécution",
+    },
+    tile: {
+      focus: "Afficher {{role}}",
+      state: {
+        idle: "En attente de travail",
+        done: "Terminé",
+        failed: "Échec",
+      },
+    },
+    grid: {
+      previous: "Agents précédents",
+      next: "Agents suivants",
+    },
+    focus: {
+      chat: "Chat",
+      browser: "Navigateur",
+      back: "Grille",
+    },
+    board: {
+      title: "Attaque",
+      starting: "Démarrage de l'agent principal…",
+    },
+    findings: {
+      running: "Les agents sondent la cible. Aucun résultat pour l'instant.",
+      runningMeta: "{{count}} agents · {{elapsed}}",
+      lastRun: "Dernière exécution · {{target}}",
+      noRun: "Lancez une exécution pour voir les constats ici.",
+      empty: "Aucun constat pour l’instant.",
+      nothingFound: "Rien trouvé. L’exécution s’est terminée sans constat.",
+      severity: {
+        blocker: "Bloquant",
+        major: "Majeur",
+        minor: "Mineur",
+      },
+      status: {
+        new: "Nouveau",
+        triaged: "Trié",
+        dismissed: "Écarté",
+        fixed: "Corrigé",
+      },
+      reported: "Signalé {{count}} fois",
+      repro: "Reproduction",
+      evidence: "Preuve",
+      fixIt: "Corriger",
+      screenshotLoading: "Chargement de la capture…",
+      screenshotMissing: "La capture était trop volumineuse pour être conservée.",
+      action: {
+        triage: "Marquer comme trié",
+        dismiss: "Écarter",
+        fixed: "Marquer comme corrigé",
+        reopen: "Rouvrir",
+      },
+    },
+  },
   panels: {
     draft: {
       newAgent: "Nouvel agent",

@@ -23,6 +23,8 @@ export interface BrowserToolsExecuteInput {
   workspaceId?: string;
   requestId?: string;
   timeoutMs?: number;
+  /** Set for an Attack run's agents: the desktop app refuses tabs they drive any other host. */
+  attackGuard?: { runId: string; allowedHosts: string[] };
 }
 
 interface PendingBrowserToolsRequest {
@@ -119,6 +121,7 @@ export class BrowserToolsBroker {
       ...(input.agentId ? { agentId: input.agentId } : {}),
       ...(input.cwd ? { cwd: input.cwd } : {}),
       ...(input.workspaceId ? { workspaceId: input.workspaceId } : {}),
+      ...(input.attackGuard ? { attackGuard: input.attackGuard } : {}),
       command: input.command,
     });
 

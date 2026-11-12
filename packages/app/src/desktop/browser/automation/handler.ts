@@ -120,6 +120,15 @@ async function handleBrowserAutomationRequest(params: {
   const browserHost = getHost()?.browser;
   const executeAutomationCommand = browserHost?.executeAutomationCommand;
 
+  const refusal = refuseForeignAttackTab(request);
+  if (refusal) {
+    client.sendBrowserAutomationExecuteResponse({
+      type: "browser.automation.execute.response",
+      payload: refusal,
+    });
+    return;
+  }
+
   if (request.command.command === "new_tab") {
     try {
       client.sendBrowserAutomationExecuteResponse({
@@ -182,10 +191,13 @@ async function handleBrowserAutomationRequest(params: {
   }
 
   try {
-    const payload = await executeAutomationCommand(request);
+    const payload = normalizeBridgePayload(
+      request.requestId,
+      await executeAutomationCommand(request),
+    );
     client.sendBrowserAutomationExecuteResponse({
       type: "browser.automation.execute.response",
-      payload: normalizeBridgePayload(request.requestId, payload),
+      payload: ownAttackTabsOnly(request, payload),
     });
   } catch (error) {
     client.sendBrowserAutomationExecuteResponse({
@@ -193,6 +205,42 @@ async function handleBrowserAutomationRequest(params: {
       payload: normalizeThrownBridgeError(request.requestId, error),
     });
   }
+}
+
+// An Attack run's agents drive only the tabs their run opened. Any other tab may show a host
+// outside the run's list, and a command on it would confine the owner's own tab.
+function refuseForeignAttackTab(
+  request: BrowserAutomationExecuteRequest,
+): BrowserAutomationResponsePayload | null {
+  const runId = request.attackGuard?.runId;
+  const browserId = (request.command.args as { browserId?: string }).browserId;
+  if (!runId || !browserId) return null;
+  const record = getBrowserRecord(browserId);
+  if (!record || record.owner?.runId === runId) return null;
+  return browserAutomationFailure({
+    requestId: request.requestId,
+    code: "browser_denied",
+    message:
+      "This Attack run can only use browser tabs its own agents opened. Open one with browser_new_tab.",
+  });
+}
+
+/** An Attack run's agent is told about its run's tabs only. */
+function ownAttackTabsOnly(
+  request: BrowserAutomationExecuteRequest,
+  payload: BrowserAutomationResponsePayload,
+): BrowserAutomationResponsePayload {
+  const runId = request.attackGuard?.runId;
+  if (!runId || !payload.ok || payload.result.command !== "list_tabs") return payload;
+  return {
+    ...payload,
+    result: {
+      ...payload.result,
+      tabs: payload.result.tabs.filter(
+        (tab) => getBrowserRecord(tab.browserId)?.owner?.runId === runId,
+      ),
+    },
+  };
 }
 
 function resizeBrowserTabForRequest(params: {
@@ -348,7 +396,16 @@ async function openBrowserTabForRequest(params: {
   }
 
   const url = command.args.url ?? "https://example.com";
-  const { browserId, url: normalizedUrl } = createWorkspaceBrowser({ initialUrl: url });
+  const { browserId, url: normalizedUrl } = createWorkspaceBrowser({
+    initialUrl: url,
+    ...(request.attackGuard && request.agentId
+      ? { owner: { runId: request.attackGuard.runId, agentId: request.agentId } }
+      : {}),
+  });
+  // A tab an Attack run's agent opens is confined to the run's hosts from the start.
+  if (request.attackGuard) {
+    await browserHost?.setAttackPolicy?.({ browserId, ...request.attackGuard });
+  }
   const workspaceKey = buildWorkspaceTabPersistenceKey({ serverId, workspaceId });
   if (!workspaceKey) {
     return browserAutomationFailure({

@@ -1,3 +1,4 @@
+import { ATTACK_RUN_LABEL } from "@pimi/protocol/agent-labels";
 import { registerPluginTools } from "./plugin-tools.js";
 import { registerProjectMemoryTools } from "./project-memory-tools.js";
 import { registerPimiTaskTools } from "./pimi-task-tools.js";
@@ -135,6 +136,8 @@ import {
 } from "../../worktree/commands.js";
 import { registerBrowserTools } from "../../browser-tools/tools.js";
 import type { BrowserToolsBroker } from "../../browser-tools/broker.js";
+import type { AttackService } from "../../attack/service.js";
+import { registerAttackTools } from "./attack-tools.js";
 import {
   PaseoToolInputError,
   type PaseoToolCatalog,
@@ -161,6 +164,7 @@ export interface PaseoToolHostDependencies {
   getDaemonTcpPort?: () => number | null;
   automationService?: AutomationService | null;
   heartbeatService?: HeartbeatService | null;
+  attackService?: AttackService | null;
   providerSnapshotManager: ProviderSnapshotManager;
   daemonConfigStore?: Pick<DaemonConfigStore, "get">;
   github?: ForgeService;
@@ -1465,8 +1469,19 @@ function createToolCatalog(
       broker: options.browserToolsBroker,
       callerAgentId,
       resolveCallerAgent,
+      attack: options.attackService,
     });
   }
+
+  registerAttackTools({
+    registerTool,
+    scope,
+    service: options.attackService,
+    callerAgentId,
+    browserToolsEnabled: options.browserToolsEnabled,
+    broker: options.browserToolsBroker,
+    resolveCallerAgent,
+  });
 
   registerTool(
     "list_hosts",
@@ -1719,6 +1734,10 @@ function createToolCatalog(
       const selectedProvider = resolveRequiredProviderModel(parsedArgs.provider).provider;
       const inheritedConfig = resolveInheritedProviderConfig(selectedProvider);
       const context = await delegationContext(resolvedArgs);
+      // An agent an Attack run's agent creates belongs to that run, whatever labels it asked for.
+      const attackRunId = callerAgentId
+        ? await options.attackService?.runIdForAgent(callerAgentId)
+        : null;
       const { snapshot, initialPromptStarted } = await createAgentCommand(
         {
           agentManager,
@@ -1752,6 +1771,7 @@ function createToolCatalog(
             ...(callerAgentId && options.serverId
               ? { "paseo.parent-server-id": options.serverId }
               : {}),
+            ...(attackRunId ? { [ATTACK_RUN_LABEL]: attackRunId } : {}),
           },
           mode: parsedArgs.settings?.modeId,
           promptFailure: "throw",

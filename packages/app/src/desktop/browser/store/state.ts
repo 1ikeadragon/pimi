@@ -16,7 +16,14 @@ export interface BrowserRecord {
   faviconUrl: string | null;
   lastError: string | null;
   viewport: BrowserViewport;
+  /** Set on a tab an Attack run's agent opened; the attack board groups and releases tabs by it. */
+  owner: BrowserOwner | null;
   createdAt: number;
+}
+
+export interface BrowserOwner {
+  runId: string;
+  agentId: string;
 }
 
 export type BrowserRecordPatch = Partial<Omit<BrowserRecord, "browserId" | "createdAt">>;
@@ -44,6 +51,11 @@ const BrowserRecordSchema = z.strictObject({
   faviconUrl: z.string().nullable(),
   lastError: z.string().nullable(),
   viewport: BrowserViewportSchema.optional().default(RESPONSIVE_BROWSER_VIEWPORT),
+  owner: z
+    .strictObject({ runId: z.string(), agentId: z.string() })
+    .nullable()
+    .optional()
+    .default(null),
   createdAt: z.number(),
 });
 
@@ -107,6 +119,7 @@ export function normalizeBrowserUrl(value: string | null | undefined): string {
 export function createBrowserRecord(input: {
   browserId: string;
   initialUrl: string | null | undefined;
+  owner?: BrowserOwner | null;
   now: number;
 }): BrowserRecord {
   return {
@@ -119,6 +132,7 @@ export function createBrowserRecord(input: {
     faviconUrl: null,
     lastError: null,
     viewport: RESPONSIVE_BROWSER_VIEWPORT,
+    owner: input.owner ?? null,
     createdAt: input.now,
   };
 }

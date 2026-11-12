@@ -28,6 +28,8 @@ const WorkspaceTabTargetStorageSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("changes_tree") }),
   z.strictObject({ kind: z.literal("files") }),
   z.strictObject({ kind: z.literal("pull_request") }),
+  z.strictObject({ kind: z.literal("attack_board") }),
+  z.strictObject({ kind: z.literal("attack_findings") }),
   z.strictObject({
     kind: z.literal("file"),
     path: z.string(),
@@ -99,12 +101,16 @@ export const WorkspaceLayoutPersistedStateSchema = z.strictObject({
     .record(
       z.string(),
       z.strictObject({
-        mode: z.enum(["agent", "editor"]),
-        alternate: z.strictObject({
-          layout: WorkspaceLayoutStorageSchema,
-          explorerPaneId: z.string().nullable(),
-          sidePaneId: z.string().nullable(),
-        }),
+        mode: z.enum(["agent", "editor", "attack"]),
+        // The layouts of the modes that are not showing, by mode.
+        alternates: z.partialRecord(
+          z.enum(["agent", "editor", "attack"]),
+          z.strictObject({
+            layout: WorkspaceLayoutStorageSchema,
+            explorerPaneId: z.string().nullable(),
+            sidePaneId: z.string().nullable(),
+          }),
+        ),
       }),
     )
     .optional(),

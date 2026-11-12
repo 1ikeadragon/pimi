@@ -173,6 +173,12 @@ export interface DesktopBrowserBridge {
     workspaceId: string;
     browserId: string | null;
   }) => Promise<void>;
+  /** Confines an Attack run's tab to the run's hosts; the main process refuses the rest. */
+  setAttackPolicy?: (input: {
+    browserId: string;
+    runId: string;
+    allowedHosts: string[];
+  }) => Promise<void>;
   focus?: (browserId: string) => Promise<boolean>;
   openDevTools?: (browserId: string) => Promise<unknown>;
   clearProfile?: (legacyBrowserIds: string[]) => Promise<void>;

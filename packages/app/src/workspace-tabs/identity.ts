@@ -65,6 +65,8 @@ function normalizeSimpleWorkspaceTabTarget(value: WorkspaceTabTarget): Workspace
     case "changes_tree":
     case "files":
     case "pull_request":
+    case "attack_board":
+    case "attack_findings":
       return { kind: value.kind };
     case "setup": {
       const workspaceId = trimNonEmpty(value.workspaceId);
@@ -146,6 +148,15 @@ export function workspaceTabTargetsEqual(
   return secondaryWorkspaceTabTargetsEqual(left, right);
 }
 
+// Targets with nothing but a kind: two of the same kind are the same target.
+const PARAMETERLESS_TAB_KINDS: ReadonlySet<WorkspaceTabTarget["kind"]> = new Set([
+  "files",
+  "changes_tree",
+  "pull_request",
+  "attack_board",
+  "attack_findings",
+]);
+
 function secondaryWorkspaceTabTargetsEqual(
   left: WorkspaceTabTarget,
   right: WorkspaceTabTarget,
@@ -159,13 +170,7 @@ function secondaryWorkspaceTabTargetsEqual(
   if (left.kind === "working_diff" && right.kind === "working_diff") {
     return left.focusPath === right.focusPath && left.focusRequestId === right.focusRequestId;
   }
-  if (left.kind === "files" && right.kind === "files") {
-    return true;
-  }
-  if (left.kind === "changes_tree" && right.kind === "changes_tree") {
-    return true;
-  }
-  if (left.kind === "pull_request" && right.kind === "pull_request") {
+  if (left.kind === right.kind && PARAMETERLESS_TAB_KINDS.has(left.kind)) {
     return true;
   }
   if (left.kind === "setup" && right.kind === "setup") {
@@ -245,7 +250,13 @@ export function buildDeterministicWorkspaceTabId(target: WorkspaceTabTarget): st
   if (target.kind === "working_diff") {
     return "working_diff";
   }
-  if (target.kind === "changes_tree" || target.kind === "files" || target.kind === "pull_request") {
+  if (
+    target.kind === "changes_tree" ||
+    target.kind === "files" ||
+    target.kind === "pull_request" ||
+    target.kind === "attack_board" ||
+    target.kind === "attack_findings"
+  ) {
     return target.kind;
   }
   if (target.kind === "plugin") {

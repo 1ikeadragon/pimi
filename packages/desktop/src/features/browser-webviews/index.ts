@@ -6,6 +6,7 @@ import {
   isAllowedBrowserWebviewUrl,
   PendingBrowserWindowOpenRequests,
 } from "./window-open.js";
+import { isAttackUrlAllowed, attackUrlHost } from "@pimi/protocol/attack/allowlist";
 import { PaseoBrowserWebviewRegistry } from "./registry.js";
 
 export {
@@ -15,6 +16,45 @@ export {
 };
 
 const browserRegistry = new PaseoBrowserWebviewRegistry();
+
+// Tabs an Attack run's agents drive may only reach the run's hosts. The daemon sends the list
+// with each browser command (`attackGuard`); normal tabs have no entry and browse freely.
+interface AttackNavigationPolicy {
+  readonly runId: string;
+  readonly allowedHosts: readonly string[];
+}
+
+export const ATTACK_NAVIGATION_REFUSED_EVENT = "paseo:event:attack-navigation-refused";
+
+const attackPolicies = new Map<string, AttackNavigationPolicy>();
+
+export function setAttackNavigationPolicy(browserId: string, policy: AttackNavigationPolicy): void {
+  attackPolicies.set(browserId, { runId: policy.runId, allowedHosts: [...policy.allowedHosts] });
+}
+
+export function getAttackNavigationPolicy(browserId: string): AttackNavigationPolicy | null {
+  return attackPolicies.get(browserId) ?? null;
+}
+
+/** Reports a refused navigation to the window hosting the tab; only the host is sent, never the path. */
+export function reportAttackNavigationRefused(
+  hostContents: { isDestroyed(): boolean; send(channel: string, payload: unknown): void } | null,
+  input: { runId: string; browserId: string; url: string },
+): void {
+  if (!hostContents || hostContents.isDestroyed()) return;
+  hostContents.send(ATTACK_NAVIGATION_REFUSED_EVENT, {
+    runId: input.runId,
+    browserId: input.browserId,
+    host: attackUrlHost(input.url) ?? "invalid_url",
+  });
+}
+
+/** True when the tab belongs to an Attack run and `url` is off its list. */
+export function isAttackNavigationRefused(browserId: string | null, url: string): boolean {
+  const policy = browserId ? attackPolicies.get(browserId) : undefined;
+  if (!policy || url === "about:blank") return false;
+  return !isAttackUrlAllowed(url, policy.allowedHosts);
+}
 
 interface BrowserWebContentsIdentity {
   readonly id: number;
@@ -95,10 +135,12 @@ export function getPaseoBrowserIdForWebContents(
 }
 
 export function unregisterPaseoBrowser(browserId: string): void {
+  attackPolicies.delete(browserId);
   browserRegistry.unregisterBrowser(browserId);
 }
 
 export function unregisterPaseoBrowserFromHost(hostWebContentsId: number, browserId: string): void {
+  attackPolicies.delete(browserId);
   browserRegistry.unregisterBrowserFromHost(hostWebContentsId, browserId);
 }
 
@@ -175,22 +217,37 @@ export function getActivePaseoBrowserWebContentsForHostWindow(
 }
 
 function preventUnsafeBrowserWebviewNavigation(
+  contents: WebContents,
   event: { preventDefault: () => void },
   url: string | undefined,
 ): void {
   if (!isAllowedBrowserWebviewUrl(url)) {
     event.preventDefault();
+    return;
+  }
+  if (!url) return;
+  const browserId = browserRegistry.getBrowserIdForWebContents(contents.id);
+  if (browserId && isAttackNavigationRefused(browserId, url)) {
+    event.preventDefault();
+    const policy = attackPolicies.get(browserId);
+    if (policy) {
+      reportAttackNavigationRefused(contents.hostWebContents, {
+        runId: policy.runId,
+        browserId,
+        url,
+      });
+    }
   }
 }
 
 export function registerBrowserWebviewNavigationGuards(contents: WebContents): void {
   contents.on("will-navigate", (event) => {
-    preventUnsafeBrowserWebviewNavigation(event, event.url);
+    preventUnsafeBrowserWebviewNavigation(contents, event, event.url);
   });
   contents.on("will-frame-navigate", (event) => {
-    preventUnsafeBrowserWebviewNavigation(event, event.url);
+    preventUnsafeBrowserWebviewNavigation(contents, event, event.url);
   });
   contents.on("will-redirect", (event) => {
-    preventUnsafeBrowserWebviewNavigation(event, event.url);
+    preventUnsafeBrowserWebviewNavigation(contents, event, event.url);
   });
 }

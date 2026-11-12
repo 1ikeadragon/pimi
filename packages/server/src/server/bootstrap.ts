@@ -185,6 +185,7 @@ import { AutomationService } from "./automation/service.js";
 import { compileAutomation } from "./automation/compile.js";
 import { homedir } from "node:os";
 import { HeartbeatService } from "./heartbeat/service.js";
+import { AttackService } from "./attack/service.js";
 import { DaemonConfigStore, type MutableDaemonConfig } from "./daemon-config-store.js";
 import { createOrchestrationSkills } from "./orchestration-skills/index.js";
 import {
@@ -1531,6 +1532,19 @@ export async function createPaseoDaemon(
       ),
   });
   await automationService.start();
+  const attackService = new AttackService({
+    paseoHome: config.paseoHome,
+    logger,
+    agentManager,
+    agentStorage,
+    createAgent,
+    // Session delivery only reaches sockets that subscribed to the event category (see
+    // sessionEventCategory), so the desktop app subscribes with observeEvents.
+    emit: (message) => {
+      for (const session of wsServer?.listSessions() ?? []) session.emitServerMessage(message);
+    },
+  });
+  await attackService.start();
   const heartbeatService = new HeartbeatService({
     paseoHome: config.paseoHome,
     logger,
@@ -1629,6 +1643,7 @@ export async function createPaseoDaemon(
     getDaemonTcpPort: () => (boundListenTarget?.type === "tcp" ? boundListenTarget.port : null),
     automationService,
     heartbeatService,
+    attackService,
     providerSnapshotManager,
     daemonConfigStore,
     github,
@@ -1975,7 +1990,7 @@ export async function createPaseoDaemon(
               },
               projectRegistry,
               workspaceRegistry,
-              { automationService, heartbeatService },
+              { automationService, heartbeatService, attackService },
               checkoutDiffManager,
               serviceProxy,
               scriptRuntimeStore,
@@ -2134,6 +2149,7 @@ export async function createPaseoDaemon(
     await speechService.stop();
     await automationService.stop().catch(() => undefined);
     await heartbeatService.stop().catch(() => undefined);
+    await attackService.stop().catch(() => undefined);
     await relayRuntime?.stop().catch(() => undefined);
     if (wsServer) {
       await wsServer.close();

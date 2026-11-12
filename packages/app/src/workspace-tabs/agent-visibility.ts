@@ -1,3 +1,4 @@
+import { ATTACK_RUN_LABEL } from "@pimi/protocol/agent-labels";
 import type { Agent } from "@/stores/session-store";
 import type { WorkspaceTabSnapshot } from "@/stores/workspace-layout-actions";
 import { isWorkspaceRootAgent } from "@/subagents/policies";
@@ -62,6 +63,10 @@ function shouldAutoOpenAgent(input: {
 }): boolean {
   const { agent, sessionAgents, agentDetails } = input;
   if (agent.background) {
+    return false;
+  }
+  // An Attack run's agents live on the attack board, not in the tab strip of any mode.
+  if (agent.labels[ATTACK_RUN_LABEL]) {
     return false;
   }
   const parentAgent = agent.parentAgentId

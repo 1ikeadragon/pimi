@@ -269,7 +269,9 @@ const styles = StyleSheet.create((theme) => {
     },
     trackSegment: {
       flexGrow: 1,
-      flexBasis: 68,
+      // Content width, never narrower than 68: a fixed basis clipped labels longer than "Agent".
+      flexBasis: "auto",
+      minWidth: 68,
       borderRadius: theme.borderRadius.full,
       borderWidth: theme.borderWidth[1],
       borderColor: "transparent",

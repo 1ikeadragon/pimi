@@ -2135,6 +2135,118 @@ export const es: TranslationResources = {
     archiveFinishedAction: "Archivar subagentes finalizados",
     archiveFinishedRetry: "Reintentar ({{failed}}/{{total}})",
   },
+  attack: {
+    mode: {
+      label: "Ataque",
+      accessibilityLabel: "Modo Ataque",
+      openProject: "Abre un proyecto para usar el modo Ataque.",
+    },
+    panels: {
+      board: {
+        label: "Ejecución de ataque",
+        subtitle: "Controles de ejecución",
+      },
+      findings: {
+        label: "Hallazgos",
+        subtitle: "Hallazgos del ataque",
+      },
+    },
+    form: {
+      target: "URL de destino",
+      targetInvalid: "Introduce una URL http o https",
+      remoteHost: "Host remoto permitido: {{host}}",
+      repoScope: "Incluir este repositorio",
+      scopeNotes: "Notas de alcance",
+      minutes: "Presupuesto de tiempo (minutos)",
+      kiloTokens: "Presupuesto de tokens (miles)",
+      numberInvalid: "Introduce un número entero válido",
+      model: "Modelo del agente",
+      modelPlaceholder: "Elige un modelo",
+      modelMissing: "Elige un modelo",
+      roster: "Agentes",
+      rosterEmpty: "Elige al menos un agente",
+      disposable: "Destino desechable",
+      disposableHint: "Permite a los agentes escribir y enviar carga. La lista actual solo lee.",
+      confinement:
+        "Las pestañas del navegador solo pueden abrir localhost y el host de destino. Los agentes tienen instrucciones de solo leer y de no salir de esos hosts, pero su shell no está aislado: un comando aún puede escribir archivos o llegar a otros hosts. Los agentes de Claude se ejecutan sin herramientas web, sin herramientas de edición de archivos y sin tus propios servidores MCP; los demás proveedores conservan los suyos.",
+      start: "Iniciar ataque",
+    },
+    roster: {
+      uiQa: "QA de UI y caos",
+      secrets: "Auditor de secretos y configuración",
+    },
+    run: {
+      status: {
+        running: "En curso",
+        paused: "En pausa",
+        stopped: "Detenida",
+        completed: "Completada",
+      },
+      pausedReason: {
+        user: "Pausada por ti",
+        time_budget: "En pausa: se alcanzó el presupuesto de tiempo",
+        token_budget: "En pausa: se alcanzó el presupuesto de tokens",
+      },
+      timeSpent: "{{spent}} de {{limit}} min",
+      tokensSpent: "{{spent}} de {{limit}} tokens",
+      pause: "Pausar",
+      resume: "Reanudar",
+      stop: "Detener",
+      newRun: "Nueva ejecución",
+    },
+    tile: {
+      focus: "Enfocar {{role}}",
+      state: {
+        idle: "Esperando trabajo",
+        done: "Terminado",
+        failed: "Falló",
+      },
+    },
+    grid: {
+      previous: "Agentes anteriores",
+      next: "Agentes siguientes",
+    },
+    focus: {
+      chat: "Chat",
+      browser: "Navegador",
+      back: "Cuadrícula",
+    },
+    board: {
+      title: "Ataque",
+      starting: "Iniciando el agente líder…",
+    },
+    findings: {
+      running: "Los agentes están sondeando el objetivo. Aún no hay hallazgos.",
+      runningMeta: "{{count}} agentes · {{elapsed}}",
+      lastRun: "Última ejecución · {{target}}",
+      noRun: "Inicia una ejecución para ver hallazgos aquí.",
+      empty: "Aún no hay hallazgos.",
+      nothingFound: "No se encontró nada. La ejecución terminó sin hallazgos.",
+      severity: {
+        blocker: "Bloqueante",
+        major: "Importante",
+        minor: "Menor",
+      },
+      status: {
+        new: "Nuevo",
+        triaged: "Clasificado",
+        dismissed: "Descartado",
+        fixed: "Corregido",
+      },
+      reported: "Reportado {{count}} veces",
+      repro: "Reproducción",
+      evidence: "Evidencia",
+      fixIt: "Corregir",
+      screenshotLoading: "Cargando captura…",
+      screenshotMissing: "La captura era demasiado grande para guardarla.",
+      action: {
+        triage: "Marcar como clasificado",
+        dismiss: "Descartar",
+        fixed: "Marcar como corregido",
+        reopen: "Reabrir",
+      },
+    },
+  },
   panels: {
     draft: {
       newAgent: "Nuevo agente",

@@ -20,6 +20,7 @@ import type { CodeNavigationQueryRequest, CreationSnapshot } from "@pimi/protoco
 import type { z } from "zod";
 import type { SessionEventSubscription } from "@pimi/protocol/messages";
 import type { LocalSpeechModel } from "@pimi/protocol/speech/rpc-schemas";
+import type { AttackRunDefinition, FindingStatus } from "@pimi/protocol/attack/types";
 import type { AutomationDefinition, AutomationOrigin } from "@pimi/protocol/automation/types";
 import type { HeartbeatCadence } from "@pimi/protocol/heartbeat/types";
 import type { AgentAttentionNotificationPayload } from "@pimi/protocol/agent-attention-notification";
@@ -910,6 +911,23 @@ type ProjectListRequest = Extract<SessionInboundMessage, { type: "project.list.r
 export type ProjectListOptions = Omit<ProjectListRequest, "type" | "requestId"> & {
   requestId?: string;
 };
+export type AttackRunPayload = Extract<
+  SessionOutboundMessage,
+  { type: "attack.run.get.response" }
+>["payload"];
+export type AttackRunChangedMessage = Extract<
+  SessionOutboundMessage,
+  { type: "attack.run.changed" }
+>;
+export type AttackFindingChangedMessage = Extract<
+  SessionOutboundMessage,
+  { type: "attack.finding.changed" }
+>;
+type AttackResponsePayload<T extends CorrelatedResponseType> = CorrelatedResponsePayload<T>;
+export interface AttackRunIdOptions {
+  runId: string;
+  requestId?: string;
+}
 export interface AutomationCreateOptions {
   definition: AutomationDefinition;
   origin?: AutomationOrigin;
@@ -6531,6 +6549,117 @@ export class DaemonClient {
       message,
       responseType: "capture_terminal_response",
       options: { skipQueue: true },
+    });
+  }
+
+  async attackRunStart(options: {
+    definition: AttackRunDefinition;
+    requestId?: string;
+  }): Promise<AttackResponsePayload<"attack.run.start.response">> {
+    // Starting waits for the lead agent to be created.
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "attack.run.start.request", definition: options.definition },
+      timeout: 120_000,
+    });
+  }
+
+  async attackRunPause(options: AttackRunIdOptions) {
+    return this.sendNamespacedCorrelatedSessionRequest<"attack.run.pause.response">({
+      requestId: options.requestId,
+      message: { type: "attack.run.pause.request", runId: options.runId },
+      timeout: 60_000,
+    });
+  }
+
+  async attackRunResume(options: AttackRunIdOptions) {
+    return this.sendNamespacedCorrelatedSessionRequest<"attack.run.resume.response">({
+      requestId: options.requestId,
+      message: { type: "attack.run.resume.request", runId: options.runId },
+      timeout: 60_000,
+    });
+  }
+
+  async attackRunCancel(options: AttackRunIdOptions) {
+    return this.sendNamespacedCorrelatedSessionRequest<"attack.run.cancel.response">({
+      requestId: options.requestId,
+      message: { type: "attack.run.cancel.request", runId: options.runId },
+      timeout: 60_000,
+    });
+  }
+
+  async attackRunGet(options: AttackRunIdOptions): Promise<AttackRunPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "attack.run.get.request", runId: options.runId },
+    });
+  }
+
+  async attackRunList(
+    options: { workspaceId?: string; requestId?: string } = {},
+  ): Promise<AttackResponsePayload<"attack.run.list.response">> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "attack.run.list.request",
+        ...(options.workspaceId ? { workspaceId: options.workspaceId } : {}),
+      },
+    });
+  }
+
+  async attackFindingList(
+    options: AttackRunIdOptions,
+  ): Promise<AttackResponsePayload<"attack.finding.list.response">> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "attack.finding.list.request", runId: options.runId },
+    });
+  }
+
+  async attackFindingGet(
+    options: AttackRunIdOptions & { findingId: string },
+  ): Promise<AttackResponsePayload<"attack.finding.get.response">> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "attack.finding.get.request",
+        runId: options.runId,
+        findingId: options.findingId,
+      },
+    });
+  }
+
+  async attackFindingUpdate(
+    options: AttackRunIdOptions & {
+      findingId: string;
+      status?: FindingStatus;
+      fixAgentId?: string;
+    },
+  ): Promise<AttackResponsePayload<"attack.finding.update.response">> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "attack.finding.update.request",
+        runId: options.runId,
+        findingId: options.findingId,
+        ...(options.status ? { status: options.status } : {}),
+        ...(options.fixAgentId ? { fixAgentId: options.fixAgentId } : {}),
+      },
+    });
+  }
+
+  async attackAuditRecord(
+    options: AttackRunIdOptions & { agentId?: string; detail: string },
+  ): Promise<AttackResponsePayload<"attack.audit.record.response">> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "attack.audit.record.request",
+        runId: options.runId,
+        action: "navigation_refused",
+        detail: options.detail,
+        ...(options.agentId ? { agentId: options.agentId } : {}),
+      },
     });
   }
 

@@ -114,6 +114,22 @@ const manifests = {
     compactSheet: null,
     resourceKey: () => "pull_request",
   },
+  attack_board: {
+    kind: "attack_board",
+    supportedHosts: ["main"],
+    showCloseButton: false,
+    singleton: true,
+    compactSheet: null,
+    resourceKey: () => "attack_board",
+  },
+  attack_findings: {
+    kind: "attack_findings",
+    supportedHosts: ["main"],
+    showCloseButton: false,
+    singleton: true,
+    compactSheet: null,
+    resourceKey: () => "attack_findings",
+  },
   file: {
     kind: "file",
     supportedHosts: ["main", "explorer"],

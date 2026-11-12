@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { BrowserAutomationBrowserIdSchema } from "@pimi/protocol/browser-automation/rpc-schemas";
-import type { BrowserToolsBroker } from "./broker.js";
-import type { BrowserToolsResponsePayload } from "./errors.js";
+import type { AttackService } from "../attack/service.js";
+import type { BrowserToolsBroker, BrowserToolsExecuteInput } from "./broker.js";
+import { browserToolsFailure, type BrowserToolsResponsePayload } from "./errors.js";
 import type {
   PaseoToolConfig,
   PaseoToolExecutionContext,
@@ -27,6 +28,8 @@ export interface RegisterBrowserToolsOptions {
   broker: Pick<BrowserToolsBroker, "execute">;
   callerAgentId?: string;
   resolveCallerAgent: () => CallerAgentContext | null;
+  /** Confines an Attack run's agents to the run's hosts; absent where Attack mode is not wired. */
+  attack?: Pick<AttackService, "guardForAgent" | "checkNavigation"> | null;
 }
 
 const HTTP_URL_ONLY_MESSAGE = "URL must use http/https only";
@@ -63,7 +66,39 @@ const BrowserWaitInputSchema = z
     message: "browser_wait requires exactly one of text or url",
   });
 
-export function registerBrowserTools(options: RegisterBrowserToolsOptions): void {
+// Tabs an Attack run's agents drive may only open the run's hosts. The daemon refuses a bad
+// new_tab or navigate here and audits it; the desktop app enforces the same list on links,
+// redirects and scripts (`attackGuard` rides along on every command).
+function confineAttackAgents(options: RegisterBrowserToolsOptions): RegisterBrowserToolsOptions {
+  const { attack, broker } = options;
+  if (!attack) return options;
+  const guarded: Pick<BrowserToolsBroker, "execute"> = {
+    execute: async (input: BrowserToolsExecuteInput) => {
+      const attackGuard = await attack.guardForAgent(input.agentId);
+      if (!attackGuard) return broker.execute(input);
+      const { command } = input;
+      const url =
+        command.command === "navigate" || command.command === "new_tab"
+          ? command.args.url
+          : undefined;
+      if (url) {
+        const decision = await attack.checkNavigation(input.agentId, url);
+        if (!decision.allowed) {
+          return browserToolsFailure({
+            requestId: input.requestId ?? "attack-navigation-refused",
+            code: "browser_denied",
+            message: decision.message,
+          });
+        }
+      }
+      return broker.execute({ ...input, attackGuard });
+    },
+  };
+  return { ...options, broker: guarded };
+}
+
+export function registerBrowserTools(unconfined: RegisterBrowserToolsOptions): void {
+  const options = confineAttackAgents(unconfined);
   options.registerTool(
     "browser_list_tabs",
     {

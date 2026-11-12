@@ -106,6 +106,10 @@ import {
   registerBrowserWebviewNavigationGuards,
   unregisterPaseoBrowserFromHost,
   registerAttachedPaseoBrowser,
+  getAttackNavigationPolicy,
+  isAttackNavigationRefused,
+  reportAttackNavigationRefused,
+  setAttackNavigationPolicy,
   setWorkspaceActivePaseoBrowserId,
   unregisterPaseoBrowserHost,
 } from "./features/browser-webviews/index.js";
@@ -358,6 +362,20 @@ function installBrowserWindowOpenHandler(input: {
     if (decision.kind === "deny") {
       return { action: "deny" };
     }
+    // An Attack run's tabs open nothing outside their hosts: no popup windows, no new tabs to
+    // other hosts. The renderer would otherwise open an unconfined tab for them.
+    const attackSourceId = getPaseoBrowserIdForWebContents(sourceContents);
+    const attackPolicy = attackSourceId ? getAttackNavigationPolicy(attackSourceId) : null;
+    if (attackSourceId && attackPolicy) {
+      if (decision.kind === "popup" || isAttackNavigationRefused(attackSourceId, url)) {
+        reportAttackNavigationRefused(mainWindow.webContents, {
+          runId: attackPolicy.runId,
+          browserId: attackSourceId,
+          url,
+        });
+        return { action: "deny" };
+      }
+    }
     if (decision.kind === "popup") {
       return {
         action: "allow",
@@ -533,6 +551,24 @@ ipcMain.handle("paseo:browser:unregister-workspace-browser", async (event, brows
       }
     }
   }
+});
+
+ipcMain.handle("paseo:browser:set-attack-policy", (_event, rawInput: unknown) => {
+  if (typeof rawInput !== "object" || rawInput === null || Array.isArray(rawInput)) return;
+  const input = rawInput as Record<string, unknown>;
+  const hosts = Array.isArray(input.allowedHosts)
+    ? input.allowedHosts.filter((host): host is string => typeof host === "string" && host !== "")
+    : [];
+  if (
+    typeof input.browserId !== "string" ||
+    input.browserId.trim() === "" ||
+    typeof input.runId !== "string" ||
+    input.runId === "" ||
+    hosts.length === 0
+  ) {
+    return;
+  }
+  setAttackNavigationPolicy(input.browserId.trim(), { runId: input.runId, allowedHosts: hosts });
 });
 
 ipcMain.handle("paseo:browser:set-workspace-active-browser", (event, rawInput: unknown) => {

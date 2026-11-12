@@ -160,6 +160,8 @@ export const BrowserAutomationScreenshotCommandSchema = z.object({
   command: z.literal("screenshot"),
   args: BrowserAutomationTabTargetSchema.extend({
     fullPage: z.boolean().default(false),
+    // The desktop app's attack board asks for a small still of the tab; agents never set it.
+    thumbnailWidth: z.number().int().min(64).max(1280).optional(),
   }),
 });
 
@@ -503,6 +505,11 @@ export const BrowserAutomationExecuteRequestSchema = z
     agentId: z.string().min(1).optional(),
     cwd: z.string().min(1).optional(),
     workspaceId: z.string().min(1).optional(),
+    // Set by the daemon when the calling agent belongs to an Attack run. The desktop app then
+    // refuses navigation to any host outside this list for the tabs that agent drives.
+    attackGuard: z
+      .object({ runId: z.string().min(1), allowedHosts: z.array(z.string().min(1)).min(1) })
+      .optional(),
     command: BrowserAutomationCommandSchema,
   })
   .strict();
