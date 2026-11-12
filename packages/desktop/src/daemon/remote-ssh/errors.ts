@@ -15,6 +15,7 @@ export type RemoteSshErrorCode =
   | "DISK_FULL"
   | "BUNDLE_DOWNLOAD"
   | "BUNDLE_CHECKSUM"
+  | "BUNDLE_UNVERIFIED"
   | "UPLOAD_CHECKSUM"
   | "UPLOAD_MISSING"
   | "UPLOAD_FAILED"
@@ -58,7 +59,7 @@ export function errorFromRemoteScript(code: string, rawDetail: string): RemoteSs
     case "NODE_CHECKSUM":
       return new RemoteSshError(
         "NODE_CHECKSUM",
-        "The Node.js download did not match the official nodejs.org checksum, so Pimi discarded it. Try again; if it keeps failing, install Node.js 24 or newer on the remote machine.",
+        "The Node.js download did not match the SHA-256 that this Pimi version pins for it, so Pimi discarded it. Try again; if it keeps failing, install Node.js 24 or newer on the remote machine.",
         detail,
       );
     case "NODE_EXTRACT":

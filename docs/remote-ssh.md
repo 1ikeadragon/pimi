@@ -8,11 +8,11 @@ Every step runs through your system `ssh`, so `~/.ssh/config`, `ProxyJump`, keys
 
 1. **Probe.** `uname -s`/`-m`, `$HOME`, free disk, libc, Node versions, systemd, and whether a daemon already answers on `127.0.0.1:6767` and at which version.
 2. **Install when needed.** If no daemon runs at the desktop's version, Pimi installs it into `~/.pimi/runtime/<version>/`:
-   - The bundle is `Pimi-daemon-linux-x64.tar.gz` or `-arm64.tar.gz`, attached to the GitHub release that matches the desktop version. The desktop downloads it, checks it against the release's `SHA256SUMS.txt`, and caches it, so the desktop installer stays small.
+   - The bundle is `Pimi-daemon-linux-x64.tar.gz` or `-arm64.tar.gz`, attached to the GitHub release that matches the desktop version. The desktop downloads it only from a release GitHub reports as immutable (the check the app updater uses), verifies it against the SHA-256 GitHub computed for that asset, and caches it, so the desktop installer stays small. A release that is not immutable stops the install with an error before anything reaches the remote; the release's own `SHA256SUMS.txt` is not trusted.
    - The desktop sends it over `ssh` and the remote checks its SHA-256 before unpacking.
-   - Node 24 or newer is required. Pimi uses the remote's `node` when it is new enough. Otherwise the remote downloads the official tarball from nodejs.org into `~/.pimi/runtime/node/` and checks it against nodejs.org's `SHASUMS256.txt`.
+   - Node 24 or newer is required. Pimi uses the remote's `node` when it is new enough. Otherwise the remote downloads the official tarball for one pinned Node version from nodejs.org into `~/.pimi/runtime/node/` and checks it against the SHA-256 that ships inside the desktop (`REMOTE_NODE_SHA256`, taken from the GPG-signed `SHASUMS256.txt.asc`). The remote never fetches a checksum file.
    - node-pty ships Linux prebuilds for both architectures, so nothing compiles on the remote.
-3. **Start.** The daemon listens on `127.0.0.1` only, started with `setsid nohup`. Pimi waits until the WebSocket accepts clients, then tunnels with `ssh -W` as for any SSH host.
+3. **Start.** The daemon listens on `127.0.0.1` only, started with `setsid nohup`. It gets the `PATH` your own login shell has (read with `$SHELL -ilc`, 10 second limit), so agent CLIs you installed through `~/.bashrc` or `~/.zshrc`, such as opencode, claude or nvm's node, are found even though `ssh` runs without those files. The `PATH` is read when the daemon starts; restart it after installing a new CLI. Pimi waits until the WebSocket accepts clients, then tunnels with `ssh -W` as for any SSH host.
 4. **Every connect repeats the check.** A stopped daemon is restarted, and a new desktop version upgrades the remote, which keeps the previous version for one rollback.
 
 Turn on **Keep the daemon running with systemd** in the dialog to use a `systemd --user` unit (`pimi-daemon.service`, `Restart=on-failure`) when the machine has one. The unit stops at logout unless you run `loginctl enable-linger <user>`.
@@ -35,6 +35,7 @@ Turn on **Keep the daemon running with systemd** in the dialog to use a `systemd
 | Out of disk space                  | Free space in `$HOME`.                                                                                 |
 | Another Pimi daemon holds the port | Stop it with `pimi daemon stop`, or use another daemon port in the `ssh://` URI.                       |
 | Daemon did not start               | Read `~/.pimi/daemon-remote.log` on the remote.                                                        |
+| Release is not verified immutable  | Pimi installs nothing. Reinstall Pimi from the official download, or ask the maintainer to republish.  |
 
 ## Files on the remote
 

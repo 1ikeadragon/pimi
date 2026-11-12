@@ -71,6 +71,12 @@ function streamResponse(response: Response): Readable {
   return Readable.fromWeb(response.body as import("node:stream/web").ReadableStream);
 }
 
+class ReleaseMetadataHttpError extends Error {
+  constructor(readonly status: number) {
+    super(`Pimi could not check GitHub Releases (HTTP ${status}).`);
+  }
+}
+
 async function readReleaseMetadata(url: string, signal: AbortSignal): Promise<unknown> {
   const response = await fetch(url, {
     headers: { accept: "application/vnd.github+json" },
@@ -79,7 +85,7 @@ async function readReleaseMetadata(url: string, signal: AbortSignal): Promise<un
   });
   if (!response.ok) {
     await response.body?.cancel();
-    throw new Error(`Pimi could not check GitHub Releases (HTTP ${response.status}).`);
+    throw new ReleaseMetadataHttpError(response.status);
   }
 
   let length = 0;
@@ -148,6 +154,60 @@ async function findWindowsRelease(
     }
     if (rows.length < RELEASE_PAGE_SIZE) return latest;
   }
+}
+
+export interface ImmutableReleaseAsset {
+  name: string;
+  bytes: number;
+  /** Lowercase hex SHA-256 that GitHub computed for the asset. */
+  digest: string;
+  url: string;
+}
+
+/** The release for this tag exists but GitHub does not report it as a verified immutable release. */
+export class ReleaseNotImmutableError extends Error {}
+
+/**
+ * One asset of the Pimi release with this exact tag, taken from GitHub's release API only when
+ * that release is immutable, published, and every asset carries a GitHub-computed SHA-256. An
+ * immutable release cannot be edited or re-uploaded, so the digest is the trust anchor: a
+ * checksum file stored in the same release proves nothing a mutable release could not fake.
+ * Returns null when no release has this tag or it has no such asset.
+ */
+export async function readImmutableReleaseAsset(
+  tag: string,
+  assetName: string,
+  signal?: AbortSignal,
+): Promise<ImmutableReleaseAsset | null> {
+  if (!releaseVersion(tag)) throw new Error(`Not a Pimi release tag: ${tag}`);
+  const timeout = AbortSignal.timeout(RELEASE_TIMEOUT_MS);
+  const checkSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
+  let metadata: unknown;
+  try {
+    metadata = await readReleaseMetadata(`${RELEASE_ENDPOINT}/tags/${tag}`, checkSignal);
+  } catch (error) {
+    if (error instanceof ReleaseMetadataHttpError && error.status === 404) return null;
+    throw error;
+  }
+  const parsed = releaseSchema.safeParse(metadata);
+  if (!parsed.success || parsed.data.tag_name !== tag) {
+    throw new ReleaseNotImmutableError(
+      `GitHub did not return a verified immutable release for ${tag}.`,
+    );
+  }
+  const matching = parsed.data.assets.filter((asset) => asset.name === assetName);
+  if (matching.length === 0) return null;
+  const asset = matching[0];
+  const url = `${RELEASE_ASSET_BASE}/${tag}/${asset.name}`;
+  if (matching.length > 1 || asset.browser_download_url !== url) {
+    throw new ReleaseNotImmutableError(`The release ${tag} has an unexpected ${assetName} asset.`);
+  }
+  return {
+    name: asset.name,
+    bytes: asset.size,
+    digest: asset.digest.slice("sha256:".length),
+    url,
+  };
 }
 
 export async function checkPimiRelease(

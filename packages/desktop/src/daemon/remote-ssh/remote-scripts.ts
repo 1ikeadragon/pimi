@@ -84,9 +84,13 @@ free="$(df -Pk "$RUNTIME_DIR" | awk 'NR==2{print $4}')"
 exit 0
 `;
 
-// $1 = node version, $2 = x64|arm64. Prints nodePath=... on success.
+// $1 = node version, $2 = x64|arm64, $3 = expected sha256 of the tarball, embedded in the desktop.
+// The remote never fetches a checksum file: one served next to the tarball proves nothing.
+// Prints nodePath=... on success.
 export const NODE_SCRIPT = `${PREAMBLE}
-V="$1"; A="$2"
+V="$1"; A="$2"; WANT="$3"
+case "$WANT" in *[!0-9a-f]*|"") fail NODE_CHECKSUM "no pinned checksum for node $V $A" ;; esac
+[ "$(printf %s "$WANT" | wc -c | tr -d ' ')" = 64 ] || fail NODE_CHECKSUM "no pinned checksum for node $V $A"
 file="node-v$V-linux-$A.tar.gz"
 base="https://nodejs.org/dist/v$V"
 dest="$RUNTIME_DIR/node/v$V-linux-$A"
@@ -100,15 +104,12 @@ fetch() {
   else fail MISSING_TOOLS "curl or wget"; fi
 }
 echo "PIMI_STEP node-download"
-fetch "$base/SHASUMS256.txt" "$tmp/SHASUMS256.txt" 2>"$tmp/err" || fail NODE_DOWNLOAD "$(tr '\\n' ' ' < "$tmp/err")"
 fetch "$base/$file" "$tmp/$file" 2>"$tmp/err" || {
   if grep -qi "no space" "$tmp/err"; then fail DISK_FULL "$(tr '\\n' ' ' < "$tmp/err")"; fi
   fail NODE_DOWNLOAD "$(tr '\\n' ' ' < "$tmp/err")"
 }
-want="$(grep "  $file\\$" "$tmp/SHASUMS256.txt" | cut -d' ' -f1)"
-[ -n "$want" ] || fail NODE_CHECKSUM "SHASUMS256.txt has no entry for $file"
 got="$(sha256_of "$tmp/$file")"
-[ "$got" = "$want" ] || fail NODE_CHECKSUM "expected $want, got $got"
+[ "$got" = "$WANT" ] || fail NODE_CHECKSUM "expected $WANT, got $got"
 echo "PIMI_STEP node-extract"
 tar -xzf "$tmp/$file" -C "$tmp" 2>"$tmp/err" || {
   if grep -qi "no space" "$tmp/err"; then fail DISK_FULL "$(tr '\\n' ' ' < "$tmp/err")"; fi
@@ -170,6 +171,20 @@ exec "$PIMI_NODE" --disable-warning=DEP0040 "$CLI" "\\$@"
 WRAP
 chmod +x "$RT/bin/pimi"
 
+# A non-interactive ssh command skips ~/.bashrc and friends, so the PATH it gets lacks where users
+# install agent CLIs (opencode, claude, codex, nvm). Ask the user's own login shell for its PATH.
+USER_PATH=""
+if [ -n "$SHELL" ] && [ -x "$SHELL" ]; then
+  # -i also reads ~/.bashrc/~/.zshrc, where installers add their PATH; it needs the timeout in case
+  # an rc file waits for input.
+  if command -v timeout >/dev/null 2>&1; then SHELL_RUN="timeout 10 $SHELL -ilc"; else SHELL_RUN="$SHELL -lc"; fi
+  USER_PATH="$($SHELL_RUN 'printf "PIMI_PATH<%s>PIMI_PATH" "$(printenv PATH)"' 2>/dev/null < /dev/null | sed -n 's/.*PIMI_PATH<\\(.*\\)>PIMI_PATH.*/\\1/p' | tail -n 1)"
+fi
+# Only plain path characters go into a unit file or an environment assignment.
+case "$USER_PATH" in *[!A-Za-z0-9._:/+@~-]*) USER_PATH="" ;; esac
+DAEMON_PATH="$(dirname "$PIMI_NODE")"
+[ -n "$USER_PATH" ] && DAEMON_PATH="$DAEMON_PATH:$USER_PATH"
+
 stop_running() {
   echo "PIMI_STEP stopping"
   if [ -f "$UNIT" ] && command -v systemctl >/dev/null 2>&1; then systemctl --user stop pimi-daemon.service >/dev/null 2>&1; fi
@@ -203,7 +218,7 @@ Environment="PIMI_HOME=$PIMI_DIR"
 Environment="PIMI_LISTEN=127.0.0.1:$PORT"
 Environment="PIMI_NODE_ENV=production"
 Environment="PIMI_CLI=$RT/bin/pimi"
-Environment="PATH=$(dirname "$PIMI_NODE"):/usr/local/bin:/usr/bin:/bin"
+Environment="PATH=$DAEMON_PATH:/usr/local/bin:/usr/bin:/bin"
 WorkingDirectory=$HOME
 ExecStart="$PIMI_NODE" "$ENTRY"
 Restart=on-failure
@@ -223,7 +238,7 @@ UNITEOF
     if command -v setsid >/dev/null 2>&1; then LAUNCH="setsid"; else LAUNCH=""; fi
     (
       PIMI_HOME="$PIMI_DIR" PIMI_LISTEN="127.0.0.1:$PORT" PIMI_NODE_ENV=production PIMI_CLI="$RT/bin/pimi" \\
-      PATH="$(dirname "$PIMI_NODE"):$PATH" \\
+      PATH="$DAEMON_PATH:$PATH" \\
       nohup $LAUNCH "$PIMI_NODE" "$ENTRY" >> "$LOG" 2>&1 < /dev/null &
     )
   fi

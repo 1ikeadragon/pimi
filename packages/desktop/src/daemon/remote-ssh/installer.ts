@@ -3,6 +3,7 @@ import {
   REMOTE_BUNDLE_ARCHES,
   REMOTE_DAEMON_PORT_DEFAULT,
   REMOTE_NODE_MIN_MAJOR,
+  REMOTE_NODE_SHA256,
   REMOTE_NODE_VERSION,
   type RemoteBundleArch,
 } from "./bundle-spec.js";
@@ -216,10 +217,15 @@ async function installRuntime(
   let nodePath = state.nodePath;
   if (!nodePath) {
     report("installing", `Downloading Node.js ${REMOTE_NODE_VERSION} on ${host}`);
-    const out = await runRemoteScript(target, NODE_SCRIPT, [REMOTE_NODE_VERSION, arch], {
-      ...common,
-      timeoutMs: 10 * 60_000,
-    });
+    const out = await runRemoteScript(
+      target,
+      NODE_SCRIPT,
+      [REMOTE_NODE_VERSION, arch, REMOTE_NODE_SHA256[arch]],
+      {
+        ...common,
+        timeoutMs: 10 * 60_000,
+      },
+    );
     nodePath = /^nodePath=(.+)$/mu.exec(out)?.[1]?.trim() ?? null;
     if (!nodePath) {
       throw new RemoteSshError(
