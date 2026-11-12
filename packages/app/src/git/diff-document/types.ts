@@ -19,6 +19,8 @@ export interface WorkingDiffMode {
   reviewActions?: InlineReviewActions;
   onFilePress?: (path: string) => void;
   focusPath?: string;
+  /** A line of the new side of `focusPath`; the file's top when it is absent from the diff. */
+  focusLine?: number;
   focusRequestId?: number;
   workspaceFileDragScope?: { serverId: string; workspaceId: string };
   onOpenFile?: (path: string) => void;

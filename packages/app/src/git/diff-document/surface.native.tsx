@@ -251,7 +251,7 @@ export function DiffSurface(props: DiffSurfaceProps) {
   useEffect(() => {
     const focusPath = mode.focusPath;
     if (!focusPath) return;
-    const focusLine = mode.kind === "commit" ? mode.focusLine : undefined;
+    const focusLine = mode.focusLine;
     if (focusLine !== undefined && viewport.height === 0) return;
     const requestKey = `${mode.focusRequestId ?? "initial"}:${focusPath}:${focusLine ?? ""}`;
     if (consumedFocusRef.current === requestKey) return;
