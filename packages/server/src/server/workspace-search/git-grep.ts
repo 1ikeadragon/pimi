@@ -179,8 +179,11 @@ function parseRecord(record: string): GitGrepRecord | null {
 /** The first line of git's complaint, without its `fatal:` prefix and the echoed pattern. */
 export function describeGitGrepFailure(stderr: string): string {
   const first = stderr.split("\n").find((line) => line.trim().length > 0) ?? "git grep failed";
-  return first
-    .replace(/^fatal:\s*/i, "")
-    .replace(/^command line, '.*?':\s*/, "")
-    .trim();
+  return (
+    first
+      .replace(/^fatal:\s*/i, "")
+      // Git echoes the pattern ahead of its complaint: `-e option, '(': missing closing parenthesis`.
+      .replace(/^(?:command line|-e option), '.*':\s+/, "")
+      .trim()
+  );
 }
