@@ -85,6 +85,14 @@ import {
   AutomationRunRetryResponseSchema,
   AutomationCompileRequestSchema,
   AutomationCompileResponseSchema,
+  AutomationDraftStartRequestSchema,
+  AutomationDraftStartResponseSchema,
+  AutomationDraftListRequestSchema,
+  AutomationDraftListResponseSchema,
+  AutomationDraftRetryRequestSchema,
+  AutomationDraftRetryResponseSchema,
+  AutomationDraftDismissRequestSchema,
+  AutomationDraftDismissResponseSchema,
   AutomationTriggerCheckRequestSchema,
   AutomationTriggerCheckResponseSchema,
 } from "./automation/rpc-schemas.js";
@@ -172,9 +180,43 @@ const MutableStructuredGenerationProviderSchema = z
   })
   .passthrough();
 
+export const PIMI_MODEL_FEATURE_KEYS = [
+  "title",
+  "branchName",
+  "commitMessage",
+  "pullRequest",
+  "automation",
+  "askPimi",
+] as const;
+
+// One optional model per Pimi model call site. A missing key means "same as the default".
+const MutablePimiModelFeaturesSchema = z
+  .object({
+    title: MutableStructuredGenerationProviderSchema.optional(),
+    branchName: MutableStructuredGenerationProviderSchema.optional(),
+    commitMessage: MutableStructuredGenerationProviderSchema.optional(),
+    pullRequest: MutableStructuredGenerationProviderSchema.optional(),
+    automation: MutableStructuredGenerationProviderSchema.optional(),
+    askPimi: MutableStructuredGenerationProviderSchema.optional(),
+  })
+  .strict();
+
+// In a patch, `null` clears an override.
+const MutablePimiModelFeaturesPatchSchema = z
+  .object({
+    title: MutableStructuredGenerationProviderSchema.nullable().optional(),
+    branchName: MutableStructuredGenerationProviderSchema.nullable().optional(),
+    commitMessage: MutableStructuredGenerationProviderSchema.nullable().optional(),
+    pullRequest: MutableStructuredGenerationProviderSchema.nullable().optional(),
+    automation: MutableStructuredGenerationProviderSchema.nullable().optional(),
+    askPimi: MutableStructuredGenerationProviderSchema.nullable().optional(),
+  })
+  .strict();
+
 const MutableMetadataGenerationConfigSchema = z
   .object({
     providers: z.array(MutableStructuredGenerationProviderSchema).default([]),
+    features: MutablePimiModelFeaturesSchema.optional(),
     autoNaming: z.boolean(),
   })
   .passthrough();
@@ -191,6 +233,14 @@ const MutableRelayConfigSchema = z
     requireProtectedSecurity: z.boolean(),
   })
   .passthrough();
+
+// A language server the user chose in place of auto-detection. `command` is an absolute path to an
+// executable file; it is launched directly with `args`, never through a shell.
+export const EditorLanguageServerSchema = z.object({
+  language: z.string().min(1).max(32),
+  command: z.string().min(1).max(4096),
+  args: z.array(z.string().max(4096)).max(32),
+});
 
 export const MutableDaemonConfigSchema = z
   .object({
@@ -232,6 +282,7 @@ export const MutableDaemonConfigSchema = z
     resumePrompt: z.string().optional(),
     appendSystemPrompt: z.string().default(""),
     terminalProfiles: z.array(TerminalProfileSchema).optional(),
+    editorLanguageServers: z.array(EditorLanguageServerSchema).optional(),
     agentProfiles: z.array(AgentProfileSchema).optional(),
     // Keys of built-in profiles the user deleted; they are not seeded again.
     agentProfilesRemovedBuiltins: z.array(z.string()).optional(),
@@ -257,6 +308,7 @@ export const MutableDaemonConfigPatchSchema = z
     metadataGeneration: z
       .object({
         providers: z.array(MutableStructuredGenerationProviderSchema).optional(),
+        features: MutablePimiModelFeaturesPatchSchema.optional(),
         autoNaming: z.boolean().optional(),
       })
       .passthrough()
@@ -268,6 +320,7 @@ export const MutableDaemonConfigPatchSchema = z
     resumePrompt: z.string().optional(),
     appendSystemPrompt: z.string().optional(),
     terminalProfiles: z.array(TerminalProfileSchema).optional(),
+    editorLanguageServers: z.array(EditorLanguageServerSchema).optional(),
     agentProfiles: z.array(AgentProfileSchema).optional(),
     agentProfilesRemovedBuiltins: z.array(z.string()).optional(),
     pluginsEnabled: z.boolean().optional(),
@@ -277,6 +330,7 @@ export const MutableDaemonConfigPatchSchema = z
   .partial()
   .passthrough();
 
+export type PimiModelFeature = (typeof PIMI_MODEL_FEATURE_KEYS)[number];
 export type MutableDaemonConfig = z.infer<typeof MutableDaemonConfigSchema>;
 export type MutableDaemonConfigPatch = z.infer<typeof MutableDaemonConfigPatchSchema>;
 import type {
@@ -1204,6 +1258,44 @@ export const ExternalResourceAttachmentMetadataSchema = z.object({
   url: z.string(),
 });
 
+const annotationPositionSchema = z.number().int().positive();
+
+/** Where an annotated quote came from: a range in a workspace file, or a message in a chat. */
+export const AnnotationSourceSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("file"),
+    serverId: z.string(),
+    workspaceId: z.string(),
+    path: z.string(),
+    startLine: annotationPositionSchema,
+    startColumn: annotationPositionSchema,
+    endLine: annotationPositionSchema,
+    endColumn: annotationPositionSchema,
+  }),
+  z.object({
+    kind: z.literal("chat"),
+    serverId: z.string(),
+    agentId: z.string(),
+    messageId: z.string(),
+    role: z.enum(["user", "assistant"]),
+  }),
+]);
+
+/** Finds a chat quote again in the rendered message after it reflows. */
+export const AnnotationTextSelectorSchema = z.object({
+  text: z.string(),
+  prefix: z.string(),
+  suffix: z.string(),
+});
+
+/** What a sent message keeps of an annotation so its pill can go back to the source. */
+export const AnnotationAttachmentMetadataSchema = z.object({
+  source: AnnotationSourceSchema,
+  quote: z.string(),
+  note: z.string(),
+  selector: AnnotationTextSelectorSchema.optional(),
+});
+
 export const TextAttachmentSchema = z
   .object({
     type: z.literal("text"),
@@ -1212,6 +1304,7 @@ export const TextAttachmentSchema = z
     title: z.string().nullable().optional(),
     text: z.string(),
     externalResource: ExternalResourceAttachmentMetadataSchema.optional(),
+    annotation: AnnotationAttachmentMetadataSchema.optional(),
   })
   .transform(({ contextKind, ...attachment }) => ({
     ...attachment,
@@ -1993,6 +2086,17 @@ export const FetchAgentTimelineRequestMessageSchema = z.object({
   // Allow the client to merge this bounded page outside its contiguous loaded range.
   mergeWindow: z.boolean().optional(),
   compactionSummaryOnly: z.literal(true).optional(),
+  // Replace long tool-call bodies with a preview; `agent.timeline.get_tool_body.request` returns
+  // the full detail. Absent means whole bodies (CLI, host operations).
+  stripToolBodies: z.boolean().optional(),
+});
+
+export const AgentTimelineGetToolBodyRequestMessageSchema = z.object({
+  type: z.literal("agent.timeline.get_tool_body.request"),
+  agentId: z.string(),
+  requestId: z.string(),
+  callId: z.string(),
+  turnId: z.string().optional(),
 });
 
 export const AgentTimelineSearchRequestMessageSchema = z.object({
@@ -2526,6 +2630,37 @@ const PimiCodebaseSearchRequestSchema = z.object({
   workspaceId: z.string().trim().min(1).max(256),
   query: PimiCodebaseQuerySchema,
   limit: PimiCodebaseLimitSchema,
+  requestId: z.string(),
+});
+
+// Editor navigation. `path` is relative to the workspace; `line` and `column` are 1-based and
+// locate `symbol` in the editor buffer. `content` is the unsaved buffer, sent when it differs from
+// disk so a semantic provider reads the same text the user is looking at.
+const CodeNavigationQueryRequestSchema = z.object({
+  type: z.literal("code.navigation.query.request"),
+  workspaceId: z.string().trim().min(1).max(256),
+  path: z.string().min(1).max(4096),
+  line: z.number().int().positive(),
+  column: z.number().int().positive(),
+  symbol: z.string().min(1).max(256),
+  kind: z.enum(["definition", "references", "rename", "capabilities"]),
+  newName: z.string().min(1).max(256).optional(),
+  content: z.string().max(2_000_000).optional(),
+  requestId: z.string(),
+});
+
+const CodeNavigationServersListRequestSchema = z.object({
+  type: z.literal("code.navigation.servers.list.request"),
+  requestId: z.string(),
+});
+
+// Starts the server to see whether it comes up. `command` tests a candidate before it is saved;
+// without one, the server that would be used now is tested.
+const CodeNavigationServerTestRequestSchema = z.object({
+  type: z.literal("code.navigation.servers.test.request"),
+  language: z.string().min(1).max(32),
+  command: z.string().min(1).max(4096).optional(),
+  args: z.array(z.string().max(4096)).max(32).optional(),
   requestId: z.string(),
 });
 
@@ -3370,6 +3505,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   DaemonUpdateRequestMessageSchema,
   FetchAgentTimelineRequestMessageSchema,
   AgentTimelineSearchRequestMessageSchema,
+  AgentTimelineGetToolBodyRequestMessageSchema,
   AgentTimelineListPromptsRequestMessageSchema,
   ProviderSubagentListRequestMessageSchema,
   AgentBackgroundWorkListRequestMessageSchema,
@@ -3405,6 +3541,9 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   CheckoutCommitFileDiffRequestSchema,
   CheckoutBlameRequestSchema,
   PimiCodebaseSearchRequestSchema,
+  CodeNavigationQueryRequestSchema,
+  CodeNavigationServersListRequestSchema,
+  CodeNavigationServerTestRequestSchema,
   CheckoutForgeGetCheckDetailsRequestSchema,
   CheckoutPrStatusRequestSchema,
   PullRequestTimelineRequestSchema,
@@ -3481,6 +3620,10 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   AutomationRunMarkReadRequestSchema,
   AutomationRunRetryRequestSchema,
   AutomationCompileRequestSchema,
+  AutomationDraftStartRequestSchema,
+  AutomationDraftListRequestSchema,
+  AutomationDraftRetryRequestSchema,
+  AutomationDraftDismissRequestSchema,
   AutomationTriggerCheckRequestSchema,
   HeartbeatCreateRequestSchema,
   HeartbeatUpdateRequestSchema,
@@ -4511,6 +4654,18 @@ export const AgentTimelineSearchResponseMessageSchema = z.object({
   }),
 });
 
+export const AgentTimelineGetToolBodyResponseMessageSchema = z.object({
+  type: z.literal("agent.timeline.get_tool_body.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    callId: z.string(),
+    // Null with an error when the call is not in the agent's timeline.
+    detail: ToolCallDetailPayloadSchema.nullable(),
+    error: z.string().nullable(),
+  }),
+});
+
 export const AgentTimelineListPromptsResponseMessageSchema = z.object({
   type: z.literal("agent.timeline.list_prompts.response"),
   payload: z.object({
@@ -5482,6 +5637,93 @@ const PimiCodebaseSearchResponseSchema = z.object({
   payload: z.object({
     requestId: z.string(),
     result: PimiCodebaseSearchResultSchema.nullable(),
+    error: z.string().nullable(),
+  }),
+});
+
+export const CodeNavigationResultSchema = z.object({
+  // "name" is a text match on the identifier, with no scope awareness; "typescript" and "lsp"
+  // come from a language server and are exact.
+  provider: z.enum(["name", "typescript", "lsp"]),
+  // The server that answered, for display; null for name matching.
+  serverName: z.string().nullable(),
+  // Whether this file's language can be renamed, and what to install when it cannot. A null
+  // tooltip with `available: false` means the file has no language server mapping at all.
+  renameSupport: z.object({
+    available: z.boolean(),
+    tooltip: z.string().nullable(),
+    // The language this file maps to, with whether a working server was found for it.
+    language: z.object({ id: z.string(), label: z.string(), serverFound: z.boolean() }).nullable(),
+  }),
+  // Why a more precise provider did not answer, when one was tried.
+  note: z.string().nullable(),
+  results: z
+    .array(
+      z.object({
+        path: z.string(),
+        line: z.number().int().positive(),
+        column: z.number().int().positive(),
+        preview: z.string(),
+        role: z.enum(["definition", "reference"]),
+      }),
+    )
+    .max(500),
+  truncated: z.boolean(),
+  // Rename only: the text replacements to apply, ends exclusive.
+  edits: z
+    .array(
+      z.object({
+        path: z.string(),
+        line: z.number().int().positive(),
+        column: z.number().int().positive(),
+        endLine: z.number().int().positive(),
+        endColumn: z.number().int().positive(),
+        newText: z.string(),
+      }),
+    )
+    .max(5000),
+});
+
+export const CodeNavigationServerStatusSchema = z.object({
+  language: z.string(),
+  label: z.string(),
+  extensions: z.array(z.string()),
+  // "bundled" is TypeScript, which Pimi runs itself and does not offer to configure.
+  source: z.enum(["auto", "custom", "bundled"]),
+  name: z.string().nullable(),
+  path: z.string().nullable(),
+  version: z.string().nullable(),
+  status: z.enum(["found", "not_found", "failed"]),
+  error: z.string().nullable(),
+  installHint: z.string().nullable(),
+  custom: z.object({ command: z.string(), args: z.array(z.string()) }).nullable(),
+});
+
+const CodeNavigationServersListResponseSchema = z.object({
+  type: z.literal("code.navigation.servers.list.response"),
+  payload: z.object({
+    requestId: z.string(),
+    servers: z.array(CodeNavigationServerStatusSchema),
+    error: z.string().nullable(),
+  }),
+});
+
+const CodeNavigationServerTestResponseSchema = z.object({
+  type: z.literal("code.navigation.servers.test.response"),
+  payload: z.object({
+    requestId: z.string(),
+    ok: z.boolean(),
+    name: z.string().nullable(),
+    version: z.string().nullable(),
+    error: z.string().nullable(),
+  }),
+});
+
+const CodeNavigationQueryResponseSchema = z.object({
+  type: z.literal("code.navigation.query.response"),
+  payload: z.object({
+    requestId: z.string(),
+    result: CodeNavigationResultSchema.nullable(),
     error: z.string().nullable(),
   }),
 });
@@ -6696,6 +6938,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   FetchAgentTimelineResponseMessageSchema,
   AgentTimelineReplacementMessageSchema,
   AgentTimelineSearchResponseMessageSchema,
+  AgentTimelineGetToolBodyResponseMessageSchema,
   AgentTimelineListPromptsResponseMessageSchema,
   ProviderSubagentListResponseMessageSchema,
   ProviderSubagentTimelineResponseMessageSchema,
@@ -6770,6 +7013,9 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   CheckoutCommitFileDiffResponseSchema,
   CheckoutBlameResponseSchema,
   PimiCodebaseSearchResponseSchema,
+  CodeNavigationQueryResponseSchema,
+  CodeNavigationServersListResponseSchema,
+  CodeNavigationServerTestResponseSchema,
   CheckoutForgeGetCheckDetailsResponseSchema,
   CheckoutPrStatusResponseSchema,
   PullRequestTimelineResponseSchema,
@@ -6834,6 +7080,10 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   AutomationRunMarkReadResponseSchema,
   AutomationRunRetryResponseSchema,
   AutomationCompileResponseSchema,
+  AutomationDraftStartResponseSchema,
+  AutomationDraftListResponseSchema,
+  AutomationDraftRetryResponseSchema,
+  AutomationDraftDismissResponseSchema,
   AutomationTriggerCheckResponseSchema,
   HeartbeatCreateResponseSchema,
   HeartbeatUpdateResponseSchema,
@@ -7007,6 +7257,10 @@ export type AutomationRunGetResponse = z.infer<typeof AutomationRunGetResponseSc
 export type AutomationRunMarkReadResponse = z.infer<typeof AutomationRunMarkReadResponseSchema>;
 export type AutomationRunRetryResponse = z.infer<typeof AutomationRunRetryResponseSchema>;
 export type AutomationCompileResponse = z.infer<typeof AutomationCompileResponseSchema>;
+export type AutomationDraftStartResponse = z.infer<typeof AutomationDraftStartResponseSchema>;
+export type AutomationDraftListResponse = z.infer<typeof AutomationDraftListResponseSchema>;
+export type AutomationDraftRetryResponse = z.infer<typeof AutomationDraftRetryResponseSchema>;
+export type AutomationDraftDismissResponse = z.infer<typeof AutomationDraftDismissResponseSchema>;
 export type AutomationTriggerCheckResponse = z.infer<typeof AutomationTriggerCheckResponseSchema>;
 export type HeartbeatCreateResponse = z.infer<typeof HeartbeatCreateResponseSchema>;
 export type HeartbeatUpdateResponse = z.infer<typeof HeartbeatUpdateResponseSchema>;
@@ -7044,6 +7298,9 @@ export type DictationStreamFinishMessage = z.infer<typeof DictationStreamFinishM
 export type DictationStreamCancelMessage = z.infer<typeof DictationStreamCancelMessageSchema>;
 export type CreateAgentRequestMessage = z.infer<typeof CreateAgentRequestMessageSchema>;
 export type AgentAttachment = z.infer<typeof AgentAttachmentSchema>;
+export type AnnotationSource = z.infer<typeof AnnotationSourceSchema>;
+export type AnnotationTextSelector = z.infer<typeof AnnotationTextSelectorSchema>;
+export type AnnotationAttachmentMetadata = z.infer<typeof AnnotationAttachmentMetadataSchema>;
 export type ForgeChangeRequestAttachment = z.infer<typeof ForgeChangeRequestAttachmentSchema>;
 export type ForgeIssueAttachment = z.infer<typeof ForgeIssueAttachmentSchema>;
 export type UploadedFileAttachment = z.infer<typeof UploadedFileAttachmentSchema>;
@@ -7134,6 +7391,14 @@ export type CheckoutCommitFileDiffRequest = z.infer<typeof CheckoutCommitFileDif
 export type CheckoutCommitFileDiffResponse = z.infer<typeof CheckoutCommitFileDiffResponseSchema>;
 export type PimiCodebaseSearchRequest = z.infer<typeof PimiCodebaseSearchRequestSchema>;
 export type PimiCodebaseSearchResult = z.infer<typeof PimiCodebaseSearchResultSchema>;
+export type CodeNavigationQueryRequest = z.infer<typeof CodeNavigationQueryRequestSchema>;
+export type CodeNavigationResult = z.infer<typeof CodeNavigationResultSchema>;
+export type CodeNavigationServerStatus = z.infer<typeof CodeNavigationServerStatusSchema>;
+export type CodeNavigationServersListRequest = z.infer<
+  typeof CodeNavigationServersListRequestSchema
+>;
+export type CodeNavigationServerTestRequest = z.infer<typeof CodeNavigationServerTestRequestSchema>;
+export type EditorLanguageServer = z.infer<typeof EditorLanguageServerSchema>;
 export type CheckoutBlameRequest = z.infer<typeof CheckoutBlameRequestSchema>;
 export type CheckoutBlameResult = z.infer<typeof CheckoutBlameResultSchema>;
 export type ParsedDiffFile = z.infer<typeof ParsedDiffFileSchema>;

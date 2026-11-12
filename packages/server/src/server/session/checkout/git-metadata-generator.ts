@@ -8,7 +8,7 @@ import {
 import type { AgentManager } from "../../agent/agent-manager.js";
 import type { ProviderSnapshotManager } from "../../agent/provider-snapshot-manager.js";
 import {
-  resolveStructuredGenerationProviders,
+  resolvePimiModel,
   type ResolveStructuredGenerationProvidersOptions,
   type StructuredGenerationDaemonConfig,
 } from "../../agent/structured-generation-providers.js";
@@ -38,7 +38,9 @@ export interface GitMetadataGenerator {
  * behaviour is unit-testable with a fake. Production wires
  * createAgentStructuredTextGeneration (resolve providers → run structured
  * generation); a failed generation throws StructuredAgent*Error, which the
- * generator logs and turns into the product fallback text.
+ * generator logs and turns into the product fallback text. A model the user
+ * chose that cannot run throws PimiModelUnavailableError, which is not turned
+ * into fallback text.
  */
 export interface StructuredTextGeneration {
   generate<T>(request: StructuredTextGenerationRequest<T>): Promise<T>;
@@ -50,6 +52,7 @@ export interface StructuredTextGenerationRequest<T> {
   schema: z.ZodType<T>;
   schemaName: string;
   agentTitle: string;
+  feature: "commitMessage" | "pullRequest";
 }
 
 interface GitMetadataLogger {
@@ -159,6 +162,7 @@ export function createGitMetadataGenerator(deps: {
           schema: COMMIT_MESSAGE_SCHEMA,
           schemaName: "CommitMessage",
           agentTitle: "Commit generator",
+          feature: "commitMessage",
         },
         { message: COMMIT_MESSAGE_FALLBACK },
       );
@@ -182,6 +186,7 @@ export function createGitMetadataGenerator(deps: {
           schema: PULL_REQUEST_SCHEMA,
           schemaName: "PullRequest",
           agentTitle: "PR generator",
+          feature: "pullRequest",
         },
         PULL_REQUEST_FALLBACK,
       );
@@ -204,8 +209,9 @@ export function createAgentStructuredTextGeneration(deps: {
   logger: StructuredGenerationLogger;
 }): StructuredTextGeneration {
   return {
-    async generate({ cwd, prompt, schema, schemaName, agentTitle }) {
-      const providers = await resolveStructuredGenerationProviders({
+    async generate({ cwd, prompt, schema, schemaName, agentTitle, feature }) {
+      const { providers, pinned } = await resolvePimiModel({
+        feature,
         cwd,
         providerSnapshotManager: deps.providerSnapshotManager,
         daemonConfig: deps.readDaemonConfig(),
@@ -219,6 +225,8 @@ export function createAgentStructuredTextGeneration(deps: {
         schemaName,
         maxRetries: 2,
         providers,
+        pinned,
+        feature,
         persistSession: false,
         logger: deps.logger,
         agentConfigOverrides: {

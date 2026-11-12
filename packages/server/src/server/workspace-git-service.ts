@@ -214,6 +214,12 @@ export interface WorkspaceGitService {
     cwd: string,
     options?: WorkspaceGitSnapshotOptions,
   ): Promise<WorkspaceGitRuntimeSnapshot>;
+  /**
+   * The snapshot as soon as local git facts are known. A cold snapshot also loads forge data
+   * (network and CLI calls that can take seconds); callers that never show it need not wait.
+   * The forge half keeps loading and is published through the usual snapshot updates.
+   */
+  getLocalSnapshot(cwd: string): Promise<WorkspaceGitRuntimeSnapshot>;
   resolveForge(cwd: string): Promise<ForgeResolution | null>;
   getCheckoutDiff(
     cwd: string,
@@ -444,6 +450,8 @@ interface WorkspaceGitTarget {
   observationSetupComplete: boolean;
   folderMissing: boolean;
   folderRestorePromise: Promise<void> | null;
+  /** Callers that only need local git facts; released as soon as the git phase of a refresh ends. */
+  localSnapshotWaiters: Array<(snapshot: WorkspaceGitRuntimeSnapshot) => void>;
   closed: boolean;
 }
 
@@ -780,6 +788,29 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
     }
 
     return this.requestWorkspaceSnapshot(target, request);
+  }
+
+  async getLocalSnapshot(cwd: string): Promise<WorkspaceGitRuntimeSnapshot> {
+    this.assertNotDisposed();
+    cwd = resolve(cwd);
+    const target = this.ensureWorkspaceTarget(cwd);
+    if (target.latestSnapshot) {
+      return target.latestSnapshot;
+    }
+    let release: (() => void) | null = null;
+    const local = new Promise<WorkspaceGitRuntimeSnapshot>((resolveLocal) => {
+      const waiter = (snapshot: WorkspaceGitRuntimeSnapshot): void => resolveLocal(snapshot);
+      target.localSnapshotWaiters.push(waiter);
+      release = () => {
+        const index = target.localSnapshotWaiters.indexOf(waiter);
+        if (index !== -1) target.localSnapshotWaiters.splice(index, 1);
+      };
+    });
+    try {
+      return await Promise.race([this.getSnapshot(cwd), local]);
+    } finally {
+      (release as (() => void) | null)?.();
+    }
   }
 
   async getCheckout(cwd: string): Promise<ProjectCheckoutLitePayload> {
@@ -1279,6 +1310,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
       observationSetupComplete: false,
       folderMissing: false,
       folderRestorePromise: null,
+      localSnapshotWaiters: [],
       closed: false,
     };
 
@@ -3499,6 +3531,11 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
       facts = await this.refreshGitSnapshot(target, request, runRefreshGitCommand);
     }
     if (request.includeForge) {
+      const waiters = target.localSnapshotWaiters.splice(0);
+      if (waiters.length > 0) {
+        const local = this.combineSnapshot(target);
+        for (const waiter of waiters) waiter(local);
+      }
       await this.refreshForgeSnapshot(target, request, facts, runRefreshGitCommand);
     }
 

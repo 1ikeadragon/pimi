@@ -70,6 +70,9 @@ import type {
 } from "@pimi/protocol/agent-types";
 import type { AgentScreenAgent } from "@/hooks/use-agent-screen-state-machine";
 import { useSessionStore } from "@/stores/session-store";
+import { useProvidersSnapshot } from "@/hooks/use-providers-snapshot";
+import { resolveProviderLabel } from "@/utils/provider-definitions";
+import { resolveWorkingStatus } from "./working-status";
 import { useRevealedText } from "@/hooks/use-revealed-text";
 import { useFileExplorerActions } from "@/hooks/use-file-explorer-actions";
 import { useLoadOlderAgentHistory } from "@/hooks/use-load-older-agent-history";
@@ -604,6 +607,13 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       resolvedServerId,
       settledDraft,
     ]);
+    const lastTurnId = useMemo(() => {
+      for (let i = effectiveStreamItems.length - 1; i >= 0; i -= 1) {
+        const turnId = effectiveStreamItems[i]?.turnId;
+        if (turnId) return turnId;
+      }
+      return undefined;
+    }, [effectiveStreamItems]);
     const presentStream = useMemo(() => createStreamPresentation(), []);
     const presentation = useMemo(
       () =>
@@ -919,6 +929,10 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
               detail={data.detail}
               cwd={context.cwd}
               serverId={resolvedServerId}
+              agentId={agentId}
+              callId={data.callId}
+              turnId={item.turnId}
+              prefetchBody={item.turnId !== undefined && item.turnId === lastTurnId}
               metadata={data.metadata}
               agentMessage={data.agentMessage}
               isLastInSequence={isLastInSequence}
@@ -955,7 +969,14 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
           />
         );
       },
-      [agentId, context.cwd, resolvedServerId, setInlineDetailsExpanded, handleToolCallOpenFile],
+      [
+        agentId,
+        context.cwd,
+        lastTurnId,
+        resolvedServerId,
+        setInlineDetailsExpanded,
+        handleToolCallOpenFile,
+      ],
     );
 
     // Read through a stable event so live group updates do not change the renderer identity
@@ -1127,11 +1148,43 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         }),
       [client, pendingPermissionItems],
     );
+    const { entries: providerEntries } = useProvidersSnapshot(resolvedServerId, {
+      cwd: context.cwd,
+    });
+    const providerLabel = resolveProviderLabel(context.provider ?? "", providerEntries);
+    const { kind: workingKind, label: workingLabel } = useMemo(
+      () =>
+        resolveWorkingStatus({
+          isCancelling: effectiveTurnPresentation.isCancelling,
+          hasPendingPermission: pendingPermissionItems.length > 0,
+          agentStatus: context.status,
+          providerLabel,
+          turnStartedAt: effectiveTurnPresentation.startedAt,
+          latest: effectiveStreamHead?.at(-1) ?? effectiveStreamItems.at(-1),
+          activeTurnId: effectiveTurnPresentation.turnId,
+          cwd: context.cwd,
+          t,
+        }),
+      [
+        context.cwd,
+        context.status,
+        effectiveStreamHead,
+        effectiveStreamItems,
+        effectiveTurnPresentation.isCancelling,
+        effectiveTurnPresentation.startedAt,
+        effectiveTurnPresentation.turnId,
+        pendingPermissionItems.length,
+        providerLabel,
+        t,
+      ],
+    );
     const turnFooterNode = useMemo(
       () =>
         isTurnActive || bottomTurnFooterHost ? (
           <TurnFooter
             isRunning={isTurnActive}
+            workingKind={workingKind}
+            workingLabel={workingLabel}
             inFlightTurnStartedAt={baseRenderModel.turnTiming.runningStartedAt}
             host={bottomTurnFooterHost}
             strategy={streamRenderStrategy}
@@ -1144,6 +1197,8 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         handleForkInFlightTurn,
         readOnly,
         isTurnActive,
+        workingKind,
+        workingLabel,
         baseRenderModel.turnTiming.runningStartedAt,
         bottomTurnFooterHost,
         streamRenderStrategy,

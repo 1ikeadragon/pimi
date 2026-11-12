@@ -81,6 +81,7 @@ import { HorizontalScrollProvider } from "@/contexts/horizontal-scroll-context";
 import { SessionProvider } from "@/contexts/session-context";
 import { SidebarCalloutProvider } from "@/contexts/sidebar-callout-context";
 import { ToastProvider } from "@/contexts/toast-context";
+import { AutomationDraftWatcher } from "@/components/automations/automation-draft-watcher";
 import { VoiceProvider } from "@/contexts/voice-context";
 import {
   resolveStartupBlocker,
@@ -1013,6 +1014,7 @@ function AppWithSidebar({ children }: { children: ReactNode }) {
       pathname === "/new" ||
       pathname === "/sessions" ||
       pathname === "/automations" ||
+      pathname.startsWith("/automations/") ||
       pathname === "/profiles" ||
       pathname.startsWith("/profiles/") ||
       routeHasKnownHost);
@@ -1052,7 +1054,9 @@ function RootStack() {
         <Stack.Screen name="pimi-work" />
         <Stack.Screen name="pimi-library" />
         <Stack.Screen name="sessions" />
-        <Stack.Screen name="automations" />
+        <Stack.Screen name="automations/index" />
+        <Stack.Screen name="automations/new" />
+        <Stack.Screen name="automations/[serverId]/[automationId]" />
         <Stack.Screen name="profiles/index" />
         <Stack.Screen name="profiles/[serverId]/[profileId]" />
       </Stack.Protected>
@@ -1087,6 +1091,7 @@ function AppShell() {
       <HorizontalScrollProvider>
         <OpenProjectListener />
         <AgentNavigationListener />
+        <AutomationDraftWatcher />
         <AppWithSidebar>
           <WorkspaceRouteNavigationBridge />
           <RootStack />

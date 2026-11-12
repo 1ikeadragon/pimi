@@ -113,7 +113,9 @@ function AutomationsTableRow({
   }, [runAction, mutations, id]);
 
   const handleRunNow = useCallback(() => {
-    void runAction("runNow", () => mutations.runAutomationNow(id));
+    void runAction("runNow", async () => {
+      await mutations.runAutomationNow(id);
+    });
   }, [runAction, mutations, id]);
 
   const handleDelete = useCallback(() => {

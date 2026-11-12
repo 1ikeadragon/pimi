@@ -1,38 +1,18 @@
 import { ASSISTANT_MESSAGE_RENDER_CHARACTER_LIMIT } from "@/components/assistant-message-render-limit.shared";
 import { z } from "zod";
-import type { AgentAttachment } from "@pimi/protocol/messages";
+import {
+  AnnotationSourceSchema,
+  AnnotationTextSelectorSchema,
+  type AgentAttachment,
+  type AnnotationSource,
+  type AnnotationTextSelector,
+} from "@pimi/protocol/messages";
 
 // Keep each annotation field within the existing assistant message display budget.
 export const ANNOTATION_CHARACTER_LIMIT = ASSISTANT_MESSAGE_RENDER_CHARACTER_LIMIT;
 
 const PILL_TITLE_LENGTH = 64;
 
-const position = z.number().int().positive();
-export const AnnotationSourceSchema = z.discriminatedUnion("kind", [
-  z.strictObject({
-    kind: z.literal("file"),
-    serverId: z.string(),
-    workspaceId: z.string(),
-    path: z.string(),
-    startLine: position,
-    startColumn: position,
-    endLine: position,
-    endColumn: position,
-  }),
-  z.strictObject({
-    kind: z.literal("chat"),
-    serverId: z.string(),
-    agentId: z.string(),
-    messageId: z.string(),
-    role: z.enum(["user", "assistant"]),
-  }),
-]);
-/** Finds a chat quote again in the rendered message after it reflows. */
-export const AnnotationTextSelectorSchema = z.strictObject({
-  text: z.string(),
-  prefix: z.string(),
-  suffix: z.string(),
-});
 export const AnnotationAttachmentSchema = z.strictObject({
   kind: z.literal("annotation"),
   id: z.string(),
@@ -42,8 +22,7 @@ export const AnnotationAttachmentSchema = z.strictObject({
   // Absent on drafts saved before chat quotes were re-anchored, and on file annotations.
   selector: AnnotationTextSelectorSchema.optional(),
 });
-export type AnnotationSource = z.infer<typeof AnnotationSourceSchema>;
-export type AnnotationTextSelector = z.infer<typeof AnnotationTextSelectorSchema>;
+export type { AnnotationSource, AnnotationTextSelector };
 export type AnnotationAttachment = z.infer<typeof AnnotationAttachmentSchema>;
 export type AnnotationCapture = Pick<AnnotationAttachment, "source" | "quote" | "selector">;
 type FileSource = Extract<AnnotationSource, { kind: "file" }>;
@@ -116,6 +95,12 @@ export function annotationToAgentAttachment(
     type: "text",
     mimeType: "text/plain",
     title: `Annotation · ${singleLine(titleSource)}`,
+    annotation: {
+      source,
+      quote,
+      note: annotation.note,
+      ...(annotation.selector ? { selector: annotation.selector } : {}),
+    },
     text: [
       "Annotation",
       `Source: ${serializedSource(source)}`,

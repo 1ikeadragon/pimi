@@ -224,7 +224,8 @@ export class CheckoutSession {
     const resolvedCwd = expandTilde(cwd);
 
     try {
-      const snapshot = await this.workspaceGitService.getSnapshot(resolvedCwd);
+      // The status payload carries no forge data, so it must not wait for the forge lookup.
+      const snapshot = await this.workspaceGitService.getLocalSnapshot(resolvedCwd);
       this.host.emit({
         type: "checkout_status_response",
         payload: buildCheckoutStatusPayloadFromSnapshot({

@@ -26,6 +26,10 @@ when you have actually looked at it on a phone.
 `ContextMenu` is the exception: it defaults to `compactMode="sheet"` and enables native long press.
 Disable mobile triggering explicitly on draggable rows, where long press belongs to drag instead.
 
+## A menu over a text surface
+
+The source editor and the read-only source view open a `ContextMenu` with `contextOnly` on their CodeMirror host (`packages/app/src/file-panels/source/navigation/code-navigation.web.tsx`). `contextOnly` renders a plain `View`, so CodeMirror keeps its own mouse and focus handling. The menu replaces Electron's default Cut/Copy/Paste/Select All there and nowhere else: a right-click outside the editor still reaches the platform menu. Clipboard items edit the CodeMirror document directly, so they behave the same in vim mode and land in the undo history.
+
 ## When the items differ per form factor
 
 A menu whose contents depend on what else is on screen gets one component per surface, not one

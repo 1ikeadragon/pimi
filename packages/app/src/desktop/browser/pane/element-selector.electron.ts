@@ -279,7 +279,7 @@ function buildElementSelectorScript(sessionToken: string): string {
         for (var i = 0; i < (depth || 5) && cur; i++) {
           var desc = cur.tagName.toLowerCase();
           if (cur.id) desc += '#' + cur.id;
-          if (cur.className && typeof cur.className === 'string') { var cls = cur.className.trim().replace(/  +/g, ' ').split(' ').slice(0,2).join('.'); if (cls) desc += '.' + cls; }
+          if (cur.className && typeof cur.className === 'string') { var cls = cur.className.trim().split(/\\s+/).filter(function(c) { return c && c.indexOf('__paseo') !== 0; }).slice(0,2).join('.'); if (cls) desc += '.' + cls; }
           chain.push(desc);
           cur = cur.parentElement;
         }

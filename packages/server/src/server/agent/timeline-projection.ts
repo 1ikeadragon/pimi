@@ -293,6 +293,9 @@ function mergeAssistantChunks(entries: readonly WorkingEntry[]): WorkingEntry[] 
   return output;
 }
 
+/** One page answers one WebSocket message, so its serialized items are capped as well as counted. */
+export const TIMELINE_PAGE_BYTE_BUDGET = 512 * 1024;
+
 /** A retained item. `seq` is its latest source event, not its display anchor. */
 export type ProjectedTimelineRow = AgentTimelineRow & TimelineProjectionEntry;
 
@@ -313,6 +316,8 @@ export class TimelineProjection {
   // span must include its first anchor to cover interleaved lifecycle updates.
   private readonly spans: { start: number; endSeq: number }[] = [];
 
+  private readonly rowBytes = new WeakMap<ProjectedTimelineRow, number>();
+
   private readonly sourceRanges: { startSeq: number; endSeq: number; rowIndex: number }[] = [];
 
   constructor(rows: readonly AgentTimelineRow[] = []) {
@@ -332,6 +337,37 @@ export class TimelineProjection {
       this.sourceRanges.push({ startSeq: row.seq, endSeq: row.seq, rowIndex });
     }
     return { ...this.rows[rowIndex] };
+  }
+
+  /** Place rows that all precede the current first row. The newest of them must stay strictly
+   * older than every existing sequence number; no merging happens across the seam. */
+  prepend(rows: readonly AgentTimelineRow[]): void {
+    if (rows.length === 0) return;
+    const older = new TimelineProjection(rows);
+    const shift = older.rows.length;
+    for (const [identity, index] of this.identities) this.identities.set(identity, index + shift);
+    for (const [identity, index] of older.identities) {
+      if (!this.identities.has(identity)) this.identities.set(identity, index);
+    }
+    for (const span of this.spans) span.start += shift;
+    for (const range of this.sourceRanges) range.rowIndex += shift;
+    this.rows.splice(0, 0, ...older.rows);
+    this.spans.splice(0, 0, ...older.spans);
+    this.sourceRanges.splice(0, 0, ...older.sourceRanges);
+    if (this.lastAssistantRowIndex !== null) this.lastAssistantRowIndex += shift;
+    else this.lastAssistantRowIndex = older.lastAssistantRowIndex;
+  }
+
+  /** Projected rows that start before `seq`. */
+  countRowsBefore(seq: number): number {
+    let low = 0;
+    let high = this.rows.length;
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      if (this.rows[middle].seqStart < seq) low = middle + 1;
+      else high = middle;
+    }
+    return low;
   }
 
   private appendProjected(row: AgentTimelineRow): number {
@@ -394,6 +430,21 @@ export class TimelineProjection {
     return this.rows.map((row) => ({ ...row }));
   }
 
+  /** The newest row matching `predicate`, found without copying the rows. */
+  findLastRow(predicate: (row: ProjectedTimelineRow) => boolean): ProjectedTimelineRow | null {
+    for (let i = this.rows.length - 1; i >= 0; i -= 1) {
+      const row = this.rows[i];
+      if (row && predicate(row)) return { ...row };
+    }
+    return null;
+  }
+
+  /** The oldest row matching `predicate`, found without copying the rows. */
+  findFirstRow(predicate: (row: ProjectedTimelineRow) => boolean): ProjectedTimelineRow | null {
+    const row = this.rows.find(predicate);
+    return row ? { ...row } : null;
+  }
+
   selectPage(input: ProjectedTimelinePageOptions): ProjectedTimelinePageSelection {
     if (this.rows.length === 0) {
       const cursor =
@@ -427,7 +478,10 @@ export class TimelineProjection {
     const limit = Math.max(0, Math.floor(input.limit ?? 0));
     const requestedStart = limit === 0 ? 0 : Math.max(0, this.rows.length - limit);
     const coveredStart = this.spans[this.spanIndex(requestedStart)].start;
-    const start = input.wholeTurns ? this.wholeTurnWindowStart(coveredStart) : coveredStart;
+    const wholeStart = input.wholeTurns ? this.wholeTurnWindowStart(coveredStart) : coveredStart;
+    // limit 0 means the whole timeline (fork context, CLI logs): never byte-trim it.
+    const start =
+      limit === 0 ? wholeStart : this.trimStartToByteBudget(wholeStart, this.rows.length);
     return {
       entries: this.rows.slice(start),
       startSeq: this.rows[start].seqStart,
@@ -435,6 +489,34 @@ export class TimelineProjection {
       hasOlder: start > 0,
       hasNewer: false,
     };
+  }
+
+  /**
+   * Move a page's first row forward until the page fits TIMELINE_PAGE_BYTE_BUDGET, keeping the
+   * newest rows. The newest row always stays, and the start stays on a coverage-span boundary so
+   * an interleaved lifecycle update is never split from its anchor. The older rows remain
+   * reachable through hasOlder.
+   */
+  private trimStartToByteBudget(start: number, end: number): number {
+    let total = 0;
+    let first = end;
+    while (first > start) {
+      const bytes = this.bytesOfRow(this.rows[first - 1]);
+      if (first < end && total + bytes > TIMELINE_PAGE_BYTE_BUDGET) break;
+      total += bytes;
+      first--;
+    }
+    if (first === start) return start;
+    return Math.max(start, this.spans[this.spanIndex(first)].start);
+  }
+
+  private bytesOfRow(row: ProjectedTimelineRow): number {
+    let bytes = this.rowBytes.get(row);
+    if (bytes === undefined) {
+      bytes = JSON.stringify(row.item).length;
+      this.rowBytes.set(row, bytes);
+    }
+    return bytes;
   }
 
   private wholeTurnWindowStart(requestedStart: number): number {
@@ -496,15 +578,23 @@ export class TimelineProjection {
       }
       const limit = Math.max(0, Math.floor(input.limit ?? 0));
       const requestedStart = limit === 0 ? 0 : Math.max(0, low - limit);
-      const start = input.wholeTurns ? this.wholeTurnWindowStart(requestedStart) : requestedStart;
+      const wholeStart = input.wholeTurns
+        ? this.wholeTurnWindowStart(requestedStart)
+        : requestedStart;
+      const start = this.trimStartToByteBudget(wholeStart, low);
       // Choose the window before extending the right edge, so a prompt jump
-      // cannot lose its target when the next turn is arbitrarily large.
-      if (input.wholeTurns) {
+      // cannot lose its target when the next turn is arbitrarily large. A cursor that sits exactly
+      // on a row boundary is a previous page's start (possibly a mid-turn byte-budget trim), so
+      // the rows after it were already delivered and the edge must not move.
+      const extendRightEdge =
+        input.wholeTurns &&
+        !(low < this.rows.length && this.rows[low].seqStart === input.cursorSeq);
+      if (extendRightEdge) {
         while (low < this.rows.length && continuesProjectedTurn(this.rows[low - 1], this.rows[low]))
           low++;
       }
       let selectedEnd = endSeq;
-      if (input.wholeTurns)
+      if (extendRightEdge)
         selectedEnd = low === this.rows.length ? input.bounds.maxSeq : this.rows[low].seqStart - 1;
       return {
         entries: this.rows.slice(start, low),

@@ -2,6 +2,35 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.22 - 2026-11-12
+
+- Browser Annotate: each pill in the composer shows your note, and clicking it previews the screenshot, the note and the exact text the agent receives. Attaching right after picking an element keeps the screenshot, and the captured parent chain no longer includes Pimi's own selection class.
+- Toasts have a close button.
+- Go to Definition and Find References see edits to every open file, not only the one you query. Rename checks every file before writing any of them.
+- Git blame on very large files stops retrying after a timeout, so moving the cursor no longer restarts it.
+- Switching a chat's voice works even when its older history can't be loaded. Very large Claude chats keep loading from the newest turns instead of replaying the whole history.
+
+## 0.17.21 - 2026-11-12
+
+- Large chats open much faster. Claude and Codex chats load from the newest turns and fetch older history as you scroll. A 291 MB Claude chat now opens in about a quarter of a second. Older history no longer drops rows while paging.
+- Long tool output shows a short preview and loads in full when you expand it, hover it, or it is part of the newest turn. If loading fails, the row offers Retry.
+- The Git panel shows status without waiting for GitHub, and Spaces show a still preview of embeds until you click to play.
+- The editor has a right-click menu with Go to Definition, Find References, Rename and Search Codebase. TypeScript and JavaScript use the built-in TypeScript service. Rust, Python, PHP and Go use rust-analyzer, basedpyright or pyright or pylsp, Intelephense or phpactor, and gopls when they are installed. Pimi never downloads a language server. Without one, navigation matches by name and Rename is off.
+- A new Settings → Editor page shows which language server Pimi found for each language and lets you point it at your own. The first time you open a file whose language has no server, Pimi says so once and links to the setting.
+- Git blame for the current line appears almost instantly and no longer blanks while you move the cursor.
+- A new Pimi models settings page, after Providers, picks the provider, model and thinking level Pimi uses for its own work: chat titles, workspace and branch names, commit messages, pull request text, Describe it and Ask Pimi. Each feature can use the default or its own model. If a chosen model can't run, Pimi shows an error instead of quietly using another one.
+- While an agent works, the chat shows Pimi and a status line saying what is happening: the tool it is running, Thinking, Writing, or Waiting for your approval. Elapsed time appears after a few seconds.
+- The automation editor no longer asks to discard changes. Unsaved edits stay with each automation while you move around the app, with an Unsaved changes bar to save or discard them. Adding a step or check no longer resets the canvas view. On phones the create buttons wrap.
+- Review comments use a compact inline box (⌘↵ to submit), and the floating Send feedback button is gone. Sent annotation pills jump back to their source.
+
+## 0.17.20 - 2026-11-12
+
+- Automations open in a full-screen editor built around the step graph, replacing the old dialog. Drag the canvas to pan, scroll or pinch to zoom, and use Fit to recenter. The graph opens centered at a readable size.
+- Checks read as a sentence: "Go to Yes when [reply from a step] [starts with] [text]". Pick a preset from Start from, try a sample reply in Try it, and use the new "starts with" and "ends with" tests. A check that compares with empty text can't be saved.
+- Describe it drafts in the background. Keep working, and a notification says when the draft is ready to open. A failed draft offers Retry, and a draft still in progress can be dismissed.
+- Unsaved edits in the automation editor survive a dropped connection, and leaving with unsaved edits asks first.
+- While agents run and the Mac is on AC power, Pimi keeps the display awake.
+
 ## 0.17.19 - 2026-11-11
 
 - Automations can run several steps. Connect agent steps and checks into a graph on the automation's canvas. Steps that don't depend on each other run at the same time, and a later step can use an earlier step's output. A failed run shows which step failed, and Retry reruns from that step, keeping the earlier results.

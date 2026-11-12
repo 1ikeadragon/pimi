@@ -1,15 +1,14 @@
 # Forms
 
-The paved road for building forms in the app. The automation form is the golden
+The paved road for building forms in the app. The automation editor is the golden
 example; when building or fixing any form, copy its shape, not the shape of
 whatever screen you happen to be near.
 
 Golden example files:
 
-- `packages/app/src/automations/automation-form-model.ts` — the model
-- `packages/app/src/automations/use-automation-form-model.ts` — model lifetime adapter
-- `packages/app/src/automations/use-automation-form-provider-snapshot.ts` — async input adapter
-- `packages/app/src/components/automations/automation-form-sheet.tsx` — render + intent dispatch
+- `packages/app/src/automations/automation-editor-model.ts` — the model
+- `packages/app/src/automations/use-automation-editor-model.ts` — model lifetime and async input adapter
+- `packages/app/src/screens/automation-editor-screen.tsx` and `components/automations/automation-editor-inspector.tsx` — render + intent dispatch
 - `packages/app/src/automations/aggregated-automations.ts` / `hooks/use-automations.ts` — load-state gating
 
 ## The form model

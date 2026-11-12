@@ -19,7 +19,7 @@ import type { Theme } from "@/styles/theme";
 import { useTranslation } from "react-i18next";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { isWeb } from "@/constants/platform";
-import { AlertTriangle, CheckCircle2, Info } from "lucide-react-native";
+import { AlertTriangle, CheckCircle2, Info, X } from "lucide-react-native";
 import { getOverlayRoot, OVERLAY_Z } from "@/lib/overlay-root";
 import {
   HEADER_INNER_HEIGHT,
@@ -69,6 +69,8 @@ const toastExiting = FadeOut.duration(140);
 const ThemedCheckCircle = withUnistyles(CheckCircle2);
 const ThemedInfo = withUnistyles(Info);
 const ThemedWarning = withUnistyles(AlertTriangle);
+const ThemedX = withUnistyles(X);
+const mutedIcon = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 const foregroundIcon = (theme: Theme) => ({ color: theme.colors.foreground });
 const infoIcon = (theme: Theme) => ({ color: theme.colors.palette.blue[300] });
 const successIcon = (theme: Theme) => ({ color: theme.colors.primary });
@@ -234,7 +236,12 @@ export function ToastViewport({
             testID={toast.testID ?? "app-toast"}
             accessibilityRole="alert"
           >
-            <ToastCard toast={toast} onHoverIn={pauseDismiss} onHoverOut={resumeDismiss} />
+            <ToastCard
+              toast={toast}
+              onHoverIn={pauseDismiss}
+              onHoverOut={resumeDismiss}
+              onDismiss={onDismiss}
+            />
           </Animated.View>
         ) : null}
       </View>
@@ -252,11 +259,14 @@ function ToastCard({
   toast,
   onHoverIn,
   onHoverOut,
+  onDismiss,
 }: {
   toast: ToastState;
   onHoverIn: () => void;
   onHoverOut: () => void;
+  onDismiss: () => void;
 }) {
+  const { t } = useTranslation();
   let defaultIcon: ReactNode = null;
   if (toast.variant === "info") {
     defaultIcon = <ThemedInfo size={18} uniProps={infoIcon} />;
@@ -291,6 +301,16 @@ function ToastCard({
           {toast.content}
         </View>
       )}
+      <Pressable
+        onPress={onDismiss}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={t("common.actions.dismiss")}
+        testID="app-toast-dismiss"
+        style={styles.dismiss}
+      >
+        <ThemedX size={14} uniProps={mutedIcon} />
+      </Pressable>
     </Pressable>
   );
 }
@@ -339,6 +359,12 @@ const styles = StyleSheet.create((theme) => ({
   iconSlot: {
     alignItems: "center",
     justifyContent: "center",
+  },
+  dismiss: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: theme.spacing[1],
+    borderRadius: theme.borderRadius.full,
   },
   contentSlot: {
     flexShrink: 1,

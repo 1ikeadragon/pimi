@@ -5,7 +5,7 @@ import type { AgentManager, ManagedAgent } from "./agent-manager.js";
 import { generateStructuredAgentResponseWithFallback } from "./agent-response-loop.js";
 import type { ProviderSnapshotManager } from "./provider-snapshot-manager.js";
 import {
-  resolveStructuredGenerationProviders,
+  resolvePimiModel,
   type StructuredGenerationDaemonConfig,
 } from "./structured-generation-providers.js";
 
@@ -29,7 +29,8 @@ export async function generateChatTitle(input: {
   logger: Logger;
 }): Promise<string> {
   const { agent } = input;
-  const providers = await resolveStructuredGenerationProviders({
+  const { providers, pinned } = await resolvePimiModel({
+    feature: "title",
     cwd: agent.cwd,
     providerSnapshotManager: input.providerSnapshotManager,
     daemonConfig: input.daemonConfig,
@@ -67,6 +68,8 @@ export async function generateChatTitle(input: {
     schema: ChatTitleSchema,
     schemaName: "ChatTitle",
     providers,
+    pinned,
+    feature: "title",
     maxRetries: 1,
     persistSession: false,
     logger: input.logger,

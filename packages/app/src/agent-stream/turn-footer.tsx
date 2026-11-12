@@ -1,5 +1,5 @@
-import React, { memo, useCallback, useMemo, type ReactNode } from "react";
-import { View } from "react-native";
+import React, { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { SPACING, type Theme } from "@/styles/theme";
 import type { TurnTiming } from "@/timeline/turn-time";
@@ -17,11 +17,19 @@ import {
 } from "@/components/message";
 import type { TurnFooterHost } from "./layout";
 import { AssistantForkMenu } from "@/components/assistant-fork-menu";
-import { SyncedLoader } from "@/components/synced-loader";
+import { WorkingPimi } from "@/components/working-pimi";
+import { getStatusDotColor } from "@/utils/status-dot-color";
+import type { WorkingStatusKind } from "./working-status";
 import { useRetainedPanelActive } from "@/components/retained-panel";
 
-const ThemedSyncedLoader = withUnistyles(SyncedLoader);
-const workingIndicatorColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
+const ThemedWorkingPimi = withUnistyles(WorkingPimi);
+const workingPimiColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
+// Waiting for the user is the needs-input state, so it takes the same amber as the sidebar dot.
+const waitingPimiColorMapping = (theme: Theme) => ({
+  color: getStatusDotColor({ theme, bucket: "needs_input" }) ?? theme.colors.foreground,
+});
+// A short turn should not flash a timer; show elapsed time only once it is worth reading.
+const ELAPSED_VISIBLE_AFTER_MS = 5000;
 export const TURN_FOOTER_BOTTOM_SPACING = SPACING[8];
 // Every footer variant (running, completed with Copy, completed with only its duration) gets
 // this content height, so a turn ending swaps the footer's controls without moving the rows
@@ -48,6 +56,8 @@ export type InFlightTurnForkHandler = (target: AssistantForkTarget) => Promise<v
 export const TurnFooter = memo(function TurnFooter({
   isRunning,
   inFlightTurnStartedAt,
+  workingKind,
+  workingLabel,
   host,
   strategy,
   onForkAssistantTurn,
@@ -55,6 +65,8 @@ export const TurnFooter = memo(function TurnFooter({
 }: {
   isRunning: boolean;
   inFlightTurnStartedAt: Date | null;
+  workingKind: WorkingStatusKind;
+  workingLabel: string;
   host: TurnFooterHost | null;
   strategy: TurnContentStrategy;
   onForkAssistantTurn?: AssistantTurnForkHandler;
@@ -65,6 +77,8 @@ export const TurnFooter = memo(function TurnFooter({
       <TurnFooterRow>
         <RunningTurnFooter
           inFlightTurnStartedAt={inFlightTurnStartedAt}
+          workingKind={workingKind}
+          workingLabel={workingLabel}
           onForkInFlightTurn={onForkInFlightTurn}
         />
       </TurnFooterRow>
@@ -110,28 +124,62 @@ export const CompletedTurnFooterRow = memo(function CompletedTurnFooterRow({
   );
 });
 
+function DelayedElapsed({ startedAt, active }: { startedAt: Date; active: boolean }) {
+  const startedAtMs = startedAt.getTime();
+  const [visible, setVisible] = useState(
+    () => Date.now() - startedAtMs >= ELAPSED_VISIBLE_AFTER_MS,
+  );
+  useEffect(() => {
+    const remaining = ELAPSED_VISIBLE_AFTER_MS - (Date.now() - startedAtMs);
+    if (remaining <= 0) {
+      setVisible(true);
+      return;
+    }
+    setVisible(false);
+    const handle = setTimeout(() => setVisible(true), remaining);
+    return () => clearTimeout(handle);
+  }, [startedAtMs]);
+  if (!visible) {
+    return null;
+  }
+  return (
+    <LiveElapsed
+      startedAt={startedAt}
+      active={active}
+      style={stylesheet.workingElapsed}
+      testID="turn-working-elapsed"
+    />
+  );
+}
+
 const WorkingIndicator = memo(function WorkingIndicator({
   inFlightTurnStartedAt = null,
+  workingKind,
+  workingLabel,
   onForkInFlightTurn,
 }: {
   inFlightTurnStartedAt?: Date | null;
+  workingKind: WorkingStatusKind;
+  workingLabel: string;
   onForkInFlightTurn?: InFlightTurnForkHandler;
 }) {
   const active = useRetainedPanelActive();
   return (
     <View style={stylesheet.turnFooterContent}>
       <View style={stylesheet.workingLoader}>
-        <ThemedSyncedLoader size={14} uniProps={workingIndicatorColorMapping} />
+        <ThemedWorkingPimi
+          size={18}
+          waiting={workingKind === "waiting"}
+          uniProps={workingKind === "waiting" ? waitingPimiColorMapping : workingPimiColorMapping}
+        />
       </View>
+      <Text style={stylesheet.workingLabel} numberOfLines={1} testID="turn-working-label">
+        {workingLabel}
+      </Text>
       {/* Match the completed-turn footer: actions precede timing metadata. */}
       {onForkInFlightTurn ? <AssistantForkMenu onFork={onForkInFlightTurn} /> : null}
       {inFlightTurnStartedAt ? (
-        <LiveElapsed
-          startedAt={inFlightTurnStartedAt}
-          active={active}
-          style={stylesheet.workingElapsed}
-          testID="turn-working-elapsed"
-        />
+        <DelayedElapsed startedAt={inFlightTurnStartedAt} active={active} />
       ) : null}
     </View>
   );
@@ -139,15 +187,21 @@ const WorkingIndicator = memo(function WorkingIndicator({
 
 function RunningTurnFooter({
   inFlightTurnStartedAt,
+  workingKind,
+  workingLabel,
   onForkInFlightTurn,
 }: {
   inFlightTurnStartedAt: Date | null;
+  workingKind: WorkingStatusKind;
+  workingLabel: string;
   onForkInFlightTurn?: InFlightTurnForkHandler;
 }) {
   return (
     <View style={stylesheet.turnFooterSlot} testID="turn-working-indicator">
       <WorkingIndicator
         inFlightTurnStartedAt={inFlightTurnStartedAt}
+        workingKind={workingKind}
+        workingLabel={workingLabel}
         onForkInFlightTurn={onForkInFlightTurn}
       />
     </View>
@@ -228,6 +282,7 @@ const stylesheet = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
+    maxWidth: "100%",
     height: TURN_FOOTER_CONTENT_HEIGHT + TURN_FOOTER_BOTTOM_SPACING,
     paddingBottom: TURN_FOOTER_BOTTOM_SPACING,
   },
@@ -236,12 +291,18 @@ const stylesheet = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-start",
+    flexShrink: 1,
     gap: theme.spacing[3],
   },
   workingElapsed: {
     color: theme.colors.foregroundMuted,
     fontSize: STREAM_METADATA_FONT_SIZE,
     fontVariant: ["tabular-nums"],
+  },
+  workingLabel: {
+    color: theme.colors.foregroundMuted,
+    fontSize: STREAM_METADATA_FONT_SIZE,
+    flexShrink: 1,
   },
   workingLoader: {
     marginLeft: -2,

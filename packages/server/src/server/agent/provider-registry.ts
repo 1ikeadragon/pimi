@@ -18,6 +18,7 @@ import type {
   ResolveAgentCreateConfigResult,
   ResolveAgentDefaultModeInput,
   AgentSessionConfig,
+  OlderHistoryEvent,
 } from "./agent-sdk-types.js";
 import {
   isDefaultAgentCreateConfigUnattended,
@@ -434,6 +435,13 @@ export function wrapSessionProvider(provider: AgentProvider, inner: AgentSession
         yield mapStreamEvent(provider, event);
       }
     },
+    hasOlderHistory: inner.hasOlderHistory?.bind(inner),
+    loadOlderHistory: inner.loadOlderHistory
+      ? async () =>
+          (await inner.loadOlderHistory!()).map((event) =>
+            mapStreamEvent(provider, event),
+          ) as OlderHistoryEvent[]
+      : undefined,
     getRuntimeInfo: async () => mapRuntimeInfo(provider, await inner.getRuntimeInfo()),
     getAvailableModes: () => inner.getAvailableModes(),
     getCurrentMode: () => inner.getCurrentMode(),

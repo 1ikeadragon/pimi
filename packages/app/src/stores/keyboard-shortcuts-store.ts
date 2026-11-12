@@ -8,6 +8,8 @@ export type CommandCenterScope = "files" | "code" | null;
 interface KeyboardShortcutsState {
   commandCenterOpen: boolean;
   commandCenterScope: CommandCenterScope;
+  /** A query the open Command Center takes as its text once, then clears. */
+  commandCenterSeedQuery: string | null;
   shortcutsDialogOpen: boolean;
   capturingShortcut: boolean;
   altDown: boolean;
@@ -16,7 +18,8 @@ interface KeyboardShortcutsState {
   /** Sidebar-visible workspace targets (up to 9), in top-to-bottom visual order. */
   sidebarShortcutWorkspaceTargets: SidebarShortcutWorkspaceTarget[];
 
-  setCommandCenterOpen: (open: boolean, scope?: CommandCenterScope) => void;
+  setCommandCenterOpen: (open: boolean, scope?: CommandCenterScope, seedQuery?: string) => void;
+  consumeCommandCenterSeedQuery: () => string | null;
   setCommandCenterScope: (scope: CommandCenterScope) => void;
   setShortcutsDialogOpen: (open: boolean) => void;
   setCapturingShortcut: (capturing: boolean) => void;
@@ -52,6 +55,7 @@ function updateBadgeTimer(
 export const useKeyboardShortcutsStore = create<KeyboardShortcutsState>((set, get) => ({
   commandCenterOpen: false,
   commandCenterScope: null,
+  commandCenterSeedQuery: null,
   shortcutsDialogOpen: false,
   capturingShortcut: false,
   altDown: false,
@@ -59,8 +63,17 @@ export const useKeyboardShortcutsStore = create<KeyboardShortcutsState>((set, ge
   showShortcutBadges: false,
   sidebarShortcutWorkspaceTargets: [],
 
-  setCommandCenterOpen: (open, scope = null) =>
-    set({ commandCenterOpen: open, commandCenterScope: open ? scope : null }),
+  setCommandCenterOpen: (open, scope = null, seedQuery) =>
+    set({
+      commandCenterOpen: open,
+      commandCenterScope: open ? scope : null,
+      commandCenterSeedQuery: open ? (seedQuery ?? null) : null,
+    }),
+  consumeCommandCenterSeedQuery: () => {
+    const seed = get().commandCenterSeedQuery;
+    if (seed !== null) set({ commandCenterSeedQuery: null });
+    return seed;
+  },
   setCommandCenterScope: (scope) => set({ commandCenterScope: scope }),
   setShortcutsDialogOpen: (open) => set({ shortcutsDialogOpen: open }),
   setCapturingShortcut: (capturing) => set({ capturingShortcut: capturing }),

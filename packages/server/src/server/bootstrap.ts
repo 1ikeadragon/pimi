@@ -202,6 +202,7 @@ import {
   type ActiveWorkspaceRef,
 } from "./workspace-archive-service.js";
 import { setupAutoArchiveOnMerge } from "./auto-archive-on-merge/index.js";
+import { closeAllCodeNavigation, closeCodeNavigationWorkspace } from "./code-navigation/index.js";
 import { wrapSessionMessage, type SessionOutboundMessage } from "./messages.js";
 import type { TerminalManager } from "../terminal/terminal-manager.js";
 import { startWorkerTerminalManager } from "../terminal/worker-terminal-manager.js";
@@ -216,6 +217,7 @@ import type { AgentClient, AgentProvider } from "./agent/agent-sdk-types.js";
 import type {
   AgentProfile,
   AgentSkillSelection,
+  EditorLanguageServer,
   FirstAgentContext,
   PluginSource,
   TerminalProfile,
@@ -449,6 +451,7 @@ export interface PaseoDaemonConfig {
   enableTerminalAgentHooks?: boolean;
   appendSystemPrompt?: string;
   terminalProfiles?: TerminalProfile[];
+  editorLanguageServers?: EditorLanguageServer[];
   agentProfiles?: AgentProfile[];
   agentProfilesRemovedBuiltins?: string[];
   skillSelection?: AgentSkillSelection;
@@ -490,14 +493,7 @@ export interface PaseoDaemonConfig {
   resumeOnStartup?: boolean;
   resumePrompt?: string;
   providerCatalogRefreshTimeoutMs?: number;
-  metadataGeneration?: {
-    autoNaming?: boolean;
-    providers?: Array<{
-      provider: string;
-      model?: string;
-      thinkingOptionId?: string;
-    }>;
-  };
+  metadataGeneration?: NonNullable<PersistedConfig["agents"]>["metadataGeneration"];
   providerOverrides?: Record<string, ProviderOverride>;
   log?: PersistedConfig["log"];
   onLifecycleIntent?: (intent: DaemonLifecycleIntent) => void;
@@ -587,7 +583,11 @@ function resolveReloadEnv(config: PaseoDaemonConfig): NodeJS.ProcessEnv {
 }
 
 function resolveMetadataGeneration(config: ResolvedDaemonSettings["metadataGeneration"]) {
-  return { providers: config?.providers ?? [], autoNaming: config?.autoNaming !== false };
+  return {
+    providers: config?.providers ?? [],
+    ...(config?.features ? { features: config.features } : {}),
+    autoNaming: config?.autoNaming !== false,
+  };
 }
 
 function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): MutableDaemonConfig {
@@ -624,6 +624,10 @@ function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): Mutab
 
   if (config.terminalProfiles !== undefined) {
     initialConfig.terminalProfiles = config.terminalProfiles;
+  }
+
+  if (config.editorLanguageServers !== undefined) {
+    initialConfig.editorLanguageServers = config.editorLanguageServers;
   }
 
   if (config.agentProfiles !== undefined) {
@@ -1210,6 +1214,7 @@ export async function createPaseoDaemon(
   await workspaceLabelService.initialize();
   logger.info({ elapsed: elapsed() }, "Workspace registries bootstrapped");
   const teardownArchivedWorkspaceRuntime = (workspaceId: string): void => {
+    closeCodeNavigationWorkspace(workspaceId);
     scriptRuntimeStore.removeForWorkspace(workspaceId);
     releaseWorkspaceServicePortPlan(workspaceId);
   };
@@ -2082,6 +2087,7 @@ export async function createPaseoDaemon(
     unsubscribePluginProviders();
     unsubscribePluginSessionChanges();
     workspaceReconciliation.dispose();
+    closeAllCodeNavigation();
     scriptHealthMonitor.stop();
     unsubscribeIdleRuntimeCleanup();
     await idleRuntimeCleanup.close();

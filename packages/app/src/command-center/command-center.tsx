@@ -278,6 +278,8 @@ function useBuiltInSections(open: boolean, query: string): CommandCenterResultSe
 interface CommandCenterState {
   open: boolean;
   scope: CommandCenterScope;
+  /** Changes when the query is replaced from outside, so the uncontrolled input remounts on it. */
+  seedEpoch: number;
   clearScope(): void;
   query: string;
   setQuery(query: string): void;
@@ -516,6 +518,19 @@ function useCommandCenterState(
     ],
   );
 
+  const [seedEpoch, setSeedEpoch] = useState(0);
+  const seedQuery = useKeyboardShortcutsStore((state) => state.commandCenterSeedQuery);
+  const consumeSeedQuery = useKeyboardShortcutsStore(
+    (state) => state.consumeCommandCenterSeedQuery,
+  );
+  useEffect(() => {
+    if (!open || seedQuery === null) return;
+    const seed = consumeSeedQuery();
+    if (seed === null) return;
+    interaction.setQuery(seed);
+    setSeedEpoch((epoch) => epoch + 1);
+  }, [consumeSeedQuery, interaction, open, seedQuery]);
+
   useEffect(() => {
     const wasOpen = previousOpenRef.current;
     previousOpenRef.current = open;
@@ -541,6 +556,7 @@ function useCommandCenterState(
   return {
     open,
     scope,
+    seedEpoch,
     clearScope: () => setScope(null),
     query,
     setQuery: interaction.setQuery,
@@ -1081,7 +1097,7 @@ export function CommandCenter() {
               />
             ) : null}
             <ThemedBottomSheetTextInput
-              key={state.scope ?? "all"}
+              key={`${state.scope ?? "all"}:${state.seedEpoch}`}
               testID="command-center-input"
               ref={bottomSheetInputRef}
               initialValue={state.query}
@@ -1128,7 +1144,7 @@ export function CommandCenter() {
                 />
               ) : null}
               <ThemedTextInput
-                key={state.scope ?? "all"}
+                key={`${state.scope ?? "all"}:${state.seedEpoch}`}
                 testID="command-center-input"
                 ref={state.inputRef}
                 initialValue={state.query}

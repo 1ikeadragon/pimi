@@ -22,7 +22,11 @@ interface AgentTimelineState {
   minSeq: number;
   nextSeq: number;
   completedCompactions: number;
+  /** A windowed replay left older history in the provider; reading it extends the rows backwards. */
+  olderAvailable: boolean;
 }
+/** First sequence number of a windowed replay, leaving room below it for older history. */
+export const WINDOWED_TIMELINE_BASE_SEQ = 1_000_000_000;
 const DEFAULT_TIMELINE_FETCH_LIMIT = 200;
 function cloneRow<T extends AgentTimelineRow>(row: T): T {
   return { ...row };
@@ -49,13 +53,60 @@ export class InMemoryAgentTimelineStore {
     this.states.set(agentId, {
       epoch: options?.epoch ?? randomUUID(),
       projection,
-      minSeq: projection.getRows()[0]?.seqStart ?? 0,
+      minSeq: rows.length > 0 ? projection.findFirstRow(() => true)!.seqStart : 0,
       nextSeq,
       completedCompactions: rows.reduce(
         (count, row) => count + Number(isCompletedCompaction(row.item)),
         0,
       ),
+      olderAvailable: false,
     });
+  }
+
+  /** Start numbering at `nextSeq` on a timeline that has no rows yet. */
+  rebase(agentId: string, nextSeq: number): void {
+    const state = this.requireState(agentId);
+    if (state.minSeq !== 0) throw new Error(`Cannot rebase non-empty timeline for '${agentId}'`);
+    state.nextSeq = nextSeq;
+  }
+
+  hasOlderAvailable(agentId: string): boolean {
+    return this.states.get(agentId)?.olderAvailable === true;
+  }
+
+  setOlderAvailable(agentId: string, olderAvailable: boolean): void {
+    this.requireState(agentId).olderAvailable = olderAvailable;
+  }
+
+  /** Rows (after projection) that start before `seq`; `Infinity` counts every row. */
+  countRowsBefore(agentId: string, seq: number): number {
+    return this.requireState(agentId).projection.countRowsBefore(seq);
+  }
+
+  /** Add older history in front of the first row, numbering it downwards from there. */
+  prependItems(
+    agentId: string,
+    entries: readonly { item: AgentTimelineItem; timestamp?: string }[],
+  ): void {
+    const state = this.requireState(agentId);
+    if (entries.length === 0) return;
+    const firstSeq = state.minSeq === 0 ? state.nextSeq : state.minSeq;
+    const startSeq = firstSeq - entries.length;
+    if (startSeq < 1) throw new Error(`Timeline for '${agentId}' has no room for older history`);
+    const timestamp = new Date().toISOString();
+    const rows = entries.map(
+      (entry, index): AgentTimelineRow => ({
+        seq: startSeq + index,
+        timestamp: entry.timestamp ?? timestamp,
+        item: entry.item,
+      }),
+    );
+    state.projection.prepend(rows);
+    state.minSeq = startSeq;
+    state.completedCompactions += rows.reduce(
+      (count, row) => count + Number(isCompletedCompaction(row.item)),
+      0,
+    );
   }
 
   delete(agentId: string): void {
@@ -68,18 +119,31 @@ export class InMemoryAgentTimelineStore {
       .map((row) => row.item);
   }
 
+  /** The newest stored tool-call item for a call, with its whole (non-preview) detail. */
+  findToolCall(
+    agentId: string,
+    callId: string,
+    turnId?: string,
+  ): Extract<AgentTimelineItem, { type: "tool_call" }> | null {
+    const row = this.requireState(agentId).projection.findLastRow(
+      (candidate) =>
+        candidate.item.type === "tool_call" &&
+        candidate.item.callId === callId &&
+        (turnId === undefined || candidate.turnId === turnId),
+    );
+    return row?.item.type === "tool_call" ? row.item : null;
+  }
+
   getRows(agentId: string): ProjectedTimelineRow[] {
     return this.requireState(agentId).projection.getRows().map(cloneRow);
   }
 
   getSubmittedUserMessage(agentId: string, clientMessageId: string): AgentTimelineRow | null {
-    const row = this.requireState(agentId)
-      .projection.getRows()
-      .find(
-        (candidate) =>
-          candidate.item.type === "user_message" &&
-          candidate.item.clientMessageId === clientMessageId,
-      );
+    const row = this.requireState(agentId).projection.findFirstRow(
+      (candidate) =>
+        candidate.item.type === "user_message" &&
+        candidate.item.clientMessageId === clientMessageId,
+    );
     return row ? cloneRow(row) : null;
   }
 
@@ -130,7 +194,9 @@ export class InMemoryAgentTimelineStore {
       staleCursor,
       gap,
       window,
-      hasOlder: page.hasOlder,
+      hasOlder:
+        page.hasOlder ||
+        (state.olderAvailable && direction !== "after" && page.startSeq === state.minSeq),
       hasNewer: page.hasNewer,
       startSeq: page.startSeq,
       endSeq: page.endSeq,

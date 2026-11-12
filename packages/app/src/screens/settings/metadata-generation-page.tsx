@@ -1,36 +1,42 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Text, View } from "react-native";
+import { Alert, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { StyleSheet } from "react-native-unistyles";
-import type { AgentProvider } from "@pimi/protocol/agent-types";
-import { CombinedModelSelector } from "@/components/combined-model-selector";
+import type { MutableDaemonConfigPatch, PimiModelFeature } from "@pimi/protocol/messages";
+import { SettingsCard, SettingsRow } from "@/components/settings";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Switch } from "@/components/ui/switch";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { useProvidersSnapshot } from "@/hooks/use-providers-snapshot";
-import { buildSelectableProviderSelectorProviders } from "@/provider-selection/provider-selection";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
-import { settingsStyles } from "@/styles/settings";
+import { PimiModelRow, type PimiModelChoice } from "@/screens/settings/pimi-model-row";
 
 const METADATA_GENERATION_DOCS_URL =
   "https://github.com/1ikeadragon/pimi/blob/main/public-docs/metadata-generation.md";
 type SelectionMode = "automatic" | "preferred";
 
+// Ask Pimi drives a harness with its own tools, so only these providers can run it.
+const ASK_PIMI_PROVIDER_IDS = ["claude", "codex", "opencode"] as const;
+
+const FEATURE_ROWS: readonly PimiModelFeature[] = [
+  "title",
+  "branchName",
+  "commitMessage",
+  "pullRequest",
+  "automation",
+  "askPimi",
+];
+
 export function MetadataGenerationPage({ serverId }: { serverId: string }) {
   const { t } = useTranslation();
   const { config, isLoading: isConfigLoading, patchConfig } = useDaemonConfig(serverId);
   const snapshot = useProvidersSnapshot(serverId);
-  const providers = useMemo(
-    () => buildSelectableProviderSelectorProviders(snapshot.entries),
-    [snapshot.entries],
-  );
   const configuredProviders = config?.metadataGeneration.providers;
   const configuredProvider = configuredProviders?.[0] ?? null;
   const savedMode: SelectionMode = configuredProvider ? "preferred" : "automatic";
   const [draftMode, setDraftMode] = useState<SelectionMode | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [isSavingAutoNaming, setIsSavingAutoNaming] = useState(false);
   const mode = draftMode ?? savedMode;
 
   useEffect(() => {
@@ -45,11 +51,11 @@ export function MetadataGenerationPage({ serverId }: { serverId: string }) {
     [t],
   );
 
-  const saveProviders = useCallback(
-    async (providersPatch: { provider: string; model?: string }[]) => {
+  const save = useCallback(
+    async (patch: NonNullable<MutableDaemonConfigPatch["metadataGeneration"]>) => {
       setIsSaving(true);
       try {
-        await patchConfig({ metadataGeneration: { providers: providersPatch } });
+        await patchConfig({ metadataGeneration: patch });
       } catch (error) {
         setDraftMode(null);
         Alert.alert(
@@ -67,47 +73,22 @@ export function MetadataGenerationPage({ serverId }: { serverId: string }) {
     (next: SelectionMode) => {
       setDraftMode(next);
       if (next === "automatic") {
-        void saveProviders([]);
+        void save({ providers: [] });
       }
     },
-    [saveProviders],
+    [save],
   );
 
-  const setAutoNaming = useCallback(
-    async (autoNaming: boolean) => {
-      setIsSavingAutoNaming(true);
-      try {
-        await patchConfig({ metadataGeneration: { autoNaming } });
-      } catch (error) {
-        Alert.alert(
-          t("settings.metadataGeneration.saveError"),
-          error instanceof Error ? error.message : String(error),
-        );
-      } finally {
-        setIsSavingAutoNaming(false);
-      }
-    },
-    [patchConfig, t],
-  );
-
-  const handleModelSelect = useCallback(
-    (provider: AgentProvider, model: string) => {
+  const handleDefaultChange = useCallback(
+    (choice: PimiModelChoice) => {
       setDraftMode("preferred");
-      void saveProviders([
-        { provider, ...(model ? { model } : {}) },
-        ...(configuredProviders?.slice(1) ?? []),
-      ]);
+      void save({ providers: [toPatchEntry(choice), ...(configuredProviders?.slice(1) ?? [])] });
     },
-    [configuredProviders, saveProviders],
+    [configuredProviders, save],
   );
 
-  const handleSelectorOpen = useCallback(() => {
-    snapshot.refetchIfStale(configuredProvider?.provider);
-  }, [configuredProvider?.provider, snapshot]);
-  const handleRetryProvider = useCallback(
-    (provider: AgentProvider) => snapshot.refresh([provider]),
-    [snapshot],
-  );
+  const handleAutoNaming = useCallback((autoNaming: boolean) => void save({ autoNaming }), [save]);
+
   const docsLink = useMemo(
     () => ({ href: METADATA_GENERATION_DOCS_URL, label: t("settings.metadataGeneration.docs") }),
     [t],
@@ -122,76 +103,127 @@ export function MetadataGenerationPage({ serverId }: { serverId: string }) {
   }
 
   return (
-    <SettingsSection
-      title={t("settings.metadataGeneration.title")}
-      info={t("settings.metadataGeneration.description")}
-      link={docsLink}
-      testID="metadata-generation-settings"
-    >
-      <View style={settingsStyles.card}>
-        <View style={settingsStyles.row}>
-          <View style={settingsStyles.rowContent}>
-            <Text style={settingsStyles.rowTitle}>
-              {t("settings.metadataGeneration.selection")}
-            </Text>
-            <Text style={settingsStyles.rowHint}>
-              {mode === "automatic"
+    <>
+      <SettingsSection
+        title={t("settings.metadataGeneration.title")}
+        info={t("settings.metadataGeneration.description")}
+        link={docsLink}
+        testID="metadata-generation-settings"
+      >
+        <SettingsCard>
+          <SettingsRow
+            label={t("settings.metadataGeneration.selection")}
+            hint={
+              mode === "automatic"
                 ? t("settings.metadataGeneration.automaticHint")
-                : t("settings.metadataGeneration.preferredHint")}
-            </Text>
-          </View>
-          <SegmentedControl
-            options={modeOptions}
-            value={mode}
-            onValueChange={handleModeChange}
-            testID="metadata-generation-mode"
-          />
-        </View>
-        {mode === "preferred" ? (
-          <View style={[settingsStyles.row, settingsStyles.rowBorder]}>
-            <View style={settingsStyles.rowContent}>
-              <Text style={settingsStyles.rowTitle}>{t("settings.metadataGeneration.model")}</Text>
-              <Text style={settingsStyles.rowHint}>
-                {t("settings.metadataGeneration.modelHint")}
-              </Text>
-            </View>
-            <CombinedModelSelector
-              providers={providers}
-              selectedProvider={configuredProvider?.provider ?? ""}
-              selectedModel={configuredProvider?.model ?? ""}
-              onSelect={handleModelSelect}
-              isLoading={snapshot.isLoading || snapshot.isFetching}
-              onOpen={handleSelectorOpen}
-              onRetryProvider={handleRetryProvider}
-              isRetryingProvider={snapshot.isRefreshing}
-              disabled={isSaving}
+                : t("settings.metadataGeneration.preferredHint")
+            }
+          >
+            <SegmentedControl
+              options={modeOptions}
+              value={mode}
+              onValueChange={handleModeChange}
+              testID="metadata-generation-mode"
+            />
+          </SettingsRow>
+          {mode === "preferred" ? (
+            <PimiModelRow
+              label={t("settings.metadataGeneration.model")}
+              hint={t("settings.metadataGeneration.modelHint")}
               serverId={serverId}
-              desktopPlacement="bottom-start"
-              desktopMinWidth={360}
+              snapshot={snapshot}
+              value={configuredProvider}
+              placeholder={t("settings.pimiModels.selectModel")}
+              onChange={handleDefaultChange}
+              disabled={isSaving}
+              testID="pimi-model-default"
             />
-          </View>
-        ) : null}
-        {typeof config.metadataGeneration.autoNaming === "boolean" ? (
-          <View style={[settingsStyles.row, settingsStyles.rowBorder]}>
-            <View style={settingsStyles.rowContent}>
-              <Text style={settingsStyles.rowTitle}>
-                {t("settings.metadataGeneration.autoNaming")}
-              </Text>
-              <Text style={settingsStyles.rowHint}>
-                {t("settings.metadataGeneration.autoNamingHint")}
-              </Text>
-            </View>
-            <Switch
-              value={config.metadataGeneration.autoNaming}
-              disabled={isSavingAutoNaming}
-              onValueChange={setAutoNaming}
-              accessibilityLabel={t("settings.metadataGeneration.autoNaming")}
-              testID="metadata-generation-auto-naming"
+          ) : null}
+          {typeof config.metadataGeneration.autoNaming === "boolean" ? (
+            <SettingsRow
+              label={t("settings.metadataGeneration.autoNaming")}
+              hint={t("settings.metadataGeneration.autoNamingHint")}
+            >
+              <Switch
+                value={config.metadataGeneration.autoNaming}
+                disabled={isSaving}
+                onValueChange={handleAutoNaming}
+                accessibilityLabel={t("settings.metadataGeneration.autoNaming")}
+                testID="metadata-generation-auto-naming"
+              />
+            </SettingsRow>
+          ) : null}
+        </SettingsCard>
+      </SettingsSection>
+      <SettingsSection
+        title={t("settings.pimiModels.perFeature")}
+        info={t("settings.pimiModels.perFeatureInfo")}
+        testID="pimi-models-per-feature"
+      >
+        <SettingsCard>
+          {FEATURE_ROWS.map((feature) => (
+            <FeatureRow
+              key={feature}
+              feature={feature}
+              serverId={serverId}
+              snapshot={snapshot}
+              value={config.metadataGeneration.features?.[feature] ?? null}
+              disabled={isSaving}
+              onSave={save}
             />
-          </View>
-        ) : null}
-      </View>
-    </SettingsSection>
+          ))}
+        </SettingsCard>
+      </SettingsSection>
+    </>
+  );
+}
+
+// A plain object literal, so it fits the wire schema's open object type.
+function toPatchEntry(choice: PimiModelChoice) {
+  return {
+    provider: choice.provider,
+    ...(choice.model ? { model: choice.model } : {}),
+    ...(choice.thinkingOptionId ? { thinkingOptionId: choice.thinkingOptionId } : {}),
+  };
+}
+
+function FeatureRow({
+  feature,
+  serverId,
+  snapshot,
+  value,
+  disabled,
+  onSave,
+}: {
+  feature: PimiModelFeature;
+  serverId: string;
+  snapshot: ReturnType<typeof useProvidersSnapshot>;
+  value: PimiModelChoice | null;
+  disabled: boolean;
+  onSave: (patch: NonNullable<MutableDaemonConfigPatch["metadataGeneration"]>) => Promise<void>;
+}) {
+  const { t } = useTranslation();
+  const handleChange = useCallback(
+    (choice: PimiModelChoice) => void onSave({ features: { [feature]: toPatchEntry(choice) } }),
+    [feature, onSave],
+  );
+  const handleReset = useCallback(
+    () => void onSave({ features: { [feature]: null } }),
+    [feature, onSave],
+  );
+  return (
+    <PimiModelRow
+      label={t(`settings.pimiModels.features.${feature}`)}
+      serverId={serverId}
+      snapshot={snapshot}
+      value={value}
+      placeholder={t("settings.pimiModels.sameAsDefault")}
+      onChange={handleChange}
+      onReset={handleReset}
+      providerIds={feature === "askPimi" ? ASK_PIMI_PROVIDER_IDS : undefined}
+      disabled={disabled}
+      testID={`pimi-model-${feature}`}
+    />
   );
 }
 

@@ -25,7 +25,8 @@ import type { AskPimiToolSessions } from "./pimi-ask-mcp.js";
 import { createAskPimiToolset, type AskPimiToolset } from "./pimi-ask-tools.js";
 import type { PaseoToolCatalog } from "./tools/types.js";
 import {
-  resolveStructuredGenerationProviders,
+  PimiModelUnavailableError,
+  resolvePimiModel,
   type StructuredGenerationDaemonConfig,
 } from "./structured-generation-providers.js";
 
@@ -47,13 +48,19 @@ function harnessOptions(provider: string): AgentSessionConfig["providerOptions"]
   }
 }
 
+export function canRunAskPimi(provider: string): boolean {
+  return harnessOptions(provider) !== undefined;
+}
+
 async function resolveVoiceProviders(
   cwd: string,
   config: StructuredGenerationDaemonConfig,
   catalog: ProviderSnapshotEntry[],
   activeConfig?: AgentSessionConfig,
 ) {
-  const manual = Boolean(config.metadataGeneration?.providers?.length);
+  const manual =
+    Boolean(config.metadataGeneration?.features?.askPimi) ||
+    Boolean(config.metadataGeneration?.providers?.length);
   const ready = catalog.filter((entry) => entry.enabled && entry.status === "ready");
   const supported = ready.filter((entry) => harnessOptions(entry.provider));
   let entries = catalog;
@@ -61,7 +68,8 @@ async function resolveVoiceProviders(
   const active = entries.some((entry) => entry.provider === activeConfig?.provider)
     ? activeConfig
     : undefined;
-  const candidates = await resolveStructuredGenerationProviders({
+  const { providers: candidates } = await resolvePimiModel({
+    feature: "askPimi",
     cwd,
     providerSnapshotManager: { listProviders: async () => entries },
     daemonConfig: config,
@@ -86,6 +94,20 @@ async function resolveVoiceProviders(
     });
   }
   return [...byProvider.values()];
+}
+
+function noProviderMessage(
+  config: StructuredGenerationDaemonConfig,
+  providers: readonly StructuredGenerationProvider[],
+): string {
+  if (providers.length) return "Ask Pimi needs the local host to finish starting. Try again.";
+  const chosen = config.metadataGeneration?.features?.askPimi;
+  if (!chosen) return "Connect Codex, Claude Code, or OpenCode to use Ask Pimi.";
+  return `Ask Pimi is set to ${chosen.model ?? chosen.provider}, which can't run Ask Pimi. Pick Claude Code, Codex, or OpenCode in Pimi models.`;
+}
+
+function unavailableMessage(error: PimiModelUnavailableError): string {
+  return `Ask Pimi is set to ${error.model ?? error.provider}, which isn't available (${error.reason}).`;
 }
 
 function reportFailure(logger: Logger): string {
@@ -235,11 +257,9 @@ export function createPimiVoiceCommandHandler(options: {
       ).filter(({ provider }) => harnessOptions(provider));
       const mcpUrl = options.toolsUrl();
       if (!providers.length || !mcpUrl) {
-        res.status(providers.length ? 503 : 422).json({
-          error: providers.length
-            ? "Ask Pimi needs the local host to finish starting. Try again."
-            : "Connect Codex, Claude Code, or OpenCode to use Ask Pimi.",
-        });
+        res
+          .status(providers.length ? 503 : 422)
+          .json({ error: noProviderMessage(config, providers) });
         return;
       }
       res.status(200).setHeader("Content-Type", PIMI_ASK_STREAM_TYPE);
@@ -267,8 +287,13 @@ export function createPimiVoiceCommandHandler(options: {
       }
       send({ type: "result", result });
       res.end();
-    } catch {
+    } catch (caught) {
       if (res.destroyed) return;
+      if (caught instanceof PimiModelUnavailableError && !res.headersSent) {
+        options.logger.warn({ err: caught }, "Ask Pimi model unavailable");
+        res.status(422).json({ error: unavailableMessage(caught) });
+        return;
+      }
       const error = reportFailure(options.logger);
       if (res.headersSent) {
         send({ type: "error", error });

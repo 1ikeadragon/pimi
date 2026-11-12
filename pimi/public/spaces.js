@@ -71,7 +71,7 @@ export function createSpacesView({ $, api, button, element, message }) {
   let copyTimer;
   let feedback;
   const sources = new WeakMap();
-  const requestedPreviews = new WeakSet();
+  const signatures = new WeakMap();
   const unavailablePapers = new Set();
 
   function embedFrame(embed) {
@@ -88,29 +88,52 @@ export function createSpacesView({ $, api, button, element, message }) {
     return frame;
   }
 
+  // A card shows a static poster; the iframe exists only after a click, and goes back to the
+  // poster when it scrolls away or Spaces is hidden, so a view switch never reloads an embed.
+  function fillPoster(slot) {
+    observer.unobserve(slot);
+    const embed = sources.get(slot);
+    if (embed.kind === "arxiv") {
+      const label = element("span", "spaces-embed-label");
+      label.append($("spaces-paper-icon").content.cloneNode(true), "arXiv paper");
+      slot.replaceChildren(label);
+      return;
+    }
+    const play = button("spaces-embed-play", "", () => {
+      slot.replaceChildren(embedFrame(embed));
+      observer.observe(slot);
+    });
+    play.setAttribute("aria-label", embed.kind === "youtube" ? "Play video" : "Show post");
+    if (embed.kind === "youtube") {
+      const image = element("img");
+      image.alt = "";
+      image.loading = "lazy";
+      image.decoding = "async";
+      image.src = "/api/spaces/poster?v=" + embed.url.split("/").pop();
+      image.addEventListener("error", () => image.remove(), { once: true });
+      play.append(image);
+    }
+    const glyph = element("span", "spaces-embed-glyph");
+    glyph.append($("spaces-video-icon").content.cloneNode(true));
+    if (embed.kind === "x") glyph.append("Show post");
+    play.append(glyph);
+    slot.replaceChildren(play);
+  }
+
   const observer = new IntersectionObserver(
     (entries) => {
       for (const { target, isIntersecting, intersectionRatio } of entries) {
-        if (!isIntersecting || intersectionRatio === 0) target.replaceChildren();
-        else if (active && !document.hidden && target.isConnected && !target.firstElementChild) {
-          const embed = sources.get(target);
-          if (!embed || unavailablePapers.has(embed.url)) continue;
-          const frame = embedFrame(embed);
-          if (embed.kind === "arxiv") frame.tabIndex = -1;
-          target.append(frame);
-        }
+        if ((!isIntersecting || intersectionRatio === 0) && target.querySelector("iframe"))
+          fillPoster(target);
       }
     },
     { threshold: 0.01 },
   );
 
   function updateEmbedVisibility() {
-    observer.disconnect();
-    observer.takeRecords();
-    for (const target of grid.querySelectorAll(".spaces-embed")) {
-      if (active && !document.hidden && !target.hidden && requestedPreviews.has(target))
-        observer.observe(target);
-      else target.replaceChildren();
+    if (!active || document.hidden) {
+      for (const frame of grid.querySelectorAll(".spaces-embed iframe"))
+        fillPoster(frame.parentElement);
     }
     updatePaperReader();
   }
@@ -283,9 +306,7 @@ export function createSpacesView({ $, api, button, element, message }) {
         const slot = element("div", "spaces-embed");
         slot.dataset.embedKind = embed.kind;
         sources.set(slot, embed);
-        // Previews load on their own as each card scrolls into view; the observer loads only
-        // what is visible and unloads what scrolls away.
-        requestedPreviews.add(slot);
+        fillPoster(slot);
         slot.hidden = unavailablePapers.has(embed.url);
         if (embed.kind === "arxiv") {
           const peek = button("spaces-paper-peek", "", () => openCard(item));
@@ -371,13 +392,52 @@ export function createSpacesView({ $, api, button, element, message }) {
     }
   }
 
+  // Reuse the card of every unchanged item so its images stay decoded and its embeds do not
+  // reload; only added, edited, removed or moved cards touch the DOM.
+  function reconcileCards(items) {
+    const existing = new Map();
+    for (const node of grid.children) existing.set(node.id, node);
+    const wanted = new Set();
+    let cursor = grid.firstElementChild;
+    for (const item of items) {
+      const id = "space-card-" + item.id;
+      wanted.add(id);
+      const signature = JSON.stringify(item);
+      let node = existing.get(id);
+      if (!node || signatures.get(node) !== signature) {
+        const old = node?.querySelector(".spaces-embed");
+        if (old) observer.unobserve(old);
+        const next = card(item);
+        signatures.set(next, signature);
+        if (node) node.replaceWith(next);
+        node = next;
+        if (cursor === existing.get(id)) cursor = node;
+      } else {
+        // A reused card follows the cleared list of unavailable papers like a new one would.
+        const slot = node.querySelector(".spaces-embed");
+        if (slot) {
+          slot.hidden = unavailablePapers.has(sources.get(slot).url);
+          if (slot.parentElement !== node) slot.parentElement.hidden = slot.hidden;
+        }
+      }
+      if (node === cursor) cursor = cursor.nextElementSibling;
+      else grid.insertBefore(node, cursor);
+    }
+    for (const [id, node] of existing) {
+      if (wanted.has(id)) continue;
+      const slot = node.querySelector(".spaces-embed");
+      if (slot) observer.unobserve(slot);
+      node.remove();
+    }
+  }
+
   async function loadCards() {
     const generation = ++searchGeneration;
     const query = searchInput.value.trim();
     const result = await api("spaces", query ? { action: "search", query } : { action: "list" });
     if (!active || generation !== searchGeneration || query !== searchInput.value.trim()) return;
     ready = true;
-    grid.replaceChildren(...result.items.map(card));
+    reconcileCards(result.items);
     if (query && result.unindexedLinks) {
       const count = result.unindexedLinks;
       message(

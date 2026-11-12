@@ -6,15 +6,50 @@ import type {
 import type { StructuredGenerationProvider } from "./agent-response-loop.js";
 import type { ProviderSnapshotManager } from "./provider-snapshot-manager.js";
 
+import type { PimiModelFeature } from "@pimi/protocol/messages";
+
+export type { PimiModelFeature };
+
+export interface PimiModelChoice {
+  provider: string;
+  model?: string;
+  thinkingOptionId?: string;
+}
+
 export interface StructuredGenerationDaemonConfig {
   metadataGeneration?: {
     autoNaming?: boolean;
-    providers?: Array<{
-      provider: string;
-      model?: string;
-      thinkingOptionId?: string;
-    }>;
+    providers?: PimiModelChoice[];
+    features?: Partial<Record<PimiModelFeature, PimiModelChoice>>;
   };
+}
+
+/**
+ * The user picked a specific model for a Pimi feature and it cannot run. There is no fallback
+ * to another model; callers surface this to the user.
+ */
+export class PimiModelUnavailableError extends Error {
+  readonly feature: PimiModelFeature;
+  readonly provider: string;
+  readonly model: string | undefined;
+  readonly reason: string;
+
+  constructor(input: {
+    feature: PimiModelFeature;
+    provider: string;
+    model?: string | undefined;
+    reason: string;
+  }) {
+    const label = input.model ? `${input.provider} / ${input.model}` : input.provider;
+    super(
+      `Pimi model for ${input.feature} is set to ${label}, which isn't available: ${input.reason}`,
+    );
+    this.name = "PimiModelUnavailableError";
+    this.feature = input.feature;
+    this.provider = input.provider;
+    this.model = input.model;
+    this.reason = input.reason;
+  }
 }
 
 export interface StructuredGenerationProviderIdentifier {
@@ -31,6 +66,7 @@ export const DEFAULT_STRUCTURED_GENERATION_PROVIDERS: readonly StructuredGenerat
   ] as const;
 
 export interface ResolveStructuredGenerationProvidersOptions {
+  feature: PimiModelFeature;
   cwd: string;
   providerSnapshotManager: Pick<ProviderSnapshotManager, "listProviders">;
   daemonConfig?: StructuredGenerationDaemonConfig | null;
@@ -41,11 +77,68 @@ export interface ResolveStructuredGenerationProvidersOptions {
   };
 }
 
+export interface ResolvedPimiModels {
+  providers: StructuredGenerationProvider[];
+  /** The user chose these models (a per-feature override or Manual), so none may be swapped in. */
+  pinned: boolean;
+}
+
+/**
+ * Resolution order for a Pimi feature:
+ * 1. A per-feature override: exactly that model, or PimiModelUnavailableError.
+ * 2. A non-empty configured list (Manual): only those models, in order.
+ * 3. Automatic: built-in defaults, then the current selection.
+ */
+export async function resolvePimiModel(
+  options: ResolveStructuredGenerationProvidersOptions,
+): Promise<ResolvedPimiModels> {
+  const override = options.daemonConfig?.metadataGeneration?.features?.[options.feature];
+  if (override) {
+    return { providers: [await resolveFeatureOverride(options, override)], pinned: true };
+  }
+  const configuredProviders = readConfiguredProviders(options.daemonConfig);
+  return {
+    providers: await resolveStructuredGenerationProviders(options),
+    pinned: configuredProviders.length > 0,
+  };
+}
+
+async function resolveFeatureOverride(
+  options: ResolveStructuredGenerationProvidersOptions,
+  override: PimiModelChoice,
+): Promise<StructuredGenerationProvider> {
+  const unavailable = (reason: string) =>
+    new PimiModelUnavailableError({
+      feature: options.feature,
+      provider: override.provider,
+      model: override.model,
+      reason,
+    });
+  const entries = await options.providerSnapshotManager.listProviders({
+    cwd: options.cwd,
+    wait: true,
+  });
+  const entry = entries.find((candidate) => candidate.provider === override.provider);
+  if (!entry || !entry.enabled) {
+    throw unavailable("the provider is disabled or not installed");
+  }
+  const models = entry.models ?? [];
+  if (override.model && models.length > 0 && !models.some((model) => model.id === override.model)) {
+    throw unavailable("the provider no longer offers that model");
+  }
+  const entriesByProvider = new Map([[entry.provider, entry]]);
+  const resolved = resolveConfiguredCandidate(override, [entry], entriesByProvider);
+  if (!resolved) {
+    throw unavailable("the provider is disabled or not installed");
+  }
+  return resolved;
+}
+
 /**
  * A non-empty configured list means Manual: only those models are tried, in order.
  * An empty list means Automatic: built-in defaults, then the current selection.
  */
-export async function resolveStructuredGenerationProviders(
+async function resolveStructuredGenerationProviders(
   options: ResolveStructuredGenerationProvidersOptions,
 ): Promise<StructuredGenerationProvider[]> {
   const configuredProviders = readConfiguredProviders(options.daemonConfig);

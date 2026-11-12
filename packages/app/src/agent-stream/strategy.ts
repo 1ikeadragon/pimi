@@ -44,6 +44,8 @@ export interface StreamEdgeSlotProps {
 export interface ScrollToMessageOccurrence {
   signal: AbortSignal;
   targetTop(): number | null;
+  /** Glide to an already-mounted occurrence instead of jumping; falls back to a jump when unmounted. */
+  smooth?: boolean;
 }
 
 export interface StreamViewportHandle {

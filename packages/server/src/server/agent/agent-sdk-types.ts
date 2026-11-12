@@ -657,6 +657,11 @@ export interface AgentResumeSessionOptions {
   purpose?: AgentResumePurpose;
   /** See AgentCreateSessionOptions.configuredModelIds. */
   configuredModelIds?: readonly string[];
+  /**
+   * Let the session replay only the newest turns of a large transcript. It must then answer
+   * hasOlderHistory and loadOlderHistory so the rest can be read on demand.
+   */
+  windowedHistory?: boolean;
 }
 
 /**
@@ -674,6 +679,12 @@ export interface AgentUsageSession {
   sessionKey: string;
 }
 
+/** One block of older history: rows to prepend, and the provider subagents those rows own. */
+export type OlderHistoryEvent = Extract<
+  AgentStreamEvent,
+  { type: "timeline" | "provider_subagent" }
+>;
+
 export interface AgentSession {
   usageSession?(): AgentUsageSession | null;
   readonly provider: AgentProvider;
@@ -688,6 +699,10 @@ export interface AgentSession {
   steerActiveTurn?(prompt: AgentPromptInput, options: SteerActiveTurnOptions): Promise<SteerResult>;
   subscribe(callback: (event: AgentStreamEvent) => void): () => void;
   streamHistory(): AsyncGenerator<AgentStreamEvent>;
+  /** True while a windowed replay has left older turns of the transcript unread. */
+  hasOlderHistory?(): boolean;
+  /** Read the next older block of history, oldest first; empty once nothing older remains. */
+  loadOlderHistory?(): Promise<OlderHistoryEvent[]>;
   getRuntimeInfo(): Promise<AgentRuntimeInfo>;
   getAvailableModes(): Promise<AgentMode[]>;
   getCurrentMode(): Promise<string | null>;

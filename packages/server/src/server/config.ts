@@ -552,6 +552,7 @@ function resolveBrowserToolsEnabled(persisted: ReturnType<typeof loadPersistedCo
 function resolveProfileLists(persisted: ReturnType<typeof loadPersistedConfig>) {
   return {
     terminalProfiles: persisted.daemon?.terminalProfiles,
+    editorLanguageServers: persisted.daemon?.editorLanguageServers,
     agentProfiles: persisted.daemon?.agentProfiles,
     agentProfilesRemovedBuiltins: persisted.daemon?.agentProfilesRemovedBuiltins,
   };
@@ -603,6 +604,7 @@ export type ResolvedDaemonSettings = Pick<
   | "enableTerminalAgentHooks"
   | "appendSystemPrompt"
   | "terminalProfiles"
+  | "editorLanguageServers"
   | "agentProfiles"
   | "agentProfilesRemovedBuiltins"
   | "skillSelection"

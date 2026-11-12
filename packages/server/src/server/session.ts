@@ -1,5 +1,19 @@
+import {
+  clearLspDetectionCache,
+  listLanguageServers,
+  queryCodeNavigation,
+  testLanguageServer,
+  validateLanguageServerOverrides,
+} from "./code-navigation/index.js";
 import { searchPimiCodebase } from "./pimi-codebase-index.js";
-import type { PimiCodebaseSearchRequest } from "@pimi/protocol/messages";
+import type {
+  CodeNavigationQueryRequest,
+  CodeNavigationServersListRequest,
+  CodeNavigationServerTestRequest,
+  MutableDaemonConfigPatch,
+  PimiCodebaseSearchRequest,
+} from "@pimi/protocol/messages";
+import { canRunAskPimi } from "./agent/pimi-voice-command.js";
 import { type WorkspaceRuntimeStore } from "./workspace-runtime-store/index.js";
 import type { AgentMessageDelivery } from "./agent/agent-messages/index.js";
 import { AgentDirectory } from "./agent/directory.js";
@@ -147,6 +161,7 @@ import {
 import { resumeStoppedSubagents } from "./agent/stop-cascade.js";
 import { buildStoredAgentPayload, toAgentPayload } from "./agent/agent-projections.js";
 import { assertPluginTimelineDataSize } from "./agent/agent-timeline-content.js";
+import { stripToolCallBodies } from "@pimi/protocol/tool-call-body";
 import { parsePluginClientId } from "./plugins/plugin-session-identity.js";
 import { buildAgentPrompt } from "./agent/prompt-attachments.js";
 import type { StructuredGenerationDaemonConfig } from "./agent/structured-generation-providers.js";
@@ -156,6 +171,7 @@ import {
   type AgentPermissionResponse,
   type AgentRunOptions,
   type AgentSessionConfig,
+  type ToolCallDetail,
 } from "./agent/agent-sdk-types.js";
 import type { StoredAgentRecord } from "./agent/agent-storage.js";
 import type { AgentStorage } from "./agent/agent-storage.js";
@@ -2617,6 +2633,8 @@ export class Session {
         return this.handleAgentTimelineAppendRequest(msg);
       case "agent.timeline.search.request":
         return this.handleAgentTimelineSearchRequest(msg, source);
+      case "agent.timeline.get_tool_body.request":
+        return this.handleAgentTimelineGetToolBodyRequest(msg, source);
       case "agent.timeline.list_prompts.request":
         return this.handleAgentTimelineListPromptsRequest(msg, source);
       case "agent.provider_subagents.list.request":
@@ -2767,7 +2785,10 @@ export class Session {
       case "daemon.update.request":
         return this.daemonSession.handleUpdateRequest(msg);
       case "set_daemon_config_request":
-        return this.daemonConfigStore.patch(msg.config).then((config) => {
+        return this.assertPimiModelFeaturesSelectable(msg.config).then(async () => {
+          await validateLanguageServerOverrides(msg.config.editorLanguageServers);
+          const config = await this.daemonConfigStore.patch(msg.config);
+          if (msg.config.editorLanguageServers !== undefined) clearLspDetectionCache();
           return this.emit({
             type: "set_daemon_config_response",
             payload: {
@@ -2782,6 +2803,25 @@ export class Session {
         return this.projectConfigSession.handleWriteProjectConfigRequest(msg);
       default:
         return undefined;
+    }
+  }
+
+  /** A per-feature Pimi model must name an enabled provider; Ask Pimi also needs a harness it can drive. */
+  private async assertPimiModelFeaturesSelectable(config: MutableDaemonConfigPatch): Promise<void> {
+    const features = config.metadataGeneration?.features;
+    const chosen = Object.entries(features ?? {}).filter(([, entry]) => entry);
+    if (chosen.length === 0) return;
+    const entries = await this.providerSnapshotManager.listProviders({ wait: true });
+    for (const [feature, entry] of chosen) {
+      if (!entry) continue;
+      if (
+        !entries.some((candidate) => candidate.enabled && candidate.provider === entry.provider)
+      ) {
+        throw new Error(`${entry.provider} is disabled or not installed.`);
+      }
+      if (feature === "askPimi" && !canRunAskPimi(entry.provider)) {
+        throw new Error("Ask Pimi runs on Claude Code, Codex, or OpenCode.");
+      }
     }
   }
 
@@ -2802,6 +2842,12 @@ export class Session {
         return this.checkoutSession.handleBranchSuggestionsRequest(msg);
       case "pimi.codebase.search.request":
         return this.handlePimiCodebaseSearch(msg);
+      case "code.navigation.query.request":
+        return this.handleCodeNavigationQuery(msg);
+      case "code.navigation.servers.list.request":
+        return this.handleCodeNavigationServersList(msg);
+      case "code.navigation.servers.test.request":
+        return this.handleCodeNavigationServerTest(msg);
       case "directory_suggestions_request":
         return this.handleDirectorySuggestionsRequest(msg);
       case "checkout.diff.get.request":
@@ -5020,6 +5066,69 @@ export class Session {
         payload: { requestId, result: null, error: errorToFriendlyMessage(error) },
       });
     }
+  }
+
+  private async handleCodeNavigationQuery(msg: CodeNavigationQueryRequest): Promise<void> {
+    const { workspaceId, requestId, ...query } = msg;
+    const signal = this.delivery.requestSignal;
+    try {
+      const workspace = await this.workspaceRegistry.get(workspaceId);
+      if (!workspace || workspace.archivedAt) throw new Error("This workspace is unavailable.");
+      const result = await queryCodeNavigation(
+        {
+          ...query,
+          workspaceId,
+          cwd: workspace.cwd,
+          languageServers: this.daemonConfigStore.get().editorLanguageServers ?? [],
+        },
+        signal,
+      );
+      if (signal.aborted) return;
+      this.emit({
+        type: "code.navigation.query.response",
+        payload: { requestId, result, error: null },
+      });
+    } catch (error) {
+      if (signal.aborted) return;
+      this.emit({
+        type: "code.navigation.query.response",
+        payload: { requestId, result: null, error: errorToFriendlyMessage(error) },
+      });
+    }
+  }
+
+  private async handleCodeNavigationServersList(
+    msg: CodeNavigationServersListRequest,
+  ): Promise<void> {
+    try {
+      const servers = await listLanguageServers(
+        this.daemonConfigStore.get().editorLanguageServers ?? [],
+      );
+      this.emit({
+        type: "code.navigation.servers.list.response",
+        payload: { requestId: msg.requestId, servers, error: null },
+      });
+    } catch (error) {
+      this.emit({
+        type: "code.navigation.servers.list.response",
+        payload: { requestId: msg.requestId, servers: [], error: errorToFriendlyMessage(error) },
+      });
+    }
+  }
+
+  private async handleCodeNavigationServerTest(
+    msg: CodeNavigationServerTestRequest,
+  ): Promise<void> {
+    const result = await testLanguageServer(
+      msg.language,
+      msg.command,
+      msg.args ?? [],
+      this.daemonConfigStore.get().editorLanguageServers ?? [],
+    );
+    this.emit({
+      type: "code.navigation.servers.test.response",
+      payload: { requestId: msg.requestId, ...result },
+    });
   }
 
   private async handleDirectorySuggestionsRequest(msg: DirectorySuggestionsRequest): Promise<void> {
@@ -7741,6 +7850,23 @@ export class Session {
     });
   }
 
+  /**
+   * A large Claude transcript is replayed newest turns first. Reading backwards past what is
+   * loaded pulls older blocks in; a tail request needs enough rows to fill its page.
+   */
+  private async ensureWindowedTimelineRows(
+    msg: Extract<SessionInboundMessage, { type: "fetch_agent_timeline_request" }>,
+    direction: AgentTimelineFetchDirection,
+    cursor: AgentTimelineCursor | undefined,
+  ): Promise<void> {
+    if (direction === "after" || msg.compactionSummaryOnly) return;
+    await this.agentManager.ensureTimelineRowsBefore(msg.agentId, {
+      beforeSeq: direction === "before" && cursor ? cursor.seq : undefined,
+      rowsWanted: msg.limit ?? 200,
+      all: msg.limit === 0,
+    });
+  }
+
   private async handleFetchAgentTimelineRequest(
     msg: Extract<SessionInboundMessage, { type: "fetch_agent_timeline_request" }>,
     source?: object,
@@ -7761,6 +7887,8 @@ export class Session {
         purpose: "history",
       });
       const agentPayload = await this.buildAgentPayload(snapshot);
+
+      await this.ensureWindowedTimelineRows(msg, direction, cursor);
 
       const fetchedControlTimeline = this.agentManager.fetchTimeline(msg.agentId, {
         direction,
@@ -7811,7 +7939,7 @@ export class Session {
             entries: entries.map((entry) => {
               const payloadEntry = {
                 provider: snapshot.provider,
-                item: entry.item,
+                item: msg.stripToolBodies ? stripToolCallBodies(entry.item) : entry.item,
                 timestamp: entry.timestamp,
                 seqStart: entry.seqStart,
                 seqEnd: entry.seqEnd,
@@ -7925,6 +8053,42 @@ export class Session {
         },
         source,
       );
+    }
+  }
+
+  private async handleAgentTimelineGetToolBodyRequest(
+    msg: Extract<SessionInboundMessage, { type: "agent.timeline.get_tool_body.request" }>,
+    source?: object,
+  ): Promise<void> {
+    const respond = (detail: ToolCallDetail | null, error: string | null) =>
+      this.emitForSource(
+        {
+          type: "agent.timeline.get_tool_body.response",
+          payload: {
+            requestId: msg.requestId,
+            agentId: msg.agentId,
+            callId: msg.callId,
+            detail,
+            error,
+          },
+        },
+        source,
+      );
+    try {
+      await ensureAgentLoaded(msg.agentId, {
+        agentManager: this.agentManager,
+        agentStorage: this.agentStorage,
+        logger: this.sessionLogger,
+        purpose: "history",
+      });
+      const item = this.agentManager.findTimelineToolCall(msg.agentId, msg.callId, msg.turnId);
+      respond(item?.detail ?? null, item ? null : `Tool call ${msg.callId} not found`);
+    } catch (error) {
+      this.sessionLogger.error(
+        { err: error, agentId: msg.agentId },
+        "Failed to handle agent.timeline.get_tool_body.request",
+      );
+      respond(null, error instanceof Error ? error.message : String(error));
     }
   }
 

@@ -110,8 +110,10 @@ export function getWorkspaceAttachmentPillContent(
   if (attachment.kind === "browser_element") {
     return {
       icon: attachmentBrowserIcon,
-      title: attachment.attachment.tag,
-      subtitle: t("composer.attachments.element"),
+      title: attachment.attachment.comment?.trim() || attachment.attachment.tag,
+      subtitle: attachment.attachment.comment?.trim()
+        ? `${attachment.attachment.tag} · ${t("composer.attachments.element")}`
+        : t("composer.attachments.element"),
     };
   }
   if (isPullRequestContextAttachment(attachment)) {

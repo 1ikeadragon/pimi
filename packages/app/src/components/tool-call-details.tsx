@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { ScrollView as GHScrollView } from "react-native-gesture-handler";
 import { StyleSheet } from "react-native-unistyles";
+import { Button } from "@/components/ui/button";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import type { ToolCallDetail } from "@pimi/protocol/agent-types";
@@ -37,6 +38,9 @@ interface ToolCallDetailsContentProps {
   maxHeight?: number;
   fillAvailableHeight?: boolean;
   showLoadingSkeleton?: boolean;
+  /** The detail is a preview of a longer body; "loading" and "error" show a line below it. */
+  bodyStatus?: "ready" | "loading" | "error";
+  onRetryBody?: () => void;
 }
 
 interface DetailStyles {
@@ -545,6 +549,8 @@ export function ToolCallDetailsContent({
   maxHeight,
   fillAvailableHeight = false,
   showLoadingSkeleton = false,
+  bodyStatus = "ready",
+  onRetryBody,
 }: ToolCallDetailsContentProps) {
   const { t } = useTranslation();
   const resolvedMaxHeight = fillAvailableHeight ? undefined : (maxHeight ?? 300);
@@ -564,7 +570,48 @@ export function ToolCallDetailsContent({
     return <Text style={styles.emptyStateText}>{t("toolCallDetails.empty")}</Text>;
   }
 
-  return <View style={ds.fullBleedContainerStyle}>{sections}</View>;
+  return (
+    <View style={ds.fullBleedContainerStyle}>
+      {sections}
+      <BodyStatusPill status={bodyStatus} onRetry={onRetryBody} />
+    </View>
+  );
+}
+
+const LOADING_INDICATOR_DELAY_MS = 150;
+
+// Floats over the preview so loading and failure never change the row's height. The loading
+// label waits so a fast fetch never flashes it.
+function BodyStatusPill({
+  status,
+  onRetry,
+}: {
+  status: "ready" | "loading" | "error";
+  onRetry?: () => void;
+}) {
+  const { t } = useTranslation();
+  const [delayElapsed, setDelayElapsed] = useState(false);
+  useEffect(() => {
+    if (status !== "loading") {
+      setDelayElapsed(false);
+      return undefined;
+    }
+    const timer = setTimeout(() => setDelayElapsed(true), LOADING_INDICATOR_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [status]);
+  if (status === "ready" || (status === "loading" && !delayElapsed)) return null;
+  return (
+    <View style={styles.bodyStatusPill} testID="tool-call-body-status" pointerEvents="box-none">
+      <Text style={[styles.bodyStatusText, status === "error" && styles.errorText]}>
+        {status === "loading" ? t("toolCallDetails.loadingBody") : t("toolCallDetails.bodyFailed")}
+      </Text>
+      {status === "error" && onRetry ? (
+        <Button variant="ghost" size="sm" onPress={onRetry} testID="tool-call-body-retry">
+          {t("toolCallDetails.retryBody")}
+        </Button>
+      ) : null}
+    </View>
+  );
 }
 
 // ---- Styles ----
@@ -724,6 +771,24 @@ const styles = StyleSheet.create((theme) => {
     },
     errorText: {
       color: theme.colors.destructive,
+    },
+    bodyStatusPill: {
+      position: "absolute",
+      right: theme.spacing[2],
+      bottom: theme.spacing[2],
+      flexDirection: "row",
+      alignItems: "center",
+      gap: theme.spacing[2],
+      paddingHorizontal: theme.spacing[2],
+      paddingVertical: theme.spacing[1],
+      borderRadius: theme.borderRadius.md,
+      backgroundColor: theme.colors.surface2,
+      borderWidth: theme.borderWidth[1],
+      borderColor: theme.colors.border,
+    },
+    bodyStatusText: {
+      color: theme.colors.foregroundMuted,
+      fontSize: theme.fontSize.sm,
     },
     emptyStateText: {
       color: theme.colors.foregroundMuted,
