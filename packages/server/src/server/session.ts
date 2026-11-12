@@ -1000,9 +1000,9 @@ export class Session {
     });
     this.changeRequestSession = new ChangeRequestSession({
       host: { emit: (msg) => this.emit(msg) },
+      workspaceGitService: this.workspaceGitService,
       logger: this.sessionLogger,
     });
-      workspaceGitService: this.workspaceGitService,
     this.workspaceGitObserver = createWorkspaceGitObserverService({
       workspaceGitService: this.workspaceGitService,
       emitWorkspaceUpdateForCwd: (cwd) => this.emitWorkspaceUpdateForCwd(cwd),

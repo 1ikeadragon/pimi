@@ -2,6 +2,19 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.26 - 2026-11-12
+
+Update every device together: desktop, Android and any other computer running Pimi. A 0.17.25 app cannot talk to a 0.17.26 computer, because the relay handshake was renamed. You do not need to pair again.
+
+- Pimi is no longer called Paseo anywhere. On first start the app stops the old Paseo daemon and moves `~/.paseo` to `~/.pimi`. If the move is interrupted, the next start finishes it. Saved hosts, settings, chats and agents carry over. `PASEO_*` environment variables are now `PIMI_*`, and a repository's `paseo.json` is ignored; rename it to `pimi.json`.
+  - Sign-ins inside the in-app browser do not carry over; sign in again.
+- Tasks, Spaces, Memory and Review open again. Since 0.17.24 their server failed to start because of a missing image.
+- Command palette: Cmd/Ctrl+K searches commands, settings and slash commands. Cmd/Ctrl+Shift+P opens commands directly; type `>` for commands or `%` for settings. A settings result opens the page with the field highlighted, and Settings has its own search field.
+- VS Code-style keys for find, the palette and the editor. Focus mode moved to Cmd/Ctrl+Shift+M, and Pin chat to Cmd+Alt+P (Ctrl+Alt+P). The workspace search view is not in this release yet, so Cmd/Ctrl+Shift+F does nothing.
+- Review drops File tour and Explain changes.
+- Saved data is cached in memory and flushed safely to disk, and old receipts and finished Attack runs are pruned.
+- Attack: a run that stalls is flagged, and findings stay readable in narrow windows.
+
 ## 0.17.25 - 2026-11-12
 
 - Inline Git blame no longer flickers when you move between lines. Hover it for the commit card (author, date, message, SHA). Click it to open that commit's change to the file at the blamed line. Uncommitted lines open the working-tree diff.
