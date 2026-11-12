@@ -29,6 +29,7 @@
     "build": "tsc -p tsconfig.json --incremental false",
     "build:clean": "npm run clean && npm run build",
     "prepack": "npm run build:clean",
+    "build:node-relay": "node scripts/build-node-relay.mjs",
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
