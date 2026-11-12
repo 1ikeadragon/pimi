@@ -196,5 +196,5 @@ export const PIMI_VISUALIZATION_INSTRUCTIONS = [
   "- It runs in a sandbox with no network, storage, or navigation. Remote scripts, styles, fonts, images, and fetch all fail, so write the CSS, JavaScript, and data inline.",
   `- Pimi sets the page background, text color, and font. Style everything else with these custom properties so it follows light and dark themes, and never hardcode a page or text color: ${PIMI_HTML_VARIABLES.map((name) => `--pimi-${name}`).join(", ")}.`,
   "- Start every control at a realistic value, so the first render already shows an answer. Lay it out to fit 360 px wide, and let the page take its natural height: no 100vh.",
-  `- Data larger than the limit: aggregate or sample it into the block and say so in the title. Never save HTML to the workspace to get around the limit. Use the pimi-artifacts skill and a ${PIMI_ARTIFACT_FENCE} block only when the user asks for a file to keep.`,
+  `- Data larger than the limit: aggregate or sample it into the block and say so in the title. Never save HTML to the workspace to get around the limit. Only when the user asks for a file to keep, save one .html file in the workspace and show it with a ${PIMI_ARTIFACT_FENCE} block holding {"title":"...","path":"its-workspace-relative-path.html"}.`,
 ].join("\n");
