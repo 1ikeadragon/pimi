@@ -104,7 +104,7 @@ export function createAllowCommand(connect: PermitClientConnector = connectToDae
         const error: CommandError = {
           code: "AGENT_NOT_FOUND",
           message: `Agent not found: ${agentIdOrPrefix}`,
-          details: 'Use "paseo ls" to list available agents',
+          details: 'Use "pimi ls" to list available agents',
         };
         throw error;
       }
@@ -156,7 +156,7 @@ export function createAllowCommand(connect: PermitClientConnector = connectToDae
             const error: CommandError = {
               code: "PERMISSION_RESPONSE_UNCONFIRMED",
               message: `Permission response unconfirmed for request ${permission.id}: ${message}`,
-              details: 'Use "paseo permit ls" to check whether the request is still pending',
+              details: 'Use "pimi permit ls" to check whether the request is still pending',
             };
             throw error;
           }

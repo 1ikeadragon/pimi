@@ -5,13 +5,11 @@ import type {
   AgentTimelineItem,
   AgentSessionConfig,
 } from "@pimi/protocol/agent-types";
-import type { PaseoApi } from "@pimi/client";
+import type { PimiApi } from "@pimi/client";
 import type { WorkspaceCreateRequest } from "@pimi/protocol/messages";
 
 export interface PluginHookContext {
-  pimi: PaseoApi;
-  /** @deprecated Use pimi. */
-  paseo: PaseoApi;
+  pimi: PimiApi;
   signal: AbortSignal;
 }
 
@@ -89,7 +87,7 @@ export interface PluginHookEvents {
     outcome: PluginTurnOutcome;
     /**
      * @deprecated Always empty. Fetch history on demand with
-     * context.paseo.agents.ref(agent.id).timeline.refetch({ direction: "tail", limit: 20 }).
+     * context.pimi.agents.ref(agent.id).timeline.refetch({ direction: "tail", limit: 20 }).
      */
     timeline: readonly AgentTimelineItem[];
   };

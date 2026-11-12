@@ -14,4 +14,4 @@ elif [[ -f "${HOME}/.zshenv" ]]; then
   source "${HOME}/.zshenv"
 fi
 
-source "${PIMI_SHELL_INTEGRATION_DIR}/paseo-integration.zsh"
+source "${PIMI_SHELL_INTEGRATION_DIR}/pimi-integration.zsh"

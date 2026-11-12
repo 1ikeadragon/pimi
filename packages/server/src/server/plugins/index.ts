@@ -64,7 +64,7 @@ interface PluginRuntimePort {
   stopPluginById(pluginId: string): Promise<boolean>;
   stopAll(): Promise<void>;
   subscribe(listener: (pluginId: string, error?: string) => void): () => void;
-  bindPaseoSessionHost(sessionHost: Parameters<PluginRuntime["bindPaseoSessionHost"]>[0]): void;
+  bindPimiSessionHost(sessionHost: Parameters<PluginRuntime["bindPimiSessionHost"]>[0]): void;
 }
 
 interface PluginServiceDependencies {
@@ -195,8 +195,8 @@ export class PluginService {
     return () => this.listeners.delete(listener);
   }
 
-  bindPaseoSessionHost(sessionHost: Parameters<PluginRuntime["bindPaseoSessionHost"]>[0]): void {
-    this.runtime.bindPaseoSessionHost(sessionHost);
+  bindPimiSessionHost(sessionHost: Parameters<PluginRuntime["bindPimiSessionHost"]>[0]): void {
+    this.runtime.bindPimiSessionHost(sessionHost);
   }
 
   getProviderRegistrations(): readonly ProviderRegistration[] {

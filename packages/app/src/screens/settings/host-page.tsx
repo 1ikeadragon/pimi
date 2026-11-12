@@ -66,7 +66,7 @@ import { ICON_SIZE } from "@/styles/theme";
 import type { Theme } from "@/styles/theme";
 import { useProviderIcon } from "@/components/provider-icons";
 import { BrowserToolsOptInCard } from "./browser-tools-card";
-import { PaseoToolsCard } from "./paseo-tools-card";
+import { PimiToolsCard } from "./pimi-tools-card";
 import { RestartRecoveryCard } from "./restart-recovery-card";
 import { IdleRuntimeCleanupCard } from "./idle-runtime-cleanup-card";
 import { restartDaemonFromSettings, updateDaemonFromSettings } from "./daemon-lifecycle";
@@ -292,7 +292,7 @@ export function HostAgentsPage({ serverId }: { serverId: string }) {
     <View>
       {isConnected ? (
         <SettingsSection title={t("settings.hostSections.agents")}>
-          <PaseoToolsCard serverId={serverId} />
+          <PimiToolsCard serverId={serverId} />
           <BrowserToolsOptInCard serverId={serverId} />
           <AppendSystemPromptCard serverId={serverId} />
           <RestartRecoveryCard serverId={serverId} />
@@ -934,7 +934,7 @@ function AutoArchiveMergedWorkspacesCard({ serverId }: { serverId: string }) {
         <View style={settingsStyles.rowContent}>
           <Text style={settingsStyles.rowTitle}>Archive merged PR workspaces</Text>
           <Text style={settingsStyles.rowHint}>
-            Automatically archive clean Paseo workspaces after their pull request is merged
+            Automatically archive clean Pimi workspaces after their pull request is merged
           </Text>
         </View>
         <Switch

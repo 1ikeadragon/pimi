@@ -5,7 +5,7 @@
   },
   "ignorePatterns": [".dev/**"],
   "plugins": ["react", "react-perf", "unicorn", "typescript", "oxc", "import", "promise"],
-  "jsPlugins": ["./scripts/oxlint/paseo-plugin.mjs"],
+  "jsPlugins": ["./scripts/oxlint/pimi-plugin.mjs"],
   "categories": {
     "correctness": "error",
     "suspicious": "error",
@@ -89,7 +89,7 @@
     {
       "files": ["packages/server/src/**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}"],
       "rules": {
-        "paseo/no-sync-io": [
+        "pimi/no-sync-io": [
           "error",
           {
             "allow": {
@@ -219,7 +219,7 @@
                 "writeFileSync"
               ],
               // TODO: CLI shim lookup moved out of terminal.ts; migrate the executable-resolution boundary together.
-              "terminal/paseo-cli-path.ts": ["existsSync"],
+              "terminal/pimi-cli-path.ts": ["existsSync"],
               // Node loader thread: TypeScript terminal-worker resolution runs in the loader, outside the daemon event loop.
               "terminal/terminal-ts-loader.mjs": ["existsSync"],
               // Terminal child process: executable preparation and shell integration run in the worker-backed terminal manager.
@@ -402,7 +402,7 @@
         "packages/app/src/components/headers/screen-header.tsx",
         "packages/app/src/components/host-status-dot.tsx",
         "packages/app/src/components/hosts/host-picker.tsx",
-        "packages/app/src/components/icons/paseo-logo.tsx",
+        "packages/app/src/components/icons/pimi-logo.tsx",
         "packages/app/src/components/left-sidebar.tsx",
         "packages/app/src/components/plan-card.tsx",
         "packages/app/src/components/provider-diagnostic-sheet.tsx",
@@ -505,7 +505,7 @@
     {
       "files": ["packages/app/src/**/*.{ts,tsx}"],
       "rules": {
-        "paseo/no-raw-pressable": "error"
+        "pimi/no-raw-pressable": "error"
       }
     },
     // Press feedback is owned by the primitives in components/ui. Raw pressable burn-down:
@@ -605,7 +605,7 @@
         "packages/app/src/workspace/open-in-editor/button.tsx"
       ],
       "rules": {
-        "paseo/no-raw-pressable": "off"
+        "pimi/no-raw-pressable": "off"
       }
     }
   ]

@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 // A YouTube card shows a static poster until it is played. The window asks this daemon-side
 // helper, never YouTube, so the thumbnail is fetched once per video and kept for the session;
 // the response is immutable for the window's own HTTP cache across restarts.

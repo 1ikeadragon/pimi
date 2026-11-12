@@ -34,7 +34,7 @@ export class PromptFiles {
       } else if (part.type === "image") {
         const extension = part.extension;
         if (this.directory === null) {
-          this.directory = await mkdtemp(path.join(os.tmpdir(), "paseo-antigravity-images-"));
+          this.directory = await mkdtemp(path.join(os.tmpdir(), "pimi-antigravity-images-"));
           await chmod(this.directory, 0o700);
         }
         const file = path.join(this.directory, `${randomUUID()}.${extension}`);

@@ -512,10 +512,7 @@ export async function writeExplorerFile({
     return { status: "error", error: error instanceof Error ? error.message : String(error) };
   }
 
-  const temporaryPath = path.join(
-    path.dirname(filePath.resolvedPath),
-    `.paseo-${randomUUID()}.tmp`,
-  );
+  const temporaryPath = path.join(path.dirname(filePath.resolvedPath), `.pimi-${randomUUID()}.tmp`);
   let temporaryHandle: FileHandle | null = null;
   try {
     temporaryHandle = await fs.open(temporaryPath, "wx", currentMode);

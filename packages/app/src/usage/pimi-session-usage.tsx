@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 import { ArrowUpRight, ChevronRight } from "lucide-react-native";
 import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";

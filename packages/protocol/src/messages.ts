@@ -51,7 +51,7 @@ import { CLIENT_CAPS } from "./client-capabilities.js";
 import { AGENT_LIFECYCLE_STATUSES } from "./agent-lifecycle.js";
 import { MAX_EXPLICIT_AGENT_TITLE_CHARS } from "./agent-title-limits.js";
 import { AgentProviderSchema } from "./provider-manifest.js";
-import { ProviderOverridesSchema, ProviderPaseoToolsPolicySchema } from "./provider-config.js";
+import { ProviderOverridesSchema, ProviderPimiToolsPolicySchema } from "./provider-config.js";
 import { MAX_AGENT_USAGE_SAMPLES, TOOL_CALL_ICON_NAMES } from "./agent-types.js";
 import { WORKSPACE_LABEL_COLORS } from "./workspace-labels.js";
 import {
@@ -146,33 +146,33 @@ import {
   BrowserAutomationExecuteResponseSchema,
 } from "./browser-automation/rpc-schemas.js";
 import {
-  PaseoConfigRawSchema,
-  PaseoLifecycleCommandRawSchema,
-  PaseoMetadataGenerationEntrySchema,
-  PaseoMetadataGenerationSchema,
-  PaseoScriptEntryRawSchema,
-  PaseoWorktreeConfigRawSchema,
-  PaseoConfigRevisionSchema,
+  PimiConfigRawSchema,
+  PimiLifecycleCommandRawSchema,
+  PimiMetadataGenerationEntrySchema,
+  PimiMetadataGenerationSchema,
+  PimiScriptEntryRawSchema,
+  PimiWorktreeConfigRawSchema,
+  PimiConfigRevisionSchema,
   ProjectConfigRpcErrorSchema,
-  type PaseoConfigRaw,
-  type PaseoConfigRevision,
-  type PaseoMetadataGeneration,
-  type PaseoMetadataGenerationEntry,
-  type PaseoScriptEntryRaw,
+  type PimiConfigRaw,
+  type PimiConfigRevision,
+  type PimiMetadataGeneration,
+  type PimiMetadataGenerationEntry,
+  type PimiScriptEntryRaw,
   type ProjectConfigRpcError,
-} from "./paseo-config-schema.js";
+} from "./pimi-config-schema.js";
 export {
-  PaseoConfigRawSchema,
-  PaseoLifecycleCommandRawSchema,
-  PaseoMetadataGenerationEntrySchema,
-  PaseoMetadataGenerationSchema,
-  PaseoScriptEntryRawSchema,
-  PaseoWorktreeConfigRawSchema,
-  type PaseoConfigRaw,
-  type PaseoConfigRevision,
-  type PaseoMetadataGeneration,
-  type PaseoMetadataGenerationEntry,
-  type PaseoScriptEntryRaw,
+  PimiConfigRawSchema,
+  PimiLifecycleCommandRawSchema,
+  PimiMetadataGenerationEntrySchema,
+  PimiMetadataGenerationSchema,
+  PimiScriptEntryRawSchema,
+  PimiWorktreeConfigRawSchema,
+  type PimiConfigRaw,
+  type PimiConfigRevision,
+  type PimiMetadataGeneration,
+  type PimiMetadataGenerationEntry,
+  type PimiScriptEntryRaw,
   type ProjectConfigRpcError,
 };
 // ---------------------------------------------------------------------------
@@ -190,7 +190,7 @@ const MutableDaemonProviderModelSchema = z
 
 const MutableDaemonProviderConfigSchema = z
   .object({
-    paseoTools: ProviderPaseoToolsPolicySchema.optional(),
+    pimiTools: ProviderPimiToolsPolicySchema.optional(),
     enabled: z.boolean().optional(),
     additionalModels: z.array(MutableDaemonProviderModelSchema).optional(),
   })
@@ -1938,8 +1938,8 @@ export const WriteProjectConfigRequestMessageSchema = z.object({
   type: z.literal("write_project_config_request"),
   requestId: z.string(),
   repoRoot: z.string(),
-  config: PaseoConfigRawSchema,
-  expectedRevision: PaseoConfigRevisionSchema.nullable(),
+  config: PimiConfigRawSchema,
+  expectedRevision: PimiConfigRevisionSchema.nullable(),
 });
 
 // ============================================================================
@@ -2850,8 +2850,8 @@ export const StashPopRequestSchema = z.object({
 export const StashListRequestSchema = z.object({
   type: z.literal("stash_list_request"),
   cwd: z.string(),
-  /** If true, only return paseo-created stashes. Default true. */
-  paseoOnly: z.boolean().optional(),
+  /** If true, only return pimi-created stashes. Default true. */
+  pimiOnly: z.boolean().optional(),
   requestId: z.string(),
 });
 
@@ -2905,14 +2905,14 @@ export const DirectorySuggestionsRequestSchema = z.object({
   requestId: z.string(),
 });
 
-export const PaseoWorktreeListRequestSchema = z.object({
+export const PimiWorktreeListRequestSchema = z.object({
   type: z.literal("pimi_worktree_list_request"),
   cwd: z.string().optional(),
   repoRoot: z.string().optional(),
   requestId: z.string(),
 });
 
-export const PaseoWorktreeArchiveRequestSchema = z.object({
+export const PimiWorktreeArchiveRequestSchema = z.object({
   type: z.literal("pimi_worktree_archive_request"),
   worktreePath: z.string().optional(),
   repoRoot: z.string().optional(),
@@ -2925,7 +2925,7 @@ export const PaseoWorktreeArchiveRequestSchema = z.object({
   // Scope of the archive operation. "workspace" archives a single workspace record
   // (today's default UI behavior). "worktree" archives every active workspace whose
   // cwd resolves to the target directory, then removes the directory if it is
-  // Paseo-owned. Omitted values default to "workspace".
+  // Pimi-owned. Omitted values default to "workspace".
   scope: z.enum(["workspace", "worktree"]).default("workspace"),
   requestId: z.string(),
 });
@@ -2935,7 +2935,7 @@ export const FirstAgentContextSchema = z.object({
   attachments: AgentAttachmentsSchema,
 });
 
-export const CreatePaseoWorktreeRequestSchema = z.object({
+export const CreatePimiWorktreeRequestSchema = z.object({
   type: z.literal("create_pimi_worktree_request"),
   cwd: z.string(),
   projectId: z.string().optional(),
@@ -3025,7 +3025,7 @@ export const ArchiveWorkspaceRequestSchema = z.object({
 
 // Create a new workspace record. Unlike open_project, this never deduplicates by
 // directory: it always produces a fresh workspace. The source discriminates
-// between an existing local directory and a newly created paseo worktree.
+// between an existing local directory and a newly created pimi worktree.
 export const WorkspaceCreateRequestSchema = z.object({
   type: z.literal("workspace.create.request"),
   workspaceId: z
@@ -3663,9 +3663,9 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   BranchSuggestionsRequestSchema,
   ForgeSearchRequestSchema,
   DirectorySuggestionsRequestSchema,
-  PaseoWorktreeListRequestSchema,
-  PaseoWorktreeArchiveRequestSchema,
-  CreatePaseoWorktreeRequestSchema,
+  PimiWorktreeListRequestSchema,
+  PimiWorktreeArchiveRequestSchema,
+  CreatePimiWorktreeRequestSchema,
   WorkspaceSetupStatusRequestSchema,
   WorkspaceSetupSubscribeRequestSchema,
   WorkspaceSetupRunRequestSchema,
@@ -4020,7 +4020,7 @@ export const ProjectCheckoutLiteNotGitPayloadSchema = z
     currentBranch: z.null(),
     remoteUrl: z.null(),
     worktreeRoot: z.null().optional(),
-    isPaseoOwnedWorktree: z.literal(false),
+    isPimiOwnedWorktree: z.literal(false),
     mainRepoRoot: z.null(),
   })
   .transform((value) => ({
@@ -4028,14 +4028,14 @@ export const ProjectCheckoutLiteNotGitPayloadSchema = z
     worktreeRoot: null,
   }));
 
-export const ProjectCheckoutLiteGitNonPaseoPayloadSchema = z
+export const ProjectCheckoutLiteGitNonPimiPayloadSchema = z
   .object({
     cwd: z.string(),
     isGit: z.literal(true),
     currentBranch: z.string().nullable(),
     remoteUrl: z.string().nullable(),
     worktreeRoot: z.string().optional(),
-    isPaseoOwnedWorktree: z.literal(false),
+    isPimiOwnedWorktree: z.literal(false),
     mainRepoRoot: z.string().nullable().optional().default(null),
   })
   .transform((value) => ({
@@ -4043,14 +4043,14 @@ export const ProjectCheckoutLiteGitNonPaseoPayloadSchema = z
     worktreeRoot: value.worktreeRoot ?? value.cwd,
   }));
 
-export const ProjectCheckoutLiteGitPaseoPayloadSchema = z
+export const ProjectCheckoutLiteGitPimiPayloadSchema = z
   .object({
     cwd: z.string(),
     isGit: z.literal(true),
     currentBranch: z.string().nullable(),
     remoteUrl: z.string().nullable(),
     worktreeRoot: z.string().optional(),
-    isPaseoOwnedWorktree: z.literal(true),
+    isPimiOwnedWorktree: z.literal(true),
     mainRepoRoot: z.string(),
   })
   .transform((value) => ({
@@ -4060,8 +4060,8 @@ export const ProjectCheckoutLiteGitPaseoPayloadSchema = z
 
 export const ProjectCheckoutLitePayloadSchema = z.union([
   ProjectCheckoutLiteNotGitPayloadSchema,
-  ProjectCheckoutLiteGitNonPaseoPayloadSchema,
-  ProjectCheckoutLiteGitPaseoPayloadSchema,
+  ProjectCheckoutLiteGitNonPimiPayloadSchema,
+  ProjectCheckoutLiteGitPimiPayloadSchema,
 ]);
 
 export const ProjectPlacementPayloadSchema = z.object({
@@ -4093,7 +4093,7 @@ const WorkspaceGitRuntimePayloadSchema = z
     currentBranch: z.string().nullable().optional(),
     headSha: z.string().optional(),
     remoteUrl: z.string().nullable().optional(),
-    isPaseoOwnedWorktree: z.boolean().optional(),
+    isPimiOwnedWorktree: z.boolean().optional(),
     isDirty: z.boolean().nullable().optional(),
     aheadBehind: z
       .object({
@@ -4171,7 +4171,7 @@ export const WorkspaceDescriptorPayloadSchema = z.object({
   projectRootPath: z.string(),
   workspaceDirectory: z.string(),
   setupStatus: z.enum(["running", "completed", "failed", "blocked"]).nullable(),
-  // Present only for Paseo-owned worktrees; this is the basename of their root directory.
+  // Present only for Pimi-owned worktrees; this is the basename of their root directory.
   worktreeSlug: z.string().optional(),
   projectKind: z.enum(["git", "non_git", "directory"]),
   workspaceKind: z.enum(["directory", "local_checkout", "worktree"]),
@@ -5198,7 +5198,7 @@ export const DaemonGetStatusResponseSchema = z.object({
           }),
         )
         .optional(),
-      // Set when this host's terminals are held by a terminal worker from a newer Paseo, which
+      // Set when this host's terminals are held by a terminal worker from a newer Pimi, which
       // this daemon leaves running but cannot drive: why, and what the user can do.
       terminalsUnavailable: z.string().optional(),
     })
@@ -5328,8 +5328,8 @@ export const ReadProjectConfigResponseMessageSchema = z.object({
       requestId: z.string(),
       repoRoot: z.string(),
       ok: z.literal(true),
-      config: PaseoConfigRawSchema.nullable(),
-      revision: PaseoConfigRevisionSchema.nullable(),
+      config: PimiConfigRawSchema.nullable(),
+      revision: PimiConfigRevisionSchema.nullable(),
       hasUncommittedWorktreeSetupChanges: z.boolean().optional(),
     }),
     z.object({
@@ -5350,8 +5350,8 @@ export const WriteProjectConfigResponseMessageSchema = z.object({
       requestId: z.string(),
       repoRoot: z.string(),
       ok: z.literal(true),
-      config: PaseoConfigRawSchema,
-      revision: PaseoConfigRevisionSchema,
+      config: PimiConfigRawSchema,
+      revision: PimiConfigRevisionSchema,
       hasUncommittedWorktreeSetupChanges: z.boolean().optional(),
     }),
     z.object({
@@ -5439,7 +5439,7 @@ const CheckoutStatusCommonSchema = z.object({
 
 const CheckoutStatusNotGitSchema = CheckoutStatusCommonSchema.extend({
   isGit: z.literal(false),
-  isPaseoOwnedWorktree: z.literal(false),
+  isPimiOwnedWorktree: z.literal(false),
   repoRoot: z.null(),
   currentBranch: z.null(),
   isDirty: z.null(),
@@ -5451,9 +5451,9 @@ const CheckoutStatusNotGitSchema = CheckoutStatusCommonSchema.extend({
   remoteUrl: z.null(),
 });
 
-const CheckoutStatusGitNonPaseoSchema = CheckoutStatusCommonSchema.extend({
+const CheckoutStatusGitNonPimiSchema = CheckoutStatusCommonSchema.extend({
   isGit: z.literal(true),
-  isPaseoOwnedWorktree: z.literal(false),
+  isPimiOwnedWorktree: z.literal(false),
   repoRoot: z.string(),
   mainRepoRoot: z.string().nullable().optional().default(null),
   currentBranch: z.string().nullable(),
@@ -5466,9 +5466,9 @@ const CheckoutStatusGitNonPaseoSchema = CheckoutStatusCommonSchema.extend({
   remoteUrl: z.string().nullable(),
 });
 
-const CheckoutStatusGitPaseoSchema = CheckoutStatusCommonSchema.extend({
+const CheckoutStatusGitPimiSchema = CheckoutStatusCommonSchema.extend({
   isGit: z.literal(true),
-  isPaseoOwnedWorktree: z.literal(true),
+  isPimiOwnedWorktree: z.literal(true),
   repoRoot: z.string(),
   mainRepoRoot: z.string(),
   currentBranch: z.string().nullable(),
@@ -5485,8 +5485,8 @@ export const CheckoutStatusResponseSchema = z.object({
   type: z.literal("checkout_status_response"),
   payload: z.union([
     CheckoutStatusNotGitSchema,
-    CheckoutStatusGitNonPaseoSchema,
-    CheckoutStatusGitPaseoSchema,
+    CheckoutStatusGitNonPimiSchema,
+    CheckoutStatusGitPimiSchema,
   ]),
 });
 
@@ -5578,8 +5578,8 @@ export const CheckoutStatusUpdateSchema = z.object({
   payload: z
     .union([
       CheckoutStatusNotGitSchema,
-      CheckoutStatusGitNonPaseoSchema,
-      CheckoutStatusGitPaseoSchema,
+      CheckoutStatusGitNonPimiSchema,
+      CheckoutStatusGitPimiSchema,
     ])
     .and(CheckoutStatusUpdateMetadataSchema),
 });
@@ -6100,7 +6100,7 @@ const StashEntrySchema = z.object({
   index: z.number().int().min(0),
   message: z.string(),
   branch: z.string().nullable(),
-  isPaseo: z.boolean(),
+  isPimi: z.boolean(),
 });
 
 export const StashSaveResponseSchema = z.object({
@@ -6191,23 +6191,23 @@ export const DirectorySuggestionsResponseSchema = z.object({
   }),
 });
 
-const PaseoWorktreeSchema = z.object({
+const PimiWorktreeSchema = z.object({
   worktreePath: z.string(),
   createdAt: z.string(),
   branchName: z.string().nullable().optional(),
   head: z.string().nullable().optional(),
 });
 
-export const PaseoWorktreeListResponseSchema = z.object({
+export const PimiWorktreeListResponseSchema = z.object({
   type: z.literal("pimi_worktree_list_response"),
   payload: z.object({
-    worktrees: z.array(PaseoWorktreeSchema),
+    worktrees: z.array(PimiWorktreeSchema),
     error: CheckoutErrorSchema.nullable(),
     requestId: z.string(),
   }),
 });
 
-export const PaseoWorktreeArchiveResponseSchema = z.object({
+export const PimiWorktreeArchiveResponseSchema = z.object({
   type: z.literal("pimi_worktree_archive_response"),
   payload: z.object({
     success: z.boolean(),
@@ -6217,7 +6217,7 @@ export const PaseoWorktreeArchiveResponseSchema = z.object({
   }),
 });
 
-export const CreatePaseoWorktreeResponseSchema = z.object({
+export const CreatePimiWorktreeResponseSchema = z.object({
   type: z.literal("create_pimi_worktree_response"),
   payload: z.object({
     workspace: WorkspaceDescriptorPayloadSchema.nullable(),
@@ -7178,9 +7178,9 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   BranchSuggestionsResponseSchema,
   ForgeSearchResponseSchema,
   DirectorySuggestionsResponseSchema,
-  PaseoWorktreeListResponseSchema,
-  PaseoWorktreeArchiveResponseSchema,
-  CreatePaseoWorktreeResponseSchema,
+  PimiWorktreeListResponseSchema,
+  PimiWorktreeArchiveResponseSchema,
+  CreatePimiWorktreeResponseSchema,
   FileExplorerResponseSchema,
   FileSubscribeResponseSchema,
   FileUnsubscribeResponseSchema,
@@ -7635,13 +7635,13 @@ export type ForgeSearchRequest = z.infer<typeof ForgeSearchRequestSchema>;
 export type ForgeSearchResponse = z.infer<typeof ForgeSearchResponseSchema>;
 export type GitHubSearchItem = z.infer<typeof GitHubSearchItemSchema>;
 export type ChangeRequestCheckoutSource = z.infer<typeof ChangeRequestCheckoutSourceSchema>;
-export type CreatePaseoWorktreeRequest = z.infer<typeof CreatePaseoWorktreeRequestSchema>;
+export type CreatePimiWorktreeRequest = z.infer<typeof CreatePimiWorktreeRequestSchema>;
 export type DirectorySuggestionsRequest = z.infer<typeof DirectorySuggestionsRequestSchema>;
 export type DirectorySuggestionsResponse = z.infer<typeof DirectorySuggestionsResponseSchema>;
-export type PaseoWorktreeListRequest = z.infer<typeof PaseoWorktreeListRequestSchema>;
-export type PaseoWorktreeListResponse = z.infer<typeof PaseoWorktreeListResponseSchema>;
-export type PaseoWorktreeArchiveRequest = z.infer<typeof PaseoWorktreeArchiveRequestSchema>;
-export type PaseoWorktreeArchiveResponse = z.infer<typeof PaseoWorktreeArchiveResponseSchema>;
+export type PimiWorktreeListRequest = z.infer<typeof PimiWorktreeListRequestSchema>;
+export type PimiWorktreeListResponse = z.infer<typeof PimiWorktreeListResponseSchema>;
+export type PimiWorktreeArchiveRequest = z.infer<typeof PimiWorktreeArchiveRequestSchema>;
+export type PimiWorktreeArchiveResponse = z.infer<typeof PimiWorktreeArchiveResponseSchema>;
 export type WorkspaceSetupStatusRequest = z.infer<typeof WorkspaceSetupStatusRequestSchema>;
 export type WorkspaceSetupRunRequest = z.infer<typeof WorkspaceSetupRunRequestSchema>;
 export type OpenProjectRequest = z.infer<typeof OpenProjectRequestSchema>;

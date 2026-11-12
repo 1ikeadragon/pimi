@@ -278,7 +278,7 @@ export interface DesktopHostBridge {
 
 declare global {
   interface Window {
-    paseoDesktop?: DesktopHostBridge;
+    pimiDesktop?: DesktopHostBridge;
   }
 }
 

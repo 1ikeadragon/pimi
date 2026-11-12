@@ -1,7 +1,7 @@
-import type { PaseoAgentHandle, PaseoClient } from "@pimi/client";
+import type { PimiAgentHandle, PimiClient } from "@pimi/client";
 
-export async function reviewInParallel(client: PaseoClient, cwd: string): Promise<string[]> {
-  const agents: PaseoAgentHandle[] = [];
+export async function reviewInParallel(client: PimiClient, cwd: string): Promise<string[]> {
+  const agents: PimiAgentHandle[] = [];
 
   try {
     agents.push(

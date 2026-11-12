@@ -840,7 +840,7 @@ export const zhCN: TranslationResources = {
       },
       routes: {
         public: "反向代理",
-        paseo: "Memorable",
+        pimi: "Memorable",
         direct: "直接地址",
       },
       states: {
@@ -1595,7 +1595,7 @@ export const zhCN: TranslationResources = {
         statusFailed: "无法检查 CLI 安装状态。",
         installFailed: "无法安装 Pimi CLI。",
         uninstallFailed: "无法卸载 Pimi CLI。",
-        keptForeign: "已保留一个不是由 Pimi 安装的 paseo 命令。如需卸载，请手动删除。",
+        keptForeign: "已保留一个不是由 Pimi 安装的 pimi 命令。如需卸载，请手动删除。",
       },
     },
   },
@@ -2019,7 +2019,7 @@ export const zhCN: TranslationResources = {
   serviceUrl: {
     title: "打开服务 URL",
     message: "打开 {{url}}？",
-    inPaseo: "在 Pimi 中",
+    inPimi: "在 Pimi 中",
     externalBrowser: "外部浏览器",
     dontAskAgain: "不再询问",
   },
@@ -2301,7 +2301,7 @@ export const zhCN: TranslationResources = {
       one: "使用了 {{count}} 个其他工具",
       other: "使用了 {{count}} 个其他工具",
     },
-    paseoCalls: {
+    pimiCalls: {
       one: "调用了 Pimi {{count}} 次",
       other: "调用了 Pimi {{count}} 次",
     },

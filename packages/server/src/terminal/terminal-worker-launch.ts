@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { buildSelfNodeCommand } from "../server/paseo-env.js";
+import { buildSelfNodeCommand } from "../server/pimi-env.js";
 import { ensurePrivateDirectory } from "../server/private-files.js";
 import {
   readTerminalWorkerRecord,
@@ -26,7 +26,7 @@ export class TerminalWorkerLaunchError extends Error {
  */
 export async function launchTerminalWorker(input: {
   pimiHome: string;
-  paseoVersion: string;
+  pimiVersion: string;
   timeoutMs?: number;
   /** Defaults to the copy of this installation's bundle (source in dev). */
   entry?: TerminalWorkerEntry;
@@ -42,8 +42,8 @@ export async function launchTerminalWorker(input: {
     recordId,
     "--pimi-home",
     input.pimiHome,
-    "--paseo-version",
-    input.paseoVersion,
+    "--pimi-version",
+    input.pimiVersion,
     ...(entry.runtime ? ["--runtime", entry.runtime] : []),
   ]);
   const stdout = await new Promise<string>((resolve, reject) => {

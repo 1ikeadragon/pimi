@@ -2,9 +2,9 @@ import type { Logger } from "pino";
 
 import {
   addModelVisibleStructuredContent,
-  serializePaseoToolInputParameters,
-} from "../../tools/paseo-tool-serialization.js";
-import type { PaseoToolCatalog, PaseoToolResult } from "../../tools/types.js";
+  serializePimiToolInputParameters,
+} from "../../tools/pimi-tool-serialization.js";
+import type { PimiToolCatalog, PimiToolResult } from "../../tools/types.js";
 import type { OmpRuntimeSession } from "./runtime.js";
 import type { OmpMcpBridge } from "./mcp-bridge.js";
 import {
@@ -25,18 +25,18 @@ interface PendingOmpHostToolCall {
 
 interface OmpHostToolRouterInput {
   runtimeSession: OmpRuntimeSession;
-  catalog?: PaseoToolCatalog;
+  catalog?: PimiToolCatalog;
   bridge?: OmpMcpBridge;
   logger: Logger;
 }
 
-export function serializeOmpHostTools(catalog: PaseoToolCatalog): OmpRpcHostToolDefinition[] {
+export function serializeOmpHostTools(catalog: PimiToolCatalog): OmpRpcHostToolDefinition[] {
   return [...catalog.tools.values()].map((tool) => {
     const definition: OmpRpcHostToolDefinition = {
       name: tool.name,
       description: tool.description,
       loadMode: "essential",
-      parameters: serializePaseoToolInputParameters(tool),
+      parameters: serializePimiToolInputParameters(tool),
     };
     if (tool.title) {
       definition.label = tool.title;
@@ -103,7 +103,7 @@ function isOmpHostToolEventType(type: string): boolean {
 
 export class OmpHostToolRouter {
   private readonly runtimeSession: OmpRuntimeSession;
-  private readonly catalog?: PaseoToolCatalog;
+  private readonly catalog?: PimiToolCatalog;
   readonly bridge?: OmpMcpBridge;
   private readonly logger: Logger;
   private readonly pendingCalls = new Map<string, PendingOmpHostToolCall>();
@@ -202,7 +202,7 @@ export class OmpHostToolRouter {
     this.idleWaiters.clear();
   }
 
-  private sendUpdate(callId: string, result: PaseoToolResult): void {
+  private sendUpdate(callId: string, result: PimiToolResult): void {
     const update: OmpRpcHostToolUpdate = {
       type: "host_tool_update",
       id: callId,
@@ -212,7 +212,7 @@ export class OmpHostToolRouter {
   }
 }
 
-function toOmpHostToolResult(id: string, result: PaseoToolResult): OmpRpcHostToolResult {
+function toOmpHostToolResult(id: string, result: PimiToolResult): OmpRpcHostToolResult {
   const modelVisibleResult = addModelVisibleStructuredContent(result);
   const mappedResult = toOmpAgentToolResult(modelVisibleResult);
   return {
@@ -236,7 +236,7 @@ function toOmpHostToolErrorResult(id: string, error: unknown): OmpRpcHostToolRes
   };
 }
 
-function toOmpAgentToolResult(result: PaseoToolResult): OmpAgentToolResult {
+function toOmpAgentToolResult(result: PimiToolResult): OmpAgentToolResult {
   const mapped: OmpAgentToolResult = {
     content: result.content.map((item) => ({ ...item })),
   };

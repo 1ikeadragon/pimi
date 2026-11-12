@@ -1,5 +1,5 @@
 // CLI exports for @pimi/server
-export { createPaseoDaemon, type PaseoDaemon, type PaseoDaemonConfig } from "./bootstrap.js";
+export { createPimiDaemon, type PimiDaemon, type PimiDaemonConfig } from "./bootstrap.js";
 export { loadConfig, type CliConfigOverrides } from "./config.js";
 export { resolvePimiHome } from "./pimi-home.js";
 export { getOrCreateServerId } from "./server-id.js";

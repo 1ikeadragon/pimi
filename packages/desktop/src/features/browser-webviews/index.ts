@@ -7,7 +7,7 @@ import {
   PendingBrowserWindowOpenRequests,
 } from "./window-open.js";
 import { isAttackUrlAllowed, attackUrlHost } from "@pimi/protocol/attack/allowlist";
-import { PaseoBrowserWebviewRegistry } from "./registry.js";
+import { PimiBrowserWebviewRegistry } from "./registry.js";
 
 export {
   BROWSER_NEW_TAB_REQUEST_EVENT,
@@ -15,7 +15,7 @@ export {
   PendingBrowserWindowOpenRequests,
 };
 
-const browserRegistry = new PaseoBrowserWebviewRegistry();
+const browserRegistry = new PimiBrowserWebviewRegistry();
 
 // Tabs an Attack run's agents drive may only reach the run's hosts. The daemon sends the list
 // with each browser command (`attackGuard`); normal tabs have no entry and browse freely.
@@ -79,21 +79,21 @@ interface RegisterAttachedBrowserInput extends AttachedBrowserRegistration {
   findWebContents(webContentsId: number): RegisteredBrowserWebContents | null;
 }
 
-export function isPaseoBrowserWebviewAttach(input: { src?: string; partition?: string }): boolean {
+export function isPimiBrowserWebviewAttach(input: { src?: string; partition?: string }): boolean {
   return (
     isAllowedBrowserWebviewUrl(input.src) && input.partition === PIMI_BROWSER_PROFILE_PARTITION
   );
 }
 
-export function listRegisteredPaseoBrowserIds(): string[] {
+export function listRegisteredPimiBrowserIds(): string[] {
   return browserRegistry.listBrowserIds();
 }
 
-export function getPaseoBrowserWebviewRegistry(): PaseoBrowserWebviewRegistry {
+export function getPimiBrowserWebviewRegistry(): PimiBrowserWebviewRegistry {
   return browserRegistry;
 }
 
-export function preparePaseoBrowserWebContents(contents: RegisteredBrowserWebContents): void {
+export function preparePimiBrowserWebContents(contents: RegisteredBrowserWebContents): void {
   const webContentsId = contents.id;
   // Preserve Chromium throttling when the host window is hidden. Browser
   // residency and screenshot capture do not require a lifetime override.
@@ -102,7 +102,7 @@ export function preparePaseoBrowserWebContents(contents: RegisteredBrowserWebCon
   });
 }
 
-export function registerAttachedPaseoBrowser(input: RegisterAttachedBrowserInput): boolean {
+export function registerAttachedPimiBrowser(input: RegisterAttachedBrowserInput): boolean {
   const guest = input.findWebContents(input.webContentsId);
   if (
     !guest ||
@@ -125,7 +125,7 @@ export function registerAttachedPaseoBrowser(input: RegisterAttachedBrowserInput
   return true;
 }
 
-export function getPaseoBrowserIdForWebContents(
+export function getPimiBrowserIdForWebContents(
   contents: BrowserWebContentsIdentity | null,
 ): string | null {
   if (!contents || contents.isDestroyed()) {
@@ -134,29 +134,29 @@ export function getPaseoBrowserIdForWebContents(
   return browserRegistry.getBrowserIdForWebContents(contents.id);
 }
 
-export function unregisterPaseoBrowser(browserId: string): void {
+export function unregisterPimiBrowser(browserId: string): void {
   attackPolicies.delete(browserId);
   browserRegistry.unregisterBrowser(browserId);
 }
 
-export function unregisterPaseoBrowserFromHost(hostWebContentsId: number, browserId: string): void {
+export function unregisterPimiBrowserFromHost(hostWebContentsId: number, browserId: string): void {
   attackPolicies.delete(browserId);
   browserRegistry.unregisterBrowserFromHost(hostWebContentsId, browserId);
 }
 
-export function unregisterPaseoBrowserHost(hostWebContentsId: number): void {
+export function unregisterPimiBrowserHost(hostWebContentsId: number): void {
   browserRegistry.unregisterHostWebContents(hostWebContentsId);
 }
 
-export function getPaseoBrowserWorkspaceId(browserId: string): string | null {
+export function getPimiBrowserWorkspaceId(browserId: string): string | null {
   return browserRegistry.getWorkspaceId(browserId);
 }
 
-export function listRegisteredPaseoBrowserIdsForWorkspace(workspaceId: string): string[] {
+export function listRegisteredPimiBrowserIdsForWorkspace(workspaceId: string): string[] {
   return browserRegistry.listBrowserIdsForWorkspace(workspaceId);
 }
 
-export function setWorkspaceActivePaseoBrowserId(input: {
+export function setWorkspaceActivePimiBrowserId(input: {
   hostWebContentsId: number;
   workspaceId: string;
   browserId: string | null;
@@ -164,18 +164,18 @@ export function setWorkspaceActivePaseoBrowserId(input: {
   browserRegistry.setWorkspaceActiveBrowser(input);
 }
 
-export function getWorkspaceActivePaseoBrowserId(workspaceId: string): string | null {
+export function getWorkspaceActivePimiBrowserId(workspaceId: string): string | null {
   return browserRegistry.getMostRecentActiveBrowserIdForWorkspace(workspaceId);
 }
 
-export function getWorkspaceActivePaseoBrowserIdForHostWindow(
+export function getWorkspaceActivePimiBrowserIdForHostWindow(
   workspaceId: string,
   hostWebContentsId: number,
 ): string | null {
   return browserRegistry.getActiveBrowserIdForWorkspaceInHostWindow(hostWebContentsId, workspaceId);
 }
 
-export function getPaseoBrowserWebContentsForHostWindow(
+export function getPimiBrowserWebContentsForHostWindow(
   browserId: string,
   hostWebContentsId: number,
 ): WebContents | null {
@@ -194,7 +194,7 @@ export function getPaseoBrowserWebContentsForHostWindow(
   return null;
 }
 
-export function getActivePaseoBrowserWebContentsForHostWindow(
+export function getActivePimiBrowserWebContentsForHostWindow(
   hostWebContentsId: number,
 ): WebContents | null {
   const browserId = browserRegistry.getActiveBrowserIdForHostWindow(hostWebContentsId);

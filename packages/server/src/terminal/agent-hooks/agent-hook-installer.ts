@@ -153,7 +153,7 @@ export function buildAgentHookShellCommand<TConfig>(
   provider: AgentHookProvider<TConfig>,
   event: AgentHookEventDefinition,
 ): string {
-  const hookCommand = `"\${PIMI_HOOK_CLI:-paseo}" hooks ${shellToken(provider.id)} ${shellToken(event.event)}`;
+  const hookCommand = `"\${PIMI_HOOK_CLI:-pimi}" hooks ${shellToken(provider.id)} ${shellToken(event.event)}`;
   return `if [ -n "$PIMI_TERMINAL_ID" ]; then ${hookCommand}; fi`;
 }
 
@@ -162,7 +162,7 @@ export function buildAgentHookWindowsCommand<TConfig>(
   event: AgentHookEventDefinition,
 ): string {
   const hookArgs = `hooks ${windowsToken(provider.id)} ${windowsToken(event.event)}`;
-  return `if defined PIMI_TERMINAL_ID (if defined PIMI_HOOK_CLI ("%PIMI_HOOK_CLI%" ${hookArgs}) else (paseo ${hookArgs})) else (exit /b 0)`;
+  return `if defined PIMI_TERMINAL_ID (if defined PIMI_HOOK_CLI ("%PIMI_HOOK_CLI%" ${hookArgs}) else (pimi ${hookArgs})) else (exit /b 0)`;
 }
 
 function installAgentHookPluginFile(

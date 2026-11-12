@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { isAbsolute, relative, resolve, sep } from "node:path";
-import { buildSelfNodeCommand } from "../paseo-env.js";
+import { buildSelfNodeCommand } from "../pimi-env.js";
 import type {
   CodeNavigationEdit,
   CodeNavigationLocation,

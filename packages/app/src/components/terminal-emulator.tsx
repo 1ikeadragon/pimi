@@ -525,7 +525,7 @@ export default function TerminalEmulator({
   }, [resizeRequestToken]);
 
   const showTerminalContextMenu = useCallback(() => {
-    const showContextMenu = window.paseoDesktop?.menu?.showContextMenu;
+    const showContextMenu = window.pimiDesktop?.menu?.showContextMenu;
     if (typeof showContextMenu !== "function") {
       return;
     }

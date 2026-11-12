@@ -315,8 +315,8 @@ async function writeSmokeArtifacts({ page, stdout, stderr, userData, daemonHome,
         rootChildCount: document.querySelector("#root")?.childElementCount ?? 0,
         rootText: document.querySelector("#root")?.textContent?.trim().slice(0, 2_000) ?? "",
         bridgeKeys:
-          typeof window.paseoDesktop === "object" && window.paseoDesktop !== null
-            ? Object.keys(window.paseoDesktop)
+          typeof window.pimiDesktop === "object" && window.pimiDesktop !== null
+            ? Object.keys(window.pimiDesktop)
             : [],
       }))
       .catch((evaluationError) => ({ evaluationError: String(evaluationError) }));
@@ -459,8 +459,8 @@ async function assertPackagedRendererLoaded(page, deadline) {
   );
 
   const bridgeKeys = await page.evaluate(() =>
-    typeof window.paseoDesktop === "object" && window.paseoDesktop !== null
-      ? Object.keys(window.paseoDesktop)
+    typeof window.pimiDesktop === "object" && window.pimiDesktop !== null
+      ? Object.keys(window.pimiDesktop)
       : [],
   );
   const missingBridgeKeys = REQUIRED_DESKTOP_BRIDGE_KEYS.filter((key) => !bridgeKeys.includes(key));
@@ -485,7 +485,7 @@ async function waitForRendererStartedDaemon({
 
   while (Date.now() < deadline) {
     try {
-      lastStatus = await page.evaluate(() => window.paseoDesktop.invoke("desktop_daemon_status"));
+      lastStatus = await page.evaluate(() => window.pimiDesktop.invoke("desktop_daemon_status"));
       if (
         lastStatus?.status === "running" &&
         lastStatus.desktopManaged === true &&
@@ -618,8 +618,8 @@ async function smokeCliShim({ appPath, env }) {
 }
 
 async function smokeColdCliDaemonStart({ appPath }) {
-  const home = createTempDir("paseo-smoke-cli-daemon-home-");
-  const pidPath = path.join(home, "paseo.pid");
+  const home = createTempDir("pimi-smoke-cli-daemon-home-");
+  const pidPath = path.join(home, "pimi.pid");
   const port = await reserveLocalTcpPort();
   const listen = `127.0.0.1:${port}`;
   const env = createDefaultDaemonEnv({ HOME: home, USERPROFILE: home });
@@ -683,8 +683,8 @@ function assertCleanDaemonStatusOutput(output) {
 }
 
 async function smokeCliTerminal({ appPath, env }) {
-  const cwd = createTempDir("paseo-smoke-terminal-cwd-");
-  const marker = `paseo-packaged-terminal-smoke-${Date.now()}`;
+  const cwd = createTempDir("pimi-smoke-terminal-cwd-");
+  const marker = `pimi-packaged-terminal-smoke-${Date.now()}`;
   const name = `packaged-smoke-${process.pid}-${Date.now()}`;
   let terminalId = null;
 
@@ -770,8 +770,8 @@ async function smokePackagedDesktopApp({
   assertExecutable(executablePath, "Packaged app executable");
   await smokeColdCliDaemonStart({ appPath });
 
-  const userData = createTempDir("paseo-smoke-user-data-");
-  const daemonHome = createTempDir("paseo-smoke-daemon-home-");
+  const userData = createTempDir("pimi-smoke-user-data-");
+  const daemonHome = createTempDir("pimi-smoke-daemon-home-");
   const daemonPort = await reserveLocalTcpPort();
   let cdpPort = await reserveLocalTcpPort();
   for (let attempt = 0; cdpPort === daemonPort && attempt < 10; attempt += 1) {

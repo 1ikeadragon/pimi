@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { isRealpathInsideRoot } from "../../../utils/path.js";
-import { PIMI_CLI_PACKAGE, type NpmGlobalPaseoInstall } from "./npm-global-cli.js";
+import { PIMI_CLI_PACKAGE, type NpmGlobalPimiInstall } from "./npm-global-cli.js";
 
 const PackageJsonSchema = z.object({ name: z.string().optional() }).passthrough();
 
@@ -31,7 +31,7 @@ export function resolveNpmGlobalPrefix(serverPackageRoot: string | null): string
 }
 
 export function validateDaemonInstallOrigin(
-  install: NpmGlobalPaseoInstall,
+  install: NpmGlobalPimiInstall,
   daemonVersion: string | null,
   runtime: DaemonInstallOriginRuntime = daemonInstallOriginRuntime,
 ): string | null {
@@ -57,7 +57,7 @@ export function validateDaemonInstallOrigin(
 
 function isCurrentServerUnderNpmInstall(
   currentServerPackageRoot: string,
-  install: NpmGlobalPaseoInstall,
+  install: NpmGlobalPimiInstall,
 ): boolean {
   const roots = install.globalRootPath
     ? [install.packagePath, globalNodeModulesPath(install.globalRootPath)]

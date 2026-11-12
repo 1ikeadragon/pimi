@@ -49,7 +49,7 @@ export interface AutocompleteOption {
   labelMatches?: readonly MatchRange[];
   argumentHint?: string;
   description?: string;
-  /** Where the option comes from, when that is not the provider itself: `Skill`, `Paseo`, a plugin. */
+  /** Where the option comes from, when that is not the provider itself: `Skill`, `Pimi`, a plugin. */
   tag?: string;
 }
 

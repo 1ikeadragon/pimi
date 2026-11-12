@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-default_dev_paseo_root() {
+default_dev_pimi_root() {
   git rev-parse --show-toplevel 2>/dev/null || pwd
 }
 
@@ -31,7 +31,7 @@ has_files() {
 }
 
 seed_worktree_pimi_home() {
-  local source_home="${PIMI_DEV_SEED_HOME:-$HOME/.paseo}"
+  local source_home="${PIMI_DEV_SEED_HOME:-$HOME/.pimi}"
   local target_home="$1"
 
   if [ ! -d "$source_home" ]; then
@@ -128,7 +128,7 @@ configure_dev_pimi_home() {
 
   export PIMI_HOME
   local dev_root
-  dev_root="${PIMI_DEV_ROOT:-$(default_dev_paseo_root)}"
+  dev_root="${PIMI_DEV_ROOT:-$(default_dev_pimi_root)}"
   migrate_legacy_dev_home "$dev_root"
   PIMI_HOME="$dev_root/.dev/pimi-home"
   export PIMI_DEV_MANAGED_HOME=1

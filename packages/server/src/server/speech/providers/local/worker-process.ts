@@ -19,7 +19,7 @@ import type {
 } from "./worker-protocol.js";
 import { bufferToWorkerBytes, workerBytesToBuffer } from "./worker-bytes.js";
 
-process.title = "Paseo Voice";
+process.title = "Pimi Voice";
 
 type LocalSttEngine = SherpaOfflineRecognizerEngine;
 

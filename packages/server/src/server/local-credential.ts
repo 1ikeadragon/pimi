@@ -64,7 +64,7 @@ function normalizeTarget(target: string): string | null {
 
 export function readLocalCredentialForTarget(home: string, target: string): string | null {
   try {
-    const lock = JSON.parse(readFileSync(join(home, "paseo.pid"), "utf8")) as {
+    const lock = JSON.parse(readFileSync(join(home, "pimi.pid"), "utf8")) as {
       listen?: unknown;
     };
     if (typeof lock.listen !== "string") return null;

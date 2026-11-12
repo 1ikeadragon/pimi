@@ -16,14 +16,14 @@ import {
   type WorkspaceRegistry,
 } from "../../workspace-registry.js";
 import type { WorkspaceGitService } from "../../workspace-git-service.js";
-import type { CreatePaseoWorktreeWorkflowResult } from "../../worktree-session.js";
+import type { CreatePimiWorktreeWorkflowResult } from "../../worktree-session.js";
 import { deriveProjectKey } from "../../project-key.js";
 import { areEquivalentPaths, createRealpathAwarePathMatcher } from "../../../utils/path.js";
 import type { UntrustedWorkspaceSource } from "../../workspace-automation-gate.js";
-import { readPaseoWorktreeMetadata } from "../../../utils/worktree-metadata.js";
+import { readPimiWorktreeMetadata } from "../../../utils/worktree-metadata.js";
 
 export interface ResolveOrCreateWorkspaceIdInput {
-  createdWorktree: CreatePaseoWorktreeWorkflowResult | null;
+  createdWorktree: CreatePimiWorktreeWorkflowResult | null;
   requestedWorkspaceId?: string;
   cwd: string;
   initialTitle: string | null;
@@ -265,8 +265,8 @@ export function createWorkspaceProvisioningService(deps: {
       : await findOrCreateProjectForDirectory(normalizedCwd);
     const create = async () => {
       const baseMetadata =
-        checkout.isGit && checkout.isPaseoOwnedWorktree
-          ? await readPaseoWorktreeMetadata(checkout.worktreeRoot ?? normalizedCwd)
+        checkout.isGit && checkout.isPimiOwnedWorktree
+          ? await readPimiWorktreeMetadata(checkout.worktreeRoot ?? normalizedCwd)
           : null;
       const timestamp = new Date().toISOString();
       const workspace = createPersistedWorkspaceRecord({
@@ -286,7 +286,7 @@ export function createWorkspaceProvisioningService(deps: {
       emitWorkspaceCreated(workspace);
       return workspace;
     };
-    return deps.withCheckoutLock && checkout.isGit && checkout.isPaseoOwnedWorktree
+    return deps.withCheckoutLock && checkout.isGit && checkout.isPimiOwnedWorktree
       ? deps.withCheckoutLock(checkout.worktreeRoot ?? normalizedCwd, create)
       : create();
   }

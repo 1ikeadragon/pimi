@@ -1,6 +1,6 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 import { z } from "zod";
-import { getPaseoToolLeafName } from "./tool-name-normalization.js";
+import { getPimiToolLeafName } from "./tool-name-normalization.js";
 import { WORKSPACE_LABEL_COLORS } from "./workspace-labels.js";
 
 export const PimiTaskLabels = z.array(z.string().min(1));
@@ -545,7 +545,7 @@ export const PimiReviewSuggestionResult = z.object({
 });
 
 function matchesToolName(name: string, tool: string): boolean {
-  return name === tool || getPaseoToolLeafName(name) === tool || name === `pimi_${tool}`;
+  return name === tool || getPimiToolLeafName(name) === tool || name === `pimi_${tool}`;
 }
 
 export function isPimiTaskProposalTool(name: string): boolean {

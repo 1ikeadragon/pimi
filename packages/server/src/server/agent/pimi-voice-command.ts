@@ -23,7 +23,7 @@ import {
 } from "./pimi-ask.js";
 import type { AskPimiToolSessions } from "./pimi-ask-mcp.js";
 import { createAskPimiToolset, type AskPimiToolset } from "./pimi-ask-tools.js";
-import type { PaseoToolCatalog } from "./tools/types.js";
+import type { PimiToolCatalog } from "./tools/types.js";
 import {
   PimiModelUnavailableError,
   resolvePimiModel,
@@ -147,7 +147,7 @@ export function createPimiVoiceCommandHandler(options: {
   manager: AgentManager;
   providerSnapshotManager: Pick<ProviderSnapshotManager, "listProviders">;
   readConfig: () => StructuredGenerationDaemonConfig;
-  createToolCatalog: (provider: AgentSessionConfig["provider"]) => PaseoToolCatalog;
+  createToolCatalog: (provider: AgentSessionConfig["provider"]) => PimiToolCatalog;
   spaces?: Pick<PimiSpaces, "list" | "read" | "addNote">;
   sessions: AskPimiToolSessions;
   /** Where a harness on this machine reaches the Ask Pimi tools, once the host is listening. */

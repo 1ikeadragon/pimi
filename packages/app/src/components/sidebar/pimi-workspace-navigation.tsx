@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 import { useCallback, useEffect, useMemo, type ReactNode } from "react";
 import { router, usePathname } from "expo-router";
 import { ScrollView, Text, View } from "react-native";

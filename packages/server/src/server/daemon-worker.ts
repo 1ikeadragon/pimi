@@ -2,14 +2,14 @@ import { appendFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { initializeEnvironmentProxy } from "./network/index.js";
 import { getDaemonNetworkActivity } from "./network/activity.js";
-import { createPaseoDaemon, formatListenTarget } from "./bootstrap.js";
+import { createPimiDaemon, formatListenTarget } from "./bootstrap.js";
 import { loadConfig } from "./config.js";
 import { resolvePimiHome } from "./pimi-home.js";
 import { createRootLogger } from "./logger.js";
 import type { DaemonLifecycleIntent } from "./bootstrap.js";
 import { getProcessDiagnostics } from "./process-diagnostics.js";
 
-process.title = "Paseo Daemon";
+process.title = "Pimi Daemon";
 
 type SupervisorLifecycleMessage =
   | {
@@ -131,7 +131,7 @@ async function main() {
       variable,
     });
   }
-  let daemon: Awaited<ReturnType<typeof createPaseoDaemon>> | null = null;
+  let daemon: Awaited<ReturnType<typeof createPimiDaemon>> | null = null;
   let shutdownPromise: Promise<number> | null = null;
   let exitHookInstalled = false;
 
@@ -331,7 +331,7 @@ async function main() {
   installSupervisorLivenessGuard();
 
   try {
-    daemon = await createPaseoDaemon(
+    daemon = await createPimiDaemon(
       {
         ...config,
         onLifecycleIntent: handleLifecycleIntent,

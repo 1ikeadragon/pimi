@@ -8,7 +8,7 @@ import { STTManager } from "../../agent/stt-manager.js";
 import type { SpeechToTextProvider, TextToSpeechProvider } from "../../speech/speech-provider.js";
 import type { TurnDetectionProvider } from "../../speech/turn-detection-provider.js";
 import { maybePersistTtsDebugAudio } from "../../agent/tts-debug.js";
-import { isPaseoDictationDebugEnabled } from "../../agent/recordings-debug.js";
+import { isPimiDictationDebugEnabled } from "../../agent/recordings-debug.js";
 import {
   DictationStreamManager,
   type DictationStreamOutboundMessage,
@@ -1266,7 +1266,7 @@ export class VoiceSession {
     if (this.closed) return;
     if (
       msg.type === "audio_output" &&
-      (process.env.TTS_DEBUG_AUDIO_DIR || isPaseoDictationDebugEnabled()) &&
+      (process.env.TTS_DEBUG_AUDIO_DIR || isPimiDictationDebugEnabled()) &&
       msg.payload.groupId &&
       typeof msg.payload.audio === "string"
     ) {

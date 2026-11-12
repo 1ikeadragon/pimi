@@ -7,16 +7,16 @@ import {
   type ServerRequest,
 } from "@modelcontextprotocol/sdk/types.js";
 
-import { addModelVisibleStructuredContent } from "./tools/paseo-tool-serialization.js";
+import { addModelVisibleStructuredContent } from "./tools/pimi-tool-serialization.js";
 import { createLazyLoaderTools, splitToolsForLazyLoading } from "./tools/lazy-tool-groups.js";
-import { createPaseoToolCatalog, type PaseoToolHostDependencies } from "./tools/paseo-tools.js";
-import type { PaseoToolDefinition, PaseoToolResult } from "./tools/types.js";
+import { createPimiToolCatalog, type PimiToolHostDependencies } from "./tools/pimi-tools.js";
+import type { PimiToolDefinition, PimiToolResult } from "./tools/types.js";
 
-export type AgentMcpServerOptions = PaseoToolHostDependencies;
+export type AgentMcpServerOptions = PimiToolHostDependencies;
 
 type McpToolContext = RequestHandlerExtra<ServerRequest, ServerNotification>;
 
-function toMcpToolResult(result: PaseoToolResult): CallToolResult {
+function toMcpToolResult(result: PimiToolResult): CallToolResult {
   const modelVisibleResult = addModelVisibleStructuredContent(result);
   return {
     content: modelVisibleResult.content as CallToolResult["content"],
@@ -31,8 +31,8 @@ function toMcpToolResult(result: PaseoToolResult): CallToolResult {
 }
 
 export function createToolMcpServer(
-  tools: Iterable<PaseoToolDefinition>,
-  execute: (name: string, args: unknown, signal?: AbortSignal) => Promise<PaseoToolResult>,
+  tools: Iterable<PimiToolDefinition>,
+  execute: (name: string, args: unknown, signal?: AbortSignal) => Promise<PimiToolResult>,
 ): McpServer {
   const server = new McpServer({
     name: "pimi",
@@ -64,7 +64,7 @@ export async function createAgentMcpServer(
   options: AgentMcpServerOptions,
   loading: AgentMcpServerLoading = { lazyTools: false },
 ): Promise<McpServer> {
-  const catalog = await createPaseoToolCatalog(options);
+  const catalog = await createPimiToolCatalog(options);
   const execute = (name: string, args: unknown, signal?: AbortSignal) =>
     catalog.executeTool(name, args, { signal });
   if (!loading.lazyTools) return createToolMcpServer(catalog.tools.values(), execute);

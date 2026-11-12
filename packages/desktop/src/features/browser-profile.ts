@@ -1,4 +1,4 @@
-export const PIMI_BROWSER_PROFILE_PARTITION = "persist:paseo-browser";
+export const PIMI_BROWSER_PROFILE_PARTITION = "persist:pimi-browser";
 const LEGACY_BROWSER_ID_PATTERN =
   /^(?:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|\d{13,}-[0-9a-f]+)$/i;
 const MAX_LEGACY_BROWSER_PROFILES = 1000;
@@ -47,11 +47,11 @@ interface ElectronSessions {
   fromPartition(partition: string): BrowserProfileSession;
 }
 
-export function getPaseoBrowserProfileSession(sessions: ElectronSessions): BrowserProfileSession {
+export function getPimiBrowserProfileSession(sessions: ElectronSessions): BrowserProfileSession {
   return sessions.fromPartition(PIMI_BROWSER_PROFILE_PARTITION);
 }
 
-export function readLegacyPaseoBrowserIds(input: unknown): string[] {
+export function readLegacyPimiBrowserIds(input: unknown): string[] {
   if (!Array.isArray(input)) {
     return [];
   }
@@ -67,12 +67,12 @@ export function readLegacyPaseoBrowserIds(input: unknown): string[] {
   return [...browserIds];
 }
 
-export function getPaseoBrowserProfileSessions(
+export function getPimiBrowserProfileSessions(
   sessions: ElectronSessions,
   legacyBrowserIds: string[],
 ): [BrowserProfileSession, ...BrowserProfileSession[]] {
   return [
-    getPaseoBrowserProfileSession(sessions),
+    getPimiBrowserProfileSession(sessions),
     // COMPAT(browserProfile): added in v0.1.108; remove after 2027-01-15.
     ...legacyBrowserIds.map((browserId) =>
       sessions.fromPartition(`${PIMI_BROWSER_PROFILE_PARTITION}-${browserId}`),
@@ -80,17 +80,17 @@ export function getPaseoBrowserProfileSessions(
   ];
 }
 
-export function getLegacyPaseoBrowserProfileSession(
+export function getLegacyPimiBrowserProfileSession(
   sessions: ElectronSessions,
   browserId: string,
 ): BrowserProfileSession | null {
-  const [legacyBrowserId] = readLegacyPaseoBrowserIds([browserId]);
+  const [legacyBrowserId] = readLegacyPimiBrowserIds([browserId]);
   return legacyBrowserId
     ? sessions.fromPartition(`${PIMI_BROWSER_PROFILE_PARTITION}-${legacyBrowserId}`)
     : null;
 }
 
-export function listPaseoBrowserProfileGuests(
+export function listPimiBrowserProfileGuests(
   input: ListBrowserProfileGuestsInput,
 ): BrowserProfileGuest[] {
   return input.webContents.filter(
@@ -101,7 +101,7 @@ export function listPaseoBrowserProfileGuests(
   );
 }
 
-export async function clearPaseoBrowserProfile(input: ClearBrowserProfileInput): Promise<void> {
+export async function clearPimiBrowserProfile(input: ClearBrowserProfileInput): Promise<void> {
   await Promise.all(
     input.profileSessions.flatMap((profileSession) => [
       profileSession.clearStorageData({ storages: [...PIMI_BROWSER_STORAGE_TYPES] }),

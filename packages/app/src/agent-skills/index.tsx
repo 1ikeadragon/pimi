@@ -33,7 +33,7 @@ function formatUpdateMessage(ops: readonly AgentSkillOperation[], t: TFunction):
     .join("\n");
 }
 
-/** Whether the host has Paseo's skills installed in any form, current or not. */
+/** Whether the host has Pimi's skills installed in any form, current or not. */
 export function areSkillsInstalled(status: AgentSkillsStatus | null): boolean {
   return status !== null && status.state !== "not-installed";
 }

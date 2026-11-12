@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 import { constants } from "node:fs";
 import { lstat, open, realpath } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, sep } from "node:path";

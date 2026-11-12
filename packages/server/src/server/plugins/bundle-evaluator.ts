@@ -6,15 +6,11 @@ import * as pluginUsageRuntime from "@pimi/plugin/server/usage";
 import * as pluginServerRuntime from "@pimi/plugin/server";
 import type { PluginServerContribution } from "@pimi/plugin/server";
 import * as zod from "zod";
-import {
-  canonicalPluginSdkSpecifier,
-  isPluginClientOnlySdkSpecifier,
-} from "./plugin-sdk-specifiers.js";
+import { isPluginClientOnlySdkSpecifier } from "./plugin-sdk-specifiers.js";
 
 const nodeRequire = createRequire(import.meta.url);
 
 function runtimeRequire(name: string): unknown {
-  name = canonicalPluginSdkSpecifier(name);
   if (isPluginClientOnlySdkSpecifier(name)) {
     throw new Error(`${name} is available only in plugin client code`);
   }

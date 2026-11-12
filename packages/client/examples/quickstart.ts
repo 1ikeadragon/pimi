@@ -1,6 +1,6 @@
-import { createPaseoClient } from "@pimi/client";
+import { createPimiClient } from "@pimi/client";
 
-const client = createPaseoClient({ url: "ws://127.0.0.1:6767/ws" });
+const client = createPimiClient({ url: "ws://127.0.0.1:6767/ws" });
 
 await client.connect();
 

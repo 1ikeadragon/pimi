@@ -1,11 +1,11 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 import { randomBytes } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { RequestHandler } from "express";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { extractHttpBearerToken } from "../auth.js";
 import { createToolMcpServer } from "./mcp-server.js";
-import type { PaseoToolDefinition } from "./tools/types.js";
+import type { PimiToolDefinition } from "./tools/types.js";
 
 export const PIMI_ASK_MCP_ROUTE = "/mcp/ask-pimi";
 export const PIMI_ASK_MCP_SERVER = "askpimi";
@@ -13,15 +13,15 @@ export const PIMI_ASK_MCP_SERVER = "askpimi";
 // Each Ask Pimi turn serves its own tool list under a credential that stops working when the
 // turn ends. Nothing else can reach these tools, and the turn cannot reach any other tool.
 export class AskPimiToolSessions {
-  private readonly open = new Map<string, readonly PaseoToolDefinition[]>();
+  private readonly open = new Map<string, readonly PimiToolDefinition[]>();
 
-  start(tools: readonly PaseoToolDefinition[]): { token: string; end: () => void } {
+  start(tools: readonly PimiToolDefinition[]): { token: string; end: () => void } {
     const token = randomBytes(32).toString("base64url");
     this.open.set(token, tools);
     return { token, end: () => this.open.delete(token) };
   }
 
-  find(token: string | null): readonly PaseoToolDefinition[] | undefined {
+  find(token: string | null): readonly PimiToolDefinition[] | undefined {
     return token ? this.open.get(token) : undefined;
   }
 }

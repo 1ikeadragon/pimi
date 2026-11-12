@@ -3,7 +3,7 @@ import type { AgentMessage } from "@pimi/protocol/agent-message";
 import type { AgentAttachment } from "@pimi/protocol/messages";
 import type { AgentTimelineRow } from "./agent-timeline-store-types.js";
 import { isLikelyExternalToolName } from "@pimi/protocol/tool-name-normalization";
-import { buildAgentMessageDisplay } from "@pimi/protocol/paseo-tool-presentation/index";
+import { buildAgentMessageDisplay } from "@pimi/protocol/pimi-tool-presentation/index";
 import { buildToolCallDisplayModel } from "@pimi/protocol/tool-call-display";
 import { projectTimelineRows, selectItemsByProjectedLimit } from "./timeline-projection.js";
 

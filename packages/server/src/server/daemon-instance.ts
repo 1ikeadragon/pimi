@@ -93,7 +93,7 @@ export async function waitForDaemonReady(
 function notReady(home: string, instance: PidLockInfo): DaemonInstanceError {
   return new DaemonInstanceError(
     "DAEMON_NOT_READY",
-    `Daemon PID ${instance.pid} remains running but is not ready for ${home}.\nLogs: ${daemonLogPath(home)}\nStatus: paseo daemon status --home ${JSON.stringify(home)}\nStop: paseo daemon stop --home ${JSON.stringify(home)}`,
+    `Daemon PID ${instance.pid} remains running but is not ready for ${home}.\nLogs: ${daemonLogPath(home)}\nStatus: pimi daemon status --home ${JSON.stringify(home)}\nStop: pimi daemon stop --home ${JSON.stringify(home)}`,
   );
 }
 
@@ -326,7 +326,7 @@ export async function startDaemonInstance(input: {
         if (acquired) throw notReady(input.home, acquired);
         throw new DaemonInstanceError(
           "DAEMON_NOT_READY",
-          `Supervisor PID ${child.pid} remains running but has not published its lock for ${input.home}. Logs: ${daemonLogPath(input.home)}. Check paseo daemon status --home ${JSON.stringify(input.home)}. Stop with paseo daemon stop --home ${JSON.stringify(input.home)} once its lock is published, or signal this PID.`,
+          `Supervisor PID ${child.pid} remains running but has not published its lock for ${input.home}. Logs: ${daemonLogPath(input.home)}. Check pimi daemon status --home ${JSON.stringify(input.home)}. Stop with pimi daemon stop --home ${JSON.stringify(input.home)} once its lock is published, or signal this PID.`,
         );
       }
       await delay(100, undefined, { signal });

@@ -1,8 +1,5 @@
 import type { ToolCallTimelineItem } from "./agent-types.js";
-import {
-  buildAgentMessageDisplay,
-  buildPaseoToolDisplay,
-} from "./paseo-tool-presentation/index.js";
+import { buildAgentMessageDisplay, buildPimiToolDisplay } from "./pimi-tool-presentation/index.js";
 import { stripCwdPrefix } from "./path-utils.js";
 
 export type ToolCallDisplayInput = Pick<
@@ -10,7 +7,7 @@ export type ToolCallDisplayInput = Pick<
   "name" | "status" | "error" | "metadata" | "detail" | "agentMessage"
 > & {
   cwd?: string;
-  /** Title of the agent a Paseo call targets, when the caller knows it. */
+  /** Title of the agent a Pimi call targets, when the caller knows it. */
   targetAgentTitle?: string;
 };
 
@@ -151,17 +148,17 @@ function buildUnknownDetailOverride(input: ToolCallDisplayInput): DetailDisplay 
 
 export function buildToolCallDisplayModel(input: ToolCallDisplayInput): ToolCallDisplayModel {
   const errorText = input.status === "failed" ? formatErrorText(input.error) : undefined;
-  const paseoDisplay = input.agentMessage
+  const pimiDisplay = input.agentMessage
     ? buildAgentMessageDisplay(input.agentMessage)
-    : buildPaseoToolDisplay({
+    : buildPimiToolDisplay({
         toolName: input.name,
         detail: input.detail,
         targetAgentTitle: input.targetAgentTitle,
       });
-  if (paseoDisplay) {
+  if (pimiDisplay) {
     return {
-      displayName: paseoDisplay.displayName,
-      ...(paseoDisplay.summary ? { summary: paseoDisplay.summary } : {}),
+      displayName: pimiDisplay.displayName,
+      ...(pimiDisplay.summary ? { summary: pimiDisplay.summary } : {}),
       ...(errorText ? { errorText } : {}),
     };
   }

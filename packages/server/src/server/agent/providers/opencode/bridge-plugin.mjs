@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const INTERNAL_PREFIX = "/_internal/opencode";
 
-export default async function paseoPlugin(input, options) {
+export default async function pimiPlugin(input, options) {
   const request = async (pathname, init) => {
     const response = await fetch(new URL(pathname, options.baseUrl), {
       ...init,

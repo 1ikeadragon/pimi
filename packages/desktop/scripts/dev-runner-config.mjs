@@ -1,6 +1,6 @@
 export function createElectronSpawnOptions({ env, colorEnv, expoDevUrl, devBuildLabel }) {
   return {
-    // Electron must stay in the runner's process group. Paseo workspace scripts
+    // Electron must stay in the runner's process group. Pimi workspace scripts
     // own the terminal process group, so detaching Electron lets it survive a
     // service stop with broken stdout/stderr pipes and block the next launch.
     detached: false,

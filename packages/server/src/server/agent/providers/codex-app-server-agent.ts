@@ -169,7 +169,7 @@ const CODEX_PROVIDER = "codex" as const;
 const CODEX_HISTORY_TAIL_PROMPTS = 20;
 const CODEX_HISTORY_OLDER_PROMPTS = 40;
 // These native provider identities belong to Codex, not to an older custom
-// Paseo provider. Never include them in a custom provider's legacy import scan.
+// Pimi provider. Never include them in a custom provider's legacy import scan.
 const CODEX_BUILTIN_MODEL_PROVIDER_IDS = new Set([
   "openai",
   "ollama",
@@ -180,7 +180,7 @@ const CODEX_BUILTIN_MODEL_PROVIDER_IDS = new Set([
 ]);
 // Codex treats most app-server client names as the model-request originator.
 // This reserved Codex name is non-originating, so requests keep Codex's default
-// CLI identity instead of showing up as Paseo in provider usage logs.
+// CLI identity instead of showing up as Pimi in provider usage logs.
 const CODEX_NON_ORIGINATING_APP_SERVER_CLIENT_INFO = {
   name: "codex_app_server_daemon",
   title: "Codex App Server Daemon",
@@ -190,7 +190,7 @@ const ASSISTANT_MESSAGE_BOUNDARY_MARKDOWN = "\n\n---\n\n";
 const MAX_PENDING_SUB_AGENT_THREADS = 32;
 const MAX_PENDING_SUB_AGENT_NOTIFICATIONS_PER_THREAD = 128;
 // COMPAT(codexLegacyCollabAgentToolCall): Codex <0.143 emits this shape. Added in
-// Paseo v0.1.105; remove after 2027-01-09 once the supported Codex floor is >=0.143.
+// Pimi v0.1.105; remove after 2027-01-09 once the supported Codex floor is >=0.143.
 const CODEX_TOOL_THREAD_ITEM_TYPES = new Set([
   "commandExecution",
   "fileChange",
@@ -3432,8 +3432,8 @@ function buildCodexCustomProviderConfig(
     providerConfig.env_key = "OPENAI_API_KEY";
     providerConfig.requires_openai_auth = false;
   }
-  // Namespace Paseo ids so they cannot override Codex's built-ins. A colon is
-  // forbidden in Paseo ids, keeping these keys distinct from every legacy id
+  // Namespace Pimi ids so they cannot override Codex's built-ins. A colon is
+  // forbidden in Pimi ids, keeping these keys distinct from every legacy id
   // when both generations are listed together.
   const providerKey = `pimi:${customProvider.id}`;
   return {
@@ -4253,7 +4253,7 @@ export class CodexAppServerAgentSession implements AgentSession {
   }
 
   // Turns and rewind route by the thread's earlier turns and sub-agents. A resumed
-  // session whose projection Paseo already holds reads them here and drops the rest.
+  // session whose projection Pimi already holds reads them here and drops the rest.
   private async ensureHistoryIndexed(): Promise<void> {
     if (this.historyIndexed) return;
     await this.readThreadHistory(this.client, { replacesTimeline: false });
@@ -4307,11 +4307,11 @@ export class CodexAppServerAgentSession implements AgentSession {
 
   private async ensureThreadLoaded(): Promise<void> {
     if (!this.client || !this.currentThreadId) return;
-    // Paseo reads history only when it replays it; the resume response needs no turns.
+    // Pimi reads history only when it replays it; the resume response needs no turns.
     const params: Record<string, unknown> = { threadId: this.currentThreadId, excludeTurns: true };
     if (this.deps.customCodexConfig) {
       // Resume otherwise prefers the provider stored on the thread, including
-      // the unnamespaced key emitted by earlier Paseo versions.
+      // the unnamespaced key emitted by earlier Pimi versions.
       params.modelProvider = this.deps.customCodexConfig.model_provider;
     }
     const developerInstructions = this.composeDeveloperInstructions();
@@ -4343,7 +4343,7 @@ export class CodexAppServerAgentSession implements AgentSession {
         }
         const response = await this.client.request("thread/resume", params);
         this.rememberResolvedSandboxPolicy(response);
-        this.logger.info({ threadId }, "Unarchived Codex thread to restore active Paseo agent");
+        this.logger.info({ threadId }, "Unarchived Codex thread to restore active Pimi agent");
         return;
       }
       this.logger.warn({ error, threadId }, "Failed to resume persisted Codex thread");

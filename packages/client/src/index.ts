@@ -2,8 +2,8 @@ export type { TerminalReplayEvent, TerminalStreamEvent } from "./terminal-stream
 import type { AgentAddress } from "@pimi/protocol/addresses";
 import { parentAddressLabels } from "@pimi/protocol/agent-labels";
 export type { AgentAddress } from "@pimi/protocol/addresses";
-import { createHostActions, type PaseoHostActions } from "./hosts/index.js";
-export type { PaseoHostActions } from "./hosts/index.js";
+import { createHostActions, type PimiHostActions } from "./hosts/index.js";
+export type { PimiHostActions } from "./hosts/index.js";
 export type { HostAdd, HostUpdate, HostSummary, HostDirectory } from "@pimi/protocol/hosts";
 import type { OwnedSubscription } from "./connection/index.js";
 export type { OwnedSubscription, SubscriptionObserver } from "./connection/index.js";
@@ -36,19 +36,19 @@ import type {
 import { DaemonClient, type CreateAgentRequestOptions } from "./daemon-client.js";
 import {
   createTerminalActions,
-  type PaseoTerminalActions,
-  type PaseoWorkspaceTerminalActions,
+  type PimiTerminalActions,
+  type PimiWorkspaceTerminalActions,
 } from "./terminals/index.js";
 export type {
-  PaseoTerminal,
-  PaseoTerminalActions,
-  PaseoTerminalHandle,
-  PaseoTerminalCreateOptions,
-  PaseoTerminalListOptions,
-  PaseoTerminalListResult,
-  PaseoTerminalCaptureOptions,
-  PaseoTerminalCaptureResult,
-  PaseoWorkspaceTerminalActions,
+  PimiTerminal,
+  PimiTerminalActions,
+  PimiTerminalHandle,
+  PimiTerminalCreateOptions,
+  PimiTerminalListOptions,
+  PimiTerminalListResult,
+  PimiTerminalCaptureOptions,
+  PimiTerminalCaptureResult,
+  PimiWorkspaceTerminalActions,
 } from "./terminals/index.js";
 import type { PluginTimelineItem } from "@pimi/protocol/agent-types";
 import type {
@@ -78,14 +78,14 @@ export type ConnectionState =
   | { status: "disconnected"; reason?: string }
   | { status: "disposed" };
 
-export interface PaseoLogger {
+export interface PimiLogger {
   debug(obj: object, msg?: string): void;
   info(obj: object, msg?: string): void;
   warn(obj: object, msg?: string): void;
   error(obj: object, msg?: string): void;
 }
 
-export interface PaseoClientConfig {
+export interface PimiClientConfig {
   url: string;
   clientId?: string;
   appVersion?: string;
@@ -93,7 +93,7 @@ export interface PaseoClientConfig {
   password?: string;
   authHeader?: string;
   suppressSendErrors?: boolean;
-  logger?: PaseoLogger;
+  logger?: PimiLogger;
   connectTimeoutMs?: number;
   e2ee?: {
     enabled?: boolean;
@@ -108,158 +108,152 @@ export interface PaseoClientConfig {
   runtimeMetricsWindowMs?: number;
 }
 
-export type PaseoWorkspace = WorkspaceDescriptorPayload;
-export type PaseoAgent = AgentSnapshotPayload;
-export type PaseoAgentListOptions = FetchAgentsOptions;
-export type PaseoProject = WorkspaceProjectDescriptorPayload;
-export type PaseoProjectListOptions = Omit<ProjectListRequestMessage, "type" | "requestId"> & {
+export type PimiWorkspace = WorkspaceDescriptorPayload;
+export type PimiAgent = AgentSnapshotPayload;
+export type PimiAgentListOptions = FetchAgentsOptions;
+export type PimiProject = WorkspaceProjectDescriptorPayload;
+export type PimiProjectListOptions = Omit<ProjectListRequestMessage, "type" | "requestId"> & {
   requestId?: string;
 };
-export type PaseoProjectListResult = ProjectListResponseMessage["payload"];
-export type PaseoProjectUpdate = Extract<
+export type PimiProjectListResult = ProjectListResponseMessage["payload"];
+export type PimiProjectUpdate = Extract<
   SessionOutboundMessage,
   { type: "project.update" }
 >["payload"];
-export type PaseoProjectUpdateHandler = (update: PaseoProjectUpdate) => void;
+export type PimiProjectUpdateHandler = (update: PimiProjectUpdate) => void;
 
-export interface PaseoAgentListResult {
-  subscription?: OwnedSubscription<PaseoAgentListResult>;
+export interface PimiAgentListResult {
+  subscription?: OwnedSubscription<PimiAgentListResult>;
   requestId: string;
   subscriptionId?: string | null;
   entries: FetchAgentsEntry[];
   pageInfo: FetchAgentsPageInfo;
 }
-export type PaseoWorkspaceListOptions = Omit<
-  FetchWorkspacesRequestMessage,
-  "type" | "requestId"
-> & {
+export type PimiWorkspaceListOptions = Omit<FetchWorkspacesRequestMessage, "type" | "requestId"> & {
   requestId?: string;
 };
 
-export interface PaseoWorkspaceListResult {
-  subscription?: OwnedSubscription<PaseoWorkspaceListResult>;
+export interface PimiWorkspaceListResult {
+  subscription?: OwnedSubscription<PimiWorkspaceListResult>;
   requestId: string;
   subscriptionId?: string | null;
-  entries: PaseoWorkspace[];
+  entries: PimiWorkspace[];
   pageInfo: FetchWorkspacesResponseMessage["payload"]["pageInfo"];
 }
 
-export interface PaseoWorkspaceOpenOptions {
+export interface PimiWorkspaceOpenOptions {
   cwd: string;
   requestId?: string;
 }
 
-export type PaseoWorkspaceCreateOptions = Omit<
+export type PimiWorkspaceCreateOptions = Omit<
   WorkspaceCreateRequest,
   "type" | "requestId" | "agent" | "subscribe"
 > & {
   requestId?: string;
   agent?: Omit<
-    PaseoAgentCreateOptions,
+    PimiAgentCreateOptions,
     "worktree" | "git" | "onEvent" | "idempotencyKey" | "requestId"
   >;
   onEvent?: (snapshot: CreationSnapshot) => void;
 };
 
-export interface PaseoWorkspaceArchiveResult {
+export interface PimiWorkspaceArchiveResult {
   requestId: string;
   workspaceId: string;
   archivedAt: string | null;
   error: string | null;
 }
 
-export type PaseoWorkspaceUpdate = Extract<
+export type PimiWorkspaceUpdate = Extract<
   SessionOutboundMessage,
   { type: "workspace_update" }
 >["payload"];
 
-export type PaseoWorkspaceUpdateHandler = (update: PaseoWorkspaceUpdate) => void;
+export type PimiWorkspaceUpdateHandler = (update: PimiWorkspaceUpdate) => void;
 
-export interface PaseoWorkspaceHandle {
+export interface PimiWorkspaceHandle {
   readonly id: string;
   readonly projectId: string | null;
   readonly directory: string | null;
   readonly name: string | null;
-  readonly status: PaseoWorkspace["status"] | null;
+  readonly status: PimiWorkspace["status"] | null;
   readonly agents: {
-    create(options: PaseoWorkspaceAgentCreateOptions): Promise<PaseoAgentHandle>;
+    create(options: PimiWorkspaceAgentCreateOptions): Promise<PimiAgentHandle>;
   };
-  readonly terminals: PaseoWorkspaceTerminalActions;
-  current(): PaseoWorkspace | null;
-  refresh(options?: { requestId?: string }): Promise<PaseoWorkspace | null>;
+  readonly terminals: PimiWorkspaceTerminalActions;
+  current(): PimiWorkspace | null;
+  refresh(options?: { requestId?: string }): Promise<PimiWorkspace | null>;
   setTitle(title: string | null, requestId?: string): Promise<{ title: string | null }>;
   setBaseBranch(options: {
     baseRef: string;
     requestId?: string;
   }): Promise<{ baseRef: string | null }>;
-  archive(requestId?: string): Promise<PaseoWorkspaceArchiveResult>;
+  archive(requestId?: string): Promise<PimiWorkspaceArchiveResult>;
   /**
    * Subscribes to already-emitted daemon workspace_update events for this id.
    * This returns a local unsubscribe function; it does not own app cache state or
    * send a daemon unsubscribe RPC. Call `workspaces.list({ subscribe: {} })` when
    * the daemon should start streaming workspace directory updates.
    */
-  subscribe(handler: (update: PaseoWorkspaceUpdate) => void): () => void;
+  subscribe(handler: (update: PimiWorkspaceUpdate) => void): () => void;
 }
 
-export interface PaseoProjectActions {
-  list(options?: PaseoProjectListOptions): Promise<PaseoProjectListResult>;
-  subscribe(handler: PaseoProjectUpdateHandler): () => void;
+export interface PimiProjectActions {
+  list(options?: PimiProjectListOptions): Promise<PimiProjectListResult>;
+  subscribe(handler: PimiProjectUpdateHandler): () => void;
 }
 
-export interface PaseoWorkspaceActions {
-  list(options: PaseoWorkspaceListOptions & { subscribe: {} }): Promise<
-    PaseoWorkspaceListResult & {
+export interface PimiWorkspaceActions {
+  list(options: PimiWorkspaceListOptions & { subscribe: {} }): Promise<
+    PimiWorkspaceListResult & {
       subscriptionId: string;
-      subscription: OwnedSubscription<PaseoWorkspaceListResult>;
+      subscription: OwnedSubscription<PimiWorkspaceListResult>;
     }
   >;
-  list(options?: PaseoWorkspaceListOptions): Promise<PaseoWorkspaceListResult>;
-  ref(workspace: string | PaseoWorkspace): PaseoWorkspaceHandle;
-  open(
-    input: string | PaseoWorkspaceOpenOptions,
-    requestId?: string,
-  ): Promise<PaseoWorkspaceHandle>;
-  create(options: PaseoWorkspaceCreateOptions): Promise<PaseoWorkspaceHandle>;
+  list(options?: PimiWorkspaceListOptions): Promise<PimiWorkspaceListResult>;
+  ref(workspace: string | PimiWorkspace): PimiWorkspaceHandle;
+  open(input: string | PimiWorkspaceOpenOptions, requestId?: string): Promise<PimiWorkspaceHandle>;
+  create(options: PimiWorkspaceCreateOptions): Promise<PimiWorkspaceHandle>;
   archive(
-    workspace: string | PaseoWorkspaceHandle,
+    workspace: string | PimiWorkspaceHandle,
     requestId?: string,
-  ): Promise<PaseoWorkspaceArchiveResult>;
+  ): Promise<PimiWorkspaceArchiveResult>;
   /**
    * Local event subscription over the low-level driver's workspace_update stream.
    * The returned function only removes this SDK listener.
    */
-  subscribe(handler: PaseoWorkspaceUpdateHandler): () => void;
+  subscribe(handler: PimiWorkspaceUpdateHandler): () => void;
 }
 
-type PaseoAgentSessionConfig = CreateAgentRequestMessage["config"];
-export type PaseoAgentProvider = PaseoAgentSessionConfig["provider"];
+type PimiAgentSessionConfig = CreateAgentRequestMessage["config"];
+export type PimiAgentProvider = PimiAgentSessionConfig["provider"];
 
-export type PaseoProviderFeatureValues = Record<string, unknown>;
+export type PimiProviderFeatureValues = Record<string, unknown>;
 
-export interface PaseoAgentConfig {
+export interface PimiAgentConfig {
   /** Provider and model in `provider/model` format. */
   provider: string;
-  modeId?: PaseoAgentSessionConfig["modeId"];
-  thinkingOptionId?: PaseoAgentSessionConfig["thinkingOptionId"];
-  featureValues?: PaseoProviderFeatureValues;
+  modeId?: PimiAgentSessionConfig["modeId"];
+  thinkingOptionId?: PimiAgentSessionConfig["thinkingOptionId"];
+  featureValues?: PimiProviderFeatureValues;
   /** JSON-safe provider-native settings, validated by the selected provider. */
-  options?: PaseoAgentSessionConfig["providerOptions"];
-  systemPrompt?: PaseoAgentSessionConfig["systemPrompt"];
-  toolPolicy?: PaseoAgentSessionConfig["toolPolicy"];
-  mcpServers?: PaseoAgentSessionConfig["mcpServers"];
+  options?: PimiAgentSessionConfig["providerOptions"];
+  systemPrompt?: PimiAgentSessionConfig["systemPrompt"];
+  toolPolicy?: PimiAgentSessionConfig["toolPolicy"];
+  mcpServers?: PimiAgentSessionConfig["mcpServers"];
 }
 
-export interface PaseoAgentCreateOptions {
+export interface PimiAgentCreateOptions {
   idempotencyKey?: string;
   agentId?: string;
   onEvent?: (snapshot: CreationSnapshot) => void;
-  config: PaseoAgentConfig;
+  config: PimiAgentConfig;
   cwd: string;
-  parent?: string | AgentAddress | PaseoAgentHandle;
+  parent?: string | AgentAddress | PimiAgentHandle;
   /** Deliver the initial turn's result to a parent on the same host. */
   notifyOnFinish?: boolean;
-  title?: PaseoAgentSessionConfig["title"];
+  title?: PimiAgentSessionConfig["title"];
   env?: CreateAgentRequestMessage["env"];
   prompt?: string;
   clientMessageId?: string;
@@ -279,48 +273,48 @@ export interface PaseoAgentCreateOptions {
   labels?: Record<string, string>;
 }
 
-export type PaseoWorkspaceAgentCreateOptions = Omit<PaseoAgentCreateOptions, "cwd">;
+export type PimiWorkspaceAgentCreateOptions = Omit<PimiAgentCreateOptions, "cwd">;
 
-export interface PaseoAgentRefetchResult {
-  agent: PaseoAgent;
+export interface PimiAgentRefetchResult {
+  agent: PimiAgent;
   project: ProjectPlacementPayload | null;
 }
 
-export interface PaseoAgentTimelineRefetchOptions {
+export interface PimiAgentTimelineRefetchOptions {
   direction?: FetchAgentTimelineDirection;
   cursor?: FetchAgentTimelineCursor;
   limit?: number;
   requestId?: string;
 }
 
-export type PaseoAgentSendOptions = SendMessageOptions;
+export type PimiAgentSendOptions = SendMessageOptions;
 
-export interface PaseoAgentRunOptions extends PaseoAgentSendOptions {
+export interface PimiAgentRunOptions extends PimiAgentSendOptions {
   timeoutMs?: number;
 }
 
-export type PaseoAgentRunResult = WaitForFinishResult;
-export type PaseoAgentPermissionResponse = AgentPermissionResponse;
+export type PimiAgentRunResult = WaitForFinishResult;
+export type PimiAgentPermissionResponse = AgentPermissionResponse;
 
-export interface PaseoAgentRespondToPermissionOptions {
+export interface PimiAgentRespondToPermissionOptions {
   requestId: string;
-  response: PaseoAgentPermissionResponse;
+  response: PimiAgentPermissionResponse;
 }
 
-export interface PaseoAgentCommandsOptions {
+export interface PimiAgentCommandsOptions {
   requestId?: string;
 }
 
-export type PaseoAgentCommandsResult = ListCommandsResponse["payload"];
+export type PimiAgentCommandsResult = ListCommandsResponse["payload"];
 
-export type PaseoAgentUpdate = Extract<SessionOutboundMessage, { type: "agent_update" }>["payload"];
+export type PimiAgentUpdate = Extract<SessionOutboundMessage, { type: "agent_update" }>["payload"];
 
-export type PaseoAgentStream = Extract<SessionOutboundMessage, { type: "agent_stream" }>["payload"];
+export type PimiAgentStream = Extract<SessionOutboundMessage, { type: "agent_stream" }>["payload"];
 
-export type PaseoAgentUpdateHandler = (update: PaseoAgentUpdate) => void;
+export type PimiAgentUpdateHandler = (update: PimiAgentUpdate) => void;
 
-export type PaseoAgentTimelineEvent =
-  | PaseoAgentStream
+export type PimiAgentTimelineEvent =
+  | PimiAgentStream
   | {
       agentId: string;
       event: { type: "replacement"; epoch: string };
@@ -332,16 +326,16 @@ export type PaseoAgentTimelineEvent =
     }
   | { agentId: string; event: { type: "error"; error: string } };
 
-export type PaseoAgentTimelineSubscription = ReturnType<DaemonClient["subscribeAgentTimeline"]>;
+export type PimiAgentTimelineSubscription = ReturnType<DaemonClient["subscribeAgentTimeline"]>;
 
-export interface PaseoAgentTimelineHandle {
+export interface PimiAgentTimelineHandle {
   append(item: Omit<PluginTimelineItem, "pluginId">): Promise<{ seq: number; epoch: string }>;
   /**
    * Fetches a fresh timeline page through the existing daemon RPC. If the daemon
    * includes an agent snapshot in the response, the parent handle is updated to
    * that value.
    */
-  refetch(options?: PaseoAgentTimelineRefetchOptions): Promise<FetchAgentTimelinePayload>;
+  refetch(options?: PimiAgentTimelineRefetchOptions): Promise<FetchAgentTimelinePayload>;
   /**
    * Delivers live events only. After reconnect, subscription_restored precedes
    * subsequent updates. History may have been missed; use refetch() to request
@@ -350,19 +344,19 @@ export interface PaseoAgentTimelineHandle {
    * Await the returned unsubscribe function's `ready` promise before starting
    * work that must be observed. It rejects if establishment fails.
    */
-  subscribe(handler: (event: PaseoAgentTimelineEvent) => void): PaseoAgentTimelineSubscription;
+  subscribe(handler: (event: PimiAgentTimelineEvent) => void): PimiAgentTimelineSubscription;
 }
 
-export type PaseoAgentBackgroundWorkItem = AgentBackgroundWorkItem;
+export type PimiAgentBackgroundWorkItem = AgentBackgroundWorkItem;
 
-export interface PaseoAgentBackgroundWorkHandle {
+export interface PimiAgentBackgroundWorkHandle {
   /** Stop one item and wait for provider confirmation. */
   stop(
-    item: PaseoAgentBackgroundWorkItem,
+    item: PimiAgentBackgroundWorkItem,
     options?: { requestId?: string; timeout?: number },
   ): Promise<void>;
   /** Reads the agent's current background work once. */
-  list(options?: { requestId?: string; timeout?: number }): Promise<PaseoAgentBackgroundWorkItem[]>;
+  list(options?: { requestId?: string; timeout?: number }): Promise<PimiAgentBackgroundWorkItem[]>;
   /**
    * Calls `listener` with the agent's current list once the subscription is established, again
    * after each reconnect, then with the full list each time it changes. Returns the unsubscribe
@@ -373,17 +367,17 @@ export interface PaseoAgentBackgroundWorkHandle {
    * reconnect reads the list again.
    */
   subscribe(
-    listener: (items: PaseoAgentBackgroundWorkItem[]) => void,
-    options?: PaseoAgentBackgroundWorkSubscribeOptions,
+    listener: (items: PimiAgentBackgroundWorkItem[]) => void,
+    options?: PimiAgentBackgroundWorkSubscribeOptions,
   ): () => void;
 }
 
-export interface PaseoAgentBackgroundWorkSubscribeOptions {
+export interface PimiAgentBackgroundWorkSubscribeOptions {
   /** Receives the error when reading the agent's current list fails. */
   onError?: (error: unknown) => void;
 }
 
-export interface PaseoAgentHandle {
+export interface PimiAgentHandle {
   readonly id: string;
   readonly address: AgentAddress;
   /**
@@ -395,33 +389,33 @@ export interface PaseoAgentHandle {
    */
   readonly workspaceId: string | null;
   readonly cwd: string | null;
-  readonly status: PaseoAgent["status"] | null;
-  readonly capabilities: PaseoAgent["capabilities"] | null;
-  readonly availableModes: PaseoAgent["availableModes"] | null;
-  readonly pendingPermissions: PaseoAgent["pendingPermissions"] | null;
-  readonly activeTurn: NonNullable<PaseoAgent["activeTurn"]> | null;
-  readonly lastUsage: NonNullable<PaseoAgent["lastUsage"]> | null;
-  readonly lastError: NonNullable<PaseoAgent["lastError"]> | null;
-  readonly features: NonNullable<PaseoAgent["features"]> | null;
-  readonly runtimeInfo: NonNullable<PaseoAgent["runtimeInfo"]> | null;
-  readonly archivedAt: NonNullable<PaseoAgent["archivedAt"]> | null;
-  readonly timeline: PaseoAgentTimelineHandle;
-  readonly backgroundWork: PaseoAgentBackgroundWorkHandle;
+  readonly status: PimiAgent["status"] | null;
+  readonly capabilities: PimiAgent["capabilities"] | null;
+  readonly availableModes: PimiAgent["availableModes"] | null;
+  readonly pendingPermissions: PimiAgent["pendingPermissions"] | null;
+  readonly activeTurn: NonNullable<PimiAgent["activeTurn"]> | null;
+  readonly lastUsage: NonNullable<PimiAgent["lastUsage"]> | null;
+  readonly lastError: NonNullable<PimiAgent["lastError"]> | null;
+  readonly features: NonNullable<PimiAgent["features"]> | null;
+  readonly runtimeInfo: NonNullable<PimiAgent["runtimeInfo"]> | null;
+  readonly archivedAt: NonNullable<PimiAgent["archivedAt"]> | null;
+  readonly timeline: PimiAgentTimelineHandle;
+  readonly backgroundWork: PimiAgentBackgroundWorkHandle;
   /** Capture portable chat context for a continuation or delegated task. */
   buildForkContext(options?: AgentForkContextOptions): Promise<AgentForkContextPayload>;
-  current(): PaseoAgent | null;
-  refresh(requestId?: string): Promise<PaseoAgentRefetchResult | null>;
+  current(): PimiAgent | null;
+  refresh(requestId?: string): Promise<PimiAgentRefetchResult | null>;
   /**
    * Reopens the provider session with current configuration, rerunning session-open hooks.
    * Interrupts a running turn and returns the refreshed snapshot.
    */
-  reload(options?: { requestId?: string }): Promise<PaseoAgentRefetchResult | null>;
-  send(text: string, options?: PaseoAgentSendOptions): Promise<void>;
-  respondToPermission(options: PaseoAgentRespondToPermissionOptions): Promise<void>;
+  reload(options?: { requestId?: string }): Promise<PimiAgentRefetchResult | null>;
+  send(text: string, options?: PimiAgentSendOptions): Promise<void>;
+  respondToPermission(options: PimiAgentRespondToPermissionOptions): Promise<void>;
   /** Sends a prompt and resolves when that turn finishes or needs attention. */
-  run(text: string, options?: PaseoAgentRunOptions): Promise<PaseoAgentRunResult>;
+  run(text: string, options?: PimiAgentRunOptions): Promise<PimiAgentRunResult>;
   /** Waits for the current turn, including one started with `prompt`. */
-  waitForFinish(timeoutMs?: number): Promise<PaseoAgentRunResult>;
+  waitForFinish(timeoutMs?: number): Promise<PimiAgentRunResult>;
   /**
    * Asks the running session for the slash commands and skills it actually
    * loaded. Providers answer from the live session, so this sees built-in and
@@ -429,90 +423,90 @@ export interface PaseoAgentHandle {
    * `error` string; a provider that cannot answer reports it there rather than
    * rejecting.
    */
-  commands(options?: PaseoAgentCommandsOptions): Promise<PaseoAgentCommandsResult>;
+  commands(options?: PimiAgentCommandsOptions): Promise<PimiAgentCommandsResult>;
   archive(): Promise<{ archivedAt: string }>;
   detach(): Promise<void>;
-  subscribe(handler: (update: PaseoAgentUpdate) => void): () => void;
+  subscribe(handler: (update: PimiAgentUpdate) => void): () => void;
 }
 
-export interface PaseoAgentActions {
-  list(options: PaseoAgentListOptions & { subscribe: {} }): Promise<
-    PaseoAgentListResult & {
+export interface PimiAgentActions {
+  list(options: PimiAgentListOptions & { subscribe: {} }): Promise<
+    PimiAgentListResult & {
       subscriptionId: string;
-      subscription: OwnedSubscription<PaseoAgentListResult>;
+      subscription: OwnedSubscription<PimiAgentListResult>;
     }
   >;
-  list(options?: PaseoAgentListOptions): Promise<PaseoAgentListResult>;
-  ref(agent: string | PaseoAgent): PaseoAgentHandle;
-  create(options: PaseoAgentCreateOptions): Promise<PaseoAgentHandle>;
+  list(options?: PimiAgentListOptions): Promise<PimiAgentListResult>;
+  ref(agent: string | PimiAgent): PimiAgentHandle;
+  create(options: PimiAgentCreateOptions): Promise<PimiAgentHandle>;
   /**
    * Local event subscription over the low-level driver's agent_update stream.
    * The returned function only removes this SDK listener.
    */
-  subscribe(handler: PaseoAgentUpdateHandler): () => void;
+  subscribe(handler: PimiAgentUpdateHandler): () => void;
 }
 
-export type PaseoProviderModelsResult = ListProviderModelsResponseMessage["payload"];
-export type PaseoProviderModesResult = ListProviderModesResponseMessage["payload"];
-type PaseoProviderFeaturesDraft = ListProviderFeaturesRequestMessage["draftConfig"];
-export interface PaseoProviderFeaturesInput extends Omit<
-  PaseoProviderFeaturesDraft,
+export type PimiProviderModelsResult = ListProviderModelsResponseMessage["payload"];
+export type PimiProviderModesResult = ListProviderModesResponseMessage["payload"];
+type PimiProviderFeaturesDraft = ListProviderFeaturesRequestMessage["draftConfig"];
+export interface PimiProviderFeaturesInput extends Omit<
+  PimiProviderFeaturesDraft,
   "provider" | "model"
 > {
   /** Provider and model in `provider/model` format. */
   provider: string;
 }
-export type PaseoProviderFeaturesResult = ListProviderFeaturesResponseMessage["payload"];
-export type PaseoProviderAvailabilityResult = ListAvailableProvidersResponse["payload"];
-export type PaseoProviderSnapshotResult = GetProvidersSnapshotResponseMessage["payload"];
-export type PaseoProviderSnapshotUpdate = Extract<
+export type PimiProviderFeaturesResult = ListProviderFeaturesResponseMessage["payload"];
+export type PimiProviderAvailabilityResult = ListAvailableProvidersResponse["payload"];
+export type PimiProviderSnapshotResult = GetProvidersSnapshotResponseMessage["payload"];
+export type PimiProviderSnapshotUpdate = Extract<
   SessionOutboundMessage,
   { type: "providers_snapshot_update" }
 >["payload"];
-export type PaseoProviderRefreshResult = RefreshProvidersSnapshotResponseMessage["payload"];
-export type PaseoProviderDiagnosticResult = ProviderDiagnosticResponseMessage["payload"];
+export type PimiProviderRefreshResult = RefreshProvidersSnapshotResponseMessage["payload"];
+export type PimiProviderDiagnosticResult = ProviderDiagnosticResponseMessage["payload"];
 
-export interface PaseoProviderListOptions {
+export interface PimiProviderListOptions {
   cwd?: string;
   requestId?: string;
 }
 
-export interface PaseoProviderRefreshOptions {
+export interface PimiProviderRefreshOptions {
   cwd?: string;
-  providers?: PaseoAgentProvider[];
+  providers?: PimiAgentProvider[];
   requestId?: string;
 }
 
-export interface PaseoProviderWaitOptions extends PaseoProviderListOptions {
+export interface PimiProviderWaitOptions extends PimiProviderListOptions {
   timeoutMs?: number;
 }
 
-export interface PaseoProviderActions {
+export interface PimiProviderActions {
   listModels(
-    provider: PaseoAgentProvider,
-    options?: PaseoProviderListOptions,
-  ): Promise<PaseoProviderModelsResult>;
+    provider: PimiAgentProvider,
+    options?: PimiProviderListOptions,
+  ): Promise<PimiProviderModelsResult>;
   listModes(
-    provider: PaseoAgentProvider,
-    options?: PaseoProviderListOptions,
-  ): Promise<PaseoProviderModesResult>;
+    provider: PimiAgentProvider,
+    options?: PimiProviderListOptions,
+  ): Promise<PimiProviderModesResult>;
   listFeatures(
-    draftConfig: PaseoProviderFeaturesInput,
+    draftConfig: PimiProviderFeaturesInput,
     options?: { requestId?: string },
-  ): Promise<PaseoProviderFeaturesResult>;
-  listAvailable(options?: { requestId?: string }): Promise<PaseoProviderAvailabilityResult>;
-  snapshot(options?: PaseoProviderListOptions): Promise<PaseoProviderSnapshotResult>;
+  ): Promise<PimiProviderFeaturesResult>;
+  listAvailable(options?: { requestId?: string }): Promise<PimiProviderAvailabilityResult>;
+  snapshot(options?: PimiProviderListOptions): Promise<PimiProviderSnapshotResult>;
   /** Resolves after the daemon's lazy provider discovery has finished. */
-  waitForReady(options?: PaseoProviderWaitOptions): Promise<PaseoProviderSnapshotResult>;
-  refresh(options?: PaseoProviderRefreshOptions): Promise<PaseoProviderRefreshResult>;
+  waitForReady(options?: PimiProviderWaitOptions): Promise<PimiProviderSnapshotResult>;
+  refresh(options?: PimiProviderRefreshOptions): Promise<PimiProviderRefreshResult>;
   diagnostic(
-    provider: PaseoAgentProvider,
+    provider: PimiAgentProvider,
     options?: { requestId?: string },
-  ): Promise<PaseoProviderDiagnosticResult>;
-  subscribe(handler: (update: PaseoProviderSnapshotUpdate) => void): () => void;
+  ): Promise<PimiProviderDiagnosticResult>;
+  subscribe(handler: (update: PimiProviderSnapshotUpdate) => void): () => void;
 }
 
-export interface PaseoConfigActions {
+export interface PimiConfigActions {
   /**
    * Reads daemon config through the existing config RPC. Provider profiles,
    * custom provider entries, keys/env, custom binaries, and provider enablement
@@ -532,39 +526,37 @@ export interface PaseoConfigActions {
   ): Promise<{ requestId: string; config: MutableDaemonConfig }>;
 }
 
-export type PimiApi = PaseoApi;
-
-export interface PaseoApi {
-  readonly hosts: PaseoHostActions;
+export interface PimiApi {
+  readonly hosts: PimiHostActions;
   dispose(): Promise<void>;
   observeEvents: DaemonClient["observeEvents"];
-  readonly terminals: PaseoTerminalActions;
-  readonly workspaces: PaseoWorkspaceActions;
+  readonly terminals: PimiTerminalActions;
+  readonly workspaces: PimiWorkspaceActions;
   readonly workspaceLabels: {
     list: DaemonClient["listWorkspaceLabels"];
     observe: DaemonClient["observeWorkspaceLabels"];
     set: DaemonClient["setWorkspaceLabel"];
   };
-  readonly projects: PaseoProjectActions;
-  readonly agents: PaseoAgentActions;
-  readonly providers: PaseoProviderActions;
-  readonly config: PaseoConfigActions;
+  readonly projects: PimiProjectActions;
+  readonly agents: PimiAgentActions;
+  readonly providers: PimiProviderActions;
+  readonly config: PimiConfigActions;
 }
 
-export interface PaseoClient extends PaseoApi {
+export interface PimiClient extends PimiApi {
   connect(): Promise<void>;
   close(): Promise<void>;
   ensureConnected(): void;
   getConnectionState(): ConnectionState;
 }
 
-export function createPaseoClient(config: PaseoClientConfig): PaseoClient {
+export function createPimiClient(config: PimiClientConfig): PimiClient {
   const daemonClient = new DaemonClient({
     ...config,
     clientId: config.clientId ?? createGeneratedClientId(),
     clientType: "cli",
   });
-  const api = createPaseoApi(daemonClient);
+  const api = createPimiApi(daemonClient);
   return {
     ...api,
     connect: () => daemonClient.connect(),
@@ -581,7 +573,7 @@ export function createPaseoClient(config: PaseoClientConfig): PaseoClient {
 }
 
 function toDaemonAgentCreateOptions(
-  options: PaseoAgentCreateOptions,
+  options: PimiAgentCreateOptions,
   placement?: { workspaceId: string; cwd: string },
   serverInfo?: ReturnType<DaemonClient["getLastServerInfoMessage"]>,
 ): CreateAgentRequestOptions {
@@ -614,16 +606,16 @@ function toDaemonAgentCreateOptions(
   };
 }
 
-export function createPaseoApi(
+export function createPimiApi(
   daemonClient: DaemonClient,
   scopeOptions?: { signal?: AbortSignal },
-): PaseoApi {
+): PimiApi {
   const handles = new Set<{ release(): Promise<void> }>();
-  const agentListeners = new Set<PaseoAgentUpdateHandler>();
-  const workspaceListeners = new Set<PaseoWorkspaceUpdateHandler>();
+  const agentListeners = new Set<PimiAgentUpdateHandler>();
+  const workspaceListeners = new Set<PimiWorkspaceUpdateHandler>();
   const lifetime = new AbortController();
   const own = <T extends { release(): Promise<void> }>(create: () => T): T => {
-    if (lifetime.signal.aborted) throw new Error("Paseo API is disposed");
+    if (lifetime.signal.aborted) throw new Error("Pimi API is disposed");
     const handle = create();
     handles.add(handle);
     const release = handle.release.bind(handle);
@@ -633,15 +625,15 @@ export function createPaseoApi(
     };
     return handle;
   };
-  const listenAgents = (handler: PaseoAgentUpdateHandler) => {
-    if (lifetime.signal.aborted) throw new Error("Paseo API is disposed");
+  const listenAgents = (handler: PimiAgentUpdateHandler) => {
+    if (lifetime.signal.aborted) throw new Error("Pimi API is disposed");
     agentListeners.add(handler);
     return () => {
       agentListeners.delete(handler);
     };
   };
-  const listenWorkspaces = (handler: PaseoWorkspaceUpdateHandler) => {
-    if (lifetime.signal.aborted) throw new Error("Paseo API is disposed");
+  const listenWorkspaces = (handler: PimiWorkspaceUpdateHandler) => {
+    if (lifetime.signal.aborted) throw new Error("Pimi API is disposed");
     workspaceListeners.add(handler);
     return () => {
       workspaceListeners.delete(handler);
@@ -654,7 +646,7 @@ export function createPaseoApi(
     () => own(() => daemonClient.observeAgentBackgroundWork()),
   );
   const createAgent = async (
-    options: PaseoAgentCreateOptions,
+    options: PimiAgentCreateOptions,
     placement?: { workspaceId: string; cwd: string },
   ) => {
     const serverId = daemonClient.getLastServerInfoMessage()?.serverId;
@@ -724,16 +716,16 @@ export function createPaseoApi(
     };
   };
 
-  function listWorkspaces(options: PaseoWorkspaceListOptions & { subscribe: {} }): Promise<
-    PaseoWorkspaceListResult & {
+  function listWorkspaces(options: PimiWorkspaceListOptions & { subscribe: {} }): Promise<
+    PimiWorkspaceListResult & {
       subscriptionId: string;
-      subscription: OwnedSubscription<PaseoWorkspaceListResult>;
+      subscription: OwnedSubscription<PimiWorkspaceListResult>;
     }
   >;
-  function listWorkspaces(options?: PaseoWorkspaceListOptions): Promise<PaseoWorkspaceListResult>;
+  function listWorkspaces(options?: PimiWorkspaceListOptions): Promise<PimiWorkspaceListResult>;
   async function listWorkspaces(
-    options?: PaseoWorkspaceListOptions,
-  ): Promise<PaseoWorkspaceListResult> {
+    options?: PimiWorkspaceListOptions,
+  ): Promise<PimiWorkspaceListResult> {
     if (!options?.subscribe) return daemonClient.fetchWorkspaces(options);
     if (options.subscribe.subscriptionId !== undefined)
       throw new Error("Subscription IDs are assigned by the host");
@@ -748,14 +740,14 @@ export function createPaseoApi(
     return { ...(await subscription.ready), subscription };
   }
 
-  function listAgents(options: PaseoAgentListOptions & { subscribe: {} }): Promise<
-    PaseoAgentListResult & {
+  function listAgents(options: PimiAgentListOptions & { subscribe: {} }): Promise<
+    PimiAgentListResult & {
       subscriptionId: string;
-      subscription: OwnedSubscription<PaseoAgentListResult>;
+      subscription: OwnedSubscription<PimiAgentListResult>;
     }
   >;
-  function listAgents(options?: PaseoAgentListOptions): Promise<PaseoAgentListResult>;
-  async function listAgents(options?: PaseoAgentListOptions): Promise<PaseoAgentListResult> {
+  function listAgents(options?: PimiAgentListOptions): Promise<PimiAgentListResult>;
+  async function listAgents(options?: PimiAgentListOptions): Promise<PimiAgentListResult> {
     if (!options?.subscribe) return daemonClient.fetchAgents(options);
     if (options.subscribe.subscriptionId !== undefined)
       throw new Error("Subscription IDs are assigned by the host");
@@ -783,7 +775,7 @@ export function createPaseoApi(
         return daemonClient.setWorkspaceLabel(options);
       },
     },
-    hosts: createHostActions(daemonClient, { own, signal: lifetime.signal, api: createPaseoApi }),
+    hosts: createHostActions(daemonClient, { own, signal: lifetime.signal, api: createPimiApi }),
     observeEvents,
     terminals,
     projects: {
@@ -861,18 +853,18 @@ export function createPaseoApi(
   };
 }
 
-type WorkspaceHandleFactory = (workspace: string | PaseoWorkspace) => PaseoWorkspaceHandle;
-type AgentHandleFactory = (agent: string | PaseoAgent) => PaseoAgentHandle;
+type WorkspaceHandleFactory = (workspace: string | PimiWorkspace) => PimiWorkspaceHandle;
+type AgentHandleFactory = (agent: string | PimiAgent) => PimiAgentHandle;
 type CreateAgent = (
-  options: PaseoAgentCreateOptions,
+  options: PimiAgentCreateOptions,
   placement?: { workspaceId: string; cwd: string },
-) => Promise<PaseoAgentHandle>;
+) => Promise<PimiAgentHandle>;
 
 function createWorkspaceHandleFactory(
   daemonClient: DaemonClient,
   createAgent: CreateAgent,
-  terminals: PaseoTerminalActions,
-  listen: (handler: PaseoWorkspaceUpdateHandler) => () => void,
+  terminals: PimiTerminalActions,
+  listen: (handler: PimiWorkspaceUpdateHandler) => () => void,
 ): WorkspaceHandleFactory {
   return (workspace) => {
     const id = typeof workspace === "string" ? workspace : workspace.id;
@@ -941,7 +933,7 @@ function createWorkspaceHandleFactory(
 
 function createAgentHandleFactory(
   daemonClient: DaemonClient,
-  listen: (handler: PaseoAgentUpdateHandler) => () => void,
+  listen: (handler: PimiAgentUpdateHandler) => () => void,
   subscribeTimeline: DaemonClient["subscribeAgentTimeline"],
   observeBackgroundWork: () => ReturnType<DaemonClient["observeAgentBackgroundWork"]>,
 ): AgentHandleFactory {
@@ -950,7 +942,7 @@ function createAgentHandleFactory(
     let current = typeof agent === "string" ? null : agent;
 
     let serverId = daemonClient.getLastServerInfoMessage()?.serverId;
-    const handle: PaseoAgentHandle = {
+    const handle: PimiAgentHandle = {
       id,
       buildForkContext: (options) => daemonClient.buildAgentForkContext(id, options),
       get address() {
@@ -1139,9 +1131,9 @@ function createAgentHandleFactory(
 async function openWorkspace(
   daemonClient: DaemonClient,
   createWorkspaceHandle: WorkspaceHandleFactory,
-  input: string | PaseoWorkspaceOpenOptions,
+  input: string | PimiWorkspaceOpenOptions,
   requestId?: string,
-): Promise<PaseoWorkspaceHandle> {
+): Promise<PimiWorkspaceHandle> {
   const options = typeof input === "string" ? { cwd: input, requestId } : input;
   const result = await daemonClient.openProject(options.cwd, options.requestId);
   if (result.error || !result.workspace) {
@@ -1150,14 +1142,14 @@ async function openWorkspace(
   return createWorkspaceHandle(result.workspace);
 }
 
-function resolveWorkspaceId(workspace: string | PaseoWorkspaceHandle): string {
+function resolveWorkspaceId(workspace: string | PimiWorkspaceHandle): string {
   return typeof workspace === "string" ? workspace : workspace.id;
 }
 
 function foreignParentHandle(
-  parent: PaseoAgentCreateOptions["parent"],
+  parent: PimiAgentCreateOptions["parent"],
   serverId: string | undefined,
-): PaseoAgentHandle | null {
+): PimiAgentHandle | null {
   if (!parent || typeof parent === "string" || !("address" in parent)) return null;
   return parent.address.serverId === serverId ? null : parent;
 }
@@ -1165,15 +1157,15 @@ function foreignParentHandle(
 // A host inherits background from a caller it can see. A parent on another host is invisible to
 // it, so a handle passes its own value on. A bare foreign address can't; pass background then.
 async function inheritParentBackground(
-  options: PaseoAgentCreateOptions,
-  parent: PaseoAgentHandle,
-): Promise<PaseoAgentCreateOptions> {
+  options: PimiAgentCreateOptions,
+  parent: PimiAgentHandle,
+): Promise<PimiAgentCreateOptions> {
   const snapshot = parent.current() ?? (await parent.refresh())?.agent;
   return snapshot?.background ? { ...options, background: true } : options;
 }
 
 function encodeParent(
-  parent: string | AgentAddress | PaseoAgentHandle,
+  parent: string | AgentAddress | PimiAgentHandle,
   serverId?: string,
 ): Pick<CreateAgentRequestOptions, "callerAgentId" | "labels"> {
   if (typeof parent === "string") return { callerAgentId: parent };
@@ -1199,26 +1191,26 @@ async function waitForProvidersReady(
   daemonClient: DaemonClient,
   observation: ReturnType<DaemonClient["observeEvents"]>,
   signal: AbortSignal,
-  options: PaseoProviderWaitOptions = {},
-): Promise<PaseoProviderSnapshotResult> {
+  options: PimiProviderWaitOptions = {},
+): Promise<PimiProviderSnapshotResult> {
   const { timeoutMs = 60_000, ...snapshotOptions } = options;
 
   try {
     await observation.ready;
-    if (signal.aborted) throw new Error("Paseo API is disposed");
-    return await new Promise<PaseoProviderSnapshotResult>((resolve, reject) => {
+    if (signal.aborted) throw new Error("Pimi API is disposed");
+    return await new Promise<PimiProviderSnapshotResult>((resolve, reject) => {
       let settled = false;
       let requestId: string | null = null;
       let snapshotCwd: string | undefined;
-      const pendingUpdates = new Map<string | undefined, PaseoProviderSnapshotUpdate>();
-      let latestEntries: PaseoProviderSnapshotResult["entries"] = [];
+      const pendingUpdates = new Map<string | undefined, PimiProviderSnapshotUpdate>();
+      let latestEntries: PimiProviderSnapshotResult["entries"] = [];
 
       const cleanup = () => {
         clearTimeout(timeout);
         unsubscribe();
         signal.removeEventListener("abort", abort);
       };
-      const finish = (snapshot: PaseoProviderSnapshotResult) => {
+      const finish = (snapshot: PimiProviderSnapshotResult) => {
         if (settled) return;
         settled = true;
         cleanup();
@@ -1230,7 +1222,7 @@ async function waitForProvidersReady(
         cleanup();
         reject(error instanceof Error ? error : new Error(String(error)));
       };
-      const updateMatches = (update: PaseoProviderSnapshotUpdate) => update.cwd === snapshotCwd;
+      const updateMatches = (update: PimiProviderSnapshotUpdate) => update.cwd === snapshotCwd;
 
       const unsubscribe = observation.subscribe({
         snapshot: () => {},
@@ -1247,7 +1239,7 @@ async function waitForProvidersReady(
           finish({ ...update, requestId });
         },
       });
-      const abort = () => fail(new Error("Paseo API is disposed"));
+      const abort = () => fail(new Error("Pimi API is disposed"));
       signal.addEventListener("abort", abort, { once: true });
 
       const timeout = setTimeout(() => {
@@ -1292,5 +1284,5 @@ function createGeneratedClientId(): string {
     typeof globalThis.crypto?.randomUUID === "function"
       ? globalThis.crypto.randomUUID()
       : Math.random().toString(36).slice(2);
-  return `paseo-sdk-${randomId}`;
+  return `pimi-sdk-${randomId}`;
 }

@@ -1,0 +1,9 @@
+{
+  "platforms": ["android", "ios"],
+  "android": {
+    "modules": ["sh.pimi.terminal.PimiTerminalModule"]
+  },
+  "ios": {
+    "modules": ["PimiTerminalModule"]
+  }
+}

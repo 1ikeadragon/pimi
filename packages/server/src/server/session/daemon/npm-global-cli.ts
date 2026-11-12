@@ -41,15 +41,15 @@ export interface CommandResult {
   stderr: string;
 }
 
-export interface NpmGlobalPaseoInstall {
+export interface NpmGlobalPimiInstall {
   version: string;
   packagePath: string;
   globalRootPath: string | null;
   isLinked: boolean;
 }
 
-export interface NpmGlobalPaseoCli {
-  inspect(options?: NpmGlobalOptions): Promise<NpmGlobalPaseoInstall>;
+export interface NpmGlobalPimiCli {
+  inspect(options?: NpmGlobalOptions): Promise<NpmGlobalPimiInstall>;
   installLatest(options?: NpmGlobalOptions): Promise<CommandResult>;
 }
 
@@ -88,7 +88,7 @@ async function runExternalCommand(
   }
 }
 
-function parseNpmGlobalPaseoInstall(stdout: string): NpmGlobalPaseoInstall | null {
+function parseNpmGlobalPimiInstall(stdout: string): NpmGlobalPimiInstall | null {
   let parsedJson: unknown;
   try {
     parsedJson = JSON.parse(stdout);
@@ -117,10 +117,10 @@ function parseNpmGlobalPaseoInstall(stdout: string): NpmGlobalPaseoInstall | nul
   };
 }
 
-export class DefaultNpmGlobalPaseoCli implements NpmGlobalPaseoCli {
+export class DefaultNpmGlobalPimiCli implements NpmGlobalPimiCli {
   constructor(private readonly runCommand: CommandRunner = runExternalCommand) {}
 
-  async inspect(options: NpmGlobalOptions = {}): Promise<NpmGlobalPaseoInstall> {
+  async inspect(options: NpmGlobalOptions = {}): Promise<NpmGlobalPimiInstall> {
     const prefixArgs = options.prefix ? ["--prefix", options.prefix] : [];
     const result = await this.runCommand(
       "npm",
@@ -135,7 +135,7 @@ export class DefaultNpmGlobalPaseoCli implements NpmGlobalPaseoCli {
       throw new Error(result.stderr.trim() || "npm is not available on this host");
     }
 
-    const install = parseNpmGlobalPaseoInstall(result.stdout);
+    const install = parseNpmGlobalPimiInstall(result.stdout);
     if (!install) {
       throw new Error(`${PIMI_CLI_PACKAGE} is not installed with npm -g on this host`);
     }
@@ -147,4 +147,4 @@ export class DefaultNpmGlobalPaseoCli implements NpmGlobalPaseoCli {
   }
 }
 
-export const npmGlobalPaseoCli = new DefaultNpmGlobalPaseoCli();
+export const npmGlobalPimiCli = new DefaultNpmGlobalPimiCli();

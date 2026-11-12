@@ -854,7 +854,7 @@ export const fr: TranslationResources = {
       },
       routes: {
         public: "Proxy inverse",
-        paseo: "Mémorable",
+        pimi: "Mémorable",
         direct: "Directe",
       },
       states: {
@@ -1654,7 +1654,7 @@ export const fr: TranslationResources = {
         installFailed: "Impossible d’installer la CLI Pimi.",
         uninstallFailed: "Impossible de désinstaller la CLI Pimi.",
         keptForeign:
-          "Une commande paseo qui n’a pas été installée par Pimi a été conservée. Supprimez-la vous-même pour la désinstaller.",
+          "Une commande pimi qui n’a pas été installée par Pimi a été conservée. Supprimez-la vous-même pour la désinstaller.",
       },
     },
   },
@@ -2094,7 +2094,7 @@ export const fr: TranslationResources = {
   serviceUrl: {
     title: "Ouvrir l’URL du service",
     message: "Ouvrir {{url}} ?",
-    inPaseo: "Dans Pimi",
+    inPimi: "Dans Pimi",
     externalBrowser: "Navigateur externe",
     dontAskAgain: "Ne plus demander",
   },
@@ -2378,7 +2378,7 @@ export const fr: TranslationResources = {
       one: "{{count}} autre outil utilisé",
       other: "{{count}} autres outils utilisés",
     },
-    paseoCalls: {
+    pimiCalls: {
       one: "{{count}} appel à Pimi",
       other: "{{count}} appels à Pimi",
     },

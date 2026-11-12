@@ -1,7 +1,7 @@
-import type { PaseoTerminal } from "@pimi/client";
+import type { PimiTerminal } from "@pimi/client";
 import type { OutputSchema } from "../../output/index.js";
 
-export type TerminalRow = PaseoTerminal;
+export type TerminalRow = PimiTerminal;
 
 export interface TerminalKillRow {
   terminalId: string;

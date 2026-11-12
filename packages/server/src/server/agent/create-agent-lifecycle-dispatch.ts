@@ -1,13 +1,13 @@
-import type { CreatePaseoWorktreeInput } from "../paseo-worktree-service.js";
+import type { CreatePimiWorktreeInput } from "../pimi-worktree-service.js";
 import { randomUUID } from "node:crypto";
 import type pino from "pino";
 
 import type { ForgeService } from "../../services/forge-service.js";
-import { isPaseoOwnedWorktreeCwd } from "../../utils/worktree.js";
+import { isPimiOwnedWorktreeCwd } from "../../utils/worktree.js";
 import { archiveByScope, type ActiveWorkspaceRef } from "../workspace-archive-service.js";
 import type {
-  CreatePaseoWorktreeWorkflowFn,
-  CreatePaseoWorktreeWorkflowResult,
+  CreatePimiWorktreeWorkflowFn,
+  CreatePimiWorktreeWorkflowResult,
 } from "../worktree-session.js";
 import type { WorkspaceGitService } from "../workspace-git-service.js";
 import type {
@@ -25,7 +25,7 @@ interface CreateAgentLifecycleDispatchDependencies {
   agentStorage: AgentStorage;
   github: ForgeService;
   workspaceGitService: WorkspaceGitService;
-  createPaseoWorktreeWorkflow: CreatePaseoWorktreeWorkflowFn;
+  createPimiWorktreeWorkflow: CreatePimiWorktreeWorkflowFn;
   archiveAgentForClose: (agentId: string) => Promise<unknown>;
   findWorkspaceIdForCwd: (cwd: string) => Promise<string | null>;
   listActiveWorkspaces: () => Promise<ActiveWorkspaceRef[]>;
@@ -51,7 +51,7 @@ const inactiveRegistration: LifecycleRegistration = { cancel: async () => undefi
 
 type AutoArchiveTarget =
   | { kind: "agent-only" }
-  | { kind: "created-worktree"; result: CreatePaseoWorktreeWorkflowResult };
+  | { kind: "created-worktree"; result: CreatePimiWorktreeWorkflowResult };
 
 export class CreateAgentLifecycleDispatch {
   private readonly autoArchiveAgentIds = new Set<string>();
@@ -64,10 +64,10 @@ export class CreateAgentLifecycleDispatch {
     firstAgentContext: FirstAgentContext;
     background?: boolean;
     callerWorkspaceId?: string;
-  }): Promise<CreatePaseoWorktreeWorkflowResult | null> {
+  }): Promise<CreatePimiWorktreeWorkflowResult | null> {
     const target = input.target;
     if (!target) return null;
-    const placement: CreatePaseoWorktreeInput = { cwd: input.cwd };
+    const placement: CreatePimiWorktreeInput = { cwd: input.cwd };
     switch (target.mode) {
       case "branch-off":
         placement.action = "branch-off";
@@ -83,7 +83,7 @@ export class CreateAgentLifecycleDispatch {
         break;
     }
     const base = target.mode === "branch-off" ? target.base : undefined;
-    return this.dependencies.createPaseoWorktreeWorkflow(
+    return this.dependencies.createPimiWorktreeWorkflow(
       {
         ...placement,
         background: input.background,
@@ -99,7 +99,7 @@ export class CreateAgentLifecycleDispatch {
   registerAutoArchiveIfRequested(input: {
     autoArchive: boolean | undefined;
     agentId: string;
-    createdWorktree: CreatePaseoWorktreeWorkflowResult | null;
+    createdWorktree: CreatePimiWorktreeWorkflowResult | null;
   }): LifecycleRegistration {
     if (input.autoArchive !== true) {
       return inactiveRegistration;
@@ -112,7 +112,7 @@ export class CreateAgentLifecycleDispatch {
   }
 
   async cleanupCreatedWorktreeAfterFailedAgentCreate(input: {
-    createdWorktree: CreatePaseoWorktreeWorkflowResult | null;
+    createdWorktree: CreatePimiWorktreeWorkflowResult | null;
     createdAgentId: string | null;
   }): Promise<void> {
     const { createdWorktree, createdAgentId } = input;
@@ -168,11 +168,11 @@ export class CreateAgentLifecycleDispatch {
 
   private async archiveAutoCreatedWorktree(options: {
     agentId: string | null;
-    createdWorktree: CreatePaseoWorktreeWorkflowResult;
+    createdWorktree: CreatePimiWorktreeWorkflowResult;
   }): Promise<void> {
     const { createdWorktree } = options;
     const worktreePath = createdWorktree.worktree.worktreePath;
-    const ownership = await isPaseoOwnedWorktreeCwd(worktreePath, {
+    const ownership = await isPimiOwnedWorktreeCwd(worktreePath, {
       pimiHome: this.dependencies.pimiHome,
       worktreesRoot: this.dependencies.worktreesRoot,
     });
@@ -183,7 +183,7 @@ export class CreateAgentLifecycleDispatch {
     await archiveByScope(
       {
         pimiHome: this.dependencies.pimiHome,
-        paseoWorktreesBaseRoot: this.dependencies.worktreesRoot,
+        pimiWorktreesBaseRoot: this.dependencies.worktreesRoot,
         github: this.dependencies.github,
         workspaceGitService: this.dependencies.workspaceGitService,
         agentManager: this.dependencies.agentManager,
@@ -247,7 +247,7 @@ export function registerAgentAutoArchive(input: {
 }
 
 function toAutoArchiveTarget(
-  createdWorktree: CreatePaseoWorktreeWorkflowResult | null,
+  createdWorktree: CreatePimiWorktreeWorkflowResult | null,
 ): AutoArchiveTarget {
   return createdWorktree
     ? { kind: "created-worktree", result: createdWorktree }

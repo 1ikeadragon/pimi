@@ -2,7 +2,7 @@ import { parseHostPort } from "@pimi/protocol/daemon-endpoints";
 import type { WorkspaceScriptPayload } from "@pimi/protocol/messages";
 import type { ActiveConnection } from "@/runtime/host-runtime";
 
-export type WorkspaceScriptLinkKind = "public" | "paseo" | "direct";
+export type WorkspaceScriptLinkKind = "public" | "pimi" | "direct";
 
 export interface WorkspaceScriptLinkTarget {
   kind: WorkspaceScriptLinkKind;
@@ -68,7 +68,7 @@ export function resolveWorkspaceScriptLink(input: {
 
   const targets: WorkspaceScriptLinkTarget[] = [];
   addTarget(targets, "public", script.publicProxyUrl);
-  addTarget(targets, "paseo", script.localProxyUrl);
+  addTarget(targets, "pimi", script.localProxyUrl);
   addTarget(targets, "direct", buildDirectServiceUrl(activeConnection, script.port));
 
   return { primary: targets[0] ?? null, targets };

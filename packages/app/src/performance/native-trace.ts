@@ -3,12 +3,12 @@ import type { DaemonClientTrace } from "@pimi/client/internal/daemon-client";
 import { requireOptionalNativeModule } from "expo-modules-core";
 import { isProfileBuild } from "@/constants/build-profile";
 
-interface PaseoNativeTraceModule {
+interface PimiNativeTraceModule {
   beginSection(name: string): void;
   endSection(): void;
 }
 
-const traceModule = requireOptionalNativeModule<PaseoNativeTraceModule>("PaseoNativeTrace");
+const traceModule = requireOptionalNativeModule<PimiNativeTraceModule>("PimiNativeTrace");
 
 const nativeSink: DaemonClientTrace | null =
   isProfileBuild && traceModule

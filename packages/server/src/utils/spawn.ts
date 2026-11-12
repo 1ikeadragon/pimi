@@ -1,6 +1,6 @@
 import type { ChildProcess, SpawnOptions } from "node:child_process";
 import { spawnProcess as spawnCli, execCommand as execCli } from "@pimi/plugin/server";
-import { createExternalCommandProcessEnv, type ProcessEnvRecord } from "../server/paseo-env.js";
+import { createExternalCommandProcessEnv, type ProcessEnvRecord } from "../server/pimi-env.js";
 import { trackChildProcess, trackExecution } from "./process-launch.js";
 
 interface ExternalEnvOptions {

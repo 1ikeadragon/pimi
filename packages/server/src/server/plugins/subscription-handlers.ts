@@ -1,6 +1,6 @@
 import type { PluginSubscriptionContract } from "@pimi/plugin";
 import type { PluginSubscriptionContext } from "@pimi/plugin/server";
-import type { PaseoApi } from "@pimi/client";
+import type { PimiApi } from "@pimi/client";
 import { assertPluginWireValue } from "@pimi/protocol/binary-frames/index";
 import type { PluginProcessMessage, PluginProcessRequest } from "./plugin-process-protocol.js";
 
@@ -49,7 +49,7 @@ export class PluginSubscriptionHandlers {
     return [...this.registered.keys()].sort();
   }
 
-  start(message: SubscribeRequest, paseo: PaseoApi): void {
+  start(message: SubscribeRequest, pimi: PimiApi): void {
     const { requestId, subscriptionId } = message;
     const registered = this.registered.get(message.method);
     if (!registered) {
@@ -88,7 +88,7 @@ export class PluginSubscriptionHandlers {
     this.active.set(subscriptionId, { controller });
     let result: unknown;
     try {
-      result = registered.handler(parsed.data, { pimi: paseo, paseo, push, signal });
+      result = registered.handler(parsed.data, { pimi, push, signal });
     } catch (error) {
       this.active.delete(subscriptionId);
       controller.abort();

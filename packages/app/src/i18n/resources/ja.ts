@@ -849,7 +849,7 @@ export const ja: TranslationResources = {
       },
       routes: {
         public: "リバースプロキシ",
-        paseo: "Memorable",
+        pimi: "Memorable",
         direct: "直接接続",
       },
       states: {
@@ -966,7 +966,7 @@ export const ja: TranslationResources = {
           updateCurrent: "このブランチはすでに{{baseRef}}と最新の状態のため、更新は利用できません",
           mergePrNoGithub: "GitHubが接続されていないため、PRのマージは現在利用できません",
           archiveNotWorktree:
-            "このワークスペースはPaseoワークツリーとして作成されていないため、アーカイブはここでは利用できません",
+            "このワークスペースはPimiワークツリーとして作成されていないため、アーカイブはここでは利用できません",
           mergePrNoForge: "{{brand}}が接続されていないため、{{noun}}のマージは現在利用できません",
           mergePrMissing: "プルリクエストがまだないため、PRのマージは利用できません",
           mergePrDraft: "プルリクエストがまだドラフトのため、PRのマージは利用できません",
@@ -1477,7 +1477,7 @@ export const ja: TranslationResources = {
       close: "ウィンドウを閉じる",
     },
     quitting: {
-      title: "Paseoを終了中...",
+      title: "Pimiを終了中...",
       detail: "ローカルデーモンを停止中。",
     },
     daemon: {
@@ -1492,20 +1492,20 @@ export const ja: TranslationResources = {
       },
       management: {
         title: "組み込みデーモンを管理",
-        hint: "Paseoが組み込みデーモンを起動・停止できるようにする",
+        hint: "Pimiが組み込みデーモンを起動・停止できるようにする",
         pauseTitle: "組み込みデーモンを一時停止",
         pauseMessage:
           "これにより組み込みデーモンが即座に停止します。組み込みデーモンに接続されている実行中のエージェントとターミナルが停止されます。",
         pauseAndStop: "一時停止して停止",
         registrationFailed:
-          "組み込みデーモンは起動しましたが、Paseoがlocalhostの接続を保存できませんでした。デーモン管理をオフにしてから再度オンにするか、localhostを手動で追加してください。",
+          "組み込みデーモンは起動しましたが、Pimiがlocalhostの接続を保存できませんでした。デーモン管理をオフにしてから再度オンにするか、localhostを手動で追加してください。",
         pausedStopFailed:
-          "組み込みデーモン管理は一時停止されましたが、Paseoがデーモンを停止できませんでした。",
+          "組み込みデーモン管理は一時停止されましたが、Pimiがデーモンを停止できませんでした。",
         updateFailed: "組み込みデーモン管理を更新できません。",
       },
       keepRunning: {
         title: "終了後もデーモンを実行し続ける",
-        hint: "Paseoを終了してもデーモンは実行し続けます",
+        hint: "Pimiを終了してもデーモンは実行し続けます",
       },
       logs: {
         title: "ログファイル",
@@ -1574,7 +1574,7 @@ export const ja: TranslationResources = {
     },
     rosetta: {
       title: "Apple Siliconビルドをダウンロード",
-      runningIntel: "Apple Silicon上のRosettaでPaseoのIntelビルドを実行しています。",
+      runningIntel: "Apple Silicon上のRosettaでPimiのIntelビルドを実行しています。",
       highCpu:
         "これにより高いCPU使用率が発生します。修正するにはApple Siliconビルドをダウンロードしてください。",
       download: "ダウンロード",
@@ -1617,7 +1617,7 @@ export const ja: TranslationResources = {
         microphone: "マイクのステータスはまだ確認されていません。",
       },
       testNotification: {
-        title: "Paseo通知テスト",
+        title: "Pimi通知テスト",
         body: "これが見えれば、デスクトップ通知は機能しています。",
         notDelivered: "通知が届きませんでした。システム設定 > 通知を確認してください。",
         failed: "通知の送信に失敗しました。",
@@ -1629,7 +1629,7 @@ export const ja: TranslationResources = {
         installFailed: "Pimi CLIをインストールできません。",
         uninstallFailed: "Pimi CLI をアンインストールできません。",
         keptForeign:
-          "Paseoがインストールしていないpaseoコマンドは残しました。アンインストールするには手動で削除してください。",
+          "Pimiがインストールしていないpimiコマンドは残しました。アンインストールするには手動で削除してください。",
       },
     },
   },
@@ -1791,7 +1791,7 @@ export const ja: TranslationResources = {
         },
       },
     },
-    title: "Paseoへようこそ",
+    title: "Pimiへようこそ",
     subtitle: "始めるにはコンピューターに接続してください",
     actions: {
       settings: "設定",
@@ -1899,7 +1899,7 @@ export const ja: TranslationResources = {
     },
     direct: {
       title: "直接接続",
-      helper: "Paseoサーバーのアドレスを入力してください。",
+      helper: "Pimiサーバーのアドレスを入力してください。",
       fields: {
         host: "ホスト",
         port: "ポート",
@@ -2032,7 +2032,7 @@ export const ja: TranslationResources = {
       tailscaleDocs: "Tailscale を設定",
       tailscaleDocsAccessibility: "Tailscale で接続する方法を読む",
       unavailable: "ペアリングオファーが利用できません。",
-      hint: "スマートフォンのPaseoでこのQRコードをスキャンするか、以下のリンクをコピーしてください。",
+      hint: "スマートフォンのPimiでこのQRコードをスキャンするか、以下のリンクをコピーしてください。",
       securityWarning:
         "このペアリングリンクはパスワードと同様に扱ってください。リンクを知っている人は誰でもこのデーモンにアクセスできます。",
       qrUnavailable: "QRコードが利用できません。",
@@ -2067,7 +2067,7 @@ export const ja: TranslationResources = {
   serviceUrl: {
     title: "サービスURLを開く",
     message: "{{url}}を開きますか？",
-    inPaseo: "Paseoで",
+    inPimi: "Pimiで",
     externalBrowser: "外部ブラウザ",
     dontAskAgain: "次回から確認しない",
   },
@@ -2351,9 +2351,9 @@ export const ja: TranslationResources = {
       one: "その他のツールを{{count}}回使用",
       other: "その他のツールを{{count}}回使用",
     },
-    paseoCalls: {
-      one: "Paseoを{{count}}回呼び出し",
-      other: "Paseoを{{count}}回呼び出し",
+    pimiCalls: {
+      one: "Pimiを{{count}}回呼び出し",
+      other: "Pimiを{{count}}回呼び出し",
     },
     and: "および",
   },
@@ -2763,7 +2763,7 @@ export const ja: TranslationResources = {
       serviceUrls: {
         options: {
           ask: "確認する",
-          inApp: "Paseoで",
+          inApp: "Pimiで",
           external: "外部ブラウザ",
         },
       },
@@ -2843,7 +2843,7 @@ export const ja: TranslationResources = {
         label: "アプリの更新",
         readyToInstall: "インストール準備完了: {{version}}",
         installTitle: "デスクトップの更新をインストール",
-        installMessage: "このコンピューターのPaseoを更新します",
+        installMessage: "このコンピューターのPimiを更新します",
         installConfirm: "更新をインストール",
         update: "更新",
         updateTo: "{{version}}に更新",
@@ -3091,10 +3091,10 @@ export const ja: TranslationResources = {
         title: "オーケストレーションスキル",
         description: "エージェントに Pimi ツールの使い方を教えます",
         updateAvailable: "更新が利用可能",
-        updateTitle: "Paseoスキルを更新しますか？",
-        uninstallTitle: "Paseoスキルをアンインストールしますか？",
+        updateTitle: "Pimiスキルを更新しますか？",
+        uninstallTitle: "Pimiスキルをアンインストールしますか？",
         uninstallMessage:
-          "~/.agents、~/.claude、~/.codexからすべてのPaseoオーケストレーションスキルを削除します。",
+          "~/.agents、~/.claude、~/.codexからすべてのPimiオーケストレーションスキルを削除します。",
         choose: "スキルを選択",
         chooseAll: "すべてのスキル",
         chooseAllHint:
@@ -3128,10 +3128,10 @@ export const ja: TranslationResources = {
         title: "オーケストレーション",
         unavailable: "オーケストレーションを管理するにはこのホストに接続してください",
         enableTools: {
-          title: "Paseoツールを有効にする",
+          title: "Pimiツールを有効にする",
           hint: "エージェントがワークツリー、エージェント、スケジュールを管理できるようになります",
-          accessibilityLabel: "Paseoツールを有効にする",
-          updateFailed: "Paseoツールを更新できませんでした。",
+          accessibilityLabel: "Pimiツールを有効にする",
+          updateFailed: "Pimiツールを更新できませんでした。",
         },
         systemPrompt: {
           title: "システムプロンプト",
@@ -3248,10 +3248,10 @@ export const ja: TranslationResources = {
             "このホストは接続されていません。再起動する前にオンラインになるまでお待ちください。",
           offlineTitle: "ホストオフライン",
           offlineMessage:
-            "このホストはオフラインです。Paseoが自動再接続します。再起動は、ホストがオンラインに戻ってから行ってください。",
+            "このホストはオフラインです。Pimiが自動再接続します。再起動は、ホストがオンラインに戻ってから行ってください。",
           requestFailedTitle: "エラー",
           requestFailedMessage:
-            "再起動リクエストの送信に失敗しました。Paseoは自動的に再接続します。ホストがオンラインになったら再試行してください。",
+            "再起動リクエストの送信に失敗しました。Pimiは自動的に再接続します。ホストがオンラインになったら再試行してください。",
           closeTerminals: "再起動してターミナルを閉じる",
           closeTerminalsHint: "再起動し、このホストのすべてのターミナルも閉じます。",
           closeTerminalsConfirmMessage:
@@ -3260,7 +3260,7 @@ export const ja: TranslationResources = {
         },
         update: {
           desktopManagedHint:
-            "このデーモンはPaseo Desktopによって管理されています。ホスト上のPaseo Desktopを更新してください。",
+            "このデーモンはPimi Desktopによって管理されています。ホスト上のPimi Desktopを更新してください。",
           title: "デーモンを更新",
           hint: "デーモンを最新バージョンに更新して再起動します",
           confirm: "更新",
@@ -3438,7 +3438,7 @@ export const ja: TranslationResources = {
         newScript: "新しいスクリプト",
         editScript: "{{name}}を編集",
         runAsService: "サービスとして実行",
-        serviceHint: "Paseoがプロセスを監督し、$PIMI_PORTを通じてポートを割り当てます",
+        serviceHint: "Pimiがプロセスを監督し、$PIMI_PORTを通じてポートを割り当てます",
         actions: {
           add: "スクリプトを追加",
           edit: "編集",
@@ -3447,7 +3447,7 @@ export const ja: TranslationResources = {
       },
       metadata: {
         title: "メタデータ生成",
-        info: "Paseoがメタデータ生成に使うAIプロンプトへ追加する、プロジェクト固有の指示です。ブランチ名、コミット形式、PR形式など、チームの規約を反映するために使います。",
+        info: "Pimiがメタデータ生成に使うAIプロンプトへ追加する、プロジェクト固有の指示です。ブランチ名、コミット形式、PR形式など、チームの規約を反映するために使います。",
         branchName: "ブランチ名",
         branchNamePlaceholder: "ブランチ名は feat/ または fix/ で始め、個人ブランチは mb/ にする",
         commitMessage: "コミットメッセージ",

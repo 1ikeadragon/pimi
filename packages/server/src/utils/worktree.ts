@@ -11,34 +11,34 @@ import {
   buildStringCommandShellInvocation,
   createStringCommandShellEnv,
 } from "./string-command-shell.js";
-import { inspectProjectConfig, readPaseoConfig } from "./paseo-config-file.js";
+import { inspectProjectConfig, readPimiConfig } from "./pimi-config-file.js";
 export {
-  PaseoConfigRawSchema,
-  PaseoLifecycleCommandRawSchema,
-  PaseoScriptEntryRawSchema,
-  PaseoWorktreeConfigRawSchema,
-  PaseoConfigSchema,
-  type PaseoConfig,
-  type PaseoConfigRaw,
-} from "@pimi/protocol/paseo-config-schema";
-import { type PaseoConfig } from "@pimi/protocol/paseo-config-schema";
+  PimiConfigRawSchema,
+  PimiLifecycleCommandRawSchema,
+  PimiScriptEntryRawSchema,
+  PimiWorktreeConfigRawSchema,
+  PimiConfigSchema,
+  type PimiConfig,
+  type PimiConfigRaw,
+} from "@pimi/protocol/pimi-config-schema";
+import { type PimiConfig } from "@pimi/protocol/pimi-config-schema";
 import {
-  createPaseoWorktreeChangeRequestHint,
-  hasPaseoWorktreeMetadata,
-  findPaseoWorktreeRootForCwd,
+  createPimiWorktreeChangeRequestHint,
+  hasPimiWorktreeMetadata,
+  findPimiWorktreeRootForCwd,
   normalizeBaseRefName,
   isQualifiedRef,
-  type PaseoWorktreeChangeRequestHint,
-  readPaseoWorktreeMetadata,
-  readPaseoWorktreeRuntimePort,
-  writePaseoWorktreeMetadata,
-  writePaseoWorktreeRuntimeMetadata,
+  type PimiWorktreeChangeRequestHint,
+  readPimiWorktreeMetadata,
+  readPimiWorktreeRuntimePort,
+  writePimiWorktreeMetadata,
+  writePimiWorktreeRuntimeMetadata,
 } from "./worktree-metadata.js";
 import { runGitCommand } from "./run-git-command.js";
 import { getCurrentBranch, resolveRepositoryDefaultBranch } from "./checkout-git.js";
 import { spawnProcess } from "./spawn.js";
 import { resolvePimiHome } from "../server/pimi-home.js";
-import { createExternalProcessEnv } from "../server/paseo-env.js";
+import { createExternalProcessEnv } from "../server/pimi-env.js";
 import { parseGitRevParsePath, resolveGitRevParsePath } from "./git-rev-parse-path.js";
 import {
   expandTilde,
@@ -156,21 +156,21 @@ export class WorktreeTeardownError extends Error {
   }
 }
 
-export interface PaseoWorktreeInfo {
+export interface PimiWorktreeInfo {
   path: string;
   createdAt: string;
   branchName?: string;
   head?: string;
 }
 
-export interface PaseoWorktreeOwnership {
+export interface PimiWorktreeOwnership {
   allowed: boolean;
   repoRoot?: string;
   worktreeRoot?: string;
   worktreePath?: string;
 }
 
-export interface PaseoWorktreeOwnershipOptions extends WorktreeRootOptions {
+export interface PimiWorktreeOwnershipOptions extends WorktreeRootOptions {
   knownGitCommonDir?: string | null;
 }
 
@@ -244,35 +244,35 @@ export class InvalidGitBranchNameError extends Error {
   }
 }
 
-export { readPaseoConfig, type ReadPaseoConfigResult } from "./paseo-config-file.js";
+export { readPimiConfig, type ReadPimiConfigResult } from "./pimi-config-file.js";
 
-export function paseoConfigParseError(failure: { configPath: string; error: unknown }): Error {
+export function pimiConfigParseError(failure: { configPath: string; error: unknown }): Error {
   const detail = failure.error instanceof Error ? failure.error.message : String(failure.error);
-  return new Error(`Failed to parse paseo.json at ${failure.configPath}: ${detail}`, {
+  return new Error(`Failed to parse pimi.json at ${failure.configPath}: ${detail}`, {
     cause: failure.error,
   });
 }
 
-async function readPaseoConfigOrThrow(repoRoot: string): Promise<PaseoConfig | null> {
-  const result = await readPaseoConfig(repoRoot);
+async function readPimiConfigOrThrow(repoRoot: string): Promise<PimiConfig | null> {
+  const result = await readPimiConfig(repoRoot);
   if (!result.ok) {
-    throw paseoConfigParseError(result);
+    throw pimiConfigParseError(result);
   }
   return result.config;
 }
 
 export async function getWorktreeSetupCommands(repoRoot: string): Promise<string[]> {
-  return (await readPaseoConfigOrThrow(repoRoot))?.worktree?.setup ?? [];
+  return (await readPimiConfigOrThrow(repoRoot))?.worktree?.setup ?? [];
 }
 
 export async function getWorktreeTeardownCommands(repoRoot: string): Promise<string[]> {
-  return (await readPaseoConfigOrThrow(repoRoot))?.worktree?.teardown ?? [];
+  return (await readPimiConfigOrThrow(repoRoot))?.worktree?.teardown ?? [];
 }
 
 export async function getWorktreeTerminalSpecs(
   repoRoot: string,
 ): Promise<WorktreeTerminalConfig[]> {
-  const terminals = (await readPaseoConfigOrThrow(repoRoot))?.worktree?.terminals;
+  const terminals = (await readPimiConfigOrThrow(repoRoot))?.worktree?.terminals;
   if (!Array.isArray(terminals) || terminals.length === 0) {
     return [];
   }
@@ -305,7 +305,7 @@ export async function getWorktreeTerminalSpecs(
   return specs;
 }
 
-export function getScriptConfigs(config: PaseoConfig | null): Map<string, ScriptConfig> {
+export function getScriptConfigs(config: PimiConfig | null): Map<string, ScriptConfig> {
   const scripts = config?.scripts;
   if (!scripts || typeof scripts !== "object") {
     return new Map();
@@ -626,7 +626,7 @@ export async function runWorktreeSetupCommands(options: {
   signal?: AbortSignal;
   onEvent?: (event: WorktreeSetupCommandProgressEvent) => void;
 }): Promise<WorktreeSetupCommandResult[]> {
-  // Read paseo.json from the worktree (it will have the same content as the source repo)
+  // Read pimi.json from the worktree (it will have the same content as the source repo)
   const setupCommands = await getWorktreeSetupCommands(options.worktreePath);
   if (setupCommands.length === 0) {
     return [];
@@ -697,12 +697,12 @@ export async function resolveWorktreeRuntimeEnv(options: {
   const branchName =
     options.branchName ?? (await resolveBranchNameForWorktreePath(options.worktreePath));
 
-  let worktreePort = await readPaseoWorktreeRuntimePort(options.worktreePath);
+  let worktreePort = await readPimiWorktreeRuntimePort(options.worktreePath);
   if (worktreePort === null) {
     worktreePort = await getAvailablePort();
-    const metadata = await readPaseoWorktreeMetadata(options.worktreePath);
+    const metadata = await readPimiWorktreeMetadata(options.worktreePath);
     if (metadata) {
-      await writePaseoWorktreeRuntimeMetadata(options.worktreePath, { worktreePort });
+      await writePimiWorktreeRuntimeMetadata(options.worktreePath, { worktreePort });
     }
   } else {
     await assertPortAvailable(worktreePort);
@@ -740,7 +740,7 @@ export async function runWorktreeTeardownCommands(options: {
     options.repoRootPath ?? (await inferRepoRootPathFromWorktreePath(options.worktreePath));
   const branchName =
     options.branchName ?? (await resolveBranchNameForWorktreePath(options.worktreePath));
-  const worktreePort = await readPaseoWorktreeRuntimePort(options.worktreePath);
+  const worktreePort = await readPimiWorktreeRuntimePort(options.worktreePath);
 
   const teardownEnv: NodeJS.ProcessEnv = createStringCommandShellEnv(
     createExternalProcessEnv(process.env, {
@@ -775,7 +775,7 @@ export async function runWorktreeTeardownCommands(options: {
   return results;
 }
 
-export async function seedPaseoConfigFile(options: {
+export async function seedPimiConfigFile(options: {
   sourceCwd: string;
   targetCwd: string;
 }): Promise<void> {
@@ -827,7 +827,7 @@ export async function deriveWorktreeProjectHash(cwd: string): Promise<string> {
   }
 }
 
-export function resolvePaseoWorktreesBaseRoot(options?: WorktreeRootOptions): string {
+export function resolvePimiWorktreesBaseRoot(options?: WorktreeRootOptions): string {
   if (options?.worktreesRoot) {
     const expandedRoot = expandTilde(options.worktreesRoot);
     if (isAbsolute(expandedRoot)) {
@@ -841,12 +841,12 @@ export function resolvePaseoWorktreesBaseRoot(options?: WorktreeRootOptions): st
   return join(home, "worktrees");
 }
 
-export async function getPaseoWorktreesRoot(
+export async function getPimiWorktreesRoot(
   cwd: string,
   pimiHome?: string,
   worktreesRoot?: string,
 ): Promise<string> {
-  const baseRoot = resolvePaseoWorktreesBaseRoot({ pimiHome, worktreesRoot });
+  const baseRoot = resolvePimiWorktreesBaseRoot({ pimiHome, worktreesRoot });
   const projectHash = await deriveWorktreeProjectHash(cwd);
   return join(baseRoot, projectHash);
 }
@@ -857,7 +857,7 @@ export async function computeWorktreePath(
   pimiHome?: string,
   worktreesRoot?: string,
 ): Promise<string> {
-  const projectWorktreesRoot = await getPaseoWorktreesRoot(cwd, pimiHome, worktreesRoot);
+  const projectWorktreesRoot = await getPimiWorktreesRoot(cwd, pimiHome, worktreesRoot);
   return join(projectWorktreesRoot, slug);
 }
 
@@ -936,10 +936,10 @@ async function resolveRepoRootFromGitCommonDir(commonDir: string): Promise<strin
     : normalizedCommonDir;
 }
 
-export async function isPaseoOwnedWorktreeCwd(
+export async function isPimiOwnedWorktreeCwd(
   cwd: string,
-  options?: PaseoWorktreeOwnershipOptions,
-): Promise<PaseoWorktreeOwnership> {
+  options?: PimiWorktreeOwnershipOptions,
+): Promise<PimiWorktreeOwnership> {
   const resolvedCwd = await normalizePathForOwnership(cwd);
 
   // repoRoot is best-effort: git may be unreachable from the worktree (e.g. a
@@ -959,7 +959,7 @@ export async function isPaseoOwnedWorktreeCwd(
 
   // Worktrees placed at plugin-chosen paths are
   // proven by the marker createWorktree writes unconditionally: a
-  // paseo/worktree.json in the worktree's git admin dir, with the path
+  // pimi/worktree.json in the worktree's git admin dir, with the path
   // still registered in the repo's `git worktree list`. The marker alone
   // is not proof — it lives in a git admin dir a user can copy into a
   // hand-made directory that git does not know about.
@@ -975,11 +975,11 @@ export async function isPaseoOwnedWorktreeCwd(
     }
   }
 
-  const worktreesBaseRoot = resolvePaseoWorktreesBaseRoot(options);
+  const worktreesBaseRoot = resolvePimiWorktreesBaseRoot(options);
   const relativePath = await getOwnershipRelativePath(worktreesBaseRoot, resolvedCwd);
 
   // Ownership is defined by the path living under <worktrees-root>/<hash>/<slug>[/...].
-  // The <hash>/<slug> prefix is Paseo-private — nothing else writes there — so the
+  // The <hash>/<slug> prefix is Pimi-private — nothing else writes there — so the
   // path shape alone is sufficient proof of ownership, even when git has already
   // forgotten about the worktree.
   if (relativePath !== null) {
@@ -1007,7 +1007,7 @@ async function resolveMetadataOwnedWorktree(
   repoRoot: string | undefined,
 ): Promise<{ worktreePath: string; worktreeRoot: string } | null> {
   try {
-    const root = await findPaseoWorktreeRootForCwd(cwd);
+    const root = await findPimiWorktreeRootForCwd(cwd);
     if (!root) return null;
     const candidate = await normalizePathForOwnership(root);
     if (repoRoot !== undefined && candidate === (await normalizePathForOwnership(repoRoot)))
@@ -1027,11 +1027,11 @@ async function resolveMetadataOwnedWorktree(
   }
 }
 
-type ParsedPaseoWorktreeInfo = Omit<PaseoWorktreeInfo, "createdAt">;
+type ParsedPimiWorktreeInfo = Omit<PimiWorktreeInfo, "createdAt">;
 
-function parseWorktreeList(output: string): ParsedPaseoWorktreeInfo[] {
-  const entries: ParsedPaseoWorktreeInfo[] = [];
-  let current: ParsedPaseoWorktreeInfo | null = null;
+function parseWorktreeList(output: string): ParsedPimiWorktreeInfo[] {
+  const entries: ParsedPimiWorktreeInfo[] = [];
+  let current: ParsedPimiWorktreeInfo | null = null;
 
   for (const line of output.split("\n")) {
     if (line.startsWith("worktree ")) {
@@ -1078,7 +1078,7 @@ async function resolveWorktreeCreatedAtIso(worktreePath: string): Promise<string
   }
 }
 
-export async function listPaseoWorktrees({
+export async function listPimiWorktrees({
   cwd,
   pimiHome,
   worktreesRoot,
@@ -1086,8 +1086,8 @@ export async function listPaseoWorktrees({
   cwd: string;
   pimiHome?: string;
   worktreesRoot?: string;
-}): Promise<PaseoWorktreeInfo[]> {
-  const projectWorktreesRoot = await getPaseoWorktreesRoot(cwd, pimiHome, worktreesRoot);
+}): Promise<PimiWorktreeInfo[]> {
+  const projectWorktreesRoot = await getPimiWorktreesRoot(cwd, pimiHome, worktreesRoot);
   const { stdout } = await runGitCommand(["worktree", "list", "--porcelain"], {
     cwd,
     envOverlay: READ_ONLY_GIT_ENV,
@@ -1095,13 +1095,13 @@ export async function listPaseoWorktrees({
 
   const mainCheckoutPath = await resolveRepoRootFromGitCommonDir(await getGitCommonDir(cwd));
   const roots = await ownershipPathVariants(projectWorktreesRoot);
-  const worktrees: PaseoWorktreeInfo[] = [];
+  const worktrees: PimiWorktreeInfo[] = [];
   // Inspect foreign paths sequentially; a large worktree list must not consume the FS pool.
   for (const entry of parseWorktreeList(stdout)) {
     const path = await normalizePathForOwnership(entry.path);
     if (
       !roots.some((root) => getRelativePathInsideRoot(root, path) !== null) &&
-      !(path !== mainCheckoutPath && (await hasPaseoWorktreeMetadata(path)))
+      !(path !== mainCheckoutPath && (await hasPimiWorktreeMetadata(path)))
     )
       continue;
     worktrees.push({ ...entry, path, createdAt: await resolveWorktreeCreatedAtIso(path) });
@@ -1109,7 +1109,7 @@ export async function listPaseoWorktrees({
   return worktrees;
 }
 
-export interface DeletePaseoWorktreeOptions {
+export interface DeletePimiWorktreeOptions {
   cwd: string | null;
   worktreePath?: string;
   teardownCwds?: string[];
@@ -1139,11 +1139,11 @@ async function assertWorktreeBelongsToRepo(cwd: string, worktreePath: string): P
     return;
   }
   if ((await getOwnershipRelativePath(callerRepoRoot, targetRepoRoot)) !== "") {
-    throw new Error("Refusing to delete non-Paseo worktree");
+    throw new Error("Refusing to delete non-Pimi worktree");
   }
 }
 
-export async function deletePaseoWorktree({
+export async function deletePimiWorktree({
   cwd,
   worktreePath,
   teardownCwds,
@@ -1152,7 +1152,7 @@ export async function deletePaseoWorktree({
   pimiHome,
   worktreesBaseRoot,
   registryProven,
-}: DeletePaseoWorktreeOptions): Promise<void> {
+}: DeletePimiWorktreeOptions): Promise<void> {
   if (!worktreePath && !worktreeSlug) {
     throw new Error("worktreePath or worktreeSlug is required");
   }
@@ -1164,18 +1164,18 @@ export async function deletePaseoWorktree({
   if (worktreesRoot) {
     resolvedWorktreesRoot = worktreesRoot;
   } else if (cwd) {
-    resolvedWorktreesRoot = await getPaseoWorktreesRoot(cwd, pimiHome, worktreesBaseRoot);
+    resolvedWorktreesRoot = await getPimiWorktreesRoot(cwd, pimiHome, worktreesBaseRoot);
   } else {
-    throw new Error("cwd or worktreesRoot is required to delete a Paseo worktree");
+    throw new Error("cwd or worktreesRoot is required to delete a Pimi worktree");
   }
 
   const requestedPath = worktreePath ?? join(resolvedWorktreesRoot, worktreeSlug!);
-  const ownership = await isPaseoOwnedWorktreeCwd(requestedPath, {
+  const ownership = await isPimiOwnedWorktreeCwd(requestedPath, {
     pimiHome,
     worktreesRoot: worktreesBaseRoot,
   });
   // Deletion is gated on the ownership proof set (legacy shape, the
-  // paseo/worktree.json marker verified against `git worktree list`, or a
+  // pimi/worktree.json marker verified against `git worktree list`, or a
   // caller-asserted registry record), not on living under the per-project
   // hashed root: plugin-placed worktrees live anywhere.
   let resolvedWorktree: string;
@@ -1184,7 +1184,7 @@ export async function deletePaseoWorktree({
   } else if (ownership.allowed && ownership.worktreePath) {
     resolvedWorktree = ownership.worktreePath;
   } else {
-    throw new Error("Refusing to delete non-Paseo worktree");
+    throw new Error("Refusing to delete non-Pimi worktree");
   }
 
   if (cwd) {
@@ -1225,13 +1225,13 @@ export async function deletePaseoWorktree({
   }
 }
 
-export async function rollbackCreatedPaseoWorktree(
-  options: DeletePaseoWorktreeOptions,
+export async function rollbackCreatedPimiWorktree(
+  options: DeletePimiWorktreeOptions,
   cause: unknown,
 ): Promise<never> {
   let cleanupError: unknown;
   try {
-    await deletePaseoWorktree(options);
+    await deletePimiWorktree(options);
   } catch (error) {
     cleanupError = error;
   }
@@ -1338,7 +1338,7 @@ export async function resolveDefaultWorktreePath(
   options: Pick<CreateWorktreeOptions, "cwd" | "pimiHome" | "worktreesRoot" | "worktreeSlug">,
 ): Promise<string> {
   const original = join(
-    await getPaseoWorktreesRoot(options.cwd, options.pimiHome, options.worktreesRoot),
+    await getPimiWorktreesRoot(options.cwd, options.pimiHome, options.worktreesRoot),
     options.worktreeSlug,
   );
   let candidate = original;
@@ -1396,7 +1396,7 @@ export const createWorktree = async ({
       });
     }
 
-    await writePaseoWorktreeMetadata(worktreePath, {
+    await writePimiWorktreeMetadata(worktreePath, {
       baseRefName: sourcePlan.metadataBaseRefName,
       ...(sourcePlan.metadataBaseRef ? { baseRef: sourcePlan.metadataBaseRef } : {}),
       ...(sourcePlan.changeRequestLookupTarget
@@ -1404,7 +1404,7 @@ export const createWorktree = async ({
         : {}),
     });
 
-    await seedPaseoConfigFile({ sourceCwd: cwd, targetCwd: worktreePath });
+    await seedPimiConfigFile({ sourceCwd: cwd, targetCwd: worktreePath });
 
     return {
       branchName: sourcePlan.branchName,
@@ -1436,7 +1436,7 @@ interface WorktreeSourcePlan {
   // upstream — so comparisons and actions read the ref and the UI reads the name.
   metadataBaseRefName: string;
   metadataBaseRef?: string;
-  changeRequestLookupTarget?: PaseoWorktreeChangeRequestHint;
+  changeRequestLookupTarget?: PimiWorktreeChangeRequestHint;
   addArguments: string[];
   pushRemote?: {
     name: string;
@@ -1471,7 +1471,7 @@ async function resolveRestoredWorktreeSourcePlan(
     branchName: source.branchName,
     metadataBaseRefName: normalizeRequiredBaseBranch(source.baseRef ?? source.branchName),
     ...(exactBase ? { metadataBaseRef: exactBase } : {}),
-    changeRequestLookupTarget: createPaseoWorktreeChangeRequestHint({
+    changeRequestLookupTarget: createPimiWorktreeChangeRequestHint({
       headRef: source.branchName,
       localBranchName: source.branchName,
     }),
@@ -1513,7 +1513,7 @@ async function resolveBranchOffWorktreeSourcePlan(
     branchName: newBranchName,
     metadataBaseRefName: normalizedBaseBranch,
     metadataBaseRef: resolvedBaseBranch,
-    changeRequestLookupTarget: createPaseoWorktreeChangeRequestHint({
+    changeRequestLookupTarget: createPimiWorktreeChangeRequestHint({
       headRef: newBranchName,
       localBranchName: newBranchName,
     }),
@@ -1542,7 +1542,7 @@ async function resolveWorktreeSourcePlan({
         return {
           branchName,
           metadataBaseRefName: baseRef,
-          changeRequestLookupTarget: createPaseoWorktreeChangeRequestHint({
+          changeRequestLookupTarget: createPimiWorktreeChangeRequestHint({
             headRef: branchName,
             localBranchName: branchName,
           }),
@@ -1553,7 +1553,7 @@ async function resolveWorktreeSourcePlan({
       return {
         branchName: source.branchName,
         metadataBaseRefName: baseRef,
-        changeRequestLookupTarget: createPaseoWorktreeChangeRequestHint({
+        changeRequestLookupTarget: createPimiWorktreeChangeRequestHint({
           headRef: source.branchName,
           localBranchName: source.branchName,
         }),
@@ -1583,7 +1583,7 @@ async function resolveWorktreeSourcePlan({
         : undefined;
       const remotePlan: Pick<WorktreeSourcePlan, "pushRemote" | "trackingRemote"> = {};
       if (source.pushRemoteUrl) {
-        const remoteName = `paseo-pr-${changeRequestNumber}`;
+        const remoteName = `pimi-pr-${changeRequestNumber}`;
         remotePlan.pushRemote = {
           name: remoteName,
           url: source.pushRemoteUrl,
@@ -1594,7 +1594,7 @@ async function resolveWorktreeSourcePlan({
         const originUrl = await getWorktreeRemotePushUrl(cwd, "origin");
         if (originUrl) {
           remotePlan.pushRemote = {
-            name: `paseo-pr-${changeRequestNumber}`,
+            name: `pimi-pr-${changeRequestNumber}`,
             url: originUrl,
             headRef: source.headRef,
             track: false,
@@ -1608,7 +1608,7 @@ async function resolveWorktreeSourcePlan({
       return {
         branchName: localBranchName,
         metadataBaseRefName: normalizedBaseRefName,
-        changeRequestLookupTarget: createPaseoWorktreeChangeRequestHint({
+        changeRequestLookupTarget: createPimiWorktreeChangeRequestHint({
           headRef: source.headRef,
           ...(source.headRepositoryOwner
             ? { headRepositoryOwner: source.headRepositoryOwner }
@@ -1797,10 +1797,10 @@ async function validateGitBranchName(cwd: string, branchName: string): Promise<v
 function normalizeRequiredBaseBranch(baseBranch: string): string {
   const normalizedBaseBranch = normalizeBaseRefName(baseBranch);
   if (!normalizedBaseBranch) {
-    throw new Error("Base branch is required when creating a Paseo worktree");
+    throw new Error("Base branch is required when creating a Pimi worktree");
   }
   if (normalizedBaseBranch === "HEAD") {
-    throw new Error("Base branch cannot be HEAD when creating a Paseo worktree");
+    throw new Error("Base branch cannot be HEAD when creating a Pimi worktree");
   }
   return normalizedBaseBranch;
 }

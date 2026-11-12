@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 import { useIsFocused } from "expo-router/react-navigation";
 import { X } from "lucide-react-native";
 import { useMemo, useState } from "react";

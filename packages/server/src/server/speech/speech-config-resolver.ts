@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { PersistedConfig } from "../persisted-config.js";
-import type { PaseoOpenAIConfig, PaseoSpeechConfig } from "../bootstrap.js";
+import type { PimiOpenAIConfig, PimiSpeechConfig } from "../bootstrap.js";
 import { resolveLocalSpeechConfig } from "./providers/local/config.js";
 import { resolveOpenAiSpeechConfig } from "./providers/openai/config.js";
 import {
@@ -155,8 +155,8 @@ export function resolveSpeechConfig(params: {
   env: NodeJS.ProcessEnv;
   persisted: PersistedConfig;
 }): {
-  openai: PaseoOpenAIConfig | undefined;
-  speech: PaseoSpeechConfig;
+  openai: PimiOpenAIConfig | undefined;
+  speech: PimiSpeechConfig;
 } {
   const providers = resolveRequestedSpeechProviders({
     env: params.env,

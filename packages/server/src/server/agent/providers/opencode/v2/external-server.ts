@@ -8,7 +8,7 @@ export interface ExternalOpenCodeServer {
 
 /**
  * Reads the optional connection to a user-managed OpenCode v2 server from
- * provider environment. When absent, Paseo keeps spawning its own server.
+ * provider environment. When absent, Pimi keeps spawning its own server.
  */
 export function resolveExternalOpenCodeServer(
   env: Record<string, string | undefined> | undefined,

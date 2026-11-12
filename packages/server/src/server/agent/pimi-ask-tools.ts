@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 import { z } from "zod";
 import {
   isExplicitVoiceChatRequest,
@@ -12,11 +12,11 @@ import {
 } from "@pimi/protocol/pimi-task";
 import type { PimiSpaces, SpaceCard } from "../pimi-spaces.js";
 import {
-  PaseoToolInputError,
-  type PaseoToolCatalog,
-  type PaseoToolConfig,
-  type PaseoToolDefinition,
-  type PaseoToolResult,
+  PimiToolInputError,
+  type PimiToolCatalog,
+  type PimiToolConfig,
+  type PimiToolDefinition,
+  type PimiToolResult,
 } from "./tools/types.js";
 
 // One spoken request gets a fixed budget. A request that needs more belongs in a chat.
@@ -48,7 +48,7 @@ export interface AskPimiReference {
 }
 
 export interface AskPimiToolset {
-  tools: PaseoToolDefinition[];
+  tools: PimiToolDefinition[];
   /** How many tool calls the turn made. */
   calls: number;
   /** Screens the app should show after the turn, in the order requested. */
@@ -65,7 +65,7 @@ const id = z.uuid();
 const cardReference = z.union([id, z.templateLiteral(["space:", id])]);
 const cardId = (value: string) => value.replace(/^space:/, "");
 
-function withoutHost(schema: PaseoToolConfig["inputSchema"]): PaseoToolConfig["inputSchema"] {
+function withoutHost(schema: PimiToolConfig["inputSchema"]): PimiToolConfig["inputSchema"] {
   if (!schema) return schema;
   // A spoken request stays on this host, so the model never sees the host selector.
   if (schema instanceof z.ZodObject) {
@@ -76,7 +76,7 @@ function withoutHost(schema: PaseoToolConfig["inputSchema"]): PaseoToolConfig["i
   return shape;
 }
 
-function text(value: unknown): PaseoToolResult {
+function text(value: unknown): PimiToolResult {
   return { content: [{ type: "text", text: JSON.stringify(value) }], structuredContent: value };
 }
 
@@ -107,7 +107,7 @@ const savedTask = z.object({
 });
 
 export function createAskPimiToolset(options: {
-  catalog: PaseoToolCatalog;
+  catalog: PimiToolCatalog;
   spaces?: Pick<PimiSpaces, "list" | "read" | "addNote">;
   transcript: string;
   commands: readonly string[];
@@ -124,8 +124,8 @@ export function createAskPimiToolset(options: {
   const register = (
     name: string,
     status: string,
-    config: { description: string; inputSchema: PaseoToolConfig["inputSchema"]; saves?: true },
-    handler: (input: never) => Promise<PaseoToolResult>,
+    config: { description: string; inputSchema: PimiToolConfig["inputSchema"]; saves?: true },
+    handler: (input: never) => Promise<PimiToolResult>,
   ) => {
     toolset.tools.push({
       name,
@@ -134,14 +134,14 @@ export function createAskPimiToolset(options: {
       handler: async (input) => {
         toolset.calls += 1;
         if (toolset.calls > MAX_CALLS) {
-          throw new PaseoToolInputError(
+          throw new PimiToolInputError(
             "This request has used its tool budget. Reply now with what you found.",
           );
         }
         if (config.saves) {
           saves += 1;
           if (saves > MAX_SAVES) {
-            throw new PaseoToolInputError(
+            throw new PimiToolInputError(
               "This request has saved as much as one spoken request can. Reply now.",
             );
           }
@@ -153,10 +153,10 @@ export function createAskPimiToolset(options: {
   };
   const queue = (action: PimiAskAction, done: string) => {
     if (toolset.actions.length >= PIMI_ASK_ACTION_LIMIT) {
-      throw new PaseoToolInputError("Pimi can open only a few screens per request.");
+      throw new PimiToolInputError("Pimi can open only a few screens per request.");
     }
     const parsed = PimiAskAction.safeParse(action);
-    if (!parsed.success) throw new PaseoToolInputError(parsed.error.message, parsed.error.issues);
+    if (!parsed.success) throw new PimiToolInputError(parsed.error.message, parsed.error.issues);
     toolset.actions.push(parsed.data);
     return text({ ok: true, note: done });
   };

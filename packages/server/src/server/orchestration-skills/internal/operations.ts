@@ -45,10 +45,10 @@ export interface SkillTargets {
 // Names the bundle used to ship. They are never selectable, but every scan still
 // covers them so an older install's copies get cleaned up.
 export const LEGACY_SKILL_NAMES = [
-  "paseo-chat",
-  "paseo-epic",
-  "paseo-orchestrate",
-  "paseo-orchestrator",
+  "pimi-chat",
+  "pimi-epic",
+  "pimi-orchestrate",
+  "pimi-orchestrator",
   "pimi-artifacts",
   "pimi-shape-work",
   "pimi-walk-the-flow",

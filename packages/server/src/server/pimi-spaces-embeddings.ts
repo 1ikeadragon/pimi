@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { endianness } from "node:os";

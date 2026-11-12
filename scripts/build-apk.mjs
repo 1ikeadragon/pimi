@@ -121,7 +121,7 @@ run(
   path.join(app, "android"),
 );
 const apk = path.join(app, "android/app/build/outputs/apk/release/app-release.apk");
-const filename = pimi ? `Pimi-Android-${target}.apk` : `paseo-dogfood-${target}.apk`;
+const filename = pimi ? `Pimi-Android-${target}.apk` : `pimi-dogfood-${target}.apk`;
 const destination = path.join(root, "artifacts", filename);
 mkdirSync(path.dirname(destination), { recursive: true });
 if (signing) {
@@ -154,5 +154,5 @@ if (signing) {
   console.log(`\nSigned Pimi APK: ${destination}\n`);
 } else {
   copyFileSync(apk, destination);
-  console.log(`\nDiagnostic release APK: ${destination}\nLogs: Downloads/Paseo diagnostics\n`);
+  console.log(`\nDiagnostic release APK: ${destination}\nLogs: Downloads/Pimi diagnostics\n`);
 }

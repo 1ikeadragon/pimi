@@ -5,7 +5,7 @@ import { PluginIdSchema, PluginRequirementsSchema } from "@pimi/protocol/message
 import { validatePluginRequirements } from "@pimi/protocol/plugin-requirements";
 
 const MANIFEST_FILENAME = "pimi-plugin.json";
-const LEGACY_MANIFEST_FILENAME = "paseo-plugin.json";
+const LEGACY_MANIFEST_FILENAME = "pimi-plugin.json";
 const PluginBuildCommandSchema = z
   .array(z.string().refine((argument) => argument.trim().length > 0))
   .min(1);

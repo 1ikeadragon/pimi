@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 import { router, usePathname } from "expo-router";
 import { CircleAlert, Mic, Square, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";

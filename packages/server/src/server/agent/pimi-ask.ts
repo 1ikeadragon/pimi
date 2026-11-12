@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 import { PIMI_ASK_MESSAGE_LIMIT } from "@pimi/protocol/pimi-task";
 import type { AgentManager } from "./agent-manager.js";
 import type { AgentSessionConfig } from "./agent-sdk-types.js";

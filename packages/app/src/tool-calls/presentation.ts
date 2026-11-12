@@ -1,5 +1,5 @@
 import type { AgentMessage } from "@pimi/protocol/agent-message";
-import { buildAgentMessageDisplay } from "@pimi/protocol/paseo-tool-presentation/index";
+import { buildAgentMessageDisplay } from "@pimi/protocol/pimi-tool-presentation/index";
 import type { PlanOutcome } from "@/components/plan-card";
 import type { ComponentType } from "react";
 import type { ToolCallDetail } from "@pimi/protocol/agent-types";

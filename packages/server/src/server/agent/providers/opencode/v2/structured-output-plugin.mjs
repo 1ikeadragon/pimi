@@ -7,7 +7,7 @@ export async function registerStructuredOutput(context) {
   async function schemaFor(sessionID) {
     const history = await context.session.context({ sessionID });
     const prompt = history.findLast((message) => message.type === "user");
-    return prompt?.metadata?.paseoOutputSchema;
+    return prompt?.metadata?.pimiOutputSchema;
   }
   const tools = await context.tool.transform((editor) => {
     editor.add({
@@ -29,7 +29,7 @@ export async function registerStructuredOutput(context) {
         return {
           content:
             "Final structured answer accepted. End this turn without additional text or tool calls.",
-          metadata: { paseoStructuredOutput: input.value },
+          metadata: { pimiStructuredOutput: input.value },
         };
       },
     });

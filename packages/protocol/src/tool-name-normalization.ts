@@ -39,15 +39,15 @@ export function isLikelyNamespacedToolName(name: string): boolean {
   return false;
 }
 
-export function isPaseoToolName(name: string): boolean {
-  return !isSpeakToolName(name) && getPaseoToolLeafName(name) !== null;
+export function isPimiToolName(name: string): boolean {
+  return !isSpeakToolName(name) && getPimiToolLeafName(name) !== null;
 }
 
 function isPimiNamespace(name: string): boolean {
   return name === "pimi" || name.startsWith("pimi_");
 }
 
-export function getPaseoToolLeafName(name: string): string | null {
+export function getPimiToolLeafName(name: string): string | null {
   // OMP displays bridged MCP tools as "server / tool".
   const normalized = normalizeToolName(name).replace(/\s+\/\s+/, ".");
   if (normalized.includes("__")) {

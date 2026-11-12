@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 import { changedLines, filePatch, patchFingerprint, RequestError } from "./git.mjs";
 
 import { mkdtemp, rm } from "node:fs/promises";

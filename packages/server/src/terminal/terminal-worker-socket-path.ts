@@ -55,7 +55,7 @@ export function terminalWorkerSocketId(pimiHome: string, workerPid: number): str
 
 /**
  * Picks (and creates) the socket path a worker listens on. Windows uses a named pipe; POSIX
- * tries $PIMI_HOME/terminal-worker/sock, then <tmpdir>/paseo-<uid>, then /tmp/paseo-<uid>.
+ * tries $PIMI_HOME/terminal-worker/sock, then <tmpdir>/pimi-<uid>, then /tmp/pimi-<uid>.
  * A shared root is never chmodded: an existing directory there is used only when it is a real
  * directory owned by this user with mode 0700.
  */
@@ -63,7 +63,7 @@ export function resolveTerminalWorkerSocketPath(input: TerminalWorkerSocketPathI
   const platform = input.platform ?? process.platform;
   const id = terminalWorkerSocketId(input.pimiHome, input.workerPid) + "-" + input.recordId;
   if (platform === "win32") {
-    return `\\\\.\\pipe\\paseo-tw-${id}`;
+    return `\\\\.\\pipe\\pimi-tw-${id}`;
   }
 
   const uid = input.uid ?? process.getuid?.() ?? 0;
@@ -79,7 +79,7 @@ export function resolveTerminalWorkerSocketPath(input: TerminalWorkerSocketPathI
       },
     },
     ...[input.tmpDir ?? tmpdir(), "/tmp"].map((root) => {
-      const directory = path.join(root, `paseo-${uid}`);
+      const directory = path.join(root, `pimi-${uid}`);
       return {
         directory,
         prepare: () => prepareSharedRootDirectory(directory, uid),

@@ -178,7 +178,7 @@ function createDurableLog(
 }
 
 // The program that started the daemon can close its end of stdout or stderr, as
-// `paseo daemon run | head -1` does. Drop the output nobody reads and keep supervising
+// `pimi daemon run | head -1` does. Drop the output nobody reads and keep supervising
 // the worker; daemon.log still records it.
 function ignoreClosedOutput(error: NodeJS.ErrnoException): void {
   if (error.code !== "EPIPE") {

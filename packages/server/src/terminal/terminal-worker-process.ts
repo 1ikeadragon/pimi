@@ -52,7 +52,7 @@ const READY_FD = 3;
 interface WorkerArgs {
   recordId: string;
   pimiHome: string;
-  paseoVersion: string;
+  pimiVersion: string;
   // The copy under terminal-worker/ this worker runs from; absent when it runs from source.
   runtime: string | null;
 }
@@ -70,7 +70,7 @@ function parseWorkerArgs(argv: string[], recordIdArg: string): WorkerArgs {
   return {
     recordId: readArg(argv, recordIdArg),
     pimiHome: readArg(argv, "--pimi-home"),
-    paseoVersion: readArg(argv, "--paseo-version"),
+    pimiVersion: readArg(argv, "--pimi-version"),
     runtime: argv.includes("--runtime") ? readArg(argv, "--runtime") : null,
   };
 }
@@ -107,8 +107,8 @@ function runLauncher(argv: string[]): void {
       args.recordId,
       "--pimi-home",
       args.pimiHome,
-      "--paseo-version",
-      args.paseoVersion,
+      "--pimi-version",
+      args.pimiVersion,
       ...(args.runtime ? ["--runtime", args.runtime] : []),
     ],
     {
@@ -722,7 +722,7 @@ function runWorker(argv: string[]): void {
       bootId: currentBootId(),
       createdAt: new Date().toISOString(),
       protocolVersion,
-      paseoVersion: args.paseoVersion,
+      pimiVersion: args.pimiVersion,
       socketPath,
       secret,
       runtime: args.runtime,

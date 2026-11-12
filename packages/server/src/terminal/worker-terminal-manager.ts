@@ -3,7 +3,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { access } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import type { Logger } from "pino";
-import { createExternalProcessEnv } from "../server/paseo-env.js";
+import { createExternalProcessEnv } from "../server/pimi-env.js";
 import { assertAbsolutePath, isSameOrDescendantPath } from "../server/path-utils.js";
 import { writtenDuringThisBoot } from "../server/pid-lock.js";
 import type { WorkerTerminalState } from "./terminal-worker-protocol.js";
@@ -17,7 +17,7 @@ import type {
   TerminalExitInfo,
   TerminalSession,
 } from "./terminal.js";
-import { resolvePaseoCliExecutablePath } from "./paseo-cli-path.js";
+import { resolvePimiCliExecutablePath } from "./pimi-cli-path.js";
 import type { CaptureTerminalLinesResult } from "./terminal-capture.js";
 import { connectTerminalWorker, type TerminalWorkerConnection } from "./terminal-worker-client.js";
 import { launchTerminalWorker } from "./terminal-worker-launch.js";
@@ -105,7 +105,7 @@ interface WorkerTerminalRecord {
 
 export interface TerminalCreateEnvironment {
   baseEnv: Record<string, string>;
-  paseoCliPath: string | null;
+  pimiCliPath: string | null;
 }
 
 interface WorkerTerminalManagerOptions {
@@ -140,7 +140,7 @@ function createActivityToken(): string {
 function resolveDaemonTerminalCreateEnvironment(): TerminalCreateEnvironment {
   return {
     baseEnv: createExternalProcessEnv(process.env),
-    paseoCliPath: resolvePaseoCliExecutablePath(),
+    pimiCliPath: resolvePimiCliExecutablePath(),
   };
 }
 
@@ -832,7 +832,7 @@ export function createWorkerTerminalManager(
             activityToken,
             activityUrl: terminalActivityUrl,
             baseEnv: environment.baseEnv,
-            paseoCliPath: environment.paseoCliPath,
+            pimiCliPath: environment.pimiCliPath,
           },
         });
         if (!creation.session) {
@@ -986,7 +986,7 @@ export function createWorkerTerminalManager(
 
 export interface StartWorkerTerminalManagerOptions {
   pimiHome: string;
-  paseoVersion: string;
+  pimiVersion: string;
   logger: Logger;
   getTerminalActivityUrl?: () => string | null;
   requestTimeoutMs?: number;
@@ -1007,7 +1007,7 @@ interface LiveWorkerRecord {
 /**
  * Connects the daemon to its terminal workers. A worker of this daemon's protocol is adopted
  * (restart, crash, `stop --keep-terminals`); one a protocol older is adopted to drain; anything
- * older is shut down, its terminals closed; one from a newer Paseo is left running and the
+ * older is shut down, its terminals closed; one from a newer Pimi is left running and the
  * terminal service reports it as incompatible. A worker is launched only when none is current,
  * none is incompatible and fewer than two run; when two run, the first terminal created after one
  * of them exits launches it. Records that cannot be adopted (a cleanup that
@@ -1075,7 +1075,7 @@ export async function startWorkerTerminalManager(
         {
           pid: entry.record.pid,
           protocolVersion: entry.record.protocolVersion,
-          paseoVersion: entry.record.paseoVersion,
+          pimiVersion: entry.record.pimiVersion,
           terminals: entry.record.terminals.length,
         },
         "Closing a terminal worker two or more protocol versions old; its terminals close",
@@ -1115,7 +1115,7 @@ export async function startWorkerTerminalManager(
   const newer = live.find((entry) => entry.fit === "newer");
   if (newer) {
     const incompatible = new TerminalWorkerIncompatibleError({
-      paseoVersion: newer.record.paseoVersion,
+      pimiVersion: newer.record.pimiVersion,
       protocolVersion: newer.record.protocolVersion,
     });
     logger.error({ pid: newer.record.pid }, incompatible.message);
@@ -1248,7 +1248,7 @@ export async function startWorkerTerminalManager(
     }
     const launched = await launchTerminalWorker({
       pimiHome: options.pimiHome,
-      paseoVersion: options.paseoVersion,
+      pimiVersion: options.pimiVersion,
     });
     const connection = await connectTerminalWorker({
       socketPath: launched.record.socketPath,

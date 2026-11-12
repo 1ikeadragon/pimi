@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 import { Redirect, useLocalSearchParams } from "expo-router";
 import { getDesktopHost } from "@/desktop/host";
 import { PimiLibraryScreen } from "@/screens/pimi-library-screen";

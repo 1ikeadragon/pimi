@@ -1,10 +1,10 @@
 import { configurationEnvironment } from "./config-environment.js";
 import path from "node:path";
-import { resolvePaseoNodeEnv } from "./paseo-env.js";
+import { resolvePimiNodeEnv } from "./pimi-env.js";
 import { z } from "zod";
 import { expandTilde } from "../utils/path.js";
 
-import type { PaseoDaemonConfig } from "./bootstrap.js";
+import type { PimiDaemonConfig } from "./bootstrap.js";
 import {
   loadPersistedConfig,
   LogFormatSchema,
@@ -66,7 +66,7 @@ function normalizeLogEnv(value: string | undefined): string | undefined {
 function resolveGitProcessConfig(
   env: NodeJS.ProcessEnv,
   persisted: ReturnType<typeof loadPersistedConfig>,
-): NonNullable<PaseoDaemonConfig["git"]> {
+): NonNullable<PimiDaemonConfig["git"]> {
   return resolveGitProcessPolicy({
     env,
     persisted: persisted.daemon?.git,
@@ -430,7 +430,7 @@ function resolveListenAddress(
 function resolveAuthConfig(
   env: NodeJS.ProcessEnv,
   persisted: ReturnType<typeof loadPersistedConfig>,
-): PaseoDaemonConfig["auth"] {
+): PimiDaemonConfig["auth"] {
   const envPassword = env.PIMI_PASSWORD?.trim();
   if (envPassword) {
     return { password: hashDaemonPassword(envPassword) };
@@ -532,7 +532,7 @@ interface ResolveConfigFromPersistedOptions {
 
 // Startup values, including authentication, never enter runtime settings resolution.
 export type ResolvedDaemonSettings = Pick<
-  PaseoDaemonConfig,
+  PimiDaemonConfig,
   | "corsAllowedOrigins"
   | "hostnames"
   | "trustedProxies"
@@ -568,7 +568,7 @@ export function resolveConfigFromPersisted(
   pimiHome: string,
   persisted: PersistedConfig,
   options?: ResolveConfigFromPersistedOptions,
-): PaseoDaemonConfig {
+): PimiDaemonConfig {
   const env = configurationEnvironment(options?.env ?? process.env);
   const cli = options?.cli;
   const { overrideControlledPaths, ...settings } = resolveReloadableConfig(persisted, options);
@@ -589,7 +589,7 @@ export function resolveConfigFromPersisted(
     pluginRegistries: persisted.pluginRegistries,
     pluginRegistryUrl: env.PIMI_PLUGIN_REGISTRY,
     mcpDebug: env.MCP_DEBUG === "1",
-    isDev: resolvePaseoNodeEnv(env) === "development",
+    isDev: resolvePimiNodeEnv(env) === "development",
     agentStoragePath: path.join(pimiHome, "agents"),
     staticDir: "public",
     agentClients: {},
@@ -652,7 +652,7 @@ export function resolveReloadableConfig(
 export function loadConfig(
   pimiHome: string,
   options?: ResolveConfigFromPersistedOptions,
-): PaseoDaemonConfig {
+): PimiDaemonConfig {
   const persisted = loadPersistedConfig(pimiHome);
   return resolveConfigFromPersisted(pimiHome, persisted, options);
 }

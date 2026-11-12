@@ -32,8 +32,7 @@ export function createPluginCapabilities(
     navigation.openSurface(plugin.id, screenId, params);
   }
   return {
-    pimi: plugin.paseo,
-    paseo: plugin.paseo,
+    pimi: plugin.pimi,
     rpc: (contract, input) => callPluginRpc(contract, plugin.invoke, input),
     openSettings(screenId) {
       if (!plugin.settingsScreens.some((screen) => screen.id === screenId))

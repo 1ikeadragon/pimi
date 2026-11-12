@@ -1,4 +1,4 @@
-import { getPaseoToolActionLabel } from "@pimi/protocol/paseo-tool-presentation/index";
+import { getPimiToolActionLabel } from "@pimi/protocol/pimi-tool-presentation/index";
 import { isTurnTrigger } from "@/agent-stream/turn-membership";
 
 import { describeToolCall, type GroupableItem, type ToolCallRun } from "../grouping";
@@ -12,7 +12,7 @@ export interface OverviewSummary {
   readFileCount: number;
   searchCount: number;
   otherToolCount: number;
-  paseoActions: Record<string, number>;
+  pimiActions: Record<string, number>;
 }
 
 export interface OverviewToolCallGroup {
@@ -34,7 +34,7 @@ export function summarizeToolCalls(calls: readonly GroupableItem[]): OverviewSum
   let commandCount = 0;
   let searchCount = 0;
   let otherToolCount = 0;
-  const paseoActions: Record<string, number> = {};
+  const pimiActions: Record<string, number> = {};
 
   for (const call of calls) {
     if (call.kind === "thought") {
@@ -44,9 +44,9 @@ export function summarizeToolCalls(calls: readonly GroupableItem[]): OverviewSum
     if (isTurnTrigger(call)) continue;
     const descriptor = describeToolCall(call);
     const normalizedName = descriptor.name.trim().toLowerCase();
-    const action = getPaseoToolActionLabel(descriptor.name);
+    const action = getPimiToolActionLabel(descriptor.name);
     if (action) {
-      paseoActions[action] = (paseoActions[action] ?? 0) + 1;
+      pimiActions[action] = (pimiActions[action] ?? 0) + 1;
     } else if (descriptor.detail.type === "edit" || descriptor.detail.type === "write") {
       editedFiles.add(descriptor.detail.filePath);
     } else if (descriptor.detail.type === "shell") {
@@ -67,7 +67,7 @@ export function summarizeToolCalls(calls: readonly GroupableItem[]): OverviewSum
     readFileCount: readFiles.size,
     searchCount,
     otherToolCount,
-    paseoActions,
+    pimiActions,
   };
 }
 

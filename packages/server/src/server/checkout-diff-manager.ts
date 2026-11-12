@@ -193,7 +193,7 @@ export class CheckoutDiffManager {
       mainRepoRoot: snapshot.git.mainRepoRoot,
       currentBranch: snapshot.git.currentBranch,
       remoteUrl: snapshot.git.remoteUrl,
-      isPaseoOwnedWorktree: snapshot.git.isPaseoOwnedWorktree,
+      isPimiOwnedWorktree: snapshot.git.isPimiOwnedWorktree,
       baseRef: snapshot.git.baseRef,
       baseRefExact: snapshot.git.baseRefExact,
       aheadBehind: snapshot.git.aheadBehind,

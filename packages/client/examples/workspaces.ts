@@ -1,7 +1,7 @@
-import { createPaseoClient, type PaseoClient } from "@pimi/client";
+import { createPimiClient, type PimiClient } from "@pimi/client";
 
-export function createClient(url: string): PaseoClient {
-  return createPaseoClient({
+export function createClient(url: string): PimiClient {
+  return createPimiClient({
     url,
   });
 }

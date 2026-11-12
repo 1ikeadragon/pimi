@@ -1,8 +1,8 @@
 import { resolve } from "node:path";
 import { getCheckoutSnapshotFacts, setCheckoutBaseBranch } from "../../../utils/checkout-git.js";
 import {
-  readPaseoWorktreeMetadata,
-  setPaseoWorktreeBaseRef,
+  readPimiWorktreeMetadata,
+  setPimiWorktreeBaseRef,
 } from "../../../utils/worktree-metadata.js";
 import type { WorkspaceRegistry } from "../../workspace-registry.js";
 import type { WorkspaceGitService } from "../../workspace-git-service.js";
@@ -43,8 +43,8 @@ export function createWorkspaceBaseBranchService(deps: Dependencies) {
       worktreesRoot: deps.worktreesRoot,
     });
     if (!facts.isGit) throw new Error("Workspace is not a Git checkout");
-    if (!facts.paseoWorktree.isPaseoOwnedWorktree)
-      throw new Error("Workspace is not a Paseo worktree");
+    if (!facts.pimiWorktree.isPimiOwnedWorktree)
+      throw new Error("Workspace is not a Pimi worktree");
     const root = resolve(facts.worktreeRoot);
     return withCheckoutLock(root, async () => {
       const current = await deps.workspaceRegistry.get(input.workspaceId);
@@ -56,7 +56,7 @@ export function createWorkspaceBaseBranchService(deps: Dependencies) {
           resolve(record.worktreeRoot ?? record.cwd) === root,
       );
       await deps.workspaceGitService.getSnapshot(root);
-      const metadata = await readPaseoWorktreeMetadata(root);
+      const metadata = await readPimiWorktreeMetadata(root);
       const baseRef = await setCheckoutBaseBranch({
         cwd: root,
         baseRef: input.baseRef,
@@ -73,7 +73,7 @@ export function createWorkspaceBaseBranchService(deps: Dependencies) {
         }
       } catch (error) {
         if (metadata)
-          await setPaseoWorktreeBaseRef({
+          await setPimiWorktreeBaseRef({
             worktreeRoot: root,
             baseRef: metadata.baseRef ?? metadata.baseRefName,
           });

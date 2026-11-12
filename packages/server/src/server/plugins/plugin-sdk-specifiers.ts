@@ -17,23 +17,12 @@ const PIMI_SDK_SPECIFIERS = [
   ...PLUGIN_CLIENT_ONLY_SDK_SPECIFIERS,
 ] as const;
 
-export function canonicalPluginSdkSpecifier(name: string): string {
-  return name.replace(/^@getpaseo\/plugin(?=\/|$)/, "@pimi/plugin");
-}
-
-export const PLUGIN_SDK_SPECIFIERS = [
-  ...PIMI_SDK_SPECIFIERS,
-  ...PIMI_SDK_SPECIFIERS.map((name) => name.replace("@pimi/", "@getpaseo/")),
-];
+export const PLUGIN_SDK_SPECIFIERS = PIMI_SDK_SPECIFIERS;
 
 export function isPluginClientOnlySdkSpecifier(name: string): boolean {
-  return (PLUGIN_CLIENT_ONLY_SDK_SPECIFIERS as readonly string[]).includes(
-    canonicalPluginSdkSpecifier(name),
-  );
+  return (PLUGIN_CLIENT_ONLY_SDK_SPECIFIERS as readonly string[]).includes(name);
 }
 
 export function isPluginServerOnlySdkSpecifier(name: string): boolean {
-  return (PLUGIN_SERVER_ONLY_SDK_SPECIFIERS as readonly string[]).includes(
-    canonicalPluginSdkSpecifier(name),
-  );
+  return (PLUGIN_SERVER_ONLY_SDK_SPECIFIERS as readonly string[]).includes(name);
 }

@@ -28,16 +28,13 @@ import {
   WorktreeSetupError,
 } from "../utils/worktree.js";
 import { toCheckoutError } from "./checkout-git-utils.js";
-import type {
-  CreatePaseoWorktreeInput,
-  CreatePaseoWorktreeResult,
-} from "./paseo-worktree-service.js";
+import type { CreatePimiWorktreeInput, CreatePimiWorktreeResult } from "./pimi-worktree-service.js";
 import type { ArchiveDependencies } from "./workspace-archive-service.js";
 import { toWorktreeWireError } from "./worktree-errors.js";
 import {
   archiveCommand,
-  createPaseoWorktreeCommand,
-  listPaseoWorktreesCommand,
+  createPimiWorktreeCommand,
+  listPimiWorktreesCommand,
 } from "./worktree/commands.js";
 import type { WorkspaceSetupOperation } from "./workspace-setup-runtime.js";
 import {
@@ -49,7 +46,7 @@ const SAFE_GIT_REF_PATTERN = /^[A-Za-z0-9._/-]+$/;
 
 type EmitSessionMessage = (message: SessionOutboundMessage) => void;
 
-interface CreatePaseoWorktreeInBackgroundDependencies {
+interface CreatePimiWorktreeInBackgroundDependencies {
   pimiHome?: string;
   worktreesRoot?: string;
   emitWorkspaceUpdateForWorkspaceId: (workspaceId: string) => Promise<void>;
@@ -65,13 +62,13 @@ interface CreatePaseoWorktreeInBackgroundDependencies {
   onScriptsChanged: ((workspaceId: string, workspaceDirectory: string) => void) | null;
 }
 
-interface CreatePaseoWorktreeWorkflowDependencies extends CreatePaseoWorktreeInBackgroundDependencies {
-  createPaseoWorktree: (
-    input: CreatePaseoWorktreeInput,
+interface CreatePimiWorktreeWorkflowDependencies extends CreatePimiWorktreeInBackgroundDependencies {
+  createPimiWorktree: (
+    input: CreatePimiWorktreeInput,
     options?: {
       resolveDefaultBranch?: (repoRoot: string) => Promise<string>;
     },
-  ) => Promise<CreatePaseoWorktreeResult>;
+  ) => Promise<CreatePimiWorktreeResult>;
   warmWorkspaceGitData: (workspace: PersistedWorkspaceRecord) => Promise<void>;
   autoNameWorkspaceBranchForFirstAgent: (input: {
     workspace: PersistedWorkspaceRecord;
@@ -81,14 +78,14 @@ interface CreatePaseoWorktreeWorkflowDependencies extends CreatePaseoWorktreeInB
   assertWorkspaceAutomationAllowed?: (workspaceId: string) => Promise<void>;
 }
 
-export type CreatePaseoWorktreeWorkflowResult = CreatePaseoWorktreeResult;
+export type CreatePimiWorktreeWorkflowResult = CreatePimiWorktreeResult;
 
-export type CreatePaseoWorktreeWorkflowFn = (
-  input: CreatePaseoWorktreeInput,
+export type CreatePimiWorktreeWorkflowFn = (
+  input: CreatePimiWorktreeInput,
   options?: {
     resolveDefaultBranch?: (repoRoot: string) => Promise<string>;
   },
-) => Promise<CreatePaseoWorktreeWorkflowResult>;
+) => Promise<CreatePimiWorktreeWorkflowResult>;
 
 interface HandleWorkspaceSetupStatusRequestDependencies {
   emit: EmitSessionMessage;
@@ -96,23 +93,23 @@ interface HandleWorkspaceSetupStatusRequestDependencies {
   getWorkspace: (workspaceId: string) => Promise<PersistedWorkspaceRecord | null>;
 }
 
-interface HandleWorkspaceSetupRunRequestDependencies extends CreatePaseoWorktreeInBackgroundDependencies {
+interface HandleWorkspaceSetupRunRequestDependencies extends CreatePimiWorktreeInBackgroundDependencies {
   getWorkspace: (workspaceId: string) => Promise<PersistedWorkspaceRecord | null>;
   clearAutomationBlock: (workspaceId: string) => Promise<boolean>;
   startWorkspaceSetup: (workspaceId: string, operation: WorkspaceSetupOperation) => void;
 }
 
-interface HandleCreatePaseoWorktreeRequestDependencies {
+interface HandleCreatePimiWorktreeRequestDependencies {
   pimiHome?: string;
   worktreesRoot?: string;
   describeWorkspaceRecord: (
-    result: CreatePaseoWorktreeResult,
+    result: CreatePimiWorktreeResult,
   ) => Promise<WorkspaceDescriptorPayload>;
   emit: EmitSessionMessage;
   sessionLogger: Logger;
-  createPaseoWorktreeWorkflow: (
-    input: CreatePaseoWorktreeInput,
-  ) => Promise<CreatePaseoWorktreeWorkflowResult>;
+  createPimiWorktreeWorkflow: (
+    input: CreatePimiWorktreeInput,
+  ) => Promise<CreatePimiWorktreeWorkflowResult>;
 }
 
 function normalizeFirstAgentContext(
@@ -138,7 +135,7 @@ export function assertSafeGitRef(ref: string, label: string): void {
   }
 }
 
-export async function handlePaseoWorktreeListRequest(
+export async function handlePimiWorktreeListRequest(
   dependencies: {
     emit: EmitSessionMessage;
     pimiHome?: string;
@@ -161,7 +158,7 @@ export async function handlePaseoWorktreeListRequest(
   }
 
   try {
-    const worktrees = await listPaseoWorktreesCommand(
+    const worktrees = await listPimiWorktreesCommand(
       { workspaceGitService: dependencies.workspaceGitService },
       { cwd },
     );
@@ -190,7 +187,7 @@ export async function handlePaseoWorktreeListRequest(
   }
 }
 
-export async function handlePaseoWorktreeArchiveRequest(
+export async function handlePimiWorktreeArchiveRequest(
   dependencies: Omit<
     ArchiveDependencies,
     "emitWorkspaceUpdatesForWorkspaceIds" | "workspaceGitService"
@@ -253,16 +250,16 @@ export async function handlePaseoWorktreeArchiveRequest(
   }
 }
 
-export async function handleCreatePaseoWorktreeRequest(
-  dependencies: HandleCreatePaseoWorktreeRequestDependencies,
+export async function handleCreatePimiWorktreeRequest(
+  dependencies: HandleCreatePimiWorktreeRequestDependencies,
   request: Extract<SessionInboundMessage, { type: "create_pimi_worktree_request" }>,
 ): Promise<void> {
   try {
-    const commandResult = await createPaseoWorktreeCommand(
+    const commandResult = await createPimiWorktreeCommand(
       {
         pimiHome: dependencies.pimiHome,
         worktreesRoot: dependencies.worktreesRoot,
-        createPaseoWorktreeWorkflow: dependencies.createPaseoWorktreeWorkflow,
+        createPimiWorktreeWorkflow: dependencies.createPimiWorktreeWorkflow,
       },
       {
         cwd: request.cwd,
@@ -337,14 +334,14 @@ export async function handleCreatePaseoWorktreeRequest(
   }
 }
 
-export async function createPaseoWorktreeWorkflow(
-  dependencies: CreatePaseoWorktreeWorkflowDependencies,
-  input: CreatePaseoWorktreeInput,
+export async function createPimiWorktreeWorkflow(
+  dependencies: CreatePimiWorktreeWorkflowDependencies,
+  input: CreatePimiWorktreeInput,
   options?: {
     resolveDefaultBranch?: (repoRoot: string) => Promise<string>;
   },
-): Promise<CreatePaseoWorktreeWorkflowResult> {
-  const createdWorktree = await dependencies.createPaseoWorktree(
+): Promise<CreatePimiWorktreeWorkflowResult> {
+  const createdWorktree = await dependencies.createPimiWorktree(
     {
       ...input,
 
@@ -504,7 +501,7 @@ export async function handleWorkspaceSetupRunRequest(
 }
 
 export async function runWorktreeSetupInBackground(
-  dependencies: CreatePaseoWorktreeInBackgroundDependencies,
+  dependencies: CreatePimiWorktreeInBackgroundDependencies,
   options: {
     requestCwd: string;
     repoRoot: string;

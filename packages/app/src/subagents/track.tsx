@@ -122,7 +122,7 @@ export function SubagentsTrack({
       ) : null}
       {rows.map((row, index) => (
         <SubagentsTrackRow
-          key={row.kind === "paseo" ? `${row.address.serverId}:${row.id}` : row.id}
+          key={row.kind === "pimi" ? `${row.address.serverId}:${row.id}` : row.id}
           row={row}
           serverId={serverId}
           onOpenSubagent={onOpenSubagent}
@@ -237,7 +237,7 @@ function SubagentsTrackRow({
 }: SubagentsTrackRowProps): ReactElement {
   const { t } = useTranslation();
   const isCompact = useIsCompactFormFactor();
-  const rowServerId = row.kind === "paseo" ? row.address.serverId : serverId;
+  const rowServerId = row.kind === "pimi" ? row.address.serverId : serverId;
   const hostLabel = useHosts().find((host) => host.serverId === rowServerId)?.label ?? rowServerId;
   const presentation = useRowPresentation(row, rowServerId);
   const displayLabel =
@@ -250,10 +250,10 @@ function SubagentsTrackRow({
     }
   }, [onOpenProviderSubagent, onOpenSubagent, row]);
   const handleArchivePress = useCallback(() => {
-    if (row.kind === "paseo") onArchiveSubagent(row.address);
+    if (row.kind === "pimi") onArchiveSubagent(row.address);
   }, [onArchiveSubagent, row]);
   const handleDetachPress = useCallback(() => {
-    if (row.kind === "paseo") onDetachSubagent?.(row.address);
+    if (row.kind === "pimi") onDetachSubagent?.(row.address);
   }, [onDetachSubagent, row]);
   const actionsAlwaysVisible = isNative || isCompact;
 
@@ -265,16 +265,16 @@ function SubagentsTrackRow({
           <Text style={styles.rowTitle} numberOfLines={1}>
             {displayLabel}
           </Text>
-          {row.kind === "paseo" ? (
+          {row.kind === "pimi" ? (
             <>
               <SubagentFacts rowId={row.id} text={rowServerId !== serverId ? hostLabel : ""} />
-              <PaseoSubagentFacts serverId={rowServerId} agentId={row.id} />
+              <PimiSubagentFacts serverId={rowServerId} agentId={row.id} />
             </>
           ) : (
             <SubagentFacts rowId={row.id} text={presentation.subtitle} />
           )}
         </View>
-        {row.kind === "paseo" ? (
+        {row.kind === "pimi" ? (
           <SubagentRowActions
             rowId={row.id}
             displayLabel={displayLabel}
@@ -315,7 +315,7 @@ function SubagentsTrackRow({
 }
 
 /** The same facts line the agent's sheet shows when it opens without its composer. */
-function PaseoSubagentFacts({ serverId, agentId }: { serverId: string; agentId: string }) {
+function PimiSubagentFacts({ serverId, agentId }: { serverId: string; agentId: string }) {
   const text = useAgentFactsLine(serverId, agentId);
   return <SubagentFacts rowId={agentId} text={text} />;
 }

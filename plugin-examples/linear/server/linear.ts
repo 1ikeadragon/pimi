@@ -40,13 +40,13 @@ const ISSUE_FIELDS = `
 `;
 
 const EXACT_ISSUE_QUERY = `
-  query PaseoLinearIssue($id: String!) {
+  query PimiLinearIssue($id: String!) {
     issue(id: $id) { ${ISSUE_FIELDS} }
   }
 `;
 
 const SEARCH_ISSUES_QUERY = `
-  query PaseoLinearIssues($filter: IssueFilter) {
+  query PimiLinearIssues($filter: IssueFilter) {
     issues(first: 20, filter: $filter, orderBy: updatedAt) {
       nodes { ${ISSUE_FIELDS} }
     }

@@ -853,7 +853,7 @@ export const ru: TranslationResources = {
       },
       routes: {
         public: "Обратный прокси",
-        paseo: "Запоминающийся адрес",
+        pimi: "Запоминающийся адрес",
         direct: "Прямой адрес",
       },
       states: {
@@ -1640,7 +1640,7 @@ export const ru: TranslationResources = {
         installFailed: "Не удалось установить Pimi CLI.",
         uninstallFailed: "Не удалось удалить Pimi CLI.",
         keptForeign:
-          "Команда paseo, установленная не Pimi, оставлена. Чтобы удалить её, сделайте это вручную.",
+          "Команда pimi, установленная не Pimi, оставлена. Чтобы удалить её, сделайте это вручную.",
       },
     },
   },
@@ -2079,7 +2079,7 @@ export const ru: TranslationResources = {
   serviceUrl: {
     title: "Открыть URL сервиса",
     message: "Открыть {{url}}?",
-    inPaseo: "В Pimi",
+    inPimi: "В Pimi",
     externalBrowser: "Внешний браузер",
     dontAskAgain: "Больше не спрашивать",
   },
@@ -2363,7 +2363,7 @@ export const ru: TranslationResources = {
       one: "использован {{count}} другой инструмент",
       other: "использованы другие инструменты ({{count}})",
     },
-    paseoCalls: {
+    pimiCalls: {
       one: "выполнен {{count}} вызов Pimi",
       other: "выполнены вызовы Pimi ({{count}})",
     },

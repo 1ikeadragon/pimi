@@ -7,7 +7,6 @@ import path from "node:path";
 import { createPluginImportReader, type PluginImportKind } from "./compiler-imports.js";
 import type { Metafile, OnResolveResult, Plugin } from "esbuild";
 import {
-  canonicalPluginSdkSpecifier,
   isPluginClientOnlySdkSpecifier,
   isPluginServerOnlySdkSpecifier,
   PLUGIN_SDK_SPECIFIERS,
@@ -115,7 +114,7 @@ function createRuntimeBoundaryPlugin(target: PluginBuildTarget, pluginDirectory:
   const boundaryResolution = {};
   const linkedDependencyRoots = new Set<string>();
   return {
-    name: `paseo-plugin-${target}-runtime-boundary`,
+    name: `pimi-plugin-${target}-runtime-boundary`,
     setup(buildContext) {
       const checked = new Set<string>();
       const imports = createPluginImportReader(pluginDirectory);
@@ -279,14 +278,10 @@ function runtimeSpecifierError(
   target: PluginBuildTarget | "shared",
   importer: string,
 ): OnResolveResult | null {
-  specifier = canonicalPluginSdkSpecifier(specifier);
   let kind: string | null = null;
   if (specifier === "@pimi/plugin/client/host") kind = "host-private";
   else if (
-    (specifier === "@pimi/plugin" ||
-      specifier.startsWith("@pimi/plugin/") ||
-      specifier === "@paseo/plugin" ||
-      specifier.startsWith("@paseo/plugin/")) &&
+    (specifier === "@pimi/plugin" || specifier.startsWith("@pimi/plugin/")) &&
     !(PLUGIN_SDK_SPECIFIERS as readonly string[]).includes(specifier)
   )
     kind = "Unknown SDK";

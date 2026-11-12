@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 import { app, BrowserWindow, nativeTheme, shell, WebContentsView } from "electron";
 import { readFileSync } from "node:fs";
 import { mkdir, rename, writeFile } from "node:fs/promises";
@@ -650,7 +650,7 @@ function dictateBrief(
       preload,
       additionalArguments: [
         "--pimi-task-dictation",
-        `--paseo-console-url=${dictationUrl}`,
+        `--pimi-console-url=${dictationUrl}`,
         pimiAppearanceArgument(),
       ],
       autoplayPolicy: "no-user-gesture-required",

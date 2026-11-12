@@ -1,8 +1,8 @@
 import type { AgentMessage } from "@pimi/protocol/agent-message";
 import type { ToolCallDetail, ToolCallIconName } from "@pimi/protocol/agent-types";
-import { isPaseoToolName } from "@pimi/protocol/tool-name-normalization";
+import { isPimiToolName } from "@pimi/protocol/tool-name-normalization";
 
-export type ToolCallIcon = ToolCallIconName | "paseo";
+export type ToolCallIcon = ToolCallIconName | "pimi";
 
 const TOOL_DETAIL_ICON_NAMES: Record<ToolCallDetail["type"], ToolCallIcon> = {
   shell: "square_terminal",
@@ -23,9 +23,9 @@ export function resolveToolCallIconName(
   detail?: ToolCallDetail,
   agentMessage?: AgentMessage,
 ): ToolCallIcon {
-  // Agent messages are Paseo deliveries; the wire detail's legacy "bot" icon is for old clients.
+  // Agent messages are Pimi deliveries; the wire detail's legacy "bot" icon is for old clients.
   if (agentMessage) {
-    return "paseo";
+    return "pimi";
   }
   const lowerName = toolName.trim().toLowerCase();
 
@@ -40,8 +40,8 @@ export function resolveToolCallIconName(
   if (lowerName === "speak") {
     return "mic_vocal";
   }
-  if (isPaseoToolName(lowerName)) {
-    return "paseo";
+  if (isPimiToolName(lowerName)) {
+    return "pimi";
   }
   if (lowerName === "task") {
     return "bot";

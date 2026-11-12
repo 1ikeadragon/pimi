@@ -1,24 +1,24 @@
 import { z } from "zod";
-import type { ProviderPaseoToolsPolicy } from "@pimi/protocol/provider-config";
+import type { ProviderPimiToolsPolicy } from "@pimi/protocol/provider-config";
 import {
   ProjectNoteKeySchema,
   ProjectNoteTextSchema,
   type ProjectMemory,
 } from "../../project-memory.js";
-import type { PaseoToolConfig, PaseoToolResult } from "./types.js";
-import { isPaseoToolEnabled } from "../paseo-tool-policy.js";
+import type { PimiToolConfig, PimiToolResult } from "./types.js";
+import { isPimiToolEnabled } from "../pimi-tool-policy.js";
 
 export const RECALL_PROJECT_MEMORY_TOOL = "recall_project_memory";
 export const RECALL_GLOBAL_MEMORY_TOOL = "recall_global_memory";
 
-export function memoryRecallInstructions(policy: ProviderPaseoToolsPolicy | undefined): string[] {
+export function memoryRecallInstructions(policy: ProviderPimiToolsPolicy | undefined): string[] {
   const instructions = [];
-  if (isPaseoToolEnabled(policy, RECALL_PROJECT_MEMORY_TOOL)) {
+  if (isPimiToolEnabled(policy, RECALL_PROJECT_MEMORY_TOOL)) {
     instructions.push(
       `When prior project decisions or conventions matter, call ${RECALL_PROJECT_MEMORY_TOOL}.`,
     );
   }
-  if (isPaseoToolEnabled(policy, RECALL_GLOBAL_MEMORY_TOOL)) {
+  if (isPimiToolEnabled(policy, RECALL_GLOBAL_MEMORY_TOOL)) {
     instructions.push(
       `When preferences shared across projects matter, call ${RECALL_GLOBAL_MEMORY_TOOL}.`,
     );
@@ -34,8 +34,8 @@ export function memoryRecallInstructions(policy: ProviderPaseoToolsPolicy | unde
 interface RegisterProjectMemoryToolsOptions {
   registerTool: <Input>(
     name: string,
-    config: PaseoToolConfig,
-    handler: (input: Input) => Promise<PaseoToolResult>,
+    config: PimiToolConfig,
+    handler: (input: Input) => Promise<PimiToolResult>,
   ) => void;
   memory: ProjectMemory;
   resolveProjectId: () => Promise<string>;

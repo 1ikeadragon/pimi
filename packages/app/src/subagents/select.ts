@@ -13,8 +13,8 @@ import {
   type SubagentStatusBucket,
 } from "./status";
 
-export interface PaseoSubagentRow {
-  kind: "paseo";
+export interface PimiSubagentRow {
+  kind: "pimi";
   address: AgentAddress;
   id: Agent["id"];
   provider: Agent["provider"];
@@ -48,7 +48,7 @@ export interface ProviderSubagentRow {
   statusBucket: SubagentStatusBucket;
 }
 
-export type SubagentRow = PaseoSubagentRow | ProviderSubagentRow;
+export type SubagentRow = PimiSubagentRow | ProviderSubagentRow;
 
 type SessionStoreSnapshot = ReturnType<typeof useSessionStore.getState>;
 type ProviderSubagentStoreSnapshot = ReturnType<typeof useProviderSubagentStore.getState>;
@@ -64,7 +64,7 @@ const EMPTY_SUBAGENT_ROWS: SubagentRow[] = [];
 
 function toSubagentRow(agent: Agent): SubagentRow {
   return {
-    kind: "paseo",
+    kind: "pimi",
     address: { serverId: agent.serverId, agentId: agent.id },
     id: agent.id,
     provider: agent.provider,
@@ -175,11 +175,11 @@ export function selectProviderSubagentsForParent(
 export function useSubagentsForParent(params: SelectSubagentsParams): SubagentRow[] {
   const { serverId, parentAgentId } = params;
   const pendingArchiveIds = usePendingArchiveAgentKeys();
-  const selectPaseoRows = useMemo(
+  const selectPimiRows = useMemo(
     () => createSubagentsForParentSelector({ serverId, parentAgentId }, pendingArchiveIds),
     [serverId, parentAgentId, pendingArchiveIds],
   );
-  const paseoRows = useStoreWithEqualityFn(useSessionStore, selectPaseoRows, equal);
+  const pimiRows = useStoreWithEqualityFn(useSessionStore, selectPimiRows, equal);
   const providerRows = useStoreWithEqualityFn(
     useProviderSubagentStore,
     (state) => selectProviderSubagentsForParent(state, params),
@@ -196,9 +196,9 @@ export function useSubagentsForParent(params: SelectSubagentsParams): SubagentRo
 
   return useMemo(() => {
     if (params.providerParentSubagentId) return providerRows;
-    if (providerRows.length === 0) return paseoRows;
-    const rows = [...paseoRows, ...providerRows];
+    if (providerRows.length === 0) return pimiRows;
+    const rows = [...pimiRows, ...providerRows];
     rows.sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime());
     return rows;
-  }, [params.providerParentSubagentId, paseoRows, providerRows]);
+  }, [params.providerParentSubagentId, pimiRows, providerRows]);
 }

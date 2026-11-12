@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { PaseoToolDefinition, PaseoToolResult } from "./types.js";
+import type { PimiToolDefinition, PimiToolResult } from "./types.js";
 
 /**
  * Providers that send every MCP tool schema on every turn (Codex, OpenCode, ACP agents) get only
@@ -66,13 +66,13 @@ export function toolGroupOf(name: string): string {
 }
 
 export interface SplitTools {
-  listed: PaseoToolDefinition[];
-  groups: Map<string, PaseoToolDefinition[]>;
+  listed: PimiToolDefinition[];
+  groups: Map<string, PimiToolDefinition[]>;
 }
 
-export function splitToolsForLazyLoading(tools: Iterable<PaseoToolDefinition>): SplitTools {
-  const listed: PaseoToolDefinition[] = [];
-  const groups = new Map<string, PaseoToolDefinition[]>();
+export function splitToolsForLazyLoading(tools: Iterable<PimiToolDefinition>): SplitTools {
+  const listed: PimiToolDefinition[] = [];
+  const groups = new Map<string, PimiToolDefinition[]>();
   for (const tool of tools) {
     if (DEFAULT_TOOL_NAMES.has(tool.name)) {
       listed.push(tool);
@@ -86,25 +86,25 @@ export function splitToolsForLazyLoading(tools: Iterable<PaseoToolDefinition>): 
   return { listed, groups };
 }
 
-function jsonSchemaOf(tool: PaseoToolDefinition): unknown {
+function jsonSchemaOf(tool: PimiToolDefinition): unknown {
   const schema = tool.inputSchema;
   if (!schema) return { type: "object", properties: {} };
   const zodSchema = schema instanceof z.ZodType ? schema : z.object(schema);
   return z.toJSONSchema(zodSchema, { io: "input", unrepresentable: "any" });
 }
 
-function textResult(value: unknown): PaseoToolResult {
+function textResult(value: unknown): PimiToolResult {
   return { content: [{ type: "text", text: JSON.stringify(value) }] };
 }
 
 export function createLazyLoaderTools(
-  groups: Map<string, PaseoToolDefinition[]>,
+  groups: Map<string, PimiToolDefinition[]>,
   listedNames: ReadonlySet<string>,
-  execute: (name: string, args: unknown, signal?: AbortSignal) => Promise<PaseoToolResult>,
-): PaseoToolDefinition[] {
+  execute: (name: string, args: unknown, signal?: AbortSignal) => Promise<PimiToolResult>,
+): PimiToolDefinition[] {
   if (groups.size === 0) return [];
   const groupNames = [...groups.keys()].sort();
-  const byName = new Map<string, PaseoToolDefinition>();
+  const byName = new Map<string, PimiToolDefinition>();
   for (const members of groups.values()) {
     for (const tool of members) byName.set(tool.name, tool);
   }

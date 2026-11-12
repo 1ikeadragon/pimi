@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 import { lstat, readFile } from "node:fs/promises";
 import { request } from "node:http";
 import { basename, dirname, isAbsolute, join } from "node:path";
@@ -20,10 +20,10 @@ import {
   type PimiTaskProposal,
 } from "@pimi/protocol/pimi-task";
 import {
-  PaseoToolInputError,
-  type PaseoToolConfig,
-  type PaseoToolExecutionContext,
-  type PaseoToolResult,
+  PimiToolInputError,
+  type PimiToolConfig,
+  type PimiToolExecutionContext,
+  type PimiToolResult,
 } from "./types.js";
 
 const unavailable = "Pimi task tools need the desktop app open on this host.";
@@ -33,27 +33,27 @@ async function readDesktopTaskEndpoint(
 ): Promise<{ socketPath: string; secret?: string }> {
   const discovery = join(home, PIMI_TASK_AGENT_SOCKET_FILE);
   const file = await lstat(discovery);
-  if (!file.isFile()) throw new PaseoToolInputError(unavailable);
+  if (!file.isFile()) throw new PimiToolInputError(unavailable);
   if (process.platform === "win32") {
     const raw = await readFile(discovery, "utf8");
     let value: unknown;
     try {
       value = JSON.parse(raw);
     } catch {
-      throw new PaseoToolInputError(unavailable);
+      throw new PimiToolInputError(unavailable);
     }
     const descriptor = PimiTaskPipeDescriptor.safeParse(value);
-    if (!descriptor.success) throw new PaseoToolInputError(unavailable);
+    if (!descriptor.success) throw new PimiToolInputError(unavailable);
     return descriptor.data;
   }
   const uid = process.getuid?.();
-  if (file.uid !== uid || (file.mode & 0o077) !== 0) throw new PaseoToolInputError(unavailable);
+  if (file.uid !== uid || (file.mode & 0o077) !== 0) throw new PimiToolInputError(unavailable);
   const socketPath = await readFile(discovery, "utf8");
   if (!isAbsolute(socketPath) || basename(socketPath) !== "tasks.sock")
-    throw new PaseoToolInputError(unavailable);
+    throw new PimiToolInputError(unavailable);
   const directory = await lstat(dirname(socketPath));
   if (!directory.isDirectory() || directory.uid !== uid || (directory.mode & 0o077) !== 0)
-    throw new PaseoToolInputError(unavailable);
+    throw new PimiToolInputError(unavailable);
   return { socketPath };
 }
 
@@ -96,9 +96,9 @@ async function requestDesktopTask(
   } catch (error) {
     if (signal?.aborted) throw signal.reason;
     if (deadline.aborted)
-      throw new PaseoToolInputError("Pimi timed out. Read the task before retrying a change.");
+      throw new PimiToolInputError("Pimi timed out. Read the task before retrying a change.");
     const code = (error as NodeJS.ErrnoException).code;
-    if (code === "ENOENT" || code === "ECONNREFUSED") throw new PaseoToolInputError(unavailable);
+    if (code === "ENOENT" || code === "ECONNREFUSED") throw new PimiToolInputError(unavailable);
     throw error;
   }
 }
@@ -108,7 +108,7 @@ async function callDesktopTask(
   tool: string,
   input: unknown,
   signal?: AbortSignal,
-): Promise<PaseoToolResult> {
+): Promise<PimiToolResult> {
   const response = await requestDesktopTask(home, tool, input, signal);
   if (response.status !== 200) {
     return { isError: true, content: [{ type: "text", text: response.raw }] };
@@ -142,8 +142,8 @@ export async function requestMobileTask(home: string, operation: PimiMobileTaskO
 export function registerPimiTaskTools(options: {
   registerTool: (
     name: string,
-    config: PaseoToolConfig,
-    handler: (input: unknown, context: PaseoToolExecutionContext) => Promise<PaseoToolResult>,
+    config: PimiToolConfig,
+    handler: (input: unknown, context: PimiToolExecutionContext) => Promise<PimiToolResult>,
   ) => void;
   home?: string;
   resolveSource: () => PimiTaskProposal["source"] | undefined;

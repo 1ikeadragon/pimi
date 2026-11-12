@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 import MarkdownIt from "markdown-it";
 import { command, repositoryRemotes, RequestError } from "./git.mjs";
 

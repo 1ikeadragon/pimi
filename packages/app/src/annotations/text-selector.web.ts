@@ -3,7 +3,7 @@ import type { AnnotationTextSelector } from "./model";
 
 const CONTEXT_LENGTH = 32;
 const EXCLUDED =
-  '[data-paseo-markdown-ignore="true"], [aria-hidden="true"], [hidden], button, [role="button"], input, textarea, select, svg, script, style, template, noscript';
+  '[data-pimi-markdown-ignore="true"], [aria-hidden="true"], [hidden], button, [role="button"], input, textarea, select, svg, script, style, template, noscript';
 const BLOCKS =
   "address, article, aside, blockquote, dd, div, dl, dt, figcaption, figure, footer, h1, h2, h3, h4, h5, h6, header, hr, li, main, nav, ol, p, pre, section, table, td, th, tr, ul";
 

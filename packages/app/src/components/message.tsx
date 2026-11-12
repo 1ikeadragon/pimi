@@ -143,8 +143,8 @@ function useDisableOuterSpacing(disableOuterSpacing: boolean | undefined) {
   return disableOuterSpacing ?? contextValue;
 }
 
-const WEB_TOOLCALL_SHIMMER_KEYFRAME_ID = "paseo-toolcall-shimmer-keyframes";
-const WEB_TOOLCALL_SHIMMER_ANIMATION_NAME = "paseo-toolcall-shimmer";
+const WEB_TOOLCALL_SHIMMER_KEYFRAME_ID = "pimi-toolcall-shimmer-keyframes";
+const WEB_TOOLCALL_SHIMMER_ANIMATION_NAME = "pimi-toolcall-shimmer";
 const ThemedMicVocal = withUnistyles(MicVocal);
 const ThemedFileSymlinkIcon = withUnistyles(FileSymlink);
 const ThemedTriangleAlertIcon = withUnistyles(TriangleAlertIcon);
@@ -166,10 +166,10 @@ const warningColorMapping = (theme: Theme) => ({ color: theme.colors.palette.amb
 const WEB_TOOLCALL_SHIMMER_KEYFRAME_CSS = `
   @keyframes ${WEB_TOOLCALL_SHIMMER_ANIMATION_NAME} {
     0% {
-      background-position: var(--paseo-shimmer-start, -200px) 0;
+      background-position: var(--pimi-shimmer-start, -200px) 0;
     }
     100% {
-      background-position: var(--paseo-shimmer-end, 200px) 0;
+      background-position: var(--pimi-shimmer-end, 200px) 0;
     }
   }
 `;
@@ -1904,8 +1904,8 @@ function buildShimmerTextStyle(input: {
     WebkitBackgroundClip: "text",
     WebkitTextFillColor: "transparent",
     animation: `${WEB_TOOLCALL_SHIMMER_ANIMATION_NAME} ${input.shimmerDuration}s linear infinite`,
-    "--paseo-shimmer-start": `${input.webShimmerTrackStart - input.offsetX}px`,
-    "--paseo-shimmer-end": `${input.webShimmerTrackEnd - input.offsetX}px`,
+    "--pimi-shimmer-start": `${input.webShimmerTrackStart - input.offsetX}px`,
+    "--pimi-shimmer-end": `${input.webShimmerTrackEnd - input.offsetX}px`,
   });
 }
 

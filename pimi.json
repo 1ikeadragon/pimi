@@ -24,7 +24,7 @@
     },
     "ios-simulator": {
       "type": "service",
-      "command": "PIMI_DEV_MANAGED_HOME=1 PIMI_DEV_ROOT=\"$PWD\" PIMI_HOME=\"$PWD/.dev/pimi-home\" PIMI_LISTEN=0.0.0.0:${PIMI_SERVICE_DAEMON_PORT} PIMI_DEV_DAEMON_ENDPOINT=localhost:${PIMI_SERVICE_DAEMON_PORT} ./scripts/paseo-ios-simulator-service.sh"
+      "command": "PIMI_DEV_MANAGED_HOME=1 PIMI_DEV_ROOT=\"$PWD\" PIMI_HOME=\"$PWD/.dev/pimi-home\" PIMI_LISTEN=0.0.0.0:${PIMI_SERVICE_DAEMON_PORT} PIMI_DEV_DAEMON_ENDPOINT=localhost:${PIMI_SERVICE_DAEMON_PORT} ./scripts/pimi-ios-simulator-service.sh"
     },
     "typecheck": {
       "command": "npm run typecheck"

@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 export function createDiffFind($) {
   const bar = $("diff-find");
   const field = $("diff-find-input");

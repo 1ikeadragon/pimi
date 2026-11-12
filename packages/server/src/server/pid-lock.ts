@@ -110,7 +110,7 @@ export function isPidLockOwnerRunning(lock: PidLockInfo): boolean {
 }
 
 function getPidFilePath(pimiHome: string): string {
-  return join(pimiHome, "paseo.pid");
+  return join(pimiHome, "pimi.pid");
 }
 
 async function touchPidLockFile(pidPath: string): Promise<void> {
@@ -163,7 +163,7 @@ export function isSamePidLock(left: PidLockInfo, right: PidLockInfo): boolean {
 
 function createLockHeldError(lock: PidLockInfo): PidLockError {
   return new PidLockError(
-    `Another Paseo daemon is already running (PID ${lock.pid}, started ${lock.startedAt})`,
+    `Another Pimi daemon is already running (PID ${lock.pid}, started ${lock.startedAt})`,
     lock,
   );
 }
@@ -214,7 +214,7 @@ async function writeNewPidLock(pidPath: string, lockInfo: PidLockInfo): Promise<
     const raceLock = await readPidLock(pidPath);
     if (raceLock) {
       throw new PidLockError(
-        `Another Paseo daemon is already running (PID ${raceLock.pid})`,
+        `Another Pimi daemon is already running (PID ${raceLock.pid})`,
         raceLock,
       );
     }

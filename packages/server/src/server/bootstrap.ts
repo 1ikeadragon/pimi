@@ -140,9 +140,9 @@ import { VoiceAssistantWebSocketServer } from "./websocket-server.js";
 import { WorkspaceSetupRuntime } from "./workspace-setup-runtime.js";
 import { createWorkspaceLabelService } from "./workspace-labels/index.js";
 import { createGitHubService, runGitHubCli } from "../services/github-service.js";
-import { createPaseoWorktree as createRegisteredPaseoWorktree } from "./paseo-worktree-service.js";
+import { createPimiWorktree as createRegisteredPimiWorktree } from "./pimi-worktree-service.js";
 import { createWorkspaceProvisioningService } from "./session/workspace-provisioning/workspace-provisioning-service.js";
-import { createPaseoWorktreeWorkflow } from "./worktree-session.js";
+import { createPimiWorktreeWorkflow } from "./worktree-session.js";
 import { DownloadTokenStore } from "./file-download/token-store.js";
 import { formatAttachmentContentDisposition } from "./file-download/content-disposition.js";
 import type { OpenAiSpeechProviderConfig } from "./speech/providers/openai/config.js";
@@ -168,11 +168,11 @@ import {
   PIMI_VOICE_COMMAND_ROUTE,
 } from "@pimi/protocol/pimi-task";
 import {
-  createPaseoToolCatalog,
-  createPaseoAgentToolManifest,
-  type PaseoToolHostDependencies,
-} from "./agent/tools/paseo-tools.js";
-import type { PaseoToolRuntimeContext } from "./agent/tools/types.js";
+  createPimiToolCatalog,
+  createPimiAgentToolManifest,
+  type PimiToolHostDependencies,
+} from "./agent/tools/pimi-tools.js";
+import type { PimiToolRuntimeContext } from "./agent/tools/types.js";
 import { createAgentProviderRuntime } from "./agent/provider-runtime.js";
 import { WorkspaceReconciliationService } from "./workspace-reconciliation-service.js";
 import {
@@ -193,7 +193,7 @@ import {
   type ResolvedDaemonSettings,
   type CliConfigOverrides,
 } from "./config.js";
-import { resolvePaseoToolPolicy } from "./agent/paseo-tool-policy.js";
+import { resolvePimiToolPolicy } from "./agent/pimi-tool-policy.js";
 import { BrowserToolsBroker } from "./browser-tools/broker.js";
 import { DaemonConfigBrowserToolsPolicy } from "./browser-tools/policy.js";
 import { WorkspaceGitServiceImpl } from "./workspace-git-service.js";
@@ -402,20 +402,20 @@ function describeMcpDebugPayload(value: unknown): Record<string, unknown> {
   };
 }
 
-export type PaseoOpenAIConfig = OpenAiSpeechProviderConfig;
-export type PaseoLocalSpeechConfig = LocalSpeechProviderConfig;
+export type PimiOpenAIConfig = OpenAiSpeechProviderConfig;
+export type PimiLocalSpeechConfig = LocalSpeechProviderConfig;
 
-export interface PaseoSpeechSttLanguages {
+export interface PimiSpeechSttLanguages {
   dictation: string;
   voice: string;
 }
 
-export interface PaseoSpeechConfig {
+export interface PimiSpeechConfig {
   providers: RequestedSpeechProviders;
   // Where local models live, whether or not a feature currently uses the local provider.
   localModelsDir: string;
-  sttLanguages?: PaseoSpeechSttLanguages;
-  local?: PaseoLocalSpeechConfig;
+  sttLanguages?: PimiSpeechSttLanguages;
+  local?: PimiLocalSpeechConfig;
 }
 
 export type DaemonLifecycleIntent =
@@ -434,7 +434,7 @@ export type DaemonLifecycleIntent =
       keepTerminals: boolean;
     };
 
-export interface PaseoDaemonConfig {
+export interface PimiDaemonConfig {
   listen: string;
   pimiHome: string;
   daemonVersion?: string;
@@ -482,8 +482,8 @@ export interface PaseoDaemonConfig {
   };
   appBaseUrl?: string;
   auth?: DaemonAuthConfig;
-  openai?: PaseoOpenAIConfig;
-  speech?: PaseoSpeechConfig;
+  openai?: PimiOpenAIConfig;
+  speech?: PimiSpeechConfig;
   voiceLlmProvider?: AgentProvider | null;
   voiceLlmProviderExplicit?: boolean;
   voiceLlmModel?: string | null;
@@ -510,8 +510,8 @@ export interface PaseoDaemonConfig {
   };
 }
 
-export interface PaseoDaemon {
-  config: PaseoDaemonConfig;
+export interface PimiDaemon {
+  config: PimiDaemonConfig;
   agentManager: AgentManager;
   agentStorage: AgentStorage;
   terminalManager: TerminalManager;
@@ -525,16 +525,16 @@ export interface PaseoDaemon {
   getServerId(): string;
 }
 
-export interface PaseoDaemonDependencies {
+export interface PimiDaemonDependencies {
   builtinPlugins?: BuiltinPluginLoader;
 }
 
-function resolveBuiltinPluginLoader(dependencies: PaseoDaemonDependencies): BuiltinPluginLoader {
+function resolveBuiltinPluginLoader(dependencies: PimiDaemonDependencies): BuiltinPluginLoader {
   return dependencies.builtinPlugins ?? new BuiltinPluginLoader();
 }
 
 function createBootstrapManagedProcessRegistry(
-  config: Pick<PaseoDaemonConfig, "pimiHome" | "managedProcesses">,
+  config: Pick<PimiDaemonConfig, "pimiHome" | "managedProcesses">,
   logger: Logger,
 ): ManagedProcessRegistry {
   if (config.managedProcesses) {
@@ -559,7 +559,7 @@ async function reconcileManagedProcessLedger(
   }
 }
 
-function resolveExpressTrustProxySetting(config: PaseoDaemonConfig): true | string[] {
+function resolveExpressTrustProxySetting(config: PimiDaemonConfig): true | string[] {
   return config.trustedProxies ?? ["loopback"];
 }
 
@@ -570,7 +570,7 @@ function createInitialRelayConfig(config: ResolvedDaemonSettings): MutableDaemon
   };
 }
 
-function resolveReloadEnv(config: PaseoDaemonConfig): NodeJS.ProcessEnv {
+function resolveReloadEnv(config: PimiDaemonConfig): NodeJS.ProcessEnv {
   return config.configReload?.env ?? process.env;
 }
 
@@ -643,11 +643,11 @@ function createInitialMutableDaemonConfig(config: ResolvedDaemonSettings): Mutab
   return initialConfig;
 }
 
-export async function createPaseoDaemon(
-  config: PaseoDaemonConfig,
+export async function createPimiDaemon(
+  config: PimiDaemonConfig,
   rootLogger: Logger,
-  dependencies: PaseoDaemonDependencies = {},
-): Promise<PaseoDaemon> {
+  dependencies: PimiDaemonDependencies = {},
+): Promise<PimiDaemon> {
   configureGitProcessPolicy(config.git ?? resolveGitProcessPolicy({ env: process.env }));
   const logger = rootLogger.child({ module: "bootstrap" });
   await rm(path.join(config.pimiHome, "push-tokens.json"), { force: true }).catch((error) => {
@@ -761,7 +761,7 @@ export async function createPaseoDaemon(
   let workspaceRegistry: FileBackedWorkspaceRegistry | null = null;
   const terminalManager = await startWorkerTerminalManager({
     pimiHome: config.pimiHome,
-    paseoVersion: daemonVersion,
+    pimiVersion: daemonVersion,
     logger,
     getTerminalActivityUrl: () => createTerminalActivityUrl(boundListenTarget),
   });
@@ -1143,8 +1143,8 @@ export async function createPaseoDaemon(
       }),
     mcpAuthToken: agentMcpAuthToken,
     mcpCallerAuthToken: agentMcpTokenForCaller,
-    resolvePaseoToolPolicy: (provider) =>
-      resolvePaseoToolPolicy(provider, daemonConfigStore.get().providers),
+    resolvePimiToolPolicy: (provider) =>
+      resolvePimiToolPolicy(provider, daemonConfigStore.get().providers),
     isSkillAvailable: (name) => orchestrationSkills.isSkillAvailable(name),
     logger,
   });
@@ -1169,12 +1169,12 @@ export async function createPaseoDaemon(
       readConfig: () => daemonConfigStore.get(),
       createToolCatalog: (provider) => {
         const { mcp, providers } = daemonConfigStore.get();
-        return createPaseoToolCatalog({
+        return createPimiToolCatalog({
           ...createAgentToolHostDependencies({
             // A local Ask Pimi command gets its own bounded tool list. The
             // injection switch controls tools exposed to regular chats.
-            paseoToolPolicy: mcp.enabled
-              ? resolvePaseoToolPolicy(provider, providers)
+            pimiToolPolicy: mcp.enabled
+              ? resolvePimiToolPolicy(provider, providers)
               : { enabled: false },
           }),
           voiceCommand: true,
@@ -1302,7 +1302,7 @@ export async function createPaseoDaemon(
         cwd: workspace.cwd,
         kind: workspace.kind,
         worktreeRoot: workspace.worktreeRoot,
-        isPaseoOwnedWorktree: workspace.isPaseoOwnedWorktree,
+        isPimiOwnedWorktree: workspace.isPimiOwnedWorktree,
         mainRepoRoot: workspace.mainRepoRoot,
       }));
   };
@@ -1361,7 +1361,7 @@ export async function createPaseoDaemon(
 
   setupAutoArchiveOnMerge({
     pimiHome: config.pimiHome,
-    paseoWorktreesBaseRoot: config.worktreesRoot,
+    pimiWorktreesBaseRoot: config.worktreesRoot,
     daemonConfigStore,
     workspaceGitService,
     github,
@@ -1379,16 +1379,16 @@ export async function createPaseoDaemon(
     emitWorkspaceUpdatesForWorkspaceIds: emitWorkspaceUpdatesExternal,
   });
 
-  const createPaseoWorktreeForTools = async (
-    input: Parameters<typeof createPaseoWorktreeWorkflow>[1],
-    serviceOptions?: Parameters<typeof createPaseoWorktreeWorkflow>[2],
+  const createPimiWorktreeForTools = async (
+    input: Parameters<typeof createPimiWorktreeWorkflow>[1],
+    serviceOptions?: Parameters<typeof createPimiWorktreeWorkflow>[2],
   ) => {
-    return createPaseoWorktreeWorkflow(
+    return createPimiWorktreeWorkflow(
       {
         pimiHome: config.pimiHome,
         worktreesRoot: config.worktreesRoot,
-        createPaseoWorktree: async (workflowInput, workflowOptions) => {
-          return createRegisteredPaseoWorktree(workflowInput, {
+        createPimiWorktree: async (workflowInput, workflowOptions) => {
+          return createRegisteredPimiWorktree(workflowInput, {
             lifecycle: pluginRuntime,
             github,
             ...(workflowOptions?.resolveDefaultBranch
@@ -1440,7 +1440,7 @@ export async function createPaseoDaemon(
     worktreesRoot: config.worktreesRoot,
     terminalManager,
     providerSnapshotManager,
-    createPaseoWorktree: createPaseoWorktreeForTools,
+    createPimiWorktree: createPimiWorktreeForTools,
     ensureWorkspaceForCreate: ensureWorkspaceForCreateAndBroadcastExternal,
     getAgentProfiles: () => daemonConfigStore.get().agentProfiles ?? [],
   };
@@ -1463,7 +1463,7 @@ export async function createPaseoDaemon(
     cwd: string;
     firstAgentContext: FirstAgentContext;
   }) => {
-    const result = await createPaseoWorktreeForTools({
+    const result = await createPimiWorktreeForTools({
       cwd: input.cwd,
       firstAgentContext: input.firstAgentContext,
     });
@@ -1477,7 +1477,7 @@ export async function createPaseoDaemon(
     await archiveByScope(
       {
         pimiHome: config.pimiHome,
-        paseoWorktreesBaseRoot: config.worktreesRoot,
+        pimiWorktreesBaseRoot: config.worktreesRoot,
         github,
         workspaceGitService,
         agentManager,
@@ -1624,9 +1624,9 @@ export async function createPaseoDaemon(
   });
   app.post(PIMI_MEMORY_ROUTE, requireLocalPimi("Memory"), handlePimiMemory);
   const createAgentToolHostDependencies = (
-    runtime: PaseoToolRuntimeContext,
+    runtime: PimiToolRuntimeContext,
     canUseCallerScopedTools = true,
-  ): PaseoToolHostDependencies => ({
+  ): PimiToolHostDependencies => ({
     finishSubscriptions: () => finishSubscriptions,
     agentMessages: () => {
       if (!wsServer) throw new Error("Daemon is not accepting agent messages");
@@ -1690,12 +1690,12 @@ export async function createPaseoDaemon(
     markWorkspaceArchiving: markWorkspaceArchivingExternal,
     clearWorkspaceArchiving: clearWorkspaceArchivingExternal,
     ensureWorkspaceForCreate: createAgentCommandDependencies.ensureWorkspaceForCreate,
-    createPaseoWorktree: createAgentCommandDependencies.createPaseoWorktree,
+    createPimiWorktree: createAgentCommandDependencies.createPimiWorktree,
     browserToolsEnabled: browserToolsPolicy.isEnabled(),
     browserToolsBroker,
-    paseoToolPolicy:
-      runtime.paseoToolPolicy ??
-      (runtime.callerAgentId ? agentManager.getPaseoToolPolicy(runtime.callerAgentId) : undefined),
+    pimiToolPolicy:
+      runtime.pimiToolPolicy ??
+      (runtime.callerAgentId ? agentManager.getPimiToolPolicy(runtime.callerAgentId) : undefined),
     pimiHome: config.pimiHome,
     worktreesRoot: config.worktreesRoot,
     callerAgentId: runtime.callerAgentId,
@@ -1705,15 +1705,15 @@ export async function createPaseoDaemon(
     resolveCallerContext: (agentId) => wsServer?.resolveVoiceCallerContext(agentId) ?? null,
     logger,
   });
-  const createAgentToolCatalog = (runtime: PaseoToolRuntimeContext) =>
-    createPaseoToolCatalog(createAgentToolHostDependencies(runtime));
+  const createAgentToolCatalog = (runtime: PimiToolRuntimeContext) =>
+    createPimiToolCatalog(createAgentToolHostDependencies(runtime));
   const setAgentProviderToolsEnabled = (enabled: boolean) => {
-    agentProviderRuntime.setPaseoToolCatalog(
-      enabled ? createPaseoAgentToolManifest(createAgentToolHostDependencies({})) : null,
+    agentProviderRuntime.setPimiToolCatalog(
+      enabled ? createPimiAgentToolManifest(createAgentToolHostDependencies({})) : null,
     );
   };
-  agentManager.setPaseoToolCatalogFactory(createAgentToolCatalog);
-  agentManager.setPaseoToolsEnabled(config.mcpInjectIntoAgents !== false);
+  agentManager.setPimiToolCatalogFactory(createAgentToolCatalog);
+  agentManager.setPimiToolsEnabled(config.mcpInjectIntoAgents !== false);
   setAgentProviderToolsEnabled(config.mcpEnabled !== false && config.mcpInjectIntoAgents !== false);
 
   let mcpEnabled = config.mcpEnabled ?? true;
@@ -1729,8 +1729,8 @@ export async function createPaseoDaemon(
         createAgentToolHostDependencies(
           {
             callerAgentId,
-            paseoToolPolicy: callerAgentId
-              ? agentManager.getPaseoToolPolicy(callerAgentId)
+            pimiToolPolicy: callerAgentId
+              ? agentManager.getPimiToolPolicy(callerAgentId)
               : undefined,
           },
           boundCaller && daemonConfigStore.get().mcp.injectIntoAgents !== false,
@@ -1905,17 +1905,17 @@ export async function createPaseoDaemon(
             agentMcpBaseUrl =
               !mcpEnabled || config.mcpInjectIntoAgents === false ? null : mcpBaseUrl;
             agentManager.setMcpBaseUrl(agentMcpBaseUrl);
-            agentManager.setPaseoToolsEnabled(mcpEnabled && config.mcpInjectIntoAgents !== false);
+            agentManager.setPimiToolsEnabled(mcpEnabled && config.mcpInjectIntoAgents !== false);
             daemonConfigStore.onFieldChange("mcp.enabled", (value) => {
               mcpEnabled = value !== false;
               const inject = daemonConfigStore.get().mcp.injectIntoAgents !== false;
               agentManager.setMcpBaseUrl(mcpEnabled && inject ? mcpBaseUrl : null);
-              agentManager.setPaseoToolsEnabled(mcpEnabled && inject);
+              agentManager.setPimiToolsEnabled(mcpEnabled && inject);
               setAgentProviderToolsEnabled(mcpEnabled && inject);
             });
             daemonConfigStore.onFieldChange("mcp.injectIntoAgents", (value) => {
               agentManager.setMcpBaseUrl(mcpEnabled && value ? mcpBaseUrl : null);
-              agentManager.setPaseoToolsEnabled(mcpEnabled && value !== false);
+              agentManager.setPimiToolsEnabled(mcpEnabled && value !== false);
               setAgentProviderToolsEnabled(mcpEnabled && value !== false);
             });
             daemonConfigStore.onFieldChange("appendSystemPrompt", (value) => {
@@ -2028,7 +2028,7 @@ export async function createPaseoDaemon(
               workspaceLabelService,
               finishSubscriptions,
             );
-            pluginRuntime.bindPaseoSessionHost(wsServer);
+            pluginRuntime.bindPimiSessionHost(wsServer);
             await pluginRuntime.start();
             providerSnapshotManager.settlePluginProviders();
             restartRecovery.resumePending();

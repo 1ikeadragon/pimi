@@ -82,8 +82,8 @@ export function createForgeResolver(options: CreateForgeResolverOptions = {}): F
   // resolveRemoteUrl spawns `git config` — memoize per cwd so repeated resolve()
   // calls (the PR-status poll hits this every cycle) don't re-spawn it. TTL'd
   // (not permanent, unlike a positive host probe) so a remote added/changed
-  // from outside Paseo — `git remote add`/`set-url` run in a terminal — is
-  // still picked up within a cycle instead of staying pinned forever; a Paseo
+  // from outside Pimi — `git remote add`/`set-url` run in a terminal — is
+  // still picked up within a cycle instead of staying pinned forever; a Pimi
   // git mutation still busts it immediately via invalidate(cwd).
   const remoteUrlByCwd = new LRUCache<
     string,

@@ -6,7 +6,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import type { Logger } from "pino";
 import type { McpServerConfig } from "../../agent-sdk-types.js";
-import type { PaseoToolResult } from "../../tools/types.js";
+import type { PimiToolResult } from "../../tools/types.js";
 import type { OmpRpcHostToolDefinition } from "./rpc-types.js";
 import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
 import { beginProcessLaunch } from "../../../../utils/process-launch.js";
@@ -41,7 +41,7 @@ export class OmpMcpBridge {
     const bridge = new OmpMcpBridge();
     const connections = await Promise.all(
       Object.entries(servers ?? {}).map(async ([serverName, config]) => {
-        const client = new Client({ name: "paseo-omp-mcp", version: "1.0.0" });
+        const client = new Client({ name: "pimi-omp-mcp", version: "1.0.0" });
         let ended: ReturnType<typeof beginProcessLaunch> = null;
         try {
           const transport = makeTransport(config, cwd, env);
@@ -103,7 +103,7 @@ export class OmpMcpBridge {
     name: string,
     args: Record<string, unknown>,
     signal: AbortSignal,
-  ): Promise<PaseoToolResult> {
+  ): Promise<PimiToolResult> {
     const entry = this.tools.get(name);
     if (!entry || this.closed) throw new Error(`MCP tool ${name} is unavailable`);
     const raw = await withNetworkInitiator(NETWORK_PURPOSE.mcp, () =>

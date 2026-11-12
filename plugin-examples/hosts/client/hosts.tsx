@@ -1,15 +1,15 @@
-import { getPaseoClient, useHosts, usePaseo, type PluginSurfaceProps } from "@pimi/plugin/client";
+import { getPimiClient, useHosts, usePimi, type PluginSurfaceProps } from "@pimi/plugin/client";
 import { useCallback, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
 export function Hosts({ theme }: PluginSurfaceProps) {
   const hosts = useHosts();
-  const selected = usePaseo();
+  const selected = usePimi();
   const [result, setResult] = useState("");
   const list = useCallback(
     async (serverId?: string) => {
       try {
-        const client = serverId ? getPaseoClient(serverId) : selected;
+        const client = serverId ? getPimiClient(serverId) : selected;
         const { entries } = await client.agents.list();
         setResult(`${serverId ?? "Selected host"}: ${entries.length} agents`);
       } catch (error) {

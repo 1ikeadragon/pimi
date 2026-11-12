@@ -1,6 +1,6 @@
 import type { PluginText } from "../text.js";
 import type { ComponentType } from "react";
-import type { PaseoApi } from "@pimi/client";
+import type { PimiApi } from "@pimi/client";
 import type { AgentTimelineItem, JsonValue } from "@pimi/protocol/agent-types";
 import type { ZodType, input as ZodInput, output as ZodOutput } from "zod";
 import type { PluginFile } from "./file.js";
@@ -191,7 +191,7 @@ export interface PluginClientContext extends PluginCommandCapabilities {
   ): PluginCleanup;
   openPanel(id: string, options: PluginClientOpenPanelOptions): void;
   /**
-   * Subscribes to a plugin subscription on this client's host. Paseo re-subscribes after a
+   * Subscribes to a plugin subscription on this client's host. Pimi re-subscribes after a
    * reconnect and releases what is left when the plugin stops.
    */
   subscribe<InputSchema extends ZodType, EventSchema extends ZodType>(
@@ -267,9 +267,7 @@ export interface PluginTimelineRendererContribution<Schema extends ZodType = Zod
 }
 
 export interface PluginCommandCapabilities {
-  pimi: PaseoApi;
-  /** @deprecated Use pimi. */
-  paseo: PaseoApi;
+  pimi: PimiApi;
   rpc<InputSchema extends ZodType, OutputSchema extends ZodType>(
     contract: PluginRpcContract<InputSchema, OutputSchema>,
     input: PluginWireInput<ZodInput<InputSchema>>,

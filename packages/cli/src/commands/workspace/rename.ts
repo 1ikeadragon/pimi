@@ -42,7 +42,7 @@ export function resolveWorkspaceTitle(input: { title?: string; reset?: boolean }
     throw {
       code: "MISSING_TITLE",
       message: "Title cannot be empty",
-      details: "Usage: paseo workspace rename <workspace-id> <title> | --reset",
+      details: "Usage: pimi workspace rename <workspace-id> <title> | --reset",
     } satisfies CommandError;
   }
   return title;

@@ -14,12 +14,12 @@ import type {
 } from "../workspace-git-service.js";
 import type { ForgeService } from "../../services/forge-service.js";
 import type { TerminalManager } from "../../terminal/terminal-manager.js";
-import { isPaseoOwnedWorktreeCwd } from "../../utils/worktree.js";
+import { isPimiOwnedWorktreeCwd } from "../../utils/worktree.js";
 import type { WorkspaceArchiveContext } from "../workspace-registry.js";
 
 export interface AutoArchiveArchiveOptions {
   pimiHome: string;
-  paseoWorktreesBaseRoot?: string;
+  pimiWorktreesBaseRoot?: string;
   daemonConfigStore: DaemonConfigStore;
   workspaceGitService: WorkspaceGitServiceImpl;
   github: ForgeService;
@@ -37,13 +37,13 @@ export interface AutoArchiveArchiveOptions {
 
 export interface ArchiveIfSafeDependencies {
   archiveByScope: typeof archiveByScope;
-  isPaseoOwnedWorktreeCwd: typeof isPaseoOwnedWorktreeCwd;
+  isPimiOwnedWorktreeCwd: typeof isPimiOwnedWorktreeCwd;
   killTerminalsForWorkspace: typeof killTerminalsForWorkspace;
 }
 
 const defaultDependencies: ArchiveIfSafeDependencies = {
   archiveByScope,
-  isPaseoOwnedWorktreeCwd,
+  isPimiOwnedWorktreeCwd,
   killTerminalsForWorkspace,
 };
 
@@ -77,9 +77,9 @@ export async function archiveIfSafe(input: {
     return;
   }
 
-  const ownership = await deps.isPaseoOwnedWorktreeCwd(cwd, {
+  const ownership = await deps.isPimiOwnedWorktreeCwd(cwd, {
     pimiHome: options.pimiHome,
-    worktreesRoot: options.paseoWorktreesBaseRoot,
+    worktreesRoot: options.pimiWorktreesBaseRoot,
   });
   if (!ownership.allowed) {
     return;
@@ -94,7 +94,7 @@ export async function archiveIfSafe(input: {
     await deps.archiveByScope(
       {
         pimiHome: options.pimiHome,
-        paseoWorktreesBaseRoot: options.paseoWorktreesBaseRoot,
+        pimiWorktreesBaseRoot: options.pimiWorktreesBaseRoot,
         github: options.github,
         workspaceGitService: options.workspaceGitService,
         agentManager: options.agentManager,

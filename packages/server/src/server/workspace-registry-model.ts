@@ -44,13 +44,13 @@ export type PersistedWorkspacePlacement = Pick<
   | "branch"
   | "worktreeRoot"
   | "baseBranch"
-  | "isPaseoOwnedWorktree"
+  | "isPimiOwnedWorktree"
   | "mainRepoRoot"
 >;
 
 export type MutableWorkspacePlacement = Pick<
   PersistedWorkspaceRecord,
-  "kind" | "branch" | "worktreeRoot" | "isPaseoOwnedWorktree" | "mainRepoRoot"
+  "kind" | "branch" | "worktreeRoot" | "isPimiOwnedWorktree" | "mainRepoRoot"
 >;
 
 export type InitialWorkspacePlacementInput =
@@ -85,7 +85,7 @@ export function initialWorkspacePlacement(
       branch: input.branch,
       worktreeRoot: input.worktreeRoot,
       baseBranch: input.baseBranch,
-      isPaseoOwnedWorktree: true,
+      isPimiOwnedWorktree: true,
       mainRepoRoot: input.mainRepoRoot,
     };
   }
@@ -98,7 +98,7 @@ export function initialWorkspacePlacement(
     branch,
     worktreeRoot: input.checkout.isGit ? (input.checkout.worktreeRoot ?? input.cwd) : null,
     baseBranch: null,
-    isPaseoOwnedWorktree: input.checkout.isGit && input.checkout.isPaseoOwnedWorktree,
+    isPimiOwnedWorktree: input.checkout.isGit && input.checkout.isPimiOwnedWorktree,
     mainRepoRoot: input.checkout.isGit ? input.checkout.mainRepoRoot : null,
   };
 }
@@ -127,8 +127,8 @@ export function reconcileWorkspacePlacement(input: {
   if (input.workspace.branch !== observed.branch) fields.branch = observed.branch;
   if (input.workspace.worktreeRoot !== observed.worktreeRoot)
     fields.worktreeRoot = observed.worktreeRoot;
-  if (input.workspace.isPaseoOwnedWorktree !== observed.isPaseoOwnedWorktree)
-    fields.isPaseoOwnedWorktree = observed.isPaseoOwnedWorktree;
+  if (input.workspace.isPimiOwnedWorktree !== observed.isPimiOwnedWorktree)
+    fields.isPimiOwnedWorktree = observed.isPimiOwnedWorktree;
   if (input.workspace.mainRepoRoot !== observed.mainRepoRoot)
     fields.mainRepoRoot = observed.mainRepoRoot;
 
@@ -153,7 +153,7 @@ export function checkoutFromPersistedWorkspacePlacement(input: {
       currentBranch: null,
       remoteUrl: null,
       worktreeRoot: null,
-      isPaseoOwnedWorktree: false,
+      isPimiOwnedWorktree: false,
       mainRepoRoot: null,
     };
   }
@@ -164,18 +164,18 @@ export function checkoutFromPersistedWorkspacePlacement(input: {
     remoteUrl: null,
     worktreeRoot: workspace.worktreeRoot ?? input.fallbackWorktreeRoot ?? workspace.cwd,
   };
-  if (workspace.isPaseoOwnedWorktree && workspace.mainRepoRoot) {
+  if (workspace.isPimiOwnedWorktree && workspace.mainRepoRoot) {
     return {
       ...checkout,
       isGit: true,
-      isPaseoOwnedWorktree: true,
+      isPimiOwnedWorktree: true,
       mainRepoRoot: workspace.mainRepoRoot,
     };
   }
   return {
     ...checkout,
     isGit: true,
-    isPaseoOwnedWorktree: false,
+    isPimiOwnedWorktree: false,
     mainRepoRoot: workspace.mainRepoRoot ?? null,
   };
 }
@@ -192,7 +192,7 @@ export function checkoutLiteFromGitSnapshot(
     currentBranch: string | null;
     remoteUrl: string | null;
     repoRoot: string | null;
-    isPaseoOwnedWorktree: boolean;
+    isPimiOwnedWorktree: boolean;
     mainRepoRoot: string | null;
   },
 ): ProjectCheckoutLitePayload {
@@ -203,18 +203,18 @@ export function checkoutLiteFromGitSnapshot(
       currentBranch: null,
       remoteUrl: null,
       worktreeRoot: null,
-      isPaseoOwnedWorktree: false,
+      isPimiOwnedWorktree: false,
       mainRepoRoot: null,
     };
   }
-  if (git.isPaseoOwnedWorktree && git.mainRepoRoot) {
+  if (git.isPimiOwnedWorktree && git.mainRepoRoot) {
     return {
       cwd,
       isGit: true,
       currentBranch: git.currentBranch,
       remoteUrl: git.remoteUrl,
       worktreeRoot: git.repoRoot ?? cwd,
-      isPaseoOwnedWorktree: true,
+      isPimiOwnedWorktree: true,
       mainRepoRoot: git.mainRepoRoot,
     };
   }
@@ -224,7 +224,7 @@ export function checkoutLiteFromGitSnapshot(
     currentBranch: git.currentBranch,
     remoteUrl: git.remoteUrl,
     worktreeRoot: git.repoRoot ?? cwd,
-    isPaseoOwnedWorktree: false,
+    isPimiOwnedWorktree: false,
     mainRepoRoot: git.mainRepoRoot,
   };
 }

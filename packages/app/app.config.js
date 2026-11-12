@@ -4,7 +4,7 @@ const withAndroidOptionalCamera = require("./plugins/with-android-optional-camer
 const withAndroidProfileable = require("./plugins/with-android-profileable");
 const withPasteInput = require("./plugins/with-paste-input");
 const withPimiAndroidRelease = require("./plugins/with-pimi-android-release");
-const withAndroidScroll = require("./modules/paseo-scroll/app.plugin");
+const withAndroidScroll = require("./modules/pimi-scroll/app.plugin");
 const { getNativeReleaseVersion } = require("./native-release-version");
 const appVariant = process.env.APP_VARIANT ?? "production";
 const isPimiAndroid = appVariant === "pimi-android";
@@ -89,7 +89,7 @@ export default {
       searchPaths: ["../../node_modules", "./node_modules"],
     },
     plugins: [
-      "./modules/paseo-hardware-keyboard/app.plugin",
+      "./modules/pimi-hardware-keyboard/app.plugin",
       "expo-router",
       withPasteInput,
       withAndroidScroll,

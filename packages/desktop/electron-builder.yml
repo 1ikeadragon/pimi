@@ -113,9 +113,6 @@ mac:
   extraResources:
     - from: bin/pimi
       to: bin/pimi
-    # Existing desktop installs can still have an old shell link into the bundle.
-    - from: bin/paseo
-      to: bin/paseo
   target:
     - dmg
     - zip
@@ -125,8 +122,6 @@ win:
   extraResources:
     - from: bin/pimi.cmd
       to: bin/pimi.cmd
-    - from: bin/paseo.cmd
-      to: bin/paseo.cmd
   target:
     - target: nsis
       arch:

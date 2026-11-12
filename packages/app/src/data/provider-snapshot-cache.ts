@@ -11,7 +11,7 @@ import type { GetProvidersSnapshotResponseMessage } from "@pimi/protocol/message
 type SnapshotPayload = GetProvidersSnapshotResponseMessage["payload"];
 
 const CACHE_VERSION = 2;
-const CACHE_KEY_PREFIX = "@paseo/provider-snapshot/v2";
+const CACHE_KEY_PREFIX = "@pimi/provider-snapshot/v2";
 const DEFAULT_MAX_CACHE_BYTES = 4 * 1024 * 1024;
 
 interface ProviderSnapshotStorage {

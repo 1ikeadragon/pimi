@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 import { useEffect } from "react";
 import { PimiReportLinkTarget } from "@pimi/protocol/pimi-task";
 import { parseAssistantFileLink, normalizeInlinePathTarget } from "@/assistant-file-links/parse";

@@ -9,7 +9,7 @@ import { en, type TranslationResources } from "./resources/en";
 // output stay verbatim. The phone pairing hint names the actual companion app.
 function brandTranslation(value: unknown, path = ""): unknown {
   if (typeof value === "string")
-    return path === "pairing.device.hint" ? value : value.replace(/\bPaseo\b/g, "Pimi");
+    return path === "pairing.device.hint" ? value : value.replace(/\bPimi\b/g, "Pimi");
   if (Array.isArray(value)) return value.map((item) => brandTranslation(item, path));
   if (value && typeof value === "object")
     return Object.fromEntries(

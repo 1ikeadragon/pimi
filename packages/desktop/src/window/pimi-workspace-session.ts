@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
 import { observeSessionNetwork } from "../diagnostics/network-activity.js";
 import { session } from "electron";

@@ -6,10 +6,10 @@ import type { BrowserToolsBroker } from "../../browser-tools/broker.js";
 import { findingLine } from "../../attack/prompts.js";
 import type { AttackService } from "../../attack/service.js";
 import {
-  PaseoToolInputError,
-  type PaseoToolConfig,
-  type PaseoToolExecutionContext,
-  type PaseoToolResult,
+  PimiToolInputError,
+  type PimiToolConfig,
+  type PimiToolExecutionContext,
+  type PimiToolResult,
 } from "./types.js";
 
 const TextEvidenceSchema = z.object({
@@ -87,8 +87,8 @@ const FinishInput = z.object({
 export interface RegisterAttackToolsOptions {
   registerTool: (
     name: string,
-    config: PaseoToolConfig,
-    handler: (input: unknown, context: PaseoToolExecutionContext) => Promise<PaseoToolResult>,
+    config: PimiToolConfig,
+    handler: (input: unknown, context: PimiToolExecutionContext) => Promise<PimiToolResult>,
   ) => void;
   scope: "agent" | "top-level";
   service?: AttackService | null;
@@ -102,7 +102,7 @@ type ActiveOptions = RegisterAttackToolsOptions & { service: AttackService };
 
 function requireCaller(options: ActiveOptions): string {
   if (!options.callerAgentId) {
-    throw new PaseoToolInputError("This tool is only for agents inside an Attack run.");
+    throw new PimiToolInputError("This tool is only for agents inside an Attack run.");
   }
   return options.callerAgentId;
 }
@@ -124,7 +124,7 @@ async function captureScreenshots(
       command: { command: "screenshot", args: { browserId, fullPage: false } },
     });
     if (!payload.ok || payload.result.command !== "screenshot") {
-      throw new PaseoToolInputError(
+      throw new PimiToolInputError(
         `Could not capture a screenshot of ${browserId}: ${payload.ok ? "unexpected result" : payload.error.message}`,
       );
     }
@@ -222,7 +222,7 @@ export function registerAttackTools(base: RegisterAttackToolsOptions): void {
       const agentId = requireCaller(options);
       const parsed = FinishInput.parse(input);
       const run = await options.service.runForAgent(agentId);
-      if (!run) throw new PaseoToolInputError("This agent is not part of an Attack run.");
+      if (!run) throw new PimiToolInputError("This agent is not part of an Attack run.");
       const { run: completed, review } = await options.service.completeRun(
         run.id,
         agentId,

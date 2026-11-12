@@ -1,5 +1,5 @@
 import { ipcMain } from "electron";
-import { PaseoBrowserWebviewRegistry } from "../browser-webviews/registry.js";
+import { PimiBrowserWebviewRegistry } from "../browser-webviews/registry.js";
 import {
   type BrowserKeyboardPolicy,
   classifyBrowserReservedShortcut,
@@ -61,7 +61,7 @@ export class BrowserKeyboard {
   private readonly attachedGuestsByWebContentsId = new Map<number, BrowserKeyboardGuest>();
   private readonly policiesByHostWebContentsId = new Map<number, BrowserKeyboardPolicy>();
 
-  public constructor(private readonly browserRegistry: PaseoBrowserWebviewRegistry) {}
+  public constructor(private readonly browserRegistry: PimiBrowserWebviewRegistry) {}
 
   public registerIpc(): void {
     ipcMain.handle(POLICY_INPUT_CHANNEL, (event, rawPolicy: unknown) => {

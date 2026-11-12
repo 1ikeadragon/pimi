@@ -47,7 +47,7 @@ import type {
   ProjectPlacementPayload,
   AgentPermissionResolvedMessage,
   CreateAgentRequestMessage,
-  CreatePaseoWorktreeRequest,
+  CreatePimiWorktreeRequest,
   FileDownloadTokenResponse,
   FileUploadResponse,
   FileExplorerResponse,
@@ -81,8 +81,8 @@ import type {
   ForgeSearchResponse,
   ForgeSearchRequest,
   DirectorySuggestionsResponse,
-  PaseoWorktreeListResponse,
-  PaseoWorktreeArchiveResponse,
+  PimiWorktreeListResponse,
+  PimiWorktreeArchiveResponse,
   ProjectIconSource,
   ProjectIconResponse,
   ProjectIconGetResponse,
@@ -120,8 +120,8 @@ import type {
   SessionInboundMessage,
   SessionOutboundMessage,
   SendAgentMessageRequest,
-  PaseoConfigRaw,
-  PaseoConfigRevision,
+  PimiConfigRaw,
+  PimiConfigRevision,
   WorkspaceCreateRequest,
   WorkspaceRecoveryState,
   PluginListItem,
@@ -511,8 +511,8 @@ export interface CreateWorkspaceRequestOptions {
   requestId?: string;
 }
 
-export interface CreatePaseoWorktreeInput extends Pick<
-  CreatePaseoWorktreeRequest,
+export interface CreatePimiWorktreeInput extends Pick<
+  CreatePimiWorktreeRequest,
   | "cwd"
   | "projectId"
   | "worktreeSlug"
@@ -549,9 +549,9 @@ type ValidateBranchPayload = ValidateBranchResponse["payload"];
 type BranchSuggestionsPayload = BranchSuggestionsResponse["payload"];
 type ForgeSearchPayload = ForgeSearchResponse["payload"];
 type DirectorySuggestionsPayload = DirectorySuggestionsResponse["payload"];
-type PaseoWorktreeListPayload = PaseoWorktreeListResponse["payload"];
-type PaseoWorktreeArchivePayload = PaseoWorktreeArchiveResponse["payload"];
-type CreatePaseoWorktreePayload = Extract<
+type PimiWorktreeListPayload = PimiWorktreeListResponse["payload"];
+type PimiWorktreeArchivePayload = PimiWorktreeArchiveResponse["payload"];
+type CreatePimiWorktreePayload = Extract<
   SessionOutboundMessage,
   { type: "create_pimi_worktree_response" }
 >["payload"];
@@ -611,8 +611,8 @@ type ListCommandsDraftConfig = Pick<
 >;
 export interface WriteProjectConfigInput {
   repoRoot: string;
-  config: PaseoConfigRaw;
-  expectedRevision: PaseoConfigRevision | null;
+  config: PimiConfigRaw;
+  expectedRevision: PimiConfigRevision | null;
   requestId?: string;
 }
 interface ListCommandsOptions {
@@ -4982,7 +4982,7 @@ export class DaemonClient {
 
   async stashList(
     cwd: string,
-    options?: { paseoOnly?: boolean },
+    options?: { pimiOnly?: boolean },
     requestId?: string,
   ): Promise<StashListPayload> {
     return this.sendCorrelatedSessionRequest({
@@ -4990,16 +4990,16 @@ export class DaemonClient {
       message: {
         type: "stash_list_request",
         cwd,
-        paseoOnly: options?.paseoOnly,
+        pimiOnly: options?.pimiOnly,
       },
       responseType: "stash_list_response",
     });
   }
 
-  async getPaseoWorktreeList(
+  async getPimiWorktreeList(
     input: { cwd?: string; repoRoot?: string },
     requestId?: string,
-  ): Promise<PaseoWorktreeListPayload> {
+  ): Promise<PimiWorktreeListPayload> {
     return this.sendCorrelatedSessionRequest({
       requestId,
       message: {
@@ -5011,7 +5011,7 @@ export class DaemonClient {
     });
   }
 
-  async archivePaseoWorktree(
+  async archivePimiWorktree(
     input: {
       worktreePath?: string;
       repoRoot?: string;
@@ -5020,7 +5020,7 @@ export class DaemonClient {
       scope?: "workspace" | "worktree";
     },
     requestId?: string,
-  ): Promise<PaseoWorktreeArchivePayload> {
+  ): Promise<PimiWorktreeArchivePayload> {
     return this.sendCorrelatedSessionRequest({
       requestId,
       message: {
@@ -5035,10 +5035,10 @@ export class DaemonClient {
     });
   }
 
-  async createPaseoWorktree(
-    input: CreatePaseoWorktreeInput,
+  async createPimiWorktree(
+    input: CreatePimiWorktreeInput,
     requestId?: string,
-  ): Promise<CreatePaseoWorktreePayload> {
+  ): Promise<CreatePimiWorktreePayload> {
     return this.sendCorrelatedSessionRequest({
       requestId,
       message: {

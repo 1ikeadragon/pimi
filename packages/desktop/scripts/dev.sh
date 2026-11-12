@@ -11,7 +11,7 @@ export PATH="$ROOT_DIR/node_modules/.bin:$PATH"
 export PIMI_LISTEN="${PIMI_LISTEN:-127.0.0.1:6768}"
 configure_dev_pimi_home
 
-DEV_ROOT="${PIMI_DEV_ROOT:-$(default_dev_paseo_root)}"
+DEV_ROOT="${PIMI_DEV_ROOT:-$(default_dev_pimi_root)}"
 export PIMI_DEV_ROOT="$DEV_ROOT"
 export PIMI_DEV_RUNTIME_FALLBACK_ROOT="$DEV_ROOT"
 DEV_RUNTIME="$(node "$SCRIPT_DIR/dev-runtime.mjs")"

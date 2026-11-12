@@ -40,7 +40,7 @@ export interface AgentModeOptions extends CommandOptions {
 const missingModeError = (): CommandError => ({
   code: "MISSING_ARGUMENT",
   message: "Mode argument required unless --list is specified",
-  details: "Usage: paseo agent mode <id> <mode> | paseo agent mode --list <id>",
+  details: "Usage: pimi agent mode <id> <mode> | pimi agent mode --list <id>",
 });
 
 // This command returns two different data shapes (set result vs mode list).
@@ -70,7 +70,7 @@ export async function runModeCommand(
       const error: CommandError = {
         code: "AGENT_NOT_FOUND",
         message: `No agent found matching: ${id}`,
-        details: "Use `paseo ls` to list available agents",
+        details: "Use `pimi ls` to list available agents",
       };
       throw error;
     }

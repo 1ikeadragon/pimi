@@ -1433,7 +1433,7 @@ export class OpenCodeAgentClient implements AgentClient {
     this.bridge = deps.bridge;
     this.capabilities = {
       ...OPENCODE_CAPABILITIES,
-      ...(this.bridge ? { supportsNativePaseoTools: true } : {}),
+      ...(this.bridge ? { supportsNativePimiTools: true } : {}),
     };
     this.runtimeSettings = runtimeSettings;
     this.createOpenCodeClient = deps.createClient ?? createSdkOpenCodeClient;
@@ -1636,7 +1636,7 @@ export class OpenCodeAgentClient implements AgentClient {
     return this.bridge.bindSession({
       sessionId,
       env: launchContext.env ?? {},
-      tools: launchContext.paseoTools,
+      tools: launchContext.pimiTools,
     });
   }
 
@@ -3530,7 +3530,7 @@ class OpenCodeAgentSession implements AgentSession {
   }
 
   /**
-   * The OpenCode session outlives the server process that served it, and Paseo starts the
+   * The OpenCode session outlives the server process that served it, and Pimi starts the
    * next server on a new port. Move to the current server before talking to OpenCode again,
    * so the session does not keep calling a port nothing listens on.
    */

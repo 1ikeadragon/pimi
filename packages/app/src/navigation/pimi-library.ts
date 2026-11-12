@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 import { router } from "expo-router";
 import { getDesktopHost } from "@/desktop/host";
 import { buildOpenProjectRoute } from "@/utils/host-routes";

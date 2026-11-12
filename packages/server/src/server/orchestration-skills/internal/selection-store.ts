@@ -12,12 +12,12 @@ export interface SkillSelectionStore {
 
 const DEFAULT_SKILL_SELECTION: SkillSelection = { mode: "all" };
 export const RENAMED_SKILLS = {
-  paseo: "pimi",
-  "paseo-advisor": "pimi-advisor",
-  "paseo-committee": "pimi-committee",
-  "paseo-handoff": "pimi-handoff",
-  "paseo-help": "pimi-help",
-  "paseo-plugin": "pimi-plugin",
+  pimi: "pimi",
+  "pimi-advisor": "pimi-advisor",
+  "pimi-committee": "pimi-committee",
+  "pimi-handoff": "pimi-handoff",
+  "pimi-help": "pimi-help",
+  "pimi-plugin": "pimi-plugin",
 } as const;
 
 function currentSkillNames(selection: SkillSelection): SkillSelection {

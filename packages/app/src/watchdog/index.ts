@@ -11,7 +11,7 @@ interface NativeRecorder {
 
 const native =
   Constants.expoConfig?.extra?.watchdogBuild === true
-    ? requireOptionalNativeModule<NativeRecorder>("PaseoNativeTrace")
+    ? requireOptionalNativeModule<NativeRecorder>("PimiNativeTrace")
     : null;
 export const watchdog = native
   ? createRecorder(

@@ -160,7 +160,7 @@ async function measureInChild(run: number): Promise<Measurement> {
 }
 
 async function measure(run: number): Promise<Measurement> {
-  const base = await mkdtemp(join(tmpdir(), "paseo-watch-"));
+  const base = await mkdtemp(join(tmpdir(), "pimi-watch-"));
   const observer = createFileObserver();
   const roots: FixtureRoot[] = [];
   for (let rootIndex = 0; rootIndex < ROOT_COUNT; rootIndex += 1) {
@@ -418,7 +418,7 @@ async function measureDirectoryChurn(run: number): Promise<Measurement> {
     );
   }
 
-  const base = await mkdtemp(join(tmpdir(), "paseo-watch-churn-"));
+  const base = await mkdtemp(join(tmpdir(), "pimi-watch-churn-"));
   const root = join(base, "root");
   await mkdir(root, { recursive: true });
   const observer = createFileObserver();

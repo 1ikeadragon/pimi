@@ -46,6 +46,16 @@ async function legacyDaemonRunning(legacyHome: string): Promise<boolean> {
   }
 }
 
+// Absolute paths into the old home, agent label keys ("paseo.parent-agent-id" and friends),
+// and the "<paseo-system>" message envelope tag all moved with the rename.
+function rewriteLegacyText(text: string, from: string, to: string): string {
+  return text
+    .split(from)
+    .join(to)
+    .replace(/"paseo\.(?=[a-z])/g, '"pimi.')
+    .replace(/(<\/?)paseo-system\b/g, "$1pimi-system");
+}
+
 async function rewriteJsonFiles(root: string, from: string, to: string): Promise<number> {
   let rewritten = 0;
   const visit = async (directory: string, depth: number): Promise<void> => {
@@ -60,8 +70,9 @@ async function rewriteJsonFiles(root: string, from: string, to: string): Promise
       if (!entry.isFile() || !entry.name.endsWith(REWRITABLE_EXTENSION)) continue;
       if ((await stat(entryPath)).size > MAX_REWRITE_BYTES) continue;
       const text = await readFile(entryPath, "utf8");
-      if (!text.includes(from)) continue;
-      await writeFile(entryPath, text.split(from).join(to));
+      const next = rewriteLegacyText(text, from, to);
+      if (next === text) continue;
+      await writeFile(entryPath, next);
       rewritten += 1;
     }
   };
@@ -69,8 +80,24 @@ async function rewriteJsonFiles(root: string, from: string, to: string): Promise
   return rewritten;
 }
 
-// Moving a linked worktree breaks the two-way link git keeps with its main checkout.
-async function repairWorktrees(home: string): Promise<number> {
+// Moving a linked worktree breaks the two-way link git keeps with its main checkout. Pimi's
+// ownership record for it sits in the git dir under the old name.
+async function moveWorktreeMetadata(worktreePath: string, from: string, to: string): Promise<void> {
+  const { stdout } = await execFileAsync("git", ["rev-parse", "--absolute-git-dir"], {
+    cwd: worktreePath,
+    timeout: 30_000,
+  });
+  const gitDir = stdout.trim();
+  const legacyDir = path.join(gitDir, "paseo");
+  if (!(await exists(legacyDir))) return;
+  await rename(legacyDir, path.join(gitDir, "pimi"));
+  const metadataPath = path.join(gitDir, "pimi", "worktree.json");
+  if (!(await exists(metadataPath))) return;
+  const text = await readFile(metadataPath, "utf8");
+  await writeFile(metadataPath, rewriteLegacyText(text, from, to));
+}
+
+async function repairWorktrees(home: string, from: string): Promise<number> {
   const worktreesRoot = path.join(home, "worktrees");
   if (!(await exists(worktreesRoot))) return 0;
   let repaired = 0;
@@ -85,6 +112,7 @@ async function repairWorktrees(home: string): Promise<number> {
           cwd: worktreePath,
           timeout: 30_000,
         });
+        await moveWorktreeMetadata(worktreePath, from, home);
         repaired += 1;
       } catch {
         // A worktree whose main checkout is gone stays as it was.
@@ -118,7 +146,7 @@ export async function migrateLegacyHome(
   await rename(from, to);
   await rm(path.join(to, LEGACY_PID_FILE), { force: true });
   const rewrittenFiles = await rewriteJsonFiles(to, from, to);
-  const repairedWorktrees = await repairWorktrees(to);
+  const repairedWorktrees = await repairWorktrees(to, from);
   log(
     `Migrated daemon home ${from} -> ${to} (rewrote paths in ${rewrittenFiles} files, repaired ${repairedWorktrees} worktrees)`,
   );

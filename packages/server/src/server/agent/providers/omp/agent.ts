@@ -41,7 +41,7 @@ import {
   type SteerResult,
   type ToolCallDetail,
 } from "../../agent-sdk-types.js";
-import type { PaseoToolCatalog } from "../../tools/types.js";
+import type { PimiToolCatalog } from "../../tools/types.js";
 import { importSessionFromPersistence } from "../../provider-session-import.js";
 import { runProviderRefreshActivity } from "../../provider-refresh-deadline.js";
 import { runProviderTurn } from "../provider-runner.js";
@@ -479,7 +479,7 @@ function withOmpCapabilities(): AgentCapabilityFlags {
   return {
     ...OMP_CORE_CAPABILITIES,
     supportsMcpServers: true,
-    supportsNativePaseoTools: true,
+    supportsNativePimiTools: true,
   };
 }
 
@@ -1910,7 +1910,7 @@ export class OmpAgentSession implements AgentSession {
           return;
         }
         // A state request is processed after OMP's RPC loop becomes promptable,
-        // so do not advertise Paseo idle until it reports that transition.
+        // so do not advertise Pimi idle until it reports that transition.
         void this.completeTurnAfterProviderIdle(turnId, terminalMessages);
         return;
       }
@@ -2267,9 +2267,9 @@ export class OmpAgentClient implements AgentClient {
     this.runtime = options.runtime;
   }
 
-  private async configureNativePaseoTools(
+  private async configureNativePimiTools(
     runtimeSession: OmpRuntimeSession,
-    catalog: PaseoToolCatalog | undefined,
+    catalog: PimiToolCatalog | undefined,
     config: AgentSessionConfig,
     launchEnv?: NodeJS.ProcessEnv,
   ): Promise<OmpHostToolRouter | undefined> {
@@ -2324,9 +2324,9 @@ export class OmpAgentClient implements AgentClient {
     );
     let hostTools: OmpHostToolRouter | undefined;
     try {
-      hostTools = await this.configureNativePaseoTools(
+      hostTools = await this.configureNativePimiTools(
         runtimeSession,
-        launchContext?.paseoTools,
+        launchContext?.pimiTools,
         config,
         startInput.env,
       );
@@ -2394,9 +2394,9 @@ export class OmpAgentClient implements AgentClient {
     ).startSession(startInput);
     let hostTools: OmpHostToolRouter | undefined;
     try {
-      hostTools = await this.configureNativePaseoTools(
+      hostTools = await this.configureNativePimiTools(
         runtimeSession,
-        launchContext?.paseoTools,
+        launchContext?.pimiTools,
         resumeConfig.config,
         startInput.env,
       );
@@ -2473,9 +2473,9 @@ export class OmpAgentClient implements AgentClient {
       });
       let hostTools: OmpHostToolRouter | undefined;
       try {
-        hostTools = await this.configureNativePaseoTools(
+        hostTools = await this.configureNativePimiTools(
           next,
-          launchContext?.paseoTools,
+          launchContext?.pimiTools,
           config,
           startInput.env,
         );

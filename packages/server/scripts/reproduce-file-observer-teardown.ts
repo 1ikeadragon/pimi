@@ -63,7 +63,7 @@ async function main(): Promise<void> {
 }
 
 async function runChild(): Promise<ChildResult> {
-  const base = await mkdtemp(join(tmpdir(), "paseo-watch-repro-"));
+  const base = await mkdtemp(join(tmpdir(), "pimi-watch-repro-"));
   const observer = createFileObserver();
   const teardownErrors: string[] = [];
   const teardownDurations: number[] = [];

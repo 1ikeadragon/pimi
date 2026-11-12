@@ -3,12 +3,12 @@ import type { AgentPromptSource } from "../agent-messages/index.js";
 import type { Logger } from "pino";
 
 import type { TerminalManager } from "../../../terminal/terminal-manager.js";
-import type { CreatePaseoWorktreeInput } from "../../paseo-worktree-service.js";
+import type { CreatePimiWorktreeInput } from "../../pimi-worktree-service.js";
 import { expandUserPath, resolvePathFromBase } from "../../path-utils.js";
 import { toWorktreeRequestError } from "../../worktree-errors.js";
 import type {
-  CreatePaseoWorktreeWorkflowFn,
-  CreatePaseoWorktreeWorkflowResult,
+  CreatePimiWorktreeWorkflowFn,
+  CreatePimiWorktreeWorkflowResult,
 } from "../../worktree-session.js";
 import type {
   AgentAttachment,
@@ -48,7 +48,7 @@ export interface CreateAgentCommandDependencies {
   worktreesRoot?: string;
   terminalManager?: TerminalManager | null;
   providerSnapshotManager: Pick<ProviderSnapshotManager, "resolveCreateConfig">;
-  createPaseoWorktree?: CreatePaseoWorktreeWorkflowFn;
+  createPimiWorktree?: CreatePimiWorktreeWorkflowFn;
   // Mints a fresh directory workspace for a cwd and returns its id.
   ensureWorkspaceForCreate?: EnsureWorkspaceForCreate;
   /** The host's agent profiles, read when a creation names one. */
@@ -108,9 +108,9 @@ export interface CreateAgentFromMcpInput {
   env?: Record<string, string>;
   onCreated?: (created: {
     agentId: string;
-    createdWorktree: CreatePaseoWorktreeWorkflowResult | null;
+    createdWorktree: CreatePimiWorktreeWorkflowResult | null;
   }) => void;
-  onWorktreeCreated?: (createdWorktree: CreatePaseoWorktreeWorkflowResult) => void;
+  onWorktreeCreated?: (createdWorktree: CreatePimiWorktreeWorkflowResult) => void;
   callerAgentId?: string;
   callerContext?: {
     lockedCwd?: string;
@@ -136,7 +136,7 @@ export interface CreateAgentCommandResult {
   liveSnapshot: ManagedAgent;
   initialPromptStarted: boolean;
   initialPromptError: unknown | null;
-  createdWorktree?: CreatePaseoWorktreeWorkflowResult;
+  createdWorktree?: CreatePimiWorktreeWorkflowResult;
 }
 
 export type BoundCreateAgentCommand = (
@@ -176,7 +176,7 @@ interface ResolvedCreateAgent {
   runOptions?: AgentRunOptions;
   promptFailure: CreateAgentPromptFailureMode;
   promptLogger?: Logger;
-  createdWorktree?: CreatePaseoWorktreeWorkflowResult;
+  createdWorktree?: CreatePimiWorktreeWorkflowResult;
 }
 
 export async function createAgentCommand(
@@ -326,7 +326,7 @@ async function resolveSessionCreateAgent(
       env: input.env,
       initialTitle: input.provisionalTitle,
       initialTitleProvisional: Boolean(input.provisionalTitle && !sessionConfig.title?.trim()),
-      // Paseo never persists an internal agent, so nothing could resume its
+      // Pimi never persists an internal agent, so nothing could resume its
       // provider session either. Same as the daemon's own ephemeral helpers.
       ...(sessionConfig.internal ? { persistSession: false } : {}),
       workspaceId: requireResolvedWorkspaceId(workspaceId),
@@ -564,19 +564,19 @@ function resolveChildAgentCwd(params: {
 }
 
 interface CreateMcpWorktreeOptions {
-  input: CreatePaseoWorktreeInput;
-  createPaseoWorktree: CreatePaseoWorktreeWorkflowFn | undefined;
+  input: CreatePimiWorktreeInput;
+  createPimiWorktree: CreatePimiWorktreeWorkflowFn | undefined;
   resolveDefaultBranch?: (repoRoot: string) => Promise<string>;
 }
 
 async function createMcpWorktree(
   options: CreateMcpWorktreeOptions,
-): Promise<CreatePaseoWorktreeWorkflowResult> {
+): Promise<CreatePimiWorktreeWorkflowResult> {
   try {
-    if (!options.createPaseoWorktree) {
+    if (!options.createPimiWorktree) {
       throw new Error("Pimi worktree service is not configured");
     }
-    return await options.createPaseoWorktree(
+    return await options.createPimiWorktree(
       options.input,
       options.resolveDefaultBranch ? { resolveDefaultBranch: options.resolveDefaultBranch } : {},
     );
@@ -594,7 +594,7 @@ async function resolveMcpCwd(params: {
 }): Promise<{
   resolvedCwd: string;
   createdWorkspaceId?: string;
-  createdWorktree?: CreatePaseoWorktreeWorkflowResult;
+  createdWorktree?: CreatePimiWorktreeWorkflowResult;
 }> {
   const { dependencies, worktree } = params;
   if (!worktree) {
@@ -630,7 +630,7 @@ async function resolveMcpCwd(params: {
       pimiHome: dependencies.pimiHome,
       worktreesRoot: dependencies.worktreesRoot,
     },
-    createPaseoWorktree: dependencies.createPaseoWorktree,
+    createPimiWorktree: dependencies.createPimiWorktree,
     resolveDefaultBranch: baseBranch ? async () => baseBranch : undefined,
   });
   return {

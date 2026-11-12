@@ -632,8 +632,8 @@ function ChangesToolbarTrailing({ children }: { children: ReactNode }) {
   return <ToolbarControls style={styles.changesToolbarControls}>{children}</ToolbarControls>;
 }
 
-function isManagedWorktree(status: { isPaseoOwnedWorktree?: boolean } | null | undefined): boolean {
-  return status?.isPaseoOwnedWorktree === true;
+function isManagedWorktree(status: { isPimiOwnedWorktree?: boolean } | null | undefined): boolean {
+  return status?.isPimiOwnedWorktree === true;
 }
 
 function ChangesRepositoryToolbar({

@@ -8,8 +8,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, MoreVertical, Pencil, Plus } from "lucide-react-native";
 import { ProjectIconView } from "@/components/project-icon-view";
 import type {
-  PaseoConfigRaw,
-  PaseoConfigRevision,
+  PimiConfigRaw,
+  PimiConfigRevision,
   ProjectConfigRpcError,
 } from "@pimi/protocol/messages";
 import type { DaemonClient } from "@pimi/client/internal/daemon-client";
@@ -250,8 +250,8 @@ function ProjectSettingsBody({
       selectedHost.projectName,
     ],
   );
-  const loadedConfig: PaseoConfigRaw | null = data?.ok ? (data.config ?? {}) : null;
-  const loadedRevision: PaseoConfigRevision | null = data?.ok ? data.revision : null;
+  const loadedConfig: PimiConfigRaw | null = data?.ok ? (data.config ?? {}) : null;
+  const loadedRevision: PimiConfigRevision | null = data?.ok ? data.revision : null;
   const hasUncommittedWorktreeSetupChanges =
     data?.ok === true && data.hasUncommittedWorktreeSetupChanges === true;
   const readError: ProjectConfigRpcError | null = data && !data.ok ? data.error : null;
@@ -319,8 +319,8 @@ function ProjectSettingsBody({
 
 interface RenderContentInput {
   readQuery: ReturnType<typeof useQuery<ReadProjectConfigData>>;
-  loadedConfig: PaseoConfigRaw | null;
-  loadedRevision: PaseoConfigRevision | null;
+  loadedConfig: PimiConfigRaw | null;
+  loadedRevision: PimiConfigRevision | null;
   hasUncommittedWorktreeSetupChanges: boolean;
   readError: ProjectConfigRpcError | null;
   selectedHost: ProjectHostEntry;
@@ -394,7 +394,7 @@ function renderContent({
   );
 }
 
-function revisionToKey(revision: PaseoConfigRevision | null): string {
+function revisionToKey(revision: PimiConfigRevision | null): string {
   if (!revision) return "none";
   return `${revision.mtimeMs}-${revision.size}`;
 }
@@ -464,8 +464,8 @@ function errorToDetail(error: unknown): string | null {
 }
 
 interface ProjectConfigFormProps {
-  baseConfig: PaseoConfigRaw;
-  revision: PaseoConfigRevision | null;
+  baseConfig: PimiConfigRaw;
+  revision: PimiConfigRevision | null;
   hasUncommittedWorktreeSetupChanges: boolean;
   repoRoot: string;
   queryKey: readonly [string, string, string];
@@ -492,8 +492,8 @@ function ProjectConfigForm({
 
   const saveMutation = useMutation({
     mutationFn: async (input: {
-      config: PaseoConfigRaw;
-      expectedRevision: PaseoConfigRevision | null;
+      config: PimiConfigRaw;
+      expectedRevision: PimiConfigRevision | null;
     }) => {
       return client.writeProjectConfig({
         repoRoot,

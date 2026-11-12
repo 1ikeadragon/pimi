@@ -68,7 +68,7 @@ export {
   useFileUrl,
 } from "./file.js";
 export type { PimiApi } from "@pimi/client";
-export { usePimi, usePaseo } from "./paseo-context.js";
+export { usePimi } from "./pimi-context.js";
 export { useAgent, useWorkspace } from "./client-state.js";
 export { useRpc, useSubscription, type PluginSubscriptionState } from "./rpc-context.js";
 export type {
@@ -92,7 +92,7 @@ export interface PluginHostSummary {
 /** Live configured hosts. Supplied by the app's client bundle loader. */
 export declare function useHosts(): readonly PluginHostSummary[];
 /** Borrow an online host's API under this installation's lifetime. */
-export declare function getPaseoClient(serverId: string): import("@pimi/client").PaseoApi;
+export declare function getPimiClient(serverId: string): import("@pimi/client").PimiApi;
 /** Open an absolute HTTP(S) URL using the client platform’s external opener. */
 export declare function openExternalUrl(url: string): Promise<void>;
 

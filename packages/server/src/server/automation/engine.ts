@@ -11,7 +11,7 @@ import type { AgentManager } from "../agent/agent-manager.js";
 import { curateAgentActivity } from "../agent/activity-curator.js";
 import { type BoundCreateAgentCommand, formatProviderModel } from "../agent/create-agent/create.js";
 import type { PersistedWorkspaceRecord } from "../workspace-registry.js";
-import type { CreatePaseoWorktreeWorkflowResult } from "../worktree-session.js";
+import type { CreatePimiWorktreeWorkflowResult } from "../worktree-session.js";
 
 const STEP_OUTPUT_LIMIT = 24_000;
 const PERMISSION_POLL_MS = 1000;
@@ -32,7 +32,7 @@ export interface AutomationEngineDeps {
   createWorktreeWorkspace: (input: {
     cwd: string;
     firstAgentContext: FirstAgentContext;
-  }) => Promise<CreatePaseoWorktreeWorkflowResult>;
+  }) => Promise<CreatePimiWorktreeWorkflowResult>;
   // keepDirectory archives the workspace and its agents but leaves the directory alone: no
   // teardown commands, no removal. Pass it unless the run created the worktree.
   archiveWorkspace: (workspaceId: string, options: { keepDirectory: boolean }) => Promise<void>;

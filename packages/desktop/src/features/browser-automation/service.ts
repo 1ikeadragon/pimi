@@ -39,7 +39,7 @@ export interface TabContents {
   withFrameProduction<T>(capture: () => Promise<T>): Promise<T>;
   sendInputEvent(event: IsolatedKeyboardInputEvent): void;
   // Commits text into this tab's focused element. CDP Input.insertText would
-  // commit into whichever element has focus in the Paseo window instead.
+  // commit into whichever element has focus in the Pimi window instead.
   insertText(text: string): Promise<void>;
   getConsoleMessages?(): BrowserAutomationConsoleLogEntry[];
   captureDialogs?<T>(
@@ -1426,7 +1426,7 @@ async function executeUpload(
     }
     const evaluated = (await target.contents.sendDebugCommand("Runtime.evaluate", {
       expression,
-      objectGroup: "paseo-browser-automation",
+      objectGroup: "pimi-browser-automation",
       returnByValue: false,
     })) as CdpRuntimeEvaluateResult;
     const objectId = evaluated.result?.objectId;

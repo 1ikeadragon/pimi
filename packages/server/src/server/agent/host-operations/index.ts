@@ -21,7 +21,7 @@ import {
   type BackgroundCaller,
 } from "../create-agent/intent.js";
 import { expandUserPath } from "../../path-utils.js";
-import type { PaseoToolExecutionContext, PaseoToolResult } from "../tools/types.js";
+import type { PimiToolExecutionContext, PimiToolResult } from "../tools/types.js";
 
 export class HostOperationRejectedError extends Error {
   readonly code: unknown;
@@ -37,8 +37,8 @@ function isAmbiguousPromptFailure(error: unknown): boolean {
 }
 export type HostOperation = (
   input: Record<string, unknown>,
-  context: PaseoToolExecutionContext,
-) => Promise<PaseoToolResult>;
+  context: PimiToolExecutionContext,
+) => Promise<PimiToolResult>;
 export interface HostOperations {
   createAgent: HostOperation;
   createWorkspace: HostOperation;
@@ -191,7 +191,7 @@ const remoteCreate = z
       .optional(),
   })
   .strict();
-const result = (structuredContent: unknown): PaseoToolResult => ({
+const result = (structuredContent: unknown): PimiToolResult => ({
   content: [],
   structuredContent,
 });

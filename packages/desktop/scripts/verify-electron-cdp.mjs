@@ -113,14 +113,13 @@ function settingsGeometryClearsWindowChrome(geometry, platform) {
 
 async function readBridgeFullscreen(page) {
   return page.evaluate(
-    async () =>
-      (await window.paseoDesktop?.window?.getCurrentWindow?.()?.isFullscreen?.()) === true,
+    async () => (await window.pimiDesktop?.window?.getCurrentWindow?.()?.isFullscreen?.()) === true,
   );
 }
 
 async function setNativeFullscreen(page, fullscreen) {
   await page.evaluate(async (nextFullscreen) => {
-    const win = window.paseoDesktop?.window?.getCurrentWindow?.();
+    const win = window.pimiDesktop?.window?.getCurrentWindow?.();
     if (typeof win?.setFullscreen !== "function") throw new Error("setFullscreen is unavailable");
     await win.setFullscreen(nextFullscreen);
   }, fullscreen);
@@ -357,7 +356,7 @@ async function inspectFullscreenWindowChrome(page, platform) {
     await waitForBridgeFullscreen(page, true);
 
     const details = await page.evaluate(async () => {
-      const bridge = window.paseoDesktop?.window?.getCurrentWindow?.();
+      const bridge = window.pimiDesktop?.window?.getCurrentWindow?.();
       const bridgeFullscreen =
         typeof bridge?.isFullscreen === "function" ? await bridge.isFullscreen() : null;
       return { bridgeFullscreen };
@@ -522,7 +521,7 @@ async function navigateToWelcome(page) {
 
 async function detectDesktopBridge(page) {
   return page.evaluate(() => {
-    const bridge = window.paseoDesktop;
+    const bridge = window.pimiDesktop;
     const keys = bridge && typeof bridge === "object" ? Object.keys(bridge) : [];
     const keyTypes =
       bridge && typeof bridge === "object"
@@ -709,7 +708,7 @@ async function main() {
     });
 
     const desktopStatus = await page.evaluate(() =>
-      window.paseoDesktop.invoke("desktop_daemon_status"),
+      window.pimiDesktop.invoke("desktop_daemon_status"),
     );
     assert(
       typeof desktopStatus?.serverId === "string" && desktopStatus.serverId.trim().length > 0,

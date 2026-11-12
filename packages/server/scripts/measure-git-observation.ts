@@ -189,7 +189,7 @@ async function closeMeasuredService(input: {
 }
 
 async function main(): Promise<void> {
-  const tempDir = mkdtempSync(path.join(tmpdir(), "paseo-git-observation-measurement-"));
+  const tempDir = mkdtempSync(path.join(tmpdir(), "pimi-git-observation-measurement-"));
   const repoDir = path.join(tempDir, "repo");
   const pimiHome = path.join(tempDir, "pimi-home");
   const trackedPath = path.join(repoDir, "tracked.txt");
@@ -200,8 +200,8 @@ async function main(): Promise<void> {
   writeFileSync(path.join(repoDir, ".gitignore"), "build/\n");
   writeFileSync(trackedPath, "base\n");
   runGit(repoDir, ["init", "-b", "main"]);
-  runGit(repoDir, ["config", "user.email", "measurement@paseo.local"]);
-  runGit(repoDir, ["config", "user.name", "Paseo Measurement"]);
+  runGit(repoDir, ["config", "user.email", "measurement@pimi.local"]);
+  runGit(repoDir, ["config", "user.name", "Pimi Measurement"]);
   runGit(repoDir, ["add", ".gitignore", "tracked.txt"]);
   runGit(repoDir, ["commit", "-m", "fixture"]);
   runGit(repoDir, ["checkout", "-b", "feature"]);

@@ -15,7 +15,7 @@
  * Optional:
  *   BENCH_INCLUDE_L3=1   include the L3 level (L2 + a second noisy terminal)
  *
- * Output: pretty table to stdout + JSON to /tmp/paseo-terminal-bench/<ts>.json
+ * Output: pretty table to stdout + JSON to /tmp/pimi-terminal-bench/<ts>.json
  *
  * Requires built client/protocol dist (packages/client/dist). Build with:
  *   npm run build:client
@@ -179,7 +179,7 @@ async function bootDaemon(): Promise<BootedDaemon> {
   if (port === 6767) {
     throw new Error("Refusing to use port 6767 (the developer daemon)");
   }
-  const pimiHome = await mkdtemp(path.join(os.tmpdir(), "paseo-bench-home-"));
+  const pimiHome = await mkdtemp(path.join(os.tmpdir(), "pimi-bench-home-"));
   const tsxBin = execSync("which tsx").toString().trim();
 
   const child = spawn(tsxBin, ["scripts/supervisor-entrypoint.ts", "--dev"], {
@@ -681,7 +681,7 @@ async function main(): Promise<void> {
     const ctor = await loadDaemonClientCtor();
     client = await connectClient(ctor, daemon.port);
 
-    workspaceDir = await mkdtemp(path.join(os.tmpdir(), "paseo-bench-ws-"));
+    workspaceDir = await mkdtemp(path.join(os.tmpdir(), "pimi-bench-ws-"));
     const opened = await client.openProject(workspaceDir);
     if (!opened.workspace) {
       throw new Error(`Failed to open project: ${opened.error}`);
@@ -711,7 +711,7 @@ async function main(): Promise<void> {
 
     printTable(results);
 
-    const outDir = "/tmp/paseo-terminal-bench";
+    const outDir = "/tmp/pimi-terminal-bench";
     await mkdir(outDir, { recursive: true });
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const outPath = path.join(outDir, `${timestamp}.json`);

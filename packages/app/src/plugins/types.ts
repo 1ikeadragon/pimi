@@ -1,5 +1,5 @@
 import type { PluginText } from "@pimi/plugin/client";
-import type { PaseoApi } from "@pimi/client";
+import type { PimiApi } from "@pimi/client";
 import type { QueryClient } from "@tanstack/react-query";
 import type { PluginRequirements } from "@pimi/protocol/messages";
 import type {
@@ -62,8 +62,8 @@ export interface InstalledPlugin extends EvaluatedPlugin {
   /** Immutable presentation locale, refreshed without replacing the installation lifetime. */
   locale: string;
   i18n: import("@pimi/plugin/client/host").PluginTranslationRuntime;
-  /** The plugin's one Paseo client, `usePaseo()` in every surface; disposed at teardown. */
-  paseo: PaseoApi;
+  /** The plugin's one Pimi client, `usePimi()` in every surface; disposed at teardown. */
+  pimi: PimiApi;
   /** Calls one of the plugin's server RPC methods on its host. */
   invoke(method: string, input: unknown): Promise<unknown>;
   /** Subscribes to one of the plugin's server subscriptions; released with the lifetime. */

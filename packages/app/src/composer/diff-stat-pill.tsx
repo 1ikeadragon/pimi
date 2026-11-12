@@ -94,7 +94,7 @@ export const WorkspaceDiffStatPill = memo(function WorkspaceDiffStatPill({
     );
   }
   return (
-    <PaseoDiffStatPill
+    <ChangesDiffStatPill
       serverId={serverId}
       workspaceId={workspaceId}
       onPress={pimiReview?.open ?? onPress}
@@ -103,7 +103,7 @@ export const WorkspaceDiffStatPill = memo(function WorkspaceDiffStatPill({
   );
 });
 
-function PaseoDiffStatPill({
+function ChangesDiffStatPill({
   serverId,
   workspaceId,
   onPress,

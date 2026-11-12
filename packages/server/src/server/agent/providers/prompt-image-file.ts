@@ -13,7 +13,7 @@ export interface MaterializedProviderImage {
   path: string;
 }
 
-const PROMPT_IMAGE_DIR = "paseo-attachments";
+const PROMPT_IMAGE_DIR = "pimi-attachments";
 const PROMPT_IMAGE_DIR_PREFIX = `${PROMPT_IMAGE_DIR}-`;
 const PRIVATE_ATTACHMENT_DIR_MODE = 0o700;
 const MATERIALIZED_IMAGE_FILE_MODE = 0o600;

@@ -1,6 +1,6 @@
 import { basename } from "node:path";
 
-import { isPaseoOwnedWorktreeCwd } from "../../utils/worktree.js";
+import { isPimiOwnedWorktreeCwd } from "../../utils/worktree.js";
 import {
   archiveByScope,
   resolveWorkspaceIdAtPath,
@@ -8,24 +8,24 @@ import {
   type ArchiveScope,
 } from "../workspace-archive-service.js";
 import type {
-  CreatePaseoWorktreeInput,
-  CreatePaseoWorktreeResult,
-} from "../paseo-worktree-service.js";
+  CreatePimiWorktreeInput,
+  CreatePimiWorktreeResult,
+} from "../pimi-worktree-service.js";
 import { toWorktreeWireError, type WorktreeWireError } from "../worktree-errors.js";
 import type { WorkspaceGitService, WorkspaceGitWorktreeInfo } from "../workspace-git-service.js";
 
-export interface ListPaseoWorktreesCommandDependencies {
+export interface ListPimiWorktreesCommandDependencies {
   workspaceGitService: Pick<WorkspaceGitService, "listWorktrees">;
 }
 
-export interface ListPaseoWorktreesCommandInput {
+export interface ListPimiWorktreesCommandInput {
   cwd: string;
   reason?: string;
 }
 
-export async function listPaseoWorktreesCommand(
-  dependencies: ListPaseoWorktreesCommandDependencies,
-  input: ListPaseoWorktreesCommandInput,
+export async function listPimiWorktreesCommand(
+  dependencies: ListPimiWorktreesCommandDependencies,
+  input: ListPimiWorktreesCommandInput,
 ): Promise<WorkspaceGitWorktreeInfo[]> {
   if (input.reason) {
     return dependencies.workspaceGitService.listWorktrees(input.cwd, { reason: input.reason });
@@ -33,24 +33,24 @@ export async function listPaseoWorktreesCommand(
   return dependencies.workspaceGitService.listWorktrees(input.cwd);
 }
 
-type CreatePaseoWorktreeWorkflow<Result extends CreatePaseoWorktreeResult> = (
-  input: CreatePaseoWorktreeInput,
+type CreatePimiWorktreeWorkflow<Result extends CreatePimiWorktreeResult> = (
+  input: CreatePimiWorktreeInput,
 ) => Promise<Result>;
 
-export interface CreatePaseoWorktreeCommandDependencies<
-  Result extends CreatePaseoWorktreeResult = CreatePaseoWorktreeResult,
+export interface CreatePimiWorktreeCommandDependencies<
+  Result extends CreatePimiWorktreeResult = CreatePimiWorktreeResult,
 > {
   pimiHome?: string;
   worktreesRoot?: string;
-  createPaseoWorktreeWorkflow?: CreatePaseoWorktreeWorkflow<Result>;
+  createPimiWorktreeWorkflow?: CreatePimiWorktreeWorkflow<Result>;
 }
 
-export type CreatePaseoWorktreeCommandInput = Omit<CreatePaseoWorktreeInput, "pimiHome"> & {
+export type CreatePimiWorktreeCommandInput = Omit<CreatePimiWorktreeInput, "pimiHome"> & {
   pimiHome?: string;
   worktreesRoot?: string;
 };
 
-export type CreatePaseoWorktreeCommandResult<Result extends CreatePaseoWorktreeResult> =
+export type CreatePimiWorktreeCommandResult<Result extends CreatePimiWorktreeResult> =
   | {
       ok: true;
       createdWorktree: Result;
@@ -61,16 +61,16 @@ export type CreatePaseoWorktreeCommandResult<Result extends CreatePaseoWorktreeR
       cause: unknown;
     };
 
-export async function createPaseoWorktreeCommand<Result extends CreatePaseoWorktreeResult>(
-  dependencies: CreatePaseoWorktreeCommandDependencies<Result>,
-  input: CreatePaseoWorktreeCommandInput,
-): Promise<CreatePaseoWorktreeCommandResult<Result>> {
+export async function createPimiWorktreeCommand<Result extends CreatePimiWorktreeResult>(
+  dependencies: CreatePimiWorktreeCommandDependencies<Result>,
+  input: CreatePimiWorktreeCommandInput,
+): Promise<CreatePimiWorktreeCommandResult<Result>> {
   try {
-    if (!dependencies.createPaseoWorktreeWorkflow) {
-      throw new Error("Paseo worktree service is not configured");
+    if (!dependencies.createPimiWorktreeWorkflow) {
+      throw new Error("Pimi worktree service is not configured");
     }
 
-    const createdWorktree = await dependencies.createPaseoWorktreeWorkflow({
+    const createdWorktree = await dependencies.createPimiWorktreeWorkflow({
       ...input,
 
       pimiHome: input.pimiHome ?? dependencies.pimiHome,
@@ -124,9 +124,9 @@ export async function archiveCommand(
 ): Promise<ArchiveCommandResult> {
   const targetPath = await resolveArchiveTarget(dependencies, input);
   const scope = input.scope ?? "workspace";
-  const ownership = await isPaseoOwnedWorktreeCwd(targetPath, {
+  const ownership = await isPimiOwnedWorktreeCwd(targetPath, {
     pimiHome: dependencies.pimiHome,
-    worktreesRoot: dependencies.paseoWorktreesBaseRoot,
+    worktreesRoot: dependencies.pimiWorktreesBaseRoot,
   });
 
   if (scope === "worktree") {
@@ -134,7 +134,7 @@ export async function archiveCommand(
       return {
         ok: false,
         code: "NOT_ALLOWED",
-        message: "Worktree is not a Paseo-owned worktree",
+        message: "Worktree is not a Pimi-owned worktree",
         removedAgents: [],
       };
     }
@@ -195,7 +195,7 @@ async function resolveArchiveTarget(
     const worktrees = await dependencies.workspaceGitService.listWorktrees(repoRoot);
     const match = worktrees.find((entry) => entry.branchName === input.branchName);
     if (!match) {
-      throw new Error(`Paseo worktree not found for branch ${input.branchName}`);
+      throw new Error(`Pimi worktree not found for branch ${input.branchName}`);
     }
     return match.path;
   }
@@ -217,8 +217,8 @@ async function resolveWorktreeSlugPath(
     const found = worktrees.map((entry) => basename(entry.path));
     throw new Error(
       found.length > 0
-        ? `Paseo worktree not found for slug ${worktreeSlug}: found ${found.join(", ")}`
-        : `Paseo worktree not found for slug ${worktreeSlug}`,
+        ? `Pimi worktree not found for slug ${worktreeSlug}: found ${found.join(", ")}`
+        : `Pimi worktree not found for slug ${worktreeSlug}`,
     );
   }
   return match.path;

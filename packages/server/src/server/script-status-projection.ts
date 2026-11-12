@@ -4,8 +4,8 @@ import type {
   SessionOutboundMessage,
   WorkspaceScriptPayload,
 } from "@pimi/protocol/messages";
-import type { PaseoConfig } from "@pimi/protocol/paseo-config-schema";
-import { getScriptConfigs, isServiceScript, readPaseoConfig } from "../utils/worktree.js";
+import type { PimiConfig } from "@pimi/protocol/pimi-config-schema";
+import { getScriptConfigs, isServiceScript, readPimiConfig } from "../utils/worktree.js";
 import { deriveProjectSlug } from "./workspace-git-metadata.js";
 import type { ScriptHealthEntry, ScriptHealthState } from "./script-health-monitor.js";
 import type {
@@ -21,7 +21,7 @@ interface SessionEmitter {
 interface BuildWorkspaceScriptPayloadsOptions {
   workspaceId: string;
   workspaceDirectory: string;
-  paseoConfig: PaseoConfig | null;
+  pimiConfig: PimiConfig | null;
   serviceProxy: ServiceProxySubsystem;
   runtimeStore: WorkspaceScriptRuntimeStore;
   daemonPort: number | null;
@@ -33,17 +33,17 @@ interface BuildWorkspaceScriptPayloadsOptions {
   resolveHealth?: (hostname: string) => ScriptHealthState | null;
 }
 
-export async function readPaseoConfigForProjection(
+export async function readPimiConfigForProjection(
   workspaceDirectory: string,
   logger: Logger,
-): Promise<PaseoConfig | null> {
-  const result = await readPaseoConfig(workspaceDirectory);
+): Promise<PimiConfig | null> {
+  const result = await readPimiConfig(workspaceDirectory);
   if (result.ok) {
     return result.config;
   }
   logger.warn(
     { configPath: result.configPath, workspaceDirectory, err: result.error },
-    "Failed to parse paseo.json; treating workspace as having no scripts",
+    "Failed to parse pimi.json; treating workspace as having no scripts",
   );
   return null;
 }
@@ -218,7 +218,7 @@ export function buildWorkspaceScriptPayloads(
   const workspaceDirectory = options.workspaceDirectory;
   const projectSlug = options.gitMetadata?.projectSlug ?? deriveProjectSlug(workspaceDirectory);
   const branchName = options.gitMetadata?.currentBranch ?? null;
-  const scriptConfigs = getScriptConfigs(options.paseoConfig);
+  const scriptConfigs = getScriptConfigs(options.pimiConfig);
   const runtimeEntries = new Map(
     options.runtimeStore
       .listForWorkspace(workspaceId)
@@ -304,7 +304,7 @@ export function createScriptStatusEmitter({
       const projected = buildWorkspaceScriptPayloads({
         workspaceId,
         workspaceDirectory,
-        paseoConfig: await readPaseoConfigForProjection(workspaceDirectory, logger),
+        pimiConfig: await readPimiConfigForProjection(workspaceDirectory, logger),
         serviceProxy,
         runtimeStore,
         daemonPort: resolvedDaemonPort,

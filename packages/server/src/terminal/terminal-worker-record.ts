@@ -35,10 +35,10 @@ const TerminalWorkerRecordSchema = z.object({
   bootId: z.string().nullable(),
   createdAt: z.string().min(1),
   identity: LegacyTerminalWorkerIdentitySchema.optional(),
-  // Read loosely: a version this daemon cannot interpret marks a worker from a newer Paseo
+  // Read loosely: a version this daemon cannot interpret marks a worker from a newer Pimi
   // (classifyTerminalWorkerProtocol), not an unreadable record.
   protocolVersion: z.union([z.number(), z.string()]),
-  paseoVersion: z.string(),
+  pimiVersion: z.string(),
   socketPath: z.string().min(1),
   secret: z.string().min(1),
   // The copy of the worker's files it runs from (a directory name under terminal-worker/), or
@@ -72,7 +72,7 @@ export type TerminalWorkerRecordFile =
 
 // The worker's command line carries this marker followed by its record id, so a reused pid
 // running some other process (even another worker) never matches the record.
-export const TERMINAL_WORKER_MARKER_ARG = "--paseo-terminal-worker";
+export const TERMINAL_WORKER_MARKER_ARG = "--pimi-terminal-worker";
 
 export function terminalWorkerDirectory(pimiHome: string): string {
   return path.join(pimiHome, "terminal-worker");

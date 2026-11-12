@@ -2,7 +2,7 @@ import { registerStructuredOutput } from "./structured-output-plugin.mjs";
 import { registerSharedBridge } from "./shared-bridge-plugin.mjs";
 
 export default {
-  id: "paseo",
+  id: "pimi",
   async setup(context) {
     const disposeStructuredOutput = await registerStructuredOutput(context);
     if (context.options.mode === "structured-only") return disposeStructuredOutput;

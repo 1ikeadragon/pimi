@@ -25,7 +25,7 @@ import {
 } from "@pimi/protocol/agent-labels";
 import type { Logger } from "pino";
 import type { AgentProviderSwitchMarker, ToolPolicy } from "@pimi/protocol/agent-types";
-import type { ProviderPaseoToolsPolicy } from "@pimi/protocol/provider-config";
+import type { ProviderPimiToolsPolicy } from "@pimi/protocol/provider-config";
 import { z } from "zod";
 import type { TerminalManager } from "../../terminal/terminal-manager.js";
 
@@ -95,9 +95,9 @@ import {
   withRuntimePimiMcpServer,
 } from "./runtime-mcp-config.js";
 import { resolveCreateAgentTitles } from "./create-agent-title.js";
-import type { PaseoToolCatalogFactory } from "./tools/types.js";
+import type { PimiToolCatalogFactory } from "./tools/types.js";
 import { memoryRecallInstructions } from "./tools/project-memory-tools.js";
-import { isPaseoToolEnabled, isPaseoToolPolicyEnabled } from "./paseo-tool-policy.js";
+import { isPimiToolEnabled, isPimiToolPolicyEnabled } from "./pimi-tool-policy.js";
 import {
   PIMI_TASK_PROPOSAL_TOOL,
   PIMI_TASK_WORKER_LABEL,
@@ -146,7 +146,7 @@ function pimiToolsOffInstructions(provider: string, hostToolsEnabled: boolean): 
   const [where, fix] = hostToolsEnabled
     ? [
         `for this provider (${provider})`,
-        `switch this chat to another provider, or remove "paseoTools": { "enabled": false } from agents.providers.${provider} in this host's Pimi config.json`,
+        `switch this chat to another provider, or remove "pimiTools": { "enabled": false } from agents.providers.${provider} in this host's Pimi config.json`,
       ]
     : [
         "on this host",
@@ -156,14 +156,14 @@ function pimiToolsOffInstructions(provider: string, hostToolsEnabled: boolean): 
 }
 
 function pimiActionInstructions(input: {
-  policy: ProviderPaseoToolsPolicy | undefined;
+  policy: ProviderPimiToolsPolicy | undefined;
   provider: string;
   hostToolsEnabled: boolean;
   isTaskWorker: boolean;
   toolLoading: "deferred" | "loader" | "full";
 }): string[] {
   const { policy, isTaskWorker } = input;
-  if (!isPaseoToolPolicyEnabled(policy)) {
+  if (!isPimiToolPolicyEnabled(policy)) {
     return [pimiToolsOffInstructions(input.provider, input.hostToolsEnabled)];
   }
   const instructions = [];
@@ -174,14 +174,14 @@ function pimiActionInstructions(input: {
       `Pimi lists only its core tools. For ${LAZY_TOOL_GROUP_NAMES.join(", ")}, call pimi_tools with a group, then run a tool with call_pimi_tool.`,
     );
   }
-  if (isPaseoToolEnabled(policy, PIMI_TASK_PROPOSAL_TOOL)) {
+  if (isPimiToolEnabled(policy, PIMI_TASK_PROPOSAL_TOOL)) {
     instructions.push(
       isTaskWorker
         ? "Finish your assigned work item. Open a new task only if the user asks."
         : "Use propose_pimi_task when the user asks to track delegated work in Tasks. Put each requested provider or provider/model in that work item's provider field. Wait for the user to start the workers.",
     );
   }
-  if (isPaseoToolEnabled(policy, "create_agent")) {
+  if (isPimiToolEnabled(policy, "create_agent")) {
     instructions.push(
       'When the user asks for another agent, a worker, a second opinion, or another provider or model to do or answer something ("ask another agent", "use opencode to", "split this between two agents"), or for parallel workers, call create_agent once per worker, even one on your own provider, with a focused initialPrompt. Pimi shows each as a card the user can open; your built-in subagent tool (Task or Agent) and an agent CLI run from a shell (claude, codex, opencode, gemini) show the user nothing, so never use either for a worker the user asked for or to get another model\'s answer. Keep the built-in subagent tool for your own lookups. Follow up with send_agent_prompt, and report here when the completion notification arrives.',
     );
@@ -304,7 +304,7 @@ interface ReplacementLaunch {
   storedConfig: AgentSessionConfig;
   providerLaunchConfig: AgentSessionConfig;
   launchContext: AgentLaunchContext;
-  paseoToolPolicy: ProviderPaseoToolsPolicy | undefined;
+  pimiToolPolicy: ProviderPimiToolsPolicy | undefined;
 }
 
 type ProviderSwitchEndpoint = AgentProviderSwitchMarker["from"];
@@ -409,7 +409,7 @@ async function resolveResumePurpose(
 interface PreparedSessionConfig {
   storedConfig: AgentSessionConfig;
   launchConfig: AgentSessionConfig;
-  paseoToolPolicy: ProviderPaseoToolsPolicy | undefined;
+  pimiToolPolicy: ProviderPimiToolsPolicy | undefined;
 }
 
 interface NormalizeConfigOptions {
@@ -595,9 +595,9 @@ export interface AgentManagerOptions {
   mcpAuthToken?: string;
   mcpCallerAuthToken?: (agentId: string) => string;
   pluginAgentTools?: PluginAgentToolsRuntime;
-  paseoToolsEnabled?: boolean;
-  paseoToolCatalogFactory?: PaseoToolCatalogFactory;
-  resolvePaseoToolPolicy?: (provider: AgentProvider) => ProviderPaseoToolsPolicy | undefined;
+  pimiToolsEnabled?: boolean;
+  pimiToolCatalogFactory?: PimiToolCatalogFactory;
+  resolvePimiToolPolicy?: (provider: AgentProvider) => ProviderPimiToolsPolicy | undefined;
   /** Whether a bundled skill is selected and installed, so agents that read skills can load it. */
   isSkillAvailable?: (name: string) => Promise<boolean>;
   appendSystemPrompt?: string;
@@ -1099,15 +1099,15 @@ export class AgentManager {
   private readonly sessionOpenGenerations = new Map<string, number>();
   private readonly attachedPluginTools = new Map<string, AttachedAgentTool[]>();
   private readonly pluginAgentTools: PluginAgentToolsRuntime | undefined;
-  private paseoToolsEnabled = true;
-  private paseoToolCatalogFactory: PaseoToolCatalogFactory | null = null;
-  private readonly paseoToolPolicies = new Map<string, ProviderPaseoToolsPolicy | undefined>();
+  private pimiToolsEnabled = true;
+  private pimiToolCatalogFactory: PimiToolCatalogFactory | null = null;
+  private readonly pimiToolPolicies = new Map<string, ProviderPimiToolsPolicy | undefined>();
   /** Agents whose provider gets Pimi's tools through the lazy loader; set before the session exists so a resume-time tools/list sees it. */
   private readonly pimiLoaderAgents = new Set<string>();
   private isSkillAvailable: (name: string) => Promise<boolean> = async () => false;
-  private readonly resolvePaseoToolPolicy: (
+  private readonly resolvePimiToolPolicy: (
     provider: AgentProvider,
-  ) => ProviderPaseoToolsPolicy | undefined;
+  ) => ProviderPimiToolsPolicy | undefined;
   private appendSystemPrompt: string;
   private onAgentAttention?: AgentAttentionCallback;
   private onAgentArchived?: AgentArchivedCallback;
@@ -1136,8 +1136,8 @@ export class AgentManager {
     this.mcpBaseUrl = options?.mcpBaseUrl ?? null;
     this.mcpAuthToken = options?.mcpAuthToken ?? null;
     this.mcpCallerAuthToken = options.mcpCallerAuthToken;
-    this.configurePaseoTools(options);
-    this.resolvePaseoToolPolicy = options.resolvePaseoToolPolicy ?? (() => undefined);
+    this.configurePimiTools(options);
+    this.resolvePimiToolPolicy = options.resolvePimiToolPolicy ?? (() => undefined);
     this.appendSystemPrompt = options.appendSystemPrompt ?? "";
     this.logger = options.logger.child({ module: "agent", component: "agent-manager" });
     this.rescueTimeouts = {
@@ -1161,9 +1161,9 @@ export class AgentManager {
     });
   }
 
-  private configurePaseoTools(options: AgentManagerOptions): void {
-    this.paseoToolsEnabled = options.paseoToolsEnabled ?? true;
-    this.paseoToolCatalogFactory = options.paseoToolCatalogFactory ?? null;
+  private configurePimiTools(options: AgentManagerOptions): void {
+    this.pimiToolsEnabled = options.pimiToolsEnabled ?? true;
+    this.pimiToolCatalogFactory = options.pimiToolCatalogFactory ?? null;
     if (options.isSkillAvailable) this.isSkillAvailable = options.isSkillAvailable;
   }
 
@@ -1225,12 +1225,12 @@ export class AgentManager {
     this.acceptingAgentRegistrations = false;
   }
 
-  setPaseoToolsEnabled(enabled: boolean): void {
-    this.paseoToolsEnabled = enabled;
+  setPimiToolsEnabled(enabled: boolean): void {
+    this.pimiToolsEnabled = enabled;
   }
 
-  setPaseoToolCatalogFactory(factory: PaseoToolCatalogFactory | null): void {
-    this.paseoToolCatalogFactory = factory;
+  setPimiToolCatalogFactory(factory: PimiToolCatalogFactory | null): void {
+    this.pimiToolCatalogFactory = factory;
   }
 
   invalidatePluginSessions(): void {
@@ -1289,15 +1289,15 @@ export class AgentManager {
     this.pluginAgentTools?.detachTools(agentId);
   }
 
-  getPaseoToolPolicy(agentId: string): ProviderPaseoToolsPolicy | undefined {
-    return this.paseoToolPolicies.get(agentId);
+  getPimiToolPolicy(agentId: string): ProviderPimiToolsPolicy | undefined {
+    return this.pimiToolPolicies.get(agentId);
   }
 
   /** How the provider receives Pimi's tools: deferred by itself, behind the loader, or all listed (native bridges). */
   private pimiToolLoading(provider: string): "deferred" | "loader" | "full" {
     const capabilities = this.clients.get(provider)?.capabilities;
     if (capabilities?.defersMcpTools === true) return "deferred";
-    return capabilities?.supportsNativePaseoTools === true ? "full" : "loader";
+    return capabilities?.supportsNativePimiTools === true ? "full" : "loader";
   }
 
   /** Whether the agent's provider receives Pimi's tools through the lazy loader. */
@@ -1305,12 +1305,12 @@ export class AgentManager {
     return this.pimiLoaderAgents.has(agentId);
   }
 
-  private recordPaseoToolPolicy(
+  private recordPimiToolPolicy(
     agentId: string,
     provider: string,
-    policy: ProviderPaseoToolsPolicy | undefined,
+    policy: ProviderPimiToolsPolicy | undefined,
   ): void {
-    this.paseoToolPolicies.set(agentId, policy);
+    this.pimiToolPolicies.set(agentId, policy);
     if (this.pimiToolLoading(provider) === "loader") this.pimiLoaderAgents.add(agentId);
     else this.pimiLoaderAgents.delete(agentId);
   }
@@ -1797,7 +1797,7 @@ export class AgentManager {
     // A stored agent without a provider thread is recreated under its own id, and
     // still owns the rows it carried over from an earlier provider.
     await this.deleteAgentState(resolvedAgentId, { keepCarriedTimeline: true });
-    const { storedConfig, launchConfig, paseoToolPolicy } = await this.prepareSessionConfig(
+    const { storedConfig, launchConfig, pimiToolPolicy } = await this.prepareSessionConfig(
       config,
       resolvedAgentId,
       { env: options.env, background: options.background, labels: options.labels, withoutAppTools },
@@ -1806,14 +1806,14 @@ export class AgentManager {
     const client = await this.requireAvailableClient({
       provider: storedConfig.provider,
     });
-    this.recordPaseoToolPolicy(resolvedAgentId, storedConfig.provider, paseoToolPolicy);
+    this.recordPimiToolPolicy(resolvedAgentId, storedConfig.provider, pimiToolPolicy);
     const launchContext = withoutAppTools
       ? { agentId: resolvedAgentId, env: options.env }
       : await this.buildLaunchContext(
           resolvedAgentId,
           client,
           storedConfig.cwd,
-          paseoToolPolicy,
+          pimiToolPolicy,
           options.env,
           {
             reason: "create",
@@ -1925,7 +1925,7 @@ export class AgentManager {
 
     const launchEnv = record?.launchEnv;
     const workspaceId = resolveResumeWorkspaceId({ options, record });
-    const { storedConfig, launchConfig, paseoToolPolicy } = await this.prepareSessionConfig(
+    const { storedConfig, launchConfig, pimiToolPolicy } = await this.prepareSessionConfig(
       mergedConfig,
       resolvedAgentId,
       { purpose, env: launchEnv, background: record?.background, labels: record?.labels },
@@ -1937,12 +1937,12 @@ export class AgentManager {
         `Provider '${handle.provider}' is not available. Please ensure the CLI is installed.`,
       );
     }
-    this.recordPaseoToolPolicy(resolvedAgentId, handle.provider, paseoToolPolicy);
+    this.recordPimiToolPolicy(resolvedAgentId, handle.provider, pimiToolPolicy);
     const launchContext = await this.buildLaunchContext(
       resolvedAgentId,
       client,
       storedConfig.cwd,
-      paseoToolPolicy,
+      pimiToolPolicy,
       launchEnv,
       {
         reason: "resume",
@@ -1997,19 +1997,19 @@ export class AgentManager {
       throw new Error(`Provider '${input.provider}' does not support importing sessions`);
     }
 
-    const { storedConfig, launchConfig, paseoToolPolicy } = await this.prepareSessionConfig(
+    const { storedConfig, launchConfig, pimiToolPolicy } = await this.prepareSessionConfig(
       {
         provider: input.provider,
         cwd: input.cwd,
       },
       resolvedAgentId,
     );
-    this.recordPaseoToolPolicy(resolvedAgentId, input.provider, paseoToolPolicy);
+    this.recordPimiToolPolicy(resolvedAgentId, input.provider, pimiToolPolicy);
     const launchContext = await this.buildLaunchContext(
       resolvedAgentId,
       client,
       storedConfig.cwd,
-      paseoToolPolicy,
+      pimiToolPolicy,
       undefined,
       {
         reason: "import",
@@ -2068,7 +2068,7 @@ export class AgentManager {
   // config swaps). When `rehydrateFromDisk` is set, the timeline is wiped so a
   // new epoch is minted and provider history is re-streamed — this is what the
   // user-facing "Reload agent" action wants when the on-disk session was
-  // mutated outside Paseo.
+  // mutated outside Pimi.
   reloadAgentSession(
     agentId: string,
     overrides?: Partial<AgentSessionConfig>,
@@ -2352,7 +2352,7 @@ export class AgentManager {
     plan: SessionReplacementPlan,
   ): Promise<ReplacementLaunch> {
     const agentId = agent.id;
-    const { storedConfig, launchConfig, paseoToolPolicy } = await this.prepareSessionConfig(
+    const { storedConfig, launchConfig, pimiToolPolicy } = await this.prepareSessionConfig(
       plan.config,
       agentId,
       { env: agent.launchEnv, background: agent.background, labels: agent.labels },
@@ -2364,7 +2364,7 @@ export class AgentManager {
         agentId,
         plan.client,
         storedConfig.cwd,
-        paseoToolPolicy,
+        pimiToolPolicy,
         agent.launchEnv,
         {
           reason: "refresh",
@@ -2379,7 +2379,7 @@ export class AgentManager {
       if (Object.keys(externalMcpServers).length > 0 && !plan.supportsMcpServers) {
         throw this.unsupportedMcpError(providerLaunchConfig, launchContext);
       }
-      return { storedConfig, providerLaunchConfig, launchContext, paseoToolPolicy };
+      return { storedConfig, providerLaunchConfig, launchContext, pimiToolPolicy };
     } catch (error) {
       this.detachPluginTools(agentId);
       // A session that keeps running keeps the plugin tools it was opened with.
@@ -2432,10 +2432,10 @@ export class AgentManager {
   ): Promise<ManagedAgent> {
     const agentId = agent.id;
     const { client } = plan;
-    const hadPreviousPaseoToolPolicy = this.paseoToolPolicies.has(agentId);
-    const previousPaseoToolPolicy = this.paseoToolPolicies.get(agentId);
+    const hadPreviousPimiToolPolicy = this.pimiToolPolicies.has(agentId);
+    const previousPimiToolPolicy = this.pimiToolPolicies.get(agentId);
     const hadPreviousLoader = this.pimiLoaderAgents.has(agentId);
-    const { storedConfig, providerLaunchConfig, launchContext, paseoToolPolicy } =
+    const { storedConfig, providerLaunchConfig, launchContext, pimiToolPolicy } =
       await this.prepareReplacementLaunch(agent, plan);
 
     let session: AgentSession | undefined;
@@ -2451,7 +2451,7 @@ export class AgentManager {
       }
       this.assertAcceptingAgentRegistrations();
 
-      this.recordPaseoToolPolicy(agentId, storedConfig.provider, paseoToolPolicy);
+      this.recordPimiToolPolicy(agentId, storedConfig.provider, pimiToolPolicy);
       session = plan.handle
         ? await client.resumeSession(plan.handle, providerLaunchConfig, launchContext)
         : await client.createSession(providerLaunchConfig, launchContext);
@@ -2495,10 +2495,10 @@ export class AgentManager {
     } finally {
       if (!handedToRegistration) {
         this.detachPluginTools(agentId);
-        if (hadPreviousPaseoToolPolicy) {
-          this.paseoToolPolicies.set(agentId, previousPaseoToolPolicy);
+        if (hadPreviousPimiToolPolicy) {
+          this.pimiToolPolicies.set(agentId, previousPimiToolPolicy);
         } else {
-          this.paseoToolPolicies.delete(agentId);
+          this.pimiToolPolicies.delete(agentId);
         }
         if (hadPreviousLoader) this.pimiLoaderAgents.add(agentId);
         else this.pimiLoaderAgents.delete(agentId);
@@ -5120,7 +5120,7 @@ export class AgentManager {
   private discardRetainedAgentState(agentId: string): void {
     this.timelineStore.delete(agentId);
     this.sentJoiners.delete(agentId);
-    this.paseoToolPolicies.delete(agentId);
+    this.pimiToolPolicies.delete(agentId);
     this.pimiLoaderAgents.delete(agentId);
     this.detachPluginTools(agentId);
     for (const event of this.providerSubagents.deleteParent(agentId)) {
@@ -6849,10 +6849,10 @@ export class AgentManager {
       // The caller's own MCP servers stay: an internal query can bring its own bounded tools.
       const launchConfig = { ...storedConfig };
       delete launchConfig.daemonAppendSystemPrompt;
-      return { storedConfig, launchConfig, paseoToolPolicy: { enabled: false } };
+      return { storedConfig, launchConfig, pimiToolPolicy: { enabled: false } };
     }
-    const paseoToolPolicy = this.paseoToolsEnabled
-      ? this.resolvePaseoToolPolicy(storedConfig.provider)
+    const pimiToolPolicy = this.pimiToolsEnabled
+      ? this.resolvePimiToolPolicy(storedConfig.provider)
       : { enabled: false };
     const interactiveChat =
       !storedConfig.internal && !options.background && options.purpose !== "history";
@@ -6864,9 +6864,9 @@ export class AgentManager {
       ? [
           PIMI_SCOPE_INSTRUCTIONS,
           ...pimiActionInstructions({
-            policy: paseoToolPolicy,
+            policy: pimiToolPolicy,
             provider: storedConfig.provider,
-            hostToolsEnabled: this.paseoToolsEnabled,
+            hostToolsEnabled: this.pimiToolsEnabled,
             isTaskWorker: Boolean(options.labels?.[PIMI_TASK_WORKER_LABEL]),
             toolLoading: this.pimiToolLoading(storedConfig.provider),
           }),
@@ -6875,20 +6875,18 @@ export class AgentManager {
       : [];
     const canRecallMemory =
       this.mcpCallerAuthToken && !storedConfig.internal && options.purpose !== "history";
-    const memoryPrompt = canRecallMemory ? memoryRecallInstructions(paseoToolPolicy) : [];
+    const memoryPrompt = canRecallMemory ? memoryRecallInstructions(pimiToolPolicy) : [];
     const launchConfig = this.applyDaemonAppendSystemPrompt(
       withRuntimePimiMcpServer({
         config: storedConfig,
         agentId,
         mcpBaseUrl:
-          this.paseoToolsEnabled && isPaseoToolPolicyEnabled(paseoToolPolicy)
-            ? this.mcpBaseUrl
-            : null,
+          this.pimiToolsEnabled && isPimiToolPolicyEnabled(pimiToolPolicy) ? this.mcpBaseUrl : null,
         mcpAuthToken: this.mcpCallerAuthToken?.(agentId) ?? this.mcpAuthToken,
       }),
       [...pimiInstructions, ...memoryPrompt].join("\n\n"),
     );
-    return { storedConfig, launchConfig, paseoToolPolicy };
+    return { storedConfig, launchConfig, pimiToolPolicy };
   }
 
   private applyDaemonAppendSystemPrompt(
@@ -6913,7 +6911,7 @@ export class AgentManager {
     agentId: string,
     client: AgentClient,
     cwd: string,
-    paseoToolPolicy: ProviderPaseoToolsPolicy | undefined,
+    pimiToolPolicy: ProviderPimiToolsPolicy | undefined,
     env?: Record<string, string>,
     opening?: {
       reason: PluginSessionOpenRequest["reason"];
@@ -6960,19 +6958,19 @@ export class AgentManager {
       },
     };
     const useNativeTools =
-      this.paseoToolsEnabled &&
-      isPaseoToolPolicyEnabled(paseoToolPolicy) &&
-      client.capabilities.supportsNativePaseoTools;
+      this.pimiToolsEnabled &&
+      isPimiToolPolicyEnabled(pimiToolPolicy) &&
+      client.capabilities.supportsNativePimiTools;
     if (
-      this.paseoToolCatalogFactory &&
+      this.pimiToolCatalogFactory &&
       (useNativeTools || this.getPluginTools(agentId).length > 0)
     ) {
       try {
-        const catalog = await this.paseoToolCatalogFactory({
+        const catalog = await this.pimiToolCatalogFactory({
           callerAgentId: agentId,
-          paseoToolPolicy,
+          pimiToolPolicy,
         });
-        if (useNativeTools) context.paseoTools = catalog;
+        if (useNativeTools) context.pimiTools = catalog;
       } catch (error) {
         this.detachPluginTools(agentId);
         throw error;
@@ -7005,7 +7003,7 @@ export class AgentManager {
             mcpServers: { ...launchConfig.mcpServers, ...launchContext.mcpServers },
           }
         : launchConfig;
-    const configured = launchContext.paseoTools ? stripInternalPimiMcpServer(merged) : merged;
+    const configured = launchContext.pimiTools ? stripInternalPimiMcpServer(merged) : merged;
     if (!configured.toolPolicy || configured.mcpServers?.[PIMI_MCP_SERVER_NAME]) return configured;
     // If the user disables Pimi tools, don't give the provider an approval entry
     // for a server that is no longer attached when the chat is resumed.

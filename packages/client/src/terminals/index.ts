@@ -8,9 +8,9 @@ const TerminalSchema = z.object({
   name: z.string(),
 });
 
-export type PaseoTerminal = z.infer<typeof TerminalSchema>;
+export type PimiTerminal = z.infer<typeof TerminalSchema>;
 
-export interface PaseoTerminalCreateOptions {
+export interface PimiTerminalCreateOptions {
   workspaceId: string;
   /** Process working directory; defaults to the workspace directory. */
   cwd?: string;
@@ -21,7 +21,7 @@ export interface PaseoTerminalCreateOptions {
   requestId?: string;
 }
 
-export interface PaseoTerminalListOptions {
+export interface PimiTerminalListOptions {
   /** Ownership filter. When supplied, cwd does not restrict the results. */
   workspaceId?: string;
   /** Workspace root directory filter for unscoped listings. */
@@ -29,41 +29,41 @@ export interface PaseoTerminalListOptions {
   requestId?: string;
 }
 
-export interface PaseoTerminalListResult {
-  entries: PaseoTerminal[];
+export interface PimiTerminalListResult {
+  entries: PimiTerminal[];
   requestId: string;
 }
 
-export interface PaseoTerminalCaptureOptions {
+export interface PimiTerminalCaptureOptions {
   start?: number;
   end?: number;
   stripAnsi?: boolean;
   requestId?: string;
 }
 
-export type PaseoTerminalCaptureResult = Awaited<ReturnType<DaemonClient["captureTerminal"]>>;
+export type PimiTerminalCaptureResult = Awaited<ReturnType<DaemonClient["captureTerminal"]>>;
 
-export interface PaseoTerminalHandle {
+export interface PimiTerminalHandle {
   readonly id: string;
-  current(): PaseoTerminal | null;
-  refresh(options?: { requestId?: string }): Promise<PaseoTerminal | null>;
+  current(): PimiTerminal | null;
+  refresh(options?: { requestId?: string }): Promise<PimiTerminal | null>;
   /** Sends literal input and returns its UTF-16 length. Does not await command execution. */
   write(data: string): number;
   /** Expands CLI key tokens; other strings are literal. Returns the input's UTF-16 length. */
   sendKeys(keys: readonly string[]): number;
-  capture(options?: PaseoTerminalCaptureOptions): Promise<PaseoTerminalCaptureResult>;
+  capture(options?: PimiTerminalCaptureOptions): Promise<PimiTerminalCaptureResult>;
   kill(requestId?: string): Promise<void>;
 }
 
-export interface PaseoTerminalActions {
-  create(options: PaseoTerminalCreateOptions): Promise<PaseoTerminalHandle>;
-  list(options?: PaseoTerminalListOptions): Promise<PaseoTerminalListResult>;
-  ref(terminal: string | PaseoTerminal): PaseoTerminalHandle;
+export interface PimiTerminalActions {
+  create(options: PimiTerminalCreateOptions): Promise<PimiTerminalHandle>;
+  list(options?: PimiTerminalListOptions): Promise<PimiTerminalListResult>;
+  ref(terminal: string | PimiTerminal): PimiTerminalHandle;
 }
 
-export interface PaseoWorkspaceTerminalActions {
-  create(options?: Omit<PaseoTerminalCreateOptions, "workspaceId">): Promise<PaseoTerminalHandle>;
-  list(options?: { requestId?: string }): Promise<PaseoTerminalListResult>;
+export interface PimiWorkspaceTerminalActions {
+  create(options?: Omit<PimiTerminalCreateOptions, "workspaceId">): Promise<PimiTerminalHandle>;
+  list(options?: { requestId?: string }): Promise<PimiTerminalListResult>;
 }
 
 type TerminalClient = Pick<
@@ -80,13 +80,13 @@ type TerminalClient = Pick<
 export function createTerminalActions(
   daemonClient: TerminalClient,
   resolveWorkspaceDirectory: (workspaceId: string) => Promise<string>,
-): PaseoTerminalActions {
+): PimiTerminalActions {
   function client(): TerminalClient {
     daemonClient.ensureConnected();
     return daemonClient;
   }
 
-  const list = async (options: PaseoTerminalListOptions = {}): Promise<PaseoTerminalListResult> => {
+  const list = async (options: PimiTerminalListOptions = {}): Promise<PimiTerminalListResult> => {
     const result = await client().listTerminals(options.cwd, options.requestId, {
       workspaceId: options.workspaceId,
     });
@@ -96,7 +96,7 @@ export function createTerminalActions(
     };
   };
 
-  const ref = (terminal: string | PaseoTerminal): PaseoTerminalHandle => {
+  const ref = (terminal: string | PimiTerminal): PimiTerminalHandle => {
     const id = typeof terminal === "string" ? terminal : terminal.id;
     let current = typeof terminal === "string" ? null : terminal;
     const write = (data: string): number => {

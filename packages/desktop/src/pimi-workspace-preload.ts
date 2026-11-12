@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 import { contextBridge, ipcRenderer } from "electron";
 import type { PimiAppearance, PimiDestination, WorkspaceLayout } from "./window/pimi-window.js";
 import type { PimiVoiceBubbleState, PimiWorkspaceSection } from "@pimi/protocol/pimi-task";

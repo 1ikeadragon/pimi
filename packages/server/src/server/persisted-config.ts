@@ -24,7 +24,7 @@ import {
   NETWORK_LOG_RETENTION_DAYS_MIN,
 } from "@pimi/protocol/messages";
 import { TerminalProfileSchema } from "@pimi/protocol/terminal-profile";
-import { PaseoServicePortAllocationSchema } from "@pimi/protocol/paseo-config-schema";
+import { PimiServicePortAllocationSchema } from "@pimi/protocol/pimi-config-schema";
 import { DEFAULT_PAIRING_APP_BASE_URL } from "./connection-offer.js";
 
 export const LogLevelSchema = z.enum(["trace", "debug", "info", "warn", "error", "fatal"]);
@@ -89,7 +89,7 @@ const ProvidersSchema = z
 const WorktreesConfigSchema = z
   .object({
     root: z.string().min(1).optional(),
-    servicePorts: PaseoServicePortAllocationSchema.optional(),
+    servicePorts: PimiServicePortAllocationSchema.optional(),
   })
   .strict();
 

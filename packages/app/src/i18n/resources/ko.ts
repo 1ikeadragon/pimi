@@ -845,7 +845,7 @@ export const ko: TranslationResources = {
       },
       routes: {
         public: "역방향 프록시",
-        paseo: "간편 주소",
+        pimi: "간편 주소",
         direct: "직접",
       },
       states: {
@@ -1485,19 +1485,19 @@ export const ko: TranslationResources = {
       },
       management: {
         title: "내장 데몬 관리",
-        hint: "Paseo가 내장 데몬을 시작하고 중지하도록 허용합니다",
+        hint: "Pimi가 내장 데몬을 시작하고 중지하도록 허용합니다",
         pauseTitle: "내장 데몬 일시 중지",
         pauseMessage:
           "내장 데몬이 즉시 중지됩니다. 내장 데몬에 연결된 실행 중인 에이전트와 터미널이 중지됩니다.",
         pauseAndStop: "일시 중지 후 중지",
         registrationFailed:
-          "내장 데몬이 시작되었지만 Paseo가 localhost 연결을 저장하지 못했습니다. 데몬 관리를 껐다가 다시 켜거나 localhost를 수동으로 추가하세요.",
-        pausedStopFailed: "내장 데몬 관리가 일시 중지되었지만 Paseo가 데몬을 중지하지 못했습니다.",
+          "내장 데몬이 시작되었지만 Pimi가 localhost 연결을 저장하지 못했습니다. 데몬 관리를 껐다가 다시 켜거나 localhost를 수동으로 추가하세요.",
+        pausedStopFailed: "내장 데몬 관리가 일시 중지되었지만 Pimi가 데몬을 중지하지 못했습니다.",
         updateFailed: "내장 데몬 관리를 업데이트할 수 없습니다.",
       },
       keepRunning: {
         title: "종료 후에도 데몬 계속 실행",
-        hint: "Paseo를 종료해도 데몬이 계속 실행됩니다",
+        hint: "Pimi를 종료해도 데몬이 계속 실행됩니다",
       },
       logs: {
         title: "로그 파일",
@@ -1567,7 +1567,7 @@ export const ko: TranslationResources = {
     },
     rosetta: {
       title: "Apple Silicon 빌드 다운로드",
-      runningIntel: "Apple Silicon에서 Rosetta로 Paseo의 Intel 빌드를 실행하고 있습니다.",
+      runningIntel: "Apple Silicon에서 Rosetta로 Pimi의 Intel 빌드를 실행하고 있습니다.",
       highCpu:
         "이로 인해 CPU 사용량이 높아집니다. 이를 해결하려면 Apple Silicon 빌드를 다운로드하세요.",
       download: "다운로드",
@@ -1622,12 +1622,12 @@ export const ko: TranslationResources = {
         installFailed: "Pimi CLI를 설치할 수 없습니다.",
         uninstallFailed: "Pimi CLI를 제거할 수 없습니다.",
         keptForeign:
-          "Paseo가 설치하지 않은 paseo 명령은 그대로 두었습니다. 제거하려면 직접 삭제하세요.",
+          "Pimi가 설치하지 않은 pimi 명령은 그대로 두었습니다. 제거하려면 직접 삭제하세요.",
       },
     },
   },
   rootError: {
-    title: "Paseo에 문제가 발생했습니다.",
+    title: "Pimi에 문제가 발생했습니다.",
     body: "앱을 다시 로드해 보세요. 이런 일이 계속 발생하면 신고할 때 아래 세부정보를 포함하세요.",
     details: "세부",
   },
@@ -1738,13 +1738,13 @@ export const ko: TranslationResources = {
       steps: {
         appearance: {
           label: "모양",
-          title: "Paseo에 오신 것을 환영합니다",
+          title: "Pimi에 오신 것을 환영합니다",
           description: "먼저 모양을 골라 보세요",
         },
         providers: {
           label: "제공자",
           title: "에이전트",
-          description: "Paseo는 이 컴퓨터에 이미 설치된 에이전트 CLI를 사용합니다",
+          description: "Pimi는 이 컴퓨터에 이미 설치된 에이전트 CLI를 사용합니다",
         },
         projects: {
           label: "프로젝트",
@@ -1764,7 +1764,7 @@ export const ko: TranslationResources = {
         },
         orchestration: {
           label: "오케스트레이션",
-          title: "에이전트가 Paseo를 사용하도록 허용",
+          title: "에이전트가 Pimi를 사용하도록 허용",
           description: "에이전트가 워크스페이스를 만들고 다른 에이전트와 대화하게 하세요",
         },
         phone: {
@@ -1783,7 +1783,7 @@ export const ko: TranslationResources = {
         },
       },
     },
-    title: "Paseo에 오신 것을 환영합니다",
+    title: "Pimi에 오신 것을 환영합니다",
     subtitle: "시작하려면 컴퓨터를 연결하세요",
     actions: {
       settings: "설정",
@@ -2021,7 +2021,7 @@ export const ko: TranslationResources = {
       tailscaleDocs: "Tailscale 설정",
       tailscaleDocsAccessibility: "Tailscale로 연결하는 방법 읽기",
       unavailable: "페어링 정보를 사용할 수 없습니다.",
-      hint: "휴대폰의 Paseo로 이 QR 코드를 스캔하거나 아래 링크를 복사하세요.",
+      hint: "휴대폰의 Pimi로 이 QR 코드를 스캔하거나 아래 링크를 복사하세요.",
       securityWarning:
         "이 페어링 링크는 비밀번호처럼 취급하세요. 링크를 가진 사람은 누구나 이 데몬에 접근할 수 있습니다.",
       qrUnavailable: "QR 코드를 사용할 수 없습니다.",
@@ -2056,7 +2056,7 @@ export const ko: TranslationResources = {
   serviceUrl: {
     title: "서비스 URL 열기",
     message: "{{url}}을(를) 열까요?",
-    inPaseo: "Paseo에서",
+    inPimi: "Pimi에서",
     externalBrowser: "외부 브라우저",
     dontAskAgain: "다시 묻지 않기",
   },
@@ -2338,9 +2338,9 @@ export const ko: TranslationResources = {
       one: "기타 도구 {{count}}개 사용함",
       other: "기타 도구 {{count}}개 사용함",
     },
-    paseoCalls: {
-      one: "Paseo를 {{count}}회 호출함",
-      other: "Paseo를 {{count}}회 호출함",
+    pimiCalls: {
+      one: "Pimi를 {{count}}회 호출함",
+      other: "Pimi를 {{count}}회 호출함",
     },
     and: "그리고",
   },
@@ -2509,7 +2509,7 @@ export const ko: TranslationResources = {
       send: "보내기",
       sending: "보내는 중...",
       sentTitle: "테스트 알림을 보냈습니다",
-      sentDescription: "Paseo가 알림을 운영 체제에 전달했습니다.",
+      sentDescription: "Pimi가 알림을 운영 체제에 전달했습니다.",
       sendFailedTitle: "테스트 알림을 보낼 수 없음",
     },
     hostSections: {
@@ -2599,10 +2599,10 @@ export const ko: TranslationResources = {
       selection: "모델 선택",
       automatic: "자동",
       preferred: "수동",
-      automaticHint: "Paseo가 사용 가능한 빠른 모델을 선택합니다",
-      preferredHint: "Paseo에서 사용할 모델을 선택하세요",
+      automaticHint: "Pimi가 사용 가능한 빠른 모델을 선택합니다",
+      preferredHint: "Pimi에서 사용할 모델을 선택하세요",
       model: "모델",
-      modelHint: "이 모델만 사용합니다. 실패해도 Paseo는 다른 모델을 시도하지 않습니다",
+      modelHint: "이 모델만 사용합니다. 실패해도 Pimi는 다른 모델을 시도하지 않습니다",
       docs: "문서",
       saveError: "메타데이터 생성을 업데이트할 수 없습니다",
     },
@@ -2751,7 +2751,7 @@ export const ko: TranslationResources = {
       serviceUrls: {
         options: {
           ask: "물어보기",
-          inApp: "Paseo에서",
+          inApp: "Pimi에서",
           external: "외부 브라우저",
         },
       },
@@ -2831,7 +2831,7 @@ export const ko: TranslationResources = {
         label: "앱 업데이트",
         readyToInstall: "설치 준비됨: {{version}}",
         installTitle: "데스크톱 업데이트 설치",
-        installMessage: "이 컴퓨터의 Paseo를 업데이트합니다",
+        installMessage: "이 컴퓨터의 Pimi를 업데이트합니다",
         installConfirm: "업데이트 설치",
         update: "업데이트",
         updateTo: "{{version}}(으)로 업데이트",
@@ -3230,10 +3230,10 @@ export const ko: TranslationResources = {
             "이 호스트는 연결되어 있지 않습니다. 재시작하기 전에 온라인 상태가 될 때까지 기다리세요.",
           offlineTitle: "호스트 오프라인",
           offlineMessage:
-            "이 호스트는 오프라인입니다. Paseo가 자동으로 다시 연결하므로 다시 온라인이 될 때까지 기다린 후 재시작하세요.",
+            "이 호스트는 오프라인입니다. Pimi가 자동으로 다시 연결하므로 다시 온라인이 될 때까지 기다린 후 재시작하세요.",
           requestFailedTitle: "오류",
           requestFailedMessage:
-            "재시작 요청을 보내지 못했습니다. Paseo가 자동으로 다시 연결하므로 호스트가 온라인으로 표시되면 다시 시도하세요.",
+            "재시작 요청을 보내지 못했습니다. Pimi가 자동으로 다시 연결하므로 호스트가 온라인으로 표시되면 다시 시도하세요.",
           closeTerminals: "재시작하고 터미널 닫기",
           closeTerminalsHint: "재시작하면서 이 호스트의 모든 터미널도 닫습니다.",
           closeTerminalsConfirmMessage:
@@ -3419,7 +3419,7 @@ export const ko: TranslationResources = {
         newScript: "새 스크립트",
         editScript: "{{name}} 편집",
         runAsService: "서비스로 실행",
-        serviceHint: "Paseo가 프로세스를 감독하고 $PIMI_PORT를 통해 포트를 할당합니다",
+        serviceHint: "Pimi가 프로세스를 감독하고 $PIMI_PORT를 통해 포트를 할당합니다",
         actions: {
           add: "스크립트 추가",
           edit: "편집",
@@ -3428,7 +3428,7 @@ export const ko: TranslationResources = {
       },
       metadata: {
         title: "메타데이터 생성",
-        info: "Paseo가 메타데이터를 생성하는 데 사용하는 AI 프롬프트에 주입되는 프로젝트별 지침 - 브랜치 이름, 커밋 스타일, PR 형식 같은 팀 규칙을 적용하는 데 사용하세요",
+        info: "Pimi가 메타데이터를 생성하는 데 사용하는 AI 프롬프트에 주입되는 프로젝트별 지침 - 브랜치 이름, 커밋 스타일, PR 형식 같은 팀 규칙을 적용하는 데 사용하세요",
         branchName: "브랜치 이름",
         branchNamePlaceholder:
           "브랜치에 feat/ 또는 fix/를 접두사로, 개인 브랜치에는 mb/를 붙이세요",

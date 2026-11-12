@@ -5,7 +5,7 @@ import {
   validateDaemonInstallOrigin,
   type DaemonInstallOriginRuntime,
 } from "./install-origin.js";
-import { npmGlobalPaseoCli, type NpmGlobalPaseoCli } from "./npm-global-cli.js";
+import { npmGlobalPimiCli, type NpmGlobalPimiCli } from "./npm-global-cli.js";
 
 export type DaemonSelfUpdatePhase = "starting" | "downloading" | "installing" | "complete";
 
@@ -28,7 +28,7 @@ export interface DaemonSelfUpdateLogger {
 }
 
 export interface DaemonSelfUpdateRuntime {
-  npm: NpmGlobalPaseoCli;
+  npm: NpmGlobalPimiCli;
   installOrigin: DaemonInstallOriginRuntime;
 }
 
@@ -40,12 +40,12 @@ export class DaemonSelfUpdateInProgressError extends Error {
 }
 
 const defaultRuntime: DaemonSelfUpdateRuntime = {
-  npm: npmGlobalPaseoCli,
+  npm: npmGlobalPimiCli,
   installOrigin: daemonInstallOriginRuntime,
 };
 
 const DESKTOP_MANAGED_UPDATE_ERROR =
-  "This daemon is managed by Paseo Desktop. Update Paseo Desktop on the host.";
+  "This daemon is managed by Pimi Desktop. Update Pimi Desktop on the host.";
 
 export class DaemonSelfUpdater {
   private inProgress = false;

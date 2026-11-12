@@ -1,6 +1,6 @@
 import type { ITheme } from "@xterm/xterm";
 import type { TerminalCell } from "@pimi/protocol/messages";
-import { PIMI_TERMINAL_STYLE_FLAGS } from "../../../modules/paseo-terminal/contract";
+import { PIMI_TERMINAL_STYLE_FLAGS } from "../../../modules/pimi-terminal/contract";
 
 import { darkTheme } from "@/styles/theme";
 import { toXtermTheme } from "@/utils/to-xterm-theme";

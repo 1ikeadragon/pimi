@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 import type { PimiRecap, PimiRecapPeriod } from "@pimi/protocol/pimi-task";
 import { ChevronRight, GitMerge, ListChecks } from "lucide-react-native";
 import { useCallback, useEffect, useState, type ReactNode } from "react";

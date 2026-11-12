@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -40,7 +40,7 @@ import {
   worktreeFacts,
 } from "./git.mjs";
 import { labelRecord, labelsAt, projectLinkedLabels } from "./linked-labels.mjs";
-import { createPaseoConnection } from "./paseo.mjs";
+import { createPimiConnection } from "./pimi.mjs";
 import { createHostedReview } from "./hosted-review.mjs";
 import { createPullRequests } from "./pull-requests.mjs";
 import { createSpacePosters } from "./space-poster.mjs";
@@ -144,7 +144,7 @@ async function standaloneAppearance(file) {
 export async function startPimi({
   paths = [],
   port = 0,
-  followPaseo = true,
+  followPimi = true,
   connection,
   native = false,
   watchState,
@@ -198,10 +198,10 @@ export async function startPimi({
   let inventoryRevision = 0;
   let workActivityPending = false;
   let workActivitySignature;
-  const paseo = createPaseoConnection({ connection, native, taskState });
+  const pimi = createPimiConnection({ connection, native, taskState });
   const tasks = await createTasks({
     file: taskState,
-    paseo,
+    pimi,
     getInventory,
     onChange() {
       broadcast("tasks");
@@ -337,7 +337,7 @@ export async function startPimi({
       });
     }, 250);
   }
-  const unsubscribePaseo = paseo.subscribe((event) => {
+  const unsubscribePimi = pimi.subscribe((event) => {
     if (closed) return;
     if (event.activity) onActivity(event.activity);
     if (event.workspaceReset) tasks.resetWorkspaceObservation();
@@ -360,7 +360,7 @@ export async function startPimi({
     if (labelProjection) return labelProjection;
     if (!labelTask) {
       const revision = labelRevision;
-      labelTask = paseo
+      labelTask = pimi
         .workspaceDirectory()
         .then(({ serverId, workspaces }) => {
           const { workspaceLabels, agentLabels } = projectLinkedLabels(
@@ -456,15 +456,15 @@ export async function startPimi({
       clearChangedGitCache(factsCache, changedCheckouts),
       clearChangedGitCache(discoveryCache, changedRepositories),
     ]);
-    const daemonTask = paseo.directory();
+    const daemonTask = pimi.directory();
     const localRoots = [...new Set([...roots, ...tasks.roots()])];
     const localDiscovery = discoverRoots(localRoots);
     const [local, daemon, labelResult] = await Promise.all([
       localDiscovery,
       daemonTask,
-      paseo.labels().catch((error) => ({ labels: [], error: error.message })),
+      pimi.labels().catch((error) => ({ labels: [], error: error.message })),
     ]);
-    const extra = followPaseo
+    const extra = followPimi
       ? [...new Set(daemon.workspaces.map((workspace) => workspace.root).filter(Boolean))].filter(
           (root) => !localRoots.includes(root),
         )
@@ -662,8 +662,8 @@ export async function startPimi({
       [
         PimiTaskAgentTool.labels,
         async () => {
-          const { labels: catalog } = await paseo.labels();
-          const { workspaces, error } = await paseo.directory();
+          const { labels: catalog } = await pimi.labels();
+          const { workspaces, error } = await pimi.directory();
           if (error) throw new RequestError(error, 503);
           return {
             labels: catalog,
@@ -676,8 +676,8 @@ export async function startPimi({
           };
         },
       ],
-      [PimiTaskAgentTool.labelWork, paseo.setWorkLabel],
-      [PimiTaskAgentTool.createLabel, paseo.createWorkLabel],
+      [PimiTaskAgentTool.labelWork, pimi.setWorkLabel],
+      [PimiTaskAgentTool.createLabel, pimi.createWorkLabel],
       [
         PimiTaskAgentTool.repositories,
         async () => {
@@ -780,7 +780,7 @@ export async function startPimi({
 
   async function prepareChatReview(path, serverId) {
     if (serverId) {
-      const local = await paseo.localServerId().catch(() => null);
+      const local = await pimi.localServerId().catch(() => null);
       if (local !== serverId)
         return { path, reviewNotice: "This checkout is on another host or is offline." };
     }
@@ -908,15 +908,15 @@ export async function startPimi({
     ["/api/repositories", watchRepository],
     ["/api/review", startReview],
     ["/api/editor", startEditor],
-    ["/api/memory", paseo.memory],
-    ["/api/spaces", paseo.spaces],
-    ["/api/tour", (body) => generateTour(getReview(body.id), paseo.explain)],
+    ["/api/memory", pimi.memory],
+    ["/api/spaces", pimi.spaces],
+    ["/api/tour", (body) => generateTour(getReview(body.id), pimi.explain)],
     ["/api/tasks/create", tasks.create],
     ["/api/tasks/repository", tasks.attachRepository],
     ["/api/tasks/assign-repository", tasks.assignRepository],
     ["/api/tasks/assign-model", tasks.assignModel],
     ["/api/tasks/save", tasks.save],
-    ["/api/work/label", paseo.setWorkLabel],
+    ["/api/work/label", pimi.setWorkLabel],
     ["/api/tasks/stage", tasks.setStage],
     ["/api/tasks/experiment", tasks.addIdea],
     ["/api/tasks/suggest", tasks.suggest],
@@ -952,7 +952,7 @@ export async function startPimi({
     if (request.headers["sec-fetch-site"] !== "same-origin") {
       throw new RequestError("Open this image in Pimi Spaces.", 403);
     }
-    const { mime, data } = await paseo.spaces({ action: "image", id });
+    const { mime, data } = await pimi.spaces({ action: "image", id });
     // A card's image never changes under its id, so the window keeps it instead of asking again.
     response.writeHead(200, {
       "content-type": mime,
@@ -1111,14 +1111,14 @@ export async function startPimi({
     origin,
     appearance: appearance.read(),
     async observeWorkspaces() {
-      await paseo.observeWorkspaces();
+      await pimi.observeWorkspaces();
       await getInventory();
     },
     prepareChatReview,
     getLinkedLabels,
     getRecap: tasks.recap,
     runVoiceCommand: (input, onStatus) =>
-      runVoiceCommand(input, { paseo, tasks, getInventory }, onStatus),
+      runVoiceCommand(input, { pimi, tasks, getInventory }, onStatus),
     subscribeToLabels(listener) {
       labelListeners.add(listener);
       return () => labelListeners.delete(listener);
@@ -1127,7 +1127,7 @@ export async function startPimi({
       tasks.reportText(request.taskId, request.reportId);
       const task = tasks.list().tasks.find((item) => item.id === request.taskId);
       const item = task.experiments.find((entry) => entry.id === request.reportId);
-      const daemon = await paseo.directory();
+      const daemon = await pimi.directory();
       const worker = daemon.agents.find((agent) => agent.id === item.id);
       const sourceHost = item.launch?.parent?.serverId ?? task.source?.serverId;
       const serverId = sourceHost ?? daemon.serverId;
@@ -1146,7 +1146,7 @@ export async function startPimi({
     close: () => {
       closed = true;
       pullRequests.close();
-      unsubscribePaseo();
+      unsubscribePimi();
       labelListeners.clear();
       clearInterval(reconcileTimer);
       clearInterval(heartbeatTimer);
@@ -1154,7 +1154,7 @@ export async function startPimi({
       for (const response of eventClients) response.end();
       server.close();
       closeAgentTaskServer?.();
-      return paseo.close();
+      return pimi.close();
     },
   };
 }
@@ -1164,7 +1164,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const pimi = await startPimi({
     paths: paths.length ? paths : [process.cwd()],
     port: Number(process.env.PIMI_BOARD_PORT || 4781),
-    followPaseo: process.env.PIMI_FOLLOW_PASEO === "1",
+    followPimi: process.env.PIMI_FOLLOW_PIMI === "1",
     taskState: process.env.PIMI_TASK_STATE,
     appearanceState: process.env.PIMI_APPEARANCE_STATE,
   });

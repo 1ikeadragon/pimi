@@ -7,7 +7,7 @@ const schemas = new Ajv({ strict: false, allErrors: true });
 
 export function isStructuredOutputTool(name: string): boolean {
   // Older OpenCode servers and their saved sessions can still emit this name.
-  return name === STRUCTURED_OUTPUT_TOOL || name === "paseo_structured_output";
+  return name === STRUCTURED_OUTPUT_TOOL || name === "pimi_structured_output";
 }
 
 export function structuredOutput(input: unknown) {
@@ -26,7 +26,7 @@ export function structuredOutput(input: unknown) {
             part.state.status !== "completed"
           )
             continue;
-          const result = part.state.metadata?.paseoStructuredOutput;
+          const result = part.state.metadata?.pimiStructuredOutput;
           if (result === undefined) continue;
           if (!validate(result))
             throw new Error(

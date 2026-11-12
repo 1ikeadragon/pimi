@@ -104,9 +104,9 @@ import {
 const PI_PROVIDER = "pi";
 const DEFAULT_PI_THINKING_LEVEL: PiThinkingLevel = "medium";
 const PI_BINARY_COMMAND = process.env.PI_COMMAND ?? process.env.PI_ACP_PI_COMMAND ?? "pi";
-const PIMI_PI_TREE_EXTENSION_COMMAND = "paseo_tree";
-const PIMI_PI_CAPTURE_EXTENSION_COMMAND = "paseo_capture_entries";
-const PIMI_PI_REWIND_ENTRY_TYPE = "paseo_rewind";
+const PIMI_PI_TREE_EXTENSION_COMMAND = "pimi_tree";
+const PIMI_PI_CAPTURE_EXTENSION_COMMAND = "pimi_capture_entries";
+const PIMI_PI_REWIND_ENTRY_TYPE = "pimi_rewind";
 const PIMI_PI_ENTRY_CAPTURE_MARKER = "PIMI_ENTRY_CAPTURE";
 const PIMI_PI_SUBMITTED_USER_ENTRY_MARKER = "PIMI_SUBMITTED_USER_ENTRY";
 const PIMI_PI_COMMAND_RESULT_MARKER = "PIMI_COMMAND_RESULT";
@@ -272,13 +272,13 @@ interface PiMcpServerConfig {
   headers?: Record<string, string>;
 }
 
-// Pi's built-in MCP extension takes servers from Paseo's extension; pi-mcp-adapter replaces it
+// Pi's built-in MCP extension takes servers from Pimi's extension; pi-mcp-adapter replaces it
 // and takes them from a --mcp-config file.
 type PiMcpInjection =
   | { kind: "builtin"; servers: Record<string, PiMcpServerConfig> }
   | { kind: "adapter"; configFile: PiTempFile };
 
-interface PiPaseoExtensionOptions {
+interface PiPimiExtensionOptions {
   systemPrompt?: string;
   mcpServers?: Record<string, PiMcpServerConfig>;
 }
@@ -501,7 +501,7 @@ function buildResumeStartInput(input: {
   sessionFile: string;
   launchContext: AgentLaunchContext | undefined;
   mcpConfigFile: PiTempFile | null;
-  paseoExtension: PiTempFile | null;
+  pimiExtension: PiTempFile | null;
 }): PiStartSessionInput {
   return {
     cwd: input.processCwd,
@@ -509,7 +509,7 @@ function buildResumeStartInput(input: {
     session: input.sessionFile,
     thinkingOptionId: normalizePiThinkingOption(input.resumeConfig.thinkingOptionId) ?? undefined,
     mcpConfigPath: input.mcpConfigFile?.path,
-    extensionPaths: input.paseoExtension ? [input.paseoExtension.path] : undefined,
+    extensionPaths: input.pimiExtension ? [input.pimiExtension.path] : undefined,
   };
 }
 
@@ -610,7 +610,7 @@ function createPiMcpConfigFile(
     mcpServers[name] = toPiMcpAdapterConfig(serverConfig);
   }
 
-  const dir = mkdtempSync(join(tmpdir(), "paseo-pi-mcp-"));
+  const dir = mkdtempSync(join(tmpdir(), "pimi-pi-mcp-"));
   const filePath = join(dir, "mcp.json");
   const mergedConfig: Record<string, unknown> = { ...globalConfig, mcpServers };
   delete mergedConfig["mcp-servers"];
@@ -625,7 +625,7 @@ function createPiMcpConfigFile(
 }
 
 async function createPiSessionCopy(sessionFile: string, cwd: string): Promise<PiTempFile> {
-  const dir = mkdtempSync(join(tmpdir(), "paseo-pi-session-"));
+  const dir = mkdtempSync(join(tmpdir(), "pimi-pi-session-"));
   const cleanup = () => rmSync(dir, { recursive: true, force: true });
   const filePath = join(dir, basename(sessionFile));
   try {
@@ -637,12 +637,12 @@ async function createPiSessionCopy(sessionFile: string, cwd: string): Promise<Pi
   return { path: filePath, cleanup };
 }
 
-function createPiPaseoExtensionFile({
+function createPiPimiExtensionFile({
   systemPrompt,
   mcpServers = {},
-}: PiPaseoExtensionOptions): PiTempFile {
-  const dir = mkdtempSync(join(tmpdir(), "paseo-pi-extension-"));
-  const filePath = join(dir, "paseo-integration.mjs");
+}: PiPimiExtensionOptions): PiTempFile {
+  const dir = mkdtempSync(join(tmpdir(), "pimi-pi-extension-"));
+  const filePath = join(dir, "pimi-integration.mjs");
   writeFileSync(
     filePath,
     `
@@ -697,7 +697,7 @@ function createPiPaseoExtensionFile({
 	  );
 	}
 
-	export default function paseoIntegration(pi) {
+	export default function pimiIntegration(pi) {
 	  for (const [name, config] of Object.entries(${JSON.stringify(mcpServers)})) {
 	    pi.registerMcpServer(name, config);
 	  }
@@ -756,7 +756,7 @@ function createPiPaseoExtensionFile({
 	  });
 
 	  pi.registerCommand("${PIMI_PI_CAPTURE_EXTENSION_COMMAND}", {
-	    description: "Internal Paseo entry capture bridge",
+	    description: "Internal Pimi entry capture bridge",
 	    handler: async (args, ctx) => {
 	      const payload = decodePayload(args.trim());
 	      emitEntryCapture(ctx, "command", payload.requestId);
@@ -764,7 +764,7 @@ function createPiPaseoExtensionFile({
 	  });
 
 	  pi.registerCommand("${PIMI_PI_TREE_EXTENSION_COMMAND}", {
-	    description: "Internal Paseo tree navigation bridge",
+	    description: "Internal Pimi tree navigation bridge",
 	    handler: async (args, ctx) => {
 	      const payload = decodePayload(args.trim());
 	      try {
@@ -2581,7 +2581,7 @@ export class PiRpcAgentClient implements AgentClient {
     };
     const mcp = await this.prepareMcpInjection(config.cwd, config.mcpServers, mcpEnv, runtime);
     const mcpConfigFile = mcp?.kind === "adapter" ? mcp.configFile : null;
-    const paseoExtension = createPiPaseoExtensionFile({
+    const pimiExtension = createPiPimiExtensionFile({
       systemPrompt: composeSystemPromptParts(config.systemPrompt, config.daemonAppendSystemPrompt),
       mcpServers: mcp?.kind === "builtin" ? mcp.servers : undefined,
     });
@@ -2594,11 +2594,11 @@ export class PiRpcAgentClient implements AgentClient {
         noSession: config.internal === true,
         env: launchContext?.env,
         mcpConfigPath: mcpConfigFile?.path,
-        extensionPaths: paseoExtension ? [paseoExtension.path] : undefined,
+        extensionPaths: pimiExtension ? [pimiExtension.path] : undefined,
       });
     } catch (error) {
       mcpConfigFile?.cleanup();
-      paseoExtension?.cleanup();
+      pimiExtension?.cleanup();
       throw error;
     }
     try {
@@ -2607,7 +2607,7 @@ export class PiRpcAgentClient implements AgentClient {
         config,
         initialState: await runtimeSession.getState(),
         capabilities: capabilitiesForSession(mcp !== null),
-        cleanup: combineCleanup([mcpConfigFile?.cleanup, paseoExtension?.cleanup]),
+        cleanup: combineCleanup([mcpConfigFile?.cleanup, pimiExtension?.cleanup]),
         extensionTimeoutMs: providerOptions.extensionTimeoutMs,
         logger: this.logger,
         usagePollScheduler: this.usagePollScheduler,
@@ -2615,7 +2615,7 @@ export class PiRpcAgentClient implements AgentClient {
     } catch (error) {
       await runtimeSession.close().catch(() => undefined);
       mcpConfigFile?.cleanup();
-      paseoExtension?.cleanup();
+      pimiExtension?.cleanup();
       throw error;
     }
   }
@@ -2650,14 +2650,14 @@ export class PiRpcAgentClient implements AgentClient {
       runtime,
     );
     const mcpConfigFile = mcp?.kind === "adapter" ? mcp.configFile : null;
-    const paseoExtension = createPiPaseoExtensionFile({
+    const pimiExtension = createPiPimiExtensionFile({
       systemPrompt: composeSystemPromptParts(
         resumeConfig.config.systemPrompt,
         resumeConfig.config.daemonAppendSystemPrompt,
       ),
       mcpServers: mcp?.kind === "builtin" ? mcp.servers : undefined,
     });
-    const tempFiles = mcpConfigFile ? [mcpConfigFile, paseoExtension] : [paseoExtension];
+    const tempFiles = mcpConfigFile ? [mcpConfigFile, pimiExtension] : [pimiExtension];
     const cleanupTempFiles = () => {
       for (const tempFile of tempFiles) tempFile.cleanup();
     };
@@ -2675,7 +2675,7 @@ export class PiRpcAgentClient implements AgentClient {
           sessionFile: sessionCopy?.path ?? sessionFile,
           launchContext,
           mcpConfigFile,
-          paseoExtension,
+          pimiExtension,
         }),
       );
     } catch (error) {

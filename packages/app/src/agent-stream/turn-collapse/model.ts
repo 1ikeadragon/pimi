@@ -64,13 +64,13 @@ function summarizeTurn(
 }
 
 function hasWork(summary: TurnSummary): boolean {
-  const { paseoActions, thoughtCount: _thoughtCount, ...counts } = summary.tools;
-  return Object.keys(paseoActions).length > 0 || Object.values(counts).some((count) => count > 0);
+  const { pimiActions, thoughtCount: _thoughtCount, ...counts } = summary.tools;
+  return Object.keys(pimiActions).length > 0 || Object.values(counts).some((count) => count > 0);
 }
 
 function isSameTurn(a: CollapsedTurn, b: CollapsedTurn): boolean {
-  const { paseoActions: actionsA, ...countsA } = a.summary.tools;
-  const { paseoActions: actionsB, ...countsB } = b.summary.tools;
+  const { pimiActions: actionsA, ...countsA } = a.summary.tools;
+  const { pimiActions: actionsB, ...countsB } = b.summary.tools;
   return (
     a.expanded === b.expanded &&
     hasSameCounts(countsA, countsB) &&

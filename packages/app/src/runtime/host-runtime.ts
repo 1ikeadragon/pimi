@@ -2060,7 +2060,7 @@ export class HostRuntimeStore {
   }): Promise<{ profile: HostProfile; serverId: string; hostname: string | null }> {
     return this.probeAndUpsertConnection({
       label: input.label,
-      // The daemon hashes and compares the password verbatim (`paseo daemon
+      // The daemon hashes and compares the password verbatim (`pimi daemon
       // set-password` keeps what it reads), so whitespace is significant here.
       password: input.password ? input.password : undefined,
       connection: createRemoteSshHostConnection(input),
@@ -2855,7 +2855,7 @@ export class HostRuntimeStore {
 }
 
 let singletonHostRuntimeStore: HostRuntimeStore | null = null;
-const HOST_RUNTIME_STORE_GLOBAL_KEY = "__paseoHostRuntimeStore";
+const HOST_RUNTIME_STORE_GLOBAL_KEY = "__pimiHostRuntimeStore";
 
 export function getHostRuntimeStore(): HostRuntimeStore {
   if (singletonHostRuntimeStore) {

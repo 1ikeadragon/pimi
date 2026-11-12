@@ -495,7 +495,7 @@ function assertPluginPath(checkoutRoot: string, directory: string): void {
 
 async function clone(remote: string, checkoutRoot: string): Promise<void> {
   const publicRemote = redactRemoteCredentials(remote);
-  const cloneRemote = publicRemote === remote ? remote : "https://paseo.invalid/plugin.git";
+  const cloneRemote = publicRemote === remote ? remote : "https://pimi.invalid/plugin.git";
   const envOverlay =
     cloneRemote === remote
       ? GIT_ENV
@@ -568,7 +568,7 @@ async function resolveRemoteCommit(remote: string, cwd: string, ref?: string): P
   if (ref?.startsWith("-")) throw new Error("Plugin Git ref cannot start with '-'");
   if (ref && /^[0-9a-f]{40,64}$/.test(ref)) return ref;
   const publicRemote = redactRemoteCredentials(remote);
-  const cloneRemote = publicRemote === remote ? remote : "https://paseo.invalid/plugin.git";
+  const cloneRemote = publicRemote === remote ? remote : "https://pimi.invalid/plugin.git";
   const envOverlay =
     cloneRemote === remote
       ? GIT_ENV

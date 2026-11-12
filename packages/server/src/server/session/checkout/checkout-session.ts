@@ -130,7 +130,7 @@ export interface CheckoutSessionOptions {
  * workspace git observer streams branch changes through emitStatusUpdate().
  */
 export class CheckoutSession {
-  private static readonly PIMI_STASH_PREFIX = "paseo-auto-stash:";
+  private static readonly PIMI_STASH_PREFIX = "pimi-auto-stash:";
 
   private readonly host: CheckoutSessionHost;
   private readonly gitMutation: Pick<
@@ -249,7 +249,7 @@ export class CheckoutSession {
           behindOfOrigin: null,
           hasRemote: false,
           remoteUrl: null,
-          isPaseoOwnedWorktree: false,
+          isPimiOwnedWorktree: false,
           error: toCheckoutError(error),
           requestId,
         },
@@ -724,9 +724,9 @@ export class CheckoutSession {
     msg: Extract<SessionInboundMessage, { type: "stash_list_request" }>,
   ): Promise<void> {
     const { cwd, requestId } = msg;
-    const paseoOnly = msg.paseoOnly !== false;
+    const pimiOnly = msg.pimiOnly !== false;
     try {
-      const entries = await this.workspaceGitService.listStashes(cwd, { paseoOnly });
+      const entries = await this.workspaceGitService.listStashes(cwd, { pimiOnly });
 
       this.host.emit({
         type: "stash_list_response",

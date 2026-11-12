@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 const imageTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
 
 function imageInput(file) {

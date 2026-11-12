@@ -20,11 +20,11 @@ import type {
 // This preload runs in Electron's sandbox and is tsc-compiled (not bundled), so it MUST
 // NOT emit any runtime module load other than "electron" — a require() of a local or
 // third-party module throws and aborts the preload before exposeInMainWorld runs, leaving
-// window.paseoDesktop undefined (the 0.1.108 regression, #2103). Keep this literal in sync
+// window.pimiDesktop undefined (the 0.1.108 regression, #2103). Keep this literal in sync
 // with PIMI_BROWSER_PROFILE_PARTITION in features/browser-profile.ts; preload-sandbox.test.ts
 // guards both the no-local-import rule and this drift. Type-only imports are fine (erased at emit).
-const PIMI_BROWSER_PROFILE_PARTITION = "persist:paseo-browser";
-const consoleUrlPrefix = "--paseo-console-url=";
+const PIMI_BROWSER_PROFILE_PARTITION = "persist:pimi-browser";
+const consoleUrlPrefix = "--pimi-console-url=";
 const expectedConsole = process.argv.find((argument) => argument.startsWith(consoleUrlPrefix));
 const expected = expectedConsole && URL.parse(expectedConsole.slice(consoleUrlPrefix.length));
 const documentUrl = URL.parse(globalThis.location.href);
@@ -43,7 +43,7 @@ if (
 type EventHandler = (payload: unknown) => void;
 
 function readWindowChromeMode(): DesktopWindowChromeMode {
-  const prefix = "--paseo-window-chrome-mode=";
+  const prefix = "--pimi-window-chrome-mode=";
   const value = process.argv.find((argument) => argument.startsWith(prefix))?.slice(prefix.length);
   if (value === "native-mac" || value === "custom-windows" || value === "custom-linux") {
     return value;
@@ -141,7 +141,7 @@ if (pimiAppearance) {
     for (const listener of reviewLocationListeners) listener();
   });
 }
-contextBridge.exposeInMainWorld("paseoDesktop", {
+contextBridge.exposeInMainWorld("pimiDesktop", {
   platform: process.platform,
   pimiAppearance,
   ...(pimiAppearance

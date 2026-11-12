@@ -13,9 +13,9 @@ export interface ArchiveFinishedState {
 }
 
 export interface ArchiveFinishedOutcome {
-  archivedPaseoIds: string[];
+  archivedPimiIds: string[];
   dismissedProviderIds: string[];
-  skippedPaseoIds: string[];
+  skippedPimiIds: string[];
   failures: Array<{ id: string; error: unknown }>;
 }
 
@@ -39,7 +39,7 @@ export interface ArchiveFinishedSubagents {
 }
 
 export function isFinishedSubagent(row: SubagentRow): boolean {
-  if (row.kind === "paseo")
+  if (row.kind === "pimi")
     return (
       (row.status === "idle" || row.status === "error") && (row.backgroundWork?.count ?? 0) === 0
     );
@@ -68,7 +68,7 @@ function managedRowIdentity(address: AgentAddress): string {
 }
 
 function rowIdentity(row: SubagentRow): string {
-  return row.kind === "paseo" ? managedRowIdentity(row.address) : `provider:${row.id}`;
+  return row.kind === "pimi" ? managedRowIdentity(row.address) : `provider:${row.id}`;
 }
 
 function rowIdentities(rows: readonly SubagentRow[]): Set<string> {
@@ -81,9 +81,9 @@ function identitySignature(ids: ReadonlySet<string>): string {
 
 function emptyOutcome(): ArchiveFinishedOutcome {
   return {
-    archivedPaseoIds: [],
+    archivedPimiIds: [],
     dismissedProviderIds: [],
-    skippedPaseoIds: [],
+    skippedPimiIds: [],
     failures: [],
   };
 }
@@ -177,7 +177,7 @@ async function runArchiveFinished(
   reportProgress: (completedCount: number) => void,
 ): Promise<{ outcome: ArchiveFinishedOutcome; retryableFailureIds: Set<string> }> {
   const providerIds = rows.filter((row) => row.kind === "provider").map((row) => row.id);
-  const paseoAddresses = rows.filter((row) => row.kind === "paseo").map((row) => row.address);
+  const pimiAddresses = rows.filter((row) => row.kind === "pimi").map((row) => row.address);
   let completedCount = 0;
   const outcome = emptyOutcome();
   const retryableFailureIds = new Set<string>();
@@ -189,12 +189,12 @@ async function runArchiveFinished(
     reportProgress(completedCount);
   }
 
-  for (const address of paseoAddresses) {
+  for (const address of pimiAddresses) {
     const id = address.agentId;
     if (canArchiveManagedSubagent(deps.getManagedSubagent(address), deps.parentAgentId)) {
       try {
         await deps.archiveManagedSubagent(address);
-        outcome.archivedPaseoIds.push(id);
+        outcome.archivedPimiIds.push(id);
       } catch (error) {
         outcome.failures.push({ id, error });
         if (canArchiveManagedSubagent(deps.getManagedSubagent(address), deps.parentAgentId)) {
@@ -202,7 +202,7 @@ async function runArchiveFinished(
         }
       }
     } else {
-      outcome.skippedPaseoIds.push(id);
+      outcome.skippedPimiIds.push(id);
     }
     completedCount += 1;
     reportProgress(completedCount);

@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 import { randomUUID } from "node:crypto";
 import { readFile, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";

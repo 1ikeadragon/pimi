@@ -12,11 +12,11 @@ function findTask(tasks, title) {
   return matches[0];
 }
 
-async function startChat(reference, title, prompt, input, paseo, chatProvider) {
+async function startChat(reference, title, prompt, input, pimi, chatProvider) {
   let images;
   let attachments;
   if (reference?.kind === "image") {
-    const { mime, data } = await paseo.spaces({ action: "image", id: reference.id });
+    const { mime, data } = await pimi.spaces({ action: "image", id: reference.id });
     images = [{ mimeType: mime, data }];
   } else if (reference) {
     attachments = [
@@ -31,7 +31,7 @@ async function startChat(reference, title, prompt, input, paseo, chatProvider) {
       },
     ];
   }
-  return paseo.startVoiceChat({
+  return pimi.startVoiceChat({
     workspaceId: input.workspaceId,
     agentId: input.agentId,
     chatProvider,
@@ -41,8 +41,8 @@ async function startChat(reference, title, prompt, input, paseo, chatProvider) {
   });
 }
 
-async function resolveSpace(open, input, paseo, chatProvider) {
-  const { items, reference } = await paseo.spaces({
+async function resolveSpace(open, input, pimi, chatProvider) {
+  const { items, reference } = await pimi.spaces({
     action: "find-reference",
     query: open.query,
     arxiv: open.arxiv ?? false,
@@ -66,11 +66,11 @@ async function resolveSpace(open, input, paseo, chatProvider) {
     open.prompt || "Start this chat with the attached Spaces card as context.",
     "Treat the attachment as reference material. If a link cannot be opened, say so.",
   ].join("\n\n");
-  const chat = await startChat(reference, open.query, prompt, input, paseo, chatProvider);
+  const chat = await startChat(reference, open.query, prompt, input, pimi, chatProvider);
   return { chat, message: "Started a chat with your Spaces card" };
 }
 
-async function resolveNavigation(open, input, { paseo, tasks, getInventory }, chatProvider) {
+async function resolveNavigation(open, input, { pimi, tasks, getInventory }, chatProvider) {
   switch (open.action) {
     case "review-worktree": {
       const board = await getInventory();
@@ -106,7 +106,7 @@ async function resolveNavigation(open, input, { paseo, tasks, getInventory }, ch
         message: "Opening task",
       };
     case "space-card":
-      return resolveSpace(open, input, paseo, chatProvider);
+      return resolveSpace(open, input, pimi, chatProvider);
     default:
       return { navigation: open, message: "" };
   }
@@ -114,7 +114,7 @@ async function resolveNavigation(open, input, { paseo, tasks, getInventory }, ch
 
 // Turns one screen the agent asked for into something the app can show.
 async function resolveAction(action, input, services, chatProvider) {
-  const { paseo } = services;
+  const { pimi } = services;
   switch (action.action) {
     case "task":
       return { destination: { view: "task", id: action.id }, message: "" };
@@ -131,7 +131,7 @@ async function resolveAction(action, input, services, chatProvider) {
       }
       let reference;
       if (action.card) {
-        const { items } = await paseo.spaces({ action: "list" });
+        const { items } = await pimi.spaces({ action: "list" });
         reference = items.find((item) => item.id === action.card);
         if (!reference) throw new RequestError("That Spaces card no longer exists.");
       }
@@ -141,7 +141,7 @@ async function resolveAction(action, input, services, chatProvider) {
             "This request was spoken to Ask Pimi. The Spaces card it refers to is attached. Treat the attachment as reference material. If a link cannot be opened, say so.",
           ].join("\n\n")
         : input.transcript;
-      const chat = await startChat(reference, "Spaces card", prompt, input, paseo, chatProvider);
+      const chat = await startChat(reference, "Spaces card", prompt, input, pimi, chatProvider);
       return { chat, message: "" };
     }
     case "new-chat":
@@ -160,7 +160,7 @@ async function resolveAction(action, input, services, chatProvider) {
 }
 
 async function runAskPimi(input, services, onStatus) {
-  const result = PimiAskResult.parse(await services.paseo.askPimi(input, onStatus));
+  const result = PimiAskResult.parse(await services.pimi.askPimi(input, onStatus));
   if (result.ignored) return { message: "", ignored: true };
   const effects = [];
   const notes = [];

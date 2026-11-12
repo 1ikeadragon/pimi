@@ -14,7 +14,7 @@ import {
   Plug,
   Smartphone,
 } from "lucide-react-native";
-import { PaseoLogo } from "@/components/icons/paseo-logo";
+import { PimiLogo } from "@/components/icons/pimi-logo";
 import { MenuHeader } from "@/components/headers/menu-header";
 import { useOpenAddProject } from "@/hooks/use-open-add-project";
 import { useImportSession } from "@/hooks/use-import-session";
@@ -99,7 +99,7 @@ export function OpenProjectScreen() {
                 </Text>
               </View>
             ) : (
-              <PaseoLogo size={52} />
+              <PimiLogo size={52} />
             )}
           </View>
           {hosts.map((host) => (

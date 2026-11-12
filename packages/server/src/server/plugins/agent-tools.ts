@@ -87,7 +87,7 @@ export class PluginAgentTools {
     agent: PluginHookAgent,
     name: string,
     input: unknown,
-    paseo: PluginHookContext["paseo"],
+    pimi: PluginHookContext["pimi"],
   ): Promise<AgentToolResult> {
     const controller = new AbortController();
     this.calls.set(requestId, { agentId: agent.id, controller });
@@ -98,8 +98,7 @@ export class PluginAgentTools {
       controller.signal.throwIfAborted();
       const result = await tool.execute(parsed, {
         agent,
-        pimi: paseo,
-        paseo,
+        pimi,
         signal: controller.signal,
       });
       controller.signal.throwIfAborted();

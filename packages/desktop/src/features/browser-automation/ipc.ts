@@ -19,11 +19,11 @@ import {
 import { BrowserTabClosedError, executeAutomationCommand } from "./service.js";
 import { BrowserSnapshotEngine } from "./snapshot-engine.js";
 import {
-  listRegisteredPaseoBrowserIds,
-  listRegisteredPaseoBrowserIdsForWorkspace,
-  getPaseoBrowserWebContentsForHostWindow,
-  getWorkspaceActivePaseoBrowserIdForHostWindow,
-  getPaseoBrowserWorkspaceId,
+  listRegisteredPimiBrowserIds,
+  listRegisteredPimiBrowserIdsForWorkspace,
+  getPimiBrowserWebContentsForHostWindow,
+  getWorkspaceActivePimiBrowserIdForHostWindow,
+  getPimiBrowserWorkspaceId,
   isAttackNavigationRefused,
   reportAttackNavigationRefused,
   setAttackNavigationPolicy,
@@ -441,15 +441,15 @@ function normalizeConsoleMessage(input: {
 
 function createRegistry(hostWebContentsId: number): BrowserRegistry {
   return {
-    listRegisteredBrowserIds: listRegisteredPaseoBrowserIds,
-    listRegisteredBrowserIdsForWorkspace: listRegisteredPaseoBrowserIdsForWorkspace,
+    listRegisteredBrowserIds: listRegisteredPimiBrowserIds,
+    listRegisteredBrowserIdsForWorkspace: listRegisteredPimiBrowserIdsForWorkspace,
     getTabContents(browserId: string): TabContents | null {
-      const contents = getPaseoBrowserWebContentsForHostWindow(browserId, hostWebContentsId);
+      const contents = getPimiBrowserWebContentsForHostWindow(browserId, hostWebContentsId);
       return contents ? adaptWebContents(contents) : null;
     },
-    getBrowserWorkspaceId: getPaseoBrowserWorkspaceId,
+    getBrowserWorkspaceId: getPimiBrowserWorkspaceId,
     getWorkspaceActiveBrowserId(workspaceId: string): string | null {
-      return getWorkspaceActivePaseoBrowserIdForHostWindow(workspaceId, hostWebContentsId);
+      return getWorkspaceActivePimiBrowserIdForHostWindow(workspaceId, hostWebContentsId);
     },
   };
 }

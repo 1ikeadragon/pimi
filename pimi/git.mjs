@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { lstat, open, readdir, realpath } from "node:fs/promises";

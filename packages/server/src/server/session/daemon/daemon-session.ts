@@ -54,7 +54,7 @@ export interface DaemonSessionOptions {
   listProjects: () => Promise<PersistedProjectRecord[]>;
   listWorkspaces: () => Promise<PersistedWorkspaceRecord[]>;
   listProviderAvailability: () => Promise<ProviderAvailability[]>;
-  /** Why this host's terminals cannot be served (held by a newer Paseo's worker), if so. */
+  /** Why this host's terminals cannot be served (held by a newer Pimi's worker), if so. */
   getTerminalsUnavailable?: () => string | null;
   getWebSocketRuntimeMetrics?: () => DaemonWebSocketRuntimeDiagnosticSnapshot | null;
   getObservationMetrics?: () => Record<string, number>;
@@ -275,7 +275,7 @@ export class DaemonSession {
         type: "diagnostics.response",
         payload: {
           requestId: msg.requestId,
-          diagnostic: `Paseo diagnostics\n  Error: ${
+          diagnostic: `Pimi diagnostics\n  Error: ${
             error instanceof Error ? error.message : String(error)
           }`,
         },

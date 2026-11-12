@@ -84,7 +84,7 @@ export function resolveWorkspaceRouteState(input: {
         hostName: input.hostName,
         message: getDesktopHost()?.pimiAppearance
           ? "Update Pimi to recover this workspace."
-          : "Update Paseo to recover this workspace.",
+          : "Update Pimi to recover this workspace.",
       };
     case "inspectionFailed":
       return {

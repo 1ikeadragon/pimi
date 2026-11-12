@@ -13,10 +13,10 @@ if (-not $env:PIMI_HOME) {
         # Inside a worktree — derive a stable home from the worktree name
         $WorktreeRoot = git rev-parse --show-toplevel
         $WorktreeName = (Split-Path -Leaf $WorktreeRoot).ToLower() -replace '[^a-z0-9-]', '-' -replace '-+', '-' -replace '^-|-$', ''
-        $env:PIMI_HOME = "$env:USERPROFILE\.paseo-$WorktreeName"
+        $env:PIMI_HOME = "$env:USERPROFILE\.pimi-$WorktreeName"
         New-Item -ItemType Directory -Force -Path $env:PIMI_HOME | Out-Null
     } else {
-        $env:PIMI_HOME = Join-Path ([System.IO.Path]::GetTempPath()) "paseo-dev-$([System.Guid]::NewGuid().ToString('N').Substring(0,6))"
+        $env:PIMI_HOME = Join-Path ([System.IO.Path]::GetTempPath()) "pimi-dev-$([System.Guid]::NewGuid().ToString('N').Substring(0,6))"
         New-Item -ItemType Directory -Force -Path $env:PIMI_HOME | Out-Null
         # Register cleanup on exit
         $TempPimiHome = $env:PIMI_HOME
@@ -28,13 +28,13 @@ if (-not $env:PIMI_HOME) {
 
 # Share speech models with the main install to avoid duplicate downloads
 if (-not $env:PIMI_LOCAL_MODELS_DIR) {
-    $env:PIMI_LOCAL_MODELS_DIR = "$env:USERPROFILE\.paseo\models\local-speech"
+    $env:PIMI_LOCAL_MODELS_DIR = "$env:USERPROFILE\.pimi\models\local-speech"
     New-Item -ItemType Directory -Force -Path $env:PIMI_LOCAL_MODELS_DIR | Out-Null
 }
 
 Write-Host @"
 ======================================================
-  Paseo Dev (Windows)
+  Pimi Dev (Windows)
 ======================================================
   Home:    $($env:PIMI_HOME)
   Models:  $($env:PIMI_LOCAL_MODELS_DIR)

@@ -123,10 +123,10 @@ function printNextSteps(pairingUrl: string | null, pimiHome: string, richUi: boo
     `5. Example: pimi run --home ${JSON.stringify(pimiHome)} --output-schema schema.json "extract fields"`,
   ];
   const quickReferenceLines = [
-    "1. paseo --help",
-    `2. paseo ls --home ${JSON.stringify(pimiHome)}`,
-    `3. paseo run --home ${JSON.stringify(pimiHome)} "your prompt"`,
-    `4. paseo status --home ${JSON.stringify(pimiHome)}`,
+    "1. pimi --help",
+    `2. pimi ls --home ${JSON.stringify(pimiHome)}`,
+    `3. pimi run --home ${JSON.stringify(pimiHome)} "your prompt"`,
+    `4. pimi status --home ${JSON.stringify(pimiHome)}`,
     `5. Daemon logs: ${daemonLogPath}`,
   ];
 

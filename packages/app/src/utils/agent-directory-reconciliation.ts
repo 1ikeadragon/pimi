@@ -29,7 +29,7 @@ export function reconcileAgentDirectory(input: {
           currentBranch: null,
           remoteUrl: null,
           worktreeRoot: null,
-          isPaseoOwnedWorktree: false,
+          isPimiOwnedWorktree: false,
           mainRepoRoot: null,
         },
       },

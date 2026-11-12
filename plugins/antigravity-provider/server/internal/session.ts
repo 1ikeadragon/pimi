@@ -188,7 +188,7 @@ export class Session {
         severity: "warning",
         title: "Antigravity is running with full access",
         description:
-          "Antigravity's CLI cannot ask for permission when another app drives it, so Paseo starts it with --dangerously-skip-permissions. Every tool call, including shell commands, runs without asking.",
+          "Antigravity's CLI cannot ask for permission when another app drives it, so Pimi starts it with --dangerously-skip-permissions. Every tool call, including shell commands, runs without asking.",
       },
     });
   }

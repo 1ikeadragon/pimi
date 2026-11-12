@@ -32,10 +32,10 @@ export interface WorkerCreateTerminalOptions {
   activityToken?: string;
   activityUrl?: string | null;
   // The worker outlives the daemon that started it, so the controlling daemon
-  // sends its own environment and Paseo CLI path with every create instead of
+  // sends its own environment and Pimi CLI path with every create instead of
   // letting the worker reuse whatever it inherited at launch.
   baseEnv?: Record<string, string>;
-  paseoCliPath?: string | null;
+  pimiCliPath?: string | null;
 }
 
 // Bumped when a request, response or event changes shape. The frozen envelope never changes
@@ -56,7 +56,7 @@ export function classifyTerminalWorkerProtocol(
   reported: unknown,
   current: number = TERMINAL_WORKER_PROTOCOL_VERSION,
 ): TerminalWorkerProtocolFit {
-  // A version this daemon cannot read comes from a Paseo it does not know: treat it as newer.
+  // A version this daemon cannot read comes from a Pimi it does not know: treat it as newer.
   if (typeof reported !== "number" || !Number.isSafeInteger(reported)) return "newer";
   if (reported === current) return "current";
   // Protocols 1 through 4 were unreleased; they have no draining adapter.

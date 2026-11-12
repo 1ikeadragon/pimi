@@ -44,7 +44,7 @@ export function contributeClient(client: PluginClientContext) {
     pills.get(agentId)?.remove();
     pills.delete(agentId);
   };
-  void client.paseo.agents
+  void client.pimi.agents
     .list({ subscribe: {}, signal: lifetime.signal })
     .then(({ subscription }) => {
       subscription.subscribe({

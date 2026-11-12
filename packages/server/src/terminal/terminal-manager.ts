@@ -56,7 +56,7 @@ export type TerminalWorkspaceContributionChangedListener = (
 
 export interface TerminalManager {
   /**
-   * Set when this host's terminals cannot be served at all (a worker from a newer Paseo holds
+   * Set when this host's terminals cannot be served at all (a worker from a newer Pimi holds
    * them). Callers that answer terminal requests report it instead of an empty list.
    */
   getUnavailableError?(): Error | null;
@@ -75,7 +75,7 @@ export interface TerminalManager {
     activityToken?: string;
     activityUrl?: string | null;
     baseEnv?: Record<string, string>;
-    paseoCliPath?: string | null;
+    pimiCliPath?: string | null;
   }): Promise<TerminalSession>;
   registerCwdEnv(options: { cwd: string; env: Record<string, string> }): void;
   validateTerminalActivityToken(terminalId: string, token: string): "valid" | "unknown" | "invalid";
@@ -345,7 +345,7 @@ export function createTerminalManager(
       activityToken?: string;
       activityUrl?: string | null;
       baseEnv?: Record<string, string>;
-      paseoCliPath?: string | null;
+      pimiCliPath?: string | null;
     }): Promise<LocalTerminalSession> {
       assertAbsolutePath(options.cwd);
 
@@ -381,7 +381,7 @@ export function createTerminalManager(
             ...(options.cols !== undefined ? { cols: options.cols } : {}),
             ...(mergedEnv ? { env: mergedEnv } : {}),
             ...(options.baseEnv ? { baseEnv: options.baseEnv } : {}),
-            ...(options.paseoCliPath === undefined ? {} : { paseoCliPath: options.paseoCliPath }),
+            ...(options.pimiCliPath === undefined ? {} : { pimiCliPath: options.pimiCliPath }),
             activityEnv,
           }),
         );

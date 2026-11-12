@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, realpath, rename, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -244,7 +244,7 @@ function experimentPrompt(task, experiment, mode, repository, hasContext) {
   ].join("\n\n");
 }
 
-export async function createTasks({ file, paseo, getInventory, onChange = () => {} }) {
+export async function createTasks({ file, pimi, getInventory, onChange = () => {} }) {
   let state = [];
   let tail = Promise.resolve();
   const running = new Set();
@@ -330,7 +330,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
   async function validateLabels(names, previous = []) {
     if (names === undefined) return undefined;
     if (!names.length) return [];
-    const { labels } = await paseo.labels();
+    const { labels } = await pimi.labels();
     const catalog = new Map(labels.map((label) => [workspaceLabelKey(label.name), label.name]));
     const retained = new Map(previous.map((name) => [workspaceLabelKey(name), name]));
     return [
@@ -339,7 +339,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
           const key = workspaceLabelKey(name);
           const canonical = catalog.get(key) ?? retained.get(key);
           if (!canonical)
-            throw new RequestError(`Label “${name}” is not in Paseo. Choose an existing label.`);
+            throw new RequestError(`Label “${name}” is not in Pimi. Choose an existing label.`);
           return canonical;
         }),
       ),
@@ -644,7 +644,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
   }
 
   async function selectModel(task, model) {
-    const { models } = await paseo.taskModels(modelDirectory(task));
+    const { models } = await pimi.taskModels(modelDirectory(task));
     const selected = models.find((entry) => entry.id === model);
     if (!selected)
       throw new RequestError("This model is unavailable. Refresh the model list.", 409);
@@ -666,7 +666,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
         .array(ideaFields)
         .length(2)
         .safeParse(
-          await paseo.suggestExperiments(task, {
+          await pimi.suggestExperiments(task, {
             provider: selected.id.slice(0, separator),
             model: selected.id.slice(separator + 1),
             thinkingOptionId: selected.thinkingOptionId,
@@ -725,13 +725,13 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
 
     running.add(id);
     try {
-      const choices = await paseo.taskModels(modelDirectory(task));
+      const choices = await pimi.taskModels(modelDirectory(task));
       const selections = new Map(
         pending.map((item) => [item.id, modelForWorkItem(choices, item, model)]),
       );
       const handoff =
         task.source && pending.some((entry) => !entry.launch)
-          ? await paseo.taskParent(task.source)
+          ? await pimi.taskParent(task.source)
           : undefined;
       const uniqueModels = new Map(
         [...selections.values()].map((selected) => [selected.id, selected]),
@@ -743,7 +743,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
       const modelChecks = await Promise.allSettled(
         [...uniqueModels.values()].map(async (selected) => {
           try {
-            await paseo.checkTaskModel(toConfig(selected));
+            await pimi.checkTaskModel(toConfig(selected));
           } catch (error) {
             throw new RequestError(
               `${selected.label} failed its model check. ${error.message}`,
@@ -787,7 +787,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
           let error;
           try {
             const repository = task.repositories.find((entry) => entry.root === experiment.root);
-            path = await paseo.launchExperiment({ ...task, ...repository }, experiment);
+            path = await pimi.launchExperiment({ ...task, ...repository }, experiment);
             if (!path) throw new Error("The workspace did not return a working directory.");
           } catch (cause) {
             error = cause.message;
@@ -821,7 +821,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
     if (!experiment.launch) {
       throw new RequestError("This work item has no Pimi agent.");
     }
-    const result = await paseo.experimentReport(experimentId);
+    const result = await pimi.experimentReport(experimentId);
     return update((draft) => {
       const currentTask = getTask(draft, id);
       if (!currentTask.completedByPullRequest) checkOpen(currentTask);
@@ -1042,7 +1042,7 @@ export async function createTasks({ file, paseo, getInventory, onChange = () => 
     addIdea,
     suggest,
     discard,
-    models: ({ id }) => paseo.taskModels(modelDirectory(getTask(state, id))),
+    models: ({ id }) => pimi.taskModels(modelDirectory(getTask(state, id))),
     run,
     report,
   };

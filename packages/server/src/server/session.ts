@@ -286,17 +286,17 @@ import {
 } from "./workspace-directory.js";
 import { shouldEmitPendingBootstrapUpdate } from "./workspace-bootstrap-dedupe.js";
 import {
-  createPaseoWorktree,
-  type CreatePaseoWorktreeInput,
-  type CreatePaseoWorktreeResult,
-} from "./paseo-worktree-service.js";
+  createPimiWorktree,
+  type CreatePimiWorktreeInput,
+  type CreatePimiWorktreeResult,
+} from "./pimi-worktree-service.js";
 import { WorkspaceAutoName } from "./workspace-auto-name.js";
 import {
-  createPaseoWorktreeWorkflow as createWorktreeWorkflow,
-  type CreatePaseoWorktreeWorkflowResult,
-  handleCreatePaseoWorktreeRequest as handleCreateWorktreeRequest,
-  handlePaseoWorktreeArchiveRequest as handleWorktreeArchiveRequest,
-  handlePaseoWorktreeListRequest as handleWorktreeListRequest,
+  createPimiWorktreeWorkflow as createWorktreeWorkflow,
+  type CreatePimiWorktreeWorkflowResult,
+  handleCreatePimiWorktreeRequest as handleCreateWorktreeRequest,
+  handlePimiWorktreeArchiveRequest as handleWorktreeArchiveRequest,
+  handlePimiWorktreeListRequest as handleWorktreeListRequest,
   handleWorkspaceSetupStatusRequest as handleWorkspaceSetupStatusRequestMessage,
   handleWorkspaceSetupRunRequest as handleWorkspaceSetupRunRequestMessage,
 } from "./worktree-session.js";
@@ -1152,8 +1152,8 @@ export class Session {
       agentStorage: this.agentStorage,
       github: this.github,
       workspaceGitService: this.workspaceGitService,
-      createPaseoWorktreeWorkflow: (input, workflowOptions) =>
-        this.createPaseoWorktreeWorkflow(input, workflowOptions),
+      createPimiWorktreeWorkflow: (input, workflowOptions) =>
+        this.createPimiWorktreeWorkflow(input, workflowOptions),
       archiveAgentForClose: (agentId) => this.archiveAgentForClose(agentId),
       findWorkspaceIdForCwd: (cwd) => this.findWorkspaceIdForCwd(cwd),
       listActiveWorkspaces: () => this.listActiveWorkspaceRefs(),
@@ -2929,11 +2929,11 @@ export class Session {
       case "project.suggestions.request":
         return this.handleProjectSuggestionsRequest(msg);
       case "pimi_worktree_list_request":
-        return this.handlePaseoWorktreeListRequest(msg);
+        return this.handlePimiWorktreeListRequest(msg);
       case "pimi_worktree_archive_request":
-        return this.handlePaseoWorktreeArchiveRequest(msg);
+        return this.handlePimiWorktreeArchiveRequest(msg);
       case "create_pimi_worktree_request":
-        return this.handleCreatePaseoWorktreeRequest(msg);
+        return this.handleCreatePimiWorktreeRequest(msg);
       case "open_project_request":
         return this.handleOpenProjectRequest(msg);
       case "project.add.request":
@@ -4357,7 +4357,7 @@ export class Session {
       }`,
     );
 
-    let createdWorktreeForCleanup: CreatePaseoWorktreeWorkflowResult | null = null;
+    let createdWorktreeForCleanup: CreatePimiWorktreeWorkflowResult | null = null;
     let createdAgentId: string | null = null;
     try {
       const requestedCwd = resolve(config.cwd);
@@ -4468,7 +4468,7 @@ export class Session {
 
   private async resolveSessionCreateAgentIntent(input: {
     request: CreateAgentRequestMessage;
-    createdWorktree: CreatePaseoWorktreeWorkflowResult | null;
+    createdWorktree: CreatePimiWorktreeWorkflowResult | null;
     workspacePromptTitle: string | null;
   }): Promise<ResolvedSessionCreateAgentIntent> {
     const { request, createdWorktree } = input;
@@ -5199,7 +5199,7 @@ export class Session {
     }
   }
 
-  private async handlePaseoWorktreeListRequest(
+  private async handlePimiWorktreeListRequest(
     msg: Extract<SessionInboundMessage, { type: "pimi_worktree_list_request" }>,
   ): Promise<void> {
     return handleWorktreeListRequest(
@@ -5212,13 +5212,13 @@ export class Session {
     );
   }
 
-  private async handlePaseoWorktreeArchiveRequest(
+  private async handlePimiWorktreeArchiveRequest(
     msg: Extract<SessionInboundMessage, { type: "pimi_worktree_archive_request" }>,
   ): Promise<void> {
     return handleWorktreeArchiveRequest(
       {
         pimiHome: this.pimiHome,
-        paseoWorktreesBaseRoot: this.worktreesRoot,
+        pimiWorktreesBaseRoot: this.worktreesRoot,
         github: this.github,
         workspaceGitService: this.workspaceGitService,
         agentManager: this.agentManager,
@@ -5615,7 +5615,7 @@ export class Session {
     }
 
     const worktreeSlug =
-      workspace.isPaseoOwnedWorktree && workspace.worktreeRoot
+      workspace.isPimiOwnedWorktree && workspace.worktreeRoot
         ? basename(workspace.worktreeRoot)
         : undefined;
 
@@ -5665,7 +5665,7 @@ export class Session {
       currentBranch: snapshot.git.currentBranch,
       headSha: snapshot.git.headSha,
       remoteUrl: snapshot.git.remoteUrl,
-      isPaseoOwnedWorktree: snapshot.git.isPaseoOwnedWorktree,
+      isPimiOwnedWorktree: snapshot.git.isPimiOwnedWorktree,
       isDirty: snapshot.git.isDirty,
       aheadBehind: snapshot.git.aheadBehind,
       aheadOfOrigin: snapshot.git.aheadOfOrigin,
@@ -5710,7 +5710,7 @@ export class Session {
   }
 
   private async describeCreatedWorktreeWorkspace(
-    result: CreatePaseoWorktreeResult,
+    result: CreatePimiWorktreeResult,
   ): Promise<WorkspaceDescriptorPayload> {
     const projectRecord = await this.projectRegistry.get(result.workspace.projectId);
     return {
@@ -5749,7 +5749,7 @@ export class Session {
       gitRuntime: {
         currentBranch: result.worktree.branchName || null,
         remoteUrl: null,
-        isPaseoOwnedWorktree: true,
+        isPimiOwnedWorktree: true,
         isDirty: false,
         aheadBehind: null,
         aheadOfOrigin: null,
@@ -5941,13 +5941,13 @@ export class Session {
     await this.refreshRecoveredWorkspaceForExternalMutation(workspace);
   }
 
-  private async createPaseoWorktree(
-    input: CreatePaseoWorktreeInput,
+  private async createPimiWorktree(
+    input: CreatePimiWorktreeInput,
     options?: {
       resolveDefaultBranch?: (repoRoot: string) => Promise<string>;
     },
-  ): Promise<CreatePaseoWorktreeResult> {
-    const result = await createPaseoWorktree(input, {
+  ): Promise<CreatePimiWorktreeResult> {
+    const result = await createPimiWorktree(input, {
       lifecycle: this.pluginRuntime,
       github: this.github,
       ...(options?.resolveDefaultBranch
@@ -5977,7 +5977,7 @@ export class Session {
         cwd: workspace.cwd,
         kind: workspace.kind,
         worktreeRoot: workspace.worktreeRoot,
-        isPaseoOwnedWorktree: workspace.isPaseoOwnedWorktree,
+        isPimiOwnedWorktree: workspace.isPimiOwnedWorktree,
         mainRepoRoot: workspace.mainRepoRoot,
       }));
   }
@@ -6896,7 +6896,7 @@ export class Session {
 
     const sourceCwd = await resolveWorktreeSourceCwd(source, this.projectRegistry);
 
-    const result = await this.createPaseoWorktreeWorkflow(
+    const result = await this.createPimiWorktreeWorkflow(
       {
         cwd: sourceCwd,
         workspaceId,
@@ -7228,7 +7228,7 @@ export class Session {
         }
       }
 
-      const cloneStagingPath = await mkdtemp(resolve(targetParent, ".paseo-clone-"));
+      const cloneStagingPath = await mkdtemp(resolve(targetParent, ".pimi-clone-"));
       try {
         await runGitCommand(["clone", repo.cloneUrl, cloneStagingPath], {
           cwd: targetParent,
@@ -7377,7 +7377,7 @@ export class Session {
     }
   }
 
-  private async handleCreatePaseoWorktreeRequest(
+  private async handleCreatePimiWorktreeRequest(
     request: Extract<SessionInboundMessage, { type: "create_pimi_worktree_request" }>,
   ): Promise<void> {
     return handleCreateWorktreeRequest(
@@ -7387,24 +7387,24 @@ export class Session {
         describeWorkspaceRecord: (result) => this.describeCreatedWorktreeWorkspace(result),
         emit: (message) => this.emit(message),
         sessionLogger: this.sessionLogger,
-        createPaseoWorktreeWorkflow: (input) => this.createPaseoWorktreeWorkflow(input),
+        createPimiWorktreeWorkflow: (input) => this.createPimiWorktreeWorkflow(input),
       },
       request,
     );
   }
 
-  private async createPaseoWorktreeWorkflow(
-    input: CreatePaseoWorktreeInput,
+  private async createPimiWorktreeWorkflow(
+    input: CreatePimiWorktreeInput,
     options?: {
       resolveDefaultBranch?: (repoRoot: string) => Promise<string>;
     },
-  ): Promise<CreatePaseoWorktreeWorkflowResult> {
+  ): Promise<CreatePimiWorktreeWorkflowResult> {
     return createWorktreeWorkflow(
       {
         pimiHome: this.pimiHome,
         worktreesRoot: this.worktreesRoot,
-        createPaseoWorktree: (workflowInput, serviceOptions) =>
-          this.createPaseoWorktree(workflowInput, serviceOptions),
+        createPimiWorktree: (workflowInput, serviceOptions) =>
+          this.createPimiWorktree(workflowInput, serviceOptions),
         warmWorkspaceGitData: (workspace) => this.warmWorkspaceGitDataForWorkspace(workspace),
         autoNameWorkspaceBranchForFirstAgent: (autoNameInput) =>
           this.workspaceAutoName.scheduleForWorktree(autoNameInput, {
@@ -7496,7 +7496,7 @@ export class Session {
           return archiveByScope(
             {
               pimiHome: this.pimiHome,
-              paseoWorktreesBaseRoot: this.worktreesRoot,
+              pimiWorktreesBaseRoot: this.worktreesRoot,
               github: this.github,
               workspaceGitService: this.workspaceGitService,
               agentManager: this.agentManager,

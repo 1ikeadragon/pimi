@@ -2099,8 +2099,8 @@ async function verifyBrowserKeyboardIsolation({ guest, win, browserId, usesMeta,
 async function runAutomationGroup() {
   const results = [];
   const { BrowserKeyboard } = require(PRODUCTION_BROWSER_KEYBOARD_PATH);
-  const { PaseoBrowserWebviewRegistry } = require(PRODUCTION_BROWSER_WEBVIEW_REGISTRY_PATH);
-  const browserRegistry = new PaseoBrowserWebviewRegistry();
+  const { PimiBrowserWebviewRegistry } = require(PRODUCTION_BROWSER_WEBVIEW_REGISTRY_PATH);
+  const browserRegistry = new PimiBrowserWebviewRegistry();
   const browserKeyboard = new BrowserKeyboard(browserRegistry);
   browserKeyboard.registerIpc();
   const browserKeyboardSentinels = installBrowserKeyboardSentinels();
@@ -2413,7 +2413,7 @@ async function runAutomationGroup() {
     }
     const evaluated = await guest.debugger.sendCommand("Runtime.evaluate", {
       expression: `(() => window.__PIMI_BROWSER_AUTOMATION__.resolve(${JSON.stringify(uploadRef.ref)}, ${JSON.stringify(uploadRef.fingerprint)}).element)()`,
-      objectGroup: "paseo-browser-automation",
+      objectGroup: "pimi-browser-automation",
       returnByValue: false,
     });
     const described = await guest.debugger.sendCommand("DOM.describeNode", {
@@ -2513,7 +2513,7 @@ async function createBrowserProfileHarnessWindow(partition, sourceUrl) {
 async function readBrowserProfileFixture(guest) {
   return await guest.executeJavaScript(`({
     cookie: document.cookie,
-    localStorage: localStorage.getItem("paseo-browser-profile")
+    localStorage: localStorage.getItem("pimi-browser-profile")
   })`);
 }
 
@@ -2521,7 +2521,7 @@ function assertBrowserProfileFixture(state, expectedValue, label) {
   if (state.localStorage !== expectedValue) {
     fail(`${label} localStorage mismatch ${JSON.stringify(state)}`);
   }
-  if (!state.cookie.split("; ").includes(`paseo-browser-profile=${expectedValue}`)) {
+  if (!state.cookie.split("; ").includes(`pimi-browser-profile=${expectedValue}`)) {
     fail(`${label} cookie mismatch ${JSON.stringify(state)}`);
   }
 }
@@ -2573,8 +2573,8 @@ async function prepareBrowserProfileValue(firstGuest, profileSession) {
   const profileValue = `profile-${Date.now()}-${process.pid}`;
   await firstGuest.executeJavaScript(`(() => {
     const value = ${JSON.stringify(profileValue)};
-    localStorage.setItem("paseo-browser-profile", value);
-    document.cookie = "paseo-browser-profile=" + value + "; Max-Age=86400; SameSite=Lax";
+    localStorage.setItem("pimi-browser-profile", value);
+    document.cookie = "pimi-browser-profile=" + value + "; Max-Age=86400; SameSite=Lax";
   })()`);
   if (BROWSER_PROFILE_PHASE === "write") {
     await fsp.writeFile(BROWSER_PROFILE_VALUE_FILE, `${profileValue}\n`);
@@ -2587,7 +2587,7 @@ async function runBrowserProfileGroup() {
   if (!["write", "read"].includes(BROWSER_PROFILE_PHASE)) {
     fail(`unknown browser profile phase ${BROWSER_PROFILE_PHASE}`);
   }
-  const partition = "persist:paseo-browser-profile-harness-restart";
+  const partition = "persist:pimi-browser-profile-harness-restart";
   const profileSession = session.fromPartition(partition);
   const fixture = await startBrowserProfileServer();
   const windows = [];

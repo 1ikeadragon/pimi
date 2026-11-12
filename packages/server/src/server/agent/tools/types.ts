@@ -1,7 +1,7 @@
 import type { z } from "zod";
-import type { ProviderPaseoToolsPolicy } from "@pimi/protocol/provider-config";
+import type { ProviderPimiToolsPolicy } from "@pimi/protocol/provider-config";
 
-export class PaseoToolInputError extends Error {
+export class PimiToolInputError extends Error {
   readonly status = 400;
 
   constructor(
@@ -9,51 +9,51 @@ export class PaseoToolInputError extends Error {
     readonly issues?: z.ZodError["issues"],
   ) {
     super(message);
-    this.name = "PaseoToolInputError";
+    this.name = "PimiToolInputError";
   }
 }
 
-export interface PaseoToolExecutionContext {
+export interface PimiToolExecutionContext {
   signal?: AbortSignal;
-  sendUpdate?: (update: PaseoToolResult) => void;
+  sendUpdate?: (update: PimiToolResult) => void;
 }
 
-export interface PaseoToolResult {
+export interface PimiToolResult {
   content: Array<{ type: string; text?: string; [key: string]: unknown }>;
   structuredContent?: unknown;
   isError?: boolean;
 }
 
-export interface PaseoToolConfig {
+export interface PimiToolConfig {
   title?: string;
   description?: string;
   inputSchema?: z.ZodRawShape | z.ZodType;
   outputSchema?: z.ZodRawShape;
 }
 
-export interface PaseoToolDefinition extends PaseoToolConfig {
+export interface PimiToolDefinition extends PimiToolConfig {
   name: string;
   description: string;
-  handler: (input: unknown, context: PaseoToolExecutionContext) => Promise<PaseoToolResult>;
+  handler: (input: unknown, context: PimiToolExecutionContext) => Promise<PimiToolResult>;
 }
 
-export interface PaseoToolCatalog {
-  tools: ReadonlyMap<string, PaseoToolDefinition>;
-  getTool(name: string): PaseoToolDefinition | undefined;
+export interface PimiToolCatalog {
+  tools: ReadonlyMap<string, PimiToolDefinition>;
+  getTool(name: string): PimiToolDefinition | undefined;
   executeTool(
     name: string,
     input: unknown,
-    context?: PaseoToolExecutionContext,
-  ): Promise<PaseoToolResult>;
+    context?: PimiToolExecutionContext,
+  ): Promise<PimiToolResult>;
 }
 
-export interface PaseoToolRuntimeContext {
+export interface PimiToolRuntimeContext {
   callerAgentId?: string;
-  paseoToolPolicy?: ProviderPaseoToolsPolicy;
+  pimiToolPolicy?: ProviderPimiToolsPolicy;
   enableVoiceTools?: boolean;
   voiceOnly?: boolean;
 }
 
-export type PaseoToolCatalogFactory = (
-  context: PaseoToolRuntimeContext,
-) => PaseoToolCatalog | Promise<PaseoToolCatalog>;
+export type PimiToolCatalogFactory = (
+  context: PimiToolRuntimeContext,
+) => PimiToolCatalog | Promise<PimiToolCatalog>;

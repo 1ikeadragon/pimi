@@ -32,7 +32,7 @@ export const claudeSettingsFormat: AgentHookConfigFormat<ClaudeSettings> = {
     const install = provider.install;
     const hooks = normalizeHooks(config.hooks);
     for (const event of provider.events) {
-      const userEntries = removePaseoHooks(hooks[event.event], install.hookMarker);
+      const userEntries = removePimiHooks(hooks[event.event], install.hookMarker);
       hooks[event.event] = [
         ...userEntries,
         {
@@ -53,7 +53,7 @@ export const claudeSettingsFormat: AgentHookConfigFormat<ClaudeSettings> = {
     const install = provider.install;
     const hooks = normalizeHooks(config.hooks);
     for (const event of provider.events) {
-      const entries = removePaseoHooks(hooks[event.event], install.hookMarker);
+      const entries = removePimiHooks(hooks[event.event], install.hookMarker);
       if (entries.length > 0) {
         hooks[event.event] = entries;
       } else {
@@ -107,7 +107,7 @@ function normalizeCommandHooks(value: unknown): ClaudeCommandHook[] {
   return value.filter(isRecord);
 }
 
-function removePaseoHooks(value: unknown, marker: string): ClaudeHookMatcher[] {
+function removePimiHooks(value: unknown, marker: string): ClaudeHookMatcher[] {
   const entries: ClaudeHookMatcher[] = [];
   for (const entry of normalizeMatchers(value)) {
     const hooks = normalizeCommandHooks(entry.hooks).filter(

@@ -276,8 +276,8 @@ export class SessionTurns {
           }
         : {}),
       metadata: {
-        ...(options?.clientMessageId ? { paseoClientMessageId: options.clientMessageId } : {}),
-        ...(output ? { paseoOutputSchema: output.schema } : {}),
+        ...(options?.clientMessageId ? { pimiClientMessageId: options.clientMessageId } : {}),
+        ...(output ? { pimiOutputSchema: output.schema } : {}),
       },
     });
   }
@@ -341,7 +341,7 @@ export class SessionTurns {
       ...this.promptInput(prompt),
       delivery: "steer",
       metadata: options.clientMessageId
-        ? { paseoClientMessageId: options.clientMessageId }
+        ? { pimiClientMessageId: options.clientMessageId }
         : undefined,
     });
     if (options.clearPendingPermissions) await this.options.clearPermissions();

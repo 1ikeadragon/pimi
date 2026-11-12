@@ -9,9 +9,9 @@ import type { Logger } from "pino";
 import { writeFileAtomic } from "../../../atomic-file.js";
 import {
   addModelVisibleStructuredContent,
-  serializePaseoToolInputParameters,
-} from "../../tools/paseo-tool-serialization.js";
-import { PaseoToolInputError, type PaseoToolCatalog } from "../../tools/types.js";
+  serializePimiToolInputParameters,
+} from "../../tools/pimi-tool-serialization.js";
+import { PimiToolInputError, type PimiToolCatalog } from "../../tools/types.js";
 
 const INTERNAL_PREFIX = "/_internal/opencode";
 const MAX_REQUEST_BYTES = 1024 * 1024;
@@ -35,7 +35,7 @@ interface OpenCodeBridgeOptions {
 
 interface OpenCodeSessionBinding {
   env: Record<string, string>;
-  tools?: PaseoToolCatalog;
+  tools?: PimiToolCatalog;
 }
 
 interface BindOpenCodeSessionInput extends OpenCodeSessionBinding {
@@ -62,7 +62,7 @@ export class OpenCodeBridge {
   private baseUrl: string | null = null;
   private pluginUrl: string | null = null;
   private v2PluginUrl: string | null = null;
-  private manifestCatalog: Pick<PaseoToolCatalog, "tools"> | null = null;
+  private manifestCatalog: Pick<PimiToolCatalog, "tools"> | null = null;
 
   constructor(options: OpenCodeBridgeOptions) {
     this.pimiHome = options.pimiHome;
@@ -92,7 +92,7 @@ export class OpenCodeBridge {
     this.baseUrl = `http://127.0.0.1:${address.port}`;
   }
 
-  setManifestCatalog(catalog: Pick<PaseoToolCatalog, "tools"> | null): void {
+  setManifestCatalog(catalog: Pick<PimiToolCatalog, "tools"> | null): void {
     this.manifestCatalog = catalog;
   }
 
@@ -121,7 +121,7 @@ export class OpenCodeBridge {
     const plugins = config.plugin ?? [];
     const withoutBridge = plugins.filter((entry) => {
       const specifier = Array.isArray(entry) ? entry[0] : entry;
-      return !specifier.includes("/paseo-") || !specifier.endsWith(".mjs");
+      return !specifier.includes("/pimi-") || !specifier.endsWith(".mjs");
     });
     return {
       ...env,
@@ -153,7 +153,7 @@ export class OpenCodeBridge {
     if (version === 2) return materializeOpenCodeV2Plugin(this.pimiHome);
     const artifact = await loadOpenCodeBridgePluginArtifact(import.meta.url);
     const digest = createHash("sha256").update(artifact).digest("hex");
-    const destination = path.join(this.pimiHome, "runtime", "opencode", `paseo-${digest}.mjs`);
+    const destination = path.join(this.pimiHome, "runtime", "opencode", `pimi-${digest}.mjs`);
     await writeFileAtomic(destination, artifact);
     return pathToFileURL(destination).href;
   }
@@ -211,7 +211,7 @@ export class OpenCodeBridge {
             error: error.message,
             ...(error.details === undefined ? {} : { details: error.details }),
           });
-        } else if (error instanceof PaseoToolInputError) {
+        } else if (error instanceof PimiToolInputError) {
           sendJson(
             response,
             error.status,
@@ -235,7 +235,7 @@ export class OpenCodeBridge {
       const definition: Record<string, unknown> = {
         name: tool.name,
         description: tool.description,
-        inputSchema: serializePaseoToolInputParameters(tool),
+        inputSchema: serializePimiToolInputParameters(tool),
       };
       if (tool.title) definition.title = tool.title;
       return definition;
@@ -286,14 +286,14 @@ export async function materializeOpenCodeV2Plugin(pimiHome: string): Promise<str
   const artifact = await loadOpenCodeBridgePluginArtifact(import.meta.url, undefined, 2);
   const digest = createHash("sha256").update(artifact).digest("hex");
   // V2 ignores configured file paths; it loads a package directory's server entry point.
-  const directory = path.join(pimiHome, "runtime", "opencode", `paseo-v2-${digest}`);
+  const directory = path.join(pimiHome, "runtime", "opencode", `pimi-v2-${digest}`);
   await writeFileAtomic(path.join(directory, "server.js"), artifact);
   const state = await readFile(new URL("./v2/state.mjs", import.meta.url));
   await writeFileAtomic(path.join(directory, "state.mjs"), state);
   await writeFileAtomic(
     path.join(directory, "package.json"),
     JSON.stringify({
-      name: "paseo-opencode-bridge",
+      name: "pimi-opencode-bridge",
       private: true,
       type: "module",
       exports: { "./server": "./server.js" },

@@ -30,7 +30,7 @@ import {
   type ProviderRegistration,
   ProviderStatusSchema,
 } from "@pimi/plugin/server/provider";
-import { createPaseoApi, type PaseoApi } from "@pimi/client";
+import { createPimiApi, type PimiApi } from "@pimi/client";
 import { DaemonClient } from "@pimi/client/internal/daemon-client";
 import { createPluginDaemonTransportFactory } from "./daemon-transport.js";
 import { createPluginClientId } from "./plugin-session-identity.js";
@@ -89,7 +89,7 @@ export function createPluginWorker(options: {
   const pendingProviderConnections = new Map<string, { tombstoned: boolean }>();
   let cleanup: (() => void | Promise<void>) | null = null;
   let daemonClient: DaemonClient | null = null;
-  let paseo: PaseoApi | null = null;
+  let pimi: PimiApi | null = null;
   let stopping = false;
   function send(message: PluginProcessMessage): void {
     channel.send(message);
@@ -314,7 +314,7 @@ export function createPluginWorker(options: {
       reconnect: { enabled: true },
       transportFactory,
     });
-    paseo = createPaseoApi(daemonClient);
+    pimi = createPimiApi(daemonClient);
     await daemonClient.connect();
     settingsStore = message.settingsDirectory
       ? new PluginSettingsStore(message.settingsDirectory, (settingsId) =>
@@ -358,7 +358,7 @@ export function createPluginWorker(options: {
   async function shutdown(): Promise<void> {
     if (stopping) return;
     stopping = true;
-    const releaseApi = paseo
+    const releaseApi = pimi
       ?.dispose()
       .catch((error) => console.error("Plugin API cleanup failed", error));
     hooks.close();
@@ -377,7 +377,7 @@ export function createPluginWorker(options: {
     await daemonClient?.close().catch(() => undefined);
     await sendAndWait({ type: "pimi_close" });
     daemonClient = null;
-    paseo = null;
+    pimi = null;
     channel.disconnect();
   }
 
@@ -439,12 +439,12 @@ export function createPluginWorker(options: {
       return true;
     }
     if (message.type === "tool.call") {
-      if (!paseo) {
+      if (!pimi) {
         send({ type: "error", requestId: message.requestId, error: "Plugin API unavailable" });
         return true;
       }
       void agentTools
-        .call(message.requestId, message.agent, message.name, message.input, paseo)
+        .call(message.requestId, message.agent, message.name, message.input, pimi)
         .then((output) =>
           send({
             type: "result",
@@ -464,7 +464,7 @@ export function createPluginWorker(options: {
     message: Extract<PluginProcessRequest, { type: "subscribe" | "unsubscribe" }>,
   ): void {
     if (message.type === "unsubscribe") subscriptions.release(message.subscriptionId);
-    else if (paseo) subscriptions.start(message, paseo);
+    else if (pimi) subscriptions.start(message, pimi);
     else send({ type: "error", requestId: message.requestId, error: "Plugin API unavailable" });
   }
 
@@ -494,7 +494,7 @@ export function createPluginWorker(options: {
     if (message.type === "initialize") {
       void initialize(message).catch(async (error) => {
         send({ type: "fatal", error: describeError(error) });
-        await paseo
+        await pimi
           ?.dispose()
           .catch((failure) => console.error("Plugin API cleanup failed", failure));
         await daemonClient?.close().catch(() => undefined);
@@ -588,8 +588,8 @@ export function createPluginWorker(options: {
     void registered.contract.input
       .parseAsync(message.input)
       .then((input) => {
-        if (!paseo) throw new Error("Plugin Paseo API is unavailable");
-        return registered.handler(input, { pimi: paseo, paseo });
+        if (!pimi) throw new Error("Plugin Pimi API is unavailable");
+        return registered.handler(input, { pimi });
       })
       .then((output: unknown) => {
         assertPluginWireValue(output, "output");
@@ -611,15 +611,15 @@ export function createPluginWorker(options: {
       return;
     }
     if (message.type === "hook") {
-      if (!paseo) {
+      if (!pimi) {
         send({
           type: "error",
           requestId: message.requestId,
-          error: "Plugin Paseo API is unavailable",
+          error: "Plugin Pimi API is unavailable",
         });
         return;
       }
-      void hooks.invoke(message.requestId, message.name, message.input, paseo).then(
+      void hooks.invoke(message.requestId, message.name, message.input, pimi).then(
         (output) => {
           return send({ type: "result", requestId: message.requestId, output });
         },

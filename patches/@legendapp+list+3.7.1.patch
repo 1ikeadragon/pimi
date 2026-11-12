@@ -1,6 +1,6 @@
 # LegendList 3.7.1 for the native chat timeline (docs/agent-stream-disclosure.md).
 # Upstream: https://github.com/LegendApp/legend-list/issues/593 covers every change below.
-# react-native.js and react-native.mjs carry the same hunks; each has a "Paseo patch" comment.
+# react-native.js and react-native.mjs carry the same hunks; each has a "Pimi patch" comment.
 #
 # 1. getEstimatedItemSize (react-native.d.ts, getItemSize, LegendListInner props): a per-item
 #    estimate for an unmeasured row wins over the running average for its type.
@@ -40,7 +40,7 @@ index 983e937..970ba51 100644
       */
      getFixedItemSize?: (item: ItemT, index: number, type: TItemType) => number | undefined;
 +    /**
-+     * Paseo patch: estimated size of an item that has not been measured yet. Return undefined to
++     * Pimi patch: estimated size of an item that has not been measured yet. Return undefined to
 +     * fall back to the average size for its type.
 +     */
 +    getEstimatedItemSize?: (item: ItemT, index: number, type: TItemType) => number | undefined;
@@ -56,7 +56,7 @@ index eeb3fb0..5fe940d 100644
    }
    const itemType = (_b = resolved == null ? void 0 : resolved.itemType) != null ? _b : getItemType ? (_a3 = getItemType(data, index)) != null ? _a3 : "" : "";
 -  if (useAverageSize && !scrollingTo) {
-+  // Paseo patch: a caller estimate for an unmeasured item wins over the running average for its
++  // Pimi patch: a caller estimate for an unmeasured item wins over the running average for its
 +  // type, so a row new to the list can be laid out near its real size before it is measured.
 +  if (state.props.getEstimatedItemSize) {
 +    const estimate = state.props.getEstimatedItemSize(data, index, itemType);
@@ -86,7 +86,7 @@ index eeb3fb0..5fe940d 100644
      return void 0;
    }
 -  const isExpired = now > lock.expiresAt;
-+  // Paseo patch: native keeps the anchor of a data change through the size passes that follow, as
++  // Pimi patch: native keeps the anchor of a data change through the size passes that follow, as
 +  // web does. Upstream limits the lock to web (d24a9d93 "feat: (web) add MVCP anchor lock") without a
 +  // native reason. Without it, the pass that applies the measured sizes of prepended rows re-anchors
 +  // on the first row in view, which can be one of those rows, and its growth moves the rows below.
@@ -128,7 +128,7 @@ index eeb3fb0..5fe940d 100644
        targetId = (_b = scrollingTo == null ? void 0 : scrollingTo.key) != null ? _b : getId(state, scrollTarget);
      } else if (idsInView.length > 0 && state.didContainersLayout && !dataChanged) {
 -      targetId = idsInView.find((id) => indexByKey.get(id) !== void 0);
-+      // Paseo patch: a size change keeps only a row shouldRestorePosition accepts in place, as a data
++      // Pimi patch: a size change keeps only a row shouldRestorePosition accepts in place, as a data
 +      // change does. Upstream keeps the first row in view, so a disclosure hold on a row cut off at
 +      // the top kept the row below it instead and moved the trigger by the row's size change.
 +      targetId = idsInView.find((id) => indexByKey.get(id) !== void 0 && canRestoreAnchorLock(state, id));
@@ -140,7 +140,7 @@ index eeb3fb0..5fe940d 100644
      if (scrollingTo.isInitialScroll || state.initialScroll) {
        const isOffsetSession = ((_b = state.initialScrollSession) == null ? void 0 : _b.kind) === "offset";
 -      const shouldPreserveResizeTarget = !!scrollingTo.isInitialScroll && !state.clearPreservedInitialScrollOnNextFinish && state.props.data.length > 0 && ((_c = state.initialScroll) == null ? void 0 : _c.viewPosition) === 1;
-+      // Paseo patch: only a list that keeps its end keeps landing on the initial end after the
++      // Pimi patch: only a list that keeps its end keeps landing on the initial end after the
 +      // initial scroll. Without maintainScrollAtEnd, the preserved target re-arms the initial scroll
 +      // on every data change, footer layout and viewport resize, and a stream never lets it clear.
 +      const shouldPreserveResizeTarget = !!state.props.maintainScrollAtEnd && !!scrollingTo.isInitialScroll && !state.clearPreservedInitialScrollOnNextFinish && state.props.data.length > 0 && ((_c = state.initialScroll) == null ? void 0 : _c.viewPosition) === 1;
@@ -151,7 +151,7 @@ index eeb3fb0..5fe940d 100644
          const targetOffset = (_d = (_c = (_b = initialScrollWatchdog.get(state)) == null ? void 0 : _b.targetOffset) != null ? _c : isStillScrollingTo.targetOffset) != null ? _d : 0;
          const jiggleOffset = targetOffset >= SILENT_INITIAL_SCROLL_TARGET_EPSILON ? targetOffset - SILENT_INITIAL_SCROLL_TARGET_EPSILON : targetOffset + SILENT_INITIAL_SCROLL_TARGET_EPSILON;
          initialScrollCompletion.markSilentInitialScrollRetry(state);
-+        // Paseo patch: send the nudge and the return to the target in one task, so native applies both before
++        // Pimi patch: send the nudge and the return to the target in one task, so native applies both before
 +        // it draws and the pair still emits the scroll event this retry exists for. Upstream returns on the next
 +        // frame, but the 16 ms check below can run first, finish the scroll and cancel that frame; the list then
 +        // revealed 1 dp short of its end and moved into place a frame later.
@@ -169,7 +169,7 @@ index eeb3fb0..5fe940d 100644
    const state = ctx.state;
    clearBootstrapInitialScrollSession(state);
 -  const shouldPreserveResizeTarget = !state.clearPreservedInitialScrollOnNextFinish && state.props.data.length > 0 && ((_a3 = state.initialScroll) == null ? void 0 : _a3.viewPosition) === 1;
-+  // Paseo patch: see finishScrollTo; only a list that keeps its end preserves the initial end.
++  // Pimi patch: see finishScrollTo; only a list that keeps its end preserves the initial end.
 +  const shouldPreserveResizeTarget = !!state.props.maintainScrollAtEnd && !state.clearPreservedInitialScrollOnNextFinish && state.props.data.length > 0 && ((_a3 = state.initialScroll) == null ? void 0 : _a3.viewPosition) === 1;
    finishInitialScroll(ctx, {
      preserveTarget: shouldPreserveResizeTarget,
@@ -178,7 +178,7 @@ index eeb3fb0..5fe940d 100644
        const id = (_b = state.idCache[i]) != null ? _b : getId(state, i);
        idsInView.push(id);
      }
-+    // Paseo patch: a row whose top is above the viewport is still in view. Upstream starts the ids at
++    // Pimi patch: a row whose top is above the viewport is still in view. Upstream starts the ids at
 +    // the first fully visible row, so a disclosure hold on a row cut off at the top finds no anchor
 +    // (shouldRestorePosition rejects every other row) and the next size pass keeps the row below it
 +    // in place instead. The partly visible rows go last, so the first fully visible row stays the
@@ -198,7 +198,7 @@ index eeb3fb0..5fe940d 100644
  }
 -function isNativeLayoutNoise(delta) {
 -  return isWithinEpsilon(delta);
-+// Paseo patch: sizesKnown holds roundSize values, floored to 1/8 dp, so the raw size behind a known
++// Pimi patch: sizesKnown holds roundSize values, floored to 1/8 dp, so the raw size behind a known
 +// size lies in [known, known + 1/8). Upstream compares the raw size with the floored one, so a row
 +// whose pixel-snapped height changes by one pixel, plus the floor, reads as a resize. On a cold open
 +// that late resize moved every row a frame after the reveal.
@@ -212,7 +212,7 @@ index eeb3fb0..5fe940d 100644
    const result = {};
    const previousTotalSize = state.totalSize;
    for (const measurement of measurements) {
-+    // Paseo patch: a view inside a display: none ancestor measures 0 x 0. That is no measurement: a
++    // Pimi patch: a view inside a display: none ancestor measures 0 x 0. That is no measurement: a
 +    // laid-out row is as wide as the list even when it has no height. Recording 0 there collapsed
 +    // the row, and when the list showed again a row whose frame had not changed got no layout event
 +    // to correct it, so the next row overlapped it.
@@ -233,7 +233,7 @@ index eeb3fb0..5fe940d 100644
  
  // src/components/Containers.native.tsx
  var useCommittedMinSize = IsNewArchitecture ? () => useArr$(["totalSize"])[0] : () => void 0;
-+// Paseo patch: on the new architecture the content height comes from React state only. The
++// Pimi patch: on the new architecture the content height comes from React state only. The
 +// JS-driven Animated height writes through setNativeProps, which Fabric commits synchronously
 +// mid-task, mounting React's estimated layout for a frame before the measured one.
 +var useContentSize = IsNewArchitecture ? useCommittedMinSize : () => useValue$("totalSize");
@@ -253,7 +253,7 @@ index eeb3fb0..5fe940d 100644
      null
    );
  });
-+// Paseo patch: the header and footer reveal with the rows. Upstream hides only the containers until
++// Pimi patch: the header and footer reveal with the rows. Upstream hides only the containers until
 +// readyToRender, so a cold open paints the header and footer at their estimated place a frame or more
 +// before the rows appear around them.
 +var RevealedLayoutView = function RevealedLayoutView2({ freshDataTransitionEpoch, style, ...rest }) {
@@ -287,7 +287,7 @@ index eeb3fb0..5fe940d 100644
    if (stylePaddingTop !== void 0) {
      const prevStylePaddingTop = peek$(ctx, "stylePaddingTop") || 0;
 -    if (stylePaddingTop < prevStylePaddingTop) {
-+    // Paseo patch: only iOS compensates a shrinking top padding with a scroll adjust, which this
++    // Pimi patch: only iOS compensates a shrinking top padding with a scroll adjust, which this
 +    // keeps the native clamp from doubling. Elsewhere the held height paints as blank space at the
 +    // end until the timer fires, and a scroll view that keeps its end scrolls into it.
 +    if (stylePaddingTop < prevStylePaddingTop && Platform.OS === "ios") {
@@ -319,7 +319,7 @@ index fe5f415..7f1b9dd 100644
    }
    const itemType = (_b = resolved == null ? void 0 : resolved.itemType) != null ? _b : getItemType ? (_a3 = getItemType(data, index)) != null ? _a3 : "" : "";
 -  if (useAverageSize && !scrollingTo) {
-+  // Paseo patch: a caller estimate for an unmeasured item wins over the running average for its
++  // Pimi patch: a caller estimate for an unmeasured item wins over the running average for its
 +  // type, so a row new to the list can be laid out near its real size before it is measured.
 +  if (state.props.getEstimatedItemSize) {
 +    const estimate = state.props.getEstimatedItemSize(data, index, itemType);
@@ -349,7 +349,7 @@ index fe5f415..7f1b9dd 100644
      return void 0;
    }
 -  const isExpired = now > lock.expiresAt;
-+  // Paseo patch: native keeps the anchor of a data change through the size passes that follow, as
++  // Pimi patch: native keeps the anchor of a data change through the size passes that follow, as
 +  // web does. Upstream limits the lock to web (d24a9d93 "feat: (web) add MVCP anchor lock") without a
 +  // native reason. Without it, the pass that applies the measured sizes of prepended rows re-anchors
 +  // on the first row in view, which can be one of those rows, and its growth moves the rows below.
@@ -391,7 +391,7 @@ index fe5f415..7f1b9dd 100644
        targetId = (_b = scrollingTo == null ? void 0 : scrollingTo.key) != null ? _b : getId(state, scrollTarget);
      } else if (idsInView.length > 0 && state.didContainersLayout && !dataChanged) {
 -      targetId = idsInView.find((id) => indexByKey.get(id) !== void 0);
-+      // Paseo patch: a size change keeps only a row shouldRestorePosition accepts in place, as a data
++      // Pimi patch: a size change keeps only a row shouldRestorePosition accepts in place, as a data
 +      // change does. Upstream keeps the first row in view, so a disclosure hold on a row cut off at
 +      // the top kept the row below it instead and moved the trigger by the row's size change.
 +      targetId = idsInView.find((id) => indexByKey.get(id) !== void 0 && canRestoreAnchorLock(state, id));
@@ -403,7 +403,7 @@ index fe5f415..7f1b9dd 100644
      if (scrollingTo.isInitialScroll || state.initialScroll) {
        const isOffsetSession = ((_b = state.initialScrollSession) == null ? void 0 : _b.kind) === "offset";
 -      const shouldPreserveResizeTarget = !!scrollingTo.isInitialScroll && !state.clearPreservedInitialScrollOnNextFinish && state.props.data.length > 0 && ((_c = state.initialScroll) == null ? void 0 : _c.viewPosition) === 1;
-+      // Paseo patch: only a list that keeps its end keeps landing on the initial end after the
++      // Pimi patch: only a list that keeps its end keeps landing on the initial end after the
 +      // initial scroll. Without maintainScrollAtEnd, the preserved target re-arms the initial scroll
 +      // on every data change, footer layout and viewport resize, and a stream never lets it clear.
 +      const shouldPreserveResizeTarget = !!state.props.maintainScrollAtEnd && !!scrollingTo.isInitialScroll && !state.clearPreservedInitialScrollOnNextFinish && state.props.data.length > 0 && ((_c = state.initialScroll) == null ? void 0 : _c.viewPosition) === 1;
@@ -414,7 +414,7 @@ index fe5f415..7f1b9dd 100644
          const targetOffset = (_d = (_c = (_b = initialScrollWatchdog.get(state)) == null ? void 0 : _b.targetOffset) != null ? _c : isStillScrollingTo.targetOffset) != null ? _d : 0;
          const jiggleOffset = targetOffset >= SILENT_INITIAL_SCROLL_TARGET_EPSILON ? targetOffset - SILENT_INITIAL_SCROLL_TARGET_EPSILON : targetOffset + SILENT_INITIAL_SCROLL_TARGET_EPSILON;
          initialScrollCompletion.markSilentInitialScrollRetry(state);
-+        // Paseo patch: send the nudge and the return to the target in one task, so native applies both before
++        // Pimi patch: send the nudge and the return to the target in one task, so native applies both before
 +        // it draws and the pair still emits the scroll event this retry exists for. Upstream returns on the next
 +        // frame, but the 16 ms check below can run first, finish the scroll and cancel that frame; the list then
 +        // revealed 1 dp short of its end and moved into place a frame later.
@@ -432,7 +432,7 @@ index fe5f415..7f1b9dd 100644
    const state = ctx.state;
    clearBootstrapInitialScrollSession(state);
 -  const shouldPreserveResizeTarget = !state.clearPreservedInitialScrollOnNextFinish && state.props.data.length > 0 && ((_a3 = state.initialScroll) == null ? void 0 : _a3.viewPosition) === 1;
-+  // Paseo patch: see finishScrollTo; only a list that keeps its end preserves the initial end.
++  // Pimi patch: see finishScrollTo; only a list that keeps its end preserves the initial end.
 +  const shouldPreserveResizeTarget = !!state.props.maintainScrollAtEnd && !state.clearPreservedInitialScrollOnNextFinish && state.props.data.length > 0 && ((_a3 = state.initialScroll) == null ? void 0 : _a3.viewPosition) === 1;
    finishInitialScroll(ctx, {
      preserveTarget: shouldPreserveResizeTarget,
@@ -441,7 +441,7 @@ index fe5f415..7f1b9dd 100644
        const id = (_b = state.idCache[i]) != null ? _b : getId(state, i);
        idsInView.push(id);
      }
-+    // Paseo patch: a row whose top is above the viewport is still in view. Upstream starts the ids at
++    // Pimi patch: a row whose top is above the viewport is still in view. Upstream starts the ids at
 +    // the first fully visible row, so a disclosure hold on a row cut off at the top finds no anchor
 +    // (shouldRestorePosition rejects every other row) and the next size pass keeps the row below it
 +    // in place instead. The partly visible rows go last, so the first fully visible row stays the
@@ -461,7 +461,7 @@ index fe5f415..7f1b9dd 100644
  }
 -function isNativeLayoutNoise(delta) {
 -  return isWithinEpsilon(delta);
-+// Paseo patch: sizesKnown holds roundSize values, floored to 1/8 dp, so the raw size behind a known
++// Pimi patch: sizesKnown holds roundSize values, floored to 1/8 dp, so the raw size behind a known
 +// size lies in [known, known + 1/8). Upstream compares the raw size with the floored one, so a row
 +// whose pixel-snapped height changes by one pixel, plus the floor, reads as a resize. On a cold open
 +// that late resize moved every row a frame after the reveal.
@@ -475,7 +475,7 @@ index fe5f415..7f1b9dd 100644
    const result = {};
    const previousTotalSize = state.totalSize;
    for (const measurement of measurements) {
-+    // Paseo patch: a view inside a display: none ancestor measures 0 x 0. That is no measurement: a
++    // Pimi patch: a view inside a display: none ancestor measures 0 x 0. That is no measurement: a
 +    // laid-out row is as wide as the list even when it has no height. Recording 0 there collapsed
 +    // the row, and when the list showed again a row whose frame had not changed got no layout event
 +    // to correct it, so the next row overlapped it.
@@ -496,7 +496,7 @@ index fe5f415..7f1b9dd 100644
  
  // src/components/Containers.native.tsx
  var useCommittedMinSize = IsNewArchitecture ? () => useArr$(["totalSize"])[0] : () => void 0;
-+// Paseo patch: on the new architecture the content height comes from React state only. The
++// Pimi patch: on the new architecture the content height comes from React state only. The
 +// JS-driven Animated height writes through setNativeProps, which Fabric commits synchronously
 +// mid-task, mounting React's estimated layout for a frame before the measured one.
 +var useContentSize = IsNewArchitecture ? useCommittedMinSize : () => useValue$("totalSize");
@@ -516,7 +516,7 @@ index fe5f415..7f1b9dd 100644
      null
    );
  });
-+// Paseo patch: the header and footer reveal with the rows. Upstream hides only the containers until
++// Pimi patch: the header and footer reveal with the rows. Upstream hides only the containers until
 +// readyToRender, so a cold open paints the header and footer at their estimated place a frame or more
 +// before the rows appear around them.
 +var RevealedLayoutView = function RevealedLayoutView2({ freshDataTransitionEpoch, style, ...rest }) {
@@ -550,7 +550,7 @@ index fe5f415..7f1b9dd 100644
    if (stylePaddingTop !== void 0) {
      const prevStylePaddingTop = peek$(ctx, "stylePaddingTop") || 0;
 -    if (stylePaddingTop < prevStylePaddingTop) {
-+    // Paseo patch: only iOS compensates a shrinking top padding with a scroll adjust, which this
++    // Pimi patch: only iOS compensates a shrinking top padding with a scroll adjust, which this
 +    // keeps the native clamp from doubling. Elsewhere the held height paints as blank space at the
 +    // end until the timer fires, and a scroll view that keeps its end scrolls into it.
 +    if (stylePaddingTop < prevStylePaddingTop && Platform.OS === "ios") {

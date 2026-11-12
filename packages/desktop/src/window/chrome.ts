@@ -1,6 +1,6 @@
 export type DesktopWindowChromeMode = "native-mac" | "custom-windows" | "custom-linux";
 
-const WINDOW_CHROME_MODE_ARGUMENT_PREFIX = "--paseo-window-chrome-mode=";
+const WINDOW_CHROME_MODE_ARGUMENT_PREFIX = "--pimi-window-chrome-mode=";
 
 function systemWindowChromeMode(platform: NodeJS.Platform): DesktopWindowChromeMode {
   if (platform === "darwin") return "native-mac";

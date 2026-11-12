@@ -8,7 +8,7 @@ import type { StructuredGenerationDaemonConfig } from "./agent/structured-genera
 import {
   attemptFirstAgentBranchAutoName,
   type AttemptFirstAgentBranchAutoNameResult,
-} from "./paseo-worktree-service.js";
+} from "./pimi-worktree-service.js";
 import type { GitMutationService } from "./session/git-mutation/git-mutation-service.js";
 import type { WorkspaceGitService } from "./workspace-git-service.js";
 import type { PersistedWorkspaceRecord, WorkspaceRegistry } from "./workspace-registry.js";

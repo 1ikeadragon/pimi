@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 import { labelChips, labelPicker } from "./labels.js";
 import { createTasksView } from "./tasks.js";
 import { replaceBoardLanes } from "./board-motion.js";

@@ -406,11 +406,11 @@ export function applyMutableProviderConfigToOverrides(
     nextOverrides[providerId] = {
       ...previousOverride,
       ...parsedOverride,
-      ...(parsedOverride.paseoTools
+      ...(parsedOverride.pimiTools
         ? {
-            paseoTools: {
-              ...previousOverride?.paseoTools,
-              ...parsedOverride.paseoTools,
+            pimiTools: {
+              ...previousOverride?.pimiTools,
+              ...parsedOverride.pimiTools,
             },
           }
         : {}),

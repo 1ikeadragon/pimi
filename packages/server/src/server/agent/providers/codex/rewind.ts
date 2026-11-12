@@ -76,7 +76,7 @@ export async function revertCodexConversation(input: {
     model: input.model ?? null,
     serviceTier: input.serviceTier ?? null,
     ...(input.config ? { config: input.config } : {}),
-    // Paseo re-reads the rewound thread through paged history, not the fork reply.
+    // Pimi re-reads the rewound thread through paged history, not the fork reply.
     excludeTurns: true,
     persistExtendedHistory: true,
   };

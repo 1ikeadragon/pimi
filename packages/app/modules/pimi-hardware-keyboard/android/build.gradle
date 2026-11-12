@@ -1,0 +1,21 @@
+apply plugin: 'com.android.library'
+apply plugin: 'expo-module-gradle-plugin'
+
+group = 'sh.pimi.keyboard'
+version = '0.1.0'
+android {
+  namespace 'sh.pimi.keyboard'
+  defaultConfig {
+    versionCode 1
+    versionName '0.1.0'
+  }
+}
+dependencies {
+  implementation 'com.facebook.react:react-android'
+  testImplementation 'junit:junit:4.13.2'
+}
+
+// Pin resolved dependency versions in gradle.lockfile. Refresh with --write-locks.
+dependencyLocking {
+  lockAllConfigurations()
+}

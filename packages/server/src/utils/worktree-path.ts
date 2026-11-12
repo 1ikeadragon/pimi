@@ -81,7 +81,7 @@ export async function validateWorktreePath(options: {
   }
   if ((await pathExists(normalized)) || (await pathExists(candidate))) {
     throw new Error(
-      `Worktree hook returned a path that already exists: ${normalized}. Paseo creates the returned path.`,
+      `Worktree hook returned a path that already exists: ${normalized}. Pimi creates the returned path.`,
     );
   }
   return normalized;

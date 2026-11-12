@@ -21,7 +21,7 @@ export default function contribute(server: PluginServerContext) {
     if (event.outcome.kind === "canceled") {
       return;
     }
-    const agent = context.paseo.agents.ref(event.agent.id);
+    const agent = context.pimi.agents.ref(event.agent.id);
     const page = await agent.timeline.refetch({ direction: "tail", limit: 20 });
     const text = latestOutputText(page.entries.map(({ item }) => item));
     if (/out of credits/i.test(text)) {
@@ -36,7 +36,7 @@ export default function contribute(server: PluginServerContext) {
       return;
     }
 
-    const agent = context.paseo.agents.ref(event.agent.id);
+    const agent = context.pimi.agents.ref(event.agent.id);
     if (/\brm\s+-rf\b/.test(command)) {
       await agent.respondToPermission({
         requestId: event.request.id,

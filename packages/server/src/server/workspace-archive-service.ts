@@ -7,8 +7,8 @@ import type { AgentStorage, StoredAgentRecord } from "./agent/agent-storage.js";
 import type { WorkspaceGitService } from "./workspace-git-service.js";
 import type { ForgeService } from "../services/forge-service.js";
 import {
-  deletePaseoWorktree,
-  isPaseoOwnedWorktreeCwd,
+  deletePimiWorktree,
+  isPimiOwnedWorktreeCwd,
   runWorktreeTeardownCommands,
   WorktreeTeardownError,
 } from "../utils/worktree.js";
@@ -24,13 +24,13 @@ import { WorkspaceAutomationBlockedError } from "./workspace-automation-gate.js"
 
 export type ActiveWorkspaceRef = Pick<
   PersistedWorkspaceRecord,
-  "workspaceId" | "cwd" | "kind" | "worktreeRoot" | "isPaseoOwnedWorktree" | "mainRepoRoot"
+  "workspaceId" | "cwd" | "kind" | "worktreeRoot" | "isPimiOwnedWorktree" | "mainRepoRoot"
 >;
 
 export interface ArchiveDependencies {
   pimiHome?: string;
   // Base directory that may hold worktrees across repositories.
-  paseoWorktreesBaseRoot?: string;
+  pimiWorktreesBaseRoot?: string;
   github: ForgeService;
   workspaceGitService: Pick<WorkspaceGitService, "getSnapshot" | "invalidateWorktrees">;
   agentManager: Pick<AgentManager, "listAgents" | "getAgent" | "archiveAgent" | "archiveSnapshot">;
@@ -119,18 +119,18 @@ export async function requireActiveWorkspaceForArchive(
 
 interface BackingDirectory {
   path: string;
-  isPaseoOwnedWorktree: boolean;
+  isPimiOwnedWorktree: boolean;
   // True when the directory backs a worktree workspace (or a worktree-scope
-  // archive), so a failed ownership proof means a Paseo worktree directory
+  // archive), so a failed ownership proof means a Pimi worktree directory
   // is being left behind rather than a user's local checkout being ignored.
-  expectsPaseoOwnership: boolean;
+  expectsPimiOwnership: boolean;
   // True only when this backing came from a workspace registry record
   // matched to this path (the record is itself an ownership proof, passed
-  // through to deletePaseoWorktree). Disk-derived backings stay false:
+  // through to deletePimiWorktree). Disk-derived backings stay false:
   // they must prove ownership on disk.
   registryProven: boolean;
   mainRepoRoot: string | null;
-  paseoWorktreesRoot: string | null;
+  pimiWorktreesRoot: string | null;
 }
 
 interface ArchiveTarget {
@@ -156,7 +156,7 @@ export async function resolveWorkspaceIdAtPath(
 
 // Resolves the in-scope record set, tears each down
 // (agents + terminals + record), then removes the backing directory iff it is
-// Paseo-owned AND no active workspace still references it.
+// Pimi-owned AND no active workspace still references it.
 export async function archiveByScope(
   dependencies: ArchiveDependencies,
   request: ArchiveByScopeRequest,
@@ -332,36 +332,36 @@ async function stopWorkspaceSetups(
 
 async function resolveWorkspaceBackingDirectory(
   workspace: ActiveWorkspaceRef,
-  dependencies: Pick<ArchiveDependencies, "pimiHome" | "paseoWorktreesBaseRoot">,
+  dependencies: Pick<ArchiveDependencies, "pimiHome" | "pimiWorktreesBaseRoot">,
 ): Promise<BackingDirectory> {
-  if (workspace.isPaseoOwnedWorktree === false) {
+  if (workspace.isPimiOwnedWorktree === false) {
     return {
       path: resolve(workspace.worktreeRoot ?? workspace.cwd),
-      isPaseoOwnedWorktree: false,
-      expectsPaseoOwnership: false,
+      isPimiOwnedWorktree: false,
+      expectsPimiOwnership: false,
       registryProven: false,
       mainRepoRoot: workspace.mainRepoRoot ?? null,
-      paseoWorktreesRoot: null,
+      pimiWorktreesRoot: null,
     };
   }
-  if (workspace.isPaseoOwnedWorktree && workspace.worktreeRoot && workspace.mainRepoRoot) {
+  if (workspace.isPimiOwnedWorktree && workspace.worktreeRoot && workspace.mainRepoRoot) {
     return {
       path: resolve(workspace.worktreeRoot),
-      isPaseoOwnedWorktree: true,
-      expectsPaseoOwnership: true,
+      isPimiOwnedWorktree: true,
+      expectsPimiOwnership: true,
       registryProven: true,
       mainRepoRoot: workspace.mainRepoRoot,
-      paseoWorktreesRoot: null,
+      pimiWorktreesRoot: null,
     };
   }
   if (workspace.kind !== "worktree") {
     return {
       path: resolve(workspace.cwd),
-      isPaseoOwnedWorktree: false,
-      expectsPaseoOwnership: false,
+      isPimiOwnedWorktree: false,
+      expectsPimiOwnership: false,
       registryProven: false,
       mainRepoRoot: workspace.mainRepoRoot ?? null,
-      paseoWorktreesRoot: null,
+      pimiWorktreesRoot: null,
     };
   }
 
@@ -376,20 +376,20 @@ async function resolveWorkspaceBackingDirectory(
 
 async function resolveBackingDirectory(
   cwd: string,
-  dependencies: Pick<ArchiveDependencies, "pimiHome" | "paseoWorktreesBaseRoot">,
+  dependencies: Pick<ArchiveDependencies, "pimiHome" | "pimiWorktreesBaseRoot">,
 ): Promise<BackingDirectory> {
   const options = {
     pimiHome: dependencies.pimiHome,
-    worktreesRoot: dependencies.paseoWorktreesBaseRoot,
+    worktreesRoot: dependencies.pimiWorktreesBaseRoot,
   };
-  const ownership = await isPaseoOwnedWorktreeCwd(cwd, options);
+  const ownership = await isPimiOwnedWorktreeCwd(cwd, options);
   return {
     path: resolve(ownership.allowed && ownership.worktreePath ? ownership.worktreePath : cwd),
-    isPaseoOwnedWorktree: ownership.allowed,
-    expectsPaseoOwnership: true,
+    isPimiOwnedWorktree: ownership.allowed,
+    expectsPimiOwnership: true,
     registryProven: false,
     mainRepoRoot: ownership.repoRoot ?? null,
-    paseoWorktreesRoot: ownership.worktreeRoot ?? null,
+    pimiWorktreesRoot: ownership.worktreeRoot ?? null,
   };
 }
 
@@ -448,13 +448,13 @@ async function maybeRemoveDirectory(
   directoryLeftBehind?: { path: string; reason: string };
 }> {
   const backing = target.backing;
-  if (!backing?.isPaseoOwnedWorktree) {
+  if (!backing?.isPimiOwnedWorktree) {
     // Missing ownership proof for a worktree-backed directory: the record
     // still archives, but the directory is left in place and surfaced.
     // Never delete an unproven directory.
-    if (backing?.expectsPaseoOwnership) {
+    if (backing?.expectsPimiOwnership) {
       const reason =
-        "no ownership proof (not under the Paseo worktrees root, no paseo/worktree.json marker, no registry record)";
+        "no ownership proof (not under the Pimi worktrees root, no pimi/worktree.json marker, no registry record)";
       dependencies.sessionLogger?.warn(
         { targetPath: backing.path, requestId: request.requestId },
         `Worktree directory left in place during archive: ${reason}`,
@@ -513,13 +513,13 @@ async function maybeRemoveDirectory(
   // a workspace whose teardown hooks fired; that beats deleting what the user asked to keep.
   request.checkpoint();
   try {
-    await deletePaseoWorktree({
+    await deletePimiWorktree({
       cwd: backing.mainRepoRoot,
       worktreePath: backing.path,
       teardownCwds: [],
-      worktreesRoot: backing.paseoWorktreesRoot ?? undefined,
+      worktreesRoot: backing.pimiWorktreesRoot ?? undefined,
       pimiHome: dependencies.pimiHome,
-      worktreesBaseRoot: dependencies.paseoWorktreesBaseRoot,
+      worktreesBaseRoot: dependencies.pimiWorktreesBaseRoot,
       registryProven: backing.registryProven,
     });
     dependencies.workspaceGitService.invalidateWorktrees();
@@ -664,7 +664,7 @@ async function isDirectoryUnreferenced(
   activeWorkspaces: ActiveWorkspaceRef[],
   targetDir: string,
   archivedWorkspaceIds: ReadonlySet<string>,
-  dependencies: Pick<ArchiveDependencies, "pimiHome" | "paseoWorktreesBaseRoot">,
+  dependencies: Pick<ArchiveDependencies, "pimiHome" | "pimiWorktreesBaseRoot">,
 ): Promise<boolean> {
   const target = resolve(targetDir);
   const matchesTarget = createRealpathAwarePathMatcher(target);

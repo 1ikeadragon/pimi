@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
-import { getDesktopHost } from "@/desktop/host";
 import { useTranslation } from "react-i18next";
 import type { AutocompleteOption, AutocompleteStatus } from "@/components/ui/autocomplete";
 import { findHighlightRanges } from "@/components/ui/highlighted-text-segments";
@@ -175,7 +174,7 @@ function mapCommandToOption(
       command: entry.command,
       icon: CLIENT_COMMAND_ICONS[entry.command.kind],
       description: context.t(entry.command.descriptionKey),
-      tag: getDesktopHost()?.pimiAppearance ? "Pimi" : "Paseo",
+      tag: "Pimi",
     };
   }
   if (entry.source === "plugin") {

@@ -7,7 +7,7 @@ export {
 } from "./runtime-context-bridge.js";
 import type { PluginAttachmentSourceContribution } from "../contracts.js";
 import { PluginRpcProvider } from "./rpc-context.js";
-import { PaseoApiProvider } from "./paseo-context.js";
+import { PimiApiProvider } from "./pimi-context.js";
 import { callPluginRpc, subscribePluginRpc, type PluginSubscriptionObserver } from "../rpc.js";
 
 export async function searchPluginAttachments(
@@ -19,7 +19,7 @@ export async function searchPluginAttachments(
   return PluginAttachmentSearchPayloadSchema.parseAsync(output);
 }
 
-export { callPluginRpc, subscribePluginRpc, PaseoApiProvider, PluginRpcProvider };
+export { callPluginRpc, subscribePluginRpc, PimiApiProvider, PluginRpcProvider };
 export type { PluginSubscriptionObserver };
 export type { PluginSubscribe } from "./rpc-context.js";
 

@@ -5,7 +5,7 @@ import { StyleSheet } from "react-native-unistyles";
 import { ComposerTrackPill, ComposerTrackRow } from "@/composer/tracks";
 import { LiveElapsed } from "@/components/message";
 import { Button } from "@/components/ui/button";
-import type { PaseoAgentBackgroundWorkItem } from "@pimi/client";
+import type { PimiAgentBackgroundWorkItem } from "@pimi/client";
 import { createHostBackgroundWorkModel } from "./host";
 import { backgroundWorkText } from "./presentation";
 export { createHostBackgroundWorkModel } from "./host";
@@ -88,7 +88,7 @@ function BackgroundWorkRow({
   ready,
   stopStatus,
 }: {
-  item: PaseoAgentBackgroundWorkItem;
+  item: PimiAgentBackgroundWorkItem;
   model: ReturnType<typeof createHostBackgroundWorkModel>;
   live: boolean;
   ready: boolean;

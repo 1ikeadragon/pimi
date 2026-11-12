@@ -16,7 +16,7 @@ import {
   FULL_SHEET_SNAP_POINTS,
   SheetFooter,
 } from "@/components/adaptive-modal-sheet";
-import { PaseoLogo } from "@/components/icons/paseo-logo";
+import { PimiLogo } from "@/components/icons/pimi-logo";
 import { PimiMark } from "@/components/icons/pimi-mark";
 import { Button } from "@/components/ui/button";
 import { PressHighlight } from "@/components/ui/press-highlight";
@@ -61,7 +61,7 @@ function getPimiStepCopy(step: OnboardingStepId) {
 }
 
 function SetupMark({ pimi }: { pimi: boolean }) {
-  if (!pimi) return <PaseoLogo size={LOGO_SIZE} />;
+  if (!pimi) return <PimiLogo size={LOGO_SIZE} />;
   return (
     <View style={styles.pimiMark}>
       <PimiSetupMark size={LOGO_SIZE - 1} />

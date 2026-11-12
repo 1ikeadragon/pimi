@@ -43,10 +43,10 @@ export const GIT_METADATA_EVENT_RULES = [
     refreshBase: true,
   },
   {
-    id: "paseo-worktree-metadata",
+    id: "pimi-worktree-metadata",
     scope: "both",
     match: "exact",
-    path: "paseo/worktree.json",
+    path: "pimi/worktree.json",
     route: "owner",
     refreshBase: true,
   },

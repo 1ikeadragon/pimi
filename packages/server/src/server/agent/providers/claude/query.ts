@@ -5,7 +5,7 @@ import {
   createProviderEnvSpec,
   type ProviderRuntimeSettings,
 } from "../../provider-launch-config.js";
-import { buildSelfNodeCommand, createExternalProcessEnv } from "../../../paseo-env.js";
+import { buildSelfNodeCommand, createExternalProcessEnv } from "../../../pimi-env.js";
 import { spawnProcess } from "../../../../utils/spawn.js";
 import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
 

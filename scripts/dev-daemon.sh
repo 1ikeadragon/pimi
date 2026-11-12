@@ -15,7 +15,7 @@ if [ -z "${PIMI_LOCAL_MODELS_DIR}" ]; then
 fi
 
 echo "══════════════════════════════════════════════════════"
-echo "  Paseo Dev Daemon"
+echo "  Pimi Dev Daemon"
 echo "══════════════════════════════════════════════════════"
 echo "  Home:    ${PIMI_HOME}"
 echo "  Models:  ${PIMI_LOCAL_MODELS_DIR}"

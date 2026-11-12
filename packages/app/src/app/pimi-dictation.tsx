@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 import { useCallback, useEffect, useRef } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";

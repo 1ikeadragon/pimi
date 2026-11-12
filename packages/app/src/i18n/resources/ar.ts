@@ -845,7 +845,7 @@ export const ar: TranslationResources = {
       },
       routes: {
         public: "الوكيل العكسي",
-        paseo: "Memorable",
+        pimi: "Memorable",
         direct: "مباشر",
       },
       states: {
@@ -1609,9 +1609,9 @@ export const ar: TranslationResources = {
     integrations: {
       cli: {
         statusFailed: "غير قادر على التحقق من حالة تثبيت CLI.",
-        installFailed: "غير قادر على تثبيت PaseoCLI.",
+        installFailed: "غير قادر على تثبيت PimiCLI.",
         uninstallFailed: "تعذر إلغاء تثبيت Pimi CLI.",
-        keptForeign: "تم الإبقاء على أمر paseo لم يثبته Pimi. احذفه بنفسك لإلغاء تثبيته.",
+        keptForeign: "تم الإبقاء على أمر pimi لم يثبته Pimi. احذفه بنفسك لإلغاء تثبيته.",
       },
     },
   },
@@ -2043,7 +2043,7 @@ export const ar: TranslationResources = {
   serviceUrl: {
     title: "افتح الخدمة URL",
     message: "افتح{{url}}؟",
-    inPaseo: "في Pimi",
+    inPimi: "في Pimi",
     externalBrowser: "متصفح خارجي",
     dontAskAgain: "لا تسأل مرة أخرى",
   },
@@ -2325,7 +2325,7 @@ export const ar: TranslationResources = {
       one: "استخدم {{count}} أداة أخرى",
       other: "استخدم {{count}} أدوات أخرى",
     },
-    paseoCalls: {
+    pimiCalls: {
       one: "استدعى Pimi {{count}} مرة",
       other: "استدعى Pimi {{count}} مرات",
     },

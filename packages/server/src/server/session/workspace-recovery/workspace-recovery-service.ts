@@ -6,9 +6,9 @@ import { createRealpathAwarePathMatcher } from "../../../utils/path.js";
 import { runGitCommand } from "../../../utils/run-git-command.js";
 import {
   createWorktree,
-  isPaseoOwnedWorktreeCwd,
+  isPimiOwnedWorktreeCwd,
   mapWorkspaceCwdToWorktree,
-  rollbackCreatedPaseoWorktree,
+  rollbackCreatedPimiWorktree,
   type WorktreeSource,
 } from "../../../utils/worktree.js";
 import { WorktreeRequestError, toWorktreeRequestError } from "../../worktree-errors.js";
@@ -170,7 +170,7 @@ export function createWorkspaceRecoveryService(deps: {
     if (!previousWorktreePath) {
       // COMPAT(worktreeRestoreMissingWorktreeRoot): records created before v0.1.110
       // lack durable backing placement; remove filesystem discovery after 2027-01-17.
-      const ownership = await isPaseoOwnedWorktreeCwd(workspace.cwd, {
+      const ownership = await isPimiOwnedWorktreeCwd(workspace.cwd, {
         pimiHome: deps.pimiHome,
         worktreesRoot: deps.worktreesRoot,
       });
@@ -215,7 +215,7 @@ export function createWorkspaceRecoveryService(deps: {
         });
       }
     } catch (error) {
-      return rollbackCreatedPaseoWorktree(
+      return rollbackCreatedPimiWorktree(
         {
           cwd: sourceRepoRoot,
           worktreePath: recreatedWorktreePath,

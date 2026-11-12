@@ -1,12 +1,12 @@
-import type { PaseoAgentBackgroundWorkItem } from "@pimi/client";
+import type { PimiAgentBackgroundWorkItem } from "@pimi/client";
 import type { SessionOutboundMessage } from "@pimi/protocol/messages";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
 import { createBackgroundWorkModel } from "./model";
 
 interface BackgroundWorkClient {
   getLastServerInfoMessage(): object | null;
-  stopAgentBackgroundWork(agentId: string, item: PaseoAgentBackgroundWorkItem): Promise<void>;
-  listAgentBackgroundWork(agentId: string): Promise<PaseoAgentBackgroundWorkItem[]>;
+  stopAgentBackgroundWork(agentId: string, item: PimiAgentBackgroundWorkItem): Promise<void>;
+  listAgentBackgroundWork(agentId: string): Promise<PimiAgentBackgroundWorkItem[]>;
   observeAgentBackgroundWork(): {
     subscribe(observer: {
       snapshot(): void;

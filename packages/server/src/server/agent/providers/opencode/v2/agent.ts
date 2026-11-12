@@ -59,7 +59,7 @@ export class OpenCodeV2AgentClient implements AgentClient {
   private readonly connections = new Map<string, V2Connection>();
   constructor(private readonly options: V2AgentOptions) {
     const bridge = options.bridge;
-    this.capabilities = { ...V2_CAPABILITIES, supportsNativePaseoTools: Boolean(bridge) };
+    this.capabilities = { ...V2_CAPABILITIES, supportsNativePimiTools: Boolean(bridge) };
     this.runtime =
       options.runtime ??
       new V2Runtime({
@@ -173,7 +173,7 @@ export class OpenCodeV2AgentClient implements AgentClient {
     const unbind = bridge?.bindSession({
       sessionId: info.id,
       env: launch?.env ?? {},
-      tools: launch?.paseoTools,
+      tools: launch?.pimiTools,
     });
     const bound = new Map<string, () => void>();
     const bindChild = (childId: string) => {
@@ -182,7 +182,7 @@ export class OpenCodeV2AgentClient implements AgentClient {
       const childUnbind = bridge?.bindSession({
         sessionId: childId,
         env: launch?.env ?? {},
-        tools: launch?.paseoTools,
+        tools: launch?.pimiTools,
       });
       if (childUnbind) bound.set(childId, childUnbind);
     };

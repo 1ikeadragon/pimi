@@ -9,7 +9,7 @@ import * as React from "react";
 import * as ReactJsxRuntime from "react/jsx-runtime";
 // eslint-disable-next-line no-restricted-imports -- plugin client runtime injects host ReactNative.
 import * as ReactNative from "react-native";
-// eslint-disable-next-line no-restricted-imports -- plugin bundles receive TanStack's real runtime, not Paseo's query wrappers.
+// eslint-disable-next-line no-restricted-imports -- plugin bundles receive TanStack's real runtime, not Pimi's query wrappers.
 import * as ReactQuery from "@tanstack/react-query";
 import * as Zod from "zod";
 import { type PluginCleanup } from "@pimi/plugin";
@@ -100,7 +100,7 @@ export type PluginClientRuntime = Pick<
   PluginClientContext,
   | "i18n"
   | "playAudio"
-  | "paseo"
+  | "pimi"
   | "rpc"
   | "openSettings"
   | "openScreen"
@@ -230,7 +230,6 @@ export function runPluginClientBundle(
   }
   const pluginContext: PluginClientContext = {
     ...runtime,
-    pimi: runtime.paseo,
     addSettingsScreen(contribution) {
       const screenId = requireId(contribution.id, "settings screen id");
       if (settingsScreenIds.has(screenId))
@@ -466,7 +465,6 @@ export function runPluginClientBundle(
     },
   };
   const runtimeRequire = (name: string): unknown => {
-    name = name.replace(/^@getpaseo\/plugin(?=\/|$)/, "@pimi/plugin");
     if (name === "@pimi/plugin/client/ui") return pluginUiRuntime;
     if (name === "react") return React;
     if (name === "react/jsx-runtime") return ReactJsxRuntime;
@@ -477,7 +475,7 @@ export function runPluginClientBundle(
         ...pluginClientRuntime,
         useSettings,
         openExternalUrl,
-        getPaseoClient: (serverId: string) => runtime.hosts.getPaseoClient(serverId),
+        getPimiClient: (serverId: string) => runtime.hosts.getPimiClient(serverId),
         useHosts: () =>
           React.useSyncExternalStore(
             runtime.hosts.subscribe,

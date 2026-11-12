@@ -443,9 +443,9 @@ export const WorkspaceScreen = memo(function WorkspaceScreen({
   ensurePanelsRegistered();
   const navigationFocused = useIsFocused();
   useEffect(() => {
-    traceInstant("paseo.workspace.mount", { serverId, workspaceId });
+    traceInstant("pimi.workspace.mount", { serverId, workspaceId });
     return () => {
-      traceInstant("paseo.workspace.unmount", { serverId, workspaceId });
+      traceInstant("pimi.workspace.unmount", { serverId, workspaceId });
     };
   }, [serverId, workspaceId]);
   return (

@@ -2767,7 +2767,7 @@ body:has(.voice-command-dock:not([hidden])) #memory {
   }
 }
 
-/* Shared workspace-label colors match Paseo's identity foreground palette. */
+/* Shared workspace-label colors match Pimi's identity foreground palette. */
 .label-chip[data-color="violet"] {
   --label-ink: light-dark(#6d49b5, #a392d5);
 }

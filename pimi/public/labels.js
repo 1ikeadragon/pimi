@@ -1,4 +1,4 @@
-// Shared Paseo label definitions are supplied by the daemon; only assignments live here.
+// Shared Pimi label definitions are supplied by the daemon; only assignments live here.
 const key = (name) => name.replace(/\s+/g, " ").trim().toLowerCase();
 
 export function labelChips(names = [], catalog = [], linked = []) {

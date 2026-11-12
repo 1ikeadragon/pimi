@@ -15,7 +15,7 @@ const modes: readonly ProviderMode[] = [
     colorTier: "dangerous",
     label: "Full access",
     description:
-      "Antigravity cannot ask for permission when another app drives it. Paseo starts it with --dangerously-skip-permissions.",
+      "Antigravity cannot ask for permission when another app drives it. Pimi starts it with --dangerously-skip-permissions.",
     isUnattended: true,
   },
 ];

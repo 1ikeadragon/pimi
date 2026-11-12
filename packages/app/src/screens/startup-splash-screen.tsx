@@ -15,7 +15,7 @@ import { useTranslation } from "react-i18next";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { BookOpen, Copy, RotateCw, TriangleAlert } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { PaseoLogo } from "@/components/icons/paseo-logo";
+import { PimiLogo } from "@/components/icons/pimi-logo";
 import { PimiMark } from "@/components/icons/pimi-mark";
 import { getDesktopHost } from "@/desktop/host";
 import { isPimiProduct } from "@/utils/pimi-mobile";
@@ -49,8 +49,8 @@ function openDocs(): void {
   void openExternalUrl(isPimiProduct() ? PIMI_DOCS_URL : DOCS_URL);
 }
 
-const WEB_SPLASH_SHIMMER_KEYFRAME_ID = "paseo-splash-shimmer-keyframes";
-const WEB_SPLASH_SHIMMER_ANIMATION_NAME = "paseo-splash-shimmer";
+const WEB_SPLASH_SHIMMER_KEYFRAME_ID = "pimi-splash-shimmer-keyframes";
+const WEB_SPLASH_SHIMMER_ANIMATION_NAME = "pimi-splash-shimmer";
 
 const WEB_SPLASH_SHIMMER_KEYFRAME_CSS = `
   @keyframes ${WEB_SPLASH_SHIMMER_ANIMATION_NAME} {
@@ -181,7 +181,7 @@ function NativeLogoShimmer({ color }: { color: string }) {
   const maskElement = useMemo(
     () => (
       <View style={styles.shimmerMask}>
-        <PaseoLogo size={LOGO_SIZE} color="#000000" />
+        <PimiLogo size={LOGO_SIZE} color="#000000" />
       </View>
     ),
     [],
@@ -191,7 +191,7 @@ function NativeLogoShimmer({ color }: { color: string }) {
     <MaskedView style={trackStyle} maskElement={maskElement}>
       <View style={trackStyle}>
         <View style={styles.nativeShimmerBase}>
-          <PaseoLogo size={LOGO_SIZE} color={color} />
+          <PimiLogo size={LOGO_SIZE} color={color} />
         </View>
         <Animated.View style={peakCombinedStyle}>
           <Svg width="100%" height="100%" preserveAspectRatio="none">
@@ -431,7 +431,7 @@ export function StartupSplashScreen({ bootstrapState }: StartupSplashScreenProps
       >
         <View style={styles.errorContent}>
           <View style={styles.errorHeader}>
-            <PaseoLogo size={64} />
+            <PimiLogo size={64} />
             <Text style={styles.title}>{t("startup.errorTitle")}</Text>
           </View>
 

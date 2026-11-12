@@ -88,7 +88,7 @@ export class MspConnection {
     const response = await this.request(
       "initialize",
       {
-        clientInfo: { name: "paseo", version: "1" },
+        clientInfo: { name: "pimi", version: "1" },
         capabilities: {
           experimentalApi: true,
           requestedCapabilities: ["sessionMcp", "sessionListStream"],

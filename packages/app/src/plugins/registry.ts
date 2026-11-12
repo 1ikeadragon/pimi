@@ -3,7 +3,7 @@ import { i18n } from "@/i18n/i18next";
 import type { AudioEngine } from "@/audio";
 import { useMemo, useSyncExternalStore } from "react";
 import { QueryClient } from "@tanstack/react-query";
-import { createPaseoApi } from "@pimi/client";
+import { createPimiApi } from "@pimi/client";
 import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import { assertPluginCompatibility } from "@pimi/protocol/plugin-requirements";
 import { resolveAppVersion } from "@/utils/app-version";
@@ -22,7 +22,7 @@ export class PluginRegistry {
   private readonly disposed = new WeakSet<InstalledPlugin>();
   private readonly evaluationErrors = new Map<string, string>();
   private readonly catalogStatuses = new Map<string, PluginCatalogStatus>();
-  /** The client each host's installations were bound to; their Paseo API and RPCs call it. */
+  /** The client each host's installations were bound to; their Pimi API and RPCs call it. */
   private readonly clientByHost = new Map<string, DaemonClient>();
 
   constructor(
@@ -107,7 +107,7 @@ export class PluginRegistry {
           lifetime,
           locale: this.dependencies.localeSource.getLocale(),
           i18n: new PluginTranslationRuntime(this.dependencies.localeSource),
-          paseo: createPaseoApi(client),
+          pimi: createPimiApi(client),
           invoke: (method, input) => client.invokePluginRpc(entry.id, method, input),
           subscribe: createPluginSubscribe({
             client,
@@ -141,9 +141,9 @@ export class PluginRegistry {
           this.publish(),
         );
         Object.assign(installation, evaluated);
-        const paseo = installation.paseo;
+        const pimi = installation.pimi;
         installation.cleanup = async () => {
-          const results = await Promise.allSettled([paseo.dispose(), evaluated.cleanup()]);
+          const results = await Promise.allSettled([pimi.dispose(), evaluated.cleanup()]);
           const failures = results.filter((result) => result.status === "rejected");
           if (failures.length)
             throw new AggregateError(
@@ -156,7 +156,7 @@ export class PluginRegistry {
       } catch (error) {
         installation?.lifetime.abort();
         installation?.i18n.dispose();
-        void installation?.paseo
+        void installation?.pimi
           .dispose()
           .catch((failure) => console.warn(`[Plugins] API cleanup failed for ${key}`, failure));
         this.evaluationErrors.set(key, error instanceof Error ? error.message : String(error));

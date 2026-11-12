@@ -8,7 +8,7 @@ import type { OpenCodeBridge } from "../bridge.js";
 import { OpenCodeHttpError } from "../http-error.js";
 import { resolveOpenCodeHomeDir } from "../paths.js";
 import { openCodeConfigDirectory, provisionLocalBridge } from "./bridge-provisioning.js";
-import { awaitPaseoPlugin } from "./readiness.js";
+import { awaitPimiPlugin } from "./readiness.js";
 import {
   compatibleVersion,
   isLocalOpenCodeHost,
@@ -151,7 +151,7 @@ export function bridgeBindings(
       const location = { directory: cwd };
       let result: Awaited<ReturnType<typeof client.rpc.call>>;
       try {
-        await awaitPaseoPlugin({ client, location });
+        await awaitPimiPlugin({ client, location });
         result = await client.rpc.call({
           location,
           rpcID: "pimi.bridge",
@@ -182,7 +182,7 @@ export function bridgeBindings(
     refreshLocation: async (cwd, signal) => {
       if (!bridge) return;
       const location = { directory: cwd };
-      await awaitPaseoPlugin({ client, location, signal });
+      await awaitPimiPlugin({ client, location, signal });
       await client.rpc.call(
         { location, rpcID: "pimi.bridge", method: "refresh", input: {} },
         { signal },

@@ -17,7 +17,7 @@ import { reapTerminalWorkers } from "../src/terminal/terminal-worker-reaper.js";
 import { runSupervisor } from "./supervisor.js";
 import { resolveSupervisorLogFile } from "./supervisor-log-config.js";
 
-process.title = "Paseo Supervisor";
+process.title = "Pimi Supervisor";
 
 interface DaemonRunnerConfig {
   devMode: boolean;
@@ -78,7 +78,7 @@ function resolveWorkerExecArgv(workerEntry: string, devMode: boolean): string[] 
     "--heapsnapshot-near-heap-limit=3",
     "--max-old-space-size=3072",
     "--report-on-fatalerror",
-    "--report-directory=/tmp/paseo-reports",
+    "--report-directory=/tmp/pimi-reports",
   ];
   const inspectArg = process.env.PIMI_NODE_INSPECT ?? "--inspect";
   if (inspectArg !== "0" && inspectArg !== "false" && inspectArg !== "off") {

@@ -129,7 +129,7 @@ interface DerivedGitActionsState {
   behindOfOrigin: number | null;
   hasPullRequest: boolean;
   hasRemote: boolean;
-  isPaseoOwnedWorktree: boolean;
+  isPimiOwnedWorktree: boolean;
   isOnBaseBranch: boolean;
   canMergeLocally: boolean;
   shouldPromoteArchive: boolean;
@@ -173,14 +173,14 @@ function deriveGitActionsState(args: DeriveGitActionsStateArgs): DerivedGitActio
     baseRef,
   } = args;
   const actionsDisabled = !isGit || Boolean(status?.error) || isStatusLoading;
-  const isPaseoOwnedWorktree = gitStatus?.isPaseoOwnedWorktree ?? false;
+  const isPimiOwnedWorktree = gitStatus?.isPimiOwnedWorktree ?? false;
   const isMergedPullRequest = Boolean(prStatus?.isMerged);
   return {
     actionsDisabled,
     ...extractGitCommitCounts(gitStatus),
     hasPullRequest: Boolean(prStatus?.url),
     hasRemote: gitStatus?.hasRemote ?? false,
-    isPaseoOwnedWorktree,
+    isPimiOwnedWorktree,
     isOnBaseBranch: isCurrentBranchBase(gitStatus?.currentBranch, baseRef),
     canMergeLocally: canMergeIntoLocalBase(gitStatus?.currentBranch, baseRef),
     shouldPromoteArchive: computeShouldPromoteArchive({
@@ -662,7 +662,7 @@ export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): Use
     behindOfOrigin,
     hasPullRequest,
     hasRemote,
-    isPaseoOwnedWorktree,
+    isPimiOwnedWorktree,
     isOnBaseBranch,
     canMergeLocally,
     shouldPromoteArchive,
@@ -692,7 +692,7 @@ export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): Use
       pullRequestMergeable: prStatus?.mergeable ?? "UNKNOWN",
       mergeCapability: deriveMergeCapability(prStatus?.forgeSpecific),
       hasRemote,
-      isPaseoOwnedWorktree,
+      isPimiOwnedWorktree,
       isOnBaseBranch,
       canMergeLocally,
       hasUncommittedChanges,
@@ -809,7 +809,7 @@ export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): Use
     prStatus?.forgeSpecific,
     aheadCount,
     behindBaseCount,
-    isPaseoOwnedWorktree,
+    isPimiOwnedWorktree,
     isOnBaseBranch,
     canMergeLocally,
     githubFeaturesEnabled,
@@ -1066,7 +1066,7 @@ function translateGitActionUnavailableMessage(
       "workspace.git.actions.unavailable.updateDirty",
     "Merge PR isn't available right now because GitHub isn't connected":
       "workspace.git.actions.unavailable.mergePrNoGithub",
-    "Archive isn't available here because this workspace was not created as a Paseo worktree":
+    "Archive isn't available here because this workspace was not created as a Pimi worktree":
       "workspace.git.actions.unavailable.archiveNotWorktree",
     "Merge PR isn't available because there isn't a pull request yet":
       "workspace.git.actions.unavailable.mergePrMissing",

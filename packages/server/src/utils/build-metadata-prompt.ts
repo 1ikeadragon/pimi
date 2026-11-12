@@ -1,5 +1,5 @@
-import { readPaseoConfig } from "./paseo-config-file.js";
-import { type PaseoMetadataGeneration } from "@pimi/protocol/paseo-config-schema";
+import { readPimiConfig } from "./pimi-config-file.js";
+import { type PimiMetadataGeneration } from "@pimi/protocol/pimi-config-schema";
 
 export type MetadataConfigKey = "title" | "branchName" | "commitMessage" | "pullRequest";
 
@@ -8,7 +8,7 @@ export interface RepoRootResolver {
 }
 
 // A style section carries the default guidance for one artifact. The project
-// owner replaces it wholesale via paseo.json metadataGeneration.<configKey>.instructions
+// owner replaces it wholesale via pimi.json metadataGeneration.<configKey>.instructions
 // — their text is used instead of the default, never appended alongside it, so the
 // two never conflict. The contract block (what to produce, the JSON shape, and any
 // correctness/safety rules) lives outside the sections and is never overridable.
@@ -43,13 +43,13 @@ function renderStyleSection(section: MetadataStyleSection, override: string | un
 
 async function readProjectMetadataOverrides(
   options: Pick<BuildMetadataPromptOptions, "cwd" | "workspaceGitService">,
-): Promise<PaseoMetadataGeneration | undefined> {
+): Promise<PimiMetadataGeneration | undefined> {
   if (!options.workspaceGitService) {
     return undefined;
   }
   try {
     const repoRoot = await options.workspaceGitService.resolveRepoRoot(options.cwd);
-    const result = await readPaseoConfig(repoRoot);
+    const result = await readPimiConfig(repoRoot);
     return result.ok ? result.config?.metadataGeneration : undefined;
   } catch {
     return undefined;

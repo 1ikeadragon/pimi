@@ -1,12 +1,10 @@
-import type { PaseoApi } from "@pimi/client";
+import type { PimiApi } from "@pimi/client";
 import type { z } from "zod";
 import type { PluginHookAgent } from "./lifecycle.js";
 
 export interface AgentToolContext {
   agent: PluginHookAgent;
-  pimi: PaseoApi;
-  /** @deprecated Use pimi. */
-  paseo: PaseoApi;
+  pimi: PimiApi;
   signal: AbortSignal;
 }
 

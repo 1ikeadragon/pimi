@@ -839,7 +839,7 @@ export const en = {
       },
       routes: {
         public: "Reverse proxy",
-        paseo: "Memorable",
+        pimi: "Memorable",
         direct: "Direct",
       },
       states: {
@@ -1647,7 +1647,7 @@ export const en = {
         installFailed: "Unable to install the Pimi CLI.",
         uninstallFailed: "Unable to uninstall the Pimi CLI.",
         keptForeign:
-          "Kept a paseo command that Pimi didn't install. Remove it yourself to uninstall it.",
+          "Kept a pimi command that Pimi didn't install. Remove it yourself to uninstall it.",
       },
     },
   },
@@ -2080,7 +2080,7 @@ export const en = {
   serviceUrl: {
     title: "Open service URL",
     message: "Open {{url}}?",
-    inPaseo: "In Pimi",
+    inPimi: "In Pimi",
     externalBrowser: "External browser",
     dontAskAgain: "Don't ask again",
   },
@@ -2362,7 +2362,7 @@ export const en = {
       one: "used {{count}} other tool",
       other: "used {{count}} other tools",
     },
-    paseoCalls: {
+    pimiCalls: {
       one: "called Pimi {{count}} time",
       other: "called Pimi {{count}} times",
     },

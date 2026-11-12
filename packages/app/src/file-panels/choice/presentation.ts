@@ -21,7 +21,7 @@ export function filePanelTitle(t: TFunction, panel: FilePanel): string {
     : panel.plugin.i18n.resolve(panel.contribution.title, panel.plugin.locale);
 }
 
-/** "Markdown — Paseo", "Rich Markdown — markdown-panel". */
+/** "Markdown — Pimi", "Rich Markdown — markdown-panel". */
 export function filePanelOptionLabel(t: TFunction, panel: FilePanel): string {
   return t("panels.file.filePanels.option", {
     title: filePanelTitle(t, panel),

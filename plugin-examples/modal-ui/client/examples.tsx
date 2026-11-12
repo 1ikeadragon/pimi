@@ -53,7 +53,7 @@ export function ModalExamples({ theme }: Pick<PluginSurfaceProps, "theme">) {
 
   const copy = useCallback(async () => {
     try {
-      await copyText("Copied from Paseo");
+      await copyText("Copied from Pimi");
       toast.show("Text copied", { variant: "success" });
     } catch {
       toast.error("Could not copy text. Select the text and use Copy.");
@@ -89,7 +89,7 @@ export function ModalExamples({ theme }: Pick<PluginSurfaceProps, "theme">) {
   const form = (
     <View style={styles.form} testID="modal-example-form">
       <Text selectable style={color}>
-        Paseo clipboard example
+        Pimi clipboard example
       </Text>
       <Pressable accessibilityRole="button" style={button} onPress={copy}>
         <Text style={color}>Copy text</Text>

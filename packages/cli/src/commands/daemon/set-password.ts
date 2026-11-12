@@ -112,7 +112,7 @@ export async function setDaemonPasswordInConfig(
     action: "password_set",
     configPath,
     restartCommand: `pimi daemon restart --home ${JSON.stringify(pimiHome)}`,
-    message: `Password written to ${configPath}\nRestart the daemon for the change to take effect.\nRun: paseo daemon restart --home ${JSON.stringify(pimiHome)}`,
+    message: `Password written to ${configPath}\nRestart the daemon for the change to take effect.\nRun: pimi daemon restart --home ${JSON.stringify(pimiHome)}`,
   };
 }
 

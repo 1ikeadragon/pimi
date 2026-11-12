@@ -79,8 +79,7 @@ export function formatAgentMessage(message: AgentMessage): string {
 
 export function parseAgentMessage(text: string): AgentMessage | null {
   // Provider history can contain messages from before the envelope was renamed.
-  const envelope =
-    /^<(pimi-system|paseo-system)((?:\s+[a-z-]+="[^"<>]*")+)>\n([\s\S]*)\n<\/\1>$/.exec(text);
+  const envelope = /^<(pimi-system)((?:\s+[a-z-]+="[^"<>]*")+)>\n([\s\S]*)\n<\/\1>$/.exec(text);
   if (!envelope) return null;
   const attributes = new Map<string, string>();
   for (const match of envelope[2].matchAll(/\s+([a-z-]+)="([^"<>]*)"/g)) {
@@ -110,7 +109,7 @@ export function parseAgentMessage(text: string): AgentMessage | null {
 /** Accept only a complete sequence of envelopes; prose around them stays user text. */
 export function parseAgentMessages(text: string): AgentMessage[] | null {
   // Bodies are XML escaped, so a literal closing tag unambiguously ends an entry.
-  const parts = text.split(/(?<=<\/(?:pimi|paseo)-system>)\n+(?=<(?:pimi|paseo)-system )/);
+  const parts = text.split(/(?<=<\/pimi-system>)\n+(?=<pimi-system )/);
   const messages = parts.map(parseAgentMessage);
   return messages.every((message) => message !== null) ? messages : null;
 }
@@ -191,7 +190,7 @@ function projectAgentMessage(item: AgentTimelineItem): AgentTimelineItem | null 
     if (!envelope) return item;
     return {
       type: "tool_call",
-      callId: `paseo-system:${createHash("sha256").update(item.text).digest("hex")}`,
+      callId: `pimi-system:${createHash("sha256").update(item.text).digest("hex")}`,
       name: "heartbeat",
       status: "completed",
       error: null,
@@ -204,7 +203,7 @@ function projectAgentMessage(item: AgentTimelineItem): AgentTimelineItem | null 
   }
   return {
     type: "tool_call",
-    callId: `paseo-agent-message:${message.id}`,
+    callId: `pimi-agent-message:${message.id}`,
     agentMessage: {
       event: source.kind === "agent-message" ? "message" : source.event,
       sender: {
@@ -230,7 +229,7 @@ export function formatSystemNotificationPrompt(reason: string): string {
   return `<pimi-system>\n${reason}\n</pimi-system>`;
 }
 
-const SYSTEM_ENVELOPE_PATTERN = /^<(pimi-system|paseo-system)>\n([\s\S]*)\n<\/\1>$/;
+const SYSTEM_ENVELOPE_PATTERN = /^<(pimi-system)>\n([\s\S]*)\n<\/\1>$/;
 
 export function isSystemInjectedEnvelope(text: string): boolean {
   return SYSTEM_ENVELOPE_PATTERN.test(text);

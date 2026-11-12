@@ -1,4 +1,4 @@
-// Pimi addition to the Paseo fork. Apache-2.0.
+// Pimi. Apache-2.0.
 export function createReviewFiles({ $, api, button, element, openFile }) {
   const search = $("review-source-search");
   const list = $("review-source-list");
