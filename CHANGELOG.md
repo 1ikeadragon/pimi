@@ -2,6 +2,14 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.25 - 2026-11-12
+
+- Inline Git blame no longer flickers when you move between lines. Hover it for the commit card (author, date, message, SHA). Click it to open that commit's change to the file at the blamed line. Uncommitted lines open the working-tree diff.
+- Tool results that mix local and remote images show all of them. A remote image that fails to load shows as unavailable instead of breaking the row.
+- Spaces and Memory open without the New note button and empty cards popping in late, and their buttons, search box and empty states match the rest of the app.
+- `pimi import` sends the provider fields the daemon expects.
+- Relay: the relay server code drops the unused Cloudflare Worker version. The self-hosted relay guide covers running behind the Cloudflare proxy, pairing and sharing one relay, and links in the app and CLI point to it.
+
 ## 0.17.24 - 2026-11-12
 
 - New Attack mode, next to Agent and IDE. Point a lead agent and its helpers at an app you built, and they test it for bugs and security issues without asking for approval and without changing anything.
