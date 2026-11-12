@@ -51,7 +51,7 @@ interface TsResponse {
   body?: unknown;
 }
 
-/** Prefers the workspace's own TypeScript, then the copy that ships with the daemon. */
+/** Resolves the TypeScript that ships with the daemon; a workspace copy is never run. */
 export function resolveTsServerPath(cwd: string): string {
   // Only the bundled TypeScript: a workspace copy is code from the repo, run on right-click.
   void cwd;
@@ -73,7 +73,8 @@ class TsServerProcess {
     number,
     { resolve(body: unknown): void; reject(error: Error): void }
   >();
-  private readonly openFiles = new Set<string>();
+  /** Every file opened on this server; true when its text is an unsaved editor buffer. */
+  private readonly openFiles = new Map<string, boolean>();
   private idleTimer: NodeJS.Timeout | null = null;
   private exited = false;
 
@@ -111,21 +112,30 @@ class TsServerProcess {
 
   /**
    * Opens `file` so the project loads. With the editor's unsaved buffer that content is the
-   * file's text; without it the file is re-read from disk, since tsserver keeps an open file's
-   * text until told otherwise.
+   * file's text; without it the file is re-read from disk. tsserver keeps an open file's text
+   * until told otherwise, so every other open file that is not a buffer is reloaded too.
    */
   async syncFile(file: string, content: string | undefined): Promise<void> {
+    for (const [open, isBuffer] of this.openFiles) {
+      if (open !== file && !isBuffer) this.send("reload", { file: open, tmpfile: open });
+    }
     if (content !== undefined) {
-      this.openFiles.add(file);
+      this.openFiles.set(file, true);
       this.send("open", { file, fileContent: content, projectRootPath: this.cwd });
       return;
     }
     if (this.openFiles.has(file)) {
+      this.openFiles.set(file, false);
       this.send("reload", { file, tmpfile: file });
       return;
     }
-    this.openFiles.add(file);
+    this.openFiles.set(file, false);
     this.send("open", { file, projectRootPath: this.cwd });
+  }
+
+  /** True while a request is waiting for an answer. */
+  get busy(): boolean {
+    return this.pending.size > 0;
   }
 
   request(command: string, args: Record<string, unknown>, timeoutMs: number): Promise<unknown> {
@@ -241,6 +251,8 @@ function serverFor(workspaceId: string, cwd: string): TsServerProcess {
   servers.set(workspaceId, server);
   for (const [id, oldest] of servers) {
     if (servers.size <= MAX_SERVERS) break;
+    // A server answering a request is kept; the cap is met by the next query.
+    if (oldest === server || oldest.busy) continue;
     oldest.stop();
     servers.delete(id);
   }
