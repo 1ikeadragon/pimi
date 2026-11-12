@@ -44,10 +44,12 @@ export function downloadAndInstallUpdate(
 export async function installAppUpdateOnQuit({
   currentVersion,
   signal,
+  onBeforeInstall,
 }: {
   currentVersion: string;
   releaseChannel: AppReleaseChannel;
   signal: AbortSignal;
+  onBeforeInstall?: () => Promise<void>;
 }): Promise<boolean> {
-  return updater.installOnQuit(currentVersion, signal);
+  return updater.installOnQuit(currentVersion, signal, onBeforeInstall);
 }

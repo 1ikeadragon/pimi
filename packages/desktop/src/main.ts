@@ -138,6 +138,7 @@ import { clampWindowStateToWorkAreas, createWindowStateStore } from "./settings/
 import {
   isDesktopManagedDaemonRunningSync,
   stopDesktopDaemonViaCli,
+  stopDesktopManagedDaemonForUpdate,
 } from "./daemon/daemon-manager.js";
 import {
   createQuitLifecycle,
@@ -1435,6 +1436,7 @@ const quitLifecycle = createQuitLifecycle({
       currentVersion: app.getVersion(),
       releaseChannel: settings.releaseChannel,
       signal,
+      onBeforeInstall: stopDesktopManagedDaemonForUpdate,
     });
   },
   createUpdateDeadlineSignal: () => AbortSignal.timeout(UPDATE_QUIT_DEADLINE_MS),

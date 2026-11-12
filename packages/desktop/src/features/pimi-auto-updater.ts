@@ -313,7 +313,11 @@ export class PimiAutoUpdater {
     }
   }
 
-  async installOnQuit(currentVersion: string, signal: AbortSignal): Promise<boolean> {
+  async installOnQuit(
+    currentVersion: string,
+    signal: AbortSignal,
+    onBeforeInstall?: () => Promise<void>,
+  ): Promise<boolean> {
     // Mac replacement asks LaunchServices to open and assess the new app after
     // quitting. An ordinary Quit should not reopen Pimi or trigger that prompt.
     const ready = this.downloaded;
@@ -325,6 +329,10 @@ export class PimiAutoUpdater {
       if (!release || !sameRelease(release, ready.release) || signal.aborted) return false;
       const installer = await ready.pending;
       await verifyPimiInstaller(release, installer, signal);
+      if (signal.aborted) return false;
+      // The installer force-kills every process running from the install folder, the daemon
+      // included, so the daemon is stopped cleanly first.
+      await onBeforeInstall?.();
       if (signal.aborted) return false;
       await startWindowsInstaller(installer, false, signal);
       handoff = true;

@@ -433,6 +433,25 @@ export async function stopDesktopDaemon(
 }
 
 /**
+ * Stops the desktop-managed daemon before an app update replaces the install folder, whether this
+ * session launched it or an earlier one left it running (keep running after quit). The Windows
+ * installer force-kills anything running from that folder, so the daemon is stopped cleanly first.
+ * A daemon the user started themselves is left alone.
+ */
+export async function stopDesktopManagedDaemonForUpdate(): Promise<void> {
+  const home = getPimiHome();
+  const instance = await readDaemonInstance(home);
+  if (!instance?.desktopManaged) return;
+  const owned = Boolean(
+    ownedLaunch &&
+    ownedLaunch.home === home &&
+    isSameDaemonInstance(instance, ownedLaunch.instance),
+  );
+  await stopSupervisor({ home, instance, reason: "app_update", owned });
+  if (owned) ownedLaunch = null;
+}
+
+/**
  * Stops the desktop-managed daemon an earlier app session left running, so the bundled version
  * replaces it. Only the instance the version check probed is stopped; whatever took its place
  * since then is attached to as it is.
@@ -653,9 +672,7 @@ export function createDaemonCommandHandlers(): Record<string, DesktopCommandHand
       const currentVersion = resolveDesktopAppVersion();
       return downloadAndInstallUpdate(
         { currentVersion, releaseChannel: await resolveRequestedReleaseChannel(args) },
-        async () => {
-          await stopDesktopDaemon("app_update");
-        },
+        stopDesktopManagedDaemonForUpdate,
       );
     },
     get_local_daemon_version: () => getLocalDaemonVersion(),
