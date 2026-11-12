@@ -120,6 +120,13 @@ import type { AgentAttachment } from "@pimi/protocol/messages";
 import type { AgentImageRef } from "@pimi/protocol/agent-types";
 import { storeProviderImage, type AgentImageStore } from "./agent-images.js";
 import { SqliteTimelineStore, timelineSessionKey } from "./sqlite-timeline-store.js";
+import type { ChatIndexBackfill } from "./timeline-search/backfill.js";
+import type { ChatSearchService } from "./timeline-search/search-service.js";
+
+export interface ChatSearchRuntime {
+  search: ChatSearchService;
+  backfill: ChatIndexBackfill;
+}
 import {
   SentAttachmentJoiner,
   prepareSentAttachments,
@@ -1085,6 +1092,7 @@ export class AgentManager {
   private readonly idFactory: () => string;
   private readonly registry?: AgentStorage;
   private readonly timelineArchive?: SqliteTimelineStore;
+  private chatSearch: ChatSearchRuntime | null = null;
   private readonly sentAttachments?: SentAttachmentStore;
   private readonly agentImages?: AgentImageStore;
   private readonly sentJoiners = new Map<string, SentAttachmentJoiner>();
@@ -1645,6 +1653,15 @@ export class AgentManager {
     // Loading during reload must wait for the replacement, not resume another writer.
     await this.lifecycleMutationTails.get(agentId);
     await this.inFlightAgentCloses?.get(agentId)?.catch(() => undefined);
+  }
+
+  /** Cross-chat search and its "Index older chats" run; set once by the daemon that owns the archive. */
+  attachChatSearch(runtime: ChatSearchRuntime): void {
+    this.chatSearch = runtime;
+  }
+
+  getChatSearch(): ChatSearchRuntime | null {
+    return this.chatSearch;
   }
 
   getTimeline(id: string): AgentTimelineItem[] {

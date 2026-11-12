@@ -2,6 +2,12 @@ import { ProviderHarnessUpdateSchema } from "./provider-harness-updates.js";
 import { PimiMobileTaskOperation, PimiMobileTaskResult } from "./pimi-task.js";
 import { AgentMessageSchema } from "./agent-message.js";
 import {
+  ChatSearchIndexRequestSchema,
+  ChatSearchIndexResponseMessageSchema,
+  ChatSearchRequestSchema,
+  ChatSearchResponseMessageSchema,
+} from "./chat-search.js";
+import {
   WorkspaceSearchCancelRequestSchema,
   WorkspaceSearchCancelResponseMessageSchema,
   WorkspaceSearchReplaceRequestSchema,
@@ -3725,6 +3731,8 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   WorkspaceSearchRunRequestSchema,
   WorkspaceSearchCancelRequestSchema,
   WorkspaceSearchReplaceRequestSchema,
+  ChatSearchRequestSchema,
+  ChatSearchIndexRequestSchema,
   ResumeAgentRequestMessageSchema,
   ImportAgentRequestMessageSchema,
   RefreshAgentRequestMessageSchema,
@@ -7573,6 +7581,8 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   WorkspaceSearchCancelResponseMessageSchema,
   WorkspaceSearchReplaceUpdateMessageSchema,
   WorkspaceSearchReplaceResponseMessageSchema,
+  ChatSearchResponseMessageSchema,
+  ChatSearchIndexResponseMessageSchema,
   ListCommandsResponseSchema,
   ListTerminalsResponseSchema,
   TerminalsChangedSchema,

@@ -18,6 +18,11 @@ import {
 import { CreationClient } from "./creation/index.js";
 import type { CodeNavigationQueryRequest, CreationSnapshot } from "@pimi/protocol/messages";
 import type {
+  ChatSearchIndexResponse,
+  ChatSearchRequest,
+  ChatSearchResponse,
+} from "@pimi/protocol/chat-search";
+import type {
   WorkspaceSearchFileMatches,
   WorkspaceSearchReplaceFileResult,
   WorkspaceSearchReplaceRequest,
@@ -4835,6 +4840,26 @@ export class DaemonClient {
     } finally {
       unsubscribe();
     }
+  }
+
+  /** Full-text search over what was said in every chat. Errors come back in `error`. */
+  async searchChats(
+    input: Omit<ChatSearchRequest, "type" | "requestId">,
+    requestId?: string,
+  ): Promise<ChatSearchResponse> {
+    return await this.sendNamespacedCorrelatedSessionRequest<"chat.search.response">({
+      requestId: this.createRequestId(requestId),
+      message: { type: "chat.search.request", ...input },
+      timeout: 30_000,
+    });
+  }
+
+  /** Starts ("start") or reads ("status") the run that stores and indexes chats nobody opened yet. */
+  async indexOlderChats(action: "start" | "status"): Promise<ChatSearchIndexResponse> {
+    return await this.sendNamespacedCorrelatedSessionRequest<"chat.search.index.response">({
+      message: { type: "chat.search.index.request", action },
+      timeout: 30_000,
+    });
   }
 
   async cancelWorkspaceSearch(targetRequestId: string): Promise<boolean> {

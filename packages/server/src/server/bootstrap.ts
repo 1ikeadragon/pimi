@@ -158,6 +158,9 @@ import { CreationService } from "./creation/index.js";
 import { openPimiDatabase, openPimiTimelineDatabase } from "./db/pimi-db.js";
 import { importCarriedTimelines } from "./agent/carried-timeline.js";
 import { SqliteTimelineStore } from "./agent/sqlite-timeline-store.js";
+import { TimelineIndexer } from "./agent/timeline-search/indexer.js";
+import { ChatSearchService } from "./agent/timeline-search/search-service.js";
+import { ChatIndexBackfill } from "./agent/timeline-search/backfill.js";
 import { FileAgentImageStore } from "./agent/agent-images.js";
 import { SqlSentAttachmentStore } from "./agent/sent-attachments.js";
 import { attachAgentStoragePersistence } from "./persistence-hooks.js";
@@ -1199,6 +1202,27 @@ export async function createPimiDaemon(
     isSkillAvailable: (name) => orchestrationSkills.isSkillAvailable(name),
     logger,
   });
+  {
+    const indexer = new TimelineIndexer(timelineArchive, logger);
+    timelineArchive.setSettledListener((agentId) => indexer.notify(agentId));
+    agentManager.attachChatSearch({
+      search: new ChatSearchService({
+        store: timelineArchive,
+        agentStorage,
+        workspaceRegistry,
+        agentsDb: pimiDatabase,
+        logger,
+      }),
+      backfill: new ChatIndexBackfill({
+        store: timelineArchive,
+        indexer,
+        agentManager,
+        agentStorage,
+        pimiDatabase,
+        logger,
+      }),
+    });
+  }
   const askPimiSessions = new AskPimiToolSessions();
   const handleAskPimiTools = createAskPimiMcpHandler(askPimiSessions, () =>
     logger.warn("Ask Pimi tool request failed"),

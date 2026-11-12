@@ -169,6 +169,10 @@ export class SqliteTimelineStore {
     return this.bound.has(agentId);
   }
 
+  isTurnOpen(agentId: string): boolean {
+    return this.bound.get(agentId)?.open === true;
+  }
+
   getBoundEpoch(agentId: string): string | null {
     return this.bound.get(agentId)?.epoch ?? null;
   }

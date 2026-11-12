@@ -226,6 +226,7 @@ import type { AttackService } from "./attack/service.js";
 import type { AttackScheduler } from "./attack/schedules.js";
 import { ProviderCatalogSession } from "./session/provider/provider-catalog-session.js";
 import { UsageSession } from "./session/usage/usage-session.js";
+import type { ChatSearchIndexResponse } from "@pimi/protocol/chat-search";
 import { WorkspaceSearchSession } from "./workspace-search/session.js";
 import {
   SpeechModelsSession,
@@ -2295,9 +2296,58 @@ export class Session {
     );
   }
 
+  private dispatchChatSearchMessage(msg: SessionInboundMessage): Promise<void> | undefined {
+    switch (msg.type) {
+      case "chat.search.request":
+        return this.handleChatSearch(msg);
+      case "chat.search.index.request":
+        return this.handleChatSearchIndex(msg);
+      default:
+        return undefined;
+    }
+  }
+
+  private async handleChatSearch(
+    msg: Extract<SessionInboundMessage, { type: "chat.search.request" }>,
+  ): Promise<void> {
+    const runtime = this.agentManager.getChatSearch();
+    const payload = runtime
+      ? await runtime.search.search(msg)
+      : {
+          requestId: msg.requestId,
+          hits: [],
+          nextCursor: null,
+          index: { indexedChats: 0, totalChats: 0 },
+          error: "Chat search is not available on this daemon.",
+        };
+    this.emit({ type: "chat.search.response", payload });
+  }
+
+  private handleChatSearchIndex(
+    msg: Extract<SessionInboundMessage, { type: "chat.search.index.request" }>,
+  ): Promise<void> {
+    const runtime = this.agentManager.getChatSearch();
+    let state: Omit<ChatSearchIndexResponse, "requestId"> = {
+      running: false,
+      done: 0,
+      total: 0,
+      skipped: [],
+      error: "Chat search is not available on this daemon.",
+    };
+    if (runtime) {
+      state = msg.action === "start" ? runtime.backfill.start() : runtime.backfill.status();
+    }
+    this.emit({
+      type: "chat.search.index.response",
+      payload: { requestId: msg.requestId, ...state },
+    });
+    return Promise.resolve();
+  }
+
   private dispatchHostServiceMessage(msg: SessionInboundMessage): Promise<void> | undefined {
     return (
       this.dispatchTerminalMessage(msg) ??
+      this.dispatchChatSearchMessage(msg) ??
       this.automationSession.dispatch(msg) ??
       this.attackSession.dispatch(msg) ??
       this.speechModelsSession.dispatch(msg)
