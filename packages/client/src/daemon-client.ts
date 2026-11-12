@@ -17,6 +17,14 @@ import {
 } from "./connection/index.js";
 import { CreationClient } from "./creation/index.js";
 import type { CodeNavigationQueryRequest, CreationSnapshot } from "@pimi/protocol/messages";
+import type {
+  WorkspaceSearchFileMatches,
+  WorkspaceSearchReplaceFileResult,
+  WorkspaceSearchReplaceRequest,
+  WorkspaceSearchReplaceResponse,
+  WorkspaceSearchRunRequest,
+  WorkspaceSearchRunResponse,
+} from "@pimi/protocol/workspace-search";
 import type { z } from "zod";
 import type { SessionEventSubscription } from "@pimi/protocol/messages";
 import type { LocalSpeechModel } from "@pimi/protocol/speech/rpc-schemas";
@@ -4779,6 +4787,70 @@ export class DaemonClient {
       });
     if (!response.result) throw new Error(response.error ?? "Code navigation is unavailable.");
     return response.result;
+  }
+
+  /**
+   * Streams project-search matches to `onFiles` and resolves with the stats when the search ends.
+   * Pass `requestId` to cancel the search with `cancelWorkspaceSearch` while it runs.
+   */
+  async searchWorkspace(
+    input: Omit<WorkspaceSearchRunRequest, "type" | "requestId">,
+    onFiles: (files: WorkspaceSearchFileMatches[]) => void,
+    requestId?: string,
+  ): Promise<WorkspaceSearchRunResponse> {
+    const resolvedRequestId = this.createRequestId(requestId);
+    const unsubscribe = this.subscribeRawMessages((message) => {
+      if (
+        message.type === "workspace.search.run.update" &&
+        message.payload.requestId === resolvedRequestId
+      ) {
+        onFiles(message.payload.files);
+      }
+    });
+    try {
+      return await this.sendNamespacedCorrelatedSessionRequest<"workspace.search.run.response">({
+        requestId: resolvedRequestId,
+        message: { type: "workspace.search.run.request", ...input },
+        timeout: 90_000,
+      });
+    } finally {
+      unsubscribe();
+    }
+  }
+
+  async cancelWorkspaceSearch(targetRequestId: string): Promise<boolean> {
+    const payload =
+      await this.sendNamespacedCorrelatedSessionRequest<"workspace.search.cancel.response">({
+        message: { type: "workspace.search.cancel.request", targetRequestId },
+        timeout: 10_000,
+      });
+    return payload.cancelled;
+  }
+
+  async replaceInWorkspace(
+    input: Omit<WorkspaceSearchReplaceRequest, "type" | "requestId">,
+    onFile: (result: WorkspaceSearchReplaceFileResult) => void,
+  ): Promise<WorkspaceSearchReplaceResponse> {
+    const requestId = this.createRequestId();
+    const unsubscribe = this.subscribeRawMessages((message) => {
+      if (
+        message.type === "workspace.search.replace.update" &&
+        message.payload.requestId === requestId
+      ) {
+        onFile(message.payload.result);
+      }
+    });
+    try {
+      return await this.sendNamespacedCorrelatedSessionRequest<"workspace.search.replace.response">(
+        {
+          requestId,
+          message: { type: "workspace.search.replace.request", ...input },
+          timeout: 120_000,
+        },
+      );
+    } finally {
+      unsubscribe();
+    }
   }
 
   async listCodeNavigationServers() {

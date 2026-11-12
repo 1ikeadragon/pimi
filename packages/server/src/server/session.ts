@@ -225,6 +225,7 @@ import { AttackSession } from "./session/attack/attack-session.js";
 import type { AttackService } from "./attack/service.js";
 import { ProviderCatalogSession } from "./session/provider/provider-catalog-session.js";
 import { UsageSession } from "./session/usage/usage-session.js";
+import { WorkspaceSearchSession } from "./workspace-search/session.js";
 import {
   SpeechModelsSession,
   type SpeechModelsSessionOptions,
@@ -813,6 +814,7 @@ export class Session {
   private readonly attackSession: AttackSession;
   private readonly providerCatalogSession: ProviderCatalogSession;
   private readonly usageSession: UsageSession;
+  private readonly workspaceSearchSession: WorkspaceSearchSession;
   private readonly speechModelsSession: SpeechModelsSession;
   private readonly workspaceFilesSession: WorkspaceFilesSession;
   private readonly agentConfigSession: AgentConfigSession;
@@ -1041,6 +1043,13 @@ export class Session {
       logger: this.sessionLogger,
     });
     this.speechModelsSession = new SpeechModelsSession({
+    this.workspaceSearchSession = new WorkspaceSearchSession({
+      emit: (msg) => this.emit(msg),
+      resolveWorkspaceRoot: async (workspaceId) => {
+        const workspace = await this.workspaceRegistry.get(workspaceId);
+        return workspace && !workspace.archivedAt ? workspace.cwd : null;
+      },
+    });
       emit: (msg) => this.emit(msg),
       runtime: speechModels,
     });
@@ -3018,6 +3027,13 @@ export class Session {
       case "fs.file.write.request":
         return this.workspaceFilesSession.handleFileWriteRequest(msg);
       case "fs.entry.create.request":
+      case "workspace.search.run.request":
+        return this.workspaceSearchSession.handleRun(msg, this.delivery.requestSignal);
+      case "workspace.search.cancel.request":
+        this.workspaceSearchSession.handleCancel(msg);
+        return Promise.resolve();
+      case "workspace.search.replace.request":
+        return this.workspaceSearchSession.handleReplace(msg, this.delivery.requestSignal);
         return this.workspaceFilesSession.handleFileEntryCreateRequest(msg);
       case "fs.entry.rename.request":
         return this.workspaceFilesSession.handleFileEntryRenameRequest(msg);
