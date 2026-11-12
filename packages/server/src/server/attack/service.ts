@@ -31,9 +31,9 @@ import { sendPromptToAgent } from "../agent/agent-prompt.js";
 import type { BoundCreateAgentCommand } from "../agent/create-agent/create.js";
 import { cancelAgentRunCommand } from "../agent/lifecycle-command.js";
 import { resumeStoppedSubagents } from "../agent/stop-cascade.js";
-import { STOPPED_WITH_SUBAGENTS_LABEL } from "@pimi/protocol/agent-labels";
+import { ATTACK_RUN_LABEL, STOPPED_WITH_SUBAGENTS_LABEL } from "@pimi/protocol/agent-labels";
 import { leadPrompt, resumePrompt } from "./prompts.js";
-import { ATTACK_COORDINATOR_PROFILE_ID, ATTACK_RUN_LABEL } from "./roster.js";
+import { ATTACK_COORDINATOR_PROFILE_ID } from "./roster.js";
 import { findingSignature } from "./signature.js";
 import { AttackStore } from "./store.js";
 
@@ -76,18 +76,42 @@ export interface SubmitFindingInput {
   description: string;
   repro: string;
   evidence: FindingEvidence[];
+  /** The id of an existing finding this report repeats; its evidence is merged into that one. */
+  duplicateOf?: string;
+  /** The caller read the run's existing findings and says this is none of them. */
+  distinct?: boolean;
+}
+
+/**
+ * `review` means nothing was recorded: the caller has not yet compared its report with the
+ * findings listed, and submits again with `duplicateOf` or `distinct`.
+ */
+export type SubmitFindingResult =
+  | { outcome: "recorded" | "merged"; finding: Finding }
+  | { outcome: "review"; existing: Finding[] };
+
+export interface FindingMerge {
+  duplicate: string;
+  into: string;
 }
 
 /**
  * Claude loads MCP servers from the user's settings, plugins and claude.ai connectors. A global
  * browser server (such as a Playwright plugin) would give an attack agent a browser path that skips
- * the host allowlist, so an attack agent keeps only the MCP servers Pimi passes it. Subagents the
- * lead creates inherit these provider options from it (create_agent, same provider).
+ * the host allowlist, so an attack agent keeps only the MCP servers Pimi passes it. It also loses
+ * Claude's own web tools, which reach any host, and its file-editing tools, since a run only
+ * reads. The shell stays: it is how the agents read the repository, and it is not sandboxed.
+ * Subagents the lead creates inherit these provider options from it (create_agent, same provider).
  */
 function attackProviderConfig(provider: string): Partial<AgentSessionConfig> {
   // `provider` is "provider" or "provider/model".
   if (provider.split("/")[0] !== "claude") return {};
-  return { providerOptions: { extraArgs: { "strict-mcp-config": null } } };
+  return {
+    providerOptions: {
+      extraArgs: { "strict-mcp-config": null },
+      disallowedTools: ["WebFetch", "WebSearch", "Edit", "Write", "NotebookEdit"],
+    },
+  };
 }
 
 function clip(text: string, max = MAX_TEXT): string {
@@ -129,6 +153,9 @@ export class AttackService {
   private ticking = false;
   private readonly tokenWrites = new Map<string, Promise<unknown>>();
   private readonly submitChains = new Map<string, Promise<unknown>>();
+  // The findings each agent has been shown by submit_finding. A new finding is recorded only once
+  // its reporter has seen every finding the run already holds. Lost on restart: agents look again.
+  private readonly shownFindingIdsByAgentId = new Map<string, Set<string>>();
 
   constructor(options: AttackServiceOptions) {
     this.logger = options.logger.child({ module: "attack" });
@@ -144,9 +171,14 @@ export class AttackService {
 
   async start(): Promise<void> {
     // The agents of a run that was live when the daemon went down are gone: show it as paused.
+    // Its running stretch ends at the last write, so the time the daemon was down is not spent.
     for (const run of await this.store.listRuns()) {
       if (run.status === "running") {
-        await this.settleSpent(run.id, { status: "paused", pausedReason: "user" });
+        await this.settleSpent(
+          run.id,
+          { status: "paused", pausedReason: "user" },
+          new Date(run.updatedAt),
+        );
       }
     }
     this.unsubscribeAgents = this.agentManager.subscribe(
@@ -181,6 +213,14 @@ export class AttackService {
     if (roster.length === 0) throw new AttackStateError("Pick at least one agent for the roster.");
     if (!definition.repoScope && roster.includes("secrets-audit")) {
       throw new AttackStateError("The secrets and config auditor reads the repository.");
+    }
+    const live = (await this.store.listRuns()).find(
+      (existing) =>
+        existing.workspaceId === definition.workspaceId &&
+        (existing.status === "running" || existing.status === "paused"),
+    );
+    if (live) {
+      throw new AttackStateError(`This workspace already has a ${live.status} run. Stop it first.`);
     }
     const now = new Date().toISOString();
     const run: AttackRun = {
@@ -289,12 +329,19 @@ export class AttackService {
       await resumeStoppedSubagents(deps, resumed.leadAgentId).catch((error: unknown) => {
         this.logger.warn({ err: error, runId }, "Some attack subagents did not resume");
       });
-      await sendPromptToAgent({
-        ...deps,
-        agentId: resumed.leadAgentId,
-        prompt: resumePrompt(resumed, await this.store.findings(runId).list()),
-        unarchive: false,
-      });
+      try {
+        await sendPromptToAgent({
+          ...deps,
+          agentId: resumed.leadAgentId,
+          prompt: resumePrompt(resumed, await this.openFindings(runId)),
+          unarchive: false,
+        });
+      } catch (error) {
+        // Nobody is working: a run left "running" would only burn its time budget.
+        await this.settleSpent(runId, { status: "paused", pausedReason: "user" });
+        const message = error instanceof Error ? error.message : String(error);
+        throw new AttackStateError(`The lead agent did not resume: ${message}`);
+      }
     }
     return resumed;
   }
@@ -308,16 +355,32 @@ export class AttackService {
     return stopped;
   }
 
-  /** The lead says the roster is done. */
-  async completeRun(runId: string, callerAgentId: string): Promise<AttackRun> {
+  /**
+   * The lead says the roster is done. With two or more findings and no `merges`, nothing ends:
+   * `review` hands the lead the findings to check for duplicates, and it calls again with the
+   * pairs to merge (or none).
+   */
+  async completeRun(
+    runId: string,
+    callerAgentId: string,
+    merges?: readonly FindingMerge[],
+  ): Promise<{ run: AttackRun; review: Finding[] | null }> {
     const run = await this.requireRun(runId);
     if (run.leadAgentId !== callerAgentId) {
       throw new AttackStateError("Only the lead agent can finish the run.");
     }
-    if (run.status !== "running") return run;
+    if (run.status !== "running") return { run, review: null };
+    if (!merges) {
+      const open = await this.openFindings(runId);
+      if (open.length >= 2) return { run, review: open.map(withoutScreenshotBytes) };
+    }
+    if (merges?.length) {
+      await this.inSubmitChain(runId, () => this.applyMerges(runId, callerAgentId, merges));
+    }
     const completed = await this.settleSpent(runId, { status: "completed" });
     await this.audit(runId, "run_completed", callerAgentId, null);
-    return completed;
+    await this.stopSubagents(completed);
+    return { run: completed, review: null };
   }
 
   /** The stored run. `spent.runtimeMs` is settled time only; a client adds the stretch since `resumedAt`. */
@@ -378,22 +441,35 @@ export class AttackService {
   async submitFinding(
     callerAgentId: string,
     input: SubmitFindingInput,
-  ): Promise<{ finding: Finding; deduped: boolean }> {
+  ): Promise<SubmitFindingResult> {
     const run = await this.runForAgent(callerAgentId);
     if (!run) throw new AttackStateError("This agent is not part of an Attack run.");
-    const previous = this.submitChains.get(run.id) ?? Promise.resolve();
-    const next = previous
-      .catch(() => undefined)
-      .then(() => this.applyFinding(run.id, callerAgentId, input));
-    this.submitChains.set(run.id, next);
+    return this.inSubmitChain(run.id, () => this.applyFinding(run.id, callerAgentId, input));
+  }
+
+  private inSubmitChain<R>(runId: string, work: () => Promise<R>): Promise<R> {
+    const previous = this.submitChains.get(runId) ?? Promise.resolve();
+    const next = previous.catch(() => undefined).then(work);
+    this.submitChains.set(runId, next);
     return next;
   }
 
+  /** The run's findings that were not merged into another one, oldest first. */
+  private async openFindings(runId: string): Promise<Finding[]> {
+    const findings = await this.store.findings(runId).list();
+    return findings
+      .filter((finding) => finding.duplicateOf === null)
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  }
+
+  // Whether two reports describe one defect is a judgement about meaning, so the reporting agent
+  // makes it: it is shown the run's findings and answers `duplicateOf` or `distinct`. Only a
+  // report with the same route, category and title as an existing one is merged without asking.
   private async applyFinding(
     runId: string,
     callerAgentId: string,
     input: SubmitFindingInput,
-  ): Promise<{ finding: Finding; deduped: boolean }> {
+  ): Promise<SubmitFindingResult> {
     const run = await this.requireRun(runId);
     if (run.status !== "running") {
       throw new AttackStateError(`The run is ${run.status}; findings are not accepted now.`);
@@ -401,28 +477,34 @@ export class AttackService {
     const category = FindingCategorySchema.parse(input.category);
     const signature = findingSignature({ route: input.route, category, title: input.title });
     const findings = this.store.findings(run.id);
-    const existing = (await findings.list()).find((finding) => finding.signature === signature);
+    const all = await findings.list();
+    const open = await this.openFindings(run.id);
     const evidence = input.evidence.slice(0, MAX_EVIDENCE_PER_FINDING);
-    const now = new Date().toISOString();
-    if (existing) {
-      const merged = await findings.update(existing.id, (current) => ({
-        ...current,
-        severity:
-          SEVERITY_RANK[input.severity] > SEVERITY_RANK[current.severity]
-            ? input.severity
-            : current.severity,
-        evidence: [...current.evidence, ...evidence].slice(0, MAX_EVIDENCE_PER_FINDING),
-        reportCount: current.reportCount + 1,
-        updatedAt: now,
-      }));
-      if (!merged) throw new AttackStateError("The finding disappeared while merging.");
+
+    const named = input.duplicateOf ? this.mergeTarget(all, input.duplicateOf) : null;
+    const repeated = named ?? open.find((finding) => finding.signature === signature);
+    if (repeated) {
+      const merged = await this.foldReport(run.id, repeated.id, {
+        severity: input.severity,
+        evidence,
+        reportCount: 1,
+      });
       await this.audit(run.id, "finding_deduped", callerAgentId, merged.id);
-      this.publishFinding(merged);
-      return { finding: withoutScreenshotBytes(merged), deduped: true };
+      return { outcome: "merged", finding: withoutScreenshotBytes(merged) };
     }
-    if ((await findings.list()).length >= MAX_FINDINGS_PER_RUN) {
+
+    const shown = this.shownFindingIdsByAgentId.get(callerAgentId) ?? new Set<string>();
+    this.shownFindingIdsByAgentId.set(callerAgentId, shown);
+    const unseen = open.some((finding) => !shown.has(finding.id));
+    if (open.length > 0 && (!input.distinct || unseen)) {
+      for (const finding of open) shown.add(finding.id);
+      return { outcome: "review", existing: open.map(withoutScreenshotBytes) };
+    }
+
+    if (all.length >= MAX_FINDINGS_PER_RUN) {
       throw new AttackStateError("This run reached its finding limit.");
     }
+    const now = new Date().toISOString();
     const finding: Finding = {
       id: randomUUID().replaceAll("-", ""),
       runId: run.id,
@@ -437,14 +519,76 @@ export class AttackService {
       signature,
       status: "new",
       reportCount: 1,
+      duplicateOf: null,
       fixAgentId: null,
       createdAt: now,
       updatedAt: now,
     };
     await findings.put(finding);
+    shown.add(finding.id);
     await this.audit(run.id, "finding_submitted", callerAgentId, finding.id);
     this.publishFinding(finding);
-    return { finding: withoutScreenshotBytes(finding), deduped: false };
+    return { outcome: "recorded", finding: withoutScreenshotBytes(finding) };
+  }
+
+  // The finding a report or a merge lands on: the one named, or the one it was merged into.
+  private mergeTarget(all: readonly Finding[], id: string): Finding {
+    const byId = new Map(all.map((finding) => [finding.id, finding]));
+    let target = byId.get(id.trim());
+    for (let hops = 0; target?.duplicateOf && hops < all.length; hops += 1) {
+      target = byId.get(target.duplicateOf);
+    }
+    if (!target) {
+      throw new AttackStateError(
+        `This run has no finding ${id}. Use an id from the list submit_finding returned.`,
+      );
+    }
+    return target;
+  }
+
+  // Adds a repeated report to the finding it repeats: worst severity, more evidence, a higher count.
+  private async foldReport(
+    runId: string,
+    findingId: string,
+    report: { severity: FindingSeverity; evidence: FindingEvidence[]; reportCount: number },
+  ): Promise<Finding> {
+    const merged = await this.store.findings(runId).update(findingId, (current) => ({
+      ...current,
+      severity:
+        SEVERITY_RANK[report.severity] > SEVERITY_RANK[current.severity]
+          ? report.severity
+          : current.severity,
+      evidence: [...current.evidence, ...report.evidence].slice(0, MAX_EVIDENCE_PER_FINDING),
+      reportCount: current.reportCount + report.reportCount,
+      updatedAt: new Date().toISOString(),
+    }));
+    if (!merged) throw new AttackStateError("The finding disappeared while merging.");
+    this.publishFinding(merged);
+    return merged;
+  }
+
+  // The lead's duplicate review: each `duplicate` is folded into `into` and hidden behind it.
+  private async applyMerges(
+    runId: string,
+    callerAgentId: string,
+    merges: readonly FindingMerge[],
+  ): Promise<void> {
+    const findings = this.store.findings(runId);
+    for (const merge of merges) {
+      const all = await findings.list();
+      const duplicate = this.mergeTarget(all, merge.duplicate);
+      const into = this.mergeTarget(all, merge.into);
+      // Already one finding, for example after an earlier pair in the same call.
+      if (duplicate.id === into.id) continue;
+      await this.foldReport(runId, into.id, duplicate);
+      const hidden = await findings.update(duplicate.id, (current) => ({
+        ...current,
+        duplicateOf: into.id,
+        updatedAt: new Date().toISOString(),
+      }));
+      if (hidden) this.publishFinding(hidden);
+      await this.audit(runId, "finding_deduped", callerAgentId, `${duplicate.id}>${into.id}`);
+    }
   }
 
   screenshotEvidence(input: {
@@ -471,7 +615,7 @@ export class AttackService {
     return runId ? this.store.getRun(runId) : null;
   }
 
-  private async runIdForAgent(agentId: string): Promise<string | null> {
+  async runIdForAgent(agentId: string): Promise<string | null> {
     const cached = this.runIdByAgentId.get(agentId);
     if (cached) return cached;
     let current: string | null = agentId;
@@ -543,9 +687,9 @@ export class AttackService {
     return run;
   }
 
-  private liveSpent(run: AttackRun): AttackRun {
+  private liveSpent(run: AttackRun, until = new Date()): AttackRun {
     if (run.status !== "running" || !run.resumedAt) return run;
-    const elapsed = Math.max(0, Date.now() - new Date(run.resumedAt).getTime());
+    const elapsed = Math.max(0, until.getTime() - new Date(run.resumedAt).getTime());
     return { ...run, spent: { ...run.spent, runtimeMs: run.spent.runtimeMs + elapsed } };
   }
 
@@ -553,10 +697,11 @@ export class AttackService {
   private async settleSpent(
     runId: string,
     change: { status: AttackRun["status"]; pausedReason?: AttackPauseReason },
+    stretchEnd?: Date,
   ): Promise<AttackRun> {
     const now = new Date();
     return this.updateAndPublish(runId, (current) => {
-      const settled = this.liveSpent(current);
+      const settled = this.liveSpent(current, stretchEnd ?? now);
       const ended = change.status === "stopped" || change.status === "completed";
       return {
         ...current,
@@ -595,6 +740,18 @@ export class AttackService {
       );
     } catch (error) {
       this.logger.warn({ err: error, runId: run.id }, "Stopping the attack lead failed");
+    }
+  }
+
+  // A finished run needs no more work: subagents still going would only spend tokens. The lead is
+  // left alone so it can write its closing message.
+  private async stopSubagents(run: AttackRun): Promise<void> {
+    for (const agent of this.agentManager.listAgents()) {
+      if (agent.id === run.leadAgentId || !this.agentManager.hasInFlightRun(agent.id)) continue;
+      if ((await this.runIdForAgent(agent.id)) !== run.id) continue;
+      await this.agentManager.cancelAgentRun(agent.id).catch((error: unknown) => {
+        this.logger.warn({ err: error, runId: run.id, agentId: agent.id }, "Subagent stop failed");
+      });
     }
   }
 

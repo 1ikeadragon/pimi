@@ -30,6 +30,11 @@ interface AttackStore {
 
 const EMPTY_HOST: HostAttackState = { runs: {}, findings: {} };
 
+// A list response can land after a push that is newer than it; the newer copy stays.
+function newer<T extends { updatedAt: string }>(previous: T | undefined, incoming: T): T {
+  return previous && previous.updatedAt > incoming.updatedAt ? previous : incoming;
+}
+
 function hostOf(state: AttackStore, serverId: string): HostAttackState {
   return state.byServer[serverId] ?? EMPTY_HOST;
 }
@@ -57,7 +62,7 @@ export const useAttackStore = create<AttackStore>((set) => ({
       return {
         byServer: {
           ...state.byServer,
-          [serverId]: { ...host, runs: { ...host.runs, [run.id]: run } },
+          [serverId]: { ...host, runs: { ...host.runs, [run.id]: newer(host.runs[run.id], run) } },
         },
       };
     }),
@@ -65,7 +70,7 @@ export const useAttackStore = create<AttackStore>((set) => ({
     set((state) => {
       const host = hostOf(state, serverId);
       const next = { ...host.runs };
-      for (const run of runs) next[run.id] = run;
+      for (const run of runs) next[run.id] = newer(next[run.id], run);
       return { byServer: { ...state.byServer, [serverId]: { ...host, runs: next } } };
     }),
   putFinding: (serverId, finding) =>
@@ -74,7 +79,7 @@ export const useAttackStore = create<AttackStore>((set) => ({
       const forRun = host.findings[finding.runId] ?? {};
       // A push carries no screenshot bytes; keep the ones a detail fetch already brought.
       const previous = forRun[finding.id];
-      const merged = previous && previous.updatedAt === finding.updatedAt ? previous : finding;
+      const merged = previous && previous.updatedAt >= finding.updatedAt ? previous : finding;
       return {
         byServer: {
           ...state.byServer,
@@ -88,8 +93,12 @@ export const useAttackStore = create<AttackStore>((set) => ({
   putFindings: (serverId, runId, findings) =>
     set((state) => {
       const host = hostOf(state, serverId);
-      const next: Record<string, Finding> = {};
-      for (const finding of findings) next[finding.id] = finding;
+      // Findings are never deleted, so one a push brought while the list was in flight stays.
+      const next: Record<string, Finding> = { ...host.findings[runId] };
+      for (const finding of findings) {
+        const previous = next[finding.id];
+        next[finding.id] = previous && previous.updatedAt >= finding.updatedAt ? previous : finding;
+      }
       return {
         byServer: {
           ...state.byServer,
@@ -121,7 +130,11 @@ export function useAttackFindings(serverId: string, runId: string | null): Findi
   const byId = useAttackStore((state) =>
     runId ? hostOf(state, serverId).findings[runId] : undefined,
   );
-  return useMemo(() => (byId ? Object.values(byId) : []), [byId]);
+  // A finding the lead merged into another one stays on the daemon but is not shown.
+  return useMemo(
+    () => (byId ? Object.values(byId).filter((finding) => finding.duplicateOf === null) : []),
+    [byId],
+  );
 }
 
 /**

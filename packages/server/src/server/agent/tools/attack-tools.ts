@@ -3,6 +3,7 @@ import { FindingCategorySchema, FindingSeveritySchema } from "@pimi/protocol/att
 import type { FindingEvidence } from "@pimi/protocol/attack/types";
 import { BrowserAutomationBrowserIdSchema } from "@pimi/protocol/browser-automation/rpc-schemas";
 import type { BrowserToolsBroker } from "../../browser-tools/broker.js";
+import { findingLine } from "../../attack/prompts.js";
 import type { AttackService } from "../../attack/service.js";
 import {
   PaseoToolInputError,
@@ -51,10 +52,36 @@ const SubmitFindingInput = z.object({
     .describe(
       "Browser tabs to capture as screenshot evidence right now. Show the defect on screen first.",
     ),
+  duplicateOf: z
+    .string()
+    .trim()
+    .min(1)
+    .optional()
+    .describe(
+      "The id of an existing finding that is the same underlying defect as this report, even if it was worded differently or reached by another route. Your evidence is added to that finding.",
+    ),
+  distinct: z
+    .boolean()
+    .optional()
+    .describe(
+      "true once you have read the existing findings submit_finding listed and this report is none of them.",
+    ),
 });
 
 const FinishInput = z.object({
   summary: z.string().trim().min(1).max(4000).describe("What the run covered and what it found."),
+  merges: z
+    .array(
+      z.object({
+        duplicate: z.string().trim().min(1).describe("The finding id to fold away."),
+        into: z.string().trim().min(1).describe("The finding id that keeps it."),
+      }),
+    )
+    .max(200)
+    .optional()
+    .describe(
+      "Your duplicate review: each pair of findings that are one underlying defect. Pass an empty list when every finding is distinct. Omit it on the first call to see the findings.",
+    ),
 });
 
 export interface RegisterAttackToolsOptions {
@@ -127,7 +154,7 @@ export function registerAttackTools(base: RegisterAttackToolsOptions): void {
     {
       title: "Submit finding",
       description:
-        "Record a verified defect found during an Attack run. Only call it after you reproduced the problem yourself; include numbered repro steps and evidence. Findings are deduplicated by route, category and title: reporting the same problem again raises its count. Only agents inside an Attack run can use it.",
+        "Record a verified defect found during an Attack run. Only call it after you reproduced the problem yourself; include numbered repro steps and evidence. One underlying defect is one finding: when the run already has findings, the first call records nothing and lists them. Call again with duplicateOf set to the id of the finding this repeats, or with distinct: true if it is a different defect. Only agents inside an Attack run can use it.",
       inputSchema: SubmitFindingInput,
     },
     async (input) => {
@@ -139,7 +166,7 @@ export function registerAttackTools(base: RegisterAttackToolsOptions): void {
         parsed.screenshotBrowserIds,
         parsed.title,
       );
-      const { finding, deduped } = await options.service.submitFinding(agentId, {
+      const result = await options.service.submitFinding(agentId, {
         severity: parsed.severity,
         category: parsed.category,
         title: parsed.title,
@@ -147,13 +174,38 @@ export function registerAttackTools(base: RegisterAttackToolsOptions): void {
         description: parsed.description,
         repro: parsed.repro,
         evidence: [...parsed.evidence, ...screenshots],
+        duplicateOf: parsed.duplicateOf,
+        distinct: parsed.distinct,
       });
-      const text = deduped
-        ? `Already recorded as finding ${finding.id}; its report count is now ${finding.reportCount}.`
-        : `Recorded finding ${finding.id}.`;
+      if (result.outcome === "review") {
+        const text = `Not recorded yet. This run already has these findings:\n${result.existing.map(findingLine).join("\n")}\n\nIf your report is the same underlying defect as one of them (same cause, even with other wording, another route to it or another agent's angle), call submit_finding again with the same fields plus duplicateOf: "<that id>". If it is a different defect, call again with the same fields plus distinct: true.`;
+        return {
+          content: [{ type: "text", text }],
+          structuredContent: {
+            recorded: false,
+            existingFindings: result.existing.map((finding) => ({
+              id: finding.id,
+              severity: finding.severity,
+              category: finding.category,
+              route: finding.route,
+              title: finding.title,
+            })),
+          },
+        };
+      }
+      const { finding } = result;
+      const text =
+        result.outcome === "merged"
+          ? `Merged into finding ${finding.id} ("${finding.title}"); it now stands for ${finding.reportCount} reports.`
+          : `Recorded finding ${finding.id}.`;
       return {
         content: [{ type: "text", text }],
-        structuredContent: { findingId: finding.id, deduped, reportCount: finding.reportCount },
+        structuredContent: {
+          recorded: true,
+          findingId: finding.id,
+          merged: result.outcome === "merged",
+          reportCount: finding.reportCount,
+        },
       };
     },
   );
@@ -163,15 +215,26 @@ export function registerAttackTools(base: RegisterAttackToolsOptions): void {
     {
       title: "Finish Attack run",
       description:
-        'Lead only: mark the Attack run complete once the roster has finished and the findings stand. "Nothing found" is a valid summary.',
+        'Lead only: mark the Attack run complete once the roster has finished and the findings stand. With two or more findings, the first call lists them and ends nothing: review them for duplicates and call again with merges (an empty list when all are distinct). "Nothing found" is a valid summary.',
       inputSchema: FinishInput,
     },
     async (input) => {
       const agentId = requireCaller(options);
-      FinishInput.parse(input);
+      const parsed = FinishInput.parse(input);
       const run = await options.service.runForAgent(agentId);
       if (!run) throw new PaseoToolInputError("This agent is not part of an Attack run.");
-      const completed = await options.service.completeRun(run.id, agentId);
+      const { run: completed, review } = await options.service.completeRun(
+        run.id,
+        agentId,
+        parsed.merges,
+      );
+      if (review) {
+        const text = `Not finished yet. Review these findings for duplicates first:\n${review.map(findingLine).join("\n")}\n\nTwo findings are duplicates when fixing one underlying defect would close both. Call finish_attack_run again with merges: [{ duplicate: "<id to fold away>", into: "<id that keeps it>" }] for each such pair, or merges: [] if every finding is distinct.`;
+        return {
+          content: [{ type: "text", text }],
+          structuredContent: { runId: completed.id, status: completed.status, finished: false },
+        };
+      }
       return {
         content: [{ type: "text", text: `The run is ${completed.status}.` }],
         structuredContent: { runId: completed.id, status: completed.status },

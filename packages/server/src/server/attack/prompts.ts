@@ -23,6 +23,12 @@ function runContext(run: AttackRun): string {
     .join("\n");
 }
 
+/** One finding as agents see it in a list: the id they pass back, then what it is. */
+export function findingLine(finding: Finding): string {
+  const count = finding.reportCount > 1 ? `, reported ${finding.reportCount}x` : "";
+  return `- ${finding.id} [${finding.severity}, ${finding.category}] ${finding.route}: ${finding.title} (${finding.status}${count})`;
+}
+
 export function leadPrompt(run: AttackRun): string {
   const roster = run.roster
     .map(
@@ -40,9 +46,9 @@ ${roster}
 How to run it
 1. Map the target first: open it in a browser tab (browser_new_tab), snapshot it, and list the routes, forms and inputs you can see. Read the repository's entry points and routes to match them against what the browser shows.
 2. Start the roster subagents with that map in their prompts. Work in parallel; do not wait idly. You are notified when a subagent finishes.
-3. Subagents report findings with submit_finding. You may also submit findings you confirmed yourself. Submitting the same problem twice is safe: findings are deduplicated by route, category and title, and a repeat only raises its report count.
+3. Subagents report findings with submit_finding. You may also submit findings you confirmed yourself. One defect is one finding, however many agents hit it and whatever words they use: when the run already has findings, submit_finding shows them and records nothing until you answer with duplicateOf (the same underlying defect; your evidence is added to it) or distinct.
 4. When subagents finish, read the findings you were told about, drop anything unverified, and make sure each remaining finding has a repro and evidence.
-5. Call finish_attack_run with a short summary when the roster is done and the findings stand. "Nothing found" is a valid result if the roster attacked the target and it held.
+5. Call finish_attack_run with a short summary when the roster is done and the findings stand. It first shows you every finding; call it again with the pairs that are one defect under two names in merges, or an empty merges list. "Nothing found" is a valid result if the roster attacked the target and it held.
 
 Rules
 - Report only. Never edit files, fix a finding or change the target.
@@ -52,20 +58,13 @@ Rules
 }
 
 export function resumePrompt(run: AttackRun, findings: readonly Finding[]): string {
-  const known = findings.length
-    ? findings
-        .map(
-          (finding) =>
-            `- [${finding.severity}] ${finding.title} (${finding.route}, ${finding.status}, reported ${finding.reportCount}x)`,
-        )
-        .join("\n")
-    : "- none yet";
+  const known = findings.length ? findings.map(findingLine).join("\n") : "- none yet";
   return `The owner resumed this Attack run after a pause. Your subagents were stopped and restarted where they left off.
 
 ${runContext(run)}
 Spent so far: ${minutes(run.spent.runtimeMs)} of ${minutes(run.limits.maxRuntimeMs)} minutes, ${run.spent.tokens.toLocaleString("en-US")} of ${run.limits.maxTokens.toLocaleString("en-US")} tokens.
 
-Findings already recorded (submit_finding will merge a repeat into these):
+Findings already recorded (pass one of these ids as duplicateOf when a report repeats it):
 ${known}
 
 Continue the run: check what each subagent still owes, cover what is not covered yet, and call finish_attack_run when the roster is done.`;

@@ -109,15 +109,17 @@ export const FindingSchema = z.object({
   severity: FindingSeveritySchema,
   category: FindingCategorySchema,
   title: z.string(),
-  // The route or file the problem is on; part of the dedupe signature.
+  // The route or file the problem is on.
   route: z.string(),
   description: z.string(),
   repro: z.string(),
   evidence: z.array(FindingEvidenceSchema),
   signature: z.string(),
   status: FindingStatusSchema,
-  // How many times agents reported this signature. The lead sees a duplicate as a count, not a row.
+  // How many reports this finding stands for: its own plus every duplicate merged into it.
   reportCount: z.number().int().positive(),
+  // Set when the lead merged this finding into another one; clients hide it.
+  duplicateOf: z.string().nullable().default(null),
   fixAgentId: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),

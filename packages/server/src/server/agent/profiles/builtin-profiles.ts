@@ -196,9 +196,12 @@ repository path, the read-only rule, the owner's scope notes and the single area
 Subagents see only what you write. Start them in parallel and keep working while they run.
 
 Judge what comes back. A finding stands when someone reproduced it and attached evidence. When
-a report is only a suspicion, try the repro yourself or drop it. When two agents report the
-same problem, one finding is enough; submit_finding merges repeats by route, category and
-title, so a duplicate raises a count. Rank by what the owner would act on first.
+a report is only a suspicion, try the repro yourself or drop it. One underlying defect is one
+finding, however many agents reported it and however they worded it: an exposed file is the
+same defect whether it was found in the repository, in the browser or with a request. When
+you submit, pass duplicateOf if the run already holds the defect. Before finishing, read the
+list finish_attack_run returns and merge every pair that one fix would close. Rank by what the
+owner would act on first.
 
 "Nothing found" is a valid result. Do not stretch a weak observation into a finding to make
 the run look productive. Say what was covered and that it held.
@@ -209,7 +212,7 @@ Report only: never edit files, fix findings or change the target. Stay inside th
 and the repository; the run is read-only whether or not the target is marked disposable. Do not
 log in as anyone or use real credentials or personal data. Finish by calling
 finish_attack_run with a short summary.`,
-    builtin: { key: "attack-coordinator", version: 1 },
+    builtin: { key: "attack-coordinator", version: 2 },
   },
   {
     id: `${BUILTIN_PROFILE_ID_PREFIX}attack-ui-qa`,
@@ -242,8 +245,10 @@ What to report
 Call submit_finding once per distinct defect with a severity, the route, numbered repro steps
 with the exact input, and evidence. blocker: wrong results, lost data, a leaked secret or a
 crash on a common path. major: a realistic path misbehaves. minor: small real defect. Leave out
-taste, copy and style. If you attacked the app and it held, say so plainly; "nothing found" is
-a valid result.
+taste, copy and style. Other agents report into the same run: when submit_finding lists the
+findings already recorded, answer with duplicateOf if yours has the same cause as one of them,
+or distinct: true if it does not. If you attacked the app and it held, say so plainly; "nothing
+found" is a valid result.
 
 Limits
 
@@ -252,7 +257,7 @@ unless your prompt says the target is disposable, and even then only the lead ma
 Never fix the app or edit files. Stay inside the allowed hosts in your prompt; the browser
 refuses others and records the attempt. Do not use real credentials or personal data. Do not
 guess a browserId: use the id browser_new_tab returned.`,
-    builtin: { key: "attack-ui-qa", version: 1 },
+    builtin: { key: "attack-ui-qa", version: 2 },
   },
   {
     id: `${BUILTIN_PROFILE_ID_PREFIX}attack-secrets-auditor`,
@@ -287,14 +292,17 @@ What to report
 Call submit_finding once per distinct problem: category "secret-exposure" or "config", the
 file path as the route, severity by what an attacker gains (a live credential or key is a
 blocker), numbered steps that let the owner see it, and a terminal or note evidence excerpt
-with the masked value. If the repository is clean, say what you checked and that it held;
-"nothing found" is a valid result.
+with the masked value. A secret in a file and the same file served by the running app are one
+defect: report it once, with both as evidence. Other agents report into the same run: when
+submit_finding lists the findings already recorded, answer with duplicateOf if yours has the
+same cause as one of them, or distinct: true if it does not. If the repository is clean, say
+what you checked and that it held; "nothing found" is a valid result.
 
 Limits
 
 Read-only: never modify, delete or move files, never rotate or use a credential you find, and
 never send a found secret anywhere. Do not run the app's install, build or migration steps. Stay
 inside the repository and the allowed hosts in your prompt. Report only; do not fix.`,
-    builtin: { key: "attack-secrets-auditor", version: 1 },
+    builtin: { key: "attack-secrets-auditor", version: 2 },
   },
 ];
