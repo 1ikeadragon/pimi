@@ -7,6 +7,8 @@ import type { AttachmentMetadata } from "@/attachments/types";
 /** How one image a message refers to resolves on this client. */
 export type AgentImageSlot =
   | { state: "loading" }
+  /** An http(s) image the daemon never stored; the view loads it straight from the URL. */
+  | { state: "remote"; uri: string }
   | { state: "ready"; metadata: AttachmentMetadata }
   /** The daemon no longer has the bytes, or could not be reached for them. */
   | { state: "missing" }
@@ -79,6 +81,7 @@ function fetchAgentImage(
 }
 
 function initialSlot(agentId: string | undefined, ref: AgentImageRef): AgentImageSlot {
+  if (ref.remoteUrl) return { state: "remote", uri: ref.remoteUrl };
   if (ref.unavailable) return { state: ref.unavailable };
   const known = agentId ? settled.get(cacheKey(agentId, ref.imageId)) : undefined;
   if (known === "missing") return { state: "missing" };
@@ -119,7 +122,7 @@ export function useAgentImages(
       });
     };
     current.forEach((ref, index) => {
-      if (ref.unavailable) return;
+      if (ref.unavailable || ref.remoteUrl) return;
       fetchAgentImage(client, agentId, ref)
         .then((result) => {
           if (!cancelled && result !== null) fill(index, result);

@@ -993,6 +993,11 @@ export const AgentImageRefSchema = z.object({
   height: z.number().int().positive().optional(),
   alt: z.string().max(1000).optional(),
   unavailable: z.enum(["too_large", "unsupported"]).optional(),
+  remoteUrl: z
+    .string()
+    .max(4096)
+    .regex(/^https?:\/\//i)
+    .optional(),
 });
 
 const AgentProviderSwitchEndpointSchema = z.object({
@@ -5740,6 +5745,11 @@ export const CheckoutBlameResultSchema = z.union([
     author: z.string(),
     authoredAt: z.string(),
     summary: z.string(),
+    /** Full commit message, subject first. */
+    message: z.string(),
+    /** The file's path and the line's number in that commit's version of the file. */
+    path: z.string(),
+    originalLine: z.number().int().positive(),
   }),
   z.object({
     status: z.enum(["uncommitted", "untracked", "not_git", "stale", "unavailable", "changed"]),

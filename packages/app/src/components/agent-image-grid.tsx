@@ -32,7 +32,10 @@ interface AgentImageGridProps {
 export const AgentImageGrid = memo(function AgentImageGrid({ items }: AgentImageGridProps) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const readyIndexes = useMemo(
-    () => items.flatMap((item, index) => (item.slot.state === "ready" ? [index] : [])),
+    () =>
+      items.flatMap((item, index) =>
+        item.slot.state === "ready" || item.slot.state === "remote" ? [index] : [],
+      ),
     [items],
   );
   const closeLightbox = useCallback(() => setOpenIndex(null), []);
@@ -60,13 +63,12 @@ export const AgentImageGrid = memo(function AgentImageGrid({ items }: AgentImage
   );
 
   const openSlot = openIndex === null ? null : items[openIndex]?.slot;
-  const lightboxSource = useMemo(
-    () =>
-      openSlot?.state === "ready"
-        ? { type: "attachment" as const, metadata: openSlot.metadata }
-        : null,
-    [openSlot],
-  );
+  const lightboxSource = useMemo(() => {
+    if (openSlot?.state === "ready") {
+      return { type: "attachment" as const, metadata: openSlot.metadata };
+    }
+    return openSlot?.state === "remote" ? { type: "uri" as const, uri: openSlot.uri } : null;
+  }, [openSlot]);
 
   if (items.length === 0) return null;
   const single = items.length === 1;
@@ -111,6 +113,12 @@ function ImageTile({ index, item, single, onOpen }: ImageTileProps) {
   const uri = useAttachmentPreviewUrl(metadata);
   const source = useMemo(() => ({ uri: uri ?? "" }), [uri]);
   const handlePress = useCallback(() => onOpen(index), [index, onOpen]);
+  const remoteUri = slot.state === "remote" ? slot.uri : null;
+  const [remoteFailed, setRemoteFailed] = useState(false);
+  const handleRemoteError = useCallback(() => setRemoteFailed(true), []);
+  // A new URL gets a fresh attempt.
+  useEffect(() => setRemoteFailed(false), [remoteUri]);
+  const remoteSource = useMemo(() => (remoteUri ? { uri: remoteUri } : null), [remoteUri]);
 
   const aspectRatio = tileAspectRatio(item, single);
   const frameStyle = useMemo(
@@ -138,7 +146,28 @@ function ImageTile({ index, item, single, onOpen }: ImageTileProps) {
     );
   }
 
-  const labelKey = PLACEHOLDER_LABELS[slot.state];
+  if (slot.state === "remote" && !remoteFailed && remoteSource) {
+    return (
+      <PressHighlight
+        accessibilityRole="button"
+        accessibilityLabel={t("composer.attachments.openImage")}
+        onPress={handlePress}
+        style={frameStyle}
+      >
+        <Image
+          source={remoteSource}
+          style={styles.image}
+          resizeMode={single ? "contain" : "cover"}
+          onError={handleRemoteError}
+        />
+      </PressHighlight>
+    );
+  }
+
+  const labelKey =
+    slot.state === "remote"
+      ? "message.attachments.imageUnavailable"
+      : PLACEHOLDER_LABELS[slot.state];
   return (
     <View style={[frameStyle, styles.placeholder]} testID={`agent-image-${slot.state}`}>
       {slot.state === "loading" ? null : (

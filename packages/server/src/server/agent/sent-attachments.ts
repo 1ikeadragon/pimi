@@ -9,6 +9,7 @@ import {
   type AgentAttachment,
 } from "@pimi/protocol/messages";
 import type { AgentImageRef } from "@pimi/protocol/agent-types";
+import { LruMap } from "./lru-map.js";
 import { agentImageId, isSupportedImageMimeType } from "./agent-images.js";
 
 /**
@@ -22,6 +23,7 @@ export const MAX_SENT_IMAGE_BYTES_PER_MESSAGE = 15 * 1024 * 1024;
 export const MAX_SENT_ATTACHMENT_TEXT_CHARS = 32 * 1024;
 export const MAX_SENT_ATTACHMENTS_PER_MESSAGE = 32;
 
+const MAX_CACHED_AGENTS = 64;
 const AGENT_ID_PATTERN = /^[A-Za-z0-9._-]+$/;
 
 export interface SentAttachmentRecord {
@@ -126,7 +128,8 @@ export interface SentAttachmentStore {
 
 export class FileSentAttachmentStore implements SentAttachmentStore {
   private readonly logger: Logger;
-  private readonly cache = new Map<string, SentAttachmentRecord[]>();
+  // Bounded: records reload from disk for an agent that fell out.
+  private readonly cache = new LruMap<string, SentAttachmentRecord[]>(MAX_CACHED_AGENTS);
   private readonly queues = new Map<string, Promise<unknown>>();
 
   constructor(

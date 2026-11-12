@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import type { Logger } from "pino";
 import { z } from "zod";
 import type { AgentImageRef, ProviderImageSource } from "@pimi/protocol/agent-types";
+import { LruMap } from "./lru-map.js";
 
 /**
  * Image bytes an agent's messages refer to, by content hash. Message records keep only the
@@ -19,6 +20,7 @@ const EXTENSIONS: Record<string, string> = {
   "image/gif": "gif",
   "image/webp": "webp",
 };
+const MAX_CACHED_INDEXES = 64;
 const IMAGE_ID_PATTERN = /^[0-9a-f]{64}$/;
 const AGENT_ID_PATTERN = /^[A-Za-z0-9._-]+$/;
 
@@ -123,7 +125,8 @@ function isMissingFile(error: unknown): boolean {
 
 export class FileAgentImageStore implements AgentImageStore {
   private readonly logger: Logger;
-  private readonly indexes = new Map<string, ImageIndex>();
+  // Bounded: only agents with stored images are cached, and the oldest are dropped past the limit.
+  private readonly indexes = new LruMap<string, ImageIndex>(MAX_CACHED_INDEXES);
   private readonly queues = new Map<string, Promise<unknown>>();
 
   constructor(
@@ -164,6 +167,7 @@ export class FileAgentImageStore implements AgentImageStore {
         this.indexPath(agentId),
         JSON.stringify({ version: 1, images: index }),
       );
+      this.indexes.set(agentId, index);
     });
     return ref;
   }
@@ -209,6 +213,7 @@ export class FileAgentImageStore implements AgentImageStore {
     const cached = this.indexes.get(agentId);
     if (cached) return cached;
     let images: ImageIndex = {};
+    let onDisk = true;
     try {
       const parsed = INDEX_SCHEMA.safeParse(
         JSON.parse(await fs.readFile(this.indexPath(agentId), "utf8")),
@@ -216,10 +221,12 @@ export class FileAgentImageStore implements AgentImageStore {
       if (parsed.success) images = parsed.data.images;
       else this.logger.error({ agentId }, "Invalid agent image index");
     } catch (error) {
-      if (!isMissingFile(error))
-        this.logger.error({ err: error, agentId }, "Failed to read image index");
+      if (isMissingFile(error)) onDisk = false;
+      else this.logger.error({ err: error, agentId }, "Failed to read image index");
     }
-    this.indexes.set(agentId, images);
+    // A miss is not cached: lookups for unknown agents must not grow memory. `put` caches once
+    // it has written an index.
+    if (onDisk) this.indexes.set(agentId, images);
     return images;
   }
 
@@ -303,27 +310,17 @@ function filePathFromSource(source: string): string | null {
   return path.isAbsolute(source) ? source : null;
 }
 
-/**
- * Markdown for an image a provider reported only as an http(s) URL, or null for anything else.
- * The daemon never fetches remote URLs, so these render as plain markdown images instead of
- * entering the image store.
- */
-export function remoteImageMarkdown(image: ProviderImageOutput): string | null {
+function remoteSource(image: ProviderImageOutput): string | null {
   if (nonEmpty(image.data)) return null;
   const source = nonEmpty(image.path) ?? nonEmpty(image.url);
-  if (!source || !/^https?:\/\//i.test(source)) return null;
-  const alt = (nonEmpty(image.altText) ?? "Image").replace(/\\/g, "\\\\").replace(/]/g, "\\]");
-  const url = source
-    .replace(/\\/g, "\\\\")
-    .replace(/\)/g, "\\)")
-    .replace(/\s/g, encodeURIComponent);
-  return `![${alt}](${url})`;
+  return source && /^https?:\/\//i.test(source) && source.length <= 4096 ? source : null;
 }
 
 /**
  * Stores the image a provider reported and returns the ref a timeline row carries. A path is
  * read only when its extension, size and magic bytes pass; everything else comes back as an
- * `unavailable` ref so the row still says an image existed. This is the only writer of agent output.
+ * `unavailable` ref so the row still says an image existed. An http(s) URL becomes a `remoteUrl`
+ * ref and is never stored. This is the only writer of agent output.
  */
 export async function storeProviderImage(
   store: AgentImageStore,
@@ -332,6 +329,18 @@ export async function storeProviderImage(
 ): Promise<AgentImageRef | null> {
   const alt = nonEmpty(image.altText)?.slice(0, 1000) ?? undefined;
   const declaredMime = nonEmpty(image.mimeType);
+  // The daemon never fetches remote URLs. The ref carries the URL and the client loads it, so
+  // a result that mixes remote and local images keeps them in one grid, in order.
+  const remote = remoteSource(image);
+  if (remote) {
+    return {
+      imageId: createHash("sha256").update(remote).digest("hex"),
+      mimeType: declaredMime ?? "image/*",
+      byteSize: 0,
+      remoteUrl: remote,
+      ...(alt ? { alt } : {}),
+    };
+  }
   let data = nonEmpty(image.data);
   const source = nonEmpty(image.path) ?? nonEmpty(image.url);
   if (!data && source?.toLowerCase().startsWith("data:image/")) data = source;

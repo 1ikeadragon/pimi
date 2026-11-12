@@ -12,6 +12,8 @@ export interface AgentImageRef {
   height?: number;
   alt?: string;
   unavailable?: "too_large" | "unsupported";
+  /** An http(s) image the daemon never stored; the client loads it from this URL. */
+  remoteUrl?: string;
 }
 
 /** An image as a provider reported it: inline bytes, a file path, or a URL. */
