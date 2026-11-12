@@ -49,10 +49,42 @@ Store APIs own persistence atomicity and should not make services coordinate raw
 ## Storage medium
 
 Daemon records marked below as files in the directory layout moved to `$PIMI_HOME/pimi.db`: agent
-records, automations, heartbeats, attack runs, receipts, carried timelines, projects and workspaces.
+records, automations, heartbeats, attack runs, receipts, projects and workspaces.
 Their JSON shapes are unchanged and live in the `json` column; see
 [architecture.md](architecture.md#daemon-storage). The old files are renamed `*.migrated` after the
 one-time import and are never read again.
+
+## Chat timelines and search
+
+`$PIMI_HOME/pimi-timeline.db` holds every chat's timeline rows, one row per recorded row under the
+same `seq` the in-memory store uses, plus the chat's epoch. It is a separate file from `pimi.db`
+because it is large and rebuildable from provider transcripts: it gets `quick_check` instead of
+`integrity_check` and no daily backup, and a corrupt file is moved aside so every chat rebuilds. Both
+files are mode 0600. Deleting an agent is not atomic across the two files; a startup sweep removes
+timelines of agents that no longer exist. Rows carried over a provider switch exist nowhere else and
+are lost with this file unless `pimi.db` still holds the 0.17.x copy (`records`, kind
+`carried_timeline`), which the one-time import re-reads when the file is new.
+
+A chat opens from its stored rows, with no provider replay, only when all of these hold; any other
+case rebuilds from the provider, replacing the non-carried rows under a new epoch:
+
+1. the chat is `complete` (a windowed Claude or Codex history is completed in the background while
+   the chat is idle, or by scrolling back);
+2. no turn was open (`open_turn` is written before the first row of a turn and cleared when the
+   turn ends, so a crash or a failed flush leaves it set);
+3. the stored `session_key` equals the provider session now resumed;
+4. `row_format` equals `TIMELINE_ROW_FORMAT`; bump it when an item mapping changes;
+5. the chat has no provider subagents, whose state is rebuilt only from provider history.
+
+Known gap: turns added to the provider session outside Pimi are not seen until the next rebuild.
+There is no transcript fingerprint check yet.
+
+Writes are buffered and committed in one transaction every 50 ms, so `recordTimeline` runs no SQL.
+A crash loses at most that window, which rule 2 repairs. The search index is `timeline_docs` plus an
+external-content FTS5 table (`unicode61`): user text, merged assistant text, and tool name plus the
+first 2 KB of its input. Tool output, reasoning and compaction summaries are not indexed. Queries
+are never passed to FTS raw; see `agent/timeline-search/query.ts`. The `chat.search.*` RPCs expose
+every chat to any client that can fetch timelines.
 
 ## Directory layout
 
@@ -67,8 +99,9 @@ $PIMI_HOME/
 ├── agents/
 │   └── {sanitized-cwd}/
 │       └── {agentId}.json               # One file per agent
+├── pimi-timeline.db                     # Chat timelines and the message search index (mode 0600)
 ├── agent-carried-timelines/
-│   └── {agentId}.json                   # Timeline rows from providers a chat has switched away from
+│   └── {agentId}.json                   # Legacy: imported once into pimi-timeline.db
 ├── automations/
 │   ├── {automationId}.json              # One file per automation
 │   ├── audit.jsonl                      # Append-only audit log (mode 0600)

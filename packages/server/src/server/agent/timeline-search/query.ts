@@ -44,7 +44,7 @@ export function parseChatQuery(raw: string): ParsedChatQuery {
 export const SNIPPET_OPEN = "";
 export const SNIPPET_CLOSE = "";
 
-/** Split an FTS snippet marked with private-use characters into plain text and match ranges. */
+/** Split an FTS snippet marked with private-use characters into one-line text and match ranges. */
 export function splitSnippet(marked: string): { text: string; ranges: Array<[number, number]> } {
   let text = "";
   const ranges: Array<[number, number]> = [];
@@ -55,6 +55,9 @@ export function splitSnippet(marked: string): { text: string; ranges: Array<[num
     } else if (char === SNIPPET_CLOSE) {
       if (start >= 0) ranges.push([start, text.length]);
       start = -1;
+    } else if (/\s/u.test(char)) {
+      // One line, one space between words: a snippet is a row label, and the ranges follow it.
+      if (text.length > 0 && !text.endsWith(" ")) text += " ";
     } else {
       text += char;
     }

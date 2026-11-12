@@ -65,14 +65,20 @@ export class ChatIndexBackfill {
 
   /** Chats that are not stored completely yet, newest first. */
   private pendingAgentIds(): string[] {
+    const complete = new Set(
+      this.options.store.database.db
+        .prepare("SELECT agent_id FROM timeline_agents WHERE complete = 1")
+        .all()
+        .map((row) => String(row.agent_id)),
+    );
     return this.options.pimiDatabase.db
       .prepare(
         `SELECT id FROM agents WHERE internal = 0
-            AND id NOT IN (SELECT agent_id FROM timeline_agents WHERE complete = 1)
           ORDER BY COALESCE(last_user_message_at, updated_at) DESC`,
       )
       .all()
-      .map((row) => String(row.id));
+      .map((row) => String(row.id))
+      .filter((id) => !complete.has(id));
   }
 
   start(): Omit<ChatSearchIndexResponse, "requestId"> {
