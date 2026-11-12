@@ -1513,6 +1513,7 @@ export async function createPimiDaemon(
   };
   const automationService = new AutomationService({
     pimiHome: config.pimiHome,
+    database: pimiDatabase,
     logger,
     agentManager,
     createAgent,
@@ -1536,6 +1537,7 @@ export async function createPimiDaemon(
   await automationService.start();
   const attackService = new AttackService({
     pimiHome: config.pimiHome,
+    database: pimiDatabase,
     logger,
     agentManager,
     agentStorage,
@@ -1549,6 +1551,7 @@ export async function createPimiDaemon(
   await attackService.start();
   const heartbeatService = new HeartbeatService({
     pimiHome: config.pimiHome,
+    database: pimiDatabase,
     logger,
     agentManager,
     agentStorage,

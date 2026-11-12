@@ -22,6 +22,16 @@ const SCHEMA_STEPS: readonly string[] = [
    CREATE INDEX agents_native ON agents(persistence_provider, provider_native_handle);
    CREATE TABLE agent_persistence (
      agent_id TEXT PRIMARY KEY REFERENCES agents(id) ON DELETE CASCADE, json TEXT NOT NULL) STRICT;`,
+  // 2: generic record stores (automations, runs, triggers, drafts, heartbeats, attack runs and
+  // findings) and append-only audit logs. Read by id, by parent, or as a list; a kind that needs a
+  // real query gets its own table.
+  `CREATE TABLE records (
+     kind TEXT NOT NULL, id TEXT NOT NULL, parent_id TEXT, json TEXT NOT NULL,
+     PRIMARY KEY (kind, id)) STRICT;
+   CREATE INDEX records_parent ON records(kind, parent_id);
+   CREATE TABLE audit (
+     id INTEGER PRIMARY KEY, scope TEXT NOT NULL, ts TEXT NOT NULL, json TEXT NOT NULL) STRICT;
+   CREATE INDEX audit_scope ON audit(scope, id);`,
 ];
 
 const BACKUP_INTERVAL_MS = 24 * 60 * 60_000;

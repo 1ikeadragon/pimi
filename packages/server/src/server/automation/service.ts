@@ -23,6 +23,7 @@ import {
   upstreamNodeIds,
   validateAutomationDefinition,
 } from "@pimi/protocol/automation/validate";
+import type { PimiDatabase } from "../db/pimi-db.js";
 import { AutomationAuditLog } from "./audit.js";
 import { computeNextRunAt, validateCadence, withHostTimeZone } from "./cron.js";
 import { type AutomationEngineDeps, type RunHandle, type RunWorkspace } from "./engine.js";
@@ -78,6 +79,7 @@ export class AutomationStateError extends Error {
 
 export interface AutomationServiceOptions extends Omit<AutomationEngineDeps, "logger"> {
   pimiHome: string;
+  database: PimiDatabase;
   logger: Logger;
   /** The host's agent profiles; an agent step may name one. */
   getAgentProfiles: () => readonly AgentProfile[];
@@ -290,9 +292,12 @@ export class AutomationService {
     this.getAgentProfiles = options.getAgentProfiles;
     this.gh = options.gh;
     this.compileDefinition = options.compile;
-    const dir = join(options.pimiHome, "automations");
-    this.store = new AutomationStore({ dir, logger: this.logger });
-    this.audit = new AutomationAuditLog({ dir, logger: this.logger });
+    this.store = new AutomationStore({
+      database: options.database,
+      legacyDir: join(options.pimiHome, "automations"),
+      logger: this.logger,
+    });
+    this.audit = new AutomationAuditLog({ database: options.database, logger: this.logger });
     this.engine = {
       logger: this.logger,
       agentManager: options.agentManager,
@@ -306,7 +311,7 @@ export class AutomationService {
   async start(): Promise<void> {
     // Schedules from earlier builds are not migrated.
     await rm(join(this.pimiHome, "schedules"), { recursive: true, force: true });
-    await this.store.migrateOutputNodes();
+    await this.store.importLegacy();
     await this.recover();
     if (this.tickTimer) {
       return;

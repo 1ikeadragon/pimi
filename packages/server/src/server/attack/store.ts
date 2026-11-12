@@ -1,20 +1,27 @@
-import { chmod, mkdir, readFile, readdir, rm } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import type { Logger } from "pino";
 import {
+  AttackAuditEntrySchema,
   AttackRunSchema,
   FindingSchema,
   type AttackRun,
   type Finding,
 } from "@pimi/protocol/attack/types";
-import { writeJsonFileAtomic } from "../atomic-file.js";
-import { JsonRecordStore } from "../json-record-store.js";
+import { runJsonImportOnce, type PimiDatabase } from "../db/pimi-db.js";
+import {
+  SqlRecordStore,
+  insertAudit,
+  insertRecord,
+  listDirs,
+  readLegacyJsonDir,
+  readLegacyJsonFile,
+  readLegacyJsonLines,
+} from "../db/sql-record-store.js";
 import { AttackAuditLog } from "./audit.js";
 
 const ID_PATTERN = /^[A-Za-z0-9_-]+$/;
 
-// Same trade as JsonRecordStore: scan once, then serve from memory; a minute-old cache at most.
-const RUNS_REVALIDATE_MS = 60_000;
 // A finished run (stopped or completed) is dropped only once it is both older than this and
 // outside the newest FINISHED_RUNS_KEPT finished runs. 90 days is a quarter: long enough to
 // re-open a past report or fix its findings; the count keeps a quiet user's last reports even
@@ -26,21 +33,70 @@ function assertId(id: string): void {
   if (!ID_PATTERN.test(id)) throw new Error(`Invalid attack run id: ${id}`);
 }
 
-// $PIMI_HOME/attack-runs/<runId>/run.json, findings/<findingId>.json and audit.jsonl.
+// Runs and findings are rows in pimi.db (kinds attack_run, and attack_finding with the run as
+// parent); the audit log is `attack:<runId>` in the audit table. `dir` ($PIMI_HOME/attack-runs/
+// <runId>/) still holds each run's annotation images, which stay files. Legacy run.json,
+// findings/ and audit.jsonl are imported once and renamed with a .migrated suffix.
 export class AttackStore {
   readonly dir: string;
   private readonly logger: Logger;
-  private readonly findingStores = new Map<string, JsonRecordStore<Finding>>();
-  private readonly auditLogs = new Map<string, AttackAuditLog>();
-  private readonly mutations = new Map<string, Promise<unknown>>();
-  private runsCache: Map<string, AttackRun> | null = null;
-  private runsCachedAt = 0;
-  private runsLoading: Promise<Map<string, AttackRun>> | null = null;
-  private runsWriteVersion = 0;
+  private readonly database: PimiDatabase;
+  private readonly runs: SqlRecordStore<AttackRun>;
+  private readonly findingStores = new Map<string, SqlRecordStore<Finding>>();
 
-  constructor(options: { dir: string; logger: Logger }) {
+  constructor(options: { database: PimiDatabase; dir: string; logger: Logger }) {
+    this.database = options.database;
     this.dir = options.dir;
     this.logger = options.logger;
+    this.runs = new SqlRecordStore({
+      database: this.database,
+      kind: "attack_run",
+      schema: AttackRunSchema,
+      logger: this.logger,
+      label: "attack run",
+    });
+  }
+
+  async importLegacy(): Promise<void> {
+    const runs: AttackRun[] = [];
+    const findings: Finding[][] = [];
+    const audits: Array<{
+      runId: string;
+      entries: Awaited<ReturnType<typeof readLegacyJsonLines>>;
+    }> = [];
+    const legacyPaths: string[] = [];
+    for (const runId of await listDirs(this.dir)) {
+      if (!ID_PATTERN.test(runId)) continue;
+      const runDir = join(this.dir, runId);
+      const run = await readLegacyJsonFile(join(runDir, "run.json"), AttackRunSchema, this.logger);
+      if (!run) continue;
+      runs.push(run);
+      findings.push(await readLegacyJsonDir(join(runDir, "findings"), FindingSchema, this.logger));
+      audits.push({
+        runId,
+        entries: await readLegacyJsonLines(join(runDir, "audit.jsonl"), AttackAuditEntrySchema),
+      });
+      legacyPaths.push(
+        join(runDir, "run.json"),
+        join(runDir, "findings"),
+        join(runDir, "audit.jsonl"),
+      );
+    }
+    await runJsonImportOnce(
+      this.database,
+      { name: "attack", legacyPaths, logger: this.logger },
+      () => {
+        runs.forEach((run, index) => {
+          insertRecord(this.database, "attack_run", null, run.id, run);
+          for (const finding of findings[index]) {
+            insertRecord(this.database, "attack_finding", run.id, finding.id, finding);
+          }
+          for (const entry of audits[index].entries as Array<{ at: string }>) {
+            insertAudit(this.database, `attack:${run.id}`, entry.at, entry);
+          }
+        });
+      },
+    );
   }
 
   private runDir(runId: string): string {
@@ -48,15 +104,14 @@ export class AttackStore {
     return join(this.dir, runId);
   }
 
-  private runPath(runId: string): string {
-    return join(this.runDir(runId), "run.json");
-  }
-
-  findings(runId: string): JsonRecordStore<Finding> {
+  findings(runId: string): SqlRecordStore<Finding> {
+    assertId(runId);
     let store = this.findingStores.get(runId);
     if (!store) {
-      store = new JsonRecordStore({
-        dir: join(this.runDir(runId), "findings"),
+      store = new SqlRecordStore({
+        database: this.database,
+        kind: "attack_finding",
+        parentId: runId,
         schema: FindingSchema,
         logger: this.logger,
         label: "attack finding",
@@ -67,62 +122,18 @@ export class AttackStore {
   }
 
   audit(runId: string): AttackAuditLog {
-    let log = this.auditLogs.get(runId);
-    if (!log) {
-      log = new AttackAuditLog({ dir: this.runDir(runId), logger: this.logger });
-      this.auditLogs.set(runId, log);
-    }
-    return log;
+    assertId(runId);
+    return new AttackAuditLog({ database: this.database, runId, logger: this.logger });
   }
 
   async getRun(runId: string): Promise<AttackRun | null> {
-    try {
-      return AttackRunSchema.parse(JSON.parse(await readFile(this.runPath(runId), "utf-8")));
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
-      throw error;
-    }
+    return this.runs.get(runId);
   }
 
   async listRuns(): Promise<AttackRun[]> {
-    let runs = this.runsCache;
-    if (!runs || Date.now() - this.runsCachedAt > RUNS_REVALIDATE_MS) {
-      this.runsLoading ??= this.scanRuns().finally(() => {
-        this.runsLoading = null;
-      });
-      runs = await this.runsLoading;
-    }
-    // Callers own what they get back; a clone keeps them from editing the cache.
-    return [...runs.values()]
-      .map((run) => structuredClone(run))
-      .sort((left, right) => right.startedAt.localeCompare(left.startedAt));
-  }
-
-  private async scanRuns(): Promise<Map<string, AttackRun>> {
-    const version = this.runsWriteVersion;
-    const runs = new Map<string, AttackRun>();
-    let entries: string[];
-    try {
-      entries = await readdir(this.dir);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") return runs;
-      throw error;
-    }
-    for (const name of entries) {
-      if (!ID_PATTERN.test(name)) continue;
-      try {
-        const run = await this.getRun(name);
-        if (run) runs.set(name, run);
-      } catch (error) {
-        this.logger.error({ err: error, runId: name }, "Skipping invalid attack run file");
-      }
-    }
-    // A write that landed during the scan may not be in `runs`; leave the cache empty then.
-    if (version === this.runsWriteVersion) {
-      this.runsCache = runs;
-      this.runsCachedAt = Date.now();
-    }
-    return runs;
+    return (await this.runs.list()).sort((left, right) =>
+      right.startedAt.localeCompare(left.startedAt),
+    );
   }
 
   // Removes finished runs that are past retention (see FINISHED_RUN_RETENTION_MS). A running or
@@ -137,23 +148,27 @@ export class AttackStore {
       const finishedAt = Date.parse(run.endedAt ?? run.updatedAt);
       return Number.isFinite(finishedAt) && finishedAt < cutoff;
     });
+    const removed: string[] = [];
     for (const run of doomed) {
-      await this.serialize(run.id, async () => {
-        // Re-read under the lock: a run resumed since the listing must survive.
-        const current = await this.getRun(run.id);
-        if (!current || (current.status !== "stopped" && current.status !== "completed")) return;
-        await rm(this.runDir(run.id), { recursive: true, force: true });
-        this.runsWriteVersion += 1;
-        this.runsCache?.delete(run.id);
-        this.findingStores.delete(run.id);
-        this.auditLogs.delete(run.id);
+      // Re-read: a run resumed since the listing must survive.
+      const current = await this.getRun(run.id);
+      if (!current || (current.status !== "stopped" && current.status !== "completed")) continue;
+      this.database.transaction(() => {
+        this.findings(run.id).deleteAll();
+        this.database.db.prepare("DELETE FROM audit WHERE scope = ?").run(`attack:${run.id}`);
+        this.database.db
+          .prepare("DELETE FROM records WHERE kind = 'attack_run' AND id = ?")
+          .run(run.id);
       });
+      await rm(this.runDir(run.id), { recursive: true, force: true });
+      this.findingStores.delete(run.id);
+      removed.push(run.id);
     }
-    return doomed.map((run) => run.id);
+    return removed;
   }
 
   putRun(run: AttackRun): Promise<AttackRun> {
-    return this.serialize(run.id, () => this.writeRun(run));
+    return this.runs.put(run);
   }
 
   // Returns null when the run does not exist. Returning the same object skips the write.
@@ -161,35 +176,6 @@ export class AttackStore {
     runId: string,
     updater: (current: AttackRun) => AttackRun | Promise<AttackRun>,
   ): Promise<AttackRun | null> {
-    return this.serialize(runId, async () => {
-      const current = await this.getRun(runId);
-      if (!current) return null;
-      const next = await updater(current);
-      if (next === current) return current;
-      if (next.id !== runId) throw new Error(`attack run update cannot change id: ${runId}`);
-      return this.writeRun(next);
-    });
-  }
-
-  private async writeRun(run: AttackRun): Promise<AttackRun> {
-    const parsed = AttackRunSchema.parse(run);
-    const dir = this.runDir(parsed.id);
-    await mkdir(dir, { recursive: true, mode: 0o700 });
-    await chmod(dir, 0o700);
-    await writeJsonFileAtomic(this.runPath(parsed.id), parsed);
-    this.runsWriteVersion += 1;
-    this.runsCache?.set(parsed.id, structuredClone(parsed));
-    return parsed;
-  }
-
-  private async serialize<R>(key: string, mutation: () => Promise<R>): Promise<R> {
-    const previous = this.mutations.get(key) ?? Promise.resolve();
-    const next = previous.catch(() => undefined).then(mutation);
-    this.mutations.set(key, next);
-    try {
-      return await next;
-    } finally {
-      if (this.mutations.get(key) === next) this.mutations.delete(key);
-    }
+    return this.runs.update(runId, updater);
   }
 }

@@ -1,7 +1,7 @@
-import { readFile, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import type { Logger } from "pino";
 import {
+  AutomationAuditEntrySchema,
   AutomationDraftSchema,
   AutomationRunSchema,
   AutomationSchema,
@@ -9,8 +9,15 @@ import {
   type AutomationDraft,
   type AutomationRun,
 } from "@pimi/protocol/automation/types";
-import { writeJsonFileAtomic } from "../atomic-file.js";
-import { JsonRecordStore } from "../json-record-store.js";
+import { runJsonImportOnce, type PimiDatabase } from "../db/pimi-db.js";
+import {
+  SqlRecordStore,
+  insertAudit,
+  insertRecord,
+  listDirs,
+  readLegacyJsonDir,
+  readLegacyJsonLines,
+} from "../db/sql-record-store.js";
 import {
   PullRequestTriggerStateSchema,
   type PullRequestTriggerState,
@@ -24,93 +31,125 @@ interface LegacyFlow {
   edges?: Array<{ from?: string; to?: string }>;
 }
 
-// $PIMI_HOME/automations/<id>.json, $PIMI_HOME/automations/runs/<automationId>/<runId>.json,
-// $PIMI_HOME/automations/triggers/<automationId>.json for pull-request trigger state, and
-// $PIMI_HOME/automations/drafts/<draftId>.json for descriptions compiling in the background.
-export class AutomationStore {
-  readonly dir: string;
-  private readonly logger: Logger;
-  readonly automations: JsonRecordStore<Automation>;
-  readonly triggerStates: JsonRecordStore<PullRequestTriggerState>;
-  readonly drafts: JsonRecordStore<AutomationDraft>;
-  private readonly runStores = new Map<string, JsonRecordStore<AutomationRun>>();
+// COMPAT(automation-output-node): automations saved by 0.17.18 and earlier end their flow in a
+// `{ kind: "output" }` chat node that no longer exists. Drop it and its edges while importing.
+function dropOutputNodes(json: unknown): unknown {
+  const record = json as { flow?: LegacyFlow };
+  const nodes = record.flow?.nodes;
+  if (!record.flow || !Array.isArray(nodes) || !nodes.some((node) => node.kind === "output")) {
+    return json;
+  }
+  const dropped = new Set(nodes.filter((node) => node.kind === "output").map((node) => node.id));
+  return {
+    ...record,
+    flow: {
+      nodes: nodes.filter((node) => node.kind !== "output"),
+      edges: (record.flow.edges ?? []).filter(
+        (edge) => !dropped.has(edge.from) && !dropped.has(edge.to),
+      ),
+    },
+  };
+}
 
-  constructor(options: { dir: string; logger: Logger }) {
-    this.dir = options.dir;
+// Rows in pimi.db: kinds automation, automation_run (parent = automation id),
+// automation_trigger (id = automation id, pull-request trigger state) and automation_draft
+// (descriptions compiling in the background). `legacyDir` is the old $PIMI_HOME/automations tree,
+// imported once and renamed to automations.migrated.
+export class AutomationStore {
+  private readonly logger: Logger;
+  private readonly database: PimiDatabase;
+  private readonly legacyDir: string;
+  readonly automations: SqlRecordStore<Automation>;
+  readonly triggerStates: SqlRecordStore<PullRequestTriggerState>;
+  readonly drafts: SqlRecordStore<AutomationDraft>;
+  private readonly runStores = new Map<string, SqlRecordStore<AutomationRun>>();
+
+  constructor(options: { database: PimiDatabase; legacyDir: string; logger: Logger }) {
+    this.database = options.database;
+    this.legacyDir = options.legacyDir;
     this.logger = options.logger;
-    this.automations = new JsonRecordStore({
-      dir: this.dir,
+    this.automations = new SqlRecordStore({
+      database: this.database,
+      kind: "automation",
       schema: AutomationSchema,
       logger: this.logger,
       label: "automation",
     });
-    this.triggerStates = new JsonRecordStore({
-      dir: join(this.dir, "triggers"),
+    this.triggerStates = new SqlRecordStore({
+      database: this.database,
+      kind: "automation_trigger",
       schema: PullRequestTriggerStateSchema,
       logger: this.logger,
       label: "automation trigger state",
     });
-    this.drafts = new JsonRecordStore({
-      dir: join(this.dir, "drafts"),
+    this.drafts = new SqlRecordStore({
+      database: this.database,
+      kind: "automation_draft",
       schema: AutomationDraftSchema,
       logger: this.logger,
       label: "automation draft",
     });
   }
 
-  // COMPAT(automation-output-node): automations saved by 0.17.18 and earlier end their flow in a
-  // `{ kind: "output" }` chat node that no longer exists. Drop it and its edges in place so those
-  // files parse; a flow is now just its steps.
-  async migrateOutputNodes(): Promise<void> {
-    let entries: string[];
-    try {
-      entries = await readdir(this.dir);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        return;
-      }
-      throw error;
+  async importLegacy(): Promise<void> {
+    const dir = this.legacyDir;
+    const automations = await readLegacyJsonDir(
+      dir,
+      AutomationSchema,
+      this.logger,
+      dropOutputNodes,
+    );
+    const triggers = await readLegacyJsonDir(
+      join(dir, "triggers"),
+      PullRequestTriggerStateSchema,
+      this.logger,
+    );
+    const drafts = await readLegacyJsonDir(join(dir, "drafts"), AutomationDraftSchema, this.logger);
+    const runs: AutomationRun[] = [];
+    for (const automationId of await listDirs(join(dir, "runs"))) {
+      runs.push(
+        ...(await readLegacyJsonDir(
+          join(dir, "runs", automationId),
+          AutomationRunSchema,
+          this.logger,
+        )),
+      );
     }
-    for (const name of entries) {
-      if (!name.endsWith(".json")) {
-        continue;
-      }
-      const path = join(this.dir, name);
-      try {
-        const record = JSON.parse(await readFile(path, "utf-8")) as { flow?: LegacyFlow };
-        const nodes = record.flow?.nodes;
-        if (
-          !record.flow ||
-          !Array.isArray(nodes) ||
-          !nodes.some((node) => node.kind === "output")
-        ) {
-          continue;
+    const audit = [
+      ...(await readLegacyJsonLines(join(dir, "audit.1.jsonl"), AutomationAuditEntrySchema)),
+      ...(await readLegacyJsonLines(join(dir, "audit.jsonl"), AutomationAuditEntrySchema)),
+    ];
+    await runJsonImportOnce(
+      this.database,
+      { name: "automations", legacyPaths: [dir], logger: this.logger },
+      () => {
+        for (const item of automations)
+          insertRecord(this.database, "automation", null, item.id, item);
+        for (const item of triggers) {
+          insertRecord(this.database, "automation_trigger", null, item.id, item);
         }
-        const dropped = new Set(
-          nodes.filter((node) => node.kind === "output").map((node) => node.id),
-        );
-        record.flow = {
-          nodes: nodes.filter((node) => node.kind !== "output"),
-          edges: (record.flow.edges ?? []).filter(
-            (edge) => !dropped.has(edge.from) && !dropped.has(edge.to),
-          ),
-        };
-        await writeJsonFileAtomic(path, record);
-      } catch (error) {
-        this.logger.warn({ err: error, path }, "Failed to migrate automation output node");
-      }
-    }
-    this.automations.invalidate();
+        for (const item of drafts)
+          insertRecord(this.database, "automation_draft", null, item.id, item);
+        for (const run of runs) {
+          insertRecord(this.database, "automation_run", run.automationId, run.id, run);
+        }
+        for (const entry of audit) {
+          insertAudit(this.database, `automation:${entry.automationId}`, entry.at, entry);
+        }
+      },
+    );
   }
 
-  runs(automationId: string): JsonRecordStore<AutomationRun> {
+  runs(automationId: string): SqlRecordStore<AutomationRun> {
     if (!/^[A-Za-z0-9_-]+$/.test(automationId)) {
       throw new Error(`Invalid automation id: ${automationId}`);
     }
     let store = this.runStores.get(automationId);
     if (!store) {
-      store = new JsonRecordStore({
-        dir: join(this.dir, "runs", automationId),
+      store = new SqlRecordStore({
+        database: this.database,
+        kind: "automation_run",
+        parentId: automationId,
         schema: AutomationRunSchema,
         logger: this.logger,
         label: "automation run",
@@ -142,7 +181,7 @@ export class AutomationStore {
   async deleteAutomation(automationId: string): Promise<void> {
     await this.automations.delete(automationId);
     await this.triggerStates.delete(automationId);
+    this.runs(automationId).deleteAll();
     this.runStores.delete(automationId);
-    await rm(join(this.dir, "runs", automationId), { recursive: true, force: true });
   }
 }

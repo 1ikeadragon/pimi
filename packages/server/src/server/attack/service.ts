@@ -48,6 +48,7 @@ import { AttackCoverageTracker } from "./coverage.js";
 import { leadPrompt, resumePrompt, stallPrompt } from "./prompts.js";
 import { ATTACK_COORDINATOR_PROFILE_ID, ATTACK_ROLE_PROFILES } from "./roster.js";
 import { findingSignature } from "./signature.js";
+import type { PimiDatabase } from "../db/pimi-db.js";
 import { AttackStore } from "./store.js";
 
 const TICK_INTERVAL_MS = 2000;
@@ -80,6 +81,7 @@ export class AttackStateError extends Error {
 
 export interface AttackServiceOptions {
   pimiHome: string;
+  database: PimiDatabase;
   logger: Logger;
   agentManager: AgentManager;
   agentStorage: AgentStorage;
@@ -195,6 +197,7 @@ export class AttackService {
   constructor(options: AttackServiceOptions) {
     this.logger = options.logger.child({ module: "attack" });
     this.store = new AttackStore({
+      database: options.database,
       dir: join(options.pimiHome, "attack-runs"),
       logger: this.logger,
     });
@@ -210,6 +213,7 @@ export class AttackService {
   }
 
   async start(): Promise<void> {
+    await this.store.importLegacy();
     await this.pruneFinishedRuns();
     // The agents of a run that was live when the daemon went down are gone: show it as paused.
     // Its running stretch ends at the last write, so the time the daemon was down is not spent.

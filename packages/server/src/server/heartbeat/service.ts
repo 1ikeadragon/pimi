@@ -12,7 +12,8 @@ import type { AgentStorage } from "../agent/agent-storage.js";
 import { ensureAgentLoaded } from "../agent/agent-loading.js";
 import { startAgentRun, type AgentRunController } from "../agent/agent-prompt.js";
 import { computeNextRunAt, validateCadence, withHostTimeZone } from "../automation/cron.js";
-import { JsonRecordStore } from "../json-record-store.js";
+import { runJsonImportOnce, type PimiDatabase } from "../db/pimi-db.js";
+import { SqlRecordStore, insertRecord, readLegacyJsonDir } from "../db/sql-record-store.js";
 
 const HEARTBEAT_TICK_INTERVAL_MS = 1000;
 // Every fire is an agent turn, and a fire while the agent is busy fails. Below 30 seconds an
@@ -51,6 +52,7 @@ type HeartbeatAgentManager = AgentRunController &
 
 export interface HeartbeatServiceOptions {
   pimiHome: string;
+  database: PimiDatabase;
   logger: Logger;
   agentManager: HeartbeatAgentManager;
   agentStorage: AgentStorage;
@@ -120,7 +122,9 @@ function buildHeartbeatPrompt(heartbeat: Heartbeat): string {
 // Heartbeats send a prompt back into an existing agent on a cadence. They need no approval
 // (the agent schedules work for itself) and are deleted when they end or their agent goes.
 export class HeartbeatService {
-  private readonly store: JsonRecordStore<Heartbeat>;
+  private readonly store: SqlRecordStore<Heartbeat>;
+  private readonly database: PimiDatabase;
+  private readonly legacyDir: string;
   private readonly logger: Logger;
   private readonly agentManager: HeartbeatAgentManager;
   private readonly agentStorage: AgentStorage;
@@ -130,8 +134,11 @@ export class HeartbeatService {
 
   constructor(options: HeartbeatServiceOptions) {
     this.logger = options.logger.child({ module: "heartbeat-service" });
-    this.store = new JsonRecordStore({
-      dir: join(options.pimiHome, "heartbeats"),
+    this.database = options.database;
+    this.legacyDir = join(options.pimiHome, "heartbeats");
+    this.store = new SqlRecordStore({
+      database: options.database,
+      kind: "heartbeat",
       schema: HeartbeatSchema,
       logger: this.logger,
       label: "heartbeat",
@@ -140,7 +147,21 @@ export class HeartbeatService {
     this.agentStorage = options.agentStorage;
   }
 
+  // The old $PIMI_HOME/heartbeats/<id>.json files are imported once and renamed to heartbeats.migrated.
+  private async importLegacy(): Promise<void> {
+    const heartbeats = await readLegacyJsonDir(this.legacyDir, HeartbeatSchema, this.logger);
+    await runJsonImportOnce(
+      this.database,
+      { name: "heartbeats", legacyPaths: [this.legacyDir], logger: this.logger },
+      () => {
+        for (const item of heartbeats)
+          insertRecord(this.database, "heartbeat", null, item.id, item);
+      },
+    );
+  }
+
   async start(): Promise<void> {
+    await this.importLegacy();
     await this.recover();
     if (this.tickTimer) {
       return;
