@@ -10,7 +10,7 @@ Pimi 是一个 Agent 开发环境，用于运行编程 Agent、编辑文件、�
 
 ## 桌面应用（推荐） {#desktop-app-recommended}
 
-从 [Pimi downloads](https://1ikeadragon.github.io/pimi/) 或 [GitHub releases 页面](https://github.com/1ikeadragon/pimi-releases/releases)下载。打开即可使用。
+从 [Pimi downloads](https://1ikeadragon.github.io/pimi/) 或 [GitHub releases 页面](https://github.com/1ikeadragon/pimi/releases)下载。打开即可使用。
 
 桌面应用自带 daemon 并会自动启动它，无需单独安装。首次启动时你会看到一个简短的启动画面，之后在手机上通过 **设置 → 你的主机 → 配对设备** 连接。
 
@@ -38,8 +38,8 @@ Pimi 会在本地启动 daemon，然后询问是否启用端到端加密中继�
 - [编排](/docs/orchestration)：让一个 Agent 把工作委派给其他 Provider 和模型。
 - [插件](/docs/plugins)：添加受信任的本地界面、侧边栏操作、daemon 行为和 Composer 附件。
 - [CLI 参考](/docs/cli)：所有命令。
-- [GitHub 仓库](https://github.com/1ikeadragon/pimi-releases)
-- [报告问题](https://github.com/1ikeadragon/pimi-releases/issues)
+- [GitHub 仓库](https://github.com/1ikeadragon/pimi)
+- [报告问题](https://github.com/1ikeadragon/pimi/issues)
 
 ## 前置条件 {#prerequisites}
 

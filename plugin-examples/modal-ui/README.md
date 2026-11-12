@@ -12,7 +12,7 @@ Choose **Open Form**, type into **Paste here**, and watch the **Input:** text up
 The installed plugin ID is `modal-ui-example`.
 
 Pimi compiles the TypeScript sources through its directory plugin loader and supplies React,
-React Native, and `@pimi/plugin`. See the [plugin reference](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins/reference.md)
+React Native, and `@pimi/plugin`. See the [plugin reference](../../public-docs/plugins/reference.md)
 for supported sources and preparation rules.
 
 The examples demonstrate default and custom padding, a full-width body, author-owned ScrollView and

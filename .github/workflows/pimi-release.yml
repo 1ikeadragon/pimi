@@ -16,6 +16,7 @@ jobs:
   validate:
     if: >-
       github.repository == '1ikeadragon/pimi' &&
+      toJSON(github.event.repository.private) == 'false' &&
       github.event.created && !github.event.deleted && !github.event.forced
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -40,7 +41,6 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASES_REPO: 1ikeadragon/pimi-releases
         run: |
           tag="$GITHUB_REF_NAME"
           release_tag='^pimi-(all-)?v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
@@ -63,8 +63,7 @@ jobs:
           if (entry) process.stdout.write(entry.bodyLines.join("\n") + "\n");
           NODE
           # Failed or unpublished tags must not cut off part of the changelog.
-          # Releases are published to the public pimi-releases repo, so that is the source of truth.
-          previous="$(gh release list --repo "$RELEASES_REPO" --limit 1 \
+          previous="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1 \
             --exclude-drafts --exclude-pre-releases --json tagName --jq '.[0].tagName // empty')"
           if [[ -n "$previous" ]]; then
             [[ "$previous" =~ $release_tag ]]
@@ -340,13 +339,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
-      contents: read
+      contents: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.validate.outputs.commit }}
-          path: source
-          persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: pimi-release-*
@@ -356,17 +350,13 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          # Fine-grained PAT scoped to pimi-releases with Contents read/write.
-          PIMI_RELEASES_TOKEN: ${{ secrets.PIMI_RELEASES_TOKEN }}
-          RELEASES_REPO: 1ikeadragon/pimi-releases
           RELEASE_TAG: ${{ needs.validate.outputs.tag }}
           RELEASE_VERSION: ${{ needs.validate.outputs.version }}
           RELEASE_COMMIT: ${{ needs.validate.outputs.commit }}
           MAC_AD_HOC: ${{ vars.APPLE_TEAM_ID == '' }}
           BUILD_WINDOWS: ${{ needs.validate.outputs.build_windows }}
         run: |
-          # Resolve the peeled annotated tag, or the direct lightweight tag. The source
-          # repo is private, so read it through the API with the job token.
+          # Resolve the peeled annotated tag, or the direct lightweight tag, through the API.
           ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.type + " " + .object.sha')"
           if [[ "${ref%% *}" == tag ]]; then
             remote="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/${ref#* }" --jq '.object.sha')"
@@ -400,36 +390,6 @@ jobs:
             printf '\n### macOS signing\n\nThe Apple silicon disk image is ad hoc signed and is not notarized. macOS may require approval when opening the new version.\n' >> "$prefix-notes/release-notes.md"
           fi
           sha256sum "${assets[@]}" > SHA256SUMS.txt
-          # Publish to the public releases repo. The tag does not exist there yet, so
-          # gh creates it on that repo's default branch.
-          GH_TOKEN="$PIMI_RELEASES_TOKEN" gh release create "$RELEASE_TAG" "${assets[@]}" SHA256SUMS.txt \
-            --repo "$RELEASES_REPO" --title "Pimi $RELEASE_VERSION" \
+          gh release create "$RELEASE_TAG" "${assets[@]}" SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --verify-tag --title "Pimi $RELEASE_VERSION" \
             --notes-file "$prefix-notes/release-notes.md"
-      - name: Sync changelog and docs to pimi-releases
-        shell: bash
-        env:
-          PIMI_RELEASES_TOKEN: ${{ secrets.PIMI_RELEASES_TOKEN }}
-          RELEASES_REPO: 1ikeadragon/pimi-releases
-          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
-        run: |
-          # The app reads CHANGELOG.md and its docs links from the public releases repo,
-          # and `npx skills add 1ikeadragon/pimi-releases` installs from skills/.
-          git clone --depth 1 "https://x-access-token:${PIMI_RELEASES_TOKEN}@github.com/$RELEASES_REPO.git" releases
-          cp source/CHANGELOG.md releases/CHANGELOG.md
-          rm -rf releases/docs releases/skills releases/plugin-examples releases/schemas
-          mkdir releases/docs releases/schemas
-          cp -R source/public-docs/. releases/docs/
-          cp source/docs/self-hosted-relay.md source/docs/plugins.md releases/docs/
-          cp source/packages/server/schemas/pimi.config.v1.json releases/schemas/
-          cp -R source/skills releases/skills
-          cp -R source/plugin-examples releases/plugin-examples
-          # These two internal docs link to source paths that are not published. Flatten the
-          # public-docs links and drop links to unpublished files, keeping the link text.
-          perl -pi -e 's{\.\./public-docs/}{}g; s{public-docs/}{}g; s{\[([^\]]+)\]\((?:\.\./packages/[^)]*|protocol-compatibility\.md[^)]*|unistyles\.md|relay-endpoint-security\.md|providers\.md#provider-snapshot[^)]*)\)}{$1}g' \
-            releases/docs/plugins.md releases/docs/self-hosted-relay.md
-          cd releases
-          git add -A
-          if git diff --cached --quiet; then exit 0; fi
-          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com \
-            commit -m "Pimi $RELEASE_VERSION docs and changelog"
-          git push origin HEAD:main

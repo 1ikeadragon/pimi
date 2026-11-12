@@ -35,7 +35,7 @@ With a custom root, Pimi keeps the same hashed layout under that directory:
 }
 ```
 
-Plugins can choose a location anywhere on disk with [`worktree.create.before`](/docs/plugins/hooks#worktreecreatebefore). The [worktree-placement example](https://github.com/1ikeadragon/pimi-releases/tree/main/plugin-examples/worktree-placement) places worktrees next to the source checkout. Pimi validates the path, refuses an existing destination, and manages listing, archive, and deletion there. Recovery uses the recorded path without running creation hooks.
+Plugins can choose a location anywhere on disk with [`worktree.create.before`](/docs/plugins/hooks#worktreecreatebefore). The [worktree-placement example](https://github.com/1ikeadragon/pimi/tree/main/plugin-examples/worktree-placement) places worktrees next to the source checkout. Pimi validates the path, refuses an existing destination, and manages listing, archive, and deletion there. Recovery uses the recorded path without running creation hooks.
 
 1. Create a workspace with worktree isolation, Pimi creates the worktree and runs your setup hooks
 2. Launch one or more agents in that workspace

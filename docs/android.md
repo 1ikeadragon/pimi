@@ -2,7 +2,7 @@
 
 ## Pimi APK
 
-[Download the signed ARM64 APK](https://github.com/1ikeadragon/pimi-releases/releases/latest/download/Pimi-Android-arm64.apk).
+[Download the signed ARM64 APK](https://github.com/1ikeadragon/pimi/releases/latest/download/Pimi-Android-arm64.apk).
 
 Pimi for Android runs chats on your paired host. You can browse workspace
 files and diffs, open Work, tile agents, and check usage. Tasks reads and

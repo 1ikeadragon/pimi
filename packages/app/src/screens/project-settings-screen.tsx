@@ -86,7 +86,7 @@ const METADATA_PROMPT_FIELDS: Record<MetadataPromptKey, MetadataPromptField> = {
 };
 
 const WORKTREE_DOCS_URL =
-  "https://github.com/1ikeadragon/pimi-releases/blob/main/docs/worktrees/index.md";
+  "https://github.com/1ikeadragon/pimi/blob/main/public-docs/worktrees/index.md";
 
 type ReadProjectConfigData = Awaited<ReturnType<DaemonClient["readProjectConfig"]>>;
 

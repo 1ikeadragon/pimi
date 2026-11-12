@@ -5,7 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { useCliInstall } from "@/desktop/hooks/use-install-status";
 import { SettingsCard, SettingsRow, SettingsSection } from "@/components/settings";
 
-const CLI_DOCS_URL = "https://github.com/1ikeadragon/pimi-releases/blob/main/docs/cli.md";
+const CLI_DOCS_URL = "https://github.com/1ikeadragon/pimi/blob/main/public-docs/cli.md";
 
 export function IntegrationsSection() {
   const { t } = useTranslation();

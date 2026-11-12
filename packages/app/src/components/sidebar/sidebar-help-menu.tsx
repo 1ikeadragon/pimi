@@ -25,7 +25,7 @@ import { resolveAppVersion } from "@/utils/app-version";
 import { openChangelog } from "@/changelog";
 import { openExternalUrl } from "@/utils/open-external-url";
 
-const GITHUB_ISSUE_URL = "https://github.com/1ikeadragon/pimi-releases/issues/new";
+const GITHUB_ISSUE_URL = "https://github.com/1ikeadragon/pimi/issues/new";
 const ThemedActivity = withUnistyles(Activity);
 const ThemedGift = withUnistyles(Gift);
 const ThemedKeyboard = withUnistyles(Keyboard);

@@ -13,7 +13,7 @@ import { SettingsSection } from "@/components/settings/headings/settings-section
 import { PimiModelRow, type PimiModelChoice } from "@/screens/settings/pimi-model-row";
 
 const METADATA_GENERATION_DOCS_URL =
-  "https://github.com/1ikeadragon/pimi-releases/blob/main/docs/metadata-generation.md";
+  "https://github.com/1ikeadragon/pimi/blob/main/public-docs/metadata-generation.md";
 type SelectionMode = "automatic" | "preferred";
 
 // Ask Pimi drives a harness with its own tools, so only these providers can run it.

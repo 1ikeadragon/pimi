@@ -57,7 +57,7 @@ export interface AddRemoteSshHostModalProps {
   }) => void;
 }
 
-const DOCS_URL = "https://github.com/1ikeadragon/pimi-releases/blob/main/docs/remote-ssh.md";
+const DOCS_URL = "https://github.com/1ikeadragon/pimi/blob/main/docs/remote-ssh.md";
 
 /** Accepts `user@host`, `host`, or a full ssh:// URI. */
 function parseTargetInput(raw: string): ReturnType<typeof parseSshTransportUri> {

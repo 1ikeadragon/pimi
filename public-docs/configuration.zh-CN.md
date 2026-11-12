@@ -30,7 +30,7 @@ Pimi 默认使用 `~/.pimi` 作为主目录。配置文件是：
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/1ikeadragon/pimi-releases/main/schemas/pimi.config.v1.json",
+  "$schema": "https://raw.githubusercontent.com/1ikeadragon/pimi/main/packages/server/schemas/pimi.config.v1.json",
   "version": 1,
   "daemon": {
     "listen": "127.0.0.1:6767",
@@ -80,7 +80,7 @@ pimi daemon restart
 
 Agent Provider，包括 Pimi 自带的一等 Provider 和你在 `agents.providers` 下添加的自定义条目，都在单独的页面中介绍。
 
-心智模型见 [Provider](/docs/providers)，Pimi 可以启动的全部 Agent 见[支持的 Provider](/docs/supported-providers)。要让 Claude 指向兼容 Anthropic 的端点（Z.AI、Alibaba/Qwen）、使用多个配置、自定义二进制文件、ACP Agent，以及了解 `additionalModels` 的合并行为，见[自定义 Provider](/docs/custom-providers)。完整的字段参考在 GitHub 上的 [docs/custom-providers.md](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/custom-providers.md)。
+心智模型见 [Provider](/docs/providers)，Pimi 可以启动的全部 Agent 见[支持的 Provider](/docs/supported-providers)。要让 Claude 指向兼容 Anthropic 的端点（Z.AI、Alibaba/Qwen）、使用多个配置、自定义二进制文件、ACP Agent，以及了解 `additionalModels` 的合并行为，见[自定义 Provider](/docs/custom-providers)。完整的字段参考在 GitHub 上的 [docs/custom-providers.md](https://github.com/1ikeadragon/pimi/blob/main/docs/custom-providers.md)。
 
 ## 空闲运行时 {#idle-runtimes}
 
@@ -244,5 +244,5 @@ URI 中的 `password=` 总是优先于环境变量，因此你可以全局设置
 要在编辑器中获得自动补全和校验，请把 `$schema` 设为：
 
 ```
-https://raw.githubusercontent.com/1ikeadragon/pimi-releases/main/schemas/pimi.config.v1.json
+https://raw.githubusercontent.com/1ikeadragon/pimi/main/packages/server/schemas/pimi.config.v1.json
 ```

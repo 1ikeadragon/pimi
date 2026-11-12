@@ -10,7 +10,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/1ikeadragon/pimi-releases.git"
+    "url": "https://github.com/1ikeadragon/pimi.git"
   },
   "main": "dist/main.js",
   "scripts": {

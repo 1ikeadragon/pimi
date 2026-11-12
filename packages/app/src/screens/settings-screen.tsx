@@ -502,11 +502,11 @@ function AboutSection({ appVersion, appVersionText, isDesktopApp }: AboutSection
 }
 
 function openLatestPimiRelease() {
-  void openExternalUrl("https://github.com/1ikeadragon/pimi-releases/releases/latest");
+  void openExternalUrl("https://github.com/1ikeadragon/pimi/releases/latest");
 }
 
 function openPimiRepository() {
-  void openExternalUrl("https://github.com/1ikeadragon/pimi-releases");
+  void openExternalUrl("https://github.com/1ikeadragon/pimi");
 }
 
 function PimiReleaseLinks() {

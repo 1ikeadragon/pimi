@@ -87,7 +87,7 @@ tailscale ip -4
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/1ikeadragon/pimi-releases/main/schemas/pimi.config.v1.json",
+  "$schema": "https://raw.githubusercontent.com/1ikeadragon/pimi/main/packages/server/schemas/pimi.config.v1.json",
   "version": 1,
   "daemon": {
     "listen": "100.101.102.103:6767"

@@ -12,11 +12,11 @@ Answer using the installed version and the affected host. Use the **pimi** skill
 Use the local Pimi checkout when available. For an installed release, start with its release notes and check the linked setup or configuration guide. Prefer documentation for the user's version when behavior differs between releases.
 
 - [Pimi downloads](https://1ikeadragon.github.io/pimi/)
-- [Desktop release notes](https://github.com/1ikeadragon/pimi-releases/releases/latest)
-- [Android setup](https://github.com/1ikeadragon/pimi-releases#android)
-- [Network activity and pairing](https://github.com/1ikeadragon/pimi-releases#readme)
-- [Troubleshooting](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/troubleshooting.md)
-- [Custom providers](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/custom-providers.md): other API backends, ACP agents, custom binaries, and provider aliases in `config.json`
+- [Desktop release notes](https://github.com/1ikeadragon/pimi/releases/latest)
+- [Android setup](https://github.com/1ikeadragon/pimi/blob/main/docs/android.md)
+- [Network activity and pairing](https://github.com/1ikeadragon/pimi/blob/main/SECURITY.md)
+- [Troubleshooting](https://github.com/1ikeadragon/pimi/blob/main/public-docs/troubleshooting.md)
+- [Custom providers](https://github.com/1ikeadragon/pimi/blob/main/public-docs/custom-providers.md): other API backends, ACP agents, custom binaries, and provider aliases in `config.json`
 
 ## Identify the host
 
@@ -49,4 +49,4 @@ For a desktop update, open **Settings → About → Check for updates**. For And
 
 ## Report a bug
 
-Capture the app and daemon versions, OS, install and connection methods, exact error, and a short reproduction. Read only the relevant log lines and redact credentials, pairing offers, tokens, passwords, and user code before sharing. [Pimi GitHub Issues](https://github.com/1ikeadragon/pimi-releases/issues)
+Capture the app and daemon versions, OS, install and connection methods, exact error, and a short reproduction. Read only the relevant log lines and redact credentials, pairing offers, tokens, passwords, and user code before sharing. [Pimi GitHub Issues](https://github.com/1ikeadragon/pimi/issues)

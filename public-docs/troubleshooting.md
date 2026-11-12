@@ -95,5 +95,5 @@ Run `pimi daemon restart` only when reload requests it. In the app, open **Setti
 
 - [Custom providers](/docs/custom-providers) — endpoints, profiles, binaries, ACP agents.
 - [Configuration](/docs/configuration) — `config.json`, environment variables, logging.
-- How Pimi resolves your login shell — the exact code that loads your shell environment.
-- [Report an issue](https://github.com/1ikeadragon/pimi-releases/issues).
+- [How Pimi resolves your login shell](https://github.com/1ikeadragon/pimi/blob/main/packages/desktop/src/login-shell-env.ts) — the exact code that loads your shell environment.
+- [Report an issue](https://github.com/1ikeadragon/pimi/issues).

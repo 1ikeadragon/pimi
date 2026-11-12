@@ -23,7 +23,7 @@ const OP_KIND_ORDER: Record<AgentSkillOperation["kind"], number> = {
   delete: 2,
 };
 const ThemedSettings = withUnistyles(Settings2);
-const SKILLS_DOCS_URL = "https://github.com/1ikeadragon/pimi-releases/blob/main/docs/plugins.md";
+const SKILLS_DOCS_URL = "https://github.com/1ikeadragon/pimi/blob/main/docs/plugins.md";
 const mutedMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
 function formatUpdateMessage(ops: readonly AgentSkillOperation[], t: TFunction): string {

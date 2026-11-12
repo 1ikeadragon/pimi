@@ -32,7 +32,7 @@ Minimal example that configures listening address, hostnames, and MCP:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/1ikeadragon/pimi-releases/main/schemas/pimi.config.v1.json",
+  "$schema": "https://raw.githubusercontent.com/1ikeadragon/pimi/main/packages/server/schemas/pimi.config.v1.json",
   "version": 1,
   "daemon": {
     "listen": "127.0.0.1:6767",
@@ -82,7 +82,7 @@ Deployment environment variables and legacy supervisor flags remain authoritativ
 
 Agent providers, both the first-class ones Pimi ships with and custom entries you add under `agents.providers`, are documented on their own page.
 
-See [Providers](/docs/providers) for the mental model and [Supported providers](/docs/supported-providers) for the full list of agents Pimi can launch. For pointing Claude at Anthropic-compatible endpoints (Z.AI, Alibaba/Qwen), multiple profiles, custom binaries, ACP agents, and the `additionalModels` merge behavior, see [Custom providers](/docs/custom-providers). The full field reference lives on GitHub at [docs/custom-providers.md](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/custom-providers.md).
+See [Providers](/docs/providers) for the mental model and [Supported providers](/docs/supported-providers) for the full list of agents Pimi can launch. For pointing Claude at Anthropic-compatible endpoints (Z.AI, Alibaba/Qwen), multiple profiles, custom binaries, ACP agents, and the `additionalModels` merge behavior, see [Custom providers](/docs/custom-providers). The full field reference lives on GitHub at [docs/custom-providers.md](https://github.com/1ikeadragon/pimi/blob/main/docs/custom-providers.md).
 
 ## Idle runtimes
 
@@ -204,7 +204,7 @@ In the mobile app, enter the password in the direct connection setup screen.
 
 ## Relay
 
-Relay pairing requires a configured endpoint. Run [Pimi Relay](https://github.com/1ikeadragon/pimi-releases/blob/main/docs/self-hosted-relay.md) and add its address to `config.json`. Set `enabled` to `true` to turn it on at startup.
+Relay pairing requires a configured endpoint. Run [Pimi Relay](https://github.com/1ikeadragon/pimi/blob/main/docs/self-hosted-relay.md) and add its address to `config.json`. Set `enabled` to `true` to turn it on at startup.
 
 ```json
 {
@@ -218,7 +218,7 @@ Relay pairing requires a configured endpoint. Run [Pimi Relay](https://github.co
 }
 ```
 
-Restart the daemon after changing the endpoint. See [Connectivity](./connectivity.md) for direct connections over a VPN and Security for the relay encryption model.
+Restart the daemon after changing the endpoint. See [Connectivity](./connectivity.md) for direct connections over a VPN and [Security](../SECURITY.md) for the relay encryption model.
 
 ## Common env vars
 
@@ -252,5 +252,5 @@ Restart the daemon after changing the endpoint. See [Connectivity](./connectivit
 For editor autocomplete/validation, set `$schema` to:
 
 ```
-https://raw.githubusercontent.com/1ikeadragon/pimi-releases/main/schemas/pimi.config.v1.json
+https://raw.githubusercontent.com/1ikeadragon/pimi/main/packages/server/schemas/pimi.config.v1.json
 ```

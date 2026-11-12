@@ -93,5 +93,5 @@ Pimi 会应用可以在运行时安全生效的设置，并列出需要重启的
 
 - [自定义 Provider](/docs/custom-providers)：端点、多个配置、二进制文件、ACP Agent。
 - [配置](/docs/configuration)：`config.json`、环境变量、日志。
-- Pimi 如何解析你的登录 shell：加载你的 shell 环境的具体代码。
-- [报告问题](https://github.com/1ikeadragon/pimi-releases/issues)。
+- [Pimi 如何解析你的登录 shell](https://github.com/1ikeadragon/pimi/blob/main/packages/desktop/src/login-shell-env.ts)：加载你的 shell 环境的具体代码。
+- [报告问题](https://github.com/1ikeadragon/pimi/issues)。

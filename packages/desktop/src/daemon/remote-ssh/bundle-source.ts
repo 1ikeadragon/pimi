@@ -7,7 +7,7 @@ import { Readable } from "node:stream";
 import { RemoteSshError } from "./errors.js";
 import { remoteBundleAssetName, type RemoteBundleArch } from "./bundle-spec.js";
 
-const RELEASES_URL = "https://github.com/1ikeadragon/pimi-releases/releases/download";
+const RELEASES_URL = "https://github.com/1ikeadragon/pimi/releases/download";
 // pimi-all-v tags build every platform; pimi-v tags are macOS-only releases. Both carry the daemon assets.
 const TAG_PREFIXES = ["pimi-all-v", "pimi-v"] as const;
 

@@ -22,7 +22,7 @@ A plugin is a TypeScript project installed into one Pimi daemon. It can add
 [connect a coding agent as a provider](/docs/plugins/providers). Client
 contributions run on every Pimi client connected to that daemon, including mobile.
 
-Browse [published plugins](https://github.com/1ikeadragon/pimi-releases/blob/main/README.md), then install one on your daemon:
+Browse [published plugins](https://github.com/1ikeadragon/pimi/blob/main/README.md), then install one on your daemon:
 
 ```bash
 pimi plugin add owner/slug
