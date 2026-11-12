@@ -2,6 +2,16 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.29 - 2026-11-13
+
+- Pimi keeps its data in one SQLite database (`~/.pimi/pimi.db`): agents, automations, heartbeats, Attack runs and findings, audit logs, receipts, sent attachments, projects and workspaces. On first start the old JSON files are imported once and renamed with a `.migrated` suffix; nothing is deleted. Writes are crash-safe and a daily backup is kept.
+- Attack mode:
+  - History of past runs, and compare two runs to see new, fixed and repeated findings.
+  - Fix several findings at once: each gets its own agent in its own worktree, three at a time.
+  - A phone view with run status, Pause, Stop and findings.
+  - Scheduled runs and runs on new pull requests. Pimi can start your app first and waits for it to be healthy; skipped runs are logged.
+- Relay: turn it off from the pairing screen without restarting. Fewer noisy log lines after a relay socket closes.
+
 ## 0.17.28 - 2026-11-12
 
 - Windows x64 build is back alongside macOS and Android.
