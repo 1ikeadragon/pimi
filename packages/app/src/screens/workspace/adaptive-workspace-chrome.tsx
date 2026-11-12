@@ -30,6 +30,8 @@ export interface WorkspaceCompactHeaderActions {
     splitRight?: () => void;
     splitDown?: () => void;
     toggleMaximized?: () => void;
+    /** Attack mode's holding pane: hides the pane and keeps its tabs. Absent on every other pane. */
+    hide?: () => void;
     maximized: boolean;
   };
   closeAbove: (key: string) => Promise<void> | void;

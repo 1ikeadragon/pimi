@@ -69,6 +69,7 @@ import {
 import type { WorkspaceTab } from "@/workspace-tabs/model";
 import { recordRenderProfileReasons, RenderProfile } from "@/utils/render-profiler";
 import { isNative } from "@/constants/platform";
+import { ATTACK_HOLDING_PANE_ID } from "@/stores/workspace-workbench";
 
 interface SplitContainerProps {
   layout: WorkspaceLayout;
@@ -709,7 +710,8 @@ const SplitPaneView = memo(function SplitPaneView({
   }, [stableOnFocusPane, pane.id]);
 
   const paneId = pane.id;
-  const workbenchMode = usePimiWorkbenchMode(`${normalizedServerId}:${normalizedWorkspaceId}`);
+  const paneWorkspaceKey = `${normalizedServerId}:${normalizedWorkspaceId}`;
+  const workbenchMode = usePimiWorkbenchMode(paneWorkspaceKey);
   const emptyEditor =
     workbenchMode === "editor" && paneId === DEFAULT_PANE_ID && !activeTabDescriptor;
   const handleCloseTabsToLeft = useCallback(
@@ -745,6 +747,16 @@ const SplitPaneView = memo(function SplitPaneView({
     () => onTogglePaneMaximized(paneId),
     [onTogglePaneMaximized, paneId],
   );
+  const setAttackHoldingPaneHidden = useWorkspaceLayoutStore(
+    (state) => state.setAttackHoldingPaneHidden,
+  );
+  const handleHidePane = useMemo(
+    () =>
+      workbenchMode === "attack" && paneId === ATTACK_HOLDING_PANE_ID
+        ? () => setAttackHoldingPaneHidden(paneWorkspaceKey, true)
+        : undefined,
+    [workbenchMode, paneId, setAttackHoldingPaneHidden, paneWorkspaceKey],
+  );
   const compactHeaderActions = useMemo(
     () => ({
       pane: {
@@ -753,6 +765,7 @@ const SplitPaneView = memo(function SplitPaneView({
         splitDown: focusModeEnabled ? undefined : handleSplitDown,
         toggleMaximized:
           workspaceHasMultiplePanes && !focusModeEnabled ? handleTogglePaneMaximized : undefined,
+        hide: handleHidePane,
         maximized: paneId === maximizedPaneId,
       },
       closeAbove: handleCloseTabsToLeft,
@@ -766,6 +779,7 @@ const SplitPaneView = memo(function SplitPaneView({
       handleSplitDown,
       workspaceHasMultiplePanes,
       handleTogglePaneMaximized,
+      handleHidePane,
       maximizedPaneId,
       handleCloseTabsToLeft,
       handleCloseTabsToRight,
@@ -836,6 +850,7 @@ const SplitPaneView = memo(function SplitPaneView({
                 onTogglePaneMaximized={handleTogglePaneMaximized}
                 onSplitRight={handleSplitRight}
                 onSplitDown={handleSplitDown}
+                onHidePane={handleHidePane}
                 focusModeEnabled={Boolean(focusModeEnabled)}
                 onExitFocusMode={onExitFocusMode}
               />

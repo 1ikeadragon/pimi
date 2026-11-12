@@ -1026,6 +1026,7 @@ export const es: TranslationResources = {
         restorePane: "Restaurar panel",
         closePane: "Cerrar panel",
         exitFocusMode: "Salir del modo de concentración",
+        hidePane: "Ocultar panel",
         splitRight: "Panel dividido a la derecha",
         splitDown: "Dividir panel hacia abajo",
         changes: "Cambios",

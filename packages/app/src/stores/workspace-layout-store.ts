@@ -168,6 +168,11 @@ interface WorkspaceLayoutStore {
   toggleWorkbenchChat: (workspaceKey: string) => "ok" | "unsaved" | "unavailable";
   /** Attack mode: collapses the findings pane (narrow windows show findings as an overlay) or restores it. */
   setAttackFindingsPaneHidden: (workspaceKey: string, hidden: boolean) => void;
+  /**
+   * Attack mode: hides the holding pane that opening a chat reveals. Tabs and agents stay alive in
+   * it, and its launcher is re-selected because the pane's fixture expects the launcher focused.
+   */
+  setAttackHoldingPaneHidden: (workspaceKey: string, hidden: boolean) => void;
   splitSizesByWorkspace: Record<string, Record<string, number[]>>;
   explorerSidebarWidthByWorkspace: Record<string, number>;
   pinnedAgentIdsByWorkspace: Record<string, Set<string>>;
@@ -1234,6 +1239,26 @@ export function createWorkspaceLayoutStore(
             const pane = layout ? findPaneById(layout.root, ATTACK_FINDINGS_PANE_ID) : null;
             if (!layout || !pane || (pane.hidden === true) === hidden) return state;
             const next = setPaneHiddenInLayout({ layout, paneId: pane.id, hidden });
+            return next
+              ? { layoutByWorkspace: { ...state.layoutByWorkspace, [workspaceKey]: next } }
+              : state;
+          });
+        },
+        setAttackHoldingPaneHidden: (workspaceKey, hidden) => {
+          set((state) => {
+            const layout = state.layoutByWorkspace[workspaceKey];
+            const pane = layout ? findPaneById(layout.root, ATTACK_HOLDING_PANE_ID) : null;
+            if (!layout || !pane || (pane.hidden === true) === hidden) return state;
+            const launcher = hidden
+              ? collectAllTabs(layout.root).find(
+                  (tab) => pane.tabIds.includes(tab.tabId) && tab.target.kind === "new_tab",
+                )
+              : undefined;
+            const selected = launcher
+              ? (selectTabInPaneInLayout({ layout, paneId: pane.id, tabId: launcher.tabId }) ??
+                layout)
+              : layout;
+            const next = setPaneHiddenInLayout({ layout: selected, paneId: pane.id, hidden });
             return next
               ? { layoutByWorkspace: { ...state.layoutByWorkspace, [workspaceKey]: next } }
               : state;

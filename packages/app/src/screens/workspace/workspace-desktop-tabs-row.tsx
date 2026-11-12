@@ -282,6 +282,7 @@ function WorkspacePaneToolbarActions({
   newTabShortcutKeys,
   onSplitRight,
   onSplitDown,
+  onHidePane,
   onTogglePaneMaximized,
 }: {
   panePanelKinds: PanePanelKinds;
@@ -296,6 +297,7 @@ function WorkspacePaneToolbarActions({
   newTabShortcutKeys: ShortcutKey[][] | null;
   onSplitRight?: () => void;
   onSplitDown?: () => void;
+  onHidePane?: () => void;
   onTogglePaneMaximized?: () => void;
 }) {
   const { t } = useTranslation();
@@ -319,7 +321,9 @@ function WorkspacePaneToolbarActions({
     [splitDownKeys],
   );
   const maximizeActionVisible = showMaximizeAction && Boolean(onTogglePaneMaximized);
-  if (!showNewTabButton && !splitActionsVisible && !maximizeActionVisible) return null;
+  if (!showNewTabButton && !splitActionsVisible && !maximizeActionVisible && !onHidePane) {
+    return null;
+  }
 
   return (
     <ToolbarControls style={styles.paneSplitActions}>
@@ -386,6 +390,15 @@ function WorkspacePaneToolbarActions({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+      ) : null}
+      {onHidePane ? (
+        <ToolbarButton
+          label={t("workspace.tabs.actions.hidePane")}
+          testID="workspace-hide-pane"
+          onPress={onHidePane}
+        >
+          <ThemedX size={TAB_RAIL_GLYPH_SIZE} uniProps={extraMutedColorMapping} />
+        </ToolbarButton>
       ) : null}
     </ToolbarControls>
   );
@@ -563,6 +576,7 @@ export interface WorkspaceDesktopTabsRowProps {
   onTogglePaneMaximized?: () => void;
   onSplitRight?: () => void;
   onSplitDown?: () => void;
+  onHidePane?: () => void;
   focusModeEnabled: boolean;
   onExitFocusMode: () => void;
 }
@@ -1112,6 +1126,7 @@ function ResolvedWorkspaceDesktopTabsRow({
   onTogglePaneMaximized,
   onSplitRight,
   onSplitDown,
+  onHidePane,
   focusModeEnabled,
   onExitFocusMode,
 }: ResolvedWorkspaceDesktopTabsRowProps) {
@@ -1500,6 +1515,7 @@ function ResolvedWorkspaceDesktopTabsRow({
         newTabShortcutKeys={newTabKeys}
         onSplitRight={onSplitRight}
         onSplitDown={onSplitDown}
+        onHidePane={onHidePane}
         onTogglePaneMaximized={onTogglePaneMaximized}
       />
     </View>

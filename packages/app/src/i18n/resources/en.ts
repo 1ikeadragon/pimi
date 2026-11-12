@@ -1014,6 +1014,7 @@ export const en = {
         restorePane: "Restore pane",
         closePane: "Close pane",
         exitFocusMode: "Exit focus mode",
+        hidePane: "Hide pane",
         splitRight: "Split pane right",
         splitDown: "Split pane down",
         changes: "Changes",

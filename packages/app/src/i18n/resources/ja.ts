@@ -1028,6 +1028,7 @@ export const ja: TranslationResources = {
         restorePane: "ペインを元に戻す",
         closePane: "ペインを閉じる",
         exitFocusMode: "フォーカスモードを終了",
+        hidePane: "ペインを隠す",
         splitRight: "右にペインを分割",
         splitDown: "下にペインを分割",
         changes: "変更",

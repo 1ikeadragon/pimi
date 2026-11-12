@@ -16,6 +16,7 @@ import type { LayoutChangeEvent } from "react-native";
 import { ExplorerSidebarDock } from "@/screens/workspace/explorer-sidebar";
 import { ForgeShorthandProvider } from "@/git/forge-shorthand";
 import { usePimiWorkbenchMode } from "@/desktop/use-pimi-workbench";
+import { ATTACK_HOLDING_PANE_ID } from "@/stores/workspace-workbench";
 import { ExplorerFrame } from "./explorer-sidebar/frame";
 import { WorkspaceTabDragScope } from "@/components/workspace-tab-drag-scope";
 import {
@@ -1176,7 +1177,8 @@ function WorkspaceScreenContent({
       }),
     [normalizedServerId, normalizedWorkspaceId],
   );
-  const editorMode = usePimiWorkbenchMode(persistenceKey) === "editor";
+  const workbenchMode = usePimiWorkbenchMode(persistenceKey);
+  const editorMode = workbenchMode === "editor";
   const openTab = useWorkspaceLayoutStore((state) => state.openTab);
   const replaceWorkspaceTabTarget = useWorkspaceLayoutStore((state) => state.replaceTab);
   const openWorkspaceTabFocused = useCallback(
@@ -1427,6 +1429,9 @@ function WorkspaceScreenContent({
   const splitWorkspacePaneEmpty = useWorkspaceLayoutStore((state) => state.splitPaneEmpty);
   const moveWorkspaceTabToPane = useWorkspaceLayoutStore((state) => state.moveTabToPane);
   const closeWorkspacePane = useWorkspaceLayoutStore((state) => state.closePane);
+  const setAttackHoldingPaneHidden = useWorkspaceLayoutStore(
+    (state) => state.setAttackHoldingPaneHidden,
+  );
   const handleToggleExplorerSidebar = useCallback(() => {
     toggleExplorerSidebar({
       isCompact: isMobile,
@@ -2797,6 +2802,11 @@ function WorkspaceScreenContent({
       }
 
       if (action.id === "workspace.pane.close") {
+        // Attack mode's holding pane keeps every chat and browser tab; closing it hides it.
+        if (workbenchMode === "attack" && focusedPane.id === ATTACK_HOLDING_PANE_ID) {
+          setAttackHoldingPaneHidden(persistenceKey, true);
+          return true;
+        }
         void handleClosePane(focusedPane.id);
         return true;
       }
@@ -2806,6 +2816,8 @@ function WorkspaceScreenContent({
     [
       focusWorkspacePane,
       handleClosePane,
+      setAttackHoldingPaneHidden,
+      workbenchMode,
       handleCreateEmptySplit,
       moveWorkspaceTabToPane,
       persistenceKey,
@@ -3534,6 +3546,7 @@ function WorkspaceScreenContent({
           headerVariant={actionsOnly ? "full" : "compact"}
           actionsActive={isRouteFocused && (!isMobile || workspacePanelActive)}
           tabSwitcher={tabSwitcher}
+          onHidePane={actions.pane?.hide}
           isLoading={isWorkspaceHeaderLoading}
           title={editorTitle ?? workspaceHeaderTitle}
           subtitle={editorTitle ? "" : workspaceHeaderSubtitle}

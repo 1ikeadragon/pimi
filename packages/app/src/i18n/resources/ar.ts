@@ -1018,6 +1018,7 @@ export const ar: TranslationResources = {
         restorePane: "استعادة الجزء",
         closePane: "إغلاق الجزء",
         exitFocusMode: "إنهاء وضع التركيز",
+        hidePane: "إخفاء اللوحة",
         splitRight: "تقسيم الجزء الأيمن",
         splitDown: "تقسيم الجزء لأسفل",
         changes: "التغييرات",

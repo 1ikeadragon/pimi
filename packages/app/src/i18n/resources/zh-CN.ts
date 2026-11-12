@@ -1017,6 +1017,7 @@ export const zhCN: TranslationResources = {
         restorePane: "还原窗格",
         closePane: "关闭窗格",
         exitFocusMode: "退出专注模式",
+        hidePane: "隐藏窗格",
         splitRight: "向右拆分窗格",
         splitDown: "向下拆分窗格",
         changes: "更改",

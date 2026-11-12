@@ -1026,6 +1026,7 @@ export const ru: TranslationResources = {
         restorePane: "Восстановить панель",
         closePane: "Закрыть панель",
         exitFocusMode: "Выйти из режима фокусировки",
+        hidePane: "Скрыть панель",
         splitRight: "Разделить панель справа",
         splitDown: "Разделить панель снизу",
         changes: "Изменения",

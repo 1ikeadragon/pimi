@@ -12,6 +12,7 @@ import {
   resolveWorkspaceBarActions,
   WindowLayoutActions,
 } from "@/window-layout";
+import { SidebarCloseButton } from "@/components/headers/sidebar-close-button";
 import { IconButtonChromeProvider } from "@/components/ui/icon-button-chrome";
 
 export { MobileWorkspaceTabSwitcher } from "./tab-switcher";
@@ -31,6 +32,8 @@ interface CompactWorkspaceHeaderProps {
   children: ReactNode;
   headerVariant: "compact" | "full";
   actionsActive: boolean;
+  /** Attack mode's holding pane: an X that hides the pane without closing its tabs. */
+  onHidePane?: () => void;
 }
 
 /** The compact header with the workspace's project row and controls. */
@@ -48,6 +51,7 @@ export function CompactWorkspaceHeader({
   serverId,
   headerVariant,
   actionsActive,
+  onHidePane,
 }: CompactWorkspaceHeaderProps) {
   const { t } = useTranslation();
   const actionsInBar = resolveWorkspaceActionPlacement(useWindowLayout()) === "vertical-bar";
@@ -78,6 +82,16 @@ export function CompactWorkspaceHeader({
   const actions = resolveWorkspaceBarActions(headerVariant).map((symbol) => (
     <Fragment key={symbol}>{symbols[symbol]}</Fragment>
   ));
+  if (onHidePane && headerVariant === "compact") {
+    actions.push(
+      <SidebarCloseButton
+        key="hide-pane"
+        label={t("workspace.tabs.actions.hidePane")}
+        onPress={onHidePane}
+        testID="workspace-hide-pane"
+      />,
+    );
+  }
 
   return (
     <IconButtonChromeProvider value="header-island">

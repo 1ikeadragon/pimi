@@ -1025,6 +1025,7 @@ export const ptBR: TranslationResources = {
         restorePane: "Restaurar painel",
         closePane: "Fechar painel",
         exitFocusMode: "Sair do modo de foco",
+        hidePane: "Ocultar painel",
         splitRight: "Dividir painel à direita",
         splitDown: "Dividir painel abaixo",
         changes: "Alterações",

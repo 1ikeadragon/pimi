@@ -1022,6 +1022,7 @@ export const ko: TranslationResources = {
         restorePane: "창 복원",
         closePane: "창 닫기",
         exitFocusMode: "집중 모드 종료",
+        hidePane: "창 숨기기",
         splitRight: "창을 오른쪽으로 분할",
         splitDown: "창을 아래로 분할",
         changes: "변경 사항",
