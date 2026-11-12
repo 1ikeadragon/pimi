@@ -38,6 +38,7 @@ import { createPluginClientId } from "./plugin-session-identity.js";
 import { PluginSettingsStore } from "./settings/index.js";
 import { readPluginProviderIcon } from "./provider-icon.js";
 import { initializeEnvironmentProxy } from "../network/index.js";
+import { startPluginNetworkReporter } from "../network/activity.js";
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -642,6 +643,8 @@ export function createPluginWorker(options: {
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   let worker: ReturnType<typeof createPluginWorker> | null = null;
   const handlers = new Set<(message: PluginProcessRequest) => void>();
+  // Plugin code makes its own requests here, outside the daemon's hooks. Report them to the daemon.
+  const flushNetworkReport = startPluginNetworkReporter((batch) => process.send?.(batch));
   const channel: PluginWorkerChannel = {
     send(message, callback) {
       if (callback) process.send?.(message, () => callback());
@@ -654,6 +657,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       };
     },
     disconnect() {
+      flushNetworkReport();
       process.disconnect();
     },
   };

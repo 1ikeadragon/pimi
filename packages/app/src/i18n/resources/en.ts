@@ -2131,8 +2131,8 @@ export const en = {
         description: "Local network or VPN.",
       },
       remoteSsh: {
-        title: "Remote SSH",
-        description: "Connect through the desktop SSH client.",
+        title: "Remote dev machine (SSH)",
+        description: "Pimi installs and starts its daemon over ssh.",
       },
       scanQr: {
         title: "Scan QR code",
@@ -3037,7 +3037,7 @@ export const en = {
         "Requests Pimi makes itself, connections that reach this host, and programs Pimi launches. Only the method, host, port, and path are kept, never query strings, headers, bodies, or environment variables, and credentials in launch arguments are masked. Recent records are held in memory and finished records are also saved to log files on the host (see Logs).",
       notCapturedTitle: "Not captured",
       notCapturedBody:
-        "For programs Pimi launches (git, GitHub CLI, language servers, MCP servers, agent providers) it records the launch: the program, its redacted arguments, exit code, and duration. What those programs send over the network is encrypted and is not captured, such as an agent's API calls or a git fetch. Terminals and plugin processes are not recorded.",
+        "For programs Pimi launches (git, GitHub CLI, agent providers, language servers, MCP servers, plugin programs, and any other) it records the launch: the program, its redacted arguments, exit code, duration, and the destination when its arguments or environment name one. What those programs send over the network cannot be observed from here, such as an agent's API calls, a git fetch, or a gh request, so only the launch appears. Also not visible: commands you run in terminals, and the desktop app's own Chromium background traffic.",
       title: "Logs",
       saveTitle: "Save network log",
       saveHint:

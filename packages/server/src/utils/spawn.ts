@@ -1,14 +1,14 @@
 import type { ChildProcess, SpawnOptions } from "node:child_process";
 import { spawnProcess as spawnCli, execCommand as execCli } from "@pimi/plugin/server";
 import { createExternalCommandProcessEnv, type ProcessEnvRecord } from "../server/pimi-env.js";
-import { trackChildProcess, trackExecution } from "./process-launch.js";
+import { withLaunchPurpose } from "./process-launch.js";
 
 interface ExternalEnvOptions {
   baseEnv?: ProcessEnvRecord;
   envMode?: "external" | "internal";
   env?: ProcessEnvRecord;
   envOverlay?: ProcessEnvRecord;
-  /** When set, the launch appears in the Network tab under this purpose (a NETWORK_PURPOSE). */
+  /** Labels the launch in the Network tab (a NETWORK_PURPOSE). Without it the program name decides. */
   networkPurpose?: string;
 }
 
@@ -45,13 +45,13 @@ export function spawnProcess(
           ...(envOverlay ? [envOverlay] : []),
         );
 
-  const child = spawnCli(command, args, {
-    ...spawnOptions,
-    env: childEnv,
-    signal: options?.signal,
-  });
-  if (networkPurpose) trackChildProcess(child, { command, args, purpose: networkPurpose });
-  return child;
+  const launch = () =>
+    spawnCli(command, args, {
+      ...spawnOptions,
+      env: childEnv,
+      signal: options?.signal,
+    });
+  return networkPurpose ? withLaunchPurpose(networkPurpose, launch) : launch();
 }
 
 export async function execCommand(
@@ -81,7 +81,5 @@ export async function execCommand(
       timeout: options?.timeout,
       maxBuffer: options?.maxBuffer,
     }) as Promise<ExecCommandResult>;
-  return options?.networkPurpose
-    ? trackExecution({ command, args, purpose: options.networkPurpose }, run)
-    : run();
+  return options?.networkPurpose ? withLaunchPurpose(options.networkPurpose, run) : run();
 }

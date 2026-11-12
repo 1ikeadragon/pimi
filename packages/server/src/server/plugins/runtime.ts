@@ -34,6 +34,7 @@ import type {
   PluginUsageSourceMetadata,
 } from "./plugin-process-protocol.js";
 import { PluginProcessMessageSchema } from "./plugin-process-protocol.js";
+import { ingestPluginNetworkBatch, isPluginNetworkBatch } from "../network/activity.js";
 import {
   BufferedPluginSubscription,
   type PluginRuntimeSubscription,
@@ -889,6 +890,10 @@ export class PluginRuntime {
             reject(error);
           };
           child.on("message", (rawMessage) => {
+            if (isPluginNetworkBatch(rawMessage)) {
+              ingestPluginNetworkBatch(rawMessage);
+              return;
+            }
             const parsed = PluginProcessMessageSchema.safeParse(rawMessage);
             if (!parsed.success) {
               const error = new Error(

@@ -1,7 +1,7 @@
+import { networkHooksInstalled } from "./network/early-hooks.js";
 import { appendFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { initializeEnvironmentProxy } from "./network/index.js";
-import { getDaemonNetworkActivity } from "./network/activity.js";
 import { createPimiDaemon, formatListenTarget } from "./bootstrap.js";
 import { loadConfig } from "./config.js";
 import { resolvePimiHome } from "./pimi-home.js";
@@ -10,6 +10,8 @@ import type { DaemonLifecycleIntent } from "./bootstrap.js";
 import { getProcessDiagnostics } from "./process-diagnostics.js";
 
 process.title = "Pimi Daemon";
+
+if (!networkHooksInstalled) throw new Error("Network hooks were not installed before startup");
 
 type SupervisorLifecycleMessage =
   | {
@@ -124,8 +126,6 @@ function applyCliFlagOverrides(config: ReturnType<typeof loadConfig>): void {
 
 async function main() {
   const { pimiHome, logger, config } = bootstrapFromEnvironment();
-  // Subscribe before anything can make a request, so the Network diagnostics view sees it all.
-  getDaemonNetworkActivity();
   for (const variable of initializeEnvironmentProxy()) {
     writeWorkerLifecycleLog(pimiHome, "Ignoring invalid or unsupported HTTP proxy variable", {
       variable,

@@ -55,6 +55,21 @@
       "source": "./src/server/network/activity.ts",
       "default": "./dist/server/server/network/activity.js"
     },
+    "./process-launch": {
+      "types": "./dist/server/utils/process-launch.d.ts",
+      "source": "./src/utils/process-launch.ts",
+      "default": "./dist/server/utils/process-launch.js"
+    },
+    "./process-launch-recorder": {
+      "types": "./dist/server/server/network/process-launch-recorder.d.ts",
+      "source": "./src/server/network/process-launch-recorder.ts",
+      "default": "./dist/server/server/network/process-launch-recorder.js"
+    },
+    "./network-redact": {
+      "types": "./dist/server/server/network/redact.d.ts",
+      "source": "./src/server/network/redact.ts",
+      "default": "./dist/server/server/network/redact.js"
+    },
     "./network-log": {
       "types": "./dist/server/server/network/log-store.d.ts",
       "source": "./src/server/network/log-store.ts",

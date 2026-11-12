@@ -162,7 +162,12 @@ export function formatDuration(ms: number | null): string | null {
 
 export function formatRequestTarget(request: NetworkActivityRequest): string {
   if (request.protocol === "process") {
-    return request.path === "/" ? request.host : `${request.host} ${request.path}`;
+    const command = request.path === "/" ? request.host : `${request.host} ${request.path}`;
+    return request.destination ? `${command} → ${request.destination}` : command;
+  }
+  if (request.protocol === "tcp" || request.protocol === "dns") {
+    const port = request.port ? `:${request.port}` : "";
+    return `${request.protocol} ${request.host}${port}`;
   }
   const port = request.port ? `:${request.port}` : "";
   const host = request.protocol === "unix" ? "unix socket" : `${request.host}${port}`;

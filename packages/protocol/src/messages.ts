@@ -5392,7 +5392,7 @@ export const NetworkActivityRequestSchema = z.object({
   source: z.string(),
   startedAtMs: z.number(),
   method: z.string(),
-  /** "http", "https", "ws", "wss", "unix", or "process" for a launched program. */
+  /** "http", "https", "ws", "wss", "unix", "tcp", "dns", or "process" for a launched program. */
   protocol: z.string(),
   host: z.string(),
   port: z.number().int().nullable(),
@@ -5404,6 +5404,8 @@ export const NetworkActivityRequestSchema = z.object({
   responseBytes: z.number().nullable(),
   /** Display label for why the request was made, such as "Spaces previews" or "Other". */
   purpose: z.string(),
+  /** Launched programs only: where the program is expected to connect, when knowable. */
+  destination: z.string().optional(),
   /** False when neither a known call site nor a known host explains the request. */
   known: z.boolean(),
   local: z.boolean(),

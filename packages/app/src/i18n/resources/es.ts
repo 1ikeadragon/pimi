@@ -3019,7 +3019,7 @@ export const es: TranslationResources = {
         "Solicitudes que hace el propio Pimi, conexiones que llegan a este host y programas que Pimi lanza. Solo se guardan el método, el host, el puerto y la ruta, nunca cadenas de consulta, encabezados, cuerpos ni variables de entorno, y las credenciales en los argumentos de lanzamiento se ocultan. Los registros recientes se mantienen en memoria y los registros terminados también se guardan en archivos de registro en el host (consulta Registros).",
       notCapturedTitle: "No se captura",
       notCapturedBody:
-        "De los programas que Pimi lanza (git, GitHub CLI, servidores de lenguaje, servidores MCP, proveedores de agentes) se registra el lanzamiento: el programa, sus argumentos con datos ocultos, el código de salida y la duración. Lo que esos programas envían por la red va cifrado y no se captura, por ejemplo las llamadas a la API de un agente o un git fetch. Los terminales y los procesos de plugins no se registran.",
+        "De los programas que Pimi lanza (git, GitHub CLI, proveedores de agentes, servidores de lenguaje, servidores MCP, programas de plugins y cualquier otro) registra el lanzamiento: el programa, sus argumentos ocultando credenciales, el código de salida, la duración y el destino cuando sus argumentos o su entorno lo indican. Lo que esos programas envían por la red no se puede observar desde aquí, por ejemplo las llamadas a la API de un agente, un git fetch o una solicitud de gh, así que solo aparece el lanzamiento. Tampoco se ven los comandos que ejecutas en terminales ni el tráfico en segundo plano de Chromium en la app de escritorio.",
       title: "Registros",
       saveTitle: "Guardar el registro de red",
       saveHint:

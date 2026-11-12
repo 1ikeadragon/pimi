@@ -26,6 +26,9 @@ export const NETWORK_PURPOSE = {
   languageServer: "Language server",
   mcp: "MCP",
   agentProvider: "Agent provider",
+  process: "Programs",
+  socket: "Direct connections",
+  dns: "DNS lookups",
   plugins: "Plugins",
   speech: "Speech models",
   app: "App",
@@ -141,6 +144,11 @@ export interface NetworkActivityStartInput {
   path: string;
   /** Call-site attribution. Wins over host classification for purpose and known. */
   purpose?: string | null;
+  /**
+   * For a launched program: where its own traffic is expected to go, when that can be known
+   * from its arguments or environment. Never a claim about what the program actually did.
+   */
+  destination?: string | null;
 }
 
 export interface NetworkActivityFinishInput {
@@ -222,6 +230,7 @@ export class NetworkActivityRecorder {
       errorCode: null,
       durationMs: null,
       responseBytes: null,
+      ...(input.destination ? { destination: input.destination } : {}),
       purpose: attributed ?? classification.purpose,
       known: attributed !== null || classification.known,
       local: classification.local,
@@ -258,6 +267,22 @@ export class NetworkActivityRecorder {
       this.onFinish?.(record);
     } catch {
       // A failing sink must never disturb request observation.
+    }
+  }
+
+  /**
+   * Adds a record another thread or process already finished, such as a plugin process's
+   * request. The record is copied with a fresh id and the host classification and aggregates
+   * are applied here, so the sender cannot mislabel itself as a known host.
+   */
+  ingest(
+    input: NetworkActivityStartInput & NetworkActivityFinishInput & { durationMs?: number | null },
+  ): void {
+    const record = this.start(input);
+    const duration = input.durationMs;
+    this.finish(record, input);
+    if (typeof duration === "number" && Number.isFinite(duration) && duration >= 0) {
+      record.durationMs = duration;
     }
   }
 

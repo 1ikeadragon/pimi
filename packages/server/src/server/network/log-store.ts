@@ -95,6 +95,7 @@ function coalesceKey(record: NetworkActivityRequest): string | null {
     record.status,
     record.errorCode,
     record.purpose,
+    record.destination ?? null,
   ]);
 }
 
@@ -122,6 +123,7 @@ function recordLine(
     purpose: record.purpose,
     known: record.known,
     local: record.local,
+    ...(record.destination ? { destination: record.destination } : {}),
     ...(record.counters ? { counters: record.counters } : {}),
     ...(repeat && repeat.count > 1
       ? {

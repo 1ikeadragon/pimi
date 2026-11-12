@@ -3022,7 +3022,7 @@ export const fr: TranslationResources = {
         "Requêtes que Pimi émet lui-même, connexions qui atteignent cet hôte et programmes que Pimi lance. Seuls la méthode, l'hôte, le port et le chemin sont conservés, jamais les chaînes de requête, les en-têtes, les corps ni les variables d'environnement, et les identifiants présents dans les arguments de lancement sont masqués. Les enregistrements récents sont gardés en mémoire et les enregistrements terminés sont aussi sauvegardés dans des fichiers journaux sur l'hôte (voir Journaux).",
       notCapturedTitle: "Non capturé",
       notCapturedBody:
-        "Pour les programmes que Pimi lance (git, GitHub CLI, serveurs de langage, serveurs MCP, fournisseurs d'agents), le lancement est enregistré : le programme, ses arguments masqués, son code de sortie et sa durée. Ce que ces programmes envoient sur le réseau est chiffré et n'est pas capturé, par exemple les appels d'API d'un agent ou un git fetch. Les terminaux et les processus de plugins ne sont pas enregistrés.",
+        "Pour les programmes que Pimi lance (git, GitHub CLI, fournisseurs d'agents, serveurs de langage, serveurs MCP, programmes de plugins et tout autre), il enregistre le lancement : le programme, ses arguments masqués, le code de sortie, la durée et la destination lorsque ses arguments ou son environnement en indiquent une. Ce que ces programmes envoient sur le réseau n'est pas observable d'ici, par exemple les appels API d'un agent, un git fetch ou une requête gh ; seul le lancement apparaît. Ne sont pas visibles non plus : les commandes saisies dans les terminaux et le trafic d'arrière-plan de Chromium dans l'app de bureau.",
       title: "Journaux",
       saveTitle: "Enregistrer le journal réseau",
       saveHint:

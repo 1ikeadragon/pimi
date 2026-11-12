@@ -1,23 +1,29 @@
-import type { Session } from "electron";
+import { app, type Session } from "electron";
 import {
   NetworkActivityRecorder,
   type NetworkActivitySnapshotOptions,
 } from "@pimi/protocol/network-activity";
 import type { NetworkActivityRequest, NetworkActivitySnapshot } from "@pimi/protocol/messages";
 import { installNodeNetworkMonitor } from "@pimi/server/network-activity";
+import { setProcessLaunchObserver } from "@pimi/server/process-launch";
+import { createProcessLaunchObserver } from "@pimi/server/process-launch-recorder";
 import {
   NetworkLogStore,
   networkLogDirectory,
   type NetworkLogSettings,
 } from "@pimi/server/network-log";
 import { resolvePimiHome } from "@pimi/server/daemon-control";
+import { maskPathSegments } from "@pimi/server/network-redact";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import log from "electron-log/main";
 
 // The desktop app's outbound requests: the main process's own Node traffic (update checks,
-// daemon health probes) through diagnostics channels, and every Chromium session the app
-// creates through webRequest. Same record shape and privacy rules as the daemon's recorder.
+// daemon health probes), its sockets, DNS lookups and launched programs through the same hooks
+// the daemon uses, and every Chromium session the app creates through webRequest (renderer,
+// in-app browser pages, net.request). Same record shape and privacy rules as the daemon.
+// Chromium's own browser-process traffic (component updates, safe browsing, DNS prefetch,
+// WebRTC) does not pass through webRequest and is not visible here.
 
 let appLog: NetworkLogStore | null = null;
 const recorder = new NetworkActivityRecorder({
@@ -83,6 +89,10 @@ export function installDesktopNodeNetworkMonitor(): void {
   if (nodeMonitorInstalled) return;
   nodeMonitorInstalled = true;
   installNodeNetworkMonitor({ recorder, source: "app" });
+  setProcessLaunchObserver(createProcessLaunchObserver(recorder, "app"));
+  // Every session Electron creates is observed from the start, including ones no code names.
+  // A session that needs a purpose or an error handler calls observeSessionNetwork again.
+  app.on("session-created", (created) => observeSessionNetwork(created, { source: "app" }));
 }
 
 export function getDesktopNetworkActivity(
@@ -126,7 +136,7 @@ function startRecord(
     protocol: parsed.protocol.replace(/:$/, ""),
     host: parsed.hostname,
     port: parsed.port ? Number(parsed.port) : null,
-    path: parsed.pathname,
+    path: maskPathSegments(parsed.pathname),
     purpose: options.purpose ?? null,
   });
 }

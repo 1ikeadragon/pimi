@@ -3002,7 +3002,7 @@ export const ptBR: TranslationResources = {
         "Requisições que o próprio Pimi faz, conexões que chegam a este host e programas que o Pimi inicia. Somente o método, o host, a porta e o caminho são mantidos, nunca query strings, cabeçalhos, corpos ou variáveis de ambiente, e credenciais nos argumentos de inicialização são ocultadas. Os registros recentes ficam na memória e os registros concluídos também são salvos em arquivos de log no host (veja Logs).",
       notCapturedTitle: "Não capturado",
       notCapturedBody:
-        "Para os programas que o Pimi inicia (git, GitHub CLI, servidores de linguagem, servidores MCP, provedores de agentes), é registrada a inicialização: o programa, seus argumentos com dados ocultados, o código de saída e a duração. O que esses programas enviam pela rede é criptografado e não é capturado, como as chamadas de API de um agente ou um git fetch. Terminais e processos de plugins não são registrados.",
+        "Dos programas que o Pimi inicia (git, GitHub CLI, provedores de agentes, servidores de linguagem, servidores MCP, programas de plugins e qualquer outro) ele registra a inicialização: o programa, seus argumentos com credenciais ocultas, código de saída, duração e o destino quando os argumentos ou o ambiente indicam um. O que esses programas enviam pela rede não pode ser observado daqui, como as chamadas de API de um agente, um git fetch ou uma requisição do gh, então só a inicialização aparece. Também não aparecem os comandos executados em terminais nem o tráfego de segundo plano do Chromium no app desktop.",
       title: "Logs",
       saveTitle: "Salvar o log de rede",
       saveHint:
