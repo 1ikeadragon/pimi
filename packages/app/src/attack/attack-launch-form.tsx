@@ -205,6 +205,9 @@ export function LaunchForm({ serverId, workspaceId }: { serverId: string; worksp
           testID="attack-disposable"
         />
       </Field>
+      <Text style={styles.noteText} testID="attack-confinement-note">
+        {t("attack.form.confinement")}
+      </Text>
       <Button
         variant="default"
         leftIcon={Swords}
@@ -265,6 +268,10 @@ const styles = StyleSheet.create((theme) => ({
   },
   errorText: {
     color: theme.colors.palette.red[300],
+    fontSize: theme.fontSize.sm,
+  },
+  noteText: {
+    color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
   },
   switchRow: {

@@ -2152,6 +2152,8 @@ export const ptBR: TranslationResources = {
       rosterEmpty: "Escolha pelo menos um agente",
       disposable: "Alvo descartável",
       disposableHint: "Permite que os agentes escrevam e enviem carga. A lista atual só lê.",
+      confinement:
+        "As abas do navegador só podem abrir localhost e o host de destino. Os agentes são instruídos a apenas ler e a permanecer nesses hosts, mas o shell deles não é isolado: um comando ainda pode gravar arquivos ou alcançar outros hosts. Os agentes do Claude rodam sem ferramentas web, sem ferramentas de edição de arquivos e sem os seus servidores MCP; os outros provedores mantêm os deles.",
       start: "Iniciar ataque",
     },
     roster: {

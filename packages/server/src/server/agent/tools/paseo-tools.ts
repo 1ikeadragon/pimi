@@ -1,3 +1,4 @@
+import { ATTACK_RUN_LABEL } from "@pimi/protocol/agent-labels";
 import { registerPluginTools } from "./plugin-tools.js";
 import { registerProjectMemoryTools } from "./project-memory-tools.js";
 import { registerPimiTaskTools } from "./pimi-task-tools.js";
@@ -1733,6 +1734,10 @@ function createToolCatalog(
       const selectedProvider = resolveRequiredProviderModel(parsedArgs.provider).provider;
       const inheritedConfig = resolveInheritedProviderConfig(selectedProvider);
       const context = await delegationContext(resolvedArgs);
+      // An agent an Attack run's agent creates belongs to that run, whatever labels it asked for.
+      const attackRunId = callerAgentId
+        ? await options.attackService?.runIdForAgent(callerAgentId)
+        : null;
       const { snapshot, initialPromptStarted } = await createAgentCommand(
         {
           agentManager,
@@ -1766,6 +1771,7 @@ function createToolCatalog(
             ...(callerAgentId && options.serverId
               ? { "paseo.parent-server-id": options.serverId }
               : {}),
+            ...(attackRunId ? { [ATTACK_RUN_LABEL]: attackRunId } : {}),
           },
           mode: parsedArgs.settings?.modeId,
           promptFailure: "throw",

@@ -2092,6 +2092,8 @@ export const zhCN: TranslationResources = {
       rosterEmpty: "至少选择一个代理",
       disposable: "一次性目标",
       disposableHint: "允许代理写入并发送负载。当前阵容只读取。",
+      confinement:
+        "浏览器标签页只能打开 localhost 和目标主机。智能体被要求只读并留在这些主机内，但它们的 shell 没有沙箱隔离：命令仍然可以写入文件或访问其他主机。Claude 智能体运行时不带网页工具、文件编辑工具和你自己的 MCP 服务器；其他提供方会保留这些。",
       start: "开始攻击",
     },
     roster: {

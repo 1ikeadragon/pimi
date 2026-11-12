@@ -2153,6 +2153,8 @@ export const en = {
       rosterEmpty: "Pick at least one agent",
       disposable: "Disposable target",
       disposableHint: "Lets agents write and send load. The current roster only reads.",
+      confinement:
+        "Browser tabs can only open localhost and the target host. Agents are told to read only and to stay on those hosts, but their shell is not sandboxed: a command can still write files or reach other hosts. Claude agents run without web tools, file-editing tools and your own MCP servers; other providers keep theirs.",
       start: "Start attack",
     },
     roster: {

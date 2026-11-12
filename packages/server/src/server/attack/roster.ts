@@ -10,5 +10,3 @@ export const ATTACK_ROLE_PROFILES: Record<AttackRoleId, { profileId: string; lab
     label: "Secrets and config auditor",
   },
 };
-
-export const ATTACK_RUN_LABEL = "pimi.attack-run";

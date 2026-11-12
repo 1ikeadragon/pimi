@@ -2168,6 +2168,8 @@ export const fr: TranslationResources = {
       disposable: "Cible jetable",
       disposableHint:
         "Permet aux agents d’écrire et d’envoyer de la charge. La liste actuelle ne fait que lire.",
+      confinement:
+        "Les onglets du navigateur ne peuvent ouvrir que localhost et l’hôte cible. Les agents ont pour consigne de lire seulement et de rester sur ces hôtes, mais leur shell n’est pas isolé : une commande peut encore écrire des fichiers ou atteindre d’autres hôtes. Les agents Claude s’exécutent sans outils web, sans outils de modification de fichiers et sans vos propres serveurs MCP ; les autres fournisseurs gardent les leurs.",
       start: "Lancer l’attaque",
     },
     roster: {

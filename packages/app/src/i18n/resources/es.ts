@@ -2167,6 +2167,8 @@ export const es: TranslationResources = {
       rosterEmpty: "Elige al menos un agente",
       disposable: "Destino desechable",
       disposableHint: "Permite a los agentes escribir y enviar carga. La lista actual solo lee.",
+      confinement:
+        "Las pestañas del navegador solo pueden abrir localhost y el host de destino. Los agentes tienen instrucciones de solo leer y de no salir de esos hosts, pero su shell no está aislado: un comando aún puede escribir archivos o llegar a otros hosts. Los agentes de Claude se ejecutan sin herramientas web, sin herramientas de edición de archivos y sin tus propios servidores MCP; los demás proveedores conservan los suyos.",
       start: "Iniciar ataque",
     },
     roster: {
