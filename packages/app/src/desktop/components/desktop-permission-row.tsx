@@ -3,10 +3,12 @@ import { View, Text } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { Check } from "lucide-react-native";
 import { Button } from "@/components/ui/button";
+import { SettingAnchor } from "@/settings-index/anchor";
 import { settingsStyles } from "@/styles/settings";
 import type { DesktopPermissionStatus } from "@/desktop/permissions/desktop-permissions";
 
 export interface DesktopPermissionRowProps {
+  settingId: string;
   title: string;
   status: DesktopPermissionStatus | null;
   isRequesting: boolean;
@@ -25,6 +27,7 @@ const ThemedCheck = withUnistyles(Check, (theme) => ({
 }));
 
 export function DesktopPermissionRow({
+  settingId,
   title,
   status,
   isRequesting,
@@ -47,7 +50,7 @@ export function DesktopPermissionRow({
   );
 
   return (
-    <View style={rowStyle}>
+    <SettingAnchor id={settingId} style={rowStyle}>
       <View style={settingsStyles.rowContent}>
         <Text style={settingsStyles.rowTitle}>{title}</Text>
       </View>
@@ -66,7 +69,7 @@ export function DesktopPermissionRow({
           <Text style={styles.permissionDetailText}>{status?.detail}</Text>
         ) : null}
       </View>
-    </View>
+    </SettingAnchor>
   );
 }
 

@@ -289,13 +289,16 @@ export function filterAndRankBuiltInResults<Row extends CommandCenterRecentRow>(
 export function buildContributionSections(
   contributions: readonly CommandCenterContribution[],
   query: string,
+  /** Whether a row appears with nothing typed. Defaults to the row's own `visibility`. */
+  showsWhenEmpty: (contribution: CommandCenterContribution) => boolean = (contribution) =>
+    contribution.visibility === "always",
 ): CommandCenterResultSection[] {
   const groups = new Map<string, MutableCommandCenterResultSection>();
   const registryIndexById = new Map<string, number>();
   const hasQuery = Boolean(query.trim());
 
   for (const [index, contribution] of contributions.entries()) {
-    if (contribution.visibility === "query" && !hasQuery) continue;
+    if (!hasQuery && !showsWhenEmpty(contribution)) continue;
     let score: CommandCenterScore | undefined;
     if (hasQuery) {
       // The score is the filter: null means no token found a home, so the row is out.

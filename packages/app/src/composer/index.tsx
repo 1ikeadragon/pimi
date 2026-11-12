@@ -185,6 +185,7 @@ import { useComposerForgeAutoAttach } from "./forge-auto-attach";
 import { readClipboardImage } from "./clipboard-image";
 import { normalizeNativePastedImages, type NativePastedFile } from "./native-pasted-image";
 import { PluginResourceAttachmentPill, usePluginAttachmentPicker } from "@/plugins";
+import { SlashCommandCenterActions } from "@/command-center/slash-registration";
 import { resolveClientSlashCommand, type ClientSlashCommand } from "@/client-slash-commands";
 import {
   appendWorkspaceFileAttachment,
@@ -2718,6 +2719,14 @@ function ComposerContentImpl({
                 onResolvingChange={setIsForgeResolving}
               />
 
+              {inputMode === "chat" && agentId ? (
+                <SlashCommandCenterActions
+                  serverId={serverId}
+                  agentId={agentId}
+                  editingSession={editingSession}
+                  runClient={runClientSlashCommand}
+                />
+              ) : null}
               {/* MessageInput handles everything: text, dictation, attachments, all buttons */}
               <RenderProfile id="MessageInput">
                 <StableMessageInput

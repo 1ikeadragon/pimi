@@ -7,8 +7,16 @@ export interface CommandCenterIconProps {
 
 export type CommandCenterIcon = ComponentType<CommandCenterIconProps>;
 
+/**
+ * What a row is, declared by whoever registers it. The palette scopes (`>` commands and
+ * settings, `/` slash commands) select rows by this, never by guessing from the title.
+ * Omitted means "command".
+ */
+export type CommandCenterCategory = "command" | "setting" | "slash";
+
 interface CommandCenterContributionBase {
   id: string;
+  category?: CommandCenterCategory;
   group: string;
   groupRank: number;
   rank: number;
@@ -36,7 +44,19 @@ export type CommandCenterContribution =
         selected: boolean;
         testId?: string;
       };
+    })
+  | (CommandCenterContributionBase & {
+      presentation: {
+        kind: "setting";
+        /** [page, field]: the page the field lives on, then the field's own title. */
+        path: readonly [string, ...string[]];
+        icon?: CommandCenterIcon;
+      };
     });
+
+export function categoryOf(contribution: CommandCenterContribution): CommandCenterCategory {
+  return contribution.category ?? "command";
+}
 
 export interface CommandCenterContributionSnapshot {
   contributions: readonly CommandCenterContribution[];

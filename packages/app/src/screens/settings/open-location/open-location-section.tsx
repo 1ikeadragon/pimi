@@ -7,14 +7,7 @@ import {
   type PullRequestOpenLocation,
   type ServiceUrlBehavior,
 } from "@/hooks/use-settings";
-
-const SOURCES = [
-  "explorerFiles",
-  "diffs",
-  "chatFiles",
-  "diffFiles",
-  "subagents",
-] as const satisfies readonly (keyof OpenInSidePanePreferences)[];
+import { OPEN_LOCATION_SOURCES } from "./open-location.settings";
 
 const SERVICE_URL_BEHAVIORS: readonly ServiceUrlBehavior[] = ["ask", "in-app", "external"];
 
@@ -53,6 +46,7 @@ function OpenLocationRow({
   );
   return (
     <SettingsSelect
+      settingId={source === "pullRequests" ? "general.open.pullRequests" : `general.open.${source}`}
       label={t(`settings.layout.openInSidePane.sources.${source}.label`)}
       value={destination}
       options={options}
@@ -75,6 +69,7 @@ function ServiceUrlRow() {
   );
   return (
     <SettingsSelect
+      settingId="general.open.serviceUrls"
       label={t("settings.layout.openInSidePane.sources.serviceUrls.label")}
       value={settings.serviceUrlBehavior}
       options={options}
@@ -102,7 +97,7 @@ export function OpenLocationSection() {
   return (
     <SettingsSection title={t("settings.layout.openInSidePane.title")}>
       <SettingsCard>
-        {SOURCES.map((source) => (
+        {OPEN_LOCATION_SOURCES.map((source) => (
           <OpenLocationRow
             key={source}
             source={source}

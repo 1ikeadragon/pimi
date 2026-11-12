@@ -95,6 +95,15 @@ import { formatVersionWithPrefix } from "@/desktop/updates/desktop-updates";
 import { resolveAppVersion } from "@/utils/app-version";
 import { openChangelog } from "@/changelog";
 import { useAppDiagnosticStore } from "@/diagnostics/store";
+import { SettingAnchor } from "@/settings-index/anchor";
+import {
+  APP_SETTINGS_PAGES,
+  HOST_SETTINGS_PAGES,
+  hostSettingsPageTitle,
+  isAppSettingsPageAvailable,
+  type AppPageDeclaration,
+  type HostPageDeclaration,
+} from "@/settings-index/sections";
 import { settingsStyles } from "@/styles/settings";
 import { THINKING_TONE_NATIVE_PCM_BASE64 } from "@/utils/thinking-tone.native-pcm";
 import { useVoiceAudioEngineOptional } from "@/contexts/voice-context";
@@ -147,125 +156,81 @@ import {
   useSettingsSidebarScroll,
 } from "@/navigation/settings-presentation";
 import { returnFromSettings, type SettingsView } from "@/navigation/settings-navigation";
-import { isNative, isWeb } from "@/constants/platform";
+import { isNative } from "@/constants/platform";
 import { useOpenOnboarding } from "@/onboarding";
 
 // ---------------------------------------------------------------------------
 // View model
 // ---------------------------------------------------------------------------
 
-interface SidebarSectionItem {
-  id: SettingsSectionSlug;
-  labelKey: string;
-  icon: ComponentType<{ size: number; color: string; strokeWidth?: number }>;
-  desktopOnly?: boolean;
-  webOnly?: boolean;
-  hardwareKeyboardOnly?: boolean;
+type SettingsIcon = ComponentType<{ size: number; color: string; strokeWidth?: number }>;
+
+type SidebarSectionItem = AppPageDeclaration & {
+  icon: SettingsIcon;
   /** The page body, for pages that need nothing from the settings screen. */
   Content?: ComponentType;
-}
+};
 
-const SIDEBAR_SECTION_ITEMS: SidebarSectionItem[] = [
-  { id: "general", labelKey: "settings.sections.general", icon: Settings },
-  {
-    id: "appearance",
-    labelKey: "settings.sections.appearance",
-    icon: Palette,
-    Content: AppearanceSection,
-  },
-  {
-    id: "sidebar",
-    labelKey: "settings.sections.sidebar",
-    icon: PanelLeft,
-    Content: SidebarNavSection,
-  },
-  { id: "chat", labelKey: "settings.sections.chat", icon: MessageSquare, Content: ChatSection },
-  {
-    id: "terminal",
-    labelKey: "settings.sections.terminal",
-    icon: SquareTerminal,
-    Content: TerminalSection,
-  },
-  {
-    id: "browser",
-    labelKey: "settings.sections.browser",
-    icon: Globe,
-    desktopOnly: true,
-    Content: BrowserDataSection,
-  },
-  {
-    id: "editor",
-    labelKey: "settings.sections.editor",
-    icon: Code2,
-    webOnly: true,
-    Content: EditorSection,
-  },
-  { id: "files", labelKey: "settings.sections.files", icon: Files, Content: FilesSection },
-  {
-    id: "shortcuts",
-    labelKey: "settings.sections.shortcuts",
-    icon: Keyboard,
-    hardwareKeyboardOnly: true,
-    Content: KeyboardShortcutsSection,
-  },
-  {
-    id: "integrations",
-    labelKey: "settings.sections.integrations",
-    icon: Puzzle,
-    desktopOnly: true,
-    Content: IntegrationsSection,
-  },
-  {
-    id: "notifications",
-    labelKey: "settings.sections.notifications",
-    icon: Bell,
-    desktopOnly: true,
-    Content: DesktopNotificationsSection,
-  },
-  {
-    id: "permissions",
-    labelKey: "settings.sections.permissions",
-    icon: Shield,
-    desktopOnly: true,
-    Content: DesktopPermissionsSection,
-  },
-  { id: "diagnostics", labelKey: "settings.sections.diagnostics", icon: Stethoscope },
-  { id: "network", labelKey: "settings.sections.network", icon: Activity },
-  { id: "about", labelKey: "settings.sections.about", icon: Info },
-];
+const SECTION_ICONS: Record<SettingsSectionSlug, SettingsIcon> = {
+  general: Settings,
+  appearance: Palette,
+  sidebar: PanelLeft,
+  chat: MessageSquare,
+  terminal: SquareTerminal,
+  browser: Globe,
+  editor: Code2,
+  files: Files,
+  shortcuts: Keyboard,
+  integrations: Puzzle,
+  notifications: Bell,
+  permissions: Shield,
+  diagnostics: Stethoscope,
+  network: Activity,
+  about: Info,
+};
+
+const SECTION_CONTENT: Partial<Record<SettingsSectionSlug, ComponentType>> = {
+  appearance: AppearanceSection,
+  sidebar: SidebarNavSection,
+  chat: ChatSection,
+  terminal: TerminalSection,
+  browser: BrowserDataSection,
+  editor: EditorSection,
+  files: FilesSection,
+  shortcuts: KeyboardShortcutsSection,
+  integrations: IntegrationsSection,
+  notifications: DesktopNotificationsSection,
+  permissions: DesktopPermissionsSection,
+};
+
+// Titles, availability and search words come from the page catalog, which the palette indexes too.
+const SIDEBAR_SECTION_ITEMS: SidebarSectionItem[] = APP_SETTINGS_PAGES.map((page) =>
+  Object.assign({}, page, { icon: SECTION_ICONS[page.id], Content: SECTION_CONTENT[page.id] }),
+);
 
 const PIMI_PREFERENCES = new Set<SettingsSectionSlug>(["general", "appearance", "sidebar", "chat"]);
 
-function isSectionAvailable(
-  item: SidebarSectionItem,
-  isDesktopApp: boolean,
-  hardwareKeyboardPresent: boolean,
-): boolean {
-  if (item.hardwareKeyboardOnly && !hardwareKeyboardPresent) return false;
-  return (!item.desktopOnly || isDesktopApp) && (!item.webOnly || isWeb);
-}
+type HostSectionItem = HostPageDeclaration & { icon: SettingsIcon };
 
-interface HostSectionItem {
-  id: HostSectionSlug;
-  labelKey: string;
-  icon: ComponentType<{ size: number; color: string; strokeWidth?: number }>;
-}
+const HOST_SECTION_ICONS: Record<HostSectionSlug, SettingsIcon> = {
+  host: Server,
+  projects: FolderGit2,
+  connections: Network,
+  "pair-device": Smartphone,
+  agents: Bot,
+  metadata: Sparkles,
+  voice: Mic,
+  workspaces: FolderGit2,
+  providers: Boxes,
+  usage: Gauge,
+  terminals: SquareTerminal,
+  editor: Code2,
+  plugins: Blocks,
+};
 
-const HOST_SECTION_ITEMS: HostSectionItem[] = [
-  { id: "host", labelKey: "settings.hostSections.host", icon: Server },
-  { id: "projects", labelKey: "settings.hostSections.projects", icon: FolderGit2 },
-  { id: "connections", labelKey: "settings.hostSections.connections", icon: Network },
-  { id: "pair-device", labelKey: "openProject.tiles.pairDevice.title", icon: Smartphone },
-  { id: "agents", labelKey: "settings.hostSections.agents", icon: Bot },
-  { id: "metadata", labelKey: "settings.hostSections.metadata", icon: Sparkles },
-  { id: "voice", labelKey: "settings.hostSections.voice", icon: Mic },
-  { id: "workspaces", labelKey: "settings.hostSections.workspaces", icon: FolderGit2 },
-  { id: "providers", labelKey: "settings.hostSections.providers", icon: Boxes },
-  { id: "usage", labelKey: "settings.hostSections.usage", icon: Gauge },
-  { id: "terminals", labelKey: "settings.hostSections.terminals", icon: SquareTerminal },
-  { id: "editor", labelKey: "settings.hostSections.editor", icon: Code2 },
-  { id: "plugins", labelKey: "settings.hostSections.plugins", icon: Blocks },
-];
+const HOST_SECTION_ITEMS: HostSectionItem[] = HOST_SETTINGS_PAGES.map((page) =>
+  Object.assign({}, page, { icon: HOST_SECTION_ICONS[page.id] }),
+);
 
 const PIMI_HOST_ORDER: HostSectionSlug[] = [
   "providers",
@@ -285,11 +250,6 @@ const PIMI_HOST_ORDER: HostSectionSlug[] = [
 const PIMI_HOST_SECTIONS = PIMI_HOST_ORDER.map(
   (id) => HOST_SECTION_ITEMS.find((item) => item.id === id)!,
 );
-
-function hostSectionLabel(item: HostSectionItem, isPimi: boolean, t: TFunction): string {
-  if (isPimi && item.id === "voice") return "Voice & dictation";
-  return t(item.labelKey);
-}
 
 function renderHostSettingsContent(
   view: Extract<SettingsView, { kind: "host" }>,
@@ -406,7 +366,7 @@ function GeneralSection({ settings, handleLanguageChange }: GeneralSectionProps)
   return (
     <SettingsSection title={t("settings.general.title")}>
       <View style={settingsStyles.card}>
-        <View style={settingsStyles.row}>
+        <SettingAnchor id="general.language" style={settingsStyles.row}>
           <View style={settingsStyles.rowContent}>
             <Text style={settingsStyles.rowTitle}>{t("settings.general.language.label")}</Text>
             <Text style={settingsStyles.rowHint}>{t("settings.general.language.description")}</Text>
@@ -427,7 +387,7 @@ function GeneralSection({ settings, handleLanguageChange }: GeneralSectionProps)
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-        </View>
+        </SettingAnchor>
         {isNative ? null : <ShowSetupAgainRow />}
       </View>
     </SettingsSection>
@@ -438,7 +398,7 @@ function ShowSetupAgainRow() {
   const { t } = useTranslation();
   const openOnboarding = useOpenOnboarding();
   return (
-    <View style={[settingsStyles.row, settingsStyles.rowBorder]}>
+    <SettingAnchor id="general.setup" style={[settingsStyles.row, settingsStyles.rowBorder]}>
       <View style={settingsStyles.rowContent}>
         <Text style={settingsStyles.rowTitle}>{t("settings.general.setup.label")}</Text>
         <Text style={settingsStyles.rowHint}>{t("settings.general.setup.description")}</Text>
@@ -446,7 +406,7 @@ function ShowSetupAgainRow() {
       <Button variant="secondary" onPress={openOnboarding ?? undefined} disabled={!openOnboarding}>
         {t("settings.general.setup.action")}
       </Button>
-    </View>
+    </SettingAnchor>
   );
 }
 
@@ -471,7 +431,7 @@ function DiagnosticsSection({
   return (
     <SettingsSection title={t("settings.diagnostics.title")}>
       <View style={settingsStyles.card}>
-        <View style={settingsStyles.row} testID="app-diagnostic-row">
+        <SettingAnchor id="diagnostics.app" style={settingsStyles.row} testID="app-diagnostic-row">
           <View style={settingsStyles.rowContent}>
             <Text style={settingsStyles.rowTitle}>{t("settings.diagnostics.app.rowTitle")}</Text>
             <Text style={settingsStyles.rowHint}>{t("settings.diagnostics.app.rowHint")}</Text>
@@ -479,8 +439,8 @@ function DiagnosticsSection({
           <Button variant="secondary" onPress={openAppDiagnostic}>
             {t("settings.diagnostics.app.run")}
           </Button>
-        </View>
-        <View style={settingsStyles.row}>
+        </SettingAnchor>
+        <SettingAnchor id="diagnostics.audio" style={settingsStyles.row}>
           <View style={settingsStyles.rowContent}>
             <Text style={settingsStyles.rowTitle}>{t("settings.diagnostics.testAudio")}</Text>
             {playbackTestResult ? (
@@ -496,7 +456,7 @@ function DiagnosticsSection({
               ? t("settings.diagnostics.playing")
               : t("settings.diagnostics.playTest")}
           </Button>
-        </View>
+        </SettingAnchor>
       </View>
     </SettingsSection>
   );
@@ -515,13 +475,13 @@ function AboutSection({ appVersion, appVersionText, isDesktopApp }: AboutSection
     <>
       <SettingsSection title={t("settings.about.title")}>
         <View style={settingsStyles.card}>
-          <View style={settingsStyles.row}>
+          <SettingAnchor id="about.version" style={settingsStyles.row}>
             <View style={settingsStyles.rowContent}>
               <Text style={settingsStyles.rowTitle}>{t("settings.about.appVersion")}</Text>
               <Text style={settingsStyles.rowHint}>{t("settings.about.thisDevice")}</Text>
             </View>
             <Text style={styles.aboutValue}>{appVersionText}</Text>
-          </View>
+          </SettingAnchor>
           <WhatsNewRow />
           {isDesktopApp ? <DesktopAppUpdateRow isPimi={isPimi} /> : null}
         </View>
@@ -560,25 +520,27 @@ function WhatsNewRow() {
   const { theme } = useUnistyles();
 
   return (
-    <Pressable
-      style={[settingsStyles.row, settingsStyles.rowBorder]}
-      onPress={openChangelog}
-      accessibilityRole="button"
-      testID="settings-whats-new"
-    >
-      {({ hovered }: PressableStateCallbackType & { hovered?: boolean }) => (
-        <>
-          <View style={settingsStyles.rowContent}>
-            <Text style={settingsStyles.rowTitle}>{t("changelog.title")}</Text>
-            <Text style={settingsStyles.rowHint}>{t("settings.about.whatsNewHint")}</Text>
-          </View>
-          <ChevronRight
-            size={theme.iconSize.sm}
-            color={hovered ? theme.colors.foreground : theme.colors.foregroundMuted}
-          />
-        </>
-      )}
-    </Pressable>
+    <SettingAnchor id="about.whatsNew" style={settingsStyles.rowBorder}>
+      <Pressable
+        style={settingsStyles.row}
+        onPress={openChangelog}
+        accessibilityRole="button"
+        testID="settings-whats-new"
+      >
+        {({ hovered }: PressableStateCallbackType & { hovered?: boolean }) => (
+          <>
+            <View style={settingsStyles.rowContent}>
+              <Text style={settingsStyles.rowTitle}>{t("changelog.title")}</Text>
+              <Text style={settingsStyles.rowHint}>{t("settings.about.whatsNewHint")}</Text>
+            </View>
+            <ChevronRight
+              size={theme.iconSize.sm}
+              color={hovered ? theme.colors.foreground : theme.colors.foregroundMuted}
+            />
+          </>
+        )}
+      </Pressable>
+    </SettingAnchor>
   );
 }
 
@@ -778,7 +740,10 @@ function DesktopAppUpdateRow({ isPimi }: { isPimi: boolean }) {
   return (
     <>
       {!isPimi ? (
-        <View style={[settingsStyles.row, settingsStyles.rowBorder]}>
+        <SettingAnchor
+          id="about.releaseChannel"
+          style={[settingsStyles.row, settingsStyles.rowBorder]}
+        >
           <View style={settingsStyles.rowContent}>
             <Text style={settingsStyles.rowTitle}>{t("settings.about.releaseChannel.label")}</Text>
             <Text style={settingsStyles.rowHint}>
@@ -790,9 +755,9 @@ function DesktopAppUpdateRow({ isPimi }: { isPimi: boolean }) {
             onValueChange={handleReleaseChannelChange}
             options={releaseChannelOptions}
           />
-        </View>
+        </SettingAnchor>
       ) : null}
-      <View style={[settingsStyles.row, settingsStyles.rowBorder]}>
+      <SettingAnchor id="about.updates" style={[settingsStyles.row, settingsStyles.rowBorder]}>
         <View style={settingsStyles.rowContent}>
           <Text style={settingsStyles.rowTitle}>{t("settings.about.updates.label")}</Text>
           <Text style={settingsStyles.rowHint}>{statusText}</Text>
@@ -821,7 +786,7 @@ function DesktopAppUpdateRow({ isPimi }: { isPimi: boolean }) {
             {installLabel}
           </Button>
         </View>
-      </View>
+      </SettingAnchor>
     </>
   );
 }
@@ -1052,7 +1017,7 @@ function SettingsSidebar({
   const hardwareKeyboardPresent = useHardwareKeyboardPresent();
   const isPimi = Boolean(getDesktopHost()?.showPimiWorkspace);
   const items = SIDEBAR_SECTION_ITEMS.filter((item) =>
-    isSectionAvailable(item, isDesktopApp, hardwareKeyboardPresent),
+    isAppSettingsPageAvailable(item, { isDesktopApp, hardwareKeyboardPresent }),
   );
   const insets = useSafeAreaInsets();
   const isDesktop = layout === "desktop";
@@ -1075,7 +1040,7 @@ function SettingsSidebar({
     <SidebarSectionButton
       key={item.id}
       itemId={item.id}
-      label={t(item.labelKey)}
+      label={t(item.titleKey)}
       icon={item.icon}
       isSelected={selectedSectionId === item.id}
       onSelect={onSelectSection}
@@ -1102,7 +1067,7 @@ function SettingsSidebar({
             <SidebarHostSectionButton
               key={item.id}
               itemId={item.id}
-              label={hostSectionLabel(item, isPimi, t)}
+              label={hostSettingsPageTitle(item.id, t)}
               icon={item.icon}
               isSelected={selectedHostSection === item.id}
               onSelect={onSelectHostSection}
@@ -1359,13 +1324,11 @@ export default function SettingsScreen({ view }: SettingsScreenProps) {
     if (view.kind === "plugin") return pluginDisplayName;
     if (view.kind === "host") {
       const item = HOST_SECTION_ITEMS.find((s) => s.id === view.section);
-      return item
-        ? hostSectionLabel(item, Boolean(getDesktopHost()?.showPimiWorkspace), t)
-        : undefined;
+      return item ? hostSettingsPageTitle(item.id, t) : undefined;
     }
     if (view.kind === "section") {
       const item = SIDEBAR_SECTION_ITEMS.find((s) => s.id === view.section);
-      return item ? t(item.labelKey) : undefined;
+      return item ? t(item.titleKey) : undefined;
     }
     if (view.kind === "project") {
       return t("settings.projects");
@@ -1399,7 +1362,8 @@ export default function SettingsScreen({ view }: SettingsScreenProps) {
     }
     if (view.kind === "section") {
       const item = SIDEBAR_SECTION_ITEMS.find((candidate) => candidate.id === view.section);
-      if (!item || !isSectionAvailable(item, isDesktopApp, hardwareKeyboardPresent)) return null;
+      if (!item || !isAppSettingsPageAvailable(item, { isDesktopApp, hardwareKeyboardPresent }))
+        return null;
       switch (view.section) {
         case "general":
           return (

@@ -6,6 +6,7 @@ import { useToast } from "@/contexts/toast-context";
 import { getDesktopHost } from "@/desktop/host";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
 import { useBrowserStore } from "@/desktop/browser/store";
+import { SettingAnchor } from "@/settings-index/anchor";
 import { settingsStyles } from "@/styles/settings";
 import { confirmDialog } from "@/utils/confirm-dialog";
 
@@ -55,7 +56,7 @@ export function BrowserDataSection() {
   return (
     <SettingsSection title={t("settings.general.browserData.title")}>
       <View style={settingsStyles.card}>
-        <View style={settingsStyles.row}>
+        <SettingAnchor id="browser.siteData" style={settingsStyles.row}>
           <View style={settingsStyles.rowContent}>
             <Text style={settingsStyles.rowTitle}>
               {t("settings.general.browserData.siteData")}
@@ -72,7 +73,7 @@ export function BrowserDataSection() {
           >
             {clearButtonLabel}
           </Button>
-        </View>
+        </SettingAnchor>
       </View>
     </SettingsSection>
   );

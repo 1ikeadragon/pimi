@@ -30,6 +30,7 @@ import {
 import { DEFAULT_MONO_FONT_STACK, DEFAULT_UI_FONT_STACK } from "@/styles/theme";
 import { isNative } from "@/constants/platform";
 import { settingsStyles } from "@/styles/settings";
+import { SettingAnchor } from "@/settings-index/anchor";
 import { AppearancePreview } from "./appearance-preview";
 
 // Platform default stacks can be the bare native tokens ("normal"/"monospace");
@@ -53,6 +54,7 @@ function sizeDraftToOverride(value: string): number | undefined {
 // ---------------------------------------------------------------------------
 
 interface FontFamilyRowProps {
+  settingId: string;
   title: string;
   hint: string;
   accessibilityLabel: string;
@@ -65,6 +67,7 @@ interface FontFamilyRowProps {
 }
 
 function FontFamilyRow({
+  settingId,
   title,
   hint,
   accessibilityLabel,
@@ -90,7 +93,7 @@ function FontFamilyRow({
   }, [value]);
 
   return (
-    <View style={withBorder ? styles.rowWithBorder : settingsStyles.row}>
+    <SettingAnchor id={settingId} style={withBorder ? styles.rowWithBorder : settingsStyles.row}>
       <View style={settingsStyles.rowContent}>
         <Text style={settingsStyles.rowTitle}>{title}</Text>
         <Text style={settingsStyles.rowHint}>{hint}</Text>
@@ -109,11 +112,12 @@ function FontFamilyRow({
         style={styles.fontFamilyInput}
         accessibilityLabel={accessibilityLabel}
       />
-    </View>
+    </SettingAnchor>
   );
 }
 
 interface FontSizeRowProps {
+  settingId: string;
   title: string;
   hint: string;
   accessibilityLabel: string;
@@ -124,6 +128,7 @@ interface FontSizeRowProps {
 }
 
 function FontSizeRow({
+  settingId,
   title,
   hint,
   accessibilityLabel,
@@ -133,7 +138,7 @@ function FontSizeRow({
   onCommit,
 }: FontSizeRowProps) {
   return (
-    <View style={withBorder ? styles.rowWithBorder : settingsStyles.row}>
+    <SettingAnchor id={settingId} style={withBorder ? styles.rowWithBorder : settingsStyles.row}>
       <View style={settingsStyles.rowContent}>
         <Text style={settingsStyles.rowTitle}>{title}</Text>
         <Text style={settingsStyles.rowHint}>{hint}</Text>
@@ -152,7 +157,7 @@ function FontSizeRow({
         />
         <Text style={styles.unit}>px</Text>
       </View>
-    </View>
+    </SettingAnchor>
   );
 }
 
@@ -189,7 +194,7 @@ function ContentWidthRow({ value, onChange }: ContentWidthRowProps) {
   }, [onChange]);
 
   return (
-    <View style={settingsStyles.row}>
+    <SettingAnchor id="appearance.contentWidth" style={settingsStyles.row}>
       <View style={settingsStyles.rowContent}>
         <Text style={settingsStyles.rowTitle}>{t("settings.appearance.layout.contentWidth")}</Text>
         <Text style={settingsStyles.rowHint}>
@@ -219,7 +224,7 @@ function ContentWidthRow({ value, onChange }: ContentWidthRowProps) {
         />
         <Text style={styles.unit}>px</Text>
       </View>
-    </View>
+    </SettingAnchor>
   );
 }
 
@@ -258,7 +263,7 @@ function SyntaxRow({ value, onChange }: SyntaxRowProps) {
   const { t } = useTranslation();
   const selectedLabel = syntaxLabelForId(value);
   return (
-    <View style={settingsStyles.row}>
+    <SettingAnchor id="appearance.syntaxTheme" style={settingsStyles.row}>
       <View style={settingsStyles.rowContent}>
         <Text style={settingsStyles.rowTitle}>
           {t("settings.appearance.syntax.highlightTheme")}
@@ -286,7 +291,7 @@ function SyntaxRow({ value, onChange }: SyntaxRowProps) {
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
-    </View>
+    </SettingAnchor>
   );
 }
 
@@ -427,14 +432,15 @@ export function AppearanceSection() {
   return (
     <View>
       <SettingsSection title={t("settings.appearance.theme.title")}>
-        <View style={[settingsStyles.card, styles.themeCard]}>
+        <SettingAnchor id="appearance.theme" style={[settingsStyles.card, styles.themeCard]}>
           <ThemePicker />
-        </View>
+        </SettingAnchor>
       </SettingsSection>
       <SettingsSection title={t("settings.appearance.fonts.title")}>
         <View style={settingsStyles.card}>
           {showInterfaceFontFamilyRow ? (
             <FontFamilyRow
+              settingId="appearance.interfaceFont"
               title={t("settings.appearance.fonts.interfaceFont")}
               hint={t("settings.appearance.fonts.interfaceFontHint")}
               accessibilityLabel={t("settings.appearance.fonts.interfaceFontAccessibility")}
@@ -447,6 +453,7 @@ export function AppearanceSection() {
             />
           ) : null}
           <FontSizeRow
+            settingId="appearance.interfaceSize"
             title={t("settings.appearance.fonts.interfaceSize")}
             hint={t("settings.appearance.fonts.interfaceSizeHint")}
             accessibilityLabel={t("settings.appearance.fonts.interfaceSizeAccessibility")}
@@ -456,6 +463,7 @@ export function AppearanceSection() {
             onCommit={commitUiBaseSize}
           />
           <FontSizeRow
+            settingId="appearance.contentSize"
             title={t("settings.appearance.fonts.contentSize")}
             hint={t("settings.appearance.fonts.contentSizeHint")}
             accessibilityLabel={t("settings.appearance.fonts.contentSizeAccessibility")}
@@ -464,6 +472,7 @@ export function AppearanceSection() {
             onCommit={commitContentSize}
           />
           <FontFamilyRow
+            settingId="appearance.codeFont"
             title={t("settings.appearance.fonts.codeFont")}
             hint={t("settings.appearance.fonts.codeFontHint")}
             accessibilityLabel={t("settings.appearance.fonts.codeFontAccessibility")}
@@ -475,6 +484,7 @@ export function AppearanceSection() {
             onCommit={commitMonoFontFamily}
           />
           <FontSizeRow
+            settingId="appearance.codeSize"
             title={t("settings.appearance.fonts.codeSize")}
             hint={t("settings.appearance.fonts.codeSizeHint")}
             accessibilityLabel={t("settings.appearance.fonts.codeSizeAccessibility")}

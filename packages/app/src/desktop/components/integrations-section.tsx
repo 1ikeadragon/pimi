@@ -58,6 +58,7 @@ export function CommandLineRow({
   const { t } = useTranslation();
   return (
     <SettingsRow
+      settingId="integrations.cli"
       label={t("settings.integrations.commandLine.title")}
       hint={t("settings.integrations.commandLine.description")}
     >

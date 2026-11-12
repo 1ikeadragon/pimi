@@ -69,6 +69,7 @@ export function DesktopPermissionsSection() {
     <SettingsSection title={t("settings.permissions.title")} trailing={refreshButton}>
       <View style={settingsStyles.card}>
         <DesktopPermissionRow
+          settingId="permissions.microphone"
           title={t("settings.permissions.microphone")}
           status={snapshot?.microphone ?? null}
           isRequesting={requestingPermission === "microphone"}

@@ -27,6 +27,7 @@ import {
   type SidebarSection,
 } from "@/sidebar-nav/model";
 import { useSidebarNavItems } from "@/sidebar-nav/use-sidebar-nav-items";
+import { SettingAnchor } from "@/settings-index/anchor";
 import { settingsStyles } from "@/styles/settings";
 import { ICON_SIZE, type Theme } from "@/styles/theme";
 
@@ -162,7 +163,7 @@ function SidebarItemsCard({ section }: { section: SidebarSection }): ReactElemen
       info={t(SECTION_COPY[section].info)}
       testID={`sidebar-nav-section-${section}`}
     >
-      <View style={settingsStyles.card}>
+      <SettingAnchor id={`sidebar.${section}`} style={settingsStyles.card}>
         {items.map((item, index) => (
           <SidebarNavRow
             key={item.key}
@@ -173,7 +174,7 @@ function SidebarItemsCard({ section }: { section: SidebarSection }): ReactElemen
             onSetVisible={setVisible}
           />
         ))}
-      </View>
+      </SettingAnchor>
     </SettingsSection>
   );
 }

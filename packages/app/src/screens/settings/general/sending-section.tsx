@@ -41,6 +41,7 @@ export function SendingSection() {
       <SettingsCard>
         {shortcutsAvailable ? (
           <SettingsSelect
+            settingId="general.sendShortcut"
             label={t("settings.general.sendShortcut.label")}
             value={settings.sendShortcut}
             options={shortcutOptions}
@@ -48,6 +49,7 @@ export function SendingSection() {
           />
         ) : null}
         <SettingsSelect
+          settingId="general.defaultSend"
           label={t("settings.general.defaultSend.label")}
           hint={t(
             shortcutsAvailable && settings.sendShortcut === "mod-enter"

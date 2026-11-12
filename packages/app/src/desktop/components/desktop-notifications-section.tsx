@@ -11,6 +11,7 @@ import { useDesktopPermissions } from "@/desktop/permissions/use-desktop-permiss
 import { useDesktopSettings } from "@/desktop/settings/desktop-settings";
 import { getDesktopHost } from "@/desktop/host";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
+import { SettingAnchor } from "@/settings-index/anchor";
 import { settingsStyles } from "@/styles/settings";
 
 const ThemedRotateCw = withUnistyles(RotateCw, (theme) => ({
@@ -90,6 +91,7 @@ export function DesktopNotificationsSection() {
     <SettingsSection title={t("settings.notifications.title")} trailing={refreshButton}>
       <View style={settingsStyles.card}>
         <DesktopPermissionRow
+          settingId="notifications.permission"
           title={t("settings.notifications.permission")}
           status={snapshot?.notifications ?? null}
           isRequesting={requestingPermission === "notifications"}
@@ -97,14 +99,20 @@ export function DesktopNotificationsSection() {
           labels={permissionLabels}
         />
         {pimi ? (
-          <View style={[settingsStyles.row, settingsStyles.rowBorder]}>
+          <SettingAnchor
+            id="notifications.task"
+            style={[settingsStyles.row, settingsStyles.rowBorder]}
+          >
             <View style={settingsStyles.rowContent}>
               <Text style={settingsStyles.rowTitle}>{t("settings.notifications.taskTitle")}</Text>
               <Text style={settingsStyles.rowHint}>{t("settings.notifications.taskHint")}</Text>
             </View>
-          </View>
+          </SettingAnchor>
         ) : null}
-        <View style={[settingsStyles.row, settingsStyles.rowBorder]}>
+        <SettingAnchor
+          id="notifications.sound"
+          style={[settingsStyles.row, settingsStyles.rowBorder]}
+        >
           <View style={settingsStyles.rowContent}>
             <Text style={settingsStyles.rowTitle}>{t("settings.notifications.playSound")}</Text>
             <Text style={settingsStyles.rowHint}>{t("settings.notifications.playSoundHint")}</Text>
@@ -116,8 +124,11 @@ export function DesktopNotificationsSection() {
             accessibilityLabel={t("settings.notifications.playSound")}
             testID="desktop-notifications-play-sound-switch"
           />
-        </View>
-        <View style={[settingsStyles.row, settingsStyles.rowBorder]}>
+        </SettingAnchor>
+        <SettingAnchor
+          id="notifications.test"
+          style={[settingsStyles.row, settingsStyles.rowBorder]}
+        >
           <View style={settingsStyles.rowContent}>
             <Text style={settingsStyles.rowTitle}>{t("settings.notifications.test")}</Text>
             <Text style={settingsStyles.rowHint}>
@@ -135,7 +146,7 @@ export function DesktopNotificationsSection() {
               ? t("settings.notifications.sending")
               : t("settings.notifications.send")}
           </Button>
-        </View>
+        </SettingAnchor>
       </View>
       {testNotificationState.status === "success" ? (
         <Alert

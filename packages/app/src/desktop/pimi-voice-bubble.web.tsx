@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, Text, View, type ViewStyle } from "react-native";
 import { PimiMascot } from "@/components/icons/pimi-mascot";
 import { StyleSheet } from "react-native-unistyles";
-import type { CommandCenterContribution } from "@/command-center/contributions";
+import { categoryOf, type CommandCenterContribution } from "@/command-center/contributions";
 import { useCommandCenterContributions } from "@/command-center/provider";
 import { DensityIcon } from "@/components/ui/density-icon";
 import { Button } from "@/components/ui/button";
@@ -151,7 +151,7 @@ const WORKSPACE_VIEWS: Partial<Record<PimiVoiceView, PimiDestination>> = {
 
 function commandTitle(command: CommandCenterContribution): string {
   const entry = command.presentation;
-  return entry.kind === "choice"
+  return entry.kind !== "action"
     ? entry.path.join(" → ")
     : [entry.sectionTitle, entry.title, entry.subtitle].filter(Boolean).join(" · ");
 }
@@ -499,7 +499,9 @@ function DesktopVoiceBubble({
         return;
       }
       const wantsChat = isExplicitVoiceChatRequest(transcript);
+      // Settings and slash commands are for the palette; the voice agent is offered commands only.
       const commands = contributions
+        .filter((entry) => categoryOf(entry) === "command")
         .filter(({ id }) => wantsChat || !id.endsWith("tab:new-agent"))
         .slice(0, PIMI_VOICE_COMMAND_LIMIT);
       commandRunning.current = true;

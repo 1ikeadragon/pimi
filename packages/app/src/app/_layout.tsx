@@ -37,6 +37,7 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { AppearanceProvider } from "@/appearance/provider";
 import { CommandCenter } from "@/command-center/command-center";
 import { CommandCenterRootActions } from "@/command-center/root-registration";
+import { CommandCenterSettingsActions } from "@/command-center/settings-registration";
 import { CommandCenterProvider } from "@/command-center/provider";
 import { CommandCenterWorkspaceActions } from "@/command-center/workspace-registration";
 import { PluginCommandCenterActions } from "@/plugins/command-center/registration";
@@ -562,6 +563,7 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
         <LegacyAgentSkillsMigration />
         <WorkspaceSetupSuggestion inWorkspace={isWorkspaceRoute} />
         <CommandCenterRootActions />
+        <CommandCenterSettingsActions />
         <CommandCenterWorkspaceActions />
         <PluginCommandCenterActions />
         <WorkspacePinShortcutHandler />

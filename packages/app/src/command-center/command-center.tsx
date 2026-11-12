@@ -24,6 +24,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { Check, ChevronRight, Folder, Search, X } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { BottomSheetFlatList, type BottomSheetFlatListMethods } from "@gorhom/bottom-sheet";
@@ -68,6 +69,12 @@ import {
 import { focusWithRetries } from "@/utils/web-focus";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
 import { shortenPath } from "@/utils/shorten-path";
+import {
+  resolvePaletteMode,
+  selectModeContributions,
+  showsWhenEmpty,
+  type PaletteMode,
+} from "./modes";
 import { projectIconPlaceholderLabelFromDisplayName } from "@/utils/project-display-name";
 import {
   COMMAND_CENTER_LINE_HEIGHT,
@@ -277,7 +284,12 @@ function useBuiltInSections(open: boolean, query: string): CommandCenterResultSe
 
 interface CommandCenterState {
   open: boolean;
+  /** The chip the palette was opened with, if any. Typed prefixes change `mode`, not this. */
   scope: CommandCenterScope;
+  /** What is being searched: the scope's, or the one a typed prefix chose. */
+  mode: PaletteMode;
+  /** The query without its mode prefix, which is what ranking and highlighting work on. */
+  searchText: string;
   /** Changes when the query is replaced from outside, so the uncontrolled input remounts on it. */
   seedEpoch: number;
   clearScope(): void;
@@ -299,27 +311,45 @@ interface CommandCenterState {
 }
 
 function formatCodeSearchStatus(
-  scope: CommandCenterScope,
+  mode: PaletteMode,
   search: ReturnType<typeof useWorkspaceCodeSearch>,
 ): string | null {
-  if (scope !== "code" || !search.mode) return null;
-  const mode = search.mode === "hybrid" ? "Hybrid" : "Keyword";
+  if (mode !== "code" || !search.mode) return null;
+  const kind = search.mode === "hybrid" ? "Hybrid" : "Keyword";
   const partial = search.partial ? " · Partial results" : "";
-  return `${mode} results · ${search.filesIndexed} files indexed${partial}`;
+  return `${kind} results · ${search.filesIndexed} files indexed${partial}`;
 }
 
-function commandCenterPlaceholder(
-  scope: CommandCenterScope,
-  filePlaceholder: string,
-  fallback: string,
-) {
-  if (scope === "code") return "Search code across this workspace";
-  if (scope === "files") return filePlaceholder;
-  return fallback;
+function commandCenterPlaceholder(mode: PaletteMode, t: TFunction): string {
+  switch (mode) {
+    case "code":
+      return "Search code across this workspace";
+    case "files":
+      return t("shell.commandCenter.filePlaceholder");
+    case "commands":
+      return t("shell.commandCenter.commandsPlaceholder");
+    case "slash":
+      return t("shell.commandCenter.slashPlaceholder");
+    case "all":
+      return t("shell.commandCenter.placeholder");
+  }
 }
 
-function emptyMessage(state: CommandCenterState, noMatches: string): string {
-  if (state.scope !== "code" || state.query.trim()) return noMatches;
+function scopeChipLabel(scope: Exclude<CommandCenterScope, null>, t: TFunction): string {
+  switch (scope) {
+    case "code":
+      return "Code search";
+    case "files":
+      return t("shell.commandCenter.files");
+    case "commands":
+      return t("shell.commandCenter.commands");
+  }
+}
+
+function emptyMessage(state: CommandCenterState, noMatches: string, t: TFunction): string {
+  if (state.mode === "slash" && !state.searchText.trim())
+    return t("shell.commandCenter.slashEmpty");
+  if (state.mode !== "code" || state.searchText.trim()) return noMatches;
   return state.codeSearchAvailable
     ? "Search code across this workspace"
     : "Open a workspace to search code";
@@ -332,6 +362,7 @@ function EmptyCommandCenterResults({
   state: CommandCenterState;
   noMatches: string;
 }) {
+  const { t } = useTranslation();
   if (
     state.fileSearchError ||
     state.fileSearchLoading ||
@@ -339,11 +370,11 @@ function EmptyCommandCenterResults({
     state.codeSearchLoading
   )
     return null;
-  return <Text style={styles.emptyText}>{emptyMessage(state, noMatches)}</Text>;
+  return <Text style={styles.emptyText}>{emptyMessage(state, noMatches, t)}</Text>;
 }
 
 function CodeSearchStatus({ state }: { state: CommandCenterState }) {
-  if (state.scope !== "code" || (!state.codeSearchError && !state.codeSearchStatus)) return null;
+  if (state.mode !== "code" || (!state.codeSearchError && !state.codeSearchStatus)) return null;
   const error = state.codeSearchError;
   return (
     <Text
@@ -370,19 +401,20 @@ function useCommandCenterState(
   const inputRef = useRef<EditingTextInputHandle>(null);
   const previousOpenRef = useRef(open);
   const { query, activeId } = useSyncExternalStore(interaction.subscribe, interaction.getSnapshot);
-  const builtInSections = useBuiltInSections(open, query);
+  const { mode, text: searchText } = resolvePaletteMode(scope, query);
+  const builtInSections = useBuiltInSections(open && mode === "all", searchText);
   const {
     entries: fileSearchEntries,
     loading: fileSearchLoading,
     error: fileSearchError,
     openFile,
   } = useWorkspaceFileSearch({
-    enabled: open && (scope === "files" || (scope === null && Boolean(query.trim()))),
-    query,
+    enabled: open && (mode === "files" || (mode === "all" && Boolean(searchText.trim()))),
+    query: searchText,
   });
   const codeSearch = useWorkspaceCodeSearch({
-    enabled: open && scope === "code",
-    query,
+    enabled: open && mode === "code",
+    query: searchText,
   });
   const codeSearchResults = codeSearch.results;
   const openCodeResult = codeSearch.openResult;
@@ -412,8 +444,8 @@ function useCommandCenterState(
     () =>
       buildContributionSections(
         [
-          ...snapshot.contributions,
-          ...(codeSearch.available
+          ...selectModeContributions(snapshot.contributions, mode),
+          ...(mode === "all" && codeSearch.available
             ? [
                 {
                   id: "code-search",
@@ -435,9 +467,10 @@ function useCommandCenterState(
               ]
             : []),
         ],
-        query,
+        searchText,
+        (contribution) => showsWhenEmpty(mode, contribution),
       ),
-    [codeSearch.available, interaction, query, setOpen, snapshot.contributions, t],
+    [codeSearch.available, interaction, mode, searchText, setOpen, snapshot.contributions, t],
   );
   const codeSections = useMemo<CommandCenterResultSection[]>(
     () => [
@@ -461,20 +494,33 @@ function useCommandCenterState(
   );
   const projection = useMemo(() => {
     let sections: CommandCenterResultSection[];
-    if (scope === "files") sections = fileSections;
-    else if (scope === "code") sections = codeSections;
-    else sections = [...contributionSections, ...fileSections, ...builtInSections];
+    if (mode === "files") sections = fileSections;
+    else if (mode === "code") sections = codeSections;
+    else if (mode === "all") {
+      sections = [...contributionSections, ...fileSections, ...builtInSections];
+    } else sections = contributionSections;
     return projectCommandCenterRows(sections, listMetrics);
-  }, [builtInSections, codeSections, contributionSections, fileSections, listMetrics, scope]);
+  }, [builtInSections, codeSections, contributionSections, fileSections, listMetrics, mode]);
+  // Only the searches that answer asynchronously make the list wait; the rest are instant.
+  const searchScope = mode === "files" || mode === "code" ? mode : null;
   useLayoutEffect(() => {
     interaction.update({
       open,
-      scope,
+      scope: searchScope,
       query,
       projection,
-      loading: scope === "code" ? codeSearch.loading : fileSearchLoading,
+      loading: mode === "code" ? codeSearch.loading : fileSearchLoading,
     });
-  }, [interaction, open, scope, query, projection, fileSearchLoading, codeSearch.loading]);
+  }, [
+    interaction,
+    open,
+    searchScope,
+    mode,
+    query,
+    projection,
+    fileSearchLoading,
+    codeSearch.loading,
+  ]);
 
   const close = useCallback(() => setOpen(false), [setOpen]);
   const select = useCallback(
@@ -556,6 +602,8 @@ function useCommandCenterState(
   return {
     open,
     scope,
+    mode,
+    searchText,
     seedEpoch,
     clearScope: () => setScope(null),
     query,
@@ -569,7 +617,7 @@ function useCommandCenterState(
     codeSearchLoading: codeSearch.loading,
     codeSearchError: codeSearch.error,
     codeSearchAvailable: codeSearch.available,
-    codeSearchStatus: formatCodeSearchStatus(scope, codeSearch),
+    codeSearchStatus: formatCodeSearchStatus(mode, codeSearch),
     close,
     select,
     key,
@@ -605,10 +653,14 @@ const ResultRow = memo(function ResultRow({
     result.kind === "contribution" && result.contribution.presentation.kind === "choice"
       ? result.contribution.presentation
       : null;
+  const pathPresentation =
+    result.kind === "contribution" && result.contribution.presentation.kind !== "action"
+      ? result.contribution.presentation
+      : null;
   const accessibilityLabel =
     result.kind === "file" || result.kind === "code"
       ? [result.title, result.subtitle].filter(Boolean).join(" ")
-      : choice?.path.join(" › ");
+      : pathPresentation?.path.join(" › ");
   const accessibilityState = useMemo(
     () => (isNative && choice ? { selected: choice.selected } : undefined),
     [choice],
@@ -923,7 +975,7 @@ function ResultContent({
           ))}
         </View>
       </View>
-      {presentation.selected ? (
+      {presentation.kind === "choice" && presentation.selected ? (
         <View style={styles.iconSlot}>
           <ThemedCheck size={16} strokeWidth={2.2} />
         </View>
@@ -996,12 +1048,12 @@ export function CommandCenter() {
         <ResultRow
           result={item.result}
           height={item.height}
-          query={state.query}
+          query={state.searchText}
           active={item.result.id === state.activeId}
           onSelect={state.select}
         />
       ),
-    [state.activeId, state.query, state.select],
+    [state.activeId, state.searchText, state.select],
   );
   const getItemLayout = useCallback(
     (_data: ArrayLike<CommandCenterListRow> | null | undefined, index: number) => ({
@@ -1091,7 +1143,7 @@ export function CommandCenter() {
           <View style={[styles.bottomSheetHeader, styles.searchRow]} testID="command-center-header">
             {state.scope ? (
               <ScopeChip
-                label={state.scope === "code" ? "Code search" : t("shell.commandCenter.files")}
+                label={scopeChipLabel(state.scope, t)}
                 kind={state.scope}
                 onRemove={state.clearScope}
               />
@@ -1104,20 +1156,16 @@ export function CommandCenter() {
               variant="bottom-sheet"
               onChangeText={state.setQuery}
               onSubmitEditing={submit}
-              placeholder={commandCenterPlaceholder(
-                state.scope,
-                t("shell.commandCenter.filePlaceholder"),
-                t("shell.commandCenter.placeholder"),
-              )}
+              placeholder={commandCenterPlaceholder(state.mode, t)}
               style={[styles.input, styles.growingInput]}
               autoCapitalize="none"
               autoCorrect={false}
               autoFocus
             />
             <FileSearchLoadingIndicator
-              loading={state.scope === "code" ? state.codeSearchLoading : state.fileSearchLoading}
+              loading={state.mode === "code" ? state.codeSearchLoading : state.fileSearchLoading}
               label={
-                state.scope === "code" ? "Searching code" : t("shell.commandCenter.searchingFiles")
+                state.mode === "code" ? "Searching code" : t("shell.commandCenter.searchingFiles")
               }
             />
           </View>
@@ -1138,7 +1186,7 @@ export function CommandCenter() {
             <View style={[styles.header, styles.searchRow]} testID="command-center-header">
               {state.scope ? (
                 <ScopeChip
-                  label={state.scope === "code" ? "Code search" : t("shell.commandCenter.files")}
+                  label={scopeChipLabel(state.scope, t)}
                   kind={state.scope}
                   onRemove={state.clearScope}
                 />
@@ -1149,22 +1197,16 @@ export function CommandCenter() {
                 ref={state.inputRef}
                 initialValue={state.query}
                 onChangeText={state.setQuery}
-                placeholder={commandCenterPlaceholder(
-                  state.scope,
-                  t("shell.commandCenter.filePlaceholder"),
-                  t("shell.commandCenter.placeholder"),
-                )}
+                placeholder={commandCenterPlaceholder(state.mode, t)}
                 style={[styles.input, styles.growingInput]}
                 autoCapitalize="none"
                 autoCorrect={false}
                 autoFocus
               />
               <FileSearchLoadingIndicator
-                loading={state.scope === "code" ? state.codeSearchLoading : state.fileSearchLoading}
+                loading={state.mode === "code" ? state.codeSearchLoading : state.fileSearchLoading}
                 label={
-                  state.scope === "code"
-                    ? "Searching code"
-                    : t("shell.commandCenter.searchingFiles")
+                  state.mode === "code" ? "Searching code" : t("shell.commandCenter.searchingFiles")
                 }
               />
             </View>
@@ -1203,7 +1245,7 @@ function ScopeChip({
   onRemove,
 }: {
   label: string;
-  kind: "files" | "code";
+  kind: Exclude<CommandCenterScope, null>;
   onRemove(): void;
 }) {
   return (

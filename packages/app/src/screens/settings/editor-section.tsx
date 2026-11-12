@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Text, View } from "react-native";
 import { Switch } from "@/components/ui/switch";
 import { useAppSettings } from "@/hooks/use-settings";
+import { SettingAnchor } from "@/settings-index/anchor";
 import { settingsStyles } from "@/styles/settings";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
 
@@ -16,7 +17,7 @@ export function EditorSection() {
   return (
     <SettingsSection title={t("settings.editor.title")}>
       <View style={settingsStyles.card}>
-        <View style={settingsStyles.row}>
+        <SettingAnchor id="editor.vim" style={settingsStyles.row}>
           <View style={settingsStyles.rowContent}>
             <Text style={settingsStyles.rowTitle}>{t("settings.editor.vimKeybindings")}</Text>
             <Text style={settingsStyles.rowHint}>{t("settings.editor.vimHint")}</Text>
@@ -27,7 +28,7 @@ export function EditorSection() {
             accessibilityLabel={t("settings.editor.vimKeybindings")}
             testID="vim-keybindings-toggle"
           />
-        </View>
+        </SettingAnchor>
       </View>
     </SettingsSection>
   );

@@ -50,6 +50,7 @@ export function ChatSection() {
         <SettingsSection title="Voice commands">
           <SettingsCard>
             <SettingsSwitch
+              settingId="chat.voiceButton"
               label="Show Pimi voice button"
               hint="Open chats and tasks with your voice."
               value={settings.pimiVoiceButton}
@@ -62,12 +63,14 @@ export function ChatSection() {
       <SettingsSection title={t("settings.appearance.detailLevel.title")}>
         <SettingsCard>
           <SettingsSwitch
+            settingId="chat.autoExpandReasoning"
             label={t("settings.general.autoExpandReasoning.label")}
             hint={t("settings.general.autoExpandReasoning.description")}
             value={settings.autoExpandReasoning}
             onValueChange={changeAutoExpandReasoning}
           />
           <SettingsSelect
+            settingId="chat.display"
             label={t("settings.general.chatDisplay.label")}
             hint={t("settings.general.chatDisplay.description")}
             value={settings.chatDisplay}
@@ -76,6 +79,7 @@ export function ChatSection() {
           />
           {isNative ? null : (
             <SettingsSwitch
+              settingId="chat.outline"
               label={t("settings.appearance.chatOutline.title")}
               hint={t("settings.appearance.chatOutline.description")}
               value={settings.chatOutlineEnabled}

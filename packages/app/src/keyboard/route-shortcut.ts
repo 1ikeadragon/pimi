@@ -32,7 +32,7 @@ export type ShortcutAction =
   | { kind: "router-push"; route: string }
   | { kind: "open-project-picker" }
   | { kind: "callback"; name: ShortcutCallbackName }
-  | { kind: "command-center-toggle"; nextOpen: boolean; scope?: "files" }
+  | { kind: "command-center-toggle"; nextOpen: boolean; scope?: "files" | "commands" }
   | { kind: "shortcuts-dialog-toggle"; nextOpen: boolean };
 
 const NONE: ShortcutAction = { kind: "none" };
@@ -228,9 +228,8 @@ export function routeKeyboardShortcut(
         return { kind: "command-center-toggle", nextOpen: true, scope: "files" };
       }
       return dispatch({ id: "workspace.project.pick", scope: "workspace" });
-    // Opens the palette in its "commands" scope once the command center owns that scope.
     case "command-center.commands":
-      return NONE;
+      return { kind: "command-center-toggle", nextOpen: true, scope: "commands" };
     case "shortcuts.dialog.toggle":
       return { kind: "shortcuts-dialog-toggle", nextOpen: !ctx.shortcutsDialogOpen };
     default:

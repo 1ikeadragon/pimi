@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { SettingsSection } from "@/components/settings";
 import { FormTextInput } from "@/components/ui/form-field";
 import { parseTerminalScrollbackLines, useAppSettings } from "@/hooks/use-settings";
+import { SettingAnchor } from "@/settings-index/anchor";
 import { settingsStyles } from "@/styles/settings";
 
 export function TerminalSection() {
@@ -32,7 +33,7 @@ export function TerminalSection() {
   return (
     <SettingsSection title={t("settings.sections.terminal")}>
       <View style={settingsStyles.card}>
-        <View style={settingsStyles.row}>
+        <SettingAnchor id="terminal.scrollback" style={settingsStyles.row}>
           <View style={settingsStyles.rowContent}>
             <Text style={settingsStyles.rowTitle}>
               {t("settings.general.terminalScrollback.label")}
@@ -52,7 +53,7 @@ export function TerminalSection() {
             style={styles.scrollbackInput}
             accessibilityLabel={t("settings.general.terminalScrollback.accessibilityLabel")}
           />
-        </View>
+        </SettingAnchor>
       </View>
     </SettingsSection>
   );

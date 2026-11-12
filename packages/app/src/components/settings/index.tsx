@@ -25,6 +25,7 @@ import { DropdownTrigger } from "@/components/ui/dropdown-trigger";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { settingsStyles } from "@/styles/settings";
 import { ControlSizeProvider } from "@/components/ui/control-size";
+import { SettingAnchor } from "@/settings-index/anchor";
 import { useSettingsRowLayout } from "./row-density";
 export { SettingsGroup } from "./headings/settings-group";
 export { SettingsSection } from "./headings/settings-section";
@@ -35,6 +36,8 @@ export { SettingsInfoTip } from "./headings/settings-info-tip";
 /** What app screens can add to a plugin-facing row: an accessory beside the label, such as an info tip. */
 interface AppRowExtras {
   labelAccessory?: ReactNode;
+  /** Makes the row findable from search; matches a declaration in the page's `*.settings.ts`. */
+  settingId?: string;
 }
 
 interface AppSettingsRowProps extends Omit<SettingsRowProps, "hint">, AppRowExtras {
@@ -59,6 +62,7 @@ export function SettingsCard({ children, testID }: { children: ReactNode; testID
 export function SettingsRow({
   label,
   labelAccessory,
+  settingId,
   hint,
   error,
   children,
@@ -69,7 +73,7 @@ export function SettingsRow({
   const rowStyle = useMemo(() => [layout.row, compact && styles.compactRow], [compact, layout]);
   const accessoryTitleStyle = useMemo(() => [layout.title, styles.accessoryLabel], [layout]);
   return (
-    <View style={rowStyle} testID={testID}>
+    <SettingAnchor id={settingId} style={rowStyle} testID={testID}>
       <View style={styles.label}>
         {labelAccessory ? (
           <View style={styles.labelRow}>
@@ -91,11 +95,16 @@ export function SettingsRow({
           <ControlSizeProvider size={layout.controlSize}>{children}</ControlSizeProvider>
         </View>
       ) : null}
-    </View>
+    </SettingAnchor>
   );
 }
 
-export function SettingsSwitch({ value, onValueChange, disabled, ...row }: SettingsSwitchProps) {
+export function SettingsSwitch({
+  value,
+  onValueChange,
+  disabled,
+  ...row
+}: SettingsSwitchProps & AppRowExtras) {
   return (
     <SettingsRow {...row}>
       <Switch
@@ -196,7 +205,12 @@ export function SettingsInput({
   );
 }
 
-export function SettingsAction({ actionLabel, onPress, disabled, ...row }: SettingsActionProps) {
+export function SettingsAction({
+  actionLabel,
+  onPress,
+  disabled,
+  ...row
+}: SettingsActionProps & AppRowExtras) {
   return (
     <SettingsRow {...row}>
       <Button variant="outline" onPress={onPress} disabled={disabled}>
