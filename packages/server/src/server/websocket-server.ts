@@ -1,3 +1,4 @@
+import type { PimiDatabase } from "./db/pimi-db.js";
 import { ChunkedTransport, ChunkedTransportProtocolError } from "@pimi/protocol/chunked-transport";
 import { type WorkspaceRuntimeStore } from "./workspace-runtime-store/index.js";
 import {
@@ -648,6 +649,7 @@ export class VoiceAssistantWebSocketServer {
     agentStorage: AgentStorage,
     downloadTokenStore: DownloadTokenStore,
     pimiHome: string,
+    database: PimiDatabase,
     daemonConfigStore: DaemonConfigStore,
     mcpBaseUrl: string | null,
     wsConfig: WebSocketServerConfig,
@@ -728,8 +730,13 @@ export class VoiceAssistantWebSocketServer {
           "Agent message batch dispatch failed",
         ),
     });
-    this.messageReceipts = new MessageReceipts(join(pimiHome, "agent-requests"));
+    this.messageReceipts = new MessageReceipts(
+      database,
+      join(pimiHome, "agent-requests"),
+      this.logger.child({ module: "message-receipts" }),
+    );
     this.creationService = new CreationService(
+      database,
       join(pimiHome, "creations"),
       this.logger.child({ module: "creation" }),
       (snapshot) => this.validateCompletedCreation(snapshot),

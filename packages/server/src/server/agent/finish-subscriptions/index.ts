@@ -11,7 +11,10 @@ import {
   finishNotificationEvents,
   type FinishNotificationReason,
 } from "./internal/notification.js";
-export { createJsonFinishSubscriptionStore } from "./internal/json-store.js";
+export {
+  createSqlFinishSubscriptionStore,
+  importLegacyFinishSubscriptions,
+} from "./internal/sql-store.js";
 
 export interface FinishSubscription {
   id: string;

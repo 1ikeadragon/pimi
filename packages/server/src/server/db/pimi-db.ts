@@ -32,6 +32,18 @@ const SCHEMA_STEPS: readonly string[] = [
    CREATE TABLE audit (
      id INTEGER PRIMARY KEY, scope TEXT NOT NULL, ts TEXT NOT NULL, json TEXT NOT NULL) STRICT;
    CREATE INDEX audit_scope ON audit(scope, id);`,
+  // 3: idempotency receipts (creation requests, their id claims, message sends), the metadata of
+  // messages' attachment pills and the agent image index. Image and attachment bytes stay files.
+  `CREATE TABLE receipts (
+     kind TEXT NOT NULL, identity TEXT NOT NULL, updated_at INTEGER NOT NULL, json TEXT NOT NULL,
+     PRIMARY KEY (kind, identity)) STRICT;
+   CREATE INDEX receipts_updated ON receipts(kind, updated_at);
+   CREATE TABLE sent_attachments (
+     agent_id TEXT NOT NULL, message_id TEXT NOT NULL, json TEXT NOT NULL,
+     PRIMARY KEY (agent_id, message_id)) STRICT;
+   CREATE TABLE agent_image_index (
+     agent_id TEXT NOT NULL, image_id TEXT NOT NULL, mime_type TEXT NOT NULL, origin TEXT NOT NULL,
+     PRIMARY KEY (agent_id, image_id)) STRICT;`,
 ];
 
 const BACKUP_INTERVAL_MS = 24 * 60 * 60_000;

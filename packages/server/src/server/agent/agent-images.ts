@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import type { Logger } from "pino";
 import { z } from "zod";
 import type { AgentImageRef, ProviderImageSource } from "@pimi/protocol/agent-types";
-import { LruMap } from "./lru-map.js";
+import { runJsonImportOnce, type PimiDatabase } from "../db/pimi-db.js";
 
 /**
  * Image bytes an agent's messages refer to, by content hash. Message records keep only the
@@ -20,7 +20,6 @@ const EXTENSIONS: Record<string, string> = {
   "image/gif": "gif",
   "image/webp": "webp",
 };
-const MAX_CACHED_INDEXES = 64;
 const IMAGE_ID_PATTERN = /^[0-9a-f]{64}$/;
 const AGENT_ID_PATTERN = /^[A-Za-z0-9._-]+$/;
 
@@ -110,6 +109,7 @@ export interface AgentImageStore {
   delete(agentId: string): Promise<void>;
 }
 
+// Legacy per-agent index.json, read only by the one-time import.
 const INDEX_SCHEMA = z.object({
   version: z.literal(1),
   images: z.record(
@@ -117,23 +117,63 @@ const INDEX_SCHEMA = z.object({
     z.object({ mimeType: z.string(), origin: z.enum(["user", "agent"]) }),
   ),
 });
-type ImageIndex = z.infer<typeof INDEX_SCHEMA>["images"];
 
 function isMissingFile(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
+// Image bytes are files under <directory>/<agentId>/<imageId>.<ext>; which images an agent has,
+// and their type and origin, are rows of agent_image_index.
 export class FileAgentImageStore implements AgentImageStore {
   private readonly logger: Logger;
-  // Bounded: only agents with stored images are cached, and the oldest are dropped past the limit.
-  private readonly indexes = new LruMap<string, ImageIndex>(MAX_CACHED_INDEXES);
   private readonly queues = new Map<string, Promise<unknown>>();
 
   constructor(
+    private readonly database: PimiDatabase,
     private readonly directory: string,
     logger: Logger,
   ) {
     this.logger = logger.child({ module: "agent", component: "agent-images" });
+  }
+
+  // Each <agentId>/index.json is imported once and renamed to index.json.migrated; the image
+  // files stay where they are.
+  async importLegacy(): Promise<void> {
+    const rows: Array<{ agentId: string; imageId: string; mimeType: string; origin: string }> = [];
+    const legacyPaths: string[] = [];
+    let agents: string[] = [];
+    try {
+      agents = await fs.readdir(this.directory);
+    } catch (error) {
+      if (!isMissingFile(error)) throw error;
+    }
+    for (const agentId of agents) {
+      const indexPath = path.join(this.directory, agentId, "index.json");
+      try {
+        const parsed = INDEX_SCHEMA.parse(JSON.parse(await fs.readFile(indexPath, "utf8")));
+        for (const [imageId, entry] of Object.entries(parsed.images)) {
+          rows.push({ agentId, imageId, mimeType: entry.mimeType, origin: entry.origin });
+        }
+        legacyPaths.push(indexPath);
+      } catch (error) {
+        if (!isMissingFile(error)) {
+          this.logger.error({ err: error, agentId }, "Skipping invalid agent image index");
+        }
+      }
+    }
+    await runJsonImportOnce(
+      this.database,
+      { name: "agent-images", legacyPaths, logger: this.logger },
+      () => {
+        for (const row of rows) {
+          this.database.db
+            .prepare(
+              "INSERT OR IGNORE INTO agent_image_index (agent_id, image_id, mime_type, origin) VALUES (?, ?, ?, ?)",
+            )
+            .run(row.agentId, row.imageId, row.mimeType, row.origin);
+        }
+      },
+    );
   }
 
   async put(
@@ -159,15 +199,13 @@ export class FileAgentImageStore implements AgentImageStore {
     };
     if (input.bytes.length > MAX_AGENT_IMAGE_BYTES) return { ...ref, unavailable: "too_large" };
     await this.enqueue(agentId, async () => {
-      const index = await this.loadIndex(agentId);
-      if (index[imageId]) return;
+      if (this.lookup(agentId, imageId)) return;
       await this.writePrivate(this.imagePath(agentId, imageId, sniffed), input.bytes);
-      index[imageId] = { mimeType: sniffed, origin: input.origin };
-      await this.writePrivate(
-        this.indexPath(agentId),
-        JSON.stringify({ version: 1, images: index }),
-      );
-      this.indexes.set(agentId, index);
+      this.database.db
+        .prepare(
+          "INSERT OR REPLACE INTO agent_image_index (agent_id, image_id, mime_type, origin) VALUES (?, ?, ?, ?)",
+        )
+        .run(agentId, imageId, sniffed, input.origin);
     });
     return ref;
   }
@@ -178,7 +216,7 @@ export class FileAgentImageStore implements AgentImageStore {
   ): Promise<{ mimeType: string; bytes: Buffer } | null> {
     // The id only selects an index entry; the path and mime type come from the daemon.
     if (!IMAGE_ID_PATTERN.test(imageId)) return null;
-    const entry = await this.enqueue(agentId, async () => (await this.loadIndex(agentId))[imageId]);
+    const entry = this.lookup(agentId, imageId);
     if (!entry || !isSupportedImageMimeType(entry.mimeType)) return null;
     try {
       return {
@@ -193,7 +231,7 @@ export class FileAgentImageStore implements AgentImageStore {
 
   async delete(agentId: string): Promise<void> {
     await this.enqueue(agentId, async () => {
-      this.indexes.delete(agentId);
+      this.database.db.prepare("DELETE FROM agent_image_index WHERE agent_id = ?").run(agentId);
       await fs.rm(this.agentDir(agentId), { recursive: true, force: true });
     });
   }
@@ -209,25 +247,11 @@ export class FileAgentImageStore implements AgentImageStore {
     return run;
   }
 
-  private async loadIndex(agentId: string): Promise<ImageIndex> {
-    const cached = this.indexes.get(agentId);
-    if (cached) return cached;
-    let images: ImageIndex = {};
-    let onDisk = true;
-    try {
-      const parsed = INDEX_SCHEMA.safeParse(
-        JSON.parse(await fs.readFile(this.indexPath(agentId), "utf8")),
-      );
-      if (parsed.success) images = parsed.data.images;
-      else this.logger.error({ agentId }, "Invalid agent image index");
-    } catch (error) {
-      if (isMissingFile(error)) onDisk = false;
-      else this.logger.error({ err: error, agentId }, "Failed to read image index");
-    }
-    // A miss is not cached: lookups for unknown agents must not grow memory. `put` caches once
-    // it has written an index.
-    if (onDisk) this.indexes.set(agentId, images);
-    return images;
+  private lookup(agentId: string, imageId: string): { mimeType: string } | null {
+    const row = this.database.db
+      .prepare("SELECT mime_type FROM agent_image_index WHERE agent_id = ? AND image_id = ?")
+      .get(agentId, imageId);
+    return row ? { mimeType: String(row.mime_type) } : null;
   }
 
   private async writePrivate(target: string, data: string | Uint8Array): Promise<void> {
@@ -247,10 +271,6 @@ export class FileAgentImageStore implements AgentImageStore {
       throw new Error("Invalid agent id");
     }
     return path.join(this.directory, agentId);
-  }
-
-  private indexPath(agentId: string): string {
-    return path.join(this.agentDir(agentId), "index.json");
   }
 
   private imagePath(agentId: string, imageId: string, mimeType: string): string {

@@ -11,7 +11,8 @@ import { createIdleRuntimeCleanup } from "./agent/idle-runtime-cleanup/index.js"
 import {
   createFinishSubscriptions,
   createFinishObservation,
-  createJsonFinishSubscriptionStore,
+  createSqlFinishSubscriptionStore,
+  importLegacyFinishSubscriptions,
 } from "./agent/finish-subscriptions/index.js";
 import { createWorkspaceRuntimeStore } from "./workspace-runtime-store/index.js";
 import type { PluginRegistries } from "@pimi/protocol/plugin-registry";
@@ -152,10 +153,12 @@ import { createSpeechService } from "./speech/speech-runtime.js";
 import { createSpeechSettingsOwner } from "./speech/speech-settings.js";
 import { AgentManager } from "./agent/agent-manager.js";
 import { AgentStorage } from "./agent/agent-storage.js";
+import { MessageReceipts } from "./message-receipts/index.js";
+import { CreationService } from "./creation/index.js";
 import { openPimiDatabase } from "./db/pimi-db.js";
 import { FileCarriedTimelineStore } from "./agent/carried-timeline.js";
 import { FileAgentImageStore } from "./agent/agent-images.js";
-import { FileSentAttachmentStore } from "./agent/sent-attachments.js";
+import { SqlSentAttachmentStore } from "./agent/sent-attachments.js";
 import { attachAgentStoragePersistence } from "./persistence-hooks.js";
 import { createAgentMcpServer } from "./agent/mcp-server.js";
 import { ProjectMemory } from "./project-memory.js";
@@ -1040,6 +1043,30 @@ export async function createPimiDaemon(
 
   const pimiDatabase = await openPimiDatabase({ pimiHome: config.pimiHome, logger });
   const agentStorage = new AgentStorage(pimiDatabase, config.agentStoragePath, logger);
+  const agentImages = new FileAgentImageStore(
+    pimiDatabase,
+    path.join(config.pimiHome, "agent-images"),
+    logger,
+  );
+  const sentAttachments = new SqlSentAttachmentStore(
+    pimiDatabase,
+    path.join(config.pimiHome, "agent-sent-attachments"),
+    logger,
+  );
+  // One-time imports of the old JSON files; each is gated by a meta row in pimi.db.
+  await agentImages.importLegacy();
+  await sentAttachments.importLegacy();
+  await importLegacyFinishSubscriptions(pimiDatabase, config.pimiHome, logger);
+  await new MessageReceipts(
+    pimiDatabase,
+    path.join(config.pimiHome, "agent-requests"),
+    logger,
+  ).importLegacy();
+  await new CreationService(
+    pimiDatabase,
+    path.join(config.pimiHome, "creations"),
+    logger,
+  ).importLegacy();
   const projectRegistry = new FileBackedProjectRegistry(
     path.join(config.pimiHome, "projects", "projects.json"),
     logger,
@@ -1123,11 +1150,8 @@ export async function createPimiDaemon(
       path.join(config.pimiHome, "agent-carried-timelines"),
       logger,
     ),
-    agentImages: new FileAgentImageStore(path.join(config.pimiHome, "agent-images"), logger),
-    sentAttachments: new FileSentAttachmentStore(
-      path.join(config.pimiHome, "agent-sent-attachments"),
-      logger,
-    ),
+    agentImages,
+    sentAttachments,
     appendSystemPrompt: config.appendSystemPrompt,
     onWorkspaceStateMayHaveChanged: ({ cwd }) => {
       workspaceGitService.onWorkspaceStateMayHaveChanged(cwd);
@@ -1579,7 +1603,7 @@ export async function createPimiDaemon(
   logger.info({ elapsed: elapsed() }, "Preparing voice and MCP runtime");
 
   const finishSubscriptions = createFinishSubscriptions({
-    store: createJsonFinishSubscriptionStore(config.pimiHome),
+    store: createSqlFinishSubscriptionStore(pimiDatabase),
     serverId,
     logger,
     messages: () => {
@@ -1970,6 +1994,7 @@ export async function createPimiDaemon(
               agentStorage,
               downloadTokenStore,
               config.pimiHome,
+              pimiDatabase,
               daemonConfigStore,
               mcpBaseUrl,
               {

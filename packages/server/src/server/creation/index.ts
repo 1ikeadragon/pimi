@@ -1,6 +1,6 @@
 import type { Logger } from "pino";
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { readFile, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import {
@@ -9,8 +9,7 @@ import {
   type CreationSnapshot,
   type WorkspaceDescriptorPayload,
 } from "@pimi/protocol/messages";
-import { writeFileAtomic } from "../atomic-file.js";
-import { listStaleFiles } from "../stale-files.js";
+import { runJsonImportOnce, type PimiDatabase } from "../db/pimi-db.js";
 import { generateWorkspaceId } from "../workspace-registry-model.js";
 
 type Observer = (snapshot: CreationSnapshot) => void;
@@ -57,11 +56,11 @@ const PRUNE_INTERVAL_MS = 24 * 60 * 60_000;
 export class CreationService {
   private admission: Promise<unknown> = Promise.resolve();
   private readonly active = new Map<string, Promise<CreationSnapshot>>();
-  private readonly receiptOperations = new Map<string, Promise<void>>();
   private readonly observers = new Map<string, Set<Observer>>();
   private lastPruneAt = 0;
   constructor(
-    private readonly directory: string,
+    private readonly database: PimiDatabase,
+    private readonly legacyDirectory: string,
     private readonly logger: Logger,
     private readonly validateCompleted: (
       snapshot: CreationSnapshot,
@@ -71,7 +70,6 @@ export class CreationService {
   async create(input: CreationInput, observer?: Observer): Promise<CreationSnapshot> {
     const identity = identityFor(input.kind, input.key);
     const admitted = this.admission.then(async () => {
-      await mkdir(this.directory, { recursive: true });
       await this.pruneIfDue();
       const fingerprint = digest(input.request);
       let record = await this.read(identity);
@@ -145,28 +143,69 @@ export class CreationService {
   // Deletes receipts untouched for CREATION_RETENTION_MS, except one that is running, then the
   // claims whose receipt is gone. A claim whose receipt still exists stays however old it is.
   async prune(now: number): Promise<number> {
+    const db = this.database.db;
+    const cutoff = now - CREATION_RETENTION_MS;
     let removed = 0;
-    const stale = await listStaleFiles(this.directory, CREATION_RETENTION_MS, now);
-    for (const file of stale) {
-      if (file.temp) {
-        await rm(file.path, { force: true });
-        removed += 1;
-      } else if (file.name.endsWith(".json")) {
-        const identity = file.name.slice(0, -".json".length);
-        if (this.active.has(identity)) continue;
-        await this.accessReceipt(identity, () => rm(file.path, { force: true }));
-        removed += 1;
-      }
-    }
-    for (const file of stale) {
-      if (!file.name.endsWith(".claim")) continue;
-      const owner = await readOptional(file.path);
-      if (owner === null) continue;
-      if ((await readOptional(join(this.directory, `${owner}.json`))) !== null) continue;
-      await rm(file.path, { force: true });
+    const stale = db
+      .prepare("SELECT identity FROM receipts WHERE kind = 'creation' AND updated_at < ?")
+      .all(cutoff) as Array<{ identity: string }>;
+    for (const { identity } of stale) {
+      if (this.active.has(identity)) continue;
+      db.prepare("DELETE FROM receipts WHERE kind = 'creation' AND identity = ?").run(identity);
       removed += 1;
     }
+    removed += Number(
+      db
+        .prepare(
+          `DELETE FROM receipts WHERE kind = 'creation_claim' AND updated_at < ?
+             AND NOT EXISTS (SELECT 1 FROM receipts r WHERE r.kind = 'creation'
+                             AND r.identity = json_extract(receipts.json, '$'))`,
+        )
+        .run(cutoff).changes,
+    );
     return removed;
+  }
+
+  // The old $PIMI_HOME/creations tree (<identity>.json receipts, <hash>.claim owner files) is
+  // imported once with its file times and renamed to creations.migrated.
+  async importLegacy(): Promise<void> {
+    const receipts: Array<{ identity: string; record: Record; at: number }> = [];
+    const claims: Array<{ hash: string; owner: string; at: number }> = [];
+    let names: string[] = [];
+    try {
+      names = await readdir(this.legacyDirectory);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    for (const name of names) {
+      const file = join(this.legacyDirectory, name);
+      try {
+        if (name.endsWith(".json")) {
+          const record = RecordSchema.parse(JSON.parse(await readFile(file, "utf8")));
+          receipts.push({
+            identity: name.slice(0, -".json".length),
+            record,
+            at: (await stat(file)).mtimeMs,
+          });
+        } else if (name.endsWith(".claim")) {
+          claims.push({
+            hash: name.slice(0, -".claim".length),
+            owner: (await readFile(file, "utf8")).trim(),
+            at: (await stat(file)).mtimeMs,
+          });
+        }
+      } catch (err) {
+        this.logger.error({ err, file }, "Skipping invalid creation receipt file");
+      }
+    }
+    await runJsonImportOnce(
+      this.database,
+      { name: "creations", legacyPaths: [this.legacyDirectory], logger: this.logger },
+      () => {
+        for (const item of receipts) this.store("creation", item.identity, item.record, item.at);
+        for (const item of claims) this.store("creation_claim", item.hash, item.owner, item.at);
+      },
+    );
   }
 
   async subscribe(
@@ -280,14 +319,14 @@ export class CreationService {
     id: string,
     exists: CreationInput["exists"],
   ): Promise<void> {
-    const file = join(this.directory, `${digest([kind, id])}.claim`);
-    const owner = await readOptional(file);
+    const hash = digest([kind, id]);
+    const owner = this.load("creation_claim", hash) as string | null;
     if (owner !== null) {
       if (owner !== identity) throw new Error(`${kind}_id_conflict`);
       return;
     }
     if (await exists(kind, id)) throw new Error(`${kind}_id_conflict`);
-    await writeFile(file, identity, { flag: "wx", mode: 0o600 });
+    this.store("creation_claim", hash, identity);
   }
   private observe(identity: string, observer: Observer): () => void {
     const observers = this.observers.get(identity) ?? new Set<Observer>();
@@ -323,33 +362,27 @@ export class CreationService {
     for (const observer of this.observers.get(identity) ?? [])
       this.notify(observer, record.snapshot);
   }
-  private write(identity: string, record: Record): Promise<void> {
-    // Serialize now: the runner mutates the record after queueing this write.
-    const contents = JSON.stringify(record, null, 2);
-    return this.accessReceipt(identity, () =>
-      writeFileAtomic(join(this.directory, `${identity}.json`), contents),
-    );
+  private async write(identity: string, record: Record): Promise<void> {
+    this.store("creation", identity, record);
   }
-  private read(identity: string): Promise<Record | null> {
-    return this.accessReceipt(identity, async () => {
-      const text = await readOptional(join(this.directory, `${identity}.json`));
-      return text === null ? null : RecordSchema.parse(JSON.parse(text));
-    });
+  private async read(identity: string): Promise<Record | null> {
+    const value = this.load("creation", identity);
+    return value === null ? null : RecordSchema.parse(value);
   }
-  private accessReceipt<T>(identity: string, access: () => Promise<T>): Promise<T> {
-    // Admission and the runner progress independently. Keep this owner from
-    // holding a receipt read open while atomically replacing the same file.
-    const previous = this.receiptOperations.get(identity) ?? Promise.resolve();
-    const result = previous.then(access);
-    const settled = result.then(
-      () => undefined,
-      () => undefined,
-    );
-    this.receiptOperations.set(identity, settled);
-    void settled.finally(() => {
-      if (this.receiptOperations.get(identity) === settled) this.receiptOperations.delete(identity);
-    });
-    return result;
+  private store(kind: string, identity: string, value: unknown, at = Date.now()): void {
+    // Serialized now: the runner mutates the record after queueing this write.
+    this.database.db
+      .prepare(
+        `INSERT INTO receipts (kind, identity, updated_at, json) VALUES (?, ?, ?, ?)
+         ON CONFLICT(kind, identity) DO UPDATE SET updated_at = excluded.updated_at, json = excluded.json`,
+      )
+      .run(kind, identity, Math.floor(at), JSON.stringify(value));
+  }
+  private load(kind: string, identity: string): unknown {
+    const row = this.database.db
+      .prepare("SELECT json FROM receipts WHERE kind = ? AND identity = ?")
+      .get(kind, identity);
+    return row ? JSON.parse(String(row.json)) : null;
   }
 }
 function initialRecord(input: CreationInput, fingerprint: string): Record {
@@ -380,12 +413,4 @@ function digest(input: unknown): string {
       }),
     )
     .digest("hex");
-}
-async function readOptional(file: string): Promise<string | null> {
-  try {
-    return await readFile(file, "utf8");
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") return null;
-    throw error;
-  }
 }
