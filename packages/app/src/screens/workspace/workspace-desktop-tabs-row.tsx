@@ -624,6 +624,7 @@ function getFallbackTabLabel(
     agent: string;
     changes: string;
     files: string;
+    search: string;
     pullRequest: string;
   },
 ): string {
@@ -647,6 +648,9 @@ function getFallbackTabLabel(
   }
   if (tab.target.kind === "files") {
     return labels.files;
+  }
+  if (tab.target.kind === "search") {
+    return labels.search;
   }
   if (tab.target.kind === "pull_request") {
     return labels.pullRequest;
@@ -1168,6 +1172,7 @@ function ResolvedWorkspaceDesktopTabsRow({
       agent: t("workspace.tabs.fallback.agent"),
       changes: t("panels.diff.changesLabel"),
       files: t("panels.files.label"),
+      search: t("workspaceSearch.label"),
       pullRequest: t("panels.pullRequest.label"),
     }),
     [t],

@@ -64,6 +64,7 @@ function normalizeSimpleWorkspaceTabTarget(value: WorkspaceTabTarget): Workspace
     }
     case "changes_tree":
     case "files":
+    case "search":
     case "pull_request":
     case "attack_board":
     case "attack_findings":
@@ -149,6 +150,7 @@ export function workspaceTabTargetsEqual(
 // Targets with nothing but a kind: two of the same kind are the same target.
 const PARAMETERLESS_TAB_KINDS: ReadonlySet<WorkspaceTabTarget["kind"]> = new Set([
   "files",
+  "search",
   "changes_tree",
   "pull_request",
   "attack_board",
@@ -256,6 +258,7 @@ export function buildDeterministicWorkspaceTabId(target: WorkspaceTabTarget): st
   if (
     target.kind === "changes_tree" ||
     target.kind === "files" ||
+    target.kind === "search" ||
     target.kind === "pull_request" ||
     target.kind === "attack_board" ||
     target.kind === "attack_findings"

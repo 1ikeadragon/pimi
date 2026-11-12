@@ -106,6 +106,14 @@ const manifests = {
     compactSheet: null,
     resourceKey: () => "files",
   },
+  search: {
+    kind: "search",
+    supportedHosts: ["explorer", "main"],
+    showCloseButton: true,
+    singleton: true,
+    compactSheet: null,
+    resourceKey: () => "search",
+  },
   pull_request: {
     kind: "pull_request",
     supportedHosts: ["main", "explorer"],

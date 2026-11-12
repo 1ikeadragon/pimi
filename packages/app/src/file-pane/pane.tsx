@@ -1,6 +1,6 @@
 import { usePaneContext } from "@/panels/pane-context";
 import { useEffect, useMemo, useState } from "react";
-import type { PluginFile, PluginTab } from "@pimi/plugin/client";
+import type { PluginFile, PluginFilePanelParams, PluginTab } from "@pimi/plugin/client";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
@@ -70,9 +70,11 @@ export function FilePane({
     () => ({
       lineStart: location.lineStart,
       lineEnd: location.lineEnd,
+      columnStart: location.columnStart,
+      columnEnd: location.columnEnd,
       path,
     }),
-    [location.lineEnd, location.lineStart, path],
+    [location.columnEnd, location.columnStart, location.lineEnd, location.lineStart, path],
   );
 
   let body;
@@ -134,7 +136,7 @@ function MountedFilePanel({
 }: {
   panel: FilePanel;
   file: PluginFile;
-  params: { path: string; lineStart?: number; lineEnd?: number };
+  params: PluginFilePanelParams;
   revision: number;
   onModifiedChange: (modified: boolean) => void;
 }) {

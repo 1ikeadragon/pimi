@@ -118,6 +118,7 @@ import {
 import { useSettings } from "@/hooks/use-settings";
 import { useKeyboardActionHandler } from "@/hooks/use-keyboard-action-handler";
 import { buildWorkspaceKeyboardHandlerId } from "@/keyboard/handler-id";
+import { useWorkspaceSearchShortcuts } from "@/workspace-search/shortcuts";
 import type {
   KeyboardActionDefinition,
   WorkspacePanelTarget,
@@ -261,6 +262,8 @@ interface WorkspaceFileLocationFields {
   path: string | null;
   lineStart?: number;
   lineEnd?: number;
+  columnStart?: number;
+  columnEnd?: number;
 }
 
 function getWorkspaceFileLocationFields(
@@ -270,7 +273,13 @@ function getWorkspaceFileLocationFields(
   if (target?.kind !== "file") {
     return { path: null };
   }
-  return { path: target.path, lineStart: target.lineStart, lineEnd: target.lineEnd };
+  return {
+    path: target.path,
+    lineStart: target.lineStart,
+    lineEnd: target.lineEnd,
+    columnStart: target.columnStart,
+    columnEnd: target.columnEnd,
+  };
 }
 
 function buildWorkspaceFileLocation(
@@ -279,7 +288,13 @@ function buildWorkspaceFileLocation(
   if (fields.path === null) {
     return null;
   }
-  return { path: fields.path, lineStart: fields.lineStart, lineEnd: fields.lineEnd };
+  return {
+    path: fields.path,
+    lineStart: fields.lineStart,
+    lineEnd: fields.lineEnd,
+    columnStart: fields.columnStart,
+    columnEnd: fields.columnEnd,
+  };
 }
 
 const ThemedLoadingSpinner = withUnistyles(LoadingSpinner);
@@ -2918,6 +2933,14 @@ function WorkspaceScreenContent({
     handle: handleWorkspacePaneAction,
   });
 
+  useWorkspaceSearchShortcuts({
+    serverId: normalizedServerId,
+    workspaceId: normalizedWorkspaceId,
+    workspaceKey: persistenceKey,
+    isCompact: isMobile,
+    enabled: workspaceActionsEnabled,
+  });
+
   useKeyboardActionHandler({
     handlerId: buildWorkspaceKeyboardHandlerId({
       name: "workspace-sidebar-actions",
@@ -2952,14 +2975,24 @@ function WorkspaceScreenContent({
   const activeFilePath = activeFileFields.path;
   const activeFileLineStart = activeFileFields.lineStart;
   const activeFileLineEnd = activeFileFields.lineEnd;
+  const activeFileColumnStart = activeFileFields.columnStart;
+  const activeFileColumnEnd = activeFileFields.columnEnd;
   const activeFileLocation = useMemo<WorkspaceFileLocation | null>(
     () =>
       buildWorkspaceFileLocation({
         path: activeFilePath,
         lineStart: activeFileLineStart,
         lineEnd: activeFileLineEnd,
+        columnStart: activeFileColumnStart,
+        columnEnd: activeFileColumnEnd,
       }),
-    [activeFileLineEnd, activeFileLineStart, activeFilePath],
+    [
+      activeFileColumnEnd,
+      activeFileColumnStart,
+      activeFileLineEnd,
+      activeFileLineStart,
+      activeFilePath,
+    ],
   );
   const shouldRenderDesktopPaneFallback = useMemo(
     () => !isMobile && !canRenderDesktopPaneSplits,

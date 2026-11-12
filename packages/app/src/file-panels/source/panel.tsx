@@ -123,8 +123,14 @@ function ReadonlyTextFile({
   const { t } = useTranslation();
   const [view, setView] = useTextFileView(params, revision);
   const sourceLocation = useMemo(
-    () => ({ path: params.path, lineStart: params.lineStart, lineEnd: params.lineEnd }),
-    [params.lineEnd, params.lineStart, params.path],
+    () => ({
+      path: params.path,
+      lineStart: params.lineStart,
+      lineEnd: params.lineEnd,
+      columnStart: params.columnStart,
+      columnEnd: params.columnEnd,
+    }),
+    [params.columnEnd, params.columnStart, params.lineEnd, params.lineStart, params.path],
   );
   if (text.status === "loading") return <FilePanelLoading />;
   if (text.status === "error") {
@@ -204,8 +210,14 @@ function EditableTextFile({
   const handleOverwrite = useCallback(() => void model.overwrite(), [model]);
   const handleRetry = useCallback(() => void model.reload(), [model]);
   const editorLocation = useMemo(
-    () => ({ path: params.path, lineStart: params.lineStart, lineEnd: params.lineEnd }),
-    [params.lineEnd, params.lineStart, params.path],
+    () => ({
+      path: params.path,
+      lineStart: params.lineStart,
+      lineEnd: params.lineEnd,
+      columnStart: params.columnStart,
+      columnEnd: params.columnEnd,
+    }),
+    [params.columnEnd, params.columnStart, params.lineEnd, params.lineStart, params.path],
   );
 
   if (snapshot.status === "loading") return <FilePanelLoading />;

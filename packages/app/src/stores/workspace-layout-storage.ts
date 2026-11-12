@@ -27,6 +27,7 @@ const WorkspaceTabTargetStorageSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("browser"), browserId: z.string() }),
   z.strictObject({ kind: z.literal("changes_tree") }),
   z.strictObject({ kind: z.literal("files") }),
+  z.strictObject({ kind: z.literal("search") }),
   z.strictObject({ kind: z.literal("pull_request") }),
   z.strictObject({ kind: z.literal("attack_board") }),
   z.strictObject({ kind: z.literal("attack_findings") }),
@@ -35,6 +36,8 @@ const WorkspaceTabTargetStorageSchema = z.discriminatedUnion("kind", [
     path: z.string(),
     lineStart: z.number().int().positive().optional(),
     lineEnd: z.number().int().positive().optional(),
+    columnStart: z.number().int().positive().optional(),
+    columnEnd: z.number().int().positive().optional(),
   }),
   z.strictObject({
     kind: z.literal("working_diff"),

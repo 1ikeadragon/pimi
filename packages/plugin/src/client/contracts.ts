@@ -139,6 +139,9 @@ export interface PluginFilePanelParams {
   readonly path: string;
   readonly lineStart?: number;
   readonly lineEnd?: number;
+  /** 1-based columns on `lineStart` of a match to select; `columnEnd` is one past its last character. */
+  readonly columnStart?: number;
+  readonly columnEnd?: number;
 }
 export type PluginWorkspacePanelProps = PluginPanelProps<PluginWorkspacePanelParams>;
 export type PluginAgentPanelProps = PluginPanelProps<PluginAgentPanelParams>;

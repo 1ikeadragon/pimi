@@ -274,7 +274,11 @@ export function restoreWorkbench(
   const leftBehind = mode === "attack" ? new Set<string>() : attackOnlyTabIds(live);
   const newTabs = tabs.filter((tab) => !placed.has(tab.tabId) && !leftBehind.has(tab.tabId));
   const destination = (tab: WorkspaceTab) => {
-    if (tab.target.kind === "files" || tab.target.kind === "changes_tree")
+    if (
+      tab.target.kind === "files" ||
+      tab.target.kind === "search" ||
+      tab.target.kind === "changes_tree"
+    )
       return explorerPaneId ?? main?.id;
     if (mode === "editor" && isChat(tab) && sidePaneId) return sidePaneId;
     if (mode === "attack") {

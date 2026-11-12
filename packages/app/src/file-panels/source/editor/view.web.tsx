@@ -85,7 +85,13 @@ export function FileEditorView({
   );
   const getLineSeparator = useCallback(() => model.getSnapshot().lineSeparator, [model]);
   const retentionKey = JSON.stringify([serverId, workspaceId, tabId, filename]);
-  const navigation = JSON.stringify([location.lineStart, location.lineEnd, navigationRevision]);
+  const navigation = JSON.stringify([
+    location.lineStart,
+    location.lineEnd,
+    location.columnStart,
+    location.columnEnd,
+    navigationRevision,
+  ]);
   const appliedNavigation = useRef<string | null>(null);
   const [find] = useState(() => new FileFindModel());
   const hostRef = useRef<HTMLDivElement>(null);
@@ -188,11 +194,27 @@ export function FileEditorView({
     const lineEnd = Math.min(location.lineEnd ?? lineStart, view.state.doc.lines);
     const from = view.state.doc.line(lineStart).from;
     const to = view.state.doc.line(Math.max(lineStart, lineEnd)).to;
+    // A search result selects the match itself, clamped to the line as it is now.
+    const match =
+      location.columnStart && location.columnEnd
+        ? {
+            anchor: Math.min(from + location.columnStart - 1, to),
+            head: Math.min(from + location.columnEnd - 1, to),
+          }
+        : null;
     view.dispatch({
-      selection: { anchor: from, head: lineEnd > lineStart ? to : from },
-      effects: EditorView.scrollIntoView(from, { y: "center" }),
+      selection: match ?? { anchor: from, head: lineEnd > lineStart ? to : from },
+      effects: EditorView.scrollIntoView(match?.anchor ?? from, { y: "center" }),
     });
-  }, [location.lineEnd, location.lineStart, model, navigation, retentionKey]);
+  }, [
+    location.columnEnd,
+    location.columnStart,
+    location.lineEnd,
+    location.lineStart,
+    model,
+    navigation,
+    retentionKey,
+  ]);
 
   useEffect(() => {
     viewRef.current?.dispatch({
