@@ -2261,7 +2261,17 @@ export class AgentManager {
     // The resumed session is opened without a windowed history, so it cannot serve the older
     // rows the stored timeline is still missing. Read them from the session that holds the cursor.
     if (!plan.rehydrateFromDisk) {
-      await this.ensureTimelineRowsBefore(agent.id, { all: true });
+      try {
+        await this.ensureTimelineRowsBefore(agent.id, { all: true });
+      } catch (error) {
+        // The swap must not depend on the old transcript being readable; the rows that could not
+        // be loaded stay out of the timeline and no further older history is offered.
+        this.logger.warn(
+          { err: error, agentId: agent.id },
+          "Could not load older history before replacing the session",
+        );
+        if (this.timelineStore.has(agent.id)) this.timelineStore.setOlderAvailable(agent.id, false);
+      }
     }
     try {
       return await this.openReplacementSession(agent, plan, progress);
