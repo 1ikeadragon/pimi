@@ -2333,6 +2333,11 @@ export const ko: TranslationResources = {
     archiveFinishedRetry: "다시 시도 ({{failed}}/{{total}})",
   },
   attack: {
+    phone: {
+      entry: "공격 실행",
+      title: "공격",
+      noRun: "이 작업 공간에 공격 실행이 없습니다. 데스크톱 앱에서 시작하세요.",
+    },
     batchFix: {
       selectOpen: "열린 항목 선택",
       fixSelected: "선택 항목 수정 ({{count}})",

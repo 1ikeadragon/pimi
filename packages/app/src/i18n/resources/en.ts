@@ -2355,6 +2355,11 @@ export const en = {
     archiveFinishedRetry: "Retry ({{failed}}/{{total}})",
   },
   attack: {
+    phone: {
+      entry: "Attack run",
+      title: "Attack",
+      noRun: "No attack run in this workspace. Start one from the desktop app.",
+    },
     batchFix: {
       selectOpen: "Select open",
       fixSelected: "Fix selected ({{count}})",

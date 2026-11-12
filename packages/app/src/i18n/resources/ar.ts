@@ -2318,6 +2318,11 @@ export const ar: TranslationResources = {
     archiveFinishedRetry: "إعادة المحاولة ({{failed}}/{{total}})",
   },
   attack: {
+    phone: {
+      entry: "تشغيل الهجوم",
+      title: "الهجوم",
+      noRun: "لا يوجد تشغيل هجوم في مساحة العمل هذه. ابدأ واحدًا من تطبيق سطح المكتب.",
+    },
     batchFix: {
       selectOpen: "اختر المفتوحة",
       fixSelected: "أصلح المحدد ({{count}})",

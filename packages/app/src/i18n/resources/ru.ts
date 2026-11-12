@@ -2355,6 +2355,12 @@ export const ru: TranslationResources = {
     archiveFinishedRetry: "Повторить ({{failed}}/{{total}})",
   },
   attack: {
+    phone: {
+      entry: "Запуск атаки",
+      title: "Атака",
+      noRun:
+        "В этом рабочем пространстве нет запуска атаки. Запустите его из настольного приложения.",
+    },
     batchFix: {
       selectOpen: "Выбрать открытые",
       fixSelected: "Исправить выбранные ({{count}})",

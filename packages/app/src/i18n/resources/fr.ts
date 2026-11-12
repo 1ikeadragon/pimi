@@ -2371,6 +2371,12 @@ export const fr: TranslationResources = {
     archiveFinishedRetry: "Réessayer ({{failed}}/{{total}})",
   },
   attack: {
+    phone: {
+      entry: "Exécution d'attaque",
+      title: "Attaque",
+      noRun:
+        "Aucune exécution d'attaque dans cet espace de travail. Lancez-en une depuis l'application de bureau.",
+    },
     batchFix: {
       selectOpen: "Sélectionner les ouverts",
       fixSelected: "Corriger la sélection ({{count}})",

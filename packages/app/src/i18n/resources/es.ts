@@ -2370,6 +2370,12 @@ export const es: TranslationResources = {
     archiveFinishedRetry: "Reintentar ({{failed}}/{{total}})",
   },
   attack: {
+    phone: {
+      entry: "Ejecución de ataque",
+      title: "Ataque",
+      noRun:
+        "No hay ejecución de ataque en este espacio de trabajo. Inicia una desde la app de escritorio.",
+    },
     batchFix: {
       selectOpen: "Seleccionar abiertos",
       fixSelected: "Corregir seleccionados ({{count}})",

@@ -2356,6 +2356,11 @@ export const ptBR: TranslationResources = {
     archiveFinishedRetry: "Tentar novamente ({{failed}}/{{total}})",
   },
   attack: {
+    phone: {
+      entry: "Execução de ataque",
+      title: "Ataque",
+      noRun: "Nenhuma execução de ataque neste espaço de trabalho. Inicie uma pelo app de desktop.",
+    },
     batchFix: {
       selectOpen: "Selecionar abertos",
       fixSelected: "Corrigir selecionados ({{count}})",

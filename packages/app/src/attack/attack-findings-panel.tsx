@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { Image, ScrollView, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight, Wrench } from "lucide-react-native";
@@ -71,9 +71,39 @@ function runHost(target: string): string {
 
 const SEVERITIES: readonly FindingSeverity[] = ["blocker", "major", "minor"];
 
+interface FindingsScope {
+  serverId: string;
+  workspaceId: string;
+  /** Batch selection and "Fix selected" need the board's queue pump, so the phone view omits them. */
+  batch: boolean;
+}
+
+const FindingsScopeContext = createContext<FindingsScope | null>(null);
+
+function useFindingsScope(): FindingsScope {
+  const scope = useContext(FindingsScopeContext);
+  if (!scope) throw new Error("Findings scope is required");
+  return scope;
+}
+
 export function AttackFindingsPanel() {
-  const { t } = useTranslation();
   const { serverId, workspaceId } = usePaneContext();
+  return <AttackFindingsView serverId={serverId} workspaceId={workspaceId} batch />;
+}
+
+/** The findings list and Audit tab of a workspace's viewed run; the pane and the phone screen share it. */
+export function AttackFindingsView({ serverId, workspaceId, batch }: FindingsScope) {
+  const scope = useMemo(() => ({ serverId, workspaceId, batch }), [batch, serverId, workspaceId]);
+  return (
+    <FindingsScopeContext.Provider value={scope}>
+      <AttackFindingsBody />
+    </FindingsScopeContext.Provider>
+  );
+}
+
+function AttackFindingsBody() {
+  const { t } = useTranslation();
+  const { serverId, workspaceId } = useFindingsScope();
   useAttackSync(serverId, workspaceId);
   const run = useViewedAttackRun(serverId, workspaceId);
   const latestRun = useLatestAttackRun(serverId, workspaceId);
@@ -142,7 +172,7 @@ export function AttackFindingsPanel() {
 }
 
 function useBatchSelection(run: AttackRun | null, findings: readonly Finding[]) {
-  const { serverId, workspaceId } = usePaneContext();
+  const { serverId, workspaceId } = useFindingsScope();
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
   const onToggleSelect = useCallback((findingId: string) => {
     setSelected((current) => {
@@ -223,6 +253,7 @@ function FindingsList({
   past: boolean;
 }) {
   const { t } = useTranslation();
+  const { batch } = useFindingsScope();
   const { selected, onToggleSelect, onSelectOpen, onFixSelected } = useBatchSelection(
     run,
     findings,
@@ -252,7 +283,7 @@ function FindingsList({
         </Text>
       ) : null}
       {empty ? <Text style={styles.emptyText}>{empty}</Text> : null}
-      {run && findings.length > 0 ? (
+      {run && batch && findings.length > 0 ? (
         <BatchBar
           selectedCount={selected.size}
           onSelectOpen={onSelectOpen}
@@ -303,7 +334,7 @@ function FindingCard({
   onToggleSelect: (findingId: string) => void;
 }) {
   const { t } = useTranslation();
-  const { serverId, workspaceId } = usePaneContext();
+  const { serverId, workspaceId, batch } = useFindingsScope();
   const client = useHostRuntimeClient(serverId);
   const run = useViewedAttackRun(serverId, workspaceId);
   const [open, setOpen] = useState(false);
@@ -420,16 +451,18 @@ function FindingCard({
           </Text>
         </View>
       </PressHighlight>
-      <View style={styles.selectRow}>
-        <Button
-          size="sm"
-          variant={selected ? "default" : "ghost"}
-          onPress={onSelect}
-          testID="attack-select-finding"
-        >
-          {selected ? t("attack.batchFix.selected") : t("attack.batchFix.select")}
-        </Button>
-      </View>
+      {batch ? (
+        <View style={styles.selectRow}>
+          <Button
+            size="sm"
+            variant={selected ? "default" : "ghost"}
+            onPress={onSelect}
+            testID="attack-select-finding"
+          >
+            {selected ? t("attack.batchFix.selected") : t("attack.batchFix.select")}
+          </Button>
+        </View>
+      ) : null}
       <FixJobLine finding={finding} serverId={serverId} />
       {finding.annotationLabels.length > 0 ? (
         <View style={styles.chips} testID="attack-finding-annotations">

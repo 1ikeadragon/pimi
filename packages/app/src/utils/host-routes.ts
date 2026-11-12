@@ -331,6 +331,12 @@ export function buildHostWorkspaceRoute(serverId: string, workspaceId: string) {
   return `/h/${encodeSegment(normalizedServerId)}/workspace/${encodeSegment(encodedWorkspaceId)}` as const;
 }
 
+/** The phone-sized Attack view of a workspace: its newest run's status and findings. */
+export function buildHostWorkspaceAttackRoute(serverId: string, workspaceId: string) {
+  const base = buildHostWorkspaceRoute(serverId, workspaceId);
+  return base === "/" ? base : (`${base}/attack` as const);
+}
+
 export function buildHostWorkspaceOpenRoute(
   serverId: string,
   workspaceId: string,

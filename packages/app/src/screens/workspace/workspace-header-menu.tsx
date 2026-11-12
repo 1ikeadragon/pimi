@@ -23,7 +23,7 @@ import {
 import { TerminalProfileIcon } from "@/components/terminal-profile-icon";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { getTerminalProfileIcon, resolveTerminalProfiles } from "@pimi/protocol/terminal-profiles";
-import { buildSettingsHostSectionRoute } from "@/utils/host-routes";
+import { buildHostWorkspaceAttackRoute, buildSettingsHostSectionRoute } from "@/utils/host-routes";
 import type { Theme } from "@/styles/theme";
 import {
   useWorkspaceScriptsMenuPages,
@@ -256,6 +256,9 @@ export function WorkspaceHeaderMenuMobile({
   const handleEditProfiles = useCallback(() => {
     router.push(buildSettingsHostSectionRoute(normalizedServerId, "terminals") as Href);
   }, [normalizedServerId, router]);
+  const handleOpenAttack = useCallback(() => {
+    router.push(buildHostWorkspaceAttackRoute(normalizedServerId, normalizedWorkspaceId) as Href);
+  }, [normalizedServerId, normalizedWorkspaceId, router]);
   const scriptsMenu = useWorkspaceScriptsMenuPages(scripts);
   const pluginMenu = usePluginWorkspaceMenu(normalizedServerId, normalizedWorkspaceId);
   const pages = useMemo(
@@ -313,6 +316,9 @@ export function WorkspaceHeaderMenuMobile({
             )}
           </DropdownMenuItem>
         ) : null}
+        <DropdownMenuItem testID="workspace-header-menu-attack" onSelect={handleOpenAttack}>
+          {t("attack.phone.entry")}
+        </DropdownMenuItem>
         {scriptsMenu.trigger}
         {pluginMenu.rows}
         {pluginMenu.rows.length > 0 ? <DropdownMenuSeparator /> : null}

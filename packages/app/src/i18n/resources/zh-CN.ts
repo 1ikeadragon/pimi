@@ -2294,6 +2294,11 @@ export const zhCN: TranslationResources = {
     archiveFinishedRetry: "重试 ({{failed}}/{{total}})",
   },
   attack: {
+    phone: {
+      entry: "攻击运行",
+      title: "攻击",
+      noRun: "此工作区没有攻击运行。请从桌面应用开始一次。",
+    },
     batchFix: {
       selectOpen: "选择未处理项",
       fixSelected: "修复所选 ({{count}})",

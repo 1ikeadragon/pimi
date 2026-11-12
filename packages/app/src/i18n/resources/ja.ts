@@ -2345,6 +2345,12 @@ export const ja: TranslationResources = {
     archiveFinishedRetry: "再試行 ({{failed}}/{{total}})",
   },
   attack: {
+    phone: {
+      entry: "アタック実行",
+      title: "アタック",
+      noRun:
+        "このワークスペースにアタック実行はありません。デスクトップアプリから開始してください。",
+    },
     batchFix: {
       selectOpen: "未対応を選択",
       fixSelected: "選択を修正 ({{count}})",

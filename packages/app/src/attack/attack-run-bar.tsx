@@ -48,8 +48,10 @@ export function AttackRunBar({
 }: {
   run: AttackRun;
   serverId: string;
-  onNewRun: () => void;
-  onHistory: () => void;
+  /** Left out where a run cannot be launched, such as the phone view. */
+  onNewRun?: () => void;
+  /** Left out where the history list is not offered, such as the phone view. */
+  onHistory?: () => void;
   /** Narrow windows: the findings count, which opens the findings overlay when pressed. */
   findingsBadge?: { count: number; open: boolean; onPress: () => void };
 }) {
@@ -134,15 +136,7 @@ export function AttackRunBar({
             {t("attack.run.findingsBadge", { count: findingsBadge.count })}
           </Button>
         ) : null}
-        <Button
-          size="sm"
-          variant="outline"
-          leftIcon={History}
-          onPress={onHistory}
-          testID="attack-history-button"
-        >
-          {t("attack.history.open")}
-        </Button>
+        <HistoryButton onHistory={onHistory} />
         {run.status === "running" ? (
           <Button
             size="sm"
@@ -190,23 +184,40 @@ export function AttackRunBar({
           >
             {t("attack.run.stop")}
           </Button>
-        ) : (
-          <Button
-            size="sm"
-            variant="outline"
-            leftIcon={Plus}
-            onPress={onNewRun}
-            testID="attack-new-run"
-          >
-            {t("attack.run.newRun")}
-          </Button>
-        )}
+        ) : null}
+        <NewRunButton active={active} onNewRun={onNewRun} />
       </View>
       {run.status === "paused" && budgetSpent && budgetOpen ? (
         <AddBudgetPanel run={run} serverId={serverId} onDone={onBudgetDone} />
       ) : null}
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
     </View>
+  );
+}
+
+function HistoryButton({ onHistory }: { onHistory?: () => void }) {
+  const { t } = useTranslation();
+  if (!onHistory) return null;
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      leftIcon={History}
+      onPress={onHistory}
+      testID="attack-history-button"
+    >
+      {t("attack.history.open")}
+    </Button>
+  );
+}
+
+function NewRunButton({ active, onNewRun }: { active: boolean; onNewRun?: () => void }) {
+  const { t } = useTranslation();
+  if (active || !onNewRun) return null;
+  return (
+    <Button size="sm" variant="outline" leftIcon={Plus} onPress={onNewRun} testID="attack-new-run">
+      {t("attack.run.newRun")}
+    </Button>
   );
 }
 
