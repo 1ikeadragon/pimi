@@ -280,7 +280,8 @@ const styles = StyleSheet.create((theme) => ({
     maxHeight: SINGLE_IMAGE_MAX_SIZE,
   },
   gridTile: {
-    width: "49%",
+    // Two tiles and the gap must fit one row down to phone widths; 49% wraps below 400px.
+    width: "48%",
     aspectRatio: 1,
   },
   image: {
