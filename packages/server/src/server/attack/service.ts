@@ -204,6 +204,10 @@ export class AttackService {
         cwd: run.cwd,
         workspaceId: run.workspaceId,
         labels: { [ATTACK_RUN_LABEL]: run.id },
+        // The provider's own unattended mode, as for an automation step. Nobody answers permission
+        // prompts during a run; subagents the lead creates inherit it from their unattended parent.
+        // The run is read-only by its host allowlist, instructions, budget and audit log.
+        unattended: true,
         promptFailure: "return-error",
         notifyOnFinish: false,
       });

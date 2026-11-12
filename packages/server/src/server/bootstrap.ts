@@ -1528,7 +1528,10 @@ export async function createPaseoDaemon(
     agentManager,
     agentStorage,
     createAgent,
-    emit: emitExternalSessionMessage,
+    // `broadcast` reaches only direct sockets; the desktop app's session is an external one.
+    emit: (message) => {
+      for (const session of wsServer?.listSessions() ?? []) session.emitServerMessage(message);
+    },
   });
   await attackService.start();
   const heartbeatService = new HeartbeatService({
