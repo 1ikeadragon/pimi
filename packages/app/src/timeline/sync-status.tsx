@@ -1,7 +1,7 @@
 import type { Theme } from "@/styles/theme";
 import { useMemo } from "react";
 import type { AgentScreenReadySyncState } from "@/hooks/use-agent-screen-state-machine";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { withUnistyles } from "react-native-unistyles";
 import { ToastViewport, type ToastState } from "@/components/toast-host";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";

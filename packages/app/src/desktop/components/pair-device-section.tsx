@@ -6,7 +6,7 @@ import { SvgXml } from "react-native-svg";
 import { useMutation } from "@tanstack/react-query";
 import { Check, Copy, Network, RotateCw, ShieldCheck } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "@/components/ui/external-link";
@@ -14,7 +14,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useFetchQuery } from "@/data/query";
 import { daemonPairingOfferQueryKey } from "@/data/daemon-pairing";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
-import { useHostRuntimeClient, useHostRuntimeSnapshot } from "@/runtime/host-runtime";
+import { useHostRuntimeClient, useHostRuntimeConnectionStatus } from "@/runtime/host-runtime";
 import type { Theme } from "@/styles/theme";
 import {
   EditingTextInput as TextInput,
@@ -43,11 +43,9 @@ export interface PairDeviceSectionProps {
 export function PairDeviceSection({ serverId, onClose }: PairDeviceSectionProps) {
   const { t } = useTranslation();
   const client = useHostRuntimeClient(serverId);
-  const runtimeSnapshot = useHostRuntimeSnapshot(serverId);
-  const isConnected = runtimeSnapshot?.connectionStatus === "online";
-  const isDisconnected =
-    runtimeSnapshot?.connectionStatus === "offline" ||
-    runtimeSnapshot?.connectionStatus === "error";
+  const connectionStatus = useHostRuntimeConnectionStatus(serverId);
+  const isConnected = connectionStatus === "online";
+  const isDisconnected = connectionStatus === "offline" || connectionStatus === "error";
   const { patchConfig } = useDaemonConfig(serverId);
   const [copied, setCopied] = useState(false);
 

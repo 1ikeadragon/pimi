@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Text, View } from "react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { StyleSheet } from "react-native-unistyles";
 import type { AttackRun } from "@pimi/protocol/attack/types";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";

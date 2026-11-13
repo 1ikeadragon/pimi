@@ -9,7 +9,7 @@ import {
   WholeWord,
 } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { Button } from "@/components/ui/button";
 import { mutedIconColorMapping } from "@/components/ui/icon-button-chrome";
 import { paneContentToolbarIconSize, ToolbarButton } from "@/components/ui/pane-content-toolbar";

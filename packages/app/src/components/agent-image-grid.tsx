@@ -3,7 +3,7 @@ import { Image, Text, View } from "react-native";
 import { PressHighlight } from "@/components/ui/press-highlight";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { ImageOff } from "lucide-react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import type { AgentImageRef } from "@pimi/protocol/agent-types";
 import type { AttachmentMetadata } from "@/attachments/types";

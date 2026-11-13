@@ -8,7 +8,7 @@ import {
 } from "react";
 import { View, type LayoutChangeEvent } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { PaneFind, usePaneFindTarget, type PaneFindHandle } from "@/pane-find";
 import type { TerminalEmulatorHandle } from "@/components/terminal-emulator-contract";
 import type { TerminalFindResult } from "../runtime/terminal-emulator-runtime";

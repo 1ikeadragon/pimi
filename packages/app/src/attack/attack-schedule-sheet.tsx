@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { ArrowLeft, Play, Plus, Trash2 } from "lucide-react-native";
 import { StyleSheet } from "react-native-unistyles";
 import type {

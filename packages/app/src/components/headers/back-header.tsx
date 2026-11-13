@@ -1,5 +1,5 @@
 import { useCallback, type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { Pressable } from "react-native";
 import { router } from "expo-router";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";

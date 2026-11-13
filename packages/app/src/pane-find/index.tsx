@@ -27,7 +27,7 @@ import {
   X,
 } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { Button } from "@/components/ui/button";
 import { EditingTextInput, type EditingTextInputHandle } from "@/components/ui/text-input";
 import {

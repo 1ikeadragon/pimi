@@ -14,7 +14,7 @@ import { useRouter } from "expo-router";
 import { useFocusEffect } from "expo-router/react-navigation";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { TFunction } from "i18next";
 import { Buffer } from "buffer";
 import {

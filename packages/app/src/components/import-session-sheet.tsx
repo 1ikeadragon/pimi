@@ -1,7 +1,7 @@
 import React, { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, type PressableStateCallbackType, Text, View } from "react-native";
 import { keepPreviousData, useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type {
   DaemonClient,
   FetchRecentProviderSessionEntry,

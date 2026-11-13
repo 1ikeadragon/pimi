@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState, type ReactElement } from "react";
 import { Pressable, View, type PressableStateCallbackType } from "react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { TFunction } from "i18next";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { Check, ChevronDown } from "lucide-react-native";

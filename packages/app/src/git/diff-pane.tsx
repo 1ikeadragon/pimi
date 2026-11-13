@@ -1,7 +1,7 @@
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { floatingActionsClearance } from "@/components/ui/floating-action-button";
 import { useState, useCallback, useMemo, type ReactElement, type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { TFunction } from "i18next";
 import { TreeRail } from "@/components/tree-rail";
 import { TreeRailToggle } from "@/components/tree-rail-toggle";

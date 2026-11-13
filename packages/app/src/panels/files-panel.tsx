@@ -2,7 +2,7 @@ import { Text, View } from "react-native";
 import { Files } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useCallback } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { invariant } from "@/utils/invariant";
 import { FileExplorerPane } from "@/components/file-explorer-pane";
 import { usePaneContext } from "@/panels/pane-context";

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState, type ReactElement } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import {
   ChevronUp,
   CircleGauge,

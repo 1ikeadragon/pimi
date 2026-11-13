@@ -4,7 +4,7 @@
 // collapsed, shards folded), Threads, Commits. The same rows feed the Changes tab's inspector.
 import type { TFunction } from "i18next";
 import { useCallback, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { ScrollView, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { Button } from "@/components/ui/button";

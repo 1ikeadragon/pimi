@@ -1,4 +1,4 @@
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { useUsageDisplay } from "./display";
 import { useHostUsage } from "./queries";
 import { UsageSection } from "./usage-section";

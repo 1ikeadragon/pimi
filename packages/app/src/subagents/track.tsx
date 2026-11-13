@@ -2,7 +2,7 @@ import type { AgentAddress } from "@pimi/protocol/addresses";
 import { useHosts } from "@/runtime/host-runtime";
 import { useCallback, useMemo, type ReactElement, type ReactNode } from "react";
 import { Text, View } from "react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { Archive, GitFork, Unlink } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useProviderIcon } from "@/components/provider-icons";

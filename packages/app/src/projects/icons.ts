@@ -1,5 +1,5 @@
 import { useMemo, useRef } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import type { ProjectIcon } from "@pimi/protocol/messages";
 import { projectIconCache } from "@/projects/icon-cache";

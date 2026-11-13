@@ -5,7 +5,7 @@ import {
   type QueryClient,
   type QueryKey,
 } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import type {
   Automation,

@@ -18,7 +18,7 @@ import {
   forwardRef,
 } from "react";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { Theme } from "@/styles/theme";
 import {
   controlSizingForLayout,

@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { View, Text, Pressable } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { X, ArrowUp, RefreshCcw, Check, Mic, Pencil, type LucideIcon } from "lucide-react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { VolumeMeter } from "./volume-meter";
 import { FOOTER_HEIGHT } from "@/constants/layout";
 import type { DictationStatus } from "@/hooks/use-dictation";

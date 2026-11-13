@@ -1,6 +1,6 @@
 import { useCallback, useMemo, type ReactElement, type ReactNode } from "react";
 import { View } from "react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { StyleSheet } from "react-native-unistyles";
 import type { AgentProvider } from "@pimi/protocol/agent-types";
 import type { ProviderSnapshotEntry } from "@pimi/protocol/agent-types";

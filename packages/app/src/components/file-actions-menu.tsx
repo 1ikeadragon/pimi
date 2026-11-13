@@ -17,7 +17,7 @@ import {
   Undo2,
   type LucideIcon,
 } from "lucide-react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { ICON_SIZE, type Theme } from "@/styles/theme";
 import {
   ContextMenuContent,

@@ -4,7 +4,7 @@ import { navigateToAgent } from "@/utils/navigate-to-agent";
 import { getDesktopHost } from "@/desktop/host";
 import { isHttpUrl } from "@/utils/http-url";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import type { OpenFileDisposition } from "@/workspace/file-open";
 import { openExternalUrl } from "@/utils/open-external-url";

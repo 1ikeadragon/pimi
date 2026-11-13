@@ -1,7 +1,7 @@
 import { router, usePathname } from "expo-router";
 import { Rocket, History, Plus, Search, SquarePen } from "lucide-react-native";
 import { memo, useCallback, useMemo, useRef, type ComponentType, type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { View, type StyleProp, type ViewStyle } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { HeaderToggleButton } from "@/components/headers/header-toggle-button";

@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { AgentForkContextOptions, DaemonClient } from "@pimi/client/internal/daemon-client";
 import type { WorkspaceComposerAttachment } from "@/attachments/types";
 import type { AssistantForkTarget } from "@/components/assistant-fork-menu";

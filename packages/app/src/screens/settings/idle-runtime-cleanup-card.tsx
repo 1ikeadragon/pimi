@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { Text, View } from "react-native";
 import { useMutation } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { StyleSheet } from "react-native-unistyles";
 import { SettingsInfoTip } from "@/components/settings/headings/settings-info-tip";
 import { Switch } from "@/components/ui/switch";

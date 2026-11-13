@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import * as Clipboard from "expo-clipboard";
 import { useMutation } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { WorkspaceDescriptor } from "@/stores/session-store";
 import type { DaemonClient } from "@pimi/client/internal/daemon-client";
-import { getHostRuntimeStore } from "@/runtime/host-runtime";
+import { useHostRuntimeSnapshotValue } from "@/runtime/host-runtime";
 import { useToast } from "@/contexts/toast-api-context";
 import {
   resolveWorkspaceScriptLink,
@@ -58,13 +58,9 @@ export function useWorkspaceScriptActions({
 }: UseWorkspaceScriptActionsInput): WorkspaceScriptActions {
   const { t } = useTranslation();
   const toast = useToast();
-  // Only the connection, not the whole snapshot: the snapshot changes on every host event and
-  // would re-render the workspace screen with it.
-  const hostStore = getHostRuntimeStore();
-  const activeConnection = useSyncExternalStore(
-    (onStoreChange) => hostStore.subscribe(serverId, onStoreChange),
-    () => hostStore.getSnapshot(serverId)?.activeConnection ?? null,
-    () => hostStore.getSnapshot(serverId)?.activeConnection ?? null,
+  const activeConnection = useHostRuntimeSnapshotValue(
+    serverId,
+    (snapshot) => snapshot?.activeConnection ?? null,
   );
   const preferredRouteKind = useWorkspaceServiceRoutePreferencesStore(
     (state) => state.byServerId[serverId] ?? null,

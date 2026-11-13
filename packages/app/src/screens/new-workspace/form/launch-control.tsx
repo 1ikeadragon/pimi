@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState, type ReactElement } from "react";
 import { Text, View } from "react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { useRouter } from "expo-router";
 import { MessageCircle, SquareTerminal } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";

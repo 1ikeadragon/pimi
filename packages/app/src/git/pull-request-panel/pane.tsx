@@ -16,7 +16,7 @@ import {
   RotateCw,
 } from "lucide-react-native";
 import type { PressableStateCallbackType } from "react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";

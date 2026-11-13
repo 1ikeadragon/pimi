@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { ChevronDown, ChevronRight } from "lucide-react-native";
 import { Button } from "@/components/ui/button";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { StyleSheet } from "react-native-unistyles";
 import type { ChartNode, ChatView } from "@pimi/protocol/chat-view";
 import { OpenInTabButton, useOpenChatVisualInTab } from "../open-in-tab";

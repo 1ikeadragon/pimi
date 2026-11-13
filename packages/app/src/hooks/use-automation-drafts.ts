@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { AutomationDraft } from "@pimi/protocol/automation/types";
 import { automationsQueryBaseKey } from "@/automations/aggregated-automations";
 import { useFetchQuery } from "@/data/query";

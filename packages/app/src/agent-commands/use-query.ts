@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useFetchQuery } from "@/data/query";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import { useRetainedPanelActive } from "@/components/retained-panel";
 import { useSessionStore } from "@/stores/session-store";

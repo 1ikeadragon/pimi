@@ -1,6 +1,6 @@
 import { useHosts, useHostRuntimeLastError } from "@/runtime/host-runtime";
 import { useCallback, useEffect, useState, type ComponentType } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { View, Text, Pressable, ScrollView } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useRouter } from "expo-router";

@@ -11,7 +11,7 @@ import {
 } from "react";
 import { View, Text } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { PaneFind, usePaneFindTarget, type PaneFindHandle } from "@/pane-find";
 import { Button } from "@/components/ui/button";
 import { usePaneFocus } from "@/panels/pane-context";

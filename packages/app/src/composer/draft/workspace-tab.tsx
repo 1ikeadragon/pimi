@@ -1,7 +1,7 @@
 import type { AgentAddress } from "@pimi/protocol/addresses";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Keyboard, StyleSheet as RNStyleSheet, Text, View } from "react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { StyleSheet } from "react-native-unistyles";
 import { useContainerWidthBelow } from "@/hooks/use-container-width";
 import { invariant } from "@/utils/invariant";

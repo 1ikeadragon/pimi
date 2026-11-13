@@ -7,7 +7,7 @@ import React, {
   useSyncExternalStore,
 } from "react";
 import type { ReactNode } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { Pencil, Plus, Trash2 } from "lucide-react-native";
 import {
   Pressable,

@@ -1,4 +1,4 @@
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { RotateCw } from "lucide-react-native";
 import { withUnistyles } from "react-native-unistyles";
 import { extraMutedIconColorMapping } from "@/components/ui/icon-button-chrome";

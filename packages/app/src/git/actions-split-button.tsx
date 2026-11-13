@@ -3,7 +3,7 @@ import { useCallback, useMemo } from "react";
 import { View, Text, Pressable, type PressableStateCallbackType } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { ChevronDown, GitBranch, MoreVertical } from "lucide-react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import {
   DropdownMenu,
   DropdownMenuContent,

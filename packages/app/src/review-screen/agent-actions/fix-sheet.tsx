@@ -4,7 +4,7 @@
 // opens that workspace's composer with both prefilled. It never sends, posts or pushes: the only
 // writes are a local draft, local attachments, and navigation.
 import { useCallback, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { Text, View } from "react-native";
 import { router } from "expo-router";
 import { StyleSheet } from "react-native-unistyles";

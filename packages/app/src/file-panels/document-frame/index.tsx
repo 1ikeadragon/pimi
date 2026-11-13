@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef } from "react";
 import { Platform, Text, View } from "react-native";
 import { WebView } from "react-native-webview";
 import { StyleSheet } from "react-native-unistyles";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 
 const frameStyle = { flex: 1, backgroundColor: "white" };
 const originWhitelist = ["*"];

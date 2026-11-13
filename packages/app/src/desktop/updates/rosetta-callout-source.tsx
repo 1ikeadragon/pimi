@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { SidebarCalloutDescriptionText } from "@/components/sidebar-callout";
 import { getIsElectronMac } from "@/constants/platform";
 import { useSidebarCallouts } from "@/contexts/sidebar-callout-context";

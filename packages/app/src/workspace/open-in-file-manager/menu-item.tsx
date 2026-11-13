@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { FolderOpen } from "lucide-react-native";
 import { withUnistyles } from "react-native-unistyles";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";

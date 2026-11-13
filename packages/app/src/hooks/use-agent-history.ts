@@ -5,7 +5,7 @@ import type {
 } from "@pimi/client/internal/daemon-client";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useCallback, useMemo, useSyncExternalStore } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { AggregatedAgent } from "@/hooks/use-aggregated-agents";
 import { getHostRuntimeStore, isHostRuntimeConnected, useHosts } from "@/runtime/host-runtime";
 import { buildAgentDirectoryState } from "@/utils/agent-directory-sync";

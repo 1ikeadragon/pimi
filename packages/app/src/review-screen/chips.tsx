@@ -1,6 +1,6 @@
 // Pimi. Apache-2.0.
 // Stream S2: the state, review and checks chips shared by the rail rows and the detail header.
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { StatusBadge, type StatusBadgeVariant } from "@/components/ui/status-badge";
 
 type State = "open" | "closed" | "merged";

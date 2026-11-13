@@ -6,7 +6,7 @@ import {
   type GestureResponderEvent,
   type LayoutChangeEvent,
 } from "react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { ArrowLeft, Camera, Check, Trash2 } from "lucide-react-native";
 import { StyleSheet } from "react-native-unistyles";
 import type { AttackDesktopTarget } from "@pimi/protocol/attack/types";

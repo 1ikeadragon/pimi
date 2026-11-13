@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { useSessionStore, type AgentFileExplorerState } from "@/stores/session-store";
 import { usePanelStore } from "@/stores/panel-store";
 import { revealExplorerDirectory } from "@/file-explorer/tree";

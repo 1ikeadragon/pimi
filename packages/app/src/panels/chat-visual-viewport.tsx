@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { View, type LayoutChangeEvent, type ScrollView as RNScrollView } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { Maximize, ZoomIn, ZoomOut } from "lucide-react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { StyleSheet } from "react-native-unistyles";
 import { Button } from "@/components/ui/button";
 import { ScrollView } from "@/components/ui/scroll-view";

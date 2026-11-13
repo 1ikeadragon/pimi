@@ -1,5 +1,5 @@
 import { memo, useCallback } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { Summary } from "lucide-react-native";
 import { useDisclosureHold } from "@/agent-stream/disclosure";
 import { ExpandableBadge } from "@/components/message";

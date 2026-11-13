@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { SettingsCard, SettingsSection, SettingsSelect } from "@/components/settings";
 import { useAppSettings, type SendShortcut, type SendBehavior } from "@/hooks/use-settings";
 import { useHardwareKeyboardPresent, supportsConfigurableComposerSendKeys } from "@/keyboard";

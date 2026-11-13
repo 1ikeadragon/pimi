@@ -1,7 +1,7 @@
 import { Text, View } from "react-native";
 import { RotateCw, Square } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { TFunction } from "i18next";
 import { WORKSPACE_SEARCH_LIMITS } from "@pimi/protocol/workspace-search";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";

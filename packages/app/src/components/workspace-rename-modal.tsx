@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { useMutation } from "@tanstack/react-query";
 import { AdaptiveRenameModal } from "@/components/rename-modal";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";

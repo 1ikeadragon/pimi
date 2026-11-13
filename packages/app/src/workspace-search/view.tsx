@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { FlatList, View, type ListRenderItemInfo } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { WorkspaceSearchMatch } from "@pimi/protocol/workspace-search";
 import { useSessionStore } from "@/stores/session-store";
 import { openWorkspaceFileLocation } from "@/workspace/file-open/open-location";

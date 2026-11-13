@@ -1,4 +1,4 @@
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import React, { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
 import { getParentAddressFromLabels } from "@pimi/protocol/agent-labels";
 import { PIMI_TASK_WORKER_LABEL } from "@pimi/protocol/pimi-task";

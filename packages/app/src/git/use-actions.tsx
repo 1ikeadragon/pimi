@@ -3,7 +3,7 @@ import { Info } from "lucide-react-native";
 import { withUnistyles } from "react-native-unistyles";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { z } from "zod";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { Theme } from "@/styles/theme";
 import { getForgePresentation, type Forge } from "@/git/forge";
 import { ForgeBrandIcon, getForgeBrandColorMapping } from "@/git/forge-icon";
