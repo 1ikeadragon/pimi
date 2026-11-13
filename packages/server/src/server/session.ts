@@ -266,6 +266,7 @@ import { expandTilde } from "../utils/path.js";
 import {
   searchDirectoryEntries,
   WORKSPACE_SEARCH_HIDDEN_DIRECTORIES,
+  absoluteQuerySearchRoot,
 } from "../utils/directory-suggestions.js";
 import type { CheckoutDiffManager } from "./checkout-diff-manager.js";
 import type { Resolvable } from "./speech/provider-resolver.js";
@@ -5281,8 +5282,11 @@ export class Session {
       // show a consent prompt, and each blocked call holds a libuv threadpool thread.
       const excludedDiscoveryPaths =
         !searchesWorkspace && process.platform === "darwin" ? [join(homeRoot, "Library")] : [];
+      const absoluteSearchRoot = searchesWorkspace
+        ? null
+        : absoluteQuerySearchRoot(query, homeRoot);
       const entries = await searchDirectoryEntries({
-        root: workspaceCwd ? expandTilde(workspaceCwd) : homeRoot,
+        root: workspaceCwd ? expandTilde(workspaceCwd) : (absoluteSearchRoot ?? homeRoot),
         query,
         pathFormat: searchesWorkspace ? "relative" : "absolute",
         pathQueryPolicy: searchesWorkspace ? "slashes" : "rooted",

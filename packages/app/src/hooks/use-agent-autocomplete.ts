@@ -120,7 +120,9 @@ type AvailableCommand =
   | { source: "plugin"; command: PluginClientSlashCommand }
   | { source: "provider"; command: AgentSlashCommand };
 
-function resolveDraftQueryConfig(draft?: DraftCommandTarget): DraftCommandConfig | undefined {
+export function resolveDraftQueryConfig(
+  draft?: DraftCommandTarget,
+): DraftCommandConfig | undefined {
   if (draft?.status !== "ready") {
     return undefined;
   }
@@ -468,7 +470,7 @@ function resolveCommandsEmptyText(args: {
   if (args.draft?.status === "needs-project") {
     return args.t("agentAutocomplete.chooseProjectForCommands");
   }
-  if (args.draft?.status === "needs-provider") {
+  if (args.draft?.status === "needs-provider" || args.draft?.status === "needs-model") {
     return args.t("agentAutocomplete.chooseModelForCommands");
   }
   return args.t("agentAutocomplete.noCommands");

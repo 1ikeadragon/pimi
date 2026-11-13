@@ -1,7 +1,12 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { useAutocompleteCommands, type AgentSlashCommand } from "@/agent-commands";
+import {
+  useAutocompleteCommands,
+  type AgentSlashCommand,
+  type DraftCommandTarget,
+} from "@/agent-commands";
 import { getClientSlashCommands, type ClientSlashCommand } from "@/client-slash-commands";
+import { resolveDraftQueryConfig } from "@/hooks/use-agent-autocomplete";
 import type { ComposerEditingSession } from "@/composer/editing-session";
 import { useComposerKeyboardScope } from "@/composer/keyboard-scope";
 import type { CommandCenterContribution } from "./contributions";
@@ -62,17 +67,28 @@ export function buildSlashContributions(source: {
 export function SlashCommandCenterActions({
   serverId,
   agentId,
+  draft,
   editingSession,
   runClient,
 }: {
   serverId: string;
   agentId: string;
+  /** Set in a draft composer, whose agentId is a draft key the daemon does not know. */
+  draft?: DraftCommandTarget;
   editingSession: ComposerEditingSession;
   runClient(command: ClientSlashCommand): boolean;
 }) {
   const { isActiveComposer } = useComposerKeyboardScope();
   const { t } = useTranslation();
-  const { commands } = useAutocompleteCommands({ serverId, agentId, enabled: isActiveComposer });
+  // A draft lists commands by its config alone, and not until that config is complete.
+  const draftConfig = resolveDraftQueryConfig(draft);
+  const canListCommands = draft === undefined || draftConfig !== undefined;
+  const { commands } = useAutocompleteCommands({
+    serverId,
+    agentId,
+    enabled: isActiveComposer && canListCommands,
+    draftConfig,
+  });
   const actions = useMemo(
     () =>
       buildSlashContributions({

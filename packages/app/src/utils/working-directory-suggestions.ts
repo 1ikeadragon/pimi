@@ -12,7 +12,8 @@ export function buildWorkingDirectorySuggestions(
   const query = input.query.trim();
   const recommended = uniquePaths(input.recommendedPaths);
   if (!query) {
-    return recommended;
+    // Recommended paths first, then the home folders the daemon listed for the blank query.
+    return uniquePaths([...recommended, ...input.serverPaths]);
   }
 
   const matchingRecommended = recommended.filter((path) =>

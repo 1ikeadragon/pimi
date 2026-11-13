@@ -398,7 +398,8 @@ export function AddProjectFlow({ request, onClose }: AddProjectFlowProps) {
     queryFn: async () => {
       if (!client) return { query: debouncedQuery, paths: [] as string[] };
       const payload = await client.getDirectorySuggestions({
-        query: debouncedQuery,
+        // A blank query asks the daemon for the home folders; the daemon returns nothing for "".
+        query: debouncedQuery.trim() ? debouncedQuery : "~",
         includeDirectories: true,
         includeFiles: false,
         limit: 30,

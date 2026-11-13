@@ -149,6 +149,18 @@ function stat(target: string): Promise<Stats> {
   return sharedFilesystemCall(`stat:${target}`, () => fs.stat(target));
 }
 
+// Search root for a picker query that is not inside the home directory. A typed absolute path
+// such as /srv/app or /home/dev/x names a location the home root cannot reach, so that request
+// searches from the filesystem root. Only the named parent is walked: parseQuery anchors a rooted
+// query at its typed parent, so `/` never triggers a whole-disk scan.
+export function absoluteQuerySearchRoot(query: string, homeRoot: string): string | null {
+  const typed = query.trim();
+  if (!path.isAbsolute(typed)) return null;
+  const absolute = path.resolve(typed);
+  if (isPathInsideRoot(homeRoot, absolute)) return null;
+  return path.parse(absolute).root;
+}
+
 export const WORKSPACE_SEARCH_HIDDEN_DIRECTORIES = [
   ".agents",
   ".claude",
@@ -211,7 +223,13 @@ export async function searchDirectoryEntries(
 async function searchCandidates(input: SearchInput): Promise<RankedEntry[]> {
   const browsesRoot = input.plan.isPathQuery && !input.plan.normalizedQuery;
   const browsesAbsoluteParent = input.plan.browseExactPath === true;
-  if (browsesRoot || browsesAbsoluteParent) return searchChildren(input);
+  if (browsesRoot) return searchChildren(input);
+  if (browsesAbsoluteParent) {
+    // `/srv` browses /srv. When nothing is there, `/sr` is a prefix of an entry at the root.
+    const children = await searchChildren(input);
+    if (children.length > 0) return children;
+    return searchChildren({ ...input, plan: { ...input.plan, parentPart: "" } });
+  }
   if (!resolvesTypedPath(input) || !input.plan.parentPart) return searchTree(input);
 
   // A typed parent such as `~/Developer/pas` anchors the walk under `~/Developer`. A parent that
