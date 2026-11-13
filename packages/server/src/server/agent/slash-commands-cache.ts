@@ -10,17 +10,15 @@ const FRESH_MS = 60_000;
 /**
  * Directories whose contents decide a provider's slash commands and skills. Adding or removing
  * an entry changes the directory's mtime, which invalidates the cache. Plugin-provided and
- * MCP-provided commands are not covered; the 60 s refresh picks those up.
+ * MCP-provided commands are not covered (`.claude/plugins` changes whenever a provider
+ * process starts, so it cannot be a key); the 60 s refresh picks those up.
  */
 const COMMAND_DIRS = [
-  ".claude",
   ".claude/commands",
   ".claude/skills",
-  ".claude/plugins",
   ".codex/prompts",
   ".codex/skills",
   ".agents/skills",
-  ".opencode",
   ".opencode/command",
   ".opencode/skills",
 ];
