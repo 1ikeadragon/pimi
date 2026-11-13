@@ -11,7 +11,6 @@ import { StyleSheet } from "react-native-unistyles";
 import * as Clipboard from "expo-clipboard";
 import { Check, Copy } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
-import type { HighlightToken } from "@pimi/highlight";
 import { isNative, isWeb } from "@/constants/platform";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { syntaxTokenStyleFor } from "@/styles/syntax-token-styles";
@@ -28,7 +27,13 @@ interface HighlightedCodeBlockProps {
   language: string | null | undefined;
   inheritedStyles: TextStyle;
   textStyle: TextStyle;
+  /** The fence may still be growing: large code stays plain until the reply stops streaming. */
+  streaming?: boolean;
 }
+
+// Highlighting re-tokenizes the whole fence, so a growing block above this size would pay for it
+// on every frame. It is highlighted once, when it stops growing.
+const MAX_STREAMING_HIGHLIGHT_CHARS = 600;
 
 // Fence info strings ("```ts", "```typescript", "```ts {1,3}") map to the
 // extension-based parser table in @pimi/highlight. Aliases here only
@@ -65,6 +70,7 @@ export const HighlightedCodeBlock = React.memo(function HighlightedCodeBlock({
   language,
   inheritedStyles,
   textStyle,
+  streaming = false,
 }: HighlightedCodeBlockProps) {
   // Box styles (bg / padding / border / radius / margin) go on the wrapper View
   // so the absolute copy button positions relative to the visible code area,
@@ -79,9 +85,13 @@ export const HighlightedCodeBlock = React.memo(function HighlightedCodeBlock({
     [language],
   );
 
+  const deferHighlight = streaming && renderedCode.length > MAX_STREAMING_HIGHLIGHT_CHARS;
   const keyedLines = useMemo<KeyedLine[] | null>(
-    () => highlightToKeyedLines(renderedCode, fenceLanguageToExtension(language)),
-    [renderedCode, language],
+    () =>
+      deferHighlight
+        ? null
+        : highlightToKeyedLines(renderedCode, fenceLanguageToExtension(language)),
+    [renderedCode, language, deferHighlight],
   );
 
   const isCompact = useIsCompactFormFactor();
@@ -103,7 +113,7 @@ export const HighlightedCodeBlock = React.memo(function HighlightedCodeBlock({
     >
       {keyedLines ? (
         <Text style={innerTextStyle} dataSet={markdownCopyDataSet.code}>
-          {renderCodeSegments(keyedLines)}
+          {renderCodeLines(keyedLines)}
         </Text>
       ) : (
         <Text style={innerTextStyle} dataSet={markdownCopyDataSet.code}>
@@ -115,37 +125,43 @@ export const HighlightedCodeBlock = React.memo(function HighlightedCodeBlock({
   );
 });
 
-function renderCodeSegments(keyedLines: KeyedLine[]): React.ReactNode[] {
-  const segments: React.ReactNode[] = [];
-  for (let lineIndex = 0; lineIndex < keyedLines.length; lineIndex += 1) {
-    const line = keyedLines[lineIndex];
-    if (lineIndex > 0) {
-      segments.push(<CodeTextSpan key={`${line.key}-newline`} text={"\n"} />);
-    }
-    for (const { key, token } of line.tokens) {
-      segments.push(<TokenSpan key={`${line.key}-${key}`} token={token} />);
-    }
+function renderCodeLines(keyedLines: KeyedLine[]): React.ReactNode[] {
+  return keyedLines.map((line, index) => (
+    <CodeLine key={line.key} line={line} leadingNewline={index > 0} />
+  ));
+}
+
+interface CodeLineProps {
+  line: KeyedLine;
+  leadingNewline: boolean;
+}
+
+// Tokens are fresh objects on every tokenization, so a line is compared by what it draws. While
+// a fence grows, only the lines that changed render again.
+function codeLinesEqual(a: CodeLineProps, b: CodeLineProps): boolean {
+  if (a.leadingNewline !== b.leadingNewline) return false;
+  const left = a.line.tokens;
+  const right = b.line.tokens;
+  if (left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index].token.text !== right[index].token.text) return false;
+    if (left[index].token.style !== right[index].token.style) return false;
   }
-  return segments;
+  return true;
 }
 
-interface TokenSpanProps {
-  token: HighlightToken;
-}
-
-const TokenSpan = React.memo(function TokenSpan({ token }: TokenSpanProps) {
+const CodeLine = React.memo(function CodeLine({ line, leadingNewline }: CodeLineProps) {
   return (
-    <Text style={token.style ? syntaxTokenStyleFor(token.style) : undefined}>{token.text}</Text>
+    <>
+      {leadingNewline ? <Text>{"\n"}</Text> : null}
+      {line.tokens.map(({ key, token }) => (
+        <Text key={key} style={token.style ? syntaxTokenStyleFor(token.style) : undefined}>
+          {token.text}
+        </Text>
+      ))}
+    </>
   );
-});
-
-interface CodeTextSpanProps {
-  text: string;
-}
-
-const CodeTextSpan = React.memo(function CodeTextSpan({ text }: CodeTextSpanProps) {
-  return <Text>{text}</Text>;
-});
+}, codeLinesEqual);
 
 interface SplitStyles {
   containerStyle: StyleProp<ViewStyle>;

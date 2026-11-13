@@ -138,6 +138,18 @@ const MODELS: AgentModelDefinition[] = [
   },
   {
     provider: MOCK_LOAD_TEST_PROVIDER_ID,
+    id: "markdown-stream",
+    label: "Markdown stream",
+    description:
+      "Streams a `stream assistant markdown:` reply at a model-like rate, for measuring long-reply render cost.",
+    metadata: {
+      durationMs: 60_000,
+      intervalMs: 40,
+      streamingAssistantIntervalMs: 4,
+    },
+  },
+  {
+    provider: MOCK_LOAD_TEST_PROVIDER_ID,
     id: "ten-second-stream",
     label: "Ten second stream",
     description: "Fast realistic stream for tests and smoke checks.",
@@ -415,6 +427,12 @@ function resolveModelProfile(modelId: string | null | undefined): {
           }
         : null,
   };
+}
+
+function getModelStreamingAssistantIntervalMs(modelId: string | null): number | null {
+  const value = MODELS.find((entry) => entry.id === modelId)?.metadata
+    ?.streamingAssistantIntervalMs;
+  return typeof value === "number" ? value : null;
 }
 
 function promptToText(prompt: AgentPromptInput): string {
@@ -843,7 +861,7 @@ export class MockLoadTestAgentSession implements AgentSession {
       Number.isFinite(requestedStreamingInterval) &&
       requestedStreamingInterval >= 1
         ? Math.min(requestedStreamingInterval, 1_000)
-        : MOCK_LOAD_TEST_INTERVAL_MS;
+        : (getModelStreamingAssistantIntervalMs(this.modelId) ?? MOCK_LOAD_TEST_INTERVAL_MS);
     this.rewindError =
       typeof options.config.featureValues?.mockRewindError === "string"
         ? options.config.featureValues.mockRewindError
