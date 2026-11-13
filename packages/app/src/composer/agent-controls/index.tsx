@@ -1810,36 +1810,40 @@ export const AgentControls = memo(function AgentControls({
   const profileEditor = useAgentProfileEditor(serverId);
   const profileActions = resolveAgentProfileEditorActions(agentProfiles !== null, profileEditor);
 
+  const persistProviderUpdates = useCallback(
+    (updates: Parameters<typeof mergeProviderPreferences>[0]["updates"]) => {
+      if (!agentProvider) return Promise.resolve();
+      return updatePreferences((current) =>
+        mergeProviderPreferences({ preferences: current, provider: agentProvider, updates }),
+      );
+    },
+    [agentProvider, updatePreferences],
+  );
+
   const handleSelectThinkingOption = useCallback(
     (thinkingOptionId: string) => {
       if (!client || !agentProvider) {
         return;
       }
-      if (activeModelId) {
-        void updatePreferences((current) =>
-          mergeProviderPreferences({
-            preferences: current,
-            provider: agentProvider,
-            updates: {
-              model: activeModelId,
-              thinkingByModel: {
-                [activeModelId]: thinkingOptionId,
-              },
-            },
-          }),
-        ).catch((error) => {
-          console.warn("[AgentControls] persist thinking preference failed", error);
-        });
-      }
-      void client
-        .setAgentThinkingOption(agentId, thinkingOptionId)
-        .then((notice) => showProviderNoticeToast(toast, notice))
-        .catch((error) => {
-          console.warn("[AgentControls] setAgentThinkingOption failed", error);
+      void (async () => {
+        try {
+          const notice = await client.setAgentThinkingOption(agentId, thinkingOptionId);
+          showProviderNoticeToast(toast, notice);
+          if (!activeModelId) return;
+          await persistProviderUpdates({
+            model: activeModelId,
+            thinkingByModel: { [activeModelId]: thinkingOptionId },
+          });
+        } catch (error) {
+          console.warn(
+            "[AgentControls] setAgentThinkingOption or persist preference failed",
+            error,
+          );
           toast.error(toErrorMessage(error));
-        });
+        }
+      })();
     },
-    [activeModelId, agentId, agentProvider, client, toast, updatePreferences],
+    [activeModelId, agentId, agentProvider, client, persistProviderUpdates, toast],
   );
 
   const handleSetFeature = useCallback(
@@ -1847,25 +1851,17 @@ export const AgentControls = memo(function AgentControls({
       if (!client || !agentProvider) {
         return;
       }
-      void updatePreferences((current) =>
-        mergeProviderPreferences({
-          preferences: current,
-          provider: agentProvider,
-          updates: {
-            featureValues: {
-              [featureId]: value,
-            },
-          },
-        }),
-      ).catch((error) => {
-        console.warn("[AgentControls] persist feature preference failed", error);
-      });
-      void client.setAgentFeature(agentId, featureId, value).catch((error) => {
-        console.warn("[AgentControls] setAgentFeature failed", error);
-        toast.error(toErrorMessage(error));
-      });
+      void (async () => {
+        try {
+          await client.setAgentFeature(agentId, featureId, value);
+          await persistProviderUpdates({ featureValues: { [featureId]: value } });
+        } catch (error) {
+          console.warn("[AgentControls] setAgentFeature or persist preference failed", error);
+          toast.error(toErrorMessage(error));
+        }
+      })();
     },
-    [agentId, agentProvider, client, toast, updatePreferences],
+    [agentId, agentProvider, client, persistProviderUpdates, toast],
   );
 
   const commandCenterControls = useMemo<AgentControlCommandCenterSource>(
