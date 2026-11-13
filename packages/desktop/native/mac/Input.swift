@@ -278,6 +278,9 @@ enum Input {
 
     /// The centre of the element's current rectangle, after scrolling it into view when it is outside the window.
     static func nodePoint(_ n: Node, _ frame: CGRect) throws -> CGPoint {
+        if Ax.inMenuBar(n.el) {
+            throw HelperError("refused", "The menu bar is reached with click on a menu ref only, never at a point.")
+        }
         var rect = n.rect
         if let p = Ax.point(Ax.copy(n.el, "AXPosition")), let s = Ax.size(Ax.copy(n.el, "AXSize")) {
             rect = CGRect(origin: p, size: s)
@@ -707,6 +710,7 @@ extension Main {
         if let er = a.str("element") {
             let n = try Ax.getRef(ag, er)
             if !n.enabled { throw HelperError("failed", "The element is disabled.") }
+            if Ax.inMenuBar(n.el) { return try menuPress(n, button: button, count: count, flags: flags) }
             let canPress = n.actions.contains("AXPress")
             let canMenu = n.actions.contains("AXShowMenu")
             let centre = try Input.nodePoint(n, frame)
@@ -737,6 +741,21 @@ extension Main {
             label = n.name
         }
         return ["role": role, "label": label, "point": relPoint(frame, p), "via": "input"]
+    }
+
+    /// A menu bar item or menu item: AXPress through accessibility, never a cursor event.
+    static func menuPress(_ n: Node, button: String, count: Int, flags: CGEventFlags) throws -> JSON {
+        if let why = Ax.menuRefusal(n) { throw HelperError("refused", why) }
+        if button != "left" || count != 1 || !flags.isEmpty {
+            throw HelperError("refused", "Menu bar items are pressed with a single plain left click.")
+        }
+        try Input.checkSession()
+        var names: CFArray?
+        let acts = AXUIElementCopyActionNames(n.el, &names) == .success ? ((names as? [String]) ?? []) : []
+        guard acts.contains("AXPress"), Input.perform(n, "AXPress") else {
+            throw HelperError("unsupported", "That menu element cannot be pressed.")
+        }
+        return ["role": n.role, "label": n.name, "point": NSNull(), "via": "pattern"]
     }
 
     static func typeVerb(_ w: Win, _ a: JSON, _ ag: Agent) throws -> JSON {

@@ -232,7 +232,7 @@ enum Ax {
             n.name = placeholder
         }
         if toggleRoles.contains(n.role), let num = n.number { n.toggle = Int(num) }
-        if wantActions, !n.rectEmpty {
+        if wantActions, !n.rectEmpty || n.role == "menuitem" || n.role == "menubaritem" {
             var names: CFArray?
             if AXUIElementCopyActionNames(el, &names) == .success, let list = names as? [String] {
                 n.actions = list
@@ -276,6 +276,66 @@ enum Ax {
         if sysSubroles.contains(n.subrole) { return true }
         if interactiveRoles.contains(n.role) { return true }
         return hasActions(n)
+    }
+
+    // ---- menu bar ----
+    // The app's menu bar is reachable through accessibility only: refs of its items press with
+    // AXPress and never move the cursor. Quit, Hide, Close All, the Apple menu and anything whose
+    // key equivalent the chord deny list refuses are refused here.
+
+    /// Every window the menu bar could be under: a rect that is not clipped to the target window.
+    static let anywhere = CGRect(x: -1e6, y: -1e6, width: 2e6, height: 2e6)
+
+    static func element(_ v: CFTypeRef?) -> AXUIElement? {
+        guard let v, CFGetTypeID(v) == AXUIElementGetTypeID() else { return nil }
+        return (v as! AXUIElement)
+    }
+
+    static func menuBar(_ pid: pid_t) -> AXUIElement? { element(copy(appElement(pid), "AXMenuBar")) }
+
+    static func inMenuBar(_ el: AXUIElement) -> Bool {
+        var cur = el
+        for _ in 0..<14 {
+            if string(cur, "AXRole") == "AXMenuBar" { return true }
+            guard let parent = element(copy(cur, "AXParent")) else { return false }
+            cur = parent
+        }
+        return false
+    }
+
+    private static let refusedMenuNames = try! NSRegularExpression(
+        pattern: "^(quit|force quit|hide|hide others|close all|log out|shut down|restart|sleep|lock screen)\\b",
+        options: [.caseInsensitive])
+
+    /// Why a menu bar element may not be pressed, or nil. Name checks are English only; the key
+    /// equivalent check (cmd+q, cmd+h, cmd+w ...) holds in every language.
+    static func menuRefusal(_ n: Node) -> String? {
+        var cur = n.el
+        for _ in 0..<14 {
+            guard let parent = element(copy(cur, "AXParent")) else { break }
+            if string(parent, "AXRole") == "AXMenuBar" {
+                let kids = (copy(parent, "AXChildren") as? [AXUIElement]) ?? []
+                if let first = kids.first, CFEqual(first, cur) { return "The Apple menu is not available." }
+                break
+            }
+            cur = parent
+        }
+        let name = n.name.trimmingCharacters(in: .whitespaces)
+        if refusedMenuNames.firstMatch(in: name, range: NSRange(name.startIndex..., in: name)) != nil {
+            return "\"\(name)\" quits, hides or logs out, which is not available."
+        }
+        if let key = string(n.el, "AXMenuItemCmdChar"), !key.isEmpty {
+            let bits = (copy(n.el, "AXMenuItemCmdModifiers") as? NSNumber)?.intValue ?? 0
+            var mods: [Safety.Mod] = []
+            if bits & 8 == 0 { mods.append(.command) }
+            if bits & 1 != 0 { mods.append(.shift) }
+            if bits & 2 != 0 { mods.append(.option) }
+            if bits & 4 != 0 { mods.append(.control) }
+            if Safety.refusal(Safety.Chord(modifiers: mods, keys: [key.lowercased()])) != nil {
+                return "\"\(name)\" acts on the app or the system (it has the key equivalent \((mods.map(\.rawValue) + [key.lowercased()]).joined(separator: "+"))), which is not available."
+            }
+        }
+        return nil
     }
 
     // ---- walk ----
@@ -358,6 +418,7 @@ enum Ax {
         var register = false
         var next = 1
         var table: [Int: Node] = [:]
+        var menu = false
     }
 
     static func esc(_ s: String) -> String {
@@ -402,6 +463,7 @@ enum Ax {
         if let e = n.expanded { at.append(e ? "expanded" : "collapsed") }
         if n.selected == true { at.append("selected") }
         if n.secure { at.append("secure") }
+        if c.menu, n.role == "menuitem" || n.role == "menubaritem", menuRefusal(n) != nil { at.append("refused") }
         if let v = liveValue(n) { at.append("value=\"\(esc(v))\"") }
         let ac = actionLabels(n)
         if !ac.isEmpty { at.append("actions=" + ac.joined(separator: ",")) }
@@ -450,16 +512,20 @@ enum Ax {
         let rootRef = a.str("root")
         // With a root ref the walk starts at that element, so its subtree gets the whole node budget.
         let from = try rootRef.map { try getRef(ag, $0).el } ?? el
-        var walked = walk(window: from, frame: frame, maxNodes: maxNodes, deadlineMs: 2500)
+        let inMenu = rootRef != nil && inMenuBar(from)
+        // A menu subtree sits outside the window, so nothing in it may be clipped to the window frame.
+        let walkFrame = inMenu ? anywhere : frame
+        var walked = walk(window: from, frame: walkFrame, maxNodes: maxNodes, deadlineMs: 2500)
         var q = rootRef == nil ? quality(walked.root) : "full"
         if q != "full", w.app.framework == "electron" || w.app.framework == "chromium" {
             sleepMs(800)
-            walked = walk(window: from, frame: frame, maxNodes: maxNodes, deadlineMs: 2500)
+            walked = walk(window: from, frame: walkFrame, maxNodes: maxNodes, deadlineMs: 2500)
             q = quality(walked.root)
         }
         let c = ctx(ag, frame)
         c.interactiveOnly = inter
         c.register = register
+        c.menu = inMenu
         let start = walked.root
         if rootRef != nil { c.next = ag.next }
         let backing = Wn.backingScale(of: frame)
@@ -470,6 +536,20 @@ enum Ax {
         } else {
             for k in walked.root.kids { render(k, 1, c) }
             if walked.root.offscreenKids > 0 { c.sb += "  - ... \(walked.root.offscreenKids) offscreen items\n" }
+        }
+        if rootRef == nil, register, let bar = menuBar(w.pid) {
+            // The menu bar's top-level items (not the Apple menu). Expand one with root: its ref.
+            let items = (copy(bar, "AXChildren") as? [AXUIElement]) ?? []
+            if items.count > 1 {
+                c.sb += "menubar (press an item with desktop_click on its ref; snapshot root: its ref lists its items; no cursor is used)\n"
+                c.menu = true
+                for item in items.dropFirst() {
+                    let n = read(item, depth: 0, frame: anywhere)
+                    n.hasRect = false
+                    c.sb += "  " + line(n, c) + "\n"
+                }
+                c.menu = false
+            }
         }
         if walked.truncated { c.sb += "(truncated: node or time limit reached)\n" }
         if q == "none" { c.sb += "No accessibility tree. Use desktop_screenshot and click coordinates.\n" }
