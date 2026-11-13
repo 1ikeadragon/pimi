@@ -2194,6 +2194,14 @@ export const ar: TranslationResources = {
     },
   },
   pairing: {
+    route: {
+      loading: "جارٍ فتح رابط الاقتران...",
+      errorTitle: "رابط الاقتران مفقود",
+      errorDescription:
+        "تحتاج هذه الصفحة إلى رابط اقتران. افتحه من شاشة اقتران جهاز على حاسوبك أو أضف مضيفًا هنا.",
+      addHost: "إضافة مضيف",
+      goHome: "العودة إلى الرئيسية",
+    },
     hostPassword: {
       title: "كلمة المرور لـ {{host}}",
       label: "كلمة مرور المضيف",

@@ -2230,6 +2230,14 @@ export const en = {
     },
   },
   pairing: {
+    route: {
+      loading: "Opening pairing link...",
+      errorTitle: "No pairing link",
+      errorDescription:
+        "This page needs a pairing link. Open one from your computer's Pair a device screen, or add a host here.",
+      addHost: "Add a host",
+      goHome: "Go home",
+    },
     hostPassword: {
       title: "Password for {{host}}",
       label: "Host password",

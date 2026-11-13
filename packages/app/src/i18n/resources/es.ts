@@ -2242,6 +2242,14 @@ export const es: TranslationResources = {
     },
   },
   pairing: {
+    route: {
+      loading: "Abriendo el enlace de vinculación...",
+      errorTitle: "Falta el enlace de vinculación",
+      errorDescription:
+        "Esta página necesita un enlace de vinculación. Ábrelo desde la pantalla Vincular un dispositivo de tu ordenador o añade un host aquí.",
+      addHost: "Añadir un host",
+      goHome: "Ir al inicio",
+    },
     hostPassword: {
       title: "Contraseña de {{host}}",
       label: "Contraseña del host",

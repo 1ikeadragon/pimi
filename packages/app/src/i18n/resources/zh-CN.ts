@@ -2171,6 +2171,13 @@ export const zhCN: TranslationResources = {
     },
   },
   pairing: {
+    route: {
+      loading: "正在打开配对链接...",
+      errorTitle: "缺少配对链接",
+      errorDescription: "此页面需要配对链接。请在电脑的配对设备界面中打开，或在此添加主机。",
+      addHost: "添加主机",
+      goHome: "返回首页",
+    },
     hostPassword: {
       title: "{{host}} 的密码",
       label: "主机密码",

@@ -2215,6 +2215,14 @@ export const ja: TranslationResources = {
     },
   },
   pairing: {
+    route: {
+      loading: "ペアリングリンクを開いています...",
+      errorTitle: "ペアリングリンクがありません",
+      errorDescription:
+        "このページにはペアリングリンクが必要です。コンピューターのデバイスのペアリング画面から開くか、ここでホストを追加してください。",
+      addHost: "ホストを追加",
+      goHome: "ホームへ",
+    },
     hostPassword: {
       title: "{{host}} のパスワード",
       label: "ホストのパスワード",

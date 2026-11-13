@@ -2229,6 +2229,14 @@ export const ptBR: TranslationResources = {
     },
   },
   pairing: {
+    route: {
+      loading: "Abrindo o link de pareamento...",
+      errorTitle: "Link de pareamento ausente",
+      errorDescription:
+        "Esta página precisa de um link de pareamento. Abra-o na tela de parear dispositivo do seu computador ou adicione um host aqui.",
+      addHost: "Adicionar um host",
+      goHome: "Ir para o início",
+    },
     hostPassword: {
       title: "Senha de {{host}}",
       label: "Senha do host",
