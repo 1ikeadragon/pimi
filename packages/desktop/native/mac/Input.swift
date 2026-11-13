@@ -232,6 +232,7 @@ enum Input {
         if let unicode { ev.keyboardSetUnicodeString(stringLength: unicode.count, unicodeString: unicode) }
         if autorepeat { ev.setIntegerValueField(.keyboardEventAutorepeat, value: 1) }
         ev.postToPid(pid)
+        markInjected()
     }
 
     static func postFlags(pid: pid_t, code: CGKeyCode, flags: CGEventFlags) {
@@ -239,6 +240,14 @@ enum Input {
         ev.type = .flagsChanged
         ev.flags = flags
         ev.postToPid(pid)
+        markInjected()
+    }
+
+    /// Events posted to a pid still reset the HID idle clock, so record them as ours for checkUserActive.
+    static func markInjected() {
+        lock.lock()
+        lastHidInject = nowMs()
+        lock.unlock()
     }
 
     static func down(_ b: CGMouseButton) -> CGEventType { b == .left ? .leftMouseDown : b == .right ? .rightMouseDown : .otherMouseDown }
