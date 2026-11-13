@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useMemo, useRef, useState } from "react";
 import { EnrichedMarkdownText, type LinkPressEvent } from "react-native-enriched-markdown";
 import { withUnistyles } from "react-native-unistyles";
 import {
@@ -62,22 +62,34 @@ export interface MarkdownRendererProps extends MarkdownImageContext {
 export const MarkdownRenderer = memo(function MarkdownRenderer(props: MarkdownRendererProps) {
   // Same-reply view identities must share one segment registry across streaming boundaries.
   const streaming =
-    !isWeb && !!props.streaming && !(props.visualizations && PIMI_FENCE_PATTERN.test(props.text));
+    !!props.streaming && !(props.visualizations && PIMI_FENCE_PATTERN.test(props.text));
   // Only completed lines affect block closure. Do not run mdast on every reveal frame.
   const completeLines = streaming ? props.text.slice(0, props.text.lastIndexOf("\n") + 1) : "";
-  const boundary = useMemo(
-    () => splitStreamingMarkdown(completeLines, true).head.length,
-    [completeLines],
-  );
+  const boundary = useStreamingBoundary(completeLines);
   const Part = props.agentCommands ? CommandMarkdownPart : MarkdownPart;
   if (!streaming || boundary === 0) return <Part {...props} />;
   return (
     <MarkdownBlockStack>
-      <Part {...props} text={props.text.slice(0, boundary)} />
+      {/* The head holds closed blocks only. Web draws its code blocks highlighted in full. */}
+      <Part {...props} streaming={!isWeb} text={props.text.slice(0, boundary)} />
       <Part {...props} text={props.text.slice(boundary)} />
     </MarkdownBlockStack>
   );
 });
+
+/**
+ * Length of the closed-block head of a streaming reply. Closed blocks never reopen, so each
+ * update parses only the source after the previous boundary instead of the whole reply.
+ */
+function useStreamingBoundary(completeLines: string): number {
+  const headRef = useRef("");
+  return useMemo(() => {
+    if (!completeLines.startsWith(headRef.current)) headRef.current = "";
+    const closed = splitStreamingMarkdown(completeLines.slice(headRef.current.length), true).head;
+    headRef.current += closed;
+    return headRef.current.length;
+  }, [completeLines]);
+}
 
 const CommandMarkdownPart = memo(function CommandMarkdownPart(props: MarkdownRendererProps) {
   const commandHints = useAgentCommandHints();

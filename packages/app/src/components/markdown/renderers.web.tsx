@@ -41,7 +41,13 @@ const codeStyle = (theme: Theme) => ({
 });
 function WebCodeBlock({ code, language }: CodeBlockRendererProps) {
   if (language?.toLowerCase() === "mermaid") return <MermaidFence code={code} />;
-  return <ThemedCodeBlock code={code} language={language} uniProps={codeStyle} />;
+  return <StreamingCodeBlock code={code} language={language} />;
+}
+function StreamingCodeBlock({ code, language }: Pick<CodeBlockRendererProps, "code" | "language">) {
+  const streaming = useContext(MermaidStreamingContext);
+  return (
+    <ThemedCodeBlock code={code} language={language} streaming={streaming} uniProps={codeStyle} />
+  );
 }
 
 /** A view block the segment splitter left in the Markdown, such as one that ended invalid. */
