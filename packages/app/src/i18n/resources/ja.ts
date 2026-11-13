@@ -3536,6 +3536,8 @@ export const ja: TranslationResources = {
       unavailableOnMobile: "キーボードショートカットはデスクトップでのみ利用できます",
       capturePrompt: "ショートカットを押してください...",
       captureIndexPrompt: "最後に1〜9の数字を入力してください。",
+      pluginConflict:
+        "この組み合わせは組み込みのショートカットが使用しており、そちらが優先されます。",
       unassigned: "未設定",
       actions: {
         menu: "{{name}} のアクション",

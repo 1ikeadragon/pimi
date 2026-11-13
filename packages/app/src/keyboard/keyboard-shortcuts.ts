@@ -92,7 +92,8 @@ interface ShortcutWhen {
 type ShortcutPayloadDef =
   | { type: "index" }
   | { type: "delta"; delta: 1 | -1 }
-  | { type: "message-input"; kind: MessageInputKeyboardActionKind };
+  | { type: "message-input"; kind: MessageInputKeyboardActionKind }
+  | { type: "plugin-command"; key: string };
 
 interface ShortcutHelp {
   id: string;
@@ -107,6 +108,8 @@ interface ShortcutHelp {
    */
   defaultDisplayKeys?: ShortcutKey[];
   note?: string;
+  /** An i18n key for a row note that is not in `SHORTCUT_HELP_NOTE_KEYS`. */
+  noteKey?: string;
 }
 
 interface ShortcutBinding {
@@ -1597,11 +1600,125 @@ function parseBinding(binding: ShortcutBinding): ParsedShortcutBinding {
 export const DEFAULT_BINDINGS: readonly ParsedShortcutBinding[] =
   SHORTCUT_BINDINGS.map(parseBinding);
 
+// --- Plugin bindings ---
+
+export interface PluginShortcutInput {
+  /** `<pluginId>:<itemId>`; also the payload the binding dispatches. */
+  key: string;
+  /** A chord as plugins write it, such as `mod+shift+m`. */
+  shortcut: string;
+  label: string;
+}
+
+const PLUGIN_BINDING_PREFIX = "plugin:";
+const MODIFIER_NAMES: Record<string, string> = {
+  mod: "Mod",
+  ctrl: "Ctrl",
+  control: "Ctrl",
+  alt: "Alt",
+  option: "Alt",
+  shift: "Shift",
+  cmd: "Cmd",
+  meta: "Cmd",
+};
+
+/**
+ * Turns a plugin's lowercase chord into the app's chord syntax, or throws. A chord step needs a
+ * modifier other than Shift: a bare key would fire while the user types.
+ */
+export function normalizePluginShortcut(shortcut: string): string {
+  const steps = shortcut.trim().split(/\s+/);
+  const normalized = steps.map((step) => {
+    const parts = step.split("+");
+    const mapped = parts.map((part, index) => {
+      const modifier = MODIFIER_NAMES[part.toLowerCase()];
+      if (modifier) return modifier;
+      if (index !== parts.length - 1) throw new Error(`Invalid shortcut: ${shortcut}`);
+      return part.length === 1 ? part.toUpperCase() : part.charAt(0).toUpperCase() + part.slice(1);
+    });
+    if (
+      !mapped.some((part) => part === "Mod" || part === "Ctrl" || part === "Alt" || part === "Cmd")
+    ) {
+      throw new Error(`Shortcut needs Mod, Ctrl, Alt, or Cmd: ${shortcut}`);
+    }
+    return mapped.join("+");
+  });
+  const chord = normalized.join(" ");
+  parseChordString(chord);
+  return chord;
+}
+
+let pluginBindings: readonly ParsedShortcutBinding[] = [];
+let allBindings: readonly ParsedShortcutBinding[] = DEFAULT_BINDINGS;
+const pluginBindingListeners = new Set<() => void>();
+
+/** Built-in bindings, then plugin bindings: on a shared chord the built-in listed first wins. */
+export function getDefaultBindings(): readonly ParsedShortcutBinding[] {
+  return allBindings;
+}
+
+export function subscribePluginShortcutBindings(listener: () => void): () => void {
+  pluginBindingListeners.add(listener);
+  return () => {
+    pluginBindingListeners.delete(listener);
+  };
+}
+
+export function setPluginShortcutBindings(inputs: readonly PluginShortcutInput[]): void {
+  const builtIn = new Set(
+    DEFAULT_BINDINGS.filter((binding) => binding.parsedChord.length > 0).map((binding) =>
+      JSON.stringify(binding.parsedChord),
+    ),
+  );
+  const next: ParsedShortcutBinding[] = [];
+  for (const input of inputs) {
+    try {
+      const combo = normalizePluginShortcut(input.shortcut);
+      const binding = parseBinding({
+        id: `${PLUGIN_BINDING_PREFIX}${input.key}`,
+        action: "plugin.command",
+        combo,
+        payload: { type: "plugin-command", key: input.key },
+        preventDefault: true,
+        stopPropagation: true,
+        when: { commandCenter: false },
+        help: {
+          id: `${PLUGIN_BINDING_PREFIX}${input.key}`,
+          section: "general",
+          label: input.label,
+        },
+      });
+      if (builtIn.has(JSON.stringify(binding.parsedChord))) {
+        binding.help = {
+          ...(binding.help as ShortcutHelp),
+          noteKey: "settings.shortcuts.pluginConflict",
+        };
+      }
+      next.push(binding);
+    } catch (error) {
+      console.warn(`[Plugins] Ignoring shortcut for ${input.key}`, error);
+    }
+  }
+  const unchanged =
+    next.length === pluginBindings.length &&
+    next.every(
+      (binding, index) =>
+        binding.id === pluginBindings[index].id &&
+        binding.combo === pluginBindings[index].combo &&
+        binding.help?.label === pluginBindings[index].help?.label &&
+        binding.help?.noteKey === pluginBindings[index].help?.noteKey,
+    );
+  if (unchanged) return;
+  pluginBindings = next;
+  allBindings = next.length === 0 ? DEFAULT_BINDINGS : [...DEFAULT_BINDINGS, ...next];
+  for (const listener of pluginBindingListeners) listener();
+}
+
 export type ShortcutOverrides = Record<string, string | null>;
 
 /** Keep number-group actions bound to all nine indices when recording a new modifier. */
 export function normalizeCapturedShortcutCombo(bindingId: string, combo: string): string {
-  const binding = DEFAULT_BINDINGS.find((candidate) => candidate.id === bindingId);
+  const binding = allBindings.find((candidate) => candidate.id === bindingId);
   if (binding?.payload?.type !== "index") return combo;
   return combo.replace(/(^|\+)[1-9]$/, "$1Digit");
 }
@@ -1610,12 +1727,12 @@ export function normalizeCapturedShortcutCombo(bindingId: string, combo: string)
 export function isShortcutCaptureComplete(bindingId: string, combos: readonly string[]): boolean {
   const lastCombo = combos.at(-1);
   if (!lastCombo) return false;
-  const binding = DEFAULT_BINDINGS.find((candidate) => candidate.id === bindingId);
+  const binding = allBindings.find((candidate) => candidate.id === bindingId);
   return binding?.payload?.type !== "index" || /(^|\+)(Digit|[1-9])$/.test(lastCombo);
 }
 
 export function buildEffectiveBindings(overrides: ShortcutOverrides): ParsedShortcutBinding[] {
-  return DEFAULT_BINDINGS.map(function (binding) {
+  return allBindings.map(function (binding) {
     const override = overrides[binding.id];
     if (override === UNASSIGNED_COMBO) {
       return { ...binding, combo: "", parsedChord: [] };
@@ -1771,6 +1888,8 @@ function resolvePayload(
       return { delta: def.delta };
     case "message-input":
       return { kind: def.kind };
+    case "plugin-command":
+      return { pluginCommand: def.key };
     default:
       throw new Error("unreachable");
   }
@@ -1951,7 +2070,7 @@ export function resolveKeyboardShortcut(input: {
   nextChordState: ChordState;
   preventDefault: boolean;
 } {
-  const { event, context, chordState, onChordReset, bindings = DEFAULT_BINDINGS } = input;
+  const { event, context, chordState, onChordReset, bindings = allBindings } = input;
   // Pressing a modifier emits its own keydown before the combo that holds it,
   // so a chord waiting on `Ctrl+J` sees a bare `Control` first. That keydown
   // matches no combo, and resolving it would drop the chord back to its first
@@ -1969,7 +2088,7 @@ export function getBindingIdForAction(
   actionId: string,
   platform: { isMac: boolean; usesDesktopBindings: boolean },
 ): string | null {
-  for (const binding of DEFAULT_BINDINGS) {
+  for (const binding of allBindings) {
     if (binding.help?.id !== actionId) {
       continue;
     }
@@ -2006,7 +2125,7 @@ function displayChordForBinding(binding: ParsedShortcutBinding): ShortcutKey[][]
 export function getDefaultKeysForAction(
   actionId: string,
   platform: { isMac: boolean; usesDesktopBindings: boolean },
-  bindings: readonly ParsedShortcutBinding[] = DEFAULT_BINDINGS,
+  bindings: readonly ParsedShortcutBinding[] = allBindings,
 ): ShortcutKey[][] | null {
   for (const binding of bindings) {
     if (binding.help?.id !== actionId) {
@@ -2075,7 +2194,7 @@ export function resolveShortcutKeysForAction(
  */
 export function getWorkspaceIndexJumpModifierKey(
   platform: { isMac: boolean; usesDesktopBindings: boolean },
-  bindings: readonly ParsedShortcutBinding[] = DEFAULT_BINDINGS,
+  bindings: readonly ParsedShortcutBinding[] = allBindings,
 ): "Alt" | "Meta" | "Control" | null {
   const binding = bindings.find(function (candidate) {
     return (
@@ -2107,7 +2226,7 @@ export function getWorkspaceIndexJumpModifierKey(
 
 export function buildKeyboardShortcutHelpSections(
   input: KeyboardShortcutPlatformContext,
-  bindings: readonly ParsedShortcutBinding[] = DEFAULT_BINDINGS,
+  bindings: readonly ParsedShortcutBinding[] = allBindings,
 ): KeyboardShortcutHelpSection[] {
   const seenRows = new Set<string>();
   const rowsBySection = new Map<ShortcutSectionId, KeyboardShortcutHelpRow[]>(
@@ -2138,7 +2257,9 @@ export function buildKeyboardShortcutHelpSections(
       labelKey: SHORTCUT_HELP_LABEL_KEYS[help.id] ?? help.label,
       chord: displayChordForBinding(binding),
       ...(help.note ? { note: help.note } : {}),
-      ...(SHORTCUT_HELP_NOTE_KEYS[help.id] ? { noteKey: SHORTCUT_HELP_NOTE_KEYS[help.id] } : {}),
+      ...(help.noteKey || SHORTCUT_HELP_NOTE_KEYS[help.id]
+        ? { noteKey: help.noteKey ?? SHORTCUT_HELP_NOTE_KEYS[help.id] }
+        : {}),
     });
   }
 

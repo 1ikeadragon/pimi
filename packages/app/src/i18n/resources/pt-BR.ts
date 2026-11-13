@@ -3545,6 +3545,7 @@ export const ptBR: TranslationResources = {
       unavailableOnMobile: "Atalhos de teclado estão disponíveis apenas no desktop",
       capturePrompt: "Pressione o atalho...",
       captureIndexPrompt: "Termine com um número de 1 a 9.",
+      pluginConflict: "Um atalho integrado usa esta combinação e tem prioridade.",
       unassigned: "Não definido",
       actions: {
         menu: "Ações para {{name}}",

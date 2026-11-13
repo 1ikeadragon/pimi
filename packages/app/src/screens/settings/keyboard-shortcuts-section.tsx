@@ -3,6 +3,7 @@ import {
   useHardwareKeyboardPresent,
   useOverlayRegistration,
 } from "@/keyboard";
+import { usePluginShortcutBindings } from "@/keyboard/use-plugin-shortcut-bindings";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View, Text, type PressableStateCallbackType } from "react-native";
@@ -285,7 +286,10 @@ function ShortcutRow({
 
   return (
     <View style={rowStyle}>
-      <Text style={styles.rowLabel}>{t(row.labelKey)}</Text>
+      <View style={styles.rowLabelBlock}>
+        <Text style={styles.rowLabel}>{t(row.labelKey)}</Text>
+        {row.noteKey ? <Text style={styles.rowNote}>{t(row.noteKey)}</Text> : null}
+      </View>
       <View style={styles.rowActions}>
         <View style={styles.rowKeys}>
           <ShortcutRowKeys
@@ -346,6 +350,7 @@ export function KeyboardShortcutsSection() {
 
   const isFocused = useIsFocused();
   const isMac = getShortcutOs() === "mac";
+  usePluginShortcutBindings();
   const sections = buildKeyboardShortcutHelpSections({ isMac, usesDesktopBindings });
 
   const cancelCapture = useCallback(() => {
@@ -502,6 +507,12 @@ const styles = StyleSheet.create((theme) => ({
   },
   rowCapturing: {
     backgroundColor: theme.colors.surface2,
+  },
+  rowLabelBlock: { flex: 1 },
+  rowNote: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+    marginTop: theme.spacing[1],
   },
   rowLabel: {
     fontSize: theme.fontSize.base,

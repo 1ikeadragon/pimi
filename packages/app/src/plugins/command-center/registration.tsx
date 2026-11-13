@@ -1,5 +1,5 @@
 import { usePathname } from "expo-router";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useCommandCenterActions } from "@/command-center/provider";
 import { useDefaultHostServerId } from "@/hooks/use-default-host-server-id";
 import { useToast } from "@/contexts/toast-context";
@@ -15,6 +15,7 @@ import { useInstalledPlugins } from "../registry";
 import { buildPluginCommandCenterContributions } from "./contributions";
 import { getFocusedAgentId } from "./context";
 import { createPluginNavigation } from "../navigation";
+import { setPluginCommandRunners, usePluginShortcutRegistration } from "./shortcuts";
 
 export function PluginCommandCenterActions() {
   const pathname = usePathname();
@@ -73,6 +74,12 @@ export function PluginCommandCenterActions() {
     workspaceExists,
     workspaceId,
   ]);
+
+  usePluginShortcutRegistration(installed);
+  useEffect(() => {
+    setPluginCommandRunners(actions);
+    return () => setPluginCommandRunners([]);
+  }, [actions]);
 
   useCommandCenterActions({
     sourceId: serverId ? `plugins:${serverId}` : "plugins",

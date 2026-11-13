@@ -3553,6 +3553,7 @@ export const ru: TranslationResources = {
       unavailableOnMobile: "Сочетания клавиш доступны только на рабочем столе.",
       capturePrompt: "Нажмите сочетание клавиш...",
       captureIndexPrompt: "Завершите цифрой от 1 до 9.",
+      pluginConflict: "Эту комбинацию использует встроенное сочетание, оно имеет приоритет.",
       unassigned: "Не задано",
       actions: {
         menu: "Действия для {{name}}",

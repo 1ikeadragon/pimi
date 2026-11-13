@@ -146,9 +146,7 @@ export interface PluginMenus {
     serverId: string;
     workspaceId: string;
     directory: string;
-    name: string;
   };
-  "chat-message": { serverId: string; agentId: string; role: "user" | "assistant"; text: string };
 }
 
 export type PluginMenuId = keyof PluginMenus;

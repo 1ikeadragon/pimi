@@ -3568,6 +3568,7 @@ export const es: TranslationResources = {
       unavailableOnMobile: "Los atajos de teclado solo están disponibles en el escritorio",
       capturePrompt: "Presione el acceso directo...",
       captureIndexPrompt: "Termina con un número del 1 al 9.",
+      pluginConflict: "Un atajo integrado usa esta combinación y tiene prioridad.",
       unassigned: "Sin asignar",
       actions: {
         menu: "Acciones para {{name}}",

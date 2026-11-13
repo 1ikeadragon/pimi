@@ -44,6 +44,7 @@ import type {
   PluginWorkspacePanelContribution,
   PluginMenuItemContribution,
 } from "./types";
+import { normalizePluginShortcut } from "@/keyboard/keyboard-shortcuts";
 import { parsePluginIcon, parseSerializablePluginIcon } from "./icons";
 import { parsePluginThemeContribution } from "./themes";
 
@@ -125,8 +126,7 @@ export type PluginClientRuntime = Pick<
 > & { hosts: ReturnType<typeof createPluginHosts> };
 
 const POINT_ID = /^[a-z][A-Za-z0-9.-]*$/;
-const MENU_IDS = new Set<string>(["file-tree-row", "sidebar-workspace-row", "chat-message"]);
-const SHORTCUT_PATTERN = /^[a-z0-9+\-[\]\\/,.;'`=]+$/i;
+const MENU_IDS = new Set<string>(["file-tree-row", "sidebar-workspace-row"]);
 
 function requirePointId(value: unknown, label: string): string {
   if (typeof value !== "string" || !POINT_ID.test(value)) {
@@ -423,9 +423,15 @@ export function runPluginClientBundle(
         throw new Error(`Command Center item ${normalizedId} has no callback`);
       }
       if (contribution.shortcut !== undefined) {
-        const shortcut = contribution.shortcut.trim().toLowerCase();
-        if (!shortcut || !SHORTCUT_PATTERN.test(shortcut)) {
-          throw new Error(`Command Center item ${normalizedId} has an invalid shortcut`);
+        try {
+          normalizePluginShortcut(contribution.shortcut);
+        } catch (error) {
+          throw new Error(
+            `Command Center item ${normalizedId} has an invalid shortcut: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+            { cause: error },
+          );
         }
       }
       commandCenterItemIds.add(normalizedId);
@@ -435,7 +441,7 @@ export function runPluginClientBundle(
           ...contribution,
           id: normalizedId,
           title,
-          shortcut: contribution.shortcut?.trim().toLowerCase(),
+          shortcut: contribution.shortcut?.trim(),
           icon,
           keywords: contribution.keywords?.map((keyword) => keyword.trim()).filter(Boolean),
         },
@@ -611,10 +617,14 @@ export function runPluginClientBundle(
       if (contribution.when !== undefined && typeof contribution.when !== "function") {
         throw new Error(`Menu item ${key} has an invalid when`);
       }
+      const icon =
+        contribution.icon === undefined
+          ? undefined
+          : parsePluginIcon(`Menu item ${key}`, contribution.icon);
       menuItemIds.add(key);
       return register(
         collector.menuItems,
-        { ...contribution, id: itemId, title } as PluginMenuItemContribution,
+        { ...contribution, id: itemId, title, icon } as PluginMenuItemContribution,
         () => menuItemIds.delete(key),
       );
     },

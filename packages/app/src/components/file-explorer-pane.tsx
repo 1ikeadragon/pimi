@@ -284,6 +284,10 @@ function TreeRowItemBase({
     onSelectEntry(entry);
   }, [entry, onSelectEntry]);
   const accessibilityState = useMemo(() => ({ selected: isSelected }), [isSelected]);
+  const menuContext = useMemo(
+    () => (workspaceId ? { serverId, workspaceId, path: entry.path, kind: entry.kind } : undefined),
+    [serverId, workspaceId, entry.path, entry.kind],
+  );
   const slotContext = useMemo(
     () => ({ path: entry.path, kind: entry.kind, hovered: isHovered }),
     [entry.path, entry.kind, isHovered],
@@ -403,6 +407,7 @@ function TreeRowItemBase({
         onDuplicate={handleDuplicate}
         onDelete={handleDelete}
         testIDPrefix={testID}
+        pluginContext={menuContext}
       />
     </ContextMenu>
   );

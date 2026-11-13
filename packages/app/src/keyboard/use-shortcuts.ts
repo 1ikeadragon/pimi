@@ -1,4 +1,6 @@
 import { usesDesktopBindings } from "./internal/conventions";
+import { runPluginCommand } from "@/plugins/command-center/shortcuts";
+import { usePluginShortcutBindings } from "./use-plugin-shortcut-bindings";
 import { createKeyboardPipeline } from "./internal/pipeline";
 import { overlays } from "./internal/overlays";
 import { attachKeyboardSources, publishKeyboardPolicy } from "./internal/sources";
@@ -55,7 +57,13 @@ export function useKeyboardShortcuts({
   const router = useRouter();
   const resetModifiers = useKeyboardShortcutsStore((s) => s.resetModifiers);
   const { overrides } = useKeyboardShortcutOverrides();
-  const bindings = useMemo(() => buildEffectiveBindings(overrides), [overrides]);
+  const pluginBindings = usePluginShortcutBindings();
+  // Plugin bindings load after the app starts, so they rebuild the effective list.
+  const bindings = useMemo(
+    () => buildEffectiveBindings(overrides),
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+    [overrides, pluginBindings],
+  );
   const isMac = getShortcutOs() === "mac";
   const openProjectPickerAction = useOpenAddProject();
   const activeWorkspaceSelection = useActiveWorkspaceSelection();
@@ -160,6 +168,8 @@ export function useKeyboardShortcuts({
       case "shortcuts-dialog-toggle":
         useKeyboardShortcutsStore.getState().setShortcutsDialogOpen(action.nextOpen);
         return true;
+      case "plugin-command":
+        return runPluginCommand(action.key);
     }
   };
 

@@ -3649,6 +3649,7 @@ export const en = {
       unavailableOnMobile: "Keyboard shortcuts are only available on desktop",
       capturePrompt: "Press shortcut...",
       captureIndexPrompt: "End with a number from 1 to 9.",
+      pluginConflict: "A built-in shortcut uses this combination and takes precedence.",
       unassigned: "Not set",
       actions: {
         menu: "Actions for {{name}}",

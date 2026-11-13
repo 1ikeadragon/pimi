@@ -20,6 +20,7 @@ export type MessageInputKeyboardActionKind =
 export type KeyboardActionId =
   | "agent.interrupt"
   | "agent.new"
+  | "plugin.command"
   | "workspace.tab.menu.open"
   | "workspace.tab.target.agent"
   | "workspace.tab.target.browser"
@@ -77,4 +78,6 @@ export type KeyboardShortcutPayload =
   | { index: number }
   | { delta: 1 | -1 }
   | { kind: MessageInputKeyboardActionKind }
+  /** A plugin's Command Center item, by `<pluginId>:<itemId>`. */
+  | { pluginCommand: string }
   | null;
