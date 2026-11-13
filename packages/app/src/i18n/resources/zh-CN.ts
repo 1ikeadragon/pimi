@@ -41,6 +41,13 @@ export const zhCN: TranslationResources = {
       now: "立即升级",
       failed: "升级失败。",
     },
+    auth: {
+      title: "登录 {{host}}",
+      inputLabel: "密码或验证码",
+      retry: "未成功，请重试。",
+      submit: "继续",
+      cancel: "取消",
+    },
   },
   harnessUpdates: {
     stableChannel: "{{label}} · 稳定渠道",

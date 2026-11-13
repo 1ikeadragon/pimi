@@ -1,7 +1,13 @@
 import path from "node:path";
 import { app, ipcMain, powerMonitor } from "electron";
 import { resolveDesktopAppVersion } from "./app-version.js";
-import { cancelRemoteSsh, prepareRemoteSsh } from "./remote-ssh/desktop.js";
+import { pendingSshAuth } from "./remote-ssh/askpass.js";
+import {
+  answerRemoteSshAuth,
+  cancelRemoteSsh,
+  forgetRemoteSshAuth,
+  prepareRemoteSsh,
+} from "./remote-ssh/desktop.js";
 import log from "electron-log/main";
 import {
   PIMI_LOCAL_PAIRING_ROUTE,
@@ -633,6 +639,13 @@ export function createDaemonCommandHandlers(): Record<string, DesktopCommandHand
     remote_ssh_prepare: (args) => prepareRemoteSsh(args),
     remote_ssh_cancel: (args) => {
       cancelRemoteSsh(args);
+    },
+    remote_ssh_auth_answer: (args) => {
+      answerRemoteSshAuth(args);
+    },
+    remote_ssh_auth_pending: () => pendingSshAuth(),
+    remote_ssh_auth_forget: (args) => {
+      forgetRemoteSshAuth(args);
     },
     open_local_daemon_transport: async (args) => await openLocalTransportSession(args),
     send_local_daemon_transport_message: async (args) => {

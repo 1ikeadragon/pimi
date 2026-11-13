@@ -42,6 +42,13 @@ export const fr: TranslationResources = {
       now: "Mettre à jour maintenant",
       failed: "La mise à jour a échoué.",
     },
+    auth: {
+      title: "Se connecter à {{host}}",
+      inputLabel: "Mot de passe ou code",
+      retry: "Cela n’a pas fonctionné. Réessayez.",
+      submit: "Continuer",
+      cancel: "Annuler",
+    },
   },
   harnessUpdates: {
     stableChannel: "{{label}} · Canal stable",

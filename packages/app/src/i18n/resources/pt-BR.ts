@@ -42,6 +42,13 @@ export const ptBR: TranslationResources = {
       now: "Atualizar agora",
       failed: "A atualização falhou.",
     },
+    auth: {
+      title: "Entrar em {{host}}",
+      inputLabel: "Senha ou código",
+      retry: "Isso não funcionou. Tente de novo.",
+      submit: "Continuar",
+      cancel: "Cancelar",
+    },
   },
   harnessUpdates: {
     stableChannel: "{{label}} · Canal estável",

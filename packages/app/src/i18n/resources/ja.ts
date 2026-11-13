@@ -42,6 +42,13 @@ export const ja: TranslationResources = {
       now: "今すぐアップグレード",
       failed: "アップグレードに失敗しました。",
     },
+    auth: {
+      title: "{{host}} にサインイン",
+      inputLabel: "パスワードまたはコード",
+      retry: "うまくいきませんでした。もう一度お試しください。",
+      submit: "続行",
+      cancel: "キャンセル",
+    },
   },
   harnessUpdates: {
     stableChannel: "{{label}} · 安定版",

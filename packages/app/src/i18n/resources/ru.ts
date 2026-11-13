@@ -41,6 +41,13 @@ export const ru: TranslationResources = {
       now: "Обновить сейчас",
       failed: "Не удалось обновить.",
     },
+    auth: {
+      title: "Вход на {{host}}",
+      inputLabel: "Пароль или код",
+      retry: "Не получилось. Попробуйте ещё раз.",
+      submit: "Продолжить",
+      cancel: "Отмена",
+    },
   },
   harnessUpdates: {
     stableChannel: "{{label}} · Стабильный канал",

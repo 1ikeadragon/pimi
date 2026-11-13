@@ -39,6 +39,13 @@ export const en = {
       now: "Upgrade now",
       failed: "The upgrade failed.",
     },
+    auth: {
+      title: "Sign in to {{host}}",
+      inputLabel: "Password or code",
+      retry: "That did not work. Try again.",
+      submit: "Continue",
+      cancel: "Cancel",
+    },
   },
   harnessUpdates: {
     stableChannel: "{{label}} · Stable channel",

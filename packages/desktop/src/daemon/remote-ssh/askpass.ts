@@ -305,7 +305,8 @@ export async function prepareSshAuth(target: SshTarget): Promise<SshAuth> {
       let stderrTail = "";
       child.stderr?.on("data", (chunk: Buffer) => {
         stderrTail = (stderrTail + chunk.toString()).slice(-512);
-        spawned.deniedByServer = /permission denied/iu.test(stderrTail);
+        // "Permission denied, please try again." is a retry; the final refusal has "(methods)".
+        if (/permission denied \(/iu.test(stderrTail)) spawned.deniedByServer = true;
       });
       child.once("close", () => {
         spawns.delete(spawned);

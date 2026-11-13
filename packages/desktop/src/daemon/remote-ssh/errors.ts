@@ -1,6 +1,7 @@
 export type RemoteSshErrorCode =
   | "SSH_MISSING"
   | "SSH_AUTH"
+  | "SSH_AUTH_CANCELLED"
   | "SSH_HOST_KEY"
   | "SSH_UNREACHABLE"
   | "SSH_TIMEOUT"
@@ -120,13 +121,16 @@ export function errorFromSshStderr(
   host: string,
   stderr: string,
   exitCode: number | null,
+  options: { sshTooOldForPasswords: boolean } = { sshTooOldForPasswords: false },
 ): RemoteSshError {
   const text = stderr.trim();
   const lower = text.toLowerCase();
   if (lower.includes("permission denied") || lower.includes("too many authentication failures")) {
     return new RemoteSshError(
       "SSH_AUTH",
-      `Could not sign in to ${host}. Check the user name and the password or key.`,
+      `Could not sign in to ${host}. Check the user name and the password or key.${
+        options.sshTooOldForPasswords ? " Password sign-in needs OpenSSH 8.4 or newer." : ""
+      }`,
       text,
     );
   }

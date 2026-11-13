@@ -41,6 +41,13 @@ export const ko: TranslationResources = {
       now: "지금 업그레이드",
       failed: "업그레이드에 실패했습니다.",
     },
+    auth: {
+      title: "{{host}}에 로그인",
+      inputLabel: "비밀번호 또는 코드",
+      retry: "실패했습니다. 다시 시도하세요.",
+      submit: "계속",
+      cancel: "취소",
+    },
   },
   harnessUpdates: {
     stableChannel: "{{label}} · 안정 채널",

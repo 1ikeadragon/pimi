@@ -41,6 +41,13 @@ export const ar: TranslationResources = {
       now: "ترقية الآن",
       failed: "فشلت الترقية.",
     },
+    auth: {
+      title: "تسجيل الدخول إلى {{host}}",
+      inputLabel: "كلمة المرور أو الرمز",
+      retry: "لم ينجح ذلك. حاول مرة أخرى.",
+      submit: "متابعة",
+      cancel: "إلغاء",
+    },
   },
   harnessUpdates: {
     stableChannel: "{{label}} · الإصدار المستقر",

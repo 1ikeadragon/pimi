@@ -42,6 +42,13 @@ export const es: TranslationResources = {
       now: "Actualizar ahora",
       failed: "La actualización falló.",
     },
+    auth: {
+      title: "Iniciar sesión en {{host}}",
+      inputLabel: "Contraseña o código",
+      retry: "Eso no funcionó. Inténtalo de nuevo.",
+      submit: "Continuar",
+      cancel: "Cancelar",
+    },
   },
   harnessUpdates: {
     stableChannel: "{{label}} · Canal estable",
