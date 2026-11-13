@@ -145,6 +145,7 @@ const CLIENT_COMMAND_ICONS = {
   "archive-agent": "archive",
   "replace-agent-with-draft": "new-draft",
   "open-browser": "browser",
+  "annotate-page": "browser",
 } as const satisfies Record<ClientSlashCommand["kind"], AutocompleteOption["icon"]>;
 
 interface CommandOptionContext {

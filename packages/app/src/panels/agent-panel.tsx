@@ -1642,11 +1642,12 @@ function ActiveAgentComposer({
 
   const handleClientSlashCommand = useCallback(
     async (command: ClientSlashCommand, args: string) => {
-      if (command.kind === "open-browser") {
+      if (command.kind === "open-browser" || command.kind === "annotate-page") {
         openBrowserFromSlashCommand({
           workspaceKey: buildWorkspaceTabPersistenceKey({ serverId, workspaceId }),
           tabId,
           args,
+          annotate: command.kind === "annotate-page",
           invalidUrlMessage: t("workspace.browser.errors.invalidUrl"),
         });
         return;

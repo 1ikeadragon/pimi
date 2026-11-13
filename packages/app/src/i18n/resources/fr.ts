@@ -512,6 +512,7 @@ export const fr: TranslationResources = {
       archiveAgent: "Archiver l’agent actuel",
       freshDraft: "Archiver cet agent et démarrer un nouveau brouillon",
       openBrowser: "Ouvrir une page web dans le navigateur Pimi",
+      annotatePage: "Annoter une page web dans le navigateur Pimi",
     },
     github: {
       searching: "Recherche…",
@@ -1049,6 +1050,7 @@ export const fr: TranslationResources = {
         preparingTerminal: "Préparation de l’onglet de terminal…",
         preparingTerminalTooltip: "Préparation du terminal…",
         newBrowser: "Nouveau navigateur",
+        annotatePage: "Annoter une page web",
         maximizePane: "Agrandir le panneau",
         restorePane: "Restaurer le panneau",
         closePane: "Fermer le panneau",

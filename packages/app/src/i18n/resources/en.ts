@@ -501,6 +501,7 @@ export const en = {
       archiveAgent: "Archive the current agent",
       freshDraft: "Archive this agent and start a fresh draft",
       openBrowser: "Open a web page in the Pimi browser",
+      annotatePage: "Annotate a web page in the Pimi browser",
     },
     github: {
       searching: "Searching...",
@@ -1036,6 +1037,7 @@ export const en = {
         preparingTerminal: "Preparing terminal tab",
         preparingTerminalTooltip: "Preparing terminal...",
         newBrowser: "New browser",
+        annotatePage: "Annotate web page",
         maximizePane: "Maximize pane",
         restorePane: "Restore pane",
         closePane: "Close pane",

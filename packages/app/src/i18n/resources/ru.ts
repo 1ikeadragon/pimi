@@ -509,6 +509,7 @@ export const ru: TranslationResources = {
       archiveAgent: "Архивировать текущего агента",
       freshDraft: "Архивировать этого агента и создать новый черновик",
       openBrowser: "Открыть веб-страницу в браузере Pimi",
+      annotatePage: "Аннотировать веб-страницу в браузере Pimi",
     },
     github: {
       searching: "Идет поиск...",
@@ -1048,6 +1049,7 @@ export const ru: TranslationResources = {
         preparingTerminal: "Подготовка вкладки терминала",
         preparingTerminalTooltip: "Подготовка терминала...",
         newBrowser: "Новый браузер",
+        annotatePage: "Аннотировать веб-страницу",
         maximizePane: "Развернуть панель",
         restorePane: "Восстановить панель",
         closePane: "Закрыть панель",

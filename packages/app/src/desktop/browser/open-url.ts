@@ -6,7 +6,9 @@ import type { BrowserOwner } from "./store/state";
 import { revealWorkspaceTab } from "@/workspace-tabs/navigation";
 import { openWorkspaceTargetAtLocation } from "@/workspace-tabs/open-beside";
 import {
+  collectAllPanes,
   collectAllTabs,
+  findPaneById,
   findPaneContainingTab,
   useWorkspaceLayoutStore,
   type WorkspaceLayout,
@@ -125,11 +127,34 @@ export function resolveOriginChatTabId(
   return resolveFocusedChatTarget({ serverId, layout })?.tabId ?? null;
 }
 
-/** Runs `/browser [url]` from the chat tab `tabId`: a blank tab, or the URL (reused when open). */
+/** The browser tab to annotate with no URL given: the focused one, else one already on screen. */
+function findShownBrowserTab(layout: WorkspaceLayout | undefined) {
+  if (!layout) return null;
+  const tabs = collectAllTabs(layout.root);
+  const focusedPane = findPaneById(layout.root, layout.focusedPaneId);
+  const shownTabIds = [
+    focusedPane?.focusedTabId,
+    ...collectAllPanes(layout.root).map((pane) => pane.focusedTabId),
+  ];
+  for (const tabId of shownTabIds) {
+    const tab = tabs.find((candidate) => candidate.tabId === tabId);
+    if (tab?.target.kind === "browser")
+      return { tabId: tab.tabId, browserId: tab.target.browserId };
+  }
+  return null;
+}
+
+/**
+ * Runs `/browser [url]` and `/annotate [url]` from a chat tab, and the palette's Annotate web page.
+ * With a URL it opens or reuses a tab on it; `annotate` then arms the element selector once the
+ * page has loaded. Annotate with no URL arms the browser tab already on screen, and opens a blank
+ * tab like `/browser` when there is none.
+ */
 export function openBrowserFromSlashCommand(input: {
   workspaceKey: string | null;
-  tabId: string;
+  tabId: string | null;
   args: string;
+  annotate: boolean;
   invalidUrlMessage: string;
 }): void {
   // The URL parser accepts spaces by encoding them, so "not a url" would open as a host.
@@ -137,7 +162,17 @@ export function openBrowserFromSlashCommand(input: {
   if (url !== undefined && (/\s/.test(url) || !isHttpUrl(url))) {
     throw new Error(input.invalidUrlMessage);
   }
-  openWorkspaceBrowserUrl({
+  if (url === undefined && input.annotate && input.workspaceKey) {
+    const shown = findShownBrowserTab(
+      useWorkspaceLayoutStore.getState().layoutByWorkspace[input.workspaceKey],
+    );
+    if (shown) {
+      revealWorkspaceTab(input.workspaceKey, shown.tabId);
+      useBrowserStore.getState().requestAnnotate(shown.browserId);
+      return;
+    }
+  }
+  const opened = openWorkspaceBrowserUrl({
     workspaceKey: input.workspaceKey,
     url,
     parentTabId: input.tabId,
@@ -145,4 +180,7 @@ export function openBrowserFromSlashCommand(input: {
     focus: true,
     reuse: url !== undefined,
   });
+  if (opened && input.annotate && url !== undefined) {
+    useBrowserStore.getState().requestAnnotate(opened.browserId);
+  }
 }

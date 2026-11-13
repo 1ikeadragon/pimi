@@ -603,11 +603,12 @@ export function WorkspaceDraftComposer({
   );
   const handleClientSlashCommand = useCallback(
     async (command: ClientSlashCommand, args: string) => {
-      if (command.kind !== "open-browser") return;
+      if (command.kind !== "open-browser" && command.kind !== "annotate-page") return;
       openBrowserFromSlashCommand({
         workspaceKey: buildWorkspaceTabPersistenceKey({ serverId, workspaceId: workspaceId ?? "" }),
         tabId,
         args,
+        annotate: command.kind === "annotate-page",
         invalidUrlMessage: t("workspace.browser.errors.invalidUrl"),
       });
     },

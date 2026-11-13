@@ -511,6 +511,7 @@ export const ja: TranslationResources = {
       archiveAgent: "現在のエージェントをアーカイブ",
       freshDraft: "このエージェントをアーカイブして新しい下書きを開始",
       openBrowser: "PimiブラウザでWebページを開く",
+      annotatePage: "PimiブラウザでWebページに注釈を付ける",
     },
     github: {
       searching: "検索中...",
@@ -1050,6 +1051,7 @@ export const ja: TranslationResources = {
         preparingTerminal: "ターミナルタブを準備中",
         preparingTerminalTooltip: "ターミナルを準備中...",
         newBrowser: "新しいブラウザ",
+        annotatePage: "Webページに注釈を付ける",
         maximizePane: "ペインを最大化",
         restorePane: "ペインを元に戻す",
         closePane: "ペインを閉じる",

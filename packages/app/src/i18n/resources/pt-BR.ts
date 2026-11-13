@@ -509,6 +509,7 @@ export const ptBR: TranslationResources = {
       archiveAgent: "Arquivar o agente atual",
       freshDraft: "Arquivar este agente e iniciar um novo rascunho",
       openBrowser: "Abrir uma página da web no navegador do Pimi",
+      annotatePage: "Anotar uma página da web no navegador do Pimi",
     },
     github: {
       searching: "Buscando...",
@@ -1047,6 +1048,7 @@ export const ptBR: TranslationResources = {
         preparingTerminal: "Preparando aba de terminal",
         preparingTerminalTooltip: "Preparando terminal...",
         newBrowser: "Novo navegador",
+        annotatePage: "Anotar página da web",
         maximizePane: "Maximizar painel",
         restorePane: "Restaurar painel",
         closePane: "Fechar painel",

@@ -77,6 +77,7 @@ import {
   createElementSelectorController,
   type BrowserElementSelection,
   type ElementSelectorOutcome,
+  type ElementSelectorStartResult,
 } from "./element-selector.electron";
 import { useBrowserFind } from "./find.electron";
 
@@ -159,6 +160,8 @@ function formatDevicePresetLabel(preset: DeviceSizePreset, responsiveLabel: stri
 }
 
 const ERR_ABORTED = -3;
+const ANNOTATE_REQUEST_TIMEOUT_MS = 20_000;
+const ANNOTATE_RETRY_MS = 300;
 const ALLOWED_BROWSER_PROTOCOLS = new Set(["http:", "https:"]);
 
 function truncateText(value: string, maxLength: number): string {
@@ -1228,17 +1231,15 @@ export function BrowserPane({
     [handleSelectorResult, showSelectorFailure],
   );
 
-  const startElementSelector = useCallback(
-    (mode: "annotate" | "screenshot") => {
+  const beginElementSelector = useCallback(
+    (mode: "annotate" | "screenshot"): ElementSelectorStartResult => {
       if (mode === "annotate" && !workspaceAttachmentScopeKey) {
-        showSelectorFailure("unavailable");
-        return;
+        return "unavailable";
       }
       const webview = webviewRef.current;
       const controller = selectorControllerRef.current;
       if (!webview || !controller) {
-        showSelectorFailure("unavailable");
-        return;
+        return "unavailable";
       }
 
       const startResult = controller.start({
@@ -1247,21 +1248,73 @@ export function BrowserPane({
         onFinish: handleElementSelectorOutcome,
       });
       if (startResult !== "started") {
-        showSelectorFailure(startResult);
-        return;
+        return startResult;
       }
 
       pendingScreenshotRef.current = undefined;
       setPendingSelection(null);
       setSelectorMode(mode);
+      return "started";
     },
-    [handleElementSelectorOutcome, showSelectorFailure, workspaceAttachmentScopeKey],
+    [handleElementSelectorOutcome, workspaceAttachmentScopeKey],
+  );
+
+  const startElementSelector = useCallback(
+    (mode: "annotate" | "screenshot") => {
+      const result = beginElementSelector(mode);
+      if (result !== "started") {
+        showSelectorFailure(result);
+      }
+    },
+    [beginElementSelector, showSelectorFailure],
   );
 
   const cancelElementSelector = useCallback(() => {
     selectorControllerRef.current?.cancel();
     setSelectorMode(null);
   }, []);
+
+  // /annotate and the palette ask for the selector before the page is ready. Arm it once the
+  // pane is shown and the page has loaded, retrying while it loads and giving up after a while.
+  const annotateRequest = useBrowserStore((state) => state.annotateRequestByBrowserId[browserId]);
+  const clearAnnotateRequest = useBrowserStore((state) => state.clearAnnotateRequest);
+  const [annotatePollTick, setAnnotatePollTick] = useState(0);
+  const browserIsLoading = browser?.isLoading ?? false;
+  const browserLastError = browser?.lastError ?? null;
+  useEffect(() => {
+    if (annotateRequest === undefined || !isPresented) {
+      return;
+    }
+    const giveUp = () => {
+      clearAnnotateRequest(browserId);
+      showSelectorFailure("unavailable");
+    };
+    if (browserLastError || Date.now() - annotateRequest > ANNOTATE_REQUEST_TIMEOUT_MS) {
+      giveUp();
+      return;
+    }
+    const result = browserIsLoading ? "loading" : beginElementSelector("annotate");
+    if (result === "started") {
+      clearAnnotateRequest(browserId);
+      return;
+    }
+    if (result === "unavailable") {
+      giveUp();
+      return;
+    }
+    const retry = setTimeout(() => setAnnotatePollTick((tick) => tick + 1), ANNOTATE_RETRY_MS);
+    return () => clearTimeout(retry);
+  }, [
+    annotatePollTick,
+    annotateRequest,
+    beginElementSelector,
+    browserId,
+    browserIsLoading,
+    browserLastError,
+    clearAnnotateRequest,
+    isPresented,
+    showSelectorFailure,
+  ]);
 
   const currentPageUrl = browser?.url ?? null;
   const annotationMarkers = useMemo<BrowserAnnotationMarker[]>(() => {

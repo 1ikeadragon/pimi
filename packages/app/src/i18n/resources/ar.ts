@@ -506,6 +506,7 @@ export const ar: TranslationResources = {
       archiveAgent: "أرشفة الوكيل الحالي",
       freshDraft: "أرشفة هذا الوكيل وابدأ مسودة جديدة",
       openBrowser: "فتح صفحة ويب في متصفح Pimi",
+      annotatePage: "إضافة ملاحظات على صفحة ويب في متصفح Pimi",
     },
     github: {
       searching: "جارٍ البحث...",
@@ -1040,6 +1041,7 @@ export const ar: TranslationResources = {
         preparingTerminal: "إعداد علامة التبويب المحطة الطرفية",
         preparingTerminalTooltip: "جارٍ تحضير المحطة...",
         newBrowser: "متصفح جديد",
+        annotatePage: "إضافة ملاحظات على صفحة ويب",
         maximizePane: "تكبير الجزء",
         restorePane: "استعادة الجزء",
         closePane: "إغلاق الجزء",

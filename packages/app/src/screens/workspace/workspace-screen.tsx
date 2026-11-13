@@ -148,7 +148,11 @@ import { useWorkspaceArchiveUndoRunning } from "@/workspace/archive-undo";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import { removeResidentBrowserWebview } from "@/desktop/browser/resident-webviews";
 import { createWorkspaceBrowser, useBrowserStore } from "@/desktop/browser/store";
-import { openWorkspaceBrowserUrl, resolveOriginChatTabId } from "@/desktop/browser/open-url";
+import {
+  openBrowserFromSlashCommand,
+  openWorkspaceBrowserUrl,
+  resolveOriginChatTabId,
+} from "@/desktop/browser/open-url";
 import { clearVisibleWorkspaceKey, setVisibleWorkspaceKey } from "./visible-workspace";
 import { getDesktopHost } from "@/desktop/host";
 import { usePimiWorkspaceReview } from "@/desktop/use-pimi-workspace-review";
@@ -1973,6 +1977,16 @@ function WorkspaceScreenContent({
     [normalizedServerId, openInSidePane.webLinks, persistenceKey, workspaceLayout],
   );
 
+  const handleAnnotateBrowserPage = useCallback(() => {
+    openBrowserFromSlashCommand({
+      workspaceKey: persistenceKey,
+      tabId: resolveOriginChatTabId(normalizedServerId, workspaceLayout ?? undefined),
+      args: "",
+      annotate: true,
+      invalidUrlMessage: "",
+    });
+  }, [normalizedServerId, persistenceKey, workspaceLayout]);
+
   // A page's own window.open and a script's service URL are never collapsed into an existing tab.
   const handleOpenUrlInNewBrowserTab = useCallback(
     (url: string) => {
@@ -2653,6 +2667,9 @@ function WorkspaceScreenContent({
         case "workspace.browser.new":
           handleCreateBrowserTab();
           return true;
+        case "workspace.browser.annotate":
+          handleAnnotateBrowserPage();
+          return true;
         case "workspace.tab.menu.open":
           handleCreateNewTab({ paneId: focusedPaneTabState.pane?.id });
           return true;
@@ -2686,6 +2703,7 @@ function WorkspaceScreenContent({
     },
     [
       activeTabId,
+      handleAnnotateBrowserPage,
       handleCloseTabById,
       handleCreateDraftTab,
       handleCreateBrowserTab,
@@ -2870,6 +2888,7 @@ function WorkspaceScreenContent({
       "workspace.tab.navigate-relative",
       "workspace.terminal.new",
       "workspace.browser.new",
+      "workspace.browser.annotate",
       "workspace.tab.menu.open",
     ] as const,
     enabled: workspaceActionsEnabled,

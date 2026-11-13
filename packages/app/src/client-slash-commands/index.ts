@@ -2,7 +2,11 @@ import { getIsElectron } from "@/constants/platform";
 import type { Agent } from "@/stores/session-store";
 import type { WorkspaceDraftTabSetup } from "@/workspace-tabs/model";
 
-export type ClientSlashCommandKind = "archive-agent" | "replace-agent-with-draft" | "open-browser";
+export type ClientSlashCommandKind =
+  | "archive-agent"
+  | "replace-agent-with-draft"
+  | "open-browser"
+  | "annotate-page";
 export type ClientSlashCommandExecution = "immediate" | "insert";
 
 export interface ClientSlashCommand {
@@ -12,7 +16,8 @@ export interface ClientSlashCommand {
   descriptionKey:
     | "composer.clientCommands.archiveAgent"
     | "composer.clientCommands.freshDraft"
-    | "composer.clientCommands.openBrowser";
+    | "composer.clientCommands.openBrowser"
+    | "composer.clientCommands.annotatePage";
   argumentHint: string;
   kind: ClientSlashCommandKind;
   execution: ClientSlashCommandExecution;
@@ -60,6 +65,19 @@ const CLIENT_SLASH_COMMANDS: readonly ClientSlashCommand[] = [
     descriptionKey: "composer.clientCommands.openBrowser",
     argumentHint: "[url]",
     kind: "open-browser",
+    execution: "immediate",
+    acceptsArgs: true,
+    availableInDrafts: true,
+    desktopOnly: true,
+    keepsAttachments: true,
+  },
+  {
+    name: "annotate",
+    aliases: [],
+    description: "Annotate a web page in the Pimi browser",
+    descriptionKey: "composer.clientCommands.annotatePage",
+    argumentHint: "[url]",
+    kind: "annotate-page",
     execution: "immediate",
     acceptsArgs: true,
     availableInDrafts: true,
