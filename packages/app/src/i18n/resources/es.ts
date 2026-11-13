@@ -3953,6 +3953,68 @@ export const es: TranslationResources = {
           localErrorMessage: "Unable to remove localhost connection",
         },
       },
+      remoteDaemon: {
+        uninstall: {
+          title: "Desinstalar Pimi de esta máquina",
+          hint: "Detiene el daemon en {{host}}, borra el runtime instalado y quita el host de Pimi",
+          action: "Desinstalar",
+          sheetTitle: "¿Desinstalar Pimi de {{host}}?",
+          checking: "Revisando {{host}}...",
+          willRemove: "Esto va a:",
+          itemStop: "Detener el daemon de Pimi",
+          itemService: "Quitar el servicio de systemd",
+          itemRuntime: "Borrar el runtime de Pimi instalado ({{size}})",
+          itemHost: "Quitar este host de Pimi en este equipo",
+          foreignDaemon:
+            "Otro programa responde en el puerto del daemon y no lo inició esta instalación de Pimi. Se deja en marcha.",
+          workKnown:
+            "Agentes en ejecución: {{agents}}. Terminales abiertas: {{terminals}}. Se detendrán.",
+          workUnknown:
+            "Pimi no pudo contar los agentes y terminales que se ejecutan allí. Se detendrán.",
+          workAck: "Entiendo que el trabajo en ejecución se detendrá",
+          keepData:
+            "Tus agentes, ajustes y worktrees en ~/.pimi ({{size}}) se quedan en la máquina. Al añadirla de nuevo se recuperan.",
+          deleteData:
+            "Borrar también los datos de Pimi en esta máquina (agentes, ajustes, worktrees)",
+          deleteDataWorktrees:
+            "Borra ~/.pimi ({{size}}), incluidos {{worktrees}} worktrees creados por Pimi. El trabajo sin confirmar en esos worktrees se pierde.",
+          deleteDataNoWorktrees: "Borra ~/.pimi ({{size}}). Pimi no creó worktrees allí.",
+          deleteDataPhones: "Los teléfonos vinculados a este daemon pierden el acceso.",
+          confirm: "Desinstalar",
+          unreachableTitle: "No se pudo conectar con {{host}}",
+          unreachableHint:
+            "No se quitó nada allí. Puedes quitar el host solo de Pimi; Pimi sigue instalado en la máquina. Para limpiarla más tarde, detén el daemon y borra ~/.pimi/runtime en ella.",
+          removeOnly: "Quitar solo de Pimi",
+          failedTitle: "La desinstalación no terminó",
+          failedHint:
+            "Es posible que algunos pasos ya se hayan ejecutado. Puedes quitar el host solo de Pimi; consulta la documentación de Remote SSH para terminar a mano.",
+          done: "Pimi se quitó de {{host}}: {{removed}}.",
+          keptList: "Conservado: {{kept}}.",
+          serviceWarning: "No se pudo desactivar el servicio de systemd; se borró su archivo.",
+          hooksLeft:
+            "Los hooks de agentes de terminal siguen en los archivos de configuración de esa máquina.",
+          skillsLeft:
+            "Pueden quedar skills de Pimi en ~/.claude/skills, ~/.agents/skills y ~/.codex/skills.",
+          steps: {
+            connecting: "Conectando con {{host}}...",
+            stopping: "Deteniendo Pimi en {{host}}...",
+            removing: "Quitando archivos en {{host}}...",
+            done: "Listo",
+          },
+          removed: {
+            service: "servicio de systemd",
+            daemon: "daemon",
+            terminals: "terminales",
+            runtime: "runtime",
+            data: "datos (~/.pimi)",
+            nothing: "no había nada instalado",
+          },
+          kept: {
+            data: "datos en ~/.pimi",
+            foreignDaemon: "otro daemon en el puerto",
+          },
+        },
+      },
     },
     providers: {
       title: "Proveedores",

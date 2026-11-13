@@ -3941,6 +3941,67 @@ export const ru: TranslationResources = {
           localErrorMessage: "Не удалось удалить подключение к localhost",
         },
       },
+      remoteDaemon: {
+        uninstall: {
+          title: "Удалить Pimi с этой машины",
+          hint: "Останавливает демон на {{host}}, удаляет установленный runtime и убирает хост из Pimi",
+          action: "Удалить",
+          sheetTitle: "Удалить Pimi с {{host}}?",
+          checking: "Проверяем {{host}}...",
+          willRemove: "Будет сделано:",
+          itemStop: "Остановить демон Pimi",
+          itemService: "Удалить службу systemd",
+          itemRuntime: "Удалить установленный runtime Pimi ({{size}})",
+          itemHost: "Убрать этот хост из Pimi на этом компьютере",
+          foreignDaemon:
+            "Другая программа отвечает на порту демона и не была запущена этой установкой Pimi. Она останется работать.",
+          workKnown:
+            "Работающих агентов: {{agents}}. Открытых терминалов: {{terminals}}. Они будут остановлены.",
+          workUnknown:
+            "Pimi не смог посчитать работающих там агентов и терминалы. Они будут остановлены.",
+          workAck: "Я понимаю, что работающие задачи будут остановлены",
+          keepData:
+            "Ваши агенты, настройки и worktree в ~/.pimi ({{size}}) останутся на машине. При повторном добавлении они подхватятся.",
+          deleteData: "Также удалить данные Pimi на этой машине (агенты, настройки, worktree)",
+          deleteDataWorktrees:
+            "Удаляет ~/.pimi ({{size}}), включая {{worktrees}} worktree, созданных Pimi. Незакоммиченные изменения в них будут потеряны.",
+          deleteDataNoWorktrees: "Удаляет ~/.pimi ({{size}}). Pimi не создавал там worktree.",
+          deleteDataPhones: "Телефоны, привязанные к этому демону, потеряют к нему доступ.",
+          confirm: "Удалить",
+          unreachableTitle: "Не удалось связаться с {{host}}",
+          unreachableHint:
+            "Там ничего не удалено. Можно убрать хост только из Pimi; на машине Pimi останется установленным. Чтобы очистить её позже, остановите демон и удалите ~/.pimi/runtime на ней.",
+          removeOnly: "Убрать только из Pimi",
+          failedTitle: "Удаление не завершено",
+          failedHint:
+            "Часть шагов могла уже выполниться. Можно убрать хост только из Pimi; чтобы закончить вручную, см. документацию Remote SSH.",
+          done: "Pimi удалён с {{host}}: {{removed}}.",
+          keptList: "Оставлено: {{kept}}.",
+          serviceWarning: "Службу systemd не удалось отключить; её файл удалён.",
+          hooksLeft:
+            "Хуки терминальных агентов всё ещё остались в файлах конфигурации на этой машине.",
+          skillsLeft:
+            "Навыки Pimi могли остаться в ~/.claude/skills, ~/.agents/skills и ~/.codex/skills.",
+          steps: {
+            connecting: "Подключение к {{host}}...",
+            stopping: "Остановка Pimi на {{host}}...",
+            removing: "Удаление файлов на {{host}}...",
+            done: "Готово",
+          },
+          removed: {
+            service: "служба systemd",
+            daemon: "демон",
+            terminals: "терминалы",
+            runtime: "runtime",
+            data: "данные (~/.pimi)",
+            nothing: "ничего не было установлено",
+          },
+          kept: {
+            data: "данные в ~/.pimi",
+            foreignDaemon: "другой демон на порту",
+          },
+        },
+      },
     },
     providers: {
       title: "Провайдеры",

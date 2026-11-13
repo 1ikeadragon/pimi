@@ -24,6 +24,10 @@ export type RemoteSshErrorCode =
   | "BUNDLE_BROKEN"
   | "PORT_IN_USE"
   | "DAEMON_START"
+  | "UNINSTALLING"
+  | "UNINSTALL_UNSAFE_HOME"
+  | "UNINSTALL_STOP"
+  | "UNINSTALL_REMOVE"
   | "CANCELLED";
 
 /** A failure with advice the user can act on. `message` is shown as is. */
@@ -109,6 +113,24 @@ export function errorFromRemoteScript(code: string, rawDetail: string): RemoteSs
       return new RemoteSshError(
         "DAEMON_START",
         "The daemon was installed but did not start on the remote machine. Check ~/.pimi/daemon-remote.log there for the reason.",
+        detail,
+      );
+    case "UNSAFE_HOME":
+      return new RemoteSshError(
+        "UNINSTALL_UNSAFE_HOME",
+        "The remote machine reports a home directory Pimi will not delete files in. Nothing was removed.",
+        detail,
+      );
+    case "UNINSTALL_STOP":
+      return new RemoteSshError(
+        "UNINSTALL_STOP",
+        "The Pimi daemon on the remote machine did not stop, so nothing was deleted. Stop it by hand (kill the process in ~/.pimi/pimi.pid) and try again.",
+        detail,
+      );
+    case "UNINSTALL_REMOVE":
+      return new RemoteSshError(
+        "UNINSTALL_REMOVE",
+        "Pimi stopped but could not delete its files on the remote machine. Delete ~/.pimi/runtime there yourself.",
         detail,
       );
     default:

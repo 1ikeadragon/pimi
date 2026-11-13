@@ -59,7 +59,21 @@ Agents on this computer can start agents on a saved SSH host through the local d
 
 ## Files on the remote
 
-`~/.pimi` holds the daemon state, `~/.pimi/runtime/<version>/` the installed bundle, `~/.pimi/runtime/current` the active one, and `~/.pimi/daemon-remote.log` the output of a nohup start. Delete `~/.pimi/runtime` to force a reinstall.
+`~/.pimi` holds the daemon state, `~/.pimi/runtime/<version>/` the installed bundle, `~/.pimi/runtime/current` the active one, and `~/.pimi/daemon-remote.log` the output of a nohup start. Delete `~/.pimi/runtime` to force a reinstall. Agents also write into `~/.claude/skills`, `~/.agents/skills` and `~/.codex/skills` (Pimi skills) and, with terminal agent hooks on, into the agent config files; Pimi never changes `loginctl` linger and never touches provider session history.
+
+## Uninstall
+
+Host settings > Danger zone > **Uninstall Pimi from this machine** (desktop app, hosts added over SSH). The sheet first looks at the machine and then offers:
+
+- Always: stop the daemon, remove the systemd unit if there is one, delete `~/.pimi/runtime` and `daemon-remote.log`, and remove the host from Pimi. Terminal workers that belong to this `~/.pimi` are stopped too; a daemon or worker owned by another `PIMI_HOME` is not touched, and a program that answers on the daemon port but does not hold `~/.pimi` is left running.
+- Running agents or terminals are counted and must be acknowledged before the button works.
+- A second, unticked box also deletes `~/.pimi`: agents, settings, and `~/.pimi/worktrees`. Worktrees Pimi created can hold uncommitted work, and phones paired with that daemon lose it. Without the box, adding the machine again finds the same `server-id` and the earlier agents.
+
+While an uninstall runs, the desktop refuses to run the installer for that machine, because every connect runs it and would otherwise reinstall the daemon the moment it stops. The mark clears when the uninstall fails or is cancelled, and when the machine is added again.
+
+If ssh cannot reach the machine nothing is removed, and the sheet offers **Remove from Pimi only**. To clean up by hand: `systemctl --user disable --now pimi-daemon.service` if you used systemd, stop the process named in `~/.pimi/pimi.pid`, then delete `~/.pimi/runtime`.
+
+With the data box ticked and the app connected, the daemon first removes Pimi's skills. The app also turns terminal agent hooks off before it uninstalls, which removes the hook entries from the agent config files. If the app was not connected, those entries and skills stay and the result says so.
 
 ## Development
 

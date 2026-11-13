@@ -1,12 +1,22 @@
 import { defineSettingsPage } from "@/settings-index/define";
 
-export const hostSettings = defineSettingsPage({ kind: "host", section: "host" }, ({ t }) => [
-  {
-    id: "host.restart",
-    title: t("settings.host.daemon.restart.title"),
-    keywords: ["daemon", "reload", "reboot", "stop", "start", "server"],
-  },
-]);
+export const hostSettings = defineSettingsPage(
+  { kind: "host", section: "host" },
+  ({ t, isDesktopApp }) => [
+    {
+      id: "host.restart",
+      title: t("settings.host.daemon.restart.title"),
+      keywords: ["daemon", "reload", "reboot", "stop", "start", "server"],
+    },
+    isDesktopApp
+      ? {
+          id: "host.uninstall",
+          title: t("settings.host.remoteDaemon.uninstall.title"),
+          keywords: ["ssh", "remote", "remove", "delete", "cleanup", "daemon", "dev machine"],
+        }
+      : null,
+  ],
+);
 
 export const hostPairDeviceSettings = defineSettingsPage(
   { kind: "host", section: "pair-device" },

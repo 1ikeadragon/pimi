@@ -3831,6 +3831,65 @@ export const zhCN: TranslationResources = {
           localErrorMessage: "无法移除 localhost 连接",
         },
       },
+      remoteDaemon: {
+        uninstall: {
+          title: "从此机器卸载 Pimi",
+          hint: "停止 {{host}} 上的守护进程，删除已安装的运行时，并从 Pimi 中移除该主机",
+          action: "卸载",
+          sheetTitle: "从 {{host}} 卸载 Pimi？",
+          checking: "正在检查 {{host}}...",
+          willRemove: "将执行以下操作：",
+          itemStop: "停止 Pimi 守护进程",
+          itemService: "删除 systemd 服务",
+          itemRuntime: "删除已安装的 Pimi 运行时（{{size}}）",
+          itemHost: "在此电脑的 Pimi 中移除该主机",
+          foreignDaemon:
+            "守护进程端口上有另一个程序在响应，它不是由这次 Pimi 安装启动的，将保持运行。",
+          workKnown:
+            "运行中的智能体：{{agents}} 个。打开的终端：{{terminals}} 个。它们都会被停止。",
+          workUnknown: "Pimi 无法统计那里正在运行的智能体和终端。它们都会被停止。",
+          workAck: "我了解正在运行的工作会被停止",
+          keepData:
+            "~/.pimi 中的智能体、设置和 worktree（{{size}}）会保留在该机器上。再次添加时会沿用。",
+          deleteData: "同时删除此机器上的 Pimi 数据（智能体、设置、worktree）",
+          deleteDataWorktrees:
+            "将删除 ~/.pimi（{{size}}），其中包括 Pimi 创建的 {{worktrees}} 个 worktree。这些 worktree 中未提交的工作会丢失。",
+          deleteDataNoWorktrees: "将删除 ~/.pimi（{{size}}）。Pimi 没有在那里创建 worktree。",
+          deleteDataPhones: "与此守护进程配对的手机将无法再访问它。",
+          confirm: "卸载",
+          unreachableTitle: "无法连接到 {{host}}",
+          unreachableHint:
+            "那里没有删除任何内容。你可以只从 Pimi 中移除该主机，Pimi 仍安装在该机器上。以后要清理，请在该机器上停止守护进程并删除 ~/.pimi/runtime。",
+          removeOnly: "仅从 Pimi 中移除",
+          failedTitle: "卸载未完成",
+          failedHint:
+            "部分步骤可能已经执行。你可以只从 Pimi 中移除该主机；如需手动完成，请参阅 Remote SSH 文档。",
+          done: "已从 {{host}} 移除 Pimi：{{removed}}。",
+          keptList: "已保留：{{kept}}。",
+          serviceWarning: "无法停用 systemd 服务，但其文件已删除。",
+          hooksLeft: "终端智能体钩子仍留在该机器的智能体配置文件中。",
+          skillsLeft:
+            "Pimi 技能可能仍留在 ~/.claude/skills、~/.agents/skills 和 ~/.codex/skills 中。",
+          steps: {
+            connecting: "正在连接 {{host}}...",
+            stopping: "正在停止 {{host}} 上的 Pimi...",
+            removing: "正在删除 {{host}} 上的文件...",
+            done: "完成",
+          },
+          removed: {
+            service: "systemd 服务",
+            daemon: "守护进程",
+            terminals: "终端",
+            runtime: "运行时",
+            data: "数据（~/.pimi）",
+            nothing: "没有已安装的内容",
+          },
+          kept: {
+            data: "~/.pimi 中的数据",
+            foreignDaemon: "端口上的另一个守护进程",
+          },
+        },
+      },
     },
     providers: {
       title: "Providers",

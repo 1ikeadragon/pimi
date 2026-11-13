@@ -42,6 +42,7 @@ import { useDesktopSettings } from "@/desktop/settings/desktop-settings";
 import { PairDeviceModal } from "@/desktop/components/pair-device-modal";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { useIsLocalDaemon } from "@/hooks/use-is-local-daemon";
+import { RemoteSshUninstallCard } from "@/hosts/remote-ssh-uninstall";
 import { useAgentHostRegistration } from "@/hosts/use-agent-host-registration";
 import {
   getHostRuntimeStore,
@@ -1326,6 +1327,10 @@ function RemoveHostSection({
       testID="host-page-remove-host-card"
     >
       <RestartDaemonCard host={host} />
+
+      <SettingAnchor id="host.uninstall">
+        <RemoteSshUninstallCard host={host} onRemoved={onRemoved} />
+      </SettingAnchor>
 
       <View style={settingsStyles.card}>
         <View style={settingsStyles.row}>

@@ -6,6 +6,8 @@ import { closeSshAgentEndpoint, ensureSshAgentEndpoint } from "./remote-ssh/agen
 import {
   answerRemoteSshAuth,
   cancelRemoteSsh,
+  checkRemoteSshUninstall,
+  uninstallRemoteSsh,
   forgetRemoteSshAuth,
   prepareRemoteSsh,
 } from "./remote-ssh/desktop.js";
@@ -638,6 +640,8 @@ export function createDaemonCommandHandlers(): Record<string, DesktopCommandHand
     delete_attachment_file: (args) => deleteManagedAttachmentFile(args ?? {}),
     garbage_collect_attachment_files: (args) => garbageCollectManagedAttachmentFiles(args ?? {}),
     remote_ssh_prepare: (args) => prepareRemoteSsh(args),
+    remote_ssh_uninstall_check: (args) => checkRemoteSshUninstall(args),
+    remote_ssh_uninstall: (args) => uninstallRemoteSsh(args),
     remote_ssh_agent_endpoint: (args) => ensureSshAgentEndpoint(args),
     remote_ssh_agent_endpoint_close: async (args) => {
       await closeSshAgentEndpoint(args);
