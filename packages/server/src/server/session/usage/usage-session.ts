@@ -92,7 +92,7 @@ export class UsageSession {
     try {
       const { reader, scanner } = this.requireLedger();
       scanner.refreshIfStale(SCAN_STALE_MS);
-      const result = reader.breakdown(
+      const result = await reader.breakdown(
         {
           range: msg.range,
           provider: msg.provider,
@@ -132,7 +132,7 @@ export class UsageSession {
         payload: {
           requestId: msg.requestId,
           error: null,
-          chats: reader.agentTree({
+          chats: await reader.agentTree({
             range: msg.range,
             provider: msg.provider,
             timezoneOffsetMinutes: msg.timezoneOffsetMinutes,
