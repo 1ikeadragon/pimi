@@ -337,7 +337,10 @@ contextBridge.exposeInMainWorld("pimiDesktop", {
     listWindows: () => ipcRenderer.invoke("pimi:desktop-target:list-windows"),
     execute: (request: Record<string, unknown>) =>
       ipcRenderer.invoke("pimi:desktop-target:execute", request),
-    openSettings: (pane: "accessibility" | "screen" | "automation") =>
+    resolveScope: (request: Record<string, unknown>) =>
+      ipcRenderer.invoke("pimi:desktop-target:scope", request),
+    checkDataDir: (dir: string) => ipcRenderer.invoke("pimi:desktop-target:check-data-dir", dir),
+    openSettings: (pane: "accessibility" | "screen") =>
       ipcRenderer.invoke("pimi:desktop-target:open-settings", pane),
   },
   browser: {

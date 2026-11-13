@@ -132,6 +132,8 @@ jobs:
           PIMI_SKIP_NATIVE_MARKDOWN_ASSETS: "1"
       - name: Download betterleaks
         run: node packages/desktop/scripts/download-betterleaks.mjs --platform mac
+      - name: Build desktop helper
+        run: npm run build:mac-helper
       - name: Build macOS app inputs
         if: vars.APPLE_TEAM_ID != ''
         env:

@@ -8,12 +8,7 @@ import {
   type AttackRunDefinition,
 } from "@pimi/protocol/attack/types";
 import type { DesktopTargetWindow } from "@/desktop/host";
-import {
-  desktopBlockedReason,
-  isWindowsTarget,
-  sameDesktopWindow,
-  toDesktopTarget,
-} from "./desktop-target-info";
+import { desktopBlockedReason, sameDesktopWindow, toDesktopTarget } from "./desktop-target-info";
 
 // A plain model of the Attack launch form (docs/forms.md): no React. `openAttackRunForm` builds a
 // fresh instance per mount; commands mutate; the component renders `getState()`.
@@ -81,9 +76,9 @@ const MAX_MINUTES = 480;
 const MIN_KILO_TOKENS = 10;
 const MAX_KILO_TOKENS = 100_000;
 
-/** The security role reads a Windows app's own files, process and network: a Windows window. */
+/** The security role reads a desktop app's own files, process and network: any desktop window. */
 export function desktopSecurityAvailable(target: AttackDesktopTarget | null): boolean {
-  return target !== null && isWindowsTarget(target);
+  return target !== null;
 }
 
 function parseWhole(value: string): number | null {
@@ -233,7 +228,7 @@ export class AttackRunFormModel {
         ? this.state.roster
         : { ...this.state.roster, "desktop-security": false },
       scopeInstallDir: null,
-      scopeLoading: target !== null && isWindowsTarget(target),
+      scopeLoading: target?.win != null,
       scopeError: null,
     });
   };
@@ -260,34 +255,26 @@ export class AttackRunFormModel {
       scopeInstallDir: scope.installDir,
       desktopTarget: this.dataDirsEdited
         ? current
-        : { ...current, win: { ...current.win, dataDirs: scope.dataDirs.slice(0, MAX_DATA_DIRS) } },
+        : { ...current, dataDirs: scope.dataDirs.slice(0, MAX_DATA_DIRS) },
     });
   }
 
   /** Adds a folder the desktop app already accepted (canonical, not denied). */
   addDataDir = (dir: string): void => {
     const current = this.state.desktopTarget;
-    if (!current?.win) return;
-    const known = current.win.dataDirs.some((item) => item.toLowerCase() === dir.toLowerCase());
-    if (known || current.win.dataDirs.length >= MAX_DATA_DIRS) return;
+    if (!current) return;
+    const known = current.dataDirs.some((item) => item.toLowerCase() === dir.toLowerCase());
+    if (known || current.dataDirs.length >= MAX_DATA_DIRS) return;
     this.dataDirsEdited = true;
-    this.patch({
-      desktopTarget: {
-        ...current,
-        win: { ...current.win, dataDirs: [...current.win.dataDirs, dir] },
-      },
-    });
+    this.patch({ desktopTarget: { ...current, dataDirs: [...current.dataDirs, dir] } });
   };
 
   removeDataDir = (dir: string): void => {
     const current = this.state.desktopTarget;
-    if (!current?.win) return;
+    if (!current) return;
     this.dataDirsEdited = true;
     this.patch({
-      desktopTarget: {
-        ...current,
-        win: { ...current.win, dataDirs: current.win.dataDirs.filter((item) => item !== dir) },
-      },
+      desktopTarget: { ...current, dataDirs: current.dataDirs.filter((item) => item !== dir) },
     });
   };
 

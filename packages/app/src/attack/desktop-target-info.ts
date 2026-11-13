@@ -57,6 +57,7 @@ export const NO_DESKTOP_WINDOW: AttackDesktopTarget = {
   windowTitle: "",
   platform: "darwin",
   win: null,
+  dataDirs: [],
   launchArgs: "",
   allowRelaunch: false,
   allowDesktopInspect: false,
@@ -69,8 +70,9 @@ export function toDesktopTarget(window: DesktopTargetWindow): AttackDesktopTarge
     appName: window.appName,
     windowTitle: window.windowTitle,
     platform: window.platform ?? "darwin",
-    // The data dirs are filled in by the launch form once the owner has picked the window.
-    win: window.win ? { ...window.win, dataDirs: [] } : null,
+    win: window.win ?? null,
+    // Filled in by the launch form once the owner has picked the window.
+    dataDirs: [],
     launchArgs: "",
     allowRelaunch: false,
     allowDesktopInspect: false,
@@ -79,6 +81,13 @@ export function toDesktopTarget(window: DesktopTargetWindow): AttackDesktopTarge
 
 export function isWindowsTarget(target: Pick<AttackDesktopTarget, "platform">): boolean {
   return target.platform === "win32";
+}
+
+/** An example folder for the data-dir field, in the owner's platform's shape. */
+export function dataDirPlaceholder(target: Pick<AttackDesktopTarget, "platform"> | null): string {
+  return target && isWindowsTarget(target)
+    ? "C:\\Users\\you\\AppData\\Roaming\\MyApp"
+    : "~/Library/Application Support/MyApp";
 }
 
 /** A browser, mail or chat client, or a launcher: legitimate, but signed in to the owner's accounts. */

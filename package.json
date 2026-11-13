@@ -91,7 +91,8 @@
     "pimi": "node pimi/server.mjs",
     "pimi:desktop": "cross-env PIMI_DESKTOP=1 npm run dev --workspace=@pimi/desktop",
     "pimi:prepare:desktop": "npm run build:server && npm run build:renderer --workspace=@pimi/app && npm run build:main --workspace=@pimi/desktop",
-    "pimi:package:mac": "npm run pimi:prepare:desktop && npm exec --workspace=@pimi/desktop -- electron-builder --config electron-builder.pimi.yml --mac dmg --arm64 --publish never",
+    "pimi:package:mac": "npm run build:mac-helper && npm run pimi:prepare:desktop && npm exec --workspace=@pimi/desktop -- electron-builder --config electron-builder.pimi.yml --mac dmg --arm64 --publish never",
+    "build:mac-helper": "npm run build:mac-helper --workspace=@pimi/desktop",
     "build:win-helper": "npm run build:win-helper --workspace=@pimi/desktop",
     "pimi:package:win": "node -e \"if (process.platform !== 'win32' || process.arch !== 'x64') throw new Error('Run this command on Windows with x64 Node.js and run npm ci first.')\" && npm run build:win-helper && npm run pimi:prepare:desktop && npm exec --workspace=@pimi/desktop -- electron-builder --config electron-builder.pimi.yml --win nsis --x64 --publish never"
   },

@@ -57,8 +57,7 @@ export const DesktopWinIdentitySchema = z.object({
   framework: z.string(),
 });
 
-// macOS: an element path from the last snapshot ("0/2/1"). Windows: a ref ("@d12") from the last
-// snapshot, find or marked screenshot.
+// A ref ("@d12") from the last snapshot, find or marked screenshot, on both platforms.
 const ElementRefSchema = z.string().min(1).max(500);
 const PointSchema = z.object({ x: z.number(), y: z.number() });
 const TargetSpecSchema = z
@@ -67,7 +66,7 @@ const TargetSpecSchema = z
 // Input verbs may ask for a screenshot taken just after the action.
 const ScreenshotAfterSchema = z.boolean().optional();
 const ButtonSchema = z.enum(["left", "right", "middle"]);
-const ModifierKeySchema = z.enum(["ctrl", "alt", "shift"]);
+const ModifierKeySchema = z.enum(["ctrl", "alt", "shift", "cmd"]);
 
 export const DesktopTargetCommandSchema = z.discriminatedUnion("command", [
   z.object({ command: z.literal("list_windows"), args: z.object({}).strict() }),
@@ -334,7 +333,7 @@ const ScreenshotBodySchema = z.object({
   scale: z.number().positive().optional(),
   origin: PointSchema.optional(),
   dpi: z.number().optional(),
-  method: z.enum(["wgc", "printwindow", "screen"]).optional(),
+  method: z.enum(["wgc", "printwindow", "screen", "sck", "screencapture"]).optional(),
   suspectBlank: z.boolean().optional(),
   legend: z.string().optional(),
 });

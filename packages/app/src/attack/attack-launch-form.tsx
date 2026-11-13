@@ -18,7 +18,7 @@ import {
   desktopBlockedReason,
   desktopWindowKey,
   isWarnTierTarget,
-  isWindowsTarget,
+  dataDirPlaceholder,
 } from "./desktop-target-info";
 import { DesktopAnnotateSheet, type DesktopNote } from "./desktop-annotate-sheet";
 import { PressHighlight } from "@/components/ui/press-highlight";
@@ -482,14 +482,13 @@ function DesktopTargetSection({
     }),
     [picked, t],
   );
-  const pickedWindows = picked !== null && isWindowsTarget(picked);
   const pickedHwnd = picked?.win?.hwnd ?? null;
   // The helper proposes the app's data folders for the picked window; the owner edits the list.
   useEffect(() => {
     const target = model.getState().desktopTarget;
     const bridge = getDesktopHost()?.desktopTarget;
     const win = target?.win;
-    if (!target || !win || !bridge || !isWindowsTarget(target)) return;
+    if (!target || !win || !bridge) return;
     let cancelled = false;
     const load = async () => {
       try {
@@ -579,7 +578,7 @@ function DesktopTargetSection({
           {t("attack.form.desktopWarn")}
         </Text>
       ) : null}
-      {pickedWindows ? (
+      {picked ? (
         <>
           <Field
             label={t("attack.form.desktopRelaunch")}
@@ -607,6 +606,10 @@ function DesktopTargetSection({
               autoCorrect={false}
             />
           </Field>
+        </>
+      ) : null}
+      {picked ? (
+        <>
           <Field label={t("attack.form.desktopInspect")} hint={t("attack.form.desktopInspectHint")}>
             <Switch
               value={picked.allowDesktopInspect}
@@ -639,7 +642,7 @@ function DataDirsField({ model, state }: { model: AttackRunFormModel; state: Att
   const [draft, setDraft] = useState("");
   const [refused, setRefused] = useState(false);
   const [inputKey, setInputKey] = useState(0);
-  const dirs = state.desktopTarget?.win?.dataDirs ?? [];
+  const dirs = state.desktopTarget?.dataDirs ?? [];
   const onAdd = useCallback(async () => {
     const bridge = getDesktopHost()?.desktopTarget;
     const raw = draft.trim();
@@ -688,7 +691,7 @@ function DataDirsField({ model, state }: { model: AttackRunFormModel; state: Att
               accessibilityLabel={t("attack.form.desktopDataDirAdd")}
               initialValue={draft}
               onChangeText={onChangeDraft}
-              placeholder={t("attack.form.desktopDataDirPlaceholder")}
+              placeholder={dataDirPlaceholder(state.desktopTarget)}
               autoCapitalize="none"
               autoCorrect={false}
             />

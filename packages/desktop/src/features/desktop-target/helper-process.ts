@@ -4,10 +4,12 @@ import path from "node:path";
 import { app } from "electron";
 import type { DesktopTargetErrorCode } from "@pimi/protocol/desktop-target/rpc-schemas";
 
-// One long-lived pimi-desktop-helper.exe, spoken to in JSON lines (HELPER-CONTRACT.md in the
-// design notes, and the comments in native/win). It starts on the first request, answers one
-// request at a time, and is killed and started again when a request times out or it exits.
+// One long-lived pimi-desktop-helper (the .exe from native/win on Windows, the Mach-O from
+// native/mac on macOS), spoken to in JSON lines (the comments in native/win and native/mac). It
+// starts on the first request, answers one request at a time, and is killed and started again
+// when a request times out or it exits.
 
+// `hwnd` is the window handle on Windows and the CGWindowID on macOS.
 export interface HelperTarget {
   appId: string;
   windowTitle: string;
@@ -38,24 +40,28 @@ export class HelperError extends Error {
   }
 }
 
-const HELPER_NAME = "pimi-desktop-helper.exe";
+const IS_WIN = process.platform === "win32";
+const HELPER_NAME = IS_WIN ? "pimi-desktop-helper.exe" : "pimi-desktop-helper";
+const BETTERLEAKS_NAME = IS_WIN ? "betterleaks.exe" : "betterleaks";
+// SIGTERM first so the helper can release held keys and buttons, then SIGKILL.
+const KILL_GRACE_MS = 700;
 const REQUEST_TIMEOUT_MS = 10_000;
 const WAIT_TIMEOUT_MS = 15_000;
 // Launch waits up to 15 s for the window to appear.
 const APP_TIMEOUT_MS = 25_000;
 
-export function helperPath(): string {
-  const dir = app.isPackaged
+function binDir(): string {
+  return app.isPackaged
     ? path.join(process.resourcesPath, "desktop-helper")
-    : path.resolve(__dirname, "../../../../native/win/bin");
-  return path.join(dir, HELPER_NAME);
+    : path.resolve(__dirname, "../../../native", IS_WIN ? "win" : "mac", "bin");
+}
+
+export function helperPath(): string {
+  return path.join(binDir(), HELPER_NAME);
 }
 
 export function betterleaksPath(): string {
-  const dir = app.isPackaged
-    ? path.join(process.resourcesPath, "desktop-helper")
-    : path.resolve(__dirname, "../../../../native/win/bin");
-  return path.join(dir, "betterleaks.exe");
+  return path.join(binDir(), BETTERLEAKS_NAME);
 }
 
 type Reply =
@@ -104,7 +110,9 @@ function start(): ChildProcessWithoutNullStreams {
   if (!existsSync(exe)) {
     throw new HelperError(
       "failed",
-      "The Windows desktop helper is missing. Reinstall Pimi, or run npm run build:win-helper in a checkout.",
+      IS_WIN
+        ? "The Windows desktop helper is missing. Reinstall Pimi, or run npm run build:win-helper in a checkout."
+        : "The macOS desktop helper is missing. Reinstall Pimi, or run npm run build:mac-helper in a checkout.",
     );
   }
   const spawned = spawn(exe, [], { windowsHide: true, stdio: ["pipe", "pipe", "pipe"] });
@@ -135,7 +143,14 @@ function start(): ChildProcessWithoutNullStreams {
 function kill(): void {
   const current = child;
   child = null;
-  current?.kill();
+  if (!current) return;
+  if (IS_WIN) {
+    current.kill();
+    return;
+  }
+  // The helper's signal handler releases held keys and buttons; SIGKILL cannot be handled.
+  current.kill("SIGTERM");
+  setTimeout(() => current.kill("SIGKILL"), KILL_GRACE_MS).unref();
 }
 
 function timeoutFor(verb: string, args: Record<string, unknown>): number {
@@ -193,5 +208,8 @@ export function stopHelper(): void {
   child = null;
   if (!current) return;
   current.stdin.end();
-  setTimeout(() => current.kill(), 500).unref();
+  setTimeout(() => {
+    if (IS_WIN) current.kill();
+    else current.kill("SIGTERM");
+  }, 500).unref();
 }

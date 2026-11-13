@@ -2520,7 +2520,6 @@ export const zhCN: TranslationResources = {
       desktopLaunchArgsHint:
         "智能体重新启动应用时使用,例如 Electron 应用的 --force-renderer-accessibility。",
       desktopDataDirAdd: en.attack.form.desktopDataDirAdd,
-      desktopDataDirPlaceholder: en.attack.form.desktopDataDirPlaceholder,
       desktopDataDirRefused: en.attack.form.desktopDataDirRefused,
       desktopDataDirRemove: en.attack.form.desktopDataDirRemove,
       desktopDataDirs: en.attack.form.desktopDataDirs,
@@ -2667,7 +2666,6 @@ export const zhCN: TranslationResources = {
           "Pimi 需要辅助功能和屏幕录制权限才能读取并操控此窗口。两者都授权之前,不会运行任何桌面工具。",
         openAccessibility: "打开辅助功能设置",
         openScreen: "打开屏幕录制设置",
-        openAutomation: "打开自动化设置",
         noActions: "暂无操作。",
         noPreview: "正在等待窗口...",
       },

@@ -185,7 +185,7 @@ function effects(result: { via?: string; changed?: boolean; focusLeft?: string |
 const COORDINATES =
   "Coordinates are pixels of the latest desktop_screenshot of this window, measured from its top left; take a screenshot first and do not reuse coordinates after the window changes size.";
 const REFS =
-  "An element is a ref from desktop_snapshot, desktop_find or a marked desktop_screenshot, such as @d12 on Windows (a path such as 0/2/1 on macOS). Prefer refs to coordinates.";
+  "An element is a ref from desktop_snapshot, desktop_find or a marked desktop_screenshot, such as @d12. Prefer refs to coordinates.";
 const SCREENSHOT_AFTER_FIELD = z
   .boolean()
   .optional()
@@ -194,7 +194,7 @@ const SCREENSHOT_AFTER_FIELD = z
   );
 const ELEMENT_FIELD = z.string().min(1).max(500).optional();
 const MODIFIERS_FIELD = z
-  .array(z.enum(["ctrl", "alt", "shift"]))
+  .array(z.enum(["ctrl", "alt", "shift", "cmd"]))
   .max(3)
   .optional();
 const BUTTON_FIELD = z.enum(["left", "right", "middle"]).optional();
@@ -483,7 +483,7 @@ export function registerDesktopTools(options: RegisterDesktopToolsOptions): void
     "desktop_snapshot",
     {
       title: "Snapshot desktop window",
-      description: `Read the accessibility tree of the one desktop window this Attack run drives. Lines carry refs (@d12 on Windows, [0/2/1] paths on macOS) that desktop_click, desktop_type and the other tools take. ${REFS} Re-snapshot after the window changes: refs go stale (stale_ref). Set interactiveOnly for a short list of controls, root to expand one subtree. A window whose tree quality is "none" (many games and custom-drawn UIs) has no refs: use desktop_screenshot with grid: true and click coordinates instead. Only for runs with a desktop target.`,
+      description: `Read the accessibility tree of the one desktop window this Attack run drives. Lines carry refs (such as @d12) that desktop_click, desktop_type and the other tools take. ${REFS} Re-snapshot after the window changes: refs go stale (stale_ref). Set interactiveOnly for a short list of controls, root to expand one subtree. A window whose tree quality is "none" (many games and custom-drawn UIs) has no refs: use desktop_screenshot with grid: true and click coordinates instead. Only for runs with a desktop target.`,
       inputSchema: {
         interactiveOnly: z.boolean().optional(),
         root: ELEMENT_FIELD,
@@ -876,7 +876,7 @@ export function registerDesktopTools(options: RegisterDesktopToolsOptions): void
     {
       title: "Desktop app status and relaunch",
       description:
-        'Manage the process of the one app this run drives. action "status" reports running or exited (with the exit code), responding or hung, uptime, memory, handle counts and whether a crash dialog is up: call it when the window disappears or stops answering, and to watch for leaks. "launch" starts the app when it is not running; "relaunch" closes it and starts it again. Both start only the picked app with the arguments the owner typed, never anything else, and need the owner\'s launch consent for the run. If the app would not close, relaunch says so and does not kill it unless the target is disposable.',
+        'Manage the process of the one app this run drives. action "status" reports running or exited (with the exit code on Windows), responding or hung, uptime, memory, handle counts (Windows) and whether a crash dialog is up (Windows) or a crash report was written (macOS): call it when the window disappears or stops answering, and to watch for leaks. "launch" starts the app when it is not running; "relaunch" closes it and starts it again. Both start only the picked app with the arguments the owner typed, never anything else, and need the owner\'s launch consent for the run. If the app would not close, relaunch says so and does not kill it unless the target is disposable.',
       inputSchema: { action: z.enum(["status", "launch", "relaunch"]) },
     },
     ({ action }) => run({ command: "app", args: { action } }),
@@ -899,7 +899,7 @@ function registerSecurityTools(options: RegisterDesktopToolsOptions, run: RunDes
     {
       title: "Inspect desktop app security facts",
       description:
-        'Read security facts about the one app this run drives: its process tree, binary and install footprint. section: "process" (pid tree, integrity level, elevation), "signature" (Authenticode state and signer), "mitigations" (ASLR, DEP, CFG per binary), "modules" (loaded modules with full path and whether the containing dir is writable, for DLL-hijack hunting), "ports" (listening endpoints and their bind address), "children" (child processes), "commandline" (the app\'s own arguments), "protocols" (custom URI schemes registered to the exe, for desktop_deeplink), "acls" (who can write the install and data dirs), "electron" (fuses, asar integrity, Electron and Chromium versions), "dotnet" (managed facts and insecure-deserialization signals), or "all" (default, time-boxed). Reads only: nothing is written, loaded or elevated. Needs the owner\'s security inspection consent for the run. Windows only.',
+        'Read security facts about the one app this run drives: its process tree, binary and install footprint. section: "process" (pid tree, elevation; integrity level on Windows), "signature" (Authenticode on Windows; codesign, notarization and Gatekeeper on macOS), "mitigations" (ASLR, DEP, CFG per binary on Windows; hardened runtime, weakening entitlements, sandbox, App Transport Security and PIE on macOS), "modules" (loaded modules or dylibs with full path and whether the containing dir is writable, for DLL and dylib hijack hunting), "ports" (listening endpoints and their bind address), "children" (child processes), "commandline" (the app\'s own arguments), "protocols" (custom URL schemes registered to the app, for desktop_deeplink), "acls" (who can write the install and data dirs; quarantine flag on macOS), "electron" (fuses, asar integrity, Electron and Chromium versions), "dotnet" (managed facts and insecure-deserialization signals; Windows only), or "all" (default, time-boxed). Reads only: nothing is written, loaded or elevated. Needs the owner\'s security inspection consent for the run.',
       inputSchema: {
         section: z.enum(DESKTOP_INSPECT_SECTIONS).optional(),
       },
@@ -911,7 +911,7 @@ function registerSecurityTools(options: RegisterDesktopToolsOptions, run: RunDes
     {
       title: "Scan desktop app files for secrets",
       description:
-        'Scan the app\'s data and install dirs for secrets using betterleaks (the gitleaks successor). Detects API keys, tokens, passwords, private keys, connection strings, cloud credentials, and hundreds of other secret types with CEL-based rules and BPE token-efficiency filtering. Each hit is { where, kind, valuePrefix (at most 4 characters), valueLength }: the value itself is never returned, so quote only where, kind, prefix and length in a finding. roots defaults to ["data","install"]; add "registry" for the app\'s HKCU\\Software key. Confirm a hit is live with desktop_files before you call it a credential. Needs the owner\'s security inspection consent. Windows only.',
+        'Scan the app\'s data and install dirs for secrets using betterleaks (the gitleaks successor). Detects API keys, tokens, passwords, private keys, connection strings, cloud credentials, and hundreds of other secret types with CEL-based rules and BPE token-efficiency filtering. Each hit is { where, kind, valuePrefix (at most 4 characters), valueLength }: the value itself is never returned, so quote only where, kind, prefix and length in a finding. roots defaults to ["data","install"]; add "registry" for the app\'s HKCU\\Software key on Windows or its preferences plist on macOS. Confirm a hit is live with desktop_files before you call it a credential. Needs the owner\'s security inspection consent.',
       inputSchema: {
         roots: z
           .array(z.enum(["data", "install", "registry"]))
@@ -938,7 +938,7 @@ function registerSecurityTools(options: RegisterDesktopToolsOptions, run: RunDes
     {
       title: "Inspect desktop app IPC",
       description:
-        'Local IPC of the app. action "list" enumerates named pipes owned by the app\'s process tree with a DACL summary (flagging Everyone and Authenticated Users with write or full access) and its localhost listeners (needs the owner\'s security inspection consent). action "probe" sends one benign GET to http://127.0.0.1:<port><path> of a port the app itself owns, no auth and no body, response capped at 16 KB, 3 s timeout, plus one request with a foreign Host header to check DNS-rebinding protection (needs the owner\'s desktop input consent). Never another method, host or port. Windows only.',
+        'Local IPC of the app. action "list" enumerates the app\'s local IPC: on Windows the named pipes of its process tree with a DACL summary (flagging Everyone and Authenticated Users with write or full access), on macOS its Unix sockets and FIFOs with their path modes, bundled XPC services, and the LaunchAgents, LaunchDaemons and privileged helper tools that name it (Mach ports are not listed); both list its localhost listeners (needs the owner\'s security inspection consent). action "probe" sends one benign GET to http://127.0.0.1:<port><path> of a port the app itself owns, no auth and no body, response capped at 16 KB, 3 s timeout, plus one request with a foreign Host header to check DNS-rebinding protection (needs the owner\'s desktop input consent). Never another method, host or port.',
       inputSchema: {
         action: z.enum(["list", "probe"]),
         port: z.number().int().min(1).max(65_535).optional(),
@@ -964,7 +964,7 @@ function registerSecurityTools(options: RegisterDesktopToolsOptions, run: RunDes
     {
       title: "Desktop app network endpoints",
       description:
-        "List the remote endpoints of the app's process tree right now (address, port, state, and PLAINTEXT for non-TLS ports), with what Pimi's Network monitor knows: the launch of the app when Pimi started it and DNS names the daemon saw. Also reports signals of disabled certificate validation (NODE_TLS_REJECT_UNAUTHORIZED=0, .NET callbacks that accept every certificate). Reads only; it intercepts nothing. Needs the owner's security inspection consent. Windows only.",
+        "List the remote endpoints of the app's process tree right now (address, port, state, and PLAINTEXT for non-TLS ports), with what Pimi's Network monitor knows: the launch of the app when Pimi started it and DNS names the daemon saw. Also reports signals of disabled certificate validation (NODE_TLS_REJECT_UNAUTHORIZED=0, .NET callbacks that accept every certificate, App Transport Security exceptions on macOS). Reads only; it intercepts nothing. Needs the owner's security inspection consent.",
       inputSchema: {},
     },
     () => run({ command: "network", args: {} }),
@@ -974,7 +974,7 @@ function registerSecurityTools(options: RegisterDesktopToolsOptions, run: RunDes
     {
       title: "Send a deep link to the desktop app",
       description:
-        "Invoke the app's own registered protocol with a payload you choose, to test how it handles the argument. The scheme must be one registered to the target exe (see desktop_inspect section \"protocols\"); a scheme routed to another app is refused. A payload that looks state-changing (not a bare navigation) is refused unless the owner marked the target disposable. The result says whether it launched, the handler, and whether focus left the window. Needs the owner's desktop input consent. Windows only.",
+        "Invoke the app's own registered protocol with a payload you choose, to test how it handles the argument. The scheme must be one registered to the target app (see desktop_inspect section \"protocols\"); a scheme routed to another app is refused. A payload that looks state-changing (not a bare navigation) is refused unless the owner marked the target disposable. The result says whether it launched, the handler, and whether focus left the window. Needs the owner's desktop input consent.",
       inputSchema: { url: z.string().min(1).max(2000) },
     },
     ({ url }) => run({ command: "deeplink", args: { url } }),
@@ -984,7 +984,7 @@ function registerSecurityTools(options: RegisterDesktopToolsOptions, run: RunDes
     {
       title: "Read desktop app files",
       description:
-        'Read the app\'s own install and data dirs for config review, never anything else. action "list" lists a directory; "read" returns up to maxBytes (default 65536) of a text file. path is relative to a scope root, written root-name/relative/path (use list with an empty path to see the roots). Binary and oversized files are refused. Browser profiles, other apps\' data, Pimi and credential stores are always refused. Needs the owner\'s security inspection consent. Windows only.',
+        'Read the app\'s own install and data dirs for config review, never anything else. action "list" lists a directory; "read" returns up to maxBytes (default 65536) of a text file. path is relative to a scope root, written root-name/relative/path (use list with an empty path to see the roots). Binary and oversized files are refused. Browser profiles, other apps\' data, Pimi and credential stores are always refused. Needs the owner\'s security inspection consent.',
       inputSchema: {
         action: z.enum(["list", "read"]),
         path: z.string().max(400),

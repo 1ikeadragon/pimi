@@ -775,6 +775,19 @@ async function smokePackagedDesktopApp({
     const selftest = spawnSync(helperPath, ["--selftest"], { encoding: "utf8", timeout: 15_000 });
     assert.equal(selftest.status, 0, `Desktop helper selftest failed: ${selftest.stdout}`);
     assert.equal(JSON.parse(selftest.stdout).ok, true, "Desktop helper selftest must report ok");
+  } else if (process.platform === "darwin") {
+    // The Accessibility and capture helper that desktop targets use ships in Resources.
+    const helperPath = path.join(
+      appPath,
+      "Contents",
+      "Resources",
+      "desktop-helper",
+      "pimi-desktop-helper",
+    );
+    assertExecutable(helperPath, "macOS desktop helper");
+    const selftest = spawnSync(helperPath, ["--selftest"], { encoding: "utf8", timeout: 15_000 });
+    assert.equal(selftest.status, 0, `Desktop helper selftest failed: ${selftest.stdout}`);
+    assert.equal(JSON.parse(selftest.stdout).ok, true, "Desktop helper selftest must report ok");
   }
   await smokeColdCliDaemonStart({ appPath });
 

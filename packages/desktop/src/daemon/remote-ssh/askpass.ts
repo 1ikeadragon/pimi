@@ -5,7 +5,7 @@ import { createServer, type Server, type Socket } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { app, BrowserWindow } from "electron";
-import { helperPath } from "../../features/desktop-target/win/helper-process.js";
+import { helperPath } from "../../features/desktop-target/helper-process.js";
 import { resolveNodeExecPath } from "../runtime-paths.js";
 import type { SshTarget } from "./ssh-exec.js";
 

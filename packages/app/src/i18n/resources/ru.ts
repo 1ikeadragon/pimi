@@ -2590,7 +2590,6 @@ export const ru: TranslationResources = {
       desktopLaunchArgsHint:
         "Используются, когда агент перезапускает приложение, например --force-renderer-accessibility для приложений на Electron.",
       desktopDataDirAdd: en.attack.form.desktopDataDirAdd,
-      desktopDataDirPlaceholder: en.attack.form.desktopDataDirPlaceholder,
       desktopDataDirRefused: en.attack.form.desktopDataDirRefused,
       desktopDataDirRemove: en.attack.form.desktopDataDirRemove,
       desktopDataDirs: en.attack.form.desktopDataDirs,
@@ -2737,7 +2736,6 @@ export const ru: TranslationResources = {
           "Pimi нужен доступ к универсальному доступу и записи экрана, чтобы читать это окно и управлять им. Пока оба не выданы, инструменты рабочего стола не запускаются.",
         openAccessibility: "Открыть настройки универсального доступа",
         openScreen: "Открыть настройки записи экрана",
-        openAutomation: "Открыть настройки автоматизации",
         noActions: "Действий пока нет.",
         noPreview: "Ожидание окна...",
       },

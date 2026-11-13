@@ -4,9 +4,9 @@ import {
   type DesktopTargetErrorCode,
   type DesktopTargetExecuteResponse,
 } from "@pimi/protocol/desktop-target/rpc-schemas";
-import { AxError, probeAutomation } from "./mac/ax.js";
-import { runMac, screenGranted } from "./mac/index.js";
-import { HelperError, stopHelper } from "./win/helper-process.js";
+import { resolveMacScope, runMac } from "./mac/index.js";
+import { checkDataDir as checkMacDataDir } from "./mac/security-mac.js";
+import { HelperError, stopHelper } from "./helper-process.js";
 import { checkWinDataDir, resolveWinScope, runWin } from "./win/index.js";
 
 // Attack's desktop target: one window, chosen by the owner, driven through the platform's
@@ -53,10 +53,12 @@ export async function executeDesktopTarget(raw: unknown): Promise<Payload> {
     );
   }
   try {
-    const result = IS_MAC ? await runMac(command, guard) : await runWin(command, guard, agentId);
+    const result = IS_MAC
+      ? await runMac(command, guard, agentId)
+      : await runWin(command, guard, agentId);
     return { requestId, ok: true, result };
   } catch (error) {
-    if (error instanceof AxError || error instanceof HelperError) {
+    if (error instanceof HelperError) {
       return failure(requestId, error.code, error.message);
     }
     return failure(requestId, "failed", error instanceof Error ? error.message : String(error));
@@ -66,7 +68,6 @@ export async function executeDesktopTarget(raw: unknown): Promise<Payload> {
 const SETTINGS_PANES = {
   accessibility: "Privacy_Accessibility",
   screen: "Privacy_ScreenCapture",
-  automation: "Privacy_Automation",
 } as const;
 
 export function registerDesktopTargetIpc(): void {
@@ -79,28 +80,24 @@ export function registerDesktopTargetIpc(): void {
         platform: "win32",
         accessibility: true,
         screen: "granted",
-        automation: "granted",
       };
     }
     if (!IS_MAC) return { supported: false };
     const prompt = (raw as { prompt?: unknown } | null)?.prompt === true;
-    let automation: "unknown" | "granted" | "denied" | "failed" = "unknown";
     if (prompt) {
       systemPreferences.isTrustedAccessibilityClient(true);
-      if (!screenGranted()) {
+      if (systemPreferences.getMediaAccessStatus("screen") !== "granted") {
         // Asking for window sources is what makes macOS show the Screen Recording prompt.
         await desktopCapturer
           .getSources({ types: ["window"], thumbnailSize: { width: 1, height: 1 } })
           .catch(() => undefined);
       }
-      automation = await probeAutomation();
     }
     return {
       supported: true,
       platform: "darwin",
       accessibility: systemPreferences.isTrustedAccessibilityClient(false),
       screen: systemPreferences.getMediaAccessStatus("screen"),
-      automation,
     };
   });
   ipcMain.handle("pimi:desktop-target:list-windows", async () => {
@@ -127,7 +124,7 @@ export function registerDesktopTargetIpc(): void {
   );
   // The launch form's data-dir proposal for a picked window, and the check of one the owner typed.
   ipcMain.handle("pimi:desktop-target:scope", async (_event, raw: unknown) => {
-    if (!IS_WIN) return { ok: false, error: "Security scope is only available on Windows." };
+    if (!IS_WIN && !IS_MAC) return { ok: false, error: "Security scope is not available here." };
     const request = raw as {
       bundleId?: unknown;
       windowTitle?: unknown;
@@ -143,24 +140,29 @@ export function registerDesktopTargetIpc(): void {
       return { ok: false, error: "Pick a window first." };
     }
     try {
-      const scope = await resolveWinScope({
-        bundleId: request.bundleId,
-        windowTitle: typeof request.windowTitle === "string" ? request.windowTitle : "",
-        win: {
-          hwnd: win.hwnd,
-          pid: win.pid,
-          processStartedAt: typeof win.processStartedAt === "string" ? win.processStartedAt : null,
-          windowClass: win.windowClass,
-        },
-      });
+      const windowTitle = typeof request.windowTitle === "string" ? request.windowTitle : "";
+      const processStartedAt =
+        typeof win.processStartedAt === "string" ? win.processStartedAt : null;
+      const scope = IS_MAC
+        ? await resolveMacScope({
+            bundleId: request.bundleId,
+            windowTitle,
+            win: { hwnd: win.hwnd, pid: win.pid, processStartedAt },
+          })
+        : await resolveWinScope({
+            bundleId: request.bundleId,
+            windowTitle,
+            win: { hwnd: win.hwnd, pid: win.pid, processStartedAt, windowClass: win.windowClass },
+          });
       return { ok: true, ...scope };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error.message : String(error) };
     }
   });
   ipcMain.handle("pimi:desktop-target:check-data-dir", async (_event, raw: unknown) => {
-    if (!IS_WIN || typeof raw !== "string") return null;
-    return checkWinDataDir(raw);
+    if (typeof raw !== "string") return null;
+    if (IS_MAC) return checkMacDataDir(raw);
+    return IS_WIN ? checkWinDataDir(raw) : null;
   });
   ipcMain.handle("pimi:desktop-target:open-settings", async (_event, pane: unknown) => {
     if (!IS_MAC || typeof pane !== "string" || !(pane in SETTINGS_PANES)) return;

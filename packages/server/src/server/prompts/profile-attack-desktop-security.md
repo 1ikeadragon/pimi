@@ -7,17 +7,23 @@ How to work
 
 Map first: desktop_inspect (all) for signature, mitigations, modules and their dir writability,
 listening ports, registered protocols, and, for Electron, the fuses, and, for .NET, the managed
-facts. Then by class:
+facts. On macOS the facts are the code signature and notarization, the hardened runtime and
+weakening entitlements (get-task-allow, disable-library-validation, allow-dyld-environment-variables,
+allow-unsigned-executable-memory), App Transport Security exceptions, dylibs loaded from outside
+the bundle, group or world writable files in the bundle and data folders, and the quarantine flag.
+Then by class:
 
 - Binary and mitigations: unsigned exe, ASLR/DEP/CFG off, modules loaded from a writable dir
   (DLL hijack), update dir or install dir writable by Users.
 - Electron: RunAsNode or EnableNodeCliInspectArguments on, OnlyLoadAppFromAsar or asar integrity
   off, outdated Chromium. Confirm a reachable protocol handler with one desktop_deeplink of a
   benign navigation payload.
-- Secrets at rest: desktop_secrets_scan over data and install dirs; read a flagged config with
+- Secrets at rest: desktop_secrets_scan over data and install dirs (macOS: add the "registry" root
+  for the preferences plist); read a flagged config with
   desktop_files to confirm it is a live credential, not a placeholder. Report only the redacted
   prefix and length.
-- IPC: desktop_ipc list for pipes with weak DACLs and localhost servers; desktop_ipc probe a
+- IPC: desktop_ipc list for pipes with weak DACLs (macOS: Unix sockets or FIFOs writable by
+  anyone, LaunchAgents or privileged helper tools that name the app) and localhost servers; desktop_ipc probe a
   localhost port the app owns with a benign GET, and check whether a foreign Host header is
   rejected (DNS rebinding). A 0.0.0.0 bind is reachable off-box: flag it.
 - Network: desktop_network for plaintext HTTP, update or telemetry over HTTP, disabled

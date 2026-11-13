@@ -105,7 +105,6 @@ mac:
   icon: assets/pimi-icon.icns
   extendInfo:
     NSMicrophoneUsageDescription: Pimi uses the microphone for voice commands, dictation, and chat Voice Mode.
-    NSAppleEventsUsageDescription: Pimi controls the one app window you choose for an Attack run, through System Events.
   # Ad hoc signatures have no team ID for hardened runtime library validation.
   hardenedRuntime: false
   notarize: false
@@ -119,6 +118,9 @@ mac:
       to: bin/pimi-ssh-askpass
     - from: native/mac/bin/betterleaks
       to: desktop-helper/betterleaks
+    # The Accessibility and capture helper that drives desktop targets (built by npm run build:mac-helper).
+    - from: native/mac/bin/pimi-desktop-helper
+      to: desktop-helper/pimi-desktop-helper
   target:
     - dmg
     - zip

@@ -4,14 +4,14 @@ Attack mode can drive one desktop window instead of (or beside) a URL. The owner
 
 ## Layers
 
-| Layer        | Where                                                 | Owns                                                                                                                   |
-| ------------ | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Agent tools  | `packages/server/src/server/desktop-tools/tools.ts`   | Tool schemas and descriptions, the input-consent check (`INPUT_VERBS`), result text                                    |
-| Guard        | `AttackService.desktopGuardForAgent`                  | Builds the guard from the run record. An agent never supplies one                                                      |
-| Broker       | `desktop-tools/broker.ts`                             | Routes a request to the connected desktop app and waits for the answer                                                 |
-| Wire schema  | `packages/protocol/src/desktop-target/rpc-schemas.ts` | Commands, results, error codes, guard                                                                                  |
-| Main process | `packages/desktop/src/features/desktop-target/`       | Applies the guard again, then runs the command: `mac/` through Accessibility, `win/` through `pimi-desktop-helper.exe` |
-| Helper       | `packages/desktop/native/win/`                        | UI Automation, window capture, input injection, the gates that keep input inside the window                            |
+| Layer        | Where                                                 | Owns                                                                                                         |
+| ------------ | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Agent tools  | `packages/server/src/server/desktop-tools/tools.ts`   | Tool schemas and descriptions, the input-consent check (`INPUT_VERBS`), result text                          |
+| Guard        | `AttackService.desktopGuardForAgent`                  | Builds the guard from the run record. An agent never supplies one                                            |
+| Broker       | `desktop-tools/broker.ts`                             | Routes a request to the connected desktop app and waits for the answer                                       |
+| Wire schema  | `packages/protocol/src/desktop-target/rpc-schemas.ts` | Commands, results, error codes, guard                                                                        |
+| Main process | `packages/desktop/src/features/desktop-target/`       | Applies the guard again, then runs the command through the platform's `pimi-desktop-helper` (`mac/`, `win/`) |
+| Helper       | `packages/desktop/native/win/`, `native/mac/`         | Accessibility or UI Automation, window capture, input injection, the gates that keep input inside the window |
 
 The daemon and the main process both check the guard. The daemon refuses before sending, the main process refuses again, and the Windows helper checks a third time. Keep all three when you add a verb.
 
@@ -25,21 +25,36 @@ The owner's consent switches are separate: `allowDesktopInput` (also implied by 
 
 ## Platform differences an agent must be told
 
-|                | macOS                                            | Windows                                                                                       |
-| -------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| Element id     | path such as `0/2/1` from the last snapshot      | ref such as `@d12` from a snapshot, `desktop_find` or a marked screenshot                     |
-| Coordinates    | pixels of the latest screenshot                  | pixels of the latest screenshot (the helper remembers each agent's frame)                     |
-| Tools          | snapshot, screenshot, click, type, key           | all of them                                                                                   |
-| Refused chords | `cmd+q`, `cmd+tab`, screenshots, space switching | the Windows key, `alt+tab`, `alt+f4`, `ctrl+alt+<key>`, `alt+space`, `printscreen`, lock keys |
-| Permissions    | Accessibility, Screen Recording, Automation      | none; the permissions call returns granted                                                    |
+|                | macOS                                                                          | Windows                                                                                       |
+| -------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| Element id     | ref such as `@d12` from a snapshot, `desktop_find` or a marked screenshot      | ref such as `@d12` from a snapshot, `desktop_find` or a marked screenshot                     |
+| Coordinates    | pixels of the latest screenshot (the helper remembers each agent's frame)      | pixels of the latest screenshot (the helper remembers each agent's frame)                     |
+| Tools          | all of them (the inspect sections differ, see below)                           | all of them                                                                                   |
+| Refused chords | `cmd+q`, `cmd+tab`, screenshots, space switching                               | the Windows key, `alt+tab`, `alt+f4`, `ctrl+alt+<key>`, `alt+space`, `printscreen`, lock keys |
+| Permissions    | Accessibility and Screen Recording, granted to the app that spawned the helper | none; the permissions call returns granted                                                    |
 
 The prompt block (`desktopBlock` in `packages/server/src/server/attack/prompts.ts`) says this per platform. Change both together.
 
-macOS answers `unsupported` for the Windows-only verbs and ignores optional arguments it cannot honour.
+macOS ignores optional arguments it cannot honour; the `dotnet` inspect section answers that it does not apply.
 
 ## Deny lists
 
 `win/guard-win.ts` holds the list of apps that are never targets (terminals, remote control, system tools, password managers, the shell, Pimi itself) and the Windows `refuseWinChord`. The helper has the same list and re-checks it. Edit both. Games that ship anti-cheat are listed in the picker as blocked and refused at resolve: synthesized input next to anti-cheat can get an account banned.
+
+## macOS helper
+
+- `native/mac/*.swift`, built with `swiftc` and Apple frameworks only (`npm run build:mac-helper`, arm64, macOS 13+). No SwiftPM, no packages. `npm run pimi:package:mac` and the release workflow build it first.
+- Same process model as the Windows helper: `helper-process.ts` spawns it lazily and speaks JSON lines. On a timeout the main process sends SIGTERM and then SIGKILL 700 ms later, so the helper can release held keys and buttons.
+- Screen Recording and Accessibility are granted to the app that spawned the helper (Pimi packaged; Electron or the terminal in dev), not to the helper. `pimi-desktop-helper --selftest` prints both states for the process it runs under, so run it from a terminal only to see the terminal's grants.
+- The window is pinned by its window-server id, owner pid and process start time (carried in the picker's `win`, with the id in `hwnd`). The helper falls back to the app's one window and answers `repinned`.
+- Capture is ScreenCaptureKit on macOS 14+ (the window plus the menus, popovers and sheets of the same app that sit on it), with `screencapture -l <id>` as the fallback on macOS 13 and when ScreenCaptureKit fails; the result's `method` says which. Both read the window even when another window covers it. `grid`, `marks` and `region` are drawn and cropped in the helper with CoreGraphics; `marks` runs an interactive-only snapshot, so it needs Accessibility.
+- `desktop_app`: `status` reads the pinned pid (alive and same start time), memory, CPU, whether Accessibility answers, and crash reports written to `~/Library/Logs/DiagnosticReports` since the start. `relaunch` asks the app to quit (`NSRunningApplication.terminate`), waits 3 s, force-quits only a disposable target, opens it again with the owner's launch arguments and pins its window. `launch` does nothing when a window is already open. More than one candidate window after a start fails with `refused`.
+- `desktop_deeplink` opens the URL in the target app only (`NSWorkspace.open(_:withApplicationAt:)`). The scheme must be in the bundle's `CFBundleURLTypes`; otherwise the helper refuses and names the system's handler. The main process also refuses web, file, mail and Apple-owned schemes.
+- Menu bar: `snapshot` ends with the app's top-level menu items (not the Apple menu) as refs. `click` on a menu ref is `AXPress` only (left, once, no modifiers) and never moves the cursor; points in the menu bar are refused by the hit test. Items named Quit, Hide, Hide Others, Close All, Log Out, Shut Down, Restart, Sleep or Lock Screen (English names), and items whose key equivalent is a chord `Safety.refusal` denies (cmd+q, cmd+h, cmd+w, cmd+m ...), are refused with their `refused` attribute shown in the tree.
+
+## Security tools
+
+`inspect`, `secrets_scan`, `files`, `network` and `ipc` need the owner's inspection switch (the launch form shows it for any picked window) and run in the main process on both platforms; the helper only answers `scope` (the install dir, the process tree, candidate data dirs). `security.ts` is shared: the scope roots, `files`, betterleaks, redaction and the endpoint list. `win/security-win.ts` and `mac/security-mac.ts` hold what differs: the paths no tool may read (Windows credential stores and browser profiles; on macOS Keychains, `~/.ssh`, `~/.gnupg`, `~/.pimi`, browser profiles, password managers, Messages and Mail, Pimi), the roots too broad to be one app's, and the app's settings store (`registry` root: the HKCU key or the preferences plist). On macOS `mac/inspect-mac.ts` answers `inspect` and `ipc` with `ps`, `lsof`, `codesign`, `spctl`, `plutil` and `xattr` (no `otool`: it is not on a stock Mac). Reading another app's `~/Library/Containers` can make macOS ask the owner to let Pimi access that data.
 
 ## Windows helper
 

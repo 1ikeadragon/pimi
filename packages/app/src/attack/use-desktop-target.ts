@@ -24,7 +24,7 @@ export interface DesktopPermissionState {
   windows: boolean;
   /** Asks macOS for access: shows its prompts, then reads the state again. */
   request: () => Promise<void>;
-  openSettings: (pane: "accessibility" | "screen" | "automation") => void;
+  openSettings: (pane: "accessibility" | "screen") => void;
 }
 
 /** The app's Accessibility and Screen Recording state, polled while the caller is mounted. */
@@ -47,7 +47,7 @@ export function useDesktopPermissions(): DesktopPermissionState {
     return () => clearInterval(timer);
   }, [read]);
   const request = useCallback(() => read(true), [read]);
-  const openSettings = useCallback((pane: "accessibility" | "screen" | "automation") => {
+  const openSettings = useCallback((pane: "accessibility" | "screen") => {
     void getDesktopHost()?.desktopTarget?.openSettings(pane);
   }, []);
   const windows = permissions?.supported === true && permissions.platform === "win32";

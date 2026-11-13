@@ -146,7 +146,6 @@ function DesktopStage({
   }, [request]);
   const onOpenAccessibility = useCallback(() => openSettings("accessibility"), [openSettings]);
   const onOpenScreen = useCallback(() => openSettings("screen"), [openSettings]);
-  const onOpenAutomation = useCallback(() => openSettings("automation"), [openSettings]);
   const needsGrant = !windows && (access.accessibility === "missing" || !screenOk);
 
   return (
@@ -207,9 +206,6 @@ function DesktopStage({
             </Button>
             <Button variant="outline" size="sm" onPress={onOpenScreen}>
               {t("attack.subviews.desktop.openScreen")}
-            </Button>
-            <Button variant="outline" size="sm" onPress={onOpenAutomation}>
-              {t("attack.subviews.desktop.openAutomation")}
             </Button>
           </View>
         </View>

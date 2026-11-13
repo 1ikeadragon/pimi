@@ -2589,7 +2589,6 @@ export const ptBR: TranslationResources = {
       desktopLaunchArgsHint:
         "Usados quando um agente reinicia o app, por exemplo --force-renderer-accessibility para apps Electron.",
       desktopDataDirAdd: en.attack.form.desktopDataDirAdd,
-      desktopDataDirPlaceholder: en.attack.form.desktopDataDirPlaceholder,
       desktopDataDirRefused: en.attack.form.desktopDataDirRefused,
       desktopDataDirRemove: en.attack.form.desktopDataDirRemove,
       desktopDataDirs: en.attack.form.desktopDataDirs,
@@ -2737,7 +2736,6 @@ export const ptBR: TranslationResources = {
           "O Pimi precisa de acesso a Acessibilidade e Gravação de Tela para ler e controlar esta janela. Sem os dois, nenhuma ferramenta de desktop é executada.",
         openAccessibility: "Abrir ajustes de Acessibilidade",
         openScreen: "Abrir ajustes de Gravação de Tela",
-        openAutomation: "Abrir ajustes de Automação",
         noActions: "Nenhuma ação ainda.",
         noPreview: "Aguardando a janela...",
       },

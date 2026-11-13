@@ -291,9 +291,18 @@ export class AttackService {
     const currentModel = agent?.runtimeInfo?.model ?? agent?.config?.model;
     if (!currentModel || currentModel === GUARDRAIL_FALLBACK_MODEL) return;
     this.guardrailFallbacks.set(agentId, currentModel);
-    this.logger.info({ agentId, runId, from: currentModel, to: GUARDRAIL_FALLBACK_MODEL }, "Guardrail refusal detected, falling back");
+    this.logger.info(
+      { agentId, runId, from: currentModel, to: GUARDRAIL_FALLBACK_MODEL },
+      "Guardrail refusal detected, falling back",
+    );
     void this.agentManager.setAgentModel(agentId, GUARDRAIL_FALLBACK_MODEL).then(
-      () => void this.audit(runId, "guardrail_fallback", agentId, `${currentModel} -> ${GUARDRAIL_FALLBACK_MODEL}`),
+      () =>
+        void this.audit(
+          runId,
+          "guardrail_fallback",
+          agentId,
+          `${currentModel} -> ${GUARDRAIL_FALLBACK_MODEL}`,
+        ),
       (error) => this.logger.warn({ err: error, agentId }, "Failed to set fallback model"),
     );
   }
@@ -303,10 +312,17 @@ export class AttackService {
     if (!originalModel) return;
     this.guardrailFallbacks.delete(agentId);
     const runId = this.runIdByAgentId.get(agentId);
-    this.logger.info({ agentId, runId, to: originalModel }, "Restoring model after guardrail fallback");
+    this.logger.info(
+      { agentId, runId, to: originalModel },
+      "Restoring model after guardrail fallback",
+    );
     void this.agentManager.setAgentModel(agentId, originalModel).then(
-      () => { if (runId) void this.audit(runId, "guardrail_restored", agentId, `-> ${originalModel}`); },
-      (error) => this.logger.warn({ err: error, agentId }, "Failed to restore model after fallback"),
+      () => {
+        if (runId) void this.audit(runId, "guardrail_restored", agentId, `-> ${originalModel}`);
+        return undefined;
+      },
+      (error) =>
+        this.logger.warn({ err: error, agentId }, "Failed to restore model after fallback"),
     );
   }
 
@@ -928,7 +944,7 @@ export class AttackService {
         launchArgs: run.desktopTarget.launchArgs,
         disposable: run.disposableTarget,
         allowInspect: run.desktopTarget.allowDesktopInspect,
-        dataDirs: run.desktopTarget.win?.dataDirs ?? [],
+        dataDirs: run.desktopTarget.dataDirs,
       },
     };
   }

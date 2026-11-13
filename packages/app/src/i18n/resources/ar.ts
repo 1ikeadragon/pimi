@@ -2549,7 +2549,6 @@ export const ar: TranslationResources = {
       desktopLaunchArgsHint:
         "تُستخدم عندما يعيد وكيل تشغيل التطبيق، مثل --force-renderer-accessibility لتطبيقات Electron.",
       desktopDataDirAdd: en.attack.form.desktopDataDirAdd,
-      desktopDataDirPlaceholder: en.attack.form.desktopDataDirPlaceholder,
       desktopDataDirRefused: en.attack.form.desktopDataDirRefused,
       desktopDataDirRemove: en.attack.form.desktopDataDirRemove,
       desktopDataDirs: en.attack.form.desktopDataDirs,
@@ -2696,7 +2695,6 @@ export const ar: TranslationResources = {
           "يحتاج Pimi إلى صلاحيتي تسهيلات الاستخدام وتسجيل الشاشة لقراءة هذه النافذة والتحكم بها. حتى يُمنح الاثنان لن تعمل أي أداة لسطح المكتب.",
         openAccessibility: "فتح إعدادات تسهيلات الاستخدام",
         openScreen: "فتح إعدادات تسجيل الشاشة",
-        openAutomation: "فتح إعدادات الأتمتة",
         noActions: "لا توجد إجراءات بعد.",
         noPreview: "بانتظار النافذة...",
       },
