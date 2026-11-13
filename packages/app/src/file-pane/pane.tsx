@@ -1,4 +1,5 @@
 import { usePaneContext } from "@/panels/pane-context";
+import { overridable } from "@/extension-points";
 import { useEffect, useMemo, useState } from "react";
 import type { PluginFile, PluginFilePanelParams, PluginTab } from "@pimi/plugin/client";
 import { Text, View } from "react-native";
@@ -22,7 +23,7 @@ import type { WorkspaceFileLocation } from "@/workspace/file-open";
  * its own loading; the tab only knows the file exists, its kind, and whether the panel has
  * unsaved changes.
  */
-export function FilePane({
+function FilePaneBase({
   serverId,
   workspaceRoot,
   location,
@@ -127,6 +128,15 @@ export function FilePane({
     </View>
   );
 }
+
+export const FilePane = overridable("files.viewer", FilePaneBase, {
+  toPlugin: ({ serverId, workspaceRoot, location }) => ({
+    serverId,
+    workspaceRoot,
+    path: location.path,
+  }),
+  merge: (core) => core,
+});
 
 /** One panel mount. Its tab reports unsaved changes until the panel unmounts. */
 function MountedFilePanel({

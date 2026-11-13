@@ -1,4 +1,5 @@
 import { UserMessageText } from "@/components/user-message-text";
+import { overridable } from "@/extension-points";
 import { placedChipRefs } from "@/components/user-message-text/runs";
 import type { AnnotationAttachmentMetadata } from "@pimi/protocol/messages";
 import { useDisclosureHold } from "@/agent-stream/disclosure";
@@ -434,7 +435,7 @@ function SentAttachmentRow({
   );
 }
 
-export const UserMessage = memo(function UserMessage({
+const UserMessageBase = memo(function UserMessage({
   sender,
   serverId,
   agentId,
@@ -629,6 +630,26 @@ export const UserMessage = memo(function UserMessage({
       </View>
     </View>
   );
+});
+
+export const UserMessage = overridable("chat.userMessage", UserMessageBase, {
+  toPlugin: ({ message, attachments, timestamp, isPending, agentId, serverId }) => ({
+    message,
+    attachments: (attachments ?? []).map((attachment) => ({
+      type: attachment.type,
+      name: "name" in attachment && typeof attachment.name === "string" ? attachment.name : null,
+    })),
+    timestamp,
+    pending: isPending ?? false,
+    agentId: agentId ?? null,
+    serverId: serverId ?? null,
+  }),
+  merge: (core, patch) => ({
+    ...core,
+    message: patch.message ?? core.message,
+    timestamp: patch.timestamp ?? core.timestamp,
+    isPending: patch.pending ?? core.isPending,
+  }),
 });
 
 interface AssistantTurnFooterProps {
@@ -1225,7 +1246,7 @@ function NativeShimmerPeakSvg({ gradientId }: { gradientId: string }) {
   );
 }
 
-export const AssistantMessage = memo(function AssistantMessage({
+const AssistantMessageBase = memo(function AssistantMessage({
   renderFullContent = false,
   occurrenceKey,
   message,
@@ -1300,6 +1321,21 @@ export const AssistantMessage = memo(function AssistantMessage({
       ) : null}
     </View>
   );
+});
+
+export const AssistantMessage = overridable("chat.assistantMessage", AssistantMessageBase, {
+  toPlugin: ({ message, phase, timestamp, serverId }) => ({
+    markdown: message,
+    phase,
+    timestamp,
+    serverId: serverId ?? null,
+  }),
+  merge: (core, patch) => ({
+    ...core,
+    message: patch.markdown ?? core.message,
+    phase: patch.phase ?? core.phase,
+    timestamp: patch.timestamp ?? core.timestamp,
+  }),
 });
 
 interface SpeakMessageProps {
@@ -1408,7 +1444,7 @@ const notificationStylesheet = StyleSheet.create((theme) => ({
   },
 }));
 
-export const Notification = memo(function Notification({
+const NotificationBase = memo(function Notification({
   level,
   message,
   disableOuterSpacing,
@@ -1460,6 +1496,15 @@ export const Notification = memo(function Notification({
       </View>
     </View>
   );
+});
+
+export const Notification = overridable("chat.notification", NotificationBase, {
+  toPlugin: ({ level, message }) => ({ level, message }),
+  merge: (core, patch) => ({
+    ...core,
+    level: patch.level ?? core.level,
+    message: patch.message ?? core.message,
+  }),
 });
 
 interface CompactionMarkerProps {
@@ -1548,7 +1593,7 @@ const todoListCardStylesheet = StyleSheet.create((theme) => ({
   },
 }));
 
-export const TodoListCard = memo(function TodoListCard({
+const TodoListCardBase = memo(function TodoListCard({
   items,
   activity,
   disableOuterSpacing,
@@ -1597,6 +1642,13 @@ export const TodoListCard = memo(function TodoListCard({
       disableOuterSpacing={disableOuterSpacing}
     />
   );
+});
+
+export const TodoListCard = overridable("chat.todoList", TodoListCardBase, {
+  toPlugin: ({ items }) => ({
+    items: items.map((item) => ({ text: item.text, completed: item.completed })),
+  }),
+  merge: (core) => core,
 });
 
 interface ExpandableBadgeProps {
@@ -2348,7 +2400,7 @@ interface ToolCallProps {
   prefetchBody?: boolean;
 }
 
-export const ToolCall = memo(function ToolCall({
+const ToolCallBase = memo(function ToolCall({
   agentMessage,
   serverId,
   toolName,
@@ -2556,6 +2608,26 @@ export const ToolCall = memo(function ToolCall({
     />
   );
 }, areToolCallPropsEqual);
+
+export const ToolCall = overridable("chat.toolCall", ToolCallBase, {
+  toPlugin: ({ toolName, status, args, result, error, agentId, serverId }) => ({
+    toolName,
+    status,
+    args,
+    result,
+    error,
+    agentId: agentId ?? null,
+    serverId: serverId ?? null,
+  }),
+  merge: (core, patch) => ({
+    ...core,
+    toolName: patch.toolName ?? core.toolName,
+    status: patch.status ?? core.status,
+    args: "args" in patch ? patch.args : core.args,
+    result: "result" in patch ? patch.result : core.result,
+    error: "error" in patch ? patch.error : core.error,
+  }),
+});
 
 function areToolCallPropsEqual(previous: ToolCallProps, next: ToolCallProps) {
   if (previous.toolName !== next.toolName) return false;

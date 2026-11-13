@@ -10,7 +10,7 @@ import type { ComponentType, ReactNode } from "react";
  */
 export interface PluginComponentPoints {
   /** The whole app frame: sidebar, routes, overlays. Ignores overrides in safe mode. */
-  "shell.root": { children: ReactNode };
+  "shell.root": {};
 
   "screen.sessions": {};
   "screen.settings": { section: string | null };
@@ -71,11 +71,12 @@ export interface PluginComponentPoints {
   "chat.timeline": { agentId: string; serverId: string };
   "composer.root": { serverId: string; agentId: string | null; workspaceId: string | null };
 
-  "diff.surface": { serverId: string; workspaceId: string };
-  "diff.document": { path: string };
-  "files.tree": { serverId: string; workspaceId: string };
+  "diff.surface": { serverId: string; workspaceId: string | null };
+  "diff.document": { kind: "working" | "commit"; fileCount: number; focusPath: string | null };
+  "files.tree": { serverId: string; workspaceId: string | null };
   "files.treeRow": { path: string; kind: "file" | "directory"; depth: number; expanded: boolean };
-  "files.viewer": { serverId: string; workspaceId: string; path: string };
+  /** One open file tab. `workspaceRoot` is the workspace directory. */
+  "files.viewer": { serverId: string; workspaceRoot: string; path: string };
   "search.view": { serverId: string; workspaceId: string };
   "commandCenter.root": {};
 }

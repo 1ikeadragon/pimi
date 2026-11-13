@@ -8,6 +8,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
+import { overridable, Slot } from "@/extension-points";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -234,7 +235,7 @@ function EntryNameInputRow({
   );
 }
 
-function TreeRowItem({
+function TreeRowItemBase({
   serverId,
   workspaceId,
   entry,
@@ -283,6 +284,10 @@ function TreeRowItem({
     onSelectEntry(entry);
   }, [entry, onSelectEntry]);
   const accessibilityState = useMemo(() => ({ selected: isSelected }), [isSelected]);
+  const slotContext = useMemo(
+    () => ({ path: entry.path, kind: entry.kind, hovered: isHovered }),
+    [entry.path, entry.kind, isHovered],
+  );
 
   const pressableStyle = useCallback(
     ({ hovered, pressed }: PressableStateCallbackType & { hovered?: boolean }) => [
@@ -378,6 +383,7 @@ function TreeRowItem({
             {entry.name}
           </Text>
         </View>
+        <Slot id="fileTree.rowTrailing" context={slotContext} />
       </ContextMenuTrigger>
       <FileActionsContextMenuContent
         fileKind={entry.kind}
@@ -402,6 +408,16 @@ function TreeRowItem({
   );
 }
 
+const TreeRowItem = overridable("files.treeRow", TreeRowItemBase, {
+  toPlugin: ({ entry, depth, isExpanded }) => ({
+    path: entry.path,
+    kind: entry.kind,
+    depth,
+    expanded: isExpanded,
+  }),
+  merge: (core) => core,
+});
+
 interface FileExplorerPaneProps {
   serverId: string;
   workspaceId?: string | null;
@@ -411,7 +427,7 @@ interface FileExplorerPaneProps {
   onAddToChat?: (path: string) => void;
 }
 
-export function FileExplorerPane({
+function FileExplorerPaneBase({
   serverId,
   workspaceId,
   workspaceRoot,
@@ -1084,6 +1100,11 @@ export function FileExplorerPane({
     </View>
   );
 }
+
+export const FileExplorerPane = overridable("files.tree", FileExplorerPaneBase, {
+  toPlugin: ({ serverId, workspaceId }) => ({ serverId, workspaceId: workspaceId ?? null }),
+  merge: (core) => core,
+});
 
 interface WebContextMenuEvent {
   nativeEvent: { pageX: number; pageY: number };
