@@ -21,6 +21,7 @@ import { getPanelManifest } from "@/panels/panel-manifest";
 import { useSheetPanePage } from "@/screens/workspace/sheet-pane";
 import type { SheetTab } from "@/stores/workspace-layout-store";
 import type { SubagentRow } from "./select";
+import { SubagentStatusDot } from "./status-dot";
 import type { ArchiveFinishedStatus } from "./use-archive-finished";
 import {
   buildSubagentPillPresentation,
@@ -87,16 +88,10 @@ export function SubagentsTrack({
 
   const isArchivingFinished = archiveFinishedStatus.kind === "archiving";
   const isArchiveFinishedFailed = archiveFinishedStatus.kind === "failed";
-  if (rows.length === 0 && !onCreateSubagent && !isArchivingFinished && !isArchiveFinishedFailed) {
-    return null;
-  }
+  // The pill appears once the chat has a subagent; until then there is nothing to open.
+  if (rows.length === 0) return null;
 
-  const pill = rows.length
-    ? buildSubagentPillPresentation(t, rows)
-    : {
-        segments: [{ bucket: null, text: t("subagents.title") }],
-        accessibilityLabel: t("subagents.title"),
-      };
+  const pill = buildSubagentPillPresentation(t, rows);
   const finishedCount = countFinishedSubagents(rows);
   const showArchiveFinished = finishedCount > 0 || isArchivingFinished || isArchiveFinishedFailed;
   const sheets = rows.map(sheetTabFor);
@@ -240,6 +235,8 @@ function SubagentsTrackRow({
   const rowServerId = row.kind === "pimi" ? row.address.serverId : serverId;
   const hostLabel = useHosts().find((host) => host.serverId === rowServerId)?.label ?? rowServerId;
   const presentation = useRowPresentation(row, rowServerId);
+  // State is the dot beside the title, as in the sidebar's subagent rows, not a badge on the icon.
+  const iconPresentation = useMemo(() => ({ ...presentation, statusBucket: null }), [presentation]);
   const displayLabel =
     presentation.titleState === "loading" ? t("common.states.loading") : presentation.label;
   const handlePress = useCallback(() => {
@@ -260,11 +257,22 @@ function SubagentsTrackRow({
   const renderRow = useCallback(
     ({ active }: { active: boolean }) => (
       <>
-        <WorkspaceTabIcon presentation={presentation} backdrop={active ? "surface2" : "surface1"} />
+        <WorkspaceTabIcon
+          presentation={iconPresentation}
+          backdrop={active ? "surface2" : "surface1"}
+        />
         <View style={styles.rowText}>
-          <Text style={styles.rowTitle} numberOfLines={1}>
-            {displayLabel}
-          </Text>
+          <View style={styles.rowTitleLine}>
+            <Text style={styles.rowTitle} numberOfLines={1}>
+              {displayLabel}
+            </Text>
+            {row.statusBucket !== "done" ? (
+              <SubagentStatusDot
+                bucket={row.statusBucket}
+                testID={`subagents-track-row-status-${row.statusBucket}`}
+              />
+            ) : null}
+          </View>
           {row.kind === "pimi" ? (
             <>
               <SubagentFacts rowId={row.id} text={rowServerId !== serverId ? hostLabel : ""} />
@@ -293,8 +301,10 @@ function SubagentsTrackRow({
       handleDetachPress,
       isCompact,
       onDetachSubagent,
+      iconPresentation,
       presentation,
       row.kind,
+      row.statusBucket,
       row.id,
       serverId,
       rowServerId,
@@ -428,7 +438,14 @@ const styles = StyleSheet.create((theme) => ({
     flexBasis: "auto",
     minWidth: 0,
   },
+  rowTitleLine: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+    minWidth: 0,
+  },
   rowTitle: {
+    flexShrink: 1,
     fontSize: theme.fontSize.base,
     color: theme.colors.foreground,
   },
