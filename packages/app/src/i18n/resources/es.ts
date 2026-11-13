@@ -2143,7 +2143,6 @@ export const es: TranslationResources = {
           description:
             "Agentes adversariales de QA y seguridad que prueban tus propias apps. Actívalo ahora para conceder de una vez los permisos de macOS que necesitan.",
           enable: "Activar el modo Ataque",
-          notNow: "Ahora no",
         },
         phone: {
           label: "Móvil",

@@ -2129,7 +2129,6 @@ export const ptBR: TranslationResources = {
           description:
             "Agentes adversários de QA e segurança que testam seus próprios apps. Ative agora para conceder de uma vez as permissões do macOS de que eles precisam.",
           enable: "Ativar o modo Ataque",
-          notNow: "Agora não",
         },
         phone: {
           label: "Celular",

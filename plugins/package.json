@@ -1,6 +1,6 @@
 {
   "name": "@pimi/builtin-plugins",
-  "version": "0.17.37",
+  "version": "0.17.38",
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
@@ -8,7 +8,7 @@
     "typecheck": "tsgo -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@pimi/plugin": "0.17.37",
+    "@pimi/plugin": "0.17.38",
     "zod": "4.6.7"
   },
   "devDependencies": {

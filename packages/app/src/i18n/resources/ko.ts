@@ -2107,7 +2107,6 @@ export const ko: TranslationResources = {
           description:
             "내 앱을 테스트하는 적대적 QA·보안 에이전트입니다. 지금 사용하면 필요한 macOS 권한을 한 번에 허용할 수 있습니다.",
           enable: "어택 모드 사용",
-          notNow: "나중에",
         },
         phone: {
           label: "모바일",

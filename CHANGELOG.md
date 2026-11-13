@@ -2,6 +2,10 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.38 - 2026-11-13
+
+- Attack setup step: the Enable / Not now buttons are replaced by one "Enable Attack mode" switch. Turning it on plays a short sword-clash animation (skipped with reduce motion) and asks macOS for Accessibility and Screen Recording together.
+
 ## 0.17.37 - 2026-11-13
 
 - Remote SSH: sign in with a password, key passphrase or one-time code inside the app. Answers stay in memory for the app session only and are cleared on quit or disconnect.

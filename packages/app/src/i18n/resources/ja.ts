@@ -2117,7 +2117,6 @@ export const ja: TranslationResources = {
           description:
             "あなた自身のアプリをテストする、敵対的な QA・セキュリティエージェントです。今有効にすると、必要な macOS の許可をまとめて設定できます。",
           enable: "アタックモードを有効にする",
-          notNow: "今はしない",
         },
         phone: {
           label: "モバイル",

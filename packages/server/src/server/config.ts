@@ -481,7 +481,7 @@ function resolvePairingAppBaseUrl(
 }
 
 function resolveBrowserToolsEnabled(persisted: ReturnType<typeof loadPersistedConfig>): boolean {
-  return persisted.daemon?.browserTools?.enabled ?? false;
+  return persisted.daemon?.browserTools?.enabled ?? true;
 }
 
 /**
