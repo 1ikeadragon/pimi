@@ -4,6 +4,10 @@
 
 ## 0.17.38 - 2026-11-13
 
+- Cross-host subagents: from one chat an agent can start subagents on this machine and on any host saved in the app (SSH, paired or relay), e.g. "start one here and one on my-vps". Remote children show as cards with a host badge and in the Subagents track, and report back when they finish. SSH hosts go through the app's own SSH link, so password and passphrase sign-in work; the link lives while the desktop app runs.
+- Saved hosts are available to local agents by default; each host has an "Agent access" switch on its page.
+- Agent tools: `list_providers`, `list_models`, `cancel_agent` and `archive_agent` take a host; remote `create_agent` errors name the missing or unsupported fields; `list_hosts`, `list_workspaces` and `create_workspace` are always loaded.
+- Browser tools are on by default. If you turned them off, they stay off.
 - Attack setup step: the Enable / Not now buttons are replaced by one "Enable Attack mode" switch. Turning it on plays a short sword-clash animation (skipped with reduce motion) and asks macOS for Accessibility and Screen Recording together.
 
 ## 0.17.37 - 2026-11-13
