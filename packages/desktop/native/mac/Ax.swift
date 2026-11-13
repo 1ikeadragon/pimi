@@ -180,7 +180,7 @@ enum Ax {
     private static let containerRoles: Set<String> = [
         "group", "scrollarea", "splitgroup", "unknown", "layoutarea", "layoutitem", "window", "matte",
     ]
-    private static let liveValueRoles: Set<String> = ["textfield", "textarea", "combobox", "searchfield"]
+    private static let liveValueRoles: Set<String> = ["textfield", "textarea", "combobox", "searchfield", "popupbutton", "menubutton"]
     private static let sysSubroles: Set<String> = [
         "AXCloseButton", "AXMinimizeButton", "AXZoomButton", "AXFullScreenButton", "AXToolbarButton",
     ]
@@ -329,7 +329,7 @@ enum Ax {
         var opaqueOnly = true
         func rec(_ n: Node, _ inTitle: Bool) {
             for k in n.kids {
-                let t = inTitle || k.role == "toolbar" && false
+                let t = inTitle
                 if !t && !sysSubroles.contains(k.subrole) {
                     content += 1
                     if k.interactive || !["group", "scrollarea", "splitgroup", "unknown", "text", "webarea"].contains(k.role) {
@@ -447,22 +447,21 @@ enum Ax {
         let maxNodes = max(10, min(2000, a.int("maxNodes", 800)))
         let el = try window(w)
         let frame = try Wn.frame(w)
-        var walked = walk(window: el, frame: frame, maxNodes: maxNodes, deadlineMs: 2500)
-        var q = quality(walked.root)
+        let rootRef = a.str("root")
+        // With a root ref the walk starts at that element, so its subtree gets the whole node budget.
+        let from = try rootRef.map { try getRef(ag, $0).el } ?? el
+        var walked = walk(window: from, frame: frame, maxNodes: maxNodes, deadlineMs: 2500)
+        var q = rootRef == nil ? quality(walked.root) : "full"
         if q != "full", w.app.framework == "electron" || w.app.framework == "chromium" {
             sleepMs(800)
-            walked = walk(window: el, frame: frame, maxNodes: maxNodes, deadlineMs: 2500)
+            walked = walk(window: from, frame: frame, maxNodes: maxNodes, deadlineMs: 2500)
             q = quality(walked.root)
         }
         let c = ctx(ag, frame)
         c.interactiveOnly = inter
         c.register = register
-        var start = walked.root
-        let rootRef = a.str("root")
-        if let rootRef {
-            start = try getRef(ag, rootRef)
-            c.next = ag.next
-        }
+        let start = walked.root
+        if rootRef != nil { c.next = ag.next }
         let backing = Wn.backingScale(of: frame)
         let m = mapping(ag, frame)
         c.sb += "window \"\(esc(w.info.title))\" [framework=\(w.app.framework) dpi=\(Int((72 * backing).rounded())) scale=\(fmt(m.scale)) size=\(Int(frame.width))x\(Int(frame.height)) tree=\(q)]\n"
@@ -509,6 +508,7 @@ enum Ax {
     private static let volatileNames: Set<String> = [
         "text", "textarea", "textfield", "searchfield", "window", "group", "scrollarea", "row", "cell", "outline",
         "table", "list", "image", "webarea", "heading", "splitgroup", "column", "sheet", "combobox", "slider",
+        "popupbutton", "menubutton",
     ]
 
     static func alive(_ n: Node) -> Bool {

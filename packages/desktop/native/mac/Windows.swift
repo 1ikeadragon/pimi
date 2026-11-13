@@ -292,6 +292,53 @@ enum Wn {
     static func window(_ w: Win, _ a: JSON, _ t: Target, _ ag: Agent) throws -> JSON {
         let act = a.str("action") ?? "state"
         if act == "state" { return try state(w) }
-        throw HelperError("unsupported", "That window action is not available on macOS yet.")
+        if !t.allowInput { throw HelperError("refused", "Input is not enabled for this run.") }
+        let el = try Ax.window(w)
+        let frame = try Wn.frame(w)
+        func set(_ attr: String, _ value: Bool) {
+            AXUIElementSetAttributeValue(el, attr as CFString, value ? kCFBooleanTrue : kCFBooleanFalse)
+        }
+        let fullscreen = Ax.bool(el, "AXFullScreen") ?? false
+        switch act {
+        case "focus":
+            try Input.checkSession()
+            try Input.checkUserActive()
+            try Input.ensureForeground(w)
+        case "restore":
+            if Ax.bool(el, "AXMinimized") == true { set("AXMinimized", false) }
+            if fullscreen { set("AXFullScreen", false) }
+            sleepMs(500)
+        case "maximize", "fit", "resize":
+            if fullscreen { throw HelperError("refused", "The window is full screen. Run window restore first.") }
+            if Ax.bool(el, "AXMinimized") == true {
+                set("AXMinimized", false)
+                sleepMs(450)
+            }
+            let visible = visibleFrame(containing: frame)
+            var size = frame.size
+            var origin = frame.origin
+            if act == "maximize" {
+                size = visible.size
+                origin = visible.origin
+            } else {
+                if act == "resize" {
+                    size = CGSize(width: max(320, min(3840, a.int("width", Int(size.width)))), height: max(240, min(2160, a.int("height", Int(size.height)))))
+                }
+                size = CGSize(width: min(size.width, visible.width), height: min(size.height, visible.height))
+                if origin.x + size.width > visible.maxX { origin.x = visible.maxX - size.width }
+                if origin.y + size.height > visible.maxY { origin.y = visible.maxY - size.height }
+                origin.x = max(origin.x, visible.minX)
+                origin.y = max(origin.y, visible.minY)
+            }
+            // Position, size, position again: a resize can move the window, and a move can clamp the size.
+            Ax.setPoint(el, "AXPosition", origin)
+            Ax.setSize(el, "AXSize", size)
+            Ax.setPoint(el, "AXPosition", origin)
+            sleepMs(250)
+        default:
+            throw HelperError("failed", "Unknown window action.")
+        }
+        sleepMs(150)
+        return try state(w)
     }
 }

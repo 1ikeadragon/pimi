@@ -350,10 +350,12 @@ enum Input {
         return map
     }
 
-    static func keyCode(for key: String) throws -> CGKeyCode {
-        if let c = named[key] { return c }
+    /// The key code for a chord key, and whether typing it takes shift (a "+" or a "?").
+    static func resolve(_ key: String) throws -> (code: CGKeyCode, shift: Bool) {
+        if key == "plus" { return (24, true) }
+        if let c = named[key] { return (c, false) }
         let chars = Array(key)
-        if chars.count == 1, let hit = layoutMap()[chars[0]] { return hit.code }
+        if chars.count == 1, let hit = layoutMap()[chars[0]] { return hit }
         throw HelperError("failed", "Unknown key name '\(key)'.")
     }
 
@@ -421,11 +423,10 @@ enum Input {
         return sent
     }
 
-    /// One chord: modifiers down, each key down then up, modifiers up. holdMs and repeat are in the
-    /// second part of this file; action down/up leave keys held for the watchdog and key up.
-    static func press(_ w: Win, _ chord: Safety.Chord, holdMs: Int, repeatCount: Int, action: String) throws {
-        register(w)
-        let flags = chord.modifiers.reduce(into: CGEventFlags()) { acc, m in
+    // ---- chords ----
+
+    private static func chordFlags(_ chord: Safety.Chord) -> CGEventFlags {
+        chord.modifiers.reduce(into: CGEventFlags()) { acc, m in
             switch m {
             case .command: acc.insert(.maskCommand)
             case .control: acc.insert(.maskControl)
@@ -433,43 +434,228 @@ enum Input {
             case .shift: acc.insert(.maskShift)
             }
         }
-        let codes = try chord.keys.map(keyCode(for:))
+    }
+
+    /// Modifiers first, in the order given, then the keys. Everything is recorded as held until keysUp.
+    static func keysDown(_ w: Win, _ chord: Safety.Chord, autorepeat: Bool = false) throws {
+        let keys = try chord.keys.map(resolve)
+        lock.lock()
+        defer { lock.unlock() }
+        for m in chord.modifiers {
+            let code = modCodes[m.rawValue]!
+            if heldKeys.contains(where: { $0.modifier && $0.code == code }) { continue }
+            heldFlags.formUnion(flag(forModifierCode: code))
+            postFlags(pid: w.pid, code: code, flags: heldFlags)
+            heldKeys.append((w.pid, code, true))
+        }
+        for key in keys {
+            let flags = key.shift ? heldFlags.union(.maskShift) : heldFlags
+            postKey(pid: w.pid, code: key.code, down: true, flags: flags, autorepeat: autorepeat)
+            if !autorepeat { heldKeys.append((w.pid, key.code, false)) }
+        }
+        heldSince = nowMs()
+    }
+
+    static func keysUp(_ w: Win, _ chord: Safety.Chord) throws {
+        let keys = try chord.keys.map(resolve)
+        lock.lock()
+        defer { lock.unlock() }
+        for key in keys.reversed() {
+            let flags = key.shift ? heldFlags.union(.maskShift) : heldFlags
+            postKey(pid: w.pid, code: key.code, down: false, flags: flags)
+            heldKeys.removeAll { !$0.modifier && $0.code == key.code }
+        }
+        for m in chord.modifiers.reversed() {
+            let code = modCodes[m.rawValue]!
+            heldFlags.subtract(flag(forModifierCode: code))
+            postFlags(pid: w.pid, code: code, flags: heldFlags)
+            heldKeys.removeAll { $0.modifier && $0.code == code }
+        }
+    }
+
+    /// One chord, `repeatCount` times. holdMs keeps the keys down: after 400 ms the target gets
+    /// auto-repeat key-downs about every 33 ms, as a held physical key would produce. action down
+    /// and up hold and release keys across calls; the watchdog lets go after 5 seconds.
+    static func press(_ w: Win, _ chord: Safety.Chord, holdMs: Int, repeatCount: Int, action: String) throws {
+        register(w)
+        if action == "down" {
+            try keysDown(w, chord)
+            return
+        }
+        if action == "up" {
+            try keysUp(w, chord)
+            return
+        }
         for rep in 0..<repeatCount {
             if !isForeground(w) { throw HelperError("failed", "The target lost the foreground.") }
-            var acc: CGEventFlags = []
-            for m in chord.modifiers {
-                let code = modCodes[m.rawValue]!
-                acc.formUnion(flag(forModifierCode: code))
-                postFlags(pid: w.pid, code: code, flags: acc)
-                lock.lock()
-                heldKeys.append((w.pid, code, true))
-                heldFlags = acc
-                lock.unlock()
+            try keysDown(w, chord)
+            do {
+                let start = nowMs()
+                var lastRepeat = start + 400
+                while nowMs() - start < max(holdMs, 12) {
+                    sleepMs(min(33, max(1, max(holdMs, 12) - (nowMs() - start))))
+                    if holdMs > 0, !isForeground(w) {
+                        throw HelperError("failed", "The target lost the foreground during the key hold.")
+                    }
+                    if holdMs > 400, nowMs() >= lastRepeat {
+                        try keysDown(w, Safety.Chord(modifiers: [], keys: chord.keys), autorepeat: true)
+                        lastRepeat = nowMs() + 33
+                    }
+                }
+            } catch {
+                try? keysUp(w, chord)
+                throw error
             }
-            for code in codes {
-                postKey(pid: w.pid, code: code, down: true, flags: flags)
-                lock.lock()
-                heldKeys.append((w.pid, code, false))
-                heldSince = nowMs()
-                lock.unlock()
-            }
-            sleepMs(12)
-            for code in codes.reversed() {
-                postKey(pid: w.pid, code: code, down: false, flags: flags)
-                lock.lock()
-                heldKeys.removeAll { !$0.modifier && $0.code == code }
-                lock.unlock()
-            }
-            for m in chord.modifiers.reversed() {
-                let code = modCodes[m.rawValue]!
-                acc.subtract(flag(forModifierCode: code))
-                postFlags(pid: w.pid, code: code, flags: acc)
-                lock.lock()
-                heldKeys.removeAll { $0.modifier && $0.code == code }
-                heldFlags = acc
-                lock.unlock()
-            }
+            try keysUp(w, chord)
             if rep < repeatCount - 1 { sleepMs(15) }
+        }
+    }
+
+    // ---- mouse verbs ----
+
+    static func cursor() -> CGPoint { CGEvent(source: nil)?.location ?? .zero }
+
+    private static func smooth(_ a: CGPoint, _ b: CGPoint, steps: Int) -> [CGPoint] {
+        (1...steps).map { i in
+            var t = Double(i) / Double(steps)
+            t = t * t * (3 - 2 * t)
+            return CGPoint(x: a.x + (b.x - a.x) * CGFloat(t), y: a.y + (b.y - a.y) * CGFloat(t))
+        }
+    }
+
+    private static func clamp(_ p: CGPoint, to r: CGRect) -> CGPoint {
+        CGPoint(x: max(r.minX, min(r.maxX - 1, p.x)), y: max(r.minY, min(r.maxY - 1, p.y)))
+    }
+
+    /// Wheel notches at the point: three lines per notch, dy > 0 scrolls down and dx > 0 right.
+    static func scroll(_ w: Win, _ p: CGPoint, dx: Int, dy: Int) throws {
+        try gate(w)
+        try hitTest(w, p)
+        register(w)
+        moveTo(p)
+        func notch(vertical: Int32, horizontal: Int32) {
+            guard let ev = CGEvent(scrollWheelEvent2Source: source, units: .line, wheelCount: 2, wheel1: vertical, wheel2: horizontal, wheel3: 0) else { return }
+            ev.location = p
+            ev.post(tap: .cghidEventTap)
+            lock.lock()
+            lastHidInject = nowMs()
+            lock.unlock()
+            sleepMs(12)
+        }
+        for _ in 0..<abs(dy) { notch(vertical: dy > 0 ? -3 : 3, horizontal: 0) }
+        for _ in 0..<abs(dx) { notch(vertical: 0, horizontal: dx > 0 ? -3 : 3) }
+    }
+
+    static func hover(_ w: Win, _ p: CGPoint, dwellMs: Int) throws {
+        try gate(w)
+        let frame = try Wn.frame(w)
+        let cur = cursor()
+        let start = frame.contains(cur) ? cur : clamp(CGPoint(x: p.x - 40, y: p.y - 40), to: frame)
+        if start != cur {
+            try hitTest(w, start)
+            moveTo(start)
+        }
+        try hitTest(w, p)
+        register(w)
+        for q in smooth(start, p, steps: 10) {
+            postMouse(.mouseMoved, at: q, button: .left, clickState: 0, flags: [])
+            sleepMs(15)
+        }
+        let c = cursor()
+        if abs(c.x - p.x) > 1 || abs(c.y - p.y) > 1 { CGWarpMouseCursorPosition(p) }
+        sleepMs(dwellMs)
+    }
+
+    static func drag(_ w: Win, from a: CGPoint, to b: CGPoint, button name: String, durationMs: Int, flags: CGEventFlags) throws {
+        try gate(w)
+        let frame = try Wn.frame(w)
+        if !frame.contains(a) || !frame.contains(b) {
+            throw HelperError("refused", "Both ends of a drag must be inside the target window.")
+        }
+        try hitTest(w, a)
+        try hitTest(w, b)
+        register(w)
+        let btn = button(name)
+        moveTo(a, flags: flags)
+        postMouse(down(btn), at: a, button: btn, clickState: 1, flags: flags)
+        lock.lock()
+        heldButtons.append(btn)
+        heldFlags.formUnion(flags)
+        lock.unlock()
+        defer {
+            lock.lock()
+            if heldButtons.contains(btn) { releaseAllLocked() }
+            lock.unlock()
+        }
+        let steps = max(6, min(60, durationMs / 16))
+        let delay = max(4, durationMs / steps)
+        if abs(b.x - a.x) + abs(b.y - a.y) > 12 {
+            let nudge = CGPoint(x: a.x + (b.x > a.x ? 6 : b.x < a.x ? -6 : 0), y: a.y + (b.y > a.y ? 6 : b.y < a.y ? -6 : 0))
+            postMouse(dragged(btn), at: nudge, button: btn, clickState: 1, flags: flags)
+            sleepMs(delay)
+        }
+        for q in smooth(a, b, steps: steps) {
+            if !isForeground(w) { throw HelperError("failed", "The target lost the foreground during the drag.") }
+            postMouse(dragged(btn), at: clamp(q, to: frame), button: btn, clickState: 1, flags: flags)
+            sleepMs(delay)
+        }
+        postMouse(up(btn), at: b, button: btn, clickState: 1, flags: flags)
+        lock.lock()
+        heldButtons.removeAll { $0 == btn }
+        heldFlags.subtract(flags)
+        lock.unlock()
+    }
+
+    static func mouseButton(_ w: Win, action: String, button name: String) throws {
+        let btn = button(name)
+        if action == "down" {
+            try gate(w)
+            let cur = cursor()
+            try hitTest(w, cur)
+            register(w)
+            postMouse(down(btn), at: cur, button: btn, clickState: 1, flags: [])
+            lock.lock()
+            heldButtons.append(btn)
+            lock.unlock()
+        } else {
+            lock.lock()
+            let wasHeld = heldButtons.contains(btn)
+            lock.unlock()
+            postMouse(up(btn), at: cursor(), button: btn, clickState: 1, flags: [])
+            if wasHeld {
+                lock.lock()
+                heldButtons.removeAll { $0 == btn }
+                lock.unlock()
+            }
+        }
+    }
+
+    /// Relative mouse motion in steps of at most 40 points, for cameras that read deltas. The target
+    /// must be frontmost; the location stays inside its window.
+    static func moveRel(_ w: Win, dx: Int, dy: Int, durationMs: Int) throws {
+        try gate(w)
+        if !isForeground(w) { throw HelperError("foreground_denied", "The target is not the foreground window.") }
+        let frame = try Wn.frame(w)
+        let origin = cursor()
+        if !frame.contains(origin) { throw HelperError("refused", "The cursor is outside the target window.") }
+        let steps = max(1, Int((Double(max(abs(dx), abs(dy))) / 40).rounded(.up)))
+        let delay = durationMs / steps
+        var sx = 0, sy = 0
+        for i in 1...steps {
+            let tx = dx * i / steps, ty = dy * i / steps
+            if !isForeground(w) { throw HelperError("failed", "The target lost the foreground during the move.") }
+            let loc = clamp(CGPoint(x: origin.x + CGFloat(tx), y: origin.y + CGFloat(ty)), to: frame)
+            if let ev = CGEvent(mouseEventSource: source, mouseType: .mouseMoved, mouseCursorPosition: loc, mouseButton: .left) {
+                ev.setIntegerValueField(.mouseEventDeltaX, value: Int64(tx - sx))
+                ev.setIntegerValueField(.mouseEventDeltaY, value: Int64(ty - sy))
+                ev.post(tap: .cghidEventTap)
+                lock.lock()
+                lastHidInject = nowMs()
+                lock.unlock()
+            }
+            sx = tx
+            sy = ty
+            sleepMs(delay > 0 ? delay : 4)
         }
     }
 }
@@ -485,7 +671,11 @@ extension Main {
             case "click": res = try click(w, a, ag)
             case "type": res = try typeVerb(w, a, ag)
             case "key": res = try keyVerb(w, a)
-            default: throw HelperError("unsupported", "That desktop tool is not available on macOS yet.")
+            case "scroll": res = try scrollVerb(w, a, ag)
+            case "drag": res = try dragVerb(w, a, ag)
+            case "hover": res = try hoverVerb(w, a, ag)
+            case "mouse": res = try mouseVerb(w, a)
+            default: throw HelperError("unsupported", "Unknown input verb '\(verb)'.")
             }
         } catch {
             Input.releaseAll()
@@ -496,6 +686,9 @@ extension Main {
         if let before, let after = try? Cap.hash(w) { changed = Cap.different(before, after) }
         res["changed"] = changed
         res["focusLeft"] = Input.focusLeft(w) ?? NSNull()
+        if a.bool("screenshotAfter", false) {
+            do { res["screenshot"] = try screenshot(w, [:], ag, t) } catch let e as HelperError { res["screenshotError"] = e.message }
+        }
         return res
     }
 
@@ -586,6 +779,56 @@ extension Main {
         if action != "press" && action != "down" && action != "up" { throw HelperError("failed", "Unknown key action.") }
         try Input.gate(w)
         try Input.press(w, chord, holdMs: hold, repeatCount: rep, action: action)
+        return [:]
+    }
+
+    /// The end of a drag or scroll: an element's centre or a screenshot pixel.
+    static func end(_ w: Win, _ ag: Agent, _ e: JSON?, _ frame: CGRect) throws -> CGPoint {
+        guard let e else { throw HelperError("failed", "Missing element or point.") }
+        if let er = e.str("element") { return try Input.nodePoint(try Ax.getRef(ag, er), frame) }
+        guard let pt = e.obj("point") else { throw HelperError("failed", "Give an element ref or a point.") }
+        return Input.mapPoint(w, ag, frame, pt.dbl("x"), pt.dbl("y"))
+    }
+
+    static func scrollVerb(_ w: Win, _ a: JSON, _ ag: Agent) throws -> JSON {
+        let dx = max(-30, min(30, a.int("dx", 0))), dy = max(-30, min(30, a.int("dy", 0)))
+        let frame = try Wn.frame(w)
+        let p = a.str("element") != nil || a.obj("point") != nil
+            ? try end(w, ag, a, frame)
+            : CGPoint(x: frame.midX, y: frame.midY)
+        try Input.scroll(w, p, dx: dx, dy: dy)
+        return [:]
+    }
+
+    static func dragVerb(_ w: Win, _ a: JSON, _ ag: Agent) throws -> JSON {
+        let frame = try Wn.frame(w)
+        let from = try end(w, ag, a.obj("from"), frame)
+        let to = try end(w, ag, a.obj("to"), frame)
+        try Input.drag(
+            w, from: from, to: to, button: a.str("button") ?? "left", durationMs: max(100, min(3000, a.int("durationMs", 400))),
+            flags: try Input.modFlags(a.strs("modifiers")))
+        return [:]
+    }
+
+    static func hoverVerb(_ w: Win, _ a: JSON, _ ag: Agent) throws -> JSON {
+        let frame = try Wn.frame(w)
+        let p = try end(w, ag, a, frame)
+        try Input.hover(w, p, dwellMs: max(0, min(3000, a.int("dwellMs", 500))))
+        return [:]
+    }
+
+    static func mouseVerb(_ w: Win, _ a: JSON) throws -> JSON {
+        let action = a.str("action") ?? ""
+        let button = a.str("button") ?? "left"
+        if action == "down" || action == "up" {
+            try Input.mouseButton(w, action: action, button: button)
+        } else if action == "move_rel" {
+            try Input.moveRel(
+                w, dx: max(-2000, min(2000, a.int("dx", 0))), dy: max(-2000, min(2000, a.int("dy", 0))),
+                durationMs: max(0, min(3000, a.int("durationMs", 0))))
+        } else {
+            throw HelperError("failed", "Unknown mouse action.")
+        }
         return [:]
     }
 }

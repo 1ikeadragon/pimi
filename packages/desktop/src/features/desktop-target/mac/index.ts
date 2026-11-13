@@ -106,7 +106,8 @@ function checkCommand(command: DesktopTargetCommand, guard: DesktopGuard): void 
   }
 }
 
-// The verbs the macOS helper does not have yet answer `unsupported` instead of reaching it.
+// The verbs the macOS helper does not have yet (app, deeplink and the security tools) answer
+// `unsupported` instead of reaching it.
 const MAC_VERBS: ReadonlySet<string> = new Set([
   "snapshot",
   "screenshot",
@@ -118,6 +119,10 @@ const MAC_VERBS: ReadonlySet<string> = new Set([
   "key",
   "wait",
   "window",
+  "scroll",
+  "drag",
+  "hover",
+  "mouse",
 ]);
 
 function str(value: unknown): string {

@@ -140,7 +140,7 @@ enum Main {
         case "wait":
             let w = try prep(t, .read, &repin)
             return try wait(w, a, ag)
-        case "click", "type", "key":
+        case "click", "type", "key", "scroll", "drag", "hover", "mouse":
             let w = try prep(t, .input, &repin)
             return try inputVerb(verb, w, a, ag, t!)
         default:
