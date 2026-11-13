@@ -2309,6 +2309,10 @@ export const zhCN: TranslationResources = {
       setupDescription:
         "如需远程配对，请运行 Pimi Relay，在 config.json 中设置地址，然后重启 Pimi。",
       loadingOffer: "正在加载配对 offer...",
+      hostUnreachableTitle: "无法连接到此主机",
+      hostConnecting: "正在尝试连接此主机。连接后将立即显示配对链接。",
+      hostOffline: "此主机已离线。请在其上启动 Pimi 后重试。你也可以添加其他主机。",
+      addAnotherHost: "添加其他主机",
       failedToLoadOffer: "加载配对 offer 失败。",
       relayDisabled: "Relay 未启用。启用 relay 后才能配对设备。",
       enableTitle: "启用中继？",

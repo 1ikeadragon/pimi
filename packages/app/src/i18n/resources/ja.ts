@@ -2360,6 +2360,11 @@ export const ja: TranslationResources = {
       setupDescription:
         "リモートでペアリングするには、Pimi Relay を起動し、config.json にアドレスを設定して Pimi を再起動してください。",
       loadingOffer: "ペアリングオファーを読み込み中...",
+      hostUnreachableTitle: "このホストに接続できません",
+      hostConnecting: "このホストに接続しています。接続され次第、ペアリングリンクが表示されます。",
+      hostOffline:
+        "このホストはオフラインです。ホストで Pimi を起動してから再試行してください。別のホストを追加することもできます。",
+      addAnotherHost: "別のホストを追加",
       failedToLoadOffer: "ペアリングオファーの読み込みに失敗しました。",
       relayDisabled:
         "リレーが有効になっていません。デバイスをペアリングするにはリレーを有効にしてください。",

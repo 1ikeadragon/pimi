@@ -2386,6 +2386,12 @@ export const fr: TranslationResources = {
       setupDescription:
         "Pour associer un appareil à distance, lancez Pimi Relay, ajoutez son adresse à config.json et redémarrez Pimi.",
       loadingOffer: "Chargement de l’offre d’association…",
+      hostUnreachableTitle: "Impossible de joindre cet hôte",
+      hostConnecting:
+        "Tentative de connexion à cet hôte. Le lien d'appairage s'affichera dès qu'il sera connecté.",
+      hostOffline:
+        "Cet hôte est hors ligne. Lancez Pimi dessus, puis réessayez. Vous pouvez aussi ajouter un autre hôte.",
+      addAnotherHost: "Ajouter un autre hôte",
       failedToLoadOffer: "Impossible de charger l’offre d’association.",
       relayDisabled: "Le relais n’est pas activé. Activez-le pour associer un appareil.",
       enableTitle: "Activer le relais ?",
