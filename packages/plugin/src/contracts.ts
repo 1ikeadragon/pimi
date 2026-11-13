@@ -3,7 +3,9 @@ import type { JsonValue } from "@pimi/protocol/agent-types";
 import type { PluginSerializableIcon } from "./icons.js";
 import type { PluginRpcContract } from "./rpc.js";
 
+/** The active theme as plugin code sees it. `colors` carries every semantic color token. */
 export interface PluginTheme {
+  readonly colorScheme: "light" | "dark";
   readonly colors: {
     readonly surface0: string;
     readonly surface1: string;
@@ -16,7 +18,13 @@ export interface PluginTheme {
     readonly statusSuccess: string;
     readonly statusWarning: string;
     readonly statusDanger: string;
+    /** Every other semantic color token, by name. */
+    readonly [token: string]: string;
   };
+  readonly spacing: Readonly<Record<string, number>>;
+  readonly borderRadius: Readonly<Record<string, number>>;
+  readonly fontSize: Readonly<Record<string, number>>;
+  readonly fontFamily: { readonly ui: string; readonly mono: string };
 }
 
 export interface PluginWorkspaceSnapshot {
@@ -65,11 +73,23 @@ export interface PluginThemeColors {
   ring: string;
 }
 
+/**
+ * Token overrides merged over the theme built from `colors`. Names must exist in the base theme;
+ * an unknown name rejects the contribution. Colors are hex strings. Font sizes and families are
+ * not here: the user's Appearance settings own them and apply over every theme.
+ */
+export interface PluginThemeTokens {
+  colors?: Readonly<Record<string, string>>;
+  spacing?: Readonly<Record<string, number>>;
+  borderRadius?: Readonly<Record<string, number>>;
+}
+
 export interface PluginThemeContribution<Text extends PluginText = string> {
   id: string;
   name: Text;
   appearance: "light" | "dark";
   colors: PluginThemeColors;
+  tokens?: PluginThemeTokens;
 }
 
 export interface PluginAttachmentSourceContribution<Text extends PluginText = string> {
