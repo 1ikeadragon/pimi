@@ -126,7 +126,7 @@ export function errorFromSshStderr(
   if (lower.includes("permission denied") || lower.includes("too many authentication failures")) {
     return new RemoteSshError(
       "SSH_AUTH",
-      `SSH could not sign in to ${host}. Pimi uses your system ssh with BatchMode, so it needs a key that works without a prompt: run \`ssh ${host}\` in a terminal to check it, add the key to your ssh-agent (ssh-add), and try again.`,
+      `Could not sign in to ${host}. Check the user name and the password or key.`,
       text,
     );
   }

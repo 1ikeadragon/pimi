@@ -3,53 +3,43 @@ import { pluginSettings } from "./plugin-settings";
 
 export const ar: TranslationResources = {
   remoteDev: {
-    title: "Remote dev machine (SSH)",
-    optionHint: "Pimi installs and starts its daemon over ssh.",
-    helper:
-      "Enter the machine as user@host. Pimi connects with your system ssh (your ~/.ssh/config, keys and agent), installs its daemon there when needed, and starts it. No passwords or keys are stored.",
-    hostLabel: "SSH host",
-    hostPlaceholder: "user@devbox",
-    invalidTarget:
-      "Enter the machine as user@host, a name from your ~/.ssh/config, or ssh://user@host.",
-    systemdTitle: "Keep the daemon running with systemd",
-    systemdHint:
-      "Uses a systemd --user service when the machine has one. Otherwise Pimi starts the daemon with nohup.",
-    docsLink: "How remote SSH works",
-    setupStopped: "Setup stopped",
+    title: "جهاز تطوير بعيد (SSH)",
+    hostLabel: "مضيف SSH",
+    hostPlaceholder: "user@host",
+    invalidTarget: "أدخل user@host.",
+    systemdTitle: "إبقاء الدايمون قيد التشغيل عبر systemd",
+    docsLink: "كيف يعمل SSH عن بُعد",
+    setupStopped: "توقف الإعداد",
     steps: {
-      connecting: "Connecting",
-      checking: "Checking the machine",
-      installing: "Installing",
-      installingVersion: "Installing v{{version}}",
-      alreadyInstalled: "(already installed)",
-      starting: "Starting the daemon",
-      connected: "Connected",
+      connecting: "جارٍ الاتصال",
+      checking: "جارٍ فحص الجهاز",
+      installing: "جارٍ التثبيت",
+      installingVersion: "جارٍ تثبيت v{{version}}",
+      alreadyInstalled: "(مثبّت مسبقًا)",
+      starting: "جارٍ تشغيل الدايمون",
+      connected: "تم الاتصال",
     },
-    settingsRowTitle: "Connect a remote dev machine",
-    settingsRowHint:
-      "Enter user@devbox. Pimi installs and starts its daemon over ssh, then runs agents, terminals and git on that machine.",
-    commandTitle: "Connect a remote dev machine (SSH)",
+    settingsRowTitle: "ربط جهاز تطوير بعيد",
+    settingsRowHint: "يشغّل الوكلاء والطرفيات وgit على ذلك الجهاز.",
+    commandTitle: "ربط جهاز تطوير بعيد (SSH)",
     onboarding: {
-      label: "Where to work",
-      title: "Where should your agents run?",
-      description:
-        "Use this computer, or connect a remote dev machine over SSH. Pimi installs and starts its daemon on the remote for you.",
-      localTitle: "Use this computer",
-      localHint: "Agents run here, on your own files. Nothing to install.",
-      remoteTitle: "Connect a remote dev machine over SSH",
-      remoteHint:
-        "Enter user@devbox. Pimi installs its daemon there over ssh and runs agents, terminals and git on that machine.",
+      label: "مكان العمل",
+      title: "أين يجب أن يعمل وكلاؤك؟",
+      description: "استخدم هذا الحاسوب أو جهازًا بعيدًا.",
+      localTitle: "استخدام هذا الحاسوب",
+      localHint: "يعمل الوكلاء هنا، على ملفاتك.",
+      remoteTitle: "ربط جهاز تطوير بعيد",
+      remoteHint: "يعمل الوكلاء هناك. يجهّز Pimi كل شيء عبر SSH.",
     },
     upgrade: {
-      title: "Upgrade Pimi on {{host}}?",
+      title: "ترقية Pimi على {{host}}؟",
       message:
-        "{{host}} runs Pimi {{running}}, this app is {{desktop}}. Upgrading restarts the daemon there. {{work}}",
-      workBusy:
-        "It has {{agents}} running agents and {{terminals}} open terminals that would stop.",
-      workUnknown: "Pimi could not tell whether agents or terminals are running.",
-      later: "Later",
-      now: "Upgrade now",
-      failed: "The upgrade failed.",
+        "{{host}} يشغّل Pimi {{running}}، وهذا التطبيق {{desktop}}. تؤدي الترقية إلى إعادة تشغيل الدايمون هناك. {{work}}",
+      workBusy: "هناك {{agents}} وكلاء قيد التشغيل و{{terminals}} طرفيات مفتوحة ستتوقف.",
+      workUnknown: "لم يتمكن Pimi من معرفة ما إذا كانت هناك وكلاء أو طرفيات قيد التشغيل.",
+      later: "لاحقًا",
+      now: "ترقية الآن",
+      failed: "فشلت الترقية.",
     },
   },
   harnessUpdates: {
@@ -2171,7 +2161,7 @@ export const ar: TranslationResources = {
       },
       remoteSsh: {
         title: "SSH عن بُعد",
-        description: "الاتصال عبر عميل SSH لسطح المكتب.",
+        description: "يجهّز Pimi كل شيء عبر SSH.",
       },
       scanQr: {
         title: "مسح رمز QR",
@@ -2226,13 +2216,6 @@ export const ar: TranslationResources = {
       },
     },
     remoteSsh: {
-      title: "SSH عن بُعد",
-      helper: "الاتصال بخادم Pimi يعمل على المضيف البعيد.",
-      fields: {
-        target: "مضيف SSH",
-        password: "كلمة مرور الدايمون",
-        optional: "خياري",
-      },
       passwordVisibility: {
         show: "إظهار كلمة المرور",
         hide: "إخفاء كلمة المرور",
@@ -2244,7 +2227,6 @@ export const ar: TranslationResources = {
       },
       errors: {
         targetRequired: "مضيف SSH مطلوب",
-        invalidTarget: "أدخل مضيف ssh:// صالحًا",
         failedToConnect: "تعذر الاتصال عبر SSH. {{detail}}",
       },
     },

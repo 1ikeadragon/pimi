@@ -3,53 +3,43 @@ import { pluginSettings } from "./plugin-settings";
 
 export const ko: TranslationResources = {
   remoteDev: {
-    title: "Remote dev machine (SSH)",
-    optionHint: "Pimi installs and starts its daemon over ssh.",
-    helper:
-      "Enter the machine as user@host. Pimi connects with your system ssh (your ~/.ssh/config, keys and agent), installs its daemon there when needed, and starts it. No passwords or keys are stored.",
-    hostLabel: "SSH host",
-    hostPlaceholder: "user@devbox",
-    invalidTarget:
-      "Enter the machine as user@host, a name from your ~/.ssh/config, or ssh://user@host.",
-    systemdTitle: "Keep the daemon running with systemd",
-    systemdHint:
-      "Uses a systemd --user service when the machine has one. Otherwise Pimi starts the daemon with nohup.",
-    docsLink: "How remote SSH works",
-    setupStopped: "Setup stopped",
+    title: "원격 개발 머신 (SSH)",
+    hostLabel: "SSH 호스트",
+    hostPlaceholder: "user@host",
+    invalidTarget: "user@host 형식으로 입력하세요.",
+    systemdTitle: "systemd로 데몬 계속 실행",
+    docsLink: "원격 SSH 작동 방식",
+    setupStopped: "설정이 중단되었습니다",
     steps: {
-      connecting: "Connecting",
-      checking: "Checking the machine",
-      installing: "Installing",
-      installingVersion: "Installing v{{version}}",
-      alreadyInstalled: "(already installed)",
-      starting: "Starting the daemon",
-      connected: "Connected",
+      connecting: "연결 중",
+      checking: "머신 확인 중",
+      installing: "설치 중",
+      installingVersion: "v{{version}} 설치 중",
+      alreadyInstalled: "(이미 설치됨)",
+      starting: "데몬 시작 중",
+      connected: "연결됨",
     },
-    settingsRowTitle: "Connect a remote dev machine",
-    settingsRowHint:
-      "Enter user@devbox. Pimi installs and starts its daemon over ssh, then runs agents, terminals and git on that machine.",
-    commandTitle: "Connect a remote dev machine (SSH)",
+    settingsRowTitle: "원격 개발 머신 연결",
+    settingsRowHint: "해당 머신에서 에이전트, 터미널, git을 실행합니다.",
+    commandTitle: "원격 개발 머신 연결 (SSH)",
     onboarding: {
-      label: "Where to work",
-      title: "Where should your agents run?",
-      description:
-        "Use this computer, or connect a remote dev machine over SSH. Pimi installs and starts its daemon on the remote for you.",
-      localTitle: "Use this computer",
-      localHint: "Agents run here, on your own files. Nothing to install.",
-      remoteTitle: "Connect a remote dev machine over SSH",
-      remoteHint:
-        "Enter user@devbox. Pimi installs its daemon there over ssh and runs agents, terminals and git on that machine.",
+      label: "작업 위치",
+      title: "에이전트를 어디에서 실행할까요?",
+      description: "이 컴퓨터 또는 원격 머신을 사용하세요.",
+      localTitle: "이 컴퓨터 사용",
+      localHint: "에이전트가 여기서 내 파일로 실행됩니다.",
+      remoteTitle: "원격 개발 머신 연결",
+      remoteHint: "에이전트가 그곳에서 실행됩니다. Pimi가 SSH로 설정합니다.",
     },
     upgrade: {
-      title: "Upgrade Pimi on {{host}}?",
+      title: "{{host}}의 Pimi를 업그레이드할까요?",
       message:
-        "{{host}} runs Pimi {{running}}, this app is {{desktop}}. Upgrading restarts the daemon there. {{work}}",
-      workBusy:
-        "It has {{agents}} running agents and {{terminals}} open terminals that would stop.",
-      workUnknown: "Pimi could not tell whether agents or terminals are running.",
-      later: "Later",
-      now: "Upgrade now",
-      failed: "The upgrade failed.",
+        "{{host}}는 Pimi {{running}}을(를) 실행 중이고 이 앱은 {{desktop}}입니다. 업그레이드하면 그곳의 데몬이 재시작됩니다. {{work}}",
+      workBusy: "실행 중인 에이전트 {{agents}}개와 열린 터미널 {{terminals}}개가 중지됩니다.",
+      workUnknown: "Pimi가 실행 중인 에이전트나 터미널이 있는지 확인하지 못했습니다.",
+      later: "나중에",
+      now: "지금 업그레이드",
+      failed: "업그레이드에 실패했습니다.",
     },
   },
   harnessUpdates: {
@@ -2185,7 +2175,7 @@ export const ko: TranslationResources = {
       },
       remoteSsh: {
         title: "원격 SSH",
-        description: "데스크톱 SSH 클라이언트를 통해 연결합니다.",
+        description: "Pimi가 SSH로 설정합니다.",
       },
       scanQr: {
         title: "QR 코드 스캔",
@@ -2238,13 +2228,6 @@ export const ko: TranslationResources = {
       },
     },
     remoteSsh: {
-      title: "원격 SSH",
-      helper: "원격 호스트에서 실행 중인 Pimi 데몬에 연결합니다.",
-      fields: {
-        target: "SSH 호스트",
-        password: "데몬 비밀번호",
-        optional: "선택 사항",
-      },
       passwordVisibility: {
         show: "비밀번호 표시",
         hide: "비밀번호 숨기기",
@@ -2256,7 +2239,6 @@ export const ko: TranslationResources = {
       },
       errors: {
         targetRequired: "SSH 호스트가 필요합니다",
-        invalidTarget: "유효한 ssh:// 호스트를 입력하세요",
         failedToConnect: "SSH로 연결할 수 없습니다. {{detail}}",
       },
     },

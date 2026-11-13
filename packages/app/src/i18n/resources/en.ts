@@ -1,16 +1,10 @@
 export const en = {
   remoteDev: {
     title: "Remote dev machine (SSH)",
-    optionHint: "Pimi installs and starts its daemon over ssh.",
-    helper:
-      "Enter the machine as user@host. Pimi connects with your system ssh (your ~/.ssh/config, keys and agent), installs its daemon there when needed, and starts it. No passwords or keys are stored.",
     hostLabel: "SSH host",
-    hostPlaceholder: "user@devbox",
-    invalidTarget:
-      "Enter the machine as user@host, a name from your ~/.ssh/config, or ssh://user@host.",
+    hostPlaceholder: "user@host",
+    invalidTarget: "Enter user@host.",
     systemdTitle: "Keep the daemon running with systemd",
-    systemdHint:
-      "Uses a systemd --user service when the machine has one. Otherwise Pimi starts the daemon with nohup.",
     docsLink: "How remote SSH works",
     setupStopped: "Setup stopped",
     steps: {
@@ -23,19 +17,16 @@ export const en = {
       connected: "Connected",
     },
     settingsRowTitle: "Connect a remote dev machine",
-    settingsRowHint:
-      "Enter user@devbox. Pimi installs and starts its daemon over ssh, then runs agents, terminals and git on that machine.",
+    settingsRowHint: "Runs agents, terminals and git on that machine.",
     commandTitle: "Connect a remote dev machine (SSH)",
     onboarding: {
       label: "Where to work",
       title: "Where should your agents run?",
-      description:
-        "Use this computer, or connect a remote dev machine over SSH. Pimi installs and starts its daemon on the remote for you.",
+      description: "Use this computer or a remote machine.",
       localTitle: "Use this computer",
-      localHint: "Agents run here, on your own files. Nothing to install.",
-      remoteTitle: "Connect a remote dev machine over SSH",
-      remoteHint:
-        "Enter user@devbox. Pimi installs its daemon there over ssh and runs agents, terminals and git on that machine.",
+      localHint: "Agents run here, on your files.",
+      remoteTitle: "Connect a remote dev machine",
+      remoteHint: "Agents run there. Pimi sets it up over SSH.",
     },
     upgrade: {
       title: "Upgrade Pimi on {{host}}?",
@@ -2208,7 +2199,7 @@ export const en = {
       },
       remoteSsh: {
         title: "Remote dev machine (SSH)",
-        description: "Pimi installs and starts its daemon over ssh.",
+        description: "Pimi sets it up over SSH.",
       },
       scanQr: {
         title: "Scan QR code",
@@ -2262,13 +2253,6 @@ export const en = {
       },
     },
     remoteSsh: {
-      title: "Remote SSH",
-      helper: "Connect to a Pimi daemon running on the remote host.",
-      fields: {
-        target: "SSH host",
-        password: "Daemon password",
-        optional: "Optional",
-      },
       passwordVisibility: {
         show: "Show password",
         hide: "Hide password",
@@ -2280,7 +2264,6 @@ export const en = {
       },
       errors: {
         targetRequired: "SSH host is required",
-        invalidTarget: "Enter a valid ssh:// host",
         failedToConnect: "Unable to connect over SSH. {{detail}}",
       },
     },

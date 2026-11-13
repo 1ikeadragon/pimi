@@ -4,7 +4,7 @@ Enter `user@devbox` and Pimi installs its daemon on that Linux machine, starts i
 
 ## What Pimi does
 
-Every step runs through your system `ssh`, so `~/.ssh/config`, `ProxyJump`, keys and your agent apply. Pimi stores no SSH secret and runs `ssh` with `BatchMode=yes`, so a key that needs a passphrase has to be in your agent. A first-seen host key is recorded in `known_hosts` (`StrictHostKeyChecking=accept-new`); a changed key is refused.
+Every step runs through your system `ssh`, so `~/.ssh/config`, `ProxyJump`, keys and your agent apply. Keys and your agent are used first. If the server asks for a password, passphrase or code, Pimi asks for it in the app and keeps it in memory until you quit. A first-seen host key is recorded in `known_hosts` (`StrictHostKeyChecking=accept-new`); a changed key is refused.
 
 1. **Probe.** `uname -s`/`-m`, `$HOME`, free disk, libc, Node versions, systemd, and whether a daemon already answers on `127.0.0.1:6767` and at which version.
 2. **Install when needed.** If no daemon runs at the desktop's version, Pimi installs it into `~/.pimi/runtime/<version>/`:
@@ -27,7 +27,7 @@ Turn on **Keep the daemon running with systemd** in the dialog to use a `systemd
 
 | Message                            | What to do                                                                                             |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| SSH could not sign in              | Run `ssh user@host` in a terminal, add the key with `ssh-add`.                                         |
+| SSH could not sign in              | Check the user name and password or key.                                                               |
 | Host key does not match            | The machine was reinstalled or something is wrong. `ssh-keygen -R host` only if you expect the change. |
 | Could not reach the host           | Check the name, port, VPN and `sshd`.                                                                  |
 | Unsupported OS, CPU or libc        | Use a glibc Linux on x86_64 or arm64.                                                                  |
