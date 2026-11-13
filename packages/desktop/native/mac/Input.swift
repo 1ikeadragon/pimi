@@ -105,6 +105,23 @@ enum Input {
         Wn.windows(onScreenOnly: true).filter { $0.alpha > 0.01 && $0.ownerName != "Window Server" }
     }
 
+    /// The Dock keeps a transparent window over the whole display (layer 20). It only blocks input where
+    /// its tiles are, so a Dock surface covers a point only inside the frames of its AX lists.
+    private static func dockBlocks(_ s: WinInfo, _ p: CGPoint) -> Bool {
+        guard NSRunningApplication(processIdentifier: s.pid)?.bundleIdentifier == "com.apple.dock" else { return true }
+        guard let kids = Ax.copy(AXUIElementCreateApplication(s.pid), "AXChildren") as? [AXUIElement] else { return true }
+        let tiles = kids.compactMap { el -> CGRect? in
+            guard let pt = Ax.point(Ax.copy(el, "AXPosition")), let sz = Ax.size(Ax.copy(el, "AXSize")) else { return nil }
+            return CGRect(origin: pt, size: sz)
+        }
+        if tiles.isEmpty { return true }
+        return tiles.contains { $0.contains(p) }
+    }
+
+    private static func topSurface(at p: CGPoint) -> WinInfo? {
+        surfaces().first { $0.bounds.contains(p) && dockBlocks($0, p) }
+    }
+
     static func frontPid() -> pid_t? {
         guard let app = Ax.copy(AXUIElementCreateSystemWide(), "AXFocusedApplication") else { return nil }
         var pid: pid_t = 0
@@ -178,7 +195,7 @@ enum Input {
         }
         let frame = try Wn.frame(w)
         for attempt in 0..<2 {
-            let top = surfaces().first { $0.bounds.contains(p) }
+            let top = topSurface(at: p)
             if let top {
                 if top.number == w.number { return }
                 if top.pid == w.pid {
