@@ -47,7 +47,7 @@ macOS answers `unsupported` for the Windows-only verbs and ignores optional argu
 - Same process model as the Windows helper: `helper-process.ts` spawns it lazily and speaks JSON lines. On a timeout the main process sends SIGTERM and then SIGKILL 700 ms later, so the helper can release held keys and buttons.
 - Screen Recording and Accessibility are granted to the app that spawned the helper (Pimi packaged; Electron or the terminal in dev), not to the helper. `pimi-desktop-helper --selftest` prints both states for the process it runs under, so run it from a terminal only to see the terminal's grants.
 - The window is pinned by its window-server id, owner pid and process start time (carried in the picker's `win`, with the id in `hwnd`). The helper falls back to the app's one window and answers `repinned`.
-- Capture is `screencapture -l <id>`, decoded and scaled in the helper. It reads the window even when another window covers it.
+- Capture is ScreenCaptureKit on macOS 14+ (the window plus the menus, popovers and sheets of the same app that sit on it), with `screencapture -l <id>` as the fallback on macOS 13 and when ScreenCaptureKit fails; the result's `method` says which. Both read the window even when another window covers it. `grid`, `marks` and `region` are drawn and cropped in the helper with CoreGraphics; `marks` runs an interactive-only snapshot, so it needs Accessibility.
 
 ## Windows helper
 
