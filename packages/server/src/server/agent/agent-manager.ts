@@ -970,6 +970,8 @@ function sleepUnref(ms: number): Promise<void> {
 }
 
 /** Rows read from the stored copy per step when scrolling back through a long chat. */
+/** How long cached slash commands are served without a background refresh. */
+const COMMANDS_CACHE_FRESH_MS = 60_000;
 const OLDER_TIMELINE_BLOCK_ROWS = 500;
 
 function buildExplicitTimelineSeedForRegister(
@@ -1575,6 +1577,22 @@ export class AgentManager {
     }
   }
 
+  private readonly commandsCache = new Map<string, { commands: AgentSlashCommand[]; at: number }>();
+
+  /** Commands last read from a live session of this provider in this folder. */
+  getCachedCommands(
+    provider: AgentProvider,
+    cwd: string,
+  ): { commands: AgentSlashCommand[]; stale: boolean } | null {
+    const entry = this.commandsCache.get(`${provider}\0${cwd}`);
+    if (!entry) return null;
+    return { commands: entry.commands, stale: Date.now() - entry.at > COMMANDS_CACHE_FRESH_MS };
+  }
+
+  rememberCommands(provider: AgentProvider, cwd: string, commands: AgentSlashCommand[]): void {
+    this.commandsCache.set(`${provider}\0${cwd}`, { commands, at: Date.now() });
+  }
+
   async listDraftCommands(config: AgentSessionConfig): Promise<AgentSlashCommand[]> {
     const normalizedConfig = await this.normalizeConfig(config, { resolveDefaultModel: false });
     const client = this.requireClient(normalizedConfig.provider);
@@ -1683,6 +1701,52 @@ export class AgentManager {
   findTimelineToolCall(id: string, callId: string, turnId?: string) {
     this.requireAgent(id);
     return this.timelineStore.findToolCall(id, callId, turnId);
+  }
+
+  /**
+   * Whether an agent that is not loaded can answer from its stored timeline: the copy is
+   * complete, matches the provider session and holds no provider subagents (the same rules as
+   * opening it). Never binds the agent or loads a session.
+   */
+  canOpenFromStore(agentId: string, handle: AgentPersistenceHandle | null): boolean {
+    if (!this.timelineArchive || this.agents.has(agentId) || this.timelineStore.has(agentId)) {
+      return false;
+    }
+    return (
+      "agent" in this.timelineArchive.peekOpen(agentId, { sessionKey: timelineSessionKey(handle) })
+    );
+  }
+
+  /**
+   * One page of an unloaded agent's timeline, read from its stored copy. Only the newest page
+   * is served (tail, no cursor): reading older pages or catching up needs the loaded agent.
+   * Returns null when the agent cannot open from storage or the request needs a load.
+   */
+  peekStoredTimeline(
+    agentId: string,
+    handle: AgentPersistenceHandle | null,
+    options: AgentTimelineFetchOptions,
+  ): AgentTimelineFetchResult | null {
+    const archive = this.timelineArchive;
+    if (!archive || options.cursor || (options.direction ?? "tail") !== "tail") return null;
+    if (!this.canOpenFromStore(agentId, handle)) return null;
+    const opened = archive.peekOpen(agentId, { sessionKey: timelineSessionKey(handle) });
+    if ("refusal" in opened) return null;
+    try {
+      const tail = archive.readTail(agentId);
+      // The page is built on a throwaway store with the stored epoch and seqs, so the timeline
+      // the background load opens from the same copy continues them.
+      const scratch = new InMemoryAgentTimelineStore();
+      scratch.initialize(agentId, {
+        ...(tail.rows.length > 0 ? { rows: tail.rows } : { nextSeq: 1 }),
+        epoch: opened.agent.epoch,
+      });
+      scratch.setOlderAvailable(agentId, tail.hasOlder);
+      return scratch.fetch(agentId, options);
+    } catch (error) {
+      this.logger.warn({ err: error, agentId }, "Failed to read stored timeline page");
+      return null;
+    }
   }
 
   fetchTimeline(id: string, options?: AgentTimelineFetchOptions): AgentTimelineFetchResult {
@@ -1937,8 +2001,17 @@ export class AgentManager {
     // have read the record before a queued archive or restore completed. Residency is
     // settled before the config is prepared, because a history load reads an archived
     // agent whose working directory may be gone.
+    const phaseStartedAt = performance.now();
+    let phaseMark = phaseStartedAt;
+    const phases: Record<string, number> = {};
+    const markPhase = (name: string): void => {
+      const now = performance.now();
+      phases[name] = Math.round(now - phaseMark);
+      phaseMark = now;
+    };
     const record = this.registry ? await this.registry.get(resolvedAgentId) : null;
     const purpose = await resolveResumePurpose(record, resumeOptions?.purpose, mergedConfig.cwd);
+    markPhase("recordMs");
     const currentResumeOptions = {
       purpose,
       windowedHistory: true,
@@ -1951,8 +2024,10 @@ export class AgentManager {
       resolvedAgentId,
       { purpose, env: launchEnv, background: record?.background, labels: record?.labels },
     );
+    markPhase("prepareSessionConfigMs");
     const client = this.requireClient(handle.provider);
     const available = await client.isAvailable();
+    markPhase("isAvailableMs");
     if (!available) {
       throw new Error(
         `Provider '${handle.provider}' is not available. Please ensure the CLI is installed.`,
@@ -1973,6 +2048,7 @@ export class AgentManager {
         labels: record?.labels ?? options?.labels ?? {},
       },
     );
+    markPhase("buildLaunchContextMs");
     const providerLaunchConfig = this.resolveProviderLaunchConfig(launchConfig, launchContext);
     const session = await client.resumeSession(
       handle,
@@ -1980,9 +2056,11 @@ export class AgentManager {
       launchContext,
       currentResumeOptions,
     );
+    markPhase("resumeSessionMs");
     if (purpose === "history") this.historySessions.add(session);
     await this.requireExternalMcpSupport(session, providerLaunchConfig, launchContext);
-    return this.registerSession(session, storedConfig, resolvedAgentId, {
+    markPhase("requireExternalMcpSupportMs");
+    const registered = await this.registerSession(session, storedConfig, resolvedAgentId, {
       ...options,
       workspaceId,
       launchEnv,
@@ -1990,6 +2068,18 @@ export class AgentManager {
       lastUsage: record?.lastUsage,
       restoring: true,
     });
+    markPhase("registerSessionMs");
+    this.logger.debug(
+      {
+        agentId: resolvedAgentId,
+        provider: handle.provider,
+        purpose,
+        ...phases,
+        totalMs: Math.round(performance.now() - phaseStartedAt),
+      },
+      "agent.resume_phases",
+    );
+    return registered;
   }
 
   importProviderSession(input: {

@@ -185,10 +185,9 @@ export class SqliteTimelineStore {
     agentId: string,
     expected: { sessionKey: string | null; fingerprint?: string | null },
   ): { agent: StoredTimelineAgent } | { refusal: TimelineOpenRefusal } {
-    const agent = this.getAgent(agentId);
-    if (!agent) return { refusal: "no_rows" };
-    const refusal = this.refusalFor(agent, expected);
-    if (refusal) return { refusal };
+    const opened = this.peekOpen(agentId, expected);
+    if ("refusal" in opened) return opened;
+    const agent = opened.agent;
     this.bound.set(agentId, {
       key: agent.key,
       epoch: agent.epoch,
@@ -198,6 +197,17 @@ export class SqliteTimelineStore {
       providerSubagents: agent.providerSubagents,
     });
     return { agent };
+  }
+
+  /** The decision of openFromStore without binding the agent: for answering before a load. */
+  peekOpen(
+    agentId: string,
+    expected: { sessionKey: string | null; fingerprint?: string | null },
+  ): { agent: StoredTimelineAgent } | { refusal: TimelineOpenRefusal } {
+    const agent = this.getAgent(agentId);
+    if (!agent) return { refusal: "no_rows" };
+    const refusal = this.refusalFor(agent, expected);
+    return refusal ? { refusal } : { agent };
   }
 
   private refusalFor(
@@ -466,7 +476,21 @@ export class SqliteTimelineStore {
     while (this.pending.length > 0) this.flushChunk();
   }
 
+  /**
+   * A row that changed several times before the flush (a streamed tool call) is written once,
+   * in its latest state.
+   */
+  private collapsePending(): void {
+    if (this.pending.length < 2) return;
+    const latest = new Map<string, number>();
+    const keyOf = (write: PendingWrite) => `${write.agentId}\0${write.epoch}\0${write.row.seq}`;
+    this.pending.forEach((write, index) => latest.set(keyOf(write), index));
+    if (latest.size === this.pending.length) return;
+    this.pending = this.pending.filter((write, index) => latest.get(keyOf(write)) === index);
+  }
+
   private flushChunk(): void {
+    this.collapsePending();
     if (this.pending.length === 0) return;
     if (this.timer) {
       clearTimeout(this.timer);

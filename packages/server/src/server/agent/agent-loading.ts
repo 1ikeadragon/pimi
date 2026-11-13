@@ -100,7 +100,9 @@ export async function ensureAgentLoaded(
     broadcastTimeline: deps.broadcastTimeline === true,
   };
   const initPromise = (async () => {
+    const loadStartedAt = performance.now();
     const record = await deps.agentStorage.get(agentId);
+    const storageMs = Math.round(performance.now() - loadStartedAt);
     if (!record) {
       throw new AgentNotFoundError(agentId);
     }
@@ -113,6 +115,7 @@ export async function ensureAgentLoaded(
     const handle = toAgentPersistenceHandle(validProviders, record.persistence);
 
     let snapshot: ManagedAgent;
+    const resumeStartedAt = performance.now();
     if (handle) {
       snapshot = await deps.agentManager.resumeAgentFromPersistence(
         handle,
@@ -141,9 +144,21 @@ export async function ensureAgentLoaded(
       deps.logger.info({ agentId, provider: record.provider }, "Agent created from stored config");
     }
 
+    const hydrateStartedAt = performance.now();
     await deps.agentManager.hydrateTimelineFromProvider(agentId, {
       broadcast: () => pendingOptions.broadcastTimeline,
     });
+    deps.logger.debug(
+      {
+        agentId,
+        provider: record.provider,
+        storageMs,
+        resumeMs: Math.round(hydrateStartedAt - resumeStartedAt),
+        hydrateMs: Math.round(performance.now() - hydrateStartedAt),
+        totalMs: Math.round(performance.now() - loadStartedAt),
+      },
+      "agent.load_phases",
+    );
     return deps.agentManager.getAgent(agentId) ?? snapshot;
   })();
 
