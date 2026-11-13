@@ -44,7 +44,6 @@ function KnownHostRoute() {
       <Stack.Screen name="workspace/[workspaceId]/index" />
       <Stack.Screen name="workspace/[workspaceId]/attack" />
       <Stack.Screen name="agent/[agentId]" options={AGENT_SCREEN_OPTIONS} />
-      <Stack.Screen name="settings" />
       <Stack.Screen name="plugin/[pluginId]/[contributionKind]/[contributionId]" />
     </ThemedStack>
   );

@@ -12,3 +12,4 @@ export {
   setPluginUiSafeMode,
   usePluginUiSafeMode,
 } from "./safe-mode";
+export { noProps, sameNameAdapter } from "./adapters/common";

@@ -1,4 +1,5 @@
 import { useAddHost } from "@/hosts/add-host";
+import { noProps, overridable, Slot } from "@/extension-points";
 import { router } from "expo-router";
 import {
   CircleGauge,
@@ -166,7 +167,7 @@ interface DesktopSidebarProps extends SidebarSharedProps {
   pimiSidebar?: PimiSidebarControls;
 }
 
-export const LeftSidebar = memo(function LeftSidebar({
+const LeftSidebarBase = memo(function LeftSidebar({
   active,
   desktopOverlay,
   pimiSidebar,
@@ -309,6 +310,18 @@ export const LeftSidebar = memo(function LeftSidebar({
   );
 });
 
+export const LeftSidebar = overridable("sidebar.root", LeftSidebarBase, {
+  toPlugin: ({ active, desktopOverlay }) => ({ active, desktopOverlay }),
+  merge: (core, patch) => ({
+    ...core,
+    active: patch.active ?? core.active,
+    desktopOverlay: patch.desktopOverlay ?? core.desktopOverlay,
+  }),
+});
+
+const COMPACT_SIDEBAR_SLOT_CONTEXT = { compact: true };
+const WIDE_SIDEBAR_SLOT_CONTEXT = { compact: false };
+
 function sidebarHostOptionTestID(serverId: string): string {
   return `sidebar-host-row-${serverId}`;
 }
@@ -435,7 +448,7 @@ function IconTooltipContent({
   );
 }
 
-function SidebarFooter({
+function SidebarFooterBase({
   handleOpenProject,
   handleSettings,
   labels,
@@ -554,6 +567,8 @@ function SidebarUsageIcon({ label }: { label: string }) {
  * The footer rows in the user's `sidebarFooterItems` order: the Usage item and plugin rows. The
  * Usage item is left out while it has no summary to show.
  */
+const SidebarFooter = overridable("sidebar.footer", SidebarFooterBase, noProps());
+
 function SidebarFooterRows({ onBeforeNavigate }: { onBeforeNavigate?: () => void }) {
   const { items } = useSidebarNavItems("footer");
   const usageSummary = useUsageSummary();
@@ -709,6 +724,7 @@ function MobileSidebar({
             listHeaderComponent={workspacesSectionHeaderElement}
           />
         )}
+        <Slot id="sidebar.belowWorkspaces" context={COMPACT_SIDEBAR_SLOT_CONTEXT} />
 
         <SidebarFooter
           handleOpenProject={handleOpenProject}
@@ -930,6 +946,7 @@ function DesktopSidebar({
           listHeaderComponent={pimi ? null : projectHeader}
         />
       )}
+      <Slot id="sidebar.belowWorkspaces" context={WIDE_SIDEBAR_SLOT_CONTEXT} />
 
       <SidebarCalloutSlot />
 
