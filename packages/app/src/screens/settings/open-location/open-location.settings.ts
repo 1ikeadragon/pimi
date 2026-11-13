@@ -7,6 +7,7 @@ export const OPEN_LOCATION_SOURCES = [
   "chatFiles",
   "diffFiles",
   "subagents",
+  "webLinks",
 ] as const satisfies readonly (keyof OpenInSidePanePreferences)[];
 
 const OPEN_WORDS = ["open", "side pane", "split", "main pane", "tab", "where"];

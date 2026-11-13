@@ -3094,6 +3094,10 @@ export const en = {
             label: "Clicking a pull request in the Explorer sidebar",
             description: "Open pull request details beside Changes",
           },
+          webLinks: {
+            label: "Clicking a web link in an agent chat",
+            description: "Open web links from chat beside the conversation",
+          },
           serviceUrls: {
             label: "Clicking a script's service URL",
           },
