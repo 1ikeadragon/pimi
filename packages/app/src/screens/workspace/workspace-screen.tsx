@@ -3592,6 +3592,7 @@ function WorkspaceScreenContent({
           actionsActive={isRouteFocused && (!isMobile || workspacePanelActive)}
           tabSwitcher={tabSwitcher}
           onHidePane={actions.pane?.hide}
+          onClosePane={actions.pane?.close}
           isLoading={isWorkspaceHeaderLoading}
           title={editorTitle ?? workspaceHeaderTitle}
           subtitle={editorTitle ? "" : workspaceHeaderSubtitle}

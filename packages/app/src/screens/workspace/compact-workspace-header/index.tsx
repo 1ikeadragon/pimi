@@ -34,6 +34,8 @@ interface CompactWorkspaceHeaderProps {
   actionsActive: boolean;
   /** Attack mode's holding pane: an X that hides the pane without closing its tabs. */
   onHidePane?: () => void;
+  /** Closes the pane's active tab where the narrow pane has no tab row. */
+  onClosePane?: () => void;
 }
 
 /** The compact header with the workspace's project row and controls. */
@@ -52,6 +54,7 @@ export function CompactWorkspaceHeader({
   headerVariant,
   actionsActive,
   onHidePane,
+  onClosePane,
 }: CompactWorkspaceHeaderProps) {
   const { t } = useTranslation();
   const actionsInBar = resolveWorkspaceActionPlacement(useWindowLayout()) === "vertical-bar";
@@ -89,6 +92,17 @@ export function CompactWorkspaceHeader({
         label={t("workspace.tabs.actions.hidePane")}
         onPress={onHidePane}
         testID="workspace-hide-pane"
+      />,
+    );
+  }
+
+  if (onClosePane && !onHidePane && headerVariant === "compact") {
+    actions.push(
+      <SidebarCloseButton
+        key="close-pane"
+        label={t("workspace.tabs.menu.close")}
+        onPress={onClosePane}
+        testID="workspace-close-pane"
       />,
     );
   }
