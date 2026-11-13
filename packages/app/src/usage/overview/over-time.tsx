@@ -32,12 +32,23 @@ function axisFor(range: UsageRange, seen: ReadonlySet<string>): string[] {
   return [...seen].sort().slice(-MAX_ALL_TIME_POINTS);
 }
 
+/**
+ * Series slots follow this order, not usage rank, so a provider keeps its colour when the
+ * ranking flips: chartSeries slot 0 is blue (Codex), slot 1 is orange (Claude).
+ */
+const PROVIDER_SERIES_ORDER = ["codex", "claude"];
+
+function seriesRank(provider: string): number {
+  const rank = PROVIDER_SERIES_ORDER.indexOf(provider);
+  return rank === -1 ? PROVIDER_SERIES_ORDER.length : rank;
+}
+
 /** Daily bars (hourly for Today), one stacked series per provider. */
 export function UsageOverTime({
   serverId,
   range,
   metric,
-  providers,
+  providers: unordered,
 }: {
   serverId: string;
   range: UsageRange;
@@ -45,6 +56,7 @@ export function UsageOverTime({
   providers: readonly string[];
 }) {
   const { t } = useTranslation();
+  const providers = [...unordered].sort((a, b) => seriesRank(a) - seriesRank(b));
   const groupBy = range === "today" ? "hour" : "day";
   const queries = useUsageBreakdownQueries(
     providers.map((provider) => ({ serverId, range, groupBy, provider })),
