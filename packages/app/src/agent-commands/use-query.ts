@@ -26,7 +26,9 @@ export type DraftCommandConfig = AgentCommandsDraftConfig;
 export type DraftCommandTarget =
   | { status: "ready"; config: DraftCommandConfig }
   | { status: "needs-project" }
-  | { status: "needs-provider" };
+  | { status: "needs-provider" }
+  // The daemon lists nothing for a draft without a model, so the menu says why instead.
+  | { status: "needs-model" };
 
 interface ListAgentCommandsOptions {
   agentId: string;

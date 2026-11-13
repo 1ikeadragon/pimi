@@ -13,7 +13,7 @@ import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { createNameId } from "mnemonic-id";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigation } from "expo-router";
+import { router, useNavigation } from "expo-router";
 import { Composer } from "@/composer";
 import { ComposerDock } from "@/composer/dock";
 import { useComposerEditingSession, useComposerFullscreen } from "@/composer/editing-session";
@@ -32,6 +32,8 @@ import { useForgeSearchQuery } from "@/git/use-forge-search-query";
 import { useCheckoutStatusQuery } from "@/git/use-status-query";
 import { ensureCheckoutStatus } from "@/git/checkout-status-cache";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
+import { useDirectoryDemand } from "@/hooks/use-directory-demand";
+import { buildNewWorkspaceRoute } from "@/utils/host-routes";
 import { resolveTerminalProfiles } from "@pimi/protocol/terminal-profiles";
 import type { TerminalProfile } from "@pimi/protocol/messages";
 import { resolveLaunchTarget, type LaunchTarget } from "@/new-workspace-launch/target";
@@ -41,6 +43,7 @@ import {
   useHostRuntimeClient,
   useHostRuntimeConnectionStatuses,
   useHostRuntimeIsConnected,
+  useHostRuntimeIsDirectoryLoading,
   useHosts,
   type HostRuntimeConnectionStatus,
 } from "@/runtime/host-runtime";
@@ -950,6 +953,10 @@ export function NewWorkspaceScreen({
   const { workspace } = creationResult;
   const client = useHostRuntimeClient(selectedServerId);
   const isConnected = useHostRuntimeIsConnected(selectedServerId);
+  // The picker lists the selected host's projects, which only arrive while something demands that
+  // host's directory. Without this a host the sidebar is not showing keeps its last cached list.
+  useDirectoryDemand(selectedServerId);
+  const isDirectoryLoading = useHostRuntimeIsDirectoryLoading(selectedServerId);
   const {
     selectedProject,
     selectedSourceDirectory,
@@ -1146,8 +1153,26 @@ export function NewWorkspaceScreen({
     (id: string) => {
       handleSelectHost(id);
       clearPickerSelectionForTargetChange(selectedServerId, id);
+      // The route's host, directory and project belong to the host just left. Reloading or going
+      // back would restore them, so the route moves to the new host and keeps only the draft.
+      if (id !== selectedServerId) {
+        router.replace(
+          buildNewWorkspaceRoute({
+            serverId: id,
+            chooseProject: true,
+            ...(draftId ? { draftId } : {}),
+            ...(initialProfileId ? { profileId: initialProfileId } : {}),
+          }),
+        );
+      }
     },
-    [clearPickerSelectionForTargetChange, handleSelectHost, selectedServerId],
+    [
+      clearPickerSelectionForTargetChange,
+      draftId,
+      handleSelectHost,
+      initialProfileId,
+      selectedServerId,
+    ],
   );
 
   const handleAddProject = useCallback(() => {
@@ -1496,6 +1521,7 @@ export function NewWorkspaceScreen({
       selectedOptionId: selectedProjectOptionId,
       triggerLabel: projectTriggerLabel,
       selectedServerId,
+      isLoading: isDirectoryLoading,
       onSelect: handleSelectProjectOption,
       onAddProject: handleAddProject,
     },

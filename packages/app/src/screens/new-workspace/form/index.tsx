@@ -41,6 +41,8 @@ export interface NewWorkspaceFormProps {
     selectedOptionId: string;
     triggerLabel: string;
     selectedServerId: string;
+    /** The selected host's project list is still loading, so an empty list is not final. */
+    isLoading: boolean;
     onSelect: (id: string) => void;
     onAddProject: () => void;
   };
@@ -279,7 +281,7 @@ export function useNewWorkspaceForm(props: NewWorkspaceFormProps): ReactElement 
         desktopPlacement="bottom-start"
         desktopMinWidth={360}
         anchorRef={project.anchorRef}
-        emptyText="No projects available."
+        emptyText={project.isLoading ? t("common.loading") : "No projects available."}
         renderOption={projectPicker.renderOption}
         footer={projectPicker.footer}
       />

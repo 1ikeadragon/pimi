@@ -321,6 +321,9 @@ export function buildDraftCommandTarget(input: {
   if (!input.selection.provider) {
     return { status: "needs-provider" };
   }
+  if (!input.effectiveModelId.trim()) {
+    return { status: "needs-model" };
+  }
 
   const config = {
     provider: input.selection.provider,

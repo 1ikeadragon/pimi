@@ -63,12 +63,10 @@ export function OpenProjectScreen() {
 
   const handleOpenPairDevice = useCallback(() => setIsPairDeviceOpen(true), []);
   const handleClosePairDevice = useCallback(() => setIsPairDeviceOpen(false), []);
+  // No serverId: the screen opens on the host of the last used workspace and falls back to local.
   const startChat = useCallback(
-    () =>
-      router.push(
-        buildNewWorkspaceRoute({ serverId: localServerId ?? undefined, chooseProject: true }),
-      ),
-    [localServerId, router],
+    () => router.push(buildNewWorkspaceRoute({ chooseProject: true })),
+    [router],
   );
 
   const handleOpenProviders = useCallback(() => {

@@ -3008,6 +3008,7 @@ function ComposerContentImpl({
                 <SlashCommandCenterActions
                   serverId={serverId}
                   agentId={agentId}
+                  draft={commandDraft}
                   editingSession={editingSession}
                   runClient={runClientSlashCommandFromMenu}
                 />
