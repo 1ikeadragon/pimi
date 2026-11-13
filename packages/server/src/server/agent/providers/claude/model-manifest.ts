@@ -15,6 +15,9 @@ interface ClaudeModelManifestEntry {
   defaultThinkingOptionId?: ClaudeEffortLevel;
   supportsThinkingDisabled?: boolean;
   supportsFastMode?: boolean;
+  // Claude Code refuses Auto mode on a model that does not report supportsAutoMode.
+  // Only a model known not to support it is listed; unknown models keep Auto.
+  supportsAutoMode?: false;
 }
 
 const CLAUDE_EFFORT_LEVELS = {
@@ -194,6 +197,7 @@ export const CLAUDE_MODEL_MANIFEST = [
     label: "Haiku 4.5",
     description: "Haiku 4.5 · Previous release",
     contextWindowMaxTokens: 200_000,
+    supportsAutoMode: false,
   },
 ] as const satisfies readonly ClaudeModelManifestEntry[];
 
@@ -345,6 +349,19 @@ export function resolveClaudeDisabledThinkingForModel(
 
 export function isClaudeManifestModelId(modelId: string): boolean {
   return CLAUDE_MODEL_MANIFEST.some((model) => model.id === modelId);
+}
+
+export function claudeManifestModelSupportsAutoMode(modelId: string | null | undefined): boolean {
+  const normalizedModelId = normalizeClaudeManifestModelId(modelId);
+  if (!normalizedModelId) {
+    return true;
+  }
+  return !CLAUDE_MODEL_MANIFEST.some(
+    (model) =>
+      model.id === normalizedModelId &&
+      "supportsAutoMode" in model &&
+      model.supportsAutoMode === false,
+  );
 }
 
 export function claudeManifestModelSupportsFastMode(modelId: string | null | undefined): boolean {

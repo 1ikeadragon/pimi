@@ -74,7 +74,11 @@ import { foldSubagentObservations, type SubagentObservation } from "./subagents/
 import { observeReplayWorkflows } from "./subagents/workflow-replay-source.js";
 import { limitAgentTimelineItemContent } from "../../agent-timeline-content.js";
 import { readClaudeWorkflowResultFile } from "./subagents/workflow-output.js";
-import { buildClaudeFeatures, claudeModelSupportsFastMode } from "./feature-definitions.js";
+import {
+  buildClaudeFeatures,
+  claudeModelSupportsAutoMode,
+  claudeModelSupportsFastMode,
+} from "./feature-definitions.js";
 import {
   buildBinaryDiagnosticRows,
   buildCommandResolutionDiagnosticRows,
@@ -2487,6 +2491,9 @@ class ClaudeAgentSession implements AgentSession {
     }
 
     this.currentMode = isPermissionMode(config.modeId) ? config.modeId : "default";
+    if (this.currentMode === "auto" && !claudeModelSupportsAutoMode(config.model)) {
+      this.currentMode = "default";
+    }
     if (this.currentMode !== "plan") {
       this.planResumeMode = this.currentMode;
     }
@@ -2781,7 +2788,14 @@ class ClaudeAgentSession implements AgentSession {
   }
 
   async getAvailableModes(): Promise<AgentMode[]> {
-    return this.availableModes;
+    return this.modesForCurrentModel();
+  }
+
+  /** Claude Code rejects Auto on models without support, so the picker must not offer it. */
+  private modesForCurrentModel(): AgentMode[] {
+    return claudeModelSupportsAutoMode(this.config.model)
+      ? this.availableModes
+      : this.availableModes.filter((mode) => mode.id !== "auto");
   }
 
   async getCurrentMode(): Promise<string | null> {
@@ -2799,9 +2813,14 @@ class ClaudeAgentSession implements AgentSession {
 
     const normalized = isPermissionMode(modeId) ? modeId : "default";
     assertClaudeModeCanRun(normalized, this.harnessEnvironment);
+    if (normalized === "auto" && !claudeModelSupportsAutoMode(this.config.model)) {
+      throw new Error(
+        `Auto mode is not available for model '${this.config.model ?? "default"}'. Select another permission mode.`,
+      );
+    }
     const previousMode = this.currentMode;
     const previousQuery = this.query;
-    const activeQuery = await this.ensureQuery(normalized);
+    const activeQuery = await this.ensureControlQuery(normalized);
     try {
       await activeQuery.setPermissionMode(normalized);
     } catch (error) {
@@ -2822,10 +2841,11 @@ class ClaudeAgentSession implements AgentSession {
   async setModel(modelId: string | null): Promise<void> {
     const normalizedModelId =
       typeof modelId === "string" && modelId.trim().length > 0 ? modelId.trim() : null;
-    const activeQuery = await this.ensureQuery();
+    const activeQuery = await this.ensureControlQuery();
     await activeQuery.setModel(normalizedModelId ?? undefined);
     this.config.model = normalizedModelId ?? undefined;
     this.reconcileThinkingOptionForModel(normalizedModelId);
+    await this.reconcileModeForModel(activeQuery);
     if (!claudeModelSupportsFastMode(this.config.model) && this.config.featureValues?.fast_mode) {
       await this.applyFastModeFeature(false, activeQuery);
     }
@@ -2837,6 +2857,20 @@ class ClaudeAgentSession implements AgentSession {
     this.cachedRuntimeInfo = null;
     // Model change affects persistence metadata, so invalidate cached handle.
     this.persistence = null;
+  }
+
+  /** Leaves Auto when the new model cannot run it, and re-announces the picker's modes. */
+  private async reconcileModeForModel(activeQuery: Query): Promise<void> {
+    if (this.currentMode === "auto" && !claudeModelSupportsAutoMode(this.config.model)) {
+      await activeQuery.setPermissionMode("default");
+      this.observePermissionMode("default");
+    }
+    this.pushEvent({
+      type: "mode_changed",
+      provider: "claude",
+      currentModeId: this.currentMode,
+      availableModes: this.modesForCurrentModel(),
+    });
   }
 
   private reconcileThinkingOptionForModel(modelId: string | null): void {
@@ -3154,7 +3188,7 @@ class ClaudeAgentSession implements AgentSession {
   }
 
   async listCommands(): Promise<AgentSlashCommand[]> {
-    const q = await this.ensureQuery();
+    const q = await this.ensureControlQuery();
     const commands = await q.supportedCommands();
     const commandMap = new Map<string, AgentSlashCommand>();
     for (const cmd of commands) {
@@ -3629,6 +3663,19 @@ class ClaudeAgentSession implements AgentSession {
     // ensureQuery() (for listCommands()/setMode()), and sharing the same query
     // control plane can cause those calls to wait behind supportedModels().
     return this.query;
+  }
+
+  /**
+   * Composer controls (mode, model, slash list) act on the live process. A pending restart
+   * (queued by an effort change) must not be paid for here: it would retire and respawn
+   * Claude, seconds on a remote host, only to answer a control. The next turn's
+   * ensureQuery() still performs the restart.
+   */
+  private async ensureControlQuery(launchMode: PermissionMode = this.currentMode): Promise<Query> {
+    if (this.query) {
+      return this.query;
+    }
+    return this.ensureQuery(launchMode);
   }
 
   private async awaitWithTimeout(
@@ -4894,7 +4941,7 @@ class ClaudeAgentSession implements AgentSession {
           type: "mode_changed",
           provider: "claude",
           currentModeId: this.currentMode,
-          availableModes: this.availableModes,
+          availableModes: this.modesForCurrentModel(),
         });
       }
       const status = toObjectRecord(message)?.status;

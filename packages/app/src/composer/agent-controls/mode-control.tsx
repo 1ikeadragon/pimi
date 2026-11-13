@@ -272,22 +272,25 @@ export function useLiveAgentModeControl(
   const handleSelectMode = useCallback(
     (modeId: string) => {
       if (!client || !slice?.provider) return;
-      void updatePreferences((current) =>
-        mergeProviderPreferences({
-          preferences: current,
-          provider: slice.provider,
-          updates: { mode: modeId || undefined },
-        }),
-      ).catch((error) => {
-        console.warn("[AgentModeControl] persist mode preference failed", error);
-      });
-      void client
-        .setAgentMode(agentId, modeId)
-        .then((notice) => showProviderNoticeToast(toast, notice))
-        .catch((error) => {
-          console.warn("[AgentModeControl] setAgentMode failed", error);
+      const provider = slice.provider;
+      // Remember the mode only once the daemon accepted it; a rejected mode must not become
+      // the default of the next agent.
+      void (async () => {
+        try {
+          const notice = await client.setAgentMode(agentId, modeId);
+          showProviderNoticeToast(toast, notice);
+          await updatePreferences((current) =>
+            mergeProviderPreferences({
+              preferences: current,
+              provider,
+              updates: { mode: modeId || undefined },
+            }),
+          );
+        } catch (error) {
+          console.warn("[AgentModeControl] setAgentMode or persist preference failed", error);
           toast.error(toErrorMessage(error));
-        });
+        }
+      })();
     },
     [agentId, client, slice?.provider, toast, updatePreferences],
   );
