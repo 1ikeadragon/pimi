@@ -2477,6 +2477,13 @@ export const es: TranslationResources = {
       parentAgent: "Agente padre",
       openParent: "Abrir padre",
     },
+    message: {
+      placeholder: "Escribe a este subagente",
+      notConnected: "Sin conexión con el host",
+      textOnly: "Los subagentes solo aceptan texto. Quita los adjuntos para enviar.",
+      unavailable:
+        "{{provider}} no puede entregar mensajes a sus subagentes, así que este es de solo lectura.",
+    },
     title: "Subagentes",
     pillLabelOne: "1 subagente",
     pillLabelMany: "{{count}} subagentes",

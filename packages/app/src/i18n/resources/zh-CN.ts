@@ -2394,6 +2394,12 @@ export const zhCN: TranslationResources = {
       parentAgent: "父代理",
       openParent: "打开父代理",
     },
+    message: {
+      placeholder: "给此子代理发消息",
+      notConnected: "未连接到主机",
+      textOnly: "子代理只接受文本。移除附件后再发送。",
+      unavailable: "{{provider}} 无法向其子代理传递消息，因此此子代理为只读。",
+    },
     title: "Subagent",
     pillLabelOne: "1 个 subagent",
     pillLabelMany: "{{count}} 个 subagent",

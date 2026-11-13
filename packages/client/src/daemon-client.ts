@@ -3930,6 +3930,29 @@ export class DaemonClient {
     if (payload.error) throw new Error(payload.error);
   }
 
+  async sendProviderSubagentMessage(
+    parentAgentId: string,
+    subagentId: string,
+    text: string,
+    options: { messageId?: string; requestId?: string; timeout?: number } = {},
+  ): Promise<void> {
+    const payload =
+      await this.sendNamespacedCorrelatedSessionRequest<"agent.provider_subagents.send_message.response">(
+        {
+          requestId: options.requestId,
+          timeout: options.timeout ?? 30000,
+          message: {
+            type: "agent.provider_subagents.send_message.request",
+            parentAgentId,
+            subagentId,
+            text,
+            messageId: options.messageId,
+          },
+        },
+      );
+    if (payload.error) throw new Error(payload.error);
+  }
+
   observeAgentBackgroundWork(
     options: { signal?: AbortSignal } = {},
   ): OwnedSubscription<CorrelatedResponsePayload<"session.events.set_subscription.response">> {

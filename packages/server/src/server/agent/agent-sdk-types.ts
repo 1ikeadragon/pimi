@@ -733,6 +733,11 @@ export interface AgentSession {
    * still uncertain.
    */
   interrupt(): Promise<void>;
+  /**
+   * Wrap a user message for one provider subagent in a prompt for this session, for providers
+   * whose only route to a child runs through the parent model. Null when the child is unknown.
+   */
+  wrapProviderSubagentMessage?(subagentId: string, text: string): string | null;
   /** Stop one currently owned background item and wait for provider confirmation. */
   stopBackgroundWork?(id: string): Promise<void>;
   /** True only when releasing this runtime loses no background work or pending replies.

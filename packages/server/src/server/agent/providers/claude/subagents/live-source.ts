@@ -230,6 +230,15 @@ export class ClaudeTaskProtocolSource {
     return canonicalId && this.declaredIds.has(canonicalId) ? canonicalId : undefined;
   }
 
+  /** The task id Claude addresses a declared subagent by (SendMessage's `to`). */
+  taskIdForSubagent(subagentId: string): string | undefined {
+    if (!this.declaredIds.has(subagentId)) return undefined;
+    for (const [taskId, id] of this.subagentIdByTaskId) {
+      if (id === subagentId) return taskId;
+    }
+    return undefined;
+  }
+
   /** Whether Claude's task protocol declared this task as a provider subagent. */
   isDeclaredTask(taskId: string): boolean {
     const subagentId = this.subagentIdByTaskId.get(taskId);

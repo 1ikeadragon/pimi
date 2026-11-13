@@ -2439,6 +2439,12 @@ export const ko: TranslationResources = {
       parentAgent: "상위 에이전트",
       openParent: "상위 에이전트 열기",
     },
+    message: {
+      placeholder: "이 하위 에이전트에게 메시지 보내기",
+      notConnected: "호스트에 연결되어 있지 않습니다",
+      textOnly: "하위 에이전트는 텍스트만 받습니다. 첨부를 제거한 뒤 보내세요.",
+      unavailable: "{{provider}}은(는) 하위 에이전트에 메시지를 전달할 수 없어 읽기 전용입니다.",
+    },
     title: "하위 에이전트",
     pillLabelOne: "하위 에이전트 1개",
     pillLabelMany: "하위 에이전트 {{count}}개",
