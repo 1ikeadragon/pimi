@@ -1,13 +1,6 @@
 import { useAddHost } from "@/hosts/add-host";
 import { router } from "expo-router";
-import {
-  CircleGauge,
-  FolderPlus,
-  GitBranch,
-  Server,
-  Settings,
-  type LucideIcon,
-} from "lucide-react-native";
+import { FolderPlus, GitBranch, Server, Settings, type LucideIcon } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import {
   memo,
@@ -103,7 +96,9 @@ import { useLeftPanelWidth } from "@/mobile-panels/provider";
 import { MobilePanelOverlay } from "@/mobile-panels/presentation";
 import { buildSettingsRoute } from "@/utils/host-routes";
 import { openHostOverview } from "@/navigation/settings-navigation";
-import { UsageSidebarItem, UsageSidebarRoot, useUsageSummary, useOpenSidebarUsage } from "@/usage";
+import { UsageSidebarItem, UsageSidebarRoot, useUsageSummary } from "@/usage";
+import { UsageIcon } from "@/usage/icon";
+import { UsagePopover } from "@/usage/popover";
 import { usageHoverDetails } from "@/usage/sidebar-item";
 import { SidebarAgentListSkeleton } from "./sidebar-agent-list-skeleton";
 import { SidebarCalloutSlot } from "./sidebar-callout-slot";
@@ -538,15 +533,18 @@ function SidebarFooter({
 }
 
 function SidebarUsageIcon({ label }: { label: string }) {
-  const openUsage = useOpenSidebarUsage();
   return (
-    <FooterIconButton
-      onPress={openUsage}
-      testID="sidebar-usage-icon"
-      label={label}
-      icon={CircleGauge}
-      tooltipContent={usageHoverDetails}
-    />
+    <UsagePopover>
+      {(toggle) => (
+        <FooterIconButton
+          onPress={toggle}
+          testID="sidebar-usage-icon"
+          label={label}
+          icon={UsageIcon}
+          tooltipContent={usageHoverDetails}
+        />
+      )}
+    </UsagePopover>
   );
 }
 

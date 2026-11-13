@@ -6,7 +6,7 @@ Pimi is a desktop workspace for running coding agents, tracking their work, and 
 
 Start in chat with a supported harness. Turn a conversation into a task when it needs tracking. A task can stay in chat or link to several agents and worktrees when the work can happen in parallel. Agent Grid shows those chats together. Review brings file browsing, pull requests, and worktree diffs into one place.
 
-Memory gives providers shared project notes. Spaces holds links, images, and notes you can refer to by card ID. Automations run prompts on a schedule. Usage shows context and provider limits, and Recap links back to completed tasks and merged pull requests.
+Memory gives providers shared project notes. Spaces holds links, images, and notes you can refer to by card ID. Automations run prompts on a schedule. Usage shows provider limits and a history of tokens and estimated cost across Claude Code and Codex sessions, including ones run outside Pimi, and Recap links back to completed tasks and merged pull requests.
 
 ## Local setup and remote access
 

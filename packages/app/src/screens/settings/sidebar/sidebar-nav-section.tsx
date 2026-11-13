@@ -1,4 +1,5 @@
 import { useCallback, useMemo, type ComponentType, type ReactElement } from "react";
+import { UsageIcon } from "@/usage/icon";
 import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -7,7 +8,6 @@ import {
   ArrowUp,
   Blocks,
   Rocket,
-  Gauge,
   History,
   Plus,
   Search,
@@ -44,7 +44,7 @@ const BUILTIN_ICONS: Record<BuiltinSidebarItemId, LucideIcon> = {
   history: History,
   search: Search,
   automations: Rocket,
-  usage: Gauge,
+  usage: UsageIcon,
 };
 
 /** Plugin items register no icon, so they share this one. */
