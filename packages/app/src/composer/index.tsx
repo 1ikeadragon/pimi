@@ -164,7 +164,6 @@ import type { SelectedFile } from "@/attachments/selected-file";
 import { composerWorkspaceAttachment } from "@/composer/attachments/workspace";
 import { useWorkspaceAttachmentsForScopes } from "@/attachments/workspace-attachments-store";
 import { droppedItemsToSelectedFiles } from "@/composer/attachments/drop";
-import { getFileTypeLabel } from "@/attachments/file-types";
 import { Combobox, ComboboxItem, type ComboboxOption } from "@/components/ui/combobox";
 import {
   AttachmentFrame,
@@ -195,7 +194,6 @@ import { resolveClientSlashCommand, type ClientSlashCommand } from "@/client-sla
 import {
   appendWorkspaceFileAttachment,
   getWorkspaceFileAttachmentKey,
-  getWorkspaceFileAttachmentSubtitle,
 } from "@/attachments/workspace-file";
 import {
   resolveWorkspaceFileDrop,
@@ -425,11 +423,7 @@ function renderAttachmentTray(args: RenderAttachmentTrayArgs): ReactElement | nu
       )}
       {pendingFiles.map(({ id, file }) => (
         <AttachmentFrame key={id} testID="composer-pending-file-attachment">
-          <AttachmentLabel
-            icon={pendingFilePillIcon}
-            title={file.fileName}
-            subtitle={getFileTypeLabel(file.fileName) ?? ""}
-          />
+          <AttachmentLabel icon={pendingFilePillIcon} title={file.fileName} />
         </AttachmentFrame>
       ))}
     </View>
@@ -925,6 +919,7 @@ function ImageAttachmentPill({
       openAccessibilityLabel={openLabel}
       removeAccessibilityLabel={removeLabel}
       disabled={disabled}
+      kind="thumbnail"
     >
       <AttachmentThumbnail metadata={attachment.metadata} />
     </AttachmentPill>
@@ -957,7 +952,6 @@ function GithubAttachmentPill({
   const presentation = getForgePresentation(item.forge ?? "github");
   const isChangeRequest = item.kind === "change_request";
   const kindLabel = isChangeRequest ? presentation.changeRequestAbbrev : "issue";
-  const subtitleKind = isChangeRequest ? presentation.changeRequestAbbrev : "Issue";
   const numberPrefix = isChangeRequest ? presentation.numberPrefix : presentation.issueNumberPrefix;
   const handleOpen = useCallback(() => {
     onOpen(attachment);
@@ -977,7 +971,6 @@ function GithubAttachmentPill({
       <AttachmentLabel
         icon={isChangeRequest ? githubPrPillIcon : githubIssuePillIcon}
         title={item.title}
-        subtitle={`${subtitleKind} ${numberPrefix}${item.number}`}
       />
     </AttachmentPill>
   );
@@ -998,7 +991,6 @@ function FileAttachmentPill({
   onRemove,
   removeLabel,
 }: FileAttachmentPillProps) {
-  const { t } = useTranslation();
   const handleRemove = useCallback(() => {
     onRemove(index);
   }, [onRemove, index]);
@@ -1012,11 +1004,7 @@ function FileAttachmentPill({
       removeAccessibilityLabel={removeLabel}
       disabled={disabled}
     >
-      <AttachmentLabel
-        icon={filePillIcon}
-        title={fileName}
-        subtitle={getFileTypeLabel(fileName) ?? t("message.attachments.file")}
-      />
+      <AttachmentLabel icon={filePillIcon} title={fileName} />
     </AttachmentPill>
   );
 }
@@ -1039,21 +1027,21 @@ function WorkspaceFileAttachmentPill({
   const handleRemove = useCallback(() => {
     onRemove(index);
   }, [index, onRemove]);
-  const fileName = attachment.path.split("/").pop() ?? attachment.path;
+  const baseName = attachment.path.split("/").pop() ?? attachment.path;
+  const fileName =
+    attachment.selection.kind === "line_range"
+      ? `${baseName}:${attachment.selection.startLine}–${attachment.selection.endLine}`
+      : baseName;
   return (
     <AttachmentPill
       testID="composer-workspace-file-attachment-pill"
       onOpen={noopCallback}
       onRemove={handleRemove}
-      openAccessibilityLabel={fileName}
+      openAccessibilityLabel={attachment.path}
       removeAccessibilityLabel={removeLabel}
       disabled={disabled}
     >
-      <AttachmentLabel
-        icon={filePillIcon}
-        title={fileName}
-        subtitle={getWorkspaceFileAttachmentSubtitle(attachment)}
-      />
+      <AttachmentLabel icon={filePillIcon} title={fileName} />
     </AttachmentPill>
   );
 }

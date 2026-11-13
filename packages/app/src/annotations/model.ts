@@ -1,4 +1,5 @@
 import { ASSISTANT_MESSAGE_RENDER_CHARACTER_LIMIT } from "@/components/assistant-message-render-limit.shared";
+import type { TFunction } from "i18next";
 import { z } from "zod";
 import {
   AnnotationSourceSchema,
@@ -11,7 +12,7 @@ import {
 // Keep each annotation field within the existing assistant message display budget.
 export const ANNOTATION_CHARACTER_LIMIT = ASSISTANT_MESSAGE_RENDER_CHARACTER_LIMIT;
 
-const PILL_TITLE_LENGTH = 64;
+const CHIP_LABEL_LENGTH = 40;
 
 export const AnnotationAttachmentSchema = z.strictObject({
   kind: z.literal("annotation"),
@@ -50,24 +51,41 @@ function basename(path: string): string {
   return path.split("/").pop() || path;
 }
 
-function chatSourceLabel(source: Extract<AnnotationSource, { kind: "chat" }>): string {
+/** The agent reads this in the envelope, so it does not follow the interface language. */
+function agentChatSourceLabel(source: Extract<AnnotationSource, { kind: "chat" }>): string {
   return source.role === "user" ? "Your message" : "Assistant message";
 }
 
-/** Compact source for the pill: `file.ts:L12–18`, or which message the quote came from. */
-export function annotationSourceLabel(source: AnnotationSource): string {
-  if (source.kind === "file") return `${basename(source.path)}:L${lineRange(source, "–")}`;
-  return chatSourceLabel(source);
+/** Where the quote came from, for the person: the file with its lines, or which message. */
+export function annotationSourceLabel(source: AnnotationSource, t: TFunction): string {
+  if (source.kind === "file") return `${source.path}:${lineRange(source, "–")}`;
+  return source.role === "user" ? t("chips.yourMessage") : t("chips.assistantMessage");
 }
 
-export function annotationTitle(annotation: Pick<AnnotationAttachment, "note" | "quote">): string {
+/** What a chip says: `file.ts:12–18`, or for a chat quote the note, else the quote's first words. */
+export function annotationChipLabel(
+  annotation: Pick<AnnotationAttachment, "source" | "note" | "quote">,
+): string {
+  if (annotation.source.kind === "file") {
+    return `${basename(annotation.source.path)}:${lineRange(annotation.source, "–")}`;
+  }
   const text = (annotation.note.trim() || annotation.quote).replace(/\s+/g, " ").trim();
-  return text.length > PILL_TITLE_LENGTH ? `${text.slice(0, PILL_TITLE_LENGTH - 1)}…` : text;
+  return text.length > CHIP_LABEL_LENGTH ? `${text.slice(0, CHIP_LABEL_LENGTH - 1)}…` : text;
 }
 
-export function annotationNoteError(note: string): string | null {
+/** The chip's accessible name: its source, then the note when there is one. */
+export function annotationAccessibilityLabel(
+  annotation: Pick<AnnotationAttachment, "source" | "note">,
+  t: TFunction,
+): string {
+  const source = annotationSourceLabel(annotation.source, t);
+  const note = annotation.note.trim();
+  return note ? t("chips.annotationWithNote", { source, note }) : t("chips.annotation", { source });
+}
+
+export function annotationNoteError(note: string, t: TFunction): string | null {
   return note.length > ANNOTATION_CHARACTER_LIMIT
-    ? `Shorten your note to ${ANNOTATION_CHARACTER_LIMIT.toLocaleString()} characters or fewer`
+    ? t("chips.noteTooLong", { limit: ANNOTATION_CHARACTER_LIMIT.toLocaleString() })
     : null;
 }
 
@@ -87,7 +105,7 @@ function singleLine(value: string): string {
 
 function serializedSource(source: AnnotationSource): string {
   if (source.kind === "file") return `${singleLine(source.path)}:${lineRange(source, "-")}`;
-  return chatSourceLabel(source);
+  return agentChatSourceLabel(source);
 }
 
 export function annotationToAgentAttachment(
@@ -97,7 +115,7 @@ export function annotationToAgentAttachment(
   const { source, quote } = annotation;
   const note = annotation.note.trim();
   const fence = fenceFor(quote);
-  const titleSource = source.kind === "file" ? basename(source.path) : chatSourceLabel(source);
+  const titleSource = source.kind === "file" ? basename(source.path) : agentChatSourceLabel(source);
   return {
     type: "text",
     mimeType: "text/plain",

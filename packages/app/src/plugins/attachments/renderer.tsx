@@ -3,7 +3,7 @@ import type { PluginAttachmentRendererProps, PluginComposerAttachment } from "@p
 import type { PluginTheme } from "@pimi/plugin";
 import React, { useCallback, useMemo, type ComponentType } from "react";
 import { withUnistyles } from "react-native-unistyles";
-import { AnnotationPill } from "@/annotations/pill";
+import { AnnotationChipHost } from "@/annotations/chip-host";
 import { goToSentAnnotationSource } from "@/annotations/go-to-source";
 import type { AnnotationAttachment } from "@/annotations/model";
 import { useIsCompactFormFactor } from "@/constants/layout";
@@ -36,12 +36,14 @@ interface AnnotationPillProps {
 }
 
 function DefaultAnnotationPill(props: AnnotationPillProps) {
+  const { index, onRemove } = props;
+  const remove = useCallback(() => onRemove(index), [index, onRemove]);
   return (
-    <AnnotationPill
-      attachment={props.attachment}
+    <AnnotationChipHost
+      annotation={props.attachment}
+      placement="tray"
       disabled={props.disabled}
-      index={props.index}
-      onRemove={props.onRemove}
+      onRemove={remove}
       onChangeNote={props.onChangeNote}
       onFocusComposer={props.onFocusComposer}
     />

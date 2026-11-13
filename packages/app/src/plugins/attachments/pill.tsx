@@ -59,11 +59,7 @@ export function PluginResourceAttachmentPill({
       removeAccessibilityLabel={removeLabel(sourceTitle, attachment.item.identifier)}
       disabled={disabled}
     >
-      <AttachmentLabel
-        icon={icon}
-        title={attachment.item.title}
-        subtitle={`${sourceTitle} ${attachment.item.identifier}`}
-      />
+      <AttachmentLabel icon={icon} title={attachment.item.title} />
     </AttachmentPill>
   );
 }

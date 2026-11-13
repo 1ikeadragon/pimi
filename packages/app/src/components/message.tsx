@@ -530,11 +530,7 @@ export const UserMessage = memo(function UserMessage({
                     <AttachmentFrame
                       key={`${attachment.type}:${"number" in attachment ? attachment.number : index}`}
                     >
-                      <AttachmentLabel
-                        icon={content.icon}
-                        title={content.title}
-                        subtitle={content.subtitle}
-                      />
+                      <AttachmentLabel icon={content.icon} title={content.title} />
                     </AttachmentFrame>
                   );
                 })}
