@@ -23,13 +23,14 @@ function getAvailableLatency(input: {
   return probe?.status === "available" ? probe.latencyMs : null;
 }
 
+/**
+ * A routed connection goes through another host's daemon, so it is only a fallback: it is never
+ * chosen while a direct connection is available, whatever the latencies say.
+ */
 export function selectBestConnection(input: SelectBestConnectionInput): string | null {
   const { candidates, probeByConnectionId } = input;
-  if (candidates.length === 0) {
-    return null;
-  }
-
   let bestConnectionId: string | null = null;
+  let bestRouted = true;
   let bestLatency: number | null = null;
 
   for (const candidate of candidates) {
@@ -40,8 +41,14 @@ export function selectBestConnection(input: SelectBestConnectionInput): string |
     if (latencyMs === null) {
       continue;
     }
-    if (bestLatency === null || latencyMs < bestLatency) {
+    const routed = candidate.connection.type === "routed";
+    const better =
+      bestLatency === null ||
+      (bestRouted && !routed) ||
+      (bestRouted === routed && latencyMs < bestLatency);
+    if (better) {
       bestConnectionId = candidate.connectionId;
+      bestRouted = routed;
       bestLatency = latencyMs;
     }
   }

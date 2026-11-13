@@ -72,6 +72,31 @@ export function sshAuthModeArgs(interactive: boolean): string[] {
 
 export interface SshTunnelArgsOptions {
   interactive?: boolean;
+  /** The desktop app only: probe the link every 15 s so a dead path closes the tunnel within a minute. */
+  keepAlive?: boolean;
+  /** The desktop app only: share one ssh connection through this ControlPath (see sshMultiplexArgs). */
+  controlPath?: string;
+}
+
+/** ssh options for a keepalive that declares the link dead after four missed 15 s probes. */
+export function sshKeepAliveArgs(): string[] {
+  return ["-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=4"];
+}
+
+/**
+ * Shares one ssh connection per machine: the first ssh becomes the master, later ones attach to
+ * it without a new TCP, key exchange or sign-in. The master stays for a minute after its last
+ * client leaves. `controlPath` must be short (a unix socket path) and live in a private directory.
+ */
+export function sshMultiplexArgs(controlPath: string): string[] {
+  return [
+    "-o",
+    "ControlMaster=auto",
+    "-o",
+    `ControlPath=${controlPath}`,
+    "-o",
+    "ControlPersist=60",
+  ];
 }
 
 export function buildSshTunnelArgs(
@@ -89,6 +114,8 @@ export function buildSshTunnelArgs(
     "ClearAllForwardings=yes",
     "-o",
     "ExitOnForwardFailure=yes",
+    ...(options.keepAlive ? sshKeepAliveArgs() : []),
+    ...(options.controlPath ? sshMultiplexArgs(options.controlPath) : []),
   ];
   if (target.sshPort !== undefined) {
     args.push("-p", String(validatePort(target.sshPort, "SSH port")));

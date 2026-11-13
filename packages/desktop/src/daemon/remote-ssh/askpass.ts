@@ -7,6 +7,7 @@ import path from "node:path";
 import { app, BrowserWindow } from "electron";
 import { helperPath } from "../../features/desktop-target/helper-process.js";
 import { resolveNodeExecPath } from "../runtime-paths.js";
+import { closeAllControlMasters, exitControlMaster } from "./control-master.js";
 import type { SshTarget } from "./ssh-exec.js";
 
 // ssh asks for passwords, key passphrases and verification codes through SSH_ASKPASS. This module
@@ -334,6 +335,8 @@ export function forgetSshAuth(target: SshTarget): void {
   for (const key of secrets.keys()) {
     if (key.startsWith(`${hostKey}\0`)) secrets.delete(key);
   }
+  // A shared ssh connection keeps its sign-in; ending it makes the next connect sign in again.
+  exitControlMaster(target);
 }
 
 export function pendingSshAuth(): SshAuthRequest[] {
@@ -353,8 +356,9 @@ export function answerSshAuth(promptId: string, answer: { secret: string } | "ca
   open.settle(answer.secret, false);
 }
 
-/** Quit hook: closes the channel and removes its socket directory. */
+/** Quit hook: closes the channel and removes its socket directory, then the shared ssh connections. */
 export function disposeSshAuth(): void {
+  closeAllControlMasters();
   for (const open of openPrompts.values()) open.settle(null, false);
   secrets.clear();
   const current = channel;

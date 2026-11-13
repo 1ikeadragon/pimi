@@ -241,6 +241,9 @@ const PROBE_TICK_MS = 2_000;
 const PROBE_STEADY_MS = 10_000;
 const PROBE_MAX_BACKOFF_MS = 30_000;
 const PROBE_INACTIVE_WHILE_ONLINE_MS = 120_000;
+// While a routed connection carries the host, its direct connections are probed often so the app
+// moves back as soon as one answers.
+const PROBE_DIRECT_RECOVERY_MS = 15_000;
 const ADAPTIVE_SWITCH_THRESHOLD_MS = 40;
 const ADAPTIVE_SWITCH_CONSECUTIVE_PROBES = 3;
 const CONFIGURED_OVERRIDE_BOOTSTRAP_RETRY_MS = 1_000;
@@ -544,13 +547,14 @@ function probeIntervalForConnection(
   firstSeenAt: number,
   isActiveOnline: boolean,
   hasActiveOnlineConnection: boolean,
+  isDirectRecovery: boolean,
   now: number,
 ): number {
   if (isActiveOnline) {
     return PROBE_STEADY_MS;
   }
   if (hasActiveOnlineConnection) {
-    return PROBE_INACTIVE_WHILE_ONLINE_MS;
+    return isDirectRecovery ? PROBE_DIRECT_RECOVERY_MS : PROBE_INACTIVE_WHILE_ONLINE_MS;
   }
   const age = now - firstSeenAt;
   if (age < 10_000) return 2_000;
@@ -940,6 +944,7 @@ export class HostRuntimeController {
     const isOnline = this.snapshot.connectionStatus === "online";
     const activeConnectionId = this.snapshot.activeConnectionId;
     const hasActiveOnlineConnection = isOnline && activeConnectionId !== null;
+    const activeIsRouted = findConnectionById(this.host, activeConnectionId)?.type === "routed";
 
     const connectionsToProbe = this.host.connections.filter((connection) => {
       if (this.authRejectedConnectionIds.has(connection.id)) return false;
@@ -949,10 +954,12 @@ export class HostRuntimeController {
       }
       const firstSeen = this.connectionFirstSeenAt.get(connection.id) ?? now;
       const isActiveOnline = isOnline && connection.id === activeConnectionId;
+      const isDirectRecovery = activeIsRouted && connection.type !== "routed";
       const interval = probeIntervalForConnection(
         firstSeen,
         isActiveOnline,
         hasActiveOnlineConnection,
+        isDirectRecovery,
         now,
       );
       return now - lastProbed >= interval;
@@ -988,10 +995,23 @@ export class HostRuntimeController {
       this.updateSnapshot({ probeByConnectionId: new Map(probeByConnectionId) });
     };
 
+    // A routed connection waits while a direct one may still answer; finalizeProbeCycle picks it
+    // if every direct connection fails.
+    const directMayStillAnswer = (): boolean =>
+      this.host.connections.some(
+        (connection) =>
+          connection.type !== "routed" &&
+          !this.authRejectedConnectionIds.has(connection.id) &&
+          probeByConnectionId.get(connection.id)?.status !== "unavailable",
+      );
+
     const maybeActivateFirstAvailable = async (
       connectionId: string,
       client: DaemonClient,
     ): Promise<boolean> => {
+      if (this.isRouted(connectionId) && directMayStillAnswer()) {
+        return false;
+      }
       while (!this.snapshot.activeConnectionId) {
         if (!activationLock) {
           activationLock = this.switchToConnection({
@@ -1059,50 +1079,17 @@ export class HostRuntimeController {
         return;
       }
 
-      if (!activeProbe || activeProbe.status !== "available") {
+      if (this.isRouted(currentActiveConnectionId)) {
+        await this.leaveRoutedForDirect(probeByConnectionId, requestVersion);
         return;
       }
 
-      const available = Array.from(probeByConnectionId.entries())
-        .filter(
-          (entry): entry is [string, Extract<ConnectionProbeState, { status: "available" }>] =>
-            entry[1].status === "available",
-        )
-        .map(([connectionId, probe]) => ({
-          connectionId,
-          latencyMs: probe.latencyMs,
-        }))
-        .sort((left, right) => left.latencyMs - right.latencyMs);
-
-      const fastest = available[0] ?? null;
-      if (!fastest || fastest.connectionId === currentActiveConnectionId) {
-        this.switchCandidateConnectionId = null;
-        this.switchCandidateHitCount = 0;
-        return;
-      }
-
-      const improvement = activeProbe.latencyMs - fastest.latencyMs;
-      if (improvement < ADAPTIVE_SWITCH_THRESHOLD_MS) {
-        this.switchCandidateConnectionId = null;
-        this.switchCandidateHitCount = 0;
-        return;
-      }
-
-      if (this.switchCandidateConnectionId === fastest.connectionId) {
-        this.switchCandidateHitCount += 1;
-      } else {
-        this.switchCandidateConnectionId = fastest.connectionId;
-        this.switchCandidateHitCount = 1;
-      }
-
-      if (this.switchCandidateHitCount >= ADAPTIVE_SWITCH_CONSECUTIVE_PROBES) {
-        this.switchCandidateConnectionId = null;
-        this.switchCandidateHitCount = 0;
-        await this.switchToConnection({
-          connectionId: fastest.connectionId,
-          expectedProbeVersion: requestVersion,
-        });
-      }
+      await this.adaptToFastestConnection({
+        activeConnectionId: currentActiveConnectionId,
+        activeProbe,
+        probeByConnectionId,
+        requestVersion,
+      });
     };
 
     await new Promise<void>((resolve) => {
@@ -1206,6 +1193,87 @@ export class HostRuntimeController {
         })();
       }
     });
+  }
+
+  // Moves to a connection that has been at least ADAPTIVE_SWITCH_THRESHOLD_MS faster for
+  // ADAPTIVE_SWITCH_CONSECUTIVE_PROBES probes in a row.
+  private async adaptToFastestConnection(input: {
+    activeConnectionId: string;
+    activeProbe: ConnectionProbeState | null | undefined;
+    probeByConnectionId: Map<string, ConnectionProbeState>;
+    requestVersion: number;
+  }): Promise<void> {
+    const { activeConnectionId, activeProbe, probeByConnectionId, requestVersion } = input;
+    if (!activeProbe || activeProbe.status !== "available") {
+      return;
+    }
+
+    const fastest = this.availableProbesByLatency(probeByConnectionId)[0] ?? null;
+    if (!fastest || fastest.connectionId === activeConnectionId) {
+      this.switchCandidateConnectionId = null;
+      this.switchCandidateHitCount = 0;
+      return;
+    }
+
+    const improvement = activeProbe.latencyMs - fastest.latencyMs;
+    if (improvement < ADAPTIVE_SWITCH_THRESHOLD_MS) {
+      this.switchCandidateConnectionId = null;
+      this.switchCandidateHitCount = 0;
+      return;
+    }
+
+    if (this.switchCandidateConnectionId === fastest.connectionId) {
+      this.switchCandidateHitCount += 1;
+    } else {
+      this.switchCandidateConnectionId = fastest.connectionId;
+      this.switchCandidateHitCount = 1;
+    }
+
+    if (this.switchCandidateHitCount >= ADAPTIVE_SWITCH_CONSECUTIVE_PROBES) {
+      this.switchCandidateConnectionId = null;
+      this.switchCandidateHitCount = 0;
+      await this.switchToConnection({
+        connectionId: fastest.connectionId,
+        expectedProbeVersion: requestVersion,
+      });
+    }
+  }
+
+  private isRouted(connectionId: string): boolean {
+    return findConnectionById(this.host, connectionId)?.type === "routed";
+  }
+
+  // Available non-routed probes, fastest first. A routed connection is a fallback, never a "faster"
+  // candidate to adapt to.
+  private availableProbesByLatency(
+    probeByConnectionId: Map<string, ConnectionProbeState>,
+  ): { connectionId: string; latencyMs: number }[] {
+    const available: { connectionId: string; latencyMs: number }[] = [];
+    for (const [connectionId, probe] of probeByConnectionId) {
+      if (probe.status === "available" && !this.isRouted(connectionId)) {
+        available.push({ connectionId, latencyMs: probe.latencyMs });
+      }
+    }
+    return available.sort((left, right) => left.latencyMs - right.latencyMs);
+  }
+
+  // A routed connection is a fallback: the moment a direct connection of the host answers, the app
+  // moves to it, without the adaptive switcher's latency margin and repeat count.
+  private async leaveRoutedForDirect(
+    probeByConnectionId: Map<string, ConnectionProbeState>,
+    requestVersion: number,
+  ): Promise<void> {
+    this.switchCandidateConnectionId = null;
+    this.switchCandidateHitCount = 0;
+    const direct = selectBestConnection({
+      candidates: buildConnectionCandidates(this.host).filter(
+        (candidate) => candidate.connection.type !== "routed",
+      ),
+      probeByConnectionId,
+    });
+    if (direct) {
+      await this.switchToConnection({ connectionId: direct, expectedProbeVersion: requestVersion });
+    }
   }
 
   // The active connection is probed through its own client, which may still be
