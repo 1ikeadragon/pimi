@@ -144,6 +144,7 @@ import type {
   AgentManagerEvent,
   AgentTimelineCursor,
   AgentTimelineFetchDirection,
+  AgentTimelineFetchResult,
   ManagedAgent,
 } from "./agent/agent-manager.js";
 import { createAgentCommand } from "./agent/create-agent/create.js";
@@ -173,8 +174,10 @@ import {
   getAgentStreamEventTurnId,
   type AgentPersistenceHandle,
   type AgentPermissionResponse,
+  type AgentProvider,
   type AgentRunOptions,
   type AgentSessionConfig,
+  type AgentSlashCommand,
   type ToolCallDetail,
 } from "./agent/agent-sdk-types.js";
 import type { StoredAgentRecord } from "./agent/agent-storage.js";
@@ -5078,6 +5081,27 @@ export class Session {
     this.sessionLogger.info("Registered push token");
   }
 
+  private refreshCommandsInBackground(agentId: string): void {
+    void (async () => {
+      const agent = await ensureAgentLoaded(agentId, {
+        agentManager: this.agentManager,
+        agentStorage: this.agentStorage,
+        logger: this.sessionLogger,
+      });
+      await this.readCommands(agent);
+    })().catch((error: unknown) => {
+      this.sessionLogger.debug({ err: error, agentId }, "Failed to refresh cached commands");
+    });
+  }
+
+  private readCommands(agent: ManagedAgent): Promise<AgentSlashCommand[]> {
+    const session = agent.session;
+    if (!session?.listCommands) return Promise.resolve([]);
+    return this.agentManager.slashCommands.read(agent.provider, agent.cwd, () =>
+      session.listCommands!(),
+    );
+  }
+
   /**
    * Handle list commands request for an agent
    */
@@ -5093,6 +5117,20 @@ export class Session {
     try {
       const existing = this.agentManager.getAgent(agentId);
       const stored = existing ? null : await this.agentStorage.get(agentId);
+      // A chat that is not loaded answers from the commands last read for its provider and
+      // folder, and refreshes them in the background once they are old. Reading them needs a
+      // live provider process, which costs a few hundred milliseconds on a cold chat.
+      if (stored && !stored.archivedAt) {
+        const cached = await this.agentManager.slashCommands.get(stored.provider, stored.cwd);
+        if (cached) {
+          this.emit({
+            type: "list_commands_response",
+            payload: { agentId, commands: cached.commands, error: null, requestId },
+          });
+          if (cached.stale) this.refreshCommandsInBackground(agentId);
+          return;
+        }
+      }
       const agent =
         existing || (stored && !stored.archivedAt)
           ? await ensureAgentLoaded(agentId, {
@@ -5103,7 +5141,7 @@ export class Session {
           : null;
 
       if (agent?.session?.listCommands) {
-        const commands = await agent.session.listCommands();
+        const commands = await this.readCommands(agent);
         this.emit({
           type: "list_commands_response",
           payload: {
@@ -8027,6 +8065,114 @@ export class Session {
     });
   }
 
+  /**
+   * Answer the newest page of a chat that is not loaded from its stored timeline and the stored
+   * agent record, then load the agent in the background. The load opens the same stored copy, so
+   * its timeline continues the epoch and seqs sent here; a send that arrives meanwhile waits on
+   * that load like any other request. Returns false when the request needs the loaded agent.
+   */
+  private async tryServeTimelineFromStore(
+    msg: Extract<SessionInboundMessage, { type: "fetch_agent_timeline_request" }>,
+    source?: object,
+  ): Promise<boolean> {
+    if (this.agentManager.getAgent(msg.agentId)) return false;
+    const record = await this.agentStorage.get(msg.agentId);
+    if (!record || record.archivedAt) return false;
+    const registered = this.agentManager.getRegisteredProviderIds();
+    if (!isStoredAgentProviderAvailable(record, registered)) return false;
+    const handle = toAgentPersistenceHandle(registered, record.persistence);
+    if (!handle) return false;
+    const direction: AgentTimelineFetchDirection = msg.direction ?? (msg.cursor ? "after" : "tail");
+    const timeline = this.agentManager.peekStoredTimeline(msg.agentId, handle, {
+      direction,
+      cursor: msg.cursor ? { epoch: msg.cursor.epoch, seq: msg.cursor.seq } : undefined,
+      limit: msg.limit,
+      wholeTurns: msg.wholeTurns,
+    });
+    if (!timeline) return false;
+    void ensureAgentLoaded(msg.agentId, {
+      agentManager: this.agentManager,
+      agentStorage: this.agentStorage,
+      logger: this.sessionLogger,
+      purpose: "history",
+    })
+      // The chat's slash commands are read as soon as it is loaded, so the list request that
+      // follows an open joins this read instead of starting a second provider process.
+      .then((agent) => this.readCommands(agent))
+      .catch((error: unknown) => {
+        this.sessionLogger.warn(
+          { err: error, agentId: msg.agentId },
+          "Background load after serving a stored timeline failed",
+        );
+      });
+    this.emitFetchAgentTimelineResponse({
+      msg,
+      direction,
+      agentPayload: this.buildStoredAgentPayload(record),
+      provider: record.provider,
+      timeline,
+      source,
+    });
+    return true;
+  }
+
+  private emitFetchAgentTimelineResponse(input: {
+    msg: Extract<SessionInboundMessage, { type: "fetch_agent_timeline_request" }>;
+    direction: AgentTimelineFetchDirection;
+    agentPayload: AgentSnapshotPayload;
+    provider: AgentProvider;
+    timeline: AgentTimelineFetchResult;
+    completedCompactionCount?: number;
+    source?: object;
+  }): void {
+    const { msg, direction, agentPayload, provider, timeline, completedCompactionCount, source } =
+      input;
+    const compactionOnly = msg.compactionSummaryOnly === true;
+    const startCursor =
+      !compactionOnly && timeline.startSeq !== null
+        ? { epoch: timeline.epoch, seq: timeline.startSeq }
+        : null;
+    const endCursor =
+      !compactionOnly && timeline.endSeq !== null
+        ? { epoch: timeline.epoch, seq: timeline.endSeq }
+        : null;
+    const entries = compactionOnly ? [] : timeline.rows;
+    this.emitForSource(
+      {
+        type: "fetch_agent_timeline_response",
+        payload: {
+          requestId: msg.requestId,
+          agentId: msg.agentId,
+          agent: agentPayload,
+          direction,
+          epoch: timeline.epoch,
+          reset: timeline.reset,
+          staleCursor: timeline.staleCursor,
+          gap: timeline.gap,
+          window: timeline.window,
+          startCursor,
+          endCursor,
+          hasOlder: !compactionOnly && timeline.hasOlder,
+          hasNewer: !compactionOnly && timeline.hasNewer,
+          ...(msg.mergeWindow === true ? { mergeWindow: true } : {}),
+          ...(completedCompactionCount === undefined ? {} : { completedCompactionCount }),
+          entries: entries.map((entry) => ({
+            provider,
+            item: msg.stripToolBodies ? stripToolCallBodies(entry.item) : entry.item,
+            timestamp: entry.timestamp,
+            seqStart: entry.seqStart,
+            seqEnd: entry.seqEnd,
+            sourceSeqRanges: entry.sourceSeqRanges,
+            turnId: entry.turnId,
+            collapsed: entry.collapsed,
+          })),
+          error: null,
+        },
+      },
+      source,
+    );
+  }
+
   private async handleFetchAgentTimelineRequest(
     msg: Extract<SessionInboundMessage, { type: "fetch_agent_timeline_request" }>,
     source?: object,
@@ -8040,6 +8186,9 @@ export class Session {
       : undefined;
 
     try {
+      if (!msg.compactionSummaryOnly && (await this.tryServeTimelineFromStore(msg, source))) {
+        return;
+      }
       const snapshot = await ensureAgentLoaded(msg.agentId, {
         agentManager: this.agentManager,
         agentStorage: this.agentStorage,
@@ -8059,62 +8208,15 @@ export class Session {
       const completedCompactionCount = msg.compactionSummaryOnly
         ? this.agentManager.getCompletedCompactionCount(msg.agentId)
         : undefined;
-      const selectedTimeline = {
+      this.emitFetchAgentTimelineResponse({
+        msg,
+        direction,
+        agentPayload,
+        provider: snapshot.provider,
         timeline: fetchedControlTimeline,
-        entries: msg.compactionSummaryOnly ? [] : fetchedControlTimeline.rows,
-        startSeq: msg.compactionSummaryOnly ? null : fetchedControlTimeline.startSeq,
-        endSeq: msg.compactionSummaryOnly ? null : fetchedControlTimeline.endSeq,
-        hasOlder: !msg.compactionSummaryOnly && fetchedControlTimeline.hasOlder,
-        hasNewer: !msg.compactionSummaryOnly && fetchedControlTimeline.hasNewer,
-      };
-      const startCursor =
-        selectedTimeline.startSeq !== null
-          ? { epoch: selectedTimeline.timeline.epoch, seq: selectedTimeline.startSeq }
-          : null;
-      const endCursor =
-        selectedTimeline.endSeq !== null
-          ? { epoch: selectedTimeline.timeline.epoch, seq: selectedTimeline.endSeq }
-          : null;
-      const entries = selectedTimeline.entries;
-
-      this.emitForSource(
-        {
-          type: "fetch_agent_timeline_response",
-          payload: {
-            requestId: msg.requestId,
-            agentId: msg.agentId,
-            agent: agentPayload,
-            direction,
-            epoch: selectedTimeline.timeline.epoch,
-            reset: fetchedControlTimeline.reset,
-            staleCursor: fetchedControlTimeline.staleCursor,
-            gap: fetchedControlTimeline.gap,
-            window: selectedTimeline.timeline.window,
-            startCursor,
-            endCursor,
-            hasOlder: selectedTimeline.hasOlder,
-            hasNewer: selectedTimeline.hasNewer,
-            ...(msg.mergeWindow === true ? { mergeWindow: true } : {}),
-            ...(completedCompactionCount === undefined ? {} : { completedCompactionCount }),
-            entries: entries.map((entry) => {
-              const payloadEntry = {
-                provider: snapshot.provider,
-                item: msg.stripToolBodies ? stripToolCallBodies(entry.item) : entry.item,
-                timestamp: entry.timestamp,
-                seqStart: entry.seqStart,
-                seqEnd: entry.seqEnd,
-                sourceSeqRanges: entry.sourceSeqRanges,
-                turnId: undefined as string | undefined,
-                collapsed: entry.collapsed,
-              };
-              payloadEntry.turnId = entry.turnId;
-              return payloadEntry;
-            }),
-            error: null,
-          },
-        },
+        completedCompactionCount,
         source,
-      );
+      });
     } catch (error) {
       this.sessionLogger.error(
         { err: error, agentId: msg.agentId },
@@ -8380,21 +8482,38 @@ export class Session {
     }
   }
 
+  private async hasNoStoredProviderSubagents(agentId: string): Promise<boolean> {
+    if (this.agentManager.getAgent(agentId)) return false;
+    const record = await this.agentStorage.get(agentId);
+    if (!record || record.archivedAt) return false;
+    const handle = toAgentPersistenceHandle(
+      this.agentManager.getRegisteredProviderIds(),
+      record.persistence,
+    );
+    return handle !== null && this.agentManager.canOpenFromStore(agentId, handle);
+  }
+
   private async handleProviderSubagentListRequest(
     msg: Extract<SessionInboundMessage, { type: "agent.provider_subagents.list.request" }>,
   ): Promise<void> {
     try {
-      await ensureUnarchivedAgentLoaded(msg.parentAgentId, {
-        agentManager: this.agentManager,
-        agentStorage: this.agentStorage,
-        logger: this.sessionLogger,
-      });
+      // A chat that is not loaded and opens from a complete stored timeline that never held a
+      // provider subagent has none to list; the open itself loads the agent in the background.
+      if (!(await this.hasNoStoredProviderSubagents(msg.parentAgentId))) {
+        await ensureUnarchivedAgentLoaded(msg.parentAgentId, {
+          agentManager: this.agentManager,
+          agentStorage: this.agentStorage,
+          logger: this.sessionLogger,
+        });
+      }
       this.emit({
         type: "agent.provider_subagents.list.response",
         payload: {
           requestId: msg.requestId,
           parentAgentId: msg.parentAgentId,
-          subagents: this.agentManager.listProviderSubagents(msg.parentAgentId),
+          subagents: this.agentManager.getAgent(msg.parentAgentId)
+            ? this.agentManager.listProviderSubagents(msg.parentAgentId)
+            : [],
           error: null,
         },
       });

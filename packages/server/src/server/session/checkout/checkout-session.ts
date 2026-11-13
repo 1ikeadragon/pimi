@@ -469,7 +469,9 @@ export class CheckoutSession {
         },
       });
       ready = true;
-      if (pending) emitSnapshot(pending);
+      // A refresh that finished while the subscription opened is the initial snapshot again
+      // unless the tree changed since; sending it twice costs a second multi-megabyte frame.
+      if (pending && !isSameDiffSnapshot(pending, subscription.initial)) emitSnapshot(pending);
     } catch (error) {
       await owner.release();
       throw error;
@@ -1414,4 +1416,11 @@ function toPullRequestTimelinePayloadItem(
   item: PullRequestTimelineItem,
 ): PullRequestTimelinePayloadItem {
   return item;
+}
+
+function isSameDiffSnapshot(
+  left: CheckoutDiffSnapshotPayload,
+  right: CheckoutDiffSnapshotPayload,
+): boolean {
+  return left === right || JSON.stringify(left) === JSON.stringify(right);
 }
