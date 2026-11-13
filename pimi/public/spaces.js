@@ -42,6 +42,11 @@ function inlineEmbed(url) {
   return null;
 }
 
+// A paper is shown as the arXiv HTML itself; its scraped abstract page text would repeat it.
+function isPaper(item) {
+  return item?.kind === "link" && inlineEmbed(item.embedUrl)?.kind === "arxiv";
+}
+
 function githubRepository(url) {
   if (url.origin !== "https://github.com" || url.username || url.password) return null;
   const match = /^\/([A-Za-z\d][A-Za-z\d-]{0,38})\/([\w.-]{1,100})\/?$/.exec(url.pathname);
@@ -89,34 +94,39 @@ export function createSpacesView({ $, api, button, element, message }) {
     return frame;
   }
 
-  // A card shows a static poster; the iframe exists only after a click, and goes back to the
-  // poster when it scrolls away or Spaces is hidden, so a view switch never reloads an embed.
+  // X posts and arXiv papers load as soon as their card is on screen; YouTube keeps a cached
+  // poster until clicked so a board of videos never starts a player. A card unloads its iframe
+  // when it scrolls away or Spaces is hidden, so a view switch never leaves an embed running.
+  const autoLoad = (embed) => embed.kind !== "youtube";
+
+  function mountFrame(slot) {
+    const frame = embedFrame(sources.get(slot));
+    frame.tabIndex = -1;
+    slot.replaceChildren(frame);
+  }
+
   function fillPoster(slot) {
-    observer.unobserve(slot);
     const embed = sources.get(slot);
-    if (embed.kind === "arxiv") {
-      const label = element("span", "spaces-embed-label");
-      label.append($("spaces-paper-icon").content.cloneNode(true), "arXiv paper");
-      slot.replaceChildren(label);
+    if (autoLoad(embed)) {
+      slot.replaceChildren();
+      observer.observe(slot);
       return;
     }
+    observer.unobserve(slot);
     const play = button("spaces-embed-play", "", () => {
       slot.replaceChildren(embedFrame(embed));
       observer.observe(slot);
     });
-    play.setAttribute("aria-label", embed.kind === "youtube" ? "Play video" : "Show post");
-    if (embed.kind === "youtube") {
-      const image = element("img");
-      image.alt = "";
-      image.loading = "lazy";
-      image.decoding = "async";
-      image.src = "/api/spaces/poster?v=" + embed.url.split("/").pop();
-      image.addEventListener("error", () => image.remove(), { once: true });
-      play.append(image);
-    }
+    play.setAttribute("aria-label", "Play video");
+    const image = element("img");
+    image.alt = "";
+    image.loading = "lazy";
+    image.decoding = "async";
+    image.src = "/api/spaces/poster?v=" + embed.url.split("/").pop();
+    image.addEventListener("error", () => image.remove(), { once: true });
+    play.append(image);
     const glyph = element("span", "spaces-embed-glyph");
     glyph.append($("spaces-video-icon").content.cloneNode(true));
-    if (embed.kind === "x") glyph.append("Show post");
     play.append(glyph);
     slot.replaceChildren(play);
   }
@@ -124,8 +134,13 @@ export function createSpacesView({ $, api, button, element, message }) {
   const observer = new IntersectionObserver(
     (entries) => {
       for (const { target, isIntersecting, intersectionRatio } of entries) {
-        if ((!isIntersecting || intersectionRatio === 0) && target.querySelector("iframe"))
-          fillPoster(target);
+        const visible = isIntersecting && intersectionRatio > 0;
+        const hasFrame = Boolean(target.querySelector("iframe"));
+        if (!visible && hasFrame) fillPoster(target);
+        else if (visible && !hasFrame && autoLoad(sources.get(target))) {
+          if (active && !document.hidden && target.isConnected && !target.hidden)
+            mountFrame(target);
+        }
       }
     },
     { threshold: 0.01 },
@@ -135,6 +150,14 @@ export function createSpacesView({ $, api, button, element, message }) {
     if (!active || document.hidden) {
       for (const frame of grid.querySelectorAll(".spaces-embed iframe"))
         fillPoster(frame.parentElement);
+    } else {
+      // Re-observing reports each visible card again, which loads its embed.
+      for (const slot of grid.querySelectorAll(".spaces-embed")) {
+        if (autoLoad(sources.get(slot)) && !slot.hidden) {
+          observer.unobserve(slot);
+          observer.observe(slot);
+        }
+      }
     }
     updatePaperReader();
   }
@@ -218,10 +241,38 @@ export function createSpacesView({ $, api, button, element, message }) {
 
   function showLinkText(item, status = "") {
     const body = $("spaces-card-link-text");
-    body.textContent = item?.preview?.text ?? "";
+    body.textContent = isPaper(item) ? "" : (item?.preview?.text ?? "");
     body.hidden = !body.textContent;
-    message("spaces-card-link-status", item?.preview?.truncated ? "Preview excerpt" : status);
+    const excerpt = item?.preview?.truncated ? "Preview excerpt" : status;
+    message("spaces-card-link-status", isPaper(item) ? "" : excerpt);
     if (item?.preview?.title) $("spaces-card-title").textContent = item.preview.title;
+  }
+
+  function showCardPreview(loaded) {
+    const caption = $("space-card-" + loaded.id)?.querySelector(".spaces-link-caption");
+    if (!caption || !loaded.preview) return;
+    if (loaded.preview.title) caption.querySelector("strong").textContent = loaded.preview.title;
+    const summary = caption.querySelector(".spaces-link-summary");
+    summary.textContent = isPaper(loaded) ? "" : loaded.preview.text;
+    summary.hidden = !summary.textContent;
+  }
+
+  // Saved links read their page text when Spaces loads, not only when a card is opened. The
+  // host fetches a few at a time and backs off a failed page, so this asks once per card.
+  const hydrating = new Set();
+  async function hydratePreviews(items) {
+    for (const item of items) {
+      if (item.kind !== "link" || item.preview || hydrating.has(item.id)) continue;
+      hydrating.add(item.id);
+      try {
+        const { item: loaded } = await api("spaces", { action: "preview-link", id: item.id });
+        if (active) showCardPreview(loaded);
+      } catch {
+        // The card keeps its host name; opening it retries.
+      } finally {
+        hydrating.delete(item.id);
+      }
+    }
   }
 
   async function loadLinkText(item) {
@@ -230,14 +281,7 @@ export function createSpacesView({ $, api, button, element, message }) {
       if (!editor.open || current?.id !== item.id) return;
       current = loaded;
       showLinkText(loaded, loaded.preview ? "" : "Link text unavailable.");
-      const caption = $("space-card-" + item.id)?.querySelector(".spaces-link-caption");
-      if (caption && loaded.preview) {
-        if (loaded.preview.title)
-          caption.querySelector("strong").textContent = loaded.preview.title;
-        const summary = caption.querySelector(".spaces-link-summary");
-        summary.textContent = loaded.preview.text;
-        summary.hidden = !loaded.preview.text;
-      }
+      showCardPreview(loaded);
     } catch {
       if (editor.open && current?.id === item.id) showLinkText(item, "Couldn’t load link text.");
     }
@@ -299,8 +343,12 @@ export function createSpacesView({ $, api, button, element, message }) {
       const icon = embed?.icon ?? (repository ? "repo" : "link");
       badge.append($(`spaces-${icon}-icon`).content.cloneNode(true));
       const caption = element("span", "spaces-link-caption");
-      const summary = element("span", "spaces-link-summary", item.preview?.text);
-      summary.hidden = !item.preview?.text;
+      const summary = element(
+        "span",
+        "spaces-link-summary",
+        embed?.kind === "arxiv" ? "" : item.preview?.text,
+      );
+      summary.hidden = !summary.textContent;
       caption.append(
         element("strong", "", title),
         element("span", "subtitle", repository ? "GitHub repository" : url.host + url.pathname),
@@ -456,6 +504,7 @@ export function createSpacesView({ $, api, button, element, message }) {
     } else message("spaces-status", "");
     updateEmbedVisibility();
     showEmpty();
+    void hydratePreviews(result.items);
     return result.items;
   }
 
