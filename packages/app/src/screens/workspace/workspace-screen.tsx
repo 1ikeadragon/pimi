@@ -131,7 +131,8 @@ import {
   getHostRuntimeStore,
   useHostRuntimeClient,
   useHostRuntimeIsConnected,
-  useHostRuntimeSnapshot,
+  useHostRuntimeConnectionStatus,
+  useHostRuntimeLastError,
   useHosts,
 } from "@/runtime/host-runtime";
 import { prefetchProvidersSnapshot } from "@/hooks/use-providers-snapshot";
@@ -781,22 +782,23 @@ function useResolvedWorkspaceRouteState(input: {
     () => hosts.find((entry) => entry.serverId === input.serverId) ?? null,
     [hosts, input.serverId],
   );
-  const hostSnapshot = useHostRuntimeSnapshot(input.serverId);
+  const connectionStatus = useHostRuntimeConnectionStatus(input.serverId);
+  const lastError = useHostRuntimeLastError(input.serverId);
   const hostName = useMemo(() => getHostDisplayName(host, input.serverId), [host, input.serverId]);
   return useMemo(
     () =>
       resolveWorkspaceRouteState({
         hostName,
-        connectionStatus: hostSnapshot?.connectionStatus ?? "connecting",
-        lastError: hostSnapshot?.lastError ?? null,
+        connectionStatus,
+        lastError,
         workspace: input.workspace,
         hasHydratedWorkspaces: input.hasHydratedWorkspaces,
         recovery: input.recovery,
       }),
     [
       hostName,
-      hostSnapshot?.connectionStatus,
-      hostSnapshot?.lastError,
+      connectionStatus,
+      lastError,
       input.workspace,
       input.hasHydratedWorkspaces,
       input.recovery,
