@@ -1828,23 +1828,31 @@ export class AgentManager {
   }
 
   /**
-   * The parent-session prompt that delivers a user message to one provider subagent. Throws when
-   * the provider has no route to its children, so a caller never sends the message elsewhere.
+   * How a user message reaches one provider subagent: straight to the child when the provider has
+   * a channel to it, otherwise as a parent-session prompt that asks the parent model to relay it.
+   * Throws when the provider has neither, so a caller never sends the message elsewhere.
    */
-  buildProviderSubagentMessagePrompt(
+  routeProviderSubagentMessage(
     parentAgentId: string,
     subagentId: string,
     text: string,
-  ): string {
+  ): { via: "direct"; send: () => Promise<void> } | { via: "relay"; prompt: string } {
     const parent = this.requirePublicAgent(parentAgentId);
-    const descriptor = this.providerSubagents.get(parentAgentId, subagentId);
-    if (!descriptor) throw new Error("Subagent not found");
+    if (!this.providerSubagents.get(parentAgentId, subagentId)) {
+      throw new Error("Subagent not found");
+    }
     if (!canMessageProviderSubagent(parent.provider)) {
       throw new Error(`${parent.provider} subagents cannot receive messages`);
     }
-    const prompt = parent.session?.wrapProviderSubagentMessage?.(subagentId, text);
+    const session = parent.session;
+    if (!session) throw new Error("The parent agent is not running");
+    if (session.sendProviderSubagentMessage) {
+      const send = session.sendProviderSubagentMessage.bind(session);
+      return { via: "direct", send: () => send(subagentId, text) };
+    }
+    const prompt = session.wrapProviderSubagentMessage?.(subagentId, text);
     if (!prompt) throw new Error("This subagent can no longer be messaged");
-    return prompt;
+    return { via: "relay", prompt };
   }
 
   fetchProviderSubagentTimeline(

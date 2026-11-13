@@ -8550,13 +8550,21 @@ export class Session {
   ): Promise<void> {
     let error: string | null = null;
     try {
-      const prompt = this.agentManager.buildProviderSubagentMessagePrompt(
+      const route = this.agentManager.routeProviderSubagentMessage(
         msg.parentAgentId,
         msg.subagentId,
         msg.text,
       );
-      const result = await this.handleSendAgentMessage(msg.parentAgentId, prompt, msg.messageId);
-      if (!result.ok) error = result.error;
+      if (route.via === "direct") {
+        await route.send();
+      } else {
+        const result = await this.handleSendAgentMessage(
+          msg.parentAgentId,
+          route.prompt,
+          msg.messageId,
+        );
+        if (!result.ok) error = result.error;
+      }
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
     }
