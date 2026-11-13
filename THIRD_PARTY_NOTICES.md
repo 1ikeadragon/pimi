@@ -1,6 +1,6 @@
 # Third-party notices
 
-Pimi includes code adapted from the projects below. Each keeps its own license.
+Pimi includes code adapted from the projects below. Each keeps its own license. Done so my dumbass friend can migrate from T3 without whining about Pimi's annotation design
 
 ## T3 Code
 
