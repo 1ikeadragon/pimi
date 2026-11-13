@@ -2166,6 +2166,43 @@ export const UsageListReportsRequestMessageSchema = z.object({
   forceRefresh: z.boolean().optional(),
 });
 
+// Usage history (the ledger). Ranges end now; `timezoneOffsetMinutes` is minutes east of UTC and
+// decides where days and hours start, so the daemon never guesses the viewer's zone.
+export const UsageRangeSchema = z.enum(["today", "week", "month", "all"]);
+export const UsageGroupBySchema = z.enum([
+  "provider",
+  "model",
+  "project",
+  "origin",
+  "day",
+  "hour",
+  "tool",
+]);
+export const UsageGetSummaryRequestMessageSchema = z.object({
+  type: z.literal("usage.get_summary.request"),
+  timezoneOffsetMinutes: z.number(),
+  requestId: z.string(),
+});
+export const UsageGetBreakdownRequestMessageSchema = z.object({
+  type: z.literal("usage.get_breakdown.request"),
+  range: UsageRangeSchema,
+  groupBy: UsageGroupBySchema,
+  provider: z.string().nullable(),
+  timezoneOffsetMinutes: z.number(),
+  requestId: z.string(),
+});
+export const UsageGetAgentTreeRequestMessageSchema = z.object({
+  type: z.literal("usage.get_agent_tree.request"),
+  range: UsageRangeSchema,
+  provider: z.string().nullable(),
+  timezoneOffsetMinutes: z.number(),
+  requestId: z.string(),
+});
+export const UsageRescanRequestMessageSchema = z.object({
+  type: z.literal("usage.rescan.request"),
+  requestId: z.string(),
+});
+
 export const ResumeAgentRequestMessageSchema = z.object({
   type: z.literal("resume_agent_request"),
   handle: AgentPersistenceHandleSchema,
@@ -3745,6 +3782,10 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   ProviderDiagnosticRequestMessageSchema,
   ProviderHarnessUpdatesRequestMessageSchema,
   UsageListReportsRequestMessageSchema,
+  UsageGetSummaryRequestMessageSchema,
+  UsageGetBreakdownRequestMessageSchema,
+  UsageGetAgentTreeRequestMessageSchema,
+  UsageRescanRequestMessageSchema,
   WorkspaceSearchRunRequestSchema,
   WorkspaceSearchCancelRequestSchema,
   WorkspaceSearchReplaceRequestSchema,
@@ -6967,6 +7008,109 @@ export const UsageListReportsResponseMessageSchema = z.object({
   payload: z.object({ requestId: z.string(), error: z.string().nullable() }),
 });
 
+// Token counters follow one convention for every provider: `input` excludes cache reads and
+// writes, `output` includes `reasoning`, `total` = input + cacheRead + cacheWrite + output.
+// `costUsd` is an API-equivalent estimate from the daemon's bundled price table and sums only the
+// events whose model has a price; `pricedTokens` is the part of `total` that was priced.
+export const UsageAggregateSchema = z.object({
+  input: z.number(),
+  cacheRead: z.number(),
+  cacheWrite: z.number(),
+  output: z.number(),
+  reasoning: z.number(),
+  total: z.number(),
+  costUsd: z.number().nullable(),
+  pricedTokens: z.number(),
+  events: z.number(),
+  chats: z.number(),
+});
+export const UsageBreakdownRowSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  usage: UsageAggregateSchema,
+});
+const UsagePricesSchema = z.object({ asOf: z.string() });
+export const UsageGetSummaryResponseMessageSchema = z.object({
+  type: z.literal("usage.get_summary.response"),
+  payload: z.object({
+    requestId: z.string(),
+    error: z.string().nullable(),
+    summary: z
+      .object({
+        // Timestamp (ms) of the oldest recorded event; null while the ledger is empty.
+        firstEventAt: z.number().nullable(),
+        today: UsageAggregateSchema,
+        // The last seven local days, oldest first, one entry per day including empty ones.
+        days: z.array(
+          z.object({ day: z.string(), total: z.number(), costUsd: z.number().nullable() }),
+        ),
+        scanning: z.boolean(),
+        prices: UsagePricesSchema,
+      })
+      .nullable(),
+  }),
+});
+export const UsageGetBreakdownResponseMessageSchema = z.object({
+  type: z.literal("usage.get_breakdown.response"),
+  payload: z.object({
+    requestId: z.string(),
+    error: z.string().nullable(),
+    breakdown: z
+      .object({
+        totals: UsageAggregateSchema,
+        // Local days that have at least one event in the range.
+        activeDays: z.number(),
+        // Sorted by total tokens descending, except day and hour which sort by key.
+        rows: z.array(UsageBreakdownRowSchema),
+        firstEventAt: z.number().nullable(),
+        scanning: z.boolean(),
+        prices: UsagePricesSchema,
+      })
+      .nullable(),
+  }),
+});
+export const UsageAgentTreeSubagentSchema = z.object({
+  id: z.string(),
+  // "provider" subagents are Task-style sidechains in the parent's transcript; "pimi" subagents
+  // are their own Pimi chats linked by parent label.
+  kind: z.enum(["provider", "pimi"]),
+  agentId: z.string().nullable(),
+  title: z.string().nullable(),
+  usage: UsageAggregateSchema,
+});
+export const UsageAgentTreeChatSchema = z.object({
+  id: z.string(),
+  provider: z.string(),
+  agentId: z.string().nullable(),
+  title: z.string().nullable(),
+  cwd: z.string().nullable(),
+  project: z.string().nullable(),
+  // True when no Pimi chat owns the provider session: it was run outside Pimi.
+  outsidePimi: z.boolean(),
+  lastActiveAt: z.number(),
+  // Includes `subagents`.
+  usage: UsageAggregateSchema,
+  subagents: z.array(UsageAgentTreeSubagentSchema),
+});
+export const UsageGetAgentTreeResponseMessageSchema = z.object({
+  type: z.literal("usage.get_agent_tree.response"),
+  payload: z.object({
+    requestId: z.string(),
+    error: z.string().nullable(),
+    // The 50 chats with the most tokens in the range.
+    chats: z.array(UsageAgentTreeChatSchema),
+  }),
+});
+export const UsageRescanResponseMessageSchema = z.object({
+  type: z.literal("usage.rescan.response"),
+  payload: z.object({
+    requestId: z.string(),
+    error: z.string().nullable(),
+    events: z.number(),
+    filesRead: z.number(),
+  }),
+});
+
 const AgentSlashCommandSchema = z.object({
   name: z.string(),
   description: z.string(),
@@ -7604,6 +7748,10 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   ProviderHarnessUpdatesResponseMessageSchema,
   UsageListReportsUpdateMessageSchema,
   UsageListReportsResponseMessageSchema,
+  UsageGetSummaryResponseMessageSchema,
+  UsageGetBreakdownResponseMessageSchema,
+  UsageGetAgentTreeResponseMessageSchema,
+  UsageRescanResponseMessageSchema,
   WorkspaceSearchRunUpdateMessageSchema,
   WorkspaceSearchRunResponseMessageSchema,
   WorkspaceSearchCancelResponseMessageSchema,
@@ -7817,6 +7965,20 @@ export type UsageProblem = z.infer<typeof UsageProblemSchema>;
 export type UsageReport = z.infer<typeof UsageReportSchema>;
 export type UsageReportEntry = z.infer<typeof UsageReportEntrySchema>;
 export type UsageListReportsResponseMessage = z.infer<typeof UsageListReportsResponseMessageSchema>;
+export type UsageRange = z.infer<typeof UsageRangeSchema>;
+export type UsageGroupBy = z.infer<typeof UsageGroupBySchema>;
+export type UsageAggregate = z.infer<typeof UsageAggregateSchema>;
+export type UsageBreakdownRow = z.infer<typeof UsageBreakdownRowSchema>;
+export type UsageAgentTreeChat = z.infer<typeof UsageAgentTreeChatSchema>;
+export type UsageAgentTreeSubagent = z.infer<typeof UsageAgentTreeSubagentSchema>;
+export type UsageGetSummaryResponseMessage = z.infer<typeof UsageGetSummaryResponseMessageSchema>;
+export type UsageGetBreakdownResponseMessage = z.infer<
+  typeof UsageGetBreakdownResponseMessageSchema
+>;
+export type UsageGetAgentTreeResponseMessage = z.infer<
+  typeof UsageGetAgentTreeResponseMessageSchema
+>;
+export type UsageRescanResponseMessage = z.infer<typeof UsageRescanResponseMessageSchema>;
 export type ProviderUsageWindow = z.infer<typeof ProviderUsageWindowSchema>;
 export type ProviderUsageBalance = z.infer<typeof ProviderUsageBalanceSchema>;
 export type ProviderUsageDetail = z.infer<typeof ProviderUsageDetailSchema>;

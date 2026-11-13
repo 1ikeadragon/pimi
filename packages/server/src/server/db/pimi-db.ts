@@ -44,6 +44,34 @@ const SCHEMA_STEPS: readonly string[] = [
    CREATE TABLE agent_image_index (
      agent_id TEXT NOT NULL, image_id TEXT NOT NULL, mime_type TEXT NOT NULL, origin TEXT NOT NULL,
      PRIMARY KEY (agent_id, image_id)) STRICT;`,
+  // 4: usage ledger. Rows are derived from provider transcripts on disk (see usage/scanner.ts) and
+  // outlive them: Claude Code deletes transcripts after 30 days. `dedupe_key` is the provider's
+  // message or request id, so a rescan never double counts. There is no agent column: the owning
+  // chat is resolved at query time through agents.provider_session_id, so chats created after a
+  // row was written still claim it, and rows with no match are sessions run outside Pimi.
+  // `input` excludes cache reads and writes; `output` includes `reasoning`.
+  `CREATE TABLE usage_events (
+     id INTEGER PRIMARY KEY,
+     ts INTEGER NOT NULL,
+     provider TEXT NOT NULL,
+     model TEXT,
+     session_id TEXT NOT NULL,
+     subagent_id TEXT,
+     parent_session_id TEXT,
+     cwd TEXT,
+     input INTEGER NOT NULL, cache_read INTEGER NOT NULL, cache_write INTEGER NOT NULL,
+     output INTEGER NOT NULL, reasoning INTEGER NOT NULL, total INTEGER NOT NULL,
+     cost_usd REAL,
+     dedupe_key TEXT NOT NULL UNIQUE) STRICT;
+   CREATE INDEX usage_events_ts ON usage_events(ts);
+   CREATE INDEX usage_events_session ON usage_events(provider, session_id);
+   CREATE TABLE usage_tool_calls (
+     call_id TEXT NOT NULL PRIMARY KEY, ts INTEGER NOT NULL, provider TEXT NOT NULL,
+     name TEXT NOT NULL) STRICT, WITHOUT ROWID;
+   CREATE INDEX usage_tool_calls_ts ON usage_tool_calls(ts);
+   CREATE TABLE usage_scan_cursors (
+     path TEXT PRIMARY KEY, size INTEGER NOT NULL, mtime_ms INTEGER NOT NULL,
+     offset INTEGER NOT NULL, state TEXT) STRICT;`,
 ];
 
 // pimi-timeline.db: chat timelines and their search index. Large and rebuildable from provider
