@@ -31,7 +31,7 @@ export function SentBrowserElementPill({
         onPress={handleOpen}
         accessibilityLabel={t("composer.attachments.openBrowserElement")}
       >
-        <AttachmentLabel icon={content.icon} title={content.title} subtitle={content.subtitle} />
+        <AttachmentLabel icon={content.icon} title={content.title} />
       </AttachmentFrame>
       {open ? (
         <BrowserElementPreview

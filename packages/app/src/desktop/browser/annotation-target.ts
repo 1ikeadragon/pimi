@@ -72,6 +72,29 @@ export function useBrowserAnnotationTarget(
   return { scopeKey: chatScopeKey, chatLabel };
 }
 
+/**
+ * The draft of the chat an element annotation made now belongs to, read from the stores. Null when
+ * it belongs to the workspace scope instead (an Attack run, or Attack mode), where it stays a
+ * workspace attachment.
+ */
+export function resolveBrowserAnnotationDraftKey(
+  input: BrowserAnnotationTargetInput,
+): string | null {
+  const { serverId, workspaceKey, tabId, browserId } = input;
+  const state = useWorkspaceLayoutStore.getState();
+  const keepsWorkspaceScope = workspaceKey
+    ? state.workbenchByWorkspace[workspaceKey]?.mode === "attack"
+    : false;
+  const isAttackOwned = useBrowserStore.getState().browsersById[browserId]?.owner != null;
+  if (keepsWorkspaceScope || isAttackOwned || !workspaceKey) return null;
+  const chat = resolveBrowserAnnotationChat({
+    serverId,
+    layout: state.layoutByWorkspace[workspaceKey],
+    browserTabId: tabId,
+  });
+  return chat?.draftKey ?? null;
+}
+
 /** The scope for an annotation being submitted now, read from the stores, not from a render. */
 export function resolveBrowserAnnotationScopeKey(
   input: BrowserAnnotationTargetInput,

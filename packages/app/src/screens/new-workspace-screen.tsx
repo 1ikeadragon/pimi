@@ -18,7 +18,7 @@ import { Composer } from "@/composer";
 import { ComposerDock } from "@/composer/dock";
 import { useComposerEditingSession, useComposerFullscreen } from "@/composer/editing-session";
 import { FileDropZone } from "@/components/file-drop/file-drop-zone";
-import { splitComposerAttachmentsForSubmit } from "@/composer/attachments/submit";
+import { prepareComposerSubmission } from "@/composer/attachments/submit";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { MenuHeader } from "@/components/headers/menu-header";
 import { useIsCompactFormFactor } from "@/constants/layout";
@@ -434,9 +434,8 @@ async function createWorkspaceChatAgent(input: CreateChatAgentInput): Promise<Su
   if (!provider) {
     throw new Error(input.labels.selectModel);
   }
-  const { attachments: reviewAttachments } = splitComposerAttachmentsForSubmit(attachments);
-  const workspaceNamingAttachments = getWorkspaceNamingAttachments(reviewAttachments);
-  const wirePayload = splitComposerAttachmentsForSubmit(attachments);
+  const wirePayload = prepareComposerSubmission({ text, attachments });
+  const workspaceNamingAttachments = getWorkspaceNamingAttachments(wirePayload.attachments);
   const images = await encodeImages(wirePayload.images);
   let navigated = false;
   let outcome: SubmitOutcome = "background";
@@ -450,7 +449,7 @@ async function createWorkspaceChatAgent(input: CreateChatAgentInput): Promise<Su
       featureValues: composerState.featureValues,
       ...(composerState.attachedProfile ? { profileId: composerState.attachedProfile.id } : {}),
     },
-    initialPrompt: text,
+    initialPrompt: wirePayload.text,
     clientMessageId: `${input.draftId}:initial-message`,
     images: images?.length ? images : undefined,
     attachments: wirePayload.attachments?.length ? wirePayload.attachments : undefined,
@@ -458,7 +457,7 @@ async function createWorkspaceChatAgent(input: CreateChatAgentInput): Promise<Su
   const execute = async (requestedAgent = initialAgent): Promise<AgentSnapshotPayload> => {
     const { agent } = await ensureWorkspace({
       cwd,
-      prompt: text,
+      prompt: wirePayload.text,
       attachments: workspaceNamingAttachments,
       withInitialAgent: true,
       agent: requestedAgent,
@@ -600,7 +599,7 @@ function submitWorkspaceDraft(input: SubmitDraftInput): SubmitOutcome {
   const draftId = draftIdInput?.trim() || generateDraftId();
   const clientMessageId = `${draftId}:initial-message`;
   const timestamp = Date.now();
-  const wirePayload = splitComposerAttachmentsForSubmit(attachments);
+  const wirePayload = prepareComposerSubmission({ text, attachments });
   const submission = resolveWorkspaceDraftSubmissionConfig({
     draftId,
     workspaceDirectory,
@@ -614,7 +613,7 @@ function submitWorkspaceDraft(input: SubmitDraftInput): SubmitOutcome {
     workspaceId,
     agentId: null,
     clientMessageId,
-    text: text.trim(),
+    text: wirePayload.text.trim(),
     timestamp,
     ...(wirePayload.images.length > 0 ? { images: wirePayload.images } : {}),
     ...(wirePayload.attachments.length > 0 ? { attachments: wirePayload.attachments } : {}),

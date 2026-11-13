@@ -37,6 +37,10 @@ import { Button } from "@/components/ui/button";
 import { useRetainedPanelActive } from "@/components/retained-panel";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/contexts/toast-context";
+import { ANNOTATION_CHARACTER_LIMIT, type NewAnnotation } from "@/annotations/model";
+import { AnnotationLimitError } from "@/composer/chips/model";
+import { useDraftStore } from "@/stores/draft-store";
+import { generateMessageId } from "@/types/stream";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,6 +54,7 @@ import {
 } from "@/attachments/workspace-attachments-store";
 import type { AttachmentMetadata, BrowserElementAttachment } from "@/attachments/types";
 import {
+  resolveBrowserAnnotationDraftKey,
   resolveBrowserAnnotationScopeKey,
   useBrowserAnnotationTarget,
 } from "@/desktop/browser/annotation-target";
@@ -299,6 +304,27 @@ function buildBrowserElementAttachment(
     ...(comment ? { comment } : {}),
     ...(screenshot ? { screenshot } : {}),
     formatted: formatElementAttachment(selection, annotation),
+  };
+}
+
+/** An element annotation for a chat's draft: its description as the quote, the comment as the note. */
+function buildBrowserElementAnnotation(
+  selection: BrowserElementSelection,
+  annotation: BrowserElementAnnotation,
+  screenshot?: AttachmentMetadata,
+): NewAnnotation {
+  return {
+    kind: "annotation",
+    id: generateMessageId(),
+    source: {
+      kind: "browser",
+      url: selection.url.slice(0, 2048),
+      selector: selection.selector.slice(0, 2048),
+      tag: selection.tag.slice(0, 64),
+    },
+    quote: truncateText(formatElementAttachment(selection), ANNOTATION_CHARACTER_LIMIT),
+    note: annotation.comment.trim().slice(0, 8000),
+    ...(screenshot ? { screenshot } : {}),
   };
 }
 
@@ -1104,6 +1130,26 @@ export function BrowserPane({
       screenshot?: AttachmentMetadata,
     ) => {
       // The target chat is resolved now: the user may have moved between chats while the card was open.
+      const draftKey = resolveBrowserAnnotationDraftKey({
+        serverId,
+        workspaceKey,
+        tabId,
+        browserId,
+        workspaceScopeKey: workspaceAttachmentScopeKey,
+      });
+      if (draftKey) {
+        useDraftStore
+          .getState()
+          .attachAnnotation({
+            draftKey,
+            attachment: buildBrowserElementAnnotation(selection, annotation, screenshot),
+          })
+          .catch((error: unknown) => {
+            if (!(error instanceof AnnotationLimitError)) throw error;
+            toastRef.current.error(error.message);
+          });
+        return;
+      }
       const scopeKey = resolveBrowserAnnotationScopeKey({
         serverId,
         workspaceKey,

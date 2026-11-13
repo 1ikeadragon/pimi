@@ -1,3 +1,4 @@
+import { AnnotationLimitError } from "@/composer/chips/model";
 import { createAssistantSelectionClipboardContent } from "@/assistant-selection-copy/content.web";
 import {
   useCallback,
@@ -418,7 +419,12 @@ export function ChatAnnotationSelection({
       });
       if (!opened) focusAnnotationTarget(annotationTarget);
     } catch (error) {
-      if (!(error instanceof AnnotationTargetUnavailableError)) throw error;
+      if (
+        !(
+          error instanceof AnnotationTargetUnavailableError || error instanceof AnnotationLimitError
+        )
+      )
+        throw error;
       toast.error(error.message);
     }
   }, [surface, serverId, agentId, toast, openEditor]);

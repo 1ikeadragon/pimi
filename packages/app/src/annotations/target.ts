@@ -64,14 +64,15 @@ export async function addAnnotationToChat(
 ): Promise<AnnotationAttachment> {
   await useDraftStore.getState().hydrateDraftInput({ draftKey: target.draftKey });
   if (!isAnnotationTargetAvailable(target)) throw new AnnotationTargetUnavailableError();
-  const attachment = AnnotationAttachmentSchema.parse({
+  const annotation = AnnotationAttachmentSchema.omit({ slot: true }).parse({
     kind: "annotation",
     id: generateMessageId(),
     ...capture,
     note: "",
   });
-  await useDraftStore.getState().attachAnnotation({ draftKey: target.draftKey, attachment });
-  return attachment;
+  return useDraftStore
+    .getState()
+    .attachAnnotation({ draftKey: target.draftKey, attachment: annotation });
 }
 
 function editDraftAttachments(

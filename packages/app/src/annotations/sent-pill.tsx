@@ -1,54 +1,93 @@
-import { useCallback, useMemo } from "react";
-import { MessageSquare } from "lucide-react-native";
-import { withUnistyles } from "react-native-unistyles";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { AnnotationAttachmentMetadata } from "@pimi/protocol/messages";
-import { AttachmentFrame, AttachmentLabel } from "@/components/attachment-pill";
+import type { AttachmentMetadata } from "@/attachments/types";
+import { BrowserElementPreview } from "@/composer/attachments/browser-element-preview";
+import { AttachmentFrame } from "@/components/attachment-pill";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { isNative } from "@/constants/platform";
 import { useToast } from "@/contexts/toast-context";
 import { useSettings } from "@/hooks/use-settings";
-import { ICON_SIZE, type Theme } from "@/styles/theme";
+import { AnnotationChip } from "./chip";
 import { goToSentAnnotationSource } from "./go-to-source";
-import { annotationSourceLabel, annotationTitle, type AnnotationAttachment } from "./model";
+import { AnnotationHoverContent } from "./hover-content";
+import { annotationAccessibilityLabel } from "./model";
+import { AnnotationReadSheet } from "./sheet";
 
-const ThemedMessageSquare = withUnistyles(MessageSquare);
-const iconAppearance = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
-const annotationIcon = <ThemedMessageSquare size={ICON_SIZE.sm} uniProps={iconAppearance} />;
+/** Resolves a message's screenshot by its index among the message's images. */
+export const SentScreenshotContext = createContext<(index: number) => AttachmentMetadata | null>(
+  () => null,
+);
 
 /**
- * An annotation in a sent message. On web it goes back to the quoted file or chat text; sheet
- * layouts show it as a label only.
+ * An annotation in a sent message, drawn in the text or in the row above it. Wide layouts go back
+ * to the quoted file or chat text; sheet layouts open the quote and note to read.
  */
-export function SentAnnotationPill({ annotation }: { annotation: AnnotationAttachmentMetadata }) {
+export function SentAnnotationPill({
+  annotation,
+  size = "tray",
+}: {
+  annotation: AnnotationAttachmentMetadata;
+  size?: "inline" | "tray";
+}) {
+  const { t } = useTranslation();
   const goesToSource = !useIsCompactFormFactor() && !isNative;
   const toast = useToast();
   const openInSidePane = useSettings((settings) => settings.openInSidePane);
-  // The sent message has no draft id; the reveal only reads the source, quote and selector.
-  const attachment = useMemo<AnnotationAttachment>(
-    () => ({ kind: "annotation", id: "sent", ...annotation }),
-    [annotation],
-  );
-  const handlePress = useCallback(
+  const [reading, setReading] = useState(false);
+  const closeSheet = useCallback(() => setReading(false), []);
+  const goToSource = useCallback(
     () =>
-      goToSentAnnotationSource(attachment, {
+      goToSentAnnotationSource(annotation, {
         preferences: openInSidePane,
         onNotice: (message) => toast.show(message, { variant: "warning" }),
       }),
-    [attachment, openInSidePane, toast],
+    [annotation, openInSidePane, toast],
+  );
+  const screenshotFor = useContext(SentScreenshotContext);
+  const isElement = annotation.source.kind === "browser";
+  const handlePress = useCallback(() => {
+    if (goesToSource && !isElement) goToSource();
+    else setReading(true);
+  }, [goesToSource, goToSource, isElement]);
+  const actions = useMemo(
+    () => (isElement ? {} : { onGoToSource: goToSource }),
+    [goToSource, isElement],
   );
   return (
-    <AttachmentFrame
-      testID="sent-annotation-pill"
-      onPress={goesToSource ? handlePress : undefined}
-      accessibilityLabel={
-        attachment.source.kind === "file" ? "Go to annotated code" : "Go to annotated text"
-      }
-    >
-      <AttachmentLabel
-        icon={annotationIcon}
-        title={annotationTitle(attachment)}
-        subtitle={annotationSourceLabel(attachment.source)}
-      />
-    </AttachmentFrame>
+    <>
+      <HoverCard disabled={!goesToSource}>
+        <HoverCardTrigger>
+          <AttachmentFrame
+            testID="sent-annotation-pill"
+            onPress={handlePress}
+            accessibilityLabel={annotationAccessibilityLabel(annotation, t)}
+          >
+            <AnnotationChip annotation={annotation} size={size} />
+          </AttachmentFrame>
+        </HoverCardTrigger>
+        <HoverCardContent placement="top" alignment="start">
+          <AnnotationHoverContent annotation={annotation} actions={actions} />
+        </HoverCardContent>
+      </HoverCard>
+      {reading && annotation.source.kind === "browser" ? (
+        <BrowserElementPreview
+          tag={annotation.source.tag}
+          url={annotation.source.url}
+          comment={annotation.note.trim() || undefined}
+          text={annotation.quote}
+          screenshot={
+            annotation.screenshotIndex === undefined
+              ? null
+              : screenshotFor(annotation.screenshotIndex)
+          }
+          onClose={closeSheet}
+        />
+      ) : null}
+      {reading && annotation.source.kind !== "browser" ? (
+        <AnnotationReadSheet annotation={annotation} onClose={closeSheet} />
+      ) : null}
+    </>
   );
 }

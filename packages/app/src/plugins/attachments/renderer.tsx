@@ -3,7 +3,7 @@ import type { PluginAttachmentRendererProps, PluginComposerAttachment } from "@p
 import type { PluginTheme } from "@pimi/plugin";
 import React, { useCallback, useMemo, type ComponentType } from "react";
 import { withUnistyles } from "react-native-unistyles";
-import { AnnotationPill } from "@/annotations/pill";
+import { AnnotationChipHost } from "@/annotations/chip-host";
 import { goToSentAnnotationSource } from "@/annotations/go-to-source";
 import type { AnnotationAttachment } from "@/annotations/model";
 import { useIsCompactFormFactor } from "@/constants/layout";
@@ -28,20 +28,26 @@ interface AnnotationPillProps {
   serverId: string;
   controller: ComposerController;
   attachment: AnnotationAttachment;
+  /** Inline in the composer's text (web), or in the attachment tray (native). */
+  placement: "inline" | "tray";
   disabled: boolean;
   index: number;
+  /** Height of a line of the composer's text, which an inline renderer must fit. */
+  lineHeight: number;
   onRemove(index: number): void;
   onChangeNote(id: string, note: string): void;
   onFocusComposer(): void;
 }
 
 function DefaultAnnotationPill(props: AnnotationPillProps) {
+  const { index, onRemove } = props;
+  const remove = useCallback(() => onRemove(index), [index, onRemove]);
   return (
-    <AnnotationPill
-      attachment={props.attachment}
+    <AnnotationChipHost
+      annotation={props.attachment}
+      placement={props.placement}
       disabled={props.disabled}
-      index={props.index}
-      onRemove={props.onRemove}
+      onRemove={remove}
       onChangeNote={props.onChangeNote}
       onFocusComposer={props.onFocusComposer}
     />
@@ -66,7 +72,10 @@ function PluginRenderedAnnotation({
   const hostLabel =
     hosts.find((host) => host.serverId === plugin.serverId)?.label ?? plugin.serverId;
   const host = useMemo(() => ({ id: plugin.serverId, label: hostLabel }), [hostLabel, plugin]);
-  const layout = useMemo(() => ({ compact, platform: resolvePluginPlatform() }), [compact]);
+  const layout = useMemo(
+    () => ({ compact, platform: resolvePluginPlatform(), lineHeight: pill.lineHeight }),
+    [compact, pill.lineHeight],
+  );
   const stateSource = useMemo(() => createPluginClientStateSource(plugin.serverId), [plugin]);
   const toast = useToast();
   const openInSidePane = useSettings((settings) => settings.openInSidePane);
@@ -79,11 +88,10 @@ function PluginRenderedAnnotation({
     });
   }, [attachment, goesToSource, openInSidePane, toast]);
   const composer = getPluginComposerBridge(plugin).handleFor(controller);
-  const pluginAttachment = useMemo<PluginComposerAttachment | null>(() => {
-    const { source, id, quote, note } = attachment;
-    const { serverId: _serverId, ...pluginSource } = source;
-    return { kind: "annotation", id, quote, note, source: pluginSource };
-  }, [attachment]);
+  const pluginAttachment = useMemo<PluginComposerAttachment | null>(
+    () => composer?.attachments.list().find((candidate) => candidate.id === attachment.id) ?? null,
+    [composer, attachment],
+  );
   if (!composer || !pluginAttachment) return renderFallback();
   const props: PluginAttachmentRendererProps = {
     theme,
@@ -91,6 +99,7 @@ function PluginRenderedAnnotation({
     layout,
     attachment: pluginAttachment,
     index,
+    placement: pill.placement,
     composer,
     disabled,
     openSource,

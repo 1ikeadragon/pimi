@@ -5,9 +5,10 @@ import {
   type UserComposerAttachment,
 } from "@/attachments/types";
 import { PluginResourceComposerAttachmentSchema } from "@/plugins/attachments";
+import { AttachmentMetadataSchema } from "@/attachments/metadata-schema";
 import { z } from "zod";
 
-export const DRAFT_STORE_VERSION = 5;
+export const DRAFT_STORE_VERSION = 6;
 export const FINALIZED_DRAFT_TTL_MS = 5 * 60 * 1000;
 
 export interface LegacyDraftImage {
@@ -53,15 +54,6 @@ export interface DraftStoreState {
   createModalDraft: DraftRecord | null;
 }
 
-export const AttachmentMetadataSchema = z.strictObject({
-  id: z.string(),
-  mimeType: z.string(),
-  storageType: z.enum(["web-indexeddb", "desktop-file", "native-file"]),
-  storageKey: z.string(),
-  fileName: z.string().nullable().optional(),
-  byteSize: z.number().nullable().optional(),
-  createdAt: z.number(),
-}) satisfies z.ZodType<AttachmentMetadata>;
 export const LegacyDraftImageSchema: z.ZodType<LegacyDraftImage> = z.strictObject({
   uri: z.string(),
   mimeType: z.string().optional(),
@@ -124,8 +116,6 @@ export const UserComposerAttachmentSchema: z.ZodType<UserComposerAttachment> = z
 export const CanonicalDraftInputSchema = z.strictObject({
   text: z.string(),
   attachments: z.array(UserComposerAttachmentSchema),
-  // COMPAT(draft-cwd): accept legacy persisted drafts that include cwd. Stop accepting after 2026-11-09.
-  cwd: z.string().optional(),
 });
 const DraftRecordSchema: z.ZodType<DraftRecord> = z.strictObject({
   input: CanonicalDraftInputSchema,
@@ -207,6 +197,12 @@ export function toDraftInputIfReady(
   };
 }
 
+/** The stored files a draft attachment keeps alive: an image, or a browser element's screenshot. */
+export function collectAttachmentIds(attachment: UserComposerAttachment, into: Set<string>): void {
+  if (attachment.kind === "image") into.add(attachment.metadata.id);
+  if (attachment.kind === "annotation" && attachment.screenshot) into.add(attachment.screenshot.id);
+}
+
 export function collectReferencedAttachmentIdsFromState(state: DraftStoreState): Set<string> {
   const referencedIds = new Set<string>();
 
@@ -218,18 +214,14 @@ export function collectReferencedAttachmentIdsFromState(state: DraftStoreState):
       continue;
     }
     for (const attachment of draftRecord.input.attachments) {
-      if (attachment.kind === "image") {
-        referencedIds.add(attachment.metadata.id);
-      }
+      collectAttachmentIds(attachment, referencedIds);
     }
   }
 
   const modalRecord = state.createModalDraft;
   if (modalRecord?.lifecycle === "active" && isCanonicalDraftInput(modalRecord.input)) {
     for (const attachment of modalRecord.input.attachments) {
-      if (attachment.kind === "image") {
-        referencedIds.add(attachment.metadata.id);
-      }
+      collectAttachmentIds(attachment, referencedIds);
     }
   }
 

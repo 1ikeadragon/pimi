@@ -6,16 +6,7 @@ import {
   type ComposerEditingSession,
 } from "@/composer/editing-session";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import {
-  View,
-  Platform,
-  Text,
-  useWindowDimensions,
-  NativeSyntheticEvent,
-  TextInputKeyPressEventData,
-  TextInputSelectionChangeEventData,
-  type LayoutChangeEvent,
-} from "react-native";
+import { View, Platform, Text, useWindowDimensions, type LayoutChangeEvent } from "react-native";
 import {
   useState,
   useRef,
@@ -99,15 +90,13 @@ import { useComposerHeight } from "./height";
 import { ComposerInputPresentation } from "./presentation";
 import { resolveComposerInputMode, type ComposerInputMode } from "@/composer/input-mode";
 import type { NativePastedFile } from "@/composer/native-pasted-image";
-import {
-  EditingTextInput,
-  type EditingTextInputHandle as ComposerTextInputHandle,
-  type EditingTextInputProps,
-} from "@/components/ui/text-input";
-
-const ComposerTextInput = withUnistyles(EditingTextInput, (theme) => ({
-  placeholderTextColor: theme.colors.foregroundMuted,
-}));
+import type { EditingTextInputHandle as ComposerTextInputHandle } from "@/components/ui/text-input";
+import { ComposerEditor } from "@/components/ui/chip-text-editor";
+import type {
+  ComposerEditorChips,
+  ComposerEditorProps,
+  ComposerKeyEvent,
+} from "@/components/ui/chip-text-editor/types";
 import {
   resolveSendTooltipLabel,
   resolveSubmitAccessibilityHint,
@@ -135,7 +124,6 @@ const MOD_ENTER_SEND_KEYS: ShortcutKey[][] = [["mod", "Enter"]];
 function resolveSendKeys(sendShortcut: SendShortcut): ShortcutKey[][] {
   return sendShortcut === "mod-enter" ? MOD_ENTER_SEND_KEYS : DEFAULT_SEND_KEYS;
 }
-const COMPOSER_INPUT_DATASET = { composerInput: "" } as const;
 
 export interface AttachmentMenuItem {
   id: string;
@@ -159,6 +147,8 @@ export interface ComposerKeyPressEvent {
 }
 
 export interface MessageInputProps {
+  /** Draws the draft's chips inside the text; without it the editor shows plain text only. */
+  chips?: ComposerEditorChips;
   editingSession?: ComposerEditingSession;
   submissionError?: React.ReactNode;
   value: string;
@@ -253,31 +243,7 @@ const MIN_INPUT_HEIGHT_DESKTOP = 46;
 const DEFAULT_MAX_INPUT_HEIGHT = 160;
 const MAX_INPUT_VIEWPORT_RATIO = 0.5;
 const MIN_INPUT_HEIGHT = isWeb ? MIN_INPUT_HEIGHT_DESKTOP : MIN_INPUT_HEIGHT_MOBILE;
-type WebTextInputKeyPressEvent = NativeSyntheticEvent<
-  TextInputKeyPressEventData & {
-    metaKey?: boolean;
-    ctrlKey?: boolean;
-    shiftKey?: boolean;
-    altKey?: boolean;
-    // Web-only: present on DOM KeyboardEvent during IME composition (CJK input).
-    isComposing?: boolean;
-    keyCode?: number;
-  }
->;
-
-interface TextAreaHandle {
-  value?: string;
-  scrollHeight?: number;
-  clientHeight?: number;
-  offsetHeight?: number;
-  scrollTop?: number;
-  selectionStart?: number | null;
-  selectionEnd?: number | null;
-  style?: {
-    height?: string;
-    overflowY?: string;
-  };
-}
+type WebTextInputKeyPressEvent = ComposerKeyEvent;
 
 function glyphColorMapping(glyph: ToolbarGlyph, hovered: boolean) {
   return toolbarGlyphTone(glyph, hovered) === "foreground"
@@ -708,7 +674,7 @@ interface ComposerTextSurfaceProps {
   value: string;
   textReplacementKey: string;
   textInputRef: React.Ref<ComposerTextInputHandle>;
-  textInputStyle: EditingTextInputProps["style"];
+  textInputStyle: ComposerEditorProps["style"];
   readOnlyTextStyle: React.ComponentProps<typeof Text>["style"];
   placeholder: string;
   accessibilityLabel: string;
@@ -719,7 +685,9 @@ interface ComposerTextSurfaceProps {
   scrollEnabled: boolean;
   autoFocus: boolean;
   onKeyPress: ((event: WebTextInputKeyPressEvent) => void) | undefined;
-  onSelectionChange: (event: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => void;
+  onSelectionChange: (selection: { start: number; end: number }) => void;
+  chips: ComposerEditorChips | undefined;
+  onElementChange: ((element: HTMLElement | null) => void) | undefined;
   onPasteImages: ((files: readonly NativePastedFile[]) => void) | undefined;
   onPasteError: (message: string) => void;
   fullscreen: boolean;
@@ -774,9 +742,8 @@ function ComposerTextSurface(props: ComposerTextSurfaceProps): React.ReactElemen
           {`${measurementText}\u200b`}
         </Text>
       ) : null}
-      <ComposerTextInput
+      <ComposerEditor
         ref={props.textInputRef}
-        dataSet={COMPOSER_INPUT_DATASET}
         initialValue={props.value}
         onChangeText={handleTextChange}
         placeholder={props.placeholder}
@@ -784,13 +751,15 @@ function ComposerTextSurface(props: ComposerTextSurfaceProps): React.ReactElemen
         onFocus={props.onFocus}
         onBlur={props.onBlur}
         style={props.textInputStyle}
-        multiline
         scrollEnabled={props.scrollEnabled}
         editable={props.editable}
         onKeyPress={props.onKeyPress}
         onSelectionChange={props.onSelectionChange}
         onPasteImages={props.onPasteImages}
         onPasteError={props.onPasteError}
+        onRenderedLinesChange={onRenderedLinesChange}
+        onElementChange={props.onElementChange}
+        chips={props.chips}
         autoFocus={props.autoFocus}
       />
       <FocusHint
@@ -1116,31 +1085,14 @@ function resolveMaxInputHeight(windowHeight: number, compact: boolean): number {
   return Math.max(DEFAULT_MAX_INPUT_HEIGHT, Math.floor(windowHeight * MAX_INPUT_VIEWPORT_RATIO));
 }
 
-function isTextAreaLike(v: unknown): v is TextAreaHandle {
-  return typeof v === "object" && v !== null && "scrollHeight" in v;
-}
-
-function getWebTextAreaImpl(current: ComposerTextInputHandle | null): TextAreaHandle | null {
-  if (!current) return null;
-  const candidate = current as { getNativeRef?: () => unknown };
-  if (typeof candidate.getNativeRef === "function") {
-    const native = candidate.getNativeRef();
-    if (isTextAreaLike(native)) return native;
-  }
-  if (isTextAreaLike(current)) return current;
-  return null;
-}
-
 function getComposerInputSnapshot(
   current: ComposerTextInputHandle | null,
   fallbackText: string,
   fallbackSelection: ComposerInputSnapshot["selection"],
 ): ComposerInputSnapshot {
-  const textArea = getWebTextAreaImpl(current);
-  const text = textArea?.value ?? current?.getText() ?? fallbackText;
-  const start = textArea?.selectionStart ?? fallbackSelection.start;
-  const end = textArea?.selectionEnd ?? fallbackSelection.end;
-  return { text, selection: { start, end } };
+  const text = current?.getText() ?? fallbackText;
+  const selection = current?.getSelection?.() ?? fallbackSelection;
+  return { text, selection };
 }
 
 interface SendButtonStateInput {
@@ -1216,6 +1168,7 @@ interface ResolvedMessageInputProps {
   readOnly: boolean;
   textReplacement: TextReplacement;
   submitLabel: string | undefined;
+  chips: ComposerEditorChips | undefined;
 }
 
 function resolveMessageInputProps(props: MessageInputProps): ResolvedMessageInputProps {
@@ -1264,6 +1217,7 @@ function resolveMessageInputProps(props: MessageInputProps): ResolvedMessageInpu
     readOnly: props.readOnly ?? false,
     textReplacement: props.textReplacement,
     submitLabel: props.submitLabel,
+    chips: props.chips,
   };
 }
 
@@ -1338,6 +1292,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
       onSubmitLoadingPress,
       onKeyPressCallback,
       onSelectionChangeCallback,
+      chips,
       onFocusChange,
       onHeightChange,
       inputWrapperStyle,
@@ -1394,8 +1349,8 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
     // the editor's own mount and unmount.
     const assignTextInput = useCallback((input: ComposerTextInputHandle | null) => {
       textInputRef.current = input;
-      if (!isWeb) return;
-      const element = getWebTextAreaImpl(input) as HTMLElement | null;
+    }, []);
+    const handleEditorElement = useCallback((element: HTMLElement | null) => {
       webTextareaRef.current = element;
       setWebTextArea(element);
     }, []);
@@ -1862,11 +1817,9 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
     });
 
     const handleSelectionChange = useCallback(
-      (event: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => {
-        const start = event.nativeEvent.selection?.start ?? 0;
-        const end = event.nativeEvent.selection?.end ?? start;
-        selectionRef.current = { start, end };
-        onSelectionChangeCallback?.({ start, end });
+      (selection: { start: number; end: number }) => {
+        selectionRef.current = selection;
+        onSelectionChangeCallback?.(selection);
       },
       [onSelectionChangeCallback],
     );
@@ -2219,6 +2172,8 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
             autoFocus={false}
             onKeyPress={shouldHandleWebKeyPress ? handleDesktopKeyPress : undefined}
             onSelectionChange={handleSelectionChange}
+            chips={chips}
+            onElementChange={isWeb ? handleEditorElement : undefined}
             onPasteImages={onPasteImages}
             onPasteError={handlePasteError}
             fullscreen={isFullscreen}
@@ -2258,6 +2213,8 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
         isInputFocused,
         value,
         focusInputKeys,
+        chips,
+        handleEditorElement,
       ],
     );
     const leadingEdge = resolveComposerLeadingEdge({

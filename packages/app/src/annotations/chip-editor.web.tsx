@@ -3,22 +3,22 @@ import type { View } from "react-native";
 import type { AnnotationEditSession } from "./edit-session";
 import { AnnotationNoteEditor } from "./popover.web";
 
-/** The note editor beside the pill, for an annotation whose source is not on screen. */
-export function AnnotationPillEditor({
+/** The note editor beside the chip, for an annotation whose source is not on screen. */
+export function AnnotationChipEditor({
   session,
-  pill,
+  chip,
 }: {
   session: AnnotationEditSession;
-  pill: RefObject<View | null>;
+  chip: RefObject<View | null>;
 }) {
   const frame = useRef<HTMLDivElement>(null);
   const anchor = useCallback(() => {
     // On web a View's ref is its element.
-    const element: unknown = pill.current;
+    const element: unknown = chip.current;
     if (!(element instanceof HTMLElement)) return null;
     const rect = element.getBoundingClientRect();
     return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
-  }, [pill]);
+  }, [chip]);
   return (
     <AnnotationNoteEditor
       session={session}

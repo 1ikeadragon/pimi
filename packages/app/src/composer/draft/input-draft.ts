@@ -13,6 +13,7 @@ import {
   buildDraftAgentControls,
   hasDraftContent,
   resolveDraftKey,
+  type AttachmentUpdater,
   type DraftKeyInput,
 } from "@/composer/draft/input-draft-core";
 import {
@@ -22,6 +23,8 @@ import {
   resolveEffectiveComposerThinkingOptionId,
   type ProviderSelectionState,
 } from "@/provider-selection/provider-selection";
+import type { AnnotationAttachment } from "@/annotations/model";
+import { annotationsOf, lowestFreeSlot } from "@/composer/chips/model";
 import { useDraftStore } from "@/stores/draft-store";
 import { AfterPaintPublication } from "@/composer/after-paint-publication";
 import { useShallow } from "zustand/shallow";
@@ -32,10 +35,6 @@ import {
   useAgentProfiles,
   type MaterializedAgentProfile,
 } from "@/agent-profiles";
-
-type AttachmentUpdater =
-  | UserComposerAttachment[]
-  | ((prev: UserComposerAttachment[]) => UserComposerAttachment[]);
 
 interface AgentInputDraftComposerOptions {
   initialServerId: string | null;
@@ -80,6 +79,29 @@ export interface AgentInputDraft {
   isHydrated: boolean;
   attachmentFocusRequestId: number;
   composerState: DraftComposerState | null;
+}
+
+/**
+ * An annotation added by something that cannot see the stash (a plugin) may have taken the slot of
+ * one the user deleted; undo would then bring back a chip that points at the wrong annotation.
+ * Moves such a newcomer to a free slot.
+ */
+function avoidStashedSlots(
+  next: UserComposerAttachment[],
+  previous: readonly UserComposerAttachment[],
+  stashed: readonly AnnotationAttachment[],
+): UserComposerAttachment[] {
+  const known = new Set(annotationsOf(previous).map((annotation) => annotation.id));
+  const reserved = new Set(stashed.map((annotation) => annotation.slot));
+  const used = new Set(annotationsOf(next).map((annotation) => annotation.slot));
+  return next.map((attachment) => {
+    if (attachment.kind !== "annotation" || known.has(attachment.id)) return attachment;
+    if (!reserved.has(attachment.slot)) return attachment;
+    const slot = lowestFreeSlot([...used, ...reserved]);
+    if (slot === null) return attachment;
+    used.add(slot);
+    return { ...attachment, slot };
+  });
 }
 
 export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDraft {
@@ -167,12 +189,18 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
     [draftKey],
   );
 
+  // The store drops or re-slots chips an edit left dangling; the editor shows what it kept.
+  const commitText = useCallback(
+    (nextText: string) => {
+      const committed = useDraftStore.getState().editDraftText({ draftKey, text: nextText });
+      if (committed !== nextText) publishTextReplacement("replace", committed);
+    },
+    [draftKey, publishTextReplacement],
+  );
+
   const textPublication = useMemo(
-    () =>
-      new AfterPaintPublication<string>((nextText) => {
-        useDraftStore.getState().editDraftText({ draftKey, text: nextText });
-      }),
-    [draftKey],
+    () => new AfterPaintPublication<string>(commitText),
+    [commitText],
   );
 
   const editText = useCallback(
@@ -180,29 +208,32 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
       if (isWeb) {
         textPublication.stage(nextText);
       } else {
-        useDraftStore.getState().editDraftText({ draftKey, text: nextText });
+        commitText(nextText);
       }
     },
-    [draftKey, textPublication],
+    [commitText, textPublication],
   );
 
   const replaceText = useCallback(
     (nextText: string) => {
       textPublication.cancel();
-      useDraftStore.getState().editDraftText({ draftKey, text: nextText });
-      publishTextReplacement("replace", nextText);
+      const committed = useDraftStore.getState().editDraftText({ draftKey, text: nextText });
+      publishTextReplacement("replace", committed);
     },
     [draftKey, publishTextReplacement, textPublication],
   );
 
   const setAttachments = useCallback(
     (updater: AttachmentUpdater) => {
-      saveDraft((current) => ({
-        ...current,
-        attachments: typeof updater === "function" ? updater(current.attachments) : updater,
-      }));
+      saveDraft((current) => {
+        const stashed = useDraftStore.getState().detachedAnnotationsByDraftKey[draftKey] ?? [];
+        const reservedSlots = stashed.map((annotation) => annotation.slot);
+        const next =
+          typeof updater === "function" ? updater(current.attachments, { reservedSlots }) : updater;
+        return { ...current, attachments: avoidStashedSlots(next, current.attachments, stashed) };
+      });
     },
-    [saveDraft],
+    [draftKey, saveDraft],
   );
 
   // Kept until the draft is sent or the user detaches it; changing the model does not detach it,

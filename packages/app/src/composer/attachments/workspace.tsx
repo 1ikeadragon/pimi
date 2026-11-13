@@ -66,10 +66,10 @@ function getOpenAccessibilityLabel(
     return t("composer.attachments.openBrowserElement");
   }
   if (isPullRequestContextAttachment(attachment)) {
-    return "Open context attachment";
+    return t("chips.openContext");
   }
   if (attachment.kind === "chat_history") {
-    return "Open chat history attachment";
+    return t("chips.openChatHistory");
   }
   return t("composer.attachments.openReview");
 }
@@ -82,10 +82,10 @@ function getRemoveAccessibilityLabel(
     return t("composer.attachments.removeBrowserElement");
   }
   if (isPullRequestContextAttachment(attachment)) {
-    return "Remove context attachment";
+    return t("chips.removeContext");
   }
   if (attachment.kind === "chat_history") {
-    return "Remove chat history attachment";
+    return t("chips.removeChatHistory");
   }
   return t("composer.attachments.removeReview");
 }
@@ -280,7 +280,8 @@ function ChatHistoryPreview({
   history: ChatHistoryContextAttachment;
   onClose: () => void;
 }) {
-  const title = history.attachment.title ?? "Chat history";
+  const { t } = useTranslation();
+  const title = history.attachment.title ?? t("chips.chatHistory");
   const header = useMemo(() => ({ title }), [title]);
   const text = history.attachment.text
     .replace(
@@ -352,7 +353,7 @@ function WorkspaceAttachmentPill({
       removeAccessibilityLabel={getRemoveAccessibilityLabel(attachment, t)}
       disabled={disabled}
     >
-      <AttachmentLabel icon={content.icon} title={content.title} subtitle={content.subtitle} />
+      <AttachmentLabel icon={content.icon} title={content.title} />
     </AttachmentPill>
   );
 }

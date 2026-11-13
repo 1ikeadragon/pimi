@@ -1,12 +1,11 @@
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { AdaptiveModalSheet } from "@/components/adaptive-modal-sheet";
 import { Button } from "@/components/ui/button";
 import { FormTextInput } from "@/components/ui/form-field";
 import { annotationNoteError, annotationSourceLabel, type AnnotationAttachment } from "./model";
-
-const HEADER = { title: "Annotation" };
 
 /** The note editor for compact and touch layouts, opened from the annotation's pill. */
 export function AnnotationSheet({
@@ -18,37 +17,39 @@ export function AnnotationSheet({
   onSave(note: string): void;
   onClose(): void;
 }) {
+  const { t } = useTranslation();
+  const header = useMemo(() => ({ title: t("chips.sheetTitle") }), [t]);
   const [note, setNote] = useState(attachment.note);
-  const error = annotationNoteError(note);
+  const error = annotationNoteError(note, t);
   const save = useCallback(() => {
-    if (annotationNoteError(note)) return;
+    if (annotationNoteError(note, t)) return;
     onSave(note.trim());
     onClose();
-  }, [note, onClose, onSave]);
+  }, [note, onClose, onSave, t]);
   const footer = useMemo(
     () => (
       <View style={styles.actions}>
         <Button variant="secondary" onPress={onClose} testID="annotation-cancel">
-          Cancel
+          {t("common.actions.cancel")}
         </Button>
         <Button variant="default" onPress={save} disabled={Boolean(error)} testID="annotation-save">
-          Save
+          {t("common.actions.save")}
         </Button>
       </View>
     ),
-    [onClose, save, error],
+    [onClose, save, error, t],
   );
   return (
     <AdaptiveModalSheet
       visible
       testID="annotation-sheet"
-      header={HEADER}
+      header={header}
       onClose={onClose}
       footer={footer}
     >
       <View style={styles.body}>
         <Text selectable style={styles.source}>
-          {annotationSourceLabel(attachment.source)}
+          {annotationSourceLabel(attachment.source, t)}
         </Text>
         <Text selectable style={styles.quote} testID="annotation-quote">
           {attachment.quote}
@@ -56,8 +57,8 @@ export function AnnotationSheet({
         <FormTextInput
           autoFocus
           multiline
-          accessibilityLabel="Note"
-          placeholder="Add a note (optional)"
+          accessibilityLabel={t("chips.noteLabel")}
+          placeholder={t("chips.notePlaceholder")}
           initialValue={note}
           onChangeText={setNote}
           style={styles.input}
@@ -66,6 +67,36 @@ export function AnnotationSheet({
         {error ? (
           <Text accessibilityRole="alert" style={styles.error}>
             {error}
+          </Text>
+        ) : null}
+      </View>
+    </AdaptiveModalSheet>
+  );
+}
+
+/** A sent annotation on a compact or touch layout: its source, quote and note, to read. */
+export function AnnotationReadSheet({
+  annotation,
+  onClose,
+}: {
+  annotation: Pick<AnnotationAttachment, "source" | "quote" | "note">;
+  onClose(): void;
+}) {
+  const { t } = useTranslation();
+  const header = useMemo(() => ({ title: t("chips.sheetTitle") }), [t]);
+  const note = annotation.note.trim();
+  return (
+    <AdaptiveModalSheet visible testID="annotation-read-sheet" header={header} onClose={onClose}>
+      <View style={styles.body}>
+        <Text selectable style={styles.source}>
+          {annotationSourceLabel(annotation.source, t)}
+        </Text>
+        <Text selectable style={styles.quote}>
+          {annotation.quote}
+        </Text>
+        {note ? (
+          <Text selectable style={styles.note}>
+            {note}
           </Text>
         ) : null}
       </View>
@@ -85,6 +116,7 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: theme.borderRadius.md,
   },
   input: { minHeight: 100, textAlignVertical: "top" },
+  note: { color: theme.colors.foreground, fontSize: theme.fontSize.base },
   error: { color: theme.colors.destructive, fontSize: theme.fontSize.sm },
   actions: {
     flex: 1,

@@ -101,7 +101,9 @@ export type { PluginI18n } from "./translations.js";
 export type { PluginText, PluginMessage, PluginTranslations } from "../text.js";
 
 export { useTabState } from "./tab.js";
+export { isComposerChipChar } from "./composer.js";
 export type {
+  PluginAddAttachmentOptions,
   PluginAnnotationAttachment,
   PluginAnnotationAttachmentInput,
   PluginAnnotationAttachmentPatch,

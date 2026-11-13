@@ -13,6 +13,7 @@ import {
   type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { MessageSquarePlus } from "lucide-react-native";
@@ -293,6 +294,7 @@ export function AnnotationNoteEditor({
   handleRef?: Ref<AnnotationEditorHandle>;
   onClose(outcome: AnnotationEditorOutcome): void;
 }) {
+  const { t } = useTranslation();
   const input = useRef<EditingTextInputHandle>(null);
   // Only this editor changes the note while it is open, so the note it opened with is the saved one.
   const [savedNote] = useState(session.attachment.note);
@@ -300,7 +302,7 @@ export function AnnotationNoteEditor({
   const noteRef = useRef(note);
   noteRef.current = note;
   const layer = useGlobalOverlayLayer("floating", true);
-  const error = annotationNoteError(note);
+  const error = annotationNoteError(note, t);
 
   // The portal is measured before it becomes visible; focus after that layout pass.
   useLayoutEffect(() => {
@@ -323,9 +325,9 @@ export function AnnotationNoteEditor({
   const keepChangedNote = useCallback(() => {
     const current = noteRef.current.trim();
     const changed = current !== savedNote.trim();
-    if (changed && !annotationNoteError(current)) session.saveNote(current);
+    if (changed && !annotationNoteError(current, t)) session.saveNote(current);
     return changed;
-  }, [savedNote, session]);
+  }, [savedNote, session, t]);
   const keepChangedNoteRef = useRef(keepChangedNote);
   keepChangedNoteRef.current = keepChangedNote;
   // The owning surface can go away under an open editor, as when its tab closes.
@@ -342,10 +344,10 @@ export function AnnotationNoteEditor({
   }, []);
 
   const save = useCallback(() => {
-    if (annotationNoteError(noteRef.current)) return;
+    if (annotationNoteError(noteRef.current, t)) return;
     keepChangedNote();
     close("saved");
-  }, [close, keepChangedNote]);
+  }, [close, keepChangedNote, t]);
 
   const cancel = useCallback(() => {
     if (session.isNew) session.remove();
@@ -355,12 +357,12 @@ export function AnnotationNoteEditor({
   // Adapted from T3 Code apps/web/src/components/chat/assistantCitationCommentDismissal.ts (MIT, © 2026 T3 Tools Inc.).
   const dismiss = useCallback(
     (reason: "outside-press" | "source-gone") => {
-      const unsavable = keepChangedNote() && annotationNoteError(noteRef.current) !== null;
+      const unsavable = keepChangedNote() && annotationNoteError(noteRef.current, t) !== null;
       // A note that cannot be saved stays open so a stray press does not lose it.
       if (unsavable && reason === "outside-press") return;
       close("dismissed");
     },
-    [close, keepChangedNote],
+    [close, keepChangedNote, t],
   );
 
   useImperativeHandle(handleRef, () => ({ dismiss: () => dismiss("source-gone") }), [dismiss]);
@@ -413,7 +415,7 @@ export function AnnotationNoteEditor({
         ref={scope}
         style={styles.editor}
         role="dialog"
-        accessibilityLabel="Annotation note"
+        accessibilityLabel={t("chips.sheetTitle")}
         testID="annotation-editor"
       >
         <EditingTextInput
@@ -422,9 +424,9 @@ export function AnnotationNoteEditor({
           initialValue={savedNote}
           onChangeText={changeNote}
           style={styles.input}
-          accessibilityLabel="Note"
-          accessibilityHint="Enter saves. Shift+Enter adds a line."
-          placeholder="Add a note (optional)"
+          accessibilityLabel={t("chips.noteLabel")}
+          accessibilityHint={t("chips.noteHint")}
+          placeholder={t("chips.notePlaceholder")}
           testID="annotation-note-input"
         />
         {error ? (
@@ -435,7 +437,7 @@ export function AnnotationNoteEditor({
         <View style={styles.footer}>
           <Text style={styles.hint}>↵ to save</Text>
           <Button size="sm" variant="ghost" onPress={cancel} testID="annotation-cancel">
-            Cancel
+            {t("common.actions.cancel")}
           </Button>
           <Button
             size="sm"
@@ -444,7 +446,7 @@ export function AnnotationNoteEditor({
             disabled={Boolean(error)}
             testID="annotation-save"
           >
-            Save
+            {t("common.actions.save")}
           </Button>
         </View>
       </View>

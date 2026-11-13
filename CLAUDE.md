@@ -56,6 +56,7 @@ At the start of non-trivial work, list `docs/` and skim anything relevant to the
 | [docs/terminal-rendering.md](docs/terminal-rendering.md)             | Native terminal view: xterm owns the grid, cluster placement, emoji widths, mixed-direction limits                             |
 | [docs/agent-stream-performance.md](docs/agent-stream-performance.md) | Assistant text pipeline — coalescing window, paced reveal, why arrival lumps are smoothed at render                            |
 | [docs/agent-stream-disclosure.md](docs/agent-stream-disclosure.md)   | Expand/collapse in the chat timeline — hold contract, native anchor sequence, frame spacing, render-window cost                |
+| [docs/composer-editor.md](docs/composer-editor.md)                   | Composer chips: the token model, who reconciles text and annotations, editor gotchas, native numerals                          |
 | [docs/markdown-renderer.md](docs/markdown-renderer.md)               | Shared Markdown engine, native selection, links, images and library constraints                                                |
 | [docs/native-text-selection.md](docs/native-text-selection.md)       | Native diagram grouping, selection boundaries and leading inline image limitations                                             |
 | [docs/file-observation.md](docs/file-observation.md)                 | Recursive watcher ownership, Linux constraints, teardown invariants, and Parcel comparison                                     |

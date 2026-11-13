@@ -915,7 +915,7 @@ export const ExternalResourceAttachmentMetadataSchema = z.object({
 
 const annotationPositionSchema = z.number().int().positive();
 
-/** Where an annotated quote came from: a range in a workspace file, or a message in a chat. */
+/** Where an annotated quote came from: a range in a workspace file, a message in a chat, or an element on a web page. */
 export const AnnotationSourceSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("file"),
@@ -934,6 +934,12 @@ export const AnnotationSourceSchema = z.discriminatedUnion("kind", [
     messageId: z.string(),
     role: z.enum(["user", "assistant"]),
   }),
+  z.object({
+    kind: z.literal("browser"),
+    url: z.string().max(2048),
+    selector: z.string().max(2048),
+    tag: z.string().max(64),
+  }),
 ]);
 
 /** Finds a chat quote again in the rendered message after it reflows. */
@@ -943,8 +949,12 @@ export const AnnotationTextSelectorSchema = z.object({
   suffix: z.string(),
 });
 
-/** What a sent message keeps of an annotation so its pill can go back to the source. */
+/** What a sent message keeps of an annotation so its chip can go back to the source. */
 export const AnnotationAttachmentMetadataSchema = z.object({
+  /** N of the `[annotation N]` marker the message text carries for this annotation. */
+  ref: z.number().int().positive().optional(),
+  /** Index of a browser element's screenshot among the message's images. */
+  screenshotIndex: z.number().int().nonnegative().max(64).optional(),
   source: AnnotationSourceSchema,
   quote: z.string(),
   note: z.string(),
