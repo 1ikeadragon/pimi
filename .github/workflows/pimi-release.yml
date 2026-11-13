@@ -237,7 +237,7 @@ jobs:
 
   windows:
     name: Build Windows installer
-    needs: [validate, mac]
+    needs: validate
     if: needs.validate.outputs.build_windows == 'true'
     runs-on: windows-2025
     timeout-minutes: 35

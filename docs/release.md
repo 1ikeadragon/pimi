@@ -1,6 +1,6 @@
 # Pimi desktop releases
 
-[GitHub Actions](../.github/workflows/pimi-release.yml) builds Apple silicon by default from a `pimi-vX.Y.Z` tag on `main`. Use `pimi-all-vX.Y.Z` to build Apple silicon first, then Windows x64. Pick one tag for each version. The release includes installers, release notes, and SHA-256 checksums.
+[GitHub Actions](../.github/workflows/pimi-release.yml) builds Apple silicon by default from a `pimi-vX.Y.Z` tag on `main`. Use `pimi-all-vX.Y.Z` to build Apple silicon and Windows x64 in parallel. Pick one tag for each version. The release includes installers, release notes, and SHA-256 checksums.
 
 Without an `APPLE_TEAM_ID` repository variable, the Mac installer is ad hoc signed. Pimi can install it in-app, and macOS may require approval when opening the new version. The release notes flag the signing status.
 
