@@ -176,6 +176,8 @@ import {
   chipChar,
   chipPositions,
   chipSlot,
+  chipsOnly,
+  stripChips,
   lowestFreeSlot,
   reconcileAfterAttachmentsChange,
   chipPreviewText,
@@ -1701,10 +1703,11 @@ function ComposerContentImpl({
   });
 
   const runClientSlashCommand = useCallback(
-    ({ command, args }: ResolvedClientSlashCommand): boolean => {
+    ({ command, args: typedArgs }: ResolvedClientSlashCommand): boolean => {
       if (command.execution !== "immediate" || !onClientSlashCommand) {
         return false;
       }
+      const args = stripChips(typedArgs);
 
       setSendError(null);
       setIsProcessing(true);
@@ -1712,7 +1715,8 @@ function ComposerContentImpl({
         // The input is cleared only once the command succeeded, so a bad argument leaves the
         // text and its pending attachments for the user to fix.
         void onClientSlashCommand(command, args)
-          .then(() => replaceUserInput(""))
+          // Chips stay: they keep their place among the attachments the command did not take.
+          .then(() => replaceUserInput(chipsOnly(messageInputRef.current?.getText() ?? "")))
           .catch((error) => {
             console.error("[Composer] Failed to run client slash command:", error);
             setSendError(error instanceof Error ? error.message : String(error));

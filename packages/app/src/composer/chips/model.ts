@@ -44,6 +44,13 @@ export function stripChips(text: string): string {
   return text.replace(CHIP_CHARACTERS, "");
 }
 
+/** The text reduced to its chips, for commands that consume the typed words and keep the chips. */
+export function chipsOnly(text: string): string {
+  return chipPositions(text)
+    .map((chip) => chipChar(chip.slot))
+    .join("");
+}
+
 export function lowestFreeSlot(used: Iterable<number>): number | null {
   const taken = new Set(used);
   for (let slot = 0; slot < MAX_CHIPS; slot += 1) {
