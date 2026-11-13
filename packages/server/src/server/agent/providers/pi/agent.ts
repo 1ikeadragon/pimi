@@ -1174,6 +1174,21 @@ function mapPiModel(model: PiModel, provider: AgentProvider): AgentModelDefiniti
   };
 }
 
+// Pi's own settings.json defaultThinkingLevel, as the fresh session reports it (already
+// clamped to what the configured model supports).
+function applyPiConfiguredThinkingLevel(
+  model: AgentModelDefinition,
+  thinkingLevel: string | undefined,
+): void {
+  if (!thinkingLevel || !model.thinkingOptions?.some((option) => option.id === thinkingLevel)) {
+    return;
+  }
+  model.defaultThinkingOptionId = thinkingLevel;
+  model.thinkingOptions = model.thinkingOptions.map(({ isDefault: _drop, ...option }) =>
+    option.id === thinkingLevel ? { ...option, isDefault: true } : option,
+  );
+}
+
 function createRuntime(
   logger: Logger,
   runtimeSettings: ProviderRuntimeSettings | undefined,
@@ -2764,17 +2779,17 @@ export class PiRpcAgentClient implements AgentClient {
         catalogSession.getAvailableModels(null),
       );
       // A fresh Pi session starts on the model Pi resolves from its own settings.
-      const { model: configuredModel } = await runProviderRefreshActivity(
-        context,
-        "get_state",
-        () => catalogSession.getState(),
-      );
+      const { model: configuredModel, thinkingLevel: configuredThinkingLevel } =
+        await runProviderRefreshActivity(context, "get_state", () => catalogSession.getState());
       const models = transformPiModels(
         piModels.map((model) => {
           const mapped = mapPiModel(model, PI_PROVIDER);
           const isConfigured =
             model.provider === configuredModel?.provider && model.id === configuredModel?.id;
-          if (isConfigured) mapped.isDefault = true;
+          if (isConfigured) {
+            mapped.isDefault = true;
+            applyPiConfiguredThinkingLevel(mapped, configuredThinkingLevel);
+          }
           return mapped;
         }),
       );

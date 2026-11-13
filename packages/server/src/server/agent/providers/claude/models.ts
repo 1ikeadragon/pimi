@@ -57,6 +57,21 @@ export function getClaudeContextWindowMaxTokens(
   return findClaudeModel(modelId)?.contextWindowMaxTokens;
 }
 
+/**
+ * The permission mode Claude Code's own user settings.json starts sessions in. Read-only:
+ * Pimi never writes it. Project and local settings depend on the chat's cwd, which the
+ * provider catalog does not have.
+ */
+export async function readClaudeConfiguredPermissionMode(
+  logger: Logger,
+  configDir: string,
+): Promise<string | undefined> {
+  const settings = await readClaudeSettings(logger, configDir);
+  return isRecord(settings?.permissions)
+    ? readTrimmedString(settings.permissions.defaultMode)
+    : undefined;
+}
+
 export async function getClaudeModelsWithSettings(
   logger: Logger,
   configDir: string,
@@ -64,11 +79,8 @@ export async function getClaudeModelsWithSettings(
   discoveredModelIds: ReadonlySet<string> = new Set(),
 ): Promise<AgentModelDefinition[]> {
   const hardcodedModels = getClaudeManifestModels(claudeCodeVersion, discoveredModelIds);
-  const settingsModels = await readClaudeSettingsModels(logger, configDir);
-  if (settingsModels.length === 0) {
-    return hardcodedModels;
-  }
-
+  const settings = await readClaudeSettings(logger, configDir);
+  const settingsModels = settings ? collectClaudeSettingsModels(logger, settings) : [];
   const models = [...hardcodedModels];
 
   for (const model of settingsModels) {
@@ -80,44 +92,96 @@ export async function getClaudeModelsWithSettings(
       }
       continue;
     }
-    const manifestModel = getClaudeModels(claudeCodeVersion).find(
-      (candidate) => candidate.id === model.id,
-    );
+    const manifestModel = hardcodedModels.find((candidate) => candidate.id === model.id);
     models.push(resolveConfiguredClaudeModel({ ...manifestModel, ...model }));
   }
 
-  return models;
+  return settings ? applyClaudeConfiguredModelDefaults(models, settings) : models;
 }
 
-async function readClaudeSettingsModels(
+// Claude Code accepts a bare family alias such as "opus". The catalog is ordered newest first,
+// so the alias maps to the first selectable, non-1M entry of that family.
+function findClaudeConfiguredDefaultModel(
+  models: AgentModelDefinition[],
+  configuredModelId: string | undefined,
+): AgentModelDefinition | undefined {
+  if (!configuredModelId) return undefined;
+  const selectable = models.filter((model) => model.isSelectable !== false);
+  const exact = selectable.find(
+    (model) => model.id === configuredModelId || model.aliases?.includes(configuredModelId),
+  );
+  if (exact && !/^(mythos|fable|opus|sonnet|haiku)$/i.test(configuredModelId)) return exact;
+  const family = configuredModelId.toLowerCase();
+  if (!/^(mythos|fable|opus|sonnet|haiku)$/.test(family)) return exact;
+  return (
+    selectable.find(
+      (model) => model.id.startsWith(`claude-${family}-`) && !model.id.endsWith("[1m]"),
+    ) ?? exact
+  );
+}
+
+function applyClaudeConfiguredModelDefaults(
+  models: AgentModelDefinition[],
+  settings: Record<string, unknown>,
+): AgentModelDefinition[] {
+  const configuredModel = findClaudeConfiguredDefaultModel(
+    models,
+    readTrimmedString(settings.model),
+  );
+  const effortLevel = readTrimmedString(settings.effortLevel);
+  const modelSettings = isRecord(settings.modelSettings) ? settings.modelSettings : {};
+
+  return models.map((model) => {
+    const next = { ...model };
+    if (configuredModel) {
+      next.isDefault = model === configuredModel ? true : undefined;
+    }
+    const perModel = [model.id, ...(model.aliases ?? [])]
+      .map((key) => modelSettings[key])
+      .find(isRecord);
+    const level = readTrimmedString(perModel?.effortLevel) ?? effortLevel;
+    if (level && model.thinkingOptions?.some((option) => option.id === level)) {
+      next.defaultThinkingOptionId = level;
+      next.thinkingOptions = model.thinkingOptions.map(({ isDefault: _drop, ...option }) =>
+        option.id === level ? { ...option, isDefault: true } : option,
+      );
+    }
+    return next;
+  });
+}
+
+async function readClaudeSettings(
   logger: Logger,
   configDir: string,
-): Promise<AgentModelDefinition[]> {
+): Promise<Record<string, unknown> | null> {
   const settingsPath = path.join(configDir, "settings.json");
-
   let parsed: unknown;
   try {
-    const rawSettings = await fs.readFile(settingsPath, "utf8");
-    parsed = JSON.parse(rawSettings);
+    parsed = JSON.parse(await fs.readFile(settingsPath, "utf8"));
   } catch (error) {
-    logger.debug({ err: error, settingsPath }, "Failed to read Claude settings models");
-    return [];
+    logger.debug({ err: error, settingsPath }, "Failed to read Claude settings");
+    return null;
   }
-
   if (!isRecord(parsed)) {
     logger.debug({ settingsPath }, "Claude settings.json is not an object");
-    return [];
+    return null;
   }
+  return parsed;
+}
 
+function collectClaudeSettingsModels(
+  logger: Logger,
+  settings: Record<string, unknown>,
+): AgentModelDefinition[] {
   const models: AgentModelDefinition[] = [];
-  addSettingsModel(models, parsed.model, "model");
+  addSettingsModel(models, settings.model, "model");
 
-  const env = parsed.env;
+  const env = settings.env;
   if (env === undefined) {
     return models;
   }
   if (!isRecord(env)) {
-    logger.debug({ settingsPath }, "Claude settings.json env is not an object");
+    logger.debug("Claude settings.json env is not an object");
     return models;
   }
 
@@ -126,6 +190,12 @@ async function readClaudeSettingsModels(
   }
 
   return models;
+}
+
+function readTrimmedString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
 }
 
 function addSettingsModel(

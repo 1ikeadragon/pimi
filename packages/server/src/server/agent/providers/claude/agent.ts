@@ -41,6 +41,7 @@ import { isClaudeInterruptPlaceholderText } from "./interrupt-placeholder.js";
 import {
   getClaudeContextWindowMaxTokens,
   getClaudeModelsWithSettings,
+  readClaudeConfiguredPermissionMode,
   normalizeClaudeRuntimeModelId,
   resolveConfiguredClaudeModel,
 } from "./models.js";
@@ -1074,14 +1075,20 @@ function assertClaudeModeCanRun(mode: PermissionMode, env: NodeJS.ProcessEnv): v
   );
 }
 
-function claudeModeCatalog(env: NodeJS.ProcessEnv): {
+function claudeModeCatalog(
+  env: NodeJS.ProcessEnv,
+  configuredModeId?: string,
+): {
   modes: AgentMode[];
   defaultModeId: PermissionMode;
 } {
-  if (claudeAutoModeUnavailableOn(env)) {
-    return { modes: DEFAULT_MODES.filter((mode) => mode.id !== "auto"), defaultModeId: "default" };
-  }
-  return { modes: DEFAULT_MODES, defaultModeId: "auto" };
+  const modes = claudeAutoModeUnavailableOn(env)
+    ? DEFAULT_MODES.filter((mode) => mode.id !== "auto")
+    : DEFAULT_MODES;
+  // Claude Code's own permissions.defaultMode wins over Pimi's built-in default.
+  const configured = modes.find((mode) => mode.id === configuredModeId);
+  if (configured) return { modes, defaultModeId: configured.id as PermissionMode };
+  return { modes, defaultModeId: claudeAutoModeUnavailableOn(env) ? "default" : "auto" };
 }
 
 function coerceSessionMetadata(metadata: AgentMetadata | undefined): Partial<AgentSessionConfig> {
@@ -1759,7 +1766,12 @@ export class ClaudeAgentClient implements AgentClient {
         discoveredModelIds,
       ),
     );
-    const modeCatalog = claudeModeCatalog(env);
+    const modeCatalog = claudeModeCatalog(
+      env,
+      await runProviderRefreshActivity(context, "settings", () =>
+        readClaudeConfiguredPermissionMode(this.logger, claudeConfigDir(env)),
+      ),
+    );
     return {
       models,
       ...modeCatalog,
@@ -1767,7 +1779,11 @@ export class ClaudeAgentClient implements AgentClient {
   }
 
   async resolveDefaultModeId({ env: launchEnv }: ResolveAgentDefaultModeInput): Promise<string> {
-    return claudeModeCatalog(this.buildProviderEnv(launchEnv)).defaultModeId;
+    const env = this.buildProviderEnv(launchEnv);
+    return claudeModeCatalog(
+      env,
+      await readClaudeConfiguredPermissionMode(this.logger, claudeConfigDir(env)),
+    ).defaultModeId;
   }
 
   private buildProviderEnv(launchEnv?: Record<string, string>): NodeJS.ProcessEnv {
