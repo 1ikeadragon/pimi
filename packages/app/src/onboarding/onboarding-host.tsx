@@ -1,3 +1,4 @@
+import { hasDesktopTargetBridge } from "@/attack/use-desktop-target";
 import { useEffect, useSyncExternalStore } from "react";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { isNative } from "@/constants/platform";
@@ -32,7 +33,11 @@ function OnboardingGate() {
   useEffect(() => {
     model.applySetupHost(
       serverId ? { serverId, isConnected, hasHydratedWorkspaces, hasProjects } : null,
-      { includePhoneStep: !isCompact, includeMachineStep: isElectronRuntime() },
+      {
+        includePhoneStep: !isCompact,
+        includeMachineStep: isElectronRuntime(),
+        includeAttackStep: hasDesktopTargetBridge(),
+      },
     );
   }, [model, serverId, isConnected, hasHydratedWorkspaces, hasProjects, isCompact]);
 

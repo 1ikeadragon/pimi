@@ -223,6 +223,8 @@ export interface DesktopTargetBridge {
   /** Windows: the canonical form of a directory the owner typed, or null when it is not allowed. */
   checkDataDir: (dir: string) => Promise<string | null>;
   openSettings: (pane: "accessibility" | "screen") => Promise<void>;
+  /** Quits and starts Pimi again; macOS applies a new Screen Recording grant only to a new process. */
+  relaunch: () => Promise<void>;
 }
 
 export interface DesktopBrowserBridge {

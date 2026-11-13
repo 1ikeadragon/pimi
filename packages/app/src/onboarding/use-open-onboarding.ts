@@ -1,3 +1,4 @@
+import { hasDesktopTargetBridge } from "@/attack/use-desktop-target";
 import { useCallback } from "react";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { isElectronRuntime } from "@/desktop/host";
@@ -13,6 +14,7 @@ export function useOpenOnboarding(): (() => void) | null {
     getOnboardingModel().reopen(serverId, {
       includePhoneStep: !isCompact,
       includeMachineStep: isElectronRuntime(),
+      includeAttackStep: hasDesktopTargetBridge(),
     });
   }, [isCompact, serverId]);
   return serverId ? open : null;

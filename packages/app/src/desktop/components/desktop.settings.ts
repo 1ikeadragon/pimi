@@ -1,3 +1,4 @@
+import { hasDesktopTargetBridge } from "@/attack/use-desktop-target";
 import { getDesktopHost } from "@/desktop/host";
 import { defineSettingsPage } from "@/settings-index/define";
 
@@ -37,6 +38,20 @@ export const permissionsSettings = defineSettingsPage(
       title: t("settings.permissions.microphone"),
       keywords: ["mic", "voice", "dictation", "recording", "allow", "access"],
     },
+    hasDesktopTargetBridge()
+      ? {
+          id: "permissions.attackAccess",
+          title: t("attack.setup.label"),
+          keywords: [
+            "attack",
+            "adversarial",
+            "security",
+            "qa",
+            "accessibility",
+            "screen recording",
+          ],
+        }
+      : null,
   ],
 );
 

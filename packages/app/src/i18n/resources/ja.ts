@@ -2111,6 +2111,14 @@ export const ja: TranslationResources = {
           description:
             "エージェントがワークスペースを作成し、ほかのエージェントとやり取りできるようにします",
         },
+        attack: {
+          label: "アタックモード",
+          title: "アタックモード",
+          description:
+            "あなた自身のアプリをテストする、敵対的な QA・セキュリティエージェントです。今有効にすると、必要な macOS の許可をまとめて設定できます。",
+          enable: "アタックモードを有効にする",
+          notNow: "今はしない",
+        },
         phone: {
           label: "モバイル",
           title: "エージェントを持ち歩く",
@@ -2523,6 +2531,22 @@ export const ja: TranslationResources = {
       label: "アタック",
       accessibilityLabel: "アタックモード",
       openProject: "アタックモードを使うにはプロジェクトを開いてください。",
+    },
+    access: {
+      accessibility: "アクセシビリティ",
+      screen: "画面収録",
+      granted: "許可済み",
+      missing: "未許可",
+      openSettings: "システム設定を開く",
+      reopenNote:
+        "macOS は Pimi を開き直したあとに画面収録を反映します。システム設定で許可してから Pimi を開き直してください。",
+      reopen: "Pimi を開き直す",
+    },
+    setup: {
+      title: "アタックモード",
+      label: "アタックの許可",
+      hint: "アタックモードに必要な macOS の許可を確認または付与します。",
+      button: "アタックの許可を設定",
     },
     panels: {
       board: {

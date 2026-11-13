@@ -2087,6 +2087,14 @@ export const ar: TranslationResources = {
           title: "اسمح للوكلاء باستخدام Pimi",
           description: "اسمح لوكلائك بإنشاء مساحات عمل والتحدث مع وكلاء آخرين",
         },
+        attack: {
+          label: "وضع الهجوم",
+          title: "وضع الهجوم",
+          description:
+            "وكلاء اختبار جودة وأمان خصوميون يختبرون تطبيقاتك. فعّله الآن لمنح أذونات macOS المطلوبة دفعة واحدة.",
+          enable: "تفعيل وضع الهجوم",
+          notNow: "ليس الآن",
+        },
         phone: {
           label: "الجوال",
           title: "خذ وكلاءك معك",
@@ -2493,6 +2501,22 @@ export const ar: TranslationResources = {
       label: "الهجوم",
       accessibilityLabel: "وضع الهجوم",
       openProject: "افتح مشروعًا لاستخدام وضع الهجوم.",
+    },
+    access: {
+      accessibility: "إمكانية الوصول",
+      screen: "تسجيل الشاشة",
+      granted: "ممنوح",
+      missing: "غير ممنوح",
+      openSettings: "فتح إعدادات النظام",
+      reopenNote:
+        "يطبّق macOS إذن تسجيل الشاشة فقط بعد إعادة فتح Pimi. امنحه من إعدادات النظام ثم أعد فتح Pimi.",
+      reopen: "إعادة فتح Pimi",
+    },
+    setup: {
+      title: "وضع الهجوم",
+      label: "أذونات الهجوم",
+      hint: "تحقق من أذونات macOS التي يحتاجها وضع الهجوم أو امنحها.",
+      button: "إعداد أذونات الهجوم",
     },
     panels: {
       board: {

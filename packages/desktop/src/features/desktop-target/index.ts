@@ -100,6 +100,12 @@ export function registerDesktopTargetIpc(): void {
       screen: systemPreferences.getMediaAccessStatus("screen"),
     };
   });
+  // macOS applies a Screen Recording grant only to a process started after it. quit() runs the
+  // normal before-quit path (managed daemon shutdown); the relaunch fires when the app exits.
+  ipcMain.handle("pimi:desktop-target:relaunch", () => {
+    app.relaunch();
+    app.quit();
+  });
   ipcMain.handle("pimi:desktop-target:list-windows", async () => {
     const payload = await executeDesktopTarget({
       type: "desktop.target.execute.request",
