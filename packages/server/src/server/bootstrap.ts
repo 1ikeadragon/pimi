@@ -1,3 +1,4 @@
+import { createLimitFallback } from "./agent/limit-fallback/index.js";
 import { createRestartRecovery } from "./agent/restart-recovery/index.js";
 import { sendPromptToAgent } from "./agent/agent-prompt.js";
 import { generateChatTitle } from "./agent/chat-title-generator.js";
@@ -1309,6 +1310,13 @@ export async function createPimiDaemon(
       sendPromptToAgent({ agentId, prompt, agentManager, agentStorage, logger, unarchive: false }),
     report: (agentId, err) => logger.error({ agentId, err }, "Agent restart recovery failed"),
   });
+  const limitFallback = createLimitFallback({
+    agentManager,
+    agentStorage,
+    providerSnapshotManager,
+    config: () => daemonConfigStore.get().limitFallback,
+    logger,
+  });
   await restartRecovery.prepareStartup();
   logger.info({ elapsed: elapsed() }, "Agent storage initialized");
   await Promise.all([projectRegistry.initialize(), workspaceRegistry.initialize()]);
@@ -2215,6 +2223,7 @@ export async function createPimiDaemon(
     // they serve has been closed, further down.
     unsubscribePluginProviders();
     unsubscribePluginSessionChanges();
+    limitFallback.dispose();
     workspaceReconciliation.dispose();
     closeAllCodeNavigation();
     scriptHealthMonitor.stop();
