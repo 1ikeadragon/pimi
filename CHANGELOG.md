@@ -2,11 +2,16 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
-## Unreleased
+## 0.17.37 - 2026-11-13
 
+- Remote SSH: sign in with a password, key passphrase or one-time code inside the app. Answers stay in memory for the app session only and are cleared on quit or disconnect.
+- Links in chat open in a browser tab beside the chat; Cmd/Ctrl-click opens your system browser. URLs in your own messages are clickable. Agents can open a page beside the chat with `browser_show` (http/https only).
+- `/browser [url]` and `/annotate [url]`, plus "Annotate web page" in the Command Center. Annotations made in a browser tab go to the chat that opened it, with the element HTML, note and screenshot.
 - Annotations are now chips inside the composer text. Add one from a file or chat selection and it lands at your caret; Backspace removes it, undo brings it back with its note, and copy, cut and paste move chips. The agent receives `[annotation N]` in your message and the annotation bodies after it, and sent messages show the chips inline. Up-arrow recall and rewind restore them. On native the text shows a circled numeral and the chip sits in the tray.
 - Attachments and annotations are drawn as compact chips instead of 48px pills. Annotations get a hover card with the source, quote and note.
 - Plugins: `composer.getText()` holds one chip character per annotation (`isComposerChipChar`, `getPlainText()`); annotations report `position` and `ref`, `attachments.add` takes `{ at }`, and attachment renderers receive `placement` and `layout.lineHeight`.
+- Attack: a new setup step asks whether to enable Attack mode. Enable asks macOS for Accessibility and Screen Recording together, shows live status, and offers to reopen Pimi so Screen Recording takes effect. Settings > Permissions has the same button.
+- Attack desktop target on macOS: the menu bar can be listed and expanded, Quit and Close stay refused, and Pimi's own key presses no longer count as user activity. Clicks pass through the Dock's full-screen layer except over its icons.
 
 ## 0.17.36 - 2026-11-13
 
