@@ -2,6 +2,15 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.40 - 2026-11-14
+
+- Usage: a new Usage screen and popover (chart icon in the sidebar) show your Claude and Codex tokens, an estimated API-equivalent cost, a daily heatmap, usage over time, breakdowns by provider, model, project and origin, top chats with their subagents, tools and a recap. It reads local Claude and Codex transcripts read-only, including sessions run outside Pimi and archived Codex threads, and stores only totals in the local database. Costs are estimates; models without a known price show tokens only.
+- Working status: while an agent runs, the mascot line shows the current step, step count and failures. Tap it for a live list of steps.
+- Plugins can now change most of the app: override screens, the sidebar, settings, chat messages, tool calls, the composer, diffs, the file tree and viewer, search, and the workspace screen, header, tabs and panels, or add content to slots. Plugins also get files, git and search APIs, client and server storage, theme tokens, rebindable shortcuts and menu items. A failing override falls back to Pimi's own UI, and safe mode (Plugins page) turns all overrides off. See the repo-map and ui-overrides examples.
+- Faster: chats open from the stored timeline about 3× faster, slash commands are cached, cold start shows the window about 2.5× sooner, long code blocks stream without stalls, and switching workspaces and opening Settings do much less style work.
+- Panes: a narrow pane, such as a browser opened beside chat, has an X to close it, and the browser toolbar folds its extra buttons into a "…" menu when narrow.
+- Removed leftover code from the Paseo rename.
+
 ## 0.17.39 - 2026-11-14
 
 - Android: fixed a crash on startup ("main" has not been registered). The app now registers its root component before copying old storage.
