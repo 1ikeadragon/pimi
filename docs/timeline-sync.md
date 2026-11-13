@@ -154,7 +154,7 @@ new epoch and the client's next fetch resets.
 
 The same rule answers two read-only lists for an unloaded chat: provider subagents are `[]` (a copy
 with subagents never opens from storage), and slash commands come from the last read for that
-provider and folder, refreshed in the background after 60 s. The first list per provider and folder
+provider and folder, read again when a commands or skills directory changes, and refreshed in the background after 60 s. The first list per provider and folder
 after a daemon start still waits on a live provider process.
 
 ## Provider child history
