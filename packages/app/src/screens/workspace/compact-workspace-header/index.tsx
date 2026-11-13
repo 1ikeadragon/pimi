@@ -20,6 +20,7 @@ export { MobileWorkspaceTabSwitcher } from "./tab-switcher";
 interface CompactWorkspaceHeaderProps {
   desktopPane?: boolean;
   serverId: string;
+  workspaceId: string;
   isLoading: boolean;
   title: string;
   subtitle: string;
@@ -53,6 +54,7 @@ export function CompactWorkspaceHeader({
   children,
   tabSwitcher,
   serverId,
+  workspaceId,
   headerVariant,
   actionsActive,
   onHidePane,
@@ -67,9 +69,10 @@ export function CompactWorkspaceHeader({
         isSubtitleDistinct={isSubtitleDistinct}
         branch={currentBranchName}
         serverId={serverId}
+        workspaceId={workspaceId}
       />
     ),
-    [subtitle, isSubtitleDistinct, currentBranchName, serverId],
+    [subtitle, isSubtitleDistinct, currentBranchName, serverId, workspaceId],
   );
   const symbols = {
     "tab-count": tabSwitcher,

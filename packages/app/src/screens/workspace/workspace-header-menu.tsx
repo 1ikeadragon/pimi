@@ -1,5 +1,5 @@
 import type { WorkspaceCompactHeaderActions } from "./adaptive-workspace-chrome";
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useMemo, type ReactNode } from "react";
 import { View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { useTranslation } from "@/i18n/use-translation";
@@ -30,6 +30,7 @@ import {
   type UseWorkspaceScriptsMenuPagesInput,
 } from "@/screens/workspace/scripts";
 import { usePluginWorkspaceMenu } from "@/plugins";
+import { useChatLabelMenu } from "@/labels/chat-label-menu";
 
 const ThemedEllipsis = withUnistyles(Ellipsis);
 const ThemedCopy = withUnistyles(Copy);
@@ -76,6 +77,8 @@ const COMPACT_HEADER_BUTTON_HIT_SLOP = { top: 8, bottom: 8 } as const;
  * from the same callbacks, so the two surfaces can't drift.
  */
 export interface WorkspaceHeaderWorkspaceActions {
+  serverId: string;
+  workspaceId: string;
   currentBranchName: string | null;
   showWorkspaceSetup: boolean;
   importAgentDisabled: boolean;
@@ -88,6 +91,7 @@ export interface WorkspaceHeaderWorkspaceActions {
 }
 
 function WorkspaceHeaderWorkspaceActionItems({
+  labelsTrigger,
   currentBranchName,
   showWorkspaceSetup,
   importAgentDisabled,
@@ -97,7 +101,9 @@ function WorkspaceHeaderWorkspaceActionItems({
   onCopyBranchName,
   onOpenSetupTab,
   onRenameChat,
-}: WorkspaceHeaderWorkspaceActions) {
+}: Omit<WorkspaceHeaderWorkspaceActions, "serverId" | "workspaceId"> & {
+  labelsTrigger: ReactNode;
+}) {
   const { t } = useTranslation();
   return (
     <>
@@ -108,6 +114,7 @@ function WorkspaceHeaderWorkspaceActionItems({
       >
         {t("workspace.header.actions.renameChat")}
       </DropdownMenuItem>
+      {labelsTrigger}
       <DropdownMenuItem
         testID="workspace-header-copy-path"
         leading={MENU_COPY_ICON}
@@ -166,6 +173,8 @@ function workspaceHeaderMenuButtonStyle({
  */
 export function WorkspaceHeaderMenuDesktop(props: WorkspaceHeaderWorkspaceActions) {
   const { t } = useTranslation();
+  const { serverId, workspaceId, ...actions } = props;
+  const labelMenu = useChatLabelMenu(serverId, workspaceId);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -176,8 +185,13 @@ export function WorkspaceHeaderMenuDesktop(props: WorkspaceHeaderWorkspaceAction
       >
         <WorkspaceHeaderMenuTriggerIcon />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" width={220} testID="workspace-header-menu">
-        <WorkspaceHeaderWorkspaceActionItems {...props} />
+      <DropdownMenuContent
+        align="start"
+        width={220}
+        testID="workspace-header-menu"
+        pages={labelMenu.pages}
+      >
+        <WorkspaceHeaderWorkspaceActionItems {...actions} labelsTrigger={labelMenu.trigger} />
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -214,7 +228,10 @@ function HeaderMenuProfileItem({
   );
 }
 
-export interface WorkspaceHeaderMenuMobileProps extends WorkspaceHeaderWorkspaceActions {
+export interface WorkspaceHeaderMenuMobileProps extends Omit<
+  WorkspaceHeaderWorkspaceActions,
+  "serverId" | "workspaceId"
+> {
   pane?: WorkspaceCompactHeaderActions["pane"];
   onExitFocusMode?: () => void;
   normalizedServerId: string;
@@ -272,9 +289,10 @@ export function WorkspaceHeaderMenuMobile({
   }, [normalizedServerId, normalizedWorkspaceId, router]);
   const scriptsMenu = useWorkspaceScriptsMenuPages(scripts);
   const pluginMenu = usePluginWorkspaceMenu(normalizedServerId, normalizedWorkspaceId);
+  const labelMenu = useChatLabelMenu(normalizedServerId, normalizedWorkspaceId);
   const pages = useMemo(
-    () => [...scriptsMenu.pages, ...pluginMenu.pages],
-    [scriptsMenu.pages, pluginMenu.pages],
+    () => [...scriptsMenu.pages, ...pluginMenu.pages, ...labelMenu.pages],
+    [scriptsMenu.pages, pluginMenu.pages, labelMenu.pages],
   );
 
   return (
@@ -342,7 +360,10 @@ export function WorkspaceHeaderMenuMobile({
             {t("workspace.header.actions.newBrowser")}
           </DropdownMenuItem>
         ) : null}
-        <WorkspaceHeaderWorkspaceActionItems {...workspaceActions} />
+        <WorkspaceHeaderWorkspaceActionItems
+          {...workspaceActions}
+          labelsTrigger={labelMenu.trigger}
+        />
         <DropdownMenuSeparator />
         <DropdownMenuLabel>{t("workspace.tabs.actions.terminalProfilesMenu")}</DropdownMenuLabel>
         {profiles.map((profile) => (

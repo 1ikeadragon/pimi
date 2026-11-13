@@ -1,11 +1,7 @@
 import type { ReactElement } from "react";
 import { Text, View, type ViewStyle } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import {
-  WORKSPACE_LABEL_COLORS,
-  type WorkspaceLabelColor,
-  type WorkspaceLabelDefinition,
-} from "@pimi/protocol/workspace-labels";
+import { LABEL_COLORS, type Label, type LabelColor } from "@pimi/protocol/labels";
 import { identityForeground, identityTint } from "@/styles/identity-colors";
 import { SPACING } from "@/styles/theme";
 
@@ -16,7 +12,7 @@ import { SPACING } from "@/styles/theme";
  * chip at the head of a line has to hang the ground by this much to land the name on the rail.
  * A static number from the spacing scale, not a theme read — see docs/unistyles.md.
  */
-export const WORKSPACE_LABEL_CHIP_INSET = SPACING[1.5];
+export const LABEL_CHIP_INSET = SPACING[1.5];
 
 /**
  * A label where it is read rather than managed: its name in its own color, on a 10% ground of
@@ -31,12 +27,9 @@ export const WORKSPACE_LABEL_CHIP_INSET = SPACING[1.5];
  * The chip is exactly as tall as the line it sits on: text at the row's `lineHeight`, no vertical
  * padding. A ground that grew the line would push every other row in the sidebar down for it.
  */
-export function WorkspaceLabelChip({ label }: { label: WorkspaceLabelDefinition }): ReactElement {
+export function LabelChip({ label }: { label: Label }): ReactElement {
   return (
-    <View
-      style={[styles.chip, CHIP_GROUNDS[label.color]]}
-      testID={`workspace-label-chip-${label.name}`}
-    >
+    <View style={[styles.chip, CHIP_GROUNDS[label.color]]} testID={`label-chip-${label.name}`}>
       <Text style={[styles.name, nameColorStyle(label.color)]} numberOfLines={1}>
         {label.name}
       </Text>
@@ -47,17 +40,30 @@ export function WorkspaceLabelChip({ label }: { label: WorkspaceLabelDefinition 
 // `identityTint` is theme-independent — one hex per name at 10% alpha — so unlike the text color
 // these can be built once at module load. There is no Unistyles proxy here to freeze against
 // whichever theme happened to be active first.
-const CHIP_GROUNDS: Record<WorkspaceLabelColor, ViewStyle> = Object.fromEntries(
-  WORKSPACE_LABEL_COLORS.map((color) => [color, { backgroundColor: identityTint(color) }]),
-) as Record<WorkspaceLabelColor, ViewStyle>;
+const CHIP_GROUNDS: Record<LabelColor, ViewStyle> = Object.fromEntries(
+  LABEL_COLORS.map((color) => [color, { backgroundColor: identityTint(color) }]),
+) as Record<LabelColor, ViewStyle>;
 
 const styles = StyleSheet.create((theme) => ({
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  rowWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: theme.spacing[1],
+  },
   chip: {
     // Yields space the way the host badge does, so a long label truncates instead of pushing
     // the change request and its checks off the line.
     flexShrink: 1,
     minWidth: 0,
-    paddingHorizontal: WORKSPACE_LABEL_CHIP_INSET,
+    paddingHorizontal: LABEL_CHIP_INSET,
     borderRadius: theme.borderRadius.full,
   },
   // No optical nudge: the ground is the text's own line box, so the chip's ink sits on the same
@@ -82,7 +88,7 @@ const styles = StyleSheet.create((theme) => ({
   nameBlue: { color: identityForeground("blue", theme.colorScheme) },
 }));
 
-function nameColorStyle(color: WorkspaceLabelColor) {
+function nameColorStyle(color: LabelColor) {
   switch (color) {
     case "violet":
       return styles.nameViolet;
@@ -105,4 +111,26 @@ function nameColorStyle(color: WorkspaceLabelColor) {
     case "blue":
       return styles.nameBlue;
   }
+}
+
+/**
+ * A row of label chips for labels already in hand. Renders nothing for an empty list, so a caller can place
+ * it unconditionally. Chips shrink and truncate instead of wrapping, keeping the row one line
+ * tall; pass `wrap` where a taller row is fine (a header, a detail view).
+ */
+export function LabelChipList({
+  labels,
+  wrap = false,
+}: {
+  labels: readonly Label[];
+  wrap?: boolean;
+}): ReactElement | null {
+  if (labels.length === 0) return null;
+  return (
+    <View style={wrap ? styles.rowWrap : styles.row} testID="label-chips">
+      {labels.map((label) => (
+        <LabelChip key={label.id} label={label} />
+      ))}
+    </View>
+  );
 }

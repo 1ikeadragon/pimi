@@ -65,7 +65,6 @@ import { WorkspaceExplorerOpenGesture } from "@/mobile-panels/explorer-open-gest
 import { useFollowWorkbenchMode, usePimiWorkbenchMode } from "@/desktop/use-pimi-workbench";
 import { useAttackCoverageReport } from "@/attack/use-attack-coverage-report";
 import { useAttackNavigationAudit } from "@/attack/use-attack-navigation-audit";
-import { PimiLabelsProvider } from "@/desktop/pimi-labels";
 import { HarnessUpdateNotice } from "@/components/harness-update-notice";
 import { ProviderSettingsHost } from "@/components/provider-settings-host";
 import { WorkspaceSetupDialog } from "@/components/workspace-setup-dialog";
@@ -847,7 +846,7 @@ function ProvidersWrapper({ children }: { children: ReactNode }) {
         <OfferLinkListener />
         <HostSessionManager />
         <FaviconStatusSync />
-        <PimiLabelsProvider>{children}</PimiLabelsProvider>
+        {children}
       </VoiceProvider>
     </AppearanceProvider>
   );

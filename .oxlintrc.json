@@ -602,8 +602,8 @@
         "packages/app/src/tool-calls/detail-level/overview/sheet.tsx",
         "packages/app/src/usage/sidebar-item.tsx",
         "packages/app/src/usage/window-bar.tsx",
-        "packages/app/src/workspace-labels/manager-modal.tsx",
-        "packages/app/src/workspace-labels/swatch.tsx",
+        "packages/app/src/labels/manager-modal.tsx",
+        "packages/app/src/labels/swatch.tsx",
         "packages/app/src/workspace/open-in-editor/button.tsx"
       ],
       "rules": {

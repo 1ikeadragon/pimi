@@ -44,13 +44,9 @@ import {
 import { shouldShowWorkspaceSetup } from "@/stores/workspace-setup-store";
 import { clearCommandCenterFocusRestoreElement } from "@/utils/command-center-focus-restore";
 import { getShortcutOs } from "@/utils/shortcut-platform";
-import {
-  buildWorkspaceLabelPickerRows,
-  useWorkspaceLabelProjection,
-  workspaceLabelErrorMessage,
-  workspaceLabels,
-} from "@/workspace-labels";
-import { getLabelCommandCenterIcon } from "@/workspace-labels/command-center-icon";
+import { labelErrorMessage, labels, useHostLabels, useTargetLabelIds } from "@/labels/store";
+import { getLabelCommandCenterIcon } from "@/labels/command-center-icon";
+import { useWorkspacePrimaryChatTarget } from "@/labels/workspace-chat";
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
 import { getCommandCenterIcon } from "./icon";
 import type { CommandCenterIcon } from "./contributions";
@@ -111,52 +107,41 @@ function resolveWorkspaceShortcuts(overrides: ShortcutOverrides): WorkspaceComma
 
 /**
  * The label catalog and its toggle callback, pulled out of `useWorkspaceCommandCenterActions` to
- * keep that hook under the complexity limit. Null while the host's catalog hasn't loaded, so the
- * group is omitted rather than shown empty — the same rule `WorkspaceLabelPickerPage` follows for
- * the sidebar's own picker.
+ * keep that hook under the complexity limit. Labels attach to chats, so the choices act on the
+ * workspace's primary chat — the one its sidebar row stands for. Null while the host's catalog
+ * hasn't loaded or the workspace has no chat, so the group is omitted rather than shown empty.
  */
 function useWorkspaceLabelCatalog(
   serverId: string | null,
-  fields: { id: string; labels: readonly string[] } | null,
+  workspaceId: string | null,
 ): {
   labelCatalog: readonly WorkspaceCommandCenterLabelChoice[] | null;
-  toggleLabel: (name: string, assigned: boolean) => void;
+  toggleLabel: (labelId: string, assigned: boolean) => void;
 } {
-  const { labels: labelDefinitions, targetHost: labelHost } = useWorkspaceLabelProjection(
-    serverId ?? undefined,
-  );
+  const host = useHostLabels(serverId ?? "");
+  const target = useWorkspacePrimaryChatTarget(serverId, workspaceId ?? "");
+  const assignedIds = useTargetLabelIds(serverId ?? "", target);
   const toast = useToast();
-  const assignedLabels = fields?.labels;
-  const labelCatalog = useMemo<readonly WorkspaceCommandCenterLabelChoice[] | null>(
-    () =>
-      labelHost?.status === "online" && assignedLabels
-        ? buildWorkspaceLabelPickerRows({ labels: labelDefinitions, assigned: assignedLabels }).map(
-            (row) => ({
-              name: row.name,
-              assigned: row.assigned,
-              icon: getLabelCommandCenterIcon(row.color),
-            }),
-          )
-        : null,
-    [assignedLabels, labelDefinitions, labelHost?.status],
-  );
+  const labelCatalog = useMemo<readonly WorkspaceCommandCenterLabelChoice[] | null>(() => {
+    if (host?.status !== "online" || !target) return null;
+    const assigned = new Set(assignedIds);
+    return host.labels.map((label) => ({
+      id: label.id,
+      name: label.name,
+      assigned: assigned.has(label.id),
+      icon: getLabelCommandCenterIcon(label.color),
+    }));
+  }, [assignedIds, host?.labels, host?.status, target]);
   const toggleLabel = useCallback(
-    async (name: string, assigned: boolean) => {
-      if (!serverId || !fields) return;
-      const definition = labelDefinitions.find((label) => label.name === name);
-      if (!definition) return;
+    async (labelId: string, assigned: boolean) => {
+      if (!serverId || !target) return;
       try {
-        await workspaceLabels.setAssignment({
-          serverId,
-          workspaceId: fields.id,
-          label: definition,
-          assigned,
-        });
+        await labels.setAssignment({ serverId, target, labelId, assigned });
       } catch (cause) {
-        toast.error(workspaceLabelErrorMessage(cause));
+        toast.error(labelErrorMessage(cause));
       }
     },
-    [fields, labelDefinitions, serverId, toast],
+    [serverId, target, toast],
   );
   return { labelCatalog, toggleLabel };
 }
@@ -189,7 +174,6 @@ export function useWorkspaceCommandCenterActions(): void {
     currentBranch: workspace.gitRuntime?.currentBranch ?? null,
     pinnedAt: workspace.pinnedAt ?? null,
     setupStatus: workspace.setupStatus,
-    labels: workspace.labels ?? [],
   }));
   const cwd = useWorkspaceDirectory(serverId, workspaceId);
   const currentBranch = fields?.currentBranch ?? null;
@@ -223,7 +207,7 @@ export function useWorkspaceCommandCenterActions(): void {
     });
   }, [clipboard, fields]);
 
-  const { labelCatalog, toggleLabel } = useWorkspaceLabelCatalog(serverId, fields);
+  const { labelCatalog, toggleLabel } = useWorkspaceLabelCatalog(serverId, workspaceId);
 
   const actions = useMemo(
     () =>

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, type ReactElement } from "react";
 import { Pressable, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import { WORKSPACE_LABEL_COLORS, type WorkspaceLabelColor } from "@pimi/protocol/workspace-labels";
+import { LABEL_COLORS, type Label, type LabelColor } from "@pimi/protocol/labels";
 import { identityForeground } from "@/styles/identity-colors";
 import { i18n } from "@/i18n/i18next";
 import type { Theme } from "@/styles/theme";
@@ -11,7 +11,7 @@ import type { Theme } from "@/styles/theme";
  * tint mapping the sidebar's label group headers hand to a glyph.
  *
  * The ten names are the identity table's ten (`@/styles/identity-colors`) — the protocol happens
- * to spell them out again as `WorkspaceLabelColor`, and every `identityForeground` call below is
+ * to spell them out again as `LabelColor`, and every `identityForeground` call below is
  * the compile-time proof that the two lists still agree. Nothing here picks a hex: a label sits
  * on the same sidebar row as a host badge and a CI check, and the identity table is the one place
  * that holds all three to a single contrast band.
@@ -23,7 +23,7 @@ const DOT_SIZE = 10;
 /** Big enough to judge a color by, and the swatch grid's only unit — see `hitSlop` below. */
 const SWATCH_SIZE = 20;
 
-export function workspaceLabelColorName(color: WorkspaceLabelColor): string {
+export function labelColorName(color: LabelColor): string {
   return i18n.t(`workspaceLabels.colors.${color}`);
 }
 
@@ -32,19 +32,29 @@ export function workspaceLabelColorName(color: WorkspaceLabelColor): string {
  * label's color (`withUnistyles` re-subscribes when `uniProps` changes identity). The scheme is
  * read inside the mapping, so switching themes repaints the glyph without a React render.
  */
-export const WORKSPACE_LABEL_ICON_MAPPINGS: Record<
-  WorkspaceLabelColor,
-  (theme: Theme) => { color: string }
-> = Object.fromEntries(
-  WORKSPACE_LABEL_COLORS.map((color) => [
-    color,
-    (theme: Theme) => ({ color: identityForeground(color, theme.colorScheme) }),
-  ]),
-) as Record<WorkspaceLabelColor, (theme: Theme) => { color: string }>;
+export const LABEL_ICON_MAPPINGS: Record<LabelColor, (theme: Theme) => { color: string }> =
+  Object.fromEntries(
+    LABEL_COLORS.map((color) => [
+      color,
+      (theme: Theme) => ({ color: identityForeground(color, theme.colorScheme) }),
+    ]),
+  ) as Record<LabelColor, (theme: Theme) => { color: string }>;
 
 /** The mark that stands in for a label wherever its name is already spelled out beside it. */
-export function WorkspaceLabelDot({ color }: { color: WorkspaceLabelColor }): ReactElement {
+export function LabelDot({ color }: { color: LabelColor }): ReactElement {
   return <View style={[styles.dot, fillStyle(color)]} />;
+}
+
+/** Overlapping-free row of dots for a target whose row has no room for names. */
+export function LabelDots({ labels }: { labels: readonly Label[] }): ReactElement | null {
+  if (labels.length === 0) return null;
+  return (
+    <View style={styles.dots} testID="label-dots">
+      {labels.map((label) => (
+        <LabelDot key={label.id} color={label.color} />
+      ))}
+    </View>
+  );
 }
 
 /**
@@ -55,21 +65,21 @@ export function WorkspaceLabelDot({ color }: { color: WorkspaceLabelColor }): Re
  * somewhere inside them. Selection is an inset ring, which React Native draws inside the box, so
  * picking a color cannot reflow the row.
  */
-export function WorkspaceLabelSwatchRow({
+export function LabelSwatchRow({
   value,
   onChange,
   disabled = false,
   testID,
 }: {
-  value: WorkspaceLabelColor | null;
-  onChange: (color: WorkspaceLabelColor) => void;
+  value: LabelColor | null;
+  onChange: (color: LabelColor) => void;
   disabled?: boolean;
   testID?: string;
 }): ReactElement {
   return (
     <View style={styles.swatchRow} testID={testID}>
-      {WORKSPACE_LABEL_COLORS.map((color) => (
-        <WorkspaceLabelSwatch
+      {LABEL_COLORS.map((color) => (
+        <LabelSwatch
           key={color}
           color={color}
           selected={color === value}
@@ -81,30 +91,30 @@ export function WorkspaceLabelSwatchRow({
   );
 }
 
-function WorkspaceLabelSwatch({
+function LabelSwatch({
   color,
   selected,
   disabled,
   onChange,
 }: {
-  color: WorkspaceLabelColor;
+  color: LabelColor;
   selected: boolean;
   disabled: boolean;
-  onChange: (color: WorkspaceLabelColor) => void;
+  onChange: (color: LabelColor) => void;
 }): ReactElement {
   const select = useCallback(() => onChange(color), [color, onChange]);
   const accessibilityState = useMemo(() => ({ checked: selected, disabled }), [disabled, selected]);
   return (
     <Pressable
       accessibilityRole="radio"
-      accessibilityLabel={workspaceLabelColorName(color)}
+      accessibilityLabel={labelColorName(color)}
       accessibilityState={accessibilityState}
       aria-checked={selected}
       disabled={disabled}
       hitSlop={SWATCH_HIT_SLOP}
       onPress={select}
       style={[styles.swatch, fillStyle(color), selected && styles.swatchSelected]}
-      testID={`workspace-label-swatch-${color}`}
+      testID={`label-swatch-${color}`}
     />
   );
 }
@@ -114,6 +124,12 @@ function WorkspaceLabelSwatch({
 const SWATCH_HIT_SLOP = (44 - SWATCH_SIZE) / 2;
 
 const styles = StyleSheet.create((theme) => ({
+  dots: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    flexShrink: 0,
+  },
   dot: {
     width: DOT_SIZE,
     height: DOT_SIZE,
@@ -151,7 +167,7 @@ const styles = StyleSheet.create((theme) => ({
 }));
 
 // Read inside render, never into a module-scope table — see docs/unistyles.md.
-function fillStyle(color: WorkspaceLabelColor) {
+function fillStyle(color: LabelColor) {
   switch (color) {
     case "violet":
       return styles.fillViolet;

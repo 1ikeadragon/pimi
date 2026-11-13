@@ -1,4 +1,3 @@
-import { workspaceLabelKey } from "@pimi/protocol/workspace-labels";
 import type { SidebarWorkspaceEntry } from "@/hooks/use-sidebar-workspaces-list";
 import { SIDEBAR_UNLABELLED_LABEL_KEY, type SidebarLabelFilter } from "@/stores/sidebar-view-store";
 import type { StatusBucket, StatusGroup } from "@/hooks/sidebar-status-view-model";
@@ -24,24 +23,19 @@ export function statusWorkspaceGroups(groups: readonly StatusGroup[]): SidebarWo
  *
  * `Unlabelled` is a row like any other, so it is a key in the same list rather than a boolean
  * beside it; the only thing that makes it special is what the key asks of a workspace.
- * Selecting several labels includes workspaces carrying any of them.
+ * Selecting several labels includes workspaces whose root chats carry any of them.
  */
 export function filterWorkspacesByLabels(
   input: {
     workspaces: readonly SidebarWorkspaceEntry[];
-    linkedLabels?: (workspace: SidebarWorkspaceEntry) => readonly string[] | undefined;
+    /** Label ids on the workspace's root chats, wherever they sit. */
+    labelIdsOf: (workspace: SidebarWorkspaceEntry) => readonly string[];
   } & SidebarLabelFilter,
 ): SidebarWorkspaceEntry[] {
   const { workspaces, labels } = input;
   if (labels.length === 0) return [...workspaces];
   return workspaces.filter((workspace) => {
-    // Whitespace-only names normalize away, so `size === 0` is exactly "carries no real label"
-    // and the empty key can only ever mean Unlabelled.
-    const keys = new Set(
-      [...(workspace.labels ?? []), ...(input.linkedLabels?.(workspace) ?? [])]
-        .map(workspaceLabelKey)
-        .filter(Boolean),
-    );
+    const keys = new Set(input.labelIdsOf(workspace));
     const matches = (key: string) =>
       key === SIDEBAR_UNLABELLED_LABEL_KEY ? keys.size === 0 : keys.has(key);
     return labels.some(matches);
