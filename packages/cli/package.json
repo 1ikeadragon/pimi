@@ -22,9 +22,9 @@
   },
   "dependencies": {
     "@clack/prompts": "1.1.0",
-    "@pimi/client": "0.17.35",
-    "@pimi/protocol": "0.17.35",
-    "@pimi/server": "0.17.35",
+    "@pimi/client": "0.17.36",
+    "@pimi/protocol": "0.17.36",
+    "@pimi/server": "0.17.36",
     "commander": "12.1.0",
     "mime-types": "2.1.35",
     "yaml": "2.8.4",
