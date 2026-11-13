@@ -15,11 +15,13 @@ const quoteIcon = <ThemedQuote size={ICON_SIZE.xs} uniProps={accentIconMapping} 
 export function AnnotationChip({
   annotation,
   size,
+  badge,
   selected,
   focused,
 }: {
   annotation: Pick<AnnotationAttachment, "source" | "note" | "quote">;
   size: "inline" | "tray";
+  badge?: string;
   selected?: boolean;
   focused?: boolean;
 }) {
@@ -29,6 +31,7 @@ export function AnnotationChip({
       label={annotationChipLabel(annotation)}
       hasNote={annotation.note.trim().length > 0}
       size={size}
+      badge={badge}
       selected={selected}
       focused={focused}
       testID="annotation-chip"

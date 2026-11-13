@@ -26,6 +26,8 @@ interface InlineChipProps {
   icon: ReactNode;
   label: string;
   hasNote?: boolean;
+  /** A circled numeral tying a tray chip to its place in a text that cannot draw chips (native). */
+  badge?: string;
   selected?: boolean;
   focused?: boolean;
   /** `inline` sits in a line of text; `tray` is the larger target in the attachment tray. */
@@ -41,6 +43,7 @@ export function InlineChip({
   icon,
   label,
   hasNote = false,
+  badge,
   selected = false,
   focused = false,
   size = "inline",
@@ -67,6 +70,7 @@ export function InlineChip({
       ) : (
         <View style={styles.iconSlot}>{icon}</View>
       )}
+      {badge ? <Text style={styles.badge}>{badge}</Text> : null}
       <Text style={styles.label} numberOfLines={1}>
         {label}
       </Text>
@@ -116,6 +120,11 @@ const styles = StyleSheet.create((theme) => ({
   label: {
     flexShrink: 1,
     color: theme.colors.foreground,
+    fontSize: theme.fontSize.sm,
+    fontWeight: theme.fontWeight.medium,
+  },
+  badge: {
+    color: theme.colors.accentBright,
     fontSize: theme.fontSize.sm,
     fontWeight: theme.fontWeight.medium,
   },

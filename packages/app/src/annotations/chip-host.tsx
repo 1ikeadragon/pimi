@@ -9,6 +9,7 @@ import { useIsCompactFormFactor } from "@/constants/layout";
 import { isNative } from "@/constants/platform";
 import { useToast } from "@/contexts/toast-context";
 import { useSettings } from "@/hooks/use-settings";
+import { circledNumeral } from "@/composer/chips/model";
 import { AnnotationChip } from "./chip";
 import {
   openAnnotationAtSource,
@@ -115,6 +116,7 @@ export function AnnotationChipHost({
     <AnnotationChip
       annotation={annotation}
       size={placement === "inline" ? "inline" : "tray"}
+      badge={placement === "tray" ? circledNumeral(annotation.slot) : undefined}
       selected={selected || hovered}
       focused={focused}
     />

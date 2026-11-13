@@ -265,3 +265,39 @@ export function restoreSentChips(input: {
   });
   return { text, annotations };
 }
+
+const NUMERAL_RANGES = [
+  { first: 0x2460, count: 20 },
+  { first: 0x3251, count: 12 },
+] as const;
+
+/** The circled numeral standing for a slot where the text input cannot draw a chip (native). */
+export function circledNumeral(slot: number): string {
+  const range = slot < NUMERAL_RANGES[0].count ? NUMERAL_RANGES[0] : NUMERAL_RANGES[1];
+  const offset = range === NUMERAL_RANGES[0] ? slot : slot - NUMERAL_RANGES[0].count;
+  return String.fromCharCode(range.first + offset);
+}
+
+function numeralSlot(char: string): number | null {
+  const code = char.charCodeAt(0);
+  const [first, second] = NUMERAL_RANGES;
+  if (code >= first.first && code < first.first + first.count) return code - first.first;
+  if (code >= second.first && code < second.first + second.count)
+    return first.count + code - second.first;
+  return null;
+}
+
+/** Chip characters to circled numerals, one for one, so offsets are the same in both forms. */
+export function chipsToNumerals(text: string): string {
+  return text.replace(CHIP_CHARACTERS, (char) => circledNumeral(chipSlot(char)));
+}
+
+/** The reverse: circled numerals typed or pasted by the user become chips too. */
+export function numeralsToChips(text: string): string {
+  let out = "";
+  for (const char of text) {
+    const slot = numeralSlot(char);
+    out += slot === null ? char : chipChar(slot);
+  }
+  return out;
+}
