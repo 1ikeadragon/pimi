@@ -55,7 +55,15 @@ function resolveEndpointPath(key: string): { listenPath: string; connection: str
     const pipe = `\\\\.\\pipe\\pimi-ssh-${hash}`;
     return { listenPath: pipe, connection: `pipe://${pipe}` };
   }
-  const socketPath = path.join(resolvePimiHome(process.env), "run", `ssh-${hash}.sock`);
+  const home = resolvePimiHome(process.env);
+  let socketPath = path.join(home, "run", `ssh-${hash}.sock`);
+  if (Buffer.byteLength(socketPath) > MAX_SOCKET_PATH_BYTES) {
+    // A deep PIMI_HOME (a worktree's .dev home, a scratch dir) cannot hold a unix socket. Fall back to
+    // a short private directory keyed by user and home; the caller still creates it 0700 and chmods it.
+    const uid = process.getuid?.() ?? 0;
+    const homeKey = createHash("sha256").update(home).digest("hex").slice(0, 8);
+    socketPath = path.join("/tmp", `pimi-${uid}-${homeKey}`, `ssh-${hash}.sock`);
+  }
   if (Buffer.byteLength(socketPath) > MAX_SOCKET_PATH_BYTES) {
     throw new Error(
       `Socket path is too long (${Buffer.byteLength(socketPath)} bytes, limit ${MAX_SOCKET_PATH_BYTES}): ${socketPath}`,
