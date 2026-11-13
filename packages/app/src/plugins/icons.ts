@@ -9,6 +9,7 @@ import {
 import type { PluginIcon } from "@pimi/plugin/client";
 import type { IconProps } from "@pimi/plugin/client/ui";
 import { SvgIcon } from "@/components/provider-icons";
+import { loadLucideFullSet } from "./lucide-full-set/load";
 
 /** Host surfaces may thin a Lucide stroke; SVG and plugin components ignore it. */
 type HostIconProps = PluginIconProps & { strokeWidth?: number };
@@ -37,7 +38,7 @@ const warnedMissingLucideIcons = new Set<string>();
 
 async function importLucideSet(): Promise<void> {
   try {
-    lucideSet = (await import("lucide-react-native")) as LucideSet;
+    lucideSet = (await loadLucideFullSet()) as LucideSet;
   } catch (error) {
     lucideSetLoad = null;
     console.error("[plugin-icons] failed to load the Lucide icon set", error);

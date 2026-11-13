@@ -58,10 +58,10 @@ config.resolver.extraNodeModules = {
   "react/jsx-dev-runtime": path.join(appNodeModulesRoot, "react/jsx-dev-runtime"),
 };
 // Production bundles carry only the Lucide icons the app imports by name. The full set is the
-// async chunk behind `src/plugins/icons.ts`, which resolves plugin icons by name at runtime.
+// async chunk behind `src/plugins/lucide-full-set/load.ts`, which resolves plugin icons by name at runtime.
 // Dev keeps the full set so a newly imported icon needs no Metro restart.
 const lucidePackageName = "lucide-react-native";
-const lucideFullSetImporter = path.resolve(appSrcRoot, "plugins/icons.ts");
+const lucideFullSetImporter = path.resolve(appSrcRoot, "plugins/lucide-full-set/load.ts");
 
 function listSourceFiles(dir, files = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
