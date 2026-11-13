@@ -133,6 +133,8 @@ interface RemoteProviderConnection {
 
 interface PluginRuntimeDependencies {
   settingsDirectory?: string;
+  /** Parent of each plugin's data directory, `<pimiHome>/plugin-data`. */
+  dataDirectory?: string;
   onSettingsChanged?: (pluginId: string, settingsId: string) => void;
   spawnChild?: () => PluginChild;
   sessionHost?: PluginPimiSessionHost;
@@ -942,6 +944,9 @@ export class PluginRuntime {
             bundle,
             settingsDirectory: this.dependencies.settingsDirectory
               ? path.join(this.dependencies.settingsDirectory, pluginId)
+              : undefined,
+            dataDirectory: this.dependencies.dataDirectory
+              ? path.join(this.dependencies.dataDirectory, pluginId)
               : undefined,
           }).catch(fail);
         },

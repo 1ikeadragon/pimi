@@ -7,6 +7,10 @@ import path from "node:path";
 import { createPluginImportReader, type PluginImportKind } from "./compiler-imports.js";
 import type { Metafile, OnResolveResult, Plugin } from "esbuild";
 import {
+  isPluginClientThirdPartyModule,
+  PLUGIN_CLIENT_HOST_MODULES,
+} from "@pimi/protocol/plugin-host-modules";
+import {
   isPluginClientOnlySdkSpecifier,
   isPluginServerOnlySdkSpecifier,
   PLUGIN_SDK_SPECIFIERS,
@@ -196,7 +200,7 @@ function createRuntimeBoundaryPlugin(target: PluginBuildTarget, pluginDirectory:
           // Host modules have separately enforced SDK boundaries and need no local installation.
           if (
             (PLUGIN_SDK_SPECIFIERS as readonly string[]).includes(specifier) ||
-            /^(zod|react|react-native|@tanstack\/react-query)(\/|$)/.test(specifier) ||
+            isPluginClientThirdPartyModule(specifier) ||
             isBuiltin(specifier) ||
             packageSpecifier === "@types/node"
           )
@@ -291,6 +295,7 @@ function runtimeSpecifierError(
   else if (
     target !== "client" &&
     (isPluginClientOnlySdkSpecifier(specifier) ||
+      (isPluginClientThirdPartyModule(specifier) && specifier !== "zod") ||
       /^((?:@types\/)?react(?:-dom|-native)?|use-sync-external-store|@tanstack\/react-query)(\/|$)/.test(
         specifier,
       ))
@@ -361,16 +366,10 @@ async function compileTarget(entryPath: string, target: PluginBuildTarget): Prom
     // Metro lowers async syntax before Hermes sees app code. Plugin client bundles bypass Metro,
     // so apply the same compatibility transform before the app evaluates them from source.
     supported: target === "client" ? { "async-await": false } : undefined,
+    // The app resolves these from the same list, so a module cannot be external here and missing there.
     external:
       target === "client"
-        ? [
-            ...PLUGIN_SDK_SPECIFIERS,
-            "@tanstack/react-query",
-            "react",
-            "react/jsx-runtime",
-            "react-native",
-            "zod",
-          ]
+        ? [...new Set([...PLUGIN_SDK_SPECIFIERS, ...PLUGIN_CLIENT_HOST_MODULES])]
         : SERVER_HOST_MODULES,
     plugins: [createRuntimeBoundaryPlugin(target, pluginDirectory)],
     metafile: true,
@@ -421,12 +420,6 @@ async function resolveEntryPaths(directory: string): Promise<{
     findEntry(directory, SERVER_ENTRY_FILENAMES),
   ]);
   if (client || server) return { client, server };
-  const legacyEntry = await findEntry(directory, ["index.ts", "index.tsx"]);
-  if (legacyEntry) {
-    throw new Error(
-      "This plugin uses an older API and needs to be updated for Pimi. Ask its author to update it. Plugin authors can follow https://github.com/1ikeadragon/pimi/blob/main/public-docs/plugins/migration.md",
-    );
-  }
   throw new Error(
     `Plugin entry points are missing: expected ${CLIENT_ENTRY_FILENAMES.join(" or ")} and/or ${SERVER_ENTRY_FILENAMES.join(" or ")} in ${directory}`,
   );
