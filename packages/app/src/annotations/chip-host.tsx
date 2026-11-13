@@ -19,7 +19,7 @@ import {
 import { goToAnnotationSource } from "./go-to-source";
 import { AnnotationHoverContent } from "./hover-content";
 import { annotationAccessibilityLabel, type AnnotationAttachment } from "./model";
-import { AnnotationPillEditor } from "./pill-editor";
+import { AnnotationChipEditor } from "./chip-editor";
 import { AnnotationSheet } from "./sheet";
 
 /** Where the note is being edited: at the annotated text, beside the chip, or in a sheet. */
@@ -161,7 +161,7 @@ export function AnnotationChipHost({
           <AnnotationHoverContent annotation={annotation} actions={hoverActions} />
         </HoverCardContent>
       </HoverCard>
-      {editing === "popover" ? <AnnotationPillEditor session={session} pill={anchor} /> : null}
+      {editing === "popover" ? <AnnotationChipEditor session={session} chip={anchor} /> : null}
       {editing === "sheet" ? (
         <AnnotationSheet attachment={annotation} onSave={saveNote} onClose={closeSheet} />
       ) : null}
