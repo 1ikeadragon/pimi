@@ -1,13 +1,13 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "@/i18n/use-translation";
 import { Text, View } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
-import { ChevronDown, ChevronUp } from "lucide-react-native";
+import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import { ChevronRight } from "lucide-react-native";
+import type { Theme } from "@/styles/theme";
 import type { PimiDelegation } from "@/utils/pimi-delegation";
 import { getParentAddressFromLabels } from "@pimi/protocol/agent-labels";
 import { AGENT_PROVIDER_DEFINITIONS } from "@pimi/protocol/provider-manifest";
 import { ModelProviderGlyph } from "@/components/model-browser";
-import { Button } from "@/components/ui/button";
 import { PressHighlight } from "@/components/ui/press-highlight";
 import { HostBadge } from "@/hosts/host-badge";
 import { useHostBadges } from "@/hosts/use-host-badges";
@@ -86,6 +86,7 @@ export function PimiDelegationCard({
   const connected = useHostRuntimeIsConnected(workerServerId);
   const { entries } = useProvidersSnapshot(workerServerId);
   const hostBadges = useHostBadges({ enabled: workerServerId !== source.serverId });
+  const detailsState = useMemo(() => ({ expanded: detailsOpen }), [detailsOpen]);
   const toggleDetails = useCallback(() => setDetailsOpen((open) => !open), []);
   const openAgent = useCallback(
     () => navigateToAgent({ serverId: workerServerId, agentId: worker.id }),
@@ -115,18 +116,26 @@ export function PimiDelegationCard({
           serverId={workerServerId}
           hostBadge={hostBadges.get(workerServerId) ?? null}
         />
-        <Button
-          variant="ghost"
-          size="sm"
-          leftIcon={detailsOpen ? ChevronUp : ChevronDown}
+        <PressHighlight
+          accessibilityRole="button"
           accessibilityLabel={detailsOpen ? "Hide details" : "Show details"}
+          accessibilityState={detailsState}
           onPress={toggleDetails}
-        />
+          highlightStyle={styles.rowHovered}
+          style={styles.toggle}
+        >
+          <View style={detailsOpen ? styles.chevronOpen : null}>
+            <ThemedChevron size={16} uniProps={chevronColor} />
+          </View>
+        </PressHighlight>
       </View>
       {detailsOpen ? <View style={styles.details}>{children}</View> : null}
     </View>
   );
 }
+
+const ThemedChevron = withUnistyles(ChevronRight);
+const chevronColor = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
 const GLYPH_SIZE = 16;
 
@@ -199,11 +208,17 @@ function DelegationRow({
 const styles = StyleSheet.create((theme) => ({
   card: {
     marginVertical: theme.spacing[1],
-    borderRadius: theme.borderRadius.lg,
-    backgroundColor: theme.colors.surface1,
+    borderRadius: theme.borderRadius.xl,
+    backgroundColor: theme.colors.surface2,
     overflow: "hidden",
   },
-  header: { flexDirection: "row", alignItems: "center", paddingRight: theme.spacing[1] },
+  header: { flexDirection: "row", alignItems: "center" },
+  toggle: {
+    alignSelf: "stretch",
+    justifyContent: "center",
+    paddingHorizontal: theme.spacing[3],
+  },
+  chevronOpen: { transform: [{ rotate: "90deg" }] },
   row: {
     flex: 1,
     minWidth: 0,
@@ -215,12 +230,11 @@ const styles = StyleSheet.create((theme) => ({
     paddingVertical: theme.spacing[2],
     paddingHorizontal: theme.spacing[3],
   },
-  rowHovered: { backgroundColor: theme.colors.surface2 },
+  rowHovered: { backgroundColor: theme.colors.interactionHighlight },
   text: { flex: 1, minWidth: 140, gap: 2 },
   title: {
     color: theme.colors.foreground,
-    fontSize: theme.fontSize.sm,
-    fontWeight: theme.fontWeight.medium,
+    fontSize: theme.fontSize.base,
   },
   meta: { color: theme.colors.foregroundMuted, fontSize: theme.fontSize.sm },
   status: { flexDirection: "row", alignItems: "center", gap: theme.spacing[1.5] },
@@ -230,8 +244,6 @@ const styles = StyleSheet.create((theme) => ({
     fontVariant: ["tabular-nums"],
   },
   details: {
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
     paddingHorizontal: theme.spacing[3],
     paddingVertical: theme.spacing[2],
   },

@@ -521,14 +521,8 @@ export function QuestionFormCard({
   );
 
   const containerStyle = useMemo(
-    () => [
-      styles.container,
-      {
-        backgroundColor: theme.colors.surface1,
-        borderColor: theme.colors.border,
-      },
-    ],
-    [theme.colors.surface1, theme.colors.border],
+    () => [styles.container, { backgroundColor: theme.colors.surface2 }],
+    [theme.colors.surface2],
   );
   // Single-select radios need a group; checkboxes are valid standalone.
   const optionsGroupAccessibility = useMemo(
@@ -661,9 +655,8 @@ export function QuestionFormCard({
 
 const styles = StyleSheet.create((theme) => ({
   container: {
-    padding: theme.spacing[3],
-    borderRadius: theme.spacing[2],
-    borderWidth: 1,
+    padding: theme.spacing[4],
+    borderRadius: theme.borderRadius["2xl"],
     gap: theme.spacing[3],
   },
   questionBlock: {

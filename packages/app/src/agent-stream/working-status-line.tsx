@@ -19,7 +19,7 @@ import { ChevronRight } from "lucide-react-native";
 import { useTranslation } from "@/i18n/use-translation";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { AssistantForkMenu } from "@/components/assistant-fork-menu";
-import { LiveElapsed, STREAM_METADATA_FONT_SIZE } from "@/components/message";
+import { LiveElapsed } from "@/components/message";
 import { useRetainedPanelActive } from "@/components/retained-panel";
 import { WorkingPimi } from "@/components/working-pimi";
 import { PressHighlight } from "@/components/ui/press-highlight";
@@ -403,21 +403,21 @@ const stylesheet = StyleSheet.create((theme) => ({
   },
   label: {
     color: theme.colors.foregroundMuted,
-    fontSize: STREAM_METADATA_FONT_SIZE,
+    fontSize: theme.fontSize.base,
   },
   labelEmphasized: {
     color: theme.colors.foreground,
-    fontSize: STREAM_METADATA_FONT_SIZE,
+    fontSize: theme.fontSize.base,
   },
   count: {
     color: theme.colors.foregroundMuted,
-    fontSize: STREAM_METADATA_FONT_SIZE,
+    fontSize: theme.fontSize.sm,
     fontVariant: ["tabular-nums"],
     flexShrink: 0,
   },
   failed: {
     color: theme.colors.destructive,
-    fontSize: STREAM_METADATA_FONT_SIZE,
+    fontSize: theme.fontSize.sm,
     fontVariant: ["tabular-nums"],
     flexShrink: 0,
   },
@@ -435,7 +435,7 @@ const stylesheet = StyleSheet.create((theme) => ({
   },
   elapsed: {
     color: theme.colors.foregroundMuted,
-    fontSize: STREAM_METADATA_FONT_SIZE,
+    fontSize: theme.fontSize.sm,
     fontVariant: ["tabular-nums"],
   },
 }));

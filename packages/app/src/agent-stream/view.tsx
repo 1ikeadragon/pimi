@@ -3,7 +3,8 @@ import { overridable } from "@/extension-points";
 import { ChatFind, ChatFindExpansion } from "@/agent-stream/chat-find";
 import { AssistantForkProviderScope } from "@/components/assistant-fork-menu";
 import { AgentImageRefsGrid } from "@/components/agent-image-grid";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { Button } from "@/components/ui/button";
+import { resolveToolCallIcon } from "@/utils/tool-call-icon";
 import React, {
   forwardRef,
   memo,
@@ -17,21 +18,13 @@ import React, {
   type ReactNode,
 } from "react";
 import { useTranslation } from "@/i18n/use-translation";
-import {
-  View,
-  Text,
-  Pressable,
-  Platform,
-  type PressableStateCallbackType,
-  type StyleProp,
-  type ViewStyle,
-} from "react-native";
+import { View, Text, Pressable, Platform, type StyleProp, type ViewStyle } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { isPimiAndroid } from "@/utils/pimi-mobile";
 import { useMutation } from "@tanstack/react-query";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
-import { Check, ChevronDown, X } from "lucide-react-native";
+import { ChevronDown } from "lucide-react-native";
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
 import { openExplorerSidebarView } from "@/workspace-tabs/explorer-sidebar";
 import {
@@ -70,6 +63,7 @@ import type {
   AgentCapabilityFlags,
   AgentPermissionAction,
   AgentPermissionResponse,
+  ToolCallDetail,
 } from "@pimi/protocol/agent-types";
 import type { AgentScreenAgent } from "@/hooks/use-agent-screen-state-machine";
 import { useSessionStore } from "@/stores/session-store";
@@ -873,6 +867,12 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
 
     const renderAssistantMessageItem = useCallback(
       (layoutItem: StreamLayoutItem, item: Extract<StreamItem, { kind: "assistant_message" }>) => {
+        // The daemon reports its own failures as assistant text with this prefix (agent-manager.ts).
+        if (item.text.startsWith(SYSTEM_ERROR_PREFIX)) {
+          return (
+            <Notification level="error" message={item.text.slice(SYSTEM_ERROR_PREFIX.length)} />
+          );
+        }
         return (
           <AssistantFileLinkResolverProvider
             client={client}
@@ -1693,32 +1693,28 @@ function ToolCallSlot({
   );
 }
 
-const ThemedLoadingSpinner = withUnistyles(LoadingSpinner);
-const ThemedCheckIcon = withUnistyles(Check);
-const ThemedXIcon = withUnistyles(X);
+const SYSTEM_ERROR_PREFIX = "[System Error] ";
 
-const primaryColorMapping = (theme: Theme) => ({
-  color: theme.colors.foreground,
-});
-const mutedColorMapping = (theme: Theme) => ({
-  color: theme.colors.foregroundMuted,
-});
+function PermissionGlyph({
+  toolName,
+  detail,
+  color,
+}: {
+  toolName: string;
+  detail: ToolCallDetail | undefined;
+  color?: string;
+}) {
+  const Glyph = resolveToolCallIcon(toolName, detail);
+  return <Glyph size={16} color={color} />;
+}
 
-const pressableStyle = ({
-  pressed,
-  hovered = false,
-}: PressableStateCallbackType & { hovered?: boolean }) => [
-  permissionStyles.optionButton,
-  hovered ? permissionStyles.optionButtonHovered : null,
-  pressed ? permissionStyles.optionButtonPressed : null,
-];
+const ThemedPermissionGlyph = withUnistyles(PermissionGlyph);
+const mutedGlyphColor = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
 interface PermissionActionButtonProps {
   action: AgentPermissionAction;
   isRespondingAction: boolean;
   isResponding: boolean;
-  isPrimary: boolean;
-  Icon: typeof ThemedCheckIcon;
   testID: string;
   onPress: (action: AgentPermissionAction) => void;
 }
@@ -1727,33 +1723,22 @@ function PermissionActionButton({
   action,
   isRespondingAction,
   isResponding,
-  isPrimary,
-  Icon,
   testID,
   onPress,
 }: PermissionActionButtonProps) {
   const handlePress = useCallback(() => onPress(action), [onPress, action]);
-  const optionTextStyle = isPrimary
-    ? [permissionStyles.optionText, permissionStyles.optionTextPrimary]
-    : permissionStyles.optionText;
-  const colorMapping = isPrimary ? primaryColorMapping : mutedColorMapping;
+  const variant =
+    action.behavior === "allow" && action.variant !== "secondary" ? "default" : "secondary";
   return (
-    <Pressable
-      accessibilityRole="button"
+    <Button
       testID={testID}
-      style={pressableStyle}
-      onPress={handlePress}
+      variant={variant}
+      loading={isRespondingAction}
       disabled={isResponding}
+      onPress={handlePress}
     >
-      {isRespondingAction ? (
-        <ThemedLoadingSpinner size="small" uniProps={colorMapping} />
-      ) : (
-        <View style={permissionStyles.optionContent}>
-          <Icon size={14} uniProps={colorMapping} />
-          <Text style={optionTextStyle}>{action.label}</Text>
-        </View>
-      )}
-    </Pressable>
+      {action.label}
+    </Button>
   );
 }
 
@@ -1884,12 +1869,42 @@ function PermissionRequestCard({
     [handleResponse],
   );
 
+  // Two actions fit one row on a phone; more stack so each label keeps its width.
   const optionsContainerStyle = useMemo(
     () => [
       permissionStyles.optionsContainer,
-      !isMobile && permissionStyles.optionsContainerDesktop,
+      !isMobile || resolvedActions.length <= 2
+        ? permissionStyles.optionsContainerRow
+        : permissionStyles.optionsContainerColumn,
     ],
-    [isMobile],
+    [isMobile, resolvedActions.length],
+  );
+
+  const footer = useMemo(
+    () => (
+      <View style={optionsContainerStyle}>
+        {resolvedActions.map((action) => {
+          const isRespondingAction = respondingActionId === action.id;
+          let testID: string;
+          if (action.behavior === "deny") testID = "permission-request-deny";
+          else if (action.id === "accept" || action.id === "implement")
+            testID = "permission-request-accept";
+          else testID = `permission-request-action-${action.id}`;
+
+          return (
+            <PermissionActionButton
+              key={action.id}
+              action={action}
+              isRespondingAction={isRespondingAction}
+              isResponding={isResponding}
+              testID={testID}
+              onPress={handleActionPress}
+            />
+          );
+        })}
+      </View>
+    ),
+    [optionsContainerStyle, resolvedActions, respondingActionId, isResponding, handleActionPress],
   );
 
   if (request.kind === "question") {
@@ -1908,40 +1923,6 @@ function PermissionRequestCard({
     );
   }
 
-  const footer = (
-    <>
-      <Text testID="permission-request-question" style={permissionStyles.question}>
-        {t("agentStream.permission.question")}
-      </Text>
-
-      <View style={optionsContainerStyle}>
-        {resolvedActions.map((action) => {
-          const isPrimary = action.variant === "primary";
-          const isRespondingAction = respondingActionId === action.id;
-          const Icon = action.behavior === "allow" ? ThemedCheckIcon : ThemedXIcon;
-          let testID: string;
-          if (action.behavior === "deny") testID = "permission-request-deny";
-          else if (action.id === "accept" || action.id === "implement")
-            testID = "permission-request-accept";
-          else testID = `permission-request-action-${action.id}`;
-
-          return (
-            <PermissionActionButton
-              key={action.id}
-              action={action}
-              isRespondingAction={isRespondingAction}
-              isResponding={isResponding}
-              isPrimary={isPrimary}
-              Icon={Icon}
-              testID={testID}
-              onPress={handleActionPress}
-            />
-          );
-        })}
-      </View>
-    </>
-  );
-
   if (isPlanRequest && planMarkdown) {
     return (
       <PlanCard
@@ -1958,7 +1939,14 @@ function PermissionRequestCard({
 
   return (
     <View style={permissionStyles.container}>
-      <Text style={permissionStyles.title}>{title}</Text>
+      <View style={permissionStyles.header}>
+        <ThemedPermissionGlyph
+          toolName={request.name ?? ""}
+          detail={request.detail}
+          uniProps={mutedGlyphColor}
+        />
+        <Text style={permissionStyles.title}>{title}</Text>
+      </View>
 
       {description ? <Text style={permissionStyles.description}>{description}</Text> : null}
 
@@ -2063,15 +2051,20 @@ const stylesheet = StyleSheet.create((theme) => ({
 const permissionStyles = StyleSheet.create((theme) => ({
   container: {
     marginVertical: theme.spacing[3],
-    padding: theme.spacing[3],
-    borderRadius: theme.spacing[2],
-    borderWidth: 1,
+    padding: theme.spacing[4],
+    borderRadius: theme.borderRadius["2xl"],
+    gap: theme.spacing[3],
+    backgroundColor: theme.colors.surface2,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: theme.spacing[2],
-    backgroundColor: theme.colors.surface1,
-    borderColor: theme.colors.border,
   },
   title: {
+    flexShrink: 1,
     fontSize: theme.fontSize.base,
+    fontWeight: theme.fontWeight.medium,
     lineHeight: 22,
     color: theme.colors.foreground,
   },
@@ -2080,55 +2073,17 @@ const permissionStyles = StyleSheet.create((theme) => ({
     lineHeight: 20,
     color: theme.colors.foregroundMuted,
   },
-  section: {
-    gap: theme.spacing[2],
-  },
-  sectionTitle: {
-    fontSize: theme.fontSize.sm,
-  },
-  question: {
-    fontSize: theme.fontSize.base,
-    marginTop: theme.spacing[1],
-    marginBottom: theme.spacing[1],
-    color: theme.colors.foregroundMuted,
-  },
   optionsContainer: {
     gap: theme.spacing[2],
   },
-  optionsContainerDesktop: {
+  optionsContainerRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "flex-start",
     alignItems: "center",
-    width: "100%",
   },
-  optionButton: {
-    paddingVertical: theme.spacing[2],
-    paddingHorizontal: theme.spacing[3],
-    borderRadius: theme.borderRadius.md,
-    alignItems: "center",
-    borderWidth: theme.borderWidth[1],
-    backgroundColor: theme.colors.surface1,
-    borderColor: theme.colors.borderAccent,
-  },
-  optionButtonHovered: {
-    backgroundColor: theme.colors.surface2,
-  },
-  optionButtonPressed: {
-    opacity: 0.9,
-  },
-  optionContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[2],
-  },
-  optionText: {
-    fontSize: theme.fontSize.base,
-    fontWeight: theme.fontWeight.normal,
-    color: theme.colors.foregroundMuted,
-  },
-  optionTextPrimary: {
-    color: theme.colors.foreground,
+  optionsContainerColumn: {
+    flexDirection: "column",
+    alignItems: "stretch",
   },
 }));
 

@@ -4,7 +4,8 @@ import type { Theme } from "@/styles/theme";
 import { ChevronRight } from "lucide-react-native";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "@/i18n/use-translation";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
+import { PressHighlight } from "@/components/ui/press-highlight";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 
 export type PlanOutcome = "pending" | "approved" | "rejected" | "canceled";
@@ -50,6 +51,10 @@ function PlanCardContent({
     () => (isWeb ? ({ "aria-expanded": expanded } as const) : null),
     [expanded],
   );
+  const [hovered, setHovered] = useState(false);
+  const hoverIn = useCallback(() => setHovered(true), []);
+  const hoverOut = useCallback(() => setHovered(false), []);
+  const headerStyle = useMemo(() => [styles.header, hovered && styles.headerHighlight], [hovered]);
   const toggleExpanded = useCallback(() => setExpanded((value) => !value), []);
   const containerStyle = useMemo(
     () => [styles.container, disableOuterSpacing && styles.containerCompact],
@@ -62,19 +67,22 @@ function PlanCardContent({
 
   return (
     <View testID={testID} style={containerStyle}>
-      <Pressable
+      <PressHighlight
         {...webExpandedState}
         accessibilityRole="button"
         accessibilityLabel={resolvedTitle}
         accessibilityState={accessibilityState}
         onPress={toggleExpanded}
-        style={styles.header}
+        onHoverIn={hoverIn}
+        onHoverOut={hoverOut}
+        highlightStyle={styles.headerHighlight}
+        style={headerStyle}
       >
+        <Text style={styles.title}>{resolvedTitle}</Text>
         <View style={chevronStyle}>
           <ThemedChevron size={16} uniProps={chevronColor} />
         </View>
-        <Text style={styles.title}>{resolvedTitle}</Text>
-      </Pressable>
+      </PressHighlight>
       {expanded ? (
         <View style={styles.body}>
           {description ? <Text style={styles.description}>{description}</Text> : null}
@@ -89,11 +97,9 @@ function PlanCardContent({
 const styles = StyleSheet.create((theme) => ({
   container: {
     marginVertical: theme.spacing[3],
-    padding: theme.spacing[3],
-    borderRadius: theme.spacing[2],
-    borderWidth: 1,
-    backgroundColor: theme.colors.surface1,
-    borderColor: theme.colors.border,
+    padding: theme.spacing[4],
+    borderRadius: theme.borderRadius["2xl"],
+    backgroundColor: theme.colors.surface2,
     gap: theme.spacing[2],
   },
   containerCompact: {
@@ -104,7 +110,9 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     gap: theme.spacing[2],
     minHeight: 24,
+    borderRadius: theme.borderRadius.lg,
   },
+  headerHighlight: { backgroundColor: theme.colors.interactionHighlight },
   chevron: {},
   chevronExpanded: { transform: [{ rotate: "90deg" }] },
   body: { gap: theme.spacing[2] },
@@ -112,6 +120,7 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foreground,
     flexShrink: 1,
     fontSize: theme.fontSize.base,
+    fontWeight: theme.fontWeight.medium,
     lineHeight: 22,
   },
   description: {
