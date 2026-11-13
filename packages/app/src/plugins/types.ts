@@ -1,5 +1,13 @@
+import type { AnyComponent } from "@/extension-points/registry";
 import type { PluginText } from "@pimi/plugin/client";
 import type { PimiApi } from "@pimi/client";
+import type {
+  PluginClientStorage,
+  PluginMenuId,
+  PluginMenuItemContribution as SDKPluginMenuItemContribution,
+  PluginNavigation,
+} from "@pimi/plugin/client";
+import type { createPluginHosts } from "./hosts";
 import type { QueryClient } from "@tanstack/react-query";
 import type { PluginRequirements } from "@pimi/protocol/messages";
 import type {
@@ -38,6 +46,26 @@ type PluginWorkspacePanelContribution =
 
 export type PluginSidebarSection = "header" | "footer";
 
+export type PluginMenuItemContribution = {
+  [Id in PluginMenuId]: SDKPluginMenuItemContribution<Id, string>;
+}[PluginMenuId];
+
+/** A component layer a plugin registered; applied to the extension registry by the app. */
+export interface PluginComponentLayerRegistration {
+  kind: "replacement" | "wrapper";
+  point: string;
+  tier: "typed" | "unstable";
+  order: number;
+  Component: AnyComponent;
+}
+
+export interface PluginSlotRegistration {
+  slot: string;
+  id: string;
+  order: number;
+  Component: AnyComponent;
+}
+
 export type EvaluatedPluginWorkspacePanelContribution = PluginWorkspacePanelContribution & {
   locations: readonly PluginPanelLocation[];
 };
@@ -57,6 +85,9 @@ export interface EvaluatedPlugin {
   themes: PluginThemeContribution[];
   timelineTransformers: PluginTimelineTransformerContribution[];
   timelineRenderers: PluginTimelineRendererContribution[];
+  componentLayers: PluginComponentLayerRegistration[];
+  slotItems: PluginSlotRegistration[];
+  menuItems: PluginMenuItemContribution[];
 }
 
 export interface InstalledPlugin extends EvaluatedPlugin {
@@ -74,6 +105,11 @@ export interface InstalledPlugin extends EvaluatedPlugin {
   requirements?: PluginRequirements;
   clientBundle: string;
   queryClient: QueryClient;
+  /** What `useNavigation()` and `client.navigation` call. */
+  navigation: PluginNavigation;
+  storage: PluginClientStorage;
+  /** The installation's host connections, for `getPimiClient` and cross-host hooks. */
+  hosts: ReturnType<typeof createPluginHosts>;
 }
 
 export type {

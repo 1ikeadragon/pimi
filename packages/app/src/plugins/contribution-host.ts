@@ -15,3 +15,11 @@ export function rememberPluginContributionHost(contributionId: string, serverId:
 export function pluginScreensHostKey(pluginId: string): string {
   return `${pluginId}/screens`;
 }
+
+/**
+ * The host whose installation of a plugin supplies its app-wide UI: component overrides, wrappers,
+ * and slot items apply once per plugin id, like themes, whatever number of hosts have it.
+ */
+export function pluginUiHostKey(pluginId: string): string {
+  return `${pluginId}/ui`;
+}

@@ -27,6 +27,12 @@ import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-
 import { SettingsSection } from "@/components/settings/headings/settings-section";
 import { resolvePluginPageState } from "@/screens/settings/plugins-page-state";
 import { openPluginInstallForm } from "@/screens/settings/plugin-install-form-model";
+import {
+  extensionRegistry,
+  getPluginUiSafeModeSource,
+  setPluginUiSafeMode,
+  usePluginUiSafeMode,
+} from "@/extension-points";
 import { pluginRegistry, useInstalledPlugins } from "@/plugins/registry";
 import { pluginDisplayName, usePluginList } from "@/plugins/plugin-list";
 import { settingsStyles } from "@/styles/settings";
@@ -45,6 +51,69 @@ function pluginRowAction(action: string | undefined): PluginRowAction | undefine
     return action;
   }
   return undefined;
+}
+
+/** What a plugin's component layers do to the app: that it changes the UI, what lost a conflict, what threw. */
+function PluginUiNotes({ pluginId, serverId }: { pluginId: string; serverId: string }) {
+  const { t } = useTranslation();
+  const conflicts = useSyncExternalStore(
+    extensionRegistry.subscribeMeta,
+    extensionRegistry.getConflicts,
+    extensionRegistry.getConflicts,
+  );
+  const errors = useSyncExternalStore(
+    extensionRegistry.subscribeMeta,
+    extensionRegistry.getErrors,
+    extensionRegistry.getErrors,
+  );
+  if (pluginRegistry.getUiContributionHost(pluginId) !== serverId) return null;
+  const lines = [
+    t("settings.plugins.ui.affectsApp"),
+    ...conflicts
+      .filter((conflict) => conflict.winner === pluginId || conflict.losers.includes(pluginId))
+      .map((conflict) =>
+        t("settings.plugins.ui.conflict", {
+          point: conflict.point,
+          winner: conflict.winner,
+          losers: conflict.losers.join(", "),
+        }),
+      ),
+    ...errors
+      .filter((error) => error.owner === pluginId)
+      .map((error) =>
+        t("settings.plugins.ui.failed", { point: error.point, message: error.message }),
+      ),
+  ];
+  return (
+    <View testID={`plugin-ui-notes-${pluginId}`}>
+      {lines.map((line) => (
+        <Text key={line} style={styles.pluginSource}>
+          {line}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
+function PluginSafeModeRow() {
+  const { t } = useTranslation();
+  const enabled = usePluginUiSafeMode();
+  const { forced } = getPluginUiSafeModeSource();
+  const toggle = useCallback((value: boolean) => setPluginUiSafeMode(value), []);
+  return (
+    <SettingsRow
+      label={t("settings.plugins.ui.safeModeTitle")}
+      hint={forced ? t("settings.plugins.ui.safeModeUrl") : t("settings.plugins.ui.safeModeHint")}
+      testID="plugin-safe-mode-row"
+    >
+      <Switch
+        value={enabled}
+        onValueChange={toggle}
+        disabled={forced}
+        accessibilityLabel={t("settings.plugins.ui.safeModeTitle")}
+      />
+    </SettingsRow>
+  );
 }
 
 function PluginActionsMenu({
@@ -140,19 +209,19 @@ function PluginRow({
   // A display name hides the id that the CLI and plugin routes use, so show it beneath.
   const shownId = name === plugin.id ? null : plugin.id;
   const hint = useMemo(
-    () =>
-      shownId || plugin.description || plugin.installation ? (
-        <View>
-          {shownId ? <Text style={styles.pluginSource}>{shownId}</Text> : null}
-          {plugin.description ? (
-            <Text style={styles.pluginDescription}>{plugin.description}</Text>
-          ) : null}
-          {plugin.installation ? (
-            <Text style={styles.pluginSource}>{formatPluginInstallation(plugin.installation)}</Text>
-          ) : null}
-        </View>
-      ) : undefined,
-    [shownId, plugin.description, plugin.installation],
+    () => (
+      <View>
+        <PluginUiNotes pluginId={plugin.id} serverId={serverId} />
+        {shownId ? <Text style={styles.pluginSource}>{shownId}</Text> : null}
+        {plugin.description ? (
+          <Text style={styles.pluginDescription}>{plugin.description}</Text>
+        ) : null}
+        {plugin.installation ? (
+          <Text style={styles.pluginSource}>{formatPluginInstallation(plugin.installation)}</Text>
+        ) : null}
+      </View>
+    ),
+    [shownId, plugin.id, plugin.description, plugin.installation, serverId],
   );
   const toggleLabel = `${name}: ${t(
     plugin.enabled ? "settings.plugins.actions.disable" : "settings.plugins.actions.enable",
@@ -467,6 +536,9 @@ export function HostPluginsPage({ serverId }: { serverId: string }) {
             />
           </View>
         </View>
+        <SettingsCard>
+          <PluginSafeModeRow />
+        </SettingsCard>
         <View style={[settingsStyles.card, styles.install]}>
           <Field label={t("settings.plugins.sourceLabel")} trailing={sourceDocsLink}>
             <FormTextInput

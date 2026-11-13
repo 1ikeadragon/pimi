@@ -3260,6 +3260,14 @@ export const en = {
         unavailable: "This plugin settings screen is unavailable.",
         backToPlugins: "Back to plugins",
       },
+      ui: {
+        affectsApp: "Changes the app's UI",
+        conflict: "{{point}}: {{winner}} takes precedence over {{losers}}",
+        failed: "{{point}} failed and fell back to Pimi's own UI: {{message}}",
+        safeModeTitle: "Safe mode",
+        safeModeHint: "Show Pimi's own UI instead of plugin overrides. Plugins keep running.",
+        safeModeUrl: "Safe mode is on for this window (?safe=1).",
+      },
       trustedTitle: "Plugins are trusted code",
       trustedDescription:
         "They run on this host and inside the app without sandboxing. Install only code you trust.",

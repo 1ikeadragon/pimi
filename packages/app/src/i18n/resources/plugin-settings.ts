@@ -20,6 +20,14 @@ export const pluginSettings = {
       backToPlugins: "العودة إلى الإضافات",
     },
     title: "الإضافات",
+    ui: {
+      affectsApp: "يغيّر واجهة التطبيق",
+      conflict: "{{point}}: تتقدّم {{winner}} على {{losers}}",
+      failed: "فشل {{point}} وعاد إلى واجهة Pimi الأصلية: {{message}}",
+      safeModeTitle: "الوضع الآمن",
+      safeModeHint: "اعرض واجهة Pimi الأصلية بدل تعديلات الإضافات. تستمر الإضافات في العمل.",
+      safeModeUrl: "الوضع الآمن مفعّل لهذه النافذة (?safe=1).",
+    },
     trustedTitle: "الإضافات تعليمات برمجية موثوقة",
     trustedDescription:
       "تعمل على هذا المضيف وداخل التطبيق دون عزل. ثبّت فقط التعليمات البرمجية التي تثق بها.",
@@ -73,6 +81,15 @@ export const pluginSettings = {
       backToPlugins: "Volver a plugins",
     },
     title: "Plugins",
+    ui: {
+      affectsApp: "Cambia la interfaz de la app",
+      conflict: "{{point}}: {{winner}} tiene prioridad sobre {{losers}}",
+      failed: "{{point}} falló y volvió a la interfaz de Pimi: {{message}}",
+      safeModeTitle: "Modo seguro",
+      safeModeHint:
+        "Muestra la interfaz de Pimi en lugar de las sustituciones de plugins. Los plugins siguen en ejecución.",
+      safeModeUrl: "El modo seguro está activo en esta ventana (?safe=1).",
+    },
     trustedTitle: "Los plugins son código de confianza",
     trustedDescription:
       "Se ejecutan en este host y dentro de la app sin aislamiento. Instala solo código de confianza.",
@@ -126,6 +143,15 @@ export const pluginSettings = {
       backToPlugins: "Retour aux plugins",
     },
     title: "Plugins",
+    ui: {
+      affectsApp: "Modifie l'interface de l'app",
+      conflict: "{{point}} : {{winner}} prime sur {{losers}}",
+      failed: "{{point}} a échoué et est revenu à l'interface de Pimi : {{message}}",
+      safeModeTitle: "Mode sans échec",
+      safeModeHint:
+        "Affiche l'interface de Pimi au lieu des remplacements de plugins. Les plugins continuent de fonctionner.",
+      safeModeUrl: "Le mode sans échec est actif dans cette fenêtre (?safe=1).",
+    },
     trustedTitle: "Les plugins sont du code de confiance",
     trustedDescription:
       "Ils s’exécutent sur cet hôte et dans l’app sans isolation. N’installez que du code fiable.",
@@ -179,6 +205,15 @@ export const pluginSettings = {
       backToPlugins: "プラグインに戻る",
     },
     title: "プラグイン",
+    ui: {
+      affectsApp: "アプリのUIを変更します",
+      conflict: "{{point}}: {{winner}} が {{losers}} より優先されます",
+      failed: "{{point}} が失敗し、Pimiの標準UIに戻しました: {{message}}",
+      safeModeTitle: "セーフモード",
+      safeModeHint:
+        "プラグインの置き換えではなくPimi標準のUIを表示します。プラグインは動作し続けます。",
+      safeModeUrl: "このウィンドウではセーフモードが有効です (?safe=1)。",
+    },
     trustedTitle: "プラグインは信頼済みコードです",
     trustedDescription:
       "ホストとアプリ内で分離されずに実行されます。信頼できるコードのみインストールしてください。",
@@ -232,6 +267,14 @@ export const pluginSettings = {
       backToPlugins: "플러그인으로 돌아가기",
     },
     title: "플러그인",
+    ui: {
+      affectsApp: "앱 UI를 변경합니다",
+      conflict: "{{point}}: {{winner}}이(가) {{losers}}보다 우선합니다",
+      failed: "{{point}}이(가) 실패해 Pimi 기본 UI로 돌아갔습니다: {{message}}",
+      safeModeTitle: "안전 모드",
+      safeModeHint: "플러그인 대체 대신 Pimi 기본 UI를 표시합니다. 플러그인은 계속 실행됩니다.",
+      safeModeUrl: "이 창에서 안전 모드가 켜져 있습니다 (?safe=1).",
+    },
     trustedTitle: "플러그인은 신뢰하는 코드입니다",
     trustedDescription: "호스트와 앱 안에서 격리 없이 실행됩니다. 신뢰하는 코드만 설치하세요.",
     globalTitle: "플러그인 활성화",
@@ -284,6 +327,15 @@ export const pluginSettings = {
       backToPlugins: "Voltar para plugins",
     },
     title: "Plugins",
+    ui: {
+      affectsApp: "Altera a interface do app",
+      conflict: "{{point}}: {{winner}} tem prioridade sobre {{losers}}",
+      failed: "{{point}} falhou e voltou à interface do Pimi: {{message}}",
+      safeModeTitle: "Modo seguro",
+      safeModeHint:
+        "Mostra a interface do Pimi em vez das substituições de plugins. Os plugins continuam em execução.",
+      safeModeUrl: "O modo seguro está ativo nesta janela (?safe=1).",
+    },
     trustedTitle: "Plugins são código confiável",
     trustedDescription:
       "Eles rodam neste host e dentro do app sem isolamento. Instale apenas código confiável.",
@@ -337,6 +389,15 @@ export const pluginSettings = {
       backToPlugins: "Вернуться к плагинам",
     },
     title: "Плагины",
+    ui: {
+      affectsApp: "Меняет интерфейс приложения",
+      conflict: "{{point}}: {{winner}} имеет приоритет над {{losers}}",
+      failed: "{{point}} дал сбой и вернулся к интерфейсу Pimi: {{message}}",
+      safeModeTitle: "Безопасный режим",
+      safeModeHint:
+        "Показывать интерфейс Pimi вместо замен из плагинов. Плагины продолжают работать.",
+      safeModeUrl: "В этом окне включён безопасный режим (?safe=1).",
+    },
     trustedTitle: "Плагины — доверенный код",
     trustedDescription:
       "Они выполняются на хосте и в приложении без изоляции. Устанавливайте только доверенный код.",
@@ -390,6 +451,14 @@ export const pluginSettings = {
       backToPlugins: "返回插件",
     },
     title: "插件",
+    ui: {
+      affectsApp: "会更改应用界面",
+      conflict: "{{point}}：{{winner}} 优先于 {{losers}}",
+      failed: "{{point}} 失败，已回退到 Pimi 自带界面：{{message}}",
+      safeModeTitle: "安全模式",
+      safeModeHint: "显示 Pimi 自带界面，而不是插件的替换。插件继续运行。",
+      safeModeUrl: "此窗口已开启安全模式 (?safe=1)。",
+    },
     trustedTitle: "插件是受信任的代码",
     trustedDescription: "它们会在此主机和应用内运行，且没有隔离。请仅安装你信任的代码。",
     globalTitle: "启用插件",
