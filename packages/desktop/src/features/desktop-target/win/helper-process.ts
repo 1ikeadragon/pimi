@@ -51,6 +51,13 @@ export function helperPath(): string {
   return path.join(dir, HELPER_NAME);
 }
 
+export function betterleaksPath(): string {
+  const dir = app.isPackaged
+    ? path.join(process.resourcesPath, "desktop-helper")
+    : path.resolve(__dirname, "../../../../native/win/bin");
+  return path.join(dir, "betterleaks.exe");
+}
+
 type Reply =
   | { id: string; ok: true; result: Record<string, unknown> }
   | { id: string; ok: false; code: string; message: string };

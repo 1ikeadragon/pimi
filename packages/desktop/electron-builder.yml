@@ -114,6 +114,8 @@ mac:
   extraResources:
     - from: bin/pimi
       to: bin/pimi
+    - from: native/mac/bin/betterleaks
+      to: desktop-helper/betterleaks
   target:
     - dmg
     - zip

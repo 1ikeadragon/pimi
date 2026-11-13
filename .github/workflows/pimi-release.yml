@@ -130,6 +130,8 @@ jobs:
       - run: npm run setup
         env:
           PIMI_SKIP_NATIVE_MARKDOWN_ASSETS: "1"
+      - name: Download betterleaks
+        run: node packages/desktop/scripts/download-betterleaks.mjs --platform mac
       - name: Build macOS app inputs
         if: vars.APPLE_TEAM_ID != ''
         env:
@@ -255,6 +257,8 @@ jobs:
       - run: npm run setup
         env:
           PIMI_SKIP_NATIVE_MARKDOWN_ASSETS: "1"
+      - name: Download betterleaks
+        run: node packages/desktop/scripts/download-betterleaks.mjs --platform win
       - name: Build Windows installer
         env:
           EXPO_NO_TELEMETRY: "1"

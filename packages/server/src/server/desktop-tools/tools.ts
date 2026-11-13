@@ -911,7 +911,7 @@ function registerSecurityTools(options: RegisterDesktopToolsOptions, run: RunDes
     {
       title: "Scan desktop app files for secrets",
       description:
-        'Scan the app\'s own data and install dirs for secret-shaped content: dotenv and config files, connection strings, JWT and OAuth tokens, private keys, API-key patterns, high-entropy strings, and registry values under the app\'s key. Each hit is { where, kind, valuePrefix (at most 4 characters), valueLength }: the value itself is never returned, so quote only where, kind, prefix and length in a finding. Binary stores (LevelDB, SQLite, crash dumps) are reported as present, not dumped; DPAPI blobs are never decrypted. roots defaults to ["data","install"]; add "registry" for the app\'s HKCU\\Software key. include narrows by globs inside that scope (for example "**/*.json"). Confirm a hit is live with desktop_files before you call it a credential. Needs the owner\'s security inspection consent. Windows only.',
+        'Scan the app\'s data and install dirs for secrets using betterleaks (the gitleaks successor). Detects API keys, tokens, passwords, private keys, connection strings, cloud credentials, and hundreds of other secret types with CEL-based rules and BPE token-efficiency filtering. Each hit is { where, kind, valuePrefix (at most 4 characters), valueLength }: the value itself is never returned, so quote only where, kind, prefix and length in a finding. roots defaults to ["data","install"]; add "registry" for the app\'s HKCU\\Software key. Confirm a hit is live with desktop_files before you call it a credential. Needs the owner\'s security inspection consent. Windows only.',
       inputSchema: {
         roots: z
           .array(z.enum(["data", "install", "registry"]))

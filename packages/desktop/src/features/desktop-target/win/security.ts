@@ -1,12 +1,16 @@
-import { promises as fs, type Dirent } from "node:fs";
+import { execFile } from "node:child_process";
+import { existsSync, promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 import type {
   DesktopTargetCommand,
   DesktopTargetResult,
 } from "@pimi/protocol/desktop-target/rpc-schemas";
 import type { DesktopGuard } from "../guard.js";
-import { helperRequest, HelperError, type HelperTarget } from "./helper-process.js";
+import { betterleaksPath, helperRequest, HelperError, type HelperTarget } from "./helper-process.js";
+
+const execFileAsync = promisify(execFile);
 
 // The Node side of the desktop security tools (SECURITY-DESIGN.md section 3). The helper owns
 // every Win32 fact and resolves the install dir; this file owns the file walker, the secret
@@ -325,111 +329,142 @@ function redactedText(text: string): string {
   return out + text.slice(at);
 }
 
-// ---- globs ----
+// ---- betterleaks ----
 
-function globToRegExp(glob: string): RegExp {
-  let out = "";
-  for (let index = 0; index < glob.length; index += 1) {
-    const char = glob[index] ?? "";
-    if (char === "*") {
-      if (glob[index + 1] === "*") {
-        index += 1;
-        if (glob[index + 1] === "/") {
-          index += 1;
-          out += "(?:.*/)?";
-        } else {
-          out += ".*";
-        }
-      } else {
-        out += "[^/]*";
-      }
-    } else if (char === "?") {
-      out += "[^/]";
-    } else {
-      out += char.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-    }
-  }
-  return new RegExp(`^${out}$`, "i");
+interface BetterleaksFinding {
+  RuleID: string;
+  Description: string;
+  StartLine: number;
+  EndLine: number;
+  Secret: string;
+  File: string;
+  Entropy: number;
+  Attributes?: { confidence?: string };
 }
 
-function globMatcher(globs: readonly string[] | undefined): (rel: string) => boolean {
-  if (!globs || globs.length === 0) return () => true;
-  const compiled = globs.map((glob) => ({
-    re: globToRegExp(glob.replaceAll("\\", "/")),
-    bare: !glob.includes("/") && !glob.includes("\\"),
-  }));
-  return (rel) =>
-    compiled.some(({ re, bare }) => re.test(rel) || (bare && re.test(rel.split("/").pop() ?? "")));
-}
+const MAX_HITS = 500;
 
 // ---- secrets_scan ----
 
-const DEFAULT_MAX_FILES = 2000;
-const DEFAULT_MAX_BYTES = 262_144;
-const MAX_HITS = 500;
-const MAX_HITS_PER_FILE = 20;
-const SCAN_BUDGET_MS = 20_000;
-const SKIP_DIRS: ReadonlySet<string> = new Set(["node_modules", "swiftshader", "locales"]);
-// In the install dir only these are read: config, scripts, text and Electron's asar archive.
-const INSTALL_TEXT = new Set([
-  ".json",
-  ".config",
-  ".xml",
-  ".ini",
-  ".env",
-  ".yml",
-  ".yaml",
-  ".toml",
-  ".properties",
-  ".txt",
-  ".cfg",
-  ".conf",
-  ".settings",
-  ".pem",
-  ".key",
-  ".js",
-  ".cjs",
-  ".mjs",
-  ".asar",
-  ".plist",
-]);
-const SQLITE_EXT = new Set([".sqlite", ".sqlite3", ".db", ".db3"]);
-const BINARY_STRINGS_EXT = new Set([".ldb", ".sst"]);
+const BETTERLEAKS_TIMEOUT_S = 20;
 
-interface ScanState {
-  hits: Result<"secrets_scan">["hits"];
-  filesScanned: number;
-  truncated: boolean;
-  seenPresence: Set<string>;
-  deadline: number;
-  maxFiles: number;
-  maxBytes: number;
-}
-
-function addHit(
-  state: ScanState,
-  hit: { where: string; kind: string; value: string },
-  perFile: { count: number },
-): void {
-  if (state.hits.length >= MAX_HITS || perFile.count >= MAX_HITS_PER_FILE) {
-    state.truncated = true;
-    return;
+async function runBetterleaks(dir: string): Promise<BetterleaksFinding[]> {
+  const exe = betterleaksPath();
+  if (!existsSync(exe)) {
+    throw new HelperError("failed", `betterleaks not found at ${exe}`);
   }
-  perFile.count += 1;
-  state.hits.push({
-    where: hit.where,
-    kind: hit.kind,
-    valuePrefix: prefixOf(hit.value),
-    valueLength: hit.value.length,
-  });
+  try {
+    const { stdout } = await execFileAsync(exe, [
+      "dir",
+      "--no-banner",
+      "--no-color",
+      "--redact=80",
+      "-f", "json",
+      "-r", "-",
+      "--exit-code", "0",
+      "--timeout", String(BETTERLEAKS_TIMEOUT_S),
+      "--confidence", "low",
+      dir,
+    ], { timeout: (BETTERLEAKS_TIMEOUT_S + 5) * 1000, maxBuffer: 10 * 1024 * 1024 });
+    if (!stdout.trim()) return [];
+    return JSON.parse(stdout) as BetterleaksFinding[];
+  } catch (error: unknown) {
+    const err = error as { stdout?: string; code?: string; killed?: boolean };
+    if (err.killed) return [];
+    if (err.stdout?.trim()) {
+      try {
+        return JSON.parse(err.stdout) as BetterleaksFinding[];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }
 }
 
-function addPresence(state: ScanState, where: string, kind: string, size: number): void {
-  const key = `${kind}\u0000${where}`;
-  if (state.seenPresence.has(key) || state.hits.length >= MAX_HITS) return;
-  state.seenPresence.add(key);
-  state.hits.push({ where, kind, valuePrefix: "", valueLength: size });
+function registryHits(raw: unknown[]): Result<"secrets_scan">["hits"] {
+  const out: Result<"secrets_scan">["hits"] = [];
+  for (const item of raw.slice(0, MAX_HITS)) {
+    const entry = item as Record<string, unknown>;
+    if (typeof entry.where !== "string" || typeof entry.kind !== "string") continue;
+    out.push({
+      where: entry.where.slice(0, 300),
+      kind: entry.kind.slice(0, 60),
+      valuePrefix: typeof entry.valuePrefix === "string" ? entry.valuePrefix.slice(0, 4) : "",
+      valueLength:
+        typeof entry.valueLength === "number" && entry.valueLength >= 0
+          ? Math.floor(entry.valueLength)
+          : 0,
+    });
+  }
+  return out;
 }
+
+function findingToHit(
+  finding: BetterleaksFinding,
+  rootName: string,
+  rootDir: string,
+): Result<"secrets_scan">["hits"][number] {
+  const rel = path.relative(rootDir, finding.File).replaceAll("\\", "/");
+  const where = `${rootName}/${rel}:${finding.StartLine}`;
+  const secret = finding.Secret ?? "";
+  return {
+    where,
+    kind: finding.RuleID,
+    valuePrefix: prefixOf(secret),
+    valueLength: secret.length,
+  };
+}
+
+export async function runSecretsScan(
+  args: Args<"secrets_scan">,
+  input: SecurityInput,
+): Promise<Result<"secrets_scan">> {
+  const wanted = new Set(args.roots ?? ["data", "install"]);
+  const scope = await resolveScope(input, wanted.has("registry"));
+  const roots = scope.roots.filter((root) => wanted.has(root.kind));
+  if (roots.length === 0 && !wanted.has("registry")) {
+    refuse(
+      "No scan root is available: the install dir could not be resolved, and no data dir the owner confirmed exists.",
+    );
+  }
+  const hits: Result<"secrets_scan">["hits"] = [];
+  let filesScanned = 0;
+  let truncated = false;
+  for (const root of roots) {
+    const findings = await runBetterleaks(root.dir);
+    const seen = new Set<string>();
+    for (const f of findings) {
+      if (f.File) seen.add(f.File);
+      if (hits.length >= MAX_HITS) { truncated = true; break; }
+      hits.push(findingToHit(f, root.name, root.dir));
+    }
+    filesScanned += seen.size;
+  }
+  if (wanted.has("registry")) {
+    const registry = registryHits(scope.registry);
+    hits.push(...registry);
+  }
+  const lines = [
+    `Scanned ${roots.map((r) => r.name).join(", ") || "no root"} with betterleaks v1.10.1.`,
+    hits.length === 0
+      ? "No secrets found."
+      : `${hits.length} finding${hits.length === 1 ? "" : "s"}:`,
+    ...hits.map(
+      (h) => `- ${h.where} ${h.kind}${h.valuePrefix ? ` ${JSON.stringify(h.valuePrefix)}` : ""} (${h.valueLength} chars)`,
+    ),
+  ];
+  if (truncated) lines.push("Truncated: hit cap reached.");
+  return {
+    command: "secrets_scan",
+    report: lines.join("\n"),
+    hits,
+    filesScanned,
+    truncated,
+  };
+}
+
+// ---- files ----
 
 function looksBinary(buffer: Buffer): boolean {
   const end = Math.min(buffer.length, 8192);
@@ -448,211 +483,6 @@ async function readHead(file: string, max: number): Promise<{ buffer: Buffer; si
     await handle.close();
   }
 }
-
-interface PresenceInput {
-  state: ScanState;
-  root: ScopeRoot;
-  rel: string;
-  ext: string;
-  buffer: Buffer;
-  text: string;
-  size: number;
-}
-
-// Stores that hold secrets but are not dumped: reported as present, once.
-function notePresence(input: PresenceInput): void {
-  const { state, root, rel, ext, buffer, text, size } = input;
-  const where = `${root.name}/${rel}`;
-  if (/(^|\/)leveldb(\/|$)/i.test(rel.replaceAll("\\", "/"))) {
-    addPresence(state, `${root.name}/${path.dirname(rel)}`, "leveldb-present", size);
-  }
-  if (SQLITE_EXT.has(ext) || buffer.subarray(0, 15).toString("latin1") === "SQLite format 3") {
-    addPresence(state, where, "sqlite-present", size);
-  }
-  if (/"encrypted_key"\s*:\s*"RFBBUEk/.test(text)) {
-    addPresence(state, where, "dpapi-blob-present", size);
-  }
-}
-
-// A binary file is read for strings only when it is a store apps keep tokens in or an asar
-// archive; other binaries (executables, images) are skipped.
-function readsStrings(ext: string, rel: string): boolean {
-  if (SQLITE_EXT.has(ext) || BINARY_STRINGS_EXT.has(ext) || ext === ".asar") return true;
-  return /(^|[\\/])leveldb([\\/]|$)/i.test(rel);
-}
-
-async function scanFile(
-  state: ScanState,
-  root: ScopeRoot,
-  file: string,
-  rel: string,
-): Promise<void> {
-  const ext = path.extname(file).toLowerCase();
-  const perFile = { count: 0 };
-  const where = `${root.name}/${rel}`;
-  if (ext === ".dmp" || ext === ".mdmp") {
-    const { size } = await readHead(file, 0);
-    addPresence(state, where, "crash-dump-present", size);
-    return;
-  }
-  const { buffer, size } = await readHead(file, state.maxBytes);
-  state.filesScanned += 1;
-  if (size > buffer.length) state.truncated = true;
-  const binary = looksBinary(buffer);
-  const text = buffer.toString(binary ? "latin1" : "utf8");
-  notePresence({ state, root, rel, ext, buffer, text, size });
-  if (binary && !readsStrings(ext, rel)) return;
-  const patterns = binary ? PATTERNS : [...PATTERNS, HIGH_ENTROPY];
-  if (binary) {
-    // No lines in a binary: report the byte offset of the 4 KB window the value is in.
-    const window = 4096;
-    for (let offset = 0; offset < text.length; offset += window) {
-      for (const hit of findSecrets(text.slice(offset, offset + window + 128), patterns)) {
-        addHit(
-          state,
-          { where: `${where}@${offset + hit.start}`, kind: hit.kind, value: hit.value },
-          perFile,
-        );
-      }
-    }
-    return;
-  }
-  const lines = text.split(/\r?\n/);
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = (lines[index] ?? "").slice(0, 20_000);
-    if (line.length < 8) continue;
-    for (const hit of findSecrets(line, patterns)) {
-      addHit(state, { where: `${where}:${index + 1}`, kind: hit.kind, value: hit.value }, perFile);
-    }
-  }
-}
-
-async function walk(
-  state: ScanState,
-  root: ScopeRoot,
-  matches: (rel: string) => boolean,
-  hasGlobs: boolean,
-): Promise<void> {
-  const queue: string[] = [root.dir];
-  while (queue.length > 0) {
-    if (state.filesScanned >= state.maxFiles || Date.now() > state.deadline) {
-      state.truncated = true;
-      return;
-    }
-    const dir = queue.shift() as string;
-    let entries: Dirent[];
-    try {
-      entries = await fs.readdir(dir, { withFileTypes: true });
-    } catch {
-      continue;
-    }
-    entries.sort((a, b) => a.name.localeCompare(b.name));
-    for (const entry of entries) {
-      // Links and junctions are never followed: they could lead out of the root.
-      if (entry.isSymbolicLink()) continue;
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        if (!SKIP_DIRS.has(entry.name.toLowerCase())) queue.push(full);
-        continue;
-      }
-      if (!entry.isFile()) continue;
-      const rel = path.relative(root.dir, full).replaceAll("\\", "/");
-      if (!matches(rel)) continue;
-      const ext = path.extname(entry.name).toLowerCase();
-      if (root.kind === "install" && !hasGlobs && !INSTALL_TEXT.has(ext)) continue;
-      if (state.filesScanned >= state.maxFiles) {
-        state.truncated = true;
-        return;
-      }
-      try {
-        await scanFile(state, root, full, rel);
-      } catch {
-        // A file that is locked or vanished is skipped.
-      }
-    }
-  }
-}
-
-function registryHits(raw: unknown[]): Result<"secrets_scan">["hits"] {
-  const out: Result<"secrets_scan">["hits"] = [];
-  for (const item of raw.slice(0, MAX_HITS)) {
-    const entry = item as Record<string, unknown>;
-    if (typeof entry.where !== "string" || typeof entry.kind !== "string") continue;
-    out.push({
-      where: entry.where.slice(0, 300),
-      kind: entry.kind.slice(0, 60),
-      // The helper redacts too; clamp again so nothing longer than 4 characters crosses.
-      valuePrefix: typeof entry.valuePrefix === "string" ? entry.valuePrefix.slice(0, 4) : "",
-      valueLength:
-        typeof entry.valueLength === "number" && entry.valueLength >= 0
-          ? Math.floor(entry.valueLength)
-          : 0,
-    });
-  }
-  return out;
-}
-
-function scanReport(roots: readonly ScopeRoot[], state: ScanState, note: string | null): string {
-  const lines = [
-    `Scanned ${state.filesScanned} files in ${roots.map((root) => root.name).join(", ") || "no root"}.`,
-    state.hits.length === 0
-      ? "No secret-shaped values found."
-      : `${state.hits.length} hit${state.hits.length === 1 ? "" : "s"} (where, kind, value prefix, value length; the values are never shown):`,
-    ...state.hits.map(
-      (hit) =>
-        `- ${hit.where} ${hit.kind}${hit.valuePrefix ? ` ${JSON.stringify(hit.valuePrefix)}` : ""} (${hit.valueLength} ${hit.kind.endsWith("-present") ? "bytes" : "chars"})`,
-    ),
-  ];
-  if (state.truncated) {
-    lines.push(
-      `Truncated: a cap was reached (files, hits, time or ${state.maxBytes} bytes per file). Narrow include or raise a cap.`,
-    );
-  }
-  if (note) lines.push(note);
-  return lines.join("\n");
-}
-
-export async function runSecretsScan(
-  args: Args<"secrets_scan">,
-  input: SecurityInput,
-): Promise<Result<"secrets_scan">> {
-  const wanted = new Set(args.roots ?? ["data", "install"]);
-  const scope = await resolveScope(input, wanted.has("registry"));
-  const roots = scope.roots.filter((root) => wanted.has(root.kind));
-  const state: ScanState = {
-    hits: [],
-    filesScanned: 0,
-    truncated: false,
-    seenPresence: new Set(),
-    deadline: Date.now() + SCAN_BUDGET_MS,
-    maxFiles: args.maxFiles ?? DEFAULT_MAX_FILES,
-    maxBytes: args.maxBytesPerFile ?? DEFAULT_MAX_BYTES,
-  };
-  const matches = globMatcher(args.include);
-  const notes: string[] = [];
-  if (roots.length === 0 && !wanted.has("registry")) {
-    refuse(
-      "No scan root is available: the install dir could not be resolved, and no data dir the owner confirmed exists (browser profiles, Pimi and credential stores are never allowed).",
-    );
-  }
-  for (const root of roots) {
-    await walk(state, root, matches, (args.include?.length ?? 0) > 0);
-  }
-  if (wanted.has("registry")) {
-    const registry = registryHits(scope.registry);
-    if (registry.length === 0) notes.push("Registry: no secret-shaped values under the app's key.");
-    state.hits.push(...registry);
-  }
-  return {
-    command: "secrets_scan",
-    report: scanReport(roots, state, notes.join("\n") || null),
-    hits: state.hits,
-    filesScanned: state.filesScanned,
-    truncated: state.truncated,
-  };
-}
-
-// ---- files ----
 
 const MAX_LIST_ENTRIES = 300;
 const DEFAULT_READ_BYTES = 65_536;
