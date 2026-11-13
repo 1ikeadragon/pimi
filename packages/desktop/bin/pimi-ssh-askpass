@@ -1,0 +1,4 @@
+#!/bin/sh
+# SSH_ASKPASS program: relays ssh's prompt to the running Pimi desktop and prints the answer.
+# $1 is ssh's prompt text. It stays quoted and is never interpreted by a shell.
+ELECTRON_RUN_AS_NODE=1 exec "$PIMI_SSH_ASKPASS_NODE" "$PIMI_SSH_ASKPASS_MAIN" "$1" </dev/null
