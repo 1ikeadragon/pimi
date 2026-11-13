@@ -3691,6 +3691,13 @@ export const ar: TranslationResources = {
         removeErrorMessage: "غير قادر على إزالة الاتصال",
         timeout: "نفذ الوقت",
       },
+      agentAccess: {
+        title: "يمكن للوكلاء على هذا الكمبيوتر بدء وكلاء هنا",
+        hint: "يمكن للوكلاء الذين يعملون على هذا الكمبيوتر إنشاء وكلاء على هذا المضيف وإدارتهم. ويحصلون على وصول كامل إليه.",
+        statusReady: "جاهز للوكلاء على هذا الكمبيوتر",
+        statusWaiting: "في انتظار اتصال المضيف",
+        statusError: "غير متاح للوكلاء: {{message}}",
+      },
       pairDevices: {
         title: "إقران الأجهزة",
         rowTitle: "إقران جهاز",

@@ -3727,6 +3727,13 @@ export const es: TranslationResources = {
         removeErrorMessage: "No se puede eliminar la conexión",
         timeout: "Se acabó el tiempo",
       },
+      agentAccess: {
+        title: "Los agentes de este equipo pueden iniciar agentes aquí",
+        hint: "Los agentes que se ejecutan en este equipo pueden crear y gestionar agentes en este host. Tienen acceso total a él.",
+        statusReady: "Listo para los agentes de este equipo",
+        statusWaiting: "Esperando a que el host se conecte",
+        statusError: "No disponible para los agentes: {{message}}",
+      },
       pairDevices: {
         title: "Emparejar dispositivos",
         rowTitle: "Emparejar un dispositivo",

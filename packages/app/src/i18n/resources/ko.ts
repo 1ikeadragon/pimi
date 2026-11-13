@@ -3675,6 +3675,13 @@ export const ko: TranslationResources = {
         removeErrorMessage: "연결을 제거할 수 없습니다",
         timeout: "시간 초과",
       },
+      agentAccess: {
+        title: "이 컴퓨터의 에이전트가 여기서 에이전트를 시작할 수 있음",
+        hint: "이 컴퓨터에서 실행되는 에이전트가 이 호스트에서 에이전트를 만들고 관리할 수 있습니다. 호스트에 대한 전체 권한을 갖습니다.",
+        statusReady: "이 컴퓨터의 에이전트가 사용할 수 있음",
+        statusWaiting: "호스트 연결을 기다리는 중",
+        statusError: "에이전트가 사용할 수 없음: {{message}}",
+      },
       pairDevices: {
         title: "기기 페어링",
         rowTitle: "기기 페어링",

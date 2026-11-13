@@ -3733,6 +3733,13 @@ export const fr: TranslationResources = {
         removeErrorMessage: "Impossible de supprimer la connexion",
         timeout: "Délai dépassé",
       },
+      agentAccess: {
+        title: "Les agents de cet ordinateur peuvent lancer des agents ici",
+        hint: "Les agents exécutés sur cet ordinateur peuvent créer et gérer des agents sur cet hôte. Ils y ont un accès complet.",
+        statusReady: "Prêt pour les agents de cet ordinateur",
+        statusWaiting: "En attente de la connexion de l'hôte",
+        statusError: "Indisponible pour les agents : {{message}}",
+      },
       pairDevices: {
         title: "Associer des appareils",
         rowTitle: "Associer un appareil",
