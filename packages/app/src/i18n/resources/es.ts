@@ -508,6 +508,7 @@ export const es: TranslationResources = {
     clientCommands: {
       archiveAgent: "Archivar el agente actual",
       freshDraft: "Archive este agente y comience un nuevo borrador",
+      openBrowser: "Abrir una página web en el navegador de Pimi",
     },
     github: {
       searching: "Búsqueda...",

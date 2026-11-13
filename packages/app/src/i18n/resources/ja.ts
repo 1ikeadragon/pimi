@@ -510,6 +510,7 @@ export const ja: TranslationResources = {
     clientCommands: {
       archiveAgent: "現在のエージェントをアーカイブ",
       freshDraft: "このエージェントをアーカイブして新しい下書きを開始",
+      openBrowser: "PimiブラウザでWebページを開く",
     },
     github: {
       searching: "検索中...",

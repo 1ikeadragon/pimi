@@ -6,6 +6,8 @@ import { StyleSheet } from "react-native-unistyles";
 import { useContainerWidthBelow } from "@/hooks/use-container-width";
 import { invariant } from "@/utils/invariant";
 import { Composer } from "@/composer";
+import type { ClientSlashCommand } from "@/client-slash-commands";
+import { openBrowserFromSlashCommand } from "@/desktop/browser/open-url";
 import { type ComposerEditingSession, useComposerFullscreen } from "@/composer/editing-session";
 import { ComposerImportPill } from "@/composer/draft/import-pill";
 import { COMPOSER_PILL_CLEARANCE } from "@/composer/pill-styles";
@@ -599,6 +601,18 @@ export function WorkspaceDraftComposer({
     }),
     [composerState.agentControls, handleDropdownCloseFocus, isSubmitting],
   );
+  const handleClientSlashCommand = useCallback(
+    async (command: ClientSlashCommand, args: string) => {
+      if (command.kind !== "open-browser") return;
+      openBrowserFromSlashCommand({
+        workspaceKey: buildWorkspaceTabPersistenceKey({ serverId, workspaceId: workspaceId ?? "" }),
+        tabId,
+        args,
+        invalidUrlMessage: t("workspace.browser.errors.invalidUrl"),
+      });
+    },
+    [serverId, t, tabId, workspaceId],
+  );
   return (
     <View style={animatedStaticStyles.inputAreaWrapper} onLayout={onInputAreaLayout}>
       {formErrorMessage ? (
@@ -621,6 +635,7 @@ export function WorkspaceDraftComposer({
         workspaceId={workspaceId}
         isPaneFocused={isPaneFocused}
         onSubmitMessage={handleCreateFromInput}
+        onClientSlashCommand={handleClientSlashCommand}
         isSubmitLoading={isSubmitting}
         blurOnSubmit={true}
         textSource={draftInput.textSource}

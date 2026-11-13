@@ -507,6 +507,7 @@ export const ko: TranslationResources = {
     clientCommands: {
       archiveAgent: "현재 에이전트 보관",
       freshDraft: "이 에이전트를 보관하고 새 초안을 시작합니다",
+      openBrowser: "Pimi 브라우저에서 웹 페이지 열기",
     },
     github: {
       searching: "검색 중...",

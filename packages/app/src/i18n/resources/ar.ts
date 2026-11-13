@@ -505,6 +505,7 @@ export const ar: TranslationResources = {
     clientCommands: {
       archiveAgent: "أرشفة الوكيل الحالي",
       freshDraft: "أرشفة هذا الوكيل وابدأ مسودة جديدة",
+      openBrowser: "فتح صفحة ويب في متصفح Pimi",
     },
     github: {
       searching: "جارٍ البحث...",

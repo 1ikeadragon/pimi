@@ -500,6 +500,7 @@ export const en = {
     clientCommands: {
       archiveAgent: "Archive the current agent",
       freshDraft: "Archive this agent and start a fresh draft",
+      openBrowser: "Open a web page in the Pimi browser",
     },
     github: {
       searching: "Searching...",

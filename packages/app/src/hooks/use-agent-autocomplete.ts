@@ -17,7 +17,7 @@ import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-
 import { useProvidersSnapshot } from "@/hooks/use-providers-snapshot";
 import { pluginDisplayName, usePluginList } from "@/plugins/plugin-list";
 import { resolveProviderLabel } from "@/utils/provider-definitions";
-import { CLIENT_SLASH_COMMANDS, type ClientSlashCommand } from "@/client-slash-commands";
+import { getClientSlashCommands, type ClientSlashCommand } from "@/client-slash-commands";
 import type { PluginClientSlashCommand } from "@/plugins/client-slash-commands";
 import { mergeSlashCommandSources } from "@/plugins/client-slash-commands/model";
 import {
@@ -41,8 +41,8 @@ interface UseAgentAutocompleteInput {
   agentId: string;
   draft?: DraftCommandTarget;
   onAutocompleteApplied?: () => void;
-  onClientSlashCommand?: (command: ClientSlashCommand) => void;
-  canExecuteClientSlashCommand?: boolean;
+  /** Runs the command and returns true, or false when it must be inserted for the user to finish. */
+  onClientSlashCommand?: (command: ClientSlashCommand) => boolean;
   pluginClientSlashCommands?: readonly PluginClientSlashCommand[];
 }
 
@@ -144,6 +144,7 @@ function resolveDraftQueryConfig(draft?: DraftCommandTarget): DraftCommandConfig
 const CLIENT_COMMAND_ICONS = {
   "archive-agent": "archive",
   "replace-agent-with-draft": "new-draft",
+  "open-browser": "browser",
 } as const satisfies Record<ClientSlashCommand["kind"], AutocompleteOption["icon"]>;
 
 interface CommandOptionContext {
@@ -205,6 +206,8 @@ interface BuildAutocompleteOptionsInput {
   pluginCommands: readonly PluginClientSlashCommand[];
   pluginNames: ReadonlyMap<string, string>;
   isDraftContext: boolean;
+  /** False where no handler runs client commands, such as the new-workspace screen. */
+  canRunClientCommands: boolean;
   commandFilterQuery: string;
   activeSlashCommand: SlashCommandRange | null;
   activeFileMention: FileMentionRange | null;
@@ -219,7 +222,7 @@ function buildAutocompleteOptions(input: BuildAutocompleteOptionsInput): AgentAu
       command,
     }));
     const rootCommands: AvailableCommand[] = mergeSlashCommandSources({
-      builtIn: CLIENT_SLASH_COMMANDS,
+      builtIn: getClientSlashCommands(),
       plugins: input.pluginCommands,
       provider: input.commands,
       onPluginCollision(command, winner) {
@@ -228,7 +231,12 @@ function buildAutocompleteOptions(input: BuildAutocompleteOptionsInput): AgentAu
         );
       },
     })
-      .filter((entry) => !input.isDraftContext || entry.source !== "built-in")
+      .filter(
+        (entry) =>
+          !input.isDraftContext ||
+          entry.source !== "built-in" ||
+          (entry.command.availableInDrafts && input.canRunClientCommands),
+      )
       .map((entry): AvailableCommand => {
         if (entry.source === "built-in") return { source: "client", command: entry.command };
         return entry;
@@ -476,7 +484,6 @@ export function useAgentAutocomplete(input: UseAgentAutocompleteInput): AgentAut
     draft,
     onAutocompleteApplied,
     onClientSlashCommand,
-    canExecuteClientSlashCommand,
     pluginClientSlashCommands = [],
   } = input;
 
@@ -616,6 +623,7 @@ export function useAgentAutocomplete(input: UseAgentAutocompleteInput): AgentAut
         activeSlashCommand,
         fileSuggestions: fileSuggestionsQuery.data ?? [],
         isDraftContext,
+        canRunClientCommands: Boolean(onClientSlashCommand),
         mode,
         t,
       });
@@ -652,6 +660,7 @@ export function useAgentAutocomplete(input: UseAgentAutocompleteInput): AgentAut
     isDraftContext,
     isVisible,
     mode,
+    onClientSlashCommand,
     pluginClientSlashCommands,
     pluginNames,
     providerLabel,
@@ -677,10 +686,8 @@ export function useAgentAutocomplete(input: UseAgentAutocompleteInput): AgentAut
       if (
         selected.type === "client_command" &&
         selected.command.execution === "immediate" &&
-        canExecuteClientSlashCommand &&
-        onClientSlashCommand
+        onClientSlashCommand?.(selected.command)
       ) {
-        onClientSlashCommand(selected.command);
         return;
       }
 
@@ -711,7 +718,6 @@ export function useAgentAutocomplete(input: UseAgentAutocompleteInput): AgentAut
       onAutocompleteApplied?.();
     },
     [
-      canExecuteClientSlashCommand,
       onAutocompleteApplied,
       onClientSlashCommand,
       setUserInput,

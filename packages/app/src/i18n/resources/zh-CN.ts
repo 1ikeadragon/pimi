@@ -502,6 +502,7 @@ export const zhCN: TranslationResources = {
     clientCommands: {
       archiveAgent: "归档当前 Agent",
       freshDraft: "归档此 Agent 并开始新的草稿",
+      openBrowser: "在 Pimi 浏览器中打开网页",
     },
     github: {
       searching: "正在搜索...",

@@ -508,6 +508,7 @@ export const ru: TranslationResources = {
     clientCommands: {
       archiveAgent: "Архивировать текущего агента",
       freshDraft: "Архивировать этого агента и создать новый черновик",
+      openBrowser: "Открыть веб-страницу в браузере Pimi",
     },
     github: {
       searching: "Идет поиск...",

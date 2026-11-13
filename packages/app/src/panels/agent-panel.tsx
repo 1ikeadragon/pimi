@@ -107,6 +107,7 @@ import { getInitDeferred, getInitKey } from "@/utils/agent-initialization";
 import { derivePendingPermissionKey, normalizeAgentSnapshot } from "@/utils/agent-snapshots";
 import type { WorkspaceFileOpenRequest } from "@/workspace/file-open";
 import { buildDraftAgentSetup, type ClientSlashCommand } from "@/client-slash-commands";
+import { openBrowserFromSlashCommand } from "@/desktop/browser/open-url";
 
 interface ChatAgentStateShape {
   serverId: string | null;
@@ -1603,6 +1604,7 @@ function ActiveAgentComposer({
   onComposerHeightChange: (height: number) => void;
   onMessageSent: () => void;
 }) {
+  const { t } = useTranslation();
   const isCompactFormFactor = useIsCompactFormFactor();
   const { onLayout: onInputAreaLayout, isBelow: isCompactComposerLayout } = useContainerWidthBelow(
     COMPACT_CONTENT_WIDTH,
@@ -1639,7 +1641,16 @@ function ActiveAgentComposer({
   );
 
   const handleClientSlashCommand = useCallback(
-    async (command: ClientSlashCommand) => {
+    async (command: ClientSlashCommand, args: string) => {
+      if (command.kind === "open-browser") {
+        openBrowserFromSlashCommand({
+          workspaceKey: buildWorkspaceTabPersistenceKey({ serverId, workspaceId }),
+          tabId,
+          args,
+          invalidUrlMessage: t("workspace.browser.errors.invalidUrl"),
+        });
+        return;
+      }
       const agent = resolveChatAgentFromSession(useSessionStore.getState(), serverId, agentId);
       if (!agent) {
         throw new Error("Agent not found");
@@ -1670,6 +1681,7 @@ function ActiveAgentComposer({
       hideWorkspaceAgent,
       retargetCurrentTab,
       serverId,
+      t,
       tabId,
       unpinWorkspaceAgent,
       workspaceId,

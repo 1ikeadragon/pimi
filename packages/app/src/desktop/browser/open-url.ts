@@ -1,4 +1,5 @@
 import { getIsElectron } from "@/constants/platform";
+import { isHttpUrl } from "@/utils/http-url";
 import { resolveFocusedChatTarget } from "@/composer/focused-chat-target";
 import { createWorkspaceBrowser, normalizeWorkspaceBrowserUrl, useBrowserStore } from "./store";
 import type { BrowserOwner } from "./store/state";
@@ -122,4 +123,26 @@ export function resolveOriginChatTabId(
   layout: WorkspaceLayout | undefined,
 ): string | null {
   return resolveFocusedChatTarget({ serverId, layout })?.tabId ?? null;
+}
+
+/** Runs `/browser [url]` from the chat tab `tabId`: a blank tab, or the URL (reused when open). */
+export function openBrowserFromSlashCommand(input: {
+  workspaceKey: string | null;
+  tabId: string;
+  args: string;
+  invalidUrlMessage: string;
+}): void {
+  // The URL parser accepts spaces by encoding them, so "not a url" would open as a host.
+  const url = input.args ? normalizeWorkspaceBrowserUrl(input.args) : undefined;
+  if (url !== undefined && (/\s/.test(url) || !isHttpUrl(url))) {
+    throw new Error(input.invalidUrlMessage);
+  }
+  openWorkspaceBrowserUrl({
+    workspaceKey: input.workspaceKey,
+    url,
+    parentTabId: input.tabId,
+    location: "side",
+    focus: true,
+    reuse: url !== undefined,
+  });
 }
