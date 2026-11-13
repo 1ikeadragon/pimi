@@ -108,7 +108,7 @@ function ScenePainter({
   const { plot } = scene;
   const target = scene.targets[selected];
   return (
-    <Svg width={scene.width} height={scene.height} accessible={false}>
+    <Svg width={scene.width} height={scene.height} aria-hidden>
       {scene.guide === "band" && target ? (
         <Rect
           x={target.box.x}
@@ -178,7 +178,7 @@ function Sparkline({
   if (!color) return null;
   const last = points[points.length - 1];
   return (
-    <Svg width={width} height={height} accessible={false}>
+    <Svg width={width} height={height} aria-hidden>
       <Polyline
         points={pointList(points)}
         fill="none"
