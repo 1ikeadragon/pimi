@@ -21,7 +21,15 @@ const STATUS_KEY = ["desktop-local-pairing"] as const;
 async function request(input: PimiLocalPairingRequest): Promise<PimiLocalPairingStatus> {
   const invoke = getDesktopHost()?.invoke;
   if (!invoke) throw new Error("Wi-Fi pairing is only available in Pimi Desktop.");
-  return PimiLocalPairingStatus.parse(await invoke("desktop_local_pairing", input));
+  try {
+    return PimiLocalPairingStatus.parse(await invoke("desktop_local_pairing", input));
+  } catch (error) {
+    // Electron prefixes a main-process throw with "Error invoking remote method '<channel>': Error: ".
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(message.replace(/^Error invoking remote method '[^']*': (?:Error: )?/, ""), {
+      cause: error,
+    });
+  }
 }
 
 export function LocalPairingSection() {
