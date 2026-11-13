@@ -8,7 +8,6 @@ interface ShowContextMenuInput {
 
 interface ApplicationMenuOptions {
   onNewWindow: () => void;
-  onOpenPimi?: () => void;
   onOpenSettings?: () => void;
 }
 
@@ -100,15 +99,6 @@ function buildApplicationMenuTemplate(
       submenu: [
         ...(!isMac && options.onOpenSettings
           ? [{ label: "Settings…", accelerator: "Ctrl+,", click: options.onOpenSettings }]
-          : []),
-        ...(options.onOpenPimi
-          ? [
-              {
-                label: "Show Pimi Workspace",
-                accelerator: "CmdOrCtrl+Shift+R",
-                click: options.onOpenPimi,
-              },
-            ]
           : []),
         {
           label: "New Window",

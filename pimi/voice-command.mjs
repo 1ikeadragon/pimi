@@ -1,9 +1,9 @@
 import { isExplicitVoiceChatRequest, PimiAskResult } from "@pimi/protocol/pimi-task";
 import { RequestError } from "./git.mjs";
 
-function findTask(tasks, title) {
+async function findTask(pimi, title) {
   const key = title.toLowerCase();
-  const matches = tasks.list().tasks.filter((task) => task.title.toLowerCase() === key);
+  const matches = (await pimi.taskList()).filter((task) => task.title.toLowerCase() === key);
   if (matches.length !== 1) {
     throw new RequestError(
       matches.length ? "More than one task has that title." : "I couldn’t find that task.",
@@ -70,17 +70,19 @@ async function resolveSpace(open, input, pimi, chatProvider) {
   return { chat, message: "Started a chat with your Spaces card" };
 }
 
-async function resolveNavigation(open, input, { pimi, tasks, getInventory }, chatProvider) {
+async function resolveNavigation(open, input, { pimi }, chatProvider) {
   switch (open.action) {
     case "review-worktree": {
-      const board = await getInventory();
+      const { serverId, workspaces } = await pimi.workspaceDirectory();
       const name = open.name?.toLowerCase();
-      const matches = board.cards.filter(
-        (card) =>
-          !card.unavailable &&
+      const matches = workspaces.filter(
+        (workspace) =>
+          workspace.path &&
           (name
-            ? [card.name, card.branch, card.path].some((value) => value?.toLowerCase() === name)
-            : input.workspaceId && card.workspaceId === input.workspaceId),
+            ? [workspace.name, workspace.branch, workspace.path].some(
+                (value) => value?.toLowerCase() === name,
+              )
+            : input.workspaceId && workspace.id === input.workspaceId),
       );
       if (matches.length !== 1) {
         return {
@@ -91,7 +93,7 @@ async function resolveNavigation(open, input, { pimi, tasks, getInventory }, cha
         };
       }
       return {
-        destination: { view: "review", path: matches[0].path, serverId: board.serverId },
+        destination: { view: "review", path: matches[0].path, serverId },
         message: "Opening worktree diff",
       };
     }
@@ -99,7 +101,7 @@ async function resolveNavigation(open, input, { pimi, tasks, getInventory }, cha
       return { navigation: open, message: "Opening pull requests" };
     case "open-task":
       return {
-        destination: { view: "task", id: findTask(tasks, open.title).id },
+        destination: { view: "task", id: (await findTask(pimi, open.title)).id },
         message: "Opening task",
       };
     case "space-card":

@@ -19,13 +19,7 @@ import {
 import { NETWORK_PURPOSE } from "@pimi/protocol/network-activity";
 installDesktopNodeNetworkMonitor();
 
-import {
-  PimiOpenTaskDestination,
-  PimiRecapPeriod,
-  PimiReportLinkError,
-  PimiVoiceBubbleState,
-  PimiVoiceCommandInput,
-} from "@pimi/protocol/pimi-task";
+import { PimiVoiceBubbleState, PimiVoiceCommandInput } from "@pimi/protocol/pimi-task";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import {
@@ -34,7 +28,6 @@ import {
   hidePimiWorkspace,
   initializePimiWorkspace,
   pimiAppearanceArgument,
-  reportPimiLinkError,
   setPimiAppearance,
   showPimiWindow,
   updatePimiContentBounds,
@@ -93,7 +86,6 @@ import { registerDialogHandlers } from "./features/dialogs.js";
 import {
   registerNotificationHandlers,
   ensureNotificationCenterRegistration,
-  sendDesktopNotification,
 } from "./features/notifications.js";
 import { createExternalUrlOpener } from "./features/opener.js";
 import { createBrowserCaptureService } from "./features/browser-capture.js";
@@ -159,13 +151,8 @@ import {
   type AgentDeepLinkTarget,
 } from "@pimi/protocol/agent-deep-link";
 import { AgentNavigationInbox, parseAgentDeepLinkFromArgv } from "./agent-navigation.js";
-import {
-  PimiMemoryDestination,
-  PimiNewTaskDestination,
-  PimiSimpleDestinationView,
-  PimiSpacesDestination,
-  PimiTaskProposal,
-} from "@pimi/protocol/pimi-task";
+import { PimiMemoryDestination, PimiSpacesDestination } from "@pimi/protocol/pimi-task";
+import { importLegacyPimiTasks } from "./features/pimi-task-import.js";
 import { getForgeDefinition } from "@pimi/protocol/forge-manifest";
 
 const DEV_SERVER_URL = process.env.EXPO_DEV_URL ?? "http://localhost:8081";
@@ -831,10 +818,6 @@ function openPimi(destination?: PimiDestination, preferred?: BrowserWindow): voi
   void showPimiWindow(
     {
       runtimeDir: path.join(app.getAppPath(), "dist"),
-      dictationUrl: app.isPackaged
-        ? `${APP_SCHEME}://app/pimi-dictation`
-        : new URL("/pimi-dictation", DEV_SERVER_URL).toString(),
-      preload: getPreloadPath(),
       workspacePreload: path.join(path.dirname(getPreloadPath()), "pimi-workspace-preload.js"),
       resolveConsoleWindow: resolvePimiConsoleWindow,
       openAgentChat: (target) => {
@@ -876,17 +859,6 @@ function registerPimiWorkspaceNavigation(): void {
     const failure = await shell.openPath(directory);
     if (failure) throw new Error(failure);
   });
-  ipcMain.handle("pimi:labels:get", async (event) => {
-    if (!isConsoleFrame(event)) throw new Error("Open Pimi to read linked labels.");
-    const runtime = await initializePimiWorkspace(path.join(app.getAppPath(), "dist"));
-    return runtime.getLinkedLabels();
-  });
-  ipcMain.handle("pimi:recap:get", async (event, value: unknown) => {
-    if (!isConsoleFrame(event)) throw new Error("Open Pimi to read your recap.");
-    const period = PimiRecapPeriod.parse(value);
-    const runtime = await initializePimiWorkspace(path.join(app.getAppPath(), "dist"));
-    return runtime.getRecap(period);
-  });
   ipcMain.handle("pimi:voice:command", async (event, value: unknown) => {
     if (!isConsoleFrame(event)) throw new Error("Ask Pimi is only available in the app.");
     const input = PimiVoiceCommandInput.parse(value);
@@ -927,12 +899,6 @@ function registerPimiWorkspaceNavigation(): void {
       );
     });
   });
-  ipcMain.on("pimi:workspace:report-link-error", (event, value: unknown) => {
-    if (!isConsoleFrame(event)) return;
-    const error = PimiReportLinkError.safeParse(value);
-    const owner = BrowserWindow.fromWebContents(event.sender);
-    if (owner && error.success) reportPimiLinkError(owner, error.data);
-  });
   ipcMain.handle("pimi:workspace:close-dialog", (event) => {
     if (!isConsoleFrame(event)) return false;
     return closePimiWorkspaceDialog();
@@ -964,25 +930,14 @@ function registerPimiWorkspaceNavigation(): void {
   });
   ipcMain.on("pimi:workspace:show", (event, destination: unknown) => {
     if (!isConsoleFrame(event) || !destination || typeof destination !== "object") return;
-    const { view, proposal } = destination as { view?: unknown; proposal?: unknown };
+    const { view } = destination as { view?: unknown };
     const owner = BrowserWindow.fromWebContents(event.sender) ?? undefined;
-    const simple = PimiSimpleDestinationView.safeParse(view);
-    if (simple.success) return openPimi({ view: simple.data }, owner);
-    const destinationSchema = {
-      memory: PimiMemoryDestination,
-      spaces: PimiSpacesDestination,
-      task: PimiOpenTaskDestination,
-      "new-task": PimiNewTaskDestination,
-    };
-    for (const [name, schema] of Object.entries(destinationSchema)) {
-      if (view !== name) continue;
-      const result = schema.safeParse(destination);
+    if (view === "memory") {
+      const result = PimiMemoryDestination.safeParse(destination);
       if (result.success) openPimi(result.data, owner);
-      return;
-    }
-    if (view === "task-draft") {
-      const result = PimiTaskProposal.safeParse(proposal);
-      if (result.success) openPimi({ view, proposal: result.data }, owner);
+    } else if (view === "spaces") {
+      const result = PimiSpacesDestination.safeParse(destination);
+      if (result.success) openPimi(result.data, owner);
     }
   });
 }
@@ -1340,7 +1295,6 @@ async function bootstrap(loginShellEnvReady: Promise<void>): Promise<void> {
 
   await applyAppIcon();
   setupApplicationMenu({
-    onOpenPimi: () => openPimi(),
     onOpenSettings: openPimiSettings,
     onNewWindow: () => {
       void desktopWindowOwner.openAdditional().catch((error) => {
@@ -1350,14 +1304,12 @@ async function bootstrap(loginShellEnvReady: Promise<void>): Promise<void> {
   });
   ensureNotificationCenterRegistration();
   const observePimiWorkspaces = () => {
-    void initializePimiWorkspace(path.join(app.getAppPath(), "dist"), async ({ id, title }) => {
-      await sendDesktopNotification({
-        title: "Task complete",
-        body: title,
-        onClick: () => openPimi({ view: "task", id }),
-      });
-    })
-      .then((runtime) => runtime.observeWorkspaces())
+    void initializePimiWorkspace(path.join(app.getAppPath(), "dist"))
+      .then(async (runtime) => {
+        await runtime.observeWorkspaces();
+        await importLegacyPimiTasks(runtime);
+        return undefined;
+      })
       .catch((error) => log.debug("[pimi] workspace observation unavailable", error));
   };
   registerDaemonManager(observePimiWorkspaces);
