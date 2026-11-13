@@ -128,11 +128,9 @@ import {
   clearWorkspaceAutomationBlock,
   formatWorkspaceAutomationBlockedMessage,
 } from "./workspace-automation-gate.js";
-import {
-  WorkspaceLabelError,
-  WorkspaceLabelStorageUncertainError,
-  type WorkspaceLabelService,
-} from "./workspace-labels/index.js";
+import type { LabelService } from "./labels/service.js";
+import type { TaskService } from "./task/service.js";
+import { TaskSession } from "./session/task/task-session.js";
 
 import { AgentManager, AgentRunCancellationError } from "./agent/agent-manager.js";
 import {
@@ -500,7 +498,8 @@ export interface SessionOptions {
   workspaceRegistry: WorkspaceRegistry;
   workspaceBaseBranch?: WorkspaceBaseBranchService;
   directorySync?: DirectorySyncService;
-  workspaceLabelService?: WorkspaceLabelService;
+  taskService?: TaskService;
+  labelService?: LabelService;
   filesystem?: SessionFileSystem;
   automationService: AutomationService;
   heartbeatService: HeartbeatService;
@@ -653,12 +652,6 @@ function describeRegistryTransition(record: ArchivedRecordSnapshot | null): Regi
  * It owns all state management, orchestration logic, and message processing.
  * Session has no knowledge of WebSockets - it only emits and receives messages.
  */
-function resolveWorkspaceLabelService(
-  service: WorkspaceLabelService | undefined,
-): WorkspaceLabelService | null {
-  return service ?? null;
-}
-
 function hasInitialCreationPrompt(
   request?: Pick<AgentCreateRequest, "initialPrompt" | "images" | "attachments">,
 ): boolean {
@@ -667,17 +660,6 @@ function hasInitialCreationPrompt(
     buildAgentPrompt(request.initialPrompt?.trim() ?? "", request.images, request.attachments)
       .length,
   );
-}
-
-function workspaceLabelErrorCode(error: unknown): string {
-  if (
-    error instanceof WorkspaceLabelError ||
-    error instanceof WorkspaceLabelStorageUncertainError ||
-    error instanceof SessionRequestError
-  ) {
-    return error.code;
-  }
-  return "workspace_label_failed";
 }
 
 interface ClientActivity {
@@ -795,7 +777,9 @@ export class Session {
     string,
     WorkspaceUpdatesSubscriptionState
   >();
-  private readonly workspaceLabelService: WorkspaceLabelService | null;
+  private readonly taskSession: TaskSession | null;
+  private readonly taskService: TaskService | null;
+  private unsubscribeTasks: (() => void) | null = null;
   private readonly automationService: AutomationService;
   private readonly eventSubscriptions = new Map<
     string,
@@ -859,7 +843,6 @@ export class Session {
       projectRegistry,
       workspaceRegistry,
       directorySync,
-      workspaceLabelService,
       filesystem,
       automationService,
       heartbeatService,
@@ -947,7 +930,6 @@ export class Session {
     this.projectRegistry = projectRegistry;
     this.workspaceRegistry = workspaceRegistry;
     this.directorySync = resolveDirectorySync(directorySync);
-    this.workspaceLabelService = resolveWorkspaceLabelService(workspaceLabelService);
     this.filesystem = filesystem ?? nodeSessionFileSystem;
     this.github = github ?? createGitHubService();
     this.renameCurrentBranch = renameCurrentBranch ?? renameCurrentBranchDefault;
@@ -1031,6 +1013,8 @@ export class Session {
       heartbeatService,
       logger: this.sessionLogger,
     });
+    this.taskService = options.taskService ?? null;
+    this.taskSession = this.createTaskSession(options);
     this.attackSession = new AttackSession({
       host: { emit: (msg) => this.emit(msg) },
       attackService,
@@ -1652,6 +1636,19 @@ export class Session {
     }
   }
 
+  private createTaskSession(options: SessionOptions): TaskSession | null {
+    if (!options.taskService || !options.labelService) return null;
+    return new TaskSession({
+      host: {
+        emit: (msg) => this.emit(msg),
+        beginSubscription: (family, stop) => this.delivery.begin(family, stop),
+      },
+      taskService: options.taskService,
+      labelService: options.labelService,
+      logger: this.sessionLogger,
+    });
+  }
+
   private refreshCatalogProducers(): void {
     if (this.wantsEvent("providers_snapshot_update")) this.providerCatalogSession.start();
     else this.providerCatalogSession.dispose();
@@ -1663,6 +1660,15 @@ export class Session {
     else {
       this.unsubscribePluginChanges?.();
       this.unsubscribePluginChanges = null;
+    }
+    if (this.wantsEvent("status.tasks_changed"))
+      this.unsubscribeTasks ??=
+        this.taskService?.onChanged(() => {
+          this.emit({ type: "status", payload: { status: "tasks_changed" } });
+        }) ?? null;
+    else {
+      this.unsubscribeTasks?.();
+      this.unsubscribeTasks = null;
     }
     if (this.wantsEvent("status.automation_drafts_changed"))
       this.unsubscribeAutomationDrafts ??= this.automationService.onDraftsChanged(() => {
@@ -2369,6 +2375,7 @@ export class Session {
       this.dispatchTerminalMessage(msg) ??
       this.dispatchChatSearchMessage(msg) ??
       this.automationSession.dispatch(msg) ??
+      this.taskSession?.dispatch(msg) ??
       this.attackSession.dispatch(msg) ??
       this.speechModelsSession.dispatch(msg)
     );
@@ -2377,7 +2384,6 @@ export class Session {
   private dispatchWorkspaceLifecycleMessage(msg: SessionInboundMessage): Promise<void> | undefined {
     return (
       this.dispatchWorkspaceStateMessage(msg) ??
-      this.dispatchWorkspaceLabelMessage(msg) ??
       this.dispatchWorkspaceSetupMessage(msg) ??
       this.dispatchWorkspaceAndProjectMessage(msg)
     );
@@ -3108,23 +3114,6 @@ export class Session {
       return this.handleWorkspaceSetupRunRequest(msg);
     }
     return undefined;
-  }
-
-  private dispatchWorkspaceLabelMessage(msg: SessionInboundMessage): Promise<void> | undefined {
-    switch (msg.type) {
-      case "workspace.label.list.request":
-        return this.handleWorkspaceLabelList(msg);
-      case "workspace.label.assignment.set.request":
-        return this.handleWorkspaceLabelAssignment(msg);
-      case "workspace.label.update.request":
-        return this.handleWorkspaceLabelUpdate(msg);
-      case "workspace.label.delete.request":
-        return this.handleWorkspaceLabelDelete(msg);
-      case "workspace.label.delete.inspect.request":
-        return this.handleWorkspaceLabelDeleteInspection(msg);
-      default:
-        return undefined;
-    }
   }
 
   private dispatchWorkspaceFileMessage(
@@ -5830,7 +5819,6 @@ export class Session {
       name: resolveWorkspaceDisplayName(workspace),
       title: workspace.title,
       pinnedAt: workspace.pinnedAt,
-      ...(workspace.labels && workspace.labels.length > 0 ? { labels: workspace.labels } : {}),
       background: workspace.background,
       parentWorkspaceId: workspace.parentWorkspaceId,
       archivingAt: null,
@@ -5929,9 +5917,6 @@ export class Session {
       }),
       title: result.workspace.title,
       pinnedAt: result.workspace.pinnedAt,
-      ...(result.workspace.labels && result.workspace.labels.length > 0
-        ? { labels: result.workspace.labels }
-        : {}),
       archivingAt: null,
       status: "done",
       statusEnteredAt: result.workspace.createdAt,
@@ -6699,144 +6684,6 @@ export class Session {
               : "project_suggestions_failed",
         },
       });
-    }
-  }
-
-  private requireWorkspaceLabels(): WorkspaceLabelService {
-    if (!this.workspaceLabelService) {
-      throw new SessionRequestError("workspace_labels_unavailable", "Workspace labels unavailable");
-    }
-    return this.workspaceLabelService;
-  }
-
-  private emitWorkspaceLabelError(
-    request: { requestId: string; type: string },
-    error: unknown,
-  ): void {
-    this.emit({
-      type: "rpc_error",
-      payload: {
-        requestId: request.requestId,
-        requestType: request.type,
-        code: workspaceLabelErrorCode(error),
-        error: error instanceof Error ? error.message : "Workspace label operation failed",
-      },
-    });
-  }
-
-  private async handleWorkspaceLabelList(
-    request: Extract<SessionInboundMessage, { type: "workspace.label.list.request" }>,
-  ): Promise<void> {
-    const service = this.requireWorkspaceLabels();
-    if (!request.subscribe) {
-      this.emit({
-        type: "workspace.label.list.response",
-        payload: { requestId: request.requestId, ...(await service.list(request.sync)) },
-      });
-      return;
-    }
-    let bootstrap: ReturnType<typeof service.subscribe> | undefined;
-    const owner = this.delivery.begin("labels", async () => {
-      await bootstrap?.then(
-        (subscription) => subscription.unsubscribe(),
-        () => undefined,
-      );
-    });
-    try {
-      type LiveChange = Parameters<Parameters<typeof service.subscribe>[0]["onChange"]>[0];
-      const pending = new Map<string, LiveChange>();
-      let ready = false;
-      const emitChange = (change: LiveChange): void => {
-        owner.emit({
-          type: "workspace.label.update",
-          payload: change,
-        });
-      };
-      bootstrap = service.subscribe({
-        cursor: request.sync,
-        onChange: (change) => {
-          if (owner.signal.aborted) return;
-          if (!ready)
-            pending.set(change.kind === "upsert" ? change.label.name : change.name, change);
-          else emitChange(change);
-        },
-      });
-      const subscription = await bootstrap;
-      if (owner.signal.aborted) return;
-      this.emit({
-        type: "workspace.label.list.response",
-        payload: {
-          requestId: request.requestId,
-          subscriptionId: owner.id,
-          ...subscription.snapshot,
-        },
-      });
-      ready = true;
-      for (const change of pending.values()) {
-        if (change.seq > subscription.snapshot.sync.headSeq) emitChange(change);
-      }
-      pending.clear();
-    } catch (error) {
-      await owner.release();
-      this.emitWorkspaceLabelError(request, error);
-    }
-  }
-
-  private async handleWorkspaceLabelAssignment(
-    request: Extract<SessionInboundMessage, { type: "workspace.label.assignment.set.request" }>,
-  ): Promise<void> {
-    try {
-      const result = await this.requireWorkspaceLabels().setAssignment(request);
-      this.emit({
-        type: "workspace.label.assignment.set.response",
-        payload: { requestId: request.requestId, ...result },
-      });
-    } catch (error) {
-      this.emitWorkspaceLabelError(request, error);
-    }
-  }
-
-  private async handleWorkspaceLabelUpdate(
-    request: Extract<SessionInboundMessage, { type: "workspace.label.update.request" }>,
-  ): Promise<void> {
-    try {
-      const result = await this.requireWorkspaceLabels().update(request);
-      this.emit({
-        type: "workspace.label.update.response",
-        payload: { requestId: request.requestId, ...result },
-      });
-    } catch (error) {
-      this.emitWorkspaceLabelError(request, error);
-    }
-  }
-
-  private async handleWorkspaceLabelDelete(
-    request: Extract<SessionInboundMessage, { type: "workspace.label.delete.request" }>,
-  ): Promise<void> {
-    try {
-      const result = await this.requireWorkspaceLabels().delete(request.name);
-      this.emit({
-        type: "workspace.label.delete.response",
-        payload: { requestId: request.requestId, ...result },
-      });
-    } catch (error) {
-      this.emitWorkspaceLabelError(request, error);
-    }
-  }
-
-  private async handleWorkspaceLabelDeleteInspection(
-    request: Extract<SessionInboundMessage, { type: "workspace.label.delete.inspect.request" }>,
-  ): Promise<void> {
-    try {
-      const affectedWorkspaceCount = await this.requireWorkspaceLabels().countAffectedWorkspaces(
-        request.name,
-      );
-      this.emit({
-        type: "workspace.label.delete.inspect.response",
-        payload: { requestId: request.requestId, affectedWorkspaceCount },
-      });
-    } catch (error) {
-      this.emitWorkspaceLabelError(request, error);
     }
   }
 
@@ -9237,6 +9084,8 @@ export class Session {
     this.unsubscribePluginChanges = null;
     this.unsubscribeAutomationDrafts?.();
     this.unsubscribeAutomationDrafts = null;
+    this.unsubscribeTasks?.();
+    this.unsubscribeTasks = null;
     this.unsubscribeWorkspaceMutations?.();
     this.unsubscribeWorkspaceMutations = null;
     this.agentUpdates.dispose();
@@ -9344,6 +9193,8 @@ function sessionEventCategory(message: SessionOutboundMessage): SessionEventSubs
           return "status.plugin_settings_changed";
         case "automation_drafts_changed":
           return "status.automation_drafts_changed";
+        case "tasks_changed":
+          return "status.tasks_changed";
         default:
           return null;
       }
