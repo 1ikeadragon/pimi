@@ -2074,7 +2074,6 @@ export const zhCN: TranslationResources = {
           description:
             "对抗式 QA 与安全代理，用来测试你自己的应用。现在启用即可一次性授予所需的 macOS 权限。",
           enable: "启用攻击模式",
-          notNow: "暂不启用",
         },
         phone: {
           label: "移动端",
