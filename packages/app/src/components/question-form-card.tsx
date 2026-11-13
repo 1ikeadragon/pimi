@@ -11,7 +11,7 @@ import {
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { Check, X } from "lucide-react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { PendingPermission } from "@/types/shared";
 import type { AgentPermissionResponse } from "@pimi/protocol/agent-types";
 import { isWeb } from "@/constants/platform";

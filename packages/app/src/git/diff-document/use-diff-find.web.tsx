@@ -10,7 +10,7 @@ import {
 } from "react";
 import { View, type LayoutChangeEvent } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { ParsedDiffFile } from "@pimi/protocol/messages";
 import {
   PaneFind,

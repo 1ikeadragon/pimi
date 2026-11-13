@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { ChevronDown, ChevronUp } from "lucide-react-native";

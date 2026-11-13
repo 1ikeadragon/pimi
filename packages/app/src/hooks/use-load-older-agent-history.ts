@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { ToastApi } from "@/components/toast-host";
 import { i18n } from "@/i18n/i18next";
 import {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { TFunction } from "i18next";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { Pressable, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router/react-navigation";
 import { StyleSheet } from "react-native-unistyles";
@@ -34,7 +34,7 @@ import { useProjects } from "@/hooks/use-projects";
 import type { ProjectEditFormSnapshot } from "@/projects/edit-form";
 import { useProjectIcons } from "@/projects/icons";
 import { createProjectIconTarget } from "@/projects/icon-target";
-import { useHostRuntimeClient, useHostRuntimeSnapshot } from "@/runtime/host-runtime";
+import { useHostRuntimeClient, useHostRuntimeConnectionStatus } from "@/runtime/host-runtime";
 import { useToast } from "@/contexts/toast-context";
 import { confirmDialog } from "@/utils/confirm-dialog";
 import {
@@ -109,11 +109,10 @@ export default function ProjectSettingsScreen({
     [projectId, projects, serverId],
   );
   const selectedHost = getProjectHostEntry(project, serverId, projectId);
-  const selectedSnapshot = useHostRuntimeSnapshot(serverId);
+  const selectedConnectionStatus = useHostRuntimeConnectionStatus(serverId);
   const isHostGone =
     Boolean(serverId) &&
-    (selectedSnapshot?.connectionStatus === "offline" ||
-      selectedSnapshot?.connectionStatus === "error");
+    (selectedConnectionStatus === "offline" || selectedConnectionStatus === "error");
 
   const client = useHostRuntimeClient(serverId);
   const canEdit =

@@ -12,7 +12,7 @@ import {
 import type { PimiWorkspaceSection } from "@pimi/protocol/pimi-task";
 import { Text, View } from "react-native";
 import { CodeXml, FolderOpen, MessageSquare, Swords } from "lucide-react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { PimiSidebarControls } from "@/components/sidebar/pimi-workspace-navigation";
 import { DensityIcon } from "@/components/ui/density-icon";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";

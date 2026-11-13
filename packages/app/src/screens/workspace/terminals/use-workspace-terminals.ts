@@ -4,7 +4,7 @@ import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import type { TerminalProfile } from "@pimi/protocol/messages";
 import { resolveTerminalProfileLaunch } from "@pimi/protocol/terminal-profiles";
 import type { WorkspaceDescriptor } from "@/stores/session-store";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { useReplicaQuery } from "@/data/query";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import { workspaceTerminalsPushRoute } from "@/data/push-router";
@@ -108,7 +108,8 @@ export function useWorkspaceTerminals(input: UseWorkspaceTerminalsInput) {
   );
 
   useEffect(() => {
-    setPendingScriptTerminalIds(new Map());
+    // An empty map is already the reset state; a new one would re-render the screen for nothing.
+    setPendingScriptTerminalIds((current) => (current.size === 0 ? current : new Map()));
   }, [normalizedServerId, normalizedWorkspaceId]);
 
   const dataUpdatedAt = query.dataUpdatedAt;

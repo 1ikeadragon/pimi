@@ -16,7 +16,7 @@ import { useRouter } from "expo-router";
 import { useAddHost } from "@/hosts/add-host";
 import { isElectronRuntime } from "@/desktop/host";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { Alert, Pressable, Text, View } from "react-native";
 import { StyleSheet, useUnistyles, withUnistyles } from "react-native-unistyles";
 import type { TerminalProfile } from "@pimi/protocol/messages";
@@ -49,10 +49,13 @@ import {
   isHostRuntimeConnected,
   useHostMutations,
   useHostRuntimeClient,
+  useHostRuntimeConnectionStatus,
   useHostRuntimeIsConnected,
-  useHostRuntimeSnapshot,
+  useHostRuntimeLastError,
+  useHostRuntimeSnapshotValue,
   useHosts,
 } from "@/runtime/host-runtime";
+import type { ConnectionProbeState } from "@/utils/connection-selection";
 import { ProvidersSection } from "@/screens/settings/providers-section";
 import { HostUsageSection } from "@/usage";
 import { HostAppearanceSection } from "@/screens/settings/host-appearance-section";
@@ -180,16 +183,20 @@ function HostNotFound() {
   );
 }
 
+const EMPTY_PROBE_BY_CONNECTION_ID = new Map<string, ConnectionProbeState>();
+
 function HostStatusBadges({ serverId }: { serverId: string }) {
   const { t } = useTranslation();
   const { theme } = useUnistyles();
-  const snapshot = useHostRuntimeSnapshot(serverId);
+  const connectionStatus = useHostRuntimeConnectionStatus(serverId);
+  const activeConnection = useHostRuntimeSnapshotValue(
+    serverId,
+    (snapshot) => snapshot?.activeConnection ?? null,
+  );
   const daemonVersion = useSessionStore(
     (state) => state.sessions[serverId]?.serverInfo?.version ?? null,
   );
 
-  const connectionStatus = snapshot?.connectionStatus ?? "connecting";
-  const activeConnection = snapshot?.activeConnection ?? null;
   const statusLabel = formatConnectionStatus(connectionStatus);
   const statusTone = getConnectionStatusTone(connectionStatus);
   let statusVariant: StatusBadgeVariant = "muted";
@@ -236,8 +243,10 @@ function HostStatusBadges({ serverId }: { serverId: string }) {
 
 function HostConnectionError({ serverId }: { serverId: string }) {
   const { t } = useTranslation();
-  const snapshot = useHostRuntimeSnapshot(serverId);
-  const lastError = snapshot?.lastError ?? null;
+  const lastError = useHostRuntimeLastError(serverId);
+  const hasAuthFailure = useHostRuntimeSnapshotValue(serverId, (snapshot) =>
+    Boolean(snapshot?.authFailureReason),
+  );
   const connectionError =
     typeof lastError === "string" && lastError.trim().length > 0 ? lastError.trim() : null;
   if (!connectionError) return null;
@@ -247,7 +256,7 @@ function HostConnectionError({ serverId }: { serverId: string }) {
         size="sm"
         variant="error"
         title={connectionError}
-        description={snapshot?.authFailureReason ? t("settings.host.password.guidance") : undefined}
+        description={hasAuthFailure ? t("settings.host.password.guidance") : undefined}
         testID="host-connection-error"
       />
     </View>
@@ -489,8 +498,10 @@ function AgentAccessSection({ host }: { host: HostProfile }) {
 function ConnectionsSection({ host }: { host: HostProfile }) {
   const { t } = useTranslation();
   const { removeConnection } = useHostMutations();
-  const snapshot = useHostRuntimeSnapshot(host.serverId);
-  const probeByConnectionId = snapshot?.probeByConnectionId ?? new Map();
+  const probeByConnectionId = useHostRuntimeSnapshotValue(
+    host.serverId,
+    (snapshot) => snapshot?.probeByConnectionId ?? EMPTY_PROBE_BY_CONNECTION_ID,
+  );
   const [pendingRemoveConnection, setPendingRemoveConnection] = useState<{
     connectionId: string;
     title: string;

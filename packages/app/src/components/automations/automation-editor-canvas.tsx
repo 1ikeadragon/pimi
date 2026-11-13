@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo, useRef, useState, type ReactElement } from "react";
 import { Text, View } from "react-native";
 import Svg, { Path, Polygon } from "react-native-svg";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { AlertTriangle, Bot, Plus, Split, Zap, type LucideIcon } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import type {

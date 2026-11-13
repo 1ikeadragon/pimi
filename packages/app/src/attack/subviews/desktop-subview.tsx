@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo, useState, type ReactNode } from "react";
 import { Image, ScrollView, Text, View, type LayoutChangeEvent } from "react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { StyleSheet } from "react-native-unistyles";
 import type { AttackDesktopAction, AttackDesktopTarget } from "@pimi/protocol/attack/types";
 import { OctagonX } from "lucide-react-native";

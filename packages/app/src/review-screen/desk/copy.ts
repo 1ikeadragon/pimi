@@ -1,6 +1,6 @@
 // Pimi. Apache-2.0.
 import { useMemo } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 
 /** The desk's strings, translated. Read through the hook so a language change re-renders. */
 export function useDeskCopy() {

@@ -1,6 +1,6 @@
 import { useAddHost } from "@/hosts/add-host";
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { Pressable, Text, View, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";

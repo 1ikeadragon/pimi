@@ -1,7 +1,7 @@
 import { usesDesktopBindings } from "@/keyboard";
 import { useMemo } from "react";
 import { router, type Href } from "expo-router";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import {
   CircleDashed,
   Folder,

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { useHarnessUpdates } from "@/hooks/use-harness-updates";
 import { useToast } from "@/contexts/toast-api-context";
 

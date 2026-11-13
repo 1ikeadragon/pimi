@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { AgentProvider, ProviderSnapshotEntry } from "@pimi/protocol/agent-types";
 import type { DaemonClient } from "@pimi/client/internal/daemon-client";
 import { useRetainedPanelActive } from "@/components/retained-panel";

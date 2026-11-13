@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { useHardwareKeyboardPresent } from "@/keyboard";
 import { isElectronRuntime } from "@/desktop/host";
 import { useDefaultHostServerId } from "@/hooks/use-default-host-server-id";

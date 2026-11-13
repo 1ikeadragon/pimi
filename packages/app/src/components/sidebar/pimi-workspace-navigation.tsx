@@ -19,7 +19,7 @@ import {
   SquarePen,
   X,
 } from "lucide-react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { create } from "zustand";
 import type { PimiActivitySection } from "@pimi/protocol/pimi-task";
 import { getDesktopHost, usesPimiMacTitlebar } from "@/desktop/host";

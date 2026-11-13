@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useReducer, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import {
   FlatList,
   Platform,

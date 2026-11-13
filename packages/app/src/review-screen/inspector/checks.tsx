@@ -3,7 +3,7 @@
 // collapsed; shards of one job fold into one group; a failing check expands to its log tail and
 // annotations (`get_check_details`). Shared by the Overview Checks card and the inspector.
 import { useCallback, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { ScrollView, Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react-native";

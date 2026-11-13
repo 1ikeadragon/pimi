@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { TFunction } from "i18next";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import equal from "fast-deep-equal";
 import { ProviderOverrideSchema, type ProviderOverride } from "@pimi/protocol/provider-config";
 import { BUILTIN_PROVIDER_IDS } from "@pimi/protocol/provider-manifest";

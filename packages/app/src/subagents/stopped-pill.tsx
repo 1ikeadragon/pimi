@@ -1,7 +1,7 @@
 import { STOPPED_BY_AGENT_ID_LABEL } from "@pimi/protocol/agent-labels";
 import { useCallback, useMemo, useState, type ReactElement } from "react";
 import { Text } from "react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { StyleSheet } from "react-native-unistyles";
 import { PressHighlight } from "@/components/ui/press-highlight";
 import { composerPillStyles } from "@/composer/pill-styles";

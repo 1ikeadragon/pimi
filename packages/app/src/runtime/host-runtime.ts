@@ -3012,6 +3012,23 @@ export function useHostRuntimeSnapshot(serverId: string): HostRuntimeSnapshot | 
   );
 }
 
+/**
+ * Subscribe to one value of a host's snapshot. The snapshot object changes on every host event, so
+ * a component that reads fields from `useHostRuntimeSnapshot` re-renders for all of them. `select`
+ * must return a stable value: a primitive, or a reference the snapshot keeps between events.
+ */
+export function useHostRuntimeSnapshotValue<T>(
+  serverId: string,
+  select: (snapshot: HostRuntimeSnapshot | null) => T,
+): T {
+  const store = getHostRuntimeStore();
+  return useSyncExternalStore(
+    (onStoreChange) => store.subscribe(serverId, onStoreChange),
+    () => select(store.getSnapshot(serverId)),
+    () => select(store.getSnapshot(serverId)),
+  );
+}
+
 export function useHostRuntimeClient(serverId: string): DaemonClient | null {
   const store = getHostRuntimeStore();
   return useSyncExternalStore(

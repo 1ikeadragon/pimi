@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { MutableDaemonConfig, MutableDaemonConfigPatch } from "@pimi/protocol/messages";
 import { useReplicaQuery } from "@/data/query";
 import { daemonConfigQueryKey, fetchDaemonConfig } from "@/data/daemon-config";

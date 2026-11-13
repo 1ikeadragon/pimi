@@ -16,7 +16,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { ChevronRight } from "lucide-react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { AssistantForkMenu } from "@/components/assistant-fork-menu";
 import { LiveElapsed, STREAM_METADATA_FONT_SIZE } from "@/components/message";

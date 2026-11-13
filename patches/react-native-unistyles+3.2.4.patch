@@ -535,9 +535,10 @@ index e347b7a..39f6022 100644
                  ? {
                        // Override default component styles with undefined values to reset them
 diff --git a/node_modules/react-native-unistyles/src/core/withUnistyles/withUnistyles.native.tsx b/node_modules/react-native-unistyles/src/core/withUnistyles/withUnistyles.native.tsx
+index 27723c0..8ab111a 100644
 --- a/node_modules/react-native-unistyles/src/core/withUnistyles/withUnistyles.native.tsx
 +++ b/node_modules/react-native-unistyles/src/core/withUnistyles/withUnistyles.native.tsx
-@@ -63,6 +63,7 @@
+@@ -63,6 +63,7 @@ export const withUnistyles = <TComponent, TMappings extends GenericComponentProp
  
      return forwardRef<GenericComponentRef<TComponent>, PropsWithUnistyles>((props, ref) => {
          const narrowedProps = props as PropsWithUnistyles & UnistyleStyles
@@ -545,7 +546,7 @@ diff --git a/node_modules/react-native-unistyles/src/core/withUnistyles/withUnis
          const NativeComponent = Component as ComponentType
  
          // @ts-ignore we don't know the type of the component
-@@ -89,15 +90,15 @@
+@@ -89,15 +90,15 @@ export const withUnistyles = <TComponent, TMappings extends GenericComponentProp
          }, [narrowedProps.style, narrowedProps.contentContainerStyle])
  
          const { key: mappingsKey, ...mappingsProps } = mappings ? mappings(proxifiedTheme, proxifiedRuntime) : {}
@@ -601,9 +602,10 @@ index 5904a73..3ba63de 100644
          // Override default component styles with undefined values to reset them
          style: emptyStyles
 diff --git a/node_modules/react-native-unistyles/lib/module/core/withUnistyles/withUnistyles.native.js b/node_modules/react-native-unistyles/lib/module/core/withUnistyles/withUnistyles.native.js
+index b89343e..00cde6a 100644
 --- a/node_modules/react-native-unistyles/lib/module/core/withUnistyles/withUnistyles.native.js
 +++ b/node_modules/react-native-unistyles/lib/module/core/withUnistyles/withUnistyles.native.js
-@@ -27,6 +27,7 @@
+@@ -27,6 +27,7 @@ export const withUnistyles = (Component, mappings) => {
    };
    return /*#__PURE__*/forwardRef((props, ref) => {
      const narrowedProps = props;
@@ -611,7 +613,7 @@ diff --git a/node_modules/react-native-unistyles/lib/module/core/withUnistyles/w
      const NativeComponent = Component;
  
      // @ts-ignore we don't know the type of the component
-@@ -57,11 +58,11 @@
+@@ -57,11 +58,11 @@ export const withUnistyles = (Component, mappings) => {
      const {
        key: uniPropsKey,
        ...unistyleProps
@@ -653,9 +655,10 @@ index 5a0d049..38a2075 100644
          // Override default component styles with undefined values to reset them
          style: emptyStyles
 diff --git a/node_modules/react-native-unistyles/lib/commonjs/core/withUnistyles/withUnistyles.native.js b/node_modules/react-native-unistyles/lib/commonjs/core/withUnistyles/withUnistyles.native.js
+index abaa2ee..000d8e3 100644
 --- a/node_modules/react-native-unistyles/lib/commonjs/core/withUnistyles/withUnistyles.native.js
 +++ b/node_modules/react-native-unistyles/lib/commonjs/core/withUnistyles/withUnistyles.native.js
-@@ -32,6 +32,7 @@
+@@ -32,6 +32,7 @@ const withUnistyles = (Component, mappings) => {
    };
    return /*#__PURE__*/(0, _react.forwardRef)((props, ref) => {
      const narrowedProps = props;
@@ -663,7 +666,7 @@ diff --git a/node_modules/react-native-unistyles/lib/commonjs/core/withUnistyles
      const NativeComponent = Component;
  
      // @ts-ignore we don't know the type of the component
-@@ -62,11 +63,11 @@
+@@ -62,11 +63,11 @@ const withUnistyles = (Component, mappings) => {
      const {
        key: uniPropsKey,
        ...unistyleProps
@@ -729,7 +732,9 @@ diff --git a/node_modules/react-native-unistyles/src/web/runtime.ts b/node_modul
 index a16dac0..6519858 100644
 --- a/node_modules/react-native-unistyles/src/web/runtime.ts
 +++ b/node_modules/react-native-unistyles/src/web/runtime.ts
-@@ -41,8 +41,16 @@ export class UnistylesRuntime {
+@@ -39,10 +39,18 @@ export class UnistylesRuntime {
+     }
+ 
      get colorScheme() {
 +        // Read the scheme through fresh lists, never through lightMedia/darkMedia. Chromium defers
 +        // MediaQueryList change events while the document is hidden and drops the pending event
@@ -905,7 +910,7 @@ index 01026dc..3786ec4 100644
  
  #if REACT_NATIVE_VERSION_MINOR >= 81
 -        std::unordered_map<Tag, folly::dynamic> tagToProps;
-+        // Pimi backport of https://github.com/jpudysz/react-native-unistyles/pull/1357.
++        // Paseo backport of https://github.com/jpudysz/react-native-unistyles/pull/1357.
 +        // UIManager::updateShadowTree commits a root cloned before the commit, so when a
 +        // window-size commit (rotation, keyboard) lands in between, the retried Unistyles
 +        // commit puts the previous layout constraints back and the app stays laid out for
@@ -1013,19 +1018,53 @@ index a3f3fa5..d0aeb98 100644
  //# sourceMappingURL=getClassname.js.map
 \ No newline at end of file
 diff --git a/node_modules/react-native-unistyles/lib/commonjs/web/css/state.js b/node_modules/react-native-unistyles/lib/commonjs/web/css/state.js
-index 7c7214e..8f6e1ee 100644
+index 7c7214e..37862a5 100644
 --- a/node_modules/react-native-unistyles/lib/commonjs/web/css/state.js
 +++ b/node_modules/react-native-unistyles/lib/commonjs/web/css/state.js
-@@ -21,6 +21,8 @@ class CSSState {
+@@ -16,11 +16,34 @@ const safeGetMap = (map, key) => {
+   }
+   return nextLevelMap;
+ };
++const MARKER_PREFIX = '.__ug';
++const PENDING_SEPARATOR = '\u0000';
++const STALE_FLUSH_DELAY_MS = 2000;
++const STALE_RULE_LIMIT = 4000;
++const buildRule = (className, properties) => {
++  let rule = `.${className}{`;
++  for (const [propertyKey, value] of properties) {
++    if (value === undefined) {
++      continue;
++    }
++    rule += `${(0, _utils.hyphenate)(propertyKey)}:${value};`;
++  }
++  return `${rule}}`;
++};
+ class CSSState {
+   mainMap = new Map();
    mqMap = new Map();
    styleTag = null;
    themesCSS = new Map();
 +  recreateQueued = false;
 +  staleFlushTimer = null;
++  staleRemovals = 0;
++  // Rules reach the sheet through the CSSOM unless something forces a full rewrite, because a
++  // rewrite restyles the whole document. The first flush, a new media query group, a theme
++  // change and any CSSOM error all rebuild the sheet from the maps, which stay the source of truth.
++  needsFullRebuild = true;
++  pendingRules = new Set();
++  groupIndex = new Map();
    constructor(services) {
      this.services = services;
      if ((0, _utils.isServer)()) {
-@@ -49,9 +51,40 @@ class CSSState {
+@@ -46,14 +69,119 @@ class CSSState {
+     const secondLevelMap = safeGetMap(firstLevelMap, mediaQuery);
+     const thirdLevelMap = safeGetMap(secondLevelMap, className);
+     thirdLevelMap.set(propertyKey, value);
++    if (isMq) {
++      this.needsFullRebuild = true;
++      return;
++    }
++    this.pendingRules.add(`${mediaQuery}${PENDING_SEPARATOR}${className}`);
    };
    add = (hash, values) => {
      (0, _core.convertToCSS)(hash, (0, _convert.convertUnistyles)(values, this.services.runtime), this);
@@ -1045,34 +1084,132 @@ index 7c7214e..8f6e1ee 100644
 +    queueMicrotask(this.flush);
 +  };
 +  flush = () => {
-+    if (this.recreateQueued) {
-+      this.recreate();
-+    }
-+  };
-+
-+  // A removed class has no element left, so the stale rule is harmless until the next rewrite.
-+  // Rewriting for it right away is what made unmounting a screen cost a full restyle.
-+  scheduleStaleFlush = () => {
-+    if (this.recreateQueued || this.staleFlushTimer !== null) {
++    if (!this.recreateQueued) {
 +      return;
 +    }
-+    this.staleFlushTimer = setTimeout(this.recreate, 1000);
++    if (this.needsFullRebuild || !this.appendPendingRules()) {
++      this.recreate();
++      return;
++    }
++    this.recreateQueued = false;
++  };
++
++  // Insert the rules added since the last flush at the end of their group, which is where the
++  // full rewrite would have put them, so the cascade order is unchanged. Each group carries an
++  // empty marker rule (`.__ugN`) that locates it in the sheet.
++  appendPendingRules = () => {
++    const sheet = this.styleTag?.sheet;
++    if (!sheet) {
++      return false;
++    }
++    const targets = new Map();
++    for (let index = 0; index < sheet.cssRules.length; index++) {
++      const rule = sheet.cssRules[index];
++      const selector = rule.selectorText;
++      const first = rule.cssRules?.[0];
++      const marker = typeof selector === 'string' ? selector : first?.selectorText;
++      if (typeof marker === 'string' && marker.startsWith(MARKER_PREFIX)) {
++        targets.set(Number(marker.slice(MARKER_PREFIX.length)), {
++          index,
++          rule: typeof selector === 'string' ? null : rule
++        });
++      }
++    }
++    try {
++      for (const key of this.pendingRules) {
++        const separatorIndex = key.indexOf(PENDING_SEPARATOR);
++        const mediaQuery = key.slice(0, separatorIndex);
++        const className = key.slice(separatorIndex + 1);
++        const properties = this.mainMap.get(mediaQuery)?.get(className);
++        const groupNumber = this.groupIndex.get(mediaQuery);
++        const target = groupNumber === undefined ? undefined : targets.get(groupNumber);
++        if (!target) {
++          return false;
++        }
++        if (!properties) {
++          continue;
++        }
++        if (target.rule) {
++          target.rule.insertRule(buildRule(className, properties), target.rule.cssRules.length);
++          continue;
++        }
++        const insertAt = target.index;
++        sheet.insertRule(buildRule(className, properties), insertAt);
++        targets.forEach(other => {
++          if (other.index >= insertAt) {
++            other.index += 1;
++          }
++        });
++      }
++    } catch {
++      return false;
++    }
++    this.pendingRules.clear();
++    return true;
++  };
++
++  // A removed class has no element left, so its rule is harmless until the next rewrite. The
++  // rewrite waits for a quiet moment, or for enough dead rules to matter.
++  scheduleStaleFlush = () => {
++    this.staleRemovals += 1;
++    if (this.staleFlushTimer !== null) {
++      clearTimeout(this.staleFlushTimer);
++    }
++    if (this.staleRemovals > STALE_RULE_LIMIT) {
++      this.staleFlushTimer = null;
++      this.needsFullRebuild = true;
++      this.queueRecreate();
++      return;
++    }
++    this.staleFlushTimer = setTimeout(this.recreate, STALE_FLUSH_DELAY_MS);
    };
    recreate = () => {
 +    this.recreateQueued = false;
++    this.needsFullRebuild = false;
++    this.staleRemovals = 0;
++    this.pendingRules.clear();
 +    if (this.staleFlushTimer !== null) {
 +      clearTimeout(this.staleFlushTimer);
 +      this.staleFlushTimer = null;
 +    }
      if (this.styleTag) {
-       this.styleTag.innerText = this.getStyles();
+-      this.styleTag.innerText = this.getStyles();
++      this.styleTag.innerText = this.getMarkedStyles();
      }
-@@ -79,7 +112,7 @@ class CSSState {
+   };
+   addTheme = (theme, values) => {
+@@ -79,7 +207,33 @@ class CSSState {
      this.mqMap.forEach(styles => {
        styles.delete(hash);
      });
 -    this.recreate();
 +    this.scheduleStaleFlush();
++  };
++  // Same output as getStyles, plus an empty marker rule per group.
++  getMarkedStyles = () => {
++    let styles = Array.from(this.themesCSS.values()).join('');
++    let groupNumber = 0;
++    this.groupIndex.clear();
++    for (const [mediaQuery, secondLevelMap] of this.mainMap) {
++      this.groupIndex.set(mediaQuery, groupNumber);
++      if (mediaQuery) {
++        styles += `${mediaQuery}{${MARKER_PREFIX}${groupNumber}{}`;
++      }
++      for (const [className, thirdLevelMap] of secondLevelMap) {
++        styles += buildRule(className, thirdLevelMap);
++      }
++      styles += mediaQuery ? '}' : `${MARKER_PREFIX}${groupNumber}{}`;
++      groupNumber += 1;
++    }
++    for (const [mediaQuery, secondLevelMap] of this.mqMap) {
++      styles += `${mediaQuery}{${MARKER_PREFIX}${groupNumber}{}`;
++      for (const [className, thirdLevelMap] of secondLevelMap) {
++        styles += buildRule(className, thirdLevelMap);
++      }
++      styles += '}';
++      groupNumber += 1;
++    }
++    return styles;
    };
    getStyles = () => {
      let styles = Array.from(this.themesCSS.entries()).reduce((acc, [, themeCss]) => {
@@ -1142,19 +1279,53 @@ index 48429df..3075742 100644
  //# sourceMappingURL=getClassname.js.map
 \ No newline at end of file
 diff --git a/node_modules/react-native-unistyles/lib/module/web/css/state.js b/node_modules/react-native-unistyles/lib/module/web/css/state.js
-index 88e02b3..84eb13b 100644
+index 88e02b3..dbe1d5d 100644
 --- a/node_modules/react-native-unistyles/lib/module/web/css/state.js
 +++ b/node_modules/react-native-unistyles/lib/module/web/css/state.js
-@@ -17,6 +17,8 @@ export class CSSState {
+@@ -12,11 +12,34 @@ const safeGetMap = (map, key) => {
+   }
+   return nextLevelMap;
+ };
++const MARKER_PREFIX = '.__ug';
++const PENDING_SEPARATOR = '\u0000';
++const STALE_FLUSH_DELAY_MS = 2000;
++const STALE_RULE_LIMIT = 4000;
++const buildRule = (className, properties) => {
++  let rule = `.${className}{`;
++  for (const [propertyKey, value] of properties) {
++    if (value === undefined) {
++      continue;
++    }
++    rule += `${hyphenate(propertyKey)}:${value};`;
++  }
++  return `${rule}}`;
++};
+ export class CSSState {
+   mainMap = new Map();
    mqMap = new Map();
    styleTag = null;
    themesCSS = new Map();
 +  recreateQueued = false;
 +  staleFlushTimer = null;
++  staleRemovals = 0;
++  // Rules reach the sheet through the CSSOM unless something forces a full rewrite, because a
++  // rewrite restyles the whole document. The first flush, a new media query group, a theme
++  // change and any CSSOM error all rebuild the sheet from the maps, which stay the source of truth.
++  needsFullRebuild = true;
++  pendingRules = new Set();
++  groupIndex = new Map();
    constructor(services) {
      this.services = services;
      if (isServer()) {
-@@ -45,9 +47,40 @@ export class CSSState {
+@@ -42,14 +65,119 @@ export class CSSState {
+     const secondLevelMap = safeGetMap(firstLevelMap, mediaQuery);
+     const thirdLevelMap = safeGetMap(secondLevelMap, className);
+     thirdLevelMap.set(propertyKey, value);
++    if (isMq) {
++      this.needsFullRebuild = true;
++      return;
++    }
++    this.pendingRules.add(`${mediaQuery}${PENDING_SEPARATOR}${className}`);
    };
    add = (hash, values) => {
      convertToCSS(hash, convertUnistyles(values, this.services.runtime), this);
@@ -1174,34 +1345,132 @@ index 88e02b3..84eb13b 100644
 +    queueMicrotask(this.flush);
 +  };
 +  flush = () => {
-+    if (this.recreateQueued) {
-+      this.recreate();
-+    }
-+  };
-+
-+  // A removed class has no element left, so the stale rule is harmless until the next rewrite.
-+  // Rewriting for it right away is what made unmounting a screen cost a full restyle.
-+  scheduleStaleFlush = () => {
-+    if (this.recreateQueued || this.staleFlushTimer !== null) {
++    if (!this.recreateQueued) {
 +      return;
 +    }
-+    this.staleFlushTimer = setTimeout(this.recreate, 1000);
++    if (this.needsFullRebuild || !this.appendPendingRules()) {
++      this.recreate();
++      return;
++    }
++    this.recreateQueued = false;
++  };
++
++  // Insert the rules added since the last flush at the end of their group, which is where the
++  // full rewrite would have put them, so the cascade order is unchanged. Each group carries an
++  // empty marker rule (`.__ugN`) that locates it in the sheet.
++  appendPendingRules = () => {
++    const sheet = this.styleTag?.sheet;
++    if (!sheet) {
++      return false;
++    }
++    const targets = new Map();
++    for (let index = 0; index < sheet.cssRules.length; index++) {
++      const rule = sheet.cssRules[index];
++      const selector = rule.selectorText;
++      const first = rule.cssRules?.[0];
++      const marker = typeof selector === 'string' ? selector : first?.selectorText;
++      if (typeof marker === 'string' && marker.startsWith(MARKER_PREFIX)) {
++        targets.set(Number(marker.slice(MARKER_PREFIX.length)), {
++          index,
++          rule: typeof selector === 'string' ? null : rule
++        });
++      }
++    }
++    try {
++      for (const key of this.pendingRules) {
++        const separatorIndex = key.indexOf(PENDING_SEPARATOR);
++        const mediaQuery = key.slice(0, separatorIndex);
++        const className = key.slice(separatorIndex + 1);
++        const properties = this.mainMap.get(mediaQuery)?.get(className);
++        const groupNumber = this.groupIndex.get(mediaQuery);
++        const target = groupNumber === undefined ? undefined : targets.get(groupNumber);
++        if (!target) {
++          return false;
++        }
++        if (!properties) {
++          continue;
++        }
++        if (target.rule) {
++          target.rule.insertRule(buildRule(className, properties), target.rule.cssRules.length);
++          continue;
++        }
++        const insertAt = target.index;
++        sheet.insertRule(buildRule(className, properties), insertAt);
++        targets.forEach(other => {
++          if (other.index >= insertAt) {
++            other.index += 1;
++          }
++        });
++      }
++    } catch {
++      return false;
++    }
++    this.pendingRules.clear();
++    return true;
++  };
++
++  // A removed class has no element left, so its rule is harmless until the next rewrite. The
++  // rewrite waits for a quiet moment, or for enough dead rules to matter.
++  scheduleStaleFlush = () => {
++    this.staleRemovals += 1;
++    if (this.staleFlushTimer !== null) {
++      clearTimeout(this.staleFlushTimer);
++    }
++    if (this.staleRemovals > STALE_RULE_LIMIT) {
++      this.staleFlushTimer = null;
++      this.needsFullRebuild = true;
++      this.queueRecreate();
++      return;
++    }
++    this.staleFlushTimer = setTimeout(this.recreate, STALE_FLUSH_DELAY_MS);
    };
    recreate = () => {
 +    this.recreateQueued = false;
++    this.needsFullRebuild = false;
++    this.staleRemovals = 0;
++    this.pendingRules.clear();
 +    if (this.staleFlushTimer !== null) {
 +      clearTimeout(this.staleFlushTimer);
 +      this.staleFlushTimer = null;
 +    }
      if (this.styleTag) {
-       this.styleTag.innerText = this.getStyles();
+-      this.styleTag.innerText = this.getStyles();
++      this.styleTag.innerText = this.getMarkedStyles();
      }
-@@ -75,7 +108,7 @@ export class CSSState {
+   };
+   addTheme = (theme, values) => {
+@@ -75,7 +203,33 @@ export class CSSState {
      this.mqMap.forEach(styles => {
        styles.delete(hash);
      });
 -    this.recreate();
 +    this.scheduleStaleFlush();
++  };
++  // Same output as getStyles, plus an empty marker rule per group.
++  getMarkedStyles = () => {
++    let styles = Array.from(this.themesCSS.values()).join('');
++    let groupNumber = 0;
++    this.groupIndex.clear();
++    for (const [mediaQuery, secondLevelMap] of this.mainMap) {
++      this.groupIndex.set(mediaQuery, groupNumber);
++      if (mediaQuery) {
++        styles += `${mediaQuery}{${MARKER_PREFIX}${groupNumber}{}`;
++      }
++      for (const [className, thirdLevelMap] of secondLevelMap) {
++        styles += buildRule(className, thirdLevelMap);
++      }
++      styles += mediaQuery ? '}' : `${MARKER_PREFIX}${groupNumber}{}`;
++      groupNumber += 1;
++    }
++    for (const [mediaQuery, secondLevelMap] of this.mqMap) {
++      styles += `${mediaQuery}{${MARKER_PREFIX}${groupNumber}{}`;
++      for (const [className, thirdLevelMap] of secondLevelMap) {
++        styles += buildRule(className, thirdLevelMap);
++      }
++      styles += '}';
++      groupNumber += 1;
++    }
++    return styles;
    };
    getStyles = () => {
      let styles = Array.from(this.themesCSS.entries()).reduce((acc, [, themeCss]) => {
@@ -1271,19 +1540,62 @@ index 2dfab35..285bef5 100644
 +    useInsertionEffect(flushStyles)
 +}
 diff --git a/node_modules/react-native-unistyles/src/web/css/state.ts b/node_modules/react-native-unistyles/src/web/css/state.ts
-index a0eea57..0e9fb90 100644
+index a0eea57..c66eca8 100644
 --- a/node_modules/react-native-unistyles/src/web/css/state.ts
 +++ b/node_modules/react-native-unistyles/src/web/css/state.ts
-@@ -34,6 +34,8 @@ export class CSSState {
+@@ -29,11 +29,39 @@ const safeGetMap = (map: Map<string, Map<string, any>>, key: string) => {
+     return nextLevelMap
+ }
+ 
++const MARKER_PREFIX = '.__ug'
++const PENDING_SEPARATOR = '\u0000'
++const STALE_FLUSH_DELAY_MS = 2000
++const STALE_RULE_LIMIT = 4000
++
++const buildRule = (className: string, properties: Map<string, any>) => {
++    let rule = `.${className}{`
++
++    for (const [propertyKey, value] of properties) {
++        if (value === undefined) {
++            continue
++        }
++
++        rule += `${hyphenate(propertyKey)}:${value};`
++    }
++
++    return `${rule}}`
++}
++
+ export class CSSState {
+     mainMap: MapType = new Map()
      mqMap: MapType = new Map()
      private styleTag: HTMLStyleElement | null = null
      private themesCSS = new Map<string, string>()
 +    private recreateQueued = false
 +    private staleFlushTimer: ReturnType<typeof setTimeout> | null = null
++    private staleRemovals = 0
++    // Rules reach the sheet through the CSSOM unless something forces a full rewrite, because a
++    // rewrite restyles the whole document. The first flush, a new media query group, a theme
++    // change and any CSSOM error all rebuild the sheet from the maps, which stay the source of truth.
++    private needsFullRebuild = true
++    private pendingRules = new Set<string>()
++    private groupIndex = new Map<string, number>()
  
      constructor(private services: UnistylesServices) {
          if (isServer()) {
-@@ -63,10 +65,46 @@ export class CSSState {
+@@ -59,16 +87,148 @@ export class CSSState {
+         const thirdLevelMap = safeGetMap(secondLevelMap, className)
+ 
+         thirdLevelMap.set(propertyKey, value)
++
++        if (isMq) {
++            this.needsFullRebuild = true
++
++            return
++        }
++
++        this.pendingRules.add(`${mediaQuery}${PENDING_SEPARATOR}${className}`)
+     }
  
      add = (hash: string, values: UnistylesValues) => {
          convertToCSS(hash, convertUnistyles(values, this.services.runtime), this)
@@ -1305,23 +1617,111 @@ index a0eea57..0e9fb90 100644
 +    }
 +
 +    flush = () => {
-+        if (this.recreateQueued) {
-+            this.recreate()
-+        }
-+    }
-+
-+    // A removed class has no element left, so the stale rule is harmless until the next rewrite.
-+    // Rewriting for it right away is what made unmounting a screen cost a full restyle.
-+    private scheduleStaleFlush = () => {
-+        if (this.recreateQueued || this.staleFlushTimer !== null) {
++        if (!this.recreateQueued) {
 +            return
 +        }
 +
-+        this.staleFlushTimer = setTimeout(this.recreate, 1000)
++        if (this.needsFullRebuild || !this.appendPendingRules()) {
++            this.recreate()
++
++            return
++        }
++
++        this.recreateQueued = false
++    }
++
++    // Insert the rules added since the last flush at the end of their group, which is where the
++    // full rewrite would have put them, so the cascade order is unchanged. Each group carries an
++    // empty marker rule (`.__ugN`) that locates it in the sheet.
++    private appendPendingRules = () => {
++        const sheet = this.styleTag?.sheet
++
++        if (!sheet) {
++            return false
++        }
++
++        const targets = new Map<number, { index: number; rule: CSSGroupingRule | null }>()
++
++        for (let index = 0; index < sheet.cssRules.length; index++) {
++            const rule = sheet.cssRules[index] as CSSRule
++            const selector = (rule as CSSStyleRule).selectorText
++            const first = (rule as CSSGroupingRule).cssRules?.[0] as CSSStyleRule | undefined
++            const marker = typeof selector === 'string' ? selector : first?.selectorText
++
++            if (typeof marker === 'string' && marker.startsWith(MARKER_PREFIX)) {
++                targets.set(Number(marker.slice(MARKER_PREFIX.length)), {
++                    index,
++                    rule: typeof selector === 'string' ? null : (rule as CSSGroupingRule),
++                })
++            }
++        }
++
++        try {
++            for (const key of this.pendingRules) {
++                const separatorIndex = key.indexOf(PENDING_SEPARATOR)
++                const mediaQuery = key.slice(0, separatorIndex)
++                const className = key.slice(separatorIndex + 1)
++                const properties = this.mainMap.get(mediaQuery)?.get(className)
++                const groupNumber = this.groupIndex.get(mediaQuery)
++                const target = groupNumber === undefined ? undefined : targets.get(groupNumber)
++
++                if (!target) {
++                    return false
++                }
++
++                if (!properties) {
++                    continue
++                }
++
++                if (target.rule) {
++                    target.rule.insertRule(buildRule(className, properties), target.rule.cssRules.length)
++
++                    continue
++                }
++
++                const insertAt = target.index
++
++                sheet.insertRule(buildRule(className, properties), insertAt)
++                targets.forEach((other) => {
++                    if (other.index >= insertAt) {
++                        other.index += 1
++                    }
++                })
++            }
++        } catch {
++            return false
++        }
++
++        this.pendingRules.clear()
++
++        return true
++    }
++
++    // A removed class has no element left, so its rule is harmless until the next rewrite. The
++    // rewrite waits for a quiet moment, or for enough dead rules to matter.
++    private scheduleStaleFlush = () => {
++        this.staleRemovals += 1
++
++        if (this.staleFlushTimer !== null) {
++            clearTimeout(this.staleFlushTimer)
++        }
++
++        if (this.staleRemovals > STALE_RULE_LIMIT) {
++            this.staleFlushTimer = null
++            this.needsFullRebuild = true
++            this.queueRecreate()
++
++            return
++        }
++
++        this.staleFlushTimer = setTimeout(this.recreate, STALE_FLUSH_DELAY_MS)
      }
  
      recreate = () => {
 +        this.recreateQueued = false
++        this.needsFullRebuild = false
++        this.staleRemovals = 0
++        this.pendingRules.clear()
 +
 +        if (this.staleFlushTimer !== null) {
 +            clearTimeout(this.staleFlushTimer)
@@ -1329,14 +1729,53 @@ index a0eea57..0e9fb90 100644
 +        }
 +
          if (this.styleTag) {
-             this.styleTag.innerText = this.getStyles()
+-            this.styleTag.innerText = this.getStyles()
++            this.styleTag.innerText = this.getMarkedStyles()
          }
-@@ -103,7 +141,7 @@ export class CSSState {
+     }
+ 
+@@ -103,7 +263,43 @@ export class CSSState {
          this.mqMap.forEach((styles) => {
              styles.delete(hash)
          })
 -        this.recreate()
 +        this.scheduleStaleFlush()
++    }
++
++    // Same output as getStyles, plus an empty marker rule per group.
++    private getMarkedStyles = () => {
++        let styles = Array.from(this.themesCSS.values()).join('')
++        let groupNumber = 0
++
++        this.groupIndex.clear()
++
++        for (const [mediaQuery, secondLevelMap] of this.mainMap) {
++            this.groupIndex.set(mediaQuery, groupNumber)
++
++            if (mediaQuery) {
++                styles += `${mediaQuery}{${MARKER_PREFIX}${groupNumber}{}`
++            }
++
++            for (const [className, thirdLevelMap] of secondLevelMap) {
++                styles += buildRule(className, thirdLevelMap)
++            }
++
++            styles += mediaQuery ? '}' : `${MARKER_PREFIX}${groupNumber}{}`
++            groupNumber += 1
++        }
++
++        for (const [mediaQuery, secondLevelMap] of this.mqMap) {
++            styles += `${mediaQuery}{${MARKER_PREFIX}${groupNumber}{}`
++
++            for (const [className, thirdLevelMap] of secondLevelMap) {
++                styles += buildRule(className, thirdLevelMap)
++            }
++
++            styles += '}'
++            groupNumber += 1
++        }
++
++        return styles
      }
  
      getStyles = () => {

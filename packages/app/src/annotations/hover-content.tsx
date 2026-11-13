@@ -1,6 +1,6 @@
 import { Text, View } from "react-native";
 import { ArrowUpRight, Pencil, Trash2 } from "lucide-react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { ToolbarButton } from "@/components/ui/pane-content-toolbar";
 import { ICON_SIZE, type Theme } from "@/styles/theme";

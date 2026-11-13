@@ -5,7 +5,7 @@ import {
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet";
 import { useCallback } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { Pressable, StyleSheet, View } from "react-native";
 import type { SheetBackdropPress } from "./sheet-backdrop";
 

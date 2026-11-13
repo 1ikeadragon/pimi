@@ -2,7 +2,7 @@ import { useCallback, useMemo, type ReactElement } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { ChevronLeft, Play } from "lucide-react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { StyleSheet } from "react-native-unistyles";
 import type { AgentProfile } from "@pimi/protocol/messages";
 import {

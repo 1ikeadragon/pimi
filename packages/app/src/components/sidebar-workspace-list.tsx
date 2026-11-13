@@ -22,7 +22,7 @@ import {
   type ComponentProps,
   type PropsWithChildren,
 } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { router, usePathname, type Href } from "expo-router";
 import {
   navigateToWorkspace,

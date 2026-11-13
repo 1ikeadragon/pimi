@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo, useState, type ReactElement } from "react";
 import { Pressable, Text } from "react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { DiffStat } from "@/components/diff-stat";
 import { useRetainedPanelActive } from "@/components/retained-panel";
 import { composerPillStyles } from "@/composer/pill-styles";

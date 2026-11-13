@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useState, useMemo, type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { useStore } from "zustand";
 import { AddHostMethodModal } from "./internal/add-host-method-modal";
 import { AddHostModal } from "./internal/add-host-modal";

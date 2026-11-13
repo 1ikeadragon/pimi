@@ -1,6 +1,6 @@
 import { type ReactElement } from "react";
 import { Text, View } from "react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { X } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { AgentProfileGlyph, useAgentProfiles } from "@/agent-profiles";

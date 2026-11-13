@@ -8,7 +8,7 @@ import {
   type ReactElement,
   type RefObject,
 } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { router } from "expo-router";
 import {
   View,

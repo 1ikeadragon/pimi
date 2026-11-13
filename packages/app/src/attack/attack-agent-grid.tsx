@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Text, View, type LayoutChangeEvent } from "react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { DensityIcon } from "@/components/ui/density-icon";

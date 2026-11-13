@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { type Animated, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { SkeletonPulse, useSkeletonPulse } from "@/components/ui/skeleton";

@@ -2,7 +2,7 @@ import type { ReactElement } from "react";
 import { Text, View } from "react-native";
 import { Globe, SquareTerminal } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { WorkspaceDescriptor } from "@/stores/session-store";
 import type { WorkspaceScriptLinkKind } from "@/utils/workspace-script-links";
 import { scriptStatus, scriptToneColorMapping } from "./script-status";

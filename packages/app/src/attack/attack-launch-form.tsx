@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Text, View } from "react-native";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import { Check, Crosshair, Plus, RefreshCw, StickyNote, Swords, Trash2 } from "lucide-react-native";
 import type { AttackAnnotationInput } from "@pimi/protocol/attack/types";
 import { StyleSheet } from "react-native-unistyles";

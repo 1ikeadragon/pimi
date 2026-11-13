@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useReducer } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { ComposerAttachment } from "@/attachments/types";
 import { prepareComposerSubmission } from "@/composer/attachments/submit";
 import { isActiveCreateFlowForDraft, useCreateFlowStore } from "@/stores/create-flow-store";

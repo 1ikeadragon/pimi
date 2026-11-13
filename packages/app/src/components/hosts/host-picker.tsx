@@ -6,7 +6,7 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { HostStatusDot } from "@/components/host-status-dot";
 import { Combobox, ComboboxItem, type ComboboxProps } from "@/components/ui/combobox";
 import { useLocalDaemonServerId } from "@/hooks/use-is-local-daemon";
-import { useHostRuntimeSnapshot, type ActiveConnection } from "@/runtime/host-runtime";
+import { useHostRuntimeSnapshotValue, type ActiveConnection } from "@/runtime/host-runtime";
 import { orderHostsLocalFirst } from "@/types/host-connection";
 import {
   ADD_HOST_OPTION_ID,
@@ -74,7 +74,10 @@ export function HostPickerOption({
   testID,
 }: HostPickerOptionProps): ReactElement {
   const { theme } = useUnistyles();
-  const activeConnection = useHostRuntimeSnapshot(serverId)?.activeConnection ?? null;
+  const activeConnection = useHostRuntimeSnapshotValue(
+    serverId,
+    (snapshot) => snapshot?.activeConnection ?? null,
+  );
   const connectionLabel =
     showActiveConnection && activeConnection
       ? formatActiveConnectionLabel(activeConnection)

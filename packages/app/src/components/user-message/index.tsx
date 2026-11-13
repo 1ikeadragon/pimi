@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, type ReactNode } from "react";
 import { View, type LayoutChangeEvent, type ViewStyle } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { AgentMessage } from "@pimi/protocol/agent-message";
 import { Button } from "@/components/ui/button";
 import { EdgeFade } from "@/components/ui/edge-fade";

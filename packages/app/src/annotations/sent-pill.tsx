@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from "@/i18n/use-translation";
 import type { AnnotationAttachmentMetadata } from "@pimi/protocol/messages";
 import type { AttachmentMetadata } from "@/attachments/types";
 import { BrowserElementPreview } from "@/composer/attachments/browser-element-preview";
