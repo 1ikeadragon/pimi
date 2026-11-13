@@ -123,6 +123,9 @@ win:
   extraResources:
     - from: bin/pimi.cmd
       to: bin/pimi.cmd
+    # The UI Automation helper that drives desktop targets (built by npm run build:win-helper).
+    - from: native/win/bin
+      to: desktop-helper
   target:
     - target: nsis
       arch:

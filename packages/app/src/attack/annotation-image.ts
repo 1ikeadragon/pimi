@@ -53,6 +53,52 @@ export async function loadAnnotationImage(screenshot: AttachmentMetadata): Promi
   }
 }
 
+export interface DesktopRegion {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** The marked region of a desktop still as a JPEG at most 640 px wide, base64 without a prefix. */
+export async function cropDesktopRegion(
+  stillUri: string,
+  region: DesktopRegion,
+): Promise<string | null> {
+  if (!isWeb) return null;
+  try {
+    const image = await loadImage(stillUri);
+    const scale = Math.min(1, MAX_WIDTH / region.width);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(region.width * scale));
+    canvas.height = Math.max(1, Math.round(region.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) return null;
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(
+      image,
+      region.x,
+      region.y,
+      region.width,
+      region.height,
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    );
+    for (const quality of QUALITY_STEPS) {
+      const url = canvas.toDataURL("image/jpeg", quality);
+      const base64 = url.slice(url.indexOf(",") + 1);
+      if (base64.length <= MAX_ATTACK_ANNOTATION_IMAGE_BASE64_CHARS) return base64;
+    }
+    return null;
+  } catch (error) {
+    console.warn("[attack] desktop annotation crop skipped", error);
+    return null;
+  }
+}
+
 /**
  * Screenshots for the given attachments, by attachment id, filled in as each finishes. An id that
  * failed stays absent, so the annotation goes out as text.

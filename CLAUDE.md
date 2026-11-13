@@ -50,6 +50,7 @@ At the start of non-trivial work, list `docs/` and skim anything relevant to the
 | [docs/protocol-compatibility.md](docs/protocol-compatibility.md)     | Alpha rule: app and daemon ship together, no compat; schema purity; what COMPAT tags still mean                                |
 | [docs/protocol-validation.md](docs/protocol-validation.md)           | zod-aot generated inbound WebSocket validation, patched compiler regressions, schema-purity rules                              |
 | [docs/connected-hosts.md](docs/connected-hosts.md)                   | Daemon-owned host registrations, routed SDK scopes, identity and authority boundaries                                          |
+| [docs/desktop-target.md](docs/desktop-target.md)                     | Attack desktop target: guard layers, macOS vs Windows differences, the Windows helper, deny lists, finding screenshots         |
 | [docs/permissions.md](docs/permissions.md)                           | Daemon access: one full authority, which credential admits each transport, the checks that still narrow a session              |
 | [docs/terminal-performance.md](docs/terminal-performance.md)         | Terminal latency pipeline, coalescing/backpressure invariants, benchmark + perf spec usage                                     |
 | [docs/terminal-rendering.md](docs/terminal-rendering.md)             | Native terminal view: xterm owns the grid, cluster placement, emoji widths, mixed-direction limits                             |

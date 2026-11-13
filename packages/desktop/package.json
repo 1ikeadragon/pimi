@@ -15,6 +15,7 @@
   "main": "dist/main.js",
   "scripts": {
     "build": "npm --prefix ../.. run build:server:clean && npm run build:main && electron-builder --config electron-builder.yml",
+    "build:win-helper": "node scripts/build-win-helper.mjs",
     "build:main": "tsc -p tsconfig.json && node scripts/copy-pimi.mjs",
     "capture-harness": "npm run build:main && ./capture-harness/run.sh",
     "dev": "./scripts/dev.sh",

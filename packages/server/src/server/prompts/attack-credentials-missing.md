@@ -1,0 +1,1 @@
+Test credentials: NOT available (the daemon restarted since the run began and the owner has not entered them again). Do not start the auth and access agent; tell the owner in your final summary that it was skipped.

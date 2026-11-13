@@ -9,6 +9,7 @@ export const ATTACK_ROLE_IDS = [
   "input",
   "secrets-audit",
   "perf-lite",
+  "desktop-security",
 ] as const;
 export const AttackRoleIdSchema = z.enum(ATTACK_ROLE_IDS);
 export type AttackRoleId = z.infer<typeof AttackRoleIdSchema>;
@@ -26,6 +27,8 @@ export const ATTACK_ROLE_REQUIREMENTS: Record<
   input: { repository: false, testCredentials: false, disposableTarget: false },
   "secrets-audit": { repository: true, testCredentials: false, disposableTarget: false },
   "perf-lite": { repository: false, testCredentials: false, disposableTarget: true },
+  // Offered only when the run has a desktop target; the daemon refuses it otherwise.
+  "desktop-security": { repository: false, testCredentials: false, disposableTarget: false },
 };
 
 // perf-lite's hard bounds, stated to the agent and in the form.
@@ -69,6 +72,18 @@ export const AttackAnnotationSchema = z.object({
   note: z.string().max(2000),
   // Whether the daemon holds the element's screenshot for agents (get_annotation returns it).
   hasImage: z.boolean().default(false),
+  // "desktop" marks a rectangle on the desktop window's screenshot; the browser fields are then
+  // empty strings and `region` holds x, y, width, height in window-screenshot pixels.
+  kind: z.enum(["browser", "desktop"]).default("browser"),
+  region: z
+    .object({
+      x: z.number().int().nonnegative(),
+      y: z.number().int().nonnegative(),
+      width: z.number().int().positive(),
+      height: z.number().int().positive(),
+    })
+    .nullable()
+    .default(null),
 });
 export type AttackAnnotation = z.infer<typeof AttackAnnotationSchema>;
 export const MAX_ATTACK_ANNOTATIONS = 40;
@@ -84,9 +99,33 @@ export type AttackAnnotationInput = z.infer<typeof AttackAnnotationInputSchema>;
 
 // The app window a run drives instead of (or beside) a URL. Resolved by bundle id at every action.
 export const AttackDesktopTargetSchema = z.object({
+  // The app id: a macOS bundle id, or on Windows the AUMID or the lowercased full exe path.
   bundleId: z.string().min(1).max(200),
   appName: z.string().min(1).max(200),
   windowTitle: z.string().max(400),
+  platform: z.enum(["darwin", "win32"]).default("darwin"),
+  // The Windows window the owner picked; the helper re-checks it against the process every call.
+  win: z
+    .object({
+      hwnd: z.string(),
+      pid: z.number().int(),
+      processStartedAt: z.string().nullable(),
+      windowClass: z.string(),
+      exeName: z.string(),
+      framework: z.string(),
+      // The data directories the owner confirmed as this app's own (userData, save and config
+      // folders). Security reads never leave these, the install dir and the process tree.
+      dataDirs: z.array(z.string().min(1).max(400)).max(20).default([]),
+    })
+    .nullable()
+    .default(null),
+  // Typed by the owner in the launch form; agents never add arguments.
+  launchArgs: z.string().max(500).default(""),
+  // The owner's separate switch for desktop_app launch and relaunch.
+  allowRelaunch: z.boolean().default(false),
+  // The owner's switch for the read-only security tools (desktop_inspect, desktop_secrets_scan,
+  // desktop_files, desktop_network, desktop_ipc list).
+  allowDesktopInspect: z.boolean().default(false),
 });
 export type AttackDesktopTarget = z.infer<typeof AttackDesktopTargetSchema>;
 
@@ -144,6 +183,8 @@ export const AttackRunSchema = z.object({
   onlyAnnotated: z.boolean().default(false),
   desktopTarget: AttackDesktopTargetSchema.nullable().default(null),
   allowDesktopInput: z.boolean().default(false),
+  // The owner pressed "Stop input": desktop input is refused even for a disposable target.
+  desktopInputStopped: z.boolean().default(false),
   // Per annotation label, what the agents concluded when no finding covers it.
   annotationResults: z.record(z.string(), AttackAnnotationResultSchema).default({}),
   // Tokens by agent id, at most 16 agents.
@@ -173,6 +214,11 @@ export const FindingCategorySchema = z.enum([
   "error-handling",
   "secret-exposure",
   "config",
+  "insecure-storage",
+  "ipc",
+  "dll-hijack",
+  "update-channel",
+  "mitigations",
   "other",
 ]);
 export type FindingCategory = z.infer<typeof FindingCategorySchema>;
@@ -259,7 +305,29 @@ export type AttackCoverage = z.infer<typeof AttackCoverageSchema>;
 export const AttackDesktopActionSchema = z.object({
   runId: z.string(),
   agentId: z.string(),
-  verb: z.enum(["snapshot", "click", "type", "key", "screenshot"]),
+  verb: z.enum([
+    "snapshot",
+    "click",
+    "type",
+    "key",
+    "screenshot",
+    "scroll",
+    "drag",
+    "hover",
+    "mouse",
+    "wait",
+    "window",
+    "find",
+    "element",
+    "audit",
+    "app",
+    "inspect",
+    "secrets_scan",
+    "ipc",
+    "network",
+    "deeplink",
+    "files",
+  ]),
   role: z.string().nullable(),
   label: z.string().nullable(),
   point: z.object({ x: z.number(), y: z.number() }).nullable(),

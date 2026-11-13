@@ -4,6 +4,17 @@
 
 ## 0.17.32 - 2026-11-13
 
+- Attack desktop target on Windows:
+  - Pick any visible window. The picker shows each app's framework (Electron, UWP, Qt, Avalonia, Unity, .NET, Win32), and warns or disables rows for elevated processes, anti-cheat games and denied targets like Windows Terminal.
+  - Agents screenshot, click, type and scroll in the window using a C# helper that speaks UIA and Windows Graphics Capture, with PrintWindow and screen-grab fallbacks. Scancode-based typing handles any keyboard layout.
+  - New desktop-security role: inspects the target's process, binary signature, exploit mitigations (ASLR/DEP/CFG), loaded modules and their directory writability (DLL hijack), listening ports, registered protocol handlers, Electron fuses, .NET assemblies, IPC pipes (DACL check and DNS-rebinding probe), secrets at rest (with redaction), and plaintext network traffic. Read-mostly; the only active probes are one benign deep-link and one localhost GET.
+  - Six new tools gated behind the owner's inspection toggle: `desktop_inspect`, `desktop_secrets_scan`, `desktop_files`, `desktop_network`, `desktop_ipc` and `desktop_deeplink`.
+  - Five finding categories: `insecure-storage`, `ipc`, `dll-hijack`, `update-channel`, `mitigations`.
+  - Launch arguments and data-directory editors in the launch form. A "Stop input" button cuts keyboard and mouse mid-run without ending the run.
+  - Desktop annotation sheet for marking regions on the target window screenshot before a run.
+- macOS desktop-target code moved to `mac/` alongside the new `win/` directory; the shared guard, index and types stay at the package root.
+- Agent prompt templates extracted to `.md` files in `packages/server/src/server/prompts/` with a `renderTemplate()` renderer, replacing inline string concatenation.
+- i18n keys for all new desktop UI in nine locales.
 - Windows: installing an update when you quit stops the daemon cleanly first, instead of the installer killing it.
 - "Keep running after quit" is respected after a restart: when it is off, quitting stops a daemon that Pimi started in an earlier session. Daemons started from the CLI are never stopped.
 

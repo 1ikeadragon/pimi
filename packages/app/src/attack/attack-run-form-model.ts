@@ -7,6 +7,13 @@ import {
   type AttackRoleId,
   type AttackRunDefinition,
 } from "@pimi/protocol/attack/types";
+import type { DesktopTargetWindow } from "@/desktop/host";
+import {
+  desktopBlockedReason,
+  isWindowsTarget,
+  sameDesktopWindow,
+  toDesktopTarget,
+} from "./desktop-target-info";
 
 // A plain model of the Attack launch form (docs/forms.md): no React. `openAttackRunForm` builds a
 // fresh instance per mount; commands mutate; the component renders `getState()`.
@@ -22,8 +29,8 @@ export interface AttackRunFormInput {
   cwd: string;
 }
 
-/** A window the owner may pick as the run's desktop target. */
-export type AttackDesktopWindow = AttackDesktopTarget;
+/** A window the owner may pick as the run's desktop target, with the picker's hints. */
+export type AttackDesktopWindow = DesktopTargetWindow;
 
 export type AttackFormProblem =
   | "targetInvalid"
@@ -56,6 +63,11 @@ export interface AttackRunFormState {
   /** The owner's consent to click and type in that window. */
   allowDesktopInput: boolean;
   desktopWindows: AttackDesktopWindow[];
+  /** Windows: the picked app's install folder, as the helper found it. */
+  scopeInstallDir: string | null;
+  /** Windows: the data-dir proposal is being looked up. */
+  scopeLoading: boolean;
+  scopeError: string | null;
   /** The one remote host the target names, when it is not local. */
   remoteHost: string | null;
   /** Problems to show; hidden until the owner has touched the field or pressed Start. */
@@ -63,10 +75,16 @@ export interface AttackRunFormState {
   canSubmit: boolean;
 }
 
+const MAX_DATA_DIRS = 20;
 const MIN_MINUTES = 1;
 const MAX_MINUTES = 480;
 const MIN_KILO_TOKENS = 10;
 const MAX_KILO_TOKENS = 100_000;
+
+/** The security role reads a Windows app's own files, process and network: a Windows window. */
+export function desktopSecurityAvailable(target: AttackDesktopTarget | null): boolean {
+  return target !== null && isWindowsTarget(target);
+}
 
 function parseWhole(value: string): number | null {
   const trimmed = value.trim();
@@ -126,6 +144,8 @@ export class AttackRunFormModel {
   private touchedTarget = false;
   private modelChosen = false;
   private closed = false;
+  /** The owner changed the data dirs, so a late proposal no longer replaces them. */
+  private dataDirsEdited = false;
 
   constructor(private readonly input: AttackRunFormInput) {
     this.state = this.derive({
@@ -142,6 +162,7 @@ export class AttackRunFormModel {
         input: true,
         "secrets-audit": true,
         "perf-lite": false,
+        "desktop-security": false,
       },
       disposableTarget: false,
       disposableConfirm: "",
@@ -151,6 +172,9 @@ export class AttackRunFormModel {
       desktopTarget: null,
       allowDesktopInput: false,
       desktopWindows: [],
+      scopeInstallDir: null,
+      scopeLoading: false,
+      scopeError: null,
     });
   }
 
@@ -192,15 +216,89 @@ export class AttackRunFormModel {
 
   toggleRole(role: AttackRoleId): void {
     if (ATTACK_ROLE_REQUIREMENTS[role].repository && !this.state.repoScope) return;
+    if (role === "desktop-security" && !desktopSecurityAvailable(this.state.desktopTarget)) return;
     this.patch({ roster: { ...this.state.roster, [role]: !this.state.roster[role] } });
   }
 
-  setDesktopTarget = (value: AttackDesktopTarget | null): void => {
-    // Without a window there is nothing to consent to.
+  /** A window that cannot be driven (elevated, anti-cheat) is never picked. */
+  setDesktopTarget = (value: DesktopTargetWindow | null): void => {
+    if (value && desktopBlockedReason(value)) return;
+    this.dataDirsEdited = false;
+    const target = value ? toDesktopTarget(value) : null;
+    // Without a window there is nothing to consent to, and no desktop role to run.
     this.patch({
-      desktopTarget: value,
+      desktopTarget: target,
       allowDesktopInput: value ? this.state.allowDesktopInput : false,
+      roster: desktopSecurityAvailable(target)
+        ? this.state.roster
+        : { ...this.state.roster, "desktop-security": false },
+      scopeInstallDir: null,
+      scopeLoading: target !== null && isWindowsTarget(target),
+      scopeError: null,
     });
+  };
+
+  setAllowDesktopInspect = (value: boolean): void => {
+    const current = this.state.desktopTarget;
+    if (current) this.patch({ desktopTarget: { ...current, allowDesktopInspect: value } });
+  };
+
+  /** Late data: the helper's proposal of data dirs for the picked window. The owner's edits win. */
+  applyScope(
+    hwnd: string,
+    scope: { installDir: string | null; dataDirs: string[] } | { error: string },
+  ): void {
+    const current = this.state.desktopTarget;
+    if (!current?.win || current.win.hwnd !== hwnd) return;
+    if ("error" in scope) {
+      this.patch({ scopeLoading: false, scopeError: scope.error });
+      return;
+    }
+    this.patch({
+      scopeLoading: false,
+      scopeError: null,
+      scopeInstallDir: scope.installDir,
+      desktopTarget: this.dataDirsEdited
+        ? current
+        : { ...current, win: { ...current.win, dataDirs: scope.dataDirs.slice(0, MAX_DATA_DIRS) } },
+    });
+  }
+
+  /** Adds a folder the desktop app already accepted (canonical, not denied). */
+  addDataDir = (dir: string): void => {
+    const current = this.state.desktopTarget;
+    if (!current?.win) return;
+    const known = current.win.dataDirs.some((item) => item.toLowerCase() === dir.toLowerCase());
+    if (known || current.win.dataDirs.length >= MAX_DATA_DIRS) return;
+    this.dataDirsEdited = true;
+    this.patch({
+      desktopTarget: {
+        ...current,
+        win: { ...current.win, dataDirs: [...current.win.dataDirs, dir] },
+      },
+    });
+  };
+
+  removeDataDir = (dir: string): void => {
+    const current = this.state.desktopTarget;
+    if (!current?.win) return;
+    this.dataDirsEdited = true;
+    this.patch({
+      desktopTarget: {
+        ...current,
+        win: { ...current.win, dataDirs: current.win.dataDirs.filter((item) => item !== dir) },
+      },
+    });
+  };
+
+  setLaunchArgs = (value: string): void => {
+    const current = this.state.desktopTarget;
+    if (current) this.patch({ desktopTarget: { ...current, launchArgs: value } });
+  };
+
+  setAllowRelaunch = (value: boolean): void => {
+    const current = this.state.desktopTarget;
+    if (current) this.patch({ desktopTarget: { ...current, allowRelaunch: value } });
   };
 
   setAllowDesktopInput = (value: boolean): void => {
@@ -212,14 +310,12 @@ export class AttackRunFormModel {
     const current = this.state.desktopTarget;
     const stillThere =
       current !== null &&
-      windows.some(
-        (window) =>
-          window.bundleId === current.bundleId && window.windowTitle === current.windowTitle,
-      );
+      windows.some((window) => !desktopBlockedReason(window) && sameDesktopWindow(window, current));
     this.patch({
       desktopWindows: windows,
       desktopTarget: stillThere ? current : null,
       allowDesktopInput: stillThere ? this.state.allowDesktopInput : false,
+      roster: stillThere ? this.state.roster : { ...this.state.roster, "desktop-security": false },
     });
   }
 
@@ -281,6 +377,7 @@ export class AttackRunFormModel {
       },
       annotations: preflight.annotations,
       onlyAnnotated: preflight.onlyAnnotated,
+      // Windows-only fields stay empty on macOS, where agents cannot relaunch the target.
       desktopTarget: this.state.desktopTarget,
       allowDesktopInput: this.state.desktopTarget !== null && this.state.allowDesktopInput,
     };

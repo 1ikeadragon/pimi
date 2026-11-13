@@ -51,6 +51,8 @@ export async function persistAnnotations(
       html: clip(item.html, 800),
       note: clip(item.note, 2000),
       hasImage,
+      kind: item.kind,
+      region: item.kind === "desktop" ? item.region : null,
     });
   }
   return kept;

@@ -6799,6 +6799,18 @@ export class DaemonClient {
     });
   }
 
+  async attackRunDesktopInputSet(options: AttackRunIdOptions & { allow: boolean }) {
+    return this.sendNamespacedCorrelatedSessionRequest<"attack.run.desktop_input.set.response">({
+      requestId: options.requestId,
+      message: {
+        type: "attack.run.desktop_input.set.request",
+        runId: options.runId,
+        allow: options.allow,
+      },
+      timeout: 60_000,
+    });
+  }
+
   async attackRunResume(options: AttackRunIdOptions & { limits?: AttackLimits }) {
     return this.sendNamespacedCorrelatedSessionRequest<"attack.run.resume.response">({
       requestId: options.requestId,

@@ -1,134 +1,26 @@
-import { ipcMain, shell, systemPreferences, desktopCapturer } from "electron";
+import { app, ipcMain, shell, systemPreferences, desktopCapturer } from "electron";
 import {
   DesktopTargetExecuteRequestSchema,
-  type DesktopTargetCommand,
+  type DesktopTargetErrorCode,
   type DesktopTargetExecuteResponse,
-  type DesktopTargetResult,
 } from "@pimi/protocol/desktop-target/rpc-schemas";
-import {
-  AxError,
-  clickElement,
-  clickPoint,
-  listWindows,
-  pressKey,
-  probeAutomation,
-  resolveWindow,
-  snapshotWindow,
-  typeText,
-  type AxErrorCode,
-} from "./ax.js";
-import { captureWindow } from "./capture.js";
-import {
-  forbiddenTarget,
-  isElementPath,
-  keyCodeFor,
-  parseChord,
-  pointInFrame,
-  refuseChord,
-  type DesktopGuard,
-} from "./guard.js";
+import { AxError, probeAutomation } from "./mac/ax.js";
+import { runMac, screenGranted } from "./mac/index.js";
+import { HelperError, stopHelper } from "./win/helper-process.js";
+import { checkWinDataDir, resolveWinScope, runWin } from "./win/index.js";
 
-// Attack's desktop target: one window, chosen by the owner, driven through Accessibility. The
-// guard arrives with every call (the daemon builds it from the run), and every call re-resolves
-// the window from it: a closed window or a different title fails the call instead of moving to
-// another window.
+// Attack's desktop target: one window, chosen by the owner, driven through the platform's
+// accessibility API. The guard arrives with every call (the daemon builds it from the run), and
+// every call re-resolves the window from it: a closed window or a different title fails the call
+// instead of moving to another window. macOS lives in mac/, Windows in win/ (a helper process).
 
 type Payload = DesktopTargetExecuteResponse["payload"];
 
 const IS_MAC = process.platform === "darwin";
-const OWN_PID = process.pid;
+const IS_WIN = process.platform === "win32";
 
-function failure(requestId: string, code: AxErrorCode, message: string): Payload {
+function failure(requestId: string, code: DesktopTargetErrorCode, message: string): Payload {
   return { requestId, ok: false, error: { code, message } };
-}
-
-function screenGranted(): boolean {
-  return systemPreferences.getMediaAccessStatus("screen") === "granted";
-}
-
-async function run(
-  command: DesktopTargetCommand,
-  guard: DesktopGuard,
-): Promise<DesktopTargetResult> {
-  const forbidden = forbiddenTarget(guard.bundleId);
-  if (forbidden) throw new AxError("refused", forbidden);
-  if (!screenGranted()) {
-    throw new AxError(
-      "permission_missing",
-      "Pimi does not have Screen Recording access, so it cannot identify the target window. Grant it in System Settings > Privacy & Security > Screen Recording.",
-    );
-  }
-  switch (command.command) {
-    case "list_windows": {
-      const windows = await listWindows(OWN_PID);
-      return {
-        command: "list_windows",
-        windows: windows.filter((window) => forbiddenTarget(window.bundleId) === null),
-      };
-    }
-    case "screenshot": {
-      const window = await resolveWindow(guard, OWN_PID);
-      if (window.windowNumber === null) {
-        throw new AxError("window_gone", "The target window is not on screen.");
-      }
-      const shot = await captureWindow(window.windowNumber, command.args.maxWidth ?? 1280);
-      return {
-        command: "screenshot",
-        mimeType: "image/png",
-        ...shot,
-        windowWidth: window.frame.width,
-        windowHeight: window.frame.height,
-      };
-    }
-    case "snapshot": {
-      const snapshot = await snapshotWindow(guard, OWN_PID);
-      return { command: "snapshot", ...snapshot };
-    }
-    case "click": {
-      requireInput(guard);
-      const { element, point } = command.args;
-      if ((element === undefined) === (point === undefined)) {
-        throw new AxError("refused", "Pass exactly one of an element path or a point.");
-      }
-      if (element !== undefined) {
-        if (!isElementPath(element)) throw new AxError("refused", "That is not an element path.");
-        const hit = await clickElement(guard, OWN_PID, element);
-        return { command: "click", role: hit.role, label: hit.label, point: hit.point };
-      }
-      const window = await resolveWindow(guard, OWN_PID);
-      if (!pointInFrame(point!, window.frame)) {
-        throw new AxError("refused", "That point is outside the target window.");
-      }
-      const hit = await clickPoint(guard, OWN_PID, point!);
-      return { command: "click", role: null, label: null, point: hit.point };
-    }
-    case "type": {
-      requireInput(guard);
-      await typeText(guard, OWN_PID, command.args.text);
-      return { command: "type" };
-    }
-    case "key": {
-      requireInput(guard);
-      const chord = parseChord(command.args.chord);
-      if (!chord.ok) throw new AxError("refused", chord.message);
-      const refused = refuseChord(chord);
-      if (refused) throw new AxError("refused", refused);
-      const code = keyCodeFor(chord.key);
-      await pressKey(
-        guard,
-        OWN_PID,
-        code !== null ? { code } : { char: chord.key },
-        chord.modifiers,
-      );
-      return { command: "key" };
-    }
-  }
-}
-
-function requireInput(guard: DesktopGuard): void {
-  if (!guard.allowInput) {
-    throw new AxError("refused", "The owner did not allow desktop input for this run.");
-  }
 }
 
 export async function executeDesktopTarget(raw: unknown): Promise<Payload> {
@@ -136,8 +28,12 @@ export async function executeDesktopTarget(raw: unknown): Promise<Payload> {
     typeof (raw as { requestId?: unknown } | null)?.requestId === "string"
       ? (raw as { requestId: string }).requestId
       : "desktop-invalid";
-  if (!IS_MAC) {
-    return failure(requestId, "unsupported", "Desktop targets are only available on macOS.");
+  if (!IS_MAC && !IS_WIN) {
+    return failure(
+      requestId,
+      "unsupported",
+      "Desktop targets are only available on macOS and Windows.",
+    );
   }
   const parsed = DesktopTargetExecuteRequestSchema.safeParse(raw);
   if (!parsed.success) {
@@ -147,13 +43,22 @@ export async function executeDesktopTarget(raw: unknown): Promise<Payload> {
       `Invalid desktop request: ${parsed.error.issues[0]?.message}`,
     );
   }
-  const { guard, command } = parsed.data;
+  const { guard, command, agentId } = parsed.data;
   if (!guard) return failure(requestId, "refused", "A desktop request needs a run guard.");
+  if (guard.platform !== process.platform && command.command !== "list_windows") {
+    return failure(
+      requestId,
+      "refused",
+      `This run targets a ${guard.platform} window, but this computer runs ${process.platform}.`,
+    );
+  }
   try {
-    const result = await run(command, guard);
+    const result = IS_MAC ? await runMac(command, guard) : await runWin(command, guard, agentId);
     return { requestId, ok: true, result };
   } catch (error) {
-    if (error instanceof AxError) return failure(requestId, error.code, error.message);
+    if (error instanceof AxError || error instanceof HelperError) {
+      return failure(requestId, error.code, error.message);
+    }
     return failure(requestId, "failed", error instanceof Error ? error.message : String(error));
   }
 }
@@ -165,7 +70,18 @@ const SETTINGS_PANES = {
 } as const;
 
 export function registerDesktopTargetIpc(): void {
+  if (IS_WIN) app.on("before-quit", stopHelper);
   ipcMain.handle("pimi:desktop-target:permissions", async (_event, raw: unknown) => {
+    if (IS_WIN) {
+      // Windows has no per-app grants for UI Automation or window capture.
+      return {
+        supported: true,
+        platform: "win32",
+        accessibility: true,
+        screen: "granted",
+        automation: "granted",
+      };
+    }
     if (!IS_MAC) return { supported: false };
     const prompt = (raw as { prompt?: unknown } | null)?.prompt === true;
     let automation: "unknown" | "granted" | "denied" | "failed" = "unknown";
@@ -181,6 +97,7 @@ export function registerDesktopTargetIpc(): void {
     }
     return {
       supported: true,
+      platform: "darwin",
       accessibility: systemPreferences.isTrustedAccessibilityClient(false),
       screen: systemPreferences.getMediaAccessStatus("screen"),
       automation,
@@ -192,7 +109,13 @@ export function registerDesktopTargetIpc(): void {
       requestId: "list",
       agentId: "owner",
       // Listing names no window; the guard is only a placeholder the schema requires.
-      guard: { runId: "owner", bundleId: "none", windowTitle: "", allowInput: false },
+      guard: {
+        runId: "owner",
+        bundleId: "none",
+        windowTitle: "",
+        allowInput: false,
+        platform: process.platform === "win32" ? "win32" : "darwin",
+      },
       command: { command: "list_windows", args: {} },
     });
     return payload.ok && payload.result.command === "list_windows"
@@ -202,6 +125,43 @@ export function registerDesktopTargetIpc(): void {
   ipcMain.handle("pimi:desktop-target:execute", (_event, raw: unknown) =>
     executeDesktopTarget(raw),
   );
+  // The launch form's data-dir proposal for a picked window, and the check of one the owner typed.
+  ipcMain.handle("pimi:desktop-target:scope", async (_event, raw: unknown) => {
+    if (!IS_WIN) return { ok: false, error: "Security scope is only available on Windows." };
+    const request = raw as {
+      bundleId?: unknown;
+      windowTitle?: unknown;
+      win?: { hwnd?: unknown; pid?: unknown; processStartedAt?: unknown; windowClass?: unknown };
+    } | null;
+    const win = request?.win;
+    if (
+      typeof request?.bundleId !== "string" ||
+      typeof win?.hwnd !== "string" ||
+      typeof win.pid !== "number" ||
+      typeof win.windowClass !== "string"
+    ) {
+      return { ok: false, error: "Pick a window first." };
+    }
+    try {
+      const scope = await resolveWinScope({
+        bundleId: request.bundleId,
+        windowTitle: typeof request.windowTitle === "string" ? request.windowTitle : "",
+        win: {
+          hwnd: win.hwnd,
+          pid: win.pid,
+          processStartedAt: typeof win.processStartedAt === "string" ? win.processStartedAt : null,
+          windowClass: win.windowClass,
+        },
+      });
+      return { ok: true, ...scope };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  });
+  ipcMain.handle("pimi:desktop-target:check-data-dir", async (_event, raw: unknown) => {
+    if (!IS_WIN || typeof raw !== "string") return null;
+    return checkWinDataDir(raw);
+  });
   ipcMain.handle("pimi:desktop-target:open-settings", async (_event, pane: unknown) => {
     if (!IS_MAC || typeof pane !== "string" || !(pane in SETTINGS_PANES)) return;
     await shell.openExternal(

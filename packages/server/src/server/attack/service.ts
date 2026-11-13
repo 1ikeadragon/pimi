@@ -28,6 +28,7 @@ import {
   type FindingSeverity,
   type FindingStatus,
 } from "@pimi/protocol/attack/types";
+import type { DesktopTargetGuard } from "@pimi/protocol/desktop-target/rpc-schemas";
 import type { SessionOutboundMessage } from "@pimi/protocol/messages";
 import type { AgentSessionConfig } from "../agent/agent-sdk-types.js";
 import type { AgentManager } from "../agent/agent-manager.js";
@@ -262,6 +263,9 @@ export class AttackService {
     if (!definition.repoScope && roster.includes("secrets-audit")) {
       throw new AttackStateError("The secrets and config auditor reads the repository.");
     }
+    if (roster.includes("desktop-security") && !definition.desktopTarget) {
+      throw new AttackStateError("The desktop security tester needs a desktop target.");
+    }
     for (const role of roster) {
       const needs = ATTACK_ROLE_REQUIREMENTS[role];
       if (needs.disposableTarget && !definition.disposableTarget) {
@@ -307,6 +311,7 @@ export class AttackService {
       onlyAnnotated: definition.onlyAnnotated && annotations.length > 0,
       desktopTarget: definition.desktopTarget,
       allowDesktopInput: definition.allowDesktopInput,
+      desktopInputStopped: false,
       annotationResults: {},
       spentByAgent: {},
       status: "running",
@@ -848,7 +853,7 @@ export class AttackService {
   async desktopGuardForAgent(agentId: string | undefined): Promise<{
     runId: string;
     status: AttackRun["status"];
-    guard: { runId: string; bundleId: string; windowTitle: string; allowInput: boolean };
+    guard: DesktopTargetGuard;
   } | null> {
     if (!agentId) return null;
     const run = await this.runForAgent(agentId);
@@ -860,9 +865,27 @@ export class AttackService {
         runId: run.id,
         bundleId: run.desktopTarget.bundleId,
         windowTitle: run.desktopTarget.windowTitle,
-        allowInput: run.allowDesktopInput || run.disposableTarget,
+        allowInput: !run.desktopInputStopped && (run.allowDesktopInput || run.disposableTarget),
+        platform: run.desktopTarget.platform,
+        win: run.desktopTarget.win,
+        allowRelaunch: run.desktopTarget.allowRelaunch,
+        launchArgs: run.desktopTarget.launchArgs,
+        disposable: run.disposableTarget,
+        allowInspect: run.desktopTarget.allowDesktopInspect,
+        dataDirs: run.desktopTarget.win?.dataDirs ?? [],
       },
     };
+  }
+
+  /** The owner's "Stop input" (allow = false) or its undo: the next desktop call reads the run. */
+  async setDesktopInput(runId: string, allow: boolean): Promise<AttackRun> {
+    await this.requireRun(runId);
+    return this.updateAndPublish(runId, (current) => ({
+      ...current,
+      allowDesktopInput: allow ? current.allowDesktopInput : false,
+      desktopInputStopped: !allow,
+      updatedAt: new Date().toISOString(),
+    }));
   }
 
   /** Audits a desktop action (verb and element role, never typed text) and tells the owner's log. */

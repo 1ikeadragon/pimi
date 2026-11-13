@@ -3,6 +3,7 @@ import { FindingCategorySchema, FindingSeveritySchema } from "@pimi/protocol/att
 import type { FindingEvidence } from "@pimi/protocol/attack/types";
 import { BrowserAutomationBrowserIdSchema } from "@pimi/protocol/browser-automation/rpc-schemas";
 import type { BrowserToolsBroker } from "../../browser-tools/broker.js";
+import type { DesktopToolsBroker } from "../../desktop-tools/broker.js";
 import { findingLine } from "../../attack/prompts.js";
 import { registerAttackAnnotationTools } from "./attack-annotation-tools.js";
 import type { AttackService } from "../../attack/service.js";
@@ -52,6 +53,23 @@ const SubmitFindingInput = z.object({
     .default([])
     .describe(
       "Browser tabs to capture as screenshot evidence right now. Show the defect on screen first.",
+    ),
+  desktopScreenshot: z
+    .boolean()
+    .default(false)
+    .describe(
+      "true to attach a fresh screenshot of this run's desktop window as evidence. Show the defect in the window first. Only for runs with a desktop target.",
+    ),
+  desktopHighlight: z
+    .object({
+      x: z.number().min(0),
+      y: z.number().min(0),
+      width: z.number().positive(),
+      height: z.number().positive(),
+    })
+    .optional()
+    .describe(
+      "A rectangle in pixels of your latest desktop_screenshot that shows the defect; it is recorded in the evidence caption. Used with desktopScreenshot.",
     ),
   annotationLabels: z
     .array(z.string().trim().min(1).max(16))
@@ -103,6 +121,7 @@ export interface RegisterAttackToolsOptions {
   callerAgentId?: string;
   browserToolsEnabled?: boolean;
   broker?: Pick<BrowserToolsBroker, "execute"> | null;
+  desktopBroker?: Pick<DesktopToolsBroker, "execute"> | null;
   resolveCallerAgent: () => { id: string; cwd: string; workspaceId?: string } | null;
 }
 
@@ -198,6 +217,52 @@ async function captureScreenshots(
   return { evidence, failures };
 }
 
+async function captureDesktop(
+  options: ActiveOptions,
+  agentId: string,
+  title: string,
+  highlight: { x: number; y: number; width: number; height: number } | undefined,
+): Promise<{ evidence: FindingEvidence; failure: string | null }> {
+  const fail = (reason: string) => ({
+    evidence: {
+      kind: "note" as const,
+      caption: "Desktop screenshot failed",
+      excerpt: `Desktop screenshot failed: ${reason}`,
+    },
+    failure: reason,
+  });
+  if (!options.desktopBroker) return fail("no desktop app is connected");
+  const scope = await options.service.desktopGuardForAgent(agentId);
+  if (!scope) return fail("this run has no desktop target");
+  const box = highlight
+    ? ` Highlight: x=${Math.round(highlight.x)}, y=${Math.round(highlight.y)}, ${Math.round(highlight.width)}x${Math.round(highlight.height)} px of the image.`
+    : "";
+  let reason = "unknown";
+  for (const maxEdge of [1280, 640]) {
+    let payload: Awaited<ReturnType<NonNullable<ActiveOptions["desktopBroker"]>["execute"]>>;
+    try {
+      payload = await options.desktopBroker.execute({
+        agentId,
+        guard: scope.guard,
+        command: { command: "screenshot", args: { maxEdge } },
+      });
+    } catch (error) {
+      return fail(error instanceof Error ? error.message : String(error));
+    }
+    if (!payload.ok) return fail(payload.error.code);
+    if (payload.result.command !== "screenshot") return fail("unexpected_result");
+    const evidence = options.service.screenshotEvidence({
+      caption: `Desktop screenshot: ${title}.${box}`,
+      dataBase64: payload.result.dataBase64,
+      width: payload.result.width,
+      height: payload.result.height,
+    });
+    if (evidence) return { evidence, failure: null };
+    reason = "too_large";
+  }
+  return fail(reason);
+}
+
 // Only agents can use these tools, and only where the daemon runs Attack mode.
 export function registerAttackTools(base: RegisterAttackToolsOptions): void {
   const { service } = base;
@@ -206,6 +271,7 @@ export function registerAttackTools(base: RegisterAttackToolsOptions): void {
     ...base,
     service,
     broker: base.browserToolsEnabled ? base.broker : null,
+    desktopBroker: base.desktopBroker ?? null,
   };
   options.registerTool(
     "submit_finding",
@@ -224,6 +290,11 @@ export function registerAttackTools(base: RegisterAttackToolsOptions): void {
         parsed.screenshotBrowserIds,
         parsed.title,
       );
+      if (parsed.desktopScreenshot) {
+        const shot = await captureDesktop(options, agentId, parsed.title, parsed.desktopHighlight);
+        screenshots.push(shot.evidence);
+        if (shot.failure) screenshotFailures.push(`desktop: ${shot.failure}`);
+      }
       const result = await options.service.submitFinding(agentId, {
         severity: parsed.severity,
         category: parsed.category,

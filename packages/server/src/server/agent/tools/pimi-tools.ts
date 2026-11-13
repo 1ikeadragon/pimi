@@ -1489,6 +1489,7 @@ function createToolCatalog(
     callerAgentId,
     browserToolsEnabled: options.browserToolsEnabled,
     broker: options.browserToolsBroker,
+    desktopBroker: desktopBrokerOf(options.browserToolsBroker),
     resolveCallerAgent,
   });
 
@@ -3557,4 +3558,10 @@ function archiveWorktreeDependencies(
       ),
     sessionLogger: context.logger,
   };
+}
+
+function desktopBrokerOf<T extends { desktop: unknown }>(
+  broker: T | null | undefined,
+): T["desktop"] | null {
+  return broker ? broker.desktop : null;
 }

@@ -49,6 +49,7 @@ const IDLE_RUN: AttackRun = {
   onlyAnnotated: false,
   desktopTarget: null,
   allowDesktopInput: false,
+  desktopInputStopped: false,
   annotationResults: {},
   spentByAgent: {},
   status: "stopped",

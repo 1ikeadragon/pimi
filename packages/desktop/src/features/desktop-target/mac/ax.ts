@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
-import type { DesktopGuard, Frame, Modifier } from "./guard.js";
+import type { DesktopGuard, Frame } from "../guard.js";
+import type { Modifier } from "./guard.js";
 
 // Accessibility and input go through System Events with a fixed JXA script. Agent text is never
 // part of the script source: it travels as argv, which the script reads as plain strings.

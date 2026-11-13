@@ -1,0 +1,1 @@
+Desktop input: NOT allowed. Every input tool (click, type, key, scroll, drag, hover, mouse, and window changes) is refused; read the window with desktop_snapshot, desktop_screenshot, desktop_find, desktop_element, desktop_wait and desktop_audit only.

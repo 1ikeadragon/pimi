@@ -3,8 +3,13 @@ import { Image, ScrollView, Text, View, type LayoutChangeEvent } from "react-nat
 import { useTranslation } from "react-i18next";
 import { StyleSheet } from "react-native-unistyles";
 import type { AttackDesktopAction, AttackDesktopTarget } from "@pimi/protocol/attack/types";
+import { OctagonX } from "lucide-react-native";
 import { Button } from "@/components/ui/button";
 import type { DesktopTargetPermissions } from "@/desktop/host";
+import { useHostRuntimeClient } from "@/runtime/host-runtime";
+import { toErrorMessage } from "@/utils/error-messages";
+import { useAttackStore } from "../attack-store";
+import { isWindowsTarget } from "../desktop-target-info";
 import { useAttackDesktopLog } from "../use-attack-desktop-log";
 import {
   hasDesktopTargetBridge,
@@ -37,7 +42,7 @@ function accessState(permissions: DesktopTargetPermissions | null): {
   };
 }
 
-export function DesktopSubview({ run, live }: AttackSubviewProps) {
+export function DesktopSubview({ serverId, run, live }: AttackSubviewProps) {
   const { t } = useTranslation();
   const target = run.desktopTarget;
   const permissionState = useDesktopPermissions();
@@ -51,7 +56,7 @@ export function DesktopSubview({ run, live }: AttackSubviewProps) {
   if (!hasDesktopTargetBridge()) {
     return (
       <View style={styles.empty} testID="attack-subview-desktop">
-        <Text style={styles.emptyText}>{t("attack.subviews.desktop.macOnly")}</Text>
+        <Text style={styles.emptyText}>{t("attack.subviews.desktop.desktopOnly")}</Text>
       </View>
     );
   }
@@ -60,19 +65,59 @@ export function DesktopSubview({ run, live }: AttackSubviewProps) {
       runId={run.id}
       target={target}
       running={live && run.status === "running"}
-      allowInput={run.allowDesktopInput || run.disposableTarget}
+      allowInput={!run.desktopInputStopped && (run.allowDesktopInput || run.disposableTarget)}
       permissionState={permissionState}
+      serverId={serverId}
     />
   );
 }
 
+function StopInputButton({ serverId, runId }: { serverId: string; runId: string }) {
+  const { t } = useTranslation();
+  const client = useHostRuntimeClient(serverId);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const onPress = useCallback(async () => {
+    if (!client) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await client.attackRunDesktopInputSet({ runId, allow: false });
+      useAttackStore.getState().putRun(serverId, result.run);
+    } catch (caught) {
+      setError(toErrorMessage(caught));
+    } finally {
+      setBusy(false);
+    }
+  }, [client, runId, serverId]);
+  const onStop = useCallback(() => void onPress(), [onPress]);
+  return (
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        leftIcon={OctagonX}
+        loading={busy}
+        disabled={busy || !client}
+        onPress={onStop}
+        testID="attack-desktop-stop-input"
+      >
+        {t("attack.subviews.desktop.stopInput")}
+      </Button>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+    </>
+  );
+}
+
 function DesktopStage({
+  serverId,
   runId,
   target,
   running,
   allowInput,
   permissionState,
 }: {
+  serverId: string;
   runId: string;
   target: AttackDesktopTarget;
   running: boolean;
@@ -81,7 +126,11 @@ function DesktopStage({
 }) {
   const { t } = useTranslation();
   const { permissions, request, openSettings } = permissionState;
-  const access = accessState(permissions);
+  // Windows has no OS permission to grant; the mac rows and settings buttons stay hidden there.
+  const windows = isWindowsTarget(target);
+  const access = windows
+    ? ({ accessibility: "granted", screen: "granted" } as const)
+    : accessState(permissions);
   const screenOk = access.screen === "granted";
   const actions = useAttackDesktopLog(runId);
   // Stills are cheap only when someone is looking: mounted, running, and Screen Recording granted.
@@ -98,7 +147,7 @@ function DesktopStage({
   const onOpenAccessibility = useCallback(() => openSettings("accessibility"), [openSettings]);
   const onOpenScreen = useCallback(() => openSettings("screen"), [openSettings]);
   const onOpenAutomation = useCallback(() => openSettings("automation"), [openSettings]);
-  const needsGrant = access.accessibility === "missing" || !screenOk;
+  const needsGrant = !windows && (access.accessibility === "missing" || !screenOk);
 
   return (
     <View style={styles.root} onLayout={onLayout} testID="attack-subview-desktop">
@@ -107,18 +156,30 @@ function DesktopStage({
           {target.appName}
           {target.windowTitle ? ` · "${target.windowTitle}"` : ""}
         </Text>
-        <Badge
-          label={t("attack.subviews.desktop.accessibility")}
-          value={t(`attack.subviews.desktop.${access.accessibility}`)}
-          ok={access.accessibility === "granted"}
-          testID="attack-desktop-ax"
-        />
-        <Badge
-          label={t("attack.subviews.desktop.screen")}
-          value={t(`attack.subviews.desktop.${access.screen}`)}
-          ok={screenOk}
-          testID="attack-desktop-screen"
-        />
+        {windows && target.win?.framework ? (
+          <Badge
+            label={t("attack.subviews.desktop.framework")}
+            value={target.win.framework}
+            ok
+            testID="attack-desktop-framework"
+          />
+        ) : null}
+        {windows ? null : (
+          <>
+            <Badge
+              label={t("attack.subviews.desktop.accessibility")}
+              value={t(`attack.subviews.desktop.${access.accessibility}`)}
+              ok={access.accessibility === "granted"}
+              testID="attack-desktop-ax"
+            />
+            <Badge
+              label={t("attack.subviews.desktop.screen")}
+              value={t(`attack.subviews.desktop.${access.screen}`)}
+              ok={screenOk}
+              testID="attack-desktop-screen"
+            />
+          </>
+        )}
         <Badge
           label={t("attack.subviews.desktop.input")}
           value={t(
@@ -127,6 +188,7 @@ function DesktopStage({
           ok={allowInput}
           testID="attack-desktop-input"
         />
+        {allowInput && running ? <StopInputButton serverId={serverId} runId={runId} /> : null}
       </View>
       {needsGrant ? (
         <View style={styles.grant} testID="attack-desktop-grant">

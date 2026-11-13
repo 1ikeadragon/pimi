@@ -2,6 +2,7 @@ import { Platform } from "react-native";
 import { getElectronHost } from "@/desktop/electron/host";
 import type { BrowserKeyboardPolicy } from "@/keyboard";
 import type { PIMI_APPEARANCE_THEMES } from "@/styles/theme";
+import type { AttackDesktopTarget } from "@pimi/protocol/attack/types";
 import type {
   NetworkActivitySnapshot,
   SessionInboundMessage,
@@ -180,6 +181,8 @@ export type DesktopTargetPermissions =
   | { supported: false }
   | {
       supported: true;
+      /** Absent on older macOS-only builds; Windows has no OS permissions to grant. */
+      platform?: "darwin" | "win32";
       accessibility: boolean;
       screen: "granted" | "denied" | "not-determined" | "restricted" | "unknown";
       /** Only known after a prompt-time probe; macOS has no query for it. */
@@ -190,6 +193,15 @@ export interface DesktopTargetWindow {
   bundleId: string;
   appName: string;
   windowTitle: string;
+  platform?: AttackDesktopTarget["platform"];
+  /** Windows only: the UI framework, from the window class and UIA. */
+  framework?: string;
+  /** Windows only: the process runs as administrator and cannot be driven. */
+  elevated?: boolean;
+  /** Windows only: listed but never driven. */
+  blocked?: string | null;
+  // The picker lists no data dirs; the launch form resolves them (resolveScope).
+  win?: Omit<NonNullable<AttackDesktopTarget["win"]>, "dataDirs"> | null;
 }
 
 /** Attack's desktop target: the main process names windows and drives the one the guard allows. */
@@ -202,6 +214,16 @@ export interface DesktopTargetBridge {
   execute: (
     request: DesktopTargetExecuteRequest,
   ) => Promise<DesktopTargetExecuteResponse["payload"]>;
+  /** Windows: the install dir and candidate data dirs of a picked window, for the launch form. */
+  resolveScope: (request: {
+    bundleId: string;
+    windowTitle: string;
+    win: { hwnd: string; pid: number; processStartedAt: string | null; windowClass: string };
+  }) => Promise<
+    { ok: true; installDir: string | null; dataDirs: string[] } | { ok: false; error: string }
+  >;
+  /** Windows: the canonical form of a directory the owner typed, or null when it is not allowed. */
+  checkDataDir: (dir: string) => Promise<string | null>;
   openSettings: (pane: "accessibility" | "screen" | "automation") => Promise<void>;
 }
 

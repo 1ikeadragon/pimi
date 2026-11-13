@@ -42,6 +42,14 @@ export const AttackRunCancelRequestSchema = z.object({
   ...RunIdRequestShape,
 });
 
+// The owner's "Stop input": the daemon refuses desktop input verbs for the run, including when
+// `disposableTarget` would otherwise allow them. `allow: true` lifts the stop again.
+export const AttackRunDesktopInputSetRequestSchema = z.object({
+  type: z.literal("attack.run.desktop_input.set.request"),
+  ...RunIdRequestShape,
+  allow: z.boolean(),
+});
+
 export const AttackRunGetRequestSchema = z.object({
   type: z.literal("attack.run.get.request"),
   ...RunIdRequestShape,
@@ -124,6 +132,11 @@ export const AttackRunResumeResponseSchema = z.object({
 
 export const AttackRunCancelResponseSchema = z.object({
   type: z.literal("attack.run.cancel.response"),
+  payload: RunPayloadSchema,
+});
+
+export const AttackRunDesktopInputSetResponseSchema = z.object({
+  type: z.literal("attack.run.desktop_input.set.response"),
   payload: RunPayloadSchema,
 });
 

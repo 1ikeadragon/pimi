@@ -117,6 +117,8 @@ import {
   AttackRunPauseRequestSchema,
   AttackRunResumeRequestSchema,
   AttackRunCancelRequestSchema,
+  AttackRunDesktopInputSetRequestSchema,
+  AttackRunDesktopInputSetResponseSchema,
   AttackRunGetRequestSchema,
   AttackRunListRequestSchema,
   AttackFindingListRequestSchema,
@@ -3869,6 +3871,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   AutomationDraftRetryRequestSchema,
   AutomationDraftDismissRequestSchema,
   AutomationTriggerCheckRequestSchema,
+  AttackRunDesktopInputSetRequestSchema,
   AttackRunStartRequestSchema,
   AttackRunPauseRequestSchema,
   AttackRunResumeRequestSchema,
@@ -7616,6 +7619,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   AutomationDraftRetryResponseSchema,
   AutomationDraftDismissResponseSchema,
   AutomationTriggerCheckResponseSchema,
+  AttackRunDesktopInputSetResponseSchema,
   AttackRunStartResponseSchema,
   AttackRunPauseResponseSchema,
   AttackRunResumeResponseSchema,
@@ -7914,6 +7918,10 @@ export type AttackCoverageChanged = z.infer<typeof AttackCoverageChangedSchema>;
 export type AttackDesktopActionPush = z.infer<typeof AttackDesktopActionPushSchema>;
 export type AttackRunStartRequest = z.infer<typeof AttackRunStartRequestSchema>;
 export type AttackRunPauseRequest = z.infer<typeof AttackRunPauseRequestSchema>;
+export type AttackRunDesktopInputSetRequest = z.infer<typeof AttackRunDesktopInputSetRequestSchema>;
+export type AttackRunDesktopInputSetResponse = z.infer<
+  typeof AttackRunDesktopInputSetResponseSchema
+>;
 export type AttackRunResumeRequest = z.infer<typeof AttackRunResumeRequestSchema>;
 export type AttackRunCancelRequest = z.infer<typeof AttackRunCancelRequestSchema>;
 export type AttackRunGetRequest = z.infer<typeof AttackRunGetRequestSchema>;

@@ -1,15 +1,26 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Check, Crosshair, RefreshCw, Swords } from "lucide-react-native";
-import type { AttackAnnotation, AttackDesktopTarget } from "@pimi/protocol/attack/types";
+import { Check, Crosshair, Plus, RefreshCw, StickyNote, Swords, Trash2 } from "lucide-react-native";
+import type { AttackAnnotationInput } from "@pimi/protocol/attack/types";
 import { StyleSheet } from "react-native-unistyles";
 import {
   ATTACK_ROLE_IDS,
   ATTACK_ROLE_REQUIREMENTS,
+  MAX_ATTACK_ANNOTATIONS,
   type AttackRoleId,
 } from "@pimi/protocol/attack/types";
 import { Button } from "@/components/ui/button";
+import { ComboboxItem } from "@/components/ui/combobox";
+import type { DesktopTargetWindow } from "@/desktop/host";
+import {
+  NO_DESKTOP_WINDOW,
+  desktopBlockedReason,
+  desktopWindowKey,
+  isWarnTierTarget,
+  isWindowsTarget,
+} from "./desktop-target-info";
+import { DesktopAnnotateSheet, type DesktopNote } from "./desktop-annotate-sheet";
 import { PressHighlight } from "@/components/ui/press-highlight";
 import { Field, FormTextInput } from "@/components/ui/form-field";
 import { SelectField, type SelectFieldOption } from "@/components/ui/select-field";
@@ -21,12 +32,17 @@ import { toErrorMessage } from "@/utils/error-messages";
 import {
   openAttackRunForm,
   type AttackModelOption,
+  desktopSecurityAvailable,
   type AttackRunFormModel,
   type AttackRunFormState,
 } from "./attack-run-form-model";
 import { useAttackStore } from "./attack-store";
 import { getDesktopHost } from "@/desktop/host";
-import { hasDesktopTargetBridge, listDesktopWindows } from "./use-desktop-target";
+import {
+  hasDesktopTargetBridge,
+  listDesktopWindows,
+  useDesktopPermissions,
+} from "./use-desktop-target";
 
 const SIZE = "md" as const;
 const ROLE_LABEL_KEYS: Record<AttackRoleId, string> = {
@@ -37,10 +53,12 @@ const ROLE_LABEL_KEYS: Record<AttackRoleId, string> = {
   input: "attack.roster.input",
   "secrets-audit": "attack.roster.secrets",
   "perf-lite": "attack.roster.perfLite",
+  "desktop-security": "attack.roster.desktopSecurity",
 };
 
 function roleHintKey(role: AttackRoleId): string {
   const needs = ATTACK_ROLE_REQUIREMENTS[role];
+  if (role === "desktop-security") return "attack.roster.needsDesktop";
   if (needs.testCredentials) return "attack.roster.needsCredentials";
   if (needs.repository) return "attack.roster.needsRepository";
   if (needs.disposableTarget) return "attack.roster.needsDisposable";
@@ -74,7 +92,7 @@ export function LaunchForm({
 }: {
   serverId: string;
   workspaceId: string;
-  annotations: AttackAnnotation[];
+  annotations: AttackAnnotationInput[];
   onlyAnnotated: boolean;
   preflightOpen: boolean;
   onOpenPreflight: (target: string) => void;
@@ -95,9 +113,41 @@ export function LaunchForm({
   useEffect(() => () => model.close(), [model]);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Window notes belong to the picked window; picking another one drops them.
+  const [windowNotes, setWindowNotes] = useState<{ key: string; notes: DesktopNote[] }>({
+    key: "",
+    notes: [],
+  });
+  const [annotating, setAnnotating] = useState(false);
+  const pickedKey = state.desktopTarget ? desktopWindowKey(state.desktopTarget) : "";
+  const desktopNotes = windowNotes.key === pickedKey ? windowNotes.notes : EMPTY_NOTES;
+  const onSaveNotes = useCallback(
+    (notes: DesktopNote[]) => {
+      setWindowNotes({ key: pickedKey, notes });
+      setAnnotating(false);
+    },
+    [pickedKey],
+  );
+  const onCancelNotes = useCallback(() => setAnnotating(false), []);
+  const onAnnotate = useCallback(() => setAnnotating(true), []);
+  const onRemoveNote = useCallback(
+    (id: number) =>
+      setWindowNotes((current) => ({
+        key: current.key,
+        notes: current.notes.filter((item) => item.id !== id),
+      })),
+    [],
+  );
+  const allAnnotations = useMemo(
+    () => combineAnnotations(annotations, desktopNotes),
+    [annotations, desktopNotes],
+  );
 
   const onStart = useCallback(async () => {
-    const definition = model.submit({ annotations, onlyAnnotated });
+    const definition = model.submit({
+      annotations: allAnnotations,
+      onlyAnnotated: onlyAnnotated && allAnnotations.length > 0,
+    });
     if (!definition || !client) return;
     setStarting(true);
     setError(null);
@@ -110,7 +160,7 @@ export function LaunchForm({
     } finally {
       setStarting(false);
     }
-  }, [annotations, client, model, onStarted, onlyAnnotated, serverId]);
+  }, [allAnnotations, client, model, onStarted, onlyAnnotated, serverId]);
   const onStartPress = useCallback(() => void onStart(), [onStart]);
   const onPreflightPress = useCallback(() => {
     if (model.checkTarget()) onOpenPreflight(model.getState().target.trim());
@@ -129,6 +179,19 @@ export function LaunchForm({
     () => (state.model ? { label: state.model.label } : null),
     [state.model],
   );
+
+  if (annotating && state.desktopTarget) {
+    return (
+      <View style={styles.section}>
+        <DesktopAnnotateSheet
+          target={state.desktopTarget}
+          initialNotes={desktopNotes}
+          onSave={onSaveNotes}
+          onCancel={onCancelNotes}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.section} testID="attack-launch-form">
@@ -150,7 +213,15 @@ export function LaunchForm({
           autoCorrect={false}
         />
       </Field>
-      {hasDesktopTargetBridge() ? <DesktopTargetSection model={model} state={state} /> : null}
+      {hasDesktopTargetBridge() ? (
+        <DesktopTargetSection
+          model={model}
+          state={state}
+          notes={desktopNotes}
+          onAnnotate={onAnnotate}
+          onRemoveNote={onRemoveNote}
+        />
+      ) : null}
       <Field label={t("attack.form.repoScope")}>
         <View style={styles.switchRow}>
           <Text style={styles.switchText} numberOfLines={1}>
@@ -233,7 +304,10 @@ export function LaunchForm({
               key={role}
               role={role}
               checked={state.roster[role]}
-              disabled={ATTACK_ROLE_REQUIREMENTS[role].repository && !state.repoScope}
+              disabled={
+                (ATTACK_ROLE_REQUIREMENTS[role].repository && !state.repoScope) ||
+                (role === "desktop-security" && !desktopSecurityAvailable(state.desktopTarget))
+              }
               label={t(ROLE_LABEL_KEYS[role])}
               hint={t(roleHintKey(role))}
               model={model}
@@ -274,21 +348,55 @@ function getModelKey(option: AttackModelOption): string {
   return option.value;
 }
 
-const NO_WINDOW: AttackDesktopTarget = { bundleId: "", appName: "", windowTitle: "" };
+const EMPTY_NOTES: DesktopNote[] = [];
 
-function getWindowKey(window: AttackDesktopTarget): string {
-  return `${window.bundleId}\u0000${window.windowTitle}`;
+/**
+ * Browser notes keep their labels; window notes continue the run's A1, A2, ... sequence after them
+ * and carry the cropped region as their image.
+ */
+function combineAnnotations(
+  browser: readonly AttackAnnotationInput[],
+  desktop: readonly DesktopNote[],
+): AttackAnnotationInput[] {
+  const desktopAnnotations = desktop.map((item, index): AttackAnnotationInput => {
+    const annotation: AttackAnnotationInput = {
+      label: `A${browser.length + index + 1}`,
+      url: "",
+      selector: "",
+      tag: "",
+      text: "",
+      html: "",
+      note: item.note,
+      hasImage: item.imageBase64 !== null,
+      kind: "desktop",
+      region: item.region,
+    };
+    if (item.imageBase64) annotation.imageBase64 = item.imageBase64;
+    return annotation;
+  });
+  return [...browser, ...desktopAnnotations].slice(0, MAX_ATTACK_ANNOTATIONS);
+}
+
+function getWindowKey(window: DesktopTargetWindow): string {
+  return desktopWindowKey(window);
 }
 
 // The owner picks the one window the agents may drive; the desktop app enforces it on every call.
 function DesktopTargetSection({
   model,
   state,
+  notes,
+  onAnnotate,
+  onRemoveNote,
 }: {
   model: AttackRunFormModel;
   state: AttackRunFormState;
+  notes: readonly DesktopNote[];
+  onAnnotate: () => void;
+  onRemoveNote: (id: number) => void;
 }) {
   const { t } = useTranslation();
+  const { windows: onWindows } = useDesktopPermissions();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const refresh = useCallback(async () => {
@@ -315,36 +423,114 @@ function DesktopTargetSection({
       .catch(() => undefined)
       .then(() => refresh());
   }, [refresh]);
-  const options = useMemo<SelectFieldOption<AttackDesktopTarget>[]>(
+  const describeWindow = useCallback(
+    (window: DesktopTargetWindow): string | undefined => {
+      const blocked = desktopBlockedReason(window);
+      if (blocked === "elevated") return t("attack.form.desktopElevated");
+      if (blocked === "anti_cheat") return t("attack.form.desktopAntiCheat");
+      return window.framework && window.framework !== "unknown" ? window.framework : undefined;
+    },
+    [t],
+  );
+  const options = useMemo<SelectFieldOption<DesktopTargetWindow>[]>(
     () => [
-      { id: "none", value: NO_WINDOW, label: t("attack.form.desktopNone") },
+      { id: "none", value: NO_DESKTOP_WINDOW, label: t("attack.form.desktopNone") },
       ...state.desktopWindows.map((window) => ({
         id: getWindowKey(window),
         value: window,
         label: `${window.appName} · ${window.windowTitle}`,
+        description: describeWindow(window),
       })),
     ],
-    [state.desktopWindows, t],
+    [describeWindow, state.desktopWindows, t],
+  );
+  const renderOption = useCallback(
+    ({
+      option,
+      selected,
+      active,
+      onPress,
+    }: {
+      option: SelectFieldOption<DesktopTargetWindow>;
+      selected: boolean;
+      active: boolean;
+      onPress: () => void;
+    }) => (
+      <ComboboxItem
+        testID={option.testID}
+        label={option.label}
+        description={option.description}
+        selected={selected}
+        active={active}
+        disabled={desktopBlockedReason(option.value) !== null}
+        onPress={onPress}
+      />
+    ),
+    [],
   );
   const picked = state.desktopTarget;
   const onChange = useCallback(
-    (value: AttackDesktopTarget) => model.setDesktopTarget(value.bundleId === "" ? null : value),
+    (value: DesktopTargetWindow) => model.setDesktopTarget(value.bundleId === "" ? null : value),
     [model],
   );
   const selectedDisplay = useMemo(
     () => ({
       label: picked ? `${picked.appName} · ${picked.windowTitle}` : t("attack.form.desktopNone"),
+      description:
+        picked?.win?.framework && picked.win.framework !== "unknown"
+          ? picked.win.framework
+          : undefined,
     }),
     [picked, t],
   );
+  const pickedWindows = picked !== null && isWindowsTarget(picked);
+  const pickedHwnd = picked?.win?.hwnd ?? null;
+  // The helper proposes the app's data folders for the picked window; the owner edits the list.
+  useEffect(() => {
+    const target = model.getState().desktopTarget;
+    const bridge = getDesktopHost()?.desktopTarget;
+    const win = target?.win;
+    if (!target || !win || !bridge || !isWindowsTarget(target)) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const scope = await bridge.resolveScope({
+          bundleId: target.bundleId,
+          windowTitle: target.windowTitle,
+          win: {
+            hwnd: win.hwnd,
+            pid: win.pid,
+            processStartedAt: win.processStartedAt,
+            windowClass: win.windowClass,
+          },
+        });
+        if (cancelled) return;
+        model.applyScope(
+          win.hwnd,
+          scope.ok
+            ? { installDir: scope.installDir, dataDirs: scope.dataDirs }
+            : { error: scope.error },
+        );
+      } catch (caught) {
+        if (!cancelled) model.applyScope(win.hwnd, { error: toErrorMessage(caught) });
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+    // The window's identity is what matters; the target object is rebuilt on each edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model, pickedHwnd]);
   return (
     <View style={styles.desktopSection} testID="attack-desktop-section">
       <SelectField
         label={t("attack.form.desktopWindow")}
-        value={picked ?? NO_WINDOW}
+        value={picked ?? NO_DESKTOP_WINDOW}
         selectedDisplay={selectedDisplay}
         options={options}
         onChange={onChange}
+        renderOption={renderOption}
         placeholder={t("attack.form.desktopNone")}
         emptyText={t("attack.form.desktopNone")}
         hint={t("attack.form.desktopHint")}
@@ -357,7 +543,18 @@ function DesktopTargetSection({
         <Button variant="outline" size="sm" leftIcon={RefreshCw} onPress={onRefresh}>
           {t("attack.form.desktopRefresh")}
         </Button>
-        {error ? (
+        {picked ? (
+          <Button
+            variant="outline"
+            size="sm"
+            leftIcon={StickyNote}
+            onPress={onAnnotate}
+            testID="attack-desktop-annotate-open"
+          >
+            {t("attack.form.desktopAnnotate")}
+          </Button>
+        ) : null}
+        {error && !onWindows ? (
           <Button variant="outline" size="sm" onPress={onGrant}>
             {t("attack.subviews.desktop.grantAccess")}
           </Button>
@@ -378,6 +575,182 @@ function DesktopTargetSection({
           />
         </Field>
       ) : null}
+      {picked && isWarnTierTarget(picked) ? (
+        <Text style={styles.warnText} testID="attack-desktop-warn">
+          {t("attack.form.desktopWarn")}
+        </Text>
+      ) : null}
+      {pickedWindows ? (
+        <>
+          <Field
+            label={t("attack.form.desktopRelaunch")}
+            hint={t("attack.form.desktopRelaunchHint")}
+          >
+            <Switch
+              value={picked.allowRelaunch}
+              onValueChange={model.setAllowRelaunch}
+              accessibilityLabel={t("attack.form.desktopRelaunch")}
+              testID="attack-desktop-relaunch-switch"
+            />
+          </Field>
+          <Field
+            label={t("attack.form.desktopLaunchArgs")}
+            hint={t("attack.form.desktopLaunchArgsHint")}
+          >
+            <FormTextInput
+              size={SIZE}
+              testID="attack-desktop-launch-args"
+              accessibilityLabel={t("attack.form.desktopLaunchArgs")}
+              initialValue={picked.launchArgs}
+              onChangeText={model.setLaunchArgs}
+              placeholder="--force-renderer-accessibility"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </Field>
+          <Field label={t("attack.form.desktopInspect")} hint={t("attack.form.desktopInspectHint")}>
+            <Switch
+              value={picked.allowDesktopInspect}
+              onValueChange={model.setAllowDesktopInspect}
+              accessibilityLabel={t("attack.form.desktopInspect")}
+              testID="attack-desktop-inspect-switch"
+            />
+          </Field>
+          {picked.allowDesktopInspect ? <DataDirsField model={model} state={state} /> : null}
+        </>
+      ) : null}
+      {notes.length > 0 ? (
+        <View style={styles.desktopNotes} testID="attack-desktop-notes">
+          <Text style={styles.noteTitle}>
+            {t("attack.form.desktopNotes", { count: notes.length })}
+          </Text>
+          {notes.map((item, index) => (
+            <DesktopNoteRow key={item.id} item={item} index={index} onRemove={onRemoveNote} />
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+// The folders security tools may read besides the install folder: the helper's proposal, which
+// the owner drops from or adds to. The desktop app checks each one again on every read.
+function DataDirsField({ model, state }: { model: AttackRunFormModel; state: AttackRunFormState }) {
+  const { t } = useTranslation();
+  const [draft, setDraft] = useState("");
+  const [refused, setRefused] = useState(false);
+  const [inputKey, setInputKey] = useState(0);
+  const dirs = state.desktopTarget?.win?.dataDirs ?? [];
+  const onAdd = useCallback(async () => {
+    const bridge = getDesktopHost()?.desktopTarget;
+    const raw = draft.trim();
+    if (!bridge || raw === "") return;
+    const canonical = await bridge.checkDataDir(raw).catch(() => null);
+    if (!canonical) {
+      setRefused(true);
+      return;
+    }
+    setRefused(false);
+    model.addDataDir(canonical);
+    setDraft("");
+    setInputKey((key) => key + 1);
+  }, [draft, model]);
+  const onAddPress = useCallback(() => void onAdd(), [onAdd]);
+  const onChangeDraft = useCallback((value: string) => {
+    setDraft(value);
+    setRefused(false);
+  }, []);
+  let status: string | null = null;
+  if (state.scopeLoading) status = t("attack.form.desktopDataDirsLoading");
+  else if (state.scopeError) status = state.scopeError;
+  else if (dirs.length === 0) status = t("attack.form.desktopDataDirsNone");
+  return (
+    <Field
+      label={t("attack.form.desktopDataDirs")}
+      hint={t("attack.form.desktopDataDirsHint")}
+      error={refused ? t("attack.form.desktopDataDirRefused") : null}
+    >
+      <View style={styles.dataDirs} testID="attack-desktop-data-dirs">
+        {state.scopeInstallDir ? (
+          <Text style={styles.dataDirText} numberOfLines={1}>
+            {state.scopeInstallDir}
+          </Text>
+        ) : null}
+        {dirs.map((dir) => (
+          <DataDirRow key={dir} dir={dir} onRemove={model.removeDataDir} />
+        ))}
+        {status ? <Text style={styles.noteText}>{status}</Text> : null}
+        <View style={styles.dataDirAdd}>
+          <View style={styles.dataDirInput}>
+            <FormTextInput
+              key={inputKey}
+              size={SIZE}
+              testID="attack-desktop-data-dir-input"
+              accessibilityLabel={t("attack.form.desktopDataDirAdd")}
+              initialValue={draft}
+              onChangeText={onChangeDraft}
+              placeholder={t("attack.form.desktopDataDirPlaceholder")}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+          <Button
+            variant="outline"
+            size="sm"
+            leftIcon={Plus}
+            onPress={onAddPress}
+            testID="attack-desktop-data-dir-add"
+          >
+            {t("attack.form.desktopDataDirAdd")}
+          </Button>
+        </View>
+      </View>
+    </Field>
+  );
+}
+
+function DataDirRow({ dir, onRemove }: { dir: string; onRemove: (dir: string) => void }) {
+  const { t } = useTranslation();
+  const onPress = useCallback(() => onRemove(dir), [dir, onRemove]);
+  return (
+    <View style={styles.desktopNote}>
+      <Text style={styles.dataDirText} numberOfLines={1}>
+        {dir}
+      </Text>
+      <PressHighlight
+        onPress={onPress}
+        accessibilityLabel={t("attack.form.desktopDataDirRemove")}
+        testID="attack-desktop-data-dir-remove"
+      >
+        <Trash2 size={14} color="currentColor" />
+      </PressHighlight>
+    </View>
+  );
+}
+
+function DesktopNoteRow({
+  item,
+  index,
+  onRemove,
+}: {
+  item: DesktopNote;
+  index: number;
+  onRemove: (id: number) => void;
+}) {
+  const { t } = useTranslation();
+  const onPress = useCallback(() => onRemove(item.id), [item.id, onRemove]);
+  return (
+    <View style={styles.desktopNote}>
+      <Text style={styles.noteText} numberOfLines={2}>
+        {index + 1} · {item.note || t("attack.preflight.noNote")}
+      </Text>
+      <PressHighlight
+        onPress={onPress}
+        accessibilityLabel={t("attack.preflight.remove")}
+        testID={`attack-desktop-note-remove-${index + 1}`}
+      >
+        <Trash2 size={14} color="currentColor" />
+      </PressHighlight>
     </View>
   );
 }
@@ -480,6 +853,24 @@ function RosterRow({
 
 const styles = StyleSheet.create((theme) => ({
   desktopSection: { gap: theme.spacing[2] },
+  warnText: { color: theme.colors.palette.amber[500], fontSize: theme.fontSize.sm },
+  desktopNotes: { gap: theme.spacing[1] },
+  noteTitle: { color: theme.colors.foreground, fontSize: theme.fontSize.sm, fontWeight: "500" },
+  desktopNote: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: theme.spacing[2],
+  },
+  dataDirs: { gap: theme.spacing[2] },
+  dataDirText: {
+    flexShrink: 1,
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+    fontFamily: theme.fontFamily.mono,
+  },
+  dataDirAdd: { flexDirection: "row", alignItems: "center", gap: theme.spacing[2] },
+  dataDirInput: { flex: 1, minWidth: 0 },
   desktopActions: { flexDirection: "row", gap: theme.spacing[2], flexWrap: "wrap" },
   section: {
     width: "100%",

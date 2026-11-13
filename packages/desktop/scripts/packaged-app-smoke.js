@@ -768,6 +768,14 @@ async function smokePackagedDesktopApp({
   launchArgs = [],
 }) {
   assertExecutable(executablePath, "Packaged app executable");
+  if (process.platform === "win32") {
+    // The UI Automation helper that desktop targets use ships beside the app.
+    const helperPath = path.join(appPath, "resources", "desktop-helper", "pimi-desktop-helper.exe");
+    assertExecutable(helperPath, "Windows desktop helper");
+    const selftest = spawnSync(helperPath, ["--selftest"], { encoding: "utf8", timeout: 15_000 });
+    assert.equal(selftest.status, 0, `Desktop helper selftest failed: ${selftest.stdout}`);
+    assert.equal(JSON.parse(selftest.stdout).ok, true, "Desktop helper selftest must report ok");
+  }
   await smokeColdCliDaemonStart({ appPath });
 
   const userData = createTempDir("pimi-smoke-user-data-");

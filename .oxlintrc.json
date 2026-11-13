@@ -141,6 +141,8 @@
               "server/orchestration-skills/internal/paths.ts": ["existsSync"],
               // Module initialization: the package version is resolved once and cached at import.
               "server/package-version.ts": ["existsSync", "readFileSync"],
+              // Prompt templates are bundled files read synchronously when prompts are composed; they are small and local.
+              "server/prompts/render.ts": ["readFileSync"],
               // Startup config and exported synchronous configuration API; runtime DaemonConfigStore uses the async load/save capabilities.
               "server/persisted-config.ts": ["existsSync", "readFileSync"],
               // Startup pid identity: read and memoize the Linux boot id for the daemon lock.

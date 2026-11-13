@@ -35,6 +35,14 @@ export class AttackSession {
           type: "attack.run.pause.response",
           payload: { requestId: msg.requestId, run: await this.attack.pauseRun(msg.runId) },
         }));
+      case "attack.run.desktop_input.set.request":
+        return this.handle(msg, async () => ({
+          type: "attack.run.desktop_input.set.response",
+          payload: {
+            requestId: msg.requestId,
+            run: await this.attack.setDesktopInput(msg.runId, msg.allow),
+          },
+        }));
       case "attack.run.resume.request":
         return this.handle(msg, async () => ({
           type: "attack.run.resume.response",

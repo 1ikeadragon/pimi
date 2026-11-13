@@ -13,6 +13,10 @@ export const ATTACK_ROLE_PROFILES: Record<AttackRoleId, { profileId: string; lab
     profileId: `${BUILTIN_PROFILE_ID_PREFIX}attack-perf-lite`,
     label: "Perf-lite (bounded load)",
   },
+  "desktop-security": {
+    profileId: `${BUILTIN_PROFILE_ID_PREFIX}attack-desktop-security`,
+    label: "Desktop security tester",
+  },
   "secrets-audit": {
     profileId: `${BUILTIN_PROFILE_ID_PREFIX}attack-secrets-auditor`,
     label: "Secrets and config auditor",

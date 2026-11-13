@@ -1,0 +1,1 @@
+Security inspection: allowed. desktop_inspect, desktop_secrets_scan, desktop_files, desktop_network and desktop_ipc list read the app's own process, binary, install and data dirs, ports and traffic, with secret values redacted. desktop_ipc probe and desktop_deeplink are input and need desktop input. Nothing outside the app's own scope is readable.

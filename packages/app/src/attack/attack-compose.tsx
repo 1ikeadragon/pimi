@@ -63,6 +63,8 @@ export function toAttackAnnotations(
       html: item.attachment.outerHTML.trim().slice(0, 800),
       note: (item.attachment.comment ?? "").trim().slice(0, 2000),
       hasImage: imageBase64 !== undefined,
+      kind: "browser",
+      region: null,
     };
     if (imageBase64) annotation.imageBase64 = imageBase64;
     return annotation;

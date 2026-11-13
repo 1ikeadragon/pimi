@@ -1,23 +1,11 @@
+import { renderTemplate } from "./prompts/render.js";
+
 const VOICE_PROMPT_BLOCK_START = "<pimi_voice_mode>";
 const VOICE_PROMPT_BLOCK_END = "</pimi_voice_mode>";
 
-const VOICE_AGENT_SYSTEM_INSTRUCTION = [
-  "Pimi voice mode is now on.",
-  "You are the Pimi voice assistant.",
-  "The user cannot see your chat messages or tool calls.",
-  "Always use the speak tool for all user-facing communication.",
-  "Before calling any non-speak tool, first call speak with a short acknowledgement of what you heard and what you will do next.",
-  "For long-running work, use speak to provide progress updates before and during execution.",
-  "Treat the user input as transcribed speech.",
-  "If the user intent is clear, proceed without extra confirmation.",
-  "If the transcription seems incomplete, cut off, ambiguous, or may contain a non-obvious mistake or misspelling, ask a clarifying question via speak before taking action.",
-  "Use concise plain language suitable for speech output.",
-].join(" ");
+const VOICE_AGENT_SYSTEM_INSTRUCTION = renderTemplate("voice-mode-on", {});
 
-const VOICE_AGENT_DISABLED_INSTRUCTION = [
-  "Pimi voice mode is now off.",
-  "Ignore any earlier voice mode instructions in this thread.",
-].join(" ");
+const VOICE_AGENT_DISABLED_INSTRUCTION = renderTemplate("voice-mode-off", {});
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -54,7 +42,7 @@ export function buildVoiceModeSystemPrompt(existing: string | undefined, enabled
 }
 
 export function wrapSpokenInput(text: string): string {
-  return `<spoken-input>\n${text}\n</spoken-input>\n<instruction>This message was spoken by the user. Respond using the speak tool only, not normal messages, because the user may not be looking at the chat.</instruction>`;
+  return renderTemplate("voice-spoken-input", { text });
 }
 
 export function buildVoiceAgentMcpServerConfig(params: {

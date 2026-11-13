@@ -2558,6 +2558,30 @@ export const en = {
       desktopInput: "Allow clicking and typing",
       desktopInputHint:
         "Off keeps agents to reading the window. On lets them click, type and press keys in it only.",
+      desktopElevated: "Runs as administrator, so Pimi cannot drive it.",
+      desktopAntiCheat: "Uses anti-cheat; Pimi never drives it.",
+      desktopWarn: "Agents will see and can act in everything this window is signed in to.",
+      desktopRelaunch: "Let agents relaunch the app",
+      desktopRelaunchHint:
+        "Off keeps agents from closing or starting the app. On lets them close it and start it again; unsaved work in it can be lost.",
+      desktopLaunchArgs: "Launch arguments",
+      desktopLaunchArgsHint:
+        "Used when an agent relaunches the app, for example --force-renderer-accessibility for Electron apps.",
+      desktopDataDirAdd: "Add folder",
+      desktopDataDirPlaceholder: "C:\\Users\\you\\AppData\\Roaming\\MyApp",
+      desktopDataDirRefused:
+        "That folder cannot be used: it is missing, too broad, or holds browser, Pimi or credential data.",
+      desktopDataDirRemove: "Remove folder",
+      desktopDataDirs: "Data folders the app owns",
+      desktopDataDirsHint:
+        "Security tools read only the install folder and these. Remove any that are not this app's own, or add one.",
+      desktopDataDirsLoading: "Finding the app's folders...",
+      desktopDataDirsNone: "No data folders found. Add one if the app keeps files elsewhere.",
+      desktopInspect: "Allow security inspection",
+      desktopInspectHint:
+        "Off keeps the security tools out. On lets agents read the app's own process, binary, install and data folders, ports and network use, with secret values hidden. It never writes anything.",
+      desktopAnnotate: "Annotate window",
+      desktopNotes: "Window notes ({{count}})",
       start: "Start attack",
       preflight: "Open target and annotate first",
     },
@@ -2569,10 +2593,12 @@ export const en = {
       auth: "Auth and access",
       input: "Input robustness",
       perfLite: "Perf-lite (bounded load)",
+      desktopSecurity: "Desktop security tester",
       readOnly: "read-only",
       needsCredentials: "needs test credentials",
       needsRepository: "needs repository",
       needsDisposable: "needs disposable target",
+      needsDesktop: "needs a Windows desktop window",
     },
     run: {
       status: {
@@ -2616,6 +2642,16 @@ export const en = {
       chat: "Chat",
       browser: "Browser",
       back: "Grid",
+    },
+    desktopAnnotate: {
+      title: "Annotate window",
+      hint: "Drag a rectangle on the window and type a note for it. Notes join the general pass.",
+      capturing: "Capturing the window…",
+      noteFor: "Note for {{label}}",
+      notePlaceholder: "What should the agents check here?",
+      save: "Add notes",
+      cancel: "Cancel",
+      retake: "Take a new screenshot",
     },
     preflight: {
       title: "Pre-flight",
@@ -2668,7 +2704,9 @@ export const en = {
         grantAccess: "Grant Accessibility access",
         actionLog: "Action log",
         readOnlyNote: "The agents drive this window; you cannot click in it.",
-        macOnly: "Desktop targets need the macOS desktop app.",
+        stopInput: "Stop input",
+        framework: "Framework",
+        desktopOnly: "Desktop targets need the Pimi desktop app.",
         accessibility: "Accessibility",
         screen: "Screen Recording",
         input: "Input",

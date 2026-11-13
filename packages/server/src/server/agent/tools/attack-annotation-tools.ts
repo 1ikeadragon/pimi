@@ -55,7 +55,7 @@ export function registerAttackAnnotationTools(options: RegisterAttackAnnotationT
     {
       title: "Get annotation",
       description:
-        'Read one of the owner\'s pre-flight annotations by label (for example "A1"): their note, the page, the element selector and text, and a screenshot of the element when there is one. Test exactly what the note asks, then pass the label in annotationLabels when you submit_finding about it. Only agents inside an Attack run can use it.',
+        'Read one of the owner\'s pre-flight annotations by label (for example "A1"): their note, the page, the element selector and text, and a screenshot of the element when there is one. For a desktop window annotation it returns the region of the window screenshot instead of a page and selector. Test exactly what the note asks, then pass the label in annotationLabels when you submit_finding about it. Only agents inside an Attack run can use it.',
       inputSchema: LabelInput,
     },
     async (input) => {
@@ -64,16 +64,27 @@ export function registerAttackAnnotationTools(options: RegisterAttackAnnotationT
       const { annotation, imageBase64 } = await asInputError(() =>
         options.service.annotationForAgent(agentId, parsed.label),
       );
-      const lines = [
-        `${annotation.label}: ${annotation.note.trim() || "(no note)"}`,
-        `page: ${annotation.url}`,
-        `element: <${annotation.tag}> ${annotation.selector}`,
-        annotation.text.trim() ? `text: ${JSON.stringify(annotation.text.trim())}` : null,
-        annotation.html.trim() ? `html: ${annotation.html.trim()}` : null,
-        imageBase64
-          ? "The attached image is the element as the owner saw it."
-          : "The owner's mark has no screenshot.",
-      ].filter((line): line is string => line !== null);
+      const region = annotation.kind === "desktop" ? annotation.region : null;
+      const lines = (
+        region
+          ? [
+              `${annotation.label}: ${annotation.note.trim() || "(no note)"}`,
+              `region x,y,w,h: ${region.x},${region.y},${region.width},${region.height} of the desktop window screenshot (window pixels, as in desktop_screenshot)`,
+              imageBase64
+                ? "The attached image is that region as the owner saw it."
+                : "The owner's mark has no screenshot.",
+            ]
+          : [
+              `${annotation.label}: ${annotation.note.trim() || "(no note)"}`,
+              `page: ${annotation.url}`,
+              `element: <${annotation.tag}> ${annotation.selector}`,
+              annotation.text.trim() ? `text: ${JSON.stringify(annotation.text.trim())}` : null,
+              annotation.html.trim() ? `html: ${annotation.html.trim()}` : null,
+              imageBase64
+                ? "The attached image is the element as the owner saw it."
+                : "The owner's mark has no screenshot.",
+            ]
+      ).filter((line): line is string => line !== null);
       const content: PimiToolResult["content"] = [{ type: "text", text: lines.join("\n") }];
       if (imageBase64) content.push({ type: "image", data: imageBase64, mimeType: "image/jpeg" });
       return {
@@ -82,6 +93,8 @@ export function registerAttackAnnotationTools(options: RegisterAttackAnnotationT
         structuredContent: {
           label: annotation.label,
           note: annotation.note,
+          kind: annotation.kind,
+          region,
           page: annotation.url,
           selector: annotation.selector,
           tag: annotation.tag,

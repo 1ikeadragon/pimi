@@ -6,7 +6,7 @@
 
 Chat with your agents, track their work, and review the changes in one app.
 
-Pimi will always be free to use and open source. Made for everyone. It is a passion project, so it does not accept contributions.
+Pimi will always be free to use and open source. Made for everyone. Pimi is a passion project of mine. Contributions are welcome through feature requests or bug reports. No PRs accepted for now :)
 
 [Downloads](https://1ikeadragon.github.io/pimi/) · [Android APK](https://github.com/1ikeadragon/pimi/releases/latest/download/Pimi-Android-arm64.apk) · [Release notes](https://github.com/1ikeadragon/pimi/releases/latest)
 

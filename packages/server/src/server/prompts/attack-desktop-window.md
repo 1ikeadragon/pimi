@@ -1,0 +1,1 @@
+Desktop window: {{appName}}'s window{{title}}. This is the only window you may read or drive. Use {{tools}}; every action is recorded for the owner and the desktop app refuses any other window or app, {{refused}}.
