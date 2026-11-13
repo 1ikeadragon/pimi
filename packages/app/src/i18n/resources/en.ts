@@ -596,7 +596,7 @@ export const en = {
       canceledPlan: "Canceled plan",
 
       plan: "Plan",
-      required: "Permission Required",
+      required: "Permission required",
       deny: "Deny",
       accept: "Accept",
       implement: "Implement",
