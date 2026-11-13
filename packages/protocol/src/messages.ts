@@ -524,6 +524,8 @@ const AgentModelDefinitionSchema = z.object({
   contextWindowMaxTokens: z.number().optional(),
   thinkingOptions: z.array(AgentSelectOptionSchema).optional(),
   defaultThinkingOptionId: z.string().optional(),
+  unsupportedModeIds: z.array(z.string()).optional(),
+  defaultModeId: z.string().optional(),
 }) satisfies z.ZodType<AgentModelDefinition>;
 
 export const ProviderSnapshotEntrySchema = z.object({

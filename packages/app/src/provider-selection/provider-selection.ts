@@ -293,6 +293,32 @@ export function resolveEffectiveComposerModeId(
   return modeIds.includes(selectedModeId) ? selectedModeId : (modeIds[0] ?? "");
 }
 
+/**
+ * Modes the selected model can run, and the mode to show when the remembered one is not among
+ * them. A model that cannot run a mode (Claude Haiku 4.5 and Auto) must not offer it, and the
+ * fallback is the model's own default, then the provider's, never merely the first listed mode.
+ */
+export function resolveModelModeSelection(input: {
+  modes: AgentMode[];
+  selectedModeId: string;
+  model: AgentModelDefinition | null;
+  providerDefaultModeId: string | null | undefined;
+  isLoading: boolean;
+}): { modes: AgentMode[]; selectedModeId: string } {
+  const unsupported = input.model?.unsupportedModeIds;
+  const modes =
+    unsupported && unsupported.length > 0
+      ? input.modes.filter((mode) => !unsupported.includes(mode.id))
+      : input.modes;
+  if (input.isLoading || modes.length === 0 || modes.some((m) => m.id === input.selectedModeId)) {
+    return { modes, selectedModeId: input.selectedModeId };
+  }
+  const fallback = [input.model?.defaultModeId, input.providerDefaultModeId].find(
+    (id) => id && modes.some((mode) => mode.id === id),
+  );
+  return { modes, selectedModeId: fallback ?? modes[0]?.id ?? input.selectedModeId };
+}
+
 export function resolveEffectiveComposerThinkingOptionId(
   selection: ProviderSelectionState,
   effectiveModelId: string,

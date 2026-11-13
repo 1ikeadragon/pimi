@@ -9,6 +9,7 @@ import type {
 import { buildProviderDefinitions } from "@/utils/provider-definitions";
 import {
   buildSelectableProviderSelectorProviders,
+  resolveModelModeSelection,
   type ProviderSelectorProvider,
 } from "@/provider-selection/provider-selection";
 import { filterSelectableModels } from "@/provider-selection/model-catalog";
@@ -248,11 +249,24 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
   const allProviderModels = snapshotAllProviderModels;
   const modelSelectorProviders = snapshotModelSelectorProviders;
   const availableModels = snapshotSelectedProviderModels;
-  const modeOptions = snapshotSelectedProviderModes;
   const isModelSelectionLoading =
     isConnected &&
     (resolution.status === "pending" || snapshotIsLoading || selectedProviderIsLoading);
   const isAllModelsLoading = isModelSelectionLoading;
+  const modelModeSelection = resolveModelModeSelection({
+    modes: snapshotSelectedProviderModes,
+    selectedModeId: formState.modeId,
+    model:
+      resolveEffectiveModel(availableModels, formState.model) ??
+      availableModels?.find((model) => model.isDefault) ??
+      null,
+    providerDefaultModeId: formState.provider
+      ? providerDefinitionMap.get(formState.provider)?.defaultModeId
+      : null,
+    isLoading: isModelSelectionLoading,
+  });
+  const modeOptions = modelModeSelection.modes;
+  const selectedModeId = modelModeSelection.selectedModeId;
 
   useEffect(() => {
     dispatch({
@@ -479,7 +493,7 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
     () => ({
       selectedServerId: serverId,
       selectedProvider: formState.provider,
-      selectedMode: formState.modeId,
+      selectedMode: selectedModeId,
       setModeFromUser,
       selectedModel: formState.model,
       setModelFromUser,
@@ -510,7 +524,7 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
     [
       serverId,
       formState.provider,
-      formState.modeId,
+      selectedModeId,
       formState.model,
       formState.thinkingOptionId,
       workingDir,

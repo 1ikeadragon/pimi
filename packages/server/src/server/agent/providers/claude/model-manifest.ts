@@ -269,6 +269,10 @@ export function getClaudeManifestModels(
     if (model.contextWindowMaxTokens !== undefined) {
       definition.contextWindowMaxTokens = model.contextWindowMaxTokens;
     }
+    if ("supportsAutoMode" in model && model.supportsAutoMode === false) {
+      definition.unsupportedModeIds = ["auto"];
+      definition.defaultModeId = "default";
+    }
     if (thinkingOptions) {
       definition.thinkingOptions = thinkingOptions;
       definition.defaultThinkingOptionId = getDefaultThinkingOptionId(model);

@@ -117,6 +117,10 @@ export interface AgentModelDefinition {
   contextWindowMaxTokens?: number;
   thinkingOptions?: AgentSelectOption[];
   defaultThinkingOptionId?: string;
+  /** Provider modes this model cannot run; the mode picker omits them for this model. */
+  unsupportedModeIds?: string[];
+  /** Mode a new agent on this model starts in when the provider's default is unsupported. */
+  defaultModeId?: string;
 }
 
 export interface AgentSelectOption {

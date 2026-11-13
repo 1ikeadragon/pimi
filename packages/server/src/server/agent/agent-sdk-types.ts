@@ -106,6 +106,8 @@ export interface AgentModelDefinition {
   contextWindowMaxTokens?: number;
   thinkingOptions?: AgentSelectOption[];
   defaultThinkingOptionId?: string;
+  unsupportedModeIds?: string[];
+  defaultModeId?: string;
 }
 
 export interface AgentSelectOption {
