@@ -2,6 +2,7 @@ import { useCallback, useMemo } from "react";
 import { parseAgentDeepLink } from "@pimi/protocol/agent-deep-link";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
 import { getDesktopHost } from "@/desktop/host";
+import { openPimiReview, pullRequestUrlToSource } from "@/navigation/pimi-review";
 import { isHttpUrl } from "@/utils/http-url";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "@/i18n/use-translation";
@@ -344,6 +345,15 @@ async function dispatchExternalUrl(input: {
   if (agent) {
     navigateToAgent(agent);
     host?.dismissPimiWorkspace?.();
+    return;
+  }
+  // A pull request link opens in Review. Cmd/Ctrl-click and middle-click still reach the system browser.
+  const pullRequest =
+    host?.showPimiWorkspace && current.serverId
+      ? pullRequestUrlToSource(input.url, current.serverId)
+      : null;
+  if (pullRequest) {
+    openPimiReview(pullRequest);
     return;
   }
   if (host?.showPimiWorkspace && isHttpUrl(input.url) && current.onOpenWebUrl) {
