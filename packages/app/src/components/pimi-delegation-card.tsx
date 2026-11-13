@@ -4,10 +4,14 @@ import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { ChevronDown, ChevronUp } from "lucide-react-native";
 import type { PimiDelegation } from "@/utils/pimi-delegation";
+import { getParentAddressFromLabels } from "@pimi/protocol/agent-labels";
 import { AGENT_PROVIDER_DEFINITIONS } from "@pimi/protocol/provider-manifest";
 import { ModelProviderGlyph } from "@/components/model-browser";
 import { Button } from "@/components/ui/button";
 import { PressHighlight } from "@/components/ui/press-highlight";
+import { HostBadge } from "@/hosts/host-badge";
+import { useHostBadges } from "@/hosts/use-host-badges";
+import type { HostBadgeModel } from "@/hosts/appearance";
 import { useProvidersSnapshot } from "@/hooks/use-providers-snapshot";
 import { useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { useSessionStore, type Agent } from "@/stores/session-store";
@@ -19,18 +23,15 @@ import {
 import { SubagentStatusDot } from "@/subagents/status-dot";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
 
+/** The agent in the store must be the child this receipt names: same provider, same parent address. */
 function matchesWorker(agent: Agent | undefined, { source, worker }: PimiDelegation) {
-  if (
-    agent &&
-    (agent.serverId !== source.serverId ||
-      agent.parentAgentId !== source.agentId ||
-      agent.provider !== worker.provider ||
-      (agent.labels["pimi.parent-server-id"] !== undefined &&
-        agent.labels["pimi.parent-server-id"] !== source.serverId))
-  ) {
-    return false;
-  }
-  return true;
+  if (!agent) return true;
+  const parent = getParentAddressFromLabels(agent.labels, agent.serverId);
+  return (
+    parent?.serverId === source.serverId &&
+    parent.agentId === source.agentId &&
+    agent.provider === worker.provider
+  );
 }
 
 interface WorkerStatus {
@@ -76,16 +77,19 @@ export function PimiDelegationCard({
 }) {
   const { source, worker, sharedContext, shortened } = delegation;
   const [detailsOpen, setDetailsOpen] = useState(false);
+  // A receipt without a worker host (stored before workers could run elsewhere) names the source's host.
+  const workerServerId = worker.serverId ?? source.serverId;
   const agent = useSessionStore((state) => {
-    const session = state.sessions[source.serverId];
+    const session = state.sessions[workerServerId];
     return session?.agents.get(worker.id) ?? session?.agentDetails.get(worker.id);
   });
-  const connected = useHostRuntimeIsConnected(source.serverId);
-  const { entries } = useProvidersSnapshot(source.serverId);
+  const connected = useHostRuntimeIsConnected(workerServerId);
+  const { entries } = useProvidersSnapshot(workerServerId);
+  const hostBadges = useHostBadges({ enabled: workerServerId !== source.serverId });
   const toggleDetails = useCallback(() => setDetailsOpen((open) => !open), []);
   const openAgent = useCallback(
-    () => navigateToAgent({ serverId: source.serverId, agentId: worker.id }),
-    [source.serverId, worker.id],
+    () => navigateToAgent({ serverId: workerServerId, agentId: worker.id }),
+    [workerServerId, worker.id],
   );
   const status = useWorkerStatus(agent, connected);
   if (!matchesWorker(agent, delegation)) return children;
@@ -108,7 +112,8 @@ export function PimiDelegationCard({
           status={status}
           onOpen={agent ? openAgent : undefined}
           provider={provider}
-          serverId={source.serverId}
+          serverId={workerServerId}
+          hostBadge={hostBadges.get(workerServerId) ?? null}
         />
         <Button
           variant="ghost"
@@ -132,6 +137,7 @@ function DelegationRow({
   status,
   provider,
   serverId,
+  hostBadge,
   onOpen,
 }: {
   title: string;
@@ -139,6 +145,7 @@ function DelegationRow({
   status: WorkerStatus | null;
   provider: string;
   serverId: string;
+  hostBadge: HostBadgeModel | null;
   onOpen?: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
@@ -173,6 +180,7 @@ function DelegationRow({
           {meta}
         </Text>
       </View>
+      {hostBadge ? <HostBadge badge={hostBadge} /> : null}
       {status ? (
         <View style={styles.status}>
           <SubagentStatusDot

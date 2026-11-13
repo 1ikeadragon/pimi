@@ -7,9 +7,7 @@ Pimi manages coding agents and terminals through a daemon. Use the Pimi MCP tool
 
 ## Connected hosts
 
-Call `list_hosts` to discover the calling daemon (`self`) and its registered destinations (`hosts`). Use a destination's `serverId` for tool calls; labels are display names.
-
-`create_workspace`, `list_workspaces`, `create_agent`, `send_agent_prompt`, `get_agent_status`, `get_agent_activity`, and `list_agents` accept `serverId`. Omit it for the calling daemon. Other MCP tools operate on the calling daemon.
+`list_hosts` returns the calling daemon (`self`) and its registered destinations (`hosts`). Labels are display names; tool calls take the `serverId`.
 
 Keep an agent's `{ serverId, agentId }` together. For example, call `send_agent_prompt` with:
 
@@ -17,7 +15,7 @@ Keep an agent's `{ serverId, agentId }` together. For example, call `send_agent_
 { "serverId": "srv_build", "agentId": "agent_123", "prompt": "Continue", "notifyOnFinish": true }
 ```
 
-Remote paths and workspace IDs belong to the destination. Remote `list_agents` has no caller-directory default; pass `cwd` to filter it.
+Remote paths and workspace IDs belong to the destination. Remote `list_agents` has no caller-directory default; pass `cwd` to filter it. Other MCP tools operate on the calling daemon.
 
 Manage registrations through the CLI; use the returned `registrationId` for updates and removal:
 

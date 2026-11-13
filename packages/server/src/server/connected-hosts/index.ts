@@ -330,7 +330,9 @@ export class ConnectedHosts {
           client.authFailureReason !== null,
         ) ?? {
           code: "host_offline",
-          message: "Cannot reach host. Check the connection; retrying automatically.",
+          message: neverConnectedSocket(row)
+            ? "Cannot reach host. If it needs a sign-in, connect to it in the Pimi app first."
+            : "Cannot reach host. Check the connection; retrying automatically.",
         };
       else row.error = null;
       if (row.error?.code === "authentication_failed") {
@@ -543,6 +545,13 @@ const terminalFailures = new Set([
   "authentication_failed",
 ]);
 
+/**
+ * A unix:// or pipe:// registration that was never online waits on something outside this daemon,
+ * such as the desktop app's SSH sign-in. The generic retry message gives an agent nothing to act on.
+ */
+function neverConnectedSocket(row: Saved): boolean {
+  return /^(unix|pipe):\/\//.test(row.connection) && !row.lastOnlineAt;
+}
 function connectionFailure(error: unknown, authenticationFailed: boolean): HostSummary["error"] {
   if (error instanceof HostError) return { code: error.code, message: error.message };
   if (error instanceof Error && "code" in error && error.code === "authentication_failed")
