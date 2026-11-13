@@ -61,6 +61,10 @@ Agents on this computer can start agents on a saved SSH host through the local d
 
 `~/.pimi` holds the daemon state, `~/.pimi/runtime/<version>/` the installed bundle, `~/.pimi/runtime/current` the active one, and `~/.pimi/daemon-remote.log` the output of a nohup start. Delete `~/.pimi/runtime` to force a reinstall.
 
+## Running as root
+
+Claude Code refuses to start as uid 0 when it is asked to allow Bypass permissions, and Pimi always asks so a later switch to Bypass works. When the daemon runs as root, Pimi sets `IS_SANDBOX=1` in the environment of every Claude process it spawns, so every mode, including Bypass, works. Bypass as root can do anything to the machine. An `IS_SANDBOX` value you set for the daemon is kept. Exports in `~/.bashrc` do not reach the daemon, which takes only `PATH` from your login shell.
+
 ## Development
 
 `scripts/build-daemon-bundle.mjs <x64|arm64> <dir>` builds a bundle after `npm run build:server`; the release workflow builds both and attaches them. In an unpackaged desktop, `PIMI_REMOTE_DAEMON_BUNDLE_DIR=<dir>` uses those files instead of downloading, `PIMI_REMOTE_DAEMON_VERSION` overrides the version the remote must run, and `PIMI_SSH_CONFIG=<file>` adds `-F <file>` to every ssh Pimi starts. Packaged builds ignore the first two.
