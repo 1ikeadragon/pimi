@@ -2,6 +2,10 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.41 - 2026-11-14
+
+- Model picker: providers are listed first, with your profiles below them.
+
 ## 0.17.40 - 2026-11-14
 
 - Usage: a new Usage screen and popover (chart icon in the sidebar) show your Claude and Codex tokens, an estimated API-equivalent cost, a daily heatmap, usage over time, breakdowns by provider, model, project and origin, top chats with their subagents, tools and a recap. It reads local Claude and Codex transcripts read-only, including sessions run outside Pimi and archived Codex threads, and stores only totals in the local database. Costs are estimates; models without a known price show tokens only.
