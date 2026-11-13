@@ -9,6 +9,7 @@ import { useToast } from "@/contexts/toast-context";
 import {
   announceableDraftKeys,
   useAutomationDraftActions,
+  useAutomationDraftSync,
   useAutomationDrafts,
   type AggregatedAutomationDraft,
 } from "@/hooks/use-automation-drafts";
@@ -34,6 +35,7 @@ export function AutomationDraftWatcher(): null {
   const { t } = useTranslation();
   const router = useRouter();
   const toast = useToast();
+  useAutomationDraftSync();
   const drafts = useAutomationDrafts();
   const actions = useAutomationDraftActions();
 

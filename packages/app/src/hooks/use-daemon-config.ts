@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { MutableDaemonConfig, MutableDaemonConfigPatch } from "@pimi/protocol/messages";
 import { useReplicaQuery } from "@/data/query";
-import { daemonConfigQueryKey } from "@/data/daemon-config";
+import { daemonConfigQueryKey, fetchDaemonConfig } from "@/data/daemon-config";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 
 interface UseDaemonConfigResult {
@@ -27,8 +27,7 @@ export function useDaemonConfig(serverId: string | null): UseDaemonConfigResult 
       if (!client) {
         throw new Error(t("workspace.terminal.hostDisconnected"));
       }
-      const result = await client.getDaemonConfig();
-      return result.config;
+      return await fetchDaemonConfig(serverId ?? "", client);
     },
   });
 

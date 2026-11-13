@@ -1353,6 +1353,17 @@ function buildFetchAgentsRequest(
   });
 }
 
+// Reads whose response depends only on the request body, so concurrent callers can share one.
+const SHARED_READ_REQUESTS: ReadonlySet<string> = new Set([
+  "get_providers_snapshot_request",
+  "get_daemon_config_request",
+  "plugin.list.request",
+  "workspace.script.list.request",
+  "automation.list.request",
+  "automation.draft.list.request",
+  "provider.harness_updates.check.request",
+]);
+
 export class DaemonClient {
   private readonly providerSnapshotUpdates = new ProviderSnapshotUpdates({
     active: (message) => this.owned.owns(message),
@@ -1418,6 +1429,10 @@ export class DaemonClient {
   private pluginClientBundlesWriting = false;
   private logger: Logger;
   private pendingSendQueue: PendingSend[] = [];
+  // Identical `SHARED_READ_REQUESTS` issued while one is in flight share its response. Screens
+  // that mount together each ask for the same snapshot, config or list; over a tunnel every copy
+  // costs a round trip and the response bytes.
+  private readonly inflightReads = new Map<string, Promise<unknown>>();
   /**
    * Lowest relay endpoint security this client accepts on its next attempt.
    * Starts at the configured minimum and rises to "protected" once a daemon
@@ -2314,6 +2329,19 @@ export class DaemonClient {
     timeout?: number;
     selectPayload?: (payload: CorrelatedResponsePayload<TResponseType>) => TResult | null;
   }): Promise<TResult> {
+    if (params.requestId === undefined && SHARED_READ_REQUESTS.has(params.message.type)) {
+      const key = JSON.stringify(params.message);
+      const existing = this.inflightReads.get(key);
+      if (existing) return existing as Promise<TResult>;
+      const pending: Promise<TResult> = this.sendCorrelatedSessionRequest({
+        ...params,
+        requestId: this.createRequestId(),
+      }).finally(() => {
+        if (this.inflightReads.get(key) === pending) this.inflightReads.delete(key);
+      });
+      this.inflightReads.set(key, pending);
+      return pending;
+    }
     const resolvedRequestId = this.createRequestId(params.requestId);
     const message = SessionInboundMessageSchema.parse({
       ...params.message,
@@ -5784,16 +5812,33 @@ export class DaemonClient {
     });
   }
 
+  /** The full config with its hash; pass the hash to `getDaemonConfigIfChanged` later. */
   async getDaemonConfig(
     requestId?: string,
-  ): Promise<{ requestId: string; config: MutableDaemonConfig }> {
-    return this.sendCorrelatedSessionRequest({
+  ): Promise<{ requestId: string; configHash: string; config: MutableDaemonConfig }> {
+    const payload = await this.sendCorrelatedSessionRequest({
       requestId,
-      message: {
-        type: "get_daemon_config_request",
-      },
+      message: { type: "get_daemon_config_request" },
       responseType: "get_daemon_config_response",
     });
+    if (!payload.config) throw new Error("Daemon returned no config body");
+    return { requestId: payload.requestId, configHash: payload.configHash, config: payload.config };
+  }
+
+  /** Resolves `notModified` when the daemon's config still hashes to `ifNoneMatch`. */
+  async getDaemonConfigIfChanged(
+    ifNoneMatch: string,
+  ): Promise<
+    | { notModified: true; configHash: string }
+    | { notModified: false; configHash: string; config: MutableDaemonConfig }
+  > {
+    const payload = await this.sendCorrelatedSessionRequest({
+      message: { type: "get_daemon_config_request", ifNoneMatch },
+      responseType: "get_daemon_config_response",
+    });
+    if (payload.notModified) return { notModified: true, configHash: payload.configHash };
+    if (!payload.config) throw new Error("Daemon returned no config body");
+    return { notModified: false, configHash: payload.configHash, config: payload.config };
   }
 
   async getDaemonStatus(options?: DaemonStatusOptions): Promise<DaemonStatusPayload> {
@@ -6134,10 +6179,8 @@ export class DaemonClient {
   }
 
   async listPlugins(): Promise<PluginListItem[]> {
-    const requestId = this.createRequestId();
     const payload = await this.sendCorrelatedSessionRequest({
-      requestId,
-      message: { type: "plugin.list.request", requestId },
+      message: { type: "plugin.list.request" },
       responseType: "plugin.list.response",
     });
     return payload.plugins;
