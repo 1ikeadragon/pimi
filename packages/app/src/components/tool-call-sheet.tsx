@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useCallback, useMemo } from "react";
 import type { ReactNode } from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Text } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/i18n/use-translation";
 import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { X } from "lucide-react-native";
@@ -69,15 +70,12 @@ function ToolCallHeaderIcon({ icon: Icon, size, color }: ToolCallHeaderIconProps
 }
 
 const ThemedToolCallHeaderIcon = withUnistyles(ToolCallHeaderIcon, (theme) => ({
-  color: theme.colors.foreground,
-}));
-const ThemedCloseIcon = withUnistyles(X, (theme) => ({
   color: theme.colors.foregroundMuted,
 }));
 
 export const ToolCallSheetModal = withUnistyles(IsolatedBottomSheetModal, (theme) => ({
   backgroundStyle: {
-    backgroundColor: theme.colors.surface2,
+    backgroundColor: theme.colors.surface0,
     borderRadius: 16,
   },
   handleIndicatorStyle: {
@@ -170,33 +168,34 @@ function ToolCallSheetContent({ data, onClose }: ToolCallSheetContentProps) {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <ThemedToolCallHeaderIcon icon={IconComponent} size={20} />
+          <ThemedToolCallHeaderIcon icon={IconComponent} size={16} />
           <Text style={styles.headerTitle} numberOfLines={1}>
             {displayName}
           </Text>
         </View>
-        <Pressable
+        <Button
+          variant="ghost"
+          size="sm"
+          leftIcon={X}
           onPress={onClose}
-          style={styles.closeButton}
-          accessibilityRole="button"
           accessibilityLabel={t("common.actions.close")}
           testID="tool-call-sheet-close"
-        >
-          <ThemedCloseIcon size={20} />
-        </Pressable>
+        />
       </View>
 
       {/* Content */}
       <BottomSheetScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-        <ToolCallDetailsContent
-          toolName={toolName}
-          detail={body.detail}
-          errorText={errorText}
-          fillAvailableHeight
-          showLoadingSkeleton={showLoadingSkeleton}
-          bodyStatus={body.status}
-          onRetryBody={body.retry}
-        />
+        <View style={styles.body}>
+          <ToolCallDetailsContent
+            toolName={toolName}
+            detail={body.detail}
+            errorText={errorText}
+            fillAvailableHeight
+            showLoadingSkeleton={showLoadingSkeleton}
+            bodyStatus={body.status}
+            onRetryBody={body.retry}
+          />
+        </View>
       </BottomSheetScrollView>
     </View>
   );
@@ -207,16 +206,15 @@ function ToolCallSheetContent({ data, onClose }: ToolCallSheetContentProps) {
 const styles = StyleSheet.create((theme) => ({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.surface2,
+    backgroundColor: theme.colors.surface0,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: theme.spacing[4],
-    paddingVertical: theme.spacing[3],
-    borderBottomWidth: theme.borderWidth[1],
-    borderBottomColor: theme.colors.border,
+    paddingLeft: theme.spacing[4],
+    paddingRight: theme.spacing[2],
+    paddingVertical: theme.spacing[1],
   },
   headerLeft: {
     flexDirection: "row",
@@ -226,20 +224,21 @@ const styles = StyleSheet.create((theme) => ({
   },
   headerTitle: {
     fontSize: theme.fontSize.base,
-    fontWeight: theme.fontWeight.semibold,
+    fontWeight: theme.fontWeight.medium,
     color: theme.colors.foreground,
     flex: 1,
-  },
-  closeButton: {
-    padding: theme.spacing[2],
   },
   content: {
     flex: 1,
     minHeight: 0,
-    backgroundColor: theme.colors.surface2,
+    backgroundColor: theme.colors.surface0,
   },
   contentContainer: {
-    padding: 0,
     flexGrow: 1,
+  },
+  body: {
+    flex: 1,
+    paddingHorizontal: theme.spacing[3],
+    paddingBottom: theme.spacing[3],
   },
 }));

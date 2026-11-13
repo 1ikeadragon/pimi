@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, type ReactNode } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { BottomSheetScrollView, type BottomSheetScrollViewMethods } from "@gorhom/bottom-sheet";
 import { Wrench, X } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/i18n/use-translation";
 import {
   type ContextBridge,
@@ -23,9 +24,7 @@ interface OverviewToolCallGroupSheetProps {
 
 const SNAP_POINTS = ["60%", "95%"];
 const ThemedWrench = withUnistyles(Wrench);
-const ThemedX = withUnistyles(X);
-const foregroundMapping = (theme: Theme) => ({ color: theme.colors.foreground });
-const foregroundMutedMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
+const mutedMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
 export function OverviewToolCallGroupSheet({
   visible,
@@ -73,7 +72,7 @@ export function OverviewToolCallGroupSheet({
       <View style={styles.container} testID="tool-call-group-sheet">
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            {icon ?? <ThemedWrench size={20} uniProps={foregroundMapping} />}
+            {icon ?? <ThemedWrench size={16} uniProps={mutedMapping} />}
             <Text
               style={styles.headerTitle}
               numberOfLines={2}
@@ -82,15 +81,14 @@ export function OverviewToolCallGroupSheet({
               {summary}
             </Text>
           </View>
-          <Pressable
+          <Button
+            variant="ghost"
+            size="sm"
+            leftIcon={X}
             onPress={onClose}
-            style={styles.closeButton}
-            accessibilityRole="button"
             accessibilityLabel={t("common.actions.close")}
             testID="tool-call-group-sheet-close"
-          >
-            <ThemedX size={20} uniProps={foregroundMutedMapping} />
-          </Pressable>
+          />
         </View>
         <BottomSheetScrollView ref={scrollRef} style={styles.content}>
           <View style={styles.contentContainer}>{children}</View>
@@ -103,16 +101,15 @@ export function OverviewToolCallGroupSheet({
 const styles = StyleSheet.create((theme) => ({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.surface2,
+    backgroundColor: theme.colors.surface0,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: theme.spacing[4],
-    paddingVertical: theme.spacing[3],
-    borderBottomWidth: theme.borderWidth[1],
-    borderBottomColor: theme.colors.border,
+    paddingLeft: theme.spacing[4],
+    paddingRight: theme.spacing[2],
+    paddingVertical: theme.spacing[1],
   },
   headerLeft: {
     flexDirection: "row",
@@ -126,13 +123,10 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foreground,
     flex: 1,
   },
-  closeButton: {
-    padding: theme.spacing[2],
-  },
   content: {
     flex: 1,
     minHeight: 0,
-    backgroundColor: theme.colors.surface2,
+    backgroundColor: theme.colors.surface0,
   },
   contentContainer: {
     paddingHorizontal: 13,
