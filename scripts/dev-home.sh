@@ -66,6 +66,11 @@ configure_dev_daemon_config() {
   if [ -z "${PIMI_LISTEN:-}" ]; then
     return
   fi
+  # Never rewrite the installed app's home: dev listen/CORS there takes the main daemon offline.
+  if [ "$(cd "$PIMI_HOME" 2>/dev/null && pwd -P)" = "$(cd "$HOME/.pimi" 2>/dev/null && pwd -P)" ]; then
+    echo "Refusing to write dev daemon config into $PIMI_HOME" >&2
+    return
+  fi
 
   mkdir -p "$PIMI_HOME"
   node -e '
@@ -120,7 +125,8 @@ configure_dev_pimi_home() {
       seed_worktree_pimi_home "$PIMI_HOME"
     fi
     mkdir -p "$PIMI_HOME"
-    if [ "${PIMI_DEV_MANAGED_HOME:-0}" = "1" ] || [ -n "${PIMI_DEV_SEED_HOME:-}" ]; then
+    # Only the script-managed home gets dev config; a caller-supplied PIMI_HOME is left untouched.
+    if [ "${PIMI_DEV_MANAGED_HOME:-0}" = "1" ]; then
       configure_dev_daemon_config
     fi
     return
