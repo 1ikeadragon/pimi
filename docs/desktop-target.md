@@ -25,17 +25,17 @@ The owner's consent switches are separate: `allowDesktopInput` (also implied by 
 
 ## Platform differences an agent must be told
 
-|                | macOS                                                                                       | Windows                                                                                       |
-| -------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Element id     | ref such as `@d12` from a snapshot or `desktop_find`                                        | ref such as `@d12` from a snapshot, `desktop_find` or a marked screenshot                     |
-| Coordinates    | pixels of the latest screenshot (the helper remembers each agent's frame)                   | pixels of the latest screenshot (the helper remembers each agent's frame)                     |
-| Tools          | snapshot, find, element, screenshot, window, wait, audit, app, deeplink and the input tools | all of them                                                                                   |
-| Refused chords | `cmd+q`, `cmd+tab`, screenshots, space switching                                            | the Windows key, `alt+tab`, `alt+f4`, `ctrl+alt+<key>`, `alt+space`, `printscreen`, lock keys |
-| Permissions    | Accessibility and Screen Recording, granted to the app that spawned the helper              | none; the permissions call returns granted                                                    |
+|                | macOS                                                                          | Windows                                                                                       |
+| -------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| Element id     | ref such as `@d12` from a snapshot, `desktop_find` or a marked screenshot      | ref such as `@d12` from a snapshot, `desktop_find` or a marked screenshot                     |
+| Coordinates    | pixels of the latest screenshot (the helper remembers each agent's frame)      | pixels of the latest screenshot (the helper remembers each agent's frame)                     |
+| Tools          | all of them (the inspect sections differ, see below)                           | all of them                                                                                   |
+| Refused chords | `cmd+q`, `cmd+tab`, screenshots, space switching                               | the Windows key, `alt+tab`, `alt+f4`, `ctrl+alt+<key>`, `alt+space`, `printscreen`, lock keys |
+| Permissions    | Accessibility and Screen Recording, granted to the app that spawned the helper | none; the permissions call returns granted                                                    |
 
 The prompt block (`desktopBlock` in `packages/server/src/server/attack/prompts.ts`) says this per platform. Change both together.
 
-macOS answers `unsupported` for the Windows-only verbs and ignores optional arguments it cannot honour.
+macOS ignores optional arguments it cannot honour; the `dotnet` inspect section answers that it does not apply.
 
 ## Deny lists
 
@@ -51,6 +51,10 @@ macOS answers `unsupported` for the Windows-only verbs and ignores optional argu
 - `desktop_app`: `status` reads the pinned pid (alive and same start time), memory, CPU, whether Accessibility answers, and crash reports written to `~/Library/Logs/DiagnosticReports` since the start. `relaunch` asks the app to quit (`NSRunningApplication.terminate`), waits 3 s, force-quits only a disposable target, opens it again with the owner's launch arguments and pins its window. `launch` does nothing when a window is already open. More than one candidate window after a start fails with `refused`.
 - `desktop_deeplink` opens the URL in the target app only (`NSWorkspace.open(_:withApplicationAt:)`). The scheme must be in the bundle's `CFBundleURLTypes`; otherwise the helper refuses and names the system's handler. The main process also refuses web, file, mail and Apple-owned schemes.
 - Menu bar: `snapshot` ends with the app's top-level menu items (not the Apple menu) as refs. `click` on a menu ref is `AXPress` only (left, once, no modifiers) and never moves the cursor; points in the menu bar are refused by the hit test. Items named Quit, Hide, Hide Others, Close All, Log Out, Shut Down, Restart, Sleep or Lock Screen (English names), and items whose key equivalent is a chord `Safety.refusal` denies (cmd+q, cmd+h, cmd+w, cmd+m ...), are refused with their `refused` attribute shown in the tree.
+
+## Security tools
+
+`inspect`, `secrets_scan`, `files`, `network` and `ipc` need the owner's inspection switch (the launch form shows it for any picked window) and run in the main process on both platforms; the helper only answers `scope` (the install dir, the process tree, candidate data dirs). `security.ts` is shared: the scope roots, `files`, betterleaks, redaction and the endpoint list. `win/security-win.ts` and `mac/security-mac.ts` hold what differs: the paths no tool may read (Windows credential stores and browser profiles; on macOS Keychains, `~/.ssh`, `~/.gnupg`, `~/.pimi`, browser profiles, password managers, Messages and Mail, Pimi), the roots too broad to be one app's, and the app's settings store (`registry` root: the HKCU key or the preferences plist). On macOS `mac/inspect-mac.ts` answers `inspect` and `ipc` with `ps`, `lsof`, `codesign`, `spctl`, `plutil` and `xattr` (no `otool`: it is not on a stock Mac). Reading another app's `~/Library/Containers` can make macOS ask the owner to let Pimi access that data.
 
 ## Windows helper
 

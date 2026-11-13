@@ -6,7 +6,10 @@ import { appReport } from "../app-report.js";
 import { checkDeeplink } from "../deeplink.js";
 import { isElementRef, type DesktopGuard } from "../guard.js";
 import { helperRequest, HelperError, type HelperTarget } from "../helper-process.js";
+import { checkProbe, type SecurityInput } from "../security.js";
 import { forbiddenTarget, parseChord, refuseChord } from "./guard.js";
+import { runInspect, runIpc } from "./inspect-mac.js";
+import { candidateScope, runFiles, runNetwork, runSecretsScan } from "./security-mac.js";
 
 // The macOS side of Attack's desktop target. The main process applies the guard (deny list, input
 // consent, chords, ref shapes) and builds the helper's Target from it; the helper resolves the
@@ -85,9 +88,28 @@ function needsInput(command: DesktopTargetCommand): boolean {
   }
 }
 
+// The read-tier security tools need the owner's allowDesktopInspect switch, enforced here again
+// after the daemon.
+function needsInspect(command: DesktopTargetCommand): boolean {
+  switch (command.command) {
+    case "inspect":
+    case "secrets_scan":
+    case "files":
+    case "network":
+      return true;
+    case "ipc":
+      return command.args.action === "list";
+    default:
+      return false;
+  }
+}
+
 function checkCommand(command: DesktopTargetCommand, guard: DesktopGuard): void {
   if (needsInput(command) && !guard.allowInput) {
     refuse("The owner did not allow desktop input for this run.");
+  }
+  if (needsInspect(command) && !guard.allowInspect) {
+    refuse("The owner did not allow security inspection for this run.");
   }
   switch (command.command) {
     case "click":
@@ -111,6 +133,9 @@ function checkCommand(command: DesktopTargetCommand, guard: DesktopGuard): void 
     case "deeplink":
       checkDeeplink(command.args.url, NOT_CUSTOM_SCHEMES);
       break;
+    case "ipc":
+      checkProbe(command.args);
+      break;
     case "app":
       if (command.args.action !== "status" && !guard.allowRelaunch) {
         refuse("The owner did not allow launching or relaunching the app for this run.");
@@ -121,8 +146,8 @@ function checkCommand(command: DesktopTargetCommand, guard: DesktopGuard): void 
   }
 }
 
-// The verbs the macOS helper does not have yet (the security tools) answer `unsupported` instead
-// of reaching it.
+// The verbs the helper answers. The security tools run in this process (the helper supplies the
+// scope) and never reach it by their own name.
 const MAC_VERBS: ReadonlySet<string> = new Set([
   "snapshot",
   "screenshot",
@@ -184,8 +209,10 @@ export async function runMac(
   const forbidden = forbiddenTarget(guard.bundleId);
   if (forbidden) refuse(forbidden);
   checkCommand(command, guard);
+  const security = await runSecurityLocally(command, { guard, agentId, target: targetFor(guard) });
+  if (security) return security;
   if (!MAC_VERBS.has(command.command)) {
-    throw new HelperError("unsupported", "That desktop tool is not available on macOS yet.");
+    throw new HelperError("unsupported", "That desktop tool is not available on macOS.");
   }
   const { repinned, ...result } = await helperRequest({
     verb: command.command,
@@ -203,6 +230,47 @@ export async function runMac(
   }
   // The helper's reply is checked against the wire schema by the daemon's broker.
   return { command: command.command, ...fill(command.command, result) } as DesktopTargetResult;
+}
+
+// The tools whose work is done here rather than in the helper (the helper supplies the scope).
+async function runSecurityLocally(
+  command: DesktopTargetCommand,
+  input: SecurityInput,
+): Promise<DesktopTargetResult | null> {
+  switch (command.command) {
+    case "inspect":
+      return runInspect(command.args, input);
+    case "ipc":
+      return runIpc(command.args, input);
+    case "secrets_scan":
+      return runSecretsScan(command.args, input);
+    case "files":
+      return runFiles(command.args, input);
+    case "network":
+      return runNetwork(input);
+    default:
+      return null;
+  }
+}
+
+/** The data dirs the launch form proposes for a picked window (the owner confirms or edits them). */
+export function resolveMacScope(request: {
+  bundleId: string;
+  windowTitle: string;
+  win: { hwnd: string; pid: number; processStartedAt: string | null };
+}): Promise<{ installDir: string | null; dataDirs: string[] }> {
+  return candidateScope({
+    appId: request.bundleId,
+    windowTitle: request.windowTitle,
+    hwnd: request.win.hwnd,
+    pid: request.win.pid,
+    processStartedAt: request.win.processStartedAt,
+    windowClass: null,
+    allowInput: false,
+    allowRelaunch: false,
+    launchArgs: "",
+    disposable: false,
+  });
 }
 
 // Click results name what was hit; the schema wants them present.

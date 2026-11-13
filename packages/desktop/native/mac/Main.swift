@@ -135,6 +135,13 @@ enum Main {
             return try Ax.audit(w)
         case "app":
             return try Apps.run(a, t)
+        case "scope":
+            // A probe asks with input: true and needs the owner's input consent too.
+            let w = try prep(t, .read, &repin)
+            if a.bool("input", false), !(t?.allowInput ?? false) {
+                throw HelperError("refused", "Input is not enabled for this run.")
+            }
+            return Apps.scope(w)
         case "deeplink":
             // Opening a URL needs the owner's input consent but no Accessibility.
             let w = try prep(t, .read, &repin)

@@ -2546,7 +2546,6 @@ export const ko: TranslationResources = {
       desktopLaunchArgsHint:
         "에이전트가 앱을 다시 시작할 때 사용합니다. 예: Electron 앱용 --force-renderer-accessibility",
       desktopDataDirAdd: en.attack.form.desktopDataDirAdd,
-      desktopDataDirPlaceholder: en.attack.form.desktopDataDirPlaceholder,
       desktopDataDirRefused: en.attack.form.desktopDataDirRefused,
       desktopDataDirRemove: en.attack.form.desktopDataDirRemove,
       desktopDataDirs: en.attack.form.desktopDataDirs,

@@ -2585,7 +2585,6 @@ export const es: TranslationResources = {
       desktopLaunchArgsHint:
         "Se usan cuando un agente reinicia la app, por ejemplo --force-renderer-accessibility para apps de Electron.",
       desktopDataDirAdd: en.attack.form.desktopDataDirAdd,
-      desktopDataDirPlaceholder: en.attack.form.desktopDataDirPlaceholder,
       desktopDataDirRefused: en.attack.form.desktopDataDirRefused,
       desktopDataDirRemove: en.attack.form.desktopDataDirRemove,
       desktopDataDirs: en.attack.form.desktopDataDirs,

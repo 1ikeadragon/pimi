@@ -56,16 +56,12 @@ function desktopBlock(run: AttackRun): string | null {
         : "attack-desktop-input-denied",
       {},
     ),
-    ...(windows
-      ? [
-          renderTemplate(
-            target.allowDesktopInspect
-              ? "attack-desktop-inspect-allowed"
-              : "attack-desktop-inspect-denied",
-            {},
-          ),
-        ]
-      : []),
+    renderTemplate(
+      target.allowDesktopInspect
+        ? "attack-desktop-inspect-allowed"
+        : "attack-desktop-inspect-denied",
+      {},
+    ),
   ].join("\n");
 }
 

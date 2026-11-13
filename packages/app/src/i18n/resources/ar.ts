@@ -2530,7 +2530,6 @@ export const ar: TranslationResources = {
       desktopLaunchArgsHint:
         "تُستخدم عندما يعيد وكيل تشغيل التطبيق، مثل --force-renderer-accessibility لتطبيقات Electron.",
       desktopDataDirAdd: en.attack.form.desktopDataDirAdd,
-      desktopDataDirPlaceholder: en.attack.form.desktopDataDirPlaceholder,
       desktopDataDirRefused: en.attack.form.desktopDataDirRefused,
       desktopDataDirRemove: en.attack.form.desktopDataDirRemove,
       desktopDataDirs: en.attack.form.desktopDataDirs,

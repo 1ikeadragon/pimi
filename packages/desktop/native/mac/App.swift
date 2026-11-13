@@ -271,4 +271,85 @@ enum Apps {
             "mutatingPayload": mutating, "focusLeft": Input.focusLeft(w) ?? NSNull(), "changed": changed,
         ]
     }
+
+    // ---- scope ----
+
+    private static func exists(dir: String) -> Bool {
+        var isDir: ObjCBool = false
+        return FileManager.default.fileExists(atPath: dir, isDirectory: &isDir) && isDir.boolValue
+    }
+
+    /// Where the app keeps its own files: names the app is known by, under the usual Library folders.
+    /// Candidates only; the main process drops what must never be read and the owner confirms.
+    private static func dataDirs(_ app: AppInfo) -> [String] {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let bundleName = (app.bundlePath as NSString).lastPathComponent.replacingOccurrences(of: ".app", with: "")
+        let names = Array(Set([app.bundleId, app.name, app.exeName, bundleName])).filter {
+            !$0.isEmpty && !$0.contains("/") && $0 != "." && $0 != ".."
+        }
+        var out: [String] = []
+        func add(_ path: String) {
+            if exists(dir: path), !out.contains(path) { out.append(path) }
+        }
+        for n in names { add("\(home)/Library/Application Support/\(n)") }
+        add("\(home)/Library/Containers/\(app.bundleId)/Data")
+        let groups = (try? FileManager.default.contentsOfDirectory(atPath: home + "/Library/Group Containers")) ?? []
+        for g in groups where g == app.bundleId || g.hasSuffix("." + app.bundleId) || g.hasPrefix("group." + app.bundleId) {
+            add("\(home)/Library/Group Containers/\(g)")
+        }
+        add("\(home)/Library/Caches/\(app.bundleId)")
+        for n in names { add("\(home)/Library/Logs/\(n)") }
+        add("\(home)/Library/Saved Application State/\(app.bundleId).savedState")
+        add("\(home)/Library/HTTPStorages/\(app.bundleId)")
+        add("\(home)/Library/WebKit/\(app.bundleId)")
+        return out
+    }
+
+    /// Process ids of the app: the window's process, its descendants, and anything else that runs
+    /// from inside the bundle (XPC services and helpers launchd started).
+    private static func tree(_ w: Win) -> [JSON] {
+        let count = proc_listallpids(nil, 0)
+        guard count > 0 else { return [] }
+        var pids = [pid_t](repeating: 0, count: Int(count) + 32)
+        let got = proc_listallpids(&pids, Int32(pids.count * MemoryLayout<pid_t>.size))
+        var rows: [pid_t: (ProcLite, String)] = [:]
+        for pid in pids.prefix(Int(got)) where pid > 0 {
+            guard let p = procLite(pid) else { continue }
+            var path = [CChar](repeating: 0, count: 4096)
+            let n = proc_pidpath(pid, &path, UInt32(path.count))
+            rows[pid] = (p, n > 0 ? String(cString: path) : "")
+        }
+        var inTree: Set<pid_t> = [w.pid]
+        var changed = true
+        while changed {
+            changed = false
+            for (pid, row) in rows where !inTree.contains(pid) && inTree.contains(row.0.ppid) {
+                inTree.insert(pid)
+                changed = true
+            }
+        }
+        let prefix = w.app.bundlePath + "/"
+        for (pid, row) in rows where row.1.hasPrefix(prefix) { inTree.insert(pid) }
+        return inTree.sorted().prefix(200).compactMap { pid in
+            guard let row = rows[pid] else { return nil }
+            return [
+                "pid": Int(pid), "ppid": Int(row.0.ppid), "uid": Int(row.0.uid), "path": row.1, "startedAt": row.0.started,
+            ]
+        }
+    }
+
+    static func scope(_ w: Win) -> JSON {
+        let install = (try? URL(fileURLWithPath: w.app.bundlePath).resolvingSymlinksInPath().path) ?? w.app.bundlePath
+        var handlers: JSON = [:]
+        for scheme in schemes(w.app.bundlePath) {
+            if let probe = URL(string: scheme + "://x"), let url = NSWorkspace.shared.urlForApplication(toOpen: probe) {
+                handlers[scheme] = url.path
+            }
+        }
+        let main = NSRunningApplication(processIdentifier: w.pid)?.executableURL?.path ?? ""
+        return [
+            "installDir": install, "exe": main, "bundleId": w.app.bundleId, "appName": w.app.name, "pid": Int(w.pid),
+            "startedAt": w.started, "procs": tree(w), "dataDirs": dataDirs(w.app), "handlers": handlers,
+        ]
+    }
 }

@@ -8,16 +8,15 @@ import { appReport } from "../app-report.js";
 import { isElementRef, type DesktopGuard } from "../guard.js";
 import { forbiddenWinTarget, parseWinChord, parseWinKeys, refuseWinChord } from "./guard-win.js";
 import { helperRequest, HelperError, type HelperTarget } from "../helper-process.js";
+import { checkProbe, type SecurityInput } from "../security.js";
 import {
   candidateScope,
   checkDataDir,
   checkDeeplink,
-  checkProbe,
   runFiles,
   runNetwork,
   runSecretsScan,
-  type SecurityInput,
-} from "./security.js";
+} from "./security-win.js";
 
 // The Windows side of Attack's desktop target. The main process applies the guard (deny list,
 // input consent, chords, ref shapes) and builds the helper's Target from it; the helper resolves

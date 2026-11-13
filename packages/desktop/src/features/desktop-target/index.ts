@@ -4,7 +4,8 @@ import {
   type DesktopTargetErrorCode,
   type DesktopTargetExecuteResponse,
 } from "@pimi/protocol/desktop-target/rpc-schemas";
-import { runMac } from "./mac/index.js";
+import { resolveMacScope, runMac } from "./mac/index.js";
+import { checkDataDir as checkMacDataDir } from "./mac/security-mac.js";
 import { HelperError, stopHelper } from "./helper-process.js";
 import { checkWinDataDir, resolveWinScope, runWin } from "./win/index.js";
 
@@ -123,7 +124,7 @@ export function registerDesktopTargetIpc(): void {
   );
   // The launch form's data-dir proposal for a picked window, and the check of one the owner typed.
   ipcMain.handle("pimi:desktop-target:scope", async (_event, raw: unknown) => {
-    if (!IS_WIN) return { ok: false, error: "Security scope is only available on Windows." };
+    if (!IS_WIN && !IS_MAC) return { ok: false, error: "Security scope is not available here." };
     const request = raw as {
       bundleId?: unknown;
       windowTitle?: unknown;
@@ -139,24 +140,29 @@ export function registerDesktopTargetIpc(): void {
       return { ok: false, error: "Pick a window first." };
     }
     try {
-      const scope = await resolveWinScope({
-        bundleId: request.bundleId,
-        windowTitle: typeof request.windowTitle === "string" ? request.windowTitle : "",
-        win: {
-          hwnd: win.hwnd,
-          pid: win.pid,
-          processStartedAt: typeof win.processStartedAt === "string" ? win.processStartedAt : null,
-          windowClass: win.windowClass,
-        },
-      });
+      const windowTitle = typeof request.windowTitle === "string" ? request.windowTitle : "";
+      const processStartedAt =
+        typeof win.processStartedAt === "string" ? win.processStartedAt : null;
+      const scope = IS_MAC
+        ? await resolveMacScope({
+            bundleId: request.bundleId,
+            windowTitle,
+            win: { hwnd: win.hwnd, pid: win.pid, processStartedAt },
+          })
+        : await resolveWinScope({
+            bundleId: request.bundleId,
+            windowTitle,
+            win: { hwnd: win.hwnd, pid: win.pid, processStartedAt, windowClass: win.windowClass },
+          });
       return { ok: true, ...scope };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error.message : String(error) };
     }
   });
   ipcMain.handle("pimi:desktop-target:check-data-dir", async (_event, raw: unknown) => {
-    if (!IS_WIN || typeof raw !== "string") return null;
-    return checkWinDataDir(raw);
+    if (typeof raw !== "string") return null;
+    if (IS_MAC) return checkMacDataDir(raw);
+    return IS_WIN ? checkWinDataDir(raw) : null;
   });
   ipcMain.handle("pimi:desktop-target:open-settings", async (_event, pane: unknown) => {
     if (!IS_MAC || typeof pane !== "string" || !(pane in SETTINGS_PANES)) return;

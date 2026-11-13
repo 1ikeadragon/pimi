@@ -83,6 +83,13 @@ export function isWindowsTarget(target: Pick<AttackDesktopTarget, "platform">): 
   return target.platform === "win32";
 }
 
+/** An example folder for the data-dir field, in the owner's platform's shape. */
+export function dataDirPlaceholder(target: Pick<AttackDesktopTarget, "platform"> | null): string {
+  return target && isWindowsTarget(target)
+    ? "C:\\Users\\you\\AppData\\Roaming\\MyApp"
+    : "~/Library/Application Support/MyApp";
+}
+
 /** A browser, mail or chat client, or a launcher: legitimate, but signed in to the owner's accounts. */
 export function isWarnTierTarget(target: AttackDesktopTarget): boolean {
   if (isWindowsTarget(target)) {

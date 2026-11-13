@@ -2501,7 +2501,6 @@ export const zhCN: TranslationResources = {
       desktopLaunchArgsHint:
         "智能体重新启动应用时使用,例如 Electron 应用的 --force-renderer-accessibility。",
       desktopDataDirAdd: en.attack.form.desktopDataDirAdd,
-      desktopDataDirPlaceholder: en.attack.form.desktopDataDirPlaceholder,
       desktopDataDirRefused: en.attack.form.desktopDataDirRefused,
       desktopDataDirRemove: en.attack.form.desktopDataDirRemove,
       desktopDataDirs: en.attack.form.desktopDataDirs,

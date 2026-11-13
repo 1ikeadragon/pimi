@@ -2567,7 +2567,6 @@ export const en = {
       desktopLaunchArgsHint:
         "Used when an agent relaunches the app, for example --force-renderer-accessibility for Electron apps.",
       desktopDataDirAdd: "Add folder",
-      desktopDataDirPlaceholder: "C:\\Users\\you\\AppData\\Roaming\\MyApp",
       desktopDataDirRefused:
         "That folder cannot be used: it is missing, too broad, or holds browser, Pimi or credential data.",
       desktopDataDirRemove: "Remove folder",
@@ -2597,7 +2596,7 @@ export const en = {
       needsCredentials: "needs test credentials",
       needsRepository: "needs repository",
       needsDisposable: "needs disposable target",
-      needsDesktop: "needs a Windows desktop window",
+      needsDesktop: "needs a desktop window",
     },
     run: {
       status: {

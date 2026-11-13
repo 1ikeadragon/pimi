@@ -1,20 +1,18 @@
 import { execFile } from "node:child_process";
 import { existsSync, promises as fs } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import type {
   DesktopTargetCommand,
   DesktopTargetResult,
 } from "@pimi/protocol/desktop-target/rpc-schemas";
-import { checkDeeplink as checkSharedDeeplink } from "../deeplink.js";
-import type { DesktopGuard } from "../guard.js";
+import type { DesktopGuard } from "./guard.js";
 import {
   betterleaksPath,
   helperRequest,
   HelperError,
   type HelperTarget,
-} from "../helper-process.js";
+} from "./helper-process.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -25,11 +23,11 @@ const execFileAsync = promisify(execFile);
 // { where, kind, valuePrefix (at most 4 characters), valueLength } and file reads come back with
 // secret-shaped values replaced.
 
-type Args<K extends DesktopTargetCommand["command"]> = Extract<
+export type Args<K extends DesktopTargetCommand["command"]> = Extract<
   DesktopTargetCommand,
   { command: K }
 >["args"];
-type Result<K extends DesktopTargetResult["command"]> = Extract<
+export type Result<K extends DesktopTargetResult["command"]> = Extract<
   DesktopTargetResult,
   { command: K }
 >;
@@ -44,6 +42,28 @@ function refuse(message: string): never {
   throw new HelperError("refused", message);
 }
 
+export type Hit = Result<"secrets_scan">["hits"][number];
+
+/**
+ * What differs per platform. Everything else here (the scope roots, the file reads, betterleaks,
+ * redaction, endpoints) is shared: the helper supplies the install dir and candidate data dirs,
+ * and the platform supplies the paths no tool may read and the roots too broad to be one app's.
+ */
+export interface SecurityPlatform {
+  /** Paths no tool may read, even when the owner's app lives under them. */
+  denyList(): string[];
+  /** Roots too broad to be one app's own: a confirmed dir may not be one of these or contain one. */
+  broadRoots(): string[];
+  /** Findings in the app's settings store (the registry key, the preferences plist). */
+  storeHits(scope: Record<string, unknown>, input: SecurityInput): Promise<Hit[]>;
+  /** `inspect` sections whose text may show disabled certificate validation. */
+  signalSections: readonly string[];
+  /** One `inspect` section's facts, when the platform answers them in this process instead of the helper. */
+  inspect?: (input: SecurityInput, section: string) => Promise<Record<string, unknown>>;
+  /** Certificate-validation signals the platform reads from the app's own configuration. */
+  configSignals?: (input: SecurityInput) => Promise<string[]>;
+}
+
 // ---- scope ----
 
 interface ScopeRoot {
@@ -54,76 +74,23 @@ interface ScopeRoot {
   dir: string;
 }
 
-function norm(value: string): string {
+export function norm(value: string): string {
   return path
     .normalize(value)
     .replace(/[\\/]+$/, "")
     .toLowerCase();
 }
 
-function isWithin(child: string, parent: string): boolean {
+export function isWithin(child: string, parent: string): boolean {
   const c = norm(child);
   const p = norm(parent);
   return c === p || c.startsWith(`${p}${path.sep}`);
 }
 
-function envDir(name: string): string | null {
-  const value = process.env[name];
-  return value ? value : null;
-}
-
-// Paths no tool may read, even when the owner's app lives under them: browser profiles, Pimi, and
-// credential stores.
-function denyList(): string[] {
-  const local = envDir("LOCALAPPDATA");
-  const roaming = envDir("APPDATA");
-  const home = os.homedir();
-  const under = (base: string | null, ...parts: string[]): string[] =>
-    base ? [path.join(base, ...parts)] : [];
-  return [
-    ...under(local, "Google", "Chrome", "User Data"),
-    ...under(local, "Google", "Chrome SxS", "User Data"),
-    ...under(local, "Microsoft", "Edge", "User Data"),
-    ...under(local, "BraveSoftware"),
-    ...under(local, "Vivaldi"),
-    ...under(local, "Chromium"),
-    ...under(local, "Opera Software"),
-    ...under(local, "Mozilla", "Firefox"),
-    ...under(roaming, "Mozilla", "Firefox"),
-    ...under(roaming, "Opera Software"),
-    ...under(roaming, "Pimi"),
-    ...under(local, "Pimi"),
-    ...under(home, ".pimi"),
-    path.dirname(process.execPath),
-    ...under(roaming, "Microsoft", "Credentials"),
-    ...under(roaming, "Microsoft", "Protect"),
-    ...under(roaming, "Microsoft", "Vault"),
-    ...under(local, "Microsoft", "Credentials"),
-    ...under(local, "Microsoft", "Vault"),
-    ...under(home, ".ssh"),
-    ...under(home, ".gnupg"),
-  ];
-}
-
-// Roots too broad to be one app's own: a confirmed dir may not be one of these or contain one,
-// or it would take in other apps' data.
-function broadRoots(): string[] {
-  return [
-    os.homedir(),
-    envDir("APPDATA"),
-    envDir("LOCALAPPDATA"),
-    envDir("PROGRAMDATA"),
-    envDir("SystemRoot"),
-    envDir("ProgramFiles"),
-    envDir("ProgramFiles(x86)"),
-    envDir("SystemDrive") ? `${envDir("SystemDrive")}\\` : null,
-  ].filter((value): value is string => value !== null && value !== "");
-}
-
-function deniedReason(dir: string): string | null {
+function deniedReason(platform: SecurityPlatform, dir: string): string | null {
   const parts = norm(dir).split(path.sep);
   if (parts.includes(".ssh") || parts.includes(".gnupg")) return "a credential store";
-  if (denyList().some((denied) => isWithin(dir, denied))) {
+  if (platform.denyList().some((denied) => isWithin(dir, denied))) {
     return "a browser profile, Pimi or a credential store";
   }
   return null;
@@ -139,14 +106,15 @@ async function canonicalDir(raw: string): Promise<string | null> {
 }
 
 async function acceptRoot(
+  platform: SecurityPlatform,
   name: ScopeRoot["name"],
   kind: ScopeRoot["kind"],
   raw: string,
 ): Promise<ScopeRoot | null> {
   const dir = await canonicalDir(raw);
   if (!dir) return null;
-  if (deniedReason(dir)) return null;
-  if (broadRoots().some((broad) => isWithin(broad, dir))) {
+  if (deniedReason(platform, dir)) return null;
+  if (platform.broadRoots().some((broad) => isWithin(broad, dir))) {
     return null;
   }
   return { name, kind, dir };
@@ -154,12 +122,16 @@ async function acceptRoot(
 
 interface ResolvedScope {
   roots: ScopeRoot[];
-  registry: unknown[];
+  reply: Record<string, unknown>;
 }
 
 // The helper names the install dir (authoritative, from the pinned process); the data dirs are
 // the ones the owner confirmed in the launch form. Both are re-checked here against the deny-list.
-async function resolveScope(input: SecurityInput, registry: boolean): Promise<ResolvedScope> {
+async function resolveScope(
+  platform: SecurityPlatform,
+  input: SecurityInput,
+  registry: boolean,
+): Promise<ResolvedScope> {
   const reply = await helperRequest({
     verb: "scope",
     agent: input.agentId,
@@ -168,16 +140,16 @@ async function resolveScope(input: SecurityInput, registry: boolean): Promise<Re
   });
   const roots: ScopeRoot[] = [];
   if (typeof reply.installDir === "string") {
-    const install = await acceptRoot("install", "install", reply.installDir);
+    const install = await acceptRoot(platform, "install", "install", reply.installDir);
     if (install) roots.push(install);
   }
   let index = 0;
   for (const raw of input.guard.dataDirs) {
     index += 1;
-    const data = await acceptRoot(`data${index}`, "data", raw);
+    const data = await acceptRoot(platform, `data${index}`, "data", raw);
     if (data) roots.push(data);
   }
-  return { roots, registry: Array.isArray(reply.registry) ? reply.registry : [] };
+  return { roots, reply };
 }
 
 /**
@@ -186,31 +158,35 @@ async function resolveScope(input: SecurityInput, registry: boolean): Promise<Re
  * The owner edits the list, and every read re-checks it.
  */
 export async function candidateScope(
+  platform: SecurityPlatform,
   target: HelperTarget,
 ): Promise<{ installDir: string | null; dataDirs: string[] }> {
   const reply = await helperRequest({ verb: "scope", agent: "owner", target, args: {} });
   const install =
     typeof reply.installDir === "string"
-      ? await acceptRoot("install", "install", reply.installDir)
+      ? await acceptRoot(platform, "install", "install", reply.installDir)
       : null;
   const candidates = Array.isArray(reply.dataDirs) ? reply.dataDirs : [];
   const dataDirs: string[] = [];
   for (const raw of candidates.slice(0, 20)) {
     if (typeof raw !== "string") continue;
-    const accepted = await acceptRoot("data1", "data", raw);
+    const accepted = await acceptRoot(platform, "data1", "data", raw);
     if (accepted && !dataDirs.includes(accepted.dir)) dataDirs.push(accepted.dir);
   }
   return { installDir: install?.dir ?? null, dataDirs };
 }
 
 /** The same rules for a directory the owner typed into the launch form. */
-export async function checkDataDir(raw: string): Promise<string | null> {
-  return (await acceptRoot("data1", "data", raw))?.dir ?? null;
+export async function checkDataDir(
+  platform: SecurityPlatform,
+  raw: string,
+): Promise<string | null> {
+  return (await acceptRoot(platform, "data1", "data", raw))?.dir ?? null;
 }
 
 // ---- secret patterns ----
 
-interface SecretPattern {
+export interface SecretPattern {
   kind: string;
   re: RegExp;
   /** The capture group that holds the secret; 0 is the whole match. */
@@ -219,7 +195,7 @@ interface SecretPattern {
   minEntropy?: number;
 }
 
-const PATTERNS: readonly SecretPattern[] = [
+export const PATTERNS: readonly SecretPattern[] = [
   { kind: "private-key", re: /-----BEGIN (?:[A-Z]+ )?PRIVATE KEY(?: BLOCK)?-----/dg, group: 0 },
   {
     kind: "jwt",
@@ -280,14 +256,14 @@ function entropy(value: string): number {
   return bits;
 }
 
-interface RawHit {
+export interface RawHit {
   kind: string;
   start: number;
   end: number;
   value: string;
 }
 
-function findSecrets(text: string, patterns: readonly SecretPattern[]): RawHit[] {
+export function findSecrets(text: string, patterns: readonly SecretPattern[]): RawHit[] {
   const hits: RawHit[] = [];
   for (const pattern of patterns) {
     pattern.re.lastIndex = 0;
@@ -316,7 +292,7 @@ function findSecrets(text: string, patterns: readonly SecretPattern[]): RawHit[]
 }
 
 // Enough of a value to tell kinds apart, never enough to use it: short values show nothing.
-function prefixOf(value: string): string {
+export function prefixOf(value: string): string {
   if (value.length >= 12) return value.slice(0, 4);
   if (value.length >= 8) return value.slice(0, 2);
   return "";
@@ -348,7 +324,7 @@ interface BetterleaksFinding {
   Attributes?: { confidence?: string };
 }
 
-const MAX_HITS = 500;
+export const MAX_HITS = 500;
 
 // ---- secrets_scan ----
 
@@ -397,24 +373,6 @@ async function runBetterleaks(dir: string): Promise<BetterleaksFinding[]> {
   }
 }
 
-function registryHits(raw: unknown[]): Result<"secrets_scan">["hits"] {
-  const out: Result<"secrets_scan">["hits"] = [];
-  for (const item of raw.slice(0, MAX_HITS)) {
-    const entry = item as Record<string, unknown>;
-    if (typeof entry.where !== "string" || typeof entry.kind !== "string") continue;
-    out.push({
-      where: entry.where.slice(0, 300),
-      kind: entry.kind.slice(0, 60),
-      valuePrefix: typeof entry.valuePrefix === "string" ? entry.valuePrefix.slice(0, 4) : "",
-      valueLength:
-        typeof entry.valueLength === "number" && entry.valueLength >= 0
-          ? Math.floor(entry.valueLength)
-          : 0,
-    });
-  }
-  return out;
-}
-
 function findingToHit(
   finding: BetterleaksFinding,
   rootName: string,
@@ -432,11 +390,12 @@ function findingToHit(
 }
 
 export async function runSecretsScan(
+  platform: SecurityPlatform,
   args: Args<"secrets_scan">,
   input: SecurityInput,
 ): Promise<Result<"secrets_scan">> {
   const wanted = new Set(args.roots ?? ["data", "install"]);
-  const scope = await resolveScope(input, wanted.has("registry"));
+  const scope = await resolveScope(platform, input, wanted.has("registry"));
   const roots = scope.roots.filter((root) => wanted.has(root.kind));
   if (roots.length === 0 && !wanted.has("registry")) {
     refuse(
@@ -460,8 +419,7 @@ export async function runSecretsScan(
     filesScanned += seen.size;
   }
   if (wanted.has("registry")) {
-    const registry = registryHits(scope.registry);
-    hits.push(...registry);
+    hits.push(...(await platform.storeHits(scope.reply, input)));
   }
   const lines = [
     `Scanned ${roots.map((r) => r.name).join(", ") || "no root"} with betterleaks v1.10.1.`,
@@ -518,7 +476,11 @@ function pickRoot(roots: readonly ScopeRoot[], relative: string): { root: ScopeR
   return { root, rel: rest.join("/") };
 }
 
-async function resolveInside(root: ScopeRoot, rel: string): Promise<string> {
+async function resolveInside(
+  platform: SecurityPlatform,
+  root: ScopeRoot,
+  rel: string,
+): Promise<string> {
   if (rel.split("/").includes("..")) refuse("Paths with .. are refused.");
   const joined = path.join(root.dir, ...rel.split("/").filter(Boolean));
   let real: string;
@@ -528,16 +490,17 @@ async function resolveInside(root: ScopeRoot, rel: string): Promise<string> {
     refuse("That path does not exist.");
   }
   if (!isWithin(real, root.dir)) refuse("That path leaves the app's own directory.");
-  const denied = deniedReason(real);
+  const denied = deniedReason(platform, real);
   if (denied) refuse(`That path is ${denied}.`);
   return real;
 }
 
 export async function runFiles(
+  platform: SecurityPlatform,
   args: Args<"files">,
   input: SecurityInput,
 ): Promise<Result<"files">> {
-  const { roots } = await resolveScope(input, false);
+  const { roots } = await resolveScope(platform, input, false);
   if (args.path.trim() === "") {
     if (args.action === "read") refuse("read needs a file path.");
     const report = roots.length
@@ -546,7 +509,7 @@ export async function runFiles(
     return { command: "files", report, bytes: Buffer.byteLength(report), truncated: false };
   }
   const { root, rel } = pickRoot(roots, args.path);
-  const real = await resolveInside(root, rel);
+  const real = await resolveInside(platform, root, rel);
   const stat = await fs.stat(real);
   if (args.action === "list") {
     if (!stat.isDirectory()) refuse("That is a file; use read.");
@@ -610,11 +573,23 @@ function splitAddress(value: unknown): { address: string; port: number } | null 
 
 type Endpoint = Result<"network">["endpoints"][number];
 
-// The helper's `inspect` ports section lists the process tree's sockets. Fields are read by the
-// names HELPER-CONTRACT.md gives them, and a "local"/"remote" "ip:port" string is accepted too.
-function endpointsFrom(structured: unknown): Endpoint[] {
-  const record = structured as { ports?: unknown } | null;
-  const rows = Array.isArray(record?.ports) ? (record.ports as Record<string, unknown>[]) : [];
+// The helper's `inspect` ports section lists the process tree's sockets as
+// { listening: [{ proto, address, port, pid }], connections: [{ proto, local, remote, state, pid }] }
+// ("ip:port" strings in connections). A flat list of rows with local/remote fields is accepted too.
+export function endpointsFrom(structured: unknown): Endpoint[] {
+  const ports = (structured as { ports?: unknown } | null)?.ports;
+  const asRows = (value: unknown): Record<string, unknown>[] =>
+    Array.isArray(value) ? (value as Record<string, unknown>[]) : [];
+  const rows: Record<string, unknown>[] = [];
+  if (Array.isArray(ports)) {
+    rows.push(...(ports as Record<string, unknown>[]));
+  } else if (ports && typeof ports === "object") {
+    const grouped = ports as { listening?: unknown; connections?: unknown };
+    for (const row of asRows(grouped.listening)) {
+      rows.push({ ...row, localAddress: row.address, localPort: row.port, state: "listening" });
+    }
+    rows.push(...asRows(grouped.connections));
+  }
   const out: Endpoint[] = [];
   for (const row of rows.slice(0, 500)) {
     const endpoint = endpointFrom(row);
@@ -631,9 +606,9 @@ function endpointFrom(row: Record<string, unknown>): Endpoint | null {
   const remoteAddress = listening ? null : (remote?.address ?? null);
   const remotePort = listening ? null : (remote?.port ?? null);
   let state = listening ? "listening" : "established";
-  if (typeof row.state === "string") state = row.state;
+  if (typeof row.state === "string") state = row.state.toLowerCase();
   return {
-    protocol: row.protocol === "udp" ? "udp" : "tcp",
+    protocol: String(row.protocol ?? row.proto ?? "").startsWith("udp") ? "udp" : "tcp",
     localAddress: local.address,
     localPort: local.port ?? 0,
     remoteAddress,
@@ -673,10 +648,12 @@ const CERT_SIGNALS: ReadonlyArray<{ re: RegExp; text: string }> = [
 ];
 
 async function inspectSection(
+  platform: SecurityPlatform,
   input: SecurityInput,
   section: string,
 ): Promise<Record<string, unknown> | null> {
   try {
+    if (platform.inspect) return await platform.inspect(input, section);
     const reply = await helperRequest({
       verb: "inspect",
       agent: input.agentId,
@@ -698,32 +675,28 @@ async function inspectSection(
  * The target's live endpoints and certificate-validation signals. The daemon adds the Network
  * monitor's launch and DNS records, which live in its process, not here.
  */
-export async function runNetwork(input: SecurityInput): Promise<Result<"network">> {
-  const ports = await inspectSection(input, "ports");
+export async function runNetwork(
+  platform: SecurityPlatform,
+  input: SecurityInput,
+): Promise<Result<"network">> {
+  const ports = await inspectSection(platform, input, "ports");
   const endpoints = endpointsFrom(ports);
-  const evidence = JSON.stringify([
-    await inspectSection(input, "commandline"),
-    await inspectSection(input, "dotnet"),
-  ]);
+  const evidence = JSON.stringify(
+    await Promise.all(
+      platform.signalSections.map((section) => inspectSection(platform, input, section)),
+    ),
+  );
   return {
     command: "network",
     endpoints,
-    certSignals: CERT_SIGNALS.filter((signal) => signal.re.test(evidence)).map(
-      (signal) => signal.text,
-    ),
+    certSignals: [
+      ...CERT_SIGNALS.filter((signal) => signal.re.test(evidence)).map((signal) => signal.text),
+      ...((await platform.configSignals?.(input)) ?? []),
+    ],
   };
 }
 
 // ---- checks the main process applies before a call reaches the helper ----
-
-// Schemes that are never a custom handler of the app: the helper checks the registered handler,
-// and this keeps the tool from being used as a general URL opener.
-const NOT_CUSTOM_SCHEMES =
-  /^(?:https?|file|ftps?|javascript|data|vbscript|about|mailto|tel|sms|smb|ssh|telnet|ldaps?|shell|search-ms|ms-[a-z-]+|windows[a-z-]*|microsoft-edge|chrome|view-source)$/i;
-
-export function checkDeeplink(url: string): void {
-  checkSharedDeeplink(url, NOT_CUSTOM_SCHEMES);
-}
 
 export function checkProbe(args: Args<"ipc">): void {
   if (args.action !== "probe") return;

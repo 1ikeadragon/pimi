@@ -2560,7 +2560,6 @@ export const ja: TranslationResources = {
       desktopLaunchArgsHint:
         "エージェントがアプリを再起動するときに使います。例:Electronアプリ向けの --force-renderer-accessibility",
       desktopDataDirAdd: en.attack.form.desktopDataDirAdd,
-      desktopDataDirPlaceholder: en.attack.form.desktopDataDirPlaceholder,
       desktopDataDirRefused: en.attack.form.desktopDataDirRefused,
       desktopDataDirRemove: en.attack.form.desktopDataDirRemove,
       desktopDataDirs: en.attack.form.desktopDataDirs,

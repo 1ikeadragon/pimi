@@ -2571,7 +2571,6 @@ export const ru: TranslationResources = {
       desktopLaunchArgsHint:
         "Используются, когда агент перезапускает приложение, например --force-renderer-accessibility для приложений на Electron.",
       desktopDataDirAdd: en.attack.form.desktopDataDirAdd,
-      desktopDataDirPlaceholder: en.attack.form.desktopDataDirPlaceholder,
       desktopDataDirRefused: en.attack.form.desktopDataDirRefused,
       desktopDataDirRemove: en.attack.form.desktopDataDirRemove,
       desktopDataDirs: en.attack.form.desktopDataDirs,
