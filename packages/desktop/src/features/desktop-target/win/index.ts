@@ -4,6 +4,7 @@ import type {
   DesktopTargetCommand,
   DesktopTargetResult,
 } from "@pimi/protocol/desktop-target/rpc-schemas";
+import { appReport } from "../app-report.js";
 import { isElementRef, type DesktopGuard } from "../guard.js";
 import { forbiddenWinTarget, parseWinChord, parseWinKeys, refuseWinChord } from "./guard-win.js";
 import { helperRequest, HelperError, type HelperTarget } from "../helper-process.js";
@@ -266,6 +267,8 @@ function fill(command: string, result: Record<string, unknown>): Record<string, 
       return { report: "", structured: {}, ...result };
     case "deeplink":
       return { launched: false, handler: null, ...result };
+    case "app":
+      return { report: appReport(result) };
     default:
       return result;
   }

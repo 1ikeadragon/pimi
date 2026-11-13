@@ -876,7 +876,7 @@ export function registerDesktopTools(options: RegisterDesktopToolsOptions): void
     {
       title: "Desktop app status and relaunch",
       description:
-        'Manage the process of the one app this run drives. action "status" reports running or exited (with the exit code), responding or hung, uptime, memory, handle counts and whether a crash dialog is up: call it when the window disappears or stops answering, and to watch for leaks. "launch" starts the app when it is not running; "relaunch" closes it and starts it again. Both start only the picked app with the arguments the owner typed, never anything else, and need the owner\'s launch consent for the run. If the app would not close, relaunch says so and does not kill it unless the target is disposable.',
+        'Manage the process of the one app this run drives. action "status" reports running or exited (with the exit code on Windows), responding or hung, uptime, memory, handle counts (Windows) and whether a crash dialog is up (Windows) or a crash report was written (macOS): call it when the window disappears or stops answering, and to watch for leaks. "launch" starts the app when it is not running; "relaunch" closes it and starts it again. Both start only the picked app with the arguments the owner typed, never anything else, and need the owner\'s launch consent for the run. If the app would not close, relaunch says so and does not kill it unless the target is disposable.',
       inputSchema: { action: z.enum(["status", "launch", "relaunch"]) },
     },
     ({ action }) => run({ command: "app", args: { action } }),
@@ -974,7 +974,7 @@ function registerSecurityTools(options: RegisterDesktopToolsOptions, run: RunDes
     {
       title: "Send a deep link to the desktop app",
       description:
-        "Invoke the app's own registered protocol with a payload you choose, to test how it handles the argument. The scheme must be one registered to the target exe (see desktop_inspect section \"protocols\"); a scheme routed to another app is refused. A payload that looks state-changing (not a bare navigation) is refused unless the owner marked the target disposable. The result says whether it launched, the handler, and whether focus left the window. Needs the owner's desktop input consent. Windows only.",
+        "Invoke the app's own registered protocol with a payload you choose, to test how it handles the argument. The scheme must be one registered to the target app (see desktop_inspect section \"protocols\"); a scheme routed to another app is refused. A payload that looks state-changing (not a bare navigation) is refused unless the owner marked the target disposable. The result says whether it launched, the handler, and whether focus left the window. Needs the owner's desktop input consent.",
       inputSchema: { url: z.string().min(1).max(2000) },
     },
     ({ url }) => run({ command: "deeplink", args: { url } }),

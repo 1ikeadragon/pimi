@@ -133,6 +133,13 @@ enum Main {
         case "audit":
             let w = try prep(t, .ax, &repin)
             return try Ax.audit(w)
+        case "app":
+            return try Apps.run(a, t)
+        case "deeplink":
+            // Opening a URL needs the owner's input consent but no Accessibility.
+            let w = try prep(t, .read, &repin)
+            if !(t?.allowInput ?? false) { throw HelperError("refused", "Input is not enabled for this run.") }
+            return try Apps.deeplink(w, a, t!)
         case "window":
             let state = (a.str("action") ?? "state") == "state"
             let w = try prep(t, state ? .read : .input, &repin)

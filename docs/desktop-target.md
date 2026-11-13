@@ -25,13 +25,13 @@ The owner's consent switches are separate: `allowDesktopInput` (also implied by 
 
 ## Platform differences an agent must be told
 
-|                | macOS                                                                          | Windows                                                                                       |
-| -------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| Element id     | ref such as `@d12` from a snapshot or `desktop_find`                           | ref such as `@d12` from a snapshot, `desktop_find` or a marked screenshot                     |
-| Coordinates    | pixels of the latest screenshot (the helper remembers each agent's frame)      | pixels of the latest screenshot (the helper remembers each agent's frame)                     |
-| Tools          | snapshot, find, element, screenshot, window, wait, audit and the input tools   | all of them                                                                                   |
-| Refused chords | `cmd+q`, `cmd+tab`, screenshots, space switching                               | the Windows key, `alt+tab`, `alt+f4`, `ctrl+alt+<key>`, `alt+space`, `printscreen`, lock keys |
-| Permissions    | Accessibility and Screen Recording, granted to the app that spawned the helper | none; the permissions call returns granted                                                    |
+|                | macOS                                                                                       | Windows                                                                                       |
+| -------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Element id     | ref such as `@d12` from a snapshot or `desktop_find`                                        | ref such as `@d12` from a snapshot, `desktop_find` or a marked screenshot                     |
+| Coordinates    | pixels of the latest screenshot (the helper remembers each agent's frame)                   | pixels of the latest screenshot (the helper remembers each agent's frame)                     |
+| Tools          | snapshot, find, element, screenshot, window, wait, audit, app, deeplink and the input tools | all of them                                                                                   |
+| Refused chords | `cmd+q`, `cmd+tab`, screenshots, space switching                                            | the Windows key, `alt+tab`, `alt+f4`, `ctrl+alt+<key>`, `alt+space`, `printscreen`, lock keys |
+| Permissions    | Accessibility and Screen Recording, granted to the app that spawned the helper              | none; the permissions call returns granted                                                    |
 
 The prompt block (`desktopBlock` in `packages/server/src/server/attack/prompts.ts`) says this per platform. Change both together.
 
@@ -48,6 +48,8 @@ macOS answers `unsupported` for the Windows-only verbs and ignores optional argu
 - Screen Recording and Accessibility are granted to the app that spawned the helper (Pimi packaged; Electron or the terminal in dev), not to the helper. `pimi-desktop-helper --selftest` prints both states for the process it runs under, so run it from a terminal only to see the terminal's grants.
 - The window is pinned by its window-server id, owner pid and process start time (carried in the picker's `win`, with the id in `hwnd`). The helper falls back to the app's one window and answers `repinned`.
 - Capture is ScreenCaptureKit on macOS 14+ (the window plus the menus, popovers and sheets of the same app that sit on it), with `screencapture -l <id>` as the fallback on macOS 13 and when ScreenCaptureKit fails; the result's `method` says which. Both read the window even when another window covers it. `grid`, `marks` and `region` are drawn and cropped in the helper with CoreGraphics; `marks` runs an interactive-only snapshot, so it needs Accessibility.
+- `desktop_app`: `status` reads the pinned pid (alive and same start time), memory, CPU, whether Accessibility answers, and crash reports written to `~/Library/Logs/DiagnosticReports` since the start. `relaunch` asks the app to quit (`NSRunningApplication.terminate`), waits 3 s, force-quits only a disposable target, opens it again with the owner's launch arguments and pins its window. `launch` does nothing when a window is already open. More than one candidate window after a start fails with `refused`.
+- `desktop_deeplink` opens the URL in the target app only (`NSWorkspace.open(_:withApplicationAt:)`). The scheme must be in the bundle's `CFBundleURLTypes`; otherwise the helper refuses and names the system's handler. The main process also refuses web, file, mail and Apple-owned schemes.
 
 ## Windows helper
 

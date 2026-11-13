@@ -7,6 +7,7 @@ import type {
   DesktopTargetCommand,
   DesktopTargetResult,
 } from "@pimi/protocol/desktop-target/rpc-schemas";
+import { checkDeeplink as checkSharedDeeplink } from "../deeplink.js";
 import type { DesktopGuard } from "../guard.js";
 import {
   betterleaksPath,
@@ -721,16 +722,7 @@ const NOT_CUSTOM_SCHEMES =
   /^(?:https?|file|ftps?|javascript|data|vbscript|about|mailto|tel|sms|smb|ssh|telnet|ldaps?|shell|search-ms|ms-[a-z-]+|windows[a-z-]*|microsoft-edge|chrome|view-source)$/i;
 
 export function checkDeeplink(url: string): void {
-  const match = /^([a-z][a-z0-9+.-]{1,63}):/i.exec(url);
-  if (!match) refuse("A deep link starts with the app's own scheme, such as myapp://...");
-  if (NOT_CUSTOM_SCHEMES.test(match[1] ?? "")) {
-    refuse(`The ${match[1]}: scheme is not a custom handler of the app.`);
-  }
-  const control = [...url].some((char) => {
-    const code = char.codePointAt(0) ?? 0;
-    return code < 0x20 || code === 0x7f;
-  });
-  if (control) refuse("A deep link holds no control characters.");
+  checkSharedDeeplink(url, NOT_CUSTOM_SCHEMES);
 }
 
 export function checkProbe(args: Args<"ipc">): void {

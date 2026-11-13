@@ -2,6 +2,8 @@ import type {
   DesktopTargetCommand,
   DesktopTargetResult,
 } from "@pimi/protocol/desktop-target/rpc-schemas";
+import { appReport } from "../app-report.js";
+import { checkDeeplink } from "../deeplink.js";
 import { isElementRef, type DesktopGuard } from "../guard.js";
 import { helperRequest, HelperError, type HelperTarget } from "../helper-process.js";
 import { forbiddenTarget, parseChord, refuseChord } from "./guard.js";
@@ -41,6 +43,11 @@ function targetFor(guard: DesktopGuard): HelperTarget {
     disposable: guard.disposable,
   };
 }
+
+// Schemes that are never a custom handler of an app: the web, files, mail and phone, and the
+// handlers macOS itself owns. The helper then checks that the app registered the scheme.
+const NOT_CUSTOM_SCHEMES =
+  /^(?:https?|file|ftps?|javascript|data|vbscript|about|mailto|tel|sms|smb|ssh|telnet|ldaps?|afp|nfs|vnc|x-apple[a-z.-]*|apple[a-z.-]*|facetime[a-z-]*|itms[a-z-]*|musics?|maps|prefs|applescript|x-man-page|help|webcal|icloud|imessage|shortcuts|view-source)$/i;
 
 function requireRef(ref: string | undefined): void {
   if (ref !== undefined && !isElementRef(ref))
@@ -101,13 +108,21 @@ function checkCommand(command: DesktopTargetCommand, guard: DesktopGuard): void 
     case "key":
       checkKeys(command.args);
       break;
+    case "deeplink":
+      checkDeeplink(command.args.url, NOT_CUSTOM_SCHEMES);
+      break;
+    case "app":
+      if (command.args.action !== "status" && !guard.allowRelaunch) {
+        refuse("The owner did not allow launching or relaunching the app for this run.");
+      }
+      break;
     default:
       break;
   }
 }
 
-// The verbs the macOS helper does not have yet (app, deeplink and the security tools) answer
-// `unsupported` instead of reaching it.
+// The verbs the macOS helper does not have yet (the security tools) answer `unsupported` instead
+// of reaching it.
 const MAC_VERBS: ReadonlySet<string> = new Set([
   "snapshot",
   "screenshot",
@@ -123,6 +138,8 @@ const MAC_VERBS: ReadonlySet<string> = new Set([
   "drag",
   "hover",
   "mouse",
+  "app",
+  "deeplink",
 ]);
 
 function str(value: unknown): string {
@@ -190,5 +207,14 @@ export async function runMac(
 
 // Click results name what was hit; the schema wants them present.
 function fill(command: string, result: Record<string, unknown>): Record<string, unknown> {
-  return command === "click" ? { role: null, label: null, point: null, ...result } : result;
+  switch (command) {
+    case "click":
+      return { role: null, label: null, point: null, ...result };
+    case "deeplink":
+      return { launched: false, handler: null, ...result };
+    case "app":
+      return { report: appReport(result) };
+    default:
+      return result;
+  }
 }

@@ -579,7 +579,7 @@ function DesktopTargetSection({
           {t("attack.form.desktopWarn")}
         </Text>
       ) : null}
-      {pickedWindows ? (
+      {picked ? (
         <>
           <Field
             label={t("attack.form.desktopRelaunch")}
@@ -607,6 +607,10 @@ function DesktopTargetSection({
               autoCorrect={false}
             />
           </Field>
+        </>
+      ) : null}
+      {pickedWindows ? (
+        <>
           <Field label={t("attack.form.desktopInspect")} hint={t("attack.form.desktopInspectHint")}>
             <Switch
               value={picked.allowDesktopInspect}
