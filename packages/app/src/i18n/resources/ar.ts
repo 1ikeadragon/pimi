@@ -975,6 +975,7 @@ export const ar: TranslationResources = {
         placeholder: "رسالة إلى الوكيل حول هذا العنصر…",
         submit: "إرفاق",
         cancel: "إلغاء",
+        target: "يُرفق بـ: {{chat}}",
       },
       devices: {
         label: "حجم الجهاز",

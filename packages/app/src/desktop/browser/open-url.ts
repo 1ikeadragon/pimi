@@ -92,8 +92,25 @@ export function openWorkspaceBrowserUrl(
   if (input.reuse && input.url !== undefined) {
     const existing = findReusableBrowserTab(store.layoutByWorkspace[workspaceKey], input.url);
     if (existing) {
-      if (input.focus) revealWorkspaceTab(workspaceKey, existing.tabId);
-      else showTabUnfocused(workspaceKey, existing.tabId);
+      // Opening the existing target again re-parents it, so its annotations go to the chat that
+      // asked for it now.
+      const target = { kind: "browser", browserId: existing.browserId } as const;
+      if (input.focus) {
+        openWorkspaceTargetAtLocation({
+          workspaceKey,
+          target,
+          location: input.location,
+          parentTabId: input.parentTabId,
+        });
+      } else {
+        store.openTab({
+          workspaceKey,
+          target,
+          intent: "background",
+          parentTabId: input.parentTabId ?? undefined,
+        });
+        showTabUnfocused(workspaceKey, existing.tabId);
+      }
       return { browserId: existing.browserId, tabId: existing.tabId, reused: true };
     }
   }

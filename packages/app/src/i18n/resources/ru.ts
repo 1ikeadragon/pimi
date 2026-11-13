@@ -982,6 +982,7 @@ export const ru: TranslationResources = {
         placeholder: "Сообщение агенту об этом элементе…",
         submit: "Прикрепить",
         cancel: "Отмена",
+        target: "Прикрепится к: {{chat}}",
       },
       devices: {
         label: "Размер экрана устройства",

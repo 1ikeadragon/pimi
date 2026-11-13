@@ -47,6 +47,7 @@ import { useToastHost, type ToastApi, type ToastState } from "@/components/toast
 import type { WorkspaceComposerAttachment } from "@/attachments/types";
 import {
   useHasProviderHandoff,
+  buildAgentWorkspaceAttachmentScopeKey,
   useWorkspaceAttachmentScopeKey,
 } from "@/attachments/workspace-attachments-store";
 import { COMPACT_CONTENT_WIDTH, useIsCompactFormFactor } from "@/constants/layout";
@@ -1622,9 +1623,13 @@ function ActiveAgentComposer({
     cwd,
     workspaceId,
   });
+  // Browser annotations land in the chat they were made for; everything else is workspace-wide.
   const attachmentScopeKeys = useMemo(
-    () => [workspaceAttachmentScopeKey],
-    [workspaceAttachmentScopeKey],
+    () => [
+      buildAgentWorkspaceAttachmentScopeKey({ serverId, agentId }),
+      workspaceAttachmentScopeKey,
+    ],
+    [agentId, serverId, workspaceAttachmentScopeKey],
   );
   const handleOpenWorkspaceAttachment = useCallback(
     (attachment: WorkspaceComposerAttachment) => {

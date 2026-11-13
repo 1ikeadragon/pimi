@@ -982,6 +982,7 @@ export const es: TranslationResources = {
         placeholder: "Mensaje al agente sobre este elemento…",
         submit: "Adjuntar",
         cancel: "Cancelar",
+        target: "Se adjunta a: {{chat}}",
       },
       devices: {
         label: "Tamaño del dispositivo",

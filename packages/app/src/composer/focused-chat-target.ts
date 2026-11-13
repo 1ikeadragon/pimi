@@ -1,3 +1,7 @@
+import {
+  buildAgentWorkspaceAttachmentScopeKey,
+  buildDraftWorkspaceAttachmentScopeKey,
+} from "@/attachments/workspace-attachments-store";
 import { buildDraftStoreKey } from "@/stores/draft-keys";
 import {
   collectAllPanes,
@@ -9,6 +13,8 @@ import {
 export interface FocusedChatTarget {
   tabId: string;
   draftKey: string;
+  /** Where attachments for this chat alone are kept. */
+  attachmentScopeKey: string;
 }
 
 function resolveChatTab(
@@ -19,6 +25,10 @@ function resolveChatTab(
     return {
       tabId: tab.tabId,
       draftKey: buildDraftStoreKey({ serverId, agentId: tab.target.agentId }),
+      attachmentScopeKey: buildAgentWorkspaceAttachmentScopeKey({
+        serverId,
+        agentId: tab.target.agentId,
+      }),
     };
   }
   if (tab?.target.kind === "draft") {
@@ -29,6 +39,7 @@ function resolveChatTab(
         agentId: tab.tabId,
         draftId: tab.target.draftId,
       }),
+      attachmentScopeKey: buildDraftWorkspaceAttachmentScopeKey(tab.target.draftId),
     };
   }
   return null;
@@ -77,4 +88,24 @@ export function resolveFocusedChatTarget(input: {
     }
   }
   return null;
+}
+
+/**
+ * The chat a browser tab's annotations belong to: the chat it was opened from, else the chat the
+ * user would reach from where they are.
+ */
+export function resolveBrowserAnnotationChat(input: {
+  serverId: string;
+  layout: WorkspaceLayout | undefined;
+  browserTabId: string;
+}): FocusedChatTarget | null {
+  if (!input.layout) {
+    return null;
+  }
+  const parentTabId = input.layout.parentTabIdByTabId?.[input.browserTabId];
+  const parentChat = resolveChatTab(
+    input.serverId,
+    collectAllTabs(input.layout.root).find((candidate) => candidate.tabId === parentTabId),
+  );
+  return parentChat ?? resolveFocusedChatTarget(input);
 }

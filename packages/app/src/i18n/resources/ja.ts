@@ -984,6 +984,7 @@ export const ja: TranslationResources = {
         placeholder: "この要素についてエージェントへのメッセージ…",
         submit: "添付",
         cancel: "キャンセル",
+        target: "添付先: {{chat}}",
       },
       devices: {
         label: "デバイスサイズ",

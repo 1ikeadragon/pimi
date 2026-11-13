@@ -978,6 +978,7 @@ export const ko: TranslationResources = {
         placeholder: "이 요소에 관해 에이전트에게 보낼 메시지…",
         submit: "첨부",
         cancel: "취소",
+        target: "첨부 대상: {{chat}}",
       },
       devices: {
         label: "장치 크기",

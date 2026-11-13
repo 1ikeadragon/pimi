@@ -971,6 +971,7 @@ export const en = {
         placeholder: "Message to the agent about this element…",
         submit: "Attach",
         cancel: "Cancel",
+        target: "Attaches to: {{chat}}",
       },
       devices: {
         label: "Device size",

@@ -45,10 +45,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   buildWorkspaceAttachmentScopeKey,
-  useWorkspaceAttachments,
+  useWorkspaceAttachmentsForScopes,
   useWorkspaceAttachmentsStore,
 } from "@/attachments/workspace-attachments-store";
 import type { AttachmentMetadata, BrowserElementAttachment } from "@/attachments/types";
+import {
+  resolveBrowserAnnotationScopeKey,
+  useBrowserAnnotationTarget,
+} from "@/desktop/browser/annotation-target";
+import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
 import { persistAttachmentFromDataUrl } from "@/attachments/service";
 import { WORKSPACE_SECONDARY_HEADER_HEIGHT } from "@/constants/layout";
 import { getOverlayRoot } from "@/lib/overlay-root";
@@ -587,6 +592,7 @@ function rememberResolvedBrowserWebviewSize(browserId: string, webview: HTMLElem
 // eslint-disable-next-line complexity
 export function BrowserPane({
   browserId,
+  tabId,
   serverId,
   workspaceId,
   cwd,
@@ -594,6 +600,7 @@ export function BrowserPane({
   onFocusPane,
 }: {
   browserId: string;
+  tabId: string;
   serverId: string;
   workspaceId: string;
   cwd: string | null;
@@ -648,7 +655,26 @@ export function BrowserPane({
     () => buildBrowserAttachmentScopeKey({ cwd, serverId, workspaceId }),
     [cwd, serverId, workspaceId],
   );
-  const workspaceAttachments = useWorkspaceAttachments(workspaceAttachmentScopeKey ?? "");
+  const workspaceKey = useMemo(
+    () => buildWorkspaceTabPersistenceKey({ serverId, workspaceId }),
+    [serverId, workspaceId],
+  );
+  const annotationTarget = useBrowserAnnotationTarget({
+    serverId,
+    workspaceKey,
+    tabId,
+    browserId,
+    workspaceScopeKey: workspaceAttachmentScopeKey,
+  });
+  // The chat's own scope first, like its composer, so marker numbers match the pills it shows.
+  const markerScopeKeys = useMemo(
+    () =>
+      [...new Set([annotationTarget.scopeKey, workspaceAttachmentScopeKey])].filter(
+        (key): key is string => Boolean(key),
+      ),
+    [annotationTarget.scopeKey, workspaceAttachmentScopeKey],
+  );
+  const workspaceAttachments = useWorkspaceAttachmentsForScopes(markerScopeKeys);
   const setWorkspaceAttachments = useWorkspaceAttachmentsStore(
     (state) => state.setWorkspaceAttachments,
   );
@@ -1076,15 +1102,21 @@ export function BrowserPane({
       annotation: BrowserElementAnnotation,
       screenshot?: AttachmentMetadata,
     ) => {
-      if (!workspaceAttachmentScopeKey) {
+      // The target chat is resolved now: the user may have moved between chats while the card was open.
+      const scopeKey = resolveBrowserAnnotationScopeKey({
+        serverId,
+        workspaceKey,
+        tabId,
+        browserId,
+        workspaceScopeKey: workspaceAttachmentScopeKey,
+      });
+      if (!scopeKey) {
         return;
       }
       // Read the store now: submit awaits the screenshot, so the render-time list can be stale.
-      const current =
-        useWorkspaceAttachmentsStore.getState().attachmentsByScope[workspaceAttachmentScopeKey] ??
-        [];
+      const current = useWorkspaceAttachmentsStore.getState().attachmentsByScope[scopeKey] ?? [];
       setWorkspaceAttachments({
-        scopeKey: workspaceAttachmentScopeKey,
+        scopeKey,
         attachments: [
           ...current,
           {
@@ -1094,7 +1126,14 @@ export function BrowserPane({
         ],
       });
     },
-    [setWorkspaceAttachments, workspaceAttachmentScopeKey],
+    [
+      browserId,
+      serverId,
+      setWorkspaceAttachments,
+      tabId,
+      workspaceAttachmentScopeKey,
+      workspaceKey,
+    ],
   );
 
   const captureElementScreenshot = useCallback(
@@ -1616,6 +1655,7 @@ export function BrowserPane({
           <BrowserElementAnnotationCard
             anchor={webviewClipRef.current}
             selection={pendingSelection}
+            chatLabel={annotationTarget.chatLabel}
             onSubmit={submitAnnotation}
             onCancel={cancelAnnotation}
           />
@@ -1628,11 +1668,13 @@ export function BrowserPane({
 function BrowserElementAnnotationCard({
   anchor,
   selection,
+  chatLabel,
   onSubmit,
   onCancel,
 }: {
   anchor: HTMLElement | null;
   selection: BrowserElementSelection;
+  chatLabel: string | null;
   onSubmit: (annotation: BrowserElementAnnotation) => Promise<void>;
   onCancel: () => void;
 }) {
@@ -1692,6 +1734,11 @@ function BrowserElementAnnotationCard({
         <Text numberOfLines={1} style={styles.annotationElement}>
           {elementLabel}
         </Text>
+        {chatLabel ? (
+          <Text numberOfLines={1} style={styles.annotationElement}>
+            {t("workspace.browser.annotate.target", { chat: chatLabel })}
+          </Text>
+        ) : null}
         <ThemedAnnotationInput
           accessibilityLabel={t("workspace.browser.annotate.placeholder")}
           autoFocus

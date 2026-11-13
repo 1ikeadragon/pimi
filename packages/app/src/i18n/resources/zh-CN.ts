@@ -972,6 +972,7 @@ export const zhCN: TranslationResources = {
         placeholder: "给智能体关于此元素的留言…",
         submit: "附加",
         cancel: "取消",
+        target: "附加到：{{chat}}",
       },
       devices: {
         label: "设备尺寸",

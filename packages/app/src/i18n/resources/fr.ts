@@ -983,6 +983,7 @@ export const fr: TranslationResources = {
         placeholder: "Message à l’agent à propos de cet élément…",
         submit: "Joindre",
         cancel: "Annuler",
+        target: "Joint à : {{chat}}",
       },
       devices: {
         label: "Taille de l’appareil",

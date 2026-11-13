@@ -982,6 +982,7 @@ export const ptBR: TranslationResources = {
         placeholder: "Mensagem ao agente sobre este elemento…",
         submit: "Anexar",
         cancel: "Cancelar",
+        target: "Anexa a: {{chat}}",
       },
       devices: {
         label: "Tamanho do dispositivo",
