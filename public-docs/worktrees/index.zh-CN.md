@@ -8,7 +8,7 @@ nav: Git worktree
 
 Git worktree 是工作区的一种。
 
-[工作区](/docs/workspaces)是任务发生的地方。当工作区由 Git worktree 支撑时，Pimi 会在单独的分支上创建一个单独的目录，让并行的 Agent 互不干扰。
+[聊天](/docs/workspaces)是任务发生的地方，其环境在 CLI 和 MCP 工具中称为工作区。当聊天由 Git worktree 支撑时，Pimi 会在单独的分支上创建一个单独的目录，让并行的 Agent 互不干扰。
 
 本页介绍 Git 相关的细节：worktree 存放在哪里、分支如何选择，以及如何通过 `pimi.json` 配置 setup 钩子、脚本、终端和长时间运行的服务。
 

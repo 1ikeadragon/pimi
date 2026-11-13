@@ -256,9 +256,9 @@ export const en = {
       notePlaceholder: "Optional note for the agent",
       openIn: "Open the chat in",
       noWorkspace:
-        "No workspace for {{repo}} on this host. Start a new workspace and pick the pull request there.",
+        "No chat for {{repo}} on this host. Start a new chat and pick the pull request there.",
       thisRepository: "this repository",
-      newWorkspace: "New workspace",
+      newWorkspace: "New chat",
       openChat: "Open in chat",
       preparing: "Preparing…",
       onThisBranch: "On this branch",
@@ -273,7 +273,7 @@ export const en = {
       retry: "Retry",
       files: "Files",
       noFiles: "This change request has no changed files.",
-      checkoutUnsupported: "Local worktree diffs open from the workspace Changes pane.",
+      checkoutUnsupported: "Local worktree diffs open from the chat Changes pane.",
       filterPlaceholder: "Filter files",
       filterClear: "Clear filter",
       unviewedOnly: "Unviewed",
@@ -290,7 +290,7 @@ export const en = {
       askInChat: "Ask in chat",
       annotations_one: "{{count}} annotation",
       annotations_other: "{{count}} annotations",
-      noWorkspace: "No workspace for {{repo}} on this host",
+      noWorkspace: "No chat for {{repo}} on this host",
       askUnavailable: "Open the annotated files first; their patches are not loaded.",
       detached_one: "{{count}} thread not on this diff",
       detached_other: "{{count}} threads not on this diff",
@@ -353,7 +353,7 @@ export const en = {
       daemonClientUnavailable: "Daemon client unavailable",
       daemonClientDisconnected: "Daemon client is disconnected",
       noFileFound: "No file found for {{token}}",
-      folderOutsideWorkspace: "{{path}} is outside this workspace",
+      folderOutsideWorkspace: "{{path}} is outside this folder",
       unexpectedDictationError: "An unexpected error occurred while handling dictation.",
     },
     connectionStatus: {
@@ -371,7 +371,7 @@ export const en = {
       close: "Close menu",
     },
     commandCenter: {
-      placeholder: "Search commands, files, workspaces, and agents...",
+      placeholder: "Search commands, files, chats, and agents...",
       filePlaceholder: "Search files...",
       commands: "Commands",
       commandsPlaceholder: "Type a command or setting...",
@@ -393,7 +393,7 @@ export const en = {
       noMatches: "No matches",
       actions: "Actions",
       files: "Files",
-      workspaces: "Workspaces",
+      workspaces: "Chats",
       agents: "Agents",
       newAgent: "New agent",
       open: "Open {{name}}",
@@ -713,11 +713,11 @@ export const en = {
       copyTurn: "Copy turn",
       copyMessage: "Copy message",
       forkMenu: "Fork chat from here",
-      forkInNewTab: "Fork in a new tab",
-      forkInNewWorkspace: "Fork in a new workspace",
+      forkInNewTab: "Fork as a tab",
+      forkInNewWorkspace: "Fork into a new chat",
       forkWithProvider: "Fork with another provider",
       forkNoOtherProviders: "No other providers are available on this host.",
-      forkMissingWorkspace: "This agent is not in a workspace.",
+      forkMissingWorkspace: "This agent is not in a chat.",
       forkFailed: "Failed to fork chat",
       openFile: "Open file",
       copied: "Copied",
@@ -809,7 +809,7 @@ export const en = {
     searchPlaceholder: "Search sessions...",
     scope: {
       host: "Sessions on {{host}}",
-      workspace: "This workspace",
+      workspace: "This chat",
     },
     filters: {
       all: "All",
@@ -842,14 +842,14 @@ export const en = {
   },
   workspace: {
     route: {
-      loading: "Loading workspace",
+      loading: "Loading chat",
       connecting: "Connecting",
       hostOffline: "{{hostName}} is offline",
       cannotReachHost: "Cannot reach {{hostName}}",
       hostStatus: "Host status: {{status}}",
       manageHost: "Manage host",
       recovery: {
-        archivedTitle: "Workspace archived",
+        archivedTitle: "Chat archived",
         restoreDescription:
           "Restore {{workspaceName}} to return to its agents. Its worktree will use branch {{branch}}.",
         restoreWithoutBranchDescription:
@@ -857,10 +857,10 @@ export const en = {
         unarchiveDescription: "{{workspaceName}} is archived. Unarchive it to open it again.",
         restoreAction: "Restore",
         unarchiveAction: "Unarchive",
-        restoringTitle: "Restoring workspace",
+        restoringTitle: "Restoring chat",
         restoringAction: "Restoring...",
-        unavailableTitle: "Workspace unavailable",
-        checkFailedTitle: "Couldn't check workspace",
+        unavailableTitle: "Chat unavailable",
+        checkFailedTitle: "Couldn't check chat",
       },
     },
     hoverCard: {
@@ -924,7 +924,7 @@ export const en = {
         noVisibleFiles: "No visible files",
       },
       states: {
-        unavailable: "Workspace is unavailable",
+        unavailable: "Chat is unavailable",
         loading: "Loading files...",
       },
       errors: {
@@ -977,7 +977,7 @@ export const en = {
     browser: {
       unavailable: {
         title: "Browser is desktop-only",
-        subtitle: "Open this workspace in Electron to use the built-in browser.",
+        subtitle: "Open this chat in Electron to use the built-in browser.",
       },
       session: "Browser session {{browserId}}",
       controls: {
@@ -1036,11 +1036,11 @@ export const en = {
         terminal: "Terminal",
         browser: "Browser",
         agent: "Agent",
-        workspace: "Workspace",
+        workspace: "Chat",
       },
       switcher: {
         trigger: "Switch tabs ({{count}} open)",
-        title: "Workspace tabs",
+        title: "Chat tabs",
         searchPlaceholder: "Search tabs",
       },
       menu: {
@@ -1137,21 +1137,22 @@ export const en = {
     },
     header: {
       actions: {
-        workspaceActions: "Workspace actions",
-        workspaceActionsUnhealthy: "Workspace actions, a service is unhealthy",
+        workspaceActions: "Chat actions",
+        workspaceActionsUnhealthy: "Chat actions, a service is unhealthy",
         newAgent: "New agent",
         newTerminal: "New terminal",
         newBrowser: "New browser tab",
         importSession: "Import session",
-        copyPath: "Copy workspace path",
+        renameChat: "Rename chat",
+        copyPath: "Copy worktree path",
         copyBranchName: "Copy branch name",
         showSetup: "Show setup",
       },
       toasts: {
-        workspacePathUnavailable: "Workspace path is not available yet",
+        workspacePathUnavailable: "Worktree path is not available yet",
         branchNameUnavailable: "Branch name not available",
-        terminalQueued: "Preparing workspace, opening terminal when ready...",
-        workspacePathCopiedLabel: "Workspace path",
+        terminalQueued: "Preparing worktree, opening terminal when ready...",
+        workspacePathCopiedLabel: "Worktree path",
         branchNameCopiedLabel: "Branch name",
       },
     },
@@ -1239,7 +1240,7 @@ export const en = {
           success: "Updated",
         },
         archive: {
-          label: "Archive workspace",
+          label: "Archive chat",
           pending: "Archiving...",
           success: "Archived",
         },
@@ -1301,7 +1302,7 @@ export const en = {
             "Update isn't available because this branch is already up to date with {{baseRef}}",
           mergePrNoGithub: "Merge PR isn't available right now because GitHub isn't connected",
           archiveNotWorktree:
-            "Archive isn't available here because this workspace was not created as a Pimi worktree",
+            "Archive isn't available here because this chat was not created as a Pimi worktree",
           mergePrNoForge:
             "Merge {{noun}} isn't available right now because {{brand}} isn't connected",
           mergePrMissing: "Merge PR isn't available because there isn't a pull request yet",
@@ -1388,7 +1389,7 @@ export const en = {
         modifiedFile: "Modified",
         commits: {
           title: "Commits",
-          countLabel: "{{count}} workspace commits",
+          countLabel: "{{count}} chat commits",
           noneAhead: "No commits ahead of {{baseRef}} yet",
           fileDiffEmpty: "No changes to display",
           fileDiffError: "Failed to load file diff",
@@ -1400,9 +1401,9 @@ export const en = {
       openInEditor: {
         open: "Open",
         chooseEditor: "Choose editor",
-        openIn: "Open workspace in {{target}}",
+        openIn: "Open folder in {{target}}",
         openFileIn: "Open {{fileName}} in {{target}}",
-        failedOpen: "Failed to open workspace",
+        failedOpen: "Failed to open folder",
       },
       pr: {
         actions: {
@@ -1555,8 +1556,8 @@ export const en = {
       save: "Save",
       delete: "Delete",
       deleteTitle: "Delete {{name}}?",
-      deleteMessage_one: "This removes the label from {{count}} workspace on this host.",
-      deleteMessage_other: "This removes the label from {{count}} workspaces on this host.",
+      deleteMessage_one: "This removes the label from {{count}} chat on this host.",
+      deleteMessage_other: "This removes the label from {{count}} chats on this host.",
       offline: "This host is offline.",
     },
   },
@@ -1627,8 +1628,8 @@ export const en = {
       },
     },
     filterEmpty: {
-      title: "No workspaces match",
-      description: "Change or clear the sidebar filters to see workspaces.",
+      title: "No chats match",
+      description: "Change or clear the sidebar filters to see chats.",
       clear: "Clear filters",
     },
     pinned: {
@@ -1641,7 +1642,7 @@ export const en = {
     },
     actions: {
       addProject: "Add project",
-      newWorkspace: "New workspace",
+      newWorkspace: "New chat",
       hosts: "Hosts",
       settings: "Settings",
       closeSidebar: "Close sidebar",
@@ -1693,7 +1694,7 @@ export const en = {
       },
       toasts: {
         hostDisconnected: "Host is not connected",
-        removeFailed: "Failed to remove some workspaces",
+        removeFailed: "Failed to remove some chats",
       },
       empty: {
         title: "No projects yet",
@@ -1715,49 +1716,51 @@ export const en = {
         pending: "Pending: {{count}}",
       },
       actions: {
-        menu: "Workspace actions",
-        newWorkspace: "New workspace",
+        menu: "Chat actions",
+        newWorkspace: "New chat",
         showMore: "Show more",
         showLess: "Show less",
-        createWorkspaceFor: "Create a new workspace for {{projectName}}",
+        createWorkspaceFor: "Start a new chat in {{projectName}}",
         copyPath: "Copy path",
         copyBranchName: "Copy branch name",
-        rename: "Rename workspace",
+        rename: "Rename chat",
         pin: "Pin to top",
         unpin: "Unpin",
         archive: "Archive",
-        archiveWorkspace: "Archive workspace",
+        archiveWorkspace: "Archive chat",
         hideFromSidebar: "Hide from sidebar",
         archiving: "Archiving...",
         hiding: "Hiding...",
       },
       confirmations: {
-        hideTitle: "Hide workspace?",
+        hideTitle: "Hide chat?",
         hideMessage:
           'Hide "{{workspaceName}}" from the sidebar?\n\nFiles on disk will not be changed.',
         hideConfirm: "Hide",
         cancel: "Cancel",
+        archiveSiblingChats_one: "Also archives 1 other chat sharing this worktree.",
+        archiveSiblingChats_other: "Also archives {{count}} other chats sharing this worktree.",
       },
       rename: {
-        title: "Rename workspace",
+        title: "Rename chat",
         submit: "Rename",
         invalidBranchName: "Invalid branch name",
       },
       toasts: {
-        workspacePathUnavailable: "Workspace path not available",
+        workspacePathUnavailable: "Worktree path not available",
         pathCopied: "Path copied",
         branchNameCopied: "Branch name copied",
         hostDisconnected: "Host is not connected",
-        hideFailed: "Failed to hide workspace",
-        archiveFailed: "Failed to archive workspace",
-        archived: "Workspace archived",
+        hideFailed: "Failed to hide chat",
+        archiveFailed: "Failed to archive chat",
+        archived: "Chat archived",
         undoArchive: "Undo",
         undoArchiveFailed: "Couldn't undo the archive",
       },
     },
   },
   newWorkspace: {
-    title: "New workspace",
+    title: "New chat",
     create: "Create",
     isolation: {
       local: "Local",
@@ -2039,7 +2042,7 @@ export const en = {
     openPath: "Open path",
   },
   branchSwitcher: {
-    triggerTooltip: "Switch workspace branch",
+    triggerTooltip: "Switch chat branch",
     currentBranch: "Current branch: {{branchName}}. Press to switch branch.",
     placeholder: "Switch branch...",
     searchPlaceholder: "Filter branches...",
@@ -2059,7 +2062,7 @@ export const en = {
     stashRestored: "Stashed changes restored",
   },
   agentAutocomplete: {
-    searchingWorkspace: "Searching workspace...",
+    searchingWorkspace: "Searching folder...",
     loadingCommands: "Loading commands...",
     noFiles: "No files or directories found",
     noCommands: "No commands found",
@@ -2083,14 +2086,14 @@ export const en = {
     dialogFilterName: "Images",
   },
   workspaceSetup: {
-    title: "Create workspace",
+    title: "New chat",
     errors: {
       failedCreateWorktree: "Failed to create worktree",
       failedOpenProject: "Failed to open project",
       selectModel: "Select a model",
       hostDisconnected: "Host is not connected",
-      pendingRequired: "No workspace setup is pending",
-      composerStateRequired: "Workspace setup composer state is required",
+      pendingRequired: "No chat setup is pending",
+      composerStateRequired: "Chat setup composer state is required",
     },
   },
   onboarding: {
@@ -2222,7 +2225,7 @@ export const en = {
       noProviders: "No available providers on the selected host",
       modelDefaultsLoading: "Model defaults are still loading",
       noModelAvailable: "No model is available for the selected provider",
-      workspaceDirectoryNotFound: "Workspace directory not found",
+      workspaceDirectoryNotFound: "Folder not found",
       hostDisconnected: "Host is not connected",
     },
   },
@@ -2505,7 +2508,7 @@ export const en = {
     phone: {
       entry: "Attack run",
       title: "Attack",
-      noRun: "No attack run in this workspace. Start one from the desktop app.",
+      noRun: "No attack run in this chat. Start one from the desktop app.",
     },
     batchFix: {
       selectOpen: "Select open",
@@ -2872,7 +2875,7 @@ export const en = {
           source: "Source",
         },
       },
-      directoryMissing: "Workspace directory not found.",
+      directoryMissing: "Folder not found.",
       loading: "Loading file...",
       noPreview: "No preview available",
       binaryPreviewUnavailable: "Binary preview unavailable",
@@ -2904,8 +2907,8 @@ export const en = {
     },
     files: {
       label: "Files",
-      subtitle: "Workspace files",
-      tooltip: "Browse workspace files",
+      subtitle: "Chat files",
+      tooltip: "Browse chat files",
       chooseFile: "Choose a file",
     },
     pullRequest: {
@@ -2921,7 +2924,7 @@ export const en = {
       commitSubtitle: "Commit diff",
       uncommittedSubtitle: "Uncommitted changes",
       baseSubtitle: "Compared with {{baseRef}}",
-      directoryMissing: "Workspace directory not found.",
+      directoryMissing: "Folder not found.",
       empty: "No changes",
       loadError: "Failed to load diff",
     },
@@ -3290,7 +3293,7 @@ export const en = {
       agents: "Agents",
       metadata: "Pimi models",
       voice: "Voice",
-      workspaces: "Workspaces",
+      workspaces: "Chats",
       providers: "Providers",
       usage: "Usage",
       terminals: "Terminals",
@@ -3432,9 +3435,9 @@ export const en = {
     metadataGeneration: {
       title: "Pimi models",
       description:
-        "Choose the models Pimi uses for chat and workspace titles, commit messages, pull requests, Describe it, and Ask Pimi",
+        "Choose the models Pimi uses for chat titles, commit messages, pull requests, Describe it, and Ask Pimi",
       selection: "Model selection",
-      autoNaming: "Automatically name chats and workspaces",
+      autoNaming: "Automatically name chats and branches",
       autoNamingHint:
         "Generate titles and new worktree branch names from the first prompt. Names you edit are kept.",
       automatic: "Automatic",
@@ -3458,7 +3461,7 @@ export const en = {
         "{{provider}} is turned off or not installed. Pimi won't use another model for this",
       features: {
         title: "Chat titles",
-        branchName: "Workspace titles and branches",
+        branchName: "Branch names",
         commitMessage: "Commit messages",
         pullRequest: "Pull request text",
         automation: "Describe it",
@@ -3771,7 +3774,7 @@ export const en = {
       },
       sections: {
         general: "General",
-        workspaces: "Projects & Workspaces",
+        workspaces: "Projects & Chats",
         tabsPanes: "Tabs & Panes",
         layout: "Layout",
         editor: "Editor",
@@ -3779,15 +3782,15 @@ export const en = {
       },
       help: {
         openProject: "Open project",
-        newWorkspace: "New workspace",
+        newWorkspace: "New chat",
         newWorktree: "New worktree",
-        archiveWorkspace: "Archive workspace",
+        archiveWorkspace: "Archive chat",
         newTab: "New tab",
         closeCurrentTab: "Close current tab",
-        jumpToWorkspace: "Jump to workspace",
+        jumpToWorkspace: "Jump to chat",
         jumpToTab: "Jump to tab",
-        previousWorkspace: "Previous workspace",
-        nextWorkspace: "Next workspace",
+        previousWorkspace: "Previous chat",
+        nextWorkspace: "Next chat",
         previousTab: "Previous tab",
         nextTab: "Next tab",
         splitPaneRight: "Split pane right",
@@ -4006,7 +4009,7 @@ export const en = {
         },
       },
       workspaces: {
-        unavailable: "Connect to this host to manage workspaces",
+        unavailable: "Connect to this host to manage chats",
       },
       terminalProfiles: {
         unavailable: "Connect to this host to manage terminal profiles",

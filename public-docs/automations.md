@@ -59,4 +59,4 @@ An automation an agent creates starts as **pending** and shows under **Needs you
 
 Pimi keeps each automation's last 50 runs, up to 30 days old, and an audit log of every change. `pimi automation runs <id>` lists runs; `pimi automation inspect <id>` shows the recent audit history.
 
-Run workspaces stay after the run ends. Archive them like any other workspace.
+Run chats stay after the run ends. Archive them like any other chat.

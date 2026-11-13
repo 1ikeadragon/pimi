@@ -3,7 +3,7 @@ name: pimi
 description: Pimi tool and CLI reference for hosts, projects, workspaces, scripts, terminals, agents and subagents, profiles and providers, permissions, automations, heartbeats, browser tabs, Spaces, and code search.
 ---
 
-Pimi manages coding agents and terminals through a daemon. Use the Pimi MCP tools in an agent session, or the bundled `pimi` CLI from a shell.
+Pimi manages coding agents and terminals through a daemon. The app calls each unit of work a chat; the tools and CLI below call its environment a workspace (`create_workspace`, `pimi workspace`), so say "chat" to the user and "workspace" in tool calls. Use the Pimi MCP tools in an agent session, or the bundled `pimi` CLI from a shell.
 
 ## Connected hosts
 

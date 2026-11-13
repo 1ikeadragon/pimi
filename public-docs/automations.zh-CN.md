@@ -57,4 +57,4 @@ Agent 创建的自动化处于 **pending** 状态，显示在 **Needs your appro
 
 Pimi 为每个自动化保留最近 50 次运行（最多 30 天），以及记录每次变更的审计日志。`pimi automation runs <id>` 列出运行记录；`pimi automation inspect <id>` 显示最近的审计历史。
 
-运行结束后，运行工作区会保留。像其他工作区一样归档它们即可。
+运行结束后，运行聊天会保留。像其他聊天一样归档它们即可。

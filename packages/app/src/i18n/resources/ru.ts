@@ -260,9 +260,9 @@ export const ru: TranslationResources = {
       notePlaceholder: "Необязательная заметка для агента",
       openIn: "Открыть чат в",
       noWorkspace:
-        "На этом хосте нет рабочего пространства для {{repo}}. Создайте новое рабочее пространство и выберите там pull request.",
+        "Для {{repo}} на этом хосте нет чата. Начните новый чат и выберите там pull request.",
       thisRepository: "этот репозиторий",
-      newWorkspace: "Новое рабочее пространство",
+      newWorkspace: "Новый чат",
       openChat: "Открыть в чате",
       preparing: "Подготовка…",
       onThisBranch: "В этой ветке",
@@ -277,8 +277,7 @@ export const ru: TranslationResources = {
       retry: "Повторить",
       files: "Файлы",
       noFiles: "В этом запросе на изменение нет изменённых файлов.",
-      checkoutUnsupported:
-        "Diff локальных worktree открываются на панели «Изменения» рабочего пространства.",
+      checkoutUnsupported: "Диффы локальных worktree открываются на панели «Изменения» чата.",
       filterPlaceholder: "Фильтр файлов",
       filterClear: "Сбросить фильтр",
       unviewedOnly: "Не просмотрены",
@@ -295,7 +294,7 @@ export const ru: TranslationResources = {
       askInChat: "Спросить в чате",
       annotations_one: "{{count}} аннотация",
       annotations_other: "Аннотаций: {{count}}",
-      noWorkspace: "На этом хосте нет рабочего пространства для {{repo}}",
+      noWorkspace: "Для {{repo}} на этом хосте нет чата",
       askUnavailable: "Сначала откройте файлы с аннотациями: их патчи не загружены.",
       detached_one: "{{count}} обсуждение отсутствует в этом diff",
       detached_other: "Обсуждений, которых нет в этом diff: {{count}}",
@@ -358,7 +357,7 @@ export const ru: TranslationResources = {
       daemonClientUnavailable: "Daemon клиента недоступен",
       daemonClientDisconnected: "Daemon клиента отключен",
       noFileFound: "Файл для {{token}} не найден",
-      folderOutsideWorkspace: "{{path}} находится вне этого рабочего пространства",
+      folderOutsideWorkspace: "{{path}} находится вне этой папки",
       unexpectedDictationError: "При обработке диктовки произошла непредвиденная ошибка.",
     },
     connectionStatus: {
@@ -376,7 +375,7 @@ export const ru: TranslationResources = {
       close: "Закрыть меню",
     },
     commandCenter: {
-      placeholder: "Поиск команд, файлов, рабочих пространств и агентов...",
+      placeholder: "Поиск команд, файлов, чатов и агентов...",
       filePlaceholder: "Поиск файлов...",
       commands: "Commands",
       commandsPlaceholder: "Type a command or setting...",
@@ -398,7 +397,7 @@ export const ru: TranslationResources = {
       noMatches: "Нет совпадений",
       actions: "Действия",
       files: "Файлы",
-      workspaces: "Рабочие пространства",
+      workspaces: "Чаты",
       agents: "Агенты",
       newAgent: "Новый агент",
       open: "Открыть {{name}}",
@@ -721,11 +720,11 @@ export const ru: TranslationResources = {
       copyTurn: "Скопировать ответ",
       copyMessage: "Копировать сообщение",
       forkMenu: "Форкнуть чат отсюда",
-      forkInNewTab: "Создать форк в новой вкладке",
-      forkInNewWorkspace: "Создать форк в новом рабочем пространстве",
+      forkInNewTab: "Форк во вкладке",
+      forkInNewWorkspace: "Форк в новый чат",
       forkWithProvider: "Создать ветку с другим провайдером",
       forkNoOtherProviders: "На этом хосте нет других доступных провайдеров.",
-      forkMissingWorkspace: "Этот агент не связан с рабочим пространством.",
+      forkMissingWorkspace: "Этот агент не находится в чате.",
       forkFailed: "Не удалось создать форк чата",
       openFile: "Открыть файл",
       copied: "Скопировано",
@@ -817,7 +816,7 @@ export const ru: TranslationResources = {
     searchPlaceholder: "Поиск сессий...",
     scope: {
       host: "Сессии на {{host}}",
-      workspace: "Это рабочее пространство",
+      workspace: "Этот чат",
     },
     filters: {
       all: "Все",
@@ -850,14 +849,14 @@ export const ru: TranslationResources = {
   },
   workspace: {
     route: {
-      loading: "Загрузка рабочего пространства",
+      loading: "Загрузка чата",
       connecting: "Подключение",
       hostOffline: "{{hostName}} не в сети",
       cannotReachHost: "Не удаётся связаться с {{hostName}}",
       hostStatus: "Статус хоста: {{status}}",
       manageHost: "Управление хостом",
       recovery: {
-        archivedTitle: "Рабочая область в архиве",
+        archivedTitle: "Чат архивирован",
         restoreDescription:
           "Восстановите «{{workspaceName}}», чтобы вернуться к его агентам. Worktree будет использовать ветку {{branch}}.",
         restoreWithoutBranchDescription:
@@ -866,10 +865,10 @@ export const ru: TranslationResources = {
           "Рабочее пространство «{{workspaceName}}» находится в архиве. Разархивируйте его, чтобы снова открыть.",
         restoreAction: "Восстановить",
         unarchiveAction: "Разархивировать",
-        restoringTitle: "Восстановление рабочего пространства",
+        restoringTitle: "Восстановление чата",
         restoringAction: "Восстановление...",
-        unavailableTitle: "Рабочая область недоступна",
-        checkFailedTitle: "Не удалось проверить рабочее пространство",
+        unavailableTitle: "Чат недоступен",
+        checkFailedTitle: "Не удалось проверить чат",
       },
     },
     hoverCard: {
@@ -933,7 +932,7 @@ export const ru: TranslationResources = {
         noVisibleFiles: "Нет видимых файлов",
       },
       states: {
-        unavailable: "Рабочее пространство недоступно",
+        unavailable: "Чат недоступен",
         loading: "Загрузка файлов...",
       },
       errors: {
@@ -986,8 +985,7 @@ export const ru: TranslationResources = {
     browser: {
       unavailable: {
         title: "Встроенный браузер доступен только в настольном приложении",
-        subtitle:
-          "Откройте это рабочее пространство в Electron, чтобы использовать встроенный браузер.",
+        subtitle: "Откройте этот чат в Electron, чтобы использовать встроенный браузер.",
       },
       session: "Сеанс браузера {{browserId}}",
       controls: {
@@ -1047,11 +1045,11 @@ export const ru: TranslationResources = {
         terminal: "Терминал",
         browser: "Браузер",
         agent: "Агент",
-        workspace: "Рабочее пространство",
+        workspace: "Чат",
       },
       switcher: {
         trigger: "Переключить вкладки (открыто: {{count}})",
-        title: "Вкладки рабочего пространства",
+        title: "Вкладки чата",
         searchPlaceholder: "Поиск вкладок",
       },
       menu: {
@@ -1150,22 +1148,22 @@ export const ru: TranslationResources = {
     },
     header: {
       actions: {
-        workspaceActions: "Действия с рабочим пространством",
-        workspaceActionsUnhealthy: "Действия с рабочим пространством, есть неисправный сервис",
+        workspaceActions: "Действия чата",
+        workspaceActionsUnhealthy: "Действия чата, один из сервисов неисправен",
         newAgent: "Новый агент",
         newTerminal: "Новый терминал",
         newBrowser: "Новая вкладка браузера",
         importSession: "Импортировать сессию",
-        copyPath: "Скопировать путь к рабочему пространству",
+        renameChat: "Переименовать чат",
+        copyPath: "Копировать путь к worktree",
         copyBranchName: "Скопировать название ветки",
         showSetup: "Показать настройку рабочего пространства",
       },
       toasts: {
-        workspacePathUnavailable: "Путь к рабочему пространству пока недоступен.",
+        workspacePathUnavailable: "Путь к worktree пока недоступен",
         branchNameUnavailable: "Имя ветки недоступно",
-        terminalQueued:
-          "Рабочее пространство подготавливается. Терминал откроется, когда оно будет готово...",
-        workspacePathCopiedLabel: "Путь к рабочему пространству",
+        terminalQueued: "Подготовка worktree, терминал откроется, когда всё будет готово...",
+        workspacePathCopiedLabel: "Путь к worktree",
         branchNameCopiedLabel: "Имя ветки",
       },
     },
@@ -1252,7 +1250,7 @@ export const ru: TranslationResources = {
           success: "Обновлено",
         },
         archive: {
-          label: "Архивировать рабочее пространство",
+          label: "Архивировать чат",
           pending: "Архивирование...",
           success: "В архиве",
         },
@@ -1311,7 +1309,7 @@ export const ru: TranslationResources = {
           updateCurrent: "Обновление недоступно: эта ветка уже синхронизирована с {{baseRef}}.",
           mergePrNoGithub: "Слияние PR сейчас недоступно: GitHub не подключён.",
           archiveNotWorktree:
-            "Архивирование недоступно: это рабочее пространство не было создано как worktree Pimi.",
+            "Архивирование здесь недоступно, так как этот чат не был создан как worktree Pimi",
           mergePrNoForge: "Слияние {{noun}} сейчас недоступно: {{brand}} не подключён.",
           mergePrMissing: "Слияние PR недоступно: PR ещё не создан.",
           mergePrDraft: "Слияние PR недоступно: PR всё ещё является черновиком.",
@@ -1398,7 +1396,7 @@ export const ru: TranslationResources = {
         modifiedFile: "Файл изменён",
         commits: {
           title: "Коммиты",
-          countLabel: "Коммитов в рабочем пространстве: {{count}}",
+          countLabel: "Коммитов чата: {{count}}",
           noneAhead: "Пока нет коммитов, отсутствующих в {{baseRef}}",
           fileDiffEmpty: "Нет изменений для отображения",
           fileDiffError: "Не удалось загрузить дифф файла",
@@ -1410,9 +1408,9 @@ export const ru: TranslationResources = {
       openInEditor: {
         open: "Открыть",
         chooseEditor: "Выбрать редактор",
-        openIn: "Открыть рабочее пространство в {{target}}",
+        openIn: "Открыть папку в {{target}}",
         openFileIn: "Открыть {{fileName}} в {{target}}",
-        failedOpen: "Не удалось открыть рабочее пространство",
+        failedOpen: "Не удалось открыть папку",
       },
       pr: {
         actions: {
@@ -1565,8 +1563,8 @@ export const ru: TranslationResources = {
       save: "Сохранить",
       delete: "Удалить",
       deleteTitle: "Удалить метку «{{name}}»?",
-      deleteMessage_one: "Метка будет снята с {{count}} рабочего пространства на этом хосте.",
-      deleteMessage_other: "Метка будет снята с {{count}} рабочих пространств на этом хосте.",
+      deleteMessage_one: "Это удалит метку из {{count}} чата на этом хосте.",
+      deleteMessage_other: "Это удалит метку из {{count}} чатов на этом хосте.",
       offline: "Этот хост не в сети.",
     },
   },
@@ -1637,9 +1635,8 @@ export const ru: TranslationResources = {
       },
     },
     filterEmpty: {
-      title: "Нет подходящих рабочих пространств",
-      description:
-        "Измените или очистите фильтры боковой панели, чтобы увидеть рабочие пространства.",
+      title: "Нет подходящих чатов",
+      description: "Измените или сбросьте фильтры боковой панели, чтобы увидеть чаты.",
       clear: "Очистить фильтры",
     },
     pinned: {
@@ -1652,7 +1649,7 @@ export const ru: TranslationResources = {
     },
     actions: {
       addProject: "Добавить проект",
-      newWorkspace: "Новое рабочее пространство",
+      newWorkspace: "Новый чат",
       hosts: "Хосты",
       settings: "Настройки",
       closeSidebar: "Закрыть боковую панель",
@@ -1704,7 +1701,7 @@ export const ru: TranslationResources = {
       },
       toasts: {
         hostDisconnected: "Хост не подключён",
-        removeFailed: "Не удалось удалить некоторые рабочие пространства.",
+        removeFailed: "Не удалось удалить некоторые чаты",
       },
       empty: {
         title: "Пока нет проектов",
@@ -1726,49 +1723,52 @@ export const ru: TranslationResources = {
         pending: "Ожидают: {{count}}",
       },
       actions: {
-        menu: "Действия рабочего пространства",
-        newWorkspace: "Новое рабочее пространство",
+        menu: "Действия чата",
+        newWorkspace: "Новый чат",
         showMore: "Показать ещё",
         showLess: "Показать меньше",
-        createWorkspaceFor: "Создать новое рабочее пространство для {{projectName}}",
+        createWorkspaceFor: "Начать новый чат в {{projectName}}",
         copyPath: "Копировать путь",
         copyBranchName: "Скопировать имя ветки",
-        rename: "Переименовать рабочее пространство",
+        rename: "Переименовать чат",
         pin: "Закрепить вверху",
         unpin: "Открепить",
         archive: "Архивировать",
-        archiveWorkspace: "Архивировать рабочее пространство",
+        archiveWorkspace: "Архивировать чат",
         hideFromSidebar: "Скрыть на боковой панели",
         archiving: "Архивирование...",
         hiding: "Скрытие...",
       },
       confirmations: {
-        hideTitle: "Скрыть рабочее пространство?",
+        hideTitle: "Скрыть чат?",
         hideMessage:
           "Скрыть «{{workspaceName}}» на боковой панели?\n\nФайлы на диске не будут изменены.",
         hideConfirm: "Скрыть",
         cancel: "Отмена",
+        archiveSiblingChats_one: "Также архивирует ещё 1 чат, использующий этот worktree.",
+        archiveSiblingChats_other:
+          "Также архивирует ещё {{count}} чат(ов), использующих этот worktree.",
       },
       rename: {
-        title: "Переименовать рабочее пространство",
+        title: "Переименовать чат",
         submit: "Переименовать",
         invalidBranchName: "Недопустимое имя ветки",
       },
       toasts: {
-        workspacePathUnavailable: "Путь к рабочему пространству недоступен",
+        workspacePathUnavailable: "Путь к worktree недоступен",
         pathCopied: "Путь скопирован",
         branchNameCopied: "Имя ветки скопировано",
         hostDisconnected: "Хост не подключён",
-        hideFailed: "Не удалось скрыть рабочее пространство",
-        archiveFailed: "Не удалось архивировать рабочее пространство",
-        archived: "Рабочее пространство архивировано",
+        hideFailed: "Не удалось скрыть чат",
+        archiveFailed: "Не удалось архивировать чат",
+        archived: "Чат архивирован",
         undoArchive: "Отменить",
         undoArchiveFailed: "Не удалось отменить архивацию",
       },
     },
   },
   newWorkspace: {
-    title: "Новое рабочее пространство",
+    title: "Новый чат",
     create: "Создать",
     isolation: {
       local: "Локально",
@@ -2033,7 +2033,7 @@ export const ru: TranslationResources = {
   },
   branchSwitcher: {
     failedToLoad: "Не удалось загрузить ветки. Откройте список заново, чтобы повторить попытку.",
-    triggerTooltip: "Переключить ветку рабочего пространства",
+    triggerTooltip: "Переключить ветку чата",
     currentBranch: "Текущая ветка: {{branchName}}. Нажмите, чтобы переключить ветку.",
     placeholder: "Сменить ветку...",
     searchPlaceholder: "Фильтровать ветки...",
@@ -2053,7 +2053,7 @@ export const ru: TranslationResources = {
     stashRestored: "Изменения из stash восстановлены.",
   },
   agentAutocomplete: {
-    searchingWorkspace: "Поиск в рабочем пространстве...",
+    searchingWorkspace: "Поиск в папке...",
     loadingCommands: "Загрузка команд...",
     noFiles: "Файлы и каталоги не найдены",
     noCommands: "Команды не найдены",
@@ -2077,14 +2077,14 @@ export const ru: TranslationResources = {
     dialogFilterName: "Изображения",
   },
   workspaceSetup: {
-    title: "Создать рабочее пространство",
+    title: "Новый чат",
     errors: {
       failedCreateWorktree: "Не удалось создать worktree.",
       failedOpenProject: "Не удалось открыть проект",
       selectModel: "Выберите модель",
       hostDisconnected: "Хост не подключён",
-      pendingRequired: "Нет ожидающей настройки рабочего пространства.",
-      composerStateRequired: "Редактор настройки рабочего пространства ещё не готов.",
+      pendingRequired: "Нет ожидающей настройки чата",
+      composerStateRequired: "Требуется состояние композитора настройки чата",
     },
   },
   onboarding: {
@@ -2217,7 +2217,7 @@ export const ru: TranslationResources = {
       noProviders: "На выбранном хосте нет доступных провайдеров",
       modelDefaultsLoading: "Настройки модели по умолчанию всё ещё загружаются",
       noModelAvailable: "Для выбранного провайдера нет доступных моделей.",
-      workspaceDirectoryNotFound: "Каталог рабочего пространства не найден",
+      workspaceDirectoryNotFound: "Папка не найдена",
       hostDisconnected: "Хост не подключён",
     },
   },
@@ -2505,8 +2505,7 @@ export const ru: TranslationResources = {
     phone: {
       entry: "Запуск атаки",
       title: "Атака",
-      noRun:
-        "В этом рабочем пространстве нет запуска атаки. Запустите его из настольного приложения.",
+      noRun: "В этом чате нет запусков атаки. Запустите её из настольного приложения.",
     },
     batchFix: {
       selectOpen: "Выбрать открытые",
@@ -2872,7 +2871,7 @@ export const ru: TranslationResources = {
           source: "Исходный текст",
         },
       },
-      directoryMissing: "Каталог рабочего пространства не найден.",
+      directoryMissing: "Папка не найдена.",
       loading: "Загрузка файла...",
       noPreview: "Предварительный просмотр недоступен",
       binaryPreviewUnavailable: "Предварительный просмотр двоичного файла недоступен.",
@@ -2905,8 +2904,8 @@ export const ru: TranslationResources = {
     },
     files: {
       label: "Файлы",
-      subtitle: "Файлы рабочего пространства",
-      tooltip: "Просмотр файлов рабочего пространства",
+      subtitle: "Файлы чата",
+      tooltip: "Просмотр файлов чата",
       chooseFile: "Выберите файл",
     },
     pullRequest: {
@@ -2922,7 +2921,7 @@ export const ru: TranslationResources = {
       commitSubtitle: "Изменения в коммите",
       uncommittedSubtitle: "Незафиксированные изменения",
       baseSubtitle: "Сравнение с {{baseRef}}",
-      directoryMissing: "Каталог рабочего пространства не найден.",
+      directoryMissing: "Папка не найдена.",
       empty: "Нет изменений",
       loadError: "Не удалось загрузить список изменений",
     },
@@ -3249,7 +3248,7 @@ export const ru: TranslationResources = {
       agents: "Агенты",
       metadata: "Модели Pimi",
       voice: "Голос",
-      workspaces: "Рабочие пространства",
+      workspaces: "Чаты",
       providers: "Провайдеры",
       usage: "Использование",
       terminals: "Терминалы",
@@ -3322,12 +3321,12 @@ export const ru: TranslationResources = {
     },
     plugins: pluginSettings.ru,
     metadataGeneration: {
-      autoNaming: "Автоматически называть чаты и рабочие пространства",
+      autoNaming: "Автоматически называть чаты и ветки",
       autoNamingHint:
         "Создаёт заголовки и имена веток новых рабочих деревьев по первому сообщению. Изменённые вами имена сохраняются.",
       title: "Модели Pimi",
       description:
-        "Выберите модель, которую Pimi будет использовать для названий рабочих пространств и веток, сообщений коммитов и черновиков PR",
+        "Выберите модели, которые Pimi использует для заголовков чатов, сообщений коммитов, pull request, Describe it и Ask Pimi",
       selection: "Выбор модели",
       automatic: "Автоматически",
       preferred: "Вручную",
@@ -3351,7 +3350,7 @@ export const ru: TranslationResources = {
         "{{provider}} отключён или не установлен. Pimi не будет использовать для этого другую модель",
       features: {
         title: "Заголовки чатов",
-        branchName: "Заголовки рабочих пространств и ветки",
+        branchName: "Названия веток",
         commitMessage: "Сообщения коммитов",
         pullRequest: "Текст pull request",
         automation: "Describe it",
@@ -3675,7 +3674,7 @@ export const ru: TranslationResources = {
       },
       sections: {
         general: "Общие",
-        workspaces: "Проекты и рабочие пространства",
+        workspaces: "Проекты и чаты",
         tabsPanes: "Вкладки и панели",
         layout: "Макет",
         editor: "Редактор",
@@ -3683,15 +3682,15 @@ export const ru: TranslationResources = {
       },
       help: {
         openProject: "Открыть проект",
-        newWorkspace: "Новое рабочее пространство",
+        newWorkspace: "Новый чат",
         newWorktree: "Новый worktree",
-        archiveWorkspace: "Архивировать рабочее пространство",
+        archiveWorkspace: "Архивировать чат",
         newTab: "Новая вкладка",
         closeCurrentTab: "Закрыть текущую вкладку",
-        jumpToWorkspace: "Перейти к рабочему пространству",
+        jumpToWorkspace: "Перейти к чату",
         jumpToTab: "Перейти на вкладку",
-        previousWorkspace: "Предыдущее рабочее пространство",
-        nextWorkspace: "Следующее рабочее пространство",
+        previousWorkspace: "Предыдущий чат",
+        nextWorkspace: "Следующий чат",
         previousTab: "Предыдущая вкладка",
         nextTab: "Следующая вкладка",
         splitPaneRight: "Разделить панель справа",
@@ -3912,7 +3911,7 @@ export const ru: TranslationResources = {
         },
       },
       workspaces: {
-        unavailable: "Подключитесь к этому хосту, чтобы управлять рабочими пространствами",
+        unavailable: "Подключитесь к этому хосту, чтобы управлять чатами",
       },
       terminalProfiles: {
         unavailable: "Подключитесь к этому хосту, чтобы управлять профилями терминала",

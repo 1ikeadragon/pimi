@@ -12,15 +12,14 @@ Pimi asks a language model to write short pieces of text for you so you don't ha
 
 Pimi generates these kinds of metadata:
 
-- **Chat titles** — a short name based on the first message.
-- **Workspace titles** — a short, task-shaped label for a workspace, shown in the sidebar.
-- **Worktree branch names** — a slug for a new worktree-isolated workspace's branch.
+- **Chat titles** — a short, task-shaped name based on the first message, shown in the sidebar and chat header.
+- **Worktree branch names** — a slug for a new worktree-isolated chat's branch.
 - **Commit messages** — a concise message for the changes you're committing.
 - **Pull request title and body** — drafted from the diff when you open a PR.
 - **Describe it** — turns an automation description into a draft automation.
 - **Ask Pimi** — the voice command assistant. It runs only on Claude Code, Codex, or OpenCode.
 
-A workspace title and its branch name are produced together from the same prompt, but you configure their wording independently (see below).
+A chat title and its branch name are produced together from the same prompt, but you configure their wording independently (see below).
 
 ## How a model is chosen
 
@@ -37,7 +36,7 @@ In Automatic mode, Pimi builds an ordered list of candidates and tries each one 
 
 Each default is a match on the model id or name, so the first enabled provider that ships a matching model wins. Defaults with no match are skipped. Duplicates are removed, then generation tries the list top to bottom. The default order prefers small, fast, cheap models for these short tasks before falling back to whatever you have selected.
 
-In Manual mode, Pimi tries only your configured models, in your order. It never adds the built-in defaults or the selected model, so your prompts and diffs only go to providers you chose. If every configured model is unavailable, generation fails with an error naming the model: workspace titles and branch names are not generated, and commit and pull request generation report the error. If a configured model is available but its run fails, commits and pull requests get placeholder text. Pick a model that works for these tasks.
+In Manual mode, Pimi tries only your configured models, in your order. It never adds the built-in defaults or the selected model, so your prompts and diffs only go to providers you chose. If every configured model is unavailable, generation fails with an error naming the model: chat titles and branch names are not generated, and commit and pull request generation report the error. If a configured model is available but its run fails, commits and pull requests get placeholder text. Pick a model that works for these tasks.
 
 Every failure is written to `$PIMI_HOME/daemon.log` (`~/.pimi/daemon.log` by default) with the provider, the model and the error. Look there when a manual model doesn't produce titles, branch names, commit messages or pull request text.
 
@@ -45,11 +44,11 @@ Every failure is written to `$PIMI_HOME/daemon.log` (`~/.pimi/daemon.log` by def
 
 Open **Settings → Host → Pimi models** and select **Automatic** or **Manual**. In Manual mode, pick the model Pimi uses. Choosing a model replaces the first entry in `agents.metadataGeneration.providers` and preserves the rest of the list. Switching back to Automatic clears the list.
 
-**Automatically name chats and workspaces** is on by default for each host. Turn it off to keep the initial titles and worktree branch names. Pimi keeps titles you’ve edited and still generates commit messages and PR drafts on request.
+**Automatically name chats and branches** is on by default for each host. Turn it off to keep the initial titles and worktree branch names. Pimi keeps titles you’ve edited and still generates commit messages and PR drafts on request.
 
 ## Use a different model for one feature
 
-The **Per feature** card lists chat titles, workspace titles and branches, commit messages, pull request text, Describe it, and Ask Pimi. A row left on **Same as default** follows the default above. Pick a model, and optionally a thinking level, to override one row. **Reset** returns it to the default.
+The **Per feature** card lists chat titles, branch names, commit messages, pull request text, Describe it, and Ask Pimi. A row left on **Same as default** follows the default above. Pick a model, and optionally a thinking level, to override one row. **Reset** returns it to the default.
 
 A feature override is exact: if its provider is turned off or its model is gone, that feature shows an error and Pimi does not try another model. Overrides live in `agents.metadataGeneration.features` in `config.json`, keyed `title`, `branchName`, `commitMessage`, `pullRequest`, `automation`, and `askPimi`, each with the same `provider`, `model`, and `thinkingOptionId` fields as a list entry.
 

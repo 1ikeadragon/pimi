@@ -10,9 +10,9 @@ category: Getting started
 
 Pimi is a full agentic development environment. Run coding agents, edit files, review diffs and pull requests, and test your app with terminals and a built-in desktop browser. For agent-driven development, Pimi replaces your IDE: take a task from the first prompt through review and testing in one app.
 
-## Develop in one workspace
+## Develop in one chat
 
-Open the desktop app, choose a project and an agent, and start working. Keep the conversation, editor, terminal, diffs, and browser together in split panes. Run your app, inspect the result, and ask the agent for changes without leaving the workspace.
+Open the desktop app, choose a project and an agent, and start working. Keep the conversation, editor, terminal, diffs, and browser together in split panes. Run your app, inspect the result, and ask the agent for changes without leaving the chat.
 
 The desktop app is available on macOS and Windows. It starts and manages its local daemon automatically.
 
@@ -30,7 +30,7 @@ Dictate tasks or use [voice mode](/docs/voice). Speech-to-text and text-to-speec
 
 ## Continue from another device
 
-The daemon owns the running agents and workspaces. The desktop app connects to it locally; mobile, web, and CLI clients connect to the same environment. That separation lets you continue working from another device or run your environment on a server.
+The daemon owns the running agents and chats. The desktop app connects to it locally; mobile, web, and CLI clients connect to the same environment. That separation lets you continue working from another device or run your environment on a server.
 
 Use Pimi entirely on your laptop, or connect to another machine when you need it. The native iOS and Android app gives you agents, files, terminals, and diffs on your phone. The built-in browser runs in the desktop app. [Connect your devices](/docs/connectivity) directly or through the optional end-to-end encrypted relay.
 
