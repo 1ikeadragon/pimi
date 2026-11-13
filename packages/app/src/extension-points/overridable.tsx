@@ -110,6 +110,8 @@ export function overridable<CoreProps extends object>(
   Core: ComponentType<CoreProps>,
 ): ComponentType<CoreProps>;
 export function overridable(id: string, Core: AnyComponent, adapter?: unknown): AnyComponent {
+  // A missing core (usually an import cycle) would otherwise surface as an anonymous render error.
+  if (!Core) throw new Error(`overridable("${id}"): the core component is undefined`);
   const subscribe = (listener: () => void) => extensionRegistry.subscribe(id, listener);
   const getSnapshot = () => extensionRegistry.getSnapshot(id);
   const RenderCore = Core as RenderableComponent;
