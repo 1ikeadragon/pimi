@@ -332,6 +332,8 @@ enum Input {
             let layoutPtr = UnsafePointer<UCKeyboardLayout>(OpaquePointer(bytes))
             for shift in [false, true] {
                 for code in 0..<128 {
+                    // The keypad types the same characters as the main keys; chords and scancode text use the main block.
+                    if (65...92).contains(code) { continue }
                     var dead: UInt32 = 0
                     var length = 0
                     var chars = [UniChar](repeating: 0, count: 4)
