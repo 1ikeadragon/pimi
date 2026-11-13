@@ -25,6 +25,7 @@ import {
 import type { PendingPermission } from "@/types/shared";
 import type { ComposerAttachment } from "@/attachments/types";
 import type { AgentLifecycleStatus } from "@pimi/protocol/agent-lifecycle";
+import type { AgentAttachment } from "@pimi/protocol/messages";
 import type {
   AgentPermissionRequest,
   AgentFeature,
@@ -341,6 +342,8 @@ export function selectAgentTimelineState(
 
 export interface SentMessage {
   text: string;
+  /** What the message carried, so recalling it can restore its annotations. */
+  attachments: AgentAttachment[];
   /** Null until the daemon has placed the message in the timeline. */
   position: TimelinePosition | null;
 }
@@ -359,7 +362,11 @@ export function selectAgentSentMessages(
   for (let index = items.length - 1; index >= 0; index -= 1) {
     const item = items[index];
     if (item.kind !== "user_message") continue;
-    messages.push({ text: item.text, position: item.timelineCursor ?? null });
+    messages.push({
+      text: item.text,
+      attachments: item.attachments ?? [],
+      position: item.timelineCursor ?? null,
+    });
   }
   return messages;
 }

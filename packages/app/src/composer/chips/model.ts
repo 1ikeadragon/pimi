@@ -1,5 +1,6 @@
 import { annotationChipLabel, type AnnotationAttachment } from "@/annotations/model";
 import { i18n } from "@/i18n/i18next";
+import type { AgentAttachment } from "@pimi/protocol/messages";
 
 /**
  * A chip is one Private Use Area code unit in the draft text: `U+E000 + slot`. The slot is the
@@ -9,10 +10,9 @@ import { i18n } from "@/i18n/i18next";
  */
 const CHIP_BASE = 0xe000;
 export const MAX_CHIPS = 32;
-export const CHIP_CHARACTERS = new RegExp(
-  `[\\u${CHIP_BASE.toString(16)}-\\u${(CHIP_BASE + MAX_CHIPS - 1).toString(16)}]`,
-  "g",
-);
+/** The inside of a character class matching any chip, for building larger patterns. */
+export const CHIP_CHARACTER_CLASS = `\\u${CHIP_BASE.toString(16)}-\\u${(CHIP_BASE + MAX_CHIPS - 1).toString(16)}`;
+export const CHIP_CHARACTERS = new RegExp(`[${CHIP_CHARACTER_CLASS}]`, "g");
 
 export function chipChar(slot: number): string {
   return String.fromCharCode(CHIP_BASE + slot);
@@ -212,4 +212,56 @@ export function chipPreviewText(
     const annotation = bySlot.get(chipSlot(char));
     return annotation ? `[${annotationChipLabel(annotation)}]` : "";
   });
+}
+
+const SENT_MARKER = /\[annotation (\d+)\]/g;
+
+export interface RestoredChips {
+  /** The sent text with its markers turned back into chips (or dropped, when nothing backs them). */
+  text: string;
+  annotations: AnnotationAttachment[];
+}
+
+/**
+ * Turns a sent message back into draft form: each `[annotation N]` marker that has its annotation
+ * becomes a chip with a new id and slot. Without attachments (a message paged in from the daemon
+ * carries text only) the markers are dropped, since nothing could open them.
+ */
+export function restoreSentChips(input: {
+  text: string;
+  attachments: readonly AgentAttachment[];
+  /** Slots the draft already uses. */
+  reserved: readonly number[];
+  newId: () => string;
+}): RestoredChips {
+  const byRef = new Map<
+    number,
+    NonNullable<Extract<AgentAttachment, { type: "text" }>["annotation"]>
+  >();
+  for (const attachment of input.attachments) {
+    if (attachment.type === "text" && attachment.annotation?.ref !== undefined)
+      byRef.set(attachment.annotation.ref, attachment.annotation);
+  }
+  const annotations: AnnotationAttachment[] = [];
+  const text = input.text.replace(SENT_MARKER, (marker, digits: string) => {
+    const metadata = byRef.get(Number(digits));
+    if (!metadata) return input.attachments.length === 0 ? "" : marker;
+    const slot = lowestFreeSlot([
+      ...input.reserved,
+      ...annotations.map((annotation) => annotation.slot),
+    ]);
+    if (slot === null) return "";
+    byRef.delete(Number(digits));
+    annotations.push({
+      kind: "annotation",
+      id: input.newId(),
+      slot,
+      source: metadata.source,
+      quote: metadata.quote,
+      note: metadata.note,
+      ...(metadata.selector ? { selector: metadata.selector } : {}),
+    });
+    return chipChar(slot);
+  });
+  return { text, annotations };
 }

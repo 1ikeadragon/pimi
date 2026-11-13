@@ -13,6 +13,7 @@ import {
   buildDraftAgentControls,
   hasDraftContent,
   resolveDraftKey,
+  type AttachmentUpdater,
   type DraftKeyInput,
 } from "@/composer/draft/input-draft-core";
 import {
@@ -34,10 +35,6 @@ import {
   useAgentProfiles,
   type MaterializedAgentProfile,
 } from "@/agent-profiles";
-
-type AttachmentUpdater =
-  | UserComposerAttachment[]
-  | ((prev: UserComposerAttachment[]) => UserComposerAttachment[]);
 
 interface AgentInputDraftComposerOptions {
   initialServerId: string | null;
@@ -229,8 +226,10 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
   const setAttachments = useCallback(
     (updater: AttachmentUpdater) => {
       saveDraft((current) => {
-        const next = typeof updater === "function" ? updater(current.attachments) : updater;
         const stashed = useDraftStore.getState().detachedAnnotationsByDraftKey[draftKey] ?? [];
+        const reservedSlots = stashed.map((annotation) => annotation.slot);
+        const next =
+          typeof updater === "function" ? updater(current.attachments, { reservedSlots }) : updater;
         return { ...current, attachments: avoidStashedSlots(next, current.attachments, stashed) };
       });
     },

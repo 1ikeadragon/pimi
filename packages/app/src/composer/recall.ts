@@ -136,7 +136,10 @@ function collapseRepeats(texts: readonly string[]): string[] {
 
 interface RecalledMessage {
   index: number;
+  /** The message as sent; the history is searched by it. */
   text: string;
+  /** What the composer holds for it, which differs from `text` once its chips are restored. */
+  shown: string;
   /** The user moved the caret off the end, so the arrows belong to the caret again. */
   hasCaretLeft: boolean;
 }
@@ -160,8 +163,13 @@ export class ComposerRecall {
   constructor(private readonly history: SentMessageHistory) {}
 
   /** True while the composer shows a recalled message the user has not edited. */
+  /** The composer holds `shown` for the message just recalled, e.g. with its chips restored. */
+  setShown(shown: string): void {
+    if (this.recalled) this.recalled.shown = shown;
+  }
+
   isShowing(text: string): boolean {
-    return this.recalled !== null && this.recalled.text === text;
+    return this.recalled !== null && this.recalled.shown === text;
   }
 
   /**
@@ -219,7 +227,7 @@ export class ComposerRecall {
   /** The recalled message, while the composer still holds it with the caret at its end. */
   private walking(input: ComposerInputSnapshot): RecalledMessage | null {
     const { text, selection } = input;
-    if (!this.recalled || this.recalled.text !== text) {
+    if (!this.recalled || this.recalled.shown !== text) {
       this.recalled = null;
       return null;
     }
@@ -244,7 +252,7 @@ export class ComposerRecall {
   private textAt(loaded: readonly SentMessage[], index: number): string | null {
     const text = this.history.messages(loaded)[index];
     if (text === undefined) return null;
-    this.recalled = { index, text, hasCaretLeft: false };
+    this.recalled = { index, text, shown: text, hasCaretLeft: false };
     this.history.loadOlderNear(index, loaded);
     return text;
   }

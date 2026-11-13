@@ -164,6 +164,7 @@ import type {
 } from "@/attachments/types";
 import type { SelectedFile } from "@/attachments/selected-file";
 import { composerWorkspaceAttachment } from "@/composer/attachments/workspace";
+import type { AttachmentUpdater } from "@/composer/draft/input-draft-core";
 import { AnnotationChipHost } from "@/annotations/chip-host";
 import {
   annotationChipLabel,
@@ -177,6 +178,7 @@ import {
   chipPositions,
   chipSlot,
   chipsOnly,
+  restoreSentChips,
   stripChips,
   lowestFreeSlot,
   reconcileAfterAttachmentsChange,
@@ -236,10 +238,6 @@ const composerImageAttachmentPersister: Pick<
 };
 
 type QueuedMessage = QueuedComposerMessage;
-
-type AttachmentListUpdater =
-  | UserComposerAttachment[]
-  | ((prev: UserComposerAttachment[]) => UserComposerAttachment[]);
 
 const EMPTY_ATTACHMENT_SCOPE_KEYS: readonly string[] = [];
 
@@ -1189,7 +1187,7 @@ interface ComposerProps {
   attachments: UserComposerAttachment[];
   attachmentScopeKeys?: readonly string[];
   onOpenWorkspaceAttachment?: (attachment: WorkspaceComposerAttachment) => void;
-  onChangeAttachments: (updater: AttachmentListUpdater) => void;
+  onChangeAttachments: (updater: AttachmentUpdater) => void;
   onForgeChangeRequestDetected?: () => void;
   onForgeChangeRequestAutoAttach?: (item: ForgeSearchItem) => void;
   cwd: string;
@@ -2255,17 +2253,19 @@ function ComposerContentImpl({
       paste: (payload) => {
         const parsed = parseCopiedChips(payload);
         if (!parsed) return null;
-        const used = new Set(annotationsOf(attachmentsRef.current).map((a) => a.slot));
         const newSlotFor = new Map<number, number>();
-        const clones: AnnotationAttachment[] = [];
-        for (const annotation of parsed.annotations) {
-          const slot = lowestFreeSlot(used);
-          if (slot === null) break;
-          used.add(slot);
-          newSlotFor.set(annotation.slot, slot);
-          clones.push({ ...annotation, id: generateAnnotationId(), slot });
-        }
-        if (clones.length > 0) setSelectedAttachments((current) => [...current, ...clones]);
+        setSelectedAttachments((current, { reservedSlots }) => {
+          const used = new Set([...annotationsOf(current).map((a) => a.slot), ...reservedSlots]);
+          const clones: AnnotationAttachment[] = [];
+          for (const annotation of parsed.annotations) {
+            const slot = lowestFreeSlot(used);
+            if (slot === null) break;
+            used.add(slot);
+            newSlotFor.set(annotation.slot, slot);
+            clones.push({ ...annotation, id: generateAnnotationId(), slot });
+          }
+          return [...current, ...clones];
+        });
         return parsed.text.replace(CHIP_CHARACTERS, (char) => {
           const slot = newSlotFor.get(chipSlot(char));
           return slot === undefined ? "" : chipChar(slot);
@@ -2450,6 +2450,35 @@ function ComposerContentImpl({
   const hasSendableContent = hasText || selectedAttachments.length > 0;
 
   // An open autocomplete owns the arrows; otherwise they may recall sent messages.
+  // A recalled message comes back with its annotations as chips.
+  const showRecalled = useCallback(
+    (sentText: string) => {
+      const message = readLoadedSentMessages().find((candidate) => candidate.text === sentText);
+      // The text being replaced takes its chips with it; their annotations go too, so the sync
+      // above does not mistake them for annotations still waiting for a chip.
+      const replaced = new Set(
+        chipPositions(messageInputRef.current?.getText() ?? "").map((chip) => chip.slot),
+      );
+      let restoredText = sentText;
+      setSelectedAttachments((current, { reservedSlots }) => {
+        const kept = current.filter(
+          (attachment) => attachment.kind !== "annotation" || !replaced.has(attachment.slot),
+        );
+        const restored = restoreSentChips({
+          text: sentText,
+          attachments: message?.attachments ?? [],
+          reserved: [...annotationsOf(kept).map((annotation) => annotation.slot), ...reservedSlots],
+          newId: generateAnnotationId,
+        });
+        restoredText = restored.text;
+        return [...kept, ...restored.annotations];
+      });
+      replaceUserInput(restoredText);
+      recall.setShown(restoredText);
+    },
+    [readLoadedSentMessages, recall, replaceUserInput, setSelectedAttachments],
+  );
+
   const handleCommandKeyPress = useCallback(
     (event: ComposerKeyPressEvent) => {
       if (autocompleteRef.current?.onKeyPress(event)) return true;
@@ -2466,10 +2495,10 @@ function ComposerContentImpl({
       const recalled = recall.handleKeyPress(event, readLoadedSentMessages);
       if (recalled === null) return false;
       event.preventDefault();
-      if (recalled.kind === "show") replaceUserInput(recalled.text);
+      if (recalled.kind === "show") showRecalled(recalled.text);
       return true;
     },
-    [pluginComposer, readLoadedSentMessages, recall, replaceUserInput],
+    [pluginComposer, readLoadedSentMessages, recall, showRecalled],
   );
 
   // An Up pressed ahead of an older page shows its message once the page arrives.
@@ -2479,9 +2508,9 @@ function ComposerContentImpl({
         const input = messageInputRef.current?.getInputSnapshot();
         if (!input) return;
         const recalledText = recall.resume(input, readLoadedSentMessages);
-        if (recalledText !== null) replaceUserInput(recalledText);
+        if (recalledText !== null) showRecalled(recalledText);
       }),
-    [readLoadedSentMessages, recall, replaceUserInput, sentMessageHistory],
+    [readLoadedSentMessages, recall, showRecalled, sentMessageHistory],
   );
 
   const cancelButtonStyle = useCallback(

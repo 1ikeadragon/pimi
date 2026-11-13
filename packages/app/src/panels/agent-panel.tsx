@@ -41,6 +41,7 @@ import {
   resolveComposerTrackTailClearance,
 } from "@/composer/pill-styles";
 import { getActiveMessageSubmissions } from "@/composer/submission/model";
+import { annotationsOf, type RestoredChips } from "@/composer/chips/model";
 import { RewindComposerRestoreProvider } from "@/components/rewind/composer-restore";
 import { useAgentDescriptor } from "@/agent-presentation";
 import { useToastHost, type ToastApi, type ToastState } from "@/components/toast-host";
@@ -340,6 +341,10 @@ function resolveConversationAgentId(target: ConversationTarget): string | undefi
  * Drafts and agents render through one chain so the timeline stays mounted when the draft's
  * first prompt creates the agent and the tab retargets. The agent gates are idle for a draft.
  */
+function slotOf(annotation: { slot: number }): number {
+  return annotation.slot;
+}
+
 export function AgentConversationPanel() {
   const { serverId, workspaceId, target, openFileInWorkspace } = usePaneContext();
   const { isInteractive } = usePaneFocus();
@@ -1259,10 +1264,25 @@ const ChatAgentReadyContent = memo(function ChatAgentReadyContent({
     </ChatSurface>
   );
 
+  const setDraftAttachments = agentInputDraft.setAttachments;
+  const restoreRewoundChips = useCallback(
+    (restore: (reservedSlots: readonly number[]) => RestoredChips): RestoredChips => {
+      let restored: RestoredChips = { text: "", annotations: [] };
+      setDraftAttachments((current, { reservedSlots }) => {
+        const held = annotationsOf(current).map(slotOf);
+        restored = restore([...held, ...reservedSlots]);
+        return [...current, ...restored.annotations];
+      });
+      return restored;
+    },
+    [setDraftAttachments],
+  );
+
   const content = (
     <RewindComposerRestoreProvider
       textSource={agentInputDraft.textSource}
       setText={agentInputDraft.replaceText}
+      restoreChips={restoreRewoundChips}
       onRewindComplete={handleRewindComplete}
     >
       <View style={styles.root}>

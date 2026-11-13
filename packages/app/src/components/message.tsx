@@ -477,9 +477,9 @@ export const UserMessage = memo(function UserMessage({
   const getMessageContent = useCallback(() => message, [message]);
   const handleRewind = useCallback(
     (input: { mode: RewindMode; rewoundText: string }) => {
-      return rewindMutation.rewindAgent(input);
+      return rewindMutation.rewindAgent({ ...input, rewoundAttachments: attachments });
     },
-    [rewindMutation],
+    [attachments, rewindMutation],
   );
 
   const containerStyle = useMemo(

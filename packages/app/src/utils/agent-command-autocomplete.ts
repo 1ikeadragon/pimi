@@ -1,3 +1,4 @@
+import { CHIP_CHARACTER_CLASS, isChipChar } from "@/composer/chips/model";
 import {
   compareMatchScores,
   type MatchScore,
@@ -94,7 +95,8 @@ export function filterInlineSkillCommandEntries<TEntry extends CommandAutocomple
   return entries.filter((entry) => entry.source === "provider" && entry.command.kind === "skill");
 }
 
-const INVALID_SLASH_COMMAND_QUERY_CHARS = /[/\s\n\r\t"']/;
+// A chip ends a word like a space does, so a command can follow one and cannot contain one.
+const INVALID_SLASH_COMMAND_QUERY_CHARS = new RegExp(`[/\\s\\n\\r\\t"'${CHIP_CHARACTER_CLASS}]`);
 
 export function findActiveSlashCommand(
   input: FindActiveSlashCommandInput,
@@ -108,7 +110,7 @@ export function findActiveSlashCommand(
     slashIndex = slashIndex === 0 ? -1 : beforeCursor.lastIndexOf("/", slashIndex - 1)
   ) {
     const previousCharacter = slashIndex > 0 ? input.text[slashIndex - 1] : "";
-    if (previousCharacter && !/\s/.test(previousCharacter)) {
+    if (previousCharacter && !/\s/.test(previousCharacter) && !isChipChar(previousCharacter)) {
       continue;
     }
 
