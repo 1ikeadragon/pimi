@@ -2,6 +2,11 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.34 - 2026-11-13
+
+- Attack desktop target: removed hardcoded deny lists (terminal apps, system tools, password managers, anti-cheat games) from the window picker and helper. The owner picks the target; only Windows secure-desktop processes (logonui, winlogon, consent) and Pimi itself are still refused. Elevated targets are no longer refused for input.
+- Guardrail model fallback: when an Attack agent's response matches a safety-classifier refusal pattern, the agent is automatically switched to `claude-opus-4-6` for that turn, then restored to its original model on the next turn. Audited as `guardrail_fallback` / `guardrail_restored`.
+
 ## 0.17.33 - 2026-11-13
 
 - Attack desktop target on Windows:
