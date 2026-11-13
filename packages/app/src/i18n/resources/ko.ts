@@ -2207,6 +2207,14 @@ export const ko: TranslationResources = {
     },
   },
   pairing: {
+    route: {
+      loading: "페어링 링크를 여는 중...",
+      errorTitle: "페어링 링크 없음",
+      errorDescription:
+        "이 페이지에는 페어링 링크가 필요합니다. 컴퓨터의 기기 페어링 화면에서 열거나 여기서 호스트를 추가하세요.",
+      addHost: "호스트 추가",
+      goHome: "홈으로",
+    },
     hostPassword: {
       title: "{{host}}의 비밀번호",
       label: "호스트 비밀번호",

@@ -2240,6 +2240,14 @@ export const fr: TranslationResources = {
     },
   },
   pairing: {
+    route: {
+      loading: "Ouverture du lien d'appairage…",
+      errorTitle: "Lien d'appairage manquant",
+      errorDescription:
+        "Cette page nécessite un lien d'appairage. Ouvrez-le depuis l'écran Associer un appareil de votre ordinateur, ou ajoutez un hôte ici.",
+      addHost: "Ajouter un hôte",
+      goHome: "Aller à l'accueil",
+    },
     hostPassword: {
       title: "Mot de passe pour {{host}}",
       label: "Mot de passe de l’hôte",
