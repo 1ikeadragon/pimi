@@ -204,25 +204,31 @@ export function resolveSshFailureDetail(failure: string | null, stderr: string):
   return failure ?? (stderr.trim() || null);
 }
 
-function createSshProxy(target: SshTransportTarget): Promise<TransportEndpoint> {
-  let server: Server | null = null;
-  let socket: Socket | null = null;
+export interface SshTunnel {
+  /** Kills the ssh child, if one was started. Safe to call more than once. */
+  kill(): void;
+  failureDetail(): string | null;
+}
+
+/**
+ * Starts one `ssh -W` tunnel for an accepted local socket: auth setup, spawn, byte piping both
+ * ways, and ssh killed when the socket closes. A failure destroys the socket.
+ */
+export function startSshTunnel(target: SshTransportTarget, acceptedSocket: Socket): SshTunnel {
   let child: ChildProcessWithoutNullStreams | null = null;
   let stderr = "";
   let failure: string | null = null;
 
-  function close(): void {
-    server?.close();
-    server = null;
-    socket?.destroy();
-    socket = null;
+  function kill(): void {
     if (child && !child.killed) {
       child.kill();
     }
-    child = null;
   }
 
-  async function startTunnel(acceptedSocket: Socket): Promise<void> {
+  acceptedSocket.on("error", () => undefined);
+  acceptedSocket.on("close", kill);
+
+  void (async () => {
     let auth: Awaited<ReturnType<typeof prepareSshAuth>>;
     try {
       auth = await prepareSshAuth(target);
@@ -256,6 +262,23 @@ function createSshProxy(target: SshTransportTarget): Promise<TransportEndpoint> 
     });
     acceptedSocket.pipe(spawned.stdin);
     spawned.stdout.pipe(acceptedSocket);
+  })();
+
+  return { kill, failureDetail: () => resolveSshFailureDetail(failure, stderr) };
+}
+
+function createSshProxy(target: SshTransportTarget): Promise<TransportEndpoint> {
+  let server: Server | null = null;
+  let socket: Socket | null = null;
+  let tunnel: SshTunnel | null = null;
+
+  function close(): void {
+    server?.close();
+    server = null;
+    socket?.destroy();
+    socket = null;
+    tunnel?.kill();
+    tunnel = null;
   }
 
   return new Promise((resolve, reject) => {
@@ -263,13 +286,7 @@ function createSshProxy(target: SshTransportTarget): Promise<TransportEndpoint> 
       socket = acceptedSocket;
       server?.close();
       server = null;
-      acceptedSocket.on("error", () => undefined);
-      acceptedSocket.on("close", () => {
-        if (child && !child.killed) {
-          child.kill();
-        }
-      });
-      void startTunnel(acceptedSocket);
+      tunnel = startSshTunnel(target, acceptedSocket);
     });
     server.once("error", (error) => {
       close();
@@ -285,7 +302,7 @@ function createSshProxy(target: SshTransportTarget): Promise<TransportEndpoint> 
       resolve({
         url: `ws://127.0.0.1:${address.port}${WS_ENDPOINT_PATH}`,
         close,
-        failureDetail: () => resolveSshFailureDetail(failure, stderr),
+        failureDetail: () => tunnel?.failureDetail() ?? null,
       });
     });
   });

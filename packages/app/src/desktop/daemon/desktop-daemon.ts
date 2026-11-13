@@ -322,6 +322,31 @@ export async function prepareRemoteSsh(input: {
   return (await invokeDesktopCommand("remote_ssh_prepare", input)) as RemoteSshSetupResult;
 }
 
+/**
+ * Opens (or reuses) a local socket on this desktop whose connections tunnel over ssh to that
+ * machine's daemon. Returns the `unix://` or `pipe://` connection string a daemon can register.
+ */
+export async function ensureRemoteSshAgentEndpoint(target: {
+  host: string;
+  sshPort?: number;
+  daemonPort?: number;
+}): Promise<string> {
+  const connection = await invokeDesktopCommand("remote_ssh_agent_endpoint", { ...target });
+  if (typeof connection !== "string" || connection.length === 0) {
+    throw new Error("Desktop returned no SSH agent endpoint.");
+  }
+  return connection;
+}
+
+/** Closes the socket opened by `ensureRemoteSshAgentEndpoint` and kills its tunnels. */
+export async function closeRemoteSshAgentEndpoint(target: {
+  host: string;
+  sshPort?: number;
+  daemonPort?: number;
+}): Promise<void> {
+  await invokeDesktopCommand("remote_ssh_agent_endpoint_close", { ...target });
+}
+
 export interface RemoteSshUpgradePending {
   host: string;
   sshPort?: number;

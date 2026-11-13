@@ -65,6 +65,7 @@ import {
 import { registerDaemonManager } from "./daemon/daemon-manager.js";
 import { parsePassthroughCliArgsFromArgv, runPassthroughCli } from "./daemon/cli/passthrough.js";
 import { closeAllTransportSessions } from "./daemon/local-transport.js";
+import { closeAllSshAgentEndpoints } from "./daemon/remote-ssh/agent-endpoint.js";
 import { disposeSshAuth } from "./daemon/remote-ssh/askpass.js";
 import {
   applyDesktopWindowChromeMode,
@@ -1425,6 +1426,7 @@ const quitLifecycle = createQuitLifecycle({
   app,
   closeTransportSessions: () => {
     closeAllTransportSessions();
+    closeAllSshAgentEndpoints();
     disposeSshAuth();
   },
   stopDesktopManagedDaemonIfNeeded: () =>

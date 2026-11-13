@@ -2,6 +2,7 @@ import path from "node:path";
 import { app, ipcMain, powerMonitor } from "electron";
 import { resolveDesktopAppVersion } from "./app-version.js";
 import { pendingSshAuth } from "./remote-ssh/askpass.js";
+import { closeSshAgentEndpoint, ensureSshAgentEndpoint } from "./remote-ssh/agent-endpoint.js";
 import {
   answerRemoteSshAuth,
   cancelRemoteSsh,
@@ -637,6 +638,10 @@ export function createDaemonCommandHandlers(): Record<string, DesktopCommandHand
     delete_attachment_file: (args) => deleteManagedAttachmentFile(args ?? {}),
     garbage_collect_attachment_files: (args) => garbageCollectManagedAttachmentFiles(args ?? {}),
     remote_ssh_prepare: (args) => prepareRemoteSsh(args),
+    remote_ssh_agent_endpoint: (args) => ensureSshAgentEndpoint(args),
+    remote_ssh_agent_endpoint_close: async (args) => {
+      await closeSshAgentEndpoint(args);
+    },
     remote_ssh_cancel: (args) => {
       cancelRemoteSsh(args);
     },
