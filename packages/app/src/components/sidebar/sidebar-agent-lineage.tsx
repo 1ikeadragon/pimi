@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, type ReactElement } from "react";
+import { memo, useCallback, useMemo, useState, type ReactElement } from "react";
 import { useTranslation } from "@/i18n/use-translation";
 import {
   Text,
@@ -9,15 +9,14 @@ import {
 } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import equal from "fast-deep-equal";
-import { ChevronDown, ChevronRight } from "lucide-react-native";
-import { create } from "zustand";
 import { useStoreWithEqualityFn } from "zustand/traditional";
 import { ModelProviderGlyph } from "@/components/model-browser";
-import { DensityIcon } from "@/components/ui/density-icon";
 import { PressHighlight } from "@/components/ui/press-highlight";
+import { useIsCompactFormFactor } from "@/constants/layout";
 import { isWeb } from "@/constants/platform";
 import { getDesktopHost } from "@/desktop/host";
-import { usePendingArchiveAgentKeys } from "@/hooks/use-archive-agent";
+import { useArchiveAgent, usePendingArchiveAgentKeys } from "@/hooks/use-archive-agent";
+import { SidebarWorkspaceArchiveButton } from "@/components/sidebar/sidebar-workspace-menu";
 import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
 import { usePanelStore } from "@/stores/panel-store";
 import { useSessionStore } from "@/stores/session-store";
@@ -32,26 +31,17 @@ import {
 import { SUBAGENT_STATUS_LABEL_KEYS } from "@/subagents/status";
 import { SubagentStatusDot } from "@/subagents/status-dot";
 import { resolveRowLabel } from "@/subagents/track-presentation";
+import {
+  resolveChatTitle,
+  useWorkspaceRootChats,
+  type WorkspaceRootChat,
+} from "@/chats/primary-chat";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
-import { aggregateSidebarStateBuckets, type SidebarStateBucket } from "@/utils/sidebar-agent-state";
+import type { SidebarStateBucket } from "@/utils/sidebar-agent-state";
 import { getStatusDotColor } from "@/utils/status-dot-color";
 import { STATUS_INDICATOR_FILLED_DOT_SIZE } from "@/utils/status-indicator-geometry";
 
 const PROVIDER_GLYPH_SIZE = 14;
-
-/**
- * The user's expand/collapse choice per chat, for this app session. Absent means expanded: every
- * child listed here is live, so it is worth showing until the user folds it. Kept outside the row
- * so a virtualized sidebar that remounts the row keeps the choice.
- */
-const useLineageExpansionStore = create<{
-  expanded: Readonly<Record<string, boolean>>;
-  setExpanded: (key: string, expanded: boolean) => void;
-}>((set) => ({
-  expanded: {},
-  setExpanded: (key, expanded) =>
-    set((state) => ({ expanded: { ...state.expanded, [key]: expanded } })),
-}));
 
 // Mirrors the workspace row's press: navigation only closes the compact sidebar when it reveals a
 // different workspace, so a row in the workspace already shown closes it itself.
@@ -85,10 +75,13 @@ function workerKey(worker: SidebarLineageWorker): string {
     : `${worker.serverId}:${worker.parentAgentId}:${worker.subagentId}`;
 }
 
+const EMPTY_WORKERS: SidebarLineageWorker[] = [];
+
 /**
- * The chats in one workspace that have live subagents, each with those subagents indented under
- * it. Renders nothing for a workspace without any, which is almost every row, so the cost there
- * is one shared-index lookup per session-store update.
+ * What hangs under a workspace's chat row: the live subagents of its primary chat, then every
+ * further root chat as a row of its own (opening that chat), each followed by its subagents.
+ * Renders nothing for the common single-chat workspace without subagents, so the cost there is
+ * two shared-index lookups per session-store update.
  */
 export const SidebarAgentLineage = memo(function SidebarAgentLineage({
   serverId,
@@ -97,123 +90,152 @@ export const SidebarAgentLineage = memo(function SidebarAgentLineage({
 }: {
   serverId: string | null | undefined;
   workspaceId: string;
-  /** The workspace row's own indent, so the chats keep its title rail in every grouping. */
+  /** The workspace row's own indent, so nested rows keep its title rail in every grouping. */
   indentStyle?: StyleProp<ViewStyle>;
 }): ReactElement | null {
   const workspaceKey = serverId ? sidebarLineageWorkspaceKey(serverId, workspaceId) : null;
   const descriptors = useProviderSubagentStore((state) => state.descriptors);
   const hiddenFromTrack = useProviderSubagentStore((state) => state.hiddenFromTrack);
-  const selectChats = useCallback(
+  const selectLineage = useCallback(
     (state: ReturnType<typeof useSessionStore.getState>) =>
       workspaceKey
         ? selectSidebarLineageChats(state.sessions, { descriptors, hiddenFromTrack }, workspaceKey)
         : null,
     [workspaceKey, descriptors, hiddenFromTrack],
   );
-  const chats = useStoreWithEqualityFn(useSessionStore, selectChats, equal);
-  if (!chats?.length || !workspaceKey) return null;
+  const lineage = useStoreWithEqualityFn(useSessionStore, selectLineage, equal);
+  const roots = useWorkspaceRootChats(serverId, workspaceId);
+  if (!workspaceKey || (roots.length < 2 && !lineage?.length)) return null;
   return (
-    <SidebarAgentLineageChats workspaceKey={workspaceKey} chats={chats} indentStyle={indentStyle} />
+    <SidebarChatTree
+      workspaceKey={workspaceKey}
+      roots={roots}
+      lineage={lineage ?? []}
+      indentStyle={indentStyle}
+    />
   );
 });
 
-function SidebarAgentLineageChats({
+function SidebarChatTree({
   workspaceKey,
-  chats,
+  roots,
+  lineage,
   indentStyle,
 }: {
   workspaceKey: string;
-  chats: SidebarLineageChat[];
+  roots: WorkspaceRootChat[];
+  lineage: SidebarLineageChat[];
   indentStyle: StyleProp<ViewStyle>;
 }) {
-  // Hides a subagent the moment its archive is requested, as the track does. Only rows that
-  // have lineage subscribe, so ordinary workspace rows do not each open a query observer.
+  // Hides a chat or subagent the moment its archive is requested, as the track does. Only rows
+  // that have something nested subscribe, so ordinary rows do not each open a query observer.
   const pendingArchive = usePendingArchiveAgentKeys();
-  const visibleChats = useMemo(() => {
-    if (pendingArchive.size === 0) return chats;
-    return chats.flatMap((chat) => {
-      if (pendingArchive.has(`${chat.serverId}:${chat.agentId}`)) return [];
-      const workers = chat.workers.filter(
-        (worker) =>
-          worker.kind !== "agent" || !pendingArchive.has(`${worker.serverId}:${worker.agentId}`),
+  const workersByChat = useMemo(() => {
+    const byChat = new Map<string, SidebarLineageWorker[]>();
+    for (const chat of lineage) {
+      byChat.set(
+        chat.agentId,
+        chat.workers.filter(
+          (worker) =>
+            worker.kind !== "agent" || !pendingArchive.has(`${worker.serverId}:${worker.agentId}`),
+        ),
       );
-      if (workers.length === 0) return [];
-      return [workers.length === chat.workers.length ? chat : { ...chat, workers }];
-    });
-  }, [chats, pendingArchive]);
-  if (visibleChats.length === 0) return null;
+    }
+    return byChat;
+  }, [lineage, pendingArchive]);
+  const siblings = useMemo(
+    () => roots.slice(1).filter((chat) => !pendingArchive.has(`${chat.serverId}:${chat.agentId}`)),
+    [roots, pendingArchive],
+  );
+  const primary = roots[0];
+  const primaryWorkers = (primary && workersByChat.get(primary.agentId)) || EMPTY_WORKERS;
   return (
-    <View style={[styles.lineage, indentStyle]} testID={`sidebar-agent-lineage-${workspaceKey}`}>
-      {/* The chats sit on the workspace title's rail: this spacer stands in for the status slot. */}
+    <View testID={`sidebar-agent-lineage-${workspaceKey}`}>
+      <SidebarWorkerList workers={primaryWorkers} indentStyle={indentStyle} />
+      {siblings.map((chat) => (
+        <View key={`${chat.serverId}:${chat.agentId}`}>
+          <SidebarSiblingChatRow chat={chat} indentStyle={indentStyle} />
+          <SidebarWorkerList
+            workers={workersByChat.get(chat.agentId) ?? EMPTY_WORKERS}
+            indentStyle={indentStyle}
+          />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function SidebarWorkerList({
+  workers,
+  indentStyle,
+}: {
+  workers: SidebarLineageWorker[];
+  indentStyle: StyleProp<ViewStyle>;
+}) {
+  if (workers.length === 0) return null;
+  return (
+    <View style={[styles.lineage, indentStyle]}>
+      {/* Subagents sit on the chat title's rail: this spacer stands in for the status slot. */}
       <View style={styles.workspaceStatusSpacer} />
-      <View style={styles.chatColumn}>
-        {visibleChats.map((chat) => (
-          <SidebarLineageChatGroup key={`${chat.serverId}:${chat.agentId}`} chat={chat} />
+      <View style={styles.workers}>
+        {workers.map((worker) => (
+          <SidebarLineageWorkerRow key={workerKey(worker)} worker={worker} />
         ))}
       </View>
     </View>
   );
 }
 
-function SidebarLineageChatGroup({ chat }: { chat: SidebarLineageChat }) {
-  const { t } = useTranslation();
-  const chatKey = `${chat.serverId}:${chat.agentId}`;
-  const choice = useLineageExpansionStore((state) => state.expanded[chatKey]);
-  const expanded = choice ?? true;
-  const toggle = useCallback(() => {
-    useLineageExpansionStore.getState().setExpanded(chatKey, !expanded);
-  }, [chatKey, expanded]);
+/** A further root chat in the same workspace, as its own row at the workspace row's indent. */
+function SidebarSiblingChatRow({
+  chat,
+  indentStyle,
+}: {
+  chat: WorkspaceRootChat;
+  indentStyle: StyleProp<ViewStyle>;
+}) {
   const open = useCallback(() => openAgent(chat), [chat]);
-  // The chat's own state is literal, so its dot also carries what its subagents are doing —
-  // collapsed, it is the only place their state still shows.
-  const groupBucket = useMemo(
-    () => aggregateSidebarStateBuckets([chat.bucket, ...chat.workers.map((w) => w.bucket)]),
-    [chat],
+  const { archiveAgent } = useArchiveAgent();
+  const [hovered, setHovered] = useState(false);
+  // Touch and compact layouts have no hover, so the button is always there.
+  const isCompact = useIsCompactFormFactor();
+  const showArchive = hovered || !isWeb || isCompact;
+  const handlePointerEnter = useCallback(() => setHovered(true), []);
+  const handlePointerLeave = useCallback(() => setHovered(false), []);
+  // Archives only this chat; the workspace's other chats and its record stay.
+  const archive = useCallback(
+    () => void archiveAgent({ serverId: chat.serverId, agentId: chat.agentId }),
+    [archiveAgent, chat.serverId, chat.agentId],
   );
-  const title = resolveRowLabel(chat.title) ?? t("common.states.loading");
-  const toggleLabel = t("subagents.title");
-  const accessibilityState = useMemo(() => ({ expanded }), [expanded]);
-
+  const title = resolveChatTitle({
+    primaryTitle: chat.title,
+    workspaceTitle: null,
+    fallback: "New chat",
+  });
   return (
-    <View>
-      <View style={styles.rowLine}>
-        <PressHighlight
-          accessibilityRole={isWeb ? undefined : "button"}
-          accessibilityLabel={toggleLabel}
-          accessibilityState={accessibilityState}
-          onPress={toggle}
-          style={chevronStyle}
-          highlightStyle={styles.rowPressed}
-          testID={`sidebar-agent-lineage-toggle-${chat.agentId}`}
-        >
-          {({ hovered, pressed }: PressableStateCallbackType & { hovered?: boolean }) => (
-            <DensityIcon
-              icon={expanded ? ChevronDown : ChevronRight}
-              size="sm"
-              color={hovered || pressed ? "foreground" : "foregroundMuted"}
-            />
-          )}
-        </PressHighlight>
-        <PressHighlight
-          accessibilityRole={isWeb ? undefined : "button"}
-          accessibilityLabel={title}
-          onPress={open}
-          style={rowStyle}
-          highlightStyle={styles.rowPressed}
-          testID={`sidebar-agent-lineage-chat-${chat.agentId}`}
-        >
-          <Text style={styles.chatTitle} numberOfLines={1}>
-            {title}
-          </Text>
-          {expanded ? null : <Text style={styles.statusText}>{chat.workers.length}</Text>}
-          <LineageStatusDot bucket={groupBucket} />
-        </PressHighlight>
-      </View>
-      {expanded ? (
-        <View style={styles.workers}>
-          {chat.workers.map((worker) => (
-            <SidebarLineageWorkerRow key={workerKey(worker)} worker={worker} />
-          ))}
+    <View
+      style={[styles.siblingChat, indentStyle]}
+      onPointerEnter={handlePointerEnter}
+      onPointerLeave={handlePointerLeave}
+    >
+      <PressHighlight
+        accessibilityRole={isWeb ? undefined : "button"}
+        accessibilityLabel={title}
+        onPress={open}
+        style={siblingRowStyle}
+        highlightStyle={styles.rowPressed}
+        testID={`sidebar-chat-row-${chat.agentId}`}
+      >
+        <View style={styles.siblingStatusSlot}>
+          <LineageStatusDot bucket={chat.bucket} />
+        </View>
+        <Text style={styles.siblingTitle} numberOfLines={1}>
+          {title}
+        </Text>
+      </PressHighlight>
+      {showArchive ? (
+        <View style={styles.siblingArchive}>
+          <SidebarWorkspaceArchiveButton workspaceKey={chat.agentId} onArchive={archive} />
         </View>
       ) : null}
     </View>
@@ -261,8 +283,8 @@ function LineageStatusDot({ bucket }: { bucket: SidebarStateBucket }) {
   return <View style={dotStyleFor(bucket)} testID={`sidebar-agent-lineage-status-${bucket}`} />;
 }
 
-function chevronStyle({ hovered, pressed }: PressableStateCallbackType & { hovered?: boolean }) {
-  return [styles.chevron, hovered && !pressed && styles.rowHovered];
+function siblingRowStyle({ hovered, pressed }: PressableStateCallbackType & { hovered?: boolean }) {
+  return [styles.siblingRow, hovered && !pressed && styles.rowHovered];
 }
 
 function rowStyle({ hovered, pressed }: PressableStateCallbackType & { hovered?: boolean }) {
@@ -280,21 +302,38 @@ const styles = StyleSheet.create((theme) => ({
     width: densityIconBox("md"),
     flexShrink: 0,
   },
-  chatColumn: {
-    flex: 1,
-    minWidth: 0,
-  },
-  rowLine: {
+  siblingChat: {
     flexDirection: "row",
     alignItems: "center",
+    paddingLeft: theme.spacing[2],
+    marginBottom: theme.spacing[0.5],
   },
-  chevron: {
-    width: densityIconBox("sm"),
+  siblingArchive: {
+    paddingHorizontal: theme.spacing[2],
+  },
+  siblingRow: {
+    flex: 1,
+    minWidth: 0,
     minHeight: density.tightRowHeight,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+    paddingRight: theme.spacing[3],
+    borderRadius: theme.borderRadius.md,
+    userSelect: "none",
+  },
+  siblingStatusSlot: {
+    width: densityIconBox("md"),
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: theme.borderRadius.md,
     flexShrink: 0,
+  },
+  siblingTitle: {
+    flex: 1,
+    minWidth: 0,
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.base,
+    opacity: 0.76,
   },
   row: {
     flex: 1,
@@ -314,8 +353,10 @@ const styles = StyleSheet.create((theme) => ({
   rowPressed: {
     backgroundColor: theme.colors.surface2,
   },
-  // Subagents start on the chat title's rail: one chevron slot in.
+  // Subagents nest one level under the chat title's rail.
   workers: {
+    flex: 1,
+    minWidth: 0,
     paddingLeft: densityIconBox("sm"),
   },
   glyphSlot: {
@@ -323,13 +364,6 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
-  },
-  chatTitle: {
-    flex: 1,
-    minWidth: 0,
-    color: theme.colors.foreground,
-    fontSize: theme.fontSize.sm,
-    opacity: 0.76,
   },
   workerTitle: {
     flex: 1,

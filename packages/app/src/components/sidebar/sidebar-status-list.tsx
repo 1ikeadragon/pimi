@@ -43,7 +43,7 @@ import { useToast } from "@/contexts/toast-context";
 import { WorkspaceRenameModal } from "@/components/workspace-rename-modal";
 import { useWorkspaceClipboardActions } from "@/hooks/use-workspace-clipboard-actions";
 import { redirectIfArchivingActiveWorkspace } from "@/utils/sidebar-workspace-archive-redirect";
-import { useWorkspaceArchive } from "@/workspace/use-workspace-archive";
+import { useArchiveChat } from "@/components/sidebar/use-archive-chat";
 import { toWorktreeArchiveRisk } from "@/git/worktree-archive-warning";
 import type { ShortcutKey } from "@/utils/format-shortcut";
 import { useShortcutKeys } from "@/hooks/use-shortcut-keys";
@@ -636,7 +636,7 @@ function StatusWorkspaceRowWithMenu({
     });
   }, [selected, workspace]);
 
-  const archiveController = useWorkspaceArchive({
+  const archiveController = useArchiveChat({
     serverId: workspace.serverId,
     workspaceId: workspace.workspaceId,
     workspaceKind: workspace.workspaceKind,

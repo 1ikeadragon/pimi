@@ -1,10 +1,6 @@
 import type { WorkspaceSort } from "@/projects/workspace-structure";
 import { useCallback, useMemo } from "react";
-import {
-  useAppSettings,
-  type SidebarWorkspaceTrailing,
-  type WorkspaceTitleSource,
-} from "@/hooks/use-settings";
+import { useAppSettings, type SidebarWorkspaceTrailing } from "@/hooks/use-settings";
 import {
   useSidebarViewStore,
   type SidebarGroupMode,
@@ -23,8 +19,6 @@ export interface SidebarDisplayPreferences {
   workspaceSort: WorkspaceSort;
   setWorkspaceSort: (sort: WorkspaceSort) => void;
   setGrouping: (mode: SidebarGroupMode) => void;
-  titleSource: WorkspaceTitleSource;
-  setTitleSource: (source: WorkspaceTitleSource) => void;
   rowItems: SidebarRowItems;
   toggleRowItem: (item: SidebarRowItem) => void;
   checksDisplay: SidebarChecksDisplay;
@@ -47,7 +41,7 @@ export interface SidebarDisplayPreferences {
 /**
  * Every decision the sidebar's display-preferences menu can make, behind one interface.
  *
- * Grouping and host filters live in a local zustand store while the title source and row items
+ * Grouping and host filters live in a local zustand store while the row items
  * are synced app settings — a split that exists for good reasons (a filter is transient view
  * state; a preference follows you) and that the menu has no business knowing about. Callers ask
  * this for a value and set it; where it lands is this module's problem.
@@ -70,21 +64,9 @@ export function useSidebarDisplayPreferences(): SidebarDisplayPreferences {
   const clearLabelFilter = useSidebarViewStore((state) => state.clearLabelFilter);
 
   const {
-    settings: {
-      workspaceTitleSource,
-      sidebarWorkspaceTrailing,
-      sidebarRowItems,
-      sidebarChecksDisplay,
-    },
+    settings: { sidebarWorkspaceTrailing, sidebarRowItems, sidebarChecksDisplay },
     updateSettings,
   } = useAppSettings();
-
-  const setTitleSource = useCallback(
-    (source: WorkspaceTitleSource) => {
-      void updateSettings({ workspaceTitleSource: source });
-    },
-    [updateSettings],
-  );
 
   const toggleRowItem = useCallback(
     (item: SidebarRowItem) => {
@@ -119,8 +101,6 @@ export function useSidebarDisplayPreferences(): SidebarDisplayPreferences {
       workspaceSort,
       setWorkspaceSort,
       setGrouping,
-      titleSource: workspaceTitleSource,
-      setTitleSource,
       rowItems: sidebarRowItems,
       toggleRowItem,
       checksDisplay: sidebarChecksDisplay,
@@ -144,8 +124,6 @@ export function useSidebarDisplayPreferences(): SidebarDisplayPreferences {
       workspaceSort,
       setWorkspaceSort,
       setGrouping,
-      workspaceTitleSource,
-      setTitleSource,
       sidebarRowItems,
       toggleRowItem,
       sidebarChecksDisplay,

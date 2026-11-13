@@ -18,7 +18,6 @@ import { PressHighlight } from "@/components/ui/press-highlight";
 import { isWeb } from "@/constants/platform";
 import { getForgePresentation, normalizeForge } from "@/git/forge";
 import type { SidebarWorkspaceEntry } from "@/hooks/use-sidebar-workspaces-list";
-import { useAppSettings } from "@/hooks/use-settings";
 import { densityIconProps } from "@/styles/density";
 import type { Theme } from "@/styles/theme";
 import type { ShortcutKey } from "@/utils/format-shortcut";
@@ -37,7 +36,10 @@ import {
 } from "@/components/ui/context-menu";
 import { Shortcut } from "@/components/ui/shortcut";
 import { OpenInFileManagerMenuItem } from "@/workspace/open-in-file-manager/menu-item";
-import { resolveSidebarWorkspaceAccessibilityLabel } from "@/components/sidebar/sidebar-workspace-title";
+import {
+  resolveSidebarWorkspaceAccessibilityLabel,
+  useSidebarChatTitle,
+} from "@/components/sidebar/sidebar-workspace-title";
 import { bySizing } from "@/components/ui/control-geometry";
 import {
   workspaceServiceLabelKey,
@@ -407,9 +409,7 @@ export function SidebarWorkspaceContextMenu({
       highlightStyle: ComponentProps<typeof ContextMenuTrigger>["highlightStyle"];
     }
 >) {
-  const {
-    settings: { workspaceTitleSource },
-  } = useAppSettings();
+  const chatTitle = useSidebarChatTitle(workspace);
   const { t } = useTranslation();
   const pullRequestLabel = workspace.prHint
     ? t("workspace.git.pr.accessibility.pullRequest", {
@@ -419,7 +419,7 @@ export function SidebarWorkspaceContextMenu({
     : null;
   const rowAccessibilityLabel = resolveSidebarWorkspaceAccessibilityLabel({
     workspace,
-    workspaceTitleSource,
+    chatTitle,
     leadingProjectName,
     hostBadgeLabel,
     pullRequestLabel,

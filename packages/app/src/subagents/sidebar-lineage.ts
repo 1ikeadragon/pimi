@@ -2,8 +2,8 @@ import { getParentAddressFromLabels } from "@pimi/protocol/agent-labels";
 import type { ProviderSubagentDescriptorPayload } from "@pimi/protocol/messages";
 import { PIMI_TASK_WORKER_LABEL } from "@pimi/protocol/pimi-task";
 import type { Agent } from "@/stores/session-store";
-import { deriveSidebarStateBucket, type SidebarStateBucket } from "@/utils/sidebar-agent-state";
-import { workspaceAgentStatus } from "@/utils/workspace-agent-activity";
+import { chatStateBucket, isVisibleChatAgent } from "@/chats/primary-chat";
+import type { SidebarStateBucket } from "@/utils/sidebar-agent-state";
 import {
   isLiveSubagentStatus,
   managedSubagentStatusBucket,
@@ -34,7 +34,7 @@ export type SidebarLineageWorker =
       bucket: SubagentStatusBucket;
     };
 
-/** A chat in a workspace and the children it started that still want a look. */
+/** A root chat in a workspace and the children it started that still want a look. */
 export interface SidebarLineageChat {
   serverId: string;
   agentId: string;
@@ -58,20 +58,6 @@ const EMPTY_CHATS: SidebarLineageChat[] = [];
 
 export function sidebarLineageWorkspaceKey(serverId: string, workspaceId: string): string {
   return `${serverId}:${workspaceId}`;
-}
-
-function isVisible(agent: Agent): boolean {
-  return !agent.archivedAt && !agent.background;
-}
-
-function chatBucket(agent: Agent): SidebarStateBucket {
-  return deriveSidebarStateBucket({
-    status: workspaceAgentStatus(agent),
-    backgroundWork: agent.backgroundWork,
-    pendingPermissionCount: agent.pendingPermissions.length,
-    requiresAttention: agent.requiresAttention,
-    attentionReason: agent.attentionReason,
-  });
 }
 
 interface ChatEntry {
@@ -121,11 +107,11 @@ function lineageParent(
   serverId: string,
   agent: Agent,
 ): Agent | null {
-  if (!isVisible(agent)) return null;
+  if (!isVisibleChatAgent(agent)) return null;
   const address = getParentAddressFromLabels(agent.labels, serverId);
   if (!address) return null;
   const parent = sessions[address.serverId]?.agents.get(address.agentId);
-  if (!parent || !isVisible(parent) || !parent.workspaceId) return null;
+  if (!parent || !isVisibleChatAgent(parent) || !parent.workspaceId) return null;
   if (agent.labels[PIMI_TASK_WORKER_LABEL] && agent.workspaceId !== parent.workspaceId) {
     return null;
   }
@@ -166,7 +152,7 @@ function collectProviderChildren(
     if (!isLiveSubagentStatus(bucket)) continue;
     const serverId = key.slice(0, key.indexOf("\0"));
     const parent = sessions[serverId]?.agents.get(descriptor.parentAgentId);
-    if (!parent || !isVisible(parent) || !parent.workspaceId) continue;
+    if (!parent || !isVisibleChatAgent(parent) || !parent.workspaceId) continue;
     addWorker(chats, parent, Date.parse(descriptor.createdAt), {
       kind: "provider",
       serverId,
@@ -208,7 +194,7 @@ function groupChatsByWorkspace(
         serverId: parent.serverId,
         agentId: parent.id,
         title: parent.title,
-        bucket: chatBucket(parent),
+        bucket: chatStateBucket(parent),
         workers: workers
           .sort((left, right) => left.createdAt - right.createdAt)
           .map(({ worker }) => worker),

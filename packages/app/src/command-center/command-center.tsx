@@ -30,6 +30,8 @@ import { Check, ChevronRight, Folder, Search, X } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { BottomSheetFlatList, type BottomSheetFlatListMethods } from "@gorhom/bottom-sheet";
 import { useAgentDescriptor, resolveAgentLabel } from "@/agent-presentation";
+import { useSessionStore } from "@/stores/session-store";
+import { resolveChatTitle, selectWorkspaceRootChats } from "@/chats/primary-chat";
 import { StatusIcon } from "@/components/status-icon";
 import { useWorkspaceStatus } from "@/workspace-status";
 import type { SurfaceBackdrop } from "@/styles/surface-backdrop";
@@ -207,6 +209,7 @@ function useBuiltInRows(open: boolean): {
       return stable;
     };
     const allWorkspaces: CommandCenterWorkspaceResult[] = [];
+    const { sessions } = useSessionStore.getState();
     for (const project of projects) {
       const workspaceProject = {
         viewKey: project.viewKey,
@@ -220,7 +223,13 @@ function useBuiltInRows(open: boolean): {
             preserve({
               kind: "workspace",
               id: `workspace:${host.serverId}:${workspace.id}`,
-              title: workspace.title ?? workspace.name,
+              // The row is a chat: same title its sidebar row and tab show.
+              title: resolveChatTitle({
+                primaryTitle: selectWorkspaceRootChats(sessions, host.serverId, workspace.id)[0]
+                  ?.title,
+                workspaceTitle: workspace.title ?? workspace.name,
+                fallback: "New chat",
+              }),
               subtitle: joinSubtitleParts([
                 showHost ? host.serverName : null,
                 project.projectName,
@@ -358,7 +367,7 @@ function commandCenterPlaceholder(mode: PaletteMode, t: TFunction): string {
     case "chats":
       return t("shell.commandCenter.chatsPlaceholder");
     case "code":
-      return "Search code across this workspace";
+      return "Search code across this chat's folder";
     case "files":
       return t("shell.commandCenter.filePlaceholder");
     case "commands":
@@ -393,8 +402,8 @@ function emptyMessage(state: CommandCenterState, noMatches: string, t: TFunction
   }
   if (state.mode !== "code" || state.searchText.trim()) return noMatches;
   return state.codeSearchAvailable
-    ? "Search code across this workspace"
-    : "Open a workspace to search code";
+    ? "Search code across this chat's folder"
+    : "Open a chat to search code";
 }
 
 function EmptyCommandCenterResults({

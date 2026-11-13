@@ -1,5 +1,6 @@
+import { GitBranch } from "lucide-react-native";
 import { Text, View } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { HostBadge } from "@/hosts/host-badge";
 import { useHostBadges } from "@/hosts/use-host-badges";
@@ -13,19 +14,27 @@ import { useHostBadges } from "@/hosts/use-host-badges";
  * quiet. A project name that only repeats the workspace name is dropped on wide, where the two sit
  * side by side, and kept on compact, where the line exists for the host anyway.
  */
+const ThemedGitBranch = withUnistyles(GitBranch);
+const branchIconMapping = (theme: { colors: { foregroundMuted: string } }) => ({
+  color: theme.colors.foregroundMuted,
+});
+
 export function WorkspaceHeaderProjectRow({
   subtitle,
   isSubtitleDistinct,
+  branch,
   serverId,
 }: {
   subtitle: string;
   isSubtitleDistinct: boolean;
+  /** The checked-out branch, shown as a chip next to the project. */
+  branch: string | null;
   serverId: string;
 }) {
   const isCompact = useIsCompactFormFactor();
   const hostBadge = useHostBadges({ enabled: isCompact }).get(serverId) ?? null;
   const showProject = isSubtitleDistinct || isCompact;
-  if (!showProject && !hostBadge) {
+  if (!showProject && !hostBadge && !branch) {
     return null;
   }
   return (
@@ -39,7 +48,16 @@ export function WorkspaceHeaderProjectRow({
           {subtitle}
         </Text>
       ) : null}
-      {showProject && hostBadge ? <Text style={styles.separator}>·</Text> : null}
+      {showProject && branch ? <Text style={styles.separator}>·</Text> : null}
+      {branch ? (
+        <View style={styles.branch} testID="workspace-header-branch">
+          <ThemedGitBranch size={12} uniProps={branchIconMapping} />
+          <Text style={styles.branchText} numberOfLines={1}>
+            {branch}
+          </Text>
+        </View>
+      ) : null}
+      {(showProject || branch) && hostBadge ? <Text style={styles.separator}>·</Text> : null}
       {hostBadge ? <HostBadge badge={hostBadge} /> : null}
     </View>
   );
@@ -74,6 +92,19 @@ const styles = StyleSheet.create((theme) => ({
     },
     flexShrink: 0,
     maxWidth: "60%",
+  },
+  branch: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  branchText: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+    flexShrink: 1,
+    minWidth: 0,
   },
   separator: {
     color: theme.colors.foregroundExtraMuted,

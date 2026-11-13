@@ -16,7 +16,6 @@ import {
   hasSidebarWorkspaceTrailing,
   type SidebarWorkspaceTrailing,
 } from "@/components/sidebar/workspace-trailing";
-import { useAppSettings } from "@/hooks/use-settings";
 import { densityIconBox } from "@/styles/density";
 import type { Theme } from "@/styles/theme";
 import type { SidebarStateBucket } from "@/utils/sidebar-agent-state";
@@ -28,7 +27,7 @@ import {
 } from "@/utils/status-indicator-geometry";
 import { shouldRenderSyncedStatusLoader } from "@/utils/status-loader";
 import { StatusRing } from "@/components/status-ring";
-import { resolveSidebarWorkspacePrimaryLabel } from "@/components/sidebar/sidebar-workspace-title";
+import { useSidebarChatTitle } from "@/components/sidebar/sidebar-workspace-title";
 import { DensityIcon } from "@/components/ui/density-icon";
 import { SCRIM_WIDTH, TrailingActionScrim } from "@/components/ui/trailing-action-scrim";
 import {
@@ -231,10 +230,7 @@ const SidebarWorkspaceRowContentBase = memo(function SidebarWorkspaceRowContent(
   reserveIdleStatusIndicatorSpace?: boolean;
   children?: ReactNode;
 }) {
-  const {
-    settings: { workspaceTitleSource },
-  } = useAppSettings();
-  const workspaceLabel = resolveSidebarWorkspacePrimaryLabel({ workspace, workspaceTitleSource });
+  const workspaceLabel = useSidebarChatTitle(workspace);
   // The workspace carries label names; their colors live in its host's catalog, so the row is
   // where the two meet — the meta line is handed finished definitions.
   const names = usePimiLabelNames(workspace.serverId, workspace.workspaceId, workspace.labels);
