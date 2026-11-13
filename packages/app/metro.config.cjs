@@ -89,7 +89,9 @@ function writeLucideUsedBarrel() {
   const used = new Set();
   for (const file of listSourceFiles(appSrcRoot)) {
     const source = fs.readFileSync(file, "utf8");
-    for (const match of source.matchAll(/import\s+\{([^}]*)\}\s+from\s+"lucide-react-native"/g)) {
+    for (const match of source.matchAll(
+      /(?:import|export)\s+\{([^}]*)\}\s+from\s+"lucide-react-native"/g,
+    )) {
       for (const part of match[1].split(",")) {
         const name = part
           .trim()
