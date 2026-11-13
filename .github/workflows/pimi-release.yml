@@ -382,10 +382,12 @@ jobs:
           fi
           # Published releases are immutable, so the signed APK from the earlier
           # pimi-android-vX prerelease is attached here for releases/latest links.
-          gh release download "pimi-android-v$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" \
-            --pattern Pimi-Android-arm64.apk
-          test -s Pimi-Android-arm64.apk
-          assets+=(Pimi-Android-arm64.apk)
+          if gh release download "pimi-android-v$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" \
+            --pattern Pimi-Android-arm64.apk 2>/dev/null && test -s Pimi-Android-arm64.apk; then
+            assets+=(Pimi-Android-arm64.apk)
+          else
+            printf '\n### Android\n\nThe APK for this version will be uploaded separately.\n' >> "$prefix-notes/release-notes.md"
+          fi
           if [[ "$MAC_AD_HOC" == true ]]; then
             printf '\n### macOS signing\n\nThe Apple silicon disk image is ad hoc signed and is not notarized. macOS may require approval when opening the new version.\n' >> "$prefix-notes/release-notes.md"
           fi

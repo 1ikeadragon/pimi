@@ -2,6 +2,12 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
+## 0.17.35 - 2026-11-13
+
+- Attack desktop target: removed hardcoded deny lists on macOS too (terminals, system tools, password managers, Finder). Only the Pimi self-check remains on both platforms.
+- Added a disclaimer to the README: Attack mode and desktop testing tools are for use on your own applications with authorization only.
+- CI: the release workflow no longer fails when no Android APK prerelease exists; it adds a note to the release instead.
+
 ## 0.17.34 - 2026-11-13
 
 - Attack desktop target: removed hardcoded deny lists (terminal apps, system tools, password managers, anti-cheat games) from the window picker and helper. The owner picks the target; only Windows secure-desktop processes (logonui, winlogon, consent) and Pimi itself are still refused. Elevated targets are no longer refused for input.
