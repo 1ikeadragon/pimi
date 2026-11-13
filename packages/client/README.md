@@ -30,6 +30,28 @@ The public API is the package root. Imports under `@pimi/client/internal/*` are 
 
 Read the [SDK documentation](https://github.com/1ikeadragon/pimi/tree/main/public-docs/sdk) for agents, workspaces, terminals, provider discovery, events, recipes, and the API reference. Runnable TypeScript patterns also live in [`examples/`](./examples/README.md).
 
+## Repository data
+
+`client.files`, `client.git`, and `client.search` read a workspace's files, git state, and project search from the daemon. Each takes the workspace's absolute directory (`workspace.directory` from `client.workspaces`) as `cwd`.
+
+```ts
+const status = await client.git.status(cwd);
+const entries = await client.files.list(cwd, "src");
+await client.search.workspace(
+  {
+    workspaceId,
+    query: "TODO",
+    isRegex: false,
+    matchCase: false,
+    wholeWord: false,
+    include: [],
+    exclude: [],
+    useIgnoreFiles: true,
+  },
+  (files) => console.log(files),
+);
+```
+
 ## Runtime
 
 The client needs a WebSocket implementation. Modern browsers and Node.js 22 provide one globally.
