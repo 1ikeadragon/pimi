@@ -2,17 +2,16 @@ import { ATTACK_RUN_LABEL } from "@pimi/protocol/agent-labels";
 import { registerPluginTools } from "./plugin-tools.js";
 import { registerProjectMemoryTools } from "./project-memory-tools.js";
 import { registerPimiTaskTools } from "./pimi-task-tools.js";
+import type { TaskService } from "../../task/service.js";
+import type { LabelService } from "../../labels/service.js";
 import type { ProjectMemory } from "../../project-memory.js";
 import type { searchPimiCodebase } from "../../pimi-codebase-index.js";
 import { SpaceItemId, SpaceSearchQuery, type PimiSpaces } from "../../pimi-spaces.js";
 import { fetchSpaceLinkText } from "../../pimi-space-link-preview.js";
-import { randomUUID } from "node:crypto";
 import {
   PIMI_REVIEW_SUGGESTION_TOOL,
-  PIMI_TASK_PROPOSAL_TOOL,
   PimiDelegationResult,
   PimiReviewSuggestionInput,
-  PimiTaskProposalInput,
 } from "@pimi/protocol/pimi-task";
 import type { FinishSubscriptions, FinishRegistration } from "../finish-subscriptions/index.js";
 import type { AgentMessageDelivery } from "../agent-messages/index.js";
@@ -187,7 +186,8 @@ export interface PimiToolHostDependencies {
   projectMemory?: ProjectMemory;
   pimiSpaces?: PimiSpaces;
   searchCodebase?: typeof searchPimiCodebase;
-  pimiTaskHome?: string;
+  taskService?: TaskService;
+  labelService?: LabelService;
   /** Only the local Ask Pimi runner constructs this catalog. */
   voiceCommand?: true;
   createDirectoryWorkspace?: (
@@ -1342,14 +1342,16 @@ function createToolCatalog(
   if (scope === "agent") {
     registerPimiTaskTools({
       registerTool,
-      home: options.pimiTaskHome,
-      resolveSource() {
+      tasks: options.taskService,
+      labels: options.labelService,
+      askPimi: options.voiceCommand === true,
+      resolveCaller() {
         if (options.voiceCommand) return undefined;
         const agent = resolveCallerAgent();
-        if (!callerAgentId || !options.serverId || !agent || agent.internal || agent.background) {
+        if (!callerAgentId || !agent || agent.internal || agent.background) {
           throw new PimiToolInputError("Pimi task tools are available in interactive chats.");
         }
-        return { serverId: options.serverId, agentId: callerAgentId };
+        return { agentId: callerAgentId };
       },
     });
     registerTool(
@@ -1383,32 +1385,6 @@ function createToolCatalog(
           pimiReviewSuggestion: {
             ...(summary ? { summary } : {}),
             path: workspace.worktreeRoot,
-            source: { serverId: options.serverId, agentId: callerAgentId },
-          },
-        };
-        return {
-          content: [{ type: "text", text: JSON.stringify(result) }],
-          structuredContent: ensureValidJson(result),
-        };
-      },
-    );
-    registerTool(
-      PIMI_TASK_PROPOSAL_TOOL,
-      {
-        title: "Propose a Pimi task",
-        description:
-          "Open a draft for work the user wants delegated to separate agents. Include up to four independent work items. Set each requested experiments[].provider to a provider ID or exact provider/model from available providers. Use chat for separate research folders and worktree for repository edits. Wait for the user to start the workers. For tracking in the current chat, use create_pimi_task.",
-        inputSchema: PimiTaskProposalInput,
-      },
-      async (input) => {
-        const agent = resolveCallerAgent();
-        if (!callerAgentId || !options.serverId || !agent || agent.background) {
-          throw new PimiToolInputError("Task proposals are available in interactive chats.");
-        }
-        const result = {
-          pimiTaskProposal: {
-            ...input,
-            id: randomUUID(),
             source: { serverId: options.serverId, agentId: callerAgentId },
           },
         };

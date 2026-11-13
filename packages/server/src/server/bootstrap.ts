@@ -139,7 +139,10 @@ export async function fanOutReconciledWorkspaceUpdates(input: {
 
 import { VoiceAssistantWebSocketServer } from "./websocket-server.js";
 import { WorkspaceSetupRuntime } from "./workspace-setup-runtime.js";
-import { createWorkspaceLabelService } from "./workspace-labels/index.js";
+import { LabelService } from "./labels/service.js";
+import { migrateWorkspaceLabels } from "./labels/migrate.js";
+import { TaskService } from "./task/service.js";
+import { describeTask } from "./task/describe.js";
 import { createGitHubService, runGitHubCli } from "../services/github-service.js";
 import { createPimiWorktree as createRegisteredPimiWorktree } from "./pimi-worktree-service.js";
 import { createWorkspaceProvisioningService } from "./session/workspace-provisioning/workspace-provisioning-service.js";
@@ -1113,10 +1116,6 @@ export async function createPimiDaemon(
     path.join(config.pimiHome, "projects", "workspaces.json"),
     logger,
   );
-  const workspaceLabelService = createWorkspaceLabelService({
-    pimiHome: config.pimiHome,
-    workspaceRegistry,
-  });
   const github = createGitHubService();
   const workspaceGitService = new WorkspaceGitServiceImpl({
     logger,
@@ -1304,7 +1303,7 @@ export async function createPimiDaemon(
   await restartRecovery.prepareStartup();
   logger.info({ elapsed: elapsed() }, "Agent storage initialized");
   await Promise.all([projectRegistry.initialize(), workspaceRegistry.initialize()]);
-  await workspaceLabelService.initialize();
+  await migrateWorkspaceLabels({ database: pimiDatabase, pimiHome: config.pimiHome, logger });
   logger.info({ elapsed: elapsed() }, "Workspace registries bootstrapped");
   const teardownArchivedWorkspaceRuntime = (workspaceId: string): void => {
     closeCodeNavigationWorkspace(workspaceId);
@@ -1615,6 +1614,44 @@ export async function createPimiDaemon(
       ),
   });
   await automationService.start();
+  const agentRecordExists = async (agentId: string): Promise<boolean> =>
+    Boolean(agentManager.getAgent(agentId) ?? (await agentStorage.get(agentId)));
+  const labelService = new LabelService({
+    database: pimiDatabase,
+    logger,
+    targetExists: async (target) => {
+      if (target.kind === "agent") return agentRecordExists(target.agentId);
+      if (target.kind === "subagent") return agentRecordExists(target.parentAgentId);
+      return Boolean(await taskService.get(target.taskId).catch(() => null));
+    },
+  });
+  const taskService: TaskService = new TaskService({
+    database: pimiDatabase,
+    labels: labelService,
+    logger,
+    agentExists: agentRecordExists,
+    describe: ({ title, agentId }) =>
+      describeTask({
+        manager: agentManager,
+        providerSnapshotManager,
+        daemonConfig: daemonConfigStore.get(),
+        logger,
+        title,
+        agentId,
+      }),
+  });
+  await taskService.start();
+  // A deleted chat leaves no label assignments or task links behind.
+  const unsubscribeTaskCleanup = agentManager.subscribe(
+    (event) => {
+      if (event.type !== "agent_removed") return;
+      labelService.removeTarget({ kind: "agent", agentId: event.agentId });
+      void taskService.removeAgentLinks(event.agentId).catch((error) => {
+        logger.error({ err: error, agentId: event.agentId }, "Task link cleanup failed");
+      });
+    },
+    { replayState: false, includeInternal: true },
+  );
   const attackService = new AttackService({
     pimiHome: config.pimiHome,
     database: pimiDatabase,
@@ -1750,7 +1787,8 @@ export async function createPimiDaemon(
     projectMemory: canUseCallerScopedTools ? projectMemory : undefined,
     pimiSpaces: canUseCallerScopedTools ? pimiSpaces : undefined,
     searchCodebase: canUseCallerScopedTools ? searchPimiCodebase : undefined,
-    pimiTaskHome: canUseCallerScopedTools ? config.pimiHome : undefined,
+    taskService: canUseCallerScopedTools ? taskService : undefined,
+    labelService: canUseCallerScopedTools ? labelService : undefined,
     createDirectoryWorkspace: async (cwd, title, projectId, context) => {
       const workspace = await workspaceProvisioning.createWorkspaceForDirectory(
         cwd,
@@ -2119,7 +2157,8 @@ export async function createPimiDaemon(
               workspaceSetupRuntime,
               pluginRuntime,
               orchestrationSkills,
-              workspaceLabelService,
+              taskService,
+              labelService,
               finishSubscriptions,
               usageLedger,
             );
@@ -2245,6 +2284,7 @@ export async function createPimiDaemon(
       logger.error({ err: error }, "Terminal shutdown failed");
     }
     await speechService.stop();
+    unsubscribeTaskCleanup();
     await automationService.stop().catch(() => undefined);
     await heartbeatService.stop().catch(() => undefined);
     await attackScheduler.stop().catch(() => undefined);

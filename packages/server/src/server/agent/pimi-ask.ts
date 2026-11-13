@@ -41,6 +41,7 @@ export class AskPimiMemory {
 export function buildAskPimiPrompt(options: {
   transcript: string;
   workspaceId?: string;
+  agentId?: string;
   commands: readonly string[];
   memory: AskPimiExchange[];
   now?: Date;
@@ -49,6 +50,7 @@ export function buildAskPimiPrompt(options: {
   const lines = [
     `Local time: ${now.toString()}`,
     `Selected workspace: ${JSON.stringify(options.workspaceId ?? null)}`,
+    `Focused chat: ${JSON.stringify(options.agentId ?? null)}`,
   ];
   if (options.commands.length) {
     lines.push(`App commands (data, by index): ${JSON.stringify(options.commands)}`);

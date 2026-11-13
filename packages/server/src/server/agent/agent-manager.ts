@@ -96,11 +96,7 @@ import { resolveCreateAgentTitles } from "./create-agent-title.js";
 import type { PimiToolCatalogFactory } from "./tools/types.js";
 import { memoryRecallInstructions } from "./tools/project-memory-tools.js";
 import { isPimiToolEnabled, isPimiToolPolicyEnabled } from "./pimi-tool-policy.js";
-import {
-  PIMI_TASK_PROPOSAL_TOOL,
-  PIMI_TASK_WORKER_LABEL,
-  PIMI_VOICE_TRACK_WORK_TOOLS,
-} from "@pimi/protocol/pimi-task";
+import { PIMI_VOICE_TRACK_WORK_TOOLS } from "@pimi/protocol/pimi-task";
 import {
   ProviderSubagentStore,
   type ProviderSubagentDescriptor,
@@ -165,10 +161,9 @@ function pimiActionInstructions(input: {
   policy: ProviderPimiToolsPolicy | undefined;
   provider: string;
   hostToolsEnabled: boolean;
-  isTaskWorker: boolean;
   toolLoading: "deferred" | "loader" | "full";
 }): string[] {
-  const { policy, isTaskWorker } = input;
+  const { policy } = input;
   if (!isPimiToolPolicyEnabled(policy)) {
     return [pimiToolsOffInstructions(input.provider, input.hostToolsEnabled)];
   }
@@ -180,11 +175,9 @@ function pimiActionInstructions(input: {
       `Pimi lists only its core tools. For ${LAZY_TOOL_GROUP_NAMES.join(", ")}, call pimi_tools with a group, then run a tool with call_pimi_tool.`,
     );
   }
-  if (isPimiToolEnabled(policy, PIMI_TASK_PROPOSAL_TOOL)) {
+  if (isPimiToolEnabled(policy, "create_pimi_task")) {
     instructions.push(
-      isTaskWorker
-        ? "Finish your assigned work item. Open a new task only if the user asks."
-        : "Use propose_pimi_task when the user asks to track delegated work in Tasks. Put each requested provider or provider/model in that work item's provider field. Wait for the user to start the workers.",
+      "When the user asks to add, track, or remember a task or to-do, call create_pimi_task with a short title. The current chat is linked to it, and Pimi writes the description from the chat when you leave it out. Use list_pimi_tasks and update_pimi_task to find or change a task; set a status only when the user asks or the work clearly moved.",
     );
   }
   if (isPimiToolEnabled(policy, "create_agent")) {
@@ -7057,7 +7050,6 @@ export class AgentManager {
             policy: pimiToolPolicy,
             provider: storedConfig.provider,
             hostToolsEnabled: this.pimiToolsEnabled,
-            isTaskWorker: Boolean(options.labels?.[PIMI_TASK_WORKER_LABEL]),
             toolLoading: this.pimiToolLoading(storedConfig.provider),
           }),
           visualizeSkillReady ? PIMI_VISUALIZATION_BRIEF : PIMI_VISUALIZATION_INSTRUCTIONS,
