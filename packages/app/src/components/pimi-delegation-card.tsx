@@ -3,7 +3,8 @@ import { useTranslation } from "@/i18n/use-translation";
 import { Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { ChevronRight } from "lucide-react-native";
-import type { Theme } from "@/styles/theme";
+import { ICON_SIZE, type Theme } from "@/styles/theme";
+import { cardStyles } from "@/styles/card";
 import type { PimiDelegation } from "@/utils/pimi-delegation";
 import { getParentAddressFromLabels } from "@pimi/protocol/agent-labels";
 import { AGENT_PROVIDER_DEFINITIONS } from "@pimi/protocol/provider-manifest";
@@ -105,7 +106,7 @@ export function PimiDelegationCard({
   const title = agent?.title || worker.title;
   const meta = [providerLabel, modelLabel, contextLabel].filter(Boolean).join(" · ");
   return (
-    <View style={styles.card} testID="pimi-delegation-card">
+    <View style={cardSurfaceStyle} testID="pimi-delegation-card">
       <View style={styles.header}>
         <DelegationRow
           title={title}
@@ -125,7 +126,7 @@ export function PimiDelegationCard({
           style={styles.toggle}
         >
           <View style={detailsOpen ? styles.chevronOpen : null}>
-            <ThemedChevron size={16} uniProps={chevronColor} />
+            <ThemedChevron size={ICON_SIZE.sm} uniProps={chevronColor} />
           </View>
         </PressHighlight>
       </View>
@@ -137,7 +138,7 @@ export function PimiDelegationCard({
 const ThemedChevron = withUnistyles(ChevronRight);
 const chevronColor = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
-const GLYPH_SIZE = 16;
+const GLYPH_SIZE = ICON_SIZE.md;
 
 /** The whole row opens the agent, so there is no separate button to find. */
 function DelegationRow({
@@ -206,17 +207,15 @@ function DelegationRow({
 }
 
 const styles = StyleSheet.create((theme) => ({
-  card: {
+  spacing: {
     marginVertical: theme.spacing[1],
-    borderRadius: theme.borderRadius.xl,
-    backgroundColor: theme.colors.surface2,
-    overflow: "hidden",
   },
   header: { flexDirection: "row", alignItems: "center" },
   toggle: {
     alignSelf: "stretch",
     justifyContent: "center",
-    paddingHorizontal: theme.spacing[3],
+    paddingHorizontal: theme.spacing[2],
+    borderRadius: theme.borderRadius.md,
   },
   chevronOpen: { transform: [{ rotate: "90deg" }] },
   row: {
@@ -225,10 +224,11 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     flexWrap: "wrap",
-    columnGap: theme.spacing[3],
+    columnGap: theme.spacing[2],
     rowGap: theme.spacing[1],
-    paddingVertical: theme.spacing[2],
-    paddingHorizontal: theme.spacing[3],
+    paddingVertical: theme.spacing[1.5],
+    paddingHorizontal: theme.spacing[1],
+    borderRadius: theme.borderRadius.md,
   },
   rowHovered: { backgroundColor: theme.colors.interactionHighlight },
   text: { flex: 1, minWidth: 140, gap: 2 },
@@ -244,7 +244,9 @@ const styles = StyleSheet.create((theme) => ({
     fontVariant: ["tabular-nums"],
   },
   details: {
-    paddingHorizontal: theme.spacing[3],
-    paddingVertical: theme.spacing[2],
+    paddingHorizontal: theme.spacing[1],
+    paddingTop: theme.spacing[1],
   },
 }));
+
+const cardSurfaceStyle = [cardStyles.surface, styles.spacing];

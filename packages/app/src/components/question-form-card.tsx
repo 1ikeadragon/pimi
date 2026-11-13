@@ -1,5 +1,6 @@
 import { Alert } from "@/components/ui/alert";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { Button } from "@/components/ui/button";
+import { cardStyles } from "@/styles/card";
 import { useState, useCallback, useMemo, useRef, type RefObject } from "react";
 import {
   View,
@@ -9,7 +10,6 @@ import {
   type PressableStateCallbackType,
 } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { useIsCompactFormFactor } from "@/constants/layout";
 import { Check, X } from "lucide-react-native";
 import { useTranslation } from "@/i18n/use-translation";
 import type { PendingPermission } from "@/types/shared";
@@ -100,11 +100,11 @@ function QuestionOptionRow({
     ({ pressed, hovered }: PressableStateCallbackType & { hovered?: boolean }) => [
       styles.optionItem,
       (Boolean(hovered) || isSelected) && {
-        backgroundColor: theme.colors.surface2,
+        backgroundColor: theme.colors.surface1,
       },
       pressed && styles.optionItemPressed,
     ],
-    [isSelected, theme.colors.surface2],
+    [isSelected, theme.colors.surface1],
   );
 
   const accessibilityState = useMemo(() => ({ checked: isSelected }), [isSelected]);
@@ -324,7 +324,7 @@ function QuestionOtherInput({
         {
           borderColor: value.length > 0 ? theme.colors.borderAccent : theme.colors.border,
           color: theme.colors.foreground,
-          backgroundColor: theme.colors.surface2,
+          backgroundColor: theme.colors.surface1,
         },
         IS_WEB ? { outlineStyle: "none", outlineWidth: 0, outlineColor: "transparent" } : null,
       ] as const,
@@ -333,7 +333,7 @@ function QuestionOtherInput({
       theme.colors.borderAccent,
       theme.colors.border,
       theme.colors.foreground,
-      theme.colors.surface2,
+      theme.colors.surface1,
     ],
   );
   return (
@@ -359,9 +359,7 @@ export function QuestionFormCard({
   isResponding,
   responseError,
 }: QuestionFormCardProps) {
-  const { theme } = useUnistyles();
   const { t } = useTranslation();
-  const isMobile = useIsCompactFormFactor();
   const questions = useMemo(
     () => parseQuestionFormQuestions(permission.request.input),
     [permission.request.input],
@@ -490,40 +488,12 @@ export function QuestionFormCard({
     handleSubmit();
   }, [activeQuestionAnswered, handleSubmit, isLastQuestion, isResponding, questions?.length]);
 
-  const dismissButtonStyle = useCallback(
-    ({ pressed, hovered }: PressableStateCallbackType & { hovered?: boolean }) => [
-      styles.actionButton,
-      {
-        backgroundColor: hovered ? theme.colors.surface2 : theme.colors.surface1,
-        borderColor: theme.colors.borderAccent,
-      },
-      pressed && styles.optionItemPressed,
-    ],
-    [theme.colors.surface2, theme.colors.surface1, theme.colors.borderAccent],
-  );
-
   const pendingAction = isResponding ? respondingAction : null;
   const primaryDisabled = isResponding || (isLastQuestion ? !allAnswered : !activeQuestionAnswered);
   const primaryActionLabel = isLastQuestion
     ? t("message.question.submit")
     : t("message.question.next");
-  const submitButtonStyle = useCallback(
-    ({ pressed }: PressableStateCallbackType & { hovered?: boolean }) => [
-      styles.actionButton,
-      {
-        backgroundColor: theme.colors.accent,
-        borderColor: theme.colors.accent,
-        opacity: primaryDisabled ? 0.5 : 1,
-      },
-      pressed && !primaryDisabled ? styles.optionItemPressed : null,
-    ],
-    [primaryDisabled, theme.colors.accent],
-  );
 
-  const containerStyle = useMemo(
-    () => [styles.container, { backgroundColor: theme.colors.surface2 }],
-    [theme.colors.surface2],
-  );
   // Single-select radios need a group; checkboxes are valid standalone.
   const optionsGroupAccessibility = useMemo(
     () =>
@@ -535,20 +505,6 @@ export function QuestionFormCard({
         : {},
     [activeQuestion],
   );
-  const actionsContainerStyle = useMemo(
-    () => [styles.actionsContainer, !isMobile && styles.actionsContainerDesktop],
-    [isMobile],
-  );
-  const dismissActionTextStyle = useMemo(
-    () => [styles.actionText, { color: theme.colors.foregroundMuted }],
-    [theme.colors.foregroundMuted],
-  );
-  const submitActionTextColor = theme.colors.accentForeground;
-  const submitActionTextStyle = useMemo(
-    () => [styles.actionText, { color: submitActionTextColor }],
-    [submitActionTextColor],
-  );
-
   if (!questions) {
     return null;
   }
@@ -559,7 +515,7 @@ export function QuestionFormCard({
   const showTextInput = questionShowsTextInput(questions[resolvedActiveQuestionIndex]);
 
   return (
-    <View style={containerStyle} testID="question-form-card">
+    <View style={cardStyles.surface} testID="question-form-card">
       <QuestionNav
         questions={questions}
         activeIndex={resolvedActiveQuestionIndex}
@@ -612,61 +568,45 @@ export function QuestionFormCard({
 
       {responseError ? <Alert variant="error" description={responseError} size="sm" /> : null}
 
-      <View style={actionsContainerStyle}>
-        <Pressable
-          style={dismissButtonStyle}
-          onPress={handleDeny}
+      <View style={cardStyles.footer}>
+        <Button
+          size="sm"
+          variant="ghost"
+          leftIcon={X}
+          loading={pendingAction === "dismiss"}
           disabled={isResponding}
-          accessibilityRole="button"
+          onPress={handleDeny}
           accessibilityLabel={dismissLabel}
           testID="question-form-dismiss"
         >
-          {pendingAction === "dismiss" ? (
-            <LoadingSpinner size="small" color={theme.colors.foregroundMuted} />
-          ) : (
-            <View style={styles.actionContent}>
-              <X size={14} color={theme.colors.foregroundMuted} />
-              <Text style={dismissActionTextStyle}>{dismissLabel}</Text>
-            </View>
-          )}
-        </Pressable>
-
-        <Pressable
-          style={submitButtonStyle}
-          onPress={handlePrimaryAction}
+          {dismissLabel}
+        </Button>
+        <Button
+          size="sm"
+          variant="default"
+          leftIcon={Check}
+          loading={pendingAction === "submit"}
           disabled={primaryDisabled}
-          accessibilityRole="button"
+          onPress={handlePrimaryAction}
           accessibilityLabel={primaryActionLabel}
           testID="question-form-primary-action"
         >
-          {pendingAction === "submit" ? (
-            <LoadingSpinner size="small" color={theme.colors.accentForeground} />
-          ) : (
-            <View style={styles.actionContent}>
-              <Check size={14} color={submitActionTextColor} />
-              <Text style={submitActionTextStyle}>{primaryActionLabel}</Text>
-            </View>
-          )}
-        </Pressable>
+          {primaryActionLabel}
+        </Button>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
-  container: {
-    padding: theme.spacing[4],
-    borderRadius: theme.borderRadius["2xl"],
-    gap: theme.spacing[3],
-  },
   questionBlock: {
-    gap: theme.spacing[2],
+    gap: theme.spacing[1],
   },
   questionHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[2],
-    paddingHorizontal: theme.spacing[3],
+    paddingHorizontal: theme.spacing[1],
     paddingBottom: theme.spacing[1],
     flex: 1,
   },
@@ -681,7 +621,8 @@ const styles = StyleSheet.create((theme) => ({
     flexWrap: "wrap",
     alignItems: "center",
     gap: theme.spacing[1],
-    paddingHorizontal: theme.spacing[3],
+    paddingHorizontal: theme.spacing[1],
+    paddingBottom: theme.spacing[1],
   },
   questionNavButton: {
     flexDirection: "row",
@@ -694,14 +635,14 @@ const styles = StyleSheet.create((theme) => ({
     borderWidth: theme.borderWidth[1],
   },
   questionNavText: {
-    fontSize: theme.fontSize.base,
+    fontSize: theme.fontSize.sm,
     fontWeight: theme.fontWeight.normal,
   },
   optionItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: theme.spacing[3],
-    paddingVertical: theme.spacing[2],
+    paddingHorizontal: theme.spacing[2],
+    paddingVertical: theme.spacing[1.5],
     borderRadius: theme.borderRadius.md,
   },
   optionItemPressed: {
@@ -742,32 +683,9 @@ const styles = StyleSheet.create((theme) => ({
   },
   otherInput: {
     borderWidth: 1,
-    borderRadius: theme.borderRadius.lg,
-    paddingHorizontal: theme.spacing[3],
-    paddingVertical: theme.spacing[3],
-    fontSize: theme.fontSize.base,
-  },
-  actionsContainer: {
-    gap: theme.spacing[2],
-  },
-  actionsContainerDesktop: {
-    flexDirection: "row",
-    justifyContent: "flex-start",
-    alignItems: "center",
-  },
-  actionButton: {
-    paddingVertical: theme.spacing[2],
-    paddingHorizontal: theme.spacing[3],
     borderRadius: theme.borderRadius.md,
-    alignItems: "center",
-    borderWidth: theme.borderWidth[1],
-  },
-  actionContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[2],
-  },
-  actionText: {
+    paddingHorizontal: theme.spacing[2],
+    paddingVertical: theme.spacing[2],
     fontSize: theme.fontSize.base,
   },
 }));

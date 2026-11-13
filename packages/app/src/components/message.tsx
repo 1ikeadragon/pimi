@@ -971,14 +971,18 @@ const notificationStylesheet = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: theme.spacing[2],
-    padding: theme.spacing[3],
-    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing[2],
+    paddingHorizontal: theme.spacing[3],
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.borderAccent,
+    borderRadius: theme.borderRadius.lg,
+    ...theme.shadow.md,
   },
   containerSpacing: {
     marginBottom: theme.spacing[1],
   },
   infoBg: {
-    backgroundColor: theme.colors.surface2,
+    backgroundColor: theme.colors.popover,
   },
   warningBg: {
     backgroundColor: theme.colors.statusWarningTint,
@@ -988,14 +992,14 @@ const notificationStylesheet = StyleSheet.create((theme) => ({
   },
   iconContainer: {
     flexShrink: 0,
-    height: theme.fontSize.base * 1.5,
+    height: theme.fontSize.sm * 1.5,
     justifyContent: "center",
   },
   messageText: {
     flex: 1,
     color: theme.colors.foreground,
-    fontSize: theme.fontSize.base,
-    lineHeight: theme.fontSize.base * 1.5,
+    fontSize: theme.fontSize.sm,
+    lineHeight: theme.fontSize.sm * 1.5,
   },
 }));
 
@@ -1036,7 +1040,7 @@ const NotificationBase = memo(function Notification({
       ]}
     >
       <View style={notificationStylesheet.iconContainer}>
-        <IconComponent size={ICON_SIZE.md} uniProps={config.iconColorMapping} />
+        <IconComponent size={ICON_SIZE.sm} uniProps={config.iconColorMapping} />
       </View>
       <Text style={notificationStylesheet.messageText} selectable>
         {message}

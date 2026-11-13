@@ -1,6 +1,7 @@
 import { MarkdownRenderer } from "@/components/markdown/renderer";
 import { isWeb } from "@/constants/platform";
-import type { Theme } from "@/styles/theme";
+import { ICON_SIZE, type Theme } from "@/styles/theme";
+import { cardStyles } from "@/styles/card";
 import { ChevronRight } from "lucide-react-native";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "@/i18n/use-translation";
@@ -57,7 +58,7 @@ function PlanCardContent({
   const headerStyle = useMemo(() => [styles.header, hovered && styles.headerHighlight], [hovered]);
   const toggleExpanded = useCallback(() => setExpanded((value) => !value), []);
   const containerStyle = useMemo(
-    () => [styles.container, disableOuterSpacing && styles.containerCompact],
+    () => [cardStyles.surface, !disableOuterSpacing && styles.spacing],
     [disableOuterSpacing],
   );
   const chevronStyle = useMemo(
@@ -78,57 +79,40 @@ function PlanCardContent({
         highlightStyle={styles.headerHighlight}
         style={headerStyle}
       >
-        <Text style={styles.title}>{resolvedTitle}</Text>
+        <Text style={cardStyles.title}>{resolvedTitle}</Text>
         <View style={chevronStyle}>
-          <ThemedChevron size={16} uniProps={chevronColor} />
+          <ThemedChevron size={ICON_SIZE.sm} uniProps={chevronColor} />
         </View>
       </PressHighlight>
       {expanded ? (
         <View style={styles.body}>
-          {description ? <Text style={styles.description}>{description}</Text> : null}
-          <MarkdownRenderer text={text} />
+          {description ? <Text style={cardStyles.text}>{description}</Text> : null}
+          <View style={styles.markdown}>
+            <MarkdownRenderer text={text} />
+          </View>
         </View>
       ) : null}
-      {footer ? <View style={styles.footer}>{footer}</View> : null}
+      {footer}
     </View>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
-  container: {
+  spacing: {
     marginVertical: theme.spacing[3],
-    padding: theme.spacing[4],
-    borderRadius: theme.borderRadius["2xl"],
-    backgroundColor: theme.colors.surface2,
-    gap: theme.spacing[2],
-  },
-  containerCompact: {
-    marginVertical: 0,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: theme.spacing[2],
-    minHeight: 24,
-    borderRadius: theme.borderRadius.lg,
+    paddingHorizontal: theme.spacing[1],
+    minHeight: 28,
+    borderRadius: theme.borderRadius.md,
   },
   headerHighlight: { backgroundColor: theme.colors.interactionHighlight },
   chevron: {},
   chevronExpanded: { transform: [{ rotate: "90deg" }] },
-  body: { gap: theme.spacing[2] },
-  title: {
-    color: theme.colors.foreground,
-    flexShrink: 1,
-    fontSize: theme.fontSize.base,
-    fontWeight: theme.fontWeight.medium,
-    lineHeight: 22,
-  },
-  description: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.base,
-    lineHeight: 20,
-  },
-  footer: {
-    gap: theme.spacing[2],
-  },
+  body: { gap: theme.spacing[1] },
+  markdown: { paddingHorizontal: theme.spacing[1] },
 }));
