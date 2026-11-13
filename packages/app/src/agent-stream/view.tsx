@@ -131,7 +131,8 @@ import { useForkAgent } from "@/hooks/use-fork-agent";
 import { ProviderSwitchMarker } from "@/components/provider-switch-marker";
 import { PermissionResolutionNote } from "@/components/permission-resolution-note";
 import { isWeb } from "@/constants/platform";
-import type { Theme } from "@/styles/theme";
+import { ICON_SIZE, type Theme } from "@/styles/theme";
+import { cardStyles } from "@/styles/card";
 import { recordRenderProfileReasons } from "@/utils/render-profiler";
 import { useRetainedPanelActive } from "@/components/retained-panel";
 import { useStreamHistoryWindow } from "./use-stream-history-window";
@@ -1705,7 +1706,7 @@ function PermissionGlyph({
   color?: string;
 }) {
   const Glyph = resolveToolCallIcon(toolName, detail);
-  return <Glyph size={16} color={color} />;
+  return <Glyph size={ICON_SIZE.sm} color={color} />;
 }
 
 const ThemedPermissionGlyph = withUnistyles(PermissionGlyph);
@@ -1727,11 +1728,13 @@ function PermissionActionButton({
   onPress,
 }: PermissionActionButtonProps) {
   const handlePress = useCallback(() => onPress(action), [onPress, action]);
-  const variant =
-    action.behavior === "allow" && action.variant !== "secondary" ? "default" : "secondary";
+  let variant: "default" | "ghost" | "secondary" = "secondary";
+  if (action.behavior === "deny") variant = "ghost";
+  else if (action.variant !== "secondary") variant = "default";
   return (
     <Button
       testID={testID}
+      size="sm"
       variant={variant}
       loading={isRespondingAction}
       disabled={isResponding}
@@ -1872,10 +1875,8 @@ function PermissionRequestCard({
   // Two actions fit one row on a phone; more stack so each label keeps its width.
   const optionsContainerStyle = useMemo(
     () => [
-      permissionStyles.optionsContainer,
-      !isMobile || resolvedActions.length <= 2
-        ? permissionStyles.optionsContainerRow
-        : permissionStyles.optionsContainerColumn,
+      cardStyles.footer,
+      isMobile && resolvedActions.length > 2 && permissionStyles.optionsContainerColumn,
     ],
     [isMobile, resolvedActions.length],
   );
@@ -1938,17 +1939,17 @@ function PermissionRequestCard({
   }
 
   return (
-    <View style={permissionStyles.container}>
-      <View style={permissionStyles.header}>
+    <View style={permissionContainerStyle}>
+      <View style={cardStyles.header}>
         <ThemedPermissionGlyph
           toolName={request.name ?? ""}
           detail={request.detail}
           uniProps={mutedGlyphColor}
         />
-        <Text style={permissionStyles.title}>{title}</Text>
+        <Text style={cardStyles.title}>{title}</Text>
       </View>
 
-      {description ? <Text style={permissionStyles.description}>{description}</Text> : null}
+      {description ? <Text style={cardStyles.text}>{description}</Text> : null}
 
       {planMarkdown ? (
         <PlanCard
@@ -2049,43 +2050,16 @@ const stylesheet = StyleSheet.create((theme) => ({
 }));
 
 const permissionStyles = StyleSheet.create((theme) => ({
-  container: {
+  spacing: {
     marginVertical: theme.spacing[3],
-    padding: theme.spacing[4],
-    borderRadius: theme.borderRadius["2xl"],
-    gap: theme.spacing[3],
-    backgroundColor: theme.colors.surface2,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[2],
-  },
-  title: {
-    flexShrink: 1,
-    fontSize: theme.fontSize.base,
-    fontWeight: theme.fontWeight.medium,
-    lineHeight: 22,
-    color: theme.colors.foreground,
-  },
-  description: {
-    fontSize: theme.fontSize.base,
-    lineHeight: 20,
-    color: theme.colors.foregroundMuted,
-  },
-  optionsContainer: {
-    gap: theme.spacing[2],
-  },
-  optionsContainerRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
   },
   optionsContainerColumn: {
     flexDirection: "column",
     alignItems: "stretch",
   },
 }));
+
+const permissionContainerStyle = [cardStyles.surface, permissionStyles.spacing];
 
 interface StreamItemWrapperProps {
   gapBelow: number;
