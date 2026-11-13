@@ -27,6 +27,16 @@ interface ElementSelectorSession {
   timeoutId?: number;
 }
 
+// Electron's webview.isLoading() throws until the guest is attached and has emitted dom-ready,
+// which is the state a tab is in just after it opens or is moved between panes.
+function isWebviewLoadingOrNotReady(webview: ElementSelectorWebview): boolean {
+  try {
+    return webview.isLoading?.() ?? false;
+  } catch {
+    return true;
+  }
+}
+
 export interface ElementSelectorController {
   start(input: {
     webview: ElementSelectorWebview;
@@ -415,7 +425,7 @@ class ElementSelectorOwner implements ElementSelectorController {
     onFinish,
   }: Parameters<ElementSelectorController["start"]>[0]): ElementSelectorStartResult {
     if (!webview.isConnected) return "unavailable";
-    if (webview.isLoading?.()) return "loading";
+    if (isWebviewLoadingOrNotReady(webview)) return "loading";
     if (this.current) this.finish(this.current, { type: "cancelled" }, "clear");
     const session: ElementSelectorSession = {
       mode,
