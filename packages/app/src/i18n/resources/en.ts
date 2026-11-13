@@ -4047,7 +4047,7 @@ export const en = {
             "Your agents, settings and worktrees in ~/.pimi ({{size}}) stay on the machine. Adding it again picks them up.",
           deleteData: "Also delete Pimi data on this machine (agents, settings, worktrees)",
           deleteDataWorktrees:
-            "Deletes ~/.pimi ({{size}}), including {{worktrees}} worktrees Pimi created. Uncommitted work in those worktrees is lost.",
+            "Deletes ~/.pimi ({{size}}), including worktrees Pimi created ({{worktrees}}). Uncommitted work in them is lost.",
           deleteDataNoWorktrees: "Deletes ~/.pimi ({{size}}). Pimi created no worktrees there.",
           deleteDataPhones: "Phones paired with this daemon lose access to it.",
           confirm: "Uninstall",
