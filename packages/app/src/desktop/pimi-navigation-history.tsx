@@ -125,7 +125,16 @@ export function PimiNavigationHistory({
     },
     [index],
   );
-  const back = useCallback(() => move(-1), [move]);
+  // A card open in Spaces takes the first back press, so back never leaves the section with it open.
+  const back = useCallback(async () => {
+    if (
+      await getDesktopHost()
+        ?.closePimiWorkspaceDialog?.()
+        .catch(() => false)
+    )
+      return;
+    move(-1);
+  }, [move]);
   const forward = useCallback(() => move(1), [move]);
 
   return (

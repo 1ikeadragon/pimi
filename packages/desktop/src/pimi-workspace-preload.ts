@@ -61,6 +61,10 @@ contextBridge.exposeInMainWorld("pimiWorkspace", {
   chrome: process.platform === "darwin" ? "mac" : "standard",
   setSection: (section: PimiWorkspaceSection) =>
     ipcRenderer.send("pimi:workspace:section", section),
+  setDialogOpen: (open: boolean) => ipcRenderer.send("pimi:workspace:dialog", open),
+  onCloseDialog: (listener: () => void) => {
+    ipcRenderer.on("pimi:workspace:close-dialog", () => listener());
+  },
   openReview: (request: PimiReviewRequest) =>
     ipcRenderer.send("pimi:workspace:open-review", request),
   onLayoutChange: (apply: (mode: WorkspaceLayout) => void) => {

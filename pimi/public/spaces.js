@@ -67,7 +67,6 @@ export function createSpacesView({ $, api, button, element, message }) {
   const date = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
   let current;
   let active = false;
-  let suspended = false;
   let busy = false;
   let mutating = false;
   let ready = false;
@@ -176,10 +175,6 @@ export function createSpacesView({ $, api, button, element, message }) {
   function resume() {
     active = true;
     updateEmbedVisibility();
-    if (!suspended) return;
-    suspended = false;
-    editor.showModal();
-    updatePaperReader();
   }
 
   document.addEventListener("visibilitychange", updateEmbedVisibility);
@@ -318,6 +313,7 @@ export function createSpacesView({ $, api, button, element, message }) {
     $("spaces-close").textContent = isNote ? "Cancel" : "Close";
     message("spaces-card-error", "");
     editor.showModal();
+    pushCardEntry();
     openLinkDetails(item);
     updatePaperReader();
     (isNote ? text : $("spaces-close")).focus();
@@ -408,10 +404,6 @@ export function createSpacesView({ $, api, button, element, message }) {
   }
 
   async function load(action) {
-    if (suspended) {
-      resume();
-      if (!action) return;
-    }
     active = true;
     if (action && (editor.open || busy)) {
       message("spaces-status", "Finish the open card first.");
@@ -595,7 +587,6 @@ export function createSpacesView({ $, api, button, element, message }) {
       await api("spaces", { action: "remove", id });
       removeCard(id);
       editor.close();
-      suspended = false;
       showEmpty();
       $("spaces-new").focus();
       message("spaces-status", "Card removed.");
@@ -611,17 +602,81 @@ export function createSpacesView({ $, api, button, element, message }) {
       const { item } = await api("spaces", request);
       insert(item);
       editor.close();
-      suspended = false;
       $("space-card-" + item.id)
         .querySelector("button")
         .focus();
       message("spaces-status", "Note saved.");
     }, "spaces-card-error");
   });
-  editor.addEventListener("cancel", (event) => {
-    if (mutating) event.preventDefault();
+
+  // Every way out of an open card (Escape, the close button, a click on the backdrop, back)
+  // lands here. A note with unsaved text is saved first so closing never loses it; Cancel is
+  // the one explicit discard.
+  function dismissCard() {
+    if (!editor.open || mutating) return;
+    if (confirmation.open) {
+      confirmation.close();
+      return;
+    }
+    const editing = !current || current.kind === "note";
+    if (editing && text.value.trim() && text.value !== (current?.text ?? "")) {
+      form.requestSubmit();
+      return;
+    }
+    editor.close();
+  }
+
+  // An open card holds one history entry, so the mouse back button and Cmd+[ close it instead
+  // of acting on the page behind it. Forward never reopens a card.
+  let cardEntry = false;
+  function pushCardEntry() {
+    if (!cardEntry) history.pushState({ spacesCard: true }, "");
+    cardEntry = true;
+    window.pimiWorkspace?.setDialogOpen?.(true);
+  }
+  window.addEventListener("popstate", () => {
+    if (!cardEntry) return;
+    cardEntry = false;
+    dismissCard();
   });
-  editor.addEventListener("close", updatePaperReader);
+  window.pimiWorkspace?.onCloseDialog?.(dismissCard);
+
+  editor.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    dismissCard();
+  });
+  editor.addEventListener("close", () => {
+    updatePaperReader();
+    window.pimiWorkspace?.setDialogOpen?.(false);
+    if (cardEntry) {
+      cardEntry = false;
+      history.back();
+    }
+  });
+  $("spaces-dismiss").addEventListener("click", dismissCard);
+
+  // Only a press and release that both land on the backdrop dismiss the card, so a text
+  // selection dragged out of the dialog does not. Clicks inside the arXiv iframe never reach
+  // this page.
+  let pressedBackdrop = false;
+  const onBackdrop = (event) => {
+    if (event.target !== editor) return false;
+    const box = editor.getBoundingClientRect();
+    return (
+      event.clientX < box.left ||
+      event.clientX > box.right ||
+      event.clientY < box.top ||
+      event.clientY > box.bottom
+    );
+  };
+  editor.addEventListener("pointerdown", (event) => {
+    pressedBackdrop = onBackdrop(event);
+  });
+  editor.addEventListener("click", (event) => {
+    const dismiss = pressedBackdrop && onBackdrop(event);
+    pressedBackdrop = false;
+    if (dismiss) dismissCard();
+  });
 
   return {
     load,
@@ -634,9 +689,8 @@ export function createSpacesView({ $, api, button, element, message }) {
       updateEmbedVisibility();
       if (!editor.open) return;
       confirmation.close();
-      editor.close();
+      dismissCard();
       updatePaperReader();
-      suspended = true;
     },
   };
 }

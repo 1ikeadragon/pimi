@@ -283,6 +283,8 @@ export interface DesktopHostBridge {
   getPimiRecap?: (period: PimiRecapPeriod) => Promise<PimiRecap>;
   onPimiWorkspaceActivity?: (listener: (section: PimiActivitySection) => void) => () => void;
   dismissPimiWorkspace?: () => void;
+  /** Closes a card open in the workspace; false when none was open. */
+  closePimiWorkspaceDialog?: () => Promise<boolean>;
   setPimiContentBounds?: (bounds: {
     x: number;
     y: number;

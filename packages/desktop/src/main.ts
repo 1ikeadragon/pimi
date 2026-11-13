@@ -30,6 +30,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import {
   getPimiReviewSummary,
+  closePimiWorkspaceDialog,
   hidePimiWorkspace,
   initializePimiWorkspace,
   pimiAppearanceArgument,
@@ -931,6 +932,10 @@ function registerPimiWorkspaceNavigation(): void {
     const error = PimiReportLinkError.safeParse(value);
     const owner = BrowserWindow.fromWebContents(event.sender);
     if (owner && error.success) reportPimiLinkError(owner, error.data);
+  });
+  ipcMain.handle("pimi:workspace:close-dialog", (event) => {
+    if (!isConsoleFrame(event)) return false;
+    return closePimiWorkspaceDialog();
   });
   ipcMain.on("pimi:workspace:dismiss", (event) => {
     if (!isConsoleFrame(event)) return;
