@@ -285,7 +285,7 @@ const MutableMetadataGenerationConfigSchema = z
 
 const MutableBrowserToolsConfigSchema = z
   .object({
-    enabled: z.boolean().default(false),
+    enabled: z.boolean().default(true),
   })
   .passthrough();
 const MutableRelayConfigSchema = z
@@ -334,7 +334,7 @@ export const MutableDaemonConfigSchema = z
     app: z.object({ baseUrl: z.string() }).optional(),
     catalogRefreshTimeoutMs: z.number().int().positive().optional(),
     usage: z.object({ enabled: z.boolean() }),
-    browserTools: MutableBrowserToolsConfigSchema.default({ enabled: false }),
+    browserTools: MutableBrowserToolsConfigSchema.default({ enabled: true }),
     providers: z.record(z.string(), MutableDaemonProviderConfigSchema).default({}),
     metadataGeneration: MutableMetadataGenerationConfigSchema.default({
       providers: [],

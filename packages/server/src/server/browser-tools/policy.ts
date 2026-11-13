@@ -15,7 +15,7 @@ export class DaemonConfigBrowserToolsPolicy implements BrowserToolsPolicy {
 function readBrowserToolsEnabled(config: MutableDaemonConfig): boolean {
   const browserTools = config.browserTools;
   if (typeof browserTools !== "object" || browserTools === null || Array.isArray(browserTools)) {
-    return false;
+    return true;
   }
-  return browserTools.enabled === true;
+  return browserTools.enabled !== false;
 }
