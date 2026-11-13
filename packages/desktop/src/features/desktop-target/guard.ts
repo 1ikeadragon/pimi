@@ -24,3 +24,10 @@ export function pointInFrame(point: { x: number; y: number }, frame: Frame): boo
     point.y < frame.height
   );
 }
+
+const ELEMENT_REF = /^@d\d{1,5}$/;
+
+/** An element ref: "@d" and the number from the latest snapshot, find or marked screenshot. */
+export function isElementRef(ref: string): boolean {
+  return ELEMENT_REF.test(ref);
+}

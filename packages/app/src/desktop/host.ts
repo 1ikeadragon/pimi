@@ -201,7 +201,7 @@ export interface DesktopTargetWindow {
   /** Windows only: listed but never driven. */
   blocked?: string | null;
   // The picker lists no data dirs; the launch form resolves them (resolveScope).
-  win?: Omit<NonNullable<AttackDesktopTarget["win"]>, "dataDirs"> | null;
+  win?: AttackDesktopTarget["win"];
 }
 
 /** Attack's desktop target: the main process names windows and drives the one the guard allows. */

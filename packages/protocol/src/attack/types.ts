@@ -104,7 +104,7 @@ export const AttackDesktopTargetSchema = z.object({
   appName: z.string().min(1).max(200),
   windowTitle: z.string().max(400),
   platform: z.enum(["darwin", "win32"]).default("darwin"),
-  // The Windows window the owner picked; the helper re-checks it against the process every call.
+  // The window the owner picked (its identity on Windows and macOS); the helper re-checks it against the process every call.
   win: z
     .object({
       hwnd: z.string(),
@@ -113,12 +113,12 @@ export const AttackDesktopTargetSchema = z.object({
       windowClass: z.string(),
       exeName: z.string(),
       framework: z.string(),
-      // The data directories the owner confirmed as this app's own (userData, save and config
-      // folders). Security reads never leave these, the install dir and the process tree.
-      dataDirs: z.array(z.string().min(1).max(400)).max(20).default([]),
     })
     .nullable()
     .default(null),
+  // The data directories the owner confirmed as this app's own (userData, save and config
+  // folders). Security reads never leave these, the install dir and the process tree.
+  dataDirs: z.array(z.string().min(1).max(400)).max(20).default([]),
   // Typed by the owner in the launch form; agents never add arguments.
   launchArgs: z.string().max(500).default(""),
   // The owner's separate switch for desktop_app launch and relaunch.

@@ -260,34 +260,26 @@ export class AttackRunFormModel {
       scopeInstallDir: scope.installDir,
       desktopTarget: this.dataDirsEdited
         ? current
-        : { ...current, win: { ...current.win, dataDirs: scope.dataDirs.slice(0, MAX_DATA_DIRS) } },
+        : { ...current, dataDirs: scope.dataDirs.slice(0, MAX_DATA_DIRS) },
     });
   }
 
   /** Adds a folder the desktop app already accepted (canonical, not denied). */
   addDataDir = (dir: string): void => {
     const current = this.state.desktopTarget;
-    if (!current?.win) return;
-    const known = current.win.dataDirs.some((item) => item.toLowerCase() === dir.toLowerCase());
-    if (known || current.win.dataDirs.length >= MAX_DATA_DIRS) return;
+    if (!current) return;
+    const known = current.dataDirs.some((item) => item.toLowerCase() === dir.toLowerCase());
+    if (known || current.dataDirs.length >= MAX_DATA_DIRS) return;
     this.dataDirsEdited = true;
-    this.patch({
-      desktopTarget: {
-        ...current,
-        win: { ...current.win, dataDirs: [...current.win.dataDirs, dir] },
-      },
-    });
+    this.patch({ desktopTarget: { ...current, dataDirs: [...current.dataDirs, dir] } });
   };
 
   removeDataDir = (dir: string): void => {
     const current = this.state.desktopTarget;
-    if (!current?.win) return;
+    if (!current) return;
     this.dataDirsEdited = true;
     this.patch({
-      desktopTarget: {
-        ...current,
-        win: { ...current.win, dataDirs: current.win.dataDirs.filter((item) => item !== dir) },
-      },
+      desktopTarget: { ...current, dataDirs: current.dataDirs.filter((item) => item !== dir) },
     });
   };
 

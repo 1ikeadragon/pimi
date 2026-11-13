@@ -204,10 +204,3 @@ export function refuseWinChord(chord: Extract<ParsedWinChord, { ok: true }>): st
   }
   return null;
 }
-
-const ELEMENT_REF = /^@d\d{1,5}$/;
-
-/** A Windows element ref: "@d" and the number from the latest snapshot, find or marked screenshot. */
-export function isWinRef(ref: string): boolean {
-  return ELEMENT_REF.test(ref);
-}

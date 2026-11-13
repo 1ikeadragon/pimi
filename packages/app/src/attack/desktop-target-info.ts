@@ -57,6 +57,7 @@ export const NO_DESKTOP_WINDOW: AttackDesktopTarget = {
   windowTitle: "",
   platform: "darwin",
   win: null,
+  dataDirs: [],
   launchArgs: "",
   allowRelaunch: false,
   allowDesktopInspect: false,
@@ -69,8 +70,9 @@ export function toDesktopTarget(window: DesktopTargetWindow): AttackDesktopTarge
     appName: window.appName,
     windowTitle: window.windowTitle,
     platform: window.platform ?? "darwin",
-    // The data dirs are filled in by the launch form once the owner has picked the window.
-    win: window.win ? { ...window.win, dataDirs: [] } : null,
+    win: window.win ?? null,
+    // Filled in by the launch form once the owner has picked the window.
+    dataDirs: [],
     launchArgs: "",
     allowRelaunch: false,
     allowDesktopInspect: false,

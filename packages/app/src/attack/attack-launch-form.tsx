@@ -639,7 +639,7 @@ function DataDirsField({ model, state }: { model: AttackRunFormModel; state: Att
   const [draft, setDraft] = useState("");
   const [refused, setRefused] = useState(false);
   const [inputKey, setInputKey] = useState(0);
-  const dirs = state.desktopTarget?.win?.dataDirs ?? [];
+  const dirs = state.desktopTarget?.dataDirs ?? [];
   const onAdd = useCallback(async () => {
     const bridge = getDesktopHost()?.desktopTarget;
     const raw = draft.trim();

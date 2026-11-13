@@ -6,7 +6,7 @@ import {
 } from "@pimi/protocol/desktop-target/rpc-schemas";
 import { AxError, probeAutomation } from "./mac/ax.js";
 import { runMac, screenGranted } from "./mac/index.js";
-import { HelperError, stopHelper } from "./win/helper-process.js";
+import { HelperError, stopHelper } from "./helper-process.js";
 import { checkWinDataDir, resolveWinScope, runWin } from "./win/index.js";
 
 // Attack's desktop target: one window, chosen by the owner, driven through the platform's

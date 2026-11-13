@@ -8,7 +8,12 @@ import type {
   DesktopTargetResult,
 } from "@pimi/protocol/desktop-target/rpc-schemas";
 import type { DesktopGuard } from "../guard.js";
-import { betterleaksPath, helperRequest, HelperError, type HelperTarget } from "./helper-process.js";
+import {
+  betterleaksPath,
+  helperRequest,
+  HelperError,
+  type HelperTarget,
+} from "../helper-process.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -354,18 +359,27 @@ async function runBetterleaks(dir: string): Promise<BetterleaksFinding[]> {
     throw new HelperError("failed", `betterleaks not found at ${exe}`);
   }
   try {
-    const { stdout } = await execFileAsync(exe, [
-      "dir",
-      "--no-banner",
-      "--no-color",
-      "--redact=80",
-      "-f", "json",
-      "-r", "-",
-      "--exit-code", "0",
-      "--timeout", String(BETTERLEAKS_TIMEOUT_S),
-      "--confidence", "low",
-      dir,
-    ], { timeout: (BETTERLEAKS_TIMEOUT_S + 5) * 1000, maxBuffer: 10 * 1024 * 1024 });
+    const { stdout } = await execFileAsync(
+      exe,
+      [
+        "dir",
+        "--no-banner",
+        "--no-color",
+        "--redact=80",
+        "-f",
+        "json",
+        "-r",
+        "-",
+        "--exit-code",
+        "0",
+        "--timeout",
+        String(BETTERLEAKS_TIMEOUT_S),
+        "--confidence",
+        "low",
+        dir,
+      ],
+      { timeout: (BETTERLEAKS_TIMEOUT_S + 5) * 1000, maxBuffer: 10 * 1024 * 1024 },
+    );
     if (!stdout.trim()) return [];
     return JSON.parse(stdout) as BetterleaksFinding[];
   } catch (error: unknown) {
@@ -436,7 +450,10 @@ export async function runSecretsScan(
     const seen = new Set<string>();
     for (const f of findings) {
       if (f.File) seen.add(f.File);
-      if (hits.length >= MAX_HITS) { truncated = true; break; }
+      if (hits.length >= MAX_HITS) {
+        truncated = true;
+        break;
+      }
       hits.push(findingToHit(f, root.name, root.dir));
     }
     filesScanned += seen.size;
@@ -451,7 +468,8 @@ export async function runSecretsScan(
       ? "No secrets found."
       : `${hits.length} finding${hits.length === 1 ? "" : "s"}:`,
     ...hits.map(
-      (h) => `- ${h.where} ${h.kind}${h.valuePrefix ? ` ${JSON.stringify(h.valuePrefix)}` : ""} (${h.valueLength} chars)`,
+      (h) =>
+        `- ${h.where} ${h.kind}${h.valuePrefix ? ` ${JSON.stringify(h.valuePrefix)}` : ""} (${h.valueLength} chars)`,
     ),
   ];
   if (truncated) lines.push("Truncated: hit cap reached.");

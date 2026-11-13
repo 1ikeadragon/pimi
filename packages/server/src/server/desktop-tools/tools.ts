@@ -194,7 +194,7 @@ const SCREENSHOT_AFTER_FIELD = z
   );
 const ELEMENT_FIELD = z.string().min(1).max(500).optional();
 const MODIFIERS_FIELD = z
-  .array(z.enum(["ctrl", "alt", "shift"]))
+  .array(z.enum(["ctrl", "alt", "shift", "cmd"]))
   .max(3)
   .optional();
 const BUTTON_FIELD = z.enum(["left", "right", "middle"]).optional();

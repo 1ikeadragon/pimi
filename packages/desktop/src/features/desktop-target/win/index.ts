@@ -4,15 +4,9 @@ import type {
   DesktopTargetCommand,
   DesktopTargetResult,
 } from "@pimi/protocol/desktop-target/rpc-schemas";
-import type { DesktopGuard } from "../guard.js";
-import {
-  forbiddenWinTarget,
-  isWinRef,
-  parseWinChord,
-  parseWinKeys,
-  refuseWinChord,
-} from "./guard-win.js";
-import { helperRequest, HelperError, type HelperTarget } from "./helper-process.js";
+import { isElementRef, type DesktopGuard } from "../guard.js";
+import { forbiddenWinTarget, parseWinChord, parseWinKeys, refuseWinChord } from "./guard-win.js";
+import { helperRequest, HelperError, type HelperTarget } from "../helper-process.js";
 import {
   candidateScope,
   checkDataDir,
@@ -64,7 +58,8 @@ function targetFor(guard: DesktopGuard): HelperTarget {
 }
 
 function requireRef(ref: string | undefined): void {
-  if (ref !== undefined && !isWinRef(ref)) refuse("That is not an element ref. Use one like @d12.");
+  if (ref !== undefined && !isElementRef(ref))
+    refuse("That is not an element ref. Use one like @d12.");
 }
 
 function checkKeys(args: Extract<DesktopTargetCommand, { command: "key" }>["args"]): void {
