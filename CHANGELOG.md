@@ -2,9 +2,10 @@
 
 [Upstream release history and contributor credits](https://github.com/1ikeadragon/pimi/blob/9eb9f9e9fe879845e4c398b066ef03a60ecc74d9/CHANGELOG.md#0153---2026-11-06)
 
-## 0.17.42 - 2026-11-14
+## 0.17.43 - 2026-11-14
 
-- Pull request links open in Review from any page of the PR (`/files`, `/commits`, `/checks`, `www.github.com`, `http://`), in chat and everywhere else. Right-click > Open Link in Browser or Cmd/Ctrl-click still opens your browser.
+- Pull request links in chat open in Review, from any page of the PR (`/files`, `/commits`, `/checks`, `www.github.com`, `http://`), as do the sidebar PR badge, the workspace PR button and Recap. Right-click > Open Link in Browser or Cmd/Ctrl-click still opens your browser.
+- Subagents pill: it appears only once a chat has subagents, and each working subagent in its list shows the same status dot as the sidebar.
 
 ## 0.17.41 - 2026-11-14
 
