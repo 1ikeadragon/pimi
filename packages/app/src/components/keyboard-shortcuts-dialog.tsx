@@ -1,4 +1,5 @@
 import { usesDesktopBindings } from "@/keyboard";
+import { usePluginShortcutBindings } from "@/keyboard/use-plugin-shortcut-bindings";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "@/i18n/use-translation";
 import { Text, View } from "react-native";
@@ -27,7 +28,12 @@ export function KeyboardShortcutsDialog() {
   const { overrides } = useKeyboardShortcutOverrides();
   // Effective bindings, so a shortcut the user unassigned lists no keys here
   // instead of advertising a default that no longer fires.
-  const bindings = useMemo(() => buildEffectiveBindings(overrides), [overrides]);
+  const pluginBindings = usePluginShortcutBindings();
+  // The base list is an argument so the memo sees the plugin bindings change.
+  const bindings = useMemo(
+    () => buildEffectiveBindings(overrides, pluginBindings),
+    [overrides, pluginBindings],
+  );
   const sections = useMemo(
     () => buildKeyboardShortcutHelpSections({ isMac, usesDesktopBindings }, bindings),
     [bindings, isMac],

@@ -1,3 +1,4 @@
+import type { AnyComponent } from "@/extension-points/registry";
 import { PluginTranslationRuntime } from "@pimi/plugin/client/host";
 import { i18n } from "@/i18n/i18next";
 import type { AudioEngine } from "@/audio";
@@ -11,11 +12,61 @@ import { createPluginClientRuntime } from "./client-runtime";
 import { createPluginSubscribe } from "./subscriptions";
 import { runPluginClientBundle } from "./evaluate";
 import type { InstalledPlugin } from "./types";
+import { extensionRegistry } from "@/extension-points";
+import { createPluginStorage } from "./storage";
+import { getPreferredPluginContributionHost, pluginUiHostKey } from "./contribution-host";
+import { PluginInstallationProvider } from "./installation-provider";
+import { createElement, type ComponentType, type ReactNode } from "react";
 
 type CatalogPlugin = Awaited<ReturnType<DaemonClient["getPluginCatalog"]>>[number];
 export type PluginCatalogStatus = "loading" | "ready" | "error";
 
+const UNAVAILABLE_NAVIGATION: InstalledPlugin["navigation"] = new Proxy(
+  {} as InstalledPlugin["navigation"],
+  {
+    get() {
+      throw new Error("Plugin is still loading");
+    },
+  },
+);
+const UNAVAILABLE_HOSTS: InstalledPlugin["hosts"] = new Proxy({} as InstalledPlugin["hosts"], {
+  get() {
+    throw new Error("Plugin is still loading");
+  },
+});
+
+const layerComponents = new WeakMap<object, ComponentType<Record<string, unknown>>>();
+
+/** Renders a plugin's layer under its installation, so hooks and the theme work outside the plugin's own surfaces. */
+function withInstallation(
+  plugin: InstalledPlugin,
+  registration: object,
+  Component: AnyComponent,
+): ComponentType<Record<string, unknown>> {
+  const cached = layerComponents.get(registration);
+  if (cached) return cached;
+  function PluginLayer(props: Record<string, unknown>): ReactNode {
+    const Layer = Component as ComponentType<Record<string, unknown>>;
+    return createElement(
+      PluginInstallationProvider as ComponentType<{ plugin: InstalledPlugin }>,
+      { plugin },
+      createElement(Layer, props),
+    );
+  }
+  PluginLayer.displayName = `PluginLayer(${plugin.id})`;
+  layerComponents.set(registration, PluginLayer);
+  return PluginLayer;
+}
+
+interface AppliedExtensions {
+  plugin: InstalledPlugin;
+  layers: readonly object[];
+  slots: readonly object[];
+  release: () => void;
+}
+
 export class PluginRegistry {
+  private readonly appliedExtensions = new Map<string, AppliedExtensions>();
   private readonly byHost = new Map<string, InstalledPlugin[]>();
   private readonly listeners = new Set<() => void>();
   private snapshot: InstalledPlugin[] = [];
@@ -119,6 +170,9 @@ export class PluginRegistry {
           clientBundle: entry.clientBundle,
           requirements: entry.requirements,
           queryClient: new QueryClient(),
+          navigation: UNAVAILABLE_NAVIGATION,
+          storage: createPluginStorage(entry.id, lifetime.signal),
+          hosts: UNAVAILABLE_HOSTS,
           cleanup: () => undefined,
           surfaces: [],
           settingsScreens: [],
@@ -132,12 +186,17 @@ export class PluginRegistry {
           themes: [],
           timelineTransformers: [],
           timelineRenderers: [],
+          componentLayers: [],
+          slotItems: [],
+          menuItems: [],
         };
         const unsubscribeTranslations = installation.i18n.subscribe(() => this.publish());
         installation.lifetime.signal.addEventListener("abort", unsubscribeTranslations, {
           once: true,
         });
         const runtime = this.dependencies.createRuntime(installation, options.audio);
+        installation.navigation = runtime.navigation;
+        installation.hosts = runtime.hosts;
         const evaluated = runPluginClientBundle(entry.id, entry.clientBundle, runtime, () =>
           this.publish(),
         );
@@ -237,7 +296,81 @@ export class PluginRegistry {
       .sort((left, right) =>
         `${left.serverId}/${left.id}`.localeCompare(`${right.serverId}/${right.id}`),
       );
+    this.syncExtensions();
     for (const listener of this.listeners) listener();
+  }
+
+  /**
+   * Component overrides, wrappers, and slot items are app-wide: each plugin id contributes them
+   * once, from the host its screens last used, else the first host by id.
+   */
+  private syncExtensions(): void {
+    const candidates = new Map<string, InstalledPlugin[]>();
+    for (const installed of this.byHost.values()) {
+      for (const plugin of installed) {
+        if (plugin.componentLayers.length === 0 && plugin.slotItems.length === 0) continue;
+        const list = candidates.get(plugin.id);
+        if (list) list.push(plugin);
+        else candidates.set(plugin.id, [plugin]);
+      }
+    }
+    for (const [pluginId, applied] of this.appliedExtensions) {
+      if (candidates.has(pluginId)) continue;
+      applied.release();
+      this.appliedExtensions.delete(pluginId);
+      extensionRegistry.clearErrors(pluginId);
+    }
+    for (const [pluginId, plugins] of candidates) {
+      const preferred = getPreferredPluginContributionHost(pluginUiHostKey(pluginId));
+      const owner =
+        plugins.find((plugin) => plugin.serverId === preferred) ??
+        [...plugins].sort((left, right) => (left.serverId < right.serverId ? -1 : 1))[0];
+      const applied = this.appliedExtensions.get(pluginId);
+      if (
+        applied &&
+        applied.plugin === owner &&
+        applied.layers.length === owner.componentLayers.length &&
+        applied.layers.every((layer, index) => layer === owner.componentLayers[index]) &&
+        applied.slots.length === owner.slotItems.length &&
+        applied.slots.every((slot, index) => slot === owner.slotItems[index])
+      ) {
+        continue;
+      }
+      applied?.release();
+      extensionRegistry.clearErrors(pluginId);
+      const releases: (() => void)[] = [];
+      for (const layer of owner.componentLayers) {
+        const Component = withInstallation(owner, layer, layer.Component);
+        const options = { order: layer.order, tier: layer.tier };
+        releases.push(
+          layer.kind === "replacement"
+            ? extensionRegistry.setOverride(layer.point, pluginId, Component, options)
+            : extensionRegistry.addWrapper(layer.point, pluginId, Component, options),
+        );
+      }
+      for (const item of owner.slotItems) {
+        releases.push(
+          extensionRegistry.addSlotItem(item.slot, pluginId, {
+            id: item.id,
+            order: item.order,
+            Component: withInstallation(owner, item, item.Component),
+          }),
+        );
+      }
+      this.appliedExtensions.set(pluginId, {
+        plugin: owner,
+        layers: [...owner.componentLayers],
+        slots: [...owner.slotItems],
+        release: () => {
+          for (const release of releases) release();
+        },
+      });
+    }
+  }
+
+  /** True when a plugin installed on this host adds to the app's UI, and which host's copy applies. */
+  getUiContributionHost(pluginId: string): string | null {
+    return this.appliedExtensions.get(pluginId)?.plugin.serverId ?? null;
   }
 }
 

@@ -2,6 +2,7 @@ import {
   AdaptiveWorkspaceChrome,
   type WorkspaceCompactHeaderActions,
 } from "./adaptive-workspace-chrome";
+import { overridable } from "@/extension-points";
 import { planTimelineTailFetch } from "@/timeline/timeline-sync-plan";
 import {
   AssistantFileLinkResolverProvider,
@@ -455,7 +456,7 @@ function useStableTabDescriptorMap(tabDescriptors: WorkspaceTabDescriptor[]) {
   return tabDescriptorMap;
 }
 
-export const WorkspaceScreen = memo(function WorkspaceScreen({
+const WorkspaceScreenBase = memo(function WorkspaceScreen({
   serverId,
   workspaceId,
   isRouteFocused,
@@ -478,6 +479,11 @@ export const WorkspaceScreen = memo(function WorkspaceScreen({
       isRouteFocused={isRouteFocused ?? navigationFocused}
     />
   );
+});
+
+export const WorkspaceScreen = overridable("screen.workspace", WorkspaceScreenBase, {
+  toPlugin: ({ serverId, workspaceId }) => ({ serverId, workspaceId }),
+  merge: (core) => core,
 });
 
 interface UseCloseTabsResult {
@@ -523,7 +529,7 @@ interface WorkspaceHeaderTitleBarProps {
   onOpenSetupTab: () => void;
 }
 
-function WorkspaceHeaderTitleBar({
+function WorkspaceHeaderTitleBarBase({
   isLoading,
   title,
   subtitle,
@@ -575,6 +581,15 @@ function WorkspaceHeaderTitleBar({
     </View>
   );
 }
+
+const WorkspaceHeaderTitleBar = overridable("workspace.header", WorkspaceHeaderTitleBarBase, {
+  toPlugin: ({ normalizedServerId, title, currentBranchName }) => ({
+    serverId: normalizedServerId,
+    title,
+    branch: currentBranchName ?? null,
+  }),
+  merge: (core) => core,
+});
 
 const ThemedFileDiff = withUnistyles(FileDiff);
 

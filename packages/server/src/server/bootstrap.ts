@@ -734,6 +734,7 @@ export async function createPimiDaemon(
     }),
     builtinPlugins: resolveBuiltinPluginLoader(dependencies),
     settingsDirectory: path.join(config.pimiHome, "plugin-settings"),
+    dataDirectory: path.join(config.pimiHome, "plugin-data"),
   });
 
   const serverId = getOrCreateServerId(config.pimiHome, { logger });

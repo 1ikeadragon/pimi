@@ -1,4 +1,5 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { overridable } from "@/extension-points";
 import React, {
   Fragment,
   createContext,
@@ -1032,7 +1033,7 @@ export function useWorkspaceNewTabKeyboardAction({
   });
 }
 
-export function WorkspaceDesktopTabsRow(props: WorkspaceDesktopTabsRowProps) {
+function WorkspaceDesktopTabsRowBase(props: WorkspaceDesktopTabsRowProps) {
   const [presentations, setPresentations] = useState(
     () => new Map<string, WorkspaceTabPresentation>(),
   );
@@ -1090,6 +1091,15 @@ export function WorkspaceDesktopTabsRow(props: WorkspaceDesktopTabsRowProps) {
     </>
   );
 }
+
+export const WorkspaceDesktopTabsRow = overridable("workspace.tabs", WorkspaceDesktopTabsRowBase, {
+  toPlugin: ({ normalizedServerId, normalizedWorkspaceId, tabs }) => ({
+    serverId: normalizedServerId,
+    workspaceId: normalizedWorkspaceId,
+    tabCount: tabs.length,
+  }),
+  merge: (core) => core,
+});
 
 function desktopTabRailSurface(host: PaneHost, editorChrome: boolean): WorkspaceTabRailSurface {
   return host === "explorer" || editorChrome ? "sidebar" : "surface";

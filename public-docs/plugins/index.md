@@ -310,6 +310,9 @@ log.
   render provider-owned timeline items, test it, and publish it.
 - [Plugin reference](/docs/plugins/reference): every contribution type, its fields, the runtime
   modules, hosts, and the CLI.
+- [Change the app's UI](/docs/plugins/reference#extension-points): replace or wrap chat messages,
+  the sidebar, settings pages, and more; add slots, menu items, and shortcuts. `repo-map` and
+  `ui-overrides` in `plugin-examples` show it end to end.
 - [Migrate a plugin to runtime entries](/docs/plugins/migration): move a plugin written against the
   single `index.ts` entry, step by step.
 - [TypeScript SDK](/docs/sdk): the workspace, agent, provider, and config API available as `pimi`

@@ -70,6 +70,8 @@ interface PluginRuntimePort {
 interface PluginServiceDependencies {
   usageAgents?: AgentUsageLookup;
   settingsDirectory?: string;
+  /** Parent of each plugin's data directory, `<pimiHome>/plugin-data`. */
+  dataDirectory?: string;
   runtime?: PluginRuntimePort;
   managedSources?: ManagedPluginSources;
   builtinPlugins?: BuiltinPluginLoader;
@@ -123,6 +125,7 @@ export class PluginService {
       dependencies.runtime ??
       new PluginRuntime(logger, daemonVersion, {
         settingsDirectory: dependencies.settingsDirectory,
+        dataDirectory: dependencies.dataDirectory,
         onSettingsChanged: (pluginId, settingsId) => {
           for (const listener of this.settingsListeners) listener(pluginId, settingsId);
         },
@@ -519,11 +522,12 @@ export class PluginService {
       this.errors.delete(pluginId);
       this.notify(pluginId);
       await this.managedSources?.remove(pluginId);
-      if (this.dependencies.settingsDirectory)
-        await rm(path.join(this.dependencies.settingsDirectory, pluginId), {
-          recursive: true,
-          force: true,
-        });
+      for (const directory of [
+        this.dependencies.settingsDirectory,
+        this.dependencies.dataDirectory,
+      ]) {
+        if (directory) await rm(path.join(directory, pluginId), { recursive: true, force: true });
+      }
     });
   }
 

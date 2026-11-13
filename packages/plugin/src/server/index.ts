@@ -9,6 +9,7 @@ export type {
   PluginHandlerContext,
   PluginServerContext,
   PluginServerContribution,
+  PluginServerStorage,
   PluginSettings,
   PluginSettingsState,
   PluginSubscriptionContext,

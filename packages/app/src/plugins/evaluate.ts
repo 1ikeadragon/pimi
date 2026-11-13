@@ -1,3 +1,4 @@
+import type { AnyComponent } from "@/extension-points/registry";
 import { requirePluginText } from "@pimi/plugin/client/host";
 import type { createPluginHosts } from "./hosts";
 import { openExternalUrl } from "@/utils/open-external-url";
@@ -7,6 +8,12 @@ import * as pluginSharedRuntime from "@pimi/plugin";
 import * as pluginClientRuntime from "@pimi/plugin/client";
 import * as React from "react";
 import * as ReactJsxRuntime from "react/jsx-runtime";
+import * as ReactNativeGestureHandler from "react-native-gesture-handler";
+import * as ReactNativeReanimated from "react-native-reanimated";
+import * as ReactNativeSafeAreaContext from "react-native-safe-area-context";
+import * as ReactNativeSvg from "react-native-svg";
+import type { PluginClientHostModule } from "@pimi/protocol/plugin-host-modules";
+import * as hostApi from "./host-api";
 // eslint-disable-next-line no-restricted-imports -- plugin client runtime injects host ReactNative.
 import * as ReactNative from "react-native";
 // eslint-disable-next-line no-restricted-imports -- plugin bundles receive TanStack's real runtime, not Pimi's query wrappers.
@@ -22,6 +29,7 @@ import {
   type PluginTimelineRendererContribution,
   type PluginTimelineTransformerContribution,
   type PluginButtonRegistration,
+  type PluginMenuId,
 } from "@pimi/plugin/client";
 import type {
   EvaluatedPlugin,
@@ -34,7 +42,9 @@ import type {
   PluginScreenContribution,
   PluginSidebarItemContribution,
   PluginWorkspacePanelContribution,
+  PluginMenuItemContribution,
 } from "./types";
+import { normalizePluginShortcut } from "@/keyboard/keyboard-shortcuts";
 import { parsePluginIcon, parseSerializablePluginIcon } from "./icons";
 import { parsePluginThemeContribution } from "./themes";
 
@@ -111,7 +121,55 @@ export type PluginClientRuntime = Pick<
   | "subscribe"
   | "addComposerPill"
   | "addHeaderButton"
+  | "navigation"
+  | "storage"
 > & { hosts: ReturnType<typeof createPluginHosts> };
+
+const POINT_ID = /^[a-z][A-Za-z0-9.-]*$/;
+const MENU_IDS = new Set<string>(["file-tree-row", "sidebar-workspace-row"]);
+
+function requirePointId(value: unknown, label: string): string {
+  if (typeof value !== "string" || !POINT_ID.test(value)) {
+    throw new Error(`Invalid ${label}: ${String(value)}`);
+  }
+  return value;
+}
+
+function normalizeOrder(value: number | undefined, label: string): number {
+  if (value === undefined) return 0;
+  if (!Number.isFinite(value)) throw new Error(`${label} order must be a finite number`);
+  return value;
+}
+
+/** The modules a client bundle may import. The compiler reads the same list, so they cannot drift. */
+const HOST_MODULES = (
+  runtime: PluginClientRuntime,
+): Record<PluginClientHostModule, () => unknown> => ({
+  "@pimi/plugin": () => pluginSharedRuntime,
+  "@pimi/plugin/client": () => ({
+    ...pluginClientRuntime,
+    ...hostApi,
+    useSettings,
+    openExternalUrl,
+    getPimiClient: (serverId: string) => runtime.hosts.getPimiClient(serverId),
+    useHosts: () =>
+      React.useSyncExternalStore(
+        runtime.hosts.subscribe,
+        runtime.hosts.getSnapshot,
+        runtime.hosts.getSnapshot,
+      ),
+  }),
+  "@pimi/plugin/client/ui": () => pluginUiRuntime,
+  react: () => React,
+  "react/jsx-runtime": () => ReactJsxRuntime,
+  "react-native": () => ReactNative,
+  zod: () => Zod,
+  "@tanstack/react-query": () => ReactQuery,
+  "react-native-svg": () => ReactNativeSvg,
+  "react-native-reanimated": () => ReactNativeReanimated,
+  "react-native-gesture-handler": () => ReactNativeGestureHandler,
+  "react-native-safe-area-context": () => ReactNativeSafeAreaContext,
+});
 
 export function runPluginClientBundle(
   id: string,
@@ -132,6 +190,9 @@ export function runPluginClientBundle(
     themes: [],
     timelineTransformers: [],
     timelineRenderers: [],
+    componentLayers: [],
+    slotItems: [],
+    menuItems: [],
   };
   const surfaceIds = new Set<string>();
   const settingsScreenIds = new Set<string>();
@@ -148,6 +209,8 @@ export function runPluginClientBundle(
   const themeIds = new Set<string>();
   const timelineTransformerIds = new Set<string>();
   const timelineRendererIds = new Set<string>();
+  const slotItemIds = new Set<string>();
+  const menuItemIds = new Set<string>();
   const removals = new Set<PluginCleanup>();
   let setupComplete = false;
   let stopped = false;
@@ -231,6 +294,27 @@ export function runPluginClientBundle(
         locations,
       },
       () => workspacePanelIds.delete(normalizedId),
+    );
+  }
+  function registerLayer(
+    kind: "replacement" | "wrapper",
+    tier: "typed" | "unstable",
+    pointId: unknown,
+    Component: unknown,
+    order: number | undefined,
+  ): PluginCleanup {
+    const point = requirePointId(pointId, "component point id");
+    if (!isComponentType(Component)) throw new Error(`Component for ${point} is not a component`);
+    return register(
+      collector.componentLayers,
+      {
+        kind,
+        point,
+        tier,
+        order: normalizeOrder(order, `Component ${point}`),
+        Component: Component as AnyComponent,
+      },
+      () => undefined,
     );
   }
   const pluginContext: PluginClientContext = {
@@ -338,6 +422,18 @@ export function runPluginClientBundle(
       if (typeof contribution.onSelect !== "function") {
         throw new Error(`Command Center item ${normalizedId} has no callback`);
       }
+      if (contribution.shortcut !== undefined) {
+        try {
+          normalizePluginShortcut(contribution.shortcut);
+        } catch (error) {
+          throw new Error(
+            `Command Center item ${normalizedId} has an invalid shortcut: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+            { cause: error },
+          );
+        }
+      }
       commandCenterItemIds.add(normalizedId);
       return register(
         collector.commandCenterItems,
@@ -345,6 +441,7 @@ export function runPluginClientBundle(
           ...contribution,
           id: normalizedId,
           title,
+          shortcut: contribution.shortcut?.trim(),
           icon,
           keywords: contribution.keywords?.map((keyword) => keyword.trim()).filter(Boolean),
         },
@@ -476,6 +573,61 @@ export function runPluginClientBundle(
         timelineRendererIds.delete(rendererId),
       );
     },
+    overrideComponent(pointId, Component, options) {
+      return registerLayer("replacement", "typed", pointId, Component, options?.order);
+    },
+    wrapComponent(pointId, Wrapper, options) {
+      return registerLayer("wrapper", "typed", pointId, Wrapper, options?.order);
+    },
+    unstable: {
+      overrideComponent(pointId, Component, options) {
+        return registerLayer("replacement", "unstable", pointId, Component, options?.order);
+      },
+      wrapComponent(pointId, Wrapper, options) {
+        return registerLayer("wrapper", "unstable", pointId, Wrapper, options?.order);
+      },
+    },
+    addToSlot(slotId, item) {
+      const slot = requirePointId(slotId, "slot id");
+      const itemId = requireId(item.id, "slot item id");
+      const key = `${slot}/${itemId}`;
+      if (slotItemIds.has(key)) throw new Error(`Duplicate slot item: ${key}`);
+      if (!isComponentType(item.Component)) throw new Error(`Slot item ${key} is not a component`);
+      slotItemIds.add(key);
+      return register(
+        collector.slotItems,
+        {
+          slot,
+          id: itemId,
+          order: normalizeOrder(item.order, `Slot item ${key}`),
+          Component: item.Component,
+        },
+        () => slotItemIds.delete(key),
+      );
+    },
+    addMenuItem(contribution) {
+      const menu: PluginMenuId = contribution.menu;
+      if (!MENU_IDS.has(menu)) throw new Error(`Unknown menu: ${String(menu)}`);
+      const itemId = requireId(contribution.id, "menu item id");
+      const key = `${menu}/${itemId}`;
+      if (menuItemIds.has(key)) throw new Error(`Duplicate menu item: ${key}`);
+      const title = normalizePluginText(contribution.title);
+      if (!title) throw new Error(`Menu item ${key} has no title`);
+      if (typeof contribution.run !== "function") throw new Error(`Menu item ${key} has no run`);
+      if (contribution.when !== undefined && typeof contribution.when !== "function") {
+        throw new Error(`Menu item ${key} has an invalid when`);
+      }
+      const icon =
+        contribution.icon === undefined
+          ? undefined
+          : parsePluginIcon(`Menu item ${key}`, contribution.icon);
+      menuItemIds.add(key);
+      return register(
+        collector.menuItems,
+        { ...contribution, id: itemId, title, icon } as PluginMenuItemContribution,
+        () => menuItemIds.delete(key),
+      );
+    },
     addComposerPill(contribution) {
       if (stopped) throw new Error("Plugin has stopped");
       return trackButton(runtime.addComposerPill(contribution));
@@ -485,28 +637,12 @@ export function runPluginClientBundle(
       return trackButton(runtime.addHeaderButton(contribution));
     },
   };
+  const hostModules = HOST_MODULES(runtime);
   const runtimeRequire = (name: string): unknown => {
-    if (name === "@pimi/plugin/client/ui") return pluginUiRuntime;
-    if (name === "react") return React;
-    if (name === "react/jsx-runtime") return ReactJsxRuntime;
-    if (name === "react-native") return ReactNative;
-    if (name === "@pimi/plugin") return pluginSharedRuntime;
-    if (name === "@pimi/plugin/client")
-      return {
-        ...pluginClientRuntime,
-        useSettings,
-        openExternalUrl,
-        getPimiClient: (serverId: string) => runtime.hosts.getPimiClient(serverId),
-        useHosts: () =>
-          React.useSyncExternalStore(
-            runtime.hosts.subscribe,
-            runtime.hosts.getSnapshot,
-            runtime.hosts.getSnapshot,
-          ),
-      };
-    if (name === "@tanstack/react-query") return ReactQuery;
-    if (name === "zod") return Zod;
-    throw new Error(`Module "${name}" is not available in plugin client code`);
+    if (!Object.hasOwn(hostModules, name)) {
+      throw new Error(`Module "${name}" is not available in plugin client code`);
+    }
+    return hostModules[name as PluginClientHostModule]();
   };
   const evaluate: (source: string) => unknown = globalThis.eval;
   const factory = evaluate(bundle);
@@ -564,5 +700,8 @@ export function runPluginClientBundle(
     themes: collector.themes,
     timelineTransformers: collector.timelineTransformers,
     timelineRenderers: collector.timelineRenderers,
+    componentLayers: collector.componentLayers,
+    slotItems: collector.slotItems,
+    menuItems: collector.menuItems,
   };
 }

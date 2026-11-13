@@ -1,4 +1,5 @@
 import { useChatRevealJump, useChatRevealRequest } from "@/chat-search/use-chat-reveal";
+import { overridable } from "@/extension-points";
 import { ChatFind, ChatFindExpansion } from "@/agent-stream/chat-find";
 import { AssistantForkProviderScope } from "@/components/assistant-fork-menu";
 import { AgentImageRefsGrid } from "@/components/agent-image-grid";
@@ -1625,8 +1626,14 @@ function agentStreamViewPropsEqual(
   return reasons.length === 0;
 }
 
-export const AgentStreamView = memo(AgentStreamViewComponent, agentStreamViewPropsEqual);
-AgentStreamView.displayName = "AgentStreamView";
+const AgentStreamViewBase = memo(AgentStreamViewComponent, agentStreamViewPropsEqual);
+AgentStreamViewBase.displayName = "AgentStreamView";
+
+/** The chat list of one agent. Memoized with the same comparison, so a point adds no re-renders. */
+export const AgentStreamView = overridable("chat.timeline", AgentStreamViewBase, {
+  toPlugin: ({ agentId, serverId }) => ({ agentId, serverId: serverId ?? "" }),
+  merge: (core) => core,
+});
 
 interface ToolCallSlotProps extends Omit<
   ComponentProps<typeof ToolCall>,

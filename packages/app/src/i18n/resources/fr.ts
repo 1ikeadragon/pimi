@@ -3680,6 +3680,7 @@ export const fr: TranslationResources = {
       unavailableOnMobile: "Les raccourcis clavier ne sont disponibles que sur l’app de bureau",
       capturePrompt: "Appuyez sur le raccourci…",
       captureIndexPrompt: "Terminez par un chiffre de 1 à 9.",
+      pluginConflict: "Un raccourci intégré utilise cette combinaison et a la priorité.",
       unassigned: "Non attribué",
       actions: {
         menu: "Actions pour {{name}}",

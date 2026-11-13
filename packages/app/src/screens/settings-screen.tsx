@@ -1,4 +1,5 @@
 import { useHardwareKeyboardPresent } from "@/keyboard";
+import { overridable, Slot } from "@/extension-points";
 import { UsageIcon } from "@/usage/icon";
 import { useAddHost } from "@/hosts/add-host";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -1055,6 +1056,7 @@ function SettingsSidebar({
   );
 
   const search = useSettingsSearch();
+  const slotContext = useMemo(() => ({ compact: !isDesktop }), [isDesktop]);
   const sidebarGroups = (
     <>
       <SidebarGroup label={isPimi ? "Pimi" : t("settings.groups.app")}>
@@ -1125,6 +1127,7 @@ function SettingsSidebar({
           {items.filter((item) => !PIMI_PREFERENCES.has(item.id)).map(renderSection)}
         </SidebarGroup>
       ) : null}
+      <Slot id="settings.sidebar" context={slotContext} />
     </>
   );
 
@@ -1188,7 +1191,17 @@ export interface SettingsScreenProps {
   view: SettingsView;
 }
 
-export default function SettingsScreen({ view }: SettingsScreenProps) {
+function SettingsSectionBody({ children }: { slug: string; children: ReactNode }): ReactNode {
+  return children;
+}
+
+/** Each page of the Settings screen is a point, so a plugin can replace or wrap one by slug. */
+const SettingsSectionPoint = overridable("settings.section", SettingsSectionBody, {
+  toPlugin: ({ slug }) => ({ slug }),
+  merge: (core, patch) => ({ ...core, slug: patch.slug ?? core.slug }),
+});
+
+function SettingsScreenBase({ view }: SettingsScreenProps) {
   const router = useRouter();
   const { t } = useTranslation();
   const voiceAudioEngine = useVoiceAudioEngineOptional();
@@ -1425,6 +1438,13 @@ export default function SettingsScreen({ view }: SettingsScreenProps) {
     return null;
   })();
 
+  const pageContent =
+    view.kind === "section" ? (
+      <SettingsSectionPoint slug={view.section}>{content}</SettingsSectionPoint>
+    ) : (
+      content
+    );
+
   if (settingsLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -1458,7 +1478,7 @@ export default function SettingsScreen({ view }: SettingsScreenProps) {
     return (
       <View style={styles.container}>
         <PageLayout title={detailTitle} onBack={handleBackFromDetail}>
-          {content}
+          {pageContent}
         </PageLayout>
       </View>
     );
@@ -1489,7 +1509,7 @@ export default function SettingsScreen({ view }: SettingsScreenProps) {
               titleTestID="settings-detail-header-title"
               testID="settings-detail-scroll-body"
             >
-              {content}
+              {pageContent}
             </PageLayout>
           </View>
         </WindowChromeRegion>
@@ -1653,3 +1673,8 @@ const sidebarStyles = StyleSheet.create((theme) => ({
     justifyContent: "center",
   },
 }));
+
+export default overridable("screen.settings", SettingsScreenBase, {
+  toPlugin: ({ view }) => ({ section: view.kind === "section" ? view.section : null }),
+  merge: (core) => core,
+});

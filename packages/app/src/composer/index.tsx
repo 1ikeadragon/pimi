@@ -1,4 +1,5 @@
 import { useHasWorkingSubagents } from "@/subagents/use-has-working-subagents";
+import { overridable, Slot } from "@/extension-points";
 import {
   useComposerEditingSession,
   useComposerFullscreen,
@@ -1463,7 +1464,7 @@ function ComposerVoiceModeButton({
   );
 }
 
-export function Composer({ isPaneFocused, ...props }: ComposerProps) {
+function ComposerBase({ isPaneFocused, ...props }: ComposerProps) {
   // A compact overlay panel (agent list, explorer) covers the pane without taking its
   // focus. The composer gives up input from the moment the user asks for the panel,
   // not when its motion settles, so the exit action and autocomplete never race it.
@@ -1472,17 +1473,31 @@ export function Composer({ isPaneFocused, ...props }: ComposerProps) {
   const isCompact = useIsCompactFormFactor();
   const overlayPanelRequested = usePanelStore((state) => state.mobilePanel.target !== "agent");
   const coveredByOverlayPanel = isCompact && overlayPanelRequested;
+  const slotContext = useMemo(
+    () => ({ serverId: props.serverId, agentId: props.agentId }),
+    [props.serverId, props.agentId],
+  );
   return (
     <ComposerKeyboardScopeProvider
       isPaneFocused={isPaneFocused}
       isActiveComposer={isPaneFocused && !coveredByOverlayPanel}
     >
+      <Slot id="chat.beforeComposer" context={slotContext} />
       <RenderProfile id="ComposerContent">
         <ComposerContent {...props} />
       </RenderProfile>
     </ComposerKeyboardScopeProvider>
   );
 }
+
+export const Composer = overridable("composer.root", ComposerBase, {
+  toPlugin: ({ serverId, agentId, workspaceId }) => ({
+    serverId,
+    agentId,
+    workspaceId: workspaceId ?? null,
+  }),
+  merge: (core) => core,
+});
 
 type ComposerContentProps = Omit<ComposerProps, "isPaneFocused">;
 

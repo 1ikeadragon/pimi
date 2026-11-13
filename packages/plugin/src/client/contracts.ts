@@ -27,6 +27,17 @@ import type {
 } from "../contracts.js";
 import type { PluginIconProps, PluginSerializableIcon } from "../icons.js";
 import type { PluginAttachmentRendererContribution, PluginComposerApi } from "./composer.js";
+import type {
+  PluginComponentOverrideProps,
+  PluginComponentPointId,
+  PluginComponentWrapperProps,
+  PluginExtensionOptions,
+  PluginMenuId,
+  PluginMenuItemContribution,
+  PluginSlotId,
+  PluginSlotItem,
+} from "./extension-points.js";
+import type { PluginClientStorage, PluginNavigation } from "./host-api.js";
 
 export interface PluginHostProps {
   theme: PluginTheme;
@@ -170,6 +181,47 @@ export interface PluginClientContext extends PluginCommandCapabilities {
   readonly composer: PluginComposerApi;
   /** Play a base64-encoded audio file on this client; resolves when playback ends. */
   playAudio(source: { base64: string; mimeType: string }): Promise<void>;
+  readonly navigation: PluginNavigation;
+  /** Per-plugin, per-device JSON storage. */
+  readonly storage: PluginClientStorage;
+  /**
+   * Replaces a core component. One replacement per point: when several plugins replace the same
+   * point, the one with the highest `order` wins, ties broken by plugin id (last wins). Losers
+   * are listed on the Plugins page. A replacement that throws falls back to the next layer in.
+   */
+  overrideComponent<Id extends PluginComponentPointId>(
+    id: Id,
+    Component: ComponentType<PluginComponentOverrideProps<Id>>,
+    options?: PluginExtensionOptions,
+  ): PluginCleanup;
+  /** Wraps a core component. Every wrapper applies; see `PluginExtensionOptions.order`. */
+  wrapComponent<Id extends PluginComponentPointId>(
+    id: Id,
+    Wrapper: ComponentType<PluginComponentWrapperProps<Id>>,
+    options?: PluginExtensionOptions,
+  ): PluginCleanup;
+  /** Appends UI to a slot, ordered by `order` then `id`. */
+  addToSlot<Id extends PluginSlotId>(id: Id, item: PluginSlotItem<Id>): PluginCleanup;
+  /** Adds an item to a core menu. */
+  addMenuItem<Id extends PluginMenuId>(
+    contribution: PluginMenuItemContribution<Id, PluginText>,
+  ): PluginCleanup;
+  /**
+   * Raw access to any component point by id, with Pimi's internal props. Unsupported: these props
+   * change between releases without notice, and a mismatch only shows at runtime.
+   */
+  readonly unstable: {
+    overrideComponent(
+      id: string,
+      Component: ComponentType<never>,
+      options?: PluginExtensionOptions,
+    ): PluginCleanup;
+    wrapComponent(
+      id: string,
+      Wrapper: ComponentType<never>,
+      options?: PluginExtensionOptions,
+    ): PluginCleanup;
+  };
   addSettingsScreen(contribution: PluginSettingsScreenContribution<PluginText>): PluginCleanup;
   addScreen(contribution: PluginScreenContribution<PluginText>): PluginCleanup;
   addSidebarHeaderItem(contribution: PluginSidebarItemContribution<PluginText>): PluginCleanup;
@@ -305,6 +357,11 @@ interface PluginCommandCenterItemBase<Text extends PluginText = string> {
   title: Text;
   icon: PluginIcon;
   keywords?: readonly string[];
+  /**
+   * A chord such as `mod+shift+m`. Listed and rebindable in Settings > Shortcuts; a built-in
+   * binding on the same chord wins and the conflict shows there.
+   */
+  shortcut?: string;
 }
 
 export type PluginCommandCenterItemContribution<Text extends PluginText = string> =

@@ -17,6 +17,8 @@ import {
   Undo2,
   type LucideIcon,
 } from "lucide-react-native";
+import type { PluginMenus } from "@pimi/plugin/client";
+import { PluginMenuItems } from "@/plugins/menus/plugin-menu-items";
 import { useTranslation } from "@/i18n/use-translation";
 import { ICON_SIZE, type Theme } from "@/styles/theme";
 import {
@@ -69,6 +71,8 @@ interface FileActionsContextMenuContentProps {
   onRevert?: () => void;
   onDelete?: () => void;
   testIDPrefix?: string;
+  /** Where the menu was opened, so plugins can add items to it. Absent for files with no workspace. */
+  pluginContext?: PluginMenus["file-tree-row"];
 }
 
 /**
@@ -96,6 +100,7 @@ export function FileActionsContextMenuContent({
   onRevert,
   onDelete,
   testIDPrefix,
+  pluginContext,
 }: FileActionsContextMenuContentProps): ReactElement | null {
   const { t } = useTranslation();
   const openInEditorAction = useMemo<FileAction | null>(
@@ -286,6 +291,9 @@ export function FileActionsContextMenuContent({
           <FileActionMenuItem action={action} />
         </Fragment>
       ))}
+      {pluginContext ? (
+        <PluginMenuItems menu="file-tree-row" context={pluginContext} surface="context" />
+      ) : null}
     </ContextMenuContent>
   );
 }

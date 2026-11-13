@@ -249,5 +249,6 @@ pimi plugin logs workspace-plugin --json
 - [发布插件](/docs/plugins/publishing)：通过 npm、私有注册表或 Git 分享。
 - [构建 Provider 插件](/docs/plugins/providers)：直接或通过 ACP 接入 Agent，渲染由 Provider 拥有的时间线条目，测试并发布它。
 - [插件参考](/docs/plugins/reference)：每种贡献类型及其字段、运行时模块、宿主环境和 CLI。
+- [更改应用界面](/docs/plugins/reference#extension-points)：替换或包裹聊天消息、侧边栏、设置页面等；添加插槽、菜单项和快捷键。`plugin-examples` 中的 `repo-map` 和 `ui-overrides` 完整演示了这些做法。
 - [把插件迁移到运行时入口](/docs/plugins/migration)：逐步迁移基于单一 `index.ts` 入口编写的插件。
 - [TypeScript SDK](/docs/sdk)：在客户端和服务端代码中以 `pimi` 提供的工作区、Agent、Provider 和配置 API。

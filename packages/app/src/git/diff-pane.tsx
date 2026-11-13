@@ -1,4 +1,5 @@
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { overridable } from "@/extension-points";
 import { floatingActionsClearance } from "@/components/ui/floating-action-button";
 import { useState, useCallback, useMemo, type ReactElement, type ReactNode } from "react";
 import { useTranslation } from "@/i18n/use-translation";
@@ -1467,7 +1468,7 @@ function useDiffTabNavigation({
   };
 }
 
-export function ChangesSurface({
+function ChangesSurfaceBase({
   serverId,
   workspaceId,
   cwd,
@@ -1978,6 +1979,11 @@ export function ChangesSurface({
     </View>
   );
 }
+
+export const ChangesSurface = overridable("diff.surface", ChangesSurfaceBase, {
+  toPlugin: ({ serverId, workspaceId }) => ({ serverId, workspaceId: workspaceId ?? null }),
+  merge: (core) => core,
+});
 
 const styles = StyleSheet.create((theme) => ({
   container: {

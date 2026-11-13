@@ -526,8 +526,51 @@ export interface PimiConfigActions {
   ): Promise<{ requestId: string; config: MutableDaemonConfig }>;
 }
 
+/** A workspace's files, by absolute `cwd` (the workspace directory) and a path relative to it. */
+export interface PimiFileActions {
+  list(cwd: string, path: string, requestId?: string): ReturnType<DaemonClient["listDirectory"]>;
+  read(
+    cwd: string,
+    path: string,
+    options?: { requestId?: string; maxBytes?: number; timeout?: number },
+  ): ReturnType<DaemonClient["readFile"]>;
+  write: DaemonClient["writeFile"];
+  /** Emits the current version, then every change. Release it when done. */
+  observe: DaemonClient["observeFile"];
+  create: DaemonClient["createFileEntry"];
+  rename: DaemonClient["renameFileEntry"];
+  duplicate: DaemonClient["duplicateFileEntry"];
+  remove: DaemonClient["deleteFileEntry"];
+}
+
+/** Git state of a checkout, by absolute `cwd`. */
+export interface PimiGitActions {
+  status(
+    cwd: string,
+    options?: { requestId?: string },
+  ): ReturnType<DaemonClient["getCheckoutStatus"]>;
+  diff: DaemonClient["getCheckoutDiff"];
+  /** Emits the diff, then every change. Release it when done. */
+  observeDiff: DaemonClient["observeCheckoutDiff"];
+  commits: DaemonClient["listCheckoutCommits"];
+  blame: DaemonClient["getLineBlame"];
+  commitFileDiff: DaemonClient["getCommitFileDiff"];
+}
+
+export interface PimiSearchActions {
+  /**
+   * Streams matches to `onFiles` and resolves with the stats when the search ends. Pass `requestId`
+   * to cancel a running search with `cancel`.
+   */
+  workspace: DaemonClient["searchWorkspace"];
+  cancel(requestId: string): Promise<boolean>;
+}
+
 export interface PimiApi {
   readonly hosts: PimiHostActions;
+  readonly files: PimiFileActions;
+  readonly git: PimiGitActions;
+  readonly search: PimiSearchActions;
   dispose(): Promise<void>;
   observeEvents: DaemonClient["observeEvents"];
   readonly terminals: PimiTerminalActions;
@@ -776,6 +819,32 @@ export function createPimiApi(
       },
     },
     hosts: createHostActions(daemonClient, { own, signal: lifetime.signal, api: createPimiApi }),
+    files: {
+      list: (cwd, path, requestId) => daemonClient.listDirectory(cwd, path, requestId),
+      read: (cwd, path, options) =>
+        daemonClient.readFile(cwd, path, options?.requestId, options?.maxBytes, options?.timeout),
+      write: (input) => daemonClient.writeFile(input),
+      observe: (input) => own(() => daemonClient.observeFile(input)),
+      create: (input) => daemonClient.createFileEntry(input),
+      rename: (input) => daemonClient.renameFileEntry(input),
+      duplicate: (input) => daemonClient.duplicateFileEntry(input),
+      remove: (input) => daemonClient.deleteFileEntry(input),
+    },
+    git: {
+      status: (cwd, options) => daemonClient.getCheckoutStatus(cwd, options),
+      diff: (cwd, compare, requestId) => daemonClient.getCheckoutDiff(cwd, compare, requestId),
+      observeDiff: (cwd, compare, options) =>
+        own(() => daemonClient.observeCheckoutDiff(cwd, compare, options)),
+      commits: (cwd, requestId) => daemonClient.listCheckoutCommits(cwd, requestId),
+      blame: (input) => daemonClient.getLineBlame(input),
+      commitFileDiff: (cwd, sha, path, requestId) =>
+        daemonClient.getCommitFileDiff(cwd, sha, path, requestId),
+    },
+    search: {
+      workspace: (input, onFiles, requestId) =>
+        daemonClient.searchWorkspace(input, onFiles, requestId),
+      cancel: (requestId) => daemonClient.cancelWorkspaceSearch(requestId),
+    },
     observeEvents,
     terminals,
     projects: {

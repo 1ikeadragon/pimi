@@ -37,6 +37,13 @@ const contributionSchema: z.ZodType<PluginThemeContribution> = z.strictObject({
     mutedForeground: hexColorSchema,
     ring: hexColorSchema,
   }),
+  tokens: z
+    .strictObject({
+      colors: z.record(z.string(), hexColorSchema).optional(),
+      spacing: z.record(z.string(), z.number().finite()).optional(),
+      borderRadius: z.record(z.string(), z.number().finite()).optional(),
+    })
+    .optional(),
 });
 
 export interface PluginThemeOption {
@@ -54,7 +61,34 @@ interface PluginThemeTarget {
 }
 
 export function parsePluginThemeContribution(value: unknown): PluginThemeContribution {
-  return contributionSchema.parse(value);
+  const contribution = contributionSchema.parse(value);
+  // Build once so an unknown token name rejects the contribution when the plugin registers it.
+  buildPluginTheme(contribution);
+  return contribution;
+}
+
+function overlayTokens<Group extends Record<string, unknown>>(
+  group: string,
+  base: Group,
+  overrides: Record<string, unknown> | undefined,
+): Group {
+  if (!overrides) return base;
+  for (const key of Object.keys(overrides)) {
+    if (!Object.hasOwn(base, key) || typeof base[key] !== typeof overrides[key]) {
+      throw new Error(`Unknown ${group} token: ${key}`);
+    }
+  }
+  return { ...base, ...overrides };
+}
+
+function applyTokens(theme: Theme, tokens: PluginThemeContribution["tokens"]): Theme {
+  if (!tokens) return theme;
+  return {
+    ...theme,
+    colors: overlayTokens("color", theme.colors, tokens.colors),
+    spacing: overlayTokens("spacing", theme.spacing, tokens.spacing),
+    borderRadius: overlayTokens("borderRadius", theme.borderRadius, tokens.borderRadius),
+  } as Theme;
 }
 
 function buildDarkPluginTheme(contribution: PluginThemeContribution): Theme {
@@ -116,9 +150,11 @@ function buildLightPluginTheme(contribution: PluginThemeContribution): Theme {
 }
 
 function buildPluginTheme(contribution: PluginThemeContribution): Theme {
-  return contribution.appearance === "light"
-    ? buildLightPluginTheme(contribution)
-    : buildDarkPluginTheme(contribution);
+  const base =
+    contribution.appearance === "light"
+      ? buildLightPluginTheme(contribution)
+      : buildDarkPluginTheme(contribution);
+  return applyTokens(base, contribution.tokens);
 }
 
 function selectTarget(id: string, targets: PluginThemeTarget[]): PluginThemeTarget {

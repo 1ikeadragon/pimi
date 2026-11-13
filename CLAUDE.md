@@ -42,6 +42,7 @@ At the start of non-trivial work, list `docs/` and skim anything relevant to the
 | [docs/forge-providers.md](docs/forge-providers.md)                   | Adding a git forge: registry/manifest, drop-in checklist, self-host/GHES, the two facts tiers                                  |
 | [docs/custom-providers.md](docs/custom-providers.md)                 | Custom provider config: Z.AI, Alibaba/Qwen, ACP agents, profiles, custom binaries                                              |
 | [docs/plugins.md](docs/plugins.md)                                   | Local plugin manifest, directory source config, RPCs, native surfaces, and attachment sources                                  |
+| [docs/extension-points.md](docs/extension-points.md)                 | Making UI replaceable by plugins: `overridable`, slots, adapters, the fast path, safe mode, app-wide scope                     |
 | [docs/service-proxy.md](docs/service-proxy.md)                       | Service proxy: exposing workspace scripts at public URLs, DNS setup, reverse proxy config                                      |
 | [docs/relay-endpoint-security.md](docs/relay-endpoint-security.md)   | Relay E2EE modes: Noise NK mapping, record framing, negotiation, the `requireProtectedSecurity` flag, close codes              |
 | [docs/self-hosted-relay.md](docs/self-hosted-relay.md)               | Running the relay on your own box: Node adapter, limits, systemd unit, Caddyfile, pointing a daemon at it                      |

@@ -2,6 +2,7 @@
 
 Local plugins contribute daemon RPCs, native app surfaces, workspace panels, Command Center items,
 client slash commands, timeline items, header buttons, composer pills, app themes, composer attachment sources, composer draft access, attachment renderers, and settings screens.
+They can also replace, wrap, or add to named places in Pimi's own UI (see [Change the app's UI](#change-the-apps-ui)).
 Pimi executes `index.server.ts` in a subprocess and `index.client.tsx` in every connected app.
 
 > **Trust every plugin you add.** `pimi plugin add` and `pimi plugin install` mean “I trust this codebase.” Plugins are unsandboxed: server code and preparation commands run with the daemon user's access on the daemon host, and client contributions run inside Pimi. The repository's dependencies and future updates are part of that trust decision. With `--host`, preparation runs on that remote daemon host.
@@ -790,6 +791,37 @@ reload path: that path disposes the plugin and would destroy open drafts after e
 `ready` or `invalid` state and `subscribe()` for successful saves, resets, and migrations. The
 subscription cleanup belongs in the plugin's contribution cleanup when it outlives the entry.
 
+## Change the app's UI
+
+`client.overrideComponent`, `wrapComponent`, `addToSlot`, and `addMenuItem` change Pimi's own
+interface. Core wraps a component with `overridable()` or drops a `<Slot/>`; nothing in core knows
+about plugins. How to add a point is in [extension-points.md](extension-points.md); the author
+contract is in the [plugin reference](../public-docs/plugins/reference.md#extension-points).
+
+Decisions that are not obvious from the code:
+
+- **Overrides are app-wide.** Plugins are installed per host, but the UI is one app. `PluginRegistry`
+  applies a plugin id's layers once, from the host its screens last used (`pluginUiHostKey`), else
+  the first host by id, the way themes coalesce. A remote host's UI plugin therefore restyles the
+  whole app. The Plugins page marks plugins that change the UI and lists layers that failed or lost a
+  conflict. This follows from the trust model: a plugin you add is trusted code.
+- **A bad plugin must not brick the app.** Each layer is in an error boundary that falls back to the
+  layer inside it. Safe mode (the Plugins page toggle, or `?safe=1` on the web and desktop
+  renderer URL) empties every snapshot, so the app renders its own UI with plugins still running. The
+  flag is read before the registry and is on until storage has been read.
+- **Shortcuts are plain bindings.** A Command Center item's `shortcut` becomes a `plugin:<id>`
+  binding appended to the built-in table (`setPluginShortcutBindings`), so rebinding, clearing, and
+  the Shortcuts page work unchanged. Built-ins come first and win a shared chord; the row notes it.
+  Bindings run through the `plugin.command` action to the same `run` the Command Center uses, so
+  they exist only while the current context can run the item.
+- **Plugin storage lives on its own side of the wire.** `server.storage` and `dataDirectory` are
+  under `$PIMI_HOME/plugin-data/<pluginId>/`, removed with `pimi plugin remove`.
+  `client.storage` is AsyncStorage under `@pimi:plugin:<id>:`, per device.
+- **One list of host modules.** `packages/protocol/src/plugin-host-modules.ts` names what a client
+  bundle may import without bundling. The compiler reads it for externals and the app's
+  `runtimeRequire` is typed as a record over it, so a module cannot be external in one and missing in
+  the other. `react-native-unistyles` is not on it: it needs a Babel plugin that plugin bundles skip.
+
 ## Contribute a theme
 
 `addTheme` takes a small light or dark palette and a display name. Pimi expands it through the
@@ -800,6 +832,11 @@ provider rewrites the matching slot when the selection changes. See [unistyles.m
 for the runtime-patching rules the appearance settings share.
 
 `addTheme` is a client registration and belongs in `index.client.tsx`.
+
+`tokens` merges over the theme `buildPluginTheme` produced, validated by building it once when the
+plugin registers: a name the base theme lacks, or a value of the wrong type, rejects the
+contribution. It carries colors, spacing, and radius. Font sizes and families are not tokens:
+`applyAppearance` rewrites them on every registered theme from the user's settings.
 
 The selection persists as `theme: "plugin"` plus a `pluginThemeId` of `<pluginId>/theme/<themeId>`,
 so equal themes on several hosts coalesce the way sidebar contributions do. Two hosts can answer

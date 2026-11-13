@@ -22,6 +22,7 @@ import {
   PluginSubscriptionHandlers,
   type PluginSubscriptionHandler,
 } from "./subscription-handlers.js";
+import { mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import type { ZodType } from "zod";
 import {
@@ -36,6 +37,7 @@ import { createPluginDaemonTransportFactory } from "./daemon-transport.js";
 import { createPluginClientId } from "./plugin-session-identity.js";
 
 import { PluginSettingsStore } from "./settings/index.js";
+import { PluginDataStorage } from "./storage.js";
 import { readPluginProviderIcon } from "./provider-icon.js";
 import { initializeEnvironmentProxy } from "../network/index.js";
 import { startPluginNetworkReporter } from "../network/activity.js";
@@ -322,7 +324,18 @@ export function createPluginWorker(options: {
           send({ type: "settings.changed", settingsId }),
         )
       : null;
+    const dataDirectory = message.dataDirectory;
+    if (dataDirectory) await mkdir(dataDirectory, { recursive: true });
+    const storage = dataDirectory ? new PluginDataStorage(dataDirectory) : null;
     const contributedCleanup = contribute({
+      get dataDirectory() {
+        if (!dataDirectory) throw new Error("Plugin data directory is unavailable");
+        return dataDirectory;
+      },
+      get storage() {
+        if (!storage) throw new Error("Plugin storage is unavailable");
+        return storage;
+      },
       handle,
       registerProvider,
       registerUsageSource,

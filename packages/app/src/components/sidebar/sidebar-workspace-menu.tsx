@@ -1,4 +1,5 @@
 import { useMemo, type ComponentProps, type PropsWithChildren, type ReactNode } from "react";
+import { PluginMenuItems } from "@/plugins/menus/plugin-menu-items";
 import { useTranslation } from "@/i18n/use-translation";
 import type { PressableStateCallbackType } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
@@ -186,6 +187,13 @@ function SidebarWorkspaceMenuItems({
     () => <ThemedTag size={14} uniProps={foregroundMutedColorMapping} />,
     [],
   );
+  const pluginMenuContext = useMemo(
+    () =>
+      serverId && workspaceId
+        ? { serverId, workspaceId, directory: openInFileManagerPath ?? "" }
+        : null,
+    [serverId, workspaceId, openInFileManagerPath],
+  );
 
   return (
     <>
@@ -275,6 +283,13 @@ function SidebarWorkspaceMenuItems({
         >
           {archiveLabel ?? t("sidebar.workspace.actions.archive")}
         </WorkspaceMenuItem>
+      ) : null}
+      {pluginMenuContext ? (
+        <PluginMenuItems
+          menu="sidebar-workspace-row"
+          context={pluginMenuContext}
+          surface={surface}
+        />
       ) : null}
     </>
   );

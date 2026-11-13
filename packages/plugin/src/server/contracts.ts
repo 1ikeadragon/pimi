@@ -1,4 +1,5 @@
 import type { PimiApi } from "@pimi/client";
+import type { JsonValue } from "@pimi/protocol/agent-types";
 import type { ZodType, input as ZodInput, output as ZodOutput } from "zod";
 import type { PluginRpcContract, PluginSubscriptionContract, PluginWireInput } from "../rpc.js";
 import type { PluginCleanup } from "../contracts.js";
@@ -39,7 +40,19 @@ export interface PluginSettings<Schema extends ZodType> {
   subscribe(listener: (state: PluginSettingsState<Schema>) => void | Promise<void>): PluginCleanup;
 }
 
+/** JSON key-value storage private to the plugin, kept under `dataDirectory` and removed with the plugin. */
+export interface PluginServerStorage {
+  get<Value extends JsonValue = JsonValue>(key: string): Promise<Value | undefined>;
+  set(key: string, value: JsonValue): Promise<void>;
+  delete(key: string): Promise<void>;
+  /** Keys, optionally limited to those starting with `prefix`, sorted. */
+  keys(prefix?: string): Promise<readonly string[]>;
+}
+
 export interface PluginServerContext extends PluginLifecycleRegistration {
+  /** The plugin's own directory for files. Created on first use, deleted when the plugin is removed. */
+  readonly dataDirectory: string;
+  readonly storage: PluginServerStorage;
   registerSettings<Schema extends ZodType>(
     definition: import("../settings.js").SettingsDefinition<Schema>,
   ): PluginSettings<Schema>;

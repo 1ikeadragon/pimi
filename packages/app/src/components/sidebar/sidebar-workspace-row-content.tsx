@@ -1,4 +1,5 @@
 import { memo, useMemo, useCallback, useState, type ReactNode } from "react";
+import { overridable } from "@/extension-points";
 import { Text, View, type ViewStyle } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { Check, CircleAlert, Folder, FolderGit2, Monitor } from "lucide-react-native";
@@ -198,7 +199,7 @@ function PimiTaskBranchStatus({
   );
 }
 
-export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowContent({
+const SidebarWorkspaceRowContentBase = memo(function SidebarWorkspaceRowContent({
   workspace,
   hostBadge,
   leadingProjectName = null,
@@ -298,6 +299,28 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
     </View>
   );
 });
+
+export const SidebarWorkspaceRowContent = overridable(
+  "sidebar.workspaceRow",
+  SidebarWorkspaceRowContentBase,
+  {
+    toPlugin: ({ workspace, isHovered, children }) => ({
+      serverId: workspace.serverId,
+      workspaceId: workspace.workspaceId,
+      name: workspace.name,
+      title: workspace.title,
+      directory: workspace.workspaceDirectory,
+      branch: workspace.currentBranch,
+      hovered: isHovered,
+      children,
+    }),
+    merge: (core, patch) => ({
+      ...core,
+      isHovered: patch.hovered ?? core.isHovered,
+      children: patch.children ?? core.children,
+    }),
+  },
+);
 
 function openPimiPullRequest(workspace: SidebarWorkspaceEntry): (() => void) | undefined {
   const host = getDesktopHost();

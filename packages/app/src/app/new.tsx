@@ -1,3 +1,4 @@
+import { overridable } from "@/extension-points";
 import { useLocalSearchParams } from "expo-router";
 import { useMemo } from "react";
 import { HostRouteBootstrapBoundary } from "@/components/host-route-bootstrap-boundary";
@@ -7,6 +8,23 @@ import {
 } from "@/composer/editing-session";
 import { NewWorkspaceScreen } from "@/screens/new-workspace-screen";
 import { buildNewWorkspaceDraftKey } from "@/stores/draft-keys";
+
+const NewWorkspace = overridable("screen.newWorkspace", NewWorkspaceScreen, {
+  toPlugin: ({ serverId, projectId, sourceDirectory }) => ({
+    serverId,
+    projectId: projectId ?? null,
+    sourceDirectory: sourceDirectory ?? null,
+  }),
+  merge: (core, patch) => ({
+    ...core,
+    serverId: patch.serverId ?? core.serverId,
+    projectId: patch.projectId === undefined ? core.projectId : (patch.projectId ?? undefined),
+    sourceDirectory:
+      patch.sourceDirectory === undefined
+        ? core.sourceDirectory
+        : (patch.sourceDirectory ?? undefined),
+  }),
+});
 
 /** New workspace drafts share one editing-session home, keyed like a tab by draft. */
 const NEW_WORKSPACE_SESSIONS_KEY = "new-workspace";
@@ -50,7 +68,7 @@ export default function NewWorkspaceRoute() {
         tabIds={sessionTabIds}
       >
         <ComposerEditingScope tabId={draftKey} targetKey={draftKey}>
-          <NewWorkspaceScreen
+          <NewWorkspace
             key={screenKey}
             serverId={serverId}
             sourceDirectory={sourceDirectory}

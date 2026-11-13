@@ -1,0 +1,7 @@
+{
+  "id": "ui-overrides",
+  "name": "UI Overrides",
+  "requirements": {
+    "pimi": ">=0.17.39"
+  }
+}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo } from "react";
+import { overridable } from "@/extension-points";
 import { FlatList, View, type ListRenderItemInfo } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { useTranslation } from "@/i18n/use-translation";
@@ -28,7 +29,7 @@ function getItemLayout(_: ArrayLike<SearchRow> | null | undefined, index: number
   return { length: SEARCH_ROW_HEIGHT, offset: SEARCH_ROW_HEIGHT * index, index };
 }
 
-export function WorkspaceSearchView({
+function WorkspaceSearchViewBase({
   serverId,
   workspaceId,
   workspaceKey,
@@ -171,6 +172,11 @@ export function WorkspaceSearchView({
     </View>
   );
 }
+
+export const WorkspaceSearchView = overridable("search.view", WorkspaceSearchViewBase, {
+  toPlugin: ({ serverId, workspaceId }) => ({ serverId, workspaceId }),
+  merge: (core) => core,
+});
 
 const styles = StyleSheet.create((theme) => ({
   container: {

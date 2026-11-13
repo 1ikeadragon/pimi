@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
+import { overridable } from "@/extension-points";
 import { withUnistyles } from "react-native-unistyles";
 import { RenderProfile } from "@/utils/render-profiler";
 import { createDiffPalette, retainDiffPalette } from "./palette";
@@ -53,10 +54,19 @@ const StyledDiffDocument = withUnistyles(ThemedDiffDocument, (theme) => ({
   },
 }));
 
-export function DiffDocument(props: DiffDocumentProps) {
+function DiffDocumentBase(props: DiffDocumentProps) {
   return (
     <RenderProfile id="DiffDocument">
       <StyledDiffDocument {...props} />
     </RenderProfile>
   );
 }
+
+export const DiffDocument = overridable("diff.document", DiffDocumentBase, {
+  toPlugin: ({ mode, files }) => ({
+    kind: mode.kind,
+    fileCount: files.length,
+    focusPath: mode.focusPath ?? null,
+  }),
+  merge: (core) => core,
+});

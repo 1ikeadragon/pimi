@@ -1,4 +1,5 @@
 import { useHardwareKeyboardPresent } from "@/keyboard";
+import { noProps, overridable, Slot } from "@/extension-points";
 import {
   WindowLayoutProvider,
   WindowLayoutActionsHost,
@@ -283,6 +284,7 @@ function useDaemonStartIsRunning(): boolean {
   );
 }
 
+const NO_SLOT_CONTEXT = {};
 const STARTUP_GIVE_UP_TIMEOUT_MS = 5_000;
 // How long the splash waits on top of host startup to learn whether setup opens. A slow host
 // lands on the home instead, and setup opens over it once it is decided.
@@ -594,6 +596,7 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
         <KeyboardShortcutsDialog />
         <AppDiagnosticHost />
         <ChangelogHost />
+        <Slot id="shell.overlays" context={NO_SLOT_CONTEXT} />
         <QuittingOverlay />
       </AppearanceStyleBoundary>
       {/* Setup changes the theme while it is open, so it stays out of the remount above. Its
@@ -1110,7 +1113,7 @@ function WorkspaceRouteNavigationBridge() {
   return null;
 }
 
-function AppShell() {
+function AppShellBase() {
   const isTaskDictation = Boolean(getDesktopHost()?.taskDictation);
   useEffect(() => {
     if (!isTaskDictation && getDesktopHost()) void ensureOsNotificationPermission();
@@ -1130,6 +1133,9 @@ function AppShell() {
     </MobilePanelsProvider>
   );
 }
+
+/** The whole app frame is a point, so a plugin can wrap or replace it. Safe mode renders this one. */
+const AppShell = overridable("shell.root", AppShellBase, noProps());
 
 function NotificationOpenBridge() {
   const { startupBlocker } = useHostRuntimeBootstrapState();

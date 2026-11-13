@@ -1,4 +1,5 @@
 import { useOverlayRegistration, type KeyboardInputEvent } from "@/keyboard";
+import { noProps, overridable } from "@/extension-points";
 import { Modal } from "@/components/ui/modal";
 import equal from "fast-deep-equal";
 import { recordRenderProfileReasons } from "@/utils/render-profiler";
@@ -1183,7 +1184,7 @@ function SectionRow({ row }: { row: Extract<CommandCenterListRow, { kind: "secti
 // Backspace stays off deliberately — the palette pops its scope with it on web,
 // but a registered command would stop the search field deleting text.
 
-export function CommandCenter() {
+function CommandCenterBase() {
   const { t } = useTranslation();
   const isCompact = useIsCompactFormFactor();
   const listRef = useRef<FlatList<CommandCenterListRow>>(null);
@@ -1631,3 +1632,5 @@ const styles = StyleSheet.create((theme) => ({
   sheetBackground: { backgroundColor: theme.colors.surface0 },
   sheetHandle: { backgroundColor: theme.colors.palette.zinc[600] },
 }));
+
+export const CommandCenter = overridable("commandCenter.root", CommandCenterBase, noProps());
