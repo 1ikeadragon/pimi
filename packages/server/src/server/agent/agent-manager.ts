@@ -119,6 +119,7 @@ import { isChatHistoryAttachment } from "./prompt-attachments.js";
 import type { AgentAttachment } from "@pimi/protocol/messages";
 import type { AgentImageRef } from "@pimi/protocol/agent-types";
 import { storeProviderImage, type AgentImageStore } from "./agent-images.js";
+import { SlashCommandsCache } from "./slash-commands-cache.js";
 import { SqliteTimelineStore, timelineSessionKey } from "./sqlite-timeline-store.js";
 import type { ChatIndexBackfill } from "./timeline-search/backfill.js";
 import type { ChatSearchService } from "./timeline-search/search-service.js";
@@ -970,8 +971,6 @@ function sleepUnref(ms: number): Promise<void> {
 }
 
 /** Rows read from the stored copy per step when scrolling back through a long chat. */
-/** How long cached slash commands are served without a background refresh. */
-const COMMANDS_CACHE_FRESH_MS = 60_000;
 const OLDER_TIMELINE_BLOCK_ROWS = 500;
 
 function buildExplicitTimelineSeedForRegister(
@@ -1577,21 +1576,7 @@ export class AgentManager {
     }
   }
 
-  private readonly commandsCache = new Map<string, { commands: AgentSlashCommand[]; at: number }>();
-
-  /** Commands last read from a live session of this provider in this folder. */
-  getCachedCommands(
-    provider: AgentProvider,
-    cwd: string,
-  ): { commands: AgentSlashCommand[]; stale: boolean } | null {
-    const entry = this.commandsCache.get(`${provider}\0${cwd}`);
-    if (!entry) return null;
-    return { commands: entry.commands, stale: Date.now() - entry.at > COMMANDS_CACHE_FRESH_MS };
-  }
-
-  rememberCommands(provider: AgentProvider, cwd: string, commands: AgentSlashCommand[]): void {
-    this.commandsCache.set(`${provider}\0${cwd}`, { commands, at: Date.now() });
-  }
+  readonly slashCommands = new SlashCommandsCache();
 
   async listDraftCommands(config: AgentSessionConfig): Promise<AgentSlashCommand[]> {
     const normalizedConfig = await this.normalizeConfig(config, { resolveDefaultModel: false });

@@ -177,6 +177,7 @@ import {
   type AgentProvider,
   type AgentRunOptions,
   type AgentSessionConfig,
+  type AgentSlashCommand,
   type ToolCallDetail,
 } from "./agent/agent-sdk-types.js";
 import type { StoredAgentRecord } from "./agent/agent-storage.js";
@@ -5087,15 +5088,18 @@ export class Session {
         agentStorage: this.agentStorage,
         logger: this.sessionLogger,
       });
-      if (!agent.session?.listCommands) return;
-      this.agentManager.rememberCommands(
-        agent.provider,
-        agent.cwd,
-        await agent.session.listCommands(),
-      );
+      await this.readCommands(agent);
     })().catch((error: unknown) => {
       this.sessionLogger.debug({ err: error, agentId }, "Failed to refresh cached commands");
     });
+  }
+
+  private readCommands(agent: ManagedAgent): Promise<AgentSlashCommand[]> {
+    const session = agent.session;
+    if (!session?.listCommands) return Promise.resolve([]);
+    return this.agentManager.slashCommands.read(agent.provider, agent.cwd, () =>
+      session.listCommands!(),
+    );
   }
 
   /**
@@ -5117,7 +5121,7 @@ export class Session {
       // folder, and refreshes them in the background once they are old. Reading them needs a
       // live provider process, which costs a few hundred milliseconds on a cold chat.
       if (stored && !stored.archivedAt) {
-        const cached = this.agentManager.getCachedCommands(stored.provider, stored.cwd);
+        const cached = await this.agentManager.slashCommands.get(stored.provider, stored.cwd);
         if (cached) {
           this.emit({
             type: "list_commands_response",
@@ -5137,8 +5141,7 @@ export class Session {
           : null;
 
       if (agent?.session?.listCommands) {
-        const commands = await agent.session.listCommands();
-        this.agentManager.rememberCommands(agent.provider, agent.cwd, commands);
+        const commands = await this.readCommands(agent);
         this.emit({
           type: "list_commands_response",
           payload: {
@@ -8092,12 +8095,16 @@ export class Session {
       agentStorage: this.agentStorage,
       logger: this.sessionLogger,
       purpose: "history",
-    }).catch((error: unknown) => {
-      this.sessionLogger.warn(
-        { err: error, agentId: msg.agentId },
-        "Background load after serving a stored timeline failed",
-      );
-    });
+    })
+      // The chat's slash commands are read as soon as it is loaded, so the list request that
+      // follows an open joins this read instead of starting a second provider process.
+      .then((agent) => this.readCommands(agent))
+      .catch((error: unknown) => {
+        this.sessionLogger.warn(
+          { err: error, agentId: msg.agentId },
+          "Background load after serving a stored timeline failed",
+        );
+      });
     this.emitFetchAgentTimelineResponse({
       msg,
       direction,
