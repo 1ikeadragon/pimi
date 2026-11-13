@@ -583,6 +583,13 @@ export const ru: TranslationResources = {
     working: {
       stopping: "Остановка",
       waitingApproval: "Ожидание вашего подтверждения",
+      steps: {
+        one: "{{count}} шаг",
+        other: "{{count}} шагов",
+      },
+      failed: "сбоев: {{count}}",
+      showSteps: "Показать шаги",
+      hideSteps: "Скрыть шаги",
       starting: "Запуск {{provider}}…",
       sending: "Отправка",
       thinking: "Размышление",

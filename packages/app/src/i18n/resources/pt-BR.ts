@@ -584,6 +584,13 @@ export const ptBR: TranslationResources = {
     working: {
       stopping: "Parando",
       waitingApproval: "Aguardando sua aprovação",
+      steps: {
+        one: "{{count}} etapa",
+        other: "{{count}} etapas",
+      },
+      failed: "{{count}} com falha",
+      showSteps: "Mostrar etapas",
+      hideSteps: "Ocultar etapas",
       starting: "Iniciando {{provider}}…",
       sending: "Enviando",
       thinking: "Pensando",

@@ -586,6 +586,13 @@ export const ja: TranslationResources = {
     working: {
       stopping: "停止中",
       waitingApproval: "承認待ち",
+      steps: {
+        one: "{{count}} ステップ",
+        other: "{{count}} ステップ",
+      },
+      failed: "{{count}} 件失敗",
+      showSteps: "ステップを表示",
+      hideSteps: "ステップを非表示",
       starting: "{{provider}} を起動中…",
       sending: "送信中",
       thinking: "考え中",

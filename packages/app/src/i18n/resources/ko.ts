@@ -582,6 +582,13 @@ export const ko: TranslationResources = {
     working: {
       stopping: "중지하는 중",
       waitingApproval: "승인 대기 중",
+      steps: {
+        one: "{{count}}단계",
+        other: "{{count}}단계",
+      },
+      failed: "{{count}}개 실패",
+      showSteps: "단계 보기",
+      hideSteps: "단계 숨기기",
       starting: "{{provider}} 시작 중…",
       sending: "전송 중",
       thinking: "생각 중",

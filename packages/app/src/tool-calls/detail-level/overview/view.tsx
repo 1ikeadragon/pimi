@@ -20,6 +20,26 @@ interface OverviewGroupProps {
 
 const TOOL_CALL_GROUP_MAX_HEIGHT = 400;
 
+/** The per-call rows of a group, scrolled to the latest call. */
+export function OverviewToolCallDetails({ children }: { children: ReactNode }) {
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollToLatest = useCallback(() => {
+    scrollRef.current?.scrollToEnd({ animated: false });
+  }, []);
+  return (
+    <ScrollView
+      ref={scrollRef}
+      style={styles.scroll}
+      contentContainerStyle={styles.content}
+      nestedScrollEnabled
+      showsVerticalScrollIndicator
+      onContentSizeChange={scrollToLatest}
+    >
+      <IndentRail>{children}</IndentRail>
+    </ScrollView>
+  );
+}
+
 export const OverviewToolCallGroupView = memo(function OverviewToolCallGroupView({
   group,
   expanded,
@@ -27,12 +47,8 @@ export const OverviewToolCallGroupView = memo(function OverviewToolCallGroupView
   onExpandedChange,
   children,
 }: OverviewGroupProps) {
-  const scrollRef = useRef<ScrollView>(null);
   const isCompact = useIsCompactFormFactor();
   const aggregateSummary = useOverviewSummaryLabel(group.summary);
-  const scrollToLatest = useCallback(() => {
-    scrollRef.current?.scrollToEnd({ animated: false });
-  }, []);
   const hold = useDisclosureHold();
   const toggle = useCallback(() => {
     const apply = () => onExpandedChange(group.run.id, !expanded);
@@ -44,19 +60,8 @@ export const OverviewToolCallGroupView = memo(function OverviewToolCallGroupView
     onExpandedChange(group.run.id, false);
   }, [group.run.id, onExpandedChange]);
   const renderDetails = useCallback(
-    () => (
-      <ScrollView
-        ref={scrollRef}
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        nestedScrollEnabled
-        showsVerticalScrollIndicator
-        onContentSizeChange={scrollToLatest}
-      >
-        <IndentRail>{children}</IndentRail>
-      </ScrollView>
-    ),
-    [children, scrollToLatest],
+    () => <OverviewToolCallDetails>{children}</OverviewToolCallDetails>,
+    [children],
   );
 
   if (isCompact) {

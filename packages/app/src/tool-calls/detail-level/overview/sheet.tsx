@@ -15,6 +15,8 @@ import type { Theme } from "@/styles/theme";
 interface OverviewToolCallGroupSheetProps {
   visible: boolean;
   summary: string;
+  /** Replaces the wrench in the header, e.g. with the mascot while the run is live. */
+  icon?: ReactNode;
   children: ReactNode;
   onClose: () => void;
 }
@@ -28,6 +30,7 @@ const foregroundMutedMapping = (theme: Theme) => ({ color: theme.colors.foregrou
 export function OverviewToolCallGroupSheet({
   visible,
   summary,
+  icon,
   children,
   onClose,
 }: OverviewToolCallGroupSheetProps) {
@@ -70,7 +73,7 @@ export function OverviewToolCallGroupSheet({
       <View style={styles.container} testID="tool-call-group-sheet">
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <ThemedWrench size={20} uniProps={foregroundMapping} />
+            {icon ?? <ThemedWrench size={20} uniProps={foregroundMapping} />}
             <Text
               style={styles.headerTitle}
               numberOfLines={2}

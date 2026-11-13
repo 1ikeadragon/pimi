@@ -577,6 +577,13 @@ export const zhCN: TranslationResources = {
     working: {
       stopping: "正在停止",
       waitingApproval: "等待你的批准",
+      steps: {
+        one: "{{count}} 步",
+        other: "{{count}} 步",
+      },
+      failed: "{{count}} 个失败",
+      showSteps: "显示步骤",
+      hideSteps: "隐藏步骤",
       starting: "正在启动 {{provider}}…",
       sending: "正在发送",
       thinking: "思考中",
