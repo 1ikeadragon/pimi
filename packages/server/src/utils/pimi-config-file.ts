@@ -21,7 +21,6 @@ export {
 } from "@pimi/protocol/pimi-config-schema";
 
 export const PIMI_CONFIG_FILE_NAME = "pimi.json";
-const LEGACY_CONFIG_FILE_NAME = "pimi.json";
 // Configuration is deliberately small. Bound both IO and main-thread JSON/schema work.
 export const MAX_PIMI_CONFIG_BYTES = 256 * 1024;
 
@@ -60,10 +59,7 @@ async function inspectPath(configPath: string): Promise<Stats | null> {
 export async function inspectProjectConfig(repoRoot: string) {
   const preferred = resolvePimiConfigPath(repoRoot);
   const stats = await inspectPath(preferred);
-  if (stats) return { path: preferred, stats };
-  const legacy = join(repoRoot, LEGACY_CONFIG_FILE_NAME);
-  const legacyStats = await inspectPath(legacy);
-  return legacyStats ? { path: legacy, stats: legacyStats } : null;
+  return stats ? { path: preferred, stats } : null;
 }
 
 export async function statPimiConfigPath(repoRoot: string): Promise<PimiConfigRevision | null> {
