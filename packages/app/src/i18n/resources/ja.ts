@@ -3923,6 +3923,69 @@ export const ja: TranslationResources = {
           localErrorMessage: "localhost接続を削除できません",
         },
       },
+      remoteDaemon: {
+        uninstall: {
+          title: "このマシンからPimiをアンインストール",
+          hint: "{{host}}のデーモンを停止し、インストール済みのランタイムを削除して、ホストをPimiから外します",
+          action: "アンインストール",
+          sheetTitle: "{{host}}からPimiをアンインストールしますか？",
+          checking: "{{host}}を確認しています...",
+          willRemove: "次の処理を行います:",
+          itemStop: "Pimiデーモンを停止する",
+          itemService: "systemdサービスを削除する",
+          itemRuntime: "インストール済みのPimiランタイムを削除する（{{size}}）",
+          itemHost: "このコンピューターのPimiからこのホストを削除する",
+          foreignDaemon:
+            "デーモンのポートで別のプログラムが応答しており、このPimiのインストールが起動したものではありません。そのまま残します。",
+          workKnown:
+            "実行中のエージェント: {{agents}}。開いているターミナル: {{terminals}}。これらは停止されます。",
+          workUnknown:
+            "Pimiは、そこで実行中のエージェントとターミナルを数えられませんでした。これらは停止されます。",
+          workAck: "実行中の作業が停止されることを理解しました",
+          keepData:
+            "~/.pimi内のエージェント、設定、worktree（{{size}}）はマシンに残ります。再度追加すると引き継がれます。",
+          deleteData: "このマシン上のPimiデータも削除する（エージェント、設定、worktree）",
+          deleteDataWorktrees:
+            "~/.pimi（{{size}}）を削除します。Pimiが作成した{{worktrees}}個のworktreeも含まれ、そこにあるコミット前の作業は失われます。",
+          deleteDataNoWorktrees:
+            "~/.pimi（{{size}}）を削除します。Pimiが作成したworktreeはありません。",
+          deleteDataPhones:
+            "このデーモンとペアリングしたスマートフォンはアクセスできなくなります。",
+          confirm: "アンインストール",
+          unreachableTitle: "{{host}}に接続できません",
+          unreachableHint:
+            "そこでは何も削除されていません。ホストをPimiからのみ削除できます。その場合、マシン上のPimiは残ります。後で片付けるには、そのマシンでデーモンを停止し、~/.pimi/runtimeを削除してください。",
+          removeOnly: "Pimiからのみ削除",
+          failedTitle: "アンインストールが完了しませんでした",
+          failedHint:
+            "一部の手順はすでに実行された可能性があります。ホストをPimiからのみ削除できます。手動で完了するにはRemote SSHのドキュメントを参照してください。",
+          done: "{{host}}からPimiを削除しました: {{removed}}。",
+          keptList: "残したもの: {{kept}}。",
+          serviceWarning: "systemdサービスを無効にできませんでした。ファイルは削除しました。",
+          hooksLeft:
+            "ターミナルエージェントのフックが、そのマシンのエージェント設定ファイルに残っています。",
+          skillsLeft:
+            "Pimiのスキルが~/.claude/skills、~/.agents/skills、~/.codex/skillsに残っている可能性があります。",
+          steps: {
+            connecting: "{{host}}に接続しています...",
+            stopping: "{{host}}のPimiを停止しています...",
+            removing: "{{host}}のファイルを削除しています...",
+            done: "完了",
+          },
+          removed: {
+            service: "systemdサービス",
+            daemon: "デーモン",
+            terminals: "ターミナル",
+            runtime: "ランタイム",
+            data: "データ（~/.pimi）",
+            nothing: "インストールされていたものはありません",
+          },
+          kept: {
+            data: "~/.pimiのデータ",
+            foreignDaemon: "ポート上の別のデーモン",
+          },
+        },
+      },
     },
     providers: {
       title: "プロバイダー",

@@ -460,6 +460,79 @@ export async function listenToRemoteSshProgress(
   return typeof unlisten === "function" ? unlisten : () => {};
 }
 
+export interface RemoteSshUninstallTarget {
+  [key: string]: unknown;
+  host: string;
+  sshPort?: number;
+  daemonPort?: number;
+}
+
+/** What is on the remote machine, for the uninstall sheet. Null counts mean "could not be read". */
+export interface RemoteSshUninstallCheck {
+  daemonVersion: string | null;
+  foreignDaemon: boolean;
+  busyAgents: number | null;
+  terminals: number | null;
+  systemdUnit: boolean;
+  runtimeKb: number | null;
+  dataKb: number | null;
+  worktrees: number;
+}
+
+export type RemoteSshUninstallStep = "connecting" | "stopping" | "removing" | "done";
+export type RemoteSshUninstalled = "service" | "daemon" | "terminals" | "runtime" | "data";
+export type RemoteSshKept = "data" | "foreignDaemon";
+
+export interface RemoteSshUninstallResult {
+  removed: RemoteSshUninstalled[];
+  kept: RemoteSshKept[];
+  serviceWarning: boolean;
+}
+
+export interface RemoteSshUninstallFailure {
+  ok: false;
+  code: string;
+  message: string;
+  detail: string | null;
+}
+
+/** Looks at the remote machine without changing it. Cancel with cancelRemoteSshSetup. */
+export async function checkRemoteSshUninstall(input: {
+  requestId: string;
+  target: RemoteSshUninstallTarget;
+}): Promise<{ ok: true; check: RemoteSshUninstallCheck } | RemoteSshUninstallFailure> {
+  return (await invokeDesktopCommand("remote_ssh_uninstall_check", input)) as
+    | { ok: true; check: RemoteSshUninstallCheck }
+    | RemoteSshUninstallFailure;
+}
+
+/** Stops the daemon and removes Pimi from the remote machine. Cancel with cancelRemoteSshSetup. */
+export async function uninstallRemoteSsh(input: {
+  requestId: string;
+  target: RemoteSshUninstallTarget;
+  deleteData: boolean;
+}): Promise<{ ok: true; result: RemoteSshUninstallResult } | RemoteSshUninstallFailure> {
+  return (await invokeDesktopCommand("remote_ssh_uninstall", input)) as
+    | { ok: true; result: RemoteSshUninstallResult }
+    | RemoteSshUninstallFailure;
+}
+
+export async function listenToRemoteSshUninstallProgress(
+  handler: (progress: { requestId: string; step: RemoteSshUninstallStep; message: string }) => void,
+): Promise<() => void> {
+  const listen = getDesktopHost()?.events?.on;
+  if (typeof listen !== "function") return () => {};
+  const unlisten = await listen("remote-ssh-uninstall-progress", (payload: unknown) => {
+    if (!isRecord(payload) || typeof payload.requestId !== "string") return;
+    handler({
+      requestId: payload.requestId,
+      step: payload.step as RemoteSshUninstallStep,
+      message: typeof payload.message === "string" ? payload.message : "",
+    });
+  });
+  return typeof unlisten === "function" ? unlisten : () => {};
+}
+
 export type LocalTransportEventUnlisten = () => void;
 export type LocalTransportEventHandler = (payload: LocalTransportEventPayload) => void;
 

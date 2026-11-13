@@ -3899,6 +3899,66 @@ export const ko: TranslationResources = {
           localErrorMessage: "localhost 연결을 제거할 수 없습니다",
         },
       },
+      remoteDaemon: {
+        uninstall: {
+          title: "이 머신에서 Pimi 제거",
+          hint: "{{host}}의 데몬을 중지하고, 설치된 런타임을 삭제하고, Pimi에서 호스트를 제거합니다",
+          action: "제거",
+          sheetTitle: "{{host}}에서 Pimi를 제거할까요?",
+          checking: "{{host}}을(를) 확인하는 중...",
+          willRemove: "다음 작업을 수행합니다:",
+          itemStop: "Pimi 데몬 중지",
+          itemService: "systemd 서비스 제거",
+          itemRuntime: "설치된 Pimi 런타임 삭제({{size}})",
+          itemHost: "이 컴퓨터의 Pimi에서 이 호스트 제거",
+          foreignDaemon:
+            "데몬 포트에서 다른 프로그램이 응답하고 있으며, 이 Pimi 설치가 시작한 것이 아닙니다. 그대로 실행 상태로 둡니다.",
+          workKnown:
+            "실행 중인 에이전트: {{agents}}개. 열린 터미널: {{terminals}}개. 모두 중지됩니다.",
+          workUnknown:
+            "Pimi가 그곳에서 실행 중인 에이전트와 터미널 수를 확인하지 못했습니다. 모두 중지됩니다.",
+          workAck: "실행 중인 작업이 중지된다는 것을 이해합니다",
+          keepData:
+            "~/.pimi의 에이전트, 설정, worktree({{size}})는 머신에 남습니다. 다시 추가하면 이어서 사용할 수 있습니다.",
+          deleteData: "이 머신의 Pimi 데이터도 삭제(에이전트, 설정, worktree)",
+          deleteDataWorktrees:
+            "~/.pimi({{size}})를 삭제합니다. Pimi가 만든 worktree {{worktrees}}개가 포함되며, 그 안의 커밋하지 않은 작업은 사라집니다.",
+          deleteDataNoWorktrees: "~/.pimi({{size}})를 삭제합니다. Pimi가 만든 worktree는 없습니다.",
+          deleteDataPhones: "이 데몬과 페어링된 휴대폰은 접근할 수 없게 됩니다.",
+          confirm: "제거",
+          unreachableTitle: "{{host}}에 연결할 수 없습니다",
+          unreachableHint:
+            "그곳에서는 아무것도 제거되지 않았습니다. Pimi에서만 호스트를 제거할 수 있으며, 머신에는 Pimi가 그대로 설치되어 있습니다. 나중에 정리하려면 그 머신에서 데몬을 중지하고 ~/.pimi/runtime을 삭제하세요.",
+          removeOnly: "Pimi에서만 제거",
+          failedTitle: "제거가 끝나지 않았습니다",
+          failedHint:
+            "일부 단계는 이미 실행되었을 수 있습니다. Pimi에서만 호스트를 제거할 수 있으며, 직접 마무리하려면 Remote SSH 문서를 참고하세요.",
+          done: "{{host}}에서 Pimi를 제거했습니다: {{removed}}.",
+          keptList: "유지됨: {{kept}}.",
+          serviceWarning: "systemd 서비스를 비활성화하지 못했습니다. 파일은 삭제했습니다.",
+          hooksLeft: "터미널 에이전트 훅이 그 머신의 에이전트 설정 파일에 남아 있습니다.",
+          skillsLeft:
+            "Pimi 스킬이 ~/.claude/skills, ~/.agents/skills, ~/.codex/skills에 남아 있을 수 있습니다.",
+          steps: {
+            connecting: "{{host}}에 연결하는 중...",
+            stopping: "{{host}}에서 Pimi를 중지하는 중...",
+            removing: "{{host}}의 파일을 삭제하는 중...",
+            done: "완료",
+          },
+          removed: {
+            service: "systemd 서비스",
+            daemon: "데몬",
+            terminals: "터미널",
+            runtime: "런타임",
+            data: "데이터(~/.pimi)",
+            nothing: "설치된 것이 없음",
+          },
+          kept: {
+            data: "~/.pimi의 데이터",
+            foreignDaemon: "포트의 다른 데몬",
+          },
+        },
+      },
     },
     providers: {
       title: "프로바이더",

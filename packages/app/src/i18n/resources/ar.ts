@@ -3910,6 +3910,64 @@ export const ar: TranslationResources = {
           localErrorMessage: "Unable to remove localhost connection",
         },
       },
+      remoteDaemon: {
+        uninstall: {
+          title: "إلغاء تثبيت Pimi من هذا الجهاز",
+          hint: "يوقف الخدمة الخلفية على {{host}} ويحذف وقت التشغيل المثبّت ويزيل المضيف من Pimi",
+          action: "إلغاء التثبيت",
+          sheetTitle: "إلغاء تثبيت Pimi من {{host}}؟",
+          checking: "جارٍ فحص {{host}}...",
+          willRemove: "سيحدث ما يلي:",
+          itemStop: "إيقاف الخدمة الخلفية لـ Pimi",
+          itemService: "إزالة خدمة systemd",
+          itemRuntime: "حذف وقت تشغيل Pimi المثبّت ({{size}})",
+          itemHost: "إزالة هذا المضيف من Pimi على هذا الكمبيوتر",
+          foreignDaemon:
+            "برنامج آخر يستجيب على منفذ الخدمة الخلفية ولم يبدأه تثبيت Pimi هذا. سيُترك يعمل.",
+          workKnown:
+            "الوكلاء قيد التشغيل: {{agents}}. الطرفيات المفتوحة: {{terminals}}. سيتم إيقافها.",
+          workUnknown: "تعذّر على Pimi عدّ الوكلاء والطرفيات العاملة هناك. سيتم إيقافها.",
+          workAck: "أفهم أن العمل الجاري سيتوقف",
+          keepData:
+            "وكلاؤك وإعداداتك وworktrees في ~/.pimi ({{size}}) تبقى على الجهاز. عند إضافته مجددًا تُستعاد.",
+          deleteData: "احذف أيضًا بيانات Pimi على هذا الجهاز (الوكلاء، الإعدادات، worktrees)",
+          deleteDataWorktrees:
+            "يحذف ~/.pimi ({{size}})، بما في ذلك {{worktrees}} من worktrees التي أنشأها Pimi. العمل غير المُودَع فيها سيضيع.",
+          deleteDataNoWorktrees: "يحذف ~/.pimi ({{size}}). لم ينشئ Pimi أي worktrees هناك.",
+          deleteDataPhones: "الهواتف المقترنة بهذه الخدمة الخلفية تفقد الوصول إليها.",
+          confirm: "إلغاء التثبيت",
+          unreachableTitle: "تعذّر الوصول إلى {{host}}",
+          unreachableHint:
+            "لم يُحذف شيء هناك. يمكنك إزالة المضيف من Pimi فقط، وسيبقى Pimi مثبّتًا على الجهاز. للتنظيف لاحقًا، أوقف الخدمة الخلفية واحذف ~/.pimi/runtime عليه.",
+          removeOnly: "إزالة من Pimi فقط",
+          failedTitle: "لم يكتمل إلغاء التثبيت",
+          failedHint:
+            "ربما نُفّذت بعض الخطوات بالفعل. يمكنك إزالة المضيف من Pimi فقط؛ راجع مستند Remote SSH للإنهاء يدويًا.",
+          done: "تمت إزالة Pimi من {{host}}: {{removed}}.",
+          keptList: "تم الإبقاء على: {{kept}}.",
+          serviceWarning: "تعذّر تعطيل خدمة systemd، لكن ملفها حُذف.",
+          hooksLeft: "ما زالت خطافات وكلاء الطرفية في ملفات إعداد الوكلاء على ذلك الجهاز.",
+          skillsLeft: "قد تبقى مهارات Pimi في ~/.claude/skills و~/.agents/skills و~/.codex/skills.",
+          steps: {
+            connecting: "جارٍ الاتصال بـ {{host}}...",
+            stopping: "جارٍ إيقاف Pimi على {{host}}...",
+            removing: "جارٍ حذف الملفات على {{host}}...",
+            done: "تم",
+          },
+          removed: {
+            service: "خدمة systemd",
+            daemon: "الخدمة الخلفية",
+            terminals: "الطرفيات",
+            runtime: "وقت التشغيل",
+            data: "البيانات (~/.pimi)",
+            nothing: "لم يكن شيء مثبّتًا",
+          },
+          kept: {
+            data: "البيانات في ~/.pimi",
+            foreignDaemon: "خدمة خلفية أخرى على المنفذ",
+          },
+        },
+      },
     },
     providers: {
       title: "مقدمي الخدمات",
