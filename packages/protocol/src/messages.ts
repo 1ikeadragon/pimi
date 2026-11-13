@@ -71,6 +71,37 @@ import { ProviderOverridesSchema, ProviderPimiToolsPolicySchema } from "./provid
 import { MAX_AGENT_USAGE_SAMPLES, TOOL_CALL_ICON_NAMES } from "./agent-types.js";
 import { WORKSPACE_LABEL_COLORS } from "./workspace-labels.js";
 import {
+  LabelAssignmentSetRequestSchema,
+  LabelAssignmentSetResponseSchema,
+  LabelCreateRequestSchema,
+  LabelCreateResponseSchema,
+  LabelDeleteInspectRequestSchema,
+  LabelDeleteInspectResponseSchema,
+  LabelDeleteRequestSchema,
+  LabelDeleteResponseSchema,
+  LabelListRequestSchema,
+  LabelListResponseSchema,
+  LabelUpdateRequestSchema,
+  LabelUpdateResponseSchema,
+  LabelUpdateSchema,
+} from "./label-rpc-schemas.js";
+import {
+  TaskCreateRequestSchema,
+  TaskCreateResponseSchema,
+  TaskDeleteRequestSchema,
+  TaskDeleteResponseSchema,
+  TaskGetRequestSchema,
+  TaskGetResponseSchema,
+  TaskImportRequestSchema,
+  TaskImportResponseSchema,
+  TaskLinkSetRequestSchema,
+  TaskLinkSetResponseSchema,
+  TaskListRequestSchema,
+  TaskListResponseSchema,
+  TaskUpdateRequestSchema,
+  TaskUpdateResponseSchema,
+} from "./task/rpc-schemas.js";
+import {
   AutomationCreateRequestSchema,
   AutomationCreateResponseSchema,
   AutomationGetRequestSchema,
@@ -248,6 +279,7 @@ export const PIMI_MODEL_FEATURE_KEYS = [
   "commitMessage",
   "pullRequest",
   "automation",
+  "task",
   "askPimi",
 ] as const;
 
@@ -259,6 +291,7 @@ const MutablePimiModelFeaturesSchema = z
     commitMessage: MutableStructuredGenerationProviderSchema.optional(),
     pullRequest: MutableStructuredGenerationProviderSchema.optional(),
     automation: MutableStructuredGenerationProviderSchema.optional(),
+    task: MutableStructuredGenerationProviderSchema.optional(),
     askPimi: MutableStructuredGenerationProviderSchema.optional(),
   })
   .strict();
@@ -271,6 +304,7 @@ const MutablePimiModelFeaturesPatchSchema = z
     commitMessage: MutableStructuredGenerationProviderSchema.nullable().optional(),
     pullRequest: MutableStructuredGenerationProviderSchema.nullable().optional(),
     automation: MutableStructuredGenerationProviderSchema.nullable().optional(),
+    task: MutableStructuredGenerationProviderSchema.nullable().optional(),
     askPimi: MutableStructuredGenerationProviderSchema.nullable().optional(),
   })
   .strict();
@@ -3638,6 +3672,7 @@ export const SessionEventSubscriptionSchema = z.enum([
   "status.plugin_catalog_changed",
   "status.plugin_settings_changed",
   "status.automation_drafts_changed",
+  "status.tasks_changed",
   "activity_log",
   "attack.run.changed",
   "attack.finding.changed",
@@ -3927,6 +3962,19 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   AutomationDraftRetryRequestSchema,
   AutomationDraftDismissRequestSchema,
   AutomationTriggerCheckRequestSchema,
+  TaskListRequestSchema,
+  TaskGetRequestSchema,
+  TaskCreateRequestSchema,
+  TaskUpdateRequestSchema,
+  TaskDeleteRequestSchema,
+  TaskLinkSetRequestSchema,
+  TaskImportRequestSchema,
+  LabelListRequestSchema,
+  LabelCreateRequestSchema,
+  LabelUpdateRequestSchema,
+  LabelDeleteRequestSchema,
+  LabelDeleteInspectRequestSchema,
+  LabelAssignmentSetRequestSchema,
   AttackRunDesktopInputSetRequestSchema,
   AttackRunStartRequestSchema,
   AttackRunPauseRequestSchema,
@@ -4195,6 +4243,10 @@ export const AutomationDraftsChangedStatusPayloadSchema = z.object({
   status: z.literal("automation_drafts_changed"),
 });
 
+export const TasksChangedStatusPayloadSchema = z.object({
+  status: z.literal("tasks_changed"),
+});
+
 export const KnownStatusPayloadSchema = z.discriminatedUnion("status", [
   AgentCreatedStatusPayloadSchema,
   AgentCreateFailedStatusPayloadSchema,
@@ -4206,6 +4258,7 @@ export const KnownStatusPayloadSchema = z.discriminatedUnion("status", [
   PluginCatalogChangedStatusPayloadSchema,
   PluginSettingsChangedStatusPayloadSchema,
   AutomationDraftsChangedStatusPayloadSchema,
+  TasksChangedStatusPayloadSchema,
 ]);
 
 export type KnownStatusPayload = z.infer<typeof KnownStatusPayloadSchema>;
@@ -7789,6 +7842,20 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   AutomationDraftRetryResponseSchema,
   AutomationDraftDismissResponseSchema,
   AutomationTriggerCheckResponseSchema,
+  TaskListResponseSchema,
+  TaskGetResponseSchema,
+  TaskCreateResponseSchema,
+  TaskUpdateResponseSchema,
+  TaskDeleteResponseSchema,
+  TaskLinkSetResponseSchema,
+  TaskImportResponseSchema,
+  LabelListResponseSchema,
+  LabelCreateResponseSchema,
+  LabelUpdateResponseSchema,
+  LabelDeleteResponseSchema,
+  LabelDeleteInspectResponseSchema,
+  LabelAssignmentSetResponseSchema,
+  LabelUpdateSchema,
   AttackRunDesktopInputSetResponseSchema,
   AttackRunStartResponseSchema,
   AttackRunPauseResponseSchema,

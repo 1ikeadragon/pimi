@@ -928,6 +928,58 @@ export type WorkspaceLabelDeleteInspectPayload = Extract<
   SessionOutboundMessage,
   { type: "workspace.label.delete.inspect.response" }
 >["payload"];
+export type TaskListPayload = Extract<
+  SessionOutboundMessage,
+  { type: "task.list.response" }
+>["payload"];
+export type TaskGetPayload = Extract<
+  SessionOutboundMessage,
+  { type: "task.get.response" }
+>["payload"];
+export type TaskCreatePayload = Extract<
+  SessionOutboundMessage,
+  { type: "task.create.response" }
+>["payload"];
+export type TaskUpdatePayload = Extract<
+  SessionOutboundMessage,
+  { type: "task.update.response" }
+>["payload"];
+export type TaskDeletePayload = Extract<
+  SessionOutboundMessage,
+  { type: "task.delete.response" }
+>["payload"];
+export type TaskLinkSetPayload = Extract<
+  SessionOutboundMessage,
+  { type: "task.link.set.response" }
+>["payload"];
+export type TaskImportPayload = Extract<
+  SessionOutboundMessage,
+  { type: "task.import.response" }
+>["payload"];
+export type LabelListPayload = Extract<
+  SessionOutboundMessage,
+  { type: "label.list.response" }
+>["payload"];
+export type LabelCreatePayload = Extract<
+  SessionOutboundMessage,
+  { type: "label.create.response" }
+>["payload"];
+export type LabelUpdatePayload = Extract<
+  SessionOutboundMessage,
+  { type: "label.update.response" }
+>["payload"];
+export type LabelDeletePayload = Extract<
+  SessionOutboundMessage,
+  { type: "label.delete.response" }
+>["payload"];
+export type LabelDeleteInspectPayload = Extract<
+  SessionOutboundMessage,
+  { type: "label.delete.inspect.response" }
+>["payload"];
+export type LabelAssignmentSetPayload = Extract<
+  SessionOutboundMessage,
+  { type: "label.assignment.set.response" }
+>["payload"];
 export type ProjectSuggestionsPayload = Extract<
   SessionOutboundMessage,
   { type: "project.suggestions.response" }
@@ -7086,6 +7138,153 @@ export class DaemonClient {
         action: "navigation_refused",
         detail: options.detail,
         ...(options.agentId ? { agentId: options.agentId } : {}),
+      },
+    });
+  }
+
+  taskList(options: { requestId?: string } = {}): Promise<TaskListPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "task.list.request" },
+    });
+  }
+
+  taskGet(options: { taskId: string; requestId?: string }): Promise<TaskGetPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "task.get.request", taskId: options.taskId },
+    });
+  }
+
+  taskCreate(options: {
+    task: Extract<SessionInboundMessage, { type: "task.create.request" }>["task"];
+    requestId?: string;
+  }): Promise<TaskCreatePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "task.create.request", task: options.task },
+    });
+  }
+
+  taskUpdate(options: {
+    taskId: string;
+    update: Extract<SessionInboundMessage, { type: "task.update.request" }>["update"];
+    requestId?: string;
+  }): Promise<TaskUpdatePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "task.update.request", taskId: options.taskId, update: options.update },
+    });
+  }
+
+  taskDelete(options: { taskId: string; requestId?: string }): Promise<TaskDeletePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "task.delete.request", taskId: options.taskId },
+    });
+  }
+
+  taskLinkSet(options: {
+    taskId: string;
+    target: Extract<SessionInboundMessage, { type: "task.link.set.request" }>["target"];
+    linked: boolean;
+    requestId?: string;
+  }): Promise<TaskLinkSetPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "task.link.set.request",
+        taskId: options.taskId,
+        target: options.target,
+        linked: options.linked,
+      },
+    });
+  }
+
+  taskImport(options: {
+    tasks: Extract<SessionInboundMessage, { type: "task.import.request" }>["tasks"];
+    requestId?: string;
+  }): Promise<TaskImportPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "task.import.request", tasks: options.tasks },
+    });
+  }
+
+  labelList(options: { requestId?: string } = {}): Promise<LabelListPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "label.list.request" },
+    });
+  }
+
+  /** Snapshot first, then `label.update` pushes through the `update` handler of the subscription owner. */
+  observeLabels(options?: { signal?: AbortSignal }): OwnedSubscription<LabelListPayload> {
+    return this.observe(
+      "label.list.response",
+      { type: "label.list.request", subscribe: {} },
+      options,
+    );
+  }
+
+  labelCreate(options: {
+    name: string;
+    color: Extract<SessionInboundMessage, { type: "label.create.request" }>["color"];
+    requestId?: string;
+  }): Promise<LabelCreatePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "label.create.request", name: options.name, color: options.color },
+    });
+  }
+
+  labelUpdate(options: {
+    labelId: string;
+    name?: string;
+    color?: Extract<SessionInboundMessage, { type: "label.update.request" }>["color"];
+    requestId?: string;
+  }): Promise<LabelUpdatePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "label.update.request",
+        labelId: options.labelId,
+        ...(options.name === undefined ? {} : { name: options.name }),
+        ...(options.color === undefined ? {} : { color: options.color }),
+      },
+    });
+  }
+
+  labelDelete(options: { labelId: string; requestId?: string }): Promise<LabelDeletePayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "label.delete.request", labelId: options.labelId },
+    });
+  }
+
+  labelDeleteInspect(options: {
+    labelId: string;
+    requestId?: string;
+  }): Promise<LabelDeleteInspectPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: { type: "label.delete.inspect.request", labelId: options.labelId },
+    });
+  }
+
+  labelAssignmentSet(options: {
+    target: Extract<SessionInboundMessage, { type: "label.assignment.set.request" }>["target"];
+    labelId: string;
+    assigned: boolean;
+    requestId?: string;
+  }): Promise<LabelAssignmentSetPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options.requestId,
+      message: {
+        type: "label.assignment.set.request",
+        target: options.target,
+        labelId: options.labelId,
+        assigned: options.assigned,
       },
     });
   }
