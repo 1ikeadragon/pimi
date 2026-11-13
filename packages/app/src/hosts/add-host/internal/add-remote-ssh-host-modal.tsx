@@ -23,10 +23,6 @@ const ThemedTerminal = withUnistyles(Terminal);
 
 const styles = StyleSheet.create((theme) => {
   return {
-    helper: {
-      color: theme.colors.foregroundMuted,
-      fontSize: theme.fontSize.sm,
-    },
     optionRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -181,7 +177,6 @@ export function AddRemoteSshHostModal({
       onClose={handleClose}
       testID="add-remote-ssh-host-modal"
     >
-      <Text style={styles.helper}>{t("remoteDev.helper")}</Text>
       <Field
         label={t("remoteDev.hostLabel")}
         error={setup.state.visited ? undefined : errorMessage}
@@ -209,7 +204,6 @@ export function AddRemoteSshHostModal({
       <View style={styles.optionRow}>
         <View style={styles.optionText}>
           <Text style={styles.optionTitle}>{t("remoteDev.systemdTitle")}</Text>
-          <Text style={styles.helper}>{t("remoteDev.systemdHint")}</Text>
         </View>
         <Switch
           value={useSystemd}

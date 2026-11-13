@@ -37,7 +37,7 @@ import {
 import { resolveAppVersion } from "@/utils/app-version";
 import { ConnectionOfferSchema, type ConnectionOffer } from "@pimi/protocol/connection-offer";
 import { HostConfirmations, type HostConfirmationRequest } from "./host-confirmation";
-import { shouldUseDesktopDaemon } from "@/desktop/daemon/desktop-daemon";
+import { forgetRemoteSshAuth, shouldUseDesktopDaemon } from "@/desktop/daemon/desktop-daemon";
 import { isWeb } from "@/constants/platform";
 import { connectToDaemon, getConnectionAuthFailureReason } from "@/utils/test-daemon-connection";
 import { getOrCreateClientId } from "@/utils/client-id";
@@ -52,7 +52,7 @@ import {
   buildDesktopDaemonTransportUrl,
   createDesktopDaemonTransportFactory,
 } from "@/desktop/daemon/desktop-daemon-transport";
-import { getDesktopHost } from "@/desktop/host";
+import { getDesktopHost, isElectronRuntime } from "@/desktop/host";
 import { readDesktopManagedLocalCredential } from "@/desktop/daemon/local-credential";
 import {
   useSessionStore,
@@ -1629,6 +1629,18 @@ interface AgentDirectoryRefreshInput {
   page?: FetchAgentsOptions["page"];
 }
 
+/** A removed remote machine must not keep passwords the desktop remembered for it. */
+async function forgetRemoteSshSignIn(connections: HostConnection[]): Promise<void> {
+  if (!isElectronRuntime()) return;
+  for (const connection of connections) {
+    if (connection.type !== "remoteSsh") continue;
+    await forgetRemoteSshAuth({
+      host: connection.host,
+      ...(connection.sshPort !== undefined ? { sshPort: connection.sshPort } : {}),
+    });
+  }
+}
+
 export class HostRuntimeStore {
   private controllers = new Map<string, HostRuntimeController>();
   private hostObservations = new Map<
@@ -2270,6 +2282,8 @@ export class HostRuntimeStore {
 
   async removeHost(serverId: string): Promise<void> {
     await this.revokePushNotifications({ client: this.getClient(serverId), serverId });
+    const removed = this.hosts.find((daemon) => daemon.serverId === serverId);
+    if (removed) await forgetRemoteSshSignIn(removed.connections);
     const remaining = this.hosts.filter((daemon) => daemon.serverId !== serverId);
     this.setHostsAndSync(remaining);
     await this.persistHosts();
@@ -2281,6 +2295,9 @@ export class HostRuntimeStore {
       await this.removeHost(serverId);
       return;
     }
+    await forgetRemoteSshSignIn(
+      host?.connections.filter((connection) => connection.id === connectionId) ?? [],
+    );
     const now = new Date().toISOString();
     const next = this.hosts
       .map((daemon) => {

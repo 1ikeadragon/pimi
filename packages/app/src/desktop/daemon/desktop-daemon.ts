@@ -346,6 +346,74 @@ export async function listenToRemoteSshUpgradePending(
   return typeof unlisten === "function" ? unlisten : () => {};
 }
 
+export interface RemoteSshAuthRequest {
+  promptId: string;
+  host: string;
+  prompt: string;
+  retry: boolean;
+}
+
+function parseRemoteSshAuthRequest(value: unknown): RemoteSshAuthRequest | null {
+  if (
+    !isRecord(value) ||
+    typeof value.promptId !== "string" ||
+    typeof value.host !== "string" ||
+    typeof value.prompt !== "string"
+  ) {
+    return null;
+  }
+  return {
+    promptId: value.promptId,
+    host: value.host,
+    prompt: value.prompt,
+    retry: value.retry === true,
+  };
+}
+
+/** Prompts that ssh opened before the listener below was attached. */
+export async function listPendingRemoteSshAuth(): Promise<RemoteSshAuthRequest[]> {
+  const raw = await invokeDesktopCommand<unknown>("remote_ssh_auth_pending");
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((item) => parseRemoteSshAuthRequest(item) ?? []);
+}
+
+/** ssh asked for a password, passphrase or code. Answer with answerRemoteSshAuth. */
+export async function listenToRemoteSshAuthRequests(handlers: {
+  onRequest: (request: RemoteSshAuthRequest) => void;
+  onDismiss: (promptId: string) => void;
+}): Promise<() => void> {
+  const listen = getDesktopHost()?.events?.on;
+  if (typeof listen !== "function") return () => {};
+  const stopRequests = await listen("remote-ssh-auth-request", (payload: unknown) => {
+    const request = parseRemoteSshAuthRequest(payload);
+    if (request) handlers.onRequest(request);
+  });
+  const stopDismiss = await listen("remote-ssh-auth-dismiss", (payload: unknown) => {
+    if (isRecord(payload) && typeof payload.promptId === "string") {
+      handlers.onDismiss(payload.promptId);
+    }
+  });
+  return () => {
+    if (typeof stopRequests === "function") stopRequests();
+    if (typeof stopDismiss === "function") stopDismiss();
+  };
+}
+
+export async function answerRemoteSshAuth(
+  promptId: string,
+  answer: { secret: string } | { cancel: true },
+): Promise<void> {
+  await invokeDesktopCommand("remote_ssh_auth_answer", { promptId, ...answer });
+}
+
+/** The machine's connection was removed: drop its remembered passwords. */
+export async function forgetRemoteSshAuth(target: {
+  host: string;
+  sshPort?: number;
+}): Promise<void> {
+  await invokeDesktopCommand("remote_ssh_auth_forget", target);
+}
+
 export async function cancelRemoteSshSetup(requestId: string): Promise<void> {
   await invokeDesktopCommand("remote_ssh_cancel", { requestId });
 }

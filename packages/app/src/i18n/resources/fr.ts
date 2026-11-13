@@ -3,53 +3,51 @@ import { pluginSettings } from "./plugin-settings";
 
 export const fr: TranslationResources = {
   remoteDev: {
-    title: "Remote dev machine (SSH)",
-    optionHint: "Pimi installs and starts its daemon over ssh.",
-    helper:
-      "Enter the machine as user@host. Pimi connects with your system ssh (your ~/.ssh/config, keys and agent), installs its daemon there when needed, and starts it. No passwords or keys are stored.",
-    hostLabel: "SSH host",
-    hostPlaceholder: "user@devbox",
-    invalidTarget:
-      "Enter the machine as user@host, a name from your ~/.ssh/config, or ssh://user@host.",
-    systemdTitle: "Keep the daemon running with systemd",
-    systemdHint:
-      "Uses a systemd --user service when the machine has one. Otherwise Pimi starts the daemon with nohup.",
-    docsLink: "How remote SSH works",
-    setupStopped: "Setup stopped",
+    title: "Machine de développement distante (SSH)",
+    hostLabel: "Hôte SSH",
+    hostPlaceholder: "user@host",
+    invalidTarget: "Saisissez user@host.",
+    systemdTitle: "Garder le daemon actif avec systemd",
+    docsLink: "Comment fonctionne SSH distant",
+    setupStopped: "Configuration interrompue",
     steps: {
-      connecting: "Connecting",
-      checking: "Checking the machine",
-      installing: "Installing",
-      installingVersion: "Installing v{{version}}",
-      alreadyInstalled: "(already installed)",
-      starting: "Starting the daemon",
-      connected: "Connected",
+      connecting: "Connexion",
+      checking: "Vérification de la machine",
+      installing: "Installation",
+      installingVersion: "Installation de v{{version}}",
+      alreadyInstalled: "(déjà installé)",
+      starting: "Démarrage du daemon",
+      connected: "Connecté",
     },
-    settingsRowTitle: "Connect a remote dev machine",
-    settingsRowHint:
-      "Enter user@devbox. Pimi installs and starts its daemon over ssh, then runs agents, terminals and git on that machine.",
-    commandTitle: "Connect a remote dev machine (SSH)",
+    settingsRowTitle: "Connecter une machine de développement distante",
+    settingsRowHint: "Exécute les agents, terminaux et git sur cette machine.",
+    commandTitle: "Connecter une machine de développement distante (SSH)",
     onboarding: {
-      label: "Where to work",
-      title: "Where should your agents run?",
-      description:
-        "Use this computer, or connect a remote dev machine over SSH. Pimi installs and starts its daemon on the remote for you.",
-      localTitle: "Use this computer",
-      localHint: "Agents run here, on your own files. Nothing to install.",
-      remoteTitle: "Connect a remote dev machine over SSH",
-      remoteHint:
-        "Enter user@devbox. Pimi installs its daemon there over ssh and runs agents, terminals and git on that machine.",
+      label: "Où travailler",
+      title: "Où vos agents doivent-ils s’exécuter ?",
+      description: "Utilisez cet ordinateur ou une machine distante.",
+      localTitle: "Utiliser cet ordinateur",
+      localHint: "Les agents s’exécutent ici, sur vos fichiers.",
+      remoteTitle: "Connecter une machine de développement distante",
+      remoteHint: "Les agents s’exécutent là-bas. Pimi la configure via SSH.",
     },
     upgrade: {
-      title: "Upgrade Pimi on {{host}}?",
+      title: "Mettre à jour Pimi sur {{host}} ?",
       message:
-        "{{host}} runs Pimi {{running}}, this app is {{desktop}}. Upgrading restarts the daemon there. {{work}}",
-      workBusy:
-        "It has {{agents}} running agents and {{terminals}} open terminals that would stop.",
-      workUnknown: "Pimi could not tell whether agents or terminals are running.",
-      later: "Later",
-      now: "Upgrade now",
-      failed: "The upgrade failed.",
+        "{{host}} exécute Pimi {{running}}, cette application est en {{desktop}}. La mise à jour redémarre le daemon sur place. {{work}}",
+      workBusy: "{{agents}} agents en cours et {{terminals}} terminaux ouverts seraient arrêtés.",
+      workUnknown:
+        "Pimi n’a pas pu déterminer si des agents ou des terminaux sont en cours d’exécution.",
+      later: "Plus tard",
+      now: "Mettre à jour maintenant",
+      failed: "La mise à jour a échoué.",
+    },
+    auth: {
+      title: "Se connecter à {{host}}",
+      inputLabel: "Mot de passe ou code",
+      retry: "Cela n’a pas fonctionné. Réessayez.",
+      submit: "Continuer",
+      cancel: "Annuler",
     },
   },
   harnessUpdates: {
@@ -2220,7 +2218,7 @@ export const fr: TranslationResources = {
       },
       remoteSsh: {
         title: "SSH distant",
-        description: "Connexion via le client SSH de bureau.",
+        description: "Pimi configure tout via SSH.",
       },
       scanQr: {
         title: "Scanner le code QR",
@@ -2275,13 +2273,6 @@ export const fr: TranslationResources = {
       },
     },
     remoteSsh: {
-      title: "SSH distant",
-      helper: "Connectez-vous à un daemon Pimi qui tourne sur l’hôte distant.",
-      fields: {
-        target: "Hôte SSH",
-        password: "Mot de passe du daemon",
-        optional: "Facultatif",
-      },
       passwordVisibility: {
         show: "Afficher le mot de passe",
         hide: "Masquer le mot de passe",
@@ -2293,7 +2284,6 @@ export const fr: TranslationResources = {
       },
       errors: {
         targetRequired: "L’hôte SSH est requis",
-        invalidTarget: "Saisissez un hôte ssh:// valide",
         failedToConnect: "Impossible de se connecter en SSH. {{detail}}",
       },
     },
