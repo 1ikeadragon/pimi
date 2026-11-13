@@ -522,6 +522,32 @@ export function normalizeCodexOutputSchema(schema: unknown): Record<string, unkn
 interface CodexConfiguredDefaults {
   model?: string;
   thinkingOptionId?: string;
+  modeId?: string;
+}
+
+/**
+ * The Pimi preset whose approval policy and sandbox equal Codex's own config. Only exact matches
+ * of both keys map: `never` + `workspace-write` (no prompts, still sandboxed) sits between Pimi's
+ * presets, and rounding it to either one would silently add prompts or remove the sandbox.
+ */
+function resolveCodexConfiguredModeId(
+  approvalPolicy: unknown,
+  sandbox: unknown,
+  reviewer: unknown,
+): string | undefined {
+  if (typeof approvalPolicy !== "string" || typeof sandbox !== "string") return undefined;
+  const reviewerId =
+    typeof reviewer === "string" && isAutoReviewReviewer(reviewer) ? "auto_review" : "user";
+  for (const [modeId, preset] of Object.entries(MODE_PRESETS)) {
+    if (
+      preset.approvalPolicy === approvalPolicy &&
+      preset.sandbox === sandbox &&
+      preset.approvalsReviewer === reviewerId
+    ) {
+      return modeId;
+    }
+  }
+  return undefined;
 }
 
 interface PersistedTimelineEntry {
@@ -552,6 +578,7 @@ function mergeCodexConfiguredDefaults(
   return {
     model: primary.model ?? fallback.model,
     thinkingOptionId: primary.thinkingOptionId ?? fallback.thinkingOptionId,
+    modeId: primary.modeId ?? fallback.modeId,
   };
 }
 
@@ -3220,6 +3247,25 @@ const CodexNotificationSchema = z.union([
     ),
 ]);
 
+function parseCodexConfigDefaults(
+  config: Record<string, unknown> | null | undefined,
+  keys: { thinking: string; approval: string; sandbox: string; reviewer: string },
+): CodexConfiguredDefaults {
+  const modelValue = typeof config?.model === "string" ? config.model : undefined;
+  const thinkingValue = config?.[keys.thinking];
+  return {
+    model: normalizeCodexModelId(modelValue),
+    thinkingOptionId: normalizeCodexThinkingOptionId(
+      typeof thinkingValue === "string" ? thinkingValue : null,
+    ),
+    modeId: resolveCodexConfiguredModeId(
+      config?.[keys.approval],
+      config?.[keys.sandbox],
+      config?.[keys.reviewer],
+    ),
+  };
+}
+
 async function readCodexConfiguredDefaults(
   client: CodexAppServerClient,
   logger: Logger,
@@ -3227,33 +3273,33 @@ async function readCodexConfiguredDefaults(
   let savedConfigDefaults: CodexConfiguredDefaults = {};
   try {
     const response = toObjectRecord(await client.request("getUserSavedConfig", {}));
-    const config = toObjectRecord(response?.config);
-    const modelValue = typeof config?.model === "string" ? config.model : undefined;
-    const thinkingOptionValue =
-      typeof config?.modelReasoningEffort === "string" ? config.modelReasoningEffort : null;
-    savedConfigDefaults = {
-      model: normalizeCodexModelId(modelValue),
-      thinkingOptionId: normalizeCodexThinkingOptionId(thinkingOptionValue),
-    };
+    savedConfigDefaults = parseCodexConfigDefaults(toObjectRecord(response?.config), {
+      thinking: "modelReasoningEffort",
+      approval: "approvalPolicy",
+      sandbox: "sandboxMode",
+      reviewer: "approvalsReviewer",
+    });
   } catch (error) {
     logger.debug({ error }, "Failed to read Codex saved config defaults");
   }
 
-  if (savedConfigDefaults.model && savedConfigDefaults.thinkingOptionId) {
+  if (
+    savedConfigDefaults.model &&
+    savedConfigDefaults.thinkingOptionId &&
+    savedConfigDefaults.modeId
+  ) {
     return savedConfigDefaults;
   }
 
   let configReadDefaults: CodexConfiguredDefaults = {};
   try {
     const response = toObjectRecord(await client.request("config/read", {}));
-    const config = toObjectRecord(response?.config);
-    const modelValue = typeof config?.model === "string" ? config.model : undefined;
-    const thinkingOptionValue =
-      typeof config?.model_reasoning_effort === "string" ? config.model_reasoning_effort : null;
-    configReadDefaults = {
-      model: normalizeCodexModelId(modelValue),
-      thinkingOptionId: normalizeCodexThinkingOptionId(thinkingOptionValue),
-    };
+    configReadDefaults = parseCodexConfigDefaults(toObjectRecord(response?.config), {
+      thinking: "model_reasoning_effort",
+      approval: "approval_policy",
+      sandbox: "sandbox_mode",
+      reviewer: "approvals_reviewer",
+    });
   } catch (error) {
     logger.debug({ error }, "Failed to read Codex config defaults");
   }
@@ -7878,18 +7924,22 @@ export class CodexAppServerAgentClient implements AgentClient {
     _options: FetchCatalogOptions,
     context?: ProviderRefreshContext,
   ): Promise<ProviderCatalog> {
-    const [models, autoReviewEnabled] = await Promise.all([
+    const [{ models, configuredModeId }, autoReviewEnabled] = await Promise.all([
       this.fetchModelsFromAppServer(context),
       runProviderRefreshActivity(context, "version", () =>
         this.resolveAutoReviewEnabled(context?.signal),
       ),
     ]);
+    const modes = autoReviewEnabled
+      ? CODEX_MODES
+      : CODEX_MODES.filter((mode) => mode.id !== "auto-review");
+    // Codex's own approval_policy and sandbox_mode win over Pimi's built-in default.
+    const configuredMode = modes.find((mode) => mode.id === configuredModeId);
     return {
       models,
-      defaultModeId: autoReviewEnabled ? "auto-review" : DEFAULT_CODEX_MODE_ID,
-      modes: autoReviewEnabled
-        ? CODEX_MODES
-        : CODEX_MODES.filter((mode) => mode.id !== "auto-review"),
+      defaultModeId:
+        configuredMode?.id ?? (autoReviewEnabled ? "auto-review" : DEFAULT_CODEX_MODE_ID),
+      modes,
     };
   }
 
@@ -7901,7 +7951,7 @@ export class CodexAppServerAgentClient implements AgentClient {
 
   private async fetchModelsFromAppServer(
     context?: ProviderRefreshContext,
-  ): Promise<AgentModelDefinition[]> {
+  ): Promise<{ models: AgentModelDefinition[]; configuredModeId: string | undefined }> {
     // Codex model/list is global to the app server in this flow; cwd/force are intentionally ignored.
     let client: CodexAppServerClient | undefined;
     let disposePromise: Promise<void> | undefined;
@@ -7939,13 +7989,16 @@ export class CodexAppServerAgentClient implements AgentClient {
         typeof configuredDefaultModelId === "string"
           ? models.some((model) => model?.id === configuredDefaultModelId)
           : false;
-      return models.map((model) =>
-        buildCodexModelDefinition(model, {
-          configuredDefaultModelId,
-          configuredDefaultThinkingOptionId,
-          hasConfiguredDefaultModel,
-        }),
-      );
+      return {
+        models: models.map((model) =>
+          buildCodexModelDefinition(model, {
+            configuredDefaultModelId,
+            configuredDefaultThinkingOptionId,
+            hasConfiguredDefaultModel,
+          }),
+        ),
+        configuredModeId: configuredDefaults.modeId,
+      };
     } finally {
       context?.signal.removeEventListener("abort", handleAbort);
       await dispose();

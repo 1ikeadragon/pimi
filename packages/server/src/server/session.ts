@@ -1057,7 +1057,7 @@ export class Session {
       logger: this.sessionLogger,
     });
     this.usageSession = new UsageSession({
-      isEnabled: () => daemonConfigStore.get().usage?.enabled === true,
+      isEnabled: () => daemonConfigStore.get().usage?.enabled !== false,
       emit: (msg) => this.emit(msg),
       runtime: pluginRuntime,
       providerAccountScopes: () => providerSnapshotManager.listProviderAccountScopes(),

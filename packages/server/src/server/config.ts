@@ -468,7 +468,7 @@ function resolveNetworkLogConfig(persisted: ReturnType<typeof loadPersistedConfi
 }
 
 function resolveUsageEnabled(persisted: ReturnType<typeof loadPersistedConfig>): boolean {
-  return persisted.daemon?.usage?.enabled === true;
+  return persisted.daemon?.usage?.enabled !== false;
 }
 
 function resolvePairingAppBaseUrl(
