@@ -278,6 +278,7 @@ export function openPimiTimelineDatabase(options: {
   });
 }
 
+// COMPAT(json-stores): earlier builds kept state in JSON files under the daemon home.
 // Runs a one-time import of legacy JSON files. `name` gates it through a meta row, so a second
 // start never re-imports. fn imports inside the transaction it is given; afterwards each directory
 // in `legacyPaths` is renamed to `<path>.migrated` (never deleted). Invalid files are fn's to log

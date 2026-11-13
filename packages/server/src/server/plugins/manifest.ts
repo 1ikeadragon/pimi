@@ -5,7 +5,6 @@ import { PluginIdSchema, PluginRequirementsSchema } from "@pimi/protocol/message
 import { validatePluginRequirements } from "@pimi/protocol/plugin-requirements";
 
 const MANIFEST_FILENAME = "pimi-plugin.json";
-const LEGACY_MANIFEST_FILENAME = "pimi-plugin.json";
 const PluginBuildCommandSchema = z
   .array(z.string().refine((argument) => argument.trim().length > 0))
   .min(1);
@@ -45,10 +44,8 @@ export async function readPluginManifest(directory: string): Promise<PluginManif
     if (error.code === "ENOENT") return null;
     throw error;
   });
-  const manifestPath = info ? preferred : path.join(directory, LEGACY_MANIFEST_FILENAME);
-  const manifestInfo = info ?? (await stat(manifestPath).catch(() => null));
-  if (!manifestInfo?.isFile()) throw new Error(`Plugin manifest is missing: ${preferred}`);
-  const manifest = PluginManifestSchema.parse(JSON.parse(await readFile(manifestPath, "utf8")));
+  if (!info?.isFile()) throw new Error(`Plugin manifest is missing: ${preferred}`);
+  const manifest = PluginManifestSchema.parse(JSON.parse(await readFile(preferred, "utf8")));
   validatePluginRequirements(manifest.requirements);
   return manifest;
 }

@@ -538,7 +538,7 @@ async function detectDesktopBridge(page) {
 
 async function navigateToSettings(page, serverId) {
   await page.evaluate((nextServerId) => {
-    window.location.href = `/h/${nextServerId}/settings`;
+    window.location.href = `/settings/hosts/${encodeURIComponent(nextServerId)}`;
   }, serverId);
   await page.getByTestId("settings-sidebar").waitFor({ state: "visible", timeout: 30_000 });
   await page

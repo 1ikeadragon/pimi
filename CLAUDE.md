@@ -172,11 +172,11 @@ The app runs on iOS, Android, and web (Electron desktop renderer; plain web via 
 - **Default is cross-platform.** Don't gate unless you have a specific reason.
 - **Prefer Metro file extensions over `if` statements.** When a module has fundamentally different implementations per platform, use `.web.ts` / `.native.ts` file extensions instead of runtime `if (isWeb)` branches. Metro resolves the correct file at build time — the unused platform code is never bundled. Reserve `if (isWeb)` for small, inline checks (a single line or a few props). If you find yourself writing a large `if (isWeb) { ... } else { ... }` block, split into separate files instead.
   ```
-  hooks/
-    use-audio-recorder.web.ts    ← uses Web Audio API
-    use-audio-recorder.native.ts ← uses expo-audio
+  notification-open/
+    source.web.ts    ← web implementation
+    source.native.ts ← native implementation
   ```
-  Import as `@/hooks/use-audio-recorder` — Metro picks the right file automatically.
+  Import as `./source` — Metro picks the right file automatically.
 - **Use `.electron.ts` / `.electron.tsx` for Electron-only web modules.** Electron is still the Metro `web` platform, but desktop dev/build sets `PIMI_WEB_PLATFORM=electron`, so Metro first looks for `.electron.*` files and falls back to normal `.web.*` files. Use this when the implementation depends on Electron-only behavior such as `webviewTag`, desktop preload APIs, or the Electron bridge. Keep shared web code in `.web.*`, and keep native fallbacks in the base file or `.native.*`.
   ```
   desktop/browser/pane/
